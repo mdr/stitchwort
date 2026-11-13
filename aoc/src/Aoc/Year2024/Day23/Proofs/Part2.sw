@@ -165,55 +165,54 @@ theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates
     (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best):
     Answers network clique candidates best (network.links.largestFrom clique candidates best)
     decreasing candidates.size
-:=
-  match fits: Nat.leq (clique.size + candidates.size) best.size with
-    | True =>
-      let joined := sizeCliqueAndCandidates network clique candidates candidatesOk
-      rewrite largestPruned network.links clique candidates best (omega [fits]) in
-      Both bestOk (Both (omega) (other otherOk inside within => omega [sizeWithin other (clique.union candidates) within, joined, fits]))
-    | False =>
-      match found: candidates.popMin with
-        | None =>
-          rewrite largestDone network.links clique candidates best (omega [fits]) found in
-          Both cliqueOk
-            (Both (omega [fits, sizeNone candidates found])
-              (other otherOk inside within =>
-                sizeWithin other clique (key held =>
-                  unionElim clique candidates key (clique.contains key = True) (within key held) (inClique => inClique)
-                    (isCandidate => Void.exfalso (noneHeld candidates found key isCandidate)))))
-        | Some (candidate, others) =>
-          let (Both least othersAre) := Set.popMinSome candidates candidate others found
-          let (Both candidateLinked (Both candidateOutside candidateNeighbours)) :=
-            candidatesOk candidate (Set.containsMin candidates candidate least)
-          let narrowed := network.links.neighbours candidate |> .intersect others
-          let withinOthers: narrowed.size ≤ others.size :=
-            Set.sizeSubset others narrowed (key held => (intersectElim (network.links.neighbours candidate) others key held).right)
-          let fewer := Set.sizePopMin candidates candidate others found
-          let withIt := network.links.largestFrom (clique.insert candidate) narrowed best
-          let withItOk: Answers network (clique.insert candidate) narrowed best withIt :=
-            largestFromAnswers network (clique.insert candidate) narrowed best
-              (cliqueInsert network clique candidate cliqueOk candidateLinked candidateNeighbours)
-              (candidatesNarrowed network clique candidates candidate others candidatesOk othersAre) bestOk
-              [decreasing := omega [withinOthers, fewer]]
-          let restOk: Answers network clique others withIt (network.links.largestFrom clique others withIt) :=
-            largestFromAnswers network clique others withIt cliqueOk
-              (key held => candidatesOk key (othersElim candidates candidate others othersAre key held).left) withItOk.left
-              [decreasing := omega [fewer]]
-          rewrite largestStep network.links clique candidates best (omega [fits]) candidate others found in
-          Both restOk.left
-            (Both (omega [withItOk.right.left, restOk.right.left])
-              (other otherOk inside within =>
-                match has: other.contains candidate with
-                  | True =>
-                    let insideWith: Within (clique.insert candidate) other :=
-                      key held => insertElim clique candidate key (other.contains key = True) held (same => rewrite same in has) (inClique => inside key inClique)
-                    omega [
-                      withItOk.right.right other otherOk insideWith
-                        (withinWithCandidate network clique candidates candidate others othersAre other otherOk has within),
-                      restOk.right.left
-                    ]
-                  | False =>
-                    restOk.right.right other otherOk inside (withinWithoutCandidate clique candidates candidate others othersAre other has within)))
+:= match fits: Nat.leq (clique.size + candidates.size) best.size with
+  | True =>
+    let joined := sizeCliqueAndCandidates network clique candidates candidatesOk
+    rewrite largestPruned network.links clique candidates best (omega [fits]) in
+    Both bestOk (Both (omega) (other otherOk inside within => omega [sizeWithin other (clique.union candidates) within, joined, fits]))
+  | False =>
+    match found: candidates.popMin with
+      | None =>
+        rewrite largestDone network.links clique candidates best (omega [fits]) found in
+        Both cliqueOk
+          (Both (omega [fits, sizeNone candidates found])
+            (other otherOk inside within =>
+              sizeWithin other clique (key held =>
+                unionElim clique candidates key (clique.contains key = True) (within key held) (inClique => inClique)
+                  (isCandidate => Void.exfalso (noneHeld candidates found key isCandidate)))))
+      | Some (candidate, others) =>
+        let (Both least othersAre) := Set.popMinSome candidates candidate others found
+        let (Both candidateLinked (Both candidateOutside candidateNeighbours)) :=
+          candidatesOk candidate (Set.containsMin candidates candidate least)
+        let narrowed := network.links.neighbours candidate |> .intersect others
+        let withinOthers: narrowed.size ≤ others.size :=
+          Set.sizeSubset others narrowed (key held => (intersectElim (network.links.neighbours candidate) others key held).right)
+        let fewer := Set.sizePopMin candidates candidate others found
+        let withIt := network.links.largestFrom (clique.insert candidate) narrowed best
+        let withItOk: Answers network (clique.insert candidate) narrowed best withIt :=
+          largestFromAnswers network (clique.insert candidate) narrowed best
+            (cliqueInsert network clique candidate cliqueOk candidateLinked candidateNeighbours)
+            (candidatesNarrowed network clique candidates candidate others candidatesOk othersAre) bestOk
+            [decreasing := omega [withinOthers, fewer]]
+        let restOk: Answers network clique others withIt (network.links.largestFrom clique others withIt) :=
+          largestFromAnswers network clique others withIt cliqueOk
+            (key held => candidatesOk key (othersElim candidates candidate others othersAre key held).left) withItOk.left
+            [decreasing := omega [fewer]]
+        rewrite largestStep network.links clique candidates best (omega [fits]) candidate others found in
+        Both restOk.left
+          (Both (omega [withItOk.right.left, restOk.right.left])
+            (other otherOk inside within =>
+              match has: other.contains candidate with
+                | True =>
+                  let insideWith: Within (clique.insert candidate) other :=
+                    key held => insertElim clique candidate key (other.contains key = True) held (same => rewrite same in has) (inClique => inside key inClique)
+                  omega [
+                    withItOk.right.right other otherOk insideWith
+                      (withinWithCandidate network clique candidates candidate others othersAre other otherOk has within),
+                    restOk.right.left
+                  ]
+                | False =>
+                  restOk.right.right other otherOk inside (withinWithoutCandidate clique candidates candidate others othersAre other has within)))
 
 theorem emptyClique (network: Network): Clique network Set.empty :=
   Both (member held => cases) (one other heldOne heldOther different => cases)

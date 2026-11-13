@@ -17,38 +17,35 @@ def Makes (patterns: List Pattern) (towels: List Pattern) (design: Design): Prop
 
 --| The spec's lists are of the patterns and no longer than `count`.
 theorem fromTowelLists (patterns: List Pattern) (count: Nat) (towels: List Pattern) (h: towels ∈ towelLists patterns count):
-    (FromPatterns patterns towels) ∧ (towels.length ≤ count) :=
-  match count, h with
-    | Zero, Inl empty => rewrite <- empty in Both Trivial (omega)
-    | Zero, Inr none => Void.exfalso none
-    | Succ count, Inl empty => rewrite <- empty in Both Trivial (omega)
-    | Succ count, Inr later =>
-      List.anyElim (first => towels ∈ (towelLists patterns count |> .map (Cons first))) ((FromPatterns patterns towels) ∧ (towels.length ≤ Succ count))
-        patterns (List.memFlatMapElim (first => towelLists patterns count |> .map (Cons first)) towels patterns later)
-        (first firstMember mapped =>
-          List.anyElim (rest => [first, ..rest] = towels) ((FromPatterns patterns towels) ∧ (towels.length ≤ Succ count)) (towelLists patterns count)
-            (List.memMapAny (towelLists patterns count) (Cons first) towels mapped)
-            (rest restMember made =>
-              let restFacts := fromTowelLists patterns count rest restMember
-              rewrite <- made in Both (Both firstMember restFacts.left) (omega [restFacts.right])))
+    (FromPatterns patterns towels) ∧ (towels.length ≤ count) := match count, h with
+      | Zero, Inl empty => rewrite <- empty in Both Trivial (omega)
+      | Zero, Inr none => Void.exfalso none
+      | Succ count, Inl empty => rewrite <- empty in Both Trivial (omega)
+      | Succ count, Inr later =>
+        List.anyElim (first => towels ∈ (towelLists patterns count |> .map (Cons first))) ((FromPatterns patterns towels) ∧ (towels.length ≤ Succ count))
+          patterns (List.memFlatMapElim (first => towelLists patterns count |> .map (Cons first)) towels patterns later)
+          (first firstMember mapped =>
+            List.anyElim (rest => [first, ..rest] = towels) ((FromPatterns patterns towels) ∧ (towels.length ≤ Succ count)) (towelLists patterns count)
+              (List.memMapAny (towelLists patterns count) (Cons first) towels mapped)
+              (rest restMember made =>
+                let restFacts := fromTowelLists patterns count rest restMember
+                rewrite <- made in Both (Both firstMember restFacts.left) (omega [restFacts.right])))
 
 --| Every list of the patterns, no longer than `count`, is one of the spec's.
 theorem inTowelLists (patterns: List Pattern) (count: Nat) (towels: List Pattern) (from: FromPatterns patterns towels) (short: towels.length ≤ count):
-    towels ∈ towelLists patterns count :=
-  match count, towels, from with
-    | Zero, [], from => Inl rfl
-    | Succ count, [], from => Inl rfl
-    | Succ count, [first, ..rest], Both firstMember restFrom =>
-      Inr (List.memFlatMapIntro (first => towelLists patterns count |> .map (Cons first)) first [first, ..rest] patterns firstMember
-        (List.memMap (towelLists patterns count) rest (inTowelLists patterns count rest restFrom (omega [short])) (Cons first)))
+    towels ∈ towelLists patterns count := match count, towels, from with
+      | Zero, [], from => Inl rfl
+      | Succ count, [], from => Inl rfl
+      | Succ count, [first, ..rest], Both firstMember restFrom =>
+        Inr (List.memFlatMapIntro (first => towelLists patterns count |> .map (Cons first)) first [first, ..rest] patterns firstMember
+          (List.memMap (towelLists patterns count) rest (inTowelLists patterns count rest restFrom (omega [short])) (Cons first)))
 
 --| There are no more towels than stripes.
 theorem towelsAtMostStripes (patterns: List Pattern) (towels: List Pattern) (from: FromPatterns patterns towels):
-    towels.length ≤ (laid towels).length :=
-  match towels, from with
-    | [], from => omega
-    | [first, ..rest], Both firstMember restFrom =>
-      omega [List.lengthAppend first.stripes.toList (laid rest), NonEmptyList.lengthPos first.stripes, towelsAtMostStripes patterns rest restFrom]
+    towels.length ≤ (laid towels).length := match towels, from with
+      | [], from => omega
+      | [first, ..rest], Both firstMember restFrom =>
+        omega [List.lengthAppend first.stripes.toList (laid rest), NonEmptyList.lengthPos first.stripes, towelsAtMostStripes patterns rest restFrom]
 
 --| Whether a list of lists has any (as `possible` asks).
 def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty

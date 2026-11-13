@@ -12,20 +12,19 @@ def step (state: State) (command: Command): {Random} State :=
 
 --| A turn with its rolls made. Once the game is over, nothing changes.
 --| Drinking with no potions, or `>` away from the stairs, takes no time.
-def resolve (dice: Dice) (state: State) (command: Command): State :=
-  match state.phase with
-    | Playing =>
-      match command with
-        | Quit => { state | phase = GaveUp, message = "You give up." }
-        | Wait => monstersTurn dice { state | message = "You wait." }
-        | Move direction => monstersTurn dice (playerMoves dice state direction)
-        | Drink =>
-          if state.potions == 0 then { state | message = "You have no potions." }
-          else monstersTurn dice (drink state)
-        | Descend =>
-          if isStairs state.level state.player then descend dice state
-          else { state | message = "There are no stairs here." }
-    | _ => state
+def resolve (dice: Dice) (state: State) (command: Command): State := match state.phase with
+  | Playing =>
+    match command with
+      | Quit => { state | phase = GaveUp, message = "You give up." }
+      | Wait => monstersTurn dice { state | message = "You wait." }
+      | Move direction => monstersTurn dice (playerMoves dice state direction)
+      | Drink =>
+        if state.potions == 0 then { state | message = "You have no potions." }
+        else monstersTurn dice (drink state)
+      | Descend =>
+        if isStairs state.level state.player then descend dice state
+        else { state | message = "There are no stairs here." }
+  | _ => state
 
 --| The player steps one cell, or attacks the monster standing there.
 def playerMoves (dice: Dice) (state: State) (direction: Direction): State :=
@@ -56,13 +55,12 @@ def enter (state: State) (target: Position): State :=
     | Some item => pickUp { moved | items = state.items.filter (other => other.position ≠ target) } item.loot
     | None => moved
 
-def pickUp (state: State) (loot: Loot): State :=
-  match loot with
-    | Potion => { state | potions = state.potions + 1, message = "You pick up a potion." }
-    | Sword =>
-      let strength := state.strength + swordBonus
-      { state | strength, message = "You wield a sharper sword: your blows now do up to ${strength}." }
-    | Amulet => { state | phase = Won, message = "You take the amulet. You win!" }
+def pickUp (state: State) (loot: Loot): State := match loot with
+  | Potion => { state | potions = state.potions + 1, message = "You pick up a potion." }
+  | Sword =>
+    let strength := state.strength + swordBonus
+    { state | strength, message = "You wield a sharper sword: your blows now do up to ${strength}." }
+  | Amulet => { state | phase = Won, message = "You take the amulet. You win!" }
 
 def drink (state: State): State :=
   { state | potions = state.potions - 1, hitPoints = healed state.hitPoints, message = "You drink a potion and feel better." }
@@ -79,16 +77,15 @@ def descend (dice: Dice) (state: State): State :=
   { arrived | turn = state.turn + 1, message = "You go down the stairs to level ${plan.level.depth}." }
 
 --| After the player, the monsters' turn, unless the game is over.
-def monstersTurn (dice: Dice) (state: State): State :=
-  match state.phase with
-    | Playing =>
-      let outcome := actAll dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters
-      let hitPoints := state.hitPoints - outcome.damage
-      let events := Text.join ([state.message, ..outcome.events] |> .filter (≠ "")) ' '
-      let message := if hitPoints == 0 then "${events} You die..." else events
-      let phase := if hitPoints == 0 then Died else Playing
-      { state | monsters = outcome.moved, hitPoints, turn = state.turn + 1, message, phase }
-    | _ => { state | turn = state.turn + 1 }
+def monstersTurn (dice: Dice) (state: State): State := match state.phase with
+  | Playing =>
+    let outcome := actAll dice state.level state.player 0 { moved = [], damage = 0, events = [] } state.monsters
+    let hitPoints := state.hitPoints - outcome.damage
+    let events := Text.join ([state.message, ..outcome.events] |> .filter (≠ "")) ' '
+    let message := if hitPoints == 0 then "${events} You die..." else events
+    let phase := if hitPoints == 0 then Died else Playing
+    { state | monsters = outcome.moved, hitPoints, turn = state.turn + 1, message, phase }
+  | _ => { state | turn = state.turn + 1 }
 
 --| The monsters' turn so far: those that have acted, the damage they have
 --| done, and what happened.

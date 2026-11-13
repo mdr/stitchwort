@@ -17,7 +17,7 @@ def Option.map: (option: Option a) → (f: a → b) → Option b
 -- Here, beside `Option.map`, not in Option/Lemmas.sw: `rewrite` and
 -- `decreasing` look it up by name wherever `Option.map` is loaded
 -- (crates/elab/src/congruence.rs). Its shape is `List.mapCong`'s.
-theorem Option.mapCong (x: Option a) (f1 f2: a → b) (ef: (∀ (y: a) => f1 y = f2 y)): Option.map x f1 = Option.map x f2 :=
+theorem Option.mapCong (x: Option a) (f1 f2: a → b) (ef: ∀ (y: a) => f1 y = f2 y): Option.map x f1 = Option.map x f2 :=
   match x with
     | None => rfl
     | Some y => Eq.cong Some (ef y)
@@ -29,22 +29,20 @@ def Option.isSome: (option: Option a) → Bool
 
 --| `o.isSome` reads as "`o` is a `Some`", and `= False` as `o = None`.
 @[reading]
-theorem Option.isSomeReads (o: Option a): Option.isSome o ↔ ∃ (x: a) => o = Some x :=
-  match o with
-    | None => {
-      forward = h => Void.exfalso (Bool.falseNotTrue h),
-      backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
-    }
-    | Some y => { forward = h => Witness y rfl, backward = h => rfl }
+theorem Option.isSomeReads (o: Option a): Option.isSome o ↔ ∃ (x: a) => o = Some x := match o with
+  | None => {
+    forward = h => Void.exfalso (Bool.falseNotTrue h),
+    backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
+  }
+  | Some y => { forward = h => Witness y rfl, backward = h => rfl }
 
 @[reading]
-theorem Option.isSomeReadsFalse (o: Option a): Option.isSome o = False ↔ o = None :=
-  match o with
-    | None => { forward = h => rfl, backward = h => rfl }
-    | Some y => {
-      forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
-      backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
-    }
+theorem Option.isSomeReadsFalse (o: Option a): Option.isSome o = False ↔ o = None := match o with
+  | None => { forward = h => rfl, backward = h => rfl }
+  | Some y => {
+    forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
+    backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
+  }
 
 --| Whether there is none: `None.isNone` is `True`.
 def Option.isNone: (option: Option a) → Bool
@@ -53,22 +51,20 @@ def Option.isNone: (option: Option a) → Bool
 
 --| `o.isNone` reads as `o = None`, and `= False` as "`o` is a `Some`".
 @[reading]
-theorem Option.isNoneReads (o: Option a): Option.isNone o ↔ o = None :=
-  match o with
-    | None => { forward = h => rfl, backward = h => rfl }
-    | Some y => {
-      forward = h => Void.exfalso (Bool.falseNotTrue h),
-      backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
-    }
+theorem Option.isNoneReads (o: Option a): Option.isNone o ↔ o = None := match o with
+  | None => { forward = h => rfl, backward = h => rfl }
+  | Some y => {
+    forward = h => Void.exfalso (Bool.falseNotTrue h),
+    backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
+  }
 
 @[reading]
-theorem Option.isNoneReadsFalse (o: Option a): Option.isNone o = False ↔ ∃ (x: a) => o = Some x :=
-  match o with
-    | None => {
-      forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
-      backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
-    }
-    | Some y => { forward = h => Witness y rfl, backward = h => rfl }
+theorem Option.isNoneReadsFalse (o: Option a): Option.isNone o = False ↔ ∃ (x: a) => o = Some x := match o with
+  | None => {
+    forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
+    backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
+  }
+  | Some y => { forward = h => Witness y rfl, backward = h => rfl }
 
 --| The first option if it is a `Some`, else the second: `x.orElse y` ([`Option.orElseEqSome`]).
 def Option.orElse: (option: Option a) → (other: Option a) → Option a
@@ -145,10 +141,9 @@ def Option.flatten: (nested: Option (Option a)) → Option a
   | None => None
   | Some inner => inner
 
-theorem Option.flattenFlatMap (x: Option (Option a)): Option.flatten x = Option.flatMap x id :=
-  match x with
-    | None => rfl
-    | Some inner => rfl
+theorem Option.flattenFlatMap (x: Option (Option a)): Option.flatten x = Option.flatMap x id := match x with
+  | None => rfl
+  | Some inner => rfl
 
 theorem Option.toListExample: (Some 3).toList = [3] := rfl
 

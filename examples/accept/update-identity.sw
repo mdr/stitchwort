@@ -14,10 +14,9 @@ def setIdAgain (c: Shape) (x: Nat): Shape := { c | id = x }
 
 theorem sameUpdate (c: Shape) (x: Nat): setId c x = setIdAgain c x := rfl
 
-theorem idRead (c: Shape) (x: Nat): ({ c | id = x }).id = x :=
-  match c with
-    | Dot _ _ _ => rfl
-    | Circle _ _ _ _ => rfl
+theorem idRead (c: Shape) (x: Nat): ({ c | id = x }).id = x := match c with
+  | Dot _ _ _ => rfl
+  | Circle _ _ _ _ => rfl
 
 -- The lemma, used for a separately written update.
 theorem idReadAgain (c: Shape) (x: Nat): (setIdAgain c x).id = x := idRead c x

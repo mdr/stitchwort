@@ -12,9 +12,8 @@ theorem natSound (m: Nat) (n: Nat) (same: (m == n) = True): m = n := same.read
 theorem zeroPlus (n: Nat): 0 + n = n := omega
 
 --| A cell is its row and column (the checker doesn't use this by itself).
-theorem positionEta (p: Position): p = { row = p.row, column = p.column } :=
-  match p with
-    | { row = r, column = c } => rfl
+theorem positionEta (p: Position): p = { row = p.row, column = p.column } := match p with
+  | { row = r, column = c } => rfl
 
 theorem positionExt (p: Position) (q: Position) (sameRow: p.row = q.row) (sameColumn: p.column = q.column): p = q :=
   Eq.trans (positionEta p) (rewrite sameRow, sameColumn in Eq.sym (positionEta q))

@@ -68,10 +68,9 @@ def Text.joinPair (separator: Char): (state: Pair (List Char) (List (List Char))
   | MkPair field fields => Text.joinChars separator field fields
 
 theorem Text.joinCons (s: Char) (c: Char) (f: List Char) (fs: List (List Char)):
-    Text.joinChars s [c, ..f] fs = [c, ..Text.joinChars s f fs] :=
-  match fs with
-    | [] => rfl
-    | [g, ..gs] => rfl
+    Text.joinChars s [c, ..f] fs = [c, ..Text.joinChars s f fs] := match fs with
+      | [] => rfl
+      | [g, ..gs] => rfl
 
 theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
     ∀ (p: Pair (List Char) (List (List Char))) => Text.joinPair s p = cs →
@@ -81,26 +80,22 @@ theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
   | MkPair f fs, h, { holds = False, sound = _, complete = _ } =>
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
-theorem Text.joinSplitChars (s: Char) (cs: List Char): Text.joinPair s (Text.splitChars s cs) = cs :=
-  match cs with
-    | [] => rfl
-    | [c, ..cs] =>
-      Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
+theorem Text.joinSplitChars (s: Char) (cs: List Char): Text.joinPair s (Text.splitChars s cs) = cs := match cs with
+  | [] => rfl
+  | [c, ..cs] =>
+    Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
 
-theorem Text.charListsOfTexts (fs: List (List Char)): Text.charListsOf (Text.textsOf fs) = fs :=
-  match fs with
-    | [] => rfl
-    | [f, ..fs] => Eq.cong (Cons f) (Text.charListsOfTexts fs)
+theorem Text.charListsOfTexts (fs: List (List Char)): Text.charListsOf (Text.textsOf fs) = fs := match fs with
+  | [] => rfl
+  | [f, ..fs] => Eq.cong (Cons f) (Text.charListsOfTexts fs)
 
 theorem Text.joinSplitTexts (s: Char) (p: Pair (List Char) (List (List Char))):
-    Text.join (Text.splitTexts p) s = MkText (Text.joinPair s p) :=
-  match p with
-    | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
+    Text.join (Text.splitTexts p) s = MkText (Text.joinPair s p) := match p with
+      | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplit (t: Text) (s: Char): Text.join (Text.split t s) s = t :=
-  match t with
-    | MkText cs =>
-      Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
+theorem Text.joinSplit (t: Text) (s: Char): Text.join (Text.split t s) s = t := match t with
+  | MkText cs =>
+    Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
 
 -- Lines
 
@@ -155,9 +150,8 @@ theorem Text.linesCarriageReturnExample: "a\r\nb\r".lines = ["a", "b\r"] := rfl
 theorem Text.linesFinalBreaksExample: "a\n\r\n".lines = ["a", ""] ∧ "a\n\r".lines = ["a", "\r"] := Both rfl rfl
 
 --| `Char.isLineFeedCode` holds of the code 10 only.
-theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): code = 10 :=
-  match code with
-    | 10 => rfl
+theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): code = 10 := match code with
+  | 10 => rfl
 
 --| A space or a tab is neither a line feed nor a carriage return.
 theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
@@ -210,15 +204,14 @@ theorem Text.linesLine (front: List Char) (rest: List Char) (noFeed: List.All (c
   Eq.trans (Text.linesFromLine front noFeed [] [] rest) (Text.linesFromAcc rest [] [Text.endLine (List.reverse front)])
 
 theorem Text.endLinePlain (middle: List Char) (plain: List.All (c => Char.isLineFeedCode (Char.toNat c) = False ∧ Char.isCarriageReturnCode (Char.toNat c) = False) middle):
-    Text.endLine (List.reverseOnto middle []) = MkText middle :=
-  match e: List.reverseOnto middle [] with
-    | [] => Eq.cong MkText (Eq.sym (Eq.trans (Eq.sym (List.reverseOntoTwice middle [])) (rewrite e in rfl)))
-    | [char, ..chars] =>
-      let member: char ∈ List.reverseOnto middle [] := rewrite e in Inl rfl
-      let inMiddle: char ∈ middle := Or.elim ((List.memReverseOnto char middle []).forward member) (found => found) (found => Void.exfalso found)
-      match List.allMem _ char middle plain inMiddle with
-        | Both notFeed notReturn =>
-          rewrite notReturn in Eq.cong MkText (Eq.trans (Eq.cong (l => List.reverseOnto l []) (Eq.sym e)) (List.reverseOntoTwice middle []))
+    Text.endLine (List.reverseOnto middle []) = MkText middle := match e: List.reverseOnto middle [] with
+      | [] => Eq.cong MkText (Eq.sym (Eq.trans (Eq.sym (List.reverseOntoTwice middle [])) (rewrite e in rfl)))
+      | [char, ..chars] =>
+        let member: char ∈ List.reverseOnto middle [] := rewrite e in Inl rfl
+        let inMiddle: char ∈ middle := Or.elim ((List.memReverseOnto char middle []).forward member) (found => found) (found => Void.exfalso found)
+        match List.allMem _ char middle plain inMiddle with
+          | Both notFeed notReturn =>
+            rewrite notReturn in Eq.cong MkText (Eq.trans (Eq.cong (l => List.reverseOnto l []) (Eq.sym e)) (List.reverseOntoTwice middle []))
 
 --| A line of plain characters (no line feed, no carriage return) ended by a
 --| line feed is exactly those characters: it is the text's first line, and
@@ -395,12 +388,11 @@ def Text.splitOn (text: Text) (sep: Text): List Text := Text.splitOnChars sep.to
 theorem Text.sameCharRefl (c: Char): Text.sameChar c c = True := Nat.equalRefl (Char.toNat c)
 
 theorem Text.stripPrefixCharsAppend (t: List Char) (p: List Char):
-    Text.stripPrefixChars p (List.append p t) = Some t :=
-  match p with
-    | [] => rfl
-    | [c, ..ps] =>
-      Eq.trans (Eq.cong (b => if b then Text.stripPrefixChars ps (List.append ps t) else None) (Text.sameCharRefl c))
-        (Text.stripPrefixCharsAppend t ps)
+    Text.stripPrefixChars p (List.append p t) = Some t := match p with
+      | [] => rfl
+      | [c, ..ps] =>
+        Eq.trans (Eq.cong (b => if b then Text.stripPrefixChars ps (List.append ps t) else None) (Text.sameCharRefl c))
+          (Text.stripPrefixCharsAppend t ps)
 
 theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix (Text.append p t) p = Some t :=
   Eq.trans (Eq.cong (.map Text.fromList) (Text.stripPrefixCharsAppend (Text.toList t) (Text.toList p)))
@@ -409,24 +401,22 @@ theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix (Text.appen
 --| Comparing characters with `Text.sameChar` is comparing them with `==`.
 --| Use it to read `Text.stripPrefixChars` and `Text.startsWithChars`, which
 --| compare by code, as if they used `==`.
-theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
-  match same: Text.sameChar c d with
-    | True => rfl
-    | False =>
-      match equal: c == d with
-        | False => rfl
+theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) := match same: Text.sameChar c d with
+  | True => rfl
+  | False =>
+    match equal: c == d with
+      | False => rfl
 
 --| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when
 --| stripping `p` from `ys` leaves `rest`, `ys` is `p` followed by `rest`.
 theorem Text.stripPrefixCharsForward (p ys: List Char) [rest: List Char]
-    (h: Text.stripPrefixChars p ys = Some rest): ys = List.append p rest :=
-  match p, ys with
-    | [], ys => Option.someInjective h
-    | [c, ..ps], [y, ..ys] =>
-      match same: Text.sameChar c y with
-        | True =>
-          rewrite Eq.sym (Char.ext c y same.read) in
-            Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
+    (h: Text.stripPrefixChars p ys = Some rest): ys = List.append p rest := match p, ys with
+      | [], ys => Option.someInjective h
+      | [c, ..ps], [y, ..ys] =>
+        match same: Text.sameChar c y with
+          | True =>
+            rewrite Eq.sym (Char.ext c y same.read) in
+              Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
 
 --| The characters after the prefix `p` are `rest` exactly when the list is
 --| `p` followed by `rest`: `Text.stripPrefixChars p ys = Some rest ↔ ys = p ++ rest`.
@@ -519,12 +509,11 @@ theorem Text.stripSuffixDrop (text: Text) (suffix: Text):
               Text.ext _ _ (List.dropAppendLength (Text.toList rest) (Text.toList suffix) _ (rewrite Text.lengthAppend rest suffix in omega))))
 
 theorem Text.startsWithCharsAppend (t: List Char) (p: List Char):
-    Text.startsWithChars p (List.append p t) = True :=
-  match p with
-    | [] => rfl
-    | [c, ..ps] =>
-      Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps (List.append ps t) else False) (Text.sameCharRefl c))
-        (Text.startsWithCharsAppend t ps)
+    Text.startsWithChars p (List.append p t) = True := match p with
+      | [] => rfl
+      | [c, ..ps] =>
+        Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps (List.append ps t) else False) (Text.sameCharRefl c))
+          (Text.startsWithCharsAppend t ps)
 
 theorem Text.startsWithAppend (p: Text) (t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)

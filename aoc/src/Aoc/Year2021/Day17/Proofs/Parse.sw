@@ -11,9 +11,8 @@ import Std (Bool, Eq, Fail, Result, Void)
 --| `checkTarget` passes its target on unchanged, and only if it is right
 --| of the start and below it.
 theorem checkTargetOk (target: Target) (checked: Target) (h: Fail.toResult (() => checkTarget target) = Ok checked):
-    0 < checked.left ∧ checked.top < 0 :=
-  match e: placed target with
-    | True => rewrite <- Result.okInjective h in omega
+    0 < checked.left ∧ checked.top < 0 := match e: placed target with
+      | True => rewrite <- Result.okInjective h in omega
 
 --| Whatever reads the target, `checkTarget` passes on only placed ones.
 theorem checkedPlaced (read: () → {Fail} Target) (target: Target) (parsed: Fail.toResult (() => checkTarget (read ())) = Ok target):

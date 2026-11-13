@@ -85,10 +85,9 @@ def parseReceived (input: Text): {Fail} Received := Parse.all input received
 
 --| What is left of `message` after a letter rule: the rest, if it starts
 --| with that letter.
-def leftAfterLetter (letter: Char) (message: List Char): List (List Char) :=
-  match message with
-    | [first, ..rest] => if first == letter then [rest] else []
-    | [] => []
+def leftAfterLetter (letter: Char) (message: List Char): List (List Char) := match message with
+  | [first, ..rest] => if first == letter then [rest] else []
+  | [] => []
 
 --| What can be left of `message` after rule `number` matches a start of
 --| it, one entry for each way it can, with `rule` giving the rule for a
@@ -133,13 +132,12 @@ def Rules.productiveWith (rules: Rules) (rank: Nat → Nat): Bool :=
 
 --| The longest chain of one-rule alternatives from rule `number`, up to
 --| `fuel` long.
-def Rules.chain (rules: Rules) (fuel: Nat) (number: Nat): Nat :=
-  match fuel with
-    | Zero => 0
-    | Succ more =>
-      match rules.rule number with
-        | Some (Alternatives sequences) => sequences.map (rules.chainThrough more) |> .maximum |> .getOrElse 0
-        | _ => 0
+def Rules.chain (rules: Rules) (fuel: Nat) (number: Nat): Nat := match fuel with
+  | Zero => 0
+  | Succ more =>
+    match rules.rule number with
+      | Some (Alternatives sequences) => sequences.map (rules.chainThrough more) |> .maximum |> .getOrElse 0
+      | _ => 0
 
 --| The longest chain through an alternative: none unless it is one rule.
 def Rules.chainThrough (rules: Rules) (fuel: Nat): (sequence: List Nat) → Nat

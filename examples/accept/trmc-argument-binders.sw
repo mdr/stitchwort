@@ -2,10 +2,9 @@ import Std (List, Nat, Text)
 
 def show (xs: List Nat): Text := Text.join (xs.map Nat.toText) ','
 
-def app (xs: List Nat) (rest: List Nat): List Nat :=
-  match xs with
-    | [] => rest
-    | [y, ..ys] => [y, ..app ys rest]
+def app (xs: List Nat) (rest: List Nat): List Nat := match xs with
+  | [] => rest
+  | [y, ..ys] => [y, ..app ys rest]
 
 -- The recursive call's argument binds a variable (a `let` from an inlined
 -- function) that the loop built from `++` must not take as a parameter.

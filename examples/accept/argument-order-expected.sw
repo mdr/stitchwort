@@ -28,15 +28,13 @@ theorem lambdaBeforeHole (xs: List Nat) (x: Nat) (y: Nat) (h: next x = Some y): 
   eachStep _ (a b found => rewrite <- Option.someInjective found in omega) xs rfl x y h
 
 -- A congruence lemma's functions, `_`, found from the goal (day 12).
-def count (n: Nat): Nat :=
-  match n with
-    | Zero => 1
-    | Succ k => count k + 1
+def count (n: Nat): Nat := match n with
+  | Zero => 1
+  | Succ k => count k + 1
 
-def listing (n: Nat): List Nat :=
-  match n with
-    | Zero => [0]
-    | Succ k => [n, ..listing k]
+def listing (n: Nat): List Nat := match n with
+  | Zero => [0]
+  | Succ k => [n, ..listing k]
 
 theorem countIsLength: ∀ (n: Nat) => count n = List.length (listing n)
   | Zero => rfl

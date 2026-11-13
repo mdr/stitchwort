@@ -86,18 +86,16 @@ def fitIn (length: Nat) (entry: (Nat, Set Nat)): Option Span :=
   if length <= entry.fst then entry.snd.min |> .map (start => ({ start, length = entry.fst }: Span)) else None
 
 theorem fitInSome (length: Nat) (key: Nat) (items: Set Nat) (span: Span) (found: fitIn length (key, items) = Some span):
-    length ≤ key ∧ span.length = key ∧ items.min = Some span.start :=
-  match fits: length <= key with
-    | True =>
-      match least: items.min with
-        | Some start =>
-          let same: { start, length = key } = span := Option.someInjective found
-          rewrite <- same in Both (omega) (Both rfl rfl)
+    length ≤ key ∧ span.length = key ∧ items.min = Some span.start := match fits: length <= key with
+      | True =>
+        match least: items.min with
+          | Some start =>
+            let same: { start, length = key } = span := Option.someInjective found
+            rewrite <- same in Both (omega) (Both rfl rfl)
 
 theorem fitInIntro (length: Nat) (key: Nat) (items: Set Nat) (start: Nat) (fits: length ≤ key) (least: items.min = Some start):
-    fitIn length (key, items) = Some { start, length = key } :=
-  match enough: length <= key with
-    | True => rewrite least in rfl
+    fitIn length (key, items) = Some { start, length = key } := match enough: length <= key with
+      | True => rewrite least in rfl
 
 --| A span the map holds, long enough, is not before the span `fitIn` makes of its entry.
 theorem fitMember (free: FreeSpace) (length: Nat) (other: Span) (held: free.has other = True) (fits: length ≤ other.length):

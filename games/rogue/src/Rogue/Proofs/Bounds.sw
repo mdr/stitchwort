@@ -41,14 +41,13 @@ theorem sectionFitsAcross (left: Nat) (across: Nat) (offset: Nat) (acrossSmall: 
 --| The top row and left column of section `index`, for the six sections.
 type Corner (index: Nat): Prop = { top: (index / 3) * sectionRows + 1 ≤ 11, left: (index % 3) * sectionColumns + 1 ≤ 45 }
 
-theorem sectionCorner (index: Nat) (small: index < 6): Corner index :=
-  match index with
-    | Zero => { top = omega, left = omega }
-    | Succ Zero => { top = omega, left = omega }
-    | Succ (Succ Zero) => { top = omega, left = omega }
-    | Succ (Succ (Succ Zero)) => { top = omega, left = omega }
-    | Succ (Succ (Succ (Succ Zero))) => { top = omega, left = omega }
-    | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = omega, left = omega }
+theorem sectionCorner (index: Nat) (small: index < 6): Corner index := match index with
+  | Zero => { top = omega, left = omega }
+  | Succ Zero => { top = omega, left = omega }
+  | Succ (Succ Zero) => { top = omega, left = omega }
+  | Succ (Succ (Succ Zero)) => { top = omega, left = omega }
+  | Succ (Succ (Succ (Succ Zero))) => { top = omega, left = omega }
+  | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = omega, left = omega }
 
 --| A room as `roomFrom` makes it in section `index`, from any rolls below
 --| their bounds (`roll most` is below `Succ most`), fits on the map.
@@ -87,15 +86,14 @@ theorem minPlusDistance (m: Nat) (n: Nat) (bound: Nat) (mSmall: m < bound) (nSma
     | False => omega
 
 theorem corridorFits (origin: Position) (target: Position) (from: OnScreen origin) (to: OnScreen target)
-    (area: Area) (h: List.Mem area (corridorBetween origin target)): OnMap area :=
-  match h with
-    | Inl same =>
-      let originRow := from.low
-      rewrite <- same in { bottom = omega, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
-    | Inr (Inl same) =>
-      let targetColumn := to.narrow
-      rewrite <- same in { bottom = minPlusDistance origin.row target.row levelRows from.low to.low, right = omega }
-    | Inr (Inr nothing) => Void.exfalso nothing
+    (area: Area) (h: List.Mem area (corridorBetween origin target)): OnMap area := match h with
+      | Inl same =>
+        let originRow := from.low
+        rewrite <- same in { bottom = omega, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
+      | Inr (Inl same) =>
+        let targetColumn := to.narrow
+        rewrite <- same in { bottom = minPlusDistance origin.row target.row levelRows from.low to.low, right = omega }
+      | Inr (Inr nothing) => Void.exfalso nothing
 
 --| So do the corridors between rooms that fit.
 theorem corridorsFit (rooms: List Area) (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area) (extra: Nat)

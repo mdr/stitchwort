@@ -30,9 +30,8 @@ def small (n: Nat): Bool := Small n
 
 theorem smallBelow (n: Nat) (h: small n = True): n < 10 := h.below
 
-theorem smallPattern (n: Nat) (h: small n = True): n ≠ 0 :=
-  match h with
-    | { below, notZero } => notZero
+theorem smallPattern (n: Nat) (h: small n = True): n ≠ 0 := match h with
+  | { below, notZero } => notZero
 
 theorem smallWhole (n: Nat) (h: small n = True): Small n := h.read
 

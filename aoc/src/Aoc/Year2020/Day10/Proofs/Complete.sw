@@ -12,9 +12,8 @@ theorem runsRating (read: List Char) (number: Nat) (written: RatingWritten read 
   match written with
     | Both some (Both digits value) => rewrite value in Parse.runsNat read [] some digits rfl
 
-theorem bagEta (bag: Bag): ({ adapters = bag.adapters }: Bag) = bag :=
-  match bag with
-    | { adapters } => rfl
+theorem bagEta (bag: Bag): ({ adapters = bag.adapters }: Bag) = bag := match bag with
+  | { adapters } => rfl
 
 --| Input whose lines are adapters written out is read as those adapters.
 theorem parseComplete (input: Text) (bag: Bag) (written: List.All2 RatingWritten (input.lines.map Text.toList) bag.adapters):

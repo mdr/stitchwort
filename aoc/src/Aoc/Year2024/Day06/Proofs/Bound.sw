@@ -12,16 +12,14 @@ import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 
 theorem walkIterate (lab: Lab) (steps: Nat) (guard: Option Guard):
-    walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard :=
-  match steps with
-    | Zero => rfl
-    | Succ steps => walkIterate lab steps (guard.flatMap lab.step)
+    walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard := match steps with
+      | Zero => rfl
+      | Succ steps => walkIterate lab steps (guard.flatMap lab.step)
 
 --| Once off the map, she stays off.
-theorem walkNone (lab: Lab) (steps: Nat): walk lab None steps = None :=
-  match steps with
-    | Zero => rfl
-    | Succ steps => walkNone lab steps
+theorem walkNone (lab: Lab) (steps: Nat): walk lab None steps = None := match steps with
+  | Zero => rfl
+  | Succ steps => walkNone lab steps
 
 theorem walkSucc (lab: Lab) (steps: Nat) (guard: Option Guard): walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step :=
   match steps with
@@ -56,12 +54,11 @@ theorem aheadOnMap (lab: Lab) (guard: Guard) (inside: onMap lab guard.position =
   rewrite ahead at aheadOnMapIfAny lab guard inside
 
 theorem stepOnMap (lab: Lab) (guard: Guard) (inside: onMap lab guard.position = True) (next: Guard) (stepped: lab.step guard = Some next):
-    onMap lab next.position = True :=
-  match ahead: lab.ahead guard with
-    | Some position =>
-      match blocked: lab.obstructions.contains position with
-        | True => rewrite <- Option.someInjective stepped in inside
-        | False => rewrite <- Option.someInjective stepped in aheadOnMap lab guard inside position ahead
+    onMap lab next.position = True := match ahead: lab.ahead guard with
+      | Some position =>
+        match blocked: lab.obstructions.contains position with
+          | True => rewrite <- Option.someInjective stepped in inside
+          | False => rewrite <- Option.someInjective stepped in aheadOnMap lab guard inside position ahead
 
 --| She stays on the map until she leaves it.
 theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (guard: Guard) (reached: after lab steps = Some guard): onMap lab guard.position = True :=
@@ -103,10 +100,9 @@ theorem directionIndexInjective (one: Direction) (other: Direction) (same: direc
     _ = other := directionOfIndexOf other
 
 theorem guardExt (one other: Guard) (rows: one.position.row = other.position.row) (columns: one.position.column = other.position.column)
-    (facings: one.facing = other.facing): one = other :=
-  match one, other with
-    | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing } =>
-      rewrite rows, columns, facings in rfl
+    (facings: one.facing = other.facing): one = other := match one, other with
+      | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing } =>
+        rewrite rows, columns, facings in rfl
 
 --| Different states on the map have different numbers.
 theorem stateCodeInjective (lab: Lab) (one: Guard) (other: Guard) (oneInside: onMap lab one.position = True) (otherInside: onMap lab other.position = True)

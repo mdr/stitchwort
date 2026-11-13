@@ -54,9 +54,8 @@ theorem shiftPointsIds (from: Float) (to: Float) (points: List Point):
     | True => rfl
     | False => List.mapMap points (point => point.id) (point => { point | time = to + (point.time - from) })
 
-theorem moveLegOk (s0: Float) (leg: Leg) (ok: LegOk leg): LegOk (moveLeg s0 leg) :=
-  match ok with
-    | Both pts good => Both (rewrite shiftPointsIds leg.start s0 leg.points in pts) good
+theorem moveLegOk (s0: Float) (leg: Leg) (ok: LegOk leg): LegOk (moveLeg s0 leg) := match ok with
+  | Both pts good => Both (rewrite shiftPointsIds leg.start s0 leg.points in pts) good
 
 theorem layoutOk: ∀ (s0: Float) (legs: List Leg) => List.All LegOk legs → List.All LegOk (layout s0 legs)
   | s0, [], oks => Trivial
@@ -88,11 +87,10 @@ theorem resolveOk (local: Leg) (remote: Leg) (a: LegOk local) (b: LegOk remote):
     | False => b
 
 theorem resolveAgainstOk (local: List Leg) (remote: Leg) (oks: List.All LegOk local) (ok: LegOk remote):
-    LegOk (resolveAgainst local remote) :=
-  match c: findLeg local remote.id with
-    | Some leg =>
-      resolveOk leg remote (List.memOfAll LegOk local oks leg (And.right (List.findSome local (l => l.id == remote.id) leg c))) ok
-    | None => ok
+    LegOk (resolveAgainst local remote) := match c: findLeg local remote.id with
+      | Some leg =>
+        resolveOk leg remote (List.memOfAll LegOk local oks leg (And.right (List.findSome local (l => l.id == remote.id) leg c))) ok
+      | None => ok
 
 -- The merged legs
 

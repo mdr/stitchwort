@@ -63,19 +63,18 @@ def Disk.freeAt (disk: Disk) (start: Nat) (length: Nat): Bool :=
 --| free space blocks that could fit the file". "If there is no span of free
 --| space to the left of a file that is large enough to fit the file, the file
 --| does not move."
-def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk :=
-  match disk.fileStart id with
-    | None => disk
-    | Some start =>
-      let length := disk.blocks.count (block => block == FileBlock id)
-      let fits := List.range 0 start |> .find (target => target + length <= start && disk.freeAt target length)
-      match fits with
-        | None => disk
-        | Some target =>
-          { blocks = disk.blocks.mapWithIndex (position block =>
-            if target <= position < target + length then FileBlock id
-            else if block == FileBlock id then Free
-            else block) }
+def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk := match disk.fileStart id with
+  | None => disk
+  | Some start =>
+    let length := disk.blocks.count (block => block == FileBlock id)
+    let fits := List.range 0 start |> .find (target => target + length <= start && disk.freeAt target length)
+    match fits with
+      | None => disk
+      | Some target =>
+        { blocks = disk.blocks.mapWithIndex (position block =>
+          if target <= position < target + length then FileBlock id
+          else if block == FileBlock id then Free
+          else block) }
 
 --| "Attempt to move each file exactly once in order of decreasing file ID
 --| number starting with the file with the highest file ID number."

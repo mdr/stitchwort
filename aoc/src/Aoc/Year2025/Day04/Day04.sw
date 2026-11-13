@@ -49,10 +49,9 @@ def solvePart2 (grid: Grid): Nat := grid.rolls - grid.settle.rolls
 
 --| An error for a character other than @ and ., or for lines that are not all
 --| as long as the first.
-def parseGrid (lines: List Text): Result Grid Text :=
-  match findStray lines with
-    | Some (row, column, ch) => Err "line ${row}, column ${column}: expected '@' or '.', got '${ch}'"
-    | None => Grid.of lines |> .toResult "expected lines that are all the same length, got a line of a different length"
+def parseGrid (lines: List Text): Result Grid Text := match findStray lines with
+  | Some (row, column, ch) => Err "line ${row}, column ${column}: expected '@' or '.', got '${ch}'"
+  | None => Grid.of lines |> .toResult "expected lines that are all the same length, got a line of a different length"
 
 --| The line and column (both from 1) of the first character that is neither
 --| @ nor ., and the character.

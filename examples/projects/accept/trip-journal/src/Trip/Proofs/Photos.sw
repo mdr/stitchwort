@@ -76,13 +76,12 @@ theorem keptFromCombined (local: Trip) (remote: Trip) (legs: List Leg) (id: Nat)
                 (rewrite e in keptWhereOwned own album id o h)))
 
 theorem withPhotosOfKeeps (remote: List Album) (album: Album) (id: Nat) (m: id ∈ album.photos.map Photo.id):
-    id ∈ (withPhotosOf remote album).photos.map Photo.id :=
-  match e: remote.find (other => other.id == album.id) with
-    | Some other =>
-      Exists.elim (List.memMapElim Photo.id id album.photos m) (photo both =>
-        match both with
-          | Both inPhotos same => rewrite <- same in List.keyMemAppendNewByRight Photo.id other.photos album.photos photo inPhotos)
-    | None => m
+    id ∈ (withPhotosOf remote album).photos.map Photo.id := match e: remote.find (other => other.id == album.id) with
+      | Some other =>
+        Exists.elim (List.memMapElim Photo.id id album.photos m) (photo both =>
+          match both with
+            | Both inPhotos same => rewrite <- same in List.keyMemAppendNewByRight Photo.id other.photos album.photos photo inPhotos)
+      | None => m
 
 -- Every photo id of either copy is in the albums before ownership is
 -- decided (with the remote album ids distinct, as in a well-formed copy).

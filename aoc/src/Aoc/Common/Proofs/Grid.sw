@@ -19,12 +19,11 @@ theorem oppositeTwoTurns (direction: Direction): direction.turnRight.turnRight =
 
 theorem oppositeOpposite (direction: Direction): direction.opposite.opposite = direction := cases
 
-theorem memDirections (direction: Direction): direction ∈ directions :=
-  match direction with
-    | Up => Inl rfl
-    | Right => Inr (Inl rfl)
-    | Down => Inr (Inr (Inl rfl))
-    | Left => Inr (Inr (Inr (Inl rfl)))
+theorem memDirections (direction: Direction): direction ∈ directions := match direction with
+  | Up => Inl rfl
+  | Right => Inr (Inl rfl)
+  | Down => Inr (Inr (Inl rfl))
+  | Left => Inr (Inr (Inr (Inl rfl)))
 
 -- Adjacency
 
@@ -44,32 +43,29 @@ theorem downAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row = 
 
 --| A step reaches an adjacent position...
 theorem stepAdjacent (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
-    adjacent position next = True :=
-  match position, direction with
-    | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in upAdjacent row column
-    | { row, column }, Right => rewrite <- Option.someInjective stepped in rightAdjacent row column
-    | { row, column }, Down => rewrite <- Option.someInjective stepped in downAdjacent row column
-    | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in leftAdjacent row column
+    adjacent position next = True := match position, direction with
+      | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in upAdjacent row column
+      | { row, column }, Right => rewrite <- Option.someInjective stepped in rightAdjacent row column
+      | { row, column }, Down => rewrite <- Option.someInjective stepped in downAdjacent row column
+      | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in leftAdjacent row column
 
 --| A step back the opposite way returns to where it started.
 theorem stepOpposite (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
-    next.step direction.opposite = Some position :=
-  match position, direction with
-    | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in rfl
-    | { row, column }, Right => rewrite <- Option.someInjective stepped in rfl
-    | { row, column }, Down => rewrite <- Option.someInjective stepped in rfl
-    | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in rfl
+    next.step direction.opposite = Some position := match position, direction with
+      | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in rfl
+      | { row, column }, Right => rewrite <- Option.someInjective stepped in rfl
+      | { row, column }, Down => rewrite <- Option.someInjective stepped in rfl
+      | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in rfl
 
 --| ...and each adjacent position is a step away.
 theorem adjacentStep (position next: Position) (near: adjacent position next = True):
-    ∃ (direction: Direction) => position.step direction = Some next :=
-  match position, next with
-    | { row, column }, { row = r, column = c } =>
-      match near with
-        | Inl (Both rows (Inl right)) => rewrite <- rows.read, <- right.read in Witness Right rfl
-        | Inl (Both rows (Inr left)) => rewrite <- rows.read, <- left.read in Witness Left rfl
-        | Inr (Both columns (Inl down)) => rewrite <- columns.read, <- down.read in Witness Down rfl
-        | Inr (Both columns (Inr up)) => rewrite <- columns.read, <- up.read in Witness Up rfl
+    ∃ (direction: Direction) => position.step direction = Some next := match position, next with
+      | { row, column }, { row = r, column = c } =>
+        match near with
+          | Inl (Both rows (Inl right)) => rewrite <- rows.read, <- right.read in Witness Right rfl
+          | Inl (Both rows (Inr left)) => rewrite <- rows.read, <- left.read in Witness Left rfl
+          | Inr (Both columns (Inl down)) => rewrite <- columns.read, <- down.read in Witness Down rfl
+          | Inr (Both columns (Inr up)) => rewrite <- columns.read, <- up.read in Witness Up rfl
 
 --| The neighbours are the positions a step away...
 theorem memNeighbours (position: Position) (next: Position): (next ∈ position.neighbours) ↔ (∃ (direction: Direction) => position.step direction = Some next) := {
@@ -93,12 +89,11 @@ def directionTo (position: Position) (next: Position): Direction :=
 
 --| Each step goes the way it says.
 theorem directionOfStep (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
-    directionTo position next = direction :=
-  match position, direction with
-    | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in cases
-    | { row, column }, Right => rewrite <- Option.someInjective stepped in cases
-    | { row, column }, Down => rewrite <- Option.someInjective stepped in cases
-    | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in cases
+    directionTo position next = direction := match position, direction with
+      | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in cases
+      | { row, column }, Right => rewrite <- Option.someInjective stepped in cases
+      | { row, column }, Down => rewrite <- Option.someInjective stepped in cases
+      | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in cases
 
 --| No position is a neighbour twice...
 theorem neighboursDistinct (position: Position): List.Distinct position.neighbours :=
@@ -202,12 +197,11 @@ theorem aroundAtMost8 (at: Position): at.around.length ≤ 8 :=
 theorem centreDropped (centre: Position): not (centre.row == centre.row && centre.column == centre.column) = False :=
   rewrite DecEq.refl centre.row, DecEq.refl centre.column in rfl
 
-theorem atInBlock (centre: Position): centre ∈ aroundBlock centre.row centre.column :=
-  match centre with
-    | { row = r, column = c } =>
-      List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) r { row = r, column = c }
-        (List.range (r - 1) (r + 1 + 1)) (((List.memRange r (r - 1) (r + 1 + 1)).backward (Both (omega) (Nat.leLessSucc r (r + 1) (omega)))))
-        (List.memMap (List.range (c - 1) (c + 1 + 1)) c (((List.memRange c (c - 1) (c + 1 + 1)).backward (Both (omega) (Nat.leLessSucc c (c + 1) (omega))))) (column => ({ row = r, column }: Position)))
+theorem atInBlock (centre: Position): centre ∈ aroundBlock centre.row centre.column := match centre with
+  | { row = r, column = c } =>
+    List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) r { row = r, column = c }
+      (List.range (r - 1) (r + 1 + 1)) (((List.memRange r (r - 1) (r + 1 + 1)).backward (Both (omega) (Nat.leLessSucc r (r + 1) (omega)))))
+      (List.memMap (List.range (c - 1) (c + 1 + 1)) c (((List.memRange c (c - 1) (c + 1 + 1)).backward (Both (omega) (Nat.leLessSucc c (c + 1) (omega))))) (column => ({ row = r, column }: Position)))
 
 theorem blockAtMost9 (r: Nat) (c: Nat): (aroundBlock r c).length ≤ 9 :=
   let columns := List.range (c - 1) (c + 1 + 1)
@@ -221,7 +215,6 @@ theorem blockAtMost9 (r: Nat) (c: Nat): (aroundBlock r c).length ≤ 9 :=
     _ ≤ 9 := omega
 
 --| Threes added up over a list.
-theorem sumByThree (xs: List a): xs.sumBy (x => 3) = 3 * xs.length :=
-  match xs with
-    | [] => omega
-    | [x, ..rest] => rewrite List.sumByCons rest x (x => 3), sumByThree rest in omega
+theorem sumByThree (xs: List a): xs.sumBy (x => 3) = 3 * xs.length := match xs with
+  | [] => omega
+  | [x, ..rest] => rewrite List.sumByCons rest x (x => 3), sumByThree rest in omega

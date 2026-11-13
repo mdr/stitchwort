@@ -7,10 +7,9 @@ import Aoc.Year2021.Day18.Proofs (explodeSome, height, reduceExplodes, reduceSpl
 import Std (Fail, List, Option, Parse, Result, Text)
 
 --| One number from its text, or `Regular 0` if it doesn't parse.
-def numberOf (text: Text): Number :=
-  match Fail.toResult (() => Parse.line text (() => number text.length)) with
-    | Ok read => read
-    | Err _ => Regular 0
+def numberOf (text: Text): Number := match Fail.toResult (() => Parse.line text (() => number text.length)) with
+  | Ok read => read
+  | Err _ => Regular 0
 
 def numberResult (text: Text): Result Number Text := Fail.toResult (() => Parse.line text (() => number text.length))
 

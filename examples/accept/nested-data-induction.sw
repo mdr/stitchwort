@@ -44,10 +44,9 @@ theorem sizeOne: Packet.size (Packets [Number 1]) = 4 := rfl
 -- lemma, no `let` written here.
 def Packet.depth (p: Packet): Nat
     decreasing Packet.size p
-:=
-  match p with
-    | Number n => 0
-    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+:= match p with
+  | Number n => 0
+  | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := Packet.depth example == 3
 
@@ -92,9 +91,8 @@ type Rose (a: Type): Type =
 
 def Rose.labels (t: Rose a): List a
     decreasing Rose.size t
-:=
-  match t with
-    | Bloom x kids => [x, ..kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append]
+:= match t with
+  | Bloom x kids => [x, ..kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append]
 
 test "labels" := Rose.labels (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) == [1, 2, 3, 4]
 
@@ -154,10 +152,9 @@ type Ranked: Nat → Type =
 
 def Ranked.count (r: Ranked k): Nat
     decreasing Ranked.size r
-:=
-  match r with
-    | RLeaf => 1
-    | RNode n kids => 1 + (kids.attach.map (e => Ranked.count e.value) |> .foldLeft 0 Nat.add)
+:= match r with
+  | RLeaf => 1
+  | RNode n kids => 1 + (kids.attach.map (e => Ranked.count e.value) |> .foldLeft 0 Nat.add)
 
 theorem rankedPositive (r: Ranked k): 0 < Ranked.size r :=
   Ranked.induct (n s => 0 < Ranked.size s) rfl (n kids all => rfl) r
@@ -167,9 +164,8 @@ type Node = { weight: Nat, children: List Node }
 
 def Node.total (node: Node): Nat
     decreasing Node.size node
-:=
-  match node with
-    | { weight, children } => weight + (children.attach.map (e => Node.total e.value) |> .foldLeft 0 Nat.add)
+:= match node with
+  | { weight, children } => weight + (children.attach.map (e => Node.total e.value) |> .foldLeft 0 Nat.add)
 
 test "total" := Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] } == 7
 

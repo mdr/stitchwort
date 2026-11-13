@@ -39,14 +39,13 @@ def paintRow (row: Text): Text := row.toList.concatMap (char => paint char |> .t
 
 --| A cell's character, coloured by what it is: the player bold yellow,
 --| monsters red, items cyan, the stairs green, and rock as it is.
-def paint (char: Char): Text :=
-  match char with
-    | '@' => Ansi.bold (Ansi.colour Yellow "@")
-    | 'g' => Ansi.colour Red "g"
-    | 'o' => Ansi.colour Red "o"
-    | 'T' => Ansi.bold (Ansi.colour Red "T")
-    | '!' => Ansi.colour Cyan "!"
-    | ')' => Ansi.colour Cyan ")"
-    | '"' => Ansi.bold (Ansi.colour Yellow "\"")
-    | '>' => Ansi.bold (Ansi.colour Green ">")
-    | _ => char.toText
+def paint (char: Char): Text := match char with
+  | '@' => Ansi.bold (Ansi.colour Yellow "@")
+  | 'g' => Ansi.colour Red "g"
+  | 'o' => Ansi.colour Red "o"
+  | 'T' => Ansi.bold (Ansi.colour Red "T")
+  | '!' => Ansi.colour Cyan "!"
+  | ')' => Ansi.colour Cyan ")"
+  | '"' => Ansi.bold (Ansi.colour Yellow "\"")
+  | '>' => Ansi.bold (Ansi.colour Green ">")
+  | _ => char.toText

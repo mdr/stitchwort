@@ -30,10 +30,9 @@ ability Abort where
 def Abort.abort(): {Abort} a := Empty.absurd Abort.stop()
 
 --| The value in an `Option`, or give up.
-def Abort.need (option: Option a): {Abort} a :=
-  match option with
-    | Some x => x
-    | None => Abort.abort()
+def Abort.need (option: Option a): {Abort} a := match option with
+  | Some x => x
+  | None => Abort.abort()
 
 --| The value in an `Option`, or give up: `Abort.need` for dot notation, `t.uncons.orAbort`.
 def Option.orAbort (option: Option a): {Abort} a := Abort.need option
@@ -54,10 +53,9 @@ def Abort.orElse (fallback: a) (prog: () → {Abort | e} a): {e} a :=
     | Abort.stop u, k => fallback
 
 --| `need` and `toOption` undo each other.
-theorem Abort.toOptionNeed (o: Option a): Abort.toOption (() => Abort.need o) = o :=
-  match o with
-    | None => rfl
-    | Some x => rfl
+theorem Abort.toOptionNeed (o: Option a): Abort.toOption (() => Abort.need o) = o := match o with
+  | None => rfl
+  | Some x => rfl
 
 theorem Abort.orElseNeed (d: a) (o: Option a): Abort.orElse d (() => Abort.need o) = Option.getOrElse o d :=
   match o with
@@ -93,16 +91,14 @@ theorem Abort.toOptionThen (t: () → {Abort} a) (k: a → {Abort} b):
 --| A block starting with `need x` (or `x.orAbort`) gave `Some v`: `x` held a value.
 theorem Abort.needEqSome [goal: Prop] [x: Option a] [k: a → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (Abort.need x)) = Some v)
-    (use: ∀ (u: a) => x = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
-  match e: x with
-    | Some u => use u rfl h
+    (use: ∀ (u: a) => x = Some u → Abort.toOption (() => k u) = Some v → goal): goal := match e: x with
+      | Some u => use u rfl h
 
 --| A block starting with `ensure ok` gave `Some v`: `ok` held.
 theorem Abort.ensureEqSome [goal: Prop] [ok: Bool] [k: () → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (Abort.ensure ok)) = Some v)
-    (use: ok = True → Abort.toOption (() => k ()) = Some v → goal): goal :=
-  match e: ok with
-    | True => use rfl h
+    (use: ok = True → Abort.toOption (() => k ()) = Some v → goal): goal := match e: ok with
+      | True => use rfl h
 
 --| A block starting with any computation `t` gave `Some v`: so did `t`. `t`
 --| is found from `h`: `Abort.thenEqSome h (bin found rest => …)`.

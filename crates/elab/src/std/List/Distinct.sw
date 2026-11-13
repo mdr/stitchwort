@@ -25,10 +25,9 @@ def List.unique [auto ord: Ord a] (xs: List a): List a := List.uniqueLoop Set.em
 -- What `uniqueFrom` (so `uniqueDecEq`) keeps: elements of the list, none of
 -- them in `seen`, none twice, and every element of the list not in `seen`.
 
-theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any [y, ..s] (== y) = True :=
-  match e: y == y with
-    | True => rfl
-    | False => Void.exfalso (e.read rfl)
+theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any [y, ..s] (== y) = True := match e: y == y with
+  | True => rfl
+  | False => Void.exfalso (e.read rfl)
 
 theorem List.anyTailFalse (p: a → Bool) (y: a) (s: List a) (h: List.any [y, ..s] p = False): List.any s p = False :=
   match e: p y with
@@ -45,24 +44,23 @@ theorem List.memUniqueFromElim [auto eq: DecEq a] (x: a) (seen xs: List a) (m: x
             | Inr later => Inr (List.memUniqueFromElim x [y, ..seen] ys later)
 
 theorem List.memUniqueFromIntro [auto eq: DecEq a] (x: a) (seen xs: List a) (m: x ∈ xs):
-    List.any seen (== x) = True ∨ x ∈ List.uniqueFrom seen xs :=
-  match xs with
-    | [y, ..ys] =>
-      match c: List.any seen (== y) with
-        | True =>
-          match m with
-            | Inl q => Inl (rewrite <- q in c)
-            | Inr later => List.memUniqueFromIntro x seen ys later
-        | False =>
-          match m with
-            | Inl q => Inr (Inl q)
-            | Inr later =>
-              match List.memUniqueFromIntro x [y, ..seen] ys later with
-                | Inr inRest => Inr (Inr inRest)
-                | Inl hit =>
-                  match d: y == x with
-                    | True => Inr (Inl d.read)
-                    | False => Inl hit
+    List.any seen (== x) = True ∨ x ∈ List.uniqueFrom seen xs := match xs with
+      | [y, ..ys] =>
+        match c: List.any seen (== y) with
+          | True =>
+            match m with
+              | Inl q => Inl (rewrite <- q in c)
+              | Inr later => List.memUniqueFromIntro x seen ys later
+          | False =>
+            match m with
+              | Inl q => Inr (Inl q)
+              | Inr later =>
+                match List.memUniqueFromIntro x [y, ..seen] ys later with
+                  | Inr inRest => Inr (Inr inRest)
+                  | Inl hit =>
+                    match d: y == x with
+                      | True => Inr (Inl d.read)
+                      | False => Inl hit
 
 theorem List.uniqueFromFresh [auto eq: DecEq a] (z: a) (seen xs: List a) (m: z ∈ List.uniqueFrom seen xs): List.any seen (== z) = False :=
   match xs with
@@ -100,10 +98,9 @@ theorem List.uniqueDecEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct
 -- `uniqueFrom` keeps.
 
 theorem List.uniqueSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: ∀ (z: a) => Set.contains seen z = List.any seenList (== z))
-    (x: a) (z: a): Set.contains (Set.insert seen x) z = List.any [x, ..seenList] (== z) :=
-  match e: x == z with
-    | True => rewrite e.read in Set.containsInsert z seen
-    | False => rewrite Set.containsInsertOther seen x z (eq => e.read (Eq.sym eq)) in same z
+    (x: a) (z: a): Set.contains (Set.insert seen x) z = List.any [x, ..seenList] (== z) := match e: x == z with
+      | True => rewrite e.read in Set.containsInsert z seen
+      | False => rewrite Set.containsInsertOther seen x z (eq => e.read (Eq.sym eq)) in same z
 
 theorem List.uniqueLoopFrom [auto ord: Ord a]: ∀ (seen: Set a) (seenList: List a) => (∀ (z: a) => Set.contains seen z = List.any seenList (== z)) →
     ∀ (acc xs: List a) => List.uniqueLoop seen acc xs = List.reverseOnto acc (List.uniqueFrom seenList xs)
@@ -144,13 +141,12 @@ theorem List.anyConsEqTrue [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (h: L
     | False => h
 
 theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne: x ≠ y) (h: List.any seen (== y) = False):
-    List.any [x, ..seen] (== y) = False :=
-  match d: x == y with
-    | True => Void.exfalso (ne d.read)
-    | False => h
+    List.any [x, ..seen] (== y) = False := match d: x == y with
+      | True => Void.exfalso (ne d.read)
+      | False => h
 
 theorem List.uniqueFromKeep [auto eq: DecEq a] (seen xs: List a) (h: List.Distinct xs)
-    (fresh: (∀ (z: a) => List.Mem z xs → List.any seen (== z) = False)): List.uniqueFrom seen xs = xs :=
+    (fresh: ∀ (z: a) => List.Mem z xs → List.any seen (== z) = False): List.uniqueFrom seen xs = xs :=
   match xs, h with
     | [], d => rfl
     | [y, ..ys], Both notMem d =>
@@ -160,36 +156,34 @@ theorem List.uniqueFromKeep [auto eq: DecEq a] (seen xs: List a) (h: List.Distin
           List.anyConsEqFalse y z seen (e => notMem (rewrite e in m)) (fresh z (Inr m))))
 
 theorem List.uniqueFromSeen [auto eq: DecEq a] (seen ys: List a)
-    (h: (∀ (y: a) => List.Mem y ys → List.any seen (== y) = True)): List.uniqueFrom seen ys = [] :=
-  match ys with
-    | [] => rfl
-    | [y, ..ys] => rewrite h y (Inl rfl) in List.uniqueFromSeen seen ys (z m => h z (Inr m))
+    (h: ∀ (y: a) => List.Mem y ys → List.any seen (== y) = True): List.uniqueFrom seen ys = [] := match ys with
+      | [] => rfl
+      | [y, ..ys] => rewrite h y (Inl rfl) in List.uniqueFromSeen seen ys (z m => h z (Inr m))
 
 theorem List.uniqueFromAppendSeen [auto eq: DecEq a] (seen xs ys: List a)
-    (cov: (∀ (y: a) => List.Mem y ys → (List.any seen (== y) = True) ∨ (List.Mem y xs))):
-    List.uniqueFrom seen (List.append xs ys) = List.uniqueFrom seen xs :=
-  match xs with
-    | [] =>
-      List.uniqueFromSeen seen ys (y m =>
-        match cov y m with
-          | Inl s => s
-          | Inr none => Void.exfalso none)
-    | [x, ..xs] =>
-      match c: List.any seen (== x) with
-        | True =>
-          List.uniqueFromAppendSeen seen xs ys (y m =>
-            match cov y m with
-              | Inl s => Inl s
-              | Inr (Inl q) => Inl (rewrite <- q in c)
-              | Inr (Inr later) => Inr later)
-        | False =>
-          Eq.cong (Cons x)
-            (List.uniqueFromAppendSeen [x, ..seen] xs ys (y m =>
+    (cov: ∀ (y: a) => List.Mem y ys → (List.any seen (== y) = True) ∨ (List.Mem y xs)):
+    List.uniqueFrom seen (List.append xs ys) = List.uniqueFrom seen xs := match xs with
+      | [] =>
+        List.uniqueFromSeen seen ys (y m =>
+          match cov y m with
+            | Inl s => s
+            | Inr none => Void.exfalso none)
+      | [x, ..xs] =>
+        match c: List.any seen (== x) with
+          | True =>
+            List.uniqueFromAppendSeen seen xs ys (y m =>
               match cov y m with
-                | Inl s =>
-                  Inl (List.anyConsEqTrue x y seen s)
-                | Inr (Inl q) => Inl (rewrite <- q in List.anyConsSelf x seen)
-                | Inr (Inr later) => Inr later))
+                | Inl s => Inl s
+                | Inr (Inl q) => Inl (rewrite <- q in c)
+                | Inr (Inr later) => Inr later)
+          | False =>
+            Eq.cong (Cons x)
+              (List.uniqueFromAppendSeen [x, ..seen] xs ys (y m =>
+                match cov y m with
+                  | Inl s =>
+                    Inl (List.anyConsEqTrue x y seen s)
+                  | Inr (Inl q) => Inl (rewrite <- q in List.anyConsSelf x seen)
+                  | Inr (Inr later) => Inr later))
 
 theorem List.uniqueFromSnoc [auto eq: DecEq a] (y: a) (seen xs: List a) (out: ¬(List.Mem y xs))
     (fresh: List.any seen (== y) = False): List.uniqueFrom seen (List.append xs [y]) = List.append (List.uniqueFrom seen xs) [y] :=
@@ -261,7 +255,7 @@ theorem List.isDistinctFromSound [auto ord: Ord a] (seen: Set a) (xs: List a) (o
 
 --| No repeats, and nothing seen already, passes.
 theorem List.isDistinctFromComplete [auto ord: Ord a] (seen: Set a) (xs: List a) (distinct: List.Distinct xs)
-    (unseen: (∀ (x: a) => List.Mem x xs → Set.contains seen x = False)): List.isDistinctFrom seen xs = True :=
+    (unseen: ∀ (x: a) => List.Mem x xs → Set.contains seen x = False): List.isDistinctFrom seen xs = True :=
   match xs with
     | [] => rfl
     | [next, ..rest] =>

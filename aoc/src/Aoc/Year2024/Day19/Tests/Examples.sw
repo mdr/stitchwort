@@ -20,10 +20,9 @@ def stripes (letters: Text): List Stripe :=
     | _ => Green)
 
 --| A pattern from its letters, which are never empty in these tests.
-def patternOf (letters: Text): Pattern :=
-  match stripes letters with
-    | [first, ..rest] => { stripes = [first, ..rest] }
-    | [] => { stripes = [White] }
+def patternOf (letters: Text): Pattern := match stripes letters with
+  | [first, ..rest] => { stripes = [first, ..rest] }
+  | [] => { stripes = [White] }
 
 def designOf (letters: Text): Design := { stripes = stripes letters }
 

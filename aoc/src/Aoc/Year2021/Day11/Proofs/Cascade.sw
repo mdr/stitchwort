@@ -39,25 +39,23 @@ theorem energyMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool
 
 --| Each round's flashers include the last round's.
 theorem grows (cavern: Cavern) (k: Nat) (q: Position)
-    (flashes: (flashedAfter cavern k).has q = True): (flashedAfter cavern (Succ k)).has q = True :=
-  match k with
-    | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart cavern q)) flashes))
-    | Succ k =>
-      Exists.elim (roundElim cavern (flashedAfter cavern k) (onGridAfter cavern k) q flashes) (level both =>
-        let more := energyMono cavern ((flashedAfter cavern k).has) ((flashedAfter cavern (Succ k)).has) (grows cavern k) q level
-        let above := And.right both
-        roundIntro cavern (flashedAfter cavern (Succ k)) (onGridAfter cavern (Succ k)) q level (And.left both) (omega))
+    (flashes: (flashedAfter cavern k).has q = True): (flashedAfter cavern (Succ k)).has q = True := match k with
+      | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart cavern q)) flashes))
+      | Succ k =>
+        Exists.elim (roundElim cavern (flashedAfter cavern k) (onGridAfter cavern k) q flashes) (level both =>
+          let more := energyMono cavern ((flashedAfter cavern k).has) ((flashedAfter cavern (Succ k)).has) (grows cavern k) q level
+          let above := And.right both
+          roundIntro cavern (flashedAfter cavern (Succ k)) (onGridAfter cavern (Succ k)) q level (And.left both) (omega))
 
 --| Every round's flashers are inside every closed set.
 theorem belowClosed (cavern: Cavern) (other: Position → Bool) (closed: Closed cavern other) (k: Nat) (q: Position)
-    (flashes: (flashedAfter cavern k).has q = True): other q = True :=
-  match k with
-    | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart cavern q)) flashes))
-    | Succ k =>
-      Exists.elim (roundElim cavern (flashedAfter cavern k) (onGridAfter cavern k) q flashes) (level both =>
-        let more := energyMono cavern ((flashedAfter cavern k).has) other (belowClosed cavern other closed k) q level
-        let above := And.right both
-        closed q level (And.left both) (omega))
+    (flashes: (flashedAfter cavern k).has q = True): other q = True := match k with
+      | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart cavern q)) flashes))
+      | Succ k =>
+        Exists.elim (roundElim cavern (flashedAfter cavern k) (onGridAfter cavern k) q flashes) (level both =>
+          let more := energyMono cavern ((flashedAfter cavern k).has) other (belowClosed cavern other closed k) q level
+          let above := And.right both
+          closed q level (And.left both) (omega))
 
 --| Round k + 1 adds nobody.
 def Stable (cavern: Cavern) (k: Nat): Prop :=

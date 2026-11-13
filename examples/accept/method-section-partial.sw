@@ -36,10 +36,9 @@ theorem anySnd_restated (ps: List (Pair Nat Bool)): anySnd ps = ps.any Pair.snd 
 
 -- `match` generalises its scrutinee by finding it in the goal, which needs
 -- the same term: the program says `.snd`, the proof says `Pair.snd`.
-theorem anySnd_cases (ps: List (Pair Nat Bool)): (if ps.any .snd then 1 else 1) = 1 :=
-  match e: ps.any Pair.snd with
-    | True => rfl
-    | False => rfl
+theorem anySnd_cases (ps: List (Pair Nat Bool)): (if ps.any .snd then 1 else 1) = 1 := match e: ps.any Pair.snd with
+  | True => rfl
+  | False => rfl
 
 -- A section with an argument stays a lambda and still works.
 test "sub" := [5, 7].map (.sub 3) == [2, 4]

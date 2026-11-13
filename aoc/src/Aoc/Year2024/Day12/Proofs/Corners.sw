@@ -19,25 +19,21 @@ def total: (n: Nat) → (f: Nat → Nat) → Nat
   | Zero, f => 0
   | Succ n, f => f 0 + total n (i => f (Succ i))
 
-theorem totalCong (n: Nat) (f g: Nat → Nat) (agree: (∀ (i: Nat) => f i = g i)): total n f = total n g :=
-  match n with
-    | Zero => rfl
-    | Succ n => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i)) in rfl
+theorem totalCong (n: Nat) (f g: Nat → Nat) (agree: ∀ (i: Nat) => f i = g i): total n f = total n g := match n with
+  | Zero => rfl
+  | Succ n => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i)) in rfl
 
-theorem totalAdd (n: Nat) (f g: Nat → Nat): total n (i => f i + g i) = total n f + total n g :=
-  match n with
-    | Zero => rfl
-    | Succ n => omega [totalAdd n (i => f (Succ i)) (i => g (Succ i))]
+theorem totalAdd (n: Nat) (f g: Nat → Nat): total n (i => f i + g i) = total n f + total n g := match n with
+  | Zero => rfl
+  | Succ n => omega [totalAdd n (i => f (Succ i)) (i => g (Succ i))]
 
-theorem totalZero (n: Nat) (f: Nat → Nat) (zero: (∀ (i: Nat) => f i = 0)): total n f = 0 :=
-  match n with
-    | Zero => rfl
-    | Succ n => omega [zero 0, totalZero n (i => f (Succ i)) (i => zero (Succ i))]
+theorem totalZero (n: Nat) (f: Nat → Nat) (zero: ∀ (i: Nat) => f i = 0): total n f = 0 := match n with
+  | Zero => rfl
+  | Succ n => omega [zero 0, totalZero n (i => f (Succ i)) (i => zero (Succ i))]
 
-theorem totalSnoc (n: Nat) (f: Nat → Nat): total (Succ n) f = total n f + f n :=
-  match n with
-    | Zero => omega
-    | Succ n => omega [totalSnoc n (i => f (Succ i))]
+theorem totalSnoc (n: Nat) (f: Nat → Nat): total (Succ n) f = total n f + f n := match n with
+  | Zero => omega
+  | Succ n => omega [totalSnoc n (i => f (Succ i))]
 
 --| `g` one place later: `0, g 0, g 1, …`.
 def later (g: Nat → Nat): Nat → Nat
@@ -69,24 +65,23 @@ theorem previousShift (b: Nat → Bool) (first: Bool) (n: Nat): previous (b 0) (
 --| Along a line, runs of `b` start where the one before isn't in `b`, and
 --| end where the one after isn't; the count differs only at the ends.
 theorem telescope (n: Nat) (b: Nat → Bool) (first: Bool): total n (i => Bool.toNat (b i ∧ ¬(previous first b i))) + Bool.toNat (first ∧ b 0)
-    = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n) :=
-  match n with
-    | Zero => rfl
-    | Succ n =>
-      let rest := telescope n (i => b (Succ i)) (b 0)
-      let shifted :=
-        totalCong n (i => Bool.toNat (b (Succ i) ∧ ¬(previous first b (Succ i)))) (i => Bool.toNat (b (Succ i) ∧ ¬(previous (b 0) (i => b (Succ i)) i)))
-          (i => rewrite previousShift b first i in rfl)
-      rewrite <- shifted, previousShift b first n at rest in
-        match atZero: b 0, atOne: b 1, before: first with
-          | True, True, True => omega [rest]
-          | True, True, False => omega [rest]
-          | True, False, True => omega [rest]
-          | True, False, False => omega [rest]
-          | False, True, True => omega [rest]
-          | False, True, False => omega [rest]
-          | False, False, True => omega [rest]
-          | False, False, False => omega [rest]
+    = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n) := match n with
+      | Zero => rfl
+      | Succ n =>
+        let rest := telescope n (i => b (Succ i)) (b 0)
+        let shifted :=
+          totalCong n (i => Bool.toNat (b (Succ i) ∧ ¬(previous first b (Succ i)))) (i => Bool.toNat (b (Succ i) ∧ ¬(previous (b 0) (i => b (Succ i)) i)))
+            (i => rewrite previousShift b first i in rfl)
+        rewrite <- shifted, previousShift b first n at rest in
+          match atZero: b 0, atOne: b 1, before: first with
+            | True, True, True => omega [rest]
+            | True, True, False => omega [rest]
+            | True, False, True => omega [rest]
+            | True, False, False => omega [rest]
+            | False, True, True => omega [rest]
+            | False, True, False => omega [rest]
+            | False, False, True => omega [rest]
+            | False, False, False => omega [rest]
 
 --| As many runs start as end, on a line with nothing at `n`.
 theorem startsEqualEnds (n: Nat) (b: Nat → Bool) (stop: b n = False):
@@ -95,17 +90,15 @@ theorem startsEqualEnds (n: Nat) (b: Nat → Bool) (stop: b n = False):
   rewrite stop, Bool.andFalse (previous False b n) at both in omega [both]
 
 --| The grid around a plot.
-def above (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool :=
-  match row with
-    | Zero => False
-    | Succ up => inside up column
+def above (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := match row with
+  | Zero => False
+  | Succ up => inside up column
 
 def below (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside (Succ row) column
 
-def leftOf (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool :=
-  match column with
-    | Zero => False
-    | Succ before => inside row before
+def leftOf (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := match column with
+  | Zero => False
+  | Succ before => inside row before
 
 def rightOf (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool := inside row (Succ column)
 
@@ -201,76 +194,71 @@ theorem concaveNoVertical (plot horizontal diagonal: Bool): concave plot False h
 --| the plots either side of it.
 theorem cellUp (inside: Nat → Nat → Bool) (row column: Nat): Bool.toNat (startUp inside row column) + Bool.toNat (endUp inside row column)
     = convexUpLeft inside row column + convexUpRight inside row column + later (concaveUpRight inside row) column
-      + concaveUpLeft inside row (Succ column) :=
-  match row, column with
-    | Zero, Zero =>
-      omega [rowEndsSplit (inside 0 0) False False False, rowEndsSplit (inside 0 0) False (inside 0 1) False]
-    | Zero, Succ before =>
-      omega [
-        rowEndsSplit (inside 0 (Succ before)) False (inside 0 before) False,
-        rowEndsSplit (inside 0 (Succ before)) False (inside 0 (Succ (Succ before))) False
-      ]
-    | Succ up, Zero =>
-      omega [
-        rowEndsSplit (inside (Succ up) 0) (inside up 0) False False,
-        rowEndsSplit (inside (Succ up) 0) (inside up 0) (inside (Succ up) 1) (inside up 1)
-      ]
-    | Succ up, Succ before =>
-      omega [
-        rowEndsSplit (inside (Succ up) (Succ before)) (inside up (Succ before)) (inside (Succ up) before) (inside up before),
-        rowEndsSplit (inside (Succ up) (Succ before)) (inside up (Succ before)) (inside (Succ up) (Succ (Succ before))) (inside up (Succ (Succ before)))
-      ]
+    + concaveUpLeft inside row (Succ column) := match row, column with
+      | Zero, Zero =>
+        omega [rowEndsSplit (inside 0 0) False False False, rowEndsSplit (inside 0 0) False (inside 0 1) False]
+      | Zero, Succ before =>
+        omega [
+          rowEndsSplit (inside 0 (Succ before)) False (inside 0 before) False,
+          rowEndsSplit (inside 0 (Succ before)) False (inside 0 (Succ (Succ before))) False
+        ]
+      | Succ up, Zero =>
+        omega [
+          rowEndsSplit (inside (Succ up) 0) (inside up 0) False False,
+          rowEndsSplit (inside (Succ up) 0) (inside up 0) (inside (Succ up) 1) (inside up 1)
+        ]
+      | Succ up, Succ before =>
+        omega [
+          rowEndsSplit (inside (Succ up) (Succ before)) (inside up (Succ before)) (inside (Succ up) before) (inside up before),
+          rowEndsSplit (inside (Succ up) (Succ before)) (inside up (Succ before)) (inside (Succ up) (Succ (Succ before))) (inside up (Succ (Succ before)))
+        ]
 
 theorem cellDown (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Bool.toNat (startDown inside row column) + Bool.toNat (endDown inside row column)
     = convexDownLeft inside row column + convexDownRight inside row column + later (concaveDownRight inside row) column
-      + concaveDownLeft inside row (Succ column) :=
-  match column with
-    | Zero =>
-      omega [
-        rowEndsSplit (inside row 0) (inside (Succ row) 0) False False,
-        rowEndsSplit (inside row 0) (inside (Succ row) 0) (inside row 1) (inside (Succ row) 1)
-      ]
-    | Succ before =>
-      omega [
-        rowEndsSplit (inside row (Succ before)) (inside (Succ row) (Succ before)) (inside row before) (inside (Succ row) before),
-        rowEndsSplit (inside row (Succ before)) (inside (Succ row) (Succ before)) (inside row (Succ (Succ before))) (inside (Succ row) (Succ (Succ before)))
-      ]
+    + concaveDownLeft inside row (Succ column) := match column with
+      | Zero =>
+        omega [
+          rowEndsSplit (inside row 0) (inside (Succ row) 0) False False,
+          rowEndsSplit (inside row 0) (inside (Succ row) 0) (inside row 1) (inside (Succ row) 1)
+        ]
+      | Succ before =>
+        omega [
+          rowEndsSplit (inside row (Succ before)) (inside (Succ row) (Succ before)) (inside row before) (inside (Succ row) before),
+          rowEndsSplit (inside row (Succ before)) (inside (Succ row) (Succ before)) (inside row (Succ (Succ before))) (inside (Succ row) (Succ (Succ before)))
+        ]
 
 --| Likewise down a column, for fence left and right of a plot.
 theorem cellLeft (inside: Nat → Nat → Bool) (column: Nat) (row: Nat): Bool.toNat (startLeft inside row column) + Bool.toNat (endLeft inside row column)
     = convexUpLeft inside row column + convexDownLeft inside row column + later (r => concaveDownLeft inside r column) row
-      + concaveUpLeft inside (Succ row) column :=
-  match row with
-    | Zero =>
-      omega [
-        columnEndsSplit (inside 0 column) (leftOf inside 0 column) False False,
-        columnEndsSplit (inside 0 column) (leftOf inside 0 column) (inside 1 column) (leftOf inside 1 column)
-      ]
-    | Succ up =>
-      omega [
-        columnEndsSplit (inside (Succ up) column) (leftOf inside (Succ up) column) (inside up column) (leftOf inside up column),
-        columnEndsSplit (inside (Succ up) column) (leftOf inside (Succ up) column) (inside (Succ (Succ up)) column) (leftOf inside (Succ (Succ up)) column)
-      ]
+    + concaveUpLeft inside (Succ row) column := match row with
+      | Zero =>
+        omega [
+          columnEndsSplit (inside 0 column) (leftOf inside 0 column) False False,
+          columnEndsSplit (inside 0 column) (leftOf inside 0 column) (inside 1 column) (leftOf inside 1 column)
+        ]
+      | Succ up =>
+        omega [
+          columnEndsSplit (inside (Succ up) column) (leftOf inside (Succ up) column) (inside up column) (leftOf inside up column),
+          columnEndsSplit (inside (Succ up) column) (leftOf inside (Succ up) column) (inside (Succ (Succ up)) column) (leftOf inside (Succ (Succ up)) column)
+        ]
 
 theorem cellRight (inside: Nat → Nat → Bool) (column: Nat) (row: Nat): Bool.toNat (startRight inside row column) + Bool.toNat (endRight inside row column)
     = convexUpRight inside row column + convexDownRight inside row column + later (r => concaveDownRight inside r column) row
-      + concaveUpRight inside (Succ row) column :=
-  match row with
-    | Zero =>
-      omega [
-        columnEndsSplit (inside 0 column) (inside 0 (Succ column)) False False,
-        columnEndsSplit (inside 0 column) (inside 0 (Succ column)) (inside 1 column) (inside 1 (Succ column))
-      ]
-    | Succ up =>
-      omega [
-        columnEndsSplit (inside (Succ up) column) (inside (Succ up) (Succ column)) (inside up column) (inside up (Succ column)),
-        columnEndsSplit (inside (Succ up) column) (inside (Succ up) (Succ column)) (inside (Succ (Succ up)) column) (inside (Succ (Succ up)) (Succ column))
-      ]
+    + concaveUpRight inside (Succ row) column := match row with
+      | Zero =>
+        omega [
+          columnEndsSplit (inside 0 column) (inside 0 (Succ column)) False False,
+          columnEndsSplit (inside 0 column) (inside 0 (Succ column)) (inside 1 column) (inside 1 (Succ column))
+        ]
+      | Succ up =>
+        omega [
+          columnEndsSplit (inside (Succ up) column) (inside (Succ up) (Succ column)) (inside up column) (inside up (Succ column)),
+          columnEndsSplit (inside (Succ up) column) (inside (Succ up) (Succ column)) (inside (Succ (Succ up)) column) (inside (Succ (Succ up)) (Succ column))
+        ]
 
-theorem totalDouble (n: Nat) (f: Nat → Nat): total n (i => 2 * f i) = 2 * total n f :=
-  match n with
-    | Zero => rfl
-    | Succ n => omega [totalDouble n (i => f (Succ i))]
+theorem totalDouble (n: Nat) (f: Nat → Nat): total n (i => 2 * f i) = 2 * total n f := match n with
+  | Zero => rfl
+  | Succ n => omega [totalDouble n (i => f (Succ i))]
 
 theorem totalAdd4 (n: Nat) (f: Nat → Nat) (g: Nat → Nat) (h: Nat → Nat) (k: Nat → Nat):
     total n (i => f i + g i + h i + k i) = total n f + total n g + total n h + total n k :=

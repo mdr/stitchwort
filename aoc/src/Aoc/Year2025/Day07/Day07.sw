@@ -49,13 +49,12 @@ def parseManifoldOption (lines: List Text): Option Manifold := toOption (() => p
 --| otherwise gives exactly `parseManifoldOption lines`
 --| (`Aoc.Year2025.Day07.Proofs.checkManifoldParses`), so the proofs about the parser
 --| describe what is printed. An S may be anywhere; the first is the start.
-def checkManifold (lines: List Text): Result Manifold Text :=
-  match manifoldError lines with
-    | Some message => Err message
-    | None =>
-      match parseManifoldOption lines with
-        | Some manifold => Ok manifold
-        | None => Err "expected a line with an S, got none"
+def checkManifold (lines: List Text): Result Manifold Text := match manifoldError lines with
+  | Some message => Err message
+  | None =>
+    match parseManifoldOption lines with
+      | Some manifold => Ok manifold
+      | None => Err "expected a line with an S, got none"
 
 --| The first character that isn't . ^ or S, if any, named by its line and column.
 def manifoldError (lines: List Text): Option Text :=

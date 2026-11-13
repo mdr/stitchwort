@@ -42,30 +42,29 @@ theorem cornerIff (jigsaw: Jigsaw) (tile: Tile): (jigsaw.matchedEdges tile == 2)
   }
 
 theorem keptFilter [p: a → Prop] (decide: a → Bool) (decides: ∀ (item: a) => decide item = True ↔ p item)
-    (items kept: List a): Spec.Kept p items kept ↔ kept = items.filter decide :=
-  match items with
-    | [] => { forward = none => none, backward = none => none }
-    | [item, ..rest] =>
-      let later := keptFilter decide decides rest
-      match decided: decide item with
-        | True =>
-          let holds := (decides item).forward decided
-          {
-            forward = found =>
-              match found with
-                | Inl (Both yes (Witness others (Both more same))) => rewrite same, (later others).forward more in rfl
-                | Inr (Both no more) => Void.exfalso (no holds),
-            backward = same => Inl (Both holds (Witness (rest.filter decide) (Both ((later (rest.filter decide)).backward rfl) same)))
-          }
-        | False =>
-          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
-          {
-            forward = found =>
-              match found with
-                | Inl (Both yes more) => Void.exfalso (fails yes)
-                | Inr (Both no more) => (later kept).forward more,
-            backward = same => Inr (Both fails ((later kept).backward same))
-          }
+    (items kept: List a): Spec.Kept p items kept ↔ kept = items.filter decide := match items with
+      | [] => { forward = none => none, backward = none => none }
+      | [item, ..rest] =>
+        let later := keptFilter decide decides rest
+        match decided: decide item with
+          | True =>
+            let holds := (decides item).forward decided
+            {
+              forward = found =>
+                match found with
+                  | Inl (Both yes (Witness others (Both more same))) => rewrite same, (later others).forward more in rfl
+                  | Inr (Both no more) => Void.exfalso (no holds),
+              backward = same => Inl (Both holds (Witness (rest.filter decide) (Both ((later (rest.filter decide)).backward rfl) same)))
+            }
+          | False =>
+            let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
+            {
+              forward = found =>
+                match found with
+                  | Inl (Both yes more) => Void.exfalso (fails yes)
+                  | Inr (Both no more) => (later kept).forward more,
+              backward = same => Inr (Both fails ((later kept).backward same))
+            }
 
 theorem part1Exactly (jigsaw: Jigsaw) (answer: Nat): Spec.Part1 jigsaw answer ↔ answer = jigsaw.cornerProduct :=
   let kept := keptFilter (tile => jigsaw.matchedEdges tile == 2) (cornerIff jigsaw) jigsaw.tiles

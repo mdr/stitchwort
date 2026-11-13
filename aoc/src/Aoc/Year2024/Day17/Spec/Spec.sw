@@ -85,13 +85,12 @@ def Executes (opcode: Nat) (operand: Nat) (machine: Machine) (step: Step): Prop 
 --| the instruction "whose opcode is" the number at the pointer, with "the
 --| 3-bit number after it" as the operand. An opcode with no number after it
 --| is not a valid instruction: a fault.
-def StepMatches (program: List Nat) (machine: Machine) (step: Step): Prop :=
-  match program.get machine.pointer with
-    | None => step = Halt
-    | Some opcode =>
-      match program.get (machine.pointer + 1) with
-        | None => step = Fault
-        | Some operand => Executes opcode operand machine step
+def StepMatches (program: List Nat) (machine: Machine) (step: Step): Prop := match program.get machine.pointer with
+  | None => step = Halt
+  | Some opcode =>
+    match program.get (machine.pointer + 1) with
+      | None => step = Fault
+      | Some operand => Executes opcode operand machine step
 
 --| From `machine`, the program runs until it halts, outputting `output`,
 --| every step as the puzzle says.

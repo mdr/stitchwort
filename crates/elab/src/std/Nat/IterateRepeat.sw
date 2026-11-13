@@ -9,10 +9,9 @@ theorem Nat.iterateAdd (f: a → a) (m n: Nat) (x: a): Nat.iterate (m + n) f x =
     | Succ m => Nat.iterateAdd f m n (f x)
 
 --| A value `f` leaves alone stays.
-theorem Nat.iterateFixed (f: a → a) (z: a) (fixed: f z = z) (n: Nat): Nat.iterate n f z = z :=
-  match n with
-    | Zero => rfl
-    | Succ n => rewrite fixed in Nat.iterateFixed f z fixed n
+theorem Nat.iterateFixed (f: a → a) (z: a) (fixed: f z = z) (n: Nat): Nat.iterate n f z = z := match n with
+  | Zero => rfl
+  | Succ n => rewrite fixed in Nat.iterateFixed f z fixed n
 
 --| Reached at `steps`, a value `f` leaves alone is there at every later step.
 theorem Nat.iterateFixedLater (f: a → a) (x: a) (z: a) (fixed: f z = z) (steps: Nat) (later: Nat)
@@ -26,19 +25,18 @@ theorem Nat.iterateRepeats (f: a → a) (x: a) (first: Nat) (second: Nat) (earli
     (same: Nat.iterate first f x = Nat.iterate second f x) (n: Nat):
     Exists Nat (m => (m < second) ∧ (Nat.iterate n f x = Nat.iterate m f x))
     decreasing n
-:=
-  match late: Nat.leq second n with
-    | False => Witness n (Both (omega [late]) rfl)
-    | True =>
-      let back := first + (n - second)
-      let shifted: Nat.iterate n f x = Nat.iterate back f x :=
-        calc Nat.iterate n f x
-          _ = Nat.iterate (second + (n - second)) f x := rewrite (omega [late]: second + (n - second) = n) in rfl
-          _ = Nat.iterate (n - second) f (Nat.iterate second f x) := Nat.iterateAdd f second (n - second) x
-          _ = Nat.iterate (n - second) f (Nat.iterate first f x) := rewrite same in rfl
-          _ = Nat.iterate back f x := Eq.sym (Nat.iterateAdd f first (n - second) x)
-      Exists.elim (Nat.iterateRepeats f x first second earlier same back [decreasing := omega [earlier, late]]) (m both =>
-        Witness m (Both (And.left both) (Eq.trans shifted (And.right both))))
+:= match late: Nat.leq second n with
+  | False => Witness n (Both (omega [late]) rfl)
+  | True =>
+    let back := first + (n - second)
+    let shifted: Nat.iterate n f x = Nat.iterate back f x :=
+      calc Nat.iterate n f x
+        _ = Nat.iterate (second + (n - second)) f x := rewrite (omega [late]: second + (n - second) = n) in rfl
+        _ = Nat.iterate (n - second) f (Nat.iterate second f x) := Nat.iterateAdd f second (n - second) x
+        _ = Nat.iterate (n - second) f (Nat.iterate first f x) := rewrite same in rfl
+        _ = Nat.iterate back f x := Eq.sym (Nat.iterateAdd f first (n - second) x)
+    Exists.elim (Nat.iterateRepeats f x first second earlier same back [decreasing := omega [earlier, late]]) (m both =>
+      Witness m (Both (And.left both) (Eq.trans shifted (And.right both))))
 
 --| A partial step iterated: a state repeated at `first` and a later
 --| `second`, and not stopped by `second`, never stops.

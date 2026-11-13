@@ -7,15 +7,14 @@ import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
 
-theorem versionSumTotal (packet: Packet): versionSum packet = (packetsIn packet).sumBy versionOf :=
-  match packet with
-    | Literal version groups => rfl
-    | Operator version operation lengthType ({ head = first, tail = rest }) =>
-      rewrite List.sumByCons (packetsIn first ++ packetsInAll rest) (Operator version operation lengthType (NonEmptyList.cons first rest)) versionOf,
-        List.sumByAppend (packetsIn first) (packetsInAll rest) versionOf, versionSumTotal first, versionSumsTotal rest in omega
-    | Comparator version comparison lengthType first second =>
-      rewrite List.sumByCons (packetsIn first ++ packetsIn second) (Comparator version comparison lengthType first second) versionOf,
-        List.sumByAppend (packetsIn first) (packetsIn second) versionOf, versionSumTotal first, versionSumTotal second in omega
+theorem versionSumTotal (packet: Packet): versionSum packet = (packetsIn packet).sumBy versionOf := match packet with
+  | Literal version groups => rfl
+  | Operator version operation lengthType ({ head = first, tail = rest }) =>
+    rewrite List.sumByCons (packetsIn first ++ packetsInAll rest) (Operator version operation lengthType (NonEmptyList.cons first rest)) versionOf,
+      List.sumByAppend (packetsIn first) (packetsInAll rest) versionOf, versionSumTotal first, versionSumsTotal rest in omega
+  | Comparator version comparison lengthType first second =>
+    rewrite List.sumByCons (packetsIn first ++ packetsIn second) (Comparator version comparison lengthType first second) versionOf,
+      List.sumByAppend (packetsIn first) (packetsIn second) versionOf, versionSumTotal first, versionSumTotal second in omega
 
 theorem versionSumsTotal (packets: List Packet): versionSums packets = (packetsInAll packets).sumBy versionOf :=
   match packets with

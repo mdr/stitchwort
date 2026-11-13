@@ -16,23 +16,22 @@ theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart isQuestion re
     | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
 
 theorem runsPerson (read: List Char) (who: Person) (written: PersonWritten read who) (rest: List Char) (stops: Parse.CannotStart isQuestion rest):
-    Parse.Runs person read rest who :=
-  match written with
-    | Both nonEmpty (Both questions same) =>
-      match read with
-        | [] => Void.exfalso (nonEmpty rfl)
-        | [letter, ..more] =>
-          let sameAnswers: [letter, ..more].toSet = who.answers :=
-            Set.ext _ _ (question => Eq.trans (containsFromList [letter, ..more] question) (Eq.sym (same question)))
-          let sameSet: ({ answers = [letter, ..more].toSet }: Person) = who :=
-            match who with
-              | { answers } => rewrite sameAnswers in rfl
-          let lettersRun := Parse.runsMany1Symbols (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) (letter2 => letter2) isQuestion
-            (letter2 after ok => Parse.runsSatisfy _ _ letter2 after ok) declinesLetter letter more rest (rewrite List.mapId more in questions) stops
-          let lettersRead := rewrite List.mapId more at lettersRun in lettersRun
-          runsAsValue person [letter, ..more] rest _ who sameSet
-            (Parse.runsMap (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ [letter, ..more] rest
-              (NonEmptyList.cons letter more) lettersRead)
+    Parse.Runs person read rest who := match written with
+      | Both nonEmpty (Both questions same) =>
+        match read with
+          | [] => Void.exfalso (nonEmpty rfl)
+          | [letter, ..more] =>
+            let sameAnswers: [letter, ..more].toSet = who.answers :=
+              Set.ext _ _ (question => Eq.trans (containsFromList [letter, ..more] question) (Eq.sym (same question)))
+            let sameSet: ({ answers = [letter, ..more].toSet }: Person) = who :=
+              match who with
+                | { answers } => rewrite sameAnswers in rfl
+            let lettersRun := Parse.runsMany1Symbols (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) (letter2 => letter2) isQuestion
+              (letter2 after ok => Parse.runsSatisfy _ _ letter2 after ok) declinesLetter letter more rest (rewrite List.mapId more in questions) stops
+            let lettersRead := rewrite List.mapId more at lettersRun in lettersRun
+            runsAsValue person [letter, ..more] rest _ who sameSet
+              (Parse.runsMap (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ [letter, ..more] rest
+                (NonEmptyList.cons letter more) lettersRead)
 
 theorem spaceNotQuestion (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
   match isSpace with

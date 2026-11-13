@@ -14,12 +14,11 @@ type Direction =
 
 --| The neighbouring cell in a direction. Rows and columns stop at 0, but
 --| every level has rock all round, so nothing ever walks off its top or left.
-def Position.toward (position: Position) (direction: Direction): Position :=
-  match direction with
-    | North => { position | row = position.row - 1 }
-    | South => { position | row = position.row + 1 }
-    | West => { position | column = position.column - 1 }
-    | East => { position | column = position.column + 1 }
+def Position.toward (position: Position) (direction: Direction): Position := match direction with
+  | North => { position | row = position.row - 1 }
+  | South => { position | row = position.row + 1 }
+  | West => { position | column = position.column - 1 }
+  | East => { position | column = position.column + 1 }
 
 def distanceBetween (low: Nat) (high: Nat): Nat := (low - high) + (high - low)
 

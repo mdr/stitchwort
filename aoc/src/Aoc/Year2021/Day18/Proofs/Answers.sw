@@ -7,10 +7,9 @@ import Aoc.Year2021.Day18.Spec (AddsUpTo, IsReduced, IsSum, Part1, Part2, leaves
 import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| The program's magnitude is the puzzle's.
-theorem magnitudeSame (number: Number): Aoc.Year2021.Day18.Spec.magnitude number = magnitude number :=
-  match number with
-    | Regular _ => rfl
-    | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
+theorem magnitudeSame (number: Number): Aoc.Year2021.Day18.Spec.magnitude number = magnitude number := match number with
+  | Regular _ => rfl
+  | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
 
 --| A sum of two reduced numbers that `add` finishes is their sum, and is
 --| reduced.
@@ -20,14 +19,13 @@ theorem addSound (x: Number) (y: Number) (sum: Number) (reducedX: IsReduced x) (
   Both (And.left reduced) (leavesSmall 0 sum (And.left (And.right reduced)) (And.right (And.right reduced)))
 
 theorem addAllSound (total: Number) (numbers: List Number) (final: Number) (reducedTotal: IsReduced total) (h: List.All IsReduced numbers) (done: addAll total numbers = Some final):
-    AddsUpTo total numbers final :=
-  match numbers, h with
-    | [], _ => rewrite <- Option.someInjective done in NothingAdded total
-    | [next, ..rest], Both reducedNext reducedRest =>
-      match a: add total next with
-        | Some sum =>
-          let added := addSound total next sum reducedTotal reducedNext a
-          AddNext (And.left added) (addAllSound sum rest final (And.right added) reducedRest done)
+    AddsUpTo total numbers final := match numbers, h with
+      | [], _ => rewrite <- Option.someInjective done in NothingAdded total
+      | [next, ..rest], Both reducedNext reducedRest =>
+        match a: add total next with
+          | Some sum =>
+            let added := addSound total next sum reducedTotal reducedNext a
+            AddNext (And.left added) (addAllSound sum rest final (And.right added) reducedRest done)
 
 --| Part 1: for reduced numbers, if the program's sums finish, its answer
 --| is the spec's.

@@ -12,23 +12,21 @@ import Std (Char, List, Nat, Parse, Text)
 
 -- The format
 
-def MaskBitWritten (read: List Char) (bit: MaskBit): Prop :=
-  match bit with
-    | Off => read = ['0']
-    | On => read = ['1']
-    | X => read = ['X']
+def MaskBitWritten (read: List Char) (bit: MaskBit): Prop := match bit with
+  | Off => read = ['0']
+  | On => read = ['1']
+  | X => read = ['X']
 
 def DecimalWritten (read: List Char) (value: Nat): Prop := read ≠ [] ∧ read.all Parse.isDigit = True ∧ value = Parse.digitsValue read
 
 --| "The bitmask is always given as a string of 36 bits, written with the
 --| most significant bit (representing 2^35) on the left"; "mem[8] = 11"
 --| writes 11 to address 8.
-def InstructionWritten (read: List Char) (instruction: Instruction): Prop :=
-  match instruction with
-    | SetMask mask => ∃ (symbols: List Char) => read = "mask = ".toList ++ symbols ∧ Parse.Each MaskBitWritten symbols mask.bits ∧ mask.bits.length = 36
-    | Write address value =>
-      ∃ (addressRead: List Char) => ∃ (valueRead: List Char) =>
-        read = "mem[".toList ++ addressRead ++ "] = ".toList ++ valueRead ∧ DecimalWritten addressRead address ∧ DecimalWritten valueRead value
+def InstructionWritten (read: List Char) (instruction: Instruction): Prop := match instruction with
+  | SetMask mask => ∃ (symbols: List Char) => read = "mask = ".toList ++ symbols ∧ Parse.Each MaskBitWritten symbols mask.bits ∧ mask.bits.length = 36
+  | Write address value =>
+    ∃ (addressRead: List Char) => ∃ (valueRead: List Char) =>
+      read = "mem[".toList ++ addressRead ++ "] = ".toList ++ valueRead ∧ DecimalWritten addressRead address ∧ DecimalWritten valueRead value
 
 def StartsWithMask: (instructions: List Instruction) → Prop
   | [SetMask mask, ..rest] => Unit
@@ -74,11 +72,10 @@ def run (write: Mask → Nat → Nat → Memory → Memory) (program: Program): 
 
 --| "A 0 or 1 overwrites the corresponding bit in the value, while an X
 --| leaves the bit in the value unchanged."
-def overwrite (maskBit: MaskBit) (bit: Bool): Bool :=
-  match maskBit with
-    | Off => False
-    | On => True
-    | X => bit
+def overwrite (maskBit: MaskBit) (bit: Bool): Bool := match maskBit with
+  | Off => False
+  | On => True
+  | X => bit
 
 --| The value written: its bits beside the mask's, each overwritten.
 def masked (mask: Mask) (value: Nat): Nat := Nat.fromBits (List.zipWith mask.bits (Nat.toBits mask.bits.length value) overwrite)
@@ -96,11 +93,10 @@ def Part1 (program: Program) (answer: Nat): Prop := SumOfMemory (run writeMasked
 --| unchanged. If the bitmask bit is 1, the corresponding memory address bit
 --| is overwritten with 1. If the bitmask bit is X, the corresponding memory
 --| address bit is floating": it may be either.
-def bitFits (maskBit: MaskBit) (addressBit: Bool) (bit: Bool): Bool :=
-  match maskBit with
-    | Off => bit == addressBit
-    | On => bit
-    | X => True
+def bitFits (maskBit: MaskBit) (addressBit: Bool) (bit: Bool): Bool := match maskBit with
+  | Off => bit == addressBit
+  | On => bit
+  | X => True
 
 def allFit: (mask: List MaskBit) → (address: List Bool) → (bits: List Bool) → Bool
   | [maskBit, ..mask], [addressBit, ..address], [bit, ..bits] => bitFits maskBit addressBit bit && allFit mask address bits

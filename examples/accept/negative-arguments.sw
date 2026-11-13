@@ -30,10 +30,9 @@ test "-2.5.abs is (-2.5).abs" := -2.5.abs = 2.5
 test "an argument's method" := shift -3.neg = 13
 
 -- Patterns: `Some -1` is `Some (-1)`.
-def isMinusOne (o: Option Int): Bool :=
-  match o with
-    | Some -1 => True
-    | _ => False
+def isMinusOne (o: Option Int): Bool := match o with
+  | Some -1 => True
+  | _ => False
 
 test "Some -1" := isMinusOne (Some -1) = True
 test "not Some -1" := isMinusOne (Some 1) = False

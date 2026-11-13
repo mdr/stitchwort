@@ -119,10 +119,9 @@ def cells (rows: List (List a)): List (Position, a) :=
   rows.gridCells |> .map (((at, cell)) => (({ row = at.fst, column = at.snd }: Position), cell))
 
 --| The cell at `position`; `None` off the rows.
-def cellAt (rows: List (List a)) (position: Position): Option a :=
-  match rows.get position.row with
-    | Some row => row.get position.column
-    | None => None
+def cellAt (rows: List (List a)) (position: Position): Option a := match rows.get position.row with
+  | Some row => row.get position.column
+  | None => None
 
 --| The positions of the cells of `cells` whose tile passes `keep`, in the
 --| order of `cells` (`Grid.positionsWhere`, for rows of any lengths).

@@ -20,10 +20,9 @@ theorem spaceNotDigit (char: Char) (isSpace: Parse.isSpace char = True): Parse.i
     | Inr tab => rewrite tab.read in rfl
 
 theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
-    Parse.Runs Parse.nat read after number :=
-  match written with
-    | Both nonEmpty (Both allDigits decimal) =>
-      rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
+    Parse.Runs Parse.nat read after number := match written with
+      | Both nonEmpty (Both allDigits decimal) =>
+        rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
 
 --| What can follow a sequence of rule numbers: the line's end, or ` | ` and another sequence.
 def SeqFollow (after: List Char): Prop :=
@@ -89,53 +88,51 @@ theorem digitNotQuote (digit: Char) (isDigit: Parse.isDigit digit = True): (digi
     | True => cases
 
 theorem runsRuleBody (read: List Char) (rule2: Rule) (written: RuleWritten read rule2) (after: List Char) (stops: Parse.CannotStart seqChar after):
-    Parse.Runs ruleBody read after rule2 :=
-  match rule2, written with
-    | Letter found, Both same lower =>
-      let letterRuns: Parse.Runs ruleBody ['"', found, '"'] after (Letter found) :=
-        Parse.runsOneOfFirst _ _ ['"', found, '"'] after (Letter found)
-          (Parse.runsBind (() => Parse.char '"') _ ['"'] [found, '"'] _ after () _ rfl
-            (Parse.runsChar '"' _)
-            (Parse.runsBind letter _ [found] ['"'] _ after found _ rfl
-              (Parse.runsSatisfy _ _ found _ lower)
-              (Parse.runsBind (() => Parse.char '"') _ ['"'] [] _ after () _ (Eq.sym (List.appendNil ['"']))
-                (Parse.runsChar '"' _)
-                (Parse.runsPure (Letter found) after))))
-      rewrite same in letterRuns
-    | Alternatives sequences, Witness listed (Both written2 same) =>
-      match listed with
-        | { head, tail } =>
-          match sequencesStart read head tail written2 with
-            | Witness digit (Witness more (Both split isDigit)) =>
-              runsAsValue ruleBody read after (Alternatives (NonEmptyList.cons head tail).toList) (Alternatives sequences) (rewrite same in rfl)
-                (Parse.runsOneOfNext _ _ [] read after _
-                  (rewrite split in Parse.declinesBind (() => Parse.char '"') _ ([digit, ..more] ++ after) (Parse.declinesChar '"' digit (more ++ after) (digitNotQuote digit isDigit)))
-                  (Parse.runsMap (() => Parse.sepBy1 sequence (() => Parse.text " | ")) (sequences2 => Alternatives sequences2.toList) read after (NonEmptyList.cons head tail)
-                    (Parse.runsSepBy1Of sequence (() => Parse.text " | ") SequenceWritten (read2 u => read2 = " | ".toList) SeqFollow after
-                      (read2 v after2 ok follow => runsSequence read2 v ok after2 follow)
-                      (read2 after2 u same2 => rewrite same2 in Parse.runsText " | " after2)
-                      (read2 u same2 => rewrite same2 in List.consNotNil ' ' ['|', ' '])
-                      (read2 after2 u same2 => rewrite same2 in Inr (Witness after2 rfl))
-                      (Inl stops)
-                      (Parse.declinesSepStep sequence (() => Parse.text " | ") after
-                        (Parse.declinesText " | " after
-                          (match after with
-                            | [] => rfl
-                            | [char, ..more2] => rewrite notSpace char (stops char more2 rfl) in rfl)))
-                      read head tail written2)))
+    Parse.Runs ruleBody read after rule2 := match rule2, written with
+      | Letter found, Both same lower =>
+        let letterRuns: Parse.Runs ruleBody ['"', found, '"'] after (Letter found) :=
+          Parse.runsOneOfFirst _ _ ['"', found, '"'] after (Letter found)
+            (Parse.runsBind (() => Parse.char '"') _ ['"'] [found, '"'] _ after () _ rfl
+              (Parse.runsChar '"' _)
+              (Parse.runsBind letter _ [found] ['"'] _ after found _ rfl
+                (Parse.runsSatisfy _ _ found _ lower)
+                (Parse.runsBind (() => Parse.char '"') _ ['"'] [] _ after () _ (Eq.sym (List.appendNil ['"']))
+                  (Parse.runsChar '"' _)
+                  (Parse.runsPure (Letter found) after))))
+        rewrite same in letterRuns
+      | Alternatives sequences, Witness listed (Both written2 same) =>
+        match listed with
+          | { head, tail } =>
+            match sequencesStart read head tail written2 with
+              | Witness digit (Witness more (Both split isDigit)) =>
+                runsAsValue ruleBody read after (Alternatives (NonEmptyList.cons head tail).toList) (Alternatives sequences) (rewrite same in rfl)
+                  (Parse.runsOneOfNext _ _ [] read after _
+                    (rewrite split in Parse.declinesBind (() => Parse.char '"') _ ([digit, ..more] ++ after) (Parse.declinesChar '"' digit (more ++ after) (digitNotQuote digit isDigit)))
+                    (Parse.runsMap (() => Parse.sepBy1 sequence (() => Parse.text " | ")) (sequences2 => Alternatives sequences2.toList) read after (NonEmptyList.cons head tail)
+                      (Parse.runsSepBy1Of sequence (() => Parse.text " | ") SequenceWritten (read2 u => read2 = " | ".toList) SeqFollow after
+                        (read2 v after2 ok follow => runsSequence read2 v ok after2 follow)
+                        (read2 after2 u same2 => rewrite same2 in Parse.runsText " | " after2)
+                        (read2 u same2 => rewrite same2 in List.consNotNil ' ' ['|', ' '])
+                        (read2 after2 u same2 => rewrite same2 in Inr (Witness after2 rfl))
+                        (Inl stops)
+                        (Parse.declinesSepStep sequence (() => Parse.text " | ") after
+                          (Parse.declinesText " | " after
+                            (match after with
+                              | [] => rfl
+                              | [char, ..more2] => rewrite notSpace char (stops char more2 rfl) in rfl)))
+                        read head tail written2)))
 
 theorem runsNumbered (read: List Char) (numbered: (Nat, Rule)) (written: NumberedWritten read numbered) (after: List Char) (stops: Parse.CannotStart seqChar after):
-    Parse.Runs numberedRule read after numbered :=
-  match numbered, written with
-    | (number, rule2), Witness numberRead (Witness ruleRead (Both split (Both numberWritten ruleWritten))) =>
-      rewrite split in
-        Parse.runsBind Parse.nat _ numberRead (": ".toList ++ ruleRead) _ after number _ rfl
-          (runsNumber numberRead number _ numberWritten (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
-          (Parse.runsBind (() => Parse.text ": ") _ ": ".toList ruleRead _ after () _ rfl
-            (Parse.runsText ": " _)
-            (Parse.runsBind ruleBody _ ruleRead [] _ after rule2 _ (Eq.sym (List.appendNil ruleRead))
-              (runsRuleBody ruleRead rule2 ruleWritten _ stops)
-              (Parse.runsPure (number, rule2) after)))
+    Parse.Runs numberedRule read after numbered := match numbered, written with
+      | (number, rule2), Witness numberRead (Witness ruleRead (Both split (Both numberWritten ruleWritten))) =>
+        rewrite split in
+          Parse.runsBind Parse.nat _ numberRead (": ".toList ++ ruleRead) _ after number _ rfl
+            (runsNumber numberRead number _ numberWritten (char more found => rewrite <- List.consInjectiveHead _ _ _ _ found in rfl))
+            (Parse.runsBind (() => Parse.text ": ") _ ": ".toList ruleRead _ after () _ rfl
+              (Parse.runsText ": " _)
+              (Parse.runsBind ruleBody _ ruleRead [] _ after rule2 _ (Eq.sym (List.appendNil ruleRead))
+                (runsRuleBody ruleRead rule2 ruleWritten _ stops)
+                (Parse.runsPure (number, rule2) after)))
 
 theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart Char.isAsciiLowercase rest): Parse.Declines letter rest :=
   match rest with
@@ -151,18 +148,17 @@ theorem eachLetters (letters read: List Char) (h: Parse.Each LetterWritten read 
         | Both same all => Both (rewrite split, single, same in rfl) (Both lower all)
 
 theorem runsMessage (read: List Char) (message2: Message) (written: MessageWritten read message2) (after: List Char) (stops: Parse.CannotStart Char.isAsciiLowercase after):
-    Parse.Runs message read after message2 :=
-  match message2, written with
-    | { letters }, Witness found (Both each same) =>
-      match found with
-        | { head, tail } =>
-          match eachLetters [head, ..tail] read each with
-            | Both readIs all =>
-              let lettersRun := Parse.runsMany1Symbols letter (found2 => found2) Char.isAsciiLowercase
-                (found2 after ok => Parse.runsSatisfy _ _ found2 after ok) declinesLetter head tail after (rewrite List.mapId tail in all) stops
-              let lettersRead := rewrite List.mapId tail at lettersRun in lettersRun
-              rewrite readIs, same in
-                Parse.runsMap (() => Parse.many1 letter) (letters2 => { letters = letters2.toList }) [head, ..tail] after (NonEmptyList.cons head tail) lettersRead
+    Parse.Runs message read after message2 := match message2, written with
+      | { letters }, Witness found (Both each same) =>
+        match found with
+          | { head, tail } =>
+            match eachLetters [head, ..tail] read each with
+              | Both readIs all =>
+                let lettersRun := Parse.runsMany1Symbols letter (found2 => found2) Char.isAsciiLowercase
+                  (found2 after ok => Parse.runsSatisfy _ _ found2 after ok) declinesLetter head tail after (rewrite List.mapId tail in all) stops
+                let lettersRead := rewrite List.mapId tail at lettersRun in lettersRun
+                rewrite readIs, same in
+                  Parse.runsMap (() => Parse.many1 letter) (letters2 => { letters = letters2.toList }) [head, ..tail] after (NonEmptyList.cons head tail) lettersRead
 
 theorem declinesNumbered (input: List Char) (stops: Parse.CannotStart Parse.isDigit input): Parse.Declines numberedRule input :=
   Parse.declinesBind Parse.nat _ input (Parse.declinesNat input (Parse.takeWhileOfCannotStart Parse.isDigit input stops))
@@ -172,43 +168,41 @@ theorem declinesMessage (input: List Char) (stops: Parse.CannotStart Char.isAsci
 
 --| After a blank line's line break, whatever comes next isn't what `canStart` allows (it needs no word on spaces).
 theorem cannotStartAtBlankBreak (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False) (blank: List Char) (more: List Char)
-    (isBlank: Parse.BlankLine blank): Parse.CannotStart canStart (blank ++ more) :=
-  match isBlank with
-    | Witness first (Witness middle (Witness last (Both split (Both firstBreak rest)))) =>
-      rewrite split, List.appendAssoc first (middle ++ last) more in Parse.cannotStartAfterBreak canStart lf cr first ((middle ++ last) ++ more) firstBreak
+    (isBlank: Parse.BlankLine blank): Parse.CannotStart canStart (blank ++ more) := match isBlank with
+      | Witness first (Witness middle (Witness last (Both split (Both firstBreak rest)))) =>
+        rewrite split, List.appendAssoc first (middle ++ last) more in Parse.cannotStartAfterBreak canStart lf cr first ((middle ++ last) ++ more) firstBreak
 
 theorem runsReceived (read: List Char) (received2: Received) (written: ReceivedWritten read received2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
-    Parse.Runs received read ending received2 :=
-  match received2, written with
-    | { rules, messages }, Witness rulesRead (Witness blank (Witness messagesRead (Both split (Both (Witness rulesList (Both rulesWritten rulesSame)) (Both blankOk (Witness messagesList (Both messagesWritten messagesSame))))))) =>
-      match rules, rulesSame with
-        | { numbered }, rulesSame2 =>
-          match rulesList, rulesWritten, messagesList, messagesWritten with
-            | { head = firstRule, tail = otherRules }, rulesWritten2, { head = firstMessage, tail = otherMessages }, messagesWritten2 =>
-              let afterRules := blank ++ messagesRead
-              runsAsValue received read ending
-                ({ rules = { numbered = (NonEmptyList.cons firstRule otherRules).toList }, messages = (NonEmptyList.cons firstMessage otherMessages).toList }: Received)
-                { rules = { numbered }, messages }
-                (rewrite <- rulesSame2, <- messagesSame in rfl)
-                (rewrite split in
-                  Parse.runsBind (() => Parse.lines numberedRule) _ rulesRead afterRules _ ending (NonEmptyList.cons firstRule otherRules) _ rfl
-                    (Parse.runsLinesOf numberedRule NumberedWritten (Parse.CannotStart seqChar) (afterRules ++ ending)
-                      (read2 v after ok stops => runsNumbered read2 v ok after stops)
-                      (read2 after isBreak => Parse.cannotStartAfterBreak seqChar rfl rfl read2 after isBreak)
-                      (rewrite List.appendAssoc blank messagesRead ending in cannotStartAtBlankBreak seqChar rfl rfl blank (messagesRead ++ ending) blankOk)
-                      (rewrite List.appendAssoc blank messagesRead ending in
-                        Parse.declinesLinesAtBlank numberedRule Parse.isDigit declinesNumbered rfl rfl spaceNotDigit blank (messagesRead ++ ending) blankOk)
-                      rulesRead firstRule otherRules rulesWritten2)
-                    (Parse.runsBind Parse.blankLine _ blank messagesRead _ ending () _ rfl
-                      (Parse.runsBlankLineOf blank _ blankOk)
-                      (Parse.runsBind (() => Parse.lines message) _ messagesRead [] _ ending (NonEmptyList.cons firstMessage otherMessages) _ (Eq.sym (List.appendNil messagesRead))
-                        (Parse.runsLinesOf message MessageWritten (Parse.CannotStart Char.isAsciiLowercase) ending
-                          (read2 v after ok stops => runsMessage read2 v ok after stops)
-                          (read2 after isBreak => Parse.cannotStartAfterBreak Char.isAsciiLowercase rfl rfl read2 after isBreak)
-                          (Parse.cannotStartAtBreaks Char.isAsciiLowercase rfl rfl ending breaks)
-                          (Parse.declinesLinesAtBreaks message Char.isAsciiLowercase declinesMessage rfl rfl ending breaks)
-                          messagesRead firstMessage otherMessages messagesWritten2)
-                        (Parse.runsPure _ ending))))
+    Parse.Runs received read ending received2 := match received2, written with
+      | { rules, messages }, Witness rulesRead (Witness blank (Witness messagesRead (Both split (Both (Witness rulesList (Both rulesWritten rulesSame)) (Both blankOk (Witness messagesList (Both messagesWritten messagesSame))))))) =>
+        match rules, rulesSame with
+          | { numbered }, rulesSame2 =>
+            match rulesList, rulesWritten, messagesList, messagesWritten with
+              | { head = firstRule, tail = otherRules }, rulesWritten2, { head = firstMessage, tail = otherMessages }, messagesWritten2 =>
+                let afterRules := blank ++ messagesRead
+                runsAsValue received read ending
+                  ({ rules = { numbered = (NonEmptyList.cons firstRule otherRules).toList }, messages = (NonEmptyList.cons firstMessage otherMessages).toList }: Received)
+                  { rules = { numbered }, messages }
+                  (rewrite <- rulesSame2, <- messagesSame in rfl)
+                  (rewrite split in
+                    Parse.runsBind (() => Parse.lines numberedRule) _ rulesRead afterRules _ ending (NonEmptyList.cons firstRule otherRules) _ rfl
+                      (Parse.runsLinesOf numberedRule NumberedWritten (Parse.CannotStart seqChar) (afterRules ++ ending)
+                        (read2 v after ok stops => runsNumbered read2 v ok after stops)
+                        (read2 after isBreak => Parse.cannotStartAfterBreak seqChar rfl rfl read2 after isBreak)
+                        (rewrite List.appendAssoc blank messagesRead ending in cannotStartAtBlankBreak seqChar rfl rfl blank (messagesRead ++ ending) blankOk)
+                        (rewrite List.appendAssoc blank messagesRead ending in
+                          Parse.declinesLinesAtBlank numberedRule Parse.isDigit declinesNumbered rfl rfl spaceNotDigit blank (messagesRead ++ ending) blankOk)
+                        rulesRead firstRule otherRules rulesWritten2)
+                      (Parse.runsBind Parse.blankLine _ blank messagesRead _ ending () _ rfl
+                        (Parse.runsBlankLineOf blank _ blankOk)
+                        (Parse.runsBind (() => Parse.lines message) _ messagesRead [] _ ending (NonEmptyList.cons firstMessage otherMessages) _ (Eq.sym (List.appendNil messagesRead))
+                          (Parse.runsLinesOf message MessageWritten (Parse.CannotStart Char.isAsciiLowercase) ending
+                            (read2 v after ok stops => runsMessage read2 v ok after stops)
+                            (read2 after isBreak => Parse.cannotStartAfterBreak Char.isAsciiLowercase rfl rfl read2 after isBreak)
+                            (Parse.cannotStartAtBreaks Char.isAsciiLowercase rfl rfl ending breaks)
+                            (Parse.declinesLinesAtBreaks message Char.isAsciiLowercase declinesMessage rfl rfl ending breaks)
+                            messagesRead firstMessage otherMessages messagesWritten2)
+                          (Parse.runsPure _ ending))))
 
 --| The soundness theorem's conclusion: the input is the rules and messages
 --| written out, then any line breaks.

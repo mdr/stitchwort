@@ -202,10 +202,9 @@ def Graph.mapCosts [auto ord: Ord s]: Graph.Costs s (Map s Nat) := {
 }
 
 --| Whether the table has a cost for `state`.
-def Graph.Costs.has (costs: Graph.Costs s t) (table: t) (state: s): Bool :=
-  match costs.get table state with
-    | Some _ => True
-    | None => False
+def Graph.Costs.has (costs: Graph.Costs s t) (table: t) (state: s): Bool := match costs.get table state with
+  | Some _ => True
+  | None => False
 
 --| A state with a cost is one the table has.
 theorem Graph.Costs.hasOfGet (costs: Graph.Costs s t) [table: t] [state: s] [cost: Nat] (got: costs.get table state = Some cost):
@@ -214,9 +213,8 @@ theorem Graph.Costs.hasOfGet (costs: Graph.Costs s t) [table: t] [state: s] [cos
 
 --| A state the table has has some cost.
 theorem Graph.Costs.getOfHas (costs: Graph.Costs s t) [table: t] [state: s] (there: costs.has table state = True):
-    ∃ (cost: Nat) => costs.get table state = Some cost :=
-  match got: costs.get table state with
-    | Some cost => Witness cost rfl
+    ∃ (cost: Nat) => costs.get table state = Some cost := match got: costs.get table state with
+      | Some cost => Witness cost rfl
 
 --| A state just set is one the table has.
 theorem Graph.Costs.hasSetSame (costs: Graph.Costs s t) (table: t) (state: s) (cost: Nat): costs.has (costs.set table state cost) state = True :=
@@ -421,8 +419,8 @@ def Graph.Index.entries (index: Graph.Index s): (start: Nat) → (cells: List (O
 --| The entries have no pair for a state whose number isn't a cell's, when
 --| each cell with a cost belongs to the state its number decodes to.
 theorem Graph.Index.lookupEntriesOff [auto ord: Ord s] (index: Graph.Index s) (state: s) (start: Nat) (cells: List (Option Nat))
-    (numbered: (∀ (j cost: Nat) (other: s) => cells.getOr j None = Some cost → index.decode (start + j) = Some other → index.number other = Some (start + j)))
-    (off: (∀ (j: Nat) => index.number state ≠ Some (start + j))): Map.lookupLast state (index.entries start cells) = None :=
+    (numbered: ∀ (j cost: Nat) (other: s) => cells.getOr j None = Some cost → index.decode (start + j) = Some other → index.number other = Some (start + j))
+    (off: ∀ (j: Nat) => index.number state ≠ Some (start + j)): Map.lookupLast state (index.entries start cells) = None :=
   match cells with
     | [] => rfl
     | [None, ..rest] =>
@@ -446,7 +444,7 @@ theorem Graph.Index.lookupEntriesOff [auto ord: Ord s] (index: Graph.Index s) (s
 --| `j`, when each cell with a cost belongs to the state its number decodes
 --| to.
 theorem Graph.Index.lookupEntriesAt [auto ord: Ord s] (index: Graph.Index s) (state: s) (start: Nat) (cells: List (Option Nat)) (j: Nat)
-    (numbered: (∀ (j cost: Nat) (other: s) => cells.getOr j None = Some cost → index.decode (start + j) = Some other → index.number other = Some (start + j)))
+    (numbered: ∀ (j cost: Nat) (other: s) => cells.getOr j None = Some cost → index.decode (start + j) = Some other → index.number other = Some (start + j))
     (at: index.number state = Some (start + j)): Map.lookupLast state (index.entries start cells) = cells.getOr j None :=
   match cells, j with
     | [], j => rfl
@@ -549,10 +547,9 @@ theorem Graph.unsettledAtFewer (costs: Graph.Costs s t) (universe: List s) (sett
 
 --| Whether `total` is less than the cost `best` has for `state`; it is
 --| when `best` has none.
-def Graph.improves (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat): Bool :=
-  match costs.get best state with
-    | None => True
-    | Some known => total < known
+def Graph.improves (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat): Bool := match costs.get best state with
+  | None => True
+  | Some known => total < known
 
 --| A cost that doesn't improve is no less than one `best` has.
 theorem Graph.improvesFalse (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat) (no: Graph.improves costs best state total = False):
@@ -763,10 +760,9 @@ theorem Graph.queuedLeast [auto ord: Ord s] (graph: Graph s) (sources: List (s, 
     And.right facts cost state (Set.containsMin queue (cost, state) (And.left (Set.popMinSome queue (cost, state) rest (And.left facts)))))
 
 --| How many pairs the queue popped as `popped` held.
-def Graph.poppedSize [auto ord: Ord s] (popped: Option ((Nat, s), Set (Nat, s))): Nat :=
-  match popped with
-    | None => 0
-    | Some (least, rest) => rest.size + 1
+def Graph.poppedSize [auto ord: Ord s] (popped: Option ((Nat, s), Set (Nat, s))): Nat := match popped with
+  | None => 0
+  | Some (least, rest) => rest.size + 1
 
 --| Popping a queue tells of no more pairs than it holds.
 theorem Graph.poppedSizeAtMost [auto ord: Ord s] (queue: Set (Nat, s)): Graph.poppedSize queue.popMin ≤ queue.size :=
@@ -789,23 +785,22 @@ theorem Graph.poppedSizeAtMost [auto ord: Ord s] (queue: Set (Nat, s)): Graph.po
 def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (costs: Graph.Costs s t) (sources: List (s, Nat)) (settled: t) (best: t)
     (popped: Option ((Nat, s), Set (Nat, s))) (queued: Graph.Queued graph sources popped): t
     decreasing (Graph.unsettledAt costs (graph.universe sources) settled, Graph.poppedSize popped)
-:=
-  match popped with
-    | None => settled
-    | Some ((cost, state), rest) =>
-      let restQueued := Graph.queuedRest graph sources (cost, state) rest queued
-      if fresh: costs.has settled state = False then
-        let relaxed := Graph.relaxEdges costs cost (graph.edges state) rest best
-        Graph.searchFrom graph costs sources (costs.set settled state cost) relaxed.snd relaxed.fst.popMin
-          (Graph.queuedPop graph sources relaxed.fst (Graph.relaxedQueued graph costs sources state cost rest best restQueued))
-          [decreasing :=
-            Nat.LexLess.First
-              (Graph.unsettledAtFewer costs (graph.universe sources) settled (costs.set settled state cost)
-                (other there => costs.hasSetKeeps settled state cost there) state
-                (Graph.queuedLeast graph sources cost state rest queued) fresh (costs.hasSetSame settled state cost))]
-      else
-        Graph.searchFrom graph costs sources settled best rest.popMin (Graph.queuedPop graph sources rest restQueued)
-          [decreasing := Nat.LexLess.Second rfl (omega [Graph.poppedSizeAtMost rest])]
+:= match popped with
+  | None => settled
+  | Some ((cost, state), rest) =>
+    let restQueued := Graph.queuedRest graph sources (cost, state) rest queued
+    if fresh: costs.has settled state = False then
+      let relaxed := Graph.relaxEdges costs cost (graph.edges state) rest best
+      Graph.searchFrom graph costs sources (costs.set settled state cost) relaxed.snd relaxed.fst.popMin
+        (Graph.queuedPop graph sources relaxed.fst (Graph.relaxedQueued graph costs sources state cost rest best restQueued))
+        [decreasing :=
+          Nat.LexLess.First
+            (Graph.unsettledAtFewer costs (graph.universe sources) settled (costs.set settled state cost)
+              (other there => costs.hasSetKeeps settled state cost there) state
+              (Graph.queuedLeast graph sources cost state rest queued) fresh (costs.hasSetSame settled state cost))]
+    else
+      Graph.searchFrom graph costs sources settled best rest.popMin (Graph.queuedPop graph sources rest restQueued)
+        [decreasing := Nat.LexLess.Second rfl (omega [Graph.poppedSizeAtMost rest])]
 
 --| Dijkstra's search with its costs in tables of `costs`: the table of
 --| least costs it settles, from the sources, each given with the cost of
@@ -974,35 +969,34 @@ theorem Graph.searchFromCorrect [auto ord: Ord s] (graph: Graph s) (costs: Graph
     (invariant: Graph.SearchState graph costs sources reach queue settled best):
     Graph.SearchResultBy graph sources reach (costs.get (graph.searchFrom costs sources settled best popped queued))
     decreasing (Graph.unsettledAt costs (graph.universe sources) settled, queue.size)
-:=
-  match popped with
-    | None =>
-      rewrite Graph.searchFrom.eq1 graph costs sources settled best queued in
-        let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending others)))) := invariant
-        Both settledReached
-          (Both (source start member => Graph.boundOfPending costs queue settled found start source (sourcesPending source start member))
-            (from fromCost got next weight edge =>
-              Graph.boundOfPending costs queue settled found (fromCost + weight) next (edgesPending from fromCost got next weight edge)))
-    | Some ((cost, state), rest) =>
-      let (Both least restIs) := Set.popMinSome queue (cost, state) rest found
-      let restQueued := Graph.queuedRest graph sources (cost, state) rest queued
-      match taken: costs.has settled state with
-        | True =>
-          rewrite Graph.searchFrom.eq2.ifFalse graph costs sources settled best cost state rest queued taken in
-            Graph.searchFromCorrect graph costs sources reach edgesReach rest settled best rest.popMin (Graph.queuedPop graph sources rest restQueued) rfl
-              (rewrite restIs in Graph.skipKeeps graph costs sources reach queue settled best cost state least taken invariant)
-              [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
-        | False =>
-          let relaxed := Graph.relaxEdges costs cost (graph.edges state) rest best
-          rewrite Graph.searchFrom.eq2.ifTrue graph costs sources settled best cost state rest queued taken in
-            Graph.searchFromCorrect graph costs sources reach edgesReach relaxed.fst (costs.set settled state cost) relaxed.snd relaxed.fst.popMin
-              (Graph.queuedPop graph sources relaxed.fst (Graph.relaxedQueued graph costs sources state cost rest best restQueued)) rfl
-              (rewrite restIs in Graph.settleKeeps graph costs sources reach edgesReach queue settled best cost state least taken invariant)
-              [decreasing :=
-                Nat.LexLess.First
-                  (Graph.unsettledAtFewer costs (graph.universe sources) settled (costs.set settled state cost)
-                    (other there => costs.hasSetKeeps settled state cost there) state
-                    (Graph.queuedLeast graph sources cost state rest queued) taken (costs.hasSetSame settled state cost))]
+:= match popped with
+  | None =>
+    rewrite Graph.searchFrom.eq1 graph costs sources settled best queued in
+      let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending others)))) := invariant
+      Both settledReached
+        (Both (source start member => Graph.boundOfPending costs queue settled found start source (sourcesPending source start member))
+          (from fromCost got next weight edge =>
+            Graph.boundOfPending costs queue settled found (fromCost + weight) next (edgesPending from fromCost got next weight edge)))
+  | Some ((cost, state), rest) =>
+    let (Both least restIs) := Set.popMinSome queue (cost, state) rest found
+    let restQueued := Graph.queuedRest graph sources (cost, state) rest queued
+    match taken: costs.has settled state with
+      | True =>
+        rewrite Graph.searchFrom.eq2.ifFalse graph costs sources settled best cost state rest queued taken in
+          Graph.searchFromCorrect graph costs sources reach edgesReach rest settled best rest.popMin (Graph.queuedPop graph sources rest restQueued) rfl
+            (rewrite restIs in Graph.skipKeeps graph costs sources reach queue settled best cost state least taken invariant)
+            [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
+      | False =>
+        let relaxed := Graph.relaxEdges costs cost (graph.edges state) rest best
+        rewrite Graph.searchFrom.eq2.ifTrue graph costs sources settled best cost state rest queued taken in
+          Graph.searchFromCorrect graph costs sources reach edgesReach relaxed.fst (costs.set settled state cost) relaxed.snd relaxed.fst.popMin
+            (Graph.queuedPop graph sources relaxed.fst (Graph.relaxedQueued graph costs sources state cost rest best restQueued)) rfl
+            (rewrite restIs in Graph.settleKeeps graph costs sources reach edgesReach queue settled best cost state least taken invariant)
+            [decreasing :=
+              Nat.LexLess.First
+                (Graph.unsettledAtFewer costs (graph.universe sources) settled (costs.set settled state cost)
+                  (other there => costs.hasSetKeeps settled state cost there) state
+                  (Graph.queuedLeast graph sources cost state rest queued) taken (costs.hasSetSame settled state cost))]
 
 --| Dijkstra's search over any cost table returns what `SearchResultBy`
 --| says of the table it ends with, for any `reach` that holds at each
@@ -1056,14 +1050,13 @@ theorem Graph.distancesCorrect [auto ord: Ord s] (graph: Graph s) (index: Graph.
     (sourcesReach: ∀ (source: s) (start: Nat) => (source, start) ∈ sources → reach source start)
     (edgesReach: ∀ (state: s) (cost: Nat) => reach state cost → ∀ (next: s) (weight: Nat) => (next, weight) ∈ graph.edges state →
       reach next (cost + weight)):
-    Graph.SearchResult graph sources reach (graph.distances (index := index) sources) :=
-  match empty: index.size with
-    | Zero => Graph.distancesWithCorrect graph Graph.mapCosts sources reach sourcesReach edgesReach
-    | Succ _ =>
-      let table := graph.distancesWith (Graph.indexCosts index) sources
-      Graph.searchResultBySame graph sources reach ((Graph.indexCosts index).get table) (state => (Graph.IndexTable.toMap index table).get state)
-        (state => Graph.IndexTable.getToMap index table state)
-        (Graph.distancesWithCorrect graph (Graph.indexCosts index) sources reach sourcesReach edgesReach)
+    Graph.SearchResult graph sources reach (graph.distances (index := index) sources) := match empty: index.size with
+      | Zero => Graph.distancesWithCorrect graph Graph.mapCosts sources reach sourcesReach edgesReach
+      | Succ _ =>
+        let table := graph.distancesWith (Graph.indexCosts index) sources
+        Graph.searchResultBySame graph sources reach ((Graph.indexCosts index).get table) (state => (Graph.IndexTable.toMap index table).get state)
+          (state => Graph.IndexTable.getToMap index table state)
+          (Graph.distancesWithCorrect graph (Graph.indexCosts index) sources reach sourcesReach edgesReach)
 
 --| Each cost Dijkstra's search finds is a walk's from a source, and no walk
 --| from a source costs less, with any `index`.
@@ -1096,13 +1089,12 @@ theorem Graph.visitGrows [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (
 
 --| Visiting edges keeps what was on the list on it.
 theorem Graph.visitListed [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s)
-    (member: state ∈ next): state ∈ (Graph.visitEdges depth edges settled next).snd :=
-  match edges with
-    | [] => member
-    | [(target, weight), ..rest] =>
-      match there: settled.contains target with
-        | True => Graph.visitListed depth rest settled next state member
-        | False => Graph.visitListed depth rest (settled.insert target depth) [target, ..next] state (Inr member)
+    (member: state ∈ next): state ∈ (Graph.visitEdges depth edges settled next).snd := match edges with
+      | [] => member
+      | [(target, weight), ..rest] =>
+        match there: settled.contains target with
+          | True => Graph.visitListed depth rest settled next state member
+          | False => Graph.visitListed depth rest (settled.insert target depth) [target, ..next] state (Inr member)
 
 --| What visiting edges settles anew is at `depth`, and put on the list.
 theorem Graph.visitNew [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s) (cost: Nat) (got: (Graph.visitEdges depth edges settled next).fst.get state = Some cost):
@@ -1359,17 +1351,16 @@ theorem Graph.breadthFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: Li
     (invariant: Graph.BreadthState graph sources reach depth settled frontier):
     Graph.StepResult graph (sources.map (source => (source, 0))) reach (graph.breadthFrom depth settled frontier visited found)
     decreasing Graph.unsettledIn graph.states settled
-:=
-  match visited with
-    | (more, []) =>
-      rewrite Graph.breadthDone graph depth settled frontier more found in
-        Graph.breadthDoneCorrect graph sources reach depth settled frontier more found invariant
-    | (more, [first, ..rest]) =>
-      rewrite Graph.breadthStep graph depth settled frontier more first rest found in
-        Graph.breadthFromCorrect graph sources reach edgesReach (depth + 1) more [first, ..rest]
-          (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more) rfl
-          (Graph.breadthKeeps graph sources reach edgesReach depth settled frontier more [first, ..rest] found invariant)
-          [decreasing := Graph.visitFewer graph (depth + 1) frontier settled more first rest found]
+:= match visited with
+  | (more, []) =>
+    rewrite Graph.breadthDone graph depth settled frontier more found in
+      Graph.breadthDoneCorrect graph sources reach depth settled frontier more found invariant
+  | (more, [first, ..rest]) =>
+    rewrite Graph.breadthStep graph depth settled frontier more first rest found in
+      Graph.breadthFromCorrect graph sources reach edgesReach (depth + 1) more [first, ..rest]
+        (graph.visitFrontier (depth + 1 + 1) [first, ..rest] more) rfl
+        (Graph.breadthKeeps graph sources reach edgesReach depth settled frontier more [first, ..rest] found invariant)
+        [decreasing := Graph.visitFewer graph (depth + 1) frontier settled more first rest found]
 
 --| Breadth-first search returns what `StepResult` says, whatever its edges
 --| cost, for any `reach` that holds at each source for 0 and one more along

@@ -62,10 +62,9 @@ def readFold(): {Parse} Fold :=
 
 --| The paper, if every fold can be made as the puzzle promises; otherwise
 --| fail, naming the first fold that can't and a dot in its way.
-def checkPaper (paper: Paper): {Fail} Paper :=
-  match firstBlocked paper.dots paper.folds with
-    | Some (index, dot) => Fail.fail "fold ${index + 1}: the dot at ${dot.x},${dot.y} is on its line, or further beyond it than the sheet reaches on the near side"
-    | None => paper
+def checkPaper (paper: Paper): {Fail} Paper := match firstBlocked paper.dots paper.folds with
+  | Some (index, dot) => Fail.fail "fold ${index + 1}: the dot at ${dot.x},${dot.y} is on its line, or further beyond it than the sheet reaches on the near side"
+  | None => paper
 
 --| The first fold that has a dot (after the folds before it) on its line
 --| or too far beyond it, with its index and that dot.
@@ -81,17 +80,15 @@ def firstBlockedFrom (index: Nat) (dots: List Point): List Fold → Option (Nat,
 --| A dot is clear of a fold when it isn't on the line and isn't further
 --| beyond it than the line is from the near edge (so its reflection is on
 --| the sheet).
-def clears (fold: Fold) (dot: Point): Bool :=
-  match fold with
-    | AlongX line => dot.x != line && dot.x <= 2 * line
-    | AlongY line => dot.y != line && dot.y <= 2 * line
+def clears (fold: Fold) (dot: Point): Bool := match fold with
+  | AlongX line => dot.x != line && dot.x <= 2 * line
+  | AlongY line => dot.y != line && dot.y <= 2 * line
 
 --| Where a dot ends up after a fold: reflected across the line if it is
 --| beyond it, where it was otherwise.
-def foldDot (fold: Fold) (dot: Point): Point :=
-  match fold with
-    | AlongX line => if line < dot.x then { dot | x = 2 * line - dot.x } else dot
-    | AlongY line => if line < dot.y then { dot | y = 2 * line - dot.y } else dot
+def foldDot (fold: Fold) (dot: Point): Point := match fold with
+  | AlongX line => if line < dot.x then { dot | x = 2 * line - dot.x } else dot
+  | AlongY line => if line < dot.y then { dot | y = 2 * line - dot.y } else dot
 
 --| One fold: every dot moves to where it lands, and dots that land
 --| together become one.

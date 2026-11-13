@@ -12,12 +12,11 @@ theorem healedAtMost (hitPoints: Nat): healed hitPoints ≤ maxHitPoints :=
     | False => rfl
 
 theorem monstersTurnAtMost (dice: Dice) (state: State) (atMost: state.hitPoints ≤ maxHitPoints):
-    (monstersTurn dice state).hitPoints ≤ maxHitPoints :=
-  match phase: state.phase with
-    | Playing => omega
-    | Won => atMost
-    | Died => atMost
-    | GaveUp => atMost
+    (monstersTurn dice state).hitPoints ≤ maxHitPoints := match phase: state.phase with
+      | Playing => omega
+      | Won => atMost
+      | Died => atMost
+      | GaveUp => atMost
 
 theorem playerMovesAtMost (dice: Dice) (state: State) (direction: Direction) (atMost: state.hitPoints ≤ maxHitPoints):
     (playerMoves dice state direction).hitPoints ≤ maxHitPoints :=
@@ -32,24 +31,23 @@ theorem descendAtMost (dice: Dice) (state: State) (atMost: state.hitPoints ≤ m
   atMost
 
 theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
-    (resolve dice state command).hitPoints ≤ maxHitPoints :=
-  match phase: state.phase with
-    | Playing =>
-      match command with
-        | Quit => atMost
-        | Wait => monstersTurnAtMost dice { state | message = "You wait." } atMost
-        | Move direction => monstersTurnAtMost dice (playerMoves dice state direction) (playerMovesAtMost dice state direction atMost)
-        | Drink =>
-          match none: state.potions == 0 with
-            | True => atMost
-            | False => monstersTurnAtMost dice (drink state) (healedAtMost state.hitPoints)
-        | Descend =>
-          match stairs: isStairs state.level state.player with
-            | True => descendAtMost dice state atMost
-            | False => atMost
-    | Won => atMost
-    | Died => atMost
-    | GaveUp => atMost
+    (resolve dice state command).hitPoints ≤ maxHitPoints := match phase: state.phase with
+      | Playing =>
+        match command with
+          | Quit => atMost
+          | Wait => monstersTurnAtMost dice { state | message = "You wait." } atMost
+          | Move direction => monstersTurnAtMost dice (playerMoves dice state direction) (playerMovesAtMost dice state direction atMost)
+          | Drink =>
+            match none: state.potions == 0 with
+              | True => atMost
+              | False => monstersTurnAtMost dice (drink state) (healedAtMost state.hitPoints)
+          | Descend =>
+            match stairs: isStairs state.level state.player with
+              | True => descendAtMost dice state atMost
+              | False => atMost
+      | Won => atMost
+      | Died => atMost
+      | GaveUp => atMost
 
 --| Hit points never exceed the maximum after a turn, whatever the seed.
 theorem stepAtMost (seed: Nat) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):

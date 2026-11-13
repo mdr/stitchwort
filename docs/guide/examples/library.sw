@@ -43,10 +43,9 @@ test "filterMap" := ["1", "x", "3"].filterMap Text.toNat == [1, 3]
 -- end option
 
 -- begin result
-def parseAge (text: Text): Result Nat Text :=
-  match text.toNat with
-    | Some age => Ok age
-    | None => Err "not a number: '${text}'"
+def parseAge (text: Text): Result Nat Text := match text.toNat with
+  | Some age => Ok age
+  | None => Err "not a number: '${text}'"
 
 test "ok" := parseAge "36" == Ok 36
 test "err" := parseAge "old" == Err "not a number: 'old'"

@@ -10,7 +10,6 @@
 def List.unfold (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat)
     (shrinks: ∀ (x y: s) (v: a) => step x = Some (MkPair v y) → measure y < measure x): List a
     decreasing measure seed
-:=
-  match e: step seed with
-    | None => []
-    | Some (MkPair v next) => [v, ..List.unfold next step measure shrinks [decreasing := shrinks seed next v e]]
+:= match e: step seed with
+  | None => []
+  | Some (MkPair v next) => [v, ..List.unfold next step measure shrinks [decreasing := shrinks seed next v e]]

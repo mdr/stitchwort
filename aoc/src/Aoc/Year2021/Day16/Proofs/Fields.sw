@@ -38,9 +38,8 @@ theorem readGroupsBitsFrom (rest: List Bool) (tail: List Nat) (group: Nat) (smal
         (BitReader.readNumberAppend 4 group tail (omega [fits])) (omega [length, Nat.toBitsLength 4 group]) (readGroupsBitsFrom rest more next others)
 
 theorem readGroupsBits (rest: List Bool) (groups: NonEmptyList Nat) (small: groups.all (group => group < 16) = True):
-    readGroups { unread = groupBits groups ++ rest } = Some (groups, { unread = rest }) :=
-  match groups with
-    | { head, tail } => readGroupsBitsFrom rest tail head small
+    readGroups { unread = groupBits groups ++ rest } = Some (groups, { unread = rest }) := match groups with
+      | { head, tail } => readGroupsBitsFrom rest tail head small
 
 --| What `readGroups` reads is the spec's bits for the groups it gives,
 --| each below 16.

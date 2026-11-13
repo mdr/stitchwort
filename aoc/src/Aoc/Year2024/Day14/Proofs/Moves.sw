@@ -15,14 +15,13 @@ theorem negSuccIs (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewri
 
 --| Moving `tiles` tiles one at a time is adding `tiles` and wrapping.
 theorem moveWrap (size: Nat) (x: Nat) (inside: x < size)
-    (tiles: Int): move size tiles x = Int.modNat (x.toInt + tiles) size :=
-  match tiles with
-    | OfNat steps =>
-      rewrite iterateWrap size 1 (forward size) (y below => Int.modNatSuccWrap size y below) steps x inside,
-        (ring: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
-    | NegSucc steps =>
-      Eq.trans (iterateWrap size (-1) (backward size) (y below => Int.modNatPredWrap size y below) (Succ steps) x inside)
-        (Eq.cong (distance => Int.modNat (x.toInt + distance) size) (Eq.sym (negSuccIs steps)))
+    (tiles: Int): move size tiles x = Int.modNat (x.toInt + tiles) size := match tiles with
+      | OfNat steps =>
+        rewrite iterateWrap size 1 (forward size) (y below => Int.modNatSuccWrap size y below) steps x inside,
+          (ring: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
+      | NegSucc steps =>
+        Eq.trans (iterateWrap size (-1) (backward size) (y below => Int.modNatPredWrap size y below) (Succ steps) x inside)
+          (Eq.cong (distance => Int.modNat (x.toInt + distance) size) (Eq.sym (negSuccIs steps)))
 
 --| One second, tile by tile, is the velocity's offset, wrapped.
 theorem secondWrap (space: Space) (velocity: Offset) (position: Position) (inside: space.contains position = True):

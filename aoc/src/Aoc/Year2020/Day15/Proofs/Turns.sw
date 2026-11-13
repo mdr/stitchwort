@@ -56,11 +56,10 @@ theorem iterateTurn (starting: Starting) (count: Nat) (game: Game): (Nat.iterate
 --| `count` more turns keep the game playing, as long as they end by `turns`.
 theorem iteratePlaying (starting: Starting) (turns: Nat) (count: Nat) (game: Game)
     (playing: Playing starting (starting.room turns) game) (short: game.turn + count ≤ turns):
-    Playing starting (starting.room turns) (Nat.iterate count starting.takeTurn game) :=
-  match count with
-    | Zero => playing
-    | Succ count =>
-      iteratePlaying starting turns count (starting.takeTurn game) (takeTurnPlaying starting turns game playing (omega)) (omega)
+    Playing starting (starting.room turns) (Nat.iterate count starting.takeTurn game) := match count with
+      | Zero => playing
+      | Succ count =>
+        iteratePlaying starting turns count (starting.takeTurn game) (takeTurnPlaying starting turns game playing (omega)) (omega)
 
 theorem numberSpokenSpec (starting: Starting) (turn: Nat): starting.numberSpoken turn = Spec.numberSpoken starting.numbers.toList turn :=
   match turn with

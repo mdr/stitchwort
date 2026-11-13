@@ -46,11 +46,10 @@ def total (f: Nat → Nat): List Nat → Nat
 
 theorem totalCongRange (f1: Nat → Nat) (f2: Nat → Nat) (c: Nat) (s: Nat)
     (ef: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => f1 x = f2 x):
-    total f1 (List.rangeFrom c s) = total f2 (List.rangeFrom c s) :=
-  match c with
-    | Zero => rfl
-    | Succ c =>
-      rewrite ef s omega omega, totalCongRange f1 f2 c (Succ s) (x low high => ef x omega omega)
+    total f1 (List.rangeFrom c s) = total f2 (List.rangeFrom c s) := match c with
+      | Zero => rfl
+      | Succ c =>
+        rewrite ef s omega omega, totalCongRange f1 f2 c (Succ s) (x low high => ef x omega omega)
 
 theorem totalled (n: Nat): total (x => x + (n - x)) (List.range 0 n) = total (x => n) (List.range 0 n) :=
   rewrite Nat.addSubCancel

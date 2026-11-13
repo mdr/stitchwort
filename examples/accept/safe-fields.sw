@@ -6,10 +6,9 @@ import Std (List, Ord, SafeInt, SafeNat)
 
 type Counter = { name: Text, count: SafeNat, delta: SafeInt }
 
-def counter (n: Nat) (d: Int): Option Counter :=
-  match SafeNat.ofNat n, SafeInt.ofInt d with
-    | Some c, Some e => Some { name = "c", count = c, delta = e }
-    | _, _ => None
+def counter (n: Nat) (d: Int): Option Counter := match SafeNat.ofNat n, SafeInt.ofInt d with
+  | Some c, Some e => Some { name = "c", count = c, delta = e }
+  | _, _ => None
 
 def three: SafeNat := { value = 3, fits = rfl }
 def four: SafeNat := { value = 4, fits = rfl }

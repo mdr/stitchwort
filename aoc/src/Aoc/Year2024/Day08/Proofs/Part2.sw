@@ -18,23 +18,22 @@ theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnT
     (nonzero: (difference.rows = 0) ∧ (difference.columns = 0) → Void)
     (divisor: Nat) (rows: difference.rows.natAbs = rowTimes * divisor) (columns: difference.columns.natAbs = columnTimes * divisor)
     (bezout: s * difference.rows.natAbs.toInt + t * difference.columns.natAbs.toInt = divisor.toInt)
-    (use: (∀ (scale: Int) => scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
+    (use: ∀ (scale: Int) => scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
       difference.columns = scale * (divideBy difference divisor).columns → ∀ (s t: Int) =>
-      s * (divideBy difference divisor).rows + t * (divideBy difference divisor).columns = 1 → goal)):
-    goal :=
-  match divisor with
-    | Zero =>
-      Void.exfalso (nonzero (Both (Int.natAbsZero difference.rows (omega [rows])) (Int.natAbsZero difference.columns (omega [columns]))))
-    | Succ below =>
-      let scale := (Succ below).toInt
-      let step := divideBy difference (Succ below)
-      let rowLaw: scale * step.rows = difference.rows := Int.divExact difference.rows below rowTimes rows
-      let columnLaw: scale * step.columns = difference.columns := Int.divExact difference.columns below columnTimes columns
-      let rowSign := Int.sign difference.rows
-      let columnSign := Int.sign difference.columns
-      let scaled: scale * (s * rowSign * step.rows + t * columnSign * step.columns) = scale * 1 :=
-        ring [bezout, s * Int.natAbsSign difference.rows, t * Int.natAbsSign difference.columns, s * rowSign * rowLaw, t * columnSign * columnLaw]
-      use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (Int.mulCancelLeft scale _ 1 (omega) scaled)
+      s * (divideBy difference divisor).rows + t * (divideBy difference divisor).columns = 1 → goal):
+    goal := match divisor with
+      | Zero =>
+        Void.exfalso (nonzero (Both (Int.natAbsZero difference.rows (omega [rows])) (Int.natAbsZero difference.columns (omega [columns]))))
+      | Succ below =>
+        let scale := (Succ below).toInt
+        let step := divideBy difference (Succ below)
+        let rowLaw: scale * step.rows = difference.rows := Int.divExact difference.rows below rowTimes rows
+        let columnLaw: scale * step.columns = difference.columns := Int.divExact difference.columns below columnTimes columns
+        let rowSign := Int.sign difference.rows
+        let columnSign := Int.sign difference.columns
+        let scaled: scale * (s * rowSign * step.rows + t * columnSign * step.columns) = scale * 1 :=
+          ring [bezout, s * Int.natAbsSign difference.rows, t * Int.natAbsSign difference.columns, s * rowSign * rowLaw, t * columnSign * columnLaw]
+        use scale (omega) (Eq.sym rowLaw) (Eq.sym columnLaw) (s * rowSign) (t * columnSign) (Int.mulCancelLeft scale _ 1 (omega) scaled)
 
 --| The step to grid points from `start` towards `end`: the offset between
 --| them is a nonzero multiple of it, and its parts are coprime (some whole
@@ -88,21 +87,20 @@ def stepsFrom (start: Position) (step: Offset) (count: Nat): List Position := [s
 --| among the harmonics.
 theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: Position) (k: Int)
     (rowAt: point.row.toInt = start.row.toInt + (start.stepToward end).rows * k) (columnAt: point.column.toInt = start.column.toInt + (start.stepToward end).columns * k)
-    (bound: k.natAbs < Nat.max city.height city.width): point ∈ city.harmonics start end :=
-  match k with
-    | OfNat count =>
-      let step := start.stepToward end
-      List.memFlatMapIntro (stepsFrom start step) count point (List.range 0 (Nat.max city.height city.width))
-        (List.memRangeFromIntro count (Nat.max city.height city.width) 0 (omega) (omega))
-        (List.memFilterMapIntro start.offset (step.times count.toInt) point [step.times count.toInt, (step.times count.toInt).negate] (Inl rfl)
-          (offsetOf start (step.times count.toInt) point rowAt columnAt))
-    | NegSucc count =>
-      let step := start.stepToward end
-      List.memFlatMapIntro (stepsFrom start step) (Succ count) point (List.range 0 (Nat.max city.height city.width))
-        (List.memRangeFromIntro (Succ count) (Nat.max city.height city.width) 0 (omega) (omega))
-        (List.memFilterMapIntro start.offset (step.times (Succ count).toInt).negate point
-          [step.times (Succ count).toInt, (step.times (Succ count).toInt).negate] (Inr (Inl rfl))
-          (offsetOf start (step.times (Succ count).toInt).negate point (ring [rowAt]) (ring [columnAt])))
+    (bound: k.natAbs < Nat.max city.height city.width): point ∈ city.harmonics start end := match k with
+      | OfNat count =>
+        let step := start.stepToward end
+        List.memFlatMapIntro (stepsFrom start step) count point (List.range 0 (Nat.max city.height city.width))
+          (List.memRangeFromIntro count (Nat.max city.height city.width) 0 (omega) (omega))
+          (List.memFilterMapIntro start.offset (step.times count.toInt) point [step.times count.toInt, (step.times count.toInt).negate] (Inl rfl)
+            (offsetOf start (step.times count.toInt) point rowAt columnAt))
+      | NegSucc count =>
+        let step := start.stepToward end
+        List.memFlatMapIntro (stepsFrom start step) (Succ count) point (List.range 0 (Nat.max city.height city.width))
+          (List.memRangeFromIntro (Succ count) (Nat.max city.height city.width) 0 (omega) (omega))
+          (List.memFilterMapIntro start.offset (step.times (Succ count).toInt).negate point
+            [step.times (Succ count).toInt, (step.times (Succ count).toInt).negate] (Inr (Inl rfl))
+            (offsetOf start (step.times (Succ count).toInt).negate point (ring [rowAt]) (ring [columnAt])))
 
 theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firstOn: city.contains first = True) (distinct: first ≠ second)
     (point: Position) (inside: city.contains point = True):

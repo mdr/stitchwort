@@ -9,14 +9,13 @@ type Turn = { left: Bool, steps: Nat, weight: Nat, colour: Text }
 def colours: List Text := ["red", "green", "blue"]
 
 -- Each `need` reads an `Option`; a `None` stops the whole parse.
-def turn (line: Text): {Abort} Turn :=
-  match line.split ' ' with
-    | [dir, weightText, colour] =>
-      let (letter, digits) := need dir.uncons
-      ensure (letter == 'L' ∨ letter == 'R')
-      ensure (colours.any (== colour))
-      { left = letter == 'L', steps = need digits.toNat, weight = weightText.toNat.orAbort, colour }
-    | _ => abort()
+def turn (line: Text): {Abort} Turn := match line.split ' ' with
+  | [dir, weightText, colour] =>
+    let (letter, digits) := need dir.uncons
+    ensure (letter == 'L' ∨ letter == 'R')
+    ensure (colours.any (== colour))
+    { left = letter == 'L', steps = need digits.toNat, weight = weightText.toNat.orAbort, colour }
+  | _ => abort()
 
 -- Every line, or give up if any line is bad.
 def turns: List Text → {Abort} List Turn
@@ -34,13 +33,12 @@ def signed (line: Text): Int :=
 
 -- Composes with other abilities: prints each line's colour as it goes, and
 -- gives up at the first bad line (after printing the good ones before it).
-def total (lines: List Text): {IO, Abort} Nat :=
-  match lines with
-    | [] => 0
-    | [line, ..rest] =>
-      let turned := turn line
-      IO.print turned.colour
-      turned.steps * turned.weight + total rest
+def total (lines: List Text): {IO, Abort} Nat := match lines with
+  | [] => 0
+  | [line, ..rest] =>
+    let turned := turn line
+    IO.print turned.colour
+    turned.steps * turned.weight + total rest
 
 -- A number read from text, or `0`: the `0` is checked as an `Int`, the
 -- type the whole call is expected to have.

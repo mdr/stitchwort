@@ -14,10 +14,9 @@ import Std (List)
 --| is halfway between the two). A dot on the line, or further beyond it than
 --| the sheet reaches on the near side, lands nowhere: the puzzle promises
 --| there are none (`Promise`).
-def Lands (fold: Fold) (dot: Point) (spot: Point): Prop :=
-  match fold with
-    | AlongY line => spot.x = dot.x ∧ ((dot.y < line ∧ spot.y = dot.y) ∨ (line < dot.y ∧ spot.y + dot.y = 2 * line))
-    | AlongX line => spot.y = dot.y ∧ ((dot.x < line ∧ spot.x = dot.x) ∨ (line < dot.x ∧ spot.x + dot.x = 2 * line))
+def Lands (fold: Fold) (dot: Point) (spot: Point): Prop := match fold with
+  | AlongY line => spot.x = dot.x ∧ ((dot.y < line ∧ spot.y = dot.y) ∨ (line < dot.y ∧ spot.y + dot.y = 2 * line))
+  | AlongX line => spot.y = dot.y ∧ ((dot.x < line ∧ spot.x = dot.x) ∨ (line < dot.x ∧ spot.x + dot.x = 2 * line))
 
 --| After a fold, a spot has a dot when some dot lands there: the dots after
 --| the fold are the image of the dots before it.
@@ -36,10 +35,9 @@ def Listed (dots: List Point) (spot: Point): Prop := spot ∈ dots
 --| none is further beyond it than the line is from the near edge (the
 --| puzzle's folds are at the middle of the sheet; a dot further out would
 --| land off the sheet).
-def Clear (fold: Fold) (dot: Point): Prop :=
-  match fold with
-    | AlongY line => dot.y ≠ line ∧ dot.y ≤ 2 * line
-    | AlongX line => dot.x ≠ line ∧ dot.x ≤ 2 * line
+def Clear (fold: Fold) (dot: Point): Prop := match fold with
+  | AlongY line => dot.y ≠ line ∧ dot.y ≤ 2 * line
+  | AlongX line => dot.x ≠ line ∧ dot.x ≤ 2 * line
 
 def Promise: List Fold → (Point → Prop) → Prop
   | [], marked => Unit

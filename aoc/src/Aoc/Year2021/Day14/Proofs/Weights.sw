@@ -18,8 +18,7 @@ theorem entriesWeightCons (key: k) (n: Nat) (rest: List (k, Nat)) (f: k → Nat)
   List.sumByCons rest (key, n) (entry => entry.snd * f entry.fst)
 
 theorem weightAddAll (f: ElementPair → Nat) (counts: PairCounts) (entries: List (ElementPair, Nat)):
-    weight (addAll counts entries) f = weight counts f + entriesWeight entries f :=
-  match entries with
-    | [] => rfl
-    | [(key, n), ..rest] =>
-      omega [weightAddAll f (Map.insertWith counts key n Nat.add) rest, Map.weightInsertWith counts key n f, entriesWeightCons key n rest f]
+    weight (addAll counts entries) f = weight counts f + entriesWeight entries f := match entries with
+      | [] => rfl
+      | [(key, n), ..rest] =>
+        omega [weightAddAll f (Map.insertWith counts key n Nat.add) rest, Map.weightInsertWith counts key n f, entriesWeightCons key n rest f]

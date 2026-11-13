@@ -90,24 +90,21 @@ def Array.push (array: Array a) (value: a): Array a := { toList = List.append ar
 
 --| The array without its last element, and that element; `None` if it is
 --| empty. O(1) when run, in place when nothing else holds the array.
-def Array.pop (array: Array a): Option (Array a, a) :=
-  match List.reverse array.toList with
-    | [] => None
-    | [x, ..rest] => Some ({ toList = List.reverse rest }, x)
+def Array.pop (array: Array a): Option (Array a, a) := match List.reverse array.toList with
+  | [] => None
+  | [x, ..rest] => Some ({ toList = List.reverse rest }, x)
 
 --| The array with `f` applied to the element at `index`; past the end,
 --| unchanged. In place when nothing else holds the array.
-def Array.modify (array: Array a) (index: Nat) (f: a → a): Array a :=
-  match array.get index with
-    | Some x => array.set index (f x)
-    | None => array
+def Array.modify (array: Array a) (index: Nat) (f: a → a): Array a := match array.get index with
+  | Some x => array.set index (f x)
+  | None => array
 
 --| The array with the elements at `i` and `j` exchanged; unchanged if either
 --| is past the end.
-def Array.swap (array: Array a) (i: Nat) (j: Nat): Array a :=
-  match array.get i, array.get j with
-    | Some x, Some y => (array.set i y).set j x
-    | _, _ => array
+def Array.swap (array: Array a) (i: Nat) (j: Nat): Array a := match array.get i, array.get j with
+  | Some x, Some y => (array.set i y).set j x
+  | _, _ => array
 
 -- The whole array: each is its list's operation, O(n).
 
@@ -138,9 +135,8 @@ def Array.sum (array: Array Nat): Nat := List.sum array.toList
 -- Equality, order and printing
 
 --| Arrays with the same list are the same array.
-theorem Array.toListInjective (a b: Array t) (h: a.toList = b.toList): a = b :=
-  match a, b with
-    | { toList = xs }, { toList = ys } => Eq.cong (zs => ({ toList = zs }: Array t)) h
+theorem Array.toListInjective (a b: Array t) (h: a.toList = b.toList): a = b := match a, b with
+  | { toList = xs }, { toList = ys } => Eq.cong (zs => ({ toList = zs }: Array t)) h
 
 --| `==` on arrays: they're equal exactly when their lists are.
 instance Array.instDecEq [auto decEq: DecEq a]: DecEq (Array a) :=
@@ -158,14 +154,13 @@ instance Array.instShow [auto show: Show a]: Show (Array a) :=
 -- Lemmas
 
 --| Lists that agree at every index are equal (past the end, both give `None`).
-theorem List.extGet (xs ys: List a) (h: (∀ (i: Nat) => List.get xs i = List.get ys i)): xs = ys :=
-  match xs, ys with
-    | [], [] => rfl
-    | [], [y, ..ys] => Void.exfalso (Option.noneNotSome y (h 0))
-    | [x, ..xs], [] => Void.exfalso (Option.noneNotSome x (Eq.sym (h 0)))
-    | [x, ..xs], [y, ..ys] =>
-      Eq.trans (Eq.cong (z => [z, ..xs]) (Option.someInjective (h 0)))
-        (Eq.cong (Cons y) (List.extGet xs ys (i => h (Succ i))))
+theorem List.extGet (xs ys: List a) (h: ∀ (i: Nat) => List.get xs i = List.get ys i): xs = ys := match xs, ys with
+  | [], [] => rfl
+  | [], [y, ..ys] => Void.exfalso (Option.noneNotSome y (h 0))
+  | [x, ..xs], [] => Void.exfalso (Option.noneNotSome x (Eq.sym (h 0)))
+  | [x, ..xs], [y, ..ys] =>
+    Eq.trans (Eq.cong (z => [z, ..xs]) (Option.someInjective (h 0)))
+      (Eq.cong (Cons y) (List.extGet xs ys (i => h (Succ i))))
 
 --| Arrays that agree at every index are equal.
 theorem Array.ext (a: Array t) (b: Array t) (h: ∀ (i: Nat) => a.get i = b.get i): a = b :=
@@ -178,9 +173,8 @@ theorem Array.toListFromList (xs: List a): (Array.fromList xs).toList = xs := rf
 theorem Array.toListToArray (xs: List a): xs.toArray.toList = xs := rfl
 
 --| The array of an array's list is the array.
-theorem Array.fromListToList (array: Array a): Array.fromList array.toList = array :=
-  match array with
-    | { toList = xs } => rfl
+theorem Array.fromListToList (array: Array a): Array.fromList array.toList = array := match array with
+  | { toList = xs } => rfl
 
 --| The size is the list's length.
 theorem Array.sizeToList (array: Array a): array.size = List.length array.toList := rfl

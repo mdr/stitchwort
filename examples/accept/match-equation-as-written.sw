@@ -10,10 +10,9 @@ import Std (Bool, Eq, List, Nat, Option)
 
 def f (a: Nat) (y: Nat): Nat := a + y
 
-def known (o: Option Nat): Bool :=
-  match o with
-    | None => False
-    | Some _ => True
+def known (o: Option Nat): Bool := match o with
+  | None => False
+  | Some _ => True
 
 -- The `match` refines the goal as usual; the lemma has the scrutinee up to
 -- eta, which only computation finds (SW-1562).

@@ -74,26 +74,24 @@ theorem Garden.unvisitedInsert (garden: Garden) (visited: Set Position) (positio
 --| a depth-first flood fill. `visited` has the members, for quick lookup.
 def Garden.fill (garden: Garden) (plant: Char) (stack: List Position) (visited: Set Position) (members: List Position): List Position
     decreasing (garden.unvisited visited, stack.length)
-:=
-  match stack with
-    | [] => members
-    | [position, ..rest] =>
-      if fresh: visited.contains position = False then
-        if grows: garden.plantAt position = Some plant then
-          garden.fill plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
-            [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
-        else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+:= match stack with
+  | [] => members
+  | [position, ..rest] =>
+    if fresh: visited.contains position = False then
+      if grows: garden.plantAt position = Some plant then
+        garden.fill plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
+          [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
       else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
+    else garden.fill plant rest visited members [decreasing := Nat.LexLess.Second rfl (omega)]
 
 --| A region: the plots joined to each other, growing one plant, each listed
 --| once.
 type Region = { plots: List Position }
 
 --| The region containing `start`: the plots joined to it.
-def Garden.regionOf (garden: Garden) (start: Position): Region :=
-  match garden.plantAt start with
-    | Some plant => { plots = garden.fill plant [start] Set.empty [] }
-    | None => { plots = [] }
+def Garden.regionOf (garden: Garden) (start: Position): Region := match garden.plantAt start with
+  | Some plant => { plots = garden.fill plant [start] Set.empty [] }
+  | None => { plots = [] }
 
 --| The regions, each once, from the positions not yet in a region.
 def Garden.regionsFrom (garden: Garden): (starts: List Position) → (seen: Set Position) → List Region

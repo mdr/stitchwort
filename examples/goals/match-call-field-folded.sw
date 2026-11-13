@@ -13,7 +13,6 @@ def pick (n: Nat) (bag: Bag): Bag
 :=
   if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := omega]
 
-theorem fits (n: Nat): (pick n empty).items.length ≤ 100 :=
-  match small: Nat.leq n 1 with
-    | True => ?
-    | False => ?
+theorem fits (n: Nat): (pick n empty).items.length ≤ 100 := match small: Nat.leq n 1 with
+  | True => ?
+  | False => ?

@@ -56,15 +56,14 @@ theorem viaDistinct (other: Cave) (after: List (List Cave)) (distinct: List.Dist
 --| The search lists each route once, if each cave's neighbours are listed
 --| once.
 theorem routesDistinct (next: Cave → List Cave) (distinctNext: ∀ (cave: Cave) => List.Distinct (next cave)) (unvisited: List Cave) (spare: Bool) (cave: Cave)
-    (steps: Nat): List.Distinct (routesFrom next unvisited spare cave steps) :=
-  match steps with
-    | Zero => Trivial
-    | Succ more =>
-      List.distinctConcatMap _ (route => route.headOr Cave.start) (next cave) (distinctNext cave)
-        (other member =>
-          viaDistinct other _
-            (match e: step unvisited spare cave other with
-              | Finish => Both (nothing => nothing) Trivial
-              | Blocked => Trivial
-              | Continue left stillSpare => routesDistinct next distinctNext left stillSpare other more))
-        (other member route found => viaFirst other _ route found)
+    (steps: Nat): List.Distinct (routesFrom next unvisited spare cave steps) := match steps with
+      | Zero => Trivial
+      | Succ more =>
+        List.distinctConcatMap _ (route => route.headOr Cave.start) (next cave) (distinctNext cave)
+          (other member =>
+            viaDistinct other _
+              (match e: step unvisited spare cave other with
+                | Finish => Both (nothing => nothing) Trivial
+                | Blocked => Trivial
+                | Continue left stillSpare => routesDistinct next distinctNext left stillSpare other more))
+          (other member route found => viaFirst other _ route found)

@@ -55,10 +55,9 @@ def addToLast (amount: Nat): List Leaf → List Leaf
 --| its left (the last one before it), its right value to the first regular
 --| number to its right, and the pair becomes the regular number 0, inside
 --| one pair fewer than its values were.
-def explodeLeaves (leaves: List Leaf): Option (List Leaf) :=
-  match firstDeep leaves with
-    | Some found => Some (addToLast found.left.value found.before ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value found.after])
-    | None => None
+def explodeLeaves (leaves: List Leaf): Option (List Leaf) := match firstDeep leaves with
+  | Some found => Some (addToLast found.left.value found.before ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value found.after])
+  | None => None
 
 --| Splitting: the leftmost regular number of 10 or more becomes a pair of
 --| its half rounded down and its half rounded up.
@@ -73,10 +72,9 @@ def splitLeaves: List Leaf → Option (List Leaf)
         | None => None
 
 --| One step of reducing: explode if a pair can, else split if a number can.
-def reduceStep (leaves: List Leaf): Option (List Leaf) :=
-  match explodeLeaves leaves with
-    | Some after => Some after
-    | None => splitLeaves leaves
+def reduceStep (leaves: List Leaf): Option (List Leaf) := match explodeLeaves leaves with
+  | Some after => Some after
+  | None => splitLeaves leaves
 
 --| Reducing `start` ends at `final`: step until no step applies.
 type ReducesTo: List Leaf → List Leaf → Prop =

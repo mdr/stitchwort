@@ -10,10 +10,9 @@ import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 --| `checkPassages` gives the passages back, and only if none joins two big
 --| caves...
 theorem checkPassagesOk (passages: List Passage) (result: List Passage) (h: Fail.toResult (() => checkPassages passages) = Ok result):
-    result = passages ∧ passages.all (passage => not passage.joinsBig) = True :=
-  match e: firstBigPair passages with
-    | Some (index, passage) => Void.exfalso (Result.errNotOk h)
-    | None => Both (Eq.sym (Result.okInjective h)) (List.findNoneAll passages Passage.joinsBig (List.findWithIndexFromNone Passage.joinsBig 0 passages e))
+    result = passages ∧ passages.all (passage => not passage.joinsBig) = True := match e: firstBigPair passages with
+      | Some (index, passage) => Void.exfalso (Result.errNotOk h)
+      | None => Both (Eq.sym (Result.okInjective h)) (List.findNoneAll passages Passage.joinsBig (List.findWithIndexFromNone Passage.joinsBig 0 passages e))
 
 --| ...whatever reads them.
 theorem parsedChecked (read: () → {Fail} List Passage) (passages: List Passage)

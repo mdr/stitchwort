@@ -63,16 +63,14 @@ theorem firstIllegalUnique (line: List Token) (a: Token) (b: Token) (first: Firs
 theorem pointsAgree (bracket: Bracket): syntaxPoints bracket = errorPoints bracket := cases
 
 --| Each line's score is the spec's.
-theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line) :=
-  match e: scan [] line with
-    | Corrupted illegal => rewrite pointsAgree illegal in Illegal (firstIllegalOfScan line illegal e)
-    | Unclosed stack => NotCorrupted (legalOfUnclosed line stack e)
+theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line) := match e: scan [] line with
+  | Corrupted illegal => rewrite pointsAgree illegal in Illegal (firstIllegalOfScan line illegal e)
+  | Unclosed stack => NotCorrupted (legalOfUnclosed line stack e)
 
 --| Part 1 is the total syntax error score, for every list of lines.
-theorem part1Correct (lines: List (List Token)): Part1Answer lines (solvePart1 lines) :=
-  match lines with
-    | [] => NoLines
-    | [line, ..rest] => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
+theorem part1Correct (lines: List (List Token)): Part1Answer lines (solvePart1 lines) := match lines with
+  | [] => NoLines
+  | [line, ..rest] => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
 
 def bracketOf: Token → Bracket
   | Opener bracket => bracket

@@ -21,10 +21,9 @@ theorem noneRule (active: Bool) (near: Nat) (none: 0 = near): False = (if active
       | True => rfl
       | False => rfl
 
-theorem lifeRuleDies (active: Bool): lifeRule active 0 = False :=
-  match active with
-    | True => rfl
-    | False => rfl
+theorem lifeRuleDies (active: Bool): lifeRule active 0 = False := match active with
+  | True => rfl
+  | False => rfl
 
 theorem cycleActive (pocket: Pocket) (cube: Cube): pocket.cycle.active.contains cube = Spec.activeAfter pocket.active cube :=
   calc pocket.cycle.active.contains cube

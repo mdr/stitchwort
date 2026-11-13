@@ -108,16 +108,15 @@ theorem firstsDistinct (c: Circuits) (k s: Nat): List.Distinct (List.map (List.f
 
 --| ... and they are all the labels: each box's label is a first box's.
 theorem firstOf (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
-    List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) :=
-  match fuel with
-    | Succ fuel =>
-      match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
-        | False =>
-          List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
-        | True =>
-          let Witness other (Both mo same) := g
-          let below := List.memRangeFrom other b 0 mo
-          rewrite <- same.read in firstOf c n fuel other omega omega
+    List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) := match fuel with
+      | Succ fuel =>
+        match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
+          | False =>
+            List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
+          | True =>
+            let Witness other (Both mo same) := g
+            let below := List.memRangeFrom other b 0 mo
+            rewrite <- same.read in firstOf c n fuel other omega omega
 
 theorem labelOfFirst (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=

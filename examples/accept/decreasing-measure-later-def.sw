@@ -4,9 +4,8 @@ import Std (Nat)
 
 def countDown (n: Nat): Nat
     decreasing (sizeOf n)
-:=
-  match n with
-    | Zero => 0
-    | Succ k => countDown k
+:= match n with
+  | Zero => 0
+  | Succ k => countDown k
 
 def sizeOf (n: Nat): Nat := n

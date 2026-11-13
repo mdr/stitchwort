@@ -16,14 +16,12 @@ theorem someNotNone (monster: Monster) (found: Some monster = None): Void := Opt
 
 --| The first monster of a clear list isn't on the cell, and the rest are clear.
 theorem clearHead (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
-    (monster.position == position) = False :=
-  match same: monster.position == position with
-    | False => rfl
+    (monster.position == position) = False := match same: monster.position == position with
+      | False => rfl
 
 theorem clearTail (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
-    Clear position others :=
-  match same: monster.position == position with
-    | False => clear
+    Clear position others := match same: monster.position == position with
+      | False => clear
 
 theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.position == position) = False)
     (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters ++ [monster]) :=

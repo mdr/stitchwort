@@ -11,13 +11,11 @@ import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Resu
 theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
   rewrite same at runs in runs
 
-theorem colourEta (colour: Colour): { shade = colour.shade, hue = colour.hue } = colour :=
-  match colour with
-    | { shade, hue } => rfl
+theorem colourEta (colour: Colour): { shade = colour.shade, hue = colour.hue } = colour := match colour with
+  | { shade, hue } => rfl
 
-theorem ruleEta (rule: Rule): { colour = rule.colour, contents = rule.contents } = rule :=
-  match rule with
-    | { colour, contents } => rfl
+theorem ruleEta (rule: Rule): { colour = rule.colour, contents = rule.contents } = rule := match rule with
+  | { colour, contents } => rfl
 
 theorem contentEta (content: Content): { count = content.count, colour = content.colour } = content :=
   match content with
@@ -31,18 +29,17 @@ theorem runsWord (text: Text) (isWord: Word text) (rest: List Char) (stops: rest
       rewrite Text.fromToList text at runs in runs
 
 theorem runsColour (read: List Char) (colourIs: Colour) (written: ColourWritten read colourIs) (rest: List Char) (stops: rest.takeWhile Char.isAsciiLowercase = []):
-    Parse.Runs colour read rest colourIs :=
-  match written with
-    | Both split (Both shadeWord hueWord) =>
-      rewrite split in
-        runsAsValue colour _ rest _ colourIs (colourEta colourIs)
-          (Parse.runsBind word _ colourIs.shade.toList ([' ', ..colourIs.hue.toList]) _ rest colourIs.shade _ rfl
-            (runsWord colourIs.shade shadeWord _ rfl)
-            (Parse.runsBind (() => Parse.char ' ') _ [' '] colourIs.hue.toList _ rest () _ rfl
-              (Parse.runsChar ' ' _)
-              (Parse.runsBind word _ colourIs.hue.toList [] _ rest colourIs.hue _ (Eq.sym (List.appendNil _))
-                (runsWord colourIs.hue hueWord rest stops)
-                (Parse.runsPure _ rest))))
+    Parse.Runs colour read rest colourIs := match written with
+      | Both split (Both shadeWord hueWord) =>
+        rewrite split in
+          runsAsValue colour _ rest _ colourIs (colourEta colourIs)
+            (Parse.runsBind word _ colourIs.shade.toList ([' ', ..colourIs.hue.toList]) _ rest colourIs.shade _ rfl
+              (runsWord colourIs.shade shadeWord _ rfl)
+              (Parse.runsBind (() => Parse.char ' ') _ [' '] colourIs.hue.toList _ rest () _ rfl
+                (Parse.runsChar ' ' _)
+                (Parse.runsBind word _ colourIs.hue.toList [] _ rest colourIs.hue _ (Eq.sym (List.appendNil _))
+                  (runsWord colourIs.hue hueWord rest stops)
+                  (Parse.runsPure _ rest))))
 
 theorem bagStops (count: Nat) (rest: List Char): ((if count == 1 then " bag" else " bags").toList ++ rest).takeWhile Char.isAsciiLowercase = [] :=
   match count == 1 with
@@ -69,19 +66,18 @@ theorem runsContent (read: List Char) (item: Content) (written: ContentWritten r
 
 theorem runsContentList (read: List Char) (items: List Content) (listed: NonEmptyList Content)
     (written: Parse.SepBy ContentWritten (read2 u => read2 = ", ".toList) read listed) (same: items = listed.toList) (more: List Char):
-    Parse.Runs contentList read ['.', ..more] items :=
-  match listed, written, same with
-    | { head, tail }, written2, same2 =>
-      runsAsValue contentList read ['.', ..more] _ items (Eq.sym same2)
-        (Parse.runsMap (() => Parse.sepBy1 content (() => Parse.text ", ")) NonEmptyList.toList read ['.', ..more] (NonEmptyList.cons head tail)
-          (Parse.runsSepBy1Of content (() => Parse.text ", ") ContentWritten (read2 u => read2 = ", ".toList) (read2 => True = True) ['.', ..more]
-            (read2 v after ok end => runsContent read2 v ok after)
-            (read2 after u isSeparator => rewrite isSeparator in Parse.runsText ", " after)
-            (read2 u isSeparator => rewrite isSeparator in List.consNotNil ',' [' '])
-            (read2 after u isSeparator => rfl)
-            rfl
-            (Parse.declinesSepStep content (() => Parse.text ", ") ['.', ..more] (Parse.declinesText ", " ['.', ..more] rfl))
-            read head tail written2))
+    Parse.Runs contentList read ['.', ..more] items := match listed, written, same with
+      | { head, tail }, written2, same2 =>
+        runsAsValue contentList read ['.', ..more] _ items (Eq.sym same2)
+          (Parse.runsMap (() => Parse.sepBy1 content (() => Parse.text ", ")) NonEmptyList.toList read ['.', ..more] (NonEmptyList.cons head tail)
+            (Parse.runsSepBy1Of content (() => Parse.text ", ") ContentWritten (read2 u => read2 = ", ".toList) (read2 => True = True) ['.', ..more]
+              (read2 v after ok end => runsContent read2 v ok after)
+              (read2 after u isSeparator => rewrite isSeparator in Parse.runsText ", " after)
+              (read2 u isSeparator => rewrite isSeparator in List.consNotNil ',' [' '])
+              (read2 after u isSeparator => rfl)
+              rfl
+              (Parse.declinesSepStep content (() => Parse.text ", ") ['.', ..more] (Parse.declinesText ", " ['.', ..more] rfl))
+              read head tail written2))
 
 --| A list of contents starts with a digit.
 theorem listStartsWithDigit (read: List Char) (head: Content) (tail: List Content) (sepSpec: List Char → () → Prop)
@@ -133,9 +129,8 @@ theorem runsRule (read: List Char) (item: Rule) (written: RuleWritten read item)
                   (Parse.runsChar '.' _)
                   (Parse.runsPure _ [])))))
 
-theorem rulesEta (rules: Rules): ({ all = rules.all }: Rules) = rules :=
-  match rules with
-    | { all } => rfl
+theorem rulesEta (rules: Rules): ({ all = rules.all }: Rules) = rules := match rules with
+  | { all } => rfl
 
 --| Input whose lines are rules written out is read as those rules.
 theorem parseComplete (input: Text) (rules: Rules) (written: List.All2 RuleWritten (input.lines.map Text.toList) rules.all):

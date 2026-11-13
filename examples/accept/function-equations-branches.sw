@@ -48,10 +48,9 @@ def gcd (a: Nat) (b: Nat): Nat
 theorem gcdZero (a: Nat): gcd a 0 = a := gcd.eq.ifTrue a 0 rfl
 
 -- A `match` on an expression: `isSome`, `isNone`.
-def headOr (d: Nat) (xs: List Nat): Nat :=
-  match List.head xs with
-    | Some x => x
-    | None => d
+def headOr (d: Nat) (xs: List Nat): Nat := match List.head xs with
+  | Some x => x
+  | None => d
 
 theorem headOrNil (d: Nat): headOr d [] = d := headOr.eq.none d [] rfl
 
@@ -72,10 +71,9 @@ theorem takeCons [a: Type] (k: Nat) (x: a) (rest: List a):
   takeFirst.eq2.cons k x rest
 
 -- A catch-all after an overlapping alternative: `notAlt1`.
-def both (a: Option Nat) (b: Option Nat): Nat :=
-  match (a, b) with
-    | (Some x, Some y) => x + y
-    | _ => 0
+def both (a: Option Nat) (b: Option Nat): Nat := match (a, b) with
+  | (Some x, Some y) => x + y
+  | _ => 0
 
 theorem bothNone (b: Option Nat): both None b = 0 := both.eq.alt2 None b cases
 
@@ -84,22 +82,20 @@ theorem bothSome (x: Nat) (y: Nat): both (Some x) (Some y) = x + y :=
 
 -- On several expressions, stated as on their tuple, `match (a, k + 1)`:
 -- `isAlt1: (a, k + 1) = (Some x, Succ y)` (SW-1074).
-def bothAfter (k: Nat) (a: Option Nat): Nat :=
-  match a, k + 1 with
-    | Some x, Succ y => x + y
-    | _, _ => 0
+def bothAfter (k: Nat) (a: Option Nat): Nat := match a, k + 1 with
+  | Some x, Succ y => x + y
+  | _, _ => 0
 
 theorem bothAfterSome (k: Nat) (a: Option Nat) (x: Nat) (h: a = Some x): bothAfter k a = x + k :=
   bothAfter.eq.alt1 k a x k (rewrite h in rfl)
 
 -- Nested: a `match` on the alternative's variable.
-def firstTwo (xs: List Nat): Nat :=
-  match List.head xs with
-    | Some x =>
-      match x with
-        | 0 => 1
-        | Succ n => n
-    | None => 0
+def firstTwo (xs: List Nat): Nat := match List.head xs with
+  | Some x =>
+    match x with
+      | 0 => 1
+      | Succ n => n
+  | None => 0
 
 theorem firstTwoSucc (xs: List Nat) (n: Nat) (found: List.head xs = Some (Succ n)): firstTwo xs = n :=
   firstTwo.eq.some.succ xs n found

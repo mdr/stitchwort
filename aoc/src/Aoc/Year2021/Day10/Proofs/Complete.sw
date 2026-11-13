@@ -11,16 +11,15 @@ import Std (Eq, Exists, Fail, List, Parse, Result, Text)
 def tokenEntry (which: Token): (Text, Token) := (Text.fromList [which.char], which)
 
 --| `token` on a bracket's own character, whatever follows.
-theorem runsToken (rest: List Char) (which: Token): Parse.Runs token [which.char] rest which :=
-  match which with
-    | Opener Round => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick [] "(" (Opener Round) (allTokens.drop 1 |> .map tokenEntry) rest rfl)
-    | Opener Square => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 1 |> .map tokenEntry) "[" (Opener Square) (allTokens.drop 2 |> .map tokenEntry) rest (Both rfl rfl))
-    | Opener Curly => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 2 |> .map tokenEntry) "{" (Opener Curly) (allTokens.drop 3 |> .map tokenEntry) rest (Both rfl (Both rfl rfl)))
-    | Opener Angle => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 3 |> .map tokenEntry) "<" (Opener Angle) (allTokens.drop 4 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl rfl))))
-    | Closer Round => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 4 |> .map tokenEntry) ")" (Closer Round) (allTokens.drop 5 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))
-    | Closer Square => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 5 |> .map tokenEntry) "]" (Closer Square) (allTokens.drop 6 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))
-    | Closer Curly => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 6 |> .map tokenEntry) "}" (Closer Curly) (allTokens.drop 7 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))))
-    | Closer Angle => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 7 |> .map tokenEntry) ">" (Closer Angle) [] rest (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))))
+theorem runsToken (rest: List Char) (which: Token): Parse.Runs token [which.char] rest which := match which with
+  | Opener Round => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick [] "(" (Opener Round) (allTokens.drop 1 |> .map tokenEntry) rest rfl)
+  | Opener Square => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 1 |> .map tokenEntry) "[" (Opener Square) (allTokens.drop 2 |> .map tokenEntry) rest (Both rfl rfl))
+  | Opener Curly => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 2 |> .map tokenEntry) "{" (Opener Curly) (allTokens.drop 3 |> .map tokenEntry) rest (Both rfl (Both rfl rfl)))
+  | Opener Angle => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 3 |> .map tokenEntry) "<" (Opener Angle) (allTokens.drop 4 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl rfl))))
+  | Closer Round => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 4 |> .map tokenEntry) ")" (Closer Round) (allTokens.drop 5 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))
+  | Closer Square => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 5 |> .map tokenEntry) "]" (Closer Square) (allTokens.drop 6 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))
+  | Closer Curly => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 6 |> .map tokenEntry) "}" (Closer Curly) (allTokens.drop 7 |> .map tokenEntry) rest (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl)))))))
+  | Closer Angle => Parse.runsLabel "a bracket" bracket _ rest _ (Parse.runsPick (allTokens.take 7 |> .map tokenEntry) ">" (Closer Angle) [] rest (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl rfl))))))))
 
 --| `token` declines at the end of the input.
 theorem declinesTokenEnd: Parse.Declines token [] :=
@@ -37,17 +36,15 @@ theorem joinTokenSteps (tokens: List Token): Parse.joinReads (tokenSteps tokens)
     | [] => rfl
     | [which, ..more] => rewrite joinTokenSteps more in rfl
 
-theorem stepTokens (tokens: List Token): Parse.stepValues (tokenSteps tokens) = tokens :=
-  match tokens with
-    | [] => rfl
-    | [which, ..more] => rewrite stepTokens more in rfl
+theorem stepTokens (tokens: List Token): Parse.stepValues (tokenSteps tokens) = tokens := match tokens with
+  | [] => rfl
+  | [which, ..more] => rewrite stepTokens more in rfl
 
-theorem tokenManyRuns (tokens: List Token): Parse.ManyRuns token (tokenSteps tokens) [] :=
-  match tokens with
-    | [] => declinesTokenEnd
-    | [which, ..more] =>
-      Both (List.consNotNil which.char [])
-        (Both (runsToken (Parse.joinReads (tokenSteps more) ++ []) which) (tokenManyRuns more))
+theorem tokenManyRuns (tokens: List Token): Parse.ManyRuns token (tokenSteps tokens) [] := match tokens with
+  | [] => declinesTokenEnd
+  | [which, ..more] =>
+    Both (List.consNotNil which.char [])
+      (Both (runsToken (Parse.joinReads (tokenSteps more) ++ []) which) (tokenManyRuns more))
 
 --| `many token` on the characters of some tokens.
 theorem runsLine (chars: List Char) (tokens: List Token) (written: tokens.map Token.char = chars): Parse.Runs (() => Parse.many token) chars [] tokens :=

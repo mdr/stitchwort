@@ -171,10 +171,9 @@ theorem sameBox (warehouse: Warehouse) (separate: WideSeparate warehouse) (box: 
 theorem gatheredCovers (warehouse: Warehouse) (direction: Direction) (separate: WideSeparate warehouse) (group: Set Cell)
     (ok: GroupOk warehouse direction group) (box: Cell) (held: group.contains box = True) (other: Cell)
     (otherBoxed: warehouse.boxes.contains other = True) (cell: Cell) (moved: cell ∈ cellsOf (box.step direction)) (covers: Covers other cell):
-    group.contains other = True :=
-  match frontOrOwn box direction cell moved with
-    | Inl front => And.right (And.right (ok box held) cell front) other otherBoxed covers
-    | Inr own => rewrite sameBox warehouse separate box other cell (And.left (ok box held)) otherBoxed covers own in held
+    group.contains other = True := match frontOrOwn box direction cell moved with
+      | Inl front => And.right (And.right (ok box held) cell front) other otherBoxed covers
+      | Inr own => rewrite sameBox warehouse separate box other cell (And.left (ok box held)) otherBoxed covers own in held
 
 --| "If this action would cause the robot or a box to move into a wall,
 --| nothing moves instead": with nothing overlapping, a blocked move moves

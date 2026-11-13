@@ -69,19 +69,18 @@ theorem settleDone (values: Values) (waiting: List Gate)
 theorem settleSound (device: Device) (values: Values) (waiting: List Gate) (sound: Sound device values)
     (wired: ∀ (gate: Gate) => gate ∈ waiting → gate ∈ device.gates): Sound device (settle values waiting)
     decreasing waiting.length
-:=
-  match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
-    | False => rewrite settleDone values waiting fewer in sound
-    | True =>
-      let fit: ∀ (gate: Gate) => gate ∈ waiting.filter (gate => gate.ready values) → gate ∈ device.gates ∧ gate.ready values = True :=
-        (gate member =>
-          let kept := List.memFilter waiting (gate => gate.ready values) member
-          Both (wired gate kept.left) kept.right)
-      rewrite settleMore values waiting fewer in
-        settleSound device (fireAll values (waiting.filter (gate => gate.ready values))) (waiting.filter (gate => ¬(gate.ready values)))
-          (fireOntoSound device values sound (waiting.filter (gate => gate.ready values)) fit values sound)
-          (gate member => wired gate (List.memFilter waiting (gate => ¬(gate.ready values)) member).left)
-          [decreasing := fewer]
+:= match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
+  | False => rewrite settleDone values waiting fewer in sound
+  | True =>
+    let fit: ∀ (gate: Gate) => gate ∈ waiting.filter (gate => gate.ready values) → gate ∈ device.gates ∧ gate.ready values = True :=
+      (gate member =>
+        let kept := List.memFilter waiting (gate => gate.ready values) member
+        Both (wired gate kept.left) kept.right)
+    rewrite settleMore values waiting fewer in
+      settleSound device (fireAll values (waiting.filter (gate => gate.ready values))) (waiting.filter (gate => ¬(gate.ready values)))
+        (fireOntoSound device values sound (waiting.filter (gate => gate.ready values)) fit values sound)
+        (gate member => wired gate (List.memFilter waiting (gate => ¬(gate.ready values)) member).left)
+        [decreasing := fewer]
 
 theorem settledSound (device: Device): Sound device device.settled :=
   settleSound device (Map.fromList device.initial) device.gates (initialSound device) (gate member => member)

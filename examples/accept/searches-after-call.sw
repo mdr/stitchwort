@@ -38,10 +38,9 @@ theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.
 -- (`std/Float/Theory.sw`'s `unitsRoundNonpos` has this shape).
 def capped (m: Nat): Nat := if m < 100 then m + 0 else m
 
-theorem cappedExact (m: Nat) (pm: 0 < m) (hm: m < 100): capped m = m :=
-  match c: m < 100 with
-    | True => rfl
-    | False => rfl
+theorem cappedExact (m: Nat) (pm: 0 < m) (hm: m < 100): capped m = m := match c: m < 100 with
+  | True => rfl
+  | False => rfl
 
 theorem cappedSelf: ∀ (x: Nat) => 0 < x → capped x + 5 = capped x + 5
   | _, p => rfl

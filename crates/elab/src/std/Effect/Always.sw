@@ -26,11 +26,10 @@ theorem Effect.alwaysUnit [op: Type] [res: op → Type] [a: Type] (computation: 
 --| of any value satisfying `first` always gives results satisfying
 --| `property`.
 theorem Effect.alwaysBind [op: Type] [res: op → Type] [a b: Type] (first: a → Prop) (property: b → Prop) (next: a → Comp op res b)
-    (computation: Comp op res a) (holds: Effect.Always first computation) (after: (∀ (x: a) => first x → Effect.Always property (next x))):
-    Effect.Always property (bind computation next) :=
-  match computation with
-    | Done x => after x holds
-    | Call o rest => y => Effect.alwaysBind first property next (rest y) (holds y) after
+    (computation: Comp op res a) (holds: Effect.Always first computation) (after: ∀ (x: a) => first x → Effect.Always property (next x)):
+    Effect.Always property (bind computation next) := match computation with
+      | Done x => after x holds
+      | Call o rest => y => Effect.alwaysBind first property next (rest y) (holds y) after
 
 --| `Always` as data: a proof by induction on it may recurse on the proof for
 --| the rest of the computation, which is smaller. A handler's lemma recurses

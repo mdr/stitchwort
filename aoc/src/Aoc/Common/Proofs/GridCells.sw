@@ -36,13 +36,12 @@ theorem memCells (rows: List (List a)) (position: Position) (x: a): ((position, 
 
 --| The cell at a position after `mapCells` is `f` of the cell there before.
 theorem cellAtMapCells (rows: List (List a)) (f: Position → a → b) (position: Position):
-    cellAt (mapCells rows f) position = Option.map (cellAt rows position) (f position) :=
-  match position with
-    | { row = r, column = c } =>
-      rewrite List.getMapWithIndex rows (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell)) r in
-        match List.get rows r with
-          | None => rfl
-          | Some row => List.getMapWithIndex row (c cell => f { row = r, column = c } cell) c
+    cellAt (mapCells rows f) position = Option.map (cellAt rows position) (f position) := match position with
+      | { row = r, column = c } =>
+        rewrite List.getMapWithIndex rows (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell)) r in
+          match List.get rows r with
+            | None => rfl
+            | Some row => List.getMapWithIndex row (c cell => f { row = r, column = c } cell) c
 
 --| `mapCells` of functions equal at every cell.
 theorem mapCellsCong (rows: List (List a)) (g1: Position → a → b) (g2: Position → a → b)
@@ -96,9 +95,8 @@ theorem cellPositionsDistinct (rows: List (List a)): List.Distinct ((cells rows)
       (x y same => pairExt x y (Eq.cong Position.row same) (Eq.cong Position.column same))
 
 --| Pairs with equal parts are equal.
-theorem pairExt (x y: (Nat, Nat)) (first: x.fst = y.fst) (second: x.snd = y.snd): x = y :=
-  match x, y with
-    | (a, b), (c, d) => rewrite first, second in rfl
+theorem pairExt (x y: (Nat, Nat)) (first: x.fst = y.fst) (second: x.snd = y.snd): x = y := match x, y with
+  | (a, b), (c, d) => rewrite first, second in rfl
 
 --| No position is in `gridCells` twice.
 theorem gridPositionsDistinct (rows: List (List a)): List.Distinct (rows.gridCells.map Pair.fst) :=
@@ -221,13 +219,12 @@ theorem mapRectangle (grid: Grid a) (rectangle: grid.Rectangle) (f: Position →
 
 --| A grid's step is a step, onto the grid's rectangle.
 theorem gridStepElim (grid: Grid a) (position: Position) (direction: Direction) (next: Position) (stepped: grid.step position direction = Some next):
-    position.step direction = Some next ∧ grid.contains next = True :=
-  match s: position.step direction with
-    | Some other =>
-      match inside: grid.contains other with
-        | True =>
-          let same: other = next := Option.someInjective stepped
-          rewrite <- same in Both rfl inside
+    position.step direction = Some next ∧ grid.contains next = True := match s: position.step direction with
+      | Some other =>
+        match inside: grid.contains other with
+          | True =>
+            let same: other = next := Option.someInjective stepped
+            rewrite <- same in Both rfl inside
 
 theorem gridStepIntro (grid: Grid a) (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next)
     (inside: grid.contains next = True): grid.step position direction = Some next :=
@@ -241,9 +238,8 @@ theorem keptCell (keep: a → Bool) (at: Position) (tile: a) (position: Position
 
 --| A cell whose tile passes is kept, at its position.
 theorem keepsCell (keep: a → Bool) (at: Position) (tile: a) (passes: keep tile = True):
-    (match some | (here, tile) if keep tile => here) (at, tile) = Some at :=
-  match c: keep tile with
-    | True => rfl
+    (match some | (here, tile) if keep tile => here) (at, tile) = Some at := match c: keep tile with
+      | True => rfl
 
 --| A position is among those of the cells whose tile passes `keep` exactly
 --| when one of those cells has a tile that does.

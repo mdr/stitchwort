@@ -23,8 +23,7 @@ export def countTail (n: Nat): Nat := match n with | Zero => 0 | Succ k => count
 -- Lifted, because the equation is named: the owner's loop inlines it.
 export def countNamed (n: Nat): Nat := match h: n with | Zero => 0 | Succ k => countNamed k
 
-export def describe (xs: List Nat): Text :=
-  match xs with
-    | Nil => "empty"
-    | Cons x Nil => "one"
-    | _ => "many"
+export def describe (xs: List Nat): Text := match xs with
+  | Nil => "empty"
+  | Cons x Nil => "one"
+  | _ => "many"

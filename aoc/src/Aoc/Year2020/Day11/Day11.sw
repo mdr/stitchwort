@@ -90,11 +90,10 @@ def Layout.sightRule (layout: Layout): Rule :=
 
 --| The seat after a round, with `occupiedInView` of the seats it looks at
 --| occupied.
-def Seat.next (seat: Seat) (occupiedInView: Nat) (tolerance: Nat): Seat :=
-  match seat with
-    | Floor => Floor
-    | Empty => if occupiedInView == 0 then Occupied else Empty
-    | Occupied => if tolerance <= occupiedInView then Empty else Occupied
+def Seat.next (seat: Seat) (occupiedInView: Nat) (tolerance: Nat): Seat := match seat with
+  | Floor => Floor
+  | Empty => if occupiedInView == 0 then Occupied else Empty
+  | Occupied => if tolerance <= occupiedInView then Empty else Occupied
 
 def Seat.isSeat (seat: Seat): Bool := seat != Floor
 

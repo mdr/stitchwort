@@ -11,13 +11,12 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| Two sets of flashers of the same cavern are the same.
 theorem flashersUnique (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (ff: Flashers cavern f) (fg: Flashers cavern g)
-    (q: Position): f q = g q :=
-  match e: f q with
-    | True => Eq.sym (And.right ff g (And.left fg) q e)
-    | False =>
-      match d: g q with
-        | False => rfl
-        | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (And.right fg f (And.left ff) q d)))
+    (q: Position): f q = g q := match e: f q with
+      | True => Eq.sym (And.right ff g (And.left fg) q e)
+      | False =>
+        match d: g q with
+          | False => rfl
+          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (And.right fg f (And.left ff) q d)))
 
 --| The program's flashers are only on the grid.
 theorem flashersOnGrid (cavern: Cavern): OnGrid cavern cavern.flashers.has :=
@@ -48,10 +47,9 @@ theorem stepCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flasher
 
 --| A cell is 0 after the step exactly when it flashed.
 theorem zeroAfter (flashed: Flashed) (at: Position) (level: Nat):
-    ((if flashed.has at then 0 else flashed.energy at level) == 0) = flashed.has at :=
-  match flashed.has at with
-    | True => rfl
-    | False => rfl
+    ((if flashed.has at then 0 else flashed.energy at level) == 0) = flashed.has at := match flashed.has at with
+      | True => rfl
+      | False => rfl
 
 --| The 0s after the step are the flashers.
 theorem stepCells (cavern: Cavern):

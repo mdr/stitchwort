@@ -21,26 +21,24 @@ theorem dxAtLeastOne (target: Target) (right: 0 < target.left) (velocity: Veloci
       Void.exfalso (neverHits target (launch velocity) (Inr (Inl slow)) n h)
 
 theorem dxAtMostRight (target: Target) (right: 0 < target.left) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
-    velocity.x ≤ target.right :=
-  match n with
-    | 0 => omega
-    | Succ m =>
-      match e: Int.leq velocity.x target.right with
-        | True => rfl
-        | False =>
-          let fast: overshot target (step (launch velocity)) = True := omega [Int.signCases velocity.x]
-          Void.exfalso (neverHits target (step (launch velocity)) (Inl fast) m h)
+    velocity.x ≤ target.right := match n with
+      | 0 => omega
+      | Succ m =>
+        match e: Int.leq velocity.x target.right with
+          | True => rfl
+          | False =>
+            let fast: overshot target (step (launch velocity)) = True := omega [Int.signCases velocity.x]
+            Void.exfalso (neverHits target (step (launch velocity)) (Inl fast) m h)
 
 theorem dyAtLeastBottom (target: Target) (below: target.top < 0) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
-    target.bottom ≤ velocity.y :=
-  match n with
-    | 0 => omega
-    | Succ m =>
-      match e: Int.leq target.bottom velocity.y with
-        | True => rfl
-        | False =>
-          let down: fallen target (step (launch velocity)) = True := omega
-          Void.exfalso (neverHits target (step (launch velocity)) (Inr (Inr down)) m h)
+    target.bottom ≤ velocity.y := match n with
+      | 0 => omega
+      | Succ m =>
+        match e: Int.leq target.bottom velocity.y with
+          | True => rfl
+          | False =>
+            let down: fallen target (step (launch velocity)) = True := omega
+            Void.exfalso (neverHits target (step (launch velocity)) (Inr (Inr down)) m h)
 
 --| Twice the y position after `n` steps is `n * (2 * dy + 1 - n)`.
 theorem yFlight (velocity: Velocity) (n: Nat): 2 * (flight n velocity).position.y = n.toInt * (2 * velocity.y + 1 - n.toInt) :=
@@ -57,7 +55,6 @@ theorem belowLater (velocity: Velocity) (n: Nat) (late: 2 * velocity.y + 2 ≤ n
 
 --| So a hit below y = 0 comes late, and no later than `-2 * bottom`.
 theorem hitLate (target: Target) (below: target.top < 0) (velocity: Velocity) (n: Nat) (h: inTarget target (flight n velocity) = True):
-    2 * velocity.y + 2 ≤ n.toInt ≤ -2 * target.bottom :=
-  match e: Int.leq n.toInt (2 * velocity.y + 1) with
-    | True => Void.exfalso (omega [aboveAtFirst velocity n (omega)])
-    | False => Both (omega) (omega [belowLater velocity n (omega)])
+    2 * velocity.y + 2 ≤ n.toInt ≤ -2 * target.bottom := match e: Int.leq n.toInt (2 * velocity.y + 1) with
+      | True => Void.exfalso (omega [aboveAtFirst velocity n (omega)])
+      | False => Both (omega) (omega [belowLater velocity n (omega)])

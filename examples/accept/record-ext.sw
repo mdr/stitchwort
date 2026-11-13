@@ -33,6 +33,5 @@ theorem evidence (a: Evidence) (b: Evidence): a = b := Evidence.ext a b
 
 -- A written `T.ext` wins over the generated one, with no clash.
 type Mine = { v: Nat }
-theorem Mine.ext (a: Mine) (b: Mine) (e: a.v = b.v): a = b :=
-  match a, b with
-    | { v = x }, { v = y } => Eq.cong (v => ({ v = v }: Mine)) e
+theorem Mine.ext (a: Mine) (b: Mine) (e: a.v = b.v): a = b := match a, b with
+  | { v = x }, { v = y } => Eq.cong (v => ({ v = v }: Mine)) e

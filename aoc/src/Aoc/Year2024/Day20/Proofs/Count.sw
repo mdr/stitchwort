@@ -13,10 +13,9 @@ import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Option, Set, Void)
 
 --| The cheats from `start` that the program counts.
 def countedFrom (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat) (start: Position):
-    List Cheat :=
-  match fromStart.get start with
-    | Some before => start.diamond length |> .filter (savesFrom toEnd honest threshold start before) |> .map (end => ({ start, end }: Cheat))
-    | None => []
+    List Cheat := match fromStart.get start with
+      | Some before => start.diamond length |> .filter (savesFrom toEnd honest threshold start before) |> .map (end => ({ start, end }: Cheat))
+      | None => []
 
 --| The cheats the program counts.
 def counted (racetrack: Racetrack) (fromStart: Map Position Nat) (toEnd: Map Position Nat) (honest: Nat) (length: Nat) (threshold: Nat):

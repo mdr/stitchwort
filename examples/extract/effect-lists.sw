@@ -163,15 +163,13 @@ def pureFilterMap: List a → (f: a → Option b) → List b
   | Nil, f => Nil
   | Cons x xs, f => List.consSome (f x) (pureFilterMap xs f)
 
-def pureFindMap (xs: List a) (f: a → Option b): Option b :=
-  match xs with
-    | Nil => None
-    | Cons x ys => Option.orElse (f x) (pureFindMap ys f)
+def pureFindMap (xs: List a) (f: a → Option b): Option b := match xs with
+  | Nil => None
+  | Cons x ys => Option.orElse (f x) (pureFindMap ys f)
 
-def pureTakeWhile (xs: List a) (p: a → Bool): List a :=
-  match xs with
-    | Nil => Nil
-    | Cons x ys => if p x then Cons x (pureTakeWhile ys p) else Nil
+def pureTakeWhile (xs: List a) (p: a → Bool): List a := match xs with
+  | Nil => Nil
+  | Cons x ys => if p x then Cons x (pureTakeWhile ys p) else Nil
 
 def isBig (x: Nat): Bool := Nat.leq 5 x
 

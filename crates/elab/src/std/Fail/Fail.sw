@@ -24,10 +24,9 @@ ability Fail where
 def Fail.fail (msg: Text): {Fail} a := Empty.absurd (Fail.stop msg)
 
 --| The value in an `Option`, or fail with `msg`.
-def Fail.need (option: Option a) (msg: Text): {Fail} a :=
-  match option with
-    | Some x => x
-    | None => Fail.fail msg
+def Fail.need (option: Option a) (msg: Text): {Fail} a := match option with
+  | Some x => x
+  | None => Fail.fail msg
 
 --| The value in an `Option`, or fail with `msg`: `Fail.need` for dot notation,
 --| `t.toNat.orFail "expected a number, got '${t}'"`.
@@ -118,22 +117,19 @@ theorem Fail.toResultEnsure (msg: Text) (ok: Bool): Fail.toResult (() => Fail.en
     | False => rfl
 
 --| `orFail` and `toResult` undo each other.
-theorem Fail.toResultOrFail (r: Result a Text): Fail.toResult (() => Result.orFail r) = r :=
-  match r with
-    | Ok x => rfl
-    | Err m => rfl
+theorem Fail.toResultOrFail (r: Result a Text): Fail.toResult (() => Result.orFail r) = r := match r with
+  | Ok x => rfl
+  | Err m => rfl
 
 --| Reading an `Option` and going on: the form a proof about a parser uses.
 theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text) (o: Option a):
-    Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x)) :=
-  match o with
-    | None => rfl
-    | Some x => rfl
+    Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x)) := match o with
+      | None => rfl
+      | Some x => rfl
 
-theorem Fail.toOptionNeed (msg: Text) (o: Option a): Fail.toOption (() => Fail.need o msg) = o :=
-  match o with
-    | None => rfl
-    | Some x => rfl
+theorem Fail.toOptionNeed (msg: Text) (o: Option a): Fail.toOption (() => Fail.need o msg) = o := match o with
+  | None => rfl
+  | Some x => rfl
 
 theorem Abort.orFailNeed (msg: Text) (o: Option a): Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg :=
   match o with
@@ -170,23 +166,20 @@ theorem Fail.toOptionToResult (t: () → {Fail} a): Fail.toOption t = Result.toO
 --| A block starting with `need x msg` (or `x.orFail msg`) gave `Ok v`: `x` held a value.
 theorem Fail.needEqOk [goal: Prop] [x: Option a] [msg: Text] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Fail.need x msg)) = Ok v)
-    (use: ∀ (u: a) => x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal :=
-  match e: x with
-    | Some u => use u rfl h
+    (use: ∀ (u: a) => x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal := match e: x with
+      | Some u => use u rfl h
 
 --| A block starting with `ensure ok msg` gave `Ok v`: `ok` held.
 theorem Fail.ensureEqOk [goal: Prop] [ok: Bool] [msg: Text] [k: () → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Fail.ensure ok msg)) = Ok v)
-    (use: ok = True → Fail.toResult (() => k ()) = Ok v → goal): goal :=
-  match e: ok with
-    | True => use rfl h
+    (use: ok = True → Fail.toResult (() => k ()) = Ok v → goal): goal := match e: ok with
+      | True => use rfl h
 
 --| A block starting with `r.orFail` gave `Ok v`: `r` was `Ok`.
 theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Result.orFail r)) = Ok v)
-    (use: ∀ (u: a) => r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
-  match e: r with
-    | Ok u => use u rfl h
+    (use: ∀ (u: a) => r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal := match e: r with
+      | Ok u => use u rfl h
 
 --| A block starting with any computation `t` gave `Ok v`: so did `t`. `t` is
 --| found from `h`.
@@ -202,15 +195,14 @@ theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: 
 -- it finishes, `toResultThen` and the induction hypothesis say what the rest
 -- gives.
 theorem Fail.toResultMap (f: a → {Fail} b) (xs: List a):
-    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x)) :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] =>
-      rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
-      match reify (() => f x) with
-        | return y =>
-          rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs in rfl
-        | Fail.stop msg, _ => rfl
+    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x)) := match xs with
+      | [] => rfl
+      | [x, ..xs] =>
+        rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
+        match reify (() => f x) with
+          | return y =>
+            rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs in rfl
+          | Fail.stop msg, _ => rfl
 
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3
 test "Fail: need None" := Fail.toResult (() => Fail.need (None: Option Nat) "none") == Err "none"

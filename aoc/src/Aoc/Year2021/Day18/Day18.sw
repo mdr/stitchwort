@@ -119,10 +119,9 @@ def sumMagnitudes: List (Number, Number) → Option (List Nat)
       | Some sum, Some others => Some [magnitude sum, ..others]
       | _, _ => None
 
-def solvePart2 (numbers: List Number): Option Nat :=
-  match sumMagnitudes (orderedPairs numbers) with
-    | Some magnitudes => magnitudes.maximum
-    | None => None
+def solvePart2 (numbers: List Number): Option Nat := match sumMagnitudes (orderedPairs numbers) with
+  | Some magnitudes => magnitudes.maximum
+  | None => None
 
 --| One number per line. Fails unless each is already reduced, as the
 --| puzzle's are: no pair inside four pairs, no regular number above 9.
@@ -147,10 +146,9 @@ def number: Nat → {Parse} Number
         Pair left right
     ]
 
-def checkNumbers (numbers: List Number): {Fail} List Number :=
-  match firstUnreduced numbers with
-    | Some line => Fail.fail "line ${line + 1} isn't a reduced snailfish number"
-    | None => numbers
+def checkNumbers (numbers: List Number): {Fail} List Number := match firstUnreduced numbers with
+  | Some line => Fail.fail "line ${line + 1} isn't a reduced snailfish number"
+  | None => numbers
 
 --| The index of the first number that isn't reduced.
 def firstUnreduced (numbers: List Number): Option Nat :=

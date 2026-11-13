@@ -12,11 +12,10 @@ import Std (List, Nat)
 
 --| "AND gates output 1 if both inputs are 1 ... OR gates output 1 if one or
 --| both inputs is 1 ... XOR gates output 1 if the inputs are different".
-def gateOutput (operation: Operation) (left: Bool) (right: Bool): Bool :=
-  match operation with
-    | And => left == True ∧ right == True
-    | Or => left == True ∨ right == True
-    | Xor => left != right
+def gateOutput (operation: Operation) (left: Bool) (right: Bool): Bool := match operation with
+  | And => left == True ∧ right == True
+  | Or => left == True ∨ right == True
+  | Xor => left != right
 
 --| `Carries device wire value`: the wire ends up carrying the value. "x00:
 --| 1 means that the wire named x00 starts with the value 1", and "Gates wait

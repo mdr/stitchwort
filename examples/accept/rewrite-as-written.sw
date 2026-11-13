@@ -56,10 +56,9 @@ theorem hiddenProofPlain (d: Nat) (a: Nat) (n: Nat) [auto ok: d ≠ 0] (same: d 
     per (d + n) d = per (Succ a + n) d :=
   rewrite same
 
-def add (x: Nat) (y: Nat): Nat :=
-  match y with
-    | Zero => x
-    | Succ k => Succ (add x k)
+def add (x: Nat) (y: Nat): Nat := match y with
+  | Zero => x
+  | Succ k => Succ (add x k)
 
 def wrap (n: Nat) (k: Nat): Nat := add k n
 

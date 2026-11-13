@@ -64,13 +64,12 @@ theorem runsDigits (chars: List Char) (bits: List Bool) (h: transmissionBits cha
 --| A transmission, trimmed, that the puzzle's table gives bits is read as
 --| exactly those bits.
 theorem parseComplete (input: Text) (bits: List Bool) (written: transmissionBits input.trim.toList = Some bits):
-    Fail.toResult (() => readBits input) = Ok bits :=
-  match runsDigits input.trim.toList bits written with
-    | Witness steps (Both joined (Both manyRuns bitsSame)) =>
-      let runs := Parse.runsMany hexDigit steps [] manyRuns
-      let digits := rewrite joined at runs in
-        Parse.runsLine input.trim (() => Parse.many hexDigit) (Parse.stepValues steps) (Parse.runsWithFinalLineBreakNone _ _ _ runs)
-      rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits), digits, bitsSame in rfl
+    Fail.toResult (() => readBits input) = Ok bits := match runsDigits input.trim.toList bits written with
+      | Witness steps (Both joined (Both manyRuns bitsSame)) =>
+        let runs := Parse.runsMany hexDigit steps [] manyRuns
+        let digits := rewrite joined at runs in
+          Parse.runsLine input.trim (() => Parse.many hexDigit) (Parse.stepValues steps) (Parse.runsWithFinalLineBreakNone _ _ _ runs)
+        rewrite Fail.toResultThen (() => readDigits input) (digits => bitsOfDigits digits), digits, bitsSame in rfl
 
 --| A transmission is read as at most one list of bits: the table gives each
 --| character bits, and the parser reads them back.

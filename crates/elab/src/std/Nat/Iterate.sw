@@ -5,10 +5,9 @@
 --| `Nat.iterate n f x` is `f` applied `n` times to `x`: `Nat.iterate 3 f x` is
 --| `f (f (f x))`. Written with `n.iterate f x` too.
 @[tailrec]
-def Nat.iterate (count: Nat) (step: a → a) (seed: a): a :=
-  match count with
-    | Zero => seed
-    | Succ n => Nat.iterate n step (step seed)
+def Nat.iterate (count: Nat) (step: a → a) (seed: a): a := match count with
+  | Zero => seed
+  | Succ n => Nat.iterate n step (step seed)
 
 --| One more step is a step first.
 theorem Nat.iterateSucc (n: Nat) (f: a → a) (x: a): Nat.iterate (Succ n) f x = Nat.iterate n f (f x) := rfl

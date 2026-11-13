@@ -62,32 +62,31 @@ theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0
     (machine.onlyPresses nonzero
       |> .filter (((aPresses, bPresses)) => aPresses ≤ 100 && bPresses ≤ 100)
       |> .map (((aPresses, bPresses)) => tokens aPresses bPresses))
-      = costs.minimum :=
-  match found: machine.onlyPresses nonzero with
-    | Some (aPresses, bPresses) =>
-      match within: aPresses ≤ 100 && bPresses ≤ 100 with
-        | True =>
-          let Both aWithin bWithin := within
-          let won := onlyPressesWins machine nonzero aPresses bPresses found
-          Eq.sym (List.minimumAllEqual (tokens aPresses bPresses) costs (winsListed aPresses bPresses aWithin bWithin won)
-            (tokensSpent listed =>
+    = costs.minimum := match found: machine.onlyPresses nonzero with
+      | Some (aPresses, bPresses) =>
+        match within: aPresses ≤ 100 && bPresses ≤ 100 with
+          | True =>
+            let Both aWithin bWithin := within
+            let won := onlyPressesWins machine nonzero aPresses bPresses found
+            Eq.sym (List.minimumAllEqual (tokens aPresses bPresses) costs (winsListed aPresses bPresses aWithin bWithin won)
+              (tokensSpent listed =>
+                match costsWin tokensSpent listed with
+                  | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
+                    let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
+                    rewrite costs, And.left same, And.right same in rfl))
+          | False =>
+            Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
               match costsWin tokensSpent listed with
                 | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
                   let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
-                  rewrite costs, And.left same, And.right same in rfl))
-        | False =>
-          Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
-            match costsWin tokensSpent listed with
-              | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
-                let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
-                let aWithin: aPresses ≤ 100 := omega [And.left same]
-                let bWithin: bPresses ≤ 100 := omega [And.right same]
-                Bool.falseNotTrue (Eq.trans (Eq.sym within) (Both aWithin bWithin))))
-    | None =>
-      Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
-        match costsWin tokensSpent listed with
-          | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both won costs)))) =>
-            Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
+                  let aWithin: aPresses ≤ 100 := omega [And.left same]
+                  let bWithin: bPresses ≤ 100 := omega [And.right same]
+                  Bool.falseNotTrue (Eq.trans (Eq.sym within) (Both aWithin bWithin))))
+      | None =>
+        Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
+          match costsWin tokensSpent listed with
+            | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both won costs)))) =>
+              Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
 
 --| The program's search is the spec's.
 theorem searchIsSpec (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := rfl

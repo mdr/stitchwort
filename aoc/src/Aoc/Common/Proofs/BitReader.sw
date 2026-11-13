@@ -43,11 +43,10 @@ theorem BitReader.readValue (reader: BitReader) (width: Nat) (field: Bits) (rest
 --| What a number read is the number's bits at the front of the unread
 --| bits, and the number fits.
 theorem BitReader.readNumberSome (reader: BitReader) (width: Nat) (n: Nat) (rest: BitReader) (read: reader.readNumber width = Some (n, rest)):
-    reader.unread = Nat.toBits width n ++ rest.unread ∧ n < Nat.pow 2 width :=
-  match e: reader.read width with
-    | Some (field, after) =>
-      let parts := somePairInjective read
-      rewrite <- parts.left, <- parts.right in BitReader.readValue reader width field after e
+    reader.unread = Nat.toBits width n ++ rest.unread ∧ n < Nat.pow 2 width := match e: reader.read width with
+      | Some (field, after) =>
+        let parts := somePairInjective read
+        rewrite <- parts.left, <- parts.right in BitReader.readValue reader width field after e
 
 --| The bit a read takes is the front of the unread bits.
 theorem BitReader.readBitSome (reader: BitReader) (bit: Bool) (rest: BitReader) (read: reader.readBit = Some (bit, rest)): reader.unread = [bit, ..rest.unread] :=

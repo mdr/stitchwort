@@ -93,10 +93,9 @@ def Loop.expose (l: Loop): Loop :=
 theorem exposeComputes (l: Loop): Loop.expose l = MkLoop (Loop.inv l) := rfl
 
 -- Inert arguments: a proof only passed on, never computed with.
-def fnEq (n: Nat) (h: Void → Void): (Nat → Nat) = (Nat → Nat) :=
-  match n with
-    | Zero => rfl
-    | Succ m => rfl
+def fnEq (n: Nat) (h: Void → Void): (Nat → Nat) = (Nat → Nat) := match n with
+  | Zero => rfl
+  | Succ m => rfl
 
 def applyAt (f: Nat → Nat) (x: Nat): Nat := f x
 
@@ -104,15 +103,13 @@ theorem afterJ (n: Nat) (u1: Void → Void) (u2: Void → Void):
     applyAt (J (y e => y) (x => x) (fnEq n u1)) 3 = applyAt (J (y e => y) (x => x) (fnEq n u2)) 3 :=
   rfl
 
-def quietA (n: Nat) (h: 0 = 0): Nat :=
-  match n with
-    | Zero => 0
-    | Succ m => quietB m h
+def quietA (n: Nat) (h: 0 = 0): Nat := match n with
+  | Zero => 0
+  | Succ m => quietB m h
 
-def quietB (n: Nat) (h: 0 = 0): Nat :=
-  match n with
-    | Zero => 1
-    | Succ m => quietA m h
+def quietB (n: Nat) (h: 0 = 0): Nat := match n with
+  | Zero => 1
+  | Succ m => quietA m h
 
 theorem quietGroup (n: Nat) (p: 0 = 0) (q: 0 = 0): quietB n p = quietB n q := rfl
 
@@ -124,10 +121,9 @@ def keep (d: Nat) (ok: d ≠ 0): Box (d ≠ 0) := MkBox ok
 theorem keepBoth (d: Nat) (p: d ≠ 0) (q: d ≠ 0): keep d p = keep d q := rfl
 
 -- Past the arity: `g`'s proof is the computed function's argument.
-def g (n: Nat): 0 = 0 → Bool :=
-  match n with
-    | Zero => h => J (y e => Bool) True h
-    | Succ m => g m
+def g (n: Nat): 0 = 0 → Bool := match n with
+  | Zero => h => J (y e => Bool) True h
+  | Succ m => g m
 
 theorem gSteps (h: 0 = 0): g 1 h = g 0 h := rfl
 

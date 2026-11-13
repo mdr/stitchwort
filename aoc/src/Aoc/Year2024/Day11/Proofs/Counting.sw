@@ -14,10 +14,9 @@ def weigh (weight: Nat → Nat): List (Nat, Nat) → Nat
   | [(stone, count), ..rest] => count * weight stone + weigh weight rest
 
 theorem weighCong (first: Nat → Nat) (second: Nat → Nat) (same: ∀ (stone: Nat) => first stone = second stone)
-    (entries: List (Nat, Nat)): weigh first entries = weigh second entries :=
-  match entries with
-    | [] => rfl
-    | [(stone, count), ..rest] => rewrite same stone, weighCong first second same rest in rfl
+    (entries: List (Nat, Nat)): weigh first entries = weigh second entries := match entries with
+      | [] => rfl
+      | [(stone, count), ..rest] => rewrite same stone, weighCong first second same rest in rfl
 
 --| The weight as a sum over the entries (std's `Map.weightInsertWith` and
 --| `Map.sumByCounts` are about this form).
@@ -43,11 +42,10 @@ theorem weighAddStones (weight: Nat → Nat) (counts: Map Nat Nat) (stones: List
 
 --| A blink on the counts weighs each number by what it changes into.
 theorem weighFold (weight: Nat → Nat) (after: Map Nat Nat) (entries: List (Nat, Nat)): weigh weight (Map.Spec.foldLeft (blinked stone count => addStones blinked (changeStone stone) count) after entries).toList
-    = weigh (stone => (changeStone stone).sumBy weight) entries + weigh weight after.toList :=
-  match entries with
-    | [] => ring
-    | [(stone, count), ..rest] =>
-      rewrite weighFold weight (addStones after (changeStone stone) count) rest, weighAddStones weight after (changeStone stone) count in ring
+    = weigh (stone => (changeStone stone).sumBy weight) entries + weigh weight after.toList := match entries with
+      | [] => ring
+      | [(stone, count), ..rest] =>
+        rewrite weighFold weight (addStones after (changeStone stone) count) rest, weighAddStones weight after (changeStone stone) count in ring
 
 theorem weighBlinkCounts (weight: Nat → Nat) (counts: Map Nat Nat):
     weigh weight (blinkCounts counts).toList = weigh (stone => (changeStone stone).sumBy weight) counts.toList :=

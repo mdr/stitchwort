@@ -26,20 +26,19 @@ theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wi
     | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
 
 theorem repairSound (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire))
-    (found: repair budget bits gates swaps = Some result): Repaired bits budget gates swaps result :=
-  match budget with
-    | Zero =>
-      match checked: checkAdder gates bits with
-        | Passes carry => repairDone bits 0 gates swaps result found
-    | Succ fewer =>
-      match checked: checkAdder gates bits with
-        | Passes carry => repairDone bits (Succ fewer) gates swaps result found
-        | Faulty fixes suspects =>
-          match List.memOfFindMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) (swapsToTry fixes suspects) result found with
-            | Witness fix (Both _ fixed) =>
-              match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
-                | Witness more (Both isResult (Both short adder)) =>
-                  Witness [fix, ..more] (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
+    (found: repair budget bits gates swaps = Some result): Repaired bits budget gates swaps result := match budget with
+      | Zero =>
+        match checked: checkAdder gates bits with
+          | Passes carry => repairDone bits 0 gates swaps result found
+      | Succ fewer =>
+        match checked: checkAdder gates bits with
+          | Passes carry => repairDone bits (Succ fewer) gates swaps result found
+          | Faulty fixes suspects =>
+            match List.memOfFindMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) (swapsToTry fixes suspects) result found with
+              | Witness fix (Both _ fixed) =>
+                match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
+                  | Witness more (Both isResult (Both short adder)) =>
+                    Witness [fix, ..more] (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
 
 --| Part 2, sound for every device: the answer names at most four swaps,
 --| which make the device's gates add any two numbers as wide as its x
@@ -55,22 +54,19 @@ theorem part2Sound (device: Device) (answer: Text) (solved: solvePart2 device = 
 
 --| The names of the x pairs are x wires, and of the y pairs y wires.
 theorem xNamed (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range 0 bits).map (k => (X k, x.testBit k))).map .fst):
-    wire.xBit.isSome = True :=
-  match List.memMapElim .fst wire _ member with
-    | Witness pair (Both inPairs isWire) =>
-      match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
-        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
+    wire.xBit.isSome = True := match List.memMapElim .fst wire _ member with
+      | Witness pair (Both inPairs isWire) =>
+        match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
+          | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
 theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range 0 bits).map (k => (Y k, y.testBit k))).map .fst):
-    wire.yBit.isSome = True :=
-  match List.memMapElim .fst wire _ member with
-    | Witness pair (Both inPairs isWire) =>
-      match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
-        | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
+    wire.yBit.isSome = True := match List.memMapElim .fst wire _ member with
+      | Witness pair (Both inPairs isWire) =>
+        match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
+          | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem notXAndY (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void :=
-  match wire with
-    | Other name => Bool.falseNotTrue isX
+theorem notXAndY (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void := match wire with
+  | Other name => Bool.falseNotTrue isX
 
 theorem notInputOutput (wire: Wire) (output: (wire.xBit.isNone ∧ wire.yBit.isNone) = True) (input: (wire.xBit.isSome ∨ wire.yBit.isSome) = True): Void :=
   match wire with

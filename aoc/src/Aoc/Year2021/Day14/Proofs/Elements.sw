@@ -17,18 +17,16 @@ theorem stepKeepsFirst (rules: List Rule) (a: Char) (rest: List Char): ∃ (tail
 
 --| ...and so do any number of steps.
 theorem stepsKeepFirst (rules: List Rule) (steps: Nat) (a: Char) (rest: List Char):
-    ∃ (tail: List Char) => Nat.iterate steps (step rules) [a, ..rest] = [a, ..tail] :=
-  match steps with
-    | Zero => Witness rest rfl
-    | Succ steps =>
-      match stepKeepsFirst rules a rest with
-        | Witness tail e => rewrite e in stepsKeepFirst rules steps a tail
+    ∃ (tail: List Char) => Nat.iterate steps (step rules) [a, ..rest] = [a, ..tail] := match steps with
+      | Zero => Witness rest rfl
+      | Succ steps =>
+        match stepKeepsFirst rules a rest with
+          | Witness tail e => rewrite e in stepsKeepFirst rules steps a tail
 
 --| Steps leave an empty polymer empty.
-theorem stepsEmpty (rules: List Rule) (steps: Nat): Nat.iterate steps (step rules) [] = [] :=
-  match steps with
-    | Zero => rfl
-    | Succ steps => stepsEmpty rules steps
+theorem stepsEmpty (rules: List Rule) (steps: Nat): Nat.iterate steps (step rules) [] = [] := match steps with
+  | Zero => rfl
+  | Succ steps => stepsEmpty rules steps
 
 --| An element's count: the first element, if it is that one, and the
 --| pairs that end with it.

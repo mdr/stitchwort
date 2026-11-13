@@ -11,14 +11,13 @@ import Std (Bool, Fail, List, Nat, Option, Result, Void)
 --| A number `reduced` accepts, inside at most four pairs, has its leaves
 --| inside at most four pairs and below 10.
 theorem reducedLeaves (depth: Nat) (number: Number) (shallow: depth ≤ 4) (small: reduced depth number = True):
-    List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) :=
-  match number, small with
-    | Regular value, small => Both (Both shallow omega) Trivial
-    | Pair left right, ok =>
-      let parts := ok.right
-      List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right)
-        (reducedLeaves (depth + 1) left (omega [ok.left]) parts.left)
-        (reducedLeaves (depth + 1) right (omega [ok.left]) parts.right)
+    List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) := match number, small with
+      | Regular value, small => Both (Both shallow omega) Trivial
+      | Pair left right, ok =>
+        let parts := ok.right
+        List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right)
+          (reducedLeaves (depth + 1) left (omega [ok.left]) parts.left)
+          (reducedLeaves (depth + 1) right (omega [ok.left]) parts.right)
 
 --| When `firstUnreduced` finds nothing, every number is reduced.
 theorem findUnreducedNone (i: Nat) (numbers: List Number) (none: List.findIndexFrom i (x => not (reduced 0 x)) numbers = None): List.All IsReduced numbers :=

@@ -20,13 +20,12 @@ def climbs (map: TopographicMap): (from: Position) → (rest: List Position) →
 --| The spec's "ends at height 9" and "at each step", after the first
 --| position, are `climbs`.
 theorem endsAndSteps (map: TopographicMap) (from: Position) (rest: List Position): (([from, ..rest].last |> .flatMap map.heightAt) == Some 9 && [from, ..rest].zipWithNext.all (pair => isStep map pair.fst pair.snd))
-    = climbs map from rest :=
-  match rest with
-    | [] => Bool.andTrue _
-    | [next, ..rest] =>
-      match step: isStep map from next with
-        | True => endsAndSteps map next rest
-        | False => Bool.andFalse _
+    = climbs map from rest := match rest with
+      | [] => Bool.andTrue _
+      | [next, ..rest] =>
+        match step: isStep map from next with
+          | True => endsAndSteps map next rest
+          | False => Bool.andFalse _
 
 --| A hiking trail is a start at height 0 and a climb from it.
 theorem trailCons (map: TopographicMap) (start: Position) (rest: List Position):
@@ -35,12 +34,11 @@ theorem trailCons (map: TopographicMap) (start: Position) (rest: List Position):
 
 --| Where a climb ends is a 9.
 theorem endHeight (map: TopographicMap) (from: Position) (rest: List Position) (end: Position) (climbing: climbs map from rest = True)
-    (last: [from, ..rest].last = Some end): map.heightAt end = Some 9 :=
-  match rest with
-    | [] => rewrite <- Option.someInjective last in climbing.read
-    | [next, ..rest] =>
-      let Both _ later := climbing
-      endHeight map next rest end later last
+    (last: [from, ..rest].last = Some end): map.heightAt end = Some 9 := match rest with
+      | [] => rewrite <- Option.someInjective last in climbing.read
+      | [next, ..rest] =>
+        let Both _ later := climbing
+        endHeight map next rest end later last
 
 --| The search finds exactly the ends of the climbs of `steps` steps.
 theorem memTrailEnds (map: TopographicMap) (steps: Nat) (from end: Position):
@@ -221,13 +219,12 @@ theorem trailsAreCandidates (map: TopographicMap) (start: Position) (rest: List 
       (List.memMap (pathsOf map 9) rest (rewrite ten at restPath) (Cons start)) hiking)
 
 --| `pathsOf` lists each path once, so the spec counts distinct trails.
-theorem pathsDistinct (map: TopographicMap) (count: Nat): List.Distinct (pathsOf map count) :=
-  match count with
-    | Zero => Both (none => none) Trivial
-    | Succ count =>
-      List.distinctFlatMap (position => pathsOf map count |> .map (Cons position)) (path => path.headOr { row = 0, column = 0 }) map.positions
-        (positionsDistinct map)
-        (position member => List.distinctMap (pathsOf map count) (pathsDistinct map count) (Cons position) (first second same => Eq.cong List.tailOf same))
-        (position member path inMapped =>
-          List.anyElim (rest => [position, ..rest] = path) _ (pathsOf map count) (List.memMapAny (pathsOf map count) (Cons position) path inMapped)
-            (rest restIn built => rewrite <- built in rfl))
+theorem pathsDistinct (map: TopographicMap) (count: Nat): List.Distinct (pathsOf map count) := match count with
+  | Zero => Both (none => none) Trivial
+  | Succ count =>
+    List.distinctFlatMap (position => pathsOf map count |> .map (Cons position)) (path => path.headOr { row = 0, column = 0 }) map.positions
+      (positionsDistinct map)
+      (position member => List.distinctMap (pathsOf map count) (pathsDistinct map count) (Cons position) (first second same => Eq.cong List.tailOf same))
+      (position member path inMapped =>
+        List.anyElim (rest => [position, ..rest] = path) _ (pathsOf map count) (List.memMapAny (pathsOf map count) (Cons position) path inMapped)
+          (rest restIn built => rewrite <- built in rfl))

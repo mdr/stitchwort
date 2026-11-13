@@ -29,7 +29,7 @@ theorem columnsAre (lines: List Text):
   rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 --| Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat) (lines: List Text) (h: (∀ (r: Nat) => ((lines.map Text.toList).getOr r []).length ≤ w)): blank lines w = True :=
+theorem blankPast (w: Nat) (lines: List Text) (h: ∀ (r: Nat) => ((lines.map Text.toList).getOr r []).length ≤ w): blank lines w = True :=
   match lines with
     | [] => rfl
     | [l, ..rest] => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
@@ -57,11 +57,10 @@ theorem blockOperator (lines: List Text) (cs: List Nat):
     columnOperator lines _
 
 --| Adding and multiplying don't mind the order.
-theorem evaluateReverse (op: Option Operator) (xs: List Nat): evaluate op xs.reverse = evaluate op xs :=
-  match op with
-    | None => rfl
-    | Some Add => List.sumReverse xs
-    | Some Multiply => List.productReverse xs
+theorem evaluateReverse (op: Option Operator) (xs: List Nat): evaluate op xs.reverse = evaluate op xs := match op with
+  | None => rfl
+  | Some Add => List.sumReverse xs
+  | Some Multiply => List.productReverse xs
 
 --| A problem has at least one column.
 theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines lo hi = True): lo < hi :=

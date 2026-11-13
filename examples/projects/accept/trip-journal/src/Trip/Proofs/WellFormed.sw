@@ -7,10 +7,9 @@ import Trip.Merge (..)
 
 -- Stops
 
-theorem unlinkId (stop: Stop): (unlink stop).id = stop.id :=
-  match e: stop.kind with
-    | Planned index => rfl
-    | Free => rfl
+theorem unlinkId (stop: Stop): (unlink stop).id = stop.id := match e: stop.kind with
+  | Planned index => rfl
+  | Free => rfl
 
 theorem localStopId (replaced: Bool) (stop: Stop): (if replaced then unlink stop else stop).id = stop.id :=
   match replaced with
@@ -102,12 +101,11 @@ theorem albumsOk: âˆ€ (albums: List Album) => List.Distinct (photoIds albums) â†
       (albumsOk rest (List.distinctAppendRight (album.photos.map Photo.id) (photoIds rest) d))
 
 theorem withPhotosOfOk (remote: List Album) (okr: List.All AlbumOk remote) (album: Album) (ok: AlbumOk album):
-    AlbumOk (withPhotosOf remote album) :=
-  match e: remote.find (other => other.id == album.id) with
-    | Some other =>
-      List.distinctKeysAppendNewBy other.photos album.photos Photo.id
-        (List.memOfAll AlbumOk remote okr other (And.right (List.findSome remote (o => o.id == album.id) other e))) ok
-    | None => ok
+    AlbumOk (withPhotosOf remote album) := match e: remote.find (other => other.id == album.id) with
+      | Some other =>
+        List.distinctKeysAppendNewBy other.photos album.photos Photo.id
+          (List.memOfAll AlbumOk remote okr other (And.right (List.findSome remote (o => o.id == album.id) other e))) ok
+      | None => ok
 
 theorem withPhotosOfId (remote: List Album) (album: Album): (withPhotosOf remote album).id = album.id :=
   match e: remote.find (other => other.id == album.id) with

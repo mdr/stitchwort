@@ -54,32 +54,31 @@ theorem walkComplete (numbers: List Nat) (preamble: Nat) (answer: Nat) (position
     (at: front = numbers.drop start) (ahead: start + preamble ≤ position):
     firstInvalidFrom preamble front = Some answer
     decreasing position - start
-:=
-  match d: front.drop preamble with
-    | [] =>
-      let index: start + (preamble + (position - start - preamble)) = position := omega
-      let gone: numbers.get position = None :=
-        rewrite <- index, <- List.getDrop numbers start (preamble + (position - start - preamble)), <- at,
-          <- List.getDrop front preamble (position - start - preamble), d in rfl
-      Void.exfalso (Option.noneNotSome answer (Eq.trans (Eq.sym gone) listed))
-    | [number, ..later] =>
-      let (Both atPosition window) := walkAt numbers preamble start front at number later d
-      if h: start + preamble = position then
-        let isAnswer: number = answer := Option.someInjective (Eq.trans (Eq.sym atPosition) (rewrite h in listed))
-        match c: ({ numbers = front.take preamble }: Window).sumsTo number with
-          | True =>
-            Void.exfalso (notSum (rewrite <- h, window, <- isAnswer in sumsToSound { numbers = front.take preamble } number c))
-          | False => rewrite isAnswer in rfl
-      else
-        let sums: SumOfTwo (front.take preamble) number := rewrite <- window in valid (start + preamble) (omega) number atPosition
-        match c: ({ numbers = front.take preamble }: Window).sumsTo number with
-          | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym c) (sumsToComplete { numbers = front.take preamble } number sums)))
-          | True =>
-            match front with
-              | [] => Void.exfalso (List.consNotNil number later (Eq.sym (rewrite List.dropNil preamble at d in d)))
-              | [first, ..rest] =>
-                walkComplete numbers preamble answer position listed notSum valid rest (start + 1)
-                  (rewrite List.dropAdd start 1 numbers, <- at in rfl) (omega)
+:= match d: front.drop preamble with
+  | [] =>
+    let index: start + (preamble + (position - start - preamble)) = position := omega
+    let gone: numbers.get position = None :=
+      rewrite <- index, <- List.getDrop numbers start (preamble + (position - start - preamble)), <- at,
+        <- List.getDrop front preamble (position - start - preamble), d in rfl
+    Void.exfalso (Option.noneNotSome answer (Eq.trans (Eq.sym gone) listed))
+  | [number, ..later] =>
+    let (Both atPosition window) := walkAt numbers preamble start front at number later d
+    if h: start + preamble = position then
+      let isAnswer: number = answer := Option.someInjective (Eq.trans (Eq.sym atPosition) (rewrite h in listed))
+      match c: ({ numbers = front.take preamble }: Window).sumsTo number with
+        | True =>
+          Void.exfalso (notSum (rewrite <- h, window, <- isAnswer in sumsToSound { numbers = front.take preamble } number c))
+        | False => rewrite isAnswer in rfl
+    else
+      let sums: SumOfTwo (front.take preamble) number := rewrite <- window in valid (start + preamble) (omega) number atPosition
+      match c: ({ numbers = front.take preamble }: Window).sumsTo number with
+        | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym c) (sumsToComplete { numbers = front.take preamble } number sums)))
+        | True =>
+          match front with
+            | [] => Void.exfalso (List.consNotNil number later (Eq.sym (rewrite List.dropNil preamble at d in d)))
+            | [first, ..rest] =>
+              walkComplete numbers preamble answer position listed notSum valid rest (start + 1)
+                (rewrite List.dropAdd start 1 numbers, <- at in rfl) (omega)
 
 --| Whenever there is a first invalid number, part 1 finds it.
 theorem part1Complete (data: XmasData) (preamble: Nat) (answer: Nat) (first: Part1 data.numbers preamble answer):

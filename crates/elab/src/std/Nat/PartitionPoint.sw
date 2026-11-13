@@ -39,36 +39,35 @@ theorem Nat.partitionPointDone (low: Nat) (high: Nat) (p: Nat → Bool) (close: 
 --| it, unless it is `low`; and `p` fails at it, unless it is `high`.
 theorem Nat.partitionPointBounds (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high):
     (low ≤ Nat.partitionPoint low high p) ∧ ((Nat.partitionPoint low high p ≤ high) ∧ (((Nat.partitionPoint low high p = low) ∨ (p (Nat.partitionPoint low high p - 1) = True)) ∧ ((Nat.partitionPoint low high p = high) ∨ (p (Nat.partitionPoint low high p) = False))))
-    decreasing high - low :=
-  match apart: Nat.leq (Succ low) high with
-    | True =>
-      let middle := (low + high) / 2
-      rewrite Nat.partitionPointSplit low high p apart in
-        match held: p middle with
-          | True =>
-            let (Both above (Both below (Both before after))) := Nat.partitionPointBounds (middle + 1) high p (omega [apart])
-              [decreasing := omega [apart]]
-            let found := Nat.partitionPoint (middle + 1) high p
-            Both (omega [above])
-              (Both below
-                (Both
-                  (match before with
-                    | Inr holds => Inr holds
-                    | Inl first =>
-                      let previous: found - 1 = middle := omega [first]
-                      Inr (rewrite previous in held))
-                  after))
-          | False =>
-            let (Both above (Both below (Both before after))) := Nat.partitionPointBounds low middle p (omega [apart])
-              [decreasing := omega [apart]]
-            let found := Nat.partitionPoint low middle p
-            Both above
-              (Both (omega [below, apart])
-                (Both before
-                  (match after with
-                    | Inr fails => Inr fails
-                    | Inl last => Inr (rewrite last in held))))
-    | False => rewrite Nat.partitionPointDone low high p apart in Both (Nat.leRefl low) (Both ordered (Both (Inl rfl) (Inl (omega [ordered, apart]))))
+    decreasing high - low := match apart: Nat.leq (Succ low) high with
+      | True =>
+        let middle := (low + high) / 2
+        rewrite Nat.partitionPointSplit low high p apart in
+          match held: p middle with
+            | True =>
+              let (Both above (Both below (Both before after))) := Nat.partitionPointBounds (middle + 1) high p (omega [apart])
+                [decreasing := omega [apart]]
+              let found := Nat.partitionPoint (middle + 1) high p
+              Both (omega [above])
+                (Both below
+                  (Both
+                    (match before with
+                      | Inr holds => Inr holds
+                      | Inl first =>
+                        let previous: found - 1 = middle := omega [first]
+                        Inr (rewrite previous in held))
+                    after))
+            | False =>
+              let (Both above (Both below (Both before after))) := Nat.partitionPointBounds low middle p (omega [apart])
+                [decreasing := omega [apart]]
+              let found := Nat.partitionPoint low middle p
+              Both above
+                (Both (omega [below, apart])
+                  (Both before
+                    (match after with
+                      | Inr fails => Inr fails
+                      | Inl last => Inr (rewrite last in held))))
+      | False => rewrite Nat.partitionPointDone low high p apart in Both (Nat.leRefl low) (Both ordered (Both (Inl rfl) (Inl (omega [ordered, apart]))))
 
 --| When `p` holds up to some point and fails after it, the answer is that
 --| point. That is, `p` holds at every number from `low` before it, and fails

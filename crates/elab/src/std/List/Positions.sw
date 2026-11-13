@@ -39,13 +39,12 @@ theorem List.containsIndexOf [auto eq: DecEq a] (x: a) (xs: List a): List.contai
 
 --| `x` is in `xs` exactly when its first place in `xs` followed by more is inside `xs`.
 theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a) (xs: List a):
-    List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs) :=
-  match xs with
-    | [] => rfl
-    | [y, ..rest] =>
-      match e: y == x with
-        | True => rfl
-        | False => List.containsIndexOfAppend x more rest
+    List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs) := match xs with
+      | [] => rfl
+      | [y, ..rest] =>
+        match e: y == x with
+          | True => rfl
+          | False => List.containsIndexOfAppend x more rest
 
 --| A fold of `Nat.max` is below `k` exactly when its start and every `f x` are.
 theorem List.foldMaxLt (f: a → Nat) (k: Nat) (xs: List a) (start: Nat):

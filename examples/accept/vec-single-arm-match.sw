@@ -5,6 +5,5 @@ type Vec (a: Type): Nat → Type =
   | VNil: Vec a 0
   | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
-def head (items: Vec Nat (Succ n)): Nat :=
-  match items with
-    | VCons x _ => x
+def head (items: Vec Nat (Succ n)): Nat := match items with
+  | VCons x _ => x

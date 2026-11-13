@@ -69,19 +69,18 @@ def codes(): {Parse} List Code := lines (() => many1 numericKey |> .toList) |> .
 def parseCodes (input: Text): {Fail} List Code := Parse.all input codes
 
 --| The digit on a key, if it has one.
-def NumericKey.digit (key: NumericKey): Option Nat :=
-  match key with
-    | Digit0 => Some 0
-    | Digit1 => Some 1
-    | Digit2 => Some 2
-    | Digit3 => Some 3
-    | Digit4 => Some 4
-    | Digit5 => Some 5
-    | Digit6 => Some 6
-    | Digit7 => Some 7
-    | Digit8 => Some 8
-    | Digit9 => Some 9
-    | Enter => None
+def NumericKey.digit (key: NumericKey): Option Nat := match key with
+  | Digit0 => Some 0
+  | Digit1 => Some 1
+  | Digit2 => Some 2
+  | Digit3 => Some 3
+  | Digit4 => Some 4
+  | Digit5 => Some 5
+  | Digit6 => Some 6
+  | Digit7 => Some 7
+  | Digit8 => Some 8
+  | Digit9 => Some 9
+  | Enter => None
 
 --| The code's digits read as a number: 29 for 029A.
 def Code.numericPart (code: Code): Nat := code.foldLeft 0 (number key => key.digit.fold number (digit => 10 * number + digit))
@@ -187,13 +186,12 @@ def Costs.cheapestCost (costs: Costs) (choices: NonEmptyList (List Direction)): 
 
 def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate]
 
-def DirectionKey.index (key: DirectionKey): Nat :=
-  match key with
-    | Arrow Up => 0
-    | Arrow Down => 1
-    | Arrow Left => 2
-    | Arrow Right => 3
-    | Activate => 4
+def DirectionKey.index (key: DirectionKey): Nat := match key with
+  | Arrow Up => 0
+  | Arrow Down => 1
+  | Arrow Left => 2
+  | Arrow Right => 3
+  | Activate => 4
 
 --| The same costs, worked out once for every pair of keys.
 def Costs.tabulate (costs: Costs): Costs :=

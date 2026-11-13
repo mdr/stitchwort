@@ -51,7 +51,7 @@ def regionsWith (regions: List Region) (position: Position): Nat := regions.coun
 --| From a closed `seen`, the regions found are disjoint from `seen` and
 --| from each other.
 theorem atMostOnce (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position) (closed: Closed garden seen)
-    (plots: (∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant))):
+    (plots: ∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)):
     (regionsWith (garden.regionsFrom starts seen) position ≤ 1) ∧ (seen.contains position = True → regionsWith (garden.regionsFrom starts seen) position = 0) :=
   match starts with
     | [] => Both (omega) (has => rfl)
@@ -85,7 +85,7 @@ theorem atMostOnce (garden: Garden) (position: Position) (starts: List Position)
 
 --| Each start is in `seen` or in a region found.
 theorem covered (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position)
-    (plots: (∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant))) (none: position ∈ starts):
+    (plots: ∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) (none: position ∈ starts):
     (seen.contains position = True) ∨ (1 ≤ regionsWith (garden.regionsFrom starts seen) position) :=
   match starts, none with
     | [], none => Void.exfalso none
@@ -125,19 +125,18 @@ theorem inOneRegion (garden: Garden) (position: Position) (plant: Char) (grows: 
 
 --| Each region found is the region of one of the starts.
 theorem fromStarts (garden: Garden) (region: Region) (starts: List Position) (seen: Set Position) (none: region ∈ garden.regionsFrom starts seen):
-    Exists Position (start => (start ∈ starts) ∧ (region = garden.regionOf start)) :=
-  match starts, none with
-    | [], none => Void.exfalso none
-    | [start, ..rest], member =>
-      match taken: seen.contains start with
-        | True =>
-          Exists.elim (fromStarts garden region rest seen member) (other both => Witness other (Both (Inr (And.left both)) (And.right both)))
-        | False =>
-          match member with
-            | Inl same => Witness start (Both (Inl rfl) (Eq.sym same))
-            | Inr later =>
-              Exists.elim (fromStarts garden region rest ((garden.regionOf start).plots.foldLeft seen Set.insert) later) (other both =>
-                Witness other (Both (Inr (And.left both)) (And.right both)))
+    Exists Position (start => (start ∈ starts) ∧ (region = garden.regionOf start)) := match starts, none with
+      | [], none => Void.exfalso none
+      | [start, ..rest], member =>
+        match taken: seen.contains start with
+          | True =>
+            Exists.elim (fromStarts garden region rest seen member) (other both => Witness other (Both (Inr (And.left both)) (And.right both)))
+          | False =>
+            match member with
+              | Inl same => Witness start (Both (Inl rfl) (Eq.sym same))
+              | Inr later =>
+                Exists.elim (fromStarts garden region rest ((garden.regionOf start).plots.foldLeft seen Set.insert) later) (other both =>
+                  Witness other (Both (Inr (And.left both)) (And.right both)))
 
 --| Each of the program's regions is a region of the map, its plots listed
 --| once, and holds a plot.

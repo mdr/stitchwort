@@ -40,11 +40,10 @@ theorem reachesNothing (operators: List Operator) (numbers: List Nat) (start: Na
 
 --| Anything is reached, when there is an operator to choose.
 theorem reachesAnything (operators: List Operator) (some: Operator) (has: some ∈ operators)
-    (numbers: List Nat) (start: Nat): reaches operators start (value => True) numbers = True :=
-  match numbers with
-    | [] => rfl
-    | [number, ..rest] =>
-      Witness some (Both has (reachesAnything operators some has rest (combine some start number)))
+    (numbers: List Nat) (start: Nat): reaches operators start (value => True) numbers = True := match numbers with
+      | [] => rfl
+      | [number, ..rest] =>
+        Witness some (Both has (reachesAnything operators some has rest (combine some start number)))
 
 --| A condition that doesn't depend on the value comes out of the search.
 theorem reachesAnd (operators: List Operator) (condition: Bool) (wanted: Nat → Bool) (numbers: List Nat) (start: Nat):

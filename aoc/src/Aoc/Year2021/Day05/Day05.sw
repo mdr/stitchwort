@@ -47,10 +47,9 @@ def Line.parse(): {Parse} Line :=
 
 --| The lines, if each is horizontal, vertical or diagonal at 45 degrees;
 --| otherwise fail, naming the first that isn't.
-def checkShapes (lines: List Line): {Fail} List Line :=
-  match firstBent lines with
-    | Some (index, _) => Fail.fail "line ${index + 1} isn't horizontal, vertical or diagonal"
-    | None => lines
+def checkShapes (lines: List Line): {Fail} List Line := match firstBent lines with
+  | Some (index, _) => Fail.fail "line ${index + 1} isn't horizontal, vertical or diagonal"
+  | None => lines
 
 --| The first line, with its index, that isn't horizontal, vertical or
 --| diagonal at 45 degrees.

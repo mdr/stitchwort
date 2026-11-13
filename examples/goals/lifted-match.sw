@@ -2,12 +2,11 @@
 -- goal stuck on one shows the `match` with what it matches and its
 -- alternatives left out, never the helper's internal name (`%match1`).
 
-def Follows (xs: List Nat) (flag: Bool): Prop :=
-  match xs with
-    | [] => True
-    | [x, ..rest] => x ≤ 3 ∧ match flag with
-      | True => Follows rest flag
-      | False => x = 1
+def Follows (xs: List Nat) (flag: Bool): Prop := match xs with
+  | [] => True
+  | [x, ..rest] => x ≤ 3 ∧ match flag with
+    | True => Follows rest flag
+    | False => x = 1
 
 -- The call matched at once; the inner `match` is what the goal is stuck on.
 theorem followsCons (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?

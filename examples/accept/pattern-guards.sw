@@ -20,16 +20,14 @@ def describe: Option Nat → Nat
 test "fall through" := describe (Some 11) == 2 ∧ describe (Some 5) == 1 ∧ describe (Some 0) == 0
 
 -- `match … with`, on one line too.
-def classify (n: Nat): Nat :=
-  match n with
-    | Zero => 0
-    | Succ k if k > 2 => 2
-    | _ => 1
+def classify (n: Nat): Nat := match n with
+  | Zero => 0
+  | Succ k if k > 2 => 2
+  | _ => 1
 
 test "classify" := classify 0 == 0 ∧ classify 2 == 1 ∧ classify 9 == 2
 
-def classifyInline (n: Nat): Nat :=
-  match n with | Zero => 0 | Succ k if k > 2 => 2 | _ => 1
+def classifyInline (n: Nat): Nat := match n with | Zero => 0 | Succ k if k > 2 => 2 | _ => 1
 
 test "one line" := classifyInline 9 == 2 ∧ classifyInline 1 == 1
 
@@ -83,13 +81,12 @@ test "two columns" := twoColumns 0 5 == 1 ∧ twoColumns 5 0 == 2 ∧ twoColumns
 
 -- A guard may name a variable of the function, also inside a `match` that
 -- is lifted into a helper, and a definition declared below it.
-def firstAbove (limit: Nat) (xs: List Nat): Option Nat :=
-  match xs with
-    | [] => None
-    | [x, ..rest] if x > limit => match rest with
-      | [] => Some x
-      | [y, ..more] => Some (x + y)
-    | [_, ..rest] => firstAbove limit rest
+def firstAbove (limit: Nat) (xs: List Nat): Option Nat := match xs with
+  | [] => None
+  | [x, ..rest] if x > limit => match rest with
+    | [] => Some x
+    | [y, ..more] => Some (x + y)
+  | [_, ..rest] => firstAbove limit rest
 
 test "captured" := firstAbove 3 [1, 5, 9] == Some 14 ∧ firstAbove 3 [1, 5] == Some 5
 
@@ -133,13 +130,12 @@ def fallThrough: Nat → Nat → Nat
 
 test "match below guards" := fallThrough 9 0 == 1 ∧ fallThrough 3 0 == 2 ∧ fallThrough 1 0 == 10 ∧ fallThrough 1 4 == 3
 
-def fallThroughWith (n m: Nat): Nat :=
-  match n, m with
-    | n, _ if n > 5 => 1
-    | _, m =>
-      match m with
-        | 0 => 10
-        | Succ k => k
+def fallThroughWith (n m: Nat): Nat := match n, m with
+  | n, _ if n > 5 => 1
+  | _, m =>
+    match m with
+      | 0 => 10
+      | Succ k => k
 
 test "match with" := fallThroughWith 9 0 == 1 ∧ fallThroughWith 1 0 == 10 ∧ fallThroughWith 1 4 == 3
 

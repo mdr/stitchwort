@@ -20,29 +20,25 @@ theorem monstersTurnLevel (dice: Dice) (state: State): (monstersTurn dice state)
     | Died => rfl
     | GaveUp => rfl
 
-theorem pickUpPlayer (state: State) (loot: Loot): (pickUp state loot).player = state.player :=
-  match loot with
-    | Potion => rfl
-    | Sword => rfl
-    | Amulet => rfl
+theorem pickUpPlayer (state: State) (loot: Loot): (pickUp state loot).player = state.player := match loot with
+  | Potion => rfl
+  | Sword => rfl
+  | Amulet => rfl
 
-theorem pickUpLevel (state: State) (loot: Loot): (pickUp state loot).level = state.level :=
-  match loot with
-    | Potion => rfl
-    | Sword => rfl
-    | Amulet => rfl
+theorem pickUpLevel (state: State) (loot: Loot): (pickUp state loot).level = state.level := match loot with
+  | Potion => rfl
+  | Sword => rfl
+  | Amulet => rfl
 
-theorem pickUpMonsters (state: State) (loot: Loot): (pickUp state loot).monsters = state.monsters :=
-  match loot with
-    | Potion => rfl
-    | Sword => rfl
-    | Amulet => rfl
+theorem pickUpMonsters (state: State) (loot: Loot): (pickUp state loot).monsters = state.monsters := match loot with
+  | Potion => rfl
+  | Sword => rfl
+  | Amulet => rfl
 
-theorem pickUpHitPoints (state: State) (loot: Loot): (pickUp state loot).hitPoints = state.hitPoints :=
-  match loot with
-    | Potion => rfl
-    | Sword => rfl
-    | Amulet => rfl
+theorem pickUpHitPoints (state: State) (loot: Loot): (pickUp state loot).hitPoints = state.hitPoints := match loot with
+  | Potion => rfl
+  | Sword => rfl
+  | Amulet => rfl
 
 theorem enterPlayer (state: State) (target: Position): (enter state target).player = target :=
   match found: itemAt target state.items with

@@ -9,9 +9,8 @@ type InRange (lo x hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }
 
 def inRange (lo x hi: Nat): Bool := lo <= x && x <= hi
 
-theorem below (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi :=
-  match h with
-    | { low, high } => high
+theorem below (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi := match h with
+  | { low, high } => high
 
 theorem fwd (lo x hi: Nat) (h: inRange lo x hi): InRange lo x hi := { low = h.left, high = h.right }
 

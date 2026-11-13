@@ -3,10 +3,9 @@
 -- (G6 and G11 in docs/core.md). `ignoresFirst 1 x` and `ignoresFirst 2 x`
 -- both compute the predecessor of `x`.
 
-def ignoresFirst (a: Nat) (x: Nat): Nat :=
-  match x with
-    | Zero => 0
-    | Succ m => m
+def ignoresFirst (a: Nat) (x: Nat): Nat := match x with
+  | Zero => 0
+  | Succ m => m
 
 def needSame [a: Nat] (x: Nat) (h: ignoresFirst a x = ignoresFirst 2 x): Nat := a
 

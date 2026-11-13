@@ -19,10 +19,9 @@ theorem nextOfA: ∀ (c: Char) => c = 'a' → next c = 'b'
   | _, h => J (y e => next y = 'b') rfl (Eq.sym h)
 
 -- The matched character by name in a `match`.
-theorem isItself (c: Char): (c = 'x') ∨ (c = c) :=
-  match c with
-    | 'x' => Inl (rfl: c = 'x')
-    | _ => Inr rfl
+theorem isItself (c: Char): (c = 'x') ∨ (c = c) := match c with
+  | 'x' => Inl (rfl: c = 'x')
+  | _ => Inr rfl
 
 -- Proof by cases over a function that classifies characters: on each digit
 -- the goal mentions the character itself.

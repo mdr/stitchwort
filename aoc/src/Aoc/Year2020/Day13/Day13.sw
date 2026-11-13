@@ -33,12 +33,11 @@ type Slot =
 
 type Notes = { earliest: Nat, schedule: List Slot }
 
-def slot(): {Parse} Slot :=
-  match Parse.optional (() => Parse.char 'x') with
-    | Some _ => OutOfService
-    | None =>
-      let id := Parse.nat()
-      if id == 0 then Parse.fail "a bus ID is at least 1" else Listed id
+def slot(): {Parse} Slot := match Parse.optional (() => Parse.char 'x') with
+  | Some _ => OutOfService
+  | None =>
+    let id := Parse.nat()
+    if id == 0 then Parse.fail "a bus ID is at least 1" else Listed id
 
 def notes(): {Parse} Notes :=
   let earliest := Parse.nat()
@@ -51,10 +50,9 @@ def parseNotes (input: Text): {Fail} Notes := Parse.all input notes
 --| A bus in service, and how far down the schedule it is.
 type Bus = { id: Nat, offset: Nat }
 
-def Slot.bus (slot: Slot) (offset: Nat): Option Bus :=
-  match slot with
-    | Listed id => Some { id, offset }
-    | OutOfService => None
+def Slot.bus (slot: Slot) (offset: Nat): Option Bus := match slot with
+  | Listed id => Some { id, offset }
+  | OutOfService => None
 
 def Notes.buses (notes: Notes): List Bus := notes.schedule.withIndex.filterMap (((offset, slot)) => slot.bus offset)
 

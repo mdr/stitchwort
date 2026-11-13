@@ -7,10 +7,9 @@ import Aoc.Year2021.Day17 (..)
 import Std (Bool, Eq, Exists, Int, Nat, Void)
 
 --| Twice 1 + 2 + … + k is k * (k + 1).
-theorem triangleDouble (k: Nat): 2 * (triangle k).toInt = k.toInt * (k.toInt + 1) :=
-  match k with
-    | 0 => rfl
-    | Succ k => ring [triangleDouble k]
+theorem triangleDouble (k: Nat): 2 * (triangle k).toInt = k.toInt * (k.toInt + 1) := match k with
+  | 0 => rfl
+  | Succ k => ring [triangleDouble k]
 
 --| Twice the height after `n` steps (`yFlight`) is at most twice the peak.
 theorem twiceBelowPeak (dy: Int) (n: Nat): n.toInt * (2 * dy + 1 - n.toInt) ≤ 2 * (triangle dy.toNat).toInt :=

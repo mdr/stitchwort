@@ -22,20 +22,18 @@ theorem joinedStep (garden: Garden) (plot: Position) (other: Position) (next: Po
   Exists.elim joined (chain chained => Witness (chain ++ [next]) (chainSnoc garden plot chain other next chained touching))
 
 theorem chainSymmetric (garden: Garden) (from: Position) (chain: List Position) (to: Position) (same: isChain garden from chain to = True):
-    Joined garden to from :=
-  match chain, same with
-    | [], same => rewrite same.read in joinedRefl garden to
-    | [next, ..rest], Both step chained =>
-      joinedStep garden to next from (chainSymmetric garden next rest to chained) (touchesSymmetric garden from next step)
+    Joined garden to from := match chain, same with
+      | [], same => rewrite same.read in joinedRefl garden to
+      | [next, ..rest], Both step chained =>
+        joinedStep garden to next from (chainSymmetric garden next rest to chained) (touchesSymmetric garden from next step)
 
 theorem joinedSymmetric (garden: Garden) (plot: Position) (other: Position) (joined: Joined garden plot other): Joined garden other plot :=
   Exists.elim joined (chain chained => chainSymmetric garden plot chain other chained)
 
 theorem chainTrans (garden: Garden) (plot: Position) (from: Position) (chain: List Position) (to: Position) (joined: Joined garden plot from)
-    (same: isChain garden from chain to = True): Joined garden plot to :=
-  match chain, same with
-    | [], same => rewrite <- same.read in joined
-    | [next, ..rest], Both step chained => chainTrans garden plot next rest to (joinedStep garden plot from next joined step) chained
+    (same: isChain garden from chain to = True): Joined garden plot to := match chain, same with
+      | [], same => rewrite <- same.read in joined
+      | [next, ..rest], Both step chained => chainTrans garden plot next rest to (joinedStep garden plot from next joined step) chained
 
 theorem joinedTrans (garden: Garden) (plot: Position) (middle: Position) (other: Position) (first: Joined garden plot middle)
     (second: Joined garden middle other): Joined garden plot other :=

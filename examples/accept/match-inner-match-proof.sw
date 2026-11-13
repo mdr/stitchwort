@@ -23,10 +23,9 @@ theorem orCases (goal: Prop): ∀ (a b: Bool) => (a ∨ b) = True → (a = True 
 
 -- Where the condition fails, `reach` skips the row.
 theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (h: reach flag (Succ k) c d = True):
-    ¬(flag c) = True → reach flag k c d = True :=
-  match e: flag c with
-    | True => n => cases
-    | False => n => h
+    ¬(flag c) = True → reach flag k c d = True := match e: flag c with
+      | True => n => cases
+      | False => n => h
 
 -- The three ways a beam can have got to `d`. The left operand of `||` is the
 -- inner `match`, written `_`; splitting `c` makes it compute.

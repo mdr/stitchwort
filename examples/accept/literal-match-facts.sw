@@ -7,14 +7,13 @@ import Std (List, Option, Void)
 
 type Command = | Up | Down | Quit
 
-def commandOf (char: Char): Option Command :=
-  match char with
-    | 'k' => Some Up
-    | 'w' => Some Up
-    | 'j' => Some Down
-    | 's' => Some Down
-    | 'q' => Some Quit
-    | _ => None
+def commandOf (char: Char): Option Command := match char with
+  | 'k' => Some Up
+  | 'w' => Some Up
+  | 'j' => Some Down
+  | 's' => Some Down
+  | 'q' => Some Quit
+  | _ => None
 
 def commandKeys: List Char := ['k', 'w', 'j', 's', 'q']
 
@@ -22,14 +21,13 @@ def commandKeys: List Char := ['k', 'w', 'j', 's', 'q']
 theorem listed (char: Char) [auto isIn: char ∈ commandKeys]: char ∈ commandKeys := isIn
 
 -- The catch-all, directly: any other character is no command.
-theorem otherIsNone (char: Char): (char ∈ commandKeys) ∨ (commandOf char = None) :=
-  match char with
-    | 'k' => Inl (listed char)
-    | 'w' => Inl (listed char)
-    | 'j' => Inl (listed char)
-    | 's' => Inl (listed char)
-    | 'q' => Inl (listed char)
-    | _ => Inr rfl
+theorem otherIsNone (char: Char): (char ∈ commandKeys) ∨ (commandOf char = None) := match char with
+  | 'k' => Inl (listed char)
+  | 'w' => Inl (listed char)
+  | 'j' => Inl (listed char)
+  | 's' => Inl (listed char)
+  | 'q' => Inl (listed char)
+  | _ => Inr rfl
 
 -- So a character that is a command is one of the five.
 theorem onlyListed (char: Char) (command: Command) (found: commandOf char = Some command): char ∈ commandKeys :=
@@ -48,36 +46,32 @@ def kind: Nat → Nat
   | 7 => 2
   | _ => 0
 
-theorem kindOfOther (n: Nat) (not3: n ≠ 3) (not7: n ≠ 7): kind n = 0 :=
-  match n with
-    | 3 => Void.exfalso (not3 rfl)
-    | 7 => Void.exfalso (not7 rfl)
-    | _ => rfl
+theorem kindOfOther (n: Nat) (not3: n ≠ 3) (not7: n ≠ 7): kind n = 0 := match n with
+  | 3 => Void.exfalso (not3 rfl)
+  | 7 => Void.exfalso (not7 rfl)
+  | _ => rfl
 
 -- A proof may list more literals than the program: the program's are among
 -- them.
-theorem kindOfBig (n: Nat): (kind n = 0) ∨ ((n = 3) ∨ (n = 7)) :=
-  match n with
-    | 0 => Inl rfl
-    | 3 => Inr (Inl rfl)
-    | 7 => Inr (Inr rfl)
-    | _ => Inl rfl
+theorem kindOfBig (n: Nat): (kind n = 0) ∨ ((n = 3) ∨ (n = 7)) := match n with
+  | 0 => Inl rfl
+  | 3 => Inr (Inl rfl)
+  | 7 => Inr (Inr rfl)
+  | _ => Inl rfl
 
 -- Two numbers more than `n` is none of 3 and 7 when `n` is none of 1 and 5.
-theorem kindShifted (n: Nat): (kind (Succ (Succ n)) = 0) ∨ ((n = 1) ∨ (n = 5)) :=
-  match n with
-    | 1 => Inr (Inl rfl)
-    | 5 => Inr (Inr rfl)
-    | _ => Inl rfl
+theorem kindShifted (n: Nat): (kind (Succ (Succ n)) = 0) ∨ ((n = 1) ∨ (n = 5)) := match n with
+  | 1 => Inr (Inl rfl)
+  | 5 => Inr (Inr rfl)
+  | _ => Inl rfl
 
 -- Nested: an inner match on the same variable knows the outer literals too.
-theorem kindNested (n: Nat): (kind n = 0) ∨ ((n = 3) ∨ (n = 7)) :=
-  match n with
-    | 3 => Inr (Inl rfl)
-    | m =>
-      match n with
-        | 7 => Inr (Inr rfl)
-        | _ => Inl rfl
+theorem kindNested (n: Nat): (kind n = 0) ∨ ((n = 3) ∨ (n = 7)) := match n with
+  | 3 => Inr (Inl rfl)
+  | m =>
+    match n with
+      | 7 => Inr (Inr rfl)
+      | _ => Inl rfl
 
 -- On `Int` too: in each sign's catch-all, the size is none of that sign's
 -- literals.
@@ -87,12 +81,11 @@ def sign: Int → Nat
   | (-1) => 2
   | _ => 3
 
-theorem signOther (i: Int): (sign i = 3) ∨ ((i = 0) ∨ ((i = 1) ∨ (i = (-1)))) :=
-  match i with
-    | 0 => Inr (Inl rfl)
-    | 1 => Inr (Inr (Inl rfl))
-    | (-1) => Inr (Inr (Inr rfl))
-    | _ => Inl rfl
+theorem signOther (i: Int): (sign i = 3) ∨ ((i = 0) ∨ ((i = 1) ∨ (i = (-1)))) := match i with
+  | 0 => Inr (Inl rfl)
+  | 1 => Inr (Inr (Inl rfl))
+  | (-1) => Inr (Inr (Inr rfl))
+  | _ => Inl rfl
 
 test "commands" := ['k', 'j', 'q', 'x'].map commandOf == [Some Up, Some Down, Some Quit, None]
 test "kind" := [3, 7, 8].map kind == [1, 2, 0]

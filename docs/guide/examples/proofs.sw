@@ -112,11 +112,10 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
-  match induct (countAbove k xs) with
-    | eq1 => omega
-    | eq2IfTrue y ys h ih => ih
-    | eq2IfFalse y ys h ih => omega
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+  | eq1 => omega
+  | eq2IfTrue y ys h ih => ih
+  | eq2IfFalse y ys h ih => omega
 
 theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
@@ -146,11 +145,10 @@ def countBig: List Nat → Nat
   | [x, ..rest] if x > 3 => 1 + countBig rest
   | [_, ..rest] => countBig rest
 
-theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
-  match induct (countBig xs) with
-    | eq1 => omega
-    | eq2 x rest big ih => omega
-    | eq3 x rest small ih => omega
+theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
+  | eq1 => omega
+  | eq2 x rest big ih => omega
+  | eq3 x rest small ih => omega
 -- end guard-induct
 
 -- begin opaque
@@ -164,10 +162,9 @@ test "checksum" := checksum [1, 2] == 33
 -- begin match-equation
 def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
 
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
-  match fits: Nat.leq n limit with
-    | True => fits
-    | False => Nat.leRefl limit
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
+  | True => fits
+  | False => Nat.leRefl limit
 -- end match-equation
 
 -- begin match-lemma
@@ -207,24 +204,21 @@ theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x
   backward = r => Both r.low r.high
 }
 
-theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi :=
-  match h with
-    | { low, high } => high
+theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi := match h with
+  | { low, high } => high
 
 theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
 
 theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
 
-theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
-  match h with
-    | Inl ha => Inr ha
-    | Inr hb => Inl hb
+theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a := match h with
+  | Inl ha => Inr ha
+  | Inr hb => Inl hb
 -- end readings
 
 -- begin readings-decisions
-theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c :=
-  match h with
-    | Both ab bc => rewrite ab.read, bc.read in rfl
+theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
+  | Both ab bc => rewrite ab.read, bc.read in rfl
 
 theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 -- end readings-decisions

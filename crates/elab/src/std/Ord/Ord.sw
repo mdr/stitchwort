@@ -4,9 +4,8 @@
 -- instance needs them.
 
 --| A comparison that's its own opposite is `Equal`.
-theorem Ordering.flipSelf (c: Ordering) (h: c = Ordering.flip c): c = Equal :=
-  match c with
-    | Equal => rfl
+theorem Ordering.flipSelf (c: Ordering) (h: c = Ordering.flip c): c = Equal := match c with
+  | Equal => rfl
 
 --| Orders `a` by a key, given that the key tells values apart. The relations
 --| are the key's own, applied to the keys, so `x < y` is `key x < key y` and
@@ -58,19 +57,17 @@ theorem Ord.leRefl [auto ord: Ord a] (x: a): x <= x :=
   ord.lessEqOf x x (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym (Ord.compareSelf x)) greater))
 
 --| The smaller of two values is at most each, and is one of them.
-theorem Ord.minLeLeft [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= x :=
-  match order: Ord.compare x y with
-    | Greater =>
-      let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
-      ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
-    | Less => Ord.leRefl x
-    | Equal => Ord.leRefl x
+theorem Ord.minLeLeft [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= x := match order: Ord.compare x y with
+  | Greater =>
+    let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
+    ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
+  | Less => Ord.leRefl x
+  | Equal => Ord.leRefl x
 
-theorem Ord.minLeRight [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= y :=
-  match order: Ord.compare x y with
-    | Greater => Ord.leRefl y
-    | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
-    | Equal => ord.lessEqOf x y (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))
+theorem Ord.minLeRight [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= y := match order: Ord.compare x y with
+  | Greater => Ord.leRefl y
+  | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
+  | Equal => ord.lessEqOf x y (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))
 
 theorem Ord.minEither [auto ord: Ord a] (x: a) (y: a): (Ord.min x y = x) ∨ (Ord.min x y = y) :=
   match order: Ord.compare x y with
@@ -82,19 +79,17 @@ theorem Ord.minEither [auto ord: Ord a] (x: a) (y: a): (Ord.min x y = x) ∨ (Or
 theorem Ord.maxSelf [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord.compareSelf x in rfl
 
 --| The larger of two values is at least each, and is one of them.
-theorem Ord.leMaxLeft [auto ord: Ord a] (x: a) (y: a): x <= Ord.max x y :=
-  match order: Ord.compare x y with
-    | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
-    | Greater => Ord.leRefl x
-    | Equal => Ord.leRefl x
+theorem Ord.leMaxLeft [auto ord: Ord a] (x: a) (y: a): x <= Ord.max x y := match order: Ord.compare x y with
+  | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
+  | Greater => Ord.leRefl x
+  | Equal => Ord.leRefl x
 
-theorem Ord.leMaxRight [auto ord: Ord a] (x: a) (y: a): y <= Ord.max x y :=
-  match order: Ord.compare x y with
-    | Less => Ord.leRefl y
-    | Greater =>
-      let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
-      ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
-    | Equal => rewrite ord.equal x y order in Ord.leRefl y
+theorem Ord.leMaxRight [auto ord: Ord a] (x: a) (y: a): y <= Ord.max x y := match order: Ord.compare x y with
+  | Less => Ord.leRefl y
+  | Greater =>
+    let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
+    ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
+  | Equal => rewrite ord.equal x y order in Ord.leRefl y
 
 theorem Ord.maxEither [auto ord: Ord a] (x: a) (y: a): (Ord.max x y = x) ∨ (Ord.max x y = y) :=
   match order: Ord.compare x y with

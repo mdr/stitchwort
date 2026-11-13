@@ -47,10 +47,9 @@ test "length" := match example with
 -- field `items`.
 def depth (p: Packet): Nat
     decreasing Packet.size p
-:=
-  match p with
-    | Number n => 0
-    | Packets items => 1 + (items.attach.map (e => depth e.value) |> .foldLeft 0 Nat.max)
+:= match p with
+  | Number n => 0
+  | Packets items => 1 + (items.attach.map (e => depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := depth example == 2
 

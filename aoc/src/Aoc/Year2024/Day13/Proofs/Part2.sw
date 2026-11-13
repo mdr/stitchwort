@@ -56,13 +56,12 @@ theorem fewestUnique (machine: Machine) (first second: Option Nat) (firstFewest:
 
 --| The spec's part 2 has one answer.
 theorem part2AnswerUnique (machines: List Machine) (first: Nat) (second: Nat) (firstAnswer: Part2Answer machines first)
-    (secondAnswer: Part2Answer machines second): first = second :=
-  match firstAnswer with
-    | Witness firstFewest (Both firstRight firstSum) =>
-      match secondAnswer with
-        | Witness secondFewest (Both secondRight secondSum) =>
-          rewrite firstSum, secondSum in
-            List.sumByCongMem machines _ _ (machine member =>
-              rewrite fewestUnique (correctedMachine machine) (firstFewest machine) (secondFewest machine) (firstRight machine member)
-                  (secondRight machine member) in
-                rfl)
+    (secondAnswer: Part2Answer machines second): first = second := match firstAnswer with
+      | Witness firstFewest (Both firstRight firstSum) =>
+        match secondAnswer with
+          | Witness secondFewest (Both secondRight secondSum) =>
+            rewrite firstSum, secondSum in
+              List.sumByCongMem machines _ _ (machine member =>
+                rewrite fewestUnique (correctedMachine machine) (firstFewest machine) (secondFewest machine) (firstRight machine member)
+                    (secondRight machine member) in
+                  rfl)

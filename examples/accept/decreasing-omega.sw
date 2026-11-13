@@ -8,13 +8,12 @@ import Std (List, Nat)
 -- The measure's goal is `List.length rest < Succ (List.length rest)`.
 def takeFirst (xs: List Nat) (count: Nat): List Nat
     decreasing xs.length
-:=
-  match xs with
-    | [] => []
-    | [x, ..rest] =>
-      match count with
-        | Zero => []
-        | Succ fewer => [x, ..takeFirst rest fewer]
+:= match xs with
+  | [] => []
+  | [x, ..rest] =>
+    match count with
+      | Zero => []
+      | Succ fewer => [x, ..takeFirst rest fewer]
 
 test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] ∧ takeFirst [1, 2, 3] 5 == [1, 2, 3]
 

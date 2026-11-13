@@ -2,10 +2,9 @@
 -- These were in the core (docs/proposals/prelude-slim.md stage 3).
 
 --| Double negation of a decided proposition: what `¬(n ≠ 3)` says about `n = 3`.
-theorem Decidable.notNotOf [p: Prop] (d: Decidable p) (n: ¬¬p): p :=
-  match e: d.holds with
-    | True => d.sound e
-    | False => Void.exfalso (n (Decidable.refute d e))
+theorem Decidable.notNotOf [p: Prop] (d: Decidable p) (n: ¬¬p): p := match e: d.holds with
+  | True => d.sound e
+  | False => Void.exfalso (n (Decidable.refute d e))
 
 --| `x == y` says `x = y`.
 theorem DecEq.sound [auto decEq: DecEq a] [x: a] [y: a] (h: (x == y) = True): x = y :=
@@ -43,10 +42,9 @@ theorem Nat.mulRightCancelBool [a: Nat] [b: Nat] [c: Nat] (nz: c ≠ 0): (a * c 
   else rewrite DecEq.falseOfNe same, DecEq.falseOfNe (e => same (Nat.mulRightCancel a b c nz e)) in rfl
 
 --| A value is never `!=` to itself.
-theorem DecEq.neSelf [auto eq: DecEq a] (x: a): ((x != x): Bool) = False :=
-  match e: ((x != x): Bool) with
-    | True => Void.exfalso (DecEq.neTrue e rfl)
-    | False => rfl
+theorem DecEq.neSelf [auto eq: DecEq a] (x: a): ((x != x): Bool) = False := match e: ((x != x): Bool) with
+  | True => Void.exfalso (DecEq.neTrue e rfl)
+  | False => rfl
 
 --| `x == y` is `y == x`.
 theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=

@@ -40,10 +40,9 @@ test "braces then more arguments" := tagOf hot == "tea hot"
 
 type Mode = | Filling | Draining
 
-def describe (mode: Mode) (item: Item): Text :=
-  match mode with
-    | Filling => "fill " ++ item.name
-    | Draining => "drain " ++ item.name
+def describe (mode: Mode) (item: Item): Text := match mode with
+  | Filling => "fill " ++ item.name
+  | Draining => "drain " ++ item.name
 
 test "braces as the next argument after a constructor" :=
   describe Filling { name = "tea", price = 3 } == "fill tea"

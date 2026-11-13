@@ -66,18 +66,17 @@ theorem reorderInOrder (precedes: Nat → Nat → Bool) (update: Update)
 --| The reordered update is a correct ordering: the same pages, in the right
 --| order.
 theorem reorderCorrect (rules: List Rule) (update: Update) (order: StrictTotalOrderOn rules update.pages):
-    CorrectOrdering rules update (update.reorder (mustPrecede (ruleSet rules))) :=
-  match order with
-    | Both asymmetric (Both total transitive) =>
-      let precedes := mustPrecede (ruleSet rules)
-      let same := mustPrecedeCorrect rules
-      let inOrdered :=
-        reorderInOrder precedes update
-          (x y inX inY first => Eq.trans (same y x) (asymmetric x y inX inY (Eq.trans (Eq.sym (same x y)) first)))
-          (x y inX inY different notFirst => Eq.trans (same y x) (total x y inX inY different (Eq.trans (Eq.sym (same x y)) notFirst)))
-          (x y z inX inY inZ xy yz =>
-            Eq.trans (same x z) (transitive x y z inX inY inZ (Eq.trans (Eq.sym (same x y)) xy) (Eq.trans (Eq.sym (same y z)) yz)))
-      Both (List.sortWithPerm update.pages (mayPrecede precedes)) (Eq.trans (Eq.sym (inOrderCorrect rules (update.reorder precedes))) inOrdered)
+    CorrectOrdering rules update (update.reorder (mustPrecede (ruleSet rules))) := match order with
+      | Both asymmetric (Both total transitive) =>
+        let precedes := mustPrecede (ruleSet rules)
+        let same := mustPrecedeCorrect rules
+        let inOrdered :=
+          reorderInOrder precedes update
+            (x y inX inY first => Eq.trans (same y x) (asymmetric x y inX inY (Eq.trans (Eq.sym (same x y)) first)))
+            (x y inX inY different notFirst => Eq.trans (same y x) (total x y inX inY different (Eq.trans (Eq.sym (same x y)) notFirst)))
+            (x y z inX inY inZ xy yz =>
+              Eq.trans (same x z) (transitive x y z inX inY inZ (Eq.trans (Eq.sym (same x y)) xy) (Eq.trans (Eq.sym (same y z)) yz)))
+        Both (List.sortWithPerm update.pages (mayPrecede precedes)) (Eq.trans (Eq.sym (inOrderCorrect rules (update.reorder precedes))) inOrdered)
 
 --| Two orderings of the same pages, both in order by a total order, are the
 --| same.
@@ -117,18 +116,16 @@ theorem orderUnique (precedes: Nat → Nat → Bool) (pages: List Nat)
 --| Under the assumption there is only one correct ordering of an update.
 theorem correctOrderingUnique (rules: List Rule) (update: Update) (order: StrictTotalOrderOn rules update.pages)
     (first: Update) (second: Update) (firstCorrect: CorrectOrdering rules update first) (secondCorrect: CorrectOrdering rules update second):
-    first.pages = second.pages :=
-  match order, firstCorrect, secondCorrect with
-    | Both asymmetric (Both total transitive), Both firstSame firstOrdered, Both secondSame secondOrdered =>
-      orderUnique (ruleSays rules) update.pages total first.pages second.pages
-        (List.allOfMem (page => page ∈ update.pages) first.pages (page isIn => List.memPerm first.pages update.pages firstSame page isIn))
-        (List.permTrans first.pages update.pages second.pages firstSame (List.permSym second.pages update.pages secondSame))
-        (Eq.trans (inOrderRuleSays rules first) firstOrdered) (Eq.trans (inOrderRuleSays rules second) secondOrdered)
+    first.pages = second.pages := match order, firstCorrect, secondCorrect with
+      | Both asymmetric (Both total transitive), Both firstSame firstOrdered, Both secondSame secondOrdered =>
+        orderUnique (ruleSays rules) update.pages total first.pages second.pages
+          (List.allOfMem (page => page ∈ update.pages) first.pages (page isIn => List.memPerm first.pages update.pages firstSame page isIn))
+          (List.permTrans first.pages update.pages second.pages firstSame (List.permSym second.pages update.pages secondSame))
+          (Eq.trans (inOrderRuleSays rules first) firstOrdered) (Eq.trans (inOrderRuleSays rules second) secondOrdered)
 
 --| Updates with the same pages are the same.
-theorem updateExt (first second: Update) (same: first.pages = second.pages): first = second :=
-  match first, second with
-    | { pages = firstPages }, { pages = secondPages } => rewrite same in rfl
+theorem updateExt (first second: Update) (same: first.pages = second.pages): first = second := match first, second with
+  | { pages = firstPages }, { pages = secondPages } => rewrite same in rfl
 
 --| Part 2 adds up the middle pages of the updates not in the right order,
 --| once correctly ordered, by any correct ordering.

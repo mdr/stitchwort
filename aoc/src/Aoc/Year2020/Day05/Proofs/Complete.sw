@@ -8,26 +8,24 @@ namespace Aoc.Year2020.Day05.Proofs
 import Aoc.Year2020.Day05 (..)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, Parse, Result, Text)
 
-theorem passEta (pass: Pass): { row = pass.row, column = pass.column } = pass :=
-  match pass with
-    | { row, column } => rfl
+theorem passEta (pass: Pass): { row = pass.row, column = pass.column } = pass := match pass with
+  | { row, column } => rfl
 
 theorem runsAs (chars: List Char) (a: Pass) (b: Pass) (same: a = b) (runs: Parse.Runs pass chars [] a): Parse.Runs pass chars [] b :=
   rewrite same at runs in runs
 
 --| `half` reads the letter of the bit it gives.
 theorem runsHalf (lower: Char) (upper: Char) (differ: (upper == lower) = False) (bit: Bool) (rest: List Char):
-    Parse.Runs (() => half lower upper) [letter lower upper bit] rest bit :=
-  match bit with
-    | True =>
-      let runs := Parse.runsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (char => char == lower || char == upper)) (char => char == upper) [upper] rest upper
-        (Parse.runsSatisfy _ _ upper rest (Bool.orRight (DecEq.refl upper)))
-      rewrite DecEq.refl upper at runs in runs
-    | False =>
-      let lowerNotUpper: (lower == upper) = False := Eq.trans (DecEq.eqComm lower upper) differ
-      let runs := Parse.runsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (char => char == lower || char == upper)) (char => char == upper) [lower] rest lower
-        (Parse.runsSatisfy _ _ lower rest (Bool.orLeft (DecEq.refl lower)))
-      rewrite lowerNotUpper at runs in runs
+    Parse.Runs (() => half lower upper) [letter lower upper bit] rest bit := match bit with
+      | True =>
+        let runs := Parse.runsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (char => char == lower || char == upper)) (char => char == upper) [upper] rest upper
+          (Parse.runsSatisfy _ _ upper rest (Bool.orRight (DecEq.refl upper)))
+        rewrite DecEq.refl upper at runs in runs
+      | False =>
+        let lowerNotUpper: (lower == upper) = False := Eq.trans (DecEq.eqComm lower upper) differ
+        let runs := Parse.runsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (char => char == lower || char == upper)) (char => char == upper) [lower] rest lower
+          (Parse.runsSatisfy _ _ lower rest (Bool.orLeft (DecEq.refl lower)))
+        rewrite lowerNotUpper at runs in runs
 
 theorem runsPass (chars: List Char) (seat: Pass) (written: PassWritten chars seat): Parse.Runs pass chars [] seat :=
   match written with

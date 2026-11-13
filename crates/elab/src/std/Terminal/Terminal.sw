@@ -104,10 +104,9 @@ def Terminal.readsOn (inputIsTerminal: Bool): (bytes: List Nat) → Bool
 
 --| The input ended with `bytes` undecoded: none at all is the end, and any
 --| others are a cut-off key.
-def Terminal.ended (bytes: List Nat) (source: s): Terminal.Read s :=
-  match bytes with
-    | [] => { key = None, pending = [], source = source }
-    | _ => Terminal.cutOff bytes source
+def Terminal.ended (bytes: List Nat) (source: s): Terminal.Read s := match bytes with
+  | [] => { key = None, pending = [], source = source }
+  | _ => Terminal.cutOff bytes source
 
 --| A key cut off: `Escape` for a lone `ESC`, `Unknown` for anything else.
 def Terminal.cutOff (bytes: List Nat) (source: s): Terminal.Read s :=

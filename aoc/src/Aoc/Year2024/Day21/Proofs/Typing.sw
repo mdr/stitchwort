@@ -91,17 +91,16 @@ def directionalFitted: Fitted DirectionKey := fitted Keypad.directional directio
 
 --| A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
 theorem drivingKeysType (fit: Fitted k) (costs: Costs) (from: k) (keys: List k):
-    operate fit.rows (fit.keypad.place from) (drivingKeys fit.keypad costs from keys) = Some keys :=
-  match keys with
-    | [] => rfl
-    | [to, ..rest] =>
-      let route := costs.cheapestRoute (fit.keypad.routes from to)
-      rewrite List.appendAssoc (route.map Arrow) [Activate] (drivingKeys fit.keypad costs to rest),
-        operateArrows fit.rows (fit.keypad.place from) route [Activate, ..drivingKeys fit.keypad costs to rest],
-        fit.cheapestWalks costs from to,
-        fit.onKey to,
-        drivingKeysType fit costs to rest
-        in rfl
+    operate fit.rows (fit.keypad.place from) (drivingKeys fit.keypad costs from keys) = Some keys := match keys with
+      | [] => rfl
+      | [to, ..rest] =>
+        let route := costs.cheapestRoute (fit.keypad.routes from to)
+        rewrite List.appendAssoc (route.map Arrow) [Activate] (drivingKeys fit.keypad costs to rest),
+          operateArrows fit.rows (fit.keypad.place from) route [Activate, ..drivingKeys fit.keypad costs to rest],
+          fit.cheapestWalks costs from to,
+          fit.onKey to,
+          drivingKeysType fit costs to rest
+          in rfl
 
 --| Your presses passed through `robots` robots on directional keypads.
 def throughRobots: (robots: Nat) → List DirectionKey → Option (List DirectionKey)

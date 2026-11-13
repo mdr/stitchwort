@@ -55,24 +55,22 @@ theorem splitRight (stone: Nat) (even: stone.digitCount % 2 = 0):
     (Nat.fromDigits ((Nat.digits stone).toList.drop half)) (rightHalfSmall stone even) (recombineHalves stone even)
 
 --| The program changes a stone as the puzzle says.
-theorem changeAgrees (stone: Nat): changeStone stone = change stone :=
-  match zero: stone == 0 with
-    | True => rfl
-    | False =>
-      match even: stone.digitCount % 2 == 0 with
-        | True =>
-          let evenEq := even.read
-          rewrite splitRight stone evenEq, splitLeft stone evenEq in rfl
-        | False => rfl
+theorem changeAgrees (stone: Nat): changeStone stone = change stone := match zero: stone == 0 with
+  | True => rfl
+  | False =>
+    match even: stone.digitCount % 2 == 0 with
+      | True =>
+        let evenEq := even.read
+        rewrite splitRight stone evenEq, splitLeft stone evenEq in rfl
+      | False => rfl
 
 --| A digit list starting with a digit other than 0 is the digits of its
 --| number, and so is any non-empty start of it.
 theorem digitsOfLeading (xs: List Nat) (count: Nat) (h: Nat.Digits xs) (lead: 1 ≤ xs.headOr 0) (some: 1 ≤ count):
-    (Nat.digits (Nat.fromDigits (xs.take count))).toList = xs.take count :=
-  match xs, count, h with
-    | [first, ..rest], Succ count, Both small digits =>
-      rewrite Nat.fromDigitsCons first (rest.take count), Nat.digitsShift (rest.take count) first lead (Nat.digitsTake count rest digits)
-        in Eq.cong (l => List.append l (rest.take count)) (Eq.trans (Nat.digitsToList first) (Nat.digitsAccSmall first [] small))
+    (Nat.digits (Nat.fromDigits (xs.take count))).toList = xs.take count := match xs, count, h with
+      | [first, ..rest], Succ count, Both small digits =>
+        rewrite Nat.fromDigitsCons first (rest.take count), Nat.digitsShift (rest.take count) first lead (Nat.digitsTake count rest digits)
+          in Eq.cong (l => List.append l (rest.take count)) (Eq.trans (Nat.digitsToList first) (Nat.digitsAccSmall first [] small))
 
 --| The left stone shows exactly the left half of the digits: its first digit
 --| isn't 0, so it loses none.

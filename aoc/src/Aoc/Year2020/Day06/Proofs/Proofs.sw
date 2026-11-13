@@ -30,14 +30,13 @@ theorem everyoneCount (lines: List (List Char)) (group: Group) (written: GroupLi
 --| parts.
 theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each: ∀ (lines: List (List Char)) (group: Group) => GroupLines lines group → size group = count lines)
     (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (impossible: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
-    groups.sumBy size = lineGroups.sumBy (lines => count lines.toList) :=
-  match lineGroups, groups, impossible with
-    | [], [], all => rfl
-    | [lines, ..lineGroups], [group, ..groups], Both written rest =>
-      rewrite List.sumByCons groups group size, List.sumByCons lineGroups lines (lines => count lines.toList), each lines.toList group written,
-        sumCounts size count each lineGroups groups rest in rfl
-    | [], [_, .._], impossible => Void.exfalso impossible
-    | [_, .._], [], impossible => Void.exfalso impossible
+    groups.sumBy size = lineGroups.sumBy (lines => count lines.toList) := match lineGroups, groups, impossible with
+      | [], [], all => rfl
+      | [lines, ..lineGroups], [group, ..groups], Both written rest =>
+        rewrite List.sumByCons groups group size, List.sumByCons lineGroups lines (lines => count lines.toList), each lines.toList group written,
+          sumCounts size count each lineGroups groups rest in rfl
+      | [], [_, .._], impossible => Void.exfalso impossible
+      | [_, .._], [], impossible => Void.exfalso impossible
 
 theorem part1Lines (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (written: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
     solvePart1 groups = lineGroups.sumBy (lines => Spec.count Spec.anyone lines.toList) :=

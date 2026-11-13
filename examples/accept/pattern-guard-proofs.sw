@@ -5,19 +5,17 @@ def clamp (limit: Nat): Nat → Nat
   | n if n <= limit => n
   | _ => limit
 
-theorem clampLe (limit n: Nat): clamp limit n <= limit :=
-  match e: n <= limit with
-    | True => e
-    | False => omega
+theorem clampLe (limit n: Nat): clamp limit n <= limit := match e: n <= limit with
+  | True => e
+  | False => omega
 
 -- A guarded `match some` and what `filterMap` keeps.
 def keepBig: Nat → Option Nat := match some
   | x if x > 2 => x
 
-theorem keepBigGt (x y: Nat) (h: keepBig x = Some y): y > 2 :=
-  match e: x > 2 with
-    | True => omega [Option.someInjective h]
-    | False => Void.exfalso (Option.noneNotSome y h)
+theorem keepBigGt (x y: Nat) (h: keepBig x = Some y): y > 2 := match e: x > 2 with
+  | True => omega [Option.someInjective h]
+  | False => Void.exfalso (Option.noneNotSome y h)
 
 def bigOnes (xs: List Nat): List Nat :=
   xs.filterMap keepBig

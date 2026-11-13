@@ -9,10 +9,9 @@ type Shape =
   | Circle (radius: Nat)
   | Square (side: Nat)
 
-def Shape.size (shape: Shape): Nat :=
-  match shape with
-    | Circle r => r
-    | Square s => s
+def Shape.size (shape: Shape): Nat := match shape with
+  | Circle r => r
+  | Square s => s
 
 test "annotated use" :=
   let sizeAt := ((index, shape)) => index + shape.size

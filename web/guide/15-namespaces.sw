@@ -9,10 +9,9 @@ type Item = { name: Text, cents: Nat }
 
 def Item.cost (i: Item) (quantity: Nat): Nat := i.cents * quantity
 
-def parse (line: Text): Option Item :=
-  match line.split ',' with
-    | [name, cents] => cents.toNat |> .map (c => ({ name, cents = c }: Item))
-    | _ => None
+def parse (line: Text): Option Item := match line.split ',' with
+  | [name, cents] => cents.toNat |> .map (c => ({ name, cents = c }: Item))
+  | _ => None
 
 test "parse" := parse "tea,250" == Some { name = "tea", cents = 250 }
 test "bad line" := parse "tea" == None

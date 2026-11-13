@@ -10,10 +10,9 @@ import Std (Bool, List, Nat, Option)
 
 --| What a pair becomes in a step, by the puzzle's rules: with a rule, the
 --| pairs either side of the inserted element; without one, itself.
-def expand (rules: List Rule) (pair: ElementPair): List ElementPair :=
-  match insertionFor rules pair with
-    | Some c => [{ first = pair.first, second = c }, { first = c, second = pair.second }]
-    | None => [pair]
+def expand (rules: List Rule) (pair: ElementPair): List ElementPair := match insertionFor rules pair with
+  | Some c => [{ first = pair.first, second = c }, { first = c, second = pair.second }]
+  | None => [pair]
 
 --| The first pairs of a step's result: those `a b` becomes, then the pairs
 --| of the step from `b` on.

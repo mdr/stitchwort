@@ -36,9 +36,8 @@ theorem SafeNat.mkExt (a: Nat) (b: Nat) (p: a ≤ 9007199254740991) (e: a = b):
       (Bool.uniqueEq (Nat.leq a 9007199254740991) True p q'))
     e
 
-theorem SafeNat.ext (i: SafeNat) (j: SafeNat) (e: i.value = j.value): i = j :=
-  match i, j with
-    | { value = a, fits = p }, { value = b, fits = q } => SafeNat.mkExt a b p e q
+theorem SafeNat.ext (i: SafeNat) (j: SafeNat) (e: i.value = j.value): i = j := match i, j with
+  | { value = a, fits = p }, { value = b, fits = q } => SafeNat.mkExt a b p e q
 
 theorem SafeInt.mkExt (a: Int) (b: Int) (p: Int.natAbs a ≤ 9007199254740991) (e: a = b):
     ∀ (q: Int.natAbs b ≤ 9007199254740991) => ({ value = a, fits = p }: SafeInt) = { value = b, fits = q } :=
@@ -47,9 +46,8 @@ theorem SafeInt.mkExt (a: Int) (b: Int) (p: Int.natAbs a ≤ 9007199254740991) (
       (Bool.uniqueEq (Nat.leq (Int.natAbs a) 9007199254740991) True p q'))
     e
 
-theorem SafeInt.ext (i: SafeInt) (j: SafeInt) (e: i.value = j.value): i = j :=
-  match i, j with
-    | { value = a, fits = p }, { value = b, fits = q } => SafeInt.mkExt a b p e q
+theorem SafeInt.ext (i: SafeInt) (j: SafeInt) (e: i.value = j.value): i = j := match i, j with
+  | { value = a, fits = p }, { value = b, fits = q } => SafeInt.mkExt a b p e q
 
 --| The number as a `Nat`.
 def SafeNat.toNat (n: SafeNat): Nat := n.value

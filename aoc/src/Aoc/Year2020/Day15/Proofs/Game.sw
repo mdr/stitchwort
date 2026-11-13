@@ -38,18 +38,17 @@ theorem mapShift (turn: Nat) (found: Option Nat): (found.map (turns => turns + 1
     | Some back => rfl
 
 theorem sayTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken) (number: Nat) (fits: number < game.lastSeen.size):
-    Tracks (game.say number) [number, ..spoken] :=
-  match tracks with
-    | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
-      let sized := Array.sizeSet game.lastSeen game.last game.turn
-      Witness spoken (Both rfl (Both (rewrite isSpoken in omega) (Both (rewrite sized in fits) (other inside =>
-        rewrite isSpoken in
-          match same: game.last == other with
-            | True => rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits in rfl
-            | False =>
-              rewrite Array.getOrSetOther game.lastSeen game.last game.turn other 0 (equal => same.read (Eq.sym equal)),
-                seen other (rewrite sized at inside in inside)
-              in Eq.cong (found => Option.getOrElse found 0) (Eq.sym (mapShift game.turn (Spec.turnsBack other older)))))))
+    Tracks (game.say number) [number, ..spoken] := match tracks with
+      | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
+        let sized := Array.sizeSet game.lastSeen game.last game.turn
+        Witness spoken (Both rfl (Both (rewrite isSpoken in omega) (Both (rewrite sized in fits) (other inside =>
+          rewrite isSpoken in
+            match same: game.last == other with
+              | True => rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits in rfl
+              | False =>
+                rewrite Array.getOrSetOther game.lastSeen game.last game.turn other 0 (equal => same.read (Eq.sym equal)),
+                  seen other (rewrite sized at inside in inside)
+                in Eq.cong (found => Option.getOrElse found 0) (Eq.sym (mapShift game.turn (Spec.turnsBack other older)))))))
 
 theorem replyTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply = Spec.reply spoken :=
   match tracks with

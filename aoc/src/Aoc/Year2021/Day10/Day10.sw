@@ -76,10 +76,9 @@ def syntaxPoints: Bracket → Nat
   | Angle => 25137
 
 --| A corrupted line's score, 0 for any other.
-def corruptionScore (line: List Token): Nat :=
-  match scan [] line with
-    | Corrupted illegal => syntaxPoints illegal
-    | Unclosed _ => 0
+def corruptionScore (line: List Token): Nat := match scan [] line with
+  | Corrupted illegal => syntaxPoints illegal
+  | Unclosed _ => 0
 
 def solvePart1 (lines: List (List Token)): Nat := lines.sumBy corruptionScore
 
@@ -94,11 +93,10 @@ def completionScore (closers: List Bracket): Nat := closers.foldLeft 0 (score br
 
 --| An incomplete line's completion score; `None` for a corrupted line, or
 --| a complete one.
-def autocompleteScore (line: List Token): Option Nat :=
-  match scan [] line with
-    | Corrupted _ => None
-    | Unclosed [] => None
-    | Unclosed open => Some (completionScore open)
+def autocompleteScore (line: List Token): Option Nat := match scan [] line with
+  | Corrupted _ => None
+  | Unclosed [] => None
+  | Unclosed open => Some (completionScore open)
 
 --| The middle of the sorted scores (with an even number of them, the
 --| upper of the two middle ones; 0 for none).

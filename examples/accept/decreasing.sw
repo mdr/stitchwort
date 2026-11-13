@@ -61,10 +61,9 @@ test "halvings" := halvings 100 0 == 7 ∧ halvings 0 0 == 0
 -- A `match` in the body, with the recursive call in one arm.
 def sumDigits (n: Nat): Nat
     decreasing n
-:=
-  match e: Nat.leq n 9 with
-    | True => n
-    | False => n % 10 + sumDigits (n / 10) [decreasing := Nat.divTenLess n e]
+:= match e: Nat.leq n 9 with
+  | True => n
+  | False => n % 10 + sumDigits (n / 10) [decreasing := Nat.divTenLess n e]
 
 test "sum of digits" := sumDigits 1234 == 10
 
@@ -91,10 +90,9 @@ def Stack.count: Stack → Nat
 
 def Stack.total (s: Stack): Nat
     decreasing Stack.count s
-:=
-  match s with
-    | Empty => 0
-    | Push x rest => x + (if h: Stack.count rest < Stack.count s then rest.total else 0)
+:= match s with
+  | Empty => 0
+  | Push x rest => x + (if h: Stack.count rest < Stack.count s then rest.total else 0)
 
 test "Stack.total" := Stack.total (Push 1 (Push 2 Empty)) == 3
 
@@ -102,11 +100,10 @@ test "Stack.total" := Stack.total (Push 1 (Push 2 Empty)) == 3
 -- function makes. `evens.unfold` takes one step of `evens`.
 def evens (n: Nat): List Nat
     decreasing n
-:=
-  match n with
-    | Zero => []
-    | Succ Zero => []
-    | Succ (Succ k) => [k, ..evens k [decreasing := Nat.leSucc k]]
+:= match n with
+  | Zero => []
+  | Succ Zero => []
+  | Succ (Succ k) => [k, ..evens k [decreasing := Nat.leSucc k]]
 
 test "evens" := evens 7 == [5, 3, 1]
 

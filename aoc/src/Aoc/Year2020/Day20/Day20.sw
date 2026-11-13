@@ -81,10 +81,9 @@ type Jigsaw = { tiles: List Tile }
 
 --| At least one row, a first row with a pixel, and every row as long as
 --| the first: what turning and flipping need (`Proofs.Rectangle`).
-def Image.isRectangle (image: Image): Bool :=
-  match image.rows with
-    | [] => False
-    | [first, ..rest] => first.length != 0 && image.rows.all (row => row.length == first.length)
+def Image.isRectangle (image: Image): Bool := match image.rows with
+  | [] => False
+  | [first, ..rest] => first.length != 0 && image.rows.all (row => row.length == first.length)
 
 def Jigsaw.rectangular (jigsaw: Jigsaw): Bool := jigsaw.tiles.all (tile => tile.image.isRectangle)
 

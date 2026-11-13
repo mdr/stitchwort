@@ -33,10 +33,9 @@ theorem blocksKeepEveryColumn (lines: List Text):
 --| Why `parseNumber` is the right reading: a number written in decimal, with
 --| any spaces before and after it (its alignment in the problem), reads back
 --| as itself.
-theorem spacesNoDigits (k: Nat): List.filterMap (List.replicate k ' ') Char.digitValue = [] :=
-  match k with
-    | Zero => rfl
-    | Succ k => spacesNoDigits k
+theorem spacesNoDigits (k: Nat): List.filterMap (List.replicate k ' ') Char.digitValue = [] := match k with
+  | Zero => rfl
+  | Succ k => spacesNoDigits k
 
 theorem parseNumberWritten (n: Nat) (before: Nat) (after: Nat):
     parseNumber (List.append (List.replicate before ' ') (List.append (Text.toList n.toText) (List.replicate after ' '))) = n :=

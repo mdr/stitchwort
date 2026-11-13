@@ -21,10 +21,9 @@ theorem part2Correct (map: HeightMap): Part2Answer map (solvePart2 map) :=
 
 --| Each low point's basin has the size the program finds.
 theorem basinSizeCorrect (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map):
-    BasinSize map low (map.basinSize map.graph low) :=
-  match open: map.isOpen low with
-    | True => basinSizeOpen map low open
-    | False => basinSizeClosed map low height member open
+    BasinSize map low (map.basinSize map.graph low) := match open: map.isOpen low with
+      | True => basinSizeOpen map low open
+      | False => basinSizeClosed map low height member open
 
 --| The graph can enter exactly the locations that aren't 9s.
 theorem canEnterOpen (map: HeightMap) (position: Position): canEnter (cellsEnter map.grid.rows enterOpen) position = inSomeBasin map position :=

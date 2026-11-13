@@ -3,10 +3,9 @@
 
 def two (x: Nat): Nat
     decreasing x
-:=
-  match x with
-    | Zero => 2
-    | Succ m => two m [decreasing := omega]
+:= match x with
+  | Zero => 2
+  | Succ m => two m [decreasing := omega]
 
 theorem aboveX (x: Nat): x + two 0 > x := omega
 
@@ -27,10 +26,9 @@ theorem nestedInt (x: Nat) (y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt
 -- `omega` fail: it stays an atom once unfolding takes too long.
 def fib (n: Nat): Nat
     decreasing n
-:=
-  match n with
-    | Zero => 0
-    | Succ Zero => 1
-    | Succ (Succ m) => fib m [decreasing := omega] + fib (Succ m) [decreasing := omega]
+:= match n with
+  | Zero => 0
+  | Succ Zero => 1
+  | Succ (Succ m) => fib m [decreasing := omega] + fib (Succ m) [decreasing := omega]
 
 theorem unusedSlowFact (x: Nat) (r: Nat) (h: r = fib 40): x + 1 > x := omega

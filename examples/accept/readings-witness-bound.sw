@@ -11,6 +11,5 @@ theorem sameIngredient (xs: List Ingredient) (target: Ingredient)
   Witness x holds.read
 
 theorem sameIngredientMatch (xs: List Ingredient) (target: Ingredient)
-    (found: xs.any (candidate => candidate == target) = True): ∃ (x: Ingredient) => x = target :=
-  match found with
-    | Witness x (Both _ holds) => Witness x holds.read
+    (found: xs.any (candidate => candidate == target) = True): ∃ (x: Ingredient) => x = target := match found with
+      | Witness x (Both _ holds) => Witness x holds.read

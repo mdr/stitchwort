@@ -21,9 +21,8 @@ def Text.toList: (text: Text) → List Char
 --| The text of the characters, in order; [`Text.toList`] undoes it (`Text.toFromList`).
 def Text.fromList (cs: List Char): Text := MkText cs
 
-theorem Text.fromToList (t: Text): Text.fromList (Text.toList t) = t :=
-  match t with
-    | MkText cs => rfl
+theorem Text.fromToList (t: Text): Text.fromList (Text.toList t) = t := match t with
+  | MkText cs => rfl
 
 --| `a ++ b`: the characters of `a`, then those of `b` (`Text.lengthAppend`).
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))

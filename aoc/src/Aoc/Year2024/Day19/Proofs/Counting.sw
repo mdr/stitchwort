@@ -44,12 +44,11 @@ theorem matchingSucc (patterns: List Pattern) (count: Nat) (stripes: List Stripe
 
 --| The empty design is made one way, by no
 --| towels, however many are allowed.
-theorem matchingEmpty (patterns: List Pattern) (count: Nat): matching patterns count [] = 1 :=
-  match count with
-    | Zero => rfl
-    | Succ count =>
-      rewrite matchingSucc patterns count [],
-        List.sumByZeroIntro patterns (pattern => if List.startsWith [] pattern.stripes.toList then matching patterns count (List.drop [] pattern.stripes.toList.length) else 0)
-          (pattern member =>
-            rfl)
-        in rfl
+theorem matchingEmpty (patterns: List Pattern) (count: Nat): matching patterns count [] = 1 := match count with
+  | Zero => rfl
+  | Succ count =>
+    rewrite matchingSucc patterns count [],
+      List.sumByZeroIntro patterns (pattern => if List.startsWith [] pattern.stripes.toList then matching patterns count (List.drop [] pattern.stripes.toList.length) else 0)
+        (pattern member =>
+          rfl)
+      in rfl

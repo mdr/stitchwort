@@ -71,17 +71,15 @@ theorem directlyEdge (rules: Rules) (inner: Colour) (holder: Colour) (directly: 
     (Both (List.memMap _ holder held (holder => (holder, 1))) (holderListed rules.all inner holder held))
 
 theorem walkOutward (rules: Rules) (start: Colour) (path: List (Colour, Nat)) (finish: Colour) (walked: rules.graph.Walk start path finish):
-    Spec.Outward rules.all start (path.map Pair.fst) finish :=
-  match path, walked with
-    | [], walked => walked
-    | [(next, weight), ..rest], Both edge later =>
-      Both (And.left (edgeDirectly rules start next weight edge)) (walkOutward rules next rest finish later)
+    Spec.Outward rules.all start (path.map Pair.fst) finish := match path, walked with
+      | [], walked => walked
+      | [(next, weight), ..rest], Both edge later =>
+        Both (And.left (edgeDirectly rules start next weight edge)) (walkOutward rules next rest finish later)
 
 theorem outwardWalk (rules: Rules) (start: Colour) (bags: List Colour) (finish: Colour) (outward: Spec.Outward rules.all start bags finish):
-    rules.graph.Walk start (bags.map (bag => (bag, 1))) finish :=
-  match bags, outward with
-    | [], outward => outward
-    | [next, ..rest], Both directly later => Both (directlyEdge rules start next directly) (outwardWalk rules next rest finish later)
+    rules.graph.Walk start (bags.map (bag => (bag, 1))) finish := match bags, outward with
+      | [], outward => outward
+      | [next, ..rest], Both directly later => Both (directlyEdge rules start next directly) (outwardWalk rules next rest finish later)
 
 --| A source of the search is a direct holder.
 theorem sourceDirectly (rules: Rules) (inner: Colour) (source: Colour)

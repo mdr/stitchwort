@@ -85,10 +85,9 @@ test "the average of nothing" := averageOf 10 0 == 0
 -- end division-by-zero
 
 -- begin chars
-def initial (name: Text): Char :=
-  match name.uncons with
-    | Some (first, _) => first
-    | None => '?'
+def initial (name: Text): Char := match name.uncons with
+  | Some (first, _) => first
+  | None => '?'
 
 test "initial" := initial "Ada" == 'A' ∧ initial "" == '?'
 

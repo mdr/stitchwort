@@ -73,14 +73,13 @@ theorem finalFollow (maze: Maze) (reindeer: Reindeer) (moves: List Move) (last: 
 
 --| The reindeer stands where it starts.
 theorem followStarts (maze: Maze) (reindeer: Reindeer) (moves: List Move) (standings: List Reindeer)
-    (followed: follow maze reindeer moves = Some standings): reindeer ∈ standings :=
-  match moves with
-    | [] => rewrite <- Option.someInjective followed in Inl rfl
-    | [way, ..rest] =>
-      match moved: move maze reindeer way with
-        | Some next =>
-          match after: follow maze next rest with
-            | Some later => rewrite <- Option.someInjective followed in Inl rfl
+    (followed: follow maze reindeer moves = Some standings): reindeer ∈ standings := match moves with
+      | [] => rewrite <- Option.someInjective followed in Inl rfl
+      | [way, ..rest] =>
+        match moved: move maze reindeer way with
+          | Some next =>
+            match after: follow maze next rest with
+              | Some later => rewrite <- Option.someInjective followed in Inl rfl
 
 --| The reindeer stands wherever part of the path leaves it.
 theorem followVisits (maze: Maze) (more: List Move): ∀ (reindeer: Reindeer) (moves: List Move) (middle: Reindeer) =>

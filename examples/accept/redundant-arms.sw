@@ -28,12 +28,11 @@ def step: Char → Nat
   | _ => 3
 
 -- In a `match`, several earlier arms together cover the last one.
-def both (first: Bool) (second: Bool): Nat :=
-  match first, second with
-    | True, _ => 1
-    | _, True => 2
-    | False, False => 3
-    | False, _ => 4
+def both (first: Bool) (second: Bool): Nat := match first, second with
+  | True, _ => 1
+  | _, True => 2
+  | False, False => 3
+  | False, _ => 4
 
 test "key" := ['k', 'w', 'x'].map key == [1, 2, 0]
 test "isRed" := [Red, Green, Blue].map isRed == [True, False, False]

@@ -25,7 +25,6 @@ export def evens (n: Nat): Nat :=
   go n 0
 
 @[tailrec]
-export def countList (xs: List Nat) (n: Nat): Nat :=
-  match xs with
-    | [] => n
-    | [_, ..rest] => countList rest (n + 1)
+export def countList (xs: List Nat) (n: Nat): Nat := match xs with
+  | [] => n
+  | [_, ..rest] => countList rest (n + 1)

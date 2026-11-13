@@ -11,12 +11,11 @@ import Std (Eq, List, Nat, Text)
 
 --| From column s on, past every line's end, every column is blank.
 theorem blankFrom (lines: List Text) (m s: Nat) (h: gridWidth lines ≤ s):
-    List.all ((List.rangeFrom m s).map (column lines)) isBlank = True :=
-  match m with
-    | Zero => rfl
-    | Succ m =>
-      rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength (lines.map Text.toList) r) h) in
-        blankFrom lines m (Succ s) (omega)
+    List.all ((List.rangeFrom m s).map (column lines)) isBlank = True := match m with
+      | Zero => rfl
+      | Succ m =>
+        rewrite blankPast s lines (r => Nat.leTrans _ _ _ (List.lengthLeMaxLength (lines.map Text.toList) r) h) in
+          blankFrom lines m (Succ s) (omega)
 
 --| The blocks, read over any number of columns from the widest line's length on.
 theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines ≤ n):

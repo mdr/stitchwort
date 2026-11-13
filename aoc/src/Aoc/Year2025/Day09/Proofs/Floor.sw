@@ -62,10 +62,9 @@ theorem cellAt (tiles: List Point) (r: Nat) (c: Nat) (hr: r < List.length (Floor
     in rfl
 
 --| A cell is 0 exactly when its tile is red or green.
-theorem outsideFlagZero (b: Bool) (h: outsideFlag b = 0): b = True :=
-  match b with
-    | True => rfl
-    | False => Void.exfalso (Nat.succNotZero 0 h)
+theorem outsideFlagZero (b: Bool) (h: outsideFlag b = 0): b = True := match b with
+  | True => rfl
+  | False => Void.exfalso (Nat.succNotZero 0 h)
 
 --| Every row of the floor is as long as the key columns.
 theorem lengthCellRow (tiles: List Point) (r: Nat) (hr: r < List.length (Floor.of tiles).rows):

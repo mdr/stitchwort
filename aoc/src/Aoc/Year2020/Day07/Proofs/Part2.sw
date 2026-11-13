@@ -59,10 +59,9 @@ theorem bagsWithinDeeper (rules: List Rule) (depth: Nat) (colour: Colour) (total
         | Some counts => rewrite allSomeKeeps shallow deep keeps (Spec.contentsOf rules colour) counts r in settled
 
 theorem bagsWithinLater (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat) (settled: Spec.bagsWithin rules depth colour = Some total)
-    (more: Nat): Spec.bagsWithin rules (depth + more) colour = Some total :=
-  match more with
-    | 0 => rewrite Nat.addZero depth in settled
-    | Succ more => bagsWithinDeeper rules (depth + more) colour total (bagsWithinLater rules depth colour total settled more)
+    (more: Nat): Spec.bagsWithin rules (depth + more) colour = Some total := match more with
+      | 0 => rewrite Nat.addZero depth in settled
+      | Succ more => bagsWithinDeeper rules (depth + more) colour total (bagsWithinLater rules depth colour total settled more)
 
 --| Part 2's total is unique: rules that settle it at two depths settle it
 --| the same.

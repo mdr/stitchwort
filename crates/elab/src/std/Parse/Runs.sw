@@ -55,42 +55,41 @@ def Parse.Runs (parser: () → {Parse} a) (read: List Char) (rest: List Char) (v
 --| don't matter to success, by [`Parse.runFromAt`].
 theorem Parse.runFromThenBack2 (p: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (p ())) (s: Parse.State) (j: a → {Parse} c) (k: c → {Parse} b)
     (v: a) (after: Parse.State) (w: b) (ran: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at))
-    (rest: Parse.runFrom after (() => k (j v)) = Ok w): Parse.runFrom s (() => k (j (p()))) = Ok w :=
-  match reify p with
-    | return x =>
-      let same := Result.okInjective ran
-      let valueSame: x = v := Pair.mkInjectiveFst same
-      let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
-      let moved := Parse.runFromAt (() => k (j x)) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
-    | Parse.span passes, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromThenBack2 (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd j k v after w ran rest
-    | Parse.next passes, q =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromNext s passes (y => k (j (q y))))
-            (Parse.runFromThenBack2 (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd j k v after w
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran) rest)
-    | Parse.literal chars, q =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromLiteral s chars (y => k (j (q y))))
-            (Parse.runFromThenBack2 (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd j k v after w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (q y, Parse.mark())))) ran) rest)
-    | Parse.mark u, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromThenBack2 (() => q s.at) (later s.at) s j k v after w ran rest
-    | Parse.reset at, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromThenBack2 (() => q ()) (later ()) { s | at } j k v after w ran rest
-    | Parse.note problem, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromThenBack2 (() => q ()) (later ()) (s.note problem) j k v after w ran rest
-    | Parse.stop u, q => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, q => Void.exfalso (Result.errNotOk ran)
+    (rest: Parse.runFrom after (() => k (j v)) = Ok w): Parse.runFrom s (() => k (j (p()))) = Ok w := match reify p with
+      | return x =>
+        let same := Result.okInjective ran
+        let valueSame: x = v := Pair.mkInjectiveFst same
+        let atSame: s.at = after.at := Pair.mkInjectiveSnd same
+        let rest2 := rewrite <- valueSame at rest in rest
+        let moved := Parse.runFromAt (() => k (j x)) after s w rest2
+        let moved2 := rewrite <- atSame at moved in moved
+        rewrite Parse.withAtSelf s at moved2 in moved2
+      | Parse.span passes, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromThenBack2 (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd j k v after w ran rest
+      | Parse.next passes, q =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromNext s passes (y => k (j (q y))))
+              (Parse.runFromThenBack2 (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd j k v after w
+                (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) ran) rest)
+      | Parse.literal chars, q =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromLiteral s chars (y => k (j (q y))))
+              (Parse.runFromThenBack2 (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd j k v after w
+                (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (q y, Parse.mark())))) ran) rest)
+      | Parse.mark u, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromThenBack2 (() => q s.at) (later s.at) s j k v after w ran rest
+      | Parse.reset at, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromThenBack2 (() => q ()) (later ()) { s | at } j k v after w ran rest
+      | Parse.note problem, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromThenBack2 (() => q ()) (later ()) (s.note problem) j k v after w ran rest
+      | Parse.stop u, q => Void.exfalso (Result.errNotOk ran)
+      | Parse.fatal message, q => Void.exfalso (Result.errNotOk ran)
 
 --| The same for `optionalFrom start q` where `q` succeeds: `k (j (Some v))`
 --| follows. The converse of [`Parse.runFromOptionalFromOk2`] for the `Some` case.
@@ -444,15 +443,14 @@ def Parse.ManyRuns (p: () → {Parse} a): (steps: List (List Char, a)) → (rest
 
 --| A repetition's text has at least a character per round (fuel for `many`).
 theorem Parse.manyStepsShort (p: () → {Parse} a) (steps: List (List Char, a)) (rest: List Char) (runs: Parse.ManyRuns p steps rest):
-    steps.length ≤ (Parse.joinReads steps).length :=
-  match steps, runs with
-    | [], runs => rfl
-    | [(read, v), ..steps], Both nonEmpty (Both runsP later) =>
-      match read with
-        | [] => Void.exfalso (nonEmpty rfl)
-        | [char, ..more] =>
-          let shorter := Parse.manyStepsShort p steps rest later
-          omega [shorter, List.lengthAppend more (Parse.joinReads steps)]
+    steps.length ≤ (Parse.joinReads steps).length := match steps, runs with
+      | [], runs => rfl
+      | [(read, v), ..steps], Both nonEmpty (Both runsP later) =>
+        match read with
+          | [] => Void.exfalso (nonEmpty rfl)
+          | [char, ..more] =>
+            let shorter := Parse.manyStepsShort p steps rest later
+            omega [shorter, List.lengthAppend more (Parse.joinReads steps)]
 
 --| `manyFrom` from a state that is at its `before` mark, with enough fuel
 --| (more than the rounds), after `found` (newest first): it gives them all.
@@ -544,35 +542,34 @@ theorem Parse.runsChainLeft (operand: () → {Parse} a) (operator: () → {Parse
 
 --| A run of `p` that gave a value with a mark after it is a run of `p`.
 theorem Parse.runFromForgetMark (p: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (p ())) (s: Parse.State) (v: a) (m: Parse.Mark)
-    (h: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, m)): Parse.runFrom s p = Ok v :=
-  match reify p with
-    | return x => Eq.cong Ok (Pair.mkInjectiveFst (Result.okInjective h))
-    | Parse.span passes, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromForgetMark (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd v m h
-    | Parse.next passes, q =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromNext s passes q)
-            (Parse.runFromForgetMark (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd v m
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) h))
-    | Parse.literal chars, q =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromLiteral s chars q)
-            (Parse.runFromForgetMark (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd v m
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (q y, Parse.mark())))) h))
-    | Parse.mark u, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromForgetMark (() => q s.at) (later s.at) s v m h
-    | Parse.reset at, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromForgetMark (() => q ()) (later ()) { s | at } v m h
-    | Parse.note problem, q =>
-      match tree with
-        | AlwaysCall later => Parse.runFromForgetMark (() => q ()) (later ()) (s.note problem) v m h
-    | Parse.stop u, q => Void.exfalso (Result.errNotOk h)
-    | Parse.fatal message, q => Void.exfalso (Result.errNotOk h)
+    (h: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, m)): Parse.runFrom s p = Ok v := match reify p with
+      | return x => Eq.cong Ok (Pair.mkInjectiveFst (Result.okInjective h))
+      | Parse.span passes, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromForgetMark (() => q (s.span passes).fst) (later (s.span passes).fst) (s.span passes).snd v m h
+      | Parse.next passes, q =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromNext s passes q)
+              (Parse.runFromForgetMark (() => q (s.next passes).fst) (later (s.next passes).fst) (s.next passes).snd v m
+                (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (q y, Parse.mark())))) h))
+      | Parse.literal chars, q =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromLiteral s chars q)
+              (Parse.runFromForgetMark (() => q (s.literal chars).fst) (later (s.literal chars).fst) (s.literal chars).snd v m
+                (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (q y, Parse.mark())))) h))
+      | Parse.mark u, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromForgetMark (() => q s.at) (later s.at) s v m h
+      | Parse.reset at, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromForgetMark (() => q ()) (later ()) { s | at } v m h
+      | Parse.note problem, q =>
+        match tree with
+          | AlwaysCall later => Parse.runFromForgetMark (() => q ()) (later ()) (s.note problem) v m h
+      | Parse.stop u, q => Void.exfalso (Result.errNotOk h)
+      | Parse.fatal message, q => Void.exfalso (Result.errNotOk h)
 
 --| `p` reads all of `input`: `Parse.run` gives the value (for `Parse.all` and
 --| `eachLine`, which add line breaks and a check for the end, state `Runs`
@@ -661,35 +658,34 @@ theorem Parse.runsPick (before: List (Text, a)) (word: Text) (value: a) (later: 
 --| to `start`: `q` stops on its own, wherever the optional took its mark.
 theorem Parse.optionalFromNoneStart (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (s0: Parse.Mark) (start: Parse.Mark)
     (s: Parse.State) (h: Parse.runFrom s (() => (Parse.optionalFrom s0 q, Parse.mark())) = Ok (None, s0)):
-    Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start) :=
-  match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
-    | Parse.span passes, r =>
-      match tree with
-        | AlwaysCall later => Parse.optionalFromNoneStart (() => r (s.span passes).fst) (later (s.span passes).fst) s0 start (s.span passes).snd h
-    | Parse.next passes, r =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark())))
-            (Parse.optionalFromNoneStart (() => r (s.next passes).fst) (later (s.next passes).fst) s0 start (s.next passes).snd
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark())))) h))
-    | Parse.literal chars, r =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromLiteral s chars (y => (Parse.optionalFrom start (() => r y), Parse.mark())))
-            (Parse.optionalFromNoneStart (() => r (s.literal chars).fst) (later (s.literal chars).fst) s0 start (s.literal chars).snd
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (Parse.optionalFrom s0 (() => r y), Parse.mark())))) h))
-    | Parse.mark u, r =>
-      match tree with
-        | AlwaysCall later => Parse.optionalFromNoneStart (() => r s.at) (later s.at) s0 start s h
-    | Parse.reset at, r =>
-      match tree with
-        | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start { s | at } h
-    | Parse.note problem, r =>
-      match tree with
-        | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start (s.note problem) h
-    | Parse.stop u, r => rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+    Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start) := match reify q with
+      | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+      | Parse.span passes, r =>
+        match tree with
+          | AlwaysCall later => Parse.optionalFromNoneStart (() => r (s.span passes).fst) (later (s.span passes).fst) s0 start (s.span passes).snd h
+      | Parse.next passes, r =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark())))
+              (Parse.optionalFromNoneStart (() => r (s.next passes).fst) (later (s.next passes).fst) s0 start (s.next passes).snd
+                (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom s0 (() => r y), Parse.mark())))) h))
+      | Parse.literal chars, r =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromLiteral s chars (y => (Parse.optionalFrom start (() => r y), Parse.mark())))
+              (Parse.optionalFromNoneStart (() => r (s.literal chars).fst) (later (s.literal chars).fst) s0 start (s.literal chars).snd
+                (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (Parse.optionalFrom s0 (() => r y), Parse.mark())))) h))
+      | Parse.mark u, r =>
+        match tree with
+          | AlwaysCall later => Parse.optionalFromNoneStart (() => r s.at) (later s.at) s0 start s h
+      | Parse.reset at, r =>
+        match tree with
+          | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start { s | at } h
+      | Parse.note problem, r =>
+        match tree with
+          | AlwaysCall later => Parse.optionalFromNoneStart (() => r ()) (later ()) s0 start (s.note problem) h
+      | Parse.stop u, r => rfl
+      | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
 
 --| `p` succeeded from `s` to `after`, and from there `j` of its value backs up
 --| to `start`: so `optionalFrom start` of `p` then `j` does, from `s`.
@@ -1046,12 +1042,11 @@ theorem Parse.runsNatDigits (atLeast: Nat) (atMost: Nat) (digits: List Char) (re
 
 --| A sign character that is not a digit isn't the start of a digit.
 theorem Parse.digitNotSign (sign: Char) (d: Char) (more: List Char) (signNotDigit: Parse.isDigit sign = False) (digit: Parse.isDigit d = True):
-    Text.stripPrefixChars [sign] [d, ..more] = None :=
-  match same: Text.sameChar sign d with
-    | False => rfl
-    | True =>
-      let equal: sign = d := Char.ext sign d same.read
-      cases
+    Text.stripPrefixChars [sign] [d, ..more] = None := match same: Text.sameChar sign d with
+      | False => rfl
+      | True =>
+        let equal: sign = d := Char.ext sign d same.read
+        cases
 
 --| Digits don't start with a sign character that is not a digit.
 theorem Parse.digitsNotSign (sign: Char) (digits: List Char) (rest: List Char) (some: digits ≠ []) (all: digits.all Parse.isDigit = True)
@@ -1093,13 +1088,12 @@ theorem Parse.runsIntUnsigned (digits: List Char) (rest: List Char) (some: digit
 --| digits), with `rest` not starting with another digit: it gives the number.
 --| The converse of [`Parse.readsInt`].
 theorem Parse.runsIntRead (read: List Char) (n: Int) (written: Parse.IntRead read n) (rest: List Char) (stops: rest.takeWhile Parse.isDigit = []):
-    Parse.Runs Parse.int read rest n :=
-  match written with
-    | Witness digits (Both some (Both all form)) =>
-      match form with
-        | Inl (Both same value) => rewrite same, value in Parse.runsIntNegative digits rest some all stops
-        | Inr (Inl (Both same value)) => rewrite same, value in Parse.runsIntPositive digits rest some all stops
-        | Inr (Inr (Both same value)) => rewrite same, value in Parse.runsIntUnsigned digits rest some all stops
+    Parse.Runs Parse.int read rest n := match written with
+      | Witness digits (Both some (Both all form)) =>
+        match form with
+          | Inl (Both same value) => rewrite same, value in Parse.runsIntNegative digits rest some all stops
+          | Inr (Inl (Both same value)) => rewrite same, value in Parse.runsIntPositive digits rest some all stops
+          | Inr (Inr (Both same value)) => rewrite same, value in Parse.runsIntUnsigned digits rest some all stops
 
 --| The rounds of a repetition that must all succeed (as `exactly`'s): each
 --| `Runs` `p` for its text, seeing what follows it (the later rounds' text,
@@ -1186,10 +1180,9 @@ theorem Parse.runsExactly (count: Nat) (p: () → {Parse} a) (steps: List (List 
 --| use that the condition holds (or fails).
 theorem Parse.runsIf (c: Bool) (yes: () → {Parse} a) (no: () → {Parse} a) (read: List Char) (rest: List Char) (v: a)
     (runsYes: c = True → Parse.Runs yes read rest v) (runsNo: c = False → Parse.Runs no read rest v):
-    Parse.Runs (() => if c then yes() else no()) read rest v :=
-  match e: c with
-    | True => runsYes rfl
-    | False => runsNo rfl
+    Parse.Runs (() => if c then yes() else no()) read rest v := match e: c with
+      | True => runsYes rfl
+      | False => runsNo rfl
 
 --| `withFinalLineBreak p` where there is no line break after what `p` reads (the
 --| end of the line): it reads what `p` read.
@@ -1369,35 +1362,34 @@ theorem Parse.runsAttempt (p: () → {Parse} a) (read: List Char) (rest: List Ch
 --| `attemptFrom start q`: they back up on the same failures.
 theorem Parse.runFromAttemptNone (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (s: Parse.State) (h: Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start)):
-    Parse.runFrom s (() => (Parse.attemptFrom start q, Parse.mark())) = Ok (None, start) :=
-  match reify q with
-    | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
-    | Parse.span passes, r =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAttemptNone (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd h
-    | Parse.next passes, r =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromNext s passes (y => (Parse.attemptFrom start (() => r y), Parse.mark())))
-            (Parse.runFromAttemptNone (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd
-              (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark())))) h))
-    | Parse.literal chars, r =>
-      match tree with
-        | AlwaysCall later =>
-          Eq.trans (Parse.runFromLiteral s chars (y => (Parse.attemptFrom start (() => r y), Parse.mark())))
-            (Parse.runFromAttemptNone (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (Parse.optionalFrom start (() => r y), Parse.mark())))) h))
-    | Parse.mark u, r =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAttemptNone (() => r s.at) (later s.at) start s h
-    | Parse.reset at, r =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAttemptNone (() => r ()) (later ()) start { s | at } h
-    | Parse.note problem, r =>
-      match tree with
-        | AlwaysCall later => Parse.runFromAttemptNone (() => r ()) (later ()) start (s.note problem) h
-    | Parse.stop u, r => rfl
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
+    Parse.runFrom s (() => (Parse.attemptFrom start q, Parse.mark())) = Ok (None, start) := match reify q with
+      | return x => Void.exfalso (Option.someNotNone x (Pair.mkInjectiveFst (Result.okInjective h)))
+      | Parse.span passes, r =>
+        match tree with
+          | AlwaysCall later => Parse.runFromAttemptNone (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd h
+      | Parse.next passes, r =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromNext s passes (y => (Parse.attemptFrom start (() => r y), Parse.mark())))
+              (Parse.runFromAttemptNone (() => r (s.next passes).fst) (later (s.next passes).fst) start (s.next passes).snd
+                (Eq.trans (Eq.sym (Parse.runFromNext s passes (y => (Parse.optionalFrom start (() => r y), Parse.mark())))) h))
+      | Parse.literal chars, r =>
+        match tree with
+          | AlwaysCall later =>
+            Eq.trans (Parse.runFromLiteral s chars (y => (Parse.attemptFrom start (() => r y), Parse.mark())))
+              (Parse.runFromAttemptNone (() => r (s.literal chars).fst) (later (s.literal chars).fst) start (s.literal chars).snd
+                (Eq.trans (Eq.sym (Parse.runFromLiteral s chars (y => (Parse.optionalFrom start (() => r y), Parse.mark())))) h))
+      | Parse.mark u, r =>
+        match tree with
+          | AlwaysCall later => Parse.runFromAttemptNone (() => r s.at) (later s.at) start s h
+      | Parse.reset at, r =>
+        match tree with
+          | AlwaysCall later => Parse.runFromAttemptNone (() => r ()) (later ()) start { s | at } h
+      | Parse.note problem, r =>
+        match tree with
+          | AlwaysCall later => Parse.runFromAttemptNone (() => r ()) (later ()) start (s.note problem) h
+      | Parse.stop u, r => rfl
+      | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
 
 --| `attempt p` where `p` declines: it reads nothing and gives `None`.
 theorem Parse.runsAttemptNone (p: () → {Parse} a) (input: List Char) (declines: Parse.Declines p input):
@@ -1530,94 +1522,93 @@ theorem Parse.declinesLabel (what: Text) (p: () → {Parse} a) (input: List Char
 theorem Parse.runFromLabelWholeFromBack (what: Text) (q: () → {Parse} a) (tree: Effect.AlwaysTree (x => Unit) (q ())) (start: Parse.Mark)
     (furthest: Parse.Mark) (s: Parse.State) (k: a → {Parse} b) (v: a) (after: Parse.State) (w: b)
     (ran: Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at)) (rest: Parse.runFrom after (() => k v) = Ok w):
-    Parse.runFrom s (() => k (Parse.labelWholeFrom what start q furthest)) = Ok w :=
-  match reify q with
-    | return x =>
-      let same := Result.okInjective ran
-      let valueSame: x = v := Pair.mkInjectiveFst same
-      let atSame: s.at = after.at := Pair.mkInjectiveSnd same
-      let rest2 := rewrite <- valueSame at rest in rest
-      let moved := Parse.runFromAt (() => k x) after s w rest2
-      let moved2 := rewrite <- atSame at moved in moved
-      rewrite Parse.withAtSelf s at moved2 in moved2
-    | Parse.span passes, r =>
-      match tree with
-        | AlwaysCall later =>
-          match c: (s.span passes).snd.at.offset > furthest.offset with
-            | True =>
-              rewrite Effect.translateNoOp _ in
-                Parse.runFromLabelWholeFromBack what (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd.at (s.span passes).snd k v after w ran rest
-            | False =>
-              rewrite Effect.translateNoOp _ in
-                Parse.runFromLabelWholeFromBack what (() => r (s.span passes).fst) (later (s.span passes).fst) start furthest (s.span passes).snd k v after w ran rest
-    | Parse.mark u, r =>
-      match tree with
-        | AlwaysCall later =>
-          rewrite Effect.translateNoOp _ in Parse.runFromLabelWholeFromBack what (() => r s.at) (later s.at) start furthest s k v after w ran rest
-    | Parse.reset at, r =>
-      match tree with
-        | AlwaysCall later =>
-          rewrite Effect.translateNoOp _ in Parse.runFromLabelWholeFromBack what (() => r ()) (later ()) start furthest { s | at } k v after w ran rest
-    | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
-    | Parse.next passes, r =>
-      match tree with
-        | AlwaysCall later =>
-          match s.at.rest with
-            | [] =>
-              match c: s.at.offset > furthest.offset with
-                | True =>
-                  rewrite Effect.translateNoOp _ in
-                    Parse.runFromLabelWholeFromBack what (() => r None) (later None) start s.at s k v after w ran rest
-                | False =>
-                  rewrite Effect.translateNoOp _ in
-                    Parse.runFromLabelWholeFromBack what (() => r None) (later None) start furthest s k v after w ran rest
-            | [char, ..more] =>
-              match passes char with
-                | True =>
-                  match c: (s.advance more 1).at.offset > furthest.offset with
-                    | True =>
-                      rewrite Effect.translateNoOp _ in
-                        Parse.runFromLabelWholeFromBack what (() => r (Some char)) (later (Some char)) start (s.advance more 1).at (s.advance more 1) k v after w ran rest
-                    | False =>
-                      rewrite Effect.translateNoOp _ in
-                        Parse.runFromLabelWholeFromBack what (() => r (Some char)) (later (Some char)) start furthest (s.advance more 1) k v after w ran rest
-                | False =>
-                  match c: s.at.offset > furthest.offset with
-                    | True =>
-                      rewrite Effect.translateNoOp _ in
-                        Parse.runFromLabelWholeFromBack what (() => r None) (later None) start s.at s k v after w ran rest
-                    | False =>
-                      rewrite Effect.translateNoOp _ in
-                        Parse.runFromLabelWholeFromBack what (() => r None) (later None) start furthest s k v after w ran rest
-    | Parse.literal chars, r =>
-      match tree with
-        | AlwaysCall later =>
-          match Text.stripPrefixChars chars s.at.rest with
-            | None =>
-              match c: s.at.offset > furthest.offset with
-                | True =>
-                  rewrite Effect.translateNoOp _ in
-                    Parse.runFromLabelWholeFromBack what (() => r False) (later False) start s.at s k v after w ran rest
-                | False =>
-                  rewrite Effect.translateNoOp _ in
-                    Parse.runFromLabelWholeFromBack what (() => r False) (later False) start furthest s k v after w ran rest
-            | Some more =>
-              match c: (s.advance more chars.length).at.offset > furthest.offset with
-                | True =>
-                  rewrite Effect.translateNoOp _ in
-                    Parse.runFromLabelWholeFromBack what (() => r True) (later True) start (s.advance more chars.length).at (s.advance more chars.length) k v after w ran rest
-                | False =>
-                  rewrite Effect.translateNoOp _ in
-                    Parse.runFromLabelWholeFromBack what (() => r True) (later True) start furthest (s.advance more chars.length) k v after w ran rest
-    | Parse.note problem, r =>
-      match tree with
-        | AlwaysCall later =>
-          let moved := Parse.runFromAt (() => (r (), Parse.mark())) (s.note problem) s _ ran
-          let noted: ({ s | at = (s.note problem).at }) = s :=
-            Eq.trans (Eq.cong (at => ({ s | at })) (Parse.noteAt s problem)) (Parse.withAtSelf s)
-          rewrite Effect.translateNoOp _ in
-            Parse.runFromLabelWholeFromBack what (() => r ()) (later ()) start furthest s k v after w (rewrite noted at moved in moved) rest
+    Parse.runFrom s (() => k (Parse.labelWholeFrom what start q furthest)) = Ok w := match reify q with
+      | return x =>
+        let same := Result.okInjective ran
+        let valueSame: x = v := Pair.mkInjectiveFst same
+        let atSame: s.at = after.at := Pair.mkInjectiveSnd same
+        let rest2 := rewrite <- valueSame at rest in rest
+        let moved := Parse.runFromAt (() => k x) after s w rest2
+        let moved2 := rewrite <- atSame at moved in moved
+        rewrite Parse.withAtSelf s at moved2 in moved2
+      | Parse.span passes, r =>
+        match tree with
+          | AlwaysCall later =>
+            match c: (s.span passes).snd.at.offset > furthest.offset with
+              | True =>
+                rewrite Effect.translateNoOp _ in
+                  Parse.runFromLabelWholeFromBack what (() => r (s.span passes).fst) (later (s.span passes).fst) start (s.span passes).snd.at (s.span passes).snd k v after w ran rest
+              | False =>
+                rewrite Effect.translateNoOp _ in
+                  Parse.runFromLabelWholeFromBack what (() => r (s.span passes).fst) (later (s.span passes).fst) start furthest (s.span passes).snd k v after w ran rest
+      | Parse.mark u, r =>
+        match tree with
+          | AlwaysCall later =>
+            rewrite Effect.translateNoOp _ in Parse.runFromLabelWholeFromBack what (() => r s.at) (later s.at) start furthest s k v after w ran rest
+      | Parse.reset at, r =>
+        match tree with
+          | AlwaysCall later =>
+            rewrite Effect.translateNoOp _ in Parse.runFromLabelWholeFromBack what (() => r ()) (later ()) start furthest { s | at } k v after w ran rest
+      | Parse.stop u, r => Void.exfalso (Result.errNotOk ran)
+      | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
+      | Parse.next passes, r =>
+        match tree with
+          | AlwaysCall later =>
+            match s.at.rest with
+              | [] =>
+                match c: s.at.offset > furthest.offset with
+                  | True =>
+                    rewrite Effect.translateNoOp _ in
+                      Parse.runFromLabelWholeFromBack what (() => r None) (later None) start s.at s k v after w ran rest
+                  | False =>
+                    rewrite Effect.translateNoOp _ in
+                      Parse.runFromLabelWholeFromBack what (() => r None) (later None) start furthest s k v after w ran rest
+              | [char, ..more] =>
+                match passes char with
+                  | True =>
+                    match c: (s.advance more 1).at.offset > furthest.offset with
+                      | True =>
+                        rewrite Effect.translateNoOp _ in
+                          Parse.runFromLabelWholeFromBack what (() => r (Some char)) (later (Some char)) start (s.advance more 1).at (s.advance more 1) k v after w ran rest
+                      | False =>
+                        rewrite Effect.translateNoOp _ in
+                          Parse.runFromLabelWholeFromBack what (() => r (Some char)) (later (Some char)) start furthest (s.advance more 1) k v after w ran rest
+                  | False =>
+                    match c: s.at.offset > furthest.offset with
+                      | True =>
+                        rewrite Effect.translateNoOp _ in
+                          Parse.runFromLabelWholeFromBack what (() => r None) (later None) start s.at s k v after w ran rest
+                      | False =>
+                        rewrite Effect.translateNoOp _ in
+                          Parse.runFromLabelWholeFromBack what (() => r None) (later None) start furthest s k v after w ran rest
+      | Parse.literal chars, r =>
+        match tree with
+          | AlwaysCall later =>
+            match Text.stripPrefixChars chars s.at.rest with
+              | None =>
+                match c: s.at.offset > furthest.offset with
+                  | True =>
+                    rewrite Effect.translateNoOp _ in
+                      Parse.runFromLabelWholeFromBack what (() => r False) (later False) start s.at s k v after w ran rest
+                  | False =>
+                    rewrite Effect.translateNoOp _ in
+                      Parse.runFromLabelWholeFromBack what (() => r False) (later False) start furthest s k v after w ran rest
+              | Some more =>
+                match c: (s.advance more chars.length).at.offset > furthest.offset with
+                  | True =>
+                    rewrite Effect.translateNoOp _ in
+                      Parse.runFromLabelWholeFromBack what (() => r True) (later True) start (s.advance more chars.length).at (s.advance more chars.length) k v after w ran rest
+                  | False =>
+                    rewrite Effect.translateNoOp _ in
+                      Parse.runFromLabelWholeFromBack what (() => r True) (later True) start furthest (s.advance more chars.length) k v after w ran rest
+      | Parse.note problem, r =>
+        match tree with
+          | AlwaysCall later =>
+            let moved := Parse.runFromAt (() => (r (), Parse.mark())) (s.note problem) s _ ran
+            let noted: ({ s | at = (s.note problem).at }) = s :=
+              Eq.trans (Eq.cong (at => ({ s | at })) (Parse.noteAt s problem)) (Parse.withAtSelf s)
+            rewrite Effect.translateNoOp _ in
+              Parse.runFromLabelWholeFromBack what (() => r ()) (later ()) start furthest s k v after w (rewrite noted at moved in moved) rest
 
 --| `labelWhole what p` where `p` succeeds: it reads what `p` read.
 theorem Parse.runsLabelWhole (what: Text) (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (runsP: Parse.Runs p read rest v):
@@ -1876,14 +1867,13 @@ theorem Parse.runsSepBy1Of (p: () → {Parse} a) (separator: () → {Parse} ()) 
     (afterSeparator: ∀ (read after: List Char) (u: ()) => sepSpec read u → valueEnd (read ++ after))
     (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p separator) rest)
     (read: List Char) (head: a) (tail: List a) (written: Parse.SepBy spec sepSpec read (NonEmptyList.cons head tail)):
-    Parse.Runs (() => Parse.sepBy1 p separator) read rest (NonEmptyList.cons head tail) :=
-  match written with
-    | Witness firstRead (Witness afterFirst (Witness firstValue (Both split (Both firstOk (Both isHead each))))) =>
-      match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty afterSeparator restEnd declinesEnd afterFirst tail each with
-        | Witness steps (Both afterIs (Both tailIs (Both manyRuns firstEnd))) =>
-          rewrite split, afterIs, tailIs in
-            Parse.runsSepBy1 p separator firstRead head steps rest
-              (runsValue firstRead head (Parse.joinReads steps ++ rest) (rewrite isHead at firstOk in firstOk) (rewrite afterIs at firstEnd in firstEnd)) manyRuns
+    Parse.Runs (() => Parse.sepBy1 p separator) read rest (NonEmptyList.cons head tail) := match written with
+      | Witness firstRead (Witness afterFirst (Witness firstValue (Both split (Both firstOk (Both isHead each))))) =>
+        match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty afterSeparator restEnd declinesEnd afterFirst tail each with
+          | Witness steps (Both afterIs (Both tailIs (Both manyRuns firstEnd))) =>
+            rewrite split, afterIs, tailIs in
+              Parse.runsSepBy1 p separator firstRead head steps rest
+                (runsValue firstRead head (Parse.joinReads steps ++ rest) (rewrite isHead at firstOk in firstOk) (rewrite afterIs at firstEnd in firstEnd)) manyRuns
 
 --| A line break, "\n" or "\r\n", reads something.
 theorem Parse.lineBreakNotEmpty (read: List Char) (u: ()) (isBreak: Parse.LineBreak read): read ≠ [] :=
@@ -2000,23 +1990,21 @@ theorem Parse.runsNatBefore (digits: List Char) (rest: List Char) (some: digits 
 --| character, if `canStart` is true of `expected`: for a separator that the
 --| text after a list can't start with.
 theorem Parse.declinesCharCannotStart (expected: Char) (canStart: Char → Bool) (allows: canStart expected = True) (rest: List Char)
-    (stops: Parse.CannotStart canStart rest): Parse.Declines (() => Parse.char expected) rest :=
-  match rest with
-    | [] => Parse.declinesCharEnd expected
-    | [char, ..more] =>
-      Parse.declinesChar expected char more
-        (match e: char == expected with
-          | False => rfl
-          | True =>
-            let blocked := stops char more rfl
-            Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym allows) (rewrite e.read at blocked in blocked))))
+    (stops: Parse.CannotStart canStart rest): Parse.Declines (() => Parse.char expected) rest := match rest with
+      | [] => Parse.declinesCharEnd expected
+      | [char, ..more] =>
+        Parse.declinesChar expected char more
+          (match e: char == expected with
+            | False => rfl
+            | True =>
+              let blocked := stops char more rfl
+              Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym allows) (rewrite e.read at blocked in blocked))))
 
 --| Spaces and tabs, then `ys`, all pass `q`, if each space or tab does and `ys` does.
 theorem Parse.allSpacesThen (q: Char → Bool) (spaces: ∀ (char: Char) => Parse.isSpace char = True → q char = True) (ys: List Char) (rest: ys.all q = True)
-    (xs: List Char) (spaced: xs.all Parse.isSpace = True): (xs ++ ys).all q = True :=
-  match xs with
-    | [] => rest
-    | [x, ..more] => Bool.andIntro (spaces x (Bool.andLeft spaced)) (Parse.allSpacesThen q spaces ys rest more (Bool.andRight spaced))
+    (xs: List Char) (spaced: xs.all Parse.isSpace = True): (xs ++ ys).all q = True := match xs with
+      | [] => rest
+      | [x, ..more] => Bool.andIntro (spaces x (Bool.andLeft spaced)) (Parse.allSpacesThen q spaces ys rest more (Bool.andRight spaced))
 
 --| A parser declines on a blank line's spaces and tabs, its last line break,
 --| and anything after, if it declines on any run of `q` characters followed
@@ -2028,14 +2016,13 @@ theorem Parse.declinesAfterSpacesBreak (p: () → {Parse} a) (q: Char → Bool) 
     (carriageReturn: q '\r' = True)
     (declinesRun: ∀ (run more: List Char) => run.all q = True → Parse.Declines p (run ++ ['\n', ..more]))
     (middle: List Char) (last: List Char) (more: List Char) (spaced: middle.all Parse.isSpace = True) (lastBreak: Parse.LineBreak last):
-    Parse.Declines p (middle ++ (last ++ more)) :=
-  match lastBreak with
-    | Inl same =>
-      let all := Parse.allSpacesThen q spaces [] rfl middle spaced
-      rewrite same in declinesRun middle more (rewrite List.appendNil middle at all in all)
-    | Inr same =>
-      rewrite same, <- List.appendAssoc middle ['\r'] ['\n', ..more] in
-        declinesRun (middle ++ ['\r']) more (Parse.allSpacesThen q spaces ['\r'] (rewrite carriageReturn in rfl) middle spaced)
+    Parse.Declines p (middle ++ (last ++ more)) := match lastBreak with
+      | Inl same =>
+        let all := Parse.allSpacesThen q spaces [] rfl middle spaced
+        rewrite same in declinesRun middle more (rewrite List.appendNil middle at all in all)
+      | Inr same =>
+        rewrite same, <- List.appendAssoc middle ['\r'] ['\n', ..more] in
+          declinesRun (middle ++ ['\r']) more (Parse.allSpacesThen q spaces ['\r'] (rewrite carriageReturn in rfl) middle spaced)
 
 --| What can follow a block of lines (a `lines` inside `sections`): only line
 --| breaks, or a blank line and then anything.
@@ -2053,10 +2040,9 @@ theorem Parse.linesEndAtBreaks (input: List Char) (only: Parse.OnlyBreaks input)
 --| no line break, space or tab.
 theorem Parse.cannotStartAtLinesEnd (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False)
     (space: ∀ (char: Char) => Parse.isSpace char = True → canStart char = False)
-    (input: List Char) (end: Parse.LinesEnd input): Parse.CannotStart canStart input :=
-  match end with
-    | Inl only => Parse.cannotStartAtBreaks canStart lf cr input only
-    | Inr (Witness blank (Witness more (Both isBlank same))) => rewrite same in Parse.cannotStartAtBlank canStart lf cr space blank more isBlank
+    (input: List Char) (end: Parse.LinesEnd input): Parse.CannotStart canStart input := match end with
+      | Inl only => Parse.cannotStartAtBreaks canStart lf cr input only
+      | Inr (Witness blank (Witness more (Both isBlank same))) => rewrite same in Parse.cannotStartAtBlank canStart lf cr space blank more isBlank
 
 --| A round of `lines p` (a line break then `p`) declines on only line breaks,
 --| given that `p` declines wherever its first character can't be one `canStart`
@@ -2065,30 +2051,29 @@ theorem Parse.cannotStartAtLinesEnd (canStart: Char → Bool) (lf: canStart '\n'
 theorem Parse.declinesLinesAtBreaks (p: () → {Parse} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False) (cr: canStart '\r' = False) (input: List Char) (only: Parse.OnlyBreaks input):
-    Parse.Declines (() => Parse.sepStep p Parse.newline) input :=
-  match input with
-    | [] => Parse.declinesSepStep p Parse.newline [] (Parse.declinesNewline [] rfl rfl)
-    | [char, ..more] =>
-      let only1: Parse.OnlyBreaks more := Bool.andRight only
-      match Parse.lineBreakChar char (Bool.andLeft only) with
-        | Inl same =>
-          rewrite same in
-            Parse.declinesAfter Parse.newline (u => p()) ['\n'] more () (Parse.runsNewline ['\n'] more (Inl rfl))
-              (declinesP more (Parse.cannotStartAtBreaks canStart lf cr more only1))
-        | Inr same =>
-          rewrite same in
-            match more with
-              | [] => Parse.declinesSepStep p Parse.newline ['\r'] (Parse.declinesNewline ['\r'] rfl rfl)
-              | [next, ..later] =>
-                let only2: Parse.OnlyBreaks later := Bool.andRight only1
-                match Parse.lineBreakChar next (Bool.andLeft only1) with
-                  | Inl same2 =>
-                    rewrite same2 in
-                      Parse.declinesAfter Parse.newline (u => p()) ['\r', '\n'] later () (Parse.runsNewline ['\r', '\n'] later (Inr rfl))
-                        (declinesP later (Parse.cannotStartAtBreaks canStart lf cr later only2))
-                  | Inr same2 =>
-                    rewrite same2 in
-                      Parse.declinesSepStep p Parse.newline ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl)
+    Parse.Declines (() => Parse.sepStep p Parse.newline) input := match input with
+      | [] => Parse.declinesSepStep p Parse.newline [] (Parse.declinesNewline [] rfl rfl)
+      | [char, ..more] =>
+        let only1: Parse.OnlyBreaks more := Bool.andRight only
+        match Parse.lineBreakChar char (Bool.andLeft only) with
+          | Inl same =>
+            rewrite same in
+              Parse.declinesAfter Parse.newline (u => p()) ['\n'] more () (Parse.runsNewline ['\n'] more (Inl rfl))
+                (declinesP more (Parse.cannotStartAtBreaks canStart lf cr more only1))
+          | Inr same =>
+            rewrite same in
+              match more with
+                | [] => Parse.declinesSepStep p Parse.newline ['\r'] (Parse.declinesNewline ['\r'] rfl rfl)
+                | [next, ..later] =>
+                  let only2: Parse.OnlyBreaks later := Bool.andRight only1
+                  match Parse.lineBreakChar next (Bool.andLeft only1) with
+                    | Inl same2 =>
+                      rewrite same2 in
+                        Parse.declinesAfter Parse.newline (u => p()) ['\r', '\n'] later () (Parse.runsNewline ['\r', '\n'] later (Inr rfl))
+                          (declinesP later (Parse.cannotStartAtBreaks canStart lf cr later only2))
+                    | Inr same2 =>
+                      rewrite same2 in
+                        Parse.declinesSepStep p Parse.newline ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl)
 
 --| A round of `lines p` declines at a blank line (then anything): the line break
 --| is there, and `p` would start at the blank line's spaces or line break.
@@ -2096,16 +2081,15 @@ theorem Parse.declinesLinesAtBlank (p: () → {Parse} a) (canStart: Char → Boo
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False) (cr: canStart '\r' = False) (space: ∀ (char: Char) => Parse.isSpace char = True → canStart char = False)
     (blank: List Char) (more: List Char) (isBlank: Parse.BlankLine blank):
-    Parse.Declines (() => Parse.sepStep p Parse.newline) (blank ++ more) :=
-  match isBlank with
-    | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
-      let after := middle ++ (last ++ more)
-      let afterCannot: Parse.CannotStart canStart after :=
-        match middle with
-          | [] => Parse.cannotStartAfterBreak canStart lf cr last more lastBreak
-          | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in space blank1 (Bool.andLeft spaced)
-      rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
-        Parse.declinesAfter Parse.newline (u => p()) first after () (Parse.runsNewline first after firstBreak) (declinesP after afterCannot)
+    Parse.Declines (() => Parse.sepStep p Parse.newline) (blank ++ more) := match isBlank with
+      | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
+        let after := middle ++ (last ++ more)
+        let afterCannot: Parse.CannotStart canStart after :=
+          match middle with
+            | [] => Parse.cannotStartAfterBreak canStart lf cr last more lastBreak
+            | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in space blank1 (Bool.andLeft spaced)
+        rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
+          Parse.declinesAfter Parse.newline (u => p()) first after () (Parse.runsNewline first after firstBreak) (declinesP after afterCannot)
 
 --| A round of `lines p` declines at a [`Parse.LinesEnd`]: line breaks only, or a
 --| blank line. This is the end of lines inside sections.
@@ -2161,24 +2145,23 @@ theorem Parse.declinesSectionsAfterBreak (p: () → {Parse} a) (canStart: Char �
 theorem Parse.declinesSectionsAtBreaks (p: () → {Parse} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False) (cr: canStart '\r' = False) (input: List Char) (only: Parse.OnlyBreaks input):
-    Parse.Declines (() => Parse.sepStep p Parse.blankLine) input :=
-  match input with
-    | [] => Parse.declinesSepStep p Parse.blankLine [] (Parse.declinesBlankLine [] (Parse.declinesNewline [] rfl rfl))
-    | [char, ..more] =>
-      let only1: Parse.OnlyBreaks more := Bool.andRight only
-      match Parse.lineBreakChar char (Bool.andLeft only) with
-        | Inl same => rewrite same in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\n'] (Inl rfl) more only1
-        | Inr same =>
-          rewrite same in
-            match more with
-              | [] => Parse.declinesSepStep p Parse.blankLine ['\r'] (Parse.declinesBlankLine ['\r'] (Parse.declinesNewline ['\r'] rfl rfl))
-              | [next, ..later] =>
-                match Parse.lineBreakChar next (Bool.andLeft only1) with
-                  | Inl same2 => rewrite same2 in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\r', '\n'] (Inr rfl) later (Bool.andRight only1)
-                  | Inr same2 =>
-                    rewrite same2 in
-                      Parse.declinesSepStep p Parse.blankLine ['\r', '\r', ..later]
-                        (Parse.declinesBlankLine ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl))
+    Parse.Declines (() => Parse.sepStep p Parse.blankLine) input := match input with
+      | [] => Parse.declinesSepStep p Parse.blankLine [] (Parse.declinesBlankLine [] (Parse.declinesNewline [] rfl rfl))
+      | [char, ..more] =>
+        let only1: Parse.OnlyBreaks more := Bool.andRight only
+        match Parse.lineBreakChar char (Bool.andLeft only) with
+          | Inl same => rewrite same in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\n'] (Inl rfl) more only1
+          | Inr same =>
+            rewrite same in
+              match more with
+                | [] => Parse.declinesSepStep p Parse.blankLine ['\r'] (Parse.declinesBlankLine ['\r'] (Parse.declinesNewline ['\r'] rfl rfl))
+                | [next, ..later] =>
+                  match Parse.lineBreakChar next (Bool.andLeft only1) with
+                    | Inl same2 => rewrite same2 in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\r', '\n'] (Inr rfl) later (Bool.andRight only1)
+                    | Inr same2 =>
+                      rewrite same2 in
+                        Parse.declinesSepStep p Parse.blankLine ['\r', '\r', ..later]
+                          (Parse.declinesBlankLine ['\r', '\r', ..later] (Parse.declinesNewline ['\r', '\r', ..later] rfl rfl))
 
 --| The text and the values of the rounds `many p` makes on items that `p`
 --| reads a character each (`symbol`): the steps are `([symbol v], v)`.
@@ -2211,10 +2194,9 @@ theorem Parse.manyRunsSymbols (p: () → {Parse} a) (symbol: a → Char) (canSta
 --| The rounds of `exactly` over items that `p` reads a character each
 --| (`symbol`), see [`Parse.manyRunsSymbols`]; nothing is asked of what follows.
 theorem Parse.stepsRunSymbols (p: () → {Parse} a) (symbol: a → Char) (runsItem: ∀ (v: a) (after: List Char) => Parse.Runs p [symbol v] after v)
-    (rest: List Char) (items: List a): Parse.StepsRun p (items.map (v => ([symbol v], v))) rest :=
-  match items with
-    | [] => rfl
-    | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
+    (rest: List Char) (items: List a): Parse.StepsRun p (items.map (v => ([symbol v], v))) rest := match items with
+      | [] => rfl
+      | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
 
 --| `exactly count p` over `count` items that `p` reads a character each: it
 --| gives the items. For a fixed-width code written one character per item.

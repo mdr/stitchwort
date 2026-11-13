@@ -20,10 +20,9 @@ def moveLeg (at: Float) (leg: Leg): Leg :=
 
 -- The route notes for the kept leg: the remote copy's if it has them, else
 -- the local copy's, each moved to line up with the kept leg's start.
-def notesFor (kept: Leg) (local: Leg) (remote: Leg): Option (List Note) :=
-  match remote.notes with
-    | Some notes => Some (shiftNotes remote.start kept.start notes)
-    | None => local.notes.map (notes => shiftNotes local.start kept.start notes)
+def notesFor (kept: Leg) (local: Leg) (remote: Leg): Option (List Note) := match remote.notes with
+  | Some notes => Some (shiftNotes remote.start kept.start notes)
+  | None => local.notes.map (notes => shiftNotes local.start kept.start notes)
 
 -- A leg in both copies: the one with more track points (the remote one on a
 -- tie), with the notes above.
@@ -31,10 +30,9 @@ def resolveLeg (local: Leg) (remote: Leg): Leg :=
   let kept := if Nat.leq (remote.points.length + 1) local.points.length then local else remote
   { kept | id = remote.id, notes = notesFor kept local remote }
 
-def resolveAgainst (local: List Leg) (remote: Leg): Leg :=
-  match findLeg local remote.id with
-    | Some leg => resolveLeg leg remote
-    | None => remote
+def resolveAgainst (local: List Leg) (remote: Leg): Leg := match findLeg local remote.id with
+  | Some leg => resolveLeg leg remote
+  | None => remote
 
 -- The legs laid end to end from `at`.
 def layout (at: Float): List Leg → List Leg
@@ -54,15 +52,13 @@ def mergeLegs (local: List Leg) (remote: List Leg): List Leg :=
 -- absolute value.
 type Position = { leg: Option Nat, offset: Float, legStart: Float, time: Float }
 
-def locate (legs: List Leg) (t: Float): Position :=
-  match firstCovering legs t with
-    | Some leg => { leg = Some leg.id, offset = t - leg.start, legStart = leg.start, time = t }
-    | None => { leg = None, offset = t, legStart = 0.0, time = t }
+def locate (legs: List Leg) (t: Float): Position := match firstCovering legs t with
+  | Some leg => { leg = Some leg.id, offset = t - leg.start, legStart = leg.start, time = t }
+  | None => { leg = None, offset = t, legStart = 0.0, time = t }
 
-def legOf (legs: List Leg) (pos: Position): Option Leg :=
-  match pos.leg with
-    | Some id => findLeg legs id
-    | None => None
+def legOf (legs: List Leg) (pos: Position): Option Leg := match pos.leg with
+  | Some id => findLeg legs id
+  | None => None
 
 -- The time in `leg` as it is now: the old time if the leg hasn't moved, else
 -- the new start plus the offset.
@@ -73,10 +69,9 @@ def clamp (lo: Float) (hi: Float) (t: Float): Float := if Float.less t lo then l
 
 -- Where a stop or an album goes: in its leg, clamped to it; with no leg,
 -- clamped to the whole trip.
-def settle (legs: List Leg) (pos: Position): Float :=
-  match legOf legs pos with
-    | Some leg => clamp leg.start leg.end (placeIn leg pos)
-    | None => clamp 0.0 (lastEnd legs) pos.time
+def settle (legs: List Leg) (pos: Position): Float := match legOf legs pos with
+  | Some leg => clamp leg.start leg.end (placeIn leg pos)
+  | None => clamp 0.0 (lastEnd legs) pos.time
 
 def Stop.startAt (stop: Stop) (t: Float): Stop := { stop | start = t }
 
@@ -92,10 +87,9 @@ def planReplaced: Option Itinerary → Option Itinerary → Bool
   | None, Some new => True
   | _, None => False
 
-def unlink (stop: Stop): Stop :=
-  match stop.kind with
-    | Planned _ => { stop | kind = Free }
-    | Free => stop
+def unlink (stop: Stop): Stop := match stop.kind with
+  | Planned _ => { stop | kind = Free }
+  | Free => stop
 
 -- The local stops, then the remote stops the local copy doesn't have, each
 -- placed from where it was in its own copy.
@@ -109,18 +103,16 @@ def mergeStops (local: Trip) (remote: Trip) (legs: List Leg): List Stop :=
 
 -- Whether the first leg covering the pin's start is the leg `id`, and the
 -- pin lies wholly inside it.
-def keepsIn (legs: List Leg) (id: Nat) (pin: Pin): Bool :=
-  match firstCovering legs pin.start with
-    | Some leg => leg.id == id ∧ pin.fitsIn leg
-    | None => False
+def keepsIn (legs: List Leg) (id: Nat) (pin: Pin): Bool := match firstCovering legs pin.start with
+  | Some leg => leg.id == id ∧ pin.fitsIn leg
+  | None => False
 
 -- The pin moved with its leg, if it still lies wholly inside it.
-def placePin (legs: List Leg) (pin: Pin) (pos: Position): Option Pin :=
-  match legOf legs pos with
-    | Some leg =>
-      let moved := pin.startAt (placeIn leg pos)
-      if keepsIn legs leg.id moved then Some moved else None
-    | None => None
+def placePin (legs: List Leg) (pin: Pin) (pos: Position): Option Pin := match legOf legs pos with
+  | Some leg =>
+    let moved := pin.startAt (placeIn leg pos)
+    if keepsIn legs leg.id moved then Some moved else None
+  | None => None
 
 def byStart (a: Pin) (b: Pin): Bool := Float.leq a.start b.start
 
@@ -159,10 +151,9 @@ def keepOwned (own: Nat → Option Nat) (album: Album): Album :=
 
 -- An album in both copies: the remote copy's photos, then the local ones
 -- with new ids.
-def withPhotosOf (remote: List Album) (album: Album): Album :=
-  match remote.find (other => other.id == album.id) with
-    | Some other => { album | photos = List.appendNewBy other.photos album.photos Photo.id }
-    | None => album
+def withPhotosOf (remote: List Album) (album: Album): Album := match remote.find (other => other.id == album.id) with
+  | Some other => { album | photos = List.appendNewBy other.photos album.photos Photo.id }
+  | None => album
 
 -- The local albums (with the remote photos), then the remote albums the
 -- local copy doesn't have, each placed from where it was in its own copy,

@@ -38,10 +38,9 @@ def Cave.isEnd (cave: Cave): Bool := cave == Cave.end
 
 --| A big cave's name is in capitals: it starts with one ("start" and "end"
 --| are small).
-def Cave.isBig (cave: Cave): Bool :=
-  match cave.name.toList with
-    | [first, .._] => 65 <= first.toNat <= 90
-    | [] => False
+def Cave.isBig (cave: Cave): Bool := match cave.name.toList with
+  | [first, .._] => 65 <= first.toNat <= 90
+  | [] => False
 
 def Cave.isSmall (cave: Cave): Bool := not cave.isBig
 
@@ -80,10 +79,9 @@ def passage(): {Parse} Passage :=
 
 --| The passages, if none joins two big caves; otherwise fail, naming the
 --| first that does.
-def checkPassages (passages: List Passage): {Fail} List Passage :=
-  match firstBigPair passages with
-    | Some (index, passage) => Fail.fail "line ${index + 1}: ${passage.from.name}-${passage.to.name} joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
-    | None => passages
+def checkPassages (passages: List Passage): {Fail} List Passage := match firstBigPair passages with
+  | Some (index, passage) => Fail.fail "line ${index + 1}: ${passage.from.name}-${passage.to.name} joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
+  | None => passages
 
 --| The first passage between two big caves, with its index.
 def firstBigPair (passages: List Passage): Option (Nat, Passage) := passages.withIndex.find (((_, passage)) => passage.joinsBig)

@@ -8,12 +8,11 @@ import Std (Each, Fail, IO, Pair)
 
 -- Echoes every line it reads, until the input runs out: a loop with no
 -- bound, so it's partial.
-def echo(): {IO, Partial} () :=
-  match IO.readLine() with
-    | None => ()
-    | Some line =>
-      IO.print line
-      echo()
+def echo(): {IO, Partial} () := match IO.readLine() with
+  | None => ()
+  | Some line =>
+    IO.print line
+    echo()
 
 -- `IO.simulate` around it: partial too, and a test can run it, since a
 -- scripted input runs out.

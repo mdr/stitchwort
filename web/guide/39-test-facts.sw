@@ -8,9 +8,8 @@ def Booking.fits (booking: Booking) (capacity: Nat): Bool :=
   0 < booking.seats && booking.seats <= capacity
 
 theorem fitsSeats (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
-    booking.seats ≤ capacity :=
-  match h with
-    | Both _ small => small
+    booking.seats ≤ capacity := match h with
+      | Both _ small => small
 
 -- To use the whole fact as its statement, write `.read`. A fact is built the
 -- way its statement is.

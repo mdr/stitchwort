@@ -7,11 +7,10 @@ import List (length)
 import Std (Decidable, Eq, Nat, Void)
 
 -- In the tree: the whole right-hand side.
-def describe (xs: List Nat): Text :=
-  match xs with
-    | [] => "empty"
-    | [x] => "one"
-    | _ => "many"
+def describe (xs: List Nat): Text := match xs with
+  | [] => "empty"
+  | [x] => "one"
+  | _ => "many"
 
 -- Lifted: the `match` is an argument of `+`. Not a tail call.
 def count (n: Nat): Nat := 1 + match n with
@@ -27,10 +26,9 @@ def f (n: Nat) (xs: List Nat): Nat := 1 + match xs with
   | [x, .._] => x + n
 
 -- A proof by `match`, in the tree.
-theorem appendNil (xs: List a): xs.append [] = xs :=
-  match xs with
-    | [] => rfl
-    | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
+theorem appendNil (xs: List a): xs.append [] = xs := match xs with
+  | [] => rfl
+  | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
 
 -- A `match` in a test.
 test "describe" := describe [1, 2] == "many"

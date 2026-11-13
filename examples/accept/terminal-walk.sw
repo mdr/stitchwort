@@ -19,17 +19,16 @@ def start: Position := { column = 0, row = 0 }
 
 -- The position a key moves to; a key that isn't a move, or a move into a
 -- wall, stays put.
-def move (position: Position) (key: Key): Position :=
-  match key with
-    | Printable 'h' => left position
-    | Left => left position
-    | Printable 'l' => right position
-    | Right => right position
-    | Printable 'k' => up position
-    | Up => up position
-    | Printable 'j' => down position
-    | Down => down position
-    | _ => position
+def move (position: Position) (key: Key): Position := match key with
+  | Printable 'h' => left position
+  | Left => left position
+  | Printable 'l' => right position
+  | Right => right position
+  | Printable 'k' => up position
+  | Up => up position
+  | Printable 'j' => down position
+  | Down => down position
+  | _ => position
 
 def left (position: Position): Position := { column = Nat.pred position.column, row = position.row }
 def right (position: Position): Position := { column = Nat.min (position.column + 1) (roomWidth - 1), row = position.row }

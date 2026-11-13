@@ -21,15 +21,14 @@ def Represents (sightlines: Sightlines) (has: Position → Bool): Prop :=
 
 theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Nat) (other: Nat):
     ((lines.insert line (lines.getOr line Set.empty |> .insert item)).getOr key Set.empty).contains other
-      = ((key == line && other == item) || (lines.getOr key Set.empty).contains other) :=
-  match onLine: key == line with
-    | True =>
-      rewrite onLine.read, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
-      match isItem: other == item with
-        | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty) in rfl
-        | False =>
-          rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read in rfl
-    | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines in rfl
+    = ((key == line && other == item) || (lines.getOr key Set.empty).contains other) := match onLine: key == line with
+      | True =>
+        rewrite onLine.read, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
+        match isItem: other == item with
+          | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty) in rfl
+          | False =>
+            rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read in rfl
+      | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines in rfl
 
 --| Adding an obstruction adds it to its row and column.
 theorem addRepresents (sightlines: Sightlines) (has: Position → Bool) (represents: Represents sightlines has):
@@ -130,7 +129,7 @@ theorem walkFirst (lab: Lab) (guard: Guard) (next: Guard) (stepped: lab.step gua
 --| walks to just below it and turns right.
 theorem walkUpTurn (lab: Lab) (column: Nat) (obstruction: Nat) (blocked: lab.obstructions.contains { row = obstruction, column } = True)
     (moves row: Nat) (distance: obstruction + Succ moves = row)
-    (free: (∀ (other: Nat) => obstruction < other → other < row → lab.obstructions.contains { row = other, column } = False)):
+    (free: ∀ (other: Nat) => obstruction < other → other < row → lab.obstructions.contains { row = other, column } = False):
     walk lab (Some { position = { row, column }, facing = Up }) (Succ moves) = Some { position = { row = obstruction + 1, column }, facing = Right } :=
   match moves with
     | Zero =>
@@ -146,23 +145,22 @@ theorem walkUpTurn (lab: Lab) (column: Nat) (obstruction: Nat) (blocked: lab.obs
         (walkUpTurn lab column obstruction blocked moves (row - 1) (omega [distance]) (other above below => free other above (omega [below])))
 
 --| Facing up with nothing above in the column: she walks off the top.
-theorem walkUpLeave (lab: Lab) (column: Nat) (row: Nat) (free: (∀ (other: Nat) => other < row → lab.obstructions.contains { row = other, column } = False)):
-    walk lab (Some { position = { row, column }, facing = Up }) (Succ row) = None :=
-  match row with
-    | Zero => rfl
-    | Succ row =>
-      Eq.trans
-        (walkFirst lab { position = { row = Succ row, column }, facing = Up } { position = { row, column }, facing = Up }
-          (stepMoves lab { position = { row = Succ row, column }, facing = Up } { row, column } (aheadUp lab (Succ row) column omega) (free row omega))
-          (Succ row))
-        (walkUpLeave lab column row (other below => free other (omega [below])))
+theorem walkUpLeave (lab: Lab) (column: Nat) (row: Nat) (free: ∀ (other: Nat) => other < row → lab.obstructions.contains { row = other, column } = False):
+    walk lab (Some { position = { row, column }, facing = Up }) (Succ row) = None := match row with
+      | Zero => rfl
+      | Succ row =>
+        Eq.trans
+          (walkFirst lab { position = { row = Succ row, column }, facing = Up } { position = { row, column }, facing = Up }
+            (stepMoves lab { position = { row = Succ row, column }, facing = Up } { row, column } (aheadUp lab (Succ row) column omega) (free row omega))
+            (Succ row))
+          (walkUpLeave lab column row (other below => free other (omega [below])))
 
 --| Facing down, with an obstruction below in the column and none between:
 --| she walks to just above it and turns right.
 theorem walkDownTurn (lab: Lab) (column: Nat) (obstruction: Nat) (fits: obstruction < lab.height)
     (blocked: lab.obstructions.contains { row = obstruction, column } = True)
     (moves row: Nat) (distance: row + Succ moves = obstruction)
-    (free: (∀ (other: Nat) => row < other → other < obstruction → lab.obstructions.contains { row = other, column } = False)):
+    (free: ∀ (other: Nat) => row < other → other < obstruction → lab.obstructions.contains { row = other, column } = False):
     walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = Some { position = { row = obstruction - 1, column }, facing = Left } :=
   match moves with
     | Zero =>
@@ -180,24 +178,23 @@ theorem walkDownTurn (lab: Lab) (column: Nat) (obstruction: Nat) (fits: obstruct
 --| Facing down with nothing below in the column: she walks off the bottom.
 theorem walkDownLeave (lab: Lab) (column: Nat)
     (moves row: Nat) (distance: row + Succ moves = lab.height)
-    (free: (∀ (other: Nat) => row < other → other < lab.height → lab.obstructions.contains { row = other, column } = False)):
-    walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = None :=
-  match moves with
-    | Zero => stepLeaves lab { position = { row, column }, facing = Down } (aheadDownEdge lab row column (omega [distance]))
-    | Succ moves =>
-      Eq.trans
-        (walkFirst lab { position = { row, column }, facing = Down } { position = { row = row + 1, column }, facing = Down }
-          (stepMoves lab { position = { row, column }, facing = Down } { row = row + 1, column } (aheadDown lab row column (omega [distance]))
-            (free (row + 1) (omega [distance]) (omega [distance])))
-          (Succ moves))
-        (walkDownLeave lab column moves (row + 1) (omega [distance]) (other above below => free other (omega [above]) below))
+    (free: ∀ (other: Nat) => row < other → other < lab.height → lab.obstructions.contains { row = other, column } = False):
+    walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = None := match moves with
+      | Zero => stepLeaves lab { position = { row, column }, facing = Down } (aheadDownEdge lab row column (omega [distance]))
+      | Succ moves =>
+        Eq.trans
+          (walkFirst lab { position = { row, column }, facing = Down } { position = { row = row + 1, column }, facing = Down }
+            (stepMoves lab { position = { row, column }, facing = Down } { row = row + 1, column } (aheadDown lab row column (omega [distance]))
+              (free (row + 1) (omega [distance]) (omega [distance])))
+            (Succ moves))
+          (walkDownLeave lab column moves (row + 1) (omega [distance]) (other above below => free other (omega [above]) below))
 
 --| Facing right, with an obstruction to the right in the row and none
 --| between: she walks to just before it and turns right.
 theorem walkRightTurn (lab: Lab) (row: Nat) (obstruction: Nat) (fits: obstruction < lab.width)
     (blocked: lab.obstructions.contains { row, column = obstruction } = True)
     (moves column: Nat) (distance: column + Succ moves = obstruction)
-    (free: (∀ (other: Nat) => column < other → other < obstruction → lab.obstructions.contains { row, column = other } = False)):
+    (free: ∀ (other: Nat) => column < other → other < obstruction → lab.obstructions.contains { row, column = other } = False):
     walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = Some { position = { row, column = obstruction - 1 }, facing = Down } :=
   match moves with
     | Zero =>
@@ -216,23 +213,22 @@ theorem walkRightTurn (lab: Lab) (row: Nat) (obstruction: Nat) (fits: obstructio
 --| right edge.
 theorem walkRightLeave (lab: Lab) (row: Nat)
     (moves column: Nat) (distance: column + Succ moves = lab.width)
-    (free: (∀ (other: Nat) => column < other → other < lab.width → lab.obstructions.contains { row, column = other } = False)):
-    walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = None :=
-  match moves with
-    | Zero => stepLeaves lab { position = { row, column }, facing = Right } (aheadRightEdge lab row column (omega [distance]))
-    | Succ moves =>
-      Eq.trans
-        (walkFirst lab { position = { row, column }, facing = Right } { position = { row, column = column + 1 }, facing = Right }
-          (stepMoves lab { position = { row, column }, facing = Right } { row, column = column + 1 } (aheadRight lab row column (omega [distance]))
-            (free (column + 1) (omega [distance]) (omega [distance])))
-          (Succ moves))
-        (walkRightLeave lab row moves (column + 1) (omega [distance]) (other after before => free other (omega [after]) before))
+    (free: ∀ (other: Nat) => column < other → other < lab.width → lab.obstructions.contains { row, column = other } = False):
+    walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = None := match moves with
+      | Zero => stepLeaves lab { position = { row, column }, facing = Right } (aheadRightEdge lab row column (omega [distance]))
+      | Succ moves =>
+        Eq.trans
+          (walkFirst lab { position = { row, column }, facing = Right } { position = { row, column = column + 1 }, facing = Right }
+            (stepMoves lab { position = { row, column }, facing = Right } { row, column = column + 1 } (aheadRight lab row column (omega [distance]))
+              (free (column + 1) (omega [distance]) (omega [distance])))
+            (Succ moves))
+          (walkRightLeave lab row moves (column + 1) (omega [distance]) (other after before => free other (omega [after]) before))
 
 --| Facing left, with an obstruction to the left in the row and none between:
 --| she walks to just after it and turns right.
 theorem walkLeftTurn (lab: Lab) (row: Nat) (obstruction: Nat) (blocked: lab.obstructions.contains { row, column = obstruction } = True)
     (moves column: Nat) (distance: obstruction + Succ moves = column)
-    (free: (∀ (other: Nat) => obstruction < other → other < column → lab.obstructions.contains { row, column = other } = False)):
+    (free: ∀ (other: Nat) => obstruction < other → other < column → lab.obstructions.contains { row, column = other } = False):
     walk lab (Some { position = { row, column }, facing = Left }) (Succ moves) = Some { position = { row, column = obstruction + 1 }, facing = Up } :=
   match moves with
     | Zero =>
@@ -249,16 +245,15 @@ theorem walkLeftTurn (lab: Lab) (row: Nat) (obstruction: Nat) (blocked: lab.obst
 
 --| Facing left with nothing to the left in the row: she walks off the left
 --| edge.
-theorem walkLeftLeave (lab: Lab) (row: Nat) (column: Nat) (free: (∀ (other: Nat) => other < column → lab.obstructions.contains { row, column = other } = False)):
-    walk lab (Some { position = { row, column }, facing = Left }) (Succ column) = None :=
-  match column with
-    | Zero => rfl
-    | Succ column =>
-      Eq.trans
-        (walkFirst lab { position = { row, column = Succ column }, facing = Left } { position = { row, column }, facing = Left }
-          (stepMoves lab { position = { row, column = Succ column }, facing = Left } { row, column } (aheadLeft lab row (Succ column) omega) (free column omega))
-          (Succ column))
-        (walkLeftLeave lab row column (other before => free other (omega [before])))
+theorem walkLeftLeave (lab: Lab) (row: Nat) (column: Nat) (free: ∀ (other: Nat) => other < column → lab.obstructions.contains { row, column = other } = False):
+    walk lab (Some { position = { row, column }, facing = Left }) (Succ column) = None := match column with
+      | Zero => rfl
+      | Succ column =>
+        Eq.trans
+          (walkFirst lab { position = { row, column = Succ column }, facing = Left } { position = { row, column }, facing = Left }
+            (stepMoves lab { position = { row, column = Succ column }, facing = Left } { row, column } (aheadLeft lab row (Succ column) omega) (free column omega))
+            (Succ column))
+          (walkLeftLeave lab row column (other before => free other (omega [before])))
 
 --| From a guard on the map, `nextTurn` jumps to where the walk turns, and
 --| finds nothing exactly when she walks off: the four directions in turn.

@@ -44,20 +44,17 @@ def Nat.div (n: Nat) (divisor: Nat): Nat := Nat.divFuel n n divisor
 -- unfold into a hundred additions.
 def Nat.mod (n: Nat) (divisor: Nat): Nat := n - (n / divisor) * divisor
 
-theorem Nat.leSucc (n: Nat): n ≤ Succ n :=
-  match n with
-    | Zero => rfl
-    | Succ n => Nat.leSucc n
+theorem Nat.leSucc (n: Nat): n ≤ Succ n := match n with
+  | Zero => rfl
+  | Succ n => Nat.leSucc n
 
-theorem Nat.leTrans (a b c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c :=
-  match a, b, c with
-    | Zero, b, c => rfl
-    | Succ a, Succ b, Succ c => Nat.leTrans a b c h1 h2
+theorem Nat.leTrans (a b c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c := match a, b, c with
+  | Zero, b, c => rfl
+  | Succ a, Succ b, Succ c => Nat.leTrans a b c h1 h2
 
-theorem Nat.leRefl (n: Nat): n ≤ n :=
-  match n with
-    | Zero => rfl
-    | Succ n => Nat.leRefl n
+theorem Nat.leRefl (n: Nat): n ≤ n := match n with
+  | Zero => rfl
+  | Succ n => Nat.leRefl n
 
 theorem Nat.lessLe (m: Nat) (n: Nat) (h: m < n): m ≤ n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
 
@@ -66,15 +63,13 @@ theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p 
 --| A bound on either side of a sum bounds the sum. These are the steps of the
 --| proofs generated for a nested type's `T.size` (an element of a list in a
 --| node is smaller than the node).
-theorem Nat.leAddOfLeLeft (a b c: Nat) (h: a ≤ b): a ≤ b + c :=
-  match a, b with
-    | Zero, b => rfl
-    | Succ a, Succ b => Nat.leAddOfLeLeft a b c h
+theorem Nat.leAddOfLeLeft (a b c: Nat) (h: a ≤ b): a ≤ b + c := match a, b with
+  | Zero, b => rfl
+  | Succ a, Succ b => Nat.leAddOfLeLeft a b c h
 
-theorem Nat.leAddOfLeRight (a b c: Nat) (h: a ≤ c): a ≤ b + c :=
-  match b with
-    | Zero => h
-    | Succ b => Nat.leTrans a (b + c) (Succ (b + c)) (Nat.leAddOfLeRight a b c h) (Nat.leSucc (b + c))
+theorem Nat.leAddOfLeRight (a b c: Nat) (h: a ≤ c): a ≤ b + c := match b with
+  | Zero => h
+  | Succ b => Nat.leTrans a (b + c) (Succ (b + c)) (Nat.leAddOfLeRight a b c h) (Nat.leSucc (b + c))
 
 -- Lexicographic order on pairs of numbers
 

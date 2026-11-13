@@ -29,7 +29,7 @@ theorem linedUpFrom (t: Nat) (start: Nat) (schedule: List Slot): AllDepart (buse
       let next := linedUpFrom t (Succ start) rest
       rewrite Nat.addSucc t start, <- Nat.addOne (t + start) at next in next
 
-theorem positiveFrom (start: Nat) (schedule: List Slot) (h: (∀ (id: Nat) => Listed id ∈ schedule → id ≠ 0)): Positive (busesFrom start schedule) :=
+theorem positiveFrom (start: Nat) (schedule: List Slot) (h: ∀ (id: Nat) => Listed id ∈ schedule → id ≠ 0): Positive (busesFrom start schedule) :=
   match schedule with
     | [] => ()
     | [Listed id, ..rest] => Both (h id (Inl rfl)) (positiveFrom (Succ start) rest (other member => h other (Inr member)))

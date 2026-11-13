@@ -153,10 +153,9 @@ def patternParse(): {Parse} Pattern := takeWhile1 "a letter from a to g" (c => '
 --| shows them fails, naming it.
 def parseEntries (input: Text): {Fail} List Entry := checkWired (Parse.eachLine input Entry.parse)
 
-def checkWired (entries: List Entry): {Fail} List Entry :=
-  match firstUnwired entries with
-    | Some (index, _) => Fail.fail "line ${index + 1}: no wiring found that shows the ten digits"
-    | None => entries
+def checkWired (entries: List Entry): {Fail} List Entry := match firstUnwired entries with
+  | Some (index, _) => Fail.fail "line ${index + 1}: no wiring found that shows the ten digits"
+  | None => entries
 
 --| The first entry, with its index, whose wiring doesn't check.
 def firstUnwired (entries: List Entry): Option (Nat, Entry) :=

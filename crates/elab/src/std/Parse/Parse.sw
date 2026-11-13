@@ -205,10 +205,9 @@ def Parse.ensureAt (at: Parse.Mark) (ok: Bool) (message: Text): {Parse} () :=
     Parse.fail message
 
 --| The value in an `Option`, or fail with `message`.
-def Parse.need (option: Option a) (message: Text): {Parse} a :=
-  match option with
-    | Some value => value
-    | None => Parse.fail message
+def Parse.need (option: Option a) (message: Text): {Parse} a := match option with
+  | Some value => value
+  | None => Parse.fail message
 
 --| A `Fail` computation's value; its failure is a parse failure here:
 --| `Parse.fromFail (() => word.toNatOrFail)`.
@@ -217,10 +216,9 @@ def Parse.fromFail (computation: () → {Fail} a): {Parse} a := Fail.recover (me
 -- Pieces. Each reads a token or fails with what it expected.
 
 --| The next character if `passes` holds for it, else "expected `what`".
-def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char :=
-  match Parse.next passes with
-    | Some char => char
-    | None => Parse.expected what
+def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char := match Parse.next passes with
+  | Some char => char
+  | None => Parse.expected what
 
 --| The character `expected`, else "expected 'c'".
 def Parse.char (expected: Char): {Parse} () :=
@@ -239,10 +237,9 @@ def Parse.takeWhile (passes: Char → Bool): {Parse} Text := Parse.span passes |
 
 --| The longest run of characters for which `passes` holds, at least one, else
 --| "expected `what`".
-def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text :=
-  match Parse.span passes with
-    | [] => Parse.expected what
-    | chars => Text.fromList chars
+def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text := match Parse.span passes with
+  | [] => Parse.expected what
+  | chars => Text.fromList chars
 
 --| Whether a character is an ASCII digit, `0` to `9`.
 def Parse.isDigit (char: Char): Bool := char.isAsciiDigit
@@ -251,10 +248,9 @@ def Parse.isDigit (char: Char): Bool := char.isAsciiDigit
 def Parse.isSpace (char: Char): Bool := char == ' ' ∨ char == '\t'
 
 --| A whole number written in decimal digits, else "expected a number".
-def Parse.nat(): {Parse} Nat :=
-  match Parse.span Parse.isDigit with
-    | [] => Parse.expected "a number"
-    | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
+def Parse.nat(): {Parse} Nat := match Parse.span Parse.isDigit with
+  | [] => Parse.expected "a number"
+  | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
 
 --| A whole number of `atLeast` to `atMost` decimal digits (at least one).
 --| Otherwise it fails with "expected a number of 1 to 3 digits", or "expected
@@ -369,10 +365,9 @@ def Parse.optionalFrom (start: Parse.Mark) (parser: () → {Parse} a): {Parse} O
     | Parse.fatal message, k => Empty.absurd (Parse.fatal message)
 
 --| The value found, else `fallback`'s.
-def Parse.valueOr (found: Option a) (fallback: () → {Parse} a): {Parse} a :=
-  match found with
-    | Some value => value
-    | None => fallback()
+def Parse.valueOr (found: Option a) (fallback: () → {Parse} a): {Parse} a := match found with
+  | Some value => value
+  | None => fallback()
 
 --| The value of `first` if it succeeds, else of the first of the rest that does: `Parse.oneOf`'s loop.
 def Parse.oneOfFrom (first: () → {Parse} a): (rest: List (() → {Parse} a)) → {Parse} a
@@ -426,18 +421,16 @@ def Parse.many1 (parser: () → {Parse} a): {Parse} NonEmptyList a :=
   NonEmptyList.cons first (Parse.many parser)
 
 --| `parser` while it succeeds, at most `count` more times. `found` is newest first.
-def Parse.repeatOptional (count: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
-  match count with
-    | Zero => found.reverse
-    | Succ more => Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser [value, ..found]) (() => found.reverse)
+def Parse.repeatOptional (count: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a := match count with
+  | Zero => found.reverse
+  | Succ more => Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser [value, ..found]) (() => found.reverse)
 
 --| `next` of what was found, else `done`.
 -- A function of its own, not a `match` in the loops that use it, so that
 -- proofs (Parse/Reads.sw) can name it.
-def Parse.onFound (found: Option a) (next: a → {Parse} b) (done: () → {Parse} b): {Parse} b :=
-  match found with
-    | Some value => next value
-    | None => done()
+def Parse.onFound (found: Option a) (next: a → {Parse} b) (done: () → {Parse} b): {Parse} b := match found with
+  | Some value => next value
+  | None => done()
 
 --| `parser` `count` times, failing as it fails, then at most `extra` more
 --| times while it succeeds. `found` is newest first.
@@ -676,10 +669,9 @@ def Parse.labelWholeFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse
     | Parse.fatal message, k => furthest => Empty.absurd (Parse.fatal message)
 
 --| `body` with `self` for its nested parser, at most `fuel` levels deep.
-def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse} a) → {Parse} a): {Parse} a :=
-  match fuel with
-    | Zero => Empty.absurd (Parse.fatal "`recursive`: the parser called itself without reading anything")
-    | Succ more => body (() => Parse.recursiveFuel more body)
+def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse} a) → {Parse} a): {Parse} a := match fuel with
+  | Zero => Empty.absurd (Parse.fatal "`recursive`: the parser called itself without reading anything")
+  | Succ more => body (() => Parse.recursiveFuel more body)
 
 --| A parser for nested input: `body` gets the parser being defined, to call
 --| for the nested parts. Fails only as `body` does, or if it nests without

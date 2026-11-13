@@ -95,15 +95,13 @@ test "stages inside, in parameter order" :=
 
 -- A result type computed from a parameter: names after it are found once
 -- the arguments before it are given, in a computation too.
-def Adder (n: Nat): Type :=
-  match n with
-    | Zero => Nat
-    | Succ _ => (plus: Nat) → Nat
+def Adder (n: Nat): Type := match n with
+  | Zero => Nat
+  | Succ _ => (plus: Nat) → Nat
 
-def adder (n: Nat): Adder n :=
-  match n with
-    | Zero => 0
-    | Succ _ => (plus => n + plus)
+def adder (n: Nat): Adder n := match n with
+  | Zero => 0
+  | Succ _ => (plus => n + plus)
 
 def computedNames(): {Log} Nat := adder (plus := given 4) 1
 

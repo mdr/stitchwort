@@ -93,12 +93,11 @@ def spotIn (area: Area): {Random} Position :=
   { row = area.corner.row + roll area.down, column = area.corner.column + roll area.across }
 
 --| Deeper levels have fewer goblins and more orcs and trolls.
-def kindFor (depth: Nat) (chance: Nat): Kind :=
-  match depth with
-    | 0 => Goblin
-    | 1 => if chance < 8 then Goblin else Orc
-    | 2 => if chance < 4 then Goblin else if chance < 9 then Orc else Troll
-    | _ => if chance < 2 then Goblin else if chance < 6 then Orc else Troll
+def kindFor (depth: Nat) (chance: Nat): Kind := match depth with
+  | 0 => Goblin
+  | 1 => if chance < 8 then Goblin else Orc
+  | 2 => if chance < 4 then Goblin else if chance < 9 then Orc else Troll
+  | _ => if chance < 2 then Goblin else if chance < 6 then Orc else Troll
 
 --| A monster somewhere in `room`.
 def monsterFrom (depth: Nat) (room: Area): {Random} Monster :=

@@ -36,16 +36,14 @@ theorem addToLastAppend (amount: Nat) (ys: List Leaf) (some: ys ≠ []) (xs: Lis
 --| Adding 0 to a leaf leaves it as it was.
 theorem addZeroLeaf (leaf: Leaf): ({ value = leaf.value + 0, depth = leaf.depth }: Leaf) = leaf := Leaf.ext { value = leaf.value + 0, depth = leaf.depth } leaf (Nat.addZero leaf.value) rfl
 
-theorem addToFirstZero (xs: List Leaf): addToFirst 0 xs = xs :=
-  match xs with
-    | [] => rfl
-    | [leaf, ..rest] => Eq.cong (l => [l, ..rest]) (addZeroLeaf leaf)
+theorem addToFirstZero (xs: List Leaf): addToFirst 0 xs = xs := match xs with
+  | [] => rfl
+  | [leaf, ..rest] => Eq.cong (l => [l, ..rest]) (addZeroLeaf leaf)
 
-theorem addToLastZero (xs: List Leaf): addToLast 0 xs = xs :=
-  match xs with
-    | [] => rfl
-    | [leaf] => Eq.cong (l => [l]) (addZeroLeaf leaf)
-    | [leaf, next, ..rest] => Eq.cong (Cons leaf) (addToLastZero [next, ..rest])
+theorem addToLastZero (xs: List Leaf): addToLast 0 xs = xs := match xs with
+  | [] => rfl
+  | [leaf] => Eq.cong (l => [l]) (addZeroLeaf leaf)
+  | [leaf, next, ..rest] => Eq.cong (Cons leaf) (addToLastZero [next, ..rest])
 
 theorem leavesAddLeftmost (amount: Nat) (depth: Nat) (number: Number): leaves depth (addLeftmost amount number) = addToFirst amount (leaves depth number) :=
   match number with

@@ -23,12 +23,11 @@ theorem cornerInside (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a t
 --| The program's test of the rectangle between two red tiles is the spec's.
 theorem programTest (tiles: List Point) (pair: (Point, Point)) (m: List.Mem pair tiles.pairs):
     Floor.allRedOrGreen (Floor.of tiles) { corner = (Floor.of tiles).corner pair.fst, opposite = (Floor.of tiles).corner pair.snd }
-      = allRedOrGreen tiles (Rectangle.ofPair pair) :=
-  match List.memPairs pair tiles m with
-    | Both ma mb =>
-      Eq.trans
-        (allRedOrGreenKeys tiles ((Floor.of tiles).corner pair.fst) ((Floor.of tiles).corner pair.snd) (cornerInside tiles pair.fst pair.snd ma mb))
-        (allKeysIsSpec tiles pair.fst pair.snd ma mb)
+    = allRedOrGreen tiles (Rectangle.ofPair pair) := match List.memPairs pair tiles m with
+      | Both ma mb =>
+        Eq.trans
+          (allRedOrGreenKeys tiles ((Floor.of tiles).corner pair.fst) ((Floor.of tiles).corner pair.snd) (cornerInside tiles pair.fst pair.snd ma mb))
+          (allKeysIsSpec tiles pair.fst pair.snd ma mb)
 
 --| The spec's rectangles that are all red and green, by their areas, as a
 --| filter and map over the red tiles' pairs.

@@ -8,10 +8,9 @@ def bonus (big: Bool) (n: Nat): Nat := if big then n + 10 else n
 
 theorem bonusIf (big: Bool) (n: Nat): bonus big n = if big then n + 10 else n := rfl
 
-theorem bonusAtLeast (big: Bool) (n: Nat): n ≤ if big then n + 10 else n :=
-  match big with
-    | True => omega
-    | False => omega
+theorem bonusAtLeast (big: Bool) (n: Nat): n ≤ if big then n + 10 else n := match big with
+  | True => omega
+  | False => omega
 
 def sameAsBonus (big: Bool) (n: Nat): Bool := bonus big n == if big then n + 10 else n
 

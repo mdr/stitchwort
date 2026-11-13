@@ -45,12 +45,11 @@ theorem headingTurnedMod (heading: Heading) (quarters: Nat): heading.turned quar
 
 theorem headingTurnedFour (heading: Heading): Nat.iterate 4 Heading.turnRight heading = heading := headingTurnRightFour heading
 
-theorem memHeadings (heading: Heading): heading ∈ headings :=
-  match heading with
-    | North => Inl rfl
-    | East => Inr (Inl rfl)
-    | South => Inr (Inr (Inl rfl))
-    | West => Inr (Inr (Inr (Inl rfl)))
+theorem memHeadings (heading: Heading): heading ∈ headings := match heading with
+  | North => Inl rfl
+  | East => Inr (Inl rfl)
+  | South => Inr (Inr (Inl rfl))
+  | West => Inr (Inr (Inr (Inl rfl)))
 
 theorem headingToDirectionToHeading (heading: Heading): heading.toDirection.toHeading = heading := cases
 
@@ -200,9 +199,8 @@ theorem distanceZeroOnly (coords: Coords f) (other: Coords f) (zero: coords.dist
 
 -- Between the worlds
 
-theorem pointToCoordsToPoint (point: Point): point.toCoords.toPoint = Some point :=
-  match point with
-    | { x, y } => rfl
+theorem pointToCoordsToPoint (point: Point): point.toCoords.toPoint = Some point := match point with
+  | { x, y } => rfl
 
 --| Coordinates that convert to a point are that point's.
 theorem toPointSome (coords: Coords YDown) (point: Point) (converts: coords.toPoint = Some point): point.toCoords = coords :=
@@ -216,13 +214,11 @@ theorem toPointSome (coords: Coords YDown) (point: Point) (converts: coords.toPo
 --| Negative coordinates are not a point.
 theorem toPointNone (coords: Coords YDown) (negative: coords.x < 0 ∨ coords.y < 0): coords.toPoint = None := cases
 
-theorem offsetToCoordsToOffset (offset: Offset): offset.toCoords.toOffset = offset :=
-  match offset with
-    | { rows, columns } => rfl
+theorem offsetToCoordsToOffset (offset: Offset): offset.toCoords.toOffset = offset := match offset with
+  | { rows, columns } => rfl
 
-theorem coordsToOffsetToCoords (coords: Coords YDown): coords.toOffset.toCoords = coords :=
-  match coords with
-    | { x, y } => rfl
+theorem coordsToOffsetToCoords (coords: Coords YDown): coords.toOffset.toCoords = coords := match coords with
+  | { x, y } => rfl
 
 --| A point converted to coordinates and read as a grid offset is its position's offset from the corner.
 theorem pointToCoordsOffset (point: Point): point.toCoords.toOffset = (point.toPosition.minus { row = 0, column = 0 }) := rfl

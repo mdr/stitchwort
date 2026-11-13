@@ -13,24 +13,23 @@ import Std (Bool, Char, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 -- The ranks
 
-theorem chainBounded (rules: Rules) (fuel number: Nat): rules.chain fuel number ≤ fuel :=
-  match fuel with
-    | Zero => omega
-    | Succ more =>
-      match looked: rules.rule number with
-        | Some (Alternatives sequences) =>
-          match found: sequences.map (rules.chainThrough more) |> .maximum with
-            | None => omega
-            | Some most =>
-              match List.memMapElim (rules.chainThrough more) most sequences (And.left (List.maximumSome _ most found)) with
-                | Witness sequence (Both chosen made) =>
-                  rewrite <- made in
-                    match sequence with
-                      | [] => omega
-                      | [only] => omega [chainBounded rules more only]
-                      | [first, second, ..others] => omega
-        | Some (Letter letter) => omega
-        | None => omega
+theorem chainBounded (rules: Rules) (fuel number: Nat): rules.chain fuel number ≤ fuel := match fuel with
+  | Zero => omega
+  | Succ more =>
+    match looked: rules.rule number with
+      | Some (Alternatives sequences) =>
+        match found: sequences.map (rules.chainThrough more) |> .maximum with
+          | None => omega
+          | Some most =>
+            match List.memMapElim (rules.chainThrough more) most sequences (And.left (List.maximumSome _ most found)) with
+              | Witness sequence (Both chosen made) =>
+                rewrite <- made in
+                  match sequence with
+                    | [] => omega
+                    | [only] => omega [chainBounded rules more only]
+                    | [first, second, ..others] => omega
+      | Some (Letter letter) => omega
+      | None => omega
 
 theorem rankBelow (rules: Rules) (number: Nat): rules.rank number < rules.rankBound :=
   omega [chainBounded rules (rules.numbered.length + 1) number]

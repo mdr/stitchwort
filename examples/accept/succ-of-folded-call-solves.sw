@@ -3,10 +3,9 @@
 
 def innerN (x: Nat): Nat
     decreasing x
-:=
-  match x with
-    | Zero => 1
-    | Succ m => innerN m [decreasing := omega]
+:= match x with
+  | Zero => 1
+  | Succ m => innerN m [decreasing := omega]
 
 def lift [n: Nat] (h: Succ (Succ n) = Succ (Succ n)): n = n := rfl
 

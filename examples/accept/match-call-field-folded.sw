@@ -17,9 +17,8 @@ def pick (n: Nat) (bag: Bag): Bag
 :=
   if n ≤ 1 then bag else pick (n / 2) { items = [n, ..bag.items] } [decreasing := omega]
 
-theorem callFound (n: Nat) (h: pick n empty = empty): (pick n empty).items = [] :=
-  match same: pick n empty with
-    | result => rewrite h in rfl
+theorem callFound (n: Nat) (h: pick n empty = empty): (pick n empty).items = [] := match same: pick n empty with
+  | result => rewrite h in rfl
 
 theorem armsKeepCall (n: Nat): (pick n empty).items.length = (pick n empty).items.length + 0 :=
   match small: Nat.leq n 1 with

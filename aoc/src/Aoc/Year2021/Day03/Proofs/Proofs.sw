@@ -167,14 +167,13 @@ theorem ratingAfterPrefix (choose: List Bool → Bool) (criterion: List Bits →
     (agree: ∀ (prefix: Bits) (rests: List Bits) =>
       criterion (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (rests.filterMap Bits.first))
     (k: Nat) (prefix: Bits) (rests: List Bits): findRating criterion (rests.map (rest => Bits.append prefix rest)) (List.rangeFrom k (Bits.width prefix))
-      = Option.map (rating choose k rests) (rest => Bits.append prefix rest) :=
-  match k, rests with
-    | k, [rest] => rfl
-    | Zero, [] => rfl
-    | Zero, [first, second, ..others] => rfl
-    | Succ k, [] => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
-    | Succ k, [first, second, ..others] =>
-      ratingStep choose criterion agree k prefix [first, second, ..others] (ratingAfterPrefix choose criterion agree k)
+    = Option.map (rating choose k rests) (rest => Bits.append prefix rest) := match k, rests with
+      | k, [rest] => rfl
+      | Zero, [] => rfl
+      | Zero, [first, second, ..others] => rfl
+      | Succ k, [] => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
+      | Succ k, [first, second, ..others] =>
+        ratingStep choose criterion agree k prefix [first, second, ..others] (ratingAfterPrefix choose criterion agree k)
 
 --| From the whole report.
 theorem ratingCorrect (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)

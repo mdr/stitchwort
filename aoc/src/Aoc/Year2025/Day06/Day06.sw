@@ -89,10 +89,9 @@ def solvePart2 (problems: List Problem): Nat := problems.sumBy (problem => evalu
 --| Trailing blank lines are rejected, not skipped: the operator row is the last
 --| line, so an extra blank line would leave it without operators, and the
 --| message says so. Short lines (trailing spaces trimmed) are fine.
-def checkWorksheet (lines: List Text): Result (List Problem) Text :=
-  match worksheetError lines with
-    | Some message => Err message
-    | None => Ok (parseWorksheet lines)
+def checkWorksheet (lines: List Text): Result (List Problem) Text := match worksheetError lines with
+  | Some message => Err message
+  | None => Ok (parseWorksheet lines)
 
 --| The first thing wrong with the worksheet, if anything.
 def worksheetError (lines: List Text): Option Text :=

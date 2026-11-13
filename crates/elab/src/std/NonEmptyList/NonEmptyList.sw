@@ -34,10 +34,9 @@ def NonEmptyList.toList (xs: NonEmptyList a): List a := [xs.head, ..xs.tail]
 --| The list as a `NonEmptyList`, where it is known not to be empty: `auto` finds
 --| the proof for a literal, in the `[x, ..rest]` arm of a match and after
 --| `if h: xs ≠ [] then`. The result is the list again ([`List.toNonEmptyToList`]).
-def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a :=
-  match xs with
-    | [] => Void.absurd (nonEmpty rfl)
-    | [x, ..rest] => { head = x, tail = rest }
+def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a := match xs with
+  | [] => Void.absurd (nonEmpty rfl)
+  | [x, ..rest] => { head = x, tail = rest }
 
 --| The list as a `NonEmptyList`, or `None` for an empty list
 --| ([`List.nonEmptyNil`], [`List.nonEmptyCons`]). It keeps the list's own head

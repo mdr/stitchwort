@@ -36,13 +36,12 @@ theorem straightLines (lines: List Line): lines.filter Line.isStraight = lines.f
 
 --| ... and each of them is horizontal or vertical.
 theorem straightShapes (lines: List Line):
-    (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True :=
-  match lines with
-    | [] => rfl
-    | [line, ..rest] =>
-      match e: Line.isStraight line with
-        | True => rewrite straightShapes rest in rewrite e in rfl
-        | False => straightShapes rest
+    (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True := match lines with
+      | [] => rfl
+      | [line, ..rest] =>
+        match e: Line.isStraight line with
+          | True => rewrite straightShapes rest in rewrite e in rfl
+          | False => straightShapes rest
 
 -- Counting with a map.
 
@@ -69,16 +68,15 @@ theorem countedTwice (listed: List Point):
 --| A line lists a point once if it covers it, and not at all if it
 --| doesn't.
 theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True) (p: Point):
-    line.points.count (== p) = Bool.toNat (covers line p) :=
-  match p with
-    | point =>
-      let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
-      let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
-      Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
-        (Eq.trans
-          (List.countCongMem _ _ (i => covers line point ∧ i == k)
-            (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
-          (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
+    line.points.count (== p) = Bool.toNat (covers line p) := match p with
+      | point =>
+        let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
+        let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
+        Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
+          (Eq.trans
+            (List.countCongMem _ _ (i => covers line point ∧ i == k)
+              (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
+            (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
 
 --| So every line's points, together, list a point once for each line that
 --| covers it.
@@ -92,7 +90,7 @@ theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizonta
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
 --| steps `0` to `n - 1` count it once if it is one of them.
-theorem countRangeOnce (n: Nat) (k: Nat) (c: Bool) (inRange: (c = True → k < n)): (List.range 0 n).count (i => c ∧ i == k) = c.toNat :=
+theorem countRangeOnce (n: Nat) (k: Nat) (c: Bool) (inRange: c = True → k < n): (List.range 0 n).count (i => c ∧ i == k) = c.toNat :=
   match c with
     | False => List.countFalse (List.range 0 n)
     | True => rewrite inRange rfl at List.countRangeEq n k
@@ -158,14 +156,14 @@ theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (x1.absDiff x2 
 -- line. `ax` and `ay` are how far the point is across and down from the
 -- first end, and `bx` and `by` whether it is between the ends.
 
-theorem combineVertical [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: (bx = True → ax = 0)):
+theorem combineVertical [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: bx = True → ax = 0):
     (bx ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
-theorem combineHorizontal [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: (by = True → ay = 0)):
+theorem combineHorizontal [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: by = True → ay = 0):
     ((bx ∧ i == ax) ∧ by) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
 theorem combineDiagonal [ax: Nat] [ay: Nat] [i: Nat] [d: Nat] (hi: i ≤ d) [bx: Bool] [by: Bool] [e: Bool]
-    (h: (bx = True → ax ≤ d)) (h1: (by = True → ay ≤ d)) (h2: (e = True → d = 0)):
+    (h: bx = True → ax ≤ d) (h1: by = True → ay ≤ d) (h2: e = True → d = 0):
     ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay) := cases
 
 --| The `i`th point of a horizontal, vertical or diagonal line, as
@@ -196,7 +194,7 @@ theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y
 
 -- The spec's proportion, on these lines.
 
-theorem bothThen [p: Bool] [q: Bool] (bx by: Bool) (h: (bx = True → by = True → p = q)): (bx ∧ by ∧ p) = (bx ∧ by ∧ q) :=
+theorem bothThen [p: Bool] [q: Bool] (bx by: Bool) (h: bx = True → by = True → p = q): (bx ∧ by ∧ p) = (bx ∧ by ∧ q) :=
   match bx, by with
     | False, by => rfl
     | True, False => rfl

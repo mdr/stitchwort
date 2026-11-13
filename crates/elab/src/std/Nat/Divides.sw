@@ -23,10 +23,9 @@ theorem Nat.dividesExample: Nat.divides 3 12 = True := rfl
 
 theorem Nat.dividesNotExample: Nat.divides 5 12 = False := rfl
 
-theorem Nat.dividesMul (d t: Nat): Nat.divides d (t * d) = True :=
-  match d with
-    | Zero => (Nat.decEq (t * 0) 0).complete (Nat.mulZero t)
-    | Succ d => (Nat.decEq ((t * Succ d) % Succ d) 0).complete (Nat.modAddMul 0 t (Succ d))
+theorem Nat.dividesMul (d t: Nat): Nat.divides d (t * d) = True := match d with
+  | Zero => (Nat.decEq (t * 0) 0).complete (Nat.mulZero t)
+  | Succ d => (Nat.decEq ((t * Succ d) % Succ d) 0).complete (Nat.modAddMul 0 t (Succ d))
 
 theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
 
@@ -58,10 +57,9 @@ theorem Nat.dividesReadsFalse (d: Nat) (n: Nat): Nat.divides d n = False ↔ ¬(
     | False => { forward = h found => Bool.falseNotTrue (Eq.trans (Eq.sym c) (Iff.backward (Nat.dividesIff d n) found)), backward = no => rfl }
 
 --| `Nat.divides` is the remainder test (for 0 too, since `n % 0` is `n`).
-theorem Nat.dividesMod (m: Nat) (n: Nat): Nat.divides m n = (n % m == 0) :=
-  match m with
-    | Zero => rewrite Nat.modZero n in rfl
-    | Succ d => rfl
+theorem Nat.dividesMod (m: Nat) (n: Nat): Nat.divides m n = (n % m == 0) := match m with
+  | Zero => rewrite Nat.modZero n in rfl
+  | Succ d => rfl
 
 --| A divisor of two numbers divides their sum (Lean's `Nat.dvd_add`).
 theorem Nat.dividesAdd (d: Nat) (a: Nat) (b: Nat) (ha: Nat.divides d a = True) (hb: Nat.divides d b = True): Nat.divides d (a + b) = True :=
@@ -92,16 +90,14 @@ theorem Nat.modMulOfModZero (q: Nat) (z: Nat) (m: Nat) (h: z % m = 0): (q * z) %
     _ = 0 := rewrite Nat.mulZero q in rfl
 
 --| A number from 1 up is divided by nothing bigger than itself.
-theorem Nat.dividesSmall (d n: Nat) (h1: 1 ≤ n) (h2: n < d): Nat.divides d n = False :=
-  match d with
-    | Succ d =>
-      Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
-        (e => Bool.falseNotTrue (rewrite <- Nat.modSmall n (Succ d) h2, e at h1))
+theorem Nat.dividesSmall (d n: Nat) (h1: 1 ≤ n) (h2: n < d): Nat.divides d n = False := match d with
+  | Succ d =>
+    Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
+      (e => Bool.falseNotTrue (rewrite <- Nat.modSmall n (Succ d) h2, e at h1))
 
-theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 ≤ n) (h: Nat.divides d n = True): d ≤ n :=
-  match e: Nat.leq d n with
-    | True => rfl
-    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Nat.dividesSmall d n hn e.read)))
+theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 ≤ n) (h: Nat.divides d n = True): d ≤ n := match e: Nat.leq d n with
+  | True => rfl
+  | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Nat.dividesSmall d n hn e.read)))
 
 --| The positive divisors of `n`, ascending: `Nat.divisors 12` is
 --| `[1, 2, 3, 4, 6, 12]`. Every number divides 0, so there is no list to give:
@@ -116,39 +112,34 @@ test "Nat.divisors of zero" := Nat.divisors 0 == []
 theorem Nat.divLtSucc (m: Nat) (k: Nat) (h: 1 < k): Succ m / k < Succ m :=
   Nat.divLeOfLtMul (Succ m) m k (omega [Nat.leMulRight 2 k (Succ m) h, Nat.mulComm k (Succ m)])
 
-theorem Nat.divLt (n: Nat) (k: Nat) (h0: 0 < n) (h1: 1 < k): n / k < n :=
-  match n with
-    | Succ m => Nat.divLtSucc m k h1
+theorem Nat.divLt (n: Nat) (k: Nat) (h0: 0 < n) (h1: 1 < k): n / k < n := match n with
+  | Succ m => Nat.divLtSucc m k h1
 
 --| A product is 0 only when a factor is (Lean's `Nat.mul_eq_zero`).
-theorem Nat.mulEqZero (m n: Nat) (h: m * n = 0): (m = 0) ∨ (n = 0) :=
-  match m, n with
-    | Zero, n => Inl rfl
-    | Succ m, Zero => Inr rfl
-    | Succ m, Succ n => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
+theorem Nat.mulEqZero (m n: Nat) (h: m * n = 0): (m = 0) ∨ (n = 0) := match m, n with
+  | Zero, n => Inl rfl
+  | Succ m, Zero => Inr rfl
+  | Succ m, Succ n => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
 
 --| A square is 0 only for 0.
-theorem Nat.mulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
-  match Nat.mulEqZero n n h with
-    | Inl z => z
-    | Inr z => z
+theorem Nat.mulSelfZero (n: Nat) (h: n * n = 0): n = 0 := match Nat.mulEqZero n n h with
+  | Inl z => z
+  | Inr z => z
 
 --| A square is 1 only for 1.
-theorem Nat.mulSelfOne (n: Nat) (square: n * n = 1): n = 1 :=
-  match n with
-    | 0 => Void.exfalso (omega)
-    | 1 => rfl
-    | Succ (Succ more) => Void.exfalso (omega [Nat.leMulRight 2 (Succ (Succ more)) (Succ (Succ more)) (omega)])
+theorem Nat.mulSelfOne (n: Nat) (square: n * n = 1): n = 1 := match n with
+  | 0 => Void.exfalso (omega)
+  | 1 => rfl
+  | Succ (Succ more) => Void.exfalso (omega [Nat.leMulRight 2 (Succ (Succ more)) (Succ (Succ more)) (omega)])
 
 --| The greatest common divisor, by Euclid's algorithm: `Nat.gcd 12 18` is 6,
 --| and `Nat.gcd n 0` is `n`, so `Nat.gcd 0 0` is 0.
 @[tailrec]
 def Nat.gcd (a: Nat) (b: Nat): Nat
     decreasing b
-:=
-  match b with
-    | Zero => a
-    | Succ c => Nat.gcd (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)]
+:= match b with
+  | Zero => a
+  | Succ c => Nat.gcd (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)]
 
 test "Nat.gcd" := Nat.gcd 12 18 == 6 ∧ Nat.gcd 18 12 == 6 ∧ Nat.gcd 7 0 == 7 ∧ Nat.gcd 0 7 == 7 ∧ Nat.gcd 0 0 == 0 ∧ Nat.gcd 17 5 == 1
 
@@ -160,29 +151,27 @@ theorem Nat.gcdZero (a: Nat): Nat.gcd a 0 = a := rewrite Nat.gcd.unfold a 0 in r
 --| The gcd divides both numbers (Lean's `Nat.gcd_dvd_left` and `_right`).
 theorem Nat.gcdDivides (a: Nat) (b: Nat): (∃ (x: Nat) => a = x * Nat.gcd a b) ∧ (∃ (y: Nat) => b = y * Nat.gcd a b)
     decreasing b
-:=
-  match b with
-    | Zero => Both (Witness 1 (ring)) (Witness 0 rfl)
-    | Succ c =>
-      let divided := Nat.divModEq a (Succ c)
-      match Nat.gcdDivides (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
-        | Both (Witness x hx) (Witness y hy) =>
-          rewrite Nat.gcdStep a c in
-          Both (Witness (a / Succ c * x + y) (ring [divided, a / Succ c * hx, hy])) (Witness x hx)
+:= match b with
+  | Zero => Both (Witness 1 (ring)) (Witness 0 rfl)
+  | Succ c =>
+    let divided := Nat.divModEq a (Succ c)
+    match Nat.gcdDivides (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
+      | Both (Witness x hx) (Witness y hy) =>
+        rewrite Nat.gcdStep a c in
+        Both (Witness (a / Succ c * x + y) (ring [divided, a / Succ c * hx, hy])) (Witness x hx)
 
 --| Bézout's identity: the gcd is `s * a + t * b` for some integers `s` and
 --| `t` (Mathlib's `Nat.gcd_eq_gcd_ab`).
 theorem Nat.gcdBezout (a: Nat) (b: Nat): ∃ (s: Int) => ∃ (t: Int) => s * a.toInt + t * b.toInt = (Nat.gcd a b).toInt
     decreasing b
-:=
-  match b with
-    | Zero => Witness 1 (Witness 0 (ring))
-    | Succ c =>
-      let divided := Eq.cong Nat.toInt (Nat.divModEq a (Succ c))
-      match Nat.gcdBezout (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
-        | Witness s (Witness t h) =>
-          rewrite Nat.gcdStep a c in
-          Witness t (Witness (s - t * (a / Succ c).toInt) (ring [h, t * divided]))
+:= match b with
+  | Zero => Witness 1 (Witness 0 (ring))
+  | Succ c =>
+    let divided := Eq.cong Nat.toInt (Nat.divModEq a (Succ c))
+    match Nat.gcdBezout (Succ c) (a % Succ c) [decreasing := Nat.modLt a (Succ c)] with
+      | Witness s (Witness t h) =>
+        rewrite Nat.gcdStep a c in
+        Witness t (Witness (s - t * (a / Succ c).toInt) (ring [h, t * divided]))
 
 --| `v * d + r` is `target`, for a remainder `r < d`, exactly when `target`
 --| leaves remainder `r` and quotient `v`: the test a program makes to undo
@@ -231,10 +220,9 @@ theorem Nat.divSuccStep (d: Nat) (a: Nat) (h: a < d) (n: Nat):
 
 --| Counting backwards from the top of a dial of `Succ m` positions: the
 --| position `Succ m - v` is on a multiple of `Succ m` exactly when `v` is 0.
-theorem Nat.subModBeqZero (m: Nat) (v: Nat) (h: v < Succ m): ((Succ m - v) % Succ m == 0) = (v == 0) :=
-  match v with
-    | Zero => rewrite Nat.modSelf (Succ m)
-    | Succ w => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))
+theorem Nat.subModBeqZero (m: Nat) (v: Nat) (h: v < Succ m): ((Succ m - v) % Succ m == 0) = (v == 0) := match v with
+  | Zero => rewrite Nat.modSelf (Succ m)
+  | Succ w => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))
 
 test "Nat.mulNeZero" := 3 * 4 != 0
 test "Nat.subModSelf" := (17 - 5) % 5 == 17 % 5

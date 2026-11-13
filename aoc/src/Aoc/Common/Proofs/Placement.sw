@@ -23,16 +23,15 @@ theorem valueAtLater [auto eq: DecEq k] (fallback: v) (first: k) (rest: List k) 
 
 --| Reading each of distinct keys gives the values, in order.
 theorem mapValueAt [auto eq: DecEq k] (fallback: v) (keys: List k) (values: List v) (lengths: keys.length = values.length) (h: keys.Distinct):
-    keys.map (valueAt fallback keys values) = values :=
-  match keys, values, h with
-    | [], [], distinct => rfl
-    | [first, ..rest], [value, ..values], Both fresh distinct =>
-      rewrite DecEq.refl first in
-        rewrite List.mapCongMem rest (valueAt fallback [first, ..rest] [value, ..values]) (valueAt fallback rest values)
-            (key member => valueAtLater fallback first rest value values key (same => fresh (rewrite <- same in member))),
-          mapValueAt fallback rest values (Nat.succInjective lengths) distinct in rfl
-    | [], [value, ..values], distinct => Void.exfalso (Nat.zeroNotSucc _ lengths)
-    | [first, ..rest], [], distinct => Void.exfalso (Nat.succNotZero _ lengths)
+    keys.map (valueAt fallback keys values) = values := match keys, values, h with
+      | [], [], distinct => rfl
+      | [first, ..rest], [value, ..values], Both fresh distinct =>
+        rewrite DecEq.refl first in
+          rewrite List.mapCongMem rest (valueAt fallback [first, ..rest] [value, ..values]) (valueAt fallback rest values)
+              (key member => valueAtLater fallback first rest value values key (same => fresh (rewrite <- same in member))),
+            mapValueAt fallback rest values (Nat.succInjective lengths) distinct in rfl
+      | [], [value, ..values], distinct => Void.exfalso (Nat.zeroNotSucc _ lengths)
+      | [first, ..rest], [], distinct => Void.exfalso (Nat.succNotZero _ lengths)
 
 --| A key's value is related to it as the values are to the keys.
 theorem valueAtRelated [auto eq: DecEq k] (fallback: v) (related: v → k → Prop): ∀ (keys: List k) (values: List v) =>

@@ -8,11 +8,10 @@ import Std (Char, Int, List, Parse, Text)
 
 -- The format
 
-def OperationWritten (read: List Char) (operation: Operation): Prop :=
-  match operation with
-    | Acc => read = "acc".toList
-    | Jmp => read = "jmp".toList
-    | Nop => read = "nop".toList
+def OperationWritten (read: List Char) (operation: Operation): Prop := match operation with
+  | Acc => read = "acc".toList
+  | Jmp => read = "jmp".toList
+  | Nop => read = "nop".toList
 
 --| "+3", "-99" or "3": an optional sign, then the size in decimal. The
 --| parser accepts a number without a sign too, so the spec does.
@@ -30,21 +29,19 @@ def start: State := { next = 0, accumulator = 0 }
 
 --| The instruction at `position`, counting the first as 0, if the boot
 --| code has one there.
-def instructionAt (program: Program) (position: Int): Option Instruction :=
-  match position.toNatChecked with
-    | Some index => program.instructions.get index
-    | None => None
+def instructionAt (program: Program) (position: Int): Option Instruction := match position.toNatChecked with
+  | Some index => program.instructions.get index
+  | None => None
 
 --| What executing `instruction` does to the console. `acc` "increases or
 --| decreases ... the accumulator by the value given in the argument", and
 --| "the instruction immediately below it is executed next"; `jmp` "jumps
 --| to a new instruction relative to itself"; `nop` "does nothing", and
 --| "the instruction immediately below it is executed next".
-def Executes (instruction: Instruction) (before: State) (after: State): Prop :=
-  match instruction.operation with
-    | Acc => after.accumulator = before.accumulator + instruction.argument ∧ after.next = before.next + 1
-    | Jmp => after.accumulator = before.accumulator ∧ after.next = before.next + instruction.argument
-    | Nop => after.accumulator = before.accumulator ∧ after.next = before.next + 1
+def Executes (instruction: Instruction) (before: State) (after: State): Prop := match instruction.operation with
+  | Acc => after.accumulator = before.accumulator + instruction.argument ∧ after.next = before.next + 1
+  | Jmp => after.accumulator = before.accumulator ∧ after.next = before.next + instruction.argument
+  | Nop => after.accumulator = before.accumulator ∧ after.next = before.next + 1
 
 --| One step: the console executes the instruction it is at.
 def Step (program: Program) (before: State) (after: State): Prop :=

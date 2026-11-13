@@ -15,10 +15,9 @@ import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, NonEmptyList, Option
 def cubeChar (char: Char): Bool := char == '#' ∨ char == '.'
 
 theorem stripDifferent (first: Char) (others: List Char) (char: Char) (more: List Char) (different: (char == first) = False):
-    Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
-  match e: Text.sameChar first char with
-    | False => rfl
-    | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
+    Text.stripPrefixChars [first, ..others] [char, ..more] = None := match e: Text.sameChar first char with
+      | False => rfl
+      | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
 
 theorem runsCube (state: CubeState) (after: List Char): Parse.Runs cubeState [symbol state] after state :=
   match state with
@@ -33,20 +32,18 @@ theorem declinesCube (rest: List Char) (stops: Parse.CannotStart cubeChar rest):
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem allCubes (states: List CubeState): (states.map symbol).all cubeChar = True :=
-  match states with
-    | [] => rfl
-    | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
+theorem allCubes (states: List CubeState): (states.map symbol).all cubeChar = True := match states with
+  | [] => rfl
+  | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
 
 theorem runsRow (line: List Char) (row: List CubeState) (written: RowWritten line row) (nonEmpty: row ≠ []):
-    Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row :=
-  match row, nonEmpty with
-    | [], notEmpty => Void.exfalso (notEmpty rfl)
-    | [state, ..more], notEmpty =>
-      rewrite written in
-        Parse.runsMap (() => Parse.many1 cubeState) NonEmptyList.toList ([state, ..more].map symbol) [] (NonEmptyList.cons state more)
-          (Parse.runsMany1Symbols cubeState symbol cubeChar (state2 after _ => runsCube state2 after) declinesCube state more []
-            (allCubes [state, ..more]) (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
+    Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row := match row, nonEmpty with
+      | [], notEmpty => Void.exfalso (notEmpty rfl)
+      | [state, ..more], notEmpty =>
+        rewrite written in
+          Parse.runsMap (() => Parse.many1 cubeState) NonEmptyList.toList ([state, ..more].map symbol) [] (NonEmptyList.cons state more)
+            (Parse.runsMany1Symbols cubeState symbol cubeChar (state2 after _ => runsCube state2 after) declinesCube state more []
+              (allCubes [state, ..more]) (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
 
 --| The soundness theorem's conclusion: every line of the input is its row of the slice written out, and the slice is a rectangle.
 def InputWritten (input: Text) (slice2: Slice): Prop :=

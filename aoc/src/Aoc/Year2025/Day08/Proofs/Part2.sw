@@ -43,14 +43,13 @@ theorem countWithout (p: Nat → Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v
 
 --| Two numbers below n that pass p, when only one does, are the same.
 theorem onlyOne (p: Nat → Bool) (n: Nat) (one: List.occurrences (List.range 0 n) p = 1) (x: Nat) (y: Nat)
-    (hx: p x = True) (xn: x < n) (hy: p y = True) (yn: y < n): y = x :=
-  match e: y == x with
-    | True => e.read
-    | False =>
-      let some: Nat.leq 1 (List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == x))) = True :=
-        rewrite <- List.anyOccurrences (List.range 0 n) (b => p b ∧ ¬(b == x)) in
-          List.anyRangeIntro (b => p b ∧ ¬(b == x)) n 0 y omega yn (rewrite hy, e in rfl)
-      omega [countWithout p n x hx xn]
+    (hx: p x = True) (xn: x < n) (hy: p y = True) (yn: y < n): y = x := match e: y == x with
+      | True => e.read
+      | False =>
+        let some: Nat.leq 1 (List.occurrences (List.range 0 n) (b => p b ∧ ¬(b == x))) = True :=
+          rewrite <- List.anyOccurrences (List.range 0 n) (b => p b ∧ ¬(b == x)) in
+            List.anyRangeIntro (b => p b ∧ ¬(b == x)) n 0 y omega yn (rewrite hy, e in rfl)
+        omega [countWithout p n x hx xn]
 
 -- The count is the number of circuits -----------------------------------------
 
@@ -121,10 +120,9 @@ theorem countedMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
   }
 
 theorem countedJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s: Nat) (hf: f < n) (hs: s < n)
-    (inv: Labelled n done c) (counted: Counted n c): Counted n (c.join f s) :=
-  match e: c.labelOf f == c.labelOf s with
-    | True => counted
-    | False => countedMoved n done c f s hf hs e inv counted
+    (inv: Labelled n done c) (counted: Counted n c): Counted n (c.join f s) := match e: c.labelOf f == c.labelOf s with
+      | True => counted
+      | False => countedMoved n done c f s hf hs e inv counted
 
 -- The count is 1 exactly when all the boxes are in one circuit -------------
 
@@ -157,24 +155,22 @@ theorem oneCircuitOfNone (done: List (Nat, Nat)): OneCircuit 0 done := a b ha hb
 
 --| When not all boxes are in one circuit, the count is above 1.
 theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
-    (notOne: ¬(OneCircuit n done)): (c.count > 1) = True :=
-  match n with
-    | Zero => Void.exfalso (notOne (oneCircuitOfNone done))
-    | Succ m =>
-      let atLeastOne: Nat.leq 1 c.count = True :=
-        rewrite counted.counts, <- List.anyOccurrences (List.range 0 (Succ m)) (b => c.labelOf b == b) in
-          List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (counted.labelBelow 0 rfl)
-            (rewrite counted.labelOwn 0 rfl in DecEq.refl (c.labelOf 0))
-      match e: c.count with
-        | Succ Zero => Void.exfalso (notOne (oneCircuitOfCount (Succ m) done c inv counted e))
-        | Succ (Succ k) => rfl
+    (notOne: ¬(OneCircuit n done)): (c.count > 1) = True := match n with
+      | Zero => Void.exfalso (notOne (oneCircuitOfNone done))
+      | Succ m =>
+        let atLeastOne: Nat.leq 1 c.count = True :=
+          rewrite counted.counts, <- List.anyOccurrences (List.range 0 (Succ m)) (b => c.labelOf b == b) in
+            List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (counted.labelBelow 0 rfl)
+              (rewrite counted.labelOwn 0 rfl in DecEq.refl (c.labelOf 0))
+        match e: c.count with
+          | Succ Zero => Void.exfalso (notOne (oneCircuitOfCount (Succ m) done c inv counted e))
+          | Succ (Succ k) => rfl
 
 --| When not all boxes are in one circuit, the count isn't 1.
 theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
-    (notOne: ¬(OneCircuit n done)): (c.count == 1) = False :=
-  match e: c.count == 1 with
-    | True => Void.exfalso (notOne (oneCircuitOfCount n done c inv counted e.read))
-    | False => rfl
+    (notOne: ¬(OneCircuit n done)): (c.count == 1) = False := match e: c.count == 1 with
+      | True => Void.exfalso (notOne (oneCircuitOfCount n done c inv counted e.read))
+      | False => rfl
 
 -- Part 2 ------------------------------------------------------------------------
 

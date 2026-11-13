@@ -21,33 +21,29 @@ theorem increasesOverCons (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
 
 --| A list zipped with itself one place on is each element paired with the
 --| next.
-theorem zipNext (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs] :=
-  match xs with
-    | [] => rfl
-    | [y, ..rest] => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
+theorem zipNext (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs] := match xs with
+  | [] => rfl
+  | [y, ..rest] => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
 
 --| Part 1 is the puzzle's count, for every list of depths.
-theorem part1Correct (depths: List Nat): solvePart1 depths = increases depths :=
-  match depths with
-    | [] => rfl
-    | [x, ..xs] => rewrite zipNext x xs in rfl
+theorem part1Correct (depths: List Nat): solvePart1 depths = increases depths := match depths with
+  | [] => rfl
+  | [x, ..xs] => rewrite zipNext x xs in rfl
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.
 theorem windowsLong (m: Nat) (xs: List Nat) (h: m < xs.length):
-    slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)] :=
-  match xs with
-    | [x, ..rest] =>
-      List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
+    slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)] := match xs with
+      | [x, ..rest] =>
+        List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
 
 --| A list shorter than a window has none.
-theorem windowsShort (m: Nat) (xs: List Nat) (h: xs.length ≤ m): slidingWindows (Succ m) xs = [] :=
-  match xs with
-    | [] => rfl
-    | [x, ..rest] =>
-      Eq.trans
-        (List.filterSkip _ _ _ (rewrite List.takeAll rest m (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
-        (windowsShort m rest (omega [h]))
+theorem windowsShort (m: Nat) (xs: List Nat) (h: xs.length ≤ m): slidingWindows (Succ m) xs = [] := match xs with
+  | [] => rfl
+  | [x, ..rest] =>
+    Eq.trans
+      (List.filterSkip _ _ _ (rewrite List.takeAll rest m (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
+      (windowsShort m rest (omega [h]))
 
 --| Two windows next to each other share all but their ends, so the later sum
 --| is larger exactly when the element it gains is larger than the one it

@@ -199,10 +199,9 @@ theorem List.mergeMap (f: a → b) (le: b → b → Bool) (le2: a → a → Bool
 
 theorem List.mergeMapStep (f: a → b) (c: Bool) (x: a) (y: a) (l1: List a) (l2: List a) (r1: List b) (r2: List b)
     (e1: List.map l1 f = r1) (e2: List.map l2 f = r2):
-    List.map (if c then [x, ..l1] else [y, ..l2]) f = (if c then [f x, ..r1] else [f y, ..r2]) :=
-  match c with
-    | True => rewrite e1 in rfl
-    | False => rewrite e2 in rfl
+    List.map (if c then [x, ..l1] else [y, ..l2]) f = (if c then [f x, ..r1] else [f y, ..r2]) := match c with
+      | True => rewrite e1 in rfl
+      | False => rewrite e2 in rfl
 
 theorem List.pushRunMap (f: a → b) (le: b → b → Bool) (le2: a → a → Bool) (h: ∀ (x y: a) => le2 x y = le (f x) (f y))
     (run: List a) (c: List (Option (List a))): List.mapRuns f (List.pushRun le2 run c) = List.pushRun le (List.map run f) (List.mapRuns f c) :=
@@ -232,10 +231,9 @@ theorem List.sortByMap (xs: List a) (f: a → b) (cmp: b → b → Ordering) (cm
     List.map (List.sortBy xs cmp2) f = List.sortBy (List.map xs f) cmp :=
   List.sortWithMap xs f (x y => Ordering.isLessEq (cmp x y)) (x y => Ordering.isLessEq (cmp2 x y)) (x y => rewrite h x y in rfl)
 
-theorem List.mapId (xs: List a): List.map xs (x => x) = xs :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] => rewrite List.mapId xs
+theorem List.mapId (xs: List a): List.map xs (x => x) = xs := match xs with
+  | [] => rfl
+  | [x, ..xs] => rewrite List.mapId xs
 
 --| Sorting by two comparisons that agree everywhere.
 theorem List.sortByCong (xs: List a) (cmp1: a → a → Ordering) (cmp2: a → a → Ordering) (h: ∀ (x y: a) => cmp1 x y = cmp2 x y):

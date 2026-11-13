@@ -36,10 +36,9 @@ def Bits.first (number: Bits): Option Bool := number.bits.head
 
 --| The bits after the first, when the first is `bit`; none when it isn't or
 --| there are no bits.
-def Bits.afterBit (number: Bits) (bit: Bool): Option Bits :=
-  match number.bits with
-    | [] => None
-    | [first, ..rest] => if first == bit then Some { bits = rest } else None
+def Bits.afterBit (number: Bits) (bit: Bool): Option Bits := match number.bits with
+  | [] => None
+  | [first, ..rest] => if first == bit then Some { bits = rest } else None
 
 --| `number` followed by `other`'s bits, as one number.
 def Bits.append (number: Bits) (other: Bits): Bits := { bits = number.bits ++ other.bits }

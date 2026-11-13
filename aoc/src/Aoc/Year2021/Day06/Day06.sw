@@ -30,10 +30,9 @@ def main(): {IO, Fail} () :=
 def parseTimers (input: Text): {Fail} List Nat := checkTimers (Parse.line input (() => sepBy1 nat (() => char ',') |> .toList))
 
 --| The timers, if none is above 8; otherwise fail, naming the first that is.
-def checkTimers (timers: List Nat): {Fail} List Nat :=
-  match firstAbove8 timers with
-    | Some (index, _) => Fail.fail "timer ${index + 1} is above 8"
-    | None => timers
+def checkTimers (timers: List Nat): {Fail} List Nat := match firstAbove8 timers with
+  | Some (index, _) => Fail.fail "timer ${index + 1} is above 8"
+  | None => timers
 
 --| The first timer above 8, with its index.
 def firstAbove8 (timers: List Nat): Option (Nat, Nat) := timers.withIndex.find (((_, timer)) => 8 < timer)

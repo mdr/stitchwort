@@ -7,16 +7,14 @@ import Std (Bool, Nat, Iff)
 
 -- Taking a fact apart: each constructor pattern reads the test under it,
 -- one layer at a time.
-theorem nested (a b c: Bool) (h: (a && (b || c)) = True): b ∨ c :=
-  match h with
-    | Both _ (Inl hb) => Inl hb
-    | Both _ (Inr hc) => Inr hc
+theorem nested (a b c: Bool) (h: (a && (b || c)) = True): b ∨ c := match h with
+  | Both _ (Inl hb) => Inl hb
+  | Both _ (Inr hc) => Inr hc
 
 -- `= False` has a reading of its own.
-theorem notBoth (a b: Bool) (h: (a && b) = False): a = False ∨ b = False :=
-  match h with
-    | Inl na => Inl na
-    | Inr nb => Inr nb
+theorem notBoth (a b: Bool) (h: (a && b) = False): a = False ∨ b = False := match h with
+  | Inl na => Inl na
+  | Inr nb => Inr nb
 
 theorem neither (a b: Bool) (h: (a || b) = False): b = False :=
   let Both _ nb := h
@@ -30,10 +28,9 @@ theorem negated (a b: Bool) (h: (Bool.not a && b) = True): a = False :=
 -- A pattern reads again while what the test reads as is a test fact:
 -- `Bool.not (a && b) = True` reads as `(a && b) = False`, which reads as
 -- `a = False ∨ b = False`.
-theorem notAnd (a b: Bool) (h: Bool.not (a && b) = True): a = False ∨ b = False :=
-  match h with
-    | Inl na => Inl na
-    | Inr nb => Inr nb
+theorem notAnd (a b: Bool) (h: Bool.not (a && b) = True): a = False ∨ b = False := match h with
+  | Inl na => Inl na
+  | Inr nb => Inr nb
 
 theorem buildNotAnd (a b: Bool) (nb: b = False): Bool.not (a && b) = True := Inr nb
 
@@ -72,9 +69,8 @@ theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {
   backward = r => Both r.low r.high
 }
 
-theorem below (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi :=
-  match h with
-    | { low, high } => high
+theorem below (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi := match h with
+  | { low, high } => high
 
 theorem within (lo x hi: Nat) (low: lo ≤ x) (high: x ≤ hi): inRange lo x hi := { low, high }
 

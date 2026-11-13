@@ -6,13 +6,12 @@ type Range = { from: Nat, to: Nat }
 
 def Range.contains (r: Range) (id: Nat): Bool := r.from ≤ id ∧ id ≤ r.to
 
-def absorb (merged: List Range) (r: Range): List Range :=
-  match merged with
-    | [] => [r]
-    | [last, ..earlier] =>
-      if r.from ≤ last.to + 1
-      then [{ from = last.from, to = Nat.max last.to r.to }, ..earlier]
-      else [r, ..merged]
+def absorb (merged: List Range) (r: Range): List Range := match merged with
+  | [] => [r]
+  | [last, ..earlier] =>
+    if r.from ≤ last.to + 1
+    then [{ from = last.from, to = Nat.max last.to r.to }, ..earlier]
+    else [r, ..merged]
 
 def covered (rs: List Range) (id: Nat): Bool := rs.any (r => r.contains id)
 

@@ -14,11 +14,10 @@ import Std (Bool, DecEq, Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void
 --| The characters a layout is drawn with.
 def isSeatChar (char: Char): Bool := char == '.' ∨ char == 'L' ∨ char == '#'
 
-theorem isSeatCharSymbol (kind: Seat): isSeatChar (symbol kind) = True :=
-  match kind with
-    | Floor => rfl
-    | Empty => rfl
-    | Occupied => rfl
+theorem isSeatCharSymbol (kind: Seat): isSeatChar (symbol kind) = True := match kind with
+  | Floor => rfl
+  | Empty => rfl
+  | Occupied => rfl
 
 theorem runsSeat (kind: Seat) (rest: List Char) (allowed: isSeatChar (symbol kind) = True): Parse.Runs seat [symbol kind] rest kind :=
   match kind with
@@ -28,10 +27,9 @@ theorem runsSeat (kind: Seat) (rest: List Char) (allowed: isSeatChar (symbol kin
 
 --| A seat's character is not the start of another seat's, where `char` isn't a seat character.
 theorem seatAbsent (first: Char) (char: Char) (more: List Char) (member: isSeatChar first = True) (stops: isSeatChar char = False):
-    Text.stripPrefixChars [first] [char, ..more] = None :=
-  match same: Text.sameChar first char with
-    | True => cases
-    | False => rfl
+    Text.stripPrefixChars [first] [char, ..more] = None := match same: Text.sameChar first char with
+      | True => cases
+      | False => rfl
 
 theorem declinesSeat (input: List Char) (stops: Parse.CannotStart isSeatChar input): Parse.Declines seat input :=
   Parse.declinesPick _ input
@@ -41,24 +39,21 @@ theorem declinesSeat (input: List Char) (stops: Parse.CannotStart isSeatChar inp
         let stop := stops char more rfl
         Both (seatAbsent '.' char more rfl stop) (Both (seatAbsent 'L' char more rfl stop) (Both (seatAbsent '#' char more rfl stop) rfl)))
 
-theorem allSeats (row: List Seat): (row.map symbol).all isSeatChar = True :=
-  match row with
-    | [] => rfl
-    | [kind, ..more] => rewrite isSeatCharSymbol kind in allSeats more
+theorem allSeats (row: List Seat): (row.map symbol).all isSeatChar = True := match row with
+  | [] => rfl
+  | [kind, ..more] => rewrite isSeatCharSymbol kind in allSeats more
 
 theorem runsRow (line: List Char) (row: List Seat) (written: RowWritten line row) (nonEmpty: row ≠ []):
-    Parse.Runs (() => Parse.many1 seat |> .toList) line [] row :=
-  match row, nonEmpty with
-    | [], nonEmpty2 => Void.exfalso (nonEmpty2 rfl)
-    | [first, ..more], nonEmpty2 =>
-      rewrite written in
-        Parse.runsMap (() => Parse.many1 seat) NonEmptyList.toList _ [] (NonEmptyList.cons first more)
-          (Parse.runsMany1Symbols seat symbol isSeatChar runsSeat declinesSeat first more [] (allSeats [first, ..more])
-            (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
+    Parse.Runs (() => Parse.many1 seat |> .toList) line [] row := match row, nonEmpty with
+      | [], nonEmpty2 => Void.exfalso (nonEmpty2 rfl)
+      | [first, ..more], nonEmpty2 =>
+        rewrite written in
+          Parse.runsMap (() => Parse.many1 seat) NonEmptyList.toList _ [] (NonEmptyList.cons first more)
+            (Parse.runsMany1Symbols seat symbol isSeatChar runsSeat declinesSeat first more [] (allSeats [first, ..more])
+              (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
 
-theorem layoutEta (layout: Layout): ({ grid = layout.grid }: Layout) = layout :=
-  match layout with
-    | { grid } => rfl
+theorem layoutEta (layout: Layout): ({ grid = layout.grid }: Layout) = layout := match layout with
+  | { grid } => rfl
 
 --| The soundness theorem's conclusion: every line of the input is its row of
 --| the layout written out, and the layout is a rectangle.

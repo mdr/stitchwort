@@ -9,10 +9,9 @@ import Aoc.Year2021.Day10.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Void)
 
 --| What the scan of the rest does after a scan of the start.
-def continue (start: Scan) (rest: List Token): Scan :=
-  match start with
-    | Corrupted illegal => Corrupted illegal
-    | Unclosed open => scan open rest
+def continue (start: Scan) (rest: List Token): Scan := match start with
+  | Corrupted illegal => Corrupted illegal
+  | Unclosed open => scan open rest
 
 --| Scanning two pieces is scanning the first, then the second from where it
 --| left off.
@@ -82,10 +81,9 @@ theorem framesBalanced (base: List Token): ∀ (frames: List (Bracket, List Toke
 theorem scanBalanced (line: List Token) (h: scan [] line = Unclosed []): Balanced line := framesBalanced [] [] Empty line h
 
 --| Closing every open bracket, innermost first, leaves none open.
-theorem closeAll (stack: List Bracket): scan stack (stack.map Closer) = Unclosed [] :=
-  match stack with
-    | [] => rfl
-    | [bracket, ..below] => Eq.trans (closeTop bracket below (below.map Closer)) (closeAll below)
+theorem closeAll (stack: List Bracket): scan stack (stack.map Closer) = Unclosed [] := match stack with
+  | [] => rfl
+  | [bracket, ..below] => Eq.trans (closeTop bracket below (below.map Closer)) (closeAll below)
 
 --| A start the scan reads to the end is legal: closing what is open
 --| finishes it.

@@ -165,14 +165,13 @@ theorem addAllDescribes [fits: Nat → Prop] (buses: List Bus) (positive: Positi
                 later
 
 theorem addAllNone [fits: Nat → Prop] (buses: List Bus) (positive: Positive buses) (alignment: Alignment) (described: Describes fits alignment)
-    (added: alignment.addAll buses = None) (t: Nat) (fitsT: fits t) (all: AllDepart buses t): Void :=
-  match buses with
-    | [bus, ..rest] =>
-      match positive with
-        | Both ok restPositive =>
-          match all with
-            | Both departs restDepart =>
-              match e: alignment.add bus with
-                | None => addNone bus described e t fitsT departs
-                | Some next =>
-                  addAllNone rest restPositive next (addDescribes bus described next e) added t (Both fitsT departs) restDepart
+    (added: alignment.addAll buses = None) (t: Nat) (fitsT: fits t) (all: AllDepart buses t): Void := match buses with
+      | [bus, ..rest] =>
+        match positive with
+          | Both ok restPositive =>
+            match all with
+              | Both departs restDepart =>
+                match e: alignment.add bus with
+                  | None => addNone bus described e t fitsT departs
+                  | Some next =>
+                    addAllNone rest restPositive next (addDescribes bus described next e) added t (Both fitsT departs) restDepart

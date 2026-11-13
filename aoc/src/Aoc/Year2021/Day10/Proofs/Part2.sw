@@ -106,10 +106,9 @@ theorem part2Correct (lines: List (List Token)) (line: List Token) (member: line
 --| With an odd number of incomplete lines, as the puzzle promises, the
 --| spec's part 2 answer is unique: the program's is the only one.
 theorem part2Unique (lines: List (List Token)) (a: Nat) (b: Nat) (odd: ∀ (scores: List Nat) => CompletionScores lines scores → scores.length % 2 = 1)
-    (first: Part2Answer lines a) (second: Part2Answer lines b): a = b :=
-  match first with
-    | Witness xs (Both scoredA middleA) =>
-      match second with
-        | Witness ys (Both scoredB middleB) =>
-          let same := completionScoresUnique lines xs ys scoredA scoredB
-          middleUnique xs a b (odd xs scoredA) middleA (rewrite same in middleB)
+    (first: Part2Answer lines a) (second: Part2Answer lines b): a = b := match first with
+      | Witness xs (Both scoredA middleA) =>
+        match second with
+          | Witness ys (Both scoredB middleB) =>
+            let same := completionScoresUnique lines xs ys scoredA scoredB
+            middleUnique xs a b (odd xs scoredA) middleA (rewrite same in middleB)

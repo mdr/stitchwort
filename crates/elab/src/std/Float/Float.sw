@@ -72,9 +72,8 @@ theorem Float.mkExt (a: Nat) (b: Nat) (p: Float.isValid a = True) (e: a = b):
       (Bool.uniqueEq (Float.isValid a) True p q'))
     e
 
-theorem Float.bitsExt (x: Float) (y: Float) (e: x.bits = y.bits): x = y :=
-  match x, y with
-    | { bits = a, valid = p }, { bits = b, valid = q } => Float.mkExt a b p e q
+theorem Float.bitsExt (x: Float) (y: Float) (e: x.bits = y.bits): x = y := match x, y with
+  | { bits = a, valid = p }, { bits = b, valid = q } => Float.mkExt a b p e q
 
 theorem Float.bitsNe (x: Float) (y: Float) (h: x.bits ≠ y.bits): x ≠ y :=
   e => h (Eq.cong (k => k.bits) e)
@@ -147,10 +146,9 @@ theorem Float.flipLow (m: Nat) (h: Nat.leq 9223372036854775808 m = False):
 --| pattern, and not the NaN; flipping it twice gives it back.
 theorem Float.flipValidFrom (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221120237041090560 = False)
     (b: Bool) (hk: Nat.leq 9223372036854775808 n = b):
-    Float.isValid (if b then n - 9223372036854775808 else n + 9223372036854775808) = True :=
-  match b with
-    | True => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
-    | False => Float.validHigh (n + 9223372036854775808) omega (omega [Float.lowBound n v e hk])
+    Float.isValid (if b then n - 9223372036854775808 else n + 9223372036854775808) = True := match b with
+      | True => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
+      | False => Float.validHigh (n + 9223372036854775808) omega (omega [Float.lowBound n v e hk])
 
 theorem Float.flipValid (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221120237041090560 = False):
     Float.isValid (Float.flipSignBits n) = True :=
@@ -172,10 +170,9 @@ theorem Float.flipNotNaN (n: Nat) (v: Float.isValid n = True):
 
 theorem Float.flipFlipFrom (n: Nat) (v: Float.isValid n = True)
     (b: Bool) (hk: Nat.leq 9223372036854775808 n = b):
-    Float.flipSignBits (if b then n - 9223372036854775808 else n + 9223372036854775808) = n :=
-  match b with
-    | True => rewrite Float.flipLow (n - 9223372036854775808) (omega [Float.highBound n v hk]) in omega
-    | False => rewrite Float.flipHigh (n + 9223372036854775808) omega in omega
+    Float.flipSignBits (if b then n - 9223372036854775808 else n + 9223372036854775808) = n := match b with
+      | True => rewrite Float.flipLow (n - 9223372036854775808) (omega [Float.highBound n v hk]) in omega
+      | False => rewrite Float.flipHigh (n + 9223372036854775808) omega in omega
 
 theorem Float.flipFlip (n: Nat) (v: Float.isValid n = True): Float.flipSignBits (Float.flipSignBits n) = n :=
   Float.flipFlipFrom n v (Nat.leq 9223372036854775808 n) rfl
@@ -184,10 +181,9 @@ theorem Float.flipFlip (n: Nat) (v: Float.isValid n = True): Float.flipSignBits 
 --| sign is clear already).
 theorem Float.clearValidFrom (n: Nat) (v: Float.isValid n = True)
     (b: Bool) (hk: Nat.leq 9223372036854775808 n = b):
-    Float.isValid (if b then n - 9223372036854775808 else n) = True :=
-  match b with
-    | True => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
-    | False => v
+    Float.isValid (if b then n - 9223372036854775808 else n) = True := match b with
+      | True => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
+      | False => v
 
 theorem Float.clearValid (n: Nat) (v: Float.isValid n = True): Float.isValid (Float.clearSignBits n) = True :=
   Float.clearValidFrom n v (Nat.leq 9223372036854775808 n) rfl
@@ -371,11 +367,10 @@ def Float.ieeeLe (x: Float) (y: Float): Bool :=
   ¬(Float.isNaN x) ∧ ¬(Float.isNaN y)
     ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
 
-theorem Float.keyLessLeq (i j: Int) (h: Int.less i j = True): Int.leq i j = True :=
-  match i, j with
-    | OfNat m, OfNat n => omega
-    | NegSucc m, OfNat n => rfl
-    | NegSucc m, NegSucc n => omega
+theorem Float.keyLessLeq (i j: Int) (h: Int.less i j = True): Int.leq i j = True := match i, j with
+  | OfNat m, OfNat n => omega
+  | NegSucc m, OfNat n => rfl
+  | NegSucc m, NegSucc n => omega
 
 theorem Float.ltLeBools (a b c: Bool) (i j: Int) (h: (a ∧ b ∧ ¬c ∧ Int.less i j) = True): (a ∧ b ∧ (c ∨ Int.leq i j)) = True :=
   match a, b, c with
@@ -407,10 +402,9 @@ theorem Float.ieeeRankExample: Float.ieeeRank (-Float.infinity) = 0 := rfl
 
 --| The two zeros, `0.0` and `-0.0`, have the same rank.
 theorem Float.rankZero (n: Nat) (z: (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808) = True):
-    Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312 :=
-  match z with
-    | Inl e => rewrite e.read in rfl
-    | Inr e => rewrite e.read in rfl
+    Float.rankOf n (Nat.leq 9223372036854775808 n) = 9218868437227405312 := match z with
+      | Inl e => rewrite e.read in rfl
+      | Inr e => rewrite e.read in rfl
 
 --| The ranks, from the order keys `ieeeLe` and `ieeeLt` compare, and back.
 theorem Float.rankLeOfKeys (m: Nat) (n: Nat):
@@ -516,10 +510,9 @@ theorem Float.ieeeLtNotNaN (x: Float) (y: Float) (h: Float.ieeeLt x y = True): (
   Float.ieeeLeNotNaN x y (Float.ieeeLtLe x y h)
 
 --| `<` is irreflexive and asymmetric, `<=` reflexive (but on the NaN).
-theorem Float.ieeeLtIrrefl (x: Float): Float.ieeeLt x x = False :=
-  match h: Float.ieeeLt x x with
-    | True => omega [Float.ieeeLtRank x x h]
-    | False => rfl
+theorem Float.ieeeLtIrrefl (x: Float): Float.ieeeLt x x = False := match h: Float.ieeeLt x x with
+  | True => omega [Float.ieeeLtRank x x h]
+  | False => rfl
 
 theorem Float.ieeeLtAsymm (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLt y x = False :=
   match k: Float.ieeeLt y x with
@@ -567,10 +560,9 @@ theorem Float.ieeeNotLtLe (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny:
       | False => omega)
 
 theorem Float.ieeeLeOr (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False):
-    (Float.ieeeLe x y = True) ∨ (Float.ieeeLe y x = True) :=
-  match c: Float.ieeeLe x y with
-    | True => Inl rfl
-    | False => Inr (Float.ieeeLeTotal x y nx ny c)
+    (Float.ieeeLe x y = True) ∨ (Float.ieeeLe y x = True) := match c: Float.ieeeLe x y with
+      | True => Inl rfl
+      | False => Inr (Float.ieeeLeTotal x y nx ny c)
 
 theorem Float.ieeeLtTransExample: Float.ieeeLt (-1.5) 2.0 = True := Float.ieeeLtTrans (-1.5) (-0.0) 2.0 rfl rfl
 
@@ -612,16 +604,14 @@ def Float.toInt (x: Float): Option Int :=
     (Float.clearSignBits x.bits)
 
 --| `toInt`, if the integer is a `SafeInt`.
-def Float.toSafeInt (x: Float): Option SafeInt :=
-  match Float.toInt x with
-    | Some n => SafeInt.ofInt n
-    | None => None
+def Float.toSafeInt (x: Float): Option SafeInt := match Float.toInt x with
+  | Some n => SafeInt.ofInt n
+  | None => None
 
 --| `toInt`, if the integer is a `SafeNat`.
-def Float.toSafeNat (x: Float): Option SafeNat :=
-  match Float.toInt x with
-    | Some (OfNat n) => SafeNat.ofNat n
-    | _ => None
+def Float.toSafeNat (x: Float): Option SafeNat := match Float.toInt x with
+  | Some (OfNat n) => SafeNat.ofNat n
+  | _ => None
 
 --| The integer as a double, exactly: every safe integer is a double.
 def SafeInt.toFloat (n: SafeInt): Float := Float.ofInt n.value

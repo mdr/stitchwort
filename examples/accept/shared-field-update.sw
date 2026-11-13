@@ -25,10 +25,9 @@ test "map" :=
 
 -- Whatever the constructor, the new value is read back.
 -- (In a type, `{` starts an effect row, so the update is bracketed.)
-theorem idUpdated (c: Shape) (x: Text): ({ c | id = x }).id = x :=
-  match c with
-    | Dot _ _ _ => rfl
-    | Circle _ _ _ _ => rfl
+theorem idUpdated (c: Shape) (x: Text): ({ c | id = x }).id = x := match c with
+  | Dot _ _ _ => rfl
+  | Circle _ _ _ _ => rfl
 
 -- A parameterised type.
 type Labelled (a: Type) =

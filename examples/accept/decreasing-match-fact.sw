@@ -11,10 +11,9 @@ import Std (Bool, Eq, Int, List, Nat, Option, Set, Void)
 -- Unnamed: `omega` reads `n - k = Succ j` as it stands.
 def countUp (n: Nat) (k: Nat): Nat
     decreasing n - k
-:=
-  match n - k with
-    | Zero => k
-    | Succ j => countUp n (k + 1)
+:= match n - k with
+  | Zero => k
+  | Succ j => countUp n (k + 1)
 
 theorem countUpUnfolds (n: Nat) (k: Nat): countUp n k = (match n - k with | Zero => k | Succ j => countUp n (k + 1)) :=
   countUp.unfold n k
@@ -31,10 +30,9 @@ theorem countUpEnds (n: Nat) (k: Nat) (within: k ≤ n): countUp n k = n
 -- Named, for a lemma: `Set.sizePopMin` turns the equation into the decrease.
 def drain (set: Set Nat) (total: Nat): Nat
     decreasing set.size
-:=
-  match found: set.popMin with
-    | None => total
-    | Some (least, rest) => drain rest (total + least) [decreasing := Set.sizePopMin set least rest found]
+:= match found: set.popMin with
+  | None => total
+  | Some (least, rest) => drain rest (total + least) [decreasing := Set.sizePopMin set least rest found]
 
 -- `rewrite` replaces the scrutinee, which no equation's `rfl` depends on.
 theorem drainEmpty (set: Set Nat) (total: Nat) (none: set.popMin = None): drain set total = total :=
@@ -75,10 +73,9 @@ theorem drainBelowOver (bound: Nat) (set: Set Nat) (total: Nat) (under: Nat.leq 
 -- plain too.
 def drainWhile (bound: Nat) (set: Set Nat) (total: Nat): Nat
     decreasing bound - total
-:=
-  match set.popMin with
-    | None => total
-    | Some (least, rest) => if total < bound then drainWhile bound rest (total + least + 1) else total
+:= match set.popMin with
+  | None => total
+  | Some (least, rest) => if total < bound then drainWhile bound rest (total + least + 1) else total
 
 theorem drainWhileStep (bound: Nat) (set: Set Nat) (total: Nat) (least: Nat) (rest: Set Nat)
     (popped: set.popMin = Some (least, rest)) (more: total < bound):
@@ -92,13 +89,12 @@ theorem drainWhileStep (bound: Nat) (set: Set Nat) (total: Nat) (least: Nat) (re
 -- equations, and the plain form is made for both, the inner one first.
 def countBoth (n: Nat) (m: Nat) (k: Nat): Nat
     decreasing n - k
-:=
-  match n - k with
-    | Zero => k
-    | Succ j =>
-      match m - k with
-        | Zero => k
-        | Succ _ => countBoth n m (k + 1)
+:= match n - k with
+  | Zero => k
+  | Succ j =>
+    match m - k with
+      | Zero => k
+      | Succ _ => countBoth n m (k + 1)
 
 theorem countBothStep (n: Nat) (m: Nat) (k: Nat) (j: Nat) (i: Nat) (outer: n - k = Succ j) (inner: m - k = Succ i):
     countBoth n m k = countBoth n m (k + 1) :=
@@ -107,10 +103,9 @@ theorem countBothStep (n: Nat) (m: Nat) (k: Nat) (j: Nat) (i: Nat) (outer: n - k
 -- Two scrutinees: each is an expression, so each has an equation.
 def countTwo (n: Nat) (m: Nat) (k: Nat): Nat
     decreasing n - k
-:=
-  match n - k, m - k with
-    | Succ _, Succ _ => countTwo n m (k + 1)
-    | _, _ => k
+:= match n - k, m - k with
+  | Succ _, Succ _ => countTwo n m (k + 1)
+  | _, _ => k
 
 theorem countTwoStep (n: Nat) (m: Nat) (k: Nat) (i: Nat) (j: Nat) (first: n - k = Succ i) (second: m - k = Succ j):
     countTwo n m k = countTwo n m (k + 1) :=
@@ -120,12 +115,11 @@ theorem countTwoStep (n: Nat) (m: Nat) (k: Nat) (i: Nat) (j: Nat) (first: n - k 
 -- equation, so the rewrite works as in `drainStep`.
 def drainLet (set: Set Nat) (total: Nat): Nat
     decreasing set.size
-:=
-  match found: set.popMin with
-    | None => total
-    | Some (least, rest) =>
-      let fewer := Set.sizePopMin set least rest found
-      drainLet rest (total + least) [decreasing := fewer]
+:= match found: set.popMin with
+  | None => total
+  | Some (least, rest) =>
+    let fewer := Set.sizePopMin set least rest found
+    drainLet rest (total + least) [decreasing := fewer]
 
 theorem drainLetStep (set: Set Nat) (total: Nat) (least: Nat) (rest: Set Nat) (popped: set.popMin = Some (least, rest)):
     drainLet set total = drainLet rest (total + least) :=
@@ -138,10 +132,9 @@ def predOf (m: Nat) (positive: 0 < m): Nat := m - 1
 
 def countUsed (n: Nat) (k: Nat): Nat
     decreasing n - k
-:=
-  match n - k with
-    | Zero => k
-    | Succ _ => predOf (n - k) omega + countUsed n (k + 1)
+:= match n - k with
+  | Zero => k
+  | Succ _ => predOf (n - k) omega + countUsed n (k + 1)
 
 theorem countUsedUnfolds (n: Nat) (k: Nat):
     countUsed n k = (match found: n - k with | Zero => k | Succ _ => predOf (n - k) omega + countUsed n (k + 1)) :=
@@ -161,10 +154,9 @@ theorem sumToUnfolds (n: Nat) (k: Nat):
 -- A pair of measures: the first goes down in the arm, by the equation.
 def lexDown (n: Nat) (m: Nat) (k: Nat): Nat
     decreasing (n - k, m)
-:=
-  match n - k with
-    | Zero => m
-    | Succ _ => lexDown n m (k + 1)
+:= match n - k with
+  | Zero => m
+  | Succ _ => lexDown n m (k + 1)
 
 theorem lexDownStep (n: Nat) (m: Nat) (k: Nat) (j: Nat) (left: n - k = Succ j):
     lexDown n m k = lexDown n m (k + 1) :=
@@ -173,11 +165,10 @@ theorem lexDownStep (n: Nat) (m: Nat) (k: Nat) (j: Nat) (left: n - k = Succ j):
 -- A call in a pattern guard gets the equation too.
 def countGuard (n: Nat) (k: Nat): Nat
     decreasing n - k
-:=
-  match n - k with
-    | Zero => k
-    | Succ _ if countGuard n (k + 1) == n => n
-    | Succ _ => k
+:= match n - k with
+  | Zero => k
+  | Succ _ if countGuard n (k + 1) == n => n
+  | Succ _ => k
 
 theorem countGuardZero (n: Nat) (k: Nat) (zero: n - k = Zero): countGuard n k = k :=
   rewrite countGuard.unfold n k, zero in rfl

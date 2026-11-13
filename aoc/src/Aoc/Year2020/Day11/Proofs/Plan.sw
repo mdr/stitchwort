@@ -20,10 +20,9 @@ def SamePlan (start: Layout) (layout: Layout): Prop :=
 theorem becomesIsSeat (seat: Seat) (occupiedNear: Nat) (crowded: Nat): (Spec.becomes seat occupiedNear crowded).isSeat = seat.isSeat := cases
 
 theorem mapKeepsSeat (found: Option Seat) (f: Seat → Seat) (keeps: ∀ (seat: Seat) => (f seat).isSeat = seat.isSeat):
-    (found.map f).map Seat.isSeat = found.map Seat.isSeat :=
-  match found with
-    | None => rfl
-    | Some seat => rewrite keeps seat in rfl
+    (found.map f).map Seat.isSeat = found.map Seat.isSeat := match found with
+      | None => rfl
+      | Some seat => rewrite keeps seat in rfl
 
 --| A spec round keeps the floor plan.
 theorem roundPlan (start: Layout) (layout: Layout) (considered: Position → Nat) (crowded: Nat) (same: SamePlan start layout):

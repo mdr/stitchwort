@@ -7,17 +7,15 @@
 -- Membership in lists put together
 
 --| An element of the first list is in the two joined.
-theorem List.memAppendLeft (x: a) (xs ys: List a) (h: x ∈ xs): x ∈ List.append xs ys :=
-  match xs, h with
-    | [], m => Void.exfalso m
-    | [z, ..zs], Inl e => Inl e
-    | [z, ..zs], Inr m => Inr (List.memAppendLeft x zs ys m)
+theorem List.memAppendLeft (x: a) (xs ys: List a) (h: x ∈ xs): x ∈ List.append xs ys := match xs, h with
+  | [], m => Void.exfalso m
+  | [z, ..zs], Inl e => Inl e
+  | [z, ..zs], Inr m => Inr (List.memAppendLeft x zs ys m)
 
 --| An element of the second list is in the two joined.
-theorem List.memAppendRight (x: a) (xs ys: List a) (m: x ∈ ys): x ∈ List.append xs ys :=
-  match xs with
-    | [] => m
-    | [z, ..zs] => Inr (List.memAppendRight x zs ys m)
+theorem List.memAppendRight (x: a) (xs ys: List a) (m: x ∈ ys): x ∈ List.append xs ys := match xs with
+  | [] => m
+  | [z, ..zs] => Inr (List.memAppendRight x zs ys m)
 
 --| What `f` makes from an element of `xs` is in `List.concatMap xs f`.
 theorem List.memConcatMap (f: a → List b) (x: a) (y: b) (xs: List a) (member: x ∈ xs) (made: y ∈ f x): y ∈ List.concatMap xs f :=
@@ -61,10 +59,9 @@ instance Ordering.instFinite: Finite Ordering := {
 --| Every option: `None`, then `Some` of every value.
 def Option.allFinite [auto fin: Finite a]: List (Option a) := [None, ..List.concatMap Finite.all (x => [Some x])]
 
-theorem Option.allFiniteComplete [auto fin: Finite a] (o: Option a): List.Mem o Option.allFinite :=
-  match o with
-    | None => Inl rfl
-    | Some x => Inr (List.memConcatMap (y => [Some y]) x (Some x) Finite.all (Finite.complete x) (Inl rfl))
+theorem Option.allFiniteComplete [auto fin: Finite a] (o: Option a): List.Mem o Option.allFinite := match o with
+  | None => Inl rfl
+  | Some x => Inr (List.memConcatMap (y => [Some y]) x (Some x) Finite.all (Finite.complete x) (Inl rfl))
 
 instance Option.instFinite [auto fin: Finite a]: Finite (Option a) := { all = Option.allFinite, complete = Option.allFiniteComplete }
 

@@ -9,10 +9,9 @@ def below (n: Nat) (limit: Nat) (ok: n < limit): Nat := limit - n
 -- The branch uses the proof.
 def gap (n: Nat) (limit: Nat): Nat := if ok: n < limit then below n limit ok else 0
 
-theorem gapPositive (n: Nat) (limit: Nat) (pos: 0 < gap n limit): n < limit :=
-  match Nat.leq (Succ n) limit with
-    | True => rfl
-    | False => omega
+theorem gapPositive (n: Nat) (limit: Nat) (pos: 0 < gap n limit): n < limit := match Nat.leq (Succ n) limit with
+  | True => rfl
+  | False => omega
 
 -- The branch doesn't use the proof.
 def capped (n: Nat) (limit: Nat): Nat := if n < limit then limit - n else 0
@@ -22,10 +21,9 @@ theorem cappedSplit (n: Nat) (limit: Nat) (pos: 0 < capped n limit): n < limit â
     | { holds = True, sound = _, complete = _ } => omega
     | { holds = False, sound = _, complete = _ } => omega
 
-theorem cappedPositive (n: Nat) (limit: Nat) (pos: 0 < capped n limit): n < limit :=
-  match Nat.leq (Succ n) limit with
-    | True => omega
-    | False => omega
+theorem cappedPositive (n: Nat) (limit: Nat) (pos: 0 < capped n limit): n < limit := match Nat.leq (Succ n) limit with
+  | True => omega
+  | False => omega
 
 -- 2021 day 18's `split`: the decision's `False` case refines the `if` in
 -- `some` to `None`, which can't be `Some halves`.

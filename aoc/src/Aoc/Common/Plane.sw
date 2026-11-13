@@ -198,13 +198,12 @@ def Point.toCoords (point: Point): Coords YDown := { x = point.x.toInt, y = poin
 
 --| The point at these coordinates, or `None` if `x` or `y` is negative:
 --| only `YDown` coordinates are a sheet's.
-def Coords.toPoint (coords: Coords YDown): Option Point :=
-  match coords.x.toNatChecked with
-    | None => None
-    | Some x =>
-      match coords.y.toNatChecked with
-        | None => None
-        | Some y => Some { x, y }
+def Coords.toPoint (coords: Coords YDown): Option Point := match coords.x.toNatChecked with
+  | None => None
+  | Some x =>
+    match coords.y.toNatChecked with
+      | None => None
+      | Some y => Some { x, y }
 
 --| The step across a grid as `Coords YDown`: `x` the columns and `y` the
 --| rows, `y` down as rows are.

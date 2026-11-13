@@ -50,10 +50,9 @@ theorem finishStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (after: 
       (Both (Both formed laterRead.right.left) (doneNext wanted later reader packet more left next laterRead.right.right))
 
 --| A type id below 8 that is no operator type's is 4.
-theorem operatorTypeOfNone (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 :=
-  match n with
-    | 4 => rfl
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
+theorem operatorTypeOfNone (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 := match n with
+  | 4 => rfl
+  | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
 
 --| A literal's bits, field by field.
 theorem literalHere (version: Nat) (groups: NonEmptyList Nat) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool) (after: List Bool)

@@ -47,8 +47,8 @@ theorem Ordering.notBothEqual (c d: Ordering) (t: Ordering.bothEqual c d = False
 --| As [`Ordering.andThenTrans`], where the rest need only be transitive when
 --| both first comparisons are `Equal`.
 theorem Ordering.andThenTransWhen (c1 c2 c3 r1 r2 r3: Ordering)
-    (t: (c1 = Less → c2 = Less → c3 = Less)) (e1: (c1 = Equal → c3 = c2)) (e2: (c2 = Equal → c3 = c1))
-    (tr: (c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less))
+    (t: c1 = Less → c2 = Less → c3 = Less) (e1: c1 = Equal → c3 = c2) (e2: c2 = Equal → c3 = c1)
+    (tr: c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less)
     (h1: Ordering.andThen c1 r1 = Less) (h2: Ordering.andThen c2 r2 = Less): Ordering.andThen c3 r3 = Less :=
   match c1, c2 with
     | Less, Less => rewrite t rfl rfl in rfl

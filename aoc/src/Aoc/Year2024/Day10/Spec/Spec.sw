@@ -8,10 +8,9 @@ import Aoc.Common (Position, adjacent)
 import Std (Bool, List, Nat, Option)
 
 --| "Always increases by a height of exactly 1 at each step".
-def increasesByOne (map: TopographicMap) (from: Position) (to: Position): Bool :=
-  match map.heightAt from with
-    | Some height => map.heightAt to == Some (height + 1)
-    | None => False
+def increasesByOne (map: TopographicMap) (from: Position) (to: Position): Bool := match map.heightAt from with
+  | Some height => map.heightAt to == Some (height + 1)
+  | None => False
 
 --| "Hiking trails never include diagonal steps - only up, down, left, or
 --| right": a step is to an `adjacent` position (one column apart in the

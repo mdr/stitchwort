@@ -11,10 +11,9 @@ import Std (Fail, List, Option, Result, Text)
 def parsed (input: Text): Result Packet Text := Fail.toResult (() => parsePacket input)
 
 --| The error a transmission fails to parse with, if it does.
-def errorOf (input: Text): Option Text :=
-  match parsed input with
-    | Err message => Some message
-    | Ok _ => None
+def errorOf (input: Text): Option Text := match parsed input with
+  | Err message => Some message
+  | Ok _ => None
 
 --| The error for bits that aren't a packet, as the puzzle's operators are:
 --| an operator needs one or more sub-packets, a comparison exactly two.

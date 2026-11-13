@@ -29,9 +29,8 @@ theorem turnFails (item: Instruction) (digits: List Char) (turn: item.action.isT
   let zero: Parse.digitsValue digits % 90 = 0 := rewrite decimal at turn in turn isTurn
   rewrite zero at bad in cases
 
-theorem instructionEta (item: Instruction): { action = item.action, value = item.value } = item :=
-  match item with
-    | { action, value } => rfl
+theorem instructionEta (item: Instruction): { action = item.action, value = item.value } = item := match item with
+  | { action, value } => rfl
 
 --| `instruction` on a line as `InstructionWritten` has it.
 theorem runsInstruction (read: List Char) (item: Instruction) (written: InstructionWritten read item): Parse.Runs instruction read [] item :=

@@ -128,13 +128,12 @@ theorem offsetStepOpposite (offset: Offset) (direction: Direction): (offset.step
 
 --| `Grid.offset` is `offset`, kept to the grid.
 theorem gridOffsetSome (grid: Grid a) (position: Position) (offset: Offset) (next: Position) (landed: grid.offset position offset = Some next):
-    (position.offset offset = Some next) ∧ (grid.contains next = True) :=
-  match found: position.offset offset with
-    | Some here =>
-      match inside: grid.contains here with
-        | True =>
-          let same: here = next := Option.someInjective landed
-          rewrite <- same in Both rfl inside
+    (position.offset offset = Some next) ∧ (grid.contains next = True) := match found: position.offset offset with
+      | Some here =>
+        match inside: grid.contains here with
+          | True =>
+            let same: here = next := Option.someInjective landed
+            rewrite <- same in Both rfl inside
 
 theorem gridOffsetOf (grid: Grid a) (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next)
     (inside: grid.contains next = True): grid.offset position offset = Some next :=

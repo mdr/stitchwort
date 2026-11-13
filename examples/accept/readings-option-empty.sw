@@ -4,9 +4,8 @@ import Std (Bool, Eq, List, Nat, Option, Set, Text)
 
 theorem hasValue (o: Option Nat) (h: o.isSome): ∃ (x: Nat) => o = Some x := h.read
 
-theorem notNone (o: Option Nat) (h: o.isSome) (e: o = None): Void :=
-  match h with
-    | Witness x found => Option.noneNotSome x (Eq.trans (Eq.sym e) found)
+theorem notNone (o: Option Nat) (h: o.isSome) (e: o = None): Void := match h with
+  | Witness x found => Option.noneNotSome x (Eq.trans (Eq.sym e) found)
 
 theorem lacksValue (o: Option Nat) (h: o.isSome = False): o = None := h.read
 

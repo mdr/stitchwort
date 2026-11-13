@@ -60,10 +60,9 @@ theorem rangeBitsBeyond (f: Nat → Option Bool): ∀ (count start: Nat) (bits: 
 def countFrom (bitOf: Wire → Option Nat) (start: Nat) (wires: List Wire): Nat :=
   wires.foldLeft start (count wire => bitOf wire |> .fold count (bit => Nat.max count (bit + 1)))
 
-theorem maxAtLeast (m: Nat) (n: Nat): m ≤ Nat.max m n ∧ n ≤ Nat.max m n :=
-  match below: Nat.leq m n with
-    | True => Both below (Nat.leRefl n)
-    | False => Both (Nat.leRefl m) (omega)
+theorem maxAtLeast (m: Nat) (n: Nat): m ≤ Nat.max m n ∧ n ≤ Nat.max m n := match below: Nat.leq m n with
+  | True => Both below (Nat.leRefl n)
+  | False => Both (Nat.leRefl m) (omega)
 
 theorem countFromAtLeast (bitOf: Wire → Option Nat) (wires: List Wire) (start: Nat): start ≤ countFrom bitOf start wires :=
   match wires with

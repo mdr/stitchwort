@@ -12,27 +12,25 @@ import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| One move changes the distance to anywhere by at most one.
 theorem movedNear (aim: Position) (to: Position) (direction: Direction) (next: Position) (step: moved aim direction = Some next):
-    distance aim to ≤ distance next to + 1 :=
-  match direction with
-    | Up =>
-      match top: aim.row == 0 with
-        | False => rewrite <- Option.someInjective step in omega [top]
-    | Down => rewrite <- Option.someInjective step in omega
-    | Left =>
-      match edge: aim.column == 0 with
-        | False => rewrite <- Option.someInjective step in omega [edge]
-    | Right => rewrite <- Option.someInjective step in omega
+    distance aim to ≤ distance next to + 1 := match direction with
+      | Up =>
+        match top: aim.row == 0 with
+          | False => rewrite <- Option.someInjective step in omega [top]
+      | Down => rewrite <- Option.someInjective step in omega
+      | Left =>
+        match edge: aim.column == 0 with
+          | False => rewrite <- Option.someInjective step in omega [edge]
+      | Right => rewrite <- Option.someInjective step in omega
 
 --| A walk has at least as many moves as the distance between its ends.
 theorem walkDistance (rows: List (List (Option k))) (start: Position) (route: List Direction) (end: Position)
-    (walked: walk rows start route = Some end): distance start end ≤ route.length :=
-  match route with
-    | [] => rewrite <- Option.someInjective walked in omega
-    | [direction, ..rest] =>
-      match step: moved start direction with
-        | Some next =>
-          match found: keyAt rows next with
-            | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
+    (walked: walk rows start route = Some end): distance start end ≤ route.length := match route with
+      | [] => rewrite <- Option.someInjective walked in omega
+      | [direction, ..rest] =>
+        match step: moved start direction with
+          | Some next =>
+            match found: keyAt rows next with
+              | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
 theorem routeCostYours (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=
@@ -42,36 +40,34 @@ theorem routeCostYours (route: List Direction): Costs.yours.routeCost route = ro
 
 --| A key's place is the only one where an arm aims at it.
 theorem numericPlaceOf (row column: Nat) (key: NumericKey) (found: keyAt numericRows { row, column } = Some key):
-    ({ row, column }: Position) = Keypad.numeric.place key :=
-  match row, column with
-    | 0, 0 => rewrite <- Option.someInjective found in rfl
-    | 0, 1 => rewrite <- Option.someInjective found in rfl
-    | 0, 2 => rewrite <- Option.someInjective found in rfl
-    | 1, 0 => rewrite <- Option.someInjective found in rfl
-    | 1, 1 => rewrite <- Option.someInjective found in rfl
-    | 1, 2 => rewrite <- Option.someInjective found in rfl
-    | 2, 0 => rewrite <- Option.someInjective found in rfl
-    | 2, 1 => rewrite <- Option.someInjective found in rfl
-    | 2, 2 => rewrite <- Option.someInjective found in rfl
-    | 3, 1 => rewrite <- Option.someInjective found in rfl
-    | 3, 2 => rewrite <- Option.someInjective found in rfl
-    | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 1, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 2, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 3, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | Succ (Succ (Succ (Succ row))), column => Void.exfalso (Option.noneNotSome key found)
+    ({ row, column }: Position) = Keypad.numeric.place key := match row, column with
+      | 0, 0 => rewrite <- Option.someInjective found in rfl
+      | 0, 1 => rewrite <- Option.someInjective found in rfl
+      | 0, 2 => rewrite <- Option.someInjective found in rfl
+      | 1, 0 => rewrite <- Option.someInjective found in rfl
+      | 1, 1 => rewrite <- Option.someInjective found in rfl
+      | 1, 2 => rewrite <- Option.someInjective found in rfl
+      | 2, 0 => rewrite <- Option.someInjective found in rfl
+      | 2, 1 => rewrite <- Option.someInjective found in rfl
+      | 2, 2 => rewrite <- Option.someInjective found in rfl
+      | 3, 1 => rewrite <- Option.someInjective found in rfl
+      | 3, 2 => rewrite <- Option.someInjective found in rfl
+      | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
+      | 1, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
+      | 2, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
+      | 3, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
+      | Succ (Succ (Succ (Succ row))), column => Void.exfalso (Option.noneNotSome key found)
 
 theorem directionalPlaceOf (row column: Nat) (key: DirectionKey) (found: keyAt directionalRows { row, column } = Some key):
-    ({ row, column }: Position) = Keypad.directional.place key :=
-  match row, column with
-    | 0, 1 => rewrite <- Option.someInjective found in rfl
-    | 0, 2 => rewrite <- Option.someInjective found in rfl
-    | 1, 0 => rewrite <- Option.someInjective found in rfl
-    | 1, 1 => rewrite <- Option.someInjective found in rfl
-    | 1, 2 => rewrite <- Option.someInjective found in rfl
-    | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | 1, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
-    | Succ (Succ row), column => Void.exfalso (Option.noneNotSome key found)
+    ({ row, column }: Position) = Keypad.directional.place key := match row, column with
+      | 0, 1 => rewrite <- Option.someInjective found in rfl
+      | 0, 2 => rewrite <- Option.someInjective found in rfl
+      | 1, 0 => rewrite <- Option.someInjective found in rfl
+      | 1, 1 => rewrite <- Option.someInjective found in rfl
+      | 1, 2 => rewrite <- Option.someInjective found in rfl
+      | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
+      | 1, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
+      | Succ (Succ row), column => Void.exfalso (Option.noneNotSome key found)
 
 --| The walk fact for your own presses, on a keypad where each key has one place.
 theorem cheapestWalksYours (fit: Fitted k)

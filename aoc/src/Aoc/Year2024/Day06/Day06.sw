@@ -55,12 +55,11 @@ def parseRow (width: Nat) (line: Text): {Fail} List Cell :=
   Fail.ensure (line.length == width) "expected ${width} characters, as on the first line, got ${line.length}"
   line.toList.map parseCell
 
-def parseCell (ch: Char): {Fail} Cell :=
-  match ch with
-    | '.' => Floor
-    | '#' => Obstruction
-    | '^' => GuardStart
-    | _ => Fail.fail "expected '.', '#' or '^', got '${ch}'"
+def parseCell (ch: Char): {Fail} Cell := match ch with
+  | '.' => Floor
+  | '#' => Obstruction
+  | '^' => GuardStart
+  | _ => Fail.fail "expected '.', '#' or '^', got '${ch}'"
 
 def Lab.startGuard (lab: Lab): Guard := { position = lab.start, facing = Up }
 

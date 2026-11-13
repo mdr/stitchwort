@@ -176,10 +176,9 @@ def tilesScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: 
     |> .toSet
 
 --| The tiles on best paths, from the start's scores.
-def Maze.bestTilesFrom (maze: Maze) (fromStart: Map Reindeer Nat): Set Position :=
-  match maze.lowestScore fromStart with
-    | Some best => tilesScoring fromStart maze.toEnd best
-    | None => Set.empty
+def Maze.bestTilesFrom (maze: Maze) (fromStart: Map Reindeer Nat): Set Position := match maze.lowestScore fromStart with
+  | Some best => tilesScoring fromStart maze.toEnd best
+  | None => Set.empty
 
 def Maze.bestTiles (maze: Maze): Set Position := maze.bestTilesFrom maze.fromStart
 

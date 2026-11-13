@@ -59,10 +59,9 @@ theorem drawFilesPast (size: Nat) (files: List File) (position: Nat) (past: size
 
 --| A file beside a covering file doesn't cover.
 theorem besideNotCovers (file: File) (other: File) (position: Nat) (beside: file.Beside other) (covered: file.span.covers position = True):
-    other.span.covers position = False :=
-  match e: other.span.covers position with
-    | True => Void.exfalso (omega [(Span.coversIff file.span position).forward covered, (Span.coversIff other.span position).forward e, beside])
-    | False => rfl
+    other.span.covers position = False := match e: other.span.covers position with
+      | True => Void.exfalso (omega [(Span.coversIff file.span position).forward covered, (Span.coversIff other.span position).forward e, beside])
+      | False => rfl
 
 theorem besideNumber (file: File) (other: File) (position: Nat) (beside: file.Beside other) (covered: file.span.covers position = True):
     other.numberAt position = 0 :=
@@ -114,22 +113,20 @@ theorem drawFilesFile (size: Nat) (files: List File) (position: Nat) (apart: Apa
 
 --| Where no file covers, the block is free.
 theorem drawFilesFree (size: Nat) (files: List File) (position: Nat) (none: ∀ (file: File) => file ∈ files → file.span.covers position = False):
-    (drawFiles size files).at position = Free :=
-  match e: Nat.leq (Succ position) size with
-    | True => rewrite drawFilesAt size files position e, List.findNoneOfMem (file => file.span.covers position) files none in rfl
-    | False => drawFilesPast size files position (omega)
+    (drawFiles size files).at position = Free := match e: Nat.leq (Succ position) size with
+      | True => rewrite drawFilesAt size files position e, List.findNoneOfMem (file => file.span.covers position) files none in rfl
+      | False => drawFilesPast size files position (omega)
 
 --| Each position's file number (0 if free) is the sum of the files' numbers there.
 theorem drawFilesIdOr (size: Nat) (files: List File) (apart: Apart size files) (position: Nat):
-    ((drawFiles size files).at position).idOr 0 = files.sumBy (file => file.numberAt position) :=
-  match apart with
-    | Both distinct (Both pairwise within) =>
-      match e: Nat.leq (Succ position) size with
-        | True => rewrite drawFilesAt size files position e in drawnNumber position files pairwise
-        | False =>
-          let none := List.sumByZeroIntro files (file => file.numberAt position) (file member =>
-            rewrite notCoversPast file.span position (omega [List.allMem (other => other.span.end ≤ size) file files within member]) in rfl)
-          rewrite drawFilesPast size files position (omega), none in rfl
+    ((drawFiles size files).at position).idOr 0 = files.sumBy (file => file.numberAt position) := match apart with
+      | Both distinct (Both pairwise within) =>
+        match e: Nat.leq (Succ position) size with
+          | True => rewrite drawFilesAt size files position e in drawnNumber position files pairwise
+          | False =>
+            let none := List.sumByZeroIntro files (file => file.numberAt position) (file member =>
+              rewrite notCoversPast file.span position (omega [List.allMem (other => other.span.end ≤ size) file files within member]) in rfl)
+            rewrite drawFilesPast size files position (omega), none in rfl
 
 --| A span doesn't cover a position before its start.
 theorem notCoversBefore (span: Span) (position: Nat) (before: position < span.start): span.covers position = False :=
@@ -177,17 +174,16 @@ theorem drawFilesChecksum (size: Nat) (files: List File):
 
 --| The drawing's checksum, as the puzzle states it, is the files' checksums added up.
 theorem drawFilesChecksumCorrect (size: Nat) (files: List File) (apart: Apart size files):
-    filesystemChecksum (drawFiles size files) = files.sumBy .checksum :=
-  match apart with
-    | Both distinct (Both pairwise within) =>
-      calc filesystemChecksum (drawFiles size files)
-        _ = (drawFiles size files).checksum := Eq.sym (checksumCorrect (drawFiles size files))
-        _ = (List.range 0 size).sumBy (position => position * ((drawFiles size files).at position).idOr 0) := drawFilesChecksum size files
-        _ = (List.range 0 size).sumBy (position => files.sumBy (file => position * file.numberAt position)) :=
-          List.sumByCongMem _ _ _ (position member =>
-            Eq.trans (Eq.cong (n => position * n) (drawFilesIdOr size files (Both distinct (Both pairwise within)) position))
-              (Eq.sym (List.sumByMulLeft files position (file => file.numberAt position))))
-        _ = files.sumBy (file => (List.range 0 size).sumBy (position => position * file.numberAt position)) :=
-          List.sumBySwap files (List.range 0 size) (position file => position * file.numberAt position)
-        _ = files.sumBy .checksum :=
-          List.sumByCongMem files _ _ (file member => fileChecksumRange file size (List.allMem (other => other.span.end ≤ size) file files within member))
+    filesystemChecksum (drawFiles size files) = files.sumBy .checksum := match apart with
+      | Both distinct (Both pairwise within) =>
+        calc filesystemChecksum (drawFiles size files)
+          _ = (drawFiles size files).checksum := Eq.sym (checksumCorrect (drawFiles size files))
+          _ = (List.range 0 size).sumBy (position => position * ((drawFiles size files).at position).idOr 0) := drawFilesChecksum size files
+          _ = (List.range 0 size).sumBy (position => files.sumBy (file => position * file.numberAt position)) :=
+            List.sumByCongMem _ _ _ (position member =>
+              Eq.trans (Eq.cong (n => position * n) (drawFilesIdOr size files (Both distinct (Both pairwise within)) position))
+                (Eq.sym (List.sumByMulLeft files position (file => file.numberAt position))))
+          _ = files.sumBy (file => (List.range 0 size).sumBy (position => position * file.numberAt position)) :=
+            List.sumBySwap files (List.range 0 size) (position file => position * file.numberAt position)
+          _ = files.sumBy .checksum :=
+            List.sumByCongMem files _ _ (file member => fileChecksumRange file size (List.allMem (other => other.span.end ≤ size) file files within member))

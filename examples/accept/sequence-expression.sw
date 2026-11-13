@@ -44,10 +44,9 @@ def lambdas: List Nat := [1, 2].map (x => 0; x + 1)
 
 def branches (b: Bool): Nat := if b then 0; 1 else 2; 3
 
-def arms (o: Option Nat): Nat :=
-  match o with
-    | Some k => 0; k
-    | None => 1; 2
+def arms (o: Option Nat): Nat := match o with
+  | Some k => 0; k
+  | None => 1; 2
 
 test "positions" := lambdas == [2, 3] && branches True == 1 && branches False == 3 && arms (Some 5) == 5 && arms None == 2
 

@@ -68,12 +68,11 @@ theorem readsChain (strengthOf: Operator → Nat) (strength: Nat) (operators: Li
 
 theorem readsLevel (strengthOf: Operator → Nat) (expression: () → {Parse} Expression) (readsExpression: Parse.Reads expression (Level strengthOf 0))
     (levels: List (List Operator)) (strength: Nat) (ranked: Ranked strengthOf strength levels):
-    Parse.Reads (() => level expression levels) (Level strengthOf strength) :=
-  match levels with
-    | [] => readsOperand strengthOf strength expression readsExpression
-    | [operators, ..tighter] =>
-      readsChain strengthOf strength operators (() => level expression tighter) (And.left ranked)
-        (readsLevel strengthOf expression readsExpression tighter (strength + 1) (And.right ranked))
+    Parse.Reads (() => level expression levels) (Level strengthOf strength) := match levels with
+      | [] => readsOperand strengthOf strength expression readsExpression
+      | [operators, ..tighter] =>
+        readsChain strengthOf strength operators (() => level expression tighter) (And.left ranked)
+          (readsLevel strengthOf expression readsExpression tighter (strength + 1) (And.right ranked))
 
 --| A whole expression, under ranked levels, is one written out that
 --| follows the strengths.

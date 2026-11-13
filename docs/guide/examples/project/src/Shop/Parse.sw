@@ -5,7 +5,6 @@ import Std (Fail, List, Text)
 import Std.Fail (fail, need)
 
 -- "tea 3" is three teas.
-def Order.read (line: Text): {Fail} Order :=
-  match line.words with
-    | [product, quantity] => { product, quantity = need quantity.toNat "expected a quantity, got '${quantity}'" }
-    | _ => fail "expected a product and a quantity, got '${line}'"
+def Order.read (line: Text): {Fail} Order := match line.words with
+  | [product, quantity] => { product, quantity = need quantity.toNat "expected a quantity, got '${quantity}'" }
+  | _ => fail "expected a product and a quantity, got '${line}'"

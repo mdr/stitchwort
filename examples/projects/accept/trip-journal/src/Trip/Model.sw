@@ -92,10 +92,9 @@ def Pin.fitsIn (pin: Pin) (leg: Leg): Bool :=
   Float.leq leg.start pin.start ∧ Float.leq 0.0 pin.duration ∧ Float.leq (pin.start + pin.duration) leg.end
 
 -- The pin lies in the first leg covering its start.
-def pinFits (legs: List Leg) (pin: Pin): Bool :=
-  match firstCovering legs pin.start with
-    | Some leg => pin.fitsIn leg
-    | None => False
+def pinFits (legs: List Leg) (pin: Pin): Bool := match firstCovering legs pin.start with
+  | Some leg => pin.fitsIn leg
+  | None => False
 
 -- From 0 to the end of the trip.
 def within (legs: List Leg) (t: Float): Bool := Float.leq 0.0 t ∧ Float.leq t (lastEnd legs)

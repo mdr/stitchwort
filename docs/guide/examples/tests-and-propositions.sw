@@ -13,9 +13,8 @@ test "one that doesn't" := !bo.fits 4
 
 -- begin pieces
 theorem fitsSeats (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
-    booking.seats <= capacity :=
-  match h with
-    | Both _ small => small
+    booking.seats <= capacity := match h with
+      | Both _ small => small
 
 theorem fitsPositive (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     0 < booking.seats := h.left
@@ -28,10 +27,9 @@ theorem fitsBoth (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
 
 -- begin negative
 theorem emptyOrTooBig (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
-    booking.seats = 0 ∨ capacity < booking.seats :=
-  match h with
-    | Inl zero => Inl omega
-    | Inr big => Inr big.read
+    booking.seats = 0 ∨ capacity < booking.seats := match h with
+      | Inl zero => Inl omega
+      | Inr big => Inr big.read
 -- end negative
 
 -- begin build

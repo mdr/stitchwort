@@ -7,10 +7,9 @@ import Aoc.Year2021.Day12.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Option, Void)
 
 --| `==` is false between different things.
-theorem differ (x: Cave) (y: Cave) (ne: x ≠ y): (x == y) = False :=
-  match e: x == y with
-    | True => Void.exfalso (ne e.read)
-    | False => rfl
+theorem differ (x: Cave) (y: Cave) (ne: x ≠ y): (x == y) = False := match e: x == y with
+  | True => Void.exfalso (ne e.read)
+  | False => rfl
 
 --| Looking a cave up in a table built from a list of caves.
 theorem lookupBuilt (f: Cave → List Cave) (cave: Cave) (cs: List Cave) (member: cave ∈ cs): List.lookup (cs.map (c => (c, f c))) cave = Some (f cave) :=

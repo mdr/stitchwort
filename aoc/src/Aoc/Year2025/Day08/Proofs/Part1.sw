@@ -48,13 +48,12 @@ theorem allAppend (p: a → Bool) (xs ys: List a) (hx: xs.all p = True) (hy: ys.
       match e: p x with
         | True => allAppend p xs ys hx hy
 
-theorem allTake (p: a → Bool) (k: Nat) (xs: List a) (h: xs.all p = True): (xs.take k).all p = True :=
-  match k, xs with
-    | Zero, xs => rfl
-    | Succ k, [] => rfl
-    | Succ k, [x, ..xs] =>
-      match e: p x with
-        | True => allTake p k xs h
+theorem allTake (p: a → Bool) (k: Nat) (xs: List a) (h: xs.all p = True): (xs.take k).all p = True := match k, xs with
+  | Zero, xs => rfl
+  | Succ k, [] => rfl
+  | Succ k, [x, ..xs] =>
+    match e: p x with
+      | True => allTake p k xs h
 
 --| If every element passes q, so do both ends of every pair.
 theorem allPairsBoth (q: Nat → Bool) (xs: List Nat) (h: xs.all q = True): xs.pairs.all (pair => q pair.fst ∧ q pair.snd) = True :=
@@ -65,12 +64,11 @@ theorem allPairsBoth (q: Nat → Bool) (xs: List Nat) (h: xs.all q = True): xs.p
         | True => allAppend _ (List.map xs (y => (x, y))) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
 
 theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True) (xs: List Nat) (h: xs.all q = True):
-    (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True :=
-  match xs with
-    | [] => rfl
-    | [y, ..ys] =>
-      match e: q y with
-        | True => rewrite hx in allMapPairWith q x hx ys h
+    (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True := match xs with
+      | [] => rfl
+      | [y, ..ys] =>
+        match e: q y with
+          | True => rewrite hx in allMapPairWith q x hx ys h
 
 theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
   let n := points.length

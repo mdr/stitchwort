@@ -64,43 +64,41 @@ def Key.charOrSpace: (key: Key) → Char
 
 --| The key at a position, with a character if it takes one: undoes
 --| `position` and `charOrSpace` together ([`Key.fromParts`]).
-def Key.ofParts (position: Nat) (char: Char): Key :=
-  match position with
-    | 0 => Printable char
-    | 1 => Enter
-    | 2 => Tab
-    | 3 => Backspace
-    | 4 => Escape
-    | 5 => Delete
-    | 6 => Up
-    | 7 => Down
-    | 8 => Left
-    | 9 => Right
-    | 10 => Home
-    | 11 => End
-    | 12 => PageUp
-    | 13 => PageDown
-    | 14 => Ctrl char
-    | _ => Unknown
+def Key.ofParts (position: Nat) (char: Char): Key := match position with
+  | 0 => Printable char
+  | 1 => Enter
+  | 2 => Tab
+  | 3 => Backspace
+  | 4 => Escape
+  | 5 => Delete
+  | 6 => Up
+  | 7 => Down
+  | 8 => Left
+  | 9 => Right
+  | 10 => Home
+  | 11 => End
+  | 12 => PageUp
+  | 13 => PageDown
+  | 14 => Ctrl char
+  | _ => Unknown
 
-theorem Key.fromParts (key: Key): Key.ofParts (Key.position key) (Key.charOrSpace key) = key :=
-  match key with
-    | Printable char => rfl
-    | Enter => rfl
-    | Tab => rfl
-    | Backspace => rfl
-    | Escape => rfl
-    | Delete => rfl
-    | Up => rfl
-    | Down => rfl
-    | Left => rfl
-    | Right => rfl
-    | Home => rfl
-    | End => rfl
-    | PageUp => rfl
-    | PageDown => rfl
-    | Ctrl letter => rfl
-    | Unknown => rfl
+theorem Key.fromParts (key: Key): Key.ofParts (Key.position key) (Key.charOrSpace key) = key := match key with
+  | Printable char => rfl
+  | Enter => rfl
+  | Tab => rfl
+  | Backspace => rfl
+  | Escape => rfl
+  | Delete => rfl
+  | Up => rfl
+  | Down => rfl
+  | Left => rfl
+  | Right => rfl
+  | Home => rfl
+  | End => rfl
+  | PageUp => rfl
+  | PageDown => rfl
+  | Ctrl letter => rfl
+  | Unknown => rfl
 
 theorem Key.ofPartsCong (p: Nat) (q: Nat) (c: Char) (d: Char) (samePosition: p = q) (sameChar: c = d): Key.ofParts p c = Key.ofParts q d :=
   rewrite samePosition, sameChar in rfl
@@ -175,11 +173,10 @@ def Key.csi (parameters: List Nat): (bytes: List Nat) → Key.Decoded
 --| The key a CSI sequence stands for, from its parameter bytes and final byte.
 --| `ESC [A` to `ESC [D` are the arrows, `ESC [H` and `ESC [F` are `Home` and
 --| `End`, and `ESC [n~` is for the keys above the arrows.
-def Key.ofCsi (parameters: List Nat) (final: Nat): Key :=
-  match parameters with
-    | [] => Key.ofFinal final
-    | [parameter] => if final == 126 then Key.ofTilde parameter else Unknown
-    | _ => Unknown
+def Key.ofCsi (parameters: List Nat) (final: Nat): Key := match parameters with
+  | [] => Key.ofFinal final
+  | [parameter] => if final == 126 then Key.ofTilde parameter else Unknown
+  | _ => Unknown
 
 --| The final byte of `ESC [x` or `ESC Ox`.
 def Key.ofFinal (final: Nat): Key :=

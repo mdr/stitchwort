@@ -8,10 +8,9 @@
 -- "Generalised `match`"; docs/proposals/goal-as-written.md, stage 2.)
 import Std (Bool, Eq, List, Nat, Option, Or)
 
-def chain (fuel: Nat) (lists: List (List Nat)): Nat :=
-  match fuel with
-    | Zero => 0
-    | Succ more => lists.map (chainThrough more) |> .maximum |> .getOrElse 0
+def chain (fuel: Nat) (lists: List (List Nat)): Nat := match fuel with
+  | Zero => 0
+  | Succ more => lists.map (chainThrough more) |> .maximum |> .getOrElse 0
 
 def chainThrough (fuel: Nat): (xs: List Nat) → Nat
   | [] => 0
@@ -24,10 +23,9 @@ def chainThrough (fuel: Nat): (xs: List Nat) → Nat
 -- `chainBounded`.)
 theorem upToEta (more: Nat) (lists: List (List Nat)) (cap: Nat)
     (each: ∀ (most: Nat) => lists.map (chainThrough more) |> .maximum = Some most → most ≤ cap):
-    chain (Succ more) lists ≤ cap :=
-  match found: lists.map (chainThrough more) |> .maximum with
-    | None => omega
-    | Some most => omega [each most found]
+    chain (Succ more) lists ≤ cap := match found: lists.map (chainThrough more) |> .maximum with
+      | None => omega
+      | Some most => omega [each most found]
 
 def isBig (n: Nat): Bool := 10 < n
 
@@ -35,20 +33,18 @@ def label (n: Nat): Nat := if isBig n then 1 else 0
 
 -- `isBig n` is shown on the left and hidden inside `label n` on the right:
 -- the search over the computed goal refines both, as before.
-theorem hiddenInACall (n: Nat): (if isBig n then 1 else 0) = label n :=
-  match big: isBig n with
-    | True => rfl
-    | False => rfl
+theorem hiddenInACall (n: Nat): (if isBig n then 1 else 0) = label n := match big: isBig n with
+  | True => rfl
+  | False => rfl
 
 def pick (b: Bool): Nat := if b then 1 else 0
 
 -- `isBig 20` computes to `True`, so the computed goal is `1 = 1` and has no
 -- occurrence; refining the call as written would make the `False` arm
 -- `pick False = 1`. The `match` refines nothing, as before.
-theorem computedAway: pick (isBig 20) = 1 :=
-  match big: isBig 20 with
-    | True => rfl
-    | False => rfl
+theorem computedAway: pick (isBig 20) = 1 := match big: isBig 20 with
+  | True => rfl
+  | False => rfl
 
 def double (n: Nat): Nat := n + n
 
@@ -56,10 +52,9 @@ def double (n: Nat): Nat := n + n
 -- double a` (where it was `a + a = a + a`), and a lemma about `double`
 -- finds it as written.
 theorem armsKeepCalls (doubled: ∀ (n: Nat) => double n = 2 * n) (flag: Bool) (a: Nat):
-    (if flag then double a else 0) = (if flag then 0 + double a else 0) :=
-  match e: flag with
-    | True => rewrite doubled a in rfl
-    | False => rfl
+    (if flag then double a else 0) = (if flag then 0 + double a else 0) := match e: flag with
+      | True => rewrite doubled a in rfl
+      | False => rfl
 
 def Ignore (a: Type) (b: Bool): Type := a
 
@@ -84,7 +79,6 @@ def keep (a: Nat) (b: Bool): Nat := a
 
 -- `isBig n` is shown, but `keep` drops it, so nothing the arms see would
 -- change: not found, and the warning says so.
-theorem vanishing (n: Nat): keep 3 (isBig n) = 3 :=
-  match e: isBig n with
-    | True => rfl
-    | False => rfl
+theorem vanishing (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
+  | True => rfl
+  | False => rfl

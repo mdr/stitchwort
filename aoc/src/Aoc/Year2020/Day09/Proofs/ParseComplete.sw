@@ -12,9 +12,8 @@ theorem runsNumber (read: List Char) (number: Nat) (written: NumberWritten read 
   match written with
     | Both some (Both digits value) => rewrite value in Parse.runsNat read [] some digits rfl
 
-theorem dataEta (data: XmasData): ({ numbers = data.numbers }: XmasData) = data :=
-  match data with
-    | { numbers } => rfl
+theorem dataEta (data: XmasData): ({ numbers = data.numbers }: XmasData) = data := match data with
+  | { numbers } => rfl
 
 --| Input whose lines are numbers written out is read as those numbers.
 theorem parseComplete (input: Text) (data: XmasData) (written: List.All2 NumberWritten (input.lines.map Text.toList) data.numbers):

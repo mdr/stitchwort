@@ -13,10 +13,9 @@ def Rectangle (cave: Cave): Prop := 0 < cave.width ∧ (∀ (row: List (Fin 10))
 
 --| The risk level at a position: the digit in that row and column. A
 --| position off the map has none.
-def levelAt (cave: Cave) (position: Position): Option Nat :=
-  match cave.grid.rows.get position.row with
-    | None => None
-    | Some row => row.get position.column |> .map Fin.toNat
+def levelAt (cave: Cave) (position: Position): Option Nat := match cave.grid.rows.get position.row with
+  | None => None
+  | Some row => row.get position.column |> .map Fin.toNat
 
 --| "You start in the top left position."
 def topLeft: Position := { row = 0, column = 0 }

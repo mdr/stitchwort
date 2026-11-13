@@ -21,9 +21,8 @@ def search (xs: List Nat) (number: Nat): Nat → Option Nat
 
 def answer (xs: List Nat): Option Nat := search xs 1 1000000000
 
-def describe (xs: List Nat): Nat :=
-  match answer xs with
-    | Some n => n
-    | None => 0
+def describe (xs: List Nat): Nat := match answer xs with
+  | Some n => n
+  | None => 0
 
 test "a bounded search" := describe [3, 1, 2] == 4

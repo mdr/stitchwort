@@ -14,22 +14,20 @@ def List.compareLex (cmp: a → a → Ordering): (xs: List a) → (ys: List a) �
   | [x, ..xs], [y, ..ys] => Ordering.andThen (cmp x y) (List.compareLex cmp xs ys)
 
 theorem List.compareLexEqual (cmp: a → a → Ordering) (equal: ∀ (x y: a) => cmp x y = Equal → x = y)
-    (xs ys: List a) (h: List.compareLex cmp xs ys = Equal): xs = ys :=
-  match xs, ys with
-    | [], [] => rfl
-    | [x, ..xs], [y, ..ys] =>
-      Eq.trans (Eq.cong (t => [t, ..xs]) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
-        (Eq.cong (Cons y) (List.compareLexEqual cmp equal xs ys (And.right (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
+    (xs ys: List a) (h: List.compareLex cmp xs ys = Equal): xs = ys := match xs, ys with
+      | [], [] => rfl
+      | [x, ..xs], [y, ..ys] =>
+        Eq.trans (Eq.cong (t => [t, ..xs]) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
+          (Eq.cong (Cons y) (List.compareLexEqual cmp equal xs ys (And.right (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
 
 theorem List.compareLexFlip (cmp: a → a → Ordering) (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y))
-    (xs ys: List a): List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys) :=
-  match xs, ys with
-    | [], [] => rfl
-    | [], [y, ..ys] => rfl
-    | [x, ..xs], [] => rfl
-    | [x, ..xs], [y, ..ys] =>
-      rewrite flip x y, List.compareLexFlip cmp flip xs ys in
-        Eq.sym (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
+    (xs ys: List a): List.compareLex cmp ys xs = Ordering.flip (List.compareLex cmp xs ys) := match xs, ys with
+      | [], [] => rfl
+      | [], [y, ..ys] => rfl
+      | [x, ..xs], [] => rfl
+      | [x, ..xs], [y, ..ys] =>
+        rewrite flip x y, List.compareLexFlip cmp flip xs ys in
+          Eq.sym (Ordering.flipAndThen (cmp x y) (List.compareLex cmp xs ys))
 
 theorem List.compareLexTrans (cmp: a → a → Ordering) (equal: ∀ (x y: a) => cmp x y = Equal → x = y)
     (trans: ∀ (x y z: a) => cmp x y = Less → cmp y z = Less → cmp x z = Less)
@@ -52,18 +50,16 @@ def Pair.compareWith (ca: a → a → Ordering) (cb: b → b → Ordering): (p: 
 
 theorem Pair.compareWithEqual (ca: a → a → Ordering) (cb: b → b → Ordering)
     (ea: ∀ (x y: a) => ca x y = Equal → x = y) (eb: ∀ (x y: b) => cb x y = Equal → x = y)
-    (p q: Pair a b) (h: Pair.compareWith ca cb p q = Equal): p = q :=
-  match p, q with
-    | MkPair x1 y1, MkPair x2 y2 =>
-      Eq.trans (Eq.cong (t => MkPair t y1) (ea x1 x2 (And.left (Ordering.andThenEqual (ca x1 x2) (cb y1 y2) h))))
-        (Eq.cong (MkPair x2) (eb y1 y2 (And.right (Ordering.andThenEqual (ca x1 x2) (cb y1 y2) h))))
+    (p q: Pair a b) (h: Pair.compareWith ca cb p q = Equal): p = q := match p, q with
+      | MkPair x1 y1, MkPair x2 y2 =>
+        Eq.trans (Eq.cong (t => MkPair t y1) (ea x1 x2 (And.left (Ordering.andThenEqual (ca x1 x2) (cb y1 y2) h))))
+          (Eq.cong (MkPair x2) (eb y1 y2 (And.right (Ordering.andThenEqual (ca x1 x2) (cb y1 y2) h))))
 
 theorem Pair.compareWithFlip (ca: a → a → Ordering) (cb: b → b → Ordering)
     (fa: ∀ (x y: a) => ca y x = Ordering.flip (ca x y)) (fb: ∀ (x y: b) => cb y x = Ordering.flip (cb x y))
-    (p q: Pair a b): Pair.compareWith ca cb q p = Ordering.flip (Pair.compareWith ca cb p q) :=
-  match p, q with
-    | MkPair x1 y1, MkPair x2 y2 =>
-      rewrite fa x1 x2, fb y1 y2 in Eq.sym (Ordering.flipAndThen (ca x1 x2) (cb y1 y2))
+    (p q: Pair a b): Pair.compareWith ca cb q p = Ordering.flip (Pair.compareWith ca cb p q) := match p, q with
+      | MkPair x1 y1, MkPair x2 y2 =>
+        rewrite fa x1 x2, fb y1 y2 in Eq.sym (Ordering.flipAndThen (ca x1 x2) (cb y1 y2))
 
 theorem Pair.compareWithTrans (ca: a → a → Ordering) (cb: b → b → Ordering)
     (ea: ∀ (x y: a) => ca x y = Equal → x = y)
@@ -88,18 +84,16 @@ def Option.compareWith (cmp: a → a → Ordering): (option: Option a) → (othe
   | Some x, Some y => cmp x y
 
 theorem Option.compareWithEqual (cmp: a → a → Ordering) (equal: ∀ (x y: a) => cmp x y = Equal → x = y)
-    (m n: Option a) (h: Option.compareWith cmp m n = Equal): m = n :=
-  match m, n with
-    | None, None => rfl
-    | Some x, Some y => Eq.cong Some (equal x y h)
+    (m n: Option a) (h: Option.compareWith cmp m n = Equal): m = n := match m, n with
+      | None, None => rfl
+      | Some x, Some y => Eq.cong Some (equal x y h)
 
 theorem Option.compareWithFlip (cmp: a → a → Ordering) (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y))
-    (m n: Option a): Option.compareWith cmp n m = Ordering.flip (Option.compareWith cmp m n) :=
-  match m, n with
-    | None, None => rfl
-    | None, Some y => rfl
-    | Some x, None => rfl
-    | Some x, Some y => flip x y
+    (m n: Option a): Option.compareWith cmp n m = Ordering.flip (Option.compareWith cmp m n) := match m, n with
+      | None, None => rfl
+      | None, Some y => rfl
+      | Some x, None => rfl
+      | Some x, Some y => flip x y
 
 theorem Option.compareWithTrans (cmp: a → a → Ordering)
     (trans: ∀ (x y z: a) => cmp x y = Less → cmp y z = Less → cmp x z = Less)
@@ -131,9 +125,8 @@ theorem Text.compareCharsLex (xs ys: List Char): Text.compareChars xs ys = List.
     | [x, ..xs], [] => rfl
     | [x, ..xs], [y, ..ys] => Eq.cong (r => Ordering.andThen (Char.compare x y) r) (Text.compareCharsLex xs ys)
 
-theorem Text.ext (s t: Text) (h: Text.toList s = Text.toList t): s = t :=
-  match s, t with
-    | MkText a, MkText b => Eq.cong MkText h
+theorem Text.ext (s t: Text) (h: Text.toList s = Text.toList t): s = t := match s, t with
+  | MkText a, MkText b => Eq.cong MkText h
 
 theorem Text.compareEqual (s: Text) (t: Text) (h: Text.compare s t = Equal): s = t :=
   Text.ext s t (List.compareLexEqual Char.compare Char.compareEqual (Text.toList s) (Text.toList t)

@@ -11,9 +11,8 @@ import Std (And, Bool, Eq, List, Nat, Vec, Void)
 
 theorem rollNotFloor (h: Floor = Roll): Void := Nat.zeroNotSucc 0 (Eq.cong Cell.count h)
 
-theorem isRoll (x: Cell) (h: (x == Roll) = True): x = Roll :=
-  match x with
-    | Roll => rfl
+theorem isRoll (x: Cell) (h: (x == Roll) = True): x = Roll := match x with
+  | Roll => rfl
 
 --| The same cells everywhere.
 def Same (s: Cells) (t: Cells): Prop := ∀ (r c: Nat) => s r c = t r c
@@ -57,10 +56,9 @@ theorem roundsSame (grid: Grid): ∀ (n: Nat) (s t: Cells) => Same s t → Same 
   | Zero, s, t, h, r, c => h r c
   | Succ n, s, t, h, r, c => roundsSame grid n (grid.removeAccessible s) (grid.removeAccessible t) (removeSame grid s t h) r c
 
-theorem ifFloorKeep (b: Bool) (x: Cell) (h: x = Floor): (if b then Floor else x) = Floor :=
-  match b with
-    | True => rfl
-    | False => h
+theorem ifFloorKeep (b: Bool) (x: Cell) (h: x = Floor): (if b then Floor else x) = Floor := match b with
+  | True => rfl
+  | False => h
 
 theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (grid.removeAccessible s) :=
   Both (r c h => ifFloorKeep (grid.accessible s r c) (s r c) (And.left ins r c h))
@@ -70,11 +68,10 @@ theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (
 
 def accCount (grid: Grid) (s: Cells): Nat := grid.countPositions (r c => grid.accessible s r c)
 
-theorem roundTerm (b: Bool) (x: Cell) (hb: (b = True → x = Roll)):
-    Bool.toNat ((if b then Floor else x) == Roll) + Bool.toNat b = Bool.toNat (x == Roll) :=
-  match b with
-    | True => rewrite hb rfl
-    | False => omega
+theorem roundTerm (b: Bool) (x: Cell) (hb: b = True → x = Roll):
+    Bool.toNat ((if b then Floor else x) == Roll) + Bool.toNat b = Bool.toNat (x == Roll) := match b with
+      | True => rewrite hb rfl
+      | False => omega
 
 theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessible s) + accCount grid s = grid.rollCount s :=
   let gone := (r: Nat) => (c: Nat) => Bool.toNat (grid.removeAccessible s r c == Roll)
@@ -105,9 +102,8 @@ theorem stableWhere (grid: Grid) (s: Cells) (ins: Inside grid s) (good: ∀ (r c
       | True, False => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym (And.right ins r c omega)) hs))
 
 --| A roll that isn't accessible has at least 4 neighbours.
-theorem andTrueLeft (a b: Bool) (ha: a = True) (h: (a ∧ b) = False): b = False :=
-  match a with
-    | True => h
+theorem andTrueLeft (a b: Bool) (ha: a = True) (h: (a ∧ b) = False): b = False := match a with
+  | True => h
 
 theorem rollIsRoll (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h in rfl
 

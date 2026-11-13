@@ -19,12 +19,11 @@ import Std (IO, Nat)
 -- The inner call is in the outer call's arguments.
 def ack (m: Nat) (n: Nat): Nat
     decreasing (m, n)
-:=
-  match m, n with
-    | Zero, n => n + 1
-    | Succ k, Zero => ack k 1 [decreasing := Nat.LexLess.First (Nat.leRefl k)]
-    | Succ k, Succ j =>
-      ack k (ack (Succ k) j [decreasing := Nat.LexLess.Second rfl (Nat.leRefl j)]) [decreasing := Nat.LexLess.First (Nat.leRefl k)]
+:= match m, n with
+  | Zero, n => n + 1
+  | Succ k, Zero => ack k 1 [decreasing := Nat.LexLess.First (Nat.leRefl k)]
+  | Succ k, Succ j =>
+    ack k (ack (Succ k) j [decreasing := Nat.LexLess.Second rfl (Nat.leRefl j)]) [decreasing := Nat.LexLess.First (Nat.leRefl k)]
 
 test "ack" := ack 2 3 == 9 ∧ ack 3 3 == 61 ∧ ack 0 7 == 8
 

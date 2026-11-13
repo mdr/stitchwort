@@ -35,10 +35,9 @@ theorem Decidable.refute [p: Prop] (d: Decidable p) (e: d.holds = False): ¬p :=
 --| [`Decidable.refute`], which has no field of its own.
 -- In the core: the reader writes it for a fact `d.holds = False` built from
 -- `¬p` (docs/proposals/bool-as-proposition.md §5.4, step 2).
-theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False :=
-  match d with
-    | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
-    | { holds = False, sound = s, complete = c } => rfl
+theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False := match d with
+  | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
+  | { holds = False, sound = s, complete = c } => rfl
 
 --| The decision that `p` holds, from a proof of it, for a decision whose
 --| answer is known.
@@ -57,10 +56,9 @@ def Decidable.map [p q: Prop] (d: Decidable p) (forward: p → q) (backward: q �
 
 --| `ifYes` of the proof if the decision holds, `ifNo` of the refutation if not:
 --| what `if h: p then a else b` means.
-def Decidable.elim [p: Prop] [a: Type] (d: Decidable p) (ifYes: p → a) (ifNo: ¬p → a): a :=
-  match e: d.holds with
-    | True => ifYes (d.sound e)
-    | False => ifNo (Decidable.refute d e)
+def Decidable.elim [p: Prop] [a: Type] (d: Decidable p) (ifYes: p → a) (ifNo: ¬p → a): a := match e: d.holds with
+  | True => ifYes (d.sound e)
+  | False => ifNo (Decidable.refute d e)
 
 --| An `if` gives equal results when its branches do, whichever way it goes.
 -- The proofs that `decreasing` generates (`f.unfold`) take a step through an
@@ -119,15 +117,13 @@ def Bool.decEq: (a: Bool) → (b: Bool) → Decidable (a = b)
   | True, True => Decidable.yes rfl
 
 --| What [`Decidable.not`]'s test says when it is `True`.
-theorem Decidable.notSound [p: Prop] (d: Decidable p) (h: Bool.not d.holds = True): ¬p :=
-  match d with
-    | { holds = False, sound = s, complete = c } => x => Bool.falseNotTrue (c x)
+theorem Decidable.notSound [p: Prop] (d: Decidable p) (h: Bool.not d.holds = True): ¬p := match d with
+  | { holds = False, sound = s, complete = c } => x => Bool.falseNotTrue (c x)
 
 --| What [`Decidable.not`]'s test says when `¬p` holds.
-theorem Decidable.notComplete [p: Prop] (d: Decidable p) (r: ¬p): Bool.not d.holds = True :=
-  match d with
-    | { holds = True, sound = s, complete = c } => Void.exfalso (r (s rfl))
-    | { holds = False, sound = s, complete = c } => rfl
+theorem Decidable.notComplete [p: Prop] (d: Decidable p) (r: ¬p): Bool.not d.holds = True := match d with
+  | { holds = True, sound = s, complete = c } => Void.exfalso (r (s rfl))
+  | { holds = False, sound = s, complete = c } => rfl
 
 --| `!p` is decided from a decision of `p`: its test is `not` of `p`'s.
 instance Decidable.not [p: Prop] (d: Decidable p): Decidable (¬p) :=
@@ -204,10 +200,9 @@ instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := { holds = Nat.l
 --| Hedberg's argument, for any type whose equality has a decision: `canon`
 --| turns any proof of `x = y` into the one the decision gives, ignoring which
 --| proof it was given.
-def Decidable.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y :=
-  match e: dec.holds with
-    | True => dec.sound e
-    | False => Void.exfalso (Decidable.refute dec e h)
+def Decidable.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y := match e: dec.holds with
+  | True => dec.sound e
+  | False => Void.exfalso (Decidable.refute dec e h)
 
 --| Every proof of `x = y` has the same canonical form.
 theorem Decidable.canonConst [x y: a] (dec: Decidable (x = y)) (p q: x = y): Decidable.canon dec p = Decidable.canon dec q :=
@@ -234,16 +229,14 @@ theorem Decidable.uniqueEq (decide: (x: a) → (y: a) → Decidable (x = y)) (x:
 --| which works for any type with decidable equality: [`Bool.canon`] turns any proof
 --| of `x = y` into one chosen by [`Bool.decEq`], so it ignores which proof it was
 --| given, and every proof can be recovered from its canonical one.
-def Bool.canon [x y: Bool] (dec: Decidable (x = y)) (h: x = y): x = y :=
-  match e: dec.holds with
-    | True => dec.sound e
-    | False => Void.exfalso (Decidable.refute dec e h)
+def Bool.canon [x y: Bool] (dec: Decidable (x = y)) (h: x = y): x = y := match e: dec.holds with
+  | True => dec.sound e
+  | False => Void.exfalso (Decidable.refute dec e h)
 
 theorem Bool.canonConst [x y: Bool] (d: Decidable (x = y)) (p q: x = y):
-    Bool.canon d p = Bool.canon d q :=
-  match d with
-    | { holds = True, sound = s, complete = c } => rfl
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
+    Bool.canon d p = Bool.canon d q := match d with
+      | { holds = True, sound = s, complete = c } => rfl
+      | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
 
 theorem Bool.symThenSelf [x y: Bool] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
 

@@ -55,11 +55,10 @@ theorem kindBig (n: Nat) (big: 10 ≤ n): kind n = 0 := kind.eq3 n omega omega
 -- Character literals on one variable: merged into one `char ∉ ['k', 'j']`.
 type Command = | Up | Down
 
-def commandOf (char: Char): Option Command :=
-  match char with
-    | 'k' => Some Up
-    | 'j' => Some Down
-    | _ => None
+def commandOf (char: Char): Option Command := match char with
+  | 'k' => Some Up
+  | 'j' => Some Down
+  | _ => None
 
 def keys: List Char := ['k', 'j']
 
@@ -124,10 +123,9 @@ def withLocal (n: Nat): Nat :=
 theorem goStep (m: Nat): withLocal.go (Succ m) = withLocal.go m := withLocal.go.eq2 m
 
 -- A `:=` body that is a `match` on its parameters counts as arms (D2187).
-def isZero (n: Nat): Bool :=
-  match n with
-    | 0 => True
-    | _ => False
+def isZero (n: Nat): Bool := match n with
+  | 0 => True
+  | _ => False
 
 theorem isZeroOfPos (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n omega
 

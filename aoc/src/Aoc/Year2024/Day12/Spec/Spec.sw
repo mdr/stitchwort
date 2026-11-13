@@ -15,10 +15,9 @@ def isOrthogonalStep (from: Position) (to: Position): Bool :=
     || (from.column == to.column && (from.row + 1 == to.row || to.row + 1 == from.row))
 
 --| Two garden plots "growing the same type of plant".
-def growSame (garden: Garden) (plot: Position) (other: Position): Bool :=
-  match garden.plantAt plot with
-    | Some plant => garden.plantAt other == Some plant
-    | None => False
+def growSame (garden: Garden) (plot: Position) (other: Position): Bool := match garden.plantAt plot with
+  | Some plant => garden.plantAt other == Some plant
+  | None => False
 
 --| "When multiple garden plots are growing the same type of plant and are
 --| touching (horizontally or vertically), they form a region."
@@ -37,10 +36,9 @@ def Joined (garden: Garden) (plot: Position) (other: Position): Prop := Exists (
 def IsRegion (garden: Garden) (plot: Position) (region: Region): Prop := ∀ (other: Position) => (other ∈ region.plots) ↔ (Joined garden plot other)
 
 --| Whether the side of `plot` facing `side` touches a plot of the region.
-def facesRegion (region: Region) (plot: Position) (side: Direction): Bool :=
-  match plot.step side with
-    | Some other => region.contains other
-    | None => False
+def facesRegion (region: Region) (plot: Position) (side: Direction): Bool := match plot.step side with
+  | Some other => region.contains other
+  | None => False
 
 --| "The area of a region is simply the number of garden plots the region
 --| contains."
@@ -56,12 +54,11 @@ def isFence (region: Region) (plot: Position) (side: Direction): Bool := region.
 
 --| The plot before `plot` along a fence on its `side`: left of it for a fence
 --| above or below, above it for a fence on the left or right.
-def alongBefore (plot: Position) (side: Direction): Option Position :=
-  match side with
-    | Up => plot.step Left
-    | Down => plot.step Left
-    | Left => plot.step Up
-    | Right => plot.step Up
+def alongBefore (plot: Position) (side: Direction): Option Position := match side with
+  | Up => plot.step Left
+  | Down => plot.step Left
+  | Left => plot.step Up
+  | Right => plot.step Up
 
 --| "Each straight section of fence counts as a side, regardless of how long
 --| it is": a run of fence facing the same way, plot after plot along a line.

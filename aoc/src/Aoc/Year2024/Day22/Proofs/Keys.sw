@@ -43,7 +43,7 @@ theorem findMapAny (f: a → Option b) (found: b) (xs: List a) (some: xs.findMap
 theorem sellsAtIn (possible: List Changes)
     (contains: ∀ (a b c d e: Nat) => a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
       ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) ∈ possible)
-    (sequence: Changes) (price: Nat) (later: List Nat) (digits: (∀ (x: Nat) => x ∈ later → x < 10)) (sells: sellsAt sequence later = Some price): sequence ∈ possible :=
+    (sequence: Changes) (price: Nat) (later: List Nat) (digits: ∀ (x: Nat) => x ∈ later → x < 10) (sells: sellsAt sequence later = Some price): sequence ∈ possible :=
   match later with
     | [a, b, c, d, e, ..rest] =>
       match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
@@ -73,7 +73,7 @@ theorem salesIn (possible: List Changes) (contains: HoldsDigitChanges possible) 
 
 --| A merged total comes from one side or the other.
 theorem mergeSides (holds: Prop) (value: Nat) (x y: Option Nat) (merged: x.merge y Nat.add = Some value)
-    (fromX: (∀ (t: Nat) => x = Some t → holds)) (fromY: (∀ (s: Nat) => y = Some s → holds)): holds :=
+    (fromX: ∀ (t: Nat) => x = Some t → holds) (fromY: ∀ (s: Nat) => y = Some s → holds): holds :=
   match x, y with
     | Some t, y => fromX t rfl
     | None, Some s => fromY s rfl

@@ -5,11 +5,10 @@ import Std (DecEq, Nat)
 
 def halfOf (n: Nat) (even: n % 2 = 0): Nat := n / 2
 
-def halfOrZero (n: Nat): Nat :=
-  match even: n % 2 == 0 with
-    | True =>
-      let evenEq := DecEq.sound even
-      halfOf n evenEq
-    | False => 0
+def halfOrZero (n: Nat): Nat := match even: n % 2 == 0 with
+  | True =>
+    let evenEq := DecEq.sound even
+    halfOf n evenEq
+  | False => 0
 
 theorem halfOrZeroFour: halfOrZero 4 = 2 := rfl

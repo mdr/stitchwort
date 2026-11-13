@@ -143,10 +143,9 @@ theorem periodTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: Peri
 
 --| A period below the smallest positive one, `Succ j`, is 0.
 theorem periodBelow (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hmin: ∀ (r: Nat) => r < j → isPeriod g len hl (Succ r) = False)
-    (r: Nat) (hr: Period g len hl r) (lt: r < Succ j): r = 0 :=
-  match r with
-    | Zero => rfl
-    | Succ r => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (periodTest g len hl (Succ r) hr)) (hmin r lt)))
+    (r: Nat) (hr: Period g len hl r) (lt: r < Succ j): r = 0 := match r with
+      | Zero => rfl
+      | Succ r => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (periodTest g len hl (Succ r) hr)) (hmin r lt)))
 
 --| The heart: every period is a multiple of the smallest positive one (the
 --| remainder of the division is a smaller period).
@@ -244,10 +243,9 @@ theorem countTimesPeriod (x: Nat): digitCount x = blockCount x * smallestPeriod 
     _ = blockCount x * smallestPeriod x
       := omega [smallestDivides x (digitCount x) (periodLen (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x))]
 
-theorem blockCountPos (x: Nat): 1 ≤ blockCount x :=
-  match e: blockCount x with
-    | Zero => Void.exfalso (Bool.falseNotTrue (rewrite countTimesPeriod x, e at (Nat.digitsNonEmpty x: 1 ≤ digitCount x)))
-    | Succ k => rfl
+theorem blockCountPos (x: Nat): 1 ≤ blockCount x := match e: blockCount x with
+  | Zero => Void.exfalso (Bool.falseNotTrue (rewrite countTimesPeriod x, e at (Nat.digitsNonEmpty x: 1 ≤ digitCount x)))
+  | Succ k => rfl
 
 theorem blockCountLe (x: Nat): blockCount x ≤ digitCount x :=
   omega [Nat.leMulPos (blockCount x) (smallestPeriod x) rfl, countTimesPeriod x]

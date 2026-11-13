@@ -12,10 +12,9 @@ import Std (Char, List, NonEmptyList, Parse)
 
 --| A bus ID in decimal, at least 1 (it is how often the bus leaves), or
 --| "x" for a bus out of service.
-def SlotWritten (read: List Char) (slot: Slot): Prop :=
-  match slot with
-    | Listed id => read ≠ [] ∧ read.all Parse.isDigit = True ∧ id = Parse.digitsValue read ∧ id ≠ 0
-    | OutOfService => read = ['x']
+def SlotWritten (read: List Char) (slot: Slot): Prop := match slot with
+  | Listed id => read ≠ [] ∧ read.all Parse.isDigit = True ∧ id = Parse.digitsValue read ∧ id ≠ 0
+  | OutOfService => read = ['x']
 
 --| "The first line is your estimate of the earliest timestamp you could
 --| depart on a bus. The second line lists the bus IDs that are in service

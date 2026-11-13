@@ -11,10 +11,9 @@ import Std (Eq, Int, List, Nat)
 
 --| Folding commutes with a map that commutes with each step.
 theorem foldLeftRelate (relate: s → t) (f: s → a → s) (g: t → a → t) (commutes: ∀ (x: s) (item: a) => relate (f x item) = g (relate x) item)
-    (items: List a) (x: s): relate (items.foldLeft x f) = items.foldLeft (relate x) g :=
-  match items with
-    | [] => rfl
-    | [item, ..rest] => rewrite <- commutes x item in foldLeftRelate relate f g commutes rest (f x item)
+    (items: List a) (x: s): relate (items.foldLeft x f) = items.foldLeft (relate x) g := match items with
+      | [] => rfl
+      | [item, ..rest] => rewrite <- commutes x item in foldLeftRelate relate f g commutes rest (f x item)
 
 theorem alongTimes (location: Location) (step: Location) (distance: Nat): along location step distance = location.plus (step.times distance.toInt) :=
   Coords.ext _ _ (ring) (ring)

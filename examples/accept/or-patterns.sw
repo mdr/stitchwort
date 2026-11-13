@@ -14,11 +14,10 @@ def isVowel: Char → Bool
   | 'a' | 'e' | 'i' | 'o' | 'u' => True
   | _ => False
 
-def score (char: Char): Nat :=
-  match char with
-    | 'a' | 'e' | 'i' | 'o' | 'u' | 'y' => 1
-    | 'q' | 'z' => 10
-    | _ => 0
+def score (char: Char): Nat := match char with
+  | 'a' | 'e' | 'i' | 'o' | 'u' | 'y' => 1
+  | 'q' | 'z' => 10
+  | _ => 0
 
 -- Inside a constructor, a tuple and a list, in brackets.
 def smallSome: Option Nat → Bool
@@ -41,10 +40,9 @@ def both: Nat → Colour → Bool
 -- In the or-pattern's arm the character is one of its literals, so `score`
 -- computes; in the `_` arm it is none of them, so `isVowel` takes its `_`
 -- arm too.
-theorem vowelsScore (char: Char) (found: isVowel char = True): score char = 1 :=
-  match char with
-    | 'a' | 'e' | 'i' | 'o' | 'u' => rfl
-    | _ => cases
+theorem vowelsScore (char: Char) (found: isVowel char = True): score char = 1 := match char with
+  | 'a' | 'e' | 'i' | 'o' | 'u' => rfl
+  | _ => cases
 
 test "warm" := [Red, Green, Blue, Yellow].map warm == [True, False, False, True]
 test "vowels" := ['a', 'u', 'y', 'b'].map isVowel == [True, True, False, False]

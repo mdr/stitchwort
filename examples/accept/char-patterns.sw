@@ -5,11 +5,10 @@ type Turn: Type =
   | Left (n: Nat)
   | Right (n: Nat)
 
-def turnOf (c: Char) (n: Nat): Option Turn :=
-  match c with
-    | 'L' => Some (Left n)
-    | 'R' => Some (Right n)
-    | _ => None
+def turnOf (c: Char) (n: Nat): Option Turn := match c with
+  | 'L' => Some (Left n)
+  | 'R' => Some (Right n)
+  | _ => None
 
 def isVowel: Char → Bool
   | 'a' => True

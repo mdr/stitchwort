@@ -16,16 +16,15 @@ theorem mustPrecedeCorrect (rules: List Rule) (x: Nat) (y: Nat): mustPrecede (ru
 
 --| A rule is broken only by an update with both of its pages.
 theorem brokenHasBoth (x: Nat) (y: Nat) (pages: List Nat) (broken: printedBefore x y pages = False):
-    (pages.any (== x) = True) ∧ (pages.any (== y) = True) :=
-  match pages with
-    | [page, ..later] =>
-      match laterBroken: printedBefore x y later with
-        | False =>
-          match brokenHasBoth x y later laterBroken with
-            | Both hasX hasY => Both (List.anyConsEqTrue page x later hasX) (List.anyConsEqTrue page y later hasY)
-        | True =>
-          match isY: page == y, hasX: later.any (== x) with
-            | True, True => Both (cases) rfl
+    (pages.any (== x) = True) ∧ (pages.any (== y) = True) := match pages with
+      | [page, ..later] =>
+        match laterBroken: printedBefore x y later with
+          | False =>
+            match brokenHasBoth x y later laterBroken with
+              | Both hasX hasY => Both (List.anyConsEqTrue page x later hasX) (List.anyConsEqTrue page y later hasY)
+          | True =>
+            match isY: page == y, hasX: later.any (== x) with
+              | True, True => Both (cases) rfl
 
 --| So the puzzle's "if both pages are in the update" adds nothing.
 theorem followsRuleIsPrintedBefore (pages: List Nat) (rule: Rule): followsRule pages rule = printedBefore rule.before rule.after pages :=
@@ -37,13 +36,12 @@ theorem followsRuleIsPrintedBefore (pages: List Nat) (rule: Rule): followsRule p
 
 --| `inOrder` depends only on what the test says.
 theorem inOrderCong (precedes1: Nat → Nat → Bool) (precedes2: Nat → Nat → Bool) (same: ∀ (x y: Nat) => precedes1 x y = precedes2 x y)
-    (pages: List Nat): inOrder precedes1 pages = inOrder precedes2 pages :=
-  match pages with
-    | [] => rfl
-    | [page, ..later] =>
-      rewrite List.allCong later (laterPage => !(precedes1 laterPage page)) (laterPage => !(precedes2 laterPage page)) (laterPage => rewrite same laterPage page in rfl),
-        inOrderCong precedes1 precedes2 same later
-        in rfl
+    (pages: List Nat): inOrder precedes1 pages = inOrder precedes2 pages := match pages with
+      | [] => rfl
+      | [page, ..later] =>
+        rewrite List.allCong later (laterPage => !(precedes1 laterPage page)) (laterPage => !(precedes2 laterPage page)) (laterPage => rewrite same laterPage page in rfl),
+          inOrderCong precedes1 precedes2 same later
+          in rfl
 
 --| No later page is the rule's first page while this one is its second: this
 --| page isn't the rule's second page, or the first page doesn't follow it.

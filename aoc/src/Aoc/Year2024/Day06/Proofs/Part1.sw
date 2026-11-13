@@ -9,10 +9,9 @@ import Aoc.Year2024.Day06.Spec (..)
 import Std (Eq, List, Nat, Not, Option, Set, Void)
 
 --| Off the map, there is no route.
-theorem routeNone (lab: Lab) (steps: Nat): route lab None steps = [] :=
-  match steps with
-    | Zero => rfl
-    | Succ steps => rfl
+theorem routeNone (lab: Lab) (steps: Nat): route lab None steps = [] := match steps with
+  | Zero => rfl
+  | Succ steps => rfl
 
 --| Once she has left, more steps add nothing to the route.
 theorem routeAfterGone (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => walk lab guard steps = None → ∀ (more: Nat) => steps ≤ more →
@@ -43,10 +42,9 @@ theorem patrolFromGone (lab: Lab) (budget: Nat) (guard: Guard) (visited found: S
 
 --| A guard who leaves at all leaves within the budget.
 theorem goneInBudget (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None):
-    after lab lab.stateCount = None :=
-  match still: after lab lab.stateCount with
-    | None => rfl
-    | Some guard => Void.exfalso (budgetEnough lab inside (rewrite still in Option.someNotNone guard) steps gone)
+    after lab lab.stateCount = None := match still: after lab lab.stateCount with
+      | None => rfl
+      | Some guard => Void.exfalso (budgetEnough lab inside (rewrite still in Option.someNotNone guard) steps gone)
 
 --| The patrol is the set of the route's positions.
 theorem patrolRoute (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None):
@@ -64,7 +62,6 @@ theorem part1Correct (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
   rewrite patrolRoute lab inside steps gone in rfl
 
 --| And gives no answer when she loops.
-theorem part1Loops (lab: Lab) (loops: Loops lab): solvePart1 lab = None :=
-  match patrolled: lab.patrol with
-    | None => rfl
-    | Some found => Void.exfalso (loops lab.stateCount (patrolFromGone lab lab.stateCount lab.startGuard Set.empty found patrolled))
+theorem part1Loops (lab: Lab) (loops: Loops lab): solvePart1 lab = None := match patrolled: lab.patrol with
+  | None => rfl
+  | Some found => Void.exfalso (loops lab.stateCount (patrolFromGone lab lab.stateCount lab.startGuard Set.empty found patrolled))

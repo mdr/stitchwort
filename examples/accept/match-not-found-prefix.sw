@@ -6,7 +6,6 @@ import Std (Nat)
 
 def double (n: Nat): Nat := n + n
 
-theorem prefix (x: Nat) (xs: Nat): double xs = xs + xs :=
-  match h: double x with
-    | Zero => rfl
-    | Succ k => rfl
+theorem prefix (x: Nat) (xs: Nat): double xs = xs + xs := match h: double x with
+  | Zero => rfl
+  | Succ k => rfl

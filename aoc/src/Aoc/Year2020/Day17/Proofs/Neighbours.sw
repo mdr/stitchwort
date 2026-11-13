@@ -25,10 +25,9 @@ theorem window (x: Int) (y: Int):
 
 theorem windowAnd (x: Int) (y: Int) (rest: Bool):
     (if x + (-1) == y then Bool.toNat rest else 0) + (if x == y then Bool.toNat rest else 0) + (if x + 1 == y then Bool.toNat rest else 0)
-      = Bool.toNat (x + (-1) <= y && y <= x + 1 && rest) :=
-  match rest with
-    | True => rewrite Bool.andTrue (y <= x + 1) in window x y
-    | False => rewrite Bool.andFalse (y <= x + 1), Bool.andFalse (x + (-1) <= y) in cases
+    = Bool.toNat (x + (-1) <= y && y <= x + 1 && rest) := match rest with
+      | True => rewrite Bool.andTrue (y <= x + 1) in window x y
+      | False => rewrite Bool.andFalse (y <= x + 1), Bool.andFalse (x + (-1) <= y) in cases
 
 theorem countWithin1 (xs ys: List Int): (within1 xs).count (== ys) = Bool.toNat (Spec.within1 xs ys) :=
   match xs, ys with

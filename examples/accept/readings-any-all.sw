@@ -5,9 +5,8 @@ import Std (Array, Bool, Eq, List, Nat, NonEmptyList, Text)
 
 theorem someBig (xs: List Nat) (h: xs.any (x => x > 2)): ∃ (x: Nat) => x ∈ xs ∧ x > 2 := h.read
 
-theorem someBigWitness (xs: List Nat) (h: xs.any (x => x > 2)): ∃ (x: Nat) => x > 2 :=
-  match h with
-    | Witness x found => Witness x found.right
+theorem someBigWitness (xs: List Nat) (h: xs.any (x => x > 2)): ∃ (x: Nat) => x > 2 := match h with
+  | Witness x found => Witness x found.right
 
 theorem noneBig (xs: List Nat) (h: xs.any (x => x > 2) = False) (x: Nat) (m: x ∈ xs): (x > 2) = False := h.read x m
 

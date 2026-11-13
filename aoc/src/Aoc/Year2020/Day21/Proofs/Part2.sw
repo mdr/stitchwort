@@ -25,18 +25,17 @@ theorem holdersFound (list: FoodList) (holders: List Ingredient) (found: list.ho
 
 --| The holders the elimination finds are a way the allergens could be.
 theorem holdersHolding (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
-    Spec.Holding list (list.holderOf holders) :=
-  match holdersFound list holders found with
-    | Both members (Both distinct lengths) =>
-      Both
-        (first second firstListed secondListed same =>
-          valueAtInjective { name = "" } list.allergens holders lengths distinct first second
-            ((memAllergens list first).backward firstListed) ((memAllergens list second).backward secondListed) same)
-        (food inFoods allergen listed =>
-          let candidate := valueAtRelated { name = "" } (holder allergen => holder ∈ list.candidates allergen) list.allergens holders members allergen
-            ((memAllergens list allergen).backward (Witness food (Both inFoods listed)))
-          let could := And.right (List.memFilter list.ingredients (ingredient => list.couldHold ingredient allergen) candidate)
-          (couldHoldIff list _ allergen).forward could food inFoods listed)
+    Spec.Holding list (list.holderOf holders) := match holdersFound list holders found with
+      | Both members (Both distinct lengths) =>
+        Both
+          (first second firstListed secondListed same =>
+            valueAtInjective { name = "" } list.allergens holders lengths distinct first second
+              ((memAllergens list first).backward firstListed) ((memAllergens list second).backward secondListed) same)
+          (food inFoods allergen listed =>
+            let candidate := valueAtRelated { name = "" } (holder allergen => holder ∈ list.candidates allergen) list.allergens holders members allergen
+              ((memAllergens list allergen).backward (Witness food (Both inFoods listed)))
+            let could := And.right (List.memFilter list.ingredients (ingredient => list.couldHold ingredient allergen) candidate)
+            (couldHoldIff list _ allergen).forward could food inFoods listed)
 
 --| Part 2: if the program gives an answer, it is the spec's canonical
 --| dangerous ingredient list.
@@ -56,12 +55,11 @@ theorem dangerousValid (list: FoodList) (answer: Text) (found: list.dangerousLis
 --| In any way the allergens could be, a listed allergen's holder is one of
 --| the program's candidates for it.
 theorem holderCandidate (list: FoodList) (holder: Allergen → Ingredient) (holding: Spec.Holding list holder) (allergen: Allergen) (listed: Spec.Listed list allergen):
-    holder allergen ∈ list.candidates allergen :=
-  match listed with
-    | Witness food (Both inFoods inFood) =>
-      List.memFilterIntro list.ingredients (ingredient => list.couldHold ingredient allergen)
-        ((memIngredients list (holder allergen)).backward (Witness food (Both inFoods (And.right holding food inFoods allergen inFood))))
-        ((couldHoldIff list (holder allergen) allergen).backward (other inOther listedThere => And.right holding other inOther allergen listedThere))
+    holder allergen ∈ list.candidates allergen := match listed with
+      | Witness food (Both inFoods inFood) =>
+        List.memFilterIntro list.ingredients (ingredient => list.couldHold ingredient allergen)
+          ((memIngredients list (holder allergen)).backward (Witness food (Both inFoods (And.right holding food inFoods allergen inFood))))
+          ((couldHoldIff list (holder allergen) allergen).backward (other inOther listedThere => And.right holding other inOther allergen listedThere))
 
 --| Two lists of allergens, each with no repeats and alphabetical, with
 --| the same members, are the same list.
@@ -76,18 +74,17 @@ theorem sameAlphabetical (order: List Allergen) (other: List Allergen) (orderDis
 --| Part 2's answer, when there is one, is the only canonical list: every
 --| way the allergens could be gives the same one.
 theorem dangerousOnly (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer) (other: Text) (fits: Spec.Part2 list other):
-    other = answer :=
-  match fits with
-    | Witness holder (Both holding (Witness order (Both distinct (Both members (Both alphabetical same))))) =>
-      let sameOrder: order = list.allergens :=
-        sameAlphabetical order list.allergens distinct (distinctAllergens list) alphabetical (alphabeticalAllergens list)
-          (allergen => { forward = member => (memAllergens list allergen).backward ((members allergen).forward member), backward = member => (members allergen).backward ((memAllergens list allergen).forward member) })
-      match settled: list.holders with
-        | Some holders =>
-          let sameHolders: list.allergens.map holder = holders :=
-            assignOnly (list.allergens.map list.candidates) holders settled (list.allergens.map holder)
-              (List.all2MapBoth (item items => item ∈ items) holder list.candidates list.allergens
-                (allergen member => holderCandidate list holder holding allergen ((memAllergens list allergen).forward member)))
-              (List.distinctMapOn holder list.allergens (distinctAllergens list)
-                (first second inFirst inSecond => And.left holding first second ((memAllergens list first).forward inFirst) ((memAllergens list second).forward inSecond)))
-          rewrite same, sameOrder, sameHolders in Option.someInjective found
+    other = answer := match fits with
+      | Witness holder (Both holding (Witness order (Both distinct (Both members (Both alphabetical same))))) =>
+        let sameOrder: order = list.allergens :=
+          sameAlphabetical order list.allergens distinct (distinctAllergens list) alphabetical (alphabeticalAllergens list)
+            (allergen => { forward = member => (memAllergens list allergen).backward ((members allergen).forward member), backward = member => (members allergen).backward ((memAllergens list allergen).forward member) })
+        match settled: list.holders with
+          | Some holders =>
+            let sameHolders: list.allergens.map holder = holders :=
+              assignOnly (list.allergens.map list.candidates) holders settled (list.allergens.map holder)
+                (List.all2MapBoth (item items => item ∈ items) holder list.candidates list.allergens
+                  (allergen member => holderCandidate list holder holding allergen ((memAllergens list allergen).forward member)))
+                (List.distinctMapOn holder list.allergens (distinctAllergens list)
+                  (first second inFirst inSecond => And.left holding first second ((memAllergens list first).forward inFirst) ((memAllergens list second).forward inSecond)))
+            rewrite same, sameOrder, sameHolders in Option.someInjective found

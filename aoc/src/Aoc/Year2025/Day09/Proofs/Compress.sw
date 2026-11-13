@@ -56,26 +56,24 @@ theorem rowIn (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.M
 
 theorem onStraightLineSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
     (ends: Line) (m: List.Mem ends (connections tiles)):
-    onStraightLine { x, y } ends = onStraightLine { x = x2, y = y2 } ends :=
-  match connectionEnds tiles ends m with
-    | Both first second =>
-      rewrite fromSame (columnsOf tiles) ends.from.x ends.to.x x x2 (columnIn tiles ends.from first) (columnIn tiles ends.to second) sx,
-        fromSame (rowsOf tiles) ends.from.y ends.to.y y y2 (rowIn tiles ends.from first) (rowIn tiles ends.to second) sy
-        in rfl
+    onStraightLine { x, y } ends = onStraightLine { x = x2, y = y2 } ends := match connectionEnds tiles ends m with
+      | Both first second =>
+        rewrite fromSame (columnsOf tiles) ends.from.x ends.to.x x x2 (columnIn tiles ends.from first) (columnIn tiles ends.to second) sx,
+          fromSame (rowsOf tiles) ends.from.y ends.to.y y y2 (rowIn tiles ends.from first) (rowIn tiles ends.to second) sy
+          in rfl
 
 theorem crossesRaySame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
     (ends: Line) (m: List.Mem ends (connections tiles)):
-    crossesRay { x, y } ends = crossesRay { x = x2, y = y2 } ends :=
-  match connectionEnds tiles ends m with
-    | Both first second =>
-      let fy := rowIn tiles ends.from first
-      let sy2 := rowIn tiles ends.to second
-      rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx,
-        lessSame (rowsOf tiles) ends.to.y y y2 sy2 sy,
-        lessSame (rowsOf tiles) ends.from.y y y2 fy sy,
-        (sy ends.from.y fy).left,
-        (sy ends.to.y sy2).left
-        in rfl
+    crossesRay { x, y } ends = crossesRay { x = x2, y = y2 } ends := match connectionEnds tiles ends m with
+      | Both first second =>
+        let fy := rowIn tiles ends.from first
+        let sy2 := rowIn tiles ends.to second
+        rewrite lessSame (columnsOf tiles) ends.from.x x x2 (columnIn tiles ends.from first) sx,
+          lessSame (rowsOf tiles) ends.to.y y y2 sy2 sy,
+          lessSame (rowsOf tiles) ends.from.y y y2 fy sy,
+          (sy ends.from.y fy).left,
+          (sy ends.to.y sy2).left
+          in rfl
 
 --| Tiles whose columns and rows compare alike with the red tiles' are alike.
 theorem redOrGreenSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
@@ -150,12 +148,11 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
 --| The elements from one position to the other lie from the smaller value to the larger.
 theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
     (k: Nat) (lo: Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k) (hi: k ≤ Nat.max (xs.indexOf u) (xs.indexOf v)):
-    Nat.min u v ≤ xs.getOr k 0 ≤ Nat.max u v :=
-  match axisEnds xs s u v mu mv with
-    | Both (Both atMin atMax) maxIn =>
-      let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)
-      let down := List.sortedGetOrLe xs 0 s k (Nat.max (List.indexOf xs u) (List.indexOf xs v)) hi maxIn
-      Both (omega) (omega)
+    Nat.min u v ≤ xs.getOr k 0 ≤ Nat.max u v := match axisEnds xs s u v mu mv with
+      | Both (Both atMin atMax) maxIn =>
+        let up := List.sortedGetOrLe xs 0 s (Nat.min (List.indexOf xs u) (List.indexOf xs v)) k lo (omega)
+        let down := List.sortedGetOrLe xs 0 s k (Nat.max (List.indexOf xs u) (List.indexOf xs v)) hi maxIn
+        Both (omega) (omega)
 
 --| And every element of the list from the smaller value to the larger is at
 --| such a position: what holds at each holds for it.

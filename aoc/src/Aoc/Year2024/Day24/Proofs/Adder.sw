@@ -47,16 +47,14 @@ theorem outputCarries (device: Device) (operation: Operation) (a: Wire) (b: Wire
             (rewrite operationIs in gateOutputComm operation aValue bValue)
 
 --| Whether a check passed.
-def checkPassed (check: BitCheck): Bool :=
-  match check with
-    | Passes carry => True
-    | Faulty fixes suspects => False
+def checkPassed (check: BitCheck): Bool := match check with
+  | Passes carry => True
+  | Faulty fixes suspects => False
 
 --| The carry wire of a check that passed.
-def carryOr (check: BitCheck) (fallback: Wire): Wire :=
-  match check with
-    | Passes carry => carry
-    | Faulty fixes suspects => fallback
+def carryOr (check: BitCheck) (fallback: Wire): Wire := match check with
+  | Passes carry => carry
+  | Faulty fixes suspects => fallback
 
 theorem faultyNotPasses [fixes: List (Wire, Wire)] [suspects: List Wire] [carry: Wire] (same: Faulty fixes suspects = Passes carry): Void :=
   Bool.falseNotTrue (Eq.cong checkPassed same)
@@ -154,16 +152,15 @@ theorem checkFromCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs:
 --| carrying the carry into `bits`.
 theorem adderCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: InputsCarry device bits x y) (final: Wire)
     (passes: checkAdder device.gates bits = Passes final):
-    ZsCarry device x y bits ∧ (final = Z bits ∧ Carries device final (carryInto x y bits)) :=
-  match bits with
-    | Succ higher =>
-      match halfIs: checkHalfAdder device.gates with
-        | Passes carryWire =>
-          let lowInputs := inputs 0 (omega)
-          let carried := halfAdderCarries device carryWire halfIs _ _ lowInputs.left lowInputs.right
-          let zsLow: ZsCarry device x y 1 := (k below => rewrite (omega: k = 0), sumBit x y 0, <- halfSumGate (Nat.testBit x 0) (Nat.testBit y 0) in carried.left)
-          checkFromCarries device (Succ higher) x y inputs higher 1 carryWire final passes (Succ higher) (omega) (omega) zsLow
-            (rewrite <- halfCarryGate (Nat.testBit x 0) (Nat.testBit y 0) in carried.right)
+    ZsCarry device x y bits ∧ (final = Z bits ∧ Carries device final (carryInto x y bits)) := match bits with
+      | Succ higher =>
+        match halfIs: checkHalfAdder device.gates with
+          | Passes carryWire =>
+            let lowInputs := inputs 0 (omega)
+            let carried := halfAdderCarries device carryWire halfIs _ _ lowInputs.left lowInputs.right
+            let zsLow: ZsCarry device x y 1 := (k below => rewrite (omega: k = 0), sumBit x y 0, <- halfSumGate (Nat.testBit x 0) (Nat.testBit y 0) in carried.left)
+            checkFromCarries device (Succ higher) x y inputs higher 1 carryWire final passes (Succ higher) (omega) (omega) zsLow
+              (rewrite <- halfCarryGate (Nat.testBit x 0) (Nat.testBit y 0) in carried.right)
 
 --| A wire that carries a value is one of the device's wires.
 theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries device wire value → wire ∈ device.wires
@@ -176,12 +173,11 @@ theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries de
 --| With every z wire of the gates at most `bits`, so is every z wire among
 --| them.
 theorem zWithinBound (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin gates bits = True)
-    (member: Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output])): bit ≤ bits :=
-  match gates with
-    | [gate, ..rest] =>
-      match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
-        | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft within) (Z bit) here
-        | Inr there => zWithinBound bits bit rest (Bool.andRight within) there
+    (member: Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output])): bit ≤ bits := match gates with
+      | [gate, ..rest] =>
+        match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
+          | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft within) (Z bit) here
+          | Inr there => zWithinBound bits bit rest (Bool.andRight within) there
 
 --| The wires that start with values for an adder are x and y wires.
 theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map .fst): Void :=

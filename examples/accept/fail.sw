@@ -10,14 +10,13 @@ def colours: List Text := ["red", "green", "blue"]
 
 -- `need` reads an `Option`, `ensure` checks a condition, and `fail` gives
 -- up wherever a value is expected; each says what went wrong.
-def turn (line: Text): {Fail} Turn :=
-  match line.split ' ' with
-    | [dir, weightText, colour] =>
-      let (letter, digits) := need dir.uncons "expected a direction, got nothing"
-      ensure (letter == 'L' ∨ letter == 'R') "expected L or R, got '${dir}'"
-      ensure (colours.any (== colour)) "expected a colour, got '${colour}'"
-      { left = letter == 'L', steps = digits.toNatOrFail, weight = weightText.toNatOrFail, colour }
-    | _ => fail "expected a turn like L68 3 red, got '${line}'"
+def turn (line: Text): {Fail} Turn := match line.split ' ' with
+  | [dir, weightText, colour] =>
+    let (letter, digits) := need dir.uncons "expected a direction, got nothing"
+    ensure (letter == 'L' ∨ letter == 'R') "expected L or R, got '${dir}'"
+    ensure (colours.any (== colour)) "expected a colour, got '${colour}'"
+    { left = letter == 'L', steps = digits.toNatOrFail, weight = weightText.toNatOrFail, colour }
+  | _ => fail "expected a turn like L68 3 red, got '${line}'"
 
 -- Every line, or the first line's failure, with its line number in front.
 def turns (lines: List Text): {Fail} List Turn :=
@@ -35,13 +34,12 @@ def signed (line: Text): Int :=
 
 -- Composes with other abilities: prints each line's colour as it goes, and
 -- fails at the first bad line (after printing the good ones before it).
-def total (lines: List Text): {IO, Fail} Nat :=
-  match lines with
-    | [] => 0
-    | [line, ..rest] =>
-      let turned := turn line
-      IO.print turned.colour
-      turned.steps * turned.weight + total rest
+def total (lines: List Text): {IO, Fail} Nat := match lines with
+  | [] => 0
+  | [line, ..rest] =>
+    let turned := turn line
+    IO.print turned.colour
+    turned.steps * turned.weight + total rest
 
 -- A whole number, or `-1`: the fallback is checked as an `Int`, the type
 -- the whole call is expected to have.

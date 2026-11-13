@@ -29,10 +29,9 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 -- does at least as well.
 
 --| Digits as numbers are digits.
-theorem finDigits (ds: List Battery): Nat.Digits (ds.map Fin.toNat) :=
-  match ds with
-    | [] => Trivial
-    | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
+theorem finDigits (ds: List Battery): Nat.Digits (ds.map Fin.toNat) := match ds with
+  | [] => Trivial
+  | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
 
 theorem mapLength (s: List Battery) (r: List Battery) (hl: s.length = r.length):
     (s.map Fin.toNat).length = (r.map Fin.toNat).length :=
@@ -81,36 +80,33 @@ theorem pickSub (t: Bank) (w: Nat) (xs: Bank) (c: Battery) (after: Bank)
         | False => pickSub t w more c after (List.subsequenceTail x more t hx) hc
 
 --| 1. `best k bank` is a subsequence of `bank`.
-theorem bestSub (k: Nat) (bank: Bank): List.Subsequence (bank.best k) bank :=
-  match k, bank with
-    | Zero, bank => Trivial
-    | Succ k, [] => Trivial
-    | Succ k, [d, ..rest] =>
-      let p := Bank.best.pick (rest.length - k) rest d rest
-      List.subsequenceTrans [p.fst, ..Bank.best p.snd k] [p.fst, ..p.snd] [d, ..rest]
-        (Inl (Both rfl (bestSub k p.snd)))
-        (pickSub [d, ..rest] (rest.length - k) rest d rest (List.subsequenceCons d rest rest (List.subsequenceRefl rest)) (List.subsequenceRefl [d, ..rest]))
+theorem bestSub (k: Nat) (bank: Bank): List.Subsequence (bank.best k) bank := match k, bank with
+  | Zero, bank => Trivial
+  | Succ k, [] => Trivial
+  | Succ k, [d, ..rest] =>
+    let p := Bank.best.pick (rest.length - k) rest d rest
+    List.subsequenceTrans [p.fst, ..Bank.best p.snd k] [p.fst, ..p.snd] [d, ..rest]
+      (Inl (Both rfl (bestSub k p.snd)))
+      (pickSub [d, ..rest] (rest.length - k) rest d rest (List.subsequenceCons d rest rest (List.subsequenceRefl rest)) (List.subsequenceRefl [d, ..rest]))
 
 theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
     (ih: ∀ (a: Bank) => List.length (a.best k) = Nat.min k a.length):
     Succ (List.length (Bank.best (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)) k))
-      = Nat.min (Succ k) (Succ rest.length) :=
-  match e: Nat.leq k rest.length with
-    | True =>
-      rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
-        (omega [pickLen k (rest.length - k) rest d rest omega e]:
-          Nat.min k (List.length (Pair.snd (Bank.best.pick (rest.length - k) rest d rest))) = k)
-    | False =>
-      rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
-        (omega: rest.length - k = 0),
-        (omega: Nat.min k rest.length = rest.length)
+    = Nat.min (Succ k) (Succ rest.length) := match e: Nat.leq k rest.length with
+      | True =>
+        rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
+          (omega [pickLen k (rest.length - k) rest d rest omega e]:
+            Nat.min k (List.length (Pair.snd (Bank.best.pick (rest.length - k) rest d rest))) = k)
+      | False =>
+        rewrite ih (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)),
+          (omega: rest.length - k = 0),
+          (omega: Nat.min k rest.length = rest.length)
 
 --| 2. `best k bank` has k digits, or all of them if there are fewer.
-theorem bestLength (k: Nat) (bank: Bank): List.length (bank.best k) = Nat.min k bank.length :=
-  match k, bank with
-    | Zero, bank => rfl
-    | Succ k, [] => rfl
-    | Succ k, [d, ..rest] => bestLengthStep k d rest (a => bestLength k a)
+theorem bestLength (k: Nat) (bank: Bank): List.length (bank.best k) = Nat.min k bank.length := match k, bank with
+  | Zero, bank => rfl
+  | Succ k, [] => rfl
+  | Succ k, [d, ..rest] => bestLengthStep k d rest (a => bestLength k a)
 
 -- 3. No k digits of `bank`, in order, make a larger number than `best k bank`.
 

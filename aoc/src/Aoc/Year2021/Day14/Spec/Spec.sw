@@ -12,10 +12,9 @@ def insertionFor (rules: List Rule) (pair: ElementPair): Option Char :=
   rules.find (rule => rule.pair == pair) |> .map (rule => rule.insert)
 
 --| What goes between `a` and `b` in a step: the rule's element, or nothing.
-def between (rules: List Rule) (a: Char) (b: Char): List Char :=
-  match insertionFor rules { first = a, second = b } with
-    | Some c => [c]
-    | None => []
+def between (rules: List Rule) (a: Char) (b: Char): List Char := match insertionFor rules { first = a, second = b } with
+  | Some c => [c]
+  | None => []
 
 --| One step: between each element and the next, what that pair's rule
 --| inserts. Every pair is looked at in the polymer before the step.

@@ -54,23 +54,20 @@ def diagonalIn (region: Region) (plot: Position) (vertical: Direction) (horizont
     | None => False
 
 theorem diagonalUpLeft (region: Region) (row column: Nat):
-    diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column :=
-  match row, column with
-    | Zero, column => rfl
-    | Succ up, Zero => rfl
-    | Succ up, Succ before => rfl
+    diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column := match row, column with
+      | Zero, column => rfl
+      | Succ up, Zero => rfl
+      | Succ up, Succ before => rfl
 
 theorem diagonalUpRight (region: Region) (row column: Nat):
-    diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column :=
-  match row with
-    | Zero => rfl
-    | Succ up => rfl
+    diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column := match row with
+      | Zero => rfl
+      | Succ up => rfl
 
 theorem diagonalDownLeft (region: Region) (row column: Nat):
-    diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column :=
-  match column with
-    | Zero => rfl
-    | Succ before => rfl
+    diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column := match column with
+      | Zero => rfl
+      | Succ before => rfl
 
 theorem diagonalDownRight (region: Region) (row: Nat) (column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column := rfl
@@ -146,10 +143,9 @@ theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (gro
       ]
 
 --| `total` is the sum over `List.range`.
-theorem totalRange (n: Nat) (f: Nat → Nat): (List.range 0 n).sumBy f = total n f :=
-  match n with
-    | Zero => rfl
-    | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
+theorem totalRange (n: Nat) (f: Nat → Nat): (List.range 0 n).sumBy f = total n f := match n with
+  | Zero => rfl
+  | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
 
 --| The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=

@@ -23,10 +23,9 @@ def inBoth (x: Nat) (xs: List Nat) (ys: List Nat) (h: (xs.contains x && ys.conta
 test "in both" := inBoth 2 [1, 2] [2, 3] (Both rfl rfl) == 4
 
 -- The equation a `match` gives its branch.
-def whenWanted (x: Nat) (xs: List Nat) (wanted: Bool): Nat :=
-  match ok: wanted && xs.contains x with
-    | True => present x xs
-    | False => 0
+def whenWanted (x: Nat) (xs: List Nat) (wanted: Bool): Nat := match ok: wanted && xs.contains x with
+  | True => present x xs
+  | False => 0
 
 test "when wanted" := whenWanted 2 [1, 2] True == 2 ∧ whenWanted 2 [1, 2] False == 0
 
@@ -45,10 +44,9 @@ def member (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5) = True)
 
 test "member" := member [1, 4] 4 (Inr (Inl rfl)) rfl == 4
 
-def checked (xs: List Nat) (y: Nat) (m: y ∈ xs): Nat :=
-  match ok: xs.all (x => x < 5) with
-    | True => small y
-    | False => 0
+def checked (xs: List Nat) (y: Nat) (m: y ∈ xs): Nat := match ok: xs.all (x => x < 5) with
+  | True => small y
+  | False => 0
 
 test "checked" := checked [1, 4] 4 (Inr (Inl rfl)) == 4 ∧ checked [1, 7] 1 (Inl rfl) == 0
 

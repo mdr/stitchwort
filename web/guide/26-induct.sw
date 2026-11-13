@@ -6,11 +6,10 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
-  match induct (countAbove k xs) with
-    | eq1 => omega
-    | eq2IfTrue y ys h ih => omega
-    | eq2IfFalse y ys h ih => omega
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+  | eq1 => omega
+  | eq2IfTrue y ys h ih => omega
+  | eq2IfFalse y ys h ih => omega
 
 -- The equations are theorems too. `countAbove.eq2.ifFalse` says what a call
 -- is when the test failed, with the failed test as a hypothesis.

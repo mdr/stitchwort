@@ -92,23 +92,21 @@ def settle: Nat → Nat → Paused → Nat
   | Succ fuel, step, Finished total => total
   | Succ fuel, step, Suspended v resume => settle fuel step (resume (v + step))
 
-def explore (p: Paused): List Nat :=
-  match p with
-    | Finished total => [total]
-    | Suspended v resume =>
-      -- The same resumption, resumed in three branches with different
-      -- answers, one of them twice.
-      [settle 5 1 (resume 1), settle 5 2 (resume 2), settle 5 1 (resume 1), settle 5 0 (resume 7)]
+def explore (p: Paused): List Nat := match p with
+  | Finished total => [total]
+  | Suspended v resume =>
+    -- The same resumption, resumed in three branches with different
+    -- answers, one of them twice.
+    [settle 5 1 (resume 1), settle 5 2 (resume 2), settle 5 1 (resume 1), settle 5 0 (resume 7)]
 
 export def branches (start: Nat): List Nat :=
   explore (Offer.pause (() => threeOffers start))
 
 -- Resumes the first stored resumption with each answer in turn, after the
 -- handler is long gone, settling each run differently.
-def replayFrom (p: Paused) (answers: List Nat): List Nat :=
-  match p with
-    | Finished total => [total]
-    | Suspended v resume => List.map (List.take answers 5) (answer => settle 5 answer (resume answer))
+def replayFrom (p: Paused) (answers: List Nat): List Nat := match p with
+  | Finished total => [total]
+  | Suspended v resume => List.map (List.take answers 5) (answer => settle 5 answer (resume answer))
 
 export def replayed (start: Nat) (answers: List Nat): List Nat :=
   replayFrom (Offer.pause (() => threeOffers start)) answers

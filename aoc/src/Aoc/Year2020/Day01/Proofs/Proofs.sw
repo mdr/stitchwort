@@ -29,11 +29,10 @@ theorem pairAheadStep (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 
 --| And back: a pair ahead after `x` is passed was ahead before it.
 theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: Nat)
-    (ahead: PairAhead [x, ..before] rest a b): PairAhead before [x, ..rest] a b :=
-  match ahead with
-    | Inl (Both (Inl xIs) bRest) => Inr ((List.memPairsCons a b x rest).backward (Inl (Both (Eq.sym xIs) bRest)))
-    | Inl (Both (Inr aBefore) bRest) => Inl (Both aBefore (Inr bRest))
-    | Inr inRest => Inr ((List.memPairsCons a b x rest).backward (Inr inRest))
+    (ahead: PairAhead [x, ..before] rest a b): PairAhead before [x, ..rest] a b := match ahead with
+      | Inl (Both (Inl xIs) bRest) => Inr ((List.memPairsCons a b x rest).backward (Inl (Both (Eq.sym xIs) bRest)))
+      | Inl (Both (Inr aBefore) bRest) => Inl (Both aBefore (Inr bRest))
+      | Inr inRest => Inr ((List.memPairsCons a b x rest).backward (Inr inRest))
 
 --| What `findPairAfter` finds is a pair ahead summing to the target, when
 --| everything in `seen` was passed.
@@ -145,10 +144,9 @@ theorem findTripleComplete (target: Nat): ∀ (entries: List Nat) (a b c: Nat) =
 --| An answer that is sound and complete is the only answer, when there is
 --| exactly one.
 theorem onlyAnswer (answers: List Nat) (found: Option Nat) (sound: ∀ (x: Nat) => found = Some x → x ∈ answers) (complete: ∀ (x: Nat) => x ∈ answers → found ≠ None) (answer: Nat) (isAnswer: answer ∈ answers)
-    (only: (∀ (other: Nat) => other ∈ answers → other = answer)): found = Some answer :=
-  match found with
-    | Some x => rewrite only x (sound x rfl) in rfl
-    | None => Void.exfalso (complete answer isAnswer rfl)
+    (only: ∀ (other: Nat) => other ∈ answers → other = answer): found = Some answer := match found with
+      | Some x => rewrite only x (sound x rfl) in rfl
+      | None => Void.exfalso (complete answer isAnswer rfl)
 
 --| Part 1's answer is one of the puzzle's.
 theorem part1Sound (entries: List Nat) (answer: Nat) (found: solvePart1 entries = Some answer): answer ∈ part1Answers entries :=

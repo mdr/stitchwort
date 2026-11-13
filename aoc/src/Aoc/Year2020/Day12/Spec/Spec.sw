@@ -13,15 +13,14 @@ import Std (Char, Int, List, Nat, Parse)
 
 -- The format
 
-def ActionWritten (letter: Char) (action: Action): Prop :=
-  match action with
-    | Move North => letter = 'N'
-    | Move South => letter = 'S'
-    | Move East => letter = 'E'
-    | Move West => letter = 'W'
-    | Turn Left => letter = 'L'
-    | Turn Right => letter = 'R'
-    | Forward => letter = 'F'
+def ActionWritten (letter: Char) (action: Action): Prop := match action with
+  | Move North => letter = 'N'
+  | Move South => letter = 'S'
+  | Move East => letter = 'E'
+  | Move West => letter = 'W'
+  | Turn Left => letter = 'L'
+  | Turn Right => letter = 'R'
+  | Forward => letter = 'F'
 
 --| "Each instruction consists of a single-character action paired with an
 --| integer input value": the letter, then the value in decimal. The ship
@@ -56,10 +55,9 @@ def quarterRight (location: Location): Location := { x = location.y, y = 0 - loc
 
 --| Turned `degrees` to `side`, a multiple of 90 (InstructionWritten): that
 --| many quarter turns.
-def turned (side: Side) (degrees: Nat) (location: Location): Location :=
-  match side with
-    | Left => Nat.iterate (degrees / 90) quarterLeft location
-    | Right => Nat.iterate (degrees / 90) quarterRight location
+def turned (side: Side) (degrees: Nat) (location: Location): Location := match side with
+  | Left => Nat.iterate (degrees / 90) quarterLeft location
+  | Right => Nat.iterate (degrees / 90) quarterRight location
 
 --| "The Manhattan distance between that location and the ship's starting
 --| position": "the sum of the absolute values of its east/west position and
@@ -78,11 +76,10 @@ def start: Ship := { position = { x = 0, y = 0 }, facing = unit East }
 --| likewise; "Action L means to turn left the given number of degrees", and
 --| R right; "Action F means to move forward by the given value in the
 --| direction the ship is currently facing."
-def navigate (ship: Ship) (instruction: Instruction): Ship :=
-  match instruction.action with
-    | Move heading => { ship | position = along ship.position (unit heading) instruction.value }
-    | Turn side => { ship | facing = turned side instruction.value ship.facing }
-    | Forward => { ship | position = along ship.position ship.facing instruction.value }
+def navigate (ship: Ship) (instruction: Instruction): Ship := match instruction.action with
+  | Move heading => { ship | position = along ship.position (unit heading) instruction.value }
+  | Turn side => { ship | facing = turned side instruction.value ship.facing }
+  | Forward => { ship | position = along ship.position ship.facing instruction.value }
 
 --| "Figure out where the navigation instructions lead. What is the
 --| Manhattan distance between that location and the ship's starting
@@ -104,11 +101,10 @@ def steeredStart: Steered := { position = { x = 0, y = 0 }, waypoint = { x = 10,
 --| left (counter-clockwise) the given number of degrees", and R right
 --| (clockwise); "Action F means to move forward to the waypoint a number of
 --| times equal to the given value." The waypoint moves with the ship.
-def steer (ship: Steered) (instruction: Instruction): Steered :=
-  match instruction.action with
-    | Move heading => { ship | waypoint = along ship.waypoint (unit heading) instruction.value }
-    | Turn side => { ship | waypoint = turned side instruction.value ship.waypoint }
-    | Forward => { ship | position = along ship.position ship.waypoint instruction.value }
+def steer (ship: Steered) (instruction: Instruction): Steered := match instruction.action with
+  | Move heading => { ship | waypoint = along ship.waypoint (unit heading) instruction.value }
+  | Turn side => { ship | waypoint = turned side instruction.value ship.waypoint }
+  | Forward => { ship | position = along ship.position ship.waypoint instruction.value }
 
 --| "What is the Manhattan distance between that location and the ship's
 --| starting position?"

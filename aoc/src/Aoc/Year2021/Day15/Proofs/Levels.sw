@@ -108,10 +108,9 @@ theorem heightNotZero (cave: Cave) (rectangle: Rectangle cave): cave.height ≠ 
   zero => omega [And.left rectangle, noRowsNoWidth cave.grid.rows zero]
 
 --| Without rows there is no first row to have a width.
-theorem noRowsNoWidth (rows: List (List (Fin 10))) (zero: rows.length = 0): firstWidth rows = 0 :=
-  match rows with
-    | [] => rfl
-    | [first, ..rest] => omega [zero]
+theorem noRowsNoWidth (rows: List (List (Fin 10))) (zero: rows.length = 0): firstWidth rows = 0 := match rows with
+  | [] => rfl
+  | [first, ..rest] => omega [zero]
 
 --| A level of the cave is a digit's.
 theorem levelBelow10 (cave: Cave) (position: Position) (level: Nat) (found: levelAt cave position = Some level): level < 10 :=

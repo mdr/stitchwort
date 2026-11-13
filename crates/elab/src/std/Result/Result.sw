@@ -77,34 +77,31 @@ theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
 --| A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
 --| so whatever `r` each `Ok` of `f` satisfies holds pairwise.
 theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => f x = Ok y → r x y)
-    (xs: List a) (ys: List b) (done: Result.traverse xs f = Ok ys): List.All2 r xs ys :=
-  match xs with
-    | [] => rewrite <- Result.okInjective done in Trivial
-    | [x, ..rest] =>
-      Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
-        (y first later =>
-          match e: Result.traverse rest f with
-            | Ok zs => rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
+    (xs: List a) (ys: List b) (done: Result.traverse xs f = Ok ys): List.All2 r xs ys := match xs with
+      | [] => rewrite <- Result.okInjective done in Trivial
+      | [x, ..rest] =>
+        Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
+          (y first later =>
+            match e: Result.traverse rest f with
+              | Ok zs => rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
 --| The converse of [`Result.traverseAll2`]: if `f` gives `Ok y` for every
 --| pair that `r` relates, then `traverse` over lists `r` relates pairwise
 --| gives `Ok` of the second list.
 theorem Result.traverseOfAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => r x y → f x = Ok y)
-    (xs: List a) (ys: List b) (all: List.All2 r xs ys): Result.traverse xs f = Ok ys :=
-  match xs, ys with
-    | [], [] => rfl
-    | [x, ..rest], [y, ..more] =>
-      rewrite Result.traverseCons f x rest, each x y (And.left all), Result.traverseOfAll2 f r each rest more (And.right all) in rfl
+    (xs: List a) (ys: List b) (all: List.All2 r xs ys): Result.traverse xs f = Ok ys := match xs, ys with
+      | [], [] => rfl
+      | [x, ..rest], [y, ..more] =>
+        rewrite Result.traverseCons f x rest, each x y (And.left all), Result.traverseOfAll2 f r each rest more (And.right all) in rfl
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: (option: Option a) → (err: e) → Result a e
   | None, err => Err err
   | Some x, err => Ok x
 
-theorem Result.toOptionToResult (err: e) (o: Option a): Result.toOption (Option.toResult o err) = o :=
-  match o with
-    | None => rfl
-    | Some x => rfl
+theorem Result.toOptionToResult (err: e) (o: Option a): Result.toOption (Option.toResult o err) = o := match o with
+  | None => rfl
+  | Some x => rfl
 
 test "Result of ()" := (Ok (): Result () Text) == Ok () ∧ (Err "no": Result () Text) != Ok ()
 test "Result.map" := Result.map (Ok 2: Result Nat Text) (+ 1) == Ok 3

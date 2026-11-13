@@ -9,12 +9,11 @@ import Aoc.Year2020.Day18 (..)
 import Aoc.Year2020.Day18 (Spec)
 import Std (Eq, Fail, List, Nat, Parse, Result, Text)
 
-theorem valueSpec (expression: Expression): expression.value = Spec.value expression :=
-  match expression with
-    | Number value => rfl
-    | Operation Plus left right => rewrite valueSpec left, valueSpec right in rfl
-    | Operation Times left right => rewrite valueSpec left, valueSpec right in rfl
-    | Parenthesised inner => valueSpec inner
+theorem valueSpec (expression: Expression): expression.value = Spec.value expression := match expression with
+  | Number value => rfl
+  | Operation Plus left right => rewrite valueSpec left, valueSpec right in rfl
+  | Operation Times left right => rewrite valueSpec left, valueSpec right in rfl
+  | Parenthesised inner => valueSpec inner
 
 theorem sumSpec (homework: Homework): homework.sum = (homework.expressions.map Spec.value).sum :=
   rewrite List.mapCong homework.expressions Expression.value Spec.value valueSpec in rfl

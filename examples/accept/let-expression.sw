@@ -26,10 +26,9 @@ def afterAssign (n: Nat): Nat := let d := n * 2; d + 1
 def inBranches (b: Bool) (n: Nat): Nat :=
   if b then let d := n + 1; d * d else let e := n + 2; e
 
-def inArm (o: Option Nat): Nat :=
-  match o with
-    | Some k => let j := k + 1; j * 2
-    | None => 0
+def inArm (o: Option Nat): Nat := match o with
+  | Some k => let j := k + 1; j * 2
+  | None => 0
 
 def inLambda (xs: List Nat): List Nat := xs.map (x => let y := x + 1; y * y)
 

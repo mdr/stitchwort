@@ -8,6 +8,5 @@ theorem apart (m n: Nat) (h: (m == n) = False): m ≠ n := h.read
 
 theorem apartApplied (m n: Nat) (h: (m == n) = False) (e: m = n): Void := h.read e
 
-theorem succSame (m n: Nat) (h: Nat.equal (Succ m) (Succ n)): m = n :=
-  match h.read with
-    | rfl => rfl
+theorem succSame (m n: Nat) (h: Nat.equal (Succ m) (Succ n)): m = n := match h.read with
+  | rfl => rfl

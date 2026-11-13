@@ -59,12 +59,11 @@ theorem orthogonalSymmetric (from: Position) (to: Position) (orthogonal: Orthogo
     | Inr (Both columns (Inr up)) => Inr (Both (Eq.sym columns) (Inl up))
 
 --| Every direction is one of `directions`.
-theorem memDirections (side: Direction): side ∈ directions :=
-  match side with
-    | Up => Inl rfl
-    | Right => Inr (Inl rfl)
-    | Down => Inr (Inr (Inl rfl))
-    | Left => Inr (Inr (Inr (Inl rfl)))
+theorem memDirections (side: Direction): side ∈ directions := match side with
+  | Up => Inl rfl
+  | Right => Inr (Inl rfl)
+  | Down => Inr (Inr (Inl rfl))
+  | Left => Inr (Inr (Inr (Inl rfl)))
 
 --| `growSame` as an equation.
 theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: growSame garden plot other = True):

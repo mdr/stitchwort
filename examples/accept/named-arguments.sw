@@ -68,15 +68,13 @@ test "an annotated expression" := annotatedValue == 6
 -- A result type computed from a parameter: its names are those of what it
 -- computes to once the arguments before it are given, as when the call is
 -- bracketed, `(scaler 2) (by := 5) (plus := 1)`.
-def Scaler (n: Nat): Type :=
-  match n with
-    | Zero => Nat
-    | Succ _ => (by: Nat) → (plus: Nat) → Nat
+def Scaler (n: Nat): Type := match n with
+  | Zero => Nat
+  | Succ _ => (by: Nat) → (plus: Nat) → Nat
 
-def scaler (n: Nat): Scaler n :=
-  match n with
-    | Zero => 0
-    | Succ _ => (by plus => n * by + plus)
+def scaler (n: Nat): Scaler n := match n with
+  | Zero => 0
+  | Succ _ => (by plus => n * by + plus)
 
 test "names after a computed result type" := scaler 2 (plus := 1) (by := 5) == 11
 test "named before the argument the type needs" := scaler (by := 5) 2 (plus := 1) == 11

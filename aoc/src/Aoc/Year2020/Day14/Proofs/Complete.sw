@@ -51,15 +51,14 @@ theorem startsComplete (instructions: List Instruction) (starts: StartsWithMask 
 
 --| Input that is a program written out is read as that program.
 theorem parseComplete (input: Text) (program: Program) (written: ProgramWritten (input.lines.map Text.toList) program):
-    Fail.toResult (() => parseProgram input) = Ok program :=
-  match written with
-    | Both lines starts =>
-      let ran := Parse.runsEachLine input instruction program.instructions (List.all2Weaken runsInstruction _ _ lines)
-      rewrite Fail.toResultThen (() => Parse.eachLine input instruction)
-        (instructions => if startsWithMask instructions then ({ instructions }: Program) else Fail.fail "the program has to start with a mask") in
-        rewrite ran, startsComplete program.instructions starts in
-          match program with
-            | { instructions } => rfl
+    Fail.toResult (() => parseProgram input) = Ok program := match written with
+      | Both lines starts =>
+        let ran := Parse.runsEachLine input instruction program.instructions (List.all2Weaken runsInstruction _ _ lines)
+        rewrite Fail.toResultThen (() => Parse.eachLine input instruction)
+          (instructions => if startsWithMask instructions then ({ instructions }: Program) else Fail.fail "the program has to start with a mask") in
+          rewrite ran, startsComplete program.instructions starts in
+            match program with
+              | { instructions } => rfl
 
 --| A program is written by an input in at most one way, since the parser reads it as one.
 theorem writtenUnique (input: Text) (a: Program) (b: Program) (writtenA: ProgramWritten (input.lines.map Text.toList) a)

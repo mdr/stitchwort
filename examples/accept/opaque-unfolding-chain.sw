@@ -24,10 +24,9 @@ theorem nextIsOne: next = 1 unfolding next := rfl
 -- same, and so does a local definition.
 opaque def isStart (n: Nat): Bool
     unfolding start
-:=
-  match n == start with
-    | True => True
-    | False => False
+:= match n == start with
+  | True => True
+  | False => False
 
 theorem startIsStart: isStart 0 = True
     unfolding isStart

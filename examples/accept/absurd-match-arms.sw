@@ -14,11 +14,10 @@ def beats: Move -> Move -> Bool
 
 -- Several scrutinees: in the `Rock` and `Paper` alternatives, `h` is
 -- `False = True`.
-theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
-  match theirs, h with
-    | Rock, ()
-    | Paper, ()
-    | Scissors, _ => rfl
+theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
+  | Rock, ()
+  | Paper, ()
+  | Scissors, _ => rfl
 
 -- The same as equations.
 theorem rockBeatsOnlyScissorsArms: (theirs: Move) -> beats Rock theirs -> theirs = Scissors
@@ -27,9 +26,8 @@ theorem rockBeatsOnlyScissorsArms: (theirs: Move) -> beats Rock theirs -> theirs
   | Scissors, _ => rfl
 
 -- One scrutinee, and a result that is data.
-def fromImpossible (h: Rock = Paper): Nat :=
-  match h with
-    | ()
+def fromImpossible (h: Rock = Paper): Nat := match h with
+  | ()
 
 -- A clause lambda.
 def noVoid: Void -> Nat := match

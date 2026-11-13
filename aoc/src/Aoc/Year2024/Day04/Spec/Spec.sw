@@ -44,11 +44,10 @@ def directions: List Direction := [
 ]
 
 --| `distance` steps from `start`; `None` before 0.
-def moved (start: Nat) (step: Step) (distance: Nat): Option Nat :=
-  match step with
-    | Back => if distance ≤ start then Some (start - distance) else None
-    | Stay => Some start
-    | Ahead => Some (start + distance)
+def moved (start: Nat) (step: Step) (distance: Nat): Option Nat := match step with
+  | Back => if distance ≤ start then Some (start - distance) else None
+  | Stay => Some start
+  | Ahead => Some (start + distance)
 
 --| The letter `distance` steps from row r, column c in `direction`.
 def letterAlong (grid: Grid) (r: Nat) (c: Nat) (direction: Direction) (distance: Nat): Option Char :=

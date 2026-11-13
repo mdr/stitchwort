@@ -32,11 +32,10 @@ def threat (player: Position): List Monster → Nat
 theorem upToAtMost (dice: Dice) (index: Nat) (most: Nat): dice.upTo index most ≤ most unfolding Dice.upTo :=
   omega [Nat.modLt (lcg (lcg (dice.seed + index * 7919)) / 65536) (most + 1)]
 
-theorem strengthPositive (kind: Kind): 1 ≤ kind.strength :=
-  match kind with
-    | Goblin => rfl
-    | Orc => rfl
-    | Troll => rfl
+theorem strengthPositive (kind: Kind): 1 ≤ kind.strength := match kind with
+  | Goblin => rfl
+  | Orc => rfl
+  | Troll => rfl
 
 theorem blowAtMost (dice: Dice) (index: Nat) (kind: Kind): 1 + dice.upTo index (kind.strength - 1) ≤ kind.strength :=
   omega [upToAtMost dice index (kind.strength - 1), strengthPositive kind]
@@ -94,21 +93,20 @@ theorem playerMovesHitPoints (dice: Dice) (state: State) (direction: Direction):
 
 --| Hit points only go up by drinking a potion.
 theorem resolveNoHeal (dice: Dice) (state: State) (command: Command) (notDrink: command ≠ Drink):
-    (resolve dice state command).hitPoints ≤ state.hitPoints :=
-  match phase: state.phase with
-    | Playing =>
-      match command with
-        | Quit => omega
-        | Wait => monstersTurnNoHeal dice { state | message = "You wait." }
-        | Move direction => omega [monstersTurnNoHeal dice (playerMoves dice state direction), playerMovesHitPoints dice state direction]
-        | Drink => Void.exfalso (notDrink rfl)
-        | Descend =>
-          match stairs: isStairs state.level state.player with
-            | True => omega [descendHitPoints dice state]
-            | False => omega
-    | Won => omega
-    | Died => omega
-    | GaveUp => omega
+    (resolve dice state command).hitPoints ≤ state.hitPoints := match phase: state.phase with
+      | Playing =>
+        match command with
+          | Quit => omega
+          | Wait => monstersTurnNoHeal dice { state | message = "You wait." }
+          | Move direction => omega [monstersTurnNoHeal dice (playerMoves dice state direction), playerMovesHitPoints dice state direction]
+          | Drink => Void.exfalso (notDrink rfl)
+          | Descend =>
+            match stairs: isStairs state.level state.player with
+              | True => omega [descendHitPoints dice state]
+              | False => omega
+      | Won => omega
+      | Died => omega
+      | GaveUp => omega
 
 theorem healedAtMostPotion (hitPoints: Nat): healed hitPoints ≤ hitPoints + potionStrength :=
   match fits: Nat.leq (hitPoints + potionStrength) maxHitPoints with

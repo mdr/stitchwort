@@ -37,12 +37,11 @@ def keyAt (rows: List (List (Option k))) (aim: Position): Option k := rows.getOr
 
 --| "the up / down / left / right buttons cause it to move its arm one
 --| button in that direction"; none off the top or the left.
-def moved (aim: Position) (direction: Direction): Option Position :=
-  match direction with
-    | Up => if aim.row == 0 then None else Some { aim | row = aim.row - 1 }
-    | Down => Some { aim | row = aim.row + 1 }
-    | Left => if aim.column == 0 then None else Some { aim | column = aim.column - 1 }
-    | Right => Some { aim | column = aim.column + 1 }
+def moved (aim: Position) (direction: Direction): Option Position := match direction with
+  | Up => if aim.row == 0 then None else Some { aim | row = aim.row - 1 }
+  | Down => Some { aim | row = aim.row + 1 }
+  | Left => if aim.column == 0 then None else Some { aim | column = aim.column - 1 }
+  | Right => Some { aim | column = aim.column + 1 }
 
 --| The keys a robot presses when driven by `presses`, its arm at `aim`:
 --| "the A button causes the robot to briefly move forward, pressing the
@@ -59,10 +58,9 @@ def operate (rows: List (List (Option k))) (aim: Position): List DirectionKey â†
 --| which is typing on a directional keypad which controls a robot which is
 --| typing on a directional keypad... and so on, ending with the robot which
 --| is typing on the numeric keypad".
-def typed (robots: Nat) (presses: List DirectionKey): Option Code :=
-  match robots with
-    | Zero => operate numericRows numericStart presses
-    | Succ others => operate directionalRows directionalStart presses |> .flatMap (typed others)
+def typed (robots: Nat) (presses: List DirectionKey): Option Code := match robots with
+  | Zero => operate numericRows numericStart presses
+  | Succ others => operate directionalRows directionalStart presses |> .flatMap (typed others)
 
 --| `presses` "cause the desired code to be typed on the numeric keypad".
 def Types (robots: Nat) (code: Code) (presses: List DirectionKey): Prop := typed robots presses = Some code

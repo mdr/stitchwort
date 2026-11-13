@@ -16,9 +16,8 @@ import Std (Eq, Fail, List, Option, Result, Text, Void)
 --| Part 2's holders, when the elimination settles them, are a way the
 --| allergens could be: the puzzle's promise, for part 1.
 theorem promiseOfDangerous (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer):
-    ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder :=
-  match settled: list.holders with
-    | Some holders => Witness (list.holderOf holders) (holdersHolding list holders settled)
+    ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder := match settled: list.holders with
+      | Some holders => Witness (list.holderOf holders) (holdersHolding list holders settled)
 
 theorem part1Correct (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list)
     (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder):

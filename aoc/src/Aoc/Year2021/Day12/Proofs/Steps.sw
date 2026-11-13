@@ -12,27 +12,26 @@ theorem withoutShorter (caves: List Cave) (cave: Cave) (member: cave ∈ caves):
 --| A step that goes on makes the search's reach smaller.
 theorem stepDecreases (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: Cave) (left: List Cave) (stillSpare: Bool)
     (e: step unvisited spare cave other = Continue left stillSpare):
-    reach left stillSpare other < reach unvisited spare cave :=
-  match en: other.isEnd with
-    | False =>
-      match es: other.isStart with
-        | False =>
-          match bo: other.isBig with
-            | True =>
-              match bc: cave.isBig with
-                | False =>
-                  rewrite Step.continueLeft unvisited spare left stillSpare e, Step.continueSpare unvisited spare left stillSpare e in
-                    omega
-            | False =>
-              match fr: unvisited.contains other with
-                | True =>
-                  rewrite Step.continueLeft (without unvisited other) spare left stillSpare e, Step.continueSpare (without unvisited other) spare left stillSpare e in
-                    omega [withoutShorter unvisited other fr.read]
-                | False =>
-                  match sp: spare with
-                    | True =>
-                      rewrite Step.continueLeft unvisited False left stillSpare e, Step.continueSpare unvisited False left stillSpare e in
-                        omega
+    reach left stillSpare other < reach unvisited spare cave := match en: other.isEnd with
+      | False =>
+        match es: other.isStart with
+          | False =>
+            match bo: other.isBig with
+              | True =>
+                match bc: cave.isBig with
+                  | False =>
+                    rewrite Step.continueLeft unvisited spare left stillSpare e, Step.continueSpare unvisited spare left stillSpare e in
+                      omega
+              | False =>
+                match fr: unvisited.contains other with
+                  | True =>
+                    rewrite Step.continueLeft (without unvisited other) spare left stillSpare e, Step.continueSpare (without unvisited other) spare left stillSpare e in
+                      omega [withoutShorter unvisited other fr.read]
+                  | False =>
+                    match sp: spare with
+                      | True =>
+                        rewrite Step.continueLeft unvisited False left stillSpare e, Step.continueSpare unvisited False left stillSpare e in
+                          omega
 
 def Step.goesOn: Step → Bool
   | Continue _ _ => True

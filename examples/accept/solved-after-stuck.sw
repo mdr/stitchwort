@@ -8,10 +8,9 @@
 -- alike, `x + x`.
 import Std (Bool, Int, Nat)
 
-def pick (b: Bool): Nat → Nat :=
-  match b with
-    | True => n => n
-    | False => n => 0
+def pick (b: Bool): Nat → Nat := match b with
+  | True => n => n
+  | False => n => 0
 
 theorem lem [b: Bool]: b = b ∧ pick b 5 = pick b 5 := Both rfl rfl
 

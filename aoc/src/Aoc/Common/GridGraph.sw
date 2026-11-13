@@ -118,11 +118,10 @@ theorem boxIndexBelow (height: Nat) (width: Nat) (position: Position) (number: N
 --| Decoding a position's number gives the position back.
 theorem boxIndexRoundTrip (height: Nat) (width: Nat) (position: Position) (number: Nat)
     (numbered: (if position.within height width then Some (position.row * width + position.column) else None) = Some number):
-    Some ({ row = number / width, column = number % width }: Position) = Some position :=
-  match position with
-    | { row, column } =>
-      match inside: ({ row, column }: Position).within height width with
-        | True =>
-          let before: column < width := inside.right
-          rewrite <- Option.someInjective numbered in
-            rewrite Nat.modUnique (row * width + column) width row column before rfl, Nat.mulAddDivSmall row width column before in rfl
+    Some ({ row = number / width, column = number % width }: Position) = Some position := match position with
+      | { row, column } =>
+        match inside: ({ row, column }: Position).within height width with
+          | True =>
+            let before: column < width := inside.right
+            rewrite <- Option.someInjective numbered in
+              rewrite Nat.modUnique (row * width + column) width row column before rfl, Nat.mulAddDivSmall row width column before in rfl

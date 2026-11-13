@@ -19,10 +19,9 @@ theorem NonEmptyList.consToList (x: a) (rest: List a): (NonEmptyList.cons x rest
 
 --| The bridges from `List`.
 
-theorem List.toNonEmptyToList (xs: List a) [auto nonEmpty: xs ≠ []]: (List.toNonEmpty xs).toList = xs :=
-  match xs with
-    | [] => Void.exfalso (nonEmpty rfl)
-    | [x, ..rest] => rfl
+theorem List.toNonEmptyToList (xs: List a) [auto nonEmpty: xs ≠ []]: (List.toNonEmpty xs).toList = xs := match xs with
+  | [] => Void.exfalso (nonEmpty rfl)
+  | [x, ..rest] => rfl
 
 theorem NonEmptyList.toListToNonEmpty (xs: NonEmptyList a): List.toNonEmpty xs.toList [nonEmpty := NonEmptyList.toListNotNil xs] = xs :=
   match xs with
@@ -32,9 +31,8 @@ theorem List.nonEmptyNil: List.nonEmpty ([]: List a) = None := rfl
 
 theorem List.nonEmptyCons (x: a) (rest: List a): List.nonEmpty [x, ..rest] = Some { head = x, tail = rest } := rfl
 
-theorem NonEmptyList.nonEmptyToList (xs: NonEmptyList a): List.nonEmpty xs.toList = Some xs :=
-  match xs with
-    | { head = x, tail = rest } => rfl
+theorem NonEmptyList.nonEmptyToList (xs: NonEmptyList a): List.nonEmpty xs.toList = Some xs := match xs with
+  | { head = x, tail = rest } => rfl
 
 theorem List.nonEmptyToNonEmpty (xs: List a) (h: xs ≠ []): List.nonEmpty xs = Some (List.toNonEmpty xs [nonEmpty := h]) :=
   match xs with

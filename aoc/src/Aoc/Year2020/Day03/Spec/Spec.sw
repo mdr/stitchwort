@@ -15,10 +15,9 @@ def repeatingAt (pattern: List Square) (column: Nat): Option Square decreasing c
   else None
 
 --| The square at `position` of the repeating map; none past the bottom.
-def squareAt (map: Grid Square) (position: Position): Option Square :=
-  match map.rows.get position.row with
-    | Some pattern => repeatingAt pattern position.column
-    | None => None
+def squareAt (map: Grid Square) (position: Position): Option Square := match map.rows.get position.row with
+  | Some pattern => repeatingAt pattern position.column
+  | None => None
 
 --| "Right 3, down 1" from `position`.
 def moved (position: Position) (slope: Slope): Position :=

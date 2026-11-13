@@ -35,12 +35,11 @@ theorem checkedWired (read: () → {Fail} List Entry) (entries: List Entry) (par
 
 --| `checkWired` passes its entries on unchanged, and only if each is wired.
 theorem checkWiredOk (entries: List Entry) (checked: List Entry) (h: Fail.toResult (() => checkWired entries) = Ok checked):
-    checked.all Entry.wired = True :=
-  match e: firstUnwired entries with
-    | Some (index, _) => Void.exfalso (Result.errNotOk h)
-    | None =>
-      rewrite <- Result.okInjective h in
-        List.findNotNoneAll entries Entry.wired (List.findWithIndexFromNone (entry => not entry.wired) 0 entries e)
+    checked.all Entry.wired = True := match e: firstUnwired entries with
+      | Some (index, _) => Void.exfalso (Result.errNotOk h)
+      | None =>
+        rewrite <- Result.okInjective h in
+          List.findNotNoneAll entries Entry.wired (List.findWithIndexFromNone (entry => not entry.wired) 0 entries e)
 
 --| An entry that passes the program's check is decoded by its wiring.
 theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiring.at entry :=

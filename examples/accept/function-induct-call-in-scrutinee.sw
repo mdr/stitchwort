@@ -6,15 +6,14 @@ import Std (Eq, List, Nat, Option)
 
 def settle (xs: List Nat): Option Nat
     decreasing xs.length
-:=
-  match xs with
-    | [] => None
-    | [_, ..rest] =>
-      if shorter: rest.length < xs.length then
-        match settle rest with
-          | None => None
-          | Some _ => settle rest
-      else None
+:= match xs with
+  | [] => None
+  | [_, ..rest] =>
+    if shorter: rest.length < xs.length then
+      match settle rest with
+        | None => None
+        | Some _ => settle rest
+    else None
 
 theorem settleNone (xs: List Nat): settle xs = None :=
   settle.induct

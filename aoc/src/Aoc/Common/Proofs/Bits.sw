@@ -11,17 +11,15 @@ theorem Bits.complementValue (number: Bits): number.value + number.complement.va
   Nat.fromBitsFlipped number.bits
 
 --| The first bit is the bit at position 0.
-theorem Bits.getZero (number: Bits): number.get 0 = number.first :=
-  match number with
-    | { bits = [] } => rfl
-    | { bits = [first, ..rest] } => rfl
+theorem Bits.getZero (number: Bits): number.get 0 = number.first := match number with
+  | { bits = [] } => rfl
+  | { bits = [first, ..rest] } => rfl
 
 theorem Bits.widthAppend (number: Bits) (other: Bits): (number.append other).width = number.width + other.width :=
   List.lengthAppend number.bits other.bits
 
-theorem Bits.emptyAppend (number: Bits): Bits.empty.append number = number :=
-  match number with
-    | { bits } => rfl
+theorem Bits.emptyAppend (number: Bits): Bits.empty.append number = number := match number with
+  | { bits } => rfl
 
 --| Appending one bit.
 theorem Bits.widthAppendBit (number: Bits) (bit: Bool): (number.append (Bits.cons Bits.empty bit)).width = Succ number.width :=

@@ -8,13 +8,11 @@ theorem readsNotMember (s: Set Nat) (x: Nat) (h: s.contains x = False): x ∉ s.
 
 theorem readsFromList (xs: List Nat) (x: Nat) (h: (Set.fromList xs).contains x): x ∈ xs := (Set.memToListFromList xs x).forward h.read
 
-theorem partsOfAnd (a: Bool) (s: Set Nat) (x: Nat) (h: (a && s.contains x) = True): a = True :=
-  match h with
-    | Both ha hx => ha
+theorem partsOfAnd (a: Bool) (s: Set Nat) (x: Nat) (h: (a && s.contains x) = True): a = True := match h with
+  | Both ha hx => ha
 
-theorem andMember (a: Bool) (s: Set Nat) (x: Nat) (h: (a && s.contains x) = True): x ∈ s.toList :=
-  match h with
-    | Both ha hx => hx.read
+theorem andMember (a: Bool) (s: Set Nat) (x: Nat) (h: (a && s.contains x) = True): x ∈ s.toList := match h with
+  | Both ha hx => hx.read
 
 theorem mapKey (m: Map Nat Nat) (x: Nat) (h: m.contains x): x ∈ m.keys := h.read
 

@@ -104,7 +104,7 @@ theorem List.padRightGetOr (row: List a) (fill: a) (w: Nat) (h: List.length row 
       := List.mapCong (List.range 0 w) (c => List.getOr (List.padRight row w fill) c fill)
         (c => List.getOr row c fill) (c => List.getOrPadRight row fill w c)
 
-theorem List.padRowsGetOr (rows: List (List a)) (fill: a) (w: Nat) (h: (∀ (r: Nat) => List.length (List.getOr rows r []) ≤ w)):
+theorem List.padRowsGetOr (rows: List (List a)) (fill: a) (w: Nat) (h: ∀ (r: Nat) => List.length (List.getOr rows r []) ≤ w):
     List.map rows (row => List.padRight row w fill) = List.map rows (row => List.map (List.range 0 w) (c => List.getOr row c fill)) :=
   match rows with
     | [] => rfl

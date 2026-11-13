@@ -22,21 +22,19 @@ theorem clearOfFind (fold: Fold) (dots: List Point) (none: dots.find (dot => not
 --| If no fold is blocked, folding a list that holds the dots, the promise
 --| is kept for every fold.
 theorem unblockedPromise (folds: List Fold) (index: Nat) (dots: List Point) (marked: Point → Prop) (holds: Holds dots marked)
-    (none: firstBlockedFrom index dots folds = None): Promise folds marked :=
-  match folds with
-    | [] => Trivial
-    | [fold, ..rest] =>
-      match e: dots.find (dot => not (clears fold dot)) with
-        | None =>
-          let clear := (dot: Point) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
-          Both clear (unblockedPromise rest (index + 1) (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds clear) none)
+    (none: firstBlockedFrom index dots folds = None): Promise folds marked := match folds with
+      | [] => Trivial
+      | [fold, ..rest] =>
+        match e: dots.find (dot => not (clears fold dot)) with
+          | None =>
+            let clear := (dot: Point) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
+            Both clear (unblockedPromise rest (index + 1) (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds clear) none)
 
 --| `checkPaper` gives the paper back, and only if no fold is blocked...
 theorem checkPaperOk (paper: Paper) (result: Paper) (h: Fail.toResult (() => checkPaper paper) = Ok result):
-    result = paper ∧ firstBlocked paper.dots paper.folds = None :=
-  match e: firstBlocked paper.dots paper.folds with
-    | Some (index, dot) => Void.exfalso (Result.errNotOk h)
-    | None => Both (Eq.sym (Result.okInjective h)) rfl
+    result = paper ∧ firstBlocked paper.dots paper.folds = None := match e: firstBlocked paper.dots paper.folds with
+      | Some (index, dot) => Void.exfalso (Result.errNotOk h)
+      | None => Both (Eq.sym (Result.okInjective h)) rfl
 
 --| ...whatever reads it.
 theorem parsedUnblocked (read: () → {Fail} Paper) (paper: Paper) (parsed: Fail.toResult (() => checkPaper (read ())) = Ok paper):

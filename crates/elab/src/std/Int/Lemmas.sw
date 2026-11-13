@@ -3,24 +3,21 @@
 -- They live here, not in `Int/Int.sw`, which `omega` itself needs.
 
 --| `|x * y| = |x| * |y|`.
-theorem Int.natAbsMul (x y: Int): Int.natAbs (x * y) = Int.natAbs x * Int.natAbs y :=
-  match x, y with
-    | OfNat m, OfNat n => rfl
-    | OfNat m, NegSucc n => Int.natAbsNeg (OfNat (m * Succ n))
-    | NegSucc m, OfNat n => Int.natAbsNeg (OfNat (Succ m * n))
-    | NegSucc m, NegSucc n => rfl
+theorem Int.natAbsMul (x y: Int): Int.natAbs (x * y) = Int.natAbs x * Int.natAbs y := match x, y with
+  | OfNat m, OfNat n => rfl
+  | OfNat m, NegSucc n => Int.natAbsNeg (OfNat (m * Succ n))
+  | NegSucc m, OfNat n => Int.natAbsNeg (OfNat (Succ m * n))
+  | NegSucc m, NegSucc n => rfl
 
 --| Only 0 has size 0.
-theorem Int.natAbsZero (x: Int) (h: Int.natAbs x = 0): x = 0 :=
-  match x with
-    | OfNat n => Eq.cong OfNat h
-    | NegSucc n => Void.exfalso (Nat.succNotZero n h)
+theorem Int.natAbsZero (x: Int) (h: Int.natAbs x = 0): x = 0 := match x with
+  | OfNat n => Eq.cong OfNat h
+  | NegSucc n => Void.exfalso (Nat.succNotZero n h)
 
 --| The size of `x` as an `Int` is `x` or `-x`.
-theorem Int.natAbsCases (x: Int): (Nat.toInt (Int.natAbs x) = x) ∨ (Nat.toInt (Int.natAbs x) = 0 - x) :=
-  match x with
-    | OfNat n => Inl rfl
-    | NegSucc n => Inr rfl
+theorem Int.natAbsCases (x: Int): (Nat.toInt (Int.natAbs x) = x) ∨ (Nat.toInt (Int.natAbs x) = 0 - x) := match x with
+  | OfNat n => Inl rfl
+  | NegSucc n => Inr rfl
 
 -- Sizes. `omega` knows what `Int.natAbs x` is (`Int.natAbsDichotomy`), so
 -- each of these is `omega`; they're stated for `rewrite` and for listing
@@ -66,10 +63,9 @@ theorem Int.natAbsOfMulSelfOne (x: Int) (square: x * x = 1): Int.natAbs x = 1 :=
 --| A number between `-|d|` and `|d|`, exclusive, is smaller in size than
 --| `d`.
 theorem Int.natAbsLt (x: Int) (d: Int) (low: 0 - Nat.toInt (Int.natAbs d) < x) (high: x < Nat.toInt (Int.natAbs d)):
-    Int.natAbs x < Int.natAbs d :=
-  match Int.natAbsCases x with
-    | Inl same => omega
-    | Inr opposite => omega
+    Int.natAbs x < Int.natAbs d := match Int.natAbsCases x with
+      | Inl same => omega
+      | Inr opposite => omega
 
 --| A multiple of `d` smaller in size than `d` is 0 times `d`.
 theorem Int.smallMultiple (d: Int) (k: Int) (nonzero: d ≠ 0) (small: Int.natAbs (d * k) < Int.natAbs d): k = 0 :=
@@ -140,24 +136,23 @@ theorem Int.subEqZero (a: Int) (b: Int) (h: a - b = 0): a = b := omega
 theorem Int.negOfNatZero (k: Nat) (h: Int.neg (OfNat k) = 0): k = 0 := omega
 
 --| No zero divisors (Lean's `Int.mul_eq_zero`).
-theorem Int.mulEqZero (a b: Int) (h: a * b = 0): (a = 0) ∨ (b = 0) :=
-  match a, b with
-    | OfNat m, OfNat n =>
-      match Nat.mulEqZero m n (Int.ofNatInjective (m * n) 0 h) with
-        | Inl z => Inl (Eq.cong OfNat z)
-        | Inr z => Inr (Eq.cong OfNat z)
-    | OfNat m, NegSucc n =>
-      match Nat.mulEqZero m (Succ n) (Int.negOfNatZero (m * Succ n) h) with
-        | Inl z => Inl (Eq.cong OfNat z)
-        | Inr z => Void.exfalso (omega [z])
-    | NegSucc m, OfNat n =>
-      match Nat.mulEqZero (Succ m) n (Int.negOfNatZero (Succ m * n) h) with
-        | Inl z => Void.exfalso (omega [z])
-        | Inr z => Inr (Eq.cong OfNat z)
-    | NegSucc m, NegSucc n =>
-      match Nat.mulEqZero (Succ m) (Succ n) (Int.ofNatInjective (Succ m * Succ n) 0 h) with
-        | Inl z => Void.exfalso (omega [z])
-        | Inr z => Void.exfalso (omega [z])
+theorem Int.mulEqZero (a b: Int) (h: a * b = 0): (a = 0) ∨ (b = 0) := match a, b with
+  | OfNat m, OfNat n =>
+    match Nat.mulEqZero m n (Int.ofNatInjective (m * n) 0 h) with
+      | Inl z => Inl (Eq.cong OfNat z)
+      | Inr z => Inr (Eq.cong OfNat z)
+  | OfNat m, NegSucc n =>
+    match Nat.mulEqZero m (Succ n) (Int.negOfNatZero (m * Succ n) h) with
+      | Inl z => Inl (Eq.cong OfNat z)
+      | Inr z => Void.exfalso (omega [z])
+  | NegSucc m, OfNat n =>
+    match Nat.mulEqZero (Succ m) n (Int.negOfNatZero (Succ m * n) h) with
+      | Inl z => Void.exfalso (omega [z])
+      | Inr z => Inr (Eq.cong OfNat z)
+  | NegSucc m, NegSucc n =>
+    match Nat.mulEqZero (Succ m) (Succ n) (Int.ofNatInjective (Succ m * Succ n) 0 h) with
+      | Inl z => Void.exfalso (omega [z])
+      | Inr z => Void.exfalso (omega [z])
 
 --| A nonzero factor cancels (Lean's `Int.mul_left_cancel`).
 theorem Int.mulCancelLeft (c: Int) (a: Int) (b: Int) (nonzero: c ≠ 0) (h: c * a = c * b): a = b :=
@@ -169,10 +164,9 @@ theorem Int.mulCancelLeft (c: Int) (a: Int) (b: Int) (nonzero: c ≠ 0) (h: c * 
     | Inr z => Int.subEqZero a b z
 
 --| A square is the square of the size.
-theorem Int.mulSelf (x: Int): x * x = OfNat (Int.natAbs x * Int.natAbs x) :=
-  match x with
-    | OfNat n => rfl
-    | NegSucc n => rfl
+theorem Int.mulSelf (x: Int): x * x = OfNat (Int.natAbs x * Int.natAbs x) := match x with
+  | OfNat n => rfl
+  | NegSucc n => rfl
 
 --| Two squares add up to 0 only when both are 0.
 theorem Int.sumSquaresZero (x: Int) (y: Int) (h: x * x + y * y = 0): (x = 0) ∧ (y = 0) :=
@@ -193,21 +187,18 @@ test "Int.modAddMul" := (3 + -5 * 4) % -5 == 3 % -5 && (-2 + 7 * -3) % 7 == -2 %
 -- `Int.toNatChecked`, signs, and wrapping with `Int.modNat`.
 
 --| A number that `toNatChecked` takes is that number.
-theorem Int.toNatCheckedSome (x: Int) (n: Nat) (checked: x.toNatChecked = Some n): x = n.toInt :=
-  match x with
-    | OfNat m => Eq.cong OfNat (Option.someInjective checked)
+theorem Int.toNatCheckedSome (x: Int) (n: Nat) (checked: x.toNatChecked = Some n): x = n.toInt := match x with
+  | OfNat m => Eq.cong OfNat (Option.someInjective checked)
 
 --| A number that `toNatChecked` refuses is negative.
-theorem Int.toNatCheckedNone (x: Int) (checked: x.toNatChecked = None): x < 0 :=
-  match x with
-    | NegSucc m => omega
+theorem Int.toNatCheckedNone (x: Int) (checked: x.toNatChecked = None): x < 0 := match x with
+  | NegSucc m => omega
 
 --| `|x|` is `x` times its sign.
-theorem Int.natAbsSign (x: Int): x.natAbs.toInt = x.sign * x :=
-  match x with
-    | OfNat Zero => rfl
-    | OfNat (Succ n) => Eq.cong OfNat (omega)
-    | NegSucc n => Eq.cong OfNat (omega)
+theorem Int.natAbsSign (x: Int): x.natAbs.toInt = x.sign * x := match x with
+  | OfNat Zero => rfl
+  | OfNat (Succ n) => Eq.cong OfNat (omega)
+  | NegSucc n => Eq.cong OfNat (omega)
 
 --| What `Int.sign` is, by the three cases for the sign of `x`.
 theorem Int.signCases (x: Int): (x.sign = 1 ∧ 0 < x) ∨ (x.sign = 0 ∧ x = 0) ∨ (x.sign = -1 ∧ x < 0) :=
@@ -217,12 +208,11 @@ theorem Int.signCases (x: Int): (x.sign = 1 ∧ 0 < x) ∨ (x.sign = 0 ∧ x = 0
     | NegSucc k => Inr (Inr (Both rfl (omega)))
 
 --| The product of two consecutive integers is never negative.
-theorem Int.mulNonnegSucc (d: Int): 0 ≤ d * (d + 1) :=
-  match e: Int.leq 0 d with
-    | True => Int.mulNonneg d (d + 1) (omega) (omega)
-    | False =>
-      let flipped: d * (d + 1) = (-d) * (-d - 1) := ring
-      omega [Int.mulNonneg (-d) (-d - 1) (omega) (omega)]
+theorem Int.mulNonnegSucc (d: Int): 0 ≤ d * (d + 1) := match e: Int.leq 0 d with
+  | True => Int.mulNonneg d (d + 1) (omega) (omega)
+  | False =>
+    let flipped: d * (d + 1) = (-d) * (-d - 1) := ring
+    omega [Int.mulNonneg (-d) (-d - 1) (omega) (omega)]
 
 --| Scaling a count kept only when `b` holds: `v` times the kept count is the
 --| count times `v` when `b` holds, else 0.
@@ -234,40 +224,36 @@ theorem Int.mulKeepIf (v: Int) (x: Nat) (b: Bool): v * (x.keepIf b).toInt = x.to
 --| Dividing a multiple of a positive number by it: if `|value|` is `times`
 --| times `Succ below`, then `Succ below` times `value / Succ below` is `value`.
 theorem Int.divExact (value: Int) (below times: Nat) (multiple: value.natAbs = times * Succ below):
-    (Succ below).toInt * (value / (Succ below).toInt) = value :=
-  match value, times with
-    | OfNat n, times =>
-      let quotient := Nat.divUnique n (Succ below) times 0 (omega) (rewrite multiple in ring)
-      rewrite quotient in Eq.cong OfNat (rewrite multiple in ring)
-    | NegSucc m, Zero => Void.exfalso (omega [multiple])
-    | NegSucc m, Succ times =>
-      let whole: m = times * Succ below + below := omega [multiple, (ring: Succ times * Succ below = times * Succ below + Succ below)]
-      let quotient := Nat.divUnique m (Succ below) times below (omega) whole
-      rewrite quotient in Eq.cong NegSucc (omega [whole, (ring: times + below * Succ times = times * Succ below + below)])
+    (Succ below).toInt * (value / (Succ below).toInt) = value := match value, times with
+      | OfNat n, times =>
+        let quotient := Nat.divUnique n (Succ below) times 0 (omega) (rewrite multiple in ring)
+        rewrite quotient in Eq.cong OfNat (rewrite multiple in ring)
+      | NegSucc m, Zero => Void.exfalso (omega [multiple])
+      | NegSucc m, Succ times =>
+        let whole: m = times * Succ below + below := omega [multiple, (ring: Succ times * Succ below = times * Succ below + Succ below)]
+        let quotient := Nat.divUnique m (Succ below) times below (omega) whole
+        rewrite quotient in Eq.cong NegSucc (omega [whole, (ring: times + below * Succ times = times * Succ below + below)])
 
 --| A number below `size` wraps to itself.
-theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x :=
-  match size with
-    | Succ n => Nat.modSmall x (Succ n) inside
+theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x := match size with
+  | Succ n => Nat.modSmall x (Succ n) inside
 
 --| One step forward on a line of `size` is adding 1 and wrapping: the
 --| conditional that goes back to 0 at the end is `modNat`.
 theorem Int.modNatSuccWrap (size x: Nat) (inside: x < size):
-    (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size :=
-  match size with
-    | Succ n =>
-      match e: x + 1 == Succ n with
-        | True => rewrite (omega [e.read]: x = n) in Eq.sym (Nat.modSelf (Succ n))
-        | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
+    (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size := match size with
+      | Succ n =>
+        match e: x + 1 == Succ n with
+          | True => rewrite (omega [e.read]: x = n) in Eq.sym (Nat.modSelf (Succ n))
+          | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
 
 --| One step back on a line of `size` is subtracting 1 and wrapping: the
 --| conditional that goes to the end from 0 is `modNat`.
 theorem Int.modNatPredWrap (size x: Nat) (inside: x < size):
-    (if x == 0 then size - 1 else x - 1) = Int.modNat (x.toInt - 1) size :=
-  match size, x with
-    | Succ n, Zero => rfl
-    | Succ n, Succ x =>
-      rewrite (omega: (Succ x).toInt - 1 = x.toInt) in Eq.sym (Nat.modSmall x (Succ n) omega)
+    (if x == 0 then size - 1 else x - 1) = Int.modNat (x.toInt - 1) size := match size, x with
+      | Succ n, Zero => rfl
+      | Succ n, Succ x =>
+        rewrite (omega: (Succ x).toInt - 1 = x.toInt) in Eq.sym (Nat.modSmall x (Succ n) omega)
 
 --| On a line of `size`, `size * laps` more steps of any `velocity` land
 --| where they did.

@@ -8,12 +8,11 @@ import Aoc.Year2024.Day15.Spec (ahead)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Int, List, Nat, Not, Or)
 
 --| How far along `direction` a position is.
-def progress (direction: Direction) (position: Cell): Int :=
-  match direction with
-    | Up => 0 - position.rows
-    | Down => position.rows
-    | Left => 0 - position.columns
-    | Right => position.columns
+def progress (direction: Direction) (position: Cell): Int := match direction with
+  | Up => 0 - position.rows
+  | Down => position.rows
+  | Left => 0 - position.columns
+  | Right => position.columns
 
 theorem progressStep (position: Cell) (direction: Direction): progress direction (position.step direction) = progress direction position + 1 :=
   match direction with

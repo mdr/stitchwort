@@ -75,10 +75,9 @@ type Holders = { byInside: Map Colour (NonEmptyList Holding) }
 def Rules.holders (rules: Rules): Holders := { byInside = rules.all.flatMap .holdings |> .groupBy .inside }
 
 --| The colours whose rules list `colour`.
-def Holders.of (holders: Holders) (colour: Colour): List Colour :=
-  match holders.byInside.get colour with
-    | Some holdings => holdings.toList.map .holder
-    | None => []
+def Holders.of (holders: Holders) (colour: Colour): List Colour := match holders.byInside.get colour with
+  | Some holdings => holdings.toList.map .holder
+  | None => []
 
 --| Bags and the bags that hold them, each step out costing 1.
 def Rules.graph (rules: Rules): Graph Colour :=
@@ -96,10 +95,9 @@ type RuleBook = { byColour: Map Colour (NonEmptyList Rule) }
 
 def Rules.book (rules: Rules): RuleBook := { byColour = rules.all.groupBy .colour }
 
-def RuleBook.contentsOf (book: RuleBook) (colour: Colour): List Content :=
-  match book.byColour.get colour with
-    | Some found => found.toList.flatMap .contents
-    | None => []
+def RuleBook.contentsOf (book: RuleBook) (colour: Colour): List Content := match book.byColour.get colour with
+  | Some found => found.toList.flatMap .contents
+  | None => []
 
 --| The bags inside a bag of `colour`, following the rules at most `depth`
 --| bags deep: `None` if they go deeper.

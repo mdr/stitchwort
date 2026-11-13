@@ -20,10 +20,9 @@ theorem memAppendLeft (x: a) (ys: List a) (xs: List a) (inside: List.Mem x xs): 
     | [first, ..rest], Inl here => Inl here
     | [first, ..rest], Inr later => Inr (memAppendLeft x ys rest later)
 
-theorem memAppendRight (x: a) (ys: List a) (xs: List a) (inside: List.Mem x ys): List.Mem x (xs ++ ys) :=
-  match xs with
-    | [] => inside
-    | [first, ..rest] => Inr (memAppendRight x ys rest inside)
+theorem memAppendRight (x: a) (ys: List a) (xs: List a) (inside: List.Mem x ys): List.Mem x (xs ++ ys) := match xs with
+  | [] => inside
+  | [first, ..rest] => Inr (memAppendRight x ys rest inside)
 
 --| A cell with no monster on it isn't among their positions.
 theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monsterAt position monsters = None → ¬(List.Mem position (positions monsters))

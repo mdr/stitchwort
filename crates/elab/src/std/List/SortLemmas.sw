@@ -28,14 +28,13 @@ theorem List.sumCons [auto add: Add a] (x: a) (xs: List a): List.sum [x, ..xs] =
   Eq.trans (Eq.cong (t => List.foldLeft xs t Add.add) (add.zeroAdd x)) (List.sumFrom xs x)
 
 theorem List.sumAppend [auto add: Add a] (xs ys: List a):
-    List.sum (List.append xs ys) = List.sum xs + List.sum ys :=
-  match xs with
-    | [] => Eq.sym (add.zeroAdd (List.sum ys))
-    | [x, ..xs] =>
-      Eq.trans (List.sumCons x (List.append xs ys))
-        (Eq.trans (Eq.cong (t => x + t) (List.sumAppend xs ys))
-          (Eq.trans (Eq.sym (add.assoc x (List.sum xs) (List.sum ys)))
-            (Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs)))))
+    List.sum (List.append xs ys) = List.sum xs + List.sum ys := match xs with
+      | [] => Eq.sym (add.zeroAdd (List.sum ys))
+      | [x, ..xs] =>
+        Eq.trans (List.sumCons x (List.append xs ys))
+          (Eq.trans (Eq.cong (t => x + t) (List.sumAppend xs ys))
+            (Eq.trans (Eq.sym (add.assoc x (List.sum xs) (List.sum ys)))
+              (Eq.cong (t => t + List.sum ys) (Eq.sym (List.sumCons x xs)))))
 
 theorem List.sumByMulLeft (xs: List a) (c: Nat) (f: a → Nat): List.sumBy xs (x => c * f x) = c * List.sumBy xs f :=
   match xs with
@@ -43,29 +42,26 @@ theorem List.sumByMulLeft (xs: List a) (c: Nat) (f: a → Nat): List.sumBy xs (x
     | [x, ..xs] => rewrite List.sumByCons xs x (y => c * f y), List.sumByCons xs x f, List.sumByMulLeft xs c f in ring
 
 theorem List.sumByRangeShift (f: Nat → Nat) (n s: Nat):
-    List.sumBy (List.rangeFrom n (Succ s)) f = List.sumBy (List.rangeFrom n s) (i => f (Succ i)) :=
-  match n with
-    | Zero => rfl
-    | Succ n =>
-      Eq.trans (List.sumByCons (List.rangeFrom n (Succ (Succ s))) (Succ s) f)
-        (Eq.trans (Eq.cong (t => f (Succ s) + t) (List.sumByRangeShift f n (Succ s)))
-          (Eq.sym (List.sumByCons (List.rangeFrom n (Succ s)) s (i => f (Succ i)))))
+    List.sumBy (List.rangeFrom n (Succ s)) f = List.sumBy (List.rangeFrom n s) (i => f (Succ i)) := match n with
+      | Zero => rfl
+      | Succ n =>
+        Eq.trans (List.sumByCons (List.rangeFrom n (Succ (Succ s))) (Succ s) f)
+          (Eq.trans (Eq.cong (t => f (Succ s) + t) (List.sumByRangeShift f n (Succ s)))
+            (Eq.sym (List.sumByCons (List.rangeFrom n (Succ s)) s (i => f (Succ i)))))
 
 --| A sum over `s, s + 1, ..., s + n - 1`, as one over `0, 1, ..., n - 1`.
 theorem List.sumByRangeOffset (f: Nat → Nat) (s n: Nat):
-    List.sumBy (List.rangeFrom n s) f = List.sumBy (List.range 0 n) (i => f (s + i)) :=
-  match s with
-    | Zero => List.sumByCong (List.range 0 n) f (i => f (0 + i)) (i => rfl)
-    | Succ s => Eq.trans (List.sumByRangeShift f n s) (List.sumByRangeOffset (i => f (Succ i)) s n)
+    List.sumBy (List.rangeFrom n s) f = List.sumBy (List.range 0 n) (i => f (s + i)) := match s with
+      | Zero => List.sumByCong (List.range 0 n) f (i => f (0 + i)) (i => rfl)
+      | Succ s => Eq.trans (List.sumByRangeShift f n s) (List.sumByRangeOffset (i => f (Succ i)) s n)
 
 theorem List.sumByRangeOffsetExample: List.sumBy (List.rangeFrom 3 10) (i => i) = List.sumBy (List.range 0 3) (i => 10 + i) := rfl
 
 --| Gauss: twice the sum of `x, x + 1, ..., x + d` is `(d + 1) * (x + (x + d))`.
 theorem List.gaussSum (d x: Nat):
-    List.sum (List.rangeFrom (Succ d) x) + List.sum (List.rangeFrom (Succ d) x) = Succ d * (x + (x + d)) :=
-  match d with
-    | Zero => ring
-    | Succ d => rewrite List.sumCons x (List.rangeFrom (Succ d) (Succ x)) in ring [List.gaussSum d (Succ x)]
+    List.sum (List.rangeFrom (Succ d) x) + List.sum (List.rangeFrom (Succ d) x) = Succ d * (x + (x + d)) := match d with
+      | Zero => ring
+      | Succ d => rewrite List.sumCons x (List.rangeFrom (Succ d) (Succ x)) in ring [List.gaussSum d (Succ x)]
 
 --| The sum of `count` consecutive numbers from `start`, closed form:
 --| `(List.rangeFrom 4 10).sum` is `4 * 10 + 4 * 3 / 2`, 46. Gauss's rule
@@ -124,10 +120,9 @@ theorem List.lengthPairsDouble (xs: List a):
       rewrite List.lengthAppend (List.map xs (y => MkPair x y)) (List.pairs xs), List.lengthMap xs (y => MkPair x y)
         in List.pairsStep (List.length xs) (List.length (List.pairs xs)) (List.lengthPairsDouble xs)
 
-theorem List.pairsDoubleSub (n p: Nat) (h: p + p + n = n * n): p + p = n * (n - 1) :=
-  match n with
-    | Zero => ring [h]
-    | Succ m => ring [h]
+theorem List.pairsDoubleSub (n p: Nat) (h: p + p + n = n * n): p + p = n * (n - 1) := match n with
+  | Zero => ring [h]
+  | Succ m => ring [h]
 
 --| Twice the number of pairs is n * (n - 1).
 theorem List.lengthPairsDoubled (xs: List a):
@@ -157,17 +152,15 @@ theorem List.lengthTake (xs: List a) (k: Nat) (h: k ≤ List.length xs): List.le
     | xs, Zero => rfl
     | [x, ..xs], Succ k => Eq.cong Succ (List.lengthTake xs k h)
 
-theorem List.takeAll (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take xs k = xs :=
-  match xs, k with
-    | [], Zero => rfl
-    | [], Succ k => rfl
-    | [x, ..xs], Succ k => Eq.cong (Cons x) (List.takeAll xs k h)
+theorem List.takeAll (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take xs k = xs := match xs, k with
+  | [], Zero => rfl
+  | [], Succ k => rfl
+  | [x, ..xs], Succ k => Eq.cong (Cons x) (List.takeAll xs k h)
 
 --| Dropping at least the whole length leaves nothing.
-theorem List.dropPast (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.drop xs k = [] :=
-  match xs, k with
-    | [], k => List.dropNil k
-    | [x, ..xs], Succ k => List.dropPast xs k h
+theorem List.dropPast (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.drop xs k = [] := match xs, k with
+  | [], k => List.dropNil k
+  | [x, ..xs], Succ k => List.dropPast xs k h
 
 -- Sliding windows (`List.windows`): how many there are, how long each is,
 -- one step at a time, and the same as the suffixes cut to `size`, keeping
@@ -237,10 +230,9 @@ theorem List.lengthDrop (xs: List a) (n: Nat) (h: n ≤ List.length xs): n + Lis
 
 theorem List.lengthDropExample: List.length (List.drop [1, 2, 3, 4, 5] 2) = 3 := rfl
 
-theorem List.takeAppend (xs ys: List a): List.take (List.append xs ys) (List.length xs) = xs :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] => Eq.cong (Cons x) (List.takeAppend xs ys)
+theorem List.takeAppend (xs ys: List a): List.take (List.append xs ys) (List.length xs) = xs := match xs with
+  | [] => rfl
+  | [x, ..xs] => Eq.cong (Cons x) (List.takeAppend xs ys)
 
 --| [`List.takeAppend`] and [`List.dropAppend`] at a count known to be the
 --| first list's length.
@@ -256,25 +248,21 @@ theorem List.headTake (xs: List a) (d: a) (k: Nat) (h: 1 ≤ k): List.headOr (Li
     | [x, ..xs], Succ k => rfl
 
 --| `if b then x else 0` is `keepIf x b`.
-theorem Nat.ifKeep (x: Nat) (b: Bool): (if b then x else 0) = Nat.keepIf x b :=
-  match b with
-    | True => rfl
-    | False => rfl
+theorem Nat.ifKeep (x: Nat) (b: Bool): (if b then x else 0) = Nat.keepIf x b := match b with
+  | True => rfl
+  | False => rfl
 
-theorem List.sumByZero [auto add: Add c] (xs: List a): List.sumBy xs (x => Add.zero) = (Add.zero: c) :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] => Eq.trans (List.sumByCons xs x (x => Add.zero)) (Eq.trans (add.zeroAdd (List.sumBy xs (x => Add.zero))) (List.sumByZero xs))
+theorem List.sumByZero [auto add: Add c] (xs: List a): List.sumBy xs (x => Add.zero) = (Add.zero: c) := match xs with
+  | [] => rfl
+  | [x, ..xs] => Eq.trans (List.sumByCons xs x (x => Add.zero)) (Eq.trans (add.zeroAdd (List.sumBy xs (x => Add.zero))) (List.sumByZero xs))
 
-theorem Nat.keepIfZero (b: Bool): Nat.keepIf 0 b = 0 :=
-  match b with
-    | True => rfl
-    | False => rfl
+theorem Nat.keepIfZero (b: Bool): Nat.keepIf 0 b = 0 := match b with
+  | True => rfl
+  | False => rfl
 
-theorem Nat.keepIfOne (b: Bool): Nat.keepIf 1 b = Bool.toNat b :=
-  match b with
-    | True => rfl
-    | False => rfl
+theorem Nat.keepIfOne (b: Bool): Nat.keepIf 1 b = Bool.toNat b := match b with
+  | True => rfl
+  | False => rfl
 
 --| Keeping a sum is keeping each term.
 theorem Nat.keepIfSumBy [g: a → Nat] [xs: List a] (b: Bool): Nat.keepIf (List.sumBy xs g) b = List.sumBy xs (x => Nat.keepIf (g x) b) :=
@@ -283,10 +271,9 @@ theorem Nat.keepIfSumBy [g: a → Nat] [xs: List a] (b: Bool): Nat.keepIf (List.
     | False => Eq.sym (List.sumByZero [add := Nat.instAdd] xs)
 
 --| `keepIf` as multiplying by 1 or 0.
-theorem Nat.mulToNat (x: Nat) (a: Bool): x * Bool.toNat a = Nat.keepIf x a :=
-  match a with
-    | True => ring
-    | False => ring
+theorem Nat.mulToNat (x: Nat) (a: Bool): x * Bool.toNat a = Nat.keepIf x a := match a with
+  | True => ring
+  | False => ring
 
 theorem Nat.keepIfKeepIf (x: Nat) (a b: Bool): Nat.keepIf (Nat.keepIf x a) b = x * Bool.toNat (a ∧ b) :=
   match a, b with
@@ -314,15 +301,14 @@ theorem List.sumByNestedAdd (xs: List a) (ys: List b) (f: a → b → Nat) (g: a
     (List.sumByAdd xs (x => List.sumBy ys (y => f x y)) (x => List.sumBy ys (y => g x y)))
 
 theorem List.sumBySwap [auto add: Add c] (ys: List b) (xs: List a) (h: a → b → c):
-    List.sumBy xs (x => List.sumBy ys (y => h x y)) = List.sumBy ys (y => List.sumBy xs (x => h x y)) :=
-  match xs with
-    | [] => Eq.sym (List.sumByZero ys)
-    | [x, ..xs] =>
-      Eq.trans (List.sumByCons xs x (x => List.sumBy ys (y => h x y)))
-        (Eq.trans (Eq.cong (t => List.sumBy ys (y => h x y) + t) (List.sumBySwap ys xs h))
-          (Eq.trans (Eq.sym (List.sumByAdd ys (y => h x y) (y => List.sumBy xs (x => h x y))))
-            (List.sumByCong ys (y => h x y + List.sumBy xs (x => h x y))
-              (y => List.sumBy [x, ..xs] (x => h x y)) (y => Eq.sym (List.sumByCons xs x (x => h x y))))))
+    List.sumBy xs (x => List.sumBy ys (y => h x y)) = List.sumBy ys (y => List.sumBy xs (x => h x y)) := match xs with
+      | [] => Eq.sym (List.sumByZero ys)
+      | [x, ..xs] =>
+        Eq.trans (List.sumByCons xs x (x => List.sumBy ys (y => h x y)))
+          (Eq.trans (Eq.cong (t => List.sumBy ys (y => h x y) + t) (List.sumBySwap ys xs h))
+            (Eq.trans (Eq.sym (List.sumByAdd ys (y => h x y) (y => List.sumBy xs (x => h x y))))
+              (List.sumByCong ys (y => h x y + List.sumBy xs (x => h x y))
+                (y => List.sumBy [x, ..xs] (x => h x y)) (y => Eq.sym (List.sumByCons xs x (x => h x y))))))
 
 theorem List.sumByMap [auto add: Add c] (xs: List a) (g: b → c) (f: a → b): List.sumBy (List.map xs f) g = List.sumBy xs (x => g (f x)) :=
   match xs with
@@ -377,14 +363,13 @@ theorem List.sumFilter (xs: List Nat) (p: Nat → Bool): List.sum (List.filter x
 
 --| Sums over a run of numbers that pick nothing, or pick one.
 theorem List.sumRangeFromNone (q: Nat → Bool) (g: Nat → Nat) (c s: Nat)
-    (h: (∀ (b: Nat) => s ≤ b → b < s + c → q b = False)):
-    List.sumBy (List.rangeFrom c s) (b => Nat.keepIf (g b) (q b)) = 0 :=
-  match c with
-    | Zero => rfl
-    | Succ c =>
-      Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
-        (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
-          (List.sumRangeFromNone q g c (Succ s) (b hb1 hb2 => h b (Nat.leTrans s (Succ s) b (Nat.leSucc s) hb1) (Nat.ltAddSucc s c b hb2))))
+    (h: ∀ (b: Nat) => s ≤ b → b < s + c → q b = False):
+    List.sumBy (List.rangeFrom c s) (b => Nat.keepIf (g b) (q b)) = 0 := match c with
+      | Zero => rfl
+      | Succ c =>
+        Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
+          (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
+            (List.sumRangeFromNone q g c (Succ s) (b hb1 hb2 => h b (Nat.leTrans s (Succ s) b (Nat.leSucc s) hb1) (Nat.ltAddSucc s c b hb2))))
 
 --| Past the one number `q` picks, `q` picks nothing.
 theorem List.sumRangeFromOneApart (q: Nat → Bool) (v: Nat) (uniq: ∀ (b: Nat) => q b = True → b = v) (s: Nat) (hs: q s = True)
@@ -441,13 +426,12 @@ theorem List.sumRangeFromEqNone (y: Nat) (c: Nat) (s: Nat) (h: ∀ (x: Nat) => s
 --| A sum over 0, 1, …, n - 1 that picks out `v`: `g v`, which must be 0
 --| when `v` is past the end.
 theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g v = 0):
-    List.sumBy (List.range 0 n) (x => Nat.keepIf (g x) (Nat.equal v x)) = g v :=
-  match e: Nat.leq (Succ v) n with
-    | True => List.sumRangeFromOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym h.read) n 0 (Nat.zeroLe v) e
-    | False =>
-      rewrite hz e.read in
-        List.sumRangeFromNone (x => Nat.equal v x) g n 0
-          (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 e.read))
+    List.sumBy (List.range 0 n) (x => Nat.keepIf (g x) (Nat.equal v x)) = g v := match e: Nat.leq (Succ v) n with
+      | True => List.sumRangeFromOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym h.read) n 0 (Nat.zeroLe v) e
+      | False =>
+        rewrite hz e.read in
+          List.sumRangeFromNone (x => Nat.equal v x) g n 0
+            (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 e.read))
 
 --| Sums over a range that pick nothing, or pick one.
 theorem List.sumRangeNone (q: Nat → Bool) (g: Nat → Nat) (from: Nat) (until: Nat) (h: ∀ (x: Nat) => from ≤ x → x < until → q x = False):
@@ -473,11 +457,10 @@ theorem List.sumRangeEqNone (y: Nat) (from: Nat) (until: Nat) (h: ∀ (x: Nat) =
   List.sumRangeFromEqNone y (until - from) from (x low high => h x low (omega))
 
 --| The numbers of `List.rangeFrom c s` are in order.
-theorem List.sortedRangeFrom (c s: Nat): List.Sorted Nat.leq (List.rangeFrom c s) :=
-  match c with
-    | Zero => Trivial
-    | Succ Zero => Both Trivial Trivial
-    | Succ (Succ c) => Both (Nat.leSucc s) (List.sortedRangeFrom (Succ c) (Succ s))
+theorem List.sortedRangeFrom (c s: Nat): List.Sorted Nat.leq (List.rangeFrom c s) := match c with
+  | Zero => Trivial
+  | Succ Zero => Both Trivial Trivial
+  | Succ (Succ c) => Both (Nat.leSucc s) (List.sortedRangeFrom (Succ c) (Succ s))
 
 --| A range is in order.
 theorem List.sortedRange (from: Nat) (until: Nat): List.Sorted Nat.leq (List.range from until) := List.sortedRangeFrom (until - from) from
@@ -517,7 +500,7 @@ theorem List.allRangeElim (q: Nat → Bool): ∀ (c s: Nat) => List.all (List.ra
           k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym ((Nat.decEq k s).complete (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
       (f => cases)
 
-theorem List.allRangeIntro (q: Nat → Bool) (c s: Nat) (h: (∀ (k: Nat) => s ≤ k → k < s + c → q k = True)): List.all (List.rangeFrom c s) q = True :=
+theorem List.allRangeIntro (q: Nat → Bool) (c s: Nat) (h: ∀ (k: Nat) => s ≤ k → k < s + c → q k = True): List.all (List.rangeFrom c s) q = True :=
   match c with
     | Zero => rfl
     | Succ c =>
@@ -534,13 +517,12 @@ theorem Nat.firstFromStop (q: Nat → Bool) (c: Nat) (s: Nat) (h: q s = True): N
 theorem Nat.firstFromSkip (q: Nat → Bool) (c: Nat) (s: Nat) (h: q s = False): Nat.firstFrom q (Succ c) s = Nat.firstFrom q c (Succ s) :=
   Eq.cong (b => Bool.ifThenElse b (u => s) (u => Nat.firstFrom q c (Succ s))) h
 
-theorem Nat.firstFromAtLeast (q: Nat → Bool) (c s: Nat): s ≤ Nat.firstFrom q c s :=
-  match c with
-    | Zero => Nat.leRefl s
-    | Succ c =>
-      Bool.inspect (q s) (u => s ≤ Nat.firstFrom q (Succ c) s)
-        (t => J (z p => s ≤ z) (Nat.leRefl s) (Eq.sym (Nat.firstFromStop q c s t)))
-        (f => rewrite <- Nat.firstFromSkip q c s f at Nat.leTrans s (Succ s) (Nat.firstFrom q c (Succ s)) (Nat.leSucc s) (Nat.firstFromAtLeast q c (Succ s)))
+theorem Nat.firstFromAtLeast (q: Nat → Bool) (c s: Nat): s ≤ Nat.firstFrom q c s := match c with
+  | Zero => Nat.leRefl s
+  | Succ c =>
+    Bool.inspect (q s) (u => s ≤ Nat.firstFrom q (Succ c) s)
+      (t => J (z p => s ≤ z) (Nat.leRefl s) (Eq.sym (Nat.firstFromStop q c s t)))
+      (f => rewrite <- Nat.firstFromSkip q c s f at Nat.leTrans s (Succ s) (Nat.firstFrom q c (Succ s)) (Nat.leSucc s) (Nat.firstFromAtLeast q c (Succ s)))
 
 theorem Nat.firstFromBefore (q: Nat → Bool) (c s j: Nat) (h1: s ≤ j) (h2: j < Nat.firstFrom q c s): q j = False :=
   match c with
@@ -572,19 +554,17 @@ theorem Nat.firstFromLe (q: Nat → Bool) (c: Nat) (s: Nat) (k: Nat) (h1: s ≤ 
 
 --| Sums that agree on the elements passing a check `all` says they all pass.
 theorem List.sumByCongAll (p: a → Bool) (f: a → Nat) (g: a → Nat) (h: ∀ (x: a) => p x = True → f x = g x)
-    (xs: List a) (ok: List.all xs p = True): List.sumBy xs f = List.sumBy xs g :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] =>
-      Eq.trans (List.sumByCons xs x f)
-        (Eq.trans (Eq.cong (t => t + List.sumBy xs f) (h x (Bool.andLeft ok)))
-          (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongAll p f g h xs (Bool.andRight ok)))
-            (Eq.sym (List.sumByCons xs x g))))
+    (xs: List a) (ok: List.all xs p = True): List.sumBy xs f = List.sumBy xs g := match xs with
+      | [] => rfl
+      | [x, ..xs] =>
+        Eq.trans (List.sumByCons xs x f)
+          (Eq.trans (Eq.cong (t => t + List.sumBy xs f) (h x (Bool.andLeft ok)))
+            (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongAll p f g h xs (Bool.andRight ok)))
+              (Eq.sym (List.sumByCons xs x g))))
 
-theorem Ordering.isLessEqIf (d: Bool): Ordering.isLessEq (if d then Less else Greater) = d :=
-  match d with
-    | True => rfl
-    | False => rfl
+theorem Ordering.isLessEqIf (d: Bool): Ordering.isLessEq (if d then Less else Greater) = d := match d with
+  | True => rfl
+  | False => rfl
 
 --| `Nat.compare` agrees with `<=`, so `List.sortBy` with it is total.
 theorem Nat.compareLeq (m: Nat) (n: Nat): Ordering.isLessEq (Nat.compare m n) = Nat.leq m n :=
@@ -598,14 +578,13 @@ theorem Nat.compareTotal (m: Nat) (n: Nat)
 
 --| The correctness proofs need only that `le` is total: `tot` below.
 theorem List.mergeLeHead (le: a → a → Bool) (z: a) (xs ys: List a)
-    (hx: List.LeHead le z xs) (hy: List.LeHead le z ys): List.LeHead le z (List.merge le xs ys) :=
-  match xs, ys with
-    | [], ys => hy
-    | [x, ..xs], [] => hx
-    | [x, ..xs], [y, ..ys] =>
-      Bool.inspect (le x y)
-        (c => List.LeHead le z (if c then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]))
-        (e => hx) (e => hy)
+    (hx: List.LeHead le z xs) (hy: List.LeHead le z ys): List.LeHead le z (List.merge le xs ys) := match xs, ys with
+      | [], ys => hy
+      | [x, ..xs], [] => hx
+      | [x, ..xs], [y, ..ys] =>
+        Bool.inspect (le x y)
+          (c => List.LeHead le z (if c then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]))
+          (e => hx) (e => hy)
 
 theorem List.mergeSorted (le: a → a → Bool) (tot: ∀ (x y: a) => le x y = False → le y x = True)
     (xs ys: List a) (sx: List.Sorted le xs) (sy: List.Sorted le ys): List.Sorted le (List.merge le xs ys) :=
@@ -675,11 +654,10 @@ theorem List.sortSorted [auto ord: Ord a] (xs: List a):
 theorem Ordering.notGreaterOfIsLessEq (c: Ordering) (h: Ordering.isLessEq c = True): c ≠ Greater :=
   e => Bool.falseNotTrue (rewrite e at h)
 
-theorem Ordering.isLessEqOfNotGreater (c: Ordering) (n: c ≠ Greater): Ordering.isLessEq c = True :=
-  match c with
-    | Less => rfl
-    | Equal => rfl
-    | Greater => Void.exfalso (n rfl)
+theorem Ordering.isLessEqOfNotGreater (c: Ordering) (n: c ≠ Greater): Ordering.isLessEq c = True := match c with
+  | Less => rfl
+  | Equal => rfl
+  | Greater => Void.exfalso (n rfl)
 
 --| The test `List.sort` sorts by is transitive, and holds both ways round
 --| only for equal values, by the `Ord`'s laws.
@@ -700,16 +678,14 @@ theorem Ord.isLessEqAntisymm [auto ord: Ord a] (x: a) (y: a)
 
 --| Sorted by one test is sorted by another that agrees with it.
 theorem List.leHeadCong (le1: a → a → Bool) (le2: a → a → Bool) (h: ∀ (x y: a) => le1 x y = le2 x y) (z: a)
-    (xs: List a) (p: List.LeHead le1 z xs): List.LeHead le2 z xs :=
-  match xs with
-    | [] => p
-    | [y, ..ys] => Eq.trans (Eq.sym (h z y)) p
+    (xs: List a) (p: List.LeHead le1 z xs): List.LeHead le2 z xs := match xs with
+      | [] => p
+      | [y, ..ys] => Eq.trans (Eq.sym (h z y)) p
 
 theorem List.sortedCong (le1: a → a → Bool) (le2: a → a → Bool) (h: ∀ (x y: a) => le1 x y = le2 x y)
-    (xs: List a) (h1: List.Sorted le1 xs): List.Sorted le2 xs :=
-  match xs, h1 with
-    | [], p => p
-    | [x, ..xs], Both p q => Both (List.leHeadCong le1 le2 h x xs p) (List.sortedCong le1 le2 h xs q)
+    (xs: List a) (h1: List.Sorted le1 xs): List.Sorted le2 xs := match xs, h1 with
+      | [], p => p
+      | [x, ..xs], Both p q => Both (List.leHeadCong le1 le2 h x xs p) (List.sortedCong le1 le2 h xs q)
 
 --| `Sorted le xs` is `xs.chain le = True`, both ways.
 theorem List.sortedOfChain (le: a → a → Bool) (xs: List a) (chained: List.chain xs le = True): List.Sorted le xs :=
@@ -754,11 +730,10 @@ theorem List.sortedHeadLe (le: a → a → Bool) (trans: ∀ (x y z: a) => le x 
 
 --| For a transitive `le`, sorted is pairwise.
 theorem List.pairwiseOfSorted (le: a → a → Bool) (trans: ∀ (x y z: a) => le x y = True → le y z = True → le x z = True)
-    (xs: List a) (h: List.Sorted le xs): List.Pairwise (x y => le x y = True) xs :=
-  match xs, h with
-    | [], s => Trivial
-    | [x, ..rest], Both hx s =>
-      Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLe le trans x z rest (Both hx s) m)) (List.pairwiseOfSorted le trans rest s)
+    (xs: List a) (h: List.Sorted le xs): List.Pairwise (x y => le x y = True) xs := match xs, h with
+      | [], s => Trivial
+      | [x, ..rest], Both hx s =>
+        Both (List.allOfMem (y => le x y = True) rest (z m => List.sortedHeadLe le trans x z rest (Both hx s) m)) (List.pairwiseOfSorted le trans rest s)
 
 --| Merging keeps a property every element of both lists has.
 -- Sorting a list whose elements all pass `p` needs `le` total only on the
@@ -767,15 +742,14 @@ theorem List.pairwiseOfSorted (le: a → a → Bool) (trans: ∀ (x y z: a) => l
 -- Merging and the sort's runs keep every element passing, so every
 -- comparison the sort makes is between two of them.
 theorem List.mergeAll (le: a → a → Bool) (p: a → Prop) (xs ys: List a)
-    (h: List.All p xs) (h1: List.All p ys): List.All p (List.merge le xs ys) :=
-  match xs, ys, h, h1 with
-    | [], ys, ax, ay => ay
-    | [x, ..xs], [], ax, ay => ax
-    | [x, ..xs], [y, ..ys], Both px ax, Both py ay =>
-      Bool.inspect (le x y)
-        (c => List.All p (if c then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]))
-        (e => Both px (List.mergeAll le p xs [y, ..ys] ax (Both py ay)))
-        (e => Both py (List.mergeAll le p [x, ..xs] ys (Both px ax) ay))
+    (h: List.All p xs) (h1: List.All p ys): List.All p (List.merge le xs ys) := match xs, ys, h, h1 with
+      | [], ys, ax, ay => ay
+      | [x, ..xs], [], ax, ay => ax
+      | [x, ..xs], [y, ..ys], Both px ax, Both py ay =>
+        Bool.inspect (le x y)
+          (c => List.All p (if c then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]))
+          (e => Both px (List.mergeAll le p xs [y, ..ys] ax (Both py ay)))
+          (e => Both py (List.mergeAll le p [x, ..xs] ys (Both px ax) ay))
 
 theorem List.mergeSortedOn (le: a → a → Bool) (p: a → Prop) (tot: ∀ (x y: a) => p x → p y → le x y = False → le y x = True)
     (xs ys: List a) (h: List.All p xs) (h1: List.All p ys) (sx: List.Sorted le xs) (sy: List.Sorted le ys): List.Sorted le (List.merge le xs ys) :=
@@ -802,11 +776,10 @@ theorem List.pushRunAll (le: a → a → Bool) (p: a → Prop) (run: List a): �
   | [Some r, ..rest], a, Both ar h => List.pushRunAll le p (List.merge le r run) rest (List.mergeAll le p r run ar a) h
 
 theorem List.buildRunsAll (le: a → a → Bool) (p: a → Prop) (c: List (Option (List a))) (xs: List a)
-    (h1: List.All p xs) (h: List.RunsAll p c): List.RunsAll p (List.buildRuns le c xs) :=
-  match xs, h1 with
-    | [], a => h
-    | [x, ..xs], Both px a =>
-      List.buildRunsAll le p (List.pushRun le [x] c) xs a (List.pushRunAll le p [x] c (Both px Trivial) h)
+    (h1: List.All p xs) (h: List.RunsAll p c): List.RunsAll p (List.buildRuns le c xs) := match xs, h1 with
+      | [], a => h
+      | [x, ..xs], Both px a =>
+        List.buildRunsAll le p (List.pushRun le [x] c) xs a (List.pushRunAll le p [x] c (Both px Trivial) h)
 
 theorem List.mergeRunsAll (le: a → a → Bool) (p: a → Prop) (acc: List a): ∀ (c: List (Option (List a))) =>
     List.All p acc → List.RunsAll p c → List.All p (List.mergeRuns le acc c)
@@ -887,12 +860,11 @@ theorem List.pairwiseAppendAcross (rel: a → a → Prop): ∀ (xs ys: List a) =
 
 --| Merging, when everything in the first list may come before everything in
 --| the second, joins the lists.
-theorem List.mergeAppend (le: a → a → Bool) (xs ys: List a) (h: (∀ (x: a) => List.Mem x xs → ∀ (y: a) => List.Mem y ys → le x y = True)):
-    List.merge le xs ys = List.append xs ys :=
-  match xs, ys with
-    | [], ys => rfl
-    | [x, ..xs], [] => Eq.sym (List.appendNil [x, ..xs])
-    | [x, ..xs], [y, ..ys] => rewrite h x (Inl rfl) y (Inl rfl), List.mergeAppend le xs [y, ..ys] (z m => h z (Inr m)) in rfl
+theorem List.mergeAppend (le: a → a → Bool) (xs ys: List a) (h: ∀ (x: a) => List.Mem x xs → ∀ (y: a) => List.Mem y ys → le x y = True):
+    List.merge le xs ys = List.append xs ys := match xs, ys with
+      | [], ys => rfl
+      | [x, ..xs], [] => Eq.sym (List.appendNil [x, ..xs])
+      | [x, ..xs], [y, ..ys] => rewrite h x (Inl rfl) y (Inl rfl), List.mergeAppend le xs [y, ..ys] (z m => h z (Inr m)) in rfl
 
 --| The runs of `List.sortWith`'s counter, oldest first, joined.
 def List.runsJoined: (runs: List (Option (List a))) → List a
@@ -910,46 +882,43 @@ theorem List.pairwiseRunsMerge (le: a → a → Bool) (front: List a) (older: Li
 
 theorem List.pushRunJoined (le: a → a → Bool) (run: List a) (c: List (Option (List a)))
     (h: List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) run)):
-    List.runsJoined (List.pushRun le run c) = List.append (List.runsJoined c) run :=
-  match c with
-    | [] => rfl
-    | [None, ..rest] => rfl
-    | [Some older, ..rest] =>
-      Eq.trans (Eq.cong (r => List.runsJoined (List.pushRun le r rest)) (List.pairwiseRunsMerge le (List.runsJoined rest) older run h))
-        (Eq.trans
-          (List.pushRunJoined le (List.append older run) rest (rewrite List.appendAssoc (List.runsJoined rest) older run at h))
-          (Eq.sym (List.appendAssoc (List.runsJoined rest) older run)))
+    List.runsJoined (List.pushRun le run c) = List.append (List.runsJoined c) run := match c with
+      | [] => rfl
+      | [None, ..rest] => rfl
+      | [Some older, ..rest] =>
+        Eq.trans (Eq.cong (r => List.runsJoined (List.pushRun le r rest)) (List.pairwiseRunsMerge le (List.runsJoined rest) older run h))
+          (Eq.trans
+            (List.pushRunJoined le (List.append older run) rest (rewrite List.appendAssoc (List.runsJoined rest) older run at h))
+            (Eq.sym (List.appendAssoc (List.runsJoined rest) older run)))
 
 theorem List.buildRunsJoined (le: a → a → Bool) (c: List (Option (List a))) (xs: List a)
     (h: List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) xs)):
-    List.runsJoined (List.buildRuns le c xs) = List.append (List.runsJoined c) xs :=
-  match xs with
-    | [] => Eq.sym (List.appendNil (List.runsJoined c))
-    | [x, ..xs] =>
-      Eq.trans
-        (List.buildRunsJoined le (List.pushRun le [x] c) xs
-          (rewrite <- List.pushRunJoined le [x] c
-              (List.pairwiseAppendLeft (x y => le x y = True) (List.append (List.runsJoined c) [x]) xs
-                (rewrite <- List.appendAssoc (List.runsJoined c) [x] xs at h))
-            at (rewrite <- List.appendAssoc (List.runsJoined c) [x] xs at h)))
-        (Eq.trans
-          (Eq.cong (r => List.append r xs)
-            (List.pushRunJoined le [x] c
-              (List.pairwiseAppendLeft (x y => le x y = True) (List.append (List.runsJoined c) [x]) xs
-                (rewrite <- List.appendAssoc (List.runsJoined c) [x] xs at h))))
-          (List.appendAssoc (List.runsJoined c) [x] xs))
+    List.runsJoined (List.buildRuns le c xs) = List.append (List.runsJoined c) xs := match xs with
+      | [] => Eq.sym (List.appendNil (List.runsJoined c))
+      | [x, ..xs] =>
+        Eq.trans
+          (List.buildRunsJoined le (List.pushRun le [x] c) xs
+            (rewrite <- List.pushRunJoined le [x] c
+                (List.pairwiseAppendLeft (x y => le x y = True) (List.append (List.runsJoined c) [x]) xs
+                  (rewrite <- List.appendAssoc (List.runsJoined c) [x] xs at h))
+              at (rewrite <- List.appendAssoc (List.runsJoined c) [x] xs at h)))
+          (Eq.trans
+            (Eq.cong (r => List.append r xs)
+              (List.pushRunJoined le [x] c
+                (List.pairwiseAppendLeft (x y => le x y = True) (List.append (List.runsJoined c) [x]) xs
+                  (rewrite <- List.appendAssoc (List.runsJoined c) [x] xs at h))))
+            (List.appendAssoc (List.runsJoined c) [x] xs))
 
 theorem List.mergeRunsJoined (le: a → a → Bool) (acc: List a) (c: List (Option (List a)))
     (h: List.Pairwise (x y => le x y = True) (List.append (List.runsJoined c) acc)):
-    List.mergeRuns le acc c = List.append (List.runsJoined c) acc :=
-  match c with
-    | [] => rfl
-    | [None, ..rest] => List.mergeRunsJoined le acc rest h
-    | [Some older, ..rest] =>
-      Eq.trans (Eq.cong (r => List.mergeRuns le r rest) (List.pairwiseRunsMerge le (List.runsJoined rest) older acc h))
-        (Eq.trans
-          (List.mergeRunsJoined le (List.append older acc) rest (rewrite List.appendAssoc (List.runsJoined rest) older acc at h))
-          (Eq.sym (List.appendAssoc (List.runsJoined rest) older acc)))
+    List.mergeRuns le acc c = List.append (List.runsJoined c) acc := match c with
+      | [] => rfl
+      | [None, ..rest] => List.mergeRunsJoined le acc rest h
+      | [Some older, ..rest] =>
+        Eq.trans (Eq.cong (r => List.mergeRuns le r rest) (List.pairwiseRunsMerge le (List.runsJoined rest) older acc h))
+          (Eq.trans
+            (List.mergeRunsJoined le (List.append older acc) rest (rewrite List.appendAssoc (List.runsJoined rest) older acc at h))
+            (Eq.sym (List.appendAssoc (List.runsJoined rest) older acc)))
 
 --| Sorting a list that is already sorted gives it back, for a transitive `le`.
 --| No totality is needed: every merge takes the older run whole.
@@ -990,33 +959,30 @@ theorem List.memPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (h: List.Perm 
 theorem List.occurrencesConsTrue (xs: List a) (p: a → Bool) (x: a) (px: p x = True): List.occurrences [x, ..xs] p = Succ (List.occurrences xs p) :=
   rewrite px in rfl
 
-theorem Bool.toNatAddLeOne (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤ 1 :=
-  match b, n with
-    | False, n => h
-    | True, Zero => rfl
+theorem Bool.toNatAddLeOne (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤ 1 := match b, n with
+  | False, n => h
+  | True, Zero => rfl
 
 --| No element of the rest has the key of the head that has `kk`, if the head's key isn't among theirs.
 theorem List.occurrencesKeyAbsent [auto eq: DecEq k] (xs: List a) (key: a → k) (x: a) (kk: k)
     (notMem: ¬(List.Mem (key x) (List.map xs key))) (t: (key x == kk) = True):
-    List.occurrences xs (y => key y == kk) = 0 :=
-  match n: List.occurrences xs (y => key y == kk) with
-    | Zero => rfl
-    | Succ m =>
-      let found: xs.any (y => key y == kk) := rewrite List.anyOccurrences xs (y => key y == kk), n in rfl
-      let Witness y (Both inXs py) := found
-      Void.exfalso (notMem (Eq.subst (z => List.Mem z (List.map xs key))
-        (Eq.trans py.read (Eq.sym t.read))
-        (List.memMap xs y inXs key)))
+    List.occurrences xs (y => key y == kk) = 0 := match n: List.occurrences xs (y => key y == kk) with
+      | Zero => rfl
+      | Succ m =>
+        let found: xs.any (y => key y == kk) := rewrite List.anyOccurrences xs (y => key y == kk), n in rfl
+        let Witness y (Both inXs py) := found
+        Void.exfalso (notMem (Eq.subst (z => List.Mem z (List.map xs key))
+          (Eq.trans py.read (Eq.sym t.read))
+          (List.memMap xs y inXs key)))
 
 --| Distinct keys: at most one element has any key.
 theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (h: List.Distinct (List.map xs key)):
-    List.occurrences xs (x => key x == kk) ≤ 1 :=
-  match xs, h with
-    | [], d => rfl
-    | [x, ..xs], Both notMem d =>
-      Bool.inspect (key x == kk) (c => Bool.toNat c + List.occurrences xs (y => key y == kk) ≤ 1)
-        (t => rewrite List.occurrencesKeyAbsent xs key x kk notMem t in rfl)
-        (f => List.occurrencesKeyDistinct xs key kk d)
+    List.occurrences xs (x => key x == kk) ≤ 1 := match xs, h with
+      | [], d => rfl
+      | [x, ..xs], Both notMem d =>
+        Bool.inspect (key x == kk) (c => Bool.toNat c + List.occurrences xs (y => key y == kk) ≤ 1)
+          (t => rewrite List.occurrencesKeyAbsent xs key x kk notMem t in rfl)
+          (f => List.occurrencesKeyDistinct xs key kk d)
 
 --| If the head's key is the only one of its kind, it isn't among the keys of the rest.
 theorem List.memMapOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) (x: a)
@@ -1034,14 +1000,13 @@ theorem List.memMapOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) 
           Bool.falseNotTrue (Eq.trans (rfl: False = Nat.leq (Succ (Succ c)) 1) (Eq.subst (m => Nat.leq (Succ m) 1 = True) n one)))
 
 --| When at most one element has any key, the keys are distinct.
-theorem List.distinctOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) (h: (∀ (kk: k) => List.occurrences xs (x => key x == kk) ≤ 1)):
-    List.Distinct (List.map xs key) :=
-  match xs with
-    | [] => Trivial
-    | [x, ..xs] =>
-      Both
-        (List.memMapOfOccurrences xs key x (h (key x)))
-        (List.distinctOfOccurrences xs key (kk => Bool.toNatAddLeOne (key x == kk) (List.occurrences xs (z => key z == kk)) (h kk)))
+theorem List.distinctOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) (h: ∀ (kk: k) => List.occurrences xs (x => key x == kk) ≤ 1):
+    List.Distinct (List.map xs key) := match xs with
+      | [] => Trivial
+      | [x, ..xs] =>
+        Both
+          (List.memMapOfOccurrences xs key x (h (key x)))
+          (List.distinctOfOccurrences xs key (kk => Bool.toNatAddLeOne (key x == kk) (List.occurrences xs (z => key z == kk)) (h kk)))
 
 --| Rearranging a list keeps its keys distinct.
 theorem List.distinctMapPerm [auto eq: DecEq k] (xs: List a) (key: a → k) (ys: List a) (h: List.Perm xs ys) (d: List.Distinct (List.map ys key)):
@@ -1071,25 +1036,23 @@ theorem List.occurrencesSplit [auto eq: DecEq a] (xs: List a) (v: a) (p: a → B
 
 --| Counting at `x` in a list without `x` finds nothing.
 theorem List.occurrencesAbsent [auto eq: DecEq a] (xs: List a) (x: a) (p: a → Bool) (n: ¬(List.Mem x xs)):
-    List.occurrences xs (y => p y ∧ (y == x)) = 0 :=
-  match xs with
-    | [] => rfl
-    | [y, ..ys] =>
-      match e: y == x with
-        | True => Void.exfalso (n (Inl e.read))
-        | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) in rfl
+    List.occurrences xs (y => p y ∧ (y == x)) = 0 := match xs with
+      | [] => rfl
+      | [y, ..ys] =>
+        match e: y == x with
+          | True => Void.exfalso (n (Inl e.read))
+          | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) in rfl
 
 --| Counting at `x` in a list with `x` once finds `x` if it passes `p`.
 theorem List.occurrencesOnce [auto eq: DecEq a] (xs: List a) (x: a) (p: a → Bool) (h: List.Distinct xs) (h1: List.Mem x xs):
-    List.occurrences xs (y => p y ∧ (y == x)) = Bool.toNat (p x) :=
-  match xs, h, h1 with
-    | [], d, m => Void.exfalso m
-    | [y, ..ys], Both notMem d, Inl e =>
-      rewrite e, DecEq.refl x, Bool.andTrue (p x), List.occurrencesAbsent ys x p (rewrite e at notMem) in Nat.addZero (Bool.toNat (p x))
-    | [y, ..ys], Both notMem d, Inr m =>
-      match e: y == x with
-        | True => Void.exfalso (notMem (rewrite e.read in m))
-        | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m in rfl
+    List.occurrences xs (y => p y ∧ (y == x)) = Bool.toNat (p x) := match xs, h, h1 with
+      | [], d, m => Void.exfalso m
+      | [y, ..ys], Both notMem d, Inl e =>
+        rewrite e, DecEq.refl x, Bool.andTrue (p x), List.occurrencesAbsent ys x p (rewrite e at notMem) in Nat.addZero (Bool.toNat (p x))
+      | [y, ..ys], Both notMem d, Inr m =>
+        match e: y == x with
+          | True => Void.exfalso (notMem (rewrite e.read in m))
+          | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m in rfl
 
 --| Two lists without repeats and with the same members are the same elements
 --| in another order.
@@ -1126,20 +1089,18 @@ def List.NumberWith (n: Nat) (p: a → Bool): Prop :=
 
 --| The number of values with `p` is one number.
 theorem List.numberWithUnique [auto eq: DecEq a] (p: a → Bool) (n: Nat) (m: Nat) (first: List.NumberWith n p) (second: List.NumberWith m p):
-    n = m :=
-  match first, second with
-    | Witness xs (Both dx (Both memX lengthX)), Witness ys (Both dy (Both memY lengthY)) =>
-      let same := List.permOfSameMembers xs ys dx dy
-        (x inX => (memY x).backward ((memX x).forward inX))
-        (y inY => (memX y).backward ((memY y).forward inY))
-      rewrite <- lengthX, <- lengthY in List.permLength xs ys same
+    n = m := match first, second with
+      | Witness xs (Both dx (Both memX lengthX)), Witness ys (Both dy (Both memY lengthY)) =>
+        let same := List.permOfSameMembers xs ys dx dy
+          (x inX => (memY x).backward ((memX x).forward inX))
+          (y inY => (memX y).backward ((memY y).forward inY))
+        rewrite <- lengthX, <- lengthY in List.permLength xs ys same
 
 --| Two tests that agree everywhere are true of the same number of values.
 theorem List.numberWithCong (n: Nat) (p: a → Bool) (q: a → Bool) (same: ∀ (x: a) => p x = q x) (counted: List.NumberWith n p):
-    List.NumberWith n q :=
-  match counted with
-    | Witness xs (Both distinct (Both members length)) =>
-      Witness xs (Both distinct (Both (x => rewrite <- same x in members x) length))
+    List.NumberWith n q := match counted with
+      | Witness xs (Both distinct (Both members length)) =>
+        Witness xs (Both distinct (Both (x => rewrite <- same x in members x) length))
 
 --| Two lists sorted by the same order, with the same elements, are equal,
 --| when the order puts no two different elements both ways round.
@@ -1267,10 +1228,9 @@ theorem List.subsequenceCons (x: a) (s ys: List a) (h: List.Subsequence s ys): L
     | [] => Trivial
     | [y, ..s] => Inr h
 
-theorem List.subsequenceRefl (xs: List a): List.Subsequence xs xs :=
-  match xs with
-    | [] => Trivial
-    | [x, ..xs] => Inl (Both rfl (List.subsequenceRefl xs))
+theorem List.subsequenceRefl (xs: List a): List.Subsequence xs xs := match xs with
+  | [] => Trivial
+  | [x, ..xs] => Inl (Both rfl (List.subsequenceRefl xs))
 
 theorem List.subsequenceLength (s ys: List a) (h1: List.Subsequence s ys): List.length s ≤ List.length ys :=
   match s, ys, h1 with
@@ -1289,15 +1249,14 @@ theorem List.subsequenceTail (x: a) (s ys: List a) (h1: List.Subsequence [x, ..s
 
 --| A subsequence of a subsequence is a subsequence.
 theorem List.subsequenceTrans (xs ys zs: List a)
-    (h: List.Subsequence xs ys) (h3: List.Subsequence ys zs): List.Subsequence xs zs :=
-  match xs, ys, zs, h, h3 with
-    | [], ys, zs, h1, h2 => Trivial
-    | [x, ..xs], [], zs, h1, h2 => Void.exfalso h1
-    | [x, ..xs], [y, ..ys], [], h1, h2 => Void.exfalso h2
-    | [x, ..xs], [y, ..ys], [z, ..zs], h1, Inr h2 => Inr (List.subsequenceTrans [x, ..xs] [y, ..ys] zs h1 h2)
-    | [x, ..xs], [y, ..ys], [z, ..zs], Inl (Both e1 h1), Inl (Both e2 h2) =>
-      Inl (Both (Eq.trans e1 e2) (List.subsequenceTrans xs ys zs h1 h2))
-    | [x, ..xs], [y, ..ys], [z, ..zs], Inr h1, Inl (Both e2 h2) => Inr (List.subsequenceTrans [x, ..xs] ys zs h1 h2)
+    (h: List.Subsequence xs ys) (h3: List.Subsequence ys zs): List.Subsequence xs zs := match xs, ys, zs, h, h3 with
+      | [], ys, zs, h1, h2 => Trivial
+      | [x, ..xs], [], zs, h1, h2 => Void.exfalso h1
+      | [x, ..xs], [y, ..ys], [], h1, h2 => Void.exfalso h2
+      | [x, ..xs], [y, ..ys], [z, ..zs], h1, Inr h2 => Inr (List.subsequenceTrans [x, ..xs] [y, ..ys] zs h1 h2)
+      | [x, ..xs], [y, ..ys], [z, ..zs], Inl (Both e1 h1), Inl (Both e2 h2) =>
+        Inl (Both (Eq.trans e1 e2) (List.subsequenceTrans xs ys zs h1 h2))
+      | [x, ..xs], [y, ..ys], [z, ..zs], Inr h1, Inl (Both e2 h2) => Inr (List.subsequenceTrans [x, ..xs] ys zs h1 h2)
 
 --| Every subsequence of `xs` is one of its combinations of its own length.
 theorem List.combinationsMemLength (xs ys: List a) (h1: List.Subsequence ys xs): ys ∈ List.combinations xs (List.length ys) :=
@@ -1355,21 +1314,20 @@ theorem List.memCombinationsCons (y: a) (zs: List a) (x: a) (rest: List a) (k: N
   }
 
 --| The choices of one element are the elements.
-theorem List.memCombinationsOne (v: a) (xs: List a): ([v] ∈ List.combinations xs 1) ↔ (v ∈ xs) :=
-  match xs with
-    | [] => { forward = m => m, backward = m => m }
-    | [x, ..rest] =>
-      {
-        forward = m =>
-          match (List.memCombinationsCons v [] x rest 0).forward m with
-            | Inl both => Inl (Eq.sym (And.left both))
-            | Inr later => Inr ((List.memCombinationsOne v rest).forward later),
-        backward = m =>
-          (List.memCombinationsCons v [] x rest 0).backward
-            (match m with
-              | Inl e => Inl (Both (Eq.sym e) (Inl rfl))
-              | Inr later => Inr ((List.memCombinationsOne v rest).backward later))
-      }
+theorem List.memCombinationsOne (v: a) (xs: List a): ([v] ∈ List.combinations xs 1) ↔ (v ∈ xs) := match xs with
+  | [] => { forward = m => m, backward = m => m }
+  | [x, ..rest] =>
+    {
+      forward = m =>
+        match (List.memCombinationsCons v [] x rest 0).forward m with
+          | Inl both => Inl (Eq.sym (And.left both))
+          | Inr later => Inr ((List.memCombinationsOne v rest).forward later),
+      backward = m =>
+        (List.memCombinationsCons v [] x rest 0).backward
+          (match m with
+            | Inl e => Inl (Both (Eq.sym e) (Inl rfl))
+            | Inr later => Inr ((List.memCombinationsOne v rest).backward later))
+    }
 
 --| The choices of two elements are the pairs.
 theorem List.memCombinationsTwo (u: a) (v: a) (xs: List a): ([u, v] ∈ List.combinations xs 2) ↔ ((u, v) ∈ List.pairs xs) :=
@@ -1395,16 +1353,15 @@ theorem List.lengthCombinationsCons (x: a) (xs: List a) (k: Nat):
     List.lengthMap (List.combinations xs k) (zs => [x, ..zs]) in rfl
 
 theorem List.mergeCount (xs ys: List a) (le: a → a → Bool) (p: a → Bool):
-    List.occurrences (List.merge le xs ys) p = List.occurrences xs p + List.occurrences ys p :=
-  match xs, ys with
-    | [], ys => rfl
-    | [x, ..xs], [] => ring
-    | [x, ..xs], [y, ..ys] =>
-      Bool.inspect (le x y)
-        (c => List.occurrences (if c then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]) p
-          = List.occurrences [x, ..xs] p + List.occurrences [y, ..ys] p)
-        (e => ring [List.mergeCount xs [y, ..ys] le p])
-        (e => ring [List.mergeCount [x, ..xs] ys le p])
+    List.occurrences (List.merge le xs ys) p = List.occurrences xs p + List.occurrences ys p := match xs, ys with
+      | [], ys => rfl
+      | [x, ..xs], [] => ring
+      | [x, ..xs], [y, ..ys] =>
+        Bool.inspect (le x y)
+          (c => List.occurrences (if c then [x, ..List.merge le xs [y, ..ys]] else [y, ..List.merge le [x, ..xs] ys]) p
+            = List.occurrences [x, ..xs] p + List.occurrences [y, ..ys] p)
+          (e => ring [List.mergeCount xs [y, ..ys] le p])
+          (e => ring [List.mergeCount [x, ..xs] ys le p])
 
 --| How many elements of all the runs satisfy `p`.
 @[noReceiver]
@@ -1414,24 +1371,21 @@ def List.runsCount (p: a → Bool): (runs: List (Option (List a))) → Nat
   | [Some r, ..rest] => List.occurrences r p + List.runsCount p rest
 
 theorem List.pushRunCount (run: List a) (c: List (Option (List a))) (le: a → a → Bool) (p: a → Bool):
-    List.runsCount p (List.pushRun le run c) = List.occurrences run p + List.runsCount p c :=
-  match c with
-    | [] => rfl
-    | [None, ..rest] => rfl
-    | [Some r, ..rest] => ring [List.pushRunCount (List.merge le r run) rest le p, List.mergeCount r run le p]
+    List.runsCount p (List.pushRun le run c) = List.occurrences run p + List.runsCount p c := match c with
+      | [] => rfl
+      | [None, ..rest] => rfl
+      | [Some r, ..rest] => ring [List.pushRunCount (List.merge le r run) rest le p, List.mergeCount r run le p]
 
 theorem List.buildRunsCount (c: List (Option (List a))) (xs: List a) (le: a → a → Bool) (p: a → Bool):
-    List.runsCount p (List.buildRuns le c xs) = List.runsCount p c + List.occurrences xs p :=
-  match xs with
-    | [] => ring
-    | [x, ..xs] => ring [List.buildRunsCount (List.pushRun le [x] c) xs le p, List.pushRunCount [x] c le p]
+    List.runsCount p (List.buildRuns le c xs) = List.runsCount p c + List.occurrences xs p := match xs with
+      | [] => ring
+      | [x, ..xs] => ring [List.buildRunsCount (List.pushRun le [x] c) xs le p, List.pushRunCount [x] c le p]
 
 theorem List.mergeRunsCount (acc: List a) (c: List (Option (List a))) (le: a → a → Bool) (p: a → Bool):
-    List.occurrences (List.mergeRuns le acc c) p = List.occurrences acc p + List.runsCount p c :=
-  match c with
-    | [] => ring
-    | [None, ..rest] => List.mergeRunsCount acc rest le p
-    | [Some r, ..rest] => ring [List.mergeRunsCount (List.merge le r acc) rest le p, List.mergeCount r acc le p]
+    List.occurrences (List.mergeRuns le acc c) p = List.occurrences acc p + List.runsCount p c := match c with
+      | [] => ring
+      | [None, ..rest] => List.mergeRunsCount acc rest le p
+      | [Some r, ..rest] => ring [List.mergeRunsCount (List.merge le r acc) rest le p, List.mergeCount r acc le p]
 
 theorem List.sortWithPerm (xs: List a) (le: a → a → Bool): List.Perm (List.sortWith xs le) xs := p =>
   Eq.trans (List.mergeRunsCount [] (List.buildRuns le [] xs) le p) (List.buildRunsCount [] xs le p)
@@ -1442,15 +1396,13 @@ theorem List.sortPerm [auto ord: Ord a] (xs: List a): List.Perm (List.sort xs) x
 
 theorem List.sortLength [auto ord: Ord a] (xs: List a): List.length (List.sort xs) = List.length xs := List.permLength (List.sort xs) xs (List.sortPerm xs)
 
-theorem Bool.andFalse (b: Bool): (b ∧ False) = False :=
-  match b with
-    | True => rfl
-    | False => rfl
+theorem Bool.andFalse (b: Bool): (b ∧ False) = False := match b with
+  | True => rfl
+  | False => rfl
 
-theorem Bool.andTrue (b: Bool): (b ∧ True) = b :=
-  match b with
-    | True => rfl
-    | False => rfl
+theorem Bool.andTrue (b: Bool): (b ∧ True) = b := match b with
+  | True => rfl
+  | False => rfl
 
 theorem Nat.addSubLeft (s: Nat) (m: Nat): (s + m) - s = m := rewrite Nat.addComm s m in Nat.addSub m s
 
@@ -1504,16 +1456,15 @@ theorem List.sumByFilterMono (keep1: a → Bool) (keep2: a → Bool) (value: a �
 
 --| Counting with a test that passes wherever another does, on the list's
 --| elements, counts at least as many.
-theorem List.countLeMem (xs: List a) (p q: a → Bool) (weaker: (∀ (x: a) (m: List.Mem x xs) => p x = True → q x = True)):
-    List.count xs p ≤ List.count xs q :=
-  match xs with
-    | [] => Nat.leRefl 0
-    | [x, ..rest] =>
-      let below := List.countLeMem rest p q (y m => weaker y (Inr m))
-      rewrite List.countCons rest x p, List.countCons rest x q in
-      match passes: p x with
-        | True => rewrite weaker x (Inl rfl) passes in below
-        | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
+theorem List.countLeMem (xs: List a) (p q: a → Bool) (weaker: ∀ (x: a) (m: List.Mem x xs) => p x = True → q x = True):
+    List.count xs p ≤ List.count xs q := match xs with
+      | [] => Nat.leRefl 0
+      | [x, ..rest] =>
+        let below := List.countLeMem rest p q (y m => weaker y (Inr m))
+        rewrite List.countCons rest x p, List.countCons rest x q in
+        match passes: p x with
+          | True => rewrite weaker x (Inl rfl) passes in below
+          | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
 --| Counting with a test that passes wherever another does counts strictly more when some element passes it but not the other.
 theorem List.countLtMem: ∀ (xs: List a) (p q: a → Bool) => (∀ (x: a) (m: List.Mem x xs) => p x = True → q x = True) →
@@ -1530,13 +1481,12 @@ theorem List.countLtMem: ∀ (xs: List a) (p q: a → Bool) => (∀ (x: a) (m: L
       | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
 --| `all` is "no element fails", so a permutation keeps it.
-theorem List.allNotAny (xs: List a) (p: a → Bool): List.all xs p = ¬(List.any xs (x => ¬(p x))) :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] =>
-      match e: p x with
-        | True => List.allNotAny xs p
-        | False => rfl
+theorem List.allNotAny (xs: List a) (p: a → Bool): List.all xs p = ¬(List.any xs (x => ¬(p x))) := match xs with
+  | [] => rfl
+  | [x, ..xs] =>
+    match e: p x with
+      | True => List.allNotAny xs p
+      | False => rfl
 
 --| "No x is related to any y" read either way round.
 theorem List.allNotAnyComm (related: a → b → Bool) (xs: List a) (ys: List b):
@@ -1582,21 +1532,20 @@ theorem List.memDedupAfter [auto eq: DecEq a] (x: a) (previous: a) (xs: List a) 
 
 --| `List.dedupAfter` drops only elements equal to the one before.
 theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a) (previous: a) (xs: List a) (m: List.Mem x xs):
-    (previous = x) ∨ (List.Mem x (List.dedupAfter previous xs)) :=
-  match xs with
-    | [y, ..ys] =>
-      match e: y == previous with
-        | True =>
-          match m with
-            | Inl q => Inl (Eq.trans (Eq.sym e.read) q)
-            | Inr rest => List.memDedupAfterIntro x previous ys rest
-        | False =>
-          match m with
-            | Inl q => Inr (Inl q)
-            | Inr rest =>
-              match List.memDedupAfterIntro x y ys rest with
-                | Inl q => Inr (Inl q)
-                | Inr later => Inr (Inr later)
+    (previous = x) ∨ (List.Mem x (List.dedupAfter previous xs)) := match xs with
+      | [y, ..ys] =>
+        match e: y == previous with
+          | True =>
+            match m with
+              | Inl q => Inl (Eq.trans (Eq.sym e.read) q)
+              | Inr rest => List.memDedupAfterIntro x previous ys rest
+          | False =>
+            match m with
+              | Inl q => Inr (Inl q)
+              | Inr rest =>
+                match List.memDedupAfterIntro x y ys rest with
+                  | Inl q => Inr (Inl q)
+                  | Inr later => Inr (Inr later)
 
 --| What `List.dedup` keeps was in the list.
 theorem List.memDedupElim [auto eq: DecEq a] (x: a) (xs: List a) (m: List.Mem x (List.dedup xs)): List.Mem x xs :=
@@ -1617,13 +1566,12 @@ theorem List.memDedupIntro [auto eq: DecEq a] (x: a) (xs: List a) (m: List.Mem x
 
 --| `List.dedup` keeps a list sorted.
 theorem List.sortedDedupAfter [auto eq: DecEq a] (le: a → a → Bool) (previous: a) (xs: List a) (s: List.Sorted le [previous, ..xs]):
-    List.Sorted le [previous, ..List.dedupAfter previous xs] :=
-  match xs, s with
-    | [], s => s
-    | [y, ..ys], Both first rest =>
-      match e: y == previous with
-        | True => List.sortedDedupAfter le previous ys (rewrite e.read at rest)
-        | False => Both first (List.sortedDedupAfter le y ys rest)
+    List.Sorted le [previous, ..List.dedupAfter previous xs] := match xs, s with
+      | [], s => s
+      | [y, ..ys], Both first rest =>
+        match e: y == previous with
+          | True => List.sortedDedupAfter le previous ys (rewrite e.read at rest)
+          | False => Both first (List.sortedDedupAfter le y ys rest)
 
 theorem List.sortedDedup [auto eq: DecEq a] (le: a → a → Bool) (xs: List a) (s: List.Sorted le xs): List.Sorted le (List.dedup xs) :=
   match xs with
@@ -1680,14 +1628,14 @@ theorem List.distinctRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (h: ys.D
 
 --| The terms where `f` is not 0 that `ys` has are in `rest`, once `x` is taken from both.
 theorem List.sumByDistinctNonzeroThere [auto eq: DecEq a] (f: a → Nat) (x: a) (rest ys: List a) (fresh: ¬(x ∈ rest))
-    (there: (∀ (y: a) => f y ≠ 0 → y ∈ [x, ..rest] → y ∈ ys)):
+    (there: ∀ (y: a) => f y ≠ 0 → y ∈ [x, ..rest] → y ∈ ys):
     (∀ (y: a) => f y ≠ 0 → y ∈ rest → y ∈ ys.removeFirst x) :=
   y nonzero member =>
     List.memRemoveFirst ys x y (same => fresh (Eq.subst (z => z ∈ rest) same member)) (there y nonzero (Inr member))
 
 --| The terms where `f` is not 0 that `rest` has are in `ys`, once `x` is taken from both.
 theorem List.sumByDistinctNonzeroBack [auto eq: DecEq a] (f: a → Nat) (x: a) (rest ys: List a) (absent: ¬(x ∈ ys.removeFirst x))
-    (back: (∀ (y: a) => f y ≠ 0 → y ∈ ys → y ∈ [x, ..rest])):
+    (back: ∀ (y: a) => f y ≠ 0 → y ∈ ys → y ∈ [x, ..rest]):
     (∀ (y: a) => f y ≠ 0 → y ∈ ys.removeFirst x → y ∈ rest) :=
   y nonzero member =>
     match back y nonzero (List.memOfRemoveFirst ys x y member) with
@@ -1698,33 +1646,32 @@ theorem List.sumByDistinctNonzeroBack [auto eq: DecEq a] (f: a → Nat) (x: a) (
 --| have the same `sumBy f`: elements where `f` is 0 add nothing, so the lists
 --| may differ in those.
 theorem List.sumByDistinctNonzero [auto eq: DecEq a] (f: a → Nat) (xs ys: List a) (distinctX: xs.Distinct) (distinctY: ys.Distinct)
-    (there: (∀ (x: a) => f x ≠ 0 → x ∈ xs → x ∈ ys)) (back: (∀ (x: a) => f x ≠ 0 → x ∈ ys → x ∈ xs)):
-    xs.sumBy f = ys.sumBy f :=
-  match xs, distinctX with
-    | [], distinctX =>
-      Eq.sym
-        (List.sumByZeroIntro ys f
-          (x member =>
-            match zero: f x with
-              | 0 => rfl
-              | Succ more => Void.exfalso (back x (rewrite zero in Nat.succNotZero more) member)))
-    | [x, ..rest], (Both fresh distinctRest) =>
-      Eq.trans (List.sumByCons rest x f)
-        (match zero: f x with
-          | 0 =>
-            List.sumByDistinctNonzero f rest ys distinctRest distinctY (y nonzero member => there y nonzero (Inr member))
-              (y nonzero member =>
-                match back y nonzero member with
-                  | Inl same => Void.exfalso (nonzero (rewrite <- same in zero))
-                  | Inr later => later)
-          | Succ more =>
-            let nonzero: f x ≠ 0 := rewrite zero in Nat.succNotZero more
-            let found := there x nonzero (Inl rfl)
-            match List.distinctRemoveFirst ys x distinctY with
-              | Both restDistinct absent =>
-                Eq.trans
-                  (Eq.cong (total => f x + total)
-                    (List.sumByDistinctNonzero f rest (ys.removeFirst x) distinctRest restDistinct
-                      (List.sumByDistinctNonzeroThere f x rest ys fresh there)
-                      (List.sumByDistinctNonzeroBack f x rest ys absent back)))
-                  (Eq.sym (List.sumByRemoveFirst ys x found f)))
+    (there: ∀ (x: a) => f x ≠ 0 → x ∈ xs → x ∈ ys) (back: ∀ (x: a) => f x ≠ 0 → x ∈ ys → x ∈ xs):
+    xs.sumBy f = ys.sumBy f := match xs, distinctX with
+      | [], distinctX =>
+        Eq.sym
+          (List.sumByZeroIntro ys f
+            (x member =>
+              match zero: f x with
+                | 0 => rfl
+                | Succ more => Void.exfalso (back x (rewrite zero in Nat.succNotZero more) member)))
+      | [x, ..rest], (Both fresh distinctRest) =>
+        Eq.trans (List.sumByCons rest x f)
+          (match zero: f x with
+            | 0 =>
+              List.sumByDistinctNonzero f rest ys distinctRest distinctY (y nonzero member => there y nonzero (Inr member))
+                (y nonzero member =>
+                  match back y nonzero member with
+                    | Inl same => Void.exfalso (nonzero (rewrite <- same in zero))
+                    | Inr later => later)
+            | Succ more =>
+              let nonzero: f x ≠ 0 := rewrite zero in Nat.succNotZero more
+              let found := there x nonzero (Inl rfl)
+              match List.distinctRemoveFirst ys x distinctY with
+                | Both restDistinct absent =>
+                  Eq.trans
+                    (Eq.cong (total => f x + total)
+                      (List.sumByDistinctNonzero f rest (ys.removeFirst x) distinctRest restDistinct
+                        (List.sumByDistinctNonzeroThere f x rest ys fresh there)
+                        (List.sumByDistinctNonzeroBack f x rest ys absent back)))
+                    (Eq.sym (List.sumByRemoveFirst ys x found f)))

@@ -33,30 +33,26 @@ theorem costFromAppend (cost: k → k → Nat) (from: k) (first second: List k):
 
 --| Equal costs give equal totals.
 theorem costFromCong (cost: k → k → Nat) (same: k → k → Nat) (equal: ∀ (from to: k) => cost from to = same from to) (from: k) (keys: List k):
-    costFrom cost from keys = costFrom same from keys :=
-  match keys with
-    | [] => rfl
-    | [to, ..rest] => rewrite equal from to, costFromCong cost same equal to rest in rfl
+    costFrom cost from keys = costFrom same from keys := match keys with
+      | [] => rfl
+      | [to, ..rest] => rewrite equal from to, costFromCong cost same equal to rest in rfl
 
 --| When every press costs one, the total is the number of keys.
-theorem costFromOnes (from: k) (keys: List k): costFrom (before after => 1) from keys = keys.length :=
-  match keys with
-    | [] => rfl
-    | [to, ..rest] => rewrite costFromOnes to rest in omega
+theorem costFromOnes (from: k) (keys: List k): costFrom (before after => 1) from keys = keys.length := match keys with
+  | [] => rfl
+  | [to, ..rest] => rewrite costFromOnes to rest in omega
 
-theorem lastFromAppendOne (from: k) (keys: List k) (key: k): lastFrom from (keys.append [key]) = key :=
-  match keys with
-    | [] => rfl
-    | [first, ..rest] => lastFromAppendOne first rest key
+theorem lastFromAppendOne (from: k) (keys: List k) (key: k): lastFrom from (keys.append [key]) = key := match keys with
+  | [] => rfl
+  | [first, ..rest] => lastFromAppendOne first rest key
 
 theorem flatMapSome (f: a → Option b) (x: Option a) (value: a) (same: x = Some value): x.flatMap f = f value :=
   match x with
     | Some found => rewrite Option.someInjective same in rfl
 
-theorem flatMapIntoSome (x: Option a): x.flatMap (value => Some value) = x :=
-  match x with
-    | None => rfl
-    | Some value => rfl
+theorem flatMapIntoSome (x: Option a): x.flatMap (value => Some value) = x := match x with
+  | None => rfl
+  | Some value => rfl
 
 --| Folding with `List.minByStep` keeps a value that passes, if all do.
 theorem minByStepPasses [auto ord: Ord b] (key: a → b) (passes: a → Bool): ∀ (best: a) => passes best = True → ∀ (rest: List a) => rest.all passes = True →

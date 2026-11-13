@@ -41,15 +41,14 @@ def Window.sumsTo (window: Window) (number: Nat): Bool :=
 
 --| The first number of `front.drop preamble` that its `preamble` numbers
 --| before it don't sum to.
-def firstInvalidFrom (preamble: Nat) (front: List Nat): Option Nat :=
-  match front.drop preamble with
-    | [] => None
-    | [number, .._] =>
-      if ({ numbers = front.take preamble }: Window).sumsTo number then
-        match front with
-          | [] => None
-          | [_, ..rest] => firstInvalidFrom preamble rest
-      else Some number
+def firstInvalidFrom (preamble: Nat) (front: List Nat): Option Nat := match front.drop preamble with
+  | [] => None
+  | [number, .._] =>
+    if ({ numbers = front.take preamble }: Window).sumsTo number then
+      match front with
+        | [] => None
+        | [_, ..rest] => firstInvalidFrom preamble rest
+    else Some number
 
 --| Part 1: the first number after the preamble that isn't the sum of two
 --| different numbers among the `preamble` before it.

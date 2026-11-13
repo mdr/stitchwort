@@ -68,9 +68,8 @@ theorem bindsZero (strengthOf: Operator → Nat) (expression: Expression): Spec.
     | Operation operator left right => Nat.zeroLe (strengthOf operator)
     | Parenthesised inner => Trivial
 
-theorem sizePositive (expression: Expression) (small: size expression ≤ 0): Void :=
-  match expression with
-    | Parenthesised inner => omega
+theorem sizePositive (expression: Expression) (small: size expression ≤ 0): Void := match expression with
+  | Parenthesised inner => omega
 
 -- The parser's pieces
 
@@ -180,23 +179,22 @@ theorem wordsAbsentBefore (operator: Operator) (rest: List Char)
 --| reads its word and gives it.
 theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Operator) (notBefore: NotOperator target before)
     (operators: List Operator) (member: target ∈ operators):
-    Parse.Runs (() => operator (before ++ operators)) target.spaced.toList rest target :=
-  match operators with
-    | [first, ..more] =>
-      match same: first == target with
-        | True =>
-          let equal: first = target := same.read
-          rewrite <- equal in
-            rewrite List.mapAppend before [first, ..more] (other => (other.spaced, other)) in
-              Parse.runsPick (before.map (other => (other.spaced, other))) first.spaced first (more.map (other => (other.spaced, other))) rest
-                (wordsAbsentBefore first rest before (rewrite equal in notBefore))
-        | False =>
-          let later: target ∈ more :=
-            match member with
-              | Inl itIsFirst => cases
-              | Inr found => found
-          rewrite <- List.appendAssoc before [first] more in
-            runsOperatorFrom target rest (before ++ [first]) (notOperatorSnoc target first same before notBefore) more later
+    Parse.Runs (() => operator (before ++ operators)) target.spaced.toList rest target := match operators with
+      | [first, ..more] =>
+        match same: first == target with
+          | True =>
+            let equal: first = target := same.read
+            rewrite <- equal in
+              rewrite List.mapAppend before [first, ..more] (other => (other.spaced, other)) in
+                Parse.runsPick (before.map (other => (other.spaced, other))) first.spaced first (more.map (other => (other.spaced, other))) rest
+                  (wordsAbsentBefore first rest before (rewrite equal in notBefore))
+          | False =>
+            let later: target ∈ more :=
+              match member with
+                | Inl itIsFirst => cases
+                | Inr found => found
+            rewrite <- List.appendAssoc before [first] more in
+              runsOperatorFrom target rest (before ++ [first]) (notOperatorSnoc target first same before notBefore) more later
 
 theorem runsOperator (target: Operator) (rest: List Char) (operators: List Operator) (member: target ∈ operators):
     Parse.Runs (() => operator operators) [' ', Spec.symbol target, ' '] rest target :=
@@ -205,11 +203,10 @@ theorem runsOperator (target: Operator) (rest: List Char) (operators: List Opera
 
 --| No word of `operators` comes next, when no operator of the level does.
 theorem wordsAbsentAll (rest: List Char)
-    (operators: List Operator) (none: (∀ (other: Operator) => other ∈ operators → Text.stripPrefixChars other.spaced.toList rest = None)):
-    Parse.WordsAbsent rest (operators.map (other => (other.spaced, other))) :=
-  match operators, none with
-    | [], none => rfl
-    | [first, ..more], absent => Both (absent first (Inl rfl)) (wordsAbsentAll rest more (other member => absent other (Inr member)))
+    (operators: List Operator) (none: ∀ (other: Operator) => other ∈ operators → Text.stripPrefixChars other.spaced.toList rest = None):
+    Parse.WordsAbsent rest (operators.map (other => (other.spaced, other))) := match operators, none with
+      | [], none => rfl
+      | [first, ..more], absent => Both (absent first (Inl rfl)) (wordsAbsentAll rest more (other member => absent other (Inr member)))
 
 --| After an expression whose operators are `strength`, a `Stop` doesn't start one of them.
 theorem stopAbsent (strengthOf: Operator → Nat) (strength: Nat) (rest: List Char) (stop: Stop strengthOf strength rest) (other: Operator)
@@ -247,16 +244,14 @@ theorem goodStepsWeaken (strengthOf: Operator → Nat) (strength: Nat) (bound: N
         (goodStepsWeaken strengthOf strength bound larger le steps later)
 
 theorem joinReadsSnoc (read: List Char) (value: a) (steps: List (List Char, a)):
-    Parse.joinReads (steps ++ [(read, value)]) = Parse.joinReads steps ++ read :=
-  match steps with
-    | [] => rewrite List.appendNil read in rfl
-    | [(first, v), ..steps] => rewrite joinReadsSnoc read value steps, List.appendAssoc first (Parse.joinReads steps) read in rfl
+    Parse.joinReads (steps ++ [(read, value)]) = Parse.joinReads steps ++ read := match steps with
+      | [] => rewrite List.appendNil read in rfl
+      | [(first, v), ..steps] => rewrite joinReadsSnoc read value steps, List.appendAssoc first (Parse.joinReads steps) read in rfl
 
 theorem stepValuesSnoc (read: List Char) (value: a) (steps: List (List Char, a)):
-    Parse.stepValues (steps ++ [(read, value)]) = Parse.stepValues steps ++ [value] :=
-  match steps with
-    | [] => rfl
-    | [(first, v), ..steps] => rewrite stepValuesSnoc read value steps in rfl
+    Parse.stepValues (steps ++ [(read, value)]) = Parse.stepValues steps ++ [value] := match steps with
+      | [] => rfl
+      | [(first, v), ..steps] => rewrite stepValuesSnoc read value steps in rfl
 
 theorem chainFoldSnoc (start: Expression) (read: List Char) (combine: Expression → Expression → Expression) (right: Expression)
     (steps: List (List Char, (Expression → Expression → Expression, Expression))):
@@ -266,18 +261,17 @@ theorem chainFoldSnoc (start: Expression) (read: List Char) (combine: Expression
 
 theorem goodStepsSnoc (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (read: List Char) (combine: Expression → Expression → Expression) (right: Expression)
     (steps: List (List Char, (Expression → Expression → Expression, Expression))) (good: GoodSteps strengthOf strength bound steps)
-    (new: (∃ (operator: Operator) => ∃ (rightRead: List Char) =>
+    (new: ∃ (operator: Operator) => ∃ (rightRead: List Char) =>
       read = [' ', Spec.symbol operator, ' '] ++ rightRead
         ∧ strengthOf operator = strength
         ∧ combine = Operator.node operator
         ∧ Spec.Written right rightRead
         ∧ Spec.Follows strengthOf right
         ∧ Spec.BindsAtLeast strengthOf (strength + 1) right
-        ∧ size right < bound)):
-    GoodSteps strengthOf strength bound (steps ++ [(read, (combine, right))]) :=
-  match steps, good with
-    | [], good => Both new Trivial
-    | [(first, (c, r)), ..steps], Both here later => Both here (goodStepsSnoc strengthOf strength bound read combine right steps later new)
+        ∧ size right < bound):
+    GoodSteps strengthOf strength bound (steps ++ [(read, (combine, right))]) := match steps, good with
+      | [], good => Both new Trivial
+      | [(first, (c, r)), ..steps], Both here later => Both here (goodStepsSnoc strengthOf strength bound read combine right steps later new)
 
 --| Every expression at a level is its first operand, binding more strongly, followed by a
 --| chain of steps, the parser's.
@@ -317,13 +311,12 @@ theorem chainOf (strengthOf: Operator → Nat) (strength: Nat)
 --| What follows the steps of a chain stops it at the next strength.
 theorem afterSteps (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (rest: List Char) (stop: Stop strengthOf strength rest)
     (steps: List (List Char, (Expression → Expression → Expression, Expression))) (good: GoodSteps strengthOf strength bound steps):
-    Stop strengthOf (strength + 1) (Parse.joinReads steps ++ rest) :=
-  match steps, good with
-    | [], good => stopUp strengthOf strength rest stop
-    | [(read, (combine, right)), ..steps], Both (Witness operator (Witness rightRead (Both split (Both same rest2)))) later =>
-      rewrite split, List.appendAssoc ([' ', Spec.symbol operator, ' '] ++ rightRead) (Parse.joinReads steps) rest,
-          List.appendAssoc [' ', Spec.symbol operator, ' '] rightRead (Parse.joinReads steps ++ rest), <- same in
-        stopStep strengthOf operator (rightRead ++ (Parse.joinReads steps ++ rest))
+    Stop strengthOf (strength + 1) (Parse.joinReads steps ++ rest) := match steps, good with
+      | [], good => stopUp strengthOf strength rest stop
+      | [(read, (combine, right)), ..steps], Both (Witness operator (Witness rightRead (Both split (Both same rest2)))) later =>
+        rewrite split, List.appendAssoc ([' ', Spec.symbol operator, ' '] ++ rightRead) (Parse.joinReads steps) rest,
+            List.appendAssoc [' ', Spec.symbol operator, ' '] rightRead (Parse.joinReads steps ++ rest), <- same in
+          stopStep strengthOf operator (rightRead ++ (Parse.joinReads steps ++ rest))
 
 --| The parser's chain steps run, for the steps of a chain, then decline.
 theorem runsSteps (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression) (limit: Nat) (bound: Nat)

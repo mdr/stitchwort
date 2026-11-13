@@ -7,10 +7,9 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Void)
 
-theorem secretsMatch (count secret: Nat): secrets count secret = secretNumbers count secret :=
-  match count with
-    | Zero => rfl
-    | Succ count => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret) in rfl
+theorem secretsMatch (count secret: Nat): secrets count secret = secretNumbers count secret := match count with
+  | Zero => rfl
+  | Succ count => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret) in rfl
 
 theorem pricesMatch (count: Nat) (buyer: Nat): prices count buyer = offeredPrices count buyer :=
   rewrite secretsMatch count buyer in rfl

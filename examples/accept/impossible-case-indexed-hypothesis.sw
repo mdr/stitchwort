@@ -14,9 +14,8 @@ type Fin: Nat → Type =
   | FSucc (i: Fin n): Fin (Succ n)
 
 -- `VNil` is left out: `i` would be a `Fin 0`. Only `v` is matched.
-def first (v: Vec a n) (i: Fin n): a :=
-  match v with
-    | VCons x _ => x
+def first (v: Vec a n) (i: Fin n): a := match v with
+  | VCons x _ => x
 
 -- As arms.
 def get: (v: Vec a n) -> Fin n -> a

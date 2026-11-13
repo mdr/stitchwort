@@ -116,9 +116,8 @@ def recordTwo(): {State (Map Nat Nat [ord := descending])} () :=
   record 4
   record 7
 
-def recorded: Map Nat Nat [ord := descending] :=
-  match runState Map.empty recordTwo with
-    | (_, m) => m
+def recorded: Map Nat Nat [ord := descending] := match runState Map.empty recordTwo with
+  | (_, m) => m
 
 test "a map as state" := recorded.keys == [7, 4]
 
@@ -128,8 +127,7 @@ test "a map as state" := recorded.keys == [7, 4]
 def functions: {State (Map Nat (Nat → Nat))} () :=
   put (get().insert 1 (n => n + 1))
 
-def stored: Map Nat (Nat → Nat) :=
-  match runState Map.empty (u => functions) with
-    | (_, m) => m
+def stored: Map Nat (Nat → Nat) := match runState Map.empty (u => functions) with
+  | (_, m) => m
 
 test "functions as state" := stored.keys == [1]

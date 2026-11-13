@@ -59,15 +59,14 @@ def offeredPrices (count: Nat) (buyer: Nat): List Nat := secretNumbers count buy
 --| and those after it, following four earlier prices. It sells here when the
 --| four changes in price into this one are `sequence` ("the first price has
 --| no associated change").
-def sellsAt (sequence: Changes) (later: List Nat): Option Nat :=
-  match later with
-    | [a, b, c, d, e, ..rest] =>
-      if
-        ({ first = b.toInt - a.toInt, second = c.toInt - b.toInt, third = d.toInt - c.toInt, fourth = e.toInt - d.toInt }: Changes) ==
-          sequence
-      then Some e
-      else None
-    | _ => None
+def sellsAt (sequence: Changes) (later: List Nat): Option Nat := match later with
+  | [a, b, c, d, e, ..rest] =>
+    if
+      ({ first = b.toInt - a.toInt, second = c.toInt - b.toInt, third = d.toInt - c.toInt, fourth = e.toInt - d.toInt }: Changes) ==
+        sequence
+    then Some e
+    else None
+  | _ => None
 
 --| "it would wait until the first time it sees that sequence and then
 --| immediately sell your hiding spot information at the current price": the

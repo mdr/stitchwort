@@ -39,28 +39,26 @@ type Gate = { left: Wire, operation: Operation, right: Wire, output: Wire }
 type Device = { initial: List (Wire, Bool), gates: List Gate }
 
 --| x, y or z and two digits name a bit: `x07` is `X 7`.
-def Wire.ofName (name: Text): Wire :=
-  match name.toList with
-    | [first, tens, units] =>
-      match (tens.digitValue, units.digitValue) with
-        | (Some high, Some low) =>
-          match first with
-            | 'x' => X (10 * high + low)
-            | 'y' => Y (10 * high + low)
-            | 'z' => Z (10 * high + low)
-            | _ => Other name
-        | _ => Other name
-    | _ => Other name
+def Wire.ofName (name: Text): Wire := match name.toList with
+  | [first, tens, units] =>
+    match (tens.digitValue, units.digitValue) with
+      | (Some high, Some low) =>
+        match first with
+          | 'x' => X (10 * high + low)
+          | 'y' => Y (10 * high + low)
+          | 'z' => Z (10 * high + low)
+          | _ => Other name
+      | _ => Other name
+  | _ => Other name
 
 --| At least two digits: `7` is `07`.
 def twoDigits (number: Nat): Text := if number < 10 then "0${number}" else "${number}"
 
-def Wire.name (wire: Wire): Text :=
-  match wire with
-    | X bit => "x${twoDigits bit}"
-    | Y bit => "y${twoDigits bit}"
-    | Z bit => "z${twoDigits bit}"
-    | Other name => name
+def Wire.name (wire: Wire): Text := match wire with
+  | X bit => "x${twoDigits bit}"
+  | Y bit => "y${twoDigits bit}"
+  | Z bit => "z${twoDigits bit}"
+  | Other name => name
 
 def wireName(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
 
@@ -90,11 +88,10 @@ def deviceInput(): {Parse} Device :=
 def parseDevice (input: Text): {Fail} Device := Parse.all input deviceInput
 
 --| What a gate outputs for its two inputs.
-def Operation.apply (operation: Operation) (left: Bool) (right: Bool): Bool :=
-  match operation with
-    | And => left ∧ right
-    | Or => left ∨ right
-    | Xor => left.xor right
+def Operation.apply (operation: Operation) (left: Bool) (right: Bool): Bool := match operation with
+  | And => left ∧ right
+  | Or => left ∨ right
+  | Xor => left.xor right
 
 type Values = Map Wire Bool
 
@@ -211,22 +208,20 @@ def checkFullAdder (gates: List Gate) (bit: Nat) (carry: Wire): BitCheck :=
 
 --| The verdict on the bits from `bit` up, `remaining` of them, with the carry
 --| into `bit` on `carry`: an adder, or the first fault found.
-def checkFrom (gates: List Gate) (remaining: Nat) (bit: Nat) (carry: Wire): BitCheck :=
-  match remaining with
-    | Zero => if carry == Z bit then Passes carry else Faulty [(carry, Z bit)] [carry, Z bit]
-    | Succ fewer =>
-      match checkFullAdder gates bit carry with
-        | Passes next => checkFrom gates fewer (bit + 1) next
-        | Faulty fixes _ => Faulty fixes [carry, Z bit, ..bitOutputs gates bit carry]
+def checkFrom (gates: List Gate) (remaining: Nat) (bit: Nat) (carry: Wire): BitCheck := match remaining with
+  | Zero => if carry == Z bit then Passes carry else Faulty [(carry, Z bit)] [carry, Z bit]
+  | Succ fewer =>
+    match checkFullAdder gates bit carry with
+      | Passes next => checkFrom gates fewer (bit + 1) next
+      | Faulty fixes _ => Faulty fixes [carry, Z bit, ..bitOutputs gates bit carry]
 
 --| The verdict on a `bits`-bit adder: `Passes (Z bits)` if it is one.
-def checkAdder (gates: List Gate) (bits: Nat): BitCheck :=
-  match bits with
-    | Zero => Faulty [] []
-    | Succ higher =>
-      match checkHalfAdder gates with
-        | Passes carry => checkFrom gates higher 1 carry
-        | Faulty fixes _ => Faulty fixes [Z 0, ..[outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)].somes]
+def checkAdder (gates: List Gate) (bits: Nat): BitCheck := match bits with
+  | Zero => Faulty [] []
+  | Succ higher =>
+    match checkHalfAdder gates with
+      | Passes carry => checkFrom gates higher 1 carry
+      | Faulty fixes _ => Faulty fixes [Z 0, ..[outputOf gates Xor (X 0) (Y 0), outputOf gates And (X 0) (Y 0)].somes]
 
 --| The gates with the outputs `first` and `second` swapped.
 def swapOutputs (gates: List Gate) (swap: (Wire, Wire)): List Gate :=

@@ -23,10 +23,9 @@ def backward (size: Nat) (coordinate: Nat): Nat := if coordinate == 0 then size 
 
 --| Moving `tiles` tiles along the line, one at a time, backwards when
 --| negative.
-def move (size: Nat) (tiles: Int) (coordinate: Nat): Nat :=
-  match tiles with
-    | OfNat steps => steps.iterate (forward size) coordinate
-    | NegSucc steps => (Succ steps).iterate (backward size) coordinate
+def move (size: Nat) (tiles: Int) (coordinate: Nat): Nat := match tiles with
+  | OfNat steps => steps.iterate (forward size) coordinate
+  | NegSucc steps => (Succ steps).iterate (backward size) coordinate
 
 --| "x and y are given in tiles per second": one second moves the robot
 --| `velocity.columns` tiles across and `velocity.rows` tiles down.

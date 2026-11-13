@@ -10,10 +10,9 @@ def isBig (n: Nat): Bool := 10 < n
 def pick (n: Nat): Option Nat := if isBig n then None else Some n
 
 -- `found` is `Some n = Some m` in the `False` branch: no rewrite needed.
-theorem pickSmall (n: Nat) (m: Nat) (found: pick n = Some m): n = m :=
-  match c: isBig n with
-    | True => Void.exfalso (Option.noneNotSome m found)
-    | False => Option.someInjective found
+theorem pickSmall (n: Nat) (m: Nat) (found: pick n = Some m): n = m := match c: isBig n with
+  | True => Void.exfalso (Option.noneNotSome m found)
+  | False => Option.someInjective found
 
 def needsSmall (n: Nat) (small: isBig n = False): Nat := n
 

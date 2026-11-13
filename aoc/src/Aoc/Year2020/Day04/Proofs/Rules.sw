@@ -28,18 +28,16 @@ theorem passportIdChars (chars: List Char): Key.valid PassportId (Text.fromList 
     | [] => rfl
     | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] in andIsSome
 
-theorem passportIdSpec (value: Text): Key.valid PassportId value = digits 9 value :=
-  match value with
-    | MkText chars => passportIdChars chars
+theorem passportIdSpec (value: Text): Key.valid PassportId value = digits 9 value := match value with
+  | MkText chars => passportIdChars chars
 
 theorem hairColorChars (chars: List Char): hairColorValid (Text.fromList chars) = hairColor (Text.fromList chars) :=
   match chars with
     | ['#', ..digits] => rfl
     | _ => rfl
 
-theorem hairColorSpec (value: Text): Key.valid HairColor value = hairColor value :=
-  match value with
-    | MkText chars => hairColorChars chars
+theorem hairColorSpec (value: Text): Key.valid HairColor value = hairColor value := match value with
+  | MkText chars => hairColorChars chars
 
 --| The seven colours are different, so a value that is one of them is
 --| exactly one.
@@ -65,17 +63,15 @@ theorem heightChars (chars: List Char): heightValid (Text.fromList chars) = heig
           | False =>
             rewrite Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm, Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches in cases
 
-theorem heightSpec (value: Text): Key.valid Height value = height value :=
-  match value with
-    | MkText chars => heightChars chars
+theorem heightSpec (value: Text): Key.valid Height value = height value := match value with
+  | MkText chars => heightChars chars
 
-theorem validSpec (key: Key) (value: Text): key.valid value = validValue key.code value :=
-  match key with
-    | BirthYear => yearSpec 1920 2002 value
-    | IssueYear => yearSpec 2010 2020 value
-    | ExpirationYear => yearSpec 2020 2030 value
-    | Height => heightSpec value
-    | HairColor => hairColorSpec value
-    | EyeColor => eyeColorSpec value
-    | PassportId => passportIdSpec value
-    | CountryId => rfl
+theorem validSpec (key: Key) (value: Text): key.valid value = validValue key.code value := match key with
+  | BirthYear => yearSpec 1920 2002 value
+  | IssueYear => yearSpec 2010 2020 value
+  | ExpirationYear => yearSpec 2020 2030 value
+  | Height => heightSpec value
+  | HairColor => hairColorSpec value
+  | EyeColor => eyeColorSpec value
+  | PassportId => passportIdSpec value
+  | CountryId => rfl

@@ -67,10 +67,9 @@ test "local tailrec" := reverseOnto [1, 2, 3] == [3, 2, 1]
 
 -- The attribute may be on its own line, and on an exported definition.
 @[tailrec]
-export def lengthOnto (xs: List Nat) (n: Nat): Nat :=
-  match xs with
-    | [] => n
-    | [_, ..rest] => lengthOnto rest (n + 1)
+export def lengthOnto (xs: List Nat) (n: Nat): Nat := match xs with
+  | [] => n
+  | [_, ..rest] => lengthOnto rest (n + 1)
 
 test "export" := lengthOnto [5, 6] 0 == 2
 

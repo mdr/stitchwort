@@ -45,9 +45,8 @@ type Exists (a: Type) (p: a → Prop): Prop =
 
 --| To prove a proposition from `Exists a p`, take the witness apart: the goal
 --| must follow for every value and proof of `p` it might be.
-theorem Exists.elim [p: a → Prop] [goal: Prop] (h: Exists a p) (use: ∀ (x: a) => p x → goal): goal :=
-  match h with
-    | Witness x proof => use x proof
+theorem Exists.elim [p: a → Prop] [goal: Prop] (h: Exists a p) (use: ∀ (x: a) => p x → goal): goal := match h with
+  | Witness x proof => use x proof
 
 --| If something satisfies `p`, it's not the case that nothing does.
 theorem Exists.notNone [p: a → Prop] (some: Exists a p) (none: ∀ (x: a) => ¬(p x)): Void :=

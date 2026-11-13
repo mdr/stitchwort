@@ -24,15 +24,14 @@ theorem firstFreeSome (boxes: Set Cell) (direction: Direction) (start: Cell) (fu
 --| Along a line of `length` boxes from `start`, `firstFree` finds the
 --| position past them, given more fuel than boxes.
 theorem firstFreeLine (boxes: Set Cell) (direction: Direction) (length: Nat) (start: Cell) (fuel: Nat) (enough: length < fuel)
-    (line: (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True)) (free: boxes.contains (ahead start direction length) = False):
-    firstFree boxes direction start fuel = Some (ahead start direction length) :=
-  match length, fuel with
-    | Zero, Succ fuel => rewrite free in rfl
-    | Succ length, Succ fuel =>
-      rewrite line 0 (omega) in
-        rewrite aheadFrom start direction length at
-          firstFreeLine boxes direction length (start.step direction) fuel (omega)
-            (i below => rewrite aheadFrom start direction i in line (Succ i) (omega)) (rewrite aheadFrom start direction length in free)
+    (line: ∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True) (free: boxes.contains (ahead start direction length) = False):
+    firstFree boxes direction start fuel = Some (ahead start direction length) := match length, fuel with
+      | Zero, Succ fuel => rewrite free in rfl
+      | Succ length, Succ fuel =>
+        rewrite line 0 (omega) in
+          rewrite aheadFrom start direction length at
+            firstFreeLine boxes direction length (start.step direction) fuel (omega)
+              (i below => rewrite aheadFrom start direction i in line (Succ i) (omega)) (rewrite aheadFrom start direction length in free)
 
 --| A move never moves a wall.
 theorem moveWalls (warehouse: Warehouse) (direction: Direction): (warehouse.move direction).walls = warehouse.walls := cases
@@ -40,10 +39,9 @@ theorem moveWalls (warehouse: Warehouse) (direction: Direction): (warehouse.move
 --| The robot's next position still holds a box once the free position has
 --| one: it is the free position, or held a box already.
 theorem nextAfterInsert (boxes: Set Cell) (free: Cell) (next: Cell) (found: (free = next) ∨ (boxes.contains next = True)):
-    (boxes.insert free).contains next = True :=
-  match found with
-    | Inl same => rewrite same in Set.containsInsert next boxes
-    | Inr there => Set.containsInsertMono boxes free next there
+    (boxes.insert free).contains next = True := match found with
+      | Inl same => rewrite same in Set.containsInsert next boxes
+      | Inr there => Set.containsInsertMono boxes free next there
 
 --| A move never changes the number of boxes.
 theorem moveCount (warehouse: Warehouse) (direction: Direction): boxCount (warehouse.move direction) = boxCount warehouse :=

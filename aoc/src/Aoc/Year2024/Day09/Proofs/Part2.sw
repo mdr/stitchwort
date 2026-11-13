@@ -79,22 +79,20 @@ theorem fileBlocksReplicate (n id: Nat): fileBlocks (List.replicate n (FileBlock
     | Zero => rfl
     | Succ n => Eq.cong (Cons id) (fileBlocksReplicate n id)
 
-theorem fileBlocksReplicateFree (n: Nat): fileBlocks (List.replicate n Free) = [] :=
-  match n with
-    | Zero => rfl
-    | Succ n => fileBlocksReplicateFree n
+theorem fileBlocksReplicateFree (n: Nat): fileBlocks (List.replicate n Free) = [] := match n with
+  | Zero => rfl
+  | Succ n => fileBlocksReplicateFree n
 
 --| The files' blocks are the disk's file blocks.
 theorem layoutBlocks (id position: Nat) (diskMap: List Nat):
-    (layoutFrom id position diskMap).fst.flatMap .blocks = fileBlocks (blocksFrom id diskMap) :=
-  match diskMap with
-    | [] => rfl
-    | [fileLength] => rewrite fileBlocksReplicate fileLength id in List.appendNil (List.replicate fileLength id)
-    | [fileLength, freeLength, ..rest] =>
-      rewrite List.filterMapAppend (List.replicate fileLength (FileBlock id)) (List.replicate freeLength Free ++ blocksFrom (Succ id) rest) Block.id,
-        List.filterMapAppend (List.replicate freeLength Free) (blocksFrom (Succ id) rest) Block.id,
-        fileBlocksReplicate fileLength id, fileBlocksReplicateFree freeLength
-        in Eq.cong (List.append (List.replicate fileLength id)) (layoutBlocks (Succ id) (position + fileLength + freeLength) rest)
+    (layoutFrom id position diskMap).fst.flatMap .blocks = fileBlocks (blocksFrom id diskMap) := match diskMap with
+      | [] => rfl
+      | [fileLength] => rewrite fileBlocksReplicate fileLength id in List.appendNil (List.replicate fileLength id)
+      | [fileLength, freeLength, ..rest] =>
+        rewrite List.filterMapAppend (List.replicate fileLength (FileBlock id)) (List.replicate freeLength Free ++ blocksFrom (Succ id) rest) Block.id,
+          List.filterMapAppend (List.replicate freeLength Free) (blocksFrom (Succ id) rest) Block.id,
+          fileBlocksReplicate fileLength id, fileBlocksReplicateFree freeLength
+          in Eq.cong (List.append (List.replicate fileLength id)) (layoutBlocks (Succ id) (position + fileLength + freeLength) rest)
 
 --| Part 2 keeps the file blocks: after the moves, the disk holds the same
 --| file blocks as before, in some order.

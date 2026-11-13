@@ -29,10 +29,9 @@ theorem tableCorrect (patterns: List Pattern): ∀ (stripes: List Stripe) (index
 
 --| The table's first entry is its entry 0.
 theorem firstEntry (patterns: List Pattern) (stripes: List Stripe):
-    (waysForSuffixes patterns stripes).headOr 0 = (waysForSuffixes patterns stripes).getOr 0 0 :=
-  match stripes with
-    | [] => rfl
-    | [first, ..rest] => rfl
+    (waysForSuffixes patterns stripes).headOr 0 = (waysForSuffixes patterns stripes).getOr 0 0 := match stripes with
+      | [] => rfl
+      | [first, ..rest] => rfl
 
 --| The program counts the puzzle's ways to make any design.
 theorem waysCorrect (patterns: List Pattern) (design: Design): waysToMake patterns design = ways patterns design :=

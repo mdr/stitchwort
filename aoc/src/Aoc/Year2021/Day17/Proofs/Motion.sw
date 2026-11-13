@@ -7,11 +7,10 @@ import Aoc.Year2021.Day17.Spec (..)
 import Std (Bool, Eq, Int, Nat, Void)
 
 --| The program's drag, `dx - sign dx`, is the puzzle's.
-theorem dragSign (dx: Int): dx - dx.sign = drag dx :=
-  match dx with
-    | OfNat 0 => rfl
-    | OfNat (Succ k) => rfl
-    | NegSucc k => rfl
+theorem dragSign (dx: Int): dx - dx.sign = drag dx := match dx with
+  | OfNat 0 => rfl
+  | OfNat (Succ k) => rfl
+  | NegSucc k => rfl
 
 theorem stepIsMove (probe: Probe): step probe = move probe := rewrite dragSign probe.velocity.x in rfl
 

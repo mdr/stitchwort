@@ -159,10 +159,9 @@ def settle: Nat → Nat → Paused → Nat
   | Succ fuel, step, Finished total => total
   | Succ fuel, step, Suspended v resume => settle fuel step (resume (v + step))
 
-def explore (p: Paused): List Nat :=
-  match p with
-    | Finished total => [total]
-    | Suspended v resume => [settle 5 1 (resume 1), settle 5 2 (resume 2), settle 5 1 (resume 1)]
+def explore (p: Paused): List Nat := match p with
+  | Finished total => [total]
+  | Suspended v resume => [settle 5 1 (resume 1), settle 5 2 (resume 2), settle 5 1 (resume 1)]
 
 export def branches (depth: Nat) (start: Nat): List Nat :=
   explore (Offer.pause (() => Offer.relays (Nat.min depth 20) (() => threeOffers start)))

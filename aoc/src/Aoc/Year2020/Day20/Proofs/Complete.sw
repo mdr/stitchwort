@@ -19,17 +19,15 @@ def pixelSymbol: Pixel → Char
   | Rough => '#'
   | Calm => '.'
 
-theorem spaceNotPixel (char: Char) (isSpace: Parse.isSpace char = True): pixelChar char = False :=
-  match isSpace with
-    | Inl space => rewrite space.read in rfl
-    | Inr tab => rewrite tab.read in rfl
+theorem spaceNotPixel (char: Char) (isSpace: Parse.isSpace char = True): pixelChar char = False := match isSpace with
+  | Inl space => rewrite space.read in rfl
+  | Inr tab => rewrite tab.read in rfl
 
 --| A word that starts with a different character is not a start of the input.
 theorem stripDifferent (first: Char) (others: List Char) (char: Char) (more: List Char) (different: (char == first) = False):
-    Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
-  match e: Text.sameChar first char with
-    | False => rfl
-    | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
+    Text.stripPrefixChars [first, ..others] [char, ..more] = None := match e: Text.sameChar first char with
+      | False => rfl
+      | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
 
 theorem runsPixel (shape: Pixel) (after: List Char): Parse.Runs pixel [pixelSymbol shape] after shape :=
   match shape with
@@ -44,10 +42,9 @@ theorem declinesPixel (rest: List Char) (stops: Parse.CannotStart pixelChar rest
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem allPixels (pixels: List Pixel): (pixels.map pixelSymbol).all pixelChar = True :=
-  match pixels with
-    | [] => rfl
-    | [shape, ..more] => rewrite allPixels more in (match shape with | Rough => rfl | Calm => rfl)
+theorem allPixels (pixels: List Pixel): (pixels.map pixelSymbol).all pixelChar = True := match pixels with
+  | [] => rfl
+  | [shape, ..more] => rewrite allPixels more in (match shape with | Rough => rfl | Calm => rfl)
 
 theorem pixelWritten (read: List Char) (shape: Pixel) (written: PixelWritten read shape): read = [pixelSymbol shape] :=
   match written with
@@ -61,16 +58,15 @@ theorem eachPixels (pixels: List Pixel) (read: List Char) (h: Parse.Each PixelWr
       rewrite split, pixelWritten first shape written, eachPixels more later each in rfl
 
 theorem runsRow (read: List Char) (row: List Pixel) (written: RowWritten read row) (after: List Char) (stops: Parse.CannotStart pixelChar after):
-    Parse.Runs pixelRow read after row :=
-  match written with
-    | Both each nonEmpty =>
-      match row, nonEmpty with
-        | [], notEmpty => Void.exfalso (notEmpty rfl)
-        | [shape, ..more], notEmpty =>
-          let read2 := Parse.runsMany1Symbols pixel pixelSymbol pixelChar (shape2 after _ => runsPixel shape2 after) declinesPixel shape more after
-            (allPixels [shape, ..more]) stops
-          rewrite eachPixels [shape, ..more] read each in
-            Parse.runsMap (() => Parse.many1 pixel) NonEmptyList.toList ([shape, ..more].map pixelSymbol) after (NonEmptyList.cons shape more) read2
+    Parse.Runs pixelRow read after row := match written with
+      | Both each nonEmpty =>
+        match row, nonEmpty with
+          | [], notEmpty => Void.exfalso (notEmpty rfl)
+          | [shape, ..more], notEmpty =>
+            let read2 := Parse.runsMany1Symbols pixel pixelSymbol pixelChar (shape2 after _ => runsPixel shape2 after) declinesPixel shape more after
+              (allPixels [shape, ..more]) stops
+            rewrite eachPixels [shape, ..more] read each in
+              Parse.runsMap (() => Parse.many1 pixel) NonEmptyList.toList ([shape, ..more].map pixelSymbol) after (NonEmptyList.cons shape more) read2
 
 theorem declinesRow (input: List Char) (stops: Parse.CannotStart pixelChar input): Parse.Declines pixelRow input :=
   Parse.declinesBind (() => Parse.many1 pixel) _ input (Parse.declinesMany1 pixel input (declinesPixel input stops))
@@ -110,19 +106,18 @@ theorem declinesTile (input: List Char) (stops: Parse.CannotStart (char => char 
         | [char, ..more] => stripDifferent 'T' ['i', 'l', 'e', ' '] char more (stops char more rfl)))
 
 theorem runsJigsaw (read: List Char) (jigsaw2: Jigsaw) (written: JigsawWritten read jigsaw2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
-    Parse.Runs jigsaw read ending jigsaw2 :=
-  match jigsaw2, written with
-    | { tiles }, Witness listed (Both tilesWritten same) =>
-      match listed, tilesWritten with
-        | { head, tail }, tilesWritten2 =>
-          runsAsValue jigsaw read ending ({ tiles = (NonEmptyList.cons head tail).toList }: Jigsaw) { tiles } (rewrite same in rfl)
-            (Parse.runsMap (() => Parse.sections tile) (tiles2 => { tiles = tiles2.toList }) read ending (NonEmptyList.cons head tail)
-              (Parse.runsSectionsOf tile TileWritten Parse.LinesEnd ending
-                (read2 v after ok end => runsTile read2 v ok after end)
-                Parse.linesEndAfterBlank
-                (Parse.linesEndAtBreaks ending breaks)
-                (Parse.declinesSectionsAtBreaks tile (char => char == 'T') declinesTile rfl rfl ending breaks)
-                read head tail tilesWritten2))
+    Parse.Runs jigsaw read ending jigsaw2 := match jigsaw2, written with
+      | { tiles }, Witness listed (Both tilesWritten same) =>
+        match listed, tilesWritten with
+          | { head, tail }, tilesWritten2 =>
+            runsAsValue jigsaw read ending ({ tiles = (NonEmptyList.cons head tail).toList }: Jigsaw) { tiles } (rewrite same in rfl)
+              (Parse.runsMap (() => Parse.sections tile) (tiles2 => { tiles = tiles2.toList }) read ending (NonEmptyList.cons head tail)
+                (Parse.runsSectionsOf tile TileWritten Parse.LinesEnd ending
+                  (read2 v after ok end => runsTile read2 v ok after end)
+                  Parse.linesEndAfterBlank
+                  (Parse.linesEndAtBreaks ending breaks)
+                  (Parse.declinesSectionsAtBreaks tile (char => char == 'T') declinesTile rfl rfl ending breaks)
+                  read head tail tilesWritten2))
 
 --| The soundness theorem's conclusion: the input is the tiles written out,
 --| then any line breaks.

@@ -4,9 +4,8 @@
 -- 100000000 times while checking.)
 import Std (Nat)
 
-def countDown (n: Nat): Nat :=
-  match n with
-    | Zero => 0
-    | Succ k => countDown k
+def countDown (n: Nat): Nat := match n with
+  | Zero => 0
+  | Succ k => countDown k
 
 theorem slow (n: Nat): countDown (Nat.max n 100000000) = 1 := ?

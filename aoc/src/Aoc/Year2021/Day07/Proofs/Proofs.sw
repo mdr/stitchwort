@@ -56,14 +56,13 @@ theorem leastFuelIs (fuel: Nat → Nat) (crabs: List Nat) (least: Nat)
 
 --| The spec's total fuel is the program's, for the same fuel.
 theorem totalFuelIs (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: ∀ (n: Nat) => specFuel n = fuel n) (crabs: List Nat) (position: Nat):
-    totalFuel specFuel crabs position = fuelAt fuel crabs position :=
-  match crabs with
-    | [] => rfl
-    | [crab, ..rest] =>
-      calc totalFuel specFuel [crab, ..rest] position
-        _ = specFuel (distance crab position) + totalFuel specFuel rest position := List.sumCons (specFuel (distance crab position)) (rest.map (c => specFuel (distance c position)))
-        _ = fuel (Nat.absDiff crab position) + fuelAt fuel rest position := rewrite same (distance crab position), distanceIs crab position, totalFuelIs fuel specFuel same rest position in rfl
-        _ = fuelAt fuel [crab, ..rest] position := Eq.sym (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
+    totalFuel specFuel crabs position = fuelAt fuel crabs position := match crabs with
+      | [] => rfl
+      | [crab, ..rest] =>
+        calc totalFuel specFuel [crab, ..rest] position
+          _ = specFuel (distance crab position) + totalFuel specFuel rest position := List.sumCons (specFuel (distance crab position)) (rest.map (c => specFuel (distance c position)))
+          _ = fuel (Nat.absDiff crab position) + fuelAt fuel rest position := rewrite same (distance crab position), distanceIs crab position, totalFuelIs fuel specFuel same rest position in rfl
+          _ = fuelAt fuel [crab, ..rest] position := Eq.sym (List.sumByCons rest crab (c => fuel (Nat.absDiff c position)))
 
 --| The spec's distance is `Nat.absDiff`.
 theorem distanceIs (crab: Nat) (position: Nat): distance crab position = crab.absDiff position := cases
@@ -74,18 +73,16 @@ theorem growingFuelMonotone (a: Nat) (b: Nat) (le: a ≤ b): growingFuel a ≤ g
     (omega [Nat.divMulLe (a + (a * a)) 2, Nat.leMulRight a b a le, Nat.leMulRight a b b le, Nat.mulComm b a])
 
 --| Folding `Nat.min` gives at most the start and each element.
-theorem foldMinLe (xs: List Nat) (start: Nat): xs.foldLeft start Nat.min ≤ start :=
-  match xs with
-    | [] => Nat.leRefl start
-    | [x, ..rest] =>
-      Nat.leTrans (rest.foldLeft (Nat.min start x) Nat.min) (Nat.min start x) start (foldMinLe rest (Nat.min start x)) (Nat.minLeLeft start x)
+theorem foldMinLe (xs: List Nat) (start: Nat): xs.foldLeft start Nat.min ≤ start := match xs with
+  | [] => Nat.leRefl start
+  | [x, ..rest] =>
+    Nat.leTrans (rest.foldLeft (Nat.min start x) Nat.min) (Nat.min start x) start (foldMinLe rest (Nat.min start x)) (Nat.minLeLeft start x)
 
-theorem foldMinLeMember (xs: List Nat) (start x: Nat) (h: x ∈ xs): xs.foldLeft start Nat.min ≤ x :=
-  match xs, h with
-    | [], member => Void.exfalso member
-    | [y, ..rest], Inl same =>
-      rewrite <- same in Nat.leTrans (rest.foldLeft (Nat.min start y) Nat.min) (Nat.min start y) y (foldMinLe rest (Nat.min start y)) (Nat.minLeRight start y)
-    | [y, ..rest], Inr member => foldMinLeMember rest (Nat.min start y) x member
+theorem foldMinLeMember (xs: List Nat) (start x: Nat) (h: x ∈ xs): xs.foldLeft start Nat.min ≤ x := match xs, h with
+  | [], member => Void.exfalso member
+  | [y, ..rest], Inl same =>
+    rewrite <- same in Nat.leTrans (rest.foldLeft (Nat.min start y) Nat.min) (Nat.min start y) y (foldMinLe rest (Nat.min start y)) (Nat.minLeRight start y)
+  | [y, ..rest], Inr member => foldMinLeMember rest (Nat.min start y) x member
 
 --| The scan's ends hold every crab between them.
 theorem rightmostGe (crabs: List Nat) (crab: Nat) (member: crab ∈ crabs): crab ≤ rightmost crabs := List.leFoldMax crabs crab 0 member
@@ -96,7 +93,7 @@ theorem leftmostLe (crabs: List Nat) (crab: Nat) (member: crab ∈ crabs): leftm
 theorem leftmostLeRightmost (crabs: List Nat): leftmost crabs ≤ rightmost crabs := foldMinLe crabs (rightmost crabs)
 
 --| A sum over a list is at most another when each term is.
-theorem sumByLeMember (f: Nat → Nat) (g: Nat → Nat) (xs: List Nat) (each: (∀ (x: Nat) => x ∈ xs → g x ≤ f x)): xs.sumBy g ≤ xs.sumBy f :=
+theorem sumByLeMember (f: Nat → Nat) (g: Nat → Nat) (xs: List Nat) (each: ∀ (x: Nat) => x ∈ xs → g x ≤ f x): xs.sumBy g ≤ xs.sumBy f :=
   match xs with
     | [] => Nat.leRefl 0
     | [x, ..rest] =>
