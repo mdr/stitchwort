@@ -2225,10 +2225,32 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             otherwise,
             ..
         } => {
+            // A fresh unknown for the type is right for data. For proofs the
+            // branches solve it with a proposition, where a `Type` is
+            // expected (an `E-UNIVERSE` raised later, by whoever uses the
+            // type), so that outcome is undone and retried with the
+            // branches' own proposition. Data takes the first path only.
+            let snapshot = crate::undo::Snapshot::take(cx);
             let ty = cx.fresh_meta();
             let ty = cx.eval(&ty)?;
             let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
-            Ok((term, ty))
+            if crate::omega::is_prop(cx, &ty)? != Some(true) {
+                return Ok((term, ty));
+            }
+            snapshot.restore(cx);
+            match proof_branch_type(cx, then, otherwise)? {
+                Some(ty) => {
+                    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+                    Ok((term, ty))
+                }
+                // Not inferable on its own: left as it was.
+                None => {
+                    let ty = cx.fresh_meta();
+                    let ty = cx.eval(&ty)?;
+                    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+                    Ok((term, ty))
+                }
+            }
         }
         Expr::Ann(e, ty, _) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -5445,6 +5467,35 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => Ok(false),
     }
+}
+
+/// The proposition an `if` with no expected type proves, read off its
+/// branches: the first of `then` and `otherwise` that can be inferred on its
+/// own (outside the scope of the condition's proof) and has a proposition for
+/// its type. A fresh unknown can't stand for it, since it would be solved with
+/// a proposition where a `Type` is expected (`E-UNIVERSE`); the other branch
+/// is then checked against this type, so a different proposition is a type
+/// mismatch. Everything the probe does is undone, and a type that still
+/// mentions an unknown the probe made is not used. `None` where neither
+/// branch is a proof, or each needs the condition's proof to be inferred.
+fn proof_branch_type(cx: &mut Ctx, then: &Expr, otherwise: &Expr) -> Result<Option<Value>> {
+    for branch in [then, otherwise] {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let found = crate::undo::attempt(cx, |cx| {
+            let (_, ty) = infer(cx, branch)?;
+            if crate::interfaces::unsolved_in(cx, &ty)?.is_some() || !proof_expected(cx, &ty)? {
+                return Ok(None);
+            }
+            // Quoted before the undo, so the type doesn't depend on anything
+            // the probe solved.
+            Ok(Some(cx.quote_folded(&ty)?))
+        })?;
+        snapshot.restore(cx);
+        if let Some(Some(term)) = found {
+            return Ok(Some(cx.eval(&term)?));
+        }
+    }
+    Ok(None)
 }
 
 /// An `if` whose branches are proofs (SW-1015, before which it was

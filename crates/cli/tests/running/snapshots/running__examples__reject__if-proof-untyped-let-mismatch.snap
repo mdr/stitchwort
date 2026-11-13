@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/if-proof-untyped-let-mismatch.sw:6:29 ]
+   │
+ 6 │   let w := if c then p else q
+   │                             ┬  
+   │                             ╰── expected `1 = 1`, but this has type `2 = 2`
+───╯
