@@ -1,5 +1,5 @@
 {
-  "next": 3059,
+  "next": 3061,
   "tickets": [
     {
       "id": 47,
@@ -33005,6 +33005,32 @@
       "labels": [],
       "epic": "test-infra",
       "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3059,
+      "title": "[Opus] Bool as proposition stage 5: auto and cases on the reader (bool-as-proposition.md §9): auto replaces from_conjuncts with a hypothesis and everything its readings give (a test fact from if a && b used like a ∧ b), cases does the same for its hypothesis closer",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Started 13 Nov ~10:50 (D3543). Estimate: 120 min.",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3060,
+      "title": "[Sonnet] Bool as proposition stage 6, std sweep: helpers replaced by patterns and .read; the = True ↔ lemmas that readings now replace marked or deleted (bool-as-proposition.md §11 stage 6, §8; SW-2737's note)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Started 13 Nov ~10:50 (D3543). Estimate: 90 min.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
