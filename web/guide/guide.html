@@ -141,6 +141,11 @@
   <pre data-src="36-forall.sw"></pre>
 </section>
 
+<section data-slug="test-facts" data-title="Tests and statements">
+  <p>A <code>Bool</code> test and the statement it decides are two views of one fact. A fact about a test, such as <code>booking.fits capacity</code>, can be taken apart with the patterns of its statement (<code>Both</code> for <code>&amp;&amp;</code>, <code>Inl</code> and <code>Inr</code> for <code>||</code>) and built with its constructors. To use the whole fact as its statement, write <code>.read</code>. <code>auto</code> and <code>cases</code> use the facts in scope this way too.</p>
+  <pre data-src="39-test-facts.sw"></pre>
+</section>
+
 <section data-slug="omega" data-title="omega: arithmetic proofs">
   <p>For facts about whole numbers and integers built from <code>+</code>, <code>-</code>, comparisons, multiplication by constants, and division and remainder by a constant, <code>omega</code> finds the proof itself, using the hypotheses in scope.</p>
   <pre data-src="24-omega.sw"></pre>
