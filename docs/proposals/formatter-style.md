@@ -1225,6 +1225,21 @@ under D3567. Without it the body rule (S12) moved the whole lambda below:
 not `let skipNoise :=` with `() =>` alone on the next line. Matt: "that
 looks far better".
 
+### D3569: a call of only plain arguments that doesn't fit (Matt, 13 Nov 2026: yes)
+
+Under D3567 (c) plain arguments stay on the function's line, so a call
+whose arguments are all plain could not break. When such a line still
+overflows 120, its arguments fill onto continuation lines at +4, as many
+per line as fit:
+
+```
+                Graph.settleKeeps graph costs sources reach edgesReach queue settled best cost state
+                    least taken invariant)
+```
+
+Calls that fit, and calls with bracketed arguments, are unchanged. Not one
+argument per line, which made the example 13 lines.
+
 ## Findings worth tickets
 
 - **Width in bytes.** The current formatter's `:= match` rule (D3553)
