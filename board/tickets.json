@@ -34429,12 +34429,12 @@
     {
       "id": 3168,
       "title": "[Sonnet] Lossless tree lane D: every Pattern kind, incl. let patterns and or-patterns",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Done on lane/SW-3168 (7b6254308). Marks every Pattern kind plus new PatternAbsurd; std multi-token unmarked 6,700 -> 1,132 (rest: rewrite/omega/calc); 0 dropped, 0 not read back over std, aoc/src, games, examples. Marks-off parse of std unchanged (58-60 ms).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
