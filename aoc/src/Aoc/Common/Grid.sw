@@ -164,7 +164,7 @@ def Grid.width (grid: Grid a): Nat := firstWidth grid.rows
 
 --| A grid has a column, so `column % grid.width` can be written with this
 --| in scope: `let nonZero := grid.widthNonZero`.
-theorem Grid.widthNonZero (grid: Grid a): grid.width ≠ 0 := same => DecEq.soundFalse grid.width 0 grid.nonEmpty same
+theorem Grid.widthNonZero (grid: Grid a): grid.width ≠ 0 := same => grid.nonEmpty.read same
 
 --| Every row is as long as the first.
 def Grid.Rectangle (grid: Grid a): Prop := ∀ (row: List a) => row ∈ grid.rows → row.length = grid.width

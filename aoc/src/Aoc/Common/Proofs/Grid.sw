@@ -31,16 +31,16 @@ theorem memDirections (direction: Direction): direction ∈ directions :=
 theorem equalOf (a: Nat) (b: Nat) (same: a = b): (a == b) = True := rewrite same in DecEq.refl b
 
 theorem upAdjacent (row: Nat) (column: Nat): adjacent { row = Succ row, column } { row, column } = True :=
-  Bool.orRight (Bool.andIntro (DecEq.refl column) (Bool.orRight (equalOf (row + 1) (Succ row) (omega))))
+  Inr (Both (DecEq.refl column) (Inr (equalOf (row + 1) (Succ row) (omega))))
 
 theorem leftAdjacent (row: Nat) (column: Nat): adjacent { row, column = Succ column } { row, column } = True :=
-  Bool.orLeft (Bool.andIntro (DecEq.refl row) (Bool.orRight (equalOf (column + 1) (Succ column) (omega))))
+  Inl (Both (DecEq.refl row) (Inr (equalOf (column + 1) (Succ column) (omega))))
 
 theorem rightAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row, column = column + 1 } = True :=
-  Bool.orLeft (Bool.andIntro (DecEq.refl row) (Bool.orLeft (DecEq.refl (column + 1))))
+  Inl (Both (DecEq.refl row) (Inl (DecEq.refl (column + 1))))
 
 theorem downAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row = row + 1, column } = True :=
-  Bool.orRight (Bool.andIntro (DecEq.refl column) (Bool.orLeft (DecEq.refl (row + 1))))
+  Inr (Both (DecEq.refl column) (Inl (DecEq.refl (row + 1))))
 
 --| A step reaches an adjacent position...
 theorem stepAdjacent (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
@@ -65,17 +65,11 @@ theorem adjacentStep (position next: Position) (near: adjacent position next = T
     ∃ (direction: Direction) => position.step direction = Some next :=
   match position, next with
     | { row, column }, { row = r, column = c } =>
-      Bool.orElim near
-        (sameRow =>
-          let rows: row = r := DecEq.sound (Bool.andLeft sameRow)
-          Bool.orElim (Bool.andRight sameRow)
-            (right => rewrite <- rows, <- DecEq.sound [x := column + 1] [y := c] right in Witness Right rfl)
-            (left => rewrite <- rows, <- DecEq.sound [x := c + 1] [y := column] left in Witness Left rfl))
-        (sameColumn =>
-          let columns: column = c := DecEq.sound (Bool.andLeft sameColumn)
-          Bool.orElim (Bool.andRight sameColumn)
-            (down => rewrite <- columns, <- DecEq.sound [x := row + 1] [y := r] down in Witness Down rfl)
-            (up => rewrite <- columns, <- DecEq.sound [x := r + 1] [y := row] up in Witness Up rfl))
+      match near with
+        | Inl (Both rows (Inl right)) => rewrite <- rows.read, <- right.read in Witness Right rfl
+        | Inl (Both rows (Inr left)) => rewrite <- rows.read, <- left.read in Witness Left rfl
+        | Inr (Both columns (Inl down)) => rewrite <- columns.read, <- down.read in Witness Down rfl
+        | Inr (Both columns (Inr up)) => rewrite <- columns.read, <- up.read in Witness Up rfl
 
 --| The neighbours are the positions a step away...
 theorem memNeighbours (position: Position) (next: Position): (next ∈ position.neighbours) ↔ (∃ (direction: Direction) => position.step direction = Some next) := {
@@ -128,8 +122,8 @@ theorem notMemDirections (direction: Direction): ∀ (others: List Direction) =>
     others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
   | [], differ, member => member
   | [other, ..rest], differ, Inl same =>
-    DecEq.neTrue (Bool.andLeft differ) (rewrite same in rfl)
-  | [other, ..rest], differ, Inr later => notMemDirections direction rest (Bool.andRight differ) later
+    DecEq.neTrue differ.left (rewrite same in rfl)
+  | [other, ..rest], differ, Inr later => notMemDirections direction rest differ.right later
 
 --| ...and there are at most four.
 theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := List.lengthFilterMapLe position.step directions

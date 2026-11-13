@@ -147,14 +147,14 @@ theorem wrapWithin (position: Position) (offset: Offset) (height: Nat) (width: N
     (position.wrap offset height width).within height width = True :=
   let rowBelow := Int.modNatLt (position.row.toInt + offset.rows) height [ok := tall]
   let columnBelow := Int.modNatLt (position.column.toInt + offset.columns) width [ok := wide]
-  Bool.andIntro (omega [rowBelow]) (omega [columnBelow])
+  Both (omega [rowBelow]) (omega [columnBelow])
 
 --| By zero, a position on the board stays put.
 theorem wrapZero (position: Position) (height: Nat) (width: Nat)
     (inside: position.within height width = True): position.wrap Offset.zero height width = position :=
   positionExt (position.wrap Offset.zero height width) position
-    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in Int.modNatOfLt height position.row (omega [Bool.andLeft inside]))
-    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in Int.modNatOfLt width position.column (omega [Bool.andRight inside]))
+    (rewrite (omega: position.row.toInt + 0 = position.row.toInt) in Int.modNatOfLt height position.row (omega [inside.left]))
+    (rewrite (omega: position.column.toInt + 0 = position.column.toInt) in Int.modNatOfLt width position.column (omega [inside.right]))
 
 --| Wrapping twice is wrapping by the sum.
 theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:

@@ -156,7 +156,7 @@ theorem withinOfMemPositions (height: Nat) (width: Nat) (position: Position) (me
         let (Both inColumns same) := both
         let (Both _ below) := List.memRangeFrom row height 0 inRows
         let (Both _ before) := List.memRangeFrom column width 0 inColumns
-        rewrite <- same in Bool.andIntro (omega [below]) (omega [before])))
+        rewrite <- same in Both (omega [below]) (omega [before])))
 
 -- Grids
 
@@ -168,16 +168,16 @@ theorem withinOfAt (grid: Grid a) (rectangle: grid.Rectangle) (position: Positio
     let wide: line.length = grid.width := rectangle line (List.memOfGet grid.rows position.row line atRow)
     let tall := (List.getInRange grid.rows position.row).backward (rewrite atRow in rfl)
     let across := (List.getInRange line position.column).backward (rewrite atColumn in rfl)
-    Bool.andIntro tall (rewrite <- wide in across))
+    Both tall (rewrite <- wide in across))
 
 --| ...and the other way round.
 theorem atOfWithin (grid: Grid a) (rectangle: grid.Rectangle) (position: Position) (inside: grid.contains position = True):
     ∃ (x: a) => grid.at position = Some x :=
-  let tall := (List.getInRange grid.rows position.row).forward (Bool.andLeft inside)
+  let tall := (List.getInRange grid.rows position.row).forward (inside.left)
   match atRow: List.get grid.rows position.row with
     | Some line =>
       let wide: line.length = grid.width := rectangle line (List.memOfGet grid.rows position.row line atRow)
-      let across := (List.getInRange line position.column).forward (rewrite wide in Bool.andRight inside)
+      let across := (List.getInRange line position.column).forward (rewrite wide in inside.right)
       match atColumn: List.get line position.column with
         | Some x => Witness x rfl
 
@@ -197,7 +197,7 @@ theorem lookupOrAt (grid: Grid a) (fallback: a) (position: Position): grid.looku
 
 --| `isRectangle` is `Rectangle`.
 theorem isRectangleIff (grid: Grid a): grid.isRectangle = True ↔ grid.Rectangle := {
-  forward = all row member => DecEq.sound (List.allMember (row => row.length == grid.width) grid.rows all row member),
+  forward = all row member => (all.read row member).read,
   backward = rectangle =>
     List.allOfAll (row => row.length == grid.width) grid.rows
       (List.allOfMem (row => (row.length == grid.width) = True) grid.rows (row member => rewrite rectangle row member in DecEq.refl grid.width))
