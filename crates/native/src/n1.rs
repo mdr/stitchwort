@@ -3174,6 +3174,28 @@ struct Gen<'a, 'm> {
     slot: u32,
 }
 
+/// A reference from `func` to the data `id`, by its full address.
+///
+/// `declare_data_in_func` marks module-local data `colocated`, which lets
+/// Cranelift reach it PC-relative (`lea` with a 32-bit displacement on
+/// x86-64, `adrp` within ±4 GiB on aarch64). But the JIT's memory providers
+/// map code and data separately, wherever `mmap` puts them, so nothing keeps
+/// the two near: on Linux x86-64 they ended up over 2 GiB apart and
+/// cranelift-jit panicked applying the relocation (SW-3139). Calls between
+/// functions don't need this: cranelift-jit sends an out-of-range call
+/// through a veneer, but has no such fallback for an address.
+fn far_data(
+    module: &mut dyn Module,
+    id: cranelift_module::DataId,
+    func: &mut ir::Function,
+) -> ir::GlobalValue {
+    let global = module.declare_data_in_func(id, func);
+    if let ir::GlobalValueData::Symbol { colocated, .. } = &mut func.global_values[global] {
+        *colocated = false;
+    }
+    global
+}
+
 /// Defines read-only data holding `name`, for a body to report itself by.
 fn define_name(
     module: &mut dyn Module,
@@ -3985,7 +4007,7 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(top);
         if let (Some(count), Some((name, len))) = (self.helpers.count_body, self.entry_name) {
             // At `top`, so a self tail call counts as a call too.
-            let global = self.module.declare_data_in_func(name, self.b.func);
+            let global = far_data(&mut *self.module, name, self.b.func);
             let at = self.b.ins().symbol_value(self.pointer, global);
             let len = self.iconst(len);
             self.call_helper(count, &[at, len]);
@@ -5506,5 +5528,122 @@ mod tests {
         // A frame under a page has no probe, so costs nothing.
         let small = with_frame(1000);
         assert_eq!(code_of(&small, &*isa), code_of(&small, &*plain));
+    }
+
+    /// Code from the JIT's usual provider, and data from the middle of a
+    /// 16 GiB reservation, so at least 8 GiB from any code.
+    struct FarData {
+        code: Box<dyn cranelift_jit::JITMemoryProvider + Send>,
+        middle: *mut u8,
+    }
+
+    // SAFETY: `middle` is the address of a page of a reservation the test
+    // owns, which outlives the provider; nothing is tied to a thread.
+    #[allow(unsafe_code)]
+    unsafe impl Send for FarData {}
+
+    impl cranelift_jit::JITMemoryProvider for FarData {
+        #[allow(unsafe_code)]
+        fn allocate(
+            &mut self,
+            size: usize,
+            align: u64,
+            kind: cranelift_jit::JITMemoryKind,
+        ) -> std::io::Result<*mut u8> {
+            if let cranelift_jit::JITMemoryKind::Executable = kind {
+                return self.code.allocate(size, align, kind);
+            }
+            assert!(size <= 4096 && align <= 4096, "one page of data");
+            // SAFETY: a page inside the reservation, which nothing else uses.
+            let made = unsafe {
+                libc::mprotect(self.middle.cast(), 4096, libc::PROT_READ | libc::PROT_WRITE)
+            };
+            assert_eq!(made, 0, "{}", std::io::Error::last_os_error());
+            Ok(self.middle)
+        }
+
+        #[allow(unsafe_code)]
+        unsafe fn free_memory(&mut self) {
+            // SAFETY: passed on from the caller.
+            unsafe { self.code.free_memory() }
+        }
+
+        fn finalize(
+            &mut self,
+            protection: cranelift_jit::BranchProtection,
+        ) -> cranelift_module::ModuleResult<()> {
+            self.code.finalize(protection)
+        }
+    }
+
+    /// SW-3139: JIT code reads data however far `mmap` puts it from the
+    /// code. A PC-relative reference reaches only 2 GiB (x86-64) or 4 GiB
+    /// (aarch64), and cranelift-jit panics applying it beyond that.
+    #[test]
+    #[allow(unsafe_code)]
+    fn code_reads_data_mapped_far_away() {
+        const RESERVED: usize = 16 << 30;
+        // SAFETY: a fresh anonymous reservation, unmapped at the end.
+        let reservation = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                RESERVED,
+                libc::PROT_NONE,
+                libc::MAP_PRIVATE | libc::MAP_ANON | libc::MAP_NORESERVE,
+                -1,
+                0,
+            )
+        };
+        assert_ne!(reservation, libc::MAP_FAILED);
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        let code: Box<dyn cranelift_jit::JITMemoryProvider + Send> =
+            Box::new(crate::map_jit::MapJitMemoryProvider::new().expect("MAP_JIT memory"));
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        let code: Box<dyn cranelift_jit::JITMemoryProvider + Send> =
+            Box::new(cranelift_jit::SystemMemoryProvider::new());
+        let provider = FarData {
+            code,
+            // SAFETY: the middle of the reservation is within it.
+            middle: unsafe { reservation.cast::<u8>().add(RESERVED / 2) },
+        };
+
+        let mut builder =
+            JITBuilder::with_isa(host_isa(false).expect("an ISA"), default_libcall_names());
+        builder.memory_provider(Box::new(provider));
+        let mut module = JITModule::new(builder);
+        let data = module
+            .declare_data("far", Linkage::Local, false, false)
+            .unwrap();
+        let mut description = cranelift_module::DataDescription::new();
+        description.define(3139i64.to_ne_bytes().to_vec().into_boxed_slice());
+        module.define_data(data, &description).unwrap();
+
+        let mut signature = module.make_signature();
+        signature.returns.push(AbiParam::new(types::I64));
+        let id = module
+            .declare_function("read_far", Linkage::Local, &signature)
+            .unwrap();
+        let mut context = module.make_context();
+        context.func.signature = signature;
+        let mut builder_context = FunctionBuilderContext::new();
+        let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
+        let entry = b.create_block();
+        b.switch_to_block(entry);
+        let global = far_data(&mut module, data, b.func);
+        let at = b.ins().symbol_value(types::I64, global);
+        let v = b.ins().load(types::I64, flags(), at, 0);
+        b.ins().return_(&[v]);
+        b.seal_all_blocks();
+        b.finalize(module.isa().frontend_config());
+        module.define_function(id, &mut context).unwrap();
+        module.finalize_definitions().unwrap();
+
+        let code = module.get_finalized_function(id);
+        // SAFETY: `read_far` takes nothing and returns an i64 in the host's
+        // calling convention; its data is still mapped.
+        let read: extern "C" fn() -> i64 = unsafe { std::mem::transmute(code) };
+        assert_eq!(read(), 3139);
+        // SAFETY: nothing runs the code or reads the data after this.
+        unsafe { libc::munmap(reservation, RESERVED) };
     }
 }
