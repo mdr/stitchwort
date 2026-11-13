@@ -124,3 +124,62 @@ fn sweep_theorem_binders_writes_only_what_keeps_its_statement() {
     assert!(text.starts_with(AFTER), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// `--files`: a single file outside any project is checked on its own.
+#[test]
+fn sweep_theorem_binders_files_checks_a_single_file_on_its_own() {
+    const SINGLE_BEFORE: &str = "\
+namespace Laws
+
+import Std (Nat, Void, Bool, Eq)
+
+theorem ident: ∀ (n: Nat) => n = n := n => rfl
+
+theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
+
+def checked (n: Nat) (same: n + 0 = n): Nat := n
+
+def limit: Nat := checked 100 (addZ 100)
+
+theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k => Nat.leAddRight k n
+";
+    const SINGLE_AFTER: &str = "theorem ident (n: Nat): n = n := rfl";
+    let dir = scratch("files");
+    std::fs::write(dir.join("laws.sw"), SINGLE_BEFORE).unwrap();
+
+    let args = [
+        "sweep",
+        "theorem-binders",
+        "--files",
+        "laws.sw",
+        "--dry-run",
+        "--json",
+    ];
+    let output = stitchwort(&dir, &args);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result = json(&output);
+    assert_eq!(result["mode"], "file");
+    assert_eq!(result["status"], "clean");
+    assert_eq!(result["written"], false);
+    let file = &result["files"][0];
+    assert_eq!(file["file"], "laws.sw");
+    assert_eq!(names(file, "converted"), ["ident"]);
+    assert_eq!(names(file, "refused"), ["addZ"]);
+    assert_eq!(names(file, "skipped"), ["memOf"]);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("laws.sw")).unwrap(),
+        SINGLE_BEFORE
+    );
+
+    // Written, and formatted.
+    let output = stitchwort(&dir, &["sweep", "theorem-binders", "--files", "laws.sw"]);
+    assert_eq!(output.status.code(), Some(0));
+    let text = std::fs::read_to_string(dir.join("laws.sw")).unwrap();
+    assert!(text.contains(SINGLE_AFTER), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

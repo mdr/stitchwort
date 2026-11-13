@@ -18,7 +18,7 @@ theorem literalEq: { id = 2, x = 1 } = moveTo { id = 2, x = 0 } 1 := rfl
 theorem punned (p: Point) (x: Nat): { p | x }.x = x := rfl
 
 -- After an arrow, too.
-theorem afterArrow: ∀ (p: Point) => { p | id = 7 }.id = 7 := p => rfl
+theorem afterArrow (p: Point): { p | id = 7 }.id = 7 := rfl
 
 -- Rows are as before.
 def answer: {} Nat := 42

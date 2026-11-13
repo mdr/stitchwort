@@ -25,11 +25,11 @@ theorem orComm: Or p q → Or q p
   | Inr h => Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
-theorem appendNil: ∀ (xs: List a) => xs.append [] = xs
+theorem appendNil (xs: List a): xs.append [] = xs := match xs with
   | [] => rfl
   | [x, ..xs] => Eq.cong (ys => [x, ..ys]) (appendNil xs)
 
-theorem plusZeroNat: ∀ (n: Nat) => n + 0 = n
+theorem plusZeroNat (n: Nat): n + 0 = n := match n with
   | Zero => rfl
   | Succ m => Eq.cong Succ (plusZeroNat m)
 

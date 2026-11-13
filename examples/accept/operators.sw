@@ -13,7 +13,7 @@ def Point.add (p: Point) (q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
 
 def Point.origin: Point := { x = 0, y = 0 }
 
-theorem Point.zeroAdd: ∀ (p: Point) => Point.add Point.origin p = p
+theorem Point.zeroAdd (p: Point): Point.add Point.origin p = p := match p with
   | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y in rfl
 
 theorem Point.assoc (p: Point) (q: Point) (r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=

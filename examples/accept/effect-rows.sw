@@ -24,11 +24,11 @@ def pureMap [a b: Type] (f: a → b): List a → List b
   | [] => []
   | [x, ..xs] => [f x, ..pureMap f xs]
 
-theorem mapIsPureMap [a b: Type] (f: a → b): ∀ (xs: List a) => List.map xs f = pureMap f xs
+theorem mapIsPureMap [a b: Type] (f: a → b) (xs: List a): List.map xs f = pureMap f xs := match xs with
   | [] => rfl
   | [x, ..xs] => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
 
-theorem lengthMap [a b: Type] (f: a → b): ∀ (xs: List a) => List.length (List.map xs f) = List.length xs
+theorem lengthMap [a b: Type] (f: a → b) (xs: List a): List.length (List.map xs f) = List.length xs := match xs with
   | [] => rfl
   | [x, ..xs] => Eq.cong Succ (lengthMap f xs)
 

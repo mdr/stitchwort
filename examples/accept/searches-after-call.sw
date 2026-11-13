@@ -42,8 +42,7 @@ theorem cappedExact (m: Nat) (pm: 0 < m) (hm: m < 100): capped m = m := match c:
   | True => rfl
   | False => rfl
 
-theorem cappedSelf: ∀ (x: Nat) => 0 < x → capped x + 5 = capped x + 5
-  | _, p => rfl
+theorem cappedSelf (x: Nat) (p: 0 < x): capped x + 5 = capped x + 5 := rfl
 
 theorem outerLambda (k: Nat) (hm: Succ k < 100): capped (Succ k) + 5 = Succ k + 5 :=
   Eq.trans (cappedSelf (Succ k) (omega)) (Eq.cong (x => x + 5) (cappedExact (Succ k) (omega) hm))

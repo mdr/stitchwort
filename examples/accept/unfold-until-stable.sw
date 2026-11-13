@@ -34,9 +34,9 @@ test "unfold, nothing to do" := countdownFrom 0 == []
 -- A tank that loses one unit at a time, until it is empty.
 def drain (water: Nat): Nat := water - 1
 
-theorem drainShrinks: ∀ (water: Nat) => drain water ≠ water → drain water < water
-  | Zero, empty => Void.exfalso (empty rfl)
-  | Succ left, empty => Nat.leRefl (Succ left)
+theorem drainShrinks (water: Nat) (empty: drain water ≠ water): drain water < water := match water with
+  | Zero => Void.exfalso (empty rfl)
+  | Succ left => Nat.leRefl (Succ left)
 
 def settle (water: Nat): Nat := Nat.iterateUntilStable water drain (w => w) drainShrinks
 

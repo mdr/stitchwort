@@ -30,18 +30,18 @@ theorem abortThen (t: () → {Abort} a) (k: a → {Abort} b):
 
 -- A thunk written in place: the split is on `f x` itself. `traverse` is a
 -- loop, so its step comes from `Result.traverseCons` first.
-theorem toResultMap (f: a → {Fail} b): ∀ (xs: List a) =>
-    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
-  | [] => rfl
-  | [x, ..xs] =>
-    let rest := toResultMap f xs
-    rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
-    match reify (() => f x) with
-      | return y =>
-        match reify (() => xs.map f) with
-          | return ys => rewrite <- rest in rfl
-          | Fail.stop msg, _ => rewrite <- rest in rfl
-      | Fail.stop msg, _ => rfl
+theorem toResultMap (f: a → {Fail} b) (xs: List a):
+    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x)) := match xs with
+      | [] => rfl
+      | [x, ..xs] =>
+        let rest := toResultMap f xs
+        rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
+        match reify (() => f x) with
+          | return y =>
+            match reify (() => xs.map f) with
+              | return ys => rewrite <- rest in rfl
+              | Fail.stop msg, _ => rewrite <- rest in rfl
+          | Fail.stop msg, _ => rfl
 
 -- Std's own, used.
 theorem parsed (xs: List Text):
