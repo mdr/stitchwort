@@ -1,5 +1,5 @@
 {
-  "next": 3158,
+  "next": 3162,
   "tickets": [
     {
       "id": 47,
@@ -34221,12 +34221,12 @@
     {
       "id": 3152,
       "title": "[Fable] D3557: compare stitchwort fmt's token-and-line design (keeps the author's line breaks, D1014) with a full pretty printer from a syntax tree (lossless CST, Wadler-style layout); end states, layout examples on real std/AoC code, effects on agents' consistency and tooling (sweeps, quick fixes, rename), cost, and the consequence for SW-3145 (formatter in Stitchwort). Paper: docs/proposals/formatter-architecture.md",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFable note: docs/proposals/formatter-architecture.md. Rec B (fmt chooses line breaks from a lossless tree, a second output of the existing parser; Wadler engine; 45-70 lane hours, 6 stages). Questions D3558-D3561. Findings: 120 width unenforced (10% of code lines over 120); SW-3153; SW-3154; slow tree comparison (SW-3147).\nD3558 (Matt, 13 Nov 2026): yes, as a general rule fmt chooses the line breaks.\nD3560b (Matt, 13 Nov 2026): no, pipelines are not forced one stage per line: a concise pipeline that fits stays on one line ('this is kind of a matter of judgment'); the style sheet's rule is fit-or-break. D3559 and D3560a open.",
+      "body": "\nFable note: docs/proposals/formatter-architecture.md. Rec B (fmt chooses line breaks from a lossless tree, a second output of the existing parser; Wadler engine; 45-70 lane hours, 6 stages). Questions D3558-D3561. Findings: 120 width unenforced (10% of code lines over 120); SW-3153; SW-3154; slow tree comparison (SW-3147).\nD3558 (Matt, 13 Nov 2026): yes, as a general rule fmt chooses the line breaks.\nD3560b (Matt, 13 Nov 2026): no, pipelines are not forced one stage per line: a concise pipeline that fits stays on one line ('this is kind of a matter of judgment'); the style sheet's rule is fit-or-break. D3559 and D3560a open.\nMatt, 13 Nov 2026: D3562 yes (A2: one lossless tree, compiler's tree lowered from it; D3559 answered: marks first as step 1). D3560a: no author hints for now. D3563: yes, keep robustness through syntax errors in mind. Follow-ups: SW-3158 SW-3159 SW-3160 SW-3161.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34260,12 +34260,12 @@
     {
       "id": 3155,
       "title": "[Fable] Syntax tree architecture (D3559 context): options for the lossless tree vs the compiler's tree vs what the pretty printer needs, and other users (LSP, quick fixes, sweeps, rename, error positions, incremental reparsing, the self-hosted formatter); pros/cons by end state (D2303), recommendation. Paper: docs/proposals/syntax-tree-architecture.md. Matt, 13 Nov 2026",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFable note: docs/proposals/syntax-tree-architecture.md. End state A2 (one lossless tree; the compiler's tree lowered from it); D3559 answer unchanged (marks beside today's tree as step 1 of A2). Questions D3559, D3562, D3563. Findings: SW-3156, SW-3157; parser has 179 non-test parse functions (not 340); doc/lens/decl_regions/binder sweep each pair declarations with tokens their own way (A2 unifies). Swift history to verify before quoting.",
+      "body": "\nFable note: docs/proposals/syntax-tree-architecture.md. End state A2 (one lossless tree; the compiler's tree lowered from it); D3559 answer unchanged (marks beside today's tree as step 1 of A2). Questions D3559, D3562, D3563. Findings: SW-3156, SW-3157; parser has 179 non-test parse functions (not 340); doc/lens/decl_regions/binder sweep each pair declarations with tokens their own way (A2 unifies). Swift history to verify before quoting.\nMatt, 13 Nov 2026: D3562 yes (A2: one lossless tree, compiler's tree lowered from it; D3559 answered: marks first as step 1). D3560a: no author hints for now. D3563: yes, keep robustness through syntax errors in mind. Follow-ups: SW-3158 SW-3159 SW-3160 SW-3161.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34291,6 +34291,58 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3158,
+      "title": "[Opus, paper] Formatter stage 0 (docs/proposals/formatter-architecture.md §6): the style sheet: the rule for every construct, each with a real before/after from the repo, and the comment rules, under D3558 (fmt chooses breaks), D3560a (no author hints; blank lines only), D3560b (fit-or-break: a pipeline that fits stays on one line). Include theorem headers (variables then premises, Matt's discussion 13 Nov). Stops for Matt's sign-off",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3159,
+      "title": "[Opus] Formatter stage 1 / syntax-tree step 1 (A2, D3562): marks in the parser building the lossless tree with a kind for every construct, trivia on leaves; gates per formatter-architecture.md §6. Design it so error nodes can be added later (D3563: the editor should keep working through syntax errors)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3160,
+      "title": "[Opus, design] Syntax tree A2 steps 2-3 (docs/proposals/syntax-tree-architecture.md): lower the compiler's tree from the lossless tree (all shorthand expansion in one place), checked against the direct-built tree over the repo; then delete direct construction. After the formatter switch-over",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3161,
+      "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
