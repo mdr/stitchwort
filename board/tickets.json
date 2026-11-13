@@ -34561,9 +34561,9 @@
     {
       "id": 3178,
       "title": "[Sonnet] Compare the nesting::* stack thresholds on main and before SW-3172 (each adaptive test prints its threshold): did any shape (calls of one definition in unification, nested lambdas, implicit parameters) get deeper per level? (SW-3172 review M1)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "scratch-sw-3178",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
