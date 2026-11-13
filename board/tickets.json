@@ -1,5 +1,5 @@
 {
-  "next": 3182,
+  "next": 3183,
   "tickets": [
     {
       "id": 47,
@@ -34607,6 +34607,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3182,
+      "title": "[Sonnet] Compiler-tree spans that are wrong, found by SW-3170's containment check: a flipped comparison with a compound right side (n * n > 20 gets the span of n > 20); spans worked out through a chain's let, or through ↔/∉ written as an application. They only move error labels; fixing them removes Flipped, OperatorHead and parts of Chain from spans.rs's made-up list. Also note in ast.rs that composite spans leave out brackets",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
