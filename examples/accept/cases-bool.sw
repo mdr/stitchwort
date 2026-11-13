@@ -9,7 +9,10 @@ theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
 theorem xorAssoc (a: Bool) (b: Bool) (c: Bool): Bool.xor (Bool.xor a b) c = Bool.xor a (Bool.xor b c) := cases
 
 -- A hypothesis stuck on something is split too: `a ∧ b` is `True` only when
--- both are, and the other cases contradict `h`.
+-- both are, and the other cases contradict `h`. (A goal `a = True` needs no
+-- split: `h` reads as `a ∧ b`, and its part `a` closes it.)
+theorem andSwap (a: Bool) (b: Bool) (h: (a ∧ b) = True): (b ∧ a) = True := cases
+
 theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
 
 -- Comparisons inside the conditions: each case left with arithmetic is

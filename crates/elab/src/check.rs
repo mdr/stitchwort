@@ -4173,6 +4173,7 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
                 env: cx.env.clone(),
                 types: cx.types.clone(),
                 names: cx.names.clone(),
+                written: cx.written.clone(),
                 goal: ty.clone(),
                 meta: meta.clone(),
                 span: cx.span,

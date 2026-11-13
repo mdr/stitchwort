@@ -33,9 +33,12 @@
 //! and then proved from the facts in scope where that's quick: `d ≠ 0` from
 //! a fact `Succ k ≤ d`, `Nat.toInt d ≠ 0` from `d ≠ 0`, and, in a module that
 //! loads `omega`'s library, an arithmetic goal by `omega` within a small
-//! budget (`from_facts`). Last, the parts of a conjunction in scope are facts
-//! too, each as in 1 or as `Succ k ≤ d` (`from_conjuncts`): `h: b ≠ 0 ∧ c ≠ 0`,
-//! or the proof an `if b != 0 && c != 0` gives its branch. Failing that, a context
+//! budget (`from_facts`). Last, the parts of the facts in scope are facts
+//! too, each as in 1 or as `Succ k ≤ d` (`from_hypothesis_parts`): the
+//! sides of a conjunction (`h: b ≠ 0 ∧ c ≠ 0`, or the proof an `if b != 0
+//! && c != 0` gives its branch), and what a test fact reads as
+//! (docs/proposals/bool-as-proposition.md §9: `h: (b != 0 && c != 0) =
+//! True` as `b ≠ 0 ∧ c ≠ 0`), taken apart in turn. Failing that, a context
 //! that contradicts itself proves anything: `e = True` beside `e = False`, or
 //! an equation of different constructors (`cases`' closer, `by_contradiction`).
 //!
@@ -78,6 +81,10 @@ pub struct Obligation {
     pub env: Vec<Value>,
     pub types: Vec<Value>,
     pub names: Vec<Name>,
+    /// The context's types as written (`Ctx::written`): with gluing off,
+    /// a test fact's type has its calls unfolded, and the reader starts
+    /// from the type as written to read it by its function (`reading.rs`).
+    pub written: Vec<Option<crate::dot::Written>>,
     pub goal: Value,
     pub meta: Term,
     pub span: Span,
@@ -162,6 +169,7 @@ impl Elaborator {
                     continue;
                 }
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
+                cx.written = ob.written;
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
                     force(&cx.g(), placeholder.clone())?,
@@ -226,6 +234,7 @@ impl Elaborator {
                     env: ob.env.clone(),
                     types: ob.types.clone(),
                     names: ob.names.clone(),
+                    written: ob.written.clone(),
                     goal: ob.goal.clone(),
                     meta: ob.meta.clone(),
                     span: ob.span,
@@ -240,6 +249,7 @@ impl Elaborator {
                 ob.names.clone(),
                 span,
             );
+            cx.written = ob.written.clone();
             let placeholder = cx.eval(&meta)?;
             if !matches!(
                 force(&cx.g(), placeholder.clone())?,
@@ -309,11 +319,16 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             if let Some(proof) = from_facts(cx, &goal)? {
                 return Ok(proof);
             }
-            if let Some(proof) = from_conjuncts(cx, &goal)? {
+            let latest_first: Vec<usize> = (0..cx.level()).rev().collect();
+            let parts = hypothesis_parts(cx, &latest_first)?;
+            if let Some(proof) = from_hypothesis_parts(cx, &goal, &parts)? {
                 return Ok(proof);
             }
             let levels: Vec<usize> = (0..cx.level()).collect();
             if let Some(proof) = crate::cases::by_contradiction(cx, &goal, &levels)? {
+                return Ok(proof);
+            }
+            if let Some(proof) = from_rules(cx, &goal, &parts)? {
                 return Ok(proof);
             }
             let mut error = cx
@@ -496,60 +511,207 @@ fn apply_fact_lemma(
     Ok(None)
 }
 
-/// How deep a conjunction in scope is taken apart: `p ∧ (q ∧ r)` is two.
-const MAX_CONJUNCTS: usize = 8;
+/// How deep a fact in scope is taken apart: `p ∧ (q ∧ r)` is two, and so
+/// is `(a && b) = True` read as `a ∧ b` and then split.
+const MAX_PART_DEPTH: usize = 8;
 
-/// A proof of `goal` from the parts of the conjunctions in scope: one whose
-/// type is `goal`, or `d ≠ 0` from one that is `Succ k ≤ d`.
-fn from_conjuncts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
-    let mut parts = Vec::new();
-    for level in (0..cx.level()).rev() {
-        let proof = Term::Var(cx.level() - 1 - level);
-        conjuncts(cx, proof, &cx.types[level].clone(), 1, &mut parts)?;
-    }
+/// How many test facts one collection of parts reads (each reading may
+/// unfold its test up to eight steps, `reading.rs`), latest hypotheses
+/// first, so that a large context costs a bounded amount of reading.
+const MAX_READS: usize = 64;
+
+/// A proof of `goal` from `parts`, the parts of the facts in scope
+/// ([`hypothesis_parts`]): one whose type is `goal`, or `d ≠ 0` from one
+/// that is `Succ k ≤ d`.
+fn from_hypothesis_parts(
+    cx: &mut Ctx,
+    goal: &Value,
+    parts: &[(Term, Value)],
+) -> Result<Option<Term>> {
     if parts.is_empty() {
         return Ok(None);
     }
-    for (proof, ty) in &parts {
+    for (proof, ty) in parts {
         if attempt(cx, |cx| Ok(cx.unify(ty, goal)?.then_some(())))?.is_some() {
             return Ok(Some(proof.clone()));
         }
     }
-    attempt(cx, |cx| nonzero_from(cx, goal, &parts))
+    attempt(cx, |cx| nonzero_from(cx, goal, parts))
 }
 
-/// Adds to `parts` those of `proof: ty`, if `ty` is a conjunction `p ∧ q`:
-/// `And.left proof: p` and `And.right proof: q`, each followed by its own.
-fn conjuncts(
+/// What the hypotheses at `levels` give besides themselves, as proofs with
+/// their types (docs/proposals/bool-as-proposition.md §9): each side of a
+/// conjunction, `And.left h: p` and `And.right h: q`, and what a test fact
+/// reads as (`reading::hypothesis_reads`: `(a && b) = True` as `a ∧ b`,
+/// `xs.all p = True` as `∀ x ∈ xs, p x`, `(a == b) = False` as `a ≠ b`),
+/// each taken apart again in turn. The parts found without a reading come
+/// first, in the order of `levels`, then those a reading gave: a goal a
+/// conjunction proved before keeps that proof.
+pub(crate) fn hypothesis_parts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(Term, Value)>> {
+    let mut parts = Vec::new();
+    let mut reads = 0;
+    for &level in levels {
+        let proof = Term::Var(cx.level() - 1 - level);
+        take_apart(
+            cx,
+            proof,
+            &cx.types[level],
+            1,
+            false,
+            &mut reads,
+            &mut parts,
+        )?;
+    }
+    // Stable: each kind keeps its order.
+    parts.sort_by_key(|(_, _, read)| *read);
+    Ok(parts
+        .into_iter()
+        .map(|(proof, ty, _)| (proof, ty))
+        .collect())
+}
+
+/// Adds to `parts` those of `proof: ty`: if `ty` is a conjunction `p ∧ q`,
+/// `And.left proof: p` and `And.right proof: q`; if it is a test fact with
+/// a reading, `proof` read as it; each followed by its own. `read` says
+/// whether a reading was used on the way to `proof`, and `reads` counts
+/// the test facts read so far, up to [`MAX_READS`].
+fn take_apart(
     cx: &Ctx,
     proof: Term,
     ty: &Value,
     depth: usize,
-    parts: &mut Vec<(Term, Value)>,
+    read: bool,
+    reads: &mut usize,
+    parts: &mut Vec<(Term, Value, bool)>,
 ) -> Result<()> {
-    if depth > MAX_CONJUNCTS {
+    if depth > MAX_PART_DEPTH {
         return Ok(());
     }
     let g = cx.g();
-    let Value::Data(d, args) = force(&g, ty.clone())? else {
-        return Ok(());
-    };
-    if !g.env.registry().is_data(Builtin::And, d) || args.len() != 2 {
+    if let Value::Data(d, args) = force(&g, ty.clone())?
+        && g.env.registry().is_data(Builtin::And, d)
+        && args.len() == 2
+    {
+        let (p, q) = (cx.quote(&args[0])?, cx.quote(&args[1])?);
+        for (side, part_ty) in [(Builtin::AndLeft, &args[0]), (Builtin::AndRight, &args[1])] {
+            let head = Term::Def(builtin_def(cx, side)?);
+            let head = Term::app_icit(
+                Term::app_icit(head, p.clone(), Icit::Implicit),
+                q.clone(),
+                Icit::Implicit,
+            );
+            let part = Term::app(head, proof.clone());
+            parts.push((part.clone(), part_ty.clone(), read));
+            take_apart(cx, part, part_ty, depth + 1, read, reads, parts)?;
+        }
         return Ok(());
     }
-    let (p, q) = (cx.quote(&args[0])?, cx.quote(&args[1])?);
-    for (side, part_ty) in [(Builtin::AndLeft, &args[0]), (Builtin::AndRight, &args[1])] {
-        let head = Term::Def(builtin_def(cx, side)?);
-        let head = Term::app_icit(
-            Term::app_icit(head, p.clone(), Icit::Implicit),
-            q.clone(),
-            Icit::Implicit,
-        );
-        let part = Term::app(head, proof.clone());
-        parts.push((part.clone(), part_ty.clone()));
-        conjuncts(cx, part, part_ty, depth + 1, parts)?;
+    if *reads >= MAX_READS || crate::reading::test_fact(cx, ty)?.is_none() {
+        return Ok(());
+    }
+    *reads += 1;
+    // A hypothesis is read by its type as written; a part of one already
+    // has the type a conjunction or a reading gave it.
+    let ty = if depth == 1 {
+        crate::reading::term_as_written(cx, &proof, ty)?
+    } else {
+        ty.clone()
+    };
+    if let Some((part, part_ty)) = crate::reading::hypothesis_reads(cx, &proof, &ty)? {
+        parts.push((part.clone(), part_ty.clone(), true));
+        take_apart(cx, part, &part_ty, depth + 1, true, reads, parts)?;
     }
     Ok(())
+}
+
+/// How many binders a `∀` fact may have for [`from_rules`] to apply it.
+const MAX_RULE_BINDERS: usize = 8;
+
+/// A proof of `goal` by applying a `∀` fact in scope once: a hypothesis, or
+/// one of `parts` ([`hypothesis_parts`]), such as what `xs.all p = True`
+/// reads as, `∀ (x: a) => x ∈ xs → p x`. Each binder is an unknown, the
+/// fact's conclusion (its type under all its binders) must unify with
+/// `goal`, and each premise left unknown after that (a proposition, such as
+/// `y ∈ xs`) must be a hypothesis or a part of one exactly. Nothing is
+/// searched deeper: a premise is never proved by applying another fact.
+fn from_rules(cx: &mut Ctx, goal: &Value, parts: &[(Term, Value)]) -> Result<Option<Term>> {
+    let mut facts: Vec<(Term, Value)> = (0..cx.level())
+        .rev()
+        .map(|level| (Term::Var(cx.level() - 1 - level), cx.types[level].clone()))
+        .collect();
+    facts.extend_from_slice(parts);
+    let g = cx.g();
+    for (proof, ty) in &facts {
+        if !matches!(force(&g, ty.clone())?, Value::Pi(..)) {
+            continue;
+        }
+        if let Some(term) = attempt(cx, |cx| apply_rule(cx, proof, ty, goal, &facts))? {
+            return Ok(Some(term));
+        }
+    }
+    Ok(None)
+}
+
+/// `proof: ty`, a `∀`, applied to an unknown for each binder, if its
+/// conclusion is `goal` and each premise that leaves unknown is one of
+/// `facts`.
+fn apply_rule(
+    cx: &mut Ctx,
+    proof: &Term,
+    ty: &Value,
+    goal: &Value,
+    facts: &[(Term, Value)],
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    let mut term = proof.clone();
+    let mut ty = ty.clone();
+    let mut binders = Vec::new();
+    while let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? {
+        if binders.len() == MAX_RULE_BINDERS {
+            return Ok(None);
+        }
+        let meta = cx.fresh_meta_of(&dom);
+        let value = cx.eval(&meta)?;
+        term = Term::app_icit(term, meta, icit);
+        binders.push((value.clone(), dom));
+        ty = cod.apply(&g, value)?;
+    }
+    if !cx.unify(&ty, goal)? {
+        return Ok(None);
+    }
+    let unknown = |v: &Value| -> Result<bool> {
+        Ok(matches!(
+            force(&g, v.clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        ))
+    };
+    for (value, dom) in &binders {
+        if !unknown(value)? {
+            continue;
+        }
+        if !crate::cases::is_proposition(cx, dom)? {
+            return Ok(None);
+        }
+        let mut proved = false;
+        for (fact, fact_ty) in facts {
+            let fits = attempt(cx, |cx| {
+                Ok((cx.unify(fact_ty, dom)? && cx.unify(value, &cx.eval(fact)?)?).then_some(()))
+            })?;
+            if fits.is_some() {
+                proved = true;
+                break;
+            }
+        }
+        if !proved {
+            return Ok(None);
+        }
+    }
+    for (value, _) in &binders {
+        if unknown(value)? {
+            return Ok(None);
+        }
+    }
+    Ok(Some(term))
 }
 
 /// For a nested type `T` (`derive_induct.rs`), a goal `T.size y < T.size

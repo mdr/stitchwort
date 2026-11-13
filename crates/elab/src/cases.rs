@@ -18,7 +18,10 @@
 //!    ([`bool_clash`]);
 //! 3. **taking an equation apart**: a hypothesis `C a = C b` adds `a = b`
 //!    (by `J` along it with a projection), and the node starts again;
-//! 4. **a hypothesis** of exactly the goal's type;
+//! 4. **a hypothesis** of exactly the goal's type, or a part of one: a
+//!    side of a conjunction, or what a test fact reads as
+//!    (docs/proposals/bool-as-proposition.md §9: `(a && b) = True` as `a ∧
+//!    b`), taken apart in turn;
 //! 5. **`t`**, for `cases in t`, elaborated in the case;
 //! 6. **`omega`**, only where nothing is left to split (D1319).
 //!
@@ -341,6 +344,10 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         return Ok(term);
     }
     if let Some(term) = by_hypothesis(cx, goal)? {
+        run.closed.borrow_mut().hypothesis += 1;
+        return Ok(term);
+    }
+    if let Some(term) = by_hypothesis_part(cx, goal)? {
         run.closed.borrow_mut().hypothesis += 1;
         return Ok(term);
     }
@@ -715,6 +722,18 @@ fn by_hypothesis(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
         let ty = crate::interfaces::refresh(cx, &cx.types[level])?;
         if conv(&cx.g(), cx.level(), &ty, &goal)? {
             return found(level);
+        }
+    }
+    Ok(None)
+}
+
+/// A part of a hypothesis of exactly the goal's type: a side of a
+/// conjunction, or what a test fact reads as, taken apart in turn
+/// (`auto::hypothesis_parts`; docs/proposals/bool-as-proposition.md §9).
+fn by_hypothesis_part(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
+    for (proof, ty) in crate::auto::hypothesis_parts(cx, &visible(cx))? {
+        if conv(&cx.g(), cx.level(), &ty, goal)? {
+            return Ok(Some(proof));
         }
     }
     Ok(None)

@@ -58,6 +58,17 @@ theorem refined (x: Nat) (h: inRange 1 x 9): 1 ≤ x :=
   match x with
     | 0 => h2.low
     | Succ n => h2.low
+
+-- `auto` and `cases` read a hypothesis by its type as written, and a part
+-- of one by the type its reading gave it: read unfolded, `inRange 1 x 9`
+-- would be `∧`, not `InRange 1 x 9` (§9).
+def needsRange (x: Nat) [auto ok: InRange 1 x 9]: Nat := x
+
+def autoReads (x: Nat) (h: inRange 1 x 9): Nat := needsRange x
+
+def autoReadsPart (x: Nat) (p: Bool) (h: (p && inRange 1 x 9) = True): Nat := needsRange x
+
+theorem casesReadsPart (x: Nat) (p: Bool) (h: (p && inRange 1 x 9) = True): InRange 1 x 9 := cases
 ";
 
 fn load(glue: bool) {

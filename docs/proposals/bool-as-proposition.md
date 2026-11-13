@@ -806,7 +806,7 @@ lane.
 | 2 | **The reader, with `&&`, `\|\|`, `not`** (§5, §6, §6.8): `@[reading]` theorems, one per test, declared with the test, and their checks (`E-READING-SHAPE`, `E-READING-OVERLAP`, `E-READING-PLACE`); the reader with unfolding; patterns, building, both polarities, `.read`, `h.left`; `E-NO-READING`; the readings in the check cache; `Iff` into the core, where the six connective readings live; **no example's hash changes** | 1 | Opus | 6 h |
 | 3 | **Std's readings**: `any`, `all`, `contains`, `Nat.equal`, `isSubset`, `isSome`, `isEmpty` and the negatives, each beside its function; the stuck-decision step (§5.4, step 2); the warning when a decision's `holds` isn't the test its proposition's reading reads (§13); the mismatch note suggesting `.read` | 2 | Sonnet; Opus for step 2 | 4 h |
 | 4 | **Measure, then decide**: after one AoC year is swept with `.read`, count the `.read`s that sit where restricted silent crossing (§7) would apply | 3, 6 | Sonnet | 1 h |
-| 5 | `auto` and `cases` on the reader (§9) | 2 | Opus | 2 h |
+| 5 | `auto` and `cases` on the reader (§9) | 2 | Opus | done (SW-3059) |
 | 6 | **Sweeps**, by area: helpers replaced by patterns and `.read`; the `= True ↔` lemmas marked or deleted | 3 | Sonnet, three lanes (std, AoC 2020-21, AoC 2024) | 3 × 1.5 h |
 | 7 | **Guide and tour**: a guide chapter "Tests and propositions", the proving guide's "Writing statements"; one sentence more: "to use the whole fact as its proposition, write `.read`" | 3 | Sonnet | 1.5 h |
 | last | `omega` on the reader's table | 5 | Opus | optional |
@@ -831,6 +831,32 @@ the two is checked second; arguments aren't compared, since they come from
 sub-decisions the instance doesn't choose (`if a ∧ b` decides `a = True` by
 `Bool`'s `DecEq`). Std's four recursive decisions were already written
 test first (SW-2967), and std gives no warning.
+
+**Stage 5 as built (SW-3059).** `auto`'s last resort before a
+contradiction, and `cases`'s hypothesis closer after its exact match, use
+the *parts* of the hypotheses in scope (`auto::hypothesis_parts`): each
+side of a conjunction, as before, and what a test fact reads as
+(`reading::hypothesis_reads`, the term `.read` writes: `Iff.forward (r
+args) h`, or for a stuck decision `d.sound h` and `Decidable.refute d h`, or
+for `e = False` with no reading `¬e`), each taken apart again, up to 8
+layers deep. A hypothesis is read by its type as written, as `.read` reads
+it; a part has the type the reading's statement gave it, with its calls
+folded. A context reads at most 64 test facts, the latest first, and each
+reading may unfold its test up to 8 steps, so a large context costs a
+bounded amount. A reading that failed to check gives nothing (no error),
+nor does a leaf's `e = True`. For `auto` the parts a reading gave come after
+the conjunction parts, so a proof that worked before keeps its term; in
+`cases`, a case a part closes is no longer split (`cases-bool`'s `andLeft`
+and `cases-argument`'s three theorems got shorter proofs and new hashes).
+One addition the List.all example needed: after the contradiction closer,
+`auto` applies a `∀` in scope once (`from_rules`): a hypothesis or a part
+whose conclusion, under unknowns for all its binders, unifies with the
+goal, each premise left unknown filled by a hypothesis or a part exactly,
+nothing deeper. It applies to a written `∀` hypothesis as well as a read
+one. With gluing off, `auto`'s obligations now keep the context's written
+types (`Obligation::written`), so a hypothesis reads the same way; a `match
+e:` equation has no written type, so with gluing off its test is read
+unfolded (`xs.contains x` as `∃`), as `.read` reads it there too.
 
 ## 12. Decisions for Matt
 
