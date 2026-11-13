@@ -33493,7 +33493,7 @@
     {
       "id": 3096,
       "title": "[Sonnet] Patterns unfold plain Bool defs inconsistently: isStep and city.contains (2024 D10 Steps, D08 Part2) don't unfold so Both mismatches; isOrthogonalStep and climbs do; touches unfolds in touchesSymmetric but not touchingGrowing (∃ goal) (SW-3092 finding 4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
