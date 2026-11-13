@@ -32960,7 +32960,7 @@
     {
       "id": 3055,
       "title": "[Sonnet] fuzz:elab oracle 6 (memory): a mutant of accept/match-decision-refines-if.sw holds over 2048 MB of heap on an uncached check (case 3237, seed 0x25b1, 12 Nov). Input kept at docs/reviews/repros/fuzz-elab-25b1-3237.sw (46 lines). Repro: stitchwort check on that file and watch its peak memory. Find what grows (STITCHWORT_TIMINGS gives the largest read-back) and bound it with an error instead",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
