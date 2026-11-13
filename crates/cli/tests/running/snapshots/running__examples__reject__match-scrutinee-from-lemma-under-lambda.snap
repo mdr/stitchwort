@@ -2,6 +2,15 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+    ╭─[ reject/match-scrutinee-from-lemma-under-lambda.sw:20:40 ]
+    │
+ 20 │ theorem gIs (ok: Nat → Bool) (x: Nat): (rest: List Nat) → g ok x rest = anyR (ys => all2 ok (Cons x ys)) rest
+    │                                        ────────┬───────  
+    │                                                ╰───────── write `∀ (…) =>` instead of `(…) ->`
+    │ 
+    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+────╯
 [E-REFL] Error: `rfl` can't prove this
     ╭─[ reject/match-scrutinee-from-lemma-under-lambda.sw:26:40 ]
     │

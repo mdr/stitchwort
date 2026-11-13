@@ -41,6 +41,6 @@ def eqbId (x1 x2: Id): Bool := match x1, x2 with
 
 -- Exercise: 1 star, standard (eqb_id_refl)
 
-theorem eqbIdRefl (x: Id): eqbId x x = True := ?
+theorem eqbIdRefl ∀ (x: Id): eqbId x x = True := ?
 
 -- The partial maps themselves are in PartialMap.sw.

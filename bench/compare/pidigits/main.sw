@@ -8,22 +8,21 @@ type Spigot = { numer: Int, accum: Int, denom: Int }
 
 --| The digits found so far, newest first, given `fuel` more terms of the
 --| series to try and `wanted` more digits to find; `k` terms are taken.
-def digitsFrom (fuel: Nat) (k: Nat) (wanted: Nat) (spigot: Spigot) (found: List Nat): List Nat :=
-  match fuel with
-    | Zero => found
-    | Succ rest =>
-      if wanted == 0 then found
+def digitsFrom (fuel: Nat) (k: Nat) (wanted: Nat) (spigot: Spigot) (found: List Nat): List Nat := match fuel with
+  | Zero => found
+  | Succ rest =>
+    if wanted == 0 then found
+    else
+      let next := k + 1
+      let step := (2 * next + 1).toInt
+      let accum := (spigot.accum + spigot.numer * 2) * step
+      let numer := spigot.numer * next.toInt
+      let denom := spigot.denom * step
+      if numer > accum then digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
       else
-        let next := k + 1
-        let step := (2 * next + 1).toInt
-        let accum := (spigot.accum + spigot.numer * 2) * step
-        let numer := spigot.numer * next.toInt
-        let denom := spigot.denom * step
-        if numer > accum then digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
-        else
-          let digit := (numer * 3 + accum) / denom
-          if digit != (numer * 4 + accum) / denom then digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
-          else digitsFrom rest next (wanted - 1) { numer = numer * 10, accum = (accum - denom * digit) * 10, denom = denom } [digit.toNat, ..found]
+        let digit := (numer * 3 + accum) / denom
+        if digit != (numer * 4 + accum) / denom then digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
+        else digitsFrom rest next (wanted - 1) { numer = numer * 10, accum = (accum - denom * digit) * 10, denom = denom } [digit.toNat, ..found]
 
 def Spigot.start: Spigot := { numer = 1, accum = 0, denom = 1 }
 

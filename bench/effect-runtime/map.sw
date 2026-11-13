@@ -57,10 +57,9 @@ def echo (x: Nat): {IO} Nat :=
   IO.print "${x}"
   x
 
-def total (result: Result (List Nat) Text): Nat :=
-  match result with
-    | Ok xs => List.sum xs
-    | Err m => 0
+def total (result: Result (List Nat) Text): Nat := match result with
+  | Ok xs => List.sum xs
+  | Err m => 0
 
 def main(): {IO} () :=
   let variant := Option.getOrElse "" (IO.readLine())

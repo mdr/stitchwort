@@ -113,11 +113,10 @@ test "paper against paper is a draw" := play Paper Paper == Draw
 -- the outcome of the same round for the other player:
 
 --| How the round that ended `outcome` for one player ended for the other.
-def otherSide (outcome: Outcome): Outcome :=
-  match outcome with
-    | Win => Lose
-    | Lose => Win
-    | Draw => Draw
+def otherSide (outcome: Outcome): Outcome := match outcome with
+  | Win => Lose
+  | Lose => Win
+  | Draw => Draw
 
 -- It's finished, so take it apart to see how it could have been
 -- written. Select everything after `:=` in `otherSide`, type `?`, and put

@@ -54,11 +54,10 @@ import Book.Computing (Move, beats, Outcome, play, otherSide)
 -- False`, each computing to `False = False`. Replace each `?`
 -- with `rfl`, and you have the proof back:
 
-theorem noSelfWin (m: Move): beats m m = False :=
-  match m with
-    | Rock => rfl
-    | Paper => rfl
-    | Scissors => rfl
+theorem noSelfWin ∀ (m: Move): beats m m = False := match m with
+  | Rock => rfl
+  | Paper => rfl
+  | Scissors => rfl
 
 -- This is the same `match` you wrote in `otherSide` in chapter 1, used
 -- in a proof. A proof by cases is a function that answers each case
@@ -74,11 +73,10 @@ theorem noSelfWin (m: Move): beats m m = False :=
 -- arms" adds one arm for each, with `?` for its proof. Fill them in with
 -- `rfl` again.
 
-theorem otherSideTwice (outcome: Outcome): otherSide (otherSide outcome) = outcome :=
-  match outcome with
-    | Win => rfl
-    | Lose => rfl
-    | Draw => rfl
+theorem otherSideTwice ∀ (outcome: Outcome): otherSide (otherSide outcome) = outcome := match outcome with
+  | Win => rfl
+  | Lose => rfl
+  | Draw => rfl
 
 -- A program's `match` has to cover every case for the same reason: a
 -- function must give an answer for every input. In a proof that's what
@@ -116,7 +114,7 @@ theorem otherSideTwice (outcome: Outcome): otherSide (otherSide outcome) = outco
 -- Now there are nine arms, and in each the goal computes, so each is
 -- `rfl`, as here:
 
-theorem otherSideSwaps (mine: Move) (theirs: Move): otherSide (play mine theirs) = play theirs mine :=
+theorem otherSideSwaps ∀ (mine: Move) (theirs: Move): otherSide (play mine theirs) = play theirs mine :=
   match mine, theirs with
     | Rock, Rock => rfl
     | Rock, Paper => rfl
@@ -162,9 +160,9 @@ def both: (a: Answer) → (b: Answer) → Answer
   | Unknown, No => No
   | Unknown, _ => Unknown
 
-theorem yesAndAnything (b: Answer): both Yes b = b := rfl
+theorem yesAndAnything ∀ (b: Answer): both Yes b = b := rfl
 
-theorem noAndAnything (b: Answer): both No b = No := rfl
+theorem noAndAnything ∀ (b: Answer): both No b = No := rfl
 
 -- Both are `rfl`, with `b` unknown. To compute `both No b`, the checker
 -- tries the arms in order: `Yes, b` doesn't fit, since the first answer
@@ -187,7 +185,7 @@ theorem noAndAnything (b: Answer): both No b = No := rfl
 -- equalities, read down the page: the first line says where it starts and
 -- each `_ = ...` line says what the previous value equals):
 
-theorem beatsMeansWinSteps (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
+theorem beatsMeansWinSteps ∀ (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
   calc play mine theirs
     _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)
     _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl
@@ -215,7 +213,7 @@ theorem beatsMeansWinSteps (mine: Move) (theirs: Move) (h: beats mine theirs): p
 --
 -- The same proof in one word:
 
-theorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
+theorem beatsMeansWin ∀ (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
   rewrite h
 
 -- `rewrite h` does all three steps. It computes until it finds `beats mine
@@ -233,11 +231,10 @@ theorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play m
 --
 -- Sometimes a hypothesis rules a case out. Rock beats only scissors:
 
-theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
-  match theirs with
-    | Rock => Void.exfalso (Bool.falseNotTrue h)
-    | Paper => Void.exfalso (Bool.falseNotTrue h)
-    | Scissors => rfl
+theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
+  | Rock => Void.exfalso (Bool.falseNotTrue h)
+  | Paper => Void.exfalso (Bool.falseNotTrue h)
+  | Scissors => rfl
 
 -- Replace the proof of the `Rock` arm with `?` and look at the panel:
 --
@@ -260,11 +257,10 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 -- ways to say it. Match on `h` too, and write `()` where its pattern goes,
 -- with no `=>` and no proof:
 
-theorem rockBeatsOnlyScissorsAbsurd (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
-  match theirs, h with
-    | Rock, ()
-    | Paper, ()
-    | Scissors, _ => rfl
+theorem rockBeatsOnlyScissorsAbsurd ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
+  | Rock, ()
+  | Paper, ()
+  | Scissors, _ => rfl
 
 -- `()` is the pattern for a value that can't exist. The checker computes
 -- the type `h` has in that arm, `False = True`, sees that it has no
@@ -279,9 +275,8 @@ theorem rockBeatsOnlyScissorsAbsurd (theirs: Move) (h: beats Rock theirs): their
 --
 -- Shorter still, leave the impossible arms out:
 
-theorem rockBeatsOnlyScissorsLeftOut (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
-  match theirs with
-    | Scissors => rfl
+theorem rockBeatsOnlyScissorsLeftOut ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
+  | Scissors => rfl
 
 -- A `match` must cover every case, but a case where some hypothesis can't
 -- hold, like `h` for `Rock` and `Paper`, doesn't need covering: the checker
@@ -295,10 +290,10 @@ theorem rockBeatsOnlyScissorsLeftOut (theirs: Move) (h: beats Rock theirs): thei
 -- or from a hypothesis that can't hold. `cases` does all of that by
 -- itself:
 
-theorem otherSideSwapsAgain (mine: Move) (theirs: Move): otherSide (play mine theirs) = play theirs mine :=
+theorem otherSideSwapsAgain ∀ (mine: Move) (theirs: Move): otherSide (play mine theirs) = play theirs mine :=
   cases
 
-theorem rockBeatsOnlyScissorsAgain (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+theorem rockBeatsOnlyScissorsAgain ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
   cases
 
 -- Try replacing the proofs of `noSelfWin` and `otherSideTwice` with
@@ -342,24 +337,24 @@ theorem rockBeatsOnlyScissorsAgain (theirs: Move) (h: beats Rock theirs): theirs
 -- Exercise 2.1 (one star, by hand). A move played against itself is a
 -- draw.
 
-theorem selfPlayDraws (m: Move): play m m = Draw := ?
+theorem selfPlayDraws ∀ (m: Move): play m m = Draw := ?
 
 -- Exercise 2.2 (two stars, by hand). Two moves can't beat each other. Some
 -- of the nine cases can't happen; `h` says which.
 
-theorem noMutualWins (mine: Move) (theirs: Move) (h: beats mine theirs): beats theirs mine = False := ?
+theorem noMutualWins ∀ (mine: Move) (theirs: Move) (h: beats mine theirs): beats theirs mine = False := ?
 
 -- Exercise 2.3 (two stars, by hand). The order of the answers doesn't
 -- matter to `both`.
 
-theorem bothSymmetric (a: Answer) (b: Answer): both a b = both b a := ?
+theorem bothSymmetric ∀ (a: Answer) (b: Answer): both a b = both b a := ?
 
 -- Exercise 2.4 (one star, by hand). A `No` on the right decides it too,
 -- though not by `rfl` alone (section 2.4 says why).
 
-theorem anythingAndNo (a: Answer): both a No = No := ?
+theorem anythingAndNo ∀ (a: Answer): both a No = No := ?
 
 -- Exercise 2.5 (one star). If you win a round, the other player loses it.
 -- Hint: one word.
 
-theorem winMeansTheyLose (mine: Move) (theirs: Move) (h: play mine theirs = Win): play theirs mine = Lose := ?
+theorem winMeansTheyLose ∀ (mine: Move) (theirs: Move) (h: play mine theirs = Win): play theirs mine = Lose := ?

@@ -9,4 +9,4 @@ def id2 (n: Nat): Nat := n
 
 def heavy (n: Nat): Nat := fib 27 + n
 
-theorem viaArgs (k: Nat): heavy (id2 (k + 1)) = heavy (id2 (Succ k)) := rfl
+theorem viaArgs ∀ (k: Nat): heavy (id2 (k + 1)) = heavy (id2 (Succ k)) := rfl

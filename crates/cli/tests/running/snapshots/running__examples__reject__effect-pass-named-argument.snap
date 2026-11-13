@@ -1,7 +1,16 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+    ╭─[ reject/effect-pass-named-argument.sw:16:20 ]
+    │
+ 16 │ theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → takes (computation := computation) (count := 1) := computation => Trivial
+    │                    ───────────────────────────┬───────────────────────────  
+    │                                               ╰───────────────────────────── write `∀ (…) =>` instead of `(…) ->`
+    │ 
+    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+────╯
 [E-TYPE-MISMATCH] Error: type mismatch
     ╭─[ reject/effect-pass-named-argument.sw:16:144 ]
     │

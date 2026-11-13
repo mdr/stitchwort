@@ -495,7 +495,7 @@ theorem plus11: plus (S O) (S O) = ofNat 2 := rfl
 -- proved just by observing that `plus O n` computes to `n` whatever `n`
 -- is, which can be read off the definition of `plus`.
 
-theorem plusON (n: Nat): plus O n = n := rfl
+theorem plusON ∀ (n: Nat): plus O n = n := rfl
 
 -- Rocq writes this `forall n : nat, 0 + n = n`, and its proof starts with
 -- `intros n`, which moves `n` from the quantifier into the *context* of
@@ -522,9 +522,9 @@ theorem plusON'': ∀ (n: Nat) => plus O n = n := m => rfl
 -- `Proof` and `Qed` that guide the checking of a claim. Stitchwort has
 -- none: a proof is a term. The theorems below are proved the same way.
 
-theorem plus1L (n: Nat): plus (S O) n = S n := rfl
+theorem plus1L ∀ (n: Nat): plus (S O) n = S n := rfl
 
-theorem mult0L (n: Nat): mult O n = O := rfl
+theorem mult0L ∀ (n: Nat): mult O n = O := rfl
 
 -- The suffix `L` (the book's `_l`) is pronounced "on the left".
 
@@ -532,7 +532,7 @@ theorem mult0L (n: Nat): mult O n = O := rfl
 --
 -- This theorem is a bit more interesting:
 
-theorem plusIdExample (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h in rfl
+theorem plusIdExample ∀ (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h in rfl
 
 -- It isn't a claim about all numbers `n` and `m`, but a more specialised
 -- property that only holds when `n = m`. Rocq writes the hypothesis with
@@ -550,7 +550,7 @@ theorem plusIdExample (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h in
 --
 -- Prove this. (It has two hypotheses, `n = m` and `m = o`.)
 
-theorem plusIdExercise (n m o: Nat) (h1: n = m) (h2: m = o): plus n m = plus m o := ?
+theorem plusIdExercise ∀ (n m o: Nat) (h1: n = m) (h2: m = o): plus n m = plus m o := ?
 
 -- Rocq's `Admitted` accepts a theorem without proof. That is useful when
 -- developing a long proof: state the lemmas you expect to need, admit
@@ -576,13 +576,13 @@ theorem plusIdExercise (n m o: Nat) (h1: n = m) (h2: m = o): plus n m = plus m o
 -- left side in the goal. The book rewrites with `<- mult_n_O`, right to
 -- left, because the lemma is stated `0 = n * 0`; so does `<-` here.
 
-theorem multN0M0 (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q in rfl
+theorem multN0M0 ∀ (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q in rfl
 
 -- Exercise: 1 star, standard (mult_n_1)
 --
 -- Use `multNSm` and `multNO` to prove this. (Recall that `1` is `S O`.)
 
-theorem multN1 (p: Nat): mult p (S O) = p := ?
+theorem multN1 ∀ (p: Nat): mult p (S O) = p := ?
 
 -- # Proof by Case Analysis
 --
@@ -612,7 +612,7 @@ theorem multN1 (p: Nat): mult p (S O) = p := ?
 -- to compute the result. Rocq's tactic for this is `destruct`; in
 -- Stitchwort it is a `match`, the same as in a program:
 
-theorem plus1Neq0 (n: Nat): eqb (plus n (S O)) O = False := match n with
+theorem plus1Neq0 ∀ (n: Nat): eqb (plus n (S O)) O = False := match n with
   | O => rfl
   | S n' => rfl
 
@@ -630,14 +630,14 @@ theorem plus1Neq0 (n: Nat): eqb (plus n (S O)) O = False := match n with
 -- `match` works on any data type. Here it proves that boolean negation
 -- is its own inverse:
 
-theorem negbInvolutive (b: Bool): negb (negb b) = b := match b with
+theorem negbInvolutive ∀ (b: Bool): negb (negb b) = b := match b with
   | True => rfl
   | False => rfl
 
 -- A `match` can go inside a case, splitting further. The book marks the
 -- levels with different bullets (`-`, then `+`), or with braces:
 
-theorem andbCommutative (b c: Bool): andb b c = andb c b := match b with
+theorem andbCommutative ∀ (b c: Bool): andb b c = andb c b := match b with
   | True => match c with
     | True => rfl
     | False => rfl
@@ -649,7 +649,7 @@ theorem andbCommutative (b c: Bool): andb b c = andb c b := match b with
 -- bullets; in Stitchwort it would be the proof above again, so it isn't
 -- repeated. Three levels:
 
-theorem andb3Exchange (b c d: Bool): andb (andb b c) d = andb (andb b d) c := match b with
+theorem andb3Exchange ∀ (b c d: Bool): andb (andb b c) d = andb (andb b d) c := match b with
   | True => match c with
     | True => match d with
       | True => rfl
@@ -670,7 +670,7 @@ theorem andb3Exchange (b c d: Bool): andb (andb b c) d = andb (andb b d) c := ma
 -- as a `match` would, and closes each case by computing (up to 64
 -- cases). So `andb3Exchange` is also just:
 
-theorem andb3Exchange' (b c d: Bool): andb (andb b c) d = andb (andb b d) c := cases
+theorem andb3Exchange' ∀ (b c d: Bool): andb (andb b c) d = andb (andb b d) c := cases
 
 -- Exercise: 2 stars, standard (andb_true_elim2)
 --
@@ -681,20 +681,20 @@ theorem andb3Exchange' (b c d: Bool): andb (andb b c) d = andb (andb b d) c := c
 -- prove (in Stitchwort an impossible case is the pattern `()`, or
 -- `Void.exfalso` of a proof of `False = True`).
 
-theorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := ?
+theorem andbTrueElim2 ∀ (b c: Bool) (h: andb b c = True): c = True := ?
 
 -- Many proofs split a variable right after introducing it. Rocq has a
 -- shorthand, `intros [|n]`, which loses the equation `eqn:E` would give.
 -- In Stitchwort the patterns of the `match` do both jobs already:
 
-theorem plus1Neq0' (n: Nat): eqb (plus n (S O)) O = False := match n with
+theorem plus1Neq0' ∀ (n: Nat): eqb (plus n (S O)) O = False := match n with
   | O => rfl
   | S n => rfl
 
 -- With nothing to name, Rocq writes `intros [] []`. A `match` on both
 -- variables at once:
 
-theorem andbCommutative'' (b c: Bool): andb b c = andb c b := match b, c with
+theorem andbCommutative'' ∀ (b c: Bool): andb b c = andb c b := match b, c with
   | True, True => rfl
   | True, False => rfl
   | False, True => rfl
@@ -702,7 +702,7 @@ theorem andbCommutative'' (b c: Bool): andb b c = andb c b := match b, c with
 
 -- Exercise: 1 star, standard (zero_nbeq_plus_1)
 
-theorem zeroNbeqPlus1 (n: Nat): eqb O (plus n (S O)) = False := ?
+theorem zeroNbeqPlus1 ∀ (n: Nat): eqb O (plus n (S O)) = False := ?
 
 -- ## More on Notation (Optional)
 --
@@ -747,7 +747,7 @@ def plus' (n m: Nat): Nat := match n with
 
 -- Exercise: 1 star, standard (identity_fn_applied_twice)
 
-theorem identityFnAppliedTwice (f: Bool → Bool) (h: ∀ (x: Bool) => f x = x) (b: Bool): f (f b) = b := ?
+theorem identityFnAppliedTwice ∀ (f: Bool → Bool) (h: ∀ (x: Bool) => f x = x) (b: Bool): f (f b) = b := ?
 
 -- Exercise: 1 star, standard (negation_fn_applied_twice)
 --
@@ -760,7 +760,7 @@ theorem identityFnAppliedTwice (f: Bool → Bool) (h: ∀ (x: Bool) => f x = x) 
 -- will probably need both `match` and `rewrite`, but splitting everything
 -- in sight is not the best way.
 
-theorem andbEqOrb (b c: Bool) (h: andb b c = orb b c): b = c := ?
+theorem andbEqOrb ∀ (b c: Bool) (h: andb b c = orb b c): b = c := ?
 
 -- ## Course Late Policies, Formalized
 --

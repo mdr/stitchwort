@@ -255,22 +255,22 @@ theorem list123Same: list123''' = list123 := rfl
 -- Some simple exercises, like those in the Lists chapter, for practice
 -- with polymorphism. Complete the proofs.
 
-theorem appNilR (l: List a): app l Nil = l := ?
+theorem appNilR ∀ (l: List a): app l Nil = l := ?
 
 -- The book's `l ++ m ++ n` is `l ++ (m ++ n)`, since its `++` groups to
 -- the right.
 
-theorem appAssoc (l m n: List a): app l (app m n) = app (app l m) n := ?
+theorem appAssoc ∀ (l m n: List a): app l (app m n) = app (app l m) n := ?
 
-theorem appLength (l1 l2: List a): length (app l1 l2) = plus (length l1) (length l2) := ?
+theorem appLength ∀ (l1 l2: List a): length (app l1 l2) = plus (length l1) (length l2) := ?
 
 -- Exercise: 2 stars, standard (more_poly_exercises)
 --
 -- Some slightly more interesting ones:
 
-theorem revAppDistr (l1 l2: List a): rev (app l1 l2) = app (rev l2) (rev l1) := ?
+theorem revAppDistr ∀ (l1 l2: List a): rev (app l1 l2) = app (rev l2) (rev l1) := ?
 
-theorem revInvolutive (l: List a): rev (rev l) = l := ?
+theorem revInvolutive ∀ (l: List a): rev (rev l) = l := ?
 
 -- ## Polymorphic Pairs
 --
@@ -504,7 +504,7 @@ theorem testMap3: map (n => ofList [even n, odd n]) (ofNats [2, 1, 2, 5]) = ofLi
 -- Show that `map` and `rev` commute. (Hint: you may need a lemma of your
 -- own first.)
 
-theorem mapRev (f: a → b) (l: List a): map f (rev l) = rev (map f l) := ?
+theorem mapRev ∀ (f: a → b) (l: List a): map f (rev l) = rev (map f l) := ?
 
 -- Exercise: 2 stars, standard, especially useful (flat_map)
 --

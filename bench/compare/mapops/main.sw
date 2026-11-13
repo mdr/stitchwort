@@ -44,10 +44,9 @@ def Workload.step (w: Workload) (step: Nat): Workload :=
     | Remove => { w | map = w.map.remove key, seed = draw }
 
 --| `steps` steps from step `from`.
-def Workload.run (w: Workload) (from: Nat) (steps: Nat): Workload :=
-  match steps with
-    | Zero => w
-    | Succ rest => (w.step from).run (from + 1) rest
+def Workload.run (w: Workload) (from: Nat) (steps: Nat): Workload := match steps with
+  | Zero => w
+  | Succ rest => (w.step from).run (from + 1) rest
 
 --| The checksum with the final map folded in, in key order.
 def Workload.finish (w: Workload): Nat :=

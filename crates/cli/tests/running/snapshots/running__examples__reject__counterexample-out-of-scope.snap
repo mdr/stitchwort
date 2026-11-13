@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
@@ -12,6 +12,15 @@ expression: output
    │ Note 1: the left side is stuck on `xs`: it can't compute further until `xs` is known; a `match` on `xs` (or `cases xs`) splits it
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+───╯
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+   ╭─[ reject/counterexample-out-of-scope.sw:8:30 ]
+   │
+ 8 │ theorem bounded (n: Nat) (h: (k: Nat) → k ≤ n): n = 1 := rfl
+   │                              ────┬───  
+   │                                  ╰───── write `∀ (…) =>` instead of `(…) ->`
+   │ 
+   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ───╯
 [E-REFL] Error: `rfl` can't prove this
    ╭─[ reject/counterexample-out-of-scope.sw:8:58 ]

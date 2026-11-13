@@ -84,7 +84,7 @@ test "letterComparison B F" := letterComparison B F == Greater
 
 -- Exercise: 1 star, standard (letter_comparison)
 
-theorem letterComparisonEq (l: Letter): letterComparison l l = Equal := ?
+theorem letterComparisonEq ∀ (l: Letter): letterComparison l l = Equal := ?
 
 -- The same strategy compares two modifiers, ordered `Plus > Natural >
 -- Minus`.
@@ -160,7 +160,7 @@ theorem lowerLetterFIsF: lowerLetter F = F := rfl
 
 -- Exercise: 2 stars, standard (lower_letter_lowers)
 
-theorem lowerLetterLowers (l: Letter) (h: letterComparison F l = Less): letterComparison (lowerLetter l) l = Less := ?
+theorem lowerLetterLowers ∀ (l: Letter) (h: letterComparison F l = Less): letterComparison (lowerLetter l) l = Less := ?
 
 -- Exercise: 2 stars, standard (lower_grade)
 --
@@ -204,7 +204,7 @@ theorem lowerGradeFMinus: lowerGrade (MkGrade F Minus) = MkGrade F Minus := ?
 -- only need to split a letter in one case, and the case for `F` will
 -- probably use `lowerGradeFMinus`.
 
-theorem lowerGradeLowers (g: Grade) (h: gradeComparison (MkGrade F Minus) g = Less): gradeComparison (lowerGrade g) g = Less := ?
+theorem lowerGradeLowers ∀ (g: Grade) (h: gradeComparison (MkGrade F Minus) g = Less): gradeComparison (lowerGrade g) g = Less := ?
 
 -- With a function that lowers a grade by one step, we can write a
 -- late-days policy. Given a number of late days, `applyLatePolicy`
@@ -230,7 +230,7 @@ def applyLatePolicy (lateDays: Nat) (g: Grade): Grade :=
 -- by `reflexivity`, so that `rewrite` can expose the definition's
 -- internals:
 
-theorem applyLatePolicyUnfold (lateDays: Nat) (g: Grade):
+theorem applyLatePolicyUnfold ∀ (lateDays: Nat) (g: Grade):
     applyLatePolicy lateDays g = (if lateDays < 9 then g
       else if lateDays < 17 then lowerGrade g
       else if lateDays < 21 then lowerGrade (lowerGrade g)
@@ -254,11 +254,11 @@ theorem applyLatePolicyUnfold (lateDays: Nat) (g: Grade):
 
 -- Exercise: 2 stars, standard (no_penalty_for_mostly_on_time)
 
-theorem noPenaltyForMostlyOnTime (lateDays: Nat) (g: Grade) (h: lateDays < 9): applyLatePolicy lateDays g = g := ?
+theorem noPenaltyForMostlyOnTime ∀ (lateDays: Nat) (g: Grade) (h: lateDays < 9): applyLatePolicy lateDays g = g := ?
 
 -- If a student has between 9 and 16 late days, their final grade is
 -- lowered by one step.
 
 -- Exercise: 2 stars, standard (graded_lowered_once)
 
-theorem gradeLoweredOnce (lateDays: Nat) (g: Grade) (h1: (lateDays < 9) = False) (h2: lateDays < 17): applyLatePolicy lateDays g = lowerGrade g := ?
+theorem gradeLoweredOnce ∀ (lateDays: Nat) (g: Grade) (h1: (lateDays < 9) = False) (h2: lateDays < 17): applyLatePolicy lateDays g = lowerGrade g := ?

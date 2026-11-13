@@ -14,18 +14,18 @@ namespace Sf.Lf.Basics.Library
 import Sf.Lf.Nat (Nat, plus, mult)
 import Std (Eq)
 
-theorem multNO (n: Nat): O = mult n O := match n with
+theorem multNO ∀ (n: Nat): O = mult n O := match n with
   | O => rfl
   | S n' => multNO n'
 
-theorem plusSuccR (n m: Nat): plus n (S m) = S (plus n m) := match n with
+theorem plusSuccR ∀ (n m: Nat): plus n (S m) = S (plus n m) := match n with
   | O => rfl
   | S n' => Eq.cong S (plusSuccR n' m)
 
-theorem plusAssoc (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n with
+theorem plusAssoc ∀ (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n with
   | O => rfl
   | S n' => Eq.cong S (plusAssoc n' m p)
 
-theorem multNSm (n m: Nat): plus (mult n m) n = mult n (S m) := match n with
+theorem multNSm ∀ (n m: Nat): plus (mult n m) n = mult n (S m) := match n with
   | O => rfl
   | S n' => rewrite plusSuccR (plus m (mult n' m)) n', <- plusAssoc m (mult n' m) n', multNSm n' m in rfl

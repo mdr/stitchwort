@@ -28,7 +28,7 @@ theorem testFoldLength1: foldLength (ofNats [4, 7, 0]) = ofNat 3 := rfl
 -- so `foldLength l` and `fold (_ n => S n) l O` are already the same
 -- goal.)
 
-theorem foldLengthCorrect (l: List a): foldLength l = length l := ?
+theorem foldLengthCorrect ∀ (l: List a): foldLength l = length l := ?
 
 -- Exercise: 3 stars, standard (fold_map)
 --
@@ -74,9 +74,9 @@ theorem testMap1': map (plus (ofNat 3)) (ofNats [2, 0, 2]) = ofNats [5, 3, 5] :=
 -- Thought exercise: before asking `:t` in the REPL, `stitchwort doc` (or
 -- hovering in the editor), can you work out the two functions' types?
 
-theorem uncurryCurry (f: a → b → c) (x: a) (y: b): prodCurry (prodUncurry f) x y = f x y := ?
+theorem uncurryCurry ∀ (f: a → b → c) (x: a) (y: b): prodCurry (prodUncurry f) x y = f x y := ?
 
-theorem curryUncurry (f: Prod a b → c) (p: Prod a b): prodUncurry (prodCurry f) p = f p := ?
+theorem curryUncurry ∀ (f: Prod a b → c) (p: Prod a b): prodUncurry (prodCurry f) p = f p := ?
 
 -- Exercise: 2 stars, advanced, optional (nth_error_informal)
 --

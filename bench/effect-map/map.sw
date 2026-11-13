@@ -29,10 +29,9 @@ def viaFold (xs: List Nat): Nat := List.foldLeft xs 0 addTwice
 
 def viaAny (xs: List Nat): Nat := if List.any xs isHuge then 1 else 2
 
-def viaFail (xs: List Nat): Nat :=
-  match Fail.toResult (() => List.map xs checked) with
-    | Ok ys => List.sum ys
-    | Err _ => 0
+def viaFail (xs: List Nat): Nat := match Fail.toResult (() => List.map xs checked) with
+  | Ok ys => List.sum ys
+  | Err _ => 0
 
 def once (mode: Text) (xs: List Nat): Nat :=
   if mode == "map" then viaMap xs
@@ -46,9 +45,8 @@ def repeat (mode: Text) (xs: List Nat): Nat -> Nat -> Nat
   | 0, total => total
   | Succ k, total => repeat mode xs k (total + once mode xs)
 
-def main(): {IO} () :=
-  match Text.words (IO.readAll ()) with
-    | [mode, n, rounds] =>
-      let xs := List.range 0 (Option.getOrElse n.toNat 0)
-      IO.print (Nat.toText (repeat mode xs (Option.getOrElse rounds.toNat 1) 0))
-    | _ => IO.print "usage: mode n rounds"
+def main(): {IO} () := match Text.words (IO.readAll ()) with
+  | [mode, n, rounds] =>
+    let xs := List.range 0 (Option.getOrElse n.toNat 0)
+    IO.print (Nat.toText (repeat mode xs (Option.getOrElse rounds.toNat 1) 0))
+  | _ => IO.print "usage: mode n rounds"

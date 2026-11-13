@@ -1,7 +1,25 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+    ╭─[ reject/decreasing-bad-cong.sw:11:56 ]
+    │
+ 11 │ theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (ef: (x: Nat) → f1 x = f2 x): (xs: List Nat) → total f1 xs = total f2 xs
+    │                                                        ────┬───  
+    │                                                            ╰───── write `∀ (…) =>` instead of `(…) ->`
+    │ 
+    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+────╯
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+    ╭─[ reject/decreasing-bad-cong.sw:11:81 ]
+    │
+ 11 │ theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (ef: (x: Nat) → f1 x = f2 x): (xs: List Nat) → total f1 xs = total f2 xs
+    │                                                                                 ───────┬──────  
+    │                                                                                        ╰──────── write `∀ (…) =>` instead of `(…) ->`
+    │ 
+    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+────╯
 [E-DECREASING] Error: `totalCong` exists, but its statement isn't a congruence lemma for `total`
     ╭─[ reject/decreasing-bad-cong.sw:18:7 ]
     │

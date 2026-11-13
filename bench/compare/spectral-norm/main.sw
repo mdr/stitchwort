@@ -42,12 +42,11 @@ def sqrt (x: Float): Float :=
   List.foldLeft (List.range 0 30) 1.0 (guess step => (guess + x / guess) / 2.0)
 
 --| `x` to nine decimals, rounded half up like `%.9f` except for exact ties.
-def nineDecimals (x: Float): Text :=
-  match Float.toInt (Float.round (x * 1000000000.0)) with
-    | None => "nan"
-    | Some scaled =>
-      let units := scaled.toNat
-      "${units / 1000000000}.${(Nat.toText (units % 1000000000)).padLeft 9 '0'}"
+def nineDecimals (x: Float): Text := match Float.toInt (Float.round (x * 1000000000.0)) with
+  | None => "nan"
+  | Some scaled =>
+    let units := scaled.toNat
+    "${units / 1000000000}.${(Nat.toText (units % 1000000000)).padLeft 9 '0'}"
 
 def main(): {IO, Fail} () :=
   let size := match IO.args() with

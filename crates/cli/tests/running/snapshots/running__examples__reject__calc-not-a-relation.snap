@@ -1,7 +1,25 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+   ╭─[ reject/calc-not-a-relation.sw:3:13 ]
+   │
+ 3 │ theorem bad (a: Nat) (b: Nat) (h: a ≠ b): a ≠ b :=
+   │             ────┬───  
+   │                 ╰───── write `∀ (…) =>` instead of `(…) ->`
+   │ 
+   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+───╯
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+   ╭─[ reject/calc-not-a-relation.sw:3:22 ]
+   │
+ 3 │ theorem bad (a: Nat) (b: Nat) (h: a ≠ b): a ≠ b :=
+   │                      ────┬───  
+   │                          ╰───── write `∀ (…) =>` instead of `(…) ->`
+   │ 
+   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+───╯
 [E-PARSE] Error: a `calc` step is `=`, `<=`, `<`, `>=` or `>`: other relations can't be chained
    ╭─[ reject/calc-not-a-relation.sw:5:7 ]
    │

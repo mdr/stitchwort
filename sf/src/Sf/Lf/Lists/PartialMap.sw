@@ -36,8 +36,8 @@ def find (x: Id) (d: PartialMap): NatOption := match d with
 
 -- Exercise: 1 star, standard (update_eq)
 
-theorem updateEq (d: PartialMap) (x: Id) (v: Nat): find x (update d x v) = Some v := ?
+theorem updateEq ∀ (d: PartialMap) (x: Id) (v: Nat): find x (update d x v) = Some v := ?
 
 -- Exercise: 1 star, standard (update_neq)
 
-theorem updateNeq (d: PartialMap) (x y: Id) (o: Nat) (h: eqbId x y = False): find x (update d y o) = find x d := ?
+theorem updateNeq ∀ (d: PartialMap) (x y: Id) (o: Nat) (h: eqbId x y = False): find x (update d y o) = find x d := ?

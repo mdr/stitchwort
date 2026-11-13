@@ -1,7 +1,16 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+   ╭─[ reject/omega-atoms-differ-by-match.sw:7:50 ]
+   │
+ 7 │ theorem refined (g: Bool → Nat) (k: Nat) (bound: (b: Bool) → g b ≤ k) (x y: Nat): g (x <= y) ≤ k :=
+   │                                                  ────┬────  
+   │                                                      ╰────── write `∀ (…) =>` instead of `(…) ->`
+   │ 
+   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+───╯
 [E-OMEGA] Error: `omega` can't prove `g False ≤ k`
     ╭─[ reject/omega-atoms-differ-by-match.sw:10:16 ]
     │

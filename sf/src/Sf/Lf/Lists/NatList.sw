@@ -68,7 +68,7 @@ def swapPair (p: NatProd): NatProd := match p with
 -- If we state properties of pairs in a slightly peculiar way, `rfl` can
 -- prove them by computing:
 
-theorem surjectivePairing' (n m: Nat): Pair n m = Pair (fst (Pair n m)) (snd (Pair n m)) := rfl
+theorem surjectivePairing' ∀ (n m: Nat): Pair n m = Pair (fst (Pair n m)) (snd (Pair n m)) := rfl
 
 -- But `rfl` is not enough if the statement is more natural:
 --
@@ -80,7 +80,7 @@ theorem surjectivePairing' (n m: Nat): Pair n m = Pair (fst (Pair n m)) (snd (Pa
 -- `fst p` can't compute until `p` is known to be a `Pair`. A `match`
 -- exposes that structure, as Rocq's `destruct` does:
 
-theorem surjectivePairing (p: NatProd): p = Pair (fst p) (snd p) := match p with
+theorem surjectivePairing ∀ (p: NatProd): p = Pair (fst p) (snd p) := match p with
   | Pair n m => rfl
 
 -- Unlike the `match` on a `Nat`, which has two arms, this has only one,
@@ -93,11 +93,11 @@ theorem surjectivePairing (p: NatProd): p = Pair (fst p) (snd p) := match p with
 
 -- Exercise: 1 star, standard (snd_fst_is_swap)
 
-theorem sndFstIsSwap (p: NatProd): Pair (snd p) (fst p) = swapPair p := ?
+theorem sndFstIsSwap ∀ (p: NatProd): Pair (snd p) (fst p) = swapPair p := ?
 
 -- Exercise: 1 star, standard, optional (fst_swap_is_snd)
 
-theorem fstSwapIsSnd (p: NatProd): fst (swapPair p) = snd p := ?
+theorem fstSwapIsSnd ∀ (p: NatProd): fst (swapPair p) = snd p := ?
 
 -- # Lists of Numbers
 --
@@ -339,7 +339,7 @@ theorem testIncluded2: included (ofList [1, 2, 2]) (ofList [2, 1, 4, 1]) = False
 -- As with numbers, simple facts about functions on lists can sometimes be
 -- proved by computing alone:
 
-theorem nilApp (l: NatList): app Nil l = l := rfl
+theorem nilApp ∀ (l: NatList): app Nil l = l := rfl
 
 -- This works because `Nil` is the value `app` matches on, its "scrutinee",
 -- so the `match` in `app` can choose its arm.
@@ -347,7 +347,7 @@ theorem nilApp (l: NatList): app Nil l = l := rfl
 -- And, as with numbers, it sometimes helps to split an unknown list into
 -- its two shapes, empty and non-empty:
 
-theorem tlLengthPred (l: NatList): pred (length l) = length (tl l) := match l with
+theorem tlLengthPred ∀ (l: NatList): pred (length l) = length (tl l) := match l with
   | Nil => rfl
   | Cons n l' => rfl
 
@@ -381,7 +381,7 @@ theorem tlLengthPred (l: NatList): pred (length l) = length (tl l) := match l wi
 -- arm the theorem calls itself on the smaller list `l1'`: that call is
 -- the induction hypothesis.
 
-theorem appAssoc (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3) := match l1 with
+theorem appAssoc ∀ (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3) := match l1 with
   | Nil => rfl
   | Cons n l1' => rewrite appAssoc l1' l2 l3 in rfl
 
@@ -441,7 +441,7 @@ theorem appAssoc (l1 l2 l3: NatList): app (app l1 l2) l3 = app l1 (app l2 l3) :=
 -- c'))`. If the hypothesis worked for any second summand, the proof would
 -- go through. So we generalise:
 
-theorem repeatPlus (c1 c2 n: Nat): app (repeat n c1) (repeat n c2) = repeat n (plus c1 c2) := match c1 with
+theorem repeatPlus ∀ (c1 c2 n: Nat): app (repeat n c1) (repeat n c2) = repeat n (plus c1 c2) := match c1 with
   | O => rfl
   | S c1' => rewrite <- repeatPlus c1' c2 n in rfl
 
@@ -492,20 +492,20 @@ theorem testRev2: rev Nil = Nil := rfl
 -- appear. The lemma is more specific than it needs to be: it holds for
 -- every list, not only reversed ones.
 
-theorem appLengthS (l: NatList) (n: Nat): length (app l (Cons n Nil)) = S (length l) := match l with
+theorem appLengthS ∀ (l: NatList) (n: Nat): length (app l (Cons n Nil)) = S (length l) := match l with
   | Nil => rfl
   | Cons m l' => rewrite appLengthS l' n in rfl
 
 -- Now the original proof goes through.
 
-theorem revLength (l: NatList): length (rev l) = length l := match l with
+theorem revLength ∀ (l: NatList): length (rev l) = length l := match l with
   | Nil => rfl
   | Cons n l' => rewrite appLengthS (rev l') n, revLength l' in rfl
 
 -- `appLengthS` is narrow: its second list has one element. Here is the
 -- general version, for any two lists.
 
-theorem appLength (l1 l2: NatList): length (app l1 l2) = plus (length l1) (length l2) := match l1 with
+theorem appLength ∀ (l1 l2: NatList): length (app l1 l2) = plus (length l1) (length l2) := match l1 with
   | Nil => rfl
   | Cons n l1' => rewrite appLength l1' l2 in rfl
 
@@ -605,23 +605,23 @@ theorem appLength (l1 l2: NatList): length (app l1 l2) = plus (length l1) (lengt
 --
 -- More practice with lists:
 
-theorem appNilR (l: NatList): app l Nil = l := ?
+theorem appNilR ∀ (l: NatList): app l Nil = l := ?
 
-theorem revAppDistr (l1 l2: NatList): rev (app l1 l2) = app (rev l2) (rev l1) := ?
+theorem revAppDistr ∀ (l1 l2: NatList): rev (app l1 l2) = app (rev l2) (rev l1) := ?
 
 -- An *involution* is a function that is its own inverse: applying it
 -- twice gives back the original input.
 
-theorem revInvolutive (l: NatList): rev (rev l) = l := ?
+theorem revInvolutive ∀ (l: NatList): rev (rev l) = l := ?
 
 -- There is a short solution to the next one. If you find yourself
 -- getting tangled up, step back and look for a simpler way.
 
-theorem appAssoc4 (l1 l2 l3 l4: NatList): app l1 (app l2 (app l3 l4)) = app (app (app l1 l2) l3) l4 := ?
+theorem appAssoc4 ∀ (l1 l2 l3 l4: NatList): app l1 (app l2 (app l3 l4)) = app (app (app l1 l2) l3) l4 := ?
 
 -- An exercise about your `nonzeros`:
 
-theorem nonzerosApp (l1 l2: NatList): nonzeros (app l1 l2) = app (nonzeros l1) (nonzeros l2) := ?
+theorem nonzerosApp ∀ (l1 l2: NatList): nonzeros (app l1 l2) = app (nonzeros l1) (nonzeros l2) := ?
 
 -- Exercise: 2 stars, standard (eqblist)
 --
@@ -638,7 +638,7 @@ theorem testEqblist2: eqblist (ofList [1, 2, 3]) (ofList [1, 2, 3]) = True := ?
 
 theorem testEqblist3: eqblist (ofList [1, 2, 3]) (ofList [1, 2, 4]) = False := ?
 
-theorem eqblistRefl (l: NatList): True = eqblist l l := ?
+theorem eqblistRefl ∀ (l: NatList): True = eqblist l l := ?
 
 -- ## List Exercises, Part 2
 --
@@ -646,12 +646,12 @@ theorem eqblistRefl (l: NatList): True = eqblist l l := ?
 
 -- Exercise: 1 star, standard (count_member_nonzero)
 
-theorem countMemberNonzero (s: Bag): leb (S O) (count (S O) (Cons (S O) s)) = True := ?
+theorem countMemberNonzero ∀ (s: Bag): leb (S O) (count (S O) (Cons (S O) s)) = True := ?
 
 -- This lemma about `leb` might help in the next exercise (and later
 -- chapters use it too).
 
-theorem lebNSn (n: Nat): leb n (S n) = True := match n with
+theorem lebNSn ∀ (n: Nat): leb n (S n) = True := match n with
   | O => rfl
   | S n' => lebNSn n'
 
@@ -664,7 +664,7 @@ theorem lebNSn (n: Nat): leb n (S n) = True := match n with
 
 -- Exercise: 3 stars, advanced (remove_does_not_increase_count)
 
-theorem removeDoesNotIncreaseCount (s: Bag): leb (count O (removeOne O s)) (count O s) = True := ?
+theorem removeDoesNotIncreaseCount ∀ (s: Bag): leb (count O (removeOne O s)) (count O s) = True := ?
 
 -- Exercise: 3 stars, standard, optional (bag_count_sum)
 --
@@ -683,7 +683,7 @@ theorem removeDoesNotIncreaseCount (s: Bag): leb (count O (removeOne O s)) (coun
 -- above, at `revInvolutive`. An *injective* function is one-to-one: it
 -- maps distinct inputs to distinct outputs, with no collisions.
 
-theorem involutionInjective (f: Nat → Nat) (h: ∀ (n: Nat) => n = f (f n)) (n1 n2: Nat) (e: f n1 = f n2): n1 = n2 := ?
+theorem involutionInjective ∀ (f: Nat → Nat) (h: ∀ (n: Nat) => n = f (f n)) (n1 n2: Nat) (e: f n1 = f n2): n1 = n2 := ?
 
 -- Exercise: 2 stars, advanced (rev_injective)
 --
@@ -691,7 +691,7 @@ theorem involutionInjective (f: Nat → Nat) (h: ∀ (n: Nat) => n = f (f n)) (n
 -- be hard. Reuse the technique of `involutionInjective` instead (but not
 -- that theorem itself: the types are different).
 
-theorem revInjective (l1 l2: NatList) (h: rev l1 = rev l2): l1 = l2 := ?
+theorem revInjective ∀ (l1 l2: NatList) (h: rev l1 = rev l2): l1 = l2 := ?
 
 -- # Options
 --
@@ -757,4 +757,4 @@ theorem testHdError3: hdError (ofList [5, 6]) = Some (ofNat 5) := ?
 --
 -- This relates your `hdError` to the old `hd`.
 
-theorem optionElimHd (l: NatList) (default: Nat): hd default l = optionElim default (hdError l) := ?
+theorem optionElimHd ∀ (l: NatList) (default: Nat): hd default l = optionElim default (hdError l) := ?

@@ -81,7 +81,7 @@ import Std (Eq)
 -- `P(n')`. The checker accepts it because `n'` is smaller than `n`, as
 -- it would for a recursive function, so the recursion always ends.
 
-theorem plusN0 (n: Nat): plus n O = n := match n with
+theorem plusN0 ∀ (n: Nat): plus n O = n := match n with
   | O => rfl
   | S n' => Eq.cong S (plusN0 n')
 
@@ -96,7 +96,7 @@ theorem plusN0 (n: Nat): plus n O = n := match n with
 --
 -- Another one by induction:
 
-theorem minusNN (n: Nat): minus n n = O := match n with
+theorem minusNN ∀ (n: Nat): minus n n = O := match n with
   | O => rfl
   | S n' => minusNN n'
 
@@ -111,13 +111,13 @@ theorem minusNN (n: Nat): minus n n = O := match n with
 --
 -- Prove these by induction. You might need results proved before.
 
-theorem mul0R (n: Nat): mult n O = O := ?
+theorem mul0R ∀ (n: Nat): mult n O = O := ?
 
-theorem plusNSm (n m: Nat): S (plus n m) = plus n (S m) := ?
+theorem plusNSm ∀ (n m: Nat): S (plus n m) = plus n (S m) := ?
 
-theorem addComm (n m: Nat): plus n m = plus m n := ?
+theorem addComm ∀ (n m: Nat): plus n m = plus m n := ?
 
-theorem addAssoc (n m p: Nat): plus n (plus m p) = plus (plus n m) p := ?
+theorem addAssoc ∀ (n m p: Nat): plus n (plus m p) = plus (plus n m) p := ?
 
 -- Exercise: 2 stars, standard (double_plus)
 --
@@ -129,14 +129,14 @@ def double (n: Nat): Nat := match n with
 
 -- Use induction to prove this simple fact about `double`:
 
-theorem doublePlus (n: Nat): double n = plus n n := ?
+theorem doublePlus ∀ (n: Nat): double n = plus n n := ?
 
 -- Exercise: 2 stars, standard (eqb_refl)
 --
 -- This relates the computed equality `eqb` on numbers to the logical
 -- equality `=` on booleans.
 
-theorem eqbRefl (n: Nat): eqb n n = True := ?
+theorem eqbRefl ∀ (n: Nat): eqb n n = True := ?
 
 -- Exercise: 2 stars, standard, optional (even_S)
 --
@@ -145,7 +145,7 @@ theorem eqbRefl (n: Nat): eqb n n = True := ?
 -- induction hypothesis about `n - 2`. This lemma characterises
 -- `even (S n)` in a way that works better with induction:
 
-theorem evenS (n: Nat): even (S n) = negb (even n) := ?
+theorem evenS ∀ (n: Nat): even (S n) = negb (even n) := ?
 
 -- # Proofs Within Proofs
 --
@@ -156,7 +156,7 @@ theorem evenS (n: Nat): even (S n) = negb (even n) := ?
 -- Stitchwort's `rewrite` takes the equation as a proof, written in
 -- place:
 
-theorem mult0Plus' (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n in rfl
+theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n in rfl
 
 -- Here `plusN0 n` proves `plus n O = n`, which rewrites `plus (plus n O)
 -- O` to `plus n O` and then to `n`. A fact with no lemma to cite can be
@@ -180,7 +180,7 @@ theorem mult0Plus' (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite 
 -- The book uses `replace` to point at the right `+`. In Stitchwort, give
 -- the rule its arguments, and it rewrites `plus n m` and nothing else:
 
-theorem plusRearrange (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) := rewrite addComm n m in rfl
+theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) := rewrite addComm n m in rfl
 
 -- # Formal vs. Informal Proof
 --
@@ -221,7 +221,7 @@ theorem plusRearrange (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m 
 -- argument. The cases are visible as the arms of the `match`, and each
 -- arm says what proves its case:
 
-theorem addAssoc' (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n with
+theorem addAssoc' ∀ (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n with
   | O => rfl
   | S n' => Eq.cong S (addAssoc' n' m p)
 
@@ -285,13 +285,13 @@ theorem addAssoc' (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n
 -- Use `rewrite` with stated facts, as `replace` would be used, to prove
 -- `addShuffle3`. You don't need induction yet.
 
-theorem addShuffle3 (n m p: Nat): plus n (plus m p) = plus m (plus n p) := ?
+theorem addShuffle3 ∀ (n m p: Nat): plus n (plus m p) = plus m (plus n p) := ?
 
 -- Now prove commutativity of multiplication. You will probably want to
 -- find (or define and prove) a helper theorem to use in this one. Hint:
 -- what is `mult n (plus (S O) k)`?
 
-theorem mulComm (m n: Nat): mult m n = mult n m := ?
+theorem mulComm ∀ (m n: Nat): mult m n = mult n m := ?
 
 -- Exercise: 3 stars, standard, optional (more_exercises)
 --
@@ -303,21 +303,21 @@ theorem mulComm (m n: Nat): mult m n = mult n m := ?
 -- which computes on its second argument when the first is unknown,
 -- moves some of these from (b) or (c) to (a).
 
-theorem lebRefl (n: Nat): leb n n = True := ?
+theorem lebRefl ∀ (n: Nat): leb n n = True := ?
 
-theorem zeroNeqbS (n: Nat): eqb O (S n) = False := ?
+theorem zeroNeqbS ∀ (n: Nat): eqb O (S n) = False := ?
 
-theorem andbFalseR (b: Bool): andb b False = False := ?
+theorem andbFalseR ∀ (b: Bool): andb b False = False := ?
 
-theorem sNeqb0 (n: Nat): eqb (S n) O = False := ?
+theorem sNeqb0 ∀ (n: Nat): eqb (S n) O = False := ?
 
-theorem mult1L (n: Nat): mult (S O) n = n := ?
+theorem mult1L ∀ (n: Nat): mult (S O) n = n := ?
 
-theorem all3Spec (b c: Bool): orb (andb b c) (orb (negb b) (negb c)) = True := ?
+theorem all3Spec ∀ (b c: Bool): orb (andb b c) (orb (negb b) (negb c)) = True := ?
 
-theorem multPlusDistrR (n m p: Nat): mult (plus n m) p = plus (mult n p) (mult m p) := ?
+theorem multPlusDistrR ∀ (n m p: Nat): mult (plus n m) p = plus (mult n p) (mult m p) := ?
 
-theorem multAssoc (n m p: Nat): mult n (mult m p) = mult (mult n m) p := ?
+theorem multAssoc ∀ (n m p: Nat): mult n (mult m p) = mult (mult n m) p := ?
 
 -- # Nat to Bin and Back to Nat
 --
@@ -347,7 +347,7 @@ theorem multAssoc (n m p: Nat): mult n (mult m p) = mult (mult n m) p := ?
 -- If changing your definitions of `incr` or `binToNat` makes this easier
 -- to prove, feel free to.
 
-theorem binToNatPresIncr (b: Bin): binToNat (incr b) = plus (S O) (binToNat b) := ?
+theorem binToNatPresIncr ∀ (b: Bin): binToNat (incr b) = plus (S O) (binToNat b) := ?
 
 -- Exercise: 3 stars, standard (nat_bin_nat)
 --
@@ -363,7 +363,7 @@ def natToBin (n: Nat): Bin := ?
 -- proof by induction follows the recursion of the program it is about, so
 -- make the recursions as simple as possible.
 
-theorem natBinNat (n: Nat): binToNat (natToBin n) = n := ?
+theorem natBinNat ∀ (n: Nat): binToNat (natToBin n) = n := ?
 
 -- # Bin to Nat and Back to Bin (Advanced)
 --
@@ -379,7 +379,7 @@ theorem natBinNat (n: Nat): binToNat (natToBin n) = n := ?
 --
 -- Prove this lemma about `double`, defined earlier in the chapter.
 
-theorem doubleIncr (n: Nat): double (S n) = S (S (double n)) := ?
+theorem doubleIncr ∀ (n: Nat): double (S n) = S (S (double n)) := ?
 
 -- Now define a similar doubling function for `Bin`.
 
@@ -392,7 +392,7 @@ theorem doubleBinZero: doubleBin Z = Z := ?
 
 -- Prove this lemma, which corresponds to `doubleIncr`.
 
-theorem doubleIncrBin (b: Bin): doubleBin (incr b) = incr (incr (doubleBin b)) := ?
+theorem doubleIncrBin ∀ (b: Bin): doubleBin (incr b) = incr (incr (doubleBin b)) := ?
 
 -- Back to the theorem we wanted, `binNatBinFails`. It fails because for
 -- some `Bin`s we don't get back the *original* `Bin`, but an
@@ -432,4 +432,4 @@ def normalize (b: Bin): Bin := ?
 -- for the `B0` case (which also uses `doubleIncrBin`) and one for the
 -- `B1` case.
 
-theorem binNatBin (b: Bin): natToBin (binToNat b) = normalize b := ?
+theorem binNatBin ∀ (b: Bin): natToBin (binToNat b) = normalize b := ?
