@@ -1,5 +1,5 @@
 {
-  "next": 3189,
+  "next": 3190,
   "tickets": [
     {
       "id": 47,
@@ -34714,6 +34714,19 @@
         "bug"
       ],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3189,
+      "title": "[Sonnet] Formatter stage 4 (formatter-architecture §6): dry run for Matt: run the tree printer over the repo, report the diff's size by folder and 30 representative sample hunks (before/after) covering each rule and Matt's decisions D3564-D3569, as docs/reviews/formatter-dry-run.md; no .sw files changed",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3189",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
