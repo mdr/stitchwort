@@ -42,5 +42,9 @@ cranelift-codegen = { version = "=0.136.2", features = ["x86", "arm64"] }
 # Reading back the object `aot::compile_object` writes (tests/it/object.rs).
 object = { workspace = true, features = ["read_core", "macho", "elf"] }
 
+# The far-data test (n1.rs, SW-3139) maps memory itself, on every Unix.
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2.190"
+
 [lints]
 workspace = true
