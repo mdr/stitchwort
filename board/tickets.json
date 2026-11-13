@@ -1,5 +1,5 @@
 {
-  "next": 3184,
+  "next": 3186,
   "tickets": [
     {
       "id": 47,
@@ -34273,15 +34273,17 @@
     {
       "id": 3156,
       "title": "[Sonnet] A lexical error anywhere empties the whole module: recover per declaration in the lexer as the parser does (SW-3155 finding; cheap)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3156",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 14 min (est. 90)",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "b2eee0a478e7efdc303dde6ccbcb7f8f9c301a80"
+      ]
     },
     {
       "id": 3157,
@@ -34635,6 +34637,32 @@
       "status": "doing",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3183",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3184,
+      "title": "[Sonnet] Editor on a file with a lexical error: nav.rs, doc.rs, marks.rs and crates/lsp/src/lib.rs (~2509, ~2602) still call lex() and give nothing for the whole file; switch them to lex_recovering so hover, go-to-definition and marks keep working outside the broken declaration (SW-3156 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3185,
+      "title": "[Opus] The lossless tree on a file with a lexical error: parse_tree/parse_module_and_tree still need the whole file to lex (dev tree: 5 not lexed in examples). Add an Error node holding the failed declaration's raw text, so the tree reads back and the formatter leaves it as written; fold into SW-3161's error nodes (SW-3156 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
