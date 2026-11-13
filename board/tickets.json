@@ -34429,12 +34429,12 @@
     {
       "id": 3168,
       "title": "[Sonnet] Lossless tree lane D: every Pattern kind, incl. let patterns and or-patterns",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 15 min (est. 180).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
