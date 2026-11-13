@@ -1,3 +1,5 @@
+-- expect-warning: W-THEOREM-FORALL
+-- The after-colon form is kept on purpose to test binder introduction.
 -- `cases` closes a case by a part of a hypothesis
 -- (docs/proposals/bool-as-proposition.md §9): a side of a conjunction, or
 -- what a test fact reads as, taken apart in turn. Before, each of these
@@ -10,10 +12,8 @@ theorem inRight ∀ (x: Nat) (xs: List Nat) (b: Bool) (h: (b && xs.contains x) =
 
 theorem notSame ∀ (p: Point) (q: Point) (b: Bool) (h: (b || p == q) = False): p ≠ q := cases
 
-theorem noneBig ∀ (xs: List Nat) (wanted: Bool) (h: (wanted && not (xs.any (x => x > 2))) = True)
-    (x: Nat) (h1: x ∈ xs): (x > 2) = False := match e: wanted with
-      | True =>
-        match a: xs.any (x => x > 2) with
-          | False => (List.anyReadsFalse xs (x => x > 2)).forward a x h1
+theorem noneBig ∀ (xs: List Nat) (wanted: Bool) (h: (wanted && not (xs.any (x => x > 2))) = True):
+    ∀ (x: Nat) => x ∈ xs → (x > 2) = False :=
+  cases
 
 theorem fromConjunction ∀ (x: Nat) (xs: List Nat) (ys: List Nat) (h: x ∈ xs ∧ x ∈ ys): x ∈ ys := cases

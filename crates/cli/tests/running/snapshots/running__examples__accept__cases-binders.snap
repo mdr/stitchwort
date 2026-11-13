@@ -1,0 +1,49 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-THEOREM-FORALL] Warning: the statement of `rowEndsAfter` starts with `∀`
+    ╭─[ accept/cases-binders.sw:14:23 ]
+    │
+ 14 │ theorem rowEndsAfter: ∀ (plot out side sideOut: Bool) =>
+    │                       ┬  
+    │                       ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `rowEndsMixed` starts with `∀`
+    ╭─[ accept/cases-binders.sw:19:50 ]
+    │
+ 19 │ theorem rowEndsMixed ∀ (plot: Bool) (out: Bool): ∀ (side sideOut: Bool) =>
+    │                                                  ┬  
+    │                                                  ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `hypAfter` starts with `∀`
+    ╭─[ accept/cases-binders.sw:25:19 ]
+    │
+ 25 │ theorem hypAfter: ∀ (b: Bool) => b = True → not b = False := cases
+    │                   ┬  
+    │                   ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `unnamedHyp` starts with `∀`
+    ╭─[ accept/cases-binders.sw:28:21 ]
+    │
+ 28 │ theorem unnamedHyp: ∀ (b: Bool) => (b = False) → (b ∧ True) = False := cases
+    │                     ┬  
+    │                     ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `implicitInside` starts with `∀`
+    ╭─[ accept/cases-binders.sw:34:25 ]
+    │
+ 34 │ theorem implicitInside: ∀ (a: Bool) [b: Bool] => (a ∧ b) = (b ∧ a) := cases
+    │                         ┬  
+    │                         ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯

@@ -1,0 +1,40 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-THEOREM-FORALL] Warning: the statement of `byHyp` starts with `∀`
+    ╭─[ accept/cases-pi-goals.sw:11:81 ]
+    │
+ 11 │ theorem byHyp ∀ (f: Bool → Bool → Bool) (same: ∀ (a b: Bool) => f a b = f b a): ∀ (a b: Bool) => f a b = f b a := cases
+    │                                                                                 ┬  
+    │                                                                                 ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `byTerm` starts with `∀`
+    ╭─[ accept/cases-pi-goals.sw:17:17 ]
+    │
+ 17 │ theorem byTerm: ∀ (a b: Bool) => (a ∨ b) = (b ∨ a) := cases in Bool.orComm
+    │                 ┬  
+    │                 ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `implicitAfter` starts with `∀`
+    ╭─[ accept/cases-pi-goals.sw:20:24 ]
+    │
+ 20 │ theorem implicitAfter: ∀ [b: Bool] => not (not b) = b := cases
+    │                        ┬  
+    │                        ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
+[W-THEOREM-FORALL] Warning: the statement of `rowEndsLambda` starts with `∀`
+    ╭─[ accept/cases-pi-goals.sw:36:24 ]
+    │
+ 36 │ theorem rowEndsLambda: ∀ (plot out side sideOut: Bool) =>
+    │                        ┬  
+    │                        ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯
