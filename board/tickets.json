@@ -1,5 +1,5 @@
 {
-  "next": 3125,
+  "next": 3126,
   "tickets": [
     {
       "id": 47,
@@ -33376,12 +33376,12 @@
     {
       "id": 3087,
       "title": "[Sonnet] Building test facts from proofs: a ∀ lambda doesn't build an all fact (List.allOfAll stays), (a != b) = True can't be built from a ≠ b (DecEq.trueOfNe stays), an x ∈ xs proof can't stand for xs.contains x = True, and (not b) = True won't take b = False (bool-as-proposition §6.6) (SW-3079 findings 5-7, SW-3068)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nD3549a (Matt, 13 Nov 2026): yes: a test fact can be built from a proof of its reading (x ∈ xs where xs.contains x = True is expected, a ≠ b for (a != b) = True, a lambda for an all fact), after the reader gaps (SW-3093, SW-3094, SW-3095, SW-3064) are closed. ~85 helper uses go (docs/reviews/SW-3101-measure.md). Needs a short design addendum to bool-as-proposition.md §6.6 first (Opus).\nSW-3105: D3549a has the mirrored flip hazard (x13.sw): build it as a repair after failure or under a speculation guard, not a bare step in compare; plus the oracles in docs/reviews/SW-3105-silent-read.md §4.6.",
+      "body": "\nD3549a (Matt, 13 Nov 2026): yes: a test fact can be built from a proof of its reading (x ∈ xs where xs.contains x = True is expected, a ≠ b for (a != b) = True, a lambda for an all fact), after the reader gaps (SW-3093, SW-3094, SW-3095, SW-3064) are closed. ~85 helper uses go (docs/reviews/SW-3101-measure.md). Needs a short design addendum to bool-as-proposition.md §6.6 first (Opus).\nSW-3105: D3549a has the mirrored flip hazard (x13.sw): build it as a repair after failure or under a speculation guard, not a bare step in compare; plus the oracles in docs/reviews/SW-3105-silent-read.md §4.6.\nDesign addendum (Opus, 13 Nov): docs/proposals/bool-as-proposition-building.md. Form R (repair after failure, with_local_retries lib.rs:2687), candidates = the reading chain + ¬(e = True) for = False; never builds a compound, a .read term, or where no test fact is expected; cap 8 builds per declaration. Plan: (1) SW-3095 checked first (Nat == inside expressions reads as x = y; may be covered by SW-3093); (2) implementation on Opus 6-8 h incl. guide/syntax/§6.6, confirming partial.rs:491, decreasing.rs:1424, defaults.rs:267 don't fall back on a mismatch; (3) oracles (STITCHWORT_BUILD=0 hash equality; SW-3111's build half) 2-3 h Sonnet + a compute run; (4) sweep ~3 h, 55-70 helper uses. Open (Matt's, not blocking; was numbered D3554 in the note, now D3555): a word for building where no test fact is expected (~13 memContains.backward uses): rec not now, count after the sweep.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33862,6 +33862,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3125,
+      "title": "[DeepSeek] Misleading note: on ((a != b): Bool) = True used through .read, the mismatch says 'for the Bool test write ((a != b): Bool)' though the user wrote that; ne_read_as_prop matches on printed text (probe in docs/proposals/bool-as-proposition-building.md; SW-3087 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
