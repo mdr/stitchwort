@@ -1,5 +1,5 @@
 {
-  "next": 3163,
+  "next": 3166,
   "tickets": [
     {
       "id": 47,
@@ -34299,12 +34299,12 @@
     {
       "id": 3158,
       "title": "[Opus, paper] Formatter stage 0 (docs/proposals/formatter-architecture.md §6): the style sheet: the rule for every construct, each with a real before/after from the repo, and the comment rules, under D3558 (fmt chooses breaks), D3560a (no author hints; blank lines only), D3560b (fit-or-break: a pipeline that fits stays on one line). Include theorem headers (variables then premises, Matt's discussion 13 Nov). Stops for Matt's sign-off",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nOpus note: docs/proposals/formatter-style.md: engine rules E1-E5, construct rules S1-S40, change counts. Questions D3564 (long headers), D3565 (merge binders), D3566 (alternatives one per line), D3567 (calls that don't fit). Calls touching earlier decisions: D3553 ':= match' only on one-line headers; header continuation at 4 (D1040 had 2 for →); calc joins := like match; calc steps end with :=; if one clause per line. Findings SW-3163 SW-3164 SW-3165; dot chains must never break before .f (a section).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34351,6 +34351,45 @@
     {
       "id": 3162,
       "title": "[Sonnet] SW-3124 review lows: (1) auto's take_apart now runs the reading lookup three times per test-fact hypothesis (hypothesis_reads, then hypothesis_quantifier_reads does both readings again): compute the quantifier reading only when the step reading was a cons step (D3447, results unchanged; perf-log entry); (2) examples/accept/auto-readings.sw afterMatch warns W-UNREACHABLE on its [] arm: reshape so the accepted example has no warning",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3163,
+      "title": "[DeepSeek] fmt's ':= match' rule measures width in bytes, so ∀ → ≤ count three each (8,217 code lines over 120 characters vs 8,718 over 120 bytes): measure in characters (SW-3158 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3164,
+      "title": "[DeepSeek] fmt splits a multi-line record update '{ position |' across two lines; keep '{ r |' together (SW-3158 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3165,
+      "title": "[DeepSeek] Two files put ':=' at the end of the 'decreasing' line against 77 that follow the documented shape: crates/elab/src/std/Nat/PartitionPoint.sw:14, examples/accept/let-proof-pattern-unfold.sw:20; make them match (SW-3158 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
