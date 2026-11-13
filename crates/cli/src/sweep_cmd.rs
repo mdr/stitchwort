@@ -205,7 +205,7 @@ fn refused(json: bool, message: String) -> ExitCode {
 }
 
 /// The `.sw` files a path names: itself, or those in a folder.
-fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+pub(super) fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
     if path.is_dir() {
         let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
             .map(|e| e.map(|e| e.path()))
@@ -220,7 +220,7 @@ fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
     Ok(())
 }
 
-fn relative(path: &Path, root: &Path) -> Option<String> {
+pub(super) fn relative(path: &Path, root: &Path) -> Option<String> {
     let full = path.canonicalize().ok()?;
     let root = root.canonicalize().ok()?;
     let rel = full.strip_prefix(&root).ok()?;
@@ -279,7 +279,7 @@ fn plan_only(args: &Args, sweeps: &mut [FileSweep]) -> ExitCode {
 /// One file's declarations, and the errors it didn't check with: the file
 /// is loaded on its own, as `check FILE` does, and only the declarations it
 /// writes are kept.
-fn file_hashes(path: &str, text: &str) -> (Vec<DeclHash>, Vec<Diagnostic>) {
+pub(super) fn file_hashes(path: &str, text: &str) -> (Vec<DeclHash>, Vec<Diagnostic>) {
     let mut session = Session::for_stack(DEFAULT_STACK);
     let file = Path::new(path);
     let folder = file
@@ -781,7 +781,7 @@ fn refuse_changed_proofs(
     found
 }
 
-fn whole_file(path: &str, old: &str, new: &str) -> Edit {
+pub(super) fn whole_file(path: &str, old: &str, new: &str) -> Edit {
     let lines = old.split('\n').count() as u32 - 1;
     let last = old.rsplit('\n').next().unwrap_or("");
     Edit {
@@ -792,7 +792,7 @@ fn whole_file(path: &str, old: &str, new: &str) -> Edit {
 }
 
 /// The library's hashes, read by a child process from `dir`.
-fn library_hashes(dir: &Path) -> Result<Vec<DeclHash>, String> {
+pub(super) fn library_hashes(dir: &Path) -> Result<Vec<DeclHash>, String> {
     let exe = std::env::current_exe().map_err(|e| format!("can't find myself: {e}"))?;
     let output = Command::new(exe)
         .arg("--std-dir")
@@ -815,7 +815,7 @@ fn library_hashes(dir: &Path) -> Result<Vec<DeclHash>, String> {
         .ok_or_else(|| "can't read the library's hashes".to_string())
 }
 
-fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+pub(super) fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     std::fs::create_dir_all(to)?;
     for entry in std::fs::read_dir(from)? {
         let entry = entry?;
@@ -829,7 +829,7 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
-fn default_std_root() -> Option<PathBuf> {
+pub(super) fn default_std_root() -> Option<PathBuf> {
     let mut dir = std::env::current_dir().ok()?;
     loop {
         let candidate = dir.join("crates/elab/src/std");

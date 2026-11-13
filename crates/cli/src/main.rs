@@ -18,6 +18,8 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
 mod build;
 mod doc_cmd;
+mod oracle_cmd;
+mod oracle_sites;
 mod rename_cmd;
 mod sweep_cmd;
 mod trial_cmd;
@@ -103,6 +105,52 @@ enum SweepCommand {
         #[command(flatten)]
         cache: CacheArgs,
     },
+}
+
+#[derive(Subcommand)]
+enum OracleCommand {
+    /// Delete each `.read` in turn and check the file: it must then fail
+    /// (the `.read` was needed) or keep every statement and definition
+    /// (redundant); anything else changed meaning silently (SW-3105 §4.6).
+    /// Exit status: 0 nothing changed meaning, 1 something did, 2 refused
+    Readings(OracleArgs),
+    /// Replace each call of a build helper (`Bool.falseOfNotTrue x p`,
+    /// `(r ..).backward p`, ...) by its proof and check the file: still
+    /// failing (needed), or meaning kept (removable: the sweep's work list),
+    /// or a statement changed (bad). Exit status as for `readings`
+    Builds(OracleArgs),
+}
+
+#[derive(clap::Args)]
+struct OracleArgs {
+    /// Files (`.sw`) or folders to try
+    paths: Vec<PathBuf>,
+    /// The files are the standard library's: check an edited copy against
+    /// the library as it is (one full library load per site)
+    #[arg(long)]
+    std: bool,
+    /// The paths are single files, each checked on its own: no project is
+    /// needed
+    #[arg(long, conflicts_with_all = ["std", "project"])]
+    files: bool,
+    /// The library's source folder (default: `crates/elab/src/std` here or
+    /// above): the `@[reading]` theorems whose `.backward` the `builds`
+    /// half looks for are listed from it, and with --std it is what is
+    /// edited
+    #[arg(long, value_name = "DIR")]
+    std_root: Option<PathBuf>,
+    /// Try at most this many sites, in file and line order
+    #[arg(long, value_name = "N")]
+    limit: Option<usize>,
+    /// Print the result as JSON (version 1)
+    #[arg(long)]
+    json: bool,
+    /// The project folder, if not the folder you're in or the nearest one
+    /// above it
+    #[arg(long)]
+    project: Option<PathBuf>,
+    #[command(flatten)]
+    cache: CacheArgs,
 }
 
 #[derive(Subcommand)]
@@ -593,6 +641,10 @@ enum Command {
     /// the trial check accepts
     #[command(hide = true, subcommand)]
     Sweep(SweepCommand),
+    /// The deletion oracle: try deleting each `.read`, or replacing each
+    /// build helper by its proof, and check what the edit does
+    #[command(hide = true, subcommand)]
+    Oracle(OracleCommand),
     /// Format source files in place: indentation, spacing, blank lines and brackets, in the house style. Prints the files it changed
     Fmt {
         /// Files (`.sw`) or folders to format; `-` reads standard input and
@@ -1093,6 +1145,23 @@ fn run(cli: Cli) -> ExitCode {
             project: project.as_deref(),
             cache: &cache,
         }),
+        Command::Oracle(which) => {
+            let (half, a) = match which {
+                OracleCommand::Readings(a) => (oracle_sites::Half::Readings, a),
+                OracleCommand::Builds(a) => (oracle_sites::Half::Builds, a),
+            };
+            oracle_cmd::run(&oracle_cmd::Args {
+                half,
+                paths: &a.paths,
+                std: a.std,
+                files: a.files,
+                std_root: a.std_root.as_deref(),
+                limit: a.limit,
+                json: a.json,
+                project: a.project.as_deref(),
+                cache: &a.cache,
+            })
+        }
         Command::Hash {
             names,
             std,

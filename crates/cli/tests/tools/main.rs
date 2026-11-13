@@ -14,6 +14,7 @@ mod lambda_shadow;
 mod no_effect;
 mod opcode_census;
 mod open_goals;
+mod oracle;
 mod project;
 mod receiver_first;
 mod redundant_arms;
