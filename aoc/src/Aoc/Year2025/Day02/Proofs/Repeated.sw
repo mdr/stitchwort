@@ -322,7 +322,7 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (h: 1 ≤ k): Lis
           List.sumRangeFromOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j)))
             ((Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n) x).complete (repValue x (Succ j) n hn hq))
             (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n omega
-              (Eq.trans (DecEq.sound hb) (Eq.sym (repValue x (Succ j) n hn hq))))
+              (Eq.trans hb.read (Eq.sym (repValue x (Succ j) n hn hq))))
             (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)
             (repAbove x (Succ j) n rfl hn hq)
             (omega [repBelow x (Succ j) n hn hq, Nat.powTenPredLe (Succ j)])

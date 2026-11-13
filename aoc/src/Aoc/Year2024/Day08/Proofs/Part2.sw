@@ -137,11 +137,11 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
         let steps := s * (pr - fr) + t * (pc - fc)
         let both :=
           onLineOfCross fr fc step.rows step.columns scale s t pr pc second.row.toInt second.column.toInt secondRow secondColumn scaleNonzero bezout
-            (DecEq.sound h)
+            h.read
         let bound: Int.natAbs steps < reach :=
           match still: step.rows == 0 with
             | True =>
-              let rowStill := DecEq.sound still
+              let rowStill := still.read
               let columnMoves: step.columns ≠ 0 := z => omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in bezout]
               let below :=
                 stepsBound first.column point.column step.columns steps city.width (omega [Bool.andRight firstOn])
@@ -150,7 +150,7 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
             | False =>
               let below :=
                 stepsBound first.row point.row step.rows steps city.height (omega [Bool.andLeft firstOn]) (omega [Bool.andLeft inside])
-                  (And.left both) (DecEq.soundFalse step.rows 0 still)
+                  (And.left both) still.read
               omega
         harmonicsOfSteps city first second point steps (And.left both) (And.right both) bound
     })
@@ -177,14 +177,11 @@ theorem inLineSelf (point: Position) (other: Position): inLine point point other
 theorem antennasAreAntinodes (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True)
     (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas) (same: sameFrequency first second = True):
     (antinodeLocations city (isHarmonicAntinode city)).contains first.position = True :=
-  let inner :=
-    List.anyOfMem city.antennas (other => sameFrequency first other && inLine first.position first.position other.position) second
-      (Bool.andIntro same (inLineSelf first.position second.position)) secondIn
+  let inner: city.antennas.any (other => sameFrequency first other && inLine first.position first.position other.position) = True :=
+    Witness second (Both secondIn (Both same (inLineSelf first.position second.position)))
   rewrite Set.containsFilter (Set.fromList (positions city.height city.width)) first.position (isHarmonicAntinode city),
     Set.containsFromList first.position (positions city.height city.width) in
-  Bool.andIntro (positionsOnMap city first.position (onMap first firstIn))
-    (List.anyOfMem city.antennas
-      (one => city.antennas.any (other => sameFrequency one other && inLine first.position one.position other.position)) first inner firstIn)
+  Both (positionsOnMap city first.position (onMap first firstIn)) (Witness first (Both firstIn inner))
 
 --| Part 2's antinodes include part 1's: in line with two antennas, one twice
 --| as far as the other, is in line with two antennas.
@@ -193,15 +190,6 @@ theorem part2IncludesPart1 (city: City):
   Set.isSubsetIntro (key has =>
     let both := rewrite Set.containsFilter (Set.fromList (positions city.height city.width)) key (isAntinode city) at has in has
     rewrite Set.containsFilter (Set.fromList (positions city.height city.width)) key (isHarmonicAntinode city) in
-    Bool.andIntro (Bool.andLeft both)
-      (List.anyTrueElim city.antennas (one => city.antennas.any (other => sameFrequency one other && (inLine key one.position other.position && twiceAsFar key one.position other.position))) _
-        (Bool.andRight both)
-        (first firstIn inner =>
-          List.anyTrueElim city.antennas (other => sameFrequency first other && (inLine key first.position other.position && twiceAsFar key first.position other.position)) _
-            inner
-            (second secondIn pair =>
-              let holds := Bool.andRight pair
-              List.anyOfMem city.antennas (one => city.antennas.any (other => sameFrequency one other && inLine key one.position other.position)) first
-                (List.anyOfMem city.antennas (other => sameFrequency first other && inLine key first.position other.position) second
-                  (Bool.andIntro (Bool.andLeft pair) (Bool.andLeft holds)) secondIn)
-                firstIn))))
+      let Both onTheMap anyTwice := both
+      let Witness first (Both firstIn (Witness second (Both secondIn (Both sameness (Both inLined _))))) := anyTwice
+      Both onTheMap (Witness first (Both firstIn (Witness second (Both secondIn (Both sameness inLined))))))

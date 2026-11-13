@@ -54,12 +54,12 @@ theorem takeKeeps (garden: Garden) (plant: Char) (start: Position) (position: Po
     (other =>
       match same: other == position with
         | True =>
-          rewrite DecEq.sound same in {
+          rewrite same.read in {
             forward = contains => Inl rfl,
             backward = member => Set.containsInsert position visited
           }
         | False =>
-          let apart := DecEq.soundFalse other position same
+          let apart := same.read
           rewrite Set.containsInsertOther visited position other apart in {
             forward = contains => Inr ((visitedMembers other).forward contains),
             backward = member =>
@@ -125,7 +125,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
         let fresh := taken
         match growing: garden.plantAt position == Some plant with
           | True =>
-          let grows: garden.plantAt position = Some plant := DecEq.sound growing
+          let grows: garden.plantAt position = Some plant := growing.read
           let result :=
             fillCorrect garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
               (takeKeeps garden plant start position rest visited members state fresh grows)
@@ -176,10 +176,10 @@ theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
     (closed: ∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result)
     (from: Position) (chain: List Position) (to: Position) (member: from ∈ result) (same: isChain garden from chain to = True): to ∈ result :=
   match chain, same with
-    | [], same => rewrite <- DecEq.sound same in member
-    | [next, ..rest], chained =>
+    | [], same => rewrite <- same.read in member
+    | [next, ..rest], Both step chained =>
       closedChain garden plant result sound closed next rest to
-        (closed from member next (touchingGrowing garden plant from next (sound from member) (Bool.andLeft chained))) (Bool.andRight chained)
+        (closed from member next (touchingGrowing garden plant from next (sound from member) step)) chained
 
 --| From a plot growing `plant`, the region is a fill.
 theorem regionOfFill (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):

@@ -61,7 +61,7 @@ theorem changeAgrees (stone: Nat): changeStone stone = change stone :=
     | False =>
       match even: stone.digitCount % 2 == 0 with
         | True =>
-          let evenEq := DecEq.sound even
+          let evenEq := even.read
           rewrite splitRight stone evenEq, splitLeft stone evenEq in rfl
         | False => rfl
 

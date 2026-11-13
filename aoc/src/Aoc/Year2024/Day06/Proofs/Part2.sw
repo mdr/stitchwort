@@ -71,7 +71,8 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
       match blocked: lab.obstructions.contains ahead with
         | True => rewrite <- Option.someInjective stepped in settled
         | False =>
-          let landed := aheadOnMap lab guard (Bool.andLeft settled) ahead inFront
+          let Both onTheMap _ := settled
+          let landed := aheadOnMap lab guard onTheMap ahead inFront
           rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
 
 theorem routeSettled (lab: Lab) (position: Position) (steps: Nat) (guard: Option Guard) (settled: settledIfAny lab guard = True)
@@ -100,23 +101,22 @@ theorem positionsOnMap (lab: Lab) (position: Position) (inside: onMap lab positi
   let member: position ∈ positions lab :=
     List.memFlatMapIntro (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position))) position.row position
       (List.range 0 lab.height) (List.memRangeFromIntro position.row lab.height 0 omega (omega [inside])) inRow
-  List.anyOfMem (positions lab) (other => Map.Spec.sameKey position other) position
-    (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position) member
+  Witness position (Both member (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position))
 
 theorem positionsOnlyOnMap (lab: Lab) (position: Position) (has: (positions lab).any (other => Map.Spec.sameKey position other) = True):
     onMap lab position = True :=
-  List.anyTrueElim (positions lab) (other => Map.Spec.sameKey position other) (onMap lab position = True) has (other member same =>
-    rewrite Map.Spec.sameKeySound position other same in
-    List.anyElim (row => other ∈ (List.range 0 lab.width |> .map (column => ({ row, column }: Position)))) (onMap lab other = True)
-      (List.range 0 lab.height)
-      (List.memFlatMapElim (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position))) other (List.range 0 lab.height) member)
-      (row rowMember inRow =>
-        List.anyElim (column => ({ row, column }: Position) = other) (onMap lab other = True) (List.range 0 lab.width)
-          (List.memMapAny (List.range 0 lab.width) (column => ({ row, column }: Position)) other inRow)
-          (column columnMember built =>
-            let rowSmall := List.memRangeFrom row lab.height 0 rowMember
-            let columnSmall := List.memRangeFrom column lab.width 0 columnMember
-            rewrite <- built in omega [rowSmall, columnSmall])))
+  let Witness other (Both member same) := has
+  rewrite Map.Spec.sameKeySound position other same in
+  List.anyElim (row => other ∈ (List.range 0 lab.width |> .map (column => ({ row, column }: Position)))) (onMap lab other = True)
+    (List.range 0 lab.height)
+    (List.memFlatMapElim (row => List.range 0 lab.width |> .map (column => ({ row, column }: Position))) other (List.range 0 lab.height) member)
+    (row rowMember inRow =>
+      List.anyElim (column => ({ row, column }: Position) = other) (onMap lab other = True) (List.range 0 lab.width)
+        (List.memMapAny (List.range 0 lab.width) (column => ({ row, column }: Position)) other inRow)
+        (column columnMember built =>
+          let rowSmall := List.memRangeFrom row lab.height 0 rowMember
+          let columnSmall := List.memRangeFrom column lab.width 0 columnMember
+          rewrite <- built in omega [rowSmall, columnSmall]))
 
 theorem positionsHas (lab: Lab) (position: Position):
     Set.contains (Set.fromList (positions lab)) position = onMap lab position :=
@@ -168,12 +168,12 @@ theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
   match onIt: onRoute lab (Some lab.startGuard) steps position with
     | True =>
       let settled := routeSettled lab position steps (Some lab.startGuard) (startSettled lab inside) onIt
-      let onTheMap: onMap lab position = True := Bool.andLeft settled
+      let Both onTheMap settledOff := settled
       let loopsSame: lab.loopsWith ((Sightlines.of lab.obstructions).add position) = trapped position :=
         boolOfIff
           (Iff.trans (loopsWithCorrect (lab.withObstruction position) ((Sightlines.of lab.obstructions).add position) (simulates position onTheMap) inside)
             (Iff.symm (decides position)))
-      shapeOnRoute onTheMap (Bool.andRight settled) loopsSame
+      shapeOnRoute onTheMap settledOff loopsSame
     | False =>
       let free := offRouteFree lab inside steps gone position onIt
       let notTrapped: trapped position = False :=

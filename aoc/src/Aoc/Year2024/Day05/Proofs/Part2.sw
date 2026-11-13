@@ -28,9 +28,9 @@ theorem mayPrecedeTransitive (precedes: Nat → Nat → Bool) (pages: List Nat)
     | False => rfl
     | True =>
       match same: x == y with
-        | True => Void.exfalso (Bool.falseNotTrue (rewrite <- DecEq.sound same, zFirst at yz))
+        | True => Void.exfalso (Bool.falseNotTrue (rewrite <- same.read, zFirst at yz))
         | False =>
-          let xFirst := total y x inY inX (other => DecEq.soundFalse x y same (Eq.sym other)) (cases)
+          let xFirst := total y x inY inX (other => same.read (Eq.sym other)) (cases)
           Void.exfalso (Bool.falseNotTrue (rewrite transitive z x y inZ inX inY zFirst xFirst at yz))
 
 --| Pages each of which may come before every later one are in order.
@@ -44,8 +44,8 @@ theorem inOrderOfPairwise (precedes: Nat → Nat → Bool)
 --| In pages in order, no later page must come before an earlier one.
 theorem inOrderLater (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat) (ordered: inOrder precedes [page, ..later] = True)
     (laterPage: Nat) (isLater: laterPage ∈ later): precedes laterPage page = False :=
-  let kept := List.allMem (other => !(precedes other page) = True) laterPage later
-    (List.allToAll (other => !(precedes other page)) later (Bool.andLeft ordered)) isLater
+  let Both each _ := ordered
+  let kept := each.read laterPage isLater
   cases
 
 --| Under the assumption, sorting by `mayPrecede` puts the pages in order.
@@ -98,18 +98,20 @@ theorem orderUnique (precedes: Nat → Nat → Bool) (pages: List Nat)
               | Inl equal => Eq.sym equal
               | Inr xLater =>
                 match equal: x == y with
-                  | True => DecEq.sound equal
+                  | True => equal.read
                   | False =>
                     let inY := List.allMem (page => page ∈ pages) y xs inPages yLater
                     let yNotFirst := inOrderLater precedes x xs firstOrdered y yLater
                     let xNotFirst := inOrderLater precedes y ys secondOrdered x xLater
                     Void.exfalso (Bool.trueNotFalse
-                      (Eq.trans (Eq.sym (total x y inX inY (other => DecEq.soundFalse x y equal other) xNotFirst)) yNotFirst))
+                      (Eq.trans (Eq.sym (total x y inX inY equal.read xNotFirst)) yNotFirst))
+      let Both _ firstRest := firstOrdered
+      let Both _ secondRest := secondOrdered
       let tails: xs = ys :=
         orderUnique precedes pages total xs ys inPages
           (property => Nat.addCancelLeft (Bool.toNat (property x)) (List.occurrences xs property) (List.occurrences ys property)
             (Eq.trans (same property) (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) (Eq.sym heads))))
-          (Bool.andRight firstOrdered) (Bool.andRight secondOrdered)
+          firstRest secondRest
       rewrite heads, tails in rfl
 
 --| Under the assumption there is only one correct ordering of an update.

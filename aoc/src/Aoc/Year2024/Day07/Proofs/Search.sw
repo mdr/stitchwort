@@ -44,7 +44,7 @@ theorem reachesAnything (operators: List Operator) (some: Operator) (has: some â
   match numbers with
     | [] => rfl
     | [number, ..rest] =>
-      List.anyOfMem operators _ some (reachesAnything operators some has rest (combine some start number)) has
+      Witness some (Both has (reachesAnything operators some has rest (combine some start number)))
 
 --| A condition that doesn't depend on the value comes out of the search.
 theorem reachesAnd (operators: List Operator) (condition: Bool) (wanted: Nat â†’ Bool) (numbers: List Nat) (start: Nat):

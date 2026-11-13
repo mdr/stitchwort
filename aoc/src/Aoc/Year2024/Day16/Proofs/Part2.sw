@@ -132,7 +132,7 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
         let got := (Map.memToList fromStart reindeer first).forward kept
         match after: toEnd.get reindeer with
           | Some second =>
-            Witness reindeer (Witness first (Witness second (Both got (Both after (Both (DecEq.sound passed) (And.right both)))))))
+            Witness reindeer (Witness first (Witness second (Both got (Both after (Both (passed.read) (And.right both)))))))
 
 --| ...and every such tile is counted.
 theorem scoringTile (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat) (reindeer: Reindeer) (first: Nat) (second: Nat)

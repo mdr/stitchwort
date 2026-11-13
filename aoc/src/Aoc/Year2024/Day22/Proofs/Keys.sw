@@ -48,7 +48,7 @@ theorem sellsAtIn (possible: List Changes)
     | [a, b, c, d, e, ..rest] =>
       match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
         | True =>
-          memOfEq possible (DecEq.sound same)
+          memOfEq possible same.read
             (contains a b c d e (digits a (Inl rfl)) (digits b (Inr (Inl rfl))) (digits c (Inr (Inr (Inl rfl)))) (digits d (Inr (Inr (Inr (Inl rfl)))))
               (digits e (Inr (Inr (Inr (Inr (Inl rfl)))))))
 

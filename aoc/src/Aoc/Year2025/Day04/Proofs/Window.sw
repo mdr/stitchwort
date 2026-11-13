@@ -191,8 +191,8 @@ theorem nearSelf (r: Nat): (r.absDiff r ≤ 1) = True := rewrite Nat.absDiffSelf
 
 --| The position itself is at most 1 from itself.
 theorem selfNear (r: Nat) (c: Nat) (x: Nat) (y: Nat) (h: (r == x ∧ c == y) = True): near r x = True ∧ near c y = True :=
-  Both (rewrite DecEq.sound (Bool.andLeft h) in nearSelf x)
-    (rewrite DecEq.sound (Bool.andRight h) in nearSelf y)
+  let Both sameRow sameColumn := h
+  Both (rewrite sameRow.read in nearSelf x) (rewrite sameColumn.read in nearSelf y)
 
 --| A count over the grid's positions is a sum of 1s and 0s.
 theorem countPositionsSum (grid: Grid) (p: Nat → Nat → Bool):

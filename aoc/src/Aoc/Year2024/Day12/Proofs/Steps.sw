@@ -19,15 +19,11 @@ theorem orthogonalIntro (from: Position) (to: Position) (orthogonal: Orthogonal 
   omega
 
 theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep from to = True): Orthogonal from to :=
-  Bool.orElim step
-    (across =>
-      Inl
-        (Both (DecEq.sound (Bool.andLeft across))
-          (Bool.orElim (Bool.andRight across) (right => Inl (DecEq.sound right)) (left => Inr (DecEq.sound left)))))
-    (upOrDown =>
-      Inr
-        (Both (DecEq.sound (Bool.andLeft upOrDown))
-          (Bool.orElim (Bool.andRight upOrDown) (down => Inl (DecEq.sound down)) (up => Inr (DecEq.sound up)))))
+  match step with
+    | Inl (Both sameRow (Inl right)) => Inl (Both sameRow.read (Inl right.read))
+    | Inl (Both sameRow (Inr left)) => Inl (Both sameRow.read (Inr left.read))
+    | Inr (Both sameColumn (Inl down)) => Inr (Both sameColumn.read (Inl down.read))
+    | Inr (Both sameColumn (Inr up)) => Inr (Both sameColumn.read (Inr up.read))
 
 --| A step in any direction is one orthogonal step.
 theorem stepOrthogonal (from: Position) (side: Direction) (to: Position) (stepped: from.step side = Some to): Orthogonal from to :=
@@ -74,15 +70,16 @@ theorem memDirections (side: Direction): side ∈ directions :=
 theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: growSame garden plot other = True):
     Exists Char (plant => (garden.plantAt plot = Some plant) ∧ (garden.plantAt other = Some plant)) :=
   match grows: garden.plantAt plot with
-    | Some plant => Witness plant (Both rfl (DecEq.sound same))
+    | Some plant => Witness plant (Both rfl same.read)
 
 theorem growSameIntro (garden: Garden) (plot: Position) (other: Position) (plant: Char) (here: garden.plantAt plot = Some plant)
     (there: garden.plantAt other = Some plant): growSame garden plot other = True :=
   rewrite here, there in DecEq.refl (Some plant)
 
 theorem touchesSymmetric (garden: Garden) (plot: Position) (other: Position) (touching: touches garden plot other = True): touches garden other plot = True :=
-  Exists.elim (growSameElim garden plot other (Bool.andRight touching)) (plant both =>
-    Bool.andIntro (orthogonalIntro other plot (orthogonalSymmetric plot other (orthogonalElim plot other (Bool.andLeft touching))))
+  let Both across same := touching
+  Exists.elim (growSameElim garden plot other same) (plant both =>
+    Both (orthogonalIntro other plot (orthogonalSymmetric plot other (orthogonalElim plot other across)))
       (growSameIntro garden other plot plant (And.right both) (And.left both)))
 
 --| The neighbours a fill pushes are exactly the plots touching `plot` that
@@ -94,7 +91,7 @@ theorem memNeighboursGrowing (garden: Garden) (plant: Char) (plot: Position) (ot
     Both
       (List.anyElim (side => plot.step side = Some other) _ directions (List.memFilterMapElim plot.step other directions (And.left both))
         (side inDirections stepped => stepOrthogonal plot side other stepped))
-      (DecEq.sound (And.right both)),
+      (And.right both).read,
   backward = has =>
     Exists.elim (orthogonalStep plot other (And.left has)) (side stepped =>
       List.memFilterIntro (directions.filterMap plot.step) (next => garden.plantAt next == Some plant)
@@ -113,4 +110,4 @@ theorem touchingGrowing (garden: Garden) (plant: Char) (plot: Position) (other: 
 theorem growingTouches (garden: Garden) (plant: Char) (plot: Position) (other: Position) (grows: garden.plantAt plot = Some plant)
     (member: other ∈ garden.neighboursGrowing plant plot): touches garden plot other = True :=
   let both := (memNeighboursGrowing garden plant plot other).forward member
-  Bool.andIntro (orthogonalIntro plot other (And.left both)) (growSameIntro garden plot other plant grows (And.right both))
+  Both (orthogonalIntro plot other (And.left both)) (growSameIntro garden plot other plant grows (And.right both))

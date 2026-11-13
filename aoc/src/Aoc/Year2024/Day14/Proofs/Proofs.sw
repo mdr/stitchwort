@@ -57,7 +57,7 @@ theorem part2First (space: Space) (robots: List Robot) (inside: StartInside spac
     (isPicture space robots found) ∧ (∀ (earlier: Nat) => earlier < found → ¬(isPicture space robots earlier)) :=
   match List.findRangeSome (seconds => List.isDistinct (space.positionsAfter seconds robots)) space.period found h with
     | Both passes (Both below first) =>
-      Both (rewrite positionsCorrect space robots inside found in (List.isDistinctIff (space.positionsAfter found robots)).forward passes)
+      Both (rewrite positionsCorrect space robots inside found in passes.read)
         (earlier before picture => Bool.trueNotFalse (Eq.trans (Eq.sym (pictureAllDistinct space robots inside earlier picture)) (first earlier before)))
 
 --| When part 2 finds nothing, no second is a picture.

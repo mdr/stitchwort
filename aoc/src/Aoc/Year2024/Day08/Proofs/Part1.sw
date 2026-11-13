@@ -71,10 +71,11 @@ theorem specCases (far: Position) (near: Position) (point: Position):
   let vc := near.column.toInt - point.column.toInt
   {
     forward = h =>
-      twiceAsFarCases ur uc vr vc (DecEq.sound (Bool.andLeft h)) (DecEq.sound (Bool.andRight h)),
+      let Both inLineHolds twiceHolds := h
+      twiceAsFarCases ur uc vr vc inLineHolds.read twiceHolds.read,
     backward = h =>
       let both := twiceAsFarOfCases ur uc vr vc h
-      Bool.andIntro (rewrite And.left both in DecEq.refl 0) (rewrite And.right both in DecEq.refl (4 * (vr * vr + vc * vc)))
+      Both (rewrite And.left both in DecEq.refl 0) (rewrite And.right both in DecEq.refl (4 * (vr * vr + vc * vc)))
   }
 
 --| The step past `near` reaches the points where `far` is twice as far in

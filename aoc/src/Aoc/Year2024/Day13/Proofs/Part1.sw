@@ -67,8 +67,7 @@ theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0
     | Some (aPresses, bPresses) =>
       match within: aPresses ≤ 100 && bPresses ≤ 100 with
         | True =>
-          let aWithin: aPresses ≤ 100 := Bool.andLeft within
-          let bWithin: bPresses ≤ 100 := Bool.andRight within
+          let Both aWithin bWithin := within
           let won := onlyPressesWins machine nonzero aPresses bPresses found
           Eq.sym (List.minimumAllEqual (tokens aPresses bPresses) costs (winsListed aPresses bPresses aWithin bWithin won)
             (tokensSpent listed =>

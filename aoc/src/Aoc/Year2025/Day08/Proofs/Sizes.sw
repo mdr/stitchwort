@@ -47,13 +47,14 @@ theorem entryCount (c: Circuits) (n: Nat) (e: (Nat, Nat)) (m: List.Mem e (Map.to
 
 --| A label is counted once at least exactly when some box has it.
 theorem memOfCount (c: Circuits) (n: Nat) (label: Nat) (h: 0 < labelCount c n label): List.Mem label (List.map (List.range 0 n) c.labelOf) :=
-  List.anyTrueElim (List.map (List.range 0 n) c.labelOf) (x => x == label) (List.Mem label (List.map (List.range 0 n) c.labelOf))
-    (rewrite List.anyOccurrences (List.map (List.range 0 n) c.labelOf) (x => x == label), <- List.countOccurrences _ (x => x == label) in h)
-    (x m e => rewrite <- DecEq.sound e in m)
+  let found: (List.map (List.range 0 n) c.labelOf).any (x => x == label) = True :=
+    rewrite List.anyOccurrences (List.map (List.range 0 n) c.labelOf) (x => x == label), <- List.countOccurrences _ (x => x == label) in h
+  let Witness x (Both m e) := found
+  rewrite <- e.read in m
 
 theorem countOfMem (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)): 0 < labelCount c n label :=
   rewrite List.countOccurrences _ (x => x == label), <- List.anyOccurrences _ (x => x == label) in
-    List.anyOfMem (List.map (List.range 0 n) c.labelOf) (x => x == label) label (DecEq.refl label) m
+    Witness label (Both m (DecEq.refl label))
 
 --| The histogram's keys are the labels.
 theorem keyOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
@@ -114,11 +115,9 @@ theorem firstOf (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
         | False =>
           List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
         | True =>
-          List.anyTrueElim (List.range 0 b) (other => c.labelOf other == c.labelOf b)
-            (List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)) g
-            (other mo same =>
-              let below := List.memRangeFrom other b 0 mo
-              rewrite <- DecEq.sound same in firstOf c n fuel other omega omega)
+          let Witness other (Both mo same) := g
+          let below := List.memRangeFrom other b 0 mo
+          rewrite <- same.read in firstOf c n fuel other omega omega
 
 theorem labelOfFirst (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=
