@@ -34680,7 +34680,7 @@
       "where": ".claude/worktrees/SW-3186",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nD3568 (Matt, 13 Nov 2026): yes, a lambda after := hugs the := line (formatter-style.md §4).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []

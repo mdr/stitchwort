@@ -1210,6 +1210,21 @@ proofs.
 
 **[rec: (c)]**
 
+### D3568: a lambda after `:=` (Matt, 13 Nov 2026: yes)
+
+A lambda right after `:=` (a `let` or a declaration body) stays on the
+`:=` line and its body goes below at +2, as a last-argument lambda hugs
+under D3567. Without it the body rule (S12) moved the whole lambda below:
+
+```
+  let skipNoise := () =>
+    let skipped := Parse.span (char => ¬(starts char))
+    ()
+```
+
+not `let skipNoise :=` with `() =>` alone on the next line. Matt: "that
+looks far better".
+
 ## Findings worth tickets
 
 - **Width in bytes.** The current formatter's `:= match` rule (D3553)
