@@ -34442,7 +34442,7 @@
     {
       "id": 3169,
       "title": "[Sonnet] Lossless tree lane E: proofs: Calc/CalcStep, Rewrite/RewriteRule, Omega, Ring, Cases",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34546,7 +34546,7 @@
     {
       "id": 3177,
       "title": "[DeepSeek] Readings/builds sweep: remove the 59 sites the deletion oracle found redundant over the whole corpus (docs/reviews/SW-3111-oracle-corpus.md): 25 .read and 34 build helpers (Bool.falseOfNotTrue 15, List.memContains.backward 10, DecEq.trueOfNe 3, others). Re-run 'stitchwort oracle … --json' on each touched file to get exact replacements; check each touched std file/AoC day; hashes: proofs-only changes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
