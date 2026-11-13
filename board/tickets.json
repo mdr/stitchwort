@@ -34026,15 +34026,17 @@
     {
       "id": 3137,
       "title": "[Sonnet] if over proofs in an untyped let (let w := if c then p else q, p q proofs) fails with E-UNIVERSE; should infer the proposition (SW-3087 finding 4)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nLane: fix in check.rs (proof_branch_type probe in infer of Expr::If); examples if-proof-untyped-let (accept), if-proof-untyped-let-mismatch (reject), snapshots added. Ran example tests, hash_stability examples and prelude.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "c80a1f87d"
+      ]
     },
     {
       "id": 3138,
