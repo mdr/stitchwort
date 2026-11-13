@@ -1,5 +1,5 @@
 {
-  "next": 3098,
+  "next": 3099,
   "tickets": [
     {
       "id": 47,
@@ -33511,6 +33511,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3098,
+      "title": "[Sonnet] Bool as proposition stage 7: guide chapter 'Tests and propositions' (docs/guide/, examples checked) and the proving guide's 'Writing statements': when to write a Bool test and when a proposition, readings and .read, patterns on facts, auto/cases using facts (stage 5), one sentence 'to use the whole fact as its proposition, write .read'; a feature-tour page if it suits (web/guide/)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
