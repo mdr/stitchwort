@@ -32999,12 +32999,12 @@
     {
       "id": 3058,
       "title": "[DeepSeek] D3540 (Matt, 13 Nov 2026: yes): machine::aoc_agrees (crates/rt) stops running each answered day's main on its real input on the reference evaluator; on real input it checks the machine's output against the known answers only (already done); both evaluators still run and are compared on the example inputs. Also every_aoc_main_lowers if it runs the reference evaluator on real input. See docs/reviews/SW-2962-slow-tests.md §2 and D3540",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, 15 min (est. 30). Note: 2021 isn't in AOC_ANSWERS, so the 120 s day-5 run wasn't in this tree's aoc_agrees; the saving is each answered 2024/2025 day's real-input reference run.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
