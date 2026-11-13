@@ -33376,7 +33376,7 @@
     {
       "id": 3087,
       "title": "[Sonnet] Building test facts from proofs: a ∀ lambda doesn't build an all fact (List.allOfAll stays), (a != b) = True can't be built from a ≠ b (DecEq.trueOfNe stays), an x ∈ xs proof can't stand for xs.contains x = True, and (not b) = True won't take b = False (bool-as-proposition §6.6) (SW-3079 findings 5-7, SW-3068)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
