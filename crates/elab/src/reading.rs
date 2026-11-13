@@ -1660,7 +1660,8 @@ pub(crate) fn read_note(cx: &Ctx, expected: &Value, found: &Value) -> Result<Opt
         let mark = cx.e.attempt.mark();
         let unified = cx.unify(&prop, expected);
         cx.e.attempt.restore(mark);
-        unified?
+        // A failure here only means no note: the mismatch is reported as is.
+        matches!(unified, Ok(true))
     };
     if !reads_as {
         return Ok(None);
