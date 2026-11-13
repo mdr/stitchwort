@@ -98,6 +98,11 @@ does not do significant work itself:
   lsp` runs the main checkout's release binary. It selects a run by its
   process tree (see "Stopping a lane's own test runs" in
   `docs/workflow.md`).
+- It keeps a daily work log, `docs/worklog/YYYY-MM-DD.md` (Matt, 13 Nov
+  2026): one table row per finished piece of work, added as it is merged or
+  decided: the time, the ticket(s), the epic, and in a sentence or two what
+  changed, in Matt's words for the work. Decisions Matt made that day and
+  overnight compute results get rows too.
 - Opus reviews, and long lane reports worth keeping, go in the repo as
   `docs/reviews/SW-N-topic.md`, linked from the ticket (D2530).
 
