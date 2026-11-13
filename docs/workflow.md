@@ -312,9 +312,9 @@ that most of the time the tests being run are fast ones:
   changed, and `task test:one -- NAME` for the tests it touched (a bare name
   matches test names only; `-E 'binary(name)'` selects a whole test binary),
   while it works.
-- **quick**, under 90 s on a 10-core M1 Pro: the verifier's selection
-  after each batch (`task test:affected`, or `task test:selected`), and the
-  quick tier in Overmind's rolling broad check.
+- **quick**, under 90 s on a 10-core M1 Pro: `task test:quick`, run by
+  Overmind's rolling broad check on each pushed commit (D3546), not per
+  batch; a batch's verifier runs a selection instead (`task test:selected`).
 - **broad**, long: `task test:broad`, or `nix flake check`
   (`task test:gate`), with Matt's approval or in compute mode: the quick
   tier plus the corpus sweeps on their samples, formatting, clippy, the
