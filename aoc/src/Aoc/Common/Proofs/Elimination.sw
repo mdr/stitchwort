@@ -98,7 +98,7 @@ theorem settleOnce [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a
           match same: item == other with
             | True =>
               let none := List.countZeroOfNotContains (chosen slots) item fresh
-              rewrite <- DecEq.sound same in omega
+              rewrite <- same.read in omega
             | False =>
               let before := once other
               omega
@@ -208,7 +208,7 @@ theorem settleAgrees [auto eq: DecEq a] (settled: List a) (other: List a) (slots
               pass found
             | [only] =>
               let notSettled: (settled.contains item) = False := match contained: settled.contains item with
-                | True => Void.exfalso (And.left fresh rfl ((List.memContains settled item).forward contained))
+                | True => Void.exfalso (And.left fresh rfl contained.read)
                 | False => rfl
               let remains: item ∈ slot.remaining settled :=
                 List.memFilterIntro slot.candidates (pick => not (settled.contains pick)) (And.left (And.left agrees)) (rewrite notSettled in rfl)

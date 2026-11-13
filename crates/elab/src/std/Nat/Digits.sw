@@ -214,7 +214,7 @@ theorem Nat.digitsAccHead (n: Nat) (acc: List Nat) (hn: 1 ≤ n): 1 ≤ List.hea
     | True => rewrite Nat.digitsAccSmall n acc e in hn
     | False =>
       rewrite Nat.digitsAccBig n acc e in
-      Nat.digitsAccHead (n / 10) [n % 10, ..acc] (Nat.leDivOfMulLe 1 n 10 (Nat.leqFalse n 9 e)) [decreasing := Nat.divTenLess n e]
+      Nat.digitsAccHead (n / 10) [n % 10, ..acc] (Nat.leDivOfMulLe 1 n 10 (e.read)) [decreasing := Nat.divTenLess n e]
 
 theorem Nat.digitsHead (n: Nat) (hn: 1 ≤ n): 1 ≤ List.headOr (Nat.digits n).toList 0 :=
   Nat.digitsAs n (l => 1 ≤ List.headOr l 0) (Nat.digitsAccHead n [] hn)
@@ -275,7 +275,7 @@ theorem Nat.fromDigitsHeadBound (l: List Nat) (h: 1 ≤ List.headOr l 0): Nat.po
 theorem Nat.powTenLt (a: Nat) (c: Nat) (x: Nat) (h1: Nat.pow 10 a ≤ x) (h2: x < Nat.pow 10 c): a < c :=
   Bool.inspect (Nat.leq (Succ a) c) (u => u = True) (t => rfl)
     (f => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) (Nat.pow 10 c) x h2
-      (Nat.leTrans (Nat.pow 10 c) (Nat.pow 10 a) x (Nat.powMono 9 c a (Nat.leqFalse (Succ a) c f)) h1))))
+      (Nat.leTrans (Nat.pow 10 c) (Nat.pow 10 a) x (Nat.powMono 9 c a f.read) h1))))
 
 theorem Nat.digitsLength (j: Nat) (b: Nat) (h1: Nat.pow 10 j ≤ b) (h2: b < Nat.pow 10 (Succ j)): Nat.digitCount b = Succ j :=
   Nat.leAntisym (Nat.digitCount b) (Succ j)

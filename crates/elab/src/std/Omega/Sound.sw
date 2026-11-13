@@ -61,8 +61,8 @@ theorem Omega.dotAllZero (as vs: List Int) (h: Omega.allZero as = True): Omega.d
     | [a, ..as], [] => rfl
     | [a, ..as], [v, ..vs] =>
       Int.addCong
-        (Eq.trans (Eq.cong (t => Int.mul t v) (Omega.isZeroEq a (Bool.andLeft h))) (Int.zeroMul v))
-        (Omega.dotAllZero as vs (Bool.andRight h))
+        (Eq.trans (Eq.cong (t => Int.mul t v) (Omega.isZeroEq a h.left)) (Int.zeroMul v))
+        (Omega.dotAllZero as vs h.right)
 
 --| A coefficient that `d` divides is `d` times its quotient.
 theorem Omega.divExact (d: Nat) (a: Int) (h: Omega.isZero (a % OfNat (Succ d)) = True): a = OfNat (Succ d) * (a / OfNat (Succ d)) :=
@@ -78,9 +78,9 @@ theorem Omega.dotDiv (d: Nat) (as vs: List Int) (h: Omega.allDiv d as = True):
     | [a, ..as], [v, ..vs] =>
       Eq.trans
         (Int.addCong
-          (Eq.trans (Eq.cong (t => Int.mul t v) (Omega.divExact d a (Bool.andLeft h)))
+          (Eq.trans (Eq.cong (t => Int.mul t v) (Omega.divExact d a h.left))
             (Int.mulAssoc (OfNat (Succ d)) (a / OfNat (Succ d)) v))
-          (Omega.dotDiv d as vs (Bool.andRight h)))
+          (Omega.dotDiv d as vs h.right))
         (Eq.sym (Int.mulDistribLeft (OfNat (Succ d)) ((a / OfNat (Succ d)) * v) (Omega.dot (Omega.divC d as) vs)))
 
 --| `(c + d) + ((x1 + x2) + (y1 + y2)) = (c + (x1 + y1)) + (d + (x2 + y2))`
@@ -210,17 +210,17 @@ theorem Omega.intLeqOfLess (a b: Int) (h: Int.less a b = True): Int.leq (Int.add
 --| `Not (a <= b)` is `b + 1 <= a`.
 theorem Omega.intLeqOfNotLeq (a b: Int) (h: Int.leq a b = False): Int.leq (Int.add b (OfNat 1)) a = True :=
   match a, b with
-    | OfNat m, OfNat n => Omega.natLeqAddOne n m (Nat.leqFalse m n h)
+    | OfNat m, OfNat n => Omega.natLeqAddOne n m h.read
     | OfNat m, NegSucc Zero => rfl
     | OfNat m, NegSucc (Succ n) => rfl
-    | NegSucc m, NegSucc (Succ n) => Nat.leqFalse (Succ n) m h
+    | NegSucc m, NegSucc (Succ n) => h.read
 
 --| `Not (a < b)` is `b <= a`.
 theorem Omega.intLeqOfNotLess (a b: Int) (h: Int.less a b = False): Int.leq b a = True :=
   match a, b with
-    | OfNat m, OfNat n => Nat.leqFalse (Succ m) n h
+    | OfNat m, OfNat n => h.read
     | OfNat m, NegSucc n => rfl
-    | NegSucc m, NegSucc n => Nat.leqFalse (Succ n) m h
+    | NegSucc m, NegSucc n => h.read
 
 --| `a <= b` gives `0 <= b - a`.
 theorem Omega.intSubNonneg (a b: Int) (h: Int.leq a b = True): 0 ≤ Int.add b (Int.neg a) :=
@@ -286,25 +286,25 @@ theorem Omega.subCases (t: Nat) (a: Nat) (b: Nat) (h: t = a - b)
     (kl: (b ≤ a) ∧ ((t + b = a) ∧ Unit) → Void) (kr: (a < b) ∧ ((t = 0) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq b a) (x => Void)
     (e => kl (Both e (Both (Eq.trans (Eq.cong (x => x + b) h) (Eq.trans (Nat.addComm (a - b) b) (Nat.addSubCancel b a e))) Trivial)))
-    (e => kr (Both (Nat.leqFalse b a e) (Both (Eq.trans h (Nat.subEqZero a b (Nat.lessLe a b (Nat.leqFalse b a e)))) Trivial)))
+    (e => kr (Both e.read (Both (Eq.trans h (Nat.subEqZero a b (Nat.lessLe a b e.read))) Trivial)))
 
 theorem Omega.maxCases (t: Nat) (a: Nat) (b: Nat) (h: t = Nat.max a b)
     (kl: (a ≤ b) ∧ ((t = b) ∧ Unit) → Void) (kr: (b < a) ∧ ((t = a) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq a b) (x => Void)
     (e => kl (Both e (Both (Eq.trans h (Nat.maxRight a b e)) Trivial)))
-    (e => kr (Both (Nat.leqFalse a b e) (Both (Eq.trans h (Nat.maxLeft a b (Nat.lessLe b a (Nat.leqFalse a b e)))) Trivial)))
+    (e => kr (Both e.read (Both (Eq.trans h (Nat.maxLeft a b (Nat.lessLe b a e.read))) Trivial)))
 
 theorem Omega.minCases (t: Nat) (a: Nat) (b: Nat) (h: t = Nat.min a b)
     (kl: (a ≤ b) ∧ ((t = a) ∧ Unit) → Void) (kr: (b < a) ∧ ((t = b) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq a b) (x => Void)
     (e => kl (Both e (Both (Eq.trans h (Nat.minLeft a b e)) Trivial)))
-    (e => kr (Both (Nat.leqFalse a b e) (Both (Eq.trans h (Nat.minRight a b e)) Trivial)))
+    (e => kr (Both e.read (Both (Eq.trans h (Nat.minRight a b e)) Trivial)))
 
 theorem Omega.neCases (a: Nat) (b: Nat) (h: a ≠ b)
     (kl: (a < b) ∧ Unit → Void) (kr: (b < a) ∧ Unit → Void): Void :=
   Bool.inspect (Nat.leq (Succ a) b) (x => Void)
     (e => kl (Both e Trivial))
-    (e => kr (Both (Nat.leNeSucc b a (Nat.leqFalse (Succ a) b e) (p => h (Eq.sym p))) Trivial))
+    (e => kr (Both (Nat.leNeSucc b a e.read (p => h (Eq.sym p))) Trivial))
 
 theorem Omega.ineCases (a: Int) (b: Int) (h: a ≠ b)
     (kl: (Int.less a b = True) ∧ Unit → Void) (kr: (Int.less b a = True) ∧ Unit → Void): Void :=
@@ -391,8 +391,8 @@ theorem Omega.divideHolds (env: Omega.Env) (d: Nat) (r: Omega.Row) (ok: Omega.Ro
           (Eq.cong (Int.add c)
             (Eq.sym (Eq.trans
               (Int.addCong
-                (Omega.dotDiv d ns (Omega.toInts (Omega.Env.nats env)) (Bool.andLeft ok))
-                (Omega.dotDiv d is (Omega.Env.ints env) (Bool.andRight ok)))
+                (Omega.dotDiv d ns (Omega.toInts (Omega.Env.nats env)) ok.left)
+                (Omega.dotDiv d is (Omega.Env.ints env) ok.right))
               (Eq.sym (Int.mulDistribLeft (OfNat (Succ d))
                 (Omega.dot (Omega.divC d ns) (Omega.toInts (Omega.Env.nats env)))
                 (Omega.dot (Omega.divC d is) (Omega.Env.ints env)))))))
@@ -405,15 +405,15 @@ theorem Omega.splitOtherHolds (env: Omega.Env) (l: Omega.Row) (h: Int.leq (OfNat
 theorem Omega.contraVoid (env: Omega.Env) (r: Omega.Row) (ok: Omega.Row.isContra r = True) (h: Omega.Row.Holds env r): Void :=
   match r with
     | MkRow c ns is =>
-      Int.notNonnegOfIsNeg c (Bool.andLeft ok)
+      Int.notNonnegOfIsNeg c ok.left
         (Omega.nonnegEq
           (Eq.sym (Eq.trans
             (Eq.cong (Int.add c)
               (Int.addCong
                 (Omega.dotAllZero ns (Omega.toInts (Omega.Env.nats env))
-                  (Bool.andLeft (Bool.andRight ok)))
+                  ok.right.left)
                 (Omega.dotAllZero is (Omega.Env.ints env)
-                  (Bool.andRight (Bool.andRight ok)))))
+                  ok.right.right)))
             (Int.addZero c)))
           h)
 
@@ -427,7 +427,7 @@ theorem Omega.stepHolds (env: Omega.Env) (facts: List Omega.Row) (neg: Option Om
     | Combine ts => Omega.combineHolds env ctx hc ts
     | Divide r d =>
       Omega.divideHolds env d (Omega.getRow ctx r)
-        (Bool.andRight ok)
+        ok.right
         (Omega.getRowHolds env ctx r hc)
 
 --| A `Cases` step: the branch for the case that holds has its rows.
@@ -448,26 +448,24 @@ theorem Omega.checkCertSound (env: Omega.Env) (fs: List Omega.Fact) (facts: List
       Omega.checkCertSound env fs facts neg hfs hf hn rest (List.append ctx [Omega.Step.row facts neg ctx s])
         (Omega.rowsAppend env ctx [Omega.Step.row facts neg ctx s] hc
           (Both (Omega.stepHolds env facts neg ctx hf hn hc s
-            (Bool.andLeft ok)) Trivial))
-        (Bool.andRight ok)
+            ok.left) Trivial))
+        ok.right
     | Split l left right =>
       Bool.inspect (Int.leq (OfNat 0) (Omega.Row.eval env l)) (b => Void)
         (e => Omega.checkCertSound env fs facts neg hfs hf hn left (List.append ctx [l])
           (Omega.rowsAppend env ctx [l] hc (Both e Trivial))
-          (Bool.andLeft ok))
+          ok.left)
         (e => Omega.checkCertSound env fs facts neg hfs hf hn right (List.append ctx [Omega.Row.splitOther l])
           (Omega.rowsAppend env ctx [Omega.Row.splitOther l] hc (Both (Omega.splitOtherHolds env l e) Trivial))
-          (Bool.andRight ok))
+          ok.right)
     | Cases f left right =>
       Omega.casesHold env (Omega.getFact fs f) (Omega.getFactHolds env fs f hfs)
-        (Bool.andLeft ok)
+        ok.left
         ctx hc
         (h => Omega.checkCertSound env fs facts neg hfs hf hn left (List.append ctx (Omega.Facts.rows (Omega.Fact.left (Omega.getFact fs f)))) h
-          (Bool.andLeft (Bool.andRight
-            ok)))
+          ok.right.left)
         (h => Omega.checkCertSound env fs facts neg hfs hf hn right (List.append ctx (Omega.Facts.rows (Omega.Fact.right (Omega.getFact fs f)))) h
-          (Bool.andRight (Bool.andRight
-            ok)))
+          ok.right.right)
 
 --| Soundness: if `check` accepts, the facts imply the goal, in every environment.
 theorem Omega.prove (env: Omega.Env) (facts: List Omega.Fact) (goal: Omega.Goal) (cert: Omega.Cert)
@@ -477,13 +475,13 @@ theorem Omega.prove (env: Omega.Env) (facts: List Omega.Fact) (goal: Omega.Goal)
       Bool.inspect (Nat.leq (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)) (x => x = True) (e => rfl)
         (e => Void.exfalso (Omega.checkCertSound env facts (Omega.Facts.rows facts) (Some (Omega.leRow (NSucc b) a))
           hs (Omega.factsRowsHold env facts hs)
-          (Omega.leRowHolds env (NSucc b) a (Nat.leqFalse (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) e))
+          (Omega.leRowHolds env (NSucc b) a e.read)
           cert [] Trivial ok))
     | GLt a b =>
       Bool.inspect (Nat.leq (Succ (Omega.NTerm.eval env a)) (Omega.NTerm.eval env b)) (x => x = True) (e => rfl)
         (e => Void.exfalso (Omega.checkCertSound env facts (Omega.Facts.rows facts) (Some (Omega.leRow b a))
           hs (Omega.factsRowsHold env facts hs)
-          (Omega.leRowHolds env b a (Nat.leqFalse (Succ (Omega.NTerm.eval env a)) (Omega.NTerm.eval env b) e))
+          (Omega.leRowHolds env b a e.read)
           cert [] Trivial ok))
     | GVoid =>
       Omega.checkCertSound env facts (Omega.Facts.rows facts) None hs (Omega.factsRowsHold env facts hs) Trivial cert [] Trivial ok

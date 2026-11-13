@@ -24,7 +24,7 @@ theorem BitReader.readSome (reader: BitReader) (width: Nat) (field: Bits) (rest:
   match e: taken.length == width with
     | True =>
       let parts := somePairInjective unfolded
-      rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop reader.unread width)) (DecEq.sound e)
+      rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop reader.unread width)) e.read
 
 --| A number that fits its width is read back from its bits.
 theorem BitReader.readNumberAppend (width: Nat) (n: Nat) (rest: List Bool) (small: n < Nat.pow 2 width):

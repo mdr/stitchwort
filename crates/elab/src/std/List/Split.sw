@@ -306,7 +306,7 @@ theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
           _ = ¬(¬(sep (Nat.firstFrom sep (Succ (n - lo)) lo))) := match sep (Nat.firstFrom sep (Succ (n - lo)) lo) with | True => rfl
           _ = False := rewrite List.allRangeElim (c => ¬(sep c)) (hi - lo) lo none (Nat.firstFrom sep (Succ (n - lo)) lo)
             (Nat.firstFromAtLeast sep (Succ (n - lo)) lo)
-            (rewrite Nat.addSubCancel lo hi (Nat.lessLe lo hi long) in Nat.leqFalse hi (Nat.firstFrom sep (Succ (n - lo)) lo) e))))
+            (rewrite Nat.addSubCancel lo hi (Nat.lessLe lo hi long) in e.read))))
 
 --| The run that starts at lo (it does start there) is a maximal run.
 theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True)

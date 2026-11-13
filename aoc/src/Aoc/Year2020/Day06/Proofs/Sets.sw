@@ -47,7 +47,7 @@ theorem everyQuestion: ∀ (lines: List (List Char)) (people: List Person) => Li
     lines.all (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, some, question, found => Void.exfalso (some rfl)
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, some, question, found =>
-    let inLine: line.contains question = True := Bool.andLeft found
+    let inLine: line.contains question = True := found.left
     questions.read question inLine.read
   | [], [_, .._], impossible, some, question, found => Void.exfalso impossible
   | [_, .._], [], impossible, some, question, found => Void.exfalso impossible

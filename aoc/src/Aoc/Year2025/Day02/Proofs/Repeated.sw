@@ -208,7 +208,7 @@ theorem fromDigitsRep (p: List Nat) (n: Nat): Nat.fromDigits (List.concat (List.
 
 theorem repAppend (x: Nat) (k: Nat) (n: Nat) (hq: writtenAs x.digits.toList k n = True):
     List.concat (List.replicate n (x.digits.toList.take k)) = x.digits.toList :=
-  DecEq.sound hq
+  hq.read
 
 --| Two or more copies of a k-digit block fill the digits: there are n * k.
 theorem repCount (x: Nat) (k: Nat) (n: Nat) (hn: 2 ≤ n) (hq: writtenAs x.digits.toList k n = True): n * k = x.digitCount :=

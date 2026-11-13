@@ -214,7 +214,7 @@ theorem Float.negNegSecond (x: Float) (e: Float.isNaN x = False)
 
 theorem Float.negNegFrom (x: Float) (b: Bool) (e: Float.isNaN x = b): Float.neg (Float.negFrom x b e) = x :=
   match b with
-    | True => Float.bitsExt Float.nan x (Eq.sym (Nat.equalSound x.bits 9221120237041090560 e))
+    | True => Float.bitsExt Float.nan x (Eq.sym e.read)
     | False =>
       Float.negNegSecond x e
         (Float.isNaN (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e))) rfl

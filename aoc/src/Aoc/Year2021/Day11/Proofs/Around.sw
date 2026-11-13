@@ -25,7 +25,7 @@ theorem countAround (cavern: Cavern) (flashed: Position → Bool)
         List.memFilterIntro positions near (onGrid q flashes) (Both (aroundTouching at q inAround) flashes))
       (q member =>
         let (Both inGrid both) := List.memFilter positions near member
-        List.memFilterIntro at.around flashed (touchingAround at q (Bool.andLeft both)) (Bool.andRight both))
+        List.memFilterIntro at.around flashed (touchingAround at q both.left) both.right)
   calc at.around.count flashed
     _ = (at.around.filter flashed).length := Eq.sym (List.lengthFilter at.around flashed)
     _ = (positions.filter near).length := List.permLength _ _ same

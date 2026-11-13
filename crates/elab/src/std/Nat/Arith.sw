@@ -268,7 +268,7 @@ theorem Nat.addOneSub (n: Nat) (m: Nat) (h: m ≤ n): n + 1 - m = n - m + 1 :=
     (Eq.trans (Nat.subSuccRight m (Succ n) h) (Eq.sym (Nat.addOne (n - m))))
 
 theorem Nat.addOneSubEqZero (n: Nat) (m: Nat) (h: Nat.leq m n = False): n + 1 - m = 0 :=
-  Eq.trans (Eq.cong (t => t - m) (Nat.addOne n)) (Nat.subEqZero (Succ n) m (Nat.leqFalse m n h))
+  Eq.trans (Eq.cong (t => t - m) (Nat.addOne n)) (Nat.subEqZero (Succ n) m h.read)
 
 theorem Nat.succSub (t: Nat): Succ t - t = 1 :=
   match t with
@@ -283,13 +283,13 @@ theorem Nat.leDivOfMulLe (q: Nat) (n: Nat) (d: Nat) [auto ok: d ≠ 0] (h: q * d
   Bool.inspect (Nat.leq q (n / d)) (c => c = True) (t => rfl)
     (f => Void.exfalso (Nat.lessIrrefl n
       (Nat.leTrans (Succ n) (Succ (n / d) * d) n (Nat.divFuelBound n n d ok (Nat.leRefl n))
-        (Nat.leTrans (Succ (n / d) * d) (q * d) n (Nat.leMulRight (Succ (n / d)) q d (Nat.leqFalse q (n / d) f)) h))))
+        (Nat.leTrans (Succ (n / d) * d) (q * d) n (Nat.leMulRight (Succ (n / d)) q d f.read) h))))
 
 theorem Nat.divLeOfLtMul (n: Nat) (b: Nat) (d: Nat) (h: n < Succ b * d): n / d ≤ b :=
   Bool.inspect (Nat.leq (n / d) b) (c => c = True) (t => rfl)
     (f => Void.exfalso (Nat.lessIrrefl n
       (Nat.leTrans (Succ n) (Succ b * d) n h
-        (Nat.leTrans (Succ b * d) ((n / d) * d) n (Nat.leMulRight (Succ b) (n / d) d (Nat.leqFalse (n / d) b f)) (Nat.divMulLe n d)))))
+        (Nat.leTrans (Succ b * d) ((n / d) * d) n (Nat.leMulRight (Succ b) (n / d) d f.read) (Nat.divMulLe n d)))))
 
 --| Dividing never makes a number bigger, and makes it smaller when the number
 --| is positive and the divisor is at least 2. `omega` knows division by a
@@ -505,7 +505,7 @@ theorem Nat.posOfDouble (k n: Nat) (e: k + k = n) (h: 1 ≤ n): 1 ≤ k :=
 
 theorem Nat.leNeSucc (s: Nat) (v: Nat) (h: s ≤ v) (ne: s ≠ v): Succ s ≤ v :=
   Bool.inspect (Nat.leq (Succ s) v) (u => u = True) (t => rfl)
-    (f => Void.exfalso (ne (Nat.leAntisym s v h (Nat.leqFalse (Succ s) v f))))
+    (f => Void.exfalso (ne (Nat.leAntisym s v h f.read)))
 
 theorem Nat.ltAddSucc (s: Nat) (c: Nat) (b: Nat) (h: b < Succ s + c): b < s + Succ c :=
   Nat.ltCongRight b (Succ s + c) (s + Succ c) (Eq.sym (Nat.addSucc s c)) h
@@ -527,7 +527,7 @@ theorem Nat.ltOfRunSub (s: Nat) (d: Nat) (n: Nat) (h1: s ≤ d) (h2: d < s + (n 
     | True => Nat.ltCongRight d (s + (n - s)) n (Nat.addSubCancel s n e) h2
     | False =>
       Void.exfalso (Nat.lessIrrefl d (Nat.leTrans (Succ d) s d
-        (Nat.ltCongRight d (s + (n - s)) s (Eq.trans (Eq.cong (t => s + t) (Nat.subEqZero n s (Nat.lessLe n s (Nat.leqFalse s n e)))) (Nat.addZero s)) h2) h1))
+        (Nat.ltCongRight d (s + (n - s)) s (Eq.trans (Eq.cong (t => s + t) (Nat.subEqZero n s (Nat.lessLe n s e.read))) (Nat.addZero s)) h2) h1))
 
 --| Whether the ordering is `Less`.
 def Ordering.isLess: (ordering: Ordering) → Bool
@@ -560,15 +560,15 @@ theorem Nat.leMaxLeft (m: Nat) (n: Nat): m ≤ Nat.max m n :=
 
 --| The right number is at most the maximum.
 theorem Nat.leMaxRight (m: Nat) (n: Nat): n ≤ Nat.max m n :=
-  Bool.inspect (Nat.leq m n) (c => n ≤ Bool.ifThenElse c (u => n) (u => m)) (t => Nat.leRefl n) (f => Nat.lessLe n m (Nat.leqFalse m n f))
+  Bool.inspect (Nat.leq m n) (c => n ≤ Bool.ifThenElse c (u => n) (u => m)) (t => Nat.leRefl n) (f => Nat.lessLe n m f.read)
 
 theorem Nat.leqMaxAbove (x: Nat) (a: Nat) (b: Nat) (h: Nat.leq x a = False): Nat.leq x (Nat.max a b) = Nat.leq x b :=
   Bool.inspect (Nat.leq a b) (c => Nat.leq x (Bool.ifThenElse c (u => b) (u => a)) = Nat.leq x b)
     (t => rfl)
-    (f => Eq.trans h (Eq.sym (Nat.leqFalseOfLess b x (Nat.lessTrans b a x (Nat.leqFalse a b f) (Nat.leqFalse x a h)))))
+    (f => Eq.trans h (Eq.sym (Nat.leqFalseOfLess b x (Nat.lessTrans b a x f.read h.read))))
 
 theorem Nat.minLeLeft (m: Nat) (n: Nat): Nat.min m n ≤ m :=
-  Bool.inspect (Nat.leq m n) (c => Bool.ifThenElse c (u => m) (u => n) ≤ m) (t => Nat.leRefl m) (f => Nat.lessLe n m (Nat.leqFalse m n f))
+  Bool.inspect (Nat.leq m n) (c => Bool.ifThenElse c (u => m) (u => n) ≤ m) (t => Nat.leRefl m) (f => Nat.lessLe n m f.read)
 
 theorem Nat.minLeRight (m: Nat) (n: Nat): Nat.min m n ≤ n :=
   Bool.inspect (Nat.leq m n) (c => Bool.ifThenElse c (u => m) (u => n) ≤ n) (t => t) (f => Nat.leRefl n)

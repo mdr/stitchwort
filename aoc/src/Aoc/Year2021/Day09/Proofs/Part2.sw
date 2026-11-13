@@ -113,8 +113,8 @@ theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (l
   match steps with
     | [] => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite path.read in locationOpen))
     | [next, ..rest] =>
-      let near := Bool.andLeft path
-      let nextOpen := Bool.andLeft (Bool.andRight path)
+      let near := path.left
+      let nextOpen := path.right.left
       match h: map.heightAt next with
         | Some other =>
           let nextCell := memCellsOfHeight map next other h

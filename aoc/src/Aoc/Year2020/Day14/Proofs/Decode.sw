@@ -48,14 +48,14 @@ theorem fitDecoded (mask: List MaskBit) (address bits: List Bool) (sameAddress: 
   match mask, address, bits with
     | [], [], [] => Inl rfl
     | [Off, ..mask], [bit, ..address], [chosen, ..bits] =>
-      rewrite DecEq.sound (Bool.andLeft fit) in
-        List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)) (Cons bit)
+      rewrite fit.left.read in
+        List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) fit.right) (Cons bit)
     | [On, ..mask], [bit, ..address], [chosen, ..bits] =>
-      rewrite Bool.andLeft fit in
-        List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)) (Cons True)
+      rewrite fit.left in
+        List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) fit.right) (Cons True)
     | [X, ..mask], [bit, ..address], [chosen, ..bits] =>
       let rest := decodeBits mask address
-      let inRest := fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)
+      let inRest := fitDecoded mask address bits (omega) (omega) fit.right
       match chosen with
         | False => List.memAppendLeft [False, ..bits] (rest.map (Cons False)) (rest.map (Cons True)) (List.memMap rest bits inRest (Cons False))
         | True => List.memAppendRight [True, ..bits] (rest.map (Cons False)) (rest.map (Cons True)) (List.memMap rest bits inRest (Cons True))
@@ -78,10 +78,10 @@ theorem decodeSound (mask: Mask) (address: Nat) (target: Nat) (member: target âˆ
 
 theorem decodeComplete (mask: Mask) (address: Nat) (target: Nat) (decodes: Spec.Decodes mask address target = True): target âˆˆ mask.decode address :=
   let width := mask.bits.length
-  let below: target < Nat.pow 2 width := omega [Bool.andLeft decodes]
+  let below: target < Nat.pow 2 width := omega [decodes.left]
   let listed :=
     fitDecoded mask.bits (Nat.toBits width address) (Nat.toBits width target) (Nat.toBitsLength width address) (Nat.toBitsLength width target)
-      (Bool.andRight decodes)
+      decodes.right
   rewrite <- Nat.fromBitsToBits width target below in List.memMap _ (Nat.toBits width target) listed Nat.fromBits
 
 --| The decoder's list holds an address exactly when the spec's write reaches it.
@@ -92,5 +92,5 @@ theorem decodeContains (mask: Mask) (address: Nat) (target: Nat): (mask.decode a
       match contains: (mask.decode address).contains target with
         | True =>
           Void.exfalso
-            (Bool.trueNotFalse (Eq.trans (Eq.sym (decodeSound mask address target ((List.memContains (mask.decode address) target).forward contains))) decodes))
+            (Bool.trueNotFalse (Eq.trans (Eq.sym (decodeSound mask address target contains.read)) decodes))
         | False => rfl

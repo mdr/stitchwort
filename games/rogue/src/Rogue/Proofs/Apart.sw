@@ -32,7 +32,7 @@ theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monst
     match same: monster.position == position with
       | False =>
         match inside with
-          | Inl here => DecEq.soundFalse monster.position position same here
+          | Inl here => same.read here
           | Inr later => vacantNotMem position others vacant later
 
 --| A monster never chooses another monster's cell.

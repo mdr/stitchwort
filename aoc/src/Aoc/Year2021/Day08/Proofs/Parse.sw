@@ -53,10 +53,10 @@ theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiri
   let Both first (Both second third) := ok
   let wiresSorted := List.sortPerm (segments.map wiring)
   let wired: IsWiring wiring :=
-    List.permSym segments (segments.map wiring) (rewrite DecEq.sound first at wiresSorted in wiresSorted)
+    List.permSym segments (segments.map wiring) (rewrite first.read at wiresSorted in wiresSorted)
   let digitsSorted := List.sortPerm (patterns.map decode)
   let digitsOnce: List.Perm (patterns.map decode) digits :=
-    List.permSym digits (patterns.map decode) (rewrite DecEq.sound second at digitsSorted in digitsSorted)
+    List.permSym digits (patterns.map decode) (rewrite second.read at digitsSorted in digitsSorted)
   let showsDecoded := (pattern: Pattern) (m: pattern ∈ patterns ++ entry.outputs) =>
     readShown entry pattern wired (third.read pattern m)
   let patternsShown: patterns.map (shown wiring) = (patterns.map decode).map Some :=

@@ -418,7 +418,7 @@ theorem Parse.readsChar (expected: Char): Parse.Reads (() => Parse.char expected
   Parse.readsWeaken (Parse.readsMap (() => Parse.satisfy "'${expected}'" (== expected)) (char => ()) _ (Parse.readsSatisfy))
     (read u h =>
       match h with
-        | Witness char (Both (Both one same) unit) => rewrite one, DecEq.sound same in rfl)
+        | Witness char (Both (Both one same) unit) => rewrite one, same.read in rfl)
 
 theorem Parse.readsText (expected: Text): Parse.Reads (() => Parse.text expected) (read u => read = expected.toList) :=
   Parse.readsWeaken (Parse.readsBind (() => Parse.literal expected.toList)

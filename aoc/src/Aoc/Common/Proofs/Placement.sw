@@ -11,14 +11,14 @@ import Std (Bool, DecEq, Eq, List, Nat, Void)
 --| A member that is not the head is in the rest.
 theorem memRestOfNe [auto eq: DecEq k] (key: k) (first: k) (rest: List k) (member: key ∈ [first, ..rest]) (other: (key == first) = False): key ∈ rest :=
   match member with
-    | Inl equal => Void.exfalso (DecEq.soundFalse key first other (Eq.sym equal))
+    | Inl equal => Void.exfalso (other.read (Eq.sym equal))
     | Inr later => later
 
 --| A key other than the first reads from the rest.
 theorem valueAtLater [auto eq: DecEq k] (fallback: v) (first: k) (rest: List k) (value: v) (values: List v) (key: k) (other: key ≠ first):
     valueAt fallback [first, ..rest] [value, ..values] key = valueAt fallback rest values key :=
   match same: key == first with
-    | True => Void.exfalso (other (DecEq.sound same))
+    | True => Void.exfalso (other same.read)
     | False => rfl
 
 --| Reading each of distinct keys gives the values, in order.
@@ -39,7 +39,7 @@ theorem valueAtRelated [auto eq: DecEq k] (fallback: v) (related: v → k → Pr
     List.All2 related values keys → ∀ (key: k) => key ∈ keys → related (valueAt fallback keys values key) key
   | [first, ..rest], [value, ..values], Both here later, key, member =>
     match same: key == first with
-      | True => rewrite DecEq.sound same in here
+      | True => rewrite same.read in here
       | False => valueAtRelated fallback related rest values later key (memRestOfNe key first rest member same)
   | [], values, related2, key, member => Void.exfalso member
   | [first, ..rest], [], related2, key, member => Void.exfalso related2
@@ -63,7 +63,7 @@ theorem valueAtInjective [auto eq: DecEq k] (fallback: v): ∀ (keys: List k) (v
     match firstHere: first == head with
       | True =>
         match secondHere: second == head with
-          | True => Eq.trans (DecEq.sound firstHere) (Eq.sym (DecEq.sound secondHere))
+          | True => Eq.trans firstHere.read (Eq.sym secondHere.read)
           | False =>
             Void.exfalso (fresh (rewrite same in valueAtMember fallback rest values (Nat.succInjective lengths) second (memRestOfNe second head rest inSecond secondHere)))
       | False =>

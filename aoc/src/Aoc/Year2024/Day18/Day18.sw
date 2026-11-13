@@ -62,7 +62,7 @@ def MemorySpace.enter (memory: MemorySpace) (position: Position): Option Nat := 
 theorem MemorySpace.enterListed (memory: MemorySpace) (position: Position) (cost: Nat) (found: memory.enter position = Some cost):
     position ∈ positions memory.size memory.size :=
   match safe: memory.isSafe position with
-    | True => memPositionsOfWithin memory.size memory.size position (Bool.andLeft safe)
+    | True => memPositionsOfWithin memory.size memory.size position safe.left
 
 --| The memory space as a graph for std's search: a step from each position
 --| to each safe neighbour (up, right, down or left).

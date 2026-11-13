@@ -55,13 +55,13 @@ theorem heightChars (chars: List Char): heightValid (Text.fromList chars) = heig
     match cm: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "cm") == "cm" with
       | True =>
         let isCm := Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm;
-        rewrite DecEq.sound isCm, betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
+        rewrite isCm.read, betweenToNat 150 193 (chars.take (chars.length - 2)) in cases
       | False =>
         rewrite Text.stripSuffixDrop (Text.fromList chars) "in" in
         match inches: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "in") == "in" with
           | True =>
             let isIn := Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches;
-            rewrite DecEq.sound isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
+            rewrite isIn.read, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
           | False =>
             rewrite Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm, Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches in cases
 

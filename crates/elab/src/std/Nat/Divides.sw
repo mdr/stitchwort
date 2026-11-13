@@ -101,7 +101,7 @@ theorem Nat.dividesSmall (d n: Nat) (h1: 1 ≤ n) (h2: n < d): Nat.divides d n =
 theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 ≤ n) (h: Nat.divides d n = True): d ≤ n :=
   match e: Nat.leq d n with
     | True => rfl
-    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Nat.dividesSmall d n hn (Nat.leqFalse d n e))))
+    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Nat.dividesSmall d n hn e.read)))
 
 --| The positive divisors of `n`, ascending: `Nat.divisors 12` is
 --| `[1, 2, 3, 4, 6, 12]`. Every number divides 0, so there is no list to give:

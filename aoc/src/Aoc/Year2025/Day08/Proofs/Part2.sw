@@ -139,7 +139,7 @@ theorem countOneOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled
   let r := c.labelOf 0
   let same: ∀ (b: Nat) => b < n → c.labelOf b = r :=
     b h => DecEq.sound ((labelsTellOf n done c inv b 0 h some).backward (one b 0 h some))
-  rewrite counted.counts, same _ in countOne (b => r == b) n r (DecEq.refl r) (counted.labelBelow 0 some) (b h => Eq.sym (h.read))
+  rewrite counted.counts, same _ in countOne (b => r == b) n r (DecEq.refl r) (counted.labelBelow 0 some) (b h => Eq.sym h.read)
 
 --| With one box its own label, every box has that label, so all are joined.
 theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)

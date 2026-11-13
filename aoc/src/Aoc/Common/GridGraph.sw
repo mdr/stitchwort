@@ -56,8 +56,8 @@ theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat) (posi
 theorem memPositionsOfWithin (height: Nat) (width: Nat) (position: Position) (inside: position.within height width = True): position ∈ positions height width :=
   match position with
     | { row, column } =>
-      let below: row < height := Bool.andLeft inside
-      let before: column < width := Bool.andRight inside
+      let below: row < height := inside.left
+      let before: column < width := inside.right
       List.memFlatMapIntro (row => List.range 0 width |> .map (column => ({ row, column }: Position))) row { row, column } (List.range 0 height)
         (List.memRangeFromIntro row height 0 (omega) (omega [below]))
         (List.memMap (List.range 0 width) column (List.memRangeFromIntro column width 0 (omega) (omega [before])) (column => ({ row, column }: Position)))
@@ -109,8 +109,8 @@ theorem boxIndexBelow (height: Nat) (width: Nat) (position: Position) (number: N
     | { row, column } =>
       match inside: ({ row, column }: Position).within height width with
         | True =>
-          let below: row < height := Bool.andLeft inside
-          let before: column < width := Bool.andRight inside
+          let below: row < height := inside.left
+          let before: column < width := inside.right
           let rows := Nat.leMulRight (row + 1) height width (omega [below])
           let spread: (row + 1) * width = row * width + width := ring
           omega [Option.someInjective numbered, rows, spread, before]
@@ -123,6 +123,6 @@ theorem boxIndexRoundTrip (height: Nat) (width: Nat) (position: Position) (numbe
     | { row, column } =>
       match inside: ({ row, column }: Position).within height width with
         | True =>
-          let before: column < width := Bool.andRight inside
+          let before: column < width := inside.right
           rewrite <- Option.someInjective numbered in
             rewrite Nat.modUnique (row * width + column) width row column before rfl, Nat.mulAddDivSmall row width column before in rfl

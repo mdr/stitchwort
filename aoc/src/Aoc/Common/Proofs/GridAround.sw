@@ -22,10 +22,10 @@ theorem countAround (rows: List (List a)) (keep: a → Bool) (at: Position):
       (List.distinctFilter positions near (cellPositionsDistinct rows))
       (q member =>
         let (Both inAround passes) := List.memFilter at.around held member
-        List.memFilterIntro positions near (onGrid q passes) (Bool.andIntro (aroundTouching at q inAround) passes))
+        List.memFilterIntro positions near (onGrid q passes) (Both (aroundTouching at q inAround) passes))
       (q member =>
         let (Both inGrid both) := List.memFilter positions near member
-        List.memFilterIntro at.around held (touchingAround at q (Bool.andLeft both)) (Bool.andRight both))
+        List.memFilterIntro at.around held (touchingAround at q both.left) both.right)
   calc at.around.count held
     _ = (at.around.filter held).length := Eq.sym (List.lengthFilter at.around held)
     _ = (positions.filter near).length := List.permLength _ _ same
