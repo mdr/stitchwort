@@ -708,6 +708,9 @@ struct Parser<'t> {
     /// The constructs finished so far, for the lossless tree, if it was
     /// asked for (`crate::tree`, "Marks").
     marks: Option<Vec<Mark>>,
+    /// The constructs [`Self::open`] started and [`Self::close`] hasn't
+    /// finished, the latest last: where each starts, and its kind.
+    open: Vec<(u32, NodeKind)>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -865,6 +868,7 @@ impl<'t> Parser<'t> {
             keep_header: false,
             header: None,
             marks: None,
+            open: Vec::new(),
         }
     }
 
@@ -884,17 +888,21 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// [`Self::node`] for a construct whose first token, already read, has
-    /// the span `start`.
+    /// [`Self::node`] for a construct whose first token, already read,
+    /// starts where `start` does. The expression parser's recursive
+    /// functions use it with a span they keep anyway, so that marking costs
+    /// them no stack.
     #[inline(always)]
     fn node_at(&mut self, start: Span, kind: NodeKind) {
         if self.marks.is_some() {
-            let first = (0..self.pos)
-                .rev()
-                .find(|&i| self.tokens[i].span.start == start.start)
-                .unwrap_or(0);
-            self.record(first as u32, kind);
+            self.record_at(start, kind);
         }
+    }
+
+    #[inline(never)]
+    fn record_at(&mut self, start: Span, kind: NodeKind) {
+        let first = self.tokens[..self.pos].partition_point(|t| t.span.start < start.start);
+        self.record(first as u32, kind);
     }
 
     #[inline(never)]
@@ -903,6 +911,87 @@ impl<'t> Parser<'t> {
         if let Some(marks) = &mut self.marks {
             marks.push(Mark { kind, start, end });
         }
+    }
+
+    /// Where the operand that ends at the current token starts: at the
+    /// construct marked last, if that ends here, or else at the token
+    /// before, an operand of one token. Every operand of more than one token
+    /// is marked, and finishes after everything inside it, so the last mark
+    /// ending here is the whole operand.
+    ///
+    /// Operators find their left operand's start this way rather than keep
+    /// it in a local, which would grow the frames of the recursive
+    /// functions nested expressions pile up (see [`Result`]).
+    fn operand_start(&self) -> u32 {
+        let end = self.pos as u32;
+        match self.marks.as_ref().and_then(|marks| marks.last()) {
+            Some(mark) if mark.end == end => mark.start,
+            _ => end.saturating_sub(1),
+        }
+    }
+
+    /// [`Self::node`] for a construct that is the operand just read:
+    /// one that only turns out to be one after the fact.
+    #[inline(always)]
+    fn node_around_operand(&mut self, kind: NodeKind) {
+        if self.marks.is_some() {
+            self.record(self.operand_start(), kind);
+        }
+    }
+
+    /// Starts a construct whose first part is the operand just read, at an
+    /// operator: `a` in `a + b`. [`Self::close`] finishes it.
+    #[inline(always)]
+    fn open(&mut self, kind: NodeKind) {
+        if self.marks.is_some() {
+            self.record_open(kind);
+        }
+    }
+
+    #[inline(never)]
+    fn record_open(&mut self, kind: NodeKind) {
+        let start = self.operand_start();
+        self.open.push((start, kind));
+    }
+
+    /// Finishes the construct [`Self::open`] started last, at the last token
+    /// read: every construct opened inside it was closed before it, unless
+    /// an error stopped the parse, which drops the declaration's marks.
+    #[inline(always)]
+    fn close(&mut self) {
+        if self.marks.is_some() {
+            self.record_close();
+        }
+    }
+
+    #[inline(never)]
+    fn record_close(&mut self) {
+        if let Some((start, kind)) = self.open.pop() {
+            self.record(start, kind);
+        }
+    }
+
+    /// `sections::widen` on an expression that starts with a method
+    /// section, which then becomes the section's body: the `Section` node
+    /// moves out from the section's head to the whole expression.
+    #[inline(never)]
+    fn widen_section(&mut self, expr: &mut Expr) {
+        if !sections::widen(expr) {
+            return;
+        }
+        let start = self.operand_start();
+        let Some(marks) = &mut self.marks else {
+            return;
+        };
+        if let Some(head) = marks
+            .iter_mut()
+            .rev()
+            .find(|m| m.kind == NodeKind::Section && m.start == start)
+        {
+            // Empty, so the tree leaves it out.
+            head.end = head.start;
+        }
+        self.record(start, NodeKind::Section);
     }
 
     /// An expression whose own structure isn't marked yet, in an
@@ -1337,6 +1426,7 @@ impl<'t> Parser<'t> {
             return Err(self.tuple_annotation().into());
         }
         let end = self.expect(Tok::RParen, "`)`")?.span;
+        self.node_at(span, NodeKind::Tuple);
         let mut last = items.pop().expect("two components");
         while let Some(first) = items.pop() {
             // The outermost tuple covers the brackets too.
@@ -2540,7 +2630,7 @@ impl<'t> Parser<'t> {
                 // `let x := e; body` on a line is the expression `let`.
                 if self.peek() == Some(&Tok::Semi) {
                     let expr = self.let_body(stmt)?;
-                    self.node(start, NodeKind::Unmarked);
+                    self.node(start, NodeKind::LetExpr);
                     Ok(Stmt::Expr(expr))
                 } else {
                     Ok(stmt)
@@ -3755,8 +3845,11 @@ impl<'t> Parser<'t> {
     /// expression (`((…(0)…))`) holds on the stack.
     #[inline(never)]
     fn expression_let(&mut self) -> Result<Expr> {
+        let start = self.mark();
         let stmt = self.let_statement()?;
-        self.let_body(stmt)
+        let expr = self.let_body(stmt)?;
+        self.node(start, NodeKind::LetExpr);
+        Ok(expr)
     }
 
     fn expr_inline(&mut self) -> Result<Expr> {
@@ -3803,12 +3896,15 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Iff) {
             self.iff(&mut lhs)?;
         }
-        if self.eat(&Tok::Arrow) {
+        if self.peek() == Some(&Tok::Arrow) {
+            self.open(NodeKind::Arrow);
+            self.bump();
             let rhs = self.result_type()?;
+            self.close();
             return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
         }
         if section {
-            sections::widen(&mut lhs);
+            self.widen_section(&mut lhs);
         }
         if self.peek() == Some(&Tok::Semi) && self.sequence_ahead() {
             return self.sequence(lhs);
@@ -3842,6 +3938,7 @@ impl<'t> Parser<'t> {
     /// does.
     #[inline(never)]
     fn sequence(&mut self, first: Expr) -> Result<Expr> {
+        let start = self.operand_start();
         let semi = self.bump().span;
         let at_end = self
             .peek()
@@ -3858,6 +3955,7 @@ impl<'t> Parser<'t> {
             return Err(error(semi, message).with_note(note).into());
         }
         let rest = self.expr()?;
+        self.node(start, NodeKind::Seq);
         Ok(Expr::Seq(Box::new(first), Box::new(rest)))
     }
 
@@ -3867,6 +3965,7 @@ impl<'t> Parser<'t> {
     /// is.
     #[inline(never)]
     fn iff(&mut self, operand: &mut Expr) -> Result<()> {
+        let start = self.operand_start();
         let op = self.bump().span;
         let rhs = if self.at_quantifier() {
             self.quantifier()?
@@ -3883,6 +3982,7 @@ impl<'t> Parser<'t> {
                 .with_note("`p <-> q <-> r` could mean either grouping: add brackets")
                 .into());
         }
+        self.node(start, NodeKind::Iff);
         let lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
         let iff = Expr::Var(Name {
             text: "Std.Iff".into(),
@@ -4245,13 +4345,22 @@ impl<'t> Parser<'t> {
         let first = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
         // `a || b && c || d` is gathered as `[[a], [b, c], [d]]`.
         let mut disjuncts = vec![vec![first]];
+        // Where each operand starts, and whether it starts a disjunct, if
+        // marks are being recorded.
+        let mut starts = Vec::new();
+        if self.marks.is_some() {
+            starts.push((self.operand_start(), true));
+        }
         loop {
             match self.peek() {
                 Some(Tok::AndAnd) => {}
                 Some(Tok::OrOr) => disjuncts.push(Vec::new()),
                 _ => break,
             }
-            self.bump();
+            let or = self.bump().tok == Tok::OrOr;
+            if self.marks.is_some() {
+                starts.push((self.mark(), or));
+            }
             // `p && exists (x: T) => q`: the `exists` takes the rest, as
             // does a `forall`.
             let operand = if self.at_quantifier() {
@@ -4261,6 +4370,7 @@ impl<'t> Parser<'t> {
             };
             disjuncts.last_mut().expect("never empty").push(operand);
         }
+        self.mark_logic_chain(&starts);
         let right = |op: BinOp, items: Vec<Expr>| {
             items
                 .into_iter()
@@ -4274,6 +4384,37 @@ impl<'t> Parser<'t> {
             .collect();
         *operand = right(BinOp::Or, conjunctions);
         Ok(())
+    }
+
+    /// The `Binary` nodes of a chain of `&&` and `||` that has just been
+    /// read, given where each operand starts and whether it starts a
+    /// disjunct. Both group to the right, `&&` tighter: `a || b && c || d`
+    /// is `a || ((b && c) || d)`.
+    #[inline(never)]
+    fn mark_logic_chain(&mut self, starts: &[(u32, bool)]) {
+        let end = self.pos as u32;
+        let firsts: Vec<usize> = (0..starts.len()).filter(|&i| starts[i].1).collect();
+        for (k, &first) in firsts.iter().enumerate() {
+            let next = firsts.get(k + 1).copied();
+            // A disjunct before another ends at the `||` before the next.
+            let (last, until) = match next {
+                Some(next) => (next, starts[next].0 - 1),
+                None => (starts.len(), end),
+            };
+            for &(start, _) in &starts[first..last - 1] {
+                self.record_range(start, until, NodeKind::Binary);
+            }
+            if next.is_some() {
+                self.record_range(starts[first].0, end, NodeKind::Binary);
+            }
+        }
+    }
+
+    /// Records a construct with both ends given.
+    fn record_range(&mut self, start: u32, end: u32, kind: NodeKind) {
+        if let Some(marks) = &mut self.marks {
+            marks.push(Mark { kind, start, end });
+        }
     }
 
     /// Whether a `|>` comes next: on this line, or starting a line (which a
@@ -4299,6 +4440,7 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn pipe_chain(&mut self, operand: &mut Expr) -> Result<()> {
         let mut lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
+        let start = self.operand_start();
         let first = lhs.span().start;
         let indent = self.line_indent(self.tokens.partition_point(|t| t.span.start < first));
         loop {
@@ -4319,10 +4461,11 @@ impl<'t> Parser<'t> {
                 let section = self.peek() == Some(&Tok::Dot);
                 let mut rhs = self.append_expr()?;
                 if section {
-                    sections::widen(&mut rhs);
+                    self.widen_section(&mut rhs);
                 }
                 rhs
             };
+            self.node(start, NodeKind::Pipe);
             lhs = piped(lhs, rhs);
         }
         *operand = lhs;
@@ -4373,6 +4516,7 @@ impl<'t> Parser<'t> {
             let start = self.here();
             self.bump();
             let rhs = self.if_expr(start)?;
+            self.node(lhs_start as u32, NodeKind::Binary);
             return Ok(binary(op, flip, lhs, rhs));
         }
         let mut rhs = self.range_expr()?;
@@ -4393,19 +4537,21 @@ impl<'t> Parser<'t> {
                     | Tok::NotIn
             )
         ) {
+            self.node(lhs_start as u32, NodeKind::Binary);
             return Ok(binary(op, flip, lhs, rhs));
         }
-        self.comparison_chain(lhs, (op, flip, first_op, first_symbol), rhs)
+        self.comparison_chain(lhs, lhs_start, (op, flip, first_op, first_symbol), rhs)
     }
 
-    /// The rest of `a <= b < c …`, after `a <= b` (SW-1339, D2386): the
-    /// links are joined as `&&` would join them, with a middle operand
-    /// that is more than a name or a literal bound by a `let` so it runs
-    /// once (see [`chain`]).
+    /// The rest of `a <= b < c …`, after `a <= b`, where `a` starts at
+    /// token `first_start` (SW-1339, D2386): the links are joined as `&&`
+    /// would join them, with a middle operand that is more than a name or a
+    /// literal bound by a `let` so it runs once (see [`chain`]).
     #[inline(never)]
     fn comparison_chain(
         &mut self,
         first: Expr,
+        first_start: usize,
         (op, flip, first_op, first_symbol): (BinOp, bool, Span, &'static str),
         second: Expr,
     ) -> Result<Expr> {
@@ -4512,6 +4658,7 @@ impl<'t> Parser<'t> {
             operands.push(operand);
             links.push((op, flip));
         }
+        self.node(first_start as u32, NodeKind::Chain);
         Ok(chain(operands, &links))
     }
 
@@ -4544,6 +4691,7 @@ impl<'t> Parser<'t> {
         if self.at_pipe() {
             self.pipe_chain(&mut rhs)?;
         }
+        self.node(lhs_start as u32, NodeKind::Membership);
         let member = Expr::Binary(BinOp::In(op), Box::new(lhs), Box::new(rhs));
         if !negated {
             return Ok(member);
@@ -4563,8 +4711,10 @@ impl<'t> Parser<'t> {
             Some(Tok::DotDot) => return Err(self.bare_range().into()),
             _ => return Ok(lhs),
         };
+        self.open(NodeKind::Range);
         let first = self.bump().span;
         let rhs = self.append_expr()?;
+        self.close();
         if let Some(Tok::DotDotLt | Tok::DotDotEq) = self.peek() {
             return Err(error(self.here(), "ranges don't chain")
                 .with_label(first, "this range already has both ends")
@@ -4602,8 +4752,10 @@ impl<'t> Parser<'t> {
         if self.peek() != Some(&Tok::PlusPlus) {
             return Ok(lhs);
         }
+        self.open(NodeKind::Binary);
         self.bump();
         let rhs = self.append_expr()?;
+        self.close();
         Ok(Expr::Binary(BinOp::Append, Box::new(lhs), Box::new(rhs)))
     }
 
@@ -4616,8 +4768,10 @@ impl<'t> Parser<'t> {
                 Some(Tok::Minus) => BinOp::Sub,
                 _ => return Ok(lhs),
             };
+            self.open(NodeKind::Binary);
             self.bump();
             let rhs = self.mul_expr()?;
+            self.close();
             lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
         }
     }
@@ -4632,8 +4786,10 @@ impl<'t> Parser<'t> {
                 Some(Tok::Percent) => BinOp::Mod,
                 _ => return Ok(lhs),
             };
+            self.open(NodeKind::Binary);
             self.bump();
             let rhs = self.unary()?;
+            self.close();
             lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
         }
     }
@@ -4660,6 +4816,7 @@ impl<'t> Parser<'t> {
             self.deeper()?;
             let start = self.bump().span;
             let operand = self.unary()?;
+            self.node_at(start, NodeKind::Prefix);
             return Ok(prefix_op(prefix == &Tok::Bang, start, operand));
         }
         self.app()
@@ -4675,22 +4832,36 @@ impl<'t> Parser<'t> {
             let end = self.tokens[self.pos - 1].span;
             expr = Expr::Bracketed(Box::new(expr), start.to(end));
         }
-        while self.starts_atom() {
-            if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
-                return Err(self.section_line().into());
+        // `f a b` is one `App` node, however many arguments.
+        if self.starts_atom() {
+            self.open(NodeKind::App);
+            loop {
+                if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
+                    return Err(self.section_line().into());
+                }
+                if matches!(self.peek(), Some(Tok::Upper(_)))
+                    && self.peek_at(1) == Some(&Tok::LBrace)
+                {
+                    expr = self.brace_argument(expr)?;
+                } else {
+                    let arg = self.atom(false)?;
+                    if section && let Expr::Lam(_, body, span) = &mut expr {
+                        *span = span.to(arg.span());
+                        let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
+                        **body = Expr::App(Box::new(f), Box::new(arg));
+                    } else {
+                        expr = Expr::App(Box::new(expr), Box::new(arg));
+                    }
+                }
+                if !self.starts_atom() {
+                    break;
+                }
             }
-            if matches!(self.peek(), Some(Tok::Upper(_))) && self.peek_at(1) == Some(&Tok::LBrace) {
-                expr = self.brace_argument(expr)?;
-                continue;
-            }
-            let arg = self.atom(false)?;
-            if section && let Expr::Lam(_, body, span) = &mut expr {
-                *span = span.to(arg.span());
-                let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
-                **body = Expr::App(Box::new(f), Box::new(arg));
-                continue;
-            }
-            expr = Expr::App(Box::new(expr), Box::new(arg));
+            self.close();
+        }
+        // A section at the head takes the arguments: `.drop 1`.
+        if section {
+            self.node_around_operand(NodeKind::Section);
         }
         if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
             return Err(self.cases_in_argument().into());
@@ -4820,6 +4991,8 @@ impl<'t> Parser<'t> {
             if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call() {
                 let open = self.bump().span;
                 let close = self.bump().span;
+                self.node_at(open, NodeKind::Unit);
+                self.node_at(start, NodeKind::App);
                 expr = Expr::App(Box::new(expr), Box::new(Expr::Unit(open.to(close))));
             }
             if !(self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos)) {
@@ -4849,9 +5022,15 @@ impl<'t> Parser<'t> {
                 );
             }
             self.pos += 2;
+            self.node_at(start, NodeKind::FieldAccess);
             expr = Expr::Field(Box::new(expr), field);
         }
         if section {
+            // At the head of an application, `app` marks it, around the
+            // arguments.
+            if !head {
+                self.node_at(start, NodeKind::Section);
+            }
             let span = start.to(expr.span());
             let param = Name {
                 text: SECTION.into(),
@@ -4882,6 +5061,7 @@ impl<'t> Parser<'t> {
             }
         };
         self.pos += 1;
+        self.node_at(dot, NodeKind::FieldAccess);
         let recv = Expr::Var(Name {
             text: SECTION.into(),
             span: dot,
@@ -4902,6 +5082,7 @@ impl<'t> Parser<'t> {
         };
         let ctor = ctor.clone();
         let mut record = self.record_expr()?;
+        self.node_at(ctor.span, NodeKind::CtorFields);
         if matches!(&record, Expr::Record { base: Some(_), .. }) {
             return Ok(Expr::App(Box::new(Expr::Var(ctor)), Box::new(record)));
         }
@@ -4928,6 +5109,7 @@ impl<'t> Parser<'t> {
             _ => unreachable!("an uppercase name is a variable"),
         };
         let mut record = self.record_expr()?;
+        self.node_at(ctor.span, NodeKind::CtorFields);
         if matches!(&record, Expr::Record { base: Some(_), .. }) {
             return Ok(Expr::App(
                 Box::new(Expr::App(Box::new(f), Box::new(Expr::Var(ctor)))),
@@ -4959,6 +5141,7 @@ impl<'t> Parser<'t> {
     fn record_body(&mut self, start: Span) -> Result<Expr> {
         if self.peek() == Some(&Tok::RBrace) {
             let end = self.bump().span;
+            self.node_at(start, NodeKind::Record);
             return Ok(Expr::Record {
                 base: None,
                 fields: Vec::new(),
@@ -4984,7 +5167,9 @@ impl<'t> Parser<'t> {
             }
             let name = self.lower("a field name")?;
             let value = if self.eat(&Tok::Equals) {
-                self.expr()?
+                let value = self.expr()?;
+                self.node_at(name.span, NodeKind::RecordField);
+                value
             } else {
                 Expr::Var(name.clone())
             };
@@ -4994,6 +5179,7 @@ impl<'t> Parser<'t> {
             }
         }
         let end = self.expect(Tok::RBrace, "`,` or `}`")?.span;
+        self.node_at(start, NodeKind::Record);
         Ok(Expr::Record {
             base,
             fields,
@@ -5030,6 +5216,7 @@ impl<'t> Parser<'t> {
             }
         }
         let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
+        self.node_at(span, NodeKind::List);
         Ok(Expr::List(items, span.to(end)))
     }
 
@@ -5051,6 +5238,7 @@ impl<'t> Parser<'t> {
             return Err(error(self.here(), "expected a list after `..`, as in `[x, ..xs]`").into());
         }
         let list = self.expr()?;
+        self.node_at(dots, NodeKind::Spread);
         let span = dots.to(list.span());
         Ok(Expr::Spread(Box::new(list), span))
     }
@@ -5125,6 +5313,7 @@ impl<'t> Parser<'t> {
                 break;
             }
         }
+        self.node_at(open, NodeKind::Interpolated);
         let mut items = items.into_iter().rev();
         let mut expr = items.next().expect("a string has at least one piece");
         for lhs in items {
@@ -5159,6 +5348,7 @@ impl<'t> Parser<'t> {
         } else {
             self.atom(false)?
         };
+        self.node_at(start, NodeKind::Prefix);
         let span = start.to(operand.span());
         Ok(Expr::Neg(Box::new(operand), span, form))
     }
@@ -5172,6 +5362,7 @@ impl<'t> Parser<'t> {
         }
         let start = self.bump().span;
         let operand = self.atom(false)?;
+        self.node_at(start, NodeKind::Prefix);
         Ok(prefix_op(true, start, operand))
     }
 
@@ -5210,6 +5401,7 @@ impl<'t> Parser<'t> {
                         let path = path.clone();
                         let end = self.here();
                         self.bump();
+                        self.node_at(span, NodeKind::Include);
                         Ok(Expr::Include(path, span.to(end)))
                     }
                     _ => Err(self
@@ -5277,6 +5469,7 @@ impl<'t> Parser<'t> {
                         .ok()
                         .filter(|&l| l <= MAX_UNIVERSE_LEVEL)
                         .ok_or_else(too_large)?;
+                    self.node_at(span, NodeKind::Universe);
                     return Ok(Expr::Type(level, span.to(end)));
                 }
                 Ok(Expr::Type(0, span))
@@ -5288,6 +5481,7 @@ impl<'t> Parser<'t> {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
                 let end = self.bump().span;
+                self.node_at(span, NodeKind::Unit);
                 Ok(Expr::Unit(span.to(end)))
             }
             // `(x := e)`: an explicit argument by name
@@ -5301,6 +5495,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 let value = self.expr()?;
                 let end = self.expect(Tok::RParen, "`)`")?.span;
+                self.node_at(span, NodeKind::NamedArg);
                 Ok(Expr::NamedArg(
                     name,
                     Box::new(value),
@@ -5321,9 +5516,11 @@ impl<'t> Parser<'t> {
                         return Err(self.tuple_annotation().into());
                     }
                     let end = self.expect(Tok::RParen, "`)`")?.span;
+                    self.node_at(span, NodeKind::Annotation);
                     return Ok(Expr::Ann(Box::new(inner), Box::new(ty), span.to(end)));
                 }
                 self.expect(Tok::RParen, "`)`")?;
+                self.node_at(span, NodeKind::Paren);
                 Ok(inner)
             }
             Some(Tok::LBracket)
@@ -5345,6 +5542,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 let value = self.expr()?;
                 let end = self.expect(Tok::RBracket, "`]`")?.span;
+                self.node_at(span, NodeKind::NamedArg);
                 Ok(Expr::NamedArg(
                     name,
                     Box::new(value),

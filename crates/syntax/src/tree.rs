@@ -54,6 +54,15 @@
 //! the same way. A parse that fails partway leaves its unfinished
 //! constructs unmarked, which is why nothing has to be undone.
 //!
+//! An operator only learns it has a left operand once the operand is read:
+//! `a` in `a + b`. Rather than every function the operand passes through
+//! keeping its start (each such local grows the frames nested expressions
+//! pile up), the operator reads it from the marks: every operand of more
+//! than one token is marked, and is marked last, so the last mark ending at
+//! the operator is the whole operand; if none does, the operand is one
+//! token. The operator then holds that start on a small stack of open
+//! constructs, beside the marks, until its right operand is read.
+//!
 //! The marks are recorded only when asked for ([`crate::parse_tree`]): the
 //! parser holds an `Option` of the list, so with marks off each mark costs
 //! one test of `None`, and nothing is allocated.
@@ -166,6 +175,12 @@ pub enum NodeKind {
     // Expressions.
     /// `(e)`
     Paren,
+    /// `()`
+    Unit,
+    /// `Type 1`; `Type` alone is a token.
+    Universe,
+    /// `include "inputs/day04.txt"`
+    Include,
     /// `(a, b, c)`
     Tuple,
     /// `[a, b, ..xs]`
@@ -174,19 +189,29 @@ pub enum NodeKind {
     Spread,
     /// `{ x = 1, y }`, or an update `{ r | x = 1 }`.
     Record,
-    /// `x = 1` in a record literal or update.
+    /// `x = 1` in a record literal or update; a punned `x` is a token.
     RecordField,
-    /// `C { x = 1 }`
+    /// `C { x = 1 }` or `C { r | x = 1 }`: a constructor's name and a
+    /// `Record`.
     CtorFields,
-    /// `f a b`
+    /// `f a b`, one node however many arguments; `f()`, its argument a
+    /// `Unit`.
     App,
     /// `(x := e)` or `[x := e]` as an argument.
     NamedArg,
-    /// `e.f`
+    /// `e.f`; in a method section, `.f` (no receiver).
     FieldAccess,
-    /// `.f a`, a function of what is piped into it.
+    /// A method section: the function `x => x.f a` written `.f a`. It runs
+    /// from the `.` to the end of the function, its body: `.f a` (the
+    /// arguments of `.f` at the head of an application), or the whole of
+    /// `.id == id` (an expression that starts with a section). The `.f` is
+    /// a `FieldAccess` without a receiver.
     Section,
-    /// `a + b`, `a ∧ b`, `a = b` and every other binary operator.
+    /// `(+ 1)`, `(k +)`, `(&&)`: an operator as a function.
+    OperatorSection,
+    /// `a + b`, `a ∧ b`, `a = b` and every other binary operator. Each
+    /// node has one operator: `a + b + c` is `(a + b) + c` and
+    /// `a ++ b ++ c` is `a ++ (b ++ c)`, grouped as the operators group.
     Binary,
     /// `a ≤ b < c`, comparisons written as a chain.
     Chain,
@@ -194,9 +219,9 @@ pub enum NodeKind {
     Membership,
     /// `a ..< b`, `a ..= b`
     Range,
-    /// `-x`, `!b`, `¬p`
+    /// `-x`, `!b`, `¬p`, and a negative numeral `-1`.
     Prefix,
-    /// `x |> f`
+    /// `x |> f`; `x |> f |> g` is `(x |> f) |> g`.
     Pipe,
     /// `A -> B`
     Arrow,
@@ -224,9 +249,12 @@ pub enum NodeKind {
     Seq,
     /// `(let x := e; body)`
     LetExpr,
-    /// `"a${x}b"`, `"""…${x}…"""`
+    /// `"a${x}b"`, `"""…${x}…"""`: the pieces of text, which are tokens
+    /// holding the `${` and `}` around each interpolated expression, and the
+    /// expressions.
     Interpolated,
-    /// `${x}` in a text.
+    /// `${x}` in a text. Not used yet: the `${` and `}` are inside the text
+    /// pieces' tokens (SW-3171).
     Interpolation,
     /// `handle e with | op x, k => …`
     Handle,
@@ -852,7 +880,7 @@ Def
         k
       Guard
         if
-        Unmarked
+        Binary
           k
           >
           2
@@ -875,7 +903,7 @@ Theorem
   t
   ResultType
     :
-    Unmarked
+    Binary
       1
       =
       1
@@ -885,7 +913,7 @@ Theorem
       rfl
 "
         );
-        assert_eq!(tree.stats().unmarked, 14);
+        assert_eq!(tree.stats().unmarked, 12);
         // The comments stay with the tokens they were written beside.
         let first = tree.decls().next().unwrap();
         let mut leaves = Vec::new();
@@ -920,7 +948,7 @@ def f (n: Nat): Nat :=
         Unmarked
           m
         :=
-        Unmarked
+        Binary
           n
           +
           1
@@ -942,7 +970,7 @@ def f (n: Nat): Nat :=
           :=
           Unmarked
             k
-      Unmarked
+      App
         g
         m
 "
@@ -957,5 +985,161 @@ def f (n: Nat): Nat :=
         assert_eq!((stats.decls, stats.errors), (2, 1));
         let kinds: Vec<NodeKind> = tree.decls().map(|d| d.kind()).collect();
         assert_eq!(kinds, [NodeKind::Error, NodeKind::Def]);
+    }
+
+    /// A node on one line, `Kind[child child]`, a token as its text, and an
+    /// `Unmarked` node around one token left out.
+    fn compact(node: Node<'_>, source: &str) -> String {
+        let children: Vec<String> = node
+            .children()
+            .map(|child| match child {
+                Element::Node(n) => compact(n, source),
+                Element::Leaf(leaf) => source[leaf.text_range()].to_string(),
+            })
+            .collect();
+        match (node.kind(), children.as_slice()) {
+            (NodeKind::Unmarked, [one]) if !one.contains('[') => one.clone(),
+            (kind, _) => format!("{kind:?}[{}]", children.join(" ")),
+        }
+    }
+
+    /// What follows `:=` in each declaration of `text`, as [`compact`]
+    /// writes it.
+    fn bodies(text: &str) -> Vec<String> {
+        let tree = tree(text);
+        let stats = tree.check_round_trip(text).unwrap();
+        assert_eq!((stats.errors, stats.dropped), (0, 0), "{stats:?}");
+        tree.decls()
+            .map(|decl| {
+                let body = decl
+                    .children()
+                    .find_map(|child| match child {
+                        Element::Node(n) if n.kind() == NodeKind::Body => Some(n),
+                        _ => None,
+                    })
+                    .expect("a body");
+                let mut parts: Vec<String> = body
+                    .children()
+                    .map(|child| match child {
+                        Element::Node(n) => compact(n, text),
+                        Element::Leaf(leaf) => text[leaf.text_range()].to_string(),
+                    })
+                    .collect();
+                assert_eq!(parts.remove(0), ":=");
+                parts.join(" ")
+            })
+            .collect()
+    }
+
+    /// Checks each expression's tree: `cases` pairs an expression with
+    /// its tree, as [`compact`] writes it.
+    fn check_expressions(cases: &[(&str, &str)]) {
+        let text: String = cases
+            .iter()
+            .enumerate()
+            .map(|(i, (expr, _))| format!("def x{i}: T := {expr}\n\n"))
+            .collect();
+        let got = bodies(&text);
+        for ((expr, want), got) in cases.iter().zip(&got) {
+            assert_eq!(got, want, "{expr}");
+        }
+    }
+
+    #[test]
+    fn operators_are_marked_as_written() {
+        check_expressions(&[
+            ("a + b * c - d", "Binary[Binary[a + Binary[b * c]] - d]"),
+            ("a ++ b ++ c", "Binary[a ++ Binary[b ++ c]]"),
+            (
+                "a || b && c || d",
+                "Binary[a || Binary[Binary[b && c] || d]]",
+            ),
+            ("p <-> q && r", "Iff[p <-> Binary[q && r]]"),
+            ("0 <= x < y", "Chain[0 <= x < y]"),
+            ("a = if c then x else y", "Binary[a = if c then x else y]"),
+            (
+                "x !in xs && y in 0 ..< n",
+                "Binary[Membership[x !in xs] && Membership[y in Range[0 ..< n]]]",
+            ),
+            ("-x + !b", "Binary[Prefix[- x] + Prefix[! b]]"),
+            ("-1.abs", "FieldAccess[Prefix[- 1] . abs]"),
+            (
+                "xs |> List.map f |> .sum",
+                "Pipe[Pipe[xs |> App[List.map f]] |> Section[FieldAccess[. sum]]]",
+            ),
+            ("Nat -> Nat", "Arrow[Nat -> Nat]"),
+            ("a; b", "Seq[a ; b]"),
+            (
+                "(let x := 1; x + 1)",
+                "Paren[( LetExpr[Let[let x := 1] ; Binary[x + 1]] )]",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn applications_and_brackets_are_marked_as_written() {
+        check_expressions(&[
+            (
+                "f a (g b) p.q.r x.f()",
+                "App[f a Paren[( App[g b] )] FieldAccess[FieldAccess[p . q] . r] \
+                 App[FieldAccess[x . f] Unit[( )]]]",
+            ),
+            (
+                "f (x := 1) [y := 2] ()",
+                "App[f NamedArg[( x := 1 )] NamedArg[[ y := 2 ]] Unit[( )]]",
+            ),
+            (
+                "((a, b, c), (x : Nat))",
+                "Tuple[( Tuple[( a , b , c )] , Annotation[( x : Nat )] )]",
+            ),
+            ("[1, ..xs]", "List[[ 1 , Spread[.. xs] ]]"),
+            (
+                "\"a${x + 1}b${y}\"",
+                "Interpolated[\"a${ Binary[x + 1] }b${ y }\"]",
+            ),
+            ("include \"x\"", "Include[include \"x\"]"),
+            ("Type 1", "Universe[Type 1]"),
+        ]);
+    }
+
+    #[test]
+    fn records_are_marked_as_written() {
+        check_expressions(&[
+            ("{ r | x = 1, y }", "Record[{ r | RecordField[x = 1] , y }]"),
+            (
+                "C { x = 1 }",
+                "CtorFields[C Record[{ RecordField[x = 1] }]]",
+            ),
+            (
+                "f C { s | x = 2 }",
+                "App[f CtorFields[C Record[{ s | RecordField[x = 2] }]]]",
+            ),
+        ]);
+    }
+
+    /// A section is the function it stands for: `.f a` takes its
+    /// arguments, and a section starting an expression takes all of it.
+    #[test]
+    fn sections_are_marked_as_written() {
+        check_expressions(&[
+            (
+                "xs.map .name",
+                "App[FieldAccess[xs . map] Section[FieldAccess[. name]]]",
+            ),
+            ("(.f a)", "Paren[( Section[App[FieldAccess[. f] a]] )]"),
+            (
+                "(.f a + 1)",
+                "Paren[( Section[Binary[App[FieldAccess[. f] a] + 1]] )]",
+            ),
+            (
+                "xs |> .length + 1",
+                "Pipe[xs |> Section[Binary[FieldAccess[. length] + 1]]]",
+            ),
+            (
+                "f (+ 1) (k +) (&&)",
+                "App[f OperatorSection[( + 1 )] OperatorSection[( k + )] OperatorSection[( && )]]",
+            ),
+            ("(|| a && b)", "OperatorSection[( || Binary[a && b] )]"),
+        ]);
     }
 }
