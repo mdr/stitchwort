@@ -46,8 +46,8 @@ theorem pathsCorrect (passages: List Passage) (promise: NoBigNeighbours passages
     let (Both ends (Both along within)) := both
     match path with
       | { caves = [first, ..rest] } =>
-        let isStart: first = Cave.start := Option.someInjective (DecEq.sound (Bool.andLeft ends))
-        let isLast := DecEq.sound (Bool.andRight ends)
+        let isStart: first = Cave.start := Option.someInjective (DecEq.sound ends.left)
+        let isLast := DecEq.sound ends.right
         let last: rest.last = Some Cave.end :=
           match rest with
             | [] => Void.exfalso (DecEq.soundFalse Cave.start Cave.end rfl (rewrite <- isStart in Option.someInjective isLast))

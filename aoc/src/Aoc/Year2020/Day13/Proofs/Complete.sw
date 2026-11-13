@@ -19,7 +19,7 @@ theorem digitNotX (char: Char) (isDigit: Parse.isDigit char = True): (char == 'x
 theorem declinesX (read: List Char) (after: List Char) (some: read ≠ []) (all: read.all Parse.isDigit = True):
     Parse.Declines (() => Parse.char 'x') (read ++ after) := match read with
       | [] => Void.exfalso (some rfl)
-      | [char, ..more] => Parse.declinesChar 'x' char (more ++ after) (digitNotX char (Bool.andLeft all))
+      | [char, ..more] => Parse.declinesChar 'x' char (more ++ after) (digitNotX char all.left)
 
 --| `slot` on a bus ID or an `x`, before something that doesn't continue the digits.
 theorem runsSlot (read: List Char) (slot2: Slot) (written: SlotWritten read slot2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):

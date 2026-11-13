@@ -59,8 +59,8 @@ theorem minByStepPasses [auto ord: Ord b] (key: a → b) (passes: a → Bool): �
     passes (rest.foldLeft best (List.minByStep key)) = True
   | best, good, [], all => good
   | best, good, [next, ..others], all =>
-    let nextGood := Bool.andLeft all
-    let othersGood := Bool.andRight all
+    let nextGood := all.left
+    let othersGood := all.right
     match compared: Ord.compare (key best) (key next) with
       | Greater => minByStepPasses key passes next nextGood others othersGood
       | Less => minByStepPasses key passes best good others othersGood
