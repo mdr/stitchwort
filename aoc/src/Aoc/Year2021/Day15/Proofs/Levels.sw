@@ -47,11 +47,11 @@ theorem iterateRaise (count level: Nat) (low: level â‰¤ 9) (sum: level + count â
     | Succ count =>
       match nine: level == 9 with
         | True =>
-          let same := DecEq.sound nine
+          let same := nine.read
           let later := iterateRaise count 1 (omega) (omega [sum, same])
           rewrite later, wrapSmall (1 + count) (omega [sum, same]), wrapLarge (level + Succ count) (omega [same]) in omega [same]
         | False =>
-          let other := DecEq.soundFalse level 9 nine
+          let other := nine.read
           let later := iterateRaise count (level + 1) (omega [low, other]) (omega [sum])
           let same: level + 1 + count = level + Succ count := omega
           rewrite later, same in rfl
@@ -93,7 +93,7 @@ theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Pos
           | True =>
             let place: Position := { row = position.row % cave.height, column = position.column % cave.width }
             let onMap: (place.row < cave.risks.height && place.column < cave.risks.width) = True :=
-              Bool.andIntro (Nat.modLess position.row cave.height tall) (Nat.modLess position.column cave.width wide)
+              Both (Nat.modLess position.row cave.height tall) (Nat.modLess position.column cave.width wide)
             let base := cave.levels place
             let found: levelAt cave place = Some base := Eq.trans (levelsAgree cave rectangle place) (levelAtOn cave.risks place onMap)
             let tileRow := Nat.divLeOfLtMul position.row 4 cave.height (omega [rowIn])

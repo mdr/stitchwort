@@ -36,11 +36,12 @@ theorem connectsSorted (low: Nat) (device: Nat) (chain: List Nat) (connects: Lis
   match chain with
     | [] => Trivial
     | [x, ..rest] =>
-      let later := Bool.andRight connects
+      let Both _ later := connects
       Both
         (match rest with
           | [] => Trivial
           | [y, ..more] =>
-            let fed: canFeed x y = True := rewrite canFeedTakes in Bool.andLeft later
+            let Both fed _ := later
+            let fed: canFeed x y = True := rewrite canFeedTakes in fed
             omega)
         (connectsSorted x device rest later)

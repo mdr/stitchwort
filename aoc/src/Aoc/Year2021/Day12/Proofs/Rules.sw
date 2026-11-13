@@ -73,11 +73,11 @@ theorem endNotStart: Cave.end ≠ Cave.start := same => DecEq.soundFalse Cave.en
 --| The caves but `y` are those of `caves` other than `y`.
 theorem withoutMem (caves: List Cave) (y: Cave) (c: Cave): (without caves y).contains c = True ↔ (caves.contains c = True ∧ c ≠ y) := {
   forward = found =>
-    let both := List.memFilter caves (x => not (x == y)) ((List.memContains _ c).forward found)
+    let both := List.memFilter caves (x => not (x == y)) found.read
     Both ((List.memContains caves c).backward (And.left both)) (same => Bool.falseNotTrue (rewrite same, DecEq.refl y at And.right both)),
   backward = both =>
     (List.memContains _ c).backward
-      (List.memFilterIntro caves (x => not (x == y)) ((List.memContains caves c).forward (And.left both)) (rewrite differ c y (And.right both) in rfl))
+      (List.memFilterIntro caves (x => not (x == y)) (And.left both).read (rewrite differ c y (And.right both) in rfl))
 }
 
 --| If a path's visits small caves are another's, it keeps the rule
@@ -234,12 +234,13 @@ theorem completesSplit (passages: List Passage) (twice: Bool) (sofar: Path) (cav
     connected passages cave y = True ∧ Completes passages twice (sofar.add y) y more :=
   let (Both last (Both follows within)) := completes
   let both := rewrite followsCons passages cave y more at follows
-  Both (Bool.andLeft both)
+  let Both joined rest := both
+  Both joined
     (Both
       (match more with
         | [] => Void.exfalso (notEnd (Option.someInjective last))
         | [z, ..rest] => last)
-      (Both (Bool.andRight both) (Eq.subst (p => Within twice p) (appendStep sofar y more) within)))
+      (Both rest (Eq.subst (p => Within twice p) (appendStep sofar y more) within)))
 
 --| Visits to the next cave, and to any cave, along the rest of a path.
 theorem visitsOnto (sofar: Path) (y: Cave) (more: List Cave): (sofar.extend [y, ..more]).visits y = sofar.visits y + 1 + Path.visits { caves = more } y :=
@@ -294,13 +295,13 @@ theorem followsCompletes (passages: List Passage) (next: Cave → List Cave)
       let named := And.right (connectedNamed passages cave y joined)
       match isEnd: y == Cave.end with
         | True =>
-          rewrite after, DecEq.sound isEnd in
-            Both rfl (Both (rewrite followsCons passages cave Cave.end [], (rewrite DecEq.sound isEnd at joined) in rfl) (finishWithin passages twice unvisited spare sofar tracks))
+          rewrite after, isEnd.read in
+            Both rfl (Both (rewrite followsCons passages cave Cave.end [], (rewrite isEnd.read at joined) in rfl) (finishWithin passages twice unvisited spare sofar tracks))
         | False =>
-          let notEnd := DecEq.soundFalse y Cave.end isEnd
+          let notEnd := isEnd.read
           match isStart: y == Cave.start with
             | False =>
-              let notStart := DecEq.soundFalse y Cave.start isStart
+              let notStart := isStart.read
               match big: y.isBig with
                 | True =>
                   match bigHere: cave.isBig with
@@ -331,18 +332,18 @@ theorem completesFollows (passages: List Passage) (promise: NoBigNeighbours pass
     | [y, ..more] =>
       match isEnd: y == Cave.end with
         | True =>
-          let atEnd := DecEq.sound isEnd
-          let joined := Bool.andLeft (rewrite followsCons passages cave y more at And.left (And.right completes))
+          let atEnd := isEnd.read
+          let Both joined _ := rewrite followsCons passages cave y more at And.left (And.right completes)
           Both (adjacent cave y joined) (endOnly passages twice unvisited spare sofar cave more tracks (rewrite atEnd at completes))
         | False =>
-          let notEnd := DecEq.soundFalse y Cave.end isEnd
+          let notEnd := isEnd.read
           let (Both joined onward) := completesSplit passages twice sofar cave y more notEnd completes
           let named := And.right (connectedNamed passages cave y joined)
           Both (adjacent cave y joined)
             (match isStart: y == Cave.start with
-              | True => startBlocked passages twice unvisited spare sofar cave more tracks (rewrite DecEq.sound isStart at completes)
+              | True => startBlocked passages twice unvisited spare sofar cave more tracks (rewrite isStart.read at completes)
               | False =>
-                let notStart := DecEq.soundFalse y Cave.start isStart
+                let notStart := isStart.read
                 match big: y.isBig with
                   | True =>
                     match bigHere: cave.isBig with

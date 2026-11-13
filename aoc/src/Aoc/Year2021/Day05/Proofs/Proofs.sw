@@ -84,11 +84,10 @@ theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal
 --| covers it.
 theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizontalOrVertical line ∨ diagonal line) = True) (p: Point):
     (lines.flatMap Line.points).count (== p) = coveredBy lines p :=
-  let each := List.allToAll (line => horizontalOrVertical line ∨ diagonal line) lines shapes
   Eq.trans (List.countFlatMap Line.points (== p) lines)
     (Eq.trans
       (List.sumByCongMem lines (line => line.points.count (== p)) (line => Bool.toNat (covers line p))
-        (line inLines => pointsCount line (List.allMem _ line lines each inLines) p))
+        (line inLines => pointsCount line (shapes.read line inLines) p))
       (Eq.sym (List.countSumBy lines (line => covers line p))))
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
@@ -105,11 +104,10 @@ theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range 0 (steps + 
 --| A point a line covers is within its steps.
 theorem coveredWithin (line: Line) (point: Point) (c: covers line point = True):
     Nat.max (line.from.x.absDiff point.x) (line.from.y.absDiff point.y) < Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y) + 1 :=
-  let bx := betweenBound line.from.x point.x line.to.x (Bool.andLeft c)
-  let by := betweenBound line.from.y point.y line.to.y (secondOf c)
+  let Both inX (Both inY _) := c
+  let bx := betweenBound line.from.x point.x line.to.x inX
+  let by := betweenBound line.from.y point.y line.to.y inY
   omega
-
-theorem secondOf [a: Bool] [b: Bool] [c: Bool] (h: (a ∧ b ∧ c) = True): b = True := cases
 
 --| The `i`th point of a line is the point `(x, y)` when the line covers it
 --| and it is `k` steps from the first end.
@@ -180,13 +178,13 @@ theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y
       = ((between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x == y1.absDiff y)) ∧ i == Nat.max (x1.absDiff x) (y1.absDiff y)) :=
   match vertical: x1 == x2 with
     | True =>
-      let hv := DecEq.sound vertical
+      let hv := vertical.read
       rewrite towardsFixed x1 x2 i x hv, towardsEq y1 y2 i y (stepsFixedLeft x1 x2 _ i hv hi) in
       combineVertical i (betweenFixed x1 x x2 hv)
     | False =>
       match horizontal: y1 == y2 with
         | True =>
-          let hh := DecEq.sound horizontal
+          let hh := horizontal.read
           rewrite towardsEq x1 x2 i x (stepsFixedRight y1 y2 _ i hh hi), towardsFixed y1 y2 i y hh in
           combineHorizontal i (betweenFixed y1 y y2 hh)
         | False =>
@@ -219,13 +217,13 @@ theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
   bothThen _ _ (bx by =>
     match vertical: x1 == x2 with
       | True =>
-        let hv := DecEq.sound vertical
+        let hv := vertical.read
         rewrite productZeroLeft (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed x1 x x2 hv bx) (absDiffFixed x1 x2 hv) in rfl
       | False =>
         match horizontal: y1 == y2 with
           | True =>
-            let hh := DecEq.sound horizontal
+            let hh := horizontal.read
             rewrite productZeroRight (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed y1 y y2 hh by) (absDiffFixed y1 y2 hh) in rfl
           | False =>
             let same := diagonalSame x1 x2 y1 y2 shape
-            rewrite <- same in Nat.mulRightCancelBool (absDiffPositive x1 x2 (DecEq.soundFalse x1 x2 vertical)))
+            rewrite <- same in Nat.mulRightCancelBool (absDiffPositive x1 x2 vertical.read))

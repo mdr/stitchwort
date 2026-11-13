@@ -45,9 +45,9 @@ theorem sayTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken) (
       Witness spoken (Both rfl (Both (rewrite isSpoken in omega) (Both (rewrite sized in fits) (other inside =>
         rewrite isSpoken in
           match same: game.last == other with
-            | True => rewrite <- DecEq.sound same, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits in rfl
+            | True => rewrite <- same.read, Array.getOrSet game.lastSeen game.last game.turn 0 lastFits in rfl
             | False =>
-              rewrite Array.getOrSetOther game.lastSeen game.last game.turn other 0 (equal => DecEq.soundFalse game.last other same (Eq.sym equal)),
+              rewrite Array.getOrSetOther game.lastSeen game.last game.turn other 0 (equal => same.read (Eq.sym equal)),
                 seen other (rewrite sized at inside in inside)
               in Eq.cong (found => Option.getOrElse found 0) (Eq.sym (mapShift game.turn (Spec.turnsBack other older)))))))
 

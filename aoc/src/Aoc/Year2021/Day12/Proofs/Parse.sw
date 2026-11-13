@@ -36,16 +36,14 @@ theorem otherSmallBack (from: Cave) (to: Cave) (fine: not (from.isBig && to.isBi
 --| connected.
 theorem parseNoBigNeighbours (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     NoBigNeighbours passages :=
-  let none := List.allToAll _ passages (parsedChecked _ passages parsed)
+  let checked := parsedChecked _ passages parsed
   a b joined bigA =>
-    List.anyTrueElim passages (passage => passage.connects a b) _ joined (edge member joins =>
-      match edge with
-        | { from, to } =>
-          let fine := List.allMem (passage => not passage.joinsBig = True) { from, to } passages none member
-          Bool.orElim joins
-            (forward =>
-              rewrite <- DecEq.sound (Bool.andRight forward) in
-                otherSmall from to fine (rewrite DecEq.sound (Bool.andLeft forward) in bigA))
-            (backward =>
-              rewrite <- DecEq.sound (Bool.andLeft backward) in
-                otherSmallBack from to fine (rewrite DecEq.sound (Bool.andRight backward) in bigA)))
+    let Witness edge (Both member joins) := joined
+    match edge with
+      | { from, to } =>
+        let fine := checked.read { from, to } member
+        match joins with
+          | Inl (Both fromA toB) =>
+            rewrite <- toB.read in otherSmall from to fine (rewrite fromA.read in bigA)
+          | Inr (Both fromB toA) =>
+            rewrite <- fromB.read in otherSmallBack from to fine (rewrite toA.read in bigA)

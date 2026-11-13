@@ -38,13 +38,12 @@ def InEvery (list: FoodList) (ingredient: Ingredient) (allergen: Allergen): Prop
 theorem couldHoldIff (list: FoodList) (ingredient: Ingredient) (allergen: Allergen): list.couldHold ingredient allergen = True ↔ InEvery list ingredient allergen :=
   {
     forward = could food member listed =>
-      let passes := List.allMember _ list.foods could food member
-      match lists: food.allergens.contains allergen with
-        | True => (List.memContains food.ingredients ingredient).forward passes
-        | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains food.allergens allergen).backward listed)) lists)),
+      match could.read food member with
+        | Inl unlisted => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains food.allergens allergen).backward listed)) unlisted.read))
+        | Inr passes => passes.read,
     backward = every =>
       List.allOfAll _ list.foods (List.allOfMem _ list.foods (food member =>
         match lists: food.allergens.contains allergen with
-          | True => (List.memContains food.ingredients ingredient).backward (every food member ((List.memContains food.allergens allergen).forward lists))
+          | True => (List.memContains food.ingredients ingredient).backward (every food member lists.read)
           | False => rfl))
   }

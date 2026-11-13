@@ -310,4 +310,4 @@ theorem isRectangleSound (image: Image) (checked: image.isRectangle = True): Rec
   let eta: { rows = image.rows } = image := Image.ext _ _ rfl
   rowsRectangle image.rows (rewrite eta in checked)
 
-theorem rectangularSound (jigsaw: Jigsaw) (checked: jigsaw.rectangular = True) (tile: Tile) (member: tile ∈ jigsaw.tiles): Rectangle tile.image := isRectangleSound tile.image (List.allMember _ jigsaw.tiles checked tile member)
+theorem rectangularSound (jigsaw: Jigsaw) (checked: jigsaw.rectangular = True) (tile: Tile) (member: tile ∈ jigsaw.tiles): Rectangle tile.image := isRectangleSound tile.image (checked.read tile member)

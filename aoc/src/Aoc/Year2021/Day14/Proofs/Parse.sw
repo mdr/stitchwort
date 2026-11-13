@@ -16,7 +16,8 @@ theorem firstRepeatedNone (pairs: List ElementPair) (none: firstRepeated pairs =
       match c: List.contains rest pair with
         | False =>
           let fresh := (member: pair ∈ rest) =>
-            Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyOfMem rest (other => other == pair) pair (DecEq.refl pair) member)) c)
+            let found: rest.any (other => other == pair) = True := Witness pair (Both member (DecEq.refl pair))
+            Bool.trueNotFalse (Eq.trans (Eq.sym found) c)
           Both fresh (firstRepeatedNone rest none)
 
 --| `checkManual` gives the manual back, and only if no pair has two rules...

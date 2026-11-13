@@ -25,8 +25,8 @@ theorem runsAction (letter: Char) (chosen: Action) (written: ActionWritten lette
 
 theorem turnFails (item: Instruction) (digits: List Char) (turn: item.action.isTurn = True → item.value % 90 = 0) (decimal: item.value = Parse.digitsValue digits)
     (fails: (item.action.isTurn && Parse.digitsValue digits % 90 != 0) = True): Void :=
-  let zero: Parse.digitsValue digits % 90 = 0 := rewrite decimal at turn in turn (Bool.andLeft fails)
-  let bad: (Parse.digitsValue digits % 90 != 0) = True := Bool.andRight fails
+  let Both isTurn bad := fails
+  let zero: Parse.digitsValue digits % 90 = 0 := rewrite decimal at turn in turn isTurn
   rewrite zero at bad in cases
 
 theorem instructionEta (item: Instruction): { action = item.action, value = item.value } = item :=

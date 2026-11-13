@@ -15,10 +15,10 @@ theorem repairedHolds (program: Program) (index: Nat) (instruction: Instruction)
     (position =>
       match d: position == index with
         | True =>
-          rewrite DecEq.sound d, Map.getInsert index instruction program.code.byPosition in
+          rewrite d.read, Map.getInsert index instruction program.code.byPosition in
             Eq.sym (List.getSet program.instructions index instruction below)
         | False =>
-          let differ: position ≠ index := same => DecEq.soundFalse position index d same
+          let differ: position ≠ index := same => d.read same
           rewrite Map.getInsertOther index instruction position differ program.code.byPosition, List.getSetOther program.instructions index instruction position differ in
             Map.getByPosition program.instructions position)
 

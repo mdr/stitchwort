@@ -16,7 +16,7 @@ theorem startsPocket (slice: Slice) (dimensions: Nat): Spec.Starts slice dimensi
         (at (Both member made) =>
           Exists.elim ((memGridPositionsWhere slice.grid (== Active) at).forward member) (state (Both found active) =>
             match at with
-              | { row, column } => Witness column (Witness row (Both (rewrite <- DecEq.sound active in found) (rewrite <- made in rfl))))),
+              | { row, column } => Witness column (Witness row (Both (rewrite <- active.read in found) (rewrite <- made in rfl))))),
     backward = (Witness x (Witness y (Both found written))) =>
       let at: Position := { row = y, column = x }
       let member: at ∈ cubes := (memGridPositionsWhere slice.grid (== Active) at).backward (Witness Active (Both found rfl))

@@ -14,7 +14,7 @@ theorem findAbsent (key: ElementPair) (rules: List Rule) (absent: key ∉ rules.
     | None => rfl
     | Some rule =>
       let (Both passes member) := List.findSome rules (rule => rule.pair == key) rule found
-      let same := DecEq.sound passes
+      let same := passes.read
       Void.exfalso (absent (rewrite <- same in List.memMap rules rule member (rule => rule.pair)))
 
 theorem lookupRules (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rules):
@@ -25,7 +25,7 @@ theorem lookupRules (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rul
       let earlier := lookupRules key rest distinct
       match t: rule.pair == key with
         | True =>
-          let same := DecEq.sound t
+          let same := t.read
           let none := findAbsent key rest (rewrite <- same in fresh)
           let lookupNone: Map.lookupLast key (List.map rest (rule => (rule.pair, rule.insert))) = None := rewrite none at earlier in earlier
           rewrite lookupNone, <- same, Ord.compareSelf rule.pair in rfl
@@ -35,7 +35,7 @@ theorem lookupRules (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rul
               | Some c => rfl
               | None =>
                 match c: Ord.compare key rule.pair with
-                  | Equal => Void.exfalso (DecEq.soundFalse rule.pair key t (Eq.sym (Ord.equal key rule.pair c)))
+                  | Equal => Void.exfalso (t.read (Eq.sym (Ord.equal key rule.pair c)))
                   | Less => rfl
                   | Greater => rfl
 

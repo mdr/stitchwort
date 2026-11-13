@@ -24,7 +24,7 @@ theorem part2FromInput (input: Text) (entries: List Entry) (parsed: Fail.toResul
 --| Every display `parseEntries` reads is decoded by its own wiring.
 theorem parsedDecode (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries)
     (entry: Entry) (m: entry ∈ entries): Decodes entry.wiring.at entry :=
-  wiredDecodes entry (List.allMember Entry.wired entries (checkedWired _ entries parsed) entry m)
+  wiredDecodes entry ((checkedWired _ entries parsed).read entry m)
 
 --| Whatever reads the entries, `checkWired` passes on only wired ones.
 theorem checkedWired (read: () → {Fail} List Entry) (entries: List Entry) (parsed: Fail.toResult (() => checkWired (read ())) = Ok entries):
@@ -50,10 +50,7 @@ theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiri
   let sortedWires := (segments.map wiring).sort == segments
   let sortedDigits := (patterns.map decode).sort == List.range 0 10
   let allShow := (patterns ++ entry.outputs).all (showsRead entry.wiring patterns)
-  let first := Bool.andLeft ok
-  let rest := Bool.andRight ok
-  let second := Bool.andLeft rest
-  let third := Bool.andRight rest
+  let Both first (Both second third) := ok
   let wiresSorted := List.sortPerm (segments.map wiring)
   let wired: IsWiring wiring :=
     List.permSym segments (segments.map wiring) (rewrite DecEq.sound first at wiresSorted in wiresSorted)
@@ -61,7 +58,7 @@ theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiri
   let digitsOnce: List.Perm (patterns.map decode) digits :=
     List.permSym digits (patterns.map decode) (rewrite DecEq.sound second at digitsSorted in digitsSorted)
   let showsDecoded := (pattern: Pattern) (m: pattern ∈ patterns ++ entry.outputs) =>
-    readShown entry pattern wired (List.allMember (showsRead entry.wiring patterns) (patterns ++ entry.outputs) third pattern m)
+    readShown entry pattern wired (third.read pattern m)
   let patternsShown: patterns.map (shown wiring) = (patterns.map decode).map Some :=
     Eq.trans
       (List.mapCongMem patterns (shown wiring) (pattern => Some (decode pattern))
@@ -79,8 +76,7 @@ theorem readShown (entry: Entry) (pattern: Pattern) (wired: IsWiring entry.wirin
     (ok: showsRead entry.wiring entry.patterns pattern = True): shown entry.wiring.at pattern = Some (decodeDigit entry.patterns pattern) :=
   let digit := decodeDigit entry.patterns pattern
   let matches := (wire: Segment) => pattern.has wire == (digitPattern digit).has (entry.wiring.at wire)
-  let below := Bool.andLeft ok
-  let each := Bool.andRight ok
+  let Both below each := ok
   let shows: Shows entry.wiring.at pattern digit = True :=
     Eq.trans
       (List.allCong segments (wire => pattern.has wire == (digitSegments digit).contains (entry.wiring.at wire)) matches

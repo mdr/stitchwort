@@ -131,7 +131,7 @@ theorem cascadeAfter (cavern: Cavern) (m k: Nat):
       rewrite cascadeStep cavern (flashedAfter cavern k) m in
         match e: cavern.flashRound (flashedAfter cavern k) == flashedAfter cavern k with
           | True =>
-            let same: flashedAfter cavern (Succ k) = flashedAfter cavern k := DecEq.sound e
+            let same: flashedAfter cavern (Succ k) = flashedAfter cavern k := e.read
             Witness k (Both rfl (Inl (q flashes => Eq.trans (Eq.sym (Eq.cong (round => round.has q) same)) flashes)))
           | False =>
             Exists.elim (cascadeAfter cavern m (Succ k)) (j both =>

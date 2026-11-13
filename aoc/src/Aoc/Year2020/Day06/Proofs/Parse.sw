@@ -24,7 +24,7 @@ theorem eachLetters (read letters: List Char) (each: Parse.Each (letter char => 
 theorem containsFromList (letters: List Char) (question: Char): (Set.fromList letters).contains question = letters.contains question :=
   Bool.eqOf _ _
     (found => (List.memContains letters question).backward ((Set.containsFromListIff letters question).forward found))
-    (found => (Set.containsFromListIff letters question).backward ((List.memContains letters question).forward found))
+    (found => (Set.containsFromListIff letters question).backward found.read)
 
 theorem readsPerson: Parse.Reads person PersonWritten :=
   Parse.readsThen (Parse.readsMany1 _ _ (Parse.readsSatisfy)) (lettersRead letters each =>

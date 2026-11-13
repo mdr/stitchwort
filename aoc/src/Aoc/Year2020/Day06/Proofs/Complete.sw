@@ -35,7 +35,9 @@ theorem runsPerson (read: List Char) (who: Person) (written: PersonWritten read 
               (NonEmptyList.cons letter more) lettersRead)
 
 theorem spaceNotQuestion (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 theorem declinesPerson (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
   Parse.declinesBind (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ rest

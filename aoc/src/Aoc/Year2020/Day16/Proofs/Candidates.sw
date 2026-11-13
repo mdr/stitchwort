@@ -59,4 +59,4 @@ theorem candidatesFit (notes: Notes) (lengths: notes.validTickets.all (ticket =>
     notes.candidates.length = notes.rules.length ∧ List.All2 Within notes.candidates (List.replicate notes.rules.length notes.rules)
       ∧ (∀ (ticket: Ticket) => ticket ∈ notes.validTickets → List.All2 AllAllow notes.candidates ticket.values) :=
   foldNarrow notes.rules.length notes.validTickets (List.replicate notes.rules.length notes.rules) (List.lengthReplicate notes.rules notes.rules.length)
-    (ticket member => DecEq.sound (List.allMember _ notes.validTickets lengths ticket member))
+    (ticket member => (lengths.read ticket member).read)

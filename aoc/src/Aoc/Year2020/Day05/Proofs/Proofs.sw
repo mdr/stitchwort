@@ -34,7 +34,7 @@ theorem gapSound: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (seat: 
   | [low, high, ..rest], Both ordered sortedRest, seat, found =>
     match apart: high == low + 2 with
       | True =>
-        let two := DecEq.sound apart
+        let two := apart.read
         let made := Option.someInjective found
         Both
           (member =>
@@ -102,16 +102,15 @@ theorem memSort (ids: List Nat) (id: Nat): id ∈ ids.sort ↔ id ∈ ids := {
 theorem yourSeatOf (ids: List Nat) (seat: Nat) (missing: ¬(seat ∈ ids)) (above: (seat + 1) ∈ ids) (below: (seat - 1) ∈ ids): isYourSeat ids seat = True :=
   let notFound: ids.contains seat = False :=
     match found: ids.contains seat with
-      | True => Void.exfalso (missing ((List.memContains ids seat).forward found))
+      | True => Void.exfalso (missing found.read)
       | False => rfl
   rewrite notFound, (List.memContains ids (seat + 1)).backward above, (List.memContains ids (seat - 1)).backward below in rfl
 
 theorem yourSeatMembers (ids: List Nat) (seat: Nat) (yours: isYourSeat ids seat = True): ¬(seat ∈ ids) ∧ (seat + 1) ∈ ids ∧ (seat - 1) ∈ ids :=
-  let notFound := Bool.notTrue (ids.contains seat) (Bool.andLeft yours)
-  let neighbours := Bool.andRight yours
+  let Both notFound (Both above below) := yours
   Both
-    (member => Bool.falseNotTrue (rewrite <- notFound in (List.memContains ids seat).backward member))
-    (Both ((List.memContains ids (seat + 1)).forward (Bool.andLeft neighbours)) ((List.memContains ids (seat - 1)).forward (Bool.andRight neighbours)))
+    (member => Bool.falseNotTrue (rewrite <- notFound.read in (List.memContains ids seat).backward member))
+    (Both above.read below.read)
 
 theorem candidateIntro (count: Nat) (ids: List Nat) (seat: Nat) (below: seat + 1 < count) (yours: isYourSeat ids seat = True):
     seat ∈ (List.range 0 count).filter (isYourSeat ids) :=

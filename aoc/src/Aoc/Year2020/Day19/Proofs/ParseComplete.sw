@@ -15,7 +15,9 @@ theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v
 def seqChar (char: Char): Bool := Parse.isDigit char ∨ char == ' '
 
 theorem spaceNotDigit (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs Parse.nat read after number :=
@@ -146,7 +148,7 @@ theorem eachLetters (letters read: List Char) (h: Parse.Each LetterWritten read 
     | [], each => Both each rfl
     | [found, ..more], Witness first (Witness later (Both split (Both (Both single lower) each))) =>
       match eachLetters more later each with
-        | Both same all => Both (rewrite split, single, same in rfl) (Bool.andIntro lower all)
+        | Both same all => Both (rewrite split, single, same in rfl) (Both lower all)
 
 theorem runsMessage (read: List Char) (message2: Message) (written: MessageWritten read message2) (after: List Char) (stops: Parse.CannotStart Char.isAsciiLowercase after):
     Parse.Runs message read after message2 :=

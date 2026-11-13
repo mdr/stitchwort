@@ -27,7 +27,7 @@ theorem stepDecreases (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: 
               match fr: unvisited.contains other with
                 | True =>
                   rewrite Step.continueLeft (without unvisited other) spare left stillSpare e, Step.continueSpare (without unvisited other) spare left stillSpare e in
-                    omega [withoutShorter unvisited other ((List.memContains unvisited other).forward fr)]
+                    omega [withoutShorter unvisited other fr.read]
                 | False =>
                   match sp: spare with
                     | True =>

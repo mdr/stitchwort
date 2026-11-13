@@ -16,10 +16,14 @@ theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v
 def continues (char: Char): Bool := Parse.isDigit char ∨ char == ','
 
 theorem spaceStops (char: Char) (isSpace: Parse.isSpace char = True): continues char = False :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 theorem spaceNotDigit (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 theorem continuesNotDigit (rest: List Char) (stops: Parse.CannotStart continues rest): Parse.CannotStart Parse.isDigit rest :=
   char more found => Bool.orFalseLeft _ _ (stops char more found)
@@ -88,7 +92,9 @@ theorem declinesTicket (input: List Char) (stops: Parse.CannotStart continues in
 -- character.
 
 theorem spaceIsName (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 --| `rule` declines on a run of name characters and then a line feed.
 theorem declinesRuleBeforeBreak (run: List Char) (more: List Char) (names: run.all isNameChar = True): Parse.Declines rule (run ++ ['\n', ..more]) :=
