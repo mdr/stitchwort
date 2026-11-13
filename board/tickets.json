@@ -1,5 +1,5 @@
 {
-  "next": 3073,
+  "next": 3077,
   "tickets": [
     {
       "id": 47,
@@ -33186,6 +33186,58 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3073,
+      "title": "[Sonnet] auto's from_rules: read a rule's conclusion, so xs.all (x => x != 0) = True (conclusion (y != 0) = True) proves a goal y ≠ 0 (SW-3059 review, follow-up to M1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3074,
+      "title": "[Sonnet] cases builds every hypothesis part (terms included) at every node; profile on a large AoC proof before optimising (SW-3059 review L1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3075,
+      "title": "[Sonnet] Gluing off: the sides of a hypothesis written as ∧ are read unfolded, so auto-readings.sw's whenWanted/checked likely fail with STITCHWORT_GLUE=0; decide keep-or-fix with SW-3070 (SW-3059 review L2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3076,
+      "title": "[DeepSeek] auto's 64-test-fact limit counts facts that give nothing, so whether an older fact is seen depends on later ones; count only facts that read; E-AUTO-STUCK could mention a reading that failed to check (SW-3059 review L3, L4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
