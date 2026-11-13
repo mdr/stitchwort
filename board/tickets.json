@@ -1,5 +1,5 @@
 {
-  "next": 3138,
+  "next": 3139,
   "tickets": [
     {
       "id": 47,
@@ -34031,6 +34031,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3138,
+      "title": "[Sonnet] SW-3087 review lows L5-L7 (docs/reviews/SW-3087-review.md): L5 build.rs site can replace the mismatch with a different non-fatal error and its undone unify swallows a fatal error; L6 notes show the fact normalised (x < 3 as x <= 2), show it as written; L7 'made' isn't rolled back with an undone attempt (affects a note)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
