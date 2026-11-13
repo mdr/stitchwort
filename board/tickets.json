@@ -27567,17 +27567,19 @@
     {
       "id": 2658,
       "title": "[Sonnet] Warning and quick fix for a theorem whose statement starts with ∀ (D3470): W- code in check, quick fix 'Move ∀ variables before the colon' that runs the trial check before it is offered; together with D3462's warning for -> where ∀ is meant",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "syntax-language",
-      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
+      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\n\n2026-11-13 lane notes (Sonnet):\n- Built W-THEOREM-FORALL (driver: a theorem whose statement starts with ∀ that the sweep would convert; the ∀ after a premise and the cosmetic header ∀ don't warn) and W-ARROW-FORALL (D3462, was not built: elab candidate at an explicit named binder group, Prop result over a non-Prop domain, name used; the driver/library keep only those written with an arrow).\n- Quick fixes in the LSP (crates/lsp/src/style.rs): \"Move ∀ variables before the colon\" (the sweep's edit for that theorem, formatted) and \"Write ∀ instead of ->\". The first is offered without the trial check: the checked project lives on the checker thread (like RenameJob); a follow-up could route it there.\n- Trees: sweep --plan finds 0 convertible in std, aoc, games/rogue; std had 5 `->` statements (+2 in core Ord), converted to ∀ (same term). New test the_library_writes_its_statements_with_forall.\n- Examples: two new accept examples with expect-warning; goals snapshots distinct-names and forall-printed gained the warnings.\n",
       "created": "2026-11-10",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "309851e50"
+      ]
     },
     {
       "id": 2659,
