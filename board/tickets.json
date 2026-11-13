@@ -33467,7 +33467,7 @@
     {
       "id": 3094,
       "title": "[Sonnet] Set.contains has no reading: a && conjunct with Set.contains is unreadable ('has no reading, so it has no parts'), .read and Both fail on Set.fromList … .contains (2024 D23 Part1 setsOfThreeIff, Part2 intersectElim, unionElim) (SW-3092 finding 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33597,7 +33597,7 @@
     {
       "id": 3104,
       "title": "[DeepSeek] A mismatch note when an e = False fact is given where a ≠ is wanted: 'write same.read' (SW-3101 finding 5)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
