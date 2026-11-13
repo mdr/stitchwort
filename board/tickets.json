@@ -1,5 +1,5 @@
 {
-  "next": 3112,
+  "next": 3113,
   "tickets": [
     {
       "id": 47,
@@ -33693,6 +33693,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3112,
+      "title": "[Sonnet] Reader boundary: ([x, ..xs] == []) = False reads as False ≠ True while [1] == [2] reads as [1] = [2]: the computes-to-a-constructor check (reading.rs ~918) only sees a literal constructor one step in; make it consistent; and E-NO-READING should print the test as written, not the unfolded decision; and remove the new step's repeated unfold (SW-3093 review N1, N7, N5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
