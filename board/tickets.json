@@ -34634,7 +34634,7 @@
     {
       "id": 3183,
       "title": "[Opus] Formatter stage 2 (formatter-architecture §6): printer core over the lossless tree: the engine (fit-or-break at 120), declarations, headers (D3564, D3565), bodies, blocks, arms (D3566), brackets, application breaking (D3567), comments; constructs without a rule printed as written, re-indented and counted; behind a flag until stage 5",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3183",
       "labels": [],
@@ -34642,7 +34642,9 @@
       "body": "Progress (lane, 13 Nov 2026, 20:59-21:45 GMT, est. 5 h):\n- Built: crates/fmt/src/printer/ (engine.rs: Wadler/Prettier document engine, fit-or-break at 120, fill, choice, line suffixes, verbatim text blocks; rules.rs: rules by NodeKind; merge.rs: D3565 parameter merging, checked on its own by splitting groups; mod.rs: per-declaration checks, gate). `stitchwort dev fmt-tree [--print] [--verbose] PATHS`. The default formatter is unchanged. fmt_hashes accepts FMT_HASHES_TREE=1 to run the hash oracle on the tree printer (not run by the lane).\n- Gate over std, aoc/src, games, examples (release, ~30 s): 2,618 files (101 reject examples don't parse), 0 fail a check, 0 not idempotent; 27,430 declarations, 1 left as written (Day02/Proofs/Templates.sw:32, a comment before `:=` in a calc step, S40); unruled: 39 Seq, 36 LetExpr, 423 Interpolated (as written by brief); 3,263 parameter groups merged; code lines over 120: 8,101 before, 98 after.\n- Tests: 34 printer/engine/merge unit tests in stitchwort-fmt, all pass.\n- Commits: 9f322a48f, 04a12da2c, 9ea6cc014.\n- Left: breaking long patterns, all-simple calls (D3567 (c) can't break them), ∃ chains, LetExpr/Seq, interpolation after SW-3171, D2307 bracket dropping, a comment before `:=` in calc, block-in-parens hug. D questions D3568-D3573 in the lane report.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "319706ef6d709d7cb39db38bfa7b1f4edd811817"
+      ]
     },
     {
       "id": 3184,
