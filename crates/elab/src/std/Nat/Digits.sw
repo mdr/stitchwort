@@ -275,7 +275,7 @@ theorem Nat.fromDigitsHeadBound (l: List Nat) (h: 1 ≤ List.headOr l 0): Nat.po
 theorem Nat.powTenLt (a: Nat) (c: Nat) (x: Nat) (h1: Nat.pow 10 a ≤ x) (h2: x < Nat.pow 10 c): a < c :=
   Bool.inspect (Nat.leq (Succ a) c) (u => u = True) (t => rfl)
     (f => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) (Nat.pow 10 c) x h2
-      (Nat.leTrans (Nat.pow 10 c) (Nat.pow 10 a) x (Nat.powMono 9 c a (Nat.leqFalse (Succ a) c f)) h1))))
+      (Nat.leTrans (Nat.pow 10 c) (Nat.pow 10 a) x (Nat.powMono 9 c a f.read) h1))))
 
 theorem Nat.digitsLength (j: Nat) (b: Nat) (h1: Nat.pow 10 j ≤ b) (h2: b < Nat.pow 10 (Succ j)): Nat.digitCount b = Succ j :=
   Nat.leAntisym (Nat.digitCount b) (Succ j)

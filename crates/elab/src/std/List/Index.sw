@@ -96,8 +96,8 @@ theorem List.getOrConcatReplicate (b: List a) (d: a) (k: Nat) [auto hk: k ≠ 0]
       match t: Nat.leq k i with
         | False =>
           calc List.getOr (List.append b (List.concat (List.replicate n b))) i d
-            _ = List.getOr b i d := List.getOrAppendLeft b i d (List.concat (List.replicate n b)) (Nat.ltCongRight i k (List.length b) (Eq.sym hb) (Nat.leqFalse k i t))
-            _ = List.getOr b (i % k) d := Eq.cong (y => List.getOr b y d) (Eq.sym (Nat.modSmall i k (Nat.leqFalse k i t)))
+            _ = List.getOr b i d := List.getOrAppendLeft b i d (List.concat (List.replicate n b)) (Nat.ltCongRight i k (List.length b) (Eq.sym hb) t.read)
+            _ = List.getOr b (i % k) d := Eq.cong (y => List.getOr b y d) (Eq.sym (Nat.modSmall i k t.read))
         | True =>
           calc List.getOr (List.append b (List.concat (List.replicate n b))) i d
             _ = List.getOr (List.concat (List.replicate n b)) (i - List.length b) d

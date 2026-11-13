@@ -5,7 +5,7 @@
 --| sliding windows (`List.windows`).
 
 --| `<=` is total: if `m <= n` is false, then `n <= m`.
-theorem Nat.leqTotal (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.leq n m = True := Nat.lessLe n m (Nat.leqFalse m n h)
+theorem Nat.leqTotal (m: Nat) (n: Nat) (h: Nat.leq m n = False): Nat.leq n m = True := Nat.lessLe n m h.read
 
 --| Sums of lists: one element at a time, sums of intervals (Gauss), and
 --| rewriting under `map`, `filter` and `foldLeft`.
@@ -445,9 +445,9 @@ theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g 
   match e: Nat.leq (Succ v) n with
     | True => List.sumRangeFromOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym h.read) n 0 (Nat.zeroLe v) e
     | False =>
-      rewrite hz (Nat.leqFalse (Succ v) n e) in
+      rewrite hz e.read in
         List.sumRangeFromNone (x => Nat.equal v x) g n 0
-          (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 (Nat.leqFalse (Succ v) n e)))
+          (b h1 h2 => Nat.equalOfLess b v (Nat.leTrans (Succ b) n v h2 e.read))
 
 --| Sums over a range that pick nothing, or pick one.
 theorem List.sumRangeNone (q: Nat → Bool) (g: Nat → Nat) (from: Nat) (until: Nat) (h: ∀ (x: Nat) => from ≤ x → x < until → q x = False):
@@ -568,7 +568,7 @@ theorem Nat.firstFromFound (q: Nat → Bool) (c s k: Nat) (h1: s ≤ k) (h2: k <
 theorem Nat.firstFromLe (q: Nat → Bool) (c: Nat) (s: Nat) (k: Nat) (h1: s ≤ k) (hk: q k = True): Nat.firstFrom q c s ≤ k :=
   match e: Nat.leq (Nat.firstFrom q c s) k with
     | True => rfl
-    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Nat.firstFromBefore q c s k h1 (Nat.leqFalse (Nat.firstFrom q c s) k e))))
+    | False => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym hk) (Nat.firstFromBefore q c s k h1 e.read)))
 
 --| Sums that agree on the elements passing a check `all` says they all pass.
 theorem List.sumByCongAll (p: a → Bool) (f: a → Nat) (g: a → Nat) (h: ∀ (x: a) => p x = True → f x = g x)

@@ -671,7 +671,7 @@ theorem List.memRangeFromIntro (x: Nat) (c s: Nat) (lo: s ≤ x) (hi: x < s + c)
     | Succ c =>
       match e: Nat.leq (Succ s) x with
         | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
-        | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
+        | False => Inl (Nat.leAntisym s x lo e.read)
 
 --| `x ∈ List.range a b` gives `a ≤ x < b`; for `omega` and `auto`, which
 --| take a hypothesis `x ∈ a ..< b` apart into `a ≤ x` and `x < b` with it.

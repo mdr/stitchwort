@@ -147,7 +147,7 @@ theorem List.transposeFillCell (rows: List (List a)) (fill: a) (c: Nat) (r: Nat)
     | False =>
       calc List.getOr (List.getOr (List.transposeFill rows fill) c []) r fill
         _ = List.getOr (List.map rows (row => List.getOr row c fill)) r fill
-          := rewrite List.getOrTransposeFill rows fill c (Nat.leqFalse (List.maxLength rows) c t)
+          := rewrite List.getOrTransposeFill rows fill c t.read
         _ = List.getOr (List.getOr rows r []) c fill := List.getOrMap rows r [] (row => List.getOr row c fill)
     | True =>
       calc List.getOr (List.getOr (List.transposeFill rows fill) c []) r fill

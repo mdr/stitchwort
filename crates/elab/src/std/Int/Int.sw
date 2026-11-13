@@ -231,7 +231,7 @@ theorem Int.modNatAddSize (x: Int) (d: Nat): Int.modNat (x + Nat.toInt d) d = In
         (f => J (y e => Int.modNat (NegSucc y + Nat.toInt (Succ n)) (Succ n) = Int.modNat (NegSucc y) (Succ n))
           (Eq.trans (Eq.cong (x => Int.modNat x (Succ n)) (Int.subNatNatSucc n (Succ n + (m - Succ n))))
             (Int.modNatSubNatNatGt n (m - Succ n)))
-          (Nat.addSubCancel (Succ n) m (Nat.leqFalse m n f)))
+          (Nat.addSubCancel (Succ n) m f.read))
 
 --| `Int.modNat (x + k * d) d = Int.modNat x d`
 theorem Int.modNatAddMul (x: Int) (d: Nat) (k: Nat): Int.modNat (x + Nat.toInt (k * d)) d = Int.modNat x d :=

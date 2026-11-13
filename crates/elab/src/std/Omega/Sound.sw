@@ -210,17 +210,17 @@ theorem Omega.intLeqOfLess (a b: Int) (h: Int.less a b = True): Int.leq (Int.add
 --| `Not (a <= b)` is `b + 1 <= a`.
 theorem Omega.intLeqOfNotLeq (a b: Int) (h: Int.leq a b = False): Int.leq (Int.add b (OfNat 1)) a = True :=
   match a, b with
-    | OfNat m, OfNat n => Omega.natLeqAddOne n m (Nat.leqFalse m n h)
+    | OfNat m, OfNat n => Omega.natLeqAddOne n m h.read
     | OfNat m, NegSucc Zero => rfl
     | OfNat m, NegSucc (Succ n) => rfl
-    | NegSucc m, NegSucc (Succ n) => Nat.leqFalse (Succ n) m h
+    | NegSucc m, NegSucc (Succ n) => h.read
 
 --| `Not (a < b)` is `b <= a`.
 theorem Omega.intLeqOfNotLess (a b: Int) (h: Int.less a b = False): Int.leq b a = True :=
   match a, b with
-    | OfNat m, OfNat n => Nat.leqFalse (Succ m) n h
+    | OfNat m, OfNat n => h.read
     | OfNat m, NegSucc n => rfl
-    | NegSucc m, NegSucc n => Nat.leqFalse (Succ n) m h
+    | NegSucc m, NegSucc n => h.read
 
 --| `a <= b` gives `0 <= b - a`.
 theorem Omega.intSubNonneg (a b: Int) (h: Int.leq a b = True): 0 ≤ Int.add b (Int.neg a) :=
@@ -286,25 +286,25 @@ theorem Omega.subCases (t: Nat) (a: Nat) (b: Nat) (h: t = a - b)
     (kl: (b ≤ a) ∧ ((t + b = a) ∧ Unit) → Void) (kr: (a < b) ∧ ((t = 0) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq b a) (x => Void)
     (e => kl (Both e (Both (Eq.trans (Eq.cong (x => x + b) h) (Eq.trans (Nat.addComm (a - b) b) (Nat.addSubCancel b a e))) Trivial)))
-    (e => kr (Both (Nat.leqFalse b a e) (Both (Eq.trans h (Nat.subEqZero a b (Nat.lessLe a b (Nat.leqFalse b a e)))) Trivial)))
+    (e => kr (Both e.read (Both (Eq.trans h (Nat.subEqZero a b (Nat.lessLe a b e.read))) Trivial)))
 
 theorem Omega.maxCases (t: Nat) (a: Nat) (b: Nat) (h: t = Nat.max a b)
     (kl: (a ≤ b) ∧ ((t = b) ∧ Unit) → Void) (kr: (b < a) ∧ ((t = a) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq a b) (x => Void)
     (e => kl (Both e (Both (Eq.trans h (Nat.maxRight a b e)) Trivial)))
-    (e => kr (Both (Nat.leqFalse a b e) (Both (Eq.trans h (Nat.maxLeft a b (Nat.lessLe b a (Nat.leqFalse a b e)))) Trivial)))
+    (e => kr (Both e.read (Both (Eq.trans h (Nat.maxLeft a b (Nat.lessLe b a e.read))) Trivial)))
 
 theorem Omega.minCases (t: Nat) (a: Nat) (b: Nat) (h: t = Nat.min a b)
     (kl: (a ≤ b) ∧ ((t = a) ∧ Unit) → Void) (kr: (b < a) ∧ ((t = b) ∧ Unit) → Void): Void :=
   Bool.inspect (Nat.leq a b) (x => Void)
     (e => kl (Both e (Both (Eq.trans h (Nat.minLeft a b e)) Trivial)))
-    (e => kr (Both (Nat.leqFalse a b e) (Both (Eq.trans h (Nat.minRight a b e)) Trivial)))
+    (e => kr (Both e.read (Both (Eq.trans h (Nat.minRight a b e)) Trivial)))
 
 theorem Omega.neCases (a: Nat) (b: Nat) (h: a ≠ b)
     (kl: (a < b) ∧ Unit → Void) (kr: (b < a) ∧ Unit → Void): Void :=
   Bool.inspect (Nat.leq (Succ a) b) (x => Void)
     (e => kl (Both e Trivial))
-    (e => kr (Both (Nat.leNeSucc b a (Nat.leqFalse (Succ a) b e) (p => h (Eq.sym p))) Trivial))
+    (e => kr (Both (Nat.leNeSucc b a e.read (p => h (Eq.sym p))) Trivial))
 
 theorem Omega.ineCases (a: Int) (b: Int) (h: a ≠ b)
     (kl: (Int.less a b = True) ∧ Unit → Void) (kr: (Int.less b a = True) ∧ Unit → Void): Void :=
@@ -477,13 +477,13 @@ theorem Omega.prove (env: Omega.Env) (facts: List Omega.Fact) (goal: Omega.Goal)
       Bool.inspect (Nat.leq (Omega.NTerm.eval env a) (Omega.NTerm.eval env b)) (x => x = True) (e => rfl)
         (e => Void.exfalso (Omega.checkCertSound env facts (Omega.Facts.rows facts) (Some (Omega.leRow (NSucc b) a))
           hs (Omega.factsRowsHold env facts hs)
-          (Omega.leRowHolds env (NSucc b) a (Nat.leqFalse (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) e))
+          (Omega.leRowHolds env (NSucc b) a e.read)
           cert [] Trivial ok))
     | GLt a b =>
       Bool.inspect (Nat.leq (Succ (Omega.NTerm.eval env a)) (Omega.NTerm.eval env b)) (x => x = True) (e => rfl)
         (e => Void.exfalso (Omega.checkCertSound env facts (Omega.Facts.rows facts) (Some (Omega.leRow b a))
           hs (Omega.factsRowsHold env facts hs)
-          (Omega.leRowHolds env b a (Nat.leqFalse (Succ (Omega.NTerm.eval env a)) (Omega.NTerm.eval env b) e))
+          (Omega.leRowHolds env b a e.read)
           cert [] Trivial ok))
     | GVoid =>
       Omega.checkCertSound env facts (Omega.Facts.rows facts) None hs (Omega.factsRowsHold env facts hs) Trivial cert [] Trivial ok
