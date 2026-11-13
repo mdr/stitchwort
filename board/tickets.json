@@ -33090,7 +33090,7 @@
     {
       "id": 3065,
       "title": "[Sonnet] .read on [x, ..xs] == [y, ..ys] (and tuple/Text ==) reads one && layer instead of the equation x :: xs = y :: ys, so DecEq.sound stays (List.beqCons, Graph/Search, Text/Text) (SW-3060 finding 4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33103,7 +33103,7 @@
     {
       "id": 3066,
       "title": "[Sonnet] h.left / h.right on a test fact ((a && b) = True) gives E-NO-NAMESPACE, and (rewrite … in held).left gives E-REWRITE-NO-GOAL; make .left/.right read through the reading as patterns do (bool-as-proposition §6) (SW-3060 finding 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33324,7 +33324,7 @@
     {
       "id": 3083,
       "title": "[Sonnet] A list == has no reading: (List.decEq …).holds fails .read with E-NO-READING (lists of Char, Pixel, Segment; 2020 D04 Rules, D20 Corners fitsIff, 2021 D08 Parse); likely with SW-3065 (SW-3079 finding 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33350,7 +33350,7 @@
     {
       "id": 3085,
       "title": "[Sonnet] .read on a Witness-bound holds unfolds one level too far (2020 D21 Part1: name.toList = name.toList, not the Ingredient equation) until the type is annotated with a let; and .read on an application's fact ((Bool.andLeft found).read) fails E-NO-READING because the type is an unreduced beta redex (SW-3079 findings 3, 8)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33454,12 +33454,12 @@
     {
       "id": 3093,
       "title": "[Sonnet] Reader gaps found by the sweeps (bool-as-proposition §6, stage 6 follow-ups), one lane: SW-3066 (.left/.right on a test fact, §6.6 says h.left is h.read.left), SW-3083 + SW-3065 (a list/tuple/Text == has no reading, or reads one && layer instead of the equation), SW-3085 (.read on a Witness-bound or applied fact unfolds too far or fails on a beta redex)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, needed fixes (docs and examples from the Opus review), 39 + 9 min (est. 90). SW-3085: only with STITCHWORT_GLUE=0, now SW-3106.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
