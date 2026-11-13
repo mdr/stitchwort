@@ -1964,7 +1964,7 @@ def Map.Raw.same [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v 
 
 theorem Map.Raw.sameSound [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o])
     (h: Map.Raw.same m n = True): Map.Raw.Equiv m n :=
-  (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)).sound h
+  h.read
 
 theorem Map.Raw.sameComplete [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o])
     (h: Map.Raw.Equiv m n): Map.Raw.same m n = True :=

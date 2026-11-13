@@ -81,7 +81,9 @@ theorem List.chainTail (xs: List a) (holds: a → a → Bool) (chained: List.cha
   match xs with
     | [] => rfl
     | [x] => rfl
-    | [x, next, ..rest] => Bool.andRight chained
+    | [x, next, ..rest] =>
+      let Both _ more := chained
+      more
 
 --| Without the last element (`List.init`), it still holds.
 theorem List.chainInit (xs: List a) (holds: a → a → Bool) (chained: List.chain xs holds = True): List.chain (List.init xs) holds = True :=
@@ -95,9 +97,8 @@ theorem List.chainInitCons (x: a) (rest: List a) (holds: a → a → Bool)
     | [] => rfl
     | [next] => rfl
     | [next, after, ..more] =>
-      let first := Bool.andLeft chained
-      let kept := List.chainInitCons next [after, ..more] holds (Bool.andRight chained)
-      Bool.andIntro first kept
+      let Both first rest := chained
+      Both first (List.chainInitCons next [after, ..more] holds rest)
 
 --| A `chain` of two tests together holds when the chain of each one does.
 theorem List.chainAnd (xs: List a) (holds1 holds2: a → a → Bool):
@@ -541,7 +542,7 @@ theorem List.memOfCountPositive [auto eq: DecEq a] (c: a) (xs: List a) (positive
   match xs with
     | [x, ..rest] =>
       match t: x == c with
-        | True => Inl (DecEq.sound t)
+        | True => Inl t.read
         | False => Inr (List.memOfCountPositive c rest (omega [List.countCons rest x (== c)]))
 
 --| Filtering twice is filtering once by both tests.
@@ -745,25 +746,28 @@ theorem List.startsWithSplit [auto eq: DecEq a] (xs prefix: List a) (starts: Lis
   match xs, prefix with
     | xs, [] => rfl
     | [x, ..xs], [p, ..ps] =>
-      rewrite DecEq.sound (Bool.andLeft starts), List.startsWithSplit xs ps (Bool.andRight starts) in rfl
+      let Both sameHead more := starts
+      rewrite sameHead.read, List.startsWithSplit xs ps more in rfl
 
 --| A prefix is no longer than the list.
 theorem List.startsWithLength [auto eq: DecEq a] (xs prefix: List a) (starts: List.startsWith xs prefix = True):
     List.length prefix ≤ List.length xs :=
   match xs, prefix with
     | xs, [] => rfl
-    | [x, ..xs], [p, ..ps] => List.startsWithLength xs ps (Bool.andRight starts)
+    | [x, ..xs], [p, ..ps] =>
+      let Both _ more := starts
+      List.startsWithLength xs ps more
 
 --| Appending to `prefix` gives `xs` exactly when the appended list is the
 --| rest of `xs`, once `xs` starts with `prefix`.
 theorem List.appendEqDrop [auto eq: DecEq a] (xs: List a) (prefix: List a) (starts: List.startsWith xs prefix = True) (rest: List a):
     (List.append prefix rest == xs) = (rest == List.drop xs (List.length prefix)) :=
   match same: rest == List.drop xs (List.length prefix) with
-    | True => rewrite DecEq.sound same, List.startsWithSplit xs prefix starts in DecEq.refl xs
+    | True => rewrite same.read, List.startsWithSplit xs prefix starts in DecEq.refl xs
     | False =>
       match made: List.append prefix rest == xs with
         | True =>
-          let dropped := Eq.trans (Eq.sym (List.dropAppend prefix rest)) (Eq.cong (ys => List.drop ys (List.length prefix)) (DecEq.sound made))
+          let dropped := Eq.trans (Eq.sym (List.dropAppend prefix rest)) (Eq.cong (ys => List.drop ys (List.length prefix)) made.read)
           Void.exfalso (DecEq.soundFalse rest (List.drop xs (List.length prefix)) same dropped)
         | False => rfl
 
@@ -772,7 +776,7 @@ theorem List.appendNotEq [auto eq: DecEq a] (xs: List a) (prefix: List a) (start
     (List.append prefix rest == xs) = False :=
   match made: List.append prefix rest == xs with
     | True =>
-      let startsAfter: List.startsWith xs prefix = True := rewrite <- DecEq.sound made in List.startsWithAppend prefix rest
+      let startsAfter: List.startsWith xs prefix = True := rewrite <- made.read in List.startsWithAppend prefix rest
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym starts) startsAfter))
     | False => rfl
 
@@ -1404,8 +1408,10 @@ theorem List.beqCons [auto eq: DecEq a] (x: a) (xs: List a) (y: a) (ys: List a):
   Bool.eqOf _ _
     (same =>
       let lists := DecEq.sound [x := [x, ..xs]] [y := [y, ..ys]] same
-      rewrite List.consInjectiveHead x y xs ys lists, (Eq.cong (.drop 1) lists: xs = ys) in Bool.andIntro (DecEq.refl y) (DecEq.refl ys))
-    (both => rewrite DecEq.sound (Bool.andLeft both), DecEq.sound (Bool.andRight both) in DecEq.refl [y, ..ys])
+      rewrite List.consInjectiveHead x y xs ys lists, (Eq.cong (.drop 1) lists: xs = ys) in Both (DecEq.refl y) (DecEq.refl ys))
+    (both =>
+      let Both heads tails := both
+      rewrite heads.read, tails.read in DecEq.refl [y, ..ys])
 
 --| The empty list is never `==` to a non-empty one.
 theorem List.beqNilCons [auto eq: DecEq a] (y: a) (ys: List a): (([]: List a) == [y, ..ys]) = False :=
@@ -1497,7 +1503,7 @@ theorem List.distinctLength [auto eq: DecEq a] (xs ys: List a) (h: List.Distinct
         y inRest =>
           List.memFilterIntro ys (y => Bool.not (y == x)) (drawn y (Inr inRest))
             (match e: y == x with
-              | True => Void.exfalso (out (rewrite <- DecEq.sound e in inRest))
+              | True => Void.exfalso (out (rewrite <- e.read in inRest))
               | False => rfl)
       omega [List.distinctLength rest others d drawnOthers, List.lengthFilterLt (y => Bool.not (y == x)) x dropped ys (drawn x (Inl rfl))]
 
@@ -1577,7 +1583,7 @@ theorem List.inRangeIff (x: Nat) (a: Nat) (b: Nat): (List.inRange x a b = True) 
 --| Looking for `x` in a range with `contains` gives the two comparisons `x in a ..< b` is.
 theorem List.containsRange (a: Nat) (b: Nat) (x: Nat): List.contains (List.range a b) x = List.inRange x a b :=
   match c: List.contains (List.range a b) x with
-    | True => Eq.sym ((List.inRangeIff x a b).backward ((List.memContains (List.range a b) x).forward c))
+    | True => Eq.sym ((List.inRangeIff x a b).backward c.read)
     | False =>
       match d: List.inRange x a b with
         | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains (List.range a b) x).backward ((List.inRangeIff x a b).forward d))) c))
@@ -1688,9 +1694,9 @@ theorem List.findRangeFirst (passes: Nat → Bool): ∀ (count start found: Nat)
         Void.exfalso (Nat.lessIrrefl earlier (Nat.leTrans (Succ earlier) found earlier high (rewrite <- same in low)))
       | False =>
         match e: earlier == start with
-          | True => rewrite DecEq.sound e in c
+          | True => rewrite e.read in c
           | False =>
-            let later: Succ start ≤ earlier := Nat.leNeSucc start earlier low (p => DecEq.soundFalse earlier start e (Eq.sym p))
+            let later: Succ start ≤ earlier := Nat.leNeSucc start earlier low (p => e.read (Eq.sym p))
             List.findRangeFirst passes count (Succ start) found h earlier later high
 
 --| What is found passes, is in the range, and no smaller number passes.
@@ -1723,10 +1729,10 @@ theorem List.findIndexFromSomeBefore (p: a → Bool) (x: a) (rest: List a) (star
   earlier lo2 hi y g =>
     match same: earlier == start with
       | True =>
-        let zero: earlier - start = 0 := omega [DecEq.sound same]
+        let zero: earlier - start = 0 := omega [same.read]
         rewrite <- Option.someInjective (rewrite zero at g in g) in e
       | False =>
-        let ne: earlier ≠ start := DecEq.soundFalse earlier start same
+        let ne: earlier ≠ start := same.read
         let later: Succ start ≤ earlier := omega
         let shift2: earlier - start = Succ (earlier - Succ start) := omega
         before earlier later hi y (rewrite shift2 at g in g)
@@ -1771,20 +1777,20 @@ theorem List.findIndexFromOf (p: a → Bool) (start: Nat) (xs: List a) (index: N
       match e: p z with
         | True =>
           match same: index == start with
-            | True => rewrite DecEq.sound same in rfl
+            | True => rewrite same.read in rfl
             | False =>
-              let ne: index ≠ start := DecEq.soundFalse index start same
+              let ne: index ≠ start := same.read
               let less: start < index := omega
               let zero: start - start = 0 := omega
               Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (before start (Nat.leRefl start) less z (rewrite zero in rfl))) e))
         | False =>
           match same: index == start with
             | True =>
-              let zero: index - start = 0 := omega [DecEq.sound same]
+              let zero: index - start = 0 := omega [same.read]
               let isZ: z = x := Option.someInjective (rewrite zero at g in g)
               Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (rewrite isZ in passes)))
             | False =>
-              let ne: index ≠ start := DecEq.soundFalse index start same
+              let ne: index ≠ start := same.read
               let later: Succ start ≤ index := omega
               let shift: index - start = Succ (index - Succ start) := omega
               List.findIndexFromOf p (Succ start) rest index x later (rewrite shift at g in g) passes
@@ -2154,14 +2160,14 @@ theorem List.countEqDistinct [auto eq: DecEq a] (v: a) (xs: List a) (h: List.Dis
         (match same: y == v with
           | True =>
             match later: List.contains ys v with
-              | True => Void.exfalso (notMem (rewrite DecEq.sound same in (List.memContains ys v).forward later))
+              | True => Void.exfalso (notMem (rewrite same.read in later.read))
               | False => rfl
           | False => rfl)
 
 --| What `(.find p)` finds passes any other test some element passes.
 theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q y = True) (h: List.find xs p = Some y): List.any xs q = True :=
   match List.findSome xs p y h with
-    | Both py m => List.anyOfMem xs q y qy m
+    | Both py m => Witness y (Both m qy)
 
 --| With distinct keys, finding by an element's key finds that element (and
 --| [`List.findKey`], std/List/SortLemmas.sw, says what is found has the key).
@@ -2171,7 +2177,7 @@ theorem List.findKeyDistinct [auto eq: DecEq k] (key: a → k): ∀ (xs: List a)
   | [z, ..zs], Both notMem d, x, Inl e => rewrite e, DecEq.refl (key x) in rfl
   | [z, ..zs], Both notMem d, x, Inr m =>
     match c: key z == key x with
-      | True => Void.exfalso (notMem (rewrite DecEq.sound c in List.memMap zs x m key))
+      | True => Void.exfalso (notMem (rewrite c.read in List.memMap zs x m key))
       | False => List.findKeyDistinct key zs d x m
 
 theorem List.findKeyDistinctExample: List.find [(1, "a"), (2, "b")] (y => y.fst == 2) = Some (2, "b") :=
@@ -2965,7 +2971,7 @@ theorem List.anyIff (xs: List a) (p: a → Bool): List.any xs p = True ↔ List.
 --| `Bool` is `List.decMem`'s decision: its `sound` and
 --| `complete` take it to the proposition and back.)
 theorem List.anyEqIff [auto eq: DecEq a] (x: a) (xs: List a): List.any xs (== x) = True ↔ x ∈ xs := {
-  forward = h => List.anyTrueElim xs (== x) (x ∈ xs) h (y m e => rewrite <- DecEq.sound e in m),
+  forward = h => List.anyTrueElim xs (== x) (x ∈ xs) h (y m e => rewrite <- e.read in m),
   backward = m => List.anyOfMem xs (== x) x (DecEq.refl x) m
 }
 
@@ -3468,7 +3474,7 @@ theorem List.all2ZipWithRight (f: a → b → c) (r: c → b → Prop) (pointwis
 theorem List.countZeroOfNotContains [auto eq: DecEq a] (xs: List a) (x: a) (absent: xs.contains x = False): xs.count (y => y == x) = 0 :=
   List.countNone xs (y => y == x) (y member =>
     match same: y == x with
-      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((List.memContains xs x).backward (rewrite <- DecEq.sound same in member))))
+      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((List.memContains xs x).backward (rewrite <- same.read in member))))
       | False => rfl)
 
 --| If every value occurs in `xs` at most once (counted with `==`), `xs` has

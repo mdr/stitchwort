@@ -31,12 +31,12 @@ theorem Nat.dividesMul (d t: Nat): Nat.divides d (t * d) = True :=
 theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
 
 theorem Nat.dividesElim (goal: Prop): ∀ (d n: Nat) => Nat.divides d n = True → ∀ (cont: ∀ (t: Nat) => n = t * d → goal) => goal
-  | Zero, n, h, k => k 0 ((Nat.decEq n 0).sound h)
+  | Zero, n, h, k => k 0 h.read
   | Succ d, n, h, k =>
     k (n / Succ d)
       (calc n
         _ = (n / Succ d) * Succ d + n % Succ d := Nat.divModEq n (Succ d)
-        _ = (n / Succ d) * Succ d + 0 := Eq.cong (r => (n / Succ d) * Succ d + r) ((Nat.decEq (n % Succ d) 0).sound h)
+        _ = (n / Succ d) * Succ d + 0 := Eq.cong (r => (n / Succ d) * Succ d + r) h.read
         _ = (n / Succ d) * Succ d := Nat.addZero ((n / Succ d) * Succ d))
 
 --| `Nat.divides` as a proposition: `d` divides `n` exactly when `n` is `t * d`
@@ -183,13 +183,12 @@ theorem Nat.mulAddDivMatch (d: Nat) (r: Nat) (small: r < d) (v: Nat) (target: Na
     (v * d + r == target) = (target % d == r && v == target / d) :=
   Bool.eqOf (v * d + r == target) (target % d == r && v == target / d)
     (matches =>
-      let same := DecEq.sound matches
+      let same := matches.read
       rewrite Nat.modUnique target d v r small (Eq.sym same), Nat.divUnique target d v r small (Eq.sym same)
-        in Bool.andIntro (DecEq.refl r) (DecEq.refl v))
+        in Both (DecEq.refl r) (DecEq.refl v))
     (both =>
-      let remainder := DecEq.sound (Bool.andLeft both)
-      let quotient := DecEq.sound (Bool.andRight both)
-      rewrite quotient, <- remainder, <- Nat.divModEq target d in DecEq.refl target)
+      let Both remainder quotient := both
+      rewrite quotient.read, <- remainder.read, <- Nat.divModEq target d in DecEq.refl target)
 
 --| A product of two nonzero numbers is nonzero. (`omega` doesn't multiply
 --| two variables, so it needs this as a hint: `omega [Nat.mulNeZero a b ha hb]`.)

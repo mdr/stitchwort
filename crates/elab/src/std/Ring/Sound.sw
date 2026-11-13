@@ -92,7 +92,7 @@ theorem Ring.cmpEq (vs ws: List Nat) (h: Ring.cmp vs ws = Equal): vs = ws :=
     | [], [] => rfl
     | [v, ..vs], [w, ..ws] =>
       match e: Nat.equal v w with
-        | True => Eq.trans (Eq.cong (t => [t, ..vs]) (Nat.equalSound v w e)) (Eq.cong (Cons w) (Ring.cmpEq vs ws h))
+        | True => Eq.trans (Eq.cong (t => [t, ..vs]) e.read) (Eq.cong (Cons w) (Ring.cmpEq vs ws h))
         | False =>
           match f: Nat.leq v w with
             | False => Void.exfalso (Ring.greaterNotEqual h)

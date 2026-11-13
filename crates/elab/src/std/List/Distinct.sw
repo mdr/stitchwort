@@ -28,7 +28,7 @@ def List.unique [auto ord: Ord a] (xs: List a): List a := List.uniqueLoop Set.em
 theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any [y, ..s] (== y) = True :=
   match e: y == y with
     | True => rfl
-    | False => Void.exfalso (DecEq.soundFalse y y e rfl)
+    | False => Void.exfalso (e.read rfl)
 
 theorem List.anyTailFalse (p: a → Bool) (y: a) (s: List a) (h: List.any [y, ..s] p = False): List.any s p = False :=
   match e: p y with
@@ -61,7 +61,7 @@ theorem List.memUniqueFromIntro [auto eq: DecEq a] (x: a) (seen xs: List a) (m: 
                 | Inr inRest => Inr (Inr inRest)
                 | Inl hit =>
                   match d: y == x with
-                    | True => Inr (Inl (DecEq.sound d))
+                    | True => Inr (Inl d.read)
                     | False => Inl hit
 
 theorem List.uniqueFromFresh [auto eq: DecEq a] (z: a) (seen xs: List a) (m: z ∈ List.uniqueFrom seen xs): List.any seen (== z) = False :=
@@ -102,8 +102,8 @@ theorem List.uniqueDecEqNoRepeats [auto eq: DecEq a] (xs: List a): List.Distinct
 theorem List.uniqueSeenInsert [auto ord: Ord a] (seen: Set a) (seenList: List a) (same: ∀ (z: a) => Set.contains seen z = List.any seenList (== z))
     (x: a) (z: a): Set.contains (Set.insert seen x) z = List.any [x, ..seenList] (== z) :=
   match e: x == z with
-    | True => rewrite DecEq.sound e in Set.containsInsert z seen
-    | False => rewrite Set.containsInsertOther seen x z (eq => DecEq.soundFalse x z e (Eq.sym eq)) in same z
+    | True => rewrite e.read in Set.containsInsert z seen
+    | False => rewrite Set.containsInsertOther seen x z (eq => e.read (Eq.sym eq)) in same z
 
 theorem List.uniqueLoopFrom [auto ord: Ord a]: ∀ (seen: Set a) (seenList: List a) => (∀ (z: a) => Set.contains seen z = List.any seenList (== z)) →
     ∀ (acc xs: List a) => List.uniqueLoop seen acc xs = List.reverseOnto acc (List.uniqueFrom seenList xs)
@@ -146,7 +146,7 @@ theorem List.anyConsEqTrue [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (h: L
 theorem List.anyConsEqFalse [auto eq: DecEq a] (x: a) (y: a) (seen: List a) (ne: x ≠ y) (h: List.any seen (== y) = False):
     List.any [x, ..seen] (== y) = False :=
   match d: x == y with
-    | True => Void.exfalso (ne (DecEq.sound d))
+    | True => Void.exfalso (ne d.read)
     | False => h
 
 theorem List.uniqueFromKeep [auto eq: DecEq a] (seen xs: List a) (h: List.Distinct xs)

@@ -11,10 +11,10 @@ theorem List.getOrIndexOf [auto eq: DecEq a] (xs: List a) (d x: a) (m: List.Mem 
   match xs with
     | [y, ..ys] =>
       match e: y == x with
-        | True => DecEq.sound e
+        | True => e.read
         | False =>
           match m with
-            | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
+            | Inl q => Void.exfalso (e.read q)
             | Inr rest => List.getOrIndexOf ys d x rest
 
 --| An element's position is inside the list.
@@ -25,7 +25,7 @@ theorem List.indexOfLt [auto eq: DecEq a] (xs: List a) (x: a) (m: List.Mem x xs)
         | True => rfl
         | False =>
           match m with
-            | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
+            | Inl q => Void.exfalso (e.read q)
             | Inr rest => List.indexOfLt ys x rest
 
 --| `x` is in `xs` exactly when its first place is inside it.

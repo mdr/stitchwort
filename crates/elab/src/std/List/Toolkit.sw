@@ -631,7 +631,7 @@ theorem List.noRepeatsIff [auto eq: DecEq a] (xs: List a): List.noRepeats xs = T
         match h with
           | Both out more =>
             Both (match c: List.contains rest x with
-              | True => Void.exfalso (out ((List.memContains rest x).forward c))
+              | True => Void.exfalso (out c.read)
               | False => rfl) ((List.noRepeatsIff rest).backward more)
     }
 

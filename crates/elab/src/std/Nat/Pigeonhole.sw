@@ -12,26 +12,18 @@ theorem Nat.pigeonhole (n: Nat) (f: Nat → Nat) (small: (∀ (i: Nat) => i ≤ 
     | Succ n =>
       match found: (List.range 0 (Succ n)).any (i => f i == f (Succ n)) with
         | True =>
-          List.anyTrueElim (List.range 0 (Succ n)) (i => f i == f (Succ n))
-            (Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ Succ n) ∧ (f i = f j))))) found
-            (i inRange hit =>
-              Witness i
-                (Witness (Succ n)
-                  (Both (omega)
-                    (Both (Nat.leRefl (Succ n)) (DecEq.sound hit)))))
+          let Witness i (Both inRange hit) := found
+          Witness i (Witness (Succ n) (Both (omega) (Both (Nat.leRefl (Succ n)) hit.read)))
         | False =>
           let missed: ∀ (i: Nat) => i ≤ n → f i ≠ f (Succ n) :=
-            i le same =>
-              Bool.falseNotTrue
-                (Eq.trans (Eq.sym found)
-                  (List.anyOfMem (List.range 0 (Succ n)) (i => f i == f (Succ n)) i (rewrite same in DecEq.refl (f (Succ n)))
-                    (List.memRangeFromIntro i (Succ n) 0 (Nat.zeroLe i) (omega [le]))))
+            i le =>
+              (found.read i (List.memRangeFromIntro i (Succ n) 0 (Nat.zeroLe i) (omega [le]))).read
           let swapped := (i: Nat) => if f i == n then f (Succ n) else f i
           let swappedSmall: ∀ (i: Nat) => i ≤ n → swapped i < n :=
             i le =>
               match atLast: f i == n with
                 | True =>
-                  let notLast: f (Succ n) ≠ n := same => missed i le (Eq.trans (DecEq.sound atLast) (Eq.sym same))
+                  let notLast: f (Succ n) ≠ n := same => missed i le (Eq.trans atLast.read (Eq.sym same))
                   omega [small (Succ n) (Nat.leRefl (Succ n)), notLast]
                 | False => omega [small i (omega [le]), DecEq.soundFalse (f i) n atLast]
           Exists.elim (Nat.pigeonhole n swapped swappedSmall) (i rest =>
@@ -41,7 +33,7 @@ theorem Nat.pigeonhole (n: Nat) (f: Nat → Nat) (small: (∀ (i: Nat) => i ≤ 
               let same := And.right (And.right both)
               let agree: f i = f j :=
                 match atI: f i == n, atJ: f j == n with
-                  | True, True => Eq.trans (DecEq.sound atI) (Eq.sym (DecEq.sound atJ))
+                  | True, True => Eq.trans atI.read (Eq.sym atJ.read)
                   | True, False => Void.exfalso (missed j jLast (Eq.sym same))
                   | False, True => Void.exfalso (missed i (omega [ij, jLast]) same)
                   | False, False => same
