@@ -2,42 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/logic-in-rewrite-rule.sw:5:14 ]
-   │
- 5 │ theorem same (f: Prop -> Nat) (g: Prop -> Nat) (xs: List Nat) (h: (p: Prop) -> f p = g p): f (3 in xs) = g (3 in xs) :=
-   │              ────────┬───────  
-   │                      ╰───────── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/logic-in-rewrite-rule.sw:5:31 ]
-   │
- 5 │ theorem same (f: Prop -> Nat) (g: Prop -> Nat) (xs: List Nat) (h: (p: Prop) -> f p = g p): f (3 in xs) = g (3 in xs) :=
-   │                               ────────┬───────  
-   │                                       ╰───────── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/logic-in-rewrite-rule.sw:5:48 ]
-   │
- 5 │ theorem same (f: Prop -> Nat) (g: Prop -> Nat) (xs: List Nat) (h: (p: Prop) -> f p = g p): f (3 in xs) = g (3 in xs) :=
-   │                                                ───────┬──────  
-   │                                                       ╰──────── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/logic-in-rewrite-rule.sw:5:67 ]
-   │
- 5 │ theorem same (f: Prop -> Nat) (g: Prop -> Nat) (xs: List Nat) (h: (p: Prop) -> f p = g p): f (3 in xs) = g (3 in xs) :=
-   │                                                                   ────┬────  
-   │                                                                       ╰────── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-PARSE] Error: a membership test in a `rewrite` needs brackets
    ╭─[ reject/logic-in-rewrite-rule.sw:6:15 ]
    │

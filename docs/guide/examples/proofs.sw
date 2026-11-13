@@ -272,7 +272,7 @@ def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ se
 -- end logic
 
 -- begin forall
-theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
+theorem zeroPlusAll ∀ (n: Nat): 0 + n = n := rfl
 
 theorem atOneAndTwo ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
 

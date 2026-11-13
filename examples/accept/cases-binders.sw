@@ -1,3 +1,5 @@
+-- expect-warning: W-THEOREM-FORALL
+-- The after-colon form is kept on purpose to test binder introduction.
 -- `cases` introduces a goal's leading binders (docs/proposals/decide.md
 -- §6.1.1) when nothing proves the `Π` goal as it stands: a statement's
 -- variables may be bound after the colon as well as before it.

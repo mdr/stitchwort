@@ -78,7 +78,7 @@ theorem placePinId ∀ (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin) (
         | False => Void.exfalso (Option.noneNotSome kept h)
     | None => Void.exfalso (Option.noneNotSome kept h)
 
-theorem pinStartAtSame: ∀ (pin: Pin) => pin.startAt pin.start = pin
+theorem pinStartAtSame ∀ (pin: Pin): pin.startAt pin.start = pin := match pin with
   | { id, start, duration } => rfl
 
 -- In a well-formed trip's own legs, a pin that fits is kept where it was.

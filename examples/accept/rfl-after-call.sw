@@ -5,15 +5,14 @@
 -- depends. Checked in place, `rfl` failed and was checked again after the
 -- expected type, but against its goal as computed before the `_` was
 -- solved, so `firstOf [3, 4]` stayed stuck on it (SW-1007).
-import Std (Eq, List, Nat, Option, Void)
+import Std (Eq, List, Nat, Option)
 
 def firstOf (xs: List Nat): Option Nat := List.head xs
 
 type Starts: List Nat → Nat → Prop =
   | Here (n: Nat) (rest: List Nat): Starts [n, ..rest] n
 
-theorem startsOf: ∀ (xs: List Nat) (n: Nat) => firstOf xs = Some n → Starts xs n
-  | [], n, h => Void.exfalso (Option.noneNotSome n h)
-  | [m, ..rest], n, h => rewrite <- Option.someInjective h in Here m rest
+theorem startsOf ∀ (xs: List Nat) (n: Nat) (h: firstOf xs = Some n): Starts xs n := match xs with
+  | [m, ..rest] => rewrite <- Option.someInjective h in Here m rest
 
 theorem rflUnderHole: Starts [3, 4] 3 := startsOf _ 3 rfl

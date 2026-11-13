@@ -2,33 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/calc-mixed-direction.sw:3:13 ]
-   │
- 3 │ theorem bad (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: c < b): c < b :=
-   │             ────┬───  
-   │                 ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/calc-mixed-direction.sw:3:22 ]
-   │
- 3 │ theorem bad (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: c < b): c < b :=
-   │                      ────┬───  
-   │                          ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/calc-mixed-direction.sw:3:31 ]
-   │
- 3 │ theorem bad (a: Nat) (b: Nat) (c: Nat) (h1: a ≤ b) (h2: c < b): c < b :=
-   │                               ────┬───  
-   │                                   ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-CALC-RELATION] Error: a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`
    ╭─[ reject/calc-mixed-direction.sw:4:3 ]
    │

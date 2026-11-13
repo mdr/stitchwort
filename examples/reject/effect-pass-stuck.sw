@@ -15,4 +15,4 @@ def stuckComp: List Nat → Effect.Comp Effect.NoOp Effect.NoRes Nat
   | Nil => 0
   | Cons x xs => 1
 
-theorem stuckIsDone: (xs: List Nat) → IsDone (stuckComp xs) := xs => Trivial
+theorem stuckIsDone ∀ (xs: List Nat): IsDone (stuckComp xs) := Trivial

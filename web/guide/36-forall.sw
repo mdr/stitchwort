@@ -2,9 +2,9 @@ import Std (Exists, Nat)
 import Std.Exists (Witness)
 
 -- `∀ (n: Nat) => P` says `P` for every `n`. It's another way to write the
--- function type `(n: Nat) -> P`, so a proof is a function and using one is a
--- call. `forall` is the same, spelled in ASCII.
-theorem zeroPlus: ∀ (n: Nat) => 0 + n = n := n => rfl
+-- function type `(n: Nat) -> P`. `forall` is the same, spelled in ASCII.
+-- A theorem's own variables go before the colon, as here.
+theorem zeroPlus ∀ (n: Nat): 0 + n = n := rfl
 
 -- A hypothesis about every value: `all 1` is a proof of `p 1`.
 theorem atOneAndTwo ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 :=
@@ -18,7 +18,7 @@ theorem swap: ∀ (a b: Nat) => a + b = b + a := a => b => omega
 theorem atLeastOne: ∀ (n: Nat) => n > 0 -> n >= 1 := n => positive => omega
 
 -- `∀` and `∃` together: every number has a successor.
-theorem successor: ∀ (n: Nat) => ∃ (m: Nat) => m = n + 1 := n => Witness (n + 1) rfl
+theorem successor ∀ (n: Nat): ∃ (m: Nat) => m = n + 1 := Witness (n + 1) rfl
 
 -- Goals and messages show these statements with `∀`, whichever way they
 -- were written: put `?` in place of a proof to see one.

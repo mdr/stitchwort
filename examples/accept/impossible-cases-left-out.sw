@@ -18,7 +18,7 @@ theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs 
   | Scissors => rfl
 
 -- Equations too.
-theorem rockBeatsOnlyScissorsArms: (theirs: Move) -> beats Rock theirs -> theirs = Scissors
+theorem rockBeatsOnlyScissorsArms ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Scissors, _ => rfl
 
 -- An equation of two different `Ordering`s: for `Succ k`, `h` is

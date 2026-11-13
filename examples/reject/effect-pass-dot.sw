@@ -15,4 +15,4 @@ def Thunk: Type := Effect.Comp Effect.NoOp Effect.NoRes Nat
 
 def Thunk.finished (computation: Thunk): Prop := IsDone computation
 
-theorem anyIsDone: (computation: Thunk) → computation.finished := computation => Trivial
+theorem anyIsDone ∀ (computation: Thunk): computation.finished := Trivial

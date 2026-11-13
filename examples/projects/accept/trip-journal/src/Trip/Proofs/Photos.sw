@@ -10,17 +10,17 @@ theorem holdsMem ∀ (album: Album) (id: Nat) (h: holds album id = True): id ∈
   (List.decMem id (album.photos.map Photo.id)).sound h
 
 -- Where `stillHolds` says yes, an album with that id holds the photo.
-theorem stillHoldsGives ∀ (albums: List Album) (id: Nat):
-    ∀ (o: Option Nat) => stillHolds albums id o = True → List.Any (album => (o = Some album.id) ∧ (holds album id = True)) albums
-  | Some albumId, h =>
-    match e: albums.find (album => album.id == albumId) with
-      | Some album =>
-        match List.findSome albums (a => a.id == albumId) album e with
-          | Both same inAlbums =>
-            List.anyIntro (a => (Some albumId = Some a.id) ∧ (holds a id = True)) album albums inAlbums
-              (Both (rewrite DecEq.sound same in rfl) h)
-      | None => cases
-  | None, h => cases
+theorem stillHoldsGives ∀ (albums: List Album) (id: Nat) (o: Option Nat)
+    (h: stillHolds albums id o = True): List.Any (album => (o = Some album.id) ∧ (holds album id = True)) albums :=
+  match o with
+    | Some albumId =>
+      match e: albums.find (album => album.id == albumId) with
+        | Some album =>
+          match List.findSome albums (a => a.id == albumId) album e with
+            | Both same inAlbums =>
+              List.anyIntro (a => (Some albumId = Some a.id) ∧ (holds a id = True)) album albums inAlbums
+                (Both (rewrite DecEq.sound same in rfl) h)
+        | None => cases
 
 -- Every photo of the merged albums has an owner among them that holds it.
 theorem ownerGives ∀ (local: List Album) (remote: List Album) (merged: List Album) (id: Nat) (m: id ∈ photoIds merged):

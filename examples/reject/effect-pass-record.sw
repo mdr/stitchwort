@@ -15,4 +15,4 @@ type Holder = { inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
 
 def holderDone (holder: Holder): Prop := IsDone holder.inner
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → holderDone { inner = computation } := computation => Trivial
+theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): holderDone { inner = computation } := Trivial

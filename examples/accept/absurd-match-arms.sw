@@ -20,7 +20,7 @@ theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs 
   | Scissors, _ => rfl
 
 -- The same as equations.
-theorem rockBeatsOnlyScissorsArms: (theirs: Move) -> beats Rock theirs -> theirs = Scissors
+theorem rockBeatsOnlyScissorsArms ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
   | Scissors, _ => rfl

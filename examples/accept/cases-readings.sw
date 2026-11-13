@@ -1,3 +1,5 @@
+-- expect-warning: W-THEOREM-FORALL
+-- The after-colon form is kept on purpose to test binder introduction.
 -- `cases` closes a case by a part of a hypothesis
 -- (docs/proposals/bool-as-proposition.md §9): a side of a conjunction, or
 -- what a test fact reads as, taken apart in turn. Before, each of these

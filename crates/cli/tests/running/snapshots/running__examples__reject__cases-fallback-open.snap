@@ -3,27 +3,27 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/cases-fallback-open.sw:7:34 ]
+   ╭─[ reject/cases-fallback-open.sw:9:34 ]
    │
- 7 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
+ 9 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
    │                                  ────┬────  
    │                                      ╰────── write `∀ (…) =>` instead of `(…) ->`
    │ 
    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ───╯
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/cases-fallback-open.sw:7:22 ]
+   ╭─[ reject/cases-fallback-open.sw:9:22 ]
    │
- 7 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
+ 9 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
    │                      ────┬────  
    │                          ╰────── write `∀ (…) =>` instead of `(…) ->`
    │ 
    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ───╯
 [E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, b = False (fallback)
-   ╭─[ reject/cases-fallback-open.sw:7:61 ]
+   ╭─[ reject/cases-fallback-open.sw:9:61 ]
    │
- 7 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
+ 9 │ theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
    │                                                             ──┬──  
    │                                                               ╰──── this `cases`
    │ 

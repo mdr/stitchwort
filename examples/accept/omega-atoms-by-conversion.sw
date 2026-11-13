@@ -4,14 +4,14 @@
 -- identified by conversion, not by how they are written (SW-1435). Here
 -- `sums` and the rewritten `within` meet only through that.
 
-import Std (Eq, List, Nat, Void)
+import Std (Eq, List, Nat)
 
-theorem sumTakeLe: ∀ (xs: List Nat) (a b: Nat) => a ≤ b → (xs.take a).sum ≤ (xs.take b).sum
-  | xs, Zero, b, le => omega
-  | [], Succ a, b, le => rfl
-  | [x, ..xs], Succ a, Zero, le => Void.exfalso (omega)
-  | [x, ..xs], Succ a, Succ b, le =>
-    omega [List.sumCons x (xs.take a), List.sumCons x (xs.take b), sumTakeLe xs a b (omega)]
+theorem sumTakeLe ∀ (xs: List Nat) (a b: Nat) (le: a ≤ b): (xs.take a).sum ≤ (xs.take b).sum :=
+  match xs, a, b with
+    | xs, Zero, b => omega
+    | [], Succ a, b => rfl
+    | [x, ..xs], Succ a, Succ b =>
+      omega [List.sumCons x (xs.take a), List.sumCons x (xs.take b), sumTakeLe xs a b (omega)]
 
 theorem shrinksInside ∀ (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
     (front: List Nat) (count: Nat) (sum: Nat) (from: Nat) (at: front = numbers.drop from) (total: sum = (front.take count).sum)

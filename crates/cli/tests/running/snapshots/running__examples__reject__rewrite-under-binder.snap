@@ -2,19 +2,10 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/rewrite-under-binder.sw:4:70 ]
-   │
- 4 │ theorem bad (f: Nat → Nat) (g: Nat → Nat) (h: [n: Nat] → f n = g n): (y: Nat) → f y = g y :=
-   │                                                                      ────┬───  
-   │                                                                          ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-REWRITE-NOTHING] Error: `rewrite` found no `f ?0` in the goal
    ╭─[ reject/rewrite-under-binder.sw:5:11 ]
    │
- 5 │   rewrite h in y => rfl
+ 5 │   rewrite h in rfl
    │           ┬  
    │           ╰── looking for `f ?0`
    │ 

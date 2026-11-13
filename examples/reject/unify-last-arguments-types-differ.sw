@@ -6,7 +6,7 @@
 -- to `0` in `g 0 = g 0`).
 def app [p: Bool → Type] (x: p True): p True := x
 
-def probe (t: (Nat → Nat) → Type) (mk: (g: Nat → Nat) → t g) (use: (g: Nat → Nat) → t g → g 0 = g 0): Nat :=
+def probe (t: (Nat → Nat) → Type) (mk: (g: Nat → Nat) → t g) (use: ∀ (g: Nat → Nat) => t g → g 0 = g 0): Nat :=
   let e := use _ (app (mk _))
   let f: 1 = 1 := e
   0

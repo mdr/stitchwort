@@ -17,4 +17,4 @@ type Box =
 def boxDone: Box → Prop
   | MkBox content => IsDone content
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → boxDone (MkBox computation) := computation => Trivial
+theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): boxDone (MkBox computation) := Trivial

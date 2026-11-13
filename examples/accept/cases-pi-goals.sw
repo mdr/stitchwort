@@ -1,3 +1,5 @@
+-- expect-warning: W-THEOREM-FORALL
+-- The after-colon form is kept on purpose to test binder introduction.
 -- `Π` goals `cases` proves as they stand, without introducing anything
 -- (docs/proposals/decide.md §6.1.1, decide/binders.sw and closer_order.sw).
 -- Binder introduction and the decision closer come after the closers that

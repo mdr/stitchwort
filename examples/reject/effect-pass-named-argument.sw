@@ -13,4 +13,4 @@ def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
 
 def takes (count: Nat) (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Prop := IsDone computation
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → takes (computation := computation) (count := 1) := computation => Trivial
+theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): takes (computation := computation) (count := 1) := Trivial

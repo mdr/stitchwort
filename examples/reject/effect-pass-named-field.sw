@@ -17,4 +17,4 @@ type Labelled =
 def labelledDone: Labelled → Prop
   | MkLabelled label inner => IsDone inner
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → labelledDone (MkLabelled { label = 1, inner = computation }) := computation => Trivial
+theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): labelledDone (MkLabelled { label = 1, inner = computation }) := Trivial
