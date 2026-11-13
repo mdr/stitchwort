@@ -150,7 +150,7 @@ theorem antinodesOfCorrect (far: Position) (near: Position) (point: Position):
     (point ∈ antinodesOf far near) ↔ ((inLine point far near && twiceAsFar point far near) = True) :=
   rewrite antinodesOfUnfold far near in
   antinodesIff far near point _ {
-    forward = c => Both (DecEq.sound c.left) (DecEq.sound c.right),
+    forward = c => Both c.left.read c.right.read,
     backward = m => Both (rewrite And.left m in rfl) (rewrite And.right m in rfl)
   }
 

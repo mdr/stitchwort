@@ -18,7 +18,7 @@ theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (
       let parts := somePairInjective read
       let sound := readPacketsSound (Packets 1) reader [first] after e
       rewrite <- parts.left, <- parts.right in
-        Both (rewrite List.appendNil (encode first) at sound.left) (Bool.andLeft sound.right.left)
+        Both (rewrite List.appendNil (encode first) at sound.left) sound.right.left.left
 
 --| Completeness: a well-formed packet is read back from its bits, whatever
 --| follows them.

@@ -81,8 +81,8 @@ theorem memTrailEnds (map: TopographicMap) (steps: Nat) (from end: Position):
             List.anyElim (rest => [next, ..rest] = path) _ (pathsOf map steps) (List.memMapAny (pathsOf map steps) (Cons next) path inMapped)
               (rest restIn built =>
                 let found: ((isStep map from next && climbs map next rest) && [next, ..rest].last == Some end) = True := rewrite <- built at climbing
-                let step := Bool.andLeft found.left
-                let climbsRest := Bool.andRight found.left
+                let step := found.left.left
+                let climbsRest := found.left.right
                 List.memFlatMapIntro (map.trailEnds steps) next end (map.uphill from) ((memUphill map from next).backward (Both nextIn step))
                   ((memTrailEnds map steps next end).backward (Witness rest (Both restIn (Both climbsRest found.right))))))
     }

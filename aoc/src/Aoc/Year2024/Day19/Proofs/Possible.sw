@@ -69,7 +69,7 @@ theorem possibleIff (patterns: List Pattern) (design: Design):
     Exists.map
       (towels member =>
         let filtered := List.memFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes) member
-        Both (fromTowelLists patterns design.stripes.length towels filtered.left).left (DecEq.sound filtered.right))
+        Both (fromTowelLists patterns design.stripes.length towels filtered.left).left filtered.right.read)
       (someMember (arrangements patterns design) found),
   backward = made =>
     Exists.elim made (towels (Both from stripes) =>

@@ -48,7 +48,7 @@ theorem fitDecoded (mask: List MaskBit) (address bits: List Bool) (sameAddress: 
   match mask, address, bits with
     | [], [], [] => Inl rfl
     | [Off, ..mask], [bit, ..address], [chosen, ..bits] =>
-      rewrite DecEq.sound fit.left in
+      rewrite fit.left.read in
         List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) fit.right) (Cons bit)
     | [On, ..mask], [bit, ..address], [chosen, ..bits] =>
       rewrite fit.left in
