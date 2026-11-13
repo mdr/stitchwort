@@ -66,10 +66,6 @@ pub enum Synthetic {
     /// definitions with the rest of the block inside it: its span runs from
     /// the line to the end of the block.
     BlockRest,
-    /// An application of a function the parser writes at an operator
-    /// ([`OPERATOR_HEADS`]): `p ↔ q` is `Std.Iff p q`, so the
-    /// application's span starts at the `↔`.
-    OperatorHead,
     /// A name the parser makes up (`%arg0`, `%section`, `%chain…`), at the
     /// place it stands for, which may be no one construct: a clause
     /// lambda's parameters are at its keywords, `match some`.
@@ -81,14 +77,12 @@ pub enum Synthetic {
     /// A data type's span starts at `type`, after its attributes, which the
     /// declaration's node includes.
     Attributes,
-    /// `a > b` is `b < a`: the span worked out from its first and last
-    /// parts runs from inside `b` to the end of `a` when `b` is compound.
-    Flipped,
     /// `∃ (x: A) => P` is `Std.Exists _ ((x: A) => P)`: the lambda starts
     /// at its parameter, after the `∃`.
     Exists,
     /// A chain `a ≤ b < c` binds its middle operands with a `let` and joins
-    /// the comparisons with `∧`.
+    /// the comparisons with `∧`: the whole is the chain, but the parts
+    /// (`b < c`, the `let` of a later operand) are no node.
     Chain,
     /// A method section `.f a` is the lambda `%section => %section.f a`.
     Section,
@@ -140,12 +134,6 @@ impl<'a> Walk<'a> {
         self.tagged(what, name.span, made);
     }
 
-    /// A span worked out from `part` as its last part, which may make it
-    /// wrong ([`made_from`]).
-    fn ending(&mut self, what: &'static str, span: Span, part: &Expr) {
-        self.tagged(what, span, made_from(part));
-    }
-
     fn expr(&mut self, expr: &'a Expr) {
         self.todo.push(Item::Expr(expr, None));
     }
@@ -179,7 +167,7 @@ impl<'a> Walk<'a> {
     }
 
     fn guard(&mut self, guard: &'a Guard) {
-        self.ending("Guard", guard.span, &guard.cond);
+        self.span("Guard", guard.span);
         if let Some(binder) = &guard.binder {
             self.name("Guard binder", binder);
         }
@@ -189,7 +177,6 @@ impl<'a> Walk<'a> {
     /// An alternative of a `match`; `added` if it is the last of a `match
     /// some` or `matches`, which the parser adds.
     fn alt(&mut self, alt: &'a Alt, why: Option<Synthetic>, added: bool) {
-        let why = why.or_else(|| alt.body.as_ref().and_then(made_from));
         self.tagged("Alt", alt.span, why);
         for pattern in &alt.patterns {
             if added {
@@ -226,7 +213,6 @@ impl<'a> Walk<'a> {
 
     fn walk_expr(&mut self, expr: &'a Expr, why: Option<Synthetic>) {
         let what = expr_kind(expr);
-        let why = why.or_else(|| made_from(expr));
         match expr {
             Expr::Var(name) => {
                 let made = name.text.starts_with('%').then_some(Synthetic::Generated);
@@ -243,18 +229,14 @@ impl<'a> Walk<'a> {
             | Expr::Goal(span)
             | Expr::Unit(span) => self.tagged(what, *span, why),
             Expr::App(a, b) => {
-                let operator = matches!(head(expr), Expr::Var(name)
-                    if OPERATOR_HEADS.contains(&name.text.as_str()));
                 let exists = matches!(head(expr), Expr::Var(name) if name.text == "Std.Exists");
-                let made = operator.then_some(Synthetic::OperatorHead);
-                self.tagged(what, expr.span(), why.or(made));
+                self.tagged(what, expr.span(), why);
                 if exists && matches!(**b, Expr::Lam(..) | Expr::TypedLam(..)) {
                     self.inner(b, Synthetic::Exists);
                 } else {
                     self.expr(b);
                 }
                 match &**a {
-                    Expr::App(..) if operator => self.inner(a, Synthetic::OperatorHead),
                     Expr::App(..) => self.inner(a, Synthetic::PartialApp),
                     _ => self.expr(a),
                 }
@@ -270,12 +252,7 @@ impl<'a> Walk<'a> {
                 self.expr(b);
             }
             Expr::Binary(op, a, b) => {
-                let flipped = a.span().start > b.span().start;
-                self.tagged(
-                    what,
-                    expr.span(),
-                    why.or(flipped.then_some(Synthetic::Flipped)),
-                );
+                self.tagged(what, expr.span(), why);
                 if let BinOp::In(span) = op {
                     self.span("BinOp::In", *span);
                 }
@@ -431,7 +408,7 @@ impl<'a> Walk<'a> {
                 self.tagged(what, *span, why);
                 self.expr(call);
                 for alt in alts {
-                    self.ending("InductAlt", alt.span, &alt.body);
+                    self.span("InductAlt", alt.span);
                     self.name("InductAlt case", &alt.case);
                     for binder in &alt.binders {
                         self.name("InductAlt binder", binder);
@@ -489,11 +466,7 @@ impl<'a> Walk<'a> {
                 self.tagged(what, *span, why);
                 self.expr(first);
                 for step in steps {
-                    self.ending(
-                        "CalcStep",
-                        step.span,
-                        step.proof.as_ref().unwrap_or(&step.rhs),
-                    );
+                    self.span("CalcStep", step.span);
                     self.span("CalcStep relation", step.rel_span);
                     self.expr(&step.rhs);
                     if let Some(proof) = &step.proof {
@@ -513,7 +486,7 @@ impl<'a> Walk<'a> {
                 self.tagged(what, *span, why);
                 self.span("Rewrite keyword", *keyword);
                 for rule in rules {
-                    self.ending("RewriteRule", rule.span, &rule.proof);
+                    self.span("RewriteRule", rule.span);
                     self.expr(&rule.proof);
                 }
                 if let Some(target) = target {
@@ -708,7 +681,7 @@ impl<'a> Walk<'a> {
                 self.attrs(attrs);
             }
             Decl::Test { expr, span, .. } => {
-                self.ending("Decl::Test", *span, expr);
+                self.span("Decl::Test", *span);
                 self.expr(expr);
             }
             Decl::Ability {
@@ -735,7 +708,6 @@ impl<'a> Walk<'a> {
             } => {
                 // A `:=` body's equation runs from the name to the body's end.
                 let made = arm.is_none().then_some(Synthetic::Header);
-                let made = made.or_else(|| rhs.as_ref().and_then(made_from));
                 self.tagged("Decl::Equation", *span, made);
                 self.name("Decl::Equation name", name);
                 // The alternative `match some` adds is an equation too, in
@@ -752,60 +724,6 @@ impl<'a> Walk<'a> {
                 }
             }
         }
-    }
-}
-
-/// The library functions the parser writes at an operator: `p ↔ q` is
-/// `Std.Iff p q`, `x ∉ xs` is `Std.Bool.not (x ∈ xs)`, and a step `_ = x :=
-/// p` of a `calc` written with `>` is turned round with `Std.Eq.sym p`, the
-/// function at the `=`.
-const OPERATOR_HEADS: &[&str] = &["Std.Iff", "Std.Bool.not", "Std.Eq.sym"];
-
-/// Why `expr`'s span, worked out from its first and last parts, may not
-/// be what was written: one of those parts is made up. A chain's `let`
-/// spans only the operand it binds (`x => a ≤ f x ≤ b` ends at `f x`); a
-/// flipped comparison's parts are the other way round; an operator's
-/// function is at the operator (`x ∉ xs` starts at the `∉`).
-fn made_from(expr: &Expr) -> Option<Synthetic> {
-    let flipped = |a: &Expr, b: &Expr| a.span().start > b.span().start;
-    let mut first = expr;
-    loop {
-        first = match first {
-            Expr::Binary(_, a, b) if flipped(a, b) => return Some(Synthetic::Flipped),
-            Expr::App(a, _)
-            | Expr::Arrow(a, _)
-            | Expr::Binary(_, a, _)
-            | Expr::Pipe(a, _)
-            | Expr::Seq(a, _) => a,
-            Expr::Var(name) if OPERATOR_HEADS.contains(&name.text.as_str()) => {
-                return Some(Synthetic::OperatorHead);
-            }
-            Expr::Let { name, .. } if name.text.starts_with(CHAIN) => {
-                return Some(Synthetic::Chain);
-            }
-            _ => break,
-        };
-    }
-    let mut last = expr;
-    loop {
-        last = match last {
-            Expr::Binary(_, a, b) if flipped(a, b) => return Some(Synthetic::Flipped),
-            Expr::App(_, b)
-            | Expr::Arrow(_, b)
-            | Expr::Binary(_, _, b)
-            | Expr::Pipe(_, b)
-            | Expr::Seq(_, b)
-            | Expr::Effect(_, b)
-            | Expr::Lam(_, b, _)
-            | Expr::TypedLam(_, _, _, b, _) => b,
-            Expr::Pi { cod, .. } => cod,
-            Expr::If { otherwise, .. } => otherwise,
-            Expr::Let { name, .. } if name.text.starts_with(CHAIN) => {
-                return Some(Synthetic::Chain);
-            }
-            Expr::Let { body, .. } | Expr::LocalDefs { body, .. } => body,
-            _ => return None,
-        };
     }
 }
 

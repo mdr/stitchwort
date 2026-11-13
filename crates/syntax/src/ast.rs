@@ -25,6 +25,15 @@ pub const CHAIN: &str = "%chain";
 /// name.
 pub const NAMELESS: &str = "_";
 
+/// The library functions the parser writes at an operator, so the function
+/// of an application is at the operator rather than before its operands:
+/// `p <-> q` is `Std.Iff p q`, and `x !in xs` is `Std.Bool.not (x in xs)`.
+pub const OPERATOR_HEADS: &[&str] = &["Std.Iff", "Std.Bool.not"];
+
+fn is_operator_head_var(e: &Expr) -> bool {
+    matches!(e, Expr::Var(n) if OPERATOR_HEADS.contains(&n.text.as_str()))
+}
+
 /// The brackets a named argument is written in, which say what kind of
 /// parameter it names (D1093).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -407,13 +416,26 @@ impl Expr {
         }
     }
 
+    /// The span of the whole expression as written, from its first part to
+    /// its last. The brackets around a composite expression are no part of
+    /// it: in `(a + b) * c` the sum's span is `a + b`.
+    ///
     /// Chains like `f a b c …` and `1 + 2 + 3 + …` are parsed in a loop and
     /// nest as deeply as they're long, so this walks down each side of them
-    /// in a loop: the first part's start to the last part's end.
+    /// in a loop. Two forms don't have their parts in written order, so
+    /// their span covers both parts: a comparison `a > b` is stored as
+    /// `b < a` (only `<` and `<=` are stored turned round, so only they pay
+    /// for the check), and the function the parser writes at an operator
+    /// ([`OPERATOR_HEADS`]) is at the operator, which may be in the middle
+    /// of the application: `p <-> q` is `Std.Iff p q`.
     pub fn span(&self) -> Span {
         let mut first = self;
         let start = loop {
             match first {
+                Expr::Binary(BinOp::Lt | BinOp::Le, a, b) => break a.span().to(b.span()),
+                Expr::App(f, arg) if is_operator_head_var(f) => {
+                    break f.own_span().to(arg.span());
+                }
                 Expr::App(a, _)
                 | Expr::Arrow(a, _)
                 | Expr::Binary(_, a, _)
@@ -428,6 +450,7 @@ impl Expr {
         let mut last = self;
         let end = loop {
             match last {
+                Expr::Binary(BinOp::Lt | BinOp::Le, a, b) => break a.span().to(b.span()),
                 Expr::App(_, b)
                 | Expr::Arrow(_, b)
                 | Expr::Binary(_, _, b)

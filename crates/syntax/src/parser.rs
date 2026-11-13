@@ -5750,7 +5750,9 @@ fn chain(operands: Vec<Expr>, links: &[(BinOp, bool)]) -> Expr {
             Expr::Let {
                 name: self.name(i),
                 ty: None,
-                span: value.span(),
+                // The links it binds for, so a chain's outermost `let` spans
+                // the chain as written.
+                span: value.span().to(body.span()),
                 value: Box::new(value),
                 body: Box::new(body),
             }
@@ -5868,9 +5870,11 @@ fn reverse_calc(first: Expr, steps: Vec<CalcStep>) -> (Expr, Vec<CalcStep>) {
         if step.rel == BinOp::Eq
             && let Some(proof) = step.proof.take()
         {
+            // Empty, at the proof, so the application spans just the proof.
+            let at = proof.span();
             let sym = Expr::Var(Name {
                 text: "Std.Eq.sym".into(),
-                span: step.rel_span,
+                span: Span::new(at.file, at.start, at.start),
             });
             step.proof = Some(Expr::App(Box::new(sym), Box::new(proof)));
         }
@@ -7864,6 +7868,31 @@ mod tests {
         assert_eq!(shape_of("a > b > c"), "(And (Lt b a) (Lt c b))");
         // `>>` is not a token (yet).
         assert!(rhs_of("def g : Nat := a >> b\n").is_err());
+    }
+
+    /// An expression the parser writes with its parts out of order, or with
+    /// a function at an operator, still spans what was written.
+    #[test]
+    fn spans_of_expanded_operators_cover_what_was_written() {
+        let cases = [
+            "n * n > 20",
+            "n * n >= f x y",
+            "p <-> q",
+            "f x <-> g y && z",
+            "x !in xs",
+            "f x !in g xs",
+            "1 <= f x < 20",
+            "1 <= f x < g y <= 30",
+            "20 > f x > 3",
+        ];
+        for text in cases {
+            let span = expr(text).span();
+            assert_eq!(
+                (span.start as usize, span.end as usize),
+                (0, text.len()),
+                "{text}"
+            );
+        }
     }
 
     #[test]
