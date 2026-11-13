@@ -34722,15 +34722,17 @@
     {
       "id": 3189,
       "title": "[Sonnet] Formatter stage 4 (formatter-architecture §6): dry run for Matt: run the tree printer over the repo, report the diff's size by folder and 30 representative sample hunks (before/after) covering each rule and Matt's decisions D3564-D3569, as docs/reviews/formatter-dry-run.md; no .sw files changed",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3189",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nProgress (lane): ran the tree printer over std, aoc, games, examples (scratch only); report docs/reviews/formatter-dry-run.md. 24% of lines change, over-120 lines 8,090 to 19; worth a look: W1 := match hug breaks scrutinee (63), W2 def main() -> def main () (397, bug), W3 records/lists hugged though they fit (64). Model result: Sonnet, worked, about 25 min (est. 120).\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "9becb83bf"
+      ]
     }
   ]
 }
