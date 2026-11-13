@@ -1,5 +1,5 @@
 {
-  "next": 3162,
+  "next": 3163,
   "tickets": [
     {
       "id": 47,
@@ -34312,7 +34312,7 @@
     {
       "id": 3159,
       "title": "[Opus] Formatter stage 1 / syntax-tree step 1 (A2, D3562): marks in the parser building the lossless tree with a kind for every construct, trivia on leaves; gates per formatter-architecture.md §6. Design it so error nodes can be added later (D3563: the editor should keep working through syntax errors)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34338,6 +34338,19 @@
     {
       "id": 3161,
       "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3162,
+      "title": "[Sonnet] SW-3124 review lows: (1) auto's take_apart now runs the reading lookup three times per test-fact hypothesis (hypothesis_reads, then hypothesis_quantifier_reads does both readings again): compute the quantifier reading only when the step reading was a cons step (D3447, results unchanged; perf-log entry); (2) examples/accept/auto-readings.sw afterMatch warns W-UNREACHABLE on its [] arm: reshape so the accepted example has no warning",
       "status": "backlog",
       "agent": "",
       "where": "",
