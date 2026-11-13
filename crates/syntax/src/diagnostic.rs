@@ -51,6 +51,19 @@ pub struct Detail {
     /// For `E-UNKNOWN-NAME` when an import would bring the name in: the
     /// import to add, for the editor's quick fix.
     pub import: Option<SuggestedImport>,
+    /// For `E-TYPE-MISMATCH` where a test fact is expected and the term
+    /// given proves one of its readings: where, and the fact. The
+    /// declaration is checked again with the fact built there
+    /// (docs/proposals/bool-as-proposition-building.md §2.2).
+    pub build: Option<BuildSite>,
+}
+
+/// [`Detail::build`]: the term's span and the expected test fact, as
+/// shown, so the retry builds only where the same fact is expected again.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuildSite {
+    pub span: Span,
+    pub fact: String,
 }
 
 /// `import <path> (<item>)`: the import a diagnostic suggests.
@@ -190,6 +203,34 @@ impl Diagnostic {
 
     pub fn import_data(&self) -> Option<&SuggestedImport> {
         self.detail.as_ref()?.import.as_ref()
+    }
+
+    pub fn build_site(&self) -> Option<&BuildSite> {
+        self.detail.as_ref()?.build.as_ref()
+    }
+
+    /// Records that the term at `at` builds the expected test fact from a
+    /// proof of its reading.
+    pub fn with_build(mut self, span: Span, fact: String) -> Self {
+        self.detail_mut().build = Some(BuildSite { span, fact });
+        self
+    }
+
+    /// The diagnostic without [`Detail::build`], which only the retry that
+    /// builds reads: what is reported once that is done.
+    pub fn without_build(mut self) -> Self {
+        self.clear_build();
+        self
+    }
+
+    /// Takes [`Detail::build`] off.
+    pub fn clear_build(&mut self) {
+        if let Some(detail) = self.detail.as_mut() {
+            detail.build = None;
+            if **detail == Detail::default() {
+                self.detail = None;
+            }
+        }
     }
 
     /// Records the import that would fix this diagnostic.

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/build-arms.sw:11:10 ]
+    │
+ 11 │   | _ => k
+    │          ┬  
+    │          ╰── expected `xs.contains x`, but this has type `Nat`
+    │ 
+    │ Note: this expects the test fact `xs.contains x`, which reads as `x ∈ xs`: a proof of that is accepted here
+────╯

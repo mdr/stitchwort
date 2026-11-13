@@ -704,6 +704,25 @@ theorem fitsOrBigger ∀ (booking: Booking) (capacity: Nat) (h: booking.fits cap
 
 So a lemma can be stated about the test, which is what programs hand you, and proved from the statements you already have.
 
+A proof of the whole reading builds the fact too, with no constructor: where a test fact is expected, the compiler accepts a proof of what it reads as, and a function where the reading is a "for all", a `≠` or a `¬`:
+
+<!-- snippet: tests-and-propositions.sw#build-from-proof -->
+```stitchwort
+theorem noRoomLeft ∀ (booking: Booking) (capacity: Nat) (small: booking.seats < capacity):
+    (capacity <= booking.seats) = False := small
+
+theorem allFit ∀ (bookings: List Booking) (capacity: Nat)
+    (each: ∀ (b: Booking) => b ∈ bookings → b.fits capacity):
+    bookings.all (b => b.fits capacity) :=
+  b m => each b m
+
+theorem booked ∀ (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bookings.contains b := m
+```
+
+`(capacity <= booking.seats) = False` reads as `booking.seats < capacity`, so `small` is accepted, and hovering over it says which fact it builds. The compiler goes through the readings a layer at a time: `((a != b): Bool) = True` reads as `(a == b) = False`, which reads as `a ≠ b`, so a proof of `a ≠ b` builds it. A fact `e = False` whose test has no reading of its own is also built from `¬(e = True)`.
+
+This happens only where the expected type is a test fact and the term doesn't fit it as it is. Where an equation is wanted (`Eq.sym`, a `rewrite` rule) or nothing is expected (a `let` without a type), a fact is used as the equation it is, and a proof of the reading stays a proof of the reading. A proof of a whole `∧` doesn't build a `&&` fact either: build it part by part with `Both`, as above. Building is implicit, reading isn't: `h.read` is never built back into a fact, since that would turn one test into another with the same reading without saying so.
+
 ### `auto` and `cases`
 
 `auto` and `cases` look at the facts in scope as what they read as, taken apart in turn. A function that asks for a proof, with `[auto ok: …]`, finds it in `fits`:

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/build-second-branch.sw:7:29 ]
+   │
+ 7 │   let w := if c then m else found
+   │                             ──┬──  
+   │                               ╰──── expected `x ∈ xs`, but this has type `xs.contains x`
+   │ 
+   │ Note: this is the test fact `xs.contains x`, which reads as `x ∈ xs`: add `.read` to use it as that
+───╯

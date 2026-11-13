@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/build-cap.sw:9:74 ]
+   │
+ 9 │   Both ma (Both mb (Both mc (Both md (Both me (Both mf (Both mg (Both mh mi)))))))
+   │                                                                          ─┬  
+   │                                                                           ╰── expected `i.contains x`, but this has type `x ∈ i`
+   │ 
+   │ Note: the compiler built 8 test facts in this declaration and stops there: build this one by hand
+───╯
