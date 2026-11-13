@@ -220,12 +220,14 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   examples' hash snapshots, std core's native pins, which comment rules
   apply): see "Writing a brief" in `docs/workflow.md`.
 
-## Choosing work by pace (D3427, D3433, Matt, 8 Nov 2026)
+## Choosing work by usage (D3427, Matt, 8 Nov 2026; D3570, 13 Nov 2026)
 
 Tokens and machine time are separate budgets. The orchestrator reads the
-week's pace (`seven_day.pace` in `~/.claude/usage.json`: share of the
-week's allowance used over share of the week gone) before starting work and
-at every status table, and picks the kind of work to fit it:
+week's sustainable rate (`seven_day.sustainable_rate` in
+`~/.claude/usage.json`: the share of the allowance left over the share of
+the week left, so 1.0 means an even pace from now lands exactly on the
+reset) before starting work and at every status table, and picks the kind
+of work to fit it:
 
 - **Lanes mode**: the normal mix of token-heavy work: lanes on code,
   proofs and designs, reviews, AoC days. Machines a lane leaves idle still
@@ -240,11 +242,18 @@ at every status table, and picks the kind of work to fit it:
   per message.
 - **Findings made in compute mode** are filed as tickets with their
   reproducers and investigated in lanes mode, since triage is token-heavy.
-- **Switching** (D3433, Matt, 8 Nov 2026): lanes mode switches to compute
-  mode when pace is above 1.05, and back when it falls to 0.92 or below;
-  either way, at most once every 2 hours. Usage is reported in whole
-  percents, so early in the week one percent moves pace by 0.05–0.1 and a
-  narrower band flipped the mode hourly.
+- **Switching** (D3570, Matt, 13 Nov 2026, replacing D3433's pace band):
+  lanes mode switches to compute mode when the sustainable rate falls
+  below 0.7 (the status line's bar turns orange), and back when it reaches
+  0.85 or above (green); either way, at most once every 2 hours, and no
+  switch while the figure is missing. Pace looked back and meant different
+  things on different days (pace 1.05 is a rate of about 0.99 on day 1 and
+  0.55 on day 6); the rate looks forward, so it is calm early in the week
+  and sensitive late, when overspending matters. Late in the week one
+  percent of usage moves it by up to 0.1, hence the wide band. Matt chose
+  the most lane-friendly option to try ("we'll see how it goes"): the
+  first time compute mode runs, note the used percentage at the switch and
+  a few hours later, to measure compute mode's own rate.
 
 ## Lane agents
 
@@ -319,7 +328,7 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
 - Don't run the broad tier (`task test:broad`, `nix flake check`) or the
   all tier without asking Matt first. Never run them back to back.
 - Except in compute mode: then the orchestrator may run these without
-  asking (D3427; see "Choosing work by pace" above).
+  asking (D3427; see "Choosing work by usage" above).
 - Lanes are very selective about tests. Run only targeted, fast tests that
   check the work your change directly affects: `task test:one -- NAME` for
   the tests you touched, and `task test:lane AREA=…` when it fits. No single
