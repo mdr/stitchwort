@@ -1,5 +1,5 @@
 {
-  "next": 3069,
+  "next": 3071,
   "tickets": [
     {
       "id": 47,
@@ -33129,6 +33129,32 @@
     {
       "id": 3068,
       "title": "[Sonnet] Building a not-fact ((not x) = True) from x = False has no constructor/pattern form; Bool.notOfFalse is still needed (containsDifferenceIff) (SW-3060 finding 7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3069,
+      "title": "[Sonnet] List.contains has no = False reading: xs.contains x = False reads by unfolding as ∀ x1 ∈ xs, (x1.decEq x).holds = False, not x ∉ xs as bool-as-proposition's table promises; add List.containsReadsFalse beside List.contains (SW-3059 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3070,
+      "title": "[Sonnet] Gluing off: the equation a match e: gives (ok in match ok: xs.contains x) has no type as written, so .read, auto and cases read its test unfolded (∃ instead of x ∈ xs) (SW-3059 finding 2; pre-existing for .read)",
       "status": "backlog",
       "agent": "",
       "where": "",
