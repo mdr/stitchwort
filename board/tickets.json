@@ -33467,12 +33467,12 @@
     {
       "id": 3094,
       "title": "[Sonnet] Set.contains has no reading: a && conjunct with Set.contains is unreadable ('has no reading, so it has no parts'), .read and Both fail on Set.fromList … .contains (2024 D23 Part1 setsOfThreeIff, Part2 intersectElim, unionElim) (SW-3092 finding 1)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane notes (12:35-12:40): Set.containsReads/ReadsFalse and Map.containsReads/ReadsFalse added (read as key ∈ set.toList / key ∈ m.keys, since x ∈ set is the test itself), Set.memToListFromList, example readings-set-contains, Day23 sites; commit 4caa760ed on lane/SW-3094.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
