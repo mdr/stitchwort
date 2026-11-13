@@ -155,6 +155,22 @@ struct OracleArgs {
 
 #[derive(Subcommand)]
 enum DevCommand {
+    /// Build the lossless syntax tree of every `.sw` file under the paths
+    /// and check that each reads back as the file, byte for byte. Prints
+    /// the files that don't, and totals: declarations, ones that didn't
+    /// parse, nodes, and constructs not yet marked. Exit status 1 if any
+    /// file fails
+    Tree {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+        /// Print each file's tree
+        #[arg(long)]
+        print: bool,
+        /// Also time parsing every file this many times, with the tree and
+        /// without it, and print the best time of each
+        #[arg(long, value_name = "ROUNDS")]
+        time: Option<u32>,
+    },
     /// Which machine instructions a program's reachable code uses, and
     /// whether it fits native compilation's N1 subset
     /// (docs/proposals/native-compilation.md, Appendix: N1 coverage census)
@@ -1259,6 +1275,7 @@ fn run(cli: Cli) -> ExitCode {
             },
             &cache,
         ),
+        Command::Dev(DevCommand::Tree { paths, print, time }) => tree_command(&paths, print, time),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -4837,5 +4854,111 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
         } else {
             eprint!("{}", render(sources, diagnostic, color));
         }
+    }
+}
+
+/// `dev tree`: the lossless tree's round trip over files and folders.
+fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
+    fn walk(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+        if path.is_dir() {
+            let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
+                .map(|entry| entry.map(|e| e.path()))
+                .collect::<std::io::Result<_>>()?;
+            entries.sort();
+            for entry in entries {
+                walk(&entry, out)?;
+            }
+        } else if path.extension().is_some_and(|e| e == "sw") {
+            out.push(path.to_path_buf());
+        }
+        Ok(())
+    }
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = walk(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let mut texts = Vec::new();
+    for file in &files {
+        match std::fs::read_to_string(file) {
+            Ok(text) => texts.push(text),
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    let id = SourceMap::new().next_id();
+    let mut total = stitchwort_syntax::tree::TreeStats::default();
+    let (mut failed, mut unlexed) = (0, 0);
+    for (file, text) in files.iter().zip(&texts) {
+        let tree = match stitchwort_syntax::parse_tree(id, text, STACK) {
+            Ok(tree) => tree,
+            Err(_) => {
+                unlexed += 1;
+                continue;
+            }
+        };
+        if print {
+            println!("{}:\n{}", file.display(), tree.dump(text));
+        }
+        match tree.check_round_trip(text) {
+            Ok(stats) => {
+                total.decls += stats.decls;
+                total.errors += stats.errors;
+                total.nodes += stats.nodes;
+                total.unmarked += stats.unmarked;
+                total.dropped += stats.dropped;
+            }
+            Err(problem) => {
+                failed += 1;
+                println!("{}: {problem}", file.display());
+            }
+        }
+    }
+    println!(
+        "{} files ({failed} not read back, {unlexed} not lexed): {} declarations ({} not parsed), \
+         {} nodes, {} unmarked, {} marks dropped",
+        files.len(),
+        total.decls,
+        total.errors,
+        total.nodes,
+        total.unmarked,
+        total.dropped
+    );
+    if let Some(rounds) = time {
+        let best = |tree: bool| {
+            (0..rounds.max(1))
+                .map(|_| {
+                    let start = std::time::Instant::now();
+                    for text in &texts {
+                        if tree {
+                            std::hint::black_box(
+                                stitchwort_syntax::parse_tree(id, text, STACK).ok(),
+                            );
+                        } else {
+                            std::hint::black_box(stitchwort_syntax::parse_module_recovering(
+                                id, text, STACK,
+                            ));
+                        }
+                    }
+                    start.elapsed()
+                })
+                .min()
+                .unwrap_or_default()
+        };
+        let bytes: usize = texts.iter().map(String::len).sum();
+        println!(
+            "{bytes} bytes, best of {rounds}: parse {:.1} ms, with the tree {:.1} ms",
+            best(false).as_secs_f64() * 1000.0,
+            best(true).as_secs_f64() * 1000.0
+        );
+    }
+    if failed > 0 || total.dropped > 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
     }
 }
