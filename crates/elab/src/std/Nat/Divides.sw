@@ -65,13 +65,13 @@ theorem Nat.dividesMod ∀ (m: Nat) (n: Nat): Nat.divides m n = (n % m == 0) := 
 theorem Nat.dividesAdd ∀ (d: Nat) (a: Nat) (b: Nat) (ha: Nat.divides d a = True) (hb: Nat.divides d b = True): Nat.divides d (a + b) = True :=
   match Iff.forward (Nat.dividesIff d a) ha, Iff.forward (Nat.dividesIff d b) hb with
     | Witness s es, Witness t et =>
-      (Witness (s + t) (ring [es, et]))
+      Witness (s + t) (ring [es, et])
 
 --| A divisor of `n` divides every multiple `q * n` of it (Lean's
 --| `Nat.dvd_mul_left_of_dvd`).
 theorem Nat.dividesMulLeft ∀ (d: Nat) (n: Nat) (q: Nat) (h: Nat.divides d n = True): Nat.divides d (q * n) = True :=
   match Iff.forward (Nat.dividesIff d n) h with
-    | Witness t e => (Witness (q * t) (ring [q * e]))
+    | Witness t e => Witness (q * t) (ring [q * e])
 
 --| Adding a multiple of the modulus leaves the remainder alone, given the
 --| multiple as `z % m = 0`; [`Nat.modAddMul`] is the same with `z` written

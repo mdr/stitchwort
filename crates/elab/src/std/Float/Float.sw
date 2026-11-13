@@ -160,9 +160,9 @@ theorem Float.flipNotNaNFrom ∀ (n: Nat) (v: Float.isValid n = True)
     Nat.equal (if b then n - 9223372036854775808 else n + 9223372036854775808) 9221120237041090560 = False :=
   match b with
     | True =>
-      (h => omega [Float.highBound n v hk])
+      h => omega [Float.highBound n v hk]
     | False =>
-      (h => omega)
+      h => omega
 
 theorem Float.flipNotNaN ∀ (n: Nat) (v: Float.isValid n = True):
     Nat.equal (Float.flipSignBits n) 9221120237041090560 = False :=
@@ -427,7 +427,7 @@ theorem Float.rankLtOfKeys ∀ (m: Nat) (n: Nat) (vm: Float.isValid m = True)
         match d: Nat.equal m 9223372036854775808 with
           | False => omega
           | True =>
-            let e0: Nat.equal m 0 = False := (e => omega)
+            let e0: Nat.equal m 0 = False := e => omega
             cases
   | False, hp, True, hq, h => cases
   | False, hp, False, hq, h => omega
@@ -454,26 +454,26 @@ theorem Float.keysOfRankLt ∀ (m: Nat) (n: Nat) (vm: Float.isValid m = True) (v
       → (¬((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
         ∧ Int.less (Float.keyOf m p) (Float.keyOf n q)) = True
   | True, hp, True, hq, h =>
-    let e0: Nat.equal m 0 = False := (e => omega)
+    let e0: Nat.equal m 0 = False := e => omega
     let eS: Nat.equal m 9223372036854775808 = False :=
-      (e => omega [Float.highBound m vm hp])
+      e => omega [Float.highBound m vm hp]
     rewrite e0, eS in omega [Float.highBound m vm hp]
   | True, hp, False, hq, h =>
-    let e0: Nat.equal m 0 = False := (e => omega)
+    let e0: Nat.equal m 0 = False := e => omega
     match c: Nat.equal n 0 with
       | True =>
-        let eS: Nat.equal m 9223372036854775808 = False := (e => omega)
+        let eS: Nat.equal m 9223372036854775808 = False := e => omega
         rewrite e0, eS in rfl
       | False =>
-        let nS: Nat.equal n 9223372036854775808 = False := (e => omega)
+        let nS: Nat.equal n 9223372036854775808 = False := e => omega
         match d: Nat.equal m 9223372036854775808 with
           | True => rewrite e0, nS in rfl
           | False => rewrite e0 in rfl
   | False, hp, True, hq, h => omega
   | False, hp, False, hq, h =>
-    let mS: Nat.equal m 9223372036854775808 = False := (e => omega)
-    let n0: Nat.equal n 0 = False := (e => omega)
-    let nS: Nat.equal n 9223372036854775808 = False := (e => omega)
+    let mS: Nat.equal m 9223372036854775808 = False := e => omega
+    let n0: Nat.equal n 0 = False := e => omega
+    let nS: Nat.equal n 9223372036854775808 = False := e => omega
     match c: Nat.equal m 0 with
       | True => rewrite n0, nS in omega
       | False => rewrite mS in omega

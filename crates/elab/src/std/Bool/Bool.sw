@@ -65,7 +65,7 @@ theorem Bool.falseOfNotTrue ∀ (x: Bool) (h: x ≠ True): x = False := match x 
   | True => Void.exfalso (h rfl)
   | False => rfl
 
-theorem Bool.falseOfNotTrueExample: Nat.leq 3 2 = False := Bool.falseNotTrue
+theorem Bool.falseOfNotTrueExample: Nat.leq 3 2 = False := Bool.falseOfNotTrue (Nat.leq 3 2) Bool.falseNotTrue
 
 theorem Bool.orElim ∀ [a: Bool] [b: Bool] [goal: Prop] (h: (a ∨ b) = True) (left: a = True → goal) (right: b = True → goal): goal :=
   match e: a with

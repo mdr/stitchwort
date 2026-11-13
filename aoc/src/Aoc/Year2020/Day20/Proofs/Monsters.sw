@@ -142,8 +142,7 @@ theorem roughnessExactly ∀ (image: Image) (monster: Image) (cells: List (List 
     (at inDifference =>
       let inRough := ((Set.containsDifferenceIff rough at covered).forward inDifference).left
       let found := (roughAtIff image at).forward ((Set.containsFromListIff image.roughAt at).forward inRough)
-      let foundTrue: cells.contains at := (listed.right at).backward found
-      foundTrue)
+      (listed.right at).backward found)
     (key listedHere =>
       rewrite Set.containsDifference rough key covered, roughCell key listedHere.read in rfl)
   let lengthCount := List.lengthFilter cells free

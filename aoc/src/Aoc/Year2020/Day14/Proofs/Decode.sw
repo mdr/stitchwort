@@ -87,7 +87,7 @@ theorem decodeComplete ∀ (mask: Mask) (address: Nat) (target: Nat) (decodes: S
 --| The decoder's list holds an address exactly when the spec's write reaches it.
 theorem decodeContains ∀ (mask: Mask) (address: Nat) (target: Nat): (mask.decode address).contains target = Spec.Decodes mask address target :=
   match decodes: Spec.Decodes mask address target with
-    | True => (decodeComplete mask address target decodes)
+    | True => decodeComplete mask address target decodes
     | False =>
       match contains: (mask.decode address).contains target with
         | True =>

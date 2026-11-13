@@ -141,7 +141,7 @@ theorem List.isSortedByIff ∀ (le: a → a → Bool) (xs: List a): List.isSorte
           | Both head more => Both ((List.isLeHeadIff le x rest).forward head) ((List.isSortedByIff le rest).forward more),
       backward = h =>
         match h with
-          | Both head more => Both (head) ((List.isSortedByIff le rest).backward more)
+          | Both head more => Both head ((List.isSortedByIff le rest).backward more)
     }
 
 --| Decides `List.LeHead le bound xs` by `List.isLeHead`.

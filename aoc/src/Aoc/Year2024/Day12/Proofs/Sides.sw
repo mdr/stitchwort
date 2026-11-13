@@ -185,7 +185,7 @@ theorem sumOverGrid ∀ (region: Region) (distinct: List.Distinct region.plots) 
             | { row, column } =>
               let bounds := within { row, column } member
               memSquare last row column (And.left bounds) (And.right bounds))
-          (member))
+          member)
   let filtered :=
     Eq.trans (List.sumByFilter (square last) term isIn)
       (List.sumByCong (square last) (plot => if isIn plot then term plot else Add.zero) term (plot =>

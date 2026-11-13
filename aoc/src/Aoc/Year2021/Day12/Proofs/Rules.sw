@@ -74,9 +74,9 @@ theorem endNotStart: Cave.end ≠ Cave.start := same => DecEq.soundFalse Cave.en
 theorem withoutMem ∀ (caves: List Cave) (y: Cave) (c: Cave): (without caves y).contains c = True ↔ (caves.contains c = True ∧ c ≠ y) := {
   forward = found =>
     let both := List.memFilter caves (x => not (x == y)) found.read
-    Both ((And.left both)) (same => Bool.falseNotTrue (rewrite same, DecEq.refl y at And.right both)),
+    Both (And.left both) (same => Bool.falseNotTrue (rewrite same, DecEq.refl y at And.right both)),
   backward = both =>
-    (List.memFilterIntro caves (x => not (x == y)) (And.left both).read (rewrite differ c y (And.right both) in rfl))
+    List.memFilterIntro caves (x => not (x == y)) (And.left both).read (rewrite differ c y (And.right both) in rfl)
 }
 
 --| If a path's visits small caves are another's, it keeps the rule

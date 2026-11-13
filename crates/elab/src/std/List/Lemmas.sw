@@ -3375,7 +3375,7 @@ theorem List.all2ZipWithRight ∀ (f: a → b → c) (r: c → b → Prop) (poin
 theorem List.countZeroOfNotContains ∀ [auto eq: DecEq a] (xs: List a) (x: a) (absent: xs.contains x = False): xs.count (y => y == x) = 0 :=
   List.countNone xs (y => y == x) (y member =>
     match same: y == x with
-      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((rewrite <- same.read in member))))
+      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) (rewrite <- same.read in member)))
       | False => rfl)
 
 --| If every value occurs in `xs` at most once (counted with `==`), `xs` has
