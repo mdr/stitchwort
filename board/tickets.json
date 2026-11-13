@@ -1,5 +1,5 @@
 {
-  "next": 3117,
+  "next": 3118,
   "tickets": [
     {
       "id": 47,
@@ -33758,6 +33758,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3117,
+      "title": "[DeepSeek] Sweep the remaining Bool.andLeft/andRight/andIntro in aoc 2024 Day10 Proofs/Proofs.sw (~lines 134, 150, 153, 187) and Day08 Part1.sw:153 antinodesOfCorrect now that let-patterns read test facts (SW-3096 findings); check each day and its Proofs namespace with --no-cache",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-older",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
