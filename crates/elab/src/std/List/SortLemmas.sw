@@ -427,13 +427,13 @@ theorem List.sumRangeFromZero (f: Nat → Nat): ∀ (c s: Nat) => List.sumBy (Li
   | Succ c, s, h, x, h1, h2 =>
     let parts := Nat.addEqZero (f s) (List.sumBy (List.rangeFrom c (Succ s)) f) (Eq.trans (Eq.sym (List.sumByCons (List.rangeFrom c (Succ s)) s f)) h)
     match e: Nat.equal s x with
-      | True => rewrite <- Nat.equalSound s x e in And.left parts
+      | True => rewrite <- e.read in And.left parts
       | False =>
         List.sumRangeFromZero f c (Succ s) (And.right parts) x (Nat.leNeSucc s x h1 (Nat.equalFalse s x e)) (Nat.ltSuccAdd s c x h2)
 
 --| Sums over the ids of a run that pick out `y`.
 theorem List.sumRangeFromEq (y: Nat) (c: Nat) (s: Nat) (h1: s ≤ y) (h2: y < s + c): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = y :=
-  List.sumRangeFromOne (x => y == x) (x => x) y ((Nat.decEq y y).complete rfl) (b h => Eq.sym ((Nat.decEq y b).sound h)) c s h1 h2
+  List.sumRangeFromOne (x => y == x) (x => x) y ((Nat.decEq y y).complete rfl) (b h => Eq.sym h.read) c s h1 h2
 
 theorem List.sumRangeFromEqNone (y: Nat) (c: Nat) (s: Nat) (h: ∀ (x: Nat) => s ≤ x → x < s + c → y ≠ x): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
   List.sumRangeFromNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
@@ -443,7 +443,7 @@ theorem List.sumRangeFromEqNone (y: Nat) (c: Nat) (s: Nat) (h: ∀ (x: Nat) => s
 theorem List.sumRangePick (g: Nat → Nat) (n: Nat) (v: Nat) (hz: n ≤ v → g v = 0):
     List.sumBy (List.range 0 n) (x => Nat.keepIf (g x) (Nat.equal v x)) = g v :=
   match e: Nat.leq (Succ v) n with
-    | True => List.sumRangeFromOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym (Nat.equalSound v b h)) n 0 (Nat.zeroLe v) e
+    | True => List.sumRangeFromOne (x => Nat.equal v x) g v (Nat.equalRefl v) (b h => Eq.sym h.read) n 0 (Nat.zeroLe v) e
     | False =>
       rewrite hz (Nat.leqFalse (Succ v) n e) in
         List.sumRangeFromNone (x => Nat.equal v x) g n 0
@@ -511,7 +511,7 @@ theorem List.allRangeElim (q: Nat → Bool): ∀ (c s: Nat) => List.all (List.ra
   | Succ c, s, h, k, h1, h2 =>
     Bool.inspect (q s) (u => q k = True)
       (t => Bool.inspect (k == s) (u => q k = True)
-        (e => rewrite <- (Nat.decEq k s).sound e at t)
+        (e => rewrite <- e.read at t)
         (ne => List.allRangeElim q c (Succ s)
           (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => List.all (List.rangeFrom c (Succ s)) q) (u => False)) (Eq.sym t)) h)
           k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym ((Nat.decEq k s).complete (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
@@ -549,7 +549,7 @@ theorem Nat.firstFromBefore (q: Nat → Bool) (c s j: Nat) (h1: s ≤ j) (h2: j 
       Bool.inspect (q s) (u => q j = False)
         (t => Void.exfalso (Nat.lessIrrefl j (Nat.leTrans (Succ j) s j (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) s (Nat.firstFromStop q c s t) h2) h1)))
         (f => Bool.inspect (j == s) (u => q j = False)
-          (e => rewrite <- (Nat.decEq j s).sound e at f)
+          (e => rewrite <- e.read at f)
           (ne => Nat.firstFromBefore q c (Succ s) j
             (Nat.leNeSucc s j h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym ((Nat.decEq j s).complete (Eq.sym e))) ne)))
             (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) (Nat.firstFrom q c (Succ s)) (Nat.firstFromSkip q c s f) h2)))
@@ -590,7 +590,7 @@ theorem Ordering.isLessEqIf (d: Bool): Ordering.isLessEq (if d then Less else Gr
 theorem Nat.compareLeq (m: Nat) (n: Nat): Ordering.isLessEq (Nat.compare m n) = Nat.leq m n :=
   Bool.inspect (Nat.equal m n)
     (c => Ordering.isLessEq (if c then Equal else (if Nat.leq m n then Less else Greater)) = Nat.leq m n)
-    (e => Eq.sym (Nat.leCongRight m m n (Nat.equalSound m n e) (Nat.leRefl m)))
+    (e => Eq.sym (Nat.leCongRight m m n e.read (Nat.leRefl m)))
     (e => Ordering.isLessEqIf (Nat.leq m n))
 
 theorem Nat.compareTotal (m: Nat) (n: Nat)
@@ -716,13 +716,15 @@ theorem List.sortedOfChain (le: a → a → Bool) (xs: List a) (chained: List.ch
   match xs with
     | [] => Trivial
     | [x] => Both Trivial Trivial
-    | [x, next, ..rest] => Both (Bool.andLeft chained) (List.sortedOfChain le [next, ..rest] (Bool.andRight chained))
+    | [x, next, ..rest] =>
+      let Both first more := chained
+      Both first (List.sortedOfChain le [next, ..rest] more)
 
 theorem List.chainOfSorted (le: a → a → Bool) (xs: List a) (h: List.Sorted le xs): List.chain xs le = True :=
   match xs, h with
     | [], sorted => rfl
     | [x], sorted => rfl
-    | [x, next, ..rest], Both first sorted => Bool.andIntro first (List.chainOfSorted le [next, ..rest] sorted)
+    | [x, next, ..rest], Both first sorted => Both first (List.chainOfSorted le [next, ..rest] sorted)
 
 --| For numbers, that's `Nat.leq`.
 theorem List.sortSortedNat (xs: List Nat): List.Sorted Nat.leq (List.sort xs) :=
@@ -970,7 +972,7 @@ theorem List.sortWithOfSortedExample (xs: List Nat) (s: List.Sorted Nat.leq xs):
 --| key, something is found.
 theorem List.findKey [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (y: a) (h: List.find xs (x => key x == kk) = Some y): key y = kk :=
   match List.findSome xs (x => key x == kk) y h with
-    | Both py m => (DecEq.decide (key y) kk).sound py
+    | Both py m => py.read
 
 theorem List.findKeySome [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (m: List.Mem kk (List.map xs key)):
     List.find xs (x => key x == kk) ≠ None :=
@@ -979,9 +981,10 @@ theorem List.findKeySome [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) 
 
 --| Permutations have the same elements.
 theorem List.memPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (h: List.Perm xs ys) (x: a) (m: List.Mem x xs): List.Mem x ys :=
-  List.anyTrueElim ys (y => y == x) (List.Mem x ys)
-    (Eq.trans (Eq.sym (List.anyPerm xs ys h (y => y == x))) (List.anyOfMem xs (y => y == x) x ((DecEq.decide x x).complete rfl) m))
-    (y inYs e => rewrite <- (DecEq.decide y x).sound e in inYs)
+  let inXs: xs.any (y => y == x) := Witness x (Both m (DecEq.refl x))
+  let found: ys.any (y => y == x) := Eq.trans (Eq.sym (List.anyPerm xs ys h (y => y == x))) inXs
+  let Witness y (Both inYs e) := found
+  rewrite <- e.read in inYs
 
 --| Counting with a test the first element passes.
 theorem List.occurrencesConsTrue (xs: List a) (p: a → Bool) (x: a) (px: p x = True): List.occurrences [x, ..xs] p = Succ (List.occurrences xs p) :=
@@ -999,11 +1002,11 @@ theorem List.occurrencesKeyAbsent [auto eq: DecEq k] (xs: List a) (key: a → k)
   match n: List.occurrences xs (y => key y == kk) with
     | Zero => rfl
     | Succ m =>
-      Void.exfalso (List.anyTrueElim xs (y => key y == kk) Void (rewrite List.anyOccurrences xs (y => key y == kk), n in rfl)
-        (y inXs py =>
-          notMem (Eq.subst (z => List.Mem z (List.map xs key))
-            (Eq.trans ((DecEq.decide (key y) kk).sound py) (Eq.sym ((DecEq.decide (key x) kk).sound t)))
-            (List.memMap xs y inXs key))))
+      let found: xs.any (y => key y == kk) := rewrite List.anyOccurrences xs (y => key y == kk), n in rfl
+      let Witness y (Both inXs py) := found
+      Void.exfalso (notMem (Eq.subst (z => List.Mem z (List.map xs key))
+        (Eq.trans py.read (Eq.sym t.read))
+        (List.memMap xs y inXs key)))
 
 --| Distinct keys: at most one element has any key.
 theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (h: List.Distinct (List.map xs key)):
@@ -1022,8 +1025,8 @@ theorem List.memMapOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) 
     List.anyElim (y => key y = key x) Void xs (List.memMapAny xs key (key x) m) (y inXs e =>
       match n: List.occurrences xs (z => key z == key x) with
         | Zero =>
-          Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite n at List.anyOccurrences xs (z => key z == key x)))
-            (List.anyOfMem xs (z => key z == key x) y ((DecEq.decide (key y) (key x)).complete e) inXs))
+          let none: xs.any (z => key z == key x) = False := rewrite n at List.anyOccurrences xs (z => key z == key x)
+          (none.read y inXs).read e
         | Succ c =>
           let one: Nat.leq (Succ (List.occurrences xs (z => key z == key x))) 1 = True :=
             Eq.trans (Eq.sym (Eq.cong (t => Nat.leq t 1)
@@ -1073,7 +1076,7 @@ theorem List.occurrencesAbsent [auto eq: DecEq a] (xs: List a) (x: a) (p: a → 
     | [] => rfl
     | [y, ..ys] =>
       match e: y == x with
-        | True => Void.exfalso (n (Inl (DecEq.sound e)))
+        | True => Void.exfalso (n (Inl e.read))
         | False => rewrite Bool.andFalse (p y), List.occurrencesAbsent ys x p (m => n (Inr m)) in rfl
 
 --| Counting at `x` in a list with `x` once finds `x` if it passes `p`.
@@ -1085,7 +1088,7 @@ theorem List.occurrencesOnce [auto eq: DecEq a] (xs: List a) (x: a) (p: a → Bo
       rewrite e, DecEq.refl x, Bool.andTrue (p x), List.occurrencesAbsent ys x p (rewrite e at notMem) in Nat.addZero (Bool.toNat (p x))
     | [y, ..ys], Both notMem d, Inr m =>
       match e: y == x with
-        | True => Void.exfalso (notMem (rewrite DecEq.sound e in m))
+        | True => Void.exfalso (notMem (rewrite e.read in m))
         | False => rewrite Bool.andFalse (p y), List.occurrencesOnce ys x p d m in rfl
 
 --| Two lists without repeats and with the same members are the same elements
@@ -1101,7 +1104,7 @@ theorem List.permOfSameMembers [auto eq: DecEq a]: ∀ (xs ys: List a) => List.D
         (z m =>
           List.memFilterIntro ys (z => ¬(z == x)) (there z (Inr m))
             (match e: z == x with
-              | True => Void.exfalso (notMem (rewrite <- DecEq.sound e in m))
+              | True => Void.exfalso (notMem (rewrite <- e.read in m))
               | False => rfl))
         (z m =>
           match List.memFilter ys (z => ¬(z == x)) m with
@@ -1190,7 +1193,7 @@ theorem List.removeFirstAbsent [auto eq: DecEq a] (xs: List a) (x: a) (n: ¬(Lis
     | [] => rfl
     | [y, ..ys] =>
       match e: y == x with
-        | True => Void.exfalso (n (Inl (DecEq.sound e)))
+        | True => Void.exfalso (n (Inl e.read))
         | False => rewrite List.removeFirstAbsent ys x (m => n (Inr m)) in rfl
 
 --| With `x` in the list, `x` and the rest are the list in another order.
@@ -1199,11 +1202,11 @@ theorem List.occurrencesRemoveFirst [auto eq: DecEq a]: ∀ (ys: List a) (x: a) 
   | [], x, m, p => Void.exfalso m
   | [y, ..ys], x, m, p =>
     match e: y == x with
-      | True => rewrite DecEq.sound e in rfl
+      | True => rewrite e.read in rfl
       | False =>
         let later: List.Mem x ys :=
           match m with
-            | Inl same => Void.exfalso (DecEq.soundFalse y x e same)
+            | Inl same => Void.exfalso (e.read same)
             | Inr rest => rest
         rewrite List.occurrencesRemoveFirst ys x later p in Nat.addLeftComm (Bool.toNat (p y)) (Bool.toNat (p x)) _
 
@@ -1226,11 +1229,11 @@ theorem List.sumByRemoveFirst [auto eq: DecEq a] [auto add: Add b]: ∀ (ys: Lis
   | [], x, m, f => Void.exfalso m
   | [y, ..ys], x, m, f =>
     match e: y == x with
-      | True => rewrite List.sumByCons ys y f, DecEq.sound e in rfl
+      | True => rewrite List.sumByCons ys y f, e.read in rfl
       | False =>
         let later: List.Mem x ys :=
           match m with
-            | Inl same => Void.exfalso (DecEq.soundFalse y x e same)
+            | Inl same => Void.exfalso (e.read same)
             | Inr rest => rest
         rewrite List.sumByCons ys y f, List.sumByCons (ys.removeFirst x) y f, List.sumByRemoveFirst ys x later f in Add.addLeftComm (f y) (f x) _
 
@@ -1585,7 +1588,7 @@ theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a) (previous: a) (xs: Lis
       match e: y == previous with
         | True =>
           match m with
-            | Inl q => Inl (Eq.trans (Eq.sym (DecEq.sound e)) q)
+            | Inl q => Inl (Eq.trans (Eq.sym e.read) q)
             | Inr rest => List.memDedupAfterIntro x previous ys rest
         | False =>
           match m with
@@ -1619,7 +1622,7 @@ theorem List.sortedDedupAfter [auto eq: DecEq a] (le: a → a → Bool) (previou
     | [], s => s
     | [y, ..ys], Both first rest =>
       match e: y == previous with
-        | True => List.sortedDedupAfter le previous ys (rewrite DecEq.sound e at rest)
+        | True => List.sortedDedupAfter le previous ys (rewrite e.read at rest)
         | False => Both first (List.sortedDedupAfter le y ys rest)
 
 theorem List.sortedDedup [auto eq: DecEq a] (le: a → a → Bool) (xs: List a) (s: List.Sorted le xs): List.Sorted le (List.dedup xs) :=
@@ -1651,7 +1654,7 @@ theorem List.memRemoveFirst [auto eq: DecEq a] (ys: List a) (x y: a) (apart: y �
       match e: first == x with
         | True =>
           match member with
-            | Inl same => Void.exfalso (apart (Eq.trans (Eq.sym same) (DecEq.sound e)))
+            | Inl same => Void.exfalso (apart (Eq.trans (Eq.sym same) e.read))
             | Inr later => later
         | False =>
           match member with
@@ -1665,14 +1668,14 @@ theorem List.distinctRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (h: ys.D
     | [], distinct => Both Trivial (member => member)
     | [first, ..ys], (Both fresh distinct) =>
       match e: first == x with
-        | True => Both distinct (rewrite <- DecEq.sound e in fresh)
+        | True => Both distinct (rewrite <- e.read in fresh)
         | False =>
           match List.distinctRemoveFirst ys x distinct with
             | Both restDistinct absent =>
               Both (Both (member => fresh (List.memOfRemoveFirst ys x first member)) restDistinct)
                 (member =>
                   match member with
-                    | Inl same => DecEq.soundFalse first x e same
+                    | Inl same => e.read same
                     | Inr later => absent later)
 
 --| The terms where `f` is not 0 that `ys` has are in `rest`, once `x` is taken from both.

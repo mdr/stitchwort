@@ -162,9 +162,9 @@ theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): co
 --| A space or a tab is neither a line feed nor a carriage return.
 theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
     Char.isLineFeedCode (Char.toNat char) = False ∧ Char.isCarriageReturnCode (Char.toNat char) = False :=
-  Bool.orElim h
-    (left => rewrite (Char.decEq char ' ').sound left in Both rfl rfl)
-    (right => rewrite (Char.decEq char '\t').sound right in Both rfl rfl)
+  match h with
+    | Inl left => rewrite left.read in Both rfl rfl
+    | Inr right => rewrite right.read in Both rfl rfl
 
 --| `Text.linesFrom` keeps its finished lines apart from the line it is on:
 --| the finished lines (`acc`, newest first) come first, in order.
@@ -425,7 +425,7 @@ theorem Text.stripPrefixCharsForward (p ys: List Char) [rest: List Char]
     | [c, ..ps], [y, ..ys] =>
       match same: Text.sameChar c y with
         | True =>
-          rewrite Eq.sym (Char.ext c y (Nat.equalSound _ _ same)) in
+          rewrite Eq.sym (Char.ext c y same.read) in
             Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
 
 --| The characters after the prefix `p` are `rest` exactly when the list is

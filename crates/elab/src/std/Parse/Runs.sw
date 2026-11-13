@@ -1050,7 +1050,7 @@ theorem Parse.digitNotSign (sign: Char) (d: Char) (more: List Char) (signNotDigi
   match same: Text.sameChar sign d with
     | False => rfl
     | True =>
-      let equal: sign = d := Char.ext sign d (Nat.equalSound _ _ same)
+      let equal: sign = d := Char.ext sign d same.read
       cases
 
 --| Digits don't start with a sign character that is not a digit.

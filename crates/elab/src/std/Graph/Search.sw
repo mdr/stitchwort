@@ -226,8 +226,8 @@ theorem Graph.Costs.hasSetSame (costs: Graph.Costs s t) (table: t) (state: s) (c
 theorem Graph.Costs.hasSetKeeps [auto ord: Ord s] (costs: Graph.Costs s t) (table: t) (state: s) (cost: Nat) [other: s]
     (there: costs.has table other = True): costs.has (costs.set table state cost) other = True :=
   match same: other == state with
-    | True => rewrite DecEq.sound same in costs.hasSetSame table state cost
-    | False => rewrite costs.getSetOther table state cost other (DecEq.soundFalse other state same) in there
+    | True => rewrite same.read in costs.hasSetSame table state cost
+    | False => rewrite costs.getSetOther table state cost other same.read in there
 
 --| After setting a state's cost, a state has either that cost, being the
 --| state set, or what it had before.
@@ -235,9 +235,9 @@ theorem Graph.Costs.getSetCases [auto ord: Ord s] (costs: Graph.Costs s t) [tabl
     (there: costs.get (costs.set table state cost) other = Some found): ((other = state) ∧ (found = cost)) ∨ (costs.get table other = Some found) :=
   match same: other == state with
     | True =>
-      let equal := DecEq.sound same
+      let equal := same.read
       Inl (Both equal (Option.someInjective (Eq.trans (Eq.sym there) (rewrite equal in costs.getSet table state cost))))
-    | False => Inr (Eq.trans (Eq.sym (costs.getSetOther table state cost other (DecEq.soundFalse other state same))) there)
+    | False => Inr (Eq.trans (Eq.sym (costs.getSetOther table state cost other same.read)) there)
 
 --| Setting the cost of a state the table doesn't have keeps every cost it
 --| has.
@@ -245,9 +245,9 @@ theorem Graph.Costs.getSetKeeps [auto ord: Ord s] (costs: Graph.Costs s t) (tabl
     [other: s] [found: Nat] (there: costs.get table other = Some found): costs.get (costs.set table state cost) other = Some found :=
   match same: other == state with
     | True =>
-      let equal := DecEq.sound same
+      let equal := same.read
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (rewrite <- equal in costs.hasOfGet there)))
-    | False => Eq.trans (costs.getSetOther table state cost other (DecEq.soundFalse other state same)) there
+    | False => Eq.trans (costs.getSetOther table state cost other same.read) there
 
 -- Numbered states
 
@@ -331,8 +331,8 @@ theorem Graph.IndexTable.insertUnnumbered [auto ord: Ord s] (index: Graph.Index 
     (kept: ∀ (state: s) => rest.contains state = True → index.number state = None) (state: s) (cost: Nat)
     (unnumbered: index.number state = None) (other: s) (there: (rest.insert state cost).contains other = True): index.number other = None :=
   match same: other == state with
-    | True => rewrite DecEq.sound same in unnumbered
-    | False => kept other (rewrite Map.getInsertOther state cost other (DecEq.soundFalse other state same) rest at there in there)
+    | True => rewrite same.read in unnumbered
+    | False => kept other (rewrite Map.getInsertOther state cost other same.read rest at there in there)
 
 --| The table with `state` given `cost`. The array is changed in place when
 --| nothing else holds the table.
@@ -650,14 +650,14 @@ theorem Graph.relaxLowers [auto ord: Ord s] (costs: Graph.Costs s t) (cost: Nat)
           let lowered := costs.set best next (cost + weight)
           match same: state == next with
             | True =>
-              let equal := DecEq.sound same
+              let equal := same.read
               let less := Graph.improvesTrue costs best next (cost + weight) better known (rewrite <- equal in got)
               let (Witness found (Both final le)) :=
                 Graph.relaxLowers costs cost rest more lowered state (cost + weight) (rewrite equal in costs.getSet best next (cost + weight))
               Witness found (Both final (omega [le, less]))
             | False =>
               Graph.relaxLowers costs cost rest more lowered state known
-                (Eq.trans (costs.getSetOther best next (cost + weight) state (DecEq.soundFalse _ _ same)) got)
+                (Eq.trans (costs.getSetOther best next (cost + weight) state same.read) got)
 
 --| After relaxing edges, `best` has each edge's state for no more than
 --| `cost` plus the edge's.

@@ -679,25 +679,25 @@ theorem Map.getInsertCases [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (o
     (there: Map.get (Map.insert m key value) other = Some found): ((other = key) ∧ (found = value)) ∨ (Map.get m other = Some found) :=
   match same: other == key with
     | True =>
-      let equal := DecEq.sound same
+      let equal := same.read
       Inl (Both equal (Option.someInjective (Eq.trans (Eq.sym there) (rewrite equal in Map.getInsert key value m))))
-    | False => Inr (Eq.trans (Eq.sym (Map.getInsertOther key value other (DecEq.soundFalse other key same) m)) there)
+    | False => Inr (Eq.trans (Eq.sym (Map.getInsertOther key value other same.read m)) there)
 
 --| Inserting a key not there keeps every entry.
 theorem Map.getInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (fresh: Map.contains m key = False) (other: k) (found: v)
     (there: Map.get m other = Some found): Map.get (Map.insert m key value) other = Some found :=
   match same: other == key with
     | True =>
-      let equal := DecEq.sound same
+      let equal := same.read
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (rewrite <- equal in Map.containsOfGet m other found there)))
-    | False => Eq.trans (Map.getInsertOther key value other (DecEq.soundFalse other key same) m) there
+    | False => Eq.trans (Map.getInsertOther key value other same.read m) there
 
 --| Reading after an insert gives the new value at the key and what was there
 --| elsewhere.
 theorem Map.getOrInsert [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (fallback: v):
     (m.insert key value).getOr other fallback = (if key == other then value else m.getOr other fallback) :=
   match same: key == other with
-    | True => rewrite <- DecEq.sound same in (rewrite Map.getInsert key value m in rfl)
+    | True => rewrite <- same.read in (rewrite Map.getInsert key value m in rfl)
     | False =>
       let apart: other ≠ key := isSame => Bool.trueNotFalse (rewrite isSame, DecEq.refl key at same in same)
       rewrite Map.getInsertOther key value other apart m in rfl
@@ -737,8 +737,8 @@ theorem Map.containsInsertSame [auto ord: Ord k] (m: Map k v) (key: k) (value: v
 theorem Map.containsInsertKeeps [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (other: k) (there: Map.contains m other = True):
     Map.contains (Map.insert m key value) other = True :=
   match same: other == key with
-    | True => rewrite DecEq.sound same in Map.containsInsertSame m key value
-    | False => rewrite Map.getInsertOther key value other (DecEq.soundFalse other key same) m in there
+    | True => rewrite same.read in Map.containsInsertSame m key value
+    | False => rewrite Map.getInsertOther key value other same.read m in there
 
 theorem Map.getRemove [auto ord: Ord k] (m: Map k v) (key: k): Map.get (Map.remove m key) key = None :=
   Map.indRaw [p := m' => Map.get (Map.remove m' key) key = None] (r => Map.Raw.getRemove key r) m
@@ -1069,14 +1069,14 @@ theorem Map.containsIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k
 theorem Map.memKeysIndexBy [auto ord: Ord k] (xs: List a) (key: a → k) (kk: k):
     List.Mem kk (Map.keys (Map.indexBy xs key)) ↔ List.Mem kk (List.map xs key) := {
   forward = inKeys =>
-    List.anyTrueElim xs (x => key x == kk) (List.Mem kk (List.map xs key))
-      (Eq.trans (Eq.sym (Map.containsIndexBy xs key kk)) ((Map.memKeys (Map.indexBy xs key) kk).forward inKeys))
-      (x inXs e => rewrite <- DecEq.sound e in List.memMap xs x inXs key),
+    let found: xs.any (x => key x == kk) := Eq.trans (Eq.sym (Map.containsIndexBy xs key kk)) ((Map.memKeys (Map.indexBy xs key) kk).forward inKeys)
+    let Witness x (Both inXs e) := found
+    rewrite <- e.read in List.memMap xs x inXs key,
   backward = inMap =>
     (Map.memKeys (Map.indexBy xs key) kk).backward
       (Eq.trans (Map.containsIndexBy xs key kk)
         (List.anyElim (x => key x = kk) (List.any xs (x => key x == kk) = True) xs (List.memMapAny xs key kk inMap)
-          (x inXs e => List.anyOfMem xs (x => key x == kk) x (rewrite e in DecEq.refl kk) inXs)))
+          (x inXs e => Witness x (Both inXs (rewrite e in DecEq.refl kk)))))
 }
 
 theorem Map.getIndexByMemExample: Map.get (Map.indexBy ["ab", "c"] Text.length) 2 = Some "ab" := rfl
