@@ -179,6 +179,25 @@ enum DevCommand {
         #[arg(long)]
         spans: bool,
     },
+    /// The new formatter (formatter-architecture.md, stage 2): format every
+    /// `.sw` file under the paths with the tree printer, without writing
+    /// anything, and check each result: the same tokens up to the
+    /// deliberate rewrites, the same comments on the same tokens, the same
+    /// syntax tree, and the same text when formatted again. Prints each
+    /// file that fails a check, then totals: declarations left as written
+    /// (by the check they failed), constructs without a rule (by kind), and
+    /// code lines over 120 before and after. Exit status 1 if any file fails
+    /// a check or isn't idempotent
+    FmtTree {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+        /// Print each formatted file
+        #[arg(long)]
+        print: bool,
+        /// List each declaration left as written, with its line
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Which machine instructions a program's reachable code uses, and
     /// whether it fits native compilation's N1 subset
     /// (docs/proposals/native-compilation.md, Appendix: N1 coverage census)
@@ -1290,6 +1309,11 @@ fn run(cli: Cli) -> ExitCode {
             parse_only,
             spans,
         }) => tree_command(&paths, print, time, parse_only, spans),
+        Command::Dev(DevCommand::FmtTree {
+            paths,
+            print,
+            verbose,
+        }) => fmt_tree_command(&paths, print, verbose),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -4872,6 +4896,109 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
 }
 
 /// `dev tree`: the lossless tree's round trip over files and folders.
+fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let mut total = stitchwort_fmt::printer::TreeStats::default();
+    let (mut refused, mut failed, mut unstable) = (0, 0, 0);
+    let (mut long_before, mut long_after) = (0, 0);
+    for file in &files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        };
+        let gate = match stitchwort_fmt::printer::gate(&text) {
+            Ok(gate) => gate,
+            Err(_) => {
+                refused += 1;
+                continue;
+            }
+        };
+        if print {
+            print!("{}", gate.text);
+        }
+        total.add(&gate.stats);
+        long_before += gate.long_lines.0;
+        long_after += gate.long_lines.1;
+        if let Err(problem) = &gate.check {
+            failed += 1;
+            println!("{}: {problem}", file.display());
+        }
+        if !gate.idempotent {
+            unstable += 1;
+            println!("{}: formatting twice differs from once", file.display());
+        }
+        if verbose {
+            for (line, reason) in &gate.stats.verbatim_at {
+                println!("{}:{line}: left as written ({reason})", file.display());
+            }
+        }
+    }
+    let verbatim: Vec<String> = total
+        .verbatim
+        .iter()
+        .map(|(reason, n)| format!("{n} {reason}"))
+        .collect();
+    let unruled: Vec<String> = total
+        .unruled
+        .iter()
+        .map(|(kind, n)| format!("{n} {kind:?}"))
+        .collect();
+    println!(
+        "{} files ({refused} not formatted: they don't parse): {failed} fail a check, {unstable} not \
+         idempotent",
+        files.len()
+    );
+    println!(
+        "{} declarations, {} left as written{}",
+        total.decls,
+        total.verbatim_decls(),
+        if verbatim.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", verbatim.join(", "))
+        }
+    );
+    println!(
+        "constructs without a rule: {}",
+        if unruled.is_empty() {
+            "none".to_string()
+        } else {
+            unruled.join(", ")
+        }
+    );
+    println!("code lines over 120: {long_before} before, {long_after} after");
+    if failed > 0 || unstable > 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// The `.sw` files under `path`, in name order.
+fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    if path.is_dir() {
+        let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
+            .map(|entry| entry.map(|e| e.path()))
+            .collect::<std::io::Result<_>>()?;
+        entries.sort();
+        for entry in entries {
+            sw_files(&entry, out)?;
+        }
+    } else if path.extension().is_some_and(|e| e == "sw") {
+        out.push(path.to_path_buf());
+    }
+    Ok(())
+}
+
 fn tree_command(
     paths: &[PathBuf],
     print: bool,

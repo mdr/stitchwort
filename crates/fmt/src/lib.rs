@@ -17,6 +17,7 @@ use stitchwort_test_alloc as _;
 mod check;
 pub mod doc;
 mod layout;
+pub mod printer;
 mod spacing;
 
 use stitchwort_syntax::{
@@ -146,7 +147,7 @@ pub fn format_in(file: FileId, text: &str) -> Result<Formatted, Error> {
 /// leaves it off a header whose parameters are all implicit, which says
 /// nothing is quantified over by name. Returns the text with it added, or
 /// `None` if nothing needed it.
-fn insert_theorem_foralls(text: &str, tokens: &[Token]) -> Option<String> {
+pub(crate) fn insert_theorem_foralls(text: &str, tokens: &[Token]) -> Option<String> {
     let mut insertions: Vec<(usize, &str)> = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
         if token.tok != Tok::KwTheorem {
