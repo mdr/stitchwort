@@ -1,5 +1,5 @@
 {
-  "next": 3152,
+  "next": 3153,
   "tickets": [
     {
       "id": 47,
@@ -34135,7 +34135,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nPlan written (Fable, 10 min): docs/proposals/self-hosted-fmt.md. Port the Rust formatter's token-and-line design into tools/fmt/, total; stages 0-5 26-39 lane hours; ~20 s for the tree estimated (target < 30 s); proofs optional stage 6. Findings: SW-3147 SW-3148 SW-3149 SW-3150. Awaiting Matt's D3556/D3557.",
+      "body": "\nPlan written (Fable, 10 min): docs/proposals/self-hosted-fmt.md. Port the Rust formatter's token-and-line design into tools/fmt/, total; stages 0-5 26-39 lane hours; ~20 s for the tree estimated (target < 30 s); proofs optional stage 6. Findings: SW-3147 SW-3148 SW-3149 SW-3150. Awaiting Matt's D3556/D3557.\nD3557 (Matt, 13 Nov 2026): yes, first have Fable compare the Rust formatter's design with a full pretty printer from a syntax tree (SW-3152); D3556 waits for it.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34213,6 +34213,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3152,
+      "title": "[Fable] D3557: compare stitchwort fmt's token-and-line design (keeps the author's line breaks, D1014) with a full pretty printer from a syntax tree (lossless CST, Wadler-style layout); end states, layout examples on real std/AoC code, effects on agents' consistency and tooling (sweeps, quick fixes, rename), cost, and the consequence for SW-3145 (formatter in Stitchwort). Paper: docs/proposals/formatter-architecture.md",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
