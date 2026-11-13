@@ -357,24 +357,27 @@ instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) := { decide = List
 
 ### 2.5 Data types, records, interfaces, abilities
 
-**S14. Constructors: D3566.** Recommended: two or more constructors always
-go one per line at 2, each with its `|`, as arms do (§4). A single
-constructor may share the line (`type YUp = | YGrowsUp`). Fields of a
-constructor stay on its line, breaking like a header's parameters (at 4)
-if one is too long.
+**S14. Constructors: D3566 (b), Matt, 13 Nov 2026.** A data type's
+constructors fit or break like a record's fields: on one line if the whole
+declaration fits (`type Direction = | Up | Right | Down | Left`), otherwise
+one per line at 2, each with its `|`. Fields of a constructor stay on its
+line, breaking like a header's parameters (at 4) if one is too long. Arms
+are different: two or more always go one per line (S16 onwards, D3566).
 
-Before (`aoc/src/Aoc/Year2021/Day10/Day10.sw:31`):
+Before (`aoc/src/Aoc/Common/Grid.sw:22`, four lines today):
 
 ```text
-type Token = | Opener (bracket: Bracket) | Closer (bracket: Bracket)
+type Direction =
+  | Up
+  | Right
+  | Down
+  | Left
 ```
 
-After (under D3566's recommendation):
+After:
 
 ```text
-type Token =
-  | Opener (bracket: Bracket)
-  | Closer (bracket: Bracket)
+type Direction = | Up | Right | Down | Left
 ```
 
 **S15. Record types and interfaces** (`{ name: T, … }`) are comma brackets:

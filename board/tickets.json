@@ -34299,12 +34299,12 @@
     {
       "id": 3158,
       "title": "[Opus, paper] Formatter stage 0 (docs/proposals/formatter-architecture.md §6): the style sheet: the rule for every construct, each with a real before/after from the repo, and the comment rules, under D3558 (fmt chooses breaks), D3560a (no author hints; blank lines only), D3560b (fit-or-break: a pipeline that fits stays on one line). Include theorem headers (variables then premises, Matt's discussion 13 Nov). Stops for Matt's sign-off",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nOpus note: docs/proposals/formatter-style.md: engine rules E1-E5, construct rules S1-S40, change counts. Questions D3564 (long headers), D3565 (merge binders), D3566 (alternatives one per line), D3567 (calls that don't fit). Calls touching earlier decisions: D3553 ':= match' only on one-line headers; header continuation at 4 (D1040 had 2 for →); calc joins := like match; calc steps end with :=; if one clause per line. Findings SW-3163 SW-3164 SW-3165; dot chains must never break before .f (a section).\nD3564 (Matt, 13 Nov 2026): yes, long headers as variables then premises ('we can always change our minds later'). D3565 (Matt): yes, merge adjacent parameters of the same type, with the guards. D3566, D3567 open.",
+      "body": "\nOpus note: docs/proposals/formatter-style.md: engine rules E1-E5, construct rules S1-S40, change counts. Questions D3564 (long headers), D3565 (merge binders), D3566 (alternatives one per line), D3567 (calls that don't fit). Calls touching earlier decisions: D3553 ':= match' only on one-line headers; header continuation at 4 (D1040 had 2 for →); calc joins := like match; calc steps end with :=; if one clause per line. Findings SW-3163 SW-3164 SW-3165; dot chains must never break before .f (a section).\nD3564 (Matt, 13 Nov 2026): yes, long headers as variables then premises ('we can always change our minds later'). D3565 (Matt): yes, merge adjacent parameters of the same type, with the guards. D3566, D3567 open.\nD3566 (Matt, 13 Nov 2026): (b): arms (match, handler, definition, clause lambdas) with two or more alternatives always one per line; a data type's constructors fit or break like a record's fields (one-line enumerations allowed). D3567 (Matt): (c): plain arguments stay on the function's line, bracketed ones get their own, a last lambda/list/record hugs. Matt: 'people are going to be more interested in reading the statements of proofs and in definitions for programs' than proof bodies. Style sheet signed off apart from the stage-4 dry run; the doc needs the D3566 (b) edit to S14.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
