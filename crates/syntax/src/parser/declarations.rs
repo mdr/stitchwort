@@ -70,12 +70,15 @@ impl Parser<'_> {
                 let attribute = self.mark();
                 let start = self.lower_q("an attribute's name, such as `js.name`")?;
                 let mut name = start.clone();
-                while self.peek() == Some(&Tok::Dot) {
-                    self.bump();
-                    let part = self.lower_q("the rest of the attribute's name")?;
-                    name.text.push('.');
-                    name.text.push_str(&part.text);
-                    name.span = name.span.to(part.span);
+                if self.peek() == Some(&Tok::Dot) {
+                    while self.peek() == Some(&Tok::Dot) {
+                        self.bump();
+                        let part = self.lower_q("the rest of the attribute's name")?;
+                        name.text.push('.');
+                        name.text.push_str(&part.text);
+                        name.span = name.span.to(part.span);
+                    }
+                    self.node(attribute, NodeKind::AttributeName);
                 }
                 let arg = match self.peek() {
                     Some(Tok::Str(text)) => {
@@ -188,7 +191,7 @@ impl Parser<'_> {
         }
         let body = self.mark();
         self.expect(Tok::ColonEq, "`:=`")?;
-        let expr = self.unmarked_expr()?;
+        let expr = self.expr()?;
         self.node(body, NodeKind::Body);
         Ok(Decl::Test {
             span: start.to(expr.span()),
@@ -278,7 +281,7 @@ impl Parser<'_> {
             if instance {
                 return Err(error(self.prev_span(), "an instance can't have `decreasing`").into());
             }
-            let measure = self.unmarked_expr()?;
+            let measure = self.expr()?;
             self.node(decreasing_start, NodeKind::Decreasing);
             // After it, `:=` may start a line of its own, at the
             // declaration's column (§6.1's layout).
@@ -358,7 +361,7 @@ impl Parser<'_> {
             Some(Tok::ColonEq) => {
                 let body = self.mark();
                 self.bump();
-                let rhs = self.unmarked_expr()?;
+                let rhs = self.expr()?;
                 self.node(body, NodeKind::Body);
                 match &rhs {
                     // `:= match | …` is the arms form: the same equations,
@@ -461,7 +464,7 @@ impl Parser<'_> {
         sort: Option<Expr>,
     ) -> Result<Vec<Decl>> {
         let equals = self.mark() - 1;
-        let body = self.unmarked_expr()?;
+        let body = self.expr()?;
         self.node(equals, NodeKind::Body);
         let ambiguous = |what: &str| {
             error(
@@ -537,12 +540,14 @@ impl Parser<'_> {
     /// or `()`.
     pub(super) fn header_param(&mut self) -> Result<Param> {
         let mark = self.mark();
-        let param = self.header_param_unmarked()?;
+        let param = self.header_param_parts()?;
         self.node(mark, NodeKind::Param);
         Ok(param)
     }
 
-    fn header_param_unmarked(&mut self) -> Result<Param> {
+    /// [`Self::header_param`] without its `Param` node: a lambda's or
+    /// `∀`'s parameter, which is a `LambdaParam`.
+    pub(super) fn header_param_parts(&mut self) -> Result<Param> {
         let start = self.here();
         let implicit = match self.peek() {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
@@ -572,7 +577,7 @@ impl Parser<'_> {
             && names[0].text == "auto"
             && !matches!(self.peek(), Some(Tok::Colon | Tok::RBracket) | None)
         {
-            let ty = self.unmarked_expr()?;
+            let ty = self.expr()?;
             if self.peek() != Some(&Tok::RBracket) {
                 return Err(self
                     .unexpected("`]` to close the parameter `[auto …]`")
@@ -625,7 +630,7 @@ impl Parser<'_> {
             }
             let default = self.mark();
             self.bump();
-            let value = self.unmarked_expr()?;
+            let value = self.expr()?;
             self.node(default, NodeKind::Default);
             Some(value)
         } else {

@@ -101,12 +101,12 @@ pub fn parse_module_recovering(
 /// declaration that doesn't parse is an `Error` node; only a lexical error
 /// leaves no tree.
 pub fn parse_tree(file: FileId, text: &str, stack: usize) -> Parsed<SyntaxFile> {
-    parse_both(file, text, stack).map(|(_, _, tree)| tree)
+    parse_module_and_tree(file, text, stack).map(|(_, _, tree)| tree)
 }
 
 /// [`parse_module_recovering`]'s module and errors, and the lossless tree,
 /// from one parse.
-pub(crate) fn parse_both(
+pub fn parse_module_and_tree(
     file: FileId,
     text: &str,
     stack: usize,
@@ -972,7 +972,8 @@ impl<'t> Parser<'t> {
     }
 
     /// Marks the parameter just read, from token `first`, as a
-    /// `LambdaParam` unless it is a single name, which is its own token.
+    /// `LambdaParam`, unless it is a single name, which is its own token, or
+    /// a pattern, which is its own node.
     #[inline(always)]
     fn mark_param(&mut self, first: u32) {
         if self.marks.is_some() {
@@ -982,7 +983,13 @@ impl<'t> Parser<'t> {
 
     #[inline(never)]
     fn record_param(&mut self, first: u32) {
-        if self.pos as u32 - first > 1 {
+        let end = self.pos as u32;
+        let marked = self
+            .marks
+            .as_ref()
+            .and_then(|marks| marks.last())
+            .is_some_and(|mark| mark.start == first && mark.end == end);
+        if end - first > 1 && !marked {
             self.record(first, NodeKind::LambdaParam);
         }
     }
@@ -1021,23 +1028,6 @@ impl<'t> Parser<'t> {
             head.end = head.start;
         }
         self.record(start, NodeKind::Section);
-    }
-
-    /// An expression whose own structure isn't marked yet, in an
-    /// `Unmarked` node.
-    fn unmarked_expr(&mut self) -> Result<Expr> {
-        let start = self.mark();
-        let expr = self.expr()?;
-        self.node(start, NodeKind::Unmarked);
-        Ok(expr)
-    }
-
-    /// [`Self::app`], in an `Unmarked` node.
-    fn unmarked_app(&mut self) -> Result<Expr> {
-        let start = self.mark();
-        let expr = self.app()?;
-        self.node(start, NodeKind::Unmarked);
-        Ok(expr)
     }
 
     /// `=>` after a lambda's parameters or an alternative's patterns, with a
@@ -1160,7 +1150,7 @@ impl<'t> Parser<'t> {
                 None
             };
         let saved = self.guard_start.replace(self.pos);
-        let cond = self.unmarked_expr();
+        let cond = self.expr();
         self.guard_start = saved;
         let cond = cond?;
         self.node(mark, NodeKind::Guard);
@@ -1194,7 +1184,7 @@ impl<'t> Parser<'t> {
             return Ok(None);
         }
         self.expect_fat_arrow(what)?;
-        Ok(Some(self.unmarked_expr()?))
+        Ok(Some(self.expr()?))
     }
 
     /// Whether the token at `i`, a `,` or a closing bracket, is inside an
@@ -1944,7 +1934,8 @@ impl<'t> Parser<'t> {
                 self.bump();
                 let pattern = if self.ctor_ahead() {
                     let name = self.ctor_name()?;
-                    let first = self.ctor_args(name, span, |t| {
+                    let start = name.span;
+                    let first = self.ctor_args(name, start, |t| {
                         matches!(t, Some(Tok::RParen | Tok::Comma | Tok::Pipe) | None)
                     })?;
                     let first = self.alternatives(first, Self::tuple_component)?;
@@ -2179,7 +2170,7 @@ impl<'t> Parser<'t> {
                     }
                     continue;
                 }
-                let ty = self.unmarked_app()?;
+                let ty = self.app()?;
                 if self.eat(&Tok::Arrow) {
                     indices.push((None, ty));
                     continue;
@@ -2308,7 +2299,7 @@ impl<'t> Parser<'t> {
                     // The result type, `: Vec a (Succ n)`.
                     let colon = self.mark();
                     let result = if self.eat(&Tok::Colon) {
-                        let ty = self.unmarked_app()?;
+                        let ty = self.app()?;
                         self.node(colon, NodeKind::ResultType);
                         Some(ty)
                     } else {
@@ -2387,10 +2378,10 @@ impl<'t> Parser<'t> {
                 let attrs = self.attributes()?;
                 let field = self.lower("a field name")?;
                 self.expect(Tok::Colon, "`:`")?;
-                let ty = self.unmarked_expr()?;
+                let ty = self.expr()?;
                 let default_start = self.mark();
                 let default = if self.eat(&Tok::ColonEq) {
-                    let value = self.unmarked_expr()?;
+                    let value = self.expr()?;
                     self.node(default_start, NodeKind::Default);
                     Some(value)
                 } else {
@@ -2441,9 +2432,7 @@ impl<'t> Parser<'t> {
                 let start = self.mark();
                 let op = self.lower("an operation name")?;
                 self.expect(Tok::Colon, "`:`")?;
-                let ty_start = self.mark();
                 let ty = self.expr_inline()?;
-                self.node(ty_start, NodeKind::Unmarked);
                 self.node(start, NodeKind::AbilityOp);
                 Ok((op, ty))
             })();
@@ -2503,7 +2492,7 @@ impl<'t> Parser<'t> {
         let ty = self.binder_type()?;
         let default_start = self.mark();
         let default = if self.eat(&Tok::ColonEq) {
-            let value = self.unmarked_expr()?;
+            let value = self.expr()?;
             self.node(default_start, NodeKind::Default);
             Some(value)
         } else {
@@ -2553,7 +2542,7 @@ impl<'t> Parser<'t> {
             .with_note(note)
             .into());
         }
-        self.unmarked_expr()
+        self.expr()
     }
 
     // Expressions, loosest-binding first
@@ -2712,11 +2701,7 @@ impl<'t> Parser<'t> {
                 "local definitions can't be `opaque`: only top-level ones can",
             )
             .into()),
-            _ => {
-                let expr = self.expr_inline()?;
-                self.node(start, NodeKind::Unmarked);
-                Ok(Stmt::Expr(expr))
-            }
+            _ => Ok(Stmt::Expr(self.expr_inline()?)),
         }
     }
 
@@ -2798,10 +2783,7 @@ impl<'t> Parser<'t> {
         let start = self.bump().span;
         let pattern = self.let_pattern()?;
         let ty = if self.eat(&Tok::Colon) {
-            let ty_start = self.mark();
-            let ty = self.expr_inline()?;
-            self.node(ty_start, NodeKind::Unmarked);
-            Some(ty)
+            Some(self.expr_inline()?)
         } else {
             None
         };
@@ -2826,7 +2808,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::ColonEq, "`:=`")?;
         let outer = self.let_value.replace(start_index);
-        let value = self.unmarked_expr();
+        let value = self.expr();
         self.let_value = outer;
         let value = value?;
         self.node(start_index as u32, NodeKind::Let);
@@ -2856,12 +2838,12 @@ impl<'t> Parser<'t> {
     /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
     fn result_type(&mut self) -> Result<Expr> {
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
-            return self.unmarked_expr();
+            return self.expr();
         }
         let start = self.mark();
         let row = self.row()?;
         self.node(start, NodeKind::Row);
-        let ty = self.unmarked_expr()?;
+        let ty = self.expr()?;
         self.node(start, NodeKind::Effect);
         Ok(Expr::Effect(row, Box::new(ty)))
     }
@@ -3090,9 +3072,7 @@ impl<'t> Parser<'t> {
                         .into(),
                 );
             }
-            let expr_start = self.mark();
             let expr = self.expr_inline()?;
-            self.node(expr_start, NodeKind::Unmarked);
             self.node(scrutinee, NodeKind::Scrutinee);
             scrutinees.push(Scrutinee { name, expr });
             if !self.eat(&Tok::Comma) {
@@ -3236,7 +3216,7 @@ impl<'t> Parser<'t> {
                 self.arm_body(&patterns, guard.as_ref(), "`=>`")?
             } else {
                 self.expect_fat_arrow("`=>`")?;
-                let body = self.unmarked_expr()?;
+                let body = self.expr()?;
                 if kind == MatchKind::ClauseSome {
                     let some =
                         library_var("Std.Option.Some", Span::point(bar.file, body.span().start));
@@ -3392,7 +3372,7 @@ impl<'t> Parser<'t> {
                 Some(Tok::LParen) if self.annotated_param_ahead() => {
                     let Param::Named {
                         names, ty, default, ..
-                    } = self.header_param()?
+                    } = self.header_param_parts()?
                     else {
                         unreachable!("an annotated parameter is a named one")
                     };
@@ -3410,7 +3390,7 @@ impl<'t> Parser<'t> {
                 {
                     let Param::Named {
                         names, ty, auto, ..
-                    } = self.header_param()?
+                    } = self.header_param_parts()?
                     else {
                         unreachable!("an implicit parameter is a named one")
                     };
@@ -4123,7 +4103,7 @@ impl<'t> Parser<'t> {
                 Some(Tok::LParen) if self.annotated_param_ahead() => {
                     let Param::Named {
                         names, ty, default, ..
-                    } = self.header_param()?
+                    } = self.header_param_parts()?
                     else {
                         unreachable!("an annotated parameter is a named one")
                     };
@@ -4144,7 +4124,7 @@ impl<'t> Parser<'t> {
                 {
                     let Param::Named {
                         names, ty, auto, ..
-                    } = self.header_param()?
+                    } = self.header_param_parts()?
                     else {
                         unreachable!("an implicit parameter is a named one")
                     };
@@ -4225,16 +4205,16 @@ impl<'t> Parser<'t> {
     /// `auto`.
     fn implicit_binder(&mut self) -> Result<(Binder, bool)> {
         let mark = self.mark();
-        let binder = self.implicit_binder_unmarked()?;
+        let binder = self.implicit_binder_parts()?;
         self.node(mark, NodeKind::Binder);
         Ok(binder)
     }
 
-    fn implicit_binder_unmarked(&mut self) -> Result<(Binder, bool)> {
+    fn implicit_binder_parts(&mut self) -> Result<(Binder, bool)> {
         if self.nameless_auto_at(self.pos) {
             self.bump();
             let auto = self.bump().span;
-            let ty = self.unmarked_expr()?;
+            let ty = self.expr()?;
             self.expect(Tok::RBracket, "`]`")?;
             let names = vec![Name {
                 text: crate::ast::NAMELESS.to_string(),

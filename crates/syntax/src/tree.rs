@@ -3,12 +3,30 @@
 //! Reading its leaves left to right, each with the text between it and the
 //! previous one, gives back the file byte for byte.
 //!
-//! It is the first step of docs/proposals/syntax-tree-architecture.md
-//! (architecture A2, D3562): today it is built *beside* the compiler's tree
-//! ([`crate::ast`]) by the same parse; later the compiler's tree is lowered
-//! from it and the parser builds nothing else. The formatter, the editor's
-//! shape features (outline, folding, selection) and the quick fixes and
-//! sweeps are its readers (docs/proposals/formatter-architecture.md §4).
+//! It is step 1 of docs/proposals/syntax-tree-architecture.md (architecture
+//! A2, D3562), and stage 1 of docs/proposals/formatter-architecture.md: it
+//! is built *beside* the compiler's tree ([`crate::ast`]) by the same parse.
+//! Later the compiler's tree is lowered from it and the parser builds
+//! nothing else (steps 3 and 4). The formatter, the editor's shape features
+//! (outline, folding, selection) and the quick fixes and sweeps are its
+//! readers (formatter-architecture.md §4).
+//!
+//! Step 1 is finished: every construct is marked, and its gates hold over
+//! the repo (std, `aoc/src`, `games`, `examples`): every file reads back as
+//! written, no mark is dropped, every span of the compiler's tree is a node
+//! ([`SyntaxFile::check_spans`]), the compiler's tree and its hashes are
+//! unchanged, and parsing without marks costs what it did. The whole-repo
+//! gate is one command, for a rolling check:
+//!
+//! ```text
+//! stitchwort dev tree --spans crates/elab/src/std aoc/src games examples
+//! ```
+//!
+//! which exits 1 if any file doesn't read back, a mark is dropped, or a span
+//! is no node, and prints each. (`examples` has files that don't lex or
+//! parse on purpose; they are counted, not failures.) `--time N
+//! --parse-only` times parsing without marks alone, so that an instruction
+//! count of the process measures that and nothing else.
 //!
 //! # The tree
 //!
@@ -34,10 +52,9 @@
 //! written (`let (a, b) = e`, a chain `a ≤ b < c`, a `.f` section), since
 //! the lowering to the compiler's tree will need them all. A construct of
 //! one token (a name, a literal, `_`) is that token, with no node around it.
-//! A construct the parser doesn't mark yet is inside an
-//! [`NodeKind::Unmarked`] node: its tokens, flat. The parser marks only
-//! some constructs so far ([`TreeStats::unmarked`] counts the rest); each
-//! one marked replaces an `Unmarked` node with real structure.
+//! A construct the parser forgot to mark would leave its tokens flat in its
+//! parent; the span-containment check ([`SyntaxFile::check_spans`]) is what
+//! finds one, since the compiler's tree has a span for it that no node has.
 //!
 //! # Marks
 //!
@@ -61,7 +78,10 @@
 //! than one token is marked, and is marked last, so the last mark ending at
 //! the operator is the whole operand; if none does, the operand is one
 //! token. The operator then holds that start on a small stack of open
-//! constructs, beside the marks, until its right operand is read.
+//! constructs, beside the marks, until its right operand is read. The
+//! span-containment check holds this up: an operand left unmarked would
+//! start its operator's node in the wrong place, and the compiler's span
+//! for the operator's expression would be no node.
 //!
 //! The marks are recorded only when asked for ([`crate::parse_tree`]): the
 //! parser holds an `Option` of the list, so with marks off each mark costs
@@ -80,6 +100,9 @@
 use crate::lexer::{Comment, Tok, Token, Trivia};
 use std::ops::Range;
 
+mod spans;
+pub use spans::{SpanCheck, SpanMiss, Synthetic};
+
 /// The bytes a token stands for in the source: its span, and for the pieces
 /// of an interpolated text, the `${` and `}` around each interpolation,
 /// which the lexer's spans leave out (`"a${` is `StrStart`'s, `}b${`
@@ -97,8 +120,6 @@ pub fn token_text_range(token: &Token) -> Range<usize> {
 /// `_`) are leaves, not nodes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum NodeKind {
-    /// A construct the parser doesn't mark yet: its tokens, flat.
-    Unmarked,
     /// Tokens that didn't parse.
     Error,
 
@@ -131,6 +152,8 @@ pub enum NodeKind {
     Attributes,
     /// One attribute in a group: `js.name "x"`.
     Attribute,
+    /// An attribute's name of more than one part: `js.name`.
+    AttributeName,
     /// An imported name and its alias: `filter as f`.
     ImportItem,
     /// A header's parameter: `(x y: A)`, `(x: A := v)`, `[x: A]`,
@@ -236,8 +259,9 @@ pub enum NodeKind {
     Iff,
     /// `x (a, b) => e`
     Lambda,
-    /// One parameter of a lambda, `∀` or `∃` that is more than a name:
-    /// `(a, b)`, `(x y: A)`, `[t: Type]`. A bare name is a token.
+    /// One parameter of a lambda, `∀` or `∃` with a written type:
+    /// `(x y: A)`, `[t: Type]`. A bare name is a token, and a pattern
+    /// (`(a, b)`, `((a, b): P)`) is its pattern's node.
     LambdaParam,
     /// `if c then a else b`, `if h: c then …`; an `else if` is an `If` in
     /// the else branch.
@@ -397,11 +421,6 @@ pub struct TreeStats {
     /// Declarations that didn't parse.
     pub errors: usize,
     pub nodes: usize,
-    /// `Unmarked` nodes: constructs the parser doesn't mark yet.
-    pub unmarked: usize,
-    /// Of those, the ones of more than one token: the work left to do
-    /// (one token is a leaf wrapped for nothing).
-    pub unmarked_wide: usize,
     /// Marks the builder left out because they crossed another's range.
     pub dropped: usize,
 }
@@ -533,9 +552,6 @@ impl SyntaxFile {
                 stats.errors += 1;
             }
             stats.nodes += decl.nodes.len();
-            let unmarked = || decl.nodes.iter().filter(|n| n.kind == NodeKind::Unmarked);
-            stats.unmarked += unmarked().count();
-            stats.unmarked_wide += unmarked().filter(|n| n.end - n.start > 1).count();
         }
         stats
     }
@@ -630,16 +646,7 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
     // The open nodes, as indices into `nodes`.
     let mut stack: Vec<usize> = vec![0];
     let len = group.tokens.end - group.tokens.start;
-    for (k, &(_, mark)) in marks.iter().enumerate() {
-        // An `Unmarked` node around a construct that is marked is that
-        // construct.
-        if mark.kind == NodeKind::Unmarked
-            && marks
-                .get(k + 1)
-                .is_some_and(|(_, next)| next.start == mark.start && next.end == mark.end)
-        {
-            continue;
-        }
+    for &(_, mark) in &marks {
         let (start, end) = (mark.start, mark.end.min(len));
         // The whole declaration is the root already.
         if start == 0 && end == len {
@@ -654,11 +661,6 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
         let parent = *stack.last().expect("the root covers every mark");
         if offset + end > nodes[parent].end {
             *dropped += 1;
-            continue;
-        }
-        // Inside an `Unmarked` node, an `Unmarked` part is no news: only
-        // the outermost is kept, so that each is one unmarked construct.
-        if mark.kind == NodeKind::Unmarked && nodes[parent].kind == NodeKind::Unmarked {
             continue;
         }
         stack.push(nodes.len());
@@ -759,7 +761,7 @@ impl<'f> Leaf<'f> {
 mod tests {
     use super::*;
     use crate::SourceMap;
-    use crate::parser::parse_both;
+    use crate::parser::parse_module_and_tree;
 
     /// A few files of each kind, with comments, attributes, text blocks and
     /// interpolation among them.
@@ -808,13 +810,114 @@ mod tests {
             let (module, errors) =
                 crate::parse_module_recovering(file, &text, crate::DEFAULT_STACK);
             let (marked, marked_errors, _) =
-                parse_both(file, &text, crate::DEFAULT_STACK).expect("it lexes");
+                parse_module_and_tree(file, &text, crate::DEFAULT_STACK).expect("it lexes");
             assert_eq!(format!("{module:?}"), format!("{marked:?}"), "{path}");
             assert_eq!(
                 format!("{errors:?}"),
                 format!("{marked_errors:?}"),
                 "{path}"
             );
+        }
+    }
+
+    #[test]
+    fn every_span_of_the_compilers_tree_is_a_node() {
+        for path in SAMPLES {
+            let text = sample(path);
+            let file = SourceMap::new().next_id();
+            let (module, _, tree) =
+                parse_module_and_tree(file, &text, crate::DEFAULT_STACK).expect("it lexes");
+            let check = tree.check_spans(&module);
+            let misses: Vec<_> = check
+                .misses
+                .iter()
+                .map(|miss| (miss.what, &text[miss.span.range()]))
+                .collect();
+            assert!(misses.is_empty(), "{path}: {misses:?}");
+            assert!(check.checked > 0, "{path}");
+        }
+    }
+
+    /// Each kind of span the parser makes up, in one file: all known, and
+    /// every other span a node.
+    #[test]
+    fn the_spans_the_parser_makes_up_are_known() {
+        let text = r#"@[js.tag "type"]
+type Shape =
+  | @[js.name "CIRCLE"] Circle (radius: Nat)
+
+def f (x: Nat) (y: Nat): Bool :=
+  let (a, b): (Nat, Nat) := (x, y)
+  let s := "${a}"
+  (p => p) (0 < f a b <= y) && (b > a + 1) && (x ∉ [a, b, y]) && ((a = a) <-> True)
+
+def g: Option (Nat, Nat) -> Option Nat := match some
+  | Some (Some x, y) => (x, y, x) |> (match some | (z, _, _) => z) |> .head
+
+def h (xs: List Nat): Nat := match xs with
+  | [a, b, ..r] => a
+  | _ => 0
+
+theorem t ∀ (n: Nat): ∃ (m k: Nat) => m = n + k := xs |> .map h
+"#;
+        let file = SourceMap::new().next_id();
+        let (module, errors, tree) =
+            parse_module_and_tree(file, text, crate::DEFAULT_STACK).expect("it lexes");
+        assert!(errors.is_empty(), "{errors:?}");
+        let check = tree.check_spans(&module);
+        let misses: Vec<_> = check
+            .misses
+            .iter()
+            .map(|miss| (miss.what, &text[miss.span.range()]))
+            .collect();
+        assert!(misses.is_empty(), "{misses:?}");
+        let mut kinds: Vec<Synthetic> = check.synthetic.keys().copied().collect();
+        kinds.sort();
+        use Synthetic::*;
+        assert_eq!(
+            kinds,
+            [
+                Empty,
+                PartialApp,
+                Nested,
+                BlockRest,
+                OperatorHead,
+                Generated,
+                Added,
+                Attributes,
+                Flipped,
+                Exists,
+                Chain,
+                Section,
+                Interpolation,
+                PatternMatch,
+                Header,
+            ]
+        );
+    }
+
+    /// A span that is no node is found, even with the brackets around it
+    /// added back.
+    #[test]
+    fn a_span_that_is_no_node_is_reported() {
+        use crate::ast::{Decl, Expr, Name};
+        let text = "def x: Nat := f (g a) b\n";
+        let file = SourceMap::new().next_id();
+        let (mut module, _, tree) =
+            parse_module_and_tree(file, text, crate::DEFAULT_STACK).expect("it lexes");
+        assert!(tree.check_spans(&module).misses.is_empty());
+        let at = |s: &str| text.find(s).unwrap() as u32;
+        // `f (g`, and `(g a` (which is `(g a)` but for its bracket).
+        for (start, end) in [(at("f ("), at("g a") + 1), (at("(g"), at("a)") + 1)] {
+            let Some(Decl::Equation { rhs: Some(rhs), .. }) = module.decls.last_mut() else {
+                panic!("an equation")
+            };
+            *rhs = Expr::Var(Name {
+                text: "f".into(),
+                span: crate::Span::new(file, start, end),
+            });
+            let found = tree.check_spans(&module).misses.len();
+            assert_eq!(found, usize::from(start == at("f (")), "{start}..{end}");
         }
     }
 
@@ -848,38 +951,32 @@ Def
     (
     n
     :
-    Unmarked
-      Nat
+    Nat
     )
   Param
     [
     a
     :
-    Unmarked
-      Type
+    Type
     ]
   Param
     (
     x
     :
-    Unmarked
-      a
+    a
     Default
       :=
-      Unmarked
-        d
+      d
     )
   ResultType
     :
-    Unmarked
-      Nat
+    Nat
   Arms
     Arm
       |
       0
       =>
-      Unmarked
-        1
+      1
     Arm
       |
       k
@@ -893,15 +990,13 @@ Def
       Match
         match
         Scrutinee
-          Unmarked
-            k
+          k
         with
         Arm
           |
           j
           =>
-          Unmarked
-            j
+          j
 Theorem
   theorem
   t
@@ -913,11 +1008,9 @@ Theorem
       1
   Body
     :=
-    Unmarked
-      rfl
+    rfl
 "
         );
-        assert_eq!(tree.stats().unmarked, 9);
         // The comments stay with the tokens they were written beside.
         let first = tree.decls().next().unwrap();
         let mut leaves = Vec::new();
@@ -962,17 +1055,14 @@ def f (n: Nat): Nat :=
           (
           k
           :
-          Unmarked
-            Nat
+          Nat
           )
         ResultType
           :
-          Unmarked
-            Nat
+          Nat
         Body
           :=
-          Unmarked
-            k
+          k
       App
         g
         m
@@ -990,8 +1080,7 @@ def f (n: Nat): Nat :=
         assert_eq!(kinds, [NodeKind::Error, NodeKind::Def]);
     }
 
-    /// A node on one line, `Kind[child child]`, a token as its text, and an
-    /// `Unmarked` node around one token left out.
+    /// A node on one line, `Kind[child child]`, a token as its text.
     fn compact(node: Node<'_>, source: &str) -> String {
         let children: Vec<String> = node
             .children()
@@ -1000,10 +1089,7 @@ def f (n: Nat): Nat :=
                 Element::Leaf(leaf) => source[leaf.text_range()].to_string(),
             })
             .collect();
-        match (node.kind(), children.as_slice()) {
-            (NodeKind::Unmarked, [one]) if !one.contains('[') => one.clone(),
-            (kind, _) => format!("{kind:?}[{}]", children.join(" ")),
-        }
+        format!("{:?}[{}]", node.kind(), children.join(" "))
     }
 
     /// What follows `:=` in each declaration of `text`, as [`compact`]
@@ -1155,16 +1241,16 @@ def f (n: Nat): Nat :=
             ("x => x + 1", "Lambda[x => Binary[x + 1]]"),
             (
                 "x (a, b) (y: A) [t: Type] => e",
-                "Lambda[x LambdaParam[PatternTuple[( a , b )]] LambdaParam[Param[( y : A )]] \
-                 LambdaParam[Param[[ t : Type ]]] => e]",
+                "Lambda[x PatternTuple[( a , b )] LambdaParam[( y : A )] \
+                 LambdaParam[[ t : Type ]] => e]",
             ),
             (
                 "forall (n: Nat) k => n + k = k",
-                "Forall[forall LambdaParam[Param[( n : Nat )]] k => Binary[Binary[n + k] = k]]",
+                "Forall[forall LambdaParam[( n : Nat )] k => Binary[Binary[n + k] = k]]",
             ),
             (
                 "exists (n: Nat) => n = 1",
-                "Exists[exists LambdaParam[Param[( n : Nat )]] => Binary[n = 1]]",
+                "Exists[exists LambdaParam[( n : Nat )] => Binary[n = 1]]",
             ),
             (
                 "p && forall n => q n",
@@ -1241,7 +1327,7 @@ def f (n: Nat): Nat :=
             ),
             (
                 "((a, b): P) => a",
-                "Lambda[LambdaParam[PatternTyped[( PatternTuple[( a , b )] : P )]] => a]",
+                "Lambda[PatternTyped[( PatternTuple[( a , b )] : P )] => a]",
             ),
         ]);
     }
