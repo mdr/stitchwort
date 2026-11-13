@@ -86,7 +86,7 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
       let (Both firstOut (Both secondOut unused)) := distinct
       found first second third
         (Set.extIff set (Set.fromList [first, second, third]) (key => {
-          forward = held => (Set.memToListFromList [first, second, third] key).forward (rewrite keys at held.read),
+          forward = held => (Set.containsFromListIff [first, second, third] key).backward (rewrite keys at held.read),
           backward = held =>
             (Set.memToList set key).forward (rewrite keys in (Set.containsFromListIff [first, second, third] key).forward held)
         }))
