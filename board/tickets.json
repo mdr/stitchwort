@@ -33688,12 +33688,12 @@
     {
       "id": 3111,
       "title": "[Sonnet] Deletion oracle for readings: delete each .read in std/aoc in turn and check the result is an error or the same types and def hashes; run before any implicit crossing or D3549a's build step (SW-3105 §4.6)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Progress (lane, 13 Nov 2026): built stitchwort oracle readings|builds (crates/cli/src/oracle_cmd.rs, oracle_sites.rs); samples on AoC 2020 D05, 2024 D06, 2021 D12 Proofs and std Nat/Divides, Set/Spec, List/Toolkit: no 'changed' outcome. Tests: tools oracle (5) and bin oracle (7) pass.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
