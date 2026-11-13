@@ -1,5 +1,5 @@
 {
-  "next": 3146,
+  "next": 3147,
   "tickets": [
     {
       "id": 47,
@@ -33961,12 +33961,12 @@
     {
       "id": 3132,
       "title": "[Opus] Evaluator: forcing a long chain of thunks recurses (force → run → unfold → native::run, ~8.5 KiB guarded and ~6 KB V8 stack per level): 2024 Day22.Proofs needs ~2.3 MiB and fails in the playground (SW-3128 finding 1). Force chains iteratively, or evaluate stricter there. Core: kernel-adjacent, Fable/Opus review",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nFable review: merge (docs/reviews/SW-3132-review.md). Recorded: step counts move both ways (+1 per pre-forced argument, fewer in zonk: a 2,000-deep chain 152,233 → 154,232 steps); frames count three per level (2,000-deep chain peaks at 6,001 frames, was 2,003); no hash flip found. core.md sentence added at merge (L1). Model result: Opus, worked, 50 min (est. 180).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34135,6 +34135,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3146,
+      "title": "[DeepSeek] SW-3132 review tests (docs/reviews/SW-3132-review.md L2, L3): evaluator test for the native pre-forcing stopping rule and other argument positions (mul, leq, divFuel; call in argument 1; a stuck first argument stops it), asserting one machine; a zonk test for empty_row_done past depth 32",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
