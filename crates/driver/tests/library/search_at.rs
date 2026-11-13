@@ -38,6 +38,10 @@ theorem onlyRing (x: Nat) (y: Nat): (x + y) * (x + y) = x * x + 2 * x * y + y * 
 
 theorem ruledOut (a: Nat) (h: Some a = None): a = 5 := ?
 
+theorem falseIsTrue (h: False = True): 1 = 2 := ?
+
+theorem trueIsFalse (n: Nat) (h: True = False): n = 5 := ?
+
 theorem byCases (x: Nat) (shared: Nat) (y: Nat): Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) := ?
 ";
 
@@ -668,6 +672,28 @@ fn simplest_first_offers_ring_when_omega_cannot() {
 #[test]
 fn simplest_first_offers_cases_for_an_impossible_hypothesis() {
     only_offer("ruledOut", "cases", "cases");
+}
+
+/// A case ruled out by `False = True` gets the direct proof, not `omega` or
+/// `cases` (SW-2912); the full search lists it first among the tactics.
+#[test]
+fn simplest_first_offers_the_direct_proof_of_an_impossible_bool_equation() {
+    only_offer(
+        "falseIsTrue",
+        "absurd",
+        "Std.Void.exfalso (Bool.falseNotTrue h)",
+    );
+    only_offer(
+        "trueIsFalse",
+        "absurd",
+        "Std.Void.exfalso (Bool.trueNotFalse h)",
+    );
+    let full = at(GOALS, line_of("falseIsTrue"));
+    assert_eq!(
+        full.tactics.first().map(String::as_str),
+        Some("Std.Void.exfalso (Bool.falseNotTrue h)"),
+        "{full:#?}"
+    );
 }
 
 /// A goal no rung closes gets the full search's offers: the same lemma
