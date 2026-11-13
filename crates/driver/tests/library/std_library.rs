@@ -1285,3 +1285,31 @@ fn the_library_has_no_unreachable_arms() {
         );
     });
 }
+
+/// A statement is written `∀ (x: T) => P`, never `(x: T) -> P`
+/// (`W-ARROW-FORALL`, D3462), and the library is kept free of the warning:
+/// programs never see its warnings, so nothing else would notice.
+#[test]
+fn the_library_writes_its_statements_with_forall() {
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        let mut found: Vec<String> = Vec::new();
+        let warnings = session
+            .elab
+            .library_warnings()
+            .iter()
+            .chain(&session.warnings);
+        for d in warnings.filter(|d| d.code == "W-ARROW-FORALL") {
+            let span = d.primary_span().expect("a warning about a binder");
+            let file = &session.sources.get(span.file);
+            let line = file.text[..span.start as usize].matches('\n').count() + 1;
+            found.push(format!("{}:{line}", file.name));
+        }
+        assert!(
+            found.is_empty(),
+            "the library has {} statement(s) written with `->` for `∀`:\n{}",
+            found.len(),
+            found.join("\n")
+        );
+    });
+}

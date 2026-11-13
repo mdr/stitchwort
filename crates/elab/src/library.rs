@@ -1398,7 +1398,10 @@ impl Elaborator {
             name: &name,
             module: &file.module,
         };
-        let diagnostics = self.elaborate_namespace(None, &[unit], None);
+        let mut diagnostics = self.elaborate_namespace(None, &[unit], None);
+        crate::keep_written_arrows(&mut diagnostics, |id| {
+            (id == file.id).then_some(file.text.as_str())
+        });
         // Programs don't see the library's warnings, but a test of the
         // library itself must (`library_warnings`).
         self.library_warnings.extend(

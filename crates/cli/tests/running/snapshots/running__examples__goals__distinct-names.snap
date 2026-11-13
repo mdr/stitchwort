@@ -35,3 +35,12 @@ expression: output
     │                                                       same: Pair left1 right1 = Pair left2 right2
     │                                                       ⊢ Pair left2 right2 = Pair left1 right1
 ────╯
+[W-THEOREM-FORALL] Warning: the statement of `symmetric` starts with `∀`
+    ╭─[ goals/distinct-names.sw:23:20 ]
+    │
+ 23 │ theorem symmetric: ∀ (a b: Tree) => a = b → b = a
+    │                    ┬  
+    │                    ╰── write these variables before the colon
+    │ 
+    │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
+────╯

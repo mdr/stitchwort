@@ -95,7 +95,7 @@ writes it on every theorem with explicit parameters, and it stays off a header
 with only implicit ones (D3472). Premises the proof names are parameters too
 (`(h: x < y)`), not a `→` after the colon (D3471). This is the house style
 for theorems; a `def` keeps its arms and its `→`. `stitchwort sweep
-theorem-binders` converts old-style theorems.
+theorem-binders` converts old-style theorems; `check` warns (`W-THEOREM-FORALL`) on a theorem whose statement still starts with `∀` after the colon, and the editor's quick fix "Move ∀ variables before the colon" converts it. Likewise `W-ARROW-FORALL` on a statement written `(x: T) → P` for `∀ (x: T) => P` (D3462), with the quick fix "Write ∀ instead of ->".
 
 Write "for all" as `∀` in a quantified hypothesis and where a quantifier is
 part of the statement itself, after the colon: `(all: ∀ (x: a) => x ∈ xs →

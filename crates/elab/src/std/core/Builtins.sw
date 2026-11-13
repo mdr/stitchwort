@@ -46,7 +46,7 @@ def Quot.lift: [a: Type] → [r: a → a → Prop] → [b: Type] → (f: a → b
 --| one about each `Quot.mk x`. It proves only propositions, and never
 --| computes.
 def Quot.ind: [a: Type] → [r: a → a → Prop] → [p: Quot a r → Prop] →
-  (h: ∀ (x: a) => p (Quot.mk x)) → (q: Quot a r) → p q
+  (h: ∀ (x: a) => p (Quot.mk x)) → ∀ (q: Quot a r) => p q
 
 --| Related values have equal classes: `Quot.mk x = Quot.mk y` when `r x y`.
 --| This is the one axiom of the core theory (`stitchwort axioms` lists a

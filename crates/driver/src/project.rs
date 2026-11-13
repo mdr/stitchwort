@@ -388,6 +388,11 @@ impl Session {
         let mut found = self
             .elab
             .elaborate_namespace(Some(name), &units, Some(&dependencies));
+        // After the cache, which holds the elaborator's own diagnostics:
+        // this one reads each file's text.
+        if ns.parse_errors.is_empty() {
+            self.statement_style(&mut found, &ns.files);
+        }
         self.check_exports(first_new_def, true, &mut found);
         // The declarations that parsed are checked even when others
         // didn't, so one run reports every error; the namespace still

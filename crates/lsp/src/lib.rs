@@ -65,6 +65,7 @@ mod imports;
 mod lens;
 mod rename;
 mod source;
+mod style;
 use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -1638,17 +1639,30 @@ impl Main {
         };
         let version = lock(&self.searches.versions).get(uri).copied();
         let mut actions = Vec::new();
-        let with_edit = |edit: lsp_types::TextEdit| {
-            let edits = [edit];
-            match version.filter(|_| self.document_changes) {
+        let with_edits =
+            |edits: &[lsp_types::TextEdit]| match version.filter(|_| self.document_changes) {
                 Some(version) => serde_json::json!({"documentChanges": [{
                     "textDocument": {"uri": uri.as_str(), "version": version},
                     "edits": edits,
                 }]}),
                 None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-            }
-        };
+            };
+        let with_edit = |edit: lsp_types::TextEdit| with_edits(&[edit]);
         for d in diagnostics {
+            if let Some(lsp_types::NumberOrString::String(code)) = &d.code
+                && let Some(title) = style::title(code)
+            {
+                let edits = style::edits(text, code, d.range);
+                if !edits.is_empty() {
+                    actions.push(serde_json::json!({
+                        "title": title,
+                        "kind": "quickfix",
+                        "diagnostics": [d],
+                        "edit": with_edits(&edits),
+                    }));
+                }
+                continue;
+            }
             let Some(data) = d.data.as_ref() else {
                 continue;
             };
