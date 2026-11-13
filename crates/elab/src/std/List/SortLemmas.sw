@@ -558,8 +558,8 @@ theorem List.sumByCongAll (p: a → Bool) (f: a → Nat) (g: a → Nat) (h: ∀ 
       | [] => rfl
       | [x, ..xs] =>
         Eq.trans (List.sumByCons xs x f)
-          (Eq.trans (Eq.cong (t => t + List.sumBy xs f) (h x (Bool.andLeft ok)))
-            (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongAll p f g h xs (Bool.andRight ok)))
+          (Eq.trans (Eq.cong (t => t + List.sumBy xs f) (h x ok.left))
+            (Eq.trans (Eq.cong (t => g x + t) (List.sumByCongAll p f g h xs ok.right))
               (Eq.sym (List.sumByCons xs x g))))
 
 theorem Ordering.isLessEqIf (d: Bool): Ordering.isLessEq (if d then Less else Greater) = d := match d with

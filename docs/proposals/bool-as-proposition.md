@@ -451,6 +451,17 @@ a function of its own, which may have one.
    proofs are as they were. `Some a == Some b` computes to the derived test
    of `a == b`, whose reading states another equation, so it reads as `Some
    a = Some b`.
+2c. **`all` and `any` of a cons** (SW-3121). If the head is `List.all` or
+   `List.any` and its list is written as a cons (`[x, ..xs]`, as a case
+   tree substitutes it, or literally; not a call that computes to one), the
+   reading of step 3 is skipped and the test is unfolded one step, to `p x &&
+   xs.all p` or `p x || xs.any p`, read by `&&` and `||`'s own readings. So
+   `only: [d, ..more].all p` has `only.left : p d` and `only.right :
+   more.all p`, `[d, ..more].any p` is taken apart with `Inl` and `Inr`, and
+   a `Prop` def that unfolds to such a test follows by step 4. On any other
+   list the quantifier reading is used. The rule is in the reader and names
+   the two functions: a reading can't be keyed on the argument's shape
+   (§5.3).
 3. Look up (polarity, head of the test). At most one theorem is there; its
    parameters are the test's arguments.
 4. If none, and the head is a call that isn't `opaque`, unfold it one step

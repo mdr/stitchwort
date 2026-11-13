@@ -3,20 +3,20 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-UNREACHABLE] Warning: this case can't happen
-    ╭─[ accept/unreachable-arm-hypothesis.sw:19:5 ]
+    ╭─[ accept/unreachable-arm-hypothesis.sw:18:3 ]
     │
- 19 │     | Rock => Void.exfalso (Bool.falseNotTrue h)
-    │     ──────────────────────┬─────────────────────  
-    │                           ╰─────────────────────── here `h` is `False = True`, which can't hold
+ 18 │   | Rock => Void.exfalso (Bool.falseNotTrue h)
+    │   ──────────────────────┬─────────────────────  
+    │                         ╰─────────────────────── here `h` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
 [W-UNREACHABLE] Warning: this case can't happen
-    ╭─[ accept/unreachable-arm-hypothesis.sw:20:5 ]
+    ╭─[ accept/unreachable-arm-hypothesis.sw:19:3 ]
     │
- 20 │     | Paper => Void.exfalso (Bool.falseNotTrue h)
-    │     ──────────────────────┬──────────────────────  
-    │                           ╰──────────────────────── here `h` is `False = True`, which can't hold
+ 19 │   | Paper => Void.exfalso (Bool.falseNotTrue h)
+    │   ──────────────────────┬──────────────────────  
+    │                         ╰──────────────────────── here `h` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯

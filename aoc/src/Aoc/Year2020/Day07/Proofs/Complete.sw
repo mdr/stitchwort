@@ -89,7 +89,7 @@ theorem listStartsWithDigit (read: List Char) (head: Content) (tail: List Conten
           match digits, nonEmpty, digitsAll with
             | [], nonEmpty2, digitsAll2 => Void.exfalso (nonEmpty2 rfl)
             | [digit, ..more], nonEmpty2, digitsAll2 =>
-              Witness digit (Witness ((more ++ ([' ', ..colourRead] ++ (if firstValue.count == 1 then " bag" else " bags").toList)) ++ nextRead) (Both (rewrite split, split2 in rfl) (Bool.andLeft digitsAll2)))
+              Witness digit (Witness ((more ++ ([' ', ..colourRead] ++ (if firstValue.count == 1 then " bag" else " bags").toList)) ++ nextRead) (Both (rewrite split, split2 in rfl) digitsAll2.left))
 
 --| "no other bags" doesn't start with a digit.
 theorem noOtherAbsent (digit: Char) (more: List Char) (isDigit: Parse.isDigit digit = True): Text.stripPrefixChars "no other bags".toList [digit, ..more] = None :=

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
@@ -43,11 +43,11 @@ expression: warnings
     │            ╰─── never chosen
 ────╯
 [W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
-    ╭─[ accept/redundant-arms.sw:36:7 ]
+    ╭─[ accept/redundant-arms.sw:35:5 ]
     │
- 36 │     | False, _ => 4
-    │       ────┬───  
-    │           ╰───── never chosen
+ 35 │   | False, _ => 4
+    │     ────┬───  
+    │         ╰───── never chosen
     │ 
     │ Note: the earlier arms together cover it
 ────╯

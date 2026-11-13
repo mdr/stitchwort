@@ -3,20 +3,20 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-UNREACHABLE] Warning: this case can't happen
-    ╭─[ accept/match-as-written.sw:51:5 ]
+    ╭─[ accept/match-as-written.sw:47:3 ]
     │
- 51 │     | False => rfl
-    │     ───────┬──────  
-    │            ╰──────── here `big` is `isBig 20 = False`, that is `True = False`, which can't hold
+ 47 │   | False => rfl
+    │   ───────┬──────  
+    │          ╰──────── here `big` is `isBig 20 = False`, that is `True = False`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-    ╭─[ accept/match-as-written.sw:49:14 ]
+    ╭─[ accept/match-as-written.sw:45:57 ]
     │
- 49 │   match big: isBig 20 with
-    │              ────┬───  
-    │                  ╰───── looked for `isBig 20`
+ 45 │ theorem computedAway: pick (isBig 20) = 1 := match big: isBig 20 with
+    │                                                         ────┬───  
+    │                                                             ╰───── looked for `isBig 20`
     │ 
     │ Note 1: in the goal `pick (isBig 20) = 1`
     │ 
@@ -25,11 +25,11 @@ expression: warnings
     │ Note 3: the search compares what terms compute to: write the expression as the goal shows it (or `rewrite` the goal to the form you want, or bind it with a `let` before the `match`)
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-    ╭─[ accept/match-as-written.sw:88:12 ]
+    ╭─[ accept/match-as-written.sw:82:62 ]
     │
- 88 │   match e: isBig n with
-    │            ───┬───  
-    │               ╰───── looked for `isBig n`
+ 82 │ theorem vanishing (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
+    │                                                              ───┬───  
+    │                                                                 ╰───── looked for `isBig n`
     │ 
     │ Note 1: in the goal `keep 3 (isBig n) = 3`
     │ 

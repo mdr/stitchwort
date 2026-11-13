@@ -381,11 +381,10 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
-  match induct (countAbove k xs) with
-    | eq1 => omega
-    | eq2IfTrue y ys h ih => ih
-    | eq2IfFalse y ys h ih => omega
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+  | eq1 => omega
+  | eq2IfTrue y ys h ih => ih
+  | eq2IfFalse y ys h ih => omega
 
 theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
@@ -399,27 +398,26 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
-  match induct (countAbove k xs) with
-    | eq1 => omega
-    | eq2IfTrue y ys h ih => ?
-    | eq2IfFalse y ys h ih => omega
+theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+  | eq1 => omega
+  | eq2IfTrue y ys h ih => ?
+  | eq2IfFalse y ys h ih => omega
 ```
 
 <!-- output: check errors/induct.sw -->
 ```text
 [GOAL] Goal: in `countAboveLe`
-   ╭─[ errors/induct.sw:8:30 ]
+   ╭─[ errors/induct.sw:7:28 ]
    │
- 8 │     | eq2IfTrue y ys h ih => ?
-   │                              ┬
-   │                              ╰── k: Nat
-   │                                  xs: List Nat
-   │                                  y: Nat
-   │                                  ys: List Nat
-   │                                  h: k ≤ y
-   │                                  ih: countAbove k ys ≤ ys.length
-   │                                  ⊢ countAbove k ys ≤ ys.length
+ 7 │   | eq2IfTrue y ys h ih => ?
+   │                            ┬
+   │                            ╰── k: Nat
+   │                                xs: List Nat
+   │                                y: Nat
+   │                                ys: List Nat
+   │                                h: k ≤ y
+   │                                ih: countAbove k ys ≤ ys.length
+   │                                ⊢ countAbove k ys ≤ ys.length
 ───╯
 1 goal open
 ```
@@ -462,11 +460,10 @@ def countBig: List Nat → Nat
   | [x, ..rest] if x > 3 => 1 + countBig rest
   | [_, ..rest] => countBig rest
 
-theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
-  match induct (countBig xs) with
-    | eq1 => omega
-    | eq2 x rest big ih => omega
-    | eq3 x rest small ih => omega
+theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
+  | eq1 => omega
+  | eq2 x rest big ih => omega
+  | eq3 x rest small ih => omega
 ```
 
 <!-- snippet: errors/guard-induct.sw -->
@@ -476,26 +473,25 @@ def countBig: List Nat → Nat
   | [x, ..rest] if x > 3 => 1 + countBig rest
   | [_, ..rest] => countBig rest
 
-theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
-  match induct (countBig xs) with
-    | eq1 => omega
-    | eq2 x rest big ih => ?
-    | eq3 x rest small ih => omega
+theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
+  | eq1 => omega
+  | eq2 x rest big ih => ?
+  | eq3 x rest small ih => omega
 ```
 
 <!-- output: check errors/guard-induct.sw -->
 ```text
 [GOAL] Goal: in `countBigAtMost`
-   ╭─[ errors/guard-induct.sw:9:28 ]
+   ╭─[ errors/guard-induct.sw:8:26 ]
    │
- 9 │     | eq2 x rest big ih => ?
-   │                            ┬
-   │                            ╰── xs: List Nat
-   │                                x: Nat
-   │                                rest: List Nat
-   │                                big: 4 ≤ x
-   │                                ih: countBig rest ≤ rest.length
-   │                                ⊢ countBig rest ≤ rest.length
+ 8 │   | eq2 x rest big ih => ?
+   │                          ┬
+   │                          ╰── xs: List Nat
+   │                              x: Nat
+   │                              rest: List Nat
+   │                              big: 4 ≤ x
+   │                              ih: countBig rest ≤ rest.length
+   │                              ⊢ countBig rest ≤ rest.length
 ───╯
 1 goal open
 ```
@@ -543,45 +539,43 @@ To use a condition in a proof, `match` on it. `match fits: e with` splits on the
 ```stitchwort
 def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
 
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
-  match fits: Nat.leq n limit with
-    | True => fits
-    | False => Nat.leRefl limit
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
+  | True => fits
+  | False => Nat.leRefl limit
 ```
 
 `a <= b` used as a `Bool` is `Nat.leq a b`, so matching on `Nat.leq n limit` finds the `if`'s condition, and in each branch the `if` computes. With `?` in both branches, the goals show what's left:
 
 <!-- snippet: errors/split-goals.sw@clampToAtMost -->
 ```stitchwort
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
-  match fits: Nat.leq n limit with
-    | True => ?
-    | False => ?
+theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
+  | True => ?
+  | False => ?
 ```
 
 <!-- output: check errors/split-goals.sw -->
 ```text
 [GOAL] Goal: in `clampToAtMost`
-   ╭─[ errors/split-goals.sw:7:15 ]
+   ╭─[ errors/split-goals.sw:6:13 ]
    │
- 7 │     | True => ?
-   │               ┬
-   │               ╰── limit: Nat
-   │                   n: Nat
-   │                   fits: n ≤ limit
-   │                   ⊢ (if True = True then n else limit) ≤ limit
-   │                     computes to n ≤ limit
+ 6 │   | True => ?
+   │             ┬
+   │             ╰── limit: Nat
+   │                 n: Nat
+   │                 fits: n ≤ limit
+   │                 ⊢ (if True = True then n else limit) ≤ limit
+   │                   computes to n ≤ limit
 ───╯
 [GOAL] Goal: in `clampToAtMost`
-   ╭─[ errors/split-goals.sw:8:16 ]
+   ╭─[ errors/split-goals.sw:7:14 ]
    │
- 8 │     | False => ?
-   │                ┬
-   │                ╰── limit: Nat
-   │                    n: Nat
-   │                    fits: (n <= limit) = False
-   │                    ⊢ (if False = True then n else limit) ≤ limit
-   │                      computes to limit ≤ limit
+ 7 │   | False => ?
+   │              ┬
+   │              ╰── limit: Nat
+   │                  n: Nat
+   │                  fits: (n <= limit) = False
+   │                  ⊢ (if False = True then n else limit) ≤ limit
+   │                    computes to limit ≤ limit
 ───╯
 2 goals open
 ```
@@ -631,9 +625,8 @@ Write a `Bool` when the program has to run the question: in an `if`, a `filter`,
 <!-- snippet: tests-and-propositions.sw#pieces -->
 ```stitchwort
 theorem fitsSeats (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
-    booking.seats <= capacity :=
-  match h with
-    | Both _ small => small
+    booking.seats <= capacity := match h with
+      | Both _ small => small
 
 theorem fitsPositive (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     0 < booking.seats := h.left
@@ -644,10 +637,9 @@ Each pattern takes one layer. If the test were `a && b && c`, `Both _ rest` woul
 <!-- snippet: tests-and-propositions.sw#negative -->
 ```stitchwort
 theorem emptyOrTooBig (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
-    booking.seats = 0 ∨ capacity < booking.seats :=
-  match h with
-    | Inl zero => Inl omega
-    | Inr big => Inr big.read
+    booking.seats = 0 ∨ capacity < booking.seats := match h with
+      | Inl zero => Inl omega
+      | Inr big => Inr big.read
 ```
 
 The compiler can do this because every test has a **reading**: the statement it stands for. `&&`, `||` and `not` have theirs, and so do the library's tests (`xs.contains x` reads as `x ∈ xs`, `xs.all p` as "every member passes `p`", `xs.isEmpty` as `xs = []`, and `<=` as `≤`). `Booking.fits` has none of its own: the compiler looks at what it is defined as, `0 < booking.seats && booking.seats <= capacity`, and reads that. It follows definitions like this a few steps, and stops at an `opaque` one.
@@ -679,9 +671,9 @@ theorem bigWhenNot (n: Nat) (h: isSmall n = False): 3 < n := h
    ╭─[ errors/fact-as-statement.sw:5:62 ]
    │
  5 │ theorem bigWhenNot (n: Nat) (h: isSmall n = False): 3 < n := h
-   │                                                              ┬  
+   │                                                              ┬
    │                                                              ╰── expected `4 ≤ n`, but this has type `isSmall n = False`
-   │ 
+   │
    │ Note: this is the test fact `isSmall n = False`, which reads as `3 < n`: add `.read` to use it as that
 ───╯
 1 error: in `bigWhenNot`
@@ -739,6 +731,8 @@ def firstBelow (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5)): N
   below y
 ```
 
+Once the list is a `[x, ..xs]`, as a `match` on it leaves it, `all` and `any` are the one step they take, so they read as `∧` and `∨`: `only: [d, ..more].all p` has `only.left : p d` and `only.right : more.all p`, and `[d, ..more].any p` is taken apart with `Inl` and `Inr` (or built with them). A list the program names by a call, such as `image.edges`, is read as the quantifier above.
+
 ### Your own readings
 
 A test of your own gets a reading when the statement it stands for has a shape of its own. You declare it next to the test, as a theorem marked `@[reading]` that says the test is the statement. This is the test `within` and its record `Within`:
@@ -758,18 +752,16 @@ theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x
   backward = r => Both r.low r.high
 }
 
-theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi :=
-  match h with
-    | { low, high } => high
+theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi := match h with
+  | { low, high } => high
 
 theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
 
 theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
 
-theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
-  match h with
-    | Inl ha => Inr ha
-    | Inr hb => Inl hb
+theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a := match h with
+  | Inl ha => Inr ha
+  | Inr hb => Inl hb
 ```
 
 With it, a pattern, a record or `.read` on a fact about `within lo x hi` works as on `Within lo x hi`. A test has one reading for `= True` and one for `= False`, declared next to its function. A fact `e = False` for a test with no reading of its own reads as `¬e`, and where nothing reads (`h: flag = True` with `flag` a variable), `E-NO-READING` says what the test is and, for a pattern, what it reads as instead:
@@ -778,20 +770,19 @@ With it, a pattern, a record or `.read` on a fact about `within lo x hi` works a
 ```stitchwort
 import Std (Bool, Nat)
 
-theorem flagged (flag: Bool) (n: Nat) (h: flag = True): n = n :=
-  match h with
-    | Both a b => rfl
+theorem flagged (flag: Bool) (n: Nat) (h: flag = True): n = n := match h with
+  | Both a b => rfl
 ```
 
 <!-- output: check errors/no-reading.sw -->
 ```text
 [E-NO-READING] Error: this test fact can't be taken apart with `Both`
-   ╭─[ errors/no-reading.sw:5:7 ]
+   ╭─[ errors/no-reading.sw:4:5 ]
    │
- 5 │     | Both a b => rfl
-   │       ────┬───  
-   │           ╰───── `flag` has no reading, so it has no parts
-   │ 
+ 4 │   | Both a b => rfl
+   │     ────┬───
+   │         ╰───── `flag` has no reading, so it has no parts
+   │
    │ Note: a test fact can always be matched by a name
 ───╯
 1 error: in `flagged`
@@ -801,9 +792,8 @@ For a test that is `==`, no reading is needed: the fact reads as what the decisi
 
 <!-- snippet: proofs.sw#readings-decisions -->
 ```stitchwort
-theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c :=
-  match h with
-    | Both ab bc => rewrite ab.read, bc.read in rfl
+theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
+  | Both ab bc => rewrite ab.read, bc.read in rfl
 
 theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 ```

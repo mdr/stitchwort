@@ -116,10 +116,9 @@ A `Char` is one Unicode character, written in single quotes: `'A'`, `'\n'`. `Tex
 
 <!-- snippet: values.sw#chars -->
 ```stitchwort
-def initial (name: Text): Char :=
-  match name.uncons with
-    | Some (first, _) => first
-    | None => '?'
+def initial (name: Text): Char := match name.uncons with
+  | Some (first, _) => first
+  | None => '?'
 
 test "initial" := initial "Ada" == 'A' ∧ initial "" == '?'
 

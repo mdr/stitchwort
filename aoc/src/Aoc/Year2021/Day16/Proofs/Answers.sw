@@ -30,8 +30,8 @@ theorem groupsValue (acc: Nat) (groups: List Nat) (small: groups.all (group => g
   match groups with
     | [] => rfl
     | [group, ..rest] =>
-      let fits: group < Nat.pow 2 4 := omega [Bool.andLeft small]
-      let ih := groupsValue (acc * 16 + group) rest (Bool.andRight small)
+      let fits: group < Nat.pow 2 4 := omega [small.left]
+      let ih := groupsValue (acc * 16 + group) rest small.right
       let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
         rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl
       let step: List.foldLeft (rest.flatMap (Nat.toBits 4)) (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) =

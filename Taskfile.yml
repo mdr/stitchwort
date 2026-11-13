@@ -30,8 +30,11 @@ vars:
     # D2200): lane checkouts build through kache. Build-script runs aren't
     # cached, so crates/driver/build.rs's fingerprint is always computed afresh.
     # The last two switches stop kache 1.0.0 storing stale artifacts (SW-2936).
+    # Four compiler jobs per build, so three lanes building at once stay near
+    # one job per core on a 10-core machine (D3554).
     [build]
     rustc-wrapper = "kache"
+    jobs = 4
     [env]
     KACHE_BUILD_SCRIPT_CACHE = "0"
     KACHE_DEFERRED_DISCOVERY = "0"

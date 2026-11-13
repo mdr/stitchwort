@@ -1056,7 +1056,7 @@ theorem Parse.digitsNotSign (sign: Char) (digits: List Char) (rest: List Char) (
     (signNotDigit: Parse.isDigit sign = False): Text.stripPrefixChars [sign] (digits ++ rest) = None :=
   match digits with
     | [] => Void.exfalso (some rfl)
-    | [d, ..more] => Parse.digitNotSign sign d (more ++ rest) signNotDigit (Bool.andLeft all)
+    | [d, ..more] => Parse.digitNotSign sign d (more ++ rest) signNotDigit all.left
 
 --| `int` on '-' and then digits, with `rest` not starting with another digit.
 theorem Parse.runsIntNegative (digits: List Char) (rest: List Char) (some: digits ≠ []) (all: digits.all Parse.isDigit = True)
@@ -1956,7 +1956,7 @@ theorem Parse.cannotStartAtBreaks (canStart: Char → Bool) (lf: canStart '\n' =
       | [], only => char more found => Void.exfalso (List.consNotNil char more (Eq.sym found))
       | [first, ..others], only => char more found =>
         rewrite <- List.consInjectiveHead _ _ _ _ found in
-          match Parse.lineBreakChar first (Bool.andLeft only) with
+          match Parse.lineBreakChar first (only.left) with
             | Inl same => rewrite same in lf
             | Inr same => rewrite same in cr
 
@@ -2009,7 +2009,7 @@ theorem Parse.declinesCharCannotStart (expected: Char) (canStart: Char → Bool)
 theorem Parse.allSpacesThen (q: Char → Bool) (spaces: ∀ (char: Char) => Parse.isSpace char = True → q char = True) (ys: List Char) (rest: ys.all q = True)
     (xs: List Char) (spaced: xs.all Parse.isSpace = True): (xs ++ ys).all q = True := match xs with
       | [] => rest
-      | [x, ..more] => Bool.andIntro (spaces x (Bool.andLeft spaced)) (Parse.allSpacesThen q spaces ys rest more (Bool.andRight spaced))
+      | [x, ..more] => Bool.andIntro (spaces x spaced.left) (Parse.allSpacesThen q spaces ys rest more spaced.right)
 
 --| A parser declines on a blank line's spaces and tabs, its last line break,
 --| and anything after, if it declines on any run of `q` characters followed
@@ -2059,8 +2059,8 @@ theorem Parse.declinesLinesAtBreaks (p: () → {Parse} a) (canStart: Char → Bo
     Parse.Declines (() => Parse.sepStep p Parse.newline) input := match input with
       | [] => Parse.declinesSepStep p Parse.newline [] (Parse.declinesNewline [] rfl rfl)
       | [char, ..more] =>
-        let only1: Parse.OnlyBreaks more := Bool.andRight only
-        match Parse.lineBreakChar char (Bool.andLeft only) with
+        let only1: Parse.OnlyBreaks more := only.right
+        match Parse.lineBreakChar char only.left with
           | Inl same =>
             rewrite same in
               Parse.declinesAfter Parse.newline (u => p()) ['\n'] more () (Parse.runsNewline ['\n'] more (Inl rfl))
@@ -2070,8 +2070,8 @@ theorem Parse.declinesLinesAtBreaks (p: () → {Parse} a) (canStart: Char → Bo
               match more with
                 | [] => Parse.declinesSepStep p Parse.newline ['\r'] (Parse.declinesNewline ['\r'] rfl rfl)
                 | [next, ..later] =>
-                  let only2: Parse.OnlyBreaks later := Bool.andRight only1
-                  match Parse.lineBreakChar next (Bool.andLeft only1) with
+                  let only2: Parse.OnlyBreaks later := only1.right
+                  match Parse.lineBreakChar next only1.left with
                     | Inl same2 =>
                       rewrite same2 in
                         Parse.declinesAfter Parse.newline (u => p()) ['\r', '\n'] later () (Parse.runsNewline ['\r', '\n'] later (Inr rfl))
@@ -2092,7 +2092,7 @@ theorem Parse.declinesLinesAtBlank (p: () → {Parse} a) (canStart: Char → Boo
         let afterCannot: Parse.CannotStart canStart after :=
           match middle with
             | [] => Parse.cannotStartAfterBreak canStart lf cr last more lastBreak
-            | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in space blank1 (Bool.andLeft spaced)
+            | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in space blank1 spaced.left
         rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
           Parse.declinesAfter Parse.newline (u => p()) first after () (Parse.runsNewline first after firstBreak) (declinesP after afterCannot)
 
@@ -2118,8 +2118,8 @@ theorem Parse.declinesSectionsAfterBreak (p: () → {Parse} a) (canStart: Char �
       Parse.declinesSepStep p Parse.blankLine (first ++ [])
         (Parse.declinesBlankLineAfter first [] [] isBreak rfl rfl (Parse.declinesNewline [] rfl rfl))
     | [char, ..others] =>
-      let only1: Parse.OnlyBreaks others := Bool.andRight only
-      match Parse.lineBreakChar char (Bool.andLeft only) with
+      let only1: Parse.OnlyBreaks others := only.right
+      match Parse.lineBreakChar char only.left with
         | Inl same =>
           rewrite same in
             rewrite <- List.appendAssoc first ['\n'] others in
@@ -2132,8 +2132,8 @@ theorem Parse.declinesSectionsAfterBreak (p: () → {Parse} a) (canStart: Char �
                 Parse.declinesSepStep p Parse.blankLine (first ++ ['\r'])
                   (Parse.declinesBlankLineAfter first [] ['\r'] isBreak rfl rfl (Parse.declinesNewline ['\r'] rfl rfl))
               | [next, ..later] =>
-                let only2: Parse.OnlyBreaks later := Bool.andRight only1
-                match Parse.lineBreakChar next (Bool.andLeft only1) with
+                let only2: Parse.OnlyBreaks later := only1.right
+                match Parse.lineBreakChar next only1.left with
                   | Inl same2 =>
                     rewrite same2 in
                       rewrite <- List.appendAssoc first ['\r', '\n'] later in
@@ -2153,16 +2153,16 @@ theorem Parse.declinesSectionsAtBreaks (p: () → {Parse} a) (canStart: Char →
     Parse.Declines (() => Parse.sepStep p Parse.blankLine) input := match input with
       | [] => Parse.declinesSepStep p Parse.blankLine [] (Parse.declinesBlankLine [] (Parse.declinesNewline [] rfl rfl))
       | [char, ..more] =>
-        let only1: Parse.OnlyBreaks more := Bool.andRight only
-        match Parse.lineBreakChar char (Bool.andLeft only) with
+        let only1: Parse.OnlyBreaks more := only.right
+        match Parse.lineBreakChar char only.left with
           | Inl same => rewrite same in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\n'] (Inl rfl) more only1
           | Inr same =>
             rewrite same in
               match more with
                 | [] => Parse.declinesSepStep p Parse.blankLine ['\r'] (Parse.declinesBlankLine ['\r'] (Parse.declinesNewline ['\r'] rfl rfl))
                 | [next, ..later] =>
-                  match Parse.lineBreakChar next (Bool.andLeft only1) with
-                    | Inl same2 => rewrite same2 in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\r', '\n'] (Inr rfl) later (Bool.andRight only1)
+                  match Parse.lineBreakChar next only1.left with
+                    | Inl same2 => rewrite same2 in Parse.declinesSectionsAfterBreak p canStart declinesP lf cr ['\r', '\n'] (Inr rfl) later only1.right
                     | Inr same2 =>
                       rewrite same2 in
                         Parse.declinesSepStep p Parse.blankLine ['\r', '\r', ..later]
