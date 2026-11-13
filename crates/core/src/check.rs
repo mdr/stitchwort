@@ -19,8 +19,8 @@ use crate::term::{Branch, DataId, DefId, Icit, MAX_LEVEL, Name, NumArm, QuotForm
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
-    Apart, DataArgs, Elim, Head, Shared, Spine, Value, Values, apply, conv, eval, force, force_ref,
-    quot_value, quote, quote_folded, unused,
+    Apart, Closure, DataArgs, Elim, Head, Shared, Spine, Value, Values, apply, conv, eval, force,
+    force_ref, quot_value, quote, quote_folded, unused,
 };
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -184,10 +184,13 @@ impl<'g> Ctx<'g> {
         Ok(quote_folded(&self.g, self.level(), value)?)
     }
 
+    #[inline(never)]
     fn conv(&self, a: &Value, b: &Value) -> Result<bool> {
         Ok(conv(&self.g, self.level(), a, b)?)
     }
 
+    #[cold]
+    #[inline(never)]
     fn show(&self, value: &Value) -> String {
         pretty::value_for_message(&self.g, &self.names, value)
     }
@@ -201,6 +204,8 @@ impl<'g> Ctx<'g> {
         Diagnostic::error(code, message).with_label(self.span, label)
     }
 
+    #[cold]
+    #[inline(never)]
     fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
         if let (Value::Sort(_), Value::Sort(_)) = (expected, found) {
             return self
@@ -230,6 +235,14 @@ impl<'g> Ctx<'g> {
 /// The name the type checker's depth guard reports.
 const PASS: &str = "type checker";
 
+// `infer` and `check` recurse once per level of a term, and a term read back
+// from a normal form can be hundreds of levels deep (a list of 100 numbers
+// computed out in a `match`'s motive), so their own frames are kept small:
+// only the forms they pass through on the way down are handled in them, and
+// the rest are in functions of their own, never inlined. In the playground
+// the whole check must fit a stack of 320 KiB (`crates/web/build.rs`).
+
+#[inline(never)]
 pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
     g.machine.budget.nesting(PASS)?;
@@ -244,47 +257,140 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         Term::Var(ix) if *ix < cx.level() => {
             Ok((term.clone(), cx.types[cx.level() - 1 - ix].clone()))
         }
+        Term::App(..) => infer_app(cx, term),
+        Term::Data(d, args) => infer_data(cx, *d, args),
+        _ => infer_other(cx, term),
+    }
+}
+
+/// [`infer`] of an application.
+#[inline(never)]
+fn infer_app(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
+    infer_spine(cx, term)
+}
+
+/// The type of `f a1 … an`, `term`, already visited: the head, then each
+/// argument in turn, in one frame for the whole spine rather than one per
+/// argument. Each application inside it counts as a visit, as [`infer`]
+/// counts the terms it is given.
+#[inline(always)]
+fn infer_spine(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
+    let g = cx.g;
+    // The arguments, last first.
+    let mut args: smallvec::SmallVec<[(&Rc<Term>, Icit); 8]> = smallvec::SmallVec::new();
+    let mut head = term;
+    while let Term::App(f, a, icit) = head {
+        if !args.is_empty() {
+            g.machine.budget.nesting(PASS)?;
+        }
+        args.push((a, *icit));
+        head = f;
+    }
+    let (mut f, mut f_ty) = infer(cx, head)?;
+    for &(a, icit) in args.iter().rev() {
+        let (dom, cod) = function_type(cx, f_ty, icit)?;
+        let a = check(cx, a, &dom)?;
+        f_ty = result_type(cx, &cod, &a)?;
+        f = Term::app_icit(f, a, icit);
+    }
+    Ok((f, f_ty))
+}
+
+/// The domain and codomain of `ty`, the type of a function applied to an
+/// argument whose implicitness is `icit`.
+#[inline(never)]
+fn function_type(cx: &Ctx, ty: Value, icit: Icit) -> Result<(Shared, Closure)> {
+    match force(&cx.g, ty)? {
+        Value::Pi(_, pi_icit, dom, cod) if pi_icit == icit => Ok((dom, cod)),
+        other => Err(not_a_function(cx, &other)),
+    }
+}
+
+/// The type of a function whose codomain is `cod` applied to `a`.
+#[inline(never)]
+fn result_type(cx: &mut Ctx, cod: &Closure, a: &Term) -> Result<Value> {
+    // As `Closure::apply_lazy`: `a` is computed only if the result type
+    // depends on it.
+    let arg = if cod.body.mentions(0) {
+        cx.eval(a)?
+    } else {
+        unused()
+    };
+    Ok(cod.apply(&cx.g, arg)?)
+}
+
+#[cold]
+#[inline(never)]
+fn not_a_function(cx: &Ctx, ty: &Value) -> Diagnostic {
+    cx.error(
+        "E-NOT-A-FUNCTION",
+        "this isn't a function",
+        format!(
+            "it's applied to an argument, but its type is `{}`",
+            cx.show(ty)
+        ),
+    )
+}
+
+/// [`infer`] of data type `d` applied to `args`.
+#[inline(never)]
+fn infer_data(cx: &mut Ctx, d: DataId, args: &[Rc<Term>]) -> Result<(Term, Value)> {
+    let g = cx.g;
+    let Some(data) = g.env.datas().get(d.0) else {
+        return Err(malformed(cx, "reference to an unknown data type"));
+    };
+    if args.len() != data.params.len() + data.indices.len() {
+        return Err(data_arity_error(cx, data));
+    }
+    // The parameters then the indices: one telescope.
+    let telescope: std::borrow::Cow<[(Name, Term)]> = if data.indices.is_empty() {
+        std::borrow::Cow::Borrowed(&data.params)
+    } else {
+        std::borrow::Cow::Owned(data.params.iter().chain(&data.indices).cloned().collect())
+    };
+    let mut params = Vec::new();
+    let mut out = Vec::new();
+    for (i, ((_, param_ty), arg)) in telescope.iter().zip(args).enumerate() {
+        let ty = eval(&g, &params, param_ty)?;
+        let arg = check(cx, arg, &ty)?;
+        params.push(if later_types_mention(&telescope, i) {
+            cx.eval(&arg)?
+        } else {
+            unused()
+        });
+        out.push(arg);
+    }
+    Ok((Term::data(d, out), Value::Sort(data.sort)))
+}
+
+/// The error for data type `data` given the wrong number of arguments.
+#[cold]
+#[inline(never)]
+fn data_arity_error(cx: &Ctx, data: &Data) -> Diagnostic {
+    let wanted = if data.indices.is_empty() {
+        format!("{} parameter(s)", data.params.len())
+    } else {
+        format!(
+            "{} parameter(s) and {} index(es)",
+            data.params.len(),
+            data.indices.len()
+        )
+    };
+    malformed(cx, format!("`{}` needs {wanted}", data.name))
+}
+
+/// [`infer`] of the forms it doesn't handle itself.
+#[inline(never)]
+fn infer_other(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
+    let g = cx.g;
+    match term {
+        Term::Loc(..) | Term::App(..) | Term::Data(..) => infer(cx, term),
+        Term::Var(ix) if *ix < cx.level() => infer(cx, term),
         Term::Var(ix) => Err(malformed(cx, format!("variable {ix} is out of scope"))),
         Term::Def(id) => match g.env.defs().get(id.0) {
             Some(def) => Ok((term.clone(), def_type(&g, def)?)),
             None => Err(malformed(cx, "reference to an unknown definition")),
         },
-        Term::Data(d, args) => {
-            let Some(data) = g.env.datas().get(d.0) else {
-                return Err(malformed(cx, "reference to an unknown data type"));
-            };
-            if args.len() != data.params.len() + data.indices.len() {
-                let wanted = if data.indices.is_empty() {
-                    format!("{} parameter(s)", data.params.len())
-                } else {
-                    format!(
-                        "{} parameter(s) and {} index(es)",
-                        data.params.len(),
-                        data.indices.len()
-                    )
-                };
-                return Err(malformed(cx, format!("`{}` needs {wanted}", data.name)));
-            }
-            // The parameters then the indices: one telescope.
-            let telescope: std::borrow::Cow<[(Name, Term)]> = if data.indices.is_empty() {
-                std::borrow::Cow::Borrowed(&data.params)
-            } else {
-                std::borrow::Cow::Owned(data.params.iter().chain(&data.indices).cloned().collect())
-            };
-            let mut params = Vec::new();
-            let mut out = Vec::new();
-            for (i, ((_, param_ty), arg)) in telescope.iter().zip(args).enumerate() {
-                let ty = eval(&g, &params, param_ty)?;
-                let arg = check(cx, arg, &ty)?;
-                params.push(if later_types_mention(&telescope, i) {
-                    cx.eval(&arg)?
-                } else {
-                    unused()
-                });
-                out.push(arg);
-            }
-            Ok((Term::data(*d, out), Value::Sort(data.sort)))
-        }
         Term::Sort(s) => Ok((term.clone(), Value::Sort(universe_above(cx, *s)?))),
         Term::Nat(_) => match g.env.builtins().nat {
             Some(nat) => Ok((term.clone(), Value::Data(nat, DataArgs::default()))),
@@ -317,31 +423,6 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 Term::Pi(x.clone(), *icit, Rc::new(dom), Rc::new(cod)),
                 Value::Sort(Sort::pi(s1, s2)),
             ))
-        }
-        Term::App(f, a, icit) => {
-            let (f, f_ty) = infer(cx, f)?;
-            match force(&g, f_ty)? {
-                Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
-                    let a = check(cx, a, &dom)?;
-                    // As `Closure::apply_lazy`: `a` is computed only if the
-                    // result type depends on it.
-                    let arg = if cod.body.mentions(0) {
-                        cx.eval(&a)?
-                    } else {
-                        unused()
-                    };
-                    let ty = cod.apply(&g, arg)?;
-                    Ok((Term::app_icit(f, a, *icit), ty))
-                }
-                other => Err(cx.error(
-                    "E-NOT-A-FUNCTION",
-                    "this isn't a function",
-                    format!(
-                        "it's applied to an argument, but its type is `{}`",
-                        cx.show(&other)
-                    ),
-                )),
-            }
         }
         Term::Ann(e, ty) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -423,8 +504,34 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
 }
 
 pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
+    cx.g.machine.budget.nesting(PASS)?;
+    // An application, the form a deep term nests through most, in a frame
+    // of its own; the rest in another.
+    match term {
+        Term::App(..) => check_app(cx, term, expected),
+        _ => check_form(cx, term, expected),
+    }
+}
+
+/// [`check`] of an application: inferred, then compared.
+#[inline(never)]
+fn check_app(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     let g = cx.g;
+    let expected = &*force_ref(&g, expected)?;
+    // Visited as `infer` would.
     g.machine.budget.nesting(PASS)?;
+    let (term, found) = infer_spine(cx, term)?;
+    if cx.conv(&found, expected)? {
+        Ok(term)
+    } else {
+        Err(cx.mismatch(expected, &found))
+    }
+}
+
+/// [`check`] of a term that isn't an application.
+#[inline(never)]
+fn check_form(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
+    let g = cx.g;
     // A type the elaborator passed in may be a call (`Value::Call`); the
     // kernel's own values never are, so this changes nothing for them.
     let expected = &*force_ref(&g, expected)?;
@@ -436,74 +543,146 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             Ok(Term::Loc(*span, Rc::new(result?)))
         }
         (Term::Lam(x, icit, body), Value::Pi(_, pi_icit, dom, cod)) if icit == pi_icit => {
-            let var = Value::var(cx.level());
+            let body_ty = body_type(cx, cod)?;
             cx.bind(x.clone(), (**dom).clone());
-            let result = check(cx, body, &cod.apply(&g, var)?);
+            let result = check(cx, body, &body_ty);
             cx.unbind(1);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
+        (Term::Ctor(d, c, args), _) => check_ctor(cx, *d, *c, args, expected),
+        (Term::Let(x, ty, value, body, _), _) => {
+            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
+            let result = check(cx, body, expected);
+            cx.unbind(1);
+            let body = result?;
+            let skip = erased || !body.mentions(0);
+            Ok(Term::Let(x, ty, value, Rc::new(body), skip))
+        }
+        (Term::Lam(..) | Term::Refl | Term::Case(..) | Term::NumCase(..), _) => {
+            check_other(cx, term, expected)
+        }
+        _ => {
+            let (term, found) = infer(cx, term)?;
+            if cx.conv(&found, expected)? {
+                Ok(term)
+            } else {
+                Err(cx.mismatch(expected, &found))
+            }
+        }
+    }
+}
+
+/// The type of a function's body, where the function's type has codomain
+/// `cod`: the codomain at the variable the function binds.
+#[inline(never)]
+fn body_type(cx: &Ctx, cod: &Closure) -> Result<Value> {
+    Ok(cod.apply(&cx.g, Value::var(cx.level()))?)
+}
+
+/// [`check`] of constructor `c` of `d` applied to `args`.
+#[inline(never)]
+fn check_ctor(
+    cx: &mut Ctx,
+    d: DataId,
+    c: usize,
+    args: &[Rc<Term>],
+    expected: &Value,
+) -> Result<Term> {
+    let g = cx.g;
+    if g.env
+        .datas()
+        .get(d.0)
+        .and_then(|d| d.ctors.get(c))
+        .is_none()
+    {
+        return Err(malformed(cx, "reference to an unknown constructor"));
+    }
+    let Value::Data(d2, type_args) = expected else {
+        return Err(ctor_mismatch(cx, d, c, expected));
+    };
+    if d != *d2 {
+        return Err(ctor_mismatch(cx, d, c, expected));
+    }
+    let data = g.data(d);
+    let np = data.params.len();
+    if type_args.len() != np + data.indices.len() {
+        return Err(malformed(
+            cx,
+            "a data type with the wrong number of arguments",
+        ));
+    }
+    let (params, indices) = type_args.split_at(np);
+    let (out, env) = check_ctor_fields(cx, d, c, params.to_vec(), args)?;
+    // The constructor's result indices, with the parameters and
+    // fields substituted, must be the expected type's.
+    let ctor = &data.ctors[c];
+    for (r, expected_index) in ctor.result.iter().zip(indices) {
+        let found = eval(&g, &env, r)?;
+        if !cx.conv(&found, expected_index)? {
+            return Err(ctor_index_mismatch(cx, d, c, params, &env, expected)?);
+        }
+    }
+    Ok(Term::ctor(d, c, out))
+}
+
+/// The error for constructor `c` of `d` where `expected` is another type.
+#[cold]
+#[inline(never)]
+fn ctor_mismatch(cx: &Ctx, d: DataId, c: usize, expected: &Value) -> Diagnostic {
+    let g = cx.g;
+    cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "`{}` builds a `{}`, but the expected type is `{}`",
+            g.data(d).ctors[c].name,
+            g.data(d).name,
+            cx.show(expected)
+        ),
+    )
+}
+
+/// The error for constructor `c` of `d`, its fields' values and the
+/// parameters in `env`, whose result indices aren't `expected`'s.
+#[cold]
+#[inline(never)]
+fn ctor_index_mismatch(
+    cx: &Ctx,
+    d: DataId,
+    c: usize,
+    params: &[Value],
+    env: &[Value],
+    expected: &Value,
+) -> Result<Diagnostic> {
+    let g = cx.g;
+    let ctor = &g.data(d).ctors[c];
+    let found_indices = ctor
+        .result
+        .iter()
+        .map(|r| eval(&g, env, r))
+        .collect::<budget::Result<Vec<Value>>>()?;
+    let found_ty = Value::Data(d, params.iter().cloned().chain(found_indices).collect());
+    Ok(cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "`{}` builds a `{}`, but the expected type is `{}`",
+            ctor.name,
+            cx.show(&found_ty),
+            cx.show(expected)
+        ),
+    ))
+}
+
+/// [`check`] of the forms it doesn't handle itself.
+#[inline(never)]
+fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
+    match (term, expected) {
         (Term::Lam(..), _) => Err(cx.error(
             "E-TYPE-MISMATCH",
             "type mismatch",
             format!(
                 "this is a function, but the expected type is `{}`",
-                cx.show(expected)
-            ),
-        )),
-        (Term::Ctor(d, c, _), _)
-            if g.env
-                .datas()
-                .get(d.0)
-                .and_then(|d| d.ctors.get(*c))
-                .is_none() =>
-        {
-            Err(malformed(cx, "reference to an unknown constructor"))
-        }
-        (Term::Ctor(d, c, args), Value::Data(d2, type_args)) if d == d2 => {
-            let data = g.data(*d);
-            let np = data.params.len();
-            if type_args.len() != np + data.indices.len() {
-                return Err(malformed(
-                    cx,
-                    "a data type with the wrong number of arguments",
-                ));
-            }
-            let (params, indices) = type_args.split_at(np);
-            let (out, env) = check_ctor_fields(cx, *d, *c, params.to_vec(), args)?;
-            // The constructor's result indices, with the parameters and
-            // fields substituted, must be the expected type's.
-            let ctor = &data.ctors[*c];
-            for (r, expected_index) in ctor.result.iter().zip(indices) {
-                let found = eval(&g, &env, r)?;
-                if !cx.conv(&found, expected_index)? {
-                    let found_indices = ctor
-                        .result
-                        .iter()
-                        .map(|r| eval(&g, &env, r))
-                        .collect::<budget::Result<Vec<Value>>>()?;
-                    let found_ty =
-                        Value::Data(*d, params.iter().cloned().chain(found_indices).collect());
-                    return Err(cx.error(
-                        "E-TYPE-MISMATCH",
-                        "type mismatch",
-                        format!(
-                            "`{}` builds a `{}`, but the expected type is `{}`",
-                            ctor.name,
-                            cx.show(&found_ty),
-                            cx.show(expected)
-                        ),
-                    ));
-                }
-            }
-            Ok(Term::ctor(*d, *c, out))
-        }
-        (Term::Ctor(d, c, _), _) => Err(cx.error(
-            "E-TYPE-MISMATCH",
-            "type mismatch",
-            format!(
-                "`{}` builds a `{}`, but the expected type is `{}`",
-                g.data(*d).ctors[*c].name,
-                g.data(*d).name,
                 cx.show(expected)
             ),
         )),
@@ -530,24 +709,9 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
-        (Term::Let(x, ty, value, body, _), _) => {
-            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
-            let result = check(cx, body, expected);
-            cx.unbind(1);
-            let body = result?;
-            let skip = erased || !body.mentions(0);
-            Ok(Term::Let(x, ty, value, Rc::new(body), skip))
-        }
         (Term::Case(ix, d, branches), _) => check_case(cx, *ix, *d, branches, expected),
         (Term::NumCase(ix, arms, default), _) => check_num_case(cx, *ix, arms, default, expected),
-        _ => {
-            let (term, found) = infer(cx, term)?;
-            if cx.conv(&found, expected)? {
-                Ok(term)
-            } else {
-                Err(cx.mismatch(expected, &found))
-            }
-        }
+        _ => unreachable!("`check` handles the other forms itself"),
     }
 }
 
@@ -600,6 +764,7 @@ pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
 /// removes it. Also whether `x` is erased when running: exactly when a
 /// parameter of type `A` would be (a proposition, or a type former;
 /// docs/proposals/let.md §6.1 rule 5), whatever the term said.
+#[inline(never)]
 fn check_let_value(
     cx: &mut Ctx,
     x: &Name,
@@ -3796,6 +3961,8 @@ fn universe_above(cx: &Ctx, s: Sort) -> Result<Sort> {
 }
 
 /// An error for a term no correct elaborator would produce.
+#[cold]
+#[inline(never)]
 fn malformed(cx: &Ctx, message: impl Into<String>) -> Diagnostic {
     cx.error("E-MALFORMED", "malformed core term", message)
         .with_note("this is a bug in the compiler, not in your program")

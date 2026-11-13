@@ -690,3 +690,22 @@ fn a_huge_nested_term_is_cut_off_without_printing_it_whole() {
         .join()
         .expect("the thread ran");
 }
+
+/// A deep term through the forms the printer recurses on most, an operator
+/// and an application, prints in full: `x + f (x + f (… y))`, 300 deep
+/// (SW-3133, where each form went into a method of its own).
+#[test]
+fn prints_a_deep_chain_of_operators_and_applications() {
+    let p = Prelude::new();
+    let names = ["x", "f", "y"];
+    let depth = 300;
+    let term = (0..depth).fold(v(0), |t, _| p.plus(v(2), app(v(1), [t])));
+    let text = (0..depth).fold("y".to_string(), |s, k| {
+        if k == 0 {
+            format!("x + f {s}")
+        } else {
+            format!("x + f ({s})")
+        }
+    });
+    assert_eq!(show(&p, &names, &term), text);
+}

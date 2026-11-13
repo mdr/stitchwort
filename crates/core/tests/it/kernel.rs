@@ -2138,3 +2138,44 @@ fn the_erased_placeholder_reads_back_as_the_elision() {
         format!("{:?}", Term::Var(0))
     );
 }
+
+/// An application's spine is checked in one loop, not a level of the Rust
+/// stack per argument: `f n 0 0 … 0`, with `f : (n: Nat) → Args n` and
+/// `Args n` the type of a function of `n` numbers, applied to 20,000 of
+/// them (SW-3133).
+#[test]
+fn a_long_spine_is_inferred_in_a_loop() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    // Args 0 = Nat; Args (m + 1) = Nat → Args m
+    let args_ty = declare(&mut p.g, "Args", arrow(nat.clone(), ty()));
+    let body = lam(
+        "n",
+        case(
+            0,
+            p.nat,
+            vec![
+                (vec![], nat.clone()),
+                (
+                    vec!["m"],
+                    arrow(nat.clone(), app(Term::Def(args_ty), [v(0)])),
+                ),
+            ],
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, args_ty, &body).expect("Args");
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let n = 20_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into()))).chain((0..n).map(|_| p.num(0))),
+    );
+    let (checked, ty) = infer_closed(&p.g.ev(), &term, span()).expect("checks");
+    assert_eq!(checked.spine().1.len(), n + 1);
+    assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+}
