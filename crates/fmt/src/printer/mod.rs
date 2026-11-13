@@ -7,13 +7,15 @@
 //! Each declaration is turned into a layout document by the rule for each
 //! construct ([`rules`]) and printed in 120 columns ([`engine`]). The
 //! printed declaration must have the input's tokens (up to the deliberate
-//! rewrites: D1012's commas and D3472's `∀`), its comments attached to the
+//! rewrites: D1012's commas, D3472's `∀` and D3565's merged parameters,
+//! [`merge`], checked on their own), its comments attached to the
 //! same tokens, and parse to the same tree; one that doesn't is left as
 //! written and counted, so a gap in the rules costs an unformatted
 //! declaration, never a wrong program. [`gate`] runs the same checks on a
 //! whole file, and that formatting twice changes nothing.
 
 pub mod engine;
+mod merge;
 mod rules;
 
 use std::collections::BTreeMap;
@@ -40,6 +42,8 @@ pub struct TreeStats {
     pub verbatim_at: Vec<(usize, &'static str)>,
     /// Nodes printed as written because no rule covers their kind yet.
     pub unruled: BTreeMap<NodeKind, usize>,
+    /// Parameter groups made by merging parameters of one type (D3565).
+    pub merged_groups: usize,
 }
 
 impl TreeStats {
@@ -49,6 +53,7 @@ impl TreeStats {
 
     pub fn add(&mut self, other: &TreeStats) {
         self.decls += other.decls;
+        self.merged_groups += other.merged_groups;
         for (reason, n) in &other.verbatim {
             *self.verbatim.entry(reason).or_default() += n;
         }
@@ -70,6 +75,7 @@ pub struct TreeFormatted {
 pub fn format_tree(text: &str) -> Result<TreeFormatted, Error> {
     let file = SourceMap::new().add("input.sw", text);
     let printed = print_file(file, text)?;
+    printed.merges.clone().map_err(Error::Internal)?;
     check_file(file, &printed.input, &printed.text).map_err(Error::Internal)?;
     Ok(TreeFormatted {
         text: printed.text,
@@ -96,7 +102,10 @@ pub struct Gate {
 pub fn gate(text: &str) -> Result<Gate, Error> {
     let file = SourceMap::new().add("input.sw", text);
     let printed = print_file(file, text)?;
-    let check = check_file(file, &printed.input, &printed.text);
+    let check = printed
+        .merges
+        .clone()
+        .and_then(|()| check_file(file, &printed.input, &printed.text));
     let idempotent = match print_file(file, &printed.text) {
         Ok(again) => again.text == printed.text,
         Err(_) => false,
@@ -116,8 +125,11 @@ pub fn gate(text: &str) -> Result<Gate, Error> {
 }
 
 struct PrintedFile {
-    /// The input with D3472's `∀`s added: what the output is compared with.
+    /// The input with D3472's `∀`s added and D3565's parameters merged:
+    /// what the output is compared with.
     input: String,
+    /// How the merge of parameters checked; a failed one isn't made.
+    merges: Result<(), String>,
     text: String,
     stats: TreeStats,
 }
@@ -125,11 +137,23 @@ struct PrintedFile {
 fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
     let lexed = lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
-    let input =
+    let mut input =
         crate::insert_theorem_foralls(text, &lexed.tokens).unwrap_or_else(|| text.to_string());
+    let mut merges = Ok(());
+    let mut merged_groups = 0;
+    if let Some((merged, groups)) = merge::merge(&input) {
+        merges = merge::check(&input, &merged);
+        if merges.is_ok() {
+            input = merged;
+            merged_groups = groups;
+        }
+    }
     let tree = parse_tree(file, &input, DEFAULT_STACK).map_err(|d| Error::Refused(vec![d]))?;
     let mut printer = rules::Rules::new(&tree, &input);
-    let mut stats = TreeStats::default();
+    let mut stats = TreeStats {
+        merged_groups,
+        ..TreeStats::default()
+    };
     let mut out = String::new();
     let item = |out: &mut String, blank_lines: u32, text: &str| {
         if !out.is_empty() {
@@ -205,6 +229,7 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
         input,
         text: out,
         stats,
+        merges,
     })
 }
 

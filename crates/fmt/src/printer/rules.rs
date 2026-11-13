@@ -1312,7 +1312,7 @@ impl<'a> Rules<'a> {
     }
 
     /// `_ R e := proof` (S35): on one line if it fits, otherwise the proof
-    /// below at 2.
+    /// below at 2, but for S12's exceptions.
     fn calc_step(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
         let Some(assign) = children
@@ -1325,16 +1325,13 @@ impl<'a> Rules<'a> {
             return self.join(&children);
         }
         // `_ R e` breaks at 4, as a header would, apart from the proof at 2.
+        // The proof follows `:=` as a declaration's body does (S12), so a
+        // hug opens on the step's line (D3567's sample).
         let relation = self.join(&children[..assign]);
         let space = self.space_el(children[assign - 1], children[assign]);
         let assign_doc = self.el(children[assign]);
-        let proof = self.join(&children[assign + 1..]);
-        Doc::group(Doc::concat([
-            Doc::nest(2, relation),
-            space,
-            assign_doc,
-            Doc::nest(2, Doc::concat([Doc::Line, proof])),
-        ]))
+        let (_, proof) = self.body_after(&children[assign + 1..]);
+        Doc::concat([Doc::nest(2, relation), space, assign_doc, proof])
     }
 
     /// `rewrite rules in body` (S36): on one line if it fits; otherwise the

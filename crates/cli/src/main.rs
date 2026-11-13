@@ -4975,7 +4975,11 @@ fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
             unruled.join(", ")
         }
     );
-    println!("code lines over 120: {long_before} before, {long_after} after");
+    println!(
+        "parameter groups merged (D3565): {}; code lines over 120: {long_before} before, \
+         {long_after} after",
+        total.merged_groups
+    );
     if failed > 0 || unstable > 0 {
         ExitCode::FAILURE
     } else {

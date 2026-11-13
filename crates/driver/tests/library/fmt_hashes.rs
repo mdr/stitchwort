@@ -29,7 +29,9 @@
 //! only formatted (reported).
 //!
 //! `FMT_HASHES=<text>` limits the run to the files and projects whose path
-//! contains it, and loads all of them. `FMT_HASHES_SKIP=<n>` and
+//! contains it, and loads all of them. `FMT_HASHES_TREE=1` checks the tree
+//! printer (`stitchwort_fmt::printer`, formatter-architecture.md stage 2)
+//! instead of the default formatter. `FMT_HASHES_SKIP=<n>` and
 //! `FMT_HASHES_LIMIT=<n>` run a slice of the standalone files (no projects),
 //! loaded in full, and the count check is off.
 
@@ -46,6 +48,16 @@ mod repo_files;
 use crate::deformat::deformat;
 
 const STACK: usize = 16 * 1024 * 1024;
+
+/// The formatter under test: the default one, or with `FMT_HASHES_TREE` set
+/// the tree printer.
+fn format(text: &str) -> Result<String, stitchwort_fmt::Error> {
+    if std::env::var_os("FMT_HASHES_TREE").is_some() {
+        stitchwort_fmt::printer::format_tree(text).map(|f| f.text)
+    } else {
+        stitchwort_fmt::format(text)
+    }
+}
 
 const EXCLUDED: [&str; 4] = [
     "examples/reject/",
@@ -169,7 +181,7 @@ impl Files for Reformatted {
         let text = self.0.read(path)?;
         if path.ends_with(".sw") {
             let reformatted =
-                deformat(path, &text).and_then(|d| stitchwort_fmt::format(&d.broken).ok());
+                deformat(path, &text).and_then(|d| format(&d.broken).ok());
             Ok(reformatted.unwrap_or(text))
         } else {
             Ok(text)
@@ -202,7 +214,7 @@ struct Checked {
 fn check_file(root: &Path, path: &str, load: bool) -> Checked {
     let text = std::fs::read_to_string(root.join(path)).unwrap();
     let mut checked = Checked::default();
-    let Ok(original) = stitchwort_fmt::format(&text) else {
+    let Ok(original) = format(&text) else {
         checked.refused = true;
         return checked;
     };
@@ -220,7 +232,7 @@ fn check_file(root: &Path, path: &str, load: bool) -> Checked {
         ("layout", &deformed.layout),
         ("breaks", &deformed.broken),
     ] {
-        match stitchwort_fmt::format(input) {
+        match format(input) {
             Ok(output) => formatted.push((what, output)),
             Err(e) => checked
                 .failures

@@ -43,14 +43,16 @@ fn a_body_that_fits_joins_its_header_and_one_that_does_not_goes_below() {
 #[test]
 fn a_long_theorem_header_puts_variables_first_and_each_premise_on_its_own_line() {
     // S8, D3564 (c): the conclusion on its own line, the body below at 2.
+    // D3565: parameters of one type merge.
     let before = "theorem shrinks ∀ (numbers: List Nat) (target: Nat) (start: Nat) \
                   (sums: numbers.sum = target) (front: List Nat) (count: Nat) \
-                  (over: target < count): front ≠ numbers := same\n";
+                  (over: target < count) (other: front = numbers.drop start): front ≠ numbers := same\n";
     let after = "\
-theorem shrinks ∀ (numbers: List Nat) (target: Nat) (start: Nat)
+theorem shrinks ∀ (numbers: List Nat) (target start: Nat)
     (sums: numbers.sum = target)
     (front: List Nat) (count: Nat)
-    (over: target < count):
+    (over: target < count)
+    (other: front = numbers.drop start):
     front ≠ numbers :=
   same
 ";
