@@ -1945,7 +1945,9 @@ def Parse.OnlyBreaks (input: List Char): Prop := input.all (char => char == '\n'
 
 --| A line feed or carriage return is one or the other.
 theorem Parse.lineBreakChar (char: Char) (isBreak: (char == '\n' ∨ char == '\r') = True): char = '\n' ∨ char = '\r' :=
-  Bool.orElim isBreak (lf => Inl (DecEq.sound lf)) (cr => Inr (DecEq.sound cr))
+  match isBreak with
+    | Inl lf => Inl lf.read
+    | Inr cr => Inr cr.read
 
 --| `canStart` is false of the input's first character, if it has one: a
 --| parser whose first character always satisfies `canStart` declines here.
@@ -2007,7 +2009,7 @@ theorem Parse.declinesCharCannotStart (expected: Char) (canStart: Char → Bool)
           | False => rfl
           | True =>
             let blocked := stops char more rfl
-            Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym allows) (rewrite DecEq.sound e at blocked in blocked))))
+            Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym allows) (rewrite e.read at blocked in blocked))))
 
 --| Spaces and tabs, then `ys`, all pass `q`, if each space or tab does and `ys` does.
 theorem Parse.allSpacesThen (q: Char → Bool) (spaces: ∀ (char: Char) => Parse.isSpace char = True → q char = True) (ys: List Char) (rest: ys.all q = True)

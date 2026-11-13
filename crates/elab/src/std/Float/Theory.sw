@@ -227,7 +227,7 @@ theorem Float.Theory.magUnitsStep (m: Nat): Float.Theory.magUnits m < Float.Theo
   match c: Nat.equal (Succ m) (Nat.divFuel m m 4503599627370496 * 4503599627370496 + 4503599627370496) with
     | True =>
       Float.Theory.magUnitsStepAcross m (Nat.divFuel m m 4503599627370496) (Nat.divFuelLe m m 4503599627370496)
-        (Nat.equalSound (Succ m) (Nat.divFuel m m 4503599627370496 * 4503599627370496 + 4503599627370496) c)
+        c.read
     | False =>
       Float.Theory.magUnitsStepWithin m (Nat.divFuel m m 4503599627370496) (Nat.divFuelLe m m 4503599627370496)
         (omega [

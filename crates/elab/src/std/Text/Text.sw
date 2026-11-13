@@ -489,12 +489,12 @@ theorem Text.stripPrefixTake (text: Text) (prefix: Text):
     | True =>
       (Text.stripPrefixSome text prefix (Text.drop text (Text.length prefix))).backward
         (Eq.trans (Eq.sym (Text.takeAppendDrop text (Text.length prefix)))
-          (Eq.cong (front => Text.append front (Text.drop text (Text.length prefix))) (DecEq.sound same)))
+          (Eq.cong (front => Text.append front (Text.drop text (Text.length prefix))) same.read))
     | False =>
       match found: Text.stripPrefix text prefix with
         | None => rfl
         | Some rest =>
-          Void.exfalso (DecEq.soundFalse _ _ same
+          Void.exfalso (same.read
             (Text.ext _ _ (rewrite (Text.stripPrefixSome text prefix rest).forward found in List.takeAppendLength (Text.toList prefix) (Text.toList rest) _ rfl)))
 
 --| `stripSuffix` as a computation on the text: if the last `suffix.length`
@@ -509,12 +509,12 @@ theorem Text.stripSuffixDrop (text: Text) (suffix: Text):
     | True =>
       (Text.stripSuffixSome text suffix (Text.take text (Text.length text - Text.length suffix))).backward
         (Eq.trans (Eq.sym (Text.takeAppendDrop text (Text.length text - Text.length suffix)))
-          (Eq.cong (back => Text.append (Text.take text (Text.length text - Text.length suffix)) back) (DecEq.sound same)))
+          (Eq.cong (back => Text.append (Text.take text (Text.length text - Text.length suffix)) back) same.read))
     | False =>
       match found: Text.stripSuffix text suffix with
         | None => rfl
         | Some rest =>
-          Void.exfalso (DecEq.soundFalse _ _ same
+          Void.exfalso (same.read
             (rewrite (Text.stripSuffixSome text suffix rest).forward found in
               Text.ext _ _ (List.dropAppendLength (Text.toList rest) (Text.toList suffix) _ (rewrite Text.lengthAppend rest suffix in omega))))
 

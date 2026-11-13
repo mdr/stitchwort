@@ -768,7 +768,7 @@ theorem List.appendEqDrop [auto eq: DecEq a] (xs: List a) (prefix: List a) (star
       match made: List.append prefix rest == xs with
         | True =>
           let dropped := Eq.trans (Eq.sym (List.dropAppend prefix rest)) (Eq.cong (ys => List.drop ys (List.length prefix)) made.read)
-          Void.exfalso (DecEq.soundFalse rest (List.drop xs (List.length prefix)) same dropped)
+          Void.exfalso (same.read dropped)
         | False => rfl
 
 --| Nothing appended to `prefix` gives a list that doesn't start with it.

@@ -214,7 +214,7 @@ theorem Nat.digitsAccHead (n: Nat) (acc: List Nat) (hn: 1 ≤ n): 1 ≤ List.hea
     | True => rewrite Nat.digitsAccSmall n acc e in hn
     | False =>
       rewrite Nat.digitsAccBig n acc e in
-      Nat.digitsAccHead (n / 10) [n % 10, ..acc] (Nat.leDivOfMulLe 1 n 10 (Nat.leqFalse n 9 e)) [decreasing := Nat.divTenLess n e]
+      Nat.digitsAccHead (n / 10) [n % 10, ..acc] (Nat.leDivOfMulLe 1 n 10 (e.read)) [decreasing := Nat.divTenLess n e]
 
 theorem Nat.digitsHead (n: Nat) (hn: 1 ≤ n): 1 ≤ List.headOr (Nat.digits n).toList 0 :=
   Nat.digitsAs n (l => 1 ≤ List.headOr l 0) (Nat.digitsAccHead n [] hn)
