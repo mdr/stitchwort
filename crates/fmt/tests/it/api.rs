@@ -91,3 +91,27 @@ fn a_space_before_a_parenthesis_does_not_change_the_tree() {
         "def a: Nat := g f()\n"
     );
 }
+
+#[test]
+fn a_theorem_with_explicit_parameters_gets_forall() {
+    // D3472: written before the first parameter, after the name when the
+    // parameters start on the next line, and not at all where only implicit
+    // parameters are (or a `def`, or none).
+    let text = "theorem a (n: Nat): n = n := rfl\n\n\
+                theorem b [x: Bool] (n: Nat): n = n := rfl\n\n\
+                theorem c\n  (n: Nat): n = n := rfl\n\n\
+                theorem d [x: Bool]: x = x := rfl\n\n\
+                theorem e: True := trivial\n\n\
+                theorem f ∀ (n: Nat): n = n := rfl\n\n\
+                def g (n: Nat): Nat := n\n";
+    let want = "theorem a ∀ (n: Nat): n = n := rfl\n\n\
+                theorem b ∀ [x: Bool] (n: Nat): n = n := rfl\n\n\
+                theorem c ∀\n    (n: Nat): n = n := rfl\n\n\
+                theorem d [x: Bool]: x = x := rfl\n\n\
+                theorem e: True := trivial\n\n\
+                theorem f ∀ (n: Nat): n = n := rfl\n\n\
+                def g (n: Nat): Nat := n\n";
+    let once = format(text).unwrap();
+    assert_eq!(once, want);
+    assert_eq!(format(&once).unwrap(), want);
+}

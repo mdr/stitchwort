@@ -53,7 +53,7 @@ Two proofs of the same statement are interchangeable: the checker treats them as
 
 ## Induction is recursion
 
-`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms. A theorem's variables go before the colon, like a function's parameters, and a proof by cases is a `match` on them (the house style for theorems, D3470; a `def` keeps its arms):
+`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms. A theorem's variables go before the colon, like a function's parameters, and a proof by cases is a `match` on them (the house style for theorems, D3470; a `def` keeps its arms). The header of a theorem with explicit parameters reads `theorem timesOne ∀ (n: Nat): …`: the `∀` is only a reading aid ("for all `n`"), the same theorem without it, and `stitchwort fmt` writes it for you (D3472):
 
 <!-- snippet: proofs.sw#induction -->
 ```stitchwort

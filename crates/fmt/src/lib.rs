@@ -20,8 +20,8 @@ mod layout;
 mod spacing;
 
 use stitchwort_syntax::{
-    DEFAULT_STACK, Diagnostic, FileId, SourceMap, decl_ranges, equivalence, lex_with_trivia,
-    parse_module_within,
+    DEFAULT_STACK, Diagnostic, FileId, SourceMap, Tok, Token, decl_ranges, equivalence,
+    lex_with_trivia, parse_module_within,
 };
 
 /// Why a file wasn't formatted.
@@ -94,6 +94,16 @@ pub fn format_with_stats(text: &str) -> Result<Formatted, Error> {
 pub fn format_in(file: FileId, text: &str) -> Result<Formatted, Error> {
     let lexed = lex_with_trivia(file, text).map_err(|d| Error::Refused(vec![d]))?;
     let module = parse_module_within(file, text, DEFAULT_STACK).map_err(Error::Refused)?;
+    // The one token the formatter adds (D3472), before any layout, so the
+    // layout and the checks below see it as the author's.
+    let with_foralls = insert_theorem_foralls(text, &lexed.tokens);
+    let (text, lexed) = match &with_foralls {
+        Some(inserted) => (
+            inserted.as_str(),
+            lex_with_trivia(file, inserted).map_err(|d| Error::Refused(vec![d]))?,
+        ),
+        None => (text, lexed),
+    };
     let mut decls = decl_ranges(&lexed.tokens).map_err(|d| Error::Refused(vec![d]))?;
     // Tokens before the first split (a file that starts with `:=` at column
     // 0, which the parser skips) belong to no range: they form one of their
@@ -128,4 +138,64 @@ pub fn format_in(file: FileId, text: &str) -> Result<Formatted, Error> {
         text: output,
         stats,
     })
+}
+
+/// D3472: a theorem with explicit parameters says `∀` before them,
+/// `theorem leTrans ∀ (a b c: Nat) (h: a ≤ b): …`. It is cosmetic (the
+/// parser reads the same tree either way), so the formatter writes it, and
+/// leaves it off a header whose parameters are all implicit, which says
+/// nothing is quantified over by name. Returns the text with it added, or
+/// `None` if nothing needed it.
+fn insert_theorem_foralls(text: &str, tokens: &[Token]) -> Option<String> {
+    let mut insertions: Vec<(usize, &str)> = Vec::new();
+    for (i, token) in tokens.iter().enumerate() {
+        if token.tok != Tok::KwTheorem {
+            continue;
+        }
+        // The name is one token, qualified or not.
+        let Some(first) = tokens.get(i + 2) else {
+            continue;
+        };
+        if first.tok == Tok::KwForall {
+            continue;
+        }
+        let mut depth = 0i32;
+        let mut explicit = false;
+        let mut has_colon = false;
+        for t in &tokens[i + 2..] {
+            match t.tok {
+                Tok::LParen => {
+                    explicit |= depth == 0;
+                    depth += 1;
+                }
+                Tok::LBracket | Tok::LBrace => depth += 1,
+                Tok::RParen | Tok::RBracket | Tok::RBrace => depth -= 1,
+                Tok::Colon if depth == 0 => {
+                    has_colon = true;
+                    break;
+                }
+                Tok::ColonEq | Tok::Pipe if depth == 0 => break,
+                _ => {}
+            }
+        }
+        if !(explicit && has_colon) {
+            continue;
+        }
+        // Before the first parameter when it is on the name's line, else
+        // at the end of the name's line.
+        let name = &tokens[i + 1];
+        if first.line_start {
+            insertions.push((name.span.end as usize, " ∀"));
+        } else {
+            insertions.push((first.span.start as usize, "∀ "));
+        }
+    }
+    if insertions.is_empty() {
+        return None;
+    }
+    let mut out = text.to_string();
+    for (at, piece) in insertions.into_iter().rev() {
+        out.insert_str(at, piece);
+    }
+    Some(out)
 }
