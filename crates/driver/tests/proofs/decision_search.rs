@@ -141,11 +141,14 @@ fn a_decision_procedure_declared_after_a_rewind_is_found() {
             "def decToken : Decidable Token := Std.Decidable.yes MkToken\n\ndef z : Nat := 0",
         )
         .expect("loads");
+    let defs_before_client = session.elab.kernel.env.defs().len();
     let errors = session
         .load("use.sw", "def client : Nat := needsToken")
         .expect_err("`decToken` isn't marked `instance`");
     assert_eq!(codes(&errors), ["E-AUTO-NONE"]);
-    let defs = session.elab.kernel.env.defs().len();
+    // The failed `client` is declared twice: once as itself, once as the
+    // assumption of its statement that stands in for it (D3527).
+    assert_eq!(session.elab.kernel.env.defs().len(), defs_before_client + 2);
     session.rewind(&mark);
     session
         .load(
@@ -156,9 +159,10 @@ fn a_decision_procedure_declared_after_a_rewind_is_found() {
     session
         .load("use.sw", "def client : Nat := needsToken")
         .unwrap_or_else(|errors| panic!("{errors:#?}"));
-    // The same definitions as before the rewind, so only the rewind tells
-    // the remembered order apart.
-    assert_eq!(session.elab.kernel.env.defs().len(), defs);
+    // The same definitions as before the rewind, but for `client` now
+    // checking and so having no stand-in: only the rewind tells the
+    // remembered order apart.
+    assert_eq!(session.elab.kernel.env.defs().len(), defs_before_client + 1);
 }
 
 /// And the other way: a procedure that was found, rewound and declared
