@@ -158,8 +158,8 @@ enum DevCommand {
     /// Build the lossless syntax tree of every `.sw` file under the paths
     /// and check that each reads back as the file, byte for byte. Prints
     /// the files that don't, and totals: declarations, ones that didn't
-    /// parse, nodes, and constructs not yet marked. Exit status 1 if any
-    /// file fails
+    /// parse, nodes, and marks dropped. Exit status 1 if any file fails, a
+    /// mark is dropped, or (with --spans) a span is no node
     Tree {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -170,6 +170,14 @@ enum DevCommand {
         /// without it, and print the best time of each
         #[arg(long, value_name = "ROUNDS")]
         time: Option<u32>,
+        /// With --time, time only parsing without the tree, and skip the
+        /// round trip: for counting the instructions of that alone
+        #[arg(long, requires = "time")]
+        parse_only: bool,
+        /// Also check that every span in the compiler's tree is a node of
+        /// the lossless tree or a single token, and print each that isn't
+        #[arg(long)]
+        spans: bool,
     },
     /// Which machine instructions a program's reachable code uses, and
     /// whether it fits native compilation's N1 subset
@@ -1275,7 +1283,13 @@ fn run(cli: Cli) -> ExitCode {
             },
             &cache,
         ),
-        Command::Dev(DevCommand::Tree { paths, print, time }) => tree_command(&paths, print, time),
+        Command::Dev(DevCommand::Tree {
+            paths,
+            print,
+            time,
+            parse_only,
+            spans,
+        }) => tree_command(&paths, print, time, parse_only, spans),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -4858,7 +4872,13 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
 }
 
 /// `dev tree`: the lossless tree's round trip over files and folders.
-fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
+fn tree_command(
+    paths: &[PathBuf],
+    print: bool,
+    time: Option<u32>,
+    parse_only: bool,
+    spans: bool,
+) -> ExitCode {
     fn walk(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
         if path.is_dir() {
             let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
@@ -4891,11 +4911,42 @@ fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
         }
     }
     let id = SourceMap::new().next_id();
+    let time_parse = |rounds: u32, tree: bool| {
+        (0..rounds.max(1))
+            .map(|_| {
+                let start = std::time::Instant::now();
+                for text in &texts {
+                    if tree {
+                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, STACK).ok());
+                    } else {
+                        std::hint::black_box(stitchwort_syntax::parse_module_recovering(
+                            id, text, STACK,
+                        ));
+                    }
+                }
+                start.elapsed()
+            })
+            .min()
+            .unwrap_or_default()
+    };
+    let bytes: usize = texts.iter().map(String::len).sum();
+    if let Some(rounds) = time
+        && parse_only
+    {
+        println!(
+            "{} files, {bytes} bytes, best of {rounds}: parse {:.1} ms",
+            files.len(),
+            time_parse(rounds, false).as_secs_f64() * 1000.0
+        );
+        return ExitCode::SUCCESS;
+    }
     let mut total = stitchwort_syntax::tree::TreeStats::default();
     let (mut failed, mut unlexed) = (0, 0);
+    let (mut checked, mut misses, mut unparsed) = (0, 0, 0);
+    let mut synthetic = std::collections::BTreeMap::new();
     for (file, text) in files.iter().zip(&texts) {
-        let tree = match stitchwort_syntax::parse_tree(id, text, STACK) {
-            Ok(tree) => tree,
+        let (module, tree) = match stitchwort_syntax::parse_module_and_tree(id, text, STACK) {
+            Ok((module, _, tree)) => (module, tree),
             Err(_) => {
                 unlexed += 1;
                 continue;
@@ -4909,8 +4960,6 @@ fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
                 total.decls += stats.decls;
                 total.errors += stats.errors;
                 total.nodes += stats.nodes;
-                total.unmarked += stats.unmarked;
-                total.unmarked_wide += stats.unmarked_wide;
                 total.dropped += stats.dropped;
             }
             Err(problem) => {
@@ -4918,47 +4967,62 @@ fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
                 println!("{}: {problem}", file.display());
             }
         }
+        if spans {
+            let check = tree.check_spans(&module);
+            checked += check.checked;
+            unparsed += check.unparsed;
+            misses += check.misses.len();
+            for (kind, count) in check.synthetic {
+                *synthetic.entry(kind).or_insert(0) += count;
+            }
+            for miss in &check.misses {
+                let at = miss.span.start as usize;
+                let line = text[..at].matches('\n').count() + 1;
+                let column = at - text[..at].rfind('\n').map_or(0, |n| n + 1) + 1;
+                let written: String = text[miss.span.range()]
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .chars()
+                    .take(80)
+                    .collect();
+                println!(
+                    "{}:{line}:{column}: {} is no node: {written}",
+                    file.display(),
+                    miss.what
+                );
+            }
+        }
     }
     println!(
         "{} files ({failed} not read back, {unlexed} not lexed): {} declarations ({} not parsed), \
-         {} nodes, {} unmarked ({} of more than one token), {} marks dropped",
+         {} nodes, {} marks dropped",
         files.len(),
         total.decls,
         total.errors,
         total.nodes,
-        total.unmarked,
-        total.unmarked_wide,
         total.dropped
     );
-    if let Some(rounds) = time {
-        let best = |tree: bool| {
-            (0..rounds.max(1))
-                .map(|_| {
-                    let start = std::time::Instant::now();
-                    for text in &texts {
-                        if tree {
-                            std::hint::black_box(
-                                stitchwort_syntax::parse_tree(id, text, STACK).ok(),
-                            );
-                        } else {
-                            std::hint::black_box(stitchwort_syntax::parse_module_recovering(
-                                id, text, STACK,
-                            ));
-                        }
-                    }
-                    start.elapsed()
-                })
-                .min()
-                .unwrap_or_default()
-        };
-        let bytes: usize = texts.iter().map(String::len).sum();
+    if spans {
+        let made_up: Vec<String> = synthetic
+            .iter()
+            .map(|(kind, count)| format!("{count} {kind:?}"))
+            .collect();
         println!(
-            "{bytes} bytes, best of {rounds}: parse {:.1} ms, with the tree {:.1} ms",
-            best(false).as_secs_f64() * 1000.0,
-            best(true).as_secs_f64() * 1000.0
+            "{checked} spans of the compiler's tree checked, {misses} not a node or a token; \
+             besides, {unparsed} in declarations that didn't parse, and these the parser \
+             makes up that are no node: {}",
+            made_up.join(", ")
         );
     }
-    if failed > 0 || total.dropped > 0 {
+    if let Some(rounds) = time {
+        println!(
+            "{bytes} bytes, best of {rounds}: parse {:.1} ms, with the tree {:.1} ms",
+            time_parse(rounds, false).as_secs_f64() * 1000.0,
+            time_parse(rounds, true).as_secs_f64() * 1000.0
+        );
+    }
+    if failed > 0 || total.dropped > 0 || misses > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
