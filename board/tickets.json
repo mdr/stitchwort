@@ -34130,12 +34130,12 @@
     {
       "id": 3145,
       "title": "[Fable] Plan: a Stitchwort formatter written in Stitchwort (parser + pretty printer), byte-identical to stitchwort fmt on every file it formats; total if possible; speed within ~10-30x of the Rust formatter (Python-like); a new project in the repo built and run with the native compiler; proofs (idempotence, tokens preserved up to fmt's deliberate rewrites) scoped as an optional follow-on stage. Paper lane: docs/proposals/self-hosted-fmt.md. Matt, 13 Nov 2026",
-      "status": "review",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nPlan written (Fable, 10 min): docs/proposals/self-hosted-fmt.md. Port the Rust formatter's token-and-line design into tools/fmt/, total; stages 0-5 26-39 lane hours; ~20 s for the tree estimated (target < 30 s); proofs optional stage 6. Findings: SW-3147 SW-3148 SW-3149 SW-3150. Awaiting Matt's D3556/D3557.\nD3557 (Matt, 13 Nov 2026): yes, first have Fable compare the Rust formatter's design with a full pretty printer from a syntax tree (SW-3152); D3556 waits for it.",
+      "body": "\nPlan written (Fable, 10 min): docs/proposals/self-hosted-fmt.md. Port the Rust formatter's token-and-line design into tools/fmt/, total; stages 0-5 26-39 lane hours; ~20 s for the tree estimated (target < 30 s); proofs optional stage 6. Findings: SW-3147 SW-3148 SW-3149 SW-3150. Awaiting Matt's D3556/D3557.\nD3557 (Matt, 13 Nov 2026): yes, first have Fable compare the Rust formatter's design with a full pretty printer from a syntax tree (SW-3152); D3556 waits for it.\nD3561 (Matt, 13 Nov 2026): wait. The Stitchwort formatter stays in the backlog until the Rust formatter has been rebuilt on the lossless tree (SW-3158 to SW-3160); then port that design.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
