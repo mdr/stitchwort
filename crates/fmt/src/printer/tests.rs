@@ -117,8 +117,8 @@ fn a_call_that_does_not_fit_keeps_simple_arguments_and_gives_bracketed_ones_line
 
 #[test]
 fn a_last_lambda_hugs() {
-    // S23: the call stays on its line and the lambda opens downwards.
-    let name = long(100);
+    // S23: the call stays on its line and the lambda opens downwards. D3571: only when the call would not fit on one line below.
+    let name = long(108);
     check(
         &format!("def x: List Nat := xs.map (x => {name} x x)\n"),
         &format!("def x: List Nat := xs.map (x =>\n  {name} x x)\n"),
@@ -411,4 +411,68 @@ fn a_bracketed_if_keeps_its_else_under_the_if() {
     let want = format!("def f (n: Nat): Nat :=\n  (if {a} then 1\n   else {b})\n");
     let before = format!("def f (n: Nat): Nat := (if {a} then 1 else {b})\n");
     check(&before, &want);
+}
+
+#[test]
+fn a_record_or_hugging_call_goes_below_when_it_fits_there_on_one_line() {
+    // D3571: the hug is for a body that doesn't fit below.
+    let (a, b) = (long(40), long(40));
+    let record = format!("{{ row = {a}, column = {b} }}");
+    check(
+        &format!("def moved (position: Position): Position := {record}\n"),
+        &format!("def moved (position: Position): Position :=\n  {record}\n"),
+    );
+    let call = format!("{a}.filter (value => {b} value)");
+    check(
+        &format!("def f (xs: List Nat): List Nat := {call}\n"),
+        &format!("def f (xs: List Nat): List Nat :=\n  {call}\n"),
+    );
+    // Too long for one line below: the record opens on the `:=` line.
+    let c = long(60);
+    let wide = format!("{{ row = {a}, column = {b}, other = {c} }}");
+    let after = format!(
+        "def moved (position: Position): Position := {{\n  row = {a},\n  column = {b},\n  other = {c}\n}}\n"
+    );
+    check(
+        &format!("def moved (position: Position): Position := {wide}\n"),
+        &after,
+    );
+}
+
+#[test]
+fn a_list_of_plain_values_fills_its_lines_and_any_other_list_has_one_item_a_line() {
+    // D3572.
+    let items: Vec<String> = (0..16)
+        .map(|k| format!("{}", 10_000_000_000u64 + k))
+        .collect();
+    let flat = format!("def xs: List Nat := [{}]\n", items.join(", "));
+    let fill = format!(
+        "def xs: List Nat := [{},\n  {}]\n",
+        items[..7].join(", "),
+        items[7..].join(", ")
+    );
+    check(&flat, &fill);
+    // A call among the items: one a line.
+    let (a, b) = (long(60), long(60));
+    check(
+        &format!("def xs: List Nat := [f {a}, {b}]\n"),
+        &format!("def xs: List Nat := [\n  f {a},\n  {b}\n]\n"),
+    );
+}
+
+#[test]
+fn a_single_variable_after_a_premise_shares_the_premise_line() {
+    // D3564, D3571: no variable stands alone on a line.
+    let before = "theorem shrinks ∀ (numbers: List Nat) (target: Nat) (start: Nat) \
+                  (sums: numbers.sum = target) (count: Nat) \
+                  (over: target < count) (other: numbers = numbers.drop start): numbers ≠ numbers := same\n";
+    let after = "\
+theorem shrinks ∀ (numbers: List Nat) (target start: Nat)
+    (sums: numbers.sum = target) (count: Nat)
+    (over: target < count)
+    (other: numbers = numbers.drop start):
+    numbers ≠ numbers :=
+  same
+";
+    check(before, after);
 }

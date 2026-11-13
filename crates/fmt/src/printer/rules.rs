@@ -553,6 +553,15 @@ impl<'a> Rules<'a> {
                     runs.push(Doc::Fill(std::mem::take(&mut run)));
                 }
                 runs.push(doc);
+            } else if run.is_empty()
+                && k > 0
+                && premises[k - 1]
+                && premises.get(k + 1).is_none_or(|&next| next)
+                && let Some(premise) = runs.pop()
+            {
+                // A single variable between premises shares the line of
+                // the premise before it, not a line of its own (D3571).
+                runs.push(Doc::Fill(vec![premise, doc]));
             } else {
                 run.push(doc);
             }
@@ -713,6 +722,17 @@ impl<'a> Rules<'a> {
                     )
                 )
                 || self.holds_text_block(el);
+            // D3571: a record, list, tuple or hugging call goes below when
+            // it fits on one line there; it hugs only when it can't.
+            let hugs_after = matches!(
+                Self::kind(el),
+                Some(NodeKind::List | NodeKind::Record | NodeKind::Tuple)
+            ) || matches!(el, Element::Node(node)
+                if node.kind() == NodeKind::App
+                    && self.hugs.contains_key(&node.token_range().start));
+            if hugs_after {
+                options.push(Doc::OneLineBelow(Box::new(doc.clone())));
+            }
             if let Some(hug) = match_hug {
                 // D3553, S12: a `match` joins the `:=` line only when its
                 // whole `match … with` fits there; the scrutinee must not
@@ -898,6 +918,39 @@ impl<'a> Rules<'a> {
             }
         } else {
             items.push((current, None));
+        }
+        // D3572: a list of only plain values fills its lines, the bracket
+        // staying on the first.
+        let plain = node.kind() == NodeKind::List
+            && inside.len() == items.len() * 2 - usize::from(dropped.is_none())
+            && !self.holds_trailing_comment(node)
+            && items.iter().all(|(item, _)| {
+                matches!(item.as_slice(), [el @ Element::Leaf(_)]
+                if !self.has_leading(*el)
+                    && matches!(
+                        self.tok(*el),
+                        Some(
+                            Tok::Num(_)
+                                | Tok::Float(_)
+                                | Tok::Char(_)
+                                | Tok::Str(_)
+                                | Tok::Lower(_)
+                                | Tok::Upper(_)
+                        )
+                    ))
+            });
+        if plain {
+            let mut cells = Vec::new();
+            for (item, comma) in &items {
+                self.mark_item(item[0]);
+                let mut cell = vec![self.join(item)];
+                if let Some(comma) = comma {
+                    cell.push(self.el(*comma));
+                }
+                cells.push(Doc::concat(cell));
+            }
+            let closer_doc = self.el(children[close]);
+            return Doc::concat([prefix, Doc::nest(2, Doc::Fill(cells)), closer_doc]);
         }
         let mut body = Vec::new();
         for (k, (item, comma)) in items.iter().enumerate() {
