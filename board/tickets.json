@@ -33290,7 +33290,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nAlso bring docs/workflow.md ('Checks after a merge', pushing) and docs/testing.md (tiers) in line with CLAUDE.md's 'Test budget' doctrine table (D3545, D3546: 90 s batched verifiers, push after each verified batch, Overmind's rolling broad check; main may be broken for a while).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []

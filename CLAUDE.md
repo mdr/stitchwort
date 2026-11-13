@@ -22,9 +22,9 @@ does not do significant work itself:
   as a batch: everything waiting goes into `main` together, then one
   background verifier runs the checks over the batch, in about two
   minutes in all: a selection of tests that fits the changes (budget about
-  90 s) and `task audit:touched -- <Namespace>` for proof lanes. The merge
-  tier and the full audit wait for the daily and full tiers; regressions
-  that slip past are an accepted risk (D2441, Matt, 5 Nov 2026: "it's got
+  90 s) and `task audit:touched -- <Namespace>` for proof lanes. Broader
+  checks are Overmind's rolling check after the push (see "Test budget");
+  regressions that slip past are an accepted risk (D2441, Matt, 5 Nov 2026: "it's got
   to be only a couple of minutes ... The important thing is not to get
   bogged down and slow the flow of work"). A failure is fixed, or the merge
   that caused it reverted,
@@ -289,6 +289,26 @@ at every status table, and picks the kind of work to fit it:
   plus `cargo fmt` and clippy.
 
 ## Test budget (Matt, 2 Nov 2026)
+
+The doctrine (D3542, D3545, D3546, D3547; Matt, 13 Nov 2026): optimistic.
+Lanes test a little, the orchestrator verifies a little more, `main` is
+pushed at once and may be broken for a while, and Overmind checks broadly a
+little behind; what it finds is fixed or reverted.
+
+| Layer | Who, where | When | What runs | Budget |
+|---|---|---|---|---|
+| Lane tests | each lane, its worktree | while it works | a few named tests the change could affect; a check of the AoC day or std namespace it edits | seconds to a minute a run; one at a time, `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19` |
+| Verifier | orchestrator, `main`, in the background | after each batch of merges (lanes finishing close together share one) | chosen by what the batch touched: hash snapshots always; example kinds for elaborator changes; std's own tests and pins for std changes | about 90 s |
+| Push | orchestrator | after each verified batch | nothing more | 0 |
+| Rolling broad check | Overmind, a script loop | each newly pushed commit, about an hour behind | the quick tier, whole-AoC and roguelike `check --no-cache`; reports only new failures, with the last passing commit | under 60 min a cycle |
+| Broad tier | Overmind or Speedwell | with Matt's approval, or in compute mode | quick tier plus sampled sweeps | long |
+| All tier | Overmind | paused (Matt, 12 Nov 2026) | everything | hours |
+| Fuzzers, audits | Overmind or Speedwell | compute mode or overnight | `task fuzz:*`, std/AoC/rogue audits | one heavy job per machine |
+
+The tiers are named by size: quick (was merge), broad (was daily), all
+(was full) (D3547; the rename is SW-3080). Every test, check and build the
+orchestrator starts runs in the background, so it never stops answering
+Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
 
 - Don't run the daily tier (`task test:daily`, `nix flake check`) or the
   full tier without asking Matt first. Never run them back to back.
