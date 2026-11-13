@@ -17,17 +17,9 @@ use super::engine::Doc;
 use crate::spacing::{Gap, Pair, Role, gap};
 
 /// The kinds printed as written for now, deliberately or for want of a
-/// rule. Interpolated text waits for SW-3171's tokens; an expression `let`
-/// and a sequence (S18) are rare and short.
+/// rule: only a node the parser couldn't make sense of.
 pub(crate) fn has_rule(kind: NodeKind) -> bool {
-    !matches!(
-        kind,
-        NodeKind::Error
-            | NodeKind::Interpolated
-            | NodeKind::Interpolation
-            | NodeKind::LetExpr
-            | NodeKind::Seq
-    )
+    kind != NodeKind::Error
 }
 
 /// How many nodes of each kind in `root` have no rule. A node inside one
@@ -359,6 +351,10 @@ impl<'a> Rules<'a> {
             App => self.app(node),
             Binary | Chain | Iff | Arrow | Pipe | FunctionType => self.chain(node),
             Forall | Exists => self.quantifier(node),
+            LetExpr | Seq => self.sequence(node),
+            Interpolated => self.interpolated(node),
+            Interpolation => self.interpolation(node),
+            PatternCtor => self.app(node),
             Lambda => self.lambda(node),
             If => self.if_(node),
             Match | Handle | Reify | Induct | ClauseLambda => self.alternatives(node),
@@ -676,6 +672,13 @@ impl<'a> Rules<'a> {
             if opens {
                 options.push(Doc::concat([Doc::text(" "), doc.clone()]));
             } else if let Element::Node(node) = el
+                && node.kind() == NodeKind::Lambda
+            {
+                // D3568: a lambda stays on the `:=` line, its body below
+                // at 2, as a last-argument lambda hugs.
+                let (_, open) = self.lambda_both(node);
+                options.push(Doc::concat([Doc::text(" "), open]));
+            } else if let Element::Node(node) = el
                 && node.kind() == NodeKind::App
                 && let Some(hug) = self.hugs.get(&node.token_range().start).cloned()
             {
@@ -924,7 +927,9 @@ impl<'a> Rules<'a> {
                     NodeKind::Unit => true,
                     // `[]`, `{}`: literals.
                     NodeKind::List | NodeKind::Record | NodeKind::Tuple => children.len() == 2,
-                    NodeKind::Prefix => children.iter().all(|&c| matches!(c, Element::Leaf(_))),
+                    NodeKind::Prefix | NodeKind::PatternNegative => {
+                        children.iter().all(|&c| matches!(c, Element::Leaf(_)))
+                    }
                     _ => false,
                 }
             }
@@ -941,7 +946,7 @@ impl<'a> Rules<'a> {
                 NodeKind::Paren => node.children().any(|c| {
                     matches!(
                         Self::kind(c),
-                        Some(NodeKind::Lambda | NodeKind::ClauseLambda)
+                        Some(NodeKind::Lambda | NodeKind::ClauseLambda | NodeKind::Block)
                     )
                 }),
                 _ => false,
@@ -976,6 +981,16 @@ impl<'a> Rules<'a> {
                             let (flat, open) = self.lambda_both(lambda);
                             normal.push(flat);
                             hug.push(open);
+                        }
+                        // A block opens below the bracket at 2 (S17).
+                        Element::Node(block) if block.kind() == NodeKind::Block => {
+                            let doc = self.el(el);
+                            normal.pop();
+                            hug.pop();
+                            let below =
+                                Doc::shared(Doc::nest(2, Doc::concat([Doc::HardLine, doc])));
+                            normal.push(below.clone());
+                            hug.push(below);
                         }
                         _ => {
                             let doc = Doc::shared(self.el(el));
@@ -1044,7 +1059,7 @@ impl<'a> Rules<'a> {
             keep += 1;
         }
         if keep == n {
-            return all;
+            return self.fill_call(&children, &docs).unwrap_or(all);
         }
         let mut options = vec![Doc::flat(all)];
         if let Some(hug) = hug {
@@ -1066,6 +1081,28 @@ impl<'a> Rules<'a> {
         }
         options.push(Doc::concat([front, Doc::nest(2, Doc::concat(rest))]));
         Doc::Choice(options)
+    }
+
+    /// A call of plain arguments only (D3569): on one line if it fits,
+    /// otherwise the arguments fill lines at 4 from the call's line, as many
+    /// as fit. `None` where a comment inside makes the line breaks matter.
+    fn fill_call(&self, children: &[Element<'_>], docs: &[Doc]) -> Option<Doc> {
+        let n = children.len();
+        if (1..n).any(|k| self.has_leading(children[k]) || self.trails_comment(children[k - 1])) {
+            return None;
+        }
+        // Pieces written with nothing between them (`f()`) are one item.
+        let mut items = vec![docs[0].clone()];
+        for k in 1..n {
+            let space = self.space_el(children[k - 1], children[k]);
+            if matches!(space, Doc::Nil) {
+                let last = items.pop().expect("an item");
+                items.push(Doc::concat([last, docs[k].clone()]));
+            } else {
+                items.push(docs[k].clone());
+            }
+        }
+        Some(Doc::nest(4, Doc::Fill(items)))
     }
 
     /// The operands and operators of a chain at one level, flattened from
@@ -1153,10 +1190,69 @@ impl<'a> Rules<'a> {
     }
 
     /// `∀ binders => body` (S28): the binders stay on the line, and the
-    /// body follows `=>`, its own breaks at 2 from the quantifier's line.
+    /// body follows `=>`, its own breaks at 2 from the quantifier's line;
+    /// a body that doesn't start on that line (a `∃` chain too long for
+    /// it) goes below at 2, where the next `∃` decides again for itself.
     fn quantifier(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
-        self.join(&children)
+        let Some(arrow) = children
+            .iter()
+            .position(|&el| self.is_tok(el, &Tok::FatArrow))
+            .filter(|&k| k + 2 == children.len())
+        else {
+            return self.join(&children);
+        };
+        // An `∃`'s binders never break, so a chain too long for its line
+        // goes below `=>` rather than inside a binder; a `∀`'s may.
+        let head = self.join(&children[..=arrow]);
+        let head = Doc::shared(if node.kind() == NodeKind::Exists {
+            Doc::flat(head)
+        } else {
+            head
+        });
+        let body = Doc::shared(self.el(children[arrow + 1]));
+        let space = self.space_el(children[arrow], children[arrow + 1]);
+        let below = Doc::concat([
+            head.clone(),
+            Doc::nest(2, Doc::concat([Doc::HardLine, body.clone()])),
+        ]);
+        if self.has_leading(children[arrow + 1]) {
+            return below;
+        }
+        let inline = Doc::concat([head, space, body]);
+        Doc::Choice(vec![Doc::flat(inline.clone()), inline, below])
+    }
+
+    /// `(let x := e; body)` and `a; b` (S18): on one line if they fit,
+    /// otherwise a line break after each `;`, the parts lined up where the
+    /// first starts, one column inside the bracket.
+    fn sequence(&mut self, node: Node<'_>) -> Doc {
+        let children: Vec<Element> = node.children().collect();
+        let mut parts = Vec::new();
+        for (k, &el) in children.iter().enumerate() {
+            if k > 0 {
+                if self.is_tok(children[k - 1], &Tok::Semi) {
+                    parts.push(Doc::Line);
+                } else {
+                    parts.push(self.space_el(children[k - 1], el));
+                }
+            }
+            parts.push(self.el(el));
+        }
+        Doc::group(Doc::align(Doc::concat(parts)))
+    }
+
+    /// An interpolated text (S32): its pieces touch each other as written,
+    /// each `${…}` on one line whatever its length.
+    fn interpolated(&mut self, node: Node<'_>) -> Doc {
+        let parts: Vec<Doc> = node.children().map(|el| self.el(el)).collect();
+        Doc::concat(parts)
+    }
+
+    /// `${expr}`: printed flat, spaced as the usual rules say.
+    fn interpolation(&mut self, node: Node<'_>) -> Doc {
+        let children: Vec<Element> = node.children().collect();
+        Doc::flat(self.join(&children))
     }
 
     /// `params => body` (S30): the body after `=>` if it fits, otherwise
@@ -1352,6 +1448,12 @@ impl<'a> Rules<'a> {
         let space = self.space_el(children[assign - 1], children[assign]);
         let assign_doc = self.el(children[assign]);
         let (_, proof) = self.body_after(&children[assign + 1..]);
+        if self.has_leading(children[assign]) {
+            // A comment above the `:=` takes its own line, at 2 from the
+            // step, and the `:=` follows it.
+            let rest = Doc::concat([Doc::HardLine, assign_doc, proof]);
+            return Doc::concat([Doc::nest(2, relation), Doc::nest(2, rest)]);
+        }
         Doc::concat([Doc::nest(2, relation), space, assign_doc, proof])
     }
 

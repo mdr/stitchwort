@@ -38,6 +38,9 @@ pub enum Doc {
     Blank,
     /// The contents, with line breaks indented this many more columns.
     Nest(usize, Box<Doc>),
+    /// The contents, with line breaks indented to the column this starts
+    /// at: the parts of `(let x := e; body)` line up inside the bracket.
+    Align(Box<Doc>),
     /// Printed flat if it fits, otherwise with every line in it broken. The
     /// flag says it holds a hard break, so it never prints flat.
     Group(Box<Doc>, bool),
@@ -102,6 +105,10 @@ impl Doc {
         Doc::Nest(indent, Box::new(doc))
     }
 
+    pub fn align(doc: Doc) -> Doc {
+        Doc::Align(Box::new(doc))
+    }
+
     pub fn group(doc: Doc) -> Doc {
         let hard = doc.forces_break();
         Doc::Group(Box::new(doc), hard)
@@ -148,7 +155,7 @@ impl Doc {
             | Doc::LineSuffix(_) => false,
             Doc::Group(_, hard) | Doc::IdGroup(_, _, hard) | Doc::Shared(_, hard) => *hard,
             Doc::IfBroken { broken, flat, .. } => broken.forces_break() && flat.forces_break(),
-            Doc::Nest(_, doc) | Doc::Flat(doc) => doc.forces_break(),
+            Doc::Nest(_, doc) | Doc::Align(doc) | Doc::Flat(doc) => doc.forces_break(),
             Doc::Concat(docs) | Doc::Fill(docs) => docs.iter().any(Doc::forces_break),
             Doc::Choice(options) => options.iter().all(Doc::forces_break),
         }
@@ -265,6 +272,14 @@ impl Printer {
                     }
                 }
                 Doc::Nest(more, inner) => stack.push(Cmd::Doc(indent + more, mode, inner)),
+                Doc::Align(inner) => {
+                    let column = if self.at_line_start {
+                        indent
+                    } else {
+                        self.column
+                    };
+                    stack.push(Cmd::Doc(column, mode, inner));
+                }
                 Doc::Shared(inner, _) => stack.push(Cmd::Doc(indent, mode, inner)),
                 Doc::Flat(inner) => stack.push(Cmd::Doc(indent, Mode::Flat, inner)),
                 Doc::Group(inner, hard) | Doc::IdGroup(_, inner, hard) => {
@@ -488,7 +503,7 @@ fn fits_in(
                 }
             }
             Doc::HardLine | Doc::LineStart => return mode == Mode::Break,
-            Doc::Nest(_, inner) => stack.push((mode, inner)),
+            Doc::Nest(_, inner) | Doc::Align(inner) => stack.push((mode, inner)),
             Doc::Shared(inner, _) => stack.push((mode, inner)),
             Doc::Flat(inner) => stack.push((Mode::Flat, inner)),
             Doc::Group(inner, hard) | Doc::IdGroup(_, inner, hard) => {
