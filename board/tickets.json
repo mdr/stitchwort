@@ -1,5 +1,5 @@
 {
-  "next": 3124,
+  "next": 3125,
   "tickets": [
     {
       "id": 47,
@@ -33818,12 +33818,12 @@
     {
       "id": 3121,
       "title": "[Sonnet] Facts over a cons-unfolded all, or over a Prop def like Parse.OnlyBreaks, have no .left/.right (E-NO-NAMESPACE 'only is a function'): the largest remaining gap, ~40 helper uses (Parse/Runs.sw 1061-2236, 2020 Day04 Complete 94-120, Day13/Day07/Day19/Day16/Day24/Day21/Day12/Day15, SortLemmas 580) (SW-3102 finding 2; with SW-3064)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nOpus review: merge (docs/reviews/SW-3121-review.md); M1, M2, L1, L3, L5 filed as a follow-up. Model result: Sonnet, worked, 20 min (est. 90).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33849,6 +33849,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3124,
+      "title": "[Sonnet] SW-3121 review follow-ups (docs/reviews/SW-3121-review.md): M1 auto no longer applies a cons fact's ∀ to a member (h: xs.all p, m: x ∈ xs, matched [d, ..more]: E-AUTO-STUCK; main succeeded; examples/accept/auto-readings.sw:5-6 promises it): auto keeps the quantifier reading of a cons fact too; M2 h.read x m on a cons all, Witness on a cons any, and = False on a cons all now read differently: document in guide 10-proofs.md:742 and proposal §5.4 step 2c, and add a note to the E-NOT-A-FUNCTION on .read x m pointing at .left/.right; L1 compare against the reading theorems/registry, not the name string; L3 force_solved the list argument; L5 example cases for = False and a list named by a call",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
