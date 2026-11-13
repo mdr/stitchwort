@@ -35,6 +35,24 @@ def Set.isEmpty (set: Set k [ord := o]): Bool := Map.isEmpty set.items
 --| The keys, in order, each once; a key is in it exactly when the set contains it ([`Set.memToList`]).
 def Set.toList (set: Set k [ord := o]): List k := Map.keys set.items
 
+--| `set.contains key` reads as `key` being one of the set's keys, `key ∈ set.toList`:
+--| a fact `set.contains key = True` is taken apart as that, and built from it. (`key ∈ set`
+--| is this fact itself, so it can't be the reading; [`Set.memToList`] is the same statement
+--| turned round.)
+@[reading]
+theorem Set.containsReads [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = True) ↔ (key ∈ Set.toList set) :=
+  { forward = (Map.memKeys set.items key).backward, backward = (Map.memKeys set.items key).forward }
+
+--| `set.contains key = False` reads as `key` not being one of the set's keys.
+@[reading]
+theorem Set.containsReadsFalse [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = False) ↔ key ∉ Set.toList set := {
+  forward = h m => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Map.memKeys set.items key).forward m)),
+  backward = no =>
+    match c: Set.contains set key with
+      | True => Void.exfalso (no ((Map.memKeys set.items key).backward c))
+      | False => rfl
+}
+
 --| The set of the list's elements, repeats merged ([`Set.containsFromListIff`]).
 def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft xs Set.empty (set key => Set.insert set key)
 

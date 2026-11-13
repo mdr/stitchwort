@@ -86,7 +86,7 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
       let (Both firstOut (Both secondOut unused)) := distinct
       found first second third
         (Set.extIff set (Set.fromList [first, second, third]) (key => {
-          forward = held => (Set.containsFromListIff [first, second, third] key).backward (rewrite keys at ((Set.memToList set key).backward held: List.Mem key set.toList)),
+          forward = held => (Set.memToListFromList [first, second, third] key).forward (rewrite keys at held.read),
           backward = held =>
             (Set.memToList set key).forward (rewrite keys in (Set.containsFromListIff [first, second, third] key).forward held)
         }))
@@ -99,8 +99,8 @@ theorem setsOfThreeIff (network: Network) (party: Party):
     (network.links.setsOfThree.contains party = True) ↔ (InterConnectedThree network party) := {
   forward = held =>
     let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) party (party => party.size == 3))) held
-    let made := (Set.containsFromListIff (madeSets network.links) party).forward (Bool.andLeft kept)
-    Both (sizeThree party.members (Bool.andRight kept)) (madeConnected network party made),
+    let (Both inMade sized) := kept
+    Both (sizeThree party.members sized) (madeConnected network party ((Set.memToListFromList (madeSets network.links) party).forward inMade.read)),
   backward = (Both three connected) =>
     threeListed party.members three (network.links.setsOfThree.contains party = True)
       (first second third isSet firstSecond firstThird secondThird =>

@@ -402,6 +402,12 @@ theorem Set.countToList (s: Set k [ord := o]) (p: k → Bool): Set.count s p = L
 --| A set's list of keys holds what the set holds.
 theorem Set.memToList [auto ord: Ord k] (s: Set k) (key: k): (List.Mem key (Set.toList s)) ↔ (Set.contains s key = True) := Map.memKeys s.items key
 
+--| The keys of a set built from a list are the list's elements: what `Set.containsReads` gives for `(Set.fromList xs).contains x`, as the list's own membership.
+theorem Set.memToListFromList [auto ord: Ord k] (xs: List k) (key: k): (key ∈ Set.toList (Set.fromList xs)) ↔ (key ∈ xs) := {
+  forward = m => (Set.containsFromListIff xs key).forward ((Set.memToList (Set.fromList xs) key).forward m),
+  backward = m => (Set.memToList (Set.fromList xs) key).backward ((Set.containsFromListIff xs key).backward m)
+}
+
 --| Two sets holding the same keys are equal.
 theorem Set.extIff [auto ord: Ord k] (s: Set k) (t: Set k) (same: ∀ (key: k) => (Set.contains s key = True) ↔ (Set.contains t key = True)): s = t :=
   Set.ext s t (key => Bool.eqOf (Set.contains s key) (Set.contains t key) (same key).forward (same key).backward)
