@@ -34442,12 +34442,12 @@
     {
       "id": 3169,
       "title": "[Sonnet] Lossless tree lane E: proofs: Calc/CalcStep, Rewrite/RewriteRule, Omega, Ring, Cases",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane E done on lane/SW-3169 (1056689c4): Calc, CalcStep, Rewrite, RewriteRule, Omega, Ring, Cases marked. Multi-token unmarked: std 1,132 -> 0, aoc/src 1,799 -> 0, games 68 -> 0, examples 343 -> 0; 0 not read back, 0 dropped. Marks-off parse of std 58.0 ms before and after.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
