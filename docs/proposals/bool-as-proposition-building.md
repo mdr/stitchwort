@@ -346,6 +346,12 @@ uses and a handful of others are in such places. Rec: **not now**; count
 what's left after the sweep, then decide (the parent note's §6.8 already
 deferred it to the counts).
 
+**Decided (Matt, 13 Nov 2026): not now.** After SW-3177's sweep about 53
+helper calls remain (21 `Bool.falseOfNotTrue`, 10 `DecEq.trueOfNe`, 22
+`memContains`, counted by name, so including the helpers' own
+definitions and examples), against 552 `.read`s. Count again later, and
+raise it again if new code keeps needing the helpers.
+
 ## 8. Method and limits
 
 - Probes `b1.sw`–`b7.sw` and `b4b.sw` (in
