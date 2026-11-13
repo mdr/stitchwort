@@ -435,7 +435,22 @@ a function of its own, which may have one.
 2. **A stuck decision** (stage 3). If the test is `d.holds` for a `d:
    Decidable P` that doesn't compute (a derived `==`, a hypothesis), it
    reads as `P` (or `¬P`), through `d.sound`, `d.complete` and
-   `Decidable.refute`. No declaration needed.
+   `Decidable.refute`. No declaration needed. A definition stuck on its
+   arguments whose `.holds` is projected counts the same.
+2b. **A decision of an equation that computes** (SW-3093). If the test is
+   `d.holds` for a `d: Decidable P` where `P` is an equation (a definition
+   that unfolds to one counts, so a decision of `Small n := isSmall n =
+   True` reads as `Small n`), and `d` computes (`[x, ..xs] == [y, ..ys]`, a
+   `Text`, a tuple, an `Option`, a `Char`, a hand-written instance), it
+   reads as `P` through the decision as in step 2, *before* unfolding: the
+   unfolded test is only the layer the computation leaves (`&&` of the
+   heads and the tails, the equation of a `Text`'s characters). It doesn't
+   apply when the test one step in is a constructor (it computed to `True`
+   or `False`), or has a reading of its own that states the same `P`
+   (`Nat.equal`, a derived `T.%same`): that reading is used, so those
+   proofs are as they were. `Some a == Some b` computes to the derived test
+   of `a == b`, whose reading states another equation, so it reads as `Some
+   a = Some b`.
 3. Look up (polarity, head of the test). At most one theorem is there; its
    parameters are the test's arguments.
 4. If none, and the head is a call that isn't `opaque`, unfold it one step
@@ -501,7 +516,14 @@ of its own or is `opaque`.
   fact can be matched only by a name, `_`, or `()` when it computes to
   `False = True`.
 - **A test that computes to `True` or `False`** is not read. `False = True`
-  is matched by `()` as today.
+  is matched by `()` as today. For a decision of an equation (step 2b) this
+  is as built, not as stated: the test counts as computed only when it is a
+  constructor one folded step in, which depends on how the instance is
+  written. `([x, ..xs] == []) = False` is a leaf, but `([1] == [2]) = True`
+  reads as `[1] = [2]` and `(Some 1 == Some 2) = True` as `Some 1 = Some 2`,
+  since their steps leave calls. Both are true readings; `match h with | ()`
+  and `cases` still work on them. Making the boundary independent of the
+  instance's definition is open.
 - **A folded call** (`small 3`) is looked up by its function first, as
   written, before anything it computes to: `small 3` reads by `small`'s
   reading even though it computes to `True`. A declaration's own test is
