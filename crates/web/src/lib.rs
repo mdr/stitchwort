@@ -42,10 +42,17 @@ fn stack() -> usize {
 /// WebAssembly the stack guard is much smaller (see `build.rs`).
 fn session_limits() -> stitchwort_core::Limits {
     let mut l = stitchwort_core::Limits::for_stack(stack());
-    if let Ok(guard) = env!("STITCHWORT_GUARD").parse() {
-        l.stack = guard;
+    if cfg!(target_arch = "wasm32") {
+        l.stack = guard();
     }
     l
+}
+
+/// The stack guard in WebAssembly (`STITCHWORT_GUARD`, set by `build.rs`).
+/// Native builds (tests) have none, and the language server's sessions there
+/// get 256 KiB, which their 2 MiB test threads have room for.
+fn guard() -> usize {
+    env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024)
 }
 
 thread_local! {
@@ -73,6 +80,15 @@ pub fn load_library_cache(bytes: &[u8]) -> bool {
     SHARED.with(|options| {
         LibraryBundle::decode(bytes).is_some_and(|b| options.library.set(Arc::new(b)).is_ok())
     })
+}
+
+/// How deep the WebAssembly stack has been since the last call, in bytes,
+/// and how deep it was last measured, as `[deepest, last]`: zeros unless
+/// built with `STITCHWORT_STACK_PROBE` (see `web/stress.html`).
+#[wasm_bindgen]
+pub fn stack_reached() -> Vec<usize> {
+    let (deepest, last) = stitchwort_syntax::stack::probe::take();
+    vec![deepest, last]
 }
 
 /// The resource limits programs run with:

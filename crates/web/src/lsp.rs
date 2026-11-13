@@ -86,6 +86,11 @@ impl LanguageServer {
         stitchwort_core::budget::Budget::set_cancel_hook(edits_waiting);
     }
 
+    /// Time per phase of the project check since the last call (SW-3113), as JSON.
+    pub fn phases(&self) -> String {
+        stitchwort_driver::live::phases::take()
+    }
+
     /// The proof searches queued, for the search worker: a JSON array of
     /// `{"id", "search"}`. Those not taken run in `tick`.
     pub fn take_searches(&mut self) -> String {
@@ -184,19 +189,35 @@ pub fn describe_library_cache(bytes: &[u8]) -> String {
     })
 }
 
-/// The server's options in the worker: the playground sessions' guard
-/// (`STITCHWORT_GUARD`, 256 KiB; `Limits::for_stack` keeps a quarter, at
-/// least 256 KiB, in reserve), as for searches.
-pub(crate) fn options() -> stitchwort_lsp::Options {
-    let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
-    stitchwort_lsp::Options::new(guard + 256 * 1024)
+/// The namespace the project check last began on: after a crash, the one
+/// that crashed. Not a method: a crash leaves the server borrowed.
+#[wasm_bindgen]
+pub fn checking_namespace() -> String {
+    stitchwort_driver::live::phases::current()
 }
 
-/// The search worker's options: proof searches run in a worker of their own,
-/// with the playground sessions' guard.
+/// The server's options in the worker, and the search worker's: the
+/// playground sessions' guard (`STITCHWORT_GUARD`, see `build.rs`).
+pub(crate) fn options() -> stitchwort_lsp::Options {
+    stitchwort_lsp::Options::new(stack_for_guard(crate::guard()))
+}
+
+/// Proof searches run in a worker of their own, with the same guard.
 fn search_options() -> stitchwort_lsp::Options {
-    let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
-    stitchwort_lsp::Options::new(guard + 256 * 1024)
+    options()
+}
+
+/// The stack to tell the server it has, so that the guard it derives from it
+/// (`Limits::for_stack`, which keeps a quarter, at least 256 KiB, in
+/// reserve) is `guard`: the worker has no threads of its own, and its real
+/// limit is the engine's stack, which the guard was measured against.
+fn stack_for_guard(guard: usize) -> usize {
+    let reserve = 256 * 1024;
+    if guard <= 3 * reserve {
+        guard + reserve
+    } else {
+        guard.div_ceil(3) * 4
+    }
 }
 
 pub(crate) fn memory_project(

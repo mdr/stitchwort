@@ -3756,7 +3756,9 @@ impl Checker {
             };
             let project = matches!(work, Work::Project(_));
             let answered = started.elapsed();
+            let published = Instant::now();
             self.publish(key, project, answers);
+            stitchwort_driver::live::phases::add("publish", published.elapsed());
             self.unanswered = false;
             trace(|| {
                 format!(

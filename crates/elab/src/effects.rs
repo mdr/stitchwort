@@ -2244,8 +2244,89 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
 
 /// [`may_perform`] for `expr` checked against `expected`, which may say
 /// that parts of a list, tuple or record literal are computations.
+///
+/// Programs nest deeply along a few forms: the rest of a block after a
+/// `let`, an `else if`, and a chain of operators such as a long sum
+/// (`1 + 1 + …`, nested on the left). Those are followed in a loop here,
+/// asking about the parts in the order the recursion would, so the answer
+/// and the work are the same but the depth isn't spent on them. That
+/// matters in WebAssembly: the stack guard measures the stack in linear
+/// memory, and this function's frames there are tiny next to its frames on
+/// the engine's own stack, so a long sum overflowed V8's stack well inside
+/// the guard (SW-3128). The other forms are kept out of line, in
+/// [`compound_performs`] and [`call_performs`], so a level's frame stays
+/// small.
 pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
-    cx.g().machine.budget.nesting(crate::check::PASS)?;
+    let (mut expr, mut expected) = (expr, expected);
+    loop {
+        cx.g().machine.budget.nesting(crate::check::PASS)?;
+        expr = match expr {
+            Expr::Interpolated(text, _) => {
+                expr = text;
+                continue;
+            }
+            Expr::Var(_) | Expr::App(..) => return call_performs(cx, expr, 0),
+            Expr::Binary(BinOp::Eq, ..) => return compound_performs(cx, expr, expected),
+            Expr::Binary(_, a, b) => {
+                // The operators down the left, then the operand at the
+                // bottom and the right operands from the bottom up.
+                let mut rights = vec![&**b];
+                let mut left = &**a;
+                while let Expr::Binary(op, a, b) = left
+                    && *op != BinOp::Eq
+                {
+                    cx.g().machine.budget.nesting(crate::check::PASS)?;
+                    rights.push(b);
+                    left = a;
+                }
+                if may_perform(cx, left)? {
+                    return Ok(true);
+                }
+                let last = rights.remove(0);
+                for right in rights.into_iter().rev() {
+                    if may_perform(cx, right)? {
+                        return Ok(true);
+                    }
+                }
+                last
+            }
+            Expr::Neg(a, _, _) | Expr::Spread(a, _) => a,
+            Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _, _) => e,
+            // A `let` performs what its value or the rest of the block does
+            // (docs/proposals/let.md §5). The rest is judged here without the
+            // name in scope, and asked again once it is (so a call of a bound
+            // effectful function is judged by its type then).
+            Expr::Let { value, body, .. } => {
+                if may_perform(cx, value)? {
+                    return Ok(true);
+                }
+                body
+            }
+            Expr::Seq(..) | Expr::Handle { .. } => return Ok(true),
+            // The definitions are elaborated on their own; what's run is the
+            // rest of the block (asked again once the names are in scope).
+            Expr::LocalDefs { body, .. } => body,
+            Expr::If {
+                cond,
+                then,
+                otherwise,
+                ..
+            } => {
+                if may_perform(cx, cond)? || may_perform(cx, then)? {
+                    return Ok(true);
+                }
+                otherwise
+            }
+            _ => return compound_performs(cx, expr, expected),
+        };
+        expected = None;
+    }
+}
+
+/// [`may_perform_at`] for the forms with more to work out than their parts:
+/// pipes, `=`, matches, compounds and fields.
+#[inline(never)]
+fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
         for item in items {
             if may_perform(cx, item)? {
@@ -2276,8 +2357,6 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
         Ok(false)
     };
     Ok(match expr {
-        Expr::Interpolated(text, _) => may_perform_at(cx, text, expected)?,
-        Expr::Var(_) | Expr::App(..) => call_performs(cx, expr, 0)?,
         // `x |> y => body` runs `body`; `x |> y z => …` is a function.
         Expr::Pipe(value, f) => {
             (may_perform(cx, value)? && !piped_passed(cx, f)?)
@@ -2298,31 +2377,13 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             }
             performs
         }
-        Expr::Binary(_, a, b) => any(&mut [&**a, &**b].into_iter())?,
         Expr::Match {
             scrutinees, alts, ..
         } => any(&mut scrutinees
             .iter()
             .map(|s| &s.expr)
             .chain(alts.iter().filter_map(|a| a.body.as_ref())))?,
-        Expr::Neg(a, _, _) => may_perform(cx, a)?,
-        // A `let` performs what its value or the rest of the block does
-        // (docs/proposals/let.md §5). The rest is judged here without the
-        // name in scope, and asked again once it is (so a call of a bound
-        // effectful function is judged by its type then).
-        Expr::Let { value, body, .. } => may_perform(cx, value)? || may_perform(cx, body)?,
-        Expr::Seq(..) | Expr::Handle { .. } => true,
-        // The definitions are elaborated on their own; what's run is the
-        // rest of the block (asked again once the names are in scope).
-        Expr::LocalDefs { body, .. } => may_perform(cx, body)?,
-        Expr::If {
-            cond,
-            then,
-            otherwise,
-            ..
-        } => any(&mut [&**cond, &**then, &**otherwise].into_iter())?,
         Expr::List(items, _) => parts(&items.iter().collect::<Vec<_>>())?,
-        Expr::Spread(list, _) => may_perform(cx, list)?,
         Expr::Record { base, fields, .. } => {
             any(&mut base.iter().map(|b| &**b))?
                 || parts(&fields.iter().map(|(_, e)| e).collect::<Vec<_>>())?
@@ -2334,7 +2395,6 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             (may_perform(cx, e)? && !receiver_passed(cx, e, field)?)
                 || dot_performs(cx, e, field, 0)?
         }
-        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _, _) => may_perform(cx, e)?,
         Expr::Tuple(a, b, _) => parts(&[&**a, &**b])?,
         _ => false,
     })
@@ -2342,6 +2402,8 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
 
 /// Whether the call `expr` (a variable, or an application) may perform
 /// operations, given `extra` more arguments (the value piped in by `|>`).
+/// Out of line for the reason in [`may_perform_at`].
+#[inline(never)]
 fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
     let mut args = Vec::new();
     let mut head = expr;

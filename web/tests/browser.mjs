@@ -2748,6 +2748,7 @@ test("in a project, after a jump into another file and the whole project's check
   // `published` keeps only the last few hundred, which the project's check has filled: those after the edit.
   const since = await page.ev(`performance.now() - window.editor.t0`);
   t = Date.now();
+  await page.ev(`window.editor.resetPhases()`);
   await page.setSource(own + "\ndef broken: Nat := rfl\n");
   try {
     await page.until(`window.editor.stats.published.some((p) => p.t > ${since} && p.uri.endsWith("Day02.sw") && p.count > 0)`, 60000, "the error published");
@@ -2763,6 +2764,11 @@ test("in a project, after a jump into another file and the whole project's check
   // The settled namespaces after the day are replayed from the in-memory check cache (SW-2919), not elaborated again.
   await page.until(`window.editor.stats.idle || window.editor.stats.restarts > 0`, 240000, "the project's re-check to finish");
   console.log(`    (the project re-checked ${Math.round((Date.now() - t) / 100) / 10} s after the edit)`);
+  // Where the re-check went (SW-3113): server ticks, sending their output, waits between ticks, the page's handling.
+  console.log(`    (phases: ${JSON.stringify(await page.ev(`window.editor.stats.phases`))}, wall ${Date.now() - t} ms)`);
+  console.log(`    (server phases per idle: ${JSON.stringify(await page.ev(`window.editor.stats.phaseLog.slice(-2)`))})`);
+  // A crash of the server's worker: what it was checking, and how deep the stack got (SW-3128).
+  console.log(`    (crashed: ${JSON.stringify(await page.ev(`[window.editor.stats.crashed, window.editor.stats.crashedAtStack]`))})`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 480000 });
 
