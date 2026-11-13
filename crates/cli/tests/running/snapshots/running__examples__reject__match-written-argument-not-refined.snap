@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
@@ -25,5 +25,7 @@ expression: output
     │     
     │     Note 3: name the `match`'s equation, `match h: … with`: a proof whose type has the scrutinee where this branch has its value, or the other way round, is then rewritten along it where the rewritten type still checks (otherwise `rewrite h at …` says why not). Or bind the lemma with `let` before the `match`, so it is refined like the hypotheses
     │     
-    │     Note 4: `(match …)` is a `match` written inside `reach`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
+    │     Note 4: this expects the test fact `(b && (if flag c then (match c with …) || reach flag k (c + 1) d else reach flag k c d)) = True`, which reads as `b ∧ (if flag c then (match c with …) || reach flag k (c + 1) d else reach flag k c d)`: build it part by part with `Both`, each part from a proof of its own reading
+    │     
+    │     Note 5: `(match …)` is a `match` written inside `reach`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
 ────╯

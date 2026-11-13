@@ -1,5 +1,5 @@
 {
-  "next": 3140,
+  "next": 3141,
   "tickets": [
     {
       "id": 47,
@@ -33688,7 +33688,7 @@
     {
       "id": 3111,
       "title": "[Sonnet] Deletion oracle for readings: delete each .read in std/aoc in turn and check the result is an error or the same types and def hashes; run before any implicit crossing or D3549a's build step (SW-3105 §4.6)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34057,6 +34057,19 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3140,
+      "title": "[Sonnet] SW-3087's 'a proof of … is accepted here' note is noise in two cases (examples/reject/match-hypothesis-folded.sw: 'this expects the test fact True = False: a proof of True ≠ True is accepted here'; match-written-argument-not-refined.sw: a note quoting a whole if/match fact): leave the note off when the expected fact is closed and computes to False, and when the fact or its reading is too long to help (or shorten it). Update the two snapshots back.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
