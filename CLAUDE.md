@@ -251,9 +251,11 @@ of work to fit it:
   0.55 on day 6); the rate looks forward, so it is calm early in the week
   and sensitive late, when overspending matters. Late in the week one
   percent of usage moves it by up to 0.1, hence the wide band. Matt chose
-  the most lane-friendly option to try ("we'll see how it goes"): the
-  first time compute mode runs, note the used percentage at the switch and
-  a few hours later, to measure compute mode's own rate.
+  the most lane-friendly option to try ("we'll see how it goes"). The
+  allowance is shared with Matt's other agents, so the usage figures can't
+  measure one mode's own cost; to compare the modes, count this session's
+  tokens from its transcripts (main and subagents) over a few hours of
+  each.
 
 ## Lane agents
 
