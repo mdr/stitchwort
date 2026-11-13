@@ -34026,12 +34026,12 @@
     {
       "id": 3137,
       "title": "[Sonnet] if over proofs in an untyped let (let w := if c then p else q, p q proofs) fails with E-UNIVERSE; should infer the proposition (SW-3087 finding 4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nOrchestrator review: first version probed every untyped if (2^depth on nested chains); reworked to a retry after the unknown is solved to a proposition. Not covered: branches needing h (if h: P), Prop-valued definitions is_prop can't see. Model result: Sonnet, needed fixes (probe on every if -> retry after failure), 45 min (est. 90).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
