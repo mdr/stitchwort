@@ -270,10 +270,18 @@ theorem List.isDistinctFromComplete [auto ord: Ord a] (seen: Set a) (xs: List a)
         rewrite Set.containsInsertOther seen next x (same => And.left distinct (rewrite <- same in member))
         in unseen x (Inr member))
 
+@[reading]
 theorem List.isDistinctIff [auto ord: Ord a] (xs: List a): List.isDistinct xs = True ↔ List.Distinct xs := {
   forward = ok => List.isDistinctFromSound Set.empty xs ok,
   backward = distinct => List.isDistinctFromComplete Set.empty xs distinct (x member => rfl)
 }
+
+--| `List.isDistinct xs` is `False` exactly when some element repeats.
+@[reading]
+theorem List.isDistinctReadsFalse [auto ord: Ord a] (xs: List a): List.isDistinct xs = False ↔ ¬(List.Distinct xs) :=
+  match c: List.isDistinct xs with
+    | True => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = no => Void.exfalso (no (Iff.forward (List.isDistinctIff xs) c)) }
+    | False => { forward = h distinct => Bool.falseNotTrue (Eq.trans (Eq.sym c) (Iff.backward (List.isDistinctIff xs) distinct)), backward = no => rfl }
 
 test "List.unique" := [3, 1, 3, 2, 1].unique == [3, 1, 2]
 test "List.unique empty" := ([]: List Nat).unique == []

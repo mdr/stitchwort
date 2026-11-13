@@ -832,6 +832,30 @@ sub-decisions the instance doesn't choose (`if a ∧ b` decides `a = True` by
 `Bool`'s `DecEq`). Std's four recursive decisions were already written
 test first (SW-2967), and std gives no warning.
 
+**Std's remaining readings (SW-3067).** Declared beside their tests, each
+checked by the library's own audit:
+
+| Test | `= True` reads as | `= False` reads as |
+|---|---|---|
+| `Nat.leq m n` (`<=`, and `<`, `>`, `>=` through it) | `m ≤ n` (`Nat.LessEq m n`, the identity) | `n < m` (`Nat.LessThan n m`) |
+| `Int.leq a b` | `a ≤ b` | `b < a` |
+| `Int.less a b` | `a < b` | `b ≤ a` |
+| `List.inRange x from until` | `from ≤ x < until` | `¬(from ≤ x < until)` |
+| `Nat.divides d n` | `∃ t => n = t * d` (`Nat.dividesIff`, marked) | `¬(∃ t => n = t * d)` |
+| `List.isDistinct xs` | `List.Distinct xs` (`List.isDistinctIff`, marked) | `¬(List.Distinct xs)` |
+| `xs.contains x` on a `List` | `x ∈ xs` (`List.memContains`) | `x ∉ xs` |
+| `xs.contains x` on a `NonEmptyList` | `NonEmptyList.Mem x xs` (`NonEmptyList.containsMem`, marked and moved beside `contains`) | `¬(NonEmptyList.Mem x xs)` |
+
+`<` on `Nat` is `Nat.leq (Succ m) n`, so `(x < y) = False` reads as `y < Succ x`,
+which is `y ≤ x` by computation. The `Nat` readings are in the core, in
+`Equality.sw` and stated with `Nat.LessEq`/`Nat.LessThan` rather than the
+operators, which the prelude can't name yet at that point; a reading placed
+in a core file after code that mentions the test makes the prelude fail
+with only "this needs the prelude's …" errors. `List.inRangeIff` (membership
+in `List.range`) can't be the reading: it lives in a different file than
+`List.inRange`, so the reading is the bounds. Example:
+`examples/accept/readings-comparisons.sw`.
+
 **Stage 5 as built (SW-3059).** `auto`'s last resort before a
 contradiction, and `cases`'s hypothesis closer after its exact match, use
 the *parts* of the hypotheses in scope (`auto::hypothesis_parts`): each

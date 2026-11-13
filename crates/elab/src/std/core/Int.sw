@@ -110,6 +110,32 @@ def Int.LessEq (a: Int) (b: Int): Prop := Int.leq a b = True
 --| `a < b` as a proposition, defined by computation.
 def Int.LessThan (a: Int) (b: Int): Prop := Int.less a b = True
 
+--| `Int.leq a b` (what `a <= b` is on `Int`) reads as `a ≤ b`.
+@[reading]
+theorem Int.leqReads (a: Int) (b: Int): Int.leq a b ↔ Int.LessEq a b := { forward = h => h, backward = h => h }
+
+--| `Int.leq a b` is `False` exactly when `b` is below `a`.
+@[reading]
+theorem Int.leqReadsFalse (a: Int) (b: Int): Int.leq a b = False ↔ Int.LessThan b a :=
+  match a, b with
+    | OfNat m, OfNat n => Nat.leqReadsFalse m n
+    | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
+    | NegSucc m, OfNat n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+    | NegSucc m, NegSucc n => Nat.leqReadsFalse n m
+
+--| `Int.less a b` (what `a < b` is on `Int`) reads as `a < b`.
+@[reading]
+theorem Int.lessReads (a: Int) (b: Int): Int.less a b ↔ Int.LessThan a b := { forward = h => h, backward = h => h }
+
+--| `Int.less a b` is `False` exactly when `b` is at most `a`.
+@[reading]
+theorem Int.lessReadsFalse (a: Int) (b: Int): Int.less a b = False ↔ Int.LessEq b a :=
+  match a, b with
+    | OfNat m, OfNat n => Nat.leqReadsFalse (Succ m) n
+    | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
+    | NegSucc m, OfNat n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+    | NegSucc m, NegSucc n => Nat.leqReadsFalse (Succ n) m
+
 instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.decTrue (Int.leq a b)
 
 instance Int.decLessThan (a: Int) (b: Int): Decidable (Int.LessThan a b) := Bool.decTrue (Int.less a b)
