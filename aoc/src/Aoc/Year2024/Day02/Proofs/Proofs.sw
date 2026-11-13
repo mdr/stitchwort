@@ -41,7 +41,8 @@ theorem part1Correct (reports: List Report): solvePart1 reports = safeReports re
 theorem safeKept (shrink: List Nat → List Nat)
     (keeps: ∀ (levels: List Nat) (holds: Nat → Nat → Bool) => levels.chain holds = True → (shrink levels).chain holds = True)
     (levels: List Nat) (wasSafe: safe { levels } = True): safe { levels = shrink levels } = True :=
-  let differences := keeps levels differByOneToThree (Bool.andRight wasSafe)
+  let Both _ differs := wasSafe
+  let differences := keeps levels differByOneToThree differs
   match increasing: allIncreasing levels with
     | True =>
       let stillIncreasing := keeps levels (level next => level < next) increasing

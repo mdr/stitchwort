@@ -46,8 +46,8 @@ theorem decideAhead (start: Cell) (direction: Direction) (count: Nat) (position:
     (∃ (j: Nat) => j < count ∧ position = ahead start direction (j + 1)) ∨ (∀ (i: Nat) => i < count → position ≠ ahead start direction (i + 1)) :=
   match found: (List.range 0 count).any (i => position == ahead start direction (i + 1)) with
     | True =>
-      List.anyTrueElim (List.range 0 count) _ _ found
-        (j member same => Inl (Witness j (Both (omega [List.memRangeFrom j count 0 member]) (DecEq.sound same))))
+      let Witness j (Both member same) := found
+      Inl (Witness j (Both (omega [List.memRangeFrom j count 0 member]) (DecEq.sound same)))
     | False =>
       Inr (i below same =>
         Bool.trueNotFalse

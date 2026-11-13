@@ -25,7 +25,7 @@ theorem keepFirstGet (key: Changes) (found: List (Changes, Nat)) (sales: Map Cha
       let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
       match same: entry.fst == key with
         | True =>
-          let equal := DecEq.sound same
+          let equal := same.read
           rewrite later in
             rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) in
               match sales.get key with
@@ -33,7 +33,7 @@ theorem keepFirstGet (key: Changes) (found: List (Changes, Nat)) (sales: Map Cha
                 | Some old => rfl
         | False =>
           rewrite later in
-            rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => DecEq.soundFalse entry.fst key same (Eq.sym equal)) (new old => old) in
+            rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => same.read (Eq.sym equal)) (new old => old) in
               rfl
 
 --| Looking for the first place the monkey sells is looking for the first

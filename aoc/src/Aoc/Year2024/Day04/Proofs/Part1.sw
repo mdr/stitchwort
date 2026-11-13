@@ -25,7 +25,7 @@ theorem at4Spells [a: Option Char] [b: Option Char] [c: Option Char] [d: Option 
       rewrite Option.someBeqSome x 'X', Option.someBeqSome x 'S', Option.someBeqSome y 'M', Option.someBeqSome y 'A', Option.someBeqSome z 'A', Option.someBeqSome z 'M', Option.someBeqSome w 'S', Option.someBeqSome w 'X' in
         match isX: x == 'X' with
           | True =>
-            let same := DecEq.sound isX
+            let same := isX.read
             rewrite same in cases
           | False => cases
     | _, _, _, _ => cases

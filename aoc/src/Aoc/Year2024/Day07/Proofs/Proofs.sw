@@ -26,11 +26,11 @@ theorem concatenateAtLeast (left: Nat) (right: Nat): (left ≤ concatenate left 
 theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last <= target && v == target - last) :=
   Bool.eqOf (v + last == target) (last <= target && v == target - last)
     (matches =>
-      let same := DecEq.sound matches
-      Bool.andIntro (omega) (rewrite (omega: v = target - last) in DecEq.refl (target - last)))
+      let same := matches.read
+      Both (omega) (rewrite (omega: v = target - last) in DecEq.refl (target - last)))
     (both =>
-      let fits: last ≤ target := Bool.andLeft both
-      let same := DecEq.sound (Bool.andRight both)
+      let Both fits sameTarget := both
+      let same := sameTarget.read
       rewrite (omega: v + last = target) in DecEq.refl target)
 
 --| The backwards search over the numbers after `first`, last one first, is
@@ -92,8 +92,8 @@ theorem reachesMore (fewer: List Operator) (more: List Operator) (included: ∀ 
   match numbers with
     | [] => found
     | [number, ..rest] =>
-      List.anyTrueElim fewer _ (reaches more start wanted [number, ..rest] = True) found (operator has reached =>
-        List.anyOfMem more _ operator (reachesMore fewer more included wanted rest (combine operator start number) reached) (included operator has))
+      let Witness operator (Both has reached) := found
+      Witness operator (Both (included operator has) (reachesMore fewer more included wanted rest (combine operator start number) reached))
 
 --| An equation that could be true with fewer operators could be with more.
 theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
