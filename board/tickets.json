@@ -34416,12 +34416,12 @@
     {
       "id": 3167,
       "title": "[Sonnet] Lossless tree lane C (after B): Lambda/LambdaParam, FunctionType, Forall/Exists, If, Handle/HandlerClause, Induct/InductArm, Reify, rows inside expressions",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 23 min (est. 240).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34460,7 +34460,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nAlso (SW-3167 findings): a lambda's/forall's (x: A) is LambdaParam[Param[...]], a redundant double wrap: drop one; 'dev tree --time' can't isolate marks-off instructions: add a mode that skips the tree rounds.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
