@@ -1240,6 +1240,27 @@ per line as fit:
 Calls that fit, and calls with bracketed arguments, are unchanged. Not one
 argument per line, which made the example 13 lines.
 
+### D3571: a body after `:=` tries one line below first (Matt, 13 Nov 2026: yes)
+
+A record, a list, or a call whose last argument is a lambda hugs the `:=`
+line only when the body does not fit on one line below at +2. Otherwise it
+goes below, as today's code has it:
+
+```
+def Slot.remaining [auto eq: DecEq a] (slot: Slot a) (taken: List a): List a :=
+  slot.candidates.filter (value => not (taken.contains value))
+```
+
+not `… List a := slot.candidates.filter (value =>` with the lambda's body
+broken below. A lambda written directly after `:=` keeps its hug (D3568).
+The dry run (docs/reviews/formatter-dry-run.md) found about 290 places
+(64 records and lists, 224 calls with a trailing lambda).
+
+Orchestrator's call, within D3564: when a variable comes after a premise in
+a long header, the break goes before the first premise, so variables stay
+together and each premise starts its own line (205 places had a variable
+alone on a line).
+
 ## Findings worth tickets
 
 - **Width in bytes.** The current formatter's `:= match` rule (D3553)
