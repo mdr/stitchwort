@@ -1,5 +1,5 @@
 {
-  "next": 3136,
+  "next": 3138,
   "tickets": [
     {
       "id": 47,
@@ -33376,7 +33376,7 @@
     {
       "id": 3087,
       "title": "[Sonnet] Building test facts from proofs: a ∀ lambda doesn't build an all fact (List.allOfAll stays), (a != b) = True can't be built from a ≠ b (DecEq.trueOfNe stays), an x ∈ xs proof can't stand for xs.contains x = True, and (not b) = True won't take b = False (bool-as-proposition §6.6) (SW-3079 findings 5-7, SW-3068)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34005,6 +34005,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3136,
+      "title": "[Sonnet] Debug-build stack: readings::auto_reads_at_most_64_test_facts and examples reject/reads-nested-binds-unknown-field.sw fail in debug test builds with E-RESOURCE nesting (pass through the release CLI); raise the debug test thread stack or shrink the frames (SW-3087 findings 2-3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3137,
+      "title": "[Sonnet] if over proofs in an untyped let (let w := if c then p else q, p q proofs) fails with E-UNIVERSE; should infer the proposition (SW-3087 finding 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
