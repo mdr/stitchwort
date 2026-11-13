@@ -97,7 +97,7 @@ theorem lookupRange (b: Nat) (c s: Nat) (h1: s ≤ b) (h2: b < s + c):
     | Succ c =>
       match e: Nat.equal s b with
         | True =>
-          rewrite <- Nat.equalSound s b e, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
+          rewrite <- e.read, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
         | False =>
           rewrite lookupRange b c (Succ s) omega omega in rfl
 
@@ -142,7 +142,7 @@ theorem movedLabel (c: Circuits) (f: Nat) (s: Nat) (n: Nat) (stored: ∀ (b: Nat
 --| s's label stays, f's moves to it.
 theorem relabelTo (from: Nat) (to: Nat) (differ: (from == to) = False): relabel from to to = to :=
   match g: to == from with
-    | True => Void.exfalso (DecEq.soundFalse from to differ (Eq.sym (DecEq.sound g)))
+    | True => Void.exfalso (differ.read (Eq.sym g.read))
     | False => rfl
 
 theorem relabelFrom (from: Nat) (to: Nat): relabel from to from = to := rewrite DecEq.refl from in rfl
@@ -168,7 +168,7 @@ theorem labelledMoved (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s
           | True =>
             -- b is in f's circuit: b to its label, which is f's, back to
             -- f, along the new connection to s, and on to s's label.
-            let toF: Joined done b f := Chain (inv.labelJoined b h) (rewrite DecEq.sound g in Backwards (inv.labelJoined f hf))
+            let toF: Joined done b f := Chain (inv.labelJoined b h) (rewrite g.read in Backwards (inv.labelJoined f hf))
             Chain (more b f toF) (Chain (Connected (memLast (f, s) done)) (more s (c.labelOf s) (inv.labelJoined s hs)))
           | False => more b (c.labelOf b) (inv.labelJoined b h)
   }
@@ -183,7 +183,7 @@ theorem labelledJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
         inRange = a b m => memSnoc a b (f, s) done m ((a < n) ∧ (b < n)) (o => inv.inRange a b o)
           (ab => Both (rewrite And.left ab in hf) (rewrite And.right ab in hs)),
         agree = a b m => memSnoc a b (f, s) done m (c.labelOf a = c.labelOf b) (o => inv.agree a b o)
-          (ab => rewrite And.left ab, And.right ab in DecEq.sound e),
+          (ab => rewrite And.left ab, And.right ab in e.read),
         labelJoined = b h => joinedAppend done [(f, s)] b (c.labelOf b) (inv.labelJoined b h)
       }
     | False => labelledMoved n done c f s hf hs e inv
@@ -197,9 +197,10 @@ theorem labelledJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
     | [(f, s), ..rest] =>
       match r: boxesBelow n (f, s) with
         | True =>
+          let Both hf hs := r
           rewrite <- List.appendAssoc done [(f, s)] rest in
             labelledJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
-              (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
+              (labelledJoin n done c f s hf hs inv)
 
 -- The label theorem -----------------------------------------------------------
 
@@ -207,7 +208,7 @@ theorem labelledJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
 theorem labelsTellOf (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c):
     Tells n done (a b => c.labelOf a == c.labelOf b) :=
   a b ha hb => {
-    forward = same => Chain (inv.labelJoined a ha) (rewrite DecEq.sound same in Backwards (inv.labelJoined b hb)),
+    forward = same => Chain (inv.labelJoined a ha) (rewrite same.read in Backwards (inv.labelJoined b hb)),
     backward = j => rewrite sameLabelOfJoined c.labelOf done inv.agree a b j in DecEq.refl (c.labelOf b)
   }
 

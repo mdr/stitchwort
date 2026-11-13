@@ -136,7 +136,7 @@ theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Peri
 def isPeriod (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Bool := List.range 0 len |> .all (i => g ((i + p) % len) == g i)
 
 theorem periodOfTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: isPeriod g len hl p = True): Period g len hl p :=
-  i hi => DecEq.sound (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
+  i hi => (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi).read
 
 theorem periodTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: Period g len hl p): isPeriod g len hl p = True :=
   List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => (Nat.decEq (g ((i + p) % len)) (g i)).complete (h i h2))
