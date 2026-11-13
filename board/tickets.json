@@ -33116,7 +33116,7 @@
     {
       "id": 3067,
       "title": "[Sonnet] Std readings still missing: Nat.leq / < (= False too; Nat.leqFalse 39 std uses, Bool.falseOfNotTrue), Nat.divides, List.isDistinct, List.inRange, NonEmptyList.contains; add them beside their tests so their = True ↔ lemmas can be marked @[reading] or go (SW-3060 finding 6)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
