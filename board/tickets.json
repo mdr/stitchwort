@@ -1,5 +1,5 @@
 {
-  "next": 3071,
+  "next": 3073,
   "tickets": [
     {
       "id": 47,
@@ -31046,12 +31046,12 @@
     {
       "id": 2919,
       "title": "[Sonnet] Playground project checks keep no check cache: the first whole-project check (~129 s for AoC) and the background re-check after each edit (SW-2915 now rewinds settled steps on each edit) redo everything; keep an in-memory check cache for project namespaces in the wasm server, or find why it isn't hit (SW-2915)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nPlan (paper lane, 13 Nov): docs/reviews/SW-2919-plan.md. Cause: the browser's Memory::project_cache is None (crates/lsp/src/source.rs:274), so load_project uses the read-only std BundleStore. Orchestrator's call: option A (in-memory writable store over the bundle, project entries only, newest two per unit, ~192 MB cap); estimated re-check after a leaf edit ~120 s → 6-12 s, first check unchanged. Build lane next (Sonnet, est. 60 min).",
+      "body": "\nPlan (paper lane, 13 Nov): docs/reviews/SW-2919-plan.md. Cause: the browser's Memory::project_cache is None (crates/lsp/src/source.rs:274), so load_project uses the read-only std BundleStore. Orchestrator's call: option A (in-memory writable store over the bundle, project entries only, newest two per unit, ~192 MB cap); estimated re-check after a leaf edit ~120 s → 6-12 s, first check unchanged. Build lane next (Sonnet, est. 60 min).\nModel result: Sonnet, worked, 11 min (est. 60). Browser: whole-project check 112 s; re-check after an edit 35 s (plan estimated 6-12 s; before ~112 s, inferred).",
       "created": "2026-11-11",
       "updated": "2026-11-13",
       "commits": []
@@ -33160,6 +33160,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3071,
+      "title": "[Sonnet] Playground re-check after an edit still takes 35 s on AoC with SW-2919's in-memory cache (plan estimated 6-12 s): profile where it goes (replay cost, Store::read cloning entries (SW-3062), the rewind/journal), then fix the measured hotspot",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3072,
+      "title": "[DeepSeek] Playground: reloading a project (add_project) makes a fresh LayeredStore, losing its entries; key the store by project root so a reload keeps them (SW-2919 finding 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
