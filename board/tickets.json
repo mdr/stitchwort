@@ -34051,8 +34051,8 @@
     },
     {
       "id": 3139,
-      "title": "[Opus] Native JIT: n1::bodies_count_their_entries_when_asked panics in cranelift-jit relocation (compiled_blob.rs:172:80, TryFromIntError(PosOverflow)) on Linux x86_64, 20/20 at 3fbc3ba17, passed at 4af2adde7: a deterministic regression from SW-3128 (ba4e20071 may_perform_at loop, or b420203e0 stack guard/probe/instrumentation); Overmind bisecting. Find the cause; check whether helper symbol addresses or a changed effect analysis moved code into a far relocation",
-      "status": "backlog",
+      "title": "[Opus] Native JIT: n1::bodies_count_their_entries_when_asked panics in cranelift-jit X86PCRel4 relocation (compiled_blob.rs:172:80, PosOverflow) on Linux x86_64, deterministic since ba4e20071 (SW-3128's may_perform_at loop, crates/elab/src/effects.rs only); base 208510a37 passes (Overmind bisect). Two questions: why the effects analysis change alters what the JIT compiles (it was meant to give identical answers), and why a 32-bit PC-relative reference reaches a symbol >2 GiB away",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
