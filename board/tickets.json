@@ -34052,12 +34052,12 @@
     {
       "id": 3139,
       "title": "[Opus] Native JIT: n1::bodies_count_their_entries_when_asked panics in cranelift-jit X86PCRel4 relocation (compiled_blob.rs:172:80, PosOverflow) on Linux x86_64, deterministic since ba4e20071 (SW-3128's may_perform_at loop, crates/elab/src/effects.rs only); base 208510a37 passes (Overmind bisect). Two questions: why the effects analysis change alters what the JIT compiles (it was meant to give identical answers), and why a 32-bit PC-relative reference reaches a symbol >2 GiB away",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Lane (Opus, 13 Nov 2026, 16:57-17:10, est. 2 h): branch lane/SW-3139, commit ae340838a.\n\n- Effects: ba4e20071 changes no answer. The old may_perform_at was run beside the new one and both answers and visit counts compared: 294,521 calls over the prelude (hash_stability::prelude), plus the n1 tests and the effect examples (about 14,000 more). No difference. So no effects fix: the bisect landed on a commit that only moved where things got mapped.\n- Relocation: the X86PCRel4 is the `lea` for the body's name data (`{symbol}.name`, the count_bodies instrumentation: first_part's symbol_value). The data was declared Linkage::Local, so `colocated`, so PC-relative. cranelift-jit's SystemMemoryProvider mmaps code and data separately with no nearness guarantee (likely culprit for the distance: the tests' 16 GiB with_stack thread stack, with holes above and below it). Fix: n1::far_data marks the reference not colocated, so it is a movabs/Abs8 (x86-64) or literal load (aarch64). Calls between JIT functions are fine: cranelift-jit veneers out-of-range calls. Helpers are Import and already Abs8.\n- Test: n1::tests::code_reads_data_mapped_far_away maps data 8 GiB from code; it panics in cranelift-jit with the data colocated (aarch64 adrp arm, compiled_blob.rs:324) and passes with the fix. bodies_count_their_entries_when_asked also asserts no `symbol colocated` in its listing.\n- Needs Linux verification: n1::bodies_count_their_entries_when_asked and n1::tests::code_reads_data_mapped_far_away on Overmind.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
