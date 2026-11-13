@@ -292,13 +292,13 @@ pub enum NodeKind {
     Cases,
 
     // Patterns.
-    /// `Cons x xs`, `(C a b)`
+    /// `Cons x xs`: a constructor with arguments, in a `PatternParen` if bracketed
     PatternCtor,
     /// `(a, b)`
     PatternTuple,
     /// `[a, ..rest]`
     PatternList,
-    /// `x @ p`
+    /// `[n := p]`: a constructor's implicit field, by name.
     PatternNamed,
     /// `{ x, y = p }`
     PatternRecord,
@@ -312,6 +312,8 @@ pub enum NodeKind {
     PatternTyped,
     /// `-3`
     PatternNegative,
+    /// `()`: the pattern of an empty type.
+    PatternAbsurd,
 }
 
 /// A finished construct, as the parser records it: its kind and the tokens
@@ -874,15 +876,13 @@ Def
   Arms
     Arm
       |
-      Unmarked
-        0
+      0
       =>
       Unmarked
         1
     Arm
       |
-      Unmarked
-        k
+      k
       Guard
         if
         Binary
@@ -898,8 +898,7 @@ Def
         with
         Arm
           |
-          Unmarked
-            j
+          j
           =>
           Unmarked
             j
@@ -918,7 +917,7 @@ Theorem
       rfl
 "
         );
-        assert_eq!(tree.stats().unmarked, 12);
+        assert_eq!(tree.stats().unmarked, 9);
         // The comments stay with the tokens they were written beside.
         let first = tree.decls().next().unwrap();
         let mut leaves = Vec::new();
@@ -950,8 +949,7 @@ def f (n: Nat): Nat :=
     Block
       Let
         let
-        Unmarked
-          m
+        m
         :=
         Binary
           n
@@ -1157,7 +1155,7 @@ def f (n: Nat): Nat :=
             ("x => x + 1", "Lambda[x => Binary[x + 1]]"),
             (
                 "x (a, b) (y: A) [t: Type] => e",
-                "Lambda[x LambdaParam[( a , b )] LambdaParam[Param[( y : A )]] \
+                "Lambda[x LambdaParam[PatternTuple[( a , b )]] LambdaParam[Param[( y : A )]] \
                  LambdaParam[Param[[ t : Type ]]] => e]",
             ),
             (
@@ -1176,6 +1174,74 @@ def f (n: Nat): Nat :=
                 "(n: Nat) -> [a: Type] -> Vec a n",
                 "FunctionType[Binder[( n : Nat )] -> FunctionType[Binder[[ a : Type ]] -> \
                  App[Vec a n]]]",
+            ),
+        ]);
+    }
+
+    /// Checks each pattern's tree, written as the only arm of a `match`.
+    fn check_patterns(cases: &[(&str, &str)]) {
+        let text: String = cases
+            .iter()
+            .enumerate()
+            .map(|(i, (pattern, _))| format!("def x{i}: T := match v with\n  | {pattern} => 0\n\n"))
+            .collect();
+        for ((pattern, want), got) in cases.iter().zip(&bodies(&text)) {
+            let got = got
+                .strip_prefix("Match[match Scrutinee[v] with Arm[| ")
+                .and_then(|rest| rest.strip_suffix(" => 0]]"))
+                .unwrap_or(got);
+            assert_eq!(got, *want, "{pattern}");
+        }
+    }
+
+    #[test]
+    fn patterns_are_marked_as_written() {
+        check_patterns(&[
+            ("x", "x"),
+            ("Some", "Some"),
+            ("Some x", "PatternCtor[Some x]"),
+            (
+                "Pair (Some x) _",
+                "PatternCtor[Pair PatternParen[( PatternCtor[Some x] )] _]",
+            ),
+            ("(a, b)", "PatternTuple[( a , b )]"),
+            (
+                "(a, Some b, c)",
+                "PatternTuple[( a , PatternCtor[Some b] , c )]",
+            ),
+            ("[a, ..rest]", "PatternList[[ a , .. rest ]]"),
+            ("[]", "PatternList[[ ]]"),
+            (
+                "{ x, y = Some z }",
+                "PatternRecord[{ x , y = PatternCtor[Some z] }]",
+            ),
+            ("Point { x, .. }", "PatternCtorFields[Point { x , .. }]"),
+            (
+                "Some [n := k]",
+                "PatternCtor[Some PatternNamed[[ n := k ]]]",
+            ),
+            ("Some -1", "PatternCtor[Some PatternNegative[- 1]]"),
+            ("(-1)", "PatternParen[( PatternNegative[- 1] )]"),
+            ("(-1, 2)", "PatternTuple[( PatternNegative[- 1] , 2 )]"),
+            ("1 | 2 | 3", "PatternOr[1 | 2 | 3]"),
+            (
+                "(None | Some _)",
+                "PatternParen[( PatternOr[None | PatternCtor[Some _]] )]",
+            ),
+            ("()", "PatternAbsurd[( )]"),
+        ]);
+    }
+
+    #[test]
+    fn let_and_lambda_patterns_are_marked_as_written() {
+        check_expressions(&[
+            (
+                "(let (a, b) := p; a)",
+                "Paren[( LetExpr[Let[let PatternTuple[( a , b )] := p] ; a] )]",
+            ),
+            (
+                "((a, b): P) => a",
+                "Lambda[LambdaParam[PatternTyped[( PatternTuple[( a , b )] : P )]] => a]",
             ),
         ]);
     }

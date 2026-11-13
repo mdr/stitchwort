@@ -734,9 +734,9 @@ impl Parser<'_> {
         let mark = self.mark();
         let bar = self.bump().span;
         let mut patterns = header.to_vec();
-        patterns.push(self.unmarked_alt_pattern()?);
+        patterns.push(self.alt_pattern()?);
         while self.eat(&Tok::Comma) {
-            patterns.push(self.unmarked_alt_pattern()?);
+            patterns.push(self.alt_pattern()?);
         }
         let guard = self.guard()?;
         let rhs = self.arm_body(
