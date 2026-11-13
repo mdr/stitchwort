@@ -643,7 +643,7 @@ enum Command {
     Sweep(SweepCommand),
     /// The deletion oracle: try deleting each `.read`, or replacing each
     /// build helper by its proof, and check what the edit does
-    #[command(subcommand)]
+    #[command(hide = true, subcommand)]
     Oracle(OracleCommand),
     /// Format source files in place: indentation, spacing, blank lines and brackets, in the house style. Prints the files it changed
     Fmt {
