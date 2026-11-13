@@ -33974,12 +33974,12 @@
     {
       "id": 3133,
       "title": "[Opus] 2024 Day13.Proofs needs ~770 KiB natively in the elaborator's lift::go_replace and unify::rename_in (SW-3132 finding 1), plus the printer's go_node (~700 lines inline(always) into the recursive go, worst V8-to-guard ratio, SW-3128 finding 2); make those recursions loop or shrink their frames so Day13 fits the playground's 320 KiB guard; measure with the stack probe (STITCHWORT_STACK_PROBE)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Lane notes (Opus, 13 Nov 2026, 17:18-18:45):\n\n- Profiled with the stack probe plus a temporary backtrace at the deepest point and a guard override (neither committed). Day13's peak (762 KiB native) was the kernel's check of withinCosts' match motive (`motive_holds`): the goal's `machine.searchTokens 100` is read back in normal form, `List.range 0 101` computed out, ~330 levels of applications; per level check + 2 infer = 4.3 KiB. Under a 320 KiB guard, rename_in (Ctor args via collect) and lift::go_replace (2 frames/level) also failed, and winningCostsWin's `List.Any` over 101 numbers (`Or` 101 deep, kernel infer of Data).\n- Commit 1 (crates/core kernel check.rs + elab lift/unify): spine loop in kernel infer (`infer_spine`; same visits, same order), check -> check_app / check_form, cold arms and errors out of line (1.1 KiB/level); go_replace as `Replace` with a spine loop (0.85 KiB/level); rename_in data/ctor args in a loop, rarer forms in rename_other (0.9 KiB/level).\n- Commit 2 (crates/core pretty.rs, not the kernel): go_node a dispatcher to per-kind methods; Def-head notations in def_notation. V8 effect NOT measured (one more call per level): needs web/stress.html's printing case before/after; can be dropped on its own.\n- Results: Day13.Proofs peak 762 -> 286 KiB native, passes with a 320 KiB guard (failed before: 2 errors). Day22 210 -> 199; 2021 Day06 316 -> 314 (its peak is the elaborator's application checking, ~17 KiB per level, finding). Instructions (check --no-cache): Day13 110.43G -> 110.22-110.35G, Day22 105.37 -> 105.37-105.49G, Day06 22.45 -> 22.29-22.44G (noise).\n- Tests: new kernel::a_long_spine_is_inferred_in_a_loop, lift::tests (2), unify a_solution_is_written_back_from_a_deep_value, pretty::prints_a_deep_chain_of_operators_and_applications; core kernel:: (86), core+elab pretty|print|show (28), zonk_goes_down..., library hash_stability::prelude + pinned_hashes (6, INSTA_UPDATE=no), resources (26): all pass. check --no-cache of Day13/Day22/2021 Day06 Proofs: pass.\n- Reviews: commit 1 touches the kernel's check (Fable review per brief); generated terms unchanged.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []

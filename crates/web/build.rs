@@ -25,9 +25,11 @@ const WASM_STACK: usize = 8 * 1024 * 1024;
 /// `Thread::create` sets none), so probably about Chrome's room or a little
 /// less (not measured); Firefox's have 2 MiB. 320 KiB checks the proofs of
 /// all but two AoC days (256 KiB also failed 2021 days 6 and 11, and 2024
-/// day 16; 384 KiB passes no more). The two left need more than a safe
-/// guard allows: 2024 day 13 about 500 KiB (it would fit V8's stack, but
-/// with no margin), and day 22 about 2.3 MiB, far past it.
+/// day 16; 384 KiB passes no more). The two left then needed more than a
+/// safe guard allows: 2024 day 13 about 500 KiB, and day 22 about 2.3 MiB.
+/// Since, their deepest recursions take less stack (SW-3132, SW-3133): a
+/// native build, whose frames are larger, peaks at about 200 and 290 KiB
+/// on them (not yet measured in the browser).
 /// Set `STITCHWORT_GUARD` (bytes) to experiment.
 /// The same bytes natively are less depth (larger frames): a native release
 /// build needs about 1.5 times this to check `Float.Theory`
