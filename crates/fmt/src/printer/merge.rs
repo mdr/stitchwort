@@ -10,7 +10,8 @@
 //! mentions a name of the group is never merged: then splitting is exact,
 //! and the comparison sees everything the merge did.
 
-use stitchwort_syntax::tree::{Element, Node, NodeKind, SyntaxFile, token_text_range};
+use super::token_text_range;
+use stitchwort_syntax::tree::{Element, Node, NodeKind, SyntaxFile};
 use stitchwort_syntax::{DEFAULT_STACK, SourceMap, Tok, equivalence, parse_tree};
 
 /// A parameter in brackets, read from its node: `(a b: T)` or `[a: T]`.

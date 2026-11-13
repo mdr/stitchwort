@@ -9,7 +9,8 @@
 
 use std::collections::BTreeMap;
 
-use stitchwort_syntax::tree::{Element, Leaf, Node, NodeKind, SyntaxFile, token_text_range};
+use super::token_text_range;
+use stitchwort_syntax::tree::{Element, Leaf, Node, NodeKind, SyntaxFile};
 use stitchwort_syntax::{Tok, Token};
 
 use super::engine::Doc;

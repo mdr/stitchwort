@@ -20,7 +20,7 @@ mod rules;
 
 use std::collections::BTreeMap;
 
-use stitchwort_syntax::tree::{NodeKind, SyntaxFile, token_text_range};
+use stitchwort_syntax::tree::{NodeKind, SyntaxFile};
 use stitchwort_syntax::{
     DEFAULT_STACK, FileId, Lexed, SourceMap, Tok, equivalence, lex_with_trivia,
     parse_module_within, parse_tree,
@@ -340,3 +340,9 @@ fn check_file(file: FileId, before: &str, after: &str) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests;
+
+/// The source bytes a token was read from: since SW-3171 every token's span
+/// is exactly its text, interpolated text included.
+pub(crate) fn token_text_range(token: &stitchwort_syntax::Token) -> std::ops::Range<usize> {
+    token.span.start as usize..token.span.end as usize
+}
