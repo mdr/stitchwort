@@ -1,5 +1,5 @@
 {
-  "next": 3130,
+  "next": 3131,
   "tickets": [
     {
       "id": 47,
@@ -27552,14 +27552,14 @@
     {
       "id": 2657,
       "title": "[Sonnet] Cosmetic ∀ before a theorem's colon (D3472): the parser accepts theorem name ∀ (…): … (same term, same hash); stitchwort fmt inserts it on every theorem with explicit parameters and leaves it off implicit-only headers; docs/syntax.md, the guide and the proving guide; the sweep tool, rename and doc know the token",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
+      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nLane started 14:33, Sonnet (per D3551), expected 6 h.",
       "created": "2026-11-10",
       "updated": "2026-11-13",
       "commits": []
@@ -33927,6 +33927,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3130,
+      "title": "[DeepSeek] sweep::sweep_theorem_binders_writes_only_what_keeps_its_statement fails: its fixture theorem leAntisym, once converted, gets W-UNREACHABLE (the Zero/Succ and Succ/Zero arms become impossible with h1/h2 in the header), so the sweep refuses it and converted is []. Change the fixture (crates/cli/tests/tools/sweep.rs BEFORE/AFTER) to a theorem whose conversion leaves no impossible arm, keeping the test's three cases (converted, refused for a moved hash, skipped)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
