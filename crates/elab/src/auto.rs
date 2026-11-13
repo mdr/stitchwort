@@ -629,11 +629,13 @@ const MAX_RULE_BINDERS: usize = 8;
 
 /// A proof of `goal` by applying a `∀` fact in scope once: a hypothesis, or
 /// one of `parts` ([`hypothesis_parts`]), such as what `xs.all p = True`
-/// reads as, `∀ (x: a) => x ∈ xs → p x`. Each binder is an unknown, the
-/// fact's conclusion (its type under all its binders) must unify with
-/// `goal`, and each premise left unknown after that (a proposition, such as
-/// `y ∈ xs`) must be a hypothesis or a part of one exactly. Nothing is
-/// searched deeper: a premise is never proved by applying another fact.
+/// reads as, `∀ (x: a) => x ∈ xs → p x`. Its leading binders become
+/// unknowns, as few as make the rest unify with `goal` (`apply_rule`), and
+/// each premise left unknown after that (a proposition, such as `y ∈ xs`)
+/// must be a hypothesis or a part of one exactly. Nothing is searched
+/// deeper: a premise is never proved by applying another fact, and a
+/// conclusion that is a test fact isn't read (`(y != 0) = True` doesn't
+/// match a goal `y ≠ 0`).
 fn from_rules(cx: &mut Ctx, goal: &Value, parts: &[(Term, Value)]) -> Result<Option<Term>> {
     let mut facts: Vec<(Term, Value)> = (0..cx.level())
         .rev()
@@ -652,9 +654,11 @@ fn from_rules(cx: &mut Ctx, goal: &Value, parts: &[(Term, Value)]) -> Result<Opt
     Ok(None)
 }
 
-/// `proof: ty`, a `∀`, applied to an unknown for each binder, if its
-/// conclusion is `goal` and each premise that leaves unknown is one of
-/// `facts`.
+/// `proof: ty`, a `∀`, applied to an unknown for each of its first binders,
+/// as few as make what is left unify with `goal`, if each premise that
+/// leaves unknown is one of `facts`. The goal is tried before each binder
+/// is taken off, not only at the end: a conclusion `x ≠ 0` is itself a
+/// function type (`x = 0 → Void`), whose binder must stay.
 fn apply_rule(
     cx: &mut Ctx,
     proof: &Term,
@@ -666,17 +670,38 @@ fn apply_rule(
     let mut term = proof.clone();
     let mut ty = ty.clone();
     let mut binders = Vec::new();
-    while let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? {
+    loop {
+        if !binders.is_empty()
+            && let Some(()) = attempt(cx, |cx| premises_filled(cx, &ty, goal, &binders, facts))?
+        {
+            return Ok(Some(term));
+        }
+        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
+            return Ok(None);
+        };
         if binders.len() == MAX_RULE_BINDERS {
             return Ok(None);
         }
         let meta = cx.fresh_meta_of(&dom);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
-        binders.push((value.clone(), dom));
+        binders.push((value.clone(), (**dom.rc()).clone()));
         ty = cod.apply(&g, value)?;
     }
-    if !cx.unify(&ty, goal)? {
+}
+
+/// Whether `conclusion` unifies with `goal` and then each of `binders`
+/// (unknowns with their types) still unknown is a proposition that one of
+/// `facts` proves exactly, leaving no unknown.
+fn premises_filled(
+    cx: &mut Ctx,
+    conclusion: &Value,
+    goal: &Value,
+    binders: &[(Value, Value)],
+    facts: &[(Term, Value)],
+) -> Result<Option<()>> {
+    let g = cx.g();
+    if !cx.unify(conclusion, goal)? {
         return Ok(None);
     }
     let unknown = |v: &Value| -> Result<bool> {
@@ -685,7 +710,7 @@ fn apply_rule(
             Value::Neutral(Head::Meta(_), _)
         ))
     };
-    for (value, dom) in &binders {
+    for (value, dom) in binders {
         if !unknown(value)? {
             continue;
         }
@@ -706,12 +731,12 @@ fn apply_rule(
             return Ok(None);
         }
     }
-    for (value, _) in &binders {
+    for (value, _) in binders {
         if unknown(value)? {
             return Ok(None);
         }
     }
-    Ok(Some(term))
+    Ok(Some(()))
 }
 
 /// For a nested type `T` (`derive_induct.rs`), a goal `T.size y < T.size

@@ -54,3 +54,15 @@ test "checked" := checked [1, 4] 4 (Inr (Inl rfl)) == 4 ∧ checked [1, 7] 1 (In
 
 -- The same `∀`, given as a proposition.
 def given (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: ∀ (x: Nat) => x ∈ xs → x < 5): Nat := small y
+
+-- A rule whose conclusion is itself a negation: `x ≠ 0` is `x = 0 → Void`,
+-- and the rule is applied to `y` and `m` only, not past the `≠`.
+def nonzero (d: Nat) [auto ok: d ≠ 0]: Nat := d
+
+def divisor (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: ∀ (x: Nat) => x ∈ xs → x ≠ 0): Nat := nonzero y
+
+-- On a type known only to have `==`, a fact about it reads by its
+-- decision: `(a == b) = False` gives `a ≠ b` through `Decidable.refute`.
+def distinct [auto eq: DecEq k] (a: k) (b: k) [auto ok: a ≠ b]: Nat := 0
+
+def unequal [auto eq: DecEq k] (a: k) (b: k) (h: (a == b) = False): Nat := distinct a b

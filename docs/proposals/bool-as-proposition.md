@@ -849,11 +849,14 @@ the conjunction parts, so a proof that worked before keeps its term; in
 `cases`, a case a part closes is no longer split (`cases-bool`'s `andLeft`
 and `cases-argument`'s three theorems got shorter proofs and new hashes).
 One addition the List.all example needed: after the contradiction closer,
-`auto` applies a `∀` in scope once (`from_rules`): a hypothesis or a part
-whose conclusion, under unknowns for all its binders, unifies with the
-goal, each premise left unknown filled by a hypothesis or a part exactly,
+`auto` applies a `∀` in scope once (`from_rules`): a hypothesis or a part,
+its leading binders replaced by unknowns only as far as the rest unifies
+with the goal (so a conclusion `x ≠ 0`, itself `x = 0 → Void`, stays
+whole), each premise left unknown filled by a hypothesis or a part exactly,
 nothing deeper. It applies to a written `∀` hypothesis as well as a read
-one. With gluing off, `auto`'s obligations now keep the context's written
+one (D3544). A rule's conclusion isn't read: `xs.all (x => x != 0) = True`
+gives `∀ x ∈ xs, (x != 0) = True`, which doesn't match a goal `y ≠ 0`
+(reading it is a follow-up). Opus review: docs/reviews/SW-3059-review.md. With gluing off, `auto`'s obligations now keep the context's written
 types (`Obligation::written`), so a hypothesis reads the same way; a `match
 e:` equation has no written type, so with gluing off its test is read
 unfolded (`xs.contains x` as `∃`), as `.read` reads it there too.
