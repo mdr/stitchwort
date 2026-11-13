@@ -32965,9 +32965,9 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
