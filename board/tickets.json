@@ -34091,12 +34091,12 @@
     {
       "id": 3142,
       "title": "[DeepSeek] Examples, the guide's examples and web/guide write statements with -> where ∀ is meant, so W-ARROW-FORALL now shows in 39 rejected-example snapshots and, via proofs.sw's zeroPlusAll (∀ after the colon, kept to teach), in the guide's axioms outputs (10-proofs.md:1035,1047). Apply the 'Write ∀ instead of ->' rewrite to examples/ (accept, reject, goals, projects), docs/guide/examples and web/guide except files that teach -> on purpose (logic-forall.sw, forall-printed.sw); regenerate the snapshots (positions only plus the warnings gone); and decide with the orchestrator how the teaching example keeps its form without the warning leaking into unrelated outputs (e.g. move zeroPlusAll to its own file)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nReview: first pass rewrote examples that test binder introduction after the colon (cases-*); restored with expected warnings via --continue. Also fixed false W-ARROW-FORALL on unparseable files (driver.rs) with a test. Trip-journal hash snapshot regenerated on main (5 theorems' proofs re-elaborated; statements unchanged). Model result: DeepSeek, needed fixes (rewrote examples that test the old form; project snapshot), 120 min (est. 60).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
