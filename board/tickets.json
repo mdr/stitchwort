@@ -31746,14 +31746,14 @@
     {
       "id": 2970,
       "title": "[Opus] Tests with errors: a failed instance in another namespace is never registered, so instance search reports 'no Ord instance' / a fresh E-TYPE-MISMATCH instead of waiting (instance colorOrd: Ord Color := True; a < b elsewhere): record failed instances by interface and head type in the session and wait through note_failed_used (SW-2943, design §4.2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
