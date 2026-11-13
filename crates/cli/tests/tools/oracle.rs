@@ -166,3 +166,29 @@ fn oracle_refuses_a_project_that_does_not_check() {
     assert_eq!(json(&output)["status"], "refused");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// With `--files`, a file that can't be checked on its own (it imports a
+/// namespace of the project) is skipped, not judged: every site in it would
+/// look redundant.
+#[test]
+fn oracle_files_mode_skips_a_file_that_does_not_check_alone() {
+    let dir = scratch("skip");
+    let text = FIXTURE.replace(
+        "import Std (Nat, Bool, Eq)",
+        "import Std (Nat, Bool, Eq)\nimport Elsewhere (..)",
+    );
+    std::fs::write(dir.join("laws.sw"), text).unwrap();
+    let output = stitchwort(
+        &dir,
+        &["oracle", "readings", "--files", "laws.sw", "--json"],
+    );
+    let result = json(&output);
+    assert_eq!(result["summary"]["sites"], 0);
+    assert!(
+        result["skippedFiles"][0]
+            .as_str()
+            .unwrap()
+            .starts_with("laws.sw:")
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}

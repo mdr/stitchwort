@@ -92,6 +92,11 @@ impl Verdict {
 
 /// Checks an edited file against the original and says what became of it.
 trait Judge {
+    /// Whether the file as it is can be judged: a file that already fails
+    /// would make every site look redundant. The reason if not.
+    fn ready(&mut self, _path: &str, _original: &str) -> Result<(), String> {
+        Ok(())
+    }
     fn judge(&mut self, path: &str, original: &str, edited: &str) -> Verdict;
 }
 
@@ -165,6 +170,21 @@ struct FileJudge {
 }
 
 impl Judge for FileJudge {
+    fn ready(&mut self, path: &str, original: &str) -> Result<(), String> {
+        let (_, diagnostics) = self
+            .before
+            .entry(path.to_string())
+            .or_insert_with(|| file_hashes(path, original));
+        match diagnostics.iter().find(|d| d.severity == Severity::Error) {
+            Some(d) => Err(format!(
+                "it doesn't check on its own: {}: {}",
+                d.code,
+                first_line(&d.message)
+            )),
+            None => Ok(()),
+        }
+    }
+
     fn judge(&mut self, path: &str, original: &str, edited: &str) -> Verdict {
         let (was, was_diagnostics) = self
             .before
@@ -283,6 +303,12 @@ pub(super) fn run(args: &Args) -> ExitCode {
             }
         }
     }
+    if std_root.is_none() && args.half == Half::Builds {
+        eprintln!(
+            "warning: the library's source isn't here (give --std-root): the `.backward` of its \
+             readings won't be found, only the named helpers"
+        );
+    }
     let mut mode = "project";
     let mut targets = Vec::new();
     let mut judge: Box<dyn Judge> = if args.std {
@@ -389,11 +415,16 @@ pub(super) fn run(args: &Args) -> ExitCode {
 
     let started = Instant::now();
     let mut results: Vec<(String, Site, String, Verdict)> = Vec::new();
-    // Files that don't parse as they are: no site in them can be judged.
+    // Files that can't be judged as they are (they don't parse or check),
+    // each with the reason.
     let mut skipped: Vec<String> = Vec::new();
     'files: for t in &targets {
         if !parses(&t.text) {
-            skipped.push(t.path.clone());
+            skipped.push(format!("{}: it doesn't parse", t.path));
+            continue;
+        }
+        if let Err(why) = judge.ready(&t.path, &t.text) {
+            skipped.push(format!("{}: {why}", t.path));
             continue;
         }
         for site in oracle_sites::find(&t.text, args.half, &readings) {
@@ -520,7 +551,7 @@ fn report(
                 .join(", ")
         );
         for path in skipped {
-            println!("skipped {path}: it doesn't parse");
+            println!("skipped {path}");
         }
         for (helper, r) in &by_helper {
             println!(

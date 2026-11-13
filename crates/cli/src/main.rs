@@ -133,9 +133,11 @@ struct OracleArgs {
     /// needed
     #[arg(long, conflicts_with_all = ["std", "project"])]
     files: bool,
-    /// With --std: the library's source folder (default:
-    /// `crates/elab/src/std` here or above)
-    #[arg(long, value_name = "DIR", requires = "std")]
+    /// The library's source folder (default: `crates/elab/src/std` here or
+    /// above): the `@[reading]` theorems whose `.backward` the `builds`
+    /// half looks for are listed from it, and with --std it is what is
+    /// edited
+    #[arg(long, value_name = "DIR")]
     std_root: Option<PathBuf>,
     /// Try at most this many sites, in file and line order
     #[arg(long, value_name = "N")]
