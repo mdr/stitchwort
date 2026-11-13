@@ -228,8 +228,8 @@ at every status table, and picks the kind of work to fit it:
 - **Compute mode**: no new token-heavy lanes; running lanes finish
   and are merged as usual. Instead the machines are kept busy with
   compute-heavy, token-light work, started without asking Matt: the fuzzers
-  (`task fuzz:*`, large counts and fresh seeds), the full audit, the daily
-  and full tiers (still never back to back), uncached whole-AoC checks and
+  (`task fuzz:*`, large counts and fresh seeds), the full audit, the broad
+  and all tiers (still never back to back), uncached whole-AoC checks and
   Overmind comparison runs. One heavy job per machine at a time, as plain
   background commands that no agent watches; Overmind gets one long job
   per message.
@@ -311,8 +311,8 @@ The tiers are named by size: quick (was merge), broad (was daily), all
 orchestrator starts runs in the background, so it never stops answering
 Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
 
-- Don't run the daily tier (`task test:daily`, `nix flake check`) or the
-  full tier without asking Matt first. Never run them back to back.
+- Don't run the broad tier (`task test:broad`, `nix flake check`) or the
+  all tier without asking Matt first. Never run them back to back.
 - Except in compute mode: then the orchestrator may run these without
   asking (D3427; see "Choosing work by pace" above).
 - Lanes are very selective about tests. Run only targeted, fast tests that
@@ -342,15 +342,15 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
   orchestrator's own judgement. A whole-AoC or roguelike `check
   --no-cache`, or a profile across all of `aoc/`, is a broader suite.
 - Spend test time according to risk, within a stated budget.
-- Run long jobs (builds, browser tests, the daily tier when it's approved)
+- Run long jobs (builds, browser tests, the broad tier when it's approved)
   in the background.
 
 ## Always
 
 - Use `nix develop -c …` for project tools. `git add` new files before
   anything that goes through the flake.
-- Push `main` after each verified batch, with no `task test:merge` first:
-  Overmind runs a rolling broad check (the merge tier, whole-AoC and
+- Push `main` after each verified batch, with no `task test:quick` first:
+  Overmind runs a rolling broad check (the quick tier, whole-AoC and
   roguelike checks) of each newly pushed commit and reports only failures,
   which are then fixed or reverted. Main may be broken for a while; that's
   accepted (D3546, Matt, 13 Nov 2026: "I don't care about main being

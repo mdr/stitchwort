@@ -483,14 +483,14 @@ def main(): {IO} () :=
 /// least limits are in the next test.
 #[test]
 fn tail_calls_of_every_shape_run_in_constant_stack() {
-    // Ten million iterations on 64 MiB in the daily and full tiers; in merge
+    // Ten million iterations on 64 MiB in the broad and all tiers; in quick
     // and the lanes a million on 20 MiB (16 MiB of it the crossing's fixed room, so 4 MiB to run
     // in), which a leak of even 8 bytes an
     // iteration still overruns.
     const BIG: usize = 64 * 1024 * 1024;
     let (long, long_stack): (&str, usize) = match tier() {
-        Tier::Lane | Tier::Merge => ("1000000", 20 * 1024 * 1024),
-        Tier::Daily | Tier::Full => ("10000000", BIG),
+        Tier::Lane | Tier::Quick => ("1000000", 20 * 1024 * 1024),
+        Tier::Broad | Tier::All => ("10000000", BIG),
     };
     for (name, template) in tail_shapes() {
         for (iterations, check_machine, stack) in [("200000", true, BIG), (long, false, long_stack)]

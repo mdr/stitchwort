@@ -16,7 +16,7 @@ const STACK: usize = 64 * 1024 * 1024;
 /// The longest a test waits for the server's reply or diagnostics. It returns
 /// the moment the event arrives, so the ceiling only matters when the
 /// machine is so loaded that a check takes many times as long (7 to 37 times
-/// in the full tier, SW-2584); a hung server still fails, after this.
+/// in the all tier, SW-2584); a hung server still fails, after this.
 const WAIT: Duration = Duration::from_secs(30 * 60);
 
 struct Client {

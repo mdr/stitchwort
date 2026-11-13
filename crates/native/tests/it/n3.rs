@@ -173,12 +173,12 @@ def main(): {IO} () :=
 /// native frame per apply would reach its safety margin.
 #[test]
 fn tail_applies_run_in_constant_stack() {
-    // The full size in the daily and full tiers; in merge and the lanes a
+    // The full size in the broad and all tiers; in quick and the lanes a
     // quarter of the applies on 18 MiB (16 MiB of it the crossing's fixed room, so 2 MiB to run in), which a frame
     // per apply (16 bytes at least) still overruns.
     let (applies, stack) = match tier() {
-        Tier::Lane | Tier::Merge => (250_000, 18 * 1024 * 1024),
-        Tier::Daily | Tier::Full => (1_000_000, 64 * 1024 * 1024),
+        Tier::Lane | Tier::Quick => (250_000, 18 * 1024 * 1024),
+        Tier::Broad | Tier::All => (1_000_000, 64 * 1024 * 1024),
     };
     let source = tails(applies);
     with_stack(stack, move || {

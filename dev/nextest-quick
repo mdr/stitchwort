@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Generate the merge profile's default-filter in .config/nextest.toml.
+"""Generate the quick profile's default-filter in .config/nextest.toml.
 
-nextest has no includes, so the merge tier (the lane areas together, plus a
+nextest has no includes, so the quick tier (the lane areas together, plus a
 few extras) would be a hand-made copy of the lane filters that drifts. The
 copy is generated from them instead:
 
-  dev/nextest-merge           rewrite the merge profile's default-filter
-  dev/nextest-merge --check   exit 1 when the file is not what it generates
+  dev/nextest-quick           rewrite the quick profile's default-filter
+  dev/nextest-quick --check   exit 1 when the file is not what it generates
                               (the test-affected tests run this)
 
-Change a lane's filter, then run this; change the merge-only parts (EXTRAS) or
-the lanes left out (NOT_IN_MERGE) here.
+Change a lane's filter, then run this; change the quick-only parts (EXTRAS) or
+the lanes left out (NOT_IN_QUICK) here.
 """
 import os
 import re
@@ -20,13 +20,13 @@ import tomllib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NEXTEST = os.path.join(ROOT, ".config", "nextest.toml")
 
-# Lanes whose tests are not in the merge tier, and why.
-NOT_IN_MERGE = {
-    "lane-goals": "goals end to end: for the daily tier and `task test:lane`",
-    "lane-web": "the web crate's tests need the WebAssembly bundle; for the daily tier",
+# Lanes whose tests are not in the quick tier, and why.
+NOT_IN_QUICK = {
+    "lane-goals": "goals end to end: for the broad tier and `task test:lane`",
+    "lane-web": "the web crate's tests need the WebAssembly bundle; for the broad tier",
 }
 
-# Merge-only parts: wider than any one lane's.
+# Quick-only parts: wider than any one lane's.
 EXTRAS = [
     "package(stitchwort-core)",
     "package(stitchwort-native)",
@@ -43,15 +43,15 @@ def one_line(s):
 
 def generated(text):
     cfg = tomllib.loads(text)["profile"]
-    lanes = [p for p in cfg if p.startswith("lane-") and p not in NOT_IN_MERGE]
+    lanes = [p for p in cfg if p.startswith("lane-") and p not in NOT_IN_QUICK]
     parts = ["(%s)" % one_line(cfg[p]["default-filter"]) for p in lanes] + EXTRAS
     return '"""\n' + "\n| ".join(parts) + '\n"""'
 
 
 def rewrite(text):
-    pat = re.compile(r'(\[profile\.merge\]\n(?:(?!\n\[).)*?default-filter = )""".*?"""', re.S)
+    pat = re.compile(r'(\[profile\.quick\]\n(?:(?!\n\[).)*?default-filter = )""".*?"""', re.S)
     if not pat.search(text):
-        sys.exit("nextest-merge: no [profile.merge] default-filter found")
+        sys.exit("nextest-quick: no [profile.quick] default-filter found")
     return pat.sub(lambda m: m.group(1) + generated(text), text, count=1)
 
 
@@ -60,7 +60,7 @@ def main():
     new = rewrite(text)
     if "--check" in sys.argv:
         if new != text:
-            sys.exit("nextest-merge: the merge profile's default-filter is out of date with the lane profiles; run dev/nextest-merge")
+            sys.exit("nextest-quick: the quick profile's default-filter is out of date with the lane profiles; run dev/nextest-quick")
         return
     open(NEXTEST, "w").write(new)
 

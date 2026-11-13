@@ -4,21 +4,21 @@
 //!   `Iff`'s) left side, with its variables as holes, must find it, with no
 //!   internal error, and put it first (strictly, ties broken by name) for at
 //!   least 86% of conclusions and 78% of left sides;
-//! - proof uses (full tier only): each lemma used in a std proof, searched
+//! - proof uses (all tier only): each lemma used in a std proof, searched
 //!   for with the statement it proved there, the proof's variables as holes;
 //!   it must be among the first ten for at least half of them.
 //!
-//! The merge and lane tiers take the theorems whose qualified name hashes to
+//! The quick and lane tiers take the theorems whose qualified name hashes to
 //! a multiple of 8 (about 300 queries each, with two points of margin on the
 //! shares: [`bar`]), so adding a theorem to std adds at most itself to the
 //! sample and doesn't reshuffle the rest, as every 8th by declaration order
-//! did; the daily tier all of them (about 7 s and 4 s); proof uses take minutes, so only the full tier
+//! did; the broad tier all of them (about 7 s and 4 s); proof uses take minutes, so only the all tier
 //! runs them. The hand queries (draft 3 §6.3) run in every tier.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use stitchwort_core::{DataId, DefId, Term};
-use stitchwort_driver::driver::{Session, Tier, full_tier, tier, with_session};
+use stitchwort_driver::driver::{Session, Tier, all_tier, tier, with_session};
 use stitchwort_elab::search::{Candidate, Item, Kind, Mode, Opts, Pattern, Side};
 
 const STACK: usize = 64 * 1024 * 1024;
@@ -101,8 +101,8 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 /// runs: the items whose name hashes to a multiple of the stride.
 fn sample<T>(items: Vec<(String, T)>) -> Vec<T> {
     let stride = match tier() {
-        Tier::Merge | Tier::Lane => 8,
-        Tier::Daily | Tier::Full => 1,
+        Tier::Quick | Tier::Lane => 8,
+        Tier::Broad | Tier::All => 1,
     };
     (items.into_iter())
         .filter(|(name, _)| fnv1a(name.as_bytes()).is_multiple_of(stride))
@@ -111,13 +111,13 @@ fn sample<T>(items: Vec<(String, T)>) -> Vec<T> {
 }
 
 /// The least strict top-1 share a benchmark must reach: `whole` over every
-/// theorem (the daily tier), two points less on the merge and lane tiers'
+/// theorem (the broad tier), two points less on the quick and lane tiers'
 /// sample of about 300, where one query moves the share by a third of a
 /// point (31 Oct 2026: 87.7% of all conclusions, 86.0% of the sample).
 fn bar(whole: f64) -> f64 {
     match tier() {
-        Tier::Merge | Tier::Lane => whole - 2.0,
-        Tier::Daily | Tier::Full => whole,
+        Tier::Quick | Tier::Lane => whole - 2.0,
+        Tier::Broad | Tier::All => whole,
     }
 }
 
@@ -271,7 +271,7 @@ fn lemma_uses(g: &stitchwort_core::Ev, theorems: &BTreeSet<DefId>) -> Vec<Use> {
 
 #[test]
 fn proof_uses_find_their_lemma_among_the_first_ten() {
-    if !full_tier("proof_uses_find_their_lemma_among_the_first_ten") {
+    if !all_tier("proof_uses_find_their_lemma_among_the_first_ten") {
         return;
     }
     let score = with_session(STACK, Session::for_stack, |session| {

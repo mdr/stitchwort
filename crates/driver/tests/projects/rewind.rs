@@ -26,7 +26,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::audit;
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
+use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::live::{LiveProject, Place, Progress};
 use stitchwort_driver::nav::index_json;
 use stitchwort_driver::project::{DiskFiles, Target};
@@ -50,7 +50,7 @@ impl Source {
     }
 }
 
-/// A navigable session. Outside the full tier:
+/// A navigable session. Outside the all tier:
 /// - the library's files replay from the test std cache instead of being
 ///   checked from source in every one of the many sessions here
 ///   (docs/testing.md, "The test std cache"): the differential is of the
@@ -60,7 +60,7 @@ impl Source {
 ///   rejected example, and what rewinding must restore of one is the same
 ///   in all of them.
 ///
-/// The full tier checks the library and searches in every session.
+/// The all tier checks the library and searches in every session.
 fn session(source: &Source) -> Session {
     let mut session = Session::navigable_for_stack(STACK);
     session.use_test_std_cache();
@@ -69,9 +69,9 @@ fn session(source: &Source) -> Session {
 }
 
 /// Whether the counterexample search runs when a theorem of `source` fails:
-/// always in the full tier, and in the others for the examples named for it.
+/// always in the all tier, and in the others for the examples named for it.
 fn searches(source: &Source) -> bool {
-    stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::Full
+    stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::All
         || source.name().contains("counterexample")
 }
 
@@ -304,7 +304,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// full tier, a fixed sample ([`tier_sample`]: in the daily tier every
+/// all tier, a fixed sample ([`tier_sample`]: in the broad tier every
 /// eighth file and every fourth project), and every one with open goals
 /// (`goals/`, few; their tables are new) and every one about counterexample
 /// searches ([`searches`]).
@@ -349,7 +349,7 @@ fn aoc() -> Source {
 
 #[test]
 fn rewinding_changes_nothing_for_the_aoc_project() {
-    if !full_tier("rewinding_changes_nothing_for_the_aoc_project") {
+    if !all_tier("rewinding_changes_nothing_for_the_aoc_project") {
         return;
     }
     let source = aoc();
@@ -429,7 +429,7 @@ fn mark_and_rewind_cost(source: &Source) {
 /// promptly it stopped is printed (`--nocapture`).
 #[test]
 fn a_check_cancelled_part_way_rewinds() {
-    if !full_tier("a_check_cancelled_part_way_rewinds") {
+    if !all_tier("a_check_cancelled_part_way_rewinds") {
         return;
     }
     let source = aoc();
@@ -789,7 +789,7 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
         );
         (outcome(&s, &result), uses)
     });
-    // Every use in the full tier; in the others a fixed sample, every third
+    // Every use in the all tier; in the others a fixed sample, every third
     // (neighbouring uses are a library file's lookup and its write, or
     // the next file's).
     let points: Vec<(usize, usize)> = (fresh.iter().enumerate())
@@ -852,7 +852,7 @@ fn order_files(a: &str) -> BTreeMap<String, String> {
 
 /// The cache the whole test shares, so that `Order.C` can be replayed after
 /// an edit rewinds it. Its own directory, rather than the test std cache:
-/// [`Session::use_test_std_cache`] sets no cache at all in the full tier,
+/// [`Session::use_test_std_cache`] sets no cache at all in the all tier,
 /// where this test still needs one for the namespaces alone.
 fn order_cache(nonce: &str) -> PathBuf {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("rewind-order-{nonce}"));

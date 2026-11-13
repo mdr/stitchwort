@@ -102,7 +102,7 @@ pub fn par_map_with<S, T: Sync, R: Send>(
 /// [`par_map_with`] on at most `max_workers` threads: for a sweep whose
 /// `init` costs far more than an item (an eager session loads for seconds,
 /// a hash snapshot takes milliseconds), where each extra worker repeats the
-/// load and the merge tier's other tests already keep every core busy.
+/// load and the quick tier's other tests already keep every core busy.
 #[doc(hidden)]
 pub fn par_map_with_at_most<S, T: Sync, R: Send>(
     stack: usize,
@@ -151,26 +151,26 @@ pub fn par_map_with_at_most<S, T: Sync, R: Send>(
 }
 
 /// The test tier being run (docs/testing.md, "Tiers"): `STITCHWORT_TIER`
-/// is `lane`, `merge`, `daily` or `full`; when it is unset, the nextest
+/// is `lane`, `quick`, `broad` or `all`; when it is unset, the nextest
 /// profile of the same name (`.config/nextest.toml`) says which tier, and
-/// no profile at all means `daily` ([`tier`]). The tier decides how much of
-/// a corpus a sweep covers ([`tier_sample`]) and whether a full-only part of
-/// a test runs ([`full_tier`]).
+/// no profile at all means `broad` ([`tier`]). The tier decides how much of
+/// a corpus a sweep covers ([`tier_sample`]) and whether an all-only part of
+/// a test runs ([`all_tier`]).
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     Lane,
-    Merge,
-    Daily,
-    Full,
+    Quick,
+    Broad,
+    All,
 }
 
 /// The tier from `STITCHWORT_TIER`; when that is unset, from the nextest
 /// profile, which nextest puts in each test's `NEXTEST_PROFILE` and
-/// `.config/nextest.toml` names after the tier (`full`, `merge`, `daily`, and
-/// `lane-AREA` for a lane): so `cargo nextest run --profile full` runs the
-/// full-only tests without the variable having to be set. `default` (and no
-/// profile at all) means `daily`. A set `STITCHWORT_TIER` wins. Panics on an
+/// `.config/nextest.toml` names after the tier (`all`, `quick`, `broad`, and
+/// `lane-AREA` for a lane): so `cargo nextest run --profile all` runs the
+/// all-only tests without the variable having to be set. `default` (and no
+/// profile at all) means `broad`. A set `STITCHWORT_TIER` wins. Panics on an
 /// unknown name, so a typo doesn't quietly run the wrong amount.
 #[doc(hidden)]
 pub fn tier() -> Tier {
@@ -184,46 +184,46 @@ pub fn tier() -> Tier {
 fn tier_from(named: Option<&str>, profile: Option<&str>) -> Tier {
     if let Some(name) = named {
         return match name {
-            "" | "daily" => Tier::Daily,
+            "" | "broad" => Tier::Broad,
             "lane" => Tier::Lane,
-            "merge" => Tier::Merge,
-            "full" => Tier::Full,
-            other => panic!("STITCHWORT_TIER={other}: expected lane, merge, daily or full"),
+            "quick" => Tier::Quick,
+            "all" => Tier::All,
+            other => panic!("STITCHWORT_TIER={other}: expected lane, quick, broad or all"),
         };
     }
     match profile {
-        None | Some("" | "default" | "daily") => Tier::Daily,
-        Some("merge") => Tier::Merge,
-        Some("full") => Tier::Full,
+        None | Some("" | "default" | "broad") => Tier::Broad,
+        Some("quick") => Tier::Quick,
+        Some("all") => Tier::All,
         Some(name) if name == "lane" || name.starts_with("lane-") => Tier::Lane,
         Some(other) => {
-            panic!("NEXTEST_PROFILE={other}: expected default, lane-AREA, merge, daily or full")
+            panic!("NEXTEST_PROFILE={other}: expected default, lane-AREA, quick, broad or all")
         }
     }
 }
 
-/// Whether the full tier is on, for a test or part of one that runs only
+/// Whether the all tier is on, for a test or part of one that runs only
 /// there; when it is off, says what was skipped.
 #[doc(hidden)]
-pub fn full_tier(test: &str) -> bool {
-    let on = tier() == Tier::Full;
+pub fn all_tier(test: &str) -> bool {
+    let on = tier() == Tier::All;
     if !on {
-        eprintln!("skipped {test}: full tier only (`task test:full`)");
+        eprintln!("skipped {test}: all tier only (`task test:all`)");
     }
     on
 }
 
 /// A corpus sweep's share of `items` in this tier, a fixed sample (every
-/// n-th item, from the first, in the order given): every item in the full
-/// tier, every `daily_stride`-th in `daily`, and every
-/// `4 * daily_stride`-th in `merge` and `lane`. A stride of 1 means the
-/// whole corpus in `daily`.
+/// n-th item, from the first, in the order given): every item in the all
+/// tier, every `broad_stride`-th in `broad`, and every
+/// `4 * broad_stride`-th in `quick` and `lane`. A stride of 1 means the
+/// whole corpus in `broad`.
 #[doc(hidden)]
-pub fn tier_sample<T>(items: Vec<T>, daily_stride: usize) -> Vec<T> {
+pub fn tier_sample<T>(items: Vec<T>, broad_stride: usize) -> Vec<T> {
     let stride = match tier() {
-        Tier::Full => 1,
-        Tier::Daily => daily_stride.max(1),
-        Tier::Merge | Tier::Lane => 4 * daily_stride.max(1),
+        Tier::All => 1,
+        Tier::Broad => broad_stride.max(1),
+        Tier::Quick | Tier::Lane => 4 * broad_stride.max(1),
     };
     items.into_iter().step_by(stride).collect()
 }
@@ -718,15 +718,15 @@ impl Session {
     }
 
     /// For a test of what a program does, not of how the library checks:
-    /// in every tier but the full one, library files load through the test
+    /// in every tier but the all one, library files load through the test
     /// std cache (the one [`Session::eager_for_stack`] fills), where they
     /// would each be checked from source in every session, which was most
-    /// of the CPU of the tests that make many. The full tier still checks
+    /// of the CPU of the tests that make many. The all tier still checks
     /// from source, as a second guard beside `hash_stability`'s `prelude`. `Session::eager_from_source_for_stack` is
     /// for the tests of that check.
     #[doc(hidden)]
     pub fn use_test_std_cache(&mut self) {
-        if tier() == Tier::Full {
+        if tier() == Tier::All {
             return;
         }
         let dir = test_std_cache_dir(self.elab.options.limits.stack);
@@ -1707,21 +1707,21 @@ mod tests {
 
     #[test]
     fn the_nextest_profile_names_the_tier_when_the_variable_does_not() {
-        assert_eq!(tier_from(None, Some("full")), Tier::Full);
-        assert_eq!(tier_from(None, Some("merge")), Tier::Merge);
+        assert_eq!(tier_from(None, Some("all")), Tier::All);
+        assert_eq!(tier_from(None, Some("quick")), Tier::Quick);
         assert_eq!(tier_from(None, Some("lane-syntax")), Tier::Lane);
         assert_eq!(tier_from(None, Some("lane-search")), Tier::Lane);
-        assert_eq!(tier_from(None, Some("daily")), Tier::Daily);
-        assert_eq!(tier_from(None, Some("default")), Tier::Daily);
-        assert_eq!(tier_from(None, None), Tier::Daily);
+        assert_eq!(tier_from(None, Some("broad")), Tier::Broad);
+        assert_eq!(tier_from(None, Some("default")), Tier::Broad);
+        assert_eq!(tier_from(None, None), Tier::Broad);
     }
 
     #[test]
     fn a_set_variable_wins_over_the_nextest_profile() {
-        assert_eq!(tier_from(Some("daily"), Some("full")), Tier::Daily);
-        assert_eq!(tier_from(Some(""), Some("full")), Tier::Daily);
-        assert_eq!(tier_from(Some("merge"), Some("full")), Tier::Merge);
-        assert_eq!(tier_from(Some("full"), Some("default")), Tier::Full);
+        assert_eq!(tier_from(Some("broad"), Some("all")), Tier::Broad);
+        assert_eq!(tier_from(Some(""), Some("all")), Tier::Broad);
+        assert_eq!(tier_from(Some("quick"), Some("all")), Tier::Quick);
+        assert_eq!(tier_from(Some("all"), Some("default")), Tier::All);
     }
 
     #[test]

@@ -25,9 +25,9 @@
 //! fuzzer does, must never give an accepted theorem with a counterexample or
 //! an accepted `boom`.
 //!
-//! The seed is fixed, so a run is reproducible. The daily tier checks
+//! The seed is fixed, so a run is reproducible. The broad tier checks
 //! `MUTANTS` mutants of the examples and std, every second generated attempt
-//! and `VOIDS` mutated soundness examples (about 20 s); the full tier four
+//! and `VOIDS` mutated soundness examples (about 20 s); the all tier four
 //! times as many, from every corpus, and every attempt. `SOUND_MUTANTS`,
 //! `SOUND_VOID` (counts; `SOUND_VOID` also means every generated attempt),
 //! `SOUND_SEED` (decimal or `0x…`) and `SOUND_CORPUS` (`examples`, `std`,
@@ -74,11 +74,11 @@ static ALLOCATOR: heap_cap::Counting = heap_cap::Counting;
 
 const SEED: u64 = 0x5eed_0687_50fd_0001;
 /// Statement and proof mutants checked by default, from `examples/accept`
-/// and std (about 8 s). The full tier checks four times as many, from every
+/// and std (about 8 s). The all tier checks four times as many, from every
 /// corpus, AoC and the roguelike too.
 const MUTANTS: usize = 60;
-/// Mutated soundness examples checked by default (the full tier: four times
-/// as many). The daily tier checks every second generated attempt, the full
+/// Mutated soundness examples checked by default (the all tier: four times
+/// as many). The broad tier checks every second generated attempt, the all
 /// tier all of them.
 const VOIDS: usize = 30;
 const STACK: usize = 64 * 1024 * 1024;
@@ -1043,7 +1043,7 @@ struct JobResult {
 #[test]
 fn mutated_theorems_have_no_counterexample() {
     let started = Instant::now();
-    let default = if tier() == Tier::Full {
+    let default = if tier() == Tier::All {
         4 * MUTANTS
     } else {
         MUTANTS
@@ -1051,11 +1051,11 @@ fn mutated_theorems_have_no_counterexample() {
     let wanted = env_number("SOUND_MUTANTS").map_or(default, |n| n as usize);
     let seed = env_number("SOUND_SEED").unwrap_or(SEED);
     // AoC and the roguelike cost about a second a mutant (a namespace is
-    // checked again), so only the full tier and a run that asks take them.
+    // checked again), so only the all tier and a run that asks take them.
     let parts: Vec<String> = match env_text("SOUND_CORPUS") {
         Some(v) if v != "all" => v.split(',').map(|s| s.trim().to_string()).collect(),
         Some(_) => Vec::new(),
-        None if tier() == Tier::Full => Vec::new(),
+        None if tier() == Tier::All => Vec::new(),
         None => vec!["examples".to_string(), "std".to_string()],
     };
     let corpus = read_corpus(&parts);
@@ -2092,7 +2092,7 @@ fn mutate_program(rng: &mut Rng, text: &str) -> String {
 fn void_attempts_are_rejected() {
     let started = Instant::now();
     let seed = env_number("SOUND_SEED").unwrap_or(SEED);
-    let default = if tier() == Tier::Full {
+    let default = if tier() == Tier::All {
         4 * VOIDS
     } else {
         VOIDS

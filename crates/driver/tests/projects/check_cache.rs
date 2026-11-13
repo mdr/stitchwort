@@ -15,7 +15,7 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
+use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::JournalStats;
@@ -278,7 +278,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// full tier, a fixed sample ([`tier_sample`]: every eighth in daily).
+/// all tier, a fixed sample ([`tier_sample`]: every eighth in broad).
 fn examples() -> Vec<Source> {
     let mut sources = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
@@ -329,7 +329,7 @@ fn the_cache_keeps_glued_results_from_an_unglued_run() {
 
 /// SW-1072: an example that derives `Ord` over its own `DecEq`, with
 /// navigation recorded, round-trips through the cache. Always runs, so the
-/// merge tier covers it without the full example sweep.
+/// quick tier covers it without the full example sweep.
 #[test]
 fn the_cache_changes_nothing_for_derive_ord_own_deceq() {
     let path = examples_dir().join("accept/derive-ord-own-deceq.sw");
@@ -508,7 +508,7 @@ fn the_cache_replays_tailrec() {
 
 #[test]
 fn the_cache_changes_nothing_for_the_aoc_project() {
-    if !full_tier("the_cache_changes_nothing_for_the_aoc_project") {
+    if !all_tier("the_cache_changes_nothing_for_the_aoc_project") {
         return;
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
@@ -1055,7 +1055,7 @@ fn different_targets_share_one_cache() {
 /// load them), from a cache the whole project wrote.
 #[test]
 fn aocs_namespaces_load_on_their_own_from_the_whole_projects_cache() {
-    if !full_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
+    if !all_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
         return;
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");

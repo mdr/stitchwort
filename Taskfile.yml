@@ -1,10 +1,10 @@
 # The menu of what can be run in this repository, and when: `task --list`.
 # Run inside `nix develop` (it provides `task`, cargo, nextest, node and the
-# rest), e.g. `nix develop -c task test:merge`.
+# rest), e.g. `nix develop -c task test:quick`.
 #
-# Test tiers (docs/testing.md, "Tiers"): `lane` under 10 s, `merge` under
-# 90 s on a 10-core M1 Pro, `daily` under 5 minutes (what `nix flake check`
-# runs), `full` only when Matt asks. Which tests each tier runs is a nextest
+# Test tiers (docs/testing.md, "Tiers"): `lane` under 10 s, `quick` under
+# 90 s on a 10-core M1 Pro, `broad` long (what `nix flake check`
+# runs), `all` only when Matt asks. Which tests each tier runs is a nextest
 # profile of the same name in .config/nextest.toml; STITCHWORT_TIER tells the
 # corpus sweeps how much of the corpus to cover.
 version: '3'
@@ -80,19 +80,19 @@ vars:
   STEP: '{{.ROOT_DIR}}/dev/tier-step'
   REPORT: '{{.ROOT_DIR}}/dev/tier-report'
   MEM_CAP_LANE: 3
-  # Merge: 2.5 to 3.1 GB measured (2 Nov 2026, SW-1076; killed twice at 3). One
+  # Quick: 2.5 to 3.1 GB measured (2 Nov 2026, SW-1076; killed twice at 3). One
   # process is 1.4 to 1.5 GB: `search --at` of a goal that mentions `≤` (cli
   # `search` `what_closes_a_goal`) loads most of the library, as it did before
   # function equations; the rest is many 0.1 to 0.4 GB processes. 4 GB leaves
   # a quarter of headroom.
-  MEM_CAP_MERGE: 4
-  # test:selected runs the selector's choice, which may include tests the merge
-  # tier leaves out (SW-1760); it takes the daily cap, as test:one does.
+  MEM_CAP_QUICK: 4
+  # test:selected runs the selector's choice, which may include tests the quick
+  # tier leaves out (SW-1760); it takes the broad cap, as test:one does.
   MEM_CAP_SELECTED: 16
-  MEM_CAP_DAILY: 16
-  MEM_CAP_FULL: 16
-  # The daily and full tiers' nextest runs on a machine under 24 GiB: 4 tests
-  # at once, not the profile's 6 or 8. The full tier peaked at 12.7 GB on 6
+  MEM_CAP_BROAD: 16
+  MEM_CAP_ALL: 16
+  # The broad and all tiers' nextest runs on a machine under 24 GiB: 4 tests
+  # at once, not the profile's 6 or 8. The all tier peaked at 12.7 GB on 6
   # (a 15 GiB laptop, 8 Nov 2026, SW-2413) and was stopped for low memory.
   # Empty elsewhere (macOS has no /proc/meminfo; docs/testing.md, "Memory").
   TIER_THREADS:
@@ -148,16 +148,16 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_LANE}} -- cargo nextest run --release $({{.SCOPE}} --profile lane-{{.AREA}} -- {{.CLI_ARGS}}) --profile lane-{{.AREA}} {{.CLI_ARGS}}'
 
   test:one:
-    desc: 'Tests whose names match a filter, at the daily sample (task test:one -- named_calls)'
+    desc: 'Tests whose names match a filter, at the broad sample (task test:one -- named_calls)'
     summary: |
       Runs the tests matching the nextest arguments after `--`: a name
       substring (`task test:one -- named_calls`) or a filterset
       (`task test:one -- -E 'binary(server) & test(/^lsp::/)'`). A bare name matches test names
       only, so for a whole test binary use `-E 'binary(name)'`.
-      Corpus sweeps take the daily sample; set STITCHWORT_TIER=lane for the
-      smallest, full for all.
+      Corpus sweeps take the broad sample; set STITCHWORT_TIER=lane for the
+      smallest, all for everything.
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
 
   test:example:
     desc: 'Check one example''s snapshots: NAME is part of a file or project folder name, or a comma-separated list (task test:example NAME=test-hole)'
@@ -167,14 +167,14 @@ tasks:
       binary's guide:: tests (which ignore EXAMPLES and take minutes). NAME
       is part of an example file name or project folder name, or a
       comma-separated list (task test:example NAME=synonym,map). Corpus
-      sweeps take the daily sample; set STITCHWORT_TIER=lane for the
-      smallest, full for all.
+      sweeps take the broad sample; set STITCHWORT_TIER=lane for the
+      smallest, all for everything.
     requires:
       vars: [NAME]
     env:
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli -E ''binary(running) & test(/examples::(accepted|goal|rejected|soundness)/)'''
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release -p stitchwort-cli -E ''binary(running) & test(/examples::(accepted|goal|rejected|soundness)/)'''
 
   test:affected:
     desc: "Run the tests a diff can affect (task test:affected; -- --dry-run prints only, --explain says why)"
@@ -214,8 +214,8 @@ tasks:
       This lists each `[profile.lane-*]` in .config/nextest.toml with
       `cargo nextest list` (never runs a test) and fails, naming the profile,
       if one selects zero tests. New lane profiles are covered automatically.
-      About 1 s per profile once the binaries are built, so it is in the daily
-      tier, not the merge tier.
+      About 1 s per profile once the binaries are built, so it is in the broad
+      tier, not the quick tier.
     cmds:
       - |
         # The list goes through a file, not a variable: task's shell passes
@@ -236,34 +236,34 @@ tasks:
         done
         rm -f "$err" "$json"; exit $status
 
-  test:merge:
-    desc: Merge tier, under 90 s on a 10-core M1 Pro; run after every merge
+  test:quick:
+    desc: Quick tier, under 90 s on a 10-core M1 Pro; the verifier's budget and Overmind's rolling check
     summary: |
-      A broad smoke test: the feature sets, rustfmt, the parser and kernel,
+      A wide smoke test: the feature sets, rustfmt, the parser and kernel,
       a sample of the accepted and rejected examples, 14 of the AoC days'
       answers, a quarter of the examples' hash snapshots, and more (the
-      `merge` profile in .config/nextest.toml). Clippy is in the daily tier.
+      `quick` profile in .config/nextest.toml). Clippy is in the broad tier.
       Each step is timed, and the run ends with a report of where the time
-      went: target/tier-report/latest-merge.md (`task tier:report` lists the
+      went: target/tier-report/latest-quick.md (`task tier:report` lists the
       runs; docs/testing.md, "Tier reports").
     env:
-      STITCHWORT_TIER: merge
+      STITCHWORT_TIER: quick
     cmds:
-      - '{{.REPORT}} run merge -- task test:merge:steps -- {{.CLI_ARGS}}'
+      - '{{.REPORT}} run quick -- task test:quick:steps -- {{.CLI_ARGS}}'
 
-  test:merge:steps:
-    # The merge tier's steps, without the report around them.
+  test:quick:steps:
+    # The quick tier's steps, without the report around them.
     env:
-      STITCHWORT_TIER: merge
+      STITCHWORT_TIER: quick
     cmds:
       - '{{.STEP}} features -- task test:features'
       - '{{.STEP}} fmt -- cargo fmt --check'
       - '{{.STEP}} "wasm check" -- cargo check -p stitchwort-web --target wasm32-unknown-unknown --release'
-      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge --no-run {{.CLI_ARGS}}'
-      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_MERGE}} -- cargo nextest run --release --workspace --profile merge {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_QUICK}} -- cargo nextest run --release --workspace --profile quick --no-run {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_QUICK}} -- cargo nextest run --release --workspace --profile quick {{.CLI_ARGS}}'
 
   tier:report:
-    desc: "The last runs of the test tiers and where their time went (task tier:report -- -n 20 --tier daily)"
+    desc: "The last runs of the test tiers and where their time went (task tier:report -- -n 20 --tier broad)"
     summary: |
       Prints the last N runs (default 10) from target/tier-report/history.tsv:
       date, tier, commit, exit code, wall time, tests, failures, the sum of the
@@ -286,17 +286,17 @@ tasks:
       - '{{.ROOT_DIR}}/dev/test-inventory {{.CLI_ARGS}}'
 
   test:selected:
-    desc: "Run the selector's filterset as the merge tier would (task test:selected -- '<filterset>'), and log it"
+    desc: "Run the selector's filterset as the quick tier would (task test:selected -- '<filterset>'), and log it"
     summary: |
-      The feature sets, then `cargo fmt --check`, then nextest under the merge
-      profile's settings (STITCHWORT_TIER=merge, memory guard) with the given
+      The feature sets, then `cargo fmt --check`, then nextest under the quick
+      profile's settings (STITCHWORT_TIER=quick, memory guard) with the given
       filterset in place of the profile's own, then a line in
       dev/selector-log.tsv (date, commit, estimated and actual seconds,
       result, failed tests, filter). It folds its JUnit times into
       target/test-timings.json at the end. SELECTOR_ESTIMATE=N records the
       selector's own estimate. The log line is written only in the main
       checkout (the file is tracked; a lane's worktree would dirty it). The
-      memory cap is the daily tier's, not the merge tier's.
+      memory cap is the broad tier's, not the quick tier's.
     env:
       STITCHWORT_MEM_CAP_GB_SELECTED: '{{.MEM_CAP_SELECTED}}'
     cmds:
@@ -304,28 +304,27 @@ tasks:
       - cargo fmt --check
       - '{{.ROOT_DIR}}/dev/run-selected {{.CLI_ARGS}}'
 
-  test:daily:
-    desc: Daily tier, under 5 minutes; also what `nix flake check` runs
+  test:broad:
+    desc: 'Broad tier, long: the quick tier plus sampled sweeps; also what `nix flake check` runs'
     summary: |
-      Everything but the full tier's exhaustive runs, with corpus sweeps on a
-      fixed sample: rustfmt, clippy, the `daily` nextest profile, the
+      The quick tier plus sampled sweeps: rustfmt, clippy, the `broad` nextest profile, the
       doctests, and `library`'s `builtins::` tests in the debug profile (run beside the nextest
       profile). `task test:gate` runs
       the same in the Nix sandbox.
     env:
-      STITCHWORT_TIER: daily
+      STITCHWORT_TIER: broad
       # Two corpus sweeps run at once (`corpus-sweeps` in
       # .config/nextest.toml), each on a pool of 5 threads.
       STITCHWORT_TEST_THREADS: '5'
       # The float tests fail, not skip, when web/pkg is missing or stale.
       STITCHWORT_REQUIRE_WASM: '1'
     cmds:
-      - '{{.REPORT}} run daily -- task test:daily:steps MEM_CAP_DAILY={{.MEM_CAP_DAILY}} -- {{.CLI_ARGS}}'
+      - '{{.REPORT}} run broad -- task test:broad:steps MEM_CAP_BROAD={{.MEM_CAP_BROAD}} -- {{.CLI_ARGS}}'
 
-  test:daily:steps:
-    # The daily tier's steps, without the report around them.
+  test:broad:steps:
+    # The broad tier's steps, without the report around them.
     env:
-      STITCHWORT_TIER: daily
+      STITCHWORT_TIER: broad
       STITCHWORT_TEST_THREADS: '5'
       STITCHWORT_REQUIRE_WASM: '1'
     cmds:
@@ -333,50 +332,50 @@ tasks:
       - '{{.STEP}} fmt -- cargo fmt --check'
       - '{{.STEP}} lanes-nonempty -- task test:lanes-nonempty'
       - '{{.STEP}} clippy -- cargo clippy --release --all-targets -- --deny warnings'
-      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --profile daily --no-run {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --profile broad --no-run {{.CLI_ARGS}}'
       # `library`'s `builtins::` tests in the debug profile loads the whole library twice in an
       # unoptimised build, about 70 to 90 s of one core. It is built first
       # (17 s; cargo takes a lock on the build folder), then runs beside
       # nextest, one cap over both. The two runs are timed apart (the second
       # row of each is "beside"), and nextest's, which the tier waits for
       # longest, stands for the step.
-      - '{{.STEP}} "builtins build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test -p stitchwort-driver --test library --no-run'
+      - '{{.STEP}} "builtins build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo test -p stitchwort-driver --test library --no-run'
       - |
-        {{.STEP}} "nextest run (with builtins)" -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- bash -c '
+        {{.STEP}} "nextest run (with builtins)" -- {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- bash -c '
           log=$(mktemp)
           {{.STEP}} --parallel "builtins run" -- cargo test -p stitchwort-driver --test library builtins:: >"$log" 2>&1 &
           pid=$!
-          {{.STEP}} --parallel "nextest run" -- cargo nextest run --release --workspace --profile daily {{.TIER_THREADS}} {{.CLI_ARGS}}
+          {{.STEP}} --parallel "nextest run" -- cargo nextest run --release --workspace --profile broad {{.TIER_THREADS}} {{.CLI_ARGS}}
           status=$?
           wait "$pid" || { cat "$log"; status=1; }
           rm -f "$log"
           exit "$status"'
-      - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo test --release --doc --workspace'
+      - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo test --release --doc --workspace'
       - '{{.STEP}} board:test -- task board:test'
 
-  test:full:
-    desc: 'Full tier: every test, every corpus sweep in full. Only when Matt asks'
+  test:all:
+    desc: 'All tier: every test, every corpus sweep in full. Only when Matt asks'
     summary: |
       Every test, with every corpus sweep over the whole corpus and the
-      full-only tests on (the `full` nextest profile, STITCHWORT_TIER=full).
+      all-only tests on (the `all` nextest profile, STITCHWORT_TIER=all).
       Takes tens of minutes and much of the machine. Only when Matt asks.
-      `task test:full:nix` is the same in the Nix sandbox.
+      `task test:all:nix` is the same in the Nix sandbox.
     env:
-      STITCHWORT_TIER: full
+      STITCHWORT_TIER: all
       # Two corpus sweeps run at once, each on a pool of 5 threads.
       STITCHWORT_TEST_THREADS: '5'
     cmds:
-      - '{{.REPORT}} run full -- task test:full:steps MEM_CAP_FULL={{.MEM_CAP_FULL}} -- {{.CLI_ARGS}}'
+      - '{{.REPORT}} run all -- task test:all:steps MEM_CAP_ALL={{.MEM_CAP_ALL}} -- {{.CLI_ARGS}}'
 
-  test:full:steps:
-    # The full tier's steps, without the report around them.
+  test:all:steps:
+    # The all tier's steps, without the report around them.
     env:
-      STITCHWORT_TIER: full
+      STITCHWORT_TIER: all
       STITCHWORT_TEST_THREADS: '5'
     cmds:
-      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full --no-run {{.CLI_ARGS}}'
-      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --profile full {{.TIER_THREADS}} {{.CLI_ARGS}}'
-      - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo test --release --doc --workspace'
+      - '{{.STEP}} "nextest build" -- {{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release --workspace --profile all --no-run {{.CLI_ARGS}}'
+      - '{{.STEP}} "nextest run" -- {{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release --workspace --profile all {{.TIER_THREADS}} {{.CLI_ARGS}}'
+      - '{{.STEP}} doctests -- {{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo test --release --doc --workspace'
       - '{{.STEP}} verify-cache -- task test:verify-cache'
 
   test:verify-cache:
@@ -389,7 +388,7 @@ tasks:
       hash. A failure means the test cache's key misses an input
       (docs/proposals/test-cache-key.md, section 8). A verify run that
       compared nothing also fails, so a fresh binary can't pass without
-      filling the cache. Part of the full tier.
+      filling the cache. Part of the all tier.
     deps: [build]
     cmds:
       - 'cd aoc && {{.SW}} test'
@@ -398,17 +397,17 @@ tasks:
       - 'cd games/rogue && {{.SW}} test --verify-cache'
 
   test:gate:
-    desc: 'nix flake check: the daily tier in the Nix sandbox, with clippy, rustfmt, debug-builtins and the board'
+    desc: 'nix flake check: the broad tier in the Nix sandbox, with clippy, rustfmt, debug-builtins and the board'
     summary: |
       Bounded so it doesn't starve other work: GATE_CORES (default 6) cores,
       GATE_JOBS (default 2) jobs.
     cmds:
       - nix flake check --option cores {{.GATE_CORES | default 6}} --option max-jobs {{.GATE_JOBS | default 2}}
 
-  test:full:nix:
-    desc: 'nix build .#stitchwort-full: the full tier in the Nix sandbox. Only when Matt asks'
+  test:all:nix:
+    desc: 'nix build .#stitchwort-all: the all tier in the Nix sandbox. Only when Matt asks'
     cmds:
-      - nix build .#stitchwort-full --no-link --option cores {{.GATE_CORES | default 6}} --option max-jobs {{.GATE_JOBS | default 2}}
+      - nix build .#stitchwort-all --no-link --option cores {{.GATE_CORES | default 6}} --option max-jobs {{.GATE_JOBS | default 2}}
 
   test:areas:
     desc: "Retired: use test:affected"
@@ -457,7 +456,7 @@ tasks:
       FUZZ_ONLY: '{{.ONLY}}'
       FUZZ_DUMP: '{{.DUMP}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''binary(fuzz_elab)'' {{.CLI_ARGS}}'
 
   fuzz:soundness:
     desc: 'Soundness fuzzer, release, a few minutes (task fuzz:soundness MUTANTS=600 VOID=400 SEED=0x2 CORPUS=aoc,rogue)'
@@ -472,7 +471,7 @@ tasks:
       SOUND_SEED: '{{.SEED}}'
       SOUND_CORPUS: '{{.CORPUS}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
 
   fuzz:syntax:
     desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000)'
@@ -480,7 +479,7 @@ tasks:
     env:
       FUZZ_CASES: '{{.CASES}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-syntax) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-syntax) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   fuzz:fmt:
     desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000)'
@@ -488,7 +487,7 @@ tasks:
     env:
       FUZZ_CASES: '{{.CASES}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   fuzz:kernel:
     desc: 'Kernel fuzzer, release (task fuzz:kernel CASES=20000 SEED=0x2)'
@@ -497,7 +496,7 @@ tasks:
       FUZZ_CASES: '{{.CASES}}'
       FUZZ_SEED: '{{.SEED}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-core) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   # ------------------------------------------- snapshots and generated text
 
@@ -517,11 +516,11 @@ tasks:
   snap:examples:
     desc: 'Update the examples'' error-message snapshots (NAME=part of a file name, or a comma-separated list; all if unset), then list them'
     env:
-      STITCHWORT_TIER: full
+      STITCHWORT_TIER: all
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-cli --test running --no-fail-fast examples::'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release -p stitchwort-cli --test running --no-fail-fast examples::'
       - git status --short -- '*.snap'
 
   pins:show:
@@ -532,11 +531,11 @@ tasks:
   snap:hashes:
     desc: 'Update the hash-stability snapshots (NAME=part of an example file name, e.g. NAME=ranges-omega, or a comma-separated list; all if unset; std changes run it without NAME), then list them'
     env:
-      STITCHWORT_TIER: full
+      STITCHWORT_TIER: all
       INSTA_UPDATE: always
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast hash_stability::'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release -p stitchwort-driver --test library --no-fail-fast hash_stability::'
       - git status --short -- '*.snap'
 
   snap:one:
@@ -544,7 +543,7 @@ tasks:
     env:
       INSTA_UPDATE: always
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_FULL}} -- cargo nextest run --release --workspace --no-fail-fast {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_ALL}} -- cargo nextest run --release --workspace --no-fail-fast {{.CLI_ARGS}}'
       - git status --short -- '*.snap'
 
   guide:update:
@@ -552,12 +551,12 @@ tasks:
     env:
       STITCHWORT_GUIDE_UPDATE: '1'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli --test tools guide::'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release -p stitchwort-cli --test tools guide::'
 
   bench:
     desc: 'Benchmarks against bench/baseline.toml: counts and time (about 4 minutes on a quiet machine, 80 s with -- --no-time; args after --)'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo run --release -p stitchwort-bench -- {{.CLI_ARGS}}'
 
   measure:state:
     desc: 'Step 6 measurements (elaborator-state.md 4.8.7): edit loop, CLI modes, rewind; about 40 min, foreground (task measure:state -- LABEL)'
@@ -573,7 +572,7 @@ tasks:
   bench:update:
     desc: Record this run as the benchmark baseline (bench/baseline.toml); on a quiet machine
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo run --release -p stitchwort-bench -- --update'
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo run --release -p stitchwort-bench -- --update'
 
   native:handwritten:
     desc: 'Hand-written native experiment (bench/native/handwritten): release build, every mode at 1,000,000 keys'

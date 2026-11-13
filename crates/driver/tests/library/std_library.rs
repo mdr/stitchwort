@@ -10,7 +10,7 @@ use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{
-    Cache, Outcome, Session, full_tier, par_map_with, tier_sample, with_session, with_stack,
+    Cache, Outcome, Session, all_tier, par_map_with, tier_sample, with_session, with_stack,
 };
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -1009,9 +1009,9 @@ fn name(source: &Source) -> &str {
 /// declaration the program made and every library declaration that
 /// was loaded (§4.0).
 ///
-/// A corpus sweep: every eighth source in the daily tier (a fixed sample),
-/// all of them in the full tier ([`tier_sample`]); the AoC project only in
-/// the full tier.
+/// A corpus sweep: every eighth source in the broad tier (a fixed sample),
+/// all of them in the all tier ([`tier_sample`]); the AoC project only in
+/// the all tier.
 fn assert_lazy_is_eager(sources: Vec<Source>) {
     let sources = tier_sample(sources, 8);
     // Each worker keeps one eager session (loading the whole library takes a
@@ -1079,7 +1079,7 @@ fn lazy_loading_changes_nothing_for_the_example_projects() {
 
 #[test]
 fn lazy_loading_changes_nothing_for_the_aoc_project() {
-    if !full_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
+    if !all_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
         return;
     }
     assert_lazy_is_eager(aoc());
@@ -1092,7 +1092,7 @@ fn lazy_loading_changes_nothing_for_the_aoc_project() {
 fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let mut sources = example_files("accept");
     sources.extend(example_files("extract"));
-    // Outside the full tier, a fixed sample: what is checked is the core's
+    // Outside the all tier, a fixed sample: what is checked is the core's
     // independence of the library, which a sample of the examples shows.
     let sources = tier_sample(sources, 4);
     // Whether each source used no library name (and so the core alone ran it).
@@ -1131,12 +1131,12 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let used_the_library = ran_alone.len() - ran;
     eprintln!("core alone ran {ran}; {used_the_library} use a library name");
     // The sample shrinks with the tier (`tier_sample`): about 125 sources
-    // in full, a quarter in daily, a sixteenth in merge and lanes.
+    // in all, a quarter in broad, a sixteenth in quick and lanes.
     use stitchwort_driver::driver::{Tier, tier};
     let enough = match tier() {
-        Tier::Full => 50,
-        Tier::Daily => 10,
-        Tier::Merge | Tier::Lane => 3,
+        Tier::All => 50,
+        Tier::Broad => 10,
+        Tier::Quick | Tier::Lane => 3,
     };
     assert!(ran > enough, "only {ran} examples ran on the core alone");
 }

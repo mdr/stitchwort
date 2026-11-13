@@ -42,9 +42,9 @@ task web:serve                  # build, then serve web/ at http://127.0.0.1:800
 task test:browser               # build, then test the playground in headless Chrome (needs Chrome)
 
 task --list                     # the menu: building, tests, snapshots, benchmarks, playground, board, AoC
-task test:lane AREA=syntax      # tests in tiers (docs/testing.md): lane < 10 s, merge < 90 s
-task test:merge                 #   on a 10-core M1 Pro, daily < 5 minutes (what
-task test:daily                 #   `nix flake check` runs), full
+task test:lane AREA=syntax      # tests in tiers (docs/testing.md): lane < 10 s, quick < 90 s
+task test:quick                 #   on a 10-core M1 Pro, broad long (what
+task test:broad                 #   `nix flake check` runs), all
 task bench                      # benchmarks, compared with bench/baseline.toml
 ```
 

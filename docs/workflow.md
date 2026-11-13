@@ -41,7 +41,7 @@ rules are in [`dev/briefs/design.md`](../dev/briefs/design.md) and
 right one and adds the task, the time estimate and the D number range.
 Change those files rather than retyping rules into briefs.
 
-Paper lanes are how idle slots get filled: while a heavy job (the daily
+Paper lanes are how idle slots get filled: while a heavy job (the broad
 tier, a long build) holds the machine, or whenever a slot would otherwise
 wait, pick a design note, a review of recent merges, a literature survey or
 a friction synthesis from the backlog (Matt, 6 Nov 2026: "we can do a lot
@@ -128,28 +128,33 @@ through `grep CONFLICT` hid its failure the same way. So:
 
 ## Checks after a merge
 
-(D2221, Matt, 2 Nov 2026; batches since D2392, Matt, 5 Nov 2026.) The
-orchestrator merges every reviewed lane that is waiting in one go, then
+(D2221, Matt, 2 Nov 2026; batches since D2392, Matt, 5 Nov 2026; D3545
+and D3546, Matt, 13 Nov 2026.) The orchestrator merges every reviewed lane
+that is waiting in one go, then
 starts one background verifier over the batch, a Haiku agent, with a short brief: the merge commit,
-the exact commands to run on `main` (`task test:selected` with its
+the exact commands to run on `main` (`task test:affected` with its
 filterset, and for a proof lane `task audit:touched --
 <Namespace>` from the project's directory, e.g. `aoc/`), and nothing else.
 It runs them one after another, never in the background, changes nothing,
 and reports pass, or each failing test with the first lines of its output,
 plus the wall time and `uptime` before and after. The orchestrator carries
-on meanwhile; lanes that finish wait for the next batch, so the tree
-doesn't change under the verifier. A failure becomes a fix for an agent,
-or the merge that caused it is reverted; bisecting a batch's merges is
-cheap while the batch is unpushed. Only one verifier runs at a time, and
-none while timing-sensitive work is running.
+on meanwhile; lanes that finish close together share one verifier, and the
+others wait for the next batch, so the tree doesn't change under it. A
+failure becomes a fix for an agent, or the merge that caused it is reverted;
+bisecting a batch's merges is cheap while the batch is unpushed. Only one
+verifier runs at a time, and none while timing-sensitive work is running.
 
-After each merge the tests run are a selection that fits the change, not a
-fixed set (SW-1098; D2255, Matt, 3 Nov 2026). The merge check is tuned for
-quick feedback that keeps work flowing; what it misses is caught later by
-the fixed merge tier, the daily tier or the full tier.
+After each batch the tests run are a selection that fits the change, not a
+fixed set (SW-1098; D2255, Matt, 3 Nov 2026). The verifier's budget is about
+90 s of tests chosen by what the batch touched: hash snapshots always,
+example kinds for elaborator changes, and std's own tests and pins for std
+changes. What it misses is caught later by Overmind's rolling broad check,
+which runs the quick tier and the whole-AoC and roguelike `check --no-cache`
+of each newly pushed commit, about an hour behind, and reports only new
+failures with the last passing commit.
 
 1. The verifier refreshes the inventory (`nix develop -c task test:inventory
-   -- --junit target/nextest/merge/junit.xml`), which lists every test with
+   -- --junit target/nextest/quick/junit.xml`), which lists every test with
    its profiles and last known time. Times come from nextest's JUnit files;
    each run folds in, the latest wins. `task test:selected` folds its own
    JUnit times as it ends, so the next run cannot overwrite them unread.
@@ -164,21 +169,18 @@ the fixed merge tier, the daily tier or the full tier.
 3. It runs the selection: `nix develop -c task test:affected -- --range
    OLD..NEW` as it stands, or `SELECTOR_ESTIMATE=N [EXAMPLES=x] nix develop
    -c task test:selected -- '<filterset>'` for an edited one. Both run `task test:features` and
-   `cargo fmt --check`, then nextest as `test:merge` does, and logs a line
+   `cargo fmt --check`, then nextest as `test:quick` does, and logs a line
    to `dev/selector-log.tsv`.
 
-**A batch's whole check takes about two minutes** (D2441, Matt, 5 Nov
-2026: "it's got to be only a couple of minutes. We'll pick up other issues
-that slip past in the daily or full runs later, and accept regressions as a
-risk. The important thing is not to get bogged down and slow the flow of
-work."). It runs in the main checkout: the selected tests (budget about
-90 s), `task audit:touched` for a proof lane's namespaces, and nothing else.
-The fixed merge tier (`task test:merge`) and the full `task audit` don't run
-per batch, even when `crates/core`, `crates/elab` or `crates/driver`
-changed; they run at the daily and full tiers and before the occasional push (a few times a day at most), where a
-failure that the selections missed is recorded on SW-1098 and the merges
-since the last pass are the suspects. The inventory is refreshed only when
-a batch adds or renames many tests.
+A batch's whole check is the 90 s selection plus `task audit:touched` for a
+proof lane's namespaces, and nothing else. **Push after each verified batch,
+with no quick-tier run first** (D3545, D3546, Matt, 13 Nov 2026: "I don't
+care about main being broken ... As long as we are going to detect it and
+fix it later"). Overmind's rolling broad check reports what the selection
+missed, with the last passing commit; main may be broken for a while, and
+what it finds is fixed or reverted. Board-only commits wait for the next
+push. The inventory is refreshed only when a batch adds or renames many
+tests.
 
 Ways a selection has gone wrong before (5-6 Nov 2026), each turning a
 two-minute check into six or more:
@@ -289,7 +291,7 @@ The real fix is kache 1.1 or later (the nixpkgs one is 1.0.0; upstream is at
 shows whether they are still needed.
 
 **Which results could have been affected.** Only lane builds in checkouts
-under `.claude/worktrees` (the main checkout, the verifier and the merge
+under `.claude/worktrees` (the main checkout, the verifier and the quick
 tier build without kache, so a merged result was never kache's). The
 symptom is usually loud (a method or type "not found", as in SW-2932) but a
 body-only edit would run the old code with no error. A lane is suspect if it
@@ -310,19 +312,22 @@ that most of the time the tests being run are fast ones:
   changed, and `task test:one -- NAME` for the tests it touched (a bare name
   matches test names only; `-E 'binary(name)'` selects a whole test binary),
   while it works.
-- **merge**, under 90 s on a 10-core M1 Pro: `task test:merge` on `main` after every merge.
-- **daily**, under 5 minutes: `task test:daily`, or `nix flake check`
-  (`task test:gate`), at a daily checkpoint: formatting, clippy, every test
-  with the corpus sweeps on a sample, the examples and their snapshots, hash
-  stability and the benchmark baseline, and `debug-builtins` (the
+- **quick**, under 90 s on a 10-core M1 Pro: the verifier's selection
+  after each batch (`task test:affected`, or `task test:selected`), and the
+  quick tier in Overmind's rolling broad check.
+- **broad**, long: `task test:broad`, or `nix flake check`
+  (`task test:gate`), with Matt's approval or in compute mode: the quick
+  tier plus the corpus sweeps on their samples, formatting, clippy, the
+  examples and their snapshots, hash stability and the benchmark baseline,
+  and `debug-builtins` (the
   `stitchwort-driver` `builtins` test binary, which loads the prelude, built
   and run in the debug profile so overflow checks and `debug_assert!`s are
   exercised; every other check is release).
-- **full**: `task test:full`, every test over the whole corpus, only when
-  Matt asks.
+- **all**, hours: `task test:all`, every test over the whole corpus; paused
+  (Matt, 12 Nov 2026).
 
 New files must be `git add`ed first, since the flake only sees tracked
-files. Long runs (the daily tier, browser tests, builds) go in the
+files. Long runs (the broad tier, browser tests, builds) go in the
 background.
 
 Before committing, run `stitchwort fmt` on the `.sw` files you touched. The
@@ -337,14 +342,13 @@ or `target/release/stitchwort fmt FILE` after a build. File arguments are
 relative to the folder you run it from, never to `--project`, so a "No such
 file" for a tour page means the command ran from the wrong folder (SW-2618).
 
-The orchestrator pushes `main` only occasionally, a few times a day at most
-(Matt, 11 Nov 2026): when Matt wants to look at something, when Overmind
-needs a commit, or at the end of a working block. Before each such push it
-runs the merge tier once, `task test:merge` (about 110 s measured on a quiet
-10-core machine, plus the release test build, which after fresh merges can
-take minutes in the uncached main checkout). The merge tier is not run after
-every merge or for board-only commits; those go out with the next real push.
-Lanes never push.
+The orchestrator pushes `main` after each verified batch, with no quick-tier
+run first (D3545, D3546, Matt, 13 Nov 2026). Overmind's rolling broad check
+runs the quick tier and the whole-AoC and roguelike `check --no-cache` of each
+newly pushed commit, about an hour behind, and reports only new failures with
+the last passing commit. Main may be broken for a while; what it finds is
+fixed or reverted. Board-only commits wait for the next push. Lanes never
+push.
 
 ## Stopping a lane's own test runs
 
@@ -365,7 +369,7 @@ selects the run by its process tree (the background job's pid and its
 descendants, `pgrep -P` recursively), never by the binary's path. Matching
 `target/release/stitchwort` also matches the language server that VS Code
 runs from the main checkout (`stitchwort lsp`, `stitchwort.path` in
-Matt's settings): on 3 Nov 2026 pausing a daily run that way froze Matt's
+Matt's settings): on 3 Nov 2026 pausing a broad run that way froze Matt's
 editor for about 55 minutes and then killed its server (SW-1110). Check the
 list before signalling. In zsh, `kill $pids` doesn't split a
 newline-separated variable; use `xargs`.
@@ -558,12 +562,15 @@ see zombies (3 Nov 2026), and they make the active-work table wrong:
 ### Overmind, the soak laptop
 
 Overmind is Matt's old laptop: NixOS, x86_64, an i7-6700HQ (8 threads),
-15 GiB RAM. It runs long fuzz and soak runs (SW-2100's `dev/soak/run`), not
-merge checks. Its Claude Code session shows in `ListAgents` as `overmind`
+15 GiB RAM. It runs Overmind's rolling broad check of each pushed commit
+(the quick tier and the whole-AoC and roguelike `check --no-cache`), and
+long fuzz and soak runs (SW-2100's `dev/soak/run`). Its Claude Code session
+shows in `ListAgents` as `overmind`
 (Remote Control): `SendMessage` reaches it, and it answers with
 `SendMessage` to "Stitchwort Orchestrator". It runs Matt's default model
 (Opus as of 7 Nov 2026). Its checkout, `~/repos/mdr/stitchwort`, pulls from
-GitHub, so it sees only what has been pushed, and the orchestrator pushes a few times a day at most (see "The test tiers").
+GitHub, so it sees only what has been pushed; the orchestrator pushes after each
+verified batch (see "The test tiers").
 
 First soak report (7 Nov 2026): whole-AoC `check --no-cache` 134 s against
 65 s on Speedwell (about 2x slower; std's cold check about 4x); an
@@ -594,4 +601,4 @@ Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).
   `audited N theorems and M generated lemmas: …` when the compiler
   generated lemmas too).
 
-**At merge** (D2043, Matt, 30 October 2026; trimmed by D2441, 5 Nov 2026): a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 90 s budget the search would break.
+**At merge** (D2043, Matt, 30 October 2026; trimmed by D2441, 5 Nov 2026): a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:quick`, whose 90 s budget the search would break.

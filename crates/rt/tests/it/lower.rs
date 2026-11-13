@@ -216,9 +216,9 @@ fn every_example_project_lowers() {
 
 #[test]
 fn every_aoc_main_lowers() {
-    // Full tier only: it took 36 minutes in the daily tier (31 Oct 2026,
+    // All tier only: it took 36 minutes in the broad tier (31 Oct 2026,
     // docs/testing.md); SW-839's fast lowering check is to take its place.
-    if !stitchwort_driver::driver::full_tier("every_aoc_main_lowers") {
+    if !stitchwort_driver::driver::all_tier("every_aoc_main_lowers") {
         return;
     }
     // Each part of the project in a session of its own, side by side

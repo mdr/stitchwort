@@ -17,8 +17,8 @@
 //! `named_forms_have_the_positional_hash` checks pairs written both ways in
 //! one file: method sections, dot notation, pipes and constructors.
 //!
-//! Every file in the daily and full tiers, a quarter of them (`tier_sample`)
-//! in the merge tier.
+//! Every file in the broad and all tiers, a quarter of them (`tier_sample`)
+//! in the quick tier.
 //!
 //! `NAMED_ARGUMENTS=<text>` limits the differential test to the files whose
 //! name contains it.
