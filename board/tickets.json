@@ -1,5 +1,5 @@
 {
-  "next": 3102,
+  "next": 3105,
   "tickets": [
     {
       "id": 47,
@@ -33558,11 +33558,50 @@
     {
       "id": 3101,
       "title": "[Sonnet] Bool as proposition stage 4: measure, for D3549 (silent crossing): after the std and AoC sweeps, count the .read uses and the conversion helpers still used (DecEq.sound, Bool.andLeft…, memContains.backward, allOfAll, trueOfNe, falseOfNotTrue…) across std, aoc, games/rogue and examples, and classify each site: would §7's restricted silent crossing (insert .read only where the wanted type's head is known and not =, outside try-and-fall-back paths; e = False against ¬(e = True) first) apply, and would building a fact from a proof of its reading apply. Paper lane: report with counts, examples and a recommendation",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "\nReport: docs/reviews/SW-3101-measure.md. Model result: Sonnet (paper), worked, 7 min (est. 45).",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3102,
+      "title": "[Sonnet] Bool as proposition stage 6, the rest: sweep aoc/src/Aoc/Common (60 helper uses), games/rogue (8), the 2020/2024 days outside SW-3079/SW-3092, and std's Nat.leqFalse (36) and Parse/Omega/Float now that SW-3067's readings exist (~200 helper uses; docs/reviews/SW-3101-measure.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-older",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3103,
+      "title": "[Sonnet] std: define List.All and make it the reading of List.all (18 helper uses go; SW-3101 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3104,
+      "title": "[DeepSeek] A mismatch note when an e = False fact is given where a ≠ is wanted: 'write same.read' (SW-3101 finding 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
