@@ -2633,6 +2633,13 @@ struct Sized {
     root_def: Option<usize>,
 }
 
+// `rename_in` recurses once per level of the value, and a value can be
+// hundreds of levels deep (a list of 100 numbers computed out, in a goal a
+// `match` is generalised over), so its own frame is kept small: it handles
+// the forms a deep value is made of (calls, data, constructors and
+// applied variables and definitions) and leaves the rest to
+// `rename_other`, never inlined. In the playground the whole check must fit
+// a stack of 320 KiB (`crates/web/build.rs`).
 #[allow(clippy::too_many_arguments)]
 fn rename_in(
     g: &Unifier<'_>,
@@ -2648,9 +2655,92 @@ fn rename_in(
     let nodes = size.nodes.get() + 1;
     size.nodes.set(nodes);
     if nodes > size.limit {
-        g.machine.budget.set_too_large(size.root_def);
-        return Err(Fail::Out(ResourceError::Size(size.limit)));
+        return Err(too_large(g, size));
     }
+    let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
+    let value = match force_solved(g, value.clone())? {
+        Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
+            match rename_call(g, size, m, renaming, dom, cod, id, &spine)? {
+                Some(term) => return Ok(term),
+                None => force(g, Value::Call(id, spine, unfolding))?,
+            }
+        }
+        other => force(g, other)?,
+    };
+    let all = |args: &[Value]| -> Renamed<Vec<Rc<Term>>> {
+        let mut out = Vec::with_capacity(args.len());
+        for a in args {
+            out.push(Rc::new(go(a)?));
+        }
+        Ok(out)
+    };
+    Ok(match value {
+        Value::Data(d, args) => Term::Data(d, all(&args)?),
+        Value::Ctor(d, c, args) => Term::Ctor(d, c, all(&args)?),
+        Value::Neutral(Head::Def(id), spine) => rename_spine(&go, Term::Def(id), &spine)?,
+        Value::Neutral(Head::Var(l, _), spine) => {
+            let new = *renaming.get(&l).ok_or(Fail::No)?;
+            rename_spine(&go, Term::Var(dom - 1 - new), &spine)?
+        }
+        other => rename_other(g, size, m, renaming, dom, cod, other, in_call)?,
+    })
+}
+
+/// The error for a value [`rename`] would write more than `size`'s limit of
+/// nodes for.
+#[cold]
+#[inline(never)]
+fn too_large(g: &Unifier<'_>, size: &Sized) -> Fail {
+    g.machine.budget.set_too_large(size.root_def);
+    Fail::Out(ResourceError::Size(size.limit))
+}
+
+/// The call of `id` to `spine` as written, for [`rename_in`]: `None` if an
+/// argument can't be ([`Fail::No`]), so that its unfolding is written instead.
+#[allow(clippy::too_many_arguments)]
+fn rename_call(
+    g: &Unifier<'_>,
+    size: &Sized,
+    m: usize,
+    renaming: &HashMap<usize, usize>,
+    dom: usize,
+    cod: usize,
+    id: stitchwort_core::DefId,
+    spine: &[Elim],
+) -> Renamed<Option<Term>> {
+    let mut term = Term::Def(id);
+    for elim in spine {
+        let (arg, icit) = match elim {
+            Elim::App(arg, icit) => (arg, *icit),
+            // A field of a call ([`stitchwort_core::value::project_call`]).
+            Elim::Proj(d, i) => {
+                term = Term::Proj(*d, *i, Rc::new(term));
+                continue;
+            }
+            Elim::J { .. } => unreachable!("a call's spine has no `J`"),
+        };
+        match rename_in(g, size, m, renaming, dom, cod, arg, true) {
+            Ok(arg) => term = Term::app_icit(term, arg, icit),
+            Err(Fail::Out(e)) => return Err(Fail::Out(e)),
+            Err(Fail::No) => return Ok(None),
+        }
+    }
+    Ok(Some(term))
+}
+
+/// [`rename_in`] of a forced value of the forms it doesn't write itself.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+fn rename_other(
+    g: &Unifier<'_>,
+    size: &Sized,
+    m: usize,
+    renaming: &HashMap<usize, usize>,
+    dom: usize,
+    cod: usize,
+    value: Value,
+    in_call: bool,
+) -> Renamed<Term> {
     let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
     let under = |closure: &Closure| -> Renamed<Term> {
         let mut renaming = renaming.clone();
@@ -2658,43 +2748,11 @@ fn rename_in(
         let body = closure.apply(g, Value::var(cod))?;
         rename_in(g, size, m, &renaming, dom + 1, cod + 1, &body, in_call)
     };
-    let value = match force_solved(g, value.clone())? {
-        Value::Call(id, spine, unfolding) if !matches_at_once(g, id, &spine)? => {
-            let mut term = Term::Def(id);
-            let mut written = Ok(());
-            for elim in spine.iter() {
-                let (arg, icit) = match elim {
-                    Elim::App(arg, icit) => (arg, *icit),
-                    // A field of a call ([`stitchwort_core::value::project_call`]).
-                    Elim::Proj(d, i) => {
-                        term = Term::Proj(*d, *i, Rc::new(term));
-                        continue;
-                    }
-                    Elim::J { .. } => unreachable!("a call's spine has no `J`"),
-                };
-                match rename_in(g, size, m, renaming, dom, cod, arg, true) {
-                    Ok(arg) => term = Term::app_icit(term, arg, icit),
-                    Err(e) => {
-                        written = Err(e);
-                        break;
-                    }
-                }
-            }
-            match written {
-                Ok(()) => return Ok(term),
-                Err(Fail::Out(e)) => return Err(Fail::Out(e)),
-                Err(Fail::No) => force(g, Value::Call(id, spine, unfolding))?,
-            }
-        }
-        other => force(g, other)?,
-    };
     Ok(match value {
         Value::Sort(s) => Term::Sort(s),
         Value::Refl => Term::Refl,
         Value::Pi(x, i, a, b) => Term::Pi(x, i, Rc::new(go(&a)?), Rc::new(under(&b)?)),
         Value::Lam(x, i, b) => Term::Lam(x, i, Rc::new(under(&b)?)),
-        Value::Data(d, args) => Term::data(d, args.iter().map(go).collect::<Renamed<_>>()?),
-        Value::Ctor(d, c, args) => Term::ctor(d, c, args.iter().map(go).collect::<Renamed<_>>()?),
         Value::Nat(n) => Term::Nat(n),
         // Closed: nothing to rename, and no metavariable to occur.
         Value::Chars(c) => quote(g, cod, &Value::Chars(c))?,
@@ -2713,34 +2771,27 @@ fn rename_in(
             }
             rename_spine(&go, Term::Meta(m2), &spine)?
         }
-        Value::Neutral(head, spine) => {
-            let (head, rest) = match head {
-                Head::Meta(_) => return Err(Fail::No),
-                Head::Def(id) => (Term::Def(id), &spine[..]),
-                Head::Var(l, _) => {
-                    let new = *renaming.get(&l).ok_or(Fail::No)?;
-                    (Term::Var(dom - 1 - new), &spine[..])
-                }
-                // The form's own arguments, then what applies its result.
-                Head::Quot(form) => {
-                    let n = spine
-                        .iter()
-                        .take(form.arity())
-                        .take_while(|e| matches!(e, Elim::App(..)))
-                        .count();
-                    let args = spine[..n]
-                        .iter()
-                        .map(|e| match e {
-                            Elim::App(v, _) => go(v).map(Rc::new),
-                            Elim::J { .. } | Elim::Proj(..) => {
-                                unreachable!("counted applications")
-                            }
-                        })
-                        .collect::<Renamed<_>>()?;
-                    (Term::Quot(form, args, false), &spine[n..])
-                }
-            };
-            rename_spine(&go, head, rest)?
+        Value::Neutral(Head::Meta(_), _) => return Err(Fail::No),
+        // The form's own arguments, then what applies its result.
+        Value::Neutral(Head::Quot(form), spine) => {
+            let n = spine
+                .iter()
+                .take(form.arity())
+                .take_while(|e| matches!(e, Elim::App(..)))
+                .count();
+            let args = spine[..n]
+                .iter()
+                .map(|e| match e {
+                    Elim::App(v, _) => go(v).map(Rc::new),
+                    Elim::J { .. } | Elim::Proj(..) => {
+                        unreachable!("counted applications")
+                    }
+                })
+                .collect::<Renamed<_>>()?;
+            rename_spine(&go, Term::Quot(form, args, false), &spine[n..])?
+        }
+        Value::Data(..) | Value::Ctor(..) | Value::Neutral(..) => {
+            unreachable!("written by `rename_in`")
         }
         // Handled above: the call, or else `force` gave its unfolding.
         Value::Call(..) => unreachable!("a forced value is never a call"),
@@ -4292,6 +4343,36 @@ mod tests {
         let term = Term::app(Term::Meta(m), Term::Var(0));
         let zonked = zonk(g, 1, &term).expect("solved");
         assert!(matches!(zonked, Term::Var(0)), "{zonked:?}");
+    }
+
+    /// An unknown solved with a deep value: constructors nested 200 deep
+    /// around a variable, a field of another constructor, are written back
+    /// as the same terms (`rename_in`, SW-3133).
+    #[test]
+    fn a_solution_is_written_back_from_a_deep_value() {
+        let (fresh, p) = proofs();
+        let g = &fresh.unifier();
+        let depth = 200;
+        let succs = (0..depth).fold(Value::var(0), |n, _| Value::Ctor(p.n, 1, [n].into()));
+        let zero = Value::Ctor(p.n, 0, Vec::new().into());
+        let rhs = Value::Ctor(p.t2, 0, [zero, succs].into());
+        let (m, lhs) = meta(g, &[0]);
+        assert!(unify(g, 1, &lhs, &rhs).unwrap());
+        let solved = zonk(g, 1, &Term::app(Term::Meta(m), Term::Var(0))).expect("solved");
+        let Term::Ctor(d, 0, fields) = &solved else {
+            panic!("{solved:?}")
+        };
+        assert_eq!(*d, p.t2);
+        assert!(matches!(*fields[0], Term::Ctor(_, 0, _)), "{solved:?}");
+        let mut t: &Term = &fields[1];
+        for _ in 0..depth {
+            let Term::Ctor(d, 1, fields) = t else {
+                panic!("{t:?}")
+            };
+            assert_eq!(*d, p.n);
+            t = &fields[0];
+        }
+        assert!(matches!(t, Term::Var(0)), "{t:?}");
     }
 
     /// Past `LOOK_AHEAD_DEPTH`, zonking goes down only the parts with

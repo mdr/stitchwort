@@ -101,6 +101,10 @@ impl fmt::Display for ResourceError {
 }
 
 impl From<ResourceError> for Diagnostic {
+    // Out of line: every `?` on a resource error in the kernel's recursive
+    // passes would otherwise carry the message's formatting in its frame.
+    #[cold]
+    #[inline(never)]
     fn from(e: ResourceError) -> Diagnostic {
         Diagnostic::error("E-RESOURCE", format!("ran out of resources: {e}")).with_note(
             "this isn't a type error or a failed test: there's no answer within the limits",
