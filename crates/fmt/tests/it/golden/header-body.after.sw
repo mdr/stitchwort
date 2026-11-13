@@ -12,10 +12,9 @@ def multi (id: Text)
 }
 
 def m (x: Nat)
-    (y: Nat := 0): Nat :=
-  match x with
-    | Zero => y
-    | Succ n => n
+    (y: Nat := 0): Nat := match x with
+      | Zero => y
+      | Succ n => n
 
 def l (x: Nat)
     (y: Nat := 0): Nat :=

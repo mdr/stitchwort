@@ -9,10 +9,9 @@ def f (x: Nat): Nat :=
 def g: Nat -> Nat := x =>
   x + 1
 
-def h (x: Nat): Nat :=
-  match x with
-    | Zero => 0
-    | Succ k => k
+def h (x: Nat): Nat := match x with
+  | Zero => 0
+  | Succ k => k
 
 ability Log where
   say: Nat -> {Log} ()
