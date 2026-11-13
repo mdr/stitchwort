@@ -1285,4 +1285,22 @@ def f (n: Nat): Nat :=
             ),
         ]);
     }
+
+    #[test]
+    fn proof_constructs_are_marked_as_written() {
+        check_expressions(&[
+            (
+                "calc a + 0\n  _ = a := h\n  _ <= b",
+                "Calc[calc Binary[a + 0] CalcStep[_ = a := h] CalcStep[_ <= b]]",
+            ),
+            (
+                "rewrite <- h, g x at y in t",
+                "Rewrite[rewrite RewriteRule[< - h] , RewriteRule[App[g x]] at y in t]",
+            ),
+            ("omega [h, f x]", "Omega[omega List[[ h , App[f x] ]]]"),
+            ("ring [h]", "Ring[ring List[[ h ]]]"),
+            ("cases in t", "Cases[cases in t]"),
+            ("omega [h] + 1", "Binary[Omega[omega List[[ h ]]] + 1]"),
+        ]);
+    }
 }

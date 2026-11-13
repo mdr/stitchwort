@@ -3698,6 +3698,7 @@ impl<'t> Parser<'t> {
                 proof,
                 span: underscore.to(self.prev_span()),
             });
+            self.node_at(underscore, NodeKind::CalcStep);
         }
         let Some(last) = steps.last() else {
             return Err(self
@@ -3706,6 +3707,7 @@ impl<'t> Parser<'t> {
                 .into());
         };
         let span = start.to(last.span);
+        self.node_at(start, NodeKind::Calc);
         if descending && ascending {
             return Err(Diagnostic::error(
                 "E-CALC-RELATION",
@@ -3768,6 +3770,7 @@ impl<'t> Parser<'t> {
                 span: rule_start.to(proof.span()),
                 proof,
             });
+            self.node_at(rule_start, NodeKind::RewriteRule);
             if !self.eat(&Tok::Comma) {
                 break;
             }
@@ -3810,6 +3813,7 @@ impl<'t> Parser<'t> {
             .as_ref()
             .or(target.as_ref())
             .map_or_else(|| rules.last().expect("a rule").span, |b| b.span());
+        self.node_at(start, NodeKind::Rewrite);
         Ok(Expr::Rewrite {
             rules,
             target,
@@ -3832,6 +3836,7 @@ impl<'t> Parser<'t> {
         }
         self.bump();
         let body = self.expr()?;
+        self.node_at(start, NodeKind::Cases);
         Ok(Expr::Cases {
             span: start.to(body.span()),
             body: Some(Box::new(body)),
@@ -5484,6 +5489,7 @@ impl<'t> Parser<'t> {
                     });
                 }
                 let (facts, list_span) = self.fact_list()?;
+                self.node_at(span, NodeKind::Omega);
                 Ok(Expr::Omega {
                     facts,
                     span: span.to(list_span),
@@ -5499,6 +5505,7 @@ impl<'t> Parser<'t> {
                     });
                 }
                 let (facts, list_span) = self.fact_list()?;
+                self.node_at(span, NodeKind::Ring);
                 Ok(Expr::Ring {
                     facts,
                     span: span.to(list_span),
