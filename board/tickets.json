@@ -34520,12 +34520,12 @@
     {
       "id": 3175,
       "title": "[DeepSeek] Kernel tests for SW-3133's spine loop (docs/reviews/SW-3133-kernel-review.md finding 1): an ill-typed argument at position 500 of a long spine and in last place; a later domain depending on an earlier argument (g 2 (v: Vec 3) rejected); one argument too many (E-NOT-A-FUNCTION showing the type after the earlier ones); check of a long spine against the wrong expected type",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nReviewed line by line. Model result: DeepSeek, worked, 15 min (est. 45).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
