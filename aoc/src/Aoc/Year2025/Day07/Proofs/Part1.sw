@@ -268,12 +268,12 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
     (h => List.anyRangeElim after (beamReach v [row, ..rest] (Succ k) d = True) w 0 h
       (c lo hi (Both out on) =>
         Bool.orElim (Eq.trans (Eq.sym (fallAt row v c hi)) out)
-          (pass => (fallStraight row rest v k d c (Bool.andLeft pass) (Bool.notTrue _ (Bool.andRight pass)) on).right)
+          (pass => (fallStraight row rest v k d c pass.left (Bool.notTrue _ pass.right) on).right)
           (sides => Bool.orElim sides
             (left =>
               match c with
-                | Succ b => (fallFromLeft row rest v k d hd b (Bool.andRight left) (Bool.andLeft left) on).right)
-            (right => (fallFromRight row rest v k d c (Bool.andRight right) (Bool.andLeft right) on).right))))
+                | Succ b => (fallFromLeft row rest v k d hd b left.right left.left on).right)
+            (right => (fallFromRight row rest v k d c right.right right.left on).right))))
     -- A particle in column c with a beam falls straight down, or at a
     -- splitter goes left or right.
     (h => List.anyRangeElim before (beamReach (fall row v) rest k d = True) w 0 h

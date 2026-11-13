@@ -144,12 +144,12 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
               let rowStill := still.read
               let columnMoves: step.columns ≠ 0 := z => omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in bezout]
               let below :=
-                stepsBound first.column point.column step.columns steps city.width (omega [Bool.andRight firstOn])
-                  (omega [Bool.andRight inside]) (And.right both) columnMoves
+                stepsBound first.column point.column step.columns steps city.width (omega [firstOn.right])
+                  (omega [inside.right]) (And.right both) columnMoves
               omega
             | False =>
               let below :=
-                stepsBound first.row point.row step.rows steps city.height (omega [Bool.andLeft firstOn]) (omega [Bool.andLeft inside])
+                stepsBound first.row point.row step.rows steps city.height (omega [firstOn.left]) (omega [inside.left])
                   (And.left both) still.read
               omega
         harmonicsOfSteps city first second point steps (And.left both) (And.right both) bound
@@ -162,7 +162,7 @@ theorem part2Correct (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ 
   Eq.cong Set.size
     (locationsCorrect city (((start, end)) => city.harmonics start end) (point first second => inLine point first second)
       (first second firstIn secondIn same point inside =>
-        harmonicsCorrect city first.position second.position (onMap first firstIn) (DecEq.neTrue (Bool.andRight same)) point
+        harmonicsCorrect city first.position second.position (onMap first firstIn) (DecEq.neTrue same.right) point
           inside))
 
 --| A point is in line with itself and any other.

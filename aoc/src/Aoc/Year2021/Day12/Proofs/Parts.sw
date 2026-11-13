@@ -79,11 +79,11 @@ theorem withinOnce (path: Path): Within False path ↔ SmallOnce path := {
 
 --| A path from `start` to `end` visits both.
 theorem endsVisited (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visits Cave.start ∧ 1 ≤ path.visits Cave.end :=
-  let isLast := DecEq.sound (Bool.andRight ends)
+  let isLast := DecEq.sound ends.right
   Both
     (match path.caves with
       | [first, ..rest] =>
-        let isStart: first = Cave.start := Option.someInjective (DecEq.sound (Bool.andLeft ends))
+        let isStart: first = Cave.start := Option.someInjective (DecEq.sound ends.left)
         visitsMember Cave.start [first, ..rest] (Inl isStart))
     (visitsMember Cave.end path.caves (List.lastMem path.caves Cave.end isLast))
 

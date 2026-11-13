@@ -44,7 +44,7 @@ theorem holderDirectly (rules: Rules) (inner: Colour) (holder: Colour):
     List.anyElim (rule => content ∈ rule.contents) (holder ∈ rules.holders.of inner) _ (List.memFlatMapElim .contents content _ inContents)
       (rule kept inRule =>
         let (Both member isHolder) := List.memFilter _ _ kept
-        let ruleColour: rule.colour = holder := DecEq.sound isHolder
+        let ruleColour: rule.colour = holder := isHolder.read
         let pair: Holding := { inside = content.colour, holder = rule.colour }
         let inInsides: pair ∈ rule.holdings := List.memMap rule.contents content inRule (content => { inside = content.colour, holder = rule.colour })
         let matching: Map.Spec.sameKey inner pair.inside = True := rewrite Map.Spec.sameKeyDecide inner pair.inside, contentColour in DecEq.refl inner

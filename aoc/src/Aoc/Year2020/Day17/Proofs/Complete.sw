@@ -18,7 +18,7 @@ theorem stripDifferent (first: Char) (others: List Char) (char: Char) (more: Lis
     Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
   match e: Text.sameChar first char with
     | False => rfl
-    | True => Void.exfalso (DecEq.soundFalse char first different (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
+    | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
 
 theorem runsCube (state: CubeState) (after: List Char): Parse.Runs cubeState [symbol state] after state :=
   match state with

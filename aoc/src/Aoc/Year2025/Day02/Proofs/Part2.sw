@@ -169,7 +169,7 @@ theorem writtenBlock (ds: List Nat) (k: Nat) (n: Nat) [auto hk: k ≠ 0] (hn: 1 
     (j: Nat) (hj: j < ds.length): digitAt ds j = digitAt ds (j % k) :=
   calc List.getOr ds j 0
     _ = List.getOr (List.concat (List.replicate n (List.take ds k))) j 0
-      := Eq.cong (l => List.getOr l j 0) (Eq.sym (DecEq.sound hw))
+      := Eq.cong (l => List.getOr l j 0) (Eq.sym hw.read)
     _ = List.getOr (List.take ds k) (j % k) 0
       := List.getOrConcatReplicate (List.take ds k) 0 k (List.lengthTake ds k (omega [Nat.leMulPos k n hn])) n j
         omega

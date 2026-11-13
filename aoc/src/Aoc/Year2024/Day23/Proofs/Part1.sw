@@ -12,7 +12,7 @@ import Aoc.Year2024.Day23 (..)
 import Aoc.Year2024.Day23.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Not, Or, Set, Void)
 
-theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := DecEq.sound three
+theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := three.read
 
 --| What the program makes before keeping the sets of three: the sets from
 --| each computer with links.
@@ -142,7 +142,7 @@ theorem part1Correct (network: Network): IsPart1 network (solvePart1 network) :=
       (party => {
         forward = held =>
           let kept := Eq.trans (Eq.sym (Set.containsFilter network.links.setsOfThree party Party.mightHaveChief)) held
-          Both ((setsOfThreeIff network party).forward (Bool.andLeft kept)) (Bool.andRight kept),
+          Both ((setsOfThreeIff network party).forward kept.left) kept.right,
         backward = (Both three withT) =>
           rewrite Set.containsFilter network.links.setsOfThree party Party.mightHaveChief, (setsOfThreeIff network party).backward three in withT
       })

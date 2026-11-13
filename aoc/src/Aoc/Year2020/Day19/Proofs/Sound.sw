@@ -46,7 +46,7 @@ theorem sound (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number
                   match found with
                     | Inl leftIsRest =>
                       Witness [letter]
-                        (Both (rewrite DecEq.sound same, leftIsRest in rfl) (later restRead matched => MatchesLetter looked matched))
+                        (Both (rewrite same.read, leftIsRest in rfl) (later restRead matched => MatchesLetter looked matched))
                     | Inr never => Void.exfalso never
         | Some (Alternatives sequences) =>
           match (List.memFlatMap (sequence => rules.leftAfterAll more sequence message) left sequences).forward found with

@@ -34,7 +34,7 @@ theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOp
     | Inr r => Inr (omega)
 
 theorem onLineTouches (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
-  Bool.andRight h
+  h.right
 
 theorem crossesTouches (tile: Point) (line: Line) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
   let Both _ (Both _ half) := h
@@ -121,8 +121,8 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 :=
             List.sumByZeroIntro (List.range top (lastRow + 1)) rowSum (r rm =>
               let rowIn := ((List.memRange _ _ _).forward rm)
-              let rowAll := List.allBetweenElim h (rowIn.left) (rowIn.right)
+              let rowAll := List.allBetweenElim h rowIn.left rowIn.right
               List.sumByZeroIntro (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) (c cm =>
                 let colIn := ((List.memRange _ _ _).forward cm)
-                rewrite cellAt tiles r c (omega) (omega), List.allBetweenElim rowAll (colIn.left) (colIn.right) in rfl))
+                rewrite cellAt tiles r c (omega) (omega), List.allBetweenElim rowAll colIn.left colIn.right in rfl))
           (Nat.decEq (PrefixSums.block floor.outside top bottom left right) 0).complete (Eq.trans blockIs zero))

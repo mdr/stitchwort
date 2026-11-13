@@ -12,10 +12,10 @@ def PassWritten (read: List Char) (pass: Pass): Prop := pass.row.length = 7 ∧ 
 --| A letter the parser accepts is the letter of the bit it gives.
 theorem letterOf (lower: Char) (upper: Char) (char: Char) (allowed: (char == lower || char == upper) = True): letter lower upper (char == upper) = char :=
   match isUpper: char == upper with
-    | True => Eq.sym (DecEq.sound isUpper)
+    | True => Eq.sym isUpper.read
     | False =>
       match isLower: char == lower with
-        | True => Eq.sym (DecEq.sound isLower)
+        | True => Eq.sym isLower.read
 
 theorem readsHalf (lower: Char) (upper: Char): Parse.Reads (() => half lower upper) (read bit => read = [letter lower upper bit]) :=
   Parse.readsWeaken

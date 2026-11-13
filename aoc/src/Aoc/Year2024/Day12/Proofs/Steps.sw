@@ -101,10 +101,10 @@ theorem memNeighboursGrowing (garden: Garden) (plant: Char) (plot: Position) (ot
 --| A plot touching one that grows `plant` is a neighbour the fill pushes.
 theorem touchingGrowing (garden: Garden) (plant: Char) (plot: Position) (other: Position) (grows: garden.plantAt plot = Some plant)
     (touching: touches garden plot other = True): other ∈ garden.neighboursGrowing plant plot :=
-  Exists.elim (growSameElim garden plot other (Bool.andRight touching)) (same both =>
+  Exists.elim (growSameElim garden plot other touching.right) (same both =>
     let plantSame: same = plant := Option.someInjective (Eq.trans (Eq.sym (And.left both)) grows)
     (memNeighboursGrowing garden plant plot other).backward
-      (Both (orthogonalElim plot other (Bool.andLeft touching)) (rewrite <- plantSame in And.right both)))
+      (Both (orthogonalElim plot other touching.left) (rewrite <- plantSame in And.right both)))
 
 --| A neighbour the fill pushes from a plot growing `plant` touches it.
 theorem growingTouches (garden: Garden) (plant: Char) (plot: Position) (other: Position) (grows: garden.plantAt plot = Some plant)

@@ -15,10 +15,10 @@ theorem reducedLeaves (depth: Nat) (number: Number) (shallow: depth ≤ 4) (smal
   match number, small with
     | Regular value, small => Both (Both shallow omega) Trivial
     | Pair left right, ok =>
-      let parts := Bool.andRight ok
+      let parts := ok.right
       List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right)
-        (reducedLeaves (depth + 1) left (omega [Bool.andLeft ok]) (Bool.andLeft parts))
-        (reducedLeaves (depth + 1) right (omega [Bool.andLeft ok]) (Bool.andRight parts))
+        (reducedLeaves (depth + 1) left (omega [ok.left]) parts.left)
+        (reducedLeaves (depth + 1) right (omega [ok.left]) parts.right)
 
 --| When `firstUnreduced` finds nothing, every number is reduced.
 theorem findUnreducedNone (i: Nat) (numbers: List Number) (none: List.findIndexFrom i (x => not (reduced 0 x)) numbers = None): List.All IsReduced numbers :=

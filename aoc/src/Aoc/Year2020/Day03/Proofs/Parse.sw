@@ -19,10 +19,10 @@ def symbol: Square → Char
 --| A character the parser accepts is the symbol of the square it makes.
 theorem symbolOfChar (char: Char) (allowed: isSquare char = True): symbol (Square.ofChar char) = char :=
   match tree: char == '#' with
-    | True => Eq.sym (DecEq.sound tree)
+    | True => Eq.sym tree.read
     | False =>
       match open: char == '.' with
-        | True => Eq.sym (DecEq.sound open)
+        | True => Eq.sym open.read
 
 theorem readsSquare: Parse.Reads square (read square => read = [symbol square]) :=
   Parse.readsWeaken [p := square]

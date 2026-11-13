@@ -71,7 +71,7 @@ theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool) (choices
 theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keypad rows = True) (costs: Costs) (from: k) (to: k):
     routeFits rows (keypad.place from) (keypad.place to) (costs.cheapestRoute (keypad.routes from to)) = True :=
-  let pairs := Bool.andRight checked
+  let pairs := checked.right
   let fromChecked := Finite.check _ pairs from
   let pairChecked := Finite.check _ fromChecked to
   cheapestPasses costs (routeFits rows (keypad.place from) (keypad.place to)) (keypad.routes from to) pairChecked
@@ -80,7 +80,7 @@ def fitted [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: 
     (checked: fits keypad rows = True): Fitted k := {
   keypad,
   rows,
-  onKey = to => DecEq.sound (Finite.check (to => keyAt rows (keypad.place to) == Some to) (Bool.andLeft checked) to),
+  onKey = to => DecEq.sound (Finite.check (to => keyAt rows (keypad.place to) == Some to) checked.left to),
   cheapestWalks = costs from to => DecEq.sound (Bool.andLeft (cheapestFits keypad rows checked costs from to)),
   cheapestLength = costs from to => DecEq.sound (Bool.andRight (cheapestFits keypad rows checked costs from to))
 }

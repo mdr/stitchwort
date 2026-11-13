@@ -32,7 +32,7 @@ theorem memUphill (map: TopographicMap) (from: Position) (to: Position): to ∈ 
     Both (higherOnMap map from to (And.right both)) (Both (neighbourAdjacent from to (And.left both)) (And.right both)),
   backward = has =>
     let step := And.right has
-    List.memFilterIntro from.neighbours (map.isOneHigher from) (adjacentNeighbour from to (Bool.andLeft step)) (Bool.andRight step)
+    List.memFilterIntro from.neighbours (map.isOneHigher from) (adjacentNeighbour from to step.left) step.right
 }
 
 theorem uphillDistinct (map: TopographicMap) (from: Position): List.Distinct (map.uphill from) :=

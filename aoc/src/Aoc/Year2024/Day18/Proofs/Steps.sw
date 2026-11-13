@@ -60,10 +60,10 @@ theorem pathSteps (size: Nat) (bytes: List Position) (fallen: Nat) (from: Positi
 --| A position safe with more bytes fallen is safe with fewer.
 theorem safeFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (position: Position)
     (safe: isSafe size (bytes.take more) position = True): isSafe size (bytes.take fewer) position = True :=
-  let inside := Bool.andLeft safe
-  let clear := Bool.andRight safe
+  let inside := safe.left
+  let clear := safe.right
   match there: (bytes.take fewer).contains position with
     | True =>
       let worse := containsTakeMono position bytes fewer more le there
       rewrite worse at clear in cases
-    | False => Bool.andIntro inside rfl
+    | False => Both inside rfl

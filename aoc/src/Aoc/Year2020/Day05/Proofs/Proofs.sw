@@ -66,7 +66,7 @@ theorem gapComplete: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (sea
     match apart: high == low + 2 with
       | True => Witness (low + 1) rfl
       | False =>
-        let notTwo := DecEq.soundFalse high (low + 2) apart
+        let notTwo := apart.read
         let atLeast := atLeastFirst low [high, ..rest] (Both ordered sortedRest) (seat - 1) below
         let aboveRest: (seat + 1) ∈ [high, ..rest] :=
           match above with

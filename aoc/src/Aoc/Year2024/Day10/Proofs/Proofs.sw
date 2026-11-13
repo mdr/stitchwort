@@ -81,10 +81,10 @@ theorem memTrailEnds (map: TopographicMap) (steps: Nat) (from end: Position):
             List.anyElim (rest => [next, ..rest] = path) _ (pathsOf map steps) (List.memMapAny (pathsOf map steps) (Cons next) path inMapped)
               (rest restIn built =>
                 let found: ((isStep map from next && climbs map next rest) && [next, ..rest].last == Some end) = True := rewrite <- built at climbing
-                let step := Bool.andLeft (Bool.andLeft found)
-                let climbsRest := Bool.andRight (Bool.andLeft found)
+                let step := Bool.andLeft found.left
+                let climbsRest := Bool.andRight found.left
                 List.memFlatMapIntro (map.trailEnds steps) next end (map.uphill from) ((memUphill map from next).backward (Both nextIn step))
-                  ((memTrailEnds map steps next end).backward (Witness rest (Both restIn (Bool.andIntro climbsRest (Bool.andRight found)))))))
+                  ((memTrailEnds map steps next end).backward (Witness rest (Both restIn (Both climbsRest found.right))))))
     }
 
 --| The search finds a climb's end once per climb.
@@ -131,9 +131,9 @@ theorem scoreCorrect (map: TopographicMap) (start: Position) (zero: map.heightAt
         (List.distinctFilter map.positions reached (positionsDistinct map))
         (nine member =>
           let Witness rest (Both restIn found) := (memTrailEnds map 9 start nine).forward ((List.memUnique nine ends).forward member)
-          let climbing := Bool.andLeft found
-          let last := Bool.andRight found
-          let height := endHeight map start rest nine climbing (DecEq.sound last)
+          let climbing := found.left
+          let last := found.right
+          let height := endHeight map start rest nine climbing last.read
           let hiking: isHikingTrail map [start, ..rest] = True := rewrite trailCons map start rest, zero in climbing
           let inTrails := List.memFilterIntro ((pathsOf map 9).map (Cons start)) (isHikingTrail map)
             (List.memMap (pathsOf map 9) rest restIn (Cons start)) hiking
@@ -150,7 +150,7 @@ theorem scoreCorrect (map: TopographicMap) (start: Position) (zero: map.heightAt
                 let climbing := Bool.andRight (rewrite trailCons map start rest at hiking)
                 let ending: ([start, ..rest].last == Some nine) = True := rewrite <- built at last
                 (List.memUnique nine ends).backward
-                  ((memTrailEnds map 9 start nine).backward (Witness rest (Both restIn (Bool.andIntro climbing ending))))))))
+                  ((memTrailEnds map 9 start nine).backward (Witness rest (Both restIn (Both climbing ending))))))))
 
 --| The spec's trailhead check.
 def startsTrail (map: TopographicMap) (start: Position): Bool := (trailsFrom map start).length >= 1
@@ -213,7 +213,7 @@ theorem trailsAreCandidates (map: TopographicMap) (start: Position) (rest: List 
     (start ∈ map.positions) ∧ ([start, ..rest] ∈ trailsFrom map start) :=
   let both := rewrite trailCons map start rest at hiking
   let Both startsAtZero climbing := both
-  let zero: map.heightAt start = Some 0 := DecEq.sound startsAtZero
+  let zero: map.heightAt start = Some 0 := startsAtZero.read
   let paths := climbsPaths map start rest 0 zero climbing
   let ten: rest.length = 9 := omega [And.left paths]
   let restPath := And.right paths

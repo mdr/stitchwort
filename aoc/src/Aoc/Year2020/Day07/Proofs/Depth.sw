@@ -89,7 +89,7 @@ theorem directlyHasRule (rules: List Rule) (outer: Colour) (inner: Colour) (dire
     (List.memFlatMapElim .contents content _ inContents)
     (rule kept inRule =>
       let (Both member isOuter) := List.memFilter _ _ kept
-      rewrite <- DecEq.sound isOuter in List.memMap rules rule member .colour)
+      rewrite <- isOuter.read in List.memMap rules rule member .colour)
 
 theorem walkHasRule (rules: List Rule) (start: Colour) (between: List Colour) (finish: Colour) (walk: Walk rules start between finish) (colour: Colour)
     (member: colour ∈ [start, ..between]): colour ∈ rules.map .colour :=

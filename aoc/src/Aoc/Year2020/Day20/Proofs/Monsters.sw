@@ -144,7 +144,7 @@ theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)
       match (roughAtIff image at).forward ((Set.containsFromListIff image.roughAt at).forward inRough) with
         | found => (List.memContains cells at).backward ((listed.right at).backward found))
     (key listedHere =>
-      rewrite Set.containsDifference rough key covered, roughCell key ((List.memContains cells key).forward listedHere) in rfl)
+      rewrite Set.containsDifference rough key covered, roughCell key listedHere.read in rfl)
   let lengthCount := List.lengthFilter cells free
   {
     forward = numbered => rewrite (counted.forward numbered) in omega,

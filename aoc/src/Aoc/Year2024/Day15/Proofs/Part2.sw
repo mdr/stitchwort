@@ -211,8 +211,8 @@ theorem stayedElim (warehouse: Warehouse) (group: Set Cell) (position: Cell) (st
     (warehouse.boxes.contains position = True) ∧ (group.contains position = False) :=
   let both: (warehouse.boxes.contains position ∧ ¬(group.contains position)) = True :=
     rewrite <- Set.containsDifference warehouse.boxes position group in stayed
-  Both (Bool.andLeft both)
-    (Bool.falseOfNotTrue (group.contains position) (gathered => Bool.falseNotTrue (rewrite gathered at Bool.andRight both)))
+  Both both.left
+    (Bool.falseOfNotTrue (group.contains position) (gathered => Bool.falseNotTrue (rewrite gathered at both.right)))
 
 --| "Boxes can be aligned such that they directly push two other boxes at
 --| once", but never onto a box that stays: with nothing overlapping, a move
@@ -330,7 +330,7 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
     let rightOfBox := (boxed: warehouse.boxes.contains position = True) =>
       match atRobot: right == warehouse.robot with
         | True =>
-          let leftOfRobot: warehouse.robot.step Left = position := rewrite <- DecEq.sound atRobot in offsetStepOpposite position Right
+          let leftOfRobot: warehouse.robot.step Left = position := rewrite <- atRobot.read in offsetStepOpposite position Right
           Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite <- leftOfRobot at boxed)) robotNotRight))
         | False =>
           (rewrite atRobot, offWalls position boxed right (Inr (Inl rfl)), noneRight position boxed, offsetStepOpposite position Right, boxed in rfl: wideTile warehouse right = BoxRight)
@@ -357,7 +357,7 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
                         let boxed: warehouse.boxes.contains position = True := rewrite offsetStepOpposite position Right at boxedLeft
                         let notRobot: (position == warehouse.robot) = False :=
                           Bool.falseOfNotTrue _ (atRobot =>
-                            Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite DecEq.sound atRobot at boxed)) robotNotBoxed))
+                            Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite atRobot.read at boxed)) robotNotBoxed))
                         rewrite notRobot, offWalls position boxed position (Inl rfl), boxed in rfl
     }
 
