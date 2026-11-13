@@ -99,10 +99,12 @@ fn a_stuck_step_of_division_is_shown_as_division() {
         // `Nat.leq (d + 2) (x + 5)` computes to `Nat.leq d (x + 3)`.
         assert_eq!(shown(&xd, "bothOpen"), "(x + 5) / (d + 2)");
         // `(x + 5) / 3` takes a step (3 fits into `x + 5`), then sticks on
-        // `Nat.leq 3 (x + 2)` with fuel `x + 4`: not `(x + 2) / 3`.
+        // `Nat.leq 3 (x + 2)` with fuel `x + 4`: not `(x + 2) / 3`. The steps
+        // taken are counted as a compact `rest + q`, as any sum with an
+        // unknown is shown.
         assert_eq!(
             shown(&x, "later"),
-            "Succ (Nat.divStep (1 <= x) (x + 3) (x + 2) 3)"
+            "Nat.divStep (1 <= x) (x + 3) (x + 2) 3 + 1"
         );
     });
 }

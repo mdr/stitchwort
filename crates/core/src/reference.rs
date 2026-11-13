@@ -443,6 +443,11 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
         match native::run(g, id, op, &spine, force)? {
             Some(native::Outcome::Done(value)) => return Ok(value),
             Some(native::Outcome::Again(spine)) => return unfold(g, id, spine),
+            Some(native::Outcome::Succs(k, spine)) => {
+                let rest = unfold(g, id, spine)?;
+                let (k2, base) = native::view_with(g, &rest, force)?;
+                return Ok(native::from_view(k + k2, base));
+            }
             None => {}
         }
     }

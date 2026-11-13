@@ -1042,6 +1042,9 @@ enum Control {
     /// A definition with these arguments: run its native implementation or
     /// its case tree, or leave it folded.
     Unfold(DefId, Spine),
+    /// [`Control::Unfold`], with the result to be that many more `Succ`s
+    /// ([`native::Outcome::Succs`]). (Boxed through its `Rc`: rare.)
+    UnfoldAfterSuccs(Rc<BigUint>, DefId, Spine),
     /// Walk a case tree. If it's stuck, the result is the definition left
     /// folded (or, for a case outside a definition, an internal error).
     Tree(Rc<Term>, Vec<Value>, Stuck),
@@ -1065,6 +1068,9 @@ enum Frame {
     AppFun(Value, Icit),
     /// The function of `f a`, whose argument is erased (`erase.rs`).
     AppErased(Icit),
+    /// A number this many more than the value it waits for
+    /// ([`native::Outcome::Succs`]).
+    AddNat(Rc<BigUint>),
     /// The next argument of a data type or constructor (`term`).
     Args {
         term: Rc<Term>,
@@ -1373,6 +1379,10 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
                 }
             }
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
+            Control::UnfoldAfterSuccs(k, id, spine) => {
+                push(g, &mut stack, Frame::AddNat(k))?;
+                unfold(g, id, spine)?
+            }
             Control::Tree(node, env, stuck) => {
                 if let Some((id, ..)) = &stuck {
                     g.machine.budget.enter_definition(id.0);
@@ -1799,6 +1809,10 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         }
         Frame::AppFun(f, icit) => apply_step(f, value, icit),
         Frame::AppErased(icit) => apply_step(value, erased(), icit),
+        Frame::AddNat(k) => {
+            let (k2, base) = native::view_with(g, &value, force)?;
+            Control::Return(native::from_view(&*k + k2, base))
+        }
         Frame::Args {
             term,
             env,
@@ -2556,6 +2570,9 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
         match native::run(g, id, op, &spine, force)? {
             Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
             Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
+            Some(native::Outcome::Succs(k, spine)) => {
+                return Ok(Control::UnfoldAfterSuccs(Rc::new(k), id, spine.into()));
+            }
             None => {}
         }
     }

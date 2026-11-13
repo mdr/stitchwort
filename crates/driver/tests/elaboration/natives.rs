@@ -4,6 +4,7 @@
 
 use stitchwort_core::check::{declare_def, define_def};
 use stitchwort_core::native::{self, Native};
+use stitchwort_core::reference;
 use stitchwort_core::value::{apply, conv, eval, force, quote, quote_folded};
 use stitchwort_core::{BigUint, DefId, Kernel, Term, Value};
 use stitchwort_driver::driver::Session;
@@ -374,6 +375,26 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                 }
             }
         }
+        // `divFuel`'s shortcut, natives on against off, over every way it
+        // can stop (fuel used up, too few known `Succ`s left, `d` 0 or 1).
+        let id = def(&g.ev(), Native::DivFuel.name());
+        for kf in 0..7 {
+            for k in 0..10 {
+                for d in 0..5 {
+                    for [fuel, n] in division_cases(&g.ev(), kf, k) {
+                        let args = [fuel, n, nat(d)];
+                        let fast = call(&g.ev(), id, &args);
+                        g.env.set_disable_natives(true);
+                        let slow = call(&g.ev(), id, &args);
+                        g.env.set_disable_natives(false);
+                        assert!(
+                            conv(&g.ev(), 2, &fast, &slow).unwrap(),
+                            "Nat.divFuel({args:?}): native {fast:?}, definition {slow:?}"
+                        );
+                    }
+                }
+            }
+        }
         // `eqNatRefl (k + x)` is `eqNatRefl x`.
         let id = def(&g.ev(), Native::EqNatRefl.name());
         for k in 0..12 {
@@ -387,6 +408,78 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                 "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
             );
         }
+    });
+}
+
+/// Fuel and numerator for `Nat.divFuel` with `kf` and `k` known `Succ`s, over
+/// unknowns 0 and 1: both open, either closed, the same unknown, and as
+/// `Succ` constructors rather than the compact `k + x`.
+fn division_cases(g: &stitchwort_core::Ev, kf: u64, k: u64) -> [[Value; 2]; 6] {
+    [
+        [plus_var(kf, Some(0)), plus_var(k, Some(1))],
+        [plus_var(kf, Some(0)), plus_var(k, None)],
+        [plus_var(kf, None), plus_var(k, Some(0))],
+        [plus_var(kf, Some(0)), plus_var(k, Some(0))],
+        [succs(g, kf, Value::var(0)), succs(g, k, Value::var(1))],
+        [succs(g, kf, Value::var(0)), plus_var(k, Some(0))],
+    ]
+}
+
+/// `divFuel`'s shortcut hands the evaluator a count of `Succ`s to add to the
+/// rest (`Outcome::Succs`), which the machine and the reference evaluator
+/// each do their own way: their normal forms agree, natives on and off. And
+/// `(x + 2^128) / 2`, 2^127 steps of the definition, takes a few.
+#[test]
+fn the_division_shortcut_is_the_same_in_both_evaluators() {
+    with_big_stack(|| {
+        let mut session = Session::new();
+        let g = &mut session.elab.kernel;
+        let id = def(&g.ev(), Native::DivFuel.name());
+        let term = Term::app(
+            Term::app(Term::app(Term::Def(id), Term::Var(2)), Term::Var(1)),
+            Term::Var(0),
+        );
+        for natives in [true, false] {
+            g.env.set_disable_natives(!natives);
+            let ev = g.ev();
+            for kf in 0..7 {
+                for k in 0..10 {
+                    for d in 0..5 {
+                        for [fuel, n] in division_cases(&ev, kf, k) {
+                            let env = [fuel, n, nat(d)];
+                            let machine = call(&ev, id, &env);
+                            let from_term = eval(&ev, &env, &term).unwrap();
+                            let slow = reference::eval(&ev, &env, &term).unwrap();
+                            let shown =
+                                |v: &Value| format!("{:?}", reference::quote(&ev, 2, v).unwrap());
+                            assert_eq!(shown(&machine), shown(&from_term), "{env:?}");
+                            assert_eq!(
+                                shown(&machine),
+                                shown(&slow),
+                                "Nat.divFuel({env:?}), natives {natives}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        g.env.set_disable_natives(false);
+        let ev = g.ev();
+        let big = BigUint::from(2u32).pow(128);
+        let n = native::from_view(big.clone(), Some(Value::var(0)));
+        let before = ev.machine.budget.total_work();
+        let quotient = call(&ev, def(&ev, "Nat.div"), &[n.clone(), nat(2)]);
+        let steps = ev.machine.budget.total_work() - before;
+        assert!(steps < 1_000, "{steps} steps");
+        let (q, rest) = native::view(&ev, &quotient).unwrap();
+        assert_eq!(q, big / 2u32);
+        assert!(rest.is_some(), "{quotient:?}");
+        let div = Term::app(
+            Term::app(Term::Def(def(&ev, "Nat.div")), Term::Var(1)),
+            Term::Var(0),
+        );
+        let slow = reference::eval(&ev, &[n, nat(2)], &div).unwrap();
+        assert!(conv(&ev, 1, &quotient, &slow).unwrap(), "{slow:?}");
     });
 }
 
