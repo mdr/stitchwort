@@ -31046,7 +31046,7 @@
     {
       "id": 2919,
       "title": "[Sonnet] Playground project checks keep no check cache: the first whole-project check (~129 s for AoC) and the background re-check after each edit (SW-2915 now rewinds settled steps on each edit) redo everything; keep an in-memory check cache for project namespaces in the wasm server, or find why it isn't hit (SW-2915)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
