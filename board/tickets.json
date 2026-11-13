@@ -1,5 +1,5 @@
 {
-  "next": 3108,
+  "next": 3109,
   "tickets": [
     {
       "id": 47,
@@ -33467,12 +33467,12 @@
     {
       "id": 3094,
       "title": "[Sonnet] Set.contains has no reading: a && conjunct with Set.contains is unreadable ('has no reading, so it has no parts'), .read and Both fail on Set.fromList … .contains (2024 D23 Part1 setsOfThreeIff, Part2 intersectElim, unionElim) (SW-3092 finding 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nStatements checked by the orchestrator (D2436). Model result: Sonnet, worked, 6 min (est. 60).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33641,6 +33641,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3108,
+      "title": "[Opus] Design: a Set membership proposition: x ∈ set is the test itself (set.contains x = True), and Set.contains reads as x ∈ set.toList, so the two ∈ don't unify; and readings can't compose through an argument (Set.fromList xs).contains x reads as x ∈ (Set.fromList xs).toList, needing Set.memToListFromList (SW-3094 findings 2-3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
