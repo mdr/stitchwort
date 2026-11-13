@@ -1,5 +1,5 @@
 {
-  "next": 3145,
+  "next": 3146,
   "tickets": [
     {
       "id": 47,
@@ -34122,6 +34122,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3145,
+      "title": "[Fable] Plan: a Stitchwort formatter written in Stitchwort (parser + pretty printer), byte-identical to stitchwort fmt on every file it formats; total if possible; speed within ~10-30x of the Rust formatter (Python-like); a new project in the repo built and run with the native compiler; proofs (idempotence, tokens preserved up to fmt's deliberate rewrites) scoped as an optional follow-on stage. Paper lane: docs/proposals/self-hosted-fmt.md. Matt, 13 Nov 2026",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
