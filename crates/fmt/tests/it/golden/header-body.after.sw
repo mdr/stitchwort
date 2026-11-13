@@ -28,12 +28,12 @@ def br (x: Nat)
   start = y
 }
 
-theorem split (xs: List Nat) (ys: List Nat):
+theorem split ∀ (xs: List Nat) (ys: List Nat):
     List.length (xs ++ ys)
       = List.length xs + List.length ys :=
   List.lengthAppend xs ys
 
-theorem nested (x: Nat)
+theorem nested ∀ (x: Nat)
     (h: (y: Nat) →
       y = y): x = x :=
   rfl

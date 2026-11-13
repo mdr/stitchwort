@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: `∀` before the parameters is only for theorems
+   ╭─[ reject/forall-before-def-parameters.sw:4:12 ]
+   │
+ 4 │ def double ∀ (n: Nat): Nat := n + n
+   │            ┬  
+   │            ╰── `∀` before the parameters is only for theorems
+   │ 
+   │ Note: a `def` or an instance lists its parameters directly after its name
+───╯

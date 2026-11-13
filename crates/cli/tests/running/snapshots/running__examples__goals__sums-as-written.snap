@@ -1,23 +1,23 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `plusOne`
-   ╭─[ goals/sums-as-written.sw:5:44 ]
+   ╭─[ goals/sums-as-written.sw:5:46 ]
    │
- 5 │ theorem plusOne (x: Nat): x + 1 = 1 + x := ?
-   │                                            ┬  
-   │                                            ╰── x: Nat
-   │                                                ⊢ x + 1 = x + 1
+ 5 │ theorem plusOne ∀ (x: Nat): x + 1 = 1 + x := ?
+   │                                              ┬  
+   │                                              ╰── x: Nat
+   │                                                  ⊢ x + 1 = x + 1
 ───╯
 [GOAL] Goal: in `plusThree`
-   ╭─[ goals/sums-as-written.sw:7:54 ]
+   ╭─[ goals/sums-as-written.sw:7:56 ]
    │
- 7 │ theorem plusThree (x y: Nat): x + 3 = y + (x + 2) := ?
-   │                                                      ┬  
-   │                                                      ╰── x: Nat
-   │                                                          y: Nat
-   │                                                          ⊢ x + 3 = y + x + 2
+ 7 │ theorem plusThree ∀ (x y: Nat): x + 3 = y + (x + 2) := ?
+   │                                                        ┬  
+   │                                                        ╰── x: Nat
+   │                                                            y: Nat
+   │                                                            ⊢ x + 3 = y + x + 2
    │ 
    │ Note: this statement is false; a counterexample:
    │         x = 0
@@ -27,12 +27,12 @@ expression: output
    │         right: 2
 ───╯
 [GOAL] Goal: in `written`
-   ╭─[ goals/sums-as-written.sw:9:53 ]
+   ╭─[ goals/sums-as-written.sw:9:55 ]
    │
- 9 │ theorem written (n: Nat): Succ n = Succ (Succ n) := ?
-   │                                                     ┬  
-   │                                                     ╰── n: Nat
-   │                                                         ⊢ Succ n = Succ (Succ n)
+ 9 │ theorem written ∀ (n: Nat): Succ n = Succ (Succ n) := ?
+   │                                                       ┬  
+   │                                                       ╰── n: Nat
+   │                                                           ⊢ Succ n = Succ (Succ n)
    │ 
    │ Note: this statement is false; a counterexample:
    │         n = 0

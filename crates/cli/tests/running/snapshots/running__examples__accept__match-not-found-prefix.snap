@@ -3,11 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-   ╭─[ accept/match-not-found-prefix.sw:9:68 ]
+   ╭─[ accept/match-not-found-prefix.sw:9:70 ]
    │
- 9 │ theorem prefix (x: Nat) (xs: Nat): double xs = xs + xs := match h: double x with
-   │                                                                    ────┬───  
-   │                                                                        ╰───── looked for `double x`
+ 9 │ theorem prefix ∀ (x: Nat) (xs: Nat): double xs = xs + xs := match h: double x with
+   │                                                                      ────┬───  
+   │                                                                          ╰───── looked for `double x`
    │ 
    │ Note 1: in the goal `double xs = xs + xs`
    │ 

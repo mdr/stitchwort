@@ -6,7 +6,7 @@ def twice (x: Int): Int := - -x
 def nots (b: Bool): Bool := !b
 def cmp (x: Int): Bool := x == -1 && !(x < -2)
 def list: List Int := [-1, -2, 3]
-theorem back (h: a = b): b = a := rewrite <- h in rfl
+theorem back ∀ (h: a = b): b = a := rewrite <- h in rfl
 def lines (x: Int): Int :=
   x
     - 1

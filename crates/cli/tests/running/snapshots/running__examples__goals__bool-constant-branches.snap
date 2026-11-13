@@ -1,24 +1,24 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `orFalse`
-   ╭─[ goals/bool-constant-branches.sw:9:48 ]
+   ╭─[ goals/bool-constant-branches.sw:9:50 ]
    │
- 9 │ theorem orFalse (b: Bool): b = (b || False) := ?
-   │                                                ┬  
-   │                                                ╰── b: Bool
-   │                                                    ⊢ b = (if b then True else False)
+ 9 │ theorem orFalse ∀ (b: Bool): b = (b || False) := ?
+   │                                                  ┬  
+   │                                                  ╰── b: Bool
+   │                                                      ⊢ b = (if b then True else False)
 ───╯
 [GOAL] Goal: in `allTwo`
-    ╭─[ goals/bool-constant-branches.sw:11:69 ]
+    ╭─[ goals/bool-constant-branches.sw:11:71 ]
     │
- 11 │ theorem allTwo (b: Bool) (c: Bool): List.all [b, c] (x => x) = b := ?
-    │                                                                     ┬  
-    │                                                                     ╰── b: Bool
-    │                                                                         c: Bool
-    │                                                                         ⊢ [b, c].all (x => x) = b
-    │                                                                           computes to (b && c && True) = b
+ 11 │ theorem allTwo ∀ (b: Bool) (c: Bool): List.all [b, c] (x => x) = b := ?
+    │                                                                       ┬  
+    │                                                                       ╰── b: Bool
+    │                                                                           c: Bool
+    │                                                                           ⊢ [b, c].all (x => x) = b
+    │                                                                             computes to (b && c && True) = b
     │ 
     │ Note: this statement is false; a counterexample:
     │         b = True
@@ -28,14 +28,14 @@ expression: output
     │         right: True
 ────╯
 [GOAL] Goal: in `anyTwo`
-    ╭─[ goals/bool-constant-branches.sw:13:69 ]
+    ╭─[ goals/bool-constant-branches.sw:13:71 ]
     │
- 13 │ theorem anyTwo (b: Bool) (c: Bool): List.any [b, c] (x => x) = b := ?
-    │                                                                     ┬  
-    │                                                                     ╰── b: Bool
-    │                                                                         c: Bool
-    │                                                                         ⊢ [b, c].any (x => x) = b
-    │                                                                           computes to (b || c || False) = b
+ 13 │ theorem anyTwo ∀ (b: Bool) (c: Bool): List.any [b, c] (x => x) = b := ?
+    │                                                                       ┬  
+    │                                                                       ╰── b: Bool
+    │                                                                           c: Bool
+    │                                                                           ⊢ [b, c].any (x => x) = b
+    │                                                                             computes to (b || c || False) = b
     │ 
     │ Note: this statement is false; a counterexample:
     │         b = False
@@ -45,13 +45,13 @@ expression: output
     │         right: False
 ────╯
 [GOAL] Goal: in `besideBool`
-    ╭─[ goals/bool-constant-branches.sw:15:66 ]
+    ╭─[ goals/bool-constant-branches.sw:15:68 ]
     │
- 15 │ theorem besideBool (k: Nat) (b: Bool): (k < 3) = (k < 3 && b) := ?
-    │                                                                  ┬  
-    │                                                                  ╰── k: Nat
-    │                                                                      b: Bool
-    │                                                                      ⊢ (k <= 2) = (k <= 2 && b)
+ 15 │ theorem besideBool ∀ (k: Nat) (b: Bool): (k < 3) = (k < 3 && b) := ?
+    │                                                                    ┬  
+    │                                                                    ╰── k: Nat
+    │                                                                        b: Bool
+    │                                                                        ⊢ (k <= 2) = (k <= 2 && b)
     │ 
     │ Note: this statement is false; a counterexample:
     │         k = 0

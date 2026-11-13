@@ -1,30 +1,30 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `rangeGoal`
-    ╭─[ goals/param-default-shown.sw:11:63 ]
+    ╭─[ goals/param-default-shown.sw:11:65 ]
     │
- 11 │ theorem rangeGoal (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
-    │                                                               ┬  
-    │                                                               ╰── a: Nat
-    │                                                                   b: Nat
-    │                                                                   ⊢ range a b = [a, b, 1]
+ 11 │ theorem rangeGoal ∀ (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
+    │                                                                 ┬  
+    │                                                                 ╰── a: Nat
+    │                                                                     b: Nat
+    │                                                                     ⊢ range a b = [a, b, 1]
 ────╯
 [GOAL] Goal: in `scaledGoal`
-    ╭─[ goals/param-default-shown.sw:13:54 ]
+    ╭─[ goals/param-default-shown.sw:13:56 ]
     │
- 13 │ theorem scaledGoal (a: Nat): scaled a = a + a * 2 := ?
-    │                                                      ┬  
-    │                                                      ╰── a: Nat
-    │                                                          ⊢ scaled a = a + (a * 2)
+ 13 │ theorem scaledGoal ∀ (a: Nat): scaled a = a + a * 2 := ?
+    │                                                        ┬  
+    │                                                        ╰── a: Nat
+    │                                                            ⊢ scaled a = a + (a * 2)
 ────╯
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ goals/param-default-shown.sw:15:64 ]
+    ╭─[ goals/param-default-shown.sw:15:66 ]
     │
- 15 │ theorem rangeShape (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
-    │                                                                ─┬─  
-    │                                                                 ╰─── `range a b` and `[a, b, 2]` aren't equal
+ 15 │ theorem rangeShape ∀ (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
+    │                                                                  ─┬─  
+    │                                                                   ╰─── `range a b` and `[a, b, 2]` aren't equal
     │ 
     │ Note 1: computing the left side gives `[a, b, 1]`
     │ 
@@ -39,11 +39,11 @@ expression: output
     │           first difference at [2]: 1 vs 2
 ────╯
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ goals/param-default-shown.sw:17:47 ]
+    ╭─[ goals/param-default-shown.sw:17:49 ]
     │
- 17 │ theorem scaledShape (a: Nat): scaled a = a := rfl
-    │                                               ─┬─  
-    │                                                ╰─── `scaled a` and `a` aren't equal
+ 17 │ theorem scaledShape ∀ (a: Nat): scaled a = a := rfl
+    │                                                 ─┬─  
+    │                                                  ╰─── `scaled a` and `a` aren't equal
     │ 
     │ Note 1: computing the left side gives `a + (a * 2)`
     │ 

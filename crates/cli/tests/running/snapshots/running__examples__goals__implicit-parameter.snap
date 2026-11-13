@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `identity`
@@ -12,13 +12,13 @@ expression: output
    │                                         ⊢ a
 ───╯
 [GOAL] Goal: in `symmetric`
-   ╭─[ goals/implicit-parameter.sw:4:64 ]
+   ╭─[ goals/implicit-parameter.sw:4:66 ]
    │
- 4 │ theorem symmetric [a: Type] (x: a) (y: a) (h: x = y): y = x := ?
-   │                                                                ┬  
-   │                                                                ╰── a: Type
-   │                                                                    x: a
-   │                                                                    y: a
-   │                                                                    h: x = y
-   │                                                                    ⊢ y = x
+ 4 │ theorem symmetric ∀ [a: Type] (x: a) (y: a) (h: x = y): y = x := ?
+   │                                                                  ┬  
+   │                                                                  ╰── a: Type
+   │                                                                      x: a
+   │                                                                      y: a
+   │                                                                      h: x = y
+   │                                                                      ⊢ y = x
 ───╯

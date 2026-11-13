@@ -25,11 +25,11 @@ expression: warnings
     │ Note 3: the search compares what terms compute to: write the expression as the goal shows it (or `rewrite` the goal to the form you want, or bind it with a `let` before the `match`)
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-    ╭─[ accept/match-as-written.sw:82:62 ]
+    ╭─[ accept/match-as-written.sw:82:64 ]
     │
- 82 │ theorem vanishing (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
-    │                                                              ───┬───  
-    │                                                                 ╰───── looked for `isBig n`
+ 82 │ theorem vanishing ∀ (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
+    │                                                                ───┬───  
+    │                                                                   ╰───── looked for `isBig n`
     │ 
     │ Note 1: in the goal `keep 3 (isBig n) = 3`
     │ 

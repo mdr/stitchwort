@@ -1,14 +1,14 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `stepsAtOnce`
-   ╭─[ goals/step-then-folded.sw:9:99 ]
+   ╭─[ goals/step-then-folded.sw:9:101 ]
    │
- 9 │ theorem stepsAtOnce (a: Nat) (b: Nat): (if True then concatenate a b else 0) = concatenate a b := ?
-   │                                                                                                   ┬  
-   │                                                                                                   ╰── a: Nat
-   │                                                                                                       b: Nat
-   │                                                                                                       ⊢ (if True then concatenate a b else 0) = concatenate a b
-   │                                                                                                         computes to concatenate a b = concatenate a b
+ 9 │ theorem stepsAtOnce ∀ (a: Nat) (b: Nat): (if True then concatenate a b else 0) = concatenate a b := ?
+   │                                                                                                     ┬  
+   │                                                                                                     ╰── a: Nat
+   │                                                                                                         b: Nat
+   │                                                                                                         ⊢ (if True then concatenate a b else 0) = concatenate a b
+   │                                                                                                           computes to concatenate a b = concatenate a b
 ───╯
