@@ -4401,6 +4401,103 @@ mod tests {
         assert!(Rc::ptr_eq(t, &deep), "kept as it was");
     }
 
+    /// `Empty` and `Effect.doneIn`, bound as the built-ins `empty_row_done`
+    /// reads: a bare `Fresh` has neither.
+    fn empty_row_fixture() -> (Fresh, stitchwort_core::DataId, DefId) {
+        use stitchwort_core::check::{self, CtorDecl};
+        let mut fresh = Fresh::default();
+        let g = &mut fresh.g;
+        let row = check::declare_data(
+            g,
+            "Effect.Effects".into(),
+            "Effect.Effects".into(),
+            Vec::new(),
+            Sort::Type(0),
+            span(),
+        )
+        .expect("the row data type");
+        check::define_ctors(
+            g,
+            row,
+            vec![CtorDecl {
+                name: "Empty".into(),
+                fields: Vec::new(),
+                result: Vec::new(),
+                implicit: Vec::new(),
+                braced: false,
+            }],
+        )
+        .expect("Empty");
+        let done = check::declare_def(
+            g,
+            &"Effect.doneIn".into(),
+            &"Effect.doneIn".into(),
+            &Term::Sort(Sort::Type(0)),
+            false,
+            false,
+            span(),
+        )
+        .expect("doneIn");
+        check::define_def(g, done, &Term::Data(row, Vec::new())).expect("doneIn's body");
+        assert_eq!(
+            stitchwort_core::registry::bind_data(g, row),
+            Some(Builtin::Row)
+        );
+        assert_eq!(
+            stitchwort_core::registry::bind_def(g, done),
+            Some(Builtin::DoneIn)
+        );
+        (fresh, row, done)
+    }
+
+    /// `doneIn Empty v` is another node `Changing` marks (`empty_row_done`):
+    /// below the look-ahead depth and with no metavariable near it, zonking
+    /// still goes down to it and replaces it with `v`, while a deeper part
+    /// with nothing to change is kept as it was.
+    #[test]
+    fn zonk_goes_down_to_an_empty_row_done_below_the_look_ahead_depth() {
+        let (fresh, row, done) = empty_row_fixture();
+        let g = &fresh.unifier();
+        let wrap = |t: Term, n: usize| (0..n).fold(t, |t, _| Term::app(Term::Var(0), t));
+        let head = Term::App(
+            Rc::new(Term::Def(done)),
+            Rc::new(Term::Sort(Sort::Type(0))),
+            Icit::Implicit,
+        );
+        let once = Term::App(
+            Rc::new(head),
+            Rc::new(Term::Ctor(row, 0, Vec::new())),
+            Icit::Explicit,
+        );
+        let term = Term::App(Rc::new(once), Rc::new(Term::Var(0)), Icit::Explicit);
+        assert!(
+            matches!(empty_row_done(g, &term), Some(Term::Var(0))),
+            "the fixture is the case `empty_row_done` takes apart"
+        );
+        let deep = Rc::new(wrap(term, 100));
+        let before = g.machine.budget.total_work();
+        let zonked = zonk(g, 1, &deep).expect("zonked");
+        let steps = g.machine.budget.total_work() - before;
+        assert_eq!(
+            format!("{zonked:?}"),
+            format!("{:?}", wrap(Term::Var(0), 100)),
+            "`doneIn Empty v` is `v`, 100 levels down"
+        );
+        assert!(
+            steps < 1_000,
+            "went down only to the node that changes: {steps} steps"
+        );
+        // A sibling far deeper with nothing to change is kept, not rebuilt.
+        let huge = Rc::new(wrap(Term::Var(0), 100_000));
+        let ann = Term::Ann(deep.clone(), huge.clone());
+        let zonked = zonk(g, 1, &ann).expect("zonked");
+        let Term::Ann(e, t) = &zonked else {
+            panic!("an annotation")
+        };
+        assert_eq!(format!("{e:?}"), format!("{:?}", wrap(Term::Var(0), 100)));
+        assert!(Rc::ptr_eq(t, &huge), "kept as it was");
+    }
+
     fn closed(g: &Unifier<'_>, t: &Term) -> Value {
         eval(g, &[], t).unwrap()
     }

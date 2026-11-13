@@ -216,12 +216,185 @@ fn natives_force_a_deep_chain_of_glued_calls_in_one_machine() {
     let term = (0..depth).fold(d.p.num(0), |t, _| app(Term::Def(inc), [t]));
     let g = &d.p.g;
     g.machine.glue.set(true);
+    let before = stitchwort_core::value::machine_runs();
     let call = eval(&g.ev(), &[], &term).unwrap();
     assert!(matches!(call, Value::Call(..)), "{call:?}");
+    assert_eq!(
+        stitchwort_core::value::machine_runs() - before,
+        1,
+        "the whole term evaluates in one machine"
+    );
+    let before = stitchwort_core::value::machine_runs();
     let forced = force(&g.ev(), call);
+    assert_eq!(
+        stitchwort_core::value::machine_runs() - before,
+        1,
+        "forcing the chain starts no machine of its own per level"
+    );
     g.machine.glue.set(false);
     let n = as_nat(&g.ev(), &forced.unwrap()).unwrap();
     assert_eq!(n.map(|n| n.to_string()), Some(depth.to_string()));
+}
+
+/// Whether `value` is a call whose unfolding hasn't been computed. The
+/// cell's accessors are private, so a test looks at it through its `Debug`
+/// (`Unfolding { kept: RefCell { value: None }, .. }`).
+fn unforced(value: &Value) -> bool {
+    format!("{value:?}").contains("kept: RefCell { value: None }")
+}
+
+/// SW-2572 and SW-3055: a native stops forcing at the first argument whose
+/// head is no number, so calls after it are never unfolded (`lz.sw`).
+#[test]
+fn a_native_stopped_on_a_stuck_argument_leaves_the_calls_after_it_unforced() {
+    let mut d = defs();
+    use stitchwort_core::native::{Native, register_nat, register_native_unpinned};
+    register_nat(&mut d.p.g, d.p.nat).expect("Nat");
+    let nat = d.p.nat_ty();
+    // Each body returns its last argument, so what the native was given is
+    // what the evaluation gives back.
+    let mul = define(
+        &mut d.p.g,
+        "mul",
+        arrow(nat.clone(), arrow(nat.clone(), nat.clone())),
+        lam("m", lam("n", v(0))),
+    )
+    .expect("mul");
+    let div = define(
+        &mut d.p.g,
+        "divFuel",
+        arrow(
+            nat.clone(),
+            arrow(nat.clone(), arrow(nat.clone(), nat.clone())),
+        ),
+        lam("f", lam("n", lam("d", v(0)))),
+    )
+    .expect("divFuel");
+    register_native_unpinned(&mut d.p.g, mul, Native::Mul).expect("mul");
+    register_native_unpinned(&mut d.p.g, div, Native::DivFuel).expect("divFuel");
+    let g = &d.p.g;
+    g.machine.glue.set(true);
+    // Values of their own: if the native forced one, this handle sees the
+    // kept unfolding a test-held copy shares.
+    let second = eval(&g.ev(), &[], &app(Term::Def(d.double), [d.p.num(5)])).unwrap();
+    let third = eval(&g.ev(), &[], &app(Term::Def(d.double), [d.p.num(7)])).unwrap();
+    assert!(matches!(second, Value::Call(..)) && matches!(third, Value::Call(..)));
+    let stuck = Value::var(0);
+    // `mul x (double 5)`: the second argument is a call the native must not
+    // force once `x` isn't a number.
+    let f = eval(&g.ev(), &[], &Term::Def(mul)).unwrap();
+    let f = apply(&g.ev(), f, stuck.clone()).unwrap();
+    let result = apply(&g.ev(), f, second.clone()).unwrap();
+    assert!(
+        matches!(result, Value::Call(id, _, _) if id == d.double),
+        "{result:?}"
+    );
+    assert!(unforced(&second), "{second:?}");
+    // `divFuel x (double 5) (double 7)`: neither later argument is forced.
+    let f = eval(&g.ev(), &[], &Term::Def(div)).unwrap();
+    let f = apply(&g.ev(), f, stuck).unwrap();
+    let f = apply(&g.ev(), f, second.clone()).unwrap();
+    let result = apply(&g.ev(), f, third.clone()).unwrap();
+    assert_eq!(format!("{result:?}"), format!("{third:?}"));
+    assert!(unforced(&second), "{second:?}");
+    assert!(unforced(&third), "{third:?}");
+    g.machine.glue.set(false);
+}
+
+/// A number argument doesn't stop the native: the call after it is forced,
+/// through the same machine, and its unfolding is kept.
+#[test]
+fn a_native_forces_a_call_after_a_number_argument() {
+    let mut d = defs();
+    use stitchwort_core::native::{Native, as_nat, register_nat, register_native_unpinned};
+    register_nat(&mut d.p.g, d.p.nat).expect("Nat");
+    register_native_unpinned(&mut d.p.g, d.p.add, Native::Add).expect("add");
+    let g = &d.p.g;
+    g.machine.glue.set(true);
+    let call = eval(&g.ev(), &[], &app(Term::Def(d.double), [d.p.num(3)])).unwrap();
+    assert!(matches!(call, Value::Call(..)));
+    let f = eval(&g.ev(), &[], &Term::Def(d.p.add)).unwrap();
+    let five = eval(&g.ev(), &[], &d.p.num(5)).unwrap();
+    let f = apply(&g.ev(), f, five).unwrap();
+    let sum = apply(&g.ev(), f, call.clone()).unwrap();
+    g.machine.glue.set(false);
+    let n = as_nat(&g.ev(), &sum).unwrap();
+    assert_eq!(n.map(|n| n.to_string()), Some("11".into()));
+    assert!(!unforced(&call), "forced and kept: {call:?}");
+}
+
+/// A three-argument native forces calls in all three arguments, stepping
+/// through them in order (`Control::NativeArg::next`).
+#[test]
+fn a_three_argument_native_forces_calls_in_every_argument() {
+    let mut d = defs();
+    use stitchwort_core::native::{Native, as_nat, register_nat, register_native_unpinned};
+    register_nat(&mut d.p.g, d.p.nat).expect("Nat");
+    let nat = d.p.nat_ty();
+    let zero = d.p.num(0);
+    let div = define(
+        &mut d.p.g,
+        "divFuel",
+        arrow(
+            nat.clone(),
+            arrow(nat.clone(), arrow(nat.clone(), nat.clone())),
+        ),
+        lam("f", lam("n", lam("d", zero))),
+    )
+    .expect("divFuel");
+    register_native_unpinned(&mut d.p.g, div, Native::DivFuel).expect("divFuel");
+    let g = &d.p.g;
+    g.machine.glue.set(true);
+    let call = |n: usize| eval(&g.ev(), &[], &app(Term::Def(d.double), [d.p.num(n)])).unwrap();
+    let (fuel, n, divisor) = (call(5), call(10), call(2));
+    let f = eval(&g.ev(), &[], &Term::Def(div)).unwrap();
+    let result = [fuel.clone(), n.clone(), divisor.clone()]
+        .into_iter()
+        .fold(f, |f, a| apply(&g.ev(), f, a).unwrap());
+    g.machine.glue.set(false);
+    let result = as_nat(&g.ev(), &result).unwrap();
+    assert_eq!(result.map(|n| n.to_string()), Some("5".into()));
+    for call in [&fuel, &n, &divisor] {
+        assert!(!unforced(call), "forced and kept: {call:?}");
+    }
+}
+
+/// A call's kept unfolding from an epoch that's been taken back doesn't fit,
+/// even as a native's argument: the machine computes the unfolding again and
+/// keeps that, with the same value.
+#[test]
+fn a_native_forces_again_an_argument_whose_kept_unfolding_was_taken_back() {
+    let mut d = defs();
+    use stitchwort_core::native::{Native, as_nat, register_nat, register_native_unpinned};
+    register_nat(&mut d.p.g, d.p.nat).expect("Nat");
+    register_native_unpinned(&mut d.p.g, d.p.add, Native::Add).expect("add");
+    let g = &d.p.g;
+    let metas = Epoch(std::cell::Cell::new(1));
+    let ev = stitchwort_core::Ev {
+        metas: &metas,
+        ..g.ev()
+    };
+    g.machine.glue.set(true);
+    let call = eval(&ev, &[], &app(Term::Def(d.double), [d.p.num(5)])).unwrap();
+    force(&ev, call.clone()).unwrap();
+    let sum = |call: Value| {
+        let add = eval(&ev, &[], &Term::Def(d.p.add)).unwrap();
+        let one = eval(&ev, &[], &d.p.num(1)).unwrap();
+        apply(&ev, apply(&ev, add, one).unwrap(), call).unwrap()
+    };
+    let before = sum(call.clone());
+    // The kept unfolding may have used a metavariable solution that's gone.
+    metas.0.set(2);
+    let after = sum(call.clone());
+    g.machine.glue.set(false);
+    assert!(conv(&ev, 0, &before, &after).unwrap(), "the same value");
+    let n = as_nat(&ev, &after).unwrap();
+    assert_eq!(n.map(|n| n.to_string()), Some("11".into()));
+    let debug = format!("{call:?}");
+    assert!(
+        debug.contains("epoch: 2"),
+        "computed again at the new epoch: {debug}"
+    );
 }
 
 /// `term` (with `level` variables) evaluated with gluing on and read back
