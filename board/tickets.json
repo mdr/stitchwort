@@ -34273,15 +34273,17 @@
     {
       "id": 3156,
       "title": "[Sonnet] A lexical error anywhere empties the whole module: recover per declaration in the lexer as the parser does (SW-3155 finding; cheap)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane): lex_recovering in crates/syntax/src/lexer.rs; parse_module_recovering uses it. Not done: the lossless tree (parse_tree, dev tree, formatter) still needs a file to lex, so dev tree \"not lexed\" stays 5.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "3da5c4240"
+      ]
     },
     {
       "id": 3157,
