@@ -1290,6 +1290,25 @@ pub(crate) fn read_fact(cx: &Ctx, rterm: &Term, rty: &Value) -> Result<Option<(T
     }
 }
 
+/// What a fact `h: ty` gives `auto` and `cases` as a hypothesis (§9): what
+/// `h.read` gives, one layer, where it is a test fact that reads as
+/// something. `ty` is read as it is: for a variable, the caller passes its
+/// type as written ([`term_as_written`]); a part of a fact has the type the
+/// reading's statement gave it, with its calls kept folded. Unlike `.read`,
+/// it is never an error: a leaf's `e = True` gives nothing, and a reading
+/// that failed to check (`Read::Pending`) gives nothing, so a tactic doesn't
+/// fail by looking at a hypothesis it didn't need.
+pub(crate) fn hypothesis_reads(cx: &Ctx, h: &Term, ty: &Value) -> Result<Option<(Term, Value)>> {
+    let Some((test, polarity)) = test_fact(cx, ty)? else {
+        return Ok(None);
+    };
+    match read(cx, &test, polarity)? {
+        Read::Found(found) => Ok(Some((found.forward(cx, h.clone())?, found.prop))),
+        Read::Leaf(_) if !polarity => Ok(Some(refutes(cx, h, &test)?)),
+        Read::Leaf(_) | Read::Pending(_) => Ok(None),
+    }
+}
+
 /// From `h: e = False`, `¬(e = True)`: `t => Bool.falseNotTrue (Eq.trans
 /// (Eq.sym h) t)`.
 fn refutes(cx: &Ctx, h: &Term, test: &Value) -> Result<(Term, Value)> {

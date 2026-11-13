@@ -58,6 +58,17 @@ theorem refined (x: Nat) (h: inRange 1 x 9): 1 ≤ x :=
   match x with
     | 0 => h2.low
     | Succ n => h2.low
+
+-- `auto` and `cases` read a hypothesis by its type as written, and a part
+-- of one by the type its reading gave it: read unfolded, `inRange 1 x 9`
+-- would be `∧`, not `InRange 1 x 9` (§9).
+def needsRange (x: Nat) [auto ok: InRange 1 x 9]: Nat := x
+
+def autoReads (x: Nat) (h: inRange 1 x 9): Nat := needsRange x
+
+def autoReadsPart (x: Nat) (p: Bool) (h: (p && inRange 1 x 9) = True): Nat := needsRange x
+
+theorem casesReadsPart (x: Nat) (p: Bool) (h: (p && inRange 1 x 9) = True): InRange 1 x 9 := cases
 ";
 
 fn load(glue: bool) {
@@ -339,4 +350,92 @@ theorem isSmallReads (n: Nat): isSmall n ↔ Small n := { forward = h => h, back
         let codes: Vec<&str> = session.warnings.iter().map(|w| w.code).collect();
         assert_eq!(codes, ["W-DECISION-TEST"], "{:#?}", session.warnings);
     }
+}
+
+/// `auto` passes over a reading that failed to check, with no error of its
+/// own (§9): `inRangeReads`'s statement fails, so its `inRange` part reads
+/// as nothing, and `auto` proves `b = True` from the other part. The only
+/// error is the reading's.
+#[test]
+fn auto_passes_over_a_failed_reading() {
+    let source = format!(
+        "{IN_RANGE}
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ Missing lo x hi := ?
+
+def needsTrue (b: Bool) [auto ok: b = True]: Nat := 0
+
+def helper (lo x hi: Nat) (b: Bool) (h: (inRange lo x hi && b) = True): Nat := needsTrue b
+"
+    );
+    assert_eq!(errors(&source), ["E-UNKNOWN-NAME: unknown name `Missing`"]);
+}
+
+/// `from_rules` applies a `∀` only where every unknown is settled: one
+/// its conclusion doesn't mention, and that isn't a proposition a fact
+/// could fill, is never guessed.
+#[test]
+fn auto_doesnt_guess_a_rules_value_argument() {
+    let source = "import Std (Nat)
+
+def small (x: Nat) [auto ok: x < 5]: Nat := x
+
+def guessed (z: Nat) (h: ∀ (x: Nat) (y: Nat) => y = y → x < 5): Nat := small z
+";
+    let errors = errors(source);
+    assert!(
+        errors.iter().any(|e| e.starts_with("E-AUTO-STUCK")),
+        "{errors:#?}"
+    );
+}
+
+/// `auto` reads at most 64 test facts in a context, the latest first, so
+/// an older one past that many isn't seen (§9; auto.rs, `MAX_READS`).
+/// `h` takes three reads: itself, then its parts `b = True` and
+/// `xs.contains x = True`.
+#[test]
+fn auto_reads_at_most_64_test_facts() {
+    let source = |later: usize| {
+        let leaves: String = (0..later)
+            .map(|i| format!(" (c{i}: Bool) (f{i}: c{i} = True)"))
+            .collect();
+        format!(
+            "import Std (Bool, List, Nat)
+
+def present (x: Nat) (xs: List Nat) [auto ok: x ∈ xs]: Nat := x
+
+def found (x: Nat) (xs: List Nat) (b: Bool) (h: (b && xs.contains x) = True){leaves}: Nat := present x xs
+"
+        )
+    };
+    assert_eq!(errors(&source(61)), Vec::<String>::new());
+    let errors = errors(&source(62));
+    assert!(
+        errors.iter().any(|e| e.starts_with("E-AUTO-STUCK")),
+        "{errors:#?}"
+    );
+}
+
+/// `auto` takes a fact apart at most 8 layers deep: a conjunction and each
+/// reading count one each (§9; auto.rs, `MAX_PART_DEPTH`).
+#[test]
+fn auto_takes_a_fact_apart_8_layers_deep() {
+    let source = |conjuncts: usize| {
+        let names: String = (0..conjuncts).map(|i| format!(" (b{i}: Bool)")).collect();
+        let test: String = (0..conjuncts).map(|i| format!("b{i} && ")).collect();
+        format!(
+            "import Std (Bool, List, Nat)
+
+def present (x: Nat) (xs: List Nat) [auto ok: x ∈ xs]: Nat := x
+
+def found (x: Nat) (xs: List Nat){names} (h: ({test}xs.contains x) = True): Nat := present x xs
+"
+        )
+    };
+    assert_eq!(errors(&source(3)), Vec::<String>::new());
+    let errors = errors(&source(4));
+    assert!(
+        errors.iter().any(|e| e.starts_with("E-AUTO-STUCK")),
+        "{errors:#?}"
+    );
 }

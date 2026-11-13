@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-AUTO-STUCK] Error: can't decide `y ≤ 4` here
+   ╭─[ reject/auto-readings-no-member.sw:8:83 ]
+   │
+ 8 │ def unknownMember (xs: List Nat) (y: Nat) (h: xs.all (x => x < 5) = True): Nat := small y
+   │                                                                                   ───┬───  
+   │                                                                                      ╰───── it involves values that aren't known here, and computing it doesn't settle it
+   │ 
+   │ Note: establish it first, with `if h: … then … else …`
+───╯

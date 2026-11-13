@@ -229,6 +229,14 @@ theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a 
 theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 -- end readings-decisions
 
+-- begin readings-auto
+def small (x: Nat) [auto ok: x < 5]: Nat := x
+
+def member (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5) = True): Nat := small y
+
+theorem inRight (x: Nat) (xs: List Nat) (b: Bool) (h: (b && xs.contains x) = True): x ∈ xs := cases
+-- end readings-auto
+
 -- begin dependent
 def pick (v: Vec Nat 3): Nat := v.get 2
 

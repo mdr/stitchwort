@@ -507,7 +507,7 @@ Not every arm gets an equation. Where the right side computes on the proof of a 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:
 
 - `if n != 0 then a else b` makes the fact `n != 0` available in `a`, where an `auto` argument finds it: in `if n != 0 then Nat.modLt x n else …`, the lemma's `[auto ok: n ≠ 0]` is that fact ([chapter 2](02-values-and-definitions.md#dividing-by-zero)).
-- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if i < xs.length && j < xs.length then xs.getLt i` checks. (When `b` itself needs the fact from `a`, as in `i < xs.length && xs.getLt i == x`, the branch doesn't get the conjunction.)
+- `if a && b then …` gives the branch `a ∧ b`, and `auto` uses each part of a conjunction in scope: `if i < xs.length && j < xs.length then xs.getLt i` checks. It uses a fact about a test, such as the `(a && b) = True` a `match` on `a && b` gives, the same way: as what the test reads as (below). (When `b` itself needs the fact from `a`, as in `i < xs.length && xs.getLt i == x`, the branch doesn't get the conjunction.)
 - `if h: P then a else b` also names the fact: `h: P` in `a`, and `h: ¬P` in `b`.
 - A parameter `[auto ok: P]` asks the caller for a proof of `P`, found automatically from the facts in scope, or by deciding `P` when its values are known.
 
@@ -577,6 +577,17 @@ theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a 
     | Both ab bc => rewrite ab.read, bc.read in rfl
 
 theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
+```
+
+`auto` and `cases` read the facts in scope the same way, so a fact about a test is used as what it reads as without a `.read`. A fact `xs.all p = True` reads as "every member of `xs` passes `p`", and `auto` applies that to a member it can see:
+
+<!-- snippet: proofs.sw#readings-auto -->
+```stitchwort
+def small (x: Nat) [auto ok: x < 5]: Nat := x
+
+def member (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5) = True): Nat := small y
+
+theorem inRight (x: Nat) (xs: List Nat) (b: Bool) (h: (b && xs.contains x) = True): x ∈ xs := cases
 ```
 
 Given a fact where what it reads as is wanted, the error's note says what it reads as and to add `.read`. And when you write a decision of a statement that some test reads as, write it with that test, `{ holds = isSmall n, … }`, so `if Small n` and `if isSmall n` are the same computation; a decision that tests with another function gets the warning `W-DECISION-TEST`.
