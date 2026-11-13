@@ -33597,12 +33597,12 @@
     {
       "id": 3104,
       "title": "[DeepSeek] A mismatch note when an e = False fact is given where a ≠ is wanted: 'write same.read' (SW-3101 finding 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, needed fixes (a trial-unification error propagated instead of meaning no note; one line in review), 40 min (est. 30).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
