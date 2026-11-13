@@ -686,7 +686,6 @@ theorem Graph.notGreaterOfThen (first second: Ordering) (less: Ordering.andThen 
   match first with
     | Less => same => Ordering.lessNotGreater same
     | Equal => same => Ordering.equalNotGreater same
-    | Greater => same => Ordering.greaterNotLess less
 
 --| The least pair of a queue costs no more than any pair in it.
 theorem Graph.minLeast [auto ord: Ord s] (queue: Set (Nat, s)) (cost: Nat) (state: s) (found: queue.min = Some (cost, state)) (other: Nat)

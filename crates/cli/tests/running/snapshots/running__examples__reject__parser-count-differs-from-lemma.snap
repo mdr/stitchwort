@@ -17,11 +17,11 @@ expression: output
      │ │                                      
      │ ╰────────────────────────────────────── this `match`
      │ 
- 221 │   ╭─▶   match Parse.next passes with
+ 219 │   ╭─▶ def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char := match Parse.next passes with
      ┆   ┆   
- 223 │   ├─▶     | None => Parse.expected what
-     │   │                                       
-     │   ╰─────────────────────────────────────── this `match`
+ 221 │   ├─▶   | None => Parse.expected what
+     │   │                                     
+     │   ╰───────────────────────────────────── this `match`
      │       
      │       Note 1: they first differ at `Done …` against `Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind … …) (value1 => …))`, in `Std.Effect.bind (Std.Effect.bind (match y with …) (char => …)) (value1 => Done …)`
      │       

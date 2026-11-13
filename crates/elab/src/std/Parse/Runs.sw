@@ -792,7 +792,6 @@ theorem Parse.runsRecursiveFuel (body: (() → {Parse} a) → {Parse} a) (good: 
       Parse.Runs (() => body self) read rest v)
     (fuel: Nat) (read rest: List Char) (v: a) (holds: good read rest v) (small: read.length < fuel):
     Parse.Runs (() => Parse.recursiveFuel fuel body) read rest v := match fuel with
-      | Zero => state starts honest => Void.exfalso (omega [small])
       | Succ more => state starts honest =>
         step (() => Parse.recursiveFuel more body) read rest v holds
           (nestedRead nestedRest w nestedHolds shorter =>
