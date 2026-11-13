@@ -459,9 +459,26 @@ a function of its own, which may have one.
    `only: [d, ..more].all p` has `only.left : p d` and `only.right :
    more.all p`, `[d, ..more].any p` is taken apart with `Inl` and `Inr`, and
    a `Prop` def that unfolds to such a test follows by step 4. On any other
-   list the quantifier reading is used. The rule is in the reader and names
-   the two functions: a reading can't be keyed on the argument's shape
-   (§5.3).
+   list the quantifier reading is used. The rule is in the reader and is
+   keyed on the quantifier readings of `List.all` and `List.any` (it can't
+   be a reading, which can't be keyed on the argument's shape, §5.3). A
+   literal list, `[1, 2, 3].all p`, is a cons too: a chain of `∧`s. `[].all
+   p` and `[].any p` still read as the quantifier (`∀ x ∈ []`, `∃ x ∈ []`),
+   not as `True` or `False`.
+
+   At `= False` the same applies: `[d, ..more].all p = False` reads as `p d =
+   False ∨ more.all p = False` (through `Bool.andReadsFalse`) and `[d,
+   ..more].any p = False` as `p d = False ∧ more.any p = False` (through
+   `Bool.orReadsFalse`), not as `∃` and `∀`.
+
+   What a proof on a cons list could do before and can't now: `h.read x m`
+   (E-NOT-A-FUNCTION, with a note pointing at `.left`/`.right`, or `Inl`/`Inr`;
+   the quantifier is `(List.allReads xs p).forward h`), `Witness x found` on
+   an `any` (E-NO-READING: it is a `∨`), and `Witness x found` on `all … =
+   False`. What works instead: `.left` and `.right`, `Both`, `Inl`, `Inr`, and
+   `match` on `Inl`/`Inr`. **`auto` keeps both:** it takes the `∧`'s parts
+   and also applies the `∀` the list reads as on any other list, to a
+   member in scope.
 3. Look up (polarity, head of the test). At most one theorem is there; its
    parameters are the test's arguments.
 4. If none, and the head is a call that isn't `opaque`, unfold it one step

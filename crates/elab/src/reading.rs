@@ -761,22 +761,33 @@ fn waiting_note_for(
     })
 }
 
-/// Whether `f args` is `List.any` or `List.all` of a list that is a cons
-/// (`[x, ..xs]`, written or from a case tree's unfolding), whose unfolding
-/// is one conjunction or disjunction.
-fn unfolds_on_cons(g: &Ev, f: DefId, args: &[Value]) -> Result<bool> {
-    if !matches!(&*g.def(f).name().to_string(), "List.any" | "List.all") {
+/// Whether `theorem`, the reading found for a test with arguments `args`,
+/// is one of `List.all`'s and `List.any`'s quantifier readings and the list
+/// is a cons (`[x, ..xs]`, written or from a case tree's unfolding): the
+/// test's unfolding is then one conjunction or disjunction, and reads as
+/// that instead.
+fn unfolds_on_cons(g: &Ev, theorem: DefId, args: &[Value]) -> Result<bool> {
+    let reg = g.env.registry();
+    let quantifier = [
+        Builtin::ListAllReads,
+        Builtin::ListAllReadsFalse,
+        Builtin::ListAnyReads,
+        Builtin::ListAnyReadsFalse,
+    ];
+    if !quantifier
+        .iter()
+        .any(|&b| reg.loaded_def(b) == Some(theorem))
+    {
         return Ok(false);
     }
-    let reg = g.env.registry();
     let Some((list, cons)) = reg.ctor(Builtin::Cons) else {
         return Ok(false);
     };
     for arg in args {
-        // Not forced: a call that computes to a cons (`image.edges`) is a
-        // list the program names, and reads as one.
-        if let Value::Ctor(d, c, _) = arg
-            && (*d, *c) == (list, cons)
+        // Only a solved meta is followed: a call that computes to a cons
+        // (`image.edges`) is a list the program names, and reads as one.
+        if let Value::Ctor(d, c, _) = force_solved(g, arg.clone())?
+            && (d, c) == (list, cons)
         {
             return Ok(true);
         }
@@ -784,14 +795,78 @@ fn unfolds_on_cons(g: &Ev, f: DefId, args: &[Value]) -> Result<bool> {
     Ok(false)
 }
 
+/// A note for applying a fact as a function where its type `ty` is an `∧` or
+/// `∨` whose second side is `all` or `any` of a list: a cons list's `all`
+/// and `any` read as one step (§5.4, step 2c), not as the `∀` or `∃` over
+/// the list that the program may have meant.
+pub(crate) fn cons_step_note(cx: &Ctx, ty: &Value) -> Result<Option<String>> {
+    let g = cx.g();
+    let reg = g.env.registry();
+    let Value::Data(d, sides) = force(&g, ty.clone())? else {
+        return Ok(None);
+    };
+    let (conjunction, disjunction) = (reg.is_data(Builtin::And, d), reg.is_data(Builtin::Or, d));
+    if !(conjunction || disjunction) || sides.len() != 2 {
+        return Ok(None);
+    }
+    let Some((test, polarity)) = test_fact(cx, &sides[1])? else {
+        return Ok(None);
+    };
+    let Some((TestHead::Def(f), _)) = head_args(&g, &test)? else {
+        return Ok(None);
+    };
+    let by_quantifier = [
+        Builtin::ListAllReads,
+        Builtin::ListAllReadsFalse,
+        Builtin::ListAnyReads,
+        Builtin::ListAnyReadsFalse,
+    ];
+    let reads_by_quantifier =
+        cx.e.reading_for(polarity, TestHead::Def(f))
+            .is_some_and(|(t, _)| by_quantifier.iter().any(|&b| reg.loaded_def(b) == Some(t)));
+    if !reads_by_quantifier {
+        return Ok(None);
+    }
+    let (this, parts) = if conjunction {
+        ("∧", "`.left` and `.right`")
+    } else {
+        ("∨", "`Inl` and `Inr`")
+    };
+    Ok(Some(format!(
+        "`all` and `any` of a list written as a cons (`[x, ..xs]`) read as one step, a `{this}` \
+         here, not as a `∀` or `∃` over the list: take it apart with {parts}. The quantifier \
+         is `(List.allReads xs p).forward h` (or `List.anyReads`), with the list and the \
+         test written out"
+    )))
+}
+
 /// The reading of `test` at `polarity` (§5.4): its head's reading, or else
 /// the reading of what it unfolds to, one definition at a time, up to
 /// [`UNFOLD_LIMIT`] steps.
 fn lookup(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result<Lookup> {
-    folded(g, || lookup_folded(g, e, test, polarity))
+    lookup_with(g, e, test, polarity, true)
 }
 
-fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result<Lookup> {
+/// [`lookup`], where `cons_step` says whether `all` and `any` of a cons
+/// read as one step of their recursion (step 2c) or, as for any other list,
+/// as the quantifier.
+fn lookup_with(
+    g: &Ev,
+    e: &Elaborator,
+    test: &Value,
+    polarity: bool,
+    cons_step: bool,
+) -> Result<Lookup> {
+    folded(g, || lookup_folded(g, e, test, polarity, cons_step))
+}
+
+fn lookup_folded(
+    g: &Ev,
+    e: &Elaborator,
+    test: &Value,
+    polarity: bool,
+    step_on_cons: bool,
+) -> Result<Lookup> {
     let mut test = test.clone();
     let mut first_head = None;
     for _ in 0..=UNFOLD_LIMIT {
@@ -816,15 +891,16 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
         // `all` and `any` of a cons are one step of their recursion, `p x &&
         // xs.all p` and `p x || xs.any p`, not the quantifier over the whole
         // list: unfolded, they read as `∧` and `∨` (§5.4, step 2c).
-        let cons_step = match head {
-            TestHead::Def(f) => unfolds_on_cons(g, f, &args)?,
+        let reading = e.reading_for(polarity, head);
+        let cons_step = match &reading {
+            Some((theorem, _)) if step_on_cons => unfolds_on_cons(g, *theorem, &args)?,
             _ => false,
         };
         // A test with more or fewer arguments than the reading's (a
         // function returning a function), or at a row the reading isn't
         // stated at, isn't the reading's test.
         if !cons_step
-            && let Some((theorem, info)) = e.reading_for(polarity, head)
+            && let Some((theorem, info)) = reading
             && info.fits(g, &args)?
         {
             return Ok(Lookup::Found(theorem, info, args));
@@ -849,7 +925,13 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
 
 /// The reading of `test` at `polarity`, with its terms built in `cx`.
 pub(crate) fn read(cx: &Ctx, test: &Value, polarity: bool) -> Result<Read> {
-    let lookup = lookup(&cx.g(), cx.e, test, polarity)?;
+    read_with(cx, test, polarity, true)
+}
+
+/// [`read`], where `cons_step` says whether `all` and `any` of a cons read
+/// as `∧` and `∨` (the default) or as the quantifier.
+fn read_with(cx: &Ctx, test: &Value, polarity: bool, cons_step: bool) -> Result<Read> {
+    let lookup = lookup_with(&cx.g(), cx.e, test, polarity, cons_step)?;
     Ok(match lookup {
         Lookup::Found(theorem, info, args) => Read::Found(found(cx, theorem, &info, &args)?),
         Lookup::Decision(prop, decision) => {
@@ -1486,6 +1568,34 @@ pub(crate) fn hypothesis_reads(cx: &Ctx, h: &Term, ty: &Value) -> Result<Option<
         Read::Leaf(_) if !polarity => Ok(Some(refutes(cx, h, &test)?)),
         Read::Leaf(_) | Read::Pending(_) => Ok(None),
     }
+}
+
+/// What `h: ty` reads as a quantifier where [`hypothesis_reads`] reads it as
+/// one step: `[d, ..more].all p = True` is `p d ∧ more.all p` there and `∀
+/// x ∈ [d, ..more], p x` here, which `auto` applies to a member. `None`
+/// where the two readings are the same.
+pub(crate) fn hypothesis_quantifier_reads(
+    cx: &Ctx,
+    h: &Term,
+    ty: &Value,
+) -> Result<Option<(Term, Value)>> {
+    let Some((test, polarity)) = test_fact(cx, ty)? else {
+        return Ok(None);
+    };
+    let (Read::Found(step), Read::Found(quantifier)) = (
+        read_with(cx, &test, polarity, true)?,
+        read_with(cx, &test, polarity, false)?,
+    ) else {
+        return Ok(None);
+    };
+    let theorem = |found: &Found| match found.steps.first().map(|s| &s.via) {
+        Some(Via::Reading { theorem, .. }) => Some(*theorem),
+        _ => None,
+    };
+    if theorem(&step) == theorem(&quantifier) {
+        return Ok(None);
+    }
+    Ok(Some((quantifier.forward(cx, h.clone())?, quantifier.prop)))
 }
 
 /// From `h: e = False`, `¬(e = True)`: `t => Bool.falseNotTrue (Eq.trans

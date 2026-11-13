@@ -3968,14 +3968,20 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
             }
             Ok((dom, cod))
         }
-        other => Err(cx.error(
-            "E-NOT-A-FUNCTION",
-            "this isn't a function",
-            format!(
-                "it's applied to an argument, but its type is `{}`",
-                cx.show(&other)
-            ),
-        )),
+        other => {
+            let error = cx.error(
+                "E-NOT-A-FUNCTION",
+                "this isn't a function",
+                format!(
+                    "it's applied to an argument, but its type is `{}`",
+                    cx.show(&other)
+                ),
+            );
+            Err(match crate::reading::cons_step_note(cx, &other)? {
+                Some(note) => error.with_note(note),
+                None => error,
+            })
+        }
     }
 }
 

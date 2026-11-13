@@ -750,7 +750,9 @@ def firstBelow (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5)): N
   below y
 ```
 
-Once the list is a `[x, ..xs]`, as a `match` on it leaves it, `all` and `any` are the one step they take, so they read as `∧` and `∨`: `only: [d, ..more].all p` has `only.left : p d` and `only.right : more.all p`, and `[d, ..more].any p` is taken apart with `Inl` and `Inr` (or built with them). A list the program names by a call, such as `image.edges`, is read as the quantifier above.
+Once the list is a `[x, ..xs]`, as a `match` on it leaves it, `all` and `any` are the one step they take, so they read as `∧` and `∨`: `only: [d, ..more].all p` has `only.left : p d` and `only.right : more.all p`, and `[d, ..more].any p` is taken apart with `Inl` and `Inr` (or built with them). A list the program names by a call, such as `image.edges`, is read as the quantifier above, and so is `[].all p`. A literal list, `[1, 2, 3].all p`, is a cons: a chain of `∧`s.
+
+Three things you could write against the quantifier don't apply to a cons: `h.read x m` on `[d, ..more].all p` (it isn't a function: the error points at `.left` and `.right`), `Witness x found` on `[d, ..more].any p` (a `∨`: use `Inl` and `Inr`), and `[d, ..more].all p = False` as `Witness`: it reads as `p d = False ∨ more.all p = False`, and `[d, ..more].any p = False` as the `∧` of the two. Where you want the quantifier, `(List.allReads xs p).forward h` gives it. `auto` uses both readings: it applies the `∀` to a member in scope as well as the parts of the `∧`.
 
 ### Your own readings
 

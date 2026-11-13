@@ -31,3 +31,20 @@ theorem anyBuiltTail ∀ (d: Nat) (more: List Nat) (tl: more.any (x => x > 2)): 
 def Heads (d: Nat) (more: List Nat): Prop := [d, ..more].all (x => x < 5) = True
 
 theorem headsLeft ∀ (d: Nat) (more: List Nat) (h: Heads d more): d < 5 := h.left
+
+-- `= False` on a cons `all` reads as a `∨` of `= False`s, and on a cons `any`
+-- as a `∧`.
+theorem allFalse ∀ (d: Nat) (more: List Nat) (h: [d, ..more].all (x => x < 5) = False):
+    (d < 5) = False ∨ more.all (x => x < 5) = False := match h with
+      | Inl first => Inl first
+      | Inr rest => Inr rest
+
+theorem anyFalse ∀ (d: Nat) (more: List Nat) (h: [d, ..more].any (x => x > 2) = False): (d > 2) = False := h.left
+
+-- A list the program names by a call isn't a cons: the quantifier.
+def pair (d: Nat): List Nat := [d, 1]
+
+theorem named ∀ (d: Nat) (h: (pair d).all (x => x < 5)) (x: Nat) (m: x ∈ pair d): x < 5 := h.read x m
+
+-- A literal cons is a cons.
+theorem literal ∀ (h: [1, 2, 3].all (x => x < 5)): 1 < 5 := h.left
