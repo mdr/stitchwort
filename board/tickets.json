@@ -34442,12 +34442,12 @@
     {
       "id": 3169,
       "title": "[Sonnet] Lossless tree lane E: proofs: Calc/CalcStep, Rewrite/RewriteRule, Omega, Ring, Cases",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 10 min (est. 150).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
