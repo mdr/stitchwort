@@ -4684,6 +4684,47 @@ fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
     Ok(())
 }
 
+/// A lambda checked against `expected`, which isn't a function type: an
+/// error, unless `expected` is a test fact whose reading is a function
+/// type and the lambda builds it (`build.rs`). Apart from `check_value`,
+/// whose frame every nested expression pays for.
+#[inline(never)]
+fn lambda_not_function(
+    cx: &mut Ctx,
+    expr: &Expr,
+    names: &[AstName],
+    span: Span,
+    expected: &Value,
+) -> Result<Term> {
+    let shadowed = lambda_shadow(cx, names, span)?;
+    let error = cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "this is a function, but the expected type is `{}`",
+            cx.show(expected)
+        ),
+    );
+    let error = if names.len() == 1 && names[0].text == SECTION {
+        // A section inside the body of another section.
+        error.with_note(
+            "a section's argument is used once, at the start of the expression: to \
+                 use it twice, write the lambda, as in `x => x.f || x.g`",
+        )
+    } else {
+        error
+    };
+    let error = shadow_note(error, shadowed.as_ref());
+    if expr.section_name().is_some() {
+        return Err(error);
+    }
+    // A test fact whose reading is a function type, built from the
+    // lambda (`build.rs`).
+    crate::build::lambda(cx, span, names[0].span, expected, error, |cx, reading| {
+        check_inner(cx, expr, reading)
+    })
+}
+
 /// [`check_inner`] once it's known that `expr` isn't run as a whole, against
 /// a forced `expected` that isn't a computation.
 pub(crate) fn check_value(
@@ -4850,35 +4891,7 @@ pub(crate) fn check_value(
             Expr::TypedLam(name, Mode::Explicit, ann, body, _),
             Value::Pi(_, Icit::Explicit, dom, cod),
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
-        (Expr::Lam(names, _, span), _) => {
-            let shadowed = lambda_shadow(cx, names, *span)?;
-            let error = cx.error(
-                "E-TYPE-MISMATCH",
-                "type mismatch",
-                format!(
-                    "this is a function, but the expected type is `{}`",
-                    cx.show(&expected)
-                ),
-            );
-            let error = if names.len() == 1 && names[0].text == SECTION {
-                // A section inside the body of another section.
-                error.with_note(
-                    "a section's argument is used once, at the start of the expression: to \
-                     use it twice, write the lambda, as in `x => x.f || x.g`",
-                )
-            } else {
-                error
-            };
-            let error = shadow_note(error, shadowed.as_ref());
-            if expr.section_name().is_some() {
-                return Err(error);
-            }
-            // A test fact whose reading is a function type, built from the
-            // lambda (`build.rs`).
-            crate::build::lambda(cx, *span, &expected, error, |cx, reading| {
-                check_inner(cx, expr, reading)
-            })
-        }
+        (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected),
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
         {
@@ -6110,8 +6123,15 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     if let Some(term) = cx.along_match_equation(&term, found, expected)? {
         return Ok(term);
     }
-    // A test fact from a proof of its reading, where an earlier attempt at
-    // the body failed here (`build.rs`).
+    compare_failed(cx, term, found, expected)
+}
+
+/// [`compare`] once everything it tries has failed: a test fact built
+/// from a proof of its reading, where an earlier attempt at the body
+/// failed here (`build.rs`), or else the mismatch. Apart from `compare`,
+/// whose frame every nested comparison pays for.
+#[inline(never)]
+fn compare_failed(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
     if let Some(term) = crate::build::build(cx, &term, found, expected)? {
         return Ok(term);
     }

@@ -640,12 +640,20 @@ mix with anything.
   True` or `e = False` reads `e` at that polarity, checks the constructor
   against the reading, and wraps it in `r.backward` **[measured, `build`]**.
 - A field of a fact, `h.left`, is `h.read.left`.
-- **Not built** **[review, §4]**: a lambda checked against a test fact, and
-  a test fact applied to arguments (draft 1's `∀` hooks). They served few
-  uses (`List.allMember` 18, `Set.isSubsetIntro` and `Elim` 5) and were the
-  most surprising part: an equation's proof applied like a function.
-  `allSmall.read y yIn` applies the function the reading gives, and a std
-  function builds such a fact from a lambda.
+- **From a proof of the reading** (D3549a, SW-3087; as built,
+  [bool-as-proposition-building.md](bool-as-proposition-building.md)):
+  where a test fact is expected and a term proves one of its readings
+  (the chain of readings while each is a test fact, then `¬(e = True)` for
+  `e = False`), the fact is built with the readings' `backward`; a lambda
+  takes the first candidate that is a function type, so a lambda against
+  `xs.all p` or a `≠` reading now builds. It runs only after the
+  declaration has failed with that mismatch, by checking it again with
+  the build allowed at that place (form R, SW-3105), so a program that
+  checked before is unchanged. Never from `rfl` or a written `.read`, never
+  a whole compound (use `Both`), at most 8 per declaration;
+  `STITCHWORT_BUILD=0` turns it off.
+- **Not built**: a test fact applied to arguments (draft 1's `∀` hook);
+  `allSmall.read y yIn` applies the function the reading gives.
 
 ### 6.7 Errors
 

@@ -141,9 +141,9 @@ fn described(cx: &Ctx, candidates: &Candidates, k: usize) -> String {
 
 /// Records the build of candidate `k` at `at`: before the term is
 /// checked, so an error inside it can say what it was checked as.
-fn record(cx: &Ctx, at: Span, candidates: &Candidates, k: usize) {
+fn record(cx: &Ctx, at: Span, hover: Span, candidates: &Candidates, k: usize) {
     let what = described(cx, candidates, k);
-    cx.e.note_build(at, what.clone());
+    cx.e.note_build(hover, what.clone());
     cx.e.decl.builds.borrow_mut().made.push((at, what));
 }
 
@@ -166,7 +166,7 @@ pub(crate) fn build(
     let Some(k) = fitting(cx, &candidates, found, true)? else {
         return Ok(None);
     };
-    record(cx, at, &candidates, k);
+    record(cx, at, at, &candidates, k);
     Ok(Some(candidates.list[k].backward(cx, term.clone())?))
 }
 
@@ -237,10 +237,12 @@ fn no_fit_note(cx: &Ctx, candidates: &Candidates) -> String {
 /// For a lambda checked against `expected`, which isn't a function type:
 /// where `expected` is a test fact with a candidate that is one, the
 /// lambda built into the fact if a build is allowed at `at`, or else the
-/// error `error` with the place recorded.
+/// error `error` with the place recorded. What it built shows on hover
+/// over `first_binder`.
 pub(crate) fn lambda(
     cx: &mut Ctx,
     at: Span,
+    first_binder: Span,
     expected: &Value,
     error: Diagnostic,
     check: impl FnOnce(&mut Ctx, &Value) -> Result<Term>,
@@ -257,7 +259,9 @@ pub(crate) fn lambda(
     if !allowed(cx, at) {
         return Err(error.with_build(at));
     }
-    record(cx, at, &candidates, k);
+    // Hover shows it on the first binder: the lambda as a whole is no
+    // reference.
+    record(cx, at, first_binder, &candidates, k);
     let proof = check(cx, &candidates.list[k].prop.clone())?;
     candidates.list[k].backward(cx, proof)
 }

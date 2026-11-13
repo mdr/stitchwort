@@ -28,6 +28,9 @@ theorem fromEqual (x y: Nat) (same: x = y): (x == y) = True := same
 
 theorem fromApart (x y: Nat) (ne: x ≠ y): (x == y) = False := ne
 
+-- `not b = True` reads as `b = False`.
+theorem fromFalse (b: Bool) (no: b = False): (not b) = True := no
+
 -- Two layers: `!=` reads as `(a == b) = False`, which reads as `a ≠ b`.
 theorem fromApartBang (a b: Nat) (ne: a ≠ b): ((a != b): Bool) = True := ne
 

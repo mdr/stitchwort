@@ -95,6 +95,8 @@ fn hover_on_a_term_a_test_fact_was_built_from() {
     let source = "import Std (List, Nat)
 
 theorem fromMember (x: Nat) (xs: List Nat) (m: x ∈ xs): xs.contains x := m
+
+theorem notZero (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => omega
 ";
     let file = answers(source);
     let place = Place::Program("demo.sw".into());
@@ -104,6 +106,14 @@ theorem fromMember (x: Nat) (xs: List Nat) (m: x ∈ xs): xs.contains x := m
         hover.markdown.contains(
             "builds the test fact `xs.contains x` from a proof of `x ∈ xs` (by `List.memContains`)"
         ),
+        "{}",
+        hover.markdown
+    );
+    // A lambda built into a fact says so on its first binder.
+    let (line, col) = at_text(source, "isZero =>", 0);
+    let hover = at::hover_at(&file, &place, Some(source), line, col, None).expect("a hover");
+    assert!(
+        hover.markdown.contains("from a proof of `n ≠ 0`"),
         "{}",
         hover.markdown
     );

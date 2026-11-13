@@ -1,6 +1,7 @@
 # Building a test fact from a proof of its reading (D3549a, SW-3087)
 
-**Status:** design addendum to [bool-as-proposition.md](bool-as-proposition.md)
+**Status:** built (SW-3087, 13 Nov 2026; see "As built" at the end).
+Design addendum to [bool-as-proposition.md](bool-as-proposition.md)
 §6.6, 13 November 2026, for D3549a (Matt, 13 Nov 2026: yes, once the reader
 gaps are closed). Read-only analysis on `main` at `66ebcc00a`, plus
 SW-3121 (step 2c), which landed while it was written. It follows the
@@ -358,3 +359,42 @@ deferred it to the counts).
   bodies of `partial.rs:491` and `defaults.rs:267`'s callers.
 - Counts are `grep` over source lines and include a few comment-free false
   hits; the "goes" column is a judgement from reading about 30 sites.
+
+## As built (SW-3087)
+
+`crates/elab/src/build.rs`, with the candidates in `reading::candidates`.
+
+- **Where.** `check::compare`, after `along_match_equation` and before the
+  error: in a round where the span is allowed, the build; otherwise the
+  mismatch carries `Detail::build` (the span) when a candidate fits, found
+  with a snapshot taken and restored. The lambda arm of `check_value`
+  (a lambda against a non-function type) does the same with the first
+  function-type candidate. The retry is a loop round in
+  `with_local_retries` (`build::again`), before the local-definition
+  retry. The other four callers (`partial.rs`, `decreasing.rs`,
+  `defaults.rs`, the test loop in `lib.rs`) were read: none falls back on a
+  type mismatch (the test loop only on `E-PARTIAL`), so the loop stays
+  there.
+- **The plain candidate** is `Decidable.toBoolOfNot (Bool.decTrue e) p`,
+  both in the core, so building needs no std file loaded.
+- **Notes.** A mismatch against a test fact where nothing fits gets "this
+  expects the test fact …, which reads as …: a proof of that is accepted
+  here" (for a compound, "build it part by part with `Both`"); a written
+  `.read` that would fit gets "`.read` … isn't built back"; an error inside
+  a built term gets "here, the compiler builds the test fact … from a proof
+  of …"; the ninth build, the cap note. The `build` field is taken off the
+  error that is reported.
+- **Hover** goes with the call defaults' hover text (`nav.call_defaults`),
+  which the check cache already keeps, keyed at the built term's span: it
+  shows on a variable or a call's head; for a built lambda, on its first
+  binder.
+- **Switch.** `STITCHWORT_BUILD=0` (`Options::build`), part of the cache
+  key.
+- **Differs from §3.** `x14.sw` (`let w := if c then found else m`) builds
+  `m` in the retry, but an `if` whose branches are proofs is then
+  `E-UNIVERSE` (an `if` in a `let` with no type is checked in `Type`), as
+  it is for any two proofs; so the order example isn't in
+  `build-keeps-meaning.sw`. `x15.sw` is `reject/build-second-branch.sw`.
+- **Postponed comparisons** carry no field, as planned (the field is set
+  only in `compare`'s own error).
+
