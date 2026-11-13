@@ -33961,12 +33961,12 @@
     {
       "id": 3132,
       "title": "[Opus] Evaluator: forcing a long chain of thunks recurses (force → run → unfold → native::run, ~8.5 KiB guarded and ~6 KB V8 stack per level): 2024 Day22.Proofs needs ~2.3 MiB and fails in the playground (SW-3128 finding 1). Force chains iteratively, or evaluate stricter there. Core: kernel-adjacent, Fable/Opus review",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 13 Nov 2026, est. 3 h, took about 1 h 5 min). Branch lane/SW-3132.\n\nFound: part1Correct's `Nat.iterateCong 2000 nextSecret …`. The elaborator reads back the normal form of an argument's type (`interfaces::scanned`, for `unsolved_in` and `find_ready_dictionaries`), which unfolds `Nat.iterate 2000 nextSecret x` about 2,000 deep. Two recursions: (1) the evaluator, where each native (add/leq/mul/divFuel) forced its glued-call argument by `force`, starting a new machine on the Rust stack per level; (2) `zonk_changed` recursing down the 2,000-deep normal form, which has no unknowns below the top.\n\nChange: (1) core/value.rs: a native's number arguments that are glued calls without a kept unfolding are forced by the same machine first (Control::NativeArg / Frame::NativeArg), in native::run's order and stopping where it stops, so the native's own force finds each kept unfolding. (2) elab/unify.rs: below depth 32 zonk_changed finds, in one loop, which nodes it could change (metavariables, empty_row_done applications, their ancestors) and goes down only those.\n\nMeasured (native release, stack probe): Day22.Proofs high-water 3.65 MiB -> 2.66 MiB (evaluator only) -> 222 KiB (both); Spec alone is 209 KiB. Checks natively with a 320 KiB guard. Instructions for `check --no-cache` Day22.Proofs 102.6G -> 102.8G (+0.2%), Day13.Proofs +0.8% (base = main's binary from 15:42); wall time within noise under load 12.\n\nKernel file: crates/core/src/value.rs (evaluator), also native.rs (number_head made pub(crate)). Needs the Fable review. docs/core.md unchanged: reduction is the same.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []

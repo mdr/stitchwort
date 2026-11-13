@@ -198,6 +198,32 @@ fn natives_never_glue() {
     assert!(!matches!(sum, Value::Call(..)), "{sum:?}");
 }
 
+/// A number computed by glued calls nested deep, each giving its argument
+/// to a native (`inc (inc (… 0))`, `inc n = n + 1`), is forced in one
+/// machine: each call's argument is forced there before its native runs, so
+/// the nesting costs frames, not the Rust stack of a machine per level
+/// (SW-3132).
+#[test]
+fn natives_force_a_deep_chain_of_glued_calls_in_one_machine() {
+    let mut d = defs();
+    use stitchwort_core::native::{Native, as_nat, register_nat, register_native_unpinned};
+    register_nat(&mut d.p.g, d.p.nat).expect("Nat");
+    register_native_unpinned(&mut d.p.g, d.p.add, Native::Add).expect("add");
+    let nat_ty = d.p.nat_ty();
+    let body = lam("n", d.p.plus(v(0), d.p.num(1)));
+    let inc = define(&mut d.p.g, "inc", arrow(nat_ty.clone(), nat_ty), body).expect("inc");
+    let depth = 100_000;
+    let term = (0..depth).fold(d.p.num(0), |t, _| app(Term::Def(inc), [t]));
+    let g = &d.p.g;
+    g.machine.glue.set(true);
+    let call = eval(&g.ev(), &[], &term).unwrap();
+    assert!(matches!(call, Value::Call(..)), "{call:?}");
+    let forced = force(&g.ev(), call);
+    g.machine.glue.set(false);
+    let n = as_nat(&g.ev(), &forced.unwrap()).unwrap();
+    assert_eq!(n.map(|n| n.to_string()), Some(depth.to_string()));
+}
+
 /// `term` (with `level` variables) evaluated with gluing on and read back
 /// folded; checked convertible with its value without gluing.
 fn folded(g: &Kernel, level: usize, term: &Term) -> Term {

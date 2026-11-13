@@ -1002,7 +1002,7 @@ fn run_partial(
 }
 
 /// Whether forced `value` may be a number: it's one, `Zero` or a `Succ`.
-fn number_head(g: &Ev, value: &Value) -> bool {
+pub(crate) fn number_head(g: &Ev, value: &Value) -> bool {
     match value {
         Value::Nat(_) => true,
         Value::Ctor(d, c, _) => Some(*d) == g.env.builtins().nat && *c <= 1,

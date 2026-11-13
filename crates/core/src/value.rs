@@ -1017,9 +1017,11 @@ fn describe(value: &Value) -> &'static str {
 //
 // Inside the machine nothing calls `eval`, `apply` or `force`, which would
 // start another machine; it moves to the matching control state instead. The
-// one exception is natives forcing their arguments (`native::view`), which
-// only does work on values containing solved metavariables, during
-// elaboration.
+// one exception is natives forcing their arguments (`native::view`). A
+// native's arguments that are glued calls are forced by the machine first
+// ([`Control::NativeArg`]), so the native's own `force` finds each one's
+// kept unfolding: what is left for it is a solved metavariable, during
+// elaboration, or a call inside a number it walks.
 
 type Env = Values;
 
@@ -1045,6 +1047,9 @@ enum Control {
     /// [`Control::Unfold`], with the result to be that many more `Succ`s
     /// ([`native::Outcome::Succs`]). (Boxed through its `Rc`: rare.)
     UnfoldAfterSuccs(Rc<BigUint>, DefId, Spine),
+    /// Force argument `index` of native definition `id` applied to the
+    /// spine, then run the native ([`unforced_number_arg`]).
+    NativeArg(DefId, Spine, usize),
     /// Walk a case tree. If it's stuck, the result is the definition left
     /// folded (or, for a case outside a definition, an internal error).
     Tree(Rc<Term>, Vec<Value>, Stuck),
@@ -1175,6 +1180,14 @@ enum Frame {
     AppTo(Value, Icit),
     /// The unfolding of a call, to force and then keep.
     Unfolded(Rc<Unfolding>, DefId),
+    /// Argument `next - 1` of native definition `id` applied to `spine`,
+    /// forced and kept in its call ([`Control::NativeArg`]): the arguments
+    /// from `next` on are looked at next, then the native runs.
+    NativeArg {
+        id: DefId,
+        spine: Spine,
+        next: usize,
+    },
     /// The forced value of the call that field call `id spine` (spine
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
     /// of ([`CallField`]). (Boxed: it's large, and rare.)
@@ -1379,6 +1392,7 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
                 }
             }
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
+            Control::NativeArg(id, spine, index) => native_arg(g, &mut stack, id, spine, index)?,
             Control::UnfoldAfterSuccs(k, id, spine) => {
                 push(g, &mut stack, Frame::AddNat(k))?;
                 unfold(g, id, spine)?
@@ -1809,6 +1823,15 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         }
         Frame::AppFun(f, icit) => apply_step(f, value, icit),
         Frame::AppErased(icit) => apply_step(value, erased(), icit),
+        Frame::NativeArg { id, spine, next } => {
+            // Forcing an argument whose head is no number, `native::run`
+            // stops there and forces no more (`run_partial` may).
+            if native::number_head(g, &value) {
+                from_native(g, id, spine, next)?
+            } else {
+                run_native(g, id, spine)?
+            }
+        }
         Frame::AddNat(k) => {
             let (k2, base) = native::view_with(g, &value, force)?;
             Control::Return(native::from_view(&*k + k2, base))
@@ -2567,15 +2590,89 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if let Some(op) = g.env.builtins().native(id)
         && op.arity() == spine.len()
     {
-        match native::run(g, id, op, &spine, force)? {
-            Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
-            Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
-            Some(native::Outcome::Succs(k, spine)) => {
-                return Ok(Control::UnfoldAfterSuccs(Rc::new(k), id, spine.into()));
-            }
-            None => {}
+        return from_native(g, id, spine, 0);
+    }
+    case_tree(g, id, spine, glue)
+}
+
+/// Native definition `id` applied to all its arguments, `spine`, once its
+/// number arguments before `from` have been looked at: the next argument
+/// [`native::run`] would force that is a call not yet unfolded is forced
+/// by this machine first ([`Control::NativeArg`]); with none left, the
+/// native runs.
+///
+/// A native forces its arguments by calling [`force`], which starts another
+/// machine, on the Rust stack. A number computed by glued calls nested
+/// `n` deep (`Nat.iterate 2000 nextSecret seed` in 2024 day 22's proof)
+/// would recurse `n` deep there, through each call's natives; forced here,
+/// each nesting is frames on this machine's stack, and the native's own
+/// `force` finds every argument's kept unfolding at once.
+#[inline(always)]
+fn from_native(g: &Ev, id: DefId, spine: Spine, from: usize) -> Result<Control> {
+    let op = g.env.builtins().native(id).expect("a native");
+    match unforced_number_arg(g, op, &spine, from) {
+        Some(index) => Ok(Control::NativeArg(id, spine, index)),
+        None => run_native(g, id, spine),
+    }
+}
+
+/// Native definition `id` applied to all its arguments, `spine`: its
+/// native implementation, or else its case tree.
+fn run_native(g: &Ev, id: DefId, spine: Spine) -> Result<Control> {
+    let op = g.env.builtins().native(id).expect("a native");
+    match native::run(g, id, op, &spine, force)? {
+        Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
+        Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
+        Some(native::Outcome::Succs(k, spine)) => {
+            return Ok(Control::UnfoldAfterSuccs(Rc::new(k), id, spine.into()));
+        }
+        None => {}
+    }
+    // A native is never glued ([`glues`]), so this is the same as `glue` on.
+    case_tree(g, id, spine, false)
+}
+
+/// The index of the first number argument of native `op`, from `from` on,
+/// that [`native::run`] would force and that is a glued call without a kept
+/// unfolding, if there is one. It looks at the arguments as `native::run`
+/// does, in order, and stops where it stops (an argument whose head is no
+/// number, or a spine that isn't all explicit arguments), so the machine
+/// forces only what the native would have. A solved metavariable it leaves
+/// to the native: it keeps no unfolding to find.
+fn unforced_number_arg(g: &Ev, op: native::Native, spine: &Spine, from: usize) -> Option<usize> {
+    if !spine
+        .iter()
+        .all(|e| matches!(e, Elim::App(_, Icit::Explicit)))
+    {
+        return None;
+    }
+    for (index, elim) in spine.iter().enumerate().take(op.numbers()).skip(from) {
+        let Elim::App(arg, _) = elim else {
+            unreachable!("checked above")
+        };
+        let kept;
+        let head = match arg {
+            Value::Call(_, _, unfolding) => match unfolding.get(g) {
+                Some(value) => {
+                    kept = value;
+                    &kept
+                }
+                None => return Some(index),
+            },
+            other => other,
+        };
+        if needs_forcing(g, head) || !native::number_head(g, head) {
+            return None;
         }
     }
+    None
+}
+
+/// [`unfold_now`] once natives and floats are ruled out: the case tree of
+/// definition `id`, if it has all its arguments (kept as the call instead
+/// while gluing, if `glue`), or else it stays folded.
+#[inline(always)]
+fn case_tree(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     let def = g.def(id);
     if let Some(body) = &def.body
         && def.arity == spine.len()
@@ -2598,6 +2695,33 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
         }
     }
     Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
+}
+
+/// Forcing argument `index` of native `id` applied to `spine`
+/// ([`Control::NativeArg`]), with the native to run once it is forced.
+#[cold]
+#[inline(never)]
+fn native_arg(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    id: DefId,
+    spine: Spine,
+    index: usize,
+) -> Result<Control> {
+    let Some(Elim::App(arg, _)) = spine.get(index) else {
+        unreachable!("an explicit argument, by unforced_number_arg")
+    };
+    let arg = arg.clone();
+    push(
+        g,
+        stack,
+        Frame::NativeArg {
+            id,
+            spine,
+            next: index + 1,
+        },
+    )?;
+    Ok(Control::Force(arg))
 }
 
 /// Whether definition `id` stays folded when it has all its arguments, except

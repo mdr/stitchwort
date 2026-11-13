@@ -3124,7 +3124,47 @@ pub(crate) fn zonk_in(
     keep: &dyn Fn(usize) -> bool,
     lets: &[Around],
 ) -> std::result::Result<Term, ZonkError> {
-    Ok(zonk_changed(g, level, term, keep, lets)?.unwrap_or_else(|| term.clone()))
+    Ok(zonk_changed(g, level, term, keep, lets, 0, None)?.unwrap_or_else(|| term.clone()))
+}
+
+/// How deep [`zonk_changed`] recurses before it finds out, in one loop over
+/// the rest of the term ([`Changing`]), which parts it would change, and
+/// from then on recurses only into those. Shallow terms, nearly all of them,
+/// never pay for the look.
+const LOOK_AHEAD_DEPTH: usize = 32;
+
+/// The nodes of a term that zonking may change, by address: each that is a
+/// metavariable or an application [`empty_row_done`] takes apart, or has
+/// one below it. Zonking computes nothing elsewhere, so any other node is
+/// its own result. Found by a loop, where zonking recurses on the stack: a
+/// deep normal form with its unknowns near the top (2024 day 22's
+/// `Nat.iterate 2000 nextSecret x`, about 2,000 deep, read back to see what
+/// an application's type still mentions) is zonked without going down it.
+struct Changing(stitchwort_core::collections::HashSet<*const Term>);
+
+impl Changing {
+    fn of(g: &Ev, term: &Term) -> Changing {
+        let mut changing = stitchwort_core::collections::HashSet::default();
+        // Each node twice: on the way down, then once its children are done.
+        let mut pending = vec![(term, false)];
+        while let Some((t, children_done)) = pending.pop() {
+            if children_done {
+                let mut changes = matches!(t, Term::Meta(_)) || empty_row_done(g, t).is_some();
+                t.for_each_child(|c, _| changes |= changing.contains(&(c as *const Term)));
+                if changes {
+                    changing.insert(t as *const Term);
+                }
+            } else {
+                pending.push((t, true));
+                t.for_each_child(|c, _| pending.push((c, false)));
+            }
+        }
+        Changing(changing)
+    }
+
+    fn changes(&self, term: &Term) -> bool {
+        self.0.contains(&(term as *const Term))
+    }
 }
 
 /// The budget for unfolding a solution to lose an unknown its calls'
@@ -3303,11 +3343,24 @@ fn zonk_changed(
     term: &Term,
     keep: &dyn Fn(usize) -> bool,
     lets: &[Around],
+    depth: usize,
+    changing: Option<&Changing>,
 ) -> std::result::Result<Option<Term>, ZonkError> {
+    let found;
+    let changing = match changing {
+        None if depth >= LOOK_AHEAD_DEPTH => {
+            found = Changing::of(g, term);
+            Some(&found)
+        }
+        changing => changing,
+    };
+    if changing.is_some_and(|c| !c.changes(term)) {
+        return Ok(None);
+    }
     g.machine.budget.step()?;
     // A child, zonked; `None` if unchanged.
     let go = |t: &Rc<Term>, level| -> std::result::Result<Option<Rc<Term>>, ZonkError> {
-        Ok(zonk_changed(g, level, t, keep, lets)?.map(Rc::new))
+        Ok(zonk_changed(g, level, t, keep, lets, depth + 1, changing)?.map(Rc::new))
     };
     let or = |new: Option<Rc<Term>>, old: &Rc<Term>| new.unwrap_or_else(|| old.clone());
     // The arguments, if any changed.
@@ -3383,7 +3436,7 @@ fn zonk_changed(
             } else {
                 let mut inner = lets.to_vec();
                 inner.extend(normals.into_iter().map(|n| (level, level, Rc::new(n))));
-                zonk_changed(g, level + 1, b, keep, &inner)?.map(Rc::new)
+                zonk_changed(g, level + 1, b, keep, &inner, depth + 1, changing)?.map(Rc::new)
             };
             match (a2, v2, b2) {
                 (None, None, None) => None,
@@ -4239,6 +4292,32 @@ mod tests {
         let term = Term::app(Term::Meta(m), Term::Var(0));
         let zonked = zonk(g, 1, &term).expect("solved");
         assert!(matches!(zonked, Term::Var(0)), "{zonked:?}");
+    }
+
+    /// Past `LOOK_AHEAD_DEPTH`, zonking goes down only the parts with
+    /// something to replace: all the way to an unknown at the bottom, and
+    /// not into a deep part with none, which is kept as it was.
+    #[test]
+    fn zonk_goes_down_a_deep_term_only_where_it_changes() {
+        let fresh = Fresh::default();
+        let g = &fresh.unifier();
+        let (m, lhs) = meta(g, &[0]);
+        assert!(unify(g, 1, &lhs, &Value::var(0)).unwrap());
+        let solved = Term::app(Term::Meta(m), Term::Var(0));
+        let wrap = |t: Term, n: usize| (0..n).fold(t, |t, _| Term::app(Term::Var(0), t));
+        let zonked = zonk(g, 1, &wrap(solved.clone(), 100)).expect("solved");
+        assert_eq!(
+            format!("{zonked:?}"),
+            format!("{:?}", wrap(Term::Var(0), 100))
+        );
+        let deep = Rc::new(wrap(Term::Var(0), 100_000));
+        let term = Term::Ann(Rc::new(solved), deep.clone());
+        let zonked = zonk(g, 1, &term).expect("solved");
+        let Term::Ann(e, t) = &zonked else {
+            panic!("an annotation")
+        };
+        assert!(matches!(**e, Term::Var(0)), "{e:?}");
+        assert!(Rc::ptr_eq(t, &deep), "kept as it was");
     }
 
     fn closed(g: &Unifier<'_>, t: &Term) -> Value {
