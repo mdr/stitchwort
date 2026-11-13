@@ -9,7 +9,7 @@ def half: Nat → Nat
   | Succ Zero => 0
   | Succ (Succ n) => Succ (half n)
 
-theorem halfBounds: ∀ (n: Nat) => (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)
+theorem halfBounds (n: Nat): (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1) := match n with
   | Zero => Both rfl rfl
   | Succ Zero => Both rfl rfl
   | Succ (Succ n) =>

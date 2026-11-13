@@ -70,12 +70,12 @@ def numbersIn: List Packet → Nat
 -- claim for its items, which a lemma over the list takes apart. Each step
 -- is closed by `omega`. `Packet.size (Packets items)` computes as far as the
 -- list is known, so the lemma can state its bound with it.
-theorem numbersInLe: ∀ (items: List Packet) => List.All (q => numbers q ≤ Packet.size q) items →
-    numbersIn items ≤ Packet.size (Packets items)
-  | [], all => rfl
-  | [p, ..rest], Both here others =>
-    let ih := numbersInLe rest others
-    omega
+theorem numbersInLe (items: List Packet) (all: List.All (q => numbers q ≤ Packet.size q) items):
+    numbersIn items ≤ Packet.size (Packets items) := match items, all with
+      | [], all => rfl
+      | [p, ..rest], Both here others =>
+        let ih := numbersInLe rest others
+        omega
 
 theorem numbersLe (p: Packet): numbers p ≤ Packet.size p :=
   Packet.induct (q => numbers q ≤ Packet.size q) (value => rfl) (items all => numbersInLe items all) p

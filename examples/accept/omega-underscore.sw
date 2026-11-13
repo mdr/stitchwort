@@ -11,7 +11,7 @@ def size: List Nat → Nat
   | [] => 0
   | [head, ..rest] => 1 + size rest
 
-theorem tallyAtMostSize (label: Nat): ∀ (xs: List Nat) => tally label xs ≤ size xs
+theorem tallyAtMostSize (label: Nat) (xs: List Nat): tally label xs ≤ size xs := match xs with
   | [] => omega
   | [head, ..rest] => omega [tallyAtMostSize label rest]
 

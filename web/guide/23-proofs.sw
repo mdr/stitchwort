@@ -10,9 +10,9 @@ theorem doubleFour: double 4 = 8 := rfl
 -- the empty list, then a list with a first element, where the theorem used
 -- on the shorter list is the induction step. `Eq.cong` carries an equation
 -- through a function.
-theorem appendLength: ∀ (xs ys: List a) =>
-    (xs ++ ys).length = xs.length + ys.length
-  | [], ys => rfl
-  | [x, ..xs], ys => Eq.cong Succ (appendLength xs ys)
+theorem appendLength (xs ys: List a):
+    (xs ++ ys).length = xs.length + ys.length := match xs with
+      | [] => rfl
+      | [x, ..xs] => Eq.cong Succ (appendLength xs ys)
 
 -- Try changing `Succ` to something else: the compiler says what it expected.

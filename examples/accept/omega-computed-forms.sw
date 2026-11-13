@@ -58,10 +58,11 @@ def past (left: Int) (right: Int) (bottom: Int) (probe: Probe): Bool :=
 def step (probe: Probe): Probe :=
   { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - Int.sign probe.dx, dy = probe.dy - 1 }
 
-theorem signCases: ∀ (dx: Int) => (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx = 0 ∧ dx = 0) ∨ (Int.sign dx = -1 ∧ dx < 0)
-  | OfNat 0 => Inr (Inl (Both rfl rfl))
-  | OfNat (Succ k) => Inl (Both rfl (omega))
-  | NegSucc k => Inr (Inr (Both rfl (omega)))
+theorem signCases (dx: Int): (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx = 0 ∧ dx = 0) ∨ (Int.sign dx = -1 ∧ dx < 0) :=
+  match dx with
+    | OfNat 0 => Inr (Inl (Both rfl rfl))
+    | OfNat (Succ k) => Inl (Both rfl (omega))
+    | NegSucc k => Inr (Inr (Both rfl (omega)))
 
 theorem pastStays (left: Int) (right: Int) (bottom: Int) (probe: Probe) (h: past left right bottom probe = True):
     past left right bottom (step probe) = True :=

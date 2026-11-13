@@ -17,9 +17,10 @@ def reach (flag: Nat → Bool): Nat → Nat → Nat → Bool
         ∨ reach flag k (c + 1) d
     else reach flag k c d
 
-theorem orCases (goal: Prop): ∀ (a b: Bool) => (a ∨ b) = True → (a = True → goal) → (b = True → goal) → goal
-  | True, b, h, f, g => f rfl
-  | False, b, h, f, g => g h
+theorem orCases (goal: Prop) (a b: Bool) (h: (a ∨ b) = True) (f: a = True → goal) (g: b = True → goal): goal :=
+  match a with
+    | True => f rfl
+    | False => g h
 
 -- Where the condition fails, `reach` skips the row.
 theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (h: reach flag (Succ k) c d = True):

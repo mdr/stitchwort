@@ -34,10 +34,10 @@ def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow
 -- Day 21's `everyNumericKey`: `key ∈ numericKeys` computes to a disjunction
 -- of equations, not stuck on `key`, so `key` is split as a fallback, and
 -- each of the 11 cases decides `Yes`.
-theorem everyNumericKey: ∀ (key: NumericKey) => key ∈ numericKeys := cases
+theorem everyNumericKey (key: NumericKey): key ∈ numericKeys := cases
 
 -- `key` (2 cases), then in the `Arrow d` case `d` (4): 5 cases.
-theorem everyDirectionKey: ∀ (key: DirectionKey) => key ∈ directionKeys := cases
+theorem everyDirectionKey (key: DirectionKey): key ∈ directionKeys := cases
 
 type Month =
   | Jan

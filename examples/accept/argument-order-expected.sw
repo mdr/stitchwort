@@ -36,7 +36,7 @@ def listing (n: Nat): List Nat := match n with
   | Zero => [0]
   | Succ k => [n, ..listing k]
 
-theorem countIsLength: ∀ (n: Nat) => count n = List.length (listing n)
+theorem countIsLength (n: Nat): count n = List.length (listing n) := match n with
   | Zero => rfl
   | Succ k => rewrite countIsLength k in rfl
 
