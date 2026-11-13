@@ -1,5 +1,5 @@
 {
-  "next": 3132,
+  "next": 3136,
   "tickets": [
     {
       "id": 47,
@@ -33909,12 +33909,12 @@
     {
       "id": 3128,
       "title": "[Opus] Playground: deep proofs fail under the 512 KiB stack budget (STITCHWORT_GUARD in crates/web/build.rs, SW-1430) with false 'ran out of resources' errors and are re-elaborated on every edit (SW-3113: ~20 s of the 27 s re-check; docs/reviews/SW-3113-browser-recheck.md). (1) confirm in the browser which AoC namespaces show the error; (2) measure the real V8 stack headroom in the LSP worker with web/stress.html and raise the guard as far as is safe; (3) if that's not enough, find the deepest-recursing frames (elaborator, closing, conversion) with the native repro SW3113_STACK=524288 profile::sw3113_profile (on lane/SW-3113) and shrink stack per level. Re-measure the re-check.",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nGuard 320 KiB (orchestrator's call: reversible; 256 was already unsafe for a long sum). Re-check 28.0 → 23.3 s; Day06/Day11/Day16 clear; 2024 Day13 and Day22 still fail (findings filed). SW-3129's bounding done here; its remaining question filed. Model result: Opus, worked, 70 min (est. 150).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33922,7 +33922,7 @@
     {
       "id": 3129,
       "title": "[Sonnet] Land SW-3113's phase instrumentation (lane/SW-3113 9e412de9f) bounded: live::phases keeps a step log that nothing drains in the native LSP; make it opt-in (only when stats are read) or a bounded ring, keep window.editor.stats.phases and the ignored profile test; plus a regression check that the AoC project fits the playground's stack (SW3113_STACK=524288) for Overmind",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33953,6 +33953,58 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3132,
+      "title": "[Opus] Evaluator: forcing a long chain of thunks recurses (force → run → unfold → native::run, ~8.5 KiB guarded and ~6 KB V8 stack per level): 2024 Day22.Proofs needs ~2.3 MiB and fails in the playground (SW-3128 finding 1). Force chains iteratively, or evaluate stricter there. Core: kernel-adjacent, Fable/Opus review",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3133,
+      "title": "[Opus] Printer and type checker frames: go_node (~700 lines, inline(always) into the recursive go) gives the printer the worst V8-to-guard ratio; 2024 Day13.Proofs needs ~500 KiB. Split go_node out of line and shrink checker frames, then re-measure the safe guard with the stack probe (STITCHWORT_STACK_PROBE) (SW-3128 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3134,
+      "title": "[Opus] Playground stack guard from the engine: the guard measures linear memory while V8's own stack overflows, and the ratio varies ~3x by pass; measure the engine's stack at worker start-up in each browser and set the guard from it; check Safari (macOS worker threads get 512 KiB) (SW-3128 findings 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3135,
+      "title": "[Sonnet] Run web/stress.html's cases in the browser test suite (one or two cases), so a broken stress page is noticed; it had silently failed every case on 'unknown name' (SW-3128 finding 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
