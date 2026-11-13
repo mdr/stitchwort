@@ -33935,12 +33935,12 @@
     {
       "id": 3130,
       "title": "[DeepSeek] sweep::sweep_theorem_binders_writes_only_what_keeps_its_statement fails: its fixture theorem leAntisym, once converted, gets W-UNREACHABLE (the Zero/Succ and Succ/Zero arms become impossible with h1/h2 in the header), so the sweep refuses it and converted is []. Change the fixture (crates/cli/tests/tools/sweep.rs BEFORE/AFTER) to a theorem whose conversion leaves no impossible arm, keeping the test's three cases (converted, refused for a moved hash, skipped)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~10 min (est. 15).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
