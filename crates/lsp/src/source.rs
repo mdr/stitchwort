@@ -141,7 +141,8 @@ impl Source for Disk {
 
 /// Projects held in memory: the playground's (the AoC project, the
 /// roguelike), at made-up folders such as `/playground/aoc`. Their
-/// configuration comes parsed, and there is no check cache.
+/// configuration comes parsed. With no cache folder, the server keeps an
+/// in-memory check cache for their namespaces (`LayeredStore`).
 #[derive(Default)]
 pub struct Memory {
     projects: RwLock<Vec<MemoryProject>>,

@@ -42,7 +42,9 @@ use lsp_types::{
 };
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_driver::at as pos;
-use stitchwort_driver::check_cache::{BundleRecorder, BundleStore, CheckCache, LibraryBundle};
+use stitchwort_driver::check_cache::{
+    BundleRecorder, BundleStore, CheckCache, LayeredStore, LibraryBundle,
+};
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
@@ -111,6 +113,10 @@ pub struct Options {
     /// Read when a project or file is loaded, so a host may set it after
     /// starting the server (the playground fetches it meanwhile).
     pub library: Arc<std::sync::OnceLock<Arc<LibraryBundle>>>,
+    /// For tests: every namespace entry a project's in-memory check cache
+    /// (the one used with `library`) is asked for, and whether it had it.
+    #[doc(hidden)]
+    pub namespace_log: Option<stitchwort_driver::check_cache::StoreLog>,
     /// The editor features the user can switch off, and the search time
     /// limit; shared by every thread of the server, and changed by
     /// `workspace/didChangeConfiguration`.
@@ -332,6 +338,7 @@ impl Options {
             search_wanted: 3,
             search_time: Duration::from_secs(5),
             library: Arc::default(),
+            namespace_log: None,
             settings: Arc::default(),
             refresh_tokens: false,
             work_done_progress: false,
@@ -4115,9 +4122,11 @@ impl Checker {
                 writable: writable.clone(),
             }));
         } else if let Some(bundle) = self.options.library.get() {
-            session
-                .elab
-                .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+            let mut store = LayeredStore::new(bundle.clone());
+            if let Some(log) = &self.options.namespace_log {
+                store = store.logging(log.clone());
+            }
+            session.elab.set_check_cache(Rc::new(store));
             skip = bundle.left_out.clone();
         }
         if let Some(include) = self.source.files(dir).include_files() {

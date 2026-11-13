@@ -2760,6 +2760,9 @@ test("in a project, after a jump into another file and the whole project's check
   await untilErrorInView(page, "Day02.sw", "broken");
   await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 10000, "the error underlined");
   console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
+  // The settled namespaces after the day are replayed from the in-memory check cache (SW-2919), not elaborated again.
+  await page.until(`window.editor.stats.idle || window.editor.stats.restarts > 0`, 240000, "the project's re-check to finish");
+  console.log(`    (the project re-checked ${Math.round((Date.now() - t) / 100) / 10} s after the edit)`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 480000 });
 

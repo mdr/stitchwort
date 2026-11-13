@@ -956,6 +956,19 @@ does, and here that builds the list of all 130,321 change sequences. Fixing
 it would mean evaluating `ty_value` lazily, which is outside the cache.
 Every other cached declaration takes well under a millisecond to admit.
 
+## The playground's in-memory layer (SW-2919)
+
+The browser has no cache directory, and its fallback, the library bundle
+(`BundleStore`), is read only and holds library files only, so every edit
+re-elaborated all the namespaces after the edited one. A project's session
+there now uses `LayeredStore` (`crates/driver/src/check_cache.rs`): the bundle
+for the library, and a writable in-memory layer for `ns.` units. A write
+keeps the unit's newest two entries (an undo hits) and the layer is capped at
+192 MB, oldest first. Keys and dependency hashes are the same as on disk, so
+an edited dependency still misses its dependents; there is no disk gate,
+since nothing outlives the tab. The layer starts empty, so the first whole
+check is no faster; entries shipped in the bundle are a possible follow-up.
+
 ## A plain `check` loads only what it needs (SW-1193)
 
 4 November 2026 (D2300, D2301; the measurements are in
