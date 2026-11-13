@@ -1,5 +1,5 @@
 {
-  "next": 3121,
+  "next": 3124,
   "tickets": [
     {
       "id": 47,
@@ -33805,6 +33805,45 @@
     {
       "id": 3120,
       "title": "[DeepSeek] Brief template: the examples harness is in stitchwort-cli (binary running): EXAMPLES=… with -p stitchwort-driver runs nothing; use task test:example NAME=… in docs/workflow.md 'Writing a brief' and anywhere it's documented (SW-3055 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3121,
+      "title": "[Sonnet] Facts over a cons-unfolded all, or over a Prop def like Parse.OnlyBreaks, have no .left/.right (E-NO-NAMESPACE 'only is a function'): the largest remaining gap, ~40 helper uses (Parse/Runs.sw 1061-2236, 2020 Day04 Complete 94-120, Day13/Day07/Day19/Day16/Day24/Day21/Day12/Day15, SortLemmas 580) (SW-3102 finding 2; with SW-3064)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3122,
+      "title": "[Sonnet] Reader edge cases from SW-3102: tuple (a, b) == (c, d) reads as the componentwise ∧, not the pair equation (Graph/Search.sw 611, 614, 877, 880); list == inside List/Lemmas.sw gives the unfolded decEq shape; .read on h: leq d n = b with b generalised then matched False fails 'True ≠ True' (Nat/Arith.sw:151); c.read on Nat.equal (Succ m) … fails in Float/Theory.sw:230 though it works at Float.sw:217",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3123,
+      "title": "[DeepSeek] Pin churn: std proof edits move Float.neg/abs/sub pins (they hash through Nat lemma proofs); add a task that reprints new pin values from the E-BUILTIN messages, or make pins cover statements and computation only (SW-3102 finding 5)",
       "status": "backlog",
       "agent": "",
       "where": "",
