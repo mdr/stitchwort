@@ -34,7 +34,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, Spine, apply, force, unfold_once};
+use stitchwort_core::value::{Elim, Head, Spine, apply, force, force_solved, unfold_once};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, BinOp, Decl, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -253,6 +253,10 @@ pub(crate) fn test_fact(cx: &Ctx, ty: &Value) -> Result<Option<(Value, bool)>> {
     test_fact_in(&cx.g(), ty)
 }
 
+/// The test is returned with a solved unknown at its head replaced by its
+/// solution (calls stay folded): a fact built by applying a function
+/// (`Bool.andRight h`) has the unknown its parameter was instantiated with
+/// there, which no reading's key matches.
 fn test_fact_in(g: &Ev, ty: &Value) -> Result<Option<(Value, bool)>> {
     let Value::Eq(a, lhs, rhs) = force(g, ty.clone())? else {
         return Ok(None);
@@ -268,7 +272,7 @@ fn test_fact_in(g: &Ev, ty: &Value) -> Result<Option<(Value, bool)>> {
         Value::Ctor(d, c, _) if d == bool_data => Some((d, c)) == reg.ctor(Builtin::True),
         _ => return Ok(None),
     };
-    Ok(Some(((**lhs.rc()).clone(), polarity)))
+    Ok(Some((force_solved(g, (**lhs.rc()).clone())?, polarity)))
 }
 
 /// A test's head and arguments, without unfolding it: a call kept folded,
