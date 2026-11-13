@@ -1717,7 +1717,21 @@ pub(crate) fn read_note(cx: &Ctx, expected: &Value, found: &Value) -> Result<Opt
         }
         _ => return Ok(None),
     };
-    if !stitchwort_core::value::conv(g, cx.level(), &prop, expected)? {
+    // `expected` may still hold an unknown where `prop` has the actual
+    // type: a lemma's implicit type parameter not solved yet when the
+    // argument failed (the `ne: other ≠ key` of `Map.getInsertOther` has
+    // `?k` for the equation's type). Solve it for the check, and take back
+    // whatever that solved: a note changes nothing else.
+    let reads_as = if stitchwort_core::value::conv(g, cx.level(), &prop, expected)? {
+        true
+    } else {
+        let mark = cx.e.attempt.mark();
+        let unified = cx.unify(&prop, expected);
+        cx.e.attempt.restore(mark);
+        // A failure here only means no note: the mismatch is reported as is.
+        matches!(unified, Ok(true))
+    };
+    if !reads_as {
         return Ok(None);
     }
     Ok(Some(format!(
