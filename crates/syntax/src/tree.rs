@@ -227,17 +227,20 @@ pub enum NodeKind {
     Arrow,
     /// `(x: A) -> B`, `[x: A] -> B`
     FunctionType,
-    /// `∀ (x: A) => P`
+    /// `∀ (x: A) => P`: the keyword, its parameters (as a lambda's) and the
+    /// body.
     Forall,
-    /// `∃ (x: A) => P`
+    /// `∃ (x: A) => P`; the parameters are a lambda's too.
     Exists,
     /// `p ↔ q`
     Iff,
     /// `x (a, b) => e`
     Lambda,
-    /// One parameter of a lambda.
+    /// One parameter of a lambda, `∀` or `∃` that is more than a name:
+    /// `(a, b)`, `(x y: A)`, `[t: Type]`. A bare name is a token.
     LambdaParam,
-    /// `if c then a else b`, or the block form.
+    /// `if c then a else b`, `if h: c then …`; an `else if` is an `If` in
+    /// the else branch.
     If,
     /// `(e : T)`
     Annotation,
@@ -258,7 +261,8 @@ pub enum NodeKind {
     Interpolation,
     /// `handle e with | op x, k => …`
     Handle,
-    /// One clause of a handler.
+    /// `| return x => e` or `| op p, k => e`: one clause of a `handle` or
+    /// `match reify`.
     HandlerClause,
     /// `match e, f with | …`
     Match,
@@ -268,7 +272,7 @@ pub enum NodeKind {
     ClauseLambda,
     /// `match induct n with | …`
     Induct,
-    /// One case of a `match induct`.
+    /// `| eq1 x ih => e`: one case of a `match induct`.
     InductArm,
     /// `match reify e with | …`
     Reify,
@@ -393,6 +397,9 @@ pub struct TreeStats {
     pub nodes: usize,
     /// `Unmarked` nodes: constructs the parser doesn't mark yet.
     pub unmarked: usize,
+    /// Of those, the ones of more than one token: the work left to do
+    /// (one token is a leaf wrapped for nothing).
+    pub unmarked_wide: usize,
     /// Marks the builder left out because they crossed another's range.
     pub dropped: usize,
 }
@@ -524,11 +531,9 @@ impl SyntaxFile {
                 stats.errors += 1;
             }
             stats.nodes += decl.nodes.len();
-            stats.unmarked += decl
-                .nodes
-                .iter()
-                .filter(|n| n.kind == NodeKind::Unmarked)
-                .count();
+            let unmarked = || decl.nodes.iter().filter(|n| n.kind == NodeKind::Unmarked);
+            stats.unmarked += unmarked().count();
+            stats.unmarked_wide += unmarked().filter(|n| n.end - n.start > 1).count();
         }
         stats
     }
@@ -1056,7 +1061,10 @@ def f (n: Nat): Nat :=
             ),
             ("p <-> q && r", "Iff[p <-> Binary[q && r]]"),
             ("0 <= x < y", "Chain[0 <= x < y]"),
-            ("a = if c then x else y", "Binary[a = if c then x else y]"),
+            (
+                "a = if c then x else y",
+                "Binary[a = If[if c then x else y]]",
+            ),
             (
                 "x !in xs && y in 0 ..< n",
                 "Binary[Membership[x !in xs] && Membership[y in Range[0 ..< n]]]",
@@ -1140,6 +1148,75 @@ def f (n: Nat): Nat :=
                 "App[f OperatorSection[( + 1 )] OperatorSection[( k + )] OperatorSection[( && )]]",
             ),
             ("(|| a && b)", "OperatorSection[( || Binary[a && b] )]"),
+        ]);
+    }
+
+    #[test]
+    fn lambdas_and_quantifiers_are_marked_as_written() {
+        check_expressions(&[
+            ("x => x + 1", "Lambda[x => Binary[x + 1]]"),
+            (
+                "x (a, b) (y: A) [t: Type] => e",
+                "Lambda[x LambdaParam[( a , b )] LambdaParam[Param[( y : A )]] \
+                 LambdaParam[Param[[ t : Type ]]] => e]",
+            ),
+            (
+                "forall (n: Nat) k => n + k = k",
+                "Forall[forall LambdaParam[Param[( n : Nat )]] k => Binary[Binary[n + k] = k]]",
+            ),
+            (
+                "exists (n: Nat) => n = 1",
+                "Exists[exists LambdaParam[Param[( n : Nat )]] => Binary[n = 1]]",
+            ),
+            (
+                "p && forall n => q n",
+                "Binary[p && Forall[forall n => App[q n]]]",
+            ),
+            (
+                "(n: Nat) -> [a: Type] -> Vec a n",
+                "FunctionType[Binder[( n : Nat )] -> FunctionType[Binder[[ a : Type ]] -> \
+                 App[Vec a n]]]",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn rows_in_types_are_marked_as_written() {
+        check_expressions(&[(
+            "(f: () -> {IO, State s} Nat) -> {Fail} Nat",
+            "FunctionType[Binder[( f : Arrow[Unit[( )] -> Effect[Row[{ IO , App[State s] }] Nat]] )] \
+             -> Effect[Row[{ Fail }] Nat]]",
+        )]);
+    }
+
+    #[test]
+    fn ifs_are_marked_as_written() {
+        check_expressions(&[
+            ("if c then a else b", "If[if c then a else b]"),
+            (
+                "if h: x < y then a else if d then b else c",
+                "If[if h : Binary[x < y] then a else If[if d then b else c]]",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn handlers_inductions_and_reifications_are_marked_as_written() {
+        check_expressions(&[
+            (
+                "handle f x with | return v => v | get u, k => k u",
+                "Handle[handle App[f x] with HandlerClause[| return v => v] \
+                 HandlerClause[| get u , k => App[k u]]]",
+            ),
+            (
+                "match reify t with | return v => v",
+                "Reify[match reify t with HandlerClause[| return v => v]]",
+            ),
+            (
+                "match induct (f a) with | eq1 x ih => x | eq2 => y",
+                "Induct[match induct Paren[( App[f a] )] with \
+                 InductArm[| eq1 x ih => x] InductArm[| eq2 => y]]",
+            ),
         ]);
     }
 }
