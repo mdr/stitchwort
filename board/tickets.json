@@ -1,5 +1,5 @@
 {
-  "next": 3061,
+  "next": 3063,
   "tickets": [
     {
       "id": 47,
@@ -31051,9 +31051,9 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nPlan (paper lane, 13 Nov): docs/reviews/SW-2919-plan.md. Cause: the browser's Memory::project_cache is None (crates/lsp/src/source.rs:274), so load_project uses the read-only std BundleStore. Orchestrator's call: option A (in-memory writable store over the bundle, project entries only, newest two per unit, ~192 MB cap); estimated re-check after a leaf edit ~120 s → 6-12 s, first check unchanged. Build lane next (Sonnet, est. 60 min).",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
@@ -33031,6 +33031,32 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "Started 13 Nov ~10:50 (D3543). Estimate: 90 min.",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3061,
+      "title": "[Sonnet] Playground: ship AoC's project check-cache entries in a lazily fetched bundle so the first project check drops from ~129 s to ~25-35 s (est.; +10-14 MB gzipped); after SW-2919's in-memory store, judged on its measured replay cost (docs/reviews/SW-2919-plan.md option B)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3062,
+      "title": "[DeepSeek] check_cache Store::read returns an owned Vec, cloning each hit's entry (up to 2.5 MB); return a borrowed slice or Rc (SW-2919 plan finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
