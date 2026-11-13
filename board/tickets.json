@@ -33688,12 +33688,12 @@
     {
       "id": 3111,
       "title": "[Sonnet] Deletion oracle for readings: delete each .read in std/aoc in turn and check the result is an error or the same types and def hashes; run before any implicit crossing or D3549a's build step (SW-3105 §4.6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nOrchestrator review: hidden from --help (fixup). Samples: no 'changed'; few removable helpers. Whole-corpus run to Overmind. Model result: Sonnet, worked (one review fixup: hide command), 70 min (est. 150).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
