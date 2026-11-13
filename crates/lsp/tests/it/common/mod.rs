@@ -46,6 +46,29 @@ pub fn cached_memory(stack: usize) -> Arc<Memory> {
     Arc::new(Memory::with_cache(dir))
 }
 
+/// The playground's library bundle, made by [`stitchwort_lsp::library_bundle`]
+/// (which checks the whole library, twice) once per build: the bytes are kept
+/// in the test std cache's folder, whose marker holds the build's fingerprint,
+/// so a change to the compiler makes the next run make the bundle again, and
+/// so check that it loads.
+pub fn cached_bundle(options: &Options, stack: usize) -> Vec<u8> {
+    let dir = stitchwort_driver::driver::test_std_cache_dir(stack).join("lsp-bundle");
+    let file = dir.join("std.cache");
+    let turn = stitchwort_driver::driver::TestCacheTurn::take(&dir);
+    if !turn.is_filling()
+        && let Ok(bytes) = std::fs::read(&file)
+    {
+        return bytes;
+    }
+    let (bytes, _) = stitchwort_lsp::library_bundle(options).unwrap();
+    if turn.is_filling() {
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&file, &bytes).unwrap();
+        turn.finish();
+    }
+    bytes
+}
+
 /// Fills the cache with the entries a proof search reads. They are kept
 /// apart from the checker's (the unit's name has `+nav`, where the checker
 /// records the types of expressions as well), so without this the first

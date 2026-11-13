@@ -616,3 +616,168 @@ fn watched_body() {
     );
     assert_eq!(settle(&mut server), Some(1));
 }
+
+/// A playground server over `files`, replaying the library from `bundle`
+/// (no cache folder), with `B` open, that has run until it has nothing left
+/// to check.
+struct Playground {
+    server: Inline,
+    published: std::collections::BTreeMap<String, Value>,
+}
+
+impl Playground {
+    fn open(
+        files: &[(&str, &str)],
+        bundle: &[u8],
+        log: Option<stitchwort_driver::check_cache::StoreLog>,
+    ) -> Playground {
+        let memory = Arc::new(stitchwort_lsp::Memory::default());
+        memory.add(MemoryProject {
+            root: "/memory/proj".into(),
+            sources: vec!["src".into()],
+            files: Arc::new(
+                (files.iter())
+                    .map(|(p, t)| (p.to_string(), t.to_string()))
+                    .collect(),
+            ),
+        });
+        let mut options = Options::new(STACK);
+        options.namespace_log = log;
+        let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(bundle).unwrap();
+        options.library.set(Arc::new(bundle)).ok().unwrap();
+        let mut p = Playground {
+            server: Inline::new(options, memory).unwrap(),
+            published: Default::default(),
+        };
+        p.send(json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}));
+        p.send(json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}));
+        p.send(
+            json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+                "uri": "file:///memory/proj/src/B.sw", "languageId": "stitchwort", "version": 1,
+                "text": files.iter().find(|(p, _)| *p == "src/B.sw").unwrap().1,
+            }}}),
+        );
+        p.settle();
+        p
+    }
+
+    fn send(&mut self, message: Value) {
+        let out = self.server.receive(&message.to_string());
+        self.record(out);
+    }
+
+    fn record(&mut self, out: Vec<String>) {
+        for m in out {
+            let m: Value = serde_json::from_str(&m).unwrap();
+            if m["method"] == "textDocument/publishDiagnostics" {
+                let uri = m["params"]["uri"].as_str().unwrap().to_string();
+                self.published
+                    .insert(uri, m["params"]["diagnostics"].clone());
+            }
+        }
+    }
+
+    fn settle(&mut self) {
+        loop {
+            let (out, more) = self.server.tick();
+            self.record(out);
+            if !more {
+                break;
+            }
+        }
+    }
+
+    fn edit_b(&mut self, version: i32, text: &str) {
+        self.send(
+            json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+                "textDocument": {"uri": "file:///memory/proj/src/B.sw", "version": version},
+                "contentChanges": [{"text": text}],
+            }}),
+        );
+        self.settle();
+    }
+}
+
+/// The playground's project namespaces are cached in memory: an edit
+/// re-elaborates the namespace and the ones that use it, and replays the
+/// rest, and what it publishes is what a server with no cache publishes.
+#[test]
+fn a_playground_project_replays_the_namespaces_an_edit_does_not_touch() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(replay_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn replay_body() {
+    use stitchwort_driver::check_cache::StoreEvent::{Found, Missing, Wrote};
+    let b_text = "namespace B\nimport A (a)\n\ndef b: Nat := a + 1\n";
+    let files = [
+        ("src/A.sw", "namespace A\n\ndef a: Nat := 1\n"),
+        ("src/B.sw", b_text),
+        ("src/C.sw", "namespace C\n\ndef c: Nat := 3\n"),
+        (
+            "src/D.sw",
+            "namespace D\nimport B (b)\n\ndef d: Nat := b + 1\n",
+        ),
+    ];
+    let bundle = common::cached_bundle(&Options::new(STACK), STACK);
+    let log: stitchwort_driver::check_cache::StoreLog = Default::default();
+    let mut p = Playground::open(&files, &bundle, Some(log.clone()));
+    // The first check had nothing to replay and wrote every namespace.
+    let first = std::mem::take(&mut *log.lock().unwrap());
+    for name in ["A", "B", "C", "D"] {
+        let unit = |e| {
+            first
+                .iter()
+                .any(|(u, ev)| u.starts_with(&format!("ns.{name}+")) && *ev == e)
+        };
+        assert!(unit(Missing) && unit(Wrote), "{name}: {first:?}");
+    }
+
+    // An edit to B that keeps its type: B is elaborated, D (which uses it)
+    // has another key, since the key covers its dependencies, and is
+    // elaborated, and C is replayed.
+    p.edit_b(2, "namespace B\nimport A (a)\n\ndef b: Nat := a + 2\n");
+    let second = std::mem::take(&mut *log.lock().unwrap());
+    let events = |name: &str| -> Vec<_> {
+        (second.iter())
+            .filter(|(u, _)| u.starts_with(&format!("ns.{name}+")))
+            .map(|(_, e)| *e)
+            .collect()
+    };
+    assert_eq!(events("B"), [Missing, Wrote], "{second:?}");
+    assert_eq!(events("D"), [Missing, Wrote], "{second:?}");
+    assert_eq!(events("C"), [Found], "{second:?}");
+    assert!(!events("A").contains(&Wrote), "{second:?}");
+
+    // An edit that changes what D sees: D's error is published, not a
+    // replay of its old entry, and everything equals a server with no
+    // entries of its own.
+    let changed = "namespace B\nimport A (a)\n\ndef b: Text := \"x\"\n";
+    p.edit_b(3, changed);
+    let mut fresh_files = files;
+    fresh_files[1].1 = changed;
+    let fresh = Playground::open(&fresh_files, &bundle, None);
+    let d = "file:///memory/proj/src/D.sw";
+    assert!(
+        p.published[d].as_array().is_some_and(|ds| !ds.is_empty()),
+        "{:?}",
+        p.published
+    );
+    assert_eq!(p.published, fresh.published);
+
+    // Undoing the error edit finds the entries of the text before it, and
+    // nothing is elaborated.
+    log.lock().unwrap().clear();
+    p.edit_b(4, "namespace B\nimport A (a)\n\ndef b: Nat := a + 2\n");
+    let third = std::mem::take(&mut *log.lock().unwrap());
+    assert!(!third.iter().any(|(_, e)| *e == Wrote), "{third:?}");
+    assert!(
+        third
+            .iter()
+            .any(|(u, e)| u.starts_with("ns.D+") && *e == Found)
+    );
+}

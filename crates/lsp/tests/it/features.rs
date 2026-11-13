@@ -412,34 +412,11 @@ fn hover_works_in_a_library_file_the_library_checked_itself() {
     });
 }
 
-/// The playground's library bundle, made by [`stitchwort_lsp::library_bundle`]
-/// (which checks the whole library, twice) once per build: the bytes are kept
-/// in the test std cache's folder, whose marker holds the build's fingerprint,
-/// so a change to the compiler makes the next run make the bundle again, and
-/// so check that it loads.
-fn cached_bundle(options: &Options) -> Vec<u8> {
-    let dir = stitchwort_driver::driver::test_std_cache_dir(STACK).join("lsp-bundle");
-    let file = dir.join("std.cache");
-    let turn = stitchwort_driver::driver::TestCacheTurn::take(&dir);
-    if !turn.is_filling()
-        && let Ok(bytes) = std::fs::read(&file)
-    {
-        return bytes;
-    }
-    let (bytes, _) = stitchwort_lsp::library_bundle(options).unwrap();
-    if turn.is_filling() {
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(&file, &bytes).unwrap();
-        turn.finish();
-    }
-    bytes
-}
-
 #[test]
 fn hover_works_in_a_library_file_the_library_was_replayed() {
     big_stack(|| {
         let options = Options::new(STACK);
-        let bytes = cached_bundle(&options);
+        let bytes = common::cached_bundle(&options, STACK);
         let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bytes).unwrap();
         options.library.set(Arc::new(bundle)).ok().unwrap();
         let replayed = hover_in_library(Session::open_loose(USES_LIBRARY, options));
