@@ -176,6 +176,17 @@ def NonEmptyList.all (xs: NonEmptyList a) (p: a → {e} Bool): {e} Bool := List.
 @[noReceiver]
 def NonEmptyList.Mem (x: a) (xs: NonEmptyList a): Prop := x ∈ xs.toList
 
+--| `xs.contains x` is `True` exactly when `x` is one of the elements: its
+--| reading, as `List.contains`'s.
+@[reading]
+theorem NonEmptyList.containsMem [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = True) ↔ NonEmptyList.Mem x xs :=
+  List.memContains xs.toList x
+
+--| `xs.contains x` is `False` exactly when `x` is not an element.
+@[reading]
+theorem NonEmptyList.containsReadsFalse [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = False) ↔ ¬(NonEmptyList.Mem x xs) :=
+  List.containsReadsFalse xs.toList x
+
 instance NonEmptyList.instShow [auto show: Show a]: Show (NonEmptyList a) :=
   Show.fromText (xs => Show.list (x => Show.toSource x) xs.toList)
 

@@ -95,6 +95,21 @@ theorem Nat.equalReadsFalse (m n: Nat): Nat.equal m n = False ↔ m ≠ n := {
       | False => rfl
 }
 
+--| `Nat.leq m n` (what `m <= n` is on `Nat`, and `m < n` and the other
+--| comparisons through it) reads as `m ≤ n`. The proposition is itself defined
+--| as this test being `True`, so the reading is the identity.
+@[reading]
+theorem Nat.leqReads (m n: Nat): Nat.leq m n ↔ Nat.LessEq m n := { forward = h => h, backward = h => h }
+
+--| `Nat.leq m n` is `False` exactly when `n` is below `m`: `(x <= y) = False`
+--| reads as `y < x`, and `(x < y) = False` as `y < x + 1`, which is `y ≤ x`.
+@[reading]
+theorem Nat.leqReadsFalse (m n: Nat): Nat.leq m n = False ↔ Nat.LessThan n m :=
+  match m, n with
+    | Zero, n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+    | Succ m, Zero => { forward = h => rfl, backward = h => rfl }
+    | Succ m, Succ n => { forward = h => Iff.forward (Nat.leqReadsFalse m n) h, backward = h => Iff.backward (Nat.leqReadsFalse m n) h }
+
 --| `&&`, `||` and `not` read as the connectives
 --| (docs/proposals/bool-as-proposition.md §5): a fact `(a && b) = True` is
 --| taken apart and built like `a ∧ b` (`match h with | Both l r`), and

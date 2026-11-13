@@ -407,6 +407,17 @@ theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): (List.contains 
   backward = isIn => List.anyOfMem xs (member => member == x) x (Decidable.complete (DecEq.decide x x) rfl) isIn
 }
 
+--| `List.contains xs x` is `False` exactly when `x` is not in `xs`: a fact
+--| `xs.contains x = False` reads as `x ∉ xs`.
+@[reading]
+theorem List.containsReadsFalse [auto eq: DecEq a] (xs: List a) (x: a): (List.contains xs x = False) ↔ x ∉ xs := {
+  forward = h m => Bool.falseNotTrue (Eq.trans (Eq.sym h) (Iff.backward (List.memContains xs x) m)),
+  backward = no =>
+    match c: List.contains xs x with
+      | True => Void.exfalso (no (Iff.forward (List.memContains xs x) c))
+      | False => rfl
+}
+
 --| Whether the list has no elements, in O(1): `List.length xs == 0` costs O(n).
 --| [`List.IsNil`] is the same as a `Prop` ([`List.isEmptyEqNil`]).
 def List.isEmpty: (xs: List a) → Bool
@@ -686,6 +697,22 @@ theorem List.memRangeFromOf (x: Nat) (c: Nat) (s: Nat) (h: s ≤ x < s + c): x �
 --| is this call, so the test costs the same however long the range is
 --| ([`List.inRangeIff`] ties it to the membership, [`List.containsRange`] to `contains`).
 def List.inRange (x: Nat) (from: Nat) (until: Nat): Bool := from <= x && x < until
+
+--| `List.inRange x from until` reads as the two bounds, `from ≤ x < until`
+--| ([`List.inRangeIff`] says it as membership in the range).
+@[reading]
+theorem List.inRangeReads (x: Nat) (from: Nat) (until: Nat): List.inRange x from until ↔ (from ≤ x < until) := {
+  forward = h => omega,
+  backward = b => omega
+}
+
+--| `List.inRange x from until` is `False` exactly when `x` is outside the bounds.
+@[reading]
+theorem List.inRangeReadsFalse (x: Nat) (from: Nat) (until: Nat): List.inRange x from until = False ↔ ¬(from ≤ x < until) :=
+  match c: List.inRange x from until with
+    | True => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = no => Void.exfalso (no (Iff.forward (List.inRangeReads x from until) c)) }
+    | False => { forward = h b => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym c) (Iff.backward (List.inRangeReads x from until) b))), backward = no => rfl }
+
 test "List.inRange" := List.inRange 3 0 5 && !(List.inRange 5 0 5) && !(List.inRange 0 1 5) && !(List.inRange 2 5 1)
 
 --| Mapping with a state threaded left to right (Haskell's `mapAccumL`).

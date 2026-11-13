@@ -41,6 +41,7 @@ theorem Nat.dividesElim (goal: Prop): ∀ (d n: Nat) => Nat.divides d n = True �
 
 --| `Nat.divides` as a proposition: `d` divides `n` exactly when `n` is `t * d`
 --| for some `t` (Lean's `Nat.dvd_iff_exists_eq_mul_left`).
+@[reading]
 theorem Nat.dividesIff (d: Nat) (n: Nat): Nat.divides d n = True ↔ ∃ (t: Nat) => n = t * d :=
   {
     forward = h => Nat.dividesElim (∃ (t: Nat) => n = t * d) d n h (t e => Witness t e),
@@ -48,6 +49,13 @@ theorem Nat.dividesIff (d: Nat) (n: Nat): Nat.divides d n = True ↔ ∃ (t: Nat
       match found with
         | Witness t e => rewrite e in Nat.dividesMul d t
   }
+
+--| `Nat.divides d n` is `False` exactly when `n` isn't a multiple of `d`.
+@[reading]
+theorem Nat.dividesReadsFalse (d: Nat) (n: Nat): Nat.divides d n = False ↔ ¬(∃ (t: Nat) => n = t * d) :=
+  match c: Nat.divides d n with
+    | True => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = no => Void.exfalso (no (Iff.forward (Nat.dividesIff d n) c)) }
+    | False => { forward = h found => Bool.falseNotTrue (Eq.trans (Eq.sym c) (Iff.backward (Nat.dividesIff d n) found)), backward = no => rfl }
 
 --| `Nat.divides` is the remainder test (for 0 too, since `n % 0` is `n`).
 theorem Nat.dividesMod (m: Nat) (n: Nat): Nat.divides m n = (n % m == 0) :=

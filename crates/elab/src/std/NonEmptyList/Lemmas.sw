@@ -138,9 +138,6 @@ theorem NonEmptyList.allCons (xs: NonEmptyList a) (p: a → Bool): xs.all p = (p
 
 --| Membership.
 
-theorem NonEmptyList.containsMem [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = True) ↔ NonEmptyList.Mem x xs :=
-  List.memContains xs.toList x
-
 theorem NonEmptyList.headMem (xs: NonEmptyList a): NonEmptyList.Mem xs.head xs := Inl rfl
 
 theorem NonEmptyList.tailMem (xs: NonEmptyList a) (x: a) (m: x ∈ xs.tail): NonEmptyList.Mem x xs := Inr m
