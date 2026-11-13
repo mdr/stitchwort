@@ -1,5 +1,5 @@
 {
-  "next": 3094,
+  "next": 3098,
   "tickets": [
     {
       "id": 47,
@@ -33441,12 +33441,12 @@
     {
       "id": 3092,
       "title": "[Sonnet] Bool as proposition stage 6, AoC 2024 and 2025 sweep: test-fact conversions replaced by patterns, .read and auto where shorter or clearer, as SW-3079 did for 2020-21; the new readings from SW-3067 (Nat/Int <=/<, contains = False, inRange, divides, isDistinct) let Nat.leqFalse, Bool.falseOfNotTrue and the = True ↔ lemmas go where used",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Started 13 Nov ~12:05. Estimate: 90 min.",
+      "body": "Started 13 Nov ~12:05. Estimate: 90 min.\nModel result: Sonnet, worked, 22 min (est. 90). 40 files, +293/-327; per-day checks and audits clean; timings unchanged.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33455,6 +33455,58 @@
       "id": 3093,
       "title": "[Sonnet] Reader gaps found by the sweeps (bool-as-proposition §6, stage 6 follow-ups), one lane: SW-3066 (.left/.right on a test fact, §6.6 says h.left is h.read.left), SW-3083 + SW-3065 (a list/tuple/Text == has no reading, or reads one && layer instead of the equation), SW-3085 (.read on a Witness-bound or applied fact unfolds too far or fails on a beta redex)",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3094,
+      "title": "[Sonnet] Set.contains has no reading: a && conjunct with Set.contains is unreadable ('has no reading, so it has no parts'), .read and Both fail on Set.fromList … .contains (2024 D23 Part1 setsOfThreeIff, Part2 intersectElim, unionElim) (SW-3092 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3095,
+      "title": "[Sonnet] Nat/Int == inside expressions reads as (x.decEq y).holds, not x = y (2024 D08 antinodesOfCorrect, D13 winsEquations, D23 sizeThree in a filter lambda), and Option/derived-record == reads per field ((from.row.decEq end.row).holds ∧ …) not Some from = Some end (2024 D10 memTrailEnds, scoreCorrect, D15, D24); extends SW-3084; the sweep's biggest blocker (SW-3092 findings 2-3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3096,
+      "title": "[Sonnet] Patterns unfold plain Bool defs inconsistently: isStep and city.contains (2024 D10 Steps, D08 Part2) don't unfold so Both mismatches; isOrthogonalStep and climbs do; touches unfolds in touchesSymmetric but not touchingGrowing (∃ goal) (SW-3092 finding 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3097,
+      "title": "[Sonnet] (f x).not has no reading when f is a def ((splitterAt row c).not, 2025 D07 fallKeeps), so Both on a && !b fails and Bool.notTrue stays; and .any over a cons-unfolded list reads as ∃ over ∈ [x, ..xs] so match Inl/Inr fails (2024 D06 routeSettled; with SW-3064) (SW-3092 findings 5-6)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
