@@ -1,5 +1,5 @@
 {
-  "next": 3186,
+  "next": 3187,
   "tickets": [
     {
       "id": 47,
@@ -34665,6 +34665,19 @@
       "status": "backlog",
       "agent": "",
       "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3186,
+      "title": "[Sonnet] Formatter stage 3, part 1 (formatter-architecture §6): rules for the constructs SW-3183 left as written (LetExpr, Seq, interpolated text and Interpolation nodes), long patterns (S22), ∃ chains, the bracketed-block hug as a last argument, a comment before := in a calc step; cut the 98 lines over 120",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3186",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
