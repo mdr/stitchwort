@@ -143,6 +143,10 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FailStop,
     Builtin::NonEmptyList,
     Builtin::NonEmptyListPrependList,
+    Builtin::ListAllReads,
+    Builtin::ListAllReadsFalse,
+    Builtin::ListAnyReads,
+    Builtin::ListAnyReadsFalse,
 ];
 
 macro_rules! builtins {
@@ -394,6 +398,12 @@ builtins! {
     // `List.length` runs as `List.lengthOnto xs 0`, a loop (`Def::run_body`)
     ListLengthOnto = "List.lengthOnto": Def,
     ListLength = "List.length": Def,
+    // The quantifier readings of `all` and `any`, which the reader skips on
+    // a cons list (docs/proposals/bool-as-proposition.md §5.4, step 2c)
+    ListAllReads = "List.allReads": Def,
+    ListAllReadsFalse = "List.allReadsFalse": Def,
+    ListAnyReads = "List.anyReads": Def,
+    ListAnyReadsFalse = "List.anyReadsFalse": Def,
     Option = "Option": Data,
     None = "None": Ctor(Builtin::Option),
     Some = "Some": Ctor(Builtin::Option),

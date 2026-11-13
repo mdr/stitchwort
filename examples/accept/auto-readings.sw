@@ -64,3 +64,15 @@ def divisor (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: ∀ (x: Nat) => x ∈ xs �
 def distinct [auto eq: DecEq k] (a: k) (b: k) [auto ok: a ≠ b]: Nat := 0
 
 def unequal [auto eq: DecEq k] (a: k) (b: k) (h: (a == b) = False): Nat := distinct a b
+
+-- A cons list's `all` reads as `∧` (`d < 5` and `more.all p`) and also as the
+-- `∀`, so `auto` still finds `small y` from a member, whether the list was
+-- matched or written as a cons.
+def afterMatch (xs: List Nat) (h: xs.all (x => x < 5)) (y: Nat) (m: y ∈ xs): Nat := match xs with
+  | [] => 0
+  | [d, ..more] => small y
+
+def fromCons (d: Nat) (more: List Nat) (h: [d, ..more].all (x => x < 5)) (y: Nat) (m: y ∈ [d, ..more]): Nat :=
+  small y
+
+test "after match" := afterMatch [1, 4] (Both rfl (Both rfl rfl)) 4 (Inr (Inl rfl)) == 4

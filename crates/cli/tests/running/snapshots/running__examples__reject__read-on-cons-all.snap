@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 723
+expression: output
+---
+[E-NOT-A-FUNCTION] Error: this isn't a function
+   ╭─[ reject/read-on-cons-all.sw:7:3 ]
+   │
+ 7 │   h.read x m
+   │   ─────┬────  
+   │        ╰────── it's applied to an argument, but its type is `d ≤ 4 ∧ more.all (x => x <= 4)`
+   │ 
+   │ Note: `all` and `any` of a list written as a cons (`[x, ..xs]`) read as one step, a `∧` here, not as a `∀` or `∃` over the list: take it apart with `.left` and `.right`. The quantifier is `(List.allReads xs p).forward h` (or `List.anyReads`), with the list and the test written out
+───╯

@@ -617,7 +617,14 @@ fn take_apart(
     } else {
         ty.clone()
     };
-    if let Some((part, part_ty)) = crate::reading::hypothesis_reads(cx, &proof, &ty)? {
+    // `all` and `any` of a cons read as `∧` and `∨`; the quantifier they
+    // read as on any other list is a fact too, which `from_rules` applies to
+    // a member.
+    let readings = [
+        crate::reading::hypothesis_reads(cx, &proof, &ty)?,
+        crate::reading::hypothesis_quantifier_reads(cx, &proof, &ty)?,
+    ];
+    for (part, part_ty) in readings.into_iter().flatten() {
         parts.push((part.clone(), part_ty.clone(), true));
         take_apart(cx, part, &part_ty, depth + 1, true, reads, parts)?;
     }
