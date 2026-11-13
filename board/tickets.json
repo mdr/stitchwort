@@ -1,5 +1,5 @@
 {
-  "next": 3156,
+  "next": 3158,
   "tickets": [
     {
       "id": 47,
@@ -34260,11 +34260,37 @@
     {
       "id": 3155,
       "title": "[Fable] Syntax tree architecture (D3559 context): options for the lossless tree vs the compiler's tree vs what the pretty printer needs, and other users (LSP, quick fixes, sweeps, rename, error positions, incremental reparsing, the self-hosted formatter); pros/cons by end state (D2303), recommendation. Paper: docs/proposals/syntax-tree-architecture.md. Matt, 13 Nov 2026",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "\nFable note: docs/proposals/syntax-tree-architecture.md. End state A2 (one lossless tree; the compiler's tree lowered from it); D3559 answer unchanged (marks beside today's tree as step 1 of A2). Questions D3559, D3562, D3563. Findings: SW-3156, SW-3157; parser has 179 non-test parse functions (not 340); doc/lens/decl_regions/binder sweep each pair declarations with tokens their own way (A2 unifies). Swift history to verify before quoting.",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3156,
+      "title": "[Sonnet] A lexical error anywhere empties the whole module: recover per declaration in the lexer as the parser does (SW-3155 finding; cheap)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3157,
+      "title": "[DeepSeek] ast.rs's header says the tree is 'as written by the user' but it holds five expansions (let (a, b), chained comparisons, .f sections, tuples, interpolation); correct the doc comment (SW-3155 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
