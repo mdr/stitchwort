@@ -31746,14 +31746,14 @@
     {
       "id": 2970,
       "title": "[Opus] Tests with errors: a failed instance in another namespace is never registered, so instance search reports 'no Ord instance' / a fresh E-TYPE-MISMATCH instead of waiting (instance colorOrd: Ord Color := True; a < b elsewhere): record failed instances by interface and head type in the session and wait through note_failed_used (SW-2943, design §4.2)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane (Opus, 13 Nov 2026, 11:10-11:30, est. 75 min): commit 5de4774c4 on lane/SW-2970.\nCause: the failed instance was registered all along (its row stays in the instance table, valid=false, in its namespace and importers); search reaching it gave E-INSTANCE-NONE (\"can't use the instance ... has errors\"), and for operators numbers.rs turned any search failure into the \"no Ord instance for Color here\" note. Same in one namespace.\nChange: interfaces.rs attempt(): a not-valid row whose def failed -> note_failed_used(key) + E-FAILED-DEPENDENCY (Elaborator::instance_key in module.rs maps the def to its key); numbers.rs unsupported() passes that error on. Users wait: one E-USES-FAILED per file elsewhere, nothing extra in the same namespace. No session bookkeeping needed; failed namespaces and their importers aren't cached, so the check cache is unaffected.\nTests: driver projects what_needs_a_failed_instance_waits_for_it (+2 neighbours), lsp memory::what_needs_an_instance_with_an_error_waits_for_it_until_it_is_fixed (+ failed-import neighbour), reject project failed-instance (snapshot), reject examples EXAMPLES=instance. All pass.\nNot done: an instance whose signature failed is never registered, so 'no instance' stands (no note); auto decision procedures and dot-method lookup unchanged.",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
