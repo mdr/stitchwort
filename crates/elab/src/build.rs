@@ -26,15 +26,15 @@ pub(crate) const CAP: usize = 8;
 /// [`crate::state::Decl::builds`].
 #[derive(Default)]
 pub(crate) struct Builds {
-    /// The places a build is allowed at, in the order the failures named
-    /// them.
-    pub(crate) allowed: Vec<Span>,
+    /// The places a build is allowed at, each with the test fact expected
+    /// there as shown, in the order the failures named them.
+    pub(crate) allowed: Vec<(Span, String)>,
     /// What the current attempt built: where, and what the build was, for
     /// a later error inside it.
     pub(crate) made: Vec<(Span, String)>,
-    /// The ends of the `.read`s written in the body: a term read and then
-    /// built would turn one test into another with the same reading, so a
-    /// written `.read` is never built from.
+    /// The `.read`s written in the body, each from its receiver to the
+    /// field: a term read and then built would turn one test into another
+    /// with the same reading, so a written `.read` is never built from.
     pub(crate) reads: Vec<Span>,
 }
 
@@ -44,26 +44,14 @@ impl Builds {
     }
 }
 
-/// Notes the `.read` whose field is written at `field`.
-pub(crate) fn note_read(cx: &Ctx, field: Span) {
-    cx.e.decl.builds.borrow_mut().reads.push(field);
-}
-
-/// Whether `term` is `Refl`, which is the equation itself: never a proof
-/// of a reading (§6.1).
-fn is_refl(term: &Term) -> bool {
-    matches!(term.strip_loc(), Term::Refl)
+/// Notes the `.read` written at `span` (the receiver and the field).
+pub(crate) fn note_read(cx: &Ctx, span: Span) {
+    cx.e.decl.builds.borrow_mut().reads.push(span);
 }
 
 /// Whether the term checked at the current span is a written `.read`.
 fn is_read(cx: &Ctx) -> bool {
-    let at = cx.span;
-    cx.e.decl
-        .builds
-        .borrow()
-        .reads
-        .iter()
-        .any(|r| r.file == at.file && r.end == at.end)
+    cx.e.decl.builds.borrow().reads.contains(&cx.span)
 }
 
 /// Whether a value is an unknown not solved yet: nothing can be said
@@ -140,8 +128,28 @@ fn for_lambda(cx: &Ctx, candidates: &Candidates) -> Result<Option<usize>> {
     Ok(None)
 }
 
-fn allowed(cx: &Ctx, at: Span) -> bool {
-    cx.e.decl.builds.borrow().allowed.contains(&at)
+/// Whether a build is allowed at `at` for some fact: a quick test before
+/// the candidates are worked out.
+fn allowed_at(cx: &Ctx, at: Span) -> bool {
+    cx.e.decl
+        .builds
+        .borrow()
+        .allowed
+        .iter()
+        .any(|(s, _)| *s == at)
+}
+
+/// Whether a build of the fact shown as `fact` is allowed at `at`: the
+/// failure that allowed it named the same place and the same fact, so a
+/// comparison at the same place against another fact (a fall-back's)
+/// isn't built.
+fn allowed(cx: &Ctx, at: Span, fact: &str) -> bool {
+    cx.e.decl
+        .builds
+        .borrow()
+        .allowed
+        .iter()
+        .any(|(s, f)| *s == at && f == fact)
 }
 
 /// What building the fact from candidate `k` means, for hover and
@@ -151,7 +159,9 @@ fn described(cx: &Ctx, candidates: &Candidates, k: usize) -> String {
     let by = if candidates.plain && k + 1 == candidates.list.len() {
         String::new()
     } else {
-        format!(" (by {})", candidate.last(cx))
+        // `last` says "by its decision" for a decision, a name otherwise.
+        let last = candidate.last(cx);
+        format!(" (by {})", last.strip_prefix("by ").unwrap_or(&last))
     };
     format!(
         "builds the test fact `{}` from a proof of `{}`{by}",
@@ -178,12 +188,15 @@ pub(crate) fn build(
     expected: &Value,
 ) -> Result<Option<Term>> {
     let at = cx.span;
-    if !allowed(cx, at) || is_refl(term) || is_read(cx) || blocked(cx, found)? {
+    if !allowed_at(cx, at) || is_read(cx) || blocked(cx, found)? {
         return Ok(None);
     }
     let Some(candidates) = crate::reading::candidates(cx, expected)? else {
         return Ok(None);
     };
+    if !allowed(cx, at, &cx.show(&candidates.fact)) {
+        return Ok(None);
+    }
     let Some(k) = fitting(cx, &candidates, found, true)? else {
         return Ok(None);
     };
@@ -193,17 +206,18 @@ pub(crate) fn build(
 
 /// What a mismatch in `compare` says about building (§2.2, §4).
 pub(crate) enum Site {
-    /// A build would fit at this span: the declaration is checked again.
-    At(Span),
+    /// A build of the fact shown would fit at this span: the declaration
+    /// is checked again.
+    At(Span, String),
     /// None would; a note on what would be accepted.
     Note(String),
     Nothing,
 }
 
-/// For `compare`'s mismatch, `term` (of type `found`) where `expected` is
+/// For `compare`'s mismatch, a term of type `found` where `expected` is
 /// expected. Nothing it unifies is kept.
-pub(crate) fn site(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -> Result<Site> {
-    if !cx.e.options.build || is_refl(term) {
+pub(crate) fn site(cx: &mut Ctx, found: &Value, expected: &Value) -> Result<Site> {
+    if !cx.e.options.build {
         return Ok(Site::Nothing);
     }
     let Some(candidates) = crate::reading::candidates(cx, expected)? else {
@@ -219,7 +233,7 @@ pub(crate) fn site(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -
         )));
     }
     if fits {
-        return Ok(Site::At(cx.span));
+        return Ok(Site::At(cx.span, cx.show(&candidates.fact)));
     }
     Ok(match no_fit_note(cx, &candidates)? {
         Some(note) => Site::Note(note),
@@ -292,8 +306,9 @@ pub(crate) fn lambda(
     let Some(k) = for_lambda(cx, &candidates)? else {
         return Err(error);
     };
-    if !allowed(cx, at) {
-        return Err(error.with_build(at));
+    let fact = cx.show(&candidates.fact);
+    if !allowed(cx, at, &fact) {
+        return Err(error.with_build(at, fact));
     }
     // Hover shows it on the first binder: the lambda as a whole is no
     // reference.
@@ -309,24 +324,45 @@ pub(crate) fn start_attempt(e: &crate::Elaborator) {
     builds.reads.clear();
 }
 
-/// After an attempt at a body failed with `d`: `Ok(())` if it is to be
-/// checked again with a build allowed at the place `d` names, or else the
-/// error to report, with a note where it is inside something built.
-pub(crate) fn again(e: &crate::Elaborator, d: Diagnostic) -> std::result::Result<(), Diagnostic> {
+/// After an attempt at a body failed with `d`, the first error, and left
+/// the other failed `match` arms' errors in `others`: `Ok(())` if it is to
+/// be checked again with builds allowed at the places they name (all of
+/// them at once, up to [`CAP`]), or else the error to report, with a note
+/// where it is inside something built.
+pub(crate) fn again(
+    e: &crate::Elaborator,
+    d: Diagnostic,
+    others: &mut [Diagnostic],
+) -> std::result::Result<(), Diagnostic> {
     let mut builds = e.decl.builds.borrow_mut();
     let mut d = d;
-    if let Some(at) = d.build_site()
-        && !builds.allowed.contains(&at)
+    let mut added = false;
+    let mut capped = false;
+    for site in std::iter::once(&d)
+        .chain(others.iter())
+        .filter_map(|d| d.build_site())
     {
-        if builds.allowed.len() < CAP {
-            builds.allowed.push(at);
-            return Ok(());
+        let key = (site.span, site.fact.clone());
+        if builds.allowed.contains(&key) {
+            continue;
         }
+        if builds.allowed.len() < CAP {
+            builds.allowed.push(key);
+            added = true;
+        } else {
+            capped = true;
+        }
+    }
+    if added {
+        return Ok(());
+    }
+    if capped {
         d = d.with_note(format!(
             "the compiler built {CAP} test facts in this declaration and stops there: build \
              this one by hand"
         ));
     }
+    others.iter_mut().for_each(Diagnostic::clear_build);
     let d = d.without_build();
     let inside = d.primary_span().and_then(|p| {
         builds

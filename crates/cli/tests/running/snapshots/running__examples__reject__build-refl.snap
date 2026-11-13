@@ -3,11 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ reject/build-refl.sw:7:43 ]
+   ╭─[ reject/build-refl.sw:7:45 ]
    │
- 7 │ theorem same (b: Nat): (b == b) = True := rfl
-   │                                           ─┬─  
-   │                                            ╰─── `(b.decEq b).holds` and `True` aren't equal
+ 7 │ theorem same ∀ (b: Nat): (b == b) = True := rfl
+   │                                             ─┬─  
+   │                                              ╰─── `(b.decEq b).holds` and `True` aren't equal
    │ 
    │ Note 1: computing the left side gives `b.equal b`
    │ 

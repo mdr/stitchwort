@@ -708,15 +708,15 @@ A proof of the whole reading builds the fact too, with no constructor: where a t
 
 <!-- snippet: tests-and-propositions.sw#build-from-proof -->
 ```stitchwort
-theorem noRoomLeft (booking: Booking) (capacity: Nat) (small: booking.seats < capacity):
+theorem noRoomLeft ∀ (booking: Booking) (capacity: Nat) (small: booking.seats < capacity):
     (capacity <= booking.seats) = False := small
 
-theorem allFit (bookings: List Booking) (capacity: Nat)
+theorem allFit ∀ (bookings: List Booking) (capacity: Nat)
     (each: ∀ (b: Booking) => b ∈ bookings → b.fits capacity):
     bookings.all (b => b.fits capacity) :=
   b m => each b m
 
-theorem booked (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bookings.contains b := m
+theorem booked ∀ (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bookings.contains b := m
 ```
 
 `(capacity <= booking.seats) = False` reads as `booking.seats < capacity`, so `small` is accepted, and hovering over it says which fact it builds. The compiler goes through the readings a layer at a time: `((a != b): Bool) = True` reads as `(a == b) = False`, which reads as `a ≠ b`, so a proof of `a ≠ b` builds it. A fact `e = False` whose test has no reading of its own is also built from `¬(e = True)`.

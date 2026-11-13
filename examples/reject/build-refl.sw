@@ -4,4 +4,4 @@
 -- variable `b`. `DecEq.refl b` proves it.
 import Std (Bool, Nat)
 
-theorem same (b: Nat): (b == b) = True := rfl
+theorem same ∀ (b: Nat): (b == b) = True := rfl

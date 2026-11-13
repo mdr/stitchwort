@@ -6135,7 +6135,7 @@ fn compare_failed(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> 
     if let Some(term) = crate::build::build(cx, &term, found, expected)? {
         return Ok(term);
     }
-    let site = crate::build::site(cx, &term, found, expected)?;
+    let site = crate::build::site(cx, found, expected)?;
     // The message shows the types as the failed comparison left them, as it
     // always has: repeat it, keeping what it solved before failing.
     cx.unify(found, expected)?;
@@ -6144,7 +6144,7 @@ fn compare_failed(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> 
     }
     let d = crate::numbers::explain_default(cx, cx.mismatch(expected, found), &[found]);
     Err(match site {
-        crate::build::Site::At(at) => d.with_build(at),
+        crate::build::Site::At(at, fact) => d.with_build(at, fact),
         crate::build::Site::Note(note) => d.with_note(note),
         crate::build::Site::Nothing => d,
     })

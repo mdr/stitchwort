@@ -2706,10 +2706,14 @@ impl Elaborator {
         owner: &ast::Name,
         attempt: &mut impl FnMut(&mut Self) -> Result<T>,
     ) -> Result<T> {
+        // The other failed arms' errors an attempt leaves are its own: a
+        // later attempt, which may get past them, mustn't report them too.
+        let others = self.attempt.branch_errors.borrow().len();
         loop {
             self.clear_metas();
             *self.decl.owner.borrow_mut() = vec![key.to_string()];
             self.attempt.local_keys.borrow_mut().clear();
+            self.attempt.branch_errors.borrow_mut().truncate(others);
             build::start_attempt(self);
             let result = attempt(self);
             self.decl.owner.borrow_mut().clear();
@@ -2718,7 +2722,11 @@ impl Elaborator {
                 Err(d) if undo::fatal(&d) => return Err(d),
                 Err(d) => d,
             };
-            let d = match build::again(self, d) {
+            let again = {
+                let mut errors = self.attempt.branch_errors.borrow_mut();
+                build::again(self, d, &mut errors[others..])
+            };
+            let d = match again {
                 Ok(()) => continue,
                 Err(d) => d,
             };

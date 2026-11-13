@@ -15,7 +15,7 @@ mod source;
 pub mod stack;
 
 pub use diagnostic::{
-    COMPUTES_TO_LIMIT, Counterexample, Detail, Diagnostic, GoalData, Hypothesis, Label,
+    BuildSite, COMPUTES_TO_LIMIT, Counterexample, Detail, Diagnostic, GoalData, Hypothesis, Label,
     MissingCases, Severity, SuggestedImport, cut_computed,
 };
 /// The token stream, for tools that edit source text at token spans.

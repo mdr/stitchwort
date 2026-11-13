@@ -3,11 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/build-compound.sw:7:95 ]
+   ╭─[ reject/build-compound.sw:7:97 ]
    │
- 7 │ theorem whole (x: Nat) (xs: List Nat) (k: x ∈ xs ∧ x < 3): (xs.contains x && x < 3) = True := k
-   │                                                                                               ┬  
-   │                                                                                               ╰── expected `(xs.contains x && x <= 2) = True`, but this has type `x ∈ xs ∧ x < 3`
+ 7 │ theorem whole ∀ (x: Nat) (xs: List Nat) (k: x ∈ xs ∧ x < 3): (xs.contains x && x < 3) = True := k
+   │                                                                                                 ┬  
+   │                                                                                                 ╰── expected `(xs.contains x && x <= 2) = True`, but this has type `x ∈ xs ∧ x < 3`
    │ 
    │ Note: this expects the test fact `(xs.contains x && x <= 2) = True`, which reads as `xs.contains x ∧ x ≤ 2`: build it part by part with `Both`, each part from a proof of its own reading
 ───╯

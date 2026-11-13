@@ -137,7 +137,8 @@ Some(span)` (as `Diagnostic.import` carries a quick fix's import,
    with it with everything solved taken back (as `read_note` does today,
    `reading.rs:1735`–`:1743` **[read]**); for a lambda, a candidate is a
    function type;
-3. the term isn't a written `.read`, `rfl` or `Refl`.
+3. the term isn't a written `.read`, `rfl` or `Refl` (as built: a bare
+   `rfl` never gets here; see "As built").
 
 This is computed when the error is made, with the same unify-and-undo the
 `.read` note already does in the first check, so the first check is
@@ -398,3 +399,17 @@ deferred it to the counts).
 - **Postponed comparisons** carry no field, as planned (the field is set
   only in `compare`'s own error).
 
+- **After the review** (`docs/reviews/SW-3087-review.md`):
+  - A permission is the place *and* the fact expected there (shown), so a
+    comparison at the same place against another fact isn't built.
+  - The other failed `match` arms (`branch_errors`) are read too: every arm
+    that can build is allowed in the same retry, so a `match` takes two
+    checks, not one per arm. Each round starts with `branch_errors` cut
+    back to its length on entry, so a failing declaration reports only the
+    arms that failed in the last round (this also fixes the
+    local-definition retry, which had the same leak).
+  - A `.read` is recorded from its receiver to its field, so a call whose
+    last argument is `h.read` isn't mistaken for one.
+  - There is no `rfl`/`Refl` guard: a bare `rfl` is checked as the
+    equation itself and never reaches the build, while `(rfl: b = b)`,
+    given its type, is a proof of `b = b` like any other and builds.

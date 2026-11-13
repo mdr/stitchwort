@@ -4,4 +4,4 @@
 -- says to build it part by part with `Both`.
 import Std (Bool, List, Nat)
 
-theorem whole (x: Nat) (xs: List Nat) (k: x ∈ xs ∧ x < 3): (xs.contains x && x < 3) = True := k
+theorem whole ∀ (x: Nat) (xs: List Nat) (k: x ∈ xs ∧ x < 3): (xs.contains x && x < 3) = True := k

@@ -43,15 +43,15 @@ theorem fitsOrBigger ∀ (booking: Booking) (capacity: Nat) (h: booking.fits cap
 -- end build
 
 -- begin build-from-proof
-theorem noRoomLeft (booking: Booking) (capacity: Nat) (small: booking.seats < capacity):
+theorem noRoomLeft ∀ (booking: Booking) (capacity: Nat) (small: booking.seats < capacity):
     (capacity <= booking.seats) = False := small
 
-theorem allFit (bookings: List Booking) (capacity: Nat)
+theorem allFit ∀ (bookings: List Booking) (capacity: Nat)
     (each: ∀ (b: Booking) => b ∈ bookings → b.fits capacity):
     bookings.all (b => b.fits capacity) :=
   b m => each b m
 
-theorem booked (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bookings.contains b := m
+theorem booked ∀ (bookings: List Booking) (b: Booking) (m: b ∈ bookings): bookings.contains b := m
 -- end build-from-proof
 
 -- begin same

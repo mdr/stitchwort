@@ -7,8 +7,8 @@ import Std (Bool, List, Nat)
 opaque def has (xs: List Nat) (x: Nat): Bool := xs.contains x
 
 @[reading]
-theorem hasReads (xs: List Nat) (x: Nat): has xs x ↔ x ∈ xs
+theorem hasReads ∀ (xs: List Nat) (x: Nat): has xs x ↔ x ∈ xs
     unfolding has
 := List.memContains xs x
 
-theorem convert (xs: List Nat) (x: Nat) (h: has xs x): xs.contains x := h.read
+theorem convert ∀ (xs: List Nat) (x: Nat) (h: has xs x): xs.contains x := h.read
