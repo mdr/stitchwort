@@ -59,7 +59,7 @@ theorem heightChars ∀ (chars: List Char): heightValid (Text.fromList chars) = 
         match inches: Text.drop (Text.fromList chars) (Text.length (Text.fromList chars) - Text.length "in") == "in" with
           | True =>
             let isIn := Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches;
-            rewrite isIn.read, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
+            rewrite isIn, betweenToNat 59 76 (chars.take (chars.length - 2)) in cases
           | False =>
             rewrite Eq.trans (Eq.sym (lastIs chars ['c', 'm'])) cm, Eq.trans (Eq.sym (lastIs chars ['i', 'n'])) inches in cases
 

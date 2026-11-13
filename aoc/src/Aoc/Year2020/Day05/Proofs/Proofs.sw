@@ -34,7 +34,7 @@ theorem gapSound: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (seat: 
   | [low, high, ..rest], Both ordered sortedRest, seat, found =>
     match apart: high == low + 2 with
       | True =>
-        let two := apart.read
+        let two := apart
         let made := Option.someInjective found
         Both
           (member =>
@@ -66,7 +66,7 @@ theorem gapComplete: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (sea
     match apart: high == low + 2 with
       | True => Witness (low + 1) rfl
       | False =>
-        let notTwo := apart.read
+        let notTwo := apart
         let atLeast := atLeastFirst low [high, ..rest] (Both ordered sortedRest) (seat - 1) below
         let aboveRest: (seat + 1) ∈ [high, ..rest] :=
           match above with
@@ -109,7 +109,7 @@ theorem yourSeatOf ∀ (ids: List Nat) (seat: Nat) (missing: ¬(seat ∈ ids)) (
 theorem yourSeatMembers ∀ (ids: List Nat) (seat: Nat) (yours: isYourSeat ids seat = True): ¬(seat ∈ ids) ∧ (seat + 1) ∈ ids ∧ (seat - 1) ∈ ids :=
   let Both notFound (Both above below) := yours
   Both
-    (member => Bool.falseNotTrue (rewrite <- notFound.read in (List.memContains ids seat).backward member))
+    (member => Bool.falseNotTrue (rewrite <- notFound.read in member))
     (Both above.read below.read)
 
 theorem candidateIntro ∀ (count: Nat) (ids: List Nat) (seat: Nat) (below: seat + 1 < count) (yours: isYourSeat ids seat = True):

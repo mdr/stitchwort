@@ -28,9 +28,10 @@ theorem matchesIff ∀ (jigsaw: Jigsaw) (tile: Tile) (edge: Edge): jigsaw.matche
   backward = matched =>
     match matched with
       | Witness other (Both member (Both different (Witness pixels (Both onEdge fit)))) =>
+        let differentTrue: ((other.id != tile.id): Bool) = True := different
         match List.memMapElim (.pixels) pixels other.image.edges onEdge with
           | Witness otherEdge (Both onOther same) =>
-            Witness other (Both member (Both (DecEq.trueOfNe different)
+            Witness other (Both member (Both differentTrue
               (Witness otherEdge (Both onOther ((fitsIff edge otherEdge).backward (rewrite same in fit))))))
 }
 

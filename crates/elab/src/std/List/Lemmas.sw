@@ -1672,7 +1672,7 @@ theorem List.findIndexFromSomeBefore ∀ (p: a → Bool) (x: a) (rest: List a) (
   earlier lo2 hi y g =>
     match same: earlier == start with
       | True =>
-        let zero: earlier - start = 0 := omega [same.read]
+        let zero: earlier - start = 0 := omega [same]
         rewrite <- Option.someInjective (rewrite zero at g in g) in e
       | False =>
         let ne: earlier ≠ start := same.read
@@ -1729,7 +1729,7 @@ theorem List.findIndexFromOf ∀ (p: a → Bool) (start: Nat) (xs: List a) (inde
         | False =>
           match same: index == start with
             | True =>
-              let zero: index - start = 0 := omega [same.read]
+              let zero: index - start = 0 := omega [same]
               let isZ: z = x := Option.someInjective (rewrite zero at g in g)
               Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (rewrite isZ in passes)))
             | False =>
@@ -3375,7 +3375,7 @@ theorem List.all2ZipWithRight ∀ (f: a → b → c) (r: c → b → Prop) (poin
 theorem List.countZeroOfNotContains ∀ [auto eq: DecEq a] (xs: List a) (x: a) (absent: xs.contains x = False): xs.count (y => y == x) = 0 :=
   List.countNone xs (y => y == x) (y member =>
     match same: y == x with
-      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((List.memContains xs x).backward (rewrite <- same.read in member))))
+      | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym absent) ((rewrite <- same.read in member))))
       | False => rfl)
 
 --| If every value occurs in `xs` at most once (counted with `==`), `xs` has

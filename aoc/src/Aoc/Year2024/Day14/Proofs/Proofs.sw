@@ -49,7 +49,7 @@ theorem positionsModPeriod ∀ (space: Space) (robots: List Robot) (seconds: Nat
 
 theorem pictureAllDistinct ∀ (space: Space) (robots: List Robot) (inside: StartInside space robots) (seconds: Nat)
     (picture: isPicture space robots seconds): List.isDistinct (space.positionsAfter seconds robots) = True :=
-  (List.isDistinctIff (space.positionsAfter seconds robots)).backward (rewrite <- positionsCorrect space robots inside seconds in picture)
+  (rewrite <- positionsCorrect space robots inside seconds in picture)
 
 --| Part 2's answer is a picture, and no earlier second is.
 theorem part2First ∀ (space: Space) (robots: List Robot) (inside: StartInside space robots) (found: Nat)

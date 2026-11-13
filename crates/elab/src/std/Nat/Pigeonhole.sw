@@ -24,7 +24,7 @@ theorem Nat.pigeonhole ∀ (n: Nat) (f: Nat → Nat) (small: ∀ (i: Nat) => i �
                   | True =>
                     let notLast: f (Succ n) ≠ n := same => missed i le (Eq.trans atLast.read (Eq.sym same))
                     omega [small (Succ n) (Nat.leRefl (Succ n)), notLast]
-                  | False => omega [small i (omega [le]), atLast.read]
+                  | False => omega [small i (omega [le]), atLast]
             Exists.elim (Nat.pigeonhole n swapped swappedSmall) (i rest =>
               Exists.elim rest (j both =>
                 let ij := And.left both

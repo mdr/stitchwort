@@ -47,11 +47,11 @@ theorem iterateRaise ∀ (count level: Nat) (low: level ≤ 9) (sum: level + cou
     | Succ count =>
       match nine: level == 9 with
         | True =>
-          let same := nine.read
+          let same := nine
           let later := iterateRaise count 1 (omega) (omega [sum, same])
           rewrite later, wrapSmall (1 + count) (omega [sum, same]), wrapLarge (level + Succ count) (omega [same]) in omega [same]
         | False =>
-          let other := nine.read
+          let other := nine
           let later := iterateRaise count (level + 1) (omega [low, other]) (omega [sum])
           let same: level + 1 + count = level + Succ count := omega
           rewrite later, same in rfl

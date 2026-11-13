@@ -226,7 +226,7 @@ theorem moveWideCount ∀ (warehouse: Warehouse) (direction: Direction) (separat
       let stayed := warehouse.boxes.difference group
       let apart: ∀ (position: Cell) => stayed.contains position = True → moved.contains position = False :=
         position inStayed =>
-          Bool.falseOfNotTrue (moved.contains position) (inMoved =>
+          (inMoved =>
             match Iff.forward (Set.containsMap group (box => box.step direction) position) inMoved with
               | Witness box (Both held stepped) =>
                 match stayedElim warehouse group position inStayed with

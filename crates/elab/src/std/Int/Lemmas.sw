@@ -245,7 +245,7 @@ theorem Int.modNatSuccWrap ∀ (size x: Nat) (inside: x < size):
     (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size := match size with
       | Succ n =>
         match e: x + 1 == Succ n with
-          | True => rewrite (omega [e.read]: x = n) in Eq.sym (Nat.modSelf (Succ n))
+          | True => rewrite (omega [e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
           | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
 
 --| One step back on a line of `size` is subtracting 1 and wrapping: the

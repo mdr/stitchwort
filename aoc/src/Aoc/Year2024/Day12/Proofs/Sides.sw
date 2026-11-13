@@ -113,7 +113,7 @@ theorem programCornersCell ∀ (garden: Garden) (start: Position) (plant: Char) 
     | { row, column } =>
       let plot: Position := { row, column }
       let inside := insideOf region
-      let isIn: inside row column = True := (List.memContains region.plots plot).backward member
+      let isIn: inside row column = True := member
       let faces := (side: Direction) => sameAcrossFaces garden start plant grows region isRegion plot member side
       let up := Eq.trans (faces Up) (facesUp region row column)
       let down := Eq.trans (faces Down) (facesDown region row column)
@@ -185,7 +185,7 @@ theorem sumOverGrid ∀ (region: Region) (distinct: List.Distinct region.plots) 
             | { row, column } =>
               let bounds := within { row, column } member
               memSquare last row column (And.left bounds) (And.right bounds))
-          ((List.memContains region.plots plot).backward member))
+          (member))
   let filtered :=
     Eq.trans (List.sumByFilter (square last) term isIn)
       (List.sumByCong (square last) (plot => if isIn plot then term plot else Add.zero) term (plot =>
