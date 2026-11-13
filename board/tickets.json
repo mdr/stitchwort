@@ -1,5 +1,5 @@
 {
-  "next": 3166,
+  "next": 3172,
   "tickets": [
     {
       "id": 47,
@@ -34390,6 +34390,84 @@
     {
       "id": 3165,
       "title": "[DeepSeek] Two files put ':=' at the end of the 'decreasing' line against 77 that follow the documented shape: crates/elab/src/std/Nat/PartitionPoint.sw:14, examples/accept/let-proof-pattern-unfold.sw:20; make them match (SW-3158 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3166,
+      "title": "[Opus] Lossless tree lane B (SW-3159 plan): mark operators and application: App, Binary, Chain, Membership, Range, Prefix, Pipe, Arrow, Iff, FieldAccess, Section, NamedArg, Paren/Tuple/List/Spread, records, Annotation, Seq, LetExpr, Interpolated; the deep recursive path: watch stack frames, rerun the nesting tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3167,
+      "title": "[Sonnet] Lossless tree lane C (after B): Lambda/LambdaParam, FunctionType, Forall/Exists, If, Handle/HandlerClause, Induct/InductArm, Reify, rows inside expressions",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3168,
+      "title": "[Sonnet] Lossless tree lane D: every Pattern kind, incl. let patterns and or-patterns",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3169,
+      "title": "[Sonnet] Lossless tree lane E: proofs: Calc/CalcStep, Rewrite/RewriteRule, Omega, Ring, Cases",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3170,
+      "title": "[Opus] Lossless tree lane F (closing): span-containment test (every compiler-tree span is a node's range); remove the Unmarked wrappers; whole-repo gate of 0 unmarked and 0 dropped (Overmind); decide on ${ and } as tokens",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3171,
+      "title": "[Sonnet] Lexer spans in interpolated text are inconsistent: StrStart leaves out its ${, StrMid includes its own, neither StrMid nor StrEnd includes the } before it (the lossless tree works around it in token_text_range). Make ${ and } tokens of their own, checking diagnostics that point into strings (SW-3159 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
