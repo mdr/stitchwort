@@ -336,12 +336,13 @@ fn an_interpolation_is_never_broken() {
 
 #[test]
 fn a_long_pattern_breaks_like_a_call() {
-    // S22.
+    // S22: the continuation is at +4 from the `|`, as a header's
+    // parameters are, so it never lines up with a body at +2.
     let (a, b) = (long(50), long(50));
     check(
         &format!("def f (p: Nat): Nat := match p with\n  | Pair {a} (Pair {b} (Pair k k)) => 1\n"),
         &format!(
-            "def f (p: Nat): Nat := match p with\n  | Pair {a}\n    (Pair {b} (Pair k k)) => 1\n"
+            "def f (p: Nat): Nat := match p with\n  | Pair {a}\n      (Pair {b} (Pair k k)) => 1\n"
         ),
     );
 }
@@ -379,4 +380,35 @@ fn plain_arguments_that_do_not_fit_fill_lines_at_four() {
         &format!("def f (n: Nat): Nat :=\n  g {call}\n"),
         &format!("def f (n: Nat): Nat :=\n  g {first}\n      {second}\n"),
     );
+}
+
+#[test]
+fn a_match_joins_the_header_line_only_when_its_whole_head_fits() {
+    // D3553, S12: a head that would wrap goes below at 2, arms at 4.
+    check(
+        "def f (n: Nat): Nat :=\n  match n with\n    | 0 => 1\n    | _ => 2\n",
+        "def f (n: Nat): Nat := match n with\n  | 0 => 1\n  | _ => 2\n",
+    );
+    let name = long(90);
+    let before =
+        format!("def f (n: Nat): Nat :=\n  match {name} n n with\n    | 0 => 1\n    | _ => 2\n");
+    check(&before, &before);
+}
+
+#[test]
+fn an_empty_parameter_list_stays_attached_to_the_definition_name() {
+    // D1039: `f()` is a call with no arguments, `f ()` is not.
+    check(
+        "def main(): {IO} () := IO.print \"hi\"\n",
+        "def main(): {IO} () := IO.print \"hi\"\n",
+    );
+}
+
+#[test]
+fn a_bracketed_if_keeps_its_else_under_the_if() {
+    // S19: clauses at the `if`'s column, not the bracket's.
+    let (a, b) = (long(70), long(70));
+    let want = format!("def f (n: Nat): Nat :=\n  (if {a} then 1\n   else {b})\n");
+    let before = format!("def f (n: Nat): Nat := (if {a} then 1 else {b})\n");
+    check(&before, &want);
 }
