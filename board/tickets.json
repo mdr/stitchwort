@@ -33571,12 +33571,12 @@
     {
       "id": 3102,
       "title": "[Sonnet] Bool as proposition stage 6, the rest: sweep aoc/src/Aoc/Common (60 helper uses), games/rogue (8), the 2020/2024 days outside SW-3079/SW-3092, and std's Nat.leqFalse (36) and Parse/Omega/Float now that SW-3067's readings exist (~200 helper uses; docs/reviews/SW-3101-measure.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 40 min (est. 120) + 10 min merge. Common 61→3, Nat.leqFalse 36→5, rogue 8→1, days ~250→~128 (left: build direction D3549a; cons-unfolded all ~40, SW-3121; edge cases SW-3122). Headers checked unchanged by the orchestrator.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
