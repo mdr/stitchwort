@@ -347,8 +347,20 @@ fn starts_declaration(line: &[u8]) -> bool {
 /// lexes gives the tokens of [`lex_with_bars`] and no failures.
 pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
     let bytes = text.as_bytes();
-    let line_of = |at: usize| text[..at].rfind('\n').map_or(0, |newline| newline + 1);
-    let next_line = |at: usize| text[at..].find('\n').map_or(text.len(), |n| at + n + 1);
+    // Searched by byte, since an error's span can end inside a character
+    // (a `ℕ`); a line start is always a character boundary.
+    let line_of = |at: usize| {
+        bytes[..at]
+            .iter()
+            .rposition(|&b| b == b'\n')
+            .map_or(0, |newline| newline + 1)
+    };
+    let next_line = |at: usize| {
+        bytes[at..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map_or(text.len(), |n| at + n + 1)
+    };
     // `text` with the failed declarations' bytes replaced by spaces, so every
     // other token keeps its position.
     let mut current = text.to_string();
