@@ -1,5 +1,5 @@
 {
-  "next": 3116,
+  "next": 3120,
   "tickets": [
     {
       "id": 47,
@@ -28035,7 +28035,7 @@
     {
       "id": 2691,
       "title": "fmt: one layout for a theorem's ':= match x with': the sweep wrote match on the next line, the guide uses it inline; fmt accepts both. Make fmt canonical; also drop redundant parens in a premise type '(h: (∀ …))'",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -32965,7 +32965,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.\nA third case (Overmind, 13 Nov, seed 0x25c3 case 22779, from accept/match-bool-if-division.sw, over 2048 MB uncached); input saved at docs/reviews/repros/fuzz-elab-25c3-22779.sw.",
+      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.\nA third case (Overmind, 13 Nov, seed 0x25c3 case 22779, from accept/match-bool-if-division.sw, over 2048 MB uncached); input saved at docs/reviews/repros/fuzz-elab-25c3-22779.sw.\nLane (Sonnet, 13 Nov): fixed 25b1 and 25c3 (native partial rule for Nat.divFuel on open numbers, Outcome::Succs); 25bb is SW-2639's decreasing proof chain, not fixed. Fable review: docs/reviews/SW-3055-review.md: sound; merge after fixes B1 (division::a_stuck_step_of_division_is_shown_as_division now shows 'Nat.divStep … + 1' not 'Succ (Nat.divStep …)': orchestrator's call, accept the new display and update the test), B2 docs/core.md paragraph (drafted in the review), S1 proof hashes move (expected), S2 natives-on/off and machine/reference grids incl. DivFuel and a 2^128 case, S3 charge budget.number_words, S4 look at the fuel last. Fixes go to Opus (D2506), from lane/SW-3055, when a slot frees.",
       "created": "2026-11-12",
       "updated": "2026-11-13",
       "commits": []
@@ -33493,12 +33493,12 @@
     {
       "id": 3096,
       "title": "[Sonnet] Patterns unfold plain Bool defs inconsistently: isStep and city.contains (2024 D10 Steps, D08 Part2) don't unfold so Both mismatches; isOrthogonalStep and climbs do; touches unfolds in touchesSymmetric but not touchingGrowing (∃ goal) (SW-3092 finding 4)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nCause: patlet.rs check_let's projection path (goal not evidently a proposition, e.g. x ∈ xs) didn't read test facts; read_fact added. Opus review: merge (docs/reviews/SW-3096-review.md). Model result: Sonnet, worked, 20 min (est. 75).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33571,7 +33571,7 @@
     {
       "id": 3102,
       "title": "[Sonnet] Bool as proposition stage 6, the rest: sweep aoc/src/Aoc/Common (60 helper uses), games/rogue (8), the 2020/2024 days outside SW-3079/SW-3092, and std's Nat.leqFalse (36) and Parse/Omega/Float now that SW-3067's readings exist (~200 helper uses; docs/reviews/SW-3101-measure.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33740,6 +33740,58 @@
     {
       "id": 3115,
       "title": "[Sonnet] fuzz:elab oracle 3: rfl in a local theorem of a local function (theorem fz: f 0 = 35 := rfl inside a def, f final) isn't checked by the elaborator: the false lemma reaches the kernel, which rejects it with E-REFL. The user sees the right error, so it's not a soundness or UX bug, but the elaborator should check local lemmas' rfl itself (and the oracle flags it). Repro: docs/reviews/repros/fuzz-elab-25c3-11414.sw (a mutant of examples/reject/local-lemma-owner-cycle.sw); find why the local lemma's rfl skips the elaborator's check and fix; add it as a reject example",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3116,
+      "title": "[DeepSeek] Add a reject example for a test fact with no reading at all (an opaque Bool def taken apart with Inl/Inr: E-NO-READING 'has no reading, so it has no parts'): reading-pattern-no-reading now covers a reading that isn't an Or, since SW-3067 gave n < 10 a reading",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3117,
+      "title": "[DeepSeek] Sweep the remaining Bool.andLeft/andRight/andIntro in aoc 2024 Day10 Proofs/Proofs.sw (~lines 134, 150, 153, 187) and Day08 Part1.sw:153 antinodesOfCorrect now that let-patterns read test facts (SW-3096 findings); check each day and its Proofs namespace with --no-cache",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-older",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3118,
+      "title": "[DeepSeek] SW-3096 review follow-ups: readings-unfold-defs.sw bodies use the parts they bind, plus nested, lambda and = False cases (versions in docs/reviews/SW-3096-review.md); a reject example for patlet's E-NO-READING with a non-proposition goal; drop the 'Before SW-3096' history from bool-as-proposition.md §6.1; records.rs:223 'a `And`' → 'an'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3119,
+      "title": "[Sonnet] patlet::proposition doesn't count x ∈ xs as a proposition, so match induct on a membership goal is rejected (E-MATCH-MOTIVE, induct_match.rs:151; repro in docs/reviews/SW-3096-review.md); also check.rs:4721 and matching.rs:1724: switch to cases::is_proposition, which asks the kernel",
       "status": "backlog",
       "agent": "",
       "where": "",

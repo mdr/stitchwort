@@ -138,18 +138,20 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
         let both :=
           onLineOfCross fr fc step.rows step.columns scale s t pr pc second.row.toInt second.column.toInt secondRow secondColumn scaleNonzero bezout
             h.read
+        let Both firstRowOn firstColumnOn := firstOn
+        let Both pointRowOn pointColumnOn := inside
         let bound: Int.natAbs steps < reach :=
           match still: step.rows == 0 with
             | True =>
               let rowStill := still.read
               let columnMoves: step.columns ≠ 0 := z => omega [rewrite rowStill, z, Int.mulZero s, Int.mulZero t at bezout in bezout]
               let below :=
-                stepsBound first.column point.column step.columns steps city.width (omega [firstOn.right])
-                  (omega [inside.right]) (And.right both) columnMoves
+                stepsBound first.column point.column step.columns steps city.width (omega [firstColumnOn])
+                  (omega [pointColumnOn]) (And.right both) columnMoves
               omega
             | False =>
               let below :=
-                stepsBound first.row point.row step.rows steps city.height (omega [firstOn.left]) (omega [inside.left])
+                stepsBound first.row point.row step.rows steps city.height (omega [firstRowOn]) (omega [pointRowOn])
                   (And.left both) still.read
               omega
         harmonicsOfSteps city first second point steps (And.left both) (And.right both) bound

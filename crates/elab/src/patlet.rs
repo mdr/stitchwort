@@ -20,6 +20,10 @@
 //! block, and so a definition's unfolding equation, computes even when the
 //! proof `e` doesn't reduce to `Both`.
 //!
+//! A scrutinee that is a test fact (`e = True`) is first read as what its test
+//! means (docs/proposals/bool-as-proposition.md §6.1), into a hidden `let`
+//! the accessors project, as a `match` would.
+//!
 //! In a proof (the expected type is evidently a proposition), the `match`
 //! is kept: there, splitting `e` into a pair refines the goal, which is what
 //! a proof by `let (a, b) := p` wants (`examples/accept/let-patterns.sw`,
@@ -29,8 +33,8 @@
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::force;
 use stitchwort_core::{DataId, DefId, Icit, Name, Sort, Term, Value};
-use stitchwort_syntax::Diagnostic;
 use stitchwort_syntax::ast::{Expr, MatchKind, Pattern};
+use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, Result, builtin_data, builtin_def, check, infer, insert};
 use crate::scope::Resolved;
@@ -274,6 +278,13 @@ fn destructure(
         Pattern::Ctor(n, args, span) => {
             let (data, accessors) = proof_ctor(cx, &n.text).expect("checked by `applies`");
             cx.e.ctor_named(&n.text, n.span)?;
+            // A test fact is taken apart by what its test reads as
+            // (docs/proposals/bool-as-proposition.md §6.1), bound to a
+            // hidden variable the accessors then project.
+            let (level, ty) = match read_fact(cx, level, &ty, data, *span, lets)? {
+                Some(read) => read,
+                None => (level, ty),
+            };
             let params = match ty {
                 Value::Data(d, params) if d == data => params,
                 other => {
@@ -298,6 +309,48 @@ fn destructure(
             Ok(())
         }
         _ => unreachable!("only tuples, records and proof constructors are destructured"),
+    }
+}
+
+/// The variable `level` of test-fact type `ty`, read as the proposition
+/// `data` (§6.1): a new hidden variable holding the reading and its type,
+/// or `None` where `ty` isn't a test fact. A test with no such reading is
+/// an error, as for a `match`.
+fn read_fact(
+    cx: &mut Ctx,
+    level: usize,
+    ty: &Value,
+    data: DataId,
+    span: Span,
+    lets: &mut Vec<(Name, Term, Term)>,
+) -> Result<Option<(usize, Value)>> {
+    let ty = crate::reading::variable_as_written(cx, level, ty)?;
+    let Some((test, polarity)) = crate::reading::test_fact(cx, &ty)? else {
+        return Ok(None);
+    };
+    match crate::reading::read_through(cx, &test, polarity)? {
+        crate::reading::Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d, _) if d == data) =>
+        {
+            let term = found.forward(cx, Term::Var(cx.level() - 1 - level))?;
+            let read = bind(cx, None, term, found.prop.clone(), lets)?;
+            let prop = force(&cx.g(), found.prop)?;
+            Ok(Some((read, prop)))
+        }
+        read => {
+            let how = format!(
+                "taken apart with {}",
+                crate::reading::constructors_shown(cx, data)
+            );
+            Err(crate::reading::no_reading(
+                cx,
+                span,
+                &test,
+                polarity,
+                &how,
+                &read,
+                Some((data, "this pattern matches")),
+            ))
+        }
     }
 }
 

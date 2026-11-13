@@ -3,13 +3,13 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-NO-READING] Error: this test fact can't be taken apart with a constructor of `Or`
-    ╭─[ reject/reading-pattern-no-reading.sw:10:7 ]
+    ╭─[ reject/reading-pattern-no-reading.sw:11:7 ]
     │
- 10 │     | Inl x => 0
+ 11 │     | Inl x => 0
     │       ──┬──  
-    │         ╰──── `small n` has no reading, so it has no parts
+    │         ╰──── `small n` reads as `n ≤ 9` (`Nat.leqReads`)
     │ 
-    │ Note 1: a reading says what a test means: a theorem `small … = True ↔ P` marked `@[reading]`, declared with `small`
+    │ Note 1: this pattern matches an `Or`, and `n ≤ 9` isn't one
     │ 
-    │ Note 2: a test fact can always be matched by a name
+    │ Note 2: a test fact can always be matched by a name, and `.read` gives the proposition
 ────╯
