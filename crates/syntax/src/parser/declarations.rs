@@ -234,6 +234,26 @@ impl Parser<'_> {
         let keep = std::mem::take(&mut self.keep_header) && !instance;
         self.bump();
         let name = self.def_name()?;
+        // A theorem's header may say `∀` before its parameters
+        // (`theorem leTrans ∀ (a b c: Nat) (h: a ≤ b): …`, D3472). It is
+        // cosmetic: the formatter writes it, and the term and hash are those
+        // of the header without it.
+        if self.peek() == Some(&Tok::KwForall) {
+            if !theorem {
+                return Err(error(
+                    self.here(),
+                    "`∀` before the parameters is only for theorems",
+                )
+                .with_note("a `def` or an instance lists its parameters directly after its name")
+                .into());
+            }
+            self.bump();
+            if !matches!(self.peek(), Some(Tok::LParen | Tok::LBracket)) {
+                return Err(self
+                    .unexpected("a parameter such as `(x: Nat)` after `∀`")
+                    .into());
+            }
+        }
         let mut params = Vec::new();
         while self.peek() != Some(&Tok::Colon) {
             params.push(self.header_param()?);

@@ -87,9 +87,12 @@ apply a `∀` once. A new test with a statement of its own gets a
 `@[reading]` theorem beside it.
 
 A theorem puts every variable before the colon, as a parameter
-(`theorem plusZero (n: Nat): n + 0 = n`), and a proof by cases is a `match`
-on them: `theorem timesOne (n: Nat): n * 1 = n := match n with | Zero => …
-| Succ k => …` (D3470). Premises the proof names are parameters too
+(`theorem plusZero ∀ (n: Nat): n + 0 = n`), and a proof by cases is a `match`
+on them: `theorem timesOne ∀ (n: Nat): n * 1 = n := match n with | Zero => …
+| Succ k => …` (D3470). The `∀` right after the name is how a theorem's header
+reads as "for all"; it is cosmetic (the same term and hash), `stitchwort fmt`
+writes it on every theorem with explicit parameters, and it stays off a header
+with only implicit ones (D3472). Premises the proof names are parameters too
 (`(h: x < y)`), not a `→` after the colon (D3471). This is the house style
 for theorems; a `def` keeps its arms and its `→`. `stitchwort sweep
 theorem-binders` converts old-style theorems.

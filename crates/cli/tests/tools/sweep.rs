@@ -70,7 +70,7 @@ namespace Laws
 
 import Std (Nat, Void, Bool, Eq)
 
-theorem leAntisym (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
+theorem leAntisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
   match a, b with
     | Zero, Zero => rfl
     | Zero, Succ b => Void.exfalso (Bool.falseNotTrue h2)
@@ -135,6 +135,8 @@ import Std (Nat, Void, Bool, Eq)
 
 theorem ident: ∀ (n: Nat) => n = n := n => rfl
 
+theorem both ∀ (a: Nat): ∀ (b: Nat) => b = b := b => rfl
+
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
 
 def checked (n: Nat) (same: n + 0 = n): Nat := n
@@ -143,7 +145,9 @@ def limit: Nat := checked 100 (addZ 100)
 
 theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k => Nat.leAddRight k n
 ";
-    const SINGLE_AFTER: &str = "theorem ident (n: Nat): n = n := rfl";
+    const SINGLE_AFTER: &str = "theorem ident ∀ (n: Nat): n = n := rfl";
+    // A header that already says `∀` keeps it as the statement's `∀` moves in.
+    const BOTH_AFTER: &str = "theorem both ∀ (a: Nat) (b: Nat): b = b := rfl";
     let dir = scratch("files");
     std::fs::write(dir.join("laws.sw"), SINGLE_BEFORE).unwrap();
 
@@ -168,7 +172,7 @@ theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k =>
     assert_eq!(result["written"], false);
     let file = &result["files"][0];
     assert_eq!(file["file"], "laws.sw");
-    assert_eq!(names(file, "converted"), ["ident"]);
+    assert_eq!(names(file, "converted"), ["ident", "both"]);
     assert_eq!(names(file, "refused"), ["addZ"]);
     assert_eq!(names(file, "skipped"), ["memOf"]);
     assert_eq!(
@@ -181,5 +185,6 @@ theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k =>
     assert_eq!(output.status.code(), Some(0));
     let text = std::fs::read_to_string(dir.join("laws.sw")).unwrap();
     assert!(text.contains(SINGLE_AFTER), "{text}");
+    assert!(text.contains(BOTH_AFTER), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }

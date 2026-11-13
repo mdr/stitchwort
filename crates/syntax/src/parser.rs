@@ -8014,6 +8014,27 @@ mod tests {
     }
 
     #[test]
+    fn a_theorem_may_say_forall_before_its_parameters() {
+        // D3472: cosmetic, so the same tree as without it.
+        let with = parse("theorem t ∀ (n: Nat) (h: n < 1): n = 0 := rfl\n");
+        let without = parse("theorem t (n: Nat) (h: n < 1): n = 0 := rfl\n");
+        assert_eq!(
+            crate::equivalence::shape(&with),
+            crate::equivalence::shape(&without)
+        );
+        let ascii = parse("theorem t forall [a: Type] (n: Nat): n = n := rfl\n");
+        assert_eq!(ascii.decls.len(), 2);
+    }
+
+    #[test]
+    fn forall_before_the_parameters_is_for_theorems_with_a_parameter() {
+        let message = parse_error("def f ∀ (n: Nat): Nat := n\n").message;
+        assert!(message.contains("only for theorems"), "{message}");
+        let message = parse_error("theorem t ∀: True := trivial\n").message;
+        assert!(message.contains("after `∀`"), "{message}");
+    }
+
+    #[test]
     fn a_theorem_statement_compares_the_pipeline() {
         for (source, want) in [
             ("theorem t: xs |> .length = n := rfl\n", "(Eq xs.length n)"),
