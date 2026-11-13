@@ -33381,7 +33381,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nD3549a (Matt, 13 Nov 2026): yes: a test fact can be built from a proof of its reading (x ∈ xs where xs.contains x = True is expected, a ≠ b for (a != b) = True, a lambda for an all fact), after the reader gaps (SW-3093, SW-3094, SW-3095, SW-3064) are closed. ~85 helper uses go (docs/reviews/SW-3101-measure.md). Needs a short design addendum to bool-as-proposition.md §6.6 first (Opus).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
