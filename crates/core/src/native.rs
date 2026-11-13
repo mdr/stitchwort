@@ -950,26 +950,42 @@ fn run_partial(
         // for a number `d > 0`, `q = min(kf, k / d)` steps are all `Succ`s:
         // `divFuel (kf + f) (k + m) d = q + divFuel ((kf - q) + f) ((k - q·d) + m) d`.
         // One step at a time, `(x + 2^128) / 2` would take 2^127 of them.
-        // As with `Mul`, the fuel's head is looked at first: with no `Succ`
-        // the case tree is stuck on it and never looks at `n` or `d`.
+        // Arguments are looked at in the order the case tree looks at them, so
+        // this never forces more than the steps it stands for would: the
+        // fuel's head (with no `Succ` the case tree is stuck on it), then `d`
+        // and `n`, which the first step's `leq d n` compares, and only once a
+        // step is sure to happen, the rest of the fuel.
         (Native::DivFuel, [fuel, n, d]) => {
-            let (kf, fuel_base) = view(fuel)?;
-            if kf.is_zero() {
+            let starts_with_succ = match force(g, (*fuel).clone())? {
+                Value::Nat(n) => !n.is_zero(),
+                Value::NatAdd(..) => true,
+                Value::Ctor(d, 1, _) => Some(d) == g.env.builtins().nat,
+                _ => false,
+            };
+            if !starts_with_succ {
                 return Ok(None);
             }
             let Some(divisor) = as_nat_with(g, d, force)?.filter(|d| !d.is_zero()) else {
                 return Ok(None);
             };
             let (k, n_base) = view(n)?;
+            if k < divisor {
+                return Ok(None);
+            }
+            let (kf, fuel_base) = view_keeping(g, fuel, force)?;
+            g.machine.budget.number_words(|| {
+                number_words(Native::DivFuel, &[kf.clone(), k.clone(), divisor.clone()])
+            })?;
             let q = (&k / &divisor).min(kf.clone());
             if q.is_zero() {
                 return Ok(None);
             }
+            let rest = &k - &q * &divisor;
             Ok(Some(Outcome::Succs(
                 q.clone(),
                 vec![
-                    explicit(from_view(&kf - &q, fuel_base)),
-                    explicit(from_view(&k - &q * &divisor, n_base)),
+                    explicit(from_view(kf - &q, fuel_base)),
+                    explicit(from_view(rest, n_base)),
                     explicit((*d).clone()),
                 ],
             )))
