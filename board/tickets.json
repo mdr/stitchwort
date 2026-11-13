@@ -27996,7 +27996,7 @@
     {
       "id": 2688,
       "title": "Theorem binders hand work after the sweep: 44 conclusion-column theorems (¬/≠), 2 absurd arms, 4 std name clashes, 108 ∀-after-premise left by design (review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -28009,7 +28009,7 @@
     {
       "id": 2689,
       "title": "sweep theorem-binders: single files outside projects (examples/, docs/guide examples, web/guide)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33818,7 +33818,7 @@
     {
       "id": 3121,
       "title": "[Sonnet] Facts over a cons-unfolded all, or over a Prop def like Parse.OnlyBreaks, have no .left/.right (E-NO-NAMESPACE 'only is a function'): the largest remaining gap, ~40 helper uses (Parse/Runs.sw 1061-2236, 2020 Day04 Complete 94-120, Day13/Day07/Day19/Day16/Day24/Day21/Day12/Day15, SortLemmas 580) (SW-3102 finding 2; with SW-3064)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
