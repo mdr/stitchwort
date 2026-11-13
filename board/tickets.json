@@ -1,5 +1,5 @@
 {
-  "next": 3077,
+  "next": 3080,
   "tickets": [
     {
       "id": 47,
@@ -33239,6 +33239,45 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3077,
+      "title": "[Sonnet] Tests with errors: an instance whose signature fails (Ord Colr, a head error) is never registered, so its users still get 'no X instance' without §4.2's note ('A, used here, has errors; this may be a result of them') (SW-2970 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3078,
+      "title": "[DeepSeek] A derive (DecEq/Ord/Show/Finite) on a type whose field's instance failed reports '… colorOrd has errors' (derive*.rs) instead of waiting for it (SW-2970 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3079,
+      "title": "[Sonnet] Bool as proposition stage 6, AoC 2020 and 2021 sweep: test-fact conversions (Bool.andLeft/andRight/andIntro, List.anyTrueElim/anyOfMem, List.memContains, List.allMember, DecEq.sound/soundFalse, Nat.equalSound …) replaced by patterns, .read and auto (stage 5) where shorter or clearer; helpers whose only job was the conversion deleted when unused",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-older",
+      "body": "Started 13 Nov ~11:45. Estimate: 90 min. Kept-lemma list with users: SW-3060's lane report (in SW-3060's ticket context); known gaps: SW-3064 (cons-unfolded all/any), SW-3065, SW-3066, SW-3067, SW-3069, SW-3073.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
