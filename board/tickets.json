@@ -34208,12 +34208,12 @@
     {
       "id": 3151,
       "title": "[Sonnet] Regression today: proofs decision_search::a_decision_procedure_declared_after_a_rewind_is_found fails (defs 525 after rewind vs 526 before: a failed load leaves one more definition in the kernel env than the same load done right). Not SW-3087's build (fails with STITCHWORT_BUILD=0); one of SW-2658 (W-ARROW-FORALL/W-THEOREM-FORALL in the load path), SW-3132 (zonk), SW-3128/SW-2657 — Overmind's rolling check passed it at 4af2adde7. Bisect the merges since 4af2adde7 on this one test, find which definition leaks on the error path, fix.",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\n\nCulprit: SW-2952 (merge cef05ea4b, D3527): a failed declaration also leaves a stand-in assumption def, so the failed load has one extra \"client\" def. Bisected on 8fb4fac9a (pass) .. 4af2adde7 (fail): it never passed at 4af2adde7. Not a leak; the test expectation was stale. Fixed the test (212ad84c6); decision_search:: 7/7 pass.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
