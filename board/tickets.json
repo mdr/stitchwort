@@ -34416,15 +34416,17 @@
     {
       "id": 3167,
       "title": "[Sonnet] Lossless tree lane C (after B): Lambda/LambdaParam, FunctionType, Forall/Exists, If, Handle/HandlerClause, Induct/InductArm, Reify, rows inside expressions",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane C done: Lambda/LambdaParam, Forall/Exists, FunctionType, If, Handle/HandlerClause, Induct/InductArm, Reify marked. std multi-token unmarked 8,271 -> 6,700; 0 dropped. Remaining: patterns (Arm/Let), rewrite, calc. Debug-only nesting::long_list_literals_with_a_small_guard failure is SW-2758, not this change.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "25c3987b4"
+      ]
     },
     {
       "id": 3168,
