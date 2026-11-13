@@ -1,5 +1,5 @@
 {
-  "next": 3118,
+  "next": 3120,
   "tickets": [
     {
       "id": 47,
@@ -33493,12 +33493,12 @@
     {
       "id": 3096,
       "title": "[Sonnet] Patterns unfold plain Bool defs inconsistently: isStep and city.contains (2024 D10 Steps, D08 Part2) don't unfold so Both mismatches; isOrthogonalStep and climbs do; touches unfolds in touchesSymmetric but not touchingGrowing (∃ goal) (SW-3092 finding 4)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nCause: patlet.rs check_let's projection path (goal not evidently a proposition, e.g. x ∈ xs) didn't read test facts; read_fact added. Opus review: merge (docs/reviews/SW-3096-review.md). Model result: Sonnet, worked, 20 min (est. 75).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33771,6 +33771,32 @@
       "where": "",
       "labels": [],
       "epic": "aoc-older",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3118,
+      "title": "[DeepSeek] SW-3096 review follow-ups: readings-unfold-defs.sw bodies use the parts they bind, plus nested, lambda and = False cases (versions in docs/reviews/SW-3096-review.md); a reject example for patlet's E-NO-READING with a non-proposition goal; drop the 'Before SW-3096' history from bool-as-proposition.md §6.1; records.rs:223 'a `And`' → 'an'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3119,
+      "title": "[Sonnet] patlet::proposition doesn't count x ∈ xs as a proposition, so match induct on a membership goal is rejected (E-MATCH-MOTIVE, induct_match.rs:151; repro in docs/reviews/SW-3096-review.md); also check.rs:4721 and matching.rs:1724: switch to cases::is_proposition, which asks the kernel",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
