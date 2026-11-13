@@ -293,3 +293,17 @@ fn operators_after_a_match_stay_at_its_column() {
         "def d (n: Nat): Nat :=\n  match n with\n    | 0 => 1\n    | _ => n\n  |> k => k + 10\n",
     );
 }
+
+#[test]
+fn a_lambda_after_the_assign_stays_on_its_line() {
+    // D3568: the body goes below at 2, not the whole lambda.
+    let name = long(100);
+    check(
+        &format!("def f (n: Nat): Nat -> Nat :=\n  n =>\n    {name} n n\n"),
+        &format!("def f (n: Nat): Nat -> Nat := n =>\n  {name} n n\n"),
+    );
+    check(
+        &format!("def f (n: Nat): Nat :=\n  let g :=\n    k =>\n      {name} k k\n  g n\n"),
+        &format!("def f (n: Nat): Nat :=\n  let g := k =>\n    {name} k k\n  g n\n"),
+    );
+}
