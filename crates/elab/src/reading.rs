@@ -893,12 +893,14 @@ fn decision_test(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
 const FRESH: usize = 1 << 24;
 
 /// A decision of an equation that computes (`[x, ..xs] == [y, ..ys]`, a
-/// `Text` or a tuple), whose test, one step in, is no test of a function
-/// with a reading of its own (`Nat.equal`, a derived type's `T.%same`): the
-/// test reads as the equation the decision decides, as a stuck decision
-/// does. Unfolding it further would read the layer the computation happens
-/// to leave (a `&&` of the heads and the tails, or the equation of the
-/// `Text`'s characters).
+/// `Text`, a tuple, a hand-written instance), whose test, one step in, is no
+/// test of a function with a reading of its own (`Nat.equal`, a derived
+/// `T.%same`) that states the same equation: the test reads as the equation
+/// the decision decides, as a stuck decision does. A proposition that is
+/// defined as an equation (`Small n := isSmall n = True`) counts as one.
+/// Unfolding further would read the layer the computation happens to leave
+/// (a `&&` of the heads and the tails, or the equation of the `Text`'s
+/// characters).
 fn equation_decision(
     g: &Ev,
     e: &Elaborator,

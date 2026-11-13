@@ -4,7 +4,7 @@
 -- computes to one step in (`&&` of the heads and the tails for two
 -- non-empty lists, the equation of the characters for a `Text`)
 -- (docs/proposals/bool-as-proposition.md §5.4).
-import Std (Bool, Char, Eq, Nat, Option, Text, Witness)
+import Std (Bool, Char, DecEq, Decidable, Eq, Nat, Option, Text, Witness)
 
 theorem lists (xs ys: List Char) (h: (xs == ys) = True): xs = ys := h.read
 
@@ -44,3 +44,43 @@ theorem inALambda (xs: List Pos) (t: Pos) (found: xs.any (p => Some p == Some t)
 theorem natInALambda (xs: List Nat) (t: Nat) (found: xs.any (x => x == t) = True): ∃ (x: Nat) => x = t :=
   let Witness x (Both _ same) := found
   Witness x same.read
+
+theorem optionOfList (xs ys: List Nat) (h: (Some xs == Some ys) = True): Some xs = Some ys := h.read
+
+theorem optionOfListsOfTexts (xs ys: List Text) (h: (Some xs == Some ys) = False): Some xs ≠ Some ys := h.read
+
+theorem character (c: Char) (h: (c == 'a') = True): c = 'a' := h.read
+
+theorem characterApart (c: Char) (h: (c == 'a') = False): c ≠ 'a' := h.read
+
+theorem swapped (xs ys: List Nat) (h: (ys == xs) = True): ys = xs := h.read
+
+-- A hand-written instance, by cases: its `==` reads as the equation too.
+type Light = | Red | Green
+
+def Light.isRed: Light → Bool
+  | Red => True
+  | Green => False
+
+def Light.decEq: (a: Light) → (b: Light) → Decidable (a = b)
+  | Red, Red => Decidable.yes rfl
+  | Green, Green => Decidable.yes rfl
+  | Red, Green => Decidable.no (e => Bool.trueNotFalse (Eq.cong Light.isRed e))
+  | Green, Red => Decidable.no (e => Bool.falseNotTrue (Eq.cong Light.isRed e))
+
+instance Light.instDecEq: DecEq Light := { decide = Light.decEq }
+
+theorem lights (a b: Light) (h: (a == b) = True): a = b := h.read
+
+theorem lightsApart (a b: Light) (h: (a == b) = False): a ≠ b := h.read
+
+-- And one built with `Decidable.map` from a decision about a part: it
+-- reads as the equation of the whole, not of the part.
+type Code = { n: Nat }
+
+def Code.decEq (a b: Code): Decidable (a = b) :=
+  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e in rfl) (e => rewrite e in rfl)
+
+instance Code.instDecEq: DecEq Code := { decide = Code.decEq }
+
+theorem codes (a b: Code) (h: (a == b) = True): a = b := h.read

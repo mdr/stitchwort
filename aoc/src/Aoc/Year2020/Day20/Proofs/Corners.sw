@@ -11,8 +11,8 @@ theorem edgesPixels (image: Image): image.edges.map (.pixels) = Spec.edges image
 theorem fitsIff (edge: Edge) (other: Edge): edge.fits other = True ↔ Spec.Fit edge.pixels other.pixels := {
   forward = fits =>
     match fits with
-      | Inl same => Inl (same.read)
-      | Inr reversed => Inr (reversed.read),
+      | Inl same => Inl same.read
+      | Inr reversed => Inr reversed.read,
   backward = fit =>
     match fit with
       | Inl same => Inl (rewrite same in DecEq.refl other.pixels)
