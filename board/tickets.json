@@ -1,5 +1,5 @@
 {
-  "next": 3099,
+  "next": 3101,
   "tickets": [
     {
       "id": 47,
@@ -33519,11 +33519,37 @@
     {
       "id": 3098,
       "title": "[Sonnet] Bool as proposition stage 7: guide chapter 'Tests and propositions' (docs/guide/, examples checked) and the proving guide's 'Writing statements': when to write a Bool test and when a proposition, readings and .read, patterns on facts, auto/cases using facts (stage 5), one sentence 'to use the whole fact as its proposition, write .read'; a feature-tour page if it suits (web/guide/)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "\nModel result: Sonnet, worked, 6 min (est. 90).",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3099,
+      "title": "[Sonnet] cases doesn't close b.seats ≤ capacity from h: bookings.all (b => b.fits capacity) and m: b ∈ bookings (E-CASES, goal False = True): the ∀ applied lands on fits … = True whose parts aren't read through to the goal; with SW-3073 (SW-3098 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3100,
+      "title": "[DeepSeek] E-TYPE-MISMATCH shows expected 4 ≤ n where the statement says 3 < n (< computes); print the expected type as written when it is a comparison (SW-3098 finding 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
