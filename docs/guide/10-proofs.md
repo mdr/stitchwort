@@ -797,7 +797,7 @@ theorem flagged (flag: Bool) (n: Nat) (h: flag = True): n = n :=
 1 error: in `flagged`
 ```
 
-For a test that is `==` on a type known only to have `DecEq`, no reading is needed: the fact reads as what the decision decides, `(a == b) = True` as `a = b` and `(a == b) = False` as `a ≠ b`.
+For a test that is `==`, no reading is needed: the fact reads as what the decision decides, `(a == b) = True` as `a = b` and `(a == b) = False` as `a ≠ b`. That holds whatever the type: one known only to have `DecEq`, and a list, a `Text`, a tuple, an `Option`, a `Char` (`(c == 'a') = True` reads as `c = 'a'`) or a type with a hand-written instance. It is the equation of the two sides as written, not the test the comparison computes to: `[x, ..xs] == [y, ..ys]` reads as `[x, ..xs] = [y, ..ys]`, not as a conjunction of its heads and its tails, so `Both` doesn't take it apart. A type that has readings of its own for its test (`Nat`, a derived `DecEq`) reads as they say, which is the same equation.
 
 <!-- snippet: proofs.sw#readings-decisions -->
 ```stitchwort
