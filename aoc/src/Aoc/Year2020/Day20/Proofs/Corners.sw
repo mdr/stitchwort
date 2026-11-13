@@ -9,34 +9,35 @@ import Std (Bool, DecEq, Eq, Iff, List, Nat, Void)
 theorem edgesPixels (image: Image): image.edges.map (.pixels) = Spec.edges image := rfl
 
 theorem fitsIff (edge: Edge) (other: Edge): edge.fits other = True ↔ Spec.Fit edge.pixels other.pixels := {
-  forward = fits => Bool.orElim fits (same => Inl (DecEq.sound same)) (reversed => Inr (DecEq.sound reversed)),
+  forward = fits =>
+    match fits with
+      | Inl same => Inl (DecEq.sound same)
+      | Inr reversed => Inr (DecEq.sound reversed),
   backward = fit =>
     match fit with
-      | Inl same => Bool.orLeft (rewrite same in DecEq.refl other.pixels)
-      | Inr reversed => Bool.orRight (rewrite reversed in DecEq.refl other.pixels.reverse)
+      | Inl same => Inl (rewrite same in DecEq.refl other.pixels)
+      | Inr reversed => Inr (rewrite reversed in DecEq.refl other.pixels.reverse)
 }
 
 theorem matchesIff (jigsaw: Jigsaw) (tile: Tile) (edge: Edge): jigsaw.matches tile edge = True ↔ Spec.Matched jigsaw tile edge.pixels := {
   forward = matched =>
-    List.anyTrueElim jigsaw.tiles _ _ matched (other member both =>
-      List.anyTrueElim other.image.edges edge.fits _ (Bool.andRight both) (otherEdge onEdge fits =>
-        Witness other (Both member (Both (DecEq.neTrue (Bool.andLeft both))
-          (Witness otherEdge.pixels (Both (List.memMap _ otherEdge onEdge (.pixels)) ((fitsIff edge otherEdge).forward fits))))))),
+    let Witness other (Both member (Both different found)) := matched
+    let Witness otherEdge (Both onEdge fits) := found
+    Witness other (Both member (Both different.read.read
+      (Witness otherEdge.pixels (Both (List.memMap _ otherEdge onEdge (.pixels)) ((fitsIff edge otherEdge).forward fits))))),
   backward = matched =>
     match matched with
       | Witness other (Both member (Both different (Witness pixels (Both onEdge fit)))) =>
         match List.memMapElim (.pixels) pixels other.image.edges onEdge with
           | Witness otherEdge (Both onOther same) =>
-            List.anyOfMem jigsaw.tiles _ other
-              (Bool.andIntro (DecEq.trueOfNe different)
-                (List.anyOfMem other.image.edges edge.fits otherEdge ((fitsIff edge otherEdge).backward (rewrite same in fit)) onOther))
-              member
+            Witness other (Both member (Both (DecEq.trueOfNe different)
+              (Witness otherEdge (Both onOther ((fitsIff edge otherEdge).backward (rewrite same in fit))))))
 }
 
 theorem cornerIff (jigsaw: Jigsaw) (tile: Tile): (jigsaw.matchedEdges tile == 2) = True ↔ Spec.Corner jigsaw tile :=
   let counted := List.countWithIff (pixels => jigsaw.matches tile { pixels }) (pixels => matchesIff jigsaw tile { pixels }) (Spec.edges tile.image) 2
   {
-    forward = two => counted.backward (Eq.sym (DecEq.sound two)),
+    forward = two => counted.backward (Eq.sym two.read),
     backward = corner => rewrite <- counted.forward corner in DecEq.refl 2
   }
 

@@ -45,9 +45,8 @@ theorem lookupMember (entries: List (Nat, Rule)) (number: Nat) (rule: Rule) (fou
 theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below: ∀ (number: Nat) => rank number < bound)
     (productive: rules.productiveWith rank = True): Ranked rules rank bound :=
   Both below (number sequences looked sequence chosen =>
-    let entryProductive := List.allMember _ rules.numbered productive (number, Alternatives sequences)
-      (lookupMember rules.numbered number (Alternatives sequences) looked)
-    let sequenceProductive := List.allMember _ sequences entryProductive sequence chosen
+    let entryProductive := productive.read (number, Alternatives sequences) (lookupMember rules.numbered number (Alternatives sequences) looked)
+    let sequenceProductive := entryProductive.read sequence chosen
     match sequence with
       | [single] => Both (List.consNotNil single []) (only same => rewrite <- List.consInjectiveHead single only [] [] same in omega [sequenceProductive])
       | [first, second, ..others] => Both (List.consNotNil first [second, ..others]) (only same => Void.exfalso (List.consNotNil second others (Eq.cong (.drop 1) same))))
@@ -55,9 +54,9 @@ theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below:
 -- Deciding a message
 
 theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] ∈ lefts :=
-  List.anyTrueElim lefts List.isEmpty _ any (left member empty =>
-    match left with
-      | [] => member)
+  let Witness left (Both member empty) := any
+  match left with
+    | [] => member
 
 --| `matchesCompletely` reads the rules from a table, but the list gives its answer.
 theorem matchesCompletelyList (rules: Rules) (message: Message):
@@ -77,7 +76,7 @@ theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = 
         omega [same, rankBelow rules 0]
       let found := completeAll rules rules.rank rules.rankBound ranked [0] message.letters matched (rules.enough message) enough []
       match (List.memFlatMap (left => rules.leftAfterAll (rules.enough message) [] left) [] (rules.leftAfter (rules.enough message) 0 (message.letters ++ []))).forward found with
-        | Witness middle (Both first (Inl empty)) => rewrite empty, List.appendNil message.letters at first in List.anyOfMem _ List.isEmpty [] rfl first
+        | Witness middle (Both first (Inl empty)) => rewrite empty, List.appendNil message.letters at first in Witness [] (Both first rfl)
         | Witness middle (Both first (Inr never)) => Void.exfalso never
   }
 

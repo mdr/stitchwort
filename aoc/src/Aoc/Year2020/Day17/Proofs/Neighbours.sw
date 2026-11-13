@@ -56,7 +56,7 @@ theorem countNeighbours (cube other: Cube): cube.neighbours.count (== other) = B
             match e: here != there with
               | True =>
                 rewrite List.countFilter (within1 here) (== there) (coordinates => coordinates != here)
-                  (coordinates same => rewrite same.read in DecEq.trueOfNe (differ => DecEq.neTrue e (Eq.sym differ))) in
+                  (coordinates same => rewrite same.read in DecEq.trueOfNe (differ => e.read.read (Eq.sym differ))) in
                   countWithin1 here there
               | False =>
                 rewrite DecEq.neFalse here there e in

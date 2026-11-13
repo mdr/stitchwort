@@ -33,10 +33,9 @@ theorem anyQuestion: ∀ (lines: List (List Char)) (people: List Person) => List
     lines.any (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, question, found => cases
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question, found =>
-    Bool.orElim found
-      (inLine =>
-        List.allMember isQuestion line questions question ((List.memContains line question).forward inLine))
-      (inRest => anyQuestion lines people rest question inRest)
+    match found with
+      | Inl inLine => questions.read question inLine.read
+      | Inr inRest => anyQuestion lines people rest question inRest
   | [], [_, .._], impossible, question, found => Void.exfalso impossible
   | [_, .._], [], impossible, question, found => Void.exfalso impossible
 
@@ -48,6 +47,7 @@ theorem everyQuestion: ∀ (lines: List (List Char)) (people: List Person) => Li
     lines.all (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, some, question, found => Void.exfalso (some rfl)
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, some, question, found =>
-    List.allMember isQuestion line questions question ((List.memContains line question).forward (Bool.andLeft found))
+    let inLine: line.contains question = True := Bool.andLeft found
+    questions.read question inLine.read
   | [], [_, .._], impossible, some, question, found => Void.exfalso impossible
   | [_, .._], [], impossible, some, question, found => Void.exfalso impossible

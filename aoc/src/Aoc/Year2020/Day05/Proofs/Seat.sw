@@ -18,7 +18,7 @@ theorem narrowBits (lower: Char) (upper: Char) (differ: (upper == lower) = False
     | [] =>
       match same: first == last with
         | True => rfl
-        | False => Void.exfalso (DecEq.soundFalse first last same (omega))
+        | False => Void.exfalso (same.read (omega))
     | [True, ..rest] =>
       rewrite differ, DecEq.refl upper in
         Eq.trans (narrowBits lower upper differ rest (first + (last + 1 - first) / 2) last (omega))

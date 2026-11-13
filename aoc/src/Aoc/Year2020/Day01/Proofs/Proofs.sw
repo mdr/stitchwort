@@ -46,8 +46,7 @@ theorem findPairAfterSound (target: Nat) (seen: Set Nat) (before: List Nat) (pas
           let same := Option.someInjective found
           let aIs: target - x = a := Pair.mkInjectiveFst same
           let bIs: x = b := Pair.mkInjectiveSnd same
-          let fits: x <= target := Bool.andLeft c
-          let partner := Bool.andRight c
+          let Both fits partner := c
           Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
         | False =>
           let passedNow: ∀ (y: Nat) => Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
@@ -69,7 +68,8 @@ theorem findPairAfterComplete (target: Nat): ∀ (seen: Set Nat) (before: List N
             let fits: x <= target := omega
             let aIs: target - x = a := omega
             let partner: Set.contains seen (target - x) = True := rewrite aIs in remembered a aBefore
-            Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.andIntro fits partner)) c)
+            let holds: (x <= target && Set.contains seen (target - x)) = True := Both fits partner
+            Bool.trueNotFalse (Eq.trans (Eq.sym holds) c)
           | Inr aheadNow =>
             let rememberedNow: ∀ (y: Nat) => y ∈ [x, ..before] → Set.contains (Set.insert seen x) y = True := y member =>
               match member with

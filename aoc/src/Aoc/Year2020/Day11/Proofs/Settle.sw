@@ -65,6 +65,6 @@ theorem settleComplete (plan: Plan) (specRound: Layout → Layout) (keep: Layout
         rewrite <- Nat.iterateFixed specRound start still reached, there in rfl
       | False =>
         match reached with
-          | Zero => Void.exfalso (DecEq.soundFalse (start.round plan) start e (rewrite same, there, fixed in rfl))
+          | Zero => Void.exfalso (e.read (rewrite same, there, fixed in rfl))
           | Succ earlier =>
             rewrite same in settleComplete plan specRound keep agree keeps final fixed more (specRound start) (keeps start kept) earlier (omega) there

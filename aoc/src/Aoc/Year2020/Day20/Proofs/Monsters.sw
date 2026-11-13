@@ -33,7 +33,7 @@ theorem monsterIff (image: Image) (monster: Image) (row: Nat) (column: Nat):
     monster.roughAt.all (at => (Set.fromList image.roughAt).contains (shift [row, column] at)) = True ↔ Spec.MonsterAt image monster row column := {
   forward = all => r c drawn =>
     let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both rfl drawn)))
-    let contained := List.allMember _ monster.roughAt all [r, c] onMonster
+    let contained := all.read [r, c] onMonster
     match (roughAtIff image [row + r, column + c]).forward ((Set.containsFromListIff image.roughAt [row + r, column + c]).forward contained) with
       | Witness r2 (Witness c2 (Both same rough)) =>
         let sameRow: row + r = r2 := Eq.cong (xs => xs.headOr 0) same
