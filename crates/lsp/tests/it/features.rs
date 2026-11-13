@@ -1076,6 +1076,8 @@ fn a_proof_search_reports_progress_to_a_client_that_shows_it() {
 /// "Search for a proof" is offered only on a `?` whose expected type is a
 /// proposition (SW-2917): a theorem's goal, not a `def`'s body, where the
 /// expected type is data (`Nat`). The command refuses the program hole too.
+/// A `?` is answered at once, with the search offered as a command to run
+/// when picked (D3519).
 #[test]
 fn a_code_action_offers_a_proof_search_only_on_a_proof_goal() {
     big_stack(|| {
@@ -1084,7 +1086,7 @@ fn a_code_action_offers_a_proof_search_only_on_a_proof_goal() {
         let mut s = Session::open(text);
         let at = |line: usize| text.lines().nth(line).unwrap().find('?').unwrap() as u32;
         let code_action = |s: &mut Session, line: u32, character: u32| {
-            s.request_searched(
+            s.request_any(
                 "textDocument/codeAction",
                 json!({"textDocument": {"uri": URI},
                        "range": {"start": {"line": line, "character": character},
@@ -1599,7 +1601,11 @@ fn searches_in_a_row_give_what_fresh_ones_do() {
                        "position": {"line": line, "character": character}}),
             ));
         }
-        for (line, character) in [(4, 9), (9, 25)] {
+        // The code actions that still wait for a search worker: splitting a
+        // pattern variable (`o`) and splitting from a parameter of a
+        // declaration whose body is a `?` (`n`). A `?` itself is answered at
+        // once.
+        for (line, character) in [(4, 9), (9, 7)] {
             jobs.extend(s.queued_searches(
                 "textDocument/codeAction",
                 json!({"textDocument": {"uri": URI},
@@ -1647,8 +1653,9 @@ fn a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing() {
     });
 }
 
-/// Switching features off (D3468): proof searches are not queued, hints,
-/// lenses and tokens come back empty, and the client is asked to refresh.
+/// Switching features off (D3468): searches (here the one behind splitting a
+/// pattern variable's arm) are not queued, hints, lenses and tokens come back
+/// empty, and the client is asked to refresh.
 #[test]
 fn switching_features_off_with_a_configuration_change() {
     big_stack(|| {
@@ -1667,7 +1674,7 @@ fn switching_features_off_with_a_configuration_change() {
             )
         };
         let action = json!({"textDocument": {"uri": URI},
-            "range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 17}},
+            "range": {"start": {"line": 5, "character": 11}, "end": {"line": 5, "character": 11}},
             "context": {"diagnostics": []}});
         let lenses = json!({"textDocument": {"uri": URI}});
         let tokens = json!({"textDocument": {"uri": URI}});
