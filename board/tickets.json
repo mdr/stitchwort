@@ -1,5 +1,5 @@
 {
-  "next": 3106,
+  "next": 3108,
   "tickets": [
     {
       "id": 47,
@@ -33615,6 +33615,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3106,
+      "title": "[Sonnet] With STITCHWORT_GLUE=0, a fact with no written type (bound by a Witness pattern) is read from its unfolded type and gives the wrong equation for derived-record or Option == (open part of SW-3085; guard examples/accept/readings-witness-bound.sw passes glued only)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3107,
+      "title": "[DeepSeek] auto_reads_at_most_64_test_facts, std_library::…passes_its_own_tests and builtins::…release_build fail in a debug build (E-RESOURCE, Float.sw:555/562): mark them release-only or raise the debug limit, so lanes' debug runs don't report false failures (SW-3093 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
