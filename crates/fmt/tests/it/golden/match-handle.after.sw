@@ -15,16 +15,14 @@ def collect (prog: () -> {Log | e} a): {e} Pair (List Nat) a :=
       let rest := k()
       MkPair (Cons n (fstOf rest)) (sndOf rest)
 
-def zip (xs: List a) (ys: List b): List (Pair a b) :=
-  match xs, ys with
-    | Nil, _ => Nil
-    | _, Nil => Nil
-    | Cons x xs, Cons y ys => Cons (MkPair x y) (zip xs ys)
+def zip (xs: List a) (ys: List b): List (Pair a b) := match xs, ys with
+  | Nil, _ => Nil
+  | _, Nil => Nil
+  | Cons x xs, Cons y ys => Cons (MkPair x y) (zip xs ys)
 
-def nest (x: Nat) (y: Nat): Nat :=
-  match x with
-    | Zero =>
-      match y with
-        | Zero => 0
-        | Succ n => n
-    | Succ m => m
+def nest (x: Nat) (y: Nat): Nat := match x with
+  | Zero =>
+    match y with
+      | Zero => 0
+      | Succ n => n
+  | Succ m => m

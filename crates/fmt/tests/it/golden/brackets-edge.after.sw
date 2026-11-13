@@ -43,17 +43,16 @@ def branch (c: Bool): List Nat :=
     4
   ]
 
-def arm (n: Nat): List Nat :=
-  match n with
-    | 0 => [
-      1,
-      2
-    ]
-    | _ => [
-      3,
-      4,
-      5
-    ]
+def arm (n: Nat): List Nat := match n with
+  | 0 => [
+    1,
+    2
+  ]
+  | _ => [
+    3,
+    4,
+    5
+  ]
 
 def withMatch (n: Nat): Nat :=
   f (match n with

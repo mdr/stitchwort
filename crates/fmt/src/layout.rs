@@ -54,6 +54,8 @@ use crate::{Stats, check};
 const INDENT: usize = 2;
 /// A definition's header continuation lines (R1).
 const HEADER_INDENT: usize = 4;
+/// The width a line may reach before it is broken (D1014).
+const WIDTH: usize = 120;
 /// What the synthetic columns of lines inside a converted bracket are
 /// shifted by, per level of nesting: more than any real column.
 const SHIFT: usize = 100_000;
@@ -86,6 +88,10 @@ struct VLine<'a> {
     lead: Vec<(&'a str, bool)>,
     /// A blank line between the comments (or the line above) and this line.
     blank: bool,
+    /// This line holds the `match` of a body that was joined onto it: its
+    /// arms are indented from this line, even when it is a header
+    /// continuation (D1014, the canonical match layout).
+    joined_match: bool,
 }
 
 impl VLine<'_> {
@@ -252,15 +258,21 @@ impl<'a> Layout<'a> {
     fn decl(&mut self, range: Range<usize>) -> String {
         let before = self.decl_source(&range);
         let saved = self.stats;
-        for convert in [true, false] {
-            self.stats = saved;
-            let doc = self.decl_doc(range.clone(), convert);
-            let after = print(&doc, None);
-            if after == before || same_decl(before, &after) {
-                if !convert {
-                    self.stats.unconverted_decls += 1;
+        // D1014's canonical match layout is tried first; a declaration whose
+        // canonical text doesn't parse to the same tree keeps the author's
+        // layout for the match (the rest is still formatted). Brackets are
+        // likewise tried converted, then as written.
+        for canonical in [true, false] {
+            for convert in [true, false] {
+                self.stats = saved;
+                let doc = self.decl_doc(range.clone(), convert, canonical);
+                let after = print(&doc, None);
+                if after == before || same_decl(before, &after) {
+                    if !convert {
+                        self.stats.unconverted_decls += 1;
+                    }
+                    return after;
                 }
-                return after;
             }
         }
         self.stats = saved;
@@ -354,19 +366,65 @@ impl<'a> Layout<'a> {
     }
 
     /// The `(` and `)` tokens to drop (D2307): a pair around the type after
-    /// an ability row, when removing it leaves the declaration parsing to
-    /// the same tree. Pairs around a function type are kept: `{e} (A -> B)`
-    /// reads better than `{e} A -> B`, which is easy to misread. Pairs that
-    /// start a line or carry a comment are kept too, so the author's line
-    /// breaks and every comment stay. Each pair is tried with the ones
-    /// already dropped, so `((Nat, Nat))` loses both when that is safe.
+    /// an ability row, and a pair around the whole type of a header binder
+    /// (`(h: (∀ …))` becomes `(h: ∀ …)`), when removing it leaves the
+    /// declaration parsing to the same tree. Pairs around a function type
+    /// after a row are kept: `{e} (A -> B)` reads better than `{e} A -> B`,
+    /// which is easy to misread. Pairs that start a line or carry a comment
+    /// are kept too, so the author's line breaks and every comment stay.
+    /// Each pair is tried with the ones already dropped, so `((Nat, Nat))`
+    /// loses both when that is safe.
     fn parens_to_drop(&self, range: &Range<usize>) -> Vec<bool> {
         let tokens = self.tokens();
         let mut drop = vec![false; range.len()];
+        // The `(` starting a header binder's type: `(h: (TYPE))`, `(h: ((TYPE)))`.
+        let mut binder_type = vec![false; range.len()];
+        if let Some((start, h)) = self.header_end(range.clone()) {
+            let mut depth = 0i32;
+            let mut k = start + 1;
+            while k < h {
+                match tokens[k].tok {
+                    Tok::LParen if depth == 0 => {
+                        if let Some(close) = self.matching_paren(k, h) {
+                            let mut inner = 0i32;
+                            let mut colon = None;
+                            for (j, t) in tokens.iter().enumerate().take(close).skip(k + 1) {
+                                match t.tok {
+                                    Tok::LParen | Tok::LBracket | Tok::LBrace => inner += 1,
+                                    Tok::RParen | Tok::RBracket | Tok::RBrace => inner -= 1,
+                                    Tok::Colon if inner == 0 => {
+                                        colon = Some(j);
+                                        break;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            if let Some(c) = colon {
+                                let mut open = c + 1;
+                                let mut offset = 1;
+                                while open < close
+                                    && tokens[open].tok == Tok::LParen
+                                    && self.matching_paren(open, close) == Some(close - offset)
+                                {
+                                    binder_type[open - range.start] = true;
+                                    open += 1;
+                                    offset += 1;
+                                }
+                            }
+                        }
+                        depth += 1;
+                    }
+                    Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+                    Tok::RParen | Tok::RBracket | Tok::RBrace => depth -= 1,
+                    _ => {}
+                }
+                k += 1;
+            }
+        }
         // Nothing to do, and no parse, for the many declarations without a
-        // parenthesised type after a row.
+        // parenthesised type after a row or a binder with a parenthesised type.
         let mut prev: Option<usize> = None;
-        let mut candidate = false;
+        let mut candidate = binder_type.iter().any(|&b| b);
         for k in range.clone() {
             if tokens[k].tok == Tok::LParen
                 && prev.is_some_and(|p| tokens[p].tok == Tok::RBrace && self.roles[p] == Role::Row)
@@ -392,12 +450,14 @@ impl<'a> Layout<'a> {
                 if drop[k - range.start] {
                     continue;
                 }
+                let after_row = prev
+                    .is_some_and(|p| tokens[p].tok == Tok::RBrace && self.roles[p] == Role::Row);
+                let binder = binder_type[k - range.start];
                 if tokens[k].tok == Tok::LParen
-                    && prev
-                        .is_some_and(|p| tokens[p].tok == Tok::RBrace && self.roles[p] == Role::Row)
+                    && (after_row || binder)
                     && let Some(close) = self.matching_paren(k, range.end)
                     && self.paren_can_go(k, close)
-                    && !self.paren_holds_function(k, close)
+                    && (binder || !self.paren_holds_function(k, close))
                 {
                     let mut text = before.to_string();
                     let span = |k: usize| {
@@ -675,6 +735,7 @@ impl<'a> Layout<'a> {
                     extra_trailing: None,
                     lead,
                     blank,
+                    joined_match: false,
                 });
             } else if let Some(last) = lines.last_mut() {
                 last.toks.push(k);
@@ -690,9 +751,13 @@ impl<'a> Layout<'a> {
         lines
     }
 
-    fn decl_doc(&mut self, range: Range<usize>, convert: bool) -> Doc {
-        let lines = self.vlines(&range, convert);
+    fn decl_doc(&mut self, range: Range<usize>, convert: bool, canonical: bool) -> Doc {
+        let mut lines = self.vlines(&range, convert);
         let header = self.header_end(range.clone());
+        // D1014: one canonical layout for a definition's `match` body.
+        if canonical {
+            self.canonical_match(&mut lines, &range, header);
+        }
         let indents = self.indents(&lines, header);
         let mut docs = Vec::new();
         for (i, line) in lines.iter().enumerate() {
@@ -719,6 +784,166 @@ impl<'a> Layout<'a> {
             docs.push(Doc::nest(indents[i], Doc::Concat(parts)));
         }
         Doc::Concat(docs)
+    }
+
+    /// D1014, the canonical match layout: a definition whose body is a
+    /// `match` keeps `:= match x with` on the header line when that line
+    /// fits in [`WIDTH`], and otherwise puts `match x with` on the next line
+    /// at +2. Arms are at +2 from the line that holds the `match`. Both
+    /// layouts in the source become this one.
+    fn canonical_match(
+        &mut self,
+        lines: &mut Vec<VLine<'a>>,
+        range: &Range<usize>,
+        header: Option<(usize, usize)>,
+    ) {
+        let tokens = self.tokens();
+        let trivia = &self.lexed.trivia;
+        let Some((start, h)) = header else { return };
+        if !matches!(tokens[start].tok, Tok::KwDef | Tok::KwTheorem)
+            || h >= range.end
+            || tokens[h].tok != Tok::ColonEq
+        {
+            return;
+        }
+        let m = h + 1;
+        if m >= range.end || tokens[m].tok != Tok::KwMatch {
+            return;
+        }
+        // The `with` that ends `match x with`, at the match's own depth.
+        let mut depth = 0i32;
+        let mut with = None;
+        for (k, t) in tokens.iter().enumerate().take(range.end).skip(m + 1) {
+            match t.tok {
+                Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+                Tok::RParen | Tok::RBracket | Tok::RBrace => depth -= 1,
+                Tok::KwWith if depth == 0 => {
+                    with = Some(k);
+                    break;
+                }
+                _ => {}
+            }
+        }
+        let Some(with) = with else { return };
+        let Some(i) = lines.iter().position(|line| line.toks.contains(&h)) else {
+            return;
+        };
+        let Some(j) = lines.iter().position(|line| line.toks.contains(&m)) else {
+            return;
+        };
+        if i > j || j > i + 1 {
+            return;
+        }
+        // The whole `match x with` (and anything after it on its line) stays
+        // together; a `with` on another line is left as the author wrote it.
+        if !lines[j].toks.contains(&with) || (j > i && lines[j].first() != m) {
+            return;
+        }
+        let head: Vec<usize> = lines[i]
+            .toks
+            .iter()
+            .copied()
+            .take_while(|&k| k <= h)
+            .collect();
+        let chunk: Vec<usize> = if j == i {
+            lines[i].toks.iter().copied().filter(|&k| k >= m).collect()
+        } else {
+            lines[j].toks.clone()
+        };
+        if head.last() != Some(&h) || chunk.first() != Some(&m) {
+            return;
+        }
+        // Would the header line with the match on it fit?
+        let mut toks = head.clone();
+        toks.extend(&chunk);
+        let candidate = VLine {
+            toks,
+            tcol: 0,
+            col0: 0,
+            pipe: false,
+            src_col: 0,
+            closer_of: None,
+            comma_after: false,
+            extra_trailing: None,
+            lead: Vec::new(),
+            blank: false,
+            joined_match: false,
+        };
+        let saved = self.stats;
+        let doc = self.line_doc(&candidate, 0);
+        self.stats = saved;
+        let text = print(&doc, None);
+        let base = if lines[i].tcol == 0 { 0 } else { HEADER_INDENT };
+        let fits = base + text.len() <= WIDTH;
+        if fits {
+            if j == i {
+                // Already on the header line: its arms count from it.
+                let line = &mut lines[i];
+                line.joined_match = true;
+                if line.tcol != 0 {
+                    line.tcol = 1;
+                }
+                return;
+            }
+            // Joining moves the match line up, so its own-line comments and
+            // blank line, and a comment after the `:=`, must not change.
+            if !lines[j].lead.is_empty() || lines[j].blank || trivia[h].trailing.is_some() {
+                return;
+            }
+            let moved = lines.remove(j);
+            // A converted bracket's closer names the line it opened on; the
+            // lines after the one removed have moved up by one.
+            for line in lines.iter_mut() {
+                if let Some(open) = &mut line.closer_of
+                    && *open > j
+                {
+                    *open -= 1;
+                }
+            }
+            let line = &mut lines[i];
+            line.toks.extend(moved.toks);
+            line.joined_match = true;
+            // Columns decide the tree: keep the joined line a child of the
+            // declaration's first line, and the arms children of it.
+            if line.tcol != 0 {
+                line.tcol = 1;
+            }
+        } else if j == i {
+            // Split after the `:=`: the match line is at +2 from the
+            // declaration, with the arms at +2 from it.
+            let after = lines[i]
+                .toks
+                .iter()
+                .position(|&k| k == h)
+                .expect("h is here")
+                + 1;
+            let moved = lines[i].toks.split_off(after);
+            lines.insert(
+                i + 1,
+                VLine {
+                    toks: moved,
+                    tcol: 1,
+                    col0: tokens[m].column as usize,
+                    pipe: false,
+                    src_col: tokens[m].column as usize,
+                    closer_of: None,
+                    comma_after: false,
+                    extra_trailing: None,
+                    lead: Vec::new(),
+                    blank: false,
+                    joined_match: false,
+                },
+            );
+            // A converted bracket's closer names the line it opened on; the
+            // lines after the one inserted have moved down by one.
+            for line in lines.iter_mut() {
+                if let Some(open) = &mut line.closer_of
+                    && *open > i
+                {
+                    *open += 1;
+                }
+            }
+        }
     }
 
     /// The token ending a declaration's header, after which its lines are
@@ -885,6 +1110,7 @@ impl<'a> Layout<'a> {
             if let Some(p) = parent[i]
                 && !in_header(i)
                 && in_header(p)
+                && !lines[p].joined_match
                 && let Some(pp) = parent[p]
                 && tcol[pp] == 0
                 && tcol[p] != 0
@@ -955,10 +1181,17 @@ impl<'a> Layout<'a> {
         let mut indents = vec![0usize; lines.len()];
         // The indentation that body lines of line `j` count from: a header
         // continuation line counts from the declaration's own line, as a
-        // one-line header does.
-        let body_base = |indents: &[usize], j: usize| match parent[j] {
-            Some(p) if part(j) == Part::Header => indents[p],
-            _ => indents[j],
+        // one-line header does. A line holding a joined `match` is a line of
+        // its own: its arms are +2 from it (D1014).
+        let body_base = |indents: &[usize], j: usize| {
+            if lines[j].joined_match {
+                indents[j]
+            } else {
+                match parent[j] {
+                    Some(p) if part(j) == Part::Header => indents[p],
+                    _ => indents[j],
+                }
+            }
         };
         for (i, line) in lines.iter().enumerate() {
             if let Some(open) = line.closer_of {
