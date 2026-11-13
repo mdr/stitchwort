@@ -68,6 +68,10 @@ enum SweepCommand {
         /// against the library as it is
         #[arg(long)]
         std: bool,
+        /// The paths are single files, each checked on its own: no project
+        /// is needed
+        #[arg(long, conflicts_with_all = ["std", "project"])]
+        files: bool,
         /// With --std: the library's source folder (default:
         /// `crates/elab/src/std` here or above)
         #[arg(long, value_name = "DIR", requires = "std")]
@@ -1067,6 +1071,7 @@ fn run(cli: Cli) -> ExitCode {
         Command::Sweep(SweepCommand::TheoremBinders {
             paths,
             std,
+            files,
             std_root,
             dry_run,
             plan,
@@ -1078,6 +1083,7 @@ fn run(cli: Cli) -> ExitCode {
         }) => sweep_cmd::theorem_binders(&sweep_cmd::Args {
             paths: &paths,
             std,
+            files,
             std_root: std_root.as_deref(),
             dry_run,
             plan,
