@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/reading-needs-read-less-argument.sw:10:63 ]
+    │
+ 10 │ def call (m n: Nat) (h: (m <= n) = False): Nat := earlier m n h
+    │                                                               ┬  
+    │                                                               ╰── expected `n < m`, but this has type `(m <= n) = False`
+    │ 
+    │ Note: this is the test fact `(m <= n) = False`, which reads as `n < m`: add `.read` to use it as that
+────╯
