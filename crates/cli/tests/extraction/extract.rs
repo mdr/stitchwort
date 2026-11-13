@@ -1868,15 +1868,15 @@ fn microtype_comparisons_are_their_fields() {
     let output = stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
         .expect("extraction succeeds");
     for (name, field) in [
-        ("CardId$d$gdecEq", "Text$ddecEq"),
+        ("CardId$d$gdecide", "Text$ddecEq"),
         ("CardId$d$gcompare", "Text$dcompare"),
         ("CardId$d$ginstDecEq", "Text$dinstDecEq"),
         ("CardId$d$ginstOrd", "Text$dinstOrd"),
         // `Nat.decEq` is `Nat.equal` at run time (a decision is its test).
-        ("Count$d$gdecEq", "Nat$dequal"),
+        ("Count$d$gdecide", "Nat$dequal"),
         ("Count$d$gcompare", "Nat$dcompare"),
         ("Count$d$ginstDecEq", "Nat$dinstDecEq"),
-        ("Email$d$gdecEq", "Text$ddecEq"),
+        ("Email$d$gdecide", "Text$ddecEq"),
         ("Email$d$gcompare", "Text$dcompare"),
         ("Email$d$ginstDecEq", "Text$dinstDecEq"),
         ("Email$d$ginstOrd", "Text$dinstOrd"),
