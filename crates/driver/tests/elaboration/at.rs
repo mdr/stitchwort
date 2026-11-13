@@ -186,3 +186,32 @@ fn context_at_a_goal_matches_the_goal() {
 fn no_context_outside_expressions() {
     assert_eq!(context(SOURCE, "namespace", 2), None);
 }
+
+/// A declaration with an unclosed string loses only itself: hover still
+/// answers elsewhere in the file, with the doc of what it names.
+#[test]
+fn hover_works_outside_a_declaration_with_a_lexical_error() {
+    let source = "namespace Demo
+
+--| Doubles a number.
+def twice (n: Nat): Nat := n + n
+
+def broken: Text := \"never closed
+
+def useTwice: Nat := twice 2
+";
+    let file = answers(source);
+    let place = Place::Program("demo.sw".into());
+    let (line, col) = at_text(source, "twice 2", 1);
+    let hover = at::hover_at(&file, &place, Some(source), line, col, None).expect("a hover");
+    assert!(
+        hover.markdown.contains("def Demo.twice (n: Nat): Nat"),
+        "{}",
+        hover.markdown
+    );
+    assert!(
+        hover.markdown.contains("Doubles a number."),
+        "{}",
+        hover.markdown
+    );
+}

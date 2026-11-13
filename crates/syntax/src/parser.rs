@@ -474,14 +474,16 @@ fn failed_names_of(group: &[Token], error_at: Option<Span>) -> Vec<FailedName> {
 
 /// Reads only a file's namespace line: `Some` if the file's first
 /// declaration group is one, `None` if it starts with anything else. For
-/// finding a file's namespace when the rest of it doesn't parse.
+/// finding a file's namespace when the rest of it doesn't parse or doesn't
+/// lex (the declarations that don't lex are left out, as in
+/// [`parse_module_recovering`]).
 pub fn parse_namespace_line(file: FileId, text: &str) -> Parsed<Option<NamespaceDecl>> {
     namespace_line(file, text).map_err(|d| *d)
 }
 
 fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
     let limit = StackLimit::from_here(DEFAULT_STACK);
-    let tokens = lex(file, text)?;
+    let tokens = lex_recovering(file, text).tokens;
     let groups = split_decls(&tokens)?;
     let Some(group) = groups.first() else {
         return Ok(None);

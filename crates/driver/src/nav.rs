@@ -751,8 +751,8 @@ impl Parens {
         let mut interpolations = Vec::new();
         // The `${`s not yet closed (texts nest in `${…}`).
         let mut dollars: Vec<u32> = Vec::new();
-        for (i, token) in stitchwort_syntax::lex(file, text)
-            .unwrap_or_default()
+        for (i, token) in stitchwort_syntax::lex_recovering(file, text)
+            .tokens
             .iter()
             .enumerate()
         {
