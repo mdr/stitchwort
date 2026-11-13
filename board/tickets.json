@@ -27559,9 +27559,9 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.",
+      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
@@ -27574,9 +27574,9 @@
         "diagnostics"
       ],
       "epic": "syntax-language",
-      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.",
+      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
@@ -28001,9 +28001,9 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2655 (10 Nov 2026). After SW-2656.",
+      "body": "From SW-2655 (10 Nov 2026). After SW-2656.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
@@ -28014,9 +28014,9 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2655 (10 Nov 2026). Before or with SW-2657.",
+      "body": "From SW-2655 (10 Nov 2026). Before or with SW-2657.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
@@ -28040,9 +28040,9 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2656 (10 Nov 2026). Orchestrator's call: canonical form chosen in the lane, mention to Matt. Est. 60 min.",
+      "body": "From SW-2656 (10 Nov 2026). Orchestrator's call: canonical form chosen in the lane, mention to Matt. Est. 60 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
