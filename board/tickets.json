@@ -1,5 +1,5 @@
 {
-  "next": 3181,
+  "next": 3182,
   "tickets": [
     {
       "id": 47,
@@ -34561,12 +34561,12 @@
     {
       "id": 3178,
       "title": "[Sonnet] Compare the nesting::* stack thresholds on main and before SW-3172 (each adaptive test prints its threshold): did any shape (calls of one definition in unification, nested lambdas, implicit parameters) get deeper per level? (SW-3172 review M1)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "scratch-sw-3178",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Result (DeepSeek, measured; files checked by the orchestrator): no nesting shape got worse after SW-3172. Thresholds under the default guard, before (27e81385b) → after (93fb96752): nested_applications 124→296, nested_parentheses 403→403, nested_functions_and_function_types 300→367, long_appends 202→349, long_sums 874→874, long_blocks 242→477, long_pattern_blocks 271→337. Unchanged ones are limited by the parser. Read with STITCHWORT_NESTING_CHILD=1 <binary> nesting::<test> --exact --nocapture, since isolated() swallows the child's output.\nModel result: DeepSeek, worked, 20 min (est. 30)",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34587,6 +34587,19 @@
     {
       "id": 3180,
       "title": "[Opus] Stack frames left after SW-3172: stitchwort::run has a 21 KiB frame (outside the guard); unify::rename_in/rename_other 912/1,328 B a level at Day06's peak; run_tasks 864 B, shape rules 1,088 B (would need loops over spines); whole_test allocates a Vec per check",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3181,
+      "title": "[DeepSeek] nesting.rs's adaptive tests print their thresholds inside the isolated() child, whose stdout the parent discards unless it fails, so --no-capture can't show them: pass the child's threshold lines through to the parent's output (SW-3178 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
