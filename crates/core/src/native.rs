@@ -849,6 +849,11 @@ pub enum Outcome {
     /// now be applied to these arguments instead. (The evaluator does that
     /// itself, so a native never calls back into it.)
     Again(Vec<Elim>),
+    /// A number of `Succ`s the result starts with (`k`), and the definition
+    /// applied to these arguments for what is left. The result is `k` more
+    /// than that: the evaluator adds them once it has it, so a rest that
+    /// still computes is never left as a call that has to be unfolded.
+    Succs(BigUint, Vec<Elim>),
 }
 
 /// Shortcuts for numbers with unknowns in them, each a number of steps of
@@ -940,6 +945,34 @@ fn run_partial(
                     vec![explicit(base), explicit((*n).clone())].into(),
                 )),
             ))))
+        }
+        // `divFuel (Succ f) n d = Succ (divFuel f (n - d) d)` while `d ≤ n`, so
+        // for a number `d > 0`, `q = min(kf, k / d)` steps are all `Succ`s:
+        // `divFuel (kf + f) (k + m) d = q + divFuel ((kf - q) + f) ((k - q·d) + m) d`.
+        // One step at a time, `(x + 2^128) / 2` would take 2^127 of them.
+        // As with `Mul`, the fuel's head is looked at first: with no `Succ`
+        // the case tree is stuck on it and never looks at `n` or `d`.
+        (Native::DivFuel, [fuel, n, d]) => {
+            let (kf, fuel_base) = view(fuel)?;
+            if kf.is_zero() {
+                return Ok(None);
+            }
+            let Some(divisor) = as_nat_with(g, d, force)?.filter(|d| !d.is_zero()) else {
+                return Ok(None);
+            };
+            let (k, n_base) = view(n)?;
+            let q = (&k / &divisor).min(kf.clone());
+            if q.is_zero() {
+                return Ok(None);
+            }
+            Ok(Some(Outcome::Succs(
+                q.clone(),
+                vec![
+                    explicit(from_view(&kf - &q, fuel_base)),
+                    explicit(from_view(&k - &q * &divisor, n_base)),
+                    explicit((*d).clone()),
+                ],
+            )))
         }
         // `eqNatRefl (Succ n) = eqNatRefl n`.
         (Native::EqNatRefl, [n]) => {
