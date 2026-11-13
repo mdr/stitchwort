@@ -8,13 +8,13 @@ def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat := [start, stop, s
 
 def scaled (start: Nat) (factor: Nat := start * 2): Nat := start + factor
 
-theorem rangeGoal (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
+theorem rangeGoal ∀ (a: Nat) (b: Nat): range a b = [a, b, 1] := ?
 
-theorem scaledGoal (a: Nat): scaled a = a + a * 2 := ?
+theorem scaledGoal ∀ (a: Nat): scaled a = a + a * 2 := ?
 
-theorem rangeShape (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
+theorem rangeShape ∀ (a: Nat) (b: Nat): range a b = [a, b, 2] := rfl
 
-theorem scaledShape (a: Nat): scaled a = a := rfl
+theorem scaledShape ∀ (a: Nat): scaled a = a := rfl
 
 -- A local definition's calls are shown the same way.
 def outer (k: Nat): Nat :=

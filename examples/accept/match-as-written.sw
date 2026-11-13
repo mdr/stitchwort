@@ -21,7 +21,7 @@ def chainThrough (fuel: Nat): (xs: List Nat) → Nat
 -- elaborated so), the scrutinee `chainThrough more`: the same up to eta.
 -- `each`'s type has the scrutinee exactly as written. (AoC 2020 day 19,
 -- `chainBounded`.)
-theorem upToEta (more: Nat) (lists: List (List Nat)) (cap: Nat)
+theorem upToEta ∀ (more: Nat) (lists: List (List Nat)) (cap: Nat)
     (each: ∀ (most: Nat) => lists.map (chainThrough more) |> .maximum = Some most → most ≤ cap):
     chain (Succ more) lists ≤ cap := match found: lists.map (chainThrough more) |> .maximum with
       | None => omega
@@ -33,7 +33,7 @@ def label (n: Nat): Nat := if isBig n then 1 else 0
 
 -- `isBig n` is shown on the left and hidden inside `label n` on the right:
 -- the search over the computed goal refines both, as before.
-theorem hiddenInACall (n: Nat): (if isBig n then 1 else 0) = label n := match big: isBig n with
+theorem hiddenInACall ∀ (n: Nat): (if isBig n then 1 else 0) = label n := match big: isBig n with
   | True => rfl
   | False => rfl
 
@@ -51,7 +51,7 @@ def double (n: Nat): Nat := n + n
 -- The arms keep the goal's calls: the `True` arm's goal is `double a =
 -- double a` (where it was `a + a = a + a`), and a lemma about `double`
 -- finds it as written.
-theorem armsKeepCalls (doubled: ∀ (n: Nat) => double n = 2 * n) (flag: Bool) (a: Nat):
+theorem armsKeepCalls ∀ (doubled: ∀ (n: Nat) => double n = 2 * n) (flag: Bool) (a: Nat):
     (if flag then double a else 0) = (if flag then 0 + double a else 0) := match e: flag with
       | True => rewrite doubled a in rfl
       | False => rfl
@@ -61,7 +61,7 @@ def Ignore (a: Type) (b: Bool): Type := a
 -- `k`'s type mentions `isBig n` only as written (it computes to `Nat`), so
 -- the search over the computed goal doesn't copy `k`, and neither does the
 -- one as written: a copy would forget that `k` is 5.
-theorem letKept (n: Nat): pick (isBig n) ≤ 1 :=
+theorem letKept ∀ (n: Nat): pick (isBig n) ≤ 1 :=
   let k: Ignore Nat (isBig n) := 5
   match e: isBig n with
     | True => (let same: k = 5 := rfl; omega)
@@ -79,6 +79,6 @@ def keep (a: Nat) (b: Bool): Nat := a
 
 -- `isBig n` is shown, but `keep` drops it, so nothing the arms see would
 -- change: not found, and the warning says so.
-theorem vanishing (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
+theorem vanishing ∀ (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
   | True => rfl
   | False => rfl

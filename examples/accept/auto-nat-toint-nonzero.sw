@@ -7,7 +7,7 @@ def modByNat (x: Int) (d: Nat): Int := x % Nat.toInt d
 
 def divByNat (x: Int) (d: Nat): Int := x / Nat.toInt d
 
-theorem modByNatNonneg (x: Int) (d: Nat) [auto ok: d ≠ 0]: 0 ≤ modByNat x d := Int.modNonneg x (Nat.toInt d)
+theorem modByNatNonneg ∀ (x: Int) (d: Nat) [auto ok: d ≠ 0]: 0 ≤ modByNat x d := Int.modNonneg x (Nat.toInt d)
 
 test "remainder by a natural" := modByNat 17 5 == 2
 

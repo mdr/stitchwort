@@ -32,7 +32,7 @@ test "splitsLet" := splitsLet [1, 2, 1, 2, 2] == 4 ∧ splitsTyped [1, 2, 1, 2, 
 
 -- The equation the compiler proves, with the recursive call inside the
 -- callback.
-theorem splitsStep (xs: List Nat) (k: Nat):
+theorem splitsStep ∀ (xs: List Nat) (k: Nat):
     splits xs k = List.sumBy [1, 2] (other => if h: (xs.filter (c => c == other)).length < xs.length then 1 + splits (xs.filter (c => c == other)) k else 0) :=
   splits.unfold xs k
 

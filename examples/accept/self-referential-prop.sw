@@ -19,4 +19,4 @@ type Tok: Prop =
 def tokNat (t: Tok) (k: Nat): Nat := match t with
   | MkTok => k
 
-theorem tokNatComputes (k: Nat): tokNat MkTok k = k := rfl
+theorem tokNatComputes ∀ (k: Nat): tokNat MkTok k = k := rfl

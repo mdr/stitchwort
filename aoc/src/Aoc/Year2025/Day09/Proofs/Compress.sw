@@ -30,16 +30,16 @@ def rowsOf (tiles: List Point): List Nat := tiles.map .y
 
 -- 1. Only comparisons with the red tiles matter ------------------------------
 
-theorem lessSame (values: List Nat) (u: Nat) (v: Nat) (w: Nat) (m: List.Mem u values) (s: SameSide values v w):
+theorem lessSame ∀ (values: List Nat) (u: Nat) (v: Nat) (w: Nat) (m: List.Mem u values) (s: SameSide values v w):
     Nat.leq (Succ v) u = Nat.leq (Succ w) u :=
   rewrite Nat.lessNotLe v u, Nat.lessNotLe w u, (s u m).left in rfl
 
-theorem fromSame (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m1: List.Mem one values) (m2: List.Mem other values) (s: SameSide values v w):
+theorem fromSame ∀ (values: List Nat) (one: Nat) (other: Nat) (v: Nat) (w: Nat) (m1: List.Mem one values) (m2: List.Mem other values) (s: SameSide values v w):
     from one other v = from one other w :=
   rewrite (s one m1).left, (s one m1).right, (s other m2).left, (s other m2).right in rfl
 
 --| The ends of a straight line of the loop are red tiles.
-theorem connectionEnds (tiles: List Point) (ends: Line) (m: List.Mem ends (connections tiles)):
+theorem connectionEnds ∀ (tiles: List Point) (ends: Line) (m: List.Mem ends (connections tiles)):
     (List.Mem ends.from tiles) ∧ (List.Mem ends.to tiles) :=
   Exists.elim (List.memMapElim (pair => { from = pair.fst, to = pair.snd }) ends (tiles.zip (tiles.drop 1 |> .append (tiles.take 1))) m) (pair found =>
     match List.memZip pair tiles (List.append (List.drop tiles 1) (List.take tiles 1)) found.left with
@@ -50,11 +50,11 @@ theorem connectionEnds (tiles: List Point) (ends: Line) (m: List.Mem ends (conne
               | Inl d => List.memDrop tiles pair.snd 1 d
               | Inr t => List.memTake tiles pair.snd 1 t))
 
-theorem columnIn (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.Mem tile.x (columnsOf tiles) := List.memMap tiles tile m (tile => tile.x)
+theorem columnIn ∀ (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.Mem tile.x (columnsOf tiles) := List.memMap tiles tile m (tile => tile.x)
 
-theorem rowIn (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.Mem tile.y (rowsOf tiles) := List.memMap tiles tile m (tile => tile.y)
+theorem rowIn ∀ (tiles: List Point) (tile: Point) (m: List.Mem tile tiles): List.Mem tile.y (rowsOf tiles) := List.memMap tiles tile m (tile => tile.y)
 
-theorem onStraightLineSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
+theorem onStraightLineSame ∀ (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
     (ends: Line) (m: List.Mem ends (connections tiles)):
     onStraightLine { x, y } ends = onStraightLine { x = x2, y = y2 } ends := match connectionEnds tiles ends m with
       | Both first second =>
@@ -62,7 +62,7 @@ theorem onStraightLineSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: 
           fromSame (rowsOf tiles) ends.from.y ends.to.y y y2 (rowIn tiles ends.from first) (rowIn tiles ends.to second) sy
           in rfl
 
-theorem crossesRaySame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
+theorem crossesRaySame ∀ (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2)
     (ends: Line) (m: List.Mem ends (connections tiles)):
     crossesRay { x, y } ends = crossesRay { x = x2, y = y2 } ends := match connectionEnds tiles ends m with
       | Both first second =>
@@ -76,7 +76,7 @@ theorem crossesRaySame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat)
           in rfl
 
 --| Tiles whose columns and rows compare alike with the red tiles' are alike.
-theorem redOrGreenSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
+theorem redOrGreenSame ∀ (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat) (sx: SameSide (columnsOf tiles) x x2) (sy: SameSide (rowsOf tiles) y y2):
     redOrGreen tiles { x, y } = redOrGreen tiles { x = x2, y = y2 } :=
   rewrite onStraightLineSame tiles x y x2 y2 sx sy, crossesRaySame tiles x y x2 y2 sx sy in rfl
 
@@ -84,7 +84,7 @@ theorem redOrGreenSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat)
 
 --| A value at or after the smallest of `values` compares with them as some
 --| key value does: a value or one just after one, from `low` up to it.
-theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem low values) (lowLe: low ≤ v) (goal: Prop)
+theorem representative ∀ (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem low values) (lowLe: low ≤ v) (goal: Prop)
     (use: ∀ (w: Nat) => (List.Mem w values) ∨ (List.Mem w (values.map Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
   let atMost := List.filter values (c => c ≤ v)
   let nearest := largest atMost
@@ -115,11 +115,11 @@ theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem l
 
 -- 3. The key columns and rows are sorted -------------------------------------
 
-theorem keyLinesSorted (values: List Nat): List.Sorted Nat.leq (keyLines values) :=
+theorem keyLinesSorted ∀ (values: List Nat): List.Sorted Nat.leq (keyLines values) :=
   List.sortedDedup Nat.leq (List.sort (List.append values (List.map values Succ))) (List.sortSortedNat (List.append values (List.map values Succ)))
 
 --| Each value, and each one just after a value, is a key value.
-theorem keyLinesHas (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (List.Mem v (values.map Succ))): List.Mem v (keyLines values) :=
+theorem keyLinesHas ∀ (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (List.Mem v (values.map Succ))): List.Mem v (keyLines values) :=
   let all := List.append values (List.map values Succ)
   let inAll: List.Mem v all :=
     match m with
@@ -129,7 +129,7 @@ theorem keyLinesHas (values: List Nat) (v: Nat) (m: (List.Mem v values) ∨ (Lis
 
 --| On a sorted list holding u and v, the elements at their positions, the
 --| lower position first, are the smaller and the larger of them.
-theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs):
+theorem axisEnds ∀ (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs):
     ((xs.getOr (Nat.min (xs.indexOf u) (xs.indexOf v)) 0 = Nat.min u v) ∧ (xs.getOr (Nat.max (xs.indexOf u) (xs.indexOf v)) 0 = Nat.max u v)) ∧ (Nat.max (xs.indexOf u) (xs.indexOf v) < xs.length) :=
   let i := List.indexOf xs u
   let j := List.indexOf xs v
@@ -146,7 +146,7 @@ theorem axisEnds (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (m
       Both (Both (omega) (omega)) iIn
 
 --| The elements from one position to the other lie from the smaller value to the larger.
-theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
+theorem axisInside ∀ (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs)
     (k: Nat) (lo: Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k) (hi: k ≤ Nat.max (xs.indexOf u) (xs.indexOf v)):
     Nat.min u v ≤ xs.getOr k 0 ≤ Nat.max u v := match axisEnds xs s u v mu mv with
       | Both (Both atMin atMax) maxIn =>
@@ -156,7 +156,7 @@ theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
 
 --| And every element of the list from the smaller value to the larger is at
 --| such a position: what holds at each holds for it.
-theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs) (p: Nat → Prop)
+theorem axisCovers ∀ (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs) (p: Nat → Prop)
     (each: ∀ (k: Nat) => Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k → k ≤ Nat.max (xs.indexOf u) (xs.indexOf v) → p (xs.getOr k 0))
     (w: Nat) (mw: List.Mem w xs) (lo: Nat.min u v ≤ w) (hi: w ≤ Nat.max u v): p w :=
   match axisEnds xs s u v mu mv with
@@ -165,14 +165,14 @@ theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
         each w mw (omega) (omega)
 
 --| The smaller of two values is one of them.
-theorem minIn (values: List Nat) (u: Nat) (v: Nat) (mu: List.Mem u values) (mv: List.Mem v values): List.Mem (Nat.min u v) values :=
+theorem minIn ∀ (values: List Nat) (u: Nat) (v: Nat) (mu: List.Mem u values) (mv: List.Mem v values): List.Mem (Nat.min u v) values :=
   match e: Nat.leq u v with
     | True => mu
     | False => mv
 
 --| The rectangle between two red tiles is all red and green exactly when its
 --| key tiles are.
-theorem allKeysIsSpec (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
+theorem allKeysIsSpec ∀ (tiles: List Point) (a: Point) (b: Point) (ma: List.Mem a tiles) (mb: List.Mem b tiles):
     allKeys tiles ((Floor.of tiles).corner a) ((Floor.of tiles).corner b) = allRedOrGreen tiles { corner = a, opposite = b } :=
   let floor := Floor.of tiles
   let columns := floor.columns

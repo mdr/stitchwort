@@ -17,7 +17,7 @@ def ReachesEnd (maze: Maze) (reindeer: Reindeer) (cost: Nat): Prop :=
     Exists Reindeer (last => (final maze reindeer moves = Some last) ∧ ((last.position = maze.end) ∧ (score moves = cost)))))
 
 --| Edges into a way of standing on an open tile come from open tiles.
-theorem beforeHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (previous: Reindeer) (weight: Nat) =>
+theorem beforeHolds ∀ (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (previous: Reindeer) (weight: Nat) =>
     (previous, weight) ∈ maze.before reindeer → maze.holds previous = True
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
@@ -36,13 +36,13 @@ theorem beforeHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindee
 def endSources (maze: Maze): List (Reindeer, Nat) := maze.endReindeer.map (reindeer => (reindeer, 0))
 
 --| A source of the search back is a way of standing on the end tile, at 0.
-theorem endSource (maze: Maze) (source: Reindeer) (start: Nat) (member: (source, start) ∈ endSources maze):
+theorem endSource ∀ (maze: Maze) (source: Reindeer) (start: Nat) (member: (source, start) ∈ endSources maze):
     (source.position = maze.end) ∧ (start = 0) :=
   Exists.elim (List.memMapElim (reindeer => (reindeer, 0)) (source, start) maze.endReindeer member) (reindeer both =>
     rewrite <- Eq.cong Pair.fst (And.right both), <- Eq.cong Pair.snd (And.right both) in Both (listedAtEnd maze reindeer (And.left both)) rfl)
 
 --| The search back from the end, on a maze whose E is open.
-theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
+theorem toEndCorrect ∀ (maze: Maze) (endOpen: maze.isOpen maze.end = True):
     Graph.SearchResult (maze.graph True) (endSources maze) (ReachesEnd maze) maze.toEnd :=
   Graph.distancesCorrect (maze.graph True) (endSources maze) (ReachesEnd maze)
     (source start member =>
@@ -64,7 +64,7 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
 
 --| Moves from an open tile are a walk back in the maze's graph, from where
 --| they end, scoring the same.
-theorem movesWalkBack (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (moves: List Move) (last: Reindeer) =>
+theorem movesWalkBack ∀ (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (moves: List Move) (last: Reindeer) =>
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph True).Walk last path reindeer) ∧ (Graph.cost path = score moves))
   | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective ended)) rfl)
@@ -86,7 +86,7 @@ theorem movesWalkBack (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reind
 
 --| Moves from an open tile to the end score at least the search back's
 --| bound there.
-theorem boundToEnd (maze: Maze) (result: Map Reindeer Nat)
+theorem boundToEnd ∀ (maze: Maze) (result: Map Reindeer Nat)
     (sourcesBound: ∀ (reindeer: Reindeer) => reindeer ∈ maze.endReindeer → Graph.Bound result 0 reindeer)
     (closed: ∀ (state: Reindeer) (cost: Nat) => result.get state = Some cost → ∀ (previous: Reindeer) (weight: Nat) =>
       (previous, weight) ∈ (maze.graph True).edges state → Graph.Bound result (cost + weight) previous)
@@ -98,7 +98,7 @@ theorem boundToEnd (maze: Maze) (result: Map Reindeer Nat)
 
 --| Moves from the start to a way of standing, then from there to the end,
 --| make a path standing there.
-theorem joinedPath (maze: Maze) (reindeer: Reindeer) (fromStart: Nat) (toEnd: Nat) (reached: ReachedFromStart maze reindeer fromStart)
+theorem joinedPath ∀ (maze: Maze) (reindeer: Reindeer) (fromStart: Nat) (toEnd: Nat) (reached: ReachedFromStart maze reindeer fromStart)
     (reaches: ReachesEnd maze reindeer toEnd):
     Exists (List Move) (moves =>
       Exists (List Reindeer) (standings =>
@@ -117,7 +117,7 @@ theorem joinedPath (maze: Maze) (reindeer: Reindeer) (fromStart: Nat) (toEnd: Na
 
 --| A tile counted for `best` is where the reindeer stands some way whose
 --| scores from the start and to the end add up to `best`...
-theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat) (tile: Position)
+theorem tileScoring ∀ (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat) (tile: Position)
     (there: (tilesScoring fromStart toEnd best).contains tile = True):
     Exists Reindeer (reindeer =>
       Exists Nat (first =>
@@ -135,7 +135,7 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
             Witness reindeer (Witness first (Witness second (Both got (Both after (Both (passed.read) (And.right both)))))))
 
 --| ...and every such tile is counted.
-theorem scoringTile (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat) (reindeer: Reindeer) (first: Nat) (second: Nat)
+theorem scoringTile ∀ (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat) (reindeer: Reindeer) (first: Nat) (second: Nat)
     (gotFirst: fromStart.get reindeer = Some first) (gotSecond: toEnd.get reindeer = Some second) (sum: first + second = best):
     (tilesScoring fromStart toEnd best).contains reindeer.position = True :=
   let passes := (entry: (Reindeer, Nat)) => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False
@@ -145,7 +145,7 @@ theorem scoringTile (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
 
 --| On a maze whose S and E are open, with lowest score `best`, the tiles
 --| the program counts are exactly those on a best path.
-theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True) (endOpen: maze.isOpen maze.end = True) (best: Nat)
+theorem bestTilesCorrect ∀ (maze: Maze) (startOpen: maze.isOpen maze.start = True) (endOpen: maze.isOpen maze.end = True) (best: Nat)
     (lowest: IsLowestScore maze best) (tile: Position): (maze.bestTiles.contains tile = True) ↔ (OnBestPath maze best tile) :=
   let reachable: Exists (List Move) (moves => Exists (List Reindeer) (standings => IsPath maze moves standings)) :=
     Exists.elim (And.left lowest) (moves rest => Exists.elim rest (standings both => Witness moves (Witness standings (And.left both))))
@@ -203,6 +203,6 @@ theorem bestTilesCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = True)
 
 --| Part 2: on a maze whose S and E are open, with lowest score `best`, the
 --| answer is the number of tiles on a best path.
-theorem part2Correct (maze: Maze) (startOpen: maze.isOpen maze.start = True) (endOpen: maze.isOpen maze.end = True) (best: Nat)
+theorem part2Correct ∀ (maze: Maze) (startOpen: maze.isOpen maze.start = True) (endOpen: maze.isOpen maze.end = True) (best: Nat)
     (lowest: IsLowestScore maze best): CountsBestTiles maze best (solvePart2 maze) :=
   Witness maze.bestTiles (Both (tile => bestTilesCorrect maze startOpen endOpen best lowest tile) rfl)

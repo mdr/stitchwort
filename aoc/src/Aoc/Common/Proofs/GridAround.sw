@@ -9,7 +9,7 @@ import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| How many of the cells around `at` pass `keep`, looked up position by
 --| position, is how many cells touching `at` pass it.
-theorem countAround (rows: List (List a)) (keep: a → Bool) (at: Position):
+theorem countAround ∀ (rows: List (List a)) (keep: a → Bool) (at: Position):
     at.around.count (near => (cellAt rows near).any keep) = (cells rows).count (((other, x)) => touching at other && keep x) :=
   let held := (q: Position) => (cellAt rows q).any keep
   let positions := (cells rows).map Pair.fst
@@ -39,7 +39,7 @@ theorem countAround (rows: List (List a)) (keep: a → Bool) (at: Position):
 
 --| Counting the positions around `at` that pass `keep` without building
 --| them as lists is counting them in the list `at.around`.
-theorem countAroundIsAround (at: Position) (keep: Position → Bool): at.countAround keep = at.around.count keep :=
+theorem countAroundIsAround ∀ (at: Position) (keep: Position → Bool): at.countAround keep = at.around.count keep :=
   let mk := (row: Nat) (column: Nat) => ({ row, column }: Position)
   let near := (near: Position) => not (near.row == at.row && near.column == at.column)
   let cell := (row: Nat) (column: Nat) => if row == at.row && column == at.column then 0 else Bool.toNat (keep { row, column })

@@ -15,16 +15,16 @@ opaque def takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text := Pars
 theorem readsNat: Parse.Reads nat (read n => Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read)
     unfolding nat
 := Parse.readsNat
-theorem readsChar (c: Char): Parse.Reads (() => char c) (read u => read = [c])
+theorem readsChar ∀ (c: Char): Parse.Reads (() => char c) (read u => read = [c])
     unfolding char
 := Parse.readsChar c
-theorem readsSatisfy (what: Text) (passes: Char → Bool): Parse.Reads (() => satisfy what passes) (read char => read = [char] ∧ passes char = True)
+theorem readsSatisfy ∀ (what: Text) (passes: Char → Bool): Parse.Reads (() => satisfy what passes) (read char => read = [char] ∧ passes char = True)
     unfolding satisfy
 := Parse.readsSatisfy what passes
-theorem readsText (t: Text): Parse.Reads (() => text t) (read u => read = t.toList)
+theorem readsText ∀ (t: Text): Parse.Reads (() => text t) (read u => read = t.toList)
     unfolding text
 := Parse.readsText t
-theorem readsTakeWhile1 (what: Text) (passes: Char → Bool):
+theorem readsTakeWhile1 ∀ (what: Text) (passes: Char → Bool):
     Parse.Reads (() => takeWhile1 what passes) (read taken => Not (read = []) ∧ read.all passes = True ∧ taken = Text.fromList read)
     unfolding takeWhile1
 := Parse.readsTakeWhile1 what passes

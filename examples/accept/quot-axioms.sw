@@ -21,4 +21,4 @@ def viaDef: Nat := viaTheorem + 1
 
 def usesLift (q: Q): Bool := Quot.lift (b => False) (x y related => rfl) q
 
-theorem usesInd (q: Q): Unit := Quot.ind [p := q => Unit] (x => Trivial) q
+theorem usesInd ∀ (q: Q): Unit := Quot.ind [p := q => Unit] (x => Trivial) q

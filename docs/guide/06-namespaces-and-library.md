@@ -206,9 +206,9 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
 
-theorem upTo (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
+theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
 ```
 
 `0 ..< n` is the usual way to count `n` things from zero, and `1 ..= n` the way to say "1 to n". The end can be any expression (`0 ..< xs.length`), but a range binds more loosely than `++` and `+`, and more tightly than `==`, `in` and `|>`: `x in 0 ..< n` is `x in (0 ..< n)`, and `0 ..< n |> .map f` is `(0 ..< n) |> .map f`. A method on a range needs brackets, `(0 ..< n).length`, since a dot binds tighter; the pipe reads better. In a spread a range needs no brackets, `[0, ..2 ..< 5, 9]`.

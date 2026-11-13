@@ -5,7 +5,7 @@
 --| `f` takes `n + 1` values below `n` at `0, …, n`, so two of them are equal.
 -- If none of the first `n` equals the last value, swap the values `n - 1`
 -- and `f n` in them: they are then all below `n - 1`.
-theorem Nat.pigeonhole (n: Nat) (f: Nat → Nat) (small: ∀ (i: Nat) => i ≤ n → f i < n):
+theorem Nat.pigeonhole ∀ (n: Nat) (f: Nat → Nat) (small: ∀ (i: Nat) => i ≤ n → f i < n):
     Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ n) ∧ (f i = f j)))) := match n with
       | Zero => Void.exfalso (omega [small 0 rfl])
       | Succ n =>

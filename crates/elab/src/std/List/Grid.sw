@@ -13,7 +13,7 @@ def List.gridCells (rows: List (List a)): List ((Nat, Nat), a) :=
   rows.withIndex |> .flatMap (((row, cells)) => cells.withIndex |> .map (((column, cell)) => ((row, column), cell)))
 
 --| What `get` finds is somewhere in the list.
-theorem List.getOfMem (xs: List a) (x: a) (member: x ∈ xs): ∃ (k: Nat) => List.get xs k = Some x :=
+theorem List.getOfMem ∀ (xs: List a) (x: a) (member: x ∈ xs): ∃ (k: Nat) => List.get xs k = Some x :=
   match xs, member with
     | [], member => Void.exfalso member
     | [first, ..rest], Inl same => Witness Zero (rewrite same in rfl)
@@ -22,7 +22,7 @@ theorem List.getOfMem (xs: List a) (x: a) (member: x ∈ xs): ∃ (k: Nat) => Li
         | Witness k found => Witness (Succ k) found
 
 --| `withIndex` pairs `x` with `i` exactly when `x` is element `i`.
-theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withIndex) ↔ (List.get xs i = Some x) := {
+theorem List.memWithIndex ∀ (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withIndex) ↔ (List.get xs i = Some x) := {
   forward = member =>
     match List.getOfMem xs.withIndex (i, x) member with
       | Witness k found =>
@@ -36,7 +36,7 @@ theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withIndex
 
 --| A grid has `cell` at `(row, column)` exactly when row `row` is some list
 --| of cells whose element `column` is `cell`.
-theorem List.memGridCells (rows: List (List a)) (row: Nat) (column: Nat) (cell: a):
+theorem List.memGridCells ∀ (rows: List (List a)) (row: Nat) (column: Nat) (cell: a):
     (((row, column), cell) ∈ rows.gridCells) ↔ (∃ (cells: List a) => List.get rows row = Some cells ∧ List.get cells column = Some cell) := {
   forward = member =>
     List.anyElim _ _ rows.withIndex (List.memFlatMapElim _ ((row, column), cell) rows.withIndex member)
@@ -69,7 +69,7 @@ test "gridCells" :=
 --| as a loop (stack-safe on many rows); [`List.maxLengthCons`] is its step.
 def List.maxLength (rows: List (List a)): Nat := rows.foldRight 0 (row m => Nat.max row.length m)
 
-theorem List.maxLengthCons (rows: List (List a)) (row: List a): List.maxLength [row, ..rows] = Nat.max (List.length row) (List.maxLength rows) :=
+theorem List.maxLengthCons ∀ (rows: List (List a)) (row: List a): List.maxLength [row, ..rows] = Nat.max (List.length row) (List.maxLength rows) :=
   List.foldRightCons rows row 0 (r m => Nat.max (List.length r) m)
 
 --| The columns of rows of any lengths, as many as the longest row is long:
@@ -83,7 +83,7 @@ def List.transposeFill (rows: List (List a)) (fill: a): List (List a) :=
 -- Lemmas.
 
 --| No row is longer than `maxLength`: row r (Nil past the last row).
-theorem List.lengthLeMaxLength (rows: List (List a)) (r: Nat): List.length (List.getOr rows r []) ≤ List.maxLength rows :=
+theorem List.lengthLeMaxLength ∀ (rows: List (List a)) (r: Nat): List.length (List.getOr rows r []) ≤ List.maxLength rows :=
   match rows, r with
     | [], r => rfl
     | [x, ..xs], Zero => rewrite List.maxLengthCons xs x in Nat.leMaxLeft (List.length x) (List.maxLength xs)
@@ -94,7 +94,7 @@ theorem List.lengthLeMaxLength (rows: List (List a)) (r: Nat): List.length (List
         _ = List.maxLength [x, ..xs] := Eq.sym (List.maxLengthCons xs x)
 
 --| A row no longer than w, padded to w, is its first w cells read by index.
-theorem List.padRightGetOr (row: List a) (fill: a) (w: Nat) (h: List.length row ≤ w):
+theorem List.padRightGetOr ∀ (row: List a) (fill: a) (w: Nat) (h: List.length row ≤ w):
     List.padRight row w fill = List.map (List.range 0 w) (c => List.getOr row c fill) :=
   calc List.padRight row w fill
     _ = List.map (List.range 0 (List.length (List.padRight row w fill))) (c => List.getOr (List.padRight row w fill) c fill)
@@ -104,7 +104,7 @@ theorem List.padRightGetOr (row: List a) (fill: a) (w: Nat) (h: List.length row 
       := List.mapCong (List.range 0 w) (c => List.getOr (List.padRight row w fill) c fill)
         (c => List.getOr row c fill) (c => List.getOrPadRight row fill w c)
 
-theorem List.padRowsGetOr (rows: List (List a)) (fill: a) (w: Nat) (h: ∀ (r: Nat) => List.length (List.getOr rows r []) ≤ w):
+theorem List.padRowsGetOr ∀ (rows: List (List a)) (fill: a) (w: Nat) (h: ∀ (r: Nat) => List.length (List.getOr rows r []) ≤ w):
     List.map rows (row => List.padRight row w fill) = List.map rows (row => List.map (List.range 0 w) (c => List.getOr row c fill)) :=
   match rows with
     | [] => rfl
@@ -112,7 +112,7 @@ theorem List.padRowsGetOr (rows: List (List a)) (fill: a) (w: Nat) (h: ∀ (r: N
 
 --| The whole result, column by column: column c is `getOr c fill` of every
 --| row, for c up to `maxLength`.
-theorem List.transposeFillColumns (rows: List (List a)) (fill: a):
+theorem List.transposeFillColumns ∀ (rows: List (List a)) (fill: a):
     List.transposeFill rows fill = List.map (List.range 0 (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill)) :=
   match rows with
     | [] => rfl
@@ -124,13 +124,13 @@ theorem List.transposeFillColumns (rows: List (List a)) (fill: a):
           := List.transposeGrid rs r (List.range 0 (List.maxLength [r, ..rs])) (row c => List.getOr row c fill)
 
 --| `transposeFill` gives as many columns as the longest row is long.
-theorem List.lengthTransposeFill (rows: List (List a)) (fill: a): List.length (List.transposeFill rows fill) = List.maxLength rows :=
+theorem List.lengthTransposeFill ∀ (rows: List (List a)) (fill: a): List.length (List.transposeFill rows fill) = List.maxLength rows :=
   Eq.trans (Eq.cong List.length (List.transposeFillColumns rows fill))
     (Eq.trans (List.lengthMap (List.range 0 (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill)))
       (List.lengthRangeFrom (List.maxLength rows) 0))
 
 --| Column c (c < maxLength) of `transposeFill` is `getOr c fill` of every row.
-theorem List.getOrTransposeFill (rows: List (List a)) (fill: a) (c: Nat) (h: c < List.maxLength rows):
+theorem List.getOrTransposeFill ∀ (rows: List (List a)) (fill: a) (c: Nat) (h: c < List.maxLength rows):
     List.getOr (List.transposeFill rows fill) c [] = List.map rows (row => List.getOr row c fill) :=
   calc List.getOr (List.transposeFill rows fill) c []
     _ = List.getOr (List.map (List.range 0 (List.maxLength rows)) (c => List.map rows (row => List.getOr row c fill))) c []
@@ -141,7 +141,7 @@ theorem List.getOrTransposeFill (rows: List (List a)) (fill: a) (c: Nat) (h: c <
 
 --| The cell lemma: row r of column c is column c of row r, read with `getOr`
 --| and `fill` past the ends, at every r and c.
-theorem List.transposeFillCell (rows: List (List a)) (fill: a) (c: Nat) (r: Nat):
+theorem List.transposeFillCell ∀ (rows: List (List a)) (fill: a) (c: Nat) (r: Nat):
     List.getOr (List.getOr (List.transposeFill rows fill) c []) r fill = List.getOr (List.getOr rows r []) c fill :=
   match t: Nat.leq (List.maxLength rows) c with
     | False =>
@@ -158,7 +158,7 @@ theorem List.transposeFillCell (rows: List (List a)) (fill: a) (c: Nat) (r: Nat)
             (Nat.leTrans (List.length (List.getOr rows r [])) (List.maxLength rows) c (List.lengthLeMaxLength rows r) t))
 
 --| Every column is as long as the list of rows.
-theorem List.lengthColumnTransposeFill (rows: List (List a)) (fill: a) (c: Nat) (h: c < List.maxLength rows):
+theorem List.lengthColumnTransposeFill ∀ (rows: List (List a)) (fill: a) (c: Nat) (h: c < List.maxLength rows):
     List.length (List.getOr (List.transposeFill rows fill) c []) = List.length rows :=
   rewrite List.getOrTransposeFill rows fill c h in List.lengthMap rows (row => List.getOr row c fill)
 

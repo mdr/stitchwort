@@ -47,7 +47,7 @@ theorem readsNotes: Parse.Reads notes NotesWritten :=
                               (Both blankFirst (Both breakFirst (Both yoursWritten (Both blankSecond (Both breakSecond
                                 (Witness nearby (Both nearbyWritten rfl)))))))))))))))))))))))))
 
-theorem parseWritten (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
+theorem parseWritten ∀ (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input Aoc.Year2020.Day16.notes NotesWritten notes parsed readsNotes

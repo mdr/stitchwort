@@ -6,13 +6,13 @@ import Trip.Model (..)
 import Trip.Merge (..)
 
 -- Every remote leg's id is in the merge.
-theorem remoteLegsKept (local: Trip) (remote: Trip) (leg: Leg) (m: leg ∈ remote.legs):
+theorem remoteLegsKept ∀ (local: Trip) (remote: Trip) (leg: Leg) (m: leg ∈ remote.legs):
     leg.id ∈ (merge local remote).legs.map (l => l.id) :=
   remoteLegKept local.legs remote.legs leg m
 
 -- Every remote pin that still fits its leg, placed in the merged legs from
 -- where it was in the remote copy, is kept.
-theorem remotePinsKept (local: Trip) (remote: Trip) (pin: Pin) (m: pin ∈ remote.pins) (placed: Pin)
+theorem remotePinsKept ∀ (local: Trip) (remote: Trip) (pin: Pin) (m: pin ∈ remote.pins) (placed: Pin)
     (fits: placePin (merge local remote).legs pin (locate remote.legs pin.start) = Some placed): placed ∈ (merge local remote).pins :=
   let legs := mergeLegs local.legs remote.legs
   let entry := (pin, locate remote.legs pin.start)
@@ -26,13 +26,13 @@ theorem remotePinsKept (local: Trip) (remote: Trip) (pin: Pin) (m: pin ∈ remot
 
 -- When the merged legs are the remote legs (the local copy changed no
 -- leg), every pin of a well-formed remote copy is kept as it was.
-theorem remotePinsKeptAsTheyWere (local: Trip) (remote: Trip) (wr: WellFormed remote) (same: (merge local remote).legs = remote.legs)
+theorem remotePinsKeptAsTheyWere ∀ (local: Trip) (remote: Trip) (wr: WellFormed remote) (same: (merge local remote).legs = remote.legs)
     (pin: Pin) (m: pin ∈ remote.pins): pin ∈ (merge local remote).pins :=
   remotePinsKept local remote pin m pin
     (rewrite same in placePinSelf remote.legs wr.legIds pin (List.memOfAll (p => pinFits remote.legs p = True) remote.pins wr.pinsFit pin m))
 
 -- Every stop id and album id of either copy is in the merge.
-theorem stopIdsKept (local: Trip) (remote: Trip) (id: Nat)
+theorem stopIdsKept ∀ (local: Trip) (remote: Trip) (id: Nat)
     (m: (id ∈ local.stops.map (stop => stop.id)) ∨ (id ∈ remote.stops.map (stop => stop.id))):
     id ∈ (merge local remote).stops.map (stop => stop.id) :=
   let legs := mergeLegs local.legs remote.legs
@@ -56,7 +56,7 @@ theorem stopIdsKept (local: Trip) (remote: Trip) (id: Nat)
           List.keyMemAppendNewByRight (entry => entry.fst.id) fromLocal fromRemote (stop, locate remote.legs stop.start)
             (List.memMap remote.stops stop inStops (s => (s, locate remote.legs s.start))))
 
-theorem albumIdsKept (local: Trip) (remote: Trip) (id: Nat)
+theorem albumIdsKept ∀ (local: Trip) (remote: Trip) (id: Nat)
     (m: (id ∈ local.albums.map (album => album.id)) ∨ (id ∈ remote.albums.map (album => album.id))):
     id ∈ (merge local remote).albums.map (album => album.id) :=
   let legs := mergeLegs local.legs remote.legs
@@ -82,7 +82,7 @@ theorem albumIdsKept (local: Trip) (remote: Trip) (id: Nat)
 
 -- The summary, if there is one, is a copy's summary whose legs are exactly
 -- the merged legs.
-theorem summaryMatches (local: Trip) (remote: Trip) (summary: Summary) (h: (merge local remote).summary = Some summary):
+theorem summaryMatches ∀ (local: Trip) (remote: Trip) (summary: Summary) (h: (merge local remote).summary = Some summary):
     ((remote.summary = Some summary) ∧ (remote.legs = (merge local remote).legs)) ∨ ((local.summary = Some summary) ∧ (local.legs = (merge local remote).legs)) :=
   let legs := mergeLegs local.legs remote.legs
   match c: remote.legs == legs with
@@ -96,7 +96,7 @@ theorem summaryMatches (local: Trip) (remote: Trip) (summary: Summary) (h: (merg
 -- from the merged legs.
 def SummaryFresh (trip: Trip): Prop := ∀ (summary: Summary) => trip.summary = Some summary → summary = summarize trip.legs
 
-theorem mergeSummaryFresh (local: Trip) (remote: Trip) (fl: SummaryFresh local) (fr: SummaryFresh remote): SummaryFresh (merge local remote) :=
+theorem mergeSummaryFresh ∀ (local: Trip) (remote: Trip) (fl: SummaryFresh local) (fr: SummaryFresh remote): SummaryFresh (merge local remote) :=
   summary h =>
     match summaryMatches local remote summary h with
       | Inl (Both s e) => rewrite <- e in fr summary s

@@ -7,21 +7,21 @@ import Aoc.Year2024.Day17.Spec (..)
 import Std (Bool, Eq, Exists, List, Nat, Option, Void)
 
 --| Two numbers that are both the bitwise XOR of `x` and `y` are equal.
-theorem xorUnique (x: Nat) (y: Nat) (first: Nat) (second: Nat) (isFirst: BitwiseXor x y first) (isSecond: BitwiseXor x y second): first = second :=
+theorem xorUnique ∀ (x: Nat) (y: Nat) (first: Nat) (second: Nat) (isFirst: BitwiseXor x y first) (isSecond: BitwiseXor x y second): first = second :=
   Nat.eqOfTestBit first second
     (i =>
       rewrite Nat.testBitDiv first i, Nat.testBitDiv second i in
         Eq.trans (isFirst i) (Eq.sym (isSecond i)))
 
 --| An instruction with a combo operand takes one step.
-theorem comboUnique (registers: Registers) (operand: Nat) (first: Step) (second: Step) (target: Nat → Step)
+theorem comboUnique ∀ (registers: Registers) (operand: Nat) (first: Step) (second: Step) (target: Nat → Step)
     (isFirst: WithCombo registers operand first (value => first = target value))
     (isSecond: WithCombo registers operand second (value => second = target value)): first = second :=
   match found: comboValue registers operand with
     | Some value => Eq.trans isFirst (Eq.sym isSecond)
     | None => Eq.trans isFirst (Eq.sym isSecond)
 
-theorem executesUnique (operand: Nat) (machine: Machine) (first: Step) (second: Step) (opcode: Nat)
+theorem executesUnique ∀ (operand: Nat) (machine: Machine) (first: Step) (second: Step) (opcode: Nat)
     (isFirst: Executes opcode operand machine first) (isSecond: Executes opcode operand machine second): first = second :=
   match opcode, isFirst, isSecond with
     | 0, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
@@ -40,7 +40,7 @@ theorem executesUnique (operand: Nat) (machine: Machine) (first: Step) (second: 
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))), isFirst, isSecond => Eq.trans isFirst (Eq.sym isSecond)
 
 --| A machine takes one step.
-theorem stepUnique (program: List Nat) (machine: Machine) (first: Step) (second: Step)
+theorem stepUnique ∀ (program: List Nat) (machine: Machine) (first: Step) (second: Step)
     (isFirst: StepMatches program machine first) (isSecond: StepMatches program machine second): first = second :=
   match fetched: program.get machine.pointer with
     | None => Eq.trans isFirst (Eq.sym isSecond)
@@ -62,13 +62,13 @@ def afterOf (otherwise: Machine): Step → Machine
   | Next after printed => after
   | _ => otherwise
 
-theorem haltNotNext (after: Machine) (printed: Option Nat) (same: Halt = Next after printed): Void := Bool.trueNotFalse (Eq.cong isHalt same)
+theorem haltNotNext ∀ (after: Machine) (printed: Option Nat) (same: Halt = Next after printed): Void := Bool.trueNotFalse (Eq.cong isHalt same)
 
-theorem quietNotPrints (after: Machine) (other: Machine) (value: Nat) (same: Next after None = Next other (Some value)): Void :=
+theorem quietNotPrints ∀ (after: Machine) (other: Machine) (value: Nat) (same: Next after None = Next other (Some value)): Void :=
   Option.noneNotSome value (Eq.cong printedOf same)
 
 --| A halting run has one output.
-theorem haltsUnique (program: List Nat) (machine: Machine) (first second: List Nat)
+theorem haltsUnique ∀ (program: List Nat) (machine: Machine) (first second: List Nat)
     (h: Halts program machine first) (h1: Halts program machine second): first = second :=
   match first, second, h, h1 with
     | [], [], Stops _ stop, Stops _ alsoStop => rfl

@@ -32,7 +32,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
                 (Both written (Both nonEmpty (Both allDigits (Both decimal (turn => cases))))))))))
 
 --| If `parseRoute` reads `input`, each of its lines is an instruction written out.
-theorem parseWritten (input: Text) (route: Route) (parsed: Fail.toResult (() => parseRoute input) = Ok route):
+theorem parseWritten ∀ (input: Text) (route: Route) (parsed: Fail.toResult (() => parseRoute input) = Ok route):
     List.All2 InstructionWritten (input.lines.map Text.toList) route.instructions :=
   let ran := rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions => ({ instructions }: Route)) at parsed in parsed
   match e: Fail.toResult (() => Parse.eachLine input instruction) with

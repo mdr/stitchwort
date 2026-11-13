@@ -13,7 +13,7 @@ import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16 (Spec)
 import Std (Eq, Fail, List, Option, Result, Text, Void)
 
-theorem part1Correct (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
+theorem part1Correct ∀ (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
       ∧ Spec.Part1 notes notes.errorRate :=
@@ -21,7 +21,7 @@ theorem part1Correct (input: Text) (notes: Notes) (parsed: Fail.toResult (() => 
 
 --| Part 2's answer, when there is one, is the departure product under an
 --| order of the fields the puzzle allows, and no other number is.
-theorem part2Exactly (notes: Notes) (answer: Nat) (found: notes.departureProduct = Some answer) (other: Nat):
+theorem part2Exactly ∀ (notes: Notes) (answer: Nat) (found: notes.departureProduct = Some answer) (other: Nat):
     Spec.Part2 notes other ↔ other = answer :=
   let valid := departureProductValid notes answer found
   match ordered: notes.fieldOrder with
@@ -33,7 +33,7 @@ theorem part2Exactly (notes: Notes) (answer: Nat) (found: notes.departureProduct
         backward = same => rewrite same in valid
       }
 
-theorem part2Correct (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes) (answer: Nat)
+theorem part2Correct ∀ (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes) (answer: Nat)
     (found: notes.departureProduct = Some answer):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)

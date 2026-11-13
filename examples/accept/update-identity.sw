@@ -12,19 +12,19 @@ type Shape =
 def setId (c: Shape) (x: Nat): Shape := { c | id = x }
 def setIdAgain (c: Shape) (x: Nat): Shape := { c | id = x }
 
-theorem sameUpdate (c: Shape) (x: Nat): setId c x = setIdAgain c x := rfl
+theorem sameUpdate ∀ (c: Shape) (x: Nat): setId c x = setIdAgain c x := rfl
 
-theorem idRead (c: Shape) (x: Nat): ({ c | id = x }).id = x := match c with
+theorem idRead ∀ (c: Shape) (x: Nat): ({ c | id = x }).id = x := match c with
   | Dot _ _ _ => rfl
   | Circle _ _ _ _ => rfl
 
 -- The lemma, used for a separately written update.
-theorem idReadAgain (c: Shape) (x: Nat): (setIdAgain c x).id = x := idRead c x
+theorem idReadAgain ∀ (c: Shape) (x: Nat): (setIdAgain c x).id = x := idRead c x
 
 -- 2. The lemma at `x := double y`.
 def double (n: Nat): Nat := n + n
 
-theorem idReadDouble (c: Shape) (y: Nat): ({ c | id = double y }).id = double y :=
+theorem idReadDouble ∀ (c: Shape) (y: Nat): ({ c | id = double y }).id = double y :=
   idRead c (double y)
 
 -- 3. Renamed binders and an unused local: still the same update.
@@ -32,13 +32,13 @@ def setIdRenamed (shape: Shape) (value: Nat): Shape :=
   let ignored := value + 1
   { shape | id = value }
 
-theorem renamedSame (c: Shape) (x: Nat): setId c x = setIdRenamed c x := rfl
+theorem renamedSame ∀ (c: Shape) (x: Nat): setId c x = setIdRenamed c x := rfl
 
-theorem idReadRenamed (c: Shape) (x: Nat): (setIdRenamed c x).id = x := idRead c x
+theorem idReadRenamed ∀ (c: Shape) (x: Nat): (setIdRenamed c x).id = x := idRead c x
 
 def setIdExtra (c: Shape) (x: Nat) (unused: Nat): Shape := { c | id = x }
 
-theorem extraSame (c: Shape) (x: Nat) (u: Nat): setId c x = setIdExtra c x u := rfl
+theorem extraSame ∀ (c: Shape) (x: Nat) (u: Nat): setId c x = setIdExtra c x u := rfl
 
 -- 4. Several dependent fields, two constructors.
 type Two =
@@ -89,14 +89,14 @@ type Point = { x: Nat, y: Nat }
 
 def origin (u: Unit): Point := { x = 0, y = 0 }
 
-theorem readUpdated (p: Point) (a: Nat): ({ p | x = a }).x = a := rfl
-theorem readOther (p: Point) (a: Nat): ({ p | x = a }).y = p.y := rfl
-theorem readFromCall (u: Unit) (a: Nat): ({ origin u | x = a }).x = a := rfl
+theorem readUpdated ∀ (p: Point) (a: Nat): ({ p | x = a }).x = a := rfl
+theorem readOther ∀ (p: Point) (a: Nat): ({ p | x = a }).y = p.y := rfl
+theorem readFromCall ∀ (u: Unit) (a: Nat): ({ origin u | x = a }).x = a := rfl
 
 -- 9. A variant update keeps the constructor and its own fields.
 test "constructor kept" := { Circle 1 2 3 4 | id = 9 } == Circle 1 9 3 4
 
-theorem radiusKept (r: Nat) (i: Nat) (s: Nat) (x: Nat) (q: Nat):
+theorem radiusKept ∀ (r: Nat) (i: Nat) (s: Nat) (x: Nat) (q: Nat):
     ({ Circle r i s q | id = x }) = Circle r x s q := rfl
 
 -- Identical inline matches are equal as well.
@@ -106,4 +106,4 @@ def sumOptions (xs: List (Option Nat)): Nat :=
 def sumOptionsAgain (xs: List (Option Nat)): Nat :=
   xs.foldLeft 0 (acc o => match o with | Some x => acc + x | None => acc)
 
-theorem inlineMatches (xs: List (Option Nat)): sumOptions xs = sumOptionsAgain xs := rfl
+theorem inlineMatches ∀ (xs: List (Option Nat)): sumOptions xs = sumOptionsAgain xs := rfl

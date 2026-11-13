@@ -14,7 +14,7 @@ def beats: Move -> Move -> Bool
 
 -- Several scrutinees: in the `Rock` and `Paper` alternatives, `h` is
 -- `False = True`.
-theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
+theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
   | Scissors, _ => rfl

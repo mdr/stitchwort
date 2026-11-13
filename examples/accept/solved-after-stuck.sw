@@ -19,6 +19,6 @@ theorem picked: True = True ∧ pick True 5 = 5 := lem
 -- The same with a dictionary the first conjunct solves: `d.add x x` at
 -- the unknown `?d` is `Add.add` stuck on `?d` until evaluated again with
 -- `Int.instAdd` for `?d`.
-theorem addVia [d: Add a] (x: a): d = d ∧ d.add x x = d.add x x := Both rfl rfl
+theorem addVia ∀ [d: Add a] (x: a): d = d ∧ d.add x x = d.add x x := Both rfl rfl
 
-theorem addInt (x: Int): Int.instAdd = Int.instAdd ∧ Int.add x x = x + x := addVia x
+theorem addInt ∀ (x: Int): Int.instAdd = Int.instAdd ∧ Int.add x x = x + x := addVia x

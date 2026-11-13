@@ -8,7 +8,7 @@ def next (n: Nat): Option Nat := Some (n + 1)
 -- Day 10's `traverseMap _ g h (each) xs ys hyp`, cut down: `f` is a `_`
 -- fixed only by `ran`, after the lambda, whose `rewrite` and `omega` need
 -- `f x`'s value.
-theorem eachStep (f: Nat → Option Nat) (each: (x: Nat) → (y: Nat) → f x = Some y → x < y) (xs: List Nat) (ran: List.map xs f = List.map xs next) (x: Nat) (y: Nat) (h: f x = Some y): x < y :=
+theorem eachStep ∀ (f: Nat → Option Nat) (each: (x: Nat) → (y: Nat) → f x = Some y → x < y) (xs: List Nat) (ran: List.map xs f = List.map xs next) (x: Nat) (y: Nat) (h: f x = Some y): x < y :=
   each x y h
 
 -- With nothing expected of the call (a `let`), the lambda is checked where

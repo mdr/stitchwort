@@ -53,9 +53,9 @@ test "depth" := Packet.depth example == 3
 -- The same lemma proves an `[auto]` argument that a member of a packet's
 -- items is smaller, from a membership in scope written `List.Mem q items`
 -- (or `q ∈ items`).
-theorem memberSmaller (q: Packet) (items: List Packet) [auto lt: Packet.size q < Packet.size (Packets items)]: Unit := ()
+theorem memberSmaller ∀ (q: Packet) (items: List Packet) [auto lt: Packet.size q < Packet.size (Packets items)]: Unit := ()
 
-theorem memberSmallerHere (q: Packet) (items: List Packet) (h: List.Mem q items): Unit := memberSmaller q items
+theorem memberSmallerHere ∀ (q: Packet) (items: List Packet) (h: List.Mem q items): Unit := memberSmaller q items
 
 -- Structural recursion with a helper for the list, as before.
 def numbers: Packet → Nat
@@ -70,19 +70,19 @@ def numbersIn: List Packet → Nat
 -- claim for its items, which a lemma over the list takes apart. Each step
 -- is closed by `omega`. `Packet.size (Packets items)` computes as far as the
 -- list is known, so the lemma can state its bound with it.
-theorem numbersInLe (items: List Packet) (all: List.All (q => numbers q ≤ Packet.size q) items):
+theorem numbersInLe ∀ (items: List Packet) (all: List.All (q => numbers q ≤ Packet.size q) items):
     numbersIn items ≤ Packet.size (Packets items) := match items, all with
       | [], all => rfl
       | [p, ..rest], Both here others =>
         let ih := numbersInLe rest others
         omega
 
-theorem numbersLe (p: Packet): numbers p ≤ Packet.size p :=
+theorem numbersLe ∀ (p: Packet): numbers p ≤ Packet.size p :=
   Packet.induct (q => numbers q ≤ Packet.size q) (value => rfl) (items all => numbersInLe items all) p
 
 -- The same claim's other half, by `Packet.inductMem`: every member of the
 -- list is assumed to have it. Here: every packet has a positive size.
-theorem sizePositive (p: Packet): 0 < Packet.size p :=
+theorem sizePositive ∀ (p: Packet): 0 < Packet.size p :=
   Packet.inductMem (q => 0 < Packet.size q) (value => rfl) (items each => rfl) p
 
 -- A rose tree with a parameter: `Rose.induct` takes the motive over `Rose a`.
@@ -97,12 +97,12 @@ def Rose.labels (t: Rose a): List a
 test "labels" := Rose.labels (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) == [1, 2, 3, 4]
 
 -- An `[auto]` argument from a membership, with the parameter.
-theorem kidSmaller (t: Rose a) (x: a) (kids: List (Rose a)) [auto lt: Rose.size t < Rose.size (Bloom x kids)]: Unit := ()
+theorem kidSmaller ∀ (t: Rose a) (x: a) (kids: List (Rose a)) [auto lt: Rose.size t < Rose.size (Bloom x kids)]: Unit := ()
 
-theorem kidSmallerHere (t: Rose a) (x: a) (kids: List (Rose a)) (h: t ∈ kids): Unit := kidSmaller t x kids
+theorem kidSmallerHere ∀ (t: Rose a) (x: a) (kids: List (Rose a)) (h: t ∈ kids): Unit := kidSmaller t x kids
 
 -- A label count is at least one, by `Rose.inductMem` on any `Rose a`.
-theorem labelsNonEmpty (t: Rose a): 0 < Rose.size t :=
+theorem labelsNonEmpty ∀ (t: Rose a): 0 < Rose.size t :=
   Rose.inductMem (s => 0 < Rose.size s) (label kids each => rfl) t
 
 -- Nested twice, and in an `Option` of a pair: the hypotheses compose.
@@ -112,7 +112,7 @@ type Nest: Type =
   | Maybe (next: Option (Pair Nest Nat))
 
 -- The statement of `Nest.induct`, written out.
-theorem nestInduct (motive: Nest → Prop) (leaf: motive Leaf)
+theorem nestInduct ∀ (motive: Nest → Prop) (leaf: motive Leaf)
     (deep: ∀ (rows: List (List Nest)) => List.All (List.All motive) rows → motive (Deep rows))
     (maybe: ∀ (next: Option (Pair Nest Nat)) => Option.All (Pair.All motive (x => Unit)) next → motive (Maybe next))
     (t: Nest): motive t :=
@@ -123,7 +123,7 @@ type Sparse: Type =
   | Dense (n: Nat)
   | Holes (slots: List (Option Sparse))
 
-theorem sparseInduct (motive: Sparse → Prop) (dense: ∀ (n: Nat) => motive (Dense n))
+theorem sparseInduct ∀ (motive: Sparse → Prop) (dense: ∀ (n: Nat) => motive (Dense n))
     (holes: ∀ (slots: List (Option Sparse)) => List.All (Option.All motive) slots → motive (Holes slots))
     (t: Sparse): motive t :=
   Sparse.induct motive dense holes t
@@ -134,13 +134,13 @@ type Bag (a: Type): Type =
   | Single (x: a)
   | Many (first: a) (rest: List a)
 
-theorem bagAll (p: a → Prop) (x: a) (y: a) (px: p x) (py: p y): Bag.All p (Many x [y]) := Both px (Both py ())
+theorem bagAll ∀ (p: a → Prop) (x: a) (y: a) (px: p x) (py: p y): Bag.All p (Many x [y]) := Both px (Both py ())
 
 type Crate: Type =
   | Empty
   | Packed (bag: Bag Crate)
 
-theorem crateInduct (motive: Crate → Prop) (empty: motive Empty)
+theorem crateInduct ∀ (motive: Crate → Prop) (empty: motive Empty)
     (packed: ∀ (bag: Bag Crate) => Bag.All motive bag → motive (Packed bag))
     (t: Crate): motive t :=
   Crate.induct motive empty packed t
@@ -156,7 +156,7 @@ def Ranked.count (r: Ranked k): Nat
   | RLeaf => 1
   | RNode n kids => 1 + (kids.attach.map (e => Ranked.count e.value) |> .foldLeft 0 Nat.add)
 
-theorem rankedPositive (r: Ranked k): 0 < Ranked.size r :=
+theorem rankedPositive ∀ (r: Ranked k): 0 < Ranked.size r :=
   Ranked.induct (n s => 0 < Ranked.size s) rfl (n kids all => rfl) r
 
 -- A record, with a weight on each node.
@@ -170,9 +170,9 @@ def Node.total (node: Node): Nat
 test "total" := Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] } == 7
 
 -- And for the record.
-theorem childSmaller (m: Node) (w: Nat) (cs: List Node) [auto lt: Node.size m < Node.size { weight = w, children = cs }]: Unit := ()
+theorem childSmaller ∀ (m: Node) (w: Nat) (cs: List Node) [auto lt: Node.size m < Node.size { weight = w, children = cs }]: Unit := ()
 
-theorem childSmallerHere (m: Node) (w: Nat) (cs: List Node) (h: List.Mem m cs): Unit := childSmaller m w cs
+theorem childSmallerHere ∀ (m: Node) (w: Nat) (cs: List Node) (h: List.Mem m cs): Unit := childSmaller m w cs
 
 def main(): {IO} () :=
   print "depth: ${Packet.depth example}"

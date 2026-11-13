@@ -31,12 +31,12 @@ test "ack" := ack 2 3 == 9 ∧ ack 3 3 == 61 ∧ ack 0 7 == 8
 theorem ackByRfl: ack 2 3 = 9 := rfl
 
 -- `ack.unfold` is the definition's own equation.
-theorem ackStep (k: Nat) (j: Nat): ack (Succ k) (Succ j) = ack k (ack (Succ k) j) :=
+theorem ackStep ∀ (k: Nat) (j: Nat): ack (Succ k) (Succ j) = ack k (ack (Succ k) j) :=
   ack.unfold (Succ k) (Succ j)
 
 -- A theorem recursing on the same pair: the proof makes the calls `ack`
 -- makes, and `omega` finds each call's `Nat.LexLess`.
-theorem ackAbove (m: Nat) (n: Nat): n < ack m n
+theorem ackAbove ∀ (m: Nat) (n: Nat): n < ack m n
     decreasing (m, n)
 :=
   rewrite ack.unfold m n in

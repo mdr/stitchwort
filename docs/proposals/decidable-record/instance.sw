@@ -32,5 +32,5 @@ def Colour.decEq (x y: Colour): Dec (x = y) :=
   { does = Colour.same x y, sound = Colour.sameSound x y, complete = h => rewrite h in Colour.sameRefl y }
 
 -- `x == y` would be the test itself, with the colours unknown.
-theorem eqIsSame (x y: Colour): (Colour.decEq x y).does = Colour.same x y := rfl
+theorem eqIsSame ∀ (x y: Colour): (Colour.decEq x y).does = Colour.same x y := rfl
 theorem redIsNotBlue: (Colour.decEq Red Blue).does = False := rfl

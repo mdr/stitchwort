@@ -40,7 +40,7 @@ def both: Nat → Colour → Bool
 -- In the or-pattern's arm the character is one of its literals, so `score`
 -- computes; in the `_` arm it is none of them, so `isVowel` takes its `_`
 -- arm too.
-theorem vowelsScore (char: Char) (found: isVowel char = True): score char = 1 := match char with
+theorem vowelsScore ∀ (char: Char) (found: isVowel char = True): score char = 1 := match char with
   | 'a' | 'e' | 'i' | 'o' | 'u' => rfl
   | _ => cases
 

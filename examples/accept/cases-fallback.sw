@@ -34,10 +34,10 @@ def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow
 -- Day 21's `everyNumericKey`: `key ∈ numericKeys` computes to a disjunction
 -- of equations, not stuck on `key`, so `key` is split as a fallback, and
 -- each of the 11 cases decides `Yes`.
-theorem everyNumericKey (key: NumericKey): key ∈ numericKeys := cases
+theorem everyNumericKey ∀ (key: NumericKey): key ∈ numericKeys := cases
 
 -- `key` (2 cases), then in the `Arrow d` case `d` (4): 5 cases.
-theorem everyDirectionKey (key: DirectionKey): key ∈ directionKeys := cases
+theorem everyDirectionKey ∀ (key: DirectionKey): key ∈ directionKeys := cases
 
 type Month =
   | Jan
@@ -56,15 +56,15 @@ type Month =
 -- The rule itself: decide/fallback.sw's two statements, written out by hand
 -- there. Only `flag` matters, and fewest cases first splits it (2 against
 -- 12): 2 cases, where latest first would make 24.
-theorem flagFewest (flag: Bool) (month: Month): (flag = True) ∨ ((flag = False) ∨ (month = month)) := cases
+theorem flagFewest ∀ (flag: Bool) (month: Month): (flag = True) ∨ ((flag = False) ∨ (month = month)) := cases
 
 -- The same with two months: latest first would split `later`, then
 -- `earlier`, 144 cases, past the budget; fewest first makes 2.
-theorem flagFewestOfThree (flag: Bool) (earlier: Month) (later: Month): (flag = True) ∨ ((flag = False) ∨ (earlier = later)) := cases
+theorem flagFewestOfThree ∀ (flag: Bool) (earlier: Month) (later: Month): (flag = True) ∨ ((flag = False) ∨ (earlier = later)) := cases
 
 -- Only `key` matters, but fewest first splits `flag` (2 against 11). The
 -- case `flag = True` is closed whole by `omega` (`… ∨ True = True`), so
 -- `key` is split only when `flag = False`: 12 cases, not the 22 that
 -- deciding alone would make (decide/fallback.sw, by hand). The order shows
 -- in examples/reject/cases-fallback-count.sw.
-theorem keyFewest (flag: Bool) (key: NumericKey): (key ∈ numericKeys) ∨ (flag = True) := cases
+theorem keyFewest ∀ (flag: Bool) (key: NumericKey): (key ∈ numericKeys) ∨ (flag = True) := cases

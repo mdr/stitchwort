@@ -12,5 +12,5 @@ def short: Vec Nat n → Nat
   | v => 2
 
 -- Lean's form, as the note states it for arms: ill-typed here.
-theorem shortEq3 (n: Nat) (v: Vec Nat n) (notArm1: v = VNil → Void): short v = 2 :=
+theorem shortEq3 ∀ (n: Nat) (v: Vec Nat n) (notArm1: v = VNil → Void): short v = 2 :=
   cases

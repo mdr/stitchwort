@@ -5,12 +5,12 @@ namespace Aoc.Year2021.Day18.Proofs
 import Aoc.Year2021.Day18 (..)
 import Std (Nat, Option, Void)
 
-theorem addLeftmostHeight (amount: Nat) (number: Number): height (addLeftmost amount number) = height number :=
+theorem addLeftmostHeight ∀ (amount: Nat) (number: Number): height (addLeftmost amount number) = height number :=
   match number with
     | Regular _ => rfl
     | Pair left right => rewrite addLeftmostHeight amount left in rfl
 
-theorem addRightmostHeight (amount: Nat) (number: Number): height (addRightmost amount number) = height number :=
+theorem addRightmostHeight ∀ (amount: Nat) (number: Number): height (addRightmost amount number) = height number :=
   match number with
     | Regular _ => rfl
     | Pair left right => rewrite addRightmostHeight amount right in rfl
@@ -18,7 +18,7 @@ theorem addRightmostHeight (amount: Nat) (number: Number): height (addRightmost 
 --| An explosion in a pair that isn't two regular numbers, from one in a
 --| part, is no higher than the pair (`explode`'s last arm, by its generated
 --| branch equations).
-theorem pairHeight (depth: Nat) (left: Number) (right: Number) (exploded: Explosion)
+theorem pairHeight ∀ (depth: Nat) (left: Number) (right: Number) (exploded: Explosion)
     (notArm2: ∀ (a b: Nat) => left = Regular a → right = Regular b → Void) (some: explode depth (Pair left right) = Some exploded)
     (leftLower: ∀ (e: Explosion) => explode (depth + 1) left = Some e → height e.number ≤ height left)
     (rightLower: ∀ (e: Explosion) => explode (depth + 1) right = Some e → height e.number ≤ height right): height exploded.number ≤ height (Pair left right) :=
@@ -33,7 +33,7 @@ theorem pairHeight (depth: Nat) (left: Number) (right: Number) (exploded: Explos
             rewrite addRightmostHeight e.toLeft left in omega [rightLower e rfl]
         | None => Void.exfalso (Option.noneNotSome exploded (rewrite explode.eq3.none.none depth left right notArm2 el er at some in some))
 
-theorem explodeHeight (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded): height exploded.number ≤ height number :=
+theorem explodeHeight ∀ (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded): height exploded.number ≤ height number :=
   match number with
     | Pair (Regular a) (Regular b) =>
       match deep: Nat.leq 4 depth with
@@ -45,7 +45,7 @@ theorem explodeHeight (depth: Nat) (number: Number) (exploded: Explosion) (some:
       pairHeight depth (Pair x y) right exploded cases some
         (e found => explodeHeight (depth + 1) (Pair x y) e found) (e found => explodeHeight (depth + 1) right e found)
 
-theorem splitHeight (number split2: Number) (some: split number = Some split2): height split2 ≤ height number + 1 :=
+theorem splitHeight ∀ (number split2: Number) (some: split number = Some split2): height split2 ≤ height number + 1 :=
   match number with
     | Regular value =>
       match Nat.leq 10 value with

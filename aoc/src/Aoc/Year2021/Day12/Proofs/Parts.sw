@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Void)
 
 --| The search starts in `start`, with every small cave unvisited and the
 --| spare visit left in part 2.
-theorem tracksStart (passages: List Passage) (twice: Bool): Tracks passages twice (smallCaves passages) twice (Path.fromStart []) :=
+theorem tracksStart ∀ (passages: List Passage) (twice: Bool): Tracks passages twice (smallCaves passages) twice (Path.fromStart []) :=
   let once := (c: Cave) => (Bool.toNatLeOne (Cave.start == c): (Path.fromStart []).visits c ≤ 1)
   Both
     (c named small notStart notEnd => {
@@ -28,7 +28,7 @@ theorem tracksStart (passages: List Passage) (twice: Bool): Tracks passages twic
 
 --| The paths the program lists are those from `start` to `end` along the
 --| passages that keep the visit rule.
-theorem pathsCorrect (passages: List Passage) (promise: NoBigNeighbours passages) (twice: Bool) (path: Path):
+theorem pathsCorrect ∀ (passages: List Passage) (promise: NoBigNeighbours passages) (twice: Bool) (path: Path):
     path ∈ paths passages twice ↔ (path.startToEnd = True ∧ path.follows passages = True ∧ Within twice path) := {
   forward = found =>
     Exists.elim (List.memMapElim Path.fromStart path _ found) (rest both =>
@@ -63,13 +63,13 @@ theorem pathsCorrect (passages: List Passage) (promise: NoBigNeighbours passages
 }
 
 --| The program lists each path once.
-theorem pathsDistinct (passages: List Passage) (twice: Bool): List.Distinct (paths passages twice) :=
+theorem pathsDistinct ∀ (passages: List Passage) (twice: Bool): List.Distinct (paths passages twice) :=
   List.distinctMap _
     (routesDistinct (lookupNeighbours (neighbourTable passages)) (tableDistinct passages) (smallCaves passages) twice Cave.start (3 * (smallCaves passages).length + 4))
     Path.fromStart (a b same => Eq.cong (path => path.caves.drop 1) same)
 
 --| Part 1's rule is `Within False`...
-theorem withinOnce (path: Path): Within False path ↔ SmallOnce path := {
+theorem withinOnce ∀ (path: Path): Within False path ↔ SmallOnce path := {
   forward = within => And.left within,
   backward = once =>
     Both once
@@ -78,7 +78,7 @@ theorem withinOnce (path: Path): Within False path ↔ SmallOnce path := {
 }
 
 --| A path from `start` to `end` visits both.
-theorem endsVisited (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visits Cave.start ∧ 1 ≤ path.visits Cave.end :=
+theorem endsVisited ∀ (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visits Cave.start ∧ 1 ≤ path.visits Cave.end :=
   let isLast := DecEq.sound ends.right
   Both
     (match path.caves with
@@ -88,7 +88,7 @@ theorem endsVisited (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visi
     (visitsMember Cave.end path.caves (List.lastMem path.caves Cave.end isLast))
 
 --| ...and part 2's, on a path from `start` to `end`, is `Within True`.
-theorem withinTwice (path: Path) (ends: path.startToEnd = True): Within True path ↔ OneSmallTwice path :=
+theorem withinTwice ∀ (path: Path) (ends: path.startToEnd = True): Within True path ↔ OneSmallTwice path :=
   let (Both startSeen endSeen) := endsVisited path ends
   {
     forward = within =>
@@ -101,7 +101,7 @@ theorem withinTwice (path: Path) (ends: path.startToEnd = True): Within True pat
 
 --| Part 1: the program's answer is the number of paths that visit no small
 --| cave twice, when no passage joins two big caves.
-theorem part1Correct (passages: List Passage) (promise: NoBigNeighbours passages): PathCount (Part1Path passages) (solvePart1 passages) :=
+theorem part1Correct ∀ (passages: List Passage) (promise: NoBigNeighbours passages): PathCount (Part1Path passages) (solvePart1 passages) :=
   Witness (paths passages False)
     (Both (pathsDistinct passages False)
       (Both
@@ -117,7 +117,7 @@ theorem part1Correct (passages: List Passage) (promise: NoBigNeighbours passages
 
 --| Part 2: the number of paths that visit one small cave (not `start` or
 --| `end`) at most twice and the others at most once.
-theorem part2Correct (passages: List Passage) (promise: NoBigNeighbours passages): PathCount (Part2Path passages) (solvePart2 passages) :=
+theorem part2Correct ∀ (passages: List Passage) (promise: NoBigNeighbours passages): PathCount (Part2Path passages) (solvePart2 passages) :=
   Witness (paths passages True)
     (Both (pathsDistinct passages True)
       (Both
@@ -132,10 +132,10 @@ theorem part2Correct (passages: List Passage) (promise: NoBigNeighbours passages
         rfl))
 
 --| From the input: no hypothesis left, as the parser checks the promise.
-theorem part1FromInput (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
+theorem part1FromInput ∀ (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     PathCount (Part1Path passages) (solvePart1 passages) :=
   part1Correct passages (parseNoBigNeighbours input passages parsed)
 
-theorem part2FromInput (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
+theorem part2FromInput ∀ (input: Text) (passages: List Passage) (parsed: Fail.toResult (() => parsePassages input) = Ok passages):
     PathCount (Part2Path passages) (solvePart2 passages) :=
   part2Correct passages (parseNoBigNeighbours input passages parsed)

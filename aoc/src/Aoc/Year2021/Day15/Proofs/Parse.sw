@@ -17,7 +17,7 @@ import Std (Eq, Fail, Fin, List, Nat, Result)
 import Std.Parse (digit)
 
 --| What `parseCave` reads is a rectangle with a digit.
-theorem parseRectangle (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Rectangle cave :=
+theorem parseRectangle ∀ (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Rectangle cave :=
   let split := rewrite Fail.toResultThen (() => parseGrid input digit) (grid => ({ grid }: Cave)) at parsed
   Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (grid => Fail.toResult (() => ({ grid }: Cave))) cave split
     (grid read made =>
@@ -27,10 +27,10 @@ theorem parseRectangle (input: Text) (cave: Cave) (parsed: Fail.toResult (() => 
 
 --| Part 1's answer is the lowest total risk, for every input the parser
 --| accepts.
-theorem part1FromInput (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Part1Answer cave (solvePart1 cave) :=
+theorem part1FromInput ∀ (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Part1Answer cave (solvePart1 cave) :=
   part1Correct cave (parseRectangle input cave parsed)
 
 --| Part 2's answer is the lowest total risk through the full cave, for
 --| every input the parser accepts.
-theorem part2FromInput (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Part2Answer cave (solvePart2 cave) :=
+theorem part2FromInput ∀ (input: Text) (cave: Cave) (parsed: Fail.toResult (() => parseCave input) = Ok cave): Part2Answer cave (solvePart2 cave) :=
   part2Correct cave (parseRectangle input cave parsed)

@@ -12,14 +12,14 @@ import Aoc.Year2024.Day23 (..)
 import Aoc.Year2024.Day23.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Not, Or, Set, Void)
 
-theorem sizeThree (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := three.read
+theorem sizeThree ∀ (set: Set Computer) (three: (set.size == 3) = True): set.size = 3 := three.read
 
 --| What the program makes before keeping the sets of three: the sets from
 --| each computer with links.
 def madeSets (links: Links): List Party := links.keySet.toList.flatMap links.setsWith
 
 --| A set the program makes is three computers, each pair neighbours.
-theorem madeElim (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)) (goal: Prop)
+theorem madeElim ∀ (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)) (goal: Prop)
     (found: ∀ (first second third: Computer) => party.members = Set.fromList [first, second, third] →
       (network.links.neighbours first).contains second = True → (network.links.neighbours first).contains third = True →
       (network.links.neighbours second).contains third = True → goal):
@@ -44,7 +44,7 @@ theorem madeElim (network: Network) (party: Party) (made: List.Mem party (madeSe
               found first second third (Eq.cong Party.members (Eq.sym isSet)) ((Set.memToList firstNeighbours second).forward secondListed) firstThird secondThird)))
 
 --| The sets the program makes are all connected.
-theorem madeConnected (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)): AllConnected network party :=
+theorem madeConnected ∀ (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)): AllConnected network party :=
   madeElim network party made (AllConnected network party)
     (first second third isSet firstSecond firstThird secondThird one other heldOne heldOther different =>
       let pair: ∀ (one other: Computer) => (network.links.neighbours one).contains other = True → connected network one other = True :=
@@ -71,7 +71,7 @@ theorem madeConnected (network: Network) (party: Party) (made: List.Mem party (m
 
 --| A set of three is the set of its three computers, in order, and they
 --| are different.
-theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
+theorem threeListed ∀ (set: Set Computer) (three: set.size = 3) (goal: Prop)
     (found: ∀ (first second third: Computer) => set = Set.fromList [first, second, third] →
       first ≠ second → first ≠ third → second ≠ third → goal):
     goal :=
@@ -95,7 +95,7 @@ theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
         (same => secondOut (Inl (Eq.sym same)))
 
 --| The program's sets of three are the puzzle's.
-theorem setsOfThreeIff (network: Network) (party: Party):
+theorem setsOfThreeIff ∀ (network: Network) (party: Party):
     (network.links.setsOfThree.contains party = True) ↔ (InterConnectedThree network party) := {
   forward = held =>
     let kept := Eq.trans (Eq.sym (Set.containsFilter (Set.fromList (madeSets network.links)) party (party => party.size == 3))) held
@@ -136,7 +136,7 @@ theorem setsOfThreeIff (network: Network) (party: Party):
 }
 
 --| "How many contain at least one computer with a name that starts with t?"
-theorem part1Correct (network: Network): IsPart1 network (solvePart1 network) :=
+theorem part1Correct ∀ (network: Network): IsPart1 network (solvePart1 network) :=
   Witness (network.links.setsOfThree.filter Party.mightHaveChief)
     (Both
       (party => {

@@ -45,12 +45,12 @@ test "huge subtraction" := Nat.equal (340282366920938463463374607431768211456 - 
 -- million `Succ`s and crash the checker).
 def shifted (x: Nat): List Nat := [1000000 + x]
 
-theorem shiftSucc (x: Nat): 1000000 + Succ x = Succ (1000000 + x) := rfl
+theorem shiftSucc ∀ (x: Nat): 1000000 + Succ x = Succ (1000000 + x) := rfl
 
 -- `-`, `<=` and `Nat.equal` take off shared `Succ`s in one step.
-theorem subShared (x: Nat): (500000 + x) - 500000 = x := rfl
+theorem subShared ∀ (x: Nat): (500000 + x) - 500000 = x := rfl
 
-theorem leqShared (x: Nat): Nat.leq (1000000 + x) (1000000 + Succ x) = Nat.leq x (Succ x) := rfl
+theorem leqShared ∀ (x: Nat): Nat.leq (1000000 + x) (1000000 + Succ x) = Nat.leq x (Succ x) := rfl
 
 def headOr0: List Nat → Nat
   | [] => 0

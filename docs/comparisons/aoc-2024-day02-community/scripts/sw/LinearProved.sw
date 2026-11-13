@@ -63,7 +63,7 @@ theorem anyRemovedOr: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) =>
     rewrite anyRemovedOr xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) in cases
 
 -- Counting from `Succ start` is counting from `start` with each index moved on.
-theorem anyRangeSucc (holds: Nat → Bool): ∀ (count start: Nat) =>
+theorem anyRangeSucc ∀ (holds: Nat → Bool): ∀ (count start: Nat) =>
     (List.rangeFrom count (Succ start)).any holds = (List.rangeFrom count start).any (index => holds (Succ index))
   | Zero, start => rfl
   | Succ count, start => rewrite anyRangeSucc holds count (Succ start) in rfl
@@ -77,7 +77,7 @@ theorem anyRemovedRange: ∀ (xs: List Nat) (holds: List Nat → Bool) =>
 
 -- After a good step from `before` to `level`, `tolerates` is "passes, or
 -- passes with one of `level` and the rest removed".
-theorem toleratesCorrect (ok: Nat → Nat → Bool): ∀ (before level: Nat) (rest: List Nat) => ok before level = True →
+theorem toleratesCorrect ∀ (ok: Nat → Nat → Bool): ∀ (before level: Nat) (rest: List Nat) => ok before level = True →
     tolerates ok before level rest = ((Cons level rest).chain ok || anyRemoved (ys => (Cons before ys).chain ok) (Cons level rest))
   | before, level, Nil, good => rfl
   | before, level, Cons next rest, good =>
@@ -91,7 +91,7 @@ theorem toleratesCorrect (ok: Nat → Nat → Bool): ∀ (before level: Nat) (re
       | False => rewrite anyRemovedNever rest (ys => ok before level && False) (ys => cases) in cases
 
 -- `toleratesOne` is "passes, or passes with one level removed".
-theorem toleratesOneCorrect (ok: Nat → Nat → Bool): ∀ (levels: List Nat) =>
+theorem toleratesOneCorrect ∀ (ok: Nat → Nat → Bool): ∀ (levels: List Nat) =>
     toleratesOne ok levels = (levels.chain ok || anyRemoved (ys => ys.chain ok) levels)
   | Nil => rfl
   | Cons level Nil => rfl
@@ -104,7 +104,7 @@ theorem toleratesOneCorrect (ok: Nat → Nat → Bool): ∀ (levels: List Nat) =
       | False => rewrite anyRemovedNever rest (ys => False) (ys => rfl) in cases
 
 -- The linear check is the puzzle's rule with the dampener.
-theorem isSafeLinearCorrect (report: Report): report.isSafeLinear = safeWithDampenerByIndex report :=
+theorem isSafeLinearCorrect ∀ (report: Report): report.isSafeLinear = safeWithDampenerByIndex report :=
   rewrite <- isSafeCorrect report,
     List.anyCong (List.range 0 report.levels.length) (index => safe { levels = report.levels.removeAt index })
       (index => Report.isSafe { levels = report.levels.removeAt index }) (index => Eq.sym (isSafeCorrect { levels = report.levels.removeAt index })),
@@ -114,5 +114,5 @@ theorem isSafeLinearCorrect (report: Report): report.isSafeLinear = safeWithDamp
   cases
 
 -- Part 2 by the linear check counts the reports the puzzle calls safe.
-theorem part2LinearCorrect (reports: List Report): reports.count .isSafeLinear = reports.count safeWithDampenerByIndex :=
+theorem part2LinearCorrect ∀ (reports: List Report): reports.count .isSafeLinear = reports.count safeWithDampenerByIndex :=
   List.countCongMem reports Report.isSafeLinear safeWithDampenerByIndex (report _ => isSafeLinearCorrect report)

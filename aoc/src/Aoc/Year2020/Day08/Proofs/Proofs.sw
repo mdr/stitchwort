@@ -10,12 +10,12 @@ import Aoc.Year2020.Day08 (..)
 import Aoc.Year2020.Day08 (Spec)
 import Std (Fail, Int, List, Result, Text)
 
-theorem part1Correct (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program) (answer: Int)
+theorem part1Correct ∀ (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program) (answer: Int)
     (solved: Fail.toResult (() => solvePart1 program) = Ok answer):
     List.All2 Spec.InstructionWritten (input.lines.map Text.toList) program.instructions ∧ Spec.Part1 program answer :=
   Both (parseWritten input program parsed) (part1Rules program answer solved)
 
-theorem part2Correct (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program) (answer: Int)
+theorem part2Correct ∀ (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program) (answer: Int)
     (solved: Fail.toResult (() => solvePart2 program) = Ok answer):
     List.All2 Spec.InstructionWritten (input.lines.map Text.toList) program.instructions ∧ Spec.Part2 program answer :=
   Both (parseWritten input program parsed) (part2Rules program answer solved)

@@ -51,10 +51,10 @@ test "sum" := sumTree example == 10
 test "map" := sumTree (mapTree (n => n + 1) example) == 14
 
 -- Proofs by mutual induction over the two types: mapping changes no sizes.
-theorem sizeMap (f: Nat → Nat) (t: Tree): size (mapTree f t) = size t := match t with
+theorem sizeMap ∀ (f: Nat → Nat) (t: Tree): size (mapTree f t) = size t := match t with
   | Node n kids => Eq.cong Succ (sizeMapForest f kids)
 
-theorem sizeMapForest (f: Nat → Nat) (ts: Forest):
+theorem sizeMapForest ∀ (f: Nat → Nat) (ts: Forest):
     sizeForest (mapForest f ts) = sizeForest ts := match ts with
       | FNil => rfl
       | FCons t ts =>
@@ -88,11 +88,11 @@ def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
-theorem evenIsEven (e: Even): isEven (evenToNat e) = True := match e with
+theorem evenIsEven ∀ (e: Even): isEven (evenToNat e) = True := match e with
   | EZero => rfl
   | ESucc o => oddIsOdd o
 
-theorem oddIsOdd (o: Odd): isOdd (oddToNat o) = True := match o with
+theorem oddIsOdd ∀ (o: Odd): isOdd (oddToNat o) = True := match o with
   | OSucc e => evenIsEven e
 
 test "three" := oddToNat (OSucc (ESucc (OSucc EZero))) == 3

@@ -55,12 +55,12 @@ def Garden.neighboursGrowing (garden: Garden) (plant: Char) (position: Position)
 def Garden.unvisited (garden: Garden) (visited: Set Position): Nat := garden.positions.count (position => !visited.contains position)
 
 --| A position growing a plant is on the list.
-theorem Garden.positionsComplete (garden: Garden) (position: Position) (plant: Char) (grows: garden.plantAt position = Some plant):
+theorem Garden.positionsComplete ∀ (garden: Garden) (position: Position) (plant: Char) (grows: garden.plantAt position = Some plant):
     position ∈ garden.positions :=
   Map.memKeysOfContains garden.plots position (Map.containsOfGet garden.plots position plant grows)
 
 --| Taking a plot not yet visited leaves fewer to visit.
-theorem Garden.unvisitedInsert (garden: Garden) (visited: Set Position) (position: Position) (plant: Char)
+theorem Garden.unvisitedInsert ∀ (garden: Garden) (visited: Set Position) (position: Position) (plant: Char)
     (grows: garden.plantAt position = Some plant) (fresh: visited.contains position = False):
     garden.unvisited (visited.insert position) < garden.unvisited visited :=
   List.countLtMem garden.positions (other => !(visited.insert position).contains other) (other => !visited.contains other)

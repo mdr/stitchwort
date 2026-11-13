@@ -13,6 +13,6 @@ def weighted (aim: Int) (steps: List Int): Int :=
     |> .zipWith steps (at step => at * step)
     |> .sum
 
-theorem weightedCons (aim: Int) (step: Int) (rest: List Int):
+theorem weightedCons ∀ (aim: Int) (step: Int) (rest: List Int):
     weighted aim [step, ..rest] = aim * step + weighted (aim + step) rest :=
   List.sumCons _ _

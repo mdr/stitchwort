@@ -10,13 +10,13 @@ import Aoc.Year2024.Day22.Spec (..)
 import Std (Bool, Eq, List, Nat)
 
 --| `mix` is the puzzle's bitwise XOR.
-theorem mixBitwise (value: Nat) (secret: Nat): BitwiseXor value secret (mix value secret) :=
+theorem mixBitwise ∀ (value: Nat) (secret: Nat): BitwiseXor value secret (mix value secret) :=
   i =>
     Eq.trans (Eq.sym (Nat.testBitDiv (Nat.xor value secret) i))
       (Eq.trans (Nat.testBitXor i value secret) (rewrite Nat.testBitDiv value i, Nat.testBitDiv secret i in rfl))
 
 --| And it is the only number that is.
-theorem bitwiseXorUnique (x: Nat) (y: Nat) (result: Nat) (bitwise: BitwiseXor x y result): result = mix x y :=
+theorem bitwiseXorUnique ∀ (x: Nat) (y: Nat) (result: Nat) (bitwise: BitwiseXor x y result): result = mix x y :=
   Nat.eqOfTestBit result (mix x y)
     (i =>
       Eq.trans (Nat.testBitDiv result i)
@@ -25,11 +25,11 @@ theorem bitwiseXorUnique (x: Nat) (y: Nat) (result: Nat) (bitwise: BitwiseXor x 
 theorem powModulus: Nat.pow 2 24 = modulus := rfl
 
 --| Pruning a mix is mixing the pruned sides.
-theorem pruneMix (value: Nat) (secret: Nat): prune (mix value secret) = Nat.xor (value % modulus) (secret % modulus) := Nat.xorModPow 24 value secret
+theorem pruneMix ∀ (value: Nat) (secret: Nat): prune (mix value secret) = Nat.xor (value % modulus) (secret % modulus) := Nat.xorModPow 24 value secret
 
-theorem belowModulus (n: Nat): n % modulus < modulus := Nat.modLess n modulus (Nat.succNotZero 16777215)
+theorem belowModulus ∀ (n: Nat): n % modulus < modulus := Nat.modLess n modulus (Nat.succNotZero 16777215)
 
-theorem nextSecretEvolves (secret: Nat): nextSecret secret = evolve secret :=
+theorem nextSecretEvolves ∀ (secret: Nat): nextSecret secret = evolve secret :=
   let first := Nat.xor (secret * 64 % modulus) (secret % modulus)
   let firstSmall: first < modulus := Nat.xorBelow 24 (secret * 64 % modulus) (secret % modulus) (belowModulus (secret * 64)) (belowModulus secret)
   let second := Nat.xor (first / 32) first
@@ -38,6 +38,6 @@ theorem nextSecretEvolves (secret: Nat): nextSecret secret = evolve secret :=
     rewrite pruneMix (first / 32) first, Nat.modSmall (first / 32) modulus (omega [firstSmall]), Nat.modSmall first modulus firstSmall in
       rewrite pruneMix (second * 2048) second, Nat.modSmall second modulus secondSmall in rfl
 
-theorem part1Correct (buyers: List Nat): solvePart1 buyers = part1 buyers :=
+theorem part1Correct ∀ (buyers: List Nat): solvePart1 buyers = part1 buyers :=
   List.sumByCong buyers (buyer => Nat.iterate 2000 nextSecret buyer) (buyer => Nat.iterate 2000 evolve buyer)
     (buyer => Nat.iterateCong 2000 nextSecret evolve buyer nextSecretEvolves)

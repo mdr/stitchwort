@@ -14,7 +14,7 @@ def Cave.height (cave: Cave): Nat := cave.rows.length
 def Cave.tiled (cave: Cave): Map :=
   if tall: cave.height != 0 then { size = 5, level = n => n + 1 } else { size = 0, level = n => n }
 
-theorem probe (cave: Cave) (n: Nat): cave.tiled.level n = (if cave.height != 0 then n + 1 else n) :=
+theorem probe ∀ (cave: Cave) (n: Nat): cave.tiled.level n = (if cave.height != 0 then n + 1 else n) :=
   match h: cave.height with
     | Zero => rfl
     | Succ _ => rfl

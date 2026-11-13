@@ -15,4 +15,4 @@ def summary (xs: List Nat) (items: List Item) (id: Nat) (n: Nat): Nat :=
   let found := items.filter (.id == id)
   ?
 
-theorem countBelow (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
+theorem countBelow ∀ (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?

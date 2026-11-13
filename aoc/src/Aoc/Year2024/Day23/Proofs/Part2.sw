@@ -43,10 +43,10 @@ def Answers (network: Network) (clique: Set Computer) (candidates: Set Computer)
     ∧ best.size ≤ result.size
     ∧ (∀ (other: Set Computer) => Clique network other → Within clique other → Within other (clique.union candidates) → other.size ≤ result.size)
 
-theorem sizeWithin (small: Set Computer) (big: Set Computer) (within: Within small big): small.size ≤ big.size := Set.sizeSubset big small within
+theorem sizeWithin ∀ (small: Set Computer) (big: Set Computer) (within: Within small big): small.size ≤ big.size := Set.sizeSubset big small within
 
 --| The clique and its candidates have no computer in common.
-theorem sizeCliqueAndCandidates (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidatesOk: Candidates network clique candidates):
+theorem sizeCliqueAndCandidates ∀ (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidatesOk: Candidates network clique candidates):
     (clique.union candidates).size = clique.size + candidates.size :=
   Set.sizeUnionDisjoint clique candidates (key inClique =>
     match isCandidate: candidates.contains key with
@@ -54,49 +54,49 @@ theorem sizeCliqueAndCandidates (network: Network) (clique: Set Computer) (candi
       | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (candidatesOk key isCandidate).right.left) inClique)))
 
 --| In a union, a key is in one side or the other.
-theorem unionElim (one: Set Computer) (other: Set Computer) (key: Computer) (goal: Prop) (held: (one.union other).contains key = True)
+theorem unionElim ∀ (one: Set Computer) (other: Set Computer) (key: Computer) (goal: Prop) (held: (one.union other).contains key = True)
     (left: one.contains key = True → goal) (right: other.contains key = True → goal): goal :=
   match Eq.trans (Eq.sym (Set.containsUnion one key other)) held with
     | Inl inOne => left inOne
     | Inr inOther => right inOther
 
 --| After an insert, a set holds the key inserted or what it held before.
-theorem insertElim (set: Set Computer) (inserted: Computer) (key: Computer) (goal: Prop) (held: (set.insert inserted).contains key = True)
+theorem insertElim ∀ (set: Set Computer) (inserted: Computer) (key: Computer) (goal: Prop) (held: (set.insert inserted).contains key = True)
     (same: key = inserted → goal) (before: set.contains key = True → goal): goal :=
   match Set.containsInsertElim set inserted key held with
     | Inl isInserted => same isInserted
     | Inr wasThere => before wasThere
 
-theorem intersectElim (one: Set Computer) (other: Set Computer) (key: Computer) (held: (one.intersect other).contains key = True):
+theorem intersectElim ∀ (one: Set Computer) (other: Set Computer) (key: Computer) (held: (one.intersect other).contains key = True):
     one.contains key = True ∧ other.contains key = True :=
   let (Both inOne inOther) := Eq.trans (Eq.sym (Set.containsIntersect one key other)) held
   Both inOne inOther
 
 --| With nothing to pop, a set holds nothing.
-theorem noneHeld (set: Set Computer) (found: set.popMin = None) (key: Computer) (held: set.contains key = True): Void :=
+theorem noneHeld ∀ (set: Set Computer) (found: set.popMin = None) (key: Computer) (held: set.contains key = True): Void :=
   let least := Set.popMinNone set found
   let listed: List.Mem key set.toList := held.read
   match keys: set.toList with
     | [first, ..rest] => Option.someNotNone first (Eq.trans (Eq.sym (rewrite Set.minToList set, keys in rfl)) least)
 
-theorem sizeNone (set: Set Computer) (found: set.popMin = None): set.size = 0 :=
+theorem sizeNone ∀ (set: Set Computer) (found: set.popMin = None): set.size = 0 :=
   rewrite Set.sizeToList set in
   match keys: set.toList with
     | [] => rfl
     | [first, ..rest] => Void.exfalso (noneHeld set found first ((Set.memToList set first).forward (rewrite keys in Inl rfl)))
 
 --| The other candidates are the candidates other than the smallest.
-theorem othersElim (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
+theorem othersElim ∀ (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
     (key: Computer) (held: others.contains key = True): candidates.contains key = True ∧ key ≠ candidate :=
   if same: key = candidate then Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove candidates candidate)) (rewrite othersAre, same at held)))
   else Both (rewrite othersAre, Set.containsRemoveOther candidates candidate key same at held) same
 
-theorem othersIntro (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
+theorem othersIntro ∀ (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
     (key: Computer) (held: candidates.contains key = True) (different: key ≠ candidate): others.contains key = True :=
   rewrite othersAre, Set.containsRemoveOther candidates candidate key different in held
 
 --| A candidate added to the clique keeps it a clique.
-theorem cliqueInsert (network: Network) (clique: Set Computer) (candidate: Computer) (cliqueOk: Clique network clique)
+theorem cliqueInsert ∀ (network: Network) (clique: Set Computer) (candidate: Computer) (cliqueOk: Clique network clique)
     (candidateLinked: network.links.keySet.contains candidate = True)
     (candidateNeighbours: ∀ (member: Computer) => clique.contains member = True → (network.links.neighbours candidate).contains member = True):
     Clique network (clique.insert candidate) :=
@@ -117,7 +117,7 @@ theorem cliqueInsert (network: Network) (clique: Set Computer) (candidate: Compu
 
 --| With the candidate in the clique, its neighbours among the other
 --| candidates are the candidates.
-theorem candidatesNarrowed (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
+theorem candidatesNarrowed ∀ (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
     (candidatesOk: Candidates network clique candidates) (othersAre: others = candidates.remove candidate):
     Candidates network (clique.insert candidate) (network.links.neighbours candidate |> .intersect others) :=
   key held =>
@@ -133,7 +133,7 @@ theorem candidatesNarrowed (network: Network) (clique: Set Computer) (candidates
 
 --| A clique holding the candidate is within the clique, the candidate and
 --| its neighbours among the other candidates.
-theorem withinWithCandidate (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
+theorem withinWithCandidate ∀ (network: Network) (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
     (othersAre: others = candidates.remove candidate) (other: Set Computer) (otherOk: Clique network other) (has: other.contains candidate = True)
     (within: Within other (clique.union candidates)):
     Within other ((clique.insert candidate).union (network.links.neighbours candidate |> .intersect others)) :=
@@ -151,7 +151,7 @@ theorem withinWithCandidate (network: Network) (clique: Set Computer) (candidate
 
 --| A clique without the candidate is within the clique and the other
 --| candidates.
-theorem withinWithoutCandidate (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
+theorem withinWithoutCandidate ∀ (clique: Set Computer) (candidates: Set Computer) (candidate: Computer) (others: Set Computer)
     (othersAre: others = candidates.remove candidate) (other: Set Computer) (hasNot: other.contains candidate = False)
     (within: Within other (clique.union candidates)): Within other (clique.union others) :=
   key held =>
@@ -161,7 +161,7 @@ theorem withinWithoutCandidate (clique: Set Computer) (candidates: Set Computer)
         if same: key = candidate then Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym hasNot) (rewrite <- same in held)))
         else Set.containsUnionRight clique others key (othersIntro candidates candidate others othersAre key wasCandidate same))
 
-theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
+theorem largestFromAnswers ∀ (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
     (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best):
     Answers network clique candidates best (network.links.largestFrom clique candidates best)
     decreasing candidates.size
@@ -214,24 +214,24 @@ theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates
                 | False =>
                   restOk.right.right other otherOk inside (withinWithoutCandidate clique candidates candidate others othersAre other has within)))
 
-theorem emptyClique (network: Network): Clique network Set.empty :=
+theorem emptyClique ∀ (network: Network): Clique network Set.empty :=
   Both (member held => cases) (one other heldOne heldOther different => cases)
 
 --| At the start, every computer with links is a candidate.
-theorem allCandidates (network: Network): Candidates network Set.empty network.links.keySet :=
+theorem allCandidates ∀ (network: Network): Candidates network Set.empty network.links.keySet :=
   candidate held => Both held (Both rfl (member inEmpty => cases))
 
 --| The puzzle's cliques are the program's.
-theorem cliqueOfSpec (network: Network) (party: Party) (spec: IsClique network party): Clique network party.members :=
+theorem cliqueOfSpec ∀ (network: Network) (party: Party) (spec: IsClique network party): Clique network party.members :=
   Both (member held => (hasLinksIff network member).backward (spec.left member held))
     (one other heldOne heldOther different => (linkedIff network one other).backward (spec.right one other heldOne heldOther different))
 
-theorem specOfClique (network: Network) (party: Party) (clique: Clique network party.members): IsClique network party :=
+theorem specOfClique ∀ (network: Network) (party: Party) (clique: Clique network party.members): IsClique network party :=
   Both (member held => (hasLinksIff network member).forward (clique.left member held))
     (one other heldOne heldOther different => (linkedIff network one other).forward (clique.right one other heldOne heldOther different))
 
 --| "the largest set of computers that are all connected to each other".
-theorem largestCorrect (network: Network): IsLargest network (network.links.largestClique) :=
+theorem largestCorrect ∀ (network: Network): IsLargest network (network.links.largestClique) :=
   let answers := largestFromAnswers network Set.empty network.links.keySet Set.empty (emptyClique network) (allCandidates network) (emptyClique network)
   Both (specOfClique network (network.links.largestClique) answers.left)
     (other otherSpec =>
@@ -239,4 +239,4 @@ theorem largestCorrect (network: Network): IsLargest network (network.links.larg
       answers.right.right other.members otherOk (key held => cases)
         (key held => Set.containsUnionRight Set.empty network.links.keySet key (otherOk.left key held)))
 
-theorem part2Correct (network: Network): IsPart2 network (solvePart2 network) := Witness (network.links.largestClique) (Both (largestCorrect network) rfl)
+theorem part2Correct ∀ (network: Network): IsPart2 network (solvePart2 network) := Witness (network.links.largestClique) (Both (largestCorrect network) rfl)

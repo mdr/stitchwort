@@ -6,19 +6,19 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (Eq, Nat)
 
-theorem healedAtMost (hitPoints: Nat): healed hitPoints ≤ maxHitPoints :=
+theorem healedAtMost ∀ (hitPoints: Nat): healed hitPoints ≤ maxHitPoints :=
   match fits: Nat.leq (hitPoints + potionStrength) maxHitPoints with
     | True => fits
     | False => rfl
 
-theorem monstersTurnAtMost (dice: Dice) (state: State) (atMost: state.hitPoints ≤ maxHitPoints):
+theorem monstersTurnAtMost ∀ (dice: Dice) (state: State) (atMost: state.hitPoints ≤ maxHitPoints):
     (monstersTurn dice state).hitPoints ≤ maxHitPoints := match phase: state.phase with
       | Playing => omega
       | Won => atMost
       | Died => atMost
       | GaveUp => atMost
 
-theorem playerMovesAtMost (dice: Dice) (state: State) (direction: Direction) (atMost: state.hitPoints ≤ maxHitPoints):
+theorem playerMovesAtMost ∀ (dice: Dice) (state: State) (direction: Direction) (atMost: state.hitPoints ≤ maxHitPoints):
     (playerMoves dice state direction).hitPoints ≤ maxHitPoints :=
   match found: monsterAt (state.player.toward direction) state.monsters with
     | Some monster => atMost
@@ -27,10 +27,10 @@ theorem playerMovesAtMost (dice: Dice) (state: State) (direction: Direction) (at
         | True => atMost
         | False => rewrite enterHitPoints state (state.player.toward direction) in atMost
 
-theorem descendAtMost (dice: Dice) (state: State) (atMost: state.hitPoints ≤ maxHitPoints): (descend dice state).hitPoints ≤ maxHitPoints :=
+theorem descendAtMost ∀ (dice: Dice) (state: State) (atMost: state.hitPoints ≤ maxHitPoints): (descend dice state).hitPoints ≤ maxHitPoints :=
   atMost
 
-theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
+theorem resolveAtMost ∀ (dice: Dice) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
     (resolve dice state command).hitPoints ≤ maxHitPoints := match phase: state.phase with
       | Playing =>
         match command with
@@ -50,6 +50,6 @@ theorem resolveAtMost (dice: Dice) (state: State) (command: Command) (atMost: st
       | GaveUp => atMost
 
 --| Hit points never exceed the maximum after a turn, whatever the seed.
-theorem stepAtMost (seed: Nat) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
+theorem stepAtMost ∀ (seed: Nat) (state: State) (command: Command) (atMost: state.hitPoints ≤ maxHitPoints):
     (Random.withSeed seed (() => step state command)).hitPoints ≤ maxHitPoints :=
   resolveAtMost { seed = lcg seed / 65536 } state command atMost

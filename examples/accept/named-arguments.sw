@@ -123,5 +123,5 @@ test "a pipe fills the first parameter" := (5 |> clampValue (low := 0) (high := 
 test "a pipe after a named argument" := (20 |> clampValue (high := 10) (low := 0)) == 10
 
 -- Proofs see the positional term.
-theorem namedIsPositional (low: Nat) (high: Nat):
+theorem namedIsPositional ∀ (low: Nat) (high: Nat):
     between (high := high) (low := low) = between low high := rfl

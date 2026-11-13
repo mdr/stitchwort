@@ -33,7 +33,7 @@ theorem readsJigsaw: Parse.Reads jigsaw JigsawWritten :=
   Parse.readsThen (Parse.readsSections tile TileWritten readsTile) (tilesRead tiles written =>
     Parse.readsDone { tiles = tiles.toList } _ (Witness tiles (Both (rewrite List.appendNil tilesRead in written) rfl)))
 
-theorem parseWritten (input: Text) (parsed: Jigsaw) (h: Fail.toResult (() => parseJigsaw input) = Ok parsed):
+theorem parseWritten ∀ (input: Text) (parsed: Jigsaw) (h: Fail.toResult (() => parseJigsaw input) = Ok parsed):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ JigsawWritten read parsed ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input Aoc.Year2020.Day20.jigsaw JigsawWritten parsed h readsJigsaw

@@ -17,7 +17,7 @@ def symbol: Square → Char
   | Tree => '#'
 
 --| A character the parser accepts is the symbol of the square it makes.
-theorem symbolOfChar (char: Char) (allowed: isSquare char = True): symbol (Square.ofChar char) = char :=
+theorem symbolOfChar ∀ (char: Char) (allowed: isSquare char = True): symbol (Square.ofChar char) = char :=
   match tree: char == '#' with
     | True => Eq.sym tree.read
     | False =>
@@ -32,7 +32,7 @@ theorem readsSquare: Parse.Reads square (read square => read = [symbol square]) 
         | Witness char (Both (Both one allowed) made) => rewrite made, one, symbolOfChar char allowed in rfl)
 
 --| Every line of the input is its row of the map written out.
-theorem parseWritten (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
+theorem parseWritten ∀ (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
     List.All2 (line row => line = row.map symbol) (input.lines.map Text.toList) map.rows :=
   let split := rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 square |> .toList)) checkGrid at parsed
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) map split (rows read checked =>
@@ -45,7 +45,7 @@ theorem parseWritten (input: Text) (map: Grid Square) (parsed: Fail.toResult (()
               | Witness squares (Both each same) => rewrite same in Parse.eachChars symbol line squares.toList each)))
 
 --| On any input the parser reads, both answers are the puzzle's.
-theorem answersCorrect (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
+theorem answersCorrect ∀ (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
     solvePart1 map = part1Answer map ∧ solvePart2 map = part2Answer map :=
   let rectangle := (isRectangleIff map).backward (And.left (parseGridRectangle input square map parsed))
   Both (part1Correct map rectangle) (part2Correct map rectangle)

@@ -25,7 +25,7 @@ import Std (And, Bool, DecEq, Eq, List, Map, Nat, Ord, Pair, Void)
 
 --| The three largest of the same sizes in any order: sorting largest first is
 --| sorting by the reverse order.
-theorem threeLargestPerm (xs: List Nat) (ys: List Nat) (p: List.Perm xs ys): threeLargestProduct xs = threeLargestProduct ys :=
+theorem threeLargestPerm ∀ (xs: List Nat) (ys: List Nat) (p: List.Perm xs ys): threeLargestProduct xs = threeLargestProduct ys :=
   Eq.cong (sorted => List.product (List.take sorted 3)) (List.sortEqOfPerm [ord := Ord.reverse] xs ys p)
 
 -- The histogram's keys --------------------------------------------------------
@@ -36,34 +36,34 @@ def labelCount (c: Circuits) (n: Nat) (label: Nat): Nat := List.count (List.map 
 --| The histogram of the labels.
 def labelCounts (c: Circuits) (n: Nat): Map Nat Nat := Map.counts (List.map (List.range 0 n) c.labelOf)
 
-theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCounts c n) label 0 = labelCount c n label :=
+theorem getOrLabelCounts ∀ (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCounts c n) label 0 = labelCount c n label :=
   Map.getOrCounts label (List.map (List.range 0 n) c.labelOf)
 
 --| Each entry of the histogram is a label and its count.
-theorem entryCount (c: Circuits) (n: Nat) (e: (Nat, Nat)) (m: List.Mem e (Map.toList (labelCounts c n))): e.snd = labelCount c n e.fst :=
+theorem entryCount ∀ (c: Circuits) (n: Nat) (e: (Nat, Nat)) (m: List.Mem e (Map.toList (labelCounts c n))): e.snd = labelCount c n e.fst :=
   match e with
     | (label, v) =>
       Eq.trans (Eq.sym (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m))) (getOrLabelCounts c n label)
 
 --| A label is counted once at least exactly when some box has it.
-theorem memOfCount (c: Circuits) (n: Nat) (label: Nat) (h: 0 < labelCount c n label): List.Mem label (List.map (List.range 0 n) c.labelOf) :=
+theorem memOfCount ∀ (c: Circuits) (n: Nat) (label: Nat) (h: 0 < labelCount c n label): List.Mem label (List.map (List.range 0 n) c.labelOf) :=
   let found: (List.map (List.range 0 n) c.labelOf).any (x => x == label) = True :=
     rewrite List.anyOccurrences (List.map (List.range 0 n) c.labelOf) (x => x == label), <- List.countOccurrences _ (x => x == label) in h
   let Witness x (Both m e) := found
   rewrite <- e.read in m
 
-theorem countOfMem (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)): 0 < labelCount c n label :=
+theorem countOfMem ∀ (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)): 0 < labelCount c n label :=
   rewrite List.countOccurrences _ (x => x == label), <- List.anyOccurrences _ (x => x == label) in
     Witness label (Both m (DecEq.refl label))
 
 --| The histogram's keys are the labels.
-theorem keyOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
+theorem keyOfLabel ∀ (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
     List.Mem label (Map.keys (labelCounts c n)) :=
   let positive: 0 < Map.getOr (labelCounts c n) label 0 := rewrite getOrLabelCounts c n label in countOfMem c n label m
   match g: Map.get (labelCounts c n) label with
     | Some v => List.memMap (Map.toList (labelCounts c n)) (label, v) ((Map.memToList (labelCounts c n) label v).backward g) Pair.fst
 
-theorem labelOfKey (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (Map.keys (labelCounts c n))):
+theorem labelOfKey ∀ (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (Map.keys (labelCounts c n))):
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=
   List.anyElim ((e: (Nat, Nat)) => e.fst = label) (List.Mem label (List.map (List.range 0 n) c.labelOf)) (Map.toList (labelCounts c n))
     (List.memMapAny (Map.toList (labelCounts c n)) Pair.fst label m)
@@ -76,7 +76,7 @@ theorem labelOfKey (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (Map.k
       rewrite <- key in memOfCount c n e.fst (rewrite <- entryCount c n e me in positive))
 
 --| The histogram's values are the counts of its keys.
-theorem valuesAreCounts (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (labelCounts c n)) (labelCount c n) :=
+theorem valuesAreCounts ∀ (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (labelCounts c n)) (labelCount c n) :=
   rewrite List.mapMap (Map.toList (labelCounts c n)) (labelCount c n) Pair.fst in
     List.mapCongMem (Map.toList (labelCounts c n)) Pair.snd (e => labelCount c n e.fst) (entryCount c n)
 
@@ -86,7 +86,7 @@ theorem valuesAreCounts (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (
 def firstBox (c: Circuits) (b: Nat): Bool := ¬(List.range 0 b |> .any (other => c.labelOf other == c.labelOf b))
 
 --| The labels of the first boxes don't repeat ...
-theorem firstsDistinct (c: Circuits) (k s: Nat): List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf) :=
+theorem firstsDistinct ∀ (c: Circuits) (k s: Nat): List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf) :=
   match k with
     | Zero => Trivial
     | Succ k =>
@@ -107,7 +107,7 @@ theorem firstsDistinct (c: Circuits) (k s: Nat): List.Distinct (List.map (List.f
         | False => firstsDistinct c k (Succ s)
 
 --| ... and they are all the labels: each box's label is a first box's.
-theorem firstOf (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
+theorem firstOf ∀ (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
     List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) := match fuel with
       | Succ fuel =>
         match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
@@ -118,13 +118,13 @@ theorem firstOf (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
             let below := List.memRangeFrom other b 0 mo
             rewrite <- same.read in firstOf c n fuel other omega omega
 
-theorem labelOfFirst (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
+theorem labelOfFirst ∀ (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=
   List.anyElim (b => c.labelOf b = label) (List.Mem label (List.map (List.range 0 n) c.labelOf)) (List.filter (List.range 0 n) (firstBox c))
     (List.memMapAny _ c.labelOf label m)
     (b mb e => rewrite <- e in List.memMap (List.range 0 n) b (And.left (List.memFilter (List.range 0 n) (firstBox c) mb)) c.labelOf)
 
-theorem firstOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
+theorem firstOfLabel ∀ (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.range 0 n) c.labelOf)):
     List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) :=
   List.anyElim (b => c.labelOf b = label) (List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)) (List.range 0 n)
     (List.memMapAny _ c.labelOf label m)
@@ -132,12 +132,12 @@ theorem firstOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (Lis
 
 --| The spec's sizes, with "same label" as the test, are the counts of the
 --| first boxes' labels.
-theorem circuitSizesAreCounts (c: Circuits) (n: Nat):
+theorem circuitSizesAreCounts ∀ (c: Circuits) (n: Nat):
     circuitSizes n (a b => c.labelOf a == c.labelOf b) = List.map (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) (labelCount c n) :=
   rewrite List.mapMap _ (labelCount c n) c.labelOf, List.countMap (List.range 0 n) (x => x == c.labelOf _) c.labelOf in rfl
 
 --| The program's sizes are the spec's, in another order.
-theorem sizesPerm (c: Circuits) (n: Nat): List.Perm (c.sizes n) (circuitSizes n (a b => c.labelOf a == c.labelOf b)) :=
+theorem sizesPerm ∀ (c: Circuits) (n: Nat): List.Perm (c.sizes n) (circuitSizes n (a b => c.labelOf a == c.labelOf b)) :=
   rewrite valuesAreCounts c n, circuitSizesAreCounts c n in
     List.permMap (Map.keys (labelCounts c n)) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)
       (List.permOfSameMembers (Map.keys (labelCounts c n)) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)

@@ -47,13 +47,13 @@ def allReading (xs: List a) (f: a → Bool): Dec (∀ (x: a) => x ∈ xs → f x
 }
 
 -- Each reading's `does` is the test, by computation, with everything unknown.
-theorem doesAnd (a b: Bool): (andReading a b).does = (a && b) := rfl
-theorem doesAny (xs: List Nat) (f: Nat → Bool): (anyReading xs f).does = xs.any f := rfl
-theorem doesAll (xs: List Nat) (f: Nat → Bool): (allReading xs f).does = xs.all f := rfl
+theorem doesAnd ∀ (a b: Bool): (andReading a b).does = (a && b) := rfl
+theorem doesAny ∀ (xs: List Nat) (f: Nat → Bool): (anyReading xs f).does = xs.any f := rfl
+theorem doesAll ∀ (xs: List Nat) (f: Nat → Bool): (allReading xs f).does = xs.all f := rfl
 
 -- `match h with | Both ha (Inl hb) | Both ha (Inr hc)`, as elaborated: one
 -- layer per constructor pattern.
-theorem nested (a b c: Bool) (h: (a && (b || c)) = True): b = True ∨ c = True :=
+theorem nested ∀ (a b c: Bool) (h: (a && (b || c)) = True): b = True ∨ c = True :=
   match (andReading a (b || c)).sound h with
     | Both ha rest =>
       match (orReading b c).sound rest with
@@ -61,21 +61,21 @@ theorem nested (a b c: Bool) (h: (a && (b || c)) = True): b = True ∨ c = True 
         | Inr hc => Inr hc
 
 -- `Witness x (Both xIn (Both small big))` on an `any` fact.
-theorem anyNested (xs: List Nat) (h: xs.any (x => 3 ≤ x && x ≤ 5) = True): ∃ (x: Nat) => x ∈ xs ∧ 3 ≤ x :=
+theorem anyNested ∀ (xs: List Nat) (h: xs.any (x => 3 ≤ x && x ≤ 5) = True): ∃ (x: Nat) => x ∈ xs ∧ 3 ≤ x :=
   match (anyReading xs (x => 3 ≤ x && x ≤ 5)).sound h with
     | Witness x (Both xIn fx) =>
       match (andReading (Nat.leq 3 x) (Nat.leq x 5)).sound fx with
         | Both small big => Witness x (Both xIn small)
 
 -- Building: `Both ha hb` where `(a && b) = True` is wanted.
-theorem build (a b: Bool) (ha: a = True) (hb: b = True): (a && b) = True := (andReading a b).complete (Both ha hb)
+theorem build ∀ (a b: Bool) (ha: a = True) (hb: b = True): (a && b) = True := (andReading a b).complete (Both ha hb)
 
 -- `match h with | Inl na | Inr nb` on `h: (a && b) = False`.
-theorem negative (a b: Bool) (h: (a && b) = False) (hb: b = True): a = False :=
+theorem negative ∀ (a b: Bool) (h: (a && b) = False) (hb: b = True): a = False :=
   match (notAndReading a b).sound (Bool.notOfFalse (a && b) h) with
     | Inl na => na
     | Inr nb => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym nb) hb))
 
 -- Applying an `all` fact, and building one with a lambda.
-theorem useAll (xs: List Nat) (h: xs.all (x => x ≤ 9) = True) (y: Nat) (yIn: y ∈ xs): y ≤ 9 :=
+theorem useAll ∀ (xs: List Nat) (h: xs.all (x => x ≤ 9) = True) (y: Nat) (yIn: y ∈ xs): y ≤ 9 :=
   (allReading xs (x => x ≤ 9)).sound h y yIn

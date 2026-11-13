@@ -19,7 +19,7 @@ theorem readsSeat: Parse.Reads seat (read seat => read = [symbol seat]) :=
         | Occupied => same)
 
 --| Every line a grid of seats is read from is its row written out.
-theorem gridWritten (input: Text) (grid: Grid Seat) (parsed: Fail.toResult (() => parseGrid input seat) = Ok grid):
+theorem gridWritten ∀ (input: Text) (grid: Grid Seat) (parsed: Fail.toResult (() => parseGrid input seat) = Ok grid):
     List.All2 RowWritten (input.lines.map Text.toList) grid.rows :=
   let split := rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 seat |> .toList)) checkGrid at parsed
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) grid split (rows read checked =>
@@ -33,7 +33,7 @@ theorem gridWritten (input: Text) (grid: Grid Seat) (parsed: Fail.toResult (() =
 
 --| Every line of the input is its row of the layout written out, and the
 --| layout is a rectangle.
-theorem parseWritten (input: Text) (layout: Layout) (parsed: Fail.toResult (() => parseLayout input) = Ok layout):
+theorem parseWritten ∀ (input: Text) (layout: Layout) (parsed: Fail.toResult (() => parseLayout input) = Ok layout):
     List.All2 RowWritten (input.lines.map Text.toList) layout.grid.rows ∧ layout.grid.Rectangle :=
   let split := rewrite Fail.toResultThen (() => parseGrid input seat) (grid => ({ grid }: Layout)) at parsed
   Result.flatMapEqOk (Fail.toResult (() => parseGrid input seat)) (grid => Fail.toResult (() => ({ grid }: Layout))) layout split

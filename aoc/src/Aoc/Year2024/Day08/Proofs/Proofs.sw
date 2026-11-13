@@ -14,11 +14,11 @@ import Aoc.Year2024.Day08.Spec (..)
 import Std (And, Bool, DecEq, Eq, Int, Iff, List, Map, Nat, Set, Void)
 
 --| A location on the map is in `positions`, and only those are.
-theorem positionsOnMap (city: City) (position: Position) (inside: city.contains position = True):
+theorem positionsOnMap ∀ (city: City) (position: Position) (inside: city.contains position = True):
     (positions city.height city.width).any (other => Map.Spec.sameKey position other) = True :=
   Witness position (Both ((memPositions city.height city.width position).backward inside) (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position))
 
-theorem positionsOnlyOnMap (city: City) (position: Position) (has: (positions city.height city.width).any (other => Map.Spec.sameKey position other) = True):
+theorem positionsOnlyOnMap ∀ (city: City) (position: Position) (has: (positions city.height city.width).any (other => Map.Spec.sameKey position other) = True):
     city.contains position = True :=
   let Witness other (Both member same) := has
   rewrite Map.Spec.sameKeySound position other same in (memPositions city.height city.width other).forward member
@@ -31,7 +31,7 @@ def partners (city: City) (antenna: Antenna): List (Position, Position) :=
   city.antennas |> .filter (sameFrequency antenna) |> .map (other => (antenna.position, other.position))
 
 --| The program's pairs are the spec's.
-theorem pairsElim (city: City) (pair: (Position, Position)) (goal: Prop) (has: pair ∈ city.antennaPairs)
+theorem pairsElim ∀ (city: City) (pair: (Position, Position)) (goal: Prop) (has: pair ∈ city.antennaPairs)
     (use: ∀ (first second: Antenna) => first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
       (first.position, second.position) = pair → goal):
     goal :=
@@ -43,7 +43,7 @@ theorem pairsElim (city: City) (pair: (Position, Position)) (goal: Prop) (has: p
           let both := List.memFilter city.antennas (sameFrequency first) secondIn
           use first second firstIn (And.left both) (And.right both) built))
 
-theorem pairsIntro (city: City) (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas)
+theorem pairsIntro ∀ (city: City) (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas)
     (same: sameFrequency first second = True):
     (first.position, second.position) ∈ city.antennaPairs :=
   List.memFlatMapIntro (partners city) first (first.position, second.position) city.antennas firstIn
@@ -53,7 +53,7 @@ theorem pairsIntro (city: City) (first: Antenna) (second: Antenna) (firstIn: fir
 --| The antinode locations, from `pick`, the points each pair of antennas
 --| gives: when, for two antennas, `pick` gives exactly the points on the map
 --| that `holds`, the program's locations are the spec's.
-theorem locationsCorrect (city: City) (pick: (Position, Position) → List Position) (holds: Position → Position → Position → Bool)
+theorem locationsCorrect ∀ (city: City) (pick: (Position, Position) → List Position) (holds: Position → Position → Position → Bool)
     (agree: ∀ (first second: Antenna) => first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
       ∀ (point: Position) => city.contains point = True → (point ∈ pick (first.position, second.position)) ↔ (holds point first.position second.position = True)):
     city.locations (city.antennaPairs.flatMap pick) = antinodeLocations city (point => twoAntennas city (holds point)) :=

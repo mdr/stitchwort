@@ -11,10 +11,10 @@ def List.IsNil: (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => Void
 
-theorem List.nilNotCons (x: a) (xs: List a): [] ≠ [x, ..xs]
+theorem List.nilNotCons ∀ (x: a) (xs: List a): [] ≠ [x, ..xs]
   | p => J (y q => List.IsNil y) Trivial p
 
-theorem List.consNotNil (x: a) (xs: List a): [x, ..xs] ≠ []
+theorem List.consNotNil ∀ (x: a) (xs: List a): [x, ..xs] ≠ []
   | p => List.nilNotCons x xs (Eq.sym p)
 
 --| The first element, or `fallback` for an empty list. A result equal to
@@ -61,10 +61,10 @@ def Option.IsNone: (option: Option a) → Prop
   | None => Unit
   | Some x => Void
 
-theorem Option.noneNotSome (x: a): None ≠ Some x
+theorem Option.noneNotSome ∀ (x: a): None ≠ Some x
   | p => J (y q => Option.IsNone y) Trivial p
 
-theorem Option.someNotNone (x: a): Some x ≠ None
+theorem Option.someNotNone ∀ (x: a): Some x ≠ None
   | p => Option.noneNotSome x (Eq.sym p)
 
 --| The value, or `fallback` if there isn't one.
@@ -118,12 +118,12 @@ def Pair.All (p: a → Prop) (q: b → Prop): (pair: Pair a b) → Prop
   | MkPair x y => (p x) ∧ (q y)
 
 --| What holds of every element holds of each one.
-theorem List.memOfAll (p: a → Prop): ∀ (xs: List a) => List.All p xs → ∀ (x: a) => List.Mem x xs → p x
+theorem List.memOfAll ∀ (p: a → Prop): ∀ (xs: List a) => List.All p xs → ∀ (x: a) => List.Mem x xs → p x
   | [], all, x, member => Void.exfalso member
   | [y, ..ys], Both here rest, x, Inl same => J (z e => p z) here same
   | [y, ..ys], Both here rest, x, Inr member => List.memOfAll p ys rest x member
 
 --| What holds of the value, if any, holds of the value there is.
-theorem Option.memOfAll (p: a → Prop): ∀ (o: Option a) => Option.All p o → ∀ (x: a) => o = Some x → p x
+theorem Option.memOfAll ∀ (p: a → Prop): ∀ (o: Option a) => Option.All p o → ∀ (x: a) => o = Some x → p x
   | None, all, x, e => Void.exfalso (Option.noneNotSome x e)
   | Some y, here, x, e => J (z s => p z) here (Eq.cong (.getOrElse y) e)

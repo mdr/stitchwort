@@ -63,15 +63,15 @@ def Int.IsOfNat: (x: Int) → Prop
   | OfNat n => Unit
   | NegSucc n => Void
 
-theorem Int.ofNatNotNegSucc (m: Nat) (n: Nat): OfNat m ≠ NegSucc n
+theorem Int.ofNatNotNegSucc ∀ (m: Nat) (n: Nat): OfNat m ≠ NegSucc n
   | p => J (y q => Int.IsOfNat y) Trivial p
 
-theorem Int.negSuccNotOfNat (m: Nat) (n: Nat): NegSucc m ≠ OfNat n
+theorem Int.negSuccNotOfNat ∀ (m: Nat) (n: Nat): NegSucc m ≠ OfNat n
   | p => Int.ofNatNotNegSucc n m (Eq.sym p)
 
-theorem Int.ofNatInjective (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p
+theorem Int.ofNatInjective ∀ (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p
 
-theorem Int.negSuccInjective [m: Nat] [n: Nat] (p: NegSucc m = NegSucc n): m = n := Nat.succInjective (Eq.cong Int.natAbs p)
+theorem Int.negSuccInjective ∀ [m: Nat] [n: Nat] (p: NegSucc m = NegSucc n): m = n := Nat.succInjective (Eq.cong Int.natAbs p)
 
 --| Decides whether two `OfNat`s are equal, from a decision about their numbers.
 def Int.decOfNat (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (OfNat m = OfNat n) :=
@@ -112,11 +112,11 @@ def Int.LessThan (a: Int) (b: Int): Prop := Int.less a b = True
 
 --| `Int.leq a b` (what `a <= b` is on `Int`) reads as `a ≤ b`.
 @[reading]
-theorem Int.leqReads (a: Int) (b: Int): Int.leq a b ↔ Int.LessEq a b := { forward = h => h, backward = h => h }
+theorem Int.leqReads ∀ (a: Int) (b: Int): Int.leq a b ↔ Int.LessEq a b := { forward = h => h, backward = h => h }
 
 --| `Int.leq a b` is `False` exactly when `b` is below `a`.
 @[reading]
-theorem Int.leqReadsFalse (a: Int) (b: Int): Int.leq a b = False ↔ Int.LessThan b a := match a, b with
+theorem Int.leqReadsFalse ∀ (a: Int) (b: Int): Int.leq a b = False ↔ Int.LessThan b a := match a, b with
   | OfNat m, OfNat n => Nat.leqReadsFalse m n
   | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
   | NegSucc m, OfNat n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
@@ -124,11 +124,11 @@ theorem Int.leqReadsFalse (a: Int) (b: Int): Int.leq a b = False ↔ Int.LessTha
 
 --| `Int.less a b` (what `a < b` is on `Int`) reads as `a < b`.
 @[reading]
-theorem Int.lessReads (a: Int) (b: Int): Int.less a b ↔ Int.LessThan a b := { forward = h => h, backward = h => h }
+theorem Int.lessReads ∀ (a: Int) (b: Int): Int.less a b ↔ Int.LessThan a b := { forward = h => h, backward = h => h }
 
 --| `Int.less a b` is `False` exactly when `b` is at most `a`.
 @[reading]
-theorem Int.lessReadsFalse (a: Int) (b: Int): Int.less a b = False ↔ Int.LessEq b a := match a, b with
+theorem Int.lessReadsFalse ∀ (a: Int) (b: Int): Int.less a b = False ↔ Int.LessEq b a := match a, b with
   | OfNat m, OfNat n => Nat.leqReadsFalse (Succ m) n
   | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
   | NegSucc m, OfNat n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }

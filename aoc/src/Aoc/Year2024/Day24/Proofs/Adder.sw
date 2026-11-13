@@ -11,7 +11,7 @@ import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| Each operation gives the same with its inputs either way round.
-theorem gateOutputComm (operation: Operation) (a b: Bool): gateOutput operation a b = gateOutput operation b a :=
+theorem gateOutputComm ∀ (operation: Operation) (a b: Bool): gateOutput operation a b = gateOutput operation b a :=
   match operation with
     | And => cases
     | Or => cases
@@ -23,7 +23,7 @@ def doesOn (operation: Operation) (a: Wire) (b: Wire) (gate: Gate): Bool :=
   gate.operation == operation ∧ (gate.left == a ∧ gate.right == b ∨ gate.left == b ∧ gate.right == a)
 
 --| What `outputOf` finds is the output of such a gate.
-theorem outputOfFound (gates: List Gate) (operation: Operation) (a: Wire) (b: Wire) (output: Wire)
+theorem outputOfFound ∀ (gates: List Gate) (operation: Operation) (a: Wire) (b: Wire) (output: Wire)
     (found: outputOf gates operation a b = Some output):
     ∃ (gate: Gate) => gate ∈ gates ∧ gate.output = output ∧ doesOn operation a b gate = True :=
   Option.mapEqSome (gates.find (doesOn operation a b)) .output output found (gate isFound onto =>
@@ -32,7 +32,7 @@ theorem outputOfFound (gates: List Gate) (operation: Operation) (a: Wire) (b: Wi
 
 --| The gate `outputOf` finds outputs, onto its wire, what its operation
 --| gives for its inputs.
-theorem outputCarries (device: Device) (operation: Operation) (a: Wire) (b: Wire) (output: Wire)
+theorem outputCarries ∀ (device: Device) (operation: Operation) (a: Wire) (b: Wire) (output: Wire)
     (found: outputOf device.gates operation a b = Some output) (aValue: Bool) (bValue: Bool)
     (aCarries: Carries device a aValue) (bCarries: Carries device b bValue): Carries device output (gateOutput operation aValue bValue) :=
   match outputOfFound device.gates operation a b output found with
@@ -56,23 +56,23 @@ def carryOr (check: BitCheck) (fallback: Wire): Wire := match check with
   | Passes carry => carry
   | Faulty fixes suspects => fallback
 
-theorem faultyNotPasses [fixes: List (Wire, Wire)] [suspects: List Wire] [carry: Wire] (same: Faulty fixes suspects = Passes carry): Void :=
+theorem faultyNotPasses ∀ [fixes: List (Wire, Wire)] [suspects: List Wire] [carry: Wire] (same: Faulty fixes suspects = Passes carry): Void :=
   Bool.falseNotTrue (Eq.cong checkPassed same)
 
-theorem passesInjective (first: Wire) (second: Wire) (same: Passes first = Passes second): first = second :=
+theorem passesInjective ∀ (first: Wire) (second: Wire) (same: Passes first = Passes second): first = second :=
   Eq.cong (check => carryOr check first) same
 
 --| A full adder's sum gate and carry gates, as `gateOutput`s.
-theorem sumGates (x: Bool) (y: Bool) (carry: Bool): gateOutput Xor (gateOutput Xor x y) carry = (x.xor y).xor carry := cases
+theorem sumGates ∀ (x: Bool) (y: Bool) (carry: Bool): gateOutput Xor (gateOutput Xor x y) carry = (x.xor y).xor carry := cases
 
-theorem carryGates (x: Bool) (y: Bool) (carry: Bool):
+theorem carryGates ∀ (x: Bool) (y: Bool) (carry: Bool):
     gateOutput Or (gateOutput And x y) (gateOutput And (gateOutput Xor x y) carry) = carryOut x y carry :=
   cases
 
 --| Bit `bit`'s full adder passing: with the carry wire from below carrying
 --| `carry`, the z wire carries the sum bit, and the next carry wire the
 --| carry out.
-theorem fullAdderCarries (device: Device) (bit: Nat) (carryWire: Wire) (next: Wire)
+theorem fullAdderCarries ∀ (device: Device) (bit: Nat) (carryWire: Wire) (next: Wire)
     (passes: checkFullAdder device.gates bit carryWire = Passes next) (x: Bool) (y: Bool) (carry: Bool)
     (xCarries: Carries device (X bit) x) (yCarries: Carries device (Y bit) y) (carryCarries: Carries device carryWire carry):
     Carries device (Z bit) ((x.xor y).xor carry) ∧ Carries device next (carryOut x y carry) :=
@@ -97,13 +97,13 @@ theorem fullAdderCarries (device: Device) (bit: Nat) (carryWire: Wire) (next: Wi
                             (rewrite <- passesInjective output next passes, <- carryGates x y carry in carryOutCarries)
 
 --| A half adder's gates: a full adder's with no carry in.
-theorem halfSumGate (x: Bool) (y: Bool): gateOutput Xor x y = (x.xor y).xor False := cases
+theorem halfSumGate ∀ (x: Bool) (y: Bool): gateOutput Xor x y = (x.xor y).xor False := cases
 
-theorem halfCarryGate (x: Bool) (y: Bool): gateOutput And x y = carryOut x y False := cases
+theorem halfCarryGate ∀ (x: Bool) (y: Bool): gateOutput And x y = carryOut x y False := cases
 
 --| Bit 0's half adder passing: the z wire carries the exclusive or of the
 --| inputs, and the carry wire their and.
-theorem halfAdderCarries (device: Device) (carryWire: Wire) (passes: checkHalfAdder device.gates = Passes carryWire) (x: Bool) (y: Bool)
+theorem halfAdderCarries ∀ (device: Device) (carryWire: Wire) (passes: checkHalfAdder device.gates = Passes carryWire) (x: Bool) (y: Bool)
     (xCarries: Carries device (X 0) x) (yCarries: Carries device (Y 0) y):
     Carries device (Z 0) (gateOutput Xor x y) ∧ Carries device carryWire (gateOutput And x y) :=
   match sumIs: outputOf device.gates Xor (X 0) (Y 0) with
@@ -125,7 +125,7 @@ def ZsCarry (device: Device) (x: Nat) (y: Nat) (top: Nat): Prop := ∀ (bit: Nat
 --| From bit `bit` up to `top`, each full adder passing: with the carry wire
 --| into `bit` carrying the carry, every z wire up to `top` carries its bit,
 --| and the last carry wire is `Z top`, carrying the carry into `top`.
-theorem checkFromCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: InputsCarry device bits x y):
+theorem checkFromCarries ∀ (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: InputsCarry device bits x y):
     ∀ (remaining bit: Nat) (carryWire final: Wire) => checkFrom device.gates remaining bit carryWire = Passes final →
     ∀ (top: Nat) => top = bit + remaining → top ≤ bits → ZsCarry device x y bit → Carries device carryWire (carryInto x y bit) →
     ZsCarry device x y top ∧ (final = Z top ∧ Carries device final (carryInto x y top))
@@ -150,7 +150,7 @@ theorem checkFromCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs:
 --| Gates of the ripple-carry shape for `bits` bits: every z wire below
 --| `bits` carries its bit of `x + y`, and the last carry wire is `Z bits`,
 --| carrying the carry into `bits`.
-theorem adderCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: InputsCarry device bits x y) (final: Wire)
+theorem adderCarries ∀ (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: InputsCarry device bits x y) (final: Wire)
     (passes: checkAdder device.gates bits = Passes final):
     ZsCarry device x y bits ∧ (final = Z bits ∧ Carries device final (carryInto x y bits)) := match bits with
       | Succ higher =>
@@ -163,7 +163,7 @@ theorem adderCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: Inp
               (rewrite <- halfCarryGate (Nat.testBit x 0) (Nat.testBit y 0) in carried.right)
 
 --| A wire that carries a value is one of the device's wires.
-theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries device wire value → wire ∈ device.wires
+theorem carriesMentioned ∀ (device: Device) (wire: Wire) (value: Bool): Carries device wire value → wire ∈ device.wires
   | Starts given => List.memAppendLeft wire _ _ (List.memMap device.initial (wire, value) given .fst)
   | Fires gate wired onto left right leftCarries rightCarries output =>
     rewrite <- onto in
@@ -172,7 +172,7 @@ theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries de
 
 --| With every z wire of the gates at most `bits`, so is every z wire among
 --| them.
-theorem zWithinBound (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin gates bits = True)
+theorem zWithinBound ∀ (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin gates bits = True)
     (member: Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output])): bit ≤ bits := match gates with
       | [gate, ..rest] =>
         match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
@@ -180,7 +180,7 @@ theorem zWithinBound (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin 
           | Inr there => zWithinBound bits bit rest within.right there
 
 --| The wires that start with values for an adder are x and y wires.
-theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map .fst): Void :=
+theorem inputsNotZ ∀ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map .fst): Void :=
   match List.memMapElim .fst (Z bit) _ member with
     | Witness pair (Both given isZ) =>
       match List.memAppend pair _ _ given with
@@ -193,7 +193,7 @@ theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (
 
 --| The adder theorem: gates that pass `checkAdder` for `bits` bits, with no
 --| z wire above `bits`, add any two numbers of `bits` bits.
-theorem shapeAdds (gates: List Gate) (bits: Nat) (shaped: checkAdder gates bits = Passes (Z bits)) (within: zWithin gates bits = True): Adds bits gates :=
+theorem shapeAdds ∀ (gates: List Gate) (bits: Nat) (shaped: checkAdder gates bits = Passes (Z bits)) (within: zWithin gates bits = True): Adds bits gates :=
   (x y xSmall ySmall =>
     let device: Device := { initial = inputsFor bits x y, gates }
     let inputs: InputsCarry device bits x y := (k below =>

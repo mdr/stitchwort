@@ -9,5 +9,5 @@
 --| pair of finite types is finite (`Finite.check (((x, y)) => …) rfl (x, y)`).
 --| It is the way past `cases`' budget of 64 cases: 2^16 cases is a list of
 --| 65,536 values, checked in seconds, and the proof stays this one term.
-theorem Finite.check [auto fin: Finite a] (p: a → Bool) (checked: List.all Finite.all p = True) (x: a): p x = True :=
+theorem Finite.check ∀ [auto fin: Finite a] (p: a → Bool) (checked: List.all Finite.all p = True) (x: a): p x = True :=
   checked.read x (Finite.complete x)

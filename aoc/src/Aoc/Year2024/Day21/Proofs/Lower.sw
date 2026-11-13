@@ -20,7 +20,7 @@ def CheapestWalks (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
     walk rows start route = Some end → ∀ (to: k) => keyAt rows end = Some to → cheapestBetween keypad costs from to ≤ costs.routeCost route
 
 --| A walk, then more of it.
-theorem walkAppend (rows: List (List (Option k))) (aim: Position) (route more: List Direction):
+theorem walkAppend ∀ (rows: List (List (Option k))) (aim: Position) (route more: List Direction):
     walk rows aim (route.append more) = walk rows aim route |> .flatMap (end => walk rows end more) := match route with
       | [] => rfl
       | [direction, ..others] =>
@@ -34,7 +34,7 @@ theorem walkAppend (rows: List (List (Option k))) (aim: Position) (route more: L
 --| The keys a robot presses cost, by the cheapest routes between them, at
 --| most what its driving keys cost, those keys following a walk `route`
 --| from a key `from` to the arm's `aim`.
-theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (cheapest: CheapestWalks keypad rows costs):
+theorem walksCost ∀ (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (cheapest: CheapestWalks keypad rows costs):
     ∀ (keys: List DirectionKey) (start: Position) (from: k) => keyAt rows start = Some from → ∀ (route: List Direction) (aim: Position) =>
       walk rows start route = Some aim → ∀ (pressed: List k) => operate rows aim keys = Some pressed →
       costFrom (cheapestBetween keypad costs) from pressed ≤ costFrom costs Activate (List.append (route.map Arrow) keys)
@@ -65,7 +65,7 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
 
 --| Your presses cost at least what the keys they make the robot `level`
 --| keypads away press cost, with the walk fact at each level before.
-theorem throughRobotsCost
+theorem throughRobotsCost ∀
     (level: Nat) (walks: ∀ (below: Nat) => below < level → CheapestWalks Keypad.directional directionalRows (robotCosts below)) (presses keys: List DirectionKey) (through: throughRobots level presses = Some keys):
     costFrom (robotCosts level) Activate keys ≤ presses.length := match level with
       | Zero => rewrite <- Option.someInjective through, costFromOnes Activate presses in omega
@@ -85,7 +85,7 @@ theorem throughRobotsCost
 
 --| With the walk fact on each directional keypad between you and the door,
 --| and on the numeric one, the program's length is the least.
-theorem optimalIfCheapestWalks (robots: Nat) (walks: ∀ (level: Nat) => level < robots → CheapestWalks Keypad.directional directionalRows (robotCosts level))
+theorem optimalIfCheapestWalks ∀ (robots: Nat) (walks: ∀ (level: Nat) => level < robots → CheapestWalks Keypad.directional directionalRows (robotCosts level))
     (numericWalks: CheapestWalks Keypad.numeric numericRows (robotCosts robots)): Optimal robots :=
   code presses types =>
     let typedVia: (throughRobots robots presses |> .flatMap (operate numericRows numericStart)) = Some code := rewrite <- typedThrough robots presses in types

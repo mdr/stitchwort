@@ -17,7 +17,7 @@ def SettlesWithin (specRound: Layout → Layout) (start: Layout) (final: Layout)
 
 --| What `settle` stops at is settled: reached by the spec's rounds, fewer
 --| than it was given, which leave it alone.
-theorem settleSound (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
+theorem settleSound ∀ (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
     (agree: ∀ (layout: Layout) => keep layout → layout.round plan = specRound layout)
     (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout)
     (rounds: Nat) (start: Layout) (kept: keep start) (stopped: start.settle plan rounds = Some final): SettlesWithin specRound start final rounds :=
@@ -33,13 +33,13 @@ theorem settleSound (plan: Plan) (specRound: Layout → Layout) (keep: Layout �
           Exists.elim later (reached both => Witness (Succ reached) (Both (omega [And.left both]) (And.right both)))
 
 --| Settled within a limit is settled.
-theorem settlesOfWithin (specRound: Layout → Layout) (start: Layout) (final: Layout) (limit: Nat) (within: SettlesWithin specRound start final limit):
+theorem settlesOfWithin ∀ (specRound: Layout → Layout) (start: Layout) (final: Layout) (limit: Nat) (within: SettlesWithin specRound start final limit):
     Settles specRound start final :=
   Exists.elim within (reached both => Witness reached (And.right both))
 
 --| The rounds settle on one layout: once a round changes nothing, no later
 --| round does.
-theorem settledUnique (specRound: Layout → Layout) (start: Layout) (one: Layout) (other: Layout)
+theorem settledUnique ∀ (specRound: Layout → Layout) (start: Layout) (one: Layout) (other: Layout)
     (first: Settles specRound start one) (second: Settles specRound start other): one = other :=
   Exists.elim first (m firstBoth =>
     Exists.elim second (n secondBoth =>
@@ -51,7 +51,7 @@ theorem settledUnique (specRound: Layout → Layout) (start: Layout) (one: Layou
 
 --| If the spec's rounds reach a layout a round leaves alone, `settle` with
 --| more rounds than that to spare stops there.
-theorem settleComplete (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
+theorem settleComplete ∀ (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
     (agree: ∀ (layout: Layout) => keep layout → layout.round plan = specRound layout)
     (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout) (fixed: specRound final = final):
     ∀ (rounds: Nat) (start: Layout) => keep start → ∀ (reached: Nat) => reached < rounds → Nat.iterate reached specRound start = final →

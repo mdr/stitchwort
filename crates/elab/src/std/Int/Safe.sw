@@ -29,7 +29,7 @@ def SafeInt.ofInt (n: Int): Option SafeInt :=
 
 --| Two numbers with the same value are equal: their `fits` proofs are too,
 --| being proofs that a `Bool` is `True` ([`Bool.uniqueEq`]).
-theorem SafeNat.mkExt (a: Nat) (b: Nat) (p: a ≤ 9007199254740991) (e: a = b)
+theorem SafeNat.mkExt ∀ (a: Nat) (b: Nat) (p: a ≤ 9007199254740991) (e: a = b)
     (q: b ≤ 9007199254740991): ({ value = a, fits = p }: SafeNat) = { value = b, fits = q } :=
   let ext := J (b' e' => ∀ (q': b' ≤ 9007199254740991) => ({ value = a, fits = p }: SafeNat) = { value = b', fits = q' })
     (q' => J (r e'' => ({ value = a, fits = p }: SafeNat) = { value = a, fits = r }) rfl
@@ -37,10 +37,10 @@ theorem SafeNat.mkExt (a: Nat) (b: Nat) (p: a ≤ 9007199254740991) (e: a = b)
     e
   ext q
 
-theorem SafeNat.ext (i: SafeNat) (j: SafeNat) (e: i.value = j.value): i = j := match i, j with
+theorem SafeNat.ext ∀ (i: SafeNat) (j: SafeNat) (e: i.value = j.value): i = j := match i, j with
   | { value = a, fits = p }, { value = b, fits = q } => SafeNat.mkExt a b p e q
 
-theorem SafeInt.mkExt (a: Int) (b: Int) (p: Int.natAbs a ≤ 9007199254740991) (e: a = b)
+theorem SafeInt.mkExt ∀ (a: Int) (b: Int) (p: Int.natAbs a ≤ 9007199254740991) (e: a = b)
     (q: Int.natAbs b ≤ 9007199254740991): ({ value = a, fits = p }: SafeInt) = { value = b, fits = q } :=
   let ext := J (b' e' => ∀ (q': Int.natAbs b' ≤ 9007199254740991) => ({ value = a, fits = p }: SafeInt) = { value = b', fits = q' })
     (q' => J (r e'' => ({ value = a, fits = p }: SafeInt) = { value = a, fits = r }) rfl
@@ -48,7 +48,7 @@ theorem SafeInt.mkExt (a: Int) (b: Int) (p: Int.natAbs a ≤ 9007199254740991) (
     e
   ext q
 
-theorem SafeInt.ext (i: SafeInt) (j: SafeInt) (e: i.value = j.value): i = j := match i, j with
+theorem SafeInt.ext ∀ (i: SafeInt) (j: SafeInt) (e: i.value = j.value): i = j := match i, j with
   | { value = a, fits = p }, { value = b, fits = q } => SafeInt.mkExt a b p e q
 
 --| The number as a `Nat`.

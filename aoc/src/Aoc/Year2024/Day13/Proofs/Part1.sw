@@ -22,7 +22,7 @@ def costsAfter (machine: Machine) (aPresses: Nat): List Nat :=
   List.range 0 101 |> .filter (bPresses => machine.wins aPresses bPresses) |> .map (bPresses => tokens aPresses bPresses)
 
 --| Every cost the spec lists is of presses that win, each at most 100.
-theorem winningCostsWin (machine: Machine) (tokensSpent: Nat) (listed: tokensSpent ∈ winningCosts machine): WinWithin machine tokensSpent :=
+theorem winningCostsWin ∀ (machine: Machine) (tokensSpent: Nat) (listed: tokensSpent ∈ winningCosts machine): WinWithin machine tokensSpent :=
   List.anyElim (aPresses => tokensSpent ∈ costsAfter machine aPresses) (WinWithin machine tokensSpent) (List.range 0 101)
     (List.memFlatMapElim (costsAfter machine) tokensSpent (List.range 0 101) listed) (aPresses aListed inner =>
       let winning := (bPresses: Nat) => machine.wins aPresses bPresses
@@ -35,7 +35,7 @@ theorem winningCostsWin (machine: Machine) (tokensSpent: Nat) (listed: tokensSpe
           Witness aPresses (Witness bPresses (Both (omega) (Both (omega) (Both (And.right bWins) (Eq.sym costs)))))))
 
 --| The spec lists the cost of every win within 100 presses.
-theorem winListed (machine: Machine) (aPresses: Nat) (bPresses: Nat) (aWithin: aPresses ≤ 100) (bWithin: bPresses ≤ 100)
+theorem winListed ∀ (machine: Machine) (aPresses: Nat) (bPresses: Nat) (aWithin: aPresses ≤ 100) (bWithin: bPresses ≤ 100)
     (won: machine.wins aPresses bPresses = True): tokens aPresses bPresses ∈ winningCosts machine :=
   let winning := (bPresses: Nat) => machine.wins aPresses bPresses
   let filtered := List.range 0 101 |> .filter winning
@@ -44,7 +44,7 @@ theorem winListed (machine: Machine) (aPresses: Nat) (bPresses: Nat) (aWithin: a
     (List.memRangeFromIntro aPresses 101 0 (omega) (omega)) (List.memMap filtered bPresses bListed (bPresses => tokens aPresses bPresses))
 
 --| Two wins are the same presses, with a nonzero determinant.
-theorem sameWin (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresses: Nat) (bPresses: Nat) (otherA: Nat) (otherB: Nat)
+theorem sameWin ∀ (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresses: Nat) (bPresses: Nat) (otherA: Nat) (otherB: Nat)
     (found: machine.onlyPresses nonzero = Some (aPresses, bPresses)) (won: machine.wins otherA otherB = True):
     (otherA = aPresses) ∧ (otherB = bPresses) :=
   let same := Option.someInjective (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))
@@ -55,7 +55,7 @@ theorem sameWin (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresse
 --
 -- (The list is a variable so that the spec's isn't computed
 -- while checking.)
-theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0) (costs: List Nat)
+theorem cramerWithinCosts ∀ (machine: Machine) (nonzero: machine.determinant ≠ 0) (costs: List Nat)
     (costsWin: ∀ (tokensSpent: Nat) => tokensSpent ∈ costs → WinWithin machine tokensSpent)
     (winsListed: ∀ (aPresses bPresses: Nat) => aPresses ≤ 100 → bPresses ≤ 100 → machine.wins aPresses bPresses = True →
       tokens aPresses bPresses ∈ costs):
@@ -89,12 +89,12 @@ theorem cramerWithinCosts (machine: Machine) (nonzero: machine.determinant ≠ 0
               Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
 
 --| The program's search is the spec's.
-theorem searchIsSpec (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := rfl
+theorem searchIsSpec ∀ (machine: Machine): machine.searchTokens 100 = Spec.fewestTokens machine := rfl
 
 --| Each machine's part 1 tokens are the least of the costs, whatever its
 --| determinant, for costs as `cramerWithinCosts` has them that the search
 --| also finds the least of.
-theorem withinCosts (machine: Machine) (costs: List Nat) (costsWin: ∀ (tokensSpent: Nat) => tokensSpent ∈ costs → WinWithin machine tokensSpent)
+theorem withinCosts ∀ (machine: Machine) (costs: List Nat) (costsWin: ∀ (tokensSpent: Nat) => tokensSpent ∈ costs → WinWithin machine tokensSpent)
     (winsListed: ∀ (aPresses bPresses: Nat) => aPresses ≤ 100 → bPresses ≤ 100 → machine.wins aPresses bPresses = True →
       tokens aPresses bPresses ∈ costs)
     (searched: machine.searchTokens 100 = costs.minimum): machine.fewestTokensWithin 100 = costs.minimum :=
@@ -103,5 +103,5 @@ theorem withinCosts (machine: Machine) (costs: List Nat) (costsWin: ∀ (tokensS
     | { holds = False, sound = _, complete = c } =>
       cramerWithinCosts machine (e => Bool.falseNotTrue (c e)) costs costsWin winsListed
 
-theorem withinCorrect (machine: Machine): machine.fewestTokensWithin 100 = Spec.fewestTokens machine :=
+theorem withinCorrect ∀ (machine: Machine): machine.fewestTokensWithin 100 = Spec.fewestTokens machine :=
   withinCosts machine (winningCosts machine) (winningCostsWin machine) (winListed machine) (searchIsSpec machine)

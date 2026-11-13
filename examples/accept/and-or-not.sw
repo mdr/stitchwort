@@ -87,10 +87,10 @@ test "not as a function" := flipped == [False, True]
 
 -- Proofs: in a type, `&&` is `And` (constructor `Both`) and `||` is `Or`
 -- (constructors `Inl`, `Inr`).
-theorem andComm (p: Prop) (q: Prop): p ∧ q → q ∧ p
+theorem andComm ∀ (p: Prop) (q: Prop): p ∧ q → q ∧ p
   | Both a b => Both b a
 
-theorem swapOr (p: Prop) (q: Prop): p ∧ q → q ∨ p
+theorem swapOr ∀ (p: Prop) (q: Prop): p ∧ q → q ∨ p
   | Both a b => Inl b
 
 theorem literal: 1 < 2 ∧ 2 < 3 := Both rfl rfl

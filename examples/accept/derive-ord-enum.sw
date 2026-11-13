@@ -14,6 +14,6 @@ test "max" := Ord.max Diamonds Hearts == Hearts
 test "maximum" := List.maximum [Diamonds, Spades, Clubs] == Some Spades
 
 -- The laws are the instance's, for any suits.
-theorem suitSelf (s: Suit): Ord.compare s s = Equal := Ord.compareSelf s
+theorem suitSelf ∀ (s: Suit): Ord.compare s s = Equal := Ord.compareSelf s
 
-theorem suitFlip (s: Suit) (t: Suit): Ord.compare t s = Ordering.flip (Ord.compare s t) := Ord.flip s t
+theorem suitFlip ∀ (s: Suit) (t: Suit): Ord.compare t s = Ordering.flip (Ord.compare s t) := Ord.flip s t

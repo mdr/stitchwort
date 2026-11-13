@@ -11,7 +11,7 @@ import Std (Char, List, Parse, Text)
 
 --| `p`, then `j` of its value, read as `spec` says: for each part `p` can
 --| read and value it gives, `j` reads a rest that, after that part, `spec` holds of.
-theorem readsThen (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char → a → Prop) (spec: List Char → b → Prop)
+theorem readsThen ∀ (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char → a → Prop) (spec: List Char → b → Prop)
     (readsFirst: Parse.Reads p first)
     (rest: (firstRead: List Char) → (v: a) → first firstRead v → Parse.Reads (() => j v) (read w => spec (firstRead ++ read) w)):
     Parse.Reads (() => j (p())) spec :=
@@ -26,7 +26,7 @@ theorem readsThen (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char �
                   (Both (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest in rfl) (Both honest2 holds2))
 
 --| A value, read as `spec` says when `spec` holds of nothing read and it.
-theorem readsDone (x: a) (spec: List Char → a → Prop) (holds: spec [] x): Parse.Reads (() => x) spec :=
+theorem readsDone ∀ (x: a) (spec: List Char → a → Prop) (holds: spec [] x): Parse.Reads (() => x) spec :=
   Parse.readsWeaken _ _ _ (Parse.readsPure x) (read v h =>
     match h with
       | Both none same => rewrite none, same in holds)

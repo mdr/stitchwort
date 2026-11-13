@@ -6,7 +6,7 @@ import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Set, Void)
 
-theorem roughAtIff (image: Image) (at: List Nat):
+theorem roughAtIff ∀ (image: Image) (at: List Nat):
     at ∈ image.roughAt ↔ ∃ (row: Nat) => ∃ (column: Nat) => at = [row, column] ∧ Spec.pixelAt image row column = Some Rough := {
   forward = member =>
     match (List.memFlatMap _ at image.rows.withIndex).forward member with
@@ -29,7 +29,7 @@ theorem roughAtIff (image: Image) (at: List Nat):
                 (List.memFilterMapIntro _ (column, Rough) at pixels.withIndex ((List.memWithIndex pixels column Rough).backward pixelFound) (rewrite same in rfl))))
 }
 
-theorem monsterIff (image: Image) (monster: Image) (row: Nat) (column: Nat):
+theorem monsterIff ∀ (image: Image) (monster: Image) (row: Nat) (column: Nat):
     monster.roughAt.all (at => (Set.fromList image.roughAt).contains (shift [row, column] at)) = True ↔ Spec.MonsterAt image monster row column := {
   forward = all => r c drawn =>
     let onMonster := (roughAtIff monster [r, c]).backward (Witness r (Witness c (Both rfl drawn)))
@@ -52,7 +52,7 @@ theorem monsterIff (image: Image) (monster: Image) (row: Nat) (column: Nat):
 --| The program's monster starts are exactly the places where the spec has
 --| a sea monster, as drawn, that fits within the image's height and its
 --| first row's width.
-theorem monsterStartsIff (image: Image) (monster: Image) (start: List Nat):
+theorem monsterStartsIff ∀ (image: Image) (monster: Image) (start: List Nat):
     start ∈ image.monsterStarts monster
       ↔ ∃ (row: Nat) => ∃ (column: Nat) =>
         start = [row, column]
@@ -87,7 +87,7 @@ theorem monsterStartsIff (image: Image) (monster: Image) (start: List Nat):
 
 --| The pixels the program counts as part of a sea monster are exactly the
 --| spec's.
-theorem monsterPixelsIff (image: Image) (monster: Image) (at: List Nat):
+theorem monsterPixelsIff ∀ (image: Image) (monster: Image) (at: List Nat):
     (image.monsterPixels monster).contains at = True ↔ Spec.Covered image monster at :=
   let place := (start: List Nat) => monster.roughAt.map (shift start)
   let inPixels := Set.containsFromListIff ((image.monsterStarts monster).flatMap place) at
@@ -115,7 +115,7 @@ theorem monsterPixelsIff (image: Image) (monster: Image) (at: List Nat):
 
 --| Counted over any listing of the image's `#`s, the spec's roughness with
 --| sea monsters as `monster` draws them is the program's, and only it.
-theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)) (listed: Spec.RoughCells image cells) (answer: Nat):
+theorem roughnessExactly ∀ (image: Image) (monster: Image) (cells: List (List Nat)) (listed: Spec.RoughCells image cells) (answer: Nat):
     Spec.Roughness image monster cells answer ↔ answer = image.roughnessWith monster :=
   let rough := image.roughAt.toSet
   let covered := image.monsterPixels monster
@@ -151,14 +151,14 @@ theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)
     backward = same => counted.backward (omega)
   }
 
-theorem someMember [auto ord: Ord k] (set: Set k) (nonEmpty: (set.size > 0) = True): ∃ (key: k) => set.contains key = True :=
+theorem someMember ∀ [auto ord: Ord k] (set: Set k) (nonEmpty: (set.size > 0) = True): ∃ (key: k) => set.contains key = True :=
   match listed: set.toList with
     | [] => Void.exfalso (Bool.falseNotTrue (rewrite Set.sizeToList set, listed at nonEmpty in nonEmpty))
     | [key, ..rest] => Witness key ((Set.memToList set key).forward (rewrite listed in Inl rfl))
 
 --| The orientation part 2 counts with is one of the sea monster's, and the
 --| image has a sea monster that way round.
-theorem roughnessTurned (image: Image) (monster: Image) (found: image.monsterTurned = Some monster):
+theorem roughnessTurned ∀ (image: Image) (monster: Image) (found: image.monsterTurned = Some monster):
     image.roughness = image.roughnessWith monster ∧ monster ∈ seaMonster.orientations ∧ ∃ (at: List Nat) => Spec.Covered image monster at :=
   match List.findSome seaMonster.orientations (turned => (image.monsterPixels turned).size > 0) monster found with
     | Both some member =>
@@ -167,7 +167,7 @@ theorem roughnessTurned (image: Image) (monster: Image) (found: image.monsterTur
 
 -- `roughAt` lists each `#` once
 
-theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
+theorem rowCellsDistinct ∀ (row: Nat) (pixels: List Pixel):
     List.Distinct (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) :=
   let f: (Nat, Pixel) → Option (List Nat) := match some | (column, Rough) => [row, column]
   let hk: ∀ (cell: (Nat, Pixel)) (at: List Nat) => f cell = Some at → at = [row, cell.fst] := cell at kept =>
@@ -182,7 +182,7 @@ theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
 
 --| A cell names its row, and the row's pixels are the image's row there,
 --| so cells of different rows differ.
-theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
+theorem roughAtDistinct ∀ (image: Image): List.Distinct image.roughAt :=
   let rowOf := (at: List Nat) => (at.headOr 0, (image.rows.get (at.headOr 0)).getOrElse [])
   List.distinctFlatMap _ rowOf image.rows.withIndex (List.distinctWithIndex image.rows)
     (entry member => rowCellsDistinct entry.fst entry.snd)
@@ -194,10 +194,10 @@ theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
               match pixel with
                 | Rough => rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member in rfl)
 
-theorem roughCells (image: Image): Spec.RoughCells image image.roughAt := Both (roughAtDistinct image) (at => roughAtIff image at)
+theorem roughCells ∀ (image: Image): Spec.RoughCells image image.roughAt := Both (roughAtDistinct image) (at => roughAtIff image at)
 
 --| Part 2 with the program's own listing of the `#`s: the spec's
 --| roughness, with sea monsters as `monster` draws them, is the program's.
-theorem roughnessListed (image: Image) (monster: Image) (answer: Nat):
+theorem roughnessListed ∀ (image: Image) (monster: Image) (answer: Nat):
     Spec.Roughness image monster image.roughAt answer ↔ answer = image.roughnessWith monster :=
   roughnessExactly image monster image.roughAt (roughCells image) answer

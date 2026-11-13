@@ -9,7 +9,7 @@ import Std (List, Nat, Option, Void)
 
 --| A number at most four pairs deep with nothing to split has its leaves
 --| inside at most four pairs and below 10.
-theorem leavesSmall (depth: Nat) (number: Number) (shallow: depth + height number ≤ 4) (none: split number = None):
+theorem leavesSmall ∀ (depth: Nat) (number: Number) (shallow: depth + height number ≤ 4) (none: split number = None):
     List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) := match number with
       | Regular value =>
         match small: Nat.leq 10 value with
@@ -23,7 +23,7 @@ theorem leavesSmall (depth: Nat) (number: Number) (shallow: depth + height numbe
 
 --| A number whose leaves are inside at most four pairs is at most four
 --| pairs deep.
-theorem leavesShallow (depth: Nat) (number: Number) (small: List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)): depth + height number ≤ 4 :=
+theorem leavesShallow ∀ (depth: Nat) (number: Number) (small: List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)): depth + height number ≤ 4 :=
   match number with
     | Regular value => And.left (And.left small)
     | Pair left right =>
@@ -32,4 +32,4 @@ theorem leavesShallow (depth: Nat) (number: Number) (small: List.All (leaf => le
         leavesShallow (depth + 1) right (List.allAppendRight _ (leaves (depth + 1) left) (leaves (depth + 1) right) small)
       ]
 
-theorem reducedHeight (number: Number) (reduced: IsReduced number): height number ≤ 4 := leavesShallow 0 number reduced
+theorem reducedHeight ∀ (number: Number) (reduced: IsReduced number): height number ≤ 4 := leavesShallow 0 number reduced

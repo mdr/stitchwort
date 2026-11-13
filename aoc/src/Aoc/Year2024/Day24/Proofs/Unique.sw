@@ -8,7 +8,7 @@ import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
 --| With the names distinct, a name starts with one value.
-theorem initialUnique (wire: Wire) (first: Bool) (second: Bool) (pairs: List (Wire, Bool)) (h: List.Distinct (pairs.map .fst))
+theorem initialUnique ∀ (wire: Wire) (first: Bool) (second: Bool) (pairs: List (Wire, Bool)) (h: List.Distinct (pairs.map .fst))
     (h1: (wire, first) ∈ pairs) (h2: (wire, second) ∈ pairs): first = second := match pairs, h, h1, h2 with
       | [], distinct, inFirst, inSecond => Void.exfalso inFirst
       | [pair, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond => Eq.cong Pair.snd (Eq.trans (Eq.sym isFirst) isSecond)
@@ -19,7 +19,7 @@ theorem initialUnique (wire: Wire) (first: Bool) (second: Bool) (pairs: List (Wi
       | [pair, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond => initialUnique wire first second rest distinct inFirst inSecond
 
 --| With the outputs distinct, a wire is the output of one gate.
-theorem gateUnique (first: Gate) (second: Gate) (gates: List Gate) (h: List.Distinct (gates.map .output))
+theorem gateUnique ∀ (first: Gate) (second: Gate) (gates: List Gate) (h: List.Distinct (gates.map .output))
     (h1: first ∈ gates) (h2: second ∈ gates) (same: first.output = second.output): first = second :=
   match gates, h, h1, h2 with
     | [], distinct, inFirst, inSecond => Void.exfalso inFirst
@@ -31,7 +31,7 @@ theorem gateUnique (first: Gate) (second: Gate) (gates: List Gate) (h: List.Dist
     | [gate, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond => gateUnique first second rest distinct inFirst inSecond same
 
 --| A wire carries at most one value.
-theorem carriesUnique (device: Device) (wellFormed: WellFormed device) (wire: Wire) (first second: Bool)
+theorem carriesUnique ∀ (device: Device) (wellFormed: WellFormed device) (wire: Wire) (first second: Bool)
     (h: Carries device wire first) (h1: Carries device wire second): first = second := match h, h1 with
       | Starts inFirst, Starts inSecond => initialUnique wire first second device.initial wellFormed.right.left inFirst inSecond
       | Starts inFirst, Fires gate wired onto left right leftCarries rightCarries output =>
@@ -45,7 +45,7 @@ theorem carriesUnique (device: Device) (wellFormed: WellFormed device) (wire: Wi
         rewrite output, otherOutput, same, leftSame, rightSame in rfl
 
 --| A device outputs at most one number.
-theorem outputsUnique (device: Device) (wellFormed: WellFormed device) (first: Nat) (second: Nat)
+theorem outputsUnique ∀ (device: Device) (wellFormed: WellFormed device) (first: Nat) (second: Nat)
     (outputsFirst: Outputs device first) (outputsSecond: Outputs device second): first = second :=
   Nat.eqOfTestBit first second (bit =>
     if there: Z bit ∈ device.wires then

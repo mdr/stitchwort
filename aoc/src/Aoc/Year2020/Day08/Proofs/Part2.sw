@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Fail, Int, List, Map, Nat, Option, Result, Void)
 def Program.replaceAt (program: Program) (index: Nat) (instruction: Instruction): Program :=
   { instructions = List.set program.instructions index instruction }
 
-theorem repairedHolds (program: Program) (index: Nat) (instruction: Instruction) (below: index < program.instructions.length):
+theorem repairedHolds ∀ (program: Program) (index: Nat) (instruction: Instruction) (below: index < program.instructions.length):
     Holds ({ program.code | byPosition = program.code.byPosition.insert index instruction }) (program.replaceAt index instruction) :=
   Both (Eq.sym (List.lengthSet program.instructions index instruction))
     (position =>
@@ -22,7 +22,7 @@ theorem repairedHolds (program: Program) (index: Nat) (instruction: Instruction)
           rewrite Map.getInsertOther index instruction position differ program.code.byPosition, List.getSetOther program.instructions index instruction position differ in
             Map.getByPosition program.instructions position)
 
-theorem repairIs (program: Program) (index: Nat) (instruction: Instruction) (repaired: Instruction) (listed: program.instructions.get index = Some instruction)
+theorem repairIs ∀ (program: Program) (index: Nat) (instruction: Instruction) (repaired: Instruction) (listed: program.instructions.get index = Some instruction)
     (swapped: instruction.repaired = Some repaired):
     Spec.Repair program index (program.replaceAt index repaired) :=
   let below := List.getSomeLt program.instructions index instruction listed
@@ -37,7 +37,7 @@ theorem repairIs (program: Program) (index: Nat) (instruction: Instruction) (rep
 
 --| Repairing `instruction` at `position` makes the program terminate with
 --| `answer`, as the spec says.
-theorem repairTerminates (program: Program) (position: Nat) (instruction: Instruction) (answer: Int)
+theorem repairTerminates ∀ (program: Program) (position: Nat) (instruction: Instruction) (answer: Int)
     (listed: program.instructions.get position = Some instruction) (made: program.code.terminatesRepaired position instruction = Some answer):
     ∃ (repaired: Program) => Spec.Repair program position repaired ∧ Spec.Terminates repaired answer :=
   match r: instruction.repaired with
@@ -53,7 +53,7 @@ theorem repairTerminates (program: Program) (position: Nat) (instruction: Instru
               Witness fixed (Both (repairIs program position instruction repaired listed r)
                 (Witness positions (Witness last (Both runs (Both atEnd (rewrite <- found in same))))))
 
-theorem part2Rules (program: Program) (answer: Int) (solved: Fail.toResult (() => solvePart2 program) = Ok answer): Spec.Part2 program answer :=
+theorem part2Rules ∀ (program: Program) (answer: Int) (solved: Fail.toResult (() => solvePart2 program) = Ok answer): Spec.Part2 program answer :=
   let ran: Fail.toResult (() => (program.instructions.withIndex.findMap (((position, instruction)) => program.code.terminatesRepaired position instruction)).orFail "no repair of one jmp or nop makes the boot code terminate") = Ok answer :=
     solved
   match f: program.instructions.withIndex.findMap (((position, instruction)) => program.code.terminatesRepaired position instruction) with

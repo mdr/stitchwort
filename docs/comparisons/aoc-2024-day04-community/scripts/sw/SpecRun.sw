@@ -27,11 +27,10 @@ def directions: List Direction := [
   { down = Ahead, across = Ahead }
 ]
 
-def moved (start: Nat) (step: Step) (distance: Nat): Option Nat :=
-  match step with
-    | Back => if distance ≤ start then Some (start - distance) else None
-    | Stay => Some start
-    | Ahead => Some (start + distance)
+def moved (start: Nat) (step: Step) (distance: Nat): Option Nat := match step with
+  | Back => if distance ≤ start then Some (start - distance) else None
+  | Stay => Some start
+  | Ahead => Some (start + distance)
 
 def letterAlong (grid: Grid) (r: Nat) (c: Nat) (direction: Direction) (distance: Nat): Option Char :=
   match moved r direction.down distance, moved c direction.across distance with

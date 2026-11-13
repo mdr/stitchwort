@@ -14,7 +14,7 @@ theorem rowEndsAfter: ∀ (plot out side sideOut: Bool) =>
   cases
 
 -- Two before the colon, two after.
-theorem rowEndsMixed (plot: Bool) (out: Bool): ∀ (side sideOut: Bool) =>
+theorem rowEndsMixed ∀ (plot: Bool) (out: Bool): ∀ (side sideOut: Bool) =>
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
@@ -26,7 +26,7 @@ theorem hypAfter: ∀ (b: Bool) => b = True → not b = False := cases
 theorem unnamedHyp: ∀ (b: Bool) => (b = False) → (b ∧ True) = False := cases
 
 -- A `Π` reached only after a split.
-theorem piAfterSplit (b: Bool): if b then (∀ (x: Bool) => not (not x) = x) else (b = False) := cases
+theorem piAfterSplit ∀ (b: Bool): if b then (∀ (x: Bool) => not (not x) = x) else (b = False) := cases
 
 -- An implicit binder after an explicit one.
 theorem implicitInside: ∀ (a: Bool) [b: Bool] => (a ∧ b) = (b ∧ a) := cases

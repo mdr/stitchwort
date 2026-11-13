@@ -13,7 +13,7 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
+theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   countAbove.induct k (xs result => result ≤ List.length xs)
     omega
     (x xs h ih => omega)
@@ -27,7 +27,7 @@ def halvings (n: Nat) (count: Nat): Nat
 :=
   if h: n / 2 < n then halvings (n / 2) (count + 1) [decreasing := h] else count
 
-theorem halvingsGe (n: Nat) (count: Nat): count ≤ halvings n count :=
+theorem halvingsGe ∀ (n: Nat) (count: Nat): count ≤ halvings n count :=
   halvings.induct (n count result => count ≤ result)
     (n count h ih => omega)
     (n count notH => omega)
@@ -41,7 +41,7 @@ def firstBig: List Nat → Option Nat
       | True => Some x
       | False => firstBig rest
 
-theorem firstBigIsBig (xs: List Nat) (y: Nat): firstBig xs = Some y → Nat.leq 10 y = True :=
+theorem firstBigIsBig ∀ (xs: List Nat) (y: Nat): firstBig xs = Some y → Nat.leq 10 y = True :=
   firstBig.induct (xs result => result = Some y → Nat.leq 10 y = True)
     (none => cases)
     (x rest big found => cases)
@@ -61,7 +61,7 @@ theorem headMem: ∀ (xs: List Nat) (y: Nat) => List.head xs = Some y → List.M
   | [], y, h => cases
   | [z, ..zs], y, h => Inl (Option.someInjective h)
 
-theorem lastOrOfMem (d: Nat) (xs: List Nat): lastOr d xs = d ∨ List.Mem (lastOr d xs) xs :=
+theorem lastOrOfMem ∀ (d: Nat) (xs: List Nat): lastOr d xs = d ∨ List.Mem (lastOr d xs) xs :=
   lastOr.induct (d xs result => result = d ∨ List.Mem result xs)
     (d => Inl rfl)
     (d x rest y isSome ih =>
@@ -87,7 +87,7 @@ def ex (depth: Nat): Num → Nat
   | Pr (Reg a) (Reg b) => if 4 ≤ depth then a + b else 0
   | Pr left right => ex (depth + 1) left + ex (depth + 1) right
 
-theorem exAtMostTotal (depth: Nat) (n: Num): ex depth n ≤ total n :=
+theorem exAtMostTotal ∀ (depth: Nat) (n: Num): ex depth n ≤ total n :=
   ex.induct (depth n result => result ≤ total n)
     (depth value => omega)
     (depth a b h => omega)
@@ -101,7 +101,7 @@ def countAll: List Nat → Nat
   | [] => 0
   | [_, ..rest] => Succ (countAll rest)
 
-theorem countAllIsLength (xs: List Nat): countAll xs = List.length xs :=
+theorem countAllIsLength ∀ (xs: List Nat): countAll xs = List.length xs :=
   countAll.induct (xs result => result = List.length xs)
     omega
     (head rest ih => omega)

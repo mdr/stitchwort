@@ -10,7 +10,7 @@ import Std (Bool, Eq, List, Map, Nat, Option, Set, Void)
 def FreeSpace.has (free: FreeSpace) (span: Span): Bool := free.containsIn span.length span.start
 
 --| Adding a span of length 0 changes nothing.
-theorem hasAdd (free: FreeSpace) (span: Span) (other: Span):
+theorem hasAdd ∀ (free: FreeSpace) (span: Span) (other: Span):
     ((free.add span).has other = True) ↔ ((0 < span.length ∧ other = span) ∨ free.has other = True) :=
   match empty: span.length == 0 with
     | True => {
@@ -33,7 +33,7 @@ theorem hasAdd (free: FreeSpace) (span: Span) (other: Span):
           | Inr old => (Map.containsInInsertInIff free span.length span.start other.length other.start).backward (Inr old)
     }
 
-theorem hasRemove (free: FreeSpace) (span: Span) (other: Span):
+theorem hasRemove ∀ (free: FreeSpace) (span: Span) (other: Span):
     ((free.remove span).has other = True) ↔ (other ≠ span ∧ free.has other = True) := {
   forward = held =>
     let (Both differs old) := (Map.containsInRemoveInIff free span.length span.start other.length other.start).forward held
@@ -44,7 +44,7 @@ theorem hasRemove (free: FreeSpace) (span: Span) (other: Span):
 }
 
 -- Stated for any starting map, since the fold's recursive call starts from the map after the first add.
-theorem hasFoldAdd (span: Span) (spans: List Span) (free: FreeSpace):
+theorem hasFoldAdd ∀ (span: Span) (spans: List Span) (free: FreeSpace):
     FreeSpace.has (spans.foldLeft free FreeSpace.add) span = True ↔ ((0 < span.length ∧ span ∈ spans) ∨ free.has span = True) :=
   match spans with
     | [] => {
@@ -73,7 +73,7 @@ theorem hasFoldAdd (span: Span) (spans: List Span) (free: FreeSpace):
     }
 
 --| The spans of length 0 aren't kept.
-theorem hasOf (spans: List Span) (span: Span): (FreeSpace.of spans).has span = True ↔ (0 < span.length ∧ span ∈ spans) := {
+theorem hasOf ∀ (spans: List Span) (span: Span): (FreeSpace.of spans).has span = True ↔ (0 < span.length ∧ span ∈ spans) := {
   forward = held =>
     match (hasFoldAdd span spans Map.empty).forward held with
       | Inl pair => pair
@@ -85,7 +85,7 @@ theorem hasOf (spans: List Span) (span: Span): (FreeSpace.of spans).has span = T
 def fitIn (length: Nat) (entry: (Nat, Set Nat)): Option Span :=
   if length <= entry.fst then entry.snd.min |> .map (start => ({ start, length = entry.fst }: Span)) else None
 
-theorem fitInSome (length: Nat) (key: Nat) (items: Set Nat) (span: Span) (found: fitIn length (key, items) = Some span):
+theorem fitInSome ∀ (length: Nat) (key: Nat) (items: Set Nat) (span: Span) (found: fitIn length (key, items) = Some span):
     length ≤ key ∧ span.length = key ∧ items.min = Some span.start := match fits: length <= key with
       | True =>
         match least: items.min with
@@ -93,12 +93,12 @@ theorem fitInSome (length: Nat) (key: Nat) (items: Set Nat) (span: Span) (found:
             let same: { start, length = key } = span := Option.someInjective found
             rewrite <- same in Both (omega) (Both rfl rfl)
 
-theorem fitInIntro (length: Nat) (key: Nat) (items: Set Nat) (start: Nat) (fits: length ≤ key) (least: items.min = Some start):
+theorem fitInIntro ∀ (length: Nat) (key: Nat) (items: Set Nat) (start: Nat) (fits: length ≤ key) (least: items.min = Some start):
     fitIn length (key, items) = Some { start, length = key } := match enough: length <= key with
       | True => rewrite least in rfl
 
 --| A span the map holds, long enough, is not before the span `fitIn` makes of its entry.
-theorem fitMember (free: FreeSpace) (length: Nat) (other: Span) (held: free.has other = True) (fits: length ≤ other.length):
+theorem fitMember ∀ (free: FreeSpace) (length: Nat) (other: Span) (held: free.has other = True) (fits: length ≤ other.length):
     ∃ (start: Nat) => (({ start, length = other.length }: Span) ∈ free.toList.filterMap (fitIn length)) ∧ start ≤ other.start :=
   let (Witness items (Both inList there)) := (Map.containsInToList free other.length other.start).forward held
   let (Witness least isLeast) := Set.minOfContains items other.start there
@@ -106,7 +106,7 @@ theorem fitMember (free: FreeSpace) (length: Nat) (other: Span) (held: free.has 
     (List.memFilterMapIntro (fitIn length) (other.length, items) _ free.toList inList (fitInIntro length other.length items least fits isLeast))
     (Set.minLeast items least isLeast other.start there))
 
-theorem leftmostFitSome (free: FreeSpace) (length: Nat) (before: Nat) (span: Span) (found: free.leftmostFit length before = Some span):
+theorem leftmostFitSome ∀ (free: FreeSpace) (length: Nat) (before: Nat) (span: Span) (found: free.leftmostFit length before = Some span):
     free.has span = True ∧ length ≤ span.length ∧ span.start < before ∧
       (∀ (other: Span) => free.has other = True → length ≤ other.length → span.start ≤ other.start) :=
   let (Both minimal early) := Option.filterEqSome _ ((s: Span) => s.start < before) found
@@ -123,7 +123,7 @@ theorem leftmostFitSome (free: FreeSpace) (length: Nat) (before: Nat) (span: Spa
             let (Witness start (Both member below)) := fitMember free length other held fits
             omega [least _ member, below])))
 
-theorem leftmostFitNone (free: FreeSpace) (length: Nat) (before: Nat) (none: free.leftmostFit length before = None)
+theorem leftmostFitNone ∀ (free: FreeSpace) (length: Nat) (before: Nat) (none: free.leftmostFit length before = None)
     (other: Span) (held: free.has other = True) (fits: length ≤ other.length): before ≤ other.start :=
   let (Witness start (Both member below)) := fitMember free length other held fits
   match Option.filterEqNone _ ((s: Span) => s.start < before) none with

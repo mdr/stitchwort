@@ -13,11 +13,11 @@ import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Option, Or, Set, Void)
 def startingAt (network: Network) (one: Computer): List Connection :=
   network.bothWays.filter ((pair: Connection) => Map.Spec.sameKey one pair.one)
 
-theorem neighboursGet (links: Links) (one: Computer): links.neighbours one = (links.get one).getOrElse Set.empty := rfl
+theorem neighboursGet ∀ (links: Links) (one: Computer): links.neighbours one = (links.get one).getOrElse Set.empty := rfl
 
 --| A computer's neighbours are the far ends of the connections starting at
 --| it.
-theorem neighboursStartingAt (network: Network) (one: Computer) (other: Computer):
+theorem neighboursStartingAt ∀ (network: Network) (one: Computer) (other: Computer):
     (network.links.neighbours one).contains other = ((startingAt network one).map Connection.other |> .any (x => Map.Spec.sameKey other x)) :=
   rewrite neighboursGet network.links one,
     Map.getMap (Map.groupBy network.bothWays Connection.one) one (pairs => pairs.map Connection.other |> .toList |> Set.fromList),
@@ -28,7 +28,7 @@ theorem neighboursStartingAt (network: Network) (one: Computer) (other: Computer
     | [first, ..rest] => Set.containsFromList other ([first, ..rest] |> .map Connection.other)
 
 --| The program's neighbours are the connections both ways round.
-theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
+theorem neighboursIff ∀ (network: Network) (one: Computer) (other: Computer):
     ((network.links.neighbours one).contains other = True) ↔ ({ one = one, other = other } ∈ network.bothWays) := {
   forward = held =>
     let found: ((startingAt network one).map Connection.other).any (x => Map.Spec.sameKey other x) = True :=
@@ -51,7 +51,7 @@ theorem neighboursIff (network: Network) (one: Computer) (other: Computer):
 }
 
 --| The connections both ways round are the map's, read either way.
-theorem bothWaysIff (network: Network) (one: Computer) (other: Computer):
+theorem bothWaysIff ∀ (network: Network) (one: Computer) (other: Computer):
     ({ one = one, other = other } ∈ network.bothWays) ↔ (connected network one other = True) := {
   forward = inBoth =>
     List.anyElim ((pair: Connection) => ({ one = one, other = other }) ∈ [pair, pair.reverse]) (connected network one other = True) network.connections
@@ -77,26 +77,26 @@ theorem bothWaysIff (network: Network) (one: Computer) (other: Computer):
 }
 
 --| `other` is a neighbour of `one` exactly when the map connects them.
-theorem linkedIff (network: Network) (one: Computer) (other: Computer):
+theorem linkedIff ∀ (network: Network) (one: Computer) (other: Computer):
     ((network.links.neighbours one).contains other = True) ↔ (connected network one other = True) := {
   forward = held => (bothWaysIff network one other).forward ((neighboursIff network one other).forward held),
   backward = joined => (neighboursIff network one other).backward ((bothWaysIff network one other).backward joined)
 }
 
 --| "Connections aren't directional".
-theorem connectedSymmetric (network: Network) (one: Computer) (other: Computer) (joined: connected network one other = True):
+theorem connectedSymmetric ∀ (network: Network) (one: Computer) (other: Computer) (joined: connected network one other = True):
     connected network other one = True :=
   let Witness pair (Both listed matches) := joined
   match matches with
     | Inl same => Witness pair (Both listed (Inr same))
     | Inr swapped => Witness pair (Both listed (Inl swapped))
 
-theorem linkedSymmetric (network: Network) (one: Computer) (other: Computer) (held: (network.links.neighbours one).contains other = True):
+theorem linkedSymmetric ∀ (network: Network) (one: Computer) (other: Computer) (held: (network.links.neighbours one).contains other = True):
     (network.links.neighbours other).contains one = True :=
   (linkedIff network other one).backward (connectedSymmetric network one other ((linkedIff network one other).forward held))
 
 --| A computer in a connection is on the map.
-theorem connectedComputer (network: Network) (one: Computer) (other: Computer) (joined: connected network one other = True):
+theorem connectedComputer ∀ (network: Network) (one: Computer) (other: Computer) (joined: connected network one other = True):
     one ∈ computers network :=
   let Witness pair (Both listed matches) := joined
   match matches with
@@ -108,7 +108,7 @@ theorem connectedComputer (network: Network) (one: Computer) (other: Computer) (
         (rewrite <- swapped.read in listed) (secondOfTwo other one)
 
 --| A computer on the map has a neighbour.
-theorem computerConnected (network: Network) (computer: Computer) (onMap: computer ∈ computers network):
+theorem computerConnected ∀ (network: Network) (computer: Computer) (onMap: computer ∈ computers network):
     Exists Computer (other => connected network computer other = True) :=
   List.anyElim ((pair: Connection) => computer ∈ [pair.one, pair.other]) (Exists Computer (other => connected network computer other = True)) network.connections
     (List.memFlatMapElim ((pair: Connection) => [pair.one, pair.other]) computer network.connections onMap)
@@ -123,14 +123,14 @@ theorem computerConnected (network: Network) (computer: Computer) (onMap: comput
             | Inr (Inr none) => Void.exfalso none)
 
 --| A computer with a neighbour has an entry in the links.
-theorem hasLinksOfLinked (network: Network) (one: Computer) (other: Computer) (held: (network.links.neighbours one).contains other = True):
+theorem hasLinksOfLinked ∀ (network: Network) (one: Computer) (other: Computer) (held: (network.links.neighbours one).contains other = True):
     network.links.keySet.contains one = True :=
   rewrite Map.containsKeySet network.links one in
   match found: Map.get network.links one with
     | Some set => rfl
 
 --| The computers with links are the computers on the map.
-theorem hasLinksIff (network: Network) (computer: Computer):
+theorem hasLinksIff ∀ (network: Network) (computer: Computer):
     (network.links.keySet.contains computer = True) ↔ (computer ∈ computers network) := {
   forward = keyed =>
     match found: Map.get network.links computer with

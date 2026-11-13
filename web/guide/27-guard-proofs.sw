@@ -5,7 +5,7 @@ def skipThree: Nat → Nat
   | n if n != 3 => n
   | _ => 0
 
-theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
+theorem skipThreeKeeps ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
 theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 rfl
 
@@ -16,7 +16,7 @@ def countBig: List Nat → Nat
   | [x, ..rest] if x > 3 => 1 + countBig rest
   | [_, ..rest] => countBig rest
 
-theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
+theorem countBigAtMost ∀ (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
   | eq1 => omega
   | eq2 x rest big ih => omega
   | eq3 x rest small ih => omega

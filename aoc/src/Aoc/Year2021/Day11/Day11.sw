@@ -43,7 +43,7 @@ def Cavern.ofDigits (digits: Grid (Fin 10)): Cavern :=
 
 --| Reading the digits as numbers keeps the first row's length (so the
 --| cavern has a first row with an octopus).
-theorem digitsFirstWidth (rows: List (List (Fin 10))): firstWidth (rows.map (digits => digits.map Fin.toNat)) = firstWidth rows :=
+theorem digitsFirstWidth ∀ (rows: List (List (Fin 10))): firstWidth (rows.map (digits => digits.map Fin.toNat)) = firstWidth rows :=
   match rows with
     | [] => rfl
     | [first, ..rest] => List.lengthMap first Fin.toNat

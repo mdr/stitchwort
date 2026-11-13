@@ -11,7 +11,7 @@ import Effect.SigMap (MkSigMap)
 
 --| Sequencing with `Done` changes nothing. (`bind (Done x) next = next x` holds
 --| by definition.)
-theorem Effect.bindDone [op: Type] [res: op → Type] [a: Type]
+theorem Effect.bindDone ∀ [op: Type] [res: op → Type] [a: Type]
     (computation: Comp op res a): bind computation Done = computation := match computation with
       | Done x => rfl
       | Call o rest =>
@@ -20,7 +20,7 @@ theorem Effect.bindDone [op: Type] [res: op → Type] [a: Type]
         Eq.cong (Call o) same
 
 --| Sequencing computations is associative.
-theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
+theorem Effect.bindAssoc ∀ [op: Type] [res: op → Type] [a b r: Type]
     (first: a → Comp op res b) (second: b → Comp op res r)
     (computation: Comp op res a):
     bind (bind computation first) second = bind computation (x => bind (first x) second) := match computation with
@@ -39,7 +39,7 @@ theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
 
 --| Handler fusion: folding a sequence folds its first part, with folding the
 --| rest as what to do with each result.
-theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
+theorem Effect.foldCompBind ∀ [op: Type] [res: op → Type] [a b r: Type]
     (done: b → r) (call: (o: op) → (res o → r) → r) (next: a → Comp op res b)
     (computation: Comp op res a):
     foldComp done call (bind computation next) = foldComp (x => foldComp done call (next x)) call computation :=
@@ -63,7 +63,7 @@ theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
 -- continuation this way, where the handler's own definition has `runPure`
 -- (SW-1002, `Parse.labelWholeFrom`). Needs no extensionality: there are no
 -- operations to map.
-theorem Effect.translateNoOp [op: Type] [res: op → Type] [a: Type] (computation: Comp NoOp NoRes a):
+theorem Effect.translateNoOp ∀ [op: Type] [res: op → Type] [a: Type] (computation: Comp NoOp NoRes a):
     translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation) :=
   match computation with
     | Done x => rfl

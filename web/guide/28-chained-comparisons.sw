@@ -24,7 +24,7 @@ def pick (xs: List Nat) (i: Nat): Nat :=
 def pickAuto (xs: List Nat) (i: Nat): Nat :=
   if h: 0 <= i < xs.length then at xs i else 0
 
-theorem pickRight (xs: List Nat) (i: Nat) (h: 0 <= i < xs.length): i < xs.length := h.right
+theorem pickRight ∀ (xs: List Nat) (i: Nat) (h: 0 <= i < xs.length): i < xs.length := h.right
 
 test "pick" := pick [5, 6, 7] 1 == 6 && pickAuto [5, 6, 7] 3 == 0
 

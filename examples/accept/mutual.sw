@@ -36,11 +36,11 @@ def inner: List Nat → List (List Nat) → Nat
 
 -- Proofs by mutual induction, about `isEven` and `isOdd`, which are finished
 -- before these are checked, so their types compute.
-theorem evenNotOdd (n: Nat): isEven n = not (isOdd n) := match n with
+theorem evenNotOdd ∀ (n: Nat): isEven n = not (isOdd n) := match n with
   | 0 => rfl
   | Succ n => oddNotEven n
 
-theorem oddNotEven (n: Nat): isOdd n = not (isEven n) := match n with
+theorem oddNotEven ∀ (n: Nat): isOdd n = not (isEven n) := match n with
   | 0 => rfl
   | Succ n => evenNotOdd n
 

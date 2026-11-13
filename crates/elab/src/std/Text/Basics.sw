@@ -14,7 +14,7 @@ def Text.isEmpty: (text: Text) → Bool
 
 --| `text.isEmpty` reads as `text.toList = []`.
 @[reading]
-theorem Text.isEmptyReads (text: Text): Text.isEmpty text ↔ text.toList = [] := match text with
+theorem Text.isEmptyReads ∀ (text: Text): Text.isEmpty text ↔ text.toList = [] := match text with
   | MkText [] => { forward = h => rfl, backward = h => rfl }
   | MkText [char, ..chars] => {
     forward = h => Void.exfalso (Bool.falseNotTrue h),
@@ -102,7 +102,7 @@ def Char.digitValue (char: Char): Option Nat := if Nat.leq 48 (Char.toNat char) 
 def Char.isAsciiDigit (char: Char): Bool := 48 <= char.toNat <= 57
 
 --| `Char.isAsciiDigit` holds exactly when `Char.digitValue` gives a value.
-theorem Char.isAsciiDigitDigitValue (char: Char): char.isAsciiDigit = char.digitValue.isSome :=
+theorem Char.isAsciiDigitDigitValue ∀ (char: Char): char.isAsciiDigit = char.digitValue.isSome :=
   match low: Nat.leq 48 char.toNat with
     | True =>
       match high: Nat.leq char.toNat 57 with
@@ -128,7 +128,7 @@ def Text.toNat: (text: Text) → Option Nat
 --| it gives the value of `acc` followed by the digits, `Some (foldLeft …)`,
 --| when all of `chars` are digits, and `None` otherwise. The loop behind
 --| [`Text.toNatDigits`].
-theorem Text.readDigitsValue (acc: Nat) (chars: List Char):
+theorem Text.readDigitsValue ∀ (acc: Nat) (chars: List Char):
     Text.readDigits acc chars = (if chars.all (char => char.digitValue.isSome) then Some (List.foldLeft (chars.map (digit => digit.digitValue.getOrElse 0)) acc (acc digit => acc * 10 + digit)) else None) :=
   match chars with
     | [] => rfl
@@ -237,7 +237,7 @@ def Text.wordsFinish: (state: Pair (List Char) (List (List Char))) → List Text
 def Text.words (text: Text): List Text := Text.wordsChars text.toList |> Text.wordsFinish
 
 --| What `dropSpaces` leaves doesn't start with whitespace.
-theorem Text.dropSpacesHead (chars: List Char) (first: Char) (rest: List Char) (h: Text.dropSpaces chars = [first, ..rest]):
+theorem Text.dropSpacesHead ∀ (chars: List Char) (first: Char) (rest: List Char) (h: Text.dropSpaces chars = [first, ..rest]):
     Char.isWhitespace first = False := match chars with
       | [char, ..chars] =>
         match space: Char.isWhitespace char with
@@ -245,7 +245,7 @@ theorem Text.dropSpacesHead (chars: List Char) (first: Char) (rest: List Char) (
           | False => rewrite <- Eq.cong (.headOr first) h in space
 
 --| A trimmed text doesn't end with whitespace.
-theorem Text.trimLast (text: Text) (front: List Char) (last: Char) (h: text.trim.toList = front ++ [last]): Char.isWhitespace last = False :=
+theorem Text.trimLast ∀ (text: Text) (front: List Char) (last: Char) (h: text.trim.toList = front ++ [last]): Char.isWhitespace last = False :=
   let kept := Text.dropSpaces (List.reverseOnto (Text.dropSpaces text.toList) [])
   let back: List.reverse [last, ..List.reverse front] = front ++ [last] :=
     rewrite List.reverseCons last (List.reverse front), List.reverseReverse front in rfl

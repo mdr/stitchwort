@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, List, Nat, NonEmptyList, Option, Void)
 
 --| The window is `count` numbers from `start` on, summing to `sum`, and
 --| `rest` is what follows it.
-theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat) (start: Nat)
+theorem runFromSound ∀ (numbers: List Nat) (target: Nat) (run: List Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat) (start: Nat)
     (at: front = numbers.drop start) (fits: count ≤ front.length) (after: rest = front.drop count) (total: sum = (front.take count).sum)
     (found: runFrom target front count sum rest = Some run):
     Contiguous numbers run ∧ 2 ≤ run.length ∧ run.sum = target
@@ -44,7 +44,7 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
                   (rewrite taken, List.sumAppend (front.take count) [next] in omega)
                   found
 
-theorem weaknessRules (data: XmasData) (invalid: Nat) (answer: Nat) (found: data.weakness invalid = Some answer): Weakness data.numbers invalid answer :=
+theorem weaknessRules ∀ (data: XmasData) (invalid: Nat) (answer: Nat) (found: data.weakness invalid = Some answer): Weakness data.numbers invalid answer :=
   match r: data.runSumming invalid with
     | Some run =>
       match n: run.nonEmpty with

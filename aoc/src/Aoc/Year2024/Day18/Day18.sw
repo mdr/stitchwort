@@ -59,7 +59,7 @@ def MemorySpace.isSafe (memory: MemorySpace) (position: Position): Bool :=
 def MemorySpace.enter (memory: MemorySpace) (position: Position): Option Nat := if memory.isSafe position then Some 1 else None
 
 --| A position that can be entered is inside the memory space.
-theorem MemorySpace.enterListed (memory: MemorySpace) (position: Position) (cost: Nat) (found: memory.enter position = Some cost):
+theorem MemorySpace.enterListed ∀ (memory: MemorySpace) (position: Position) (cost: Nat) (found: memory.enter position = Some cost):
     position ∈ positions memory.size memory.size := match safe: memory.isSafe position with
       | True => memPositionsOfWithin memory.size memory.size position safe.left
 

@@ -12,13 +12,12 @@ def number (value: Nat) (count: Nat): List Char → Option (Nat, List Char)
   | Nil => None
 
 -- The rest of a `mul` after "mul(": its product.
-def mulArgs (chars: List Char): Option Nat :=
-  match number 0 0 chars with
-    | Some (left, Cons ',' afterComma) =>
-      match number 0 0 afterComma with
-        | Some (right, Cons ')' rest) => Some (left * right)
-        | other => None
-    | other => None
+def mulArgs (chars: List Char): Option Nat := match number 0 0 chars with
+  | Some (left, Cons ',' afterComma) =>
+    match number 0 0 afterComma with
+      | Some (right, Cons ')' rest) => Some (left * right)
+      | other => None
+  | other => None
 
 -- Both parts' sums, in one pass. After a match the scan goes on from the
 -- next character, not from the match's end: nothing can start inside

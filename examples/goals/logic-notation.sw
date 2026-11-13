@@ -3,5 +3,5 @@
 -- `p ↔ q`, `∃ (x: T) => P`, `∧`, `∨` and `≤`.
 import Std (Exists, Iff)
 
-theorem shown (x: Nat) (y: Nat) (xs: List Nat) (p: Prop) (ne: x != y) (out: y !in xs) (np: !p):
+theorem shown ∀ (x: Nat) (y: Nat) (xs: List Nat) (p: Prop) (ne: x != y) (out: y !in xs) (np: !p):
     (x in xs <-> p) && (exists (n: Nat) => n <= x || n = y) := ?

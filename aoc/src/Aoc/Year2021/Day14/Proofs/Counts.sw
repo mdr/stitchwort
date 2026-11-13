@@ -15,11 +15,11 @@ def Represents (counts: PairCounts) (polymer: List Char): Prop :=
   ∀ (f: ElementPair → Nat) => weight counts f = List.sumBy (pairsOf polymer) f
 
 --| Each pair with the same count `n`.
-theorem entriesWeightAll (f: ElementPair → Nat) (n: Nat) (pairs: List ElementPair):
+theorem entriesWeightAll ∀ (f: ElementPair → Nat) (n: Nat) (pairs: List ElementPair):
     entriesWeight (pairs.map (pair => (pair, n))) f = n * pairs.sumBy f :=
   rewrite List.sumByMap pairs (entry => entry.snd * f entry.fst) (pair => (pair, n)) in List.sumByMulLeft pairs n f
 
-theorem countPairsRepresents (polymer: List Char): Represents (countPairs polymer) polymer :=
+theorem countPairsRepresents ∀ (polymer: List Char): Represents (countPairs polymer) polymer :=
   f =>
     omega [
       weightAddAll f Map.empty (List.map (pairsOf polymer) (pair => (pair, 1))),
@@ -27,7 +27,7 @@ theorem countPairsRepresents (polymer: List Char): Represents (countPairs polyme
     ]
 
 --| Each count goes to the pairs its pair becomes.
-theorem stepWeight (table: Map ElementPair Char) (counts: PairCounts) (f: ElementPair → Nat):
+theorem stepWeight ∀ (table: Map ElementPair Char) (counts: PairCounts) (f: ElementPair → Nat):
     weight (stepCounts table counts) f = weight counts (pair => List.sumBy (pair.becomes table) f) :=
   let entries := (entry: (ElementPair, Nat)) => entry.fst.becomes table |> .map (next => (next, entry.snd))
   calc weight (stepCounts table counts) f
@@ -37,7 +37,7 @@ theorem stepWeight (table: Map ElementPair Char) (counts: PairCounts) (f: Elemen
       List.sumByCong (Map.toList counts) (entry => entriesWeight (entries entry) f) (entry => entry.snd * List.sumBy (entry.fst.becomes table) f)
         (entry => entriesWeightAll f entry.snd (entry.fst.becomes table))
 
-theorem stepRepresents (rules: List Rule) (one: OneRulePerPair rules) (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer):
+theorem stepRepresents ∀ (rules: List Rule) (one: OneRulePerPair rules) (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer):
     Represents (stepCounts (ruleTable rules) counts) (step rules polymer) :=
   f =>
     calc weight (stepCounts (ruleTable rules) counts) f
@@ -50,7 +50,7 @@ theorem stepRepresents (rules: List Rule) (one: OneRulePerPair rules) (counts: P
       _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer in rfl
 
 --| After any number of steps, the program's counts stand for the polymer.
-theorem iterateRepresents (manual: Manual) (one: OneRulePerPair manual.rules) (steps: Nat) (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer):
+theorem iterateRepresents ∀ (manual: Manual) (one: OneRulePerPair manual.rules) (steps: Nat) (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer):
     Represents (Nat.iterate steps (stepCounts (ruleTable manual.rules)) counts) (Nat.iterate steps (step manual.rules) polymer) :=
   match steps with
     | Zero => f => represents f

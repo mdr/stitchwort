@@ -6,9 +6,9 @@ import Aoc.Year2020.Day08 (..)
 import Aoc.Year2020.Day08 (Spec)
 import Std (Eq, Fail, Int, List, Map, Nat, Option, Result, Set, Void)
 
-theorem codeHolds (program: Program): Holds program.code program := Both rfl (position => Map.getByPosition program.instructions position)
+theorem codeHolds ∀ (program: Program): Holds program.code program := Both rfl (position => Map.getByPosition program.instructions position)
 
-theorem unvisitedAll (length: Nat): Unvisited length [] (Set.fromList (0 ..< length)) :=
+theorem unvisitedAll ∀ (length: Nat): Unvisited length [] (Set.fromList (0 ..< length)) :=
   position => {
     forward = held =>
       let member := (Set.containsFromListIff (0 ..< length) position).forward held
@@ -18,12 +18,12 @@ theorem unvisitedAll (length: Nat): Unvisited length [] (Set.fromList (0 ..< len
   }
 
 --| A run of any code holding `program`, from the start: the spec's run.
-theorem runRuns (program: Program) (code: Code) (holds: Holds code program):
+theorem runRuns ∀ (program: Program) (code: Code) (holds: Holds code program):
     ∃ (positions: List Int) => ∃ (last: State) =>
       Spec.Runs program Spec.start positions last ∧ List.Distinct positions ∧ Ended program positions last code.run :=
   runFromRuns program code holds (Set.fromList (0 ..< code.length)) start [] (unvisitedAll code.length) ()
 
-theorem part1Rules (program: Program) (answer: Int) (solved: Fail.toResult (() => solvePart1 program) = Ok answer): Spec.Part1 program answer :=
+theorem part1Rules ∀ (program: Program) (answer: Int) (solved: Fail.toResult (() => solvePart1 program) = Ok answer): Spec.Part1 program answer :=
   match runRuns program program.code (codeHolds program) with
     | Witness positions (Witness last (Both runs (Both distinct ended))) =>
       match o: program.code.run with

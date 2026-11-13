@@ -26,20 +26,20 @@ import Std (Bool, DecEq, Decidable, Eq, Fin, List, Nat, Option, Vec, Void)
 
 -- Bool and number facts ------------------------------------------------------
 
-theorem andOr (a: Bool) [x: Bool] [y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ (x ∨ y)) := match a with
+theorem andOr ∀ (a: Bool) [x: Bool] [y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ (x ∨ y)) := match a with
   | True => rfl
   | False => rfl
 
-theorem natEqSelf (n: Nat): (n == n) = True := (DecEq.decide n n).complete rfl
+theorem natEqSelf ∀ (n: Nat): (n == n) = True := (DecEq.decide n n).complete rfl
 
-theorem natEqBelow (m: Nat) (n: Nat) (h: m < n): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
+theorem natEqBelow ∀ (m: Nat) (n: Nat) (h: m < n): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
 
-theorem natEqAbove (m: Nat) (n: Nat) (h: n < m): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
+theorem natEqAbove ∀ (m: Nat) (n: Nat) (h: n < m): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
 
-theorem ltSucc (m: Nat) (n: Nat) (h: m < n): m < n + 1 := omega
+theorem ltSucc ∀ (m: Nat) (n: Nat) (h: m < n): m < n + 1 := omega
 
 --| Past the right edge there is no splitter.
-theorem splitterPast (row: Vec Bool w) (c: Nat) (h: w ≤ c): splitterAt row c = False :=
+theorem splitterPast ∀ (row: Vec Bool w) (c: Nat) (h: w ≤ c): splitterAt row c = False :=
   Vec.getOrPast row c False h
 
 -- Timelines and where the particle can fall ----------------------------------
@@ -68,13 +68,13 @@ def splitterIn: List (Vec Bool w) → Nat → Nat → Bool
 
 --| Putting a splitter that isn't the one looked for in front of every
 --| timeline changes nothing.
-theorem anyConsMiss (x: Nat) (d: Nat) (h: Hit) (miss: (h.row == x ∧ h.column == d) = False)
+theorem anyConsMiss ∀ (x: Nat) (d: Nat) (h: Hit) (miss: (h.row == x ∧ h.column == d) = False)
     (ts: List (List Hit)): (ts.map (Cons h)).any (hitIn x d) = ts.any (hitIn x d) := match ts with
       | [] => rfl
       | [t, ..ts] => rewrite miss, anyConsMiss x d h miss ts
 
 --| There is always at least one timeline.
-theorem timelinesSome (r c: Nat) (ls: List (Vec Bool w)): 0 < List.length (timelinesFrom r c ls) := match ls with
+theorem timelinesSome ∀ (r c: Nat) (ls: List (Vec Bool w)): 0 < List.length (timelinesFrom r c ls) := match ls with
   | [] => rfl
   | [row, ..rest] =>
     match e: splitterAt row c with
@@ -84,12 +84,12 @@ theorem timelinesSome (r c: Nat) (ls: List (Vec Bool w)): 0 < List.length (timel
       | False => timelinesSome (r + 1) c rest
 
 --| ... so putting the splitter looked for in front of them finds it.
-theorem anyConsHit (x: Nat) (d: Nat) (h: Hit) (hit: (h.row == x ∧ h.column == d) = True)
+theorem anyConsHit ∀ (x: Nat) (d: Nat) (h: Hit) (hit: (h.row == x ∧ h.column == d) = True)
     (ts: List (List Hit)) (some: 0 < ts.length): (ts.map (Cons h)).any (hitIn x d) = True := match ts with
       | [t, ..ts] => rewrite hit
 
 --| No timeline from row r reaches a splitter above it.
-theorem noHitsAbove (x: Nat) (d: Nat) (r c: Nat) (ls: List (Vec Bool w)) (h: x < r): List.any (timelinesFrom r c ls) (hitIn x d) = False :=
+theorem noHitsAbove ∀ (x: Nat) (d: Nat) (r c: Nat) (ls: List (Vec Bool w)) (h: x < r): List.any (timelinesFrom r c ls) (hitIn x d) = False :=
   match ls with
     | [] => rfl
     | [row, ..rest] =>
@@ -104,13 +104,13 @@ theorem noHitsAbove (x: Nat) (d: Nat) (r c: Nat) (ls: List (Vec Bool w)) (h: x <
               | Succ b => rewrite anyConsMiss x d { row = r, column = Succ b, turn = Left } (miss Left) _, noHitsAbove x d (r + 1) b rest (ltSucc x r h)
         | False => noHitsAbove x d (r + 1) c rest (ltSucc x r h)
 
-theorem ltSelfSucc (r: Nat): r < r + 1 := omega
+theorem ltSelfSucc ∀ (r: Nat): r < r + 1 := omega
 
-theorem shift (k: Nat) (r: Nat): k + (r + 1) = Succ (k + r) := omega
+theorem shift ∀ (k: Nat) (r: Nat): k + (r + 1) = Succ (k + r) := omega
 
 --| A timeline reaches the splitter in row k (counted from r), column d,
 --| exactly when there is a splitter there and the particle can fall into it.
-theorem hitsAt (ls: List (Vec Bool w)) (r c k d: Nat):
+theorem hitsAt ∀ (ls: List (Vec Bool w)) (r c k d: Nat):
     List.any (timelinesFrom r c ls) (hitIn (k + r) d) = (splitterIn ls k d ∧ reach ls c k d) := match ls, k with
       | [], k => rfl
       | [row, ..rest], Zero =>
@@ -149,7 +149,7 @@ theorem hitsAt (ls: List (Vec Bool w)) (r c k d: Nat):
           | False => ih c
 
 --| Past the right edge there are no splitters: a particle there stays there.
-theorem reachPast (w: Nat) (ls: List (Vec Bool w)) (c k d: Nat) (hc: w ≤ c) (hd: d < w): reach ls c k d = False :=
+theorem reachPast ∀ (w: Nat) (ls: List (Vec Bool w)) (c k d: Nat) (hc: w ≤ c) (hd: d < w): reach ls c k d = False :=
   match ls, k with
     | ls, Zero => natEqAbove c d omega
     | [], Succ k => rfl
@@ -159,7 +159,7 @@ theorem reachPast (w: Nat) (ls: List (Vec Bool w)) (c k d: Nat) (hc: w ≤ c) (h
 -- The program's side ----------------------------------------------------------
 
 --| A flag that is set is inside the row.
-theorem setInside (v: Vec Bool w) (i: Nat) (h: v.getOr i False = True): i < w := match g: Nat.leq (Succ i) w with
+theorem setInside ∀ (v: Vec Bool w) (i: Nat) (h: v.getOr i False = True): i < w := match g: Nat.leq (Succ i) w with
   | True => rfl
   | False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Vec.getOrPast v i False omega)) h))
 
@@ -170,7 +170,7 @@ def fromLeft (row: Vec Bool w) (beams: Vec Bool w): Nat → Bool
 
 --| `fall` column by column: a beam passes a column without a splitter, and
 --| the splitters beside it send theirs.
-theorem fallAt (row: Vec Bool w) (beams: Vec Bool w) (c: Nat) (h: c < w):
+theorem fallAt ∀ (row: Vec Bool w) (beams: Vec Bool w) (c: Nat) (h: c < w):
     (fall row beams).getOr c False
       = ((beams.getOr c False ∧ ¬(splitterAt row c))
         ∨ (fromLeft row beams c ∨ (splitterAt row (Succ c) ∧ beams.getOr (Succ c) False))) :=
@@ -185,7 +185,7 @@ theorem fallAt (row: Vec Bool w) (beams: Vec Bool w) (c: Nat) (h: c < w):
       | Succ b => rewrite Vec.getOrZipWith (s b => s ∧ b) False False False rfl row beams b
 
 --| The splitters a row's beams reach, column by column.
-theorem splitsInSum (row: Vec Bool w) (beams: Vec Bool w):
+theorem splitsInSum ∀ (row: Vec Bool w) (beams: Vec Bool w):
     splitsIn row beams = List.sumBy (List.range 0 w) (d => Bool.toNat (splitterAt row d ∧ beams.getOr d False)) :=
   let hit := Vec.zipWith row beams (s b => s ∧ b)
   rewrite Vec.countSumBy hit (x => x), Vec.sumByGetOr hit False (x => Bool.toNat x),
@@ -196,7 +196,7 @@ def beamReach (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat): Boo
   List.any (List.range 0 w) (c => beams.getOr c False ∧ reach ls c k d)
 
 --| In the first row, that is the beams themselves.
-theorem beamReachZero (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat) (hd: d < w): beamReach beams ls 0 d = beams.getOr d False :=
+theorem beamReachZero ∀ (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat) (hd: d < w): beamReach beams ls 0 d = beams.getOr d False :=
   Bool.eqOf (beamReach beams ls 0 d) (beams.getOr d False)
     (h => List.anyRangeElim (c => beams.getOr c False ∧ reach ls c 0 d) (beams.getOr d False = True) w 0 h
       (c lo hi (Both beam reached) => rewrite <- reached.read in beam))
@@ -209,7 +209,7 @@ theorem beamReachZero (beams: Vec Bool w) (ls: List (Vec Bool w)) (d: Nat) (hd: 
 -- shows both sides of `fallKeeps` true in its case.
 
 --| Straight down: a beam in column c without a splitter passes it.
-theorem fallStraight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (c: Nat)
+theorem fallStraight ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (c: Nat)
     (beam: v.getOr c False = True) (empty: splitterAt row c = False) (on: reach rest c k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v [row, ..rest] (Succ k) d = True :=
   let inside := setInside v c beam
@@ -223,7 +223,7 @@ theorem fallStraight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w)
 --| b + 1, where the particle goes right. (That column is inside the row, as
 --| the particle can still fall into column d: past the right edge it
 --| couldn't.)
-theorem fallFromLeft (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (hd: d < w) (b: Nat)
+theorem fallFromLeft ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (hd: d < w) (b: Nat)
     (beam: v.getOr b False = True) (splitter: splitterAt row b = True) (on: reach rest (Succ b) k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v [row, ..rest] (Succ k) d = True :=
   let inside: Succ b < w :=
@@ -238,7 +238,7 @@ theorem fallFromLeft (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w)
 
 --| From the right: a splitter in column c + 1 with a beam sends one down
 --| column c, where the particle goes left.
-theorem fallFromRight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (c: Nat)
+theorem fallFromRight ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (c: Nat)
     (beam: v.getOr (Succ c) False = True) (splitter: splitterAt row (Succ c) = True) (on: reach rest c k d = True):
     beamReach (fall row v) rest k d = True ∧ beamReach v [row, ..rest] (Succ k) d = True :=
   let inside: Succ c < w := setInside v (Succ c) beam
@@ -252,7 +252,7 @@ theorem fallFromRight (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w
 --| The particle can fall into column d of row k below the row from a column
 --| with a beam after it, when it can fall there from one with a beam before
 --| it.
-theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (hd: d < w):
+theorem fallKeeps ∀ (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k: Nat) (d: Nat) (hd: d < w):
     beamReach (fall row v) rest k d = beamReach v [row, ..rest] (Succ k) d :=
   let after: Nat → Bool := c => (fall row v).getOr c False ∧ reach rest c k d
   let before: Nat → Bool := c => v.getOr c False ∧ reach [row, ..rest] c (Succ k) d
@@ -285,7 +285,7 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
 def splitsAt (beams: Vec Bool w) (ls: List (Vec Bool w)) (k: Nat): Nat :=
   List.sumBy (List.range 0 w) (d => Bool.toNat (splitterIn ls k d ∧ beamReach beams ls k d))
 
-theorem splitsBelowSum (w: Nat) (ls: List (Vec Bool w)) (beams: Vec Bool w):
+theorem splitsBelowSum ∀ (w: Nat) (ls: List (Vec Bool w)) (beams: Vec Bool w):
     splitsBelow beams ls = List.sumBy (List.range 0 ls.length) (k => splitsAt beams ls k) := match ls with
       | [] => rfl
       | [l, ..rest] =>
@@ -300,14 +300,14 @@ theorem splitsBelowSum (w: Nat) (ls: List (Vec Bool w)) (beams: Vec Bool w):
             := Eq.sym (List.sumByRangeSucc (k => splitsAt beams [l, ..rest] k) rest.length)
 
 --| At the start, the only beam is in S's column.
-theorem beamStart (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat):
+theorem beamStart ∀ (w: Nat) (st: Fin w) (ls: List (Vec Bool w)) (k: Nat) (d: Nat):
     beamReach (Vec.tabulate w (c => c == st)) ls k d = reach ls st.toNat k d :=
   let start := Vec.tabulate w (c => c == st)
   rewrite <- Fin.anyRange (c => start.getOr c False ∧ reach ls c k d) w, Vec.getOrGet start _ False, Vec.getTabulate w (c => c == st) _ in
     Fin.anyEqAnd st (c => reach ls c.toNat k d)
 
 --| The splitters some timeline reaches in row k: those the beams reach.
-theorem splitsAtReached (manifold: Manifold) (k: Nat):
+theorem splitsAtReached ∀ (manifold: Manifold) (k: Nat):
     splitsAt (Vec.tabulate manifold.width (c => c == manifold.start)) manifold.rows k
       = List.count (List.range 0 manifold.width) (d => reached (timelines manifold) k d) :=
   let w := manifold.width
@@ -318,7 +318,7 @@ theorem splitsAtReached (manifold: Manifold) (k: Nat):
 
 --| Part 1 is right: for every manifold, the printed answer is the number of
 --| splitters some timeline of the particle from S reaches.
-theorem part1Correct (manifold: Manifold): solvePart1 manifold = part1Spec manifold :=
+theorem part1Correct ∀ (manifold: Manifold): solvePart1 manifold = part1Spec manifold :=
   let start := Vec.tabulate manifold.width (c => c == manifold.start)
   calc splitsBelow start manifold.rows
     _ = List.sumBy (List.range 0 (List.length manifold.rows)) (k => splitsAt start manifold.rows k)

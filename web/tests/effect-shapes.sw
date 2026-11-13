@@ -56,10 +56,9 @@ def readOne (x: Nat): {IO} Nat :=
   let line := IO.readLine()
   x + Option.getOrElse (Text.toNat (Option.getOrElse line "")) 0
 
-def sumOf (result: Result (List Nat) Text): Nat :=
-  match result with
-    | Ok xs => List.sum xs
-    | Err message => 0
+def sumOf (result: Result (List Nat) Text): Nat := match result with
+  | Ok xs => List.sum xs
+  | Err message => 0
 
 def sumOfAll (lists: List (List Nat)): Nat := List.sum (List.map lists List.sum)
 

@@ -10,7 +10,7 @@ import Std (Vec)
 type Positive: Nat -> Prop =
   | IsPositive (n: Nat): Positive (n + 1)
 
-theorem shown
+theorem shown ∀
     (p: Nat -> Prop)
     (all: (n: Nat) -> p n)
     (comm: (a: Nat) -> (b: Nat) -> a + b = b + a)

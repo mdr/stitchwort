@@ -16,7 +16,7 @@ def monsterAt (position: Position): List Monster → Option Monster
   | [monster, ..others] => if monster.position == position then Some monster else monsterAt position others
 
 -- No monster is where the player is, so the player isn't on this one's cell.
-theorem notOnMonster (player: Position) (monster: Monster) (monsters: List Monster)
+theorem notOnMonster ∀ (player: Position) (monster: Monster) (monsters: List Monster)
     (clear: monsterAt player monsters = None) (located: monsterAt monster.position monsters = Some monster)
     : (player == monster.position) = False := match same: player == monster.position with
       | True =>
@@ -25,7 +25,7 @@ theorem notOnMonster (player: Position) (monster: Monster) (monsters: List Monst
       | False => rfl
 
 -- The monster `monsterAt` finds is on the cell asked about.
-theorem foundThere (position: Position) (found: Monster): (monsters: List Monster) → monsterAt position monsters = Some found → found.position = position
+theorem foundThere ∀ (position: Position) (found: Monster): (monsters: List Monster) → monsterAt position monsters = Some found → found.position = position
   | [monster, ..others], located =>
     match same: monster.position == position with
       | True =>
@@ -34,7 +34,7 @@ theorem foundThere (position: Position) (found: Monster): (monsters: List Monste
       | False => foundThere position found others located
 
 -- A table built from a list of caves has an entry for each of them.
-theorem lookupBuilt (f: Cave → List Cave) (cave: Cave) (caves: List Cave) (member: cave ∈ caves)
+theorem lookupBuilt ∀ (f: Cave → List Cave) (cave: Cave) (caves: List Cave) (member: cave ∈ caves)
     : List.lookup (caves.map (c => (c, f c))) cave = Some (f cave) := match caves with
       | [c, ..rest] =>
         match e: c == cave with

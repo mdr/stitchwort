@@ -14,11 +14,10 @@ type Step =
   | Ahead
 
 -- `distance` steps from `start`; none before 0.
-def moved (start: Nat) (step: Step) (distance: Nat): Option Nat :=
-  match step with
-    | Back => if distance ≤ start then Some (start - distance) else None
-    | Stay => Some start
-    | Ahead => Some (start + distance)
+def moved (start: Nat) (step: Step) (distance: Nat): Option Nat := match step with
+  | Back => if distance ≤ start then Some (start - distance) else None
+  | Stay => Some start
+  | Ahead => Some (start + distance)
 
 def directions: List (Step, Step) := [
   (Back, Back),

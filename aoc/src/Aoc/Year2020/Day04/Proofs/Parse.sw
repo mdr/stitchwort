@@ -33,7 +33,7 @@ theorem readsPassport: Parse.Reads passport PassportWritten :=
   Parse.readsThen (Parse.readsSepBy1 field fieldBreak _ _ readsField readsFieldBreak) (fieldsRead fields written =>
     Parse.readsDone { fields } _ (rewrite List.appendNil fieldsRead in written))
 
-theorem parseWritten (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
+theorem parseWritten ∀ (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending
         ∧ (∃ (listed: NonEmptyList Passport) => Parse.SepBy PassportWritten (read u => Parse.BlankLine read) read listed ∧ passports = listed.toList)
@@ -43,7 +43,7 @@ theorem parseWritten (input: Text) (passports: List Passport) (parsed: Fail.toRe
 
 --| The first passport is written too: the input starts with it, field by
 --| field as in `PassportWritten`.
-theorem firstPassportWritten (input: Text) (first: Passport) (rest: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok [first, ..rest]):
+theorem firstPassportWritten ∀ (input: Text) (first: Passport) (rest: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok [first, ..rest]):
     ∃ (read: List Char) => ∃ (after: List Char) => input.toList = read ++ after ∧ PassportWritten read first :=
   match parseWritten input [first, ..rest] parsed with
     | Witness read (Witness ending (Both text (Both (Witness listed (Both (Witness firstRead (Witness restRead (Witness value (Both split (Both written (Both isHead each))))))
@@ -56,7 +56,7 @@ theorem firstPassportWritten (input: Text) (first: Passport) (rest: List Passpor
 --| line between each two. Each passport is `PassportWritten` of the
 --| characters its lines were made from, and what follows the last is line
 --| breaks.
-theorem parseWrittenLines (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
+theorem parseWrittenLines ∀ (input: Text) (passports: List Passport) (parsed: Fail.toResult (() => parsePassports input) = Ok passports):
     ∃ (listed: NonEmptyList Passport) => passports = listed.toList ∧ Parse.SectionsLines PassportWritten listed.head listed.tail input.lines :=
   match parseWritten input passports parsed with
     | Witness read (Witness ending (Both text (Both (Witness listed (Both written same)) ended))) =>

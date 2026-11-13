@@ -3,7 +3,7 @@
 -- `MkChar 97 _`; the arm takes the proof field to be the literal's.)
 import Std (Eq)
 
-theorem firstIsA (c: Char) (h: c = 'a'): c = 'a' := match c with
+theorem firstIsA ∀ (c: Char) (h: c = 'a'): c = 'a' := match c with
   | 'a' => rfl
   | _ => h
 
@@ -13,13 +13,13 @@ def next: Char → Char
   | 'b' => 'c'
   | c => c
 
-theorem nextOfA (c: Char) (h: c = 'a'): next c = 'b' := match c with
+theorem nextOfA ∀ (c: Char) (h: c = 'a'): next c = 'b' := match c with
   | 'a' => rfl
   | 'b' => J (y e => next y = 'b') rfl (Eq.sym h)
   | _ => J (y e => next y = 'b') rfl (Eq.sym h)
 
 -- The matched character by name in a `match`.
-theorem isItself (c: Char): (c = 'x') ∨ (c = c) := match c with
+theorem isItself ∀ (c: Char): (c = 'x') ∨ (c = c) := match c with
   | 'x' => Inl (rfl: c = 'x')
   | _ => Inr rfl
 
@@ -38,25 +38,25 @@ def bitChar: Nat → Char
   | 0 => '0'
   | _ => '1'
 
-theorem bitRoundTrip (c: Char) (o: (c = '0') ∨ (c = '1')): bitChar (bitValue c) = c := match c, o with
+theorem bitRoundTrip ∀ (c: Char) (o: (c = '0') ∨ (c = '1')): bitChar (bitValue c) = c := match c, o with
   | '0', o => rfl
   | '1', o => rfl
   | _, Inl h => J (y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
   | _, Inr h => J (y e => bitChar (bitValue y) = y) rfl (Eq.sym h)
 
-theorem bitIsBit (c: Char) (o: (c = '0') ∨ (c = '1')): isBit c = True := match c, o with
+theorem bitIsBit ∀ (c: Char) (o: (c = '0') ∨ (c = '1')): isBit c = True := match c, o with
   | '0', o => rfl
   | '1', o => rfl
   | _, Inl h => Eq.cong isBit h
   | _, Inr h => Eq.cong isBit h
 
 -- A hypothesis about the character, refined in the arm.
-theorem hypothesisRefined (c: Char) (h: next c = 'b'): (c = 'a') ∨ (next c = 'b') := match c with
+theorem hypothesisRefined ∀ (c: Char) (h: next c = 'b'): (c = 'a') ∨ (next c = 'b') := match c with
   | 'a' => Inl rfl
   | _ => Inr h
 
 -- Two characters at once, nested in a pair.
-theorem pairOfChars (p: Pair Char Char): (p = ('a', 'b')) ∨ (p = p) := match p with
+theorem pairOfChars ∀ (p: Pair Char Char): (p = ('a', 'b')) ∨ (p = p) := match p with
   | ('a', 'b') => Inl rfl
   | q => Inr rfl
 
@@ -71,34 +71,34 @@ theorem nextOfAComputes: nextOfA 'a' rfl = rfl := rfl
 -- gets the same treatment: in its arms the matched characters are the
 -- literals.
 
-theorem nestedReturnC (c d: Char) (hc: c = 'a') (hd: d = 'b'): c = 'a' := match c with
+theorem nestedReturnC ∀ (c d: Char) (hc: c = 'a') (hd: d = 'b'): c = 'a' := match c with
   | 'a' =>
     match d with
       | 'b' => rfl
       | _ => hc
   | c => hc
 
-theorem nestedReturnD (c d: Char) (hc: c = 'a') (hd: d = 'b'): d = 'b' := match c with
+theorem nestedReturnD ∀ (c d: Char) (hc: c = 'a') (hd: d = 'b'): d = 'b' := match c with
   | 'a' =>
     match d with
       | 'b' => rfl
       | _ => hd
   | c => hd
 
-theorem nestedBoth (c d: Char) (hc: c = 'a') (hd: d = 'b'): (c = 'a') ∧ (d = 'b') := match c with
+theorem nestedBoth ∀ (c d: Char) (hc: c = 'a') (hd: d = 'b'): (c = 'a') ∧ (d = 'b') := match c with
   | 'a' =>
     match d with
       | 'b' => Both rfl rfl
       | _ => Both rfl hd
   | c => Both hc hd
 
-theorem nestedSame (c: Char): (c = 'x') ∨ (c = c) := match c with
+theorem nestedSame ∀ (c: Char): (c = 'x') ∨ (c = c) := match c with
   | 'a' => Inr rfl
   | c =>
     match c with
       | 'x' => Inl rfl
       | _ => Inr rfl
 
-theorem nestedOnlySame (c: Char): (c = 'x') ∨ (c = c) := match c with
+theorem nestedOnlySame ∀ (c: Char): (c = 'x') ∨ (c = c) := match c with
   | 'x' => Inl rfl
   | _ => Inr rfl

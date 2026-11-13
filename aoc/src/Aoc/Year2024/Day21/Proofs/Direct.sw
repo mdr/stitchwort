@@ -11,7 +11,7 @@ import Aoc.Year2024.Day21.Spec (..)
 import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| One move changes the distance to anywhere by at most one.
-theorem movedNear (aim: Position) (to: Position) (direction: Direction) (next: Position) (step: moved aim direction = Some next):
+theorem movedNear ∀ (aim: Position) (to: Position) (direction: Direction) (next: Position) (step: moved aim direction = Some next):
     distance aim to ≤ distance next to + 1 := match direction with
       | Up =>
         match top: aim.row == 0 with
@@ -23,7 +23,7 @@ theorem movedNear (aim: Position) (to: Position) (direction: Direction) (next: P
       | Right => rewrite <- Option.someInjective step in omega
 
 --| A walk has at least as many moves as the distance between its ends.
-theorem walkDistance (rows: List (List (Option k))) (start: Position) (route: List Direction) (end: Position)
+theorem walkDistance ∀ (rows: List (List (Option k))) (start: Position) (route: List Direction) (end: Position)
     (walked: walk rows start route = Some end): distance start end ≤ route.length := match route with
       | [] => rewrite <- Option.someInjective walked in omega
       | [direction, ..rest] =>
@@ -33,13 +33,13 @@ theorem walkDistance (rows: List (List (Option k))) (start: Position) (route: Li
               | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
-theorem routeCostYours (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=
+theorem routeCostYours ∀ (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=
   rewrite sequenceCostFrom Costs.yours (routeKeys route), costFromOnes Activate (routeKeys route), List.lengthAppend (route.map Arrow) [Activate],
     List.lengthMap route Arrow
     in rfl
 
 --| A key's place is the only one where an arm aims at it.
-theorem numericPlaceOf (row column: Nat) (key: NumericKey) (found: keyAt numericRows { row, column } = Some key):
+theorem numericPlaceOf ∀ (row column: Nat) (key: NumericKey) (found: keyAt numericRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.numeric.place key := match row, column with
       | 0, 0 => rewrite <- Option.someInjective found in rfl
       | 0, 1 => rewrite <- Option.someInjective found in rfl
@@ -58,7 +58,7 @@ theorem numericPlaceOf (row column: Nat) (key: NumericKey) (found: keyAt numeric
       | 3, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
       | Succ (Succ (Succ (Succ row))), column => Void.exfalso (Option.noneNotSome key found)
 
-theorem directionalPlaceOf (row column: Nat) (key: DirectionKey) (found: keyAt directionalRows { row, column } = Some key):
+theorem directionalPlaceOf ∀ (row column: Nat) (key: DirectionKey) (found: keyAt directionalRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.directional.place key := match row, column with
       | 0, 1 => rewrite <- Option.someInjective found in rfl
       | 0, 2 => rewrite <- Option.someInjective found in rfl
@@ -70,7 +70,7 @@ theorem directionalPlaceOf (row column: Nat) (key: DirectionKey) (found: keyAt d
       | Succ (Succ row), column => Void.exfalso (Option.noneNotSome key found)
 
 --| The walk fact for your own presses, on a keypad where each key has one place.
-theorem cheapestWalksYours (fit: Fitted k)
+theorem cheapestWalksYours ∀ (fit: Fitted k)
     (placeOf: ∀ (row column: Nat) (key: k) => keyAt fit.rows { row, column } = Some key → ({ row, column }: Position) = fit.keypad.place key):
     CheapestWalks fit.keypad fit.rows (robotCosts 0) :=
   start from onFrom route end walked to onTo =>
@@ -89,8 +89,8 @@ theorem optimalWithoutRobots: Optimal 0 := optimalIfCheapestWalks 0 (level below
 
 --| With you pressing the door's keypad's keys yourself, the program's length
 --| is the shortest.
-theorem shortestWithoutRobots (code: Code): Shortest 0 code ((robotCosts 0).shortestLength code) :=
+theorem shortestWithoutRobots ∀ (code: Code): Shortest 0 code ((robotCosts 0).shortestLength code) :=
   shortestIfOptimal 0 optimalWithoutRobots code
 
 --| And the sum of complexities is the puzzle's answer for any codes.
-theorem answerWithoutRobots (codes: List Code): Answer 0 codes (complexities 0 codes) := complexitiesAnswer 0 optimalWithoutRobots codes
+theorem answerWithoutRobots ∀ (codes: List Code): Answer 0 codes (complexities 0 codes) := complexitiesAnswer 0 optimalWithoutRobots codes

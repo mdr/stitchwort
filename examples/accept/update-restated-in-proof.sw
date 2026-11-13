@@ -10,5 +10,5 @@ type Shape =
 
 def setId (c: Shape) (x: Nat): Shape := { c | id = x }
 
-theorem setIdCong (c: Shape) (x: Nat) (y: Nat) (h: x = y): setId c x = setId c y :=
+theorem setIdCong ∀ (c: Shape) (x: Nat) (y: Nat) (h: x = y): setId c x = setId c y :=
   Eq.cong (v => { c | id = v }) h

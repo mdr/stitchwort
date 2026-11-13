@@ -16,7 +16,7 @@ theorem doubleIsTwice: double = twice :=
   Quot.funext Nat (n => Nat) double twice (n => omega)
 
 -- Two proofs of the same `(n: Nat) -> n + 0 = n`, equal as functions.
-theorem plusZero (f: ∀ (n: Nat) => n + 0 = n) (g: ∀ (n: Nat) => n + 0 = n): f = g :=
+theorem plusZero ∀ (f: ∀ (n: Nat) => n + 0 = n) (g: ∀ (n: Nat) => n + 0 = n): f = g :=
   Quot.funextProp Nat (n => n + 0 = n) f g (n => DecEq.uniqueEq (f n) (g n))
 
 -- A proof, stored as data.
@@ -31,7 +31,7 @@ def boolDecides (x: Bool) (y: Bool): ((x == y) = True) ↔ (BoolEq x y) := {
 }
 
 -- In the quotient of `Bool` by its own equality, `True` and `False` stay apart.
-theorem trueNotFalse (same: (Quot.mk True: Quot Bool BoolEq) = Quot.mk False): Void :=
+theorem trueNotFalse ∀ (same: (Quot.mk True: Quot Bool BoolEq) = Quot.mk False): Void :=
   Bool.trueNotFalse
     (Quot.exactDec Bool BoolEq (x y => x == y) boolDecides
       (x => rfl)

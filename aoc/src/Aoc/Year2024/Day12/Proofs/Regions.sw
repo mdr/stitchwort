@@ -9,14 +9,14 @@ import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Or, Set, Void)
 
 --| Every position on the list grows a plant.
-theorem positionsGrow (garden: Garden) (position: Position) (member: position ∈ garden.positions):
+theorem positionsGrow ∀ (garden: Garden) (position: Position) (member: position ∈ garden.positions):
     Exists Char (plant => garden.plantAt position = Some plant) :=
   let contains := (Map.memKeys garden.plots position).forward member
   match grows: garden.plantAt position with
     | Some plant => Witness plant rfl
 
 --| After inserting a list of plots, `seen` has what it had and the plots.
-theorem containsInsertAll (seen: Set Position) (plots: List Position) (position: Position):
+theorem containsInsertAll ∀ (seen: Set Position) (plots: List Position) (position: Position):
     ((plots.foldLeft seen Set.insert).contains position = True) ↔ ((seen.contains position = True) ∨ (position ∈ plots)) :=
   rewrite Set.containsFoldInsert seen position plots,
     List.anyCong plots (member => Map.Spec.sameKey position member) (member => member == position) (member => Map.Spec.sameKeyDecide position member) in
@@ -36,13 +36,13 @@ def Closed (garden: Garden) (seen: Set Position): Prop :=
   ∀ (plot other: Position) => seen.contains plot = True → Joined garden plot other → seen.contains other = True
 
 --| The region of a plot has every plot joined to one it has.
-theorem regionClosed (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (plot: Position) (other: Position)
+theorem regionClosed ∀ (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (plot: Position) (other: Position)
     (member: plot ∈ (garden.regionOf start).plots) (joined: Joined garden plot other): other ∈ (garden.regionOf start).plots :=
   let region := regionOfIsRegion garden start plant grows
   (region other).backward (joinedTrans garden start plot other ((region plot).forward member) joined)
 
 --| A region's plots are joined to its start, and its start to itself.
-theorem startInRegion (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant): start ∈ (garden.regionOf start).plots :=
+theorem startInRegion ∀ (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant): start ∈ (garden.regionOf start).plots :=
   (regionOfIsRegion garden start plant grows start).backward (joinedRefl garden start)
 
 --| The regions containing `position`.
@@ -50,7 +50,7 @@ def regionsWith (regions: List Region) (position: Position): Nat := regions.coun
 
 --| From a closed `seen`, the regions found are disjoint from `seen` and
 --| from each other.
-theorem atMostOnce (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position) (closed: Closed garden seen)
+theorem atMostOnce ∀ (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position) (closed: Closed garden seen)
     (plots: ∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)):
     (regionsWith (garden.regionsFrom starts seen) position ≤ 1) ∧ (seen.contains position = True → regionsWith (garden.regionsFrom starts seen) position = 0) :=
   match starts with
@@ -84,7 +84,7 @@ theorem atMostOnce (garden: Garden) (position: Position) (starts: List Position)
                   Both (omega [And.left later]) (has => omega [And.right later ((containsInsertAll seen region.plots position).backward (Inl has))]))
 
 --| Each start is in `seen` or in a region found.
-theorem covered (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position)
+theorem covered ∀ (garden: Garden) (position: Position) (starts: List Position) (seen: Set Position)
     (plots: ∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) (none: position ∈ starts):
     (seen.contains position = True) ∨ (1 ≤ regionsWith (garden.regionsFrom starts seen) position) :=
   match starts, none with
@@ -115,7 +115,7 @@ theorem covered (garden: Garden) (position: Position) (starts: List Position) (s
                     | Inr found => Inr (omega [found]))
 
 --| "Each garden plot" is in exactly one of the program's regions.
-theorem inOneRegion (garden: Garden) (position: Position) (plant: Char) (grows: garden.plantAt position = Some plant):
+theorem inOneRegion ∀ (garden: Garden) (position: Position) (plant: Char) (grows: garden.plantAt position = Some plant):
     regionsWith garden.regions position = 1 :=
   let plots := (start: Position) (member: start ∈ garden.positions) => positionsGrow garden start member
   let once := atMostOnce garden position garden.positions Set.empty (from other has joined => cases) plots
@@ -124,7 +124,7 @@ theorem inOneRegion (garden: Garden) (position: Position) (plant: Char) (grows: 
     | Inr found => omega [found, And.left once]
 
 --| Each region found is the region of one of the starts.
-theorem fromStarts (garden: Garden) (region: Region) (starts: List Position) (seen: Set Position) (none: region ∈ garden.regionsFrom starts seen):
+theorem fromStarts ∀ (garden: Garden) (region: Region) (starts: List Position) (seen: Set Position) (none: region ∈ garden.regionsFrom starts seen):
     Exists Position (start => (start ∈ starts) ∧ (region = garden.regionOf start)) := match starts, none with
       | [], none => Void.exfalso none
       | [start, ..rest], member =>
@@ -140,7 +140,7 @@ theorem fromStarts (garden: Garden) (region: Region) (starts: List Position) (se
 
 --| Each of the program's regions is a region of the map, its plots listed
 --| once, and holds a plot.
-theorem regionsAreRegions (garden: Garden) (region: Region) (member: region ∈ garden.regions):
+theorem regionsAreRegions ∀ (garden: Garden) (region: Region) (member: region ∈ garden.regions):
     Exists Position (start => (Exists Char (plant => garden.plantAt start = Some plant)) ∧ ((IsRegion garden start region) ∧ (List.Distinct region.plots))) :=
   Exists.elim (fromStarts garden region garden.positions Set.empty member) (start both =>
     Exists.elim (positionsGrow garden start (And.left both)) (plant grows =>

@@ -18,7 +18,7 @@ def collect (step: Nat → Step) (printed: List Nat): (fuel: Nat) → List Nat
       | Next count None => collect step printed fuel
       | Next count (Some value) => collect step [value, ..printed] fuel
 
-theorem collectKeeps (step: Nat → Step) (printed: List Nat) (fuel: Nat):
+theorem collectKeeps ∀ (step: Nat → Step) (printed: List Nat) (fuel: Nat):
     List.length printed ≤ List.length (collect step printed fuel) :=
   collect.induct step
     (printed fuel result => List.length printed ≤ List.length result)
@@ -37,7 +37,7 @@ def score: List Nat → Nat
       | 1 => 1 + score rest
       | _ => score rest
 
-theorem scoreLe (xs: List Nat): score xs ≤ 2 * List.length xs :=
+theorem scoreLe ∀ (xs: List Nat): score xs ≤ 2 * List.length xs :=
   score.induct
     (xs result => result ≤ 2 * List.length xs)
     omega
@@ -55,7 +55,7 @@ def weigh: List Nat → Nat
       | Some 0 => 1 + weigh rest
       | Some n => n + weigh rest
 
-theorem weighCounts (xs: List Nat): List.length xs ≤ weigh xs + 1 :=
+theorem weighCounts ∀ (xs: List Nat): List.length xs ≤ weigh xs + 1 :=
   weigh.induct
     (xs result => List.length xs ≤ result + 1)
     omega

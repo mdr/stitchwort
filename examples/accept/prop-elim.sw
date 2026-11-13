@@ -12,7 +12,7 @@ def pick (p: Prop) (q: Prop): And p q → Nat
   | Both l r => 0
 
 -- Matching on `Or` to produce another proof is fine.
-theorem orComm (p: Prop) (q: Prop): Or p q → Or q p
+theorem orComm ∀ (p: Prop) (q: Prop): Or p q → Or q p
   | Inl h => Inr h
   | Inr h => Inl h
 

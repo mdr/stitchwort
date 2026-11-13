@@ -12,4 +12,4 @@ test "own first" := sample.twice == 20
 test "own first, qualified" := Grid.twice sample == 20
 test "imported, in full" := P.Spec.Grid.twice sample == 2
 
-theorem probeIsSucc (grid: Grid): grid.probe = grid.width + 1 := rfl
+theorem probeIsSucc ∀ (grid: Grid): grid.probe = grid.width + 1 := rfl

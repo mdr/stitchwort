@@ -21,28 +21,28 @@ def ChosenOnce [auto eq: DecEq a] (slots: List (Slot a)): Prop := ∀ (item: a) 
 --| with one of them.
 def SlotStep (after: Slot a) (before: Slot a): Prop := after.candidates = before.candidates ∧ (SlotSound before → SlotSound after)
 
-theorem stepRefl (slot: Slot a): SlotStep slot slot := Both rfl (sound => sound)
+theorem stepRefl ∀ (slot: Slot a): SlotStep slot slot := Both rfl (sound => sound)
 
-theorem stepsRefl (slots: List (Slot a)): List.All2 SlotStep slots slots := match slots with
+theorem stepsRefl ∀ (slots: List (Slot a)): List.All2 SlotStep slots slots := match slots with
   | [] => Trivial
   | [slot, ..slots] => Both (stepRefl slot) (stepsRefl slots)
 
-theorem keepsStep (next: List (Slot a)) (slots: List (Slot a)) (candidates: List (List a)) (steps: List.All2 SlotStep next slots) (keeps: Keeps slots candidates):
+theorem keepsStep ∀ (next: List (Slot a)) (slots: List (Slot a)) (candidates: List (List a)) (steps: List.All2 SlotStep next slots) (keeps: Keeps slots candidates):
     Keeps next candidates :=
   List.all2Compose (after before items step kept => Both (Eq.trans (And.left step) (And.left kept)) (And.right step (And.right kept))) next slots candidates steps keeps
 
-theorem settledCons [auto eq: DecEq a] (slot: Slot a) (slots: List (Slot a)): chosen [slot, ..slots] = chosen [slot] ++ chosen slots :=
+theorem settledCons ∀ [auto eq: DecEq a] (slot: Slot a) (slots: List (Slot a)): chosen [slot, ..slots] = chosen [slot] ++ chosen slots :=
   match pick: slot.choice with
     | Some item => rfl
     | None => rfl
 
 --| A position that `settle` passes over.
-theorem passSteps [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a)) (found: (settle settled slots).map (Cons slot) = Some next)
+theorem passSteps ∀ [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a)) (found: (settle settled slots).map (Cons slot) = Some next)
     (rest: ∀ (after: List (Slot a)) => settle settled slots = Some after → List.All2 SlotStep after slots): List.All2 SlotStep next [slot, ..slots] :=
   match later: settle settled slots with
     | Some after => rewrite <- Option.someInjective found in Both (stepRefl slot) (rest after rfl)
 
-theorem settleSteps [auto eq: DecEq a] (settled: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next): List.All2 SlotStep next slots :=
+theorem settleSteps ∀ [auto eq: DecEq a] (settled: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next): List.All2 SlotStep next slots :=
   match slots with
     | [slot, ..slots] =>
       match pick: slot.choice with
@@ -62,7 +62,7 @@ def Adds [auto eq: DecEq a] (settled: List a) (next: List (Slot a)) (slots: List
   ∃ (item: a) => settled.contains item = False
     ∧ (∀ (other: a) => (chosen next).count (pick => pick == other) = (chosen slots).count (pick => pick == other) + Bool.toNat (item == other))
 
-theorem passAdds [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a)) (found: (settle settled slots).map (Cons slot) = Some next)
+theorem passAdds ∀ [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a)) (found: (settle settled slots).map (Cons slot) = Some next)
     (rest: ∀ (after: List (Slot a)) => settle settled slots = Some after → Adds settled after slots): Adds settled next [slot, ..slots] :=
   match later: settle settled slots with
     | Some after =>
@@ -71,7 +71,7 @@ theorem passAdds [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: Lis
           Witness item (Both fresh (other =>
             rewrite <- Option.someInjective found, settledCons slot after, settledCons slot slots, List.countAppend, List.countAppend, counts other in omega))
 
-theorem settleAdds [auto eq: DecEq a] (settled: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next): Adds settled next slots :=
+theorem settleAdds ∀ [auto eq: DecEq a] (settled: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next): Adds settled next slots :=
   match slots with
     | [slot, ..slots] =>
       match pick: slot.choice with
@@ -89,7 +89,7 @@ theorem settleAdds [auto eq: DecEq a] (settled: List a) (slots next: List (Slot 
             | [first, second, ..more] =>
               passAdds settled slot slots next found (settleAdds settled slots)
 
-theorem settleOnce [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a)) (found: settle (chosen slots) slots = Some next) (once: ChosenOnce slots): ChosenOnce next :=
+theorem settleOnce ∀ [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a)) (found: settle (chosen slots) slots = Some next) (once: ChosenOnce slots): ChosenOnce next :=
   match settleAdds (chosen slots) slots next found with
     | Witness item (Both fresh counts) =>
       other =>
@@ -102,7 +102,7 @@ theorem settleOnce [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a
               let before := once other
               omega
 
-theorem allSettledFields (slots: List (Slot a)) (order: List a) (found: allSettled slots = Some order):
+theorem allSettledFields ∀ (slots: List (Slot a)) (order: List a) (found: allSettled slots = Some order):
     List.All2 (item slot => slot.choice = Some item) order slots ∧ order = chosen slots := match slots with
       | [] => rewrite <- Option.someInjective found in Both Trivial rfl
       | [slot, ..slots] =>
@@ -113,7 +113,7 @@ theorem allSettledFields (slots: List (Slot a)) (order: List a) (found: allSettl
                 match allSettledFields slots tail rest with
                   | Both items same => rewrite <- Option.someInjective found in Both (Both pick items) (rewrite same in rfl)
 
-theorem eliminateFinds [auto eq: DecEq a] (candidates: List (List a)): ∀ (rounds: Nat) (slots: List (Slot a)) => Keeps slots candidates → ChosenOnce slots →
+theorem eliminateFinds ∀ [auto eq: DecEq a] (candidates: List (List a)): ∀ (rounds: Nat) (slots: List (Slot a)) => Keeps slots candidates → ChosenOnce slots →
     ∀ (order: List a) => eliminate rounds slots = Some order →
     List.All2 (item items => item ∈ items) order candidates ∧ (∀ (item: a) => order.count (pick => pick == item) ≤ 1)
   | rounds, slots, keeps, once, order, found =>
@@ -137,7 +137,7 @@ def Agrees [auto eq: DecEq a] (other: List a) (slots: List (Slot a)): Prop :=
   List.All2 (item slot => item ∈ slot.candidates ∧ (∀ (pick: a) => slot.choice = Some pick → item = pick)) other slots
 
 --| A pick settled somewhere is `other`'s pick there.
-theorem settledIn [auto eq: DecEq a] (pick: a) (other: List a) (slots: List (Slot a)) (agrees: Agrees other slots) (member: pick ∈ chosen slots): pick ∈ other :=
+theorem settledIn ∀ [auto eq: DecEq a] (pick: a) (other: List a) (slots: List (Slot a)) (agrees: Agrees other slots) (member: pick ∈ chosen slots): pick ∈ other :=
   match other, slots with
     | [item, ..other], [slot, ..slots] =>
       match List.memAppend pick (chosen [slot]) (chosen slots) (rewrite <- settledCons slot slots in member) with
@@ -153,7 +153,7 @@ theorem settledIn [auto eq: DecEq a] (pick: a) (other: List a) (slots: List (Slo
 
 --| An order of distinct items gives a position not yet settled a pick
 --| settled nowhere, and none of `outside`.
-theorem freshOf [auto eq: DecEq a] (outside: List a) (other: List a) (slots: List (Slot a)) (h: Agrees other slots) (h1: other.Distinct)
+theorem freshOf ∀ [auto eq: DecEq a] (outside: List a) (other: List a) (slots: List (Slot a)) (h: Agrees other slots) (h1: other.Distinct)
     (apart: ∀ (pick: a) => pick ∈ outside → pick ∉ other):
     List.All2 (item slot => slot.choice = None → item ∉ outside ++ chosen slots) other slots :=
   match other, slots, h, h1 with
@@ -182,7 +182,7 @@ theorem freshOf [auto eq: DecEq a] (outside: List a) (other: List a) (slots: Lis
     | [], [slot, ..slots], agrees, distinct => Void.exfalso agrees
     | [item, ..other], [], agrees, distinct => Void.exfalso agrees
 
-theorem passAgrees [auto eq: DecEq a] (settled: List a) (item: a) (other: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a))
+theorem passAgrees ∀ [auto eq: DecEq a] (settled: List a) (item: a) (other: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a))
     (found: (settle settled slots).map (Cons slot) = Some next) (agrees: Agrees [item, ..other] [slot, ..slots])
     (rest: ∀ (after: List (Slot a)) => settle settled slots = Some after → Agrees other after): Agrees [item, ..other] next :=
   match later: settle settled slots with
@@ -190,7 +190,7 @@ theorem passAgrees [auto eq: DecEq a] (settled: List a) (item: a) (other: List a
 
 --| A round keeps an order that agrees, when no position yet to be settled
 --| has a settled pick in it.
-theorem settleAgrees [auto eq: DecEq a] (settled: List a) (other: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next)
+theorem settleAgrees ∀ [auto eq: DecEq a] (settled: List a) (other: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next)
     (agrees: Agrees other slots) (fresh: List.All2 (item slot => slot.choice = None → item ∉ settled) other slots): Agrees other next :=
   match other, slots with
     | [], [slot, ..slots] => Void.exfalso agrees
@@ -218,7 +218,7 @@ theorem settleAgrees [auto eq: DecEq a] (settled: List a) (other: List a) (slots
             | [first, second, ..more] =>
               pass found
 
-theorem settledSame [auto eq: DecEq a] (other order: List a) (slots: List (Slot a)) (agrees: Agrees other slots)
+theorem settledSame ∀ [auto eq: DecEq a] (other order: List a) (slots: List (Slot a)) (agrees: Agrees other slots)
     (items: List.All2 (item slot => slot.choice = Some item) order slots): other = order :=
   match other, order, slots with
     | [], [], [] => rfl
@@ -227,7 +227,7 @@ theorem settledSame [auto eq: DecEq a] (other order: List a) (slots: List (Slot 
     | [], [pick, ..order], [] => Void.exfalso items
     | [item, ..other], [], [] => Void.exfalso agrees
 
-theorem eliminateOnly [auto eq: DecEq a] (other: List a) (distinct: other.Distinct): ∀ (rounds: Nat) (slots: List (Slot a)) => Agrees other slots →
+theorem eliminateOnly ∀ [auto eq: DecEq a] (other: List a) (distinct: other.Distinct): ∀ (rounds: Nat) (slots: List (Slot a)) => Agrees other slots →
     ∀ (order: List a) => eliminate rounds slots = Some order → other = order
   | rounds, slots, agrees, order, found =>
     match done: allSettled slots with
@@ -242,19 +242,19 @@ theorem eliminateOnly [auto eq: DecEq a] (other: List a) (distinct: other.Distin
                   (settleAgrees (chosen slots) other slots next step agrees (freshOf [] other slots agrees distinct (pick none => Void.exfalso none)))
                   order found
 
-theorem keepsOpen (candidates: List (List a)): Keeps (candidates.map Slot.open) candidates := match candidates with
+theorem keepsOpen ∀ (candidates: List (List a)): Keeps (candidates.map Slot.open) candidates := match candidates with
   | [] => Trivial
   | [items, ..candidates] => Both (Both rfl (item none => Void.exfalso (Option.noneNotSome item none))) (keepsOpen candidates)
 
-theorem chosenOpen [auto eq: DecEq a] (candidates: List (List a)): chosen (candidates.map Slot.open) = [] :=
+theorem chosenOpen ∀ [auto eq: DecEq a] (candidates: List (List a)): chosen (candidates.map Slot.open) = [] :=
   match candidates with
     | [] => rfl
     | [items, ..candidates] => chosenOpen candidates
 
-theorem onceOpen [auto eq: DecEq a] (candidates: List (List a)): ChosenOnce (candidates.map Slot.open) :=
+theorem onceOpen ∀ [auto eq: DecEq a] (candidates: List (List a)): ChosenOnce (candidates.map Slot.open) :=
   item => rewrite chosenOpen candidates in Nat.zeroLe 1
 
-theorem agreesOpen [auto eq: DecEq a] (other: List a) (candidates: List (List a)) (members: List.All2 (item items => item ∈ items) other candidates):
+theorem agreesOpen ∀ [auto eq: DecEq a] (other: List a) (candidates: List (List a)) (members: List.All2 (item items => item ∈ items) other candidates):
     Agrees other (candidates.map Slot.open) := match other, candidates with
       | [], [] => Trivial
       | [item, ..other], [items, ..candidates] =>
@@ -262,13 +262,13 @@ theorem agreesOpen [auto eq: DecEq a] (other: List a) (candidates: List (List a)
 
 --| If `assign` settles every position, it takes a candidate at each, and no
 --| value at two positions.
-theorem assignFinds [auto eq: DecEq a] (candidates: List (List a)) (picks: List a) (found: assign candidates = Some picks):
+theorem assignFinds ∀ [auto eq: DecEq a] (candidates: List (List a)) (picks: List a) (found: assign candidates = Some picks):
     List.All2 (item items => item ∈ items) picks candidates ∧ picks.Distinct :=
   match eliminateFinds candidates candidates.length (candidates.map Slot.open) (keepsOpen candidates) (onceOpen candidates) picks found with
     | Both members counts => Both members (List.distinctOfCounts picks counts)
 
 --| If `assign` settles every position, every assignment of a candidate to
 --| each position without a repeat is the one it found.
-theorem assignOnly [auto eq: DecEq a] (candidates: List (List a)) (picks: List a) (found: assign candidates = Some picks) (other: List a)
+theorem assignOnly ∀ [auto eq: DecEq a] (candidates: List (List a)) (picks: List a) (found: assign candidates = Some picks) (other: List a)
     (members: List.All2 (item items => item ∈ items) other candidates) (distinct: other.Distinct): other = picks :=
   eliminateOnly other distinct candidates.length (candidates.map Slot.open) (agreesOpen other candidates members) picks found

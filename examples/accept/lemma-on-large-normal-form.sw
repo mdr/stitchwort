@@ -19,6 +19,6 @@ def startsAt: Nat → Tree → Bool
 
 def keep (x: Nat) (k: Nat): Bool := startsAt k (grow 30 (Leaf x))
 
-theorem applied (x: Nat) (s: Set Nat) (key: Nat):
+theorem applied ∀ (x: Nat) (s: Set Nat) (key: Nat):
     Set.contains (s.filter (keep x)) key = (Set.contains s key && keep x key) :=
   Set.containsFilter s key (keep x)

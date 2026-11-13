@@ -38,7 +38,7 @@ def Apart (size: Nat) (files: List File): Prop :=
     ∧ List.All (file => file.span.end ≤ size) files
 
 --| A span covers the positions from its start up to its end.
-theorem Span.coversIff (span: Span) (position: Nat): (span.covers position = True) ↔ (span.start ≤ position ∧ position < span.end) := {
+theorem Span.coversIff ∀ (span: Span) (position: Nat): (span.covers position = True) ↔ (span.start ≤ position ∧ position < span.end) := {
   forward = held => cases,
   backward = within => cases
 }
@@ -47,28 +47,28 @@ theorem Span.coversIff (span: Span) (position: Nat): (span.covers position = Tru
 def File.numberAt (file: File) (position: Nat): Nat := if file.span.covers position then file.id else 0
 
 --| Below `size`, the block at `position` is the first covering file's, or free.
-theorem drawFilesAt (size: Nat) (files: List File) (position: Nat) (below: position < size):
+theorem drawFilesAt ∀ (size: Nat) (files: List File) (position: Nat) (below: position < size):
     (drawFiles size files).at position
       = (files.find (file => file.span.covers position) |> .map (file => FileBlock file.id) |> .getOrElse Free) :=
   rewrite Nat.addZero position in
     List.getOrMapRange (position => files.find (file => file.span.covers position) |> .map (file => FileBlock file.id) |> .getOrElse Free) Free size 0 position below
 
 --| Past `size`, the disk is free.
-theorem drawFilesPast (size: Nat) (files: List File) (position: Nat) (past: size ≤ position): (drawFiles size files).at position = Free :=
+theorem drawFilesPast ∀ (size: Nat) (files: List File) (position: Nat) (past: size ≤ position): (drawFiles size files).at position = Free :=
   List.getOrPast (drawFiles size files).blocks position Free (rewrite List.lengthMap (List.range 0 size) _, List.lengthRange 0 size in past)
 
 --| A file beside a covering file doesn't cover.
-theorem besideNotCovers (file: File) (other: File) (position: Nat) (beside: file.Beside other) (covered: file.span.covers position = True):
+theorem besideNotCovers ∀ (file: File) (other: File) (position: Nat) (beside: file.Beside other) (covered: file.span.covers position = True):
     other.span.covers position = False := match e: other.span.covers position with
       | True => Void.exfalso (omega [(Span.coversIff file.span position).forward covered, (Span.coversIff other.span position).forward e, beside])
       | False => rfl
 
-theorem besideNumber (file: File) (other: File) (position: Nat) (beside: file.Beside other) (covered: file.span.covers position = True):
+theorem besideNumber ∀ (file: File) (other: File) (position: Nat) (beside: file.Beside other) (covered: file.span.covers position = True):
     other.numberAt position = 0 :=
   rewrite besideNotCovers file other position beside covered in rfl
 
 --| In files with no shared block, the file covering `position` is the one found.
-theorem findCovering (position: Nat): ∀ (files: List File) => List.Pairwise File.Beside files → ∀ (file: File) => file ∈ files → file.span.covers position = True →
+theorem findCovering ∀ (position: Nat): ∀ (files: List File) => List.Pairwise File.Beside files → ∀ (file: File) => file ∈ files → file.span.covers position = True →
     files.find (other => other.span.covers position) = Some file
   | [], pairwise, file, member, covered => Void.exfalso member
   | [first, ..rest], Both others pairwise, file, member, covered =>
@@ -84,7 +84,7 @@ theorem findCovering (position: Nat): ∀ (files: List File) => List.Pairwise Fi
           | Inr later => findCovering position rest pairwise file later covered
 
 --| The number at `position` of the covering file, or 0, is the sum over files.
-theorem drawnNumber (position: Nat) (files: List File) (h: List.Pairwise File.Beside files):
+theorem drawnNumber ∀ (position: Nat) (files: List File) (h: List.Pairwise File.Beside files):
     (files.find (file => file.span.covers position) |> .map (file => FileBlock file.id) |> .getOrElse Free).idOr 0 = files.sumBy (file => file.numberAt position) :=
   match files, h with
     | [], pairwise => rfl
@@ -97,13 +97,13 @@ theorem drawnNumber (position: Nat) (files: List File) (h: List.Pairwise File.Be
         | False => Eq.trans (drawnNumber position rest pairwise) (Eq.sym (List.sumByFrom rest 0 (file => file.numberAt position)))
 
 --| A span doesn't cover a position at or past its end.
-theorem notCoversPast (span: Span) (position: Nat) (past: span.end ≤ position): span.covers position = False :=
+theorem notCoversPast ∀ (span: Span) (position: Nat) (past: span.end ≤ position): span.covers position = False :=
   match e: span.covers position with
     | True => Void.exfalso (omega [(Span.coversIff span position).forward e])
     | False => rfl
 
 --| In files that are `Apart`, the block at a covered position is the covering file's.
-theorem drawFilesFile (size: Nat) (files: List File) (position: Nat) (apart: Apart size files) (file: File) (member: file ∈ files)
+theorem drawFilesFile ∀ (size: Nat) (files: List File) (position: Nat) (apart: Apart size files) (file: File) (member: file ∈ files)
     (covered: file.span.covers position = True): (drawFiles size files).at position = FileBlock file.id :=
   match apart with
     | Both distinct (Both pairwise within) =>
@@ -112,13 +112,13 @@ theorem drawFilesFile (size: Nat) (files: List File) (position: Nat) (apart: Apa
       rewrite drawFilesAt size files position below, findCovering position files pairwise file member covered in rfl
 
 --| Where no file covers, the block is free.
-theorem drawFilesFree (size: Nat) (files: List File) (position: Nat) (none: ∀ (file: File) => file ∈ files → file.span.covers position = False):
+theorem drawFilesFree ∀ (size: Nat) (files: List File) (position: Nat) (none: ∀ (file: File) => file ∈ files → file.span.covers position = False):
     (drawFiles size files).at position = Free := match e: Nat.leq (Succ position) size with
       | True => rewrite drawFilesAt size files position e, List.findNoneOfMem (file => file.span.covers position) files none in rfl
       | False => drawFilesPast size files position (omega)
 
 --| Each position's file number (0 if free) is the sum of the files' numbers there.
-theorem drawFilesIdOr (size: Nat) (files: List File) (apart: Apart size files) (position: Nat):
+theorem drawFilesIdOr ∀ (size: Nat) (files: List File) (apart: Apart size files) (position: Nat):
     ((drawFiles size files).at position).idOr 0 = files.sumBy (file => file.numberAt position) := match apart with
       | Both distinct (Both pairwise within) =>
         match e: Nat.leq (Succ position) size with
@@ -129,13 +129,13 @@ theorem drawFilesIdOr (size: Nat) (files: List File) (apart: Apart size files) (
             rewrite drawFilesPast size files position (omega), none in rfl
 
 --| A span doesn't cover a position before its start.
-theorem notCoversBefore (span: Span) (position: Nat) (before: position < span.start): span.covers position = False :=
+theorem notCoversBefore ∀ (span: Span) (position: Nat) (before: position < span.start): span.covers position = False :=
   match e: span.covers position with
     | True => Void.exfalso (omega [(Span.coversIff span position).forward e])
     | False => rfl
 
 --| A file's part of the checksum is its number times its blocks' positions added up.
-theorem fileChecksumSpec (file: File): file.checksum = List.sumBy (List.rangeFrom file.span.length file.span.start) (* file.id) :=
+theorem fileChecksumSpec ∀ (file: File): file.checksum = List.sumBy (List.rangeFrom file.span.length file.span.start) (* file.id) :=
   calc file.checksum
     _ = file.id * (file.span.length * file.span.start + file.span.length * (file.span.length - 1) / 2) := rfl
     _ = file.id * List.sum (List.rangeFrom file.span.length file.span.start) := rewrite List.sumRangeFrom file.span.length file.span.start in rfl
@@ -143,7 +143,7 @@ theorem fileChecksumSpec (file: File): file.checksum = List.sumBy (List.rangeFro
     _ = List.sumBy (List.rangeFrom file.span.length file.span.start) (* file.id) := List.sumByCong _ _ _ (x => Nat.mulComm file.id x)
 
 --| A file's part of the checksum is the sum, over the disk's positions, of the position times the file's number there.
-theorem fileChecksumRange (file: File) (size: Nat) (within: file.span.end ≤ size):
+theorem fileChecksumRange ∀ (file: File) (size: Nat) (within: file.span.end ≤ size):
     (List.range 0 size).sumBy (position => position * file.numberAt position) = file.checksum :=
   let term := (position: Nat) => position * file.numberAt position
   let endIs: file.span.end = file.span.length + file.span.start := omega
@@ -160,7 +160,7 @@ theorem fileChecksumRange (file: File) (size: Nat) (within: file.span.end ≤ si
     _ = file.checksum := Eq.trans (Eq.sym (List.sumByRangeOffset (position => position * file.id) file.span.start file.span.length)) (Eq.sym (fileChecksumSpec file))
 
 --| The program's checksum of a drawing, as a sum over the positions.
-theorem drawFilesChecksum (size: Nat) (files: List File):
+theorem drawFilesChecksum ∀ (size: Nat) (files: List File):
     (drawFiles size files).checksum = (List.range 0 size).sumBy (position => position * ((drawFiles size files).at position).idOr 0) :=
   let disk := drawFiles size files
   let length: disk.blocks.length = size := Eq.trans (List.lengthMap (List.range 0 size) _) (List.lengthRange 0 size)
@@ -173,7 +173,7 @@ theorem drawFilesChecksum (size: Nat) (files: List File):
     _ = (List.range 0 size).sumBy (i => i * (disk.at i).idOr 0) := rewrite length in rfl
 
 --| The drawing's checksum, as the puzzle states it, is the files' checksums added up.
-theorem drawFilesChecksumCorrect (size: Nat) (files: List File) (apart: Apart size files):
+theorem drawFilesChecksumCorrect ∀ (size: Nat) (files: List File) (apart: Apart size files):
     filesystemChecksum (drawFiles size files) = files.sumBy .checksum := match apart with
       | Both distinct (Both pairwise within) =>
         calc filesystemChecksum (drawFiles size files)

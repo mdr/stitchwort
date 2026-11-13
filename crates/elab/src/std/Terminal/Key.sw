@@ -82,7 +82,7 @@ def Key.ofParts (position: Nat) (char: Char): Key := match position with
   | 14 => Ctrl char
   | _ => Unknown
 
-theorem Key.fromParts (key: Key): Key.ofParts (Key.position key) (Key.charOrSpace key) = key := match key with
+theorem Key.fromParts ∀ (key: Key): Key.ofParts (Key.position key) (Key.charOrSpace key) = key := match key with
   | Printable char => rfl
   | Enter => rfl
   | Tab => rfl
@@ -100,10 +100,10 @@ theorem Key.fromParts (key: Key): Key.ofParts (Key.position key) (Key.charOrSpac
   | Ctrl letter => rfl
   | Unknown => rfl
 
-theorem Key.ofPartsCong (p: Nat) (q: Nat) (c: Char) (d: Char) (samePosition: p = q) (sameChar: c = d): Key.ofParts p c = Key.ofParts q d :=
+theorem Key.ofPartsCong ∀ (p: Nat) (q: Nat) (c: Char) (d: Char) (samePosition: p = q) (sameChar: c = d): Key.ofParts p c = Key.ofParts q d :=
   rewrite samePosition, sameChar in rfl
 
-theorem Key.partsInjective (a: Key) (b: Key) (samePosition: Key.position a = Key.position b) (sameChar: Key.charOrSpace a = Key.charOrSpace b): a = b :=
+theorem Key.partsInjective ∀ (a: Key) (b: Key) (samePosition: Key.position a = Key.position b) (sameChar: Key.charOrSpace a = Key.charOrSpace b): a = b :=
   Eq.trans (Eq.sym (Key.fromParts a))
     (Eq.trans (Key.ofPartsCong (Key.position a) (Key.position b) (Key.charOrSpace a) (Key.charOrSpace b) samePosition sameChar) (Key.fromParts b))
 
@@ -271,7 +271,7 @@ def Key.isNamed: (key: Key) → Bool
   | Ctrl letter => False
   | _ => True
 
-theorem Key.nextBytes (rest: List Nat) (key: Key) (h: Key.isNamed key = True): Key.next (List.append (Key.bytes key) rest) = Got key rest :=
+theorem Key.nextBytes ∀ (rest: List Nat) (key: Key) (h: Key.isNamed key = True): Key.next (List.append (Key.bytes key) rest) = Got key rest :=
   match key with
     | Enter => rfl
     | Tab => rfl
@@ -290,7 +290,7 @@ theorem Key.nextBytes (rest: List Nat) (key: Key) (h: Key.isNamed key = True): K
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
 --| the end of the bytes is `Incomplete` (the handler decides).
 -- (§3.2)
-theorem Key.nextEscape (byte: Nat) (rest: List Nat) (notCsi: (byte == 91) = False) (notSs3: (byte == 79) = False):
+theorem Key.nextEscape ∀ (byte: Nat) (rest: List Nat) (notCsi: (byte == 91) = False) (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) [byte, ..rest]) = Got Escape [byte, ..rest] :=
   rewrite notCsi, notSs3 in rfl
 

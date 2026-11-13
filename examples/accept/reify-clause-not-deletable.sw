@@ -4,7 +4,7 @@
 
 import Std (Eq, Fail, Result, Void)
 
-theorem alwaysFails (t: () → {Fail} Nat) (h: Fail.toResult (() => t ()) = Err "no"): Fail.toResult (() => t ()) = Err "no" :=
+theorem alwaysFails ∀ (t: () → {Fail} Nat) (h: Fail.toResult (() => t ()) = Err "no"): Fail.toResult (() => t ()) = Err "no" :=
   match reify t with
     | return x => Void.exfalso (Result.errNotOk (Eq.sym h))
     | Fail.stop msg, _ => h

@@ -55,7 +55,7 @@ test "depth" := depth example == 2
 
 -- By hand, that lemma is this (for the `size` above): a packet in a list is
 -- no bigger than the list, so it's smaller than the packet that holds it.
-theorem sizeListMem (q: Packet) (items: List Packet) (h: List.Mem q items): size q ≤ sizeList items :=
+theorem sizeListMem ∀ (q: Packet) (items: List Packet) (h: List.Mem q items): size q ≤ sizeList items :=
   match items, h with
     | [], member => Void.exfalso member
     | [p, ..rest], Inl same => rewrite same in Nat.leAddRight (size q) (sizeList rest)
@@ -63,7 +63,7 @@ theorem sizeListMem (q: Packet) (items: List Packet) (h: List.Mem q items): size
       Nat.leTrans (size q) (sizeList rest) (size p + sizeList rest)
         (sizeListMem q rest member) (Nat.leAddLeft (size p) (sizeList rest))
 
-theorem sizeMem (q: Packet) (items: List Packet) (member: List.Mem q items): size q < size (Packets items) :=
+theorem sizeMem ∀ (q: Packet) (items: List Packet) (member: List.Mem q items): size q < size (Packets items) :=
   sizeListMem q items member
 
 def main(): {IO} () :=

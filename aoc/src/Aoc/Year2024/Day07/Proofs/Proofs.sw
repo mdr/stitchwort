@@ -11,19 +11,19 @@ import Std (And, Bool, DecEq, Eq, List, Nat, Void)
 
 --| `left || right` is `left`, shifted left by the digits of `right`, plus
 --| `right`.
-theorem concatenateArithmetic (left: Nat) (right: Nat): concatenate left right = left * placeValue right + right :=
+theorem concatenateArithmetic ∀ (left: Nat) (right: Nat): concatenate left right = left * placeValue right + right :=
   rewrite Nat.fromDigitsAppend (Nat.digits left).toList (Nat.digits right).toList, Nat.fromDigitsDigits left, Nat.fromDigitsDigits right, Nat.digitCountLength right in rfl
 
 --| `right` is less than its place value.
-theorem belowPlaceValue (right: Nat): right < placeValue right := Nat.ltPowTenDigits right
+theorem belowPlaceValue ∀ (right: Nat): right < placeValue right := Nat.ltPowTenDigits right
 
 --| Concatenating never makes a smaller number, on either side.
-theorem concatenateAtLeast (left: Nat) (right: Nat): (left ≤ concatenate left right) ∧ (right ≤ concatenate left right) :=
+theorem concatenateAtLeast ∀ (left: Nat) (right: Nat): (left ≤ concatenate left right) ∧ (right ≤ concatenate left right) :=
   let shifted := Nat.leMulPos left (placeValue right) (Nat.powSuccPos 9 (Nat.digitCount right))
   rewrite concatenateArithmetic left right in Both (omega) (omega)
 
 --| `v + last` is `target` when `last ≤ target` and `v` is `target - last`.
-theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last <= target && v == target - last) :=
+theorem undoAdd ∀ (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last <= target && v == target - last) :=
   Bool.eqOf (v + last == target) (last <= target && v == target - last)
     (matches =>
       let same := matches.read
@@ -35,7 +35,7 @@ theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last
 
 --| The backwards search over the numbers after `first`, last one first, is
 --| the forwards search over them in order.
-theorem canMakeReaches (operators: List Operator) (first: Nat) (reversed: List Nat) (target: Nat):
+theorem canMakeReaches ∀ (operators: List Operator) (first: Nat) (reversed: List Nat) (target: Nat):
     canMake operators first target reversed = reaches operators first (== target) reversed.reverse :=
   match reversed with
     | [] => DecEq.eqComm target first
@@ -71,23 +71,23 @@ theorem canMakeReaches (operators: List Operator) (first: Nat) (reversed: List N
 
 --| The program's check is the puzzle's "could possibly be true", for any
 --| operators.
-theorem couldBeTrueCorrect (operators: List Operator) (equation: Equation): equation.couldBeTrue operators = couldPossiblyBeTrue operators equation :=
+theorem couldBeTrueCorrect ∀ (operators: List Operator) (equation: Equation): equation.couldBeTrue operators = couldPossiblyBeTrue operators equation :=
   rewrite canMakeReaches operators equation.numbers.head equation.numbers.tail.reverse equation.testValue, List.reverseReverse equation.numbers.tail
     in Eq.sym (combinationsReach operators (== equation.testValue) equation.numbers.tail equation.numbers.head)
 
 --| So the program's total is the total calibration result.
-theorem calibrationResultCorrect (operators: List Operator) (equations: List Equation):
+theorem calibrationResultCorrect ∀ (operators: List Operator) (equations: List Equation):
     calibrationResult operators equations = totalCalibrationResult operators equations :=
   rewrite List.filterCongMem equations (.couldBeTrue operators) (couldPossiblyBeTrue operators) (equation listed => couldBeTrueCorrect operators equation)
     in rfl
 
-theorem part1Correct (equations: List Equation): solvePart1 equations = part1 equations := calibrationResultCorrect [Add, Multiply] equations
+theorem part1Correct ∀ (equations: List Equation): solvePart1 equations = part1 equations := calibrationResultCorrect [Add, Multiply] equations
 
-theorem part2Correct (equations: List Equation): solvePart2 equations = part2 equations :=
+theorem part2Correct ∀ (equations: List Equation): solvePart2 equations = part2 equations :=
   calibrationResultCorrect [Add, Multiply, Concatenate] equations
 
 --| More operators reach at least as much.
-theorem reachesMore (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
+theorem reachesMore ∀ (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
     (wanted: Nat → Bool) (numbers: List Nat) (start: Nat) (found: reaches fewer start wanted numbers = True): reaches more start wanted numbers = True :=
   match numbers with
     | [] => found
@@ -96,14 +96,14 @@ theorem reachesMore (fewer: List Operator) (more: List Operator) (included: ∀ 
       Witness operator (Both (included operator has) (reachesMore fewer more included wanted rest (combine operator start number) reached))
 
 --| An equation that could be true with fewer operators could be with more.
-theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
+theorem couldBeTrueMore ∀ (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
     (equation: Equation): equation.couldBeTrue fewer = True → equation.couldBeTrue more = True :=
   rewrite canMakeReaches fewer equation.numbers.head equation.numbers.tail.reverse equation.testValue,
       canMakeReaches more equation.numbers.head equation.numbers.tail.reverse equation.testValue
     in reachesMore fewer more included (== equation.testValue) equation.numbers.tail.reverse.reverse equation.numbers.head
 
 --| Part 2 adds an operator, so its total is at least part 1's.
-theorem part2AtLeastPart1 (equations: List Equation): solvePart1 equations ≤ solvePart2 equations :=
+theorem part2AtLeastPart1 ∀ (equations: List Equation): solvePart1 equations ≤ solvePart2 equations :=
   List.sumByFilterMono (.couldBeTrue [Add, Multiply]) (.couldBeTrue [Add, Multiply, Concatenate]) (equation => equation.testValue) equations
     (couldBeTrueMore [Add, Multiply] [Add, Multiply, Concatenate] (operator has =>
       match has with

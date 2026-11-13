@@ -17,7 +17,7 @@ def Tracks (game: Game) (spoken: List Nat): Prop :=
       ∧ (∀ (number: Nat) => number < game.lastSeen.size →
         game.lastSeen.getOr number 0 = ((Spec.turnsBack number older).map (back => game.turn - back)).getOrElse 0)
 
-theorem turnsBackAtMost (number: Nat) (older: List Nat) (back: Nat) (found: Spec.turnsBack number older = Some back): back ≤ older.length :=
+theorem turnsBackAtMost ∀ (number: Nat) (older: List Nat) (back: Nat) (found: Spec.turnsBack number older = Some back): back ≤ older.length :=
   match older with
     | [spoken, ..older] =>
       match same: spoken == number with
@@ -29,15 +29,15 @@ theorem turnsBackAtMost (number: Nat) (older: List Nat) (back: Nat) (found: Spec
               let isBack := Option.someInjective found
               omega
 
-theorem beginTracks (room: Nat) (first: Nat) (fits: first < room): Tracks (Game.begin room first) [first] :=
+theorem beginTracks ∀ (room: Nat) (first: Nat) (fits: first < room): Tracks (Game.begin room first) [first] :=
   Witness [] (Both rfl (Both rfl (Both (rewrite Array.sizeReplicate room 0 in fits) (number inside => Array.getOrReplicate room 0 number))))
 
-theorem mapShift (turn: Nat) (found: Option Nat): (found.map (turns => turns + 1)).map (back => (turn + 1) - back) = found.map (back => turn - back) :=
+theorem mapShift ∀ (turn: Nat) (found: Option Nat): (found.map (turns => turns + 1)).map (back => (turn + 1) - back) = found.map (back => turn - back) :=
   match found with
     | None => rfl
     | Some back => rfl
 
-theorem sayTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken) (number: Nat) (fits: number < game.lastSeen.size):
+theorem sayTracks ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken) (number: Nat) (fits: number < game.lastSeen.size):
     Tracks (game.say number) [number, ..spoken] := match tracks with
       | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
         let sized := Array.sizeSet game.lastSeen game.last game.turn
@@ -50,7 +50,7 @@ theorem sayTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken) (
                   seen other (rewrite sized at inside in inside)
                 in Eq.cong (found => Option.getOrElse found 0) (Eq.sym (mapShift game.turn (Spec.turnsBack other older)))))))
 
-theorem replyTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply = Spec.reply spoken :=
+theorem replyTracks ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply = Spec.reply spoken :=
   match tracks with
     | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
       rewrite isSpoken in
@@ -64,7 +64,7 @@ theorem replyTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken)
                 | False => omega
 
 --| A reply is less than the turn it answers.
-theorem replyBelow (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply < game.turn :=
+theorem replyBelow ∀ (game: Game) (spoken: List Nat) (tracks: Tracks game spoken): game.reply < game.turn :=
   match tracks with
     | Witness older (Both isSpoken (Both turns (Both lastFits seen))) =>
       rewrite replyTracks game spoken tracks, isSpoken in

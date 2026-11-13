@@ -11,7 +11,7 @@ def Version.decide (x: Version) (y: Version): Decidable (x = y) :=
   if h: (x.major, x.minor) = (y.major, y.minor) then Decidable.yes (Version.sameParts x y h)
   else Decidable.no (e => h (Eq.cong (v => (v.major, v.minor)) e))
 
-theorem Version.sameParts (x y: Version) (h: (x.major, x.minor) = (y.major, y.minor)): x = y := match x, y with
+theorem Version.sameParts ∀ (x y: Version) (h: (x.major, x.minor) = (y.major, y.minor)): x = y := match x, y with
   | { major = a1, minor = b1 }, { major = a2, minor = b2 } =>
     rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h in rfl
 

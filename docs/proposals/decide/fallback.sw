@@ -44,13 +44,13 @@ def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Dig
 
 -- 1. Only `flag` matters; `month` is mentioned but decides nothing.
 -- Fewest cases first splits `flag` (2 cases against 12): 2 leaves.
-theorem flagFewest (flag: Bool) (month: Month): Or (flag = True) (Or (flag = False) (month = month)) :=
+theorem flagFewest ∀ (flag: Bool) (month: Month): Or (flag = True) (Or (flag = False) (month = month)) :=
   match flag with
     | True => byDecision
     | False => byDecision
 
 -- Latest first splits `month` (bound last), then `flag` in each: 24 leaves.
-theorem flagLatest (flag: Bool) (month: Month): Or (flag = True) (Or (flag = False) (month = month)) :=
+theorem flagLatest ∀ (flag: Bool) (month: Month): Or (flag = True) (Or (flag = False) (month = month)) :=
   match month with
     | Jan =>
       match flag with
@@ -104,47 +104,45 @@ theorem flagLatest (flag: Bool) (month: Month): Or (flag = True) (Or (flag = Fal
 -- 2. Only `key` matters, and `Decidable.or` decides left to right, so a
 -- stuck left side is stuck even when the right side is true.
 -- Latest first splits `key` (bound last): 11 leaves.
-theorem keyLatest (flag: Bool) (key: NumericKey): Or (key ∈ numericKeys) (flag = True) :=
-  match key with
-    | Digit0 => byDecision
-    | Digit1 => byDecision
-    | Digit2 => byDecision
-    | Digit3 => byDecision
-    | Digit4 => byDecision
-    | Digit5 => byDecision
-    | Digit6 => byDecision
-    | Digit7 => byDecision
-    | Digit8 => byDecision
-    | Digit9 => byDecision
-    | Enter => byDecision
+theorem keyLatest ∀ (flag: Bool) (key: NumericKey): Or (key ∈ numericKeys) (flag = True) := match key with
+  | Digit0 => byDecision
+  | Digit1 => byDecision
+  | Digit2 => byDecision
+  | Digit3 => byDecision
+  | Digit4 => byDecision
+  | Digit5 => byDecision
+  | Digit6 => byDecision
+  | Digit7 => byDecision
+  | Digit8 => byDecision
+  | Digit9 => byDecision
+  | Enter => byDecision
 
 -- Fewest cases first splits `flag` (2 against 11); in each case the goal is
 -- still stuck on `key`, so `key` next: 22 leaves.
-theorem keyFewest (flag: Bool) (key: NumericKey): Or (key ∈ numericKeys) (flag = True) :=
-  match flag with
-    | True =>
-      match key with
-        | Digit0 => byDecision
-        | Digit1 => byDecision
-        | Digit2 => byDecision
-        | Digit3 => byDecision
-        | Digit4 => byDecision
-        | Digit5 => byDecision
-        | Digit6 => byDecision
-        | Digit7 => byDecision
-        | Digit8 => byDecision
-        | Digit9 => byDecision
-        | Enter => byDecision
-    | False =>
-      match key with
-        | Digit0 => byDecision
-        | Digit1 => byDecision
-        | Digit2 => byDecision
-        | Digit3 => byDecision
-        | Digit4 => byDecision
-        | Digit5 => byDecision
-        | Digit6 => byDecision
-        | Digit7 => byDecision
-        | Digit8 => byDecision
-        | Digit9 => byDecision
-        | Enter => byDecision
+theorem keyFewest ∀ (flag: Bool) (key: NumericKey): Or (key ∈ numericKeys) (flag = True) := match flag with
+  | True =>
+    match key with
+      | Digit0 => byDecision
+      | Digit1 => byDecision
+      | Digit2 => byDecision
+      | Digit3 => byDecision
+      | Digit4 => byDecision
+      | Digit5 => byDecision
+      | Digit6 => byDecision
+      | Digit7 => byDecision
+      | Digit8 => byDecision
+      | Digit9 => byDecision
+      | Enter => byDecision
+  | False =>
+    match key with
+      | Digit0 => byDecision
+      | Digit1 => byDecision
+      | Digit2 => byDecision
+      | Digit3 => byDecision
+      | Digit4 => byDecision
+      | Digit5 => byDecision
+      | Digit6 => byDecision
+      | Digit7 => byDecision
+      | Digit8 => byDecision
+      | Digit9 => byDecision
+      | Enter => byDecision

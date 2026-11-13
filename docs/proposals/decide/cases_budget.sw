@@ -8,5 +8,5 @@ import Std (Bool)
 
 def xor (a: Bool) (b: Bool): Bool := if a then not b else b
 
-theorem xor6 (a: Bool) (b: Bool) (c: Bool) (d: Bool) (e: Bool) (f: Bool):
+theorem xor6 ∀ (a: Bool) (b: Bool) (c: Bool) (d: Bool) (e: Bool) (f: Bool):
     xor a (xor b (xor c (xor d (xor e f)))) = xor f (xor e (xor d (xor c (xor b a)))) := cases

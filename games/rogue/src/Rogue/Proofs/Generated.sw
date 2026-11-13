@@ -15,11 +15,11 @@ import Std.Effect.AlwaysTreeOf (AlwaysCall)
 --| A roll is below its bound: `roll most` under the seeded handler is at most
 --| `most`. (Under any handler, `roll most` is a remainder by `Succ most`;
 --| `Random.withSeed` is the handler the game and its tests use.)
-theorem rollBelow (seed: Nat) (most: Nat): Random.withSeed seed (() => roll most) < Succ most := Nat.modLt (lcg seed / 65536) (Succ most)
+theorem rollBelow ∀ (seed: Nat) (most: Nat): Random.withSeed seed (() => roll most) < Succ most := Nat.modLt (lcg seed / 65536) (Succ most)
 
 --| What every result of a computation satisfies, its result under the seeded
 --| handler satisfies, for every seed.
-theorem withSeedAlways (property: a → Prop) (prog: () → {Random} a) (holds: Effect.AlwaysTree property (prog ())) (seed: Nat): property (Random.withSeed seed prog) :=
+theorem withSeedAlways ∀ (property: a → Prop) (prog: () → {Random} a) (holds: Effect.AlwaysTree property (prog ())) (seed: Nat): property (Random.withSeed seed prog) :=
   match reify prog with
     | return x => Effect.AlwaysTree.done property x holds
     | Random.next (), k =>
@@ -27,7 +27,7 @@ theorem withSeedAlways (property: a → Prop) (prog: () → {Random} a) (holds: 
         | AlwaysCall later => withSeedAlways property (() => k (lcg seed / 65536)) (later (lcg seed / 65536)) (lcg seed)
 
 --| Whatever number a roll is given, its result is below its bound.
-theorem rollBound (drawn: Nat) (most: Nat): drawn % Succ most < Succ most := Nat.modLt drawn (Succ most)
+theorem rollBound ∀ (drawn: Nat) (most: Nat): drawn % Succ most < Succ most := Nat.modLt drawn (Succ most)
 
 --| Every room fits on the map.
 --
@@ -35,14 +35,14 @@ theorem rollBound (drawn: Nat) (most: Nat): drawn % Succ most < Succ most := Nat
 -- below works out which rooms the generator made.
 opaque def RoomsFit (rooms: List Area): Prop := List.All (area => OnMap area) rooms
 
-theorem sixFit [room0: Area] [room1: Area] [room2: Area] [room3: Area] [room4: Area] [room5: Area]
+theorem sixFit ∀ [room0: Area] [room1: Area] [room2: Area] [room3: Area] [room4: Area] [room5: Area]
     (fits0: OnMap room0) (fits1: OnMap room1) (fits2: OnMap room2) (fits3: OnMap room3) (fits4: OnMap room4) (fits5: OnMap room5):
     RoomsFit [room0, room1, room2, room3, room4, room5]
     unfolding RoomsFit
 :=
   Both fits0 (Both fits1 (Both fits2 (Both fits3 (Both fits4 (Both fits5 Trivial)))))
 
-theorem roomsFitMem (rooms: List Area) (fit: RoomsFit rooms) (area: Area) (listed: List.Mem area rooms): OnMap area
+theorem roomsFitMem ∀ (rooms: List Area) (fit: RoomsFit rooms) (area: Area) (listed: List.Mem area rooms): OnMap area
     unfolding RoomsFit
 :=
   List.allMem (area => OnMap area) area rooms fit listed
@@ -59,7 +59,7 @@ def LaidOut (depth: Nat) (property: Level → Prop): Prop :=
 --| the first two monsters' four each, until the monster count is unknown),
 --| and `alwaysBind` past the monsters and the sword, whose rolls the level
 --| doesn't use.
-theorem generatedLaidOut (depth: Nat) (property: Level → Prop) (laidOut: LaidOut depth property):
+theorem generatedLaidOut ∀ (depth: Nat) (property: Level → Prop) (laidOut: LaidOut depth property):
     Effect.Always ((plan: Plan) => property plan.level) (generateLevel depth)
     unfolding generateLevel
 :=
@@ -79,27 +79,27 @@ theorem generatedLaidOut (depth: Nat) (property: Level → Prop) (laidOut: LaidO
 
 --| Whatever is true of every laid-out level is true of every level the game
 --| generates, for every seed and depth.
-theorem generatedHolds (property: Level → Prop) (laidOut: ∀ (depth: Nat) => LaidOut depth property) (seed: Nat) (depth: Nat):
+theorem generatedHolds ∀ (property: Level → Prop) (laidOut: ∀ (depth: Nat) => LaidOut depth property) (seed: Nat) (depth: Nat):
     property (Random.withSeed seed (() => generateLevel depth)).level :=
   let always := generatedLaidOut depth property (laidOut depth)
   withSeedAlways ((plan: Plan) => property plan.level) (() => generateLevel depth) (Effect.Always.tree _ _ always) seed
 
 --| On every level the game generates, for every seed and depth, the way on
 --| can be walked to from the start.
-theorem generatedReachable (seed: Nat) (depth: Nat):
+theorem generatedReachable ∀ (seed: Nat) (depth: Nat):
     GoalReachable (Random.withSeed seed (() => generateLevel depth)).level :=
   generatedHolds (level => GoalReachable level)
     (depth rooms entranceIndex exitIndex extra entranceSmall exitSmall fit => goalReachable depth rooms entranceIndex exitIndex extra entranceSmall exitSmall)
     seed depth
 
 --| Every level the game generates, for every seed and depth, is framed.
-theorem generatedFramed (seed: Nat) (depth: Nat): Framed (Random.withSeed seed (() => generateLevel depth)).level :=
+theorem generatedFramed ∀ (seed: Nat) (depth: Nat): Framed (Random.withSeed seed (() => generateLevel depth)).level :=
   generatedHolds (level => Framed level)
     (depth rooms entranceIndex exitIndex extra entranceSmall exitSmall fit => layOutFramed depth rooms entranceIndex exitIndex extra (roomsFitMem rooms fit))
     seed depth
 
 --| Every new game, as the program starts it, is sound, for every seed.
-theorem newGameSound (seed: Nat): Sound (Random.withSeed seed (() => newGame())) :=
+theorem newGameSound ∀ (seed: Nat): Sound (Random.withSeed seed (() => newGame())) :=
   let framedLevel := generatedLaidOut 1 (level => Framed level)
     (rooms entranceIndex exitIndex extra entranceSmall exitSmall fit => layOutFramed 1 rooms entranceIndex exitIndex extra (roomsFitMem rooms fit))
   let always: Effect.Always (state => Sound state) (newGame()) :=

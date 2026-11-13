@@ -49,7 +49,7 @@ def halvedCount (numbers: List Nat): Nat := match Abort.toOption (() => numbers.
 test "a handler matched on" := halvedCount [2, 4] == 2
 
 -- The reviewer's probe for the case stage 3 excluded handlers for.
-theorem thenLaw (first: () → {Abort} a) (rest: a → {Abort} b):
+theorem thenLaw ∀ (first: () → {Abort} a) (rest: a → {Abort} b):
     Abort.toOption (() => rest (first ())) =
       Option.flatMap (Abort.toOption first) (x => Abort.toOption (() => rest x)) :=
   match reify first with

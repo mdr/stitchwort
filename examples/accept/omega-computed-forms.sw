@@ -9,36 +9,36 @@
 import Std (And, Bool, Eq, Int, Nat, Not, Or, Void)
 
 -- `Int` subtraction after the numbers have met (AoC 2021 day 17).
-theorem predNonneg (i: Nat): 0 ≤ i.toInt + 1 - 1 := omega
+theorem predNonneg ∀ (i: Nat): 0 ≤ i.toInt + 1 - 1 := omega
 
-theorem predBack (n: Nat): (n + 1).toInt - 1 = n.toInt := omega
+theorem predBack ∀ (n: Nat): (n + 1).toInt - 1 = n.toInt := omega
 
-theorem predBelow (n: Nat): (n + 1).toInt - 1 ≤ (n + 1).toInt := omega
+theorem predBelow ∀ (n: Nat): (n + 1).toInt - 1 ≤ (n + 1).toInt := omega
 
-theorem bothSucc (n: Nat) (m: Nat): (n + 2).toInt - (m + 1).toInt = n.toInt - m.toInt + 1 := omega
+theorem bothSucc ∀ (n: Nat) (m: Nat): (n + 2).toInt - (m + 1).toInt = n.toInt - m.toInt + 1 := omega
 
-theorem oneMinus (n: Nat): 1 - (n + 1).toInt = -n.toInt := omega
+theorem oneMinus ∀ (n: Nat): 1 - (n + 1).toInt = -n.toInt := omega
 
-theorem negPlus (n: Nat): -((n + 1).toInt) + 1 = -n.toInt := omega
+theorem negPlus ∀ (n: Nat): -((n + 1).toInt) + 1 = -n.toInt := omega
 
-theorem minusMore (n: Nat): (n + 2).toInt - 5 = n.toInt - 3 := omega
+theorem minusMore ∀ (n: Nat): (n + 2).toInt - 5 = n.toInt - 3 := omega
 
-theorem constantFirst (n: Nat): -3 + (n + 1).toInt = n.toInt - 2 := omega
+theorem constantFirst ∀ (n: Nat): -3 + (n + 1).toInt = n.toInt - 2 := omega
 
-theorem doubled (n: Nat): (n + 1).toInt * 2 - 2 = 2 * n.toInt := omega
+theorem doubled ∀ (n: Nat): (n + 1).toInt * 2 - 2 = 2 * n.toInt := omega
 
 -- `Nat` division of a numerator with a number added.
-theorem halfBelow (n: Nat): (n + 1) / 2 ≤ n + 1 := omega
+theorem halfBelow ∀ (n: Nat): (n + 1) / 2 ≤ n + 1 := omega
 
-theorem halfAfterStep (n: Nat): (n + 3) / 2 ≤ n + 2 := omega
+theorem halfAfterStep ∀ (n: Nat): (n + 3) / 2 ≤ n + 2 := omega
 
-theorem twiceHalf (n: Nat): 2 * ((n + 4) / 2) ≤ n + 4 := omega
+theorem twiceHalf ∀ (n: Nat): 2 * ((n + 4) / 2) ≤ n + 4 := omega
 
-theorem halfStepped (n: Nat): (n + 3) / 2 = (n + 1) / 2 + 1 := omega
+theorem halfStepped ∀ (n: Nat): (n + 3) / 2 = (n + 1) / 2 + 1 := omega
 
-theorem parity (n: Nat): (n + 1) % 2 < 2 := omega
+theorem parity ∀ (n: Nat): (n + 1) % 2 < 2 := omega
 
-theorem intHalf (n: Nat): ((n + 3).toInt - 1) / 2 ≤ n.toInt + 2 := omega
+theorem intHalf ∀ (n: Nat): ((n + 3).toInt - 1) / 2 ≤ n.toInt + 2 := omega
 
 -- Disjunctions from a goal's other side wait for the case that settles
 -- them: here `h`'s three cases, each with the sign's three, and the facts
@@ -58,12 +58,12 @@ def past (left: Int) (right: Int) (bottom: Int) (probe: Probe): Bool :=
 def step (probe: Probe): Probe :=
   { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - Int.sign probe.dx, dy = probe.dy - 1 }
 
-theorem signCases (dx: Int): (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx = 0 ∧ dx = 0) ∨ (Int.sign dx = -1 ∧ dx < 0) :=
+theorem signCases ∀ (dx: Int): (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx = 0 ∧ dx = 0) ∨ (Int.sign dx = -1 ∧ dx < 0) :=
   match dx with
     | OfNat 0 => Inr (Inl (Both rfl rfl))
     | OfNat (Succ k) => Inl (Both rfl (omega))
     | NegSucc k => Inr (Inr (Both rfl (omega)))
 
-theorem pastStays (left: Int) (right: Int) (bottom: Int) (probe: Probe) (h: past left right bottom probe = True):
+theorem pastStays ∀ (left: Int) (right: Int) (bottom: Int) (probe: Probe) (h: past left right bottom probe = True):
     past left right bottom (step probe) = True :=
   omega [signCases probe.dx]

@@ -6,10 +6,10 @@
 -- (SW-944). Each goal pastes back as the same goal.
 import Std (List)
 
-theorem orFalse (b: Bool): b = (b || False) := ?
+theorem orFalse ∀ (b: Bool): b = (b || False) := ?
 
-theorem allTwo (b: Bool) (c: Bool): List.all [b, c] (x => x) = b := ?
+theorem allTwo ∀ (b: Bool) (c: Bool): List.all [b, c] (x => x) = b := ?
 
-theorem anyTwo (b: Bool) (c: Bool): List.any [b, c] (x => x) = b := ?
+theorem anyTwo ∀ (b: Bool) (c: Bool): List.any [b, c] (x => x) = b := ?
 
-theorem besideBool (k: Nat) (b: Bool): (k < 3) = (k < 3 && b) := ?
+theorem besideBool ∀ (k: Nat) (b: Bool): (k < 3) = (k < 3 && b) := ?

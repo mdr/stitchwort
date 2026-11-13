@@ -23,14 +23,14 @@ def Grid.cell (grid: Grid) (r: Fin grid.height) (c: Fin grid.width): Bool := gri
 -- Every cell flipped.
 def Grid.flip (grid: Grid): Grid := { grid | rows = grid.rows.map (row => row.map not) }
 
-theorem flipCell (grid: Grid) (r: Fin grid.height) (c: Fin grid.width):
+theorem flipCell ∀ (grid: Grid) (r: Fin grid.height) (c: Fin grid.width):
     grid.flip.cell r c = not (grid.cell r c) :=
   calc Vec.get (Vec.get (Vec.map grid.rows (row => Vec.map row not)) r) c
     _ = Vec.get (Vec.map (Vec.get grid.rows r) not) c := Eq.cong (row => Vec.get row c) (Vec.getMap grid.rows r (row => Vec.map row not))
     _ = not (Vec.get (Vec.get grid.rows r) c) := Vec.getMap (Vec.get grid.rows r) c not
 
 -- A sum over a vector is the sum over its list, so the list lemmas apply.
-theorem sumByMap (f: b → Nat) (g: a → b) (v: Vec a n): Vec.sumBy (Vec.map v g) f = List.sumBy (List.map (Vec.toList v) g) f :=
+theorem sumByMap ∀ (f: b → Nat) (g: a → b) (v: Vec a n): Vec.sumBy (Vec.map v g) f = List.sumBy (List.map (Vec.toList v) g) f :=
   Eq.trans (Vec.sumByToList (Vec.map v g) f) (Eq.cong (.sumBy f) (Vec.toListMap v g))
 
 def lines: List Text := [".#.", "###", ".#."]

@@ -54,11 +54,11 @@ def idOf: Shape → Text
   | Dot { id, .. } => id
   | Circle { id, .. } => id
 
-theorem idIsIdOf (a: Shape): a.id = idOf a := match a with
+theorem idIsIdOf ∀ (a: Shape): a.id = idOf a := match a with
   | Dot { .. } => rfl
   | Circle { .. } => rfl
 
-theorem idFull (a: Shape): a.id = Shape.id a := rfl
+theorem idFull ∀ (a: Shape): a.id = Shape.id a := rfl
 
 -- A proposition's shared field: both constructors hold a proof of `q`.
 type Evidence (q: Prop): Prop =

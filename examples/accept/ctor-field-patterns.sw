@@ -55,7 +55,7 @@ def startPositional: Shape → Int
   | Circle _ _ s _ => s
   | Polygon _ _ s _ _ => s
 
-theorem sameStart (a: Shape): startNamed a = startPositional a := match a with
+theorem sameStart ∀ (a: Shape): startNamed a = startPositional a := match a with
   | Dot { .. } => rfl
   | Circle { .. } => rfl
   | Polygon { .. } => rfl

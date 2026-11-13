@@ -15,7 +15,7 @@ def settle (xs: List Nat): Option Nat
         | Some _ => settle rest
     else None
 
-theorem settleNone (xs: List Nat): settle xs = None :=
+theorem settleNone ∀ (xs: List Nat): settle xs = None :=
   settle.induct
     (xs result => result = None)
     rfl

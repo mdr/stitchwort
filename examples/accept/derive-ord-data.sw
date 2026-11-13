@@ -36,4 +36,4 @@ type Version = | V (major: Nat) (minor: Nat) (patch: Nat)
 test "versions" := List.sort [V 1 2 0, V 1 0 9, V 0 9 9] == [V 0 9 9, V 1 0 9, V 1 2 0]
 
 -- `Equal` means equal: the law, used.
-theorem sameShape (s: Shape) (t: Shape) (h: Ord.compare s t = Equal): s = t := Ord.equal s t h
+theorem sameShape ∀ (s: Shape) (t: Shape) (h: Ord.compare s t = Equal): s = t := Ord.equal s t h

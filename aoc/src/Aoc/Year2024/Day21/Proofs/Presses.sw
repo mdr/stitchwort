@@ -25,10 +25,10 @@ def pressesFor (robots: Nat) (code: Code): List DirectionKey := yourPresses robo
 --| The cost of the cheapest route between two keys, then A.
 def cheapestBetween (keypad: Keypad k) (costs: Costs) (from: k) (to: k): Nat := costs.cheapestCost (keypad.routes from to)
 
-theorem sequenceCostFrom (costs: Costs) (keys: List DirectionKey): costs.sequenceCost keys = costFrom costs Activate keys := sumByPairs costs Activate keys
+theorem sequenceCostFrom ∀ (costs: Costs) (keys: List DirectionKey): costs.sequenceCost keys = costFrom costs Activate keys := sumByPairs costs Activate keys
 
 --| Each route's keys end with A, so the next route starts from it.
-theorem drivingKeysCost (keypad: Keypad k) (costs: Costs) (from: k) (keys: List k):
+theorem drivingKeysCost ∀ (keypad: Keypad k) (costs: Costs) (from: k) (keys: List k):
     costFrom costs Activate (drivingKeys keypad costs from keys) = costFrom (cheapestBetween keypad costs) from keys :=
   match keys with
     | [] => rfl
@@ -41,15 +41,15 @@ theorem drivingKeysCost (keypad: Keypad k) (costs: Costs) (from: k) (keys: List 
         in rfl
 
 --| Tabulating changes no cost.
-theorem tabulateSame (costs: Costs) (from to: DirectionKey): costs.tabulate from to = costs from to :=
+theorem tabulateSame ∀ (costs: Costs) (from to: DirectionKey): costs.tabulate from to = costs from to :=
   cases
 
 --| The program's next costs are the cheapest routes on a directional keypad.
-theorem nextCostsCheapest (costs: Costs) (from: DirectionKey) (to: DirectionKey):
+theorem nextCostsCheapest ∀ (costs: Costs) (from: DirectionKey) (to: DirectionKey):
     costs.next from to = cheapestBetween Keypad.directional costs from to :=
   tabulateSame (from to => costs.cheapestCost (Keypad.directional.routes from to)) from to
 
-theorem yourPressesLength (level: Nat) (keys: List DirectionKey): (yourPresses level keys).length = costFrom (robotCosts level) Activate keys :=
+theorem yourPressesLength ∀ (level: Nat) (keys: List DirectionKey): (yourPresses level keys).length = costFrom (robotCosts level) Activate keys :=
   match level with
     | Zero => Eq.sym (costFromOnes Activate keys)
     | Succ level =>
@@ -61,7 +61,7 @@ theorem yourPressesLength (level: Nat) (keys: List DirectionKey): (yourPresses l
         (from to => Eq.sym (nextCostsCheapest (robotCosts level) from to)) Activate keys
 
 --| As many presses as the program's length.
-theorem pressesForLength (robots: Nat) (code: Code): (pressesFor robots code).length = (robotCosts robots).shortestLength code :=
+theorem pressesForLength ∀ (robots: Nat) (code: Code): (pressesFor robots code).length = (robotCosts robots).shortestLength code :=
   rewrite yourPressesLength robots (drivingKeys Keypad.numeric (robotCosts robots) Enter code),
     drivingKeysCost Keypad.numeric (robotCosts robots) Enter code
     in Eq.sym (sumByPairs (cheapestBetween Keypad.numeric (robotCosts robots)) Enter code)

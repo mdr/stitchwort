@@ -27,9 +27,9 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
 
-theorem upTo (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
+theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
 -- end ranges
 
 -- begin option

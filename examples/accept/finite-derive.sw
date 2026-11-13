@@ -23,7 +23,7 @@ type DirectionKey =
 theorem directionKeys: Finite.all = [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate] := rfl
 
 -- Every key is on the list: the derived proof, nothing to write.
-theorem everyKey (key: DirectionKey): key ∈ (Finite.all: List DirectionKey) := Finite.complete key
+theorem everyKey ∀ (key: DirectionKey): key ∈ (Finite.all: List DirectionKey) := Finite.complete key
 
 -- Fields of the library's finite types: `Bool`, `Ordering`, an `Option` and a
 -- pair of them, and the program's own.
@@ -37,7 +37,7 @@ theorem signals: (Finite.all: List Signal).length = 1 + 3 * 2 + (1 + 4) + 5 * 2 
 
 theorem signalsStart: (Finite.all: List Signal).take 4 = [Off, Blink Less False, Blink Less True, Blink Equal False] := rfl
 
-theorem pointIn (aim: Option Direction): Point aim ∈ (Finite.all: List Signal) := Finite.complete (Point aim)
+theorem pointIn ∀ (aim: Option Direction): Point aim ∈ (Finite.all: List Signal) := Finite.complete (Point aim)
 
 -- A record: one constructor, every combination of its fields.
 type Switches = { power: Bool, light: Bool, mode: Ordering }

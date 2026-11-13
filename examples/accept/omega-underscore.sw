@@ -11,17 +11,17 @@ def size: List Nat → Nat
   | [] => 0
   | [head, ..rest] => 1 + size rest
 
-theorem tallyAtMostSize (label: Nat) (xs: List Nat): tally label xs ≤ size xs := match xs with
+theorem tallyAtMostSize ∀ (label: Nat) (xs: List Nat): tally label xs ≤ size xs := match xs with
   | [] => omega
   | [head, ..rest] => omega [tallyAtMostSize label rest]
 
-theorem listed (xs: List Nat): tally 3 xs ≤ size xs + 1 :=
+theorem listed ∀ (xs: List Nat): tally 3 xs ≤ size xs + 1 :=
   omega [tallyAtMostSize _ xs]
 
-theorem viaLet (xs: List Nat) (extra: Nat): tally 3 xs ≤ size xs + extra :=
+theorem viaLet ∀ (xs: List Nat) (extra: Nat): tally 3 xs ≤ size xs + extra :=
   let bound := tallyAtMostSize _ xs
   omega [bound]
 
 -- The unknown sits inside an argument: `1 + _` is the goal's `4`.
-theorem inside (xs: List Nat): tally 4 xs ≤ size xs + 1 :=
+theorem inside ∀ (xs: List Nat): tally 4 xs ≤ size xs + 1 :=
   omega [tallyAtMostSize (1 + _) xs]

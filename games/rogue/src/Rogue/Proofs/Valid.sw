@@ -15,7 +15,7 @@ type Valid (state: State): Prop = {
 }
 
 --| Arriving on a level, whatever the generator planned, is valid.
-theorem arriveValid (state: State) (plan: Plan) (atMost: state.hitPoints ≤ maxHitPoints): Valid (arrive state plan) := {
+theorem arriveValid ∀ (state: State) (plan: Plan) (atMost: state.hitPoints ≤ maxHitPoints): Valid (arrive state plan) := {
   outOfWalls = startOnFloor plan.level,
   atMost = atMost,
   clear = placeMonstersClear plan.level plan.level.start [] plan.monsters rfl,
@@ -24,10 +24,10 @@ theorem arriveValid (state: State) (plan: Plan) (atMost: state.hitPoints ≤ max
 }
 
 --| So every new game starts valid.
-theorem startingValid (plan: Plan): Valid (startingState plan) := arriveValid (freshState plan) plan rfl
+theorem startingValid ∀ (plan: Plan): Valid (startingState plan) := arriveValid (freshState plan) plan rfl
 
 --| A turn with any dice keeps the state valid.
-theorem resolveValid (dice: Dice) (state: State) (command: Command) (valid: Valid state): Valid (resolve dice state command) := {
+theorem resolveValid ∀ (dice: Dice) (state: State) (command: Command) (valid: Valid state): Valid (resolve dice state command) := {
   outOfWalls = resolveOutOfWalls dice state command valid.outOfWalls,
   atMost = resolveAtMost dice state command valid.atMost,
   clear = resolveClear dice state command valid.clear,
@@ -35,7 +35,7 @@ theorem resolveValid (dice: Dice) (state: State) (command: Command) (valid: Vali
   apart = resolveApart dice state command valid.apart
 }
 
-theorem stepValid (seed: Nat) (state: State) (command: Command) (valid: Valid state):
+theorem stepValid ∀ (seed: Nat) (state: State) (command: Command) (valid: Valid state):
     Valid (Random.withSeed seed (() => step state command)) := {
   outOfWalls = stepOutOfWalls seed state command valid.outOfWalls,
   atMost = stepAtMost seed state command valid.atMost,

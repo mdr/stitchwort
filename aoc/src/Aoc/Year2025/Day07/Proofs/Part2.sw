@@ -13,7 +13,7 @@ import Aoc.Year2025.Day07.Spec (..)
 import Std (Eq, Fin, List, Nat, Option, Vec, Void)
 
 --| `splitRow` column by column.
-theorem splitRowAt (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
+theorem splitRowAt ∀ (row: Vec Bool w) (below: Vec Nat w) (c: Nat):
     Vec.getOr (splitRow row below) c 1
       = (if splitterAt row c then (VCons 1 below).getOr c 1 + below.getOr (Succ c) 1 else below.getOr c 1) :=
   let sides := below.around 1 (l _ r => l + r)
@@ -27,7 +27,7 @@ def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight ls
 
 --| One row up: a column's count from the counts below, against the
 --| timelines from that column.
-theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (below: Vec Nat w)
+theorem countStep ∀ (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (below: Vec Nat w)
     (ih: ∀ (c: Nat) => below.getOr c 1 = List.length (timelinesFrom (r + 1) c rest)):
     (if splitterAt l c then (VCons 1 below).getOr c 1 + below.getOr (Succ c) 1 else below.getOr c 1)
     = List.length (timelinesFrom r c [l, ..rest]) := match e: splitterAt l c with
@@ -38,7 +38,7 @@ theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (b
       | False => ih c
 
 --| Every column's count is the number of timelines from it.
-theorem countsAre (w: Nat) (ls: List (Vec Bool w)) (r c: Nat):
+theorem countsAre ∀ (w: Nat) (ls: List (Vec Bool w)) (r c: Nat):
     Vec.getOr (countsBelow w ls) c 1 = List.length (timelinesFrom r c ls) := match ls with
       | [] => Vec.getOrReplicate 1 w c
       | [l, ..rest] =>
@@ -47,6 +47,6 @@ theorem countsAre (w: Nat) (ls: List (Vec Bool w)) (r c: Nat):
 
 --| Part 2 is right: for every manifold, the printed answer is the number of
 --| timelines of the particle from S.
-theorem part2Correct (manifold: Manifold): solvePart2 manifold = part2Spec manifold :=
+theorem part2Correct ∀ (manifold: Manifold): solvePart2 manifold = part2Spec manifold :=
   rewrite <- Vec.getOrGet manifold.timelineCounts manifold.start 1 in
     countsAre manifold.width manifold.rows 0 manifold.start.toNat

@@ -18,7 +18,7 @@ def walk (rows: List (List (Option k))) (aim: Position): List Direction → Opti
   | [direction, ..rest] => moved aim direction |> .flatMap (next => keyAt rows next |> .flatMap (key => walk rows next rest))
 
 --| Arrows, then other keys: the arrows walk the arm first.
-theorem operateArrows (rows: List (List (Option k))) (aim: Position) (route: List Direction) (rest: List DirectionKey):
+theorem operateArrows ∀ (rows: List (List (Option k))) (aim: Position) (route: List Direction) (rest: List DirectionKey):
     operate rows aim (List.append (route.map Arrow) rest) = walk rows aim route |> .flatMap (end => operate rows end rest) :=
   match route with
     | [] => rfl
@@ -64,11 +64,11 @@ type Fitted (k: Type) = {
 }
 
 --| The cheapest of the routes passes a test they all pass.
-theorem cheapestPasses (costs: Costs) (passes: List Direction → Bool) (choices: NonEmptyList (List Direction)) (all: choices.all passes = True):
+theorem cheapestPasses ∀ (costs: Costs) (passes: List Direction → Bool) (choices: NonEmptyList (List Direction)) (all: choices.all passes = True):
     passes (costs.cheapestRoute choices) = True :=
   minByStepPasses costs.routeCost passes choices.head (Bool.andLeft all) choices.tail (Bool.andRight all)
 
-theorem cheapestFits [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
+theorem cheapestFits ∀ [auto decEq: DecEq k] [auto fin: Finite k] (keypad: Keypad k) (rows: List (List (Option k)))
     (checked: fits keypad rows = True) (costs: Costs) (from: k) (to: k):
     routeFits rows (keypad.place from) (keypad.place to) (costs.cheapestRoute (keypad.routes from to)) = True :=
   let pairs := checked.right
@@ -90,7 +90,7 @@ def numericFitted: Fitted NumericKey := fitted Keypad.numeric numericRows numeri
 def directionalFitted: Fitted DirectionKey := fitted Keypad.directional directionalRows directionalFits
 
 --| A robot driven by `drivingKeys` presses the keys, its arm first on `from`.
-theorem drivingKeysType (fit: Fitted k) (costs: Costs) (from: k) (keys: List k):
+theorem drivingKeysType ∀ (fit: Fitted k) (costs: Costs) (from: k) (keys: List k):
     operate fit.rows (fit.keypad.place from) (drivingKeys fit.keypad costs from keys) = Some keys := match keys with
       | [] => rfl
       | [to, ..rest] =>
@@ -107,7 +107,7 @@ def throughRobots: (robots: Nat) → List DirectionKey → Option (List Directio
   | Zero, presses => Some presses
   | Succ others, presses => operate directionalRows directionalStart presses |> .flatMap (throughRobots others)
 
-theorem typedThrough (robots: Nat) (presses: List DirectionKey):
+theorem typedThrough ∀ (robots: Nat) (presses: List DirectionKey):
     typed robots presses = throughRobots robots presses |> .flatMap (operate numericRows numericStart) :=
   match robots with
     | Zero => rfl
@@ -117,7 +117,7 @@ theorem typedThrough (robots: Nat) (presses: List DirectionKey):
         | Some keys => typedThrough others keys
 
 --| The robot nearest the door is the last one the presses pass through.
-theorem throughRobotsLast (robots: Nat) (presses: List DirectionKey):
+theorem throughRobotsLast ∀ (robots: Nat) (presses: List DirectionKey):
     throughRobots (Succ robots) presses = throughRobots robots presses |> .flatMap (operate directionalRows directionalStart) :=
   match robots with
     | Zero => flatMapIntoSome (operate directionalRows directionalStart presses)
@@ -126,7 +126,7 @@ theorem throughRobotsLast (robots: Nat) (presses: List DirectionKey):
         | None => rfl
         | Some keys => throughRobotsLast others keys
 
-theorem yourPressesThrough (level: Nat) (keys: List DirectionKey): throughRobots level (yourPresses level keys) = Some keys :=
+theorem yourPressesThrough ∀ (level: Nat) (keys: List DirectionKey): throughRobots level (yourPresses level keys) = Some keys :=
   match level with
     | Zero => rfl
     | Succ level =>
@@ -134,6 +134,6 @@ theorem yourPressesThrough (level: Nat) (keys: List DirectionKey): throughRobots
       rewrite throughRobotsLast level (yourPresses level driving), yourPressesThrough level driving in
         drivingKeysType directionalFitted (robotCosts level) Activate keys
 
-theorem pressesForTypes (robots: Nat) (code: Code): Types robots code (pressesFor robots code) :=
+theorem pressesForTypes ∀ (robots: Nat) (code: Code): Types robots code (pressesFor robots code) :=
   rewrite typedThrough robots (pressesFor robots code), yourPressesThrough robots (drivingKeys Keypad.numeric (robotCosts robots) Enter code) in
     drivingKeysType numericFitted (robotCosts robots) Enter code

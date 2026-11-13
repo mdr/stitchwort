@@ -12,38 +12,38 @@ test "one that doesn't" := !bo.fits 4
 -- end booking
 
 -- begin pieces
-theorem fitsSeats (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsSeats ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     booking.seats <= capacity := match h with
       | Both _ small => small
 
-theorem fitsPositive (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsPositive ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     0 < booking.seats := h.left
 -- end pieces
 
 -- begin read
-theorem fitsBoth (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsBoth ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     0 < booking.seats ∧ booking.seats ≤ capacity := h.read
 -- end read
 
 -- begin negative
-theorem emptyOrTooBig (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
+theorem emptyOrTooBig ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
     booking.seats = 0 ∨ capacity < booking.seats := match h with
       | Inl zero => Inl omega
       | Inr big => Inr big.read
 -- end negative
 
 -- begin build
-theorem fitsFrom (booking: Booking) (capacity: Nat) (positive: 0 < booking.seats)
+theorem fitsFrom ∀ (booking: Booking) (capacity: Nat) (positive: 0 < booking.seats)
     (small: booking.seats ≤ capacity): booking.fits capacity :=
   Both positive small
 
-theorem fitsOrBigger (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsOrBigger ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     booking.fits (capacity + 1) :=
   Both h.left omega
 -- end build
 
 -- begin same
-theorem sameName (a: Booking) (b: Booking) (h: a == b): a.name = b.name :=
+theorem sameName ∀ (a: Booking) (b: Booking) (h: a == b): a.name = b.name :=
   rewrite h.read in rfl
 -- end same
 
@@ -54,7 +54,7 @@ def Booking.spare (booking: Booking) (capacity: Nat) [auto ok: booking.seats ≤
 def spareFor (booking: Booking) (capacity: Nat) (h: booking.fits capacity): Nat :=
   booking.spare capacity
 
-theorem allSmall (bookings: List Booking) (capacity: Nat)
+theorem allSmall ∀ (bookings: List Booking) (capacity: Nat)
     (h: bookings.all (b => b.fits capacity)) (b: Booking) (m: b ∈ bookings):
     b.seats ≤ capacity := (h.read b m).right
 -- end auto

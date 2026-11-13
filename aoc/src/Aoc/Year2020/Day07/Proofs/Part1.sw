@@ -8,7 +8,7 @@ import Aoc.Year2020.Day07 (..)
 import Aoc.Year2020.Day07 (Spec)
 import Std (Bool, DecEq, Eq, Exists, Graph, List, Map, Pair, Set)
 
-theorem holdersInIndex (rules: Rules) (colour: Colour):
+theorem holdersInIndex ∀ (rules: Rules) (colour: Colour):
     rules.holders.of colour = ((rules.all.flatMap .holdings).filter (pair => Map.Spec.sameKey colour pair.inside)).map .holder :=
   rewrite Map.getGroupBy .inside colour (rules.all.flatMap .holdings) in
     match List.filter (rules.all.flatMap .holdings) (pair => Map.Spec.sameKey colour pair.inside) with
@@ -16,7 +16,7 @@ theorem holdersInIndex (rules: Rules) (colour: Colour):
       | [first, ..rest] => rfl
 
 --| Every holder is the colour of a rule.
-theorem holderListed (rules: List Rule) (colour: Colour) (holder: Colour) (found: holder ∈ ({ all = rules }: Rules).holders.of colour):
+theorem holderListed ∀ (rules: List Rule) (colour: Colour) (holder: Colour) (found: holder ∈ ({ all = rules }: Rules).holders.of colour):
     holder ∈ rules.map .colour :=
   let (Witness pair (Both kept same)) := List.memMapElim .holder holder _ (rewrite holdersInIndex { all = rules } colour at found in found)
   let (Both listed matching) := List.memFilter _ _ kept
@@ -26,7 +26,7 @@ theorem holderListed (rules: List Rule) (colour: Colour) (holder: Colour) (found
       rewrite <- same, <- made in List.memMap rules rule member .colour)
 
 --| A colour's holders are the colours whose rules list it.
-theorem holderDirectly (rules: Rules) (inner: Colour) (holder: Colour):
+theorem holderDirectly ∀ (rules: Rules) (inner: Colour) (holder: Colour):
     (holder ∈ rules.holders.of inner) ↔ Spec.Directly rules.all holder inner := {
   forward = found =>
     let (Witness pair (Both kept same)) := List.memMapElim .holder holder _ (rewrite holdersInIndex rules inner at found in found)
@@ -54,35 +54,35 @@ theorem holderDirectly (rules: Rules) (inner: Colour) (holder: Colour):
 
 --| The graph's edges out of a bag are its holders, each at cost 1, when the
 --| holder has a rule.
-theorem graphEdge (rules: Rules) (inner: Colour) (holder: Colour) (weight: Nat):
+theorem graphEdge ∀ (rules: Rules) (inner: Colour) (holder: Colour) (weight: Nat):
     ((holder, weight) ∈ rules.graph.edges inner) ↔ (((holder, weight) ∈ (rules.holders.of inner).map (next => (next, 1))) ∧ (holder ∈ rules.all.map .colour)) :=
   Graph.fromEdgesEdge (colour => (rules.holders.of colour).map (next => (next, 1))) (rules.all.map .colour) inner holder weight
 
-theorem edgeDirectly (rules: Rules) (inner: Colour) (holder: Colour) (weight: Nat) (edge: (holder, weight) ∈ rules.graph.edges inner):
+theorem edgeDirectly ∀ (rules: Rules) (inner: Colour) (holder: Colour) (weight: Nat) (edge: (holder, weight) ∈ rules.graph.edges inner):
     Spec.Directly rules.all holder inner ∧ weight = 1 :=
   let (Both raw listed) := (graphEdge rules inner holder weight).forward edge
   let (Witness found (Both inHolders same)) := List.memMapElim (holder => (holder, 1)) (holder, weight) _ raw
   Both ((holderDirectly rules inner holder).forward (rewrite <- Eq.cong Pair.fst same in inHolders)) (Eq.sym (Eq.cong Pair.snd same))
 
-theorem directlyEdge (rules: Rules) (inner: Colour) (holder: Colour) (directly: Spec.Directly rules.all holder inner):
+theorem directlyEdge ∀ (rules: Rules) (inner: Colour) (holder: Colour) (directly: Spec.Directly rules.all holder inner):
     (holder, 1) ∈ rules.graph.edges inner :=
   let held := (holderDirectly rules inner holder).backward directly
   (graphEdge rules inner holder 1).backward
     (Both (List.memMap _ holder held (holder => (holder, 1))) (holderListed rules.all inner holder held))
 
-theorem walkOutward (rules: Rules) (start: Colour) (path: List (Colour, Nat)) (finish: Colour) (walked: rules.graph.Walk start path finish):
+theorem walkOutward ∀ (rules: Rules) (start: Colour) (path: List (Colour, Nat)) (finish: Colour) (walked: rules.graph.Walk start path finish):
     Spec.Outward rules.all start (path.map Pair.fst) finish := match path, walked with
       | [], walked => walked
       | [(next, weight), ..rest], Both edge later =>
         Both (And.left (edgeDirectly rules start next weight edge)) (walkOutward rules next rest finish later)
 
-theorem outwardWalk (rules: Rules) (start: Colour) (bags: List Colour) (finish: Colour) (outward: Spec.Outward rules.all start bags finish):
+theorem outwardWalk ∀ (rules: Rules) (start: Colour) (bags: List Colour) (finish: Colour) (outward: Spec.Outward rules.all start bags finish):
     rules.graph.Walk start (bags.map (bag => (bag, 1))) finish := match bags, outward with
       | [], outward => outward
       | [next, ..rest], Both directly later => Both (directlyEdge rules start next directly) (outwardWalk rules next rest finish later)
 
 --| A source of the search is a direct holder.
-theorem sourceDirectly (rules: Rules) (inner: Colour) (source: Colour)
+theorem sourceDirectly ∀ (rules: Rules) (inner: Colour) (source: Colour)
     (member: source ∈ (rules.graph.edges inner).map Pair.fst): Spec.Directly rules.all source inner :=
   let (Witness edge (Both inEdges made)) := List.memMapElim Pair.fst source _ member
   match edge with
@@ -90,7 +90,7 @@ theorem sourceDirectly (rules: Rules) (inner: Colour) (source: Colour)
 
 --| The colours the search finds are exactly those that can eventually
 --| contain `inner`.
-theorem outsideCanContain (rules: Rules) (inner: Colour) (colour: Colour):
+theorem outsideCanContain ∀ (rules: Rules) (inner: Colour) (colour: Colour):
     ((rules.outside inner).contains colour = True) ↔ Spec.CanContain rules.all colour inner :=
   let graph := rules.graph
   let sources := (graph.edges inner).map Pair.fst
@@ -107,7 +107,7 @@ theorem outsideCanContain (rules: Rules) (inner: Colour) (colour: Colour):
 
 --| Part 1 is the number of colours that can eventually contain a shiny
 --| gold bag, for any rules.
-theorem part1Rules (rules: Rules): Spec.Part1 rules.all (solvePart1 rules) :=
+theorem part1Rules ∀ (rules: Rules): Spec.Part1 rules.all (solvePart1 rules) :=
   let outside := rules.outside shinyGold
   Witness outside.toList
     (Both (Map.keysDistinct outside.items)

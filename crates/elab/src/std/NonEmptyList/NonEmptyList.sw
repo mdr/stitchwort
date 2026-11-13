@@ -149,7 +149,7 @@ def NonEmptyList.prependList (prefix: List a) (xs: NonEmptyList a): NonEmptyList
   | [y, ..rest] => { head = y, tail = List.append rest xs.toList }
 
 --| Sorting a `NonEmptyList` leaves a list with elements: the sorted list is as long as the original.
-theorem NonEmptyList.sortByNotNil (xs: NonEmptyList a) (cmp: a → a → Ordering): List.sortBy xs.toList cmp ≠ [] :=
+theorem NonEmptyList.sortByNotNil ∀ (xs: NonEmptyList a) (cmp: a → a → Ordering): List.sortBy xs.toList cmp ≠ [] :=
   sorted =>
     let same := List.permLength (List.sortBy xs.toList cmp) xs.toList (List.sortByPerm xs.toList cmp)
     let empty := rewrite sorted at same in same
@@ -178,18 +178,18 @@ def NonEmptyList.Mem (x: a) (xs: NonEmptyList a): Prop := x ∈ xs.toList
 --| `xs.contains x` is `True` exactly when `x` is one of the elements: its
 --| reading, as `List.contains`'s.
 @[reading]
-theorem NonEmptyList.containsMem [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = True) ↔ NonEmptyList.Mem x xs :=
+theorem NonEmptyList.containsMem ∀ [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = True) ↔ NonEmptyList.Mem x xs :=
   List.memContains xs.toList x
 
 --| `xs.contains x` is `False` exactly when `x` is not an element.
 @[reading]
-theorem NonEmptyList.containsReadsFalse [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = False) ↔ ¬(NonEmptyList.Mem x xs) :=
+theorem NonEmptyList.containsReadsFalse ∀ [auto eq: DecEq a] (xs: NonEmptyList a) (x: a): (xs.contains x = False) ↔ ¬(NonEmptyList.Mem x xs) :=
   List.containsReadsFalse xs.toList x
 
 instance NonEmptyList.instShow [auto show: Show a]: Show (NonEmptyList a) :=
   Show.fromText (xs => Show.list (x => Show.toSource x) xs.toList)
 
-theorem NonEmptyList.toListInjective (xs: NonEmptyList a) (ys: NonEmptyList a) (same: xs.toList = ys.toList): xs = ys :=
+theorem NonEmptyList.toListInjective ∀ (xs: NonEmptyList a) (ys: NonEmptyList a) (same: xs.toList = ys.toList): xs = ys :=
   match xs, ys with
     | { head = x, tail = s }, { head = y, tail = t } =>
       let heads := List.consInjectiveHead x y s t same
@@ -213,4 +213,4 @@ instance NonEmptyList.instOrd [auto ord: Ord a]: Ord (NonEmptyList a) :=
     (xs ys => List.instOrd.flip xs.toList ys.toList)
     (xs ys zs => List.instOrd.trans xs.toList ys.toList zs.toList)
 
-theorem NonEmptyList.compareToList [auto ord: Ord a] (xs: NonEmptyList a) (ys: NonEmptyList a): Ord.compare xs ys = Ord.compare xs.toList ys.toList := rfl
+theorem NonEmptyList.compareToList ∀ [auto ord: Ord a] (xs: NonEmptyList a) (ys: NonEmptyList a): Ord.compare xs ys = Ord.compare xs.toList ys.toList := rfl

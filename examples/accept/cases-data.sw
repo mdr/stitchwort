@@ -10,12 +10,12 @@ type Shape =
   | Circle (ref: Nat) (id: Text) (radius: Nat)
   | Square (ref: Nat) (id: Text) (side: Nat)
 
-theorem refAfterId (s: Shape) (t: Text): ({ s | id = t }).ref = s.ref := cases
+theorem refAfterId ∀ (s: Shape) (t: Text): ({ s | id = t }).ref = s.ref := cases
 
 -- A record is taken apart into its fields.
 type Pos = { row: Nat, column: Nat }
 
-theorem posEta (p: Pos): p = { row = p.row, column = p.column } := cases
+theorem posEta ∀ (p: Pos): p = { row = p.row, column = p.column } := cases
 
 -- A chain of `.orAbort`s: `h` says the run gave `Some v`, so `cases` follows
 -- each step it is stuck on; the aborting cases contradict `h`, and in the
@@ -28,4 +28,4 @@ def parseSmall (s: Text) (t: Text): {Abort} Nat :=
 
 def parseSmallOption (s: Text) (t: Text): Option Nat := toOption (() => parseSmall s t)
 
-theorem parseSmallSome (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
+theorem parseSmallSome ∀ (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases

@@ -13,7 +13,7 @@ import Aoc.Common.Proofs (lookupAt, mapWidth)
 import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| The walk depends only on what `find` says at each position.
-theorem firstSeatCong (f: Position → Option Seat) (g: Position → Option Seat) (same: ∀ (position: Position) => f position = g position)
+theorem firstSeatCong ∀ (f: Position → Option Seat) (g: Position → Option Seat) (same: ∀ (position: Position) => f position = g position)
     (from: Position) (direction: Offset) (distance steps: Nat): firstSeat f from direction distance steps = firstSeat g from direction distance steps :=
   match steps with
     | Zero => rfl
@@ -40,7 +40,7 @@ def sightFrom (find: Position → Option Seat) (from: Position) (direction: Offs
 
 --| Whether the walk ends at an occupied seat is whether the first seat on
 --| the line of sight is occupied.
-theorem walkSeen (find: Position → Option Seat) (from: Position) (direction: Offset) (distance steps: Nat): (firstSeat find from direction distance steps).any (near => find near == Some Occupied)
+theorem walkSeen ∀ (find: Position → Option Seat) (from: Position) (direction: Offset) (distance steps: Nat): (firstSeat find from direction distance steps).any (near => find near == Some Occupied)
     = ((sightFrom find from direction distance steps).find (((_, seat)) => seat != Floor)).any (((_, seat)) => seat == Occupied) :=
   match steps with
     | Zero => rfl
@@ -56,7 +56,7 @@ theorem walkSeen (find: Position → Option Seat) (from: Position) (direction: O
 
 --| Checking a position found for an occupied seat, with the table or
 --| with `at`.
-theorem anyLookup (layout: Layout) (found: Option Position):
+theorem anyLookup ∀ (layout: Layout) (found: Option Position):
     found.any (near => layout.grid.lookup near == Some Occupied) = found.any (near => layout.grid.at near == Some Occupied) :=
   match found with
     | None => rfl
@@ -65,7 +65,7 @@ theorem anyLookup (layout: Layout) (found: Option Position):
 --| In one direction, the program's walk with the table and the spec's
 --| first seen seat agree on whether it is occupied, for a reach of the
 --| layout's height plus its width.
-theorem seenOccupied (layout: Layout) (from: Position) (direction: Offset) (reach: Nat) (fits: reach = layout.grid.height + layout.grid.width):
+theorem seenOccupied ∀ (layout: Layout) (from: Position) (direction: Offset) (reach: Nat) (fits: reach = layout.grid.height + layout.grid.width):
     (firstSeat layout.grid.lookup from direction 1 reach).any (near => layout.grid.lookup near == Some Occupied)
       = (Spec.firstSeen layout from direction).any (((_, seat)) => seat == Occupied) :=
   calc (firstSeat layout.grid.lookup from direction 1 reach).any (near => layout.grid.lookup near == Some Occupied)
@@ -81,7 +81,7 @@ theorem compassDirections: compass = Spec.directions := rfl
 
 --| Part 2's count is the spec's occupied seats seen, for a reach of the
 --| layout's height plus its width.
-theorem sightOccupied (layout: Layout) (reach: Nat) (fits: reach = layout.grid.height + layout.grid.width) (position: Position):
+theorem sightOccupied ∀ (layout: Layout) (reach: Nat) (fits: reach = layout.grid.height + layout.grid.width) (position: Position):
     (compass.filterMap (direction => firstSeat layout.grid.lookup position direction 1 reach)).count (near => layout.grid.lookup near == Some Occupied)
       = Spec.occupiedSeen layout position :=
   rewrite List.countFilterMap (direction => firstSeat layout.grid.lookup position direction 1 reach) (near => layout.grid.lookup near == Some Occupied) compass,
@@ -90,14 +90,14 @@ theorem sightOccupied (layout: Layout) (reach: Nat) (fits: reach = layout.grid.h
       (direction member => seenOccupied layout position direction reach fits) in rfl
 
 --| A spec round keeps the layout's height and width.
-theorem roundShape (layout: Layout) (considered: Position → Nat) (crowded: Nat):
+theorem roundShape ∀ (layout: Layout) (considered: Position → Nat) (crowded: Nat):
     (Spec.round layout considered crowded).grid.height + (Spec.round layout considered crowded).grid.width = layout.grid.height + layout.grid.width :=
   let (Both wide tall) := mapWidth layout.grid (at seat => Spec.becomes seat (considered at) crowded)
   rewrite wide, tall in rfl
 
 --| The walk depends only on where the seats are: two layouts with seats at
 --| the same positions give the same walk.
-theorem firstSeatPlan (f: Position → Option Seat) (g: Position → Option Seat)
+theorem firstSeatPlan ∀ (f: Position → Option Seat) (g: Position → Option Seat)
     (same: ∀ (position: Position) => (f position).map Seat.isSeat = (g position).map Seat.isSeat)
     (from: Position) (direction: Offset) (distance steps: Nat): firstSeat f from direction distance steps = firstSeat g from direction distance steps :=
   match steps with

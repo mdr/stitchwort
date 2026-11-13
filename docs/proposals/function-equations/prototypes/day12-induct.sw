@@ -18,12 +18,12 @@ theorem trueOfNotFalse: (b: Bool) → Not (b = False) → b = True
   | False, n => Void.exfalso (n rfl)
 
 -- `Garden.fill.eq1`
-theorem fillEq1 (garden: Garden) (plant: Char) (visited: Set Position) (members: List Position):
+theorem fillEq1 ∀ (garden: Garden) (plant: Char) (visited: Set Position) (members: List Position):
     Garden.fill garden plant Nil visited members = members :=
   rewrite Garden.fill.unfold garden plant Nil visited members in rfl
 
 -- `Garden.fill.eq2.ifTrue.ifTrue`
-theorem fillEq2IfTrueIfTrue (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
+theorem fillEq2IfTrueIfTrue ∀ (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
     (fresh: visited.contains position = False) (grows: garden.plantAt position = Some plant):
     Garden.fill garden plant (Cons position rest) visited members
       = Garden.fill garden plant (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members) :=
@@ -32,7 +32,7 @@ theorem fillEq2IfTrueIfTrue (garden: Garden) (plant: Char) (position: Position) 
       (notFresh => Void.exfalso (notFresh fresh))
 
 -- `Garden.fill.eq2.ifTrue.ifFalse`
-theorem fillEq2IfTrueIfFalse (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
+theorem fillEq2IfTrueIfFalse ∀ (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
     (fresh: visited.contains position = False) (grows: Not (garden.plantAt position = Some plant)):
     Garden.fill garden plant (Cons position rest) visited members = Garden.fill garden plant rest visited members :=
   rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
@@ -40,7 +40,7 @@ theorem fillEq2IfTrueIfFalse (garden: Garden) (plant: Char) (position: Position)
       (notFresh => Void.exfalso (notFresh fresh))
 
 -- `Garden.fill.eq2.ifFalse`
-theorem fillEq2IfFalse (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
+theorem fillEq2IfFalse ∀ (garden: Garden) (plant: Char) (position: Position) (rest: List Position) (visited: Set Position) (members: List Position)
     (notFresh: visited.contains position = True):
     Garden.fill garden plant (Cons position rest) visited members = Garden.fill garden plant rest visited members :=
   rewrite Garden.fill.unfold garden plant (Cons position rest) visited members in
@@ -48,7 +48,7 @@ theorem fillEq2IfFalse (garden: Garden) (plant: Char) (position: Position) (rest
 
 -- `Garden.fill.induct`: `garden` and `plant` are the same in every recursive
 -- call, so they come first and the motive doesn't take them.
-theorem fillInduct (garden: Garden) (plant: Char) (motive: List Position → Set Position → List Position → Prop)
+theorem fillInduct ∀ (garden: Garden) (plant: Char) (motive: List Position → Set Position → List Position → Prop)
     (eq1: (visited: Set Position) → (members: List Position) → motive Nil visited members)
     (eq2IfTrueIfTrue: (position: Position) → (rest: List Position) → (visited: Set Position) → (members: List Position) →
       (fresh: visited.contains position = False) → (grows: garden.plantAt position = Some plant) →
@@ -60,25 +60,24 @@ theorem fillInduct (garden: Garden) (plant: Char) (motive: List Position → Set
       (notFresh: visited.contains position = True) → motive rest visited members → motive (Cons position rest) visited members)
     (stack: List Position) (visited: Set Position) (members: List Position): motive stack visited members
     decreasing (garden.unvisited visited, stack.length)
-:=
-  match stack with
-    | Nil => eq1 visited members
-    | Cons position rest =>
-      if fresh: visited.contains position = False then
-        if grows: garden.plantAt position = Some plant then
-          eq2IfTrueIfTrue position rest visited members fresh grows
-            (fillInduct garden plant motive eq1 eq2IfTrueIfTrue eq2IfTrueIfFalse eq2IfFalse
-              (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
-              [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)])
-        else eq2IfTrueIfFalse position rest visited members fresh grows
-          (fillInduct garden plant motive eq1 eq2IfTrueIfTrue eq2IfTrueIfFalse eq2IfFalse rest visited members
-            [decreasing := Nat.LexLess.Second rfl (omega)])
-      else eq2IfFalse position rest visited members (trueOfNotFalse _ fresh)
+:= match stack with
+  | Nil => eq1 visited members
+  | Cons position rest =>
+    if fresh: visited.contains position = False then
+      if grows: garden.plantAt position = Some plant then
+        eq2IfTrueIfTrue position rest visited members fresh grows
+          (fillInduct garden plant motive eq1 eq2IfTrueIfTrue eq2IfTrueIfFalse eq2IfFalse
+            (garden.neighboursGrowing plant position ++ rest) (visited.insert position) (Cons position members)
+            [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)])
+      else eq2IfTrueIfFalse position rest visited members fresh grows
         (fillInduct garden plant motive eq1 eq2IfTrueIfTrue eq2IfTrueIfFalse eq2IfFalse rest visited members
           [decreasing := Nat.LexLess.Second rfl (omega)])
+    else eq2IfFalse position rest visited members (trueOfNotFalse _ fresh)
+      (fillInduct garden plant motive eq1 eq2IfTrueIfTrue eq2IfTrueIfFalse eq2IfFalse rest visited members
+        [decreasing := Nat.LexLess.Second rfl (omega)])
 
 -- `fillCorrect` (Fill.sw) again, by `Garden.fill.induct` and the equations.
-theorem fillCorrectByInduct (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
+theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
     (state: FillState garden plant start stack visited members): FillResult garden plant start stack members (Garden.fill garden plant stack visited members) :=
   fillInduct garden plant
     (stack visited members => FillState garden plant start stack visited members → FillResult garden plant start stack members (Garden.fill garden plant stack visited members))

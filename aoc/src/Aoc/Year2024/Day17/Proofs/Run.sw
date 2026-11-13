@@ -16,15 +16,15 @@ def isFinished: Outcome → Bool
   | Finished output => True
   | _ => False
 
-theorem faultedNotFinished (output: List Nat) (same: Faulted = Finished output): Void := Bool.falseNotTrue (Eq.cong isFinished same)
+theorem faultedNotFinished ∀ (output: List Nat) (same: Faulted = Finished output): Void := Bool.falseNotTrue (Eq.cong isFinished same)
 
-theorem outOfFuelNotFinished (output: List Nat) (same: OutOfFuel = Finished output): Void := Bool.falseNotTrue (Eq.cong isFinished same)
+theorem outOfFuelNotFinished ∀ (output: List Nat) (same: OutOfFuel = Finished output): Void := Bool.falseNotTrue (Eq.cong isFinished same)
 
-theorem finishedInjective (first: List Nat) (second: List Nat) (same: Finished first = Finished second): first = second := Eq.cong finishedOutput same
+theorem finishedInjective ∀ (first: List Nat) (second: List Nat) (same: Finished first = Finished second): first = second := Eq.cong finishedOutput same
 
 --| A run that finishes outputs what was printed before it, then what a
 --| halting run of the puzzle's computer outputs.
-theorem runHalts (program: List Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
+theorem runHalts ∀ (program: List Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
     (finished: machine.run program printed fuel = Finished output): ∃ (rest: List Nat) => output = printed.reverse.append rest ∧ Halts program machine rest :=
   match fuel with
     | Succ fuel =>
@@ -42,13 +42,13 @@ theorem runHalts (program: List Nat) (fuel: Nat) (machine: Machine) (printed out
                 (Both (rewrite List.reverseCons value printed, List.appendAssoc printed.reverse [value] rest at same) (Prints machine after value rest matches halts))
 
 --| From the start, a finished run's output is a halting run's.
-theorem outcomeHalts (registers: Registers) (program: List Nat) (output: List Nat) (finished: outcome registers program = Finished output):
+theorem outcomeHalts ∀ (registers: Registers) (program: List Nat) (output: List Nat) (finished: outcome registers program = Finished output):
     Halts program (start registers) output :=
   match runHalts program (fuelFor registers program) (start registers) [] output finished with
     | Witness rest (Both same halts) => rewrite same in halts
 
 --| More fuel finishes the same way.
-theorem runMoreFuel (program: List Nat) (extra: Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
+theorem runMoreFuel ∀ (program: List Nat) (extra: Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
     (finished: machine.run program printed fuel = Finished output): machine.run program printed (fuel + extra) = Finished output :=
   match fuel with
     | Succ fuel =>

@@ -13,7 +13,7 @@ import Std (Bool, DecEq, Decidable, Eq, Iff, List, Nat, Option, Void)
 def Describes (fits: Nat → Prop) (alignment: Alignment): Prop :=
   alignment.period ≠ 0 ∧ (∀ (t: Nat) => fits t ↔ ∃ (periods: Nat) => t = alignment.time + periods * alignment.period)
 
-theorem describesIff [fits: Nat → Prop] [other: Nat → Prop] [alignment: Alignment] (same: ∀ (t: Nat) => fits t ↔ other t) (described: Describes fits alignment):
+theorem describesIff ∀ [fits: Nat → Prop] [other: Nat → Prop] [alignment: Alignment] (same: ∀ (t: Nat) => fits t ↔ other t) (described: Describes fits alignment):
     Describes other alignment :=
   Both (And.left described) (t => Iff.trans (Iff.symm (same t)) (And.right described t))
 
@@ -21,7 +21,7 @@ theorem startDescribes: Describes (t => Unit) Alignment.start :=
   Both (omega) (t => { forward = u => Witness t (omega), backward = h => () })
 
 --| The earliest time described is the alignment's.
-theorem describesEarliest [fits: Nat → Prop] [alignment: Alignment] (described: Describes fits alignment):
+theorem describesEarliest ∀ [fits: Nat → Prop] [alignment: Alignment] (described: Describes fits alignment):
     fits alignment.time ∧ (∀ (t: Nat) => fits t → alignment.time ≤ t) :=
   Both (Iff.backward (And.right described alignment.time) (Witness 0 (omega)))
     (t h =>
@@ -31,12 +31,12 @@ theorem describesEarliest [fits: Nat → Prop] [alignment: Alignment] (described
 --| How the sieve sees one bus: whether it departs `periods` periods on.
 def suits (alignment: Alignment) (bus: Bus) (periods: Nat): Bool := bus.departsAfter (alignment.time + periods * alignment.period)
 
-theorem suitsMod (alignment: Alignment) (bus: Bus) (periods: Nat):
+theorem suitsMod ∀ (alignment: Alignment) (bus: Bus) (periods: Nat):
     suits alignment bus periods = ((alignment.time + periods * alignment.period + bus.offset) % bus.id == 0) :=
   Nat.dividesMod bus.id _
 
 --| Suiting comes round every `id` periods.
-theorem suitsRound (alignment: Alignment) (bus: Bus) (periods: Nat):
+theorem suitsRound ∀ (alignment: Alignment) (bus: Bus) (periods: Nat):
     suits alignment bus periods = suits alignment bus (periods % bus.id) :=
   let split := Nat.divModEq periods bus.id
   let moved: alignment.time + periods * alignment.period + bus.offset
@@ -45,13 +45,13 @@ theorem suitsRound (alignment: Alignment) (bus: Bus) (periods: Nat):
   rewrite suitsMod alignment bus periods, suitsMod alignment bus (periods % bus.id), moved,
     Nat.modAddMul (alignment.time + periods % bus.id * alignment.period + bus.offset) (periods / bus.id * alignment.period) bus.id in rfl
 
-theorem suitsTrue (alignment: Alignment) (bus: Bus) (periods: Nat) (h: suits alignment bus periods = True):
+theorem suitsTrue ∀ (alignment: Alignment) (bus: Bus) (periods: Nat) (h: suits alignment bus periods = True):
     (alignment.time + periods * alignment.period + bus.offset) % bus.id = 0 :=
   DecEq.sound (rewrite <- suitsMod alignment bus periods in h)
 
 --| Once both `p` and `p + d` periods suit the bus, `d` periods are a
 --| multiple of its ID.
-theorem periodDivides (alignment: Alignment) (bus: Bus) (p: Nat) (d: Nat)
+theorem periodDivides ∀ (alignment: Alignment) (bus: Bus) (p: Nat) (d: Nat)
     (now: suits alignment bus p = True) (later: suits alignment bus (p + d) = True): (d * alignment.period) % bus.id = 0 :=
   let x := alignment.time + p * alignment.period + bus.offset
   let moved: alignment.time + (p + d) * alignment.period + bus.offset = x + d * alignment.period := ring
@@ -62,14 +62,14 @@ theorem periodDivides (alignment: Alignment) (bus: Bus) (p: Nat) (d: Nat)
     _ = 0 := rewrite <- moved in suitsTrue alignment bus (p + d) later
 
 --| Stepping on by a multiple of the ID's worth of periods changes nothing.
-theorem suitsMultiple (alignment: Alignment) (bus: Bus) (p: Nat) (q: Nat) (d: Nat) (h: (d * alignment.period) % bus.id = 0):
+theorem suitsMultiple ∀ (alignment: Alignment) (bus: Bus) (p: Nat) (q: Nat) (d: Nat) (h: (d * alignment.period) % bus.id = 0):
     suits alignment bus (p + q * d) = suits alignment bus p :=
   let x := alignment.time + p * alignment.period + bus.offset
   let moved: alignment.time + (p + q * d) * alignment.period + bus.offset = x + q * (d * alignment.period) := ring
   rewrite suitsMod alignment bus (p + q * d), suitsMod alignment bus p, moved,
     Nat.modAddOfModZero x (q * (d * alignment.period)) bus.id (Nat.modMulOfModZero q (d * alignment.period) bus.id h) in rfl
 
-theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
+theorem stepDescribes ∀ [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
     (first: Nat) (firstSuits: suits alignment bus first = True) (firstLeast: ∀ (e: Nat) => e < first → suits alignment bus e = False)
     (again: Nat) (againSuits: suits alignment bus (first + 1 + again) = True)
     (againLeast: ∀ (e: Nat) => e < again → suits alignment bus (first + 1 + e) = False):
@@ -108,12 +108,12 @@ theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (de
           (rewrite tAs in (rewrite suitsMultiple alignment bus first q (again + 1) step in firstSuits: suits alignment bus (first + q * (again + 1)) = True))
     })
 
-theorem suitsRoundOnce (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (p: Nat):
+theorem suitsRoundOnce ∀ (alignment: Alignment) (bus: Bus) [auto ok: bus.id ≠ 0] (p: Nat):
     suits alignment bus (p + 1 + (bus.id - 1)) = suits alignment bus p :=
   let multiple: (bus.id * alignment.period) % bus.id = 0 := rewrite Nat.mulComm bus.id alignment.period in Nat.modAddMul 0 alignment.period bus.id
   Eq.trans (Eq.cong (n => suits alignment bus n) (omega: p + 1 + (bus.id - 1) = p + 1 * bus.id)) (suitsMultiple alignment bus p 1 bus.id multiple)
 
-theorem addDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
+theorem addDescribes ∀ [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
     (next: Alignment) (added: alignment.add bus = Some next): Describes (t => fits t ∧ bus.departsAfter t = True) next :=
   match found: (0 ..< bus.id).find (suits alignment bus) with
     | None => Void.exfalso (Option.noneNotSome next (rewrite found at added in added))
@@ -130,7 +130,7 @@ theorem addDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (des
                   rewrite <- Option.someInjective (rewrite found, foundAgain at added in added) in
                     stepDescribes bus described first firstSuits firstLeast again againSuits againLeast
 
-theorem addNone [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) [auto ok: bus.id ≠ 0] (described: Describes fits alignment)
+theorem addNone ∀ [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) [auto ok: bus.id ≠ 0] (described: Describes fits alignment)
     (added: alignment.add bus = None) (t: Nat) (fitsT: fits t) (departsT: bus.departsAfter t = True): Void :=
   match found: (0 ..< bus.id).find (suits alignment bus) with
     | Some first => Option.someNotNone _ (rewrite found at added in added)
@@ -146,7 +146,7 @@ def AllDepart (buses: List Bus) (t: Nat): Prop := List.All (bus => bus.departsAf
 
 def Positive (buses: List Bus): Prop := List.All (bus => bus.id ≠ 0) buses
 
-theorem addAllDescribes [fits: Nat → Prop] (buses: List Bus) (positive: Positive buses) (alignment: Alignment) (described: Describes fits alignment)
+theorem addAllDescribes ∀ [fits: Nat → Prop] (buses: List Bus) (positive: Positive buses) (alignment: Alignment) (described: Describes fits alignment)
     (final: Alignment) (added: alignment.addAll buses = Some final): Describes (t => fits t ∧ AllDepart buses t) final :=
   match buses with
     | [] =>
@@ -164,7 +164,7 @@ theorem addAllDescribes [fits: Nat → Prop] (buses: List Bus) (positive: Positi
                 })
                 later
 
-theorem addAllNone [fits: Nat → Prop] (buses: List Bus) (positive: Positive buses) (alignment: Alignment) (described: Describes fits alignment)
+theorem addAllNone ∀ [fits: Nat → Prop] (buses: List Bus) (positive: Positive buses) (alignment: Alignment) (described: Describes fits alignment)
     (added: alignment.addAll buses = None) (t: Nat) (fitsT: fits t) (all: AllDepart buses t): Void := match buses with
       | [bus, ..rest] =>
         match positive with

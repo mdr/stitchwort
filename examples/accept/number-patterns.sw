@@ -87,7 +87,7 @@ def constant: Nat → Nat
   | n => 1
   | 404 => 2
 
-theorem constantAnything (n: Nat): constant n = 1 := rfl
+theorem constantAnything ∀ (n: Nat): constant n = 1 := rfl
 
 -- Number patterns after a structural split keep the recursion structural.
 def countDown: Nat → Nat → Nat

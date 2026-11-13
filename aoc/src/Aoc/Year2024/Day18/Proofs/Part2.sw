@@ -17,7 +17,7 @@ import Std (And, Bool, Eq, Exists, List, Nat, Option, Void)
 
 --| More bytes fallen, fewer paths: a path with `more` fallen is one with
 --| `fewer`.
-theorem hasPathFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (has: HasPath size bytes more):
+theorem hasPathFewer ∀ (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (has: HasPath size bytes more):
     HasPath size bytes fewer :=
   Exists.elim has (steps path =>
     Witness steps
@@ -26,16 +26,16 @@ theorem hasPathFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat)
           { row = size - 1, column = size - 1 } (And.right path))))
 
 --| The exit reachable with more bytes fallen is reachable with fewer.
-theorem reachableFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (open: reachable size bytes more = True):
+theorem reachableFewer ∀ (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (le: fewer ≤ more) (open: reachable size bytes more = True):
     reachable size bytes fewer = True :=
   reachableComplete size bytes fewer (hasPathFewer size bytes fewer more le (reachableSound size bytes more open))
 
 --| An index with no byte is past the end.
-theorem pastEnd (bytes: List Position) (index: Nat) (missing: bytes.get index = None) (inside: index < bytes.length): Void :=
+theorem pastEnd ∀ (bytes: List Position) (index: Nat) (missing: bytes.get index = None) (inside: index < bytes.length): Void :=
   Bool.falseNotTrue (Eq.trans (Eq.sym (Eq.trans (Eq.sym (List.isSomeGet bytes index)) (Eq.cong Option.isSome missing))) inside)
 
 --| Part 2's byte, for each count the search can end at.
-theorem part2SomeCases (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte)
+theorem part2SomeCases ∀ (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte)
     (found: Nat) (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found): IsFirstBlocking size bytes byte :=
   match found with
     | Zero => Void.exfalso (Option.noneNotSome byte (rewrite ended at answer in answer))
@@ -58,12 +58,12 @@ theorem part2SomeCases (size: Nat) (bytes: List Position) (byte: Position) (answ
             (earlier le => hasPathFewer size bytes earlier index le (reachableSound size bytes index opened))))
 
 --| When part 2 finds a byte, it is the first whose fall leaves no path.
-theorem part2Some (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte):
+theorem part2Some ∀ (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte):
     IsFirstBlocking size bytes byte :=
   part2SomeCases size bytes byte answer (Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes)) rfl
 
 --| No first blocking byte, for each count the search can end at.
-theorem part2NoneCases (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position) (index: Nat)
+theorem part2NoneCases ∀ (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position) (index: Nat)
     (got: bytes.get index = Some byte) (blockedAfter: ¬(HasPath size bytes (index + 1)))
     (openBefore: ∀ (earlier: Nat) => earlier ≤ index → HasPath size bytes earlier)
     (found: Nat) (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found): Void :=
@@ -83,7 +83,7 @@ theorem part2NoneCases (size: Nat) (bytes: List Position) (answer: solvePart2 si
 
 --| When part 2 finds no byte, no byte is the first whose fall leaves no
 --| path.
-theorem part2None (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position)
+theorem part2None ∀ (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position)
     (first: IsFirstBlocking size bytes byte): Void :=
   Exists.elim first (index parts =>
     let (Both got (Both blockedAfter openBefore)) := parts

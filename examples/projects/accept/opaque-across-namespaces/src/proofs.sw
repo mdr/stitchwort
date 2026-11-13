@@ -6,7 +6,7 @@ import Std (List, Nat)
 theorem depthOfTwo: depthOf 2 = 3 :=
   rewrite depthOf.unfold in rfl
 
-theorem sizeTwo (x: Nat) (y: Nat): size [x, y] = 2 unfolding size := rfl
+theorem sizeTwo ∀ (x: Nat) (y: Nat): size [x, y] = 2 unfolding size := rfl
 
 opaque def afterStart: Nat
     unfolding start

@@ -10,29 +10,29 @@ def AllAllow (fields: List Rule) (value: Nat): Prop := ∀ (rule: Rule) => rule 
 
 def Within (fields: List Rule) (wider: List Rule): Prop := ∀ (rule: Rule) => rule ∈ fields → rule ∈ wider
 
-theorem all2Within (fields: List (List Rule)): List.All2 Within fields fields := match fields with
+theorem all2Within ∀ (fields: List (List Rule)): List.All2 Within fields fields := match fields with
   | [] => Trivial
   | [first, ..rest] => Both (rule member => member) (all2Within rest)
 
-theorem narrowWithin (candidates: List (List Rule)) (values: List Nat) (same: values.length = candidates.length):
+theorem narrowWithin ∀ (candidates: List (List Rule)) (values: List Nat) (same: values.length = candidates.length):
     List.All2 Within (List.zipWith candidates values allowing) candidates :=
   List.all2ZipWithLeft allowing Within (fields value rule member => And.left (List.memFilter fields (rule => rule.allows value) member))
     candidates values (Eq.sym same)
 
-theorem narrowAllows (candidates: List (List Rule)) (values: List Nat) (same: values.length = candidates.length):
+theorem narrowAllows ∀ (candidates: List (List Rule)) (values: List Nat) (same: values.length = candidates.length):
     List.All2 AllAllow (List.zipWith candidates values allowing) values :=
   List.all2ZipWithRight allowing AllAllow (fields value rule member => And.right (List.memFilter fields (rule => rule.allows value) member))
     candidates values (Eq.sym same)
 
-theorem withinTrans (fields: List Rule) (middle: List Rule) (wider: List Rule) (inner: Within fields middle) (outer: Within middle wider): Within fields wider :=
+theorem withinTrans ∀ (fields: List Rule) (middle: List Rule) (wider: List Rule) (inner: Within fields middle) (outer: Within middle wider): Within fields wider :=
   rule member => outer rule (inner rule member)
 
-theorem allowWithin (fields: List Rule) (wider: List Rule) (value: Nat) (inner: Within fields wider) (allow: AllAllow wider value): AllAllow fields value :=
+theorem allowWithin ∀ (fields: List Rule) (wider: List Rule) (value: Nat) (inner: Within fields wider) (allow: AllAllow wider value): AllAllow fields value :=
   rule member => allow rule (inner rule member)
 
 --| Ruling out by each of `tickets` in turn, each with a value for each of
 --| the `width` positions.
-theorem foldNarrow (width: Nat) (tickets: List Ticket) (candidates: List (List Rule)) (wide: candidates.length = width)
+theorem foldNarrow ∀ (width: Nat) (tickets: List Ticket) (candidates: List (List Rule)) (wide: candidates.length = width)
     (lengths: ∀ (ticket: Ticket) => ticket ∈ tickets → ticket.values.length = width): (tickets.foldLeft candidates narrow).length = width ∧ List.All2 Within (tickets.foldLeft candidates narrow) candidates
       ∧ (∀ (ticket: Ticket) => ticket ∈ tickets → List.All2 AllAllow (tickets.foldLeft candidates narrow) ticket.values) :=
   match tickets with
@@ -54,7 +54,7 @@ theorem foldNarrow (width: Nat) (tickets: List Ticket) (candidates: List (List R
 
 --| The candidates at each position: one list per field, from the rules,
 --| each allowing the value there of every valid ticket.
-theorem candidatesFit (notes: Notes) (lengths: notes.validTickets.all (ticket => ticket.values.length == notes.rules.length) = True):
+theorem candidatesFit ∀ (notes: Notes) (lengths: notes.validTickets.all (ticket => ticket.values.length == notes.rules.length) = True):
     notes.candidates.length = notes.rules.length ∧ List.All2 Within notes.candidates (List.replicate notes.rules.length notes.rules)
       ∧ (∀ (ticket: Ticket) => ticket ∈ notes.validTickets → List.All2 AllAllow notes.candidates ticket.values) :=
   foldNarrow notes.rules.length notes.validTickets (List.replicate notes.rules.length notes.rules) (List.lengthReplicate notes.rules notes.rules.length)

@@ -17,7 +17,7 @@ import Std (Iff, Nat, Option)
 --| Part 1 for a well-formed device: the program's number is the one the
 --| device outputs, and it gives none when the device outputs none (when a z
 --| wire gets no value, as in a loop).
-theorem part1Correct (device: Device) (wellFormed: WellFormed device) (number: Nat): (solvePart1 device = Some number) ↔ (Outputs device number) := {
+theorem part1Correct ∀ (device: Device) (wellFormed: WellFormed device) (number: Nat): (solvePart1 device = Some number) ↔ (Outputs device number) := {
   forward = solved => part1Sound device number solved,
   backward = outputs => part1Complete device wellFormed number outputs
 }

@@ -9,16 +9,16 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Map, Nat, Not, Option, Or, Set, Void)
 
-theorem stepMoves (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = False):
+theorem stepMoves ∀ (lab: Lab) (guard: Guard) (ahead: Position) (inFront: lab.ahead guard = Some ahead) (blocked: lab.obstructions.contains ahead = False):
     lab.step guard = Some { guard | position = ahead } :=
   rewrite inFront, blocked in rfl
 
 --| An obstruction changes nothing about what is ahead.
-theorem aheadWith (lab: Lab) (blocker: Position) (guard: Guard): (lab.withObstruction blocker).ahead guard = lab.ahead guard := cases
+theorem aheadWith ∀ (lab: Lab) (blocker: Position) (guard: Guard): (lab.withObstruction blocker).ahead guard = lab.ahead guard := cases
 
 --| The lab with an obstruction added steps as before, wherever she doesn't
 --| walk onto it.
-theorem stepWithSame (lab: Lab) (blocker: Position) (guard: Guard)
+theorem stepWithSame ∀ (lab: Lab) (blocker: Position) (guard: Guard)
     (fresh: ∀ (ahead: Position) => lab.ahead guard = Some ahead → lab.obstructions.contains ahead = False → ahead ≠ blocker):
     (lab.withObstruction blocker).step guard = lab.step guard :=
   rewrite aheadWith lab blocker guard in
@@ -35,7 +35,7 @@ def onRoute (lab: Lab) (guard: Option Guard) (steps: Nat) (position: Position): 
 
 --| With the obstruction off her route for one step more, the walk in the
 --| changed lab is the walk in the old one.
-theorem walkWithSame (lab: Lab) (blocker: Position) (steps: Nat) (guard: Option Guard) (absent: onRoute lab guard (Succ steps) blocker = False):
+theorem walkWithSame ∀ (lab: Lab) (blocker: Position) (steps: Nat) (guard: Option Guard) (absent: onRoute lab guard (Succ steps) blocker = False):
     walk (lab.withObstruction blocker) guard steps = walk lab guard steps := match steps, guard with
       | Zero, guard => rfl
       | Succ steps, None => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
@@ -48,7 +48,7 @@ theorem walkWithSame (lab: Lab) (blocker: Position) (steps: Nat) (guard: Option 
         rewrite stepWithSame lab blocker here fresh in walkWithSame lab blocker steps (lab.step here) restAbsent
 
 --| A new obstruction off the route of a guard who leaves can't trap her.
-theorem offRouteFree (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None) (blocker: Position)
+theorem offRouteFree ∀ (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None) (blocker: Position)
     (absent: onRoute lab (Some lab.startGuard) steps blocker = False): ¬(Loops (lab.withObstruction blocker)) :=
   loops =>
     let longer: onRoute lab (Some lab.startGuard) (Succ steps) blocker = False :=
@@ -63,7 +63,7 @@ def settledIfAny (lab: Lab): Option Guard → Bool
   | None => True
   | Some guard => settledAt lab guard.position
 
-theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.position = True) (next: Guard) (stepped: lab.step guard = Some next):
+theorem stepSettled ∀ (lab: Lab) (guard: Guard) (settled: settledAt lab guard.position = True) (next: Guard) (stepped: lab.step guard = Some next):
     settledAt lab next.position = True := match inFront: lab.ahead guard with
       | Some ahead =>
         match blocked: lab.obstructions.contains ahead with
@@ -73,7 +73,7 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
             let landed := aheadOnMap lab guard onTheMap ahead inFront
             rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
 
-theorem routeSettled (lab: Lab) (position: Position) (steps: Nat) (guard: Option Guard) (settled: settledIfAny lab guard = True)
+theorem routeSettled ∀ (lab: Lab) (position: Position) (steps: Nat) (guard: Option Guard) (settled: settledIfAny lab guard = True)
     (has: onRoute lab guard steps position = True): settledAt lab position = True := match steps, guard with
       | Succ steps, Some here =>
         Bool.orElim has
@@ -85,12 +85,12 @@ theorem routeSettled (lab: Lab) (position: Position) (steps: Nat) (guard: Option
                 | Some next => stepSettled lab here settled next stepped
             routeSettled lab position steps (lab.step here) nextSettled rest)
 
-theorem positionEta (position: Position): ({ row = position.row, column = position.column }: Position) = position :=
+theorem positionEta ∀ (position: Position): ({ row = position.row, column = position.column }: Position) = position :=
   match position with
     | { row, column } => rfl
 
 --| Every position on the map is in `positions`.
-theorem positionsOnMap (lab: Lab) (position: Position) (inside: onMap lab position = True):
+theorem positionsOnMap ∀ (lab: Lab) (position: Position) (inside: onMap lab position = True):
     (positions lab).any (other => Map.Spec.sameKey position other) = True :=
   let inRow: position ∈ (List.range 0 lab.width |> .map (column => ({ row = position.row, column }: Position))) :=
     rewrite positionEta position at List.memMap (List.range 0 lab.width) position.column (List.memRangeFromIntro position.column lab.width 0 omega (omega [inside]))
@@ -100,7 +100,7 @@ theorem positionsOnMap (lab: Lab) (position: Position) (inside: onMap lab positi
       (List.range 0 lab.height) (List.memRangeFromIntro position.row lab.height 0 omega (omega [inside])) inRow
   Witness position (Both member (rewrite Map.Spec.sameKeyDecide position position in DecEq.refl position))
 
-theorem positionsOnlyOnMap (lab: Lab) (position: Position) (has: (positions lab).any (other => Map.Spec.sameKey position other) = True):
+theorem positionsOnlyOnMap ∀ (lab: Lab) (position: Position) (has: (positions lab).any (other => Map.Spec.sameKey position other) = True):
     onMap lab position = True :=
   let Witness other (Both member same) := has
   rewrite Map.Spec.sameKeySound position other same in
@@ -115,7 +115,7 @@ theorem positionsOnlyOnMap (lab: Lab) (position: Position) (has: (positions lab)
           let columnSmall := List.memRangeFrom column lab.width 0 columnMember
           rewrite <- built in omega [rowSmall, columnSmall]))
 
-theorem positionsHas (lab: Lab) (position: Position):
+theorem positionsHas ∀ (lab: Lab) (position: Position):
     Set.contains (Set.fromList (positions lab)) position = onMap lab position :=
   rewrite Set.containsFromList position (positions lab) in
   match inside: onMap lab position with
@@ -126,14 +126,14 @@ theorem positionsHas (lab: Lab) (position: Position):
         | False => rfl
 
 --| Two Bools true together are equal.
-theorem boolOfIff [one: Bool] [other: Bool] (same: (one = True) ↔ (other = True)): one = other :=
+theorem boolOfIff ∀ [one: Bool] [other: Bool] (same: (one = True) ↔ (other = True)): one = other :=
   match isOne: one, isOther: other with
     | True, True => rfl
     | False, False => rfl
     | True, False => Void.exfalso (Bool.falseNotTrue (same.forward rfl))
     | False, True => Void.exfalso (Bool.falseNotTrue (same.backward rfl))
 
-theorem startSettled (lab: Lab) (inside: onMap lab lab.start = True): settledAt lab lab.start = True :=
+theorem startSettled ∀ (lab: Lab) (inside: onMap lab lab.start = True): settledAt lab lab.start = True :=
   rewrite inside, DecEq.refl lab.start in rfl
 
 --| What the program's filter keeps.
@@ -146,7 +146,7 @@ def trapsAt (lab: Lab) (trapped: Position → Bool) (position: Position): Bool :
 
 --| The Boolean shape of `keepsTrapsAt` on the route: the start is out on
 --| both sides, and elsewhere a route position is free.
-theorem shapeOnRoute [p: Prop] [atStart: Decidable p] [blocked: Bool] [onTheMap: Bool] [loops: Bool] [trap: Bool] (mapped: onTheMap = True)
+theorem shapeOnRoute ∀ [p: Prop] [atStart: Decidable p] [blocked: Bool] [onTheMap: Bool] [loops: Bool] [trap: Bool] (mapped: onTheMap = True)
     (settled: (Decidable.holds atStart || !blocked) = True) (same: loops = trap):
     (Decidable.holds (Decidable.not atStart) && loops) = (onTheMap && (Decidable.holds (Decidable.not atStart) && !blocked && trap)) :=
   rewrite same in cases
@@ -155,7 +155,7 @@ theorem shapeOnRoute [p: Prop] [atStart: Decidable p] [blocked: Bool] [onTheMap:
 theorem shapeOffRoute [onTheMap: Bool] [notStart: Bool] [free: Bool]: False = (onTheMap && (notStart && free && False)) := cases
 
 --| The program keeps a position of the route exactly when the spec keeps it.
-theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
+theorem keepsTrapsAt ∀ (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
     (trapped: Position → Bool) (decides: Decides lab trapped)
     (simulates: ∀ (blocker: Position) => onMap lab blocker = True →
       Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker))
@@ -181,7 +181,7 @@ theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
 
 --| The positions the program keeps from the route are the spec's trap
 --| positions.
-theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
+theorem trapSetsSame ∀ (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
     (trapped: Position → Bool) (decides: Decides lab trapped)
     (simulates: ∀ (blocker: Position) => onMap lab blocker = True →
       Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker)):
@@ -198,7 +198,7 @@ theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
 --| Part 2: for a guard who starts on the map and leaves, in a lab whose
 --| obstructions are on the map, the program counts the spec's trap
 --| positions.
-theorem part2Correct (lab: Lab) (inside: onMap lab lab.start = True)
+theorem part2Correct ∀ (lab: Lab) (inside: onMap lab lab.start = True)
     (obstructionsInside: ∀ (position: Position) => lab.obstructions.contains position = True → onMap lab position = True)
     (steps: Nat) (gone: after lab steps = None) (trapped: Position → Bool) (decides: Decides lab trapped):
     solvePart2 lab = Some (trapPositions lab trapped).size :=
@@ -210,10 +210,10 @@ theorem part2Correct (lab: Lab) (inside: onMap lab lab.start = True)
     (patrolRoute lab inside steps gone)) counted
 
 --| A guard who loops has no patrol.
-theorem patrolLoops (lab: Lab) (loops: Loops lab): lab.patrol = None := match patrolled: lab.patrol with
+theorem patrolLoops ∀ (lab: Lab) (loops: Loops lab): lab.patrol = None := match patrolled: lab.patrol with
   | None => rfl
   | Some found => Void.exfalso (loops lab.stateCount (patrolFromGone lab lab.stateCount lab.startGuard Set.empty found patrolled))
 
 --| And part 2 gives no answer when she loops without a new obstruction.
-theorem part2Loops (lab: Lab) (loops: Loops lab): solvePart2 lab = None :=
+theorem part2Loops ∀ (lab: Lab) (loops: Loops lab): solvePart2 lab = None :=
   Eq.cong (patrolled => Option.map patrolled (visited => (visited.filter (keeps lab (Sightlines.of lab.obstructions))).size)) (patrolLoops lab loops)

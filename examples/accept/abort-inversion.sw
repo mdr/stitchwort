@@ -21,7 +21,7 @@ def pickOrder (warehouse: Warehouse) (order: Order): Option Pick :=
 
 -- What a pick says about the stock: the item was in stock, as much as was
 -- picked and left.
-theorem pickStock (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
+theorem pickStock ∀ (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
     warehouse.stock.get order.item = Some (pick.quantity + pick.left) :=
   Abort.needEqSome h (onHand foundStock rest =>
     Abort.needEqSome rest (label foundLabel rest =>
@@ -31,7 +31,7 @@ theorem pickStock (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrd
             rewrite (omega: order.quantity + (onHand - order.quantity) = onHand) in rfl))))
 
 -- The bin picked from is the one the item's label names.
-theorem pickBin (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
+theorem pickBin ∀ (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
     warehouse.locations.get order.item |> .flatMap warehouse.bins.get = Some pick.bin :=
   Abort.needEqSome h (onHand foundStock rest =>
     Abort.needEqSome rest (label foundLabel rest =>
@@ -40,7 +40,7 @@ theorem pickBin (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder
           rewrite foundLabel, <- Option.someInjective picked in foundBin))))
 
 -- The other way: when every step succeeds, the block gives its value.
-theorem pickOrderSome (warehouse: Warehouse) (order: Order) (onHand: Nat) (label: Text) (bin: Bin)
+theorem pickOrderSome ∀ (warehouse: Warehouse) (order: Order) (onHand: Nat) (label: Text) (bin: Bin)
     (foundStock: warehouse.stock.get order.item = Some onHand) (foundLabel: warehouse.locations.get order.item = Some label)
     (foundBin: warehouse.bins.get label = Some bin) (enough: order.quantity <= onHand):
     pickOrder warehouse order = Some { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity } :=
@@ -59,7 +59,7 @@ def pickFromBin (warehouse: Warehouse) (order: Order): Option (Pair Bin Nat) :=
     ensure (order.quantity <= onHand)
     (bin, onHand - order.quantity))
 
-theorem pickFromBinFound (warehouse: Warehouse) (order: Order) (picked: Pair Bin Nat)
+theorem pickFromBinFound ∀ (warehouse: Warehouse) (order: Order) (picked: Pair Bin Nat)
     (h: pickFromBin warehouse order = Some picked): toOption (() => binFor warehouse order.item) = Some picked.fst :=
   Abort.thenEqSome h (found foundBin rest =>
     Abort.needEqSome rest (onHand foundStock rest =>
@@ -67,7 +67,7 @@ theorem pickFromBinFound (warehouse: Warehouse) (order: Order) (picked: Pair Bin
         rewrite foundBin, <- Option.someInjective result in rfl)))
 
 -- The last step of `binFor` has no rest: `Abort.toOptionNeed` reads it.
-theorem binForLabel (warehouse: Warehouse) (item: Text) (bin: Bin) (h: toOption (() => binFor warehouse item) = Some bin):
+theorem binForLabel ∀ (warehouse: Warehouse) (item: Text) (bin: Bin) (h: toOption (() => binFor warehouse item) = Some bin):
     warehouse.locations.get item |> .flatMap warehouse.bins.get = Some bin :=
   Abort.needEqSome h (label foundLabel rest =>
     rewrite foundLabel in rewrite Abort.toOptionNeed at rest)
@@ -81,7 +81,7 @@ def pickOrFail (warehouse: Warehouse) (order: Order): Result Pick Text :=
     Fail.ensure (order.quantity <= onHand) "only ${onHand} of ${order.item}"
     { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity })
 
-theorem pickOrFailEnough (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrFail warehouse order = Ok pick):
+theorem pickOrFailEnough ∀ (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrFail warehouse order = Ok pick):
     pick.quantity + pick.left = (warehouse.stock.get order.item).getOrElse 0 :=
   Fail.needEqOk h (onHand foundStock rest =>
     Fail.needEqOk rest (label foundLabel rest =>
@@ -100,7 +100,7 @@ def pickFromBinOrFail (warehouse: Warehouse) (order: Order): Result (Pair Bin Na
     let onHand := warehouse.stock.get order.item |> .orFail "no stock of ${order.item}"
     (bin, onHand))
 
-theorem pickFromBinOrFailFound (warehouse: Warehouse) (order: Order) (picked: Pair Bin Nat)
+theorem pickFromBinOrFailFound ∀ (warehouse: Warehouse) (order: Order) (picked: Pair Bin Nat)
     (h: pickFromBinOrFail warehouse order = Ok picked): Fail.toResult (() => binOrFail warehouse order.item) = Ok picked.fst :=
   Fail.thenEqOk h (found foundBin rest =>
     Fail.needEqOk rest (onHand foundStock result =>

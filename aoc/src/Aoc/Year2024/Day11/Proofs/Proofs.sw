@@ -9,6 +9,6 @@ import Aoc.Year2024.Day11 (..)
 import Aoc.Year2024.Day11.Spec (..)
 import Std (List, Nat)
 
-theorem part1Correct (stones: List Nat): solvePart1 stones = part1 stones := countCorrect 25 stones
+theorem part1Correct ∀ (stones: List Nat): solvePart1 stones = part1 stones := countCorrect 25 stones
 
-theorem part2Correct (stones: List Nat): solvePart2 stones = part2 stones := countCorrect 75 stones
+theorem part2Correct ∀ (stones: List Nat): solvePart2 stones = part2 stones := countCorrect 75 stones

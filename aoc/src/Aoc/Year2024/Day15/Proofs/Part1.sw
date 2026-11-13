@@ -11,7 +11,7 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 
 --| What `firstFree` finds: a position without a box, which is where it
 --| started or past a box there.
-theorem firstFreeSome (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat) (free: Cell)
+theorem firstFreeSome ∀ (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat) (free: Cell)
     (found: firstFree boxes direction start fuel = Some free): (boxes.contains free = False) ∧ ((free = start) ∨ (boxes.contains start = True)) :=
   match fuel with
     | Succ fuel =>
@@ -23,7 +23,7 @@ theorem firstFreeSome (boxes: Set Cell) (direction: Direction) (start: Cell) (fu
 
 --| Along a line of `length` boxes from `start`, `firstFree` finds the
 --| position past them, given more fuel than boxes.
-theorem firstFreeLine (boxes: Set Cell) (direction: Direction) (length: Nat) (start: Cell) (fuel: Nat) (enough: length < fuel)
+theorem firstFreeLine ∀ (boxes: Set Cell) (direction: Direction) (length: Nat) (start: Cell) (fuel: Nat) (enough: length < fuel)
     (line: ∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True) (free: boxes.contains (ahead start direction length) = False):
     firstFree boxes direction start fuel = Some (ahead start direction length) := match length, fuel with
       | Zero, Succ fuel => rewrite free in rfl
@@ -34,17 +34,17 @@ theorem firstFreeLine (boxes: Set Cell) (direction: Direction) (length: Nat) (st
               (i below => rewrite aheadFrom start direction i in line (Succ i) (omega)) (rewrite aheadFrom start direction length in free)
 
 --| A move never moves a wall.
-theorem moveWalls (warehouse: Warehouse) (direction: Direction): (warehouse.move direction).walls = warehouse.walls := cases
+theorem moveWalls ∀ (warehouse: Warehouse) (direction: Direction): (warehouse.move direction).walls = warehouse.walls := cases
 
 --| The robot's next position still holds a box once the free position has
 --| one: it is the free position, or held a box already.
-theorem nextAfterInsert (boxes: Set Cell) (free: Cell) (next: Cell) (found: (free = next) ∨ (boxes.contains next = True)):
+theorem nextAfterInsert ∀ (boxes: Set Cell) (free: Cell) (next: Cell) (found: (free = next) ∨ (boxes.contains next = True)):
     (boxes.insert free).contains next = True := match found with
       | Inl same => rewrite same in Set.containsInsert next boxes
       | Inr there => Set.containsInsertMono boxes free next there
 
 --| A move never changes the number of boxes.
-theorem moveCount (warehouse: Warehouse) (direction: Direction): boxCount (warehouse.move direction) = boxCount warehouse :=
+theorem moveCount ∀ (warehouse: Warehouse) (direction: Direction): boxCount (warehouse.move direction) = boxCount warehouse :=
   match found: firstFree warehouse.boxes direction (warehouse.robot.step direction) (warehouse.boxes.size + 1) with
     | None => rfl
     | Some free =>
@@ -59,7 +59,7 @@ theorem moveCount (warehouse: Warehouse) (direction: Direction): boxCount (wareh
 
 --| Nothing overlaps after a move that started with nothing overlapping: the
 --| robot never ends on a wall or a box.
-theorem moveSeparate (warehouse: Warehouse) (direction: Direction) (separate: Separate warehouse): Separate (warehouse.move direction) :=
+theorem moveSeparate ∀ (warehouse: Warehouse) (direction: Direction) (separate: Separate warehouse): Separate (warehouse.move direction) :=
   match found: firstFree warehouse.boxes direction (warehouse.robot.step direction) (warehouse.boxes.size + 1) with
     | None => separate
     | Some free =>
@@ -84,14 +84,14 @@ theorem moveSeparate (warehouse: Warehouse) (direction: Direction) (separate: Se
           Both boxesOffWalls (Both nextOffWalls (Set.containsRemove (warehouse.boxes.insert free) next))
 
 --| A line of boxes is no longer than the boxes there are.
-theorem lineAtMostBoxes (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length):
+theorem lineAtMostBoxes ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length):
     length ≤ warehouse.boxes.size :=
   Set.countAtMostSize (i => ahead warehouse.robot direction (i + 1)) length warehouse.boxes (And.left line)
     (i j below belowJ same => omega [aheadInjective warehouse.robot direction (i + 1) (j + 1) same])
 
 --| With a line of boxes in front of the robot, `firstFree` finds the
 --| position past it.
-theorem lineFree (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length):
+theorem lineFree ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length):
     firstFree warehouse.boxes direction (warehouse.robot.step direction) (warehouse.boxes.size + 1) = Some (pastLine warehouse direction length) :=
   rewrite <- aheadFrom warehouse.robot direction length in
     firstFreeLine warehouse.boxes direction length (warehouse.robot.step direction) (warehouse.boxes.size + 1)
@@ -101,7 +101,7 @@ theorem lineFree (warehouse: Warehouse) (direction: Direction) (length: Nat) (li
 
 --| "If this action would cause the robot or a box to move into a wall (#),
 --| nothing moves instead, including the robot."
-theorem pushBlocked (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
+theorem pushBlocked ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
     (wall: warehouse.walls.contains (pastLine warehouse direction length) = True): warehouse.move direction = warehouse :=
   rewrite lineFree warehouse direction length line, wall in rfl
 
@@ -111,7 +111,7 @@ def pushedBoxes (warehouse: Warehouse) (direction: Direction) (length: Nat): Set
   (warehouse.boxes.insert (pastLine warehouse direction length)).remove (warehouse.robot.step direction)
 
 --| Each box the program has after a push is one the puzzle has.
-theorem pushedForward (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
+theorem pushedForward ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
     (position: Cell) (member: (pushedBoxes warehouse direction length).contains position = True): BoxAfterPush warehouse direction length position :=
   let next := warehouse.robot.step direction
   let free := pastLine warehouse direction length
@@ -133,7 +133,7 @@ theorem pushedForward (warehouse: Warehouse) (direction: Direction) (length: Nat
         | Inr notLine => Inr (Both boxed notLine)
 
 --| Each box the puzzle has after a push is one the program has.
-theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
+theorem pushedBackward ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
     (position: Cell) (after: BoxAfterPush warehouse direction length position): (pushedBoxes warehouse direction length).contains position = True :=
   let next := warehouse.robot.step direction
   let free := pastLine warehouse direction length
@@ -157,7 +157,7 @@ theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Na
 
 --| "The robot will also attempt to push those boxes": when nothing blocks
 --| the line, the robot steps forward, and the boxes are the puzzle's.
-theorem pushMoves (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
+theorem pushMoves ∀ (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
     (open: warehouse.walls.contains (pastLine warehouse direction length) = False):
     ((warehouse.move direction).robot = warehouse.robot.step direction) ∧ (∀ (position: Cell) => ((warehouse.move direction).boxes.contains position = True) ↔ (BoxAfterPush warehouse direction length position)) :=
   rewrite lineFree warehouse direction length line, open in
@@ -169,7 +169,7 @@ theorem pushMoves (warehouse: Warehouse) (direction: Direction) (length: Nat) (l
 
 --| From `start`, either the boxes in a line end within `fuel` positions, or
 --| all `fuel` positions hold boxes.
-theorem boxesEndOrFill (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat):
+theorem boxesEndOrFill ∀ (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat):
     (∃ (length: Nat) => length < fuel ∧ (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True) ∧ boxes.contains (ahead start direction length) = False) ∨ (∀ (i: Nat) => i < fuel → boxes.contains (ahead start direction i) = True) :=
   match fuel with
     | Zero => Inr (i below => Void.exfalso (omega))
@@ -192,7 +192,7 @@ theorem boxesEndOrFill (boxes: Set Cell) (direction: Direction) (start: Cell) (f
 
 --| Every move meets a line of boxes, maybe of none: so `pushBlocked` and
 --| `pushMoves` say what every move does.
-theorem lineExists (warehouse: Warehouse) (direction: Direction): ∃ (length: Nat) => LineOfBoxes warehouse direction length :=
+theorem lineExists ∀ (warehouse: Warehouse) (direction: Direction): ∃ (length: Nat) => LineOfBoxes warehouse direction length :=
   let next := warehouse.robot.step direction
   let fromRobot: ∀ (i: Nat) => warehouse.boxes.contains (ahead next direction i) = warehouse.boxes.contains (ahead warehouse.robot direction (i + 1)) :=
     i => rewrite aheadFrom warehouse.robot direction i in rfl
@@ -208,17 +208,17 @@ theorem lineExists (warehouse: Warehouse) (direction: Direction): ∃ (length: N
 
 --| After every move: the walls are where they were, the number of boxes is
 --| the same, and nothing overlaps if nothing did at the start.
-theorem moveAllWalls (warehouse: Warehouse) (moves: List Direction): (warehouse.moveAll moves).walls = warehouse.walls :=
+theorem moveAllWalls ∀ (warehouse: Warehouse) (moves: List Direction): (warehouse.moveAll moves).walls = warehouse.walls :=
   match moves with
     | [] => rfl
     | [move, ..rest] => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
 
-theorem moveAllCount (warehouse: Warehouse) (moves: List Direction): boxCount (warehouse.moveAll moves) = boxCount warehouse :=
+theorem moveAllCount ∀ (warehouse: Warehouse) (moves: List Direction): boxCount (warehouse.moveAll moves) = boxCount warehouse :=
   match moves with
     | [] => rfl
     | [move, ..rest] => Eq.trans (moveAllCount (warehouse.move move) rest) (moveCount warehouse move)
 
-theorem moveAllSeparate (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse): Separate (warehouse.moveAll moves) :=
+theorem moveAllSeparate ∀ (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse): Separate (warehouse.moveAll moves) :=
   match moves with
     | [] => separate
     | [move, ..rest] => moveAllSeparate (warehouse.move move) rest (moveSeparate warehouse move separate)

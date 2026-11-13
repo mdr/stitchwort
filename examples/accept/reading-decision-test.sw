@@ -11,7 +11,7 @@ def Small (n: Nat): Prop := n < 10
 def isSmall (n: Nat): Bool := Nat.leq (Succ n) 10
 
 @[reading]
-theorem isSmallReads (n: Nat): isSmall n ↔ Small n := { forward = h => h, backward = h => h }
+theorem isSmallReads ∀ (n: Nat): isSmall n ↔ Small n := { forward = h => h, backward = h => h }
 
 def smallTest (n: Nat): Bool := Nat.leq (Succ n) 10
 
@@ -23,7 +23,7 @@ def Big (n: Nat): Prop := 10 < n
 def isBig (n: Nat): Bool := Nat.leq 11 n
 
 @[reading]
-theorem isBigReads (n: Nat): isBig n ↔ Big n := { forward = h => h, backward = h => h }
+theorem isBigReads ∀ (n: Nat): isBig n ↔ Big n := { forward = h => h, backward = h => h }
 
 instance decBig (n: Nat): Decidable (Big n) :=
   { holds = isBig n, sound = (isBigReads n).forward, complete = (isBigReads n).backward }
@@ -34,11 +34,11 @@ instance decBig (n: Nat): Decidable (Big n) :=
 def inRange (lo x hi: Nat): Bool := Nat.leq lo x && Nat.leq x hi
 
 @[reading]
-theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ lo ≤ x ∧ x ≤ hi :=
+theorem inRangeReads ∀ (lo x hi: Nat): inRange lo x hi ↔ lo ≤ x ∧ x ≤ hi :=
   { forward = h => h.read, backward = r => Both r.left r.right }
 
 -- Nor one whose proposition is a relation std decides (`Nat.decLessEq`).
 def atMostTen (n: Nat): Bool := Nat.leq n 10
 
 @[reading]
-theorem atMostTenReads (n: Nat): atMostTen n ↔ n ≤ 10 := { forward = h => h, backward = h => h }
+theorem atMostTenReads ∀ (n: Nat): atMostTen n ↔ n ≤ 10 := { forward = h => h, backward = h => h }

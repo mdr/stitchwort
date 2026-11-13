@@ -12,7 +12,7 @@ def shift (xs: List Leaf): Option Exploding → Option Exploding
   | Some found => Some { found | before = xs ++ found.before }
   | None => None
 
-theorem shiftAppend (xs: List Leaf) (ys: List Leaf) (found: Option Exploding): shift xs (shift ys found) = shift (xs ++ ys) found :=
+theorem shiftAppend ∀ (xs: List Leaf) (ys: List Leaf) (found: Option Exploding): shift xs (shift ys found) = shift (xs ++ ys) found :=
   match found with
     | None => rfl
     | Some found => Eq.cong Some (Exploding.ext ({ found | before = xs ++ (ys ++ found.before) }) ({ found | before = (xs ++ ys) ++ found.before }) (Eq.sym (List.appendAssoc xs ys found.before)) rfl rfl rfl)
@@ -20,7 +20,7 @@ theorem shiftAppend (xs: List Leaf) (ys: List Leaf) (found: Option Exploding): s
 --| A pair that isn't two regular numbers, in which nothing explodes, has
 --| nothing exploding in either part (`explode`'s last arm, by its generated
 --| branch equations).
-theorem pairNoneParts (depth: Nat) (left: Number) (right: Number) (notArm2: ∀ (a b: Nat) => left = Regular a → right = Regular b → Void)
+theorem pairNoneParts ∀ (depth: Nat) (left: Number) (right: Number) (notArm2: ∀ (a b: Nat) => left = Regular a → right = Regular b → Void)
     (none: explode depth (Pair left right) = None): explode (depth + 1) left = None ∧ explode (depth + 1) right = None :=
   match el: explode (depth + 1) left with
     | Some e => Void.exfalso (Option.someNotNone _ (rewrite explode.eq3.some depth left right notArm2 e el at none in none))
@@ -30,7 +30,7 @@ theorem pairNoneParts (depth: Nat) (left: Number) (right: Number) (notArm2: ∀ 
         | None => Both rfl rfl
 
 --| A pair in which nothing explodes has nothing exploding in either part.
-theorem pairNone (depth: Nat) (left: Number) (right: Number) (none: explode depth (Pair left right) = None) (fits: depth + height (Pair left right) ≤ 5):
+theorem pairNone ∀ (depth: Nat) (left: Number) (right: Number) (none: explode depth (Pair left right) = None) (fits: depth + height (Pair left right) ≤ 5):
     explode (depth + 1) left = None ∧ explode (depth + 1) right = None ∧ depth + 1 ≤ 4 := match left, right with
       | Regular a, Regular b => Both rfl (Both rfl cases)
       | Regular a, Pair x y =>
@@ -41,7 +41,7 @@ theorem pairNone (depth: Nat) (left: Number) (right: Number) (none: explode dept
         Both (And.left parts) (Both (And.right parts) omega)
 
 --| With nothing inside more than four pairs, nothing explodes.
-theorem explodeNoneShallow (depth: Nat) (number: Number) (none: explode depth number = None) (shallow: depth ≤ 4) (fits: depth + height number ≤ 5):
+theorem explodeNoneShallow ∀ (depth: Nat) (number: Number) (none: explode depth number = None) (shallow: depth ≤ 4) (fits: depth + height number ≤ 5):
     depth + height number ≤ 4 ∧ (∀ (rest: List Leaf) => firstDeep (leaves depth number ++ rest) = shift (leaves depth number) (firstDeep rest)) :=
   match number with
     | Regular value => Both shallow (rest => cases)
@@ -67,7 +67,7 @@ def Found (depth: Nat) (number: Number) (exploded: Explosion): Prop :=
 
 --| An explosion inside one part of a pair that isn't two regular numbers
 --| is one in the pair.
-theorem pairFound (depth: Nat) (left: Number) (right: Number) (exploded: Explosion)
+theorem pairFound ∀ (depth: Nat) (left: Number) (right: Number) (exploded: Explosion)
     (notArm2: ∀ (a b: Nat) => left = Regular a → right = Regular b → Void)
     (some: explode depth (Pair left right) = Some exploded) (room: depth + 1 ≤ 4)
     (fitsLeft: depth + 1 + height left ≤ 5) (leftFound: ∀ (inLeft: Explosion) => explode (depth + 1) left = Some inLeft → Found (depth + 1) left inLeft)
@@ -108,7 +108,7 @@ theorem pairFound (depth: Nat) (left: Number) (right: Number) (exploded: Explosi
 
 --| In a number with nothing inside more than five pairs, `explode` explodes
 --| the pair the spec does, as the spec does.
-theorem explodeFound (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded) (fits: depth + height number ≤ 5):
+theorem explodeFound ∀ (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded) (fits: depth + height number ≤ 5):
     Found depth number exploded := match number with
       | Pair (Regular a) (Regular b) =>
         match deep: Nat.leq 4 depth with
@@ -125,7 +125,7 @@ theorem explodeFound (depth: Nat) (number: Number) (exploded: Explosion) (some: 
 
 --| So, at the top: what `explode` gives has the leaves the spec's explosion
 --| gives, and when it finds nothing, nor does the spec.
-theorem explodeSome (number: Number) (exploded: Explosion) (some: explode 0 number = Some exploded) (fits: height number ≤ 5):
+theorem explodeSome ∀ (number: Number) (exploded: Explosion) (some: explode 0 number = Some exploded) (fits: height number ≤ 5):
     explodeLeaves (leaves 0 number) = Some (leaves 0 exploded.number) :=
   match explodeFound 0 number exploded some fits with
     | Witness found (Both finds equation) =>
@@ -133,7 +133,7 @@ theorem explodeSome (number: Number) (exploded: Explosion) (some: explode 0 numb
       rewrite List.appendNil (leaves 0 number) at first in
         rewrite first in Eq.cong Some (Eq.trans (Eq.sym (equation [] [])) (List.appendNil (leaves 0 exploded.number)))
 
-theorem explodeNone (number: Number) (none: explode 0 number = None) (fits: height number ≤ 5):
+theorem explodeNone ∀ (number: Number) (none: explode 0 number = None) (fits: height number ≤ 5):
     height number ≤ 4 ∧ explodeLeaves (leaves 0 number) = None :=
   let shallow := explodeNoneShallow 0 number none omega fits
   let first := And.right shallow []

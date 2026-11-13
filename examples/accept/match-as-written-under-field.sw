@@ -15,7 +15,7 @@ type Pair = { first: Option Nat, second: Option Nat }
 def choose (flag: Bool) (a: Option Nat) (b: Option Nat): Pair :=
   if flag then { first = a, second = b } else { first = b, second = a }
 
-theorem underField (more: Nat) (lists: List (List Nat)) (flag: Bool):
+theorem underField ∀ (more: Nat) (lists: List (List Nat)) (flag: Bool):
     (choose flag (lists.map (xs => chainThrough more xs) |> .maximum) None).first = (choose flag (lists.map (chainThrough more) |> .maximum) None).first :=
   match found: lists.map (chainThrough more) |> .maximum with
     | None => rfl

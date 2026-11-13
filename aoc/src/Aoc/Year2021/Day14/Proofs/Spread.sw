@@ -10,7 +10,7 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 
 --| A sum with a positive term has a member that gives it.
-theorem sumByPositive (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): ∃ (x: a) => x ∈ xs ∧ 0 < f x :=
+theorem sumByPositive ∀ (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): ∃ (x: a) => x ∈ xs ∧ 0 < f x :=
   match xs with
     | [x, ..rest] =>
       if h: 0 < f x then Witness x (Both (Inl rfl) h)
@@ -19,7 +19,7 @@ theorem sumByPositive (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): �
           | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
-theorem memAfterFirst (c: Char) (a: Char) (rest: List Char) (h: c ∈ rest): ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c :=
+theorem memAfterFirst ∀ (c: Char) (a: Char) (rest: List Char) (h: c ∈ rest): ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c :=
   match rest, h with
     | [], member => Void.exfalso member
     | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl rfl) same)
@@ -28,7 +28,7 @@ theorem memAfterFirst (c: Char) (a: Char) (rest: List Char) (h: c ∈ rest): ∃
         | Witness pair (Both inPairs ends) => Witness pair (Both (Inr inPairs) ends)
 
 --| A pair of the polymer has a count in the counts that stand for it.
-theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: ElementPair) (member: pair ∈ pairsOf polymer):
+theorem pairCounted ∀ (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: ElementPair) (member: pair ∈ pairsOf polymer):
     pair ∈ counts.keys :=
   let counted := List.countPositive (pairsOf polymer) (== pair) pair member (DecEq.refl pair)
   let asSum := List.countSumBy (pairsOf polymer) (== pair)
@@ -48,7 +48,7 @@ def programQuantities (first: Char) (counts: PairCounts): List Nat :=
 --| The puzzle's: each element's count, once per element.
 def puzzleQuantities (polymer: List Char): List Nat := polymer.unique.map (quantity polymer)
 
-theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
+theorem quantitiesInto ∀ (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ programQuantities first counts): v ∈ puzzleQuantities [first, ..tail] :=
   let candidates := List.unique [first, ..List.map (Map.keys counts) ElementPair.second]
   let (Both inMapped positive) := List.memFilter (List.map candidates (elementCount first counts)) (quantity => 0 < quantity) member
@@ -60,7 +60,7 @@ theorem quantitiesInto (first: Char) (tail: List Char) (counts: PairCounts) (rep
       let inDistinct := (List.memUnique c [first, ..tail]).backward inPolymer
       rewrite <- same, equal in List.memMap (List.unique [first, ..tail]) c inDistinct (quantity [first, ..tail])
 
-theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
+theorem quantitiesBack ∀ (first: Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]) (v: Nat)
     (member: v ∈ puzzleQuantities [first, ..tail]): v ∈ programQuantities first counts :=
   let polymer := [first, ..tail]
   let keyEnds := List.map (Map.keys counts) ElementPair.second
@@ -83,7 +83,7 @@ theorem quantitiesBack (first: Char) (tail: List Char) (counts: PairCounts) (rep
 
 --| The program's answer from counts that stand for a polymer is the
 --| puzzle's answer for that polymer.
-theorem spreadCorrect (first: Char) (rest: List Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]):
+theorem spreadCorrect ∀ (first: Char) (rest: List Char) (tail: List Char) (counts: PairCounts) (represents: Represents counts [first, ..tail]):
     spread [first, ..rest] counts = spreadOf [first, ..tail] :=
   let into := quantitiesInto first tail counts represents
   let back := quantitiesBack first tail counts represents
@@ -92,7 +92,7 @@ theorem spreadCorrect (first: Char) (rest: List Char) (tail: List Char) (counts:
 
 --| The answer is the puzzle's after any number of steps, if no two rules
 --| are for the same pair.
-theorem spreadAfterCorrect (steps: Nat) (manual: Manual) (one: OneRulePerPair manual.rules): spreadAfter steps manual = answer steps manual :=
+theorem spreadAfterCorrect ∀ (steps: Nat) (manual: Manual) (one: OneRulePerPair manual.rules): spreadAfter steps manual = answer steps manual :=
   match manual with
     | { template = [], rules } => rewrite stepsEmpty rules steps in rfl
     | { template = [first, ..rest], rules } =>
@@ -109,6 +109,6 @@ theorem spreadAfterCorrect (steps: Nat) (manual: Manual) (one: OneRulePerPair ma
 
 --| Part 1 is the puzzle's answer after 10 steps, part 2 after 40, for every
 --| manual whose rules give each pair at most one insertion.
-theorem part1Correct (manual: Manual) (one: OneRulePerPair manual.rules): solvePart1 manual = answer 10 manual := spreadAfterCorrect 10 manual one
+theorem part1Correct ∀ (manual: Manual) (one: OneRulePerPair manual.rules): solvePart1 manual = answer 10 manual := spreadAfterCorrect 10 manual one
 
-theorem part2Correct (manual: Manual) (one: OneRulePerPair manual.rules): solvePart2 manual = answer 40 manual := spreadAfterCorrect 40 manual one
+theorem part2Correct ∀ (manual: Manual) (one: OneRulePerPair manual.rules): solvePart2 manual = answer 40 manual := spreadAfterCorrect 40 manual one

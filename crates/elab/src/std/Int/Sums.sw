@@ -4,7 +4,7 @@
 -- files.
 
 --| The cast of a sum is the sum of the casts.
-theorem Int.toIntSumBy (f: a → Nat) (xs: List a): (List.sumBy xs f).toInt = List.sumBy xs (x => (f x).toInt) :=
+theorem Int.toIntSumBy ∀ (f: a → Nat) (xs: List a): (List.sumBy xs f).toInt = List.sumBy xs (x => (f x).toInt) :=
   match xs with
     | [] => rfl
     | [x, ..xs] =>
@@ -13,7 +13,7 @@ theorem Int.toIntSumBy (f: a → Nat) (xs: List a): (List.sumBy xs f).toInt = Li
           (Eq.sym (List.sumByCons xs x (y => (f y).toInt))))
 
 --| A common factor comes out of a sum.
-theorem Int.sumByMulLeft (c: Int) (f: a → Int) (xs: List a): List.sumBy xs (x => c * f x) = c * List.sumBy xs f :=
+theorem Int.sumByMulLeft ∀ (c: Int) (f: a → Int) (xs: List a): List.sumBy xs (x => c * f x) = c * List.sumBy xs f :=
   match xs with
     | [] => Eq.sym (Int.mulZero c)
     | [x, ..xs] =>

@@ -16,7 +16,7 @@ def matching (patterns: List Pattern) (count: Nat) (stripes: List Stripe): Nat :
 --| The lists that start with a towel of `pattern` and make `design`: none,
 --| unless the design starts with the pattern, and then those whose other
 --| towels make the rest.
-theorem matchingAfter (patterns: List Pattern) (count: Nat) (stripes: List Stripe) (pattern: Pattern):
+theorem matchingAfter ∀ (patterns: List Pattern) (count: Nat) (stripes: List Stripe) (pattern: Pattern):
     (towelLists patterns count).count (towels => pattern.stripes.toList.append (laid towels) == stripes)
       = if stripes.startsWith pattern.stripes.toList then matching patterns count (stripes.drop pattern.stripes.toList.length) else 0 :=
   match starts: stripes.startsWith pattern.stripes.toList with
@@ -27,7 +27,7 @@ theorem matchingAfter (patterns: List Pattern) (count: Nat) (stripes: List Strip
       List.countNone (towelLists patterns count) (towels => List.append pattern.stripes.toList (laid towels) == stripes)
         (towels member => List.appendNotEq stripes pattern.stripes.toList starts (laid towels))
 
-theorem matchingSucc (patterns: List Pattern) (count: Nat) (stripes: List Stripe):
+theorem matchingSucc ∀ (patterns: List Pattern) (count: Nat) (stripes: List Stripe):
     matching patterns (Succ count) stripes
       = Bool.toNat ([] == stripes)
         + patterns.sumBy (pattern => if stripes.startsWith pattern.stripes.toList then matching patterns count (stripes.drop pattern.stripes.toList.length) else 0) :=
@@ -44,7 +44,7 @@ theorem matchingSucc (patterns: List Pattern) (count: Nat) (stripes: List Stripe
 
 --| The empty design is made one way, by no
 --| towels, however many are allowed.
-theorem matchingEmpty (patterns: List Pattern) (count: Nat): matching patterns count [] = 1 := match count with
+theorem matchingEmpty ∀ (patterns: List Pattern) (count: Nat): matching patterns count [] = 1 := match count with
   | Zero => rfl
   | Succ count =>
     rewrite matchingSucc patterns count [],

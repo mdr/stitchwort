@@ -39,6 +39,6 @@ theorem readsLine: Parse.Reads line Written :=
 
 --| Every line of the input is its entry written out, and there is one entry
 --| per line.
-theorem parseWritten (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries):
+theorem parseWritten ∀ (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries):
     List.All2 Written (input.lines.map Text.toList) entries :=
   Parse.eachLineReads input line Written entries parsed readsLine

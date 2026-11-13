@@ -31,7 +31,7 @@ theorem weightTwelve: weight 12 = 0 := rfl
 
 -- The equation the compiler proves, on an open `n`, with `weight` itself
 -- inside the function passed to `sumBy`.
-theorem weightStep (n: Nat):
+theorem weightStep ∀ (n: Nat):
     weight n = 1 - List.sumBy (List.rangeFrom (n - 2) 2) (d => if h: d < n then (if Nat.divides d n then weight d else 0) else 0) :=
   weight.unfold n
 
@@ -75,12 +75,12 @@ test "odd parts" := oddParts 1 == 1 ∧ oddParts 3 == 2
 
 -- A theorem can recurse inside a function too: strong induction, from the
 -- step for every number given the result for the smaller ones.
-theorem strong (p: Nat → Prop) (step: ∀ (n: Nat) => (∀ (d: Nat) => d < n → p d) → p n) (n: Nat): p n
+theorem strong ∀ (p: Nat → Prop) (step: ∀ (n: Nat) => (∀ (d: Nat) => d < n → p d) → p n) (n: Nat): p n
     decreasing n
 :=
   step n (d h => strong p step d)
 
-theorem allZeroLe (n: Nat): 0 ≤ n := strong (k => 0 ≤ k) (k below => Nat.zeroLe k) n
+theorem allZeroLe ∀ (n: Nat): 0 ≤ n := strong (k => 0 ≤ k) (k below => Nat.zeroLe k) n
 
 def main(): {IO} () :=
   IO.print ("weights: " ++ Text.join (List.map (List.map (List.rangeFrom 11 2) weight) Int.toText) ' ')

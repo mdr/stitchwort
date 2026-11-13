@@ -24,7 +24,7 @@ def FillResult (garden: Garden) (plant: Char) (start: Position) (stack: List Pos
 
 --| Popping a position already visited, or not growing `plant`, keeps the
 --| state.
-theorem popKeeps (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
+theorem popKeeps ∀ (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
     (members: List Position) (state: FillState garden plant start [position, ..rest] visited members)
     (skipped: (position ∈ members) ∨ (garden.plantAt position ≠ Some plant)): FillState garden plant start rest visited members :=
   let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
@@ -44,7 +44,7 @@ theorem popKeeps (garden: Garden) (plant: Char) (start: Position) (position: Pos
 
 --| Popping a position not yet visited that grows `plant`, and pushing its
 --| neighbours growing `plant`, keeps the state.
-theorem takeKeeps (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
+theorem takeKeeps ∀ (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
     (members: List Position) (state: FillState garden plant start [position, ..rest] visited members)
     (fresh: visited.contains position = False) (grows: garden.plantAt position = Some plant):
     FillState garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members] :=
@@ -88,7 +88,7 @@ theorem takeKeeps (garden: Garden) (plant: Char) (start: Position) (position: Po
                   | Inr (Inr inRest) => Inr (List.memAppendRight next (garden.neighboursGrowing plant position) rest inRest)))))
 
 --| The fill returns what `FillResult` says, from any state.
-theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
+theorem fillCorrect ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
     (state: FillState garden plant start stack visited members): FillResult garden plant start stack members (Garden.fill garden plant stack visited members)
     decreasing (garden.unvisited visited, stack.length)
 := match stack with
@@ -156,7 +156,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
                       | Inr later => fromStack candidate later grows))))
 
 --| The fill from `start` alone, with nothing visited.
-theorem fillFromStart (garden: Garden) (plant: Char) (start: Position):
+theorem fillFromStart ∀ (garden: Garden) (plant: Char) (start: Position):
     FillResult garden plant start [start] [] (Garden.fill garden plant [start] Set.empty []) :=
   fillCorrect garden plant start [start] Set.empty []
     (Both (position => { forward = contains => cases, backward = none => Void.exfalso none })
@@ -170,7 +170,7 @@ theorem fillFromStart (garden: Garden) (plant: Char) (start: Position):
             (member none => Void.exfalso none)))))
 
 --| Every plot joined to a member of a closed list of plots is a member.
-theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
+theorem closedChain ∀ (garden: Garden) (plant: Char) (result: List Position)
     (sound: ∀ (position: Position) => position ∈ result → garden.plantAt position = Some plant)
     (closed: ∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result)
     (from: Position) (chain: List Position) (to: Position) (member: from ∈ result) (same: isChain garden from chain to = True): to ∈ result :=
@@ -181,12 +181,12 @@ theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
         (closed from member next (touchingGrowing garden plant from next (sound from member) step)) chained
 
 --| From a plot growing `plant`, the region is a fill.
-theorem regionOfFill (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
+theorem regionOfFill ∀ (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
     (garden.regionOf start).plots = Garden.fill garden plant [start] Set.empty [] :=
   rewrite grows in rfl
 
 --| From a plot growing `plant`, the region the fill finds.
-theorem regionOfIsRegion (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
+theorem regionOfIsRegion ∀ (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
     IsRegion garden start (garden.regionOf start) :=
   rewrite regionOfFill garden start plant grows in
     let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := fillFromStart garden plant start
@@ -199,7 +199,7 @@ theorem regionOfIsRegion (garden: Garden) (start: Position) (plant: Char) (grows
             (fromStack start (Inl rfl) grows) chained)
     }
 
-theorem regionOfDistinct (garden: Garden) (start: Position): List.Distinct (garden.regionOf start).plots :=
+theorem regionOfDistinct ∀ (garden: Garden) (start: Position): List.Distinct (garden.regionOf start).plots :=
   match grows: garden.plantAt start with
     | Some plant => And.left (fillFromStart garden plant start)
     | None => Trivial

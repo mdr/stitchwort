@@ -10,7 +10,7 @@ import Std (Bool, Char, Eq, Exists, Fail, List, Nat, NonEmptyList, Parse, Result
 --| A group as the lines its people wrote.
 def GroupLines (lines: List (List Char)) (group: Group): Prop := List.All2 PersonWritten lines group.people.toList
 
-theorem anyoneCount (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
+theorem anyoneCount ∀ (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
     group.anyone.size = Spec.count Spec.anyone lines :=
   let agree: ∀ (question: Char) => group.anyone.contains question = Spec.anyone lines question :=
     question => Eq.trans (NonEmptyList.containsUnionAll (group.people.map .answers) question) (anyAnswers lines group.people.toList written question)
@@ -18,7 +18,7 @@ theorem anyoneCount (lines: List (List Char)) (group: Group) (written: GroupLine
     (question found => anyQuestion lines group.people.toList written question (rewrite agree question at found in found))
     (question isQuestion => agree question)
 
-theorem everyoneCount (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
+theorem everyoneCount ∀ (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
     group.everyone.size = Spec.count Spec.everyone lines :=
   let meet: ∀ (question: Char) => group.everyone.contains question = Spec.everyone lines question :=
     question => intersectContains lines group.people written question
@@ -28,7 +28,7 @@ theorem everyoneCount (lines: List (List Char)) (group: Group) (written: GroupLi
 
 --| The sums over groups: a lemma over any per-group count, then the two
 --| parts.
-theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each: ∀ (lines: List (List Char)) (group: Group) => GroupLines lines group → size group = count lines)
+theorem sumCounts ∀ (size: Group → Nat) (count: List (List Char) → Nat) (each: ∀ (lines: List (List Char)) (group: Group) => GroupLines lines group → size group = count lines)
     (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (impossible: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
     groups.sumBy size = lineGroups.sumBy (lines => count lines.toList) := match lineGroups, groups, impossible with
       | [], [], all => rfl
@@ -38,18 +38,18 @@ theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each:
       | [], [_, .._], impossible => Void.exfalso impossible
       | [_, .._], [], impossible => Void.exfalso impossible
 
-theorem part1Lines (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (written: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
+theorem part1Lines ∀ (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (written: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
     solvePart1 groups = lineGroups.sumBy (lines => Spec.count Spec.anyone lines.toList) :=
   sumCounts .anyone.size (Spec.count Spec.anyone) anyoneCount lineGroups groups written
 
-theorem part2Lines (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (written: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
+theorem part2Lines ∀ (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) (written: List.All2 (lines group => GroupLines lines.toList group) lineGroups groups):
     solvePart2 groups = lineGroups.sumBy (lines => Spec.count Spec.everyone lines.toList) :=
   sumCounts .everyone.size (Spec.count Spec.everyone) everyoneCount lineGroups groups written
 
 --| The groups the parser reads are the input's, as groups of lines: the
 --| input is them written out, a blank line (spaces and tabs allowed) between
 --| each two, then any line breaks, and each group's people are those lines.
-theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+theorem inputGroups ∀ (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: NonEmptyList (NonEmptyList (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ List.All2 (lines group => GroupLines lines.toList group) lineGroups.toList groups :=
@@ -64,7 +64,7 @@ theorem inputGroups (input: Text) (groups: List Group) (parsed: Fail.toResult ((
 
 --| Part 1, for every input the parser reads, is the spec's sum over the
 --| groups of lines the input is made of.
-theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+theorem part1Correct ∀ (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: NonEmptyList (NonEmptyList (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart1 groups = Spec.part1Answer (lineGroups.toList.map NonEmptyList.toList) :=
@@ -73,7 +73,7 @@ theorem part1Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (
       Witness lineGroups (Witness read (Witness ending (Both text (Both linesRead (Both done
         (rewrite part1Lines lineGroups.toList groups related, List.sumByMap lineGroups.toList (Spec.count Spec.anyone) NonEmptyList.toList in rfl))))))
 
-theorem part2Correct (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+theorem part2Correct ∀ (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (lineGroups: NonEmptyList (NonEmptyList (List Char))) => ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Parse.SepBy LinesWritten (read u => Parse.BlankLine read) read lineGroups
         ∧ ending.all (char => char == '\n' ∨ char == '\r') = True ∧ solvePart2 groups = Spec.part2Answer (lineGroups.toList.map NonEmptyList.toList) :=

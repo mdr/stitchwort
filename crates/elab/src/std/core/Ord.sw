@@ -3,7 +3,7 @@
 -- Loaded with the core: `< <=` and `deriving (Ord)` go through `Ord`
 -- dictionaries, found by full key (docs/proposals/prelude-slim.md §2.1).
 
-theorem Bool.toNatInjective (a b: Bool) (h: Bool.toNat a = Bool.toNat b): a = b := match a, b with
+theorem Bool.toNatInjective ∀ (a b: Bool) (h: Bool.toNat a = Bool.toNat b): a = b := match a, b with
   | False, False => rfl
   | False, True => Void.exfalso (Nat.zeroNotSucc 0 h)
   | True, False => Void.exfalso (Nat.succNotZero 0 h)

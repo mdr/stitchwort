@@ -18,7 +18,7 @@ type Ten = { b0: Bool, b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Boo
 
 def Ten.bits (t: Ten): List Bool := [t.b0, t.b1, t.b2, t.b3, t.b4, t.b5, t.b6, t.b7, t.b8, t.b9]
 
-theorem tenBothWays (t: Ten): sameBothWays t.bits = True := Finite.check (u => sameBothWays u.bits) rfl t
+theorem tenBothWays ∀ (t: Ten): sameBothWays t.bits = True := Finite.check (u => sameBothWays u.bits) rfl t
 
 -- Two variables, as a pair: day 12's `rowEndsSplit`'s shape, over a pair of
 -- pairs.
@@ -27,9 +27,9 @@ def rowEnds: ((Bool, Bool), (Bool, Bool)) → Bool
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
       == Bool.toNat (plot ∧ ¬out ∧ ¬side) + Bool.toNat (side ∧ sideOut ∧ plot ∧ ¬out)
 
-theorem rowEndsAll (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool): rowEnds ((plot, out), (side, sideOut)) = True :=
+theorem rowEndsAll ∀ (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool): rowEnds ((plot, out), (side, sideOut)) = True :=
   Finite.check rowEnds rfl ((plot, out), (side, sideOut))
 
 -- `Fin n` has an instance written by hand.
-theorem squaresBelow (i: Fin 6): (Fin.toNat i * Fin.toNat i < 36) = True :=
+theorem squaresBelow ∀ (i: Fin 6): (Fin.toNat i * Fin.toNat i < 36) = True :=
   Finite.check (j => Fin.toNat j * Fin.toNat j < 36) rfl i

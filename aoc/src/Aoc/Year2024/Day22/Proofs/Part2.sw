@@ -9,16 +9,16 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Eq, List, Map, Nat, Option, Pair)
 
-theorem getOrSome (totals: Map Changes Nat) (key: Changes) (value: Nat) (found: totals.get key = Some value): totals.getOr key 0 = value :=
+theorem getOrSome ∀ (totals: Map Changes Nat) (key: Changes) (value: Nat) (found: totals.get key = Some value): totals.getOr key 0 = value :=
   rewrite found in rfl
 
-theorem getOrNone (totals: Map Changes Nat) (key: Changes) (missing: totals.get key = None): totals.getOr key 0 = 0 := rewrite missing in rfl
+theorem getOrNone ∀ (totals: Map Changes Nat) (key: Changes) (missing: totals.get key = None): totals.getOr key 0 = 0 := rewrite missing in rfl
 
-theorem leBoth (m: Nat) (n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := omega
+theorem leBoth ∀ (m: Nat) (n: Nat) (below: m ≤ n) (above: n ≤ m): m = n := omega
 
 --| The best total is no more than the most bananas over any list holding
 --| the changes of every five digits.
-theorem bestTotalAtMost (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyers: List Nat):
+theorem bestTotalAtMost ∀ (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyers: List Nat):
     bestTotal count buyers ≤ mostBananas possible count buyers :=
   let totals := bananasBySequence count buyers
   let most := (possible.map (bananas count buyers)).foldLeft 0 Nat.max
@@ -35,7 +35,7 @@ theorem bestTotalAtMost (possible: List Changes) (contains: HoldsDigitChanges po
           omega [same, earns, bound])
 
 --| And no less than the most bananas over any list of sequences.
-theorem bestTotalAtLeast (possible: List Changes) (count: Nat) (buyers: List Nat):
+theorem bestTotalAtLeast ∀ (possible: List Changes) (count: Nat) (buyers: List Nat):
     mostBananas possible count buyers ≤ bestTotal count buyers :=
   let totals := bananasBySequence count buyers
   let most := (possible.map (bananas count buyers)).foldLeft 0 Nat.max
@@ -55,12 +55,12 @@ theorem bestTotalAtLeast (possible: List Changes) (count: Nat) (buyers: List Nat
 --| Stated for any such list and only then for `possibleSequences`: a `≤`
 --| about `possibleSequences` itself makes the checker fold all 130,321
 --| sequences, and run out of stack.
-theorem bestTotalAmong (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyers: List Nat):
+theorem bestTotalAmong ∀ (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyers: List Nat):
     bestTotal count buyers = mostBananas possible count buyers :=
   leBoth (bestTotal count buyers) (mostBananas possible count buyers) (bestTotalAtMost possible contains count buyers)
     (bestTotalAtLeast possible count buyers)
 
-theorem bestTotalCorrect (count: Nat) (buyers: List Nat): bestTotal count buyers = mostBananas (sequencesOf possibleChanges) count buyers :=
+theorem bestTotalCorrect ∀ (count: Nat) (buyers: List Nat): bestTotal count buyers = mostBananas (sequencesOf possibleChanges) count buyers :=
   bestTotalAmong (sequencesOf possibleChanges) digitChangesPossible count buyers
 
-theorem part2Correct (buyers: List Nat): solvePart2 buyers = mostBananas possibleSequences 2000 buyers := bestTotalCorrect 2000 buyers
+theorem part2Correct ∀ (buyers: List Nat): solvePart2 buyers = mostBananas possibleSequences 2000 buyers := bestTotalCorrect 2000 buyers

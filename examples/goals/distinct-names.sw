@@ -8,10 +8,10 @@ type Point = { x: Nat, y: Nat }
 -- `Below x xs` unfolds to `∃ (x1: Nat) => x1 < x`, not `∃ (x: Nat) => x < x`.
 def Below (y: Nat) (xs: List Nat): Prop := ∃ (x: Nat) => x < y
 
-theorem below (x: Nat) (xs: List Nat): Below x xs := ?
+theorem below ∀ (x: Nat) (xs: List Nat): Below x xs := ?
 
 -- Both points' fields are unnamed: `x✝¹` is `p`'s, `x✝` is `q`'s.
-theorem samePoint (p: Point) (q: Point) (h: p.x = q.x): p = q := match p, q with
+theorem samePoint ∀ (p: Point) (q: Point) (h: p.x = q.x): p = q := match p, q with
   | { x = _, y = _ }, { x = _, y = _ } => ?
 
 type Tree =

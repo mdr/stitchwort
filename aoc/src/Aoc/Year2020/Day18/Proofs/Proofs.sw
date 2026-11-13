@@ -9,18 +9,18 @@ import Aoc.Year2020.Day18 (..)
 import Aoc.Year2020.Day18 (Spec)
 import Std (Eq, Fail, List, Nat, Parse, Result, Text)
 
-theorem valueSpec (expression: Expression): expression.value = Spec.value expression := match expression with
+theorem valueSpec ∀ (expression: Expression): expression.value = Spec.value expression := match expression with
   | Number value => rfl
   | Operation Plus left right => rewrite valueSpec left, valueSpec right in rfl
   | Operation Times left right => rewrite valueSpec left, valueSpec right in rfl
   | Parenthesised inner => valueSpec inner
 
-theorem sumSpec (homework: Homework): homework.sum = (homework.expressions.map Spec.value).sum :=
+theorem sumSpec ∀ (homework: Homework): homework.sum = (homework.expressions.map Spec.value).sum :=
   rewrite List.mapCong homework.expressions Expression.value Spec.value valueSpec in rfl
 
 --| If `parseHomework` reads `input`, each line is its expression, under
 --| the rules `strengthOf` that `precedence`'s levels rank.
-theorem parseMeans (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
+theorem parseMeans ∀ (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
     (homework: Homework) (parsed: Fail.toResult (() => parseHomework input precedence) = Ok homework):
     List.All2 (Spec.Means strengthOf) (input.lines.map Text.toList) homework.expressions :=
   let split := rewrite Fail.toResultThen (() => Parse.eachLine input (() => precedence.expression)) (expressions => ({ expressions }: Homework)) at parsed
@@ -28,7 +28,7 @@ theorem parseMeans (input: Text) (precedence: Precedence) (strengthOf: Operator 
     rewrite <- Result.okInjective made in
       Parse.eachLineReads input (() => precedence.expression) (Spec.Means strengthOf) expressions read (readsExpression strengthOf precedence ranked))
 
-theorem answerCorrect (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
+theorem answerCorrect ∀ (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
     (homework: Homework) (parsed: Fail.toResult (() => parseHomework input precedence) = Ok homework):
     Spec.Answer strengthOf input homework.sum :=
   Witness homework.expressions (Both (parseMeans input precedence strengthOf ranked homework parsed) (sumSpec homework))
@@ -39,7 +39,7 @@ theorem additionFirstRanked: Ranked Spec.part2Strength 0 additionFirst.levels :=
 
 --| The spec's answer is the program's and no other, under rules the
 --| program's levels rank and list exactly.
-theorem answerExactly (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
+theorem answerExactly ∀ (input: Text) (precedence: Precedence) (strengthOf: Operator → Nat) (ranked: Ranked strengthOf 0 precedence.levels)
     (exact: Exact strengthOf 0 precedence.levels) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input precedence) = Ok homework)
     (answer: Nat): Spec.Answer strengthOf input answer ↔ answer = homework.sum := {
   forward = (Witness expressions (Both means summed)) =>
@@ -51,11 +51,11 @@ theorem answerExactly (input: Text) (precedence: Precedence) (strengthOf: Operat
 
 --| Part 1: for every input the parser reads with `+` and `*` on one
 --| level, its sum is the spec's answer and the only one.
-theorem part1Exactly (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input samePrecedence) = Ok homework) (answer: Nat):
+theorem part1Exactly ∀ (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input samePrecedence) = Ok homework) (answer: Nat):
     Spec.Part1 input answer ↔ answer = homework.sum :=
   answerExactly input samePrecedence Spec.part1Strength samePrecedenceRanked samePrecedenceExact homework parsed answer
 
 --| Part 2: the same, with `+` on a level below `*`.
-theorem part2Exactly (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input additionFirst) = Ok homework) (answer: Nat):
+theorem part2Exactly ∀ (input: Text) (homework: Homework) (parsed: Fail.toResult (() => parseHomework input additionFirst) = Ok homework) (answer: Nat):
     Spec.Part2 input answer ↔ answer = homework.sum :=
   answerExactly input additionFirst Spec.part2Strength additionFirstRanked additionFirstExact homework parsed answer

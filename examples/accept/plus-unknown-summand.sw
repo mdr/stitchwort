@@ -9,7 +9,7 @@ import Std (List)
 -- `d` is inferred from the proof's type.
 def extra (x: Nat) (d: Nat) (p: x + d = Succ (x + 3)): Nat := d
 
-theorem extraIsFour (x: Nat): extra x _ rfl = 4 := rfl
+theorem extraIsFour ∀ (x: Nat): extra x _ rfl = 4 := rfl
 
 -- A computed `Succ (x + t)` against `x + ?d`, as in the roguelike's
 -- `actAllDamage` (games/rogue).
@@ -26,10 +26,10 @@ def inside (x: Nat) (f: (d: Nat) → Succ (x + d) = x + 3 → Nat): Nat := f _ r
 -- `List.range ?lo (?hi + 1)` is `List.rangeFrom (Succ ?hi - ?lo) ?lo`, stuck on
 -- `?lo`, against `List.rangeFrom (n - 1) 2`; the first arguments are compared
 -- again once the second have solved `?lo`.
-theorem atLeastTwo (x: Nat) (n: Nat) (h: x ∈ List.range 2 (n + 1)): 2 ≤ x :=
+theorem atLeastTwo ∀ (x: Nat) (n: Nat) (h: x ∈ List.range 2 (n + 1)): 2 ≤ x :=
   match (List.memRange _ _ (_ + 1)).forward h with
     | Both low _ => low
 
-theorem atMostN (x: Nat) (n: Nat) (h: x ∈ List.range 1 (n + 1)): x ≤ n :=
+theorem atMostN ∀ (x: Nat) (n: Nat) (h: x ∈ List.range 1 (n + 1)): x ≤ n :=
   match (List.memRange _ _ (_ + 1)).forward h with
     | Both _ high => omega

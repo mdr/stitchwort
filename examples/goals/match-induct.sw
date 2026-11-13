@@ -9,7 +9,7 @@ def firstBig: List Nat → Option Nat
       | True => Some x
       | False => firstBig rest
 
-theorem firstBigIsBig (xs: List Nat) (y: Nat) (found: firstBig xs = Some y): Nat.leq 10 y = True :=
+theorem firstBigIsBig ∀ (xs: List Nat) (y: Nat) (found: firstBig xs = Some y): Nat.leq 10 y = True :=
   match induct (firstBig xs) with
     | eq1 => ?
     | eq2True x rest big => ?

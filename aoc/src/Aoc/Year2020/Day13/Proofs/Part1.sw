@@ -15,14 +15,14 @@ def isListed: Slot → Bool
   | Listed _ => True
   | OutOfService => False
 
-theorem memBusesFrom (start: Nat) (schedule: List Slot) (bus: Bus) (h: bus ∈ busesFrom start schedule): Listed bus.id ∈ schedule :=
+theorem memBusesFrom ∀ (start: Nat) (schedule: List Slot) (bus: Bus) (h: bus ∈ busesFrom start schedule): Listed bus.id ∈ schedule :=
   match schedule, h with
     | [], member => Void.exfalso member
     | [Listed id, ..rest], Inl same => Inl (rewrite <- same in rfl)
     | [Listed id, ..rest], Inr member => Inr (memBusesFrom (Succ start) rest bus member)
     | [OutOfService, ..rest], member => Inr (memBusesFrom (Succ start) rest bus member)
 
-theorem busesFromHas (start: Nat) (schedule: List Slot) (id: Nat) (h: Listed id ∈ schedule): ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id :=
+theorem busesFromHas ∀ (start: Nat) (schedule: List Slot) (id: Nat) (h: Listed id ∈ schedule): ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id :=
   match schedule, h with
     | [], member => Void.exfalso member
     | [Listed other, ..rest], Inl same => Witness ({ id = other, offset = start }) (Both (Inl rfl) (Eq.cong idOf same))
@@ -32,11 +32,11 @@ theorem busesFromHas (start: Nat) (schedule: List Slot) (id: Nat) (h: Listed id 
     | [OutOfService, ..rest], Inl same => cases
     | [OutOfService, ..rest], Inr member => busesFromHas (Succ start) rest id member
 
-theorem nextDepartureIs (bus: Bus) (from: Nat): bus.nextDeparture from = Nat.ceilDiv from bus.id * bus.id := rfl
+theorem nextDepartureIs ∀ (bus: Bus) (from: Nat): bus.nextDeparture from = Nat.ceilDiv from bus.id * bus.id := rfl
 
 --| The next departure is a departure, at or after `from`, and no departure
 --| at or after `from` is earlier.
-theorem nextDepartureFirst (bus: Bus) [auto ok: bus.id ≠ 0] (from: Nat):
+theorem nextDepartureFirst ∀ (bus: Bus) [auto ok: bus.id ≠ 0] (from: Nat):
     Spec.Departs bus.id (bus.nextDeparture from) ∧ from ≤ bus.nextDeparture from
       ∧ (∀ (time: Nat) => Spec.Departs bus.id time → from ≤ time → bus.nextDeparture from ≤ time) :=
   rewrite nextDepartureIs bus from in
@@ -46,7 +46,7 @@ theorem nextDepartureFirst (bus: Bus) [auto ok: bus.id ≠ 0] (from: Nat):
           rewrite same in Nat.leMulRight (Nat.ceilDiv from bus.id) trips bus.id (Nat.ceilDivLe from trips bus.id (rewrite <- same in after))))
 
 --| When the program answers, the answer is the spec's.
-theorem part1Rules (notes: Notes) (answer: Nat) (positive: IdsPositive notes) (found: notes.earliestBus = Some answer): Spec.Part1 notes answer :=
+theorem part1Rules ∀ (notes: Notes) (answer: Nat) (positive: IdsPositive notes) (found: notes.earliestBus = Some answer): Spec.Part1 notes answer :=
   match m: notes.buses.minimumOf (bus => bus.nextDeparture notes.earliest) with
     | Some first =>
       match f: notes.buses.find (bus => bus.nextDeparture notes.earliest == first) with
@@ -72,7 +72,7 @@ theorem part1Rules (notes: Notes) (answer: Nat) (positive: IdsPositive notes) (f
                         (Eq.sym (Option.someInjective found)))))))
 
 --| The program answers whenever a bus is in service.
-theorem part1Answers (notes: Notes) (id: Nat) (listed: Listed id ∈ notes.schedule) (none: notes.earliestBus = None): Void :=
+theorem part1Answers ∀ (notes: Notes) (id: Nat) (listed: Listed id ∈ notes.schedule) (none: notes.earliestBus = None): Void :=
   match busesFromHas 0 notes.schedule id listed with
     | Witness bus (Both member same) =>
       let departure := (bus: Bus) => bus.nextDeparture notes.earliest

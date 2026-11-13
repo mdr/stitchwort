@@ -6,7 +6,7 @@ import Std (Bool, DecEq, Eq, Int, List, Nat, Option, Void)
 
 --| A step that adds `distance` and wraps, taken `times` times, adds
 --| `times * distance` and wraps.
-theorem iterateWrap (size: Nat) (distance: Int) (step: Nat → Nat)
+theorem iterateWrap ∀ (size: Nat) (distance: Int) (step: Nat → Nat)
     (wraps: ∀ (x: Nat) => x < size → step x = Int.modNat (x.toInt + distance) size)
     (times x: Nat) (inside: x < size): times.iterate step x = Int.modNat (x.toInt + times.toInt * distance) size :=
   match times with

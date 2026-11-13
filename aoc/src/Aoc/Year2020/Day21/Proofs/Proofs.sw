@@ -15,11 +15,11 @@ import Std (Eq, Fail, List, Option, Result, Text, Void)
 
 --| Part 2's holders, when the elimination settles them, are a way the
 --| allergens could be: the puzzle's promise, for part 1.
-theorem promiseOfDangerous (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer):
+theorem promiseOfDangerous ∀ (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer):
     ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder := match settled: list.holders with
       | Some holders => Witness (list.holderOf holders) (holdersHolding list holders settled)
 
-theorem part1Correct (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list)
+theorem part1Correct ∀ (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list)
     (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.FoodListWritten read list ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
@@ -27,14 +27,14 @@ theorem part1Correct (input: Text) (list: FoodList) (parsed: Fail.toResult (() =
   Both (parseWritten input list parsed) (safeAppearancesSpec list promise)
 
 --| Part 1 with no promise needed, once part 2 has an answer.
-theorem part1Settled (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list) (answer: Text)
+theorem part1Settled ∀ (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list) (answer: Text)
     (found: list.dangerousList = Some answer):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.FoodListWritten read list ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
       ∧ Spec.Part1 list list.safeAppearances :=
   part1Correct input list parsed (promiseOfDangerous list answer found)
 
-theorem part2Correct (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list) (answer: Text)
+theorem part2Correct ∀ (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list) (answer: Text)
     (found: list.dangerousList = Some answer):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.FoodListWritten read list ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)

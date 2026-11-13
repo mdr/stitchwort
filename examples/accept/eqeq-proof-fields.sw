@@ -36,4 +36,4 @@ test "short" := short == { items = ["a"], size = 1, ok = rfl }
 test "short, items differ" := short ≠ { items = ["b"], size = 1, ok = rfl }
 
 -- The theorem itself.
-theorem bothProofs (p: Nat.leq 3 10 = True) (q: Nat.leq 3 10 = True): p = q := DecEq.uniqueEq p q
+theorem bothProofs ∀ (p: Nat.leq 3 10 = True) (q: Nat.leq 3 10 = True): p = q := DecEq.uniqueEq p q

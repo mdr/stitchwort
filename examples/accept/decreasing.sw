@@ -37,7 +37,7 @@ theorem digitsByRfl: digits 1234 = [1, 2, 3, 4] := rfl
 
 -- The equation the compiler proves, with `digitsOnto` itself in the
 -- recursive call.
-theorem digitsOntoStep (n: Nat) (acc: List Nat):
+theorem digitsOntoStep ∀ (n: Nat) (acc: List Nat):
     digitsOnto n acc = (if big: Nat.leq n 9 = False then digitsOnto (n / 10) [n % 10, ..acc] else [n, ..acc]) :=
   digitsOnto.unfold n acc
 
@@ -107,7 +107,7 @@ def evens (n: Nat): List Nat
 
 test "evens" := evens 7 == [5, 3, 1]
 
-theorem evensShort (n: Nat): List.length (evens n) ≤ n
+theorem evensShort ∀ (n: Nat): List.length (evens n) ≤ n
     decreasing n
 :=
   rewrite evens.unfold n in

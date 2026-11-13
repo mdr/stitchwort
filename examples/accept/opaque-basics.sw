@@ -16,7 +16,7 @@ theorem doubleTwo: double 2 = 4 :=
   rewrite double.unfold in rfl
 
 -- Calls are compared by their arguments, as for a function variable.
-theorem sameCall (a: Nat) (b: Nat) (e: a = b): double a = double b :=
+theorem sameCall ∀ (a: Nat) (b: Nat) (e: a = b): double a = double b :=
   rewrite e in rfl
 
 -- A transparent definition may call it; a theorem about that one unfolds

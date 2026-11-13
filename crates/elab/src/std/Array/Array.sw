@@ -135,7 +135,7 @@ def Array.sum (array: Array Nat): Nat := List.sum array.toList
 -- Equality, order and printing
 
 --| Arrays with the same list are the same array.
-theorem Array.toListInjective (a b: Array t) (h: a.toList = b.toList): a = b := match a, b with
+theorem Array.toListInjective ∀ (a b: Array t) (h: a.toList = b.toList): a = b := match a, b with
   | { toList = xs }, { toList = ys } => Eq.cong (zs => ({ toList = zs }: Array t)) h
 
 --| `==` on arrays: they're equal exactly when their lists are.
@@ -154,7 +154,7 @@ instance Array.instShow [auto show: Show a]: Show (Array a) :=
 -- Lemmas
 
 --| Lists that agree at every index are equal (past the end, both give `None`).
-theorem List.extGet (xs ys: List a) (h: ∀ (i: Nat) => List.get xs i = List.get ys i): xs = ys := match xs, ys with
+theorem List.extGet ∀ (xs ys: List a) (h: ∀ (i: Nat) => List.get xs i = List.get ys i): xs = ys := match xs, ys with
   | [], [] => rfl
   | [], [y, ..ys] => Void.exfalso (Option.noneNotSome y (h 0))
   | [x, ..xs], [] => Void.exfalso (Option.noneNotSome x (Eq.sym (h 0)))
@@ -163,64 +163,64 @@ theorem List.extGet (xs ys: List a) (h: ∀ (i: Nat) => List.get xs i = List.get
       (Eq.cong (Cons y) (List.extGet xs ys (i => h (Succ i))))
 
 --| Arrays that agree at every index are equal.
-theorem Array.ext (a: Array t) (b: Array t) (h: ∀ (i: Nat) => a.get i = b.get i): a = b :=
+theorem Array.ext ∀ (a: Array t) (b: Array t) (h: ∀ (i: Nat) => a.get i = b.get i): a = b :=
   Array.toListInjective a b (List.extGet a.toList b.toList h)
 
 --| `toList` of the array of a list is the list.
-theorem Array.toListFromList (xs: List a): (Array.fromList xs).toList = xs := rfl
+theorem Array.toListFromList ∀ (xs: List a): (Array.fromList xs).toList = xs := rfl
 
 --| `List.toArray` and `toList` are inverse.
-theorem Array.toListToArray (xs: List a): xs.toArray.toList = xs := rfl
+theorem Array.toListToArray ∀ (xs: List a): xs.toArray.toList = xs := rfl
 
 --| The array of an array's list is the array.
-theorem Array.fromListToList (array: Array a): Array.fromList array.toList = array := match array with
+theorem Array.fromListToList ∀ (array: Array a): Array.fromList array.toList = array := match array with
   | { toList = xs } => rfl
 
 --| The size is the list's length.
-theorem Array.sizeToList (array: Array a): array.size = List.length array.toList := rfl
+theorem Array.sizeToList ∀ (array: Array a): array.size = List.length array.toList := rfl
 
 --| `getLt` finds what `get` finds.
-theorem List.getLtGet (xs: List a) (i: Nat) (ok: i < List.length xs): List.get xs i = Some (List.getLt xs i [ok := ok]) :=
+theorem List.getLtGet ∀ (xs: List a) (i: Nat) (ok: i < List.length xs): List.get xs i = Some (List.getLt xs i [ok := ok]) :=
   match xs, i with
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ i => List.getLtGet xs i ok
 
 --| `getLt` finds what `get` finds.
-theorem Array.getLtGet (array: Array a) (i: Nat) (ok: i < array.size): array.get i = Some (array.getLt i [ok := ok]) :=
+theorem Array.getLtGet ∀ (array: Array a) (i: Nat) (ok: i < array.size): array.get i = Some (array.getLt i [ok := ok]) :=
   List.getLtGet array.toList i ok
 
 --| `getOr` is `get` with the fallback for `None`.
-theorem Array.getOrGet (array: Array a) (i: Nat) (d: a): array.getOr i d = (array.get i).getOrElse d :=
+theorem Array.getOrGet ∀ (array: Array a) (i: Nat) (d: a): array.getOr i d = (array.get i).getOrElse d :=
   List.getOrGet array.toList i d
 
 --| An index is in range exactly when `get` finds something there.
-theorem Array.getPast (array: Array a) (i: Nat) (h: array.size ≤ i): array.get i = None :=
+theorem Array.getPast ∀ (array: Array a) (i: Nat) (h: array.size ≤ i): array.get i = None :=
   List.getPast array.toList i h
 
 --| `set` keeps the size, whether or not the index is in range.
-theorem Array.sizeSet (array: Array a) (i: Nat) (v: a): (array.set i v).size = array.size :=
+theorem Array.sizeSet ∀ (array: Array a) (i: Nat) (v: a): (array.set i v).size = array.size :=
   List.lengthSet array.toList i v
 
 --| In range, `get` after a `set` finds the new value.
-theorem Array.getSet (array: Array a) (i: Nat) (v: a) (h: i < array.size): (array.set i v).get i = Some v :=
+theorem Array.getSet ∀ (array: Array a) (i: Nat) (v: a) (h: i < array.size): (array.set i v).get i = Some v :=
   List.getSet array.toList i v h
 
 --| At another index, `set` changes nothing `get` finds.
-theorem Array.getSetOther (array: Array a) (i: Nat) (v: a) (j: Nat) (h: j ≠ i): (array.set i v).get j = array.get j :=
+theorem Array.getSetOther ∀ (array: Array a) (i: Nat) (v: a) (j: Nat) (h: j ≠ i): (array.set i v).get j = array.get j :=
   List.getSetOther array.toList i v j h
 
 --| In range, `getOr` after a `set` finds the new value, whatever the fallback.
-theorem Array.getOrSet (array: Array a) (i: Nat) (v: a) (d: a) (h: i < array.size): (array.set i v).getOr i d = v :=
+theorem Array.getOrSet ∀ (array: Array a) (i: Nat) (v: a) (d: a) (h: i < array.size): (array.set i v).getOr i d = v :=
   Eq.trans (Array.getOrGet (array.set i v) i d) (Eq.cong (o => Option.getOrElse o d) (Array.getSet array i v h))
 
 --| At another index, `set` changes nothing `getOr` finds.
-theorem Array.getOrSetOther (array: Array a) (i: Nat) (v: a) (j: Nat) (d: a) (h: j ≠ i):
+theorem Array.getOrSetOther ∀ (array: Array a) (i: Nat) (v: a) (j: Nat) (d: a) (h: j ≠ i):
     (array.set i v).getOr j d = array.getOr j d :=
   Eq.trans (Array.getOrGet (array.set i v) j d)
     (Eq.trans (Eq.cong (o => Option.getOrElse o d) (Array.getSetOther array i v j h)) (Eq.sym (Array.getOrGet array j d)))
 
 --| Past the end, `set` leaves the array unchanged.
-theorem Array.setPast (array: Array a) (i: Nat) (v: a) (h: array.size ≤ i): array.set i v = array :=
+theorem Array.setPast ∀ (array: Array a) (i: Nat) (v: a) (h: array.size ≤ i): array.set i v = array :=
   Array.ext (array.set i v) array (j =>
     if same: j = i then
       Eq.trans (Array.getPast (array.set i v) j (rewrite Array.sizeSet array i v in rewrite same in h))
@@ -228,51 +228,51 @@ theorem Array.setPast (array: Array a) (i: Nat) (v: a) (h: array.size ≤ i): ar
     else Array.getSetOther array i v j same)
 
 --| `push` adds one to the size.
-theorem Array.sizePush (array: Array a) (v: a): (array.push v).size = array.size + 1 :=
+theorem Array.sizePush ∀ (array: Array a) (v: a): (array.push v).size = array.size + 1 :=
   List.lengthAppend array.toList [v]
 
 --| `push` keeps the elements that were there.
-theorem Array.getPush (array: Array a) (v: a) (i: Nat) (h: i < array.size): (array.push v).get i = array.get i :=
+theorem Array.getPush ∀ (array: Array a) (v: a) (i: Nat) (h: i < array.size): (array.push v).get i = array.get i :=
   List.getAppendLeft array.toList [v] i h
 
 --| After a `push`, the last element is the new one.
-theorem Array.getPushLast (array: Array a) (v: a): (array.push v).get array.size = Some v :=
+theorem Array.getPushLast ∀ (array: Array a) (v: a): (array.push v).get array.size = Some v :=
   rewrite List.getAppendRight array.toList [v] array.size (Nat.leRefl array.size) in
   rewrite Nat.subSelf array.size in rfl
 
 --| `pop` undoes `push`.
-theorem Array.popPush (array: Array a) (v: a): (array.push v).pop = Some (array, v) :=
+theorem Array.popPush ∀ (array: Array a) (v: a): (array.push v).pop = Some (array, v) :=
   rewrite List.reverseSnoc array.toList v in
   rewrite List.reverseReverse array.toList in
   rewrite Array.fromListToList array in rfl
 
 --| `modify` keeps the size.
-theorem Array.sizeModify (array: Array a) (i: Nat) (f: a → a): (array.modify i f).size = array.size :=
+theorem Array.sizeModify ∀ (array: Array a) (i: Nat) (f: a → a): (array.modify i f).size = array.size :=
   match h: array.get i with
     | Some x => Array.sizeSet array i (f x)
     | None => rfl
 
 --| `replicate` has `count` elements.
-theorem Array.sizeReplicate (count: Nat) (x: a): (Array.replicate count x).size = count :=
+theorem Array.sizeReplicate ∀ (count: Nat) (x: a): (Array.replicate count x).size = count :=
   List.lengthReplicate x count
 
 --| Every element of `replicate` is `x`.
-theorem Array.getOrReplicate (count: Nat) (x: a) (i: Nat): (Array.replicate count x).getOr i x = x :=
+theorem Array.getOrReplicate ∀ (count: Nat) (x: a) (i: Nat): (Array.replicate count x).getOr i x = x :=
   List.getOrReplicate x i count
 
 --| `map` keeps the size.
-theorem Array.sizeMap (array: Array a) (f: a → b): (array.map f).size = array.size :=
+theorem Array.sizeMap ∀ (array: Array a) (f: a → b): (array.map f).size = array.size :=
   List.lengthMap array.toList f
 
 --| `map` applies `f` at each index.
-theorem Array.getMap (array: Array a) (f: a → b) (i: Nat): (array.map f).get i = (array.get i).map f :=
+theorem Array.getMap ∀ (array: Array a) (f: a → b) (i: Nat): (array.map f).get i = (array.get i).map f :=
   List.getMap array.toList f i
 
 --| `foldLeft` is the list's.
-theorem Array.foldLeftToList (array: Array a) (initial: b) (f: b → a → b): array.foldLeft initial f = List.foldLeft array.toList initial f := rfl
+theorem Array.foldLeftToList ∀ (array: Array a) (initial: b) (f: b → a → b): array.foldLeft initial f = List.foldLeft array.toList initial f := rfl
 
 --| The vector of an array has the array's elements.
-theorem Array.toVecToList (array: Array a): Vec.toList array.toVec = array.toList := Vec.toListFromList array.toList
+theorem Array.toVecToList ∀ (array: Array a): Vec.toList array.toVec = array.toList := Vec.toListFromList array.toList
 
 --| A small array for the tests below: 3, 1 and 2.
 def Array.example: Array Nat := [3, 1, 2].toArray

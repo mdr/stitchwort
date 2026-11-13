@@ -12,13 +12,13 @@ def Cave.height (cave: Cave): Nat := cave.rows.length
 def Cave.tiled (cave: Cave): Map :=
   if tall: cave.height != 0 then { size = 5, level = n => n + 1 } else { size = 0, level = n => n }
 
-theorem twoWays (cave: Cave) (n: Nat):
+theorem twoWays ∀ (cave: Cave) (n: Nat):
     cave.tiled.level n = (if tall: cave.height != 0 then { size = 5, level = m => m + 1 } else { size = 0, level = m => m }).level n :=
   rfl
 
 def Cave.levelAt (cave: Cave) (n: Nat): Nat := cave.tiled.level n
 
 -- The field is applied inside another definition, as a goal reaches it.
-theorem throughACall (cave: Cave) (n: Nat):
+theorem throughACall ∀ (cave: Cave) (n: Nat):
     cave.levelAt n = (if tall: cave.height != 0 then { size = 5, level = m => m + 1 } else { size = 0, level = m => m }).level n :=
   rfl

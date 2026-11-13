@@ -10,12 +10,12 @@ def Dec.or [p q: Prop] (dp: Dec p) (dq: Dec q): Dec (p ∨ q) := {
   sound = h => Dec.orSound dp dq h,
   complete = h => Dec.orComplete dp dq h
 }
-theorem Dec.orSound [p q: Prop] (dp: Dec p) (dq: Dec q) (h: (dp.does || dq.does) = True): p ∨ q :=
+theorem Dec.orSound ∀ [p q: Prop] (dp: Dec p) (dq: Dec q) (h: (dp.does || dq.does) = True): p ∨ q :=
   match dp, dq with
     | { does = True, sound = s, complete = c }, dq => Inl (s rfl)
     | { does = False, sound = s, complete = c }, { does = True, sound = s2, complete = c2 } => Inr (s2 rfl)
     | { does = False, sound = s, complete = c }, { does = False, sound = s2, complete = c2 } => Void.exfalso (Bool.falseNotTrue h)
-theorem Dec.orComplete [p q: Prop] (dp: Dec p) (dq: Dec q) (h: p ∨ q): (dp.does || dq.does) = True :=
+theorem Dec.orComplete ∀ [p q: Prop] (dp: Dec p) (dq: Dec q) (h: p ∨ q): (dp.does || dq.does) = True :=
   match dp, dq, h with
     | { does = True, sound = s, complete = c }, dq, h => rfl
     | { does = False, sound = s, complete = c }, { does = True, sound = s2, complete = c2 }, h => rfl
