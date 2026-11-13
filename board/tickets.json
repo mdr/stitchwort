@@ -34647,12 +34647,12 @@
     {
       "id": 3184,
       "title": "[Sonnet] Editor on a file with a lexical error: nav.rs, doc.rs, marks.rs and crates/lsp/src/lib.rs (~2509, ~2602) still call lex() and give nothing for the whole file; switch them to lex_recovering so hover, go-to-definition and marks keep working outside the broken declaration (SW-3156 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Lane notes: switched doc.rs, marks.rs, nav.rs (Parens), lsp includes(), syntax docs/file_doc, and parse_namespace_line (the real cause of the LSP losing the whole file: live.rs make_plan lexed strictly) to lex_recovering; new lex_recovering_with_trivia. fmt and lsp decl_regions (range formatting) keep strict lex. Commit c65147ed4.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
