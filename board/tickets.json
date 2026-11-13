@@ -33116,15 +33116,17 @@
     {
       "id": 3067,
       "title": "[Sonnet] Std readings still missing: Nat.leq / < (= False too; Nat.leqFalse 39 std uses, Bool.falseOfNotTrue), Nat.divides, List.isDistinct, List.inRange, NonEmptyList.contains; add them beside their tests so their = True ↔ lemmas can be marked @[reading] or go (SW-3060 finding 6)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Lane notes (Sonnet): readings added for Nat.leq (core, Equality.sw), Int.leq/Int.less (core, Int.sw), List.inRange (bounds), Nat.divides (dividesIff marked), List.isDistinct (isDistinctIff marked), List.contains at False, NonEmptyList.contains (containsMem moved beside contains and marked). Example examples/accept/readings-comparisons.sw; proposal section 11 updated; prelude snapshot gains 16 lines. Tests run: std_library, hash_stability::prelude, builtins::, readings::, the example. Not touched: the 39 Nat.leqFalse uses and = True lemma sweeps (stage 6).\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "3783fc797"
+      ]
     },
     {
       "id": 3068,
