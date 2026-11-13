@@ -33818,15 +33818,17 @@
     {
       "id": 3121,
       "title": "[Sonnet] Facts over a cons-unfolded all, or over a Prop def like Parse.OnlyBreaks, have no .left/.right (E-NO-NAMESPACE 'only is a function'): the largest remaining gap, ~40 helper uses (Parse/Runs.sw 1061-2236, 2020 Day04 Complete 94-120, Day13/Day07/Day19/Day16/Day24/Day21/Day12/Day15, SortLemmas 580) (SW-3102 finding 2; with SW-3064)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane note (Sonnet): reader step 2c (reading.rs, unfolds_on_cons): List.all/List.any whose list argument is a literal cons (a case tree's substitution) unfold one step and read via &&/||; a list reached by a call (image.edges, map f [x, ..xs]) still reads as the quantifier (forcing broke Day20 Corners). Commit cc2665177. Moved Runs/SortLemmas/AoC sites; example readings-all-cons. Hash snapshots (prelude, examples) not repinned; see report.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "cc2665177"
+      ]
     },
     {
       "id": 3122,
