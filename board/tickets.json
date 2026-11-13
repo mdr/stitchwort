@@ -1,5 +1,5 @@
 {
-  "next": 3141,
+  "next": 3142,
   "tickets": [
     {
       "id": 47,
@@ -26616,14 +26616,14 @@
     {
       "id": 2595,
       "title": "stitchwort fmt option (or a lint) for the ∀ house style, so new statements get it: a function type into a proposition after a theorem's colon or as a hypothesis's type prints as ∀; leave chains of only unused binders",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2595",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2588's report, 10 Nov. Its token-level script (orchestrator scratchpad sweep.py) is a starting point. Not urgent.\n\nOptions note 10 Nov: docs/proposals/forall-style-enforcement.md (a3752be8c). Rec: (b) a check warning using the printer's proposition test (est. 1-2 days), (c) a sweep-rule test as stopgap (est. half a day); not (a), fmt has no types. Waiting on D3462 (Matt).",
+      "body": "From SW-2588's report, 10 Nov. Its token-level script (orchestrator scratchpad sweep.py) is a starting point. Not urgent.\n\nOptions note 10 Nov: docs/proposals/forall-style-enforcement.md (a3752be8c). Rec: (b) a check warning using the printer's proposition test (est. 1-2 days), (c) a sweep-rule test as stopgap (est. half a day); not (a), fmt has no types. Waiting on D3462 (Matt).\nD3462 (Matt, 13 Nov 2026): yes, option (b): a check warning with a quick fix, as recommended. Built in SW-2658 (W-ARROW-FORALL).",
       "created": "2026-11-09",
-      "updated": "2026-11-10",
+      "updated": "2026-11-13",
       "commits": [
         "a3752be8c"
       ]
@@ -27567,14 +27567,14 @@
     {
       "id": 2658,
       "title": "[Sonnet] Warning and quick fix for a theorem whose statement starts with ∀ (D3470): W- code in check, quick fix 'Move ∀ variables before the colon' that runs the trial check before it is offered; together with D3462's warning for -> where ∀ is meant",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "syntax-language",
-      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
+      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nD3462 (Matt, 13 Nov 2026): yes to the arrow warning. Model result: Sonnet, worked, 30 min (est. 150).",
       "created": "2026-11-10",
       "updated": "2026-11-13",
       "commits": []
@@ -34065,6 +34065,19 @@
     {
       "id": 3140,
       "title": "[Sonnet] SW-3087's 'a proof of … is accepted here' note is noise in two cases (examples/reject/match-hypothesis-folded.sw: 'this expects the test fact True = False: a proof of True ≠ True is accepted here'; match-written-argument-not-refined.sw: a note quoting a whole if/match fact): leave the note off when the expected fact is closed and computes to False, and when the fact or its reading is too long to help (or shorten it). Update the two snapshots back.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3141,
+      "title": "[Sonnet] SW-2658 follow-ups: run the trial check before offering 'Move ∀ variables before the colon' (route through the checker thread like RenameJob); W-THEOREM-FORALL also for std (library files load without the driver's text, so only W-ARROW-FORALL is enforced there); the arrow fix should merge a chain into one ∀ group; accept examples with unexpected warnings pass silently (make them fail unless expected)",
       "status": "backlog",
       "agent": "",
       "where": "",
