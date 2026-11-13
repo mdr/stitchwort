@@ -18,6 +18,7 @@ mod int_patterns;
 mod interfaces;
 mod lambda_migration;
 mod lambda_printer;
+mod lexical_recovery;
 mod named_arguments;
 mod natives;
 mod negative_arguments;
