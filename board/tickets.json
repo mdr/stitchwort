@@ -34051,7 +34051,7 @@
     },
     {
       "id": 3139,
-      "title": "[Opus] Native JIT: cranelift-jit panics in relocation (compiled_blob.rs:172:80, TryFromIntError(PosOverflow)) in n1::bodies_count_their_entries_when_asked on Overmind (Linux) at 3fbc3ba17, one run; other 19 n1/large tests passed. Likely a PC-relative call/address relocation whose distance doesn't fit (JIT memory mapped far from the helper symbols registered with builder.symbol, crates/native/src/n1.rs:805-813; Linux uses the default memory provider, is_pic=false). Confirm the relocation kind, then fix (e.g. a memory provider that maps near the binary, is_pic with a GOT, or absolute calls to helpers) rather than retrying. Overmind's rerun count to be added.",
+      "title": "[Opus] Native JIT: n1::bodies_count_their_entries_when_asked panics in cranelift-jit relocation (compiled_blob.rs:172:80, TryFromIntError(PosOverflow)) on Linux x86_64, 20/20 at 3fbc3ba17, passed at 4af2adde7: a deterministic regression from SW-3128 (ba4e20071 may_perform_at loop, or b420203e0 stack guard/probe/instrumentation); Overmind bisecting. Find the cause; check whether helper symbol addresses or a changed effect analysis moved code into a far relocation",
       "status": "backlog",
       "agent": "",
       "where": "",
