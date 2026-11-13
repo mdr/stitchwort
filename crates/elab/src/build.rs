@@ -75,6 +75,24 @@ fn blocked(cx: &Ctx, ty: &Value) -> Result<bool> {
     ))
 }
 
+/// Whether `a` and `b` could be the same type: the same kind of type with
+/// the same head once computed, or one of them an unknown. Most failed
+/// comparisons against a test fact are of types nothing like its readings
+/// (an `auto` search trying hypotheses, say), and this keeps them from
+/// unifying in depth, deep in a search, only to fail.
+fn alike(cx: &Ctx, a: &Value, b: &Value) -> Result<bool> {
+    let g = &cx.g();
+    Ok(match (force(g, a.clone())?, force(g, b.clone())?) {
+        (Value::Neutral(Head::Meta(_), _), _) | (_, Value::Neutral(Head::Meta(_), _)) => true,
+        (Value::Pi(..), Value::Pi(..)) | (Value::Eq(..), Value::Eq(..)) => true,
+        (Value::Data(d, _), Value::Data(e, _)) => d == e,
+        (Value::Neutral(Head::Def(f), _), Value::Neutral(Head::Def(h), _)) => f == h,
+        (Value::Neutral(Head::Var(l, _), _), Value::Neutral(Head::Var(m, _), _)) => l == m,
+        (Value::Call(f, ..), Value::Call(h, ..)) => f == h,
+        _ => false,
+    })
+}
+
 /// The first of `candidates` that `found` is a proof of: the same type,
 /// or one it unifies with. With `keep`, what unifying solved is kept;
 /// otherwise it is taken back.
@@ -85,6 +103,9 @@ fn fitting(
     keep: bool,
 ) -> Result<Option<usize>> {
     for (k, candidate) in candidates.list.iter().enumerate() {
+        if !alike(cx, &candidate.prop, found)? {
+            continue;
+        }
         if conv(&cx.g(), cx.level(), &candidate.prop, found)? {
             return Ok(Some(k));
         }
@@ -200,27 +221,42 @@ pub(crate) fn site(cx: &mut Ctx, term: &Term, found: &Value, expected: &Value) -
     if fits {
         return Ok(Site::At(cx.span));
     }
-    Ok(Site::Note(no_fit_note(cx, &candidates)))
+    Ok(match no_fit_note(cx, &candidates)? {
+        Some(note) => Site::Note(note),
+        None => Site::Nothing,
+    })
 }
 
 /// For a mismatch where a test fact is expected and what is given fits
-/// none of its candidates: what it can be built from.
-fn no_fit_note(cx: &Ctx, candidates: &Candidates) -> String {
-    let first = &candidates.list[0].prop;
+/// none of its candidates: what it can be built from, named by the first
+/// candidate that isn't a test fact again. None where every reading is
+/// (`n < m`, which is `Nat.leq (Succ n) m = True`, reads as `Succ n ≤ m`:
+/// saying so would only confuse).
+fn no_fit_note(cx: &Ctx, candidates: &Candidates) -> Result<Option<String>> {
+    let mut first = None;
+    for (k, candidate) in candidates.list.iter().enumerate() {
+        if crate::reading::test_fact(cx, &candidate.prop)?.is_none() {
+            first = Some((k, &candidate.prop));
+            break;
+        }
+    }
+    let Some((k, first)) = first else {
+        return Ok(None);
+    };
     let fact = cx.show(&candidates.fact);
-    if candidates.plain && candidates.list.len() == 1 {
-        return format!(
+    if candidates.plain && k + 1 == candidates.list.len() {
+        return Ok(Some(format!(
             "this expects the test fact `{fact}`: a proof of `{}` is accepted here",
             cx.show(first)
-        );
+        )));
     }
-    let compound = force(&cx.g(), first.clone()).ok().and_then(|v| match v {
+    let compound = match force(&cx.g(), first.clone())? {
         Value::Data(d, _) if crate::reading::readable_data(cx, d) => {
             Some(crate::reading::constructors_shown(cx, d))
         }
         _ => None,
-    });
-    match compound {
+    };
+    Ok(Some(match compound {
         Some(ctor) => format!(
             "this expects the test fact `{fact}`, which reads as `{}`: build it part by part \
              with {ctor}, each part from a proof of its own reading",
@@ -231,7 +267,7 @@ fn no_fit_note(cx: &Ctx, candidates: &Candidates) -> String {
              accepted here",
             cx.show(first)
         ),
-    }
+    }))
 }
 
 /// For a lambda checked against `expected`, which isn't a function type:

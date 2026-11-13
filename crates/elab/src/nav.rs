@@ -1237,7 +1237,9 @@ impl Elaborator {
                     .local_unfolded
                     .get(&(binder.span.file, binder.span.start))
                     .cloned(),
-                defaults: None,
+                // A lambda's first binder: what the lambda built, if a test
+                // fact (`build.rs`).
+                defaults: nav.call_defaults.get(&binder.span).cloned(),
                 pun: false,
             });
         }
