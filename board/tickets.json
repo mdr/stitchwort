@@ -34621,15 +34621,17 @@
     {
       "id": 3182,
       "title": "[Sonnet] Compiler-tree spans that are wrong, found by SW-3170's containment check: a flipped comparison with a compound right side (n * n > 20 gets the span of n > 20); spans worked out through a chain's let, or through ↔/∉ written as an application. They only move error labels; fixing them removes Flipped, OperatorHead and parts of Chain from spans.rs's made-up list. Also note in ast.rs that composite spans leave out brackets",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Done on lane/SW-3182 (1b68e0842). Expr::span covers flipped < / <= and Std.Iff / Std.Bool.not heads; chain let spans the whole chain; Eq.sym head empty at its proof. Flipped and OperatorHead removed from spans.rs; Chain keeps inner parts only (287 -> 252). dev tree --spans: 0 misses before and after. Model result: Sonnet, worked, 60 min (est. 90).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "1b68e0842"
+      ]
     },
     {
       "id": 3183,
