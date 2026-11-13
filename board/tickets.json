@@ -1,5 +1,5 @@
 {
-  "next": 3113,
+  "next": 3115,
   "tickets": [
     {
       "id": 47,
@@ -33168,12 +33168,12 @@
     {
       "id": 3071,
       "title": "[Sonnet] Playground re-check after an edit still takes 35 s on AoC with SW-2919's in-memory cache (plan estimated 6-12 s): profile where it goes (replay cost, Store::read cloning entries (SW-3062), the rewind/journal), then fix the measured hotspot",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nProfiled: docs/reviews/SW-3071-profile.md. Native re-check 5.2 s, browser 35.6 s; cause of the browser's 7x not found. Library-key memo tried and dropped (no end-to-end change). Model result: Sonnet, worked (diagnosis), 29 min (est. 75).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33706,6 +33706,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3113,
+      "title": "[Sonnet] Playground re-check is 7x native in the browser (35.6 s vs 5.2 s; cold check only 1.3x): add per-phase timings in the browser worker (replay, LiveProject::answers, tick count and scheduling) read through window.editor.stats in the existing browser test, find where the extra 30 s goes, and fix it if small (docs/reviews/SW-3071-profile.md option 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3114,
+      "title": "[Opus] Playground re-check design: don't replay namespaces an edit can't affect (non-linear session; replay is ~32% natively) and make the nav index incremental (answers rebuilds it twice, ~21%) (docs/reviews/SW-3071-profile.md options 2-3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
