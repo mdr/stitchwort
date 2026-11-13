@@ -30929,15 +30929,17 @@
     {
       "id": 2910,
       "title": "[Sonnet] rfl's 'the left side is stuck on m' note is missing when the stuck part is inside an if (play m m = Draw shows the unfolded if instead) (book SW-2902)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nLane note (13 Nov): stuck_on_variable looks through a case on a call stuck on a variable; example reject/refl-stuck-inside-if; match-refines-goal-once snapshot improved.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
-      "commits": []
+      "updated": "2026-11-13",
+      "commits": [
+        "724cec0d1"
+      ]
     },
     {
       "id": 2911,
@@ -30955,28 +30957,32 @@
     {
       "id": 2912,
       "title": "[Sonnet] Proof search on a case ruled out by h: False = True offers omega and cases but not Void.exfalso (Bool.falseNotTrue h); offer the direct proof (book SW-2902, G10)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "\n\nLane note (13 Nov): new ladder rung Absurd (first), also first among the full search's tactics; test simplest_first_offers_the_direct_proof_of_an_impossible_bool_equation.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
-      "commits": []
+      "updated": "2026-11-13",
+      "commits": [
+        "c41272be5"
+      ]
     },
     {
       "id": 2913,
       "title": "[DeepSeek] Bool.falseNotTrue is proved with J, unreadable on F12; prove it readably (match on the equation / discriminate) and give it a doc comment (book SW-2902)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane note (13 Nov): Bool.falseNotTrue is now an absurd pattern with a doc comment; cases.rs falls back to the generic helper while the prelude defines it; prelude snapshot, 5 kernel pins and 5 runtime pins moved.\n",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
-      "commits": []
+      "updated": "2026-11-13",
+      "commits": [
+        "bbe44bbf6"
+      ]
     },
     {
       "id": 2914,
