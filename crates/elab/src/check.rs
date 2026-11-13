@@ -2225,15 +2225,32 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             otherwise,
             ..
         } => {
-            let ty = match proof_branch_type(cx, then, otherwise)? {
-                Some(ty) => ty,
+            // A fresh unknown for the type is right for data. For proofs the
+            // branches solve it with a proposition, where a `Type` is
+            // expected (an `E-UNIVERSE` raised later, by whoever uses the
+            // type), so that outcome is undone and retried with the
+            // branches' own proposition. Data takes the first path only.
+            let snapshot = crate::undo::Snapshot::take(cx);
+            let ty = cx.fresh_meta();
+            let ty = cx.eval(&ty)?;
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            if crate::omega::is_prop(cx, &ty)? != Some(true) {
+                return Ok((term, ty));
+            }
+            snapshot.restore(cx);
+            match proof_branch_type(cx, then, otherwise)? {
+                Some(ty) => {
+                    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+                    Ok((term, ty))
+                }
+                // Not inferable on its own: left as it was.
                 None => {
                     let ty = cx.fresh_meta();
-                    cx.eval(&ty)?
+                    let ty = cx.eval(&ty)?;
+                    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+                    Ok((term, ty))
                 }
-            };
-            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
-            Ok((term, ty))
+            }
         }
         Expr::Ann(e, ty, _) => {
             let (ty, _) = check_type(cx, ty)?;
