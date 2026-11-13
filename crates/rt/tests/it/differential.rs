@@ -847,10 +847,13 @@ def main(): {IO} () :=
 }
 
 /// Every AoC day, on its real input, prints the known answers on the
-/// machine (`aoc_answers.rs`), and on its real and example inputs prints
-/// what the reference evaluator prints. The AoC project's tests agree too.
-/// Each part of the project ([`aoc_parts`]) in a session of its own, side
-/// by side.
+/// machine (`aoc_answers.rs`), and on its example input prints what the
+/// reference evaluator prints. The AoC project's tests agree too. Each part
+/// of the project ([`aoc_parts`]) in a session of its own, side by side.
+///
+/// The real input runs only on the machine: the reference evaluator takes
+/// minutes there on the heavy days (2021 day 5: over 120 s against 8.7 s on
+/// the machine), and the known answers check that run (D3540).
 pub fn aoc_agrees() {
     // Full tier only: with its sample of days it took 38 minutes in the
     // daily tier (31 Oct 2026, docs/testing.md); SW-839's fast lowering
@@ -903,7 +906,10 @@ pub fn aoc_agrees() {
                 "{name} on the {}",
                 crate::backend::NAME
             );
-            same_both_ways(&session, &main, &program, &input, &name);
+            // The real input isn't compared with the reference evaluator:
+            // it takes minutes there on the heavy days, and the known
+            // answers above check the machine's run (D3540). Both
+            // evaluators still run the example input.
             let example = std::fs::read(root().join(format!("aoc/examples/{year}/day{day}.txt")))
                 .expect("the example input");
             same_both_ways(&session, &main, &program, &example, &name);
