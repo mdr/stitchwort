@@ -25,13 +25,14 @@ theorem notOnMonster ∀ (player: Position) (monster: Monster) (monsters: List M
       | False => rfl
 
 -- The monster `monsterAt` finds is on the cell asked about.
-theorem foundThere ∀ (position: Position) (found: Monster): (monsters: List Monster) → monsterAt position monsters = Some found → found.position = position
-  | [monster, ..others], located =>
-    match same: monster.position == position with
-      | True =>
-        let here := DecEq.sound same
-        rewrite <- Option.someInjective located in here
-      | False => foundThere position found others located
+theorem foundThere ∀ (position: Position) (found: Monster) (monsters: List Monster)
+    (located: monsterAt position monsters = Some found): found.position = position := match monsters with
+      | [monster, ..others] =>
+        match same: monster.position == position with
+          | True =>
+            let here := DecEq.sound same
+            rewrite <- Option.someInjective located in here
+          | False => foundThere position found others located
 
 -- A table built from a list of caves has an entry for each of them.
 theorem lookupBuilt ∀ (f: Cave → List Cave) (cave: Cave) (caves: List Cave) (member: cave ∈ caves)

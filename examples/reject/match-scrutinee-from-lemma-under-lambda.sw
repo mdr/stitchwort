@@ -17,11 +17,12 @@ def g (ok: Nat → Bool) (x: Nat): List Nat → Bool
   | Nil => False
   | Cons y ys => anyR (zs => all2 ok (Cons x zs)) (Cons y ys)
 
-theorem gIs (ok: Nat → Bool) (x: Nat): (rest: List Nat) → g ok x rest = anyR (ys => all2 ok (Cons x ys)) rest
-  | Nil => rfl
-  | Cons y ys => rfl
+theorem gIs ∀ (ok: Nat → Bool) (x: Nat) (rest: List Nat): g ok x rest = anyR (ys => all2 ok (Cons x ys)) rest :=
+  match rest with
+    | Nil => rfl
+    | Cons y ys => rfl
 
-theorem fromLemma (ok: Nat → Bool) (x: Nat) (rest: List Nat): g ok x rest = anyR (ys => ok x && all2 ok ys) rest :=
+theorem fromLemma ∀ (ok: Nat → Bool) (x: Nat) (rest: List Nat): g ok x rest = anyR (ys => ok x && all2 ok ys) rest :=
   match step: ok x with
     | True => rewrite gIs ok x rest in rfl
     | False => rewrite gIs ok x rest, step in rfl

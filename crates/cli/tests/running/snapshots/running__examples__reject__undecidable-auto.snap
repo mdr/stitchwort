@@ -2,15 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/undecidable-auto.sw:4:27 ]
-   │
- 4 │ def impossible: [auto ok: (n: Nat) → n = 0] → Nat := 0
-   │                           ────┬───  
-   │                               ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-AUTO-NONE] Error: no way to decide `∀ (n: Nat) => n = 0`
    ╭─[ reject/undecidable-auto.sw:6:17 ]
    │

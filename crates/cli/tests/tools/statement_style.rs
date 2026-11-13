@@ -37,6 +37,18 @@ fn a_named_arrow_over_a_proposition_warns() {
 }
 
 #[test]
+fn a_file_that_does_not_parse_has_no_arrow_forall_warning() {
+    let mut session = Session::new();
+    let diagnostics = session
+        .load("test.sw", "theorem bad (n: Nat): n = n := (rfl\n")
+        .expect_err("the file doesn't parse");
+    assert!(
+        diagnostics.iter().all(|d| d.code != "W-ARROW-FORALL"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn arrows_that_are_not_statements_do_not() {
     let codes = warned(
         "def vector (n: Nat): Type := Nat\n\

@@ -7,8 +7,8 @@
 -- undone, and the other arm's error from it with it.
 import Std (Bool, Eq, List, Nat)
 
-theorem keepMore (keep1: Nat → Bool) (keep2: Nat → Bool) (xs: List Nat)
-    (included: (x: Nat) → keep1 x = True → keep2 x = True):
+theorem keepMore ∀ (keep1: Nat → Bool) (keep2: Nat → Bool) (xs: List Nat)
+    (included: ∀ (x: Nat) => keep1 x = True → keep2 x = True):
     List.sumBy xs (x => if keep1 x then x else 0) ≤ List.sumBy xs (x => if keep2 x then x else 0) :=
   List.sumByLe xs _ _ (x => match kept: keep1 x with
     | True => rewrite included x kept in Nat.leRefl x

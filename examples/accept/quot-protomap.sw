@@ -55,8 +55,8 @@ def ProtoMap.fromList [auto ord: Ord k] (xs: List (k, v)): ProtoMap k v := Proto
 theorem ProtoMap.rawInjective ∀ (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
     ProtoMap.toList { raw = p } = ProtoMap.toList { raw = q } → p = q :=
   let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv → Prop :=
-    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) → ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } → p' = q'
-  let fromMk: (a: Map.Raw k v [ord := o]) → motive (Quot.mk a) :=
+    p' => ∀ (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) => ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } → p' = q'
+  let fromMk: ∀ (a: Map.Raw k v [ord := o]) => motive (Quot.mk a) :=
     a q' =>
       Quot.ind
         [p := q'' => ProtoMap.toList { raw = Quot.mk a } = ProtoMap.toList { raw = q'' } → Quot.mk a = q'']

@@ -2,24 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/rewrite-at-named-hypothesis.sw:6:17 ]
-   │
- 6 │ theorem flipped (n: Nat) (m: Nat) (at: n = m): m = n :=
-   │                 ────┬───  
-   │                     ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/rewrite-at-named-hypothesis.sw:6:26 ]
-   │
- 6 │ theorem flipped (n: Nat) (m: Nat) (at: n = m): m = n :=
-   │                          ────┬───  
-   │                              ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-PARSE] Error: `at` after a `rewrite` rule names the hypothesis to rewrite, but no hypothesis follows it
    ╭─[ reject/rewrite-at-named-hypothesis.sw:7:19 ]
    │

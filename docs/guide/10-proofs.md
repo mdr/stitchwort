@@ -857,7 +857,7 @@ The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= 
 
 <!-- snippet: proofs.sw#forall -->
 ```stitchwort
-theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
+theorem zeroPlusAll ∀ (n: Nat): 0 + n = n := rfl
 
 theorem atOneAndTwo ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
 
@@ -866,7 +866,7 @@ theorem swapSum ∀ (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := co
 
 `forall (n: Nat) => P` (`∀ (n: Nat) => P`) says `P` holds for every `n`. It's another way to write the function type `(n: Nat) -> P`, so a proof of it is a function from each `n` to a proof of `P`, and using one is a call: `all 1` is a proof of `p 1`. Several parameters go together, as in `∀ (a b: Nat) => …`, and like `exists` the statement runs to the end, so `∀ (n: Nat) => n > 0 -> P n` says `P n` for every positive `n`.
 
-Write `∀` for a hypothesis that is about every value, as `all` and `comm` are, and for a statement after the colon. A theorem's own parameters stay parameters: `theorem zeroPlus (n: Nat): 0 + n = n` and `theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n` state the same thing, and the first reads better when the proof starts from `n`. Goals and messages show a function type whose result is plainly a statement with `∀`, however it was written ([the syntax reference](../syntax.md#logic-notation-in--and-exists) says when).
+Write `∀` for a hypothesis that is about every value, as `all` and `comm` are. A theorem's own variables go before the colon, either in brackets (`theorem zeroPlus (n: Nat): 0 + n = n`) or after `∀` (`theorem zeroPlusAll ∀ (n: Nat): 0 + n = n`); the two state the same thing. A `∀` after the colon gets the warning `W-THEOREM-FORALL`, and the editor's quick fix moves its variables before the colon. Goals and messages show a function type whose result is plainly a statement with `∀`, however it was written ([the syntax reference](../syntax.md#logic-notation-in--and-exists) says when).
 
 ## Types that mention values
 
@@ -1034,15 +1034,6 @@ A proof is only as good as what it assumes. Stitchwort has one axiom, `Quot.soun
 <!-- output: axioms proofs.sw sumFastIsSum -->
 ```text
 no axioms are used
-[W-THEOREM-FORALL] Warning: the statement of `zeroPlusAll` starts with `∀`
-     ╭─[ proofs.sw:275:22 ]
-     │
- 275 │ theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
-     │                      ┬
-     │                      ╰── write these variables before the colon
-     │
-     │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
-─────╯
 ```
 
 Nothing: the proof assumes nothing. Function extensionality (two functions that agree on every input are equal) is a theorem, proved from `Quot.sound`, so a proof that uses it shows the axiom:
@@ -1055,15 +1046,6 @@ theorem doubleIsTimesTwo: double = (n => 2 * n) := Quot.funext Nat (n => Nat) do
 <!-- output: axioms proofs.sw doubleIsTimesTwo -->
 ```text
 Quot.sound
-[W-THEOREM-FORALL] Warning: the statement of `zeroPlusAll` starts with `∀`
-     ╭─[ proofs.sw:275:22 ]
-     │
- 275 │ theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
-     │                      ┬
-     │                      ╰── write these variables before the colon
-     │
-     │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
-─────╯
 ```
 
 `stitchwort axioms` answers for one theorem. A theorem can also check and still be worth little: a lemma it uses may be an unfinished `?`, or its hypotheses may contradict each other, so that it proves its conclusion only for inputs that don't exist (`theorem vacuous (n: Nat) (h: n + 1 = 0): n = 42 := omega` checks). `stitchwort audit` looks at every theorem of a file, a namespace or a project for these and for axioms you didn't allow, and prints a line for each one with a finding:
@@ -1071,15 +1053,6 @@ Quot.sound
 <!-- output: audit proofs.sw sumFastIsSum -->
 ```text
 audited 1 theorem: 0 failed, 0 with warnings, 1 passed
-[W-THEOREM-FORALL] Warning: the statement of `zeroPlusAll` starts with `∀`
-     ╭─[ proofs.sw:275:22 ]
-     │
- 275 │ theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
-     │                      ┬
-     │                      ╰── write these variables before the colon
-     │
-     │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
-─────╯
 ```
 
 A project can narrow the allowed axioms in its `stitchwort.yaml` ([projects.md](../projects.md)). A warning about hypotheses means the counterexample search found no input that satisfies them, which is evidence and not proof, so read the statement. [syntax.md](../syntax.md#auditing-theorems-stitchwort-audit) has the rest.

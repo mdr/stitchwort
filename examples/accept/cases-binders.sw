@@ -1,32 +1,30 @@
 -- `cases` introduces a goal's leading binders (docs/proposals/decide.md
--- §6.1.1) when nothing proves the `Π` goal as it stands: a statement's
--- variables may be bound after the colon as well as before it.
+-- §6.1.1) when nothing proves the `Π` goal as it stands. A statement's
+-- variables go before the colon, as in these examples.
 import Std (Bool, Nat, Void)
 
 def convex (plot: Bool) (vertical: Bool) (horizontal: Bool): Bool := plot ∧ ¬vertical ∧ ¬horizontal
 
 def concave (plot: Bool) (vertical: Bool) (horizontal: Bool) (diagonal: Bool): Bool := plot ∧ vertical ∧ horizontal ∧ ¬diagonal
 
--- Day 12's truth table with its variables after the colon: the same proof
--- as `plot out side sideOut => cases` (examples/accept/cases-pi-goals.sw).
-theorem rowEndsAfter: ∀ (plot out side sideOut: Bool) =>
+-- Day 12's truth table, its variables before the colon.
+theorem rowEndsAfter ∀ (plot out side sideOut: Bool):
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
--- Two before the colon, two after.
-theorem rowEndsMixed ∀ (plot: Bool) (out: Bool): ∀ (side sideOut: Bool) =>
+-- All four before the colon.
+theorem rowEndsMixed ∀ (plot: Bool) (out: Bool) (side sideOut: Bool):
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
--- A hypothesis after the colon, which the contradiction closer uses in the
--- case `b = False`.
-theorem hypAfter: ∀ (b: Bool) => b = True → not b = False := cases
+-- A hypothesis the contradiction closer uses in the case `b = False`.
+theorem hypAfter ∀ (b: Bool) (h: b = True): not b = False := cases
 
--- An unnamed one.
-theorem unnamedHyp: ∀ (b: Bool) => (b = False) → (b ∧ True) = False := cases
+-- A named one.
+theorem unnamedHyp ∀ (b: Bool) (h: b = False): (b ∧ True) = False := cases
 
 -- A `Π` reached only after a split.
 theorem piAfterSplit ∀ (b: Bool): if b then (∀ (x: Bool) => not (not x) = x) else (b = False) := cases
 
 -- An implicit binder after an explicit one.
-theorem implicitInside: ∀ (a: Bool) [b: Bool] => (a ∧ b) = (b ∧ a) := cases
+theorem implicitInside ∀ (a: Bool) [b: Bool]: (a ∧ b) = (b ∧ a) := cases

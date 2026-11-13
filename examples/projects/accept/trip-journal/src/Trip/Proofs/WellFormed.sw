@@ -94,11 +94,12 @@ theorem mergePinsFit ∀ (local: Trip) (remote: Trip) (legs: List Leg): List.All
 def AlbumOk (album: Album): Prop := List.Distinct (album.photos.map Photo.id)
 
 -- Each album of a trip whose photo ids are distinct has distinct photo ids.
-theorem albumsOk: ∀ (albums: List Album) => List.Distinct (photoIds albums) → List.All AlbumOk albums
-  | [], d => Trivial
-  | [album, ..rest], d =>
-    Both (List.distinctAppendLeft (album.photos.map Photo.id) (photoIds rest) d)
-      (albumsOk rest (List.distinctAppendRight (album.photos.map Photo.id) (photoIds rest) d))
+theorem albumsOk ∀ (albums: List Album) (d: List.Distinct (photoIds albums)): List.All AlbumOk albums :=
+  match albums with
+    | [] => Trivial
+    | [album, ..rest] =>
+      Both (List.distinctAppendLeft (album.photos.map Photo.id) (photoIds rest) d)
+        (albumsOk rest (List.distinctAppendRight (album.photos.map Photo.id) (photoIds rest) d))
 
 theorem withPhotosOfOk ∀ (remote: List Album) (okr: List.All AlbumOk remote) (album: Album) (ok: AlbumOk album):
     AlbumOk (withPhotosOf remote album) := match e: remote.find (other => other.id == album.id) with
@@ -175,27 +176,28 @@ theorem ownedOf ∀ (own: Nat → Option Nat) (album: Album) (x: Nat) (m: x ∈ 
     match List.memFilter album.photos (p => own p.id == Some album.id) (And.left both) with
       | Both inPhotos keep => rewrite <- And.right both in DecEq.sound keep)
 
-theorem ownedIn ∀ (own: Nat → Option Nat): ∀ (albums: List Album) (x: Nat) => x ∈ photoIds (albums.map (album => keepOwned own album))
-    → List.Any (album => own x = Some album.id) albums
-  | [], x, m => m
-  | [album, ..rest], x, m =>
-    match List.memAppend x (List.map (keepOwned own album).photos Photo.id) (photoIds (rest.map (a => keepOwned own a))) m with
-      | Inl here => Inl (ownedOf own album x here)
-      | Inr there => Inr (ownedIn own rest x there)
+theorem ownedIn ∀ (own: Nat → Option Nat) (albums: List Album) (x: Nat)
+    (m: x ∈ photoIds (albums.map (album => keepOwned own album))):
+    List.Any (album => own x = Some album.id) albums := match albums with
+      | [album, ..rest] =>
+        match List.memAppend x (List.map (keepOwned own album).photos Photo.id) (photoIds (rest.map (a => keepOwned own a))) m with
+          | Inl here => Inl (ownedOf own album x here)
+          | Inr there => Inr (ownedIn own rest x there)
 
 -- Albums with distinct ids, each keeping only the photos its owner gives
 -- it, have distinct photo ids.
-theorem ownedDistinct ∀ (own: Nat → Option Nat): ∀ (albums: List Album) => List.Distinct (List.map albums (album => album.id))
-    → List.All AlbumOk albums → List.Distinct (photoIds (albums.map (album => keepOwned own album)))
-  | [], ids, oks => Trivial
-  | [album, ..rest], Both out ids, Both ok oks =>
-    List.distinctAppend (List.map (keepOwned own album).photos Photo.id) (photoIds (rest.map (a => keepOwned own a)))
-      (List.distinctMapFilter album.photos Photo.id (p => own p.id == Some album.id) ok)
-      (ownedDistinct own rest ids oks)
-      (List.allOfMem (x => x ∉ photoIds (rest.map (a => keepOwned own a))) (List.map (keepOwned own album).photos Photo.id) (x here there =>
-        List.anyElim (b => own x = Some b.id) Void rest (ownedIn own rest x there) (b inRest e =>
-          out (rewrite Option.someInjective (Eq.trans (Eq.sym (ownedOf own album x here)) e) in
-            List.memMap rest b inRest (a => a.id)))))
+theorem ownedDistinct ∀ (own: Nat → Option Nat) (albums: List Album) (h: List.Distinct (List.map albums (album => album.id)))
+    (h1: List.All AlbumOk albums): List.Distinct (photoIds (albums.map (album => keepOwned own album))) :=
+  match albums, h, h1 with
+    | [], ids, oks => Trivial
+    | [album, ..rest], Both out ids, Both ok oks =>
+      List.distinctAppend (List.map (keepOwned own album).photos Photo.id) (photoIds (rest.map (a => keepOwned own a)))
+        (List.distinctMapFilter album.photos Photo.id (p => own p.id == Some album.id) ok)
+        (ownedDistinct own rest ids oks)
+        (List.allOfMem (x => x ∉ photoIds (rest.map (a => keepOwned own a))) (List.map (keepOwned own album).photos Photo.id) (x here there =>
+          List.anyElim (b => own x = Some b.id) Void rest (ownedIn own rest x there) (b inRest e =>
+            out (rewrite Option.someInjective (Eq.trans (Eq.sym (ownedOf own album x here)) e) in
+              List.memMap rest b inRest (a => a.id)))))
 
 theorem mergePhotoIds ∀ (local: Trip) (remote: Trip) (legs: List Leg) (dl: List.Distinct (List.map local.albums (album => album.id)))
     (dr: List.Distinct (List.map remote.albums (album => album.id))) (pl: List.Distinct (photoIds local.albums))
@@ -214,15 +216,15 @@ theorem mergeAlbumsWithin ∀ (local: Trip) (remote: Trip) (legs: List Leg) (c: 
 
 -- The plan
 
-theorem mergePlaceIds: ∀ (local remote: Option Itinerary) => PlaceIdsDistinct local → PlaceIdsDistinct remote
-    → PlaceIdsDistinct (mergeItinerary local remote)
-  | Some old, Some new, dl, dr =>
-    match e: old.fileId == new.fileId with
-      | True => List.distinctKeysAppendNewBy new.places old.places (place => place.id) dr dl
-      | False => dr
-  | None, Some new, dl, dr => dr
-  | Some old, None, dl, dr => dl
-  | None, None, dl, dr => dl
+theorem mergePlaceIds ∀ (local remote: Option Itinerary) (dl: PlaceIdsDistinct local) (dr: PlaceIdsDistinct remote):
+    PlaceIdsDistinct (mergeItinerary local remote) := match local, remote with
+      | Some old, Some new =>
+        match e: old.fileId == new.fileId with
+          | True => List.distinctKeysAppendNewBy new.places old.places (place => place.id) dr dl
+          | False => dr
+      | None, Some new => dr
+      | Some old, None => dl
+      | None, None => dl
 
 -- The theorem
 

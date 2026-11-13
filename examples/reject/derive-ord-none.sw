@@ -10,12 +10,12 @@ def AllSame (x: Nat) (y: Nat): Prop := Unit
 
 type Secret = { code: Quot Nat AllSame }
 
-theorem Secret.codeSame (p: Quot Nat AllSame) (q: Quot Nat AllSame): p = q :=
+theorem Secret.codeSame ∀ (p: Quot Nat AllSame) (q: Quot Nat AllSame): p = q :=
   Quot.ind [p := p' => p' = q]
     (x => Quot.ind [p := q' => Quot.mk x = q'] (y => Quot.sound Trivial) q)
     p
 
-theorem Secret.same: (x: Secret) → (y: Secret) → x = y
+theorem Secret.same ∀ (x: Secret) (y: Secret): x = y := match x, y with
   | { code = a }, { code = b } => Eq.cong (c => ({ code = c }: Secret)) (Secret.codeSame a b)
 
 instance Secret.instDecEq: DecEq Secret := { decide = x y => Decidable.yes (Secret.same x y) }

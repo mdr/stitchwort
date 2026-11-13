@@ -18,4 +18,4 @@ def stuckThunk: List Nat → Thunk
   | Nil => 0
   | Cons x xs => 1
 
-theorem anyIsDone: (xs: List Nat) → (stuckThunk xs).finished := xs => Trivial
+theorem anyIsDone ∀ (xs: List Nat): (stuckThunk xs).finished := Trivial

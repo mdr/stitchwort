@@ -9,7 +9,7 @@ opaque def pick: (n: Nat) → (p: Char.isScalar n = True) → Option Char
 
 theorem pickA ∀ (q: Char.isScalar 97 = True): pick 97 q = Some (MkChar 97 q) := pick.eq1 q
 
-def back: (n: Nat) → (p: Char.isScalar n = True) → Char.isScalar n = True
+def back: ∀ (n: Nat) (p: Char.isScalar n = True) => Char.isScalar n = True
   | 97, p => p
   | n, p => p
 

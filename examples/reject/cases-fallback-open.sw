@@ -4,4 +4,4 @@
 -- the goal wasn't stuck on them.
 import Std (Bool)
 
-theorem badFallback: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
+theorem badFallback ∀ (a: Bool) (b: Bool): (a ∧ b) = a := cases

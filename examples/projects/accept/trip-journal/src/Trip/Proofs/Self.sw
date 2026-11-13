@@ -12,13 +12,13 @@ import Trip.Merge (..)
 
 def Album.rebuilt (album: Album): Album := { id = album.id, start = album.start, label = album.label, photos = album.photos }
 
-theorem albumEta: ∀ (album: Album) => album.rebuilt = album
+theorem albumEta ∀ (album: Album): album.rebuilt = album := match album with
   | { id, start, label, photos } => rfl
 
-theorem stopStartAtSame: ∀ (stop: Stop) => stop.startAt stop.start = stop
+theorem stopStartAtSame ∀ (stop: Stop): stop.startAt stop.start = stop := match stop with
   | { id, start, name, kind } => rfl
 
-theorem albumStartAtSame: ∀ (album: Album) => album.startAt album.start = album
+theorem albumStartAtSame ∀ (album: Album): album.startAt album.start = album := match album with
   | { id, start, label, photos } => rfl
 
 def rebuildTrip (trip: Trip): Trip := {
@@ -32,12 +32,12 @@ def rebuildTrip (trip: Trip): Trip := {
   summary = trip.summary
 }
 
-theorem tripEta: ∀ (trip: Trip) => rebuildTrip trip = trip
+theorem tripEta ∀ (trip: Trip): rebuildTrip trip = trip := match trip with
   | { name, settings, legs, stops, pins, albums, itinerary, summary } => rfl
 
 -- Legs
 
-theorem resolveSelf: ∀ (leg: Leg) => resolveLeg leg leg = leg
+theorem resolveSelf ∀ (leg: Leg): resolveLeg leg leg = leg := match leg with
   | { id, start, duration, points, notes = None } =>
     match c: Nat.leq (List.length points + 1) (List.length points) with
       | True => rfl
@@ -64,7 +64,7 @@ theorem mergeLegsSelf ∀ (legs: List Leg) (ids: List.Distinct (List.map legs (l
 
 -- Stops
 
-theorem planReplacedSelf: ∀ (plan: Option Itinerary) => planReplaced plan plan = False
+theorem planReplacedSelf ∀ (plan: Option Itinerary): planReplaced plan plan = False := match plan with
   | Some plan => rewrite DecEq.refl plan.fileId in rfl
   | None => rfl
 
@@ -170,7 +170,7 @@ theorem mergeAlbumsSelf ∀ (trip: Trip) (lids: List.Distinct (List.map trip.leg
 
 -- The plan and the summary
 
-theorem mergeItinerarySelf: ∀ (plan: Option Itinerary) => mergeItinerary plan plan = plan
+theorem mergeItinerarySelf ∀ (plan: Option Itinerary): mergeItinerary plan plan = plan := match plan with
   | None => rfl
   | Some { fileId, places } => rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id) in rfl
 

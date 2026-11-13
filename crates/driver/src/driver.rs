@@ -801,6 +801,13 @@ impl Session {
             self.finish_load(first_new_def, diagnostics)?;
             Ok(file)
         } else {
+            // A file that doesn't parse has no statement style yet: the
+            // recovered module can suggest `W-ARROW-FORALL` at a header
+            // parameter, which isn't written as an arrow. Keep the written
+            // arrows only, as for a file that parses.
+            stitchwort_elab::keep_written_arrows(&mut diagnostics, |id| {
+                Some(self.sources.get(id).text.as_str())
+            });
             Err(merge_recovered(parse_errors, diagnostics))
         }
     }

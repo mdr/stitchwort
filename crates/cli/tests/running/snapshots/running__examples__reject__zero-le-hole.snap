@@ -2,15 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ reject/zero-le-hole.sw:11:16 ]
-    │
- 11 │     (included: (x: Nat) → keep1 x = True → keep2 x = True):
-    │                ────┬───  
-    │                    ╰───── write `∀ (…) =>` instead of `(…) ->`
-    │ 
-    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-────╯
 [E-UNSOLVED] Error: can't work out an implicit argument
     ╭─[ reject/zero-le-hole.sw:15:27 ]
     │

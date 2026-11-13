@@ -57,4 +57,4 @@ type T: Type =
 -- Arguments after a form's own apply its result: here `Quot.ind`'s, a
 -- proof of a function type, applied to `r`.
 theorem allEqual ∀ (q: Q) (r: Q): q = r :=
-  Quot.ind [p := q => (r: Q) → q = r] (x r => Quot.ind [p := r => Quot.mk x = r] (y => Quot.sound Trivial) r) q r
+  Quot.ind [p := q => ∀ (r: Q) => q = r] (x r => Quot.ind [p := r => Quot.mk x = r] (y => Quot.sound Trivial) r) q r

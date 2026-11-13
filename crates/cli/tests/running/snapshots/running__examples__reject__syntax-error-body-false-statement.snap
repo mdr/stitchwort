@@ -2,15 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/syntax-error-body-false-statement.sw:4:15 ]
-   │
- 4 │ theorem wrong (n: Nat): n + 1 = n := (rfl
-   │               ────┬───  
-   │                   ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-PARSE] Error: expected `)`, but reached the end of the declaration
    ╭─[ reject/syntax-error-body-false-statement.sw:4:42 ]
    │

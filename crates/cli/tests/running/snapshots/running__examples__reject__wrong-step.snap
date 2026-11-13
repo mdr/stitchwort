@@ -2,28 +2,10 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/wrong-step.sw:6:38 ]
-   │
- 6 │ theorem appendLength: (xs: List a) → (ys: List a) →
-   │                                      ──────┬─────  
-   │                                            ╰─────── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/wrong-step.sw:6:23 ]
-   │
- 6 │ theorem appendLength: (xs: List a) → (ys: List a) →
-   │                       ──────┬─────  
-   │                             ╰─────── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ reject/wrong-step.sw:9:22 ]
+   ╭─[ reject/wrong-step.sw:9:26 ]
    │
- 9 │   | Cons x xs, ys => appendLength xs ys
-   │                      ─────────┬────────  
-   │                               ╰────────── expected `Succ (xs ++ ys).length = xs.length + ys.length + 1`, but this has type `(xs ++ ys).length = xs.length + ys.length`
+ 9 │       | Cons x xs, ys => appendLength xs ys
+   │                          ─────────┬────────  
+   │                                   ╰────────── expected `Succ (xs ++ ys).length = xs.length + ys.length + 1`, but this has type `(xs ++ ys).length = xs.length + ys.length`
 ───╯

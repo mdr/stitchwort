@@ -2,15 +2,6 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-   ╭─[ reject/export-record-unchecked-proof.sw:9:36 ]
-   │
- 9 │ def Sorted (xs: List Nat): Prop := (n: Nat) → List.length xs ≤ n + List.length xs
-   │                                    ────┬───  
-   │                                        ╰───── write `∀ (…) =>` instead of `(…) ->`
-   │ 
-   │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
-───╯
 [E-EXPORT] Error: `size` can't be exported
     ╭─[ reject/export-record-unchecked-proof.sw:13:1 ]
     │

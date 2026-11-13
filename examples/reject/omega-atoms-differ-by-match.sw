@@ -4,7 +4,7 @@
 
 import Std (Nat, Bool)
 
-theorem refined (g: Bool → Nat) (k: Nat) (bound: (b: Bool) → g b ≤ k) (x y: Nat): g (x <= y) ≤ k :=
+theorem refined ∀ (g: Bool → Nat) (k: Nat) (bound: ∀ (b: Bool) => g b ≤ k) (x y: Nat): g (x <= y) ≤ k :=
   match x <= y with
     | True => omega [bound (x <= y)]
     | False => omega [bound (x <= y)]
