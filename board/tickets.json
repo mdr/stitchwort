@@ -1,5 +1,5 @@
 {
-  "next": 3190,
+  "next": 3192,
   "tickets": [
     {
       "id": 47,
@@ -34515,7 +34515,7 @@
     {
       "id": 3174,
       "title": "[Opus] Kernel conversion check recurses ~2.7 KiB per level and is now 2024 Day13's deepest point (286 KiB of the 320 KiB guard): loop over spines as SW-3133 did for check/infer; Fable review (SW-3133 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3174",
       "labels": [],
@@ -34523,7 +34523,9 @@
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "510bf3424f4566032cd3de69f17654c0248227c5"
+      ]
     },
     {
       "id": 3175,
@@ -34546,7 +34548,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nAlso (SW-3174 Fable review): measure conversion's recursion in the browser via web/stress.html with the guard lifted: the 320 KiB guard counts linear-memory stack and is safe only while V8's own call stack outlasts it; SW-3174 changed that ratio for conversion.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34727,6 +34729,32 @@
       "where": ".claude/worktrees/SW-3189",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3190,
+      "title": "[Opus] Guard the three walks that follow application arguments unguarded, now that the kernel accepts arbitrarily deep applications (SW-3174 Fable review): crates/rt/src/hoist.rs:85 runtime_closed (and :70), crates/js/src/lib.rs:3519 self_call_under_add, crates/elab/src/closing.rs:1118/:1140 defs_named/named (lemma search over a candidate's type: the exposed one); check lsp and web too; add a deep-application-in-a-type case to deep_terms_in_later_passes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3191,
+      "title": "[Sonnet] Kernel tests through check_app's Waiting path (SW-3174 review): a mismatch after a pop, a dependent domain after resuming, the forced-domain branch, an implicit nested argument; and a doc note on nested_stuck_calls_compare_under_the_playground_guard (it pins a native frame size) saying what to do when a toolchain change trips it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
