@@ -34675,15 +34675,18 @@
     {
       "id": 3186,
       "title": "[Sonnet] Formatter stage 3, part 1 (formatter-architecture §6): rules for the constructs SW-3183 left as written (LetExpr, Seq, interpolated text and Interpolation nodes), long patterns (S22), ∃ chains, the bracketed-block hug as a last argument, a comment before := in a calc step; cut the 98 lines over 120",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3186",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Progress (lane): rules for LetExpr/Seq (new Doc::Align), interpolated text, patterns (as calls), quantifiers (∃ chains), block hug, calc-step comment, D3568 lambda after :=, D3569 filled plain calls. Gate over std, aoc, games, examples: 0 fail a check, 0 not idempotent, 0 left as written, no unruled constructs; lines over 120: 98 -> 19 (all strings, plus two calls whose bracketed-argument prefix is over 120 and one lambda parameter list). Unit tests in crates/fmt/src/printer/tests.rs, 41 printer tests pass.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "1d658ef38",
+        "e667d62ef"
+      ]
     }
   ]
 }
