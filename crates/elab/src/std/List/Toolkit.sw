@@ -726,7 +726,7 @@ def List.inRange (x from until: Nat): Bool := from <= x && x < until
 --| ([`List.inRangeIff`] says it as membership in the range).
 @[reading]
 theorem List.inRangeReads ∀ (x from until: Nat): List.inRange x from until ↔ (from ≤ x < until) :=
-  { forward = h => omega, backward = b => omega }
+  Bool.andReads (from <= x) (x < until)
 
 --| `List.inRange x from until` is `False` exactly when `x` is outside the bounds.
 @[reading]
