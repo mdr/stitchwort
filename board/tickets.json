@@ -34340,7 +34340,7 @@
     {
       "id": 3161,
       "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
