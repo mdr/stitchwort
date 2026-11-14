@@ -17728,7 +17728,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "Expected: 2 h (Opus), ~40 min. Covers SW-1537 and SW-1477; SW-1534's cause confirmed in the kernel's push_def (fix designed as SW-1788, waits on D2568/D2569). Wording of the progress note and the SW-1477 note: the lane's, kept pending Matt (D3594). Filed SW-3236, SW-3237.",
+      "body": "Expected: 2 h (Opus), ~40 min. Covers SW-1537 and SW-1477; SW-1534's cause confirmed in the kernel's push_def (fix designed as SW-1788). D3594 (wording and 250M-step threshold of the progress note and the SW-1477 note): kept as written. Matt, 14 Nov 2026: minor error wording is the orchestrator's call, not his. Filed SW-3236, SW-3237.",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": [
