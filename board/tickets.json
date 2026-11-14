@@ -34696,14 +34696,14 @@
     {
       "id": 3187,
       "title": "[Sonnet] New formatter: the last long code lines: a call with a bracketed argument whose leading plain arguments already pass 120 (Day19 Parse.declinesLinesAtBlank, 2021 Day16 operatorOfWellFormed) should fill that prefix as D3569 does; lambda parameter lists can't break (one 292-character line in games/rogue's property proof) (SW-3186 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 75 min (Sonnet).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
