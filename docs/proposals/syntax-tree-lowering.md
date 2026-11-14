@@ -635,6 +635,43 @@ Labelled as mine, for the orchestrator to overrule:
   step 4, the lowering is the place to expand once, the way the
   elaborator wants. It changes trees and possibly hashes, so it is its own
   lane after L6 (migration cost doesn't count, D2303).
+  **Looked at by SW-3224: nothing to move.** Neither module undoes an
+  expansion; each reads a tagged form that is the one it uses, and its
+  choice between two readings depends on types and scope, which the
+  lowering doesn't have.
+  - *Chains.* The elaborator wants each computed operand elaborated once,
+    with a body that refers to it: as a `Bool` (and wherever it performs)
+    that is the `let` itself, elaborated as any `let`, with no help from
+    `chain.rs`; as a proposition (`check_type`, a condition's
+    proposition, a guard's equations) the elaborated value is substituted
+    into the elaborated body (`Binding::inline`), so the operand is
+    elaborated and reported once but the proposition reads as written
+    out. Whether a chain is read as a `Bool` or a proposition is known
+    only from the expected type, so the lowering can't pick. A dedicated
+    `Expr::Chain { operands, links }` would move the `let`-and-`&&`
+    expansion (with its short-circuit order, `chain` in `lower/exprs.rs`)
+    into the elaborator for the `Bool` reading, and need a second,
+    term-level construction of the conjunction for the proposition: more
+    code, the same terms. `on_spine` is the one place that rewrites the
+    tree, hoisting a chain's `let` out of an `&&`/`||`/`not` for an
+    `if h:` decision; the lowering can't hoist, as the `Bool` reading must
+    run a later operand only when the earlier links hold. The tag is the
+    `%chain` name (users can't write `%`), read through
+    `Expr::as_chain_let`.
+  - *Pattern `let`s.* `let p := e` is a one-alternative `match` with
+    `MatchKind::Let` (a lambda's pattern parameters, `MatchKind::Lambda`).
+    That `match` is what the elaborator uses in a proof, for any
+    refutable or literal pattern (`E-LET-REFUTABLE` comes from its
+    coverage check), in the case tree (`matching::in_tree`) and for tail
+    splits (`equations::tail_split`). `patlet.rs` binds projections
+    instead only when the goal isn't evidently a proposition, every
+    constructor pattern names the one constructor of a proposition with
+    accessors (scope), record patterns resolve against the scrutinee's
+    type, and a test fact has a reading (§6.1 of the `Bool`-as-proposition
+    note): all elaboration-time facts. Its `parts` only destructures the
+    `match`. A dedicated node would need every one of those `match` paths
+    to accept it.
+  - So the ticket's premise didn't hold, and SW-3224 changed no code.
 - **The formatter's safety check** prints and compares the compiler's
   tree (`fmt/src/printer/mod.rs:303–347`), 85% of `fmt`'s time by
   SW-3145's finding. Comparing lossless trees with layout taken out would
