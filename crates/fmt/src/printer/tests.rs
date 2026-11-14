@@ -159,6 +159,23 @@ fn a_comma_bracket_breaks_one_item_a_line() {
 }
 
 #[test]
+fn a_record_update_that_breaks_keeps_its_base_and_bar_together() {
+    // S31, SW-3164: `{ position |` stays on the opening line and the fields
+    // follow, also when the base has a trailing comment.
+    let (a, b) = (long(60), long(60));
+    check(
+        &format!("def f (position: Position): Position := {{ position | x = {a}, y = {b} }}\n"),
+        &format!(
+            "def f (position: Position): Position := {{ position |\n  x = {a},\n  y = {b}\n}}\n"
+        ),
+    );
+    check(
+        "def f (position: Position): Position := { position -- here\n  | x = 1 }\n",
+        "def f (position: Position): Position := { position | -- here\n  x = 1\n}\n",
+    );
+}
+
+#[test]
 fn an_attribute_list_that_fits_drops_its_trailing_comma() {
     // R15, S31, D1012: the same as the list without one.
     check(

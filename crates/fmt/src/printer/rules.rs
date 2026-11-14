@@ -51,6 +51,9 @@ pub(crate) struct Rules<'a> {
     /// outside its groups, so they don't break them: set while the element
     /// is built.
     hoisted: Vec<bool>,
+    /// A token whose trailing comment is printed elsewhere for now: a
+    /// record update's base, whose comment follows the `|` (S31).
+    defer_trailing: Option<usize>,
     /// Set while calls must not hug their last argument.
     no_hug: bool,
     /// How many alternatives (arms, clauses) the node being built is in.
@@ -153,6 +156,7 @@ impl<'a> Rules<'a> {
             keep_blank: vec![false; tokens.len()],
             file_comments,
             hoisted: vec![false; tokens.len()],
+            defer_trailing: None,
             no_hug: false,
             arm_depth: 0,
             hugs: BTreeMap::new(),
@@ -268,6 +272,9 @@ impl<'a> Rules<'a> {
 
     /// The comment after token `i` on its line.
     fn trailing(&self, i: usize) -> Vec<Doc> {
+        if self.defer_trailing == Some(i) {
+            return Vec::new();
+        }
         match &self.file.trivia()[i].trailing {
             Some(comment) => vec![Doc::LineSuffix(
                 comment.text.trim_end_matches(' ').to_string(),
@@ -995,11 +1002,18 @@ impl<'a> Rules<'a> {
         // `{ r | …`: the record being updated stays with the opener.
         if brace
             && let Some(bar) = inside.iter().position(|&el| self.is_tok(el, &Tok::Pipe))
+            && bar > 0
             && !inside[..bar].iter().any(|&el| self.is_tok(el, &Tok::Comma))
         {
             let space = self.space_el(children[open], inside[0]);
+            // A trailing comment on the base belongs to the `{ r |` line,
+            // so it prints after the bar, not between the base and it.
+            let base_last = Self::last(inside[bar - 1]);
+            let saved = self.defer_trailing.replace(base_last);
             let base = self.join(&inside[..=bar]);
-            prefix = Doc::concat([prefix, space, base]);
+            self.defer_trailing = saved;
+            let comment = self.trailing(base_last);
+            prefix = Doc::concat([prefix, space, base, Doc::concat(comment)]);
             inside = &inside[bar + 1..];
         }
         // Items between commas; a comma before the closer is dropped.
@@ -1783,4 +1797,38 @@ impl<'a> Rules<'a> {
 pub(crate) fn comma_first_on_line(src: &str, start: usize) -> bool {
     let line = src[..start].rfind('\n').map_or(0, |k| k + 1);
     src[line..start].trim().is_empty()
+}
+
+/// Whether the `|` at `bar` is a record update's, `{ r | … }`: the first
+/// `|` at its depth after the opening brace, which opens a record
+/// (SW-1015), with no comma before it. An alternative's bar (after a
+/// `=>`, or with another `|` before it) is not one.
+pub(crate) fn record_update_bar(tokens: &[Token], bar: usize) -> bool {
+    let mut depth = 0usize;
+    let mut open = None;
+    for i in (0..bar).rev() {
+        match tokens[i].tok {
+            Tok::RParen | Tok::RBracket | Tok::RBrace => depth += 1,
+            Tok::LParen | Tok::LBracket => depth = depth.saturating_sub(1),
+            Tok::LBrace if depth > 0 => depth -= 1,
+            Tok::LBrace => {
+                open = Some(i);
+                break;
+            }
+            _ => {}
+        }
+    }
+    let Some(open) = open else {
+        return false;
+    };
+    let mut depth = 0usize;
+    for token in &tokens[open + 1..bar] {
+        match token.tok {
+            Tok::LParen | Tok::LBracket | Tok::LBrace => depth += 1,
+            Tok::RParen | Tok::RBracket | Tok::RBrace => depth = depth.saturating_sub(1),
+            Tok::Comma | Tok::Pipe | Tok::FatArrow if depth == 0 => return false,
+            _ => {}
+        }
+    }
+    stitchwort_syntax::record_braces(tokens, open)
 }
