@@ -17330,7 +17330,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. After SW-1982. D2780, D2781. AREA=syntax, goals, lsp. 90 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
+      "body": "Waits for SW-3160's L4 (order changed 14 Nov: Matt doesn't mind the editor improvement waiting, so the lowering goes first; recovery S1+ builds on it).",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": []
@@ -34332,7 +34332,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Note merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.\nTo add when its lanes start: lowering also handles SW-3161's Gap nodes (a proof-step gap scoping the lines below; Expr::Missing { span, rest }).",
+      "body": "Note merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.\nTo add when its lanes start: lowering also handles SW-3161's Gap nodes (a proof-step gap scoping the lines below; Expr::Missing { span, rest }).\nOrder changed 14 Nov (orchestrator's call after Matt: 'I don't care about delay in editor improvement'): lowering L0-L7 first; recovery S0 (SW-1982) continues as groundwork; recovery S1+ after L4; error-node lowering becomes a 3-5 h lane between L4 and L5 (syntax-tree-lowering.md's fallback plan). L0 waits for D3574, D3575.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
