@@ -398,6 +398,26 @@ impl<'a> Rules<'a> {
             .any(|t| t.trailing.is_some())
     }
 
+    /// Whether a comment ends a line with code after it in the node, other
+    /// than closers and commas. One before only those is printed at the end
+    /// of the last line either way (a `)` on the next line joins it), so it
+    /// decides nothing: the same layout must come out once it has moved
+    /// there.
+    fn holds_comment_before_code(&self, node: Node<'_>) -> bool {
+        let range = node.token_range();
+        let last_code = (range.start..range.end).rev().find(|&i| {
+            !matches!(
+                self.tokens[i].tok,
+                Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
+            )
+        });
+        last_code.is_some_and(|last| {
+            self.file.trivia()[range.start..last]
+                .iter()
+                .any(|t| t.trailing.is_some())
+        })
+    }
+
     /// Whether a comment ends the line after the element's last token.
     fn trails_comment(&self, el: Element<'_>) -> bool {
         self.file.trivia()[Self::last(el)].trailing.is_some()
@@ -858,7 +878,7 @@ impl<'a> Rules<'a> {
             lines.push(Doc::Line);
             lines.push(self.el(ctor));
         }
-        if self.holds_trailing_comment(node) {
+        if self.holds_comment_before_code(node) {
             lines.push(Doc::BreakParent);
         }
         Doc::concat([
