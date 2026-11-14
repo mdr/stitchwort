@@ -1,5 +1,5 @@
 {
-  "next": 3281,
+  "next": 3284,
   "tickets": [
     {
       "id": 47,
@@ -35445,7 +35445,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]) open. D3590 (keep text parsers under Parse.): kept, orchestrator's call (naming that changes nothing users write). Findings filed: SW-3248..SW-3253.",
+      "body": "D3579. docs/proposals/generic-parse.md. D3603 (replaces D3588): write {Parse Char}, no std short name. D3589 decided (Matt, 14 Nov 2026): 'we should build this generic parser first, and then the toy parser will be a first or early use case.' Stages: SW-3281, SW-3282, SW-3283. D3590 kept (orchestrator's call). Findings: SW-3248..SW-3253.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36044,6 +36044,45 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "\n\nD3600 decided (Matt, 14 Nov 2026), replacing D3582, after walking through the tree's storage and how marks fill it: \"Okay, cool, fine. I think we can proceed with that happily now.\" He is happy with the generic lossless tree style (\"I think I'm happy with this general style\"). Starts after SW-3278 (parser panic fix) merges, since both change the parser's mark recording. Expected: 7-9.5 h (Opus).\n",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3281,
+      "title": "[Opus] Generic Parse stage 0 (generic-parse.md §4): the checker settles an ability's parameter late in readsThen chains (498k steps vs ~300k with [t := Char] written); find why and fix; also SW-3271's implicit record not inferred through Reads. Before stage 1",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3589 (Matt, 14 Nov 2026). Expected: 2 h (Opus).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3282,
+      "title": "[Opus+DeepSeek] Generic Parse stage 1 (generic-parse.md §4): ability Parse (t: Type), generic and character layers, file split; {Parse} to {Parse Char} in aoc/, examples, tests, guide (D3603); with SW-3279's better E-ARITY note. Gates: Std.Parse < 130M steps, AoC proof days within 15%, statements checked one by one. After stage 0",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3283,
+      "title": "[Sonnet] Generic Parse stage 2 (generic-parse.md §4): tokens: Parse.Located, located, one, span1, Parse.tokens and messages, lemmas; guide section 'Lex, then parse' and a feature-tour page. After stage 1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
