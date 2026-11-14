@@ -36,7 +36,7 @@ impl<'f> Lower<'f> {
     /// parser's is).
     fn node_expr(&self, node: Node<'f>) -> Lowering<Expr> {
         if self.stack.exceeded() {
-            return Err(Unsupported::TooDeep);
+            return Err(self.too_deep(node));
         }
         use NodeKind::*;
         match node.kind() {
@@ -356,7 +356,7 @@ impl<'f> Lower<'f> {
         match arg {
             Element::Node(node) if node.kind() == NodeKind::Prefix => {
                 if self.stack.exceeded() {
-                    return Err(Unsupported::TooDeep);
+                    return Err(self.too_deep(node));
                 }
                 self.prefix(node, true)
             }
@@ -841,6 +841,7 @@ pub(crate) fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
 
 #[cfg(test)]
 mod tests {
+    use super::super::Lower;
     use super::super::oracle::{Report, compare};
     use crate::SourceMap;
     use crate::tree::NodeKind;
@@ -925,9 +926,14 @@ mod tests {
     }
 
     /// An expression nested as deeply as the parser can parse it lowers
-    /// within the same stack: the lowering takes fewer and smaller frames
-    /// per level. One level deeper, the parser's `E-RESOURCE` fails the
-    /// declaration, which the lowering gives as failed.
+    /// within the same stack, so the lowering never reports `E-RESOURCE`
+    /// where the parser didn't: it takes fewer and smaller frames per
+    /// level, and lowers even with a third of the stack to spare, so that
+    /// an inlining choice that grows a frame is caught here (in release
+    /// builds, `node_expr` once grew from 96 to 816 bytes when the
+    /// compiler inlined a kind's function into it). One level deeper, the
+    /// parser's `E-RESOURCE` fails the declaration, which the lowering
+    /// gives as failed.
     #[test]
     fn deep_nesting_lowers_within_the_parsers_stack() {
         let shapes: [(&str, &str); 8] = [
@@ -949,7 +955,7 @@ mod tests {
         };
         let parses = |text: &str| {
             let file = SourceMap::new().next_id();
-            crate::parse_module_recovering(file, text, crate::DEFAULT_STACK)
+            crate::parser::parse_module_direct(file, text, crate::DEFAULT_STACK)
                 .1
                 .is_empty()
         };
@@ -977,6 +983,15 @@ mod tests {
                         assert_eq!(report.unsupported, [], "{shape:?} at {depth}");
                         assert_eq!(report.lowered, [kind], "{shape:?} at {depth}");
                     }
+                    let text = nested(shape, deep);
+                    let file = SourceMap::new().next_id();
+                    let (_, errors, tree) =
+                        crate::parse_module_and_tree(file, &text, crate::DEFAULT_STACK);
+                    let root = tree.decls().next().expect("a declaration");
+                    let lowered = Lower::new(&tree, &text, file, &errors)
+                        .with_stack(crate::DEFAULT_STACK * 2 / 3)
+                        .decl(root);
+                    assert!(lowered.is_ok(), "{shape:?} at {deep}: {lowered:?}");
                 }
             })
             .expect("a thread")

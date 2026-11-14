@@ -26,7 +26,7 @@ impl<'f> Lower<'f> {
     #[inline(never)]
     fn node_pattern(&self, node: Node<'f>) -> Lowering<Pattern> {
         if self.stack.exceeded() {
-            return Err(Unsupported::TooDeep);
+            return Err(self.too_deep(node));
         }
         use NodeKind::*;
         match node.kind() {

@@ -28,6 +28,7 @@ use crate::lower::exprs::{binary, chain, piped, prefix_op};
 use crate::lower::patterns::with_span;
 use crate::lower::proofs::reverse_calc;
 use crate::lower::sections::widen;
+use crate::lower::{Lower, LoweredDecl, Unsupported};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -102,6 +103,16 @@ pub fn parse_module_recovering(
     text: &str,
     stack: usize,
 ) -> (Module, Vec<Diagnostic>) {
+    let (module, errors, _) = parse_module_and_tree(file, text, stack);
+    (module, errors)
+}
+
+/// [`parse_module_recovering`] by the old route, the parser building the
+/// compiler's tree itself: the oracle's reference
+/// ([`crate::lower::oracle`]), and for timing, until step 4 of
+/// docs/proposals/syntax-tree-lowering.md removes it. Nothing else should
+/// call it.
+pub fn parse_module_direct(file: FileId, text: &str, stack: usize) -> (Module, Vec<Diagnostic>) {
     let recovered = lex_recovering(file, text);
     let (module, errors, _) = parse_lexed(
         file,
@@ -195,12 +206,86 @@ pub(crate) fn failed_names_in(
 /// what parsed before the error; one that doesn't lex is an `Error` node
 /// holding its raw text ([`crate::tree::Node::raw_text_range`]).
 pub fn parse_tree(file: FileId, text: &str, stack: usize) -> SyntaxFile {
-    parse_module_and_tree(file, text, stack).2
+    parse_with_tree(file, text, stack).1
 }
 
 /// [`parse_module_recovering`]'s module and errors, and the lossless tree,
-/// from one parse.
+/// from one parse: the module is the tree's lowering ([`crate::lower`]).
 pub fn parse_module_and_tree(
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> (Module, Vec<Diagnostic>, SyntaxFile) {
+    let (mut errors, tree) = parse_with_tree(file, text, stack);
+    let module = lowered_module(&tree, text, file, stack, &mut errors);
+    (module, errors, tree)
+}
+
+/// The module `tree` lowers to, with `errors` (the parse's) given an error
+/// for each declaration the lowering couldn't lower, which the module
+/// then holds as failed, like one that didn't parse.
+fn lowered_module(
+    tree: &SyntaxFile,
+    text: &str,
+    file: FileId,
+    stack: usize,
+    errors: &mut Vec<Diagnostic>,
+) -> Module {
+    let (mut module, unlowered) = Lower::new(tree, text, file, errors)
+        .with_stack(stack)
+        .module();
+    if unlowered.is_empty() {
+        return module;
+    }
+    let roots: Vec<_> = tree.decls().collect();
+    for (i, what) in unlowered {
+        let tokens = &tree.tokens()[roots[i].token_range()];
+        let at = tokens.first().map_or(Span::NOWHERE, |token| token.span);
+        let error = unlowered_error(what, at);
+        module
+            .failed
+            .extend(failed_names_of(tokens, error.primary_span()));
+        errors.push(error);
+    }
+    module.failed.sort_by_key(|failed| failed.name.span.start);
+    errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
+    module
+}
+
+/// The error for a declaration or expression starting at `at` that parsed
+/// and that the lowering couldn't lower.
+fn unlowered_error(what: Unsupported, at: Span) -> Diagnostic {
+    match what {
+        Unsupported::TooDeep(span) => nested_too_deeply(span),
+        what => Diagnostic::error(
+            "E-INTERNAL",
+            format!("internal error: the parser couldn't build this ({what})"),
+        )
+        .with_label(at, "in this declaration")
+        .with_note("this is a bug in the compiler's parser, not in your program"),
+    }
+}
+
+/// `E-RESOURCE`, from the parser or the lowering running out of stack at
+/// `at`.
+fn nested_too_deeply(at: Span) -> Diagnostic {
+    Diagnostic::error(
+        "E-RESOURCE",
+        "ran out of resources: the program is nested too deeply to parse",
+    )
+    .with_label(at, "nested too deeply here")
+    .with_note("this isn't a syntax error: there's a limit on how deeply expressions nest")
+}
+
+/// The parse's errors and the lossless tree, with the compiler's tree the
+/// parser builds directly thrown away.
+fn parse_with_tree(file: FileId, text: &str, stack: usize) -> (Vec<Diagnostic>, SyntaxFile) {
+    let (_, errors, tree) = parse_direct_with_tree(file, text, stack);
+    (errors, tree)
+}
+
+/// [`parse_module_direct`]'s module and errors, and the lossless tree.
+pub(crate) fn parse_direct_with_tree(
     file: FileId,
     text: &str,
     stack: usize,
@@ -568,8 +653,8 @@ pub fn parse_namespace_line(file: FileId, text: &str) -> Parsed<Option<Namespace
 
 fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
     let limit = StackLimit::from_here(DEFAULT_STACK);
-    let tokens = lex_recovering(file, text).tokens;
-    let groups = split_decls(&tokens)?;
+    let (lexed, _) = lex_recovering_with_trivia(file, text);
+    let groups = split_decls(&lexed.tokens)?;
     let Some(group) = groups.first() else {
         return Ok(None);
     };
@@ -577,31 +662,74 @@ fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
     if parser.peek() != Some(&Tok::KwNamespace) {
         return Ok(None);
     }
+    parser.marks = Some(Vec::new());
     let decl = parser
         .namespace()
         .and_then(|decl| parser.finish().map(|()| decl));
-    parser.strict(decl).map(Some)
+    parser.strict(decl)?;
+    // The groups run to the end of the tokens.
+    let start = lexed.tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>();
+    let root = DeclMarks {
+        tokens: start as u32..(start + group.len()) as u32,
+        root: NodeKind::Namespace,
+        marks: parser.marks.take().unwrap_or_default(),
+        raw: None,
+        signature_kept: false,
+    };
+    let tree = SyntaxFile::build(
+        lexed.tokens,
+        lexed.trivia,
+        lexed.eof,
+        lexed.bars,
+        vec![root],
+    );
+    let root = tree.decls().next().expect("the namespace line's root");
+    match Lower::new(&tree, text, file, &[]).decl(root) {
+        Ok(LoweredDecl::Namespace(decl)) => Ok(Some(decl)),
+        Ok(_) => unreachable!("a namespace root lowers to a namespace"),
+        Err(what) => {
+            let at = tree.tokens()[root.token_range()]
+                .first()
+                .map_or(Span::NOWHERE, |token| token.span);
+            Err(unlowered_error(what, at).into())
+        }
+    }
 }
 
 /// Parses an expression, using at most `stack` bytes of stack.
 pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Parsed<Expr> {
-    expression_within(file, text, stack).map_err(|d| *d)
-}
-
-fn expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
-    let limit = StackLimit::from_here(stack);
-    let tokens = lex(file, text)?;
-    let mut parser = Parser::new(&tokens, file, text.len(), limit);
-    let expr = parser
-        .expr()
-        .and_then(|expr| parser.finish().map(|()| expr));
-    parser.strict(expr)
+    parse_expression_tree(file, text, stack).0
 }
 
 /// [`parse_expression_within`]'s result, and the expression's lossless tree:
 /// one root, an [`NodeKind::Expression`] holding the expression if it
 /// parsed, an `Error` if it didn't, over its raw text if it didn't lex.
 pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<Expr>, SyntaxFile) {
+    let (parsed, tree) = parse_expression_direct_with_tree(file, text, stack);
+    let Ok(_) = parsed else {
+        return (parsed, tree);
+    };
+    let root = tree.decls().next().expect("an expression's root");
+    let lowered = Lower::new(&tree, text, file, &[])
+        .with_stack(stack)
+        .expression(root)
+        .map_err(|what| {
+            let at = tree
+                .tokens()
+                .first()
+                .map_or(Span::NOWHERE, |token| token.span);
+            unlowered_error(what, at)
+        });
+    (lowered, tree)
+}
+
+/// [`parse_expression_tree`] by the old route, the parser building the
+/// compiler's tree itself, as [`parse_module_direct`].
+pub(crate) fn parse_expression_direct_with_tree(
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> (Parsed<Expr>, SyntaxFile) {
     let limit = StackLimit::from_here(stack);
     let lexed = match lex_with_trivia(file, text) {
         Ok(lexed) => lexed,
@@ -1177,13 +1305,7 @@ impl<'t> Parser<'t> {
     /// `append_expr` and `pattern`), before going deeper.
     fn deeper(&self) -> Result<()> {
         if self.stack.exceeded() {
-            return Err(Diagnostic::error(
-                "E-RESOURCE",
-                "ran out of resources: the program is nested too deeply to parse",
-            )
-            .with_label(self.here(), "nested too deeply here")
-            .with_note("this isn't a syntax error: there's a limit on how deeply expressions nest")
-            .into());
+            return Err(nested_too_deeply(self.here()).into());
         }
         Ok(())
     }

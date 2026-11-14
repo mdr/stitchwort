@@ -166,11 +166,14 @@ enum DevCommand {
         /// Print each file's tree
         #[arg(long)]
         print: bool,
-        /// Also time parsing every file this many times, with the tree and
-        /// without it, and print the best time of each
+        /// Also time parsing every file this many times, and print the best
+        /// time of each: as `check` parses (the lossless tree, then the
+        /// compiler's tree lowered from it), the parser building the
+        /// compiler's tree alone (the old route), and the lossless tree
+        /// alone
         #[arg(long, value_name = "ROUNDS")]
         time: Option<u32>,
-        /// With --time, time only parsing without the tree, and skip the
+        /// With --time, time only parsing as `check` does, and skip the
         /// round trip: for counting the instructions of that alone
         #[arg(long, requires = "time")]
         parse_only: bool,
@@ -178,8 +181,9 @@ enum DevCommand {
         /// the lossless tree or a single token, and print each that isn't
         #[arg(long)]
         spans: bool,
-        /// Also build the compiler's tree both ways, directly and lowered
-        /// from the lossless tree, and compare them exactly, declaration by
+        /// Also build the compiler's tree both ways, directly by the parser
+        /// (the old route) and as `check` does, lowered from the lossless
+        /// tree, and compare them exactly, declaration by
         /// declaration, with the diagnostics, and each one-line body, result
         /// type and default parsed as an expression. Prints each difference, and how many
         /// declarations of each kind were lowered and couldn't be yet
@@ -5099,17 +5103,32 @@ fn tree_command(
         }
     }
     let id = SourceMap::new().next_id();
-    let time_parse = |rounds: u32, tree: bool| {
+    // 0: the parser building the compiler's tree alone (the route the
+    // lowering replaced, kept for the oracle); 1: with the lossless tree; 2:
+    // the compiler's tree lowered from it, what `check` pays.
+    let time_parse = |rounds: u32, route: u8| {
         (0..rounds.max(1))
             .map(|_| {
                 let start = std::time::Instant::now();
                 for text in &texts {
-                    if tree {
-                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, TREE_STACK));
-                    } else {
-                        std::hint::black_box(stitchwort_syntax::parse_module_recovering(
-                            id, text, TREE_STACK,
-                        ));
+                    match route {
+                        0 => {
+                            std::hint::black_box(
+                                stitchwort_syntax::lower::oracle::parse_module_direct(
+                                    id, text, TREE_STACK,
+                                ),
+                            );
+                        }
+                        1 => {
+                            std::hint::black_box(stitchwort_syntax::parse_tree(
+                                id, text, TREE_STACK,
+                            ));
+                        }
+                        _ => {
+                            std::hint::black_box(stitchwort_syntax::parse_module_recovering(
+                                id, text, TREE_STACK,
+                            ));
+                        }
                     }
                 }
                 start.elapsed()
@@ -5124,7 +5143,7 @@ fn tree_command(
         println!(
             "{} files, {bytes} bytes, best of {rounds}: parse {:.1} ms",
             files.len(),
-            time_parse(rounds, false).as_secs_f64() * 1000.0
+            time_parse(rounds, 2).as_secs_f64() * 1000.0
         );
         return ExitCode::SUCCESS;
     }
@@ -5201,13 +5220,15 @@ fn tree_command(
     }
     if let Some(rounds) = time {
         println!(
-            "{bytes} bytes, best of {rounds}: parse {:.1} ms, with the tree {:.1} ms",
-            time_parse(rounds, false).as_secs_f64() * 1000.0,
-            time_parse(rounds, true).as_secs_f64() * 1000.0
+            "{bytes} bytes, best of {rounds}: parse {:.1} ms (the tree lowered), the parser alone \
+             {:.1} ms, with the tree {:.1} ms",
+            time_parse(rounds, 2).as_secs_f64() * 1000.0,
+            time_parse(rounds, 0).as_secs_f64() * 1000.0,
+            time_parse(rounds, 1).as_secs_f64() * 1000.0
         );
     }
     let differences = if lower {
-        lower_report(&files, &texts, time)
+        lower_report(&files, &texts)
     } else {
         0
     };
@@ -5219,11 +5240,10 @@ fn tree_command(
 }
 
 /// `dev tree --lower`: the oracle over `files`, printing each difference
-/// and the totals (with `time`, also how long parsing takes with the
-/// lowering). Returns the number of differences.
-fn lower_report(files: &[PathBuf], texts: &[String], time: Option<u32>) -> usize {
+/// and the totals. Returns the number of differences.
+fn lower_report(files: &[PathBuf], texts: &[String]) -> usize {
     use std::collections::BTreeMap;
-    use stitchwort_syntax::lower::{Lower, oracle};
+    use stitchwort_syntax::lower::oracle;
     let id = SourceMap::new().next_id();
     let mut lowered: BTreeMap<String, usize> = BTreeMap::new();
     let mut unsupported: BTreeMap<String, usize> = BTreeMap::new();
@@ -5276,24 +5296,5 @@ fn lower_report(files: &[PathBuf], texts: &[String], time: Option<u32>) -> usize
         total(&expressions),
         counts(&expressions)
     );
-    if let Some(rounds) = time {
-        let best = (0..rounds.max(1))
-            .map(|_| {
-                let start = std::time::Instant::now();
-                for text in texts {
-                    let (_, errors, tree) =
-                        stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
-                    std::hint::black_box(Lower::new(&tree, text, id, &errors).module());
-                }
-                start.elapsed()
-            })
-            .min()
-            .unwrap_or_default();
-        println!(
-            "best of {rounds}: parse with the tree and the lowering {:.1} ms (the lowering is \
-             partial: what it can't lower yet costs nothing)",
-            best.as_secs_f64() * 1000.0
-        );
-    }
     differences
 }
