@@ -6,7 +6,14 @@
 //! `crates/syntax/tests/it/fuzz.rs`, so failures are reproducible. The seed
 //! defaults to a fixed one; `FUZZ_CASES` and `FUZZ_SEED` (decimal or `0x...`)
 //! change the count and the seed.
+//!
+//! `FUZZ_ONLY=<index>` runs only the case with that 0-based index, generating
+//! the cases before it so that its input is the same as in a full run, and
+//! prints that input on standard output. `FUZZ_DUMP=<path>` writes each case's
+//! input to that file (overwriting it) before the case is formatted, so a run
+//! killed for memory or time leaves the case it was on behind.
 
+use std::io::Write;
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
@@ -14,9 +21,7 @@ use std::path::{Path, PathBuf};
 use stitchwort_fmt::{Error, format};
 
 /// Each case is one format and one re-format. 50,000 keeps the release run
-/// well under ten seconds; set `FUZZ_CASES` for a longer run, and `FUZZ_ONLY`
-/// (a substring of a file name) to mutate only matching example programs,
-/// which digs deeper into one file than the whole corpus does.
+/// well under ten seconds; set `FUZZ_CASES` for a longer run.
 const CASES: u64 = 50_000;
 const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
 /// A mutated example can grow a lot when ranges are duplicated; the parser
@@ -128,11 +133,6 @@ fn read_corpus() -> Vec<String> {
         // produces the same cases.
         files.sort();
         for file in files {
-            if let Ok(only) = std::env::var("FUZZ_ONLY")
-                && !file.to_string_lossy().contains(&only)
-            {
-                continue;
-            }
             texts.push(
                 std::fs::read_to_string(&file)
                     .unwrap_or_else(|e| panic!("can't read {}: {e}", file.display())),
@@ -239,15 +239,30 @@ fn env_number(name: &str) -> Option<u64> {
     Some(parsed.unwrap_or_else(|_| panic!("{name}={value:?} is not a number")))
 }
 
+/// `FUZZ_DUMP`: a path to write each formatted case's input to, before it is
+/// formatted.
+fn dump_path() -> Option<PathBuf> {
+    let path = std::env::var_os("FUZZ_DUMP").filter(|path| !path.is_empty())?;
+    Some(PathBuf::from(path))
+}
+
 #[test]
 fn the_formatter_never_panics_and_is_idempotent() {
     let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
     let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
-    eprintln!("fuzz fmt: {cases} cases, seed {seed:#x}");
+    let only = env_number("FUZZ_ONLY");
+    match only {
+        Some(only) => eprintln!("fuzz fmt: case {only} (0-based), seed {seed:#x}"),
+        None => eprintln!("fuzz fmt: {cases} cases, seed {seed:#x}"),
+    }
+    let dump = dump_path();
     let corpus = read_corpus();
     let mut rng = Rng(seed);
     let mut accepted = 0;
-    for case in 0..cases {
+    // Reaching case n from the fixed seed means generating every case before
+    // it; only the selected one is formatted.
+    let last = only.map_or(cases, |only| only.saturating_add(1));
+    for case in 0..last {
         let state = rng.0;
         let text = if rng.below(2) == 0 {
             let base = rng.below(corpus.len());
@@ -255,6 +270,23 @@ fn the_formatter_never_panics_and_is_idempotent() {
         } else {
             soup(&mut rng)
         };
+        if only.is_some_and(|only| case != only) {
+            continue;
+        }
+        if let Some(path) = &dump {
+            std::fs::write(path, &text).unwrap_or_else(|e| {
+                panic!(
+                    "can't write FUZZ_DUMP={} for case {case}: {e}",
+                    path.display()
+                )
+            });
+        }
+        if only.is_some() {
+            print!("{text}");
+            std::io::stdout()
+                .flush()
+                .unwrap_or_else(|e| panic!("can't print case {case}: {e}"));
+        }
         let context = |what: &str| {
             format!(
                 "case {case} (seed {seed:#x}, rng state {state:#x}): {what} on input:\n  {}",
@@ -291,6 +323,9 @@ fn the_formatter_never_panics_and_is_idempotent() {
             }
         }
     }
-    // Sanity check that the generator isn't only producing nonsense.
-    assert!(accepted > 0, "no random input was formatted");
+    // Sanity check that the generator isn't only producing nonsense. A single
+    // selected case may legitimately be one the formatter refuses.
+    if only.is_none() {
+        assert!(accepted > 0, "no random input was formatted");
+    }
 }
