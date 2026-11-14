@@ -1,5 +1,5 @@
 {
-  "next": 3288,
+  "next": 3289,
   "tickets": [
     {
       "id": 47,
@@ -35386,7 +35386,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.\n\nD3591 decided (Matt, 14 Nov 2026): \"I'm very happy to have text literals as patterns, and I'm happy for them to work on both text and list of chars.\" Stage 1 filed as SW-3284. D3592 (prefix patterns) still open.\n",
+      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.\n\nD3591 decided (Matt, 14 Nov 2026): \"I'm very happy to have text literals as patterns, and I'm happy for them to work on both text and list of chars.\" Stage 1 filed as SW-3284. D3592 (prefix patterns) still open.\n\n\nD3592 decided (Matt, 14 Nov 2026): \"D3592 yes, text literals only on the left.\" Prefix patterns on Text and List Char; other lists keep [a, b, ..rest]. Stage 2 filed as SW-3288.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36139,6 +36139,19 @@
       "labels": [
         "parked"
       ],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3288,
+      "title": "[Opus] Text patterns stage 2 (text-patterns.md §4.2, D3592): prefix patterns \"lit\" ++ rest on Text and List Char, only a text literal on the left, only a fixed start (suffix/middle refused with E-TEXT-PATTERN pointing to endsWith/splitOn); on Text, rest as a slice once fast Text lands (stage 5 folded in). After SW-3284",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-14",
