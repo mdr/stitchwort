@@ -68,7 +68,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       ],
       "import": "import Std (Nat)",
       "kind": "theorem",
-      "line": 97,
+      "line": 103,
       "name": "Std.Nat.leOfEq",
       "proof": "Nat.leOfEq a c ?",
       "searchRank": 1,
@@ -85,7 +85,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "file": "std/List/SortLemmas.sw",
       "goal": "(a.compare c).isLessEq",
       "import": "import Std (Nat)",
-      "line": 571,
+      "line": 773,
       "name": "Std.Nat.compareLeq",
       "proof": "rewrite <- Nat.compareLeq a c in ?",
       "type": "∀ (m n: Nat) => (m.compare n).isLessEq = (m <= n)"
