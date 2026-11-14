@@ -15,8 +15,10 @@ const STACK: usize = 256 * 1024 * 1024;
 const URI: &str = "file:///memory/proj/src/Demo.sw";
 const OTHER: &str = "file:///memory/other/src/Other.sw";
 const OTHER_TEXT: &str = "namespace Other\n\ndef g: Nat := 1\n";
-const TEXT: &str =
-    "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+/// A proof goal: only one has a search to run (D3519).
+const TEXT: &str = "namespace Demo\n\ntheorem f (o: Option (Option Nat)): o = o := ?\n";
+/// The column of its `?`.
+const HOLE: u32 = 45;
 
 /// A server on its own threads, with `TEXT` open and checked.
 struct Server {
@@ -131,13 +133,25 @@ impl Server {
         self.wait_for(|m| m["id"] == id && m.get("method").is_none())
     }
 
+    /// Cmd+. at the `?`: answered at once, never by a search.
     fn code_action(&mut self) -> Value {
         self.request(
             "textDocument/codeAction",
             json!({"textDocument": {"uri": URI},
-                   "range": {"start": {"line": 3, "character": 14},
-                             "end": {"line": 3, "character": 14}},
+                   "range": {"start": {"line": 2, "character": HOLE},
+                             "end": {"line": 2, "character": HOLE}},
                    "context": {"diagnostics": []}}),
+        )
+    }
+
+    /// Picks "Search for a proof" at the `?`: the search runs now.
+    fn search(&mut self) -> Value {
+        self.request(
+            "workspace/executeCommand",
+            json!({"command": "stitchwort.searchProof",
+                   "arguments": [{"uri": URI,
+                                  "range": {"start": {"line": 2, "character": HOLE},
+                                            "end": {"line": 2, "character": HOLE + 1}}}]}),
         )
     }
 
@@ -167,25 +181,36 @@ fn searching_options() -> Options {
 }
 
 /// SW-1820, SW-1808 finding 3: the search worker's panic left the request
-/// unanswered and ended the only worker.
+/// unanswered and ended the only worker. The search runs when its code
+/// action is picked (D3519).
 #[test]
 fn a_panicking_search_is_answered_and_the_next_search_works() {
     let options = searching_options();
     options.faults.search_panics.store(1, Ordering::SeqCst);
     let mut s = Server::start(options);
-    let first = s.code_action();
+    // The list answers at once, with the search to pick.
+    let listed = s.code_action();
+    assert!(
+        (listed["result"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{listed}"))
+            .iter())
+        .any(|a| a["title"] == "Search for a proof"),
+        "{listed}"
+    );
+    let first = s.search();
     assert!(
         first.get("error").is_none() && first["result"].is_null(),
         "{first}"
     );
-    let second = code_action_after_edit(&mut s, 2);
-    let actions = second["result"]
+    let second = search_after_edit(&mut s, 2);
+    let proofs = second["result"]["proofs"]
         .as_array()
         .unwrap_or_else(|| panic!("{second}"));
     assert!(
-        actions
-            .iter()
-            .any(|a| a["title"].as_str().is_some_and(|t| t == "Split on `o`")),
+        proofs.iter().any(|p| p["title"]
+            .as_str()
+            .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
         "{second}"
     );
     s.stop();
@@ -578,16 +603,16 @@ fn opening_a_file_of_a_quarantined_project_does_not_retry_it() {
 /// Edits the text (a new version) and asks for the code action there, once
 /// the server has said it has checked that version: the goals the search
 /// needs are recorded before the diagnostics are published.
-fn code_action_after_edit(s: &mut Server, version: i32) -> Value {
+fn search_after_edit(s: &mut Server, version: i32) -> Value {
     s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
     s.wait_for(|m| m["method"] == "stitchwort/checked" && m["params"]["versions"][URI] == version);
-    s.code_action()
+    s.search()
 }
 
 /// SW-2104: a client that has seen the diagnostics of version N gets N's
 /// goals, however soon it asks: they are recorded before the diagnostics
-/// are sent. Without the goals the answer is the quick fixes, `[]`; with
-/// them the search runs, and here panics, which is answered with null (so
+/// are sent. Without the goals the command fails; with
+/// them the search runs when picked, and here panics, which is answered with null (so
 /// no real search is needed).
 #[test]
 fn a_code_action_right_after_an_edits_diagnostics_finds_its_goal() {
@@ -602,7 +627,7 @@ fn a_code_action_right_after_an_edits_diagnostics_finds_its_goal() {
         for version in 2..=5 {
             s.change(URI, version, &format!("{TEXT}-- edit {version}\n"));
             s.diagnostics(URI, |p| p["version"] == version);
-            let answer = s.code_action();
+            let answer = s.search();
             assert!(
                 answer.get("error").is_none() && answer["result"].is_null(),
                 "version {version}: {answer}"
@@ -639,7 +664,7 @@ fn the_search_budget_runs_out_with_a_message() {
         .store(usize::MAX, Ordering::SeqCst);
     let mut s = Server::start(options);
     for version in 2..=8 {
-        let answer = code_action_after_edit(&mut s, version);
+        let answer = search_after_edit(&mut s, version);
         assert!(
             answer.get("error").is_none() && answer["result"].is_null(),
             "{answer}"
@@ -664,7 +689,7 @@ fn repeated_code_actions_at_a_panicking_goal_spend_one_restart() {
         .store(usize::MAX, Ordering::SeqCst);
     let mut s = Server::start(options);
     for _ in 0..8 {
-        let answer = s.code_action();
+        let answer = s.search();
         assert!(
             answer.get("error").is_none() && answer["result"].is_null(),
             "{answer}"
@@ -673,10 +698,10 @@ fn repeated_code_actions_at_a_panicking_goal_spend_one_restart() {
     assert!(!searches_stopped(&s), "{:?}", s.pop_ups());
     // One panic used one restart, so four more edits still fit in the budget.
     for version in 2..=5 {
-        code_action_after_edit(&mut s, version);
+        search_after_edit(&mut s, version);
     }
     assert!(!searches_stopped(&s), "{:?}", s.pop_ups());
-    code_action_after_edit(&mut s, 6);
+    search_after_edit(&mut s, 6);
     wait_for_searches_stopped(&s);
     s.stop();
 }
@@ -686,11 +711,13 @@ fn after_an_edit_a_panicked_search_is_tried_again() {
     let options = searching_options();
     options.faults.search_panics.store(1, Ordering::SeqCst);
     let mut s = Server::start(options);
-    assert!(s.code_action()["result"].is_null());
-    assert!(s.code_action()["result"].is_null());
-    let after = code_action_after_edit(&mut s, 2);
+    assert!(s.search()["result"].is_null());
+    assert!(s.search()["result"].is_null());
+    let after = search_after_edit(&mut s, 2);
     assert!(
-        after["result"].as_array().is_some_and(|a| !a.is_empty()),
+        after["result"]["proofs"]
+            .as_array()
+            .is_some_and(|a| !a.is_empty()),
         "{after}"
     );
     s.stop();
@@ -708,7 +735,7 @@ fn two_search_workers_share_one_budget() {
     // Alone, each worker could take five restarts; shared, six panics are
     // too many whichever worker gets them.
     for version in 2..=7 {
-        code_action_after_edit(&mut s, version);
+        search_after_edit(&mut s, version);
     }
     wait_for_searches_stopped(&s);
     s.stop();

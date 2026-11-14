@@ -120,7 +120,10 @@ fn locals_in(
         .filter(|o| o.parent.is_none())
         .filter(|o| match older {
             true => before((o.full_range[0], o.full_range[1]), at),
-            false => inside(o.full_range),
+            // A declaration whose body didn't parse has no binders of its
+            // body in this check, though its outline covers it (SW-3199):
+            // the older checks know them.
+            false => inside(o.full_range) && !o.body_error,
         })
         .map(|o| o.full_range)
         .max_by_key(|r| (r[0], r[1]))
