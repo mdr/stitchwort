@@ -35220,7 +35220,7 @@
     {
       "id": 3222,
       "title": "[Sonnet] A test constructor for GoalSnapshot (its fields are pub(crate)), so deep_terms_in_later_passes can open a deep goal and reach defs_named and named through closing_plans (SW-3200 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35228,7 +35228,9 @@
       "body": "Expected: 45 min (Sonnet).\n\nLane notes (Sonnet): added GoalSnapshot::target_for_tests (test-bypass) and a deep goal (instance of g's deep conclusion) in deep_terms_in_later_passes. The goal opens and closing_plans runs out cleanly (the unifier's Depth limit on the candidate; stats.out_of_budget_items == [g]), so no hit exists and defs_named/named are still not reached on a deep conclusion through closing_plans: matching a deep conclusion never succeeds, so the constructor alone can't get there. closing::tests::deep_conclusions_are_counted remains their cover.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "a1f718c7c"
+      ]
     }
   ]
 }
