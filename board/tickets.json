@@ -34929,15 +34929,17 @@
     {
       "id": 3203,
       "title": "[Sonnet] New formatter not idempotent (fuzz:fmt default seed, case 318589, Overmind 14 Nov): a constructor whose parameter list ends in a trailing comment before a ')' on the next line ('| Circle (kind: Text) (radius: Nat--eld' newline ')') formats to the constructor on its own line under 'type Shape =', and a second run joins it onto the header. A comment moved out of brackets must not change the fit decision; add the case as a unit test",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 60 min (Sonnet). Repro: Overmind's saved input, fuzz:fmt default seed case 318589.",
+      "body": "Expected: 60 min (Sonnet). Repro: Overmind's saved input, fuzz:fmt default seed case 318589.\n\n\nLane note: cause was holds_trailing_comment (excludes the last token) forcing the break in data_type; fixed with holds_comment_before_code. Fuzz 330000 cases pass; fmt-tree gate 0/0/0.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "885fb8010"
+      ]
     },
     {
       "id": 3204,
