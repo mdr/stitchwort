@@ -16,7 +16,7 @@ expression: output
    │                  ─┬─  
    │                   ╰─── `YUp` is both a type and its constructor
    │ 
-   │ Note: `YUp` is the type and `YUp.YUp` its constructor, and a type and a constructor can't have the same name: rename the constructor, as in `| MkYUp`, or write the constructor as `YUp.YUp`; the type has no qualified name, so its uses need the rename
+   │ Note: `YUp` names both the type and its constructor `YUp.YUp`, so on its own it is ambiguous: rename the constructor, as in `| MkYUp`, or write the constructor as `YUp.YUp`; the type has no qualified name, so its uses need the rename
 ───╯
 [E-AMBIGUOUS] Error: `YUp` could mean `YUp` or `YUp.YUp`
     ╭─[ reject/ambiguous-type-constructor.sw:10:11 ]
@@ -32,5 +32,5 @@ expression: output
     │           ─┬─  
     │            ╰─── `YUp` is both a type and its constructor
     │ 
-    │ Note: `YUp` is the type and `YUp.YUp` its constructor, and a type and a constructor can't have the same name: rename the constructor, as in `| MkYUp`, or write the constructor as `YUp.YUp`; the type has no qualified name, so its uses need the rename
+    │ Note: `YUp` names both the type and its constructor `YUp.YUp`, so on its own it is ambiguous: rename the constructor, as in `| MkYUp`, or write the constructor as `YUp.YUp`; the type has no qualified name, so its uses need the rename
 ────╯

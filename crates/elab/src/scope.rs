@@ -1862,8 +1862,8 @@ impl Elaborator {
                     format!("`{}` is both a type and its constructor", name.text),
                 )
                 .with_note(format!(
-                    "`{type_shown}` is the type and `{ctor_shown}` its constructor, and a type \
-                     and a constructor can't have the same name: rename the constructor, as in \
+                    "`{type_shown}` names both the type and its constructor `{ctor_shown}`, so \
+                     on its own it is ambiguous: rename the constructor, as in \
                      `| Mk{ctor_short}`, or write the constructor as `{ctor_shown}`\
                      {type_alternative}",
                     ctor_short = short(ctor_key),
