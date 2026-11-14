@@ -36,9 +36,10 @@ use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::{
     DiagnosticRelatedInformation, DiagnosticSeverity, DocumentLink, DocumentSymbol,
-    DocumentSymbolResponse, GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent,
-    MarkupKind, NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind,
-    Url, WorkspaceSymbolResponse, notification, request,
+    DocumentSymbolResponse, FoldingRange, FoldingRangeKind, GotoDefinitionResponse, Hover,
+    HoverContents, Location, MarkupContent, MarkupKind, NumberOrString, Position,
+    PublishDiagnosticsParams, SymbolInformation, SymbolKind, Url, WorkspaceSymbolResponse,
+    notification, request,
 };
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_driver::at as pos;
@@ -384,6 +385,7 @@ pub fn capabilities() -> serde_json::Value {
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
+        "foldingRangeProvider": true,
         "codeLensProvider": { "resolveProvider": false },
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
@@ -2386,6 +2388,23 @@ impl Main {
                     serde_json::to_value(outline.map(DocumentSymbolResponse::Nested))
                 })
             }
+            request::FoldingRangeRequest::METHOD => {
+                parse::<lsp_types::FoldingRangeParams>(&request).map(|p| {
+                    let uri = &p.text_document.uri;
+                    let text = self.text(uri);
+                    let ranges = match locate(&nav, uri).and_then(|(_, ws, p)| ws.files.get(&p)) {
+                        Some(f) => folding_ranges(&f.outline, text.as_deref()),
+                        None => text.as_deref().map_or_else(Vec::new, |text| {
+                            (uri.scheme() == "file" && std_path(uri).is_none())
+                                .then(|| outline_of_text(text, OUTLINE_STACK))
+                                .map_or_else(Vec::new, |outline| {
+                                    folding_ranges(&outline, Some(text))
+                                })
+                        }),
+                    };
+                    serde_json::to_value(ranges)
+                })
+            }
             request::WorkspaceSymbolRequest::METHOD => {
                 parse::<lsp_types::WorkspaceSymbolParams>(&request).map(|p| {
                     let found = workspace_symbols(&nav, &p.query);
@@ -2812,6 +2831,67 @@ fn document_symbols(outline: &[OutlineItem]) -> Vec<DocumentSymbol> {
             .collect()
     }
     build(outline, None)
+}
+
+/// A file's folds: one per top-level declaration on more than one line, and
+/// one per run of three or more consecutive line comments.
+fn folding_ranges(outline: &[OutlineItem], text: Option<&str>) -> Vec<FoldingRange> {
+    let mut folds: Vec<FoldingRange> = (outline.iter())
+        .filter(|item| item.parent.is_none())
+        .filter_map(|item| {
+            let [start, _, end, _] = item.full_range;
+            (start < end).then(|| FoldingRange {
+                start_line: start,
+                end_line: end,
+                ..Default::default()
+            })
+        })
+        .collect();
+    if let Some(text) = text {
+        folds.extend(comment_folds(text));
+    }
+    folds.sort_by_key(|f| (f.start_line, f.end_line));
+    folds
+}
+
+/// The folds of runs of three or more consecutive line comments.
+fn comment_folds(text: &str) -> Vec<FoldingRange> {
+    let mut sources = SourceMap::new();
+    let id = sources.add(String::new(), text.to_string());
+    let (lexed, _) = stitchwort_syntax::lex_recovering_with_trivia(id, text);
+    let push_run = |folds: &mut Vec<FoldingRange>, (start, end): (u32, u32)| {
+        if end - start >= 2 {
+            folds.push(FoldingRange {
+                start_line: start,
+                end_line: end,
+                kind: Some(FoldingRangeKind::Comment),
+                ..Default::default()
+            });
+        }
+    };
+    let mut folds = Vec::new();
+    let mut run: Option<(u32, u32)> = None;
+    let (mut at, mut line) = (0, 0);
+    for trivia in lexed.trivia.iter().chain(std::iter::once(&lexed.eof)) {
+        for comment in &trivia.leading {
+            let start = comment.span.start as usize;
+            line += text[at..start].bytes().filter(|&b| b == b'\n').count() as u32;
+            at = start;
+            run = Some(match run {
+                // Two comments on one line belong to the same run.
+                Some((first, last)) if line <= last + 1 => (first, line),
+                Some((first, last)) => {
+                    push_run(&mut folds, (first, last));
+                    (line, line)
+                }
+                None => (line, line),
+            });
+        }
+    }
+    if let Some(run) = run {
+        push_run(&mut folds, run);
+    }
+    folds
 }
 
 /// Whether the letters of `query` appear in order in `name`, ignoring case.
