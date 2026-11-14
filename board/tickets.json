@@ -1,5 +1,5 @@
 {
-  "next": 3277,
+  "next": 3278,
   "tickets": [
     {
       "id": 47,
@@ -35982,6 +35982,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "Matt, 14 Nov 2026: 'get Fable to compare marks with returning the tree, I think I'm just more familiar with returning built nodes as a sort of standard way of doing recursive descent parsers ... what are the pros and cons?' parser-end-state.md weighed events and top-down building but not plain return-the-node. Expected: 2 h (Fable paper lane).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3277,
+      "title": "[Opus] Paper: how generic-input parser libraries keep the common (character) case pleasant (D3588): Parsec/Megaparsec, attoparsec, nom, chumsky, combine, winnow, FParsec, Scala parser combinators, Lean's Parsec, Koka/Effekt parsers; aliases vs defaults vs explicit; whether an ability alias (D3596 set names) fits; holds D3588",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 14 Nov 2026, on D3588 ({Parse Char} vs keeping {Parse}): 'worth an Opus paper lane ... what other languages and libraries do ... If they are generic in input, how do they handle a nice common case? I think having a default generic parameter is probably not a good choice ... maybe an alias ability could be interesting ... a quick rummage around the state of the art.' Expected: 1 h (Opus paper lane).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
