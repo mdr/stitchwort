@@ -1,5 +1,5 @@
 {
-  "next": 3243,
+  "next": 3248,
   "tickets": [
     {
       "id": 47,
@@ -35399,16 +35399,17 @@
     {
       "id": 3233,
       "title": "[Fable] Paper: the parser's end state now it has one job (D3579): marks (sorted after the parse) against in-order events with precede (rust-analyzer), leftovers from the two-route period (signature_kept, parked failed declarations, relabelling), stack frames, recovery's needs; recommend the cleanest end state with numbers; the tidy waits for recovery S1",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\n**Lane note (Fable, 14 Nov 2026):** note written, `docs/proposals/parser-end-state.md` (commit 992d66548 on `lane/SW-3233`). Recommendation: keep marks, made strict (starts kept by the function, one way to record, a builder that checks order and nesting in one pass and makes a misfit an internal error; meaning checks out of the parser); stages T0–T4, 21–30 lane hours, T1 between recovery's S1 and S2. One question for Matt: D3582 [rec: yes, strict marks].\n\n**Urgent finding:** on `main` since L5, `a ∧ b ∧ c → q` is checked as `a ∧ b ∧ c` (also `↔ q` and `; e` after a chain of three or more `∧`/`∨` operands): `mark_logic_chain` (`parser.rs:4143`) records the chain's inner node last, `operand_start` then gives the arrow the wrong start, and the builder drops the arrow's mark without an error. Repro: `theorem bad (a: Prop) (h: a ∧ a ∧ a): a ∧ a ∧ a → False := h` checks. Stage T0 of the note (Opus, 2–3 h) fixes it; it should not wait for S1.\n\nMeasured: the sort is 4.1% of parse-and-lower (the whole builder 8.4%); a nesting level costs the parser 1,377 bytes (18,264 brackets in 24 MiB). No code changed; no tests run (paper lane).\n",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~14 min. docs/proposals/parser-end-state.md: keep marks, made strict (T0-T4, 21-30 h; T1 between S1 and S2). D3582 asked [rec yes]. T0 filed as SW-3243 and started at once (orchestrator's call: a wrong statement is checked). Findings: SW-3244 SW-3245 SW-3246 SW-3247; 'a block must end with an expression, not let' noted for the S2 lane; proposals README fix goes in T3.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
-        "992d66548"
+        "992d66548",
+        "34d3966f18cd58cf8671603661d5498d20a8f682"
       ]
     },
     {
@@ -35523,6 +35524,71 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3243,
+      "title": "[Opus] URGENT T0 (parser-end-state.md): since L5, 'a ∧ b ∧ c → q' is checked as 'a ∧ b ∧ c' (also ↔ q and ; e after a 3+ operand ∧/∨ chain, and a ∨ b ∧ c): mark_logic_chain records the inner node last, operand_start gives the arrow the wrong start, build_decl drops the crossing mark silently. Fix; a dropped mark becomes E-INTERNAL plus a debug assertion in SyntaxFile::build; the lowering rejects children it didn't read; tree-dump tests",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Expected: 2.5 h (Opus). Started at once: main checks a different statement from the one written.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3244,
+      "title": "[Sonnet] Parser tests pin the parser's own output: the 156 tests in parser.rs go through the lowering; add dev tree --print style dumps for the key constructs (SW-3233 finding; with T1/T3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3245,
+      "title": "[Sonnet] Stack: atom 400 B, expr_inline 304, range_expr 288, app 192 of the parser's 1,377 B per nesting level; move range_expr's body out of line for depth (SW-3233 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3246,
+      "title": "[Sonnet] failed_names_in (parser.rs:143) pads a copy of the text with one space per byte of offset to lex a failed declaration in place; lex the slice with a base offset instead (SW-3233 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3247,
+      "title": "[Sonnet] Goal printing: 'a ↔ False' shows as 'a ↔ False = True', which reads as (a ↔ False) = True; find whether the printer or the statement (SW-3233 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
