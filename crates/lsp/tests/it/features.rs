@@ -1525,6 +1525,66 @@ fn the_outline_asked_as_the_file_opens_is_not_empty() {
     });
 }
 
+#[test]
+fn the_folds_cover_the_multiline_declarations() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Color =\n  | Red\n  | Green\n\n\
+            def first (c: Color): Nat :=\n  let n := 1\n  n\n\n\
+            def two: Nat := 2\n";
+        let mut s = Session::open(text);
+        let folds = s.request(
+            "textDocument/foldingRange",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert_eq!(
+            folds,
+            json!([
+                {"startLine": 2, "endLine": 4},
+                {"startLine": 6, "endLine": 8},
+            ])
+        );
+    });
+}
+
+#[test]
+fn a_run_of_three_line_comments_folds() {
+    big_stack(|| {
+        let text = "namespace Demo\n\n-- one\n-- two\n-- three\n-- four\n\ndef one: Nat := 1\n";
+        let mut s = Session::open(text);
+        let folds = s.request(
+            "textDocument/foldingRange",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert_eq!(
+            folds,
+            json!([{"startLine": 2, "endLine": 5, "kind": "comment"}])
+        );
+    });
+}
+
+#[test]
+fn a_declaration_whose_body_does_not_parse_folds_over_its_whole_body() {
+    big_stack(|| {
+        let text = "namespace Demo\n\n\
+            def doubles (n: Nat): Nat :=\n  n * 2\n\n\
+            def f (count: Nat): Nat :=\n  let doubled := count * 2\n  doubled + (co\n\n\
+            def after (n: Nat): Nat :=\n  n + 1\n";
+        let mut s = Session::open(text);
+        let folds = s.request(
+            "textDocument/foldingRange",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert_eq!(
+            folds,
+            json!([
+                {"startLine": 2, "endLine": 3},
+                {"startLine": 5, "endLine": 7},
+                {"startLine": 9, "endLine": 10},
+            ])
+        );
+    });
+}
+
 /// What searching `jobs` gives: each on a new thread with a searcher of its
 /// own (nothing kept from an earlier one), or all on one thread with one
 /// searcher (each after an earlier one), with how long each took.
