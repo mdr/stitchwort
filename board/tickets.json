@@ -35241,15 +35241,17 @@
     {
       "id": 3223,
       "title": "[Sonnet] A merge-time guard on std's import cost: a step-count test (or bench row with a tight threshold) for a one-line 'import Std (List)' / '(Nat)' program, so an expensive std proof (like SW-3067's omega-proved List.inRangeReads, +860k steps for every importer) fails at merge; also measure each new @[reading] proof's cost once (SW-3221 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "\nExpected: 60 min (Sonnet).\n\nProgress (Sonnet lane): added crates/driver/tests/library/import_cost.rs, test importing_std_namespaces_stays_within_recorded_step_counts: checks 10 namespaces (Bool Int List Map Nat Option Result Set Text Vec) with check_library_targets, bounds +-10%, about 10 s. Reading theorems: none above 25k steps (top: List.noRepeatsIff 24,424).\n",
+      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, needed fixes (first version guarded whole namespaces, too coarse to catch SW-3221; redone with tiny programs and a revert check), ~25 min (est. 60). Top reading-theorem cost: List.noRepeatsIff 24k steps; none above 50k.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "21f2970fcca64a78d3f7267edc7584216b17365d"
+      ]
     }
   ]
 }
