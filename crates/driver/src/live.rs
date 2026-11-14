@@ -449,11 +449,13 @@ fn answers_from_with<'t>(
 fn declaration_starts(text: &str) -> Vec<usize> {
     let mut sources = SourceMap::new();
     let id = sources.add(String::new(), text.to_string());
-    let Ok(tree) = stitchwort_syntax::parse_tree(id, text, stitchwort_syntax::DEFAULT_STACK) else {
-        return Vec::new();
-    };
+    let tree = stitchwort_syntax::parse_tree(id, text, stitchwort_syntax::DEFAULT_STACK);
     (tree.decls())
         .filter_map(|root| {
+            // A declaration that didn't lex holds no tokens, only raw bytes.
+            if let Some(raw) = root.raw_text_range() {
+                return Some(raw.start);
+            }
             let range = root.token_range();
             tree.tokens()
                 .get(range.start)
