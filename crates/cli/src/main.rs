@@ -4084,6 +4084,7 @@ fn print_audit(
 fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCode {
     let mut paths = Vec::new();
     let mut stdin = false;
+    let mut skipped = 0usize;
     if files.is_empty() {
         let Some(project) = locate_project(project, "format", "fmt hello.sw") else {
             return ExitCode::FAILURE;
@@ -4103,7 +4104,13 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
             if file == Path::new("-") {
                 stdin = true;
             } else if file.is_dir() {
-                paths.extend(sw_files_in(file));
+                for path in sw_files_in(file) {
+                    if deliberately_unformatted(&path) {
+                        skipped += 1;
+                    } else {
+                        paths.push(path);
+                    }
+                }
             } else {
                 paths.push(file.clone());
             }
@@ -4145,6 +4152,13 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
         failure |= !format_file(path, check, &mut would_change);
     }
 
+    if skipped > 0 {
+        eprintln!(
+            "{skipped} file{} skipped as deliberately unformatted",
+            if skipped == 1 { "" } else { "s" }
+        );
+    }
+
     if failure {
         ExitCode::from(2)
     } else if check && would_change {
@@ -4173,6 +4187,33 @@ fn sw_files_in(dir: &Path) -> Vec<PathBuf> {
     walk(dir, &mut found);
     found.sort();
     found
+}
+
+/// Whether `path` is one the repository keeps as written (D1019): its path
+/// relative to the nearest enclosing directory that has a `.git` (a file or a
+/// folder, found by walking up from the file) is under an entry of
+/// [`stitchwort_fmt::DELIBERATELY_UNFORMATTED`]. A file outside a repository
+/// is never skipped.
+fn deliberately_unformatted(path: &Path) -> bool {
+    let Ok(absolute) = std::fs::canonicalize(path) else {
+        return false;
+    };
+    let Some(root) = absolute
+        .ancestors()
+        .skip(1)
+        .find(|dir| dir.join(".git").exists())
+    else {
+        return false;
+    };
+    let Ok(relative) = absolute.strip_prefix(root) else {
+        return false;
+    };
+    let relative = relative
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    stitchwort_fmt::DELIBERATELY_UNFORMATTED
+        .iter()
+        .any(|excluded| relative.starts_with(excluded))
 }
 
 /// Formats `path` in place, unless `check`; prints it if it changed. Returns

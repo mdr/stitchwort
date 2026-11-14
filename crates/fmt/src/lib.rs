@@ -46,6 +46,29 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// Paths (prefixes, or whole files) the formatter leaves alone, relative to
+/// the repository root: the Stitchwort repository deliberately keeps these
+/// as written, and their exact text and error positions are tested (D1019).
+/// `stitchwort fmt DIR` skips them, and `crates/cli/tests/tools/fmt_repo.rs`
+/// uses the same list, so the two can't drift apart.
+pub const DELIBERATELY_UNFORMATTED: [&str; 10] = [
+    // D1019: files that exist to be rejected.
+    "examples/reject/",
+    "examples/soundness/",
+    "examples/projects/reject/",
+    // Repros of spellings the parser rejects (SW-1599).
+    "dev/repros/sw-1599/spelled-iff.sw",
+    "dev/repros/sw-1599/spelled-iff2.sw",
+    // Bug repros kept exactly as found (fuzz cases may not even parse).
+    "docs/repros/",
+    "docs/reviews/repros/",
+    "dev/fuzz-findings/",
+    // Formatter test data.
+    "crates/fmt/tests/it/golden/",
+    // Exercises layouts the formatter normalises.
+    "examples/accept/list-literal-layout.sw",
+];
+
 /// How much of a file the rules didn't cover.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Stats {
