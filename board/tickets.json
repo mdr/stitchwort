@@ -34991,7 +34991,7 @@
     {
       "id": 3207,
       "title": "[Opus] Lowering L0 (docs/proposals/syntax-tree-lowering.md): Scaffolding: lower module, dispatch with unsupported, dev tree --lower (exact comparison, diagnostics, per-kind counts), Expression root, marks under Error roots",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35000,7 +35000,8 @@
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
-        "52588abb2"
+        "52588abb2",
+        "0ed3f354fc239f1ade2cb55313acd2e700ca67e4"
       ]
     },
     {
