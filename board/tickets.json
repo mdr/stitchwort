@@ -1,5 +1,5 @@
 {
-  "next": 3269,
+  "next": 3270,
   "tickets": [
     {
       "id": 47,
@@ -35876,6 +35876,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3269,
+      "title": "[Fable] Paper: should Std.Parse's character input be Text, not List Char, once fast Text lands (SW-3234 T1)? Follow-up to generic-parse.md: generic over the input (Text for characters, List Token for tokens), proofs and AoC, speed; holds D3588-D3591",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 14 Nov 2026: asked whether we anticipate moving to Text for all our parsing rather than List Char; nothing had decided it (generic-parse.md keeps List t, file-io-and-text.md makes Text fast but doesn't propose parsing on it). 'yes, do the follow-up paper on Fable'. Expected: 1.5 h (Fable paper lane).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
