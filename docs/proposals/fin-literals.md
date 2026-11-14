@@ -57,10 +57,15 @@ matches 1" at once, where the chain was built 2^128 deep first. The kernel
 terms are those of the constructor split, so no hash moves for a match on
 one `Fin` column; with several columns the `Fin` is split first, as a `Nat`
 column is. Each case still refines the context, at a cost that grows faster
-than the number (k = 100 took 9 s on Speedwell, 200 over 3 GB), so a number
-pattern on a `Fin` is at most 64 (`MAX_FIN_PATTERN`): checking that would go
-further is `E-MATCH-SIZE`, with a note to compare the number in a condition
-instead. A missing case listing several columns shows a `Fin` column as the
+than the number, about sevenfold for each doubling (a full table of 128
+arms on a `Fin 128` checks in 3.5 s on Speedwell, 256 arms in 20 s, 512 in
+three minutes and 1.5 GB), so a number pattern on a `Fin` is at most 256
+(`MAX_FIN_PATTERN`): checking that would go further is `E-MATCH-SIZE`, with
+a note to compare the number in a condition instead. The limit is where
+checking stops being practical, so no match that checked in reasonable time
+before the numbers were compiled as numbers is refused; a number lowering
+that compares against the bound arithmetically, without a case per
+`FSucc`, would lift it (SW-2467). A missing case listing several columns shows a `Fin` column as the
 number written (`2, False`), or as `FSucc`s around `_` above the largest.
 
 **Missing numbers (D1079).** The indexed-family coverage check finds a

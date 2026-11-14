@@ -896,8 +896,9 @@ impl<'a> FinNumbers<'a> {
 
 /// How many `FSucc`s down a `Fin` number pattern may be matched: one case
 /// per `FSucc`, each refining the context, makes a large number take time
-/// and memory that grow faster than it does.
-const MAX_FIN_PATTERN: usize = 64;
+/// and memory that grow faster than it does. 256 keeps a full `Fin 256`
+/// table (about 20 s); twice that takes minutes (SW-2467).
+const MAX_FIN_PATTERN: usize = 256;
 
 /// What a pattern column's type is, as far as number patterns go.
 #[derive(Clone, Copy, PartialEq, Eq)]

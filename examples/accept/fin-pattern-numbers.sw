@@ -13,7 +13,7 @@ theorem sizeZero: size 20 0 = "none" := rfl
 theorem sizeTwelve: size 20 12 = "twelve" := rfl
 theorem sizeOther: size 20 11 = "some" := rfl
 
--- A number above the limit for patterns (64) is compared in a condition.
+-- A number above the limit for patterns (256) is compared in a condition.
 def far: (n: Nat) → Fin (Succ (Succ n)) → Text
   | _, 0 => "none"
   | _, i if i.toNat == 1000000 => "a million"
