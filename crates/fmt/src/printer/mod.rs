@@ -159,7 +159,7 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
             merged_groups = groups;
         }
     }
-    let tree = parse_tree(file, &input, DEFAULT_STACK).map_err(|d| Error::Refused(vec![d]))?;
+    let tree = parse_tree(file, &input, DEFAULT_STACK);
     let mut printer = rules::Rules::new(&tree, &input);
     let mut stats = TreeStats {
         merged_groups,
@@ -177,6 +177,12 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
     };
     for decl in tree.decls() {
         stats.decls += 1;
+        // A declaration that didn't lex, which only a file refused above
+        // has: as written.
+        if let Some(raw) = decl.raw_text_range() {
+            item(&mut out, 0, input[raw].trim_end());
+            continue;
+        }
         let range = decl.token_range();
         let trivia = &tree.trivia()[range.start];
         for comment in &trivia.leading {

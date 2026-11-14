@@ -131,7 +131,7 @@ fn apply(text: &str, mut edits: Vec<(std::ops::Range<usize>, String)>) -> String
 /// if there are none.
 pub(crate) fn merge(text: &str) -> Option<(String, usize)> {
     let file = SourceMap::new().next_id();
-    let tree = parse_tree(file, text, DEFAULT_STACK).ok()?;
+    let tree = parse_tree(file, text, DEFAULT_STACK);
     let mut edits = Vec::new();
     for decl in tree.decls() {
         walk(decl, &mut |node| {
@@ -195,7 +195,7 @@ pub(crate) fn merge(text: &str) -> Option<(String, usize)> {
 /// T)` into `(a: T) (b: T)`, for comparing trees.
 fn split(text: &str) -> Option<String> {
     let file = SourceMap::new().next_id();
-    let tree = parse_tree(file, text, DEFAULT_STACK).ok()?;
+    let tree = parse_tree(file, text, DEFAULT_STACK);
     let mut edits = Vec::new();
     for decl in tree.decls() {
         walk(decl, &mut |node| {
