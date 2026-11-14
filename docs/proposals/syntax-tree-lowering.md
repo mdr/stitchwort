@@ -5,6 +5,9 @@ built. Steps 3 and 4 of
 [syntax-tree-architecture.md](syntax-tree-architecture.md) (end state A2,
 D3562 yes). Steps 1 (the lossless tree, SW-3170) and 2 (the formatter on it,
 SW-3194) are done. It stops for Matt on two questions ([§9](#9-questions-for-matt)).
+It fits with [syntax-error-recovery.md](syntax-error-recovery.md) (SW-3161):
+the lowering lowers that note's error gaps, and its corpus of half-typed
+declarations is part of the oracle.
 
 Claims are marked **[source]** (read in the code at `051fe154a`),
 **[measured]** (the main checkout's release binary, built 08:01 today; the
@@ -34,8 +37,13 @@ lowering (what it means), each simpler than today's parsing function.
 what makes D3563 possible: once the parser builds nothing but marks, it can
 mark an error node and carry on, and the lowering turns the gap into a
 hole, so a declaration with a half-typed line keeps being checked.
+SW-3161 ([syntax-error-recovery.md](syntax-error-recovery.md)) designs
+that recovery and recommends it lands first; the lowering here lowers its
+gaps (`Error` nodes and missing parts), and its corpus of half-typed
+declarations is part of the test.
 
-**Cost.** About 45 lane hours in eight lanes [estimated], none of them
+**Cost.** About 50 lane hours in eight lanes [estimated], including the
+lowering of SW-3161's error gaps, none of them
 risky in the usual way, because the old route is the oracle until the end.
 Parsing gets roughly 10–30% slower in the end state [estimated]; parsing
 all of std, which every `stitchwort check` does once, takes 55 ms today
@@ -174,26 +182,69 @@ already does that lookup.
 playground and elaborator tests) needs a tree too: a `SyntaxFile` whose one
 root is a new kind, `Expression` [implementation choice].
 
-**Declarations that fail.** Today a `def` whose header parsed and whose
-body didn't is kept as its signature with `body_error` set (the parser
-parks it in `header`, `parser.rs:747`); the rest of a failed declaration
-contributes only its declared names, read off its tokens. The lossless
-tree currently keeps no marks for a failed declaration (`tree.rs`
-`build_decl` drops them). The lowering needs them: the builder keeps the
-marks of the constructs that finished before the error (they nest, as
-every finished construct does), under the `Error` root, and the lowering
-makes the signature from the `Param`, `ResultType`, `Decreasing` and
-`Unfolding` nodes it finds there. This is the shape D3563 wants anyway
-(an `Error` node inside an otherwise whole tree); `tree.rs` already says
-nothing may assume an `Error` node is a root. Readers of `Error` nodes
-(formatter, editor) need checking when this lands. `failed_names_of` stays
-as it is: it reads tokens.
+### Error nodes and missing parts (SW-3161)
+
+[syntax-error-recovery.md](syntax-error-recovery.md) (SW-3161, for
+D3563) has the parser recover inside a declaration and recommends that it
+lands **before** this work. It puts two kinds of gap in the lossless tree
+(its §3), and the lowering handles both:
+
+- **An `Error` node over skipped tokens** (its points R2–R6), where they
+  were: a `Block`'s line, an `Arm` or its body, a `Paren`'s inside, a
+  `calc` step, the rest of a body. The root keeps its real kind (`Def`,
+  `Theorem`). The lowering turns the node into what the parser builds at
+  that point: `Expr::Missing(span)` in an expression's place, the block's
+  error statement (with a `let`'s name kept, bound to a missing value,
+  when the name was read), an arm with a missing body, or no arm and the
+  `match` marked incomplete when its patterns broke, a step with a missing
+  side, and R6's equation with the header's patterns and a missing body.
+  **The lowering never looks inside an `Error` node.** The finished
+  constructs there keep their nodes for the editor, but they are skipped
+  text to the checker.
+- **A missing part** (R1, the text ran out) has no node: the parent lacks
+  a required child. So each lowering function knows its kind's required
+  slots, and finds which slot a child fills by reading the token that
+  introduces it (`:` or `:=` in a `let`, `then` and `else`, `=>`, `in`,
+  `with`). That is reading, not parsing. A slot whose token or child is
+  absent is a missing expression, at the point SW-3161 gives: the end of
+  the parent's last token. R1 only happens at a stop or at the end of a
+  declaration, so nothing follows an absent slot, and slots can't be
+  confused.
+
+What the lowering builds for each gap, spans included, is whatever the
+recovering parser builds directly: the oracle holds it to that, as for
+everything else. The span check exempts a missing expression's point span
+(SW-3161 §3), so `Synthetic` gets a `Missing` reason.
+
+A **declaration that fails whole** (a broken header; `type`, `interface`,
+`ability`, `namespace` and `import`, which aren't recovered, D2782; a
+lexical error, SW-3185) stays one `Error` root, and the lowering gives
+only its names in `Module::failed`, read off its tokens by
+`failed_names_of` as today.
+
+**If lowering lands first** (the other order): today's recovered signature
+(`body_error`, parked in `header`, `parser.rs:747`) has to be lowered, and
+the builder currently drops a failed declaration's marks (`tree.rs`
+`build_decl`). Then L0 keeps the marks of the constructs that finished
+before the error, under the `Error` root, and L2 makes the signature from
+the `Param`, `ResultType`, `Decreasing` and `Unfolding` nodes there.
+SW-3161's S0/S1 keep those marks anyway, and R6 replaces `body_error`, so
+in the recommended order this part is not needed.
+
+**Recovery and the parser's state.** SW-3161 restores the parser's mode
+fields and truncates `open` at a recovery point, and keeps the marks
+already recorded, which nest inside the new `Error` node. Since the
+lowering skips `Error` nodes' insides, those marks don't need to be
+consistent with anything outside them. Its marks hazard (an `Error` mark
+taken for an operator's left operand, SW-3161 §3.2) is the parser's to
+avoid; the oracle would show it as a different tree.
 
 **Lexical errors.** `parse_module_recovering` recovers from a lexical
 error per declaration (`lex_recovering`), while the tree today needs
 `lex_with_trivia`, which fails for the whole file. The lowering route uses
 `lex_recovering_with_trivia` (`lexer.rs:439`, exists, unused outside the
-lexer) [source].
+lexer) [source]. SW-3161's S0 folds in SW-3185, which makes such a
+declaration an `Error` root over its raw text; with it, this is done.
 
 **Stack.** The parser bounds its recursion with `StackLimit` and reports
 `E-RESOURCE` (12,000 nested brackets parse within the 1.5 MiB default:
@@ -212,9 +263,10 @@ expect a parse-stage code (86 `E-PARSE`, 6 `E-COMPARISON-CHAIN`, 2
 `E-CALC-RELATION`, 1 `E-OR-PATTERN-BINDS`, 1 `E-NAMESPACE-NOT-FIRST`), and
 their messages are snapshot-tested [source].
 
-**Step 3: the lowering is infallible.** It runs only on what parsed, and
-every error is still reported by the parser, by the same code. The
-diagnostic text can't change, and the oracle checks it anyway.
+**Step 3: the lowering is infallible.** It runs on what parsed, including
+a recovered declaration's tree with its gaps, and every error is still
+reported by the parser, by the same code. The diagnostic text can't
+change, and the oracle checks it anyway.
 
 **Step 4: the parser has no values to inspect.** Its errors fall in three
 groups:
@@ -241,17 +293,24 @@ groups:
   block ending in a `let` or `def` (`:2642`). They move to the lowering,
   which becomes `Result`, keeping their text.
 
-**Which error a declaration reports.** Today the first check the parser
-reaches wins, and it stops. A check in group C fires at a known point: the
-end of the construct it inspects (the `ResultType` for duplicate
-parameters, the `Arm` for the absurd guard). The lowering keeps that order:
-it runs over the finished constructs of a declaration even when the parse
-failed later, collects its errors with the token at which today's check
-fires, and reports the earliest of those and the parse error. For a
-declaration with one error this is exact. For one with two, it is exact as
-long as each moved check is given the right firing point; the fuzzers are
-how we find out (§4), and D3574 asks what to do with a difference they
-find.
+**Which errors a declaration reports.** Without recovery, the first check
+the parser reaches wins and the declaration stops. With SW-3161's
+recovery, a failed check ends only the construct around it: the nearest
+recovery point (a line, an arm, a bracket) skips to where it resumes, and
+SW-3161 keeps at most one error per line, the first. A check in group C
+fires at a known point, the end of the construct it inspects (the
+`ResultType` for duplicate parameters, the `Arm` for the absurd guard).
+Moved into the lowering, it no longer stops the parser, so the parser may
+find a second error in the text that today's recovery would have skipped.
+The lowering keeps the old result by putting its errors in with the
+parser's, each at the token where today's check fires, and applying the
+same rules to the combined list: errors in file order, the first one per
+line kept, and a parse error inside the construct that a recovery point
+would have skipped dropped. (Without recovery the same rule reads: report
+the earliest.) For one error per construct this is exact. For two in the
+same construct, it is exact as long as each moved check is given the
+right firing point; the fuzzers and the S5 corpus are how we find out
+(§4), and D3574 asks what to do with a difference they find.
 
 ## 4. The oracle and test plan
 
@@ -282,16 +341,33 @@ entry is compared over real code too.
 
 **Corpus.** Every `.sw` file in the repo: 2,983 outside `target/` and
 `.claude/` [measured], including the 920 `reject/` examples, whose
-partial modules and errors are compared too (the recovered signatures, the
-`failed` names). `dev tree` over std, `aoc/src`, `games` and `examples`
+partial modules and errors are compared too (recovered declarations, the
+`failed` names), and SW-3161's new `recover-*.sw` examples. `dev tree` over std, `aoc/src`, `games` and `examples`
 alone covers 2,618 files and 27,578 declarations, 99 of which don't parse
 and 5 files that don't lex [measured]: the error paths have some coverage,
 not much.
 
+**Half-typed code: SW-3161's S5 corpus.** The repo's files are almost all
+correct, so they hardly test the gaps. S5's recovery corpus cuts each
+declaration of a sample at every token, the way a declaration looks while
+it is typed. The oracle runs both routes on each cut, with `--cuts`, and
+compares the same things: the `Error`-node lowering, missing expressions
+and their point spans, kept `let` names, incomplete matches, R6's
+equation, and every diagnostic. The cuts are made at run time from the
+repo's files, not committed. Declarations parse independently, so only
+the cut declaration is parsed each time. Over the whole repo that is
+about 27,600 declarations times their tokens: roughly 200 MB of parsing
+per route, under a minute with the comparison [estimated: about 250
+bytes and some 60 tokens per declaration, from the probe's totals]. That
+is Overmind's run; a lane uses S5's sample. If recovery lands first, the
+cuts are part of every gate from L1 on, for the kinds that lane lowers.
+
 **Fuzzing.** `task fuzz:syntax` (100,000 cases) gets one more property:
-both routes agree on every input. It is where multi-error declarations
-come from, so it is the test of §3's ordering rule. Run on Overmind before
-step 4.
+both routes agree on every input. With S5's cuts, it is where
+declarations with several errors come from, so it is the test of §3's
+rule for errors. It runs on Overmind before step 4. S5's own invariant
+("no errors exactly when the tree has no `Error` node and no missing
+child") then holds for the lowering route too.
 
 **Existing tests.** The parser's unit tests (`parser.rs` from line 6005)
 call the public functions, so after the switch (L5) they test the
@@ -310,16 +386,27 @@ Each lane has its gate in the oracle. Hours [estimated].
 
 | Lane | What | Gate | Model | Hours | After |
 |---|---|---|---|---|---|
-| L0 | **Scaffolding.** `lower` module, accessors, dispatch with "unsupported"; `dev tree --lower` with the exact comparison, diagnostics, per-kind counts; the `Expression` root and `parse_tree` for expressions; marks kept under `Error` roots; `lex_recovering_with_trivia` on the tree route. Lowers `namespace`, `import`, `test` and leaves (names, literals, `_`, `?`, `Type`) | Tool runs over the repo; namespace, import and test declarations with leaf bodies equal; `dev tree --spans` unchanged | Opus | 5–6 | – |
-| L1 | **Expressions.** `Paren`/`Bracketed`, `Unit`, unit calls, `App`, `NamedArg`, `FieldAccess`, `Binary` (flips), `Prefix` (`not`, `NegForm`), `Membership`, `Range`, `Pipe` (not into a section), `Arrow`, `Annotation`, `Iff`, `Chain`, `Interpolated`, `Tuple`, `List`/`Spread`, `Record`, `RecordField`, `CtorFields`, `Universe`, `Include` | 0 unequal; these kinds 0 unsupported | Opus | 6–8 | L0 |
-| L2 | **Declarations.** `Def`/`Theorem`/`Instance` (signature, `Pi`s, equations, arm counts, defaults, `∀`), `Arms`/`Arm`/`Guard` at top level, `Decreasing`, `Unfolding`, `DataType`/`RecordType`/`Interface`/`TypeSynonym`, `Constructor`, `Fields`, `Field`, `Binder`, `Attributes`, `Ability`/`AbilityOp`, `FunctionType`, `Effect`/`Row`; recovered signatures with `body_error` | 0 unequal; reject examples' recovered signatures equal | Opus | 6–8 | L0 (parallel with L1) |
-| L3 | **Binding and sections.** `Block` (statements, `LocalDefs` grouping), `Let`, `LetExpr`, `Seq`, `Lambda`/`LambdaParam` (pattern parameters), `Section`, `OperatorSection`, pipe into a section, `ClauseLambda`, `Forall`, `Exists`, `If` | as above | Opus | 6–8 | L1 |
-| L4 | **Matching, proofs, patterns.** `Match`/`Scrutinee`, `Handle`/`HandlerClause`, `Reify`, `Induct`/`InductArm`, `Calc`/`CalcStep` (reversal), `Rewrite`/`RewriteRule`, `Omega`, `Ring`, `Cases`; all 11 pattern kinds | **Whole repo: 0 unsupported, 0 unequal, diagnostics equal**; expressions equal; `fuzz:syntax` with the agreement property clean on Overmind | Opus | 6–8 | L1 (parallel with L3) |
+| L0 | **Scaffolding.** `lower` module, accessors, required slots, dispatch with "unsupported"; `dev tree --lower` with the exact comparison, diagnostics, per-kind counts, and `--cuts` over S5's corpus; the `Expression` root and `parse_tree` for expressions; the `Error`-node and absent-slot framework (`Expr::Missing` at the parent's end; the `Missing` span reason); `lex_recovering_with_trivia` on the tree route unless SW-3185 did it; marks under `Error` roots only if recovery hasn't landed. Lowers `namespace`, `import`, `test` and leaves (names, literals, `_`, `?`, `Type`) | Tool runs over the repo and the cuts; namespace, import and test declarations with leaf bodies equal; `dev tree --spans` unchanged | Opus | 6–7 | – |
+| L1 | **Expressions.** `Paren`/`Bracketed`, `Unit`, unit calls, `App`, `NamedArg`, `FieldAccess`, `Binary` (flips), `Prefix` (`not`, `NegForm`), `Membership`, `Range`, `Pipe` (not into a section), `Arrow`, `Annotation`, `Iff`, `Chain`, `Interpolated`, `Tuple`, `List`/`Spread`, `Record`, `RecordField`, `CtorFields`, `Universe`, `Include`; gaps: R2 (inside brackets), R2b (stray closers), R1 after an operator or in a bracket | 0 unequal, on the files and the cuts; these kinds 0 unsupported | Opus | 7–9 | L0 |
+| L2 | **Declarations.** `Def`/`Theorem`/`Instance` (signature, `Pi`s, equations, arm counts, defaults, `∀`), `Arms`/`Arm`/`Guard` at top level, `Decreasing`, `Unfolding`, `DataType`/`RecordType`/`Interface`/`TypeSynonym`, `Constructor`, `Fields`, `Field`, `Binder`, `Attributes`, `Ability`/`AbilityOp`, `FunctionType`, `Effect`/`Row`; R6 (the rest of a body: one equation with a missing body), or, if recovery hasn't landed, today's signatures with `body_error` | 0 unequal; reject examples' recovered declarations equal | Opus | 6–8 | L0 (parallel with L1) |
+| L3 | **Binding and sections.** `Block` (statements, `LocalDefs` grouping), `Let`, `LetExpr`, `Seq`, `Lambda`/`LambdaParam` (pattern parameters), `Section`, `OperatorSection`, pipe into a section, `ClauseLambda`, `Forall`, `Exists`, `If`; gaps: R3 (a block's line, a broken `let`'s name kept), R1 in `let`, `if`, lambdas | as above | Opus | 7–9 | L1 |
+| L4 | **Matching, proofs, patterns.** `Match`/`Scrutinee`, `Handle`/`HandlerClause`, `Reify`, `Induct`/`InductArm`, `Calc`/`CalcStep` (reversal), `Rewrite`/`RewriteRule`, `Omega`, `Ring`, `Cases`; all 11 pattern kinds; gaps: R4 (arms, incomplete matches), R5 (calc steps), R1 after `=>`, `with`, `in` | **Whole repo and the whole cut corpus: 0 unsupported, 0 unequal, diagnostics equal** (Overmind); expressions equal; `fuzz:syntax` with the agreement property clean on Overmind | Opus | 7–9 | L1 (parallel with L3) |
 | L5 | **Switch.** The public functions (`parse_module*`, `parse_expression*`, `parse_tree`) go through the lowering; the direct route is kept only for the oracle (`parse_module_direct`, test-only) | Hash snapshots unchanged; the verifier's example kinds; both nesting benchmarks parse; performance-log entry (D3444) | Opus | 3–4 | L2, L3, L4 |
-| L6 | **Step 4: delete direct construction.** Parsing functions return `Result<()>` or a small value; group B rewritten on marks and tokens; group C moved into the lowering with the ordering rule; `header` parking, `Stmt`, `LamParam`, `Param` values and `parse_module_direct` gone | Reject snapshots unchanged; parser unit tests; hash snapshots; nesting benchmarks; a last oracle run against L5's route on the fuzz corpus before the old route is deleted | Opus | 6–8 | L5 plus a day of Overmind's rolling checks |
+| L6 | **Step 4: delete direct construction.** Parsing functions return `Result<()>` or a small value; group B rewritten on marks and tokens; group C moved into the lowering with the rule for errors; the recovery points stop building `Missing`, error statements and incomplete matches (they only mark); `header` parking, `Stmt`, `LamParam`, `Param` values and `parse_module_direct` gone | Reject snapshots unchanged; parser unit tests; hash snapshots; nesting benchmarks; a last oracle run against L5's route on the fuzz and cut corpora before the old route is deleted | Opus | 6–8 | L5 plus a day of Overmind's rolling checks |
 | L7 | **Tidy.** Docs (`tree.rs` and `ast.rs` headers, `docs/syntax.md`'s pointer for contributors on where to add syntax), `dev tree --time` timing the lowering, dead `Synthetic` reasons, the chain and pattern-`let` follow-up filed | Docs only, plus `dev tree --spans` | Sonnet | 2–3 | L6 |
 
-Total 40–53 hours, against the architecture note's 33–52. Opus throughout
+Total 44–58 hours, against the architecture note's 33–52. The +4–5 over a design without gaps is SW-3161's S7 (its estimate +3–5), spread over L0, L1, L3 and L4 by construct family rather than made a lane of its own, so each family's gaps are lowered by the lane that knows the family.
+
+**Order with SW-3161** (sequencing, the orchestrator's call). I agree with
+SW-3161 that recovery (its S0–S3, and S5's corpus) goes first. Then the
+lowering is written once, knowing about gaps, against a parser that
+already builds them; the `body_error` path and the "marks under `Error`
+roots" work are never written. Recovery and L0 can overlap: L0 touches
+`tree.rs`, `lower/` and the CLI, recovery touches the parsing functions.
+L1–L4 should start after S3, since each changes the same parsing
+functions' neighbourhood and the gates need the gaps to exist. If
+lowering has to go first, every lane's gap column is empty, and S7 is a
+lane after L4 (3–5 h), before L5. Opus throughout
 by D2506 (syntax); with the oracle as an exact test, L1 could try Sonnet
 if the orchestrator wants the comparison.
 
@@ -379,12 +466,21 @@ larger than estimated.
   kinds.
 - **Span quirks.** Many spans are derived, some oddly (#5, #8, #13, #22).
   Reproducing them is fiddly but fully checked.
-- **Error order** for declarations with two errors (§3, D3574).
+- **Error order** for constructs with two errors (§3, D3574).
+- **Two designs moving at once.** SW-3161's recovery and this lowering
+  both change the parser and the lossless tree. Recovery first (§5) keeps
+  one of them still while the other is written; if they overlap, the
+  parsing functions are where they conflict.
 - **Deep nesting** in the lowering and in the oracle's `Debug` printing:
   the stack limit and a large-stack thread, with the benchmarks as gates.
-- **Keeping marks under `Error` roots** changes the lossless tree of
-  failed declarations; the formatter refuses such files, but the editor's
+- **`Error` nodes inside declarations** (SW-3161, or this note's marks
+  under `Error` roots if lowering goes first) change the lossless tree of
+  broken declarations; the formatter refuses such files, but the editor's
   readers of the tree need checking.
+- **An absent slot read wrongly.** A missing part has no node, so a
+  lowering function that finds a child's slot by position instead of by
+  its introducing token could put a child in the wrong slot. The cut
+  corpus exercises every slot of every kind, cut after each token.
 - **Parallel lanes** L1/L2 and L3/L4 share the dispatch functions and the
   tool: small, mechanical conflicts.
 - **The window between L5 and L6** is slower (§6) and has two routes in
@@ -403,24 +499,28 @@ larger than estimated.
   could parse once in the end state.
 - The parse timings are one probe each at a load of about 5; the
   end-state cost is an estimate from them, not measured.
-- How `parse-recovery.md` (SW-1917) and the D3563 note (SW-3161, being
-  written) shape error nodes; this note only keeps marks under `Error`
-  roots, which they need either way.
+- SW-3161's note was read after this one was drafted (it landed during
+  the lane); its rules are folded into §2, §3, §4 and §5, but I didn't
+  read its §4.2 (the checker's cascade suppression), which the lowering
+  doesn't touch. The exact compiler nodes for gaps (the error statement's
+  shape, the incomplete flag) will be whatever S1–S3 build; this note
+  only requires the lowering to build the same.
 
 ## 9. Questions for Matt
 
-**D3574: in a declaration with two syntax errors, may the error shown
-change, if every single-error case and every rejected example stays the
-same?** *The problem:* today the parser stops at the first check it
-reaches. After step 4, a handful of checks (duplicate parameters, an
-or-pattern that binds names, and four more) run in the lowering instead,
-and the lowering is built to report what the parser would have reported
-first; but with two errors in one declaration, the fuzzer may find
-inputs where it shows the other one. *The change:* if it does, accept the
-difference rather than contort the lowering to match. *What it should do:*
-nothing for one error per declaration, which is every example in the repo
-[source: reject examples declare one code each]; for two, the error shown
-first may be a different one of the two. **[rec: yes]**
+**D3574: where two syntax errors sit in one construct (one line, one
+arm), may the errors shown change, if every rejected example's text stays
+the same?** *The problem:* the parser stops a construct at the first check
+it reaches (and with SW-3161's recovery, keeps one error per line). After
+step 4, a handful of checks (duplicate parameters, an or-pattern that
+binds names, and four more) run in the lowering instead, built to give
+the same errors as before; but with two errors in one construct, the
+fuzzer or the cut corpus may find inputs where a different one of the two
+is shown, or both. *The change:* if they do, accept the difference rather
+than contort the lowering to match. *What it should do:* nothing for one
+error per construct, which covers every example in the repo [source];
+for two in one construct, which of them is shown may change. **[rec:
+yes]**
 
 **D3575: may the lowering lanes run the parse-only oracle over the whole
 repo themselves?** *The problem:* the lanes' only real test is "both
@@ -443,12 +543,18 @@ Labelled as mine, for the orchestrator to overrule:
 - No node identifier in the compiler's tree in steps 3–4; spans are the
   link, with an index built on demand when a tool needs one.
 - An `Expression` root kind for single-expression parses.
-- Marks of finished constructs kept under `Error` roots; recovered
-  signatures lowered from them.
+- Gaps: an `Error` node lowers to the node the recovering parser builds
+  there, without looking inside it; an absent slot, found by its
+  introducing token, lowers to a missing expression at the parent's end.
+- Marks of finished constructs kept under `Error` roots, and recovered
+  signatures lowered from them, only if lowering goes before recovery.
+- SW-3161's S7 spread over L0, L1, L3 and L4 by construct family; the
+  cut corpus is part of the gates.
 - The oracle compares `Debug` text with spans per declaration and
   `Diagnostic`s by equality; "unsupported" counted per kind.
 - Group C checks move to the lowering with each check's firing point
-  recorded, to keep today's error order.
+  recorded, and the parser's rules for errors (file order, first per
+  line, skipped text dropped) applied to the combined list.
 
 ## Findings worth tickets
 
@@ -466,8 +572,9 @@ Labelled as mine, for the orchestrator to overrule:
   be cheaper; worth filing if not already.
 - **`lex_recovering_with_trivia` has no callers** outside the lexer: the
   lossless tree is missing for any file with a lexical error, so the
-  editor's shape features vanish there. Using it in `parse_tree` is a
-  small change that doesn't need to wait for L0.
+  editor's shape features vanish there. SW-3185, folded into SW-3161's
+  S0, covers it; if S0 waits, using it in `parse_tree` is a small change
+  on its own.
 - **The elaborator recognises shorthand by markers** (`%section` names in
   `check.rs`, `dot.rs`, `queue.rs`; `MatchKind`; `NegForm`) to word its
   errors. After step 4 it could ask the lossless tree what was written,
