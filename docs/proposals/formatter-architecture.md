@@ -314,6 +314,18 @@ Lane hours are [estimated].
 Today's formatter stays in use until stage 5. Stage 1 is useful to the
 tools even if the rest stopped.
 
+**Stage 5 is done** (SW-3194, 14 November 2026, D3573). `format`,
+`format_with_stats` and `format_in` print with the tree printer
+(`crates/fmt/src/printer/`); the line-based layout (`layout.rs`, `doc.rs`) is
+deleted, and the repo is reformatted in one commit listed in
+`.git-blame-ignore-revs`. D2307's redundant-bracket dropping, which only the
+old layout did, is a rewrite pass of the printer (`printer/parens.rs`), checked
+on its own like D3565's merge. `Stats` now counts declarations, declarations
+left as written, and nodes without a rule. `stitchwort dev fmt-tree` stays as
+the repo-wide report (the gate of stages 2 to 4, and a way to see what the
+printer leaves as written). SW-3193's fix is in too: a header's variable run
+doesn't leave its last variable alone on a line.
+
 ## 7. What it means for the Stitchwort formatter (SW-3145, D3556)
 
 - **Which is the better test of the language.** They test different

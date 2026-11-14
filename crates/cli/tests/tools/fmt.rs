@@ -1,4 +1,4 @@
-//! `stitchwort fmt` (docs/proposals/formatter.md §5.1), end to end with the
+//! `stitchwort fmt` (docs/proposals/formatter.md §5.1, still the interface), end to end with the
 //! built command.
 
 use std::io::Write;

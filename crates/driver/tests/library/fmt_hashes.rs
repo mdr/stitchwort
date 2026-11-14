@@ -1,4 +1,4 @@
-//! The formatter's hash oracle (docs/proposals/formatter.md §4.2): a file's
+//! The formatter's hash oracle (docs/proposals/formatter.md §4.2, formatter-style.md): a file's
 //! declarations must keep their `def_hash`/`data_hash` and export flag, in
 //! the same order, with the same tests, when the file is formatted. This
 //! goes through the elaborator, so it is independent of the formatter's own

@@ -1,5 +1,5 @@
 //! Spacing between two tokens on one line: rules R3 to R6 and the decisions
-//! D1037 and D1039 (docs/proposals/formatter.md §3, §8), copying the source
+//! D1037 and D1039 (docs/proposals/formatter.md §3, §8; still in force), copying the source
 //! wherever spacing can change meaning (§2.3).
 
 use stitchwort_syntax::{Tok, Token, argument_minus, closes_operand, record_braces};
