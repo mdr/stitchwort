@@ -44,6 +44,22 @@ fn isolated(name: &str, body: impl FnOnce()) {
         "the child process failed ({}):\n{stdout}\n{stderr}",
         out.status
     );
+    // The child's output would otherwise be lost: pass on the lines its test
+    // writes (`size …` and `threshold …` with `--nocapture`), without
+    // libtest's own lines. libtest prints `running 1 test`, then the test's
+    // name followed by ` ... ` with the test's first output on the same line,
+    // and at the end a bare `ok` and `test result: …`.
+    let prefix = format!("test nesting::{name} ... ");
+    for line in stdout.lines() {
+        let line = line.strip_prefix(&prefix).unwrap_or(line);
+        let libtest = line.is_empty()
+            || line == "ok"
+            || line.starts_with("running ")
+            || line.starts_with("test result:");
+        if !libtest {
+            println!("{line}");
+        }
+    }
 }
 
 /// A stack guard of `kib` KiB as measured with release frames. Debug frames
