@@ -8,10 +8,9 @@ use std::path::Path;
 use stitchwort_fmt::{format, format_with_stats};
 
 /// Files with declarations the formatter leaves as written because the
-/// comments in them sit where no rule places them (a comment before a
-/// leading comma, a comment that would move to the other side of one): the
-/// number of such declarations in each. Their `.after.sw` is the input.
-const LEFT_AS_WRITTEN: [(&str, usize); 2] = [("brackets-comments", 1), ("brackets-edge", 1)];
+/// comments in them sit where no rule places them: the number of such
+/// declarations in each. Their `.after.sw` is the input.
+const LEFT_AS_WRITTEN: [(&str, usize); 0] = [];
 
 #[test]
 fn golden_files_format_as_expected_and_idempotently() {

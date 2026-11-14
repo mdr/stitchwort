@@ -31,12 +31,12 @@ def withMatch (n: Nat): Nat := f (
   7
 )
 
-def commas (xs: List Nat): Nat :=
-  [ 1 -- a
-  , -- b
-    2
-  , 3, -- c
-  ]
+def commas (xs: List Nat): Nat := [
+  1, -- a
+  -- b
+  2,
+  3 -- c
+]
 
 def twoLevels: Nat := f [[1, 2]]
 

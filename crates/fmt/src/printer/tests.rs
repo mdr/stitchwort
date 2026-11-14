@@ -218,6 +218,17 @@ fn a_comment_no_rule_places_leaves_its_declaration_as_written() {
 }
 
 #[test]
+fn comments_around_a_leading_comma_go_above_the_next_item() {
+    let gate = gate("def x: List Nat :=\n  [ 1 -- a\n  -- b\n  , -- c\n    2\n  ]\n").unwrap();
+    assert_eq!(gate.check, Ok(()));
+    assert_eq!(gate.stats.verbatim_decls(), 0);
+    assert_eq!(
+        gate.text,
+        "def x: List Nat := [\n  1, -- a\n  -- b\n  -- c\n  2\n]\n"
+    );
+}
+
+#[test]
 fn decreasing_breaks_its_header() {
     // S11.
     check(
