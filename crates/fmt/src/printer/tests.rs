@@ -159,6 +159,15 @@ fn a_comma_bracket_breaks_one_item_a_line() {
 }
 
 #[test]
+fn an_attribute_list_that_fits_drops_its_trailing_comma() {
+    // R15, S31, D1012: the same as the list without one.
+    check(
+        "@[js.tag \"kind\", js.other \"x\",]\ntype Message = | Note | Other\n",
+        "@[js.tag \"kind\", js.other \"x\"]\ntype Message = | Note | Other\n",
+    );
+}
+
+#[test]
 fn an_if_breaks_one_clause_a_line() {
     // S19.
     let a = long(50);
