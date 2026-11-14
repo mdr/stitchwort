@@ -651,6 +651,44 @@ fn running_out_of_steps_names_the_declaration_being_checked() {
     assert_eq!(resource.labels.len(), 1, "{resource:?}");
 }
 
+/// A declaration that checks for long is reported while it runs: when its
+/// steps pass the first count and each time they double, naming it and the
+/// definition being unfolded (SW-2009). The notes change nothing: the
+/// declaration still checks, in the same steps.
+#[test]
+fn a_long_check_says_what_it_is_computing_while_it_runs() {
+    static NOTES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    let source =
+        format!("{REPLICATE}\ntheorem long : List.length (replicate 2000 1) = 2000 := rfl\n");
+    let steps = |progress: bool| {
+        let mut session = Session::new();
+        if progress {
+            stitchwort_elab::progress::report_to(|note| NOTES.lock().unwrap().push(note.into()));
+            // More than `POLL` steps, how often the budget looks.
+            session.elab.options.progress_after = Some(20_000);
+        }
+        let before = session.elab.kernel.machine.budget.total_work();
+        session.load("long.sw", &source).expect("checks");
+        session.elab.kernel.machine.budget.total_work() - before
+    };
+    let quiet = steps(false);
+    assert!(NOTES.lock().unwrap().is_empty());
+    assert_eq!(steps(true), quiet);
+    let notes = NOTES.lock().unwrap();
+    let long: Vec<&String> = notes.iter().filter(|n| n.contains("long`")).collect();
+    assert!(long.len() >= 3, "{notes:?}");
+    assert!(
+        long[0].starts_with("still checking `")
+            && long[0].contains("`: over 20,000 evaluation steps so far, unfolding `")
+            && long[1].contains("over 40,000 evaluation steps"),
+        "{long:?}"
+    );
+    assert!(
+        long.iter().any(|n| n.contains("unfolding `replicate`")),
+        "{long:?}"
+    );
+}
+
 const SEARCH: &str = "import Std (List, Nat, Option)\n\n\
     def search (xs: List Nat) (number: Nat): Nat → Option Nat\n  \
     | 0 => None\n  \

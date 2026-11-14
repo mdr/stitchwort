@@ -5,7 +5,7 @@ use crate::lexer::Tok;
 use crate::parser::{failed_names_in, failed_names_of};
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
-use super::access::required;
+use super::access::{at_most, required};
 use super::{Lower, Lowering, Unsupported};
 
 /// The name a token holds, if it is a name.
@@ -82,6 +82,7 @@ impl<'f> Lower<'f> {
             _ => return Err(Unsupported::Missing(kind, "its name")),
         };
         let body = required(root.child(NodeKind::Body), kind, "its body")?;
+        at_most(body, 2)?;
         let expr = required(body.after(&Tok::ColonEq), NodeKind::Body, "its expression")?;
         let expr = self.expr(expr)?;
         Ok(Decl::Test {

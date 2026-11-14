@@ -9,7 +9,7 @@ use crate::ast::{Alt, Expr, LocalDef, MatchKind, Mode, Name, Pattern, Scrutinee}
 use crate::lexer::Tok;
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
-use super::access::required;
+use super::access::{at_most, required};
 use super::decls::name;
 use super::definitions::last_token;
 use super::header::Param;
@@ -369,6 +369,7 @@ impl<'f> Lower<'f> {
     #[inline(never)]
     pub(super) fn let_expr(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::LetExpr;
+        at_most(node, 3)?;
         let line = required(node.child(NodeKind::Let), kind, "its `let`")?;
         let stmt = self.let_line(line)?;
         let body = required(node.after(&Tok::Semi), kind, "its body")?;
@@ -379,6 +380,7 @@ impl<'f> Lower<'f> {
     #[inline(never)]
     pub(super) fn seq(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Seq;
+        at_most(node, 3)?;
         let first = required(node.children().next(), kind, "its first expression")?;
         let rest = required(node.after(&Tok::Semi), kind, "its rest")?;
         Ok(Expr::Seq(

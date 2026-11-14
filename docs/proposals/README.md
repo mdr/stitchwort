@@ -124,6 +124,7 @@ status line now says the wrong thing; the details are in
 | [negative-arguments-review.md](negative-arguments-review.md) | Independent review of the note above | record | SW-853 |
 | [logic-notation.md](logic-notation.md) | `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` and their ASCII forms | built: `crates/elab/src/logic.rs`, `crates/elab/src/membership.rs` | SW-461 |
 | [number-patterns.md](number-patterns.md) | Number patterns without `Succ` chains | built: `crates/elab/src/numbers.rs` | SW-75 |
+| [text-patterns.md](text-patterns.md) | Text literals in patterns (`\| "def" => …`), on `Text` and `List Char`, and prefixes | proposed: D3591, D3592 | SW-3231 |
 | [fin-literals.md](fin-literals.md) | Checked `Fin` literals | built | SW-384 |
 | [brace-syntax-review.md](brace-syntax-review.md) | Braces after a constructor, and record syntax as a whole | built (stale): D2481-D2485 | SW-1613, SW-1632, SW-1633 |
 | [record-argument-braces.md](record-argument-braces.md) | A record literal as a constructor's argument (D1370) | superseded by brace-syntax-review.md | SW-606, SW-1322 |
@@ -217,6 +218,7 @@ status line now says the wrong thing; the details are in
 | [lsp-failure-policy.md](lsp-failure-policy.md) | How the language server handles panics and failures | in progress: stage 1 built (SW-1820); D2741-D2744 open | SW-1955, SW-1820; open SW-1948, SW-1979-SW-1981, SW-2067 |
 | [parse-recovery.md](parse-recovery.md) | Recovering from syntax errors while someone types | superseded in part by syntax-error-recovery.md (D2780-D2785; nothing built) | SW-1917, SW-1873, SW-1982-SW-1986 |
 | [syntax-error-recovery.md](syntax-error-recovery.md) | Working through a broken declaration (D3563): recovery points, error nodes, gaps the checker skips without cascades | proposed: D3580 decided (Fable's split), D3581 open | SW-3161 |
+| [parser-end-state.md](parser-end-state.md) | The parser now it only records marks (D3579): keep marks but make them strict (starts kept, one way to record, a builder that checks), against rust-analyzer's events and direct tree building; the leftovers of the two-route period; a statement-changing bug found on the way | proposed: D3582 open | SW-3233 |
 | [tests-with-errors.md](tests-with-errors.md) | Checking and running tests when a project has errors or open goals: status per declaration, importers of a broken namespace | proposed: decisions D-a to D-f open | SW-2938; builds on SW-2909, SW-2932 |
 | [editor-and-playground-roadmap.md](editor-and-playground-roadmap.md) | Roadmap for VS Code and the playground | built: every ticket done | SW-1111, SW-1116-SW-1121, SW-1489 |
 | [playground-editor.md](playground-editor.md) | CodeMirror 6 in the playground | built: `web/editor/src/editor-entry.js` | SW-1118, SW-1375-SW-1378 |
@@ -246,11 +248,11 @@ status line now says the wrong thing; the details are in
 |---|---|
 | built | 102 |
 | in progress | 16 |
-| proposed | 19 |
+| proposed | 20 |
 | superseded | 4 |
 | parked | 4 |
 | record | 8 |
-| **total** | **153** |
+| **total** | **154** |
 
 "Built" includes notes where only the decided part is built and the rest
 was left as someday/maybe (partial.md, records.md, multi-file.md). Of the

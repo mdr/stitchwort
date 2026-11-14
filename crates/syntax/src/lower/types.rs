@@ -6,7 +6,7 @@ use crate::ast::{Binder, CtorDecl, Decl, Expr, NAMELESS, Name, Row};
 use crate::lexer::Tok;
 use crate::tree::{Element, Node, NodeKind};
 
-use super::access::required;
+use super::access::{at_most, required};
 use super::decls::name;
 use super::definitions::{as_leaf, is_leaf, last_token};
 use super::header::{Param, check_duplicates, lower_header};
@@ -343,6 +343,7 @@ impl<'f> Lower<'f> {
     #[inline(never)]
     pub(super) fn function_type(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::FunctionType;
+        at_most(node, 3)?;
         let binder = required(node.child(NodeKind::Binder), kind, "its binder")?;
         let start = required(binder.span(), kind, "its binder")?;
         let Written {

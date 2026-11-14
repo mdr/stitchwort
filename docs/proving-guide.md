@@ -510,9 +510,22 @@ Each was run on the example named; the output is quoted, shortened.
     │ Note 2: it happened while checking `countBig`
     │ Note 3: it ran out while unfolding `count`
   ```
-  The last note names the definition being unfolded; when it doesn't, find
-  it by replacing parts with `?`. Then see §6. Other forms: "a value was
-  too large to show" (aoc/NOTES-2024.md:1479–1485). Two of the roguelike's
+  The last note names the definition being unfolded (for "a value was too
+  large to write out" too, unless it is the standard library's); when it
+  doesn't, find it by replacing parts with `?`. Then see §6. Other forms:
+  "a value was too large to show" (aoc/NOTES-2024.md:1479–1485). A `match`
+  that runs out on a call given a number also says so: "`outer` is called
+  here with the number `12`, so it is computed in full: make the number a
+  variable, stating a lemma for any `n`, and use the lemma with `12`"
+  (`examples/reject/as-written-unconfirmed-slow-check.sw`).
+  A check can take minutes before it runs out (its limit is 10 billion
+  evaluation steps). While it runs, `stitchwort check` says which
+  declaration it is on and what it is unfolding, after 250 million steps
+  (about 7 s) and each time the steps double:
+
+  ```
+  note: still checking `Main.t`: over 250,000,000 evaluation steps so far, unfolding `countdown` (it stops at 10,000,000,000)
+  ``` Two of the roguelike's
   three failures in one proof were this (games/rogue/PROOFS.md:216–226).
   A `rewrite` or `match` whose goal (or a hypothesis) is too large once its
   calls are computed, on a call with a large literal such as

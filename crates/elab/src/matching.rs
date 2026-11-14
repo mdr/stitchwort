@@ -1230,12 +1230,21 @@ fn unconfirmed_now(
     // generalisation ran and its motive was ill-formed.
     warn: bool,
 ) -> Result<Term> {
-    // What `cause` noted as too large, for its report if it is returned:
-    // reading back on this path can note another.
+    // What `cause` noted as too large, and the definition it was unfolding,
+    // for its report if it is returned: reading back on this path can note
+    // others.
     let noted = cx.g().machine.budget.take_too_large();
+    let ran_out_in = cx.g().machine.budget.take_ran_out_in();
     let fail = |cx: &Ctx, cause: Diagnostic| {
         cx.g().machine.budget.set_too_large(noted);
-        Err(cause)
+        cx.g().machine.budget.set_ran_out_in(ran_out_in);
+        let note = (cause.code == "E-RESOURCE")
+            .then(|| number_argument_note(cx, &exprs))
+            .flatten();
+        Err(match note {
+            Some(note) => cause.with_note(note),
+            None => cause,
+        })
     };
     let Some(written) = as_written::unconfirmed(cx, &exprs, goal, base, skip, span)? else {
         return fail(cx, cause);
@@ -1673,6 +1682,46 @@ fn cannot_occur<'a>(
             _ => false,
         })
     })
+}
+
+/// For a `match` that ran out of resources generalising: the first call in
+/// a scrutinee given a number (a literal of 2 or more, or a definition that
+/// is one), suggesting a variable in its place. A call such as `settle
+/// plan 1000` is computed that many rounds deep when the hypotheses that
+/// mention it are read back, and a lemma for any number isn't (AoC 2020 day
+/// 11, SW-1477).
+fn number_argument_note(cx: &Ctx, exprs: &[Scrut]) -> Option<String> {
+    let g = cx.g();
+    // The number as the note shows it, and as it says to use it.
+    let number = |arg: &Term| -> Option<(String, String)> {
+        let literal = |t: &Term| match t.strip_loc() {
+            Term::Nat(n) if **n >= 2u32.into() => Some(n.to_string()),
+            _ => None,
+        };
+        match arg.strip_loc() {
+            Term::Def(id) => {
+                let def = g.def(*id);
+                let value = literal(def.body()?)?;
+                let name = format!("`{}`", crate::scope::display(def.name()));
+                Some((format!("{name} ({value})"), name))
+            }
+            arg => literal(arg).map(|n| (format!("`{n}`"), format!("`{n}`"))),
+        }
+    };
+    let (call, (shown, used)) = exprs
+        .iter()
+        .flat_map(|scrut| scrut.term.subterms())
+        .find_map(|(t, _)| {
+            let (Term::Def(head), args) = t.spine() else {
+                return None;
+            };
+            let n = args.iter().find_map(|a| number(a))?;
+            Some((crate::scope::display(g.def(*head).name()).to_string(), n))
+        })?;
+    Some(format!(
+        "`{call}` is called here with the number {shown}, so it is computed in full: make \
+         the number a variable, stating a lemma for any `n`, and use the lemma with {used}"
+    ))
 }
 
 /// `d`, if it is running out of resources with nothing saying where, said

@@ -1,5 +1,6 @@
 //! The lexer and parser must never panic: whatever text they're given, they
-//! either parse it or report a diagnostic. This feeds them thousands of mutated
+//! either parse it or report a diagnostic. Nor may the parser record a node
+//! that crosses another, which the tree would leave out. This feeds them thousands of mutated
 //! example programs and random token soup, generated from a fixed seed so
 //! failures are reproducible.
 
@@ -7,7 +8,7 @@ use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 
-use stitchwort_syntax::{SourceMap, parse_module};
+use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_and_tree};
 
 /// Each case is one lex-and-parse. 20,000 keeps the release run well under ten
 /// seconds; set `FUZZ_CASES` for a longer run.
@@ -234,16 +235,22 @@ fn the_lexer_and_parser_never_panic() {
         } else {
             soup(&mut rng)
         };
-        // `parse_module` is what the driver calls: it lexes and parses, and
-        // returns either a module or diagnostics.
+        // What the driver calls: it lexes and parses, and returns a module,
+        // diagnostics, and the lossless tree the module was lowered from.
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             let mut sources = SourceMap::new();
             let file = sources.add("<fuzz>", text.as_str());
-            parse_module(file, &text)
+            let (_, errors, tree) = parse_module_and_tree(file, &text, DEFAULT_STACK);
+            (errors.is_empty(), tree.stats().dropped)
         }));
         match outcome {
-            Ok(Ok(_)) => accepted += 1,
-            Ok(Err(_)) => {}
+            Ok((_, dropped)) if dropped > 0 => panic!(
+                "case {case} (seed {SEED:#x}, rng state {state:#x}): \
+                 the tree left out {dropped} crossing marks for input:\n  {}",
+                text.escape_debug()
+            ),
+            Ok((true, _)) => accepted += 1,
+            Ok((false, _)) => {}
             Err(_) => panic!(
                 "case {case} (seed {SEED:#x}, rng state {state:#x}): \
                  the lexer or parser panicked on input:\n  {}",

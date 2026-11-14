@@ -44,6 +44,7 @@ use std::collections::BinaryHeap;
 use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::budget::NO_ANSWER;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
@@ -250,6 +251,20 @@ struct Item<'m> {
     position: usize,
 }
 
+/// "unfolding `f`", for definition `name`; a function the compiler made is
+/// named by the definition it was made for. `None` for one made for
+/// something without a name of its own.
+pub(crate) fn unfolding(name: &str) -> Option<String> {
+    let shown = crate::scope::display(name);
+    Some(match shown.split_once(".%") {
+        None if !shown.contains('%') => format!("unfolding `{shown}`"),
+        Some((owner, _)) if !owner.contains('%') => format!(
+            "unfolding a function the compiler made for `{owner}`, such as an inner `match`"
+        ),
+        _ => return None,
+    })
+}
+
 /// Whether an `E-RESOURCE` message is for running out of evaluation steps
 /// or of recursion depth.
 fn is_steps_or_depth(message: &str) -> bool {
@@ -451,6 +466,13 @@ impl Elaborator {
             }
             // Each component is one operation, with its own resource limits.
             let saved = self.kernel.machine.budget.start(self.options.limits);
+            let progress = crate::progress::begin(
+                &self.kernel.machine.budget,
+                self.kernel.env.defs(),
+                || self.component_label(&items, &component),
+                self.options.limits.work,
+                self.options.progress_after,
+            );
             self.unit.module.current = component.clone();
             let before = diagnostics.len();
             let (defs_before, datas_before) =
@@ -467,6 +489,7 @@ impl Elaborator {
                 crate::timings::decl_begin(&self.ev());
             }
             self.glued(|e| e.check_component(&items, &component, &mut diagnostics));
+            crate::progress::end(&self.kernel.machine.budget, progress);
             self.kernel.machine.budget.restore(saved);
             if timed {
                 let label = self.component_label(&items, &component);
@@ -576,18 +599,11 @@ impl Elaborator {
                 let ran_out_in = self.kernel.machine.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
                     if d.code == "E-RESOURCE" {
-                        d.notes.push(self.while_checking_note(&component));
-                    }
-                    if d.code == "E-RESOURCE" && ResourceError::is_size_message(&d.message) {
-                        for note in self.too_large_notes(&component, too_large) {
-                            d.notes.push(note);
-                        }
-                    }
-                    if d.code == "E-RESOURCE"
-                        && is_steps_or_depth(&d.message)
-                        && let Some(note) = self.ran_out_note(ran_out_in)
-                    {
-                        d.notes.push(note);
+                        let notes =
+                            self.ran_out_notes(&component, &d.message, too_large, ran_out_in);
+                        // Where, before any advice the error came with.
+                        let at = usize::from(d.notes.first().is_some_and(|n| n == NO_ANSWER));
+                        d.notes.splice(at..at, notes);
                     }
                     if d.labels.is_empty() {
                         let span = decl_spans[*position];
@@ -906,20 +922,41 @@ impl Elaborator {
         }
     }
 
-    /// Names the definition being unfolded when checking ran out of steps or
-    /// frames; a function the compiler made is named by the definition it
-    /// was made for.
+    /// The notes saying where checking `component` ran out of resources,
+    /// with `message`: the declarations, and what was being computed.
+    /// `too_large` is the call a value too large to write out was of, and
+    /// `ran_out_in` the definition last unfolded.
+    fn ran_out_notes(
+        &self,
+        component: &[usize],
+        message: &str,
+        too_large: Option<usize>,
+        ran_out_in: Option<usize>,
+    ) -> Vec<String> {
+        let mut notes = vec![self.while_checking_note(component)];
+        let size = ResourceError::is_size_message(message);
+        if size {
+            notes.extend(self.too_large_notes(component, too_large));
+        }
+        // A value too large to write out was being computed by the
+        // definition last unfolded: worth naming unless the note above
+        // names it, or it is the standard library's (an `if` unfolds
+        // `Decidable.holds`), which says nothing about the cause.
+        let unfolding = ran_out_in.filter(|&id| {
+            is_steps_or_depth(message)
+                || (size
+                    && ran_out_in != too_large
+                    && (self.kernel.env.defs().get(id))
+                        .is_some_and(|d| !d.path().starts_with("Std.")))
+        });
+        notes.extend(self.ran_out_note(unfolding));
+        notes
+    }
+
+    /// Names the definition being unfolded when checking ran out ([`unfolding`]).
     fn ran_out_note(&self, definition: Option<usize>) -> Option<String> {
-        let name = &self.kernel.env.defs().get(definition?)?.name();
-        let shown = crate::scope::display(name);
-        Some(match shown.split_once(".%") {
-            None if !shown.contains('%') => format!("it ran out while unfolding `{shown}`"),
-            Some((owner, _)) if !owner.contains('%') => format!(
-                "it ran out while unfolding a function the compiler made for `{owner}`, \
-                 such as an inner `match`"
-            ),
-            _ => return None,
-        })
+        let name = self.kernel.env.defs().get(definition?)?.name();
+        Some(format!("it ran out while {}", unfolding(name)?))
     }
 
     /// Names the declaration(s) of `component`, so a check that ran out of

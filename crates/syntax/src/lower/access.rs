@@ -78,3 +78,13 @@ impl<'f> Leaf<'f> {
 pub(super) fn required<T>(part: Option<T>, kind: NodeKind, what: &'static str) -> Lowering<T> {
     part.ok_or(Unsupported::Missing(kind, what))
 }
+
+/// Refuses `node` if it has more than `parts` children, the most the parser
+/// gives a node of its kind: a slot read by its introducing token
+/// ([`Node::after`]) would otherwise skip what follows it.
+pub(super) fn at_most(node: Node<'_>, parts: usize) -> Lowering<()> {
+    match node.children().nth(parts) {
+        Some(_) => Err(Unsupported::Unread(node.kind())),
+        None => Ok(()),
+    }
+}

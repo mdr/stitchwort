@@ -1020,9 +1020,11 @@ fn unconfirmed(
     stats: &mut Stats,
     cause: Diagnostic,
 ) -> Result<Vec<Step>> {
-    // What `cause` noted as too large, for its report if it is returned:
-    // reading back on this path can note another.
+    // What `cause` noted as too large, and the definition it was unfolding,
+    // for its report if it is returned: reading back on this path can note
+    // others.
     let noted = cx.g().machine.budget.take_too_large();
+    let ran_out_in = cx.g().machine.budget.take_ran_out_in();
     let mut spare = budget;
     let (replaced, warn) =
         match as_written::unconfirmed(cx, rule, place, equation, goal, &mut spare) {
@@ -1032,6 +1034,7 @@ fn unconfirmed(
             }
             Ok(None) | Err(_) => {
                 cx.g().machine.budget.set_too_large(noted);
+                cx.g().machine.budget.set_ran_out_in(ran_out_in);
                 return Err(cause);
             }
         };

@@ -4266,10 +4266,17 @@ impl<'t> Parser<'t> {
     /// read, given where each operand starts and whether it starts a
     /// disjunct. Both group to the right, `&&` tighter: `a || b && c || d`
     /// is `a || ((b && c) || d)`.
+    ///
+    /// They are recorded in the order they finish, inner before outer, so
+    /// the last is the whole chain: an operator after it (`→`, `↔`, `;`)
+    /// finds its left operand's start from the last mark
+    /// ([`Self::operand_start`]), and with any other node last it would
+    /// start inside the chain and cross it.
     #[inline(never)]
     fn mark_logic_chain(&mut self, starts: &[(u32, bool)]) {
         let end = self.pos as u32;
         let firsts: Vec<usize> = (0..starts.len()).filter(|&i| starts[i].1).collect();
+        let mut ranges = Vec::with_capacity(starts.len());
         for (k, &first) in firsts.iter().enumerate() {
             let next = firsts.get(k + 1).copied();
             // A disjunct before another ends at the `||` before the next.
@@ -4278,17 +4285,21 @@ impl<'t> Parser<'t> {
                 None => (starts.len(), end),
             };
             for &(start, _) in &starts[first..last - 1] {
-                self.record_range(start, until, NodeKind::Binary);
+                ranges.push((start, until));
             }
             if next.is_some() {
-                self.record_range(starts[first].0, end, NodeKind::Binary);
+                ranges.push((starts[first].0, end));
             }
         }
-    }
-
-    /// Records a construct with both ends given.
-    fn record_range(&mut self, start: u32, end: u32, kind: NodeKind) {
-        self.marks.push(Mark { kind, start, end });
+        // Finishing order: by end, and of two with the same end the inner
+        // (later starting) first.
+        ranges.sort_unstable_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0)));
+        self.marks
+            .extend(ranges.into_iter().map(|(start, end)| Mark {
+                kind: NodeKind::Binary,
+                start,
+                end,
+            }));
     }
 
     /// Whether a `|>` comes next: on this line, or starting a line (which a
@@ -9430,5 +9441,72 @@ mod tests {
         assert_eq!(errors.len(), 1);
         // `T`, and `f`'s signature and equation.
         assert_eq!(module.decls.len(), 3, "{module:?}");
+    }
+
+    /// The module and errors of `text` with its first declaration's marks
+    /// changed by `tamper` first, as a parser bug might leave them.
+    fn lowered_with_marks(
+        text: &str,
+        tamper: impl FnOnce(&mut Vec<Mark>),
+    ) -> (Module, Vec<Diagnostic>) {
+        let file = SourceMap::new().next_id();
+        let (lexed, failures) = lex_recovering_with_trivia(file, text);
+        let (mut errors, mut groups) =
+            parse_lexed(file, text, DEFAULT_STACK, &lexed.tokens, failures);
+        tamper(&mut groups[0].marks);
+        let tree = SyntaxFile::build_allowing_crossed(
+            lexed.tokens,
+            lexed.trivia,
+            lexed.eof,
+            lexed.bars,
+            groups,
+        );
+        let module = lowered_module(&tree, text, file, DEFAULT_STACK, &mut errors);
+        (module, errors)
+    }
+
+    /// A declaration whose tree lost a mark that crossed another fails with
+    /// an internal error, rather than being checked as the tree that's left
+    /// says (SW-3243: `a ∧ b ∧ c → q` read as `a ∧ b ∧ c`).
+    #[test]
+    fn a_crossed_mark_fails_its_declaration() {
+        let text = "theorem t (a q: Prop): a ∧ a → q := sorry\n\ndef ok: Nat := 1\n";
+        let (module, errors) = lowered_with_marks(text, |marks| {
+            // From the second `a`, so it crosses the `∧`'s node.
+            let arrow = marks.iter_mut().find(|m| m.kind == NodeKind::Arrow);
+            arrow.expect("an arrow").start += 2;
+        });
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(errors[0].code, "E-INTERNAL");
+        assert!(
+            errors[0].message.contains("crossing"),
+            "{}",
+            errors[0].message
+        );
+        let failed: Vec<&str> = module.failed.iter().map(|f| f.name.text.as_str()).collect();
+        assert_eq!(failed, ["t"]);
+        assert_eq!(module.decls.len(), 2, "only `ok`: {:?}", module.decls);
+    }
+
+    /// A slot the lowering reads by its introducing token, with more after
+    /// it than the parser gives, fails as an internal error instead of
+    /// leaving the rest unread.
+    #[test]
+    fn a_result_type_with_parts_left_over_fails_its_declaration() {
+        let text = "theorem t (a q: Prop): a ∧ a → q := sorry\n";
+        let (module, errors) = lowered_with_marks(text, |marks| {
+            let at = marks.iter().position(|m| m.kind == NodeKind::Arrow);
+            marks.remove(at.expect("an arrow"));
+        });
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(errors[0].code, "E-INTERNAL");
+        assert!(
+            errors[0]
+                .message
+                .contains("ResultType with parts left unread"),
+            "{}",
+            errors[0].message
+        );
+        assert!(module.decls.is_empty(), "{:?}", module.decls);
     }
 }

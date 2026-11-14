@@ -15,7 +15,7 @@ use crate::lexer::Tok;
 use crate::negation::{argument_minus, negative_numeral};
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
-use super::access::required;
+use super::access::{at_most, required};
 use super::decls::name;
 use super::{Lower, Lowering, Unsupported};
 
@@ -87,7 +87,7 @@ impl<'f> Lower<'f> {
             Cases => self.cases(node),
             // Tokens the parser skipped past a syntax error it recovered
             // from: not looked inside.
-            Error if !node.root().recoveries().is_empty() => Ok(Expr::Missing(whole(node)?)),
+            Error if !node.root().recoveries().is_empty() => skipped(node),
             kind => Err(Unsupported::Kind(kind)),
         }
     }
@@ -119,6 +119,7 @@ impl<'f> Lower<'f> {
     /// [`Self::list`]).
     #[inline(never)]
     fn paren(&self, node: Node<'f>) -> Lowering<Expr> {
+        at_most(node, 3)?;
         let inner = node.after(&Tok::LParen);
         self.expr(required(inner, NodeKind::Paren, "its expression")?)
     }
@@ -127,6 +128,7 @@ impl<'f> Lower<'f> {
     #[inline(never)]
     fn annotation(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Annotation;
+        at_most(node, 5)?;
         let inner = required(node.after(&Tok::LParen), kind, "its expression")?;
         let ty = required(node.after(&Tok::Colon), kind, "its type")?;
         Ok(Expr::Ann(
@@ -857,6 +859,13 @@ pub(crate) fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
     let mut body = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
     fill_receiver(&mut body, lhs);
     body
+}
+
+/// The tokens a recovered syntax error skipped, as a missing expression
+/// over them.
+#[inline(never)]
+fn skipped(node: Node<'_>) -> Lowering<Expr> {
+    Ok(Expr::Missing(whole(node)?))
 }
 
 #[cfg(test)]

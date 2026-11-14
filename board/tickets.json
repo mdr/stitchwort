@@ -1,5 +1,5 @@
 {
-  "next": 3227,
+  "next": 3260,
   "tickets": [
     {
       "id": 47,
@@ -9699,16 +9699,16 @@
     {
       "id": 1477,
       "title": "Out-of-resources error names no definition when a match on a call with a large literal argument (settle … 1000) blows up: name the call and suggest a variable for the literal",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "messages"
       ],
       "epic": "diagnostics",
-      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.",
+      "body": "Done by SW-2009.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -10014,17 +10014,19 @@
     {
       "id": 1498,
       "title": "Message: a parameter that hides a same-named function gives a bare type mismatch; say which is meant and the function's full name",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-1619.\nModel result: DeepSeek, worked, ~35 min (est. 30); ran the whole reject-examples test once (153 s) against the brief. Note only when the hidden function would fit; E-NOT-A-FUNCTION when the local is applied is untouched.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
-      "commits": []
+      "updated": "2026-11-14",
+      "commits": [
+        "1ecf0bab78483db0428168d058d1be540735f34b"
+      ]
     },
     {
       "id": 1499,
@@ -10599,7 +10601,7 @@
     {
       "id": 1537,
       "title": "A slow check is invisible: a declaration that computes for minutes before E-RESOURCE gives no progress note; add a per-declaration step limit or a 'still checking X' note (SW-1534)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -10607,9 +10609,9 @@
         "parked"
       ],
       "epic": "performance",
-      "body": "From SW-1534, 6 Nov 2026.",
+      "body": "Done by SW-2009.",
       "created": "2026-11-06",
-      "updated": "2026-11-10",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -11833,17 +11835,19 @@
     {
       "id": 1619,
       "title": "type YUp = | YUp (a type and its constructor with the same name) makes every use E-AMBIGUOUS; say so in the message or docs (SW-1617)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1617, 6 Nov 2026.",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-1498.\nModel result: DeepSeek, needed fixes (the note claimed a type and constructor can't share a name; reworded by the orchestrator), ~35 min (est. 30).",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
-      "commits": []
+      "updated": "2026-11-14",
+      "commits": [
+        "1ecf0bab78483db0428168d058d1be540735f34b"
+      ]
     },
     {
       "id": 1620,
@@ -17716,16 +17720,19 @@
     {
       "id": 2009,
       "title": "[Opus] One lane for slow or hung checks: say what a check is computing (SW-1537 with SW-1477, SW-1534); past its budget it fails naming the declaration and what it was unfolding",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. 17+ days. D2832 [rec: yes]. 90 min.",
+      "body": "Expected: 2 h (Opus), ~40 min. Covers SW-1537 and SW-1477; SW-1534's cause confirmed in the kernel's push_def (fix designed as SW-1788, waits on D2568/D2569). Wording of the progress note and the SW-1477 note: the lane's, kept pending Matt (D3594). Filed SW-3236, SW-3237.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
-      "commits": []
+      "updated": "2026-11-14",
+      "commits": [
+        "bfd3dc745",
+        "2dfd1c12a43422f74a4cc01249aba6ef0f9f2883"
+      ]
     },
     {
       "id": 2010,
@@ -34185,27 +34192,27 @@
     {
       "id": 3149,
       "title": "[Sonnet] build --native executables fail to start from the main checkout: 'its tables can't be read: written by a different build of the runtime' (libstitchwort_standalone.a dated 12 Nov, CLI 13 Nov). Make the build rebuild/check the runtime library with the CLI, or give a clear message naming task build (SW-3145 finding)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
       "id": 3150,
       "title": "[Opus] Design: IO has no file read, write or folder listing, and Text has no O(1) slice, indexed read or builder (Text.get goes through toList) (SW-3145 findings; needed for real tools such as the self-hosted formatter)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Superseded by SW-3234 (D3579 paper lane on Fable).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34604,15 +34611,17 @@
     {
       "id": 3180,
       "title": "[Opus] Stack frames left after SW-3172: stitchwort::run has a 21 KiB frame (outside the guard); unify::rename_in/rename_other 912/1,328 B a level at Day06's peak; run_tasks 864 B, shape rules 1,088 B (would need loops over spines); whole_test allocates a Vec per check",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 3 h (Opus).",
+      "body": "Expected: 3 h (Opus). Done in ~47 min. The 21 KiB run frame was never a crash risk (Budget::start measures from each operation's start). Next hotspot: checking with propagation (check_value, Propagation::apply, apply_args_postponing ~0.8 KiB each at 16-19 levels). Filed SW-3227.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "582c2f81e576e540ffe06543e7887615ce1b7d3b"
+      ]
     },
     {
       "id": 3181,
@@ -35204,15 +35213,17 @@
     {
       "id": 3220,
       "title": "[DeepSeek] A test or lint that every function the lowering's node_expr and node_pattern dispatch to is #[inline(never)]: two unmarked ones grew node_expr's frame from 96 to 816 bytes and broke deep nesting in release (SW-3212 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 30 min (DeepSeek).",
+      "body": "Expected: 30 min (DeepSeek).\nModel result: DeepSeek, worked, ~25 min (est. 30). Source-text contract test over lower/*.rs (a new lower/ file must be added to its SOURCES list).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "56890b16166e3d4608d55e1a10f21bda6bcb8ec5"
+      ]
     },
     {
       "id": 3221,
@@ -35262,15 +35273,17 @@
     {
       "id": 3224,
       "title": "[Opus] Expand chains and pattern lets once, in the lowering: chain.rs and patlet.rs still undo expansions the lowering makes (the %chain let and ∧; a one-arm match for 'let p := e'), so the elaborator can get the form it wants directly. Changes trees and hashes (D2303: migration cost doesn't count) (SW-3214 finding, lowering note's Findings)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 4 h (Opus). Closed won't-do (orchestrator's call): the premise was wrong; chain.rs and patlet.rs choose between readings by expected type and scope, which the lowering doesn't have, so there is no expansion to move. Findings recorded in syntax-tree-lowering.md.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "b3b5442ba9312e90fff085274572053c6bf4b5c5"
+      ]
     },
     {
       "id": 3225,
@@ -35294,6 +35307,451 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "Folded into S1 (SW-1983), whose row in syntax-error-recovery.md builds the one-line-break oracle as its gate (orchestrator's call).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3227,
+      "title": "[Sonnet] Make SW-3180's deepest-backtrace probe a proper STITCHWORT_STACK_PROBE option (it keeps a backtrace at each new deepest point; the patch is scratchpad/sw3180/hack-stack.patch, to be copied into the ticket's worktree), plus its frame-size scripts (frames.py, chain.py) as a task, so the next stack lane can see which frames make up a peak (SW-3180 finding)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~10 min (est. 60). Frames matched by name (std's Backtrace gives no addresses); arm64 only.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "ab854c0cdbd29a56b2de7a4cb7cf90199fcf5442"
+      ]
+    },
+    {
+      "id": 3228,
+      "title": "[Fable] Paper, second analysis of the formatter written in Stitchwort (SW-3145, after D3561's wait is over: the Rust formatter now runs on the lossless tree and the compiler's tree is lowered from it, SW-3158 to SW-3160): a plan to build it in Stitchwort, formatting byte-identically to stitchwort fmt; how its parsing should be built now that the Rust parser builds only a lossless tree (marks) and the formatter prints from it; and how this tree and parser could be a first step towards a self-hosted Stitchwort parser. Paper: docs/proposals/self-hosted-fmt.md, revised",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Expected: 2 h (Fable paper lane), ~15 min. Revised docs/proposals/self-hosted-fmt.md. D3576 (build stages 0-2 first [rec yes]), D3577 (no identity gate [rec no gate]), D3578 (self-hosting: door open, plan nothing [rec yes]). Findings filed: SW-3229 SW-3230 SW-3231 SW-3232; SW-3149 moved to next (still reproduces; first prerequisite).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "50b962fa5",
+        "60e110aec1e11786b88561fb82f9fe34b1243d1b"
+      ]
+    },
+    {
+      "id": 3229,
+      "title": "[Sonnet] Bug: a declaration holding a list with a bracketed range and a trailing comma, [(0 ..< n),], is never formatted, silently with exit 0, because the lowering reads that trailing comma (lower/exprs.rs, list) (SW-3228 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Expected: 45 min (Sonnet).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3230,
+      "title": "[DeepSeek] stitchwort fmt is silent about declarations it leaves as written (only dev fmt-tree --verbose says): print a warning naming each one and why, and say so in fmt's summary (SW-3228 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Expected: 40 min (DeepSeek), one run with SW-3232.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3231,
+      "title": "Text literals in patterns: '| \"def\" => …' is E-PARSE; matching on text needs if-chains (SW-3228 finding; language feature, needs a design note)",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "5399f6795240e39cc5b780bdef814e1ade11fcc6"
+      ]
+    },
+    {
+      "id": 3232,
+      "title": "[DeepSeek] std: Option.getOr is missing though List.getOr and Array.getOr exist; add it with its doc and a lemma or two (SW-3228 finding)",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Expected: 40 min (DeepSeek), one run with SW-3230.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3233,
+      "title": "[Fable] Paper: the parser's end state now it has one job (D3579): marks (sorted after the parse) against in-order events with precede (rust-analyzer), leftovers from the two-route period (signature_kept, parked failed declarations, relabelling), stack frames, recovery's needs; recommend the cleanest end state with numbers; the tidy waits for recovery S1",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~14 min. docs/proposals/parser-end-state.md: keep marks, made strict (T0-T4, 21-30 h; T1 between S1 and S2). D3582 asked [rec yes]. T0 filed as SW-3243 and started at once (orchestrator's call: a wrong statement is checked). Findings: SW-3244 SW-3245 SW-3246 SW-3247; 'a block must end with an expression, not let' noted for the S2 lane; proposals README fix goes in T3.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "992d66548",
+        "34d3966f18cd58cf8671603661d5498d20a8f682"
+      ]
+    },
+    {
+      "id": 3234,
+      "title": "[Fable] Paper: IO and Text design (D3579, SW-3150): file read/write and folder listing in the IO ability with errors as values; Text with O(1) slice, indexed read and a builder; runtime, native backend and JS support; what a formatter in Stitchwort needs",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~20 min. docs/proposals/file-io-and-text.md: a Files ability beside IO, Text as a shared buffer at run time. D3585 (Files its own ability [rec yes]), D3586 (run may touch files by default, flags narrow it [rec yes]), D3587 (build S0, T1, F1 next [rec yes]). The 'about 8-10 more' hours line in In plain words undercounts (about 14). SW-3149 also breaks plain build. Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (last five).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "e046962806c2defb7779e16607365be3ce6c6ec0"
+      ]
+    },
+    {
+      "id": 3235,
+      "title": "[Fable] Paper: a generic Std.Parse (D3579): parse any token type, not only List Char, so a program can lex then parse a token list; keep every existing use and its proofs working; performance on large inputs",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]), D3590 (keep text parsers under Parse. [rec keep]). Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (first six).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "55370a67609e2e1b3c7cee78f063900fd5825947"
+      ]
+    },
+    {
+      "id": 3236,
+      "title": "[Sonnet] Editor: show SW-2009's 'still checking X' progress note in the language server ($/progress or a status message); the budget's progress hook is generic (SW-2009 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3237,
+      "title": "[Opus] 'The definition last entered' can belong to a later attempt, because an attempt doesn't restore it when it ends; SW-2009 fixed the match and rewrite retry paths; audit the other retrying callers so E-RESOURCE and progress notes name the right definition (SW-2009 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3238,
+      "title": "[Opus] A match with many literal arms re-checks its catch-all at every point of the case tree: 200 keywords with a 12-match catch-all check in 4.34 s vs 1.11 s with the catch-all in a function (measured); affects Char and number tables today (SW-3231 finding; text-patterns.md stage 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3239,
+      "title": "[Sonnet] After a character-literal arm the goal lists one hidden proof per character (valid✝: Std.Char.isScalar 100), printed without its '= True'; hide or print them properly (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3240,
+      "title": "[Sonnet] Missing-case messages on character lists speak of one character ('characters other than d'), and with a second column print [MkChar _ _, .._], Zero where [_, .._], Zero is meant (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3241,
+      "title": "[Sonnet] A literal arm's equation (e.g. kc.eq1) prints as '1 = 1' in a type mismatch: find whether only the message reduces it or the statement itself is reduced, which would make it useless for rewriting (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3242,
+      "title": "[Sonnet] Both runtimes turn a whole Text into a list of characters as soon as a match looks inside it, even when it reads three characters (read in source, not measured; measure first) (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3243,
+      "title": "[Opus] URGENT T0 (parser-end-state.md): since L5, 'a ∧ b ∧ c → q' is checked as 'a ∧ b ∧ c' (also ↔ q and ; e after a 3+ operand ∧/∨ chain, and a ∨ b ∧ c): mark_logic_chain records the inner node last, operand_start gives the arrow the wrong start, build_decl drops the crossing mark silently. Fix; a dropped mark becomes E-INTERNAL plus a debug assertion in SyntaxFile::build; the lowering rejects children it didn't read; tree-dump tests",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "T0 of parser-end-state.md. Expected: 2.5 h (Opus), ~35 min. 517 of 900 probe shapes dropped a mark before; 0 after; whole repo 0 dropped, 0 E-INTERNAL. Also fixed: a method section starting a 3+ chain wasn't widened. Filed SW-3259. Fuzzer now calls parse_module_and_tree (not compared with parse_module).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "b2cbb536d0c174e687021dbcdc1ca980a805b0d3"
+      ]
+    },
+    {
+      "id": 3244,
+      "title": "[Sonnet] Parser tests pin the parser's own output: the 156 tests in parser.rs go through the lowering; add dev tree --print style dumps for the key constructs (SW-3233 finding; with T1/T3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3245,
+      "title": "[Sonnet] Stack: atom 400 B, expr_inline 304, range_expr 288, app 192 of the parser's 1,377 B per nesting level; move range_expr's body out of line for depth (SW-3233 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3246,
+      "title": "[Sonnet] failed_names_in (parser.rs:143) pads a copy of the text with one space per byte of offset to lex a failed declaration in place; lex the slice with a base offset instead (SW-3233 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3247,
+      "title": "[Sonnet] Goal printing: 'a ↔ False' shows as 'a ↔ False = True', which reads as (a ↔ False) = True; find whether the printer or the statement (SW-3233 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3248,
+      "title": "[Opus] The checker settles an ability's parameter late: a two-step readsThen proof against generic lemmas takes 498k steps vs 289k with [t := Char] written (SW-3235 finding; generic-parse.md stage 0)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3249,
+      "title": "[Opus] Std.Parse check cost: labelWhole's three handler lemmas are 31% (31.8M steps), the 22 handler lemmas 59%; one shared lemma for handlers that pass every operation on (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3250,
+      "title": "[Sonnet] Parse: oneOf costs ~3 operations per failed alternative; the handler walks span's result again to measure it (8% of lexer time) (SW-3235 findings; parked with speed work)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3251,
+      "title": "[Sonnet] Rename Parse.token ('with spaces around') to Parse.padded before the library gains real tokens; 10 AoC files (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3252,
+      "title": "[DeepSeek] std: add List.stripPrefixBy, with Text.stripPrefixChars and its lemmas as a special case (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3253,
+      "title": "[Sonnet] The import-cost guard and docs disagree on Std.Parse's step count (121M vs 103.6M summed over Std.Parse.*): say what is counted (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3254,
+      "title": "[Sonnet] Text.get has no native version (1.2 ms a read on 20,000 chars); Text.length recounts on every call on every runner (--js: 200k calls on 200k chars > 60 s); Text.uncons/drop copy the rest, so peeling is quadratic (SW-3234 findings; T1 fixes them)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3255,
+      "title": "[Sonnet] docs/guide/08-abilities.md is stale: says a handler can't go around partial code, but Fail.toResult round a {IO, Fail, Partial} loop recovers the failure (SW-3234 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3256,
+      "title": "[Opus] Ability operations take exactly one argument; an anonymous record as that argument gives E-PARSE with a misleading message about record updates; design multi-argument operations, better message meanwhile (SW-3234 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3257,
+      "title": "[Sonnet] Proving guide: induction over a program (∀ prog, match reify prog) isn't seen as terminating; document the Effect.AlwaysTree route (SW-3234 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3258,
+      "title": "[Sonnet] Text slices under --js are slower than native (8.6 s vs 3.1 s for 100,000); each host operation is matched by hand in four runners (randomSeed named in 15 files): consider a shared table (SW-3234 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3259,
+      "title": "[Sonnet] A theorem's False is Bool False: '→ False' shows as 'False = True' in a Prop statement; add a hint or lint pointing to Void (SW-3243 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
