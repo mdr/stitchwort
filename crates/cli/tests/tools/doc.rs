@@ -595,10 +595,13 @@ fn every_kind_of_declaration() {
     );
     assert!(report["theorems"].is_null());
     assert!(report["type"].as_str().unwrap().contains("m + n = n + m"));
-    // A constructor shows its type.
-    let (_, report) = json(&["List.Cons", "--theorems", "0"]);
-    assert_eq!(report["container"], "Std.List");
-    assert_eq!(report["header"], "Cons (head: a) (tail: List a)");
+    // A constructor on a line of its own shows its type.
+    let (_, report) = json(&["Effect.Comp.Call", "--theorems", "0"]);
+    assert_eq!(report["container"], "Std.Effect.Comp");
+    assert_eq!(
+        report["header"],
+        "Call (o: op) (rest: res o → Comp op res a)"
+    );
     // An instance has tests named after it.
     let (_, report) = json(&["List.decMem", "--theorems", "0"]);
     let examples = report["examples"].as_array().unwrap();

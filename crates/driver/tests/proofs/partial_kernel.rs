@@ -190,17 +190,18 @@ fn delay_and_its_constants_are_final_opaque_and_hashed() {
 /// `Delay` (an eliminator, which would let total code run partial code).
 #[test]
 fn a_constant_with_another_type_is_refused() {
-    let fold_d = "  (done: a → Delay op2 res2 b) →\n  \
-                  (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b) →\n  \
-                  (delay: Delay op1 res1 a) → Delay op2 res2 b";
+    let fold_d = "      → (done: a → Delay op2 res2 b)\n      \
+                  → (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b)\n      \
+                  → (delay: Delay op1 res1 a)\n      \
+                  → Delay op2 res2 b";
     let cases = [
         (
             "def Effect.now: [op: Type] → [res: op → Type] → [a: Type] → (x: a) → Delay op res a",
             "def Effect.now: [op: Type] → [res: op → Type] → [a: Type] → (x: Delay op res a) → a",
         ),
         (
-            "  (x: req) → Delay op res (ans x)",
-            "  (x: req) → Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)",
+            "      → (x: req)\n      → Delay op res (ans x)",
+            "      → (x: req)\n      → Delay (Plus (Rec req) op) (PlusRes (RecRes ans) res) (ans x)",
         ),
         (
             "def Effect.Delay: (op: Type) → (res: op → Type) → (a: Type) → Type",
@@ -211,16 +212,18 @@ fn a_constant_with_another_type_is_refused() {
         // (docs/proposals/partial-handlers.md §3.2).
         (
             fold_d,
-            "  (done: a → b) →\n  \
-             (call: (o: op1) → (res1 o → b) → b) →\n  \
-             (delay: Delay op1 res1 a) → b",
+            "      → (done: a → b)\n      \
+             → (call: (o: op1) → (res1 o → b) → b)\n      \
+             → (delay: Delay op1 res1 a)\n      \
+             → b",
         ),
         // Its clauses' carrier a `Delay`, but its result a plain `b`.
         (
             fold_d,
-            "  (done: a → Delay op2 res2 b) →\n  \
-             (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b) →\n  \
-             (delay: Delay op1 res1 a) → b",
+            "      → (done: a → Delay op2 res2 b)\n      \
+             → (call: (o: op1) → (res1 o → Delay op2 res2 b) → Delay op2 res2 b)\n      \
+             → (delay: Delay op1 res1 a)\n      \
+             → b",
         ),
     ];
     for (original, changed) in cases {
