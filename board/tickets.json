@@ -36206,7 +36206,7 @@
     {
       "id": 3292,
       "title": "[DeepSeek] Guide quotes out of date: guide::the_guide_quotes_its_examples_and_the_compiler fails with 87 stale blocks (example files reformatted without task guide:update); run it and check the diff; plus move list_numbers' doc comment in crates/elab/src/lib.rs off escape_char (SW-3284 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
