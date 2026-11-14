@@ -1,5 +1,5 @@
 {
-  "next": 3270,
+  "next": 3271,
   "tickets": [
     {
       "id": 47,
@@ -35889,6 +35889,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "Matt, 14 Nov 2026: asked whether we anticipate moving to Text for all our parsing rather than List Char; nothing had decided it (generic-parse.md keeps List t, file-io-and-text.md makes Text fast but doesn't propose parsing on it). 'yes, do the follow-up paper on Fable'. Expected: 1.5 h (Fable paper lane).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3270,
+      "title": "[DeepSeek] Syntax fuzzer: read FUZZ_SEED as the formatter fuzzer does (SW-3198), print the seed and case count, and name the seed and case on a failure; task fuzz:syntax SEED=",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
