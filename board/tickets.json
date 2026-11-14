@@ -35789,15 +35789,17 @@
     {
       "id": 3262,
       "title": "[Fable] Paper: ability granularity (Matt, after SW-3234): Files as its own ability or inside IO; what Koka (io as an alias for fsys, net, ui, ...), Unison, Haskell, OCaml 5, Eff, Effekt, Frank, Lean, Idris and Roc do; whether named ability sets (row synonyms) are worth adding so IO can mean the bundle",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Matt, 14 Nov 2026: 'I was surprised by the recommendation for a separate Filesystem effect not integrated into IO ... another Fable paper lane to ponder this further - what do other languages do, what does Koka do and is that worth copying'. Holds D3585. Expected: 1.5 h (Fable paper lane).",
+      "body": "Matt, 14 Nov 2026: 'I was surprised by the recommendation for a separate Filesystem effect not integrated into IO ... another Fable paper lane to ponder this further - what do other languages do, what does Koka do and is that worth copying'. Holds D3585. Expected: 1.5 h (Fable paper lane).\n\nLane notes (14 Nov): note written, docs/proposals/ability-granularity.md (403a8b181). Recommends: Files stays its own ability (D3595, replaces D3585, same answer plus a rule: one ability per part of the outside world with its own pretend version; read-only and folder limits are handlers); names for ability sets with IO as the bundle and the console ability renamed Console (D3596; about 8-10 lane hours after F1, not blocking the formatter). Survey read from sources: Koka's fsys/net/console are labels that can't be handled, io is an alias; Flix, Unison Cloud, effectful, Idris App split files out over a raw IO; Roc tried granular and went back over growing signatures. Probes ran: a handler and match reify need a clause for every operation of an ability. Interrupted once by the weekly limit; about 35 min of work in all.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "403a8b181"
+      ]
     }
   ]
 }
