@@ -120,3 +120,29 @@ fn a_theorem_with_explicit_parameters_gets_forall() {
     assert_eq!(once, want);
     assert_eq!(format(&once).unwrap(), want);
 }
+
+#[test]
+fn a_trailing_comma_does_not_change_the_tree() {
+    // SW-3229: `[(0 ..< n),]` once lowered differently from `[(0 ..< n)]`, so
+    // the tree check refused the declaration and left it as written.
+    use stitchwort_syntax::equivalence::parse_shape;
+    for (comma, plain) in [
+        ("[(0 ..< n),]", "[(0 ..< n)]"),
+        ("[(0 ..= n),]", "[(0 ..= n)]"),
+        ("[0 ..< n,]", "[0 ..< n]"),
+        ("[(a, b),]", "[(a, b)]"),
+        ("[(x),]", "[(x)]"),
+        ("[(f x),]", "[(f x)]"),
+        ("[a, (0 ..< n),]", "[a, (0 ..< n)]"),
+        ("f (a, b,)", "f (a, b)"),
+        ("{ x = 1, y = 2, }", "{ x = 1, y = 2 }"),
+    ] {
+        let comma = format!("def a: Nat := {comma}");
+        let plain = format!("def a: Nat := {plain}");
+        assert_eq!(parse_shape(&comma), parse_shape(&plain), "{comma}");
+    }
+    assert_eq!(
+        format("def a: Nat := [(0 ..< n),]").unwrap(),
+        "def a: Nat := [(0 ..< n)]\n"
+    );
+}
