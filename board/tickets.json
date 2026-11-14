@@ -1,5 +1,5 @@
 {
-  "next": 3218,
+  "next": 3219,
   "tickets": [
     {
       "id": 47,
@@ -35149,6 +35149,19 @@
       "commits": [
         "b8cfa7ac91a1a2f60ccbeef67484a7aa7e407268"
       ]
+    },
+    {
+      "id": 3218,
+      "title": "Rust incremental-cache ICEs in release builds (CARGO_PROFILE_RELEASE_INCREMENTAL=true, flake.nix:415): two on Overmind on 14 Nov (on_disk_cache.rs:479; verify_ich.rs:82 at 2446b7d66 building stitchwort-elab's lib test); each cleared by quarantining the crate's incremental dirs. Count further ones here; at about three more, decide whether to turn incremental off for Overmind's rolling-check builds only (lanes and Speedwell keep it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
     }
   ]
 }
