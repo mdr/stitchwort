@@ -34589,27 +34589,27 @@
     {
       "id": 3179,
       "title": "[Sonnet] A test of deep unification of nested calls of one definition under the playground's 320 KiB guard, to lock in SW-3172's unification saving (SW-3172 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Expected: 45 min (Sonnet).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
       "id": 3180,
       "title": "[Opus] Stack frames left after SW-3172: stitchwort::run has a 21 KiB frame (outside the guard); unify::rename_in/rename_other 912/1,328 B a level at Day06's peak; run_tasks 864 B, shape rules 1,088 B (would need loops over spines); whole_test allocates a Vec per check",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Expected: 3 h (Opus).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
