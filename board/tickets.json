@@ -17308,14 +17308,14 @@
     {
       "id": 1982,
       "title": "[Opus] Syntax error recovery S0 (docs/proposals/syntax-error-recovery.md §6): groundwork, no behaviour change (modes struct, error list, recover_to; strict entry points fail on a non-empty list); fold in SW-3185 (a declaration that doesn't lex is an Error root)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. Can start now. task test:lane AREA=syntax. 45 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
+      "body": "Expected: 4 h (Opus). Stage S0 of docs/proposals/syntax-error-recovery.md; includes SW-3185.",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": []
