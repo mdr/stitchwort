@@ -1,5 +1,5 @@
 {
-  "next": 3199,
+  "next": 3200,
   "tickets": [
     {
       "id": 47,
@@ -34345,7 +34345,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.",
+      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.\nNote merged (docs/proposals/syntax-error-recovery.md). Waiting for Matt: D3580, D3581. Then stage tickets S0-S7; SW-1982..1986 to be rescoped or closed; SW-1873 to check against SW-3156.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
@@ -34858,6 +34858,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3199,
+      "title": "[DeepSeek] Editor: folding and the outline lose a broken declaration's body (range stops at the header); use the declaration's column-0 range (SW-3161 finding, ~1 h)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
