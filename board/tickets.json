@@ -35345,7 +35345,7 @@
     {
       "id": 3229,
       "title": "[Sonnet] Bug: a declaration holding a list with a bracketed range and a trailing comma, [(0 ..< n),], is never formatted, silently with exit 0, because the lowering reads that trailing comma (lower/exprs.rs, list) (SW-3228 finding)",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35358,7 +35358,7 @@
     {
       "id": 3230,
       "title": "[DeepSeek] stitchwort fmt is silent about declarations it leaves as written (only dev fmt-tree --verbose says): print a warning naming each one and why, and say so in fmt's summary (SW-3228 finding)",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35386,7 +35386,7 @@
     {
       "id": 3232,
       "title": "[DeepSeek] std: Option.getOr is missing though List.getOr and Array.getOr exist; add it with its doc and a lemma or two (SW-3228 finding)",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35415,12 +35415,12 @@
     {
       "id": 3234,
       "title": "[Fable] Paper: IO and Text design (D3579, SW-3150): file read/write and folder listing in the IO ability with errors as values; Text with O(1) slice, indexed read and a builder; runtime, native backend and JS support; what a formatter in Stitchwort needs",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\nLane note (14 Nov 2026, 16:08): done in 20 min of 2 h. Note: docs/proposals/file-io-and-text.md, commit 384fef557 on lane/SW-3234. Recommends `Files` as a second ability the runners perform (Result-returning whole-file read/write/list/info, `Files.simulate`, narrowing handlers) and one `Text` type with a shared-buffer runtime representation (constant-time get/slice/length; `++` in place as the builder). Measured today's text costs (Text.get: 24 s for 20,000 reads). Questions D3585 (Files its own ability), D3586 (file access allowed by default when run), D3587 (build S0 + T1 + F1, then the toy formatter). Eleven findings listed in the note.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
