@@ -36236,12 +36236,12 @@
     {
       "id": 3294,
       "title": "[Sonnet] Missing-case messages for texts and numbers don't name the other columns' values (arms True, \"a\" and False, _ say 'texts other than \"a\"' without 'when the first is True') (SW-3284 review should-fix 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md, should-fix 2). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
