@@ -1,5 +1,5 @@
 {
-  "next": 3215,
+  "next": 3216,
   "tickets": [
     {
       "id": 47,
@@ -35082,6 +35082,19 @@
     {
       "id": 3214,
       "title": "[Sonnet] Lowering L7 (docs/proposals/syntax-tree-lowering.md): Tidy: docs and dev tree modes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3215,
+      "title": "[DeepSeek] Small cleanups: clippy::op_ref at crates/cli/src/sweep_cmd.rs:462 (&s.path == &path); tree_command in crates/cli/src/main.rs has its own copy of sw_files (the inner walk), use the shared one (SW-3207 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
