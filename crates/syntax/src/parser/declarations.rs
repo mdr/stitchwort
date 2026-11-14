@@ -1,16 +1,15 @@
 //! Declarations (docs/proposals/declaration-syntax.md): `def` and
-//! `theorem` headers with typed parameters, then a `:=` body or arms,
-//! lowered to a signature and its equations (§2.3); `test "n" := e`;
-//! `export def`; and handler clauses `| op x, k => body` (§2.11).
+//! `theorem` headers with typed parameters, then a `:=` body or arms
+//! (§2.3); `test "n" := e`; `export def`; and handler clauses
+//! `| op x, k => body` (§2.11).
 //!
 //! Each function here is `#[inline(never)]` or only called from one that
 //! is: the expression parser's recursive functions must keep small stack
 //! frames, since the nesting limit is measured in stack.
 
-use super::{Parser, Result, describe, error};
-use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, NAMELESS, Name, Pattern};
+use super::{FirstAttribute, Lowered, Parser, Result, describe, error, name_text};
+use crate::ast::{BinOp, Expr};
 use crate::lexer::Tok;
-use crate::lower::header::{Param, clause_match, lower_header, take_defaults};
 use crate::tree::NodeKind;
 use crate::{Diagnostic, Span};
 
@@ -18,9 +17,9 @@ use crate::{Diagnostic, Span};
 /// the first of them. The parser knows no attribute's name, only where any
 /// attribute may go (docs/syntax.md, Attributes); the elaborator decides
 /// which may go on which data type, constructor, field or declaration.
-pub(super) fn misplaced_attributes(first: &Attribute, what: &str) -> Diagnostic {
+pub(super) fn misplaced_attributes(first: &FirstAttribute, what: &str) -> Diagnostic {
     Diagnostic::error("E-ATTRIBUTE", format!("attributes can't be used on {what}"))
-        .with_label(first.span, format!("`{}` is on {what}", first.name.text))
+        .with_label(first.span, format!("`{}` is on {what}", first.name))
         .with_note(ATTRIBUTE_PLACES)
 }
 
@@ -33,40 +32,54 @@ pub(super) const ATTRIBUTE_PLACES: &str = "attributes go before a data type's `t
 pub(super) const DEFAULT_PLACES: &str =
     "only a definition's parameter or a field can have a default value";
 
+/// What the callers of [`Parser::definition`] need: the root kind, the
+/// first name after `unfolding`, whether there is a body (or arms), and
+/// the tokens of the result type.
+pub(super) struct DefinitionRead {
+    pub(super) kind: NodeKind,
+    pub(super) unfolding: Option<Span>,
+    pub(super) body: bool,
+    pub(super) result: (u32, u32),
+}
+
+/// What the callers of [`Parser::header_param`] check: the tokens of its
+/// default value, if it has one.
+pub(super) struct ParamRead {
+    pub(super) default: Option<(u32, u32)>,
+}
+
 impl Parser<'_> {
-    /// The attribute groups at `self.pos`, `@[a, b "x"] @[c]`, if any, in
-    /// the order written. Only their shape is checked: a name of lowercase
-    /// words joined by `.`, then at most one plain string.
+    /// The attribute groups at `self.pos`, `@[a, b "x"] @[c]`, if any, and
+    /// the first attribute, for messages. Only their shape is checked: a
+    /// name of lowercase words joined by `.`, then at most one plain string.
     #[inline(never)]
-    pub(super) fn attributes(&mut self) -> Result<Vec<Attribute>> {
-        let mut attrs = Vec::new();
+    pub(super) fn attributes(&mut self) -> Result<Option<FirstAttribute>> {
+        let mut first: Option<FirstAttribute> = None;
         while self.peek() == Some(&Tok::At) {
             let group = self.mark();
             self.bump();
             self.expect(Tok::LBracket, "`[`")?;
-            let first = attrs.len();
+            let mut attrs = 0;
             loop {
-                if self.peek() == Some(&Tok::RBracket) && attrs.len() > first {
+                if self.peek() == Some(&Tok::RBracket) && attrs > 0 {
                     // A trailing comma.
                     break;
                 }
                 let attribute = self.mark();
                 let start = self.lower_q("an attribute's name, such as `js.name`")?;
-                let mut name = start.clone();
+                let mut name = name_text(start).to_string();
                 if self.peek() == Some(&Tok::Dot) {
                     while self.peek() == Some(&Tok::Dot) {
                         self.bump();
                         let part = self.lower_q("the rest of the attribute's name")?;
-                        name.text.push('.');
-                        name.text.push_str(&part.text);
-                        name.span = name.span.to(part.span);
+                        name.push('.');
+                        name.push_str(name_text(part));
                     }
                     self.node(attribute, NodeKind::AttributeName);
                 }
-                let arg = match self.peek() {
-                    Some(Tok::Str(text)) => {
-                        let text = text.clone();
-                        Some((text, self.bump().span))
+                match self.peek() {
+                    Some(Tok::Str(_)) => {
+                        self.bump();
                     }
                     Some(Tok::StrStart(_)) => {
                         return Err(error(
@@ -75,10 +88,15 @@ impl Parser<'_> {
                         )
                         .into());
                     }
-                    _ => None,
-                };
-                let span = arg.as_ref().map_or(name.span, |(_, s)| name.span.to(*s));
-                attrs.push(Attribute { name, arg, span });
+                    _ => {}
+                }
+                if first.is_none() {
+                    first = Some(FirstAttribute {
+                        name,
+                        span: start.span.to(self.prev_span()),
+                    });
+                }
+                attrs += 1;
                 self.node(attribute, NodeKind::Attribute);
                 if !self.eat(&Tok::Comma) {
                     break;
@@ -87,7 +105,7 @@ impl Parser<'_> {
             self.expect(Tok::RBracket, "`,` or `]` after the attribute")?;
             self.node(group, NodeKind::Attributes);
         }
-        Ok(attrs)
+        Ok(first)
     }
 
     /// `E-ATTRIBUTE` if attributes start at `self.pos`, which `what` can't
@@ -96,40 +114,46 @@ impl Parser<'_> {
         if self.peek() != Some(&Tok::At) {
             return Ok(());
         }
-        let attrs = self.attributes()?;
-        Err(misplaced_attributes(&attrs[0], what).into())
+        let first = self.attributes()?.expect("an attribute");
+        Err(misplaced_attributes(&first, what).into())
     }
 
-    /// A declaration: a definition (a signature and its equations), or one
-    /// declaration of another kind.
+    /// A declaration: a definition, or a declaration of another kind. Its
+    /// root kind.
     #[inline(never)]
-    pub(super) fn decl(&mut self) -> Result<Vec<Decl>> {
+    pub(super) fn decl(&mut self) -> Result<NodeKind> {
         let start = self.here();
         match self.peek() {
             Some(Tok::KwType | Tok::KwInterface) => self.data(),
-            Some(Tok::KwInstance) => self.definition(start, false, false),
-            Some(Tok::KwAbility) => Ok(vec![self.ability()?]),
-            Some(Tok::KwTest) => Ok(vec![self.test()?]),
+            Some(Tok::KwInstance) => Ok(self.definition(start, false, false)?.kind),
+            Some(Tok::KwAbility) => {
+                self.ability()?;
+                Ok(NodeKind::Ability)
+            }
+            Some(Tok::KwTest) => {
+                self.test()?;
+                Ok(NodeKind::Test)
+            }
             Some(Tok::KwExport) => {
                 self.bump();
                 if self.peek() == Some(&Tok::KwOpaque) {
                     self.bump();
                     self.opaque_keyword()?;
-                    return self.definition(start, true, true);
+                    return Ok(self.definition(start, true, true)?.kind);
                 }
                 if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
                     return Err(self
                         .unexpected("`def`, `theorem` or `opaque` after `export`")
                         .into());
                 }
-                self.definition(start, true, false)
+                Ok(self.definition(start, true, false)?.kind)
             }
             Some(Tok::KwOpaque) => {
                 self.bump();
                 self.opaque_keyword()?;
-                self.definition(start, false, true)
+                Ok(self.definition(start, false, true)?.kind)
             }
-            Some(Tok::KwDef | Tok::KwTheorem) => self.definition(start, false, false),
+            Some(Tok::KwDef | Tok::KwTheorem) => Ok(self.definition(start, false, false)?.kind),
             Some(Tok::Lower(_) | Tok::Upper(_)) => Err(self.missing_keyword().into()),
             _ => Err(self.unexpected("a declaration").into()),
         }
@@ -159,28 +183,22 @@ impl Parser<'_> {
     }
 
     /// `test "name" := e`
-    fn test(&mut self) -> Result<Decl> {
-        let start = self.bump().span;
-        let name = match self.peek() {
-            Some(Tok::Str(text)) => {
-                let text = text.clone();
+    fn test(&mut self) -> Result<()> {
+        self.bump();
+        match self.peek() {
+            Some(Tok::Str(_)) => {
                 self.bump();
-                text
             }
             _ => return Err(self.unexpected("the test's name, in quotes").into()),
-        };
+        }
         if self.peek() == Some(&Tok::Equals) {
             return Err(self.def_equals().into());
         }
         let body = self.mark();
         self.expect(Tok::ColonEq, "`:=`")?;
-        let expr = self.expr()?;
+        self.expr()?;
         self.node(body, NodeKind::Body);
-        Ok(Decl::Test {
-            span: start.to(expr.span()),
-            name,
-            expr,
-        })
+        Ok(())
     }
 
     /// `E-PARSE`: a declaration starting with a name, as a definition
@@ -216,17 +234,22 @@ impl Parser<'_> {
         start: Span,
         export: bool,
         opaque: bool,
-    ) -> Result<Vec<Decl>> {
+    ) -> Result<DefinitionRead> {
         let keyword = &self.tokens[self.pos];
         // D (§2.10) is the column of the declaration's first keyword:
         // `export`'s or `opaque`'s, when one is there.
         let column = self.tokens[self.pos - usize::from(export) - usize::from(opaque)].column;
         let theorem = keyword.tok == Tok::KwTheorem;
         let instance = keyword.tok == Tok::KwInstance;
+        let kind = match keyword.tok {
+            Tok::KwTheorem => NodeKind::Theorem,
+            Tok::KwInstance => NodeKind::Instance,
+            _ => NodeKind::Def,
+        };
         // Taken here, before any local definition in the header can.
         let keep = std::mem::take(&mut self.keep_header) && !instance;
         self.bump();
-        let name = self.def_name()?;
+        self.def_name()?;
         // A theorem's header may say `∀` before its parameters
         // (`theorem leTrans ∀ (a b c: Nat) (h: a ≤ b): …`, D3472). It is
         // cosmetic: the formatter writes it, and the term and hash are those
@@ -247,24 +270,22 @@ impl Parser<'_> {
                     .into());
             }
         }
-        let mut params = Vec::new();
         while self.peek() != Some(&Tok::Colon) {
-            params.push(self.header_param()?);
+            self.header_param()?;
         }
         let colon = self.mark();
         self.bump();
-        let result = self.result_type()?;
+        let result = self.mark();
+        self.result_type()?;
+        let result = (result, self.mark());
         self.node(colon, NodeKind::ResultType);
-        check_duplicates(&name, &params, &result)?;
-        let result_is_equation = matches!(result, Expr::Binary(BinOp::Eq, ..));
-        let span = start.to(result.span());
         // `decreasing e`, before `:=` or the arms (D474).
         let decreasing_start = self.mark();
-        let decreasing = if self.eat(&Tok::KwDecreasing) {
+        if self.eat(&Tok::KwDecreasing) {
             if instance {
                 return Err(error(self.prev_span(), "an instance can't have `decreasing`").into());
             }
-            let measure = self.expr()?;
+            self.expr()?;
             self.node(decreasing_start, NodeKind::Decreasing);
             // After it, `:=` may start a line of its own, at the
             // declaration's column (§6.1's layout).
@@ -275,13 +296,10 @@ impl Parser<'_> {
             {
                 self.modes.allow = Some(self.pos);
             }
-            Some(Box::new(measure))
-        } else {
-            None
-        };
+        }
         // `unfolding f, g`, after `decreasing e` if both are written
         // (docs/proposals/opaque-definitions.md §6.3).
-        let mut unfolding = Vec::new();
+        let mut unfolding = None;
         let unfolding_start = self.mark();
         if self.eat(&Tok::KwUnfolding) {
             if instance {
@@ -294,10 +312,11 @@ impl Parser<'_> {
                 );
             }
             loop {
-                unfolding.push(match self.peek() {
+                let name = match self.peek() {
                     Some(Tok::Upper(_)) => self.upper_q("the name of an opaque definition")?,
                     _ => self.lower_q("the name of an opaque definition")?,
-                });
+                };
+                unfolding.get_or_insert(name.span);
                 if !self.eat(&Tok::Comma) {
                     break;
                 }
@@ -311,70 +330,20 @@ impl Parser<'_> {
                 self.modes.allow = Some(self.pos);
             }
         }
-        if self.peek() == Some(&Tok::KwDecreasing) && !unfolding.is_empty() {
+        if self.peek() == Some(&Tok::KwDecreasing) && unfolding.is_some() {
             return Err(error(self.here(), "`decreasing` goes before `unfolding`").into());
         }
-        let defaults = take_defaults(&mut params);
-        let (ty, header) = lower_header(params, result);
-        let signature = Decl::Signature {
-            name: name.clone(),
-            ty,
-            theorem,
-            export,
-            synonym: false,
-            instance,
-            decreasing,
-            opaque,
-            unfolding,
-            defaults,
-            attrs: Vec::new(),
-            body_error: None,
-            span,
-        };
-        // While the body is parsed, a top-level definition's signature waits
-        // on the parser, for recovery to keep if the body doesn't parse.
-        let mut local = None;
+        // From here, if the body doesn't parse, a top-level definition keeps
+        // its signature.
         if keep && matches!(self.peek(), Some(Tok::ColonEq | Tok::Pipe)) {
-            self.header = Some(signature);
-        } else {
-            local = Some(signature);
+            self.header_kept = true;
         }
-        let mut decls = Vec::new();
-        match self.peek() {
+        let body = match self.peek() {
             Some(Tok::ColonEq) => {
                 let body = self.mark();
                 self.bump();
-                let rhs = self.expr()?;
+                self.expr()?;
                 self.node(body, NodeKind::Body);
-                match &rhs {
-                    // `:= match | …` is the arms form: the same equations,
-                    // so the definition has the same case tree.
-                    Expr::Lam(_, body, _) if clause_match(body) => {
-                        let Expr::Match { alts, .. } = &**body else {
-                            unreachable!("`clause_match` checked")
-                        };
-                        for alt in alts.iter().cloned() {
-                            let mut patterns = header.clone();
-                            patterns.extend(alt.patterns);
-                            decls.push(Decl::Equation {
-                                name: name.clone(),
-                                patterns,
-                                guard: alt.guard,
-                                rhs: alt.body,
-                                arm: Some(header.len()),
-                                span: alt.span,
-                            });
-                        }
-                    }
-                    _ => decls.push(Decl::Equation {
-                        span: name.span.to(rhs.span()),
-                        name,
-                        patterns: header,
-                        guard: None,
-                        rhs: Some(rhs),
-                        arm: None,
-                    }),
-                }
                 if self.peek() == Some(&Tok::Pipe) {
                     return Err(error(
                         self.here(),
@@ -386,17 +355,24 @@ impl Parser<'_> {
                     )
                     .into());
                 }
+                true
             }
-            Some(Tok::Pipe) => self.arms(column, &name, &header, &mut decls)?,
+            Some(Tok::Pipe) => {
+                self.arms(column)?;
+                true
+            }
             Some(Tok::Equals) => return Err(self.def_equals().into()),
             // `def f (x : Nat) : Nat = x`: the type swallowed the body as an
             // equation, and nothing follows.
-            None if result_is_equation => {
+            None if self.is_equation(result) => {
                 return Err(Diagnostic::error(
                     "E-DEF-EQUALS",
                     "a definition's body follows `:=`; `=` is equality",
                 )
-                .with_label(span, "this definition has no body")
+                .with_label(
+                    start.to(self.lowered_span(result)),
+                    "this definition has no body",
+                )
                 .with_note(
                     "its type is read as an equation; if that `=` was meant to start the \
                      body, write `:=`",
@@ -405,17 +381,20 @@ impl Parser<'_> {
             }
             // A header without a body: a primitive, for the elaborator to
             // admit or refuse.
-            None => {}
+            None => false,
             _ => {
                 return Err(self
                     .unexpected("`:=` and the body, or arms starting with `|` on their own lines")
                     .into());
             }
-        }
-        if instance && decls.is_empty() {
-            return Err(error(span, "an instance needs a body")
-                .with_note("write `:=` and the instance's value after its type")
-                .into());
+        };
+        if instance && !body {
+            return Err(error(
+                start.to(self.lowered_span(result)),
+                "an instance needs a body",
+            )
+            .with_note("write `:=` and the instance's value after its type")
+            .into());
         }
         if self.tokens.get(self.pos).map(|t| &t.tok) == Some(&Tok::KwWhere) {
             return Err(Diagnostic::error(
@@ -429,32 +408,43 @@ impl Parser<'_> {
             )
             .into());
         }
-        let signature = local.or_else(|| self.header.take());
-        decls.insert(0, signature.expect("the signature is kept until here"));
-        Ok(decls)
+        Ok(DefinitionRead {
+            kind,
+            unfolding,
+            body,
+            result,
+        })
+    }
+
+    /// Whether the type in tokens `range` is an equation, `a = b`: a
+    /// definition's type that swallowed its body.
+    #[inline(never)]
+    fn is_equation(&self, range: (u32, u32)) -> bool {
+        let tokens = &self.tokens[range.0 as usize..range.1 as usize];
+        tokens.iter().any(|t| t.tok == Tok::Equals)
+            && matches!(
+                self.lowered(range, false),
+                Some(Lowered::Expr(Expr::Binary(BinOp::Eq, ..)))
+            )
     }
 
     /// `type Grid = List (List Nat)`: a transparent name for a type, exactly
-    /// `def Grid : Type := List (List Nat)`. After `=`, `{` starts a record's
-    /// fields and `|` a sum's constructors; anything else is the type.
+    /// `def Grid : Type := List (List Nat)`, after its `=`. `name` is its
+    /// name. After `=`, `{` starts a record's fields and `|` a sum's
+    /// constructors; anything else is the type.
     #[inline(never)]
-    pub(super) fn type_synonym(
-        &mut self,
-        start: Span,
-        name: Name,
-        params: Vec<crate::ast::Binder>,
-        auto_params: Vec<bool>,
-        sort: Option<Expr>,
-    ) -> Result<Vec<Decl>> {
+    pub(super) fn type_synonym(&mut self, name: &crate::lexer::Token) -> Result<()> {
         let equals = self.mark() - 1;
-        let body = self.expr()?;
+        let body = self.mark();
+        self.expr()?;
+        let body = (body, self.mark());
         self.node(equals, NodeKind::Body);
-        let ambiguous = |what: &str| {
+        let ambiguous = |parser: &Self, what: &str| {
             error(
-                body.span(),
+                parser.lowered_span(body),
                 format!(
                     "`type {} = …` names a type, but this looks like {what}",
-                    name.text
+                    name_text(name)
                 ),
             )
             .with_note(
@@ -463,65 +453,32 @@ impl Parser<'_> {
             )
         };
         if self.peek() == Some(&Tok::Pipe) {
-            return Err(ambiguous("a sum type without its leading `|`").into());
+            return Err(ambiguous(self, "a sum type without its leading `|`").into());
         }
-        let mut spine = &body;
-        while let Expr::App(f, arg) = spine {
-            if matches!(**arg, Expr::Ann(..)) {
-                return Err(
-                    ambiguous("a constructor with named fields, without its leading `|`").into(),
-                );
+        // An argument with an annotation, `Foo (x: Nat)`: only written in
+        // brackets, with a `:`.
+        let tokens = &self.tokens[body.0 as usize..body.1 as usize];
+        if tokens.iter().any(|t| t.tok == Tok::Colon)
+            && let Some(Lowered::Expr(expr)) = self.lowered(body, false)
+        {
+            let mut spine = &expr;
+            while let Expr::App(f, arg) = spine {
+                if matches!(**arg, Expr::Ann(..)) {
+                    return Err(ambiguous(
+                        self,
+                        "a constructor with named fields, without its leading `|`",
+                    )
+                    .into());
+                }
+                spine = f;
             }
-            spine = f;
         }
-        // An `auto` parameter, `[auto ord: Ord k]`, is one of the
-        // definition's: `type Set (k: Type) [auto ord: Ord k] = …`
-        // (docs/proposals/interfaces.md §7.5).
-        let params: Vec<Param> = params
-            .into_iter()
-            .zip(auto_params)
-            .map(|(b, auto)| Param::Named {
-                span: b.names[0].span.to(b.ty.span()),
-                names: b.names,
-                ty: b.ty,
-                implicit: auto,
-                auto,
-                default: None,
-            })
-            .collect();
-        let result = sort.unwrap_or(Expr::Type(0, name.span));
-        check_duplicates(&name, &params, &result)?;
-        let (ty, header) = lower_header(params, result);
-        Ok(vec![
-            Decl::Signature {
-                name: name.clone(),
-                ty,
-                theorem: false,
-                export: false,
-                synonym: true,
-                instance: false,
-                decreasing: None,
-                opaque: false,
-                unfolding: Vec::new(),
-                defaults: Vec::new(),
-                attrs: Vec::new(),
-                body_error: None,
-                span: start.to(name.span),
-            },
-            Decl::Equation {
-                span: name.span.to(body.span()),
-                name,
-                patterns: header,
-                guard: None,
-                rhs: Some(body),
-                arm: None,
-            },
-        ])
+        Ok(())
     }
 
     /// One parameter in a header: `(x y : A)`, `[x y : A]`, `[auto h : P]`
     /// or `()`.
-    pub(super) fn header_param(&mut self) -> Result<Param> {
+    pub(super) fn header_param(&mut self) -> Result<ParamRead> {
         let mark = self.mark();
         let param = self.header_param_parts()?;
         self.node(mark, NodeKind::Param);
@@ -530,13 +487,12 @@ impl Parser<'_> {
 
     /// [`Self::header_param`] without its `Param` node: a lambda's or
     /// `∀`'s parameter, which is a `LambdaParam`.
-    pub(super) fn header_param_parts(&mut self) -> Result<Param> {
-        let start = self.here();
+    pub(super) fn header_param_parts(&mut self) -> Result<ParamRead> {
         let implicit = match self.peek() {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
-                let end = self.bump().span;
-                return Ok(Param::Unit(start.to(end)));
+                self.bump();
+                return Ok(ParamRead { default: None });
             }
             Some(Tok::LParen) => false,
             Some(Tok::LBracket) => true,
@@ -548,38 +504,29 @@ impl Parser<'_> {
         };
         self.bump();
         self.no_attributes("a definition's parameter")?;
-        let mut names = vec![self.param_name()?];
+        let first = self.param_name()?;
+        let mut names = vec![name_text(first)];
         while let Some(Tok::Lower(_)) = self.peek() {
-            names.push(self.param_name()?);
+            names.push(name_text(self.param_name()?));
         }
         // `auto` is only special as the first word of a binder with names
         // after it, as in types; or, without a name, `[auto Ord a]`
         // (docs/proposals/interfaces.md §5.3).
         if implicit
             && names.len() == 1
-            && names[0].text == "auto"
+            && names[0] == "auto"
             && !matches!(self.peek(), Some(Tok::Colon | Tok::RBracket) | None)
         {
-            let ty = self.expr()?;
+            self.expr()?;
             if self.peek() != Some(&Tok::RBracket) {
                 return Err(self
                     .unexpected("`]` to close the parameter `[auto …]`")
                     .into());
             }
-            let end = self.bump().span;
-            return Ok(Param::Named {
-                names: vec![Name {
-                    text: NAMELESS.to_string(),
-                    span: names[0].span,
-                }],
-                ty,
-                implicit,
-                auto: true,
-                default: None,
-                span: start.to(end),
-            });
+            self.bump();
+            return Ok(ParamRead { default: None });
         }
-        let auto = implicit && names.len() > 1 && names[0].text == "auto";
+        let auto = implicit && names.len() > 1 && names[0] == "auto";
         if auto {
             names.remove(0);
         }
@@ -591,11 +538,7 @@ impl Parser<'_> {
         let written = format!(
             "{open}{}{}: …",
             if auto { "auto " } else { "" },
-            names
-                .iter()
-                .map(|n| n.text.as_str())
-                .collect::<Vec<_>>()
-                .join(" ")
+            names.join(" ")
         );
         if self.peek() != Some(&Tok::Colon) {
             return Err(error(self.here(), "a parameter needs a type")
@@ -603,7 +546,7 @@ impl Parser<'_> {
                 .into());
         }
         self.bump();
-        let ty = self.binder_type()?;
+        self.binder_type()?;
         let default = if self.peek() == Some(&Tok::ColonEq) {
             if implicit {
                 return Err(error(self.here(), DEFAULT_PLACES).with_note(
@@ -613,9 +556,10 @@ impl Parser<'_> {
             }
             let default = self.mark();
             self.bump();
-            let value = self.expr()?;
+            let value = self.mark();
+            self.expr()?;
             self.node(default, NodeKind::Default);
-            Some(value)
+            Some((value, self.mark()))
         } else {
             None
         };
@@ -624,29 +568,16 @@ impl Parser<'_> {
                 .unexpected(&format!("`{close}` to close the parameter `{written}`"))
                 .into());
         }
-        let end = self.bump().span;
-        Ok(Param::Named {
-            names,
-            ty,
-            implicit,
-            auto,
-            default: default.map(Box::new),
-            span: start.to(end),
-        })
+        self.bump();
+        Ok(ParamRead { default })
     }
 
-    /// The arms under a header, at `self.pos`'s `|`, onto `decls`. `d` is
-    /// the column of the definition's keyword. Layout rules L4 to L6 (§2.10):
-    /// every arm's `|` starts a line at one column, right of `d`, and a
-    /// line at or left of that column ends an arm's body.
+    /// The arms under a header, at `self.pos`'s `|`. `d` is the column of
+    /// the definition's keyword. Layout rules L4 to L6 (§2.10): every arm's
+    /// `|` starts a line at one column, right of `d`, and a line at or left
+    /// of that column ends an arm's body.
     #[inline(never)]
-    fn arms(
-        &mut self,
-        d: u32,
-        name: &Name,
-        header: &[Pattern],
-        decls: &mut Vec<Decl>,
-    ) -> Result<()> {
+    fn arms(&mut self, d: u32) -> Result<()> {
         let first = &self.tokens[self.pos];
         if !first.line_start {
             return Err(error(first.span, "arms start on their own lines")
@@ -670,7 +601,7 @@ impl Parser<'_> {
         let result = (|| -> Result<()> {
             loop {
                 self.modes.allow = Some(self.pos);
-                decls.push(self.arm(name, header)?);
+                self.arm()?;
                 let Some(next) = self.tokens.get(self.pos) else {
                     return Ok(());
                 };
@@ -718,124 +649,56 @@ impl Parser<'_> {
 
     /// `| p, q => body`, or with an absurd pattern, `| p, ()`: an equation
     /// whose patterns are the header's, then the arm's.
-    fn arm(&mut self, name: &Name, header: &[Pattern]) -> Result<Decl> {
+    fn arm(&mut self) -> Result<()> {
         let mark = self.mark();
-        let bar = self.bump().span;
-        let mut patterns = header.to_vec();
-        patterns.push(self.alt_pattern()?);
+        self.bump();
+        let patterns = self.mark();
+        self.alt_pattern()?;
         while self.eat(&Tok::Comma) {
-            patterns.push(self.alt_pattern()?);
+            self.alt_pattern()?;
         }
-        let guard = self.guard()?;
-        let rhs = self.arm_body(
-            &patterns[header.len()..],
-            guard.as_ref(),
-            "`=>` and the arm's body",
-        )?;
-        let end = self.prev_span();
+        let absurd = self.absurd_since(patterns);
+        self.guard()?;
+        self.arm_body(absurd, "`=>` and the arm's body")?;
         self.node(mark, NodeKind::Arm);
-        Ok(Decl::Equation {
-            name: name.clone(),
-            patterns,
-            guard,
-            rhs,
-            arm: Some(header.len()),
-            span: bar.to(end),
-        })
+        Ok(())
     }
 
     /// A handler's clause in the new syntax, after its `|`:
     /// `return x => body`, or `op p, k => body`. The argument is one atomic
     /// pattern, so a comma inside its brackets belongs to it.
     #[inline(never)]
-    pub(super) fn handler_clause(&mut self) -> Result<Clause> {
+    pub(super) fn handler_clause(&mut self) -> Result<()> {
         if self.eat(&Tok::KwReturn) {
-            let var = self.lower("a name for the result")?;
+            self.lower("a name for the result")?;
             self.expect(Tok::FatArrow, "`=>`")?;
-            let body = self.expr()?;
-            return Ok(Clause::Return { var, body });
+            return self.expr();
         }
         let op = self.lower_q("an operation, or `return`")?;
-        let arg = self.pattern()?;
+        let arg = self.mark();
+        self.pattern()?;
+        let arg = (arg, self.mark());
         if self.peek() == Some(&Tok::FatArrow) {
             return Err(error(
                 self.here(),
-                format!("name the continuation: `| {} x, k => …`", op.text),
+                format!("name the continuation: `| {} x, k => …`", name_text(op)),
             )
             .into());
         }
         self.expect(Tok::Comma, "`,` and a name for the continuation")?;
-        let k = if self.peek() == Some(&Tok::Underscore) {
-            let span = self.bump().span;
-            Name {
-                text: "_".to_string(),
-                span,
-            }
+        if self.peek() == Some(&Tok::Underscore) {
+            self.bump();
         } else {
-            self.lower("a name for the continuation")?
-        };
+            self.lower("a name for the continuation")?;
+        }
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
-                arg.span().to(self.here()),
+                self.lowered_pattern_span(arg).to(self.here()),
                 "an operation takes one argument; bracket a tuple: `(a, b)`",
             )
             .into());
         }
         self.expect(Tok::FatArrow, "`=>`")?;
-        let body = self.expr()?;
-        Ok(Clause::Op { op, arg, k, body })
-    }
-}
-
-/// `E-DUPLICATE-PARAMETER`: the header's parameters, and the implicit and
-/// auto parameters after the colon, all have different names (§2.5). The
-/// elaborator binds the implicit ones before the header's explicit ones,
-/// which are pattern variables, so a repeated name would refer to the
-/// header's parameter where the reader expects the later one. Explicit
-/// binders after the colon are local to the type, so they may repeat a
-/// header's name.
-fn check_duplicates(def: &Name, params: &[Param], result: &Expr) -> Result<()> {
-    let mut seen: Vec<&Name> = Vec::new();
-    let check = |seen: &[&Name], name: &Name| match seen.iter().find(|s| s.text == name.text) {
-        Some(first) => Err(Diagnostic::error(
-            "E-DUPLICATE-PARAMETER",
-            format!("`{}` is already a parameter of `{}`", name.text, def.text),
-        )
-        .with_label(name.span, "named again here")
-        .with_label(first.span, "first named here")
-        .with_note(
-            "the header's parameters and the implicit ones after the colon need different names",
-        )),
-        None => Ok(()),
-    };
-    for param in params {
-        if let Param::Named { names, .. } = param {
-            for name in names.iter().filter(|n| n.text != NAMELESS) {
-                check(&seen, name)?;
-                seen.push(name);
-            }
-        }
-    }
-    // The implicit and auto binders on the type's spine, up to its result
-    // (an ability row ends it, as it ends the arguments arms match).
-    let mut ty = result;
-    loop {
-        match ty {
-            Expr::Pi {
-                names,
-                implicit,
-                cod,
-                ..
-            } => {
-                if *implicit {
-                    for name in names.iter().filter(|n| n.text != NAMELESS) {
-                        check(&seen, name)?;
-                    }
-                }
-                ty = cod;
-            }
-            Expr::Arrow(_, cod) => ty = cod,
-            _ => return Ok(()),
-        }
+        self.expr()
     }
 }

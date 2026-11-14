@@ -8,7 +8,7 @@ use crate::tree::{Element, Leaf, Node, NodeKind};
 
 use super::access::required;
 use super::decls::name;
-use super::header::{Param, clause_match, lower_header, take_defaults};
+use super::header::{Param, check_duplicates, clause_match, lower_header, take_defaults};
 use super::{Lower, Lowering};
 
 /// Whether `element` is the token `tok`.
@@ -83,16 +83,32 @@ impl<'f> Lower<'f> {
     /// A definition that didn't parse but whose header did: its signature,
     /// with no equations, marked with where its first error is.
     pub(super) fn kept_signature(&self, root: Node<'f>) -> Lowering<Decl> {
+        let range = required(root.span(), NodeKind::Error, "its tokens")?;
+        let error_at = self.first_error_in(range.start as usize, range.end as usize);
+        self.signature_with_error(root, error_at.unwrap_or(Span::NOWHERE))
+    }
+
+    /// A definition's signature, marked as standing in for a body with an
+    /// error at `error_at` (or at the signature, if that is nowhere).
+    pub(super) fn signature_with_error(&self, root: Node<'f>, error_at: Span) -> Lowering<Decl> {
         let Header { mut signature, .. } = self.header(root)?;
         if let Decl::Signature {
             body_error, span, ..
         } = &mut signature
         {
-            let range = required(root.span(), NodeKind::Error, "its tokens")?;
-            let error_at = self.first_error_in(range.start as usize, range.end as usize);
-            *body_error = Some(error_at.unwrap_or(*span));
+            *body_error = Some(if error_at == Span::NOWHERE {
+                *span
+            } else {
+                error_at
+            });
         }
         Ok(signature)
+    }
+
+    /// Whether the header of a definition that didn't parse lowers, if it
+    /// was read whole.
+    pub(crate) fn header_of(&self, root: Node<'f>) -> Lowering<()> {
+        self.header(root).map(|_| ())
     }
 
     /// The signature a definition's header makes: from its attributes to
@@ -146,6 +162,7 @@ impl<'f> Lower<'f> {
         let start = start.unwrap_or(keyword.span());
         let name = required(name, kind, "its name")?;
         let result = required(result, kind, "its type")?;
+        check_duplicates(&name, &params, &result)?;
         let defaults = take_defaults(&mut params);
         let span = start.to(result.span());
         let (ty, patterns) = lower_header(params, result);
@@ -248,6 +265,7 @@ impl<'f> Lower<'f> {
                 pattern => patterns.push(self.pattern(pattern)?),
             }
         }
+        super::matching::no_guard_without_body(guard.as_ref(), rhs.as_ref())?;
         Ok(Decl::Equation {
             name: name.clone(),
             patterns,
@@ -351,27 +369,16 @@ fn as_leaf_opt(element: Option<Element<'_>>) -> Option<Leaf<'_>> {
 #[cfg(test)]
 mod tests {
     use crate::SourceMap;
-    use crate::lower::oracle::{Report, compare};
+    use crate::lower::coverage::report;
     use crate::tree::NodeKind;
 
-    fn report(text: &str) -> Report {
-        compare(SourceMap::new().next_id(), text, crate::DEFAULT_STACK, true)
-    }
-
-    fn differences(report: &Report) -> Vec<String> {
-        let at =
-            |d: &crate::lower::oracle::Difference| format!("{} at {}:\n{}", d.what, d.at, d.detail);
-        report.differences.iter().map(at).collect()
-    }
-
-    /// Every kind of declaration and header part comes out of the lowering
-    /// as the parser builds it, spans included: attributes, `export` and
+    /// Every kind of declaration and header part lowers whole: attributes, `export` and
     /// `opaque`, each kind of parameter and its default, a theorem's `∀`,
     /// `decreasing` and `unfolding`, arms with guards and an absurd one,
     /// data types with indices, constructors in brackets and braces,
     /// records, synonyms, interfaces, abilities, function types and rows.
     #[test]
-    fn declarations_and_headers_lower_as_parsed() {
+    fn declarations_and_headers_lower() {
         let text = "\
 @[inline] @[a.b \"c\", d] export def f (x y: Nat) [a: Type] (z: Nat := 3) (): Nat := x
 opaque def o: Nat := 1
@@ -403,7 +410,7 @@ def e2: {} Nat := x
 def ft: (x: Nat) -> [y: Type] -> [auto Q] -> Nat := ft
 ";
         let report = report(text);
-        assert_eq!(differences(&report), Vec::<String>::new());
+        assert_eq!(report.errors, []);
         assert!(report.unsupported.is_empty(), "{:?}", report.unsupported);
         use NodeKind::*;
         assert_eq!(
@@ -450,7 +457,7 @@ def bad6 (x: Nat): Nat :=
 def bad7 (x: Nat) Nat := x
 ";
         let report = report(text);
-        assert_eq!(differences(&report), Vec::<String>::new());
+        assert_eq!(report.errors.len(), 7, "{:#?}", report.errors);
         assert!(report.unsupported.is_empty(), "{:?}", report.unsupported);
         let file = SourceMap::new().next_id();
         let (module, _) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);

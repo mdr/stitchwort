@@ -5,13 +5,11 @@
 //!
 //! The public parse functions ([`crate::parse_module_recovering`],
 //! [`crate::parse_expression_within`] and the rest) build the lossless tree
-//! and lower it. Until step 4 the parser also still builds the compiler's
-//! tree directly, which only the oracle reads ([`oracle`], `stitchwort dev
-//! tree --lower`): it parses files both ways and requires the two trees to
-//! be identical, spans and hidden names included. A declaration the
-//! lowering can't lower ([`Unsupported`]) is an error on the public route:
-//! `E-RESOURCE` if it ran out of stack, otherwise an internal error, which
-//! the oracle would show as a difference.
+//! and lower it: the parser only marks where constructs start and end
+//! (step 4). A declaration the lowering can't lower ([`Unsupported`]) is an
+//! error on the public route: one the lowering raises itself
+//! ([`Unsupported::Invalid`]), `E-RESOURCE` if it ran out of stack,
+//! otherwise an internal error.
 //!
 //! # Rules
 //!
@@ -27,10 +25,14 @@
 //!   `=>`), not by position (`lower/access.rs`): with error recovery, a
 //!   child may be missing, and reading by position would put the next child
 //!   in its slot.
-//! - **Spans are the parser's**, quirks included; the oracle compares them.
-//! - **Infallible.** In step 3 every error is still the parser's; the
-//!   lowering only ever reports that it can't lower something, which is a
-//!   bug, or that it ran out of stack.
+//! - **Spans are the ones the parser used to give**, quirks included: the
+//!   hash snapshots and messages depend on them.
+//! - **Errors about meaning are the lowering's.** The parser checks only
+//!   what decides how tokens group; a check on what has been grouped, such
+//!   as a parameter named twice, is the lowering's
+//!   ([`Unsupported::Invalid`]). Without recovery, a declaration reports its
+//!   earliest error, so the parser's errors after the lowering's in the same
+//!   declaration are dropped.
 //! - **`Error` nodes are not looked inside**: what finished before an error
 //!   keeps its nodes for the editor, but for the checker it is skipped text.
 
@@ -42,22 +44,26 @@ use crate::{Diagnostic, Span};
 use std::fmt;
 
 mod access;
-pub(crate) mod binding;
+mod binding;
+#[cfg(test)]
+mod coverage;
 mod decls;
 mod definitions;
-pub(crate) mod exprs;
-pub(crate) mod header;
+mod exprs;
+mod header;
 mod matching;
-pub mod oracle;
-pub(crate) mod patterns;
-pub(crate) mod proofs;
+mod patterns;
+mod proofs;
 pub(crate) mod sections;
 mod types;
 
 /// What the lowering couldn't lower: the first such thing it met in a
-/// declaration. The oracle counts declarations by it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// declaration.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Unsupported {
+    /// An error in the program that only shows once its parts are grouped,
+    /// such as a parameter named twice: reported as it is.
+    Invalid(Box<Diagnostic>),
     /// A node of this kind.
     Kind(NodeKind),
     /// A token where an expression should be that the lowering doesn't
@@ -78,6 +84,7 @@ pub enum Unsupported {
 impl fmt::Display for Unsupported {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Unsupported::Invalid(error) => write!(f, "{}", error.message),
             Unsupported::Kind(kind) => write!(f, "{kind:?}"),
             Unsupported::Token => write!(f, "a token read as an expression"),
             Unsupported::Missing(kind, part) => write!(f, "{kind:?} without {part}"),
@@ -150,7 +157,10 @@ impl<'f> Lower<'f> {
                 Ok(LoweredDecl::Import(import)) => module.imports.push(import),
                 Ok(LoweredDecl::Decls(decls)) => module.decls.extend(decls),
                 Ok(LoweredDecl::Failed(names)) => module.failed.extend(names),
-                Err(what) => unsupported.push((i, what)),
+                Err(what) => {
+                    module.decls.extend(self.signature_despite(root, &what));
+                    unsupported.push((i, what));
+                }
             }
         }
         // A file whose first declaration isn't at the start of a line is
@@ -159,6 +169,21 @@ impl<'f> Lower<'f> {
             module.doc_links = crate::docs::bar_links(self.text, self.tree.bars());
         }
         (module, unsupported)
+    }
+
+    /// For a top-level `def` or `theorem` that parsed but whose body the
+    /// lowering refused (`what`), its signature, kept as the parser keeps
+    /// one whose body doesn't parse (docs/proposals/tests-with-errors.md
+    /// §3.3); none if its header is what was refused.
+    pub(crate) fn signature_despite(&self, root: Node<'f>, what: &Unsupported) -> Option<Decl> {
+        let Unsupported::Invalid(error) = what else {
+            return None;
+        };
+        if !matches!(root.kind(), NodeKind::Def | NodeKind::Theorem) {
+            return None;
+        }
+        let at = error.primary_span()?;
+        self.signature_with_error(root, at).ok()
     }
 
     /// One declaration.
@@ -178,7 +203,14 @@ impl<'f> Lower<'f> {
             NodeKind::Error if root.signature_kept() => {
                 Ok(LoweredDecl::Decls(vec![self.kept_signature(root)?]))
             }
-            NodeKind::Error => self.failed(root).map(LoweredDecl::Failed),
+            NodeKind::Error => {
+                // A definition that failed after its header: the header's
+                // own error, such as a parameter named twice, came first.
+                if let Err(refused @ Unsupported::Invalid(_)) = self.header_of(root) {
+                    return Err(refused);
+                }
+                self.failed(root).map(LoweredDecl::Failed)
+            }
             kind => Err(Unsupported::Kind(kind)),
         }
     }

@@ -46,6 +46,59 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 14 Nov 2026
 
+### SW-3213: the parser builds only marks; parsing 1.30x the old parser's time, from 1.57x
+
+- **Status:** done (Opus). Lane L6 of
+  [syntax-tree-lowering.md](../proposals/syntax-tree-lowering.md#6-performance):
+  step 4, the parser's direct construction of the compiler's tree deleted.
+- **Problem.** Since L5 (below) every parse built the compiler's tree twice:
+  once by the parser, thrown away, and once by the lowering.
+- **Change.** The parser's functions return `Result<()>` (or a small value
+  a caller needs, such as a definition's kind), and it records only marks.
+  Its decisions that looked at a value just built now look at the marks and
+  tokens (an absurd pattern, a block ending in a `let`, a `()` call after a
+  name, a membership's operator). Checks on meaning moved to the lowering
+  (a parameter named twice, an or-pattern that binds, an absurd arm with a
+  condition). Messages that quote a construct's span as the compiler's tree
+  has it lower that construct when the message is made
+  (`Parser::lowered`). The oracle and `dev tree --lower` are gone.
+- **Why results stay the same.** Before deleting anything, the oracle
+  compared the two routes over 20,000 fuzz-generated programs (4 seeds):
+  215,344 declarations and 48,648 expressions, 0 differences in modules,
+  diagnostics or expressions. Then a fingerprint of every result (module,
+  diagnostics, lossless tree, and each line parsed as an expression) over
+  the repo's 2,983 files and those 20,000 programs, before and after: 15
+  differ. 14 differ only in the lossless tree: a declaration whose error is
+  now the lowering's is a whole `Def` node, not an `Error` one. One fuzz
+  program (an import after a declaration with a meaning error) now also
+  reports "imports go at the top of the file", which is true of it. The
+  hash and reject snapshots are unchanged.
+- **Measured** (release CLI, `dev tree --time 5`, best of 5, `nice -n 15`,
+  load average 3-5; two runs agreed within 0.3 ms):
+
+  | | the old parser alone (before L5) | L5, through the lowering | L6, through the lowering | L6, the lossless tree alone |
+  |---|---|---|---|---|
+  | std, 2.12 MB | 53.2 ms | 83.5 ms (1.57x) | 69.0 ms (1.30x) | 46.4 ms |
+  | std, `aoc/src`, `games`, `examples`, 6.88 MB | 161.2 ms | 251.6 ms (1.56x) | 209.9 ms (1.30x) | 142.2 ms |
+
+  The design estimated 1.1-1.3x for the end state. Building the lossless
+  tree now costs less than the old parser alone did (46.4 against
+  53.2 ms); the lowering is the rest.
+- **Bench.** _The orchestrator adds stitchwort-bench's numbers from the
+  verifier's run on `main` here. L5 had raised check-nested-parens'
+  allocations from 136 to 225 (+65%) and its peak heap from 2.0 to 5.3 MB,
+  check-nested-apps' peak heap from 1.2 to 1.9 MB, and smaller rises on
+  check-number-huge, check-number-pattern, check-text-literal and
+  text-literal-walk; these should come back down._
+- **Stack.** Without trees in its frames the parser nests about three
+  times as deeply as before in the same stack, deeper than the lowering
+  can follow for some shapes (at the parser's deepest, `(.f (.f …))` needed
+  1.2 times the stack to lower in release, 1.55 in debug). The parser now
+  takes half the stack and the lowering all of it
+  (`parser::parser_limit`), so what parses lowers: the release CLI parses
+  18,000 nested brackets (12,740 in October), and 2,000 nested `f (`
+  check.
+
 ### SW-3212: parsing goes through the lowering, 1.57x slower until L6 (accepted regression)
 
 - **Status:** accepted, temporary regression (Opus). Step 3's switch, lane

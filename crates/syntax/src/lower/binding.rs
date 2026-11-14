@@ -1,10 +1,8 @@
 //! Binding: a block's lines (`let`, local definitions, sequences), the
 //! expression `let`, lambdas and their pattern parameters, `forall` and
 //! `exists`, `if`, and clause lambdas (`match | …`, `match some | …`,
-//! `matches | …`). The parser still builds the compiler's tree itself and
-//! shares the expansions here ([`bind_let`], [`lines`], [`lambda_of`],
-//! [`forall_of`], [`exists_chain`], [`clause_lambda_of`]), so both routes
-//! expand the same way.
+//! `matches | …`), and the expansions they hold ([`bind_let`], [`lines`],
+//! [`lambda_of`], [`forall_of`], [`exists_chain`], [`clause_lambda_of`]).
 
 use crate::Span;
 use crate::ast::{Alt, Expr, LocalDef, MatchKind, Mode, Name, Pattern, Scrutinee};
@@ -607,6 +605,9 @@ impl<'f> Lower<'f> {
             _ => return Err(Unsupported::Missing(akind, "`|`")),
         };
         let (patterns, guard, body) = self.arm_parts(arm)?;
+        if kind != MatchKind::ClauseMatches {
+            super::matching::no_guard_without_body(guard.as_ref(), body.as_ref())?;
+        }
         let body = match (kind, body) {
             (MatchKind::ClauseMatches, None) => Some(clause_true(bar)),
             (MatchKind::ClauseSome, Some(body)) => Some(clause_some(body, bar)),
@@ -636,28 +637,13 @@ fn first_token(element: Element<'_>) -> Lowering<Span> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::oracle::{Report, compare};
-    use crate::SourceMap;
+    use crate::lower::coverage::report;
     use crate::tree::NodeKind;
 
-    fn report(text: &str) -> Report {
-        let file = SourceMap::new().next_id();
-        compare(file, text, crate::DEFAULT_STACK, true)
-    }
-
-    fn differences(report: &Report) -> Vec<String> {
-        report
-            .differences
-            .iter()
-            .map(|d| format!("{} at {}:\n{}", d.what, d.at, d.detail))
-            .collect()
-    }
-
     /// Each kind of lane L3, in the forms whose lowering depends on what
-    /// surrounds it, comes out as the parser builds it, spans and hidden
-    /// names included.
+    /// surrounds it, lowers whole.
     #[test]
-    fn binding_and_sections_lower_as_parsed() {
+    fn binding_and_sections_lower() {
         let bodies = [
             "x => x",
             "_ => 0",
@@ -721,7 +707,7 @@ mod tests {
              def q: Nat -> Nat := match\n  | 0 => 1\n  | n => n\n",
         );
         let report = report(&text);
-        assert_eq!(differences(&report), Vec::<String>::new());
+        assert_eq!(report.errors, []);
         assert_eq!(report.unsupported, []);
         let mut kinds = vec![NodeKind::Test; bodies.len()];
         kinds.extend([NodeKind::Def; 3]);
