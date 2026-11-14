@@ -34194,12 +34194,12 @@
     {
       "id": 3149,
       "title": "[Sonnet] build --native executables fail to start from the main checkout: 'its tables can't be read: written by a different build of the runtime' (libstitchwort_standalone.a dated 12 Nov, CLI 13 Nov). Make the build rebuild/check the runtime library with the CLI, or give a clear message naming task build (SW-3145 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Matt, 14 Nov 2026: tidy batch before the foundations ('built programs not starting is a pretty big bug'). SW-3234 found plain build fails too: 'this executable's program can't be read: written by a different build of the runtime'. Expected: 1.5 h (Sonnet).",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
@@ -35349,12 +35349,12 @@
     {
       "id": 3229,
       "title": "[Sonnet] Bug: a declaration holding a list with a bracketed range and a trailing comma, [(0 ..< n),], is never formatted, silently with exit 0, because the lowering reads that trailing comma (lower/exprs.rs, list) (SW-3228 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 45 min (Sonnet).",
+      "body": "Matt, 14 Nov 2026: tidy batch. Expected: 45 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
