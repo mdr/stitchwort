@@ -64,6 +64,14 @@ impl<'f> Lower<'f> {
             Include => include(node),
             FunctionType => self.function_type(node),
             Effect => self.effect(node),
+            Match => self.match_expr(node),
+            Handle => self.handle(node),
+            Reify => self.reify(node),
+            Induct => self.induct(node),
+            Calc => self.calc(node),
+            Rewrite => self.rewrite(node),
+            Omega | Ring => self.with_facts(node),
+            Cases => self.cases(node),
             kind => Err(Unsupported::Kind(kind)),
         }
     }
@@ -147,7 +155,7 @@ impl<'f> Lower<'f> {
     /// its brackets as [`Expr::Bracketed`], so `W-RANGE-IN-BRACKETS`, which
     /// warns about `[0 ..< n]`, stays quiet.
     #[inline(never)]
-    fn list(&self, node: Node<'f>) -> Lowering<Expr> {
+    pub(super) fn list(&self, node: Node<'f>) -> Lowering<Expr> {
         let mut items = items(node, &[Tok::LBracket, Tok::Comma, Tok::RBracket])
             .into_iter()
             .map(|item| Ok((item, self.expr(item)?)))
