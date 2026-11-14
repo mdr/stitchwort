@@ -2392,7 +2392,6 @@ impl Main {
                 parse::<lsp_types::FoldingRangeParams>(&request).map(|p| {
                     let uri = &p.text_document.uri;
                     let text = self.text(uri);
-                    // The same outline the documentSymbol handler uses.
                     let ranges = match locate(&nav, uri).and_then(|(_, ws, p)| ws.files.get(&p)) {
                         Some(f) => folding_ranges(&f.outline, text.as_deref()),
                         None => text.as_deref().map_or_else(Vec::new, |text| {
@@ -2860,42 +2859,36 @@ fn comment_folds(text: &str) -> Vec<FoldingRange> {
     let mut sources = SourceMap::new();
     let id = sources.add(String::new(), text.to_string());
     let (lexed, _) = stitchwort_syntax::lex_recovering_with_trivia(id, text);
-    let line_of = |comment: &stitchwort_syntax::Comment| -> u32 {
-        let bytes = &text.as_bytes()[..comment.span.start as usize];
-        bytes.iter().filter(|&&b| b == b'\n').count() as u32
+    let push_run = |folds: &mut Vec<FoldingRange>, (start, end): (u32, u32)| {
+        if end - start >= 2 {
+            folds.push(FoldingRange {
+                start_line: start,
+                end_line: end,
+                kind: Some(FoldingRangeKind::Comment),
+                ..Default::default()
+            });
+        }
     };
-    let mut lines = BTreeSet::new();
-    for trivia in lexed.trivia.iter().chain(std::iter::once(&lexed.eof)) {
-        lines.extend(trivia.leading.iter().map(line_of));
-    }
     let mut folds = Vec::new();
     let mut run: Option<(u32, u32)> = None;
-    for line in lines {
-        run = Some(match run {
-            Some((start, end)) if end + 1 == line => (start, line),
-            Some((start, end)) => {
-                if end - start >= 2 {
-                    folds.push(FoldingRange {
-                        start_line: start,
-                        end_line: end,
-                        kind: Some(FoldingRangeKind::Comment),
-                        ..Default::default()
-                    });
+    let (mut at, mut line) = (0, 0);
+    for trivia in lexed.trivia.iter().chain(std::iter::once(&lexed.eof)) {
+        for comment in &trivia.leading {
+            let start = comment.span.start as usize;
+            line += text[at..start].bytes().filter(|&b| b == b'\n').count() as u32;
+            at = start;
+            run = Some(match run {
+                Some((first, last)) if last + 1 == line => (first, line),
+                Some((first, last)) => {
+                    push_run(&mut folds, (first, last));
+                    (line, line)
                 }
-                (line, line)
-            }
-            None => (line, line),
-        });
+                None => (line, line),
+            });
+        }
     }
-    if let Some((start, end)) = run
-        && end - start >= 2
-    {
-        folds.push(FoldingRange {
-            start_line: start,
-            end_line: end,
-            kind: Some(FoldingRangeKind::Comment),
-            ..Default::default()
-        });
+    if let Some(run) = run {
+        push_run(&mut folds, run);
     }
     folds
 }
