@@ -35132,12 +35132,12 @@
     {
       "id": 3217,
       "title": "[Sonnet] LSP test failures found in SW-3199's verifier: (1) features::completion_keeps_the_locals_of_a_declaration_that_does_not_parse now gets ['m','count','f'], not ['doubled','m','count'] (passed on Overmind at 1e1c47ae6; suspects SW-3199's outline-range/goals_kept change, or SW-1982); (2) six faults:: tests expect Cmd+. to start a search, but it now answers at once (D3519/SW-2959), like SW-3188's stale features tests",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 60 min (Sonnet).",
+      "body": "Expected: 60 min (Sonnet).\n\nProgress (Sonnet lane): regression cause: SW-3199 gave a body-failed declaration an outline range covering its body, so completion's locals_in (crates/lsp/src/complete.rs) found it \"around the cursor\" in the newest check, which has only its header params, instead of falling back to the older check with the body's binders. Fix: skip body_error items there. Faults tests: TEXT is now a theorem (a proof goal; a def's ? has no search), searches are picked via workspace/executeCommand stitchwort.searchProof. All 24 faults + completion test + SW-3199 server tests pass.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
