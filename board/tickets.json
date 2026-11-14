@@ -32660,14 +32660,14 @@
     {
       "id": 3033,
       "title": "[Sonnet] Formatter keeps some indentation as written (SW-3026): a declaration after an attribute line, the line ending a \"\"\" text block, a := at line start, some record-field lines, long continuation lines (157 of 1692 de-formatted files don't format back). Decide per case whether intended; normalise the rest",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Moot after SW-3194 (D3573): the line-based formatter this is about was deleted; the tree printer chooses every line break and docs/proposals/formatter.md is superseded.",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34247,14 +34247,14 @@
     {
       "id": 3154,
       "title": "[DeepSeek] docs/proposals/formatter.md §2.3 describes a walk guided by the syntax tree; the built formatter uses line columns and token roles with the tree only as referee: correct the note (SW-3152 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Moot after SW-3194 (D3573): the line-based formatter this is about was deleted; the tree printer chooses every line break and docs/proposals/formatter.md is superseded.",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34366,14 +34366,14 @@
     {
       "id": 3163,
       "title": "[DeepSeek] fmt's ':= match' rule measures width in bytes, so ∀ → ≤ count three each (8,217 code lines over 120 characters vs 8,718 over 120 bytes): measure in characters (SW-3158 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Moot after SW-3194 (D3573): the line-based formatter this is about was deleted; the tree printer chooses every line break and docs/proposals/formatter.md is superseded.",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
