@@ -522,6 +522,12 @@ error per construct, which covers every example in the repo [source];
 for two in one construct, which of them is shown may change. **[rec:
 yes]**
 
+*Decided (Matt, 14 Nov 2026): "I don't care about the ordering in which
+every message is shown when."* Broader than asked: the order in which
+errors are reported may change anywhere; only which errors appear, and
+their text, are held. Reject snapshots whose only change is order are
+re-blessed.
+
 **D3575: may the lowering lanes run the parse-only oracle over the whole
 repo themselves?** *The problem:* the lanes' only real test is "both
 routes agree on every file", and the test budget keeps whole-repo runs
