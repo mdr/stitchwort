@@ -35176,12 +35176,12 @@
     {
       "id": 3219,
       "title": "[Sonnet] Debug-build-only failures (pass in release, predate the lowering): reject examples parser-count-differs-from-lemma (loses notes) and reads-nested-binds-unknown-field (E-RESOURCE); nesting tests long_list_literals_with_a_small_guard and nested_applications_under_the_playground_guard. Tune them for debug stack frames or mark them release-only (SW-3212 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35189,12 +35189,12 @@
     {
       "id": 3220,
       "title": "[DeepSeek] A test or lint that every function the lowering's node_expr and node_pattern dispatch to is #[inline(never)]: two unmarked ones grew node_expr's frame from 96 to 816 bytes and broke deep nesting in release (SW-3212 finding)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 60 min (Sonnet).",
+      "body": "Waits for L6 (SW-3213), which rewrites lower/.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
