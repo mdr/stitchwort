@@ -34908,12 +34908,12 @@
     {
       "id": 3201,
       "title": "[DeepSeek] js cons_cells calls hole_path again at every level, so it is quadratic in constructor depth; compute it once (SW-3190 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-3215.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35108,12 +35108,12 @@
     {
       "id": 3215,
       "title": "[DeepSeek] Small cleanups: clippy::op_ref at crates/cli/src/sweep_cmd.rs:462 (&s.path == &path); tree_command in crates/cli/src/main.rs has its own copy of sw_files (the inner walk), use the shared one (SW-3207 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-3201.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35121,12 +35121,12 @@
     {
       "id": 3216,
       "title": "[DeepSeek] Editor: the language server advertises no folding ranges at all (textDocument/foldingRange); add them from the outline (declarations, using SW-3199's whole-body range for broken ones) and multi-line blocks (SW-3199 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Expected: 45 min (DeepSeek).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
