@@ -3225,6 +3225,7 @@ fn quote_as(
                 if size > limit {
                     g.machine.budget.note_readback(size);
                     g.machine.budget.set_too_large(root_def);
+                    g.machine.budget.note_ran_out();
                     return Err(ResourceError::Size(limit));
                 }
                 visit(g, level, value, depth, mode, &mut tasks, &mut done)?;

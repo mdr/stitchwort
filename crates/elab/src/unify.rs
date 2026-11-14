@@ -2870,6 +2870,7 @@ fn rename_in(
 #[inline(never)]
 fn too_large(g: &Unifier<'_>, size: &Sized) -> Fail {
     g.machine.budget.set_too_large(size.root_def);
+    g.machine.budget.note_ran_out();
     Fail::Out(ResourceError::Size(size.limit))
 }
 

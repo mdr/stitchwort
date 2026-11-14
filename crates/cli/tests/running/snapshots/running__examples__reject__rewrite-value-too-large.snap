@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-RESOURCE] Error: ran out of resources: a value was too large to write out (over 2,000,000 parts)
@@ -12,4 +12,6 @@ expression: output
     │ Note 1: this isn't a type error or a failed test: there's no answer within the limits
     │ 
     │ Note 2: it happened while checking `big`
+    │ 
+    │ Note 3: it ran out while unfolding `grow`
 ────╯

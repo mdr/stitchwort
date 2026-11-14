@@ -913,6 +913,7 @@ fn main() -> ExitCode {
     };
     let ran = stitchwort_host::try_with_stack(stack, move || {
         stitchwort_elab::timings::start();
+        stitchwort_elab::progress::report_to(|note| eprintln!("note: {note}"));
         let code = run(cli);
         stitchwort_elab::timings::report();
         stitchwort_syntax::stack::probe::report_deepest();

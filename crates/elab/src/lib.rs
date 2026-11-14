@@ -72,6 +72,7 @@ mod partial;
 mod patlet;
 mod pipe;
 mod probe;
+pub mod progress;
 pub mod project;
 mod queue;
 mod quot;
