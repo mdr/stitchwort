@@ -35894,7 +35894,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt's question. Expected: 1.5 h (Fable paper lane), ~16 min. docs/proposals/parse-on-text.md: yes in the end state, later, via a Slice t type; proofs stay on List Char. D3597 [rec yes, later], D3599 (renumbered from D3598, taken) Slice not an interface [rec yes]. D3588-D3592 stand. For T1's brief: keep the buffer width extensible to whole values. Findings: SW-3271 SW-3272 SW-3273 SW-3274 SW-3275.",
+      "body": "Matt's question. Expected: 1.5 h (Fable paper lane), ~16 min. docs/proposals/parse-on-text.md: yes in the end state, later, via a Slice t type; proofs stay on List Char. D3597 [rec yes, later], D3599 (renumbered from D3598, taken) Slice not an interface [rec yes]. D3588-D3592 stand. For T1's brief: keep the buffer width extensible to whole values. Findings: SW-3271 SW-3272 SW-3273 SW-3274 SW-3275.\n\nD3597 decided (Matt, 14 Nov 2026): \"yes, as the direction for later.\" Std.Parse reads characters from the text itself in the end state, List Char stays the language of proofs; built after fast Text and generic Parse stages 0-2, with the parked speed work. D3599 (Slice vs an interface) open, low priority.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
