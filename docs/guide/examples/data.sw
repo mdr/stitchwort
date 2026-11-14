@@ -121,6 +121,23 @@ def keyMove (key: Char): Option Text := match key with
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
 -- end or-patterns
 
+-- begin text-patterns
+type Keyword = | Def | Theorem | Match
+
+def keyword (word: Text): Option Keyword := match word with
+  | "def" => Some Def
+  | "theorem" => Some Theorem
+  | "match" => Some Match
+  | _ => None
+
+def arrowAhead: List Char → Bool
+  | "->" => True
+  | ['-', '>', .._] => True
+  | _ => False
+
+test "text patterns" := keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ arrowAhead "->x".toList
+-- end text-patterns
+
 -- begin match
 def compareAges (a b: Person): Text := match Ord.compare a.age b.age with
   | Less => "${a.name} is younger"

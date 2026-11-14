@@ -6712,6 +6712,31 @@ mod tests {
     }
 
     #[test]
+    fn parses_text_patterns() {
+        let e = rhs(
+            "def f (t : Text) : Nat :=\n  match t with\n    | \"def\" | \"\\n\" => 1\n    | Some \"on\" => 2\n    | _ => 3\n",
+        );
+        let (_, alts) = match_parts(&e);
+        assert!(matches!(
+            or_alternatives(&alts[0].patterns[0]),
+            [Pattern::Text(a, _), Pattern::Text(b, _)] if a == "def" && b == "\n"
+        ));
+        assert!(matches!(
+            &alts[1].patterns[0],
+            Pattern::Ctor(_, args, _) if matches!(args.as_slice(), [Pattern::Text(on, _)] if on == "on")
+        ));
+    }
+
+    #[test]
+    fn refuses_interpolated_text_patterns() {
+        let d = parse_error(
+            "def f (t : Text) : Nat := match t with\n  | \"a${t}b\" => 1\n  | _ => 2\n",
+        );
+        assert_eq!(d.code, "E-TEXT-PATTERN");
+        assert_eq!(d.message, "a text pattern can't interpolate");
+    }
+
+    #[test]
     fn parses_or_patterns() {
         // On one line, one arm; a `|` that starts a line starts the next.
         let e = rhs(

@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches character lists other than "->" and "=>"
+   ╭─[ reject/text-patterns-missing-case-chars.sw:4:3 ]
+   │
+ 4 │ ╭─▶   | "->" => 1
+ 5 │ ├─▶   | "=>" => 2
+   │ │                   
+   │ ╰─────────────────── missing case: no arm matches character lists other than "->" and "=>"
+   │     
+   │     Note: text patterns can't list every character list: add an arm with a variable or `_` in that position, such as a last arm `| _ => …`
+───╯
