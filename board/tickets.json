@@ -35022,15 +35022,18 @@
     {
       "id": 3209,
       "title": "[Opus] Lowering L2 (docs/proposals/syntax-tree-lowering.md): Declarations and headers",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).\n\nProgress (lane, 14 Nov 2026, 09:55–10:25, branch lane/SW-3209):\n- Lowered: Def/Theorem/Instance (signature, Pis, header patterns, defaults, the D3472 `∀`, export/opaque, decreasing, unfolding, `:=` body, top-level Arms/Arm/Guard incl. absurd arms, the `:= match | …` arms form via the lowered value), DataType/RecordType/Interface/TypeSynonym, Constructor, Fields/Field, Binder (explicit, implicit, auto, nameless auto), Attributes/Attribute/AttributeName, Ability/AbilityOp, FunctionType, Effect/Row, leaf patterns and PatternAbsurd (new lower/patterns.rs for L4 to extend).\n- Failed definitions: the parser now records `signature_kept` on the Error root (DeclMarks -> DeclTree, `Node::signature_kept`); kept ones lower to their signature with `body_error` (first error in the declaration, as `failed` does), others to failed names. `Unsupported::FailedDefinition` removed.\n- Moved unchanged into lower/header.rs: Param, lower_header, take_defaults, header_defaults, clause_match (lower_header's doc had been sitting on clause_match; now on its function).\n- Gate: `dev tree --lower --spans crates/elab/src/std aoc/src games examples`: 0 differences. Meter before: lowered 3924 (no Def/Theorem/etc.), not lowered 23659 incl. 8839 Def, 8476 Theorem, 705 DataType, 648 RecordType, 201 Instance, 97 Ability, 77 \"Error (a definition)\", 67 Interface, 30 TypeSynonym. After: lowered 5157 (394 Def, 1 Theorem, 440 DataType, 346 RecordType, 66 Error, 8 TypeSynonym, 5 Interface); not lowered 22426, now all expression/pattern kinds (8794 App, 8150 Binary, 2938 Arrow, ...), no declaration kind left.\n- Probe (temporary crude App/Arrow/Paren/Binary, not committed): over all 2,983 repo .sw files, 10,072 declarations lowered incl. 1860 Def, 1167 Theorem, 757 DataType, 729 RecordType, 109 Error, 64 Interface, 32 Instance, 32 TypeSynonym, 9 Ability: 0 differences.\n- Tests: new lower::definitions::tests (2), L0's 4 oracle tests updated; tree::, attributes, recovery_keeps_the_header, default tests pass.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e86693406",
+        "4e454f899"
+      ]
     },
     {
       "id": 3210,

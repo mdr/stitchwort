@@ -357,6 +357,10 @@ pub(crate) struct DeclMarks {
     /// For a declaration that didn't lex, which has no tokens (`tokens` is
     /// empty, at the first token after it): the bytes it covers.
     pub(crate) raw: Option<Range<u32>>,
+    /// For a definition that didn't parse (an `Error` root): whether the
+    /// parser kept its signature, its header having parsed, rather than
+    /// giving only its names as failed ([`Node::signature_kept`]).
+    pub(crate) signature_kept: bool,
 }
 
 /// One node, stored flat: see the module's notes.
@@ -378,6 +382,8 @@ struct DeclTree {
     nodes: Vec<NodeData>,
     /// [`DeclMarks::raw`].
     raw: Option<Range<u32>>,
+    /// [`DeclMarks::signature_kept`].
+    signature_kept: bool,
 }
 
 /// The lossless tree of a file: its tokens with their trivia, and a tree for
@@ -752,6 +758,7 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
     DeclTree {
         nodes,
         raw: group.raw,
+        signature_kept: group.signature_kept,
     }
 }
 
@@ -785,6 +792,14 @@ impl<'f> Node<'f> {
         }
         let raw = self.file.decls[self.decl as usize].raw.as_ref()?;
         Some(raw.start as usize..raw.end as usize)
+    }
+
+    /// For the root of a definition that didn't parse: whether the parser
+    /// kept its signature, because its header parsed and only what came
+    /// after failed (`Decl::Signature::body_error`). Its `Error` root then
+    /// holds the header's nodes. False for any other node.
+    pub fn signature_kept(&self) -> bool {
+        self.index == 0 && self.file.decls[self.decl as usize].signature_kept
     }
 
     /// Its child nodes and its own tokens, in source order.

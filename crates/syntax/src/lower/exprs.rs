@@ -2,7 +2,7 @@
 
 use crate::ast::Expr;
 use crate::lexer::Tok;
-use crate::tree::{Element, Leaf};
+use crate::tree::{Element, Leaf, NodeKind};
 
 use super::decls::name;
 use super::{Lower, Lowering, Unsupported};
@@ -12,7 +12,11 @@ impl<'f> Lower<'f> {
     pub(crate) fn expr(&self, element: Element<'f>) -> Lowering<Expr> {
         match element {
             Element::Leaf(leaf) => leaf_expr(leaf),
-            Element::Node(node) => Err(Unsupported::Kind(node.kind())),
+            Element::Node(node) => match node.kind() {
+                NodeKind::FunctionType => self.function_type(node),
+                NodeKind::Effect => self.effect(node),
+                kind => Err(Unsupported::Kind(kind)),
+            },
         }
     }
 }
