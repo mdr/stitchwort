@@ -11,11 +11,11 @@ expression: output
      │ │                             
      │ ╰───────────────────────────── expected `∀ (state: Parse.State) (value: Starting) (after: Parse.Mark) => state.at.left = state.at.rest.length → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`, but this has type `Parse.Reads ?1 (x x1 => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ read.all Parse.isDigit ∧ n = Parse.digitsValue read) (x x2 => x = [',']) x v ∧ x1 = ?7 v)`
      │
-     ├─[ std/Parse/Parse.sw:250:57 ]
+     ├─[ std/Parse/Parse.sw:249:57 ]
      │
- 251 │ ╭─▶ def Parse.nat(): {Parse} Nat := match Parse.span Parse.isDigit with
+ 250 │ ╭─▶ def Parse.nat(): {Parse} Nat := match Parse.span Parse.isDigit with
      ┆ ┆   
- 253 │ ├─▶   | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
+ 252 │ ├─▶   | digits => digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits
      │ │                                                                                        
      │ ╰──────────────────────────────────────────────────────────────────────────────────────── this `match`
      │     

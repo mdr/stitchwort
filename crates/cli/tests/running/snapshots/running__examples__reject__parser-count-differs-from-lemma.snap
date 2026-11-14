@@ -9,25 +9,15 @@ expression: output
      │   ───────────────────────────────┬───────────────────────────────  
      │                                  ╰───────────────────────────────── expected `∀ (state: Parse.State) (value: List (Fin 10)) (after: Parse.Mark) => state.at.left = state.at.rest.length → Parse.runFrom state (arg => Std.Effect.bind … …) = Ok (value, after) → ∃ (read: List Char) => ….rest = read ++ … ∧ … = … ∧ … ∧ …`, but this has type `Parse.Reads (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)`
      │
-     ├─[ std/Parse/Parse.sw:156:14 ]
+     ├─[ std/Parse/Parse.sw:154:14 ]
      │
- 157 │ ╭───▶         match state.at.rest with
-     ┆ ┆     
- 159 │ ├───▶           | [] => k None state
-     │ │                                      
-     │ ╰────────────────────────────────────── this `match`
-     │ 
- 219 │   ╭─▶ def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char := match Parse.next passes with
-     ┆   ┆   
- 221 │   ├─▶   | None => Parse.expected what
-     │   │                                     
-     │   ╰───────────────────────────────────── this `match`
-     │       
-     │       Note 1: they first differ at `Done …` against `Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind … …) (value1 => …))`, in `Std.Effect.bind (Std.Effect.bind (match y with …) (char => …)) (value1 => Done …)`
-     │       
-     │       Note 2: `Parse.Reads (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)` is `∀ (state: Parse.State) (value: List (Fin 10)) (after: Parse.Mark) => state.at.left = state.at.rest.length → (match state.at.rest with …) = Ok (value, after) → ∃ (read: List Char) => ….rest = read ++ … ∧ … = … ∧ … ∧ …`
-     │       
-     │       Note 3: `(match …)` is a `match` written inside `Parse.runFrom` and `Parse.satisfy`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
-     │       
-     │       Note 4: two different `(match …)` appear here, which print alike but are different hidden functions; two such functions are equal only when they split the same value and every branch gives the same result, and neither calls the definition it's written in; to prove something about both, name the step as a `def` and use it in both places
+ 155 │ ╭─▶         match state.at.rest with
+     ┆ ┆   
+ 157 │ ├─▶           | [] => k None state
+     │ │                                    
+     │ ╰──────────────────────────────────── this `match`
+     │     
+     │     Note 1: `Parse.Reads (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)` is `∀ (state: Parse.State) (value: List (Fin 10)) (after: Parse.Mark) => state.at.left = state.at.rest.length → (match state.at.rest with …) = Ok (value, after) → ∃ (read: List Char) => ….rest = read ++ … ∧ … = … ∧ … ∧ …`
+     │     
+     │     Note 2: `(match …)` is a `match` written inside `Parse.runFrom`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
 ─────╯
