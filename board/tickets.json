@@ -35222,15 +35222,17 @@
     {
       "id": 3222,
       "title": "[Sonnet] A test constructor for GoalSnapshot (its fields are pub(crate)), so deep_terms_in_later_passes can open a deep goal and reach defs_named and named through closing_plans (SW-3200 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Expected: 45 min (Sonnet).",
+      "body": "Expected: 45 min (Sonnet).\nModel result: Sonnet, worked (constructor and deep goal; defs_named/named unreachable from the driver: the unifier's depth limit stops any hit on a deep conclusion, so closing::tests::deep_conclusions_are_counted stays their cover; orchestrator's call: not worth a unifier change), ~6 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "bacee54d2f2baaebc4a78832003e225aa6ea3332"
+      ]
     },
     {
       "id": 3223,
