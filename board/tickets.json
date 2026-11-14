@@ -36038,12 +36038,12 @@
     {
       "id": 3280,
       "title": "[Opus] T1 of parser-end-state.md (strict marks and the checking builder), with SW-3276's notes: lift the prototype builder from parser-marks-or-nodes.md's appendix (13.6 ns a node vs ~39); recovery's Error node starts where the failed construct started, so recovering_body's hand filter goes; tree.rs module doc says why functions don't return nodes. Before recovery S2. Waits on D3600",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nD3600 decided (Matt, 14 Nov 2026), replacing D3582, after walking through the tree's storage and how marks fill it: \"Okay, cool, fine. I think we can proceed with that happily now.\" He is happy with the generic lossless tree style (\"I think I'm happy with this general style\"). Starts after SW-3278 (parser panic fix) merges, since both change the parser's mark recording. Expected: 7-9.5 h (Opus).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
