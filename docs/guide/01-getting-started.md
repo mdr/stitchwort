@@ -72,6 +72,8 @@ Greeted 2 people
 | `stitchwort build --js FILE -o DIR` | Writes an ES module and its TypeScript declarations for the file's `export`s. |
 | `stitchwort lsp` | The language server, for editors. |
 
+A syntax error doesn't hide the rest of the definition it is in. When a line runs out (`let a := n +`, with the operand still to type), the missing part is left as a gap and the lines after it are checked as usual, so a type error two lines further down is reported beside the syntax error. When the parser can't tell how a body goes on (a stray `)`, say), it skips the rest of that body. Either way nothing is reported about the gap or what uses it: no type mismatch for `a`, whose value is missing. The definition still has an error, so it is never admitted, and the declarations that use it are checked against its header, as for any declaration with an error ([chapter 9](09-testing.md)). A header that doesn't parse loses the whole declaration, as before (`examples/reject/recover-ran-out.sw`, `examples/reject/recover-body.sw`).
+
 `check`, `test`, `run`, `axioms`, `audit`, `search`, `doc`, `eval` and `build` keep a cache in `.stitchwort/` (it writes its own `.gitignore`); `--no-cache` ignores it. `stitchwort run` exits with 0 on success, 1 if the program didn't check, and 2 if it failed while running.
 
 Here are the tests of the program above:
