@@ -39,12 +39,14 @@ use crate::tree::{Node, NodeKind, SyntaxFile};
 use std::fmt;
 
 mod access;
+pub(crate) mod binding;
 mod decls;
 mod definitions;
 pub(crate) mod exprs;
 pub(crate) mod header;
 pub mod oracle;
 mod patterns;
+pub(crate) mod sections;
 mod types;
 
 /// What the lowering can't lower yet: the first such thing it met in a

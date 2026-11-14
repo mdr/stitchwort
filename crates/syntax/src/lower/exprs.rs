@@ -10,11 +10,11 @@
 //! application with arguments is [`Expr::Bracketed`], and so is a list's
 //! only item `(a ..< b)`. Everywhere else brackets leave no trace.
 
+use super::sections::{fill_receiver, leads_with_section, section_dot};
 use crate::Span;
 use crate::ast::{BinOp, Bracket, CHAIN, Expr, Name, NegForm, SECTION};
 use crate::lexer::Tok;
 use crate::negation::{argument_minus, negative_numeral};
-use crate::parser::{fill_receiver, leads_with_section};
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
 use super::access::required;
@@ -64,6 +64,16 @@ impl<'f> Lower<'f> {
             Include => include(node),
             FunctionType => self.function_type(node),
             Effect => self.effect(node),
+            Section => self.section(node),
+            OperatorSection => self.operator_section(node),
+            Block => self.block(node),
+            LetExpr => self.let_expr(node),
+            Seq => self.seq(node),
+            Lambda => self.lambda(node),
+            Exists => self.exists(node),
+            Forall => self.forall(node),
+            If => self.if_expr(node),
+            ClauseLambda => self.clause_lambda(node),
             kind => Err(Unsupported::Kind(kind)),
         }
     }
@@ -268,6 +278,9 @@ impl<'f> Lower<'f> {
     fn app(&self, node: Node<'f>) -> Lowering<Expr> {
         let mut parts = node.children();
         let head = required(parts.next(), NodeKind::App, "its function")?;
+        if section_dot(head).is_some() {
+            return self.method_section(node);
+        }
         let mut expr = self.expr(head)?;
         // Its first token, which may be inside a child: `(f)()` is a call.
         let bracketed = match head {
@@ -296,7 +309,7 @@ impl<'f> Lower<'f> {
 
     /// An application's argument: as anywhere else, except for a minus
     /// (`f -x`, an argument minus) and `C { … }`.
-    fn argument(&self, arg: Element<'f>) -> Lowering<Argument> {
+    pub(super) fn argument(&self, arg: Element<'f>) -> Lowering<Argument> {
         match arg {
             Element::Node(node) if node.kind() == NodeKind::Prefix => {
                 if self.stack.exceeded() {
@@ -311,14 +324,14 @@ impl<'f> Lower<'f> {
         }
     }
 
-    /// `e.f`. A field without a receiver, `.f`, is a method section's,
-    /// which its `Section` lowers.
+    /// `e.f`. One that starts with a field without a receiver, `.f.g`, is
+    /// a method section.
     #[inline(never)]
     fn field_access(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::FieldAccess;
         let receiver = required(node.children().next(), kind, "its receiver")?;
-        if matches!(receiver, Element::Leaf(leaf) if leaf.tok() == &Tok::Dot) {
-            return Err(Unsupported::Kind(NodeKind::Section));
+        if section_dot(Element::Node(node)).is_some() {
+            return self.method_section(node);
         }
         let field = match node.after(&Tok::Dot) {
             Some(Element::Leaf(leaf)) => name(leaf),
@@ -548,7 +561,7 @@ impl<'f> Lower<'f> {
 
 /// What an application's argument adds: one argument, or two (`f C { r |
 /// x = e }` is `f C { r | x = e }`, `C` and then the updated record).
-enum Argument {
+pub(super) enum Argument {
     One(Expr),
     Two(Expr, Expr),
 }
@@ -556,7 +569,7 @@ enum Argument {
 impl Argument {
     /// `C { … }` on its own: the construction, or `C` applied to the
     /// updated record.
-    fn into_expr(self) -> Expr {
+    pub(super) fn into_expr(self) -> Expr {
         match self {
             Argument::One(expr) => expr,
             Argument::Two(f, arg) => Expr::App(Box::new(f), Box::new(arg)),
@@ -869,8 +882,16 @@ mod tests {
     /// declaration, which the lowering gives as failed.
     #[test]
     fn deep_nesting_lowers_within_the_parsers_stack() {
-        let shapes: [(&str, &str); 4] =
-            [("(", ")"), ("f (", ")"), ("-(1 + ", ")"), ("[(a, ", ")]")];
+        let shapes: [(&str, &str); 8] = [
+            ("(", ")"),
+            ("f (", ")"),
+            ("-(1 + ", ")"),
+            ("[(a, ", ")]"),
+            ("(x => ", ")"),
+            ("(if a then b else ", ")"),
+            ("(∀ n => ", ")"),
+            ("(.f ", ")"),
+        ];
         let nested = |(open, close): (&str, &str), depth: usize| {
             format!(
                 "test \"deep\" := {}0{}\n",

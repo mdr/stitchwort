@@ -173,7 +173,7 @@ impl<'f> Lower<'f> {
 
     /// A header's parameter: `(x y: A)`, `(x: A := v)`, `[x: A]`,
     /// `[auto h: P]`, `[auto P]` or `()`.
-    fn param(&self, node: Node<'f>) -> Lowering<Param> {
+    pub(super) fn param(&self, node: Node<'f>) -> Lowering<Param> {
         let kind = NodeKind::Param;
         let parts: Vec<Element<'f>> = node.children().collect();
         let span = required(node.span(), kind, "its tokens")?;
