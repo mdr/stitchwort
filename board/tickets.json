@@ -1,5 +1,5 @@
 {
-  "next": 3216,
+  "next": 3217,
   "tickets": [
     {
       "id": 47,
@@ -34880,15 +34880,17 @@
     {
       "id": 3199,
       "title": "[DeepSeek] Editor: folding and the outline lose a broken declaration's body (range stops at the header); use the declaration's column-0 range (SW-3161 finding, ~1 h)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 45 min (DeepSeek).",
+      "body": "Expected: 45 min (DeepSeek).\nModel result: DeepSeek, needed fixes (first put the longer range in the compiler tree's span; reworked to the editor layer after review; one-line fixup at merge for SW-1982's infallible parse_tree), ~25 min (est. 45). Note: the editor server has no folding handler at all; only the outline benefits.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "210a70c26e69331f53f405eee117b34d55ab0652"
+      ]
     },
     {
       "id": 3200,
@@ -35103,6 +35105,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3216,
+      "title": "[DeepSeek] Editor: the language server advertises no folding ranges at all (textDocument/foldingRange); add them from the outline (declarations, using SW-3199's whole-body range for broken ones) and multi-line blocks (SW-3199 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
