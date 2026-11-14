@@ -34741,20 +34741,22 @@
     {
       "id": 3190,
       "title": "[Opus] Guard the three walks that follow application arguments unguarded, now that the kernel accepts arbitrarily deep applications (SW-3174 Fable review): crates/rt/src/hoist.rs:85 runtime_closed (and :70), crates/js/src/lib.rs:3519 self_call_under_add, crates/elab/src/closing.rs:1118/:1140 defs_named/named (lemma search over a candidate's type: the exposed one); check lsp and web too; add a deep-application-in-a-type case to deep_terms_in_later_passes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 90 min (Opus).\nStopped 14 Nov for a machine restart; work in progress kept on lane/SW-3190 (worktree .claude/worktrees/SW-3190, a WIP commit). Resume from there.\n\n14 Nov, lane done (commit 7cb54e02f on lane/SW-3190): all three walks are work lists now (hoist.rs runtime_closed_app + push_runtime_args; js self_call_under_add as a parity count; closing.rs defs_named/named). lsp and web don't walk kernel terms. New tests closing::tests::deep_conclusions_are_counted (1M deep; SIGABRT stack overflow with the old walks, checked) and implicit_arguments_are_not_counted. JS for the 11 extraction examples using hoisted maps or tail-add is identical to the snapshots. Not done: a deep-type case in driver deep_terms_in_later_passes (no unchecked setter for a definition's type; see report).\n",
+      "body": "Expected: 90 min (Opus).\nStopped 14 Nov for a machine restart; work in progress kept on lane/SW-3190 (worktree .claude/worktrees/SW-3190, a WIP commit). Resume from there.\n\n14 Nov, lane done (commit 7cb54e02f on lane/SW-3190): all three walks are work lists now (hoist.rs runtime_closed_app + push_runtime_args; js self_call_under_add as a parity count; closing.rs defs_named/named). lsp and web don't walk kernel terms. New tests closing::tests::deep_conclusions_are_counted (1M deep; SIGABRT stack overflow with the old walks, checked) and implicit_arguments_are_not_counted. JS for the 11 extraction examples using hoisted maps or tail-add is identical to the snapshots. Not done: a deep-type case in driver deep_terms_in_later_passes (no unchecked setter for a definition's type; see report).\nOpus. Deep-type driver test left to SW-3200.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "7d6d0df70d760c541ab717b659f55767256d40c8"
+      ]
     },
     {
       "id": 3191,
       "title": "[Sonnet] Kernel tests through check_app's Waiting path (SW-3174 review): a mismatch after a pop, a dependent domain after resuming, the forced-domain branch, an implicit nested argument; and a doc note on nested_stuck_calls_compare_under_the_playground_guard (it pins a native frame size) saying what to do when a toolchain change trips it",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
