@@ -5025,7 +5025,10 @@ fn is_goal(diagnostic: &lsp_types::Diagnostic) -> bool {
 /// while the next token is typed, and flicker back. A goal stays when it
 /// lies in a stretch outside every declaration that parses, and a parse
 /// error is in the same stretch. It keeps its old place (docs/proposals/
-/// lsp-goal-holes.md §4.1).
+/// lsp-goal-holes.md §4.1). A declaration whose body didn't parse is kept
+/// in the outline with a range covering that body (SW-3199); for this, its
+/// name alone is the declaration, so a goal in the broken body stays in the
+/// stretch the parse error is in.
 fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_types::Diagnostic> {
     let position = |p: Position| (p.line, p.character);
     // The stretch a position is in: the end of the declaration before it
@@ -5034,7 +5037,8 @@ fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_t
         let mut previous_end = (0, 0);
         let mut next_start = (u32::MAX, u32::MAX);
         for item in file.outline.iter().filter(|item| item.parent.is_none()) {
-            let [l1, c1, l2, c2] = item.full_range;
+            let full = item.full_range;
+            let [l1, c1, l2, c2] = if item.body_error { item.range } else { full };
             let (start, end) = ((l1, c1), (l2, c2));
             if start <= at && at <= end {
                 return None;

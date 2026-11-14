@@ -30,7 +30,8 @@ use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
 mod sections;
-use declarations::{Param, misplaced_attributes};
+use crate::lower::header::Param;
+use declarations::misplaced_attributes;
 pub(crate) use sections::{fill_receiver, leads_with_section};
 
 /// The parser's results box their error: with an unboxed `Diagnostic`,
@@ -138,6 +139,7 @@ fn parse_lexed(
                 root: NodeKind::Error,
                 marks: Vec::new(),
                 raw: Some(failure.range.start as u32..failure.range.end as u32),
+                signature_kept: false,
             });
         }
     }
@@ -239,6 +241,7 @@ fn parse_tokens(
                     root: NodeKind::Error,
                     marks: Vec::new(),
                     raw: None,
+                    signature_kept: false,
                 });
             }
             return (Module::default(), vec![*d], trees);
@@ -253,6 +256,7 @@ fn parse_tokens(
             root: NodeKind::Error,
             marks: Vec::new(),
             raw: None,
+            signature_kept: false,
         });
     }
     for group in groups {
@@ -262,6 +266,7 @@ fn parse_tokens(
         }
         // What the declaration turned out to be, once it has parsed.
         let mut root = NodeKind::Error;
+        let mut signature_kept = false;
         'group: {
             // The attributes before the declaration, which belong to it.
             let attrs = match parser.attributes() {
@@ -418,6 +423,7 @@ fn parse_tokens(
                                 *body_error = Some(error_at.unwrap_or(*span));
                             }
                             decls.push(signature);
+                            signature_kept = true;
                         }
                         None => failed.extend(failed_names_of(group, error_at)),
                     }
@@ -432,6 +438,7 @@ fn parse_tokens(
                 root,
                 marks,
                 raw: None,
+                signature_kept,
             });
         }
         offset += group.len() as u32;
@@ -598,6 +605,7 @@ pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<
                 root: NodeKind::Error,
                 marks: Vec::new(),
                 raw: Some(0..text.len() as u32),
+                signature_kept: false,
             };
             let tree = SyntaxFile::build(
                 Vec::new(),
@@ -624,6 +632,7 @@ pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<
         },
         marks: parser.marks.take().unwrap_or_default(),
         raw: None,
+        signature_kept: false,
     };
     let tree = SyntaxFile::build(
         lexed.tokens,

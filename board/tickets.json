@@ -1,5 +1,5 @@
 {
-  "next": 3216,
+  "next": 3218,
   "tickets": [
     {
       "id": 47,
@@ -34880,15 +34880,17 @@
     {
       "id": 3199,
       "title": "[DeepSeek] Editor: folding and the outline lose a broken declaration's body (range stops at the header); use the declaration's column-0 range (SW-3161 finding, ~1 h)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 45 min (DeepSeek).",
+      "body": "Expected: 45 min (DeepSeek).\nModel result: DeepSeek, needed fixes (first put the longer range in the compiler tree's span; reworked to the editor layer after review; one-line fixup at merge for SW-1982's infallible parse_tree), ~25 min (est. 45). Note: the editor server has no folding handler at all; only the outline benefits.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "210a70c26e69331f53f405eee117b34d55ab0652"
+      ]
     },
     {
       "id": 3200,
@@ -35020,15 +35022,19 @@
     {
       "id": 3209,
       "title": "[Opus] Lowering L2 (docs/proposals/syntax-tree-lowering.md): Declarations and headers",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).\n\nProgress (lane, 14 Nov 2026, 09:55–10:25, branch lane/SW-3209):\n- Lowered: Def/Theorem/Instance (signature, Pis, header patterns, defaults, the D3472 `∀`, export/opaque, decreasing, unfolding, `:=` body, top-level Arms/Arm/Guard incl. absurd arms, the `:= match | …` arms form via the lowered value), DataType/RecordType/Interface/TypeSynonym, Constructor, Fields/Field, Binder (explicit, implicit, auto, nameless auto), Attributes/Attribute/AttributeName, Ability/AbilityOp, FunctionType, Effect/Row, leaf patterns and PatternAbsurd (new lower/patterns.rs for L4 to extend).\n- Failed definitions: the parser now records `signature_kept` on the Error root (DeclMarks -> DeclTree, `Node::signature_kept`); kept ones lower to their signature with `body_error` (first error in the declaration, as `failed` does), others to failed names. `Unsupported::FailedDefinition` removed.\n- Moved unchanged into lower/header.rs: Param, lower_header, take_defaults, header_defaults, clause_match (lower_header's doc had been sitting on clause_match; now on its function).\n- Gate: `dev tree --lower --spans crates/elab/src/std aoc/src games examples`: 0 differences. Meter before: lowered 3924 (no Def/Theorem/etc.), not lowered 23659 incl. 8839 Def, 8476 Theorem, 705 DataType, 648 RecordType, 201 Instance, 97 Ability, 77 \"Error (a definition)\", 67 Interface, 30 TypeSynonym. After: lowered 5157 (394 Def, 1 Theorem, 440 DataType, 346 RecordType, 66 Error, 8 TypeSynonym, 5 Interface); not lowered 22426, now all expression/pattern kinds (8794 App, 8150 Binary, 2938 Arrow, ...), no declaration kind left.\n- Probe (temporary crude App/Arrow/Paren/Binary, not committed): over all 2,983 repo .sw files, 10,072 declarations lowered incl. 1860 Def, 1167 Theorem, 757 DataType, 729 RecordType, 109 Error, 64 Interface, 32 Instance, 32 TypeSynonym, 9 Ability: 0 differences.\n- Tests: new lower::definitions::tests (2), L0's 4 oracle tests updated; tree::, attributes, recovery_keeps_the_header, default tests pass.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e86693406",
+        "4e454f899",
+        "ef0cc46f50b5e29a17fab587dd9c76b0478d5172"
+      ]
     },
     {
       "id": 3210,
@@ -35104,6 +35110,32 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3216,
+      "title": "[DeepSeek] Editor: the language server advertises no folding ranges at all (textDocument/foldingRange); add them from the outline (declarations, using SW-3199's whole-body range for broken ones) and multi-line blocks (SW-3199 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3217,
+      "title": "[Sonnet] LSP test failures found in SW-3199's verifier: (1) features::completion_keeps_the_locals_of_a_declaration_that_does_not_parse now gets ['m','count','f'], not ['doubled','m','count'] (passed on Overmind at 1e1c47ae6; suspects SW-3199's outline-range/goals_kept change, or SW-1982); (2) six faults:: tests expect Cmd+. to start a search, but it now answers at once (D3519/SW-2959), like SW-3188's stale features tests",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []

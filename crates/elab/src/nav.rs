@@ -385,6 +385,9 @@ pub(crate) struct OutlineItem {
     span: Span,
     /// The whole declaration.
     range: Span,
+    /// Whether its body didn't parse: the signature stands for the
+    /// declaration, and its `range` stops at the header (SW-3199).
+    body_error: bool,
     container: Option<usize>,
 }
 
@@ -407,6 +410,10 @@ pub struct NavSymbol {
     pub span: Span,
     /// The whole declaration, if known.
     pub range: Option<Span>,
+    /// Whether the declaration's body didn't parse: `range` is only its
+    /// header, and the editor extends the outline item to the whole
+    /// declaration (SW-3199).
+    pub body_error: bool,
     /// The symbol it's declared in (a constructor's type), by index.
     pub container: Option<usize>,
     pub ty: Option<String>,
@@ -890,6 +897,7 @@ impl Elaborator {
                 kind: item.kind,
                 span: item.span,
                 range: Some(item.range),
+                body_error: item.body_error,
                 container: item.container,
             });
         }
@@ -979,6 +987,7 @@ impl Elaborator {
                     kind,
                     span: target,
                     range: None,
+                    body_error: false,
                     container: None,
                     ty: ty_of(),
                     signature: if field_span.is_none() {
@@ -1160,6 +1169,7 @@ impl Elaborator {
                     kind,
                     span: target,
                     range: None,
+                    body_error: false,
                     container: None,
                     ty: self.global_type(global),
                     signature: self.global_signature(global),
@@ -1625,6 +1635,7 @@ impl Walk<'_> {
                     instance,
                     decreasing,
                     defaults,
+                    body_error,
                     span,
                     ..
                 } => {
@@ -1644,7 +1655,10 @@ impl Walk<'_> {
                     } else {
                         "def"
                     };
-                    self.item(&name.text, kind, name.span, range, None);
+                    let owner = self.item(&name.text, kind, name.span, range, None);
+                    if self.outline {
+                        self.nav.outline[owner].body_error = body_error.is_some();
+                    }
                     self.params(name.span, ty);
                     self.signature(ty, defaults, decreasing.as_deref(), equations);
                     i = j;
@@ -1727,6 +1741,7 @@ impl Walk<'_> {
             kind,
             span,
             range,
+            body_error: false,
             container,
         });
         self.nav.outline.len() - 1

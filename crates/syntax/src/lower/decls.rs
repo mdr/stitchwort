@@ -104,21 +104,6 @@ impl<'f> Lower<'f> {
         if self.split_failed() {
             return Ok(Vec::new());
         }
-        // Its first token after its attributes. Attributes that didn't
-        // finish are no node, and fail the declaration before its keyword.
-        let first = root.children().find_map(|child| match child {
-            Element::Node(node) if node.kind() == NodeKind::Attributes => None,
-            Element::Node(_) => Some(None),
-            Element::Leaf(leaf) => Some(Some(leaf.tok())),
-        });
-        if matches!(
-            first,
-            Some(Some(
-                Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque
-            ))
-        ) {
-            return Err(Unsupported::FailedDefinition);
-        }
         let tokens = &self.tree.tokens()[root.token_range()];
         let error_at = self.first_error_in(span.start as usize, span.end as usize);
         Ok(failed_names_of(tokens, error_at))
@@ -126,7 +111,7 @@ impl<'f> Lower<'f> {
 
     /// The position of the first error the parser reported in
     /// `text[start..=end]`.
-    fn first_error_in(&self, start: usize, end: usize) -> Option<crate::Span> {
+    pub(super) fn first_error_in(&self, start: usize, end: usize) -> Option<crate::Span> {
         self.errors
             .iter()
             .filter_map(|error| error.primary_span())

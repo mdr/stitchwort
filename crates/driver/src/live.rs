@@ -112,6 +112,9 @@ pub struct OutlineItem {
     pub range: Range,
     /// The whole declaration.
     pub full_range: Range,
+    /// Whether its body didn't parse, so `full_range` stops at its header
+    /// (SW-3199). The editor extends it to the declaration's column-0 end.
+    pub body_error: bool,
     /// The item it's declared in (a constructor's type), by index.
     pub parent: Option<usize>,
 }
@@ -267,6 +270,18 @@ pub type Answers = BTreeMap<Place, FileAnswers>;
 /// references in. A diagnostic with no place goes on `unplaced`, at its
 /// start.
 pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) -> Answers {
+    answers_from_with(index, wanted, unplaced, |_| None)
+}
+
+/// [`answers_from`], with the text of each program file (by its path) for
+/// the outlines of declarations whose bodies didn't parse: those cover the
+/// whole declaration, not only its header (SW-3199).
+fn answers_from_with<'t>(
+    index: &Index,
+    wanted: &BTreeSet<String>,
+    unplaced: &str,
+    text_of: impl Fn(&str) -> Option<&'t str>,
+) -> Answers {
     let place = |f: usize| match &index.files[f].std {
         Some(std) => Place::Library(std.clone()),
         None => Place::Program(index.files[f].path.clone()),
@@ -366,6 +381,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             ty: s.ty.clone(),
             range: s.range,
             full_range,
+            body_error: s.body_error,
             parent: s.container,
         });
     }
@@ -405,7 +421,89 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             missing: d.missing.clone(),
         });
     }
+    // A declaration whose body didn't parse keeps only its signature's
+    // range; its outline item covers the whole declaration.
+    for (place, file) in &mut out {
+        if !file.outline.iter().any(|item| item.body_error) {
+            continue;
+        }
+        let Place::Program(path) = place else {
+            continue;
+        };
+        let Some(text) = text_of(path) else {
+            continue;
+        };
+        let starts = declaration_starts(text);
+        for item in &mut file.outline {
+            if item.body_error {
+                extend_failed_outline(text, &starts, item);
+            }
+        }
+    }
     out
+}
+
+/// The start of each top-level declaration in `text`, from its lossless
+/// tree (a declaration that failed to parse is an `Error` root): the
+/// declaration's first token's byte.
+fn declaration_starts(text: &str) -> Vec<usize> {
+    let mut sources = SourceMap::new();
+    let id = sources.add(String::new(), text.to_string());
+    let tree = stitchwort_syntax::parse_tree(id, text, stitchwort_syntax::DEFAULT_STACK);
+    (tree.decls())
+        .filter_map(|root| {
+            // A declaration that didn't lex holds no tokens, only raw bytes.
+            if let Some(raw) = root.raw_text_range() {
+                return Some(raw.start);
+            }
+            let range = root.token_range();
+            tree.tokens()
+                .get(range.start)
+                .map(|t| t.span.start as usize)
+        })
+        .collect()
+}
+
+/// The end of a declaration whose body didn't parse: `end`, the start of
+/// the next declaration's line (or the end of the file), without its
+/// trailing blank lines.
+fn declaration_end(text: &str, end: usize) -> u32 {
+    let mut end = end.min(text.len());
+    while end > 0 {
+        let line_start = text[..end].rfind('\n').map_or(0, |n| n + 1);
+        let line = &text[line_start..end];
+        if line.trim().is_empty() {
+            if line_start == 0 {
+                return 0;
+            }
+            end = line_start - 1;
+        } else {
+            return (line_start + line.trim_end().len()) as u32;
+        }
+    }
+    0
+}
+
+/// Extends `item` (whose body didn't parse) to the end of its declaration:
+/// the start of the next declaration's line in `starts`, or the end of the
+/// file, without trailing blank lines (SW-3199).
+fn extend_failed_outline(text: &str, starts: &[usize], item: &mut OutlineItem) {
+    let line = item.full_range[0] as usize;
+    let start = if line == 0 {
+        0
+    } else {
+        text.match_indices('\n')
+            .nth(line - 1)
+            .map_or(text.len(), |(at, _)| at + 1)
+    };
+    let Some(at) = starts.iter().position(|&start_at| start_at == start) else {
+        return;
+    };
+    let next = starts.get(at + 1).copied().unwrap_or(text.len());
+    let [l1, c1, l2, c2] = lsp_range(text, start, declaration_end(text, next) as usize);
+    if (l2, c2) > (item.full_range[2], item.full_range[3]) {
+        item.full_range = [l1, c1, l2, c2];
+    }
 }
 
 // ---- projects -----------------------------------------------------------
@@ -757,7 +855,9 @@ impl LiveProject {
         let library = !self.library_answered;
         let index = index_data_of(&self.session, &root, &diagnostics, library);
         self.library_answered = true;
-        let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
+        let mut answers = answers_from_with(&index, &wanted, "stitchwort.yaml", |path| {
+            self.texts.get(path).map(String::as_str)
+        });
         self.declared_names();
         for (place, file) in answers.iter_mut() {
             if let Place::Program(path) = place
@@ -1281,7 +1381,9 @@ impl LiveFile {
     pub fn answers(&mut self) -> Answers {
         let index = index_data(&self.session, "", &self.diagnostics);
         let wanted = BTreeSet::from([self.name.clone()]);
-        let mut answers = answers_from(&index, &wanted, &self.name);
+        let mut answers = answers_from_with(&index, &wanted, &self.name, |path| {
+            (path == self.name).then_some(self.text.as_str())
+        });
         if let Some(file) = answers.get_mut(&Place::Program(self.name.clone())) {
             file.names = self.names.clone();
         }
@@ -1386,6 +1488,7 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
             ty,
             range,
             full_range: range,
+            body_error: false,
             parent,
         });
         out.len() - 1
@@ -1441,6 +1544,7 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 theorem,
                 instance,
                 synonym,
+                body_error,
                 span,
                 ..
             } => {
@@ -1457,7 +1561,9 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 let ty = (!*synonym)
                     .then(|| written_signature(text, name, *span))
                     .flatten();
-                item(&mut out, full, kind, name_range(name), None, ty);
+                let owner = item(&mut out, full, kind, name_range(name), None, ty);
+                // Its range is extended to the declaration's end below.
+                out[owner].body_error = body_error.is_some();
             }
             Decl::Ability { name, ops, .. } => {
                 let full = format!("{prefix}{}", name.text);
@@ -1479,6 +1585,14 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 );
             }
             Decl::Equation { .. } => {}
+        }
+    }
+    if out.iter().any(|item| item.body_error) {
+        let starts = declaration_starts(text);
+        for item in &mut out {
+            if item.body_error {
+                extend_failed_outline(text, &starts, item);
+            }
         }
     }
     out

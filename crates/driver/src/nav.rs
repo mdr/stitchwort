@@ -74,6 +74,9 @@ pub struct Symbol {
     pub range: Range,
     /// The whole declaration, for the program's declarations.
     pub full_range: Option<Range>,
+    /// Whether its body didn't parse, so `full_range` stops at its header
+    /// (SW-3199).
+    pub body_error: bool,
     /// The symbol it is declared in, by index.
     pub container: Option<usize>,
     pub ty: Option<String>,
@@ -539,6 +542,7 @@ pub fn index_data_of(
             file,
             range: at,
             full_range,
+            body_error: symbol.body_error,
             container: symbol.container,
             ty: symbol.ty.clone(),
             signature: symbol.signature.clone(),

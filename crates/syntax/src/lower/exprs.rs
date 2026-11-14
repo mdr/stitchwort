@@ -62,6 +62,8 @@ impl<'f> Lower<'f> {
             Interpolated => self.interpolated(node),
             Universe => universe(node),
             Include => include(node),
+            FunctionType => self.function_type(node),
+            Effect => self.effect(node),
             kind => Err(Unsupported::Kind(kind)),
         }
     }
