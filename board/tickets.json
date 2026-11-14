@@ -35976,15 +35976,17 @@
     {
       "id": 3276,
       "title": "[Fable] Paper: strict marks vs returning built nodes from each parsing function (Matt, on D3582): pros and cons, prototype and measure both on a slice of the grammar; holds D3582",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 14 Nov 2026: 'get Fable to compare marks with returning the tree, I think I'm just more familiar with returning built nodes as a sort of standard way of doing recursive descent parsers ... what are the pros and cons?' parser-end-state.md weighed events and top-down building but not plain return-the-node. Expected: 2 h (Fable paper lane).",
+      "body": "Matt, 14 Nov 2026: 'get Fable to compare marks with returning the tree, I think I'm just more familiar with returning built nodes as a sort of standard way of doing recursive descent parsers ... what are the pros and cons?' parser-end-state.md weighed events and top-down building but not plain return-the-node. Expected: 2 h (Fable paper lane).\n\nLane notes (Fable, 14 Nov 2026, about 15 min against 2 h expected): docs/proposals/parser-marks-or-nodes.md. Recommendation: keep strict marks (T1-T4 of parser-end-state.md unchanged; T1 lifts the prototype's builder, T2 passes \"what I just read\" through a parser field). Prototype of four designs on one grammar slice, identical flat trees for 10,052 generated declarations (2.1 MB, 308,673 nodes) [measured]: strict marks 11.7 ms parse-and-build, 272 bytes of stack a bracket level; arena handles 11.4 ms, 464 bytes; pointer tree 34.0 ms, 928 bytes, 874,360 allocations; returned starts over marks 12.0 ms, 368 bytes. After an unwound error marks keep every finished node (167,847 in 3,954 broken declarations), arena 165,499, pointer tree 162,612. Other parsers read from source: 8 of 12 hand-written ones return nodes, 10 of 12 never unwind. Questions: D3600 (strict marks, not returned nodes; replaces D3582; rec yes), D3601 (returned-start style; rec no). The prototype is in the session scratchpad, not committed.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "ffbdcda6c"
+      ]
     }
   ]
 }
