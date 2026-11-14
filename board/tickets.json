@@ -1,5 +1,5 @@
 {
-  "next": 3289,
+  "next": 3291,
   "tickets": [
     {
       "id": 47,
@@ -36107,7 +36107,7 @@
     {
       "id": 3285,
       "title": "[Opus] Parser memory blow-up (syntax fuzzer seed 0x1234, case 3192): 'theorem z: 0 ≤ m := calc 0\\n  _ ≤ n(\\n  _ ≤ m := h' (no trailing newline) reaches 2.6 GB in 1.5 s; an unclosed ( in a calc step followed by another step; would hang the language server",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36115,7 +36115,9 @@
       "body": "Found by the syntax fuzzer (seed 0x1234, case 3192) in SW-3278's lane. D3604 overnight chain A, first. Expected: 2 h (Opus).\n\n22:55 (Opus lane, ~20 min): fixed in c36288f1a. Cause: after an unclosed bracket in a calc step, `expr` opened a block on the next step's `_` (a stop); the statement ran out there (R1 reads nothing), the line stayed at the block's column, and `block` re-read it forever, one error per pass. Fix: a block ends when a statement reads nothing; no block starts on a token ending an enclosing construct (`ends_construct`: calc step, rewrite `in`/`at`, guard `=>`); calc-step error now \"the next `calc` step starts here\". Unit test `a_bracket_left_open_in_a_calc_step_runs_out_at_the_next_step` (8 shapes), reject example `recover-calc-open-bracket`. Fuzz under 2 GB guard: default seed 1M (0.17 GB peak; Overmind's second find at that seed doesn't reproduce with the fix), 0x1234 1M, 0x5eed 1M all pass.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "c02a244c23f01115a1ffa85f6b27e9844cb00d46"
+      ]
     },
     {
       "id": 3286,
@@ -36153,6 +36155,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3289,
+      "title": "[DeepSeek] Recovery: two shapes give two errors where one is better: 'g (' then a let at the block's column; a guard with an unclosed [ then => on its own line (SW-3285 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3290,
+      "title": "[DeepSeek] Syntax fuzzer: permanent FUZZ_DUMP option writing each case to a file before parsing, so a killed run leaves the culprit (with SW-3286)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
