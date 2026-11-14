@@ -36042,7 +36042,7 @@
     {
       "id": 3280,
       "title": "[Opus] T1 of parser-end-state.md (strict marks and the checking builder), with SW-3276's notes: lift the prototype builder from parser-marks-or-nodes.md's appendix (13.6 ns a node vs ~39); recovery's Error node starts where the failed construct started, so recovering_body's hand filter goes; tree.rs module doc says why functions don't return nodes. Before recovery S2. Waits on D3600",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
