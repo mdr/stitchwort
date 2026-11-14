@@ -35320,15 +35320,17 @@
     {
       "id": 3228,
       "title": "[Fable] Paper, second analysis of the formatter written in Stitchwort (SW-3145, after D3561's wait is over: the Rust formatter now runs on the lossless tree and the compiler's tree is lowered from it, SW-3158 to SW-3160): a plan to build it in Stitchwort, formatting byte-identically to stitchwort fmt; how its parsing should be built now that the Rust parser builds only a lossless tree (marks) and the formatter prints from it; and how this tree and parser could be a first step towards a self-hosted Stitchwort parser. Paper: docs/proposals/self-hosted-fmt.md, revised",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2 h (Fable paper lane). Matt, 14 Nov 2026: 'now that we have updated the Rust formatter, we should consider that original idea of can we actually implement the formatter in Stitchwort ... a second Fable paper lane analysis ... formatting things the same ... revisit the question of how it's built in terms of parsing ... if Stitchwort were to ever become self-hosting, maybe this full tree could be a first step in the parser.'",
+      "body": "Expected: 2 h (Fable paper lane). Matt, 14 Nov 2026: 'now that we have updated the Rust formatter, we should consider that original idea of can we actually implement the formatter in Stitchwort ... a second Fable paper lane analysis ... formatting things the same ... revisit the question of how it's built in terms of parsing ... if Stitchwort were to ever become self-hosting, maybe this full tree could be a first step in the parser.'\n\nPlan written (Fable, 14 Nov, about 15 min): docs/proposals/self-hosted-fmt.md revised; the first plan kept as its Appendix B. Recommendation: a twin of the tree printer in tools/fmt/: lexer; a hand-written parser that builds the lossless tree directly (no marks, no recovery), gated on `dev tree --print` being identical on every file; engine and rules ported; rewrites as tree functions; the safety check compares lossless trees. 42-59 lane hours in stages 0-6 (0-2, harness to parser, 21-29); about 20 s for the repo estimated (Rust 8.3 s measured, 1.1 s without SW-3147's cost). Two theorems by construction: output parses back to the printed tree; idempotence without formatting twice. Self-hosting: door open, no plan. Probes re-measured: SW-3149 still reproduces; SW-3147, SW-3150 unchanged; SW-3148 milder. Awaiting Matt: D3576 (build it, stages 0-2 first), D3577 (no merge gate once identical), D3578 (self-hosting: door open, plan nothing yet). Findings for tickets are listed in the note.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "50b962fa5"
+      ]
     }
   ]
 }
