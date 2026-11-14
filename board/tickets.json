@@ -1,5 +1,5 @@
 {
-  "next": 3224,
+  "next": 3227,
   "tickets": [
     {
       "id": 47,
@@ -34330,7 +34330,7 @@
     {
       "id": 3160,
       "title": "[Opus, design] Syntax tree A2 steps 2-3 (docs/proposals/syntax-tree-architecture.md): lower the compiler's tree from the lossless tree (all shorthand expansion in one place), checked against the direct-built tree over the repo; then delete direct construction. After the formatter switch-over",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35116,15 +35116,17 @@
     {
       "id": 3214,
       "title": "[Sonnet] Lowering L7 (docs/proposals/syntax-tree-lowering.md): Tidy: docs and dev tree modes",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2.5 h (Sonnet).\n\nProgress (lane, 14 Nov): commit 1d3e5d766 on lane/SW-3214. Docs: lowering note (status, section 4 retired, stage table with tickets, what differed, 1.30x measured, decisions applied), architecture steps 3-4 done, tree.rs/ast.rs/spans.rs headers, lower.rs error rule and stack split, syntax.md contributor pointer, perf-log note on SW-3212. dev tree --time labels now say parse and lower / lossless alone. No dead Synthetic reasons (all 13 counted in the spans gate). 3 cargo doc link warnings fixed. Gates: dev tree --spans 0 misses; syntax package 269/269; fmt, clippy clean.\n",
+      "body": "Expected: 2.5 h (Sonnet).\nModel result: Sonnet, worked, ~7 min (est. 2.5 h). Filed SW-3224, SW-3225, SW-3226.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "a49fd80bf454b0cafe4338243762fe5f4d155b0a"
+      ]
     },
     {
       "id": 3215,
@@ -35256,6 +35258,45 @@
       "commits": [
         "21f2970fcca64a78d3f7267edc7584216b17365d"
       ]
+    },
+    {
+      "id": 3224,
+      "title": "[Opus] Expand chains and pattern lets once, in the lowering: chain.rs and patlet.rs still undo expansions the lowering makes (the %chain let and ∧; a one-arm match for 'let p := e'), so the elaborator can get the form it wants directly. Changes trees and hashes (D2303: migration cost doesn't count) (SW-3214 finding, lowering note's Findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3225,
+      "title": "[Opus] The formatter's safety check compares the compiler's tree (equivalence::shape), about 85% of fmt's time (SW-3145); compare lossless trees (tokens and marks, comments placed) instead now the lowering is the only route (SW-3214 finding, lowering note's Findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3226,
+      "title": "[Opus] Error recovery needs its own corpus and gate now the lowering oracle is gone: the one-line-break corpus (--cuts) from syntax-error-recovery.md as S1's gate, built before S1 starts (SW-3214 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
     }
   ]
 }
