@@ -34746,9 +34746,9 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 90 min (Opus).\nStopped 14 Nov for a machine restart; work in progress kept on lane/SW-3190 (worktree .claude/worktrees/SW-3190, a WIP commit). Resume from there.",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34759,9 +34759,9 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).\nStopped 14 Nov for a machine restart; work in progress kept on lane/SW-3191 (worktree .claude/worktrees/SW-3191, a WIP commit). Resume from there.",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34840,12 +34840,12 @@
     {
       "id": 3197,
       "title": "[DeepSeek] Snapshot parser-count-differs-from-lemma is stale on main (its 'second hidden match' note is missing; it failed before SW-3194 too): find why the note went and fix the message or the snapshot (SW-3194 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Not a bug: the snapshot was right on main. SW-3194's lane re-blessed it from a shorter run; restored after the merge (output matches pre-switch main apart from line numbers; passed 3 runs in a row).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
