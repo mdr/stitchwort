@@ -1,5 +1,5 @@
 {
-  "next": 3271,
+  "next": 3276,
   "tickets": [
     {
       "id": 47,
@@ -35883,15 +35883,17 @@
     {
       "id": 3269,
       "title": "[Fable] Paper: should Std.Parse's character input be Text, not List Char, once fast Text lands (SW-3234 T1)? Follow-up to generic-parse.md: generic over the input (Text for characters, List Token for tokens), proofs and AoC, speed; holds D3588-D3591",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 14 Nov 2026: asked whether we anticipate moving to Text for all our parsing rather than List Char; nothing had decided it (generic-parse.md keeps List t, file-io-and-text.md makes Text fast but doesn't propose parsing on it). 'yes, do the follow-up paper on Fable'. Expected: 1.5 h (Fable paper lane).",
+      "body": "Matt's question. Expected: 1.5 h (Fable paper lane), ~16 min. docs/proposals/parse-on-text.md: yes in the end state, later, via a Slice t type; proofs stay on List Char. D3597 [rec yes, later], D3599 (renumbered from D3598, taken) Slice not an interface [rec yes]. D3588-D3592 stand. For T1's brief: keep the buffer width extensible to whole values. Findings: SW-3271 SW-3272 SW-3273 SW-3274 SW-3275.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "8951eee67102c59dea67f32beeab9cd9cb4afdde"
+      ]
     },
     {
       "id": 3270,
@@ -35901,6 +35903,71 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3271,
+      "title": "[Opus] Implicit record not inferred through Reads: Prs.readsNext Char.isAsciiLetter against Prs.Reads Input.text … is E-TYPE-MISMATCH until [input := Input.text] is written; add to generic-parse stage 0's tests (SW-3269 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3272,
+      "title": "[Sonnet] Parse.Mark's 'honest mark' hypothesis (the left counter) costs proofs: 70k vs 22k steps on a leaf lemma in a probe; measure on the real readsNext and readsSpan (SW-3269 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3273,
+      "title": "[Sonnet] Text.repeat runs through lists at run time: a 1 MB text peaks at 242 MB; give it a native (SW-3269 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3274,
+      "title": "[Sonnet] --profile shows no rows for the text natives (Text.fromList, Text.toList) (SW-3269 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3275,
+      "title": "[Sonnet] Docs: text-patterns.md's stage 5 stops being optional after fast Text (T1); self-hosted-fmt.md's lexer plan over List Char wants a note on Slice and prefix patterns (SW-3269 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
