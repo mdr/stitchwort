@@ -1,5 +1,5 @@
 {
-  "next": 3219,
+  "next": 3221,
   "tickets": [
     {
       "id": 47,
@@ -35073,7 +35073,7 @@
     {
       "id": 3212,
       "title": "[Opus] Lowering L5 (docs/proposals/syntax-tree-lowering.md): Switch the public parse functions to the lowering",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35083,7 +35083,8 @@
       "updated": "2026-11-14",
       "commits": [
         "a872300d9",
-        "ee2664063"
+        "ee2664063",
+        "48b2010d949bab12b634e2f35dba682b78ac8e97"
       ]
     },
     {
@@ -35161,6 +35162,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3219,
+      "title": "[Sonnet] Debug-build-only failures (pass in release, predate the lowering): reject examples parser-count-differs-from-lemma (loses notes) and reads-nested-binds-unknown-field (E-RESOURCE); nesting tests long_list_literals_with_a_small_guard and nested_applications_under_the_playground_guard. Tune them for debug stack frames or mark them release-only (SW-3212 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3220,
+      "title": "[DeepSeek] A test or lint that every function the lowering's node_expr and node_pattern dispatch to is #[inline(never)]: two unmarked ones grew node_expr's frame from 96 to 816 bytes and broke deep nesting in release (SW-3212 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
