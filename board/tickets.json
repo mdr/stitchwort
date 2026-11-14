@@ -35352,16 +35352,17 @@
     {
       "id": 3229,
       "title": "[Sonnet] Bug: a declaration holding a list with a bracketed range and a trailing comma, [(0 ..< n),], is never formatted, silently with exit 0, because the lowering reads that trailing comma (lower/exprs.rs, list) (SW-3228 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 14 Nov 2026: tidy batch. Expected: 45 min (Sonnet).\n\n\nLane, 14 Nov 2026: cause was `lower/exprs.rs` `list`: the bracketed-range special case (keep `Expr::Bracketed` so W-RANGE-IN-BRACKETS stays quiet) required no trailing comma, so `[(0 ..< n),]` lowered to a bare range and differed from `[(0 ..< n)]`. Dropped that condition. Only `..<` and `..=` bracketed ranges differed; `[0 ..< n,]`, `[(a, b),]`, `[(x),]`, call args, records all already matched. Test: fmt api `a_trailing_comma_does_not_change_the_tree`.\n",
+      "body": "Tidy batch (Matt, 14 Nov 2026). Expected: 45 min (Sonnet), ~14 min. Cause: lower/exprs.rs list kept the Bracketed wrapper of a lone bracketed range only without a comma. Only [(0 ..< n),] and [(0 ..= n),] differed; 8 other shapes checked equal. Model result: Sonnet, worked, 14 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
-        "4bbf185b4"
+        "4bbf185b4",
+        "5a258466ee30ac15c0eb1376484ab68c0a86de0c"
       ]
     },
     {
