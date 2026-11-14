@@ -35007,12 +35007,12 @@
     {
       "id": 3208,
       "title": "[Opus] Lowering L1 (docs/proposals/syntax-tree-lowering.md): Expressions",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).\n\nProgress (lane, 14 Nov 2026, 09:55-10:25):\n- d42e1f4b7: every L1 expression kind lowered in crates/syntax/src/lower/exprs.rs; `chain`, `binary`, `prefix_op`, `piped` moved there from parser.rs unchanged.\n- Gate `dev tree --lower --spans crates/elab/src/std aoc/src games examples`: 0 differences, 0 span misses. Before: 3924 declarations lowered, one-line bodies 1896 of 12802. After: 7320 declarations lowered (3401 Test), one-line bodies and types 24030 of 30463 (the rest: L2/L3/L4 kinds, or text that doesn't parse as an expression). No L1 kind left unsupported. Whole repo (2983 files): 0 differences.\n- What the lowering had to learn: inner tuples end at the `)` token, not the outer span (the one difference found).\n- Stack: `Lower::with_stack`, `Unsupported::TooDeep`; test finds the deepest nesting that parses (4 shapes) and requires it to lower.\n- Oracle: also one-line `ResultType`/`Default` as expressions; compact `Debug` compare (pretty only on a difference: was minutes for a 2,000-deep application). `dev tree` parse budget 3/4 of its thread's stack (crashed past the limit before).\n- Gaps (R1, R2, R2b): not done, recovery S1-S3 hasn't landed; nothing builds `Missing` yet.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
