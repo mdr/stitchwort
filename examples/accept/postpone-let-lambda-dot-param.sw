@@ -7,9 +7,7 @@
 
 import Std (Nat)
 
-type Shape =
-  | Circle (radius: Nat)
-  | Square (side: Nat)
+type Shape = | Circle (radius: Nat) | Square (side: Nat)
 
 def Shape.size (shape: Shape): Nat := match shape with
   | Circle r => r

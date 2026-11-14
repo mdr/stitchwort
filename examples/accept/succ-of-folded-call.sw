@@ -4,15 +4,17 @@
 
 def innerN (x: Nat): Nat
     decreasing x
-:= match x with
-  | Zero => 1
-  | Succ m => innerN m [decreasing := omega]
+:=
+  match x with
+    | Zero => 1
+    | Succ m => innerN m [decreasing := omega]
 
 def outerN (x: Nat): Nat
     decreasing x
-:= match x with
-  | Zero => innerN x
-  | Succ m => outerN m [decreasing := omega]
+:=
+  match x with
+    | Zero => innerN x
+    | Succ m => outerN m [decreasing := omega]
 
 def through (x: Nat): Nat := outerN x
 

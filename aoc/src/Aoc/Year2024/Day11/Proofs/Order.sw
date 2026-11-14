@@ -8,20 +8,26 @@ import Aoc.Year2024.Day11 (..)
 import Aoc.Year2024.Day11.Spec (..)
 import Std (List, Nat)
 
-theorem blinkPerm ∀ (stones: List Nat) (others: List Nat) (same: List.Perm stones others): List.Perm (blink stones) (blink others) :=
+theorem blinkPerm ∀ (stones others: List Nat)
+    (same: List.Perm stones others):
+    List.Perm (blink stones) (blink others) :=
   List.permFlatMap stones others same change
 
-theorem blinkTimesPerm ∀ (blinks: Nat) (stones others: List Nat) (same: List.Perm stones others):
-    List.Perm (blinkTimes blinks stones) (blinkTimes blinks others) := match blinks with
-      | Zero => p => same p
-      | Succ blinks => p => blinkTimesPerm blinks (blink stones) (blink others) (blinkPerm stones others same) p
+theorem blinkTimesPerm ∀ (blinks: Nat) (stones others: List Nat)
+    (same: List.Perm stones others):
+    List.Perm (blinkTimes blinks stones) (blinkTimes blinks others) :=
+  match blinks with
+    | Zero => p => same p
+    | Succ blinks => p => blinkTimesPerm blinks (blink stones) (blink others) (blinkPerm stones others same) p
 
 --| The same stones in any order end with as many stones, in the puzzle's
 --| line and in the program's count.
-theorem orderIrrelevant ∀ (blinks: Nat) (stones: List Nat) (others: List Nat) (same: List.Perm stones others):
+theorem orderIrrelevant ∀ (blinks: Nat) (stones others: List Nat)
+    (same: List.Perm stones others):
     (blinkTimes blinks stones).length = (blinkTimes blinks others).length :=
   List.permLength (blinkTimes blinks stones) (blinkTimes blinks others) (blinkTimesPerm blinks stones others same)
 
-theorem countOrderIrrelevant ∀ (blinks: Nat) (stones: List Nat) (others: List Nat) (same: List.Perm stones others):
+theorem countOrderIrrelevant ∀ (blinks: Nat) (stones others: List Nat)
+    (same: List.Perm stones others):
     countAfter blinks stones = countAfter blinks others :=
   rewrite countCorrect blinks stones, countCorrect blinks others in orderIrrelevant blinks stones others same

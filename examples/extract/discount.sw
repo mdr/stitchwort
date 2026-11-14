@@ -12,7 +12,7 @@
 -- rejects: perPerson 10 0
 -- rejects: perPerson 2 0
 
-export def applyDiscount (price: Nat) (percent: Nat): [auto ok: percent ≤ 100] → Nat := price - price * percent / 100
+export def applyDiscount (price percent: Nat): [auto ok: percent ≤ 100] → Nat := price - price * percent / 100
 
 -- The precondition refuses a split between no people, where `/` would give 0.
-export def perPerson (total: Nat) (people: Nat): [auto ok: people ≠ 0] → Nat := total / people
+export def perPerson (total people: Nat): [auto ok: people ≠ 0] → Nat := total / people

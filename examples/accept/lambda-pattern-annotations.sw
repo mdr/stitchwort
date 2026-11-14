@@ -7,9 +7,7 @@ import Std (List, Nat)
 
 type Person = { name: Text, age: Nat }
 
-type Shape =
-  | Circle (radius: Nat)
-  | Square (side: Nat)
+type Shape = | Circle (radius: Nat) | Square (side: Nat)
 
 def Shape.size (shape: Shape): Nat := match shape with
   | Circle r => r
@@ -36,5 +34,4 @@ test "mixed" :=
   f 1 (2, 3) 4 == 10
 
 -- As an argument.
-test "argument" :=
-  [(0, Circle 1), (1, Square 2)].map (((i, s): (Nat, Shape)) => i + s.size) == [1, 3]
+test "argument" := [(0, Circle 1), (1, Square 2)].map (((i, s): (Nat, Shape)) => i + s.size) == [1, 3]

@@ -19,13 +19,16 @@ def LineOfBoxes (warehouse: Warehouse) (direction: Direction) (length: Nat): Pro
     ∧ warehouse.boxes.contains (ahead warehouse.robot direction (length + 1)) = False
 
 --| Where the robot or the last box of the line would move to.
-def pastLine (warehouse: Warehouse) (direction: Direction) (length: Nat): Cell := ahead warehouse.robot direction (length + 1)
+def pastLine (warehouse: Warehouse) (direction: Direction) (length: Nat): Cell :=
+  ahead warehouse.robot direction (length + 1)
 
 --| "The robot will also attempt to push those boxes": after the push there
 --| is a box at `position` when a box of the line moved one step to it, or a
 --| box not in the line was already there.
 def BoxAfterPush (warehouse: Warehouse) (direction: Direction) (length: Nat) (position: Cell): Prop :=
-  (∃ (i: Nat) => i < length ∧ position = (ahead warehouse.robot direction (i + 1)).step direction) ∨ (warehouse.boxes.contains position = True ∧ (∀ (i: Nat) => i < length → position ≠ ahead warehouse.robot direction (i + 1)))
+  (∃ (i: Nat) => i < length ∧ position = (ahead warehouse.robot direction (i + 1)).step direction)
+    ∨ (warehouse.boxes.contains position = True
+      ∧ (∀ (i: Nat) => i < length → position ≠ ahead warehouse.robot direction (i + 1)))
 
 --| The boxes the puzzle counts.
 def boxCount (warehouse: Warehouse): Nat := warehouse.boxes.size
@@ -39,12 +42,7 @@ def Separate (warehouse: Warehouse): Prop :=
 -- Part 2. A box is where its `[` is; its `]` is the cell to the right.
 
 --| What one cell of the wide map shows.
-type WideTile =
-  | WideWall
-  | BoxLeft
-  | BoxRight
-  | WideRobot
-  | WideFloor
+type WideTile = | WideWall | BoxLeft | BoxRight | WideRobot | WideFloor
 
 --| The wide map's cell at `position`, as the puzzle draws it.
 def wideTile (warehouse: Warehouse) (position: Cell): WideTile :=
@@ -62,22 +60,26 @@ def Whole (warehouse: Warehouse): Prop :=
 --| A wide warehouse where nothing overlaps: no box covers a wall or another
 --| box's cells, and neither covers the robot.
 def WideSeparate (warehouse: Warehouse): Prop :=
-  (∀ (box: Cell) => warehouse.boxes.contains box = True → ∀ (cell: Cell) => cell ∈ cellsOf box → warehouse.walls.contains cell = False)
+  (∀ (box: Cell) => warehouse.boxes.contains box = True
+    → ∀ (cell: Cell) => cell ∈ cellsOf box → warehouse.walls.contains cell = False)
     ∧ (∀ (box: Cell) => warehouse.boxes.contains box = True → warehouse.boxes.contains (box.step Right) = False)
     ∧ warehouse.walls.contains warehouse.robot = False
     ∧ warehouse.boxes.contains warehouse.robot = False
     ∧ warehouse.boxes.contains (warehouse.robot.step Left) = False
 
 --| `box` covers `cell`: it is one of the box's two cells.
-def Covers (box: Cell) (cell: Cell): Prop := cell ∈ cellsOf box
+def Covers (box cell: Cell): Prop := cell ∈ cellsOf box
 
 --| `pushed` holds every box that is pushed: those covering the cell the
 --| robot moves into, and those covering a cell a pushed box moves into, as
 --| boxes can "directly push two other boxes at once".
 def Closed (warehouse: Warehouse) (direction: Direction) (pushed: Cell → Bool): Prop :=
-  (∀ (box: Cell) => warehouse.boxes.contains box = True → Covers box (warehouse.robot.step direction) → pushed box = True)
-    ∧ (∀ (box: Cell) => pushed box = True → ∀ (other: Cell) => warehouse.boxes.contains other = True → ∀ (cell: Cell) =>
-      cell ∈ cellsOf (box.step direction) → Covers other cell → pushed other = True)
+  (∀ (box: Cell) => warehouse.boxes.contains box = True
+    → Covers box (warehouse.robot.step direction)
+    → pushed box = True)
+    ∧ (∀ (box: Cell) => pushed box = True
+      → ∀ (other: Cell) => warehouse.boxes.contains other = True
+        → ∀ (cell: Cell) => cell ∈ cellsOf (box.step direction) → Covers other cell → pushed other = True)
 
 --| The robot's move pushes `box`: it is in every set of pushed boxes.
 def MustMove (warehouse: Warehouse) (direction: Direction) (box: Cell): Prop :=
@@ -86,4 +88,6 @@ def MustMove (warehouse: Warehouse) (direction: Direction) (box: Cell): Prop :=
 --| "If this action would cause the robot or a box to move into a wall,
 --| nothing moves instead": the robot would, or a box that must move would.
 def Blocked (warehouse: Warehouse) (direction: Direction): Prop :=
-  (warehouse.walls.contains (warehouse.robot.step direction) = True) ∨ (∃ (box: Cell) => MustMove warehouse direction box ∧ (∃ (cell: Cell) => cell ∈ cellsOf (box.step direction) ∧ warehouse.walls.contains cell = True))
+  (warehouse.walls.contains (warehouse.robot.step direction) = True)
+    ∨ (∃ (box: Cell) => MustMove warehouse direction box
+      ∧ (∃ (cell: Cell) => cell ∈ cellsOf (box.step direction) ∧ warehouse.walls.contains cell = True))

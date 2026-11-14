@@ -13,9 +13,7 @@ import Sf.Lf.Lists.NatList (..)
 --
 -- The type of partial maps:
 
-type PartialMap =
-  | Empty
-  | Record (i: Id) (v: Nat) (m: PartialMap)
+type PartialMap = | Empty | Record (i: Id) (v: Nat) (m: PartialMap)
 
 -- "There are two ways to build a `PartialMap`: the constructor `Empty`,
 -- for the empty map, or `Record` applied to a key, a value and an

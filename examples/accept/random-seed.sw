@@ -9,15 +9,12 @@ def main (): {IO} () :=
 
 -- Under `IO.simulate` the seed is 0, so the roll is always the same: the
 -- first output for seed 0, 16294208416658607535, is 1 + 16294208416658607535 % 6.
-test "main under simulate rolls the same every time" :=
-  (IO.simulate [] main).fst == ["You rolled 2."]
+test "main under simulate rolls the same every time" := (IO.simulate [] main).fst == ["You rolled 2."]
 
-test "the seed is 0 under simulate" :=
-  (IO.simulate [] (() => IO.randomSeed ())).snd == 0
+test "the seed is 0 under simulate" := (IO.simulate [] (() => IO.randomSeed ())).snd == 0
 
 -- `IO.simulateWith` picks the seed, so a test can drive `main` on any one.
-test "simulateWith gives the seed" :=
-  (IO.simulateWith 7 [] (() => IO.randomSeed ())).snd == 7
+test "simulateWith gives the seed" := (IO.simulateWith 7 [] (() => IO.randomSeed ())).snd == 7
 
 test "main under simulateWith rolls what that seed gives" :=
   (IO.simulateWith 1 [] main).fst == ["You rolled ${(Random.between 1 1 6).fst}."]

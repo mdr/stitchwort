@@ -12,8 +12,7 @@ def pass (n: Nat) [a: Type] (x: a): a := x
 
 def three: Nat := 3
 
-test "the next argument in a pipe" :=
-  (three |> put Filling { name = "tea", price = 3 }) == "tea"
+test "the next argument in a pipe" := (three |> put Filling { name = "tea", price = 3 }) == "tea"
 
 test "the same as unpiped, and bracketed" :=
   (pass three Some { name = "t", price = 1 }) == (three |> pass Some { name = "t", price = 1 })
@@ -33,5 +32,4 @@ def optional: Option R → Nat
   | Some { value } => value.size
   | None => 0
 
-test "the record's field" :=
-  bracketed (MkWrap { value = { n = 7 } }) == 7 ∧ optional (Some { value = { n = 5 } }) == 5
+test "the record's field" := bracketed (MkWrap { value = { n = 7 } }) == 7 ∧ optional (Some { value = { n = 5 } }) == 5

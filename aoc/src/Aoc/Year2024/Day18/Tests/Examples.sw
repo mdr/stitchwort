@@ -42,7 +42,7 @@ def parsed (input: Text): Result (List Position) Text := Fail.toResult (() => pa
 def bytes (input: Text): List Position := Fail.orElse [] (() => parseBytes input)
 
 --| The puzzle's X,Y: column X, row Y.
-def at (x: Nat) (y: Nat): Position := { row = y, column = x }
+def at (x y: Nat): Position := { row = y, column = x }
 
 test "example, part 1" := solvePart1 7 12 (bytes example) == Some 22
 test "example, part 2" := solvePart2 7 (bytes example) == Some (at 6 1)
@@ -64,22 +64,32 @@ test "a winding path between two walls" :=
   let walls := [at 1 0, at 1 1, at 1 2, at 1 3, at 3 1, at 3 2, at 3 3, at 3 4]
   solvePart1 5 8 walls == Some 16 && solvePart2 5 walls == None
 test "one position, the start and the exit" := solvePart1 1 0 [] == Some 0
-test "bytes outside the memory space change nothing" := solvePart1 3 1 [at 5 5] == Some 4 && solvePart2 3 [at 5 5] == None
+test "bytes outside the memory space change nothing" :=
+  solvePart1 3 1 [at 5 5] == Some 4 && solvePart2 3 [at 5 5] == None
 test "a byte falling twice" := solvePart2 3 [at 1 1, at 1 1, at 0 1, at 1 0] == Some (at 1 0)
 
 test "steps" :=
-  (at 0 0).step Up == None && (at 0 0).step Left == None && (at 0 0).step Down == Some (at 0 1) && (at 0 0).step Right == Some (at 1 0)
-    && (at 3 4).step Up == Some (at 3 3) && (at 3 4).step Left == Some (at 2 4)
+  (at 0 0).step Up == None
+    && (at 0 0).step Left == None
+    && (at 0 0).step Down == Some (at 0 1)
+    && (at 0 0).step Right == Some (at 1 0)
+    && (at 3 4).step Up == Some (at 3 3)
+    && (at 3 4).step Left == Some (at 2 4)
 test "safe positions" :=
   let memory := MemorySpace.after 7 (bytes example) 12
-  memory.isSafe (at 0 0) && !memory.isSafe (at 5 4) && !memory.isSafe (at 7 0) && !memory.isSafe (at 0 7)
+  memory.isSafe (at 0 0)
+    && !memory.isSafe (at 5 4)
+    && !memory.isSafe (at 7 0)
+    && !memory.isSafe (at 0 7)
     && memory.isSafe (at 1 2)
 test "edges out of the start" :=
   let memory := MemorySpace.after 3 [at 1 0] 1
   memory.graph.edges (at 0 0) == [(at 0 1, 1)]
 test "the spec's paths" :=
-  isPath (isSafe 3 [at 1 1]) (at 0 0) [at 0 1, at 0 2, at 1 2, at 2 2] (at 2 2) && !isPath (isSafe 3 [at 1 1]) (at 0 0) [at 1 0, at 1 1] (at 1 1)
-    && !isPath (isSafe 3 []) (at 0 0) [at 1 1] (at 1 1) && !isPath (isSafe 3 []) (at 0 0) [at 0 1, at 0 2, at 0 3] (at 0 3)
+  isPath (isSafe 3 [at 1 1]) (at 0 0) [at 0 1, at 0 2, at 1 2, at 2 2] (at 2 2)
+    && !isPath (isSafe 3 [at 1 1]) (at 0 0) [at 1 0, at 1 1] (at 1 1)
+    && !isPath (isSafe 3 []) (at 0 0) [at 1 1] (at 1 1)
+    && !isPath (isSafe 3 []) (at 0 0) [at 0 1, at 0 2, at 0 3] (at 0 3)
 test "the spec's safety" := isSafe 3 [at 1 1] (at 0 0) && !isSafe 3 [at 1 1] (at 1 1) && !isSafe 3 [] (at 3 0)
 test "fewest steps to each position" :=
   let memory := MemorySpace.after 2 [at 1 0] 1
@@ -95,4 +105,5 @@ test "parse" := parsed """
 test "parse without a final line break" := parsed "5,4\n4,2" == Ok [at 5 4, at 4 2]
 test "parse a large coordinate" := parsed "70,69\n" == Ok [at 70 69]
 test "a missing comma" := (parsed "5 4\n" |> .map (found => ())) == Err "line 1, column 2: expected ',', got ' '"
-test "a negative coordinate" := (parsed "-1,4\n" |> .map (found => ())) == Err "line 1, column 1: expected a number, got '-'"
+test "a negative coordinate" :=
+  (parsed "-1,4\n" |> .map (found => ())) == Err "line 1, column 1: expected a number, got '-'"

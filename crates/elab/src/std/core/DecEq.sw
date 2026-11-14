@@ -11,8 +11,7 @@
 
 --| Types whose values can be compared for equality, with a proof: what `==`,
 --| `!=` and `if h: a = b` use.
-interface DecEq (a: Type) =
-  { decide: (x: a) → (y: a) → Decidable (x = y) }
+interface DecEq (a: Type) = { decide: (x: a) → (y: a) → Decidable (x = y) }
 
 instance Nat.instDecEq: DecEq Nat := { decide = Nat.decEq }
 
@@ -32,19 +31,17 @@ def Builtin.UnitType.decEq: (x: Builtin.UnitType) → (y: Builtin.UnitType) → 
 
 instance Builtin.UnitType.instDecEq: DecEq Builtin.UnitType := { decide = Builtin.UnitType.decEq }
 
-instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) :=
-  { decide = List.decEq (x y => DecEq.decide x y) }
+instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) := { decide = List.decEq (x y => DecEq.decide x y) }
 
 instance Pair.instDecEq [auto decEqA: DecEq a] [auto decEqB: DecEq b]: DecEq (Pair a b) :=
   { decide = Pair.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
-instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) :=
-  { decide = Option.decEq (x y => DecEq.decide x y) }
+instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) := { decide = Option.decEq (x y => DecEq.decide x y) }
 
 instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (Result a e) :=
   { decide = Result.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
 --| Proofs of an equation in a type with decidable equality are unique
 --| ([`Decidable.uniqueEq`], Hedberg's argument).
-theorem DecEq.uniqueEq ∀ [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p = q :=
+theorem DecEq.uniqueEq ∀ [auto decEq: DecEq a] [x y: a] (p q: x = y): p = q :=
   Decidable.uniqueEq (DecEq.decide [decEq := decEq]) x y p q

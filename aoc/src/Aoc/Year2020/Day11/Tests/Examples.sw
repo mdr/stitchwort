@@ -12,7 +12,8 @@ def parsed (input: Text): Result Layout Text := Fail.toResult (() => parseLayout
 
 def part1 (input: Text): Result (Option Nat) Text := (parsed input).map (layout => layout.settledOccupied adjacentRule)
 
-def part2 (input: Text): Result (Option Nat) Text := (parsed input).map (layout => layout.settledOccupied layout.sightRule)
+def part2 (input: Text): Result (Option Nat) Text :=
+  (parsed input).map (layout => layout.settledOccupied layout.sightRule)
 
 --| How many occupied seats the passenger at `at` has in view by `rule`.
 def occupiedInView (layout: Layout) (rule: Rule) (at: Position): Nat :=
@@ -121,22 +122,35 @@ test "example, part 2's second round" := rounds (.sightRule) 2 example == parsed
 test "example, part 1" := part1 example == Ok (Some 37)
 test "example, part 2" := part2 example == Ok (Some 26)
 
-test "part 2, eight occupied in sight" := (parsed seesEight).map (layout => occupiedInView layout layout.sightRule { row = 4, column = 3 }) == Ok 8
+test "part 2, eight occupied in sight" :=
+  (parsed seesEight).map (layout => occupiedInView layout layout.sightRule { row = 4, column = 3 }) == Ok 8
 test "part 2, the near empty seat hides the rest" :=
-  (parsed seesOne).map (layout => (layout.sightRule.inView layout.grid.lookup { row = 1, column = 1 }, occupiedInView layout layout.sightRule { row = 1, column = 1 }))
+  (parsed seesOne).map (layout =>
+    (
+      layout.sightRule.inView layout.grid.lookup { row = 1, column = 1 },
+      occupiedInView layout layout.sightRule { row = 1, column = 1 }
+    ))
     == Ok ([{ row = 1, column = 3 }], 0)
-test "part 2, nothing occupied in sight" := (parsed seesNone).map (layout => occupiedInView layout layout.sightRule { row = 3, column = 3 }) == Ok 0
-test "part 1, the same seats see two" := (parsed seesEight).map (layout => occupiedInView layout adjacentRule { row = 4, column = 3 }) == Ok 2
+test "part 2, nothing occupied in sight" :=
+  (parsed seesNone).map (layout => occupiedInView layout layout.sightRule { row = 3, column = 3 }) == Ok 0
+test "part 1, the same seats see two" :=
+  (parsed seesEight).map (layout => occupiedInView layout adjacentRule { row = 4, column = 3 }) == Ok 2
 
 test "a seat alone fills and stays" := part1 "L\n" == Ok (Some 1) ∧ part2 "L\n" == Ok (Some 1)
 test "floor only, nothing to fill" := part1 "...\n" == Ok (Some 0)
 
 -- The program's rounds are the spec's, run side by side on the example.
 test "spec, part 1's rounds" :=
-  (parsed example).map (layout => [0, 1, 2, 3, 4, 5].all (count => (Nat.iterate count (next => next.round (adjacentRule.planFor layout)) layout) == Nat.iterate count Spec.adjacentRound layout))
+  (parsed example).map (layout =>
+    [0, 1, 2, 3, 4, 5].all (count =>
+      (Nat.iterate count (next => next.round (adjacentRule.planFor layout)) layout)
+        == Nat.iterate count Spec.adjacentRound layout))
     == Ok True
 test "spec, part 2's rounds" :=
-  (parsed example).map (layout => [0, 1, 2, 3, 4, 5, 6].all (count => (Nat.iterate count (next => next.round (layout.sightRule.planFor layout)) layout) == Nat.iterate count Spec.sightRound layout))
+  (parsed example).map (layout =>
+    [0, 1, 2, 3, 4, 5, 6].all (count =>
+      (Nat.iterate count (next => next.round (layout.sightRule.planFor layout)) layout)
+        == Nat.iterate count Spec.sightRound layout))
     == Ok True
 test "spec, the example settles after 5 and 6 rounds" :=
   (parsed example).map (layout =>

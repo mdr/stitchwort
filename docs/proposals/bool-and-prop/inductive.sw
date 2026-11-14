@@ -2,9 +2,7 @@
 -- inductive relation. Checks.
 import Std (Bool, Nat, Void)
 
-type Le: Nat → Nat → Prop =
-  | LeZero: Le 0 n
-  | LeSucc (h: Le m n): Le (Succ m) (Succ n)
+type Le: Nat → Nat → Prop = | LeZero: Le 0 n | LeSucc (h: Le m n): Le (Succ m) (Succ n)
 
 -- Induction on the proof: two arms, where `Nat.leTrans` has four.
 theorem Le.trans: Le a b → Le b c → Le a c

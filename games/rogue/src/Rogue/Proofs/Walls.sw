@@ -7,7 +7,8 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (Eq)
 
-theorem playerMovesOutOfWalls ∀ (dice: Dice) (state: State) (direction: Direction) (inside: isWall state.level state.player = False):
+theorem playerMovesOutOfWalls ∀ (dice: Dice) (state: State) (direction: Direction)
+    (inside: isWall state.level state.player = False):
     let after := playerMoves dice state direction
     isWall after.level after.player = False :=
   match found: monsterAt (state.player.toward direction) state.monsters with
@@ -19,7 +20,8 @@ theorem playerMovesOutOfWalls ∀ (dice: Dice) (state: State) (direction: Direct
           let target := state.player.toward direction
           rewrite enterLevel state target, enterPlayer state target in wall
 
-theorem monstersTurnOutOfWalls ∀ (dice: Dice) (state: State) (inside: isWall state.level state.player = False):
+theorem monstersTurnOutOfWalls ∀ (dice: Dice) (state: State)
+    (inside: isWall state.level state.player = False):
     let after := monstersTurn dice state
     isWall after.level after.player = False :=
   rewrite monstersTurnLevel dice state, monstersTurnPlayer dice state in inside
@@ -29,7 +31,8 @@ theorem descendOutOfWalls ∀ (dice: Dice) (state: State):
     isWall after.level after.player = False :=
   startOnFloor (Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))).level
 
-theorem resolveOutOfWalls ∀ (dice: Dice) (state: State) (command: Command) (inside: isWall state.level state.player = False):
+theorem resolveOutOfWalls ∀ (dice: Dice) (state: State) (command: Command)
+    (inside: isWall state.level state.player = False):
     let after := resolve dice state command
     isWall after.level after.player = False :=
   match phase: state.phase with
@@ -37,7 +40,10 @@ theorem resolveOutOfWalls ∀ (dice: Dice) (state: State) (command: Command) (in
       match command with
         | Quit => inside
         | Wait => monstersTurnOutOfWalls dice { state | message = "You wait." } inside
-        | Move direction => monstersTurnOutOfWalls dice (playerMoves dice state direction) (playerMovesOutOfWalls dice state direction inside)
+        | Move direction =>
+          monstersTurnOutOfWalls dice
+            (playerMoves dice state direction)
+            (playerMovesOutOfWalls dice state direction inside)
         | Drink =>
           match none: state.potions == 0 with
             | True => inside
@@ -51,7 +57,8 @@ theorem resolveOutOfWalls ∀ (dice: Dice) (state: State) (command: Command) (in
     | GaveUp => inside
 
 --| The player is never inside a wall after a turn, whatever the seed.
-theorem stepOutOfWalls ∀ (seed: Nat) (state: State) (command: Command) (inside: isWall state.level state.player = False):
+theorem stepOutOfWalls ∀ (seed: Nat) (state: State) (command: Command)
+    (inside: isWall state.level state.player = False):
     let after := Random.withSeed seed (() => step state command)
     isWall after.level after.player = False :=
   resolveOutOfWalls { seed = lcg seed / 65536 } state command inside

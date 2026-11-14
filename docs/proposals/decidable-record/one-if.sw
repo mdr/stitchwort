@@ -6,11 +6,12 @@ import Std (Bool, Eq, Nat, Void)
 -- The type, and the refutation that `complete` gives.
 type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
 
-theorem Dec.refute ∀ [p: Prop] (d: Dec p) (e: d.does = False): ¬p :=
-  h => Bool.falseNotTrue (Eq.trans (Eq.sym e) (d.complete h))
+theorem Dec.refute ∀ [p: Prop] (d: Dec p) (e: d.does = False): ¬p := h =>
+  Bool.falseNotTrue (Eq.trans (Eq.sym e) (d.complete h))
 
 def Dec.yes [p: Prop] (h: p): Dec p := { does = True, sound = e => h, complete = x => rfl }
-def Dec.no [p: Prop] (r: ¬p): Dec p := { does = False, sound = e => Void.exfalso (Bool.falseNotTrue e), complete = h => Void.exfalso (r h) }
+def Dec.no [p: Prop] (r: ¬p): Dec p :=
+  { does = False, sound = e => Void.exfalso (Bool.falseNotTrue e), complete = h => Void.exfalso (r h) }
 
 -- Along an `↔`, keeping the `Bool`.
 def Dec.map [p q: Prop] (d: Dec p) (e: p ↔ q): Dec q :=
@@ -30,7 +31,7 @@ def decLt (m n: Nat): Dec (m < n) := { does = Nat.leq (Succ m) n, sound = h => h
 
 -- An `if h:` whose branches ignore `h` is the plain `if`, by computation:
 -- the two forms of SW-1688 are one term once `Dec.elim` unfolds.
-theorem elimIsIf ∀ (a b: Nat) (x y: Nat): Dec.elim (decLe a b) (h => x) (r => y) = If (Nat.leq a b) (e => x) (e => y) := rfl
+theorem elimIsIf ∀ (a b x y: Nat): Dec.elim (decLe a b) (h => x) (r => y) = If (Nat.leq a b) (e => x) (e => y) := rfl
 
 -- So a split on the test refines both, whichever way each is written.
 def safeSub (a b: Nat): Nat := Dec.elim (decLe b a) (h => a - b) (r => 0)
@@ -62,7 +63,9 @@ theorem Dec.andThenComplete ∀ [p q: Prop] (dp: Dec p) (dq: p → Dec q) (h: p 
     | { does = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c h.left))
 def Dec.andThen [p q: Prop] (dp: Dec p) (dq: p → Dec q): Dec (p ∧ q) :=
   { does = Dec.andThenDoes dp dq, sound = Dec.andThenSound dp dq, complete = Dec.andThenComplete dp dq }
-theorem andThenIsAnd ∀ (a b c d: Nat): (Dec.andThen (decLe a b) (h => decLe c d)).does = If (Nat.leq a b) (e => Nat.leq c d) (e => False) := rfl
+theorem andThenIsAnd ∀ (a b c d: Nat):
+    (Dec.andThen (decLe a b) (h => decLe c d)).does = If (Nat.leq a b) (e => Nat.leq c d) (e => False) :=
+  rfl
 
 -- `==` on numbers is `Nat.equal`; a 30-digit fact runs only the test.
 def decEqNat (m n: Nat): Dec (m = n) :=
@@ -78,7 +81,9 @@ theorem small: 3 < 5 := Dec.decide (decLt 3 5) rfl
 -- Record eta, with proof fields skipped: a decision is its `Bool`.
 theorem decEta ∀ [p: Prop] (d: Dec p): d = { does = d.does, sound = d.sound, complete = d.complete } := rfl
 -- Two decisions with the same test are equal, however their proofs go.
-theorem sameDecision ∀ (m n: Nat): decLe m n = { does = Nat.leq m n, sound = h => Eq.trans h rfl, complete = h => Eq.trans rfl h } := rfl
+theorem sameDecision ∀ (m n: Nat):
+    decLe m n = { does = Nat.leq m n, sound = h => Eq.trans h rfl, complete = h => Eq.trans rfl h } :=
+  rfl
 
 -- Large elimination: a decision still chooses a type.
 def Answer [p: Prop] (d: Dec p): Type := match d.does with
@@ -87,7 +92,7 @@ def Answer [p: Prop] (d: Dec p): Type := match d.does with
 def answer: Answer (decLe 1 2) := 7
 
 -- An `if h:` in a proof is the same `If`, at a `Prop` result.
-theorem Dec.elimProof ∀ [p: Prop] [a: Prop] (d: Dec p) (yes: p → a) (no: ¬p → a): a := match e: d.does with
+theorem Dec.elimProof ∀ [p a: Prop] (d: Dec p) (yes: p → a) (no: ¬p → a): a := match e: d.does with
   | True => yes (d.sound e)
   | False => no (Dec.refute d e)
 
@@ -100,4 +105,6 @@ theorem gLe ∀ (n: Nat): g n ≤ n := match h: Nat.leq 1 n with
 
 -- Today's `Bool.ifThenElse`, with `Unit` thunks, is the same term too: both
 -- are case trees stuck on the one `Bool`, so they compare equal.
-theorem elimIsPlainIf ∀ (a b x y: Nat): Dec.elim (decLe a b) (h => x) (r => y) = Bool.ifThenElse (Nat.leq a b) (u => x) (u => y) := rfl
+theorem elimIsPlainIf ∀ (a b x y: Nat):
+    Dec.elim (decLe a b) (h => x) (r => y) = Bool.ifThenElse (Nat.leq a b) (u => x) (u => y) :=
+  rfl

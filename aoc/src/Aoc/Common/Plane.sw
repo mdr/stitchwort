@@ -59,10 +59,10 @@ type Coords (f: Type) = { x: Int, y: Int }
 def Coords.zero: Coords f := { x = 0, y = 0 }
 
 --| Coordinates added: the step `other` taken from `coords`.
-def Coords.plus (coords: Coords f) (other: Coords f): Coords f := { x = coords.x + other.x, y = coords.y + other.y }
+def Coords.plus (coords other: Coords f): Coords f := { x = coords.x + other.x, y = coords.y + other.y }
 
 --| The step from `other` to `coords`, so that `other.plus (coords.minus other)` is `coords`.
-def Coords.minus (coords: Coords f) (other: Coords f): Coords f := { x = coords.x - other.x, y = coords.y - other.y }
+def Coords.minus (coords other: Coords f): Coords f := { x = coords.x - other.x, y = coords.y - other.y }
 
 --| The same distance the other way.
 def Coords.negate (coords: Coords f): Coords f := { x = 0 - coords.x, y = 0 - coords.y }
@@ -76,27 +76,26 @@ def Coords.manhattan (coords: Coords f): Nat := coords.x.natAbs + coords.y.natAb
 
 --| The Manhattan distance between two places: the length of the step from
 --| one to the other.
-def Coords.distance (coords: Coords f) (other: Coords f): Nat := (coords.minus other).manhattan
+def Coords.distance (coords other: Coords f): Nat := (coords.minus other).manhattan
 
 --| A quarter turn clockwise as drawn about the origin, in either frame:
 --| with `y` up east becomes south, `(1, 0)` becomes `(0, -1)`; with `y` down
 --| it becomes `(0, 1)`, which is also south on the page.
-def Coords.turnRight [auto frame: Frame f] (coords: Coords f): Coords f := { x = frame.up * coords.y, y = 0 - frame.up * coords.x }
+def Coords.turnRight [auto frame: Frame f] (coords: Coords f): Coords f :=
+  { x = frame.up * coords.y, y = 0 - frame.up * coords.x }
 
 --| A quarter turn anticlockwise as drawn about the origin.
-def Coords.turnLeft [auto frame: Frame f] (coords: Coords f): Coords f := { x = 0 - frame.up * coords.y, y = frame.up * coords.x }
+def Coords.turnLeft [auto frame: Frame f] (coords: Coords f): Coords f :=
+  { x = 0 - frame.up * coords.y, y = frame.up * coords.x }
 
 --| `quarters` quarter turns clockwise (a full turn is 4, so any number
 --| works but only the remainder matters: `Aoc.Common.Proofs.coordsTurnedMod`).
-def Coords.turned [auto frame: Frame f] (coords: Coords f) (quarters: Nat): Coords f := Nat.iterate quarters Coords.turnRight coords
+def Coords.turned [auto frame: Frame f] (coords: Coords f) (quarters: Nat): Coords f :=
+  Nat.iterate quarters Coords.turnRight coords
 
 --| The four compass headings, as the puzzle words them: north is towards
 --| the top of the picture, whichever way the frame numbers `y`.
-type Heading =
-  | North
-  | East
-  | South
-  | West
+type Heading = | North | East | South | West
 
 --| The four headings, clockwise from north.
 def headings: List Heading := [North, East, South, West]

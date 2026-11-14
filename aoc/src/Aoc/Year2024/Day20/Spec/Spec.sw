@@ -34,7 +34,7 @@ def race (racetrack: Racetrack) (position: Position): List Direction → Option 
 
 --| "The goal is to reach the end position as quickly as possible": some
 --| moves from `from` reach `to` in `time` picoseconds, and none sooner.
-def IsFastest (racetrack: Racetrack) (from: Position) (to: Position) (time: Nat): Prop :=
+def IsFastest (racetrack: Racetrack) (from to: Position) (time: Nat): Prop :=
   (∃ (moves: List Direction) => race racetrack from moves = Some to ∧ moves.length = time)
     ∧ (∀ (moves: List Direction) => race racetrack from moves = Some to → time ≤ moves.length)
 
@@ -47,8 +47,7 @@ type Cheat = { start: Position, end: Position }
 --| "This allows the program to pass through walls as if they were regular
 --| track": the fewest moves from the cheat's start to its end, through
 --| anything, are the rows plus the columns between them.
-def cheatTime (cheat: Cheat): Nat :=
-  cheat.start.row.absDiff cheat.end.row + cheat.start.column.absDiff cheat.end.column
+def cheatTime (cheat: Cheat): Nat := cheat.start.row.absDiff cheat.end.row + cheat.start.column.absDiff cheat.end.column
 
 --| "a program may disable collision for up to 2 picoseconds ... At the end of
 --| the cheat, the program must be back on normal track again" (up to `length`
@@ -60,18 +59,16 @@ def IsCheat (racetrack: Racetrack) (length: Nat) (cheat: Cheat): Prop :=
 --| the cheat (the fastest to its start, the cheat, then the fastest from its
 --| end to E) takes at least `threshold` picoseconds less than the fastest
 --| race from S to E without one.
-def SavesAtLeast (racetrack: Racetrack) (length: Nat) (threshold: Nat) (cheat: Cheat): Prop :=
+def SavesAtLeast (racetrack: Racetrack) (length threshold: Nat) (cheat: Cheat): Prop :=
   IsCheat racetrack length cheat
-    ∧ (∃ (honest: Nat) => ∃ (before: Nat) => ∃ (after: Nat) =>
-      IsFastest racetrack racetrack.start racetrack.end honest
-        ∧ IsFastest racetrack racetrack.start cheat.start before
-        ∧ IsFastest racetrack cheat.end racetrack.end after
-        ∧ before + cheatTime cheat + after + threshold ≤ honest)
+    ∧ (∃ (honest: Nat) => ∃ (before: Nat) => ∃ (after: Nat) => IsFastest racetrack racetrack.start racetrack.end honest
+      ∧ IsFastest racetrack racetrack.start cheat.start before
+      ∧ IsFastest racetrack cheat.end racetrack.end after
+      ∧ before + cheatTime cheat + after + threshold ≤ honest)
 
 --| There are `count` such cheats: a list of them, each once, holding every
 --| one.
-def IsCount (racetrack: Racetrack) (length: Nat) (threshold: Nat) (count: Nat): Prop :=
-  ∃ (cheats: List Cheat) =>
-    List.Distinct cheats
-      ∧ (∀ (cheat: Cheat) => (cheat ∈ cheats) ↔ (SavesAtLeast racetrack length threshold cheat))
-      ∧ cheats.length = count
+def IsCount (racetrack: Racetrack) (length threshold count: Nat): Prop :=
+  ∃ (cheats: List Cheat) => List.Distinct cheats
+    ∧ (∀ (cheat: Cheat) => (cheat ∈ cheats) ↔ (SavesAtLeast racetrack length threshold cheat))
+    ∧ cheats.length = count

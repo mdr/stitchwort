@@ -13,7 +13,10 @@ import Std (Char, List, Parse, Text)
 --| read and value it gives, `j` reads a rest that, after that part, `spec` holds of.
 theorem readsThen ∀ (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char → a → Prop) (spec: List Char → b → Prop)
     (readsFirst: Parse.Reads p first)
-    (rest: (firstRead: List Char) → (v: a) → first firstRead v → Parse.Reads (() => j v) (read w => spec (firstRead ++ read) w)):
+    (rest: (firstRead: List Char)
+      → (v: a)
+      → first firstRead v
+      → Parse.Reads (() => j v) (read w => spec (firstRead ++ read) w)):
     Parse.Reads (() => j (p())) spec :=
   state value after honest h =>
     match Parse.runFromThenOk2 p state j _ _ h with
@@ -22,14 +25,15 @@ theorem readsThen ∀ (p: () → {Parse} a) (j: a → {Parse} b) (first: List Ch
           | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
             match rest firstRead v holds1 middle value after honest1 restRun with
               | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
-                Witness (firstRead ++ nextRead)
-                  (Both (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest in rfl) (Both honest2 holds2))
+                Witness
+                  (firstRead ++ nextRead)
+                  (Both
+                    (rewrite starts1, starts2, List.appendAssoc firstRead nextRead after.rest in rfl)
+                    (Both honest2 holds2))
 
 --| A value, read as `spec` says when `spec` holds of nothing read and it.
 theorem readsDone ∀ (x: a) (spec: List Char → a → Prop) (holds: spec [] x): Parse.Reads (() => x) spec :=
-  Parse.readsWeaken _ _ _ (Parse.readsPure x) (read v h =>
-    match h with
-      | Both none same => rewrite none, same in holds)
+  Parse.readsWeaken _ _ _ (Parse.readsPure x) (read v h => match h with | Both none same => rewrite none, same in holds)
 
 type Entry = { low: Nat, high: Nat, letter: Char, password: Text }
 
@@ -47,21 +51,32 @@ def Digits (read: List Char) (n: Nat): Prop :=
   Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read
 
 def Written (line: List Char) (entry: Entry): Prop :=
-  ∃ (low: List Char) => ∃ (high: List Char) =>
-    line = low ++ ['-'] ++ high ++ [' ', entry.letter, ':', ' '] ++ entry.password.toList
-      ∧ Digits low entry.low ∧ Digits high entry.high ∧ entry.letter.isAsciiLowercase = True
-      ∧ Not (entry.password.toList = []) ∧ entry.password.toList.all Char.isAsciiLowercase = True
+  ∃ (low: List Char) => ∃ (high: List Char) => line
+    = low ++ ['-'] ++ high ++ [' ', entry.letter, ':', ' '] ++ entry.password.toList
+    ∧ Digits low entry.low
+    ∧ Digits high entry.high
+    ∧ entry.letter.isAsciiLowercase = True
+    ∧ Not (entry.password.toList = [])
+    ∧ entry.password.toList.all Char.isAsciiLowercase = True
 
-theorem readsLine: Parse.Reads line Written :=
-  readsThen Parse.nat _ _ _ Parse.readsNat (lowRead low lowDigits =>
-    readsThen (() => Parse.char '-') _ _ _ (Parse.readsChar '-') (dashRead u1 dash =>
-      readsThen Parse.nat _ _ _ Parse.readsNat (highRead high highDigits =>
-        readsThen (() => Parse.char ' ') _ _ _ (Parse.readsChar ' ') (spaceRead u2 space =>
-          readsThen (() => Parse.satisfy "a lowercase letter" Char.isAsciiLowercase) _ _ _ (Parse.readsSatisfy "a lowercase letter" Char.isAsciiLowercase) (letterRead letter (Both letterIs lower) =>
+theorem readsLine: Parse.Reads line Written := readsThen Parse.nat _ _ _ Parse.readsNat (lowRead low lowDigits =>
+  readsThen (() => Parse.char '-') _ _ _ (Parse.readsChar '-') (dashRead u1 dash =>
+    readsThen Parse.nat _ _ _ Parse.readsNat (highRead high highDigits =>
+      readsThen (() => Parse.char ' ') _ _ _ (Parse.readsChar ' ') (spaceRead u2 space =>
+        readsThen
+          (() => Parse.satisfy "a lowercase letter" Char.isAsciiLowercase) _ _ _
+          (Parse.readsSatisfy "a lowercase letter" Char.isAsciiLowercase)
+          (letterRead letter (Both letterIs lower) =>
             readsThen (() => Parse.text ": ") _ _ _ (Parse.readsText ": ") (colonRead u3 colon =>
-              readsThen (() => Parse.takeWhile1 "a password" Char.isAsciiLowercase) _ _ _ (Parse.readsTakeWhile1 "a password" Char.isAsciiLowercase) (passwordRead password (Both nonEmpty (Both lowers made)) =>
-                readsDone { low, high, letter, password } _
-                  (rewrite made in
-                    Witness lowRead (Witness highRead
-                      (Both (rewrite dash, space, letterIs, colon, List.appendNil passwordRead in rfl)
-                        (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers))))))))))))))
+              readsThen
+                (() => Parse.takeWhile1 "a password" Char.isAsciiLowercase) _ _ _
+                (Parse.readsTakeWhile1 "a password" Char.isAsciiLowercase)
+                (passwordRead password (Both nonEmpty (Both lowers made)) =>
+                  readsDone
+                    { low, high, letter, password } _
+                    (rewrite made in
+                      Witness lowRead
+                        (Witness highRead
+                          (Both
+                            (rewrite dash, space, letterIs, colon, List.appendNil passwordRead in rfl)
+                            (Both lowDigits (Both highDigits (Both lower (Both nonEmpty lowers))))))))))))))

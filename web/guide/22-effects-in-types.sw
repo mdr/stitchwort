@@ -5,10 +5,7 @@ import Std (Fail, List)
 import Std.Effect (Effects)
 import Std.Fail (fail, toResult)
 
-type Checker (e: Effects) = {
-  name: Text,
-  check: Nat → {e} Nat
-}
+type Checker (e: Effects) = { name: Text, check: Nat → {e} Nat }
 
 def Checker.run (c: Checker e) (xs: List Nat): {e} List Nat := xs.map c.check
 
@@ -20,7 +17,6 @@ def nonZero (n: Nat): {Fail} Nat := if n == 0 then fail "zero" else n
 -- `Checker` that may fail. `run` is the same function either way.
 test "a pure checker" := Checker.run { name = "double", check = double } [1, 2] == [2, 4]
 
-def failing: Result (List Nat) Text :=
-  toResult (() => Checker.run { name = "non-zero", check = nonZero } [1, 0])
+def failing: Result (List Nat) Text := toResult (() => Checker.run { name = "non-zero", check = nonZero } [1, 0])
 
 test "a failing checker" := failing == Err "zero"

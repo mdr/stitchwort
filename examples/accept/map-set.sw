@@ -36,7 +36,8 @@ test "equal sets" := visited "RDLU" == visited "DRUL" ∧ visited "R" ≠ visite
 -- Removing and altering.
 test "remove" := (wordCounts ["a", "b"] |> Map.remove "a").keys == ["b"]
 test "alter" := (wordCounts ["a"] |> Map.alter "a" (n => Some (Option.getOrElse n 0 + 5))).get "a" == Some 6
-test "show" := "${wordCounts ["x", "x"]}" == "Map.fromList [(\"x\", 2)]" ∧ "${Set.fromList [2, 1]}" == "Set.fromList [1, 2]"
+test "show" :=
+  "${wordCounts ["x", "x"]}" == "Map.fromList [(\"x\", 2)]" ∧ "${Set.fromList [2, 1]}" == "Set.fromList [1, 2]"
 
 -- What `get` says after `insert`, from the library's theorems, for any map.
 theorem afterTwo ∀ (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Some "a" :=
@@ -46,7 +47,8 @@ theorem afterTwo ∀ (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "
 
 -- Another order, passed by name.
 def descending: Ord Nat :=
-  Ord.fromCompare (x y => Nat.compare y x)
+  Ord.fromCompare
+    (x y => Nat.compare y x)
     (x y h => Eq.sym (Nat.compareEqual y x h))
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
@@ -78,39 +80,41 @@ def runState (init: s) (prog: () → {State s | e} a): {e} (a, s) :=
       | put st2, k => st => k() st2
   run init
 
-def record (n: Nat): {State (Map Nat Nat [ord := descending])} () :=
-  put (get().insert n (n * 10))
+def record (n: Nat): {State (Map Nat Nat [ord := descending])} () := put (get().insert n (n * 10))
 
 def recordTwo(): {State (Map Nat Nat [ord := descending])} () :=
   record 4
   record 7
 
-def recorded: Map Nat Nat [ord := descending] := match runState Map.empty recordTwo with
-  | (_, m) => m
+def recorded: Map Nat Nat [ord := descending] := match runState Map.empty recordTwo with | (_, m) => m
 
 test "a map as state" := recorded.toList == [(7, 70), (4, 40)]
 
 -- Values that are pure functions are allowed in state too.
-def functions: {State (Map Nat (Nat → Nat))} () :=
-  put (get().insert 1 (n => n + 1))
+def functions: {State (Map Nat (Nat → Nat))} () := put (get().insert 1 (n => n + 1))
 
-def stored: Map Nat (Nat → Nat) := match runState Map.empty (u => functions) with
-  | (_, m) => m
+def stored: Map Nat (Nat → Nat) := match runState Map.empty (u => functions) with | (_, m) => m
 
 test "functions as state" := stored.keys == [1] ∧ Option.map (stored.get 1) (f => f 2) == Some 3
 
 -- Later additions: counts, groupBy, unionWith, ordered lookups, keySet and Set.isSubset.
 test "counts" := (Map.counts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "groupBy" := ([1, 2, 3, 4, 5].groupBy (n => n % 2)).map (group => group.toList) |> .toList == [(0, [2, 4]), (1, [1, 3, 5])]
-test "unionWith" := (Map.unionWith (wordCounts ["a", "b"]) (wordCounts ["b", "c"]) Nat.add).toList == [("a", 1), ("b", 2), ("c", 1)]
-test "min and below" := (wordCounts ["b", "a", "c"]).min == Some ("a", 1) ∧ (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
+test "groupBy" :=
+  ([1, 2, 3, 4, 5].groupBy (n => n % 2)).map (group => group.toList) |> .toList == [(0, [2, 4]), (1, [1, 3, 5])]
+test "unionWith" :=
+  (Map.unionWith (wordCounts ["a", "b"]) (wordCounts ["b", "c"]) Nat.add).toList == [("a", 1), ("b", 2), ("c", 1)]
+test "min and below" :=
+  (wordCounts ["b", "a", "c"]).min == Some ("a", 1) ∧ (wordCounts ["b", "a", "c"]).below "c" == Some ("b", 1)
 test "keySet" := (wordCounts ["b", "a"]).keySet == ["a", "b"].toSet
 test "isSubset" := Set.isSubset (visited "R") (visited "RD") ∧ not (Set.isSubset (visited "RD") (visited "R"))
 
 -- What an intersection holds and how large it is, from the library's theorems.
-theorem commonKeyHeld ∀ (a: Set Nat) (b: Set Nat) (n: Nat) (inA: Set.contains a n = True) (inB: Set.contains b n = True):
+theorem commonKeyHeld ∀ (a b: Set Nat) (n: Nat)
+    (inA: Set.contains a n = True)
+    (inB: Set.contains b n = True):
     Set.contains (Set.intersect a b) n = True :=
   rewrite Set.containsIntersect a n b, inA, inB in rfl
 
-theorem commonAtMostEither ∀ (a: Set Nat) (b: Set Nat): Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=
+theorem commonAtMostEither ∀ (a b: Set Nat):
+    Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=
   Both (Set.sizeIntersectLeft a b) (Set.sizeIntersectRight a b)

@@ -42,24 +42,18 @@ def database(): {Parse} Database :=
   { fresh, available }
 
 --| Part 1: the available ids that are fresh.
-def solvePart1 (db: Database): Nat :=
-  db.available.count (id => db.fresh.any (.contains id))
+def solvePart1 (db: Database): Nat := db.available.count (id => db.fresh.any (.contains id))
 
 --| Part 2: every id the fresh ranges cover.
 def solvePart2 (db: Database): Nat := merge db.fresh |> .sumBy .size
 
 --| Merge ranges that overlap or touch. The list is sorted by start, then
 --| folded into a list of merged ranges with the latest first.
-def merge (ranges: List Range): List Range :=
-  ranges
-    |> .sort
-    |> .foldLeft [] absorb
-    |> .reverse
+def merge (ranges: List Range): List Range := ranges |> .sort |> .foldLeft [] absorb |> .reverse
 
 --| Add a range, starting no earlier than the ones already merged, to them.
 def absorb (merged: List Range) (range: Range): List Range := match merged with
   | [] => [range]
   | [last, ..earlier] =>
-    if range.from ≤ last.to + 1
-    then [{ from = last.from, to = Nat.max last.to range.to }, ..earlier]
+    if range.from ≤ last.to + 1 then [{ from = last.from, to = Nat.max last.to range.to }, ..earlier]
     else [range, ..merged]

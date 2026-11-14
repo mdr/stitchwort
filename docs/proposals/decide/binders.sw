@@ -9,18 +9,23 @@
 -- it the same proof as `rowEndsLambda` below.
 import Std (Bool, Nat, Void)
 
-def convex (plot: Bool) (vertical: Bool) (horizontal: Bool): Bool := plot ∧ ¬vertical ∧ ¬horizontal
-def concave (plot: Bool) (vertical: Bool) (horizontal: Bool) (diagonal: Bool): Bool := plot ∧ vertical ∧ horizontal ∧ ¬diagonal
+def convex (plot vertical horizontal: Bool): Bool := plot ∧ ¬vertical ∧ ¬horizontal
+def concave (plot vertical horizontal diagonal: Bool): Bool := plot ∧ vertical ∧ horizontal ∧ ¬diagonal
 
 -- Before the colon: checks.
-theorem rowEndsBefore ∀ (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool):
-    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
+theorem rowEndsBefore ∀ (plot out side sideOut: Bool):
+    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
+      = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
 -- After the colon, the binders introduced by hand with a lambda: checks.
 -- This is the term binder introduction would build.
-theorem rowEndsLambda: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
-    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
+theorem rowEndsLambda: (plot: Bool)
+      → (out: Bool)
+      → (side: Bool)
+      → (sideOut: Bool)
+      → Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
+        = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   plot out side sideOut => cases
 
 -- Split between the two: the binders before the colon are introduced, the
@@ -33,7 +38,10 @@ theorem rowEndsLambda: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOu
 -- no hypothesis is exactly, and it fails today in that form:
 --   theorem byHypIntro (f: Bool → Bool → Bool) (same: …) (a: Bool) (b: Bool): f a b = f b a := cases
 --   [E-CASES] Error: `cases` found nothing to split on, and nothing closes the goal
-theorem byHyp ∀ (f: Bool → Bool → Bool) (same: (a: Bool) → (b: Bool) → f a b = f b a): (a: Bool) → (b: Bool) → f a b = f b a := cases
+theorem byHyp ∀ (f: Bool → Bool → Bool)
+    (same: (a: Bool) → (b: Bool) → f a b = f b a):
+    (a: Bool) → (b: Bool) → f a b = f b a :=
+  cases
 
 -- `omega` refutes the hypothesis of a goal `P → Void`.
 theorem notLess ∀ (n: Nat): n + 1 < n → Void := cases

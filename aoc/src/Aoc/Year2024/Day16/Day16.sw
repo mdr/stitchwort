@@ -24,14 +24,9 @@ def main(): {IO, Fail} () :=
 --| The open tiles (S, E and `.`), the start and the end.
 type Maze = { openTiles: Set Position, start: Position, end: Position }
 
-type Tile =
-  | Wall
-  | Floor
-  | Start
-  | End
+type Tile = | Wall | Floor | Start | End
 
-def tile(): {Parse} Tile :=
-  Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
+def tile(): {Parse} Tile := Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
 
 --| One row of tiles per line, every row as long as the first (`parseGrid`
 --| checks it), with one S and one E.
@@ -88,15 +83,23 @@ def Maze.startReindeer (maze: Maze): Reindeer := { position = maze.start, facing
 theorem headingsComplete ∀ (facing: Heading): facing ∈ headings := cases
 
 --| A way of standing on an open tile is on the list.
-theorem Maze.holdsListed ∀ (maze: Maze) (reindeer: Reindeer) (holds: maze.holds reindeer = True): reindeer ∈ maze.reindeer :=
+theorem Maze.holdsListed ∀ (maze: Maze) (reindeer: Reindeer)
+    (holds: maze.holds reindeer = True):
+    reindeer ∈ maze.reindeer :=
   match reindeer with
     | { position, facing } =>
-      List.memFlatMapIntro (place => headings.map (way => ({ position = place, facing = way }: Reindeer))) position
-        ({ position, facing }: Reindeer) maze.openTiles.toList (Map.memKeysOfContains maze.openTiles.items position holds)
+      List.memFlatMapIntro
+        (place => headings.map (way => ({ position = place, facing = way }: Reindeer)))
+        position
+        ({ position, facing }: Reindeer)
+        maze.openTiles.toList
+        (Map.memKeysOfContains maze.openTiles.items position holds)
         (List.memMap headings facing (headingsComplete facing) (way => ({ position, facing = way }: Reindeer)))
 
 --| What `forward` gives stands on an open tile...
-theorem Maze.forwardHolds ∀ (maze: Maze) (reindeer next: Reindeer) (member: next ∈ maze.forward reindeer): maze.holds next = True :=
+theorem Maze.forwardHolds ∀ (maze: Maze) (reindeer next: Reindeer)
+    (member: next ∈ maze.forward reindeer):
+    maze.holds next = True :=
   match reindeer with
     | { position, facing } =>
       match stepped: position.step facing.toDirection with
@@ -108,7 +111,9 @@ theorem Maze.forwardHolds ∀ (maze: Maze) (reindeer next: Reindeer) (member: ne
                 | Inr none => Void.exfalso none
 
 --| ...and so does what `backward` gives.
-theorem Maze.backwardHolds ∀ (maze: Maze) (reindeer next: Reindeer) (member: next ∈ maze.backward reindeer): maze.holds next = True :=
+theorem Maze.backwardHolds ∀ (maze: Maze) (reindeer next: Reindeer)
+    (member: next ∈ maze.backward reindeer):
+    maze.holds next = True :=
   match reindeer with
     | { position, facing } =>
       match stepped: position.step facing.toDirection.opposite with
@@ -120,14 +125,15 @@ theorem Maze.backwardHolds ∀ (maze: Maze) (reindeer next: Reindeer) (member: n
                 | Inr none => Void.exfalso none
 
 --| Steps onto open tiles and turns, from an open tile, end on one.
-theorem Maze.stepsHold ∀ (maze: Maze) (moved: List Reindeer) (movedHold: ∀ (other: Reindeer) => other ∈ moved → maze.holds other = True):
-    ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (next: Reindeer) (weight: Nat) =>
-      (next, weight) ∈ (moved.map (other => (other, 1))) ++ reindeer.turns → maze.holds next = True
+theorem Maze.stepsHold ∀ (maze: Maze) (moved: List Reindeer)
+    (movedHold: ∀ (other: Reindeer) => other ∈ moved → maze.holds other = True):
+    ∀ (reindeer: Reindeer) => maze.holds reindeer = True
+      → ∀ (next: Reindeer) (weight: Nat) => (next, weight) ∈ (moved.map (other => (other, 1))) ++ reindeer.turns
+        → maze.holds next = True
   | { position, facing }, holds, next, weight, edge =>
     match List.memAppend (next, weight) _ _ edge with
-      | Inl stepped =>
-        Exists.elim (List.memMapElim (other => (other, 1)) (next, weight) moved stepped) (other both =>
-          rewrite <- Eq.cong Pair.fst (And.right both) in movedHold other (And.left both))
+      | Inl stepped => Exists.elim (List.memMapElim (other => (other, 1)) (next, weight) moved stepped) (other both =>
+        rewrite <- Eq.cong Pair.fst (And.right both) in movedHold other (And.left both))
       | Inr (Inl turn) => rewrite <- Eq.cong Pair.fst turn in holds
       | Inr (Inr (Inl turn)) => rewrite <- Eq.cong Pair.fst turn in holds
       | Inr (Inr (Inr none)) => Void.exfalso none
@@ -138,17 +144,32 @@ def Maze.moves (maze: Maze) (backwards: Bool) (reindeer: Reindeer): List (Reinde
   if maze.holds reindeer then (if backwards then maze.before reindeer else maze.after reindeer) else []
 
 --| The moves lead to ways of standing on open tiles.
-theorem Maze.movesListed ∀ (maze: Maze) (backwards: Bool) (reindeer: Reindeer) (next: Reindeer) (weight: Nat)
-    (edge: (next, weight) ∈ maze.moves backwards reindeer): next ∈ maze.reindeer :=
+theorem Maze.movesListed ∀ (maze: Maze) (backwards: Bool) (reindeer next: Reindeer) (weight: Nat)
+    (edge: (next, weight) ∈ maze.moves backwards reindeer):
+    next ∈ maze.reindeer :=
   match holds: maze.holds reindeer with
     | True =>
       match backwards with
         | True =>
           maze.holdsListed next
-            (maze.stepsHold (maze.backward reindeer) (other member => maze.backwardHolds reindeer other member) reindeer holds next weight edge)
+            (maze.stepsHold
+              (maze.backward reindeer)
+              (other member => maze.backwardHolds reindeer other member)
+              reindeer
+              holds
+              next
+              weight
+              edge)
         | False =>
           maze.holdsListed next
-            (maze.stepsHold (maze.forward reindeer) (other member => maze.forwardHolds reindeer other member) reindeer holds next weight edge)
+            (maze.stepsHold
+              (maze.forward reindeer)
+              (other member => maze.forwardHolds reindeer other member)
+              reindeer
+              holds
+              next
+              weight
+              edge)
 
 --| The maze's moves forward and turns, between the ways to stand on its open
 --| tiles; `backwards` follows each move the other way.
@@ -159,17 +180,20 @@ def Maze.graph (maze: Maze) (backwards: Bool): Graph Reindeer := {
 }
 
 --| The lowest score from the start to each reachable way of standing.
-def Maze.fromStart (maze: Maze): Map Reindeer Nat := maze.graph (backwards := False) |> .distances [(maze.startReindeer, 0)]
+def Maze.fromStart (maze: Maze): Map Reindeer Nat :=
+  maze.graph (backwards := False) |> .distances [(maze.startReindeer, 0)]
 
 --| The lowest score from each way of standing to the end, facing any way.
-def Maze.toEnd (maze: Maze): Map Reindeer Nat := maze.graph (backwards := True) |> .distances (maze.endReindeer |> .map (reindeer => (reindeer, 0)))
+def Maze.toEnd (maze: Maze): Map Reindeer Nat :=
+  maze.graph (backwards := True) |> .distances (maze.endReindeer |> .map (reindeer => (reindeer, 0)))
 
 --| The lowest score at the end, facing any way, from the start's scores.
-def Maze.lowestScore (maze: Maze) (fromStart: Map Reindeer Nat): Option Nat := maze.endReindeer.filterMap fromStart.get |> .minimum
+def Maze.lowestScore (maze: Maze) (fromStart: Map Reindeer Nat): Option Nat :=
+  maze.endReindeer.filterMap fromStart.get |> .minimum
 
 --| The tiles where the reindeer stands, some way, with its lowest scores
 --| from the start and to the end adding up to `best`.
-def tilesScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (best: Nat): Set Position :=
+def tilesScoring (fromStart toEnd: Map Reindeer Nat) (best: Nat): Set Position :=
   fromStart.toList
     |> .filter (entry => toEnd.get entry.fst |> .map (rest => entry.snd + rest == best) |> .getOrElse False)
     |> .map .fst.position

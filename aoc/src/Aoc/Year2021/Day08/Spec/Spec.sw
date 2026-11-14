@@ -48,7 +48,8 @@ def Shows (wiring: Segment → Segment) (pattern: Pattern) (digit: Nat): Bool :=
   segments.all (wire => pattern.has wire == (digitSegments digit).contains (wiring wire))
 
 --| The digit the pattern shows under the wiring, if any.
-def shown (wiring: Segment → Segment) (pattern: Pattern): Option Nat := digits.find (digit => Shows wiring pattern digit)
+def shown (wiring: Segment → Segment) (pattern: Pattern): Option Nat :=
+  digits.find (digit => Shows wiring pattern digit)
 
 --| The wiring decodes the display: it is a wiring, the ten patterns show the
 --| ten digits (each once), and each output pattern shows a digit.
@@ -69,11 +70,9 @@ def easyDigits (wiring: Segment → Segment) (entry: Entry): Nat :=
 --| 1s, 4s, 7s and 8s in all the outputs (part 1), and the output values
 --| added up (part 2).
 def Part1Answer (entries: List Entry) (answer: Nat): Prop :=
-  ∃ (wiringOf: Entry → Segment → Segment) =>
-    (∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry)
-      ∧ answer = entries.sumBy (entry => easyDigits (wiringOf entry) entry)
+  ∃ (wiringOf: Entry → Segment → Segment) => (∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry)
+    ∧ answer = entries.sumBy (entry => easyDigits (wiringOf entry) entry)
 
 def Part2Answer (entries: List Entry) (answer: Nat): Prop :=
-  ∃ (wiringOf: Entry → Segment → Segment) =>
-    (∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry)
-      ∧ answer = entries.sumBy (entry => decodedValue (wiringOf entry) entry)
+  ∃ (wiringOf: Entry → Segment → Segment) => (∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry)
+    ∧ answer = entries.sumBy (entry => decodedValue (wiringOf entry) entry)

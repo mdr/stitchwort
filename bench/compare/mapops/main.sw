@@ -19,10 +19,7 @@ type Op = | Insert | Lookup | Update | Remove
 --| The operation a draw selects.
 def Op.ofDraw (draw: Nat): Op :=
   let slot := draw / keys % 10
-  if slot < 4 then Insert
-  else if slot < 7 then Lookup
-  else if slot < 9 then Update
-  else Remove
+  if slot < 4 then Insert else if slot < 7 then Lookup else if slot < 9 then Update else Remove
 
 --| The map, the generator's state and the running checksum.
 type Workload = { map: Map Nat Nat, seed: Nat, check: Nat }
@@ -44,7 +41,7 @@ def Workload.step (w: Workload) (step: Nat): Workload :=
     | Remove => { w | map = w.map.remove key, seed = draw }
 
 --| `steps` steps from step `from`.
-def Workload.run (w: Workload) (from: Nat) (steps: Nat): Workload := match steps with
+def Workload.run (w: Workload) (from steps: Nat): Workload := match steps with
   | Zero => w
   | Succ rest => (w.step from).run (from + 1) rest
 

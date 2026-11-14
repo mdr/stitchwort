@@ -32,61 +32,62 @@ def parsed (input: Text): Result (List Machine) Text := Fail.toResult (() => par
 def exampleMachines: Result (List Machine) Text := parsed example
 
 --| A machine from its buttons' and prize's coordinates.
-def claw (ax: Int) (ay: Int) (bx: Int) (by: Int) (px: Int) (py: Int): Machine :=
+def claw (ax ay bx by px py: Int): Machine :=
   { buttonA = { x = ax, y = ay }, buttonB = { x = bx, y = by }, prize = { x = px, y = py } }
 
 def part1Tokens (machine: Machine): Option Nat := machine.fewestTokensWithin 100
 
 test "example, part 1" := exampleMachines.map solvePart1 == Ok 480
-test "example, part 1, each machine" := exampleMachines.map (machines => machines.map part1Tokens) == Ok [Some 280, None, Some 200, None]
-test "example, the first machine's presses" := exampleMachines.map (machines => machines.map (machine => machine.wins 80 40)) == Ok [True, False, False, False]
+test "example, part 1, each machine" :=
+  exampleMachines.map (machines => machines.map part1Tokens) == Ok [Some 280, None, Some 200, None]
+test "example, the first machine's presses" :=
+  exampleMachines.map (machines => machines.map (machine => machine.wins 80 40)) == Ok [True, False, False, False]
 test "example, the spec agrees" := exampleMachines.map part1 == Ok 480
 test "example, part 2" := exampleMachines.map solvePart2 == Ok 875318608908
 test "example, part 2, only the second and fourth machines" :=
-  exampleMachines.map (machines => machines.map (machine => machine.corrected.fewestTokens.isSome)) == Ok [False, True, False, True]
+  exampleMachines.map (machines => machines.map (machine => machine.corrected.fewestTokens.isSome))
+    == Ok [False, True, False, True]
 test "example, many more than 100 presses" :=
-  exampleMachines.map (machines => machines.all (machine => machine.corrected.fewestTokensWithin 100 == None)) == Ok True
-test "the program's correction is the spec's" := exampleMachines.map (machines => machines.all (machine => machine.corrected == correctedMachine machine)) == Ok True
+  exampleMachines.map (machines => machines.all (machine => machine.corrected.fewestTokensWithin 100 == None))
+    == Ok True
+test "the program's correction is the spec's" :=
+  exampleMachines.map (machines => machines.all (machine => machine.corrected == correctedMachine machine)) == Ok True
 
-test "parse" :=
-  parsed """
-    Button A: X+1, Y+2
-    Button B: X+3, Y+4
-    Prize: X=5, Y=6
-    """ == Ok [claw 1 2 3 4 5 6]
-test "parse two machines without a final line break" :=
-  parsed """
-    Button A: X+1, Y+2
-    Button B: X+3, Y+4
-    Prize: X=5, Y=6
+test "parse" := parsed """
+  Button A: X+1, Y+2
+  Button B: X+3, Y+4
+  Prize: X=5, Y=6
+  """ == Ok [claw 1 2 3 4 5 6]
+test "parse two machines without a final line break" := parsed """
+  Button A: X+1, Y+2
+  Button B: X+3, Y+4
+  Prize: X=5, Y=6
 
-    Button A: X+0, Y+0
-    Button B: X+0, Y+0
-    Prize: X=0, Y=0"""
-    == Ok [claw 1 2 3 4 5 6, claw 0 0 0 0 0 0]
-test "a minus sign" :=
-  parsed """
-    Button A: X-1, Y+2
-    Button B: X+3, Y+4
-    Prize: X=5, Y=6
-    """
-    == Err "line 1, column 11: expected 'X+', got 'X-'"
-test "a missing blank line" :=
-  parsed """
-    Button A: X+1, Y+2
-    Button B: X+3, Y+4
-    Prize: X=5, Y=6
-    Button A: X+1, Y+2
-    """
-    == Err "line 4, column 1: expected a blank line or the end of the input, got 'B'"
-test "a missing prize" := parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\n" == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
+  Button A: X+0, Y+0
+  Button B: X+0, Y+0
+  Prize: X=0, Y=0""" == Ok [claw 1 2 3 4 5 6, claw 0 0 0 0 0 0]
+test "a minus sign" := parsed """
+  Button A: X-1, Y+2
+  Button B: X+3, Y+4
+  Prize: X=5, Y=6
+  """ == Err "line 1, column 11: expected 'X+', got 'X-'"
+test "a missing blank line" := parsed """
+  Button A: X+1, Y+2
+  Button B: X+3, Y+4
+  Prize: X=5, Y=6
+  Button A: X+1, Y+2
+  """ == Err "line 4, column 1: expected a blank line or the end of the input, got 'B'"
+test "a missing prize" :=
+  parsed "Button A: X+1, Y+2\nButton B: X+3, Y+4\n"
+    == Err "line 3, column 1: expected 'Prize: ', got the end of the input"
 
 --| One solution, but negative, not whole, or over 100 presses.
 test "a negative solution" := (claw 2 1 1 2 1 5).fewestTokens == None && part1Tokens (claw 2 1 1 2 1 5) == None
 test "a solution that isn't whole" := (claw 3 1 1 3 2 2).fewestTokens == None && part1Tokens (claw 3 1 1 3 2 2) == None
 test "over 100 presses" := part1Tokens (claw 1 0 0 1 101 5) == None && (claw 1 0 0 1 101 5).fewestTokens == Some 308
 test "exactly 100 presses" := part1Tokens (claw 1 0 0 1 100 100) == Some 400
-test "the prize where the claw starts" := part1Tokens (claw 94 34 22 67 0 0) == Some 0 && (claw 94 34 22 67 0 0).fewestTokens == Some 0
+test "the prize where the claw starts" :=
+  part1Tokens (claw 94 34 22 67 0 0) == Some 0 && (claw 94 34 22 67 0 0).fewestTokens == Some 0
 
 --| Buttons along the same line: the determinant is 0, and there may be many
 --| solutions.
@@ -107,9 +108,11 @@ def collinear: List Machine := [
 
 test "the same line: determinant 0" := collinear.all (machine => machine.determinant == 0)
 test "the same line: cheapest" :=
-  collinear.map .fewestTokens == [Some 5, Some 6, Some 6, Some 7, Some 7, None, Some 2, Some 6, Some 0, None, Some 8, Some 11]
+  collinear.map .fewestTokens
+    == [Some 5, Some 6, Some 6, Some 7, Some 7, None, Some 2, Some 6, Some 0, None, Some 8, Some 11]
 test "the same line, part 1, by the spec" := collinear.all (machine => part1Tokens machine == Spec.fewestTokens machine)
-test "the same line, no limit, against a search" := collinear.all (machine => machine.fewestTokens == machine.searchTokens 40)
+test "the same line, no limit, against a search" :=
+  collinear.all (machine => machine.fewestTokens == machine.searchTokens 40)
 test "the same line, B cheaper per step" := (claw 2 2 1 1 701 701).fewestTokens == Some 701
 test "the same line, A cheaper per step" := (claw 70 70 1 1 700 700).fewestTokens == Some 30
 

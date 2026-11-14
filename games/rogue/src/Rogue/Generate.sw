@@ -30,7 +30,8 @@ opaque def generateLevel (depth: Nat): {Random} Plan :=
   let exitIndex := awayFromEntrance ()
   let extra := roll 2
   let level := layOut depth rooms entranceIndex exitIndex extra
-  let monsters := List.range 0 (monsterCount depth) |> .map (_ => monsterFrom depth (roomOf rooms (awayFromEntrance ())))
+  let monsters :=
+    List.range 0 (monsterCount depth) |> .map (_ => monsterFrom depth (roomOf rooms (awayFromEntrance ())))
   let potions := List.range 0 potionCount |> .map (_ => itemFrom Potion rooms)
   let swords := if depth < deepest then [itemFrom Sword rooms] else []
   let amulets := if depth < deepest then [] else [({ loot = Amulet, position = level.goal }: Item)]
@@ -46,12 +47,12 @@ def potionCount: Nat := 2
 --
 -- Opaque: with unknown rooms, its terrain would be drawn out
 -- cell by cell wherever a proof compared two levels.
-opaque def layOut (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat): Level :=
+opaque def layOut (depth: Nat) (rooms: List Area) (entranceIndex exitIndex extra: Nat): Level :=
   Level.build depth (roomOf rooms entranceIndex) (roomOf rooms exitIndex) rooms (corridorsOf rooms extra)
 
 --| The corridors joining the rooms `roomLinks` pairs up, middle to middle.
-def corridorsOf (rooms: List Area) (extra: Nat): List Area :=
-  (roomLinks extra).flatMap (((first, second)) => corridorBetween (roomOf rooms first).middle (roomOf rooms second).middle)
+def corridorsOf (rooms: List Area) (extra: Nat): List Area := (roomLinks extra).flatMap (((first, second)) =>
+  corridorBetween (roomOf rooms first).middle (roomOf rooms second).middle)
 
 --| Room number `index`.
 def roomOf (rooms: List Area) (index: Nat): Area := rooms.getOr index (rooms.headOr fallbackRoom)
@@ -74,18 +75,25 @@ def roomFrom (index: Nat): {Random} Area :=
 
 --| The pairs of rooms joined by corridors: the snake, and one more.
 def roomLinks (extra: Nat): List (Nat, Nat) :=
-  let more :=
-    match extra with
-      | 0 => [(0, 3)]
-      | 1 => [(1, 4)]
-      | _ => []
+  let more := match extra with
+    | 0 => [(0, 3)]
+    | 1 => [(1, 4)]
+    | _ => []
   [(0, 1), (1, 2), (2, 5), (5, 4), (4, 3)] ++ more
 
 --| A corridor from one cell to another: along the first's row, then along
 --| the second's column.
-def corridorBetween (origin: Position) (target: Position): List Area := [
-  { corner = { row = origin.row, column = Nat.min origin.column target.column }, down = 0, across = distanceBetween origin.column target.column },
-  { corner = { row = Nat.min origin.row target.row, column = target.column }, down = distanceBetween origin.row target.row, across = 0 }
+def corridorBetween (origin target: Position): List Area := [
+  {
+    corner = { row = origin.row, column = Nat.min origin.column target.column },
+    down = 0,
+    across = distanceBetween origin.column target.column
+  },
+  {
+    corner = { row = Nat.min origin.row target.row, column = target.column },
+    down = distanceBetween origin.row target.row,
+    across = 0
+  }
 ]
 
 --| A cell somewhere in an area.
@@ -93,7 +101,7 @@ def spotIn (area: Area): {Random} Position :=
   { row = area.corner.row + roll area.down, column = area.corner.column + roll area.across }
 
 --| Deeper levels have fewer goblins and more orcs and trolls.
-def kindFor (depth: Nat) (chance: Nat): Kind := match depth with
+def kindFor (depth chance: Nat): Kind := match depth with
   | 0 => Goblin
   | 1 => if chance < 8 then Goblin else Orc
   | 2 => if chance < 4 then Goblin else if chance < 9 then Orc else Troll
@@ -111,8 +119,7 @@ def itemFrom (loot: Loot) (rooms: List Area): {Random} Item := { loot, position 
 --| monsters and items that may stand where they were planned.
 def arrive (state: State) (plan: Plan): State :=
   let start := plan.level.start
-  {
-    state |
+  { state |
     level = plan.level,
     player = start,
     monsters = placeMonsters plan.level start [] plan.monsters,
@@ -133,7 +140,11 @@ def placeMonsters (level: Level) (start: Position) (placed: List Monster): List 
 def placeItems (level: Level) (start: Position) (placed: List Item): List Item → List Item
   | [] => placed
   | [item, ..rest] =>
-    if isWall level item.position ∨ item.position == start ∨ isStairs level item.position ∨ (itemAt item.position placed).isSome then placeItems level start placed rest
+    if isWall level item.position
+      ∨ item.position == start
+      ∨ isStairs level item.position
+      ∨ (itemAt item.position placed).isSome then
+      placeItems level start placed rest
     else placeItems level start (placed ++ [item]) rest
 
 --| A new game, on the first level. Deeper levels are made on the stairs.

@@ -25,8 +25,7 @@ def useFirst: Bool := True
 
 -- A receiver whose type is only known once it's elaborated: the instance
 -- waits for the row to be defaulted.
-test "a pure use on a computed receiver" :=
-  (if useFirst then [1, 2] else [3]).map (n => n * n) == [1, 4]
+test "a pure use on a computed receiver" := (if useFirst then [1, 2] else [3]).map (n => n * n) == [1, 4]
 
 def halve (n: Nat): {Fail} Nat := if n % 2 == 0 then n / 2 else Fail.fail "odd"
 
@@ -48,8 +47,7 @@ def Answer: Bool → Type
   | True => ResultOf sayAndDouble
   | False => Nat
 
-type Tagged (flag: Bool): Type =
-  | Tag (n: Nat)
+type Tagged (flag: Bool): Type = | Tag (n: Nat)
 
 def answerOf: (flag: Bool) → Nat → Answer flag
   | True, n => sayAndDouble n
@@ -64,8 +62,7 @@ def loggedLet (numbers: List (Tagged True)): {Log} List Nat :=
   let mapped := List.map numbers answer
   mapped
 
-test "a let-bound effectful use" :=
-  Log.collect (() => loggedLet [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
+test "a let-bound effectful use" := Log.collect (() => loggedLet [Tag 3, Tag 4]) == MkPair [6, 8] [3, 4]
 
 -- Used before it's returned.
 def loggedLetUsed (numbers: List (Tagged True)): {Log} List Nat :=

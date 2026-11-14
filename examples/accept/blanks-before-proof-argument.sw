@@ -13,6 +13,5 @@ theorem skipWhole ∀ (x: Nat) (rest: List Nat) (h: x = 1): zeros [x, ..rest] = 
 theorem skipThenRest ∀ (x: Nat) (rest: List Nat) (h: x = 1) (e: zeros rest = []): zeros [x, ..rest] = [] :=
   Eq.trans (List.filterSkip _ _ _ (rewrite h in rfl)) e
 
-theorem keepThenRest ∀ (x: Nat) (rest: List Nat) (h: x = 0) (e: zeros rest = []):
-    zeros [x, ..rest] = [0] :=
+theorem keepThenRest ∀ (x: Nat) (rest: List Nat) (h: x = 0) (e: zeros rest = []): zeros [x, ..rest] = [0] :=
   Eq.trans (List.filterKeep _ _ _ (rewrite h in rfl)) (rewrite h, e in rfl)

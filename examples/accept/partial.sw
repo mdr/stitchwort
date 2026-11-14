@@ -73,8 +73,7 @@ def addThen: Nat → Nat → {Partial} Nat
   | n, m => useP (addThen (n - 1)) (m + 1)
 
 -- Callbacks kept in a record that's used inside the definition.
-type Handlers (e: Effects): Type =
-  | MkHandlers (onStep: Nat → {Partial | e} Nat) (onDone: Nat → {Partial | e} Nat)
+type Handlers (e: Effects): Type = | MkHandlers (onStep: Nat → {Partial | e} Nat) (onDone: Nat → {Partial | e} Nat)
 
 def drive: [e: Effects] → Handlers e → Nat → {Partial | e} Nat
   | MkHandlers onStep onDone, 0 => onDone 0

@@ -15,7 +15,7 @@ theorem predBack ∀ (n: Nat): (n + 1).toInt - 1 = n.toInt := omega
 
 theorem predBelow ∀ (n: Nat): (n + 1).toInt - 1 ≤ (n + 1).toInt := omega
 
-theorem bothSucc ∀ (n: Nat) (m: Nat): (n + 2).toInt - (m + 1).toInt = n.toInt - m.toInt + 1 := omega
+theorem bothSucc ∀ (n m: Nat): (n + 2).toInt - (m + 1).toInt = n.toInt - m.toInt + 1 := omega
 
 theorem oneMinus ∀ (n: Nat): 1 - (n + 1).toInt = -n.toInt := omega
 
@@ -52,8 +52,7 @@ def short (left: Int) (probe: Probe): Bool := probe.x < left ∧ probe.dx ≤ 0
 
 def fallen (bottom: Int) (probe: Probe): Bool := probe.y < bottom ∧ probe.dy < 0
 
-def past (left: Int) (right: Int) (bottom: Int) (probe: Probe): Bool :=
-  overshot right probe ∨ short left probe ∨ fallen bottom probe
+def past (left right bottom: Int) (probe: Probe): Bool := overshot right probe ∨ short left probe ∨ fallen bottom probe
 
 def step (probe: Probe): Probe :=
   { x = probe.x + probe.dx, y = probe.y + probe.dy, dx = probe.dx - Int.sign probe.dx, dy = probe.dy - 1 }
@@ -64,6 +63,7 @@ theorem signCases ∀ (dx: Int): (Int.sign dx = 1 ∧ 0 < dx) ∨ (Int.sign dx =
     | OfNat (Succ k) => Inl (Both rfl (omega))
     | NegSucc k => Inr (Inr (Both rfl (omega)))
 
-theorem pastStays ∀ (left: Int) (right: Int) (bottom: Int) (probe: Probe) (h: past left right bottom probe = True):
+theorem pastStays ∀ (left right bottom: Int) (probe: Probe)
+    (h: past left right bottom probe = True):
     past left right bottom (step probe) = True :=
   omega [signCases probe.dx]

@@ -16,9 +16,9 @@ def pair(): {Parse} Pair :=
 def Written (read: List Char) (made: Pair): Prop :=
   ∃ (low: List Char) => ∃ (high: List Char) => read = low ++ [',', ..high]
 
-theorem readsPair: Parse.Reads pair Written :=
-  Parse.readsThen Parse.readsNat (lowRead low lowDigits =>
-    Parse.readsThen (Parse.readsChar ',') (commaRead u comma =>
-      Parse.readsThen Parse.readsNat (highRead high highDigits =>
-        Parse.readsDone { first = low, second = high } _
-          (Witness lowRead (Witness highRead (rewrite comma, List.appendNil highRead in rfl))))))
+theorem readsPair: Parse.Reads pair Written := Parse.readsThen Parse.readsNat (lowRead low lowDigits =>
+  Parse.readsThen (Parse.readsChar ',') (commaRead u comma =>
+    Parse.readsThen Parse.readsNat (highRead high highDigits =>
+      Parse.readsDone
+        { first = low, second = high } _
+        (Witness lowRead (Witness highRead (rewrite comma, List.appendNil highRead in rfl))))))

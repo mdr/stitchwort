@@ -69,12 +69,9 @@ theorem swapTwice ∀ (p: (Nat, Nat)): swapPair (swapPair p) = p :=
 
 -- Termination: `kids` is part of the tree `let` matched, so the recursive
 -- call is smaller, as for a pattern in the equation.
-type Tree: Type =
-  | Node (label: Nat) (kids: Forest)
+type Tree: Type = | Node (label: Nat) (kids: Forest)
 
-type Forest: Type =
-  | FNil
-  | FCons (t: Tree) (ts: Forest)
+type Forest: Type = | FNil | FCons (t: Tree) (ts: Forest)
 
 def sumTree (t: Tree): Nat :=
   let Node x kids := t
@@ -126,8 +123,7 @@ test "record lambda" := nameOf { name = "Ann", age = 3 } == "Ann"
 test "nested lambda" := nestedLambda [((2, 3), 1)] == [7]
 test "tree" := sumTree (Node 1 (FCons (Node 2 FNil) FNil)) == 3
 test "tree lifted" := sumTreeLifted (Node 1 (FCons (Node 2 FNil) FNil)) == 3
-test "effects run once, in order" :=
-  eqTexts (IO.simulate ["x", "y", "z", "w"] swapLines).fst ["y", "x", "done"]
+test "effects run once, in order" := eqTexts (IO.simulate ["x", "y", "z", "w"] swapLines).fst ["y", "x", "done"]
 test "effects result" := (IO.simulate ["x", "y"] swapLines).snd == 3
 test "in a test" :=
   let (a, b) := (1, 2)

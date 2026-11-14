@@ -29,9 +29,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 problems}"
   IO.print "Part 2: ${solvePart2 problems}"
 
-type Operator =
-  | Add
-  | Multiply
+type Operator = | Add | Multiply
 
 --| A problem's numbers as read by each part, and its operator (none if the
 --| block has no + or *).
@@ -74,7 +72,8 @@ def evaluate (operator: Option Operator) (numbers: List Nat): Nat := operator.fo
 def solvePart1 (problems: List Problem): Nat := problems.sumBy (problem => evaluate problem.operator problem.rowNumbers)
 
 --| Part 2: the answers of the problems read by columns.
-def solvePart2 (problems: List Problem): Nat := problems.sumBy (problem => evaluate problem.operator problem.columnNumbers)
+def solvePart2 (problems: List Problem): Nat :=
+  problems.sumBy (problem => evaluate problem.operator problem.columnNumbers)
 
 --| The strict parser `main` uses. `parseWorksheet` is total and forgiving (it
 --| skips a stray character in a number, takes the first operator of a block,
@@ -96,7 +95,8 @@ def checkWorksheet (lines: List Text): Result (List Problem) Text := match works
 --| The first thing wrong with the worksheet, if anything.
 def worksheetError (lines: List Text): Option Text :=
   if lines.length < 2 then
-    Some "expected number rows followed by an operator row, got ${lines.length} ${if lines.length == 1 then "line" else "lines"}"
+    Some
+      "expected number rows followed by an operator row, got ${lines.length} ${if lines.length == 1 then "line" else "lines"}"
   else if (lines.last.map .trim) == Some "" then
     Some "line ${lines.length}: expected the operator row, got a blank line"
   else
@@ -115,7 +115,10 @@ def characterError (row: Text) (lineNumber: Nat) (expected: Text) (allowed: Char
 --| The first block of columns without exactly one operator, named by the
 --| column it starts at. Needs the rows to hold only operators and spaces.
 def blockError (lines: List Text): Option Text :=
-  lines.map .toList |> .transposeFill ' ' |> .withIndex |> .splitBy (indexed => isBlank indexed.snd)
+  lines.map .toList
+    |> .transposeFill ' '
+    |> .withIndex
+    |> .splitBy (indexed => isBlank indexed.snd)
     |> .findMap (block =>
       let operators := block.toList.count (indexed => indexed.snd.last.flatMap Operator.parse |> .isSome)
       let start := block.head |> .fst + 1

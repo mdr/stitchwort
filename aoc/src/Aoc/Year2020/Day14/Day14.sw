@@ -28,10 +28,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${program.decodedSum}"
 
 --| One character of a mask.
-type MaskBit =
-  | Off
-  | On
-  | X
+type MaskBit = | Off | On | X
 
 def MaskBit.symbol: MaskBit → Text
   | Off => "0"
@@ -73,11 +70,10 @@ def decodeBits: (mask: List MaskBit) → (address: List Bool) → List (List Boo
   | _, _ => [[]]
 
 --| Part 2's rule: every address that `address` decodes to.
-def Mask.decode (mask: Mask) (address: Nat): List Nat := decodeBits mask.bits (Nat.toBits mask.width address) |> .map Nat.fromBits
+def Mask.decode (mask: Mask) (address: Nat): List Nat :=
+  decodeBits mask.bits (Nat.toBits mask.width address) |> .map Nat.fromBits
 
-type Instruction =
-  | SetMask (mask: Mask)
-  | Write (address: Nat) (value: Nat)
+type Instruction = | SetMask (mask: Mask) | Write (address: Nat) (value: Nat)
 
 type Program = { instructions: List Instruction }
 
@@ -116,12 +112,13 @@ def Computer.memorySum (computer: Computer): Nat := computer.memory.values.sum
 def Computer.setMask (computer: Computer) (mask: Mask): Computer := { computer | mask }
 
 --| Part 1's write: the value, masked, to the address.
-def Computer.writeValue (computer: Computer) (address: Nat) (value: Nat): Computer :=
+def Computer.writeValue (computer: Computer) (address value: Nat): Computer :=
   { computer | memory = computer.memory.insert address (computer.mask.applyTo value) }
 
 --| Part 2's write: the value to every address the mask decodes the address to.
-def Computer.writeDecoded (computer: Computer) (address: Nat) (value: Nat): Computer :=
-  { computer | memory = computer.mask.decode address |> .foldLeft computer.memory (memory target => memory.insert target value) }
+def Computer.writeDecoded (computer: Computer) (address value: Nat): Computer := { computer |
+  memory = computer.mask.decode address |> .foldLeft computer.memory (memory target => memory.insert target value)
+}
 
 def Computer.run (computer: Computer) (instruction: Instruction) (write: Computer → Nat → Nat → Computer): Computer :=
   match instruction with
@@ -130,8 +127,10 @@ def Computer.run (computer: Computer) (instruction: Instruction) (write: Compute
 
 --| Part 1: the sum of memory after the program, writing masked values.
 def Program.valueSum (program: Program): Nat :=
-  program.instructions.foldLeft Computer.start (computer instruction => computer.run instruction .writeValue) |> .memorySum
+  program.instructions.foldLeft Computer.start (computer instruction => computer.run instruction .writeValue)
+    |> .memorySum
 
 --| Part 2: the sum of memory after the program, writing to decoded addresses.
 def Program.decodedSum (program: Program): Nat :=
-  program.instructions.foldLeft Computer.start (computer instruction => computer.run instruction .writeDecoded) |> .memorySum
+  program.instructions.foldLeft Computer.start (computer instruction => computer.run instruction .writeDecoded)
+    |> .memorySum

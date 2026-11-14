@@ -30,35 +30,41 @@ export def countDown (n: Nat): Nat := countFrom 0 n
 -- `firstAbove.%match1`, which calls `firstAbove`.
 def firstAbove (limit: Nat): List Nat → Option Nat
   | Nil => None
-  | Cons x xs => match Nat.leq x limit with
-    | True => firstAbove limit xs
-    | False => Some x
+  | Cons x xs =>
+    match Nat.leq x limit with
+      | True => firstAbove limit xs
+      | False => Some x
 
 export def firstOver (limit: Nat) (xs: List Nat): Option Nat := firstAbove limit xs
 
 -- A lookup by `Ord.compare`, as the library's maps do on their lists.
 def lookupIn (key: Nat): List (Nat, Text) → Option Text
   | Nil => None
-  | Cons (k, v) rest => match Ord.compare key k with
-    | Equal => Some v
-    | _ => lookupIn key rest
+  | Cons (k, v) rest =>
+    match Ord.compare key k with
+      | Equal => Some v
+      | _ => lookupIn key rest
 
 export def lookup (key: Nat) (entries: List (Nat, Text)): Option Text := lookupIn key entries
 
 -- A `match` after an `if`, lifted: the definition isn't a case tree.
-def stepsFrom (acc: Nat) (n: Nat): Nat :=
-  if acc == 7000000000 then acc else match n with
-    | Zero => acc
-    | Succ k => stepsFrom (acc + 1) k
+def stepsFrom (acc n: Nat): Nat :=
+  if acc == 7000000000 then acc
+  else
+    match n with
+      | Zero => acc
+      | Succ k => stepsFrom (acc + 1) k
 
 export def steps (n: Nat): Nat := stepsFrom 0 n
 
 -- Each turn makes a closure in the inlined `match`, which must keep that
 -- turn's `k`.
 def adders (acc: List (Nat → Nat)) (n: Nat): List (Nat → Nat) :=
-  if n == 7000000000 then acc else match n with
-    | Zero => acc
-    | Succ k => adders (Cons (x => x + k) acc) k
+  if n == 7000000000 then acc
+  else
+    match n with
+      | Zero => acc
+      | Succ k => adders (Cons (x => x + k) acc) k
 
 def applyAll: List (Nat → Nat) → List Nat
   | Nil => Nil
@@ -84,8 +90,7 @@ def oddRounds (acc: Nat): Nat → Nat
   | 0 => acc
   | Succ n => evenRounds (acc + 1) n
 
-export def rounds (start: Nat) (n: Nat): Nat := evenRounds start n
+export def rounds (start n: Nat): Nat := evenRounds start n
 
 -- For the long run in extract.rs.
-export def lookupLast (n: Nat): Option Text :=
-  lookupIn n (List.map (List.range 0 (n + 1)) (k => (k, "x")))
+export def lookupLast (n: Nat): Option Text := lookupIn n (List.map (List.range 0 (n + 1)) (k => (k, "x")))

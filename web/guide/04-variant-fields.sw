@@ -1,8 +1,6 @@
 -- Declare a constructor's fields in braces and build it by name with
 -- `C { field = value }`. Fields come in any order; a bare `id` means `id = id`.
-type Shape =
-  | Circle { id: Text, radius: Nat }
-  | Rect { id: Text, width: Nat, height: Nat }
+type Shape = | Circle { id: Text, radius: Nat } | Rect { id: Text, width: Nat, height: Nat }
 
 def wheel (id: Text): Shape := Circle { radius = 3, id }
 

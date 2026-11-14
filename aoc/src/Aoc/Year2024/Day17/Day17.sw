@@ -23,11 +23,7 @@ type Registers = { a: Nat, b: Nat, c: Nat }
 type Debugger = { registers: Registers, program: List Nat }
 
 --| What a combo operand stands for: 0 to 3 themselves, 4 to 6 a register.
-type Combo =
-  | Value (value: Nat)
-  | RegisterA
-  | RegisterB
-  | RegisterC
+type Combo = | Value (value: Nat) | RegisterA | RegisterB | RegisterC
 
 type Instruction =
   | Adv (operand: Combo)
@@ -44,17 +40,11 @@ type Machine = { registers: Registers, pointer: Nat }
 
 --| What one instruction does: halt, fail on an invalid instruction, or go on
 --| from another machine, having output a value or not.
-type Step =
-  | Halt
-  | Fault
-  | Next (machine: Machine) (printed: Option Nat)
+type Step = | Halt | Fault | Next (machine: Machine) (printed: Option Nat)
 
 --| How a run ends: halted with what it output, on an invalid instruction,
 --| or not halted within its steps.
-type Outcome =
-  | Finished (output: List Nat)
-  | Faulted
-  | OutOfFuel
+type Outcome = | Finished (output: List Nat) | Faulted | OutOfFuel
 
 --| A digit from 0 to 7.
 def threeBit(): {Parse} Nat :=
@@ -89,7 +79,7 @@ def Combo.decode (operand: Nat): Option Combo := match operand with
   | _ => if operand < 4 then Some (Value operand) else None
 
 --| The instruction an opcode and its operand make, if they make one.
-def Instruction.decode (opcode: Nat) (operand: Nat): Option Instruction := match opcode with
+def Instruction.decode (opcode operand: Nat): Option Instruction := match opcode with
   | 0 => Combo.decode operand |> .map Adv
   | 1 => Some (Bxl operand)
   | 2 => Combo.decode operand |> .map Bst
@@ -118,7 +108,8 @@ def Machine.execute (machine: Machine) (instruction: Instruction): Step :=
     | Adv operand => Next (machine.advance { registers | a = registers.divide operand }) None
     | Bxl operand => Next (machine.advance { registers | b = registers.b.xor operand }) None
     | Bst operand => Next (machine.advance { registers | b = registers.value operand % 8 }) None
-    | Jnz target => if registers.a == 0 then Next (machine.advance registers) None else Next ({ machine | pointer = target }) None
+    | Jnz target =>
+      if registers.a == 0 then Next (machine.advance registers) None else Next ({ machine | pointer = target }) None
     | Bxc => Next (machine.advance { registers | b = registers.b.xor registers.c }) None
     | Out operand => Next (machine.advance registers) (Some (registers.value operand % 8))
     | Bdv operand => Next (machine.advance { registers | b = registers.divide operand }) None
@@ -134,7 +125,7 @@ def Machine.step (machine: Machine) (program: List Nat): Step := match program.g
       | None => Fault
 
 --| At most `fuel` steps; `printed` is what was output so far, newest first.
-def Machine.run (machine: Machine) (program: List Nat) (printed: List Nat): (fuel: Nat) → Outcome
+def Machine.run (machine: Machine) (program printed: List Nat): (fuel: Nat) → Outcome
   | Zero => OutOfFuel
   | Succ fuel =>
     match machine.step program with
@@ -176,8 +167,6 @@ def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
 --| The lowest positive initial A for which `output` is `target`, among the
 --| candidates.
 def lowestOutputting (output: Nat → List Nat) (target: List Nat): Option Nat :=
-  candidates output target
-    |> .filter (a => 0 < a ∧ output a == target)
-    |> .minimum
+  candidates output target |> .filter (a => 0 < a ∧ output a == target) |> .minimum
 
 def solvePart2 (debugger: Debugger): Option Nat := lowestOutputting debugger.outputFor debugger.program

@@ -8,9 +8,14 @@ def countFresh: List Bool → Nat
   | Cons b rest => if fresh: b = False then 1 + countFresh rest else countFresh rest
 
 -- `countFresh.eq2.ifFalse`
-theorem countFreshEq2IfFalse ∀ (b: Bool) (rest: List Bool) (fresh: b = True): countFresh (Cons b rest) = countFresh rest :=
-  Decidable.elimEq _ _ _ _ (isFalse => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym fresh) isFalse))) (other => rfl)
+theorem countFreshEq2IfFalse ∀ (b: Bool) (rest: List Bool)
+    (fresh: b = True):
+    countFresh (Cons b rest) = countFresh rest :=
+  Decidable.elimEq _ _ _ _ (isFalse => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym fresh) isFalse))) (other =>
+    rfl)
 
 -- `countFresh.eq2.ifTrue`
-theorem countFreshEq2IfTrue ∀ (b: Bool) (rest: List Bool) (fresh: b = False): countFresh (Cons b rest) = 1 + countFresh rest :=
+theorem countFreshEq2IfTrue ∀ (b: Bool) (rest: List Bool)
+    (fresh: b = False):
+    countFresh (Cons b rest) = 1 + countFresh rest :=
   Decidable.elimEq _ _ _ _ (isFalse => rfl) (other => Void.exfalso (other fresh))

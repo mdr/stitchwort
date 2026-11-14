@@ -7,16 +7,11 @@
 -- `p`'s does; `q`'s result is a data type, so `bad` stays an arrow.
 import Std (Vec)
 
-type Positive: Nat -> Prop =
-  | IsPositive (n: Nat): Positive (n + 1)
+type Positive: Nat -> Prop = | IsPositive (n: Nat): Positive (n + 1)
 
-theorem shown ∀
-    (p: Nat -> Prop)
-    (all: (n: Nat) -> p n)
-    (comm: (a: Nat) -> (b: Nat) -> a + b = b + a)
-    (positive: (n: Nat) -> n > 0 -> Positive n)
+theorem shown ∀ (p: Nat -> Prop) (all: (n: Nat) -> p n)
+    (comm: (a: Nat) -> (b: Nat) -> a + b = b + a) (positive: (n: Nat) -> n > 0 -> Positive n)
     (hidden: [n: Nat] -> n = n)
-    (q: Nat -> Type)
-    (bad: (n: Nat) -> q n)
-    (f: (n: Nat) -> Vec Nat n)
-    : (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length := ?
+    (q: Nat -> Type) (bad: (n: Nat) -> q n) (f: (n: Nat) -> Vec Nat n):
+    (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length :=
+  ?

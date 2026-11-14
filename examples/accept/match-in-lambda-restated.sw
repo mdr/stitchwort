@@ -4,24 +4,58 @@
 
 import Std (Eq, List)
 
-def label (xs: List Nat): List Nat :=
-  xs.map (n => match n with | Zero => 1 | Succ k => k)
+def label (xs: List Nat): List Nat := xs.map (n =>
+  match n with
+    | Zero => 1
+    | Succ k => k)
 
 -- As an `Eq.cong` argument.
-theorem labelCong ∀ (xs: List Nat) (ys: List Nat) (h: xs = ys): label xs = label ys :=
-  Eq.cong (zs => List.map zs (n => match n with | Zero => 1 | Succ k => k)) h
+theorem labelCong ∀ (xs ys: List Nat) (h: xs = ys): label xs = label ys :=
+  Eq.cong
+    (zs =>
+      List.map zs (n =>
+        match n with
+          | Zero => 1
+          | Succ k => k))
+    h
 
 -- As a lemma's argument, against the same `match` in the statement.
 theorem labelThenSucc ∀ (xs: List Nat):
-    (label xs).map (m => m + 1) = xs.map (n => (match n with | Zero => 1 | Succ k => k) + 1) :=
-  List.mapMap xs (m => m + 1) (n => match n with | Zero => 1 | Succ k => k)
+    (label xs).map (m => m + 1)
+      = xs.map (n =>
+        (match n with
+          | Zero => 1
+          | Succ k => k)
+          + 1) :=
+  List.mapMap xs (m => m + 1) (n =>
+    match n with
+      | Zero => 1
+      | Succ k => k)
 
 -- In a `rewrite` rule.
 theorem labelThenSuccRewritten ∀ (xs: List Nat):
-    (label xs).map (m => m + 1) = xs.map (n => (match n with | Zero => 1 | Succ k => k) + 1) :=
-  rewrite List.mapMap xs (m => m + 1) (n => match n with | Zero => 1 | Succ k => k) in rfl
+    (label xs).map (m => m + 1)
+      = xs.map (n =>
+        (match n with
+          | Zero => 1
+          | Succ k => k)
+          + 1) :=
+  rewrite List.mapMap xs (m => m + 1) (n =>
+        match n with
+          | Zero => 1
+          | Succ k => k) in
+    rfl
 
 -- Under `rfl`, with the binders renamed.
-theorem labelRefl ∀ (xs: List Nat): label xs = xs.map (m => match m with | Zero => 1 | Succ j => j) :=
+theorem labelRefl ∀ (xs: List Nat):
+    label xs
+      = xs.map (m =>
+        match m with
+          | Zero => 1
+          | Succ j => j) :=
   let ys := xs
-  (rfl: label ys = ys.map (m => match m with | Zero => 1 | Succ j => j))
+  (rfl: label ys
+    = ys.map (m =>
+      match m with
+        | Zero => 1
+        | Succ j => j))

@@ -14,38 +14,63 @@ import Std (And, Bool, Decidable, Eq, Exists, Int, List, Nat, Option, Void)
 
 --| Presses of at most 100 each that win for `tokensSpent`.
 def WinWithin (machine: Machine) (tokensSpent: Nat): Prop :=
-  ∃ (aPresses: Nat) => ∃ (bPresses: Nat) =>
-    aPresses ≤ 100 ∧ bPresses ≤ 100 ∧ machine.wins aPresses bPresses = True ∧ tokensSpent = tokens aPresses bPresses
+  ∃ (aPresses: Nat) => ∃ (bPresses: Nat) => aPresses ≤ 100
+    ∧ bPresses ≤ 100
+    ∧ machine.wins aPresses bPresses = True
+    ∧ tokensSpent = tokens aPresses bPresses
 
 --| B's press counts that win after `aPresses` of A, and what they cost.
 def costsAfter (machine: Machine) (aPresses: Nat): List Nat :=
-  List.range 0 101 |> .filter (bPresses => machine.wins aPresses bPresses) |> .map (bPresses => tokens aPresses bPresses)
+  List.range 0 101
+    |> .filter (bPresses => machine.wins aPresses bPresses)
+    |> .map (bPresses => tokens aPresses bPresses)
 
 --| Every cost the spec lists is of presses that win, each at most 100.
-theorem winningCostsWin ∀ (machine: Machine) (tokensSpent: Nat) (listed: tokensSpent ∈ winningCosts machine): WinWithin machine tokensSpent :=
-  List.anyElim (aPresses => tokensSpent ∈ costsAfter machine aPresses) (WinWithin machine tokensSpent) (List.range 0 101)
-    (List.memFlatMapElim (costsAfter machine) tokensSpent (List.range 0 101) listed) (aPresses aListed inner =>
+theorem winningCostsWin ∀ (machine: Machine) (tokensSpent: Nat)
+    (listed: tokensSpent ∈ winningCosts machine):
+    WinWithin machine tokensSpent :=
+  List.anyElim
+    (aPresses => tokensSpent ∈ costsAfter machine aPresses)
+    (WinWithin machine tokensSpent)
+    (List.range 0 101)
+    (List.memFlatMapElim (costsAfter machine) tokensSpent (List.range 0 101) listed)
+    (aPresses aListed inner =>
       let winning := (bPresses: Nat) => machine.wins aPresses bPresses
       let filtered := List.range 0 101 |> .filter winning
-      List.anyElim (bPresses => tokens aPresses bPresses = tokensSpent) (WinWithin machine tokensSpent) filtered
-        (List.memMapAny filtered (bPresses => tokens aPresses bPresses) tokensSpent inner) (bPresses bListed costs =>
+      List.anyElim
+        (bPresses => tokens aPresses bPresses = tokensSpent)
+        (WinWithin machine tokensSpent)
+        filtered
+        (List.memMapAny filtered (bPresses => tokens aPresses bPresses) tokensSpent inner)
+        (bPresses bListed costs =>
           let bWins := List.memFilter (List.range 0 101) winning bListed
           let aBelow := And.right (List.memRangeFrom aPresses 101 0 aListed)
           let bBelow := And.right (List.memRangeFrom bPresses 101 0 (And.left bWins))
           Witness aPresses (Witness bPresses (Both (omega) (Both (omega) (Both (And.right bWins) (Eq.sym costs)))))))
 
 --| The spec lists the cost of every win within 100 presses.
-theorem winListed ∀ (machine: Machine) (aPresses: Nat) (bPresses: Nat) (aWithin: aPresses ≤ 100) (bWithin: bPresses ≤ 100)
-    (won: machine.wins aPresses bPresses = True): tokens aPresses bPresses ∈ winningCosts machine :=
+theorem winListed ∀ (machine: Machine) (aPresses bPresses: Nat)
+    (aWithin: aPresses ≤ 100)
+    (bWithin: bPresses ≤ 100)
+    (won: machine.wins aPresses bPresses = True):
+    tokens aPresses bPresses ∈ winningCosts machine :=
   let winning := (bPresses: Nat) => machine.wins aPresses bPresses
   let filtered := List.range 0 101 |> .filter winning
-  let bListed := List.memFilterIntro (List.range 0 101) winning (List.memRangeFromIntro bPresses 101 0 (omega) (omega)) won
-  List.memFlatMapIntro (costsAfter machine) aPresses (tokens aPresses bPresses) (List.range 0 101)
-    (List.memRangeFromIntro aPresses 101 0 (omega) (omega)) (List.memMap filtered bPresses bListed (bPresses => tokens aPresses bPresses))
+  let bListed :=
+    List.memFilterIntro (List.range 0 101) winning (List.memRangeFromIntro bPresses 101 0 (omega) (omega)) won
+  List.memFlatMapIntro
+    (costsAfter machine)
+    aPresses
+    (tokens aPresses bPresses)
+    (List.range 0 101)
+    (List.memRangeFromIntro aPresses 101 0 (omega) (omega))
+    (List.memMap filtered bPresses bListed (bPresses => tokens aPresses bPresses))
 
 --| Two wins are the same presses, with a nonzero determinant.
-theorem sameWin ∀ (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPresses: Nat) (bPresses: Nat) (otherA: Nat) (otherB: Nat)
-    (found: machine.onlyPresses nonzero = Some (aPresses, bPresses)) (won: machine.wins otherA otherB = True):
+theorem sameWin ∀ (machine: Machine)
+    (nonzero: machine.determinant ≠ 0) (aPresses bPresses otherA otherB: Nat)
+    (found: machine.onlyPresses nonzero = Some (aPresses, bPresses))
+    (won: machine.wins otherA otherB = True):
     (otherA = aPresses) ∧ (otherB = bPresses) :=
   let same := Option.someInjective (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))
   Both (Eq.sym (Eq.cong (pair => pair.fst) same)) (Eq.sym (Eq.cong (pair => pair.snd) same))
@@ -55,35 +80,45 @@ theorem sameWin ∀ (machine: Machine) (nonzero: machine.determinant ≠ 0) (aPr
 --
 -- (The list is a variable so that the spec's isn't computed
 -- while checking.)
-theorem cramerWithinCosts ∀ (machine: Machine) (nonzero: machine.determinant ≠ 0) (costs: List Nat)
+theorem cramerWithinCosts ∀ (machine: Machine)
+    (nonzero: machine.determinant ≠ 0) (costs: List Nat)
     (costsWin: ∀ (tokensSpent: Nat) => tokensSpent ∈ costs → WinWithin machine tokensSpent)
-    (winsListed: ∀ (aPresses bPresses: Nat) => aPresses ≤ 100 → bPresses ≤ 100 → machine.wins aPresses bPresses = True →
-      tokens aPresses bPresses ∈ costs):
+    (winsListed: ∀ (aPresses bPresses: Nat) => aPresses ≤ 100
+      → bPresses ≤ 100
+      → machine.wins aPresses bPresses = True
+      → tokens aPresses bPresses ∈ costs):
     (machine.onlyPresses nonzero
       |> .filter (((aPresses, bPresses)) => aPresses ≤ 100 && bPresses ≤ 100)
       |> .map (((aPresses, bPresses)) => tokens aPresses bPresses))
-    = costs.minimum := match found: machine.onlyPresses nonzero with
-      | Some (aPresses, bPresses) =>
-        match within: aPresses ≤ 100 && bPresses ≤ 100 with
-          | True =>
-            let Both aWithin bWithin := within
-            let won := onlyPressesWins machine nonzero aPresses bPresses found
-            Eq.sym (List.minimumAllEqual (tokens aPresses bPresses) costs (winsListed aPresses bPresses aWithin bWithin won)
+      = costs.minimum :=
+  match found: machine.onlyPresses nonzero with
+    | Some (aPresses, bPresses) =>
+      match within: aPresses ≤ 100 && bPresses ≤ 100 with
+        | True =>
+          let Both aWithin bWithin := within
+          let won := onlyPressesWins machine nonzero aPresses bPresses found
+          Eq.sym
+            (List.minimumAllEqual
+              (tokens aPresses bPresses)
+              costs
+              (winsListed aPresses bPresses aWithin bWithin won)
               (tokensSpent listed =>
                 match costsWin tokensSpent listed with
                   | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
                     let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
                     rewrite costs, And.left same, And.right same in rfl))
-          | False =>
-            Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
+        | False =>
+          Eq.sym
+            (List.minimumEmpty costs (tokensSpent listed =>
               match costsWin tokensSpent listed with
                 | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both otherWon costs)))) =>
                   let same := sameWin machine nonzero aPresses bPresses otherA otherB found otherWon
                   let aWithin: aPresses ≤ 100 := omega [And.left same]
                   let bWithin: bPresses ≤ 100 := omega [And.right same]
                   Bool.falseNotTrue (Eq.trans (Eq.sym within) (Both aWithin bWithin))))
-      | None =>
-        Eq.sym (List.minimumEmpty costs (tokensSpent listed =>
+    | None =>
+      Eq.sym
+        (List.minimumEmpty costs (tokensSpent listed =>
           match costsWin tokensSpent listed with
             | Witness otherA (Witness otherB (Both aBelow (Both bBelow (Both won costs)))) =>
               Option.noneNotSome _ (Eq.trans (Eq.sym found) (onlyPressesFinds machine nonzero otherA otherB won))))
@@ -94,10 +129,14 @@ theorem searchIsSpec ∀ (machine: Machine): machine.searchTokens 100 = Spec.few
 --| Each machine's part 1 tokens are the least of the costs, whatever its
 --| determinant, for costs as `cramerWithinCosts` has them that the search
 --| also finds the least of.
-theorem withinCosts ∀ (machine: Machine) (costs: List Nat) (costsWin: ∀ (tokensSpent: Nat) => tokensSpent ∈ costs → WinWithin machine tokensSpent)
-    (winsListed: ∀ (aPresses bPresses: Nat) => aPresses ≤ 100 → bPresses ≤ 100 → machine.wins aPresses bPresses = True →
-      tokens aPresses bPresses ∈ costs)
-    (searched: machine.searchTokens 100 = costs.minimum): machine.fewestTokensWithin 100 = costs.minimum :=
+theorem withinCosts ∀ (machine: Machine) (costs: List Nat)
+    (costsWin: ∀ (tokensSpent: Nat) => tokensSpent ∈ costs → WinWithin machine tokensSpent)
+    (winsListed: ∀ (aPresses bPresses: Nat) => aPresses ≤ 100
+      → bPresses ≤ 100
+      → machine.wins aPresses bPresses = True
+      → tokens aPresses bPresses ∈ costs)
+    (searched: machine.searchTokens 100 = costs.minimum):
+    machine.fewestTokensWithin 100 = costs.minimum :=
   match Int.decEq machine.determinant 0 with
     | { holds = True, sound = _, complete = _ } => searched
     | { holds = False, sound = _, complete = c } =>

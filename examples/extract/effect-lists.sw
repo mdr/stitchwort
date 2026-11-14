@@ -54,7 +54,7 @@ def seen (x: Nat): {Trace} Nat :=
   visit x
   x
 
-def addSeen (total: Nat) (x: Nat): {Trace} Nat :=
+def addSeen (total x: Nat): {Trace} Nat :=
   visit x
   total + x
 
@@ -123,7 +123,8 @@ def isSmall (text: Text): {Fail} Bool :=
 
 export def filterFirstBad (texts: List Text): Result (List Text) Text := Fail.toResult (() => List.filter texts isSmall)
 
-export def partitionFirstBad (texts: List Text): Result (List Text, List Text) Text := Fail.toResult (() => List.partition texts isSmall)
+export def partitionFirstBad (texts: List Text): Result (List Text, List Text) Text :=
+  Fail.toResult (() => List.partition texts isSmall)
 
 export def countFirstBad (texts: List Text): Result Nat Text := Fail.toResult (() => List.count texts isSmall)
 
@@ -175,14 +176,15 @@ def isBig (x: Nat): Bool := Nat.leq 5 x
 
 def tenfold (x: Nat): Option Nat := if Nat.leq 5 x then Some (x * 10) else None
 
-def add (total: Nat) (x: Nat): Nat := total + x
+def add (total x: Nat): Nat := total + x
 
 -- Each function and its copy, used purely: the two must agree.
 export def filtered (xs: List Nat): (List Nat, List Nat) := (List.filter xs isBig, pureFilter xs isBig)
 
 export def folded (xs: List Nat): (Nat, Nat) := (List.foldLeft xs 0 add, pureFoldLeft xs 0 add)
 
-export def anyAll (xs: List Nat): (Bool, Bool, Bool, Bool) := (List.any xs isBig, pureAny xs isBig, List.all xs isBig, pureAll xs isBig)
+export def anyAll (xs: List Nat): (Bool, Bool, Bool, Bool) :=
+  (List.any xs isBig, pureAny xs isBig, List.all xs isBig, pureAll xs isBig)
 
 export def found (xs: List Nat): (Option Nat, Option Nat) := (List.find xs isBig, pureFind xs isBig)
 

@@ -8,20 +8,18 @@
 -- The four equations of `+`, by computation.
 theorem zeroPlus ∀ (x: Nat): 0 + x = x := rfl
 theorem plusZero ∀ (x: Nat): x + 0 = x := rfl
-theorem succPlus ∀ (m: Nat) (n: Nat): Succ m + n = Succ (m + n) := rfl
-theorem plusSucc ∀ (m: Nat) (n: Nat): m + Succ n = Succ (m + n) := rfl
+theorem succPlus ∀ (m n: Nat): Succ m + n = Succ (m + n) := rfl
+theorem plusSucc ∀ (m n: Nat): m + Succ n = Succ (m + n) := rfl
 
 -- What follows from them.
 theorem plusOne ∀ (x: Nat): x + 1 = Succ x := rfl
 theorem numberMoves ∀ (x: Nat): x + 3 = 3 + x := rfl
-theorem numbersMoveOut ∀ (x: Nat) (y: Nat): x + (y + 2) = (x + y) + 2 := rfl
-theorem bothSides ∀ (x: Nat) (y: Nat): (2 + x) + (y + 3) = 5 + (x + y) := rfl
+theorem numbersMoveOut ∀ (x y: Nat): x + (y + 2) = (x + y) + 2 := rfl
+theorem bothSides ∀ (x y: Nat): (2 + x) + (y + 3) = 5 + (x + y) := rfl
 
 -- An index written `n + 1` is `Succ n`, so it can be declared and matched
 -- like one.
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons (x: a) (xs: Vec a n): Vec a (n + 1)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (n + 1)
 
 -- No `VNil` arm: `0` can't be `n + 1`.
 def head: Vec a (n + 1) → a

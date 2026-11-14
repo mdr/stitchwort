@@ -31,7 +31,7 @@ test "decreasing" := digits 2025 == [2, 0, 2, 5]
 -- end decreasing
 
 -- begin gcd
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if a % b < b then gcd b (a % b) else a
@@ -42,20 +42,22 @@ test "gcd" := gcd 84 36 == 12
 -- begin match-fact
 def total (set: Set Nat): Nat
     decreasing set.size
-:= match found: set.popMin with
-  | None => 0
-  | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
+:=
+  match found: set.popMin with
+    | None => 0
+    | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
 
 test "total" := total [3, 1, 2].toSet == 6
 -- end match-fact
 
 -- begin lexicographic
-def ackermann (m: Nat) (n: Nat): Nat
+def ackermann (m n: Nat): Nat
     decreasing (m, n)
-:= match m, n with
-  | Zero, n => n + 1
-  | Succ k, Zero => ackermann k 1
-  | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
+:=
+  match m, n with
+    | Zero, n => n + 1
+    | Succ k, Zero => ackermann k 1
+    | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
 
 test "ackermann" := ackermann 2 3 == 9
 -- end lexicographic
@@ -73,12 +75,9 @@ test "mutual recursion" := isEven 10 ∧ isOdd 7
 -- end mutual
 
 -- begin mutual-types
-type Rose =
-  | Branch (label: Nat) (kids: Roses)
+type Rose = | Branch (label: Nat) (kids: Roses)
 
-type Roses =
-  | RNil
-  | RCons (first: Rose) (rest: Roses)
+type Roses = | RNil | RCons (first: Rose) (rest: Roses)
 
 def Rose.total: Rose → Nat
   | Branch label kids => label + Roses.total kids
@@ -91,29 +90,25 @@ test "types that refer to each other" := Rose.total (Branch 1 (RCons (Branch 2 R
 -- end mutual-types
 
 -- begin nested
-type Packet =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet = | Number (value: Nat) | Packets (items: List Packet)
 
 def Packet.depth (packet: Packet): Nat
     decreasing Packet.size packet
-:= match packet with
-  | Number n => 0
-  | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+:=
+  match packet with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets []]) == 3
 -- end nested
 
 -- begin trees
-type Tree =
-  | Leaf
-  | Node (left: Tree) (value: Nat) (right: Tree)
+type Tree = | Leaf | Node (left: Tree) (value: Nat) (right: Tree)
 
 def Tree.insert (tree: Tree) (value: Nat): Tree := match tree with
   | Leaf => Node Leaf value Leaf
   | Node left here right =>
-    if value < here then Node (left.insert value) here right
-    else Node left here (right.insert value)
+    if value < here then Node (left.insert value) here right else Node left here (right.insert value)
 
 def Tree.toList: Tree → List Nat
   | Leaf => []

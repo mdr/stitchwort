@@ -17,16 +17,22 @@ def MaskBitWritten (read: List Char) (bit: MaskBit): Prop := match bit with
   | On => read = ['1']
   | X => read = ['X']
 
-def DecimalWritten (read: List Char) (value: Nat): Prop := read ≠ [] ∧ read.all Parse.isDigit = True ∧ value = Parse.digitsValue read
+def DecimalWritten (read: List Char) (value: Nat): Prop :=
+  read ≠ [] ∧ read.all Parse.isDigit = True ∧ value = Parse.digitsValue read
 
 --| "The bitmask is always given as a string of 36 bits, written with the
 --| most significant bit (representing 2^35) on the left"; "mem[8] = 11"
 --| writes 11 to address 8.
 def InstructionWritten (read: List Char) (instruction: Instruction): Prop := match instruction with
-  | SetMask mask => ∃ (symbols: List Char) => read = "mask = ".toList ++ symbols ∧ Parse.Each MaskBitWritten symbols mask.bits ∧ mask.bits.length = 36
+  | SetMask mask =>
+    ∃ (symbols: List Char) => read = "mask = ".toList ++ symbols
+      ∧ Parse.Each MaskBitWritten symbols mask.bits
+      ∧ mask.bits.length = 36
   | Write address value =>
-    ∃ (addressRead: List Char) => ∃ (valueRead: List Char) =>
-      read = "mem[".toList ++ addressRead ++ "] = ".toList ++ valueRead ∧ DecimalWritten addressRead address ∧ DecimalWritten valueRead value
+    ∃ (addressRead: List Char) => ∃ (valueRead: List Char) => read
+      = "mem[".toList ++ addressRead ++ "] = ".toList ++ valueRead
+      ∧ DecimalWritten addressRead address
+      ∧ DecimalWritten valueRead value
 
 def StartsWithMask: (instructions: List Instruction) → Prop
   | [SetMask mask, ..rest] => Unit
@@ -49,7 +55,9 @@ def empty: Memory := address => 0
 --| sum over some addresses, each once, that include every address not
 --| holding 0.
 def SumOfMemory (memory: Memory) (answer: Nat): Prop :=
-  ∃ (addresses: List Nat) => addresses.Distinct ∧ (∀ (address: Nat) => memory address ≠ 0 → address ∈ addresses) ∧ answer = addresses.sumBy memory
+  ∃ (addresses: List Nat) => addresses.Distinct
+    ∧ (∀ (address: Nat) => memory address ≠ 0 → address ∈ addresses)
+    ∧ answer = addresses.sumBy memory
 
 --| The mask last set, and memory. The mask before the first instruction
 --| sets one is never used: a written program starts by setting it.
@@ -78,12 +86,13 @@ def overwrite (maskBit: MaskBit) (bit: Bool): Bool := match maskBit with
   | X => bit
 
 --| The value written: its bits beside the mask's, each overwritten.
-def masked (mask: Mask) (value: Nat): Nat := Nat.fromBits (List.zipWith mask.bits (Nat.toBits mask.bits.length value) overwrite)
+def masked (mask: Mask) (value: Nat): Nat :=
+  Nat.fromBits (List.zipWith mask.bits (Nat.toBits mask.bits.length value) overwrite)
 
 --| "The current bitmask is applied to values immediately before they are
 --| written to memory."
-def writeMasked (mask: Mask) (address: Nat) (value: Nat) (memory: Memory): Memory :=
-  other => if address == other then masked mask value else memory other
+def writeMasked (mask: Mask) (address value: Nat) (memory: Memory): Memory := other =>
+  if address == other then masked mask value else memory other
 
 def Part1 (program: Program) (answer: Nat): Prop := SumOfMemory (run writeMasked program) answer
 
@@ -93,13 +102,14 @@ def Part1 (program: Program) (answer: Nat): Prop := SumOfMemory (run writeMasked
 --| unchanged. If the bitmask bit is 1, the corresponding memory address bit
 --| is overwritten with 1. If the bitmask bit is X, the corresponding memory
 --| address bit is floating": it may be either.
-def bitFits (maskBit: MaskBit) (addressBit: Bool) (bit: Bool): Bool := match maskBit with
+def bitFits (maskBit: MaskBit) (addressBit bit: Bool): Bool := match maskBit with
   | Off => bit == addressBit
   | On => bit
   | X => True
 
 def allFit: (mask: List MaskBit) → (address: List Bool) → (bits: List Bool) → Bool
-  | [maskBit, ..mask], [addressBit, ..address], [bit, ..bits] => bitFits maskBit addressBit bit && allFit mask address bits
+  | [maskBit, ..mask], [addressBit, ..address], [bit, ..bits] =>
+    bitFits maskBit addressBit bit && allFit mask address bits
   | _, _, _ => True
 
 --| Whether the decoder writes to `target` for a write to `address`: "a
@@ -108,13 +118,14 @@ def allFit: (mask: List MaskBit) → (address: List Bool) → (bits: List Bool) 
 --| possible values, potentially causing many memory addresses to be written
 --| all at once!" `target` is an address of the mask's width whose every bit
 --| fits.
-def Decodes (mask: Mask) (address: Nat) (target: Nat): Bool :=
-  target < Nat.pow 2 mask.bits.length && allFit mask.bits (Nat.toBits mask.bits.length address) (Nat.toBits mask.bits.length target)
+def Decodes (mask: Mask) (address target: Nat): Bool :=
+  target < Nat.pow 2 mask.bits.length
+    && allFit mask.bits (Nat.toBits mask.bits.length address) (Nat.toBits mask.bits.length target)
 
 --| "Immediately before a value is written to memory, each bit in the
 --| bitmask modifies the corresponding bit of the destination memory
 --| address."
-def writeDecoded (mask: Mask) (address: Nat) (value: Nat) (memory: Memory): Memory :=
-  target => if Decodes mask address target then value else memory target
+def writeDecoded (mask: Mask) (address value: Nat) (memory: Memory): Memory := target =>
+  if Decodes mask address target then value else memory target
 
 def Part2 (program: Program) (answer: Nat): Prop := SumOfMemory (run writeDecoded program) answer

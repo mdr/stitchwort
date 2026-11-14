@@ -69,13 +69,13 @@ def circuitSizes (n: Nat) (sameCircuit: Nat → Nat → Bool): List Nat :=
 def threeLargestProduct (sizes: List Nat): Nat := sizes.sortBy (a b => b.compare a) |> .take 3 |> .product
 
 --| All the boxes 0 to n - 1 are in one circuit.
-def OneCircuit (n: Nat) (connections: List (Nat, Nat)): Prop :=
-  ∀ (a b: Nat) => a < n → b < n → Joined connections a b
+def OneCircuit (n: Nat) (connections: List (Nat, Nat)): Prop := ∀ (a b: Nat) => a < n → b < n → Joined connections a b
 
 --| Connection number k (counting from 0) is the last one needed: after it
 --| all the boxes are in one circuit, and before it they weren't.
 def LastNeeded (points: List Point) (k: Nat): Prop :=
-  (OneCircuit points.length (firstConnections (Succ k) points)) ∧ (¬(OneCircuit points.length (firstConnections k points)))
+  (OneCircuit points.length (firstConnections (Succ k) points))
+    ∧ (¬(OneCircuit points.length (firstConnections k points)))
 
 --| Connection number k.
 def connectionAt (points: List Point) (k: Nat): (Nat, Nat) := connectionOrder points |> .getOr k (0, 0)

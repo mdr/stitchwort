@@ -7,13 +7,10 @@
 -- Comparisons
 
 --| The result of comparing two values: `Less`, `Equal` or `Greater`.
-type Ordering: Type =
-  | Less
-  | Equal
-  | Greater
+type Ordering: Type = | Less | Equal | Greater
 
 --| How `m` compares with `n`: `Nat.compare 2 5` is `Less`.
-def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
+def Nat.compare (m n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
 
 --| The first comparison, unless it's `Equal`.
 def Ordering.andThen: (first: Ordering) → (second: Ordering) → Ordering

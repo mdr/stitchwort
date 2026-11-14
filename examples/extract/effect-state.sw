@@ -74,20 +74,17 @@ def Tally.runIn (init: Nat) (prog: () → {Tally | e} List Nat): {e} List Nat :=
 
 -- Performs one operation for each code, at most eight, and lists what
 -- each gave.
-def drive (codes: List Nat): {Tally} List Nat :=
-  List.map (List.take codes 8) (code =>
-    if code == 0 then Tally.tick()
-    else if code == 1 then Tally.stop()
-    else if code == 2 then Tally.both()
-    else if code == 3 then Tally.many 3
-    else if code == 4 then Tally.branch()
-    else Tally.mixed())
+def drive (codes: List Nat): {Tally} List Nat := List.map (List.take codes 8) (code =>
+  if code == 0 then Tally.tick()
+  else if code == 1 then Tally.stop()
+  else if code == 2 then Tally.both()
+  else if code == 3 then Tally.many 3
+  else if code == 4 then Tally.branch()
+  else Tally.mixed())
 
-export def tallied (codes: List Nat): List Nat :=
-  Tally.run (() => drive codes) 0
+export def tallied (codes: List Nat): List Nat := Tally.run (() => drive codes) 0
 
-export def talliedOpen (codes: List Nat): List Nat :=
-  Tally.runIn 0 (() => drive codes)
+export def talliedOpen (codes: List Nat): List Nat := Tally.runIn 0 (() => drive codes)
 
 export def talliedChecked (codes: List Nat): Result (List Nat) Text :=
   Fail.toResult (() => Tally.runIn 0 (() => drive codes))
@@ -98,9 +95,7 @@ export def talliedChecked (codes: List Nat): Result (List Nat) Text :=
 ability Offer where
   offer: Nat → {Offer} Nat
 
-type Paused =
-  | Finished (total: Nat)
-  | Suspended (count: Nat) (resume: Nat → Paused)
+type Paused = | Finished (total: Nat) | Suspended (count: Nat) (resume: Nat → Paused)
 
 def Offer.counted (prog: () → {Offer} Nat): Nat → Paused :=
   handle prog() with
@@ -119,8 +114,7 @@ def explore: Nat → Paused → List Nat
   | Succ depth, Suspended count resume =>
     [count] ++ explore depth (resume 1) ++ explore depth (resume 2) ++ explore depth (resume 1)
 
-export def stored (start: Nat): List Nat :=
-  explore 4 (Offer.counted (() => offers start) 5)
+export def stored (start: Nat): List Nat := explore 4 (Offer.counted (() => offers start) 5)
 
 -- A state handler around a handler of another ability: the counter's
 -- operations are forwarded through the reader's handler.
@@ -177,16 +171,12 @@ def Store.keepIn (init: Nat) (prog: () → {Store | e} a): {e} a :=
       | put v, k => k ()
   run init
 
-def accumulate (numbers: List Nat): {Store} List Nat :=
-  List.map numbers (x =>
-    put (get() + x)
-    get())
+def accumulate (numbers: List Nat): {Store} List Nat := List.map numbers (x =>
+  put (get() + x)
+  get())
 
-export def stores (numbers: List Nat): List Nat :=
-  Store.run (() => accumulate numbers) 1
+export def stores (numbers: List Nat): List Nat := Store.run (() => accumulate numbers) 1
 
-export def storesEta (numbers: List Nat): List Nat :=
-  Store.keep (() => accumulate numbers) 1
+export def storesEta (numbers: List Nat): List Nat := Store.keep (() => accumulate numbers) 1
 
-export def storesEtaOpen (numbers: List Nat): List Nat :=
-  Store.keepIn 1 (() => accumulate numbers)
+export def storesEtaOpen (numbers: List Nat): List Nat := Store.keepIn 1 (() => accumulate numbers)

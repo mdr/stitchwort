@@ -31,9 +31,11 @@ def move (position: Position) (key: Key): Position := match key with
   | _ => position
 
 def left (position: Position): Position := { column = Nat.pred position.column, row = position.row }
-def right (position: Position): Position := { column = Nat.min (position.column + 1) (roomWidth - 1), row = position.row }
+def right (position: Position): Position :=
+  { column = Nat.min (position.column + 1) (roomWidth - 1), row = position.row }
 def up (position: Position): Position := { column = position.column, row = Nat.pred position.row }
-def down (position: Position): Position := { column = position.column, row = Nat.min (position.row + 1) (roomHeight - 1) }
+def down (position: Position): Position :=
+  { column = position.column, row = Nat.min (position.row + 1) (roomHeight - 1) }
 
 -- The screen: the room in a wall of `#`, then a line of help.
 def view (position: Position): List Text :=
@@ -69,7 +71,8 @@ def main (): {IO} () :=
 
 def finalOf (keys: List Key): Position := Pair.snd (Terminal.simulate keys (() => walk steps start))
 
-test "the arrows and hjkl move" := finalOf [Right, Printable 'l', Down, Printable 'j', Printable 'h'] == { column = 1, row = 2 }
+test "the arrows and hjkl move" :=
+  finalOf [Right, Printable 'l', Down, Printable 'j', Printable 'h'] == { column = 1, row = 2 }
 test "walls stop it" := finalOf [Up, Left, Printable 'k', Printable 'h'] == start
 test "the far walls too" := finalOf (List.replicate 20 Right ++ List.replicate 20 Down) == { column = 9, row = 3 }
 test "other keys do nothing" := finalOf [Printable 'x', Key.Enter, Key.Unknown, Right] == { column = 1, row = 0 }
@@ -77,16 +80,21 @@ test "q stops it" := finalOf [Right, Printable 'q', Right] == { column = 1, row 
 
 test "one frame per key, and one at the start" :=
   let (frames, final) := Terminal.simulate [Right, Down, Printable 'q'] (() => walk steps start)
-  List.length frames == 3 && List.map frames (frame => List.map frame Ansi.strip) == [
-    ["############", "#@.........#", "#..........#", "#..........#", "#..........#", "############", "hjkl or arrows to move, q to stop"],
-    ["############", "#.@........#", "#..........#", "#..........#", "#..........#", "############", "hjkl or arrows to move, q to stop"],
-    ["############", "#..........#", "#.@........#", "#..........#", "#..........#", "############", "hjkl or arrows to move, q to stop"]
-  ]
+  List.length frames == 3
+    && List.map frames (frame => List.map frame Ansi.strip)
+      == [
+        ["############", "#@.........#", "#..........#", "#..........#", "#..........#", "############",
+          "hjkl or arrows to move, q to stop"],
+        ["############", "#.@........#", "#..........#", "#..........#", "#..........#", "############",
+          "hjkl or arrows to move, q to stop"],
+        ["############", "#..........#", "#.@........#", "#..........#", "#..........#", "############",
+          "hjkl or arrows to move, q to stop"]
+      ]
 
 -- The whole `main`, on piped input: the keys are decoded from the bytes
 -- (an arrow's escape sequence included), and each frame is printed as
 -- lines with a form feed after it.
 test "main on piped input" :=
   let (printed, _) := IO.simulate ["ll\u{1b}[Bq"] main
-  List.length (List.filter printed (line => line == "\u{c}")) == 4 &&
-    List.last printed == Some "The @ stopped at column 2, row 1."
+  List.length (List.filter printed (line => line == "\u{c}")) == 4
+    && List.last printed == Some "The @ stopped at column 2, row 1."

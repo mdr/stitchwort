@@ -30,24 +30,19 @@ def hello(): {IO} Nat :=
   IO.print "three"
   3
 
-test "prints are recorded in order" :=
-  eqTexts (printed (IO.simulate [] hello)) ["one", "two", "three"]
+test "prints are recorded in order" := eqTexts (printed (IO.simulate [] hello)) ["one", "two", "three"]
 
 test "the result comes back too" := result (IO.simulate [] hello) == 3
 
-test "a payload with a newline is one entry" :=
-  eqTexts (printed (IO.simulate [] (u => IO.print "a\nb"))) ["a\nb"]
+test "a payload with a newline is one entry" := eqTexts (printed (IO.simulate [] (u => IO.print "a\nb"))) ["a\nb"]
 
-test "an empty payload is an entry" :=
-  eqTexts (printed (IO.simulate [] (u => IO.print ""))) [""]
+test "an empty payload is an entry" := eqTexts (printed (IO.simulate [] (u => IO.print ""))) [""]
 
 -- Reading
 
-test "an empty line is Some \"\"" :=
-  isSomeText "" (result (IO.simulate [""] (u => IO.readLine())))
+test "an empty line is Some \"\"" := isSomeText "" (result (IO.simulate [""] (u => IO.readLine())))
 
-test "a line is read whole" :=
-  isSomeText "  two words  " (result (IO.simulate ["  two words  "] (u => IO.readLine())))
+test "a line is read whole" := isSomeText "  two words  " (result (IO.simulate ["  two words  "] (u => IO.readLine())))
 
 test "no input: None" := isNone (result (IO.simulate [] (u => IO.readLine())))
 
@@ -59,15 +54,13 @@ def readThree(): {IO} List (Option Text) :=
   [a, b, c]
 
 def maybesAre: List (Option Text) → Bool
-  | [a, b, c] =>
-    if isSomeText "x" a then (if isNone b then isNone c else False) else False
+  | [a, b, c] => if isSomeText "x" a then (if isNone b then isNone c else False) else False
   | _ => False
 
 test "end of input keeps giving None" := maybesAre (result (IO.simulate ["x"] readThree))
 
 -- Only the lines asked for are used.
-test "unread input is ignored" :=
-  isSomeText "first" (result (IO.simulate ["first", "second"] (u => IO.readLine())))
+test "unread input is ignored" := isSomeText "first" (result (IO.simulate ["first", "second"] (u => IO.readLine())))
 
 -- Reading and printing interleaved
 
@@ -83,14 +76,11 @@ def echo: Nat → {IO} ()
   | 0 => ()
   | Succ n => echoLine (IO.readLine()) (u => echo n)
 
-test "echo" :=
-  eqTexts (printed (IO.simulate ["a", "", "c"] (u => echo 10))) ["a", "", "c"]
+test "echo" := eqTexts (printed (IO.simulate ["a", "", "c"] (u => echo 10))) ["a", "", "c"]
 
-test "echo stops at its bound" :=
-  eqTexts (printed (IO.simulate ["a", "b", "c"] (u => echo 2))) ["a", "b"]
+test "echo stops at its bound" := eqTexts (printed (IO.simulate ["a", "b", "c"] (u => echo 2))) ["a", "b"]
 
-test "echo with no input prints nothing" :=
-  eqTexts (printed (IO.simulate [] (u => echo 10))) []
+test "echo with no input prints nothing" := eqTexts (printed (IO.simulate [] (u => echo 10))) []
 
 -- Numbers each line, and returns how many there were.
 def numberLine (i: Nat): Option Text → (() → {IO} Nat) → {IO} Nat
@@ -105,8 +95,7 @@ def numberFrom (i: Nat): Nat → {IO} Nat
 
 def numbered: Pair (List Text) Nat := IO.simulate ["apple", "banana", "cherry"] (u => numberFrom 1 100)
 
-test "numbering lines" :=
-  eqTexts (printed numbered) ["1: apple", "2: banana", "3: cherry"]
+test "numbering lines" := eqTexts (printed numbered) ["1: apple", "2: banana", "3: cherry"]
 
 test "numbering lines: the count" := result numbered == 3
 
@@ -120,11 +109,9 @@ def greet(): {IO} () :=
   let name := IO.readLine()
   IO.print ("Hello, " ++ textOr "stranger" name ++ "!")
 
-test "prompt and reply" :=
-  eqTexts (printed (IO.simulate ["Ada"] greet)) ["Name?", "Hello, Ada!"]
+test "prompt and reply" := eqTexts (printed (IO.simulate ["Ada"] greet)) ["Name?", "Hello, Ada!"]
 
-test "prompt and reply at end of input" :=
-  eqTexts (printed (IO.simulate [] greet)) ["Name?", "Hello, stranger!"]
+test "prompt and reply at end of input" := eqTexts (printed (IO.simulate [] greet)) ["Name?", "Hello, stranger!"]
 
 -- `IO` with other abilities
 
@@ -209,11 +196,9 @@ test "abort inside simulate, the other row order" :=
   if eqTexts (printed r) ["before"] then isNone (result r) else False
 
 -- With `toOption` outside, the abort discards the whole simulated run.
-test "abort outside simulate discards the run" :=
-  isNone (toOption (u => IO.simulate [] printThenAbort))
+test "abort outside simulate discards the run" := isNone (toOption (u => IO.simulate [] printThenAbort))
 
-test "abort outside simulate, the other row order" :=
-  isNone (toOption (u => IO.simulate [] abortThenPrint))
+test "abort outside simulate, the other row order" := isNone (toOption (u => IO.simulate [] abortThenPrint))
 
 -- A program with no `IO` at all
 

@@ -46,7 +46,7 @@ def parseStarting (input: Text): {Fail} Starting := Parse.all input starting
 type Game = { turn: Nat, last: Nat, lastSeen: Array Nat }
 
 --| After the first turn, which says `first`, with room for the numbers below `room`.
-def Game.begin (room: Nat) (first: Nat): Game := { turn = 1, last = first, lastSeen = Array.replicate (count := room) 0 }
+def Game.begin (room first: Nat): Game := { turn = 1, last = first, lastSeen = Array.replicate (count := room) 0 }
 
 def Game.say (game: Game) (number: Nat): Game :=
   { turn = game.turn + 1, last = number, lastSeen = game.lastSeen.set game.last game.turn }
@@ -76,4 +76,7 @@ def Starting.numberSpoken (starting: Starting) (turn: Nat): Nat := match turn wi
   | Zero => 0
   | Succ later =>
     let count := starting.numbers.length
-    Nat.iterate later (game => game.say (starting.nextAfter count game)) (Game.begin (starting.room turn) starting.numbers.head) |> .last
+    Nat.iterate later
+      (game => game.say (starting.nextAfter count game))
+      (Game.begin (starting.room turn) starting.numbers.head)
+      |> .last

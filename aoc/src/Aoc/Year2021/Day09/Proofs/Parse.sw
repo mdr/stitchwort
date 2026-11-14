@@ -13,10 +13,16 @@ import Std (Eq, Fail, Fin, List, Result)
 import Std.Parse (digit)
 
 --| Every row `parseHeightMap` reads is as long as the first.
-theorem parseRectangular ∀ (input: Text) (map: HeightMap) (parsed: Fail.toResult (() => parseHeightMap input) = Ok map) (row: List (Fin 10))
-    (member: row ∈ map.grid.rows): row.length = map.grid.width :=
+theorem parseRectangular ∀ (input: Text) (map: HeightMap)
+    (parsed: Fail.toResult (() => parseHeightMap input) = Ok map) (row: List (Fin 10))
+    (member: row ∈ map.grid.rows):
+    row.length = map.grid.width :=
   let split := rewrite Fail.toResultThen (() => parseGrid input digit) (grid => ({ grid }: HeightMap)) at parsed
-  Result.flatMapEqOk (Fail.toResult (() => parseGrid input digit)) (grid => Fail.toResult (() => ({ grid }: HeightMap))) map split
+  Result.flatMapEqOk
+    (Fail.toResult (() => parseGrid input digit))
+    (grid => Fail.toResult (() => ({ grid }: HeightMap)))
+    map
+    split
     (grid read made =>
       let same: ({ grid }: HeightMap) = map := Result.okInjective made
       let rectangle := And.left (parseGridRectangle input digit grid read)

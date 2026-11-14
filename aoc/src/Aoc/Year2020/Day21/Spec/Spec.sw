@@ -13,7 +13,9 @@ import Std (Char, List, NonEmptyList, Ordering, Parse, Text)
 
 --| An ingredient's name, in lower-case letters, and the space after it.
 def IngredientWritten (read: List Char) (ingredient: Ingredient): Prop :=
-  read = ingredient.name.toList ++ [' '] ∧ ingredient.name.toList ≠ [] ∧ ingredient.name.toList.all Char.isAsciiLowercase = True
+  read = ingredient.name.toList ++ [' ']
+    ∧ ingredient.name.toList ≠ []
+    ∧ ingredient.name.toList.all Char.isAsciiLowercase = True
 
 def AllergenWritten (read: List Char) (allergen: Allergen): Prop :=
   read = allergen.name.toList ∧ allergen.name.toList ≠ [] ∧ allergen.name.toList.all Char.isAsciiLowercase = True
@@ -24,10 +26,12 @@ def CommaWritten (read: List Char) (u: ()): Prop := read = ", ".toList
 --| ingredients list followed by some or all of the allergens the food
 --| contains", the ingredients separated by spaces, the allergens by commas.
 def FoodWritten (read: List Char) (food: Food): Prop :=
-  ∃ (ingredientsRead: List Char) => ∃ (allergensRead: List Char) =>
-    read = ingredientsRead ++ "(contains ".toList ++ allergensRead ++ [')']
-      ∧ (∃ (ingredients: NonEmptyList Ingredient) => Parse.Each IngredientWritten ingredientsRead ingredients.toList ∧ food.ingredients = ingredients.toList)
-      ∧ (∃ (allergens: NonEmptyList Allergen) => Parse.SepBy AllergenWritten CommaWritten allergensRead allergens ∧ food.allergens = allergens.toList)
+  ∃ (ingredientsRead: List Char) => ∃ (allergensRead: List Char) => read
+    = ingredientsRead ++ "(contains ".toList ++ allergensRead ++ [')']
+    ∧ (∃ (ingredients: NonEmptyList Ingredient) => Parse.Each IngredientWritten ingredientsRead ingredients.toList
+      ∧ food.ingredients = ingredients.toList)
+    ∧ (∃ (allergens: NonEmptyList Allergen) => Parse.SepBy AllergenWritten CommaWritten allergensRead allergens
+      ∧ food.allergens = allergens.toList)
 
 def LineBreakWritten (read: List Char) (u: ()): Prop := Parse.LineBreak read
 
@@ -38,7 +42,8 @@ def FoodListWritten (read: List Char) (list: FoodList): Prop :=
 -- Where the allergens are
 
 --| Some food lists the allergen.
-def Listed (list: FoodList) (allergen: Allergen): Prop := ∃ (food: Food) => food ∈ list.foods ∧ allergen ∈ food.allergens
+def Listed (list: FoodList) (allergen: Allergen): Prop :=
+  ∃ (food: Food) => food ∈ list.foods ∧ allergen ∈ food.allergens
 
 --| A way the listed allergens could be in the ingredients: `holder`
 --| names the ingredient each is in. "Each allergen is found in exactly one
@@ -48,11 +53,13 @@ def Listed (list: FoodList) (allergen: Allergen): Prop := ∃ (food: Food) => fo
 --| corresponding ingredients list."
 def Holding (list: FoodList) (holder: Allergen → Ingredient): Prop :=
   (∀ (first second: Allergen) => Listed list first → Listed list second → holder first = holder second → first = second)
-    ∧ (∀ (food: Food) => food ∈ list.foods → ∀ (allergen: Allergen) => allergen ∈ food.allergens → holder allergen ∈ food.ingredients)
+    ∧ (∀ (food: Food) => food ∈ list.foods
+      → ∀ (allergen: Allergen) => allergen ∈ food.allergens → holder allergen ∈ food.ingredients)
 
 --| The ingredient holds one of the allergens in some way they could be.
 def CanContain (list: FoodList) (ingredient: Ingredient): Prop :=
-  ∃ (holder: Allergen → Ingredient) => Holding list holder ∧ ∃ (allergen: Allergen) => Listed list allergen ∧ holder allergen = ingredient
+  ∃ (holder: Allergen → Ingredient) => Holding list holder
+    ∧ ∃ (allergen: Allergen) => Listed list allergen ∧ holder allergen = ingredient
 
 -- Part 1
 
@@ -66,7 +73,8 @@ def Part1 (list: FoodList) (answer: Nat): Prop :=
 -- Part 2
 
 --| No allergen's name after the next one's.
-def Alphabetical (allergens: List Allergen): Prop := List.Sorted (first second => Ordering.isLessEq (Text.compare first.name second.name)) allergens
+def Alphabetical (allergens: List Allergen): Prop :=
+  List.Sorted (first second => Ordering.isLessEq (Text.compare first.name second.name)) allergens
 
 --| "Arrange the ingredients alphabetically by their allergen and separate
 --| them by commas to produce your canonical dangerous ingredient list":
@@ -74,5 +82,7 @@ def Alphabetical (allergens: List Allergen): Prop := List.Sorted (first second =
 --| answer the names of the ingredients holding them, in that order.
 def Part2 (list: FoodList) (answer: Text): Prop :=
   ∃ (holder: Allergen → Ingredient) => Holding list holder
-    ∧ ∃ (order: List Allergen) => order.Distinct ∧ (∀ (allergen: Allergen) => allergen ∈ order ↔ Listed list allergen) ∧ Alphabetical order
+    ∧ ∃ (order: List Allergen) => order.Distinct
+      ∧ (∀ (allergen: Allergen) => allergen ∈ order ↔ Listed list allergen)
+      ∧ Alphabetical order
       ∧ answer = (order.map holder |> .map .name |> .joinWith ",")

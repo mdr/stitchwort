@@ -8,41 +8,37 @@ import Std (Option)
 
 -- Pure, on a `Nat`.
 def pure (g: Nat → Nat) (k: Nat): Nat :=
-  let h :=
-    x =>
-      match k with
-        | 0 => g x
-        | n => g (n + x)
+  let h := x =>
+    match k with
+      | 0 => g x
+      | n => g (n + x)
   h 1
 
 -- Performing the callback's abilities.
 def effects (g: Nat → {e} Nat) (k: Nat): {e} Nat :=
-  let h :=
-    x =>
-      match k with
-        | 0 => g x
-        | n => g n
+  let h := x =>
+    match k with
+      | 0 => g x
+      | n => g n
   h 1
 
 -- On an `Option`.
 def option (g: Nat → Nat) (k: Option Nat): Nat :=
-  let h :=
-    x =>
-      match k with
-        | Some m => g (m + x)
-        | None => g x
+  let h := x =>
+    match k with
+      | Some m => g (m + x)
+      | None => g x
   h 1
 
 -- Two parameters, and two splits, one inside the other.
 def nested (j: Nat) (k: Option Nat): Nat :=
-  let h :=
-    x y =>
-      match k with
-        | Some m =>
-          match j with
-            | 0 => m + x
-            | _ => m + y
-        | None => x + y
+  let h := x y =>
+    match k with
+      | Some m =>
+        match j with
+          | 0 => m + x
+          | _ => m + y
+      | None => x + y
   h 1 10
 
 test "pure" := pure (x => x * 2) 0 == 2 ∧ pure (x => x * 2) 5 == 12

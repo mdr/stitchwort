@@ -7,9 +7,7 @@
 import Std (Fin, List, Nat, Text, Vec)
 
 -- `n` is determined: `Floor`'s index is `Succ n`.
-type Tower: Nat → Type =
-  | Ground: Tower 0
-  | Floor (label: Nat) (below: Tower n): Tower (Succ n)
+type Tower: Nat → Type = | Ground: Tower 0 | Floor (label: Nat) (below: Tower n): Tower (Succ n)
 
 -- Read at run time: `k` is rebuilt as the height less one.
 def Tower.height: Tower n → Nat
@@ -28,8 +26,7 @@ def Tower.second: Tower n → Nat
 
 -- The whole index is the field, so a match reads the scrutinee's index
 -- (`Count.tag` is generated, as a shared field).
-type Count: Nat → Type =
-  | MkCount (n: Nat) (tag: Text): Count n
+type Count: Nat → Type = | MkCount (n: Nat) (tag: Text): Count n
 
 def Count.value: Count n → Nat
   | MkCount n _ => n
@@ -41,19 +38,16 @@ def countOf (xs: List Nat): Count (List.length xs) → Nat
 
 -- An index computed by a definition: `size` stays stored (`Padded.size`
 -- is generated, as a shared field).
-type Padded: Nat → Type =
-  | MkPadded (size: Nat) (items: List Nat): Padded (Nat.add size 2)
+type Padded: Nat → Type = | MkPadded (size: Nat) (items: List Nat): Padded (Nat.add size 2)
 
 -- The same field in two indices.
-type Pair2: Nat → Nat → Type =
-  | Twice (n: Nat): Pair2 n n
+type Pair2: Nat → Nat → Type = | Twice (n: Nat): Pair2 n n
 
 def Pair2.value: Pair2 a b → Nat
   | Twice n => n
 
 -- `i` depends on `n`, and `n` is determined by both of them.
-type Slot: (n: Nat) → Fin n → Type =
-  | MkSlot (n: Nat) (i: Fin n): Slot (Succ n) (FSucc i)
+type Slot: (n: Nat) → Fin n → Type = | MkSlot (n: Nat) (i: Fin n): Slot (Succ n) (FSucc i)
 
 def Slot.width: Slot n i → Nat
   | MkSlot n i => n + Fin.toNat i
@@ -66,11 +60,10 @@ def count (xs: List Nat): Count (List.length xs) := MkCount (List.length xs) "it
 
 def report: Text :=
   "height ${Tower.height tower}, labels ${Tower.labels tower}, second ${Tower.second tower}; "
-  ++ "fin ${Fin.toNat (FSucc (FSucc FZero): Fin 5)}, get ${Vec.get vector (Fin.ofNat 2)}; "
-  ++ "vector ${Vec.toList (Vec.map vector (x => x * 10))}, sum ${Vec.sum vector}; "
-  ++ "count ${Count.value (count [5, 6, 7])} ${countOf [1, 2] (count [1, 2])} ${Count.tag (count [])}; "
-  ++ "padded ${Padded.size (MkPadded 3 [1])}, twice ${Pair2.value (Twice 9)}; "
-  ++ "slot ${Slot.width (MkSlot 4 (FSucc FZero))}"
+    ++ "fin ${Fin.toNat (FSucc (FSucc FZero): Fin 5)}, get ${Vec.get vector (Fin.ofNat 2)}; "
+    ++ "vector ${Vec.toList (Vec.map vector (x => x * 10))}, sum ${Vec.sum vector}; "
+    ++ "count ${Count.value (count [5, 6, 7])} ${countOf [1, 2] (count [1, 2])} ${Count.tag (count [])}; "
+    ++ "padded ${Padded.size (MkPadded 3 [1])}, twice ${Pair2.value (Twice 9)}; "
+    ++ "slot ${Slot.width (MkSlot 4 (FSucc FZero))}"
 
-def main(): {IO} () :=
-  IO.print report
+def main(): {IO} () := IO.print report

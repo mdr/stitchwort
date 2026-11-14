@@ -69,14 +69,16 @@ def Terminal.moreReads: Nat := 16
 --| Generic in how bytes are read, so tests can give the reads as a list
 --| (`Terminal.keysOfReads`), and `Terminal.toIO` reads from the host.
 -- (terminal-io.md §3.2)
-def Terminal.nextKey (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s) (pending: List Nat) (source: s): {e} Terminal.Read s :=
+def Terminal.nextKey (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s) (pending: List Nat) (source: s):
+    {e} Terminal.Read s :=
   match pending with
     | [] => Terminal.afterRead inputIsTerminal read Terminal.moreReads [] (read source)
     | _ => Terminal.decode inputIsTerminal read Terminal.moreReads pending source
 
 --| Decodes `bytes`, which aren't empty, reading up to `reads` more times to
 --| finish a cut-off key.
-def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s): (reads: Nat) → (bytes: List Nat) → (state: s) → {e} Terminal.Read s
+def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s):
+    (reads: Nat) → (bytes: List Nat) → (state: s) → {e} Terminal.Read s
   | reads, bytes, source =>
     match Key.next bytes with
       | Got key rest => { key = Some key, pending = rest, source = source }
@@ -85,12 +87,14 @@ def Terminal.decode (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List 
         match reads with
           | 0 => Terminal.cutOff bytes source
           | Succ more =>
-            if Terminal.readsOn inputIsTerminal bytes then Terminal.afterRead inputIsTerminal read more bytes (read source)
+            if Terminal.readsOn inputIsTerminal bytes then
+              Terminal.afterRead inputIsTerminal read more bytes (read source)
             else Terminal.cutOff bytes source
 
 --| After a read, with `bytes` before it: end of input (or an empty read)
 --| ends them; otherwise decode the two together.
-def Terminal.afterRead (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s) (reads: Nat) (bytes: List Nat):
+def Terminal.afterRead (inputIsTerminal: Bool) (read: s → {e} Pair (Option (List Nat)) s)
+    (reads: Nat) (bytes: List Nat):
     (result: Pair (Option (List Nat)) s) → {e} Terminal.Read s
   | MkPair None source => Terminal.ended bytes source
   | MkPair (Some []) source => Terminal.ended bytes source
@@ -118,7 +122,8 @@ def Terminal.keysOfReads (inputIsTerminal: Bool) (reads: List (List Nat)): List 
   Terminal.keysWithin inputIsTerminal (List.length (List.concat reads) + List.length reads + 1) [] reads
 
 --| At most `limit` keys (every key but the last uses up a byte or a read).
-def Terminal.keysWithin (inputIsTerminal: Bool): (limit: Nat) → (pending: List Nat) → (reads: List (List Nat)) → List Key
+def Terminal.keysWithin (inputIsTerminal: Bool):
+    (limit: Nat) → (pending: List Nat) → (reads: List (List Nat)) → List Key
   | 0, pending, reads => []
   | Succ limit, pending, reads =>
     let next := Terminal.nextKey inputIsTerminal Terminal.readFromList pending reads
@@ -135,8 +140,10 @@ def Terminal.readFromList: (reads: List (List Nat)) → Pair (Option (List Nat))
 
 --| The size `console` gives, with 80 columns or 24 rows where it doesn't
 --| know (0).
-def Terminal.sizeOf (console: Console): Terminal.Size :=
-  { columns = if console.columns == 0 then 80 else console.columns, rows = if console.rows == 0 then 24 else console.rows }
+def Terminal.sizeOf (console: Console): Terminal.Size := {
+  columns = if console.columns == 0 then 80 else console.columns,
+  rows = if console.rows == 0 then 24 else console.rows
+}
 
 --| Draws a frame: as one text on a terminal, as plain lines otherwise.
 --| On a terminal it is `Frame.ansi` of the lines that fit on the screen
@@ -205,22 +212,32 @@ test "Frame: ansi" := Frame.ansi ["ab", "c"] == "\u{1b}[Hab\u{1b}[K\r\nc\u{1b}[K
 test "Frame: ansi of no lines" := Frame.ansi [] == "\u{1b}[H\u{1b}[J"
 test "Frame: plain" := Frame.plain ["ab", "c"] == ["ab", "c", "\u{c}"]
 test "Frame: plain strips colour codes" := Frame.plain [Ansi.bold "ab", "c"] == ["ab", "c", "\u{c}"]
-test "simulate: frames lose their colour codes" := Pair.fst (Terminal.simulate [] (() => Terminal.draw [Ansi.bold "ab"])) == [["ab"]]
+test "simulate: frames lose their colour codes" :=
+  Pair.fst (Terminal.simulate [] (() => Terminal.draw [Ansi.bold "ab"])) == [["ab"]]
 
 --| Reading keys, as `readKey` does, from reads given as lists.
 test "reads: the native prototype's reads, from a terminal" :=
-  Terminal.keysOfReads True [[97], [27, 91, 65], [27], [1], [13], [113]] == [Printable 'a', Up, Escape, Ctrl 'a', Enter, Printable 'q']
-test "reads: piped, one chunk" := Terminal.keysOfReads False [[107, 27, 91, 66, 113]] == [Printable 'k', Down, Printable 'q']
-test "reads: piped, a sequence split across reads" := Terminal.keysOfReads False [[107, 27], [91], [66, 113]] == [Printable 'k', Down, Printable 'q']
+  Terminal.keysOfReads True [[97], [27, 91, 65], [27], [1], [13], [113]]
+    == [Printable 'a', Up, Escape, Ctrl 'a', Enter, Printable 'q']
+test "reads: piped, one chunk" :=
+  Terminal.keysOfReads False [[107, 27, 91, 66, 113]] == [Printable 'k', Down, Printable 'q']
+test "reads: piped, a sequence split across reads" :=
+  Terminal.keysOfReads False [[107, 27], [91], [66, 113]] == [Printable 'k', Down, Printable 'q']
 test "reads: a terminal, the same reads: the end of a read ends a sequence" :=
-  Terminal.keysOfReads True [[107, 27], [91], [66, 113]] == [Printable 'k', Escape, Printable '[', Printable 'B', Printable 'q']
+  Terminal.keysOfReads True [[107, 27], [91], [66, 113]]
+    == [Printable 'k', Escape, Printable '[', Printable 'B', Printable 'q']
 test "reads: a terminal, a CSI cut off by a read is Unknown" :=
   Terminal.keysOfReads True [[27, 91, 49], [120]] == [Unknown, Printable 'x']
-test "reads: a lone ESC at the end of input is Escape" := Terminal.keysOfReads False [[120, 27]] == [Printable 'x', Escape]
-test "reads: a cut-off sequence at the end of input is Unknown" := Terminal.keysOfReads False [[27, 91, 49]] == [Unknown]
-test "reads: a UTF-8 character split across reads, piped" := Terminal.keysOfReads False [[226], [130], [172, 33]] == [Printable '€', Printable '!']
-test "reads: a UTF-8 character split across reads, from a terminal" := Terminal.keysOfReads True [[226, 130], [172]] == [Printable '€']
-test "reads: a cut-off UTF-8 character at the end of input is Unknown" := Terminal.keysOfReads False [[97, 226, 130]] == [Printable 'a', Unknown]
+test "reads: a lone ESC at the end of input is Escape" :=
+  Terminal.keysOfReads False [[120, 27]] == [Printable 'x', Escape]
+test "reads: a cut-off sequence at the end of input is Unknown" :=
+  Terminal.keysOfReads False [[27, 91, 49]] == [Unknown]
+test "reads: a UTF-8 character split across reads, piped" :=
+  Terminal.keysOfReads False [[226], [130], [172, 33]] == [Printable '€', Printable '!']
+test "reads: a UTF-8 character split across reads, from a terminal" :=
+  Terminal.keysOfReads True [[226, 130], [172]] == [Printable '€']
+test "reads: a cut-off UTF-8 character at the end of input is Unknown" :=
+  Terminal.keysOfReads False [[97, 226, 130]] == [Printable 'a', Unknown]
 test "reads: unknown sequences and bad bytes" :=
   Terminal.keysOfReads True [[27, 91, 49, 59, 53, 65], [255], [120]] == [Unknown, Unknown, Printable 'x']
 test "reads: an empty read is the end of input" := Terminal.keysOfReads False [[97], [], [98]] == [Printable 'a']
@@ -245,8 +262,8 @@ def Terminal.echoKeys: (limit: Nat) → (keys: List Key) → {Terminal} List Key
       | Some key => Terminal.echoKeys limit [key, ..seen]
 
 test "simulate: a frame per draw, and the keys in order" :=
-  Terminal.simulate [Up, Printable 'x', Printable 'q', Down] (() => Terminal.echoKeys 10 []) ==
-    MkPair [["0 keys"], ["1 keys"], ["2 keys"]] [Up, Printable 'x']
+  Terminal.simulate [Up, Printable 'x', Printable 'q', Down] (() => Terminal.echoKeys 10 [])
+    == MkPair [["0 keys"], ["1 keys"], ["2 keys"]] [Up, Printable 'x']
 test "simulate: None after the keys" :=
   Terminal.simulate [Enter] (() => Terminal.echoKeys 10 []) == MkPair [["0 keys"], ["1 keys"]] [Enter]
 test "simulate: the size" :=
@@ -256,13 +273,18 @@ test "simulate: the size" :=
 --| `toIO` under `IO.simulate`: the input is decoded as keys, and the frames
 --| come out as printed lines with a form feed after each.
 test "toIO: under IO.simulate" :=
-  IO.simulate ["ab", "q"] (() => Terminal.toIO (() => Terminal.echoKeys 10 [])) ==
-    MkPair ["0 keys", "\u{c}", "1 keys", "\u{c}", "2 keys", "\u{c}", "3 keys", "\u{c}"] [Printable 'a', Printable 'b', Enter]
+  IO.simulate ["ab", "q"] (() => Terminal.toIO (() => Terminal.echoKeys 10 []))
+    == MkPair ["0 keys", "\u{c}", "1 keys", "\u{c}", "2 keys", "\u{c}", "3 keys", "\u{c}"] [
+      Printable 'a',
+      Printable 'b',
+      Enter
+    ]
 test "toIO: the program's own prints pass through" :=
-  let run := IO.simulate [] (() => Terminal.toIO (() =>
-    IO.print "before"
-    Terminal.draw ["frame"]
-    IO.print "after"))
+  let run := IO.simulate [] (() =>
+    Terminal.toIO (() =>
+      IO.print "before"
+      Terminal.draw ["frame"]
+      IO.print "after"))
   Pair.fst run == ["before", "frame", "\u{c}", "after"]
 test "toIO: the size, unknown on a pipe" :=
   let size := Pair.snd (IO.simulate [] (() => Terminal.toIO (() => Terminal.size ())))
@@ -303,8 +325,11 @@ def Terminal.scriptedHost (console: Console) (reads: List (List Nat)) (prog: () 
 def Terminal.testTerminal: Console := { inputIsTerminal = True, outputIsTerminal = True, columns = 20, rows = 2 }
 
 test "toIO: on a terminal, keys mode on at the first draw and off at the end; frames as ANSI text cut to the screen" :=
-  Terminal.scriptedHost Terminal.testTerminal [[106], [27], [113]] (() => Terminal.toIO (() => Terminal.echoKeys 10 [])) ==
-    MkPair ["keys on", Frame.ansi ["0 keys"], Frame.ansi ["1 keys"], Frame.ansi ["2 keys"], "keys off"] [Printable 'j', Escape]
+  Terminal.scriptedHost Terminal.testTerminal [[106], [27], [113]] (() => Terminal.toIO (() => Terminal.echoKeys 10 []))
+    == MkPair ["keys on", Frame.ansi ["0 keys"], Frame.ansi ["1 keys"], Frame.ansi ["2 keys"], "keys off"] [
+      Printable 'j',
+      Escape
+    ]
 test "toIO: a tall frame is cut to the screen's rows" :=
   let run := Terminal.scriptedHost Terminal.testTerminal [] (() => Terminal.toIO (() => Terminal.draw ["1", "2", "3"]))
   Pair.fst run == ["keys on", Frame.ansi ["1", "2"], "keys off"]
@@ -313,8 +338,9 @@ test "toIO: asking only the size leaves the terminal alone" :=
   let size := Pair.snd run
   Pair.fst run == [] && size.columns == 20 && size.rows == 2
 test "toIO: a print between frames leaves keys mode, and the next draw enters it again" :=
-  let run := Terminal.scriptedHost Terminal.testTerminal [] (() => Terminal.toIO (() =>
-    Terminal.draw ["a"]
-    IO.print "note"
-    Terminal.draw ["b"]))
+  let run := Terminal.scriptedHost Terminal.testTerminal [] (() =>
+    Terminal.toIO (() =>
+      Terminal.draw ["a"]
+      IO.print "note"
+      Terminal.draw ["b"]))
   Pair.fst run == ["keys on", Frame.ansi ["a"], "keys off", "note", "keys on", Frame.ansi ["b"], "keys off"]

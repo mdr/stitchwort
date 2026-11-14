@@ -10,5 +10,4 @@ def twice: Nat → Nat
   | m if m > 7 => m
 
 -- The hidden last arm of `match some` is reached through a guard.
-def kept: Nat → Option Nat := match some
-  | x if x > 0 => x
+def kept: Nat → Option Nat := match some | x if x > 0 => x

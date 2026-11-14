@@ -4,44 +4,45 @@
 -- instance needs them.
 
 --| A comparison that's its own opposite is `Equal`.
-theorem Ordering.flipSelf ∀ (c: Ordering) (h: c = Ordering.flip c): c = Equal := match c with
-  | Equal => rfl
+theorem Ordering.flipSelf ∀ (c: Ordering) (h: c = Ordering.flip c): c = Equal := match c with | Equal => rfl
 
 --| Orders `a` by a key, given that the key tells values apart. The relations
 --| are the key's own, applied to the keys, so `x < y` is `key x < key y` and
 --| reduces the way the key's does.
 -- (D414)
-def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b)
-    (inj: ∀ (x y: a) => key x = key y → x = y): Ord a := {
-  compare = x y => Ord.compare (key x) (key y),
-  lessThan = x y => ord.lessThan (key x) (key y),
-  lessEq = x y => ord.lessEq (key x) (key y),
-  decLessThan = x y => ord.decLessThan (key x) (key y),
-  decLessEq = x y => ord.decLessEq (key x) (key y),
-  equal = x y h => inj x y (ord.equal (key x) (key y) h),
-  flip = x y => ord.flip (key x) (key y),
-  trans = x y z => ord.trans (key x) (key y) (key z),
-  lessThanOf = x y h => ord.lessThanOf (key x) (key y) h,
-  lessThanTo = x y h => ord.lessThanTo (key x) (key y) h,
-  lessEqOf = x y h => ord.lessEqOf (key x) (key y) h,
-  lessEqTo = x y h => ord.lessEqTo (key x) (key y) h
-}
+def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b) (inj: ∀ (x y: a) => key x = key y → x = y): Ord a :=
+  {
+    compare = x y => Ord.compare (key x) (key y),
+    lessThan = x y => ord.lessThan (key x) (key y),
+    lessEq = x y => ord.lessEq (key x) (key y),
+    decLessThan = x y => ord.decLessThan (key x) (key y),
+    decLessEq = x y => ord.decLessEq (key x) (key y),
+    equal = x y h => inj x y (ord.equal (key x) (key y) h),
+    flip = x y => ord.flip (key x) (key y),
+    trans = x y z => ord.trans (key x) (key y) (key z),
+    lessThanOf = x y h => ord.lessThanOf (key x) (key y) h,
+    lessThanTo = x y h => ord.lessThanTo (key x) (key y) h,
+    lessEqOf = x y h => ord.lessEqOf (key x) (key y) h,
+    lessEqTo = x y h => ord.lessEqTo (key x) (key y) h
+  }
 
 --| The opposite order, largest first (Haskell's `Down`, Rust's `Reverse`):
 --| `List.sort [ord := Ord.reverse] xs` sorts in descending order.
 def Ord.reverse [auto ord: Ord a]: Ord a :=
-  Ord.fromCompare [decEq := ord.eq] (x y => Ord.compare y x)
+  Ord.fromCompare
+    [decEq := ord.eq]
+    (x y => Ord.compare y x)
     (x y h => Eq.sym (ord.equal y x h))
     (x y => ord.flip y x)
     (x y z h1 h2 => ord.trans z y x h2 h1)
 
 --| The larger of two values by the type's `Ord`, the first if they're equal.
-def Ord.max [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
+def Ord.max [auto ord: Ord a] (x y: a): a := match Ord.compare x y with
   | Less => y
   | _ => x
 
 --| The smaller of two values by the type's `Ord`, the first if they're equal.
-def Ord.min [auto ord: Ord a] (x: a) (y: a): a := match Ord.compare x y with
+def Ord.min [auto ord: Ord a] (x y: a): a := match Ord.compare x y with
   | Greater => y
   | _ => x
 
@@ -57,19 +58,19 @@ theorem Ord.leRefl ∀ [auto ord: Ord a] (x: a): x <= x :=
   ord.lessEqOf x x (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym (Ord.compareSelf x)) greater))
 
 --| The smaller of two values is at most each, and is one of them.
-theorem Ord.minLeLeft ∀ [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= x := match order: Ord.compare x y with
+theorem Ord.minLeLeft ∀ [auto ord: Ord a] (x y: a): Ord.min x y <= x := match order: Ord.compare x y with
   | Greater =>
     let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
     ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
   | Less => Ord.leRefl x
   | Equal => Ord.leRefl x
 
-theorem Ord.minLeRight ∀ [auto ord: Ord a] (x: a) (y: a): Ord.min x y <= y := match order: Ord.compare x y with
+theorem Ord.minLeRight ∀ [auto ord: Ord a] (x y: a): Ord.min x y <= y := match order: Ord.compare x y with
   | Greater => Ord.leRefl y
   | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
   | Equal => ord.lessEqOf x y (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))
 
-theorem Ord.minEither ∀ [auto ord: Ord a] (x: a) (y: a): (Ord.min x y = x) ∨ (Ord.min x y = y) :=
+theorem Ord.minEither ∀ [auto ord: Ord a] (x y: a): (Ord.min x y = x) ∨ (Ord.min x y = y) :=
   match order: Ord.compare x y with
     | Greater => Inr rfl
     | Less => Inl rfl
@@ -79,26 +80,26 @@ theorem Ord.minEither ∀ [auto ord: Ord a] (x: a) (y: a): (Ord.min x y = x) ∨
 theorem Ord.maxSelf ∀ [auto ord: Ord a] (x: a): Ord.max x x = x := rewrite Ord.compareSelf x in rfl
 
 --| The larger of two values is at least each, and is one of them.
-theorem Ord.leMaxLeft ∀ [auto ord: Ord a] (x: a) (y: a): x <= Ord.max x y := match order: Ord.compare x y with
+theorem Ord.leMaxLeft ∀ [auto ord: Ord a] (x y: a): x <= Ord.max x y := match order: Ord.compare x y with
   | Less => ord.lessEqOf x y (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))
   | Greater => Ord.leRefl x
   | Equal => Ord.leRefl x
 
-theorem Ord.leMaxRight ∀ [auto ord: Ord a] (x: a) (y: a): y <= Ord.max x y := match order: Ord.compare x y with
+theorem Ord.leMaxRight ∀ [auto ord: Ord a] (x y: a): y <= Ord.max x y := match order: Ord.compare x y with
   | Less => Ord.leRefl y
   | Greater =>
     let flipped: Ord.compare y x = Less := rewrite order at ord.flip x y
     ord.lessEqOf y x (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym flipped) greater))
   | Equal => rewrite ord.equal x y order in Ord.leRefl y
 
-theorem Ord.maxEither ∀ [auto ord: Ord a] (x: a) (y: a): (Ord.max x y = x) ∨ (Ord.max x y = y) :=
+theorem Ord.maxEither ∀ [auto ord: Ord a] (x y: a): (Ord.max x y = x) ∨ (Ord.max x y = y) :=
   match order: Ord.compare x y with
     | Less => Inr rfl
     | Greater => Inl rfl
     | Equal => Inl rfl
 
 --| Values at most each other are equal.
-theorem Ord.leAntisymm ∀ [auto ord: Ord a] (x: a) (y: a) (h1: x <= y) (h2: y <= x): x = y :=
+theorem Ord.leAntisymm ∀ [auto ord: Ord a] (x y: a) (h1: x <= y) (h2: y <= x): x = y :=
   match order: Ord.compare x y with
     | Equal => ord.equal x y order
     | Greater => Void.exfalso (ord.lessEqTo x y h1 order)
@@ -109,8 +110,13 @@ theorem Ord.leAntisymm ∀ [auto ord: Ord a] (x: a) (y: a) (h1: x <= y) (h2: y <
 --| `c3` isn't `Greater` when `c1` and `c2` aren't, given what `Ord`'s laws
 --| say of three comparisons `x y`, `y z` and `x z`: `Less` is transitive,
 --| and an `Equal` makes two of them the same.
-theorem Ordering.notGreaterTrans ∀ (c1 c2 c3: Ordering) (t: c1 = Less → c2 = Less → c3 = Less)
-    (e1: c1 = Equal → c3 = c2) (e2: c2 = Equal → c3 = c1) (n1: c1 ≠ Greater) (n2: c2 ≠ Greater): c3 ≠ Greater :=
+theorem Ordering.notGreaterTrans ∀ (c1 c2 c3: Ordering)
+    (t: c1 = Less → c2 = Less → c3 = Less)
+    (e1: c1 = Equal → c3 = c2)
+    (e2: c2 = Equal → c3 = c1)
+    (n1: c1 ≠ Greater)
+    (n2: c2 ≠ Greater):
+    c3 ≠ Greater :=
   match c1, c2 with
     | Less, Less => g => Ordering.lessNotGreater (Eq.trans (Eq.sym (t rfl rfl)) g)
     | Less, Equal => g => Ordering.lessNotGreater (Eq.trans (Eq.sym (e2 rfl)) g)
@@ -119,28 +125,33 @@ theorem Ordering.notGreaterTrans ∀ (c1 c2 c3: Ordering) (t: c1 = Less → c2 =
     | Greater, c2 => g => n1 rfl
 
 --| `<=` and `<` are transitive, and `<` is `<=`, for any `Ord`.
-theorem Ord.leTrans ∀ [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x <= y) (h2: y <= z): x <= z :=
+theorem Ord.leTrans ∀ [auto ord: Ord a] (x y z: a) (h1: x <= y) (h2: y <= z): x <= z :=
   ord.lessEqOf x z
-    (Ordering.notGreaterTrans (Ord.compare x y) (Ord.compare y z) (Ord.compare x z) (ord.trans x y z)
+    (Ordering.notGreaterTrans
+      (Ord.compare x y)
+      (Ord.compare y z)
+      (Ord.compare x z)
+      (ord.trans x y z)
       (e => Eq.cong (w => Ord.compare w z) (ord.equal x y e))
       (e => Eq.sym (Eq.cong (w => Ord.compare x w) (ord.equal y z e)))
-      (ord.lessEqTo x y h1) (ord.lessEqTo y z h2))
+      (ord.lessEqTo x y h1)
+      (ord.lessEqTo y z h2))
 
-theorem Ord.lessLe ∀ [auto ord: Ord a] (x: a) (y: a) (h: x < y): x <= y :=
+theorem Ord.lessLe ∀ [auto ord: Ord a] (x y: a) (h: x < y): x <= y :=
   ord.lessEqOf x y (g => Ordering.lessNotGreater (Eq.trans (Eq.sym (ord.lessThanTo x y h)) g))
 
-theorem Ord.lessTrans ∀ [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x < y) (h2: y < z): x < z :=
+theorem Ord.lessTrans ∀ [auto ord: Ord a] (x y z: a) (h1: x < y) (h2: y < z): x < z :=
   ord.lessThanOf x z (ord.trans x y z (ord.lessThanTo x y h1) (ord.lessThanTo y z h2))
 
 --| `<=` then `<` is `<`.
-theorem Ord.leLessTrans ∀ [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x <= y) (h2: y < z): x < z :=
+theorem Ord.leLessTrans ∀ [auto ord: Ord a] (x y z: a) (h1: x <= y) (h2: y < z): x < z :=
   match order: Ord.compare x y with
     | Less => ord.lessThanOf x z (ord.trans x y z order (ord.lessThanTo y z h2))
     | Equal => rewrite ord.equal x y order in h2
     | Greater => Void.exfalso (ord.lessEqTo x y h1 order)
 
 --| `<` then `<=` is `<`.
-theorem Ord.lessLeTrans ∀ [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x < y) (h2: y <= z): x < z :=
+theorem Ord.lessLeTrans ∀ [auto ord: Ord a] (x y z: a) (h1: x < y) (h2: y <= z): x < z :=
   match order: Ord.compare y z with
     | Less => ord.lessThanOf x z (ord.trans x y z (ord.lessThanTo x y h1) order)
     | Equal => rewrite <- ord.equal y z order in h1

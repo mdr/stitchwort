@@ -16,7 +16,7 @@ theorem filterMapAddZero ∀ (xs: List Nat): List.filterMap xs (x => Some (x + 0
   List.filterMapCong xs _ _ (x => rewrite addZeroRight x in rfl)
 
 -- The same as a step of a `calc` chain, which says what each step proves.
-theorem mapTwice ∀ (xs: List Nat): List.map xs (x => x + 0 + 0) = List.map xs (x => x) :=
-  calc List.map xs (x => x + 0 + 0)
-    _ = List.map xs (x => x + 0) := List.mapCong xs _ _ (x => rewrite addZeroRight (x + 0) in rfl)
-    _ = List.map xs (x => x) := List.mapCong xs _ _ (x => rewrite addZeroRight x in rfl)
+theorem mapTwice ∀ (xs: List Nat): List.map xs (x => x + 0 + 0) = List.map xs (x => x) := calc List.map xs
+  (x => x + 0 + 0)
+  _ = List.map xs (x => x + 0) := List.mapCong xs _ _ (x => rewrite addZeroRight (x + 0) in rfl)
+  _ = List.map xs (x => x) := List.mapCong xs _ _ (x => rewrite addZeroRight x in rfl)

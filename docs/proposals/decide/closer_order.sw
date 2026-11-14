@@ -4,10 +4,7 @@ import Std (Bool, List, Nat, Void)
 
 def byDecision [p: Prop] [auto h: p]: p := h
 
-type Key =
-  | K0
-  | K1
-  | K2
+type Key = | K0 | K1 | K2
 
 def keys: List Key := [K0, K1, K2]
 

@@ -7,9 +7,15 @@ import Std (Eq, List, Nat, Option)
 
 def lookup (n: Nat): Option Nat := if n < 3 then Some n else None
 
-theorem anyHole ∀ (x: Nat) (member: x ∈ [1, 2, 3, 4]) (found: lookup x = Some 2): List.Any (y => lookup y = Some 2) [1, 2, 3, 4] :=
+theorem anyHole ∀ (x: Nat)
+    (member: x ∈ [1, 2, 3, 4])
+    (found: lookup x = Some 2):
+    List.Any (y => lookup y = Some 2) [1, 2, 3, 4] :=
   List.anyIntro _ x [1, 2, 3, 4] member found
 
 -- With a list that doesn't compute, it checks today.
-theorem anyHoleVar ∀ (xs: List Nat) (x: Nat) (member: x ∈ xs) (found: lookup x = Some 2): List.Any (y => lookup y = Some 2) xs :=
+theorem anyHoleVar ∀ (xs: List Nat) (x: Nat)
+    (member: x ∈ xs)
+    (found: lookup x = Some 2):
+    List.Any (y => lookup y = Some 2) xs :=
   List.anyIntro _ x xs member found

@@ -25,11 +25,10 @@ def turns: List Text → {Abort} List Turn
 def parseTurn (line: Text): Option Turn := toOption (() => turn line)
 
 -- The signed distance, with a default for a bad line.
-def signed (line: Text): Int :=
-  orElse 0 (() =>
-    let turned := turn line
-    let n := turned.steps.toInt
-    if turned.left then -n else n)
+def signed (line: Text): Int := orElse 0 (() =>
+  let turned := turn line
+  let n := turned.steps.toInt
+  if turned.left then -n else n)
 
 -- Composes with other abilities: prints each line's colour as it goes, and
 -- gives up at the first bad line (after printing the good ones before it).
@@ -56,12 +55,20 @@ test "bad number" := parseTurn "R6x 3 red" == None
 test "bad colour" := parseTurn "R6 3 pink" == None
 test "too few fields" := parseTurn "R6 3" == None
 test "empty line" := parseTurn "" == None
-test "all lines" := toOption (() => turns ["L1 1 red", "R2 2 blue"]) == Some [{ left = True, steps = 1, weight = 1, colour = "red" }, { left = False, steps = 2, weight = 2, colour = "blue" }]
+test "all lines" :=
+  toOption (() => turns ["L1 1 red", "R2 2 blue"])
+    == Some [
+      { left = True, steps = 1, weight = 1, colour = "red" },
+      { left = False, steps = 2, weight = 2, colour = "blue" }
+    ]
 test "one bad line" := toOption (() => turns ["L1 1 red", "R2"]) == None
 test "default" := signed "L5 1 red" == -5 ∧ signed "?" == 0
 test "a number or zero" := intOrZero "-12" == -12 ∧ intOrZero "x" == 0
-test "with IO" := IO.simulate ["L2 3 red", "R1 1 blue"] (() => toOption (() => total ["L2 3 red", "R1 1 blue"])) == (["red", "blue"], Some 7)
-test "with IO, then a bad line" := IO.simulate [] (() => toOption (() => total ["L2 3 red", "nope", "R1 1 blue"])) == (["red"], None)
+test "with IO" :=
+  IO.simulate ["L2 3 red", "R1 1 blue"] (() => toOption (() => total ["L2 3 red", "R1 1 blue"]))
+    == (["red", "blue"], Some 7)
+test "with IO, then a bad line" :=
+  IO.simulate [] (() => toOption (() => total ["L2 3 red", "nope", "R1 1 blue"])) == (["red"], None)
 
 -- The handler's result on small inputs, by computation.
 theorem parsesL68: signed "L68 1 green" = -68 := rfl

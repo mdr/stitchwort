@@ -16,11 +16,9 @@ type LinedUp (ids: List Nat) (inOrder: List Nat): Prop = {
 
 --| "Within each pair, figure out how far apart the two numbers are; you'll
 --| need to add up all of those distances." The lists are lined up already.
-def totalDistance (leftInOrder: List Nat) (rightInOrder: List Nat): Nat :=
-  leftInOrder.zipWith rightInOrder Nat.absDiff |> .sum
+def totalDistance (leftInOrder rightInOrder: List Nat): Nat := leftInOrder.zipWith rightInOrder Nat.absDiff |> .sum
 
 --| "Calculate a total similarity score by adding up each number in the left
 --| list after multiplying it by the number of times that number appears in the
 --| right list."
-def similarityScore (lists: LocationLists): Nat :=
-  lists.left.sumBy (id => id * lists.right.count (== id))
+def similarityScore (lists: LocationLists): Nat := lists.left.sumBy (id => id * lists.right.count (== id))

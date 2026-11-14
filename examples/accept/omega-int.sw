@@ -4,9 +4,9 @@
 
 import Std (Int, Nat)
 
-theorem stacked ∀ (x: Int) (y: Int) (z: Int) (h1: x ≤ y) (h2: y + 1 ≤ z): x < z := omega
+theorem stacked ∀ (x y z: Int) (h1: x ≤ y) (h2: y + 1 ≤ z): x < z := omega
 
-theorem subZero ∀ (a: Int) (b: Int) (h: a - b = 0): a = b := omega
+theorem subZero ∀ (a b: Int) (h: a - b = 0): a = b := omega
 
 theorem negation ∀ (x: Int): -(x + 3) + 2 * x = x - 3 := omega
 
@@ -18,11 +18,11 @@ theorem negativeFactor ∀ (x: Int) (h: -2 * x ≤ 4): -2 ≤ x := omega
 theorem notHalf ∀ (x: Int) (h: 2 * x = 1): Void := omega
 
 -- `Not`, `≠` and the comparisons' `False`.
-theorem notLe ∀ (x: Int) (y: Int) (h: ¬(x ≤ y)): y < x := omega
+theorem notLe ∀ (x y: Int) (h: ¬(x ≤ y)): y < x := omega
 
-theorem neLe ∀ (x: Int) (y: Int) (h: x ≠ y) (h2: x ≤ y): x < y := omega
+theorem neLe ∀ (x y: Int) (h: x ≠ y) (h2: x ≤ y): x < y := omega
 
-theorem leqFalse ∀ (x: Int) (y: Int) (h: x < y): Int.leq y x = False := omega
+theorem leqFalse ∀ (x y: Int) (h: x < y): Int.leq y x = False := omega
 
 theorem notEqual ∀ (x: Int) (h: 0 < x): x ≠ 0 := omega
 
@@ -31,7 +31,7 @@ theorem toIntNonneg ∀ (n: Nat) (x: Int) (h: x = n.toInt): 0 ≤ x := omega
 
 theorem predLess ∀ (n: Nat): n.toInt - 1 < n.toInt := omega
 
-theorem differenceNegative ∀ (m: Nat) (n: Nat) (h: m < n): m.toInt - n.toInt < 0 := omega
+theorem differenceNegative ∀ (m n: Nat) (h: m < n): m.toInt - n.toInt < 0 := omega
 
 theorem negatedNat ∀ (n: Nat) (x: Int) (h: x = -n.toInt) (h2: 0 < x): Void := omega
 
@@ -58,4 +58,4 @@ theorem divZero ∀ (x: Int): x / 0 = 0 := omega
 theorem modZero ∀ (x: Int): x % 0 = x := omega
 
 -- `x * y` and `y * x` are one unknown, by `Int.mulComm`.
-theorem productOrder ∀ (x: Int) (y: Int) (h: x * y = 5): y * x = 5 := omega
+theorem productOrder ∀ (x y: Int) (h: x * y = 5): y * x = 5 := omega

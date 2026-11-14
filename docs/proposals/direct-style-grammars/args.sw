@@ -6,11 +6,9 @@
 import Std (Char, Fail, List, Nat, Parse, Result, Text)
 import Std.Parse (char, natDigits, text)
 
-type Instruction =
-  | Mul (left: Nat) (right: Nat)
+type Instruction = | Mul (left: Nat) (right: Nat)
 
-type Two =
-  | MkTwo (first: Char) (second: Char)
+type Two = | MkTwo (first: Char) (second: Char)
 
 def shortNumber(): {Parse} Nat := natDigits 1 3
 
@@ -67,13 +65,9 @@ def oneLine(): {Parse} Instruction :=
 test "one line" := lineResult "mul(1,2)" oneLine == Ok (Mul 1 2)
 
 -- A block may start on a new line inside brackets, as an argument.
-def bracketBlock(): {Parse} Instruction :=
-  Mul
-    (shortNumber())
-    (
-      char ','
-      shortNumber()
-    )
+def bracketBlock(): {Parse} Instruction := Mul (shortNumber()) (
+  char ','
+  shortNumber())
 
 test "a block in brackets" := lineResult "1,2" bracketBlock == Ok (Mul 1 2)
 
@@ -94,7 +88,7 @@ def viaDrop(): {Parse} Instruction := Mul (drop (text "mul(") (shortNumber())) (
 test "via drop" := lineResult "mul(1,2" viaDrop == Ok (Mul 1 2)
 
 -- Named arguments run where they are written, not in parameter order.
-def pair (first: Nat) (second: Nat): (Nat, Nat) := (first, second)
+def pair (first second: Nat): (Nat, Nat) := (first, second)
 
 def named(): {Parse} (Nat, Nat) := pair (second := shortNumber()) (first := (let () := char ','; shortNumber()))
 

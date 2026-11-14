@@ -16,14 +16,12 @@ def keysOf (text: Text): List Key := text.toList.map Printable
 --| A winning game on the test seed, a line or two per level: collect the
 --| sword and potions, take the stairs (`>`), fight what's in the way,
 --| drink (`p`) when hurt, and take the amulet on level 3.
-def winningRoute: Text := Text.join [
-  "kjllllllllllllllllllllllllljjjjjjjjjjjhjhhhh",
-  "hhhhhhhhhhhhhhkkkjjjllllllllllllllllllll>jjl",
-  "lljjjjjjjjhhhhhhhhhhhhhhjhhhhhhhhphhhhhhhhhh",
-  "hhhhhhhhhhhjpjjjjjkhhhhhhhhklll>llllllllllll",
-  "llllllllkkkllllllllllllplllllllllllklkppllll",
-  "lpjhhhhh"
-] ' '
+def winningRoute: Text :=
+  Text.join
+    ["kjllllllllllllllllllllllllljjjjjjjjjjjhjhhhh", "hhhhhhhhhhhhhhkkkjjjllllllllllllllllllll>jjl",
+      "lljjjjjjjjhhhhhhhhhhhhhhjhhhhhhhhphhhhhhhhhh", "hhhhhhhhhhhjpjjjjjkhhhhhhhhklll>llllllllllll",
+      "llllllllkkkllllllllllllplllllllllllklkppllll", "lpjhhhhh"]
+    ' '
 
 --| The game as `main` plays it, on scripted keys and the test seed: the
 --| frames drawn, and the final state.
@@ -56,8 +54,10 @@ test "the arrows move" :=
   let start := simulateGame [] |> .snd |> .player
   let moved := simulateGame [Right, Right, Left, Down, Up, Right] |> .snd |> .player
   moved == { start | column = start.column + 2 }
-test "the arrows, as commands" := [Up, Down, Left, Right].map commandOf == [Some (Move North), Some (Move South), Some (Move West), Some (Move East)]
-test "other keys aren't commands" := [Unknown, Enter, Key.Escape, Printable 'x'].map commandOf == [None, None, None, None]
+test "the arrows, as commands" :=
+  [Up, Down, Left, Right].map commandOf == [Some (Move North), Some (Move South), Some (Move West), Some (Move East)]
+test "other keys aren't commands" :=
+  [Unknown, Enter, Key.Escape, Printable 'x'].map commandOf == [None, None, None, None]
 
 --| The whole `main` on piped input, through `IO.simulate` and
 --| `Terminal.toIO`: the bytes are decoded as keys (an arrow's escape
@@ -102,8 +102,9 @@ def firstMap: Text := """
 
 test "the first frame draws the first level" :=
   let lines := simulateGame [] |> .fst |> .head |> .getOrElse []
-  lines.take levelRows |> .map (row => "|${row}|") == firstMap.lines ∧
-    lines.drop levelRows == ["Level 1/3   HP 12/12   Potions 0   Blows 2-4   Turn 0", keysLine, "Find the amulet, 3 levels down."]
+  lines.take levelRows |> .map (row => "|${row}|") == firstMap.lines
+    ∧ lines.drop levelRows
+      == ["Level 1/3   HP 12/12   Potions 0   Blows 2-4   Turn 0", keysLine, "Find the amulet, 3 levels down."]
 
 test "the frame is the rendered text, coloured" :=
   let state := Random.withSeed testSeed newGame

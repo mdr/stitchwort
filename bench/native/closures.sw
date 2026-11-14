@@ -4,7 +4,7 @@
 -- measurements use 1,000,000.
 import Std (IO, List)
 
-def add (a: Nat) (b: Nat): Nat := a + b
+def add (a b: Nat): Nat := a + b
 
 def run (n: Nat): Nat :=
   let scale := n % 7 + 4
@@ -15,5 +15,4 @@ def run (n: Nat): Nat :=
   let total := List.foldLeft zs 0 (acc z => (acc + z * scale) % 1000000007)
   List.foldLeft (List.map zs (add offset)) total add % 1000000007
 
-def main(): {IO} () :=
-  IO.print "${run 1000}"
+def main(): {IO} () := IO.print "${run 1000}"

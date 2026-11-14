@@ -29,7 +29,7 @@ def parseBag (input: Text): {Fail} Bag := { adapters = Parse.eachLine input Pars
 
 --| Whether an adapter (or the outlet) rated `lower` can feed one rated
 --| `higher`: 1, 2 or 3 jolts up.
-def canFeed (lower: Nat) (higher: Nat): Bool := lower < higher && higher <= lower + 3
+def canFeed (lower higher: Nat): Bool := lower < higher && higher <= lower + 3
 
 --| The device's rating, 3 above the highest adapter; none for an empty bag.
 def Bag.device (bag: Bag): Option Nat := bag.adapters.nonEmpty |> .map (adapters => adapters.maximum + 3)
@@ -47,9 +47,10 @@ def Bag.chain (bag: Bag) (device: Nat): Chain := { joltages = [0, ..bag.adapters
 --| Part 1: the number of 1-jolt differences times the number of 3-jolt
 --| differences, when the whole bag makes a chain.
 def Bag.distribution (bag: Bag): Option Nat :=
-  bag.device |> .flatMap (device =>
-    let chain := bag.chain device
-    if chain.fits then Some (chain.differences.count (d => d == 1) * chain.differences.count (d => d == 3)) else None)
+  bag.device
+    |> .flatMap (device =>
+      let chain := bag.chain device
+      if chain.fits then Some (chain.differences.count (d => d == 1) * chain.differences.count (d => d == 3)) else None)
 
 --| An adapter, and the number of ways on from it to the device.
 type Onward = { joltage: Nat, ways: Nat }
@@ -57,9 +58,10 @@ type Onward = { joltage: Nat, ways: Nat }
 --| The ways on from `joltage`, given the onward counts of the adapters
 --| above it, lowest first: straight to the device, or through any of them
 --| it can feed. Those are all at the front, within 3 jolts.
-def waysFrom (device: Nat) (joltage: Nat) (above: List Onward): Nat :=
+def waysFrom (device joltage: Nat) (above: List Onward): Nat :=
   (if canFeed joltage device then 1 else 0)
-    + (above.takeWhile (next => next.joltage <= joltage + 3)).sumBy (next => if canFeed joltage next.joltage then next.ways else 0)
+    + (above.takeWhile (next => next.joltage <= joltage + 3)).sumBy (next =>
+      if canFeed joltage next.joltage then next.ways else 0)
 
 --| The onward counts of `adapters` (lowest first), worked out from the
 --| highest down.
@@ -70,4 +72,5 @@ def onwardFrom (device: Nat): (adapters: List Nat) → List Onward
     [{ joltage = adapter, ways = waysFrom device adapter above }, ..above]
 
 --| Part 2: the number of ways from the outlet to the device.
-def Bag.arrangements (bag: Bag): Option Nat := bag.device |> .map (device => waysFrom device 0 (onwardFrom device bag.adapters.sort))
+def Bag.arrangements (bag: Bag): Option Nat :=
+  bag.device |> .map (device => waysFrom device 0 (onwardFrom device bag.adapters.sort))

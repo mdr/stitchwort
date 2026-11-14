@@ -6,7 +6,8 @@ theorem readsMember ∀ (s: Set Nat) (x: Nat) (h: s.contains x): x ∈ s.toList 
 
 theorem readsNotMember ∀ (s: Set Nat) (x: Nat) (h: s.contains x = False): x ∉ s.toList := h.read
 
-theorem readsFromList ∀ (xs: List Nat) (x: Nat) (h: (Set.fromList xs).contains x): x ∈ xs := (Set.memToListFromList xs x).forward h.read
+theorem readsFromList ∀ (xs: List Nat) (x: Nat) (h: (Set.fromList xs).contains x): x ∈ xs :=
+  (Set.memToListFromList xs x).forward h.read
 
 theorem partsOfAnd ∀ (a: Bool) (s: Set Nat) (x: Nat) (h: (a && s.contains x) = True): a = True := match h with
   | Both ha hx => ha

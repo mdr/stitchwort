@@ -7,10 +7,7 @@ import Std (IO, Int, List, Mod, Fin)
 def turns: List Int := [-68, -30, 48, -5, 60, -55, -1, -99, 14, -82]
 
 def zeros (turns: List Int): Nat :=
-  turns
-    |> .scanLeft (Mod.ofNat 50: Mod 100) (p t => p + Mod.ofInt t)
-    |> .drop 1
-    |> .count (p => p == Mod.ofNat 0)
+  turns |> .scanLeft (Mod.ofNat 50: Mod 100) (p t => p + Mod.ofInt t) |> .drop 1 |> .count (p => p == Mod.ofNat 0)
 
 test "the dial" := zeros turns == 3
 
@@ -35,8 +32,8 @@ theorem negWraps: (Mod.ofNat 30: Mod 100).neg = Mod.ofNat 70 := rfl
 theorem modZero: (Mod.ofNat 5: Mod 0) = Mod.ofNat 0 := rfl
 
 -- The laws `+` and `*` carry, for every modulus: through the interface.
-theorem addComm ∀ (i: Mod 7) (j: Mod 7): i + j = j + i := Add.comm i j
-theorem mulAssoc ∀ (i: Mod 7) (j: Mod 7) (k: Mod 7): (i * j) * k = i * (j * k) := Mul.assoc i j k
+theorem addComm ∀ (i j: Mod 7): i + j = j + i := Add.comm i j
+theorem mulAssoc ∀ (i j k: Mod 7): (i * j) * k = i * (j * k) := Mul.assoc i j k
 theorem subSelf ∀ (i: Mod n): i.sub i = Mod.zero := Mod.subSelf i
 
 -- The range proof is decided, not built from `Nat.modLt`, so checking an `rfl`

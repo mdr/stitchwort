@@ -18,7 +18,8 @@ def stuckComp: List Nat → Effect.Comp Effect.NoOp Effect.NoRes Nat
   | [] => 0
   | [x, ..xs] => 1
 
-def identityComp (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat := computation
+def identityComp (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat :=
+  computation
 
 -- A name for the type, so dot notation finds `Thunk.finished`.
 def Thunk: Type := Effect.Comp Effect.NoOp Effect.NoRes Nat
@@ -28,14 +29,12 @@ def Thunk.finished (computation: Thunk): Prop := IsDone computation
 -- Dot notation on a variable of that type.
 def finishedOf (thunk: Thunk): Prop := thunk.finished
 
-type Box =
-  | MkBox (content: Effect.Comp Effect.NoOp Effect.NoRes Nat)
+type Box = | MkBox (content: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 
 def boxDone: Box → Prop
   | MkBox content => IsDone content
 
-type Labelled =
-  | MkLabelled { label: Nat, inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
+type Labelled = | MkLabelled { label: Nat, inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
 
 def labelledDone: Labelled → Prop
   | MkLabelled label inner => IsDone inner
@@ -47,7 +46,8 @@ def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
 def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | (label, inner) => IsDone inner
 
-def passOn (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat := computation
+def passOn (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat :=
+  computation
 
 -- A direct argument.
 theorem directDone: IsDone (Done 3) := Trivial
@@ -99,8 +99,9 @@ theorem runIdentity ∀ (n: Nat): Effect.runPure (identityComp (Done n)) = n := 
 -- `bind` at the empty row, with its arguments passed: the law is stated and
 -- proved by cases on the computation.
 theorem runPureBindHere [a b: Type]:
-    ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes a) (next: a → Effect.Comp Effect.NoOp Effect.NoRes b) =>
-    Effect.runPure (Effect.bind computation next) = Effect.runPure (next (Effect.runPure computation))
+    ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes a) (next: a
+      → Effect.Comp Effect.NoOp Effect.NoRes b) => Effect.runPure (Effect.bind computation next)
+      = Effect.runPure (next (Effect.runPure computation))
   | Done x, next => rfl
   | Call () rest, next
 
@@ -109,9 +110,7 @@ theorem runPureBindHere [a b: Type]:
 theorem runMapIsMap ∀ (f: Nat → Nat) (xs: List Nat): Effect.runPure (List.map xs f) = List.map xs f := match xs with
   | [] => rfl
   | [x, ..xs] =>
-    Eq.trans
-      (Effect.runPureBind (List.map xs f) (rest => Done [f x, ..rest]))
-      (Eq.cong (Cons (f x)) (runMapIsMap f xs))
+    Eq.trans (Effect.runPureBind (List.map xs f) (rest => Done [f x, ..rest])) (Eq.cong (Cons (f x)) (runMapIsMap f xs))
 
 -- Dot notation on a call whose declared result is the nickname: the
 -- nickname's namespace is tried first, and the computation is passed, not run.

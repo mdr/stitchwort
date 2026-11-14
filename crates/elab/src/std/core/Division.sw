@@ -35,14 +35,14 @@ def Nat.divStep: (fits: Bool) → (fuel: Nat) → (n: Nat) → (divisor: Nat) �
 --| `n / divisor`, rounded down: `17 / 5` is 3. Dividing by 0 gives 0, as in
 --| Lean: `n / 0 = 0`, so that `n = (n / d) * d + n % d` holds for every `d`.
 --| Lemmas that need a divisor that isn't 0 (`Nat.modLt`) take it as a hypothesis.
-def Nat.div (n: Nat) (divisor: Nat): Nat := Nat.divFuel n n divisor
+def Nat.div (n divisor: Nat): Nat := Nat.divFuel n n divisor
 
 --| `n % divisor`, the remainder of `n / divisor`: `17 % 5` is 2. The
 --| remainder of dividing by 0 is the number itself: `n % 0 = n`.
 -- The quotient goes on the left: `*` recurses on its left argument, so
 -- `(n / divisor) * 100` stays put while checking, where `100 * (n / divisor)` would
 -- unfold into a hundred additions.
-def Nat.mod (n: Nat) (divisor: Nat): Nat := n - (n / divisor) * divisor
+def Nat.mod (n divisor: Nat): Nat := n - (n / divisor) * divisor
 
 theorem Nat.leSucc ∀ (n: Nat): n ≤ Succ n := match n with
   | Zero => rfl
@@ -56,9 +56,9 @@ theorem Nat.leRefl ∀ (n: Nat): n ≤ n := match n with
   | Zero => rfl
   | Succ n => Nat.leRefl n
 
-theorem Nat.lessLe ∀ (m: Nat) (n: Nat) (h: m < n): m ≤ n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
+theorem Nat.lessLe ∀ (m n: Nat) (h: m < n): m ≤ n := Nat.leTrans m (Succ m) n (Nat.leSucc m) h
 
-theorem Nat.lessTrans ∀ (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
+theorem Nat.lessTrans ∀ (m n p: Nat) (h1: m < n) (h2: n < p): m < p := Nat.leTrans (Succ m) n p h1 (Nat.lessLe n p h2)
 
 --| A bound on either side of a sum bounds the sum. These are the steps of the
 --| proofs generated for a nested type's `T.size` (an element of a list in a
@@ -94,7 +94,11 @@ theorem Nat.lexKeepsFirst ∀ (a1 a2 b1 b2 k: Nat) (lex: Nat.LexLess a1 a2 b1 b2
     | Nat.LexLess.First first => Void.exfalso (no first)
     | Nat.LexLess.Second same second => J (z q => z < k) h (Eq.sym same)
 
-theorem Nat.lexSecondLess ∀ (a1 a2 b1 b2 k: Nat) (lex: Nat.LexLess a1 a2 b1 b2) (no: ¬(a1 < b1)) (h: b2 < Succ k): a2 < k :=
+theorem Nat.lexSecondLess ∀ (a1 a2 b1 b2 k: Nat)
+    (lex: Nat.LexLess a1 a2 b1 b2)
+    (no: ¬(a1 < b1))
+    (h: b2 < Succ k):
+    a2 < k :=
   match lex with
     | Nat.LexLess.First first => Void.exfalso (no first)
     | Nat.LexLess.Second same second => Nat.leTrans (Succ a2) b2 k second h

@@ -1,13 +1,12 @@
 -- A function that only takes its argument apart can be written as its
 -- cases: `match | …` is `x => match x with | …`.
-type Reading =
-  | Valid (value: Nat)
-  | Garbled (text: Text)
-  | Missing
+type Reading = | Valid (value: Nat) | Garbled (text: Text) | Missing
 
 def sample: List Reading := [Valid 4, Garbled "xx", Missing, Valid 9]
 
-def numbers: List Nat := sample.map (match | Valid value => value | _ => 0)
+def numbers: List Nat := sample.map (match
+  | Valid value => value
+  | _ => 0)
 
 -- `match some` keeps what matches: each result is wrapped in `Some`, and
 -- the values no case matches give `None`. It fits `filterMap`.

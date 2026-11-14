@@ -12,7 +12,7 @@ def allIncreasing (levels: List Nat): Bool := levels.chain (level next => level 
 def allDecreasing (levels: List Nat): Bool := levels.chain (level next => level > next)
 
 --| "Any two adjacent levels differ by at least one and at most three."
-def differByOneToThree (level: Nat) (next: Nat): Bool := 1 <= level.absDiff next <= 3
+def differByOneToThree (level next: Nat): Bool := 1 <= level.absDiff next <= 3
 
 def adjacentDifferByOneToThree (levels: List Nat): Bool := levels.chain differByOneToThree
 

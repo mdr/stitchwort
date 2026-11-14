@@ -43,32 +43,40 @@ def example2: Text := """
   5,14,9
   """
 
-test "the example's notes" := (parsed example).map (notes => (notes.rules.map (.field), notes.yours.values, notes.nearby.map (.values))) ==
-  Ok (["class", "row", "seat"], [7, 1, 14], [[7, 3, 47], [40, 4, 50], [55, 2, 20], [38, 6, 12]])
+test "the example's notes" :=
+  (parsed example).map (notes => (notes.rules.map (.field), notes.yours.values, notes.nearby.map (.values)))
+    == Ok (["class", "row", "seat"], [7, 1, 14], [[7, 3, 47], [40, 4, 50], [55, 2, 20], [38, 6, 12]])
 
-test "the example's second rule" := (parsed example).map (notes => notes.rules.get 1) ==
-  Ok (Some { field = "row", first = { low = 6, high = 11 }, second = { low = 33, high = 44 } })
+test "the example's second rule" :=
+  (parsed example).map (notes => notes.rules.get 1)
+    == Ok (Some { field = "row", first = { low = 6, high = 11 }, second = { low = 33, high = 44 } })
 
 test "the example, part 1" := errorRate example == Ok 71
-test "the example, one valid ticket" := (parsed example).map (notes => notes.validTickets.map (.values)) == Ok [[7, 3, 47]]
+test "the example, one valid ticket" :=
+  (parsed example).map (notes => notes.validTickets.map (.values)) == Ok [[7, 3, 47]]
 
 test "the example 2, part 1" := errorRate example2 == Ok 0
 test "the example 2's order: row, class, seat" := fieldNames example2 == Ok (Some ["row", "class", "seat"])
 test "the example's order: row, class, seat" := fieldNames example == Ok (Some ["row", "class", "seat"])
 test "no departure fields multiply to 1" := (parsed example2).map (.departureProduct) == Ok (Some 1)
 
-test "the example 2's candidates" := (parsed example2).map (notes => notes.candidates.map (fields => fields.map (.field))) ==
-  Ok [["row"], ["class", "row"], ["class", "row", "seat"]]
+test "the example 2's candidates" :=
+  (parsed example2).map (notes => notes.candidates.map (fields => fields.map (.field)))
+    == Ok [["row"], ["class", "row"], ["class", "row", "seat"]]
 
 test "range ends are included" := ({ low = 3, high = 5 }: Range).contains 3 && ({ low = 3, high = 5 }: Range).contains 5
-test "a departure field" := ({ field = "departure time", first = { low = 0, high = 1 }, second = { low = 2, high = 3 } }: Rule).isDeparture
+test "a departure field" :=
+  ({ field = "departure time", first = { low = 0, high = 1 }, second = { low = 2, high = 3 } }: Rule).isDeparture
 
 test "two fields that fit everywhere don't settle" :=
   fieldNames "a: 0-9 or 10-19\nb: 0-9 or 10-19\n\nyour ticket:\n1,2\n\nnearby tickets:\n3,4" == Ok None
 test "a ticket with too few values doesn't settle" :=
   fieldNames "a: 0-1 or 2-3\nb: 4-5 or 6-7\n\nyour ticket:\n1,4\n\nnearby tickets:\n1" == Ok None
 test "the departure product" :=
-  (parsed "departure a: 0-1 or 2-3\nb: 4-5 or 6-7\ndeparture c: 8-9 or 10-11\n\nyour ticket:\n4,10,3\n\nnearby tickets:\n5,9,1").map (.departureProduct) == Ok (Some 30)
+  (parsed
+      "departure a: 0-1 or 2-3\nb: 4-5 or 6-7\ndeparture c: 8-9 or 10-11\n\nyour ticket:\n4,10,3\n\nnearby tickets:\n5,9,1").map
+    (.departureProduct)
+    == Ok (Some 30)
 
 test "the notes need your ticket" := not (parsed "a: 0-1 or 2-3\n\nnearby tickets:\n1").isOk
 test "a rule has two ranges" := not (parsed "a: 0-1\n\nyour ticket:\n1\n\nnearby tickets:\n1").isOk

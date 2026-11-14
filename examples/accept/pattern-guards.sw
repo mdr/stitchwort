@@ -27,7 +27,10 @@ def classify (n: Nat): Nat := match n with
 
 test "classify" := classify 0 == 0 ∧ classify 2 == 1 ∧ classify 9 == 2
 
-def classifyInline (n: Nat): Nat := match n with | Zero => 0 | Succ k if k > 2 => 2 | _ => 1
+def classifyInline (n: Nat): Nat := match n with
+  | Zero => 0
+  | Succ k if k > 2 => 2
+  | _ => 1
 
 test "one line" := classifyInline 9 == 2 ∧ classifyInline 1 == 1
 
@@ -39,19 +42,16 @@ def bigOrZero: Nat → Nat := match
 test "match |" := bigOrZero 7 == 7 ∧ bigOrZero 2 == 0
 
 -- `match some | …` gives `None` for what no guard accepts.
-def bigOnes (xs: List Nat): List Nat :=
-  xs.filterMap (match some | x if x > 2 => x * 10)
+def bigOnes (xs: List Nat): List Nat := xs.filterMap (match some | x if x > 2 => x * 10)
 
 test "match some" := bigOnes [1, 2, 3, 4] == [30, 40]
 
-def bigOnesByName: Nat → Option Nat := match some
-  | x if x > 2 => x
+def bigOnesByName: Nat → Option Nat := match some | x if x > 2 => x
 
 test ":= match some" := bigOnesByName 1 == None ∧ bigOnesByName 5 == Some 5
 
 -- `matches | …` is a `Bool`: an arm with no `=>` is `True`.
-def inRange (lo hi: Nat): Nat → Bool := matches
-  | n if lo <= n ∧ n <= hi
+def inRange (lo hi: Nat): Nat → Bool := matches | n if lo <= n ∧ n <= hi
 
 test "matches" := inRange 2 4 3 ∧ !(inRange 2 4 5)
 
@@ -83,9 +83,10 @@ test "two columns" := twoColumns 0 5 == 1 ∧ twoColumns 5 0 == 2 ∧ twoColumns
 -- is lifted into a helper, and a definition declared below it.
 def firstAbove (limit: Nat) (xs: List Nat): Option Nat := match xs with
   | [] => None
-  | [x, ..rest] if x > limit => match rest with
-    | [] => Some x
-    | [y, ..more] => Some (x + y)
+  | [x, ..rest] if x > limit =>
+    match rest with
+      | [] => Some x
+      | [y, ..more] => Some (x + y)
   | [_, ..rest] => firstAbove limit rest
 
 test "captured" := firstAbove 3 [1, 5, 9] == Some 14 ∧ firstAbove 3 [1, 5] == Some 5
@@ -108,9 +109,7 @@ def sized: Nat → Nat
 test "numbers" := sized 5 == 3 ∧ sized 9 == 2
 
 -- A guard in a family whose index the match refines.
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def headOr (d: Nat): (n: Nat) → Vec Nat n → Nat
   | _, VCons x _ if x > 3 => x

@@ -22,7 +22,6 @@ theorem chain ∀ [auto eq: DecEq a] (x y z: a) (h: (x == y && y == z) = True): 
   | Both xy yz => rewrite xy.read, yz.read in rfl
 
 -- A decision of `p ∧ q` is taken apart and built as `∧`.
-theorem second ∀ [p q: Prop] (d: Decidable (p ∧ q)) (h: d.holds = True): q := match h with
-  | Both _ y => y
+theorem second ∀ [p q: Prop] (d: Decidable (p ∧ q)) (h: d.holds = True): q := match h with | Both _ y => y
 
 theorem both ∀ [p q: Prop] (d: Decidable (p ∧ q)) (x: p) (y: q): d.holds = True := Both x y

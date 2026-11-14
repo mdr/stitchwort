@@ -43,20 +43,32 @@ theorem pickUpHitPoints ∀ (state: State) (loot: Loot): (pickUp state loot).hit
 
 theorem enterPlayer ∀ (state: State) (target: Position): (enter state target).player = target :=
   match found: itemAt target state.items with
-    | Some item => pickUpPlayer { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) } item.loot
+    | Some item =>
+      pickUpPlayer
+        { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
+        item.loot
     | None => rfl
 
 theorem enterLevel ∀ (state: State) (target: Position): (enter state target).level = state.level :=
   match found: itemAt target state.items with
-    | Some item => pickUpLevel { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) } item.loot
+    | Some item =>
+      pickUpLevel
+        { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
+        item.loot
     | None => rfl
 
 theorem enterMonsters ∀ (state: State) (target: Position): (enter state target).monsters = state.monsters :=
   match found: itemAt target state.items with
-    | Some item => pickUpMonsters { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) } item.loot
+    | Some item =>
+      pickUpMonsters
+        { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
+        item.loot
     | None => rfl
 
 theorem enterHitPoints ∀ (state: State) (target: Position): (enter state target).hitPoints = state.hitPoints :=
   match found: itemAt target state.items with
-    | Some item => pickUpHitPoints { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) } item.loot
+    | Some item =>
+      pickUpHitPoints
+        { state | player = target, message = "", items = state.items.filter (other => other.position ≠ target) }
+        item.loot
     | None => rfl

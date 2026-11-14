@@ -17,8 +17,7 @@ theorem apartDir ∀ (c d: Dir) (h: (c == d) = False): c ≠ d := h.read
 
 theorem apartDirApplied ∀ (c d: Dir) (h: (c == d) = False) (e: c = d): Void := h.read e
 
-theorem swapDir ∀ (c d: Dir) (h: (c == d) = True): d = c :=
-  Eq.sym h.read
+theorem swapDir ∀ (c d: Dir) (h: (c == d) = True): d = c := Eq.sym h.read
 
 theorem samePoint ∀ (p q: Point) (h: (p == q) = True): p = q := h.read
 

@@ -62,8 +62,7 @@ test "short-circuits" := toResult (() => Parse.line "3" skipped) == Ok False
 
 -- A chain inside a larger `if h:` proposition keeps its facts: the goals read
 -- as written, and `h` gives the parts.
-def nestedNamed (n: Nat): Nat :=
-  if h: n != 0 && 3 <= twice n <= 9 then 12 / n + (twice n - 3) * 0 else 0
+def nestedNamed (n: Nat): Nat := if h: n != 0 && 3 <= twice n <= 9 then 12 / n + (twice n - 3) * 0 else 0
 
 test "nested" := nestedNamed 3 == 4 ∧ nestedNamed 0 == 0 ∧ nestedNamed 5 == 0
 

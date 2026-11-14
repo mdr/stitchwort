@@ -25,9 +25,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${jigsaw.cornerProduct}"
   IO.print "Part 2: ${jigsaw.assemble |> .roughness}"
 
-type Pixel =
-  | Rough
-  | Calm
+type Pixel = | Rough | Calm
 
 --| How the tiles write a pixel.
 def Pixel.symbol: Pixel → Text
@@ -69,7 +67,7 @@ def Image.interior (image: Image): Image := { rows = image.rows.drop 1 |> .init 
 
 --| Whether one tile's edge can meet another's when the tiles are turned
 --| or flipped: the same pixels, in the same order or reversed.
-def Edge.fits (edge: Edge) (other: Edge): Bool := edge.pixels == other.pixels || edge.pixels == other.pixels.reverse
+def Edge.fits (edge other: Edge): Bool := edge.pixels == other.pixels || edge.pixels == other.pixels.reverse
 
 type Tile = { id: Nat, image: Image }
 
@@ -151,17 +149,17 @@ def Jigsaw.rowAfter (jigsaw: Jigsaw) (tile: Tile): (fuel: Nat) → List Tile
 def Jigsaw.rowsFrom (jigsaw: Jigsaw) (first: Tile): (fuel: Nat) → List (List Tile)
   | Zero => []
   | Succ fuel =>
-    let below :=
-      match jigsaw.below first with
-        | Some next => jigsaw.rowsFrom next fuel
-        | None => []
+    let below := match jigsaw.below first with
+      | Some next => jigsaw.rowsFrom next fuel
+      | None => []
     [[first, ..jigsaw.rowAfter first jigsaw.tiles.length], ..below]
 
 --| A corner, turned so that its top and left edges fit no other tile's:
 --| the image's top left tile.
 def Jigsaw.topLeft (jigsaw: Jigsaw): {Fail} Tile :=
   let corner := jigsaw.corners.headOr { id = 0, image = { rows = [] } }
-  corner.orientations.find (tile => not (jigsaw.matches tile tile.image.top) && not (jigsaw.matches tile tile.image.left))
+  corner.orientations.find (tile =>
+    not (jigsaw.matches tile tile.image.top) && not (jigsaw.matches tile tile.image.left))
     |> .orFail "no corner tile"
 
 --| The tiles in place, row by row.
@@ -179,41 +177,45 @@ def Jigsaw.assemble (jigsaw: Jigsaw): {Fail} Image := jigsaw.arrange.image
 -- Part 2: sea monsters
 
 --| The puzzle's picture of a sea monster.
-def seaMonster: Image :=
-  { rows = ["                  # ", "#    ##    ##    ###", " #  #  #  #  #  #   "].map (line => line.toList.map (char => if char == '#' then Rough else Calm)) }
+def seaMonster: Image := {
+  rows = ["                  # ", "#    ##    ##    ###", " #  #  #  #  #  #   "].map (line =>
+    line.toList.map (char => if char == '#' then Rough else Calm))
+}
 
 --| Where the rough pixels are, as `[row, column]`, counting from the top
 --| left: a `List Nat` rather than a `Position`, which has no order for a `Set`.
-def Image.roughAt (image: Image): List (List Nat) :=
-  image.rows.withIndex.flatMap (((row, pixels)) =>
-    pixels.withIndex.filterMap (match some | (column, Rough) => [row, column]))
+def Image.roughAt (image: Image): List (List Nat) := image.rows.withIndex.flatMap (((row, pixels)) =>
+  pixels.withIndex.filterMap (match some | (column, Rough) => [row, column]))
 
 --| `at` moved down and right by `by`.
-def shift (by: List Nat) (at: List Nat): List Nat := List.zipWith by at (a b => a + b)
+def shift (by at: List Nat): List Nat := List.zipWith by at (a b => a + b)
 
 --| Where a copy of `monster`, as drawn (not turned), has its top left in
 --| `image`: every rough pixel of the copy on a rough pixel of the image.
-def Image.monsterStarts (image: Image) (monster: Image): List (List Nat) :=
+def Image.monsterStarts (image monster: Image): List (List Nat) :=
   let rough := image.roughAt.toSet
   let height := image.rows.length
   let width := image.rows.headOr [] |> .length
   let monsterHeight := monster.rows.length
   let monsterWidth := monster.rows.headOr [] |> .length
-  let starts := List.range 0 (height + 1 - monsterHeight) |> .flatMap (row => List.range 0 (width + 1 - monsterWidth) |> .map (column => [row, column]))
+  let starts :=
+    List.range 0 (height + 1 - monsterHeight)
+      |> .flatMap (row => List.range 0 (width + 1 - monsterWidth) |> .map (column => [row, column]))
   starts.filter (start => monster.roughAt.all (at => rough.contains (shift start at)))
 
 --| The rough pixels of `image` that are part of a copy of `monster`, as
 --| drawn (not turned).
-def Image.monsterPixels (image: Image) (monster: Image): Set (List Nat) :=
+def Image.monsterPixels (image monster: Image): Set (List Nat) :=
   image.monsterStarts monster |> .flatMap (start => monster.roughAt.map (shift start)) |> .toSet
 
 --| The rough pixels in no copy of `monster`, as drawn.
-def Image.roughnessWith (image: Image) (monster: Image): Nat := image.roughAt.toSet.size - (image.monsterPixels monster).size
+def Image.roughnessWith (image monster: Image): Nat := image.roughAt.toSet.size - (image.monsterPixels monster).size
 
 --| The sea monster turned the way the image has them: the first of its
 --| orientations of which the image has a copy (the puzzle's image has
 --| copies in one).
-def Image.monsterTurned (image: Image): Option Image := seaMonster.orientations.find (monster => (image.monsterPixels monster).size > 0)
+def Image.monsterTurned (image: Image): Option Image :=
+  seaMonster.orientations.find (monster => (image.monsterPixels monster).size > 0)
 
 --| The rough pixels in no sea monster, turned as `turned` says; all of
 --| them if there are no sea monsters.

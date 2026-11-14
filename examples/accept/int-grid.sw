@@ -36,7 +36,8 @@ theorem farCorner: distance { x = -3, y = 4 } = 7 := rfl
 -- opposite one. The board is `Nat` coordinates with their bounds as proofs.
 type Cell = { col: Nat, row: Nat, colOk: col < 10, rowOk: row < 5 }
 
-def cell (p: Point): Cell := { col = Int.modNat p.x 10, row = Int.modNat p.y 5, colOk = Int.modNatLt p.x 10, rowOk = Int.modNatLt p.y 5 }
+def cell (p: Point): Cell :=
+  { col = Int.modNat p.x 10, row = Int.modNat p.y 5, colOk = Int.modNatLt p.x 10, rowOk = Int.modNatLt p.y 5 }
 
 test "(-2, -2) is column 8" := (cell (walk origin sample)).col == 8
 test "(-2, -2) is row 3" := (cell (walk origin sample)).row == 3

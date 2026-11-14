@@ -13,7 +13,7 @@ def RatingWritten (read: List Char) (rating: Nat): Prop :=
 
 --| "Any given adapter can take an input 1, 2, or 3 jolts lower than its
 --| rating."
-def Takes (input: Nat) (rating: Nat): Bool := [1, 2, 3].contains (rating - input)
+def Takes (input rating: Nat): Bool := [1, 2, 3].contains (rating - input)
 
 --| "Your device has a built-in joltage adapter rated for 3 jolts higher than
 --| the highest-rated adapter in your bag": `highest` is that adapter's.
@@ -33,8 +33,9 @@ def differencesOf (joltages: List Nat) (difference: Nat): Nat :=
 --| number of 3-jolt differences?": `chain` is the bag in some order that
 --| connects.
 def Part1 (adapters: List Nat) (answer: Nat): Prop :=
-  ∃ (highest: Nat) => Highest adapters highest ∧ ∃ (chain: List Nat) =>
-    List.Perm chain adapters ∧ Connects chain (highest + 3) = True
+  ∃ (highest: Nat) => Highest adapters highest
+    ∧ ∃ (chain: List Nat) => List.Perm chain adapters
+      ∧ Connects chain (highest + 3) = True
       ∧ answer = differencesOf [0, ..chain, highest + 3] 1 * differencesOf [0, ..chain, highest + 3] 3
 
 --| The ways of keeping some elements of a list, in order, and leaving out
@@ -50,4 +51,5 @@ def subsequences: (xs: List Nat) → List (List Nat)
 --| connect. (Two adapters with the same rating count as different ones; no
 --| input has any.)
 def Part2 (adapters: List Nat) (answer: Nat): Prop :=
-  ∃ (highest: Nat) => Highest adapters highest ∧ answer = (subsequences adapters.sort).count (kept => Connects kept (highest + 3))
+  ∃ (highest: Nat) => Highest adapters highest
+    ∧ answer = (subsequences adapters.sort).count (kept => Connects kept (highest + 3))

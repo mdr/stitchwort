@@ -2,7 +2,7 @@
 namespace Loops
 
 @[tailrec]
-def countTo (n: Nat) (acc: Nat): Nat := match n with
+def countTo (n acc: Nat): Nat := match n with
   | 0 => acc
   | Succ k => countTo k (acc + 1)
 

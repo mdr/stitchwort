@@ -11,12 +11,9 @@ def Below (y: Nat) (xs: List Nat): Prop := ∃ (x: Nat) => x < y
 theorem below ∀ (x: Nat) (xs: List Nat): Below x xs := ?
 
 -- Both points' fields are unnamed: `x✝¹` is `p`'s, `x✝` is `q`'s.
-theorem samePoint ∀ (p: Point) (q: Point) (h: p.x = q.x): p = q := match p, q with
-  | { x = _, y = _ }, { x = _, y = _ } => ?
+theorem samePoint ∀ (p q: Point) (h: p.x = q.x): p = q := match p, q with | { x = _, y = _ }, { x = _, y = _ } => ?
 
-type Tree =
-  | Leaf (value: Nat)
-  | Pair (left: Tree) (right: Tree)
+type Tree = | Leaf (value: Nat) | Pair (left: Tree) (right: Tree)
 
 -- The last arm's goal names `left1` and `right1`, not the first arm's `a`
 -- and `b`.

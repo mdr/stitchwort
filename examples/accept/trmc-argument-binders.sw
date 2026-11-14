@@ -2,7 +2,7 @@ import Std (List, Nat, Text)
 
 def show (xs: List Nat): Text := Text.join (xs.map Nat.toText) ','
 
-def app (xs: List Nat) (rest: List Nat): List Nat := match xs with
+def app (xs rest: List Nat): List Nat := match xs with
   | [] => rest
   | [y, ..ys] => [y, ..app ys rest]
 

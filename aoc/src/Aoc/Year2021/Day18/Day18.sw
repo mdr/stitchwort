@@ -31,9 +31,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 numbers |> .orFail "no numbers to add"}"
   IO.print "Part 2: ${solvePart2 numbers |> .orFail "fewer than two numbers"}"
 
-type Number =
-  | Regular (value: Nat)
-  | Pair (left: Number) (right: Number)
+type Number = | Regular (value: Nat) | Pair (left: Number) (right: Number)
 
 --| What an explosion inside a number leaves: the exploded pair's left value
 --| if no regular number in this number was left of it to take it (else 0),
@@ -55,10 +53,16 @@ def explode (depth: Nat): Number → Option Explosion
   | Pair (Regular a) (Regular b) => if 4 ≤ depth then Some { toLeft = a, number = Regular 0, toRight = b } else None
   | Pair left right =>
     match explode (depth + 1) left with
-      | Some inLeft => Some { toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 }
+      | Some inLeft =>
+        Some { toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 }
       | None =>
         match explode (depth + 1) right with
-          | Some inRight => Some { toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight }
+          | Some inRight =>
+            Some {
+              toLeft = 0,
+              number = Pair (addRightmost inRight.toLeft left) inRight.number,
+              toRight = inRight.toRight
+            }
           | None => None
 
 --| The leftmost regular number of 10 or more, split into its halves (the
@@ -88,7 +92,7 @@ def reduce: Nat → Number → Option Number
 --| Far more steps than any sum of the puzzle's takes.
 def steps: Nat := 1000
 
-def add (x: Number) (y: Number): Option Number := reduce steps (Pair x y)
+def add (x y: Number): Option Number := reduce steps (Pair x y)
 
 def magnitude: Number → Nat
   | Regular value => value
@@ -108,8 +112,7 @@ def solvePart1: List Number → Option Nat
 
 --| Every ordered pair of numbers on different lines.
 def orderedPairs (numbers: List Number): List (Number, Number) :=
-  numbers.withIndex
-    |> .flatMap (((i, x)) => numbers.withIndex |> .filterMap (match some | (j, y) if i != j => (x, y)))
+  numbers.withIndex |> .flatMap (((i, x)) => numbers.withIndex |> .filterMap (match some | (j, y) if i != j => (x, y)))
 
 --| The magnitude of each pair's sum, or `None` if a sum runs out of steps.
 def sumMagnitudes: List (Number, Number) → Option (List Nat)
@@ -134,25 +137,23 @@ def readNumbers (input: Text): {Fail} List Number :=
 --| a line of `n` characters can't nest deeper than `n`.
 def number: Nat → {Parse} Number
   | 0 => Regular (nat())
-  | Succ room =>
-    Parse.oneOf [
-      () => Regular (nat()),
-      () =>
-        char '['
-        let left := number room
-        char ','
-        let right := number room
-        char ']'
-        Pair left right
-    ]
+  | Succ room => Parse.oneOf [
+    () => Regular (nat()),
+    () =>
+      char '['
+      let left := number room
+      char ','
+      let right := number room
+      char ']'
+      Pair left right
+  ]
 
 def checkNumbers (numbers: List Number): {Fail} List Number := match firstUnreduced numbers with
   | Some line => Fail.fail "line ${line + 1} isn't a reduced snailfish number"
   | None => numbers
 
 --| The index of the first number that isn't reduced.
-def firstUnreduced (numbers: List Number): Option Nat :=
-  numbers.findIndex (x => not (reduced 0 x))
+def firstUnreduced (numbers: List Number): Option Nat := numbers.findIndex (x => not (reduced 0 x))
 
 --| No pair inside four pairs and no regular number above 9, for a number
 --| inside `depth` pairs.

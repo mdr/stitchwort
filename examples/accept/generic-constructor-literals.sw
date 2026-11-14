@@ -20,7 +20,7 @@ def negative: IntMark := Point 1 "p" (-5)
 
 -- No expected type reaches the constructor, but a sibling operand has the
 -- type: the constructor is checked after it.
-def pair (x: a) (y: a): List a := [x, y]
+def pair (x y: a): List a := [x, y]
 
 -- (Nothing expected here: the list's type comes from `m`, not the first item.)
 def countList (m: IntMark): Nat := [Point 1 "p" 10, m].length

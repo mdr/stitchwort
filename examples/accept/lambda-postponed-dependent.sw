@@ -10,8 +10,11 @@ type R = { lo: Nat, hi: Nat }
 
 def R.contains (r: R) (n: Nat): Bool := Nat.leq r.lo n
 
-theorem anyPermLam ∀ (xs: List R) (ys: List R) (h: List.Perm xs ys): List.any xs (r => r.contains 3) = List.any ys (r => r.contains 3) :=
+theorem anyPermLam ∀ (xs ys: List R)
+    (h: List.Perm xs ys):
+    List.any xs (r => r.contains 3) = List.any ys (r => r.contains 3) :=
   List.anyPerm xs ys h (r => r.contains 3)
 
-theorem sortedLam ∀ (xs: List R): List.Sorted (x y => Ordering.isLessEq (Nat.compare x.lo y.lo)) (List.sortBy xs (a b => Nat.compare a.lo b.lo)) :=
+theorem sortedLam ∀ (xs: List R):
+    List.Sorted (x y => Ordering.isLessEq (Nat.compare x.lo y.lo)) (List.sortBy xs (a b => Nat.compare a.lo b.lo)) :=
   List.sortBySorted (a b => Nat.compare a.lo b.lo) (a b => Nat.compareTotal a.lo b.lo) xs

@@ -15,9 +15,7 @@ import Std (List, Nat, Option)
 
 def search (xs: List Nat) (number: Nat): Nat → Option Nat
   | 0 => None
-  | Succ more =>
-    if xs.all (x => x == 0) then Some number
-    else search (xs.map (x => x - 1)) (Succ number) more
+  | Succ more => if xs.all (x => x == 0) then Some number else search (xs.map (x => x - 1)) (Succ number) more
 
 def answer (xs: List Nat): Option Nat := search xs 1 1000000000
 

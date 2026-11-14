@@ -87,7 +87,7 @@ def parsed (input: Text): Result TopographicMap Text := Fail.toResult (() => par
 --| A function of the parsed map, or why it didn't parse: a parse failure fails the test.
 def onMap (input: Text) (f: TopographicMap -> a): Result a Text := parsed input |> .map f
 
-def at (row: Nat) (column: Nat): Position := { row, column }
+def at (row column: Nat): Position := { row, column }
 
 test "example, part 1" := onMap example solvePart1 == Ok 36
 test "example, part 2" := onMap example solvePart2 == Ok 81
@@ -120,18 +120,22 @@ test "the spec's trails" :=
       && !isHikingTrail map (down.take 9)
       && !isHikingTrail map (down.drop 1)
       && !isHikingTrail map []
-      && !isHikingTrail map [at 0 5, at 1 5, at 2 5, at 3 5, at 4 5, at 5 5, at 5 4, at 5 3, at 6 2, at 6 2]) == Ok True
+      && !isHikingTrail map [at 0 5, at 1 5, at 2 5, at 3 5, at 4 5, at 5 5, at 5 4, at 5 3, at 6 2, at 6 2])
+    == Ok True
 
 --| Up, down, left or right, and one higher: not diagonally, and not on the
 --| spot.
-test "the spec's steps" :=
-  onMap """
-    012
-    123
-    234
-    """ (map =>
-    isStep map (at 1 1) (at 1 2) && isStep map (at 1 1) (at 2 1) && !isStep map (at 1 1) (at 0 1) && !isStep map (at 1 1) (at 2 2)
-      && !isStep map (at 1 1) (at 1 1)) == Ok True
+test "the spec's steps" := onMap """
+  012
+  123
+  234
+  """ (map =>
+  isStep map (at 1 1) (at 1 2)
+    && isStep map (at 1 1) (at 2 1)
+    && !isStep map (at 1 1) (at 0 1)
+    && !isStep map (at 1 1) (at 2 2)
+    && !isStep map (at 1 1) (at 1 1))
+  == Ok True
 
 test "the spec's paths" :=
   onMap "01\n" (map => pathsOf map 2) == Ok [[at 0 0, at 0 0], [at 0 0, at 0 1], [at 0 1, at 0 0], [at 0 1, at 0 1]]
@@ -142,14 +146,14 @@ test "parse" := parsed """
   """ == Ok { grid = Grid.of [[Some 0, Some 1], [None, Some 9]] }
 test "parse without a final line break" := parsed "01\n23" == Ok { grid = Grid.of [[Some 0, Some 1], [Some 2, Some 3]] }
 test "nothing" := parsed "" == Err "expected a grid, got no cells"
-test "a bad tile" := parsed "0123\n12x4\n" == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
+test "a bad tile" :=
+  parsed "0123\n12x4\n" == Err "line 2, column 3: expected a digit, '.' or the end of the line, got 'x'"
 test "a short row" := parsed "0123\n124\n" == Err "line 2: expected 4 cells, as on the first line, got 3"
 
-test "heights off the map" :=
-  onMap """
-    01
-    23
-    """ (map => (map.heightAt (at 1 1), map.heightAt (at 2 0), map.heightAt (at 0 2))) == Ok (Some 3, None, None)
+test "heights off the map" := onMap """
+  01
+  23
+  """ (map => (map.heightAt (at 1 1), map.heightAt (at 2 0), map.heightAt (at 0 2))) == Ok (Some 3, None, None)
 
 test "no trailheads" := onMap """
   123
@@ -172,28 +176,27 @@ test "trails cross between rows" := onMap """
 
 --| A ladder two wide: the one step right can come at any of the nine steps,
 --| so one 9 and nine trails.
-test "many trails to one 9" :=
-  onMap """
-    01
-    12
-    23
-    34
-    45
-    56
-    67
-    78
-    89
-    """ solvePart1 == Ok 1 && onMap """
-    01
-    12
-    23
-    34
-    45
-    56
-    67
-    78
-    89
-    """ solvePart2 == Ok 9
+test "many trails to one 9" := onMap """
+  01
+  12
+  23
+  34
+  45
+  56
+  67
+  78
+  89
+  """ solvePart1 == Ok 1 && onMap """
+  01
+  12
+  23
+  34
+  45
+  56
+  67
+  78
+  89
+  """ solvePart2 == Ok 9
 
 --| A trailhead whose 1 leads nowhere.
 test "a dead end" := onMap """

@@ -24,9 +24,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${received.matchingCount}"
   IO.print "Part 2: ${received.withLoops.matchingCount}"
 
-type Rule =
-  | Letter (letter: Char)
-  | Alternatives (sequences: List (List Nat))
+type Rule = | Letter (letter: Char) | Alternatives (sequences: List (List Nat))
 
 --| The rules with their numbers, as the input lists them.
 type Rules = { numbered: List (Nat, Rule) }
@@ -51,17 +49,16 @@ def letter(): {Parse} Char := Parse.satisfy "a letter" Char.isAsciiLowercase
 
 def sequence(): {Parse} List Nat := Parse.sepBy1 Parse.nat (() => Parse.char ' ') |> .toList
 
-def ruleBody(): {Parse} Rule :=
-  Parse.oneOf [
-    () =>
-      Parse.char '"'
-      let found := letter()
-      Parse.char '"'
-      Letter found,
-    () =>
-      let sequences := Parse.sepBy1 sequence (() => Parse.text " | ")
-      Alternatives sequences.toList
-  ]
+def ruleBody(): {Parse} Rule := Parse.oneOf [
+  () =>
+    Parse.char '"'
+    let found := letter()
+    Parse.char '"'
+    Letter found,
+  () =>
+    let sequences := Parse.sepBy1 sequence (() => Parse.text " | ")
+    Alternatives sequences.toList
+]
 
 def numberedRule(): {Parse} (Nat, Rule) :=
   let number := Parse.nat()
@@ -93,24 +90,25 @@ def leftAfterLetter (letter: Char) (message: List Char): List (List Char) := mat
 --| it, one entry for each way it can, with `rule` giving the rule for a
 --| number. Each rule within a rule takes one `fuel`; with none left,
 --| nothing matches.
-def leftAfterWith (rule: Nat → Option Rule) (fuel: Nat) (number: Nat) (message: List Char): List (List Char) :=
-  match fuel with
-    | Zero => []
-    | Succ more =>
-      match rule number with
-        | None => []
-        | Some (Letter letter) => leftAfterLetter letter message
-        | Some (Alternatives sequences) => sequences.flatMap (sequence => leftAfterAllWith rule more sequence message)
+def leftAfterWith (rule: Nat → Option Rule) (fuel number: Nat) (message: List Char): List (List Char) := match fuel with
+  | Zero => []
+  | Succ more =>
+    match rule number with
+      | None => []
+      | Some (Letter letter) => leftAfterLetter letter message
+      | Some (Alternatives sequences) => sequences.flatMap (sequence => leftAfterAllWith rule more sequence message)
 
 --| What can be left of `message` after the rules of `sequence` match a
 --| start of it, one after another.
-def leftAfterAllWith (rule: Nat → Option Rule) (fuel: Nat) (sequence: List Nat) (message: List Char): List (List Char) :=
+def leftAfterAllWith (rule: Nat → Option Rule) (fuel: Nat) (sequence: List Nat) (message: List Char):
+    List (List Char) :=
   match sequence with
     | [] => [message]
-    | [number, ..later] => leftAfterWith rule fuel number message |> .flatMap (left => leftAfterAllWith rule fuel later left)
+    | [number, ..later] =>
+      leftAfterWith rule fuel number message |> .flatMap (left => leftAfterAllWith rule fuel later left)
 
 --| [`leftAfterWith`] looking rules up in the list, the first with a number.
-def Rules.leftAfter (rules: Rules) (fuel: Nat) (number: Nat) (message: List Char): List (List Char) :=
+def Rules.leftAfter (rules: Rules) (fuel number: Nat) (message: List Char): List (List Char) :=
   leftAfterWith rules.rule fuel number message
 
 def Rules.leftAfterAll (rules: Rules) (fuel: Nat) (sequence: List Nat) (message: List Char): List (List Char) :=
@@ -119,20 +117,18 @@ def Rules.leftAfterAll (rules: Rules) (fuel: Nat) (sequence: List Nat) (message:
 --| A rule's alternatives are never empty, and a rule's alternative that
 --| is one rule leads to a lower `rank`. Then every rule reads a letter, and
 --| a rule can't come back to itself without reading one.
-def Rules.productiveWith (rules: Rules) (rank: Nat → Nat): Bool :=
-  rules.numbered.all (entry =>
-    match entry.snd with
-      | Letter letter => True
-      | Alternatives sequences =>
-        sequences.all (sequence =>
-          match sequence with
-            | [] => False
-            | [only] => rank only < rank entry.fst
-            | [first, second, ..more] => True))
+def Rules.productiveWith (rules: Rules) (rank: Nat → Nat): Bool := rules.numbered.all (entry =>
+  match entry.snd with
+    | Letter letter => True
+    | Alternatives sequences => sequences.all (sequence =>
+      match sequence with
+        | [] => False
+        | [only] => rank only < rank entry.fst
+        | [first, second, ..more] => True))
 
 --| The longest chain of one-rule alternatives from rule `number`, up to
 --| `fuel` long.
-def Rules.chain (rules: Rules) (fuel: Nat) (number: Nat): Nat := match fuel with
+def Rules.chain (rules: Rules) (fuel number: Nat): Nat := match fuel with
   | Zero => 0
   | Succ more =>
     match rules.rule number with
@@ -160,7 +156,8 @@ def Rules.enough (rules: Rules) (message: Message): Nat := (message.letters.leng
 --| Whether the rule 0 matches the whole message. The rules are looked up
 --| in a table made for the call, so a caller matching many messages
 --| should share it with [`Rules.matchesCompletelyIn`].
-def Rules.matchesCompletely (rules: Rules) (message: Message): Bool := rules.matchesCompletelyIn (ruleTable rules.numbered) message
+def Rules.matchesCompletely (rules: Rules) (message: Message): Bool :=
+  rules.matchesCompletelyIn (ruleTable rules.numbered) message
 
 def Rules.matchesCompletelyIn (rules: Rules) (table: Map Nat Rule) (message: Message): Bool :=
   leftAfterWith table.get (rules.enough message) 0 message.letters |> .any .isEmpty
@@ -171,5 +168,12 @@ def Received.matchingCount (received: Received): Nat :=
 
 --| Part 2: "replace rules 8: 42 and 11: 42 31 with 8: 42 | 42 8 and 11:
 --| 42 31 | 42 11 31". Put first, they're the rules with those numbers.
-def Received.withLoops (received: Received): Received :=
-  { received | rules = { numbered = [(8, Alternatives [[42], [42, 8]]), (11, Alternatives [[42, 31], [42, 11, 31]]), ..received.rules.numbered] } }
+def Received.withLoops (received: Received): Received := { received |
+  rules = {
+    numbered = [
+      (8, Alternatives [[42], [42, 8]]),
+      (11, Alternatives [[42, 31], [42, 11, 31]]),
+      ..received.rules.numbered
+    ]
+  }
+}

@@ -4,9 +4,7 @@
 
 import Std (Int, Nat)
 
-type Turn =
-  | Left (clicks: Nat)
-  | Right (clicks: Nat)
+type Turn = | Left (clicks: Nat) | Right (clicks: Nat)
 
 -- A position is a number together with a proof that it is on the dial.
 type Pos = { at: Nat, ok: at < 100 }

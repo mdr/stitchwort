@@ -12,7 +12,7 @@ def sum2: (Option Nat, Option Nat) → Nat
   | (None, Some y) => y
   | _ => 0
 
-def inMatch (a: Option Nat) (b: Option Nat) (c: Option Nat): Nat := match (a, b, c) with
+def inMatch (a b c: Option Nat): Nat := match (a, b, c) with
   | (Some x, Some y, Some z) => x + y + z
   | _ => 0
 

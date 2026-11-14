@@ -5,7 +5,7 @@
 -- this file, to keep it quick; add `theorem n16: allBools 16 holds = True := rfl`).
 import Std (Bool, List)
 
-def xor (a: Bool) (b: Bool): Bool := if a then not b else b
+def xor (a b: Bool): Bool := if a then not b else b
 
 def xorAll: List Bool → Bool
   | Nil => False

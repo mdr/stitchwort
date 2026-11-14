@@ -14,24 +14,17 @@ def countAbove (k: Nat): List Nat → Nat
   | [x, ..xs] => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
-  countAbove.induct k (xs result => result ≤ List.length xs)
-    omega
-    (x xs h ih => omega)
-    (x xs h ih => omega)
-    xs
+  countAbove.induct k (xs result => result ≤ List.length xs) omega (x xs h ih => omega) (x xs h ih => omega) xs
 
 -- `decreasing`: the proof recurses on the same measure, each call with the
 -- decrease proof the definition's has, so the theorem needs none.
-def halvings (n: Nat) (count: Nat): Nat
+def halvings (n count: Nat): Nat
     decreasing n
 :=
   if h: n / 2 < n then halvings (n / 2) (count + 1) [decreasing := h] else count
 
-theorem halvingsGe ∀ (n: Nat) (count: Nat): count ≤ halvings n count :=
-  halvings.induct (n count result => count ≤ result)
-    (n count h ih => omega)
-    (n count notH => omega)
-    n count
+theorem halvingsGe ∀ (n count: Nat): count ≤ halvings n count :=
+  halvings.induct (n count result => count ≤ result) (n count h ih => omega) (n count notH => omega) n count
 
 -- A named `match` on a `Bool`: the case has its equation `big`.
 def firstBig: List Nat → Option Nat
@@ -42,7 +35,8 @@ def firstBig: List Nat → Option Nat
       | False => firstBig rest
 
 theorem firstBigIsBig ∀ (xs: List Nat) (y: Nat): firstBig xs = Some y → Nat.leq 10 y = True :=
-  firstBig.induct (xs result => result = Some y → Nat.leq 10 y = True)
+  firstBig.induct
+    (xs result => result = Some y → Nat.leq 10 y = True)
     (none => cases)
     (x rest big found => cases)
     (x rest big ih found => ih found)
@@ -61,21 +55,21 @@ theorem headMem ∀ (xs: List Nat) (y: Nat) (h: List.head xs = Some y): List.Mem
   | [z, ..zs] => Inl (Option.someInjective h)
 
 theorem lastOrOfMem ∀ (d: Nat) (xs: List Nat): lastOr d xs = d ∨ List.Mem (lastOr d xs) xs :=
-  lastOr.induct (d xs result => result = d ∨ List.Mem result xs)
+  lastOr.induct
+    (d xs result => result = d ∨ List.Mem result xs)
     (d => Inl rfl)
     (d x rest y isSome ih =>
       match ih with
         | Inl same => Inr (Inr (rewrite same in headMem rest y isSome))
         | Inr inRest => Inr (Inr inRest))
     (d x rest isNone => Inr (Inl rfl))
-    d xs
+    d
+    xs
 
 -- Two recursive calls, and an arm an earlier one overlaps: case `eq3`
 -- takes `notArm2`, which the generated proof establishes at each of the
 -- definition's cases it covers.
-type Num =
-  | Reg (value: Nat)
-  | Pr (left: Num) (right: Num)
+type Num = | Reg (value: Nat) | Pr (left: Num) (right: Num)
 
 def total: Num → Nat
   | Reg value => value
@@ -87,12 +81,14 @@ def ex (depth: Nat): Num → Nat
   | Pr left right => ex (depth + 1) left + ex (depth + 1) right
 
 theorem exAtMostTotal ∀ (depth: Nat) (n: Num): ex depth n ≤ total n :=
-  ex.induct (depth n result => result ≤ total n)
+  ex.induct
+    (depth n result => result ≤ total n)
     (depth value => omega)
     (depth a b h => omega)
     (depth a b h => omega)
     (depth left right notArm2 ih1 ih2 => omega)
-    depth n
+    depth
+    n
 
 -- A `_` in a pattern is a case variable like any other, in the order the
 -- pattern writes it: `head` then `rest`, as `[x, ..rest]` would give.
@@ -101,7 +97,4 @@ def countAll: List Nat → Nat
   | [_, ..rest] => Succ (countAll rest)
 
 theorem countAllIsLength ∀ (xs: List Nat): countAll xs = List.length xs :=
-  countAll.induct (xs result => result = List.length xs)
-    omega
-    (head rest ih => omega)
-    xs
+  countAll.induct (xs result => result = List.length xs) omega (head rest ih => omega) xs

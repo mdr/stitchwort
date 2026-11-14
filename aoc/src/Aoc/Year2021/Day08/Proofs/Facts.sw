@@ -21,7 +21,8 @@ theorem eachDigit ∀ (q: Nat → Bool) (all: digits.all q = True) (digit: Nat) 
 theorem segmentsComplete ∀ (segment: Segment): segment ∈ segments := cases
 
 --| The program's display is the spec's.
-theorem displayDrawn ∀ (digit: Nat) (below: digit < 10) (segment: Segment):
+theorem displayDrawn ∀ (digit: Nat)
+    (below: digit < 10) (segment: Segment):
     (digitPattern digit).has segment = (digitSegments digit).contains segment :=
   let q := (d: Nat) => segments.all (s => (digitPattern d).has s == (digitSegments d).contains s)
   let all: digits.all q = True := rfl
@@ -35,9 +36,12 @@ theorem decodeDrawn ∀ (digit: Nat) (below: digit < 10): digitScores.indexOf (d
   DecEq.sound (eachDigit q all digit below)
 
 --| Two digits that light the same segments are the same digit.
-theorem digitsDiffer ∀ (first: Nat) (second: Nat) (firstBelow: first < 10) (secondBelow: second < 10)
-    (same: segments.all (s => (digitSegments first).contains s == (digitSegments second).contains s) = True): first = second :=
-  let r := (d: Nat) (e: Nat) => not (segments.all (s => (digitSegments d).contains s == (digitSegments e).contains s)) ∨ d == e
+theorem digitsDiffer ∀ (first second: Nat)
+    (firstBelow: first < 10)
+    (secondBelow: second < 10)
+    (same: segments.all (s => (digitSegments first).contains s == (digitSegments second).contains s) = True):
+    first = second :=
+  let r := (d e: Nat) => not (segments.all (s => (digitSegments d).contains s == (digitSegments e).contains s)) ∨ d == e
   let q := (d: Nat) => digits.all (e => r d e)
   let all: digits.all q = True := rfl
   let atFirst := eachDigit q all first firstBelow
@@ -45,9 +49,12 @@ theorem digitsDiffer ∀ (first: Nat) (second: Nat) (firstBelow: first < 10) (se
   DecEq.sound (rewrite same at atBoth in atBoth)
 
 --| The digits with 2, 3, 4 or 7 segments are 1, 7, 4 and 8.
-theorem easyDrawn ∀ (digit: Nat) (below: digit < 10):
-    [2, 3, 4, 7].contains (segments.count (s => (digitSegments digit).contains s)) = [Some 1, Some 4, Some 7, Some 8].contains (Some digit) :=
+theorem easyDrawn ∀ (digit: Nat)
+    (below: digit < 10):
+    [2, 3, 4, 7].contains (segments.count (s => (digitSegments digit).contains s))
+      = [Some 1, Some 4, Some 7, Some 8].contains (Some digit) :=
   let q := (d: Nat) =>
-    [2, 3, 4, 7].contains (segments.count (s => (digitSegments d).contains s)) == [Some 1, Some 4, Some 7, Some 8].contains (Some d)
+    [2, 3, 4, 7].contains (segments.count (s => (digitSegments d).contains s))
+      == [Some 1, Some 4, Some 7, Some 8].contains (Some d)
   let all: digits.all q = True := rfl
   DecEq.sound (eachDigit q all digit below)

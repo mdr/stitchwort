@@ -7,7 +7,7 @@ import Std (And, Bool, List, Nat, Not)
 
 --| "Page number X must be printed at some point before page number Y": no
 --| copy of Y comes before a copy of X.
-def printedBefore (x: Nat) (y: Nat): List Nat → Bool
+def printedBefore (x y: Nat): List Nat → Bool
   | [] => True
   | [page, ..later] => (!(page == y) || !(later.any (== x))) && printedBefore x y later
 
@@ -27,19 +27,17 @@ def middlesOfOrdered (queue: PrintQueue): Nat := queue.updates.filter (rightOrde
 
 --| "Use the page ordering rules to put the page numbers in the right order":
 --| the same pages, in the right order.
-def CorrectOrdering (rules: List Rule) (update: Update) (ordered: Update): Prop :=
+def CorrectOrdering (rules: List Rule) (update ordered: Update): Prop :=
   (List.Perm ordered.pages update.pages) ∧ (rightOrder rules ordered = True)
 
 --| "Find the updates which are not in the correct order. What do you get if
 --| you add up the middle page numbers after correctly ordering just those
 --| updates?", with `ordering` putting each in order.
 def middlesOfReordered (queue: PrintQueue) (ordering: Update → Update): Nat :=
-  queue.updates.filter (update => !(rightOrder queue.rules update))
-    |> .map ordering
-    |> .sumBy .middlePage
+  queue.updates.filter (update => !(rightOrder queue.rules update)) |> .map ordering |> .sumBy .middlePage
 
 --| Whether there is a rule X|Y with these pages.
-def ruleSays (rules: List Rule) (x: Nat) (y: Nat): Bool := rules.any (rule => rule.before == x && rule.after == y)
+def ruleSays (rules: List Rule) (x y: Nat): Bool := rules.any (rule => rule.before == x && rule.after == y)
 
 --| The puzzle doesn't say so, but part 2 needs it, and it holds on the real
 --| input: on each update's pages the rules are a strict total order. No two
@@ -52,8 +50,12 @@ def Total (rules: List Rule) (pages: List Nat): Prop :=
   ∀ (x y: Nat) => x ∈ pages → y ∈ pages → x ≠ y → ruleSays rules x y = False → ruleSays rules y x = True
 
 def Transitive (rules: List Rule) (pages: List Nat): Prop :=
-  ∀ (x y z: Nat) => x ∈ pages → y ∈ pages → z ∈ pages →
-    ruleSays rules x y = True → ruleSays rules y z = True → ruleSays rules x z = True
+  ∀ (x y z: Nat) => x ∈ pages
+    → y ∈ pages
+    → z ∈ pages
+    → ruleSays rules x y = True
+    → ruleSays rules y z = True
+    → ruleSays rules x z = True
 
 def StrictTotalOrderOn (rules: List Rule) (pages: List Nat): Prop :=
   (Asymmetric rules pages) ∧ ((Total rules pages) ∧ (Transitive rules pages))

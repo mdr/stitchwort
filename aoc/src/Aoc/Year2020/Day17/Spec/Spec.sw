@@ -27,8 +27,9 @@ def RowWritten (line: List Char) (row: List CubeState): Prop := line = row.map s
 --| active cube in the slice, and every further coordinate 0 ("z=0"), is
 --| active; no other cube is.
 def Starts (slice: Slice) (dimensions: Nat) (start: Set Cube): Prop :=
-  ∀ (cube: Cube) => (start.contains cube = True) ↔ (∃ (x: Nat) => ∃ (y: Nat) =>
-    slice.grid.at { row = y, column = x } = Some Active ∧ cube.coordinates = [x.toInt, y.toInt, ..List.replicate (dimensions - 2) 0])
+  ∀ (cube: Cube) => (start.contains cube = True)
+    ↔ (∃ (x: Nat) => ∃ (y: Nat) => slice.grid.at { row = y, column = x } = Some Active
+      ∧ cube.coordinates = [x.toInt, y.toInt, ..List.replicate (dimensions - 2) 0])
 
 -- A cycle
 
@@ -42,7 +43,7 @@ def within1: List Int → List Int → Bool
 --| "Its neighbors are any of the 26 other cubes where any of their
 --| coordinates differ by at most 1": `other` is a different cube, within 1
 --| in every coordinate.
-def neighbours (other: Cube) (cube: Cube): Bool := other != cube && within1 other.coordinates cube.coordinates
+def neighbours (other cube: Cube): Bool := other != cube && within1 other.coordinates cube.coordinates
 
 --| How many of the cube's neighbours are active.
 def activeNeighbours (active: Set Cube) (cube: Cube): Nat := active.count (other => neighbours other cube)
@@ -58,7 +59,7 @@ def activeAfter (active: Set Cube) (cube: Cube): Bool :=
 --| "During a cycle, all cubes simultaneously change their state": a cube
 --| is active after the cycle exactly when the rules make it so, from the
 --| cubes active before.
-def Cycle (before: Set Cube) (after: Set Cube): Prop := ∀ (cube: Cube) => after.contains cube = activeAfter before cube
+def Cycle (before after: Set Cube): Prop := ∀ (cube: Cube) => after.contains cube = activeAfter before cube
 
 --| `cycles` cycles take the active cubes `start` to `final`.
 def Cycles: (cycles: Nat) → (start: Set Cube) → (final: Set Cube) → Prop
@@ -70,5 +71,7 @@ def Cycles: (cycles: Nat) → (start: Set Cube) → (final: Set Cube) → Prop
 --| "Starting with your given initial configuration, simulate six cycles.
 --| How many cubes are left in the active state after the sixth cycle?",
 --| with the pocket in `dimensions` dimensions: 3 in part 1, 4 in part 2.
-def Answer (slice: Slice) (dimensions: Nat) (answer: Nat): Prop :=
-  ∃ (start: Set Cube) => ∃ (final: Set Cube) => Starts slice dimensions start ∧ Cycles 6 start final ∧ answer = final.size
+def Answer (slice: Slice) (dimensions answer: Nat): Prop :=
+  ∃ (start: Set Cube) => ∃ (final: Set Cube) => Starts slice dimensions start
+    ∧ Cycles 6 start final
+    ∧ answer = final.size

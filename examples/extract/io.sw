@@ -28,7 +28,8 @@ def linesOf: List Nat → List Text
   | Cons n ns => Cons (Nat.toText n) (linesOf ns)
 
 -- How many lines `echo` printed, given those numbers as input lines.
-export def linesEchoed (ns: List Nat) (bound: Nat): Nat := List.length (Pair.fst (IO.simulate (linesOf ns) (u => echo bound)))
+export def linesEchoed (ns: List Nat) (bound: Nat): Nat :=
+  List.length (Pair.fst (IO.simulate (linesOf ns) (u => echo bound)))
 
 -- Numbers each line ("1: 7", "2: 42", …).
 def numberLine (i: Nat): Option Text → (() → {IO} ()) → {IO} ()

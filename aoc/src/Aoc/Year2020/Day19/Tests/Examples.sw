@@ -7,8 +7,8 @@ import Std (Fail, List, Nat, Result, Text)
 
 def parsed (input: Text): Result Received Text := Fail.toResult (() => parseReceived input)
 
-def matching (input: Text): Result (List Text) Text :=
-  (parsed input).map (received => received.messages.filter received.rules.matchesCompletely |> .map (message => Text.fromList message.letters))
+def matching (input: Text): Result (List Text) Text := (parsed input).map (received =>
+  received.messages.filter received.rules.matchesCompletely |> .map (message => Text.fromList message.letters))
 
 def example1: Text := """
   0: 4 1 5
@@ -77,20 +77,21 @@ def example2: Text := """
 
 test "the first example, 6 rules and 5 messages" :=
   (parsed example1).map (received => (received.rules.numbered.length, received.messages.length)) == Ok (6, 5)
-test "the first example's rule 1" := (parsed example1).map (received => received.rules.rule 1) == Ok (Some (Alternatives [[2, 3], [3, 2]]))
+test "the first example's rule 1" :=
+  (parsed example1).map (received => received.rules.rule 1) == Ok (Some (Alternatives [[2, 3], [3, 2]]))
 test "the first example, the messages that match" := matching example1 == Ok ["ababbb", "abbbab"]
 test "the first example, part 1" := (parsed example1).map .matchingCount == Ok 2
 
 test "the second example, part 1" := (parsed example2).map .matchingCount == Ok 3
 test "the second example, part 2" := (parsed example2).map (received => received.withLoops.matchingCount) == Ok 12
-test "the second example, part 1's messages" := matching example2 == Ok ["bbabbbbaabaabba", "ababaaaaaabaaab", "ababaaaaabbbaba"]
+test "the second example, part 1's messages" :=
+  matching example2 == Ok ["bbabbbbaabaabba", "ababaaaaaabaaab", "ababaaaaabbbaba"]
 
 test "a rule of one alternative of one rule" := (parsed "0: 1\n1: \"a\"\n\na\nb").map .matchingCount == Ok 1
 test "a message must match completely" := (parsed "0: 1 1\n1: \"a\"\n\na\naa\naaa").map .matchingCount == Ok 1
-test "a rule that refers to itself repeats" :=
-  (parsed "0: 1 | 1 0\n1: \"a\"\n\na\naaaa\nab").map .matchingCount == Ok 2
-test "the rules are productive" :=
-  [example1, example2].all (input => (parsed input).map (received => received.rules.productive && received.withLoops.rules.productive) == Ok True)
+test "a rule that refers to itself repeats" := (parsed "0: 1 | 1 0\n1: \"a\"\n\na\naaaa\nab").map .matchingCount == Ok 2
+test "the rules are productive" := [example1, example2].all (input =>
+  (parsed input).map (received => received.rules.productive && received.withLoops.rules.productive) == Ok True)
 test "a rule that comes back to itself without reading isn't productive" :=
   (parsed "0: 0 | 1\n1: \"a\"\n\na").map (received => received.rules.productive) == Ok False
 test "such a rule still matches" := (parsed "0: 0 | 1\n1: \"a\"\n\na\naa").map .matchingCount == Ok 1

@@ -15,14 +15,16 @@ import Std (And, Bool, Exists, Iff, List, Nat, Not, Set, Text)
 --| "the line kh-tc represents a connection between the computer named kh and
 --| the computer named tc. Connections aren't directional; tc-kh would mean
 --| exactly the same thing."
-def connected (network: Network) (one: Computer) (other: Computer): Bool :=
-  network.connections.any (connection => connection == { one = one, other = other } || connection == { one = other, other = one })
+def connected (network: Network) (one other: Computer): Bool := network.connections.any (connection =>
+  connection == { one = one, other = other } || connection == { one = other, other = one })
 
 --| "each computer in the set is connected to the other two computers" (or,
 --| in part 2, "to every other computer").
 def AllConnected (network: Network) (party: Party): Prop :=
-  ∀ (one other: Computer) => party.members.contains one = True → party.members.contains other = True → one ≠ other →
-    connected network one other = True
+  ∀ (one other: Computer) => party.members.contains one = True
+    → party.members.contains other = True
+    → one ≠ other
+    → connected network one other = True
 
 --| "sets of three computers where each computer in the set is connected to
 --| the other two computers".
@@ -35,16 +37,19 @@ def hasT (party: Party): Bool := party.members.any (computer => computer.name.st
 --| least one computer with a name that starts with t?": `count` is the number
 --| of such sets, the size of the set holding exactly them.
 def IsPart1 (network: Network) (count: Nat): Prop :=
-  ∃ (parties: Set Party) =>
-    (∀ (party: Party) => (parties.contains party = True) ↔ (InterConnectedThree network party ∧ hasT party = True)) ∧ parties.size = count
+  ∃ (parties: Set Party) => (∀ (party: Party) => (parties.contains party = True)
+    ↔ (InterConnectedThree network party ∧ hasT party = True))
+    ∧ parties.size = count
 
 --| The computers on the network map: those in some connection.
-def computers (network: Network): List Computer := network.connections.flatMap (connection => [connection.one, connection.other])
+def computers (network: Network): List Computer :=
+  network.connections.flatMap (connection => [connection.one, connection.other])
 
 --| "a set of computers that are all connected to each other": computers on
 --| the map, each connected to every other one in the set.
 def IsClique (network: Network) (party: Party): Prop :=
-  (∀ (member: Computer) => party.members.contains member = True → member ∈ computers network) ∧ AllConnected network party
+  (∀ (member: Computer) => party.members.contains member = True → member ∈ computers network)
+    ∧ AllConnected network party
 
 --| "the largest set of computers that are all connected to each other": no
 --| such set has more computers. The puzzle says "the", but nothing in the
@@ -58,4 +63,5 @@ def password (party: Party): Text := party.members.toList |> .map .name |> .sort
 
 --| "What is the password to get into the LAN party?": the password of a
 --| largest set.
-def IsPart2 (network: Network) (answer: Text): Prop := ∃ (party: Party) => IsLargest network party ∧ answer = password party
+def IsPart2 (network: Network) (answer: Text): Prop :=
+  ∃ (party: Party) => IsLargest network party ∧ answer = password party

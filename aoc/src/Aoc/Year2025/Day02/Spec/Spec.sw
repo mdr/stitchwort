@@ -7,7 +7,7 @@ import Aoc.Common (Range)
 import Std (List, Nat)
 
 --| The digits are some block of k digits written n times.
-def writtenAs (ds: List Nat) (k: Nat) (n: Nat): Bool := List.concat (List.replicate n (ds.take k)) == ds
+def writtenAs (ds: List Nat) (k n: Nat): Bool := List.concat (List.replicate n (ds.take k)) == ds
 
 --| Part 1: written twice; part 2: written two or more times.
 def doubled (x: Nat): Bool :=
@@ -20,10 +20,8 @@ def repeats (x: Nat): Bool :=
 
 --| Part 1 as the puzzle states it: in every range walk the ids, keep those whose
 --| digits are some block written twice, add them up.
-def part1Spec (ranges: List Range): Nat :=
-  ranges |> .sumBy (r => r.ids |> .filter doubled |> .sum)
+def part1Spec (ranges: List Range): Nat := ranges |> .sumBy (r => r.ids |> .filter doubled |> .sum)
 
 --| The puzzle's method: in every range walk the ids, keep those whose digits
 --| are some block written two or more times, add them up.
-def part2Spec (ranges: List Range): Nat :=
-  ranges |> .sumBy (r => r.ids |> .filter repeats |> .sum)
+def part2Spec (ranges: List Range): Nat := ranges |> .sumBy (r => r.ids |> .filter repeats |> .sum)

@@ -14,8 +14,7 @@ test "getOr" := (tally [3]).getOr (index := 99) (fallback := 0) == 0
 
 -- `getLt` needs a proof that the index is in range, which `auto` finds
 -- from the check, so the answer is a plain number.
-def lookup (counts: Array Nat) (digit: Nat): Nat :=
-  if digit < counts.size then counts.getLt digit else 0
+def lookup (counts: Array Nat) (digit: Nat): Nat := if digit < counts.size then counts.getLt digit else 0
 
 test "in range" := lookup (tally [5, 5]) 5 == 2
 

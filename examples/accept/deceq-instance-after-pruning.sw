@@ -11,5 +11,5 @@ theorem falseOf ∀ (value: Bool) (refute: value = True → Void): value = False
   | True => Void.exfalso (refute rfl)
   | False => rfl
 
-theorem notSame ∀ (a: Position) (b: Position) (differ: a = b → Void): (a == b) = False :=
+theorem notSame ∀ (a b: Position) (differ: a = b → Void): (a == b) = False :=
   falseOf _ (same => differ (DecEq.sound same))

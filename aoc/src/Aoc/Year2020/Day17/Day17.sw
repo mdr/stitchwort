@@ -26,9 +26,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${slice.pocket (dimensions := 3) |> .boot |> .activeCount}"
   IO.print "Part 2: ${slice.pocket (dimensions := 4) |> .boot |> .activeCount}"
 
-type CubeState =
-  | Active
-  | Inactive
+type CubeState = | Active | Inactive
 
 --| How the slice writes a cube's state.
 def CubeState.symbol: CubeState → Text
@@ -61,7 +59,9 @@ def within1: List Int → List (List Int)
 --| The cubes within 1 of this one in every coordinate, other than itself:
 --| 26 in three dimensions, 80 in four.
 def Cube.neighbours (cube: Cube): List Cube :=
-  within1 cube.coordinates |> .filter (coordinates => coordinates != cube.coordinates) |> .map (coordinates => { coordinates })
+  within1 cube.coordinates
+    |> .filter (coordinates => coordinates != cube.coordinates)
+    |> .map (coordinates => { coordinates })
 
 --| The cube at a position of the slice, in `dimensions` dimensions: the
 --| column is `x`, the row `y`, and every further coordinate 0.

@@ -16,9 +16,7 @@ def named: Nat := List.length [a := Nat] [1, 2]
 def holes: List Nat := mapList [a := _] Succ [1, 2]
 
 -- Propositions can be bound automatically too: here `p q: Prop`.
-type Or (p: Prop) (q: Prop): Prop =
-  | Inl (left: p)
-  | Inr (right: q)
+type Or (p: Prop) (q: Prop): Prop = | Inl (left: p) | Inr (right: q)
 
 theorem orComm: Or p q → Or q p
   | Inl h => Inr h
@@ -40,7 +38,7 @@ theorem twoWays ∀ (n: Nat): n + 0 = 0 + n := Eq.trans (plusZeroNat n) (Eq.sym 
 def constant (x: a) [b: Type] (y: b): a := x
 
 -- A later implicit parameter, supplied by name (`Eq.cong` has `a` before `b`).
-theorem succCong ∀ (m: Nat) (n: Nat) (p: m = n): Succ m = Succ n := Eq.cong [b := Nat] Succ p
+theorem succCong ∀ (m n: Nat) (p: m = n): Succ m = Succ n := Eq.cong [b := Nat] Succ p
 
 -- A definition without patterns still has its implicit parameters in scope.
 def identity: [a: Type] → a → a := x => x

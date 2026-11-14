@@ -9,8 +9,11 @@ import Std (Nat)
 theorem guardedBound ∀ (b: Bool) (n: Nat) (hb: b = True → n ≤ 3): (b ∧ 4 <= n) = False := cases
 
 -- Two coordinates, each with a guarded fact (AoC 2021 day 5).
-theorem combineDiagonal ∀ (ax: Nat) (ay: Nat) (i: Nat) (d: Nat) (hi: i ≤ d) (bx: Bool) (by: Bool) (e: Bool)
-    (hx: bx = True → ax ≤ d) (hy: by = True → ay ≤ d) (he: e = True → d = 0):
+theorem combineDiagonal ∀ (ax ay i d: Nat)
+    (hi: i ≤ d) (bx by e: Bool)
+    (hx: bx = True → ax ≤ d)
+    (hy: by = True → ay ≤ d)
+    (he: e = True → d = 0):
     ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay) :=
   cases
 
@@ -18,4 +21,4 @@ theorem combineDiagonal ∀ (ax: Nat) (ay: Nat) (i: Nat) (d: Nat) (hi: i ≤ d) 
 theorem givenPremise ∀ (b: Bool) (n: Nat) (known: b = True) (h: b = True → n = 3): (n == 3) = True := cases
 
 -- Chained: the fact added is itself an implication whose premise holds.
-theorem chained ∀ (a: Bool) (b: Bool) (n: Nat) (h: a = True → b = True → n = 0) (ha: a = True) (hb: b = True): n = 0 := cases
+theorem chained ∀ (a b: Bool) (n: Nat) (h: a = True → b = True → n = 0) (ha: a = True) (hb: b = True): n = 0 := cases

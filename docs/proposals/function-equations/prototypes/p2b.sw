@@ -16,11 +16,13 @@ def firstBig: List Nat → Option Big
     step (Nat.leq 10 x) rfl
 
 -- `firstBig.eq2.true`
-theorem firstBigEq2True ∀ (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+theorem firstBigEq2True ∀ (x: Nat) (rest: List Nat)
+    (h: Nat.leq 10 x = True):
     firstBig (Cons x rest) = Some ({ value = x, isBig = h }) :=
   J (y e => firstBig (Cons x rest) = firstBig.step x rest y e) rfl h
 
 -- `firstBig.eq2.false`
-theorem firstBigEq2False ∀ (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = False):
+theorem firstBigEq2False ∀ (x: Nat) (rest: List Nat)
+    (h: Nat.leq 10 x = False):
     firstBig (Cons x rest) = firstBig rest :=
   J (y e => firstBig (Cons x rest) = firstBig.step x rest y e) rfl h

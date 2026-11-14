@@ -31,8 +31,12 @@ def List.tailOf: (xs: List a) → List a
 
 --| Decides whether two non-empty lists are equal, from decisions about their heads and tails.
 @[noReceiver]
-def List.decCons (x: a) (y: a) (xs: List a) (ys: List a) (headEq: Decidable (x = y)) (tailEq: Decidable (xs = ys)): Decidable ([x, ..xs] = [y, ..ys]) :=
-  Decidable.map (Decidable.and headEq tailEq)
+def List.decCons (x y: a) (xs ys: List a)
+    (headEq: Decidable (x = y))
+    (tailEq: Decidable (xs = ys)):
+    Decidable ([x, ..xs] = [y, ..ys]) :=
+  Decidable.map
+    (Decidable.and headEq tailEq)
     (pq => J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) (And.right pq)) (And.left pq))
     (e => Both (Eq.cong (.headOr x) e) (Eq.cong List.tailOf e))
 
@@ -45,8 +49,12 @@ def List.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (xs: List a) → (y
   | [x, ..xs], [y, ..ys] => List.decCons x y xs ys (d x y) (List.decEq d xs ys)
 
 --| Decides whether two pairs are equal, from decisions about their parts.
-def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b) (fstEq: Decidable (x1 = x2)) (sndEq: Decidable (y1 = y2)): Decidable (MkPair x1 y1 = MkPair x2 y2) :=
-  Decidable.map (Decidable.and fstEq sndEq)
+def Pair.decMk (x1 x2: a) (y1 y2: b)
+    (fstEq: Decidable (x1 = x2))
+    (sndEq: Decidable (y1 = y2)):
+    Decidable (MkPair x1 y1 = MkPair x2 y2) :=
+  Decidable.map
+    (Decidable.and fstEq sndEq)
     (pq => J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) (And.right pq)) (And.left pq))
     (e => Both (Eq.cong Pair.fst e) (Eq.cong Pair.snd e))
 
@@ -73,7 +81,7 @@ def Option.getOrElse: (option: Option a) → (fallback: a) → a
   | Some x, fallback => x
 
 --| Decides whether two `Some`s are equal, from a decision about their values.
-def Option.decSome (x: a) (y: a) (dec: Decidable (x = y)): Decidable (Some x = Some y) :=
+def Option.decSome (x y: a) (dec: Decidable (x = y)): Decidable (Some x = Some y) :=
   Decidable.map dec (Eq.cong Some) (Eq.cong (.getOrElse x))
 
 --| Equality of optional values, from equality of the values.

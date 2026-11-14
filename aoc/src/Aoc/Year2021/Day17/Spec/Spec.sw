@@ -36,5 +36,6 @@ def Highest (target: Target) (height: Int): Prop :=
 
 --| Part 2: there are `count` distinct velocities that hit, and no others.
 def HittingCount (target: Target) (count: Nat): Prop :=
-  ∃ (velocities: List Velocity) =>
-    List.Distinct velocities ∧ (∀ (velocity: Velocity) => Hits target velocity ↔ velocity ∈ velocities) ∧ velocities.length = count
+  ∃ (velocities: List Velocity) => List.Distinct velocities
+    ∧ (∀ (velocity: Velocity) => Hits target velocity ↔ velocity ∈ velocities)
+    ∧ velocities.length = count

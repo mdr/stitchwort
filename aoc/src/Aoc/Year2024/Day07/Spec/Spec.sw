@@ -7,7 +7,7 @@ import Std (List, Nat)
 
 --| "The concatenation operator (||) combines the digits from its left and
 --| right inputs into a single number."
-def concatenate (left: Nat) (right: Nat): Nat := Nat.fromDigits (left.digits.toList ++ right.digits.toList)
+def concatenate (left right: Nat): Nat := Nat.fromDigits (left.digits.toList ++ right.digits.toList)
 
 --| What each operator does: "add (+) and multiply (*)", and concatenation.
 def combine: Operator → Nat → Nat → Nat
@@ -31,7 +31,8 @@ def combinations (operators: List Operator): Nat → List (List Operator)
 --| "cannot be rearranged".
 def couldPossiblyBeTrue (operators: List Operator) (equation: Equation): Bool :=
   let rest := equation.numbers.tail
-  combinations operators rest.length |> .any (chosen => evaluate equation.numbers.head (chosen.zip rest) == equation.testValue)
+  combinations operators rest.length
+    |> .any (chosen => evaluate equation.numbers.head (chosen.zip rest) == equation.testValue)
 
 --| "The total calibration result, which is the sum of the test values from
 --| just the equations that could possibly be true."

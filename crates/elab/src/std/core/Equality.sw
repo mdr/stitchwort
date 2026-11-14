@@ -43,7 +43,7 @@ theorem Nat.zeroNotSucc ∀ (n: Nat): 0 ≠ Succ n
 theorem Nat.succNotZero ∀ (n: Nat): Succ n ≠ 0
   | p => Nat.zeroNotSucc n (Eq.sym p)
 
-theorem Nat.succInjective ∀ [m: Nat] [n: Nat] (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
+theorem Nat.succInjective ∀ [m n: Nat] (p: Succ m = Succ n): m = n := Eq.cong Nat.pred p
 
 --| `Unit` (true) for `False` and `Void` (false) for `True`: how `False ≠ True` is proved.
 def Bool.IsFalse: (b: Bool) → Prop
@@ -73,16 +73,14 @@ theorem Nat.equalSound ∀ (m n: Nat) (h: Nat.equal m n = True): m = n := match 
   | Succ m, Succ n => Eq.cong Succ (Nat.equalSound m n h)
 
 --| Numbers that [`Nat.equal`] says differ are different.
-theorem Nat.equalFalse ∀ (m: Nat) (n: Nat) (h: Nat.equal m n = False): m ≠ n
+theorem Nat.equalFalse ∀ (m n: Nat) (h: Nat.equal m n = False): m ≠ n
   | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))
 
 --| `Nat.equal` (what `m == n` is on `Nat`) reads as `m = n`, and as `m ≠ n`
 --| when it is `False`.
 @[reading]
-theorem Nat.equalReads ∀ (m n: Nat): Nat.equal m n ↔ m = n := {
-  forward = Nat.equalSound m n,
-  backward = h => J (y q => Nat.equal m y = True) (Nat.equalRefl m) h
-}
+theorem Nat.equalReads ∀ (m n: Nat): Nat.equal m n ↔ m = n :=
+  { forward = Nat.equalSound m n, backward = h => J (y q => Nat.equal m y = True) (Nat.equalRefl m) h }
 
 @[reading]
 theorem Nat.equalReadsFalse ∀ (m n: Nat): Nat.equal m n = False ↔ m ≠ n := {
@@ -105,7 +103,8 @@ theorem Nat.leqReads ∀ (m n: Nat): Nat.leq m n ↔ Nat.LessEq m n := { forward
 theorem Nat.leqReadsFalse ∀ (m n: Nat): Nat.leq m n = False ↔ Nat.LessThan n m := match m, n with
   | Zero, n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
   | Succ m, Zero => { forward = h => rfl, backward = h => rfl }
-  | Succ m, Succ n => { forward = h => Iff.forward (Nat.leqReadsFalse m n) h, backward = h => Iff.backward (Nat.leqReadsFalse m n) h }
+  | Succ m, Succ n =>
+    { forward = h => Iff.forward (Nat.leqReadsFalse m n) h, backward = h => Iff.backward (Nat.leqReadsFalse m n) h }
 
 --| `&&`, `||` and `not` read as the connectives
 --| (docs/proposals/bool-as-proposition.md §5): a fact `(a && b) = True` is
@@ -145,16 +144,12 @@ theorem Bool.orReadsFalse ∀ (a b: Bool): (a || b) = False ↔ a = False ∧ b 
 
 @[reading]
 theorem Bool.notReads ∀ (a: Bool): Bool.not a = True ↔ a = False := match a with
-  | True => {
-    forward = h => Void.exfalso (Bool.falseNotTrue h),
-    backward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h))
-  }
+  | True =>
+    { forward = h => Void.exfalso (Bool.falseNotTrue h), backward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)) }
   | False => { forward = h => rfl, backward = h => rfl }
 
 @[reading]
 theorem Bool.notReadsFalse ∀ (a: Bool): Bool.not a = False ↔ a = True := match a with
   | True => { forward = h => rfl, backward = h => rfl }
-  | False => {
-    forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
-    backward = h => Void.exfalso (Bool.falseNotTrue h)
-  }
+  | False =>
+    { forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)), backward = h => Void.exfalso (Bool.falseNotTrue h) }

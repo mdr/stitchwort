@@ -74,10 +74,11 @@ def sumOfIdsWrittenTwice (range: Range): Nat :=
 --| Part 2: the ids in the range written two or more times, each counted once.
 --| 111111 has templates 1×6, 2×3 and 3×2 (block length × copies); the weights cancel the repeats.
 def sumOfIdsWrittenRepeatedly (range: Range): Int :=
-  allTemplatesForRange range |> .sumBy (template =>
-    let idsTotal := RepetitionTemplate.sumIn template range
-    let weight := copiesWeight template.copies
-    weight * idsTotal.toInt)
+  allTemplatesForRange range
+    |> .sumBy (template =>
+      let idsTotal := RepetitionTemplate.sumIn template range
+      let weight := copiesWeight template.copies
+      weight * idsTotal.toInt)
 
 --| The weight of a number of copies: 1, less the weights of the divisors of
 --| `copies` from 2 to copies - 1. For copies >= 2 this is minus the Moebius
@@ -91,8 +92,10 @@ def sumOfIdsWrittenRepeatedly (range: Range): Int :=
 def copiesWeight (copies: Nat): Int
     decreasing copies
 :=
-  let divisorWeights := List.range 2 copies |> .sumBy (divisor =>
-    if h: divisor < copies then (if divisor.divides copies then copiesWeight divisor else 0) else 0)
+  let divisorWeights :=
+    List.range 2 copies
+      |> .sumBy (divisor =>
+        if h: divisor < copies then (if divisor.divides copies then copiesWeight divisor else 0) else 0)
   1 - divisorWeights
 
 --| The sum of the ids in the range whose digits are a block of the template's

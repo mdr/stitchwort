@@ -3,7 +3,6 @@
 -- `concatenate a b`, not what `concatenate a b` computes to.
 import Std (Nat)
 
-def concatenate (left: Nat) (right: Nat): Nat :=
-  Nat.fromDigits ((Nat.digits left).append (Nat.digits right)).toList
+def concatenate (left right: Nat): Nat := Nat.fromDigits ((Nat.digits left).append (Nat.digits right)).toList
 
-theorem stepsAtOnce ∀ (a: Nat) (b: Nat): (if True then concatenate a b else 0) = concatenate a b := ?
+theorem stepsAtOnce ∀ (a b: Nat): (if True then concatenate a b else 0) = concatenate a b := ?

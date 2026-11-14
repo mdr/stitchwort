@@ -19,8 +19,9 @@ def ArgumentWritten (read: List Char) (argument: Int): Prop := Parse.IntRead rea
 
 --| "acc +3": the operation, a space, and the argument.
 def InstructionWritten (read: List Char) (instruction: Instruction): Prop :=
-  ∃ (operation: List Char) => ∃ (argument: List Char) =>
-    read = operation ++ [' ', ..argument] ∧ OperationWritten operation instruction.operation ∧ ArgumentWritten argument instruction.argument
+  ∃ (operation: List Char) => ∃ (argument: List Char) => read = operation ++ [' ', ..argument]
+    ∧ OperationWritten operation instruction.operation
+    ∧ ArgumentWritten argument instruction.argument
 
 -- Running the boot code
 
@@ -38,20 +39,22 @@ def instructionAt (program: Program) (position: Int): Option Instruction := matc
 --| "the instruction immediately below it is executed next"; `jmp` "jumps
 --| to a new instruction relative to itself"; `nop` "does nothing", and
 --| "the instruction immediately below it is executed next".
-def Executes (instruction: Instruction) (before: State) (after: State): Prop := match instruction.operation with
+def Executes (instruction: Instruction) (before after: State): Prop := match instruction.operation with
   | Acc => after.accumulator = before.accumulator + instruction.argument ∧ after.next = before.next + 1
   | Jmp => after.accumulator = before.accumulator ∧ after.next = before.next + instruction.argument
   | Nop => after.accumulator = before.accumulator ∧ after.next = before.next + 1
 
 --| One step: the console executes the instruction it is at.
-def Step (program: Program) (before: State) (after: State): Prop :=
-  ∃ (instruction: Instruction) => instructionAt program before.next = Some instruction ∧ Executes instruction before after
+def Step (program: Program) (before after: State): Prop :=
+  ∃ (instruction: Instruction) => instructionAt program before.next = Some instruction
+    ∧ Executes instruction before after
 
 --| From `state`, the console executes the instructions at `positions`, in
 --| order, and is then at `last`.
 def Runs (program: Program) (state: State): (positions: List Int) → (last: State) → Prop
   | [], last => last = state
-  | [position, ..rest], last => position = state.next ∧ ∃ (after: State) => Step program state after ∧ Runs program after rest last
+  | [position, ..rest], last =>
+    position = state.next ∧ ∃ (after: State) => Step program state after ∧ Runs program after rest last
 
 -- Part 1
 
@@ -60,8 +63,10 @@ def Runs (program: Program) (state: State): (positions: List Int) → (last: Sta
 --| instruction twice, and is at one it has executed: its accumulator is
 --| `answer`.
 def Part1 (program: Program) (answer: Int): Prop :=
-  ∃ (positions: List Int) => ∃ (last: State) =>
-    Runs program start positions last ∧ List.Distinct positions ∧ last.next ∈ positions ∧ answer = last.accumulator
+  ∃ (positions: List Int) => ∃ (last: State) => Runs program start positions last
+    ∧ List.Distinct positions
+    ∧ last.next ∈ positions
+    ∧ answer = last.accumulator
 
 -- Part 2
 
@@ -69,8 +74,9 @@ def Part1 (program: Program) (answer: Int): Prop :=
 --| instruction immediately after the last instruction in the file." It
 --| does, with `accumulator`.
 def Terminates (program: Program) (accumulator: Int): Prop :=
-  ∃ (positions: List Int) => ∃ (last: State) =>
-    Runs program start positions last ∧ last.next = program.instructions.length.toInt ∧ accumulator = last.accumulator
+  ∃ (positions: List Int) => ∃ (last: State) => Runs program start positions last
+    ∧ last.next = program.instructions.length.toInt
+    ∧ accumulator = last.accumulator
 
 --| "Exactly one instruction is corrupted": `repaired` is `program` with
 --| the instruction at `index` changed from `jmp` to `nop` or from `nop` to
@@ -78,9 +84,10 @@ def Terminates (program: Program) (accumulator: Int): Prop :=
 def Repair (program: Program) (index: Nat) (repaired: Program): Prop :=
   repaired.instructions.length = program.instructions.length
     ∧ (∀ (other: Nat) => other ≠ index → repaired.instructions.get other = program.instructions.get other)
-    ∧ (∃ (argument: Int) =>
-      (program.instructions.get index = Some { operation = Jmp, argument } ∧ repaired.instructions.get index = Some { operation = Nop, argument })
-        ∨ (program.instructions.get index = Some { operation = Nop, argument } ∧ repaired.instructions.get index = Some { operation = Jmp, argument }))
+    ∧ (∃ (argument: Int) => (program.instructions.get index = Some { operation = Jmp, argument }
+      ∧ repaired.instructions.get index = Some { operation = Nop, argument })
+      ∨ (program.instructions.get index = Some { operation = Nop, argument }
+        ∧ repaired.instructions.get index = Some { operation = Jmp, argument }))
 
 --| "What is the value of the accumulator after the program terminates?"
 --| Repairing one instruction makes it terminate, with `answer`.

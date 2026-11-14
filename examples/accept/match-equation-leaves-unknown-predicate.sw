@@ -8,7 +8,9 @@ type Gate = { left: Nat, right: Nat }
 
 def Gate.ready (gate: Gate) (bound: Nat): Bool := gate.left < bound
 
-theorem keep ∀ (bound: Nat) (gate: Gate) (gates: List Gate) (kept: gate ∈ gates.filter (other => other.ready bound)): gate ∈ gates :=
+theorem keep ∀ (bound: Nat) (gate: Gate) (gates: List Gate)
+    (kept: gate ∈ gates.filter (other => other.ready bound)):
+    gate ∈ gates :=
   (List.memFilter gates _ kept).left
 
 theorem readyKept ∀ (bound: Nat) (gates: List Gate): ∀ (gate: Gate) => gate ∈ gates → gate ∈ gates :=

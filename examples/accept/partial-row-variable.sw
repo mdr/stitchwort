@@ -48,11 +48,10 @@ def parsed (t: Text): Result Nat Text := Fail.toResult (() => t.toNatOrFail)
 
 theorem parsedSeven: parsed "7" = Ok 7 := rfl
 
-def echoedOnce: Pair (List Text) () :=
-  IO.simulate ["hi"] (() =>
-    match IO.readLine() with
-      | None => ()
-      | Some line => IO.print line)
+def echoedOnce: Pair (List Text) () := IO.simulate ["hi"] (() =>
+  match IO.readLine() with
+    | None => ()
+    | Some line => IO.print line)
 
 theorem echoedOnceHi: echoedOnce = MkPair ["hi"] () := rfl
 

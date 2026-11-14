@@ -4,7 +4,7 @@ opaque def wrap (n: Nat): Nat := n
 
 def double (n: Nat): Nat := n + n
 
-opaque def wrap2 (n: Nat) (m: Nat): Nat := n
+opaque def wrap2 (n m: Nat): Nat := n
 
 theorem t1: wrap (double 2) = wrap (double 2) := rfl
 theorem t2: wrap (double 2) = wrap (double (1 + 1)) := rfl

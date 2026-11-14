@@ -20,7 +20,7 @@ import Std (List, Nat)
 
 --| A crab at `crab` moving to `position` takes as many steps as they are
 --| apart.
-def distance (crab: Nat) (position: Nat): Nat := if crab ≤ position then position - crab else crab - position
+def distance (crab position: Nat): Nat := if crab ≤ position then position - crab else crab - position
 
 --| Part 1: "each change of 1 step in horizontal position of a single crab
 --| costs 1 fuel".
@@ -37,7 +37,8 @@ def totalFuel (fuel: Nat → Nat) (crabs: List Nat) (position: Nat): Nat :=
 --| "The least fuel possible": some position costs `answer` in total, and no
 --| position costs less.
 def LeastFuel (fuel: Nat → Nat) (crabs: List Nat) (answer: Nat): Prop :=
-  (exists (position: Nat) => totalFuel fuel crabs position = answer) ∧ (∀ (position: Nat) => answer ≤ totalFuel fuel crabs position)
+  (exists (position: Nat) => totalFuel fuel crabs position = answer)
+    ∧ (∀ (position: Nat) => answer ≤ totalFuel fuel crabs position)
 
 def Part1Answer (crabs: List Nat) (answer: Nat): Prop := LeastFuel part1Fuel crabs answer
 

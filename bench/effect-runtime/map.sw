@@ -28,8 +28,7 @@ export def plain (numbers: List Nat): List Nat := List.map (x => x + 1) numbers
 export def pureMapIn (numbers: List Nat): List Nat := List.map (x => x + 1) numbers
 
 -- `map` with `State`-like effect: every element performs `next`.
-export def counted (numbers: List Nat): List Nat :=
-  Counter.number (() => List.map (x => x + Counter.next()) numbers) 0
+export def counted (numbers: List Nat): List Nat := Counter.number (() => List.map (x => x + Counter.next()) numbers) 0
 
 -- `map` with `Fail`, never failing: every element is in `{Fail}`, but no
 -- operation is performed.
@@ -43,7 +42,9 @@ export def failsLast (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
 -- Two handlers: `Fail` inside the counter, so each `next` passes through
 -- `Fail.toResult` on its way out. Fails at `limit`.
 export def countedChecked (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
-  Counter.number (() => Fail.toResult (() => List.map (x => if x < limit then x + Counter.next() else Fail.fail "limit") numbers)) 0
+  Counter.number
+    (() => Fail.toResult (() => List.map (x => if x < limit then x + Counter.next() else Fail.fail "limit") numbers))
+    0
 
 -- Many resumptions of one continuation: each element is `x` or `x + 10`, so
 -- `n` elements give `2^n` lists. For checking that the runtime resumes a

@@ -20,7 +20,7 @@ test "applied" := ((p: Person) => p.name) { name = "Ada", age = 36 } == "Ada"
 
 -- Several parameters, each in its own brackets, or grouped like a header's.
 test "multiple" :=
-  let add := (x: Nat) (y: Nat) => x + y
+  let add := (x y: Nat) => x + y
   let addGrouped := (x y: Nat) => x + y
   add 2 3 == 5 ∧ addGrouped 4 5 == 9
 
@@ -37,16 +37,13 @@ test "mixed" := mixed 1 2 == 3 ∧ mixedBack 1 2 == 3 ∧ withPair (1, 2) 3 == 6
 def inc: Nat → Nat := (n: Nat) => n + 1
 
 -- Inside `List.map` and `|>`.
-def names (people: List Person): List Text :=
-  List.map people ((p: Person) => p.name)
+def names (people: List Person): List Text := List.map people ((p: Person) => p.name)
 
-def ages (people: List Person): List Nat :=
-  people |> List.map ((p: Person) => p.age)
+def ages (people: List Person): List Nat := people |> List.map ((p: Person) => p.age)
 
 def piped (p: Person): Text := p |> (q: Person) => q.name
 
-test "map" :=
-  names [{ name = "Ada", age = 36 }, { name = "Bo", age = 20 }] == ["Ada", "Bo"]
+test "map" := names [{ name = "Ada", age = 36 }, { name = "Bo", age = 20 }] == ["Ada", "Bo"]
 
 test "pipe" := ages [{ name = "Ada", age = 36 }] == [36]
 test "pipe lambda" := piped { name = "Ada", age = 36 } == "Ada"

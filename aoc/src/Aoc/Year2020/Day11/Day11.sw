@@ -24,13 +24,12 @@ import Std (Fail, IO, Int, List, Map, Option, Parse)
 
 def main(): {IO, Fail} () :=
   let layout := parseLayout IO.readAll()
-  IO.print "Part 1: ${layout.settledOccupied adjacentRule |> .orFail "the seats didn't settle within ${roundLimit} rounds"}"
-  IO.print "Part 2: ${layout.settledOccupied layout.sightRule |> .orFail "the seats didn't settle within ${roundLimit} rounds"}"
+  IO.print
+    "Part 1: ${layout.settledOccupied adjacentRule |> .orFail "the seats didn't settle within ${roundLimit} rounds"}"
+  IO.print
+    "Part 2: ${layout.settledOccupied layout.sightRule |> .orFail "the seats didn't settle within ${roundLimit} rounds"}"
 
-type Seat =
-  | Floor
-  | Empty
-  | Occupied
+type Seat = | Floor | Empty | Occupied
 
 --| How the layout writes a seat.
 def Seat.symbol: Seat → Text
@@ -70,7 +69,8 @@ def adjacentRule: Rule := { inView = _ at => at.around, tolerance = 4 }
 --| The first seat from `from` in `direction`, `distance` steps away or
 --| further, past any floor; none if the edge comes first, or after
 --| `steps` more steps.
-def firstSeat (find: Position → Option Seat) (from: Position) (direction: Offset) (distance: Nat): (steps: Nat) → Option Position
+def firstSeat (find: Position → Option Seat) (from: Position) (direction: Offset) (distance: Nat):
+    (steps: Nat) → Option Position
   | Zero => None
   | Succ more =>
     match from.offset (direction.times distance.toInt) with
@@ -86,11 +86,14 @@ def firstSeat (find: Position → Option Seat) (from: Position) (direction: Offs
 --| height plus its width steps.
 def Layout.sightRule (layout: Layout): Rule :=
   let reach := layout.grid.height + layout.grid.width
-  { inView = find at => compass.filterMap (direction => firstSeat find at direction (distance := 1) (steps := reach)), tolerance = 5 }
+  {
+    inView = find at => compass.filterMap (direction => firstSeat find at direction (distance := 1) (steps := reach)),
+    tolerance = 5
+  }
 
 --| The seat after a round, with `occupiedInView` of the seats it looks at
 --| occupied.
-def Seat.next (seat: Seat) (occupiedInView: Nat) (tolerance: Nat): Seat := match seat with
+def Seat.next (seat: Seat) (occupiedInView tolerance: Nat): Seat := match seat with
   | Floor => Floor
   | Empty => if occupiedInView == 0 then Occupied else Empty
   | Occupied => if tolerance <= occupiedInView then Empty else Occupied
@@ -106,13 +109,17 @@ type Plan = { inView: Position → List Position, tolerance: Nat }
 --| seats; off the layout, nothing.
 def Rule.planFor (rule: Rule) (layout: Layout): Plan :=
   let find := layout.grid.lookup
-  let looks := (at: Position) (here: Seat) => if here.isSeat then rule.inView find at |> .filter (near => (find near).any (.isSeat)) else []
+  let looks := (at: Position) (here: Seat) =>
+    if here.isSeat then rule.inView find at |> .filter (near => (find near).any (.isSeat)) else []
   { inView = layout.grid.map looks |> .lookupOr [], tolerance = rule.tolerance }
 
 --| Every seat changes at once, by what was in view before the round.
 def Layout.round (layout: Layout) (plan: Plan): Layout :=
   let find := layout.grid.lookup
-  { grid = layout.grid.map (at here => here.next ((plan.inView at).count (near => find near == Some Occupied)) plan.tolerance) }
+  {
+    grid = layout.grid.map (at here =>
+      here.next ((plan.inView at).count (near => find near == Some Occupied)) plan.tolerance)
+  }
 
 --| How many rounds to run before giving up.
 def roundLimit: Nat := 1000
@@ -126,4 +133,5 @@ def Layout.settle (layout: Layout) (plan: Plan): (rounds: Nat) → Option Layout
     if next == layout then Some layout else next.settle plan more
 
 --| The occupied seats once the rounds settle.
-def Layout.settledOccupied (layout: Layout) (rule: Rule): Option Nat := layout.settle (rule.planFor layout) roundLimit |> .map (.occupied)
+def Layout.settledOccupied (layout: Layout) (rule: Rule): Option Nat :=
+  layout.settle (rule.planFor layout) roundLimit |> .map (.occupied)

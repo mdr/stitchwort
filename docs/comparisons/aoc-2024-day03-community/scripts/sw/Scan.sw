@@ -4,7 +4,7 @@ namespace Scratch.Scan
 import Std (Bool, IO, List, Nat, Option, Text)
 
 -- One to three digits, then what follows them.
-def number (value: Nat) (count: Nat): List Char → Option (Nat, List Char)
+def number (value count: Nat): List Char → Option (Nat, List Char)
   | Cons char rest =>
     match char.digitValue with
       | Some digit => if count < 3 then number (value * 10 + digit) (count + 1) rest else None
@@ -23,7 +23,7 @@ def mulArgs (chars: List Char): Option Nat := match number 0 0 chars with
 -- next character, not from the match's end: nothing can start inside
 -- `mul(1,2)`, `do()` or `don't()`, and recursing on `rest` is what the
 -- termination checker accepts without fuel.
-def scan (enabled: Bool) (part1: Nat) (part2: Nat): List Char → (Nat, Nat)
+def scan (enabled: Bool) (part1 part2: Nat): List Char → (Nat, Nat)
   | Nil => (part1, part2)
   | Cons char rest =>
     match Text.stripPrefixChars "mul(".toList (Cons char rest) with

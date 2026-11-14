@@ -46,8 +46,7 @@ export def twiceDoubled (n: Nat): Nat := twice double n
 -- is empty.
 def parse (text: Text): {Fail} Nat := Fail.need text.toNat "not a number: ${text}"
 
-export def parsed (texts: List Text): Result (List Nat) Text :=
-  Fail.toResult (() => List.map texts parse)
+export def parsed (texts: List Text): Result (List Nat) Text := Fail.toResult (() => List.map texts parse)
 
 -- A handler with an open row, used at the empty row.
 ability Count where

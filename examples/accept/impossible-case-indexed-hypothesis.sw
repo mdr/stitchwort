@@ -4,18 +4,13 @@
 
 import Std (Nat)
 
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 -- Numbers below `n`.
-type Fin: Nat → Type =
-  | FZero: Fin (Succ n)
-  | FSucc (i: Fin n): Fin (Succ n)
+type Fin: Nat → Type = | FZero: Fin (Succ n) | FSucc (i: Fin n): Fin (Succ n)
 
 -- `VNil` is left out: `i` would be a `Fin 0`. Only `v` is matched.
-def first (v: Vec a n) (i: Fin n): a := match v with
-  | VCons x _ => x
+def first (v: Vec a n) (i: Fin n): a := match v with | VCons x _ => x
 
 -- As arms.
 def get: (v: Vec a n) -> Fin n -> a

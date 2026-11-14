@@ -7,12 +7,9 @@ import Std (Bool, IO, List, Nat, Option, Text)
 
 type Grid = { rows: List (List Char) }
 
-def letterAt (grid: Grid) (r: Nat) (c: Nat): Option Char := grid.rows.getOr r [] |> .get c
+def letterAt (grid: Grid) (r c: Nat): Option Char := grid.rows.getOr r [] |> .get c
 
-type Step =
-  | Back
-  | Stay
-  | Ahead
+type Step = | Back | Stay | Ahead
 
 type Direction = { down: Step, across: Step }
 
@@ -32,25 +29,24 @@ def moved (start: Nat) (step: Step) (distance: Nat): Option Nat := match step wi
   | Stay => Some start
   | Ahead => Some (start + distance)
 
-def letterAlong (grid: Grid) (r: Nat) (c: Nat) (direction: Direction) (distance: Nat): Option Char :=
+def letterAlong (grid: Grid) (r c: Nat) (direction: Direction) (distance: Nat): Option Char :=
   match moved r direction.down distance, moved c direction.across distance with
     | Some row, Some column => letterAt grid row column
     | _, _ => None
 
-def spells (word: List Char) (grid: Grid) (r: Nat) (c: Nat) (direction: Direction): Bool :=
+def spells (word: List Char) (grid: Grid) (r c: Nat) (direction: Direction): Bool :=
   List.range 0 word.length |> .all (distance => letterAlong grid r c direction distance == word.get distance)
 
 def countPositions (grid: Grid) (p: Nat → Nat → Nat): Nat :=
   List.range 0 grid.rows.length |> .sumBy (r => List.range 0 (grid.rows.getOr r []).length |> .sumBy (c => p r c))
 
-def part1Spec (grid: Grid): Nat :=
-  countPositions grid (r c => directions.count (spells ['X', 'M', 'A', 'S'] grid r c))
+def part1Spec (grid: Grid): Nat := countPositions grid (r c => directions.count (spells ['X', 'M', 'A', 'S'] grid r c))
 
-def masThrough (grid: Grid) (r: Nat) (c: Nat) (start: Direction) (end: Direction): Bool :=
+def masThrough (grid: Grid) (r c: Nat) (start end: Direction): Bool :=
   let letters := [letterAlong grid r c start 1, letterAt grid r c, letterAlong grid r c end 1]
   letters == [Some 'M', Some 'A', Some 'S'] ∨ letters == [Some 'S', Some 'A', Some 'M']
 
-def crossAt (grid: Grid) (r: Nat) (c: Nat): Bool :=
+def crossAt (grid: Grid) (r c: Nat): Bool :=
   masThrough grid r c { down = Back, across = Back } { down = Ahead, across = Ahead }
     ∧ masThrough grid r c { down = Back, across = Ahead } { down = Ahead, across = Back }
 

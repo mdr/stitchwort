@@ -11,8 +11,7 @@
 --| scalar values; nothing is normalised, so `"\u{E9}"` and `"e\u{301}"` are
 --| different texts. Code that goes through [`Text.toList`] and [`Text.fromList`]
 --| and their lemmas, rather than `MkText`, won't depend on the representation.
-type Text: Type =
-  | MkText (chars: List Char)
+type Text: Type = | MkText (chars: List Char)
 
 --| The characters of the text, in order.
 def Text.toList: (text: Text) → List Char
@@ -21,33 +20,32 @@ def Text.toList: (text: Text) → List Char
 --| The text of the characters, in order; [`Text.toList`] undoes it (`Text.toFromList`).
 def Text.fromList (cs: List Char): Text := MkText cs
 
-theorem Text.fromToList ∀ (t: Text): Text.fromList (Text.toList t) = t := match t with
-  | MkText cs => rfl
+theorem Text.fromToList ∀ (t: Text): Text.fromList (Text.toList t) = t := match t with | MkText cs => rfl
 
 --| `a ++ b`: the characters of `a`, then those of `b` (`Text.lengthAppend`).
-def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
+def Text.append (a b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
 --| A decision whether two texts are equal, from one on their characters: its
 --| test is theirs.
-def Text.decEqFrom (a: Text) (b: Text) (listEq: Decidable (Text.toList a = Text.toList b)): Decidable (a = b) :=
+def Text.decEqFrom (a b: Text) (listEq: Decidable (Text.toList a = Text.toList b)): Decidable (a = b) :=
   Decidable.map listEq
     (p => Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
     (Eq.cong Text.toList)
 
 --| Decides whether two texts are equal, character by character.
-def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
+def Text.decEq (a b: Text): Decidable (a = b) :=
+  Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
 
 --| Lists of characters compared lexicographically, by scalar value.
 def Text.compareChars: (xs: List Char) → (ys: List Char) → Ordering
   | [], [] => Equal
   | [], [y, ..ys] => Less
   | [x, ..xs], [] => Greater
-  | [x, ..xs], [y, ..ys] =>
-    Ordering.andThen (Nat.compare (Char.toNat x) (Char.toNat y)) (Text.compareChars xs ys)
+  | [x, ..xs], [y, ..ys] => Ordering.andThen (Nat.compare (Char.toNat x) (Char.toNat y)) (Text.compareChars xs ys)
 
 --| How `a` compares with `b`, lexicographically by scalar value: `"ab"` is `Less` than `"b"`. (Not JavaScript's order, which compares
 --| UTF-16 code units: there, "\u{10000}" sorts before "\u{E000}".)
-def Text.compare (a: Text) (b: Text): Ordering := Text.compareChars (Text.toList a) (Text.toList b)
+def Text.compare (a b: Text): Ordering := Text.compareChars (Text.toList a) (Text.toList b)
 
 -- Numbers as text
 

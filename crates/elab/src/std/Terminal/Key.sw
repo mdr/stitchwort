@@ -100,19 +100,30 @@ theorem Key.fromParts ∀ (key: Key): Key.ofParts (Key.position key) (Key.charOr
   | Ctrl letter => rfl
   | Unknown => rfl
 
-theorem Key.ofPartsCong ∀ (p: Nat) (q: Nat) (c: Char) (d: Char) (samePosition: p = q) (sameChar: c = d): Key.ofParts p c = Key.ofParts q d :=
+theorem Key.ofPartsCong ∀ (p q: Nat) (c d: Char)
+    (samePosition: p = q)
+    (sameChar: c = d):
+    Key.ofParts p c = Key.ofParts q d :=
   rewrite samePosition, sameChar in rfl
 
-theorem Key.partsInjective ∀ (a: Key) (b: Key) (samePosition: Key.position a = Key.position b) (sameChar: Key.charOrSpace a = Key.charOrSpace b): a = b :=
-  Eq.trans (Eq.sym (Key.fromParts a))
-    (Eq.trans (Key.ofPartsCong (Key.position a) (Key.position b) (Key.charOrSpace a) (Key.charOrSpace b) samePosition sameChar) (Key.fromParts b))
+theorem Key.partsInjective ∀ (a b: Key)
+    (samePosition: Key.position a = Key.position b)
+    (sameChar: Key.charOrSpace a = Key.charOrSpace b):
+    a = b :=
+  Eq.trans
+    (Eq.sym (Key.fromParts a))
+    (Eq.trans
+      (Key.ofPartsCong (Key.position a) (Key.position b) (Key.charOrSpace a) (Key.charOrSpace b) samePosition sameChar)
+      (Key.fromParts b))
 
-instance Key.instDecEq: DecEq Key :=
-  { decide = a b =>
+instance Key.instDecEq: DecEq Key := {
+  decide = a b =>
     if samePosition: Key.position a = Key.position b then
-      if sameChar: Key.charOrSpace a = Key.charOrSpace b then Decidable.yes (Key.partsInjective a b samePosition sameChar)
+      if sameChar: Key.charOrSpace a = Key.charOrSpace b then
+        Decidable.yes (Key.partsInjective a b samePosition sameChar)
       else Decidable.no (e => sameChar (Eq.cong Key.charOrSpace e))
-    else Decidable.no (e => samePosition (Eq.cong Key.position e)) }
+    else Decidable.no (e => samePosition (Eq.cong Key.position e))
+}
 
 --| What decoding the front of some bytes gives.
 type Key.Decoded: Type =
@@ -155,9 +166,7 @@ def Key.ofAscii (byte: Nat): Key :=
 def Key.afterEscape: (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
-    if byte == 91 then Key.csi [] rest
-    else if byte == 79 then Key.ss3 rest
-    else Got Escape [byte, ..rest]
+    if byte == 91 then Key.csi [] rest else if byte == 79 then Key.ss3 rest else Got Escape [byte, ..rest]
 
 --| After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
 --| reverse, then a final byte (64 to 126). Any other byte ends the sequence
@@ -215,13 +224,11 @@ def Key.utf8Lead (lead: Nat) (rest: List Nat): Key.Decoded :=
 --| that isn't a continuation ends the character as `Unknown`, and starts the
 --| next key.
 @[tailrec]
-def Key.utf8More (minimum: Nat) (code: Nat): (remaining: Nat) → (bytes: List Nat) → Key.Decoded
-  | 0, rest =>
-    if code < minimum then Got Unknown rest else Got (Option.fold (Char.fromNat code) Unknown Printable) rest
+def Key.utf8More (minimum code: Nat): (remaining: Nat) → (bytes: List Nat) → Key.Decoded
+  | 0, rest => if code < minimum then Got Unknown rest else Got (Option.fold (Char.fromNat code) Unknown Printable) rest
   | Succ count, [] => Incomplete
   | Succ count, [byte, ..rest] =>
-    if 128 ≤ byte ≤ 191 then Key.utf8More minimum (code * 64 + (byte - 128)) count rest
-    else Got Unknown [byte, ..rest]
+    if 128 ≤ byte ≤ 191 then Key.utf8More minimum (code * 64 + (byte - 128)) count rest else Got Unknown [byte, ..rest]
 
 --| The bytes a terminal sends for a key: what `Key.next` reads back
 --| ([`Key.nextBytes`]). A `Ctrl` with something other than a lower-case
@@ -271,7 +278,9 @@ def Key.isNamed: (key: Key) → Bool
   | Ctrl letter => False
   | _ => True
 
-theorem Key.nextBytes ∀ (rest: List Nat) (key: Key) (h: Key.isNamed key = True): Key.next (List.append (Key.bytes key) rest) = Got key rest :=
+theorem Key.nextBytes ∀ (rest: List Nat) (key: Key)
+    (h: Key.isNamed key = True):
+    Key.next (List.append (Key.bytes key) rest) = Got key rest :=
   match key with
     | Enter => rfl
     | Tab => rfl
@@ -290,7 +299,9 @@ theorem Key.nextBytes ∀ (rest: List Nat) (key: Key) (h: Key.isNamed key = True
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
 --| the end of the bytes is `Incomplete` (the handler decides).
 -- (§3.2)
-theorem Key.nextEscape ∀ (byte: Nat) (rest: List Nat) (notCsi: (byte == 91) = False) (notSs3: (byte == 79) = False):
+theorem Key.nextEscape ∀ (byte: Nat) (rest: List Nat)
+    (notCsi: (byte == 91) = False)
+    (notSs3: (byte == 79) = False):
     Key.next (List.append (Key.bytes Escape) [byte, ..rest]) = Got Escape [byte, ..rest] :=
   rewrite notCsi, notSs3 in rfl
 
@@ -301,15 +312,17 @@ test "Key: letters, arrows, Ctrl, Enter" :=
   Key.all [97, 27, 91, 65, 1, 13, 113] == [Printable 'a', Up, Ctrl 'a', Enter, Printable 'q']
 test "Key: space and the printable ends" := Key.all [32, 33, 126] == [Printable ' ', Printable '!', Printable '~']
 test "Key: control bytes" :=
-  Key.all [13, 10, 9, 127, 8, 26, 0, 28, 31] == [Enter, Enter, Tab, Backspace, Backspace, Ctrl 'z', Unknown, Unknown, Unknown]
+  Key.all [13, 10, 9, 127, 8, 26, 0, 28, 31]
+    == [Enter, Enter, Tab, Backspace, Backspace, Ctrl 'z', Unknown, Unknown, Unknown]
 test "Key: piped CR LF is two Enters" := Key.all [13, 10] == [Enter, Enter]
 test "Key: the CSI arrows, Home and End" :=
   Key.all [27, 91, 65, 27, 91, 66, 27, 91, 67, 27, 91, 68, 27, 91, 72, 27, 91, 70] == [Up, Down, Right, Left, Home, End]
 test "Key: the SS3 arrows, Home and End" :=
   Key.all [27, 79, 65, 27, 79, 66, 27, 79, 67, 27, 79, 68, 27, 79, 72, 27, 79, 70] == [Up, Down, Right, Left, Home, End]
 test "Key: the tilde keys" :=
-  Key.all [27, 91, 51, 126, 27, 91, 53, 126, 27, 91, 54, 126, 27, 91, 49, 126, 27, 91, 52, 126, 27, 91, 55, 126, 27, 91, 56, 126] ==
-    [Delete, PageUp, PageDown, Home, End, Home, End]
+  Key.all [27, 91, 51, 126, 27, 91, 53, 126, 27, 91, 54, 126, 27, 91, 49, 126, 27, 91, 52, 126, 27, 91, 55, 126, 27, 91,
+    56, 126]
+    == [Delete, PageUp, PageDown, Home, End, Home, End]
 test "Key: ESC then a letter is Escape, then the letter" := Key.all [27, 120] == [Escape, Printable 'x']
 test "Key: ESC ESC [ A is Escape, then Up" := Key.all [27, 27, 91, 65] == [Escape, Up]
 test "Key: a lone ESC is incomplete" := Key.next [27] |> matches | Incomplete
@@ -324,10 +337,12 @@ test "Key: UTF-8 of each length" :=
   Key.all [195, 169, 226, 130, 172, 240, 159, 152, 128] == [Printable 'é', Printable '€', Printable '😀']
 test "Key: a UTF-8 character cut off is incomplete" := Key.next [226, 130] |> matches | Incomplete
 test "Key: bad UTF-8 bytes are Unknown" :=
-  Key.all [255, 128, 192, 175, 195, 120, 237, 160, 128, 244, 144, 128, 128, 224, 128, 128] ==
-    [Unknown, Unknown, Unknown, Unknown, Unknown, Printable 'x', Unknown, Unknown, Unknown]
+  Key.all [255, 128, 192, 175, 195, 120, 237, 160, 128, 244, 144, 128, 128, 224, 128, 128]
+    == [Unknown, Unknown, Unknown, Unknown, Unknown, Printable 'x', Unknown, Unknown, Unknown]
 test "Key: bytes of every named key decode back" :=
-  List.all [Enter, Tab, Backspace, Delete, Up, Down, Left, Right, Home, End, PageUp, PageDown, Unknown] (key => Key.all (Key.bytes key) == [key])
+  List.all [Enter, Tab, Backspace, Delete, Up, Down, Left, Right, Home, End, PageUp, PageDown, Unknown] (key =>
+    Key.all (Key.bytes key) == [key])
 test "Key: bytes of characters and Ctrl decode back" :=
-  List.all [Printable 'a', Printable 'é', Printable '€', Printable '😀', Ctrl 'a', Ctrl 'c', Ctrl 'z'] (key => Key.all (Key.bytes key) == [key])
+  List.all [Printable 'a', Printable 'é', Printable '€', Printable '😀', Ctrl 'a', Ctrl 'c', Ctrl 'z'] (key =>
+    Key.all (Key.bytes key) == [key])
 test "Key: Ctrl with a letter that is also a named key" := Key.all (Key.bytes (Ctrl 'm')) == [Enter]

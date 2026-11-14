@@ -114,12 +114,13 @@ def addAll: List Nat → Nat → Nat
 test "arm" := addAll [1, 2, 3] 4 == 10
 
 -- Inside a `match` alternative.
-def inMatch (n: Nat) (m: Nat): Nat :=
-  1 + match n with
-    | Zero => 0
-    | Succ k =>
-      def times (j: Nat): Nat := j * m
-      times k
+def inMatch (n m: Nat): Nat :=
+  1
+    + match n with
+      | Zero => 0
+      | Succ k =>
+        def times (j: Nat): Nat := j * m
+        times k
 
 test "inMatch" := inMatch 3 5 == 11
 
@@ -127,9 +128,11 @@ test "inMatch" := inMatch 3 5 == 11
 def withMatch (xs: List Nat): Nat :=
   def go: List Nat → Nat
     | [] => 0
-    | [x, ..rest] => 2 * (match x with
-      | Zero => 1
-      | Succ _ => go rest)
+    | [x, ..rest] =>
+      2
+        * (match x with
+          | Zero => 1
+          | Succ _ => go rest)
   go xs
 
 test "withMatch" := withMatch [1, 2, 0] == 8

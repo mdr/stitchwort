@@ -24,9 +24,7 @@
 namespace Aoc.Year2025.Day04
 import Std (Fail, IO, Option, Result, Vec)
 
-type Cell =
-  | Roll
-  | Floor
+type Cell = | Roll | Floor
 
 --| How many rolls a cell holds.
 def Cell.count: Cell → Nat
@@ -55,10 +53,9 @@ def parseGrid (lines: List Text): Result Grid Text := match findStray lines with
 
 --| The line and column (both from 1) of the first character that is neither
 --| @ nor ., and the character.
-def findStray (lines: List Text): Option (Nat, Nat, Char) :=
-  lines.withIndex.findMap (((rowIndex, line)) =>
-    line.toList.withIndex.findMap (((columnIndex, ch)) =>
-      if ch == '@' ∨ ch == '.' then None else Some (rowIndex + 1, columnIndex + 1, ch)))
+def findStray (lines: List Text): Option (Nat, Nat, Char) := lines.withIndex.findMap (((rowIndex, line)) =>
+  line.toList.withIndex.findMap (((columnIndex, ch)) =>
+    if ch == '@' ∨ ch == '.' then None else Some (rowIndex + 1, columnIndex + 1, ch)))
 
 --| `None` if the lines are not all as long as the first.
 def Grid.of (lines: List Text): Option Grid :=
@@ -89,7 +86,8 @@ def roundRows (rows: Vec (Vec Cell w) h): Vec (Vec Cell w) h := rows.around (Vec
 --| add the three rows column by column, then each column's sum to its
 --| neighbours' (the window of 3 by 3 cells).
 def peelRow (above row below: Vec Cell w): Vec Cell w :=
-  let columns := above.zipWith3 row below (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count)
+  let columns :=
+    above.zipWith3 row below (aboveCell rowCell belowCell => aboveCell.count + rowCell.count + belowCell.count)
   let windows := columns.around 0 (left here right => left + here + right)
   row.zipWith windows (roll window => if roll == Roll ∧ 5 ≤ window then Roll else Floor)
 

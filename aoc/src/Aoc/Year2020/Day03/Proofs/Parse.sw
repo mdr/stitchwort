@@ -25,19 +25,24 @@ theorem symbolOfChar ∀ (char: Char) (allowed: isSquare char = True): symbol (S
         | True => Eq.sym open.read
 
 theorem readsSquare: Parse.Reads square (read square => read = [symbol square]) :=
-  Parse.readsWeaken [p := square]
+  Parse.readsWeaken
+    [p := square]
     (Parse.readsMap (() => Parse.satisfy "'.' or '#'" isSquare) Square.ofChar _ (Parse.readsSatisfy))
     (read square h =>
-      match h with
-        | Witness char (Both (Both one allowed) made) => rewrite made, one, symbolOfChar char allowed in rfl)
+      match h with | Witness char (Both (Both one allowed) made) => rewrite made, one, symbolOfChar char allowed in rfl)
 
 --| Every line of the input is its row of the map written out.
-theorem parseWritten ∀ (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
+theorem parseWritten ∀ (input: Text) (map: Grid Square)
+    (parsed: Fail.toResult (() => parseMap input) = Ok map):
     List.All2 (line row => line = row.map symbol) (input.lines.map Text.toList) map.rows :=
-  let split := rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 square |> .toList)) checkGrid at parsed
+  let split :=
+    rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 square |> .toList)) checkGrid at parsed
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) map split (rows read checked =>
     rewrite <- checkGridRows rows map checked in
-      Parse.eachLineReads input (() => Parse.many1 square |> .toList) _ rows read
+      Parse.eachLineReads input
+        (() => Parse.many1 square |> .toList) _
+        rows
+        read
         (Parse.readsWeaken
           (Parse.readsMap (() => Parse.many1 square) NonEmptyList.toList _ (Parse.readsMany1 square _ readsSquare))
           (line values h =>
@@ -45,7 +50,8 @@ theorem parseWritten ∀ (input: Text) (map: Grid Square) (parsed: Fail.toResult
               | Witness squares (Both each same) => rewrite same in Parse.eachChars symbol line squares.toList each)))
 
 --| On any input the parser reads, both answers are the puzzle's.
-theorem answersCorrect ∀ (input: Text) (map: Grid Square) (parsed: Fail.toResult (() => parseMap input) = Ok map):
+theorem answersCorrect ∀ (input: Text) (map: Grid Square)
+    (parsed: Fail.toResult (() => parseMap input) = Ok map):
     solvePart1 map = part1Answer map ∧ solvePart2 map = part2Answer map :=
   let rectangle := (isRectangleIff map).backward (And.left (parseGridRectangle input square map parsed))
   Both (part1Correct map rectangle) (part2Correct map rectangle)

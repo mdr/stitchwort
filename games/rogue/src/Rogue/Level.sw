@@ -18,14 +18,19 @@ def deepest: Nat := 3
 type Area = { corner: Position, down: Nat, across: Nat }
 
 def Area.contains (area: Area) (position: Position): Bool :=
-  area.corner.row ≤ position.row ≤ area.corner.row + area.down ∧ area.corner.column ≤ position.column ≤ area.corner.column + area.across
+  area.corner.row ≤ position.row ≤ area.corner.row + area.down
+    ∧ area.corner.column ≤ position.column ≤ area.corner.column + area.across
 
 --| The middle cell (or the one just above or left of the middle).
-def Area.middle (area: Area): Position := { row = area.corner.row + area.down / 2, column = area.corner.column + area.across / 2 }
+def Area.middle (area: Area): Position :=
+  { row = area.corner.row + area.down / 2, column = area.corner.column + area.across / 2 }
 
 --| The area and a border one cell wide: where a room's walls are drawn.
-def Area.withWalls (area: Area): Area :=
-  { corner = { row = area.corner.row - 1, column = area.corner.column - 1 }, down = area.down + 2, across = area.across + 2 }
+def Area.withWalls (area: Area): Area := {
+  corner = { row = area.corner.row - 1, column = area.corner.column - 1 },
+  down = area.down + 2,
+  across = area.across + 2
+}
 
 --| One level: the player arrives in the middle of the `entrance`, and the
 --| way on (the stairs, or the amulet on the deepest level) is in the middle
@@ -48,14 +53,17 @@ def Level.goal (level: Level): Position := level.exit.middle
 --| The entrance comes first, so the start is floor on every level, however
 --| the level was made (Proofs/Level.sw).
 def isFloor (level: Level) (position: Position): Bool :=
-  level.entrance.contains position ∨ level.exit.contains position ∨ level.rooms.any (.contains position) ∨ level.corridors.any (.contains position)
+  level.entrance.contains position
+    ∨ level.exit.contains position
+    ∨ level.rooms.any (.contains position)
+    ∨ level.corridors.any (.contains position)
 
 def isWall (level: Level) (position: Position): Bool := ¬isFloor level position
 
 --| Every level but the deepest has stairs down, at its goal.
 def isStairs (level: Level) (position: Position): Bool := level.depth < deepest ∧ position == level.goal
 
-def Level.build (depth: Nat) (entrance: Area) (exit: Area) (rooms: List Area) (corridors: List Area): Level :=
+def Level.build (depth: Nat) (entrance exit: Area) (rooms corridors: List Area): Level :=
   let undrawn: Level := { depth, entrance, exit, rooms, corridors, terrain = [] }
   { undrawn | terrain = drawTerrain undrawn }
 

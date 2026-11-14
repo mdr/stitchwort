@@ -9,7 +9,8 @@ import Std (Fin, List, Nat, Option)
 
 --| The puzzle's map: a rectangle of risk levels, with at least one. (The
 --| parser guarantees it; Proofs/Parse.sw.)
-def Rectangle (cave: Cave): Prop := 0 < cave.width ∧ (∀ (row: List (Fin 10)) => row ∈ cave.grid.rows → row.length = cave.width)
+def Rectangle (cave: Cave): Prop :=
+  0 < cave.width ∧ (∀ (row: List (Fin 10)) => row ∈ cave.grid.rows → row.length = cave.width)
 
 --| The risk level at a position: the digit in that row and column. A
 --| position off the map has none.
@@ -22,7 +23,7 @@ def topLeft: Position := { row = 0, column = 0 }
 
 --| "Your destination is the bottom right position", of a map `height`
 --| rows by `width` columns.
-def bottomRight (height: Nat) (width: Nat): Position := { row = height - 1, column = width - 1 }
+def bottomRight (height width: Nat): Position := { row = height - 1, column = width - 1 }
 
 --| A path through a map whose levels are `levels`: the positions it
 --| enters, in turn, from `from` to `to`. "You can't move diagonally": each
@@ -34,7 +35,8 @@ def isPath (levels: Position → Option Nat) (from: Position) (steps: List Posit
 --| "The total risk of a path is the sum of the risk levels of each position
 --| you enter (that is, don't count the risk level of your starting position
 --| unless you enter it)."
-def totalRisk (levels: Position → Option Nat) (steps: List Position): Nat := steps.sumBy (position => (levels position).getOrElse 0)
+def totalRisk (levels: Position → Option Nat) (steps: List Position): Nat :=
+  steps.sumBy (position => (levels position).getOrElse 0)
 
 --| "The lowest total risk of any path from the top left to the bottom
 --| right": some path from `topLeft` to `target` has total risk `answer`,
@@ -44,7 +46,8 @@ def LowestRisk (levels: Position → Option Nat) (target: Position) (answer: Nat
     ∧ (∀ (steps: List Position) => isPath levels topLeft steps target = True → answer ≤ totalRisk levels steps)
 
 --| Part 1: the lowest total risk through the cave.
-def Part1Answer (cave: Cave) (answer: Nat): Prop := LowestRisk (levelAt cave) (bottomRight cave.height cave.width) answer
+def Part1Answer (cave: Cave) (answer: Nat): Prop :=
+  LowestRisk (levelAt cave) (bottomRight cave.height cave.width) answer
 
 --| "Each time the tile repeats to the right or downward, all of its risk
 --| levels are 1 higher than the tile immediately up or left of it.
@@ -69,4 +72,5 @@ def tiledLevelAt (cave: Cave) (position: Position): Option Nat :=
   else None
 
 --| Part 2: the lowest total risk through the full cave.
-def Part2Answer (cave: Cave) (answer: Nat): Prop := LowestRisk (tiledLevelAt cave) (bottomRight (5 * cave.height) (5 * cave.width)) answer
+def Part2Answer (cave: Cave) (answer: Nat): Prop :=
+  LowestRisk (tiledLevelAt cave) (bottomRight (5 * cave.height) (5 * cave.width)) answer

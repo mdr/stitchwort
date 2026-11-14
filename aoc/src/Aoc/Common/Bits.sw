@@ -41,4 +41,4 @@ def Bits.afterBit (number: Bits) (bit: Bool): Option Bits := match number.bits w
   | [first, ..rest] => if first == bit then Some { bits = rest } else None
 
 --| `number` followed by `other`'s bits, as one number.
-def Bits.append (number: Bits) (other: Bits): Bits := { bits = number.bits ++ other.bits }
+def Bits.append (number other: Bits): Bits := { bits = number.bits ++ other.bits }

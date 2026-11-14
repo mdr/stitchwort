@@ -22,8 +22,7 @@ def Env.give (value: Nat) (prog: () -> {Env} a): a :=
     | return x => x
     | Env.ask u, k => k value
 
-export def asked (numbers: List Nat): List Nat :=
-  Env.give 7 (() => List.map (x => x + Env.ask()) numbers)
+export def asked (numbers: List Nat): List Nat := Env.give 7 (() => List.map (x => x + Env.ask()) numbers)
 
 -- A writer that collects what is emitted: the clause uses the
 -- continuation's result (not a tail call).
@@ -35,19 +34,17 @@ def Emit.collect (prog: () -> {Emit} a): List Nat :=
     | return x => []
     | Emit.emit v, k => Cons v (k ())
 
-export def emitted (numbers: List Nat): List Nat :=
-  Emit.collect (() => List.map (x => Emit.emit x) numbers)
+export def emitted (numbers: List Nat): List Nat := Emit.collect (() => List.map (x => Emit.emit x) numbers)
 
 -- A reader inside a `Fail` handler: `ask` is forwarded through
 -- `Fail.toResult` on its way out.
-export def askedChecked (numbers: List Nat): Result (List Nat) Text :=
-  Env.give 7 (() => Fail.toResult (() => List.map (x => if x < 100000000 then x + Env.ask() else Fail.fail "big") numbers))
+export def askedChecked (numbers: List Nat): Result (List Nat) Text := Env.give 7 (() =>
+  Fail.toResult (() => List.map (x => if x < 100000000 then x + Env.ask() else Fail.fail "big") numbers))
 
 -- A search whose path is as long as the list: every element forks once and
 -- one branch stops at once, so there is one result but `n` resumptions
 -- nested inside one another (`Each.both` calls `k True` before `k False`).
-export def searched (numbers: List Nat): List (List Nat) :=
-  Each.collect (() => List.map (x => Each.each [x]) numbers)
+export def searched (numbers: List Nat): List (List Nat) := Each.collect (() => List.map (x => Each.each [x]) numbers)
 
 -- The same three handlers with an ability left over (`Fail`, handled
 -- outside): the handler's result is then a computation, and its clauses are
@@ -62,14 +59,14 @@ def Emit.collectIn (prog: () -> {Emit | e} a): {e} List Nat :=
     | return x => []
     | Emit.emit v, k => Cons v (k ())
 
-export def askedIn (numbers: List Nat): Result (List Nat) Text :=
-  Fail.toResult (() => Env.giveIn 7 (() => List.map (x => if x < 100000000 then x + Env.ask() else Fail.fail "big") numbers))
+export def askedIn (numbers: List Nat): Result (List Nat) Text := Fail.toResult (() =>
+  Env.giveIn 7 (() => List.map (x => if x < 100000000 then x + Env.ask() else Fail.fail "big") numbers))
 
-export def emittedIn (numbers: List Nat): Result (List Nat) Text :=
-  Fail.toResult (() => Emit.collectIn (() => List.map (x => if x < 100000000 then Emit.emit x else Fail.fail "big") numbers))
+export def emittedIn (numbers: List Nat): Result (List Nat) Text := Fail.toResult (() =>
+  Emit.collectIn (() => List.map (x => if x < 100000000 then Emit.emit x else Fail.fail "big") numbers))
 
-export def searchedIn (numbers: List Nat): Result (List (List Nat)) Text :=
-  Fail.toResult (() => Each.collectIn (() => List.map (x => if x < 100000000 then Each.each [x] else Fail.fail "big") numbers))
+export def searchedIn (numbers: List Nat): Result (List (List Nat)) Text := Fail.toResult (() =>
+  Each.collectIn (() => List.map (x => if x < 100000000 then Each.each [x] else Fail.fail "big") numbers))
 
 def total (xs: List Nat): Nat := List.sum xs
 
@@ -80,9 +77,10 @@ def main(): {IO} () :=
   let answer :=
     if variant == "asked" then total (asked numbers)
     else if variant == "emitted" then total (emitted numbers)
-    else if variant == "askedChecked" then (match askedChecked numbers with
-      | Ok xs => total xs
-      | Err m => 0)
+    else if variant == "askedChecked" then
+      (match askedChecked numbers with
+        | Ok xs => total xs
+        | Err m => 0)
     else if variant == "searched" then List.length (searched numbers)
     else 0
   IO.print "${variant} ${size}: ${answer}"

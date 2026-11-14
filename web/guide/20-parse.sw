@@ -19,5 +19,4 @@ def parseRects (input: Text): {Fail} List Rect := Parse.eachLine input rect
 
 test "two rectangles" :=
   toResult (() => parseRects "3x4\n10x2\n") == Ok [{ width = 3, height = 4 }, { width = 10, height = 2 }]
-test "a bad line" :=
-  toResult (() => parseRects "3x4\n10-2\n") == Err "line 2, column 3: expected 'x', got '-'"
+test "a bad line" := toResult (() => parseRects "3x4\n10-2\n") == Err "line 2, column 3: expected 'x', got '-'"

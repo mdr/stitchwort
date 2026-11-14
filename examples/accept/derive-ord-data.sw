@@ -19,13 +19,11 @@ test "recursive" := Ord.compare (Group Dot (Circle 2)) (Group Dot (Circle 1)) ==
 test "equal" := Ord.compare (Group (Rect 1 2) Dot) (Group (Rect 1 2) Dot) == Equal
 
 test "sort" :=
-  List.sort [Group Dot Dot, Rect 3 1, Dot, Label "x" 2, Circle 5, Rect 1 9] ==
-    [Dot, Circle 5, Rect 1 9, Rect 3 1, Label "x" 2, Group Dot Dot]
+  List.sort [Group Dot Dot, Rect 3 1, Dot, Label "x" 2, Circle 5, Rect 1 9]
+    == [Dot, Circle 5, Rect 1 9, Rect 3 1, Label "x" 2, Group Dot Dot]
 
 -- A proof field between data fields is left out, as for `==` (D179).
-type Small =
-  | MkSmall (n: Nat) (small: Nat.leq n 10 = True) (label: Text)
-  | Big
+type Small = | MkSmall (n: Nat) (small: Nat.leq n 10 = True) (label: Text) | Big
 
 test "proof field left out" := Ord.compare (MkSmall 3 rfl "b") (MkSmall 3 rfl "a") == Greater
 test "small before big" := Ord.compare (MkSmall 9 rfl "z") Big == Less
@@ -36,4 +34,4 @@ type Version = | V (major: Nat) (minor: Nat) (patch: Nat)
 test "versions" := List.sort [V 1 2 0, V 1 0 9, V 0 9 9] == [V 0 9 9, V 1 0 9, V 1 2 0]
 
 -- `Equal` means equal: the law, used.
-theorem sameShape ∀ (s: Shape) (t: Shape) (h: Ord.compare s t = Equal): s = t := Ord.equal s t h
+theorem sameShape ∀ (s t: Shape) (h: Ord.compare s t = Equal): s = t := Ord.equal s t h

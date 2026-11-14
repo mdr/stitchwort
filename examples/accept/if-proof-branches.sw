@@ -5,10 +5,10 @@
 
 import Std (List, Nat, Void)
 
-theorem split ∀ (m: Nat) (n: Nat): (m < n) ∨ (n <= m) := if h: m < n then Inl h else Inr omega
+theorem split ∀ (m n: Nat): (m < n) ∨ (n <= m) := if h: m < n then Inl h else Inr omega
 
 -- Nested, each branch with its own proof.
-theorem trichotomy ∀ (m: Nat) (n: Nat): (m < n) ∨ ((m = n) ∨ (n < m)) :=
+theorem trichotomy ∀ (m n: Nat): (m < n) ∨ ((m = n) ∨ (n < m)) :=
   if lt: m < n then Inl lt else if eq: m = n then Inr (Inl eq) else Inr (Inr omega)
 
 -- With no binder, on a `Bool` or a decided proposition: the branches don't
@@ -21,7 +21,8 @@ theorem onDecided ∀ (m: Nat) (rest: List Nat): 0 = 0 := if m < List.length res
 type Capped = { value: Nat, capped: value <= 10 }
 
 def cap (n: Nat): Capped :=
-  if h: n <= 10 then { value = n, capped = h } else { value = 10, capped = if k: 10 <= 10 then k else Void.exfalso (k omega) }
+  if h: n <= 10 then { value = n, capped = h }
+  else { value = 10, capped = if k: 10 <= 10 then k else Void.exfalso (k omega) }
 
 test "cap keeps a small number" := (cap 7).value == 7
 

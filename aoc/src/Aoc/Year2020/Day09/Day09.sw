@@ -58,7 +58,7 @@ def XmasData.firstInvalid (data: XmasData) (preamble: Nat): Option Nat := firstI
 --| `front`, summing to `sum`, followed by `rest` (`front.drop count`).
 --| It grows by taking from `rest` and shrinks by dropping from `front`;
 --| each step does one or the other, so the run ends.
-def runFrom (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat): Option (List Nat)
+def runFrom (target: Nat) (front: List Nat) (count sum: Nat) (rest: List Nat): Option (List Nat)
     decreasing front.length + rest.length
 :=
   if target < sum then
@@ -74,7 +74,8 @@ def runFrom (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List 
 --| A contiguous run of at least two numbers summing to `target`: for each
 --| end, the window is the longest run ending there whose sum is at most
 --| `target`, so any run summing to it is found.
-def XmasData.runSumming (data: XmasData) (target: Nat): Option (List Nat) := runFrom target data.numbers 0 0 data.numbers
+def XmasData.runSumming (data: XmasData) (target: Nat): Option (List Nat) :=
+  runFrom target data.numbers 0 0 data.numbers
 
 --| Part 2: the smallest plus the largest number of a contiguous run of at
 --| least two numbers summing to `invalid`.

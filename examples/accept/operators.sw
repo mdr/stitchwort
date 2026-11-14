@@ -9,17 +9,17 @@ import Std (Bool, Eq, Int, List, Nat)
 -- A user's type with `+`: an `Add` instance, with its laws.
 type Point = { x: Int, y: Int }
 
-def Point.add (p: Point) (q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
+def Point.add (p q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
 
 def Point.origin: Point := { x = 0, y = 0 }
 
 theorem Point.zeroAdd ∀ (p: Point): Point.add Point.origin p = p := match p with
   | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y in rfl
 
-theorem Point.assoc ∀ (p: Point) (q: Point) (r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
+theorem Point.assoc ∀ (p q r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
   rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y in rfl
 
-theorem Point.comm ∀ (p: Point) (q: Point): Point.add p q = Point.add q p :=
+theorem Point.comm ∀ (p q: Point): Point.add p q = Point.add q p :=
   rewrite Int.addComm p.x q.x, Int.addComm p.y q.y in rfl
 
 instance Point.instAdd: Add Point :=
@@ -36,8 +36,7 @@ def twice [auto add: Add a] (x: a): a := x + x
 
 def square [auto mul: Mul a] (x: a): a := x * x
 
-def sumSquares [auto add: Add a] [auto mul: Mul a] (xs: List a): a :=
-  xs.foldLeft Add.zero (acc x => acc + x * x)
+def sumSquares [auto add: Add a] [auto mul: Mul a] (xs: List a): a := xs.foldLeft Add.zero (acc x => acc + x * x)
 
 test "twice" := (twice p).y == 4 ∧ twice 21 == 42 ∧ twice (-4: Int) == -8
 test "square" := square 7 == 49 ∧ square (-3: Int) == 9
@@ -48,21 +47,18 @@ test "sums" := [p, q, p].sum.x == 12 ∧ [1, 2, 3].sum == 6 ∧ [(3: Int), -5, 1
 test "products" := [2, 3, 4].product == 24 ∧ [(-2: Int), 3].product == -6
 
 -- A law from the dictionary: the sum of two lists of points.
-theorem pointsAppend ∀ (xs: List Point) (ys: List Point): (List.append xs ys).sum = xs.sum + ys.sum :=
-  List.sumAppend xs ys
+theorem pointsAppend ∀ (xs ys: List Point): (List.append xs ys).sum = xs.sum + ys.sum := List.sumAppend xs ys
 
 -- Comparisons on any type with `Ord`; `if` decides them with the decider
 -- from the same dictionary (§5.16).
-def before [auto ord: Ord a] (x: a) (y: a): Bool :=
-  if x < y then True else False
+def before [auto ord: Ord a] (x y: a): Bool := if x < y then True else False
 
-def beforeNat [auto ord: Ord Nat] (x: Nat) (y: Nat): Bool :=
-  if x < y then True else False
+def beforeNat [auto ord: Ord Nat] (x y: Nat): Bool := if x < y then True else False
 
 -- A predicate behind a definition: unfolded, then decided the same way.
-def Below [auto ord: Ord a] (x: a) (y: a): Prop := x < y
+def Below [auto ord: Ord a] (x y: a): Prop := x < y
 
-def below [auto ord: Ord a] (x: a) (y: a): Bool := if Below x y then True else False
+def below [auto ord: Ord a] (x y: a): Bool := if Below x y then True else False
 
 -- A named alternative with its own relations and deciders.
 def descending: Ord Nat := {
@@ -84,12 +80,14 @@ def descending: Ord Nat := {
 -- `beforeNat` agree, with the library's order and with `descending`.
 test "before" := before 1 2 ∧ beforeNat 1 2 ∧ before "a" "b" ∧ Bool.not (before 2 1)
 test "descending" :=
-  Bool.not (before [ord := descending] 1 2) ∧ Bool.not (beforeNat [ord := descending] 1 2)
-    ∧ before [ord := descending] 2 1 ∧ beforeNat [ord := descending] 2 1
+  Bool.not (before [ord := descending] 1 2)
+    ∧ Bool.not (beforeNat [ord := descending] 1 2)
+    ∧ before [ord := descending] 2 1
+    ∧ beforeNat [ord := descending] 2 1
 test "below" := below 1 2 ∧ Bool.not (below [ord := descending] 1 2) ∧ Bool.not (below "b" "a")
 
 -- On `Nat`, exactly the term it always was: `Nat.decLessThan x y`.
-def least (x: Nat) (y: Nat): Nat := if x < y then x else y
+def least (x y: Nat): Nat := if x < y then x else y
 
 test "least" := least 3 2 == 2 ∧ least 2 3 == 2
 

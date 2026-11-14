@@ -31,21 +31,14 @@ import Std (List, Nat, Exists)
 -- The shop's types are part 1's: a file on its own can't import another
 -- file, so they're repeated here.
 
-type Item = {
-  name: Text,
-  pence: Nat,
-  count: Nat
-}
+type Item = { name: Text, pence: Nat, count: Nat }
 
 --| What the basket's line for this item costs, in pence.
 def Item.cost (item: Item): Nat := item.pence * item.count
 
 type Basket = { items: List Item }
 
-type Coupon =
-  | NoCoupon
-  | PenceOff (pence: Nat)
-  | PercentOff (percent: Nat)
+type Coupon = | NoCoupon | PenceOff (pence: Nat) | PercentOff (percent: Nat)
 
 --| What is left to pay of `total` pence. `-` on `Nat` stops at 0.
 def Coupon.apply (coupon: Coupon) (total: Nat): Nat := match coupon with
@@ -258,12 +251,16 @@ theorem checkoutCorrect ∀ (basket: Basket) (coupon: Coupon): basket.checkout c
 -- **Pence coupons do add up.** Two pence coupons are one coupon for both
 -- amounts. `omega` proves it: once `apply` computes, it's subtraction.
 
-theorem penceOffTwice ∀ (first: Nat) (second: Nat) (total: Nat): (PenceOff second).apply ((PenceOff first).apply total) = (PenceOff (first + second)).apply total := omega
+theorem penceOffTwice ∀ (first second total: Nat):
+    (PenceOff second).apply ((PenceOff first).apply total) = (PenceOff (first + second)).apply total :=
+  omega
 
 -- **Two facts at once: `∧`.** `p ∧ q` ("and") says both. A pence coupon
 -- never adds to the total, and never takes off more than it says:
 
-theorem penceOffFair ∀ (pence: Nat) (total: Nat): (PenceOff pence).apply total ≤ total ∧ total ≤ (PenceOff pence).apply total + pence := omega
+theorem penceOffFair ∀ (pence total: Nat):
+    (PenceOff pence).apply total ≤ total ∧ total ≤ (PenceOff pence).apply total + pence :=
+  omega
 
 -- `omega` proves both halves together. A proof of `p ∧ q` is also a pair,
 -- `Both p q`: replace `omega` with `Both ? ?`, and the two `?`s have the
@@ -276,7 +273,7 @@ theorem penceOffFair ∀ (pence: Nat) (total: Nat): (PenceOff pence).apply total
 -- of `∃ (x: T) => P` is `Witness x p`, the value `x` and a proof `p` that
 -- it works.
 
-theorem priceMatch ∀ (total: Nat) (target: Nat) (cheaper: target ≤ total): ∃ (coupon: Coupon) => coupon.apply total = target :=
+theorem priceMatch ∀ (total target: Nat) (cheaper: target ≤ total): ∃ (coupon: Coupon) => coupon.apply total = target :=
   Witness (PenceOff (total - target)) omega
 
 -- Replace the `omega` with `?`: the goal is

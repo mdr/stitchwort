@@ -158,5 +158,4 @@ def checkWired (entries: List Entry): {Fail} List Entry := match firstUnwired en
   | None => entries
 
 --| The first entry, with its index, whose wiring doesn't check.
-def firstUnwired (entries: List Entry): Option (Nat, Entry) :=
-  entries.withIndex.find (((_, entry)) => not entry.wired)
+def firstUnwired (entries: List Entry): Option (Nat, Entry) := entries.withIndex.find (((_, entry)) => not entry.wired)

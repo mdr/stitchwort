@@ -24,7 +24,7 @@ def fetchNat(): {Fetch} Nat := fetch (width [])
 -- and the search is made again with their values.
 type Fun = | MkFun (apply: Nat → Nat)
 
-def SameFun (f: Fun) (g: Fun): Prop := f = g
+def SameFun (f g: Fun): Prop := f = g
 
 instance decSelf (f: Fun): Decidable (SameFun f f) := Decidable.yes rfl
 

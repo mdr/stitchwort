@@ -11,12 +11,9 @@
 -- either order.
 import Std (Eq, Nat)
 
-type Tree: Type =
-  | Node (label: Nat) (kids: Forest)
+type Tree: Type = | Node (label: Nat) (kids: Forest)
 
-type Forest: Type =
-  | FNil
-  | FCons (first: Tree) (rest: Forest)
+type Forest: Type = | FNil | FCons (first: Tree) (rest: Forest)
 
 -- The number of nodes. `kids` is part of the `Tree` that `size` matched, so
 -- `sizeForest kids` is a smaller call, even though it's another type.
@@ -54,24 +51,21 @@ test "map" := sumTree (mapTree (n => n + 1) example) == 14
 theorem sizeMap ∀ (f: Nat → Nat) (t: Tree): size (mapTree f t) = size t := match t with
   | Node n kids => Eq.cong Succ (sizeMapForest f kids)
 
-theorem sizeMapForest ∀ (f: Nat → Nat) (ts: Forest):
-    sizeForest (mapForest f ts) = sizeForest ts := match ts with
-      | FNil => rfl
-      | FCons t ts =>
-        Eq.trans (Eq.cong (a => a + sizeForest (mapForest f ts)) (sizeMap f t))
-          (Eq.cong (b => size t + b) (sizeMapForest f ts))
+theorem sizeMapForest ∀ (f: Nat → Nat) (ts: Forest): sizeForest (mapForest f ts) = sizeForest ts := match ts with
+  | FNil => rfl
+  | FCons t ts =>
+    Eq.trans
+      (Eq.cong (a => a + sizeForest (mapForest f ts)) (sizeMap f t))
+      (Eq.cong (b => size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
 theorem sizeNotZero: ∀ (t: Tree) => size t ≠ 0
   | Node n kids, a1 => Nat.succNotZero (sizeForest kids) a1
 
 -- Even and odd numbers, as data: each is the successor of the other kind.
-type Even: Type =
-  | EZero
-  | ESucc (pred: Odd)
+type Even: Type = | EZero | ESucc (pred: Odd)
 
-type Odd: Type =
-  | OSucc (pred: Even)
+type Odd: Type = | OSucc (pred: Even)
 
 def evenToNat: Even → Nat
   | EZero => 0
@@ -92,20 +86,16 @@ theorem evenIsEven ∀ (e: Even): isEven (evenToNat e) = True := match e with
   | EZero => rfl
   | ESucc o => oddIsOdd o
 
-theorem oddIsOdd ∀ (o: Odd): isOdd (oddToNat o) = True := match o with
-  | OSucc e => evenIsEven e
+theorem oddIsOdd ∀ (o: Odd): isOdd (oddToNat o) = True := match o with | OSucc e => evenIsEven e
 
 test "three" := oddToNat (OSucc (ESucc (OSucc EZero))) == 3
 
 -- The same as propositions. Matching on one proof to produce another is
 -- fine (here, by mutual recursion over the proofs); producing data from one
 -- isn't (reject/mutual-prop-elim.sw).
-type EvenP: Prop =
-  | EvenZero
-  | EvenSucc (pred: OddP)
+type EvenP: Prop = | EvenZero | EvenSucc (pred: OddP)
 
-type OddP: Prop =
-  | OddSucc (pred: EvenP)
+type OddP: Prop = | OddSucc (pred: EvenP)
 
 theorem evenTrivial: EvenP → Unit
   | EvenZero => Trivial
@@ -116,12 +106,9 @@ theorem oddTrivial: OddP → Unit
 
 -- The types of a group may take parameters: the same ones, in the same
 -- order, which the fields use exactly as given.
-type Rose (a: Type): Type =
-  | Bloom (value: a) (kids: Roses a)
+type Rose (a: Type): Type = | Bloom (value: a) (kids: Roses a)
 
-type Roses (a: Type): Type =
-  | NoRoses
-  | MoreRoses (first: Rose a) (rest: Roses a)
+type Roses (a: Type): Type = | NoRoses | MoreRoses (first: Rose a) (rest: Roses a)
 
 def flatten: Rose a → List a
   | Bloom x kids => [x, ..flattenAll kids]
@@ -134,12 +121,9 @@ test "flatten" := (flatten (Bloom 1 (MoreRoses (Bloom 2 NoRoses) (MoreRoses (Blo
 
 -- A sibling may be the result of a function field. Calling it gives a part
 -- of the matched value, so it's a smaller argument.
-type Branching: Type =
-  | Tip
-  | Fork (width: Nat) (child: Nat → Layer)
+type Branching: Type = | Tip | Fork (width: Nat) (child: Nat → Layer)
 
-type Layer: Type =
-  | MkLayer (label: Nat) (below: Branching)
+type Layer: Type = | MkLayer (label: Nat) (below: Branching)
 
 def depth: Branching → Nat → Nat
   | Tip, n => 0
@@ -149,17 +133,11 @@ def layerDepth: Layer → Nat → Nat
   | MkLayer l b, n => depth b n
 
 -- Three types in one group.
-type Expr: Type =
-  | Num (n: Nat)
-  | Block (body: Stmts) (result: Expr)
+type Expr: Type = | Num (n: Nat) | Block (body: Stmts) (result: Expr)
 
-type Stmt: Type =
-  | Assign (value: Expr)
-  | Nested (body: Stmts)
+type Stmt: Type = | Assign (value: Expr) | Nested (body: Stmts)
 
-type Stmts: Type =
-  | Finished
-  | Then (first: Stmt) (rest: Stmts)
+type Stmts: Type = | Finished | Then (first: Stmt) (rest: Stmts)
 
 def exprCount: Expr → Nat
   | Num n => 1

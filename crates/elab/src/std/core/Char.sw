@@ -8,12 +8,12 @@
 
 --| Whether a number is a Unicode scalar value: at most 0x10FFFF, and not a
 --| surrogate (0xD800 to 0xDFFF).
-def Char.isScalar (n: Nat): Bool := if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True
+def Char.isScalar (n: Nat): Bool :=
+  if Nat.leq 55296 n then (if Nat.leq n 57343 then False else Nat.leq n 1114111) else True
 
 --| A Unicode scalar value. `'a'` is a `Char`; the compiler proves `valid` for
 --| a literal by computation, and the kernel checks it.
-type Char: Type =
-  | MkChar (code: Nat) (valid: Char.isScalar code = True)
+type Char: Type = | MkChar (code: Nat) (valid: Char.isScalar code = True)
 
 --| The character's code, its scalar value: `'a'.toNat` is 97.
 def Char.toNat: (char: Char) → Nat
@@ -23,8 +23,11 @@ def Char.toNat: (char: Char) → Nat
 def Char.fromNat (n: Nat): Option Char := if h: Char.isScalar n = True then Some (MkChar n h) else None
 
 --| Characters with the same code are equal; the proof of `valid` doesn't matter.
-theorem Char.mkExt ∀ (a: Nat) (b: Nat) (p: Char.isScalar a = True) (e: a = b)
-    (q: Char.isScalar b = True): MkChar a p = MkChar b q :=
+theorem Char.mkExt ∀ (a b: Nat)
+    (p: Char.isScalar a = True)
+    (e: a = b)
+    (q: Char.isScalar b = True):
+    MkChar a p = MkChar b q :=
   let ext := J (b' e' => ∀ (q': Char.isScalar b' = True) => MkChar a p = MkChar b' q') (q' => rfl) e
   ext q
 
@@ -33,13 +36,13 @@ theorem Char.ext ∀ (x y: Char) (e: Char.toNat x = Char.toNat y): x = y := matc
 
 --| A decision whether two characters are equal, from one on their codes: its
 --| test is theirs.
-def Char.decEqFrom (x: Char) (y: Char) (natEq: Decidable (Char.toNat x = Char.toNat y)): Decidable (x = y) :=
+def Char.decEqFrom (x y: Char) (natEq: Decidable (Char.toNat x = Char.toNat y)): Decidable (x = y) :=
   Decidable.map natEq (Char.ext x y) (Eq.cong Char.toNat)
 
 --| Decides whether two characters are equal, by their codes. Written as the
 --| record rather than through [`Char.decEqFrom`], so that its test is
 --| computed in place, without building `Nat.decEq`'s record first.
-def Char.decEq (x: Char) (y: Char): Decidable (x = y) := {
+def Char.decEq (x y: Char): Decidable (x = y) := {
   holds = Nat.equal (Char.toNat x) (Char.toNat y),
   sound = h => Char.ext x y (Nat.equalSound (Char.toNat x) (Char.toNat y) h),
   complete = e => J (y' e' => Nat.equal (Char.toNat x) (Char.toNat y') = True) (Nat.equalRefl (Char.toNat x)) e

@@ -14,23 +14,27 @@ import Std (Bool, Eq, List, Nat, Option, Void)
 --| Part 1 is the sum of the risk levels of the low points, for every map.
 theorem part1Correct ∀ (map: HeightMap): solvePart1 map = part1 map :=
   rewrite lowPointsAgree map in
-    List.sumByCong (lowPoints map) (entry => entry.snd + 1) (entry => riskLevel entry.snd) (entry => Nat.addComm entry.snd 1)
+    List.sumByCong (lowPoints map) (entry => entry.snd + 1) (entry => riskLevel entry.snd) (entry =>
+      Nat.addComm entry.snd 1)
 
 --| The program's low points are the spec's.
 theorem lowPointsAgree ∀ (map: HeightMap): map.lowPoints = lowPoints map :=
-  List.filterCongMem map.cells (entry => map.isLowPoint entry.fst entry.snd)
+  List.filterCongMem map.cells
+    (entry => map.isLowPoint entry.fst entry.snd)
     (entry => map.cells.all (other => not (adjacent entry.fst other.fst) || entry.snd < other.snd))
-    (entry member => match entry with
-      | (position, height) => lowAgrees map position height member)
+    (entry member => match entry with | (position, height) => lowAgrees map position height member)
 
 --| At each cell, lower than its neighbours is lower than every adjacent
 --| location.
-theorem lowAgrees ∀ (map: HeightMap) (position: Position) (height: Nat) (member: (position, height) ∈ map.cells):
+theorem lowAgrees ∀ (map: HeightMap) (position: Position) (height: Nat)
+    (member: (position, height) ∈ map.cells):
     map.isLowPoint position height = map.cells.all (other => not (adjacent position other.fst) || height < other.snd) :=
-  Bool.eqOf _ _ (low => lowerThanAdjacent map position height low) (lower => lowerThanNeighbours map position height lower)
+  Bool.eqOf _ _ (low => lowerThanAdjacent map position height low) (lower =>
+    lowerThanNeighbours map position height lower)
 
 --| Lower than the neighbours: lower than every adjacent cell.
-theorem lowerThanAdjacent ∀ (map: HeightMap) (position: Position) (height: Nat) (low: map.isLowPoint position height = True):
+theorem lowerThanAdjacent ∀ (map: HeightMap) (position: Position) (height: Nat)
+    (low: map.isLowPoint position height = True):
     map.cells.all (other => not (adjacent position other.fst) || height < other.snd) = True :=
   List.allOfAll _ map.cells
     (List.allOfMem _ map.cells (entry inCells =>
@@ -44,7 +48,8 @@ theorem lowerThanAdjacent ∀ (map: HeightMap) (position: Position) (height: Nat
 
 --| Lower than every adjacent cell: lower than the neighbours on the map.
 theorem lowerThanNeighbours ∀ (map: HeightMap) (position: Position) (height: Nat)
-    (lower: map.cells.all (other => not (adjacent position other.fst) || height < other.snd) = True): map.isLowPoint position height = True :=
+    (lower: map.cells.all (other => not (adjacent position other.fst) || height < other.snd) = True):
+    map.isLowPoint position height = True :=
   List.allOfAll _ position.neighbours
     (List.allOfMem _ position.neighbours (next isNeighbour =>
       match h: map.heightAt next with

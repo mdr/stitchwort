@@ -20,10 +20,7 @@ namespace Book.Computing
 -- In rock, paper, scissors, each player picks one of three moves. Here is
 -- a type for them:
 
-type Move =
-  | Rock
-  | Paper
-  | Scissors
+type Move = | Rock | Paper | Scissors
 
 -- `type` lists every value a `Move` can be. `Rock`, `Paper` and `Scissors`
 -- are its *constructors*: each one, on its own, is a `Move`, and there are
@@ -89,16 +86,10 @@ test "nobody wins a draw" := not (beats Rock Rock)
 --
 -- A round has three possible outcomes for the player:
 
-type Outcome =
-  | Win
-  | Lose
-  | Draw
+type Outcome = | Win | Lose | Draw
 
 --| How a round ends for the player who chose `mine`.
-def play (mine: Move) (theirs: Move): Outcome :=
-  if beats mine theirs then Win
-  else if beats theirs mine then Lose
-  else Draw
+def play (mine theirs: Move): Outcome := if beats mine theirs then Win else if beats theirs mine then Lose else Draw
 
 test "rock against paper loses" := play Rock Paper == Lose
 test "paper against paper is a draw" := play Paper Paper == Draw
@@ -240,11 +231,7 @@ theorem counterBeatsRock: beats (counter Rock) Rock := ?
 -- together, green, amber, and back to red. Write `next`, then prove that
 -- four steps from amber come back to amber.
 
-type Light =
-  | Red
-  | RedAndAmber
-  | Green
-  | Amber
+type Light = | Red | RedAndAmber | Green | Amber
 
 --| The light that follows `light`.
 def next (light: Light): Light := ?
@@ -261,7 +248,7 @@ theorem fourStepsFromAmber: (Amber |> next |> next |> next |> next) = Amber := ?
 -- each pair of inputs, and run them.
 
 --| Whether `a` implies `b`: `True` unless `a` holds and `b` doesn't.
-def implies (a: Bool) (b: Bool): Bool := ?
+def implies (a b: Bool): Bool := ?
 
 -- Hint: a test of a function that is still `?` fails, naming the `?`:
 -- `stitchwort test` marks it `not run` and says "`implies` isn't written

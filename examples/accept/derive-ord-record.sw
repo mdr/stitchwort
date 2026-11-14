@@ -42,6 +42,5 @@ type Score = { names: List Text, best: (Nat, Text) }
 test "nested" := Ord.compare ({ names = ["a"], best = (1, "x") }: Score) { names = ["a"], best = (1, "y") } == Less
 
 -- The laws hold for every record, not just these.
-theorem itemTrans ∀ (x: Item) (y: Item) (z: Item) (h1: Ord.compare x y = Less) (h2: Ord.compare y z = Less):
-    Ord.compare x z = Less :=
+theorem itemTrans ∀ (x y z: Item) (h1: Ord.compare x y = Less) (h2: Ord.compare y z = Less): Ord.compare x z = Less :=
   Ord.trans x y z h1 h2

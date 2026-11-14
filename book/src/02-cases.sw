@@ -114,17 +114,16 @@ theorem otherSideTwice ∀ (outcome: Outcome): otherSide (otherSide outcome) = o
 -- Now there are nine arms, and in each the goal computes, so each is
 -- `rfl`, as here:
 
-theorem otherSideSwaps ∀ (mine: Move) (theirs: Move): otherSide (play mine theirs) = play theirs mine :=
-  match mine, theirs with
-    | Rock, Rock => rfl
-    | Rock, Paper => rfl
-    | Rock, Scissors => rfl
-    | Paper, Rock => rfl
-    | Paper, Paper => rfl
-    | Paper, Scissors => rfl
-    | Scissors, Rock => rfl
-    | Scissors, Paper => rfl
-    | Scissors, Scissors => rfl
+theorem otherSideSwaps ∀ (mine theirs: Move): otherSide (play mine theirs) = play theirs mine := match mine, theirs with
+  | Rock, Rock => rfl
+  | Rock, Paper => rfl
+  | Rock, Scissors => rfl
+  | Paper, Rock => rfl
+  | Paper, Paper => rfl
+  | Paper, Scissors => rfl
+  | Scissors, Rock => rfl
+  | Scissors, Paper => rfl
+  | Scissors, Scissors => rfl
 
 -- Nine arms are the nine rounds the game can have; the proof checks every
 -- one. A `match` inside an arm (a *nested* `match`) would do the same job:
@@ -147,10 +146,7 @@ theorem otherSideSwaps ∀ (mine: Move) (theirs: Move): otherSide (play mine the
 -- know" (a missing value). "Both" for such answers is no if either is no,
 -- yes if both are yes, and otherwise unknown:
 
-type Answer =
-  | Yes
-  | No
-  | Unknown
+type Answer = | Yes | No | Unknown
 
 --| "Both `a` and `b`", when either may be `Unknown`: `No` if either is
 --| `No`, `Yes` if both are `Yes`, and `Unknown` otherwise.
@@ -185,11 +181,10 @@ theorem noAndAnything ∀ (b: Answer): both No b = No := rfl
 -- equalities, read down the page: the first line says where it starts and
 -- each `_ = ...` line says what the previous value equals):
 
-theorem beatsMeansWinSteps ∀ (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
-  calc play mine theirs
-    _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)
-    _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl
-    _ = Win
+theorem beatsMeansWinSteps ∀ (mine theirs: Move) (h: beats mine theirs): play mine theirs = Win := calc play mine theirs
+  _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)
+  _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl
+  _ = Win
 
 -- `_` stands for the value on the line above, so each line is one equation:
 -- `play mine theirs = (if beats mine theirs ...)`, and so on. The chain
@@ -213,8 +208,7 @@ theorem beatsMeansWinSteps ∀ (mine: Move) (theirs: Move) (h: beats mine theirs
 --
 -- The same proof in one word:
 
-theorem beatsMeansWin ∀ (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
-  rewrite h
+theorem beatsMeansWin ∀ (mine theirs: Move) (h: beats mine theirs): play mine theirs = Win := rewrite h
 
 -- `rewrite h` does all three steps. It computes until it finds `beats mine
 -- theirs` (unfolding `play`), replaces it with `True`, and finishes by
@@ -290,11 +284,9 @@ theorem rockBeatsOnlyScissorsLeftOut ∀ (theirs: Move) (h: beats Rock theirs): 
 -- or from a hypothesis that can't hold. `cases` does all of that by
 -- itself:
 
-theorem otherSideSwapsAgain ∀ (mine: Move) (theirs: Move): otherSide (play mine theirs) = play theirs mine :=
-  cases
+theorem otherSideSwapsAgain ∀ (mine theirs: Move): otherSide (play mine theirs) = play theirs mine := cases
 
-theorem rockBeatsOnlyScissorsAgain ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
-  cases
+theorem rockBeatsOnlyScissorsAgain ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := cases
 
 -- Try replacing the proofs of `noSelfWin` and `otherSideTwice` with
 -- `cases` too. On a `?`, Cmd-. also offers "Search for a proof" (after the
@@ -342,12 +334,12 @@ theorem selfPlayDraws ∀ (m: Move): play m m = Draw := ?
 -- Exercise 2.2 (two stars, by hand). Two moves can't beat each other. Some
 -- of the nine cases can't happen; `h` says which.
 
-theorem noMutualWins ∀ (mine: Move) (theirs: Move) (h: beats mine theirs): beats theirs mine = False := ?
+theorem noMutualWins ∀ (mine theirs: Move) (h: beats mine theirs): beats theirs mine = False := ?
 
 -- Exercise 2.3 (two stars, by hand). The order of the answers doesn't
 -- matter to `both`.
 
-theorem bothSymmetric ∀ (a: Answer) (b: Answer): both a b = both b a := ?
+theorem bothSymmetric ∀ (a b: Answer): both a b = both b a := ?
 
 -- Exercise 2.4 (one star, by hand). A `No` on the right decides it too,
 -- though not by `rfl` alone (section 2.4 says why).
@@ -357,4 +349,4 @@ theorem anythingAndNo ∀ (a: Answer): both a No = No := ?
 -- Exercise 2.5 (one star). If you win a round, the other player loses it.
 -- Hint: one word.
 
-theorem winMeansTheyLose ∀ (mine: Move) (theirs: Move) (h: play mine theirs = Win): play theirs mine = Lose := ?
+theorem winMeansTheyLose ∀ (mine theirs: Move) (h: play mine theirs = Win): play theirs mine = Lose := ?

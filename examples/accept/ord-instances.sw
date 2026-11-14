@@ -44,7 +44,8 @@ test "decided" := Decidable.holds (Ord.decLessThan "a" "b")
 -- Another order, passed by name: a named alternative built with
 -- `Ord.fromCompare`, which takes the comparison and its three laws.
 def descending: Ord Nat :=
-  Ord.fromCompare (x y => Nat.compare y x)
+  Ord.fromCompare
+    (x y => Nat.compare y x)
     (x y h => Eq.sym (Nat.compareEqual y x h))
     (x y => Nat.compareFlip y x)
     (x y z h1 h2 => Nat.compareTrans z y x h2 h1)
@@ -59,7 +60,8 @@ def Version.key (v: Version): (Nat, Nat) := (v.major, v.minor)
 
 theorem Version.keyInjective ∀ (v w: Version) (h: Version.key v = Version.key w): v = w := match v, w with
   | { major = a, minor = b }, { major = c, minor = d } =>
-    Eq.trans (Eq.cong (t => ({ major = t, minor = b }: Version)) (Eq.cong Pair.fst h))
+    Eq.trans
+      (Eq.cong (t => ({ major = t, minor = b }: Version)) (Eq.cong Pair.fst h))
       (Eq.cong (t => ({ major = c, minor = t }: Version)) (Eq.cong Pair.snd h))
 
 instance Version.instOrd: Ord Version := Ord.byKey Version.key Version.keyInjective

@@ -7,26 +7,15 @@ import Std (Float, Vec)
 
 type Guest = { name: Text }
 
-type Booking = {
-  id: Text,
-  start: Float,
-  duration: Float,
-  room: Option Text,
-  guests: List Guest,
-  notes: Option Text
-}
+type Booking = { id: Text, start: Float, duration: Float, room: Option Text, guests: List Guest, notes: Option Text }
 
-def makeBooking (id: Text)
-    (start: Float := 0.0)
-    (duration: Float := 60.0)
-    (room: Option Text := None)
-    (guests: List Guest := [])
-    (notes: Option Text := None): Booking :=
+def makeBooking (id: Text) (start: Float := 0.0) (duration: Float := 60.0) (room: Option Text := None)
+    (guests: List Guest := []) (notes: Option Text := None):
+    Booking :=
   { id, start, duration, room, guests, notes }
 
 -- The ids of the bookings shorter than an hour.
-def flagged (bookings: List Booking): List Text :=
-  bookings.filter (b => b.duration < 60.0) |> .map (b => b.id)
+def flagged (bookings: List Booking): List Text := bookings.filter (b => b.duration < 60.0) |> .map (b => b.id)
 
 test "a short booking is flagged" :=
   let short := makeBooking "a" (duration := 30.0)
@@ -41,7 +30,7 @@ test "a left out list or option is its default" :=
   booking.guests.length == 0 && booking.room == Some "blue" && booking.notes == None
 
 -- A default may use the parameters before it.
-def range (start: Nat) (stop: Nat) (step: Nat := 1): List Nat := [start, stop, step]
+def range (start stop: Nat) (step: Nat := 1): List Nat := [start, stop, step]
 
 def framed (title: Text) (width: Nat := title.length + 4): Nat := width
 
@@ -81,16 +70,15 @@ test "dependent defaults" := sized three == 3 && sized (n := 2) two == 2
 
 -- Local definitions take defaults too, and recursive calls use them.
 def sumTo (n: Nat): Nat :=
-  def go (k: Nat) (acc: Nat := 0): Nat :=
-    match k with
-      | 0 => acc
-      | Succ j => go j (acc := acc + k)
+  def go (k: Nat) (acc: Nat := 0): Nat := match k with
+    | 0 => acc
+    | Succ j => go j (acc := acc + k)
   go n
 
 test "local definition" := sumTo 4 == 10
 
 -- Leaving a default out is definitionally equal to giving it.
-theorem rangeDefault ∀ (start: Nat) (stop: Nat): range start stop = range start stop (step := 1) := rfl
+theorem rangeDefault ∀ (start stop: Nat): range start stop = range start stop (step := 1) := rfl
 
 -- The bare name is the call with no arguments: a function of the required
 -- parameters, with the defaults filled.

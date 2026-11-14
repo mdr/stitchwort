@@ -56,7 +56,9 @@ def bank(): {Parse} Bank :=
   let batteries := many1 digit |> .toList
   spaces()
   end()
-  Parse.ensure (batteries.length ≥ part2Batteries) "expected at least ${part2Batteries} batteries, got ${batteries.length}"
+  Parse.ensure
+    (batteries.length ≥ part2Batteries)
+    "expected at least ${part2Batteries} batteries, got ${batteries.length}"
   batteries
 
 --| The digits of the largest number of `count` digits that is a subsequence of the bank (`count` is the second argument; all the digits if the bank has fewer).

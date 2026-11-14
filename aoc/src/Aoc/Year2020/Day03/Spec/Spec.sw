@@ -9,7 +9,9 @@ import Std (List, Nat, Option)
 --| "The same pattern repeats to the right many times": the square in
 --| `column` of a row whose pattern is `pattern`. Past the pattern's end it
 --| is the square a pattern's width to the left.
-def repeatingAt (pattern: List Square) (column: Nat): Option Square decreasing column :=
+def repeatingAt (pattern: List Square) (column: Nat): Option Square
+    decreasing column
+:=
   if within: column < pattern.length then pattern.get column
   else if nonEmpty: pattern.length ≠ 0 then repeatingAt pattern (column - pattern.length) [decreasing := omega]
   else None
@@ -51,8 +53,13 @@ def part1Answer (map: Grid Square): Nat := treesEncountered map { right = 3, dow
 --| all the way to the bottom: Right 1, down 1. Right 3, down 1. (This is the
 --| slope you already checked.) Right 5, down 1. Right 7, down 1. Right 1,
 --| down 2."
-def puzzleSlopes: List Slope :=
-  [{ right = 1, down = 1 }, { right = 3, down = 1 }, { right = 5, down = 1 }, { right = 7, down = 1 }, { right = 1, down = 2 }]
+def puzzleSlopes: List Slope := [
+  { right = 1, down = 1 },
+  { right = 3, down = 1 },
+  { right = 5, down = 1 },
+  { right = 7, down = 1 },
+  { right = 1, down = 2 }
+]
 
 --| "What do you get if you multiply together the number of trees
 --| encountered on each of the listed slopes?"

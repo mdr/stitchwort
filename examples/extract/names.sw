@@ -21,7 +21,18 @@
 
 type Awkward: Type =
   | Plain
-  | Fields (tag: Nat) (@[js.name "$__proto__"] __proto__: Nat) (x: Nat) (x': Nat) (x'': Nat) (constructor: Nat) (undefined: Nat) (path: Nat) (inside: Nat) (v0: Nat) (arg0: Nat)
+  | Fields
+      (tag: Nat)
+      (@[js.name "$__proto__"] __proto__: Nat)
+      (x: Nat)
+      (x': Nat)
+      (x'': Nat)
+      (constructor: Nat)
+      (undefined: Nat)
+      (path: Nat)
+      (inside: Nat)
+      (v0: Nat)
+      (arg0: Nat)
 
 export def twiddle: Awkward → Awkward
   | Plain => Plain
@@ -29,20 +40,17 @@ export def twiddle: Awkward → Awkward
 
 -- The bug this example started from: the field `tag` hid the constructor's
 -- (when the tag was in the property `tag`).
-type Labelled: Type =
-  | MkLabelled (tag: Text) (count: Nat)
+type Labelled: Type = | MkLabelled (tag: Text) (count: Nat)
 
 export def labelled: Labelled → Labelled
   | MkLabelled t n => MkLabelled (t ++ "!") (Succ n)
 
-type Box': Type =
-  | MkBox' (value: Nat)
+type Box': Type = | MkBox' (value: Nat)
 
 export def unbox: Box' → Nat
   | MkBox' n => n
 
-type Tagged' (a: Type): Type =
-  | MkTagged' (tag: a) (tag': a)
+type Tagged' (a: Type): Type = | MkTagged' (tag: a) (tag': a)
 
 export def firstTag: Tagged' Nat → Nat
   | MkTagged' t u => t
@@ -64,8 +72,7 @@ export def Set: (class: Nat) → Nat
 export def BigInt: (arg1: Nat) → Nat
   | n => n
 
-type Error: Type =
-  | Oops (tag: Text)
+type Error: Type = | Oops (tag: Text)
 
 export def RangeError: Error → Error
   | Oops t => Oops (t ++ t)

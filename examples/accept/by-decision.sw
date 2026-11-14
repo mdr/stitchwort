@@ -4,11 +4,7 @@
 -- test again. A false one is `E-AUTO-FALSE`.
 import Std (byDecision, List, Nat)
 
-type Key =
-  | Digit0
-  | Digit1
-  | Digit2
-  | Enter
+type Key = | Digit0 | Digit1 | Digit2 | Enter
 
 def keys: List Key := [Digit0, Digit1, Digit2, Enter]
 

@@ -39,17 +39,24 @@ def Quot.mk: [a: Type] → [r: a → a → Prop] → (x: a) → Quot a r
 --| A function out of the quotient: `f` applied to the representative. `h` shows
 --| that `f` can't tell related values apart. It computes on `Quot.mk`:
 --| `Quot.lift f h (Quot.mk x)` is `f x`.
-def Quot.lift: [a: Type] → [r: a → a → Prop] → [b: Type] → (f: a → b) →
-  (h: ∀ (x y: a) => r x y → f x = f y) → (q: Quot a r) → b
+def Quot.lift: [a: Type]
+      → [r: a → a → Prop]
+      → [b: Type]
+      → (f: a → b)
+      → (h: ∀ (x y: a) => r x y → f x = f y)
+      → (q: Quot a r)
+      → b
 
 --| Induction: a statement about every element of the quotient follows from
 --| one about each `Quot.mk x`. It proves only propositions, and never
 --| computes.
-def Quot.ind: [a: Type] → [r: a → a → Prop] → [p: Quot a r → Prop] →
-  (h: ∀ (x: a) => p (Quot.mk x)) → ∀ (q: Quot a r) => p q
+def Quot.ind: [a: Type]
+      → [r: a → a → Prop]
+      → [p: Quot a r → Prop]
+      → (h: ∀ (x: a) => p (Quot.mk x))
+      → ∀ (q: Quot a r) => p q
 
 --| Related values have equal classes: `Quot.mk x = Quot.mk y` when `r x y`.
 --| This is the one axiom of the core theory (`stitchwort axioms` lists a
 --| definition that uses it).
-def Quot.sound: [a: Type] → [r: a → a → Prop] → [x y: a] → (h: r x y) →
-  Quot.mk [r := r] x = Quot.mk [r := r] y
+def Quot.sound: [a: Type] → [r: a → a → Prop] → [x y: a] → (h: r x y) → Quot.mk [r := r] x = Quot.mk [r := r] y

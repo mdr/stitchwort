@@ -40,10 +40,7 @@ export def shapes (xs: List Shape): List Shape := xs.reverse
 export def describe (s: Shape): Text := "${s}"
 
 -- A record's field keys too.
-type Drawing = {
-  @[js.name "type"] kind: Text,
-  @[js.name "items"] shapes: List Shape
-}
+type Drawing = { @[js.name "type"] kind: Text, @[js.name "items"] shapes: List Shape }
 
 export def render (d: Drawing): Nat := d.shapes.length + d.kind.length
 
@@ -51,9 +48,7 @@ export def rename (d: Drawing): Drawing := { d | kind = d.kind ++ "2" }
 
 -- The same logical field may have a different key in each constructor.
 -- Attributes may span lines, and a group may close at the start of a line.
-@[
-  js.tag "kind"
-]
+@[js.tag "kind"]
 type Message =
   | Note (@[js.name "note_id"] id: Nat) (body: Text)
   | Picture (@[js.name "picture_id"] id: Nat) (url: Text)

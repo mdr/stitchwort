@@ -15,9 +15,7 @@ import Std (Eq, IO, List, Nat, Void)
 import Std.IO (print)
 
 -- A packet is a number or a list of packets (Advent of Code 2022, day 13).
-type Packet: Type =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet: Type = | Number (value: Nat) | Packets (items: List Packet)
 
 -- Structural recursion: `items` is part of the packet `size` matched, and a
 -- packet matched out of `items` is part of `items`, so part of the packet
@@ -47,9 +45,10 @@ test "length" := match example with
 -- field `items`.
 def depth (p: Packet): Nat
     decreasing Packet.size p
-:= match p with
-  | Number n => 0
-  | Packets items => 1 + (items.attach.map (e => depth e.value) |> .foldLeft 0 Nat.max)
+:=
+  match p with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := depth example == 2
 
@@ -60,8 +59,12 @@ theorem sizeListMem ∀ (q: Packet) (items: List Packet) (h: List.Mem q items): 
     | [], member => Void.exfalso member
     | [p, ..rest], Inl same => rewrite same in Nat.leAddRight (size q) (sizeList rest)
     | [p, ..rest], Inr member =>
-      Nat.leTrans (size q) (sizeList rest) (size p + sizeList rest)
-        (sizeListMem q rest member) (Nat.leAddLeft (size p) (sizeList rest))
+      Nat.leTrans
+        (size q)
+        (sizeList rest)
+        (size p + sizeList rest)
+        (sizeListMem q rest member)
+        (Nat.leAddLeft (size p) (sizeList rest))
 
 theorem sizeMem ∀ (q: Packet) (items: List Packet) (member: List.Mem q items): size q < size (Packets items) :=
   sizeListMem q items member

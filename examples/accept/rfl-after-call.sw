@@ -9,8 +9,7 @@ import Std (Eq, List, Nat, Option)
 
 def firstOf (xs: List Nat): Option Nat := List.head xs
 
-type Starts: List Nat → Nat → Prop =
-  | Here (n: Nat) (rest: List Nat): Starts [n, ..rest] n
+type Starts: List Nat → Nat → Prop = | Here (n: Nat) (rest: List Nat): Starts [n, ..rest] n
 
 theorem startsOf ∀ (xs: List Nat) (n: Nat) (h: firstOf xs = Some n): Starts xs n := match xs with
   | [m, ..rest] => rewrite <- Option.someInjective h in Here m rest

@@ -13,10 +13,8 @@ import Std (And, Exists, List, Nat, Option)
 
 --| "a gap / ^ (up) / A (activate) on the first row and < (left) / v
 --| (down) / > (right) on the second row".
-def directionalRows: List (List (Option DirectionKey)) := [
-  [None, Some (Arrow Up), Some Activate],
-  [Some (Arrow Left), Some (Arrow Down), Some (Arrow Right)]
-]
+def directionalRows: List (List (Option DirectionKey)) :=
+  [[None, Some (Arrow Up), Some Activate], [Some (Arrow Left), Some (Arrow Down), Some (Arrow Right)]]
 
 --| "four rows of buttons: 789, 456, 123, and finally an empty gap followed
 --| by 0A".
@@ -69,16 +67,17 @@ def Types (robots: Nat) (code: Code) (presses: List DirectionKey): Prop := typed
 --| on your directional keypad in order to cause the code to be typed": some
 --| sequence of that length types the code, and none shorter does.
 def Shortest (robots: Nat) (code: Code) (length: Nat): Prop :=
-  (Exists (List DirectionKey) (presses => (Types robots code presses) ∧ (presses.length = length))) ∧ (∀ (presses: List DirectionKey) => Types robots code presses → length ≤ presses.length)
+  (Exists (List DirectionKey) (presses => (Types robots code presses) ∧ (presses.length = length)))
+    ∧ (∀ (presses: List DirectionKey) => Types robots code presses → length ≤ presses.length)
 
 --| "The complexity of a single code ... the result of multiplying these two
 --| values", summed over the codes, given each code's shortest length. The
 --| numeric part ("ignoring leading zeroes") is the program's
 --| `Code.numericPart`.
-def complexitySum (codes: List Code) (shortest: Code → Nat): Nat := codes.sumBy (code => shortest code * code.numericPart)
+def complexitySum (codes: List Code) (shortest: Code → Nat): Nat :=
+  codes.sumBy (code => shortest code * code.numericPart)
 
 --| "What is the sum of the complexities of the five codes on your list?",
 --| with `robots` robots on directional keypads: two in part 1, 25 in part 2.
-def Answer (robots: Nat) (codes: List Code) (answer: Nat): Prop :=
-  Exists (Code → Nat) (shortest =>
-    (∀ (code: Code) => code ∈ codes → Shortest robots code (shortest code)) ∧ (answer = complexitySum codes shortest))
+def Answer (robots: Nat) (codes: List Code) (answer: Nat): Prop := Exists (Code → Nat) (shortest =>
+  (∀ (code: Code) => code ∈ codes → Shortest robots code (shortest code)) ∧ (answer = complexitySum codes shortest))

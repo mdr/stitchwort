@@ -14,22 +14,27 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (Ansi, Key, List, Nat, Option, Pair, Terminal)
 
-theorem turnKey ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key) (command: Command) (isCommand: commandOf key = Some command):
+theorem turnKey ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key) (command: Command)
+    (isCommand: commandOf key = Some command):
     let after := resolve { seed = lcg seed / 65536 } state command
-    Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
+    Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state))
+      = MkPair [frame after |> .map Ansi.strip] after :=
   rewrite isCommand in rfl
 
-theorem turnOther ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key) (notCommand: commandOf key = None):
+theorem turnOther ∀ (seed: Nat) (state: State) (key: Key) (rest: List Key)
+    (notCommand: commandOf key = None):
     Terminal.simulate [key, ..rest] (() => Random.withSeed seed (() => playTurn state)) = MkPair [] state :=
   rewrite notCommand in rfl
 
 theorem turnEnd ∀ (seed: Nat) (state: State):
     let after := resolve { seed = lcg seed / 65536 } state Quit
-    Terminal.simulate [] (() => Random.withSeed seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
+    Terminal.simulate [] (() => Random.withSeed seed (() => playTurn state))
+      = MkPair [frame after |> .map Ansi.strip] after :=
   rfl
 
-theorem turnValid ∀ (seed: Nat) (state: State) (valid: Valid state)
-    (keys: List Key): Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd :=
+theorem turnValid ∀ (seed: Nat) (state: State)
+    (valid: Valid state) (keys: List Key):
+    Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd :=
   match keys with
     | [] => resolveValid { seed = lcg seed / 65536 } state Quit valid
     | [key, ..rest] =>
@@ -38,8 +43,11 @@ theorem turnValid ∀ (seed: Nat) (state: State) (valid: Valid state)
         | None => valid
 
 --| So pressing an arrow, in the real turn under the test handlers, walks that way.
-theorem arrowWalks ∀ (seed: Nat) (state: State) (direction: Direction) (rest: List Key) (playing: state.phase = Playing)
-    (vacant: monsterAt (state.player.toward direction) state.monsters = None) (open: isWall state.level (state.player.toward direction) = False):
-    (Terminal.simulate [arrow direction, ..rest] (() => Random.withSeed seed (() => playTurn state))).snd.player = state.player.toward direction :=
+theorem arrowWalks ∀ (seed: Nat) (state: State) (direction: Direction) (rest: List Key)
+    (playing: state.phase = Playing)
+    (vacant: monsterAt (state.player.toward direction) state.monsters = None)
+    (open: isWall state.level (state.player.toward direction) = False):
+    (Terminal.simulate [arrow direction, ..rest] (() => Random.withSeed seed (() => playTurn state))).snd.player
+      = state.player.toward direction :=
   rewrite turnKey seed state (arrow direction) rest (Move direction) (arrowMoves direction) in
     resolveMoves { seed = lcg seed / 65536 } state direction playing vacant open

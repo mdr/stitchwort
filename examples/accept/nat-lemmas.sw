@@ -1,15 +1,14 @@
 -- Arithmetic lemmas from the prelude, used in small proofs.
 import Std (Eq, Nat)
 
-theorem addSwap ∀ (a: Nat) (b: Nat) (c: Nat): a + (b + c) = b + (a + c) :=
-  Eq.trans (Eq.sym (Nat.addAssoc a b c))
-    (Eq.trans (Eq.cong (t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c))
+theorem addSwap ∀ (a b c: Nat): a + (b + c) = b + (a + c) :=
+  Eq.trans (Eq.sym (Nat.addAssoc a b c)) (Eq.trans (Eq.cong (t => t + c) (Nat.addComm a b)) (Nat.addAssoc b a c))
 
-theorem squareOfSum ∀ (a: Nat) (b: Nat): (a + b) * (a + b) = a * (a + b) + b * (a + b) := Nat.mulDistribRight a b (a + b)
+theorem squareOfSum ∀ (a b: Nat): (a + b) * (a + b) = a * (a + b) + b * (a + b) := Nat.mulDistribRight a b (a + b)
 
 theorem timesTwo ∀ (n: Nat): n * 2 = n + n := Eq.trans (Nat.mulSucc n 1) (Eq.cong (t => n + t) (Nat.mulOne n))
 
-theorem leftSmaller ∀ (a: Nat) (b: Nat) (c: Nat) (h: a ≤ b): a ≤ b + c := Nat.leTrans a b (b + c) h (Nat.leAddRight b c)
+theorem leftSmaller ∀ (a b c: Nat) (h: a ≤ b): a ≤ b + c := Nat.leTrans a b (b + c) h (Nat.leAddRight b c)
 
 theorem pred ∀ (n: Nat): (n + 5) - 5 = n := Nat.addSub n 5
 
@@ -23,4 +22,4 @@ theorem halfLt ∀ (n: Nat) (h: 0 < n): n / 2 < n := Nat.divLt n 2 h omega
 
 theorem halfAndBack ∀ (n: Nat) (h: 0 < n): n / 2 + 1 ≤ n := omega
 
-theorem divLeSelf ∀ (n: Nat) (k: Nat) (h: k ≠ 0): n / k ≤ n := omega [Nat.divLe n k]
+theorem divLeSelf ∀ (n k: Nat) (h: k ≠ 0): n / k ≤ n := omega [Nat.divLe n k]

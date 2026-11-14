@@ -26,9 +26,7 @@ theorem rockBeatsOnlyScissorsArms ∀ (theirs: Move) (h: beats Rock theirs): the
   | Scissors, _ => rfl
 
 -- One scrutinee, and a result that is data.
-def fromImpossible (h: Rock = Paper): Nat := match h with
-  | ()
+def fromImpossible (h: Rock = Paper): Nat := match h with | ()
 
 -- A clause lambda.
-def noVoid: Void -> Nat := match
-  | ()
+def noVoid: Void -> Nat := match | ()

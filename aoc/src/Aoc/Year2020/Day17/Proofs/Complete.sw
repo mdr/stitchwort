@@ -14,10 +14,12 @@ import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, NonEmptyList, Option
 --| A character a row of cubes can start with.
 def cubeChar (char: Char): Bool := char == '#' ∨ char == '.'
 
-theorem stripDifferent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char) (different: (char == first) = False):
-    Text.stripPrefixChars [first, ..others] [char, ..more] = None := match e: Text.sameChar first char with
-      | False => rfl
-      | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
+theorem stripDifferent ∀ (first: Char) (others: List Char) (char: Char) (more: List Char)
+    (different: (char == first) = False):
+    Text.stripPrefixChars [first, ..others] [char, ..more] = None :=
+  match e: Text.sameChar first char with
+    | False => rfl
+    | True => Void.exfalso (different.read (Eq.sym (DecEq.sound (rewrite Text.sameCharEq first char at e in e))))
 
 theorem runsCube ∀ (state: CubeState) (after: List Char): Parse.Runs cubeState [symbol state] after state :=
   match state with
@@ -29,38 +31,69 @@ theorem declinesCube ∀ (rest: List Char) (stops: Parse.CannotStart cubeChar re
     (match rest with
       | [] => Both rfl (Both rfl rfl)
       | [char, ..more] =>
-        Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
+        Both
+          (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
 theorem allCubes ∀ (states: List CubeState): (states.map symbol).all cubeChar = True := match states with
   | [] => rfl
-  | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
+  | [state, ..more] =>
+    rewrite allCubes more in
+      (match state with
+        | Active => rfl
+        | Inactive => rfl)
 
-theorem runsRow ∀ (line: List Char) (row: List CubeState) (written: RowWritten line row) (nonEmpty: row ≠ []):
-    Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row := match row, nonEmpty with
-      | [], notEmpty => Void.exfalso (notEmpty rfl)
-      | [state, ..more], notEmpty =>
-        rewrite written in
-          Parse.runsMap (() => Parse.many1 cubeState) NonEmptyList.toList ([state, ..more].map symbol) [] (NonEmptyList.cons state more)
-            (Parse.runsMany1Symbols cubeState symbol cubeChar (state2 after _ => runsCube state2 after) declinesCube state more []
-              (allCubes [state, ..more]) (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
+theorem runsRow ∀ (line: List Char) (row: List CubeState)
+    (written: RowWritten line row)
+    (nonEmpty: row ≠ []):
+    Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row :=
+  match row, nonEmpty with
+    | [], notEmpty => Void.exfalso (notEmpty rfl)
+    | [state, ..more], notEmpty =>
+      rewrite written in
+        Parse.runsMap
+          (() => Parse.many1 cubeState)
+          NonEmptyList.toList
+          ([state, ..more].map symbol)
+          []
+          (NonEmptyList.cons state more)
+          (Parse.runsMany1Symbols cubeState symbol cubeChar
+            (state2 after _ => runsCube state2 after)
+            declinesCube
+            state
+            more
+            []
+            (allCubes [state, ..more])
+            (char more2 found => Void.exfalso (List.consNotNil char more2 (Eq.sym found))))
 
 --| The soundness theorem's conclusion: every line of the input is its row of the slice written out, and the slice is a rectangle.
 def InputWritten (input: Text) (slice2: Slice): Prop :=
   List.All2 RowWritten (input.lines.map Text.toList) slice2.grid.rows ∧ slice2.grid.Rectangle
 
 --| Input whose lines are the rows of a rectangular slice written out is read as that slice.
-theorem parseComplete ∀ (input: Text) (slice2: Slice) (written: InputWritten input slice2): Fail.toResult (() => parseSlice input) = Ok slice2 :=
+theorem parseComplete ∀ (input: Text) (slice2: Slice)
+    (written: InputWritten input slice2):
+    Fail.toResult (() => parseSlice input) = Ok slice2 :=
   match slice2, written with
     | { grid }, Both lines rectangle =>
-      let rowsRead: Fail.toResult (() => Parse.eachLine input (() => Parse.many1 cubeState |> .toList)) = Ok grid.rows :=
-        Parse.runsEachLine input (() => Parse.many1 cubeState |> .toList) grid.rows
-          (List.all2WeakenMem _ _ (line row member same =>
-            runsRow line row same (rowEmpty => grid.widthNonZero (Eq.trans (Eq.sym (rectangle row member)) (rewrite rowEmpty in rfl)))) lines)
-      let gridRead: Fail.toResult (() => parseGrid input cubeState) = Ok grid := parseGridComplete input cubeState grid rectangle rowsRead
+      let rowsRead: Fail.toResult (() => Parse.eachLine input (() => Parse.many1 cubeState |> .toList))
+        = Ok grid.rows :=
+        Parse.runsEachLine input
+          (() => Parse.many1 cubeState |> .toList)
+          grid.rows
+          (List.all2WeakenMem _ _
+            (line row member same =>
+              runsRow line row same (rowEmpty =>
+                grid.widthNonZero (Eq.trans (Eq.sym (rectangle row member)) (rewrite rowEmpty in rfl))))
+            lines)
+      let gridRead: Fail.toResult (() => parseGrid input cubeState) = Ok grid :=
+        parseGridComplete input cubeState grid rectangle rowsRead
       rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid2 => ({ grid = grid2 }: Slice)) in
         rewrite gridRead in rfl
 
 --| A slice is written by an input in at most one way, since the parser reads it as one.
-theorem writtenUnique ∀ (input: Text) (a: Slice) (b: Slice) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
+theorem writtenUnique ∀ (input: Text) (a b: Slice)
+    (writtenA: InputWritten input a)
+    (writtenB: InputWritten input b):
+    a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

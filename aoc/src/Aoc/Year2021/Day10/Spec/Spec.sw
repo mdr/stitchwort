@@ -25,8 +25,12 @@ def Legal (start: List Token): Prop := exists (ending: List Token) => Balanced (
 --| legal start is legal, so no earlier character is illegal:
 --| `legalOfLonger` in the proofs.)
 type FirstIllegal: List Token → Token → Prop =
-  | At (before: List Token) (token: Token) (after: List Token) (legal: Legal before) (illegal: ¬(Legal (before ++ [token]))):
-    FirstIllegal (before ++ [token, ..after]) token
+  | At
+      (before: List Token)
+      (token: Token)
+      (after: List Token)
+      (legal: Legal before)
+      (illegal: ¬(Legal (before ++ [token]))): FirstIllegal (before ++ [token, ..after]) token
 
 --| The syntax error score of each illegal closer.
 def errorPoints: Bracket → Nat
@@ -44,7 +48,9 @@ type ErrorScore: List Token → Nat → Prop =
 --| Part 1: the total syntax error score of the lines.
 type Part1Answer: List (List Token) → Nat → Prop =
   | NoLines: Part1Answer [] 0
-  | NextLine (line: ErrorScore first score) (rest: Part1Answer lines total): Part1Answer [first, ..lines] (score + total)
+  | NextLine
+      (line: ErrorScore first score)
+      (rest: Part1Answer lines total): Part1Answer [first, ..lines] (score + total)
 
 --| An incomplete line: not corrupted, but not balanced either.
 def Incomplete (line: List Token): Prop := Legal line ∧ ¬(Balanced line)
@@ -68,16 +74,22 @@ def completionTotal (score: Nat): List Bracket → Nat
 --| The completion scores of the incomplete lines, in order.
 type CompletionScores: List (List Token) → List Nat → Prop =
   | NoneLeft: CompletionScores [] []
-  | Scored (incomplete: Incomplete first) (completes: Completes first closers) (rest: CompletionScores lines scores):
-    CompletionScores [first, ..lines] [completionTotal 0 closers, ..scores]
-  | Skipped (complete: ¬(Incomplete first)) (rest: CompletionScores lines scores): CompletionScores [first, ..lines] scores
+  | Scored
+      (incomplete: Incomplete first)
+      (completes: Completes first closers)
+      (rest: CompletionScores lines scores): CompletionScores [first, ..lines] [completionTotal 0 closers, ..scores]
+  | Skipped
+      (complete: ¬(Incomplete first))
+      (rest: CompletionScores lines scores): CompletionScores [first, ..lines] scores
 
 --| The middle score: one of the scores, with at most half of them smaller
 --| and at most half larger. With an odd number of scores, as the puzzle
 --| promises, there is exactly one (`middleUnique` in the proofs); with an
 --| even number, either of the two middle ones is.
 def Middle (scores: List Nat) (middle: Nat): Prop :=
-  middle ∈ scores ∧ 2 * scores.count (score => score < middle) ≤ scores.length ∧ 2 * scores.count (score => middle < score) ≤ scores.length
+  middle ∈ scores
+    ∧ 2 * scores.count (score => score < middle) ≤ scores.length
+    ∧ 2 * scores.count (score => middle < score) ≤ scores.length
 
 --| Part 2: the middle completion score.
 def Part2Answer (lines: List (List Token)) (answer: Nat): Prop :=

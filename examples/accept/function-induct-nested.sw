@@ -14,4 +14,7 @@ theorem unfoldLengthLe ∀ (seed: s) (step: s → Option (Pair a s)) (measure: s
     (seed step measure shrinks v next found ih =>
       let smaller := shrinks seed next v found
       omega)
-    seed step measure shrinks
+    seed
+    step
+    measure
+    shrinks

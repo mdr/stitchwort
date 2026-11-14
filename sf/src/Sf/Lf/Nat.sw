@@ -42,9 +42,7 @@ import Std (Nat as StdNat)
 -- applied to the representation of `n` represents `n + 1` ("successor",
 -- or "scratch"):
 
-type Nat =
-  | O
-  | S (n: Nat)
+type Nat = | O | S (n: Nat)
 
 -- So 0 is `O`, 1 is `S O`, 2 is `S (S O)`, and so on. Read the clauses as:
 --
@@ -58,9 +56,7 @@ type Nat =
 -- numbers down. The names `O` and `S` mean nothing yet; any two names
 -- would do, as in this type:
 
-type OtherNat =
-  | Stop
-  | Tick (foo: OtherNat)
+type OtherNat = | Stop | Tick (foo: OtherNat)
 
 -- The *interpretation* comes from how we compute with them, by functions
 -- that match on the representation, as for booleans and days. Here is
@@ -84,7 +80,7 @@ theorem ofNatThree: ofNat 3 = S (S (S O)) := rfl
 
 -- Multi-argument functions can be defined by recursion too.
 
-def plus (n: Nat) (m: Nat): Nat := match n with
+def plus (n m: Nat): Nat := match n with
   | O => m
   | S n' => S (plus n' m)
 

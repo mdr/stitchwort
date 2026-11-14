@@ -3,12 +3,12 @@
 -- A `Bool` condition is read as a `Bool`, as always.
 import Std (Fin, List)
 
-def smaller (x: Nat) (y: Nat): Nat := if x < y then x else y
+def smaller (x y: Nat): Nat := if x < y then x else y
 
 test "smaller, first" := smaller 3 5 == 3
 test "smaller, second" := smaller 5 3 == 3
 
-def clampTo (hi: Nat) (n: Nat): Nat := if n ≤ hi then n else hi
+def clampTo (hi n: Nat): Nat := if n ≤ hi then n else hi
 
 test "clamp, below" := clampTo 10 4 == 4
 test "clamp, above" := clampTo 10 12 == 10
@@ -31,7 +31,7 @@ def nonZero (d: Nat): Nat := if d ≠ 0 then d else 1
 test "nonZero" := nonZero 0 == 1
 
 -- `==` is a `Bool`, so this is the ordinary `if`.
-def sameList (xs: List Nat) (ys: List Nat): Nat := if xs == ys then 1 else 0
+def sameList (xs ys: List Nat): Nat := if xs == ys then 1 else 0
 
 test "sameList, same" := sameList [1, 2] [1, 2] == 1
 test "sameList, different" := sameList [1] [2] == 0
@@ -60,6 +60,6 @@ theorem filterSum ∀ (xs: List (List Nat)) (f: List Nat → Nat):
   List.sumByFilter xs f (ys => ys.length >= 1)
 
 -- A branch that uses the proof keeps it: `Fin.ofNat` finds `i < n`.
-def below (n: Nat) (i: Nat): Option (Fin n) := if i < n then Some (Fin.ofNat i) else None
+def below (n i: Nat): Option (Fin n) := if i < n then Some (Fin.ofNat i) else None
 
 test "below" := (below 3 1).isSome ∧ (below 3 3).isNone

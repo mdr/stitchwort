@@ -28,10 +28,12 @@ def ActionWritten (letter: Char) (action: Action): Prop := match action with
 --| of 90 degrees (every one in the examples and the input is 90, 180 or
 --| 270).
 def InstructionWritten (read: List Char) (instruction: Instruction): Prop :=
-  ∃ (letter: Char) => ∃ (digits: List Char) =>
-    read = [letter, ..digits] ∧ ActionWritten letter instruction.action
-      ∧ digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ instruction.value = Parse.digitsValue digits
-      ∧ (instruction.action.isTurn = True → instruction.value % 90 = 0)
+  ∃ (letter: Char) => ∃ (digits: List Char) => read = [letter, ..digits]
+    ∧ ActionWritten letter instruction.action
+    ∧ digits ≠ []
+    ∧ digits.all Parse.isDigit = True
+    ∧ instruction.value = Parse.digitsValue digits
+    ∧ (instruction.action.isTurn = True → instruction.value % 90 = 0)
 
 -- Moving and turning
 
@@ -43,7 +45,7 @@ def unit: Heading → Location
   | West => { x = -1, y = 0 }
 
 --| `distance` steps of `step` on from `location`.
-def along (location: Location) (step: Location) (distance: Nat): Location :=
+def along (location step: Location) (distance: Nat): Location :=
   { x = location.x + distance.toInt * step.x, y = location.y + distance.toInt * step.y }
 
 --| A quarter turn left (counter-clockwise) about the start: east becomes

@@ -13,15 +13,7 @@ import Ansi.Colour (Black, Red, Green, Yellow, Blue, Magenta, Cyan, White)
 import Ansi.Scan (Plain, AfterEscape, InSequence)
 
 --| The eight standard colours. A terminal's theme decides the exact shades.
-type Ansi.Colour: Type =
-  | Black
-  | Red
-  | Green
-  | Yellow
-  | Blue
-  | Magenta
-  | Cyan
-  | White
+type Ansi.Colour: Type = | Black | Red | Green | Yellow | Blue | Magenta | Cyan | White
 
 --| The colour's number in `ESC [3nm`.
 def Ansi.colourNumber: (colour: Ansi.Colour) → Nat
@@ -50,10 +42,7 @@ def Ansi.strip (text: Text): Text := Text.fromList (Ansi.stripChars Plain (Text.
 
 --| Where `stripChars` is: in plain text, just after an `ESC`, or inside an
 --| `ESC [` sequence.
-type Ansi.Scan: Type =
-  | Plain
-  | AfterEscape
-  | InSequence
+type Ansi.Scan: Type = | Plain | AfterEscape | InSequence
 
 --| The characters with ANSI escape sequences removed, starting in state `scan` (`Ansi.strip`'s loop).
 def Ansi.stripChars (scan: Ansi.Scan): (chars: List Char) → List Char
@@ -77,7 +66,8 @@ test "Ansi: each colour's number" :=
   List.map [Black, Red, Green, Yellow, Blue, Magenta, Cyan, White] Ansi.colourNumber == [0, 1, 2, 3, 4, 5, 6, 7]
 test "Ansi: bold" := Ansi.bold "hi" == "\u{1b}[1mhi\u{1b}[22m"
 test "Ansi: reverse" := Ansi.reverse "hi" == "\u{1b}[7mhi\u{1b}[27m"
-test "Ansi: strip removes every code" := Ansi.strip "a ${Ansi.bold (Ansi.colour Green "b")} ${Ansi.reverse "c"}!" == "a b c!"
+test "Ansi: strip removes every code" :=
+  Ansi.strip "a ${Ansi.bold (Ansi.colour Green "b")} ${Ansi.reverse "c"}!" == "a b c!"
 test "Ansi: strip keeps plain text" := Ansi.strip "plain [text]" == "plain [text]"
 test "Ansi: strip keeps an ESC that starts no sequence" := Ansi.strip "a\u{1b}b\u{1b}" == "a\u{1b}b\u{1b}"
 test "Ansi: strip drops a sequence cut off at the end" := Ansi.strip "a\u{1b}[3" == "a"

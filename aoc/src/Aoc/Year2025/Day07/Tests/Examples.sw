@@ -26,18 +26,23 @@ def example: List Text := """
   ...............
   """.lines
 
-def row4 (a: x) (b: x) (c: x) (d: x): Vec x 4 := VCons a (VCons b (VCons c (VCons d VNil)))
+def row4 (a b c d: x): Vec x 4 := VCons a (VCons b (VCons c (VCons d VNil)))
 
-test "find start" := (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Some (0, 7), Some (1, 1), None)
+test "find start" :=
+  (findStart example, findStart ["..", ".S", "S."], findStart [".."]) == (Some (0, 7), Some (1, 1), None)
 test "manifold" := (parseManifoldOption example).map (m => (m.width, m.start.toNat, m.rows.length)) == Some (15, 7, 15)
-test "splitter row" := ((splitterRow 5 ".^.").toList, (splitterRow 2 ".^.").toList) == ([False, True, False, False, False], [False, True])
+test "splitter row" :=
+  ((splitterRow 5 ".^.").toList, (splitterRow 2 ".^.").toList) == ([False, True, False, False, False], [False, True])
 test "fall" := (fall (row4 False True False False) (row4 True True False False)).toList == [True, False, True, False]
 test "split row" := (splitRow (row4 False True False True) (row4 2 3 4 5)).toList == [2, 6, 4, 5]
 test "example part 1" := (parseManifoldOption example).map solvePart1 == Some 21
 test "example part 2" := (parseManifoldOption example).map solvePart2 == Some 40
-test "splitter at the left edge" := (parseManifoldOption ["S.", "^.", ".."]).map (m => (solvePart1 m, solvePart2 m)) == Some (1, 2)
-test "splitter at the right edge" := (parseManifoldOption [".S", ".^", ".^"]).map (m => (solvePart1 m, solvePart2 m)) == Some (1, 2)
-test "beams merge" := (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."]).map (m => (solvePart1 m, solvePart2 m)) == Some (4, 6)
+test "splitter at the left edge" :=
+  (parseManifoldOption ["S.", "^.", ".."]).map (m => (solvePart1 m, solvePart2 m)) == Some (1, 2)
+test "splitter at the right edge" :=
+  (parseManifoldOption [".S", ".^", ".^"]).map (m => (solvePart1 m, solvePart2 m)) == Some (1, 2)
+test "beams merge" :=
+  (parseManifoldOption ["..S..", "..^..", ".^.^.", "..^.."]).map (m => (solvePart1 m, solvePart2 m)) == Some (4, 6)
 test "nothing below S" := (parseManifoldOption ["^^", ".S"]).map (m => (solvePart1 m, solvePart2 m)) == Some (0, 1)
 test "no S" := (parseManifoldOption ["..^.."]).map solvePart1 == None
 
@@ -49,14 +54,21 @@ test "main with no S" := ran ["..^.."] == MkPair [] (Err "expected a line with a
 test "main with a final blank line" := ran ["..S..", "..^..", ""] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
 
 --| The strict parser: what it rejects, and what it still accepts.
-test "an unknown character" := ran ["..S..", "..x.."] == MkPair [] (Err "line 2, column 3: expected '.', '^', 'S' or the end of the line, got 'x'")
-test "the first unknown character wins" := ran ["..S?", "a"] == MkPair [] (Err "line 1, column 4: expected '.', '^', 'S' or the end of the line, got '?'")
-test "a space is not empty space" := ran ["S.", ". "] == MkPair [] (Err "line 2, column 2: expected '.', '^', 'S' or the end of the line, got ' '")
-test "a lower-case s" := ran ["..s.."] == MkPair [] (Err "line 1, column 3: expected '.', '^', 'S' or the end of the line, got 's'")
-test "an unknown character beats a missing S" := ran ["..x.."] == MkPair [] (Err "line 1, column 3: expected '.', '^', 'S' or the end of the line, got 'x'")
-test "check with no S" := Result.map (checkManifold ["...."]) (m => m.width) == Err "expected a line with an S, got none"
+test "an unknown character" :=
+  ran ["..S..", "..x.."] == MkPair [] (Err "line 2, column 3: expected '.', '^', 'S' or the end of the line, got 'x'")
+test "the first unknown character wins" :=
+  ran ["..S?", "a"] == MkPair [] (Err "line 1, column 4: expected '.', '^', 'S' or the end of the line, got '?'")
+test "a space is not empty space" :=
+  ran ["S.", ". "] == MkPair [] (Err "line 2, column 2: expected '.', '^', 'S' or the end of the line, got ' '")
+test "a lower-case s" :=
+  ran ["..s.."] == MkPair [] (Err "line 1, column 3: expected '.', '^', 'S' or the end of the line, got 's'")
+test "an unknown character beats a missing S" :=
+  ran ["..x.."] == MkPair [] (Err "line 1, column 3: expected '.', '^', 'S' or the end of the line, got 'x'")
+test "check with no S" :=
+  Result.map (checkManifold ["...."]) (m => m.width) == Err "expected a line with an S, got none"
 test "the manifold is what the parser reads" :=
   Result.map (checkManifold example) (m => (m.width, m.start.toNat, m.rows.length)) == Ok (15, 7, 15)
 test "one column, both branches leave" := ran ["S", "^", "."] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)
-test "a short intermediate row is padded" := ran ["..S..", "..^..", ".", ".^.^."] == MkPair ["Part 1: 3", "Part 2: 4"] (Ok True)
+test "a short intermediate row is padded" :=
+  ran ["..S..", "..^..", ".", ".^.^."] == MkPair ["Part 1: 3", "Part 2: 4"] (Ok True)
 test "S below another S" := ran ["S", ".S", "^"] == MkPair ["Part 1: 1", "Part 2: 2"] (Ok True)

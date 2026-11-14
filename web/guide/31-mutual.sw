@@ -11,12 +11,9 @@ def isOdd: Nat → Bool
   | Succ n => isEven n
 
 -- Types can refer to each other too: a tree whose children are a forest.
-type Tree =
-  | Node (label: Nat) (kids: Forest)
+type Tree = | Node (label: Nat) (kids: Forest)
 
-type Forest =
-  | FNil
-  | FCons (first: Tree) (rest: Forest)
+type Forest = | FNil | FCons (first: Tree) (rest: Forest)
 
 def Tree.total: Tree → Nat
   | Node label kids => label + kids.total

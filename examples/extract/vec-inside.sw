@@ -8,9 +8,7 @@ import Std (List)
 -- run: firstOr 7 [3, 4]
 -- run: sumPairs [1, 2, 3]
 -- run: sumPairs []
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def fromList: (xs: List a) → Vec a (List.length xs)
   | Nil => VNil
@@ -32,5 +30,4 @@ export def firstOr (default: Nat): List Nat → Nat
   | Cons x xs => head (fromList (Cons x xs))
 
 -- Adds each element to itself, through two vectors of one length.
-export def sumPairs (xs: List Nat): Nat :=
-  List.sum (toList (zipWith (a b => a + b) (fromList xs) (fromList xs)))
+export def sumPairs (xs: List Nat): Nat := List.sum (toList (zipWith (a b => a + b) (fromList xs) (fromList xs)))

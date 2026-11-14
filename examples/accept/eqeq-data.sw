@@ -23,17 +23,13 @@ test "constructor differs" := ¬(Left 3 == Right 3)
 test "with and without field" := ¬(Stay == Left 0)
 test "no field" := Stay == Stay
 
-type Path =
-  | Here
-  | Step (d: Dir) (rest: Path)
+type Path = | Here | Step (d: Dir) (rest: Path)
 
 test "recursive" := Step North (Step East Here) == Step North (Step East Here)
 test "recursive, deep difference" := ¬(Step North (Step East Here) == Step North (Step West Here))
 test "recursive, different length" := ¬(Step North Here == Step North (Step North Here))
 
-type Tree (a: Type): Type =
-  | Leaf
-  | Node (l: Tree a) (x: a) (r: Tree a)
+type Tree (a: Type): Type = | Leaf | Node (l: Tree a) (x: a) (r: Tree a)
 
 test "Tree Nat" := Node Leaf 1 (Node Leaf 2 Leaf) == Node Leaf 1 (Node Leaf 2 Leaf)
 test "Tree Nat, different" := ¬(Node Leaf 1 Leaf == Node Leaf 2 Leaf)
@@ -41,9 +37,7 @@ test "Tree Nat, shape" := ¬(Node Leaf 1 Leaf == Node (Node Leaf 1 Leaf) 1 Leaf)
 test "Tree Dir" := Node Leaf North (Node Leaf South Leaf) == Node Leaf North (Node Leaf South Leaf)
 test "Tree Dir, different" := ¬(Node Leaf North Leaf == Node Leaf East Leaf)
 
-type Either2 (a: Type) (b: Type): Type =
-  | InL (x: a)
-  | InR (y: b)
+type Either2 (a: Type) (b: Type): Type = | InL (x: a) | InR (y: b)
 
 test "two parameters" := InL 1 == (InL 1: Either2 Nat Text)
 test "two parameters, other side" := InR "a" == (InR "a": Either2 Nat Text)
@@ -69,23 +63,19 @@ test "record" := mv 2 == mv 2
 test "record, different" := ¬(mv 2 == mv 3)
 
 -- In a definition, too, not just at compile time.
-def sameTree (t: Tree Dir) (u: Tree Dir): Bool := t == u
+def sameTree (t u: Tree Dir): Bool := t == u
 
 test "at run time" := sameTree (Node Leaf East Leaf) (Node Leaf East Leaf)
 test "at run time, different" := ¬(sameTree (Node Leaf East Leaf) (Node Leaf West Leaf))
 
 -- The derived decider is a proof: `auto` runs it at compile time, so this
 -- only compiles if it says `Yes`.
-def needsEq (x: Tree Nat) (y: Tree Nat): [auto h: x = y] → Nat := 1
+def needsEq (x y: Tree Nat): [auto h: x = y] → Nat := 1
 
 test "auto proof" := needsEq (Node Leaf 1 Leaf) (Node Leaf 1 Leaf) == 1
 
 -- And a branch can use the equation it learns.
-def pick (t: Tree Nat) (u: Tree Nat): Nat :=
-  if h: t = u then
-    needsEq t u
-  else
-    0
+def pick (t u: Tree Nat): Nat := if h: t = u then needsEq t u else 0
 
 test "if h, equal" := pick Leaf Leaf == 1
 test "if h, different" := pick Leaf (Node Leaf 1 Leaf) == 0

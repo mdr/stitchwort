@@ -20,8 +20,15 @@ test "example, part 2" := solvePart2 exampleCrabs == 168
 --| The puzzle's worked positions: part 1 is cheapest at 2 (1, 3 and 10 cost
 --| 41, 39 and 71), part 2 at 5 (2 costs 206).
 test "example, part 1's positions" :=
-  (totalFuel part1Fuel exampleCrabs 2, totalFuel part1Fuel exampleCrabs 1, totalFuel part1Fuel exampleCrabs 3, totalFuel part1Fuel exampleCrabs 10) == (37, 41, 39, 71)
-test "example, part 2's positions" := (totalFuel part2Fuel exampleCrabs 5, totalFuel part2Fuel exampleCrabs 2) == (168, 206)
+  (
+    totalFuel part1Fuel exampleCrabs 2,
+    totalFuel part1Fuel exampleCrabs 1,
+    totalFuel part1Fuel exampleCrabs 3,
+    totalFuel part1Fuel exampleCrabs 10
+  )
+    == (37, 41, 39, 71)
+test "example, part 2's positions" :=
+  (totalFuel part2Fuel exampleCrabs 5, totalFuel part2Fuel exampleCrabs 2) == (168, 206)
 test "the example's ends" := (leftmost exampleCrabs, rightmost exampleCrabs) == (0, 16)
 
 test "the spec's distance either way" := (distance 16 5, distance 1 5, distance 5 5) == (11, 4, 0)

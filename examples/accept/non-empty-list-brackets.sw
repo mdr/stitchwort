@@ -47,7 +47,7 @@ def len(): {IO} Nat := (orNone IO.readLine()).length
 def shortLines(): {IO} NonEmptyList Bool := [len() < 3, len() < 3]
 
 -- Where the type isn't known, a literal is a `List`, as everywhere else.
-def maxOfTwo (x: Nat) (y: Nat): Nat :=
+def maxOfTwo (x y: Nat): Nat :=
   let both: NonEmptyList Nat := [x, y]
   both.maximum
 

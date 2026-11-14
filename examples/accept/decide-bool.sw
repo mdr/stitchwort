@@ -2,8 +2,7 @@
 -- expected: it's decided (`Decidable.holds` of its decision), as Lean's
 -- `decide` coercion does.
 
-def small (k: Nat) (size: Nat) (xs: List Nat): List Nat :=
-  xs.filter (n => k * n ≤ size)
+def small (k size: Nat) (xs: List Nat): List Nat := xs.filter (n => k * n ≤ size)
 
 theorem smallExample: small 2 10 [1, 5, 6, 2] = [1, 5, 2] := rfl
 
@@ -29,7 +28,7 @@ def keepSmall (xs: List Nat): List Nat := xs.filter (n => IsSmall n)
 theorem keepSmallExample: keepSmall [3, 30] = [3] := rfl
 
 -- A body, a branch and an argument, each expecting a `Bool`.
-def le (a: Nat) (b: Nat): Bool := a ≤ b
+def le (a b: Nat): Bool := a ≤ b
 
 theorem leExample: le 2 3 = True := rfl
 
@@ -37,7 +36,7 @@ def pick (b: Bool) (n: Nat): Bool := if b then n < 5 else n = 0
 
 theorem pickExample: pick True 3 = True := rfl
 
-def both (a: Bool) (b: Bool): Bool := a ∧ b
+def both (a b: Bool): Bool := a ∧ b
 
 theorem bothExample: both (1 < 2) (3 = 3) = True := rfl
 

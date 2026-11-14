@@ -5,9 +5,7 @@ import Std (Decidable, Nat)
 
 -- Vectors: a list whose length is in its type. `n` in `VCons` is an
 -- implicit field, bound automatically.
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 -- No `VNil` arm: it can't happen.
 def head: Vec a (Succ n) → a
@@ -55,9 +53,7 @@ def length: Vec a n → Nat
 def consZero (xs: Vec Nat 2): Vec Nat 3 := VCons [n := 2] 0 xs
 
 -- Numbers below `n`.
-type Fin: Nat → Type =
-  | FZero: Fin (Succ n)
-  | FSucc (i: Fin n): Fin (Succ n)
+type Fin: Nat → Type = | FZero: Fin (Succ n) | FSucc (i: Fin n): Fin (Succ n)
 
 -- No `VNil` arm: `VNil` is possible, but then `i: Fin 0` has no values.
 def get: Vec a n → Fin n → a
@@ -69,29 +65,25 @@ def get: Vec a n → Fin n → a
 def same (x: t): t := x
 
 def keep (p: Nat → Type) (h: p n) (v: Vec a n): p n :=
-  same (match v with
-    | VNil => h
-    | VCons _ _ => h)
+  same
+    (match v with
+      | VNil => h
+      | VCons _ _ => h)
 
 -- A dependent automatic field written out (paired with
 -- reject/implicit-field-dependent.sw).
-type Dep: (n: Nat) → Fin n → Type =
-  | Mk (n: Nat) [i: Fin n]: Dep n i
+type Dep: (n: Nat) → Fin n → Type = | Mk (n: Nat) [i: Fin n]: Dep n i
 
 -- Types as indices live one universe up (paired with
 -- reject/index-type-former.sw): matching works on a variable index.
-type Ty: Type → Type 1 =
-  | TNat: Ty Nat
-  | TList (t: Ty b): Ty (List b)
+type Ty: Type → Type 1 = | TNat: Ty Nat | TList (t: Ty b): Ty (List b)
 
 def depth: Ty c → Nat
   | TNat => 0
   | TList t => Succ (depth t)
 
 -- `Le` as an inductive predicate.
-type Le: Nat → Nat → Prop =
-  | LeZero: Le 0 n
-  | LeSucc (h: Le m n): Le (Succ m) (Succ n)
+type Le: Nat → Nat → Prop = | LeZero: Le 0 n | LeSucc (h: Le m n): Le (Succ m) (Succ n)
 
 theorem leTrans: Le a b → Le b c → Le a c
   | LeZero, _ => LeZero
@@ -107,9 +99,7 @@ def absurdLe: Le (Succ n) 0 → Nat
 
 -- `Even`, an absurd case, and a decision procedure (paired with
 -- reject/index-absurd-not-empty.sw).
-type Even: Nat → Prop =
-  | EvenZero: Even 0
-  | EvenTwo (h: Even n): Even (Succ (Succ n))
+type Even: Nat → Prop = | EvenZero: Even 0 | EvenTwo (h: Even n): Even (Succ (Succ n))
 
 theorem notEvenOne: ¬(Even 1)
   | ()
@@ -120,25 +110,21 @@ theorem evenInv: Even (Succ (Succ n)) → Even n
 instance decEven: (n: Nat) → Decidable (Even n)
   | 0 => Decidable.yes EvenZero
   | 1 => Decidable.no notEvenOne
-  | Succ (Succ k) => Decidable.elim (decEven k) (h => Decidable.yes (EvenTwo h)) (r => Decidable.no (h => r (evenInv h)))
+  | Succ (Succ k) =>
+    Decidable.elim (decEven k) (h => Decidable.yes (EvenTwo h)) (r => Decidable.no (h => r (evenInv h)))
 
 -- Defined together, each with its own indices.
-type EvenM: Nat → Prop =
-  | EvenMZero: EvenM 0
-  | EvenMSucc (h: OddM n): EvenM (Succ n)
+type EvenM: Nat → Prop = | EvenMZero: EvenM 0 | EvenMSucc (h: OddM n): EvenM (Succ n)
 
-type OddM: Nat → Prop =
-  | OddMSucc (h: EvenM n): OddM (Succ n)
+type OddM: Nat → Prop = | OddMSucc (h: EvenM n): OddM (Succ n)
 
 theorem notOddZero: ¬(OddM 0)
   | ()
 
 -- Axiom K: matching deletes the equation `x = x`.
-type Same (a: Type) (x: a): a → Prop =
-  | Refl: Same a x x
+type Same (a: Type) (x: a): a → Prop = | Refl: Same a x x
 
-theorem sameK ∀ (p: Same a x x): p = Refl := match p with
-  | Refl => rfl
+theorem sameK ∀ (p: Same a x x): p = Refl := match p with | Refl => rfl
 
 def vec12: Vec Nat 2 := VCons 1 (VCons 2 VNil)
 

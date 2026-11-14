@@ -46,7 +46,8 @@ def collectIn (prog: () → {Choice, Partial | e} a): {Partial | e} List a :=
     | fork (), k => List.append (k True) (k False)
 
 def search (n: Nat): {Choice, IO, Partial} Nat :=
-  if n == 0 then 0 else
+  if n == 0 then 0
+  else
     let b := fork ()
     IO.print (Nat.toText n ++ (if b then "T" else "F"))
     let r := search (n - 1)
@@ -75,14 +76,16 @@ def runCounter (start: Nat) (prog: () → {Counter, Partial | e} a): {Partial | 
   run start
 
 def tally (n: Nat): {Counter, IO, Partial} Nat :=
-  if n == 0 then get () else
+  if n == 0 then get ()
+  else
     incr ()
     let r := tally (n - 1)
     IO.print ("tally " ++ Nat.toText n ++ ": " ++ Nat.toText r)
     r + n
 
 def walk (n: Nat): {IO, Partial} Nat :=
-  if n == 0 then 0 else
+  if n == 0 then 0
+  else
     let (x, _) := runCounter 0 (() => tally n + walk (n - 1))
     IO.print ("walk " ++ Nat.toText n ++ ": " ++ Nat.toText x)
     x

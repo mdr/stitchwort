@@ -4,10 +4,11 @@
 import Std (Bool)
 
 --| Of `x - 1`, `x` and `x + 1`, `y` is one exactly when it is within 1 of `x`.
-theorem window ∀ (x: Int) (y: Int):
-    (if x + (-1) == y then 1 else 0) + (if x == y then 1 else 0) + (if x + 1 == y then 1 else 0) = Bool.toNat (x + (-1) <= y && y <= x + 1) :=
+theorem window ∀ (x y: Int):
+    (if x + (-1) == y then 1 else 0) + (if x == y then 1 else 0) + (if x + 1 == y then 1 else 0)
+      = Bool.toNat (x + (-1) <= y && y <= x + 1) :=
   cases
 
-theorem differentOrSame ∀ (x: Int) (y: Int) (z: Int):
+theorem differentOrSame ∀ (x y z: Int):
     (if x == y then 1 else 0) + (if y == z then 1 else 0) + (if x == z then 1 else 0) <= 3 :=
   cases

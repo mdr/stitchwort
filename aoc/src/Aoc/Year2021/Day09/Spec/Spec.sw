@@ -15,8 +15,8 @@ import Std (List, Nat, Option, Ord)
 --| "Low points: the locations that are lower than any of its adjacent
 --| locations", each with its height. Locations on the edge or in a corner
 --| have fewer adjacent locations.
-def lowPoints (map: HeightMap): List (Position, Nat) :=
-  map.cells.filter (((at, height)) => map.cells.all (((other, otherHeight)) => not (adjacent at other) || height < otherHeight))
+def lowPoints (map: HeightMap): List (Position, Nat) := map.cells.filter (((at, height)) =>
+  map.cells.all (((other, otherHeight)) => not (adjacent at other) || height < otherHeight))
 
 --| "The risk level of a low point is 1 plus its height."
 def riskLevel (height: Nat): Nat := 1 + height
@@ -29,7 +29,8 @@ def inSomeBasin (map: HeightMap) (position: Position): Bool := map.heightAt posi
 
 --| Steps from `from` to `to`: each step to an adjacent location that isn't
 --| a 9 (`Aoc.Common.isPath`).
-def isPath (map: HeightMap) (from: Position) (steps: List Position) (to: Position): Bool := Aoc.Common.isPath (inSomeBasin map) from steps to
+def isPath (map: HeightMap) (from: Position) (steps: List Position) (to: Position): Bool :=
+  Aoc.Common.isPath (inSomeBasin map) from steps to
 
 --| "A basin is all locations that eventually flow downward to a single low
 --| point." Read as: the locations that aren't 9s and that can be reached
@@ -38,30 +39,33 @@ def isPath (map: HeightMap) (from: Position) (steps: List Position) (to: Positio
 --| that every location that isn't a 9 is in exactly one basin,
 --| `EachInOneBasin` below. The answers below don't need the promise: it is
 --| what makes a basin per low point the same as the connected areas.)
-def InBasin (map: HeightMap) (low: Position) (location: Position): Prop :=
+def InBasin (map: HeightMap) (low location: Position): Prop :=
   inSomeBasin map location = True ∧ ∃ (steps: List Position) => isPath map low steps location = True
 
 --| "The size of a basin is the number of locations within the basin,
 --| including the low point": `size` locations, with no repeats, exactly
 --| those in the basin.
 def BasinSize (map: HeightMap) (low: Position) (size: Nat): Prop :=
-  ∃ (locations: List Position) =>
-    List.Distinct locations ∧ (∀ (location: Position) => location ∈ locations ↔ InBasin map low location) ∧ locations.length = size
+  ∃ (locations: List Position) => List.Distinct locations
+    ∧ (∀ (location: Position) => location ∈ locations ↔ InBasin map low location)
+    ∧ locations.length = size
 
 --| "Multiply together the sizes of the three largest basins."
 def threeLargestProduct (sizes: List Nat): Nat := sizes.sort [ord := Ord.reverse] |> .take 3 |> .product
 
 --| Part 2's answer, with each low point's basin size given by `sizeOf`.
 def Part2Answer (map: HeightMap) (answer: Nat): Prop :=
-  ∃ (sizeOf: Position → Nat) =>
-    (∀ (low: Position) (height: Nat) => (low, height) ∈ lowPoints map → BasinSize map low (sizeOf low))
-      ∧ answer = threeLargestProduct ((lowPoints map).map (((low, _)) => sizeOf low))
+  ∃ (sizeOf: Position → Nat) => (∀ (low: Position) (height: Nat) => (low, height) ∈ lowPoints map
+    → BasinSize map low (sizeOf low))
+    ∧ answer = threeLargestProduct ((lowPoints map).map (((low, _)) => sizeOf low))
 
 --| The puzzle's promise: each location that isn't a 9 is in the basin of
 --| exactly one low point. Not assumed by the theorems; the tests check it
 --| on the example and the input.
 def EachInOneBasin (map: HeightMap): Prop :=
-  ∀ (location: Position) => inSomeBasin map location = True →
-    ∃ (low: Position) => ∃ (height: Nat) =>
-      (low, height) ∈ lowPoints map ∧ InBasin map low location
-        ∧ (∀ (other: Position) (otherHeight: Nat) => (other, otherHeight) ∈ lowPoints map → InBasin map other location → other = low)
+  ∀ (location: Position) => inSomeBasin map location = True
+    → ∃ (low: Position) => ∃ (height: Nat) => (low, height) ∈ lowPoints map
+      ∧ InBasin map low location
+      ∧ (∀ (other: Position) (otherHeight: Nat) => (other, otherHeight) ∈ lowPoints map
+        → InBasin map other location
+        → other = low)

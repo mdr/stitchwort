@@ -20,13 +20,10 @@ import Aoc.Year2024.Day04 (..)
 import Std (Bool, List, Nat, Option)
 
 --| The letter at row r and column c, or `None` off the grid.
-def letterAt (grid: Grid) (r: Nat) (c: Nat): Option Char := grid.rows.getOr r [] |> .get c
+def letterAt (grid: Grid) (r c: Nat): Option Char := grid.rows.getOr r [] |> .get c
 
 --| One step along the rows or the columns.
-type Step =
-  | Back
-  | Stay
-  | Ahead
+type Step = | Back | Stay | Ahead
 
 --| A direction: a step down the rows and a step along the columns.
 type Direction = { down: Step, across: Step }
@@ -50,13 +47,13 @@ def moved (start: Nat) (step: Step) (distance: Nat): Option Nat := match step wi
   | Ahead => Some (start + distance)
 
 --| The letter `distance` steps from row r, column c in `direction`.
-def letterAlong (grid: Grid) (r: Nat) (c: Nat) (direction: Direction) (distance: Nat): Option Char :=
+def letterAlong (grid: Grid) (r c: Nat) (direction: Direction) (distance: Nat): Option Char :=
   match moved r direction.down distance, moved c direction.across distance with
     | Some row, Some column => letterAt grid row column
     | _, _ => None
 
 --| The letters from row r, column c in `direction` spell `word`.
-def spells (word: List Char) (grid: Grid) (r: Nat) (c: Nat) (direction: Direction): Bool :=
+def spells (word: List Char) (grid: Grid) (r c: Nat) (direction: Direction): Bool :=
   List.range 0 word.length |> .all (distance => letterAlong grid r c direction distance == word.get distance)
 
 --| How many positions (r, c) of the grid satisfy `p`: every column of every
@@ -65,18 +62,17 @@ def countPositions (grid: Grid) (p: Nat → Nat → Nat): Nat :=
   List.range 0 grid.rows.length |> .sumBy (r => List.range 0 (grid.rows.getOr r []).length |> .sumBy (c => p r c))
 
 --| Part 1: every position and direction where XMAS starts.
-def part1Spec (grid: Grid): Nat :=
-  countPositions grid (r c => directions.count (spells ['X', 'M', 'A', 'S'] grid r c))
+def part1Spec (grid: Grid): Nat := countPositions grid (r c => directions.count (spells ['X', 'M', 'A', 'S'] grid r c))
 
 --| The letters one step from row r, column c towards `start`, at it, and one
 --| step towards `end` spell MAS, one way or the other.
-def masThrough (grid: Grid) (r: Nat) (c: Nat) (start: Direction) (end: Direction): Bool :=
+def masThrough (grid: Grid) (r c: Nat) (start end: Direction): Bool :=
   let letters := [letterAlong grid r c start 1, letterAt grid r c, letterAlong grid r c end 1]
   letters == [Some 'M', Some 'A', Some 'S'] ∨ letters == [Some 'S', Some 'A', Some 'M']
 
 --| Row r, column c is the centre of an X-MAS: a MAS from top left to bottom
 --| right, and one from top right to bottom left.
-def crossAt (grid: Grid) (r: Nat) (c: Nat): Bool :=
+def crossAt (grid: Grid) (r c: Nat): Bool :=
   masThrough grid r c { down = Back, across = Back } { down = Ahead, across = Ahead }
     ∧ masThrough grid r c { down = Back, across = Ahead } { down = Ahead, across = Back }
 

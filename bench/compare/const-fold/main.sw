@@ -13,11 +13,7 @@ import Std (Fail, IO, List, Nat, Text)
 
 --| A tiny arithmetic expression. `Var` evaluates to 0 and stands in for an
 --| unknown that folding must not touch.
-type Expr =
-  | Var (name: Nat)
-  | Val (value: Nat)
-  | Add (left: Expr) (right: Expr)
-  | Mul (left: Expr) (right: Expr)
+type Expr = | Var (name: Nat) | Val (value: Nat) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr)
 
 --| A complete tree of `depth` levels of additions whose leaves are numbers
 --| near `value` (counting down by one on the right, up on the left); a leaf
@@ -72,7 +68,7 @@ def eval: Expr → Nat
   | Mul left right => eval left * eval right
 
 --| One round: the answers for the tree whose leaves start at `start`.
-def round (depth: Nat) (start: Nat): Text :=
+def round (depth start: Nat): Text :=
   let e := mkExpr depth start
   let before := eval e
   let after := eval (constFolding (reassoc e))
@@ -82,7 +78,6 @@ def main(): {IO, Fail} () :=
   let (depth, rounds) := match IO.args() with
     | [] => (20, 1)
     | [text] => (Fail.need text.toNat "expected no arguments, a depth, or a depth and rounds", 1)
-    | [text, count] =>
-      (Fail.need text.toNat "expected a depth", Fail.need count.toNat "expected a number of rounds")
+    | [text, count] => (Fail.need text.toNat "expected a depth", Fail.need count.toNat "expected a number of rounds")
     | _ => Fail.fail "expected no arguments, a depth, or a depth and rounds"
   List.foldLeft (List.range 1 (rounds + 1)) () (u start => IO.print (round depth start))

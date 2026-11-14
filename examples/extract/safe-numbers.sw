@@ -26,7 +26,7 @@
 import Std (Int, List, Nat, Option, SafeInt, SafeNat, Text)
 
 -- A bounded sum: `None` when it doesn't fit.
-export def addSafe (a: SafeNat) (b: SafeNat): Option SafeNat := SafeNat.ofNat (a.value + b.value)
+export def addSafe (a b: SafeNat): Option SafeNat := SafeNat.ofNat (a.value + b.value)
 
 export def negateSafe (a: SafeInt): Option SafeInt := SafeInt.ofInt (Int.neg a.value)
 
@@ -45,7 +45,7 @@ export def bump (c: Counter): Option SafeNat := SafeNat.ofNat (c.count.value + I
 export def sumAll (xs: List SafeNat): Option SafeNat := SafeNat.ofNat (List.foldLeft xs 0 (acc x => acc + x.value))
 
 -- Records with `SafeNat` and `SafeInt` fields derive `==` (SW-344): equal by value.
-export def sameCounter (a: Counter) (b: Counter): Bool := a == b
+export def sameCounter (a b: Counter): Bool := a == b
 
 -- Numerals as `SafeNat` and `SafeInt` (SW-354): plain `number`s in JS.
 export def startCounter: Counter := { count = 41, delta = -1 }

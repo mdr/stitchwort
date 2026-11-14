@@ -34,23 +34,28 @@ def holds (operators: List Operator) (testValue: Nat) (numbers: List Nat) [auto 
 test "example, part 1" := exampleEquations.map solvePart1 == Ok 3749
 test "example, part 2" := exampleEquations.map solvePart2 == Ok 11387
 test "example, which could be true with + and *" :=
-  exampleEquations.map (equations => equations.map (.couldBeTrue addMultiply)) == Ok [True, True, False, False, False, False, False, False, True]
+  exampleEquations.map (equations => equations.map (.couldBeTrue addMultiply))
+    == Ok [True, True, False, False, False, False, False, False, True]
 test "example, which could be true with ||" :=
-  exampleEquations.map (equations => equations.map (.couldBeTrue allOperators)) == Ok [True, True, False, True, True, False, True, False, True]
+  exampleEquations.map (equations => equations.map (.couldBeTrue allOperators))
+    == Ok [True, True, False, True, True, False, True, False, True]
 test "example, the spec agrees" :=
-  exampleEquations.map (equations => equations.all (equation =>
-    equation.couldBeTrue addMultiply == couldPossiblyBeTrue addMultiply equation
-      && equation.couldBeTrue allOperators == couldPossiblyBeTrue allOperators equation)) == Ok True
+  exampleEquations.map (equations =>
+    equations.all (equation =>
+      equation.couldBeTrue addMultiply == couldPossiblyBeTrue addMultiply equation
+        && equation.couldBeTrue allOperators == couldPossiblyBeTrue allOperators equation))
+    == Ok True
 
 test "parse" := parsed """
   190: 10 19
   3: 3
-  """ ==
-  Ok ([{ testValue = 190, numbers = [10, 19] }, { testValue = 3, numbers = [3] }]: List Equation)
-test "parse without a final line break" := parsed "7: 1 2 3" == Ok ([{ testValue = 7, numbers = [1, 2, 3] }]: List Equation)
+  """ == Ok ([{ testValue = 190, numbers = [10, 19] }, { testValue = 3, numbers = [3] }]: List Equation)
+test "parse without a final line break" :=
+  parsed "7: 1 2 3" == Ok ([{ testValue = 7, numbers = [1, 2, 3] }]: List Equation)
 test "no numbers" := parsed "190:\n" == Err "line 1, column 5: expected a number, got the end of the line"
 test "no colon" := parsed "190 10 19\n" == Err "line 1, column 4: expected ':', got ' '"
-test "a bad number" := parsed "1: 2\n3: 4 x\n" == Err "line 2, column 6: expected a number or the end of the line, got 'x'"
+test "a bad number" :=
+  parsed "1: 2\n3: 4 x\n" == Err "line 2, column 6: expected a number or the end of the line, got 'x'"
 
 test "one number: it is the test value" := holds allOperators 5 [5] && !(holds allOperators 6 [5])
 test "no operators: only one number" := holds [] 5 [5] && !(holds [] 5 [2, 3])
@@ -67,5 +72,6 @@ test "a large test value" := holds allOperators 12863083290 [9, 72, 13, 7, 5, 3,
 test "concatenate" := concatenate 12 345 == 12345 && concatenate 0 5 == 5 && concatenate 5 0 == 50
 test "place value" := [placeValue 0, placeValue 9, placeValue 10, placeValue 345] == [10, 10, 100, 1000]
 test "evaluate, left to right" := evaluate 81 [(Add, 40), (Multiply, 27)] == 3267
-test "combinations" := combinations addMultiply 2 == [[Add, Add], [Add, Multiply], [Multiply, Add], [Multiply, Multiply]]
+test "combinations" :=
+  combinations addMultiply 2 == [[Add, Add], [Add, Multiply], [Multiply, Add], [Multiply, Multiply]]
 test "combinations of none" := combinations allOperators 0 == [[]] && combinations [] 2 == []

@@ -8,26 +8,32 @@ import Aoc.Year2025.Day04.Spec (..)
 import Std (Bool, Eq, Fin, List, Nat, Option, Result, Text, Vec, Void)
 
 --| Rows that `traverseOption` accepted, cell by cell.
-theorem parsedCell ∀ (lines: List Text) (rows: Vec (Vec Cell (Text.length (lines.headOr ""))) lines.length)
-    (ok: Vec.traverseOption (Vec.fromList lines) (line => Vec.ofList (Text.length (lines.headOr "")) (parseLine line)) = Some rows) (r: Nat) (c: Nat):
+theorem parsedCell ∀ (lines: List Text)
+    (rows: Vec (Vec Cell (Text.length (lines.headOr ""))) lines.length)
+    (ok: Vec.traverseOption (Vec.fromList lines) (line => Vec.ofList (Text.length (lines.headOr "")) (parseLine line))
+      = Some rows) (r c: Nat):
     rowsCells rows r c = (parseLine (lines.getOr r "")).getOr c Floor :=
   let width := Text.length (List.headOr lines "")
   match e: Nat.leq (Succ r) lines.length with
     | True =>
       let i := Fin.ofNatLt lines.length r e
       calc rowsCells rows r c
-        _ = Vec.getOr (Vec.get rows i) c Floor
-          := rewrite <- Vec.getOrGet rows i (Vec.replicate width Floor), Fin.toNatOfNatLt lines.length r e
-        _ = List.getOr (parseLine (Vec.get (Vec.fromList lines) i)) c Floor
-          := rewrite Vec.ofListToList width (parseLine (Vec.get (Vec.fromList lines) i)) (Vec.get rows i)
+        _ = Vec.getOr (Vec.get rows i) c Floor :=
+          rewrite <- Vec.getOrGet rows i (Vec.replicate width Floor), Fin.toNatOfNatLt lines.length r e
+        _ = List.getOr (parseLine (Vec.get (Vec.fromList lines) i)) c Floor :=
+          rewrite Vec.ofListToList width
+            (parseLine (Vec.get (Vec.fromList lines) i))
+            (Vec.get rows i)
             (Vec.traverseOptionGet (line => Vec.ofList width (parseLine line)) (Vec.fromList lines) rows ok i)
-        _ = List.getOr (parseLine (List.getOr lines r "")) c Floor
-          := rewrite <- Vec.getToList (Vec.fromList lines) i "", Vec.toListFromList lines, Fin.toNatOfNatLt lines.length r e
+        _ = List.getOr (parseLine (List.getOr lines r "")) c Floor :=
+          rewrite <- Vec.getToList (Vec.fromList lines) i "", Vec.toListFromList lines, Fin.toNatOfNatLt lines.length r
+              e
     | False =>
       let past: lines.length ≤ r := omega
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines r "" past
 
-theorem gridOfCells ∀ (lines: List Text) (grid: Grid) (h: Grid.of lines = Some grid) (r: Nat) (c: Nat):
+theorem gridOfCells ∀ (lines: List Text) (grid: Grid)
+    (h: Grid.of lines = Some grid) (r c: Nat):
     grid.cells r c = (parseLine (lines.getOr r "")).getOr c Floor :=
   let width := Text.length (List.headOr lines "")
   let f := (line: Text) => Vec.ofList width (parseLine line)
@@ -37,7 +43,13 @@ theorem gridOfCells ∀ (lines: List Text) (grid: Grid) (h: Grid.of lines = Some
       let same: g rows = grid := Eq.cong (.getOrElse (g rows)) h
       rewrite <- same in parsedCell lines rows e r c
 
-theorem parseGridCells ∀ (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok grid) (r: Nat) (c: Nat):
-    grid.cells r c = (parseLine (lines.getOr r "")).getOr c Floor := match e: findStray lines with
-      | Some (row, column, ch) => cases
-      | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h)) r c
+theorem parseGridCells ∀ (lines: List Text) (grid: Grid)
+    (h: parseGrid lines = Ok grid) (r c: Nat):
+    grid.cells r c = (parseLine (lines.getOr r "")).getOr c Floor :=
+  match e: findStray lines with
+    | Some (row, column, ch) => cases
+    | None =>
+      gridOfCells lines grid
+        (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h))
+        r
+        c

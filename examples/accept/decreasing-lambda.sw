@@ -32,7 +32,10 @@ theorem weightTwelve: weight 12 = 0 := rfl
 -- The equation the compiler proves, on an open `n`, with `weight` itself
 -- inside the function passed to `sumBy`.
 theorem weightStep ∀ (n: Nat):
-    weight n = 1 - List.sumBy (List.rangeFrom (n - 2) 2) (d => if h: d < n then (if Nat.divides d n then weight d else 0) else 0) :=
+    weight n
+      = 1
+        - List.sumBy (List.rangeFrom (n - 2) 2) (d =>
+          if h: d < n then (if Nat.divides d n then weight d else 0) else 0) :=
   weight.unfold n
 
 -- A fold whose function takes two arguments and uses both: the longest
@@ -40,7 +43,9 @@ theorem weightStep ∀ (n: Nat):
 def chain (n: Nat): Nat
     decreasing n
 :=
-  1 + List.foldLeft (List.range 0 n) 0 (best d => if h: d < n then (if Nat.leq 2 d ∧ Nat.divides d n then Nat.max best (chain d) else best) else best)
+  1
+    + List.foldLeft (List.range 0 n) 0 (best d =>
+      if h: d < n then (if Nat.leq 2 d ∧ Nat.divides d n then Nat.max best (chain d) else best) else best)
 
 test "chain" := chain 12 == 3 ∧ chain 7 == 1 ∧ chain 1 == 1
 
@@ -48,8 +53,7 @@ test "chain" := chain 12 == 3 ∧ chain 7 == 1 ∧ chain 1 == 1
 def grow (n: Nat): Nat
     decreasing n
 :=
-  if h: n - 1 < n
-  then List.foldLeft (List.range 0 n) (grow (n - 1)) (acc d => acc + (if g: d < n then grow d else 0))
+  if h: n - 1 < n then List.foldLeft (List.range 0 n) (grow (n - 1)) (acc d => acc + (if g: d < n then grow d else 0))
   else 1
 
 test "grow" := grow 0 == 1 ∧ grow 1 == 2 ∧ grow 2 == 5 ∧ grow 3 == 13
@@ -67,9 +71,11 @@ test "pairs" := pairs 0 == 0 ∧ pairs 2 == 1 ∧ pairs 3 == 3
 def oddParts (n: Nat): Nat
     decreasing n
 :=
-  1 + List.sumBy (List.range 0 n) (d => match d with
-    | Zero => 0
-    | Succ k => if h: Succ k < n then (if Nat.leq n (2 * Succ k) then 0 else oddParts (Succ k)) else 0)
+  1
+    + List.sumBy (List.range 0 n) (d =>
+      match d with
+        | Zero => 0
+        | Succ k => if h: Succ k < n then (if Nat.leq n (2 * Succ k) then 0 else oddParts (Succ k)) else 0)
 
 test "odd parts" := oddParts 1 == 1 ∧ oddParts 3 == 2
 

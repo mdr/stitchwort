@@ -27,7 +27,8 @@ theorem dyAfter ∀ (n: Nat) (probe: Probe): (Nat.iterate n step probe).velocity
     | 0 => omega
     | Succ n => omega [dyAfter n (step probe)]
 
-theorem yAfter ∀ (n: Nat) (probe: Probe): 2 * (Nat.iterate n step probe).position.y = 2 * probe.position.y + n.toInt * (2 * probe.velocity.y + 1 - n.toInt) :=
+theorem yAfter ∀ (n: Nat) (probe: Probe):
+    2 * (Nat.iterate n step probe).position.y = 2 * probe.position.y + n.toInt * (2 * probe.velocity.y + 1 - n.toInt) :=
   match n with
     | 0 => ring
     | Succ n => ring [yAfter n (step probe)]
@@ -37,4 +38,5 @@ theorem pastStays ∀ (target: Target) (probe: Probe) (h: past target probe = Tr
   omega [Int.signCases probe.velocity.x]
 
 --| A probe past the target isn't in it.
-theorem pastOutside ∀ (target: Target) (probe: Probe) (h: past target probe = True): inTarget target probe = False := cases
+theorem pastOutside ∀ (target: Target) (probe: Probe) (h: past target probe = True): inTarget target probe = False :=
+  cases

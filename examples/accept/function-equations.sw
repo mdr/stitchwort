@@ -3,17 +3,14 @@
 -- overlap it as hypotheses. Each is an ordinary theorem the kernel checks.
 import Std (Bool, Char, Eq, Int, List, Nat, Option, Void, byDecision)
 
-type Num =
-  | Reg (value: Nat)
-  | Pr (left: Num) (right: Num)
+type Num = | Reg (value: Nat) | Pr (left: Num) (right: Num)
 
 -- Plain arms: `addLeftmost.eq1` and `addLeftmost.eq2`.
 def addLeftmost (amount: Nat): Num → Num
   | Reg value => Reg (value + amount)
   | Pr left right => Pr (addLeftmost amount left) right
 
-theorem addLeftmostPair ∀ (amount: Nat) (l: Num) (r: Num):
-    addLeftmost amount (Pr l r) = Pr (addLeftmost amount l) r :=
+theorem addLeftmostPair ∀ (amount: Nat) (l r: Num): addLeftmost amount (Pr l r) = Pr (addLeftmost amount l) r :=
   addLeftmost.eq2 amount l r
 
 -- An overlap: arm 3 holds only where arm 2 doesn't, so `ex.eq3` takes
@@ -24,8 +21,7 @@ def ex (depth: Nat): Num → Nat
   | Pr left right => ex (depth + 1) left + ex (depth + 1) right
 
 -- Where the left part is known to be a pair, `cases` proves the hypothesis.
-theorem exPairLeft ∀ (depth: Nat) (x: Num) (y: Num) (r: Num):
-    ex depth (Pr (Pr x y) r) = ex (depth + 1) (Pr x y) + ex (depth + 1) r :=
+theorem exPairLeft ∀ (depth: Nat) (x y r: Num): ex depth (Pr (Pr x y) r) = ex (depth + 1) (Pr x y) + ex (depth + 1) r :=
   ex.eq3 depth (Pr x y) r cases
 
 def isReg: Num → Bool
@@ -33,13 +29,13 @@ def isReg: Num → Bool
   | Pr _ _ => False
 
 -- From a fact about the left part instead.
-theorem exNotReg ∀ (depth: Nat) (left: Num) (right: Num) (notReg: isReg left = False):
+theorem exNotReg ∀ (depth: Nat) (left right: Num)
+    (notReg: isReg left = False):
     ex depth (Pr left right) = ex (depth + 1) left + ex (depth + 1) right :=
   ex.eq3 depth left right (a b el er => Bool.trueNotFalse (rewrite el at notReg in notReg))
 
 -- The call is stuck on `left`, so `rewrite` finds it.
-theorem exAtLeast ∀ (depth: Nat) (left: Num) (right: Num)
-    (h: ∀ (a b: Nat) => left = Reg a → right = Reg b → Void):
+theorem exAtLeast ∀ (depth: Nat) (left right: Num) (h: ∀ (a b: Nat) => left = Reg a → right = Reg b → Void):
     ex (depth + 1) left ≤ ex depth (Pr left right) :=
   rewrite ex.eq3 depth left right h in omega
 
@@ -62,8 +58,7 @@ def commandOf (char: Char): Option Command := match char with
 
 def keys: List Char := ['k', 'j']
 
-theorem commandOfOther ∀ (char: Char) (other: char ∉ keys): commandOf char = None :=
-  commandOf.eq3 char other
+theorem commandOfOther ∀ (char: Char) (other: char ∉ keys): commandOf char = None := commandOf.eq3 char other
 
 theorem commandOfX: commandOf 'x' = None := commandOf.eq3 'x' byDecision
 
@@ -73,7 +68,7 @@ def keyed: Char → List Char → Nat
   | 'k', [] => 1
   | c, xs => 2
 
-theorem keyedNonEmpty ∀ (c: Char) (x: Char) (xs: List Char): keyed c [x, ..xs] = 2 :=
+theorem keyedNonEmpty ∀ (c x: Char) (xs: List Char): keyed c [x, ..xs] = 2 :=
   keyed.eq2 c [x, ..xs] (ck nil => List.consNotNil x xs nil)
 
 -- `Int` literals.
@@ -92,7 +87,7 @@ def orp: Num → Nat
 
 theorem orpOne: orp (Reg 1) = 5 := orp.eq1.or2
 
-theorem orpPair ∀ (l: Num) (r: Num): orp (Pr l r) = 6 := orp.eq2 (Pr l r) cases cases
+theorem orpPair ∀ (l r: Num): orp (Pr l r) = 6 := orp.eq2 (Pr l r) cases cases
 
 -- `decreasing`: the arms don't hold by `rfl` on unknown arguments, so the
 -- equation is what states them.
@@ -132,6 +127,7 @@ theorem isZeroOfPos ∀ (n: Nat) (h: 0 < n): isZero n = False := isZero.eq2 n om
 -- An effect-polymorphic definition's equations are at the empty row: the
 -- library's `List.filter.eq2` is `List.filter (Cons x xs) p = List.filterStep
 -- x (List.filter xs p) (p x)`.
-theorem filterCons ∀ (x: Nat) (xs: List Nat) (p: Nat → Bool) (h: p x = False):
+theorem filterCons ∀ (x: Nat) (xs: List Nat) (p: Nat → Bool)
+    (h: p x = False):
     List.filter [x, ..xs] p = List.filter xs p :=
   rewrite List.filter.eq2 x xs p, h in rfl

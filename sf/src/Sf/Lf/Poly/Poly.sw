@@ -35,9 +35,7 @@ import Std (Eq, List as StdList, Nat as StdNat)
 -- of other things too: of booleans, of lists, and so on. We *could*
 -- define a new data type for each, for example:
 
-type BoolList =
-  | BoolNil
-  | BoolCons (b: Bool) (l: BoolList)
+type BoolList = | BoolNil | BoolCons (b: Bool) (l: BoolList)
 
 -- but that soon becomes tedious: each type needs its own constructor
 -- names, and, worse, its own `length`, `app`, `rev` and the rest, and
@@ -46,9 +44,7 @@ type BoolList =
 -- Instead, a data type can take a type as a parameter. Here is a
 -- *polymorphic list* type:
 
-type List (a: Type) =
-  | Nil
-  | Cons (x: a) (l: List a)
+type List (a: Type) = | Nil | Cons (x: a) (l: List a)
 
 -- This is the last chapter's `NatList` with the `Nat` in `Cons` replaced
 -- by a type `a`, which the header binds, and `NatList` replaced by `List
@@ -277,8 +273,7 @@ theorem revInvolutive ∀ (l: List a): rev (rev l) = l := ?
 -- In the same way, the last chapter's pairs of numbers generalise to
 -- *polymorphic pairs*, often called *products*:
 
-type Prod (a b: Type) =
-  | Pair (x: a) (y: b)
+type Prod (a b: Type) = | Pair (x: a) (y: b)
 
 -- As with lists, `Pair`'s type arguments are implicit. The book now
 -- defines the notation `(x, y)` for `pair x y`, and `X * Y` for the type
@@ -293,11 +288,9 @@ type Prod (a b: Type) =
 --
 -- The projections look much as they would in any functional language:
 
-def fst (p: Prod a b): a := match p with
-  | Pair x y => x
+def fst (p: Prod a b): a := match p with | Pair x y => x
 
-def snd (p: Prod a b): b := match p with
-  | Pair x y => y
+def snd (p: Prod a b): b := match p with | Pair x y => y
 
 -- `combine` takes two lists and makes a list of pairs. Many functional
 -- languages call it `zip`; the book follows Rocq's library.
@@ -326,7 +319,9 @@ def combine (lx: List a) (ly: List b): List (Prod a b) := match lx, ly with
 --| Exercise (split): replace the `?` with the definition.
 def split (l: List (Prod a b)): Prod (List a) (List b) := ?
 
-theorem testSplit: split (ofList [Pair (S O) False, Pair (ofNat 2) False]) = Pair (ofNats [1, 2]) (ofList [False, False]) := ?
+theorem testSplit: split (ofList [Pair (S O) False, Pair (ofNat 2) False])
+      = Pair (ofNats [1, 2]) (ofList [False, False]) :=
+  ?
 
 -- ## Polymorphic Options
 --
@@ -340,9 +335,10 @@ theorem testSplit: split (ofList [Pair (S O) False, Pair (ofNat 2) False]) = Pai
 
 def nthError (l: List a) (n: Nat): Option a := match l with
   | Nil => None
-  | Cons x l' => match n with
-    | O => Some x
-    | S n' => nthError l' n'
+  | Cons x l' =>
+    match n with
+      | O => Some x
+      | S n' => nthError l' n'
 
 theorem testNthError1: nthError (ofNats [4, 5, 6, 7]) O = Some (ofNat 4) := rfl
 
@@ -411,7 +407,10 @@ theorem testFilter1: filter even (ofNats [1, 2, 3, 4]) = ofNats [2, 4] := rfl
 
 def lengthIs1 (l: List a): Bool := eqb (length l) (S O)
 
-theorem testFilter2: filter lengthIs1 (ofList [ofNats [1, 2], ofNats [3], ofNats [4], ofNats [5, 6, 7], Nil, ofNats [8]]) = ofList [ofNats [3], ofNats [4], ofNats [8]] := rfl
+theorem testFilter2: filter lengthIs1
+      (ofList [ofNats [1, 2], ofNats [3], ofNats [4], ofNats [5, 6, 7], Nil, ofNats [8]])
+      = ofList [ofNats [3], ofNats [4], ofNats [8]] :=
+  rfl
 
 -- With `filter`, the Lists chapter's `countoddmembers` is one line:
 
@@ -437,7 +436,11 @@ theorem testAnonFun': doit3times (n => mult n n) (ofNat 2) = ofNat 256 := rfl
 
 -- The `filter` example again, with an anonymous function:
 
-theorem testFilter2': filter (l => eqb (length l) (S O)) (ofList [ofNats [1, 2], ofNats [3], ofNats [4], ofNats [5, 6, 7], Nil, ofNats [8]]) = ofList [ofNats [3], ofNats [4], ofNats [8]] := rfl
+theorem testFilter2': filter
+      (l => eqb (length l) (S O))
+      (ofList [ofNats [1, 2], ofNats [3], ofNats [4], ofNats [5, 6, 7], Nil, ofNats [8]])
+      = ofList [ofNats [3], ofNats [4], ofNats [8]] :=
+  rfl
 
 -- (A parameter can be given a type, `(n: Nat) => mult n n`, where
 -- nothing else says what it is. Stitchwort also has *clause lambdas*,
@@ -495,7 +498,9 @@ theorem testMap2: map odd (ofNats [2, 1, 2, 5]) = ofList [False, True, False, Tr
 -- or even a list of numbers and a function from numbers to *lists* of
 -- booleans, giving a list of lists of booleans:
 
-theorem testMap3: map (n => ofList [even n, odd n]) (ofNats [2, 1, 2, 5]) = ofList [ofList [True, False], ofList [False, True], ofList [True, False], ofList [False, True]] := rfl
+theorem testMap3: map (n => ofList [even n, odd n]) (ofNats [2, 1, 2, 5])
+      = ofList [ofList [True, False], ofList [False, True], ofList [True, False], ofList [False, True]] :=
+  rfl
 
 -- ### Exercises
 
@@ -564,7 +569,9 @@ theorem foldExample2: fold mult (ofNats [1, 2, 3, 4]) (S O) = ofNat 24 := rfl
 
 theorem foldExample3: fold app (ofList [ofNats [1], Nil, ofNats [2, 3], ofNats [4]]) Nil = ofNats [1, 2, 3, 4] := rfl
 
-theorem foldExample4: fold (l n => plus (length l) n) (ofList [ofNats [1], Nil, ofNats [2, 3, 2], ofNats [4]]) O = ofNat 5 := rfl
+theorem foldExample4: fold (l n => plus (length l) n) (ofList [ofNats [1], Nil, ofNats [2, 3, 2], ofNats [4]]) O
+      = ofNat 5 :=
+  rfl
 
 -- Exercise: 1 star, standard, optional (fold_types_different)
 --

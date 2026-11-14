@@ -11,12 +11,14 @@ import Aoc.Year2020.Day10 (..)
 import Aoc.Year2020.Day10 (Spec)
 import Std (Eq, Fail, List, Option, Result, Text)
 
-theorem part1Correct ∀ (input: Text) (bag: Bag) (parsed: Fail.toResult (() => parseBag input) = Ok bag) (answer: Nat)
+theorem part1Correct ∀ (input: Text) (bag: Bag)
+    (parsed: Fail.toResult (() => parseBag input) = Ok bag) (answer: Nat)
     (solved: bag.distribution = Some answer):
     List.All2 Spec.RatingWritten (input.lines.map Text.toList) bag.adapters ∧ Spec.Part1 bag.adapters answer :=
   Both (parseWritten input bag parsed) (part1Rules bag answer solved)
 
-theorem part2Correct ∀ (input: Text) (bag: Bag) (parsed: Fail.toResult (() => parseBag input) = Ok bag) (answer: Nat)
+theorem part2Correct ∀ (input: Text) (bag: Bag)
+    (parsed: Fail.toResult (() => parseBag input) = Ok bag) (answer: Nat)
     (solved: bag.arrangements = Some answer):
     List.All2 Spec.RatingWritten (input.lines.map Text.toList) bag.adapters ∧ Spec.Part2 bag.adapters answer :=
   Both (parseWritten input bag parsed) (part2Rules bag answer solved)
@@ -31,5 +33,8 @@ theorem part2Exactly ∀ (bag: Bag) (answer: Nat): bag.arrangements = Some answe
 
 --| "The" distribution names one number: any two answers the spec allows
 --| are the same.
-theorem part1Unique ∀ (bag: Bag) (one: Nat) (other: Nat) (first: Spec.Part1 bag.adapters one) (second: Spec.Part1 bag.adapters other): one = other :=
+theorem part1Unique ∀ (bag: Bag) (one other: Nat)
+    (first: Spec.Part1 bag.adapters one)
+    (second: Spec.Part1 bag.adapters other):
+    one = other :=
   Option.someInjective (Eq.trans (Eq.sym (part1Complete bag one first)) (part1Complete bag other second))

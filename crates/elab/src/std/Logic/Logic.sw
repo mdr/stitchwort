@@ -16,8 +16,8 @@ theorem Iff.transExample: (1 + 1 = 2) ↔ (1 + 1 = 2) := Iff.trans Iff.example (
 
 theorem Exists.example: Exists Nat ((n: Nat) => n * n = 49) := Witness 7 rfl
 
-theorem Exists.mapExample: Exists Nat ((n: Nat) => n = 3) → Exists Nat ((n: Nat) => n + 1 = 4) :=
-  h => Exists.map ((n: Nat) (e: n = 3) => (rewrite e in rfl: n + 1 = 4)) h
+theorem Exists.mapExample: Exists Nat ((n: Nat) => n = 3) → Exists Nat ((n: Nat) => n + 1 = 4) := h =>
+  Exists.map ((n: Nat) (e: n = 3) => (rewrite e in rfl: n + 1 = 4)) h
 
-theorem Exists.elimExample: Exists Nat ((n: Nat) => n = 3) → Exists Nat ((n: Nat) => n + 1 = 4) :=
-  h => Exists.elim h ((n: Nat) (e: n = 3) => (Witness 3 rfl: Exists Nat ((m: Nat) => m + 1 = 4)))
+theorem Exists.elimExample: Exists Nat ((n: Nat) => n = 3) → Exists Nat ((n: Nat) => n + 1 = 4) := h =>
+  Exists.elim h ((n: Nat) (e: n = 3) => (Witness 3 rfl: Exists Nat ((m: Nat) => m + 1 = 4)))

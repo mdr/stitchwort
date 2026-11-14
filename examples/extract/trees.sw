@@ -3,9 +3,7 @@
 -- run: leaves (Node Leaf (Node Leaf Leaf))
 -- run: mirror (Node Leaf (Node Leaf Leaf))
 
-type Tree: Type =
-  | Leaf
-  | Node (left: Tree) (right: Tree)
+type Tree: Type = | Leaf | Node (left: Tree) (right: Tree)
 
 export def leaves: Tree → Nat
   | Leaf => 1
