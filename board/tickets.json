@@ -36094,12 +36094,12 @@
     {
       "id": 3284,
       "title": "[Opus] Text patterns stage 1 (text-patterns.md §6, D3591): text literals as patterns on Text and List Char, the missing-case message, docs/guide, docs/syntax.md and a feature-tour page",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3591 (Matt, 14 Nov 2026): text literals as patterns on Text and List Char. D3604 overnight chain C. Expected: 7.5 h (Opus), then an Opus review.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -36107,12 +36107,12 @@
     {
       "id": 3285,
       "title": "[Opus] Parser memory blow-up (syntax fuzzer seed 0x1234, case 3192): 'theorem z: 0 ≤ m := calc 0\\n  _ ≤ n(\\n  _ ≤ m := h' (no trailing newline) reaches 2.6 GB in 1.5 s; an unclosed ( in a calc step followed by another step; would hang the language server",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Found by the syntax fuzzer (seed 0x1234, case 3192) in SW-3278's lane. D3604 overnight chain A, first. Expected: 2 h (Opus).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
