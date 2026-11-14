@@ -948,19 +948,22 @@ tasks:
       appended after a blank line (the session's commit trailer). A conflict only in board/tickets.json keeps
       main's side (the board steps that follow set the ticket again); any other conflict aborts the merge.
       Exits non-zero unless the lane's tip is in main afterwards, so a chain joined with && stops there.
+    env:
+      MERGE_MSG: '{{.MSG}}'
+      MERGE_TRAILER: '{{.TRAILER}}'
     cmds:
       - |
         set -u
         name='{{.CLI_ARGS}}'
-        [ -n "$name" ] && [ -n '{{.MSG}}' ] || { echo 'usage: task lane:merge MSG="..." [TRAILER="..."] -- SW-N' >&2; exit 2; }
+        [ -n "$name" ] && [ -n "$MERGE_MSG" ] || { echo 'usage: task lane:merge MSG="..." [TRAILER="..."] -- SW-N' >&2; exit 2; }
         cd '{{.ROOT_DIR}}'
         [ "$(git branch --show-current)" = main ] || { echo 'not on main' >&2; exit 1; }
         git diff --quiet && git diff --cached --quiet || { echo 'main checkout has uncommitted changes: commit them first' >&2; exit 1; }
         tip=$(git rev-parse -q --verify "lane/$name") || { echo "no branch lane/$name" >&2; exit 1; }
-        msg='{{.MSG}}'
-        [ -z '{{.TRAILER}}' ] || msg="$msg
+        msg=$MERGE_MSG
+        [ -z "$MERGE_TRAILER" ] || msg="$msg
 
-        {{.TRAILER}}"
+        $MERGE_TRAILER"
         if ! git merge -q --no-ff "lane/$name" -m "$msg" >/dev/null 2>&1; then
           if [ "$(git diff --name-only --diff-filter=U)" = board/tickets.json ]; then
             git checkout -q --ours board/tickets.json && git add board/tickets.json && git commit -q --no-edit \
