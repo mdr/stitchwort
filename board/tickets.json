@@ -35420,15 +35420,17 @@
     {
       "id": 3235,
       "title": "[Fable] Paper: a generic Std.Parse (D3579): parse any token type, not only List Char, so a program can lex then parse a token list; keep every existing use and its proofs working; performance on large inputs",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\nLane note (14 Nov 2026): design note written, docs/proposals/generic-parse.md (d6674fc80). Recommends one parameterised ability, `Parse (t: Type)`: `{Parse Char}` is today's parser, generic combinators and 174 of 298 theorems become generic, the rest stay about characters; a small token layer (`Parse.Located`, `located`, `one`, `Parse.tokens`) reuses today's messages. Measured in scratch copies: all of Std.Parse and three AoC days' proofs check after replacing `{Parse}` by `{Parse Char}` (steps +11% and +6-9%); a properly generic 900-line slice +22%; run time unchanged; lex then parse 100 KB in 0.36 s native. Found: the checker settles the ability's parameter late in readsThen chains (+77% steps, +3% with it written), proposed as stage 0. Stops for D3588 (write `{Parse Char}`), D3589 (build stages 0-2 before the toy formatter), D3590 (keep text parsers under `Parse.`). No code changed; took about 20 min by the clock (est. 2 h).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "d6674fc80"
+      ]
     }
   ]
 }
