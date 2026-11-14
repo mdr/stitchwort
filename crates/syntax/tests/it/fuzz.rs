@@ -2,7 +2,8 @@
 //! either parse it or report a diagnostic. Nor may the parser record a node
 //! that crosses another, which the tree would leave out. This feeds them thousands of mutated
 //! example programs and random token soup, generated from a fixed seed so
-//! failures are reproducible.
+//! failures are reproducible. `FUZZ_CASES` and `FUZZ_SEED` (decimal or
+//! `0x...`) change the count and the seed.
 
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -12,7 +13,7 @@ use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_and_tree};
 
 /// Each case is one lex-and-parse. 20,000 keeps the release run well under ten
 /// seconds; set `FUZZ_CASES` for a longer run.
-const CASES: usize = 20_000;
+const CASES: u64 = 20_000;
 const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
 /// A mutated example can grow a lot when ranges are duplicated; the parser
 /// doesn't need more than this to be exercised.
@@ -218,14 +219,24 @@ fn soup(rng: &mut Rng) -> String {
     text
 }
 
+/// An environment number, decimal or `0x...`; unset or empty is `None`, and an
+/// unparsable one fails the run rather than silently using the default.
+fn env_number(name: &str) -> Option<u64> {
+    let value = std::env::var(name).ok().filter(|v| !v.is_empty())?;
+    let parsed = match value.strip_prefix("0x") {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => value.parse(),
+    };
+    Some(parsed.unwrap_or_else(|_| panic!("{name}={value:?} is not a number")))
+}
+
 #[test]
 fn the_lexer_and_parser_never_panic() {
-    let cases: usize = std::env::var("FUZZ_CASES")
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(CASES);
+    let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
+    let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
+    eprintln!("fuzz syntax: {cases} cases, seed {seed:#x}");
     let corpus = read_corpus();
-    let mut rng = Rng(SEED);
+    let mut rng = Rng(seed);
     let mut accepted = 0;
     for case in 0..cases {
         let state = rng.0;
@@ -245,14 +256,14 @@ fn the_lexer_and_parser_never_panic() {
         }));
         match outcome {
             Ok((_, dropped)) if dropped > 0 => panic!(
-                "case {case} (seed {SEED:#x}, rng state {state:#x}): \
+                "case {case} (seed {seed:#x}, rng state {state:#x}): \
                  the tree left out {dropped} crossing marks for input:\n  {}",
                 text.escape_debug()
             ),
             Ok((true, _)) => accepted += 1,
             Ok((false, _)) => {}
             Err(_) => panic!(
-                "case {case} (seed {SEED:#x}, rng state {state:#x}): \
+                "case {case} (seed {seed:#x}, rng state {state:#x}): \
                  the lexer or parser panicked on input:\n  {}",
                 text.escape_debug()
             ),

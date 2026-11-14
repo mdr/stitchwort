@@ -35904,12 +35904,12 @@
     {
       "id": 3270,
       "title": "[DeepSeek] Syntax fuzzer: read FUZZ_SEED as the formatter fuzzer does (SW-3198), print the seed and case count, and name the seed and case on a failure; task fuzz:syntax SEED=",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Done in SW-3278's lane: env_number (decimal or 0x) for FUZZ_CASES and FUZZ_SEED, prints 'fuzz syntax: N cases, seed S', failures name the seed and case; task fuzz:syntax passes SEED. Default seed unchanged.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -36012,12 +36012,12 @@
     {
       "id": 3278,
       "title": "[Opus] Parser panic (Overmind syntax fuzz, case 37606): 'theorem t: Unit :=\\n  def f (s: Nat):' at end of input panics at parser.rs:1245 tokens_span, index out of bounds (EOF); also in the 16:53 binary, so before S1. Fix, find the class, add FUZZ_SEED to the syntax fuzzer (SW-3270)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Found by D3598's fuzz run at 2ff2d32a9; Overmind's job 1 paused at this case (fixed seed). Started at once (a crash; D3575 common sense, a 4th build lane at load ~3). Includes SW-3270 (FUZZ_SEED). Expected: 1.5 h (Opus).",
+      "body": "Found by D3598's fuzz run at 2ff2d32a9; Overmind's job 1 paused at this case (fixed seed). Started at once (a crash; D3575 common sense, a 4th build lane at load ~3). Includes SW-3270 (FUZZ_SEED). Expected: 1.5 h (Opus).\n\nProgress (lane, 14 Nov 22:25): root cause: in recovery mode R1 (`ran_out`) lets an expression slot read no tokens, so a local `def`'s result type after `:` can be an empty token range; `local_def`'s \"needs a body\" error spanned it with `tokens_span`, which indexed `tokens[start]`, one past the last token at the end of the input (and the next line's token before a block-ending line, a wrong span). Fix: `tokens_span` gives an empty range the point after the token before it; `local_def` puts its error at that gap, so R6 keeps the one R1 error. Variants: `def f:`, `def f [x: Nat]:`, local `theorem h (n: Nat):`, with/without trailing newline, before a column-0 line; `let x:`, `match … with |`, top-level `def f (s: Nat):` were already fine. Swept ~40 more end-of-input shapes: no panic. Unit test + reject example `local-def-type-runs-out`. Fuzzer 60k cases at the fixed seed passes. Separate finding: seed 0x1234 case 3192 is a parser memory blow-up (see report).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
