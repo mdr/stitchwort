@@ -34916,15 +34916,17 @@
     {
       "id": 3202,
       "title": "[Sonnet] Reformat ripples on main after SW-3194 (Overmind 051fe154a): snapshots nav-project (driver projects navigation::references_of_a_project), cli server search::what_closes_a_goal, cli tools doc::every_kind_of_declaration (std line numbers moved); proofs partial_kernel::a_constant_with_another_type_is_refused searches std for text the reformat changed",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 40 min (Sonnet).\n\nLane note: partial_kernel cases re-laid to current std; nav-project and what_closes_a_goal snapshots accepted (positions only); doc test now checks Effect.Comp.Call (a ctor alone on its line), since List.Cons shares a line with its type and shows only its name by design. Branch lane/SW-3202.\n",
+      "body": "Expected: 40 min (Sonnet).\nModel result: Sonnet, worked, 7 min (est. 40)",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "3e1c34360964ca7237430dcba03ede9fc6ab84fa"
+      ]
     },
     {
       "id": 3203,
