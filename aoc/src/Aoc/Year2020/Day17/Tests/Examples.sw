@@ -10,7 +10,7 @@ import Std (Fail, Int, List, Nat, Result, Set, Text)
 def parsed (input: Text): Result Slice Text := Fail.toResult (() => parseSlice input)
 
 --| The active cubes after `cycles` cycles, in `dimensions` dimensions.
-def activeAfter (input: Text) (dimensions: Nat) (cycles: Nat): Result Nat Text :=
+def activeAfter (input: Text) (dimensions cycles: Nat): Result Nat Text :=
   (parsed input).map (slice => Nat.iterate cycles Pocket.cycle (slice.pocket dimensions) |> .activeCount)
 
 def example: Text := """
@@ -19,7 +19,8 @@ def example: Text := """
   ###
   """
 
-test "the example's slice is 3 by 3" := (parsed example).map (slice => (slice.grid.height, slice.grid.width)) == Ok (3, 3)
+test "the example's slice is 3 by 3" :=
+  (parsed example).map (slice => (slice.grid.height, slice.grid.width)) == Ok (3, 3)
 
 test "the example's active cubes, in three dimensions" :=
   (parsed example).map (slice => (slice.pocket (dimensions := 3)).active.toList.map (.coordinates))
@@ -34,7 +35,8 @@ test "a cube has 80 neighbours in four dimensions" := ({ coordinates = [0, 0, 0,
 
 --| "After 1 cycle", "After 2 cycles", "After 3 cycles": 11, 21 and 38
 --| active cubes in the puzzle's pictures.
-test "the example's first three cycles, in three dimensions" := (1 ..= 3).map (activeAfter example 3) == [Ok 11, Ok 21, Ok 38]
+test "the example's first three cycles, in three dimensions" :=
+  (1 ..= 3).map (activeAfter example 3) == [Ok 11, Ok 21, Ok 38]
 
 --| The puzzle's part 2 pictures: 29 cubes after one cycle, 60 after two.
 test "the example's first two cycles, in four dimensions" := (1 ..= 2).map (activeAfter example 4) == [Ok 29, Ok 60]
@@ -55,4 +57,5 @@ test "the spec's cycle agrees with the program's around the example, twice" :=
     let start := slice.pocket 3
     let once := start.cycle
     box.all (cube => once.active.contains cube == Spec.activeAfter start.active cube)
-      && box.all (cube => once.cycle.active.contains cube == Spec.activeAfter once.active cube)) == Ok True
+      && box.all (cube => once.cycle.active.contains cube == Spec.activeAfter once.active cube))
+    == Ok True

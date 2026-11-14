@@ -141,6 +141,14 @@ pub enum Instr {
         lambda: u32,
         args: Ops,
     },
+    /// The closure of a lambda that captures nothing. It is built on first
+    /// use and then held by the run (`State::statics`), so every read is the
+    /// same shared closure and a lambda is allocated once, not each time
+    /// its expression is evaluated.
+    StaticClosure {
+        dst: Reg,
+        lambda: u32,
+    },
     /// A constructor with at least one field.
     Ctor {
         dst: Reg,
@@ -172,7 +180,10 @@ pub enum Instr {
     /// register. If the cell is uniquely owned, the fields are moved out,
     /// and the cell, emptied, is the reuse token in `token` (unless
     /// `token` is [`NO_REG`]); otherwise they're copied and `token` is
-    /// left empty.
+    /// left empty. A field whose register is [`NO_REG`] the arm doesn't
+    /// use: it's dropped if the cell is unique, and left alone if not. Every
+    /// field is named, so native code frees a unique cell (or empties it
+    /// for its token) inline, without a walk over unknown fields.
     Unpack {
         src: Reg,
         fields: Ops,
@@ -238,6 +249,34 @@ pub enum Instr {
         src: Reg,
     },
     Unreachable,
+    /// Field `i` of the constructor in `src`, which the frame holds lent
+    /// (borrowed: [`crate::borrow`]), lent in `dst` too: native code loads
+    /// it without an increment, and the machine keeps a copy it doesn't
+    /// count in the allocation trace. `dst` may be `src`, which then holds
+    /// the field instead; otherwise `dst` holds nothing lent before.
+    Peek {
+        dst: Reg,
+        src: Reg,
+        i: u32,
+    },
+    /// `src`'s lent value, lent in `dst` too (as [`Instr::Peek`]).
+    Lend {
+        dst: Reg,
+        src: Reg,
+    },
+    /// The end of `reg`'s lent value, or nothing if it holds none: native
+    /// code does nothing, and the machine drops its copy, panicking if
+    /// that copy was the last reference (an owner let go of a value while
+    /// it was lent).
+    Forget {
+        reg: Reg,
+    },
+    /// `reg`'s lent value becomes owned, by an increment, before it is
+    /// moved where values are kept (a constructor, an owned parameter, a
+    /// result).
+    Own {
+        reg: Reg,
+    },
 }
 
 /// A [`Instr::NumSwitch`]'s targets.
@@ -254,6 +293,18 @@ pub struct Code {
     pub regs: u32,
     /// How many arguments it takes, in registers `0..params`.
     pub params: u32,
+    /// Per parameter, whether it is borrowed ([`crate::borrow`]): the
+    /// caller keeps its reference, and this body only reads it. Empty if
+    /// none is.
+    pub borrowed: Box<[bool]>,
+}
+
+impl Code {
+    /// Whether parameter `j` is borrowed.
+    #[inline]
+    pub fn borrows(&self, j: usize) -> bool {
+        self.borrowed.get(j).copied().unwrap_or(false)
+    }
 }
 
 /// What the machine runs: the code of every body, and the constants.
@@ -331,14 +382,16 @@ pub fn compile(program: &Program) -> Image {
             folds.insert(*code, original);
         }
     }
-    Image {
+    let mut image = Image {
         codes,
         global_code,
         lambda_code,
         entry_code,
         pool,
         folds,
-    }
+    };
+    crate::borrow::apply(program, &mut image);
+    image
 }
 
 /// Where the code of `body` (with `params` parameters, and given a reuse
@@ -605,6 +658,7 @@ impl<'a> Compiler<'a> {
                 num_tables: Vec::new(),
                 regs: frame,
                 params,
+                borrowed: Box::default(),
             },
             next: frame,
             first_temp: frame,
@@ -843,6 +897,9 @@ impl<'a> Compiler<'a> {
                     self.emit(Instr::Apply { dst, f, args });
                 }
             }
+            Expr::Closure(l, captures) if captures.is_empty() => {
+                self.simple(Instr::StaticClosure { dst, lambda: l.0 }, dst, tail);
+            }
             Expr::Closure(l, captures) => {
                 let args = self.operand_ops(captures, live, true);
                 self.simple(
@@ -855,7 +912,7 @@ impl<'a> Compiler<'a> {
                     tail,
                 );
             }
-            Expr::Ctor(_, c, fields) => {
+            Expr::Ctor(t, c, fields) => {
                 if fields.is_empty() {
                     let k = self.constant(Value::Tag(*c));
                     self.simple(Instr::Const { dst, k }, dst, tail);
@@ -864,6 +921,14 @@ impl<'a> Compiler<'a> {
                     self.later.push(Later::Ctor(n));
                     let args = self.operand_ops(fields, live, true);
                     self.later.pop();
+                    #[cfg(not(feature = "value-census"))]
+                    let _ = t;
+                    // The census wants to know which fields are enums.
+                    #[cfg(feature = "value-census")]
+                    let c = &crate::value_census::tag_with_enum_fields(
+                        *c,
+                        &self.program.types[t.0 as usize].ctors[*c as usize].enum_fields,
+                    );
                     let claimed = self.tokens.iter().rposition(|t| t.size == n);
                     let instr = match claimed.map(|i| self.tokens.remove(i)) {
                         Some(Token { reg: token, .. }) => {
@@ -975,8 +1040,15 @@ impl<'a> Compiler<'a> {
                                 } else {
                                     NO_REG
                                 };
-                                let fields =
-                                    self.push_ops(arm.fields.iter().flat_map(|(i, s)| [*i, *s]));
+                                let unused = (0..arity as u32)
+                                    .filter(|i| arm.fields.iter().all(|(f, _)| f != i))
+                                    .collect::<Vec<_>>();
+                                let fields = self.push_ops(
+                                    arm.fields
+                                        .iter()
+                                        .flat_map(|(i, s)| [*i, *s])
+                                        .chain(unused.into_iter().flat_map(|i| [i, NO_REG])),
+                                );
                                 self.emit(Instr::Unpack { src, fields, token });
                             } else {
                                 for (i, slot) in &arm.fields {

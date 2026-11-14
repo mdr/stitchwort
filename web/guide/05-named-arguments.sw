@@ -1,7 +1,6 @@
 -- Name an argument with `(name := value)`. Named arguments can come in any
 -- order and be mixed with positional ones.
-def clamp (value: Nat) (low: Nat) (high: Nat): Nat :=
-  if value < low then low else if value > high then high else value
+def clamp (value low high: Nat): Nat := if value < low then low else if value > high then high else value
 
 test "in any order" := clamp (value := 50) (high := 10) (low := 0) == 10
 test "mixed with positional" := clamp 50 (high := 10) (low := 0) == 10

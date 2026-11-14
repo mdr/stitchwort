@@ -27,18 +27,15 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${notes.earliestLineUp |> .orFail "the buses never line up"}"
 
 --| One entry of the schedule.
-type Slot =
-  | Listed (id: Nat)
-  | OutOfService
+type Slot = | Listed (id: Nat) | OutOfService
 
 type Notes = { earliest: Nat, schedule: List Slot }
 
-def slot(): {Parse} Slot :=
-  match Parse.optional (() => Parse.char 'x') with
-    | Some _ => OutOfService
-    | None =>
-      let id := Parse.nat()
-      if id == 0 then Parse.fail "a bus ID is at least 1" else Listed id
+def slot(): {Parse} Slot := match Parse.optional (() => Parse.char 'x') with
+  | Some _ => OutOfService
+  | None =>
+    let id := Parse.nat()
+    if id == 0 then Parse.fail "a bus ID is at least 1" else Listed id
 
 def notes(): {Parse} Notes :=
   let earliest := Parse.nat()
@@ -51,10 +48,9 @@ def parseNotes (input: Text): {Fail} Notes := Parse.all input notes
 --| A bus in service, and how far down the schedule it is.
 type Bus = { id: Nat, offset: Nat }
 
-def Slot.bus (slot: Slot) (offset: Nat): Option Bus :=
-  match slot with
-    | Listed id => Some { id, offset }
-    | OutOfService => None
+def Slot.bus (slot: Slot) (offset: Nat): Option Bus := match slot with
+  | Listed id => Some { id, offset }
+  | OutOfService => None
 
 def Notes.buses (notes: Notes): List Bus := notes.schedule.withIndex.filterMap (((offset, slot)) => slot.bus offset)
 
@@ -83,9 +79,11 @@ def Alignment.start: Alignment := { time = 0, period = 1 }
 --| so both searches look no further.
 def Alignment.add (alignment: Alignment) (bus: Bus): Option Alignment :=
   let suits := (periods: Nat) => bus.departsAfter (alignment.time + periods * alignment.period)
-  0 ..< bus.id |> .find suits |> .map (first =>
-    let again := 0 ..< bus.id |> .find (more => suits (first + 1 + more)) |> .getOrElse 0
-    { time = alignment.time + first * alignment.period, period = (again + 1) * alignment.period })
+  0 ..< bus.id
+    |> .find suits
+    |> .map (first =>
+      let again := 0 ..< bus.id |> .find (more => suits (first + 1 + more)) |> .getOrElse 0
+      { time = alignment.time + first * alignment.period, period = (again + 1) * alignment.period })
 
 def Alignment.addAll (alignment: Alignment): (buses: List Bus) → Option Alignment
   | [] => Some alignment

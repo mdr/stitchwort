@@ -26,14 +26,28 @@ use crate::check::{
     Ctx, PASS, Result, builtin_ctor, builtin_data, builtin_def, check, infer, insert, nat,
 };
 
-/// A metavariable that became `Nat` because a literal was checked against it
-/// before anything else said what it was: remembered so that a later
-/// mismatch can say why (the "defaulted literal" note).
+/// A metavariable that became `Nat` because the ladder's `apply_default`
+/// found nothing else said what it was: remembered so that a later
+/// mismatch can say why (the "defaulted literal" note), and so that
+/// `queue::kept_receiver` can assert no default was applied inside a kept
+/// receiver.
 pub(crate) struct Defaulted {
     meta: usize,
     span: Span,
     /// The literal, or `None` for a number group defaulted as a whole.
     literal: Option<BigUint>,
+}
+
+#[cfg(test)]
+impl Defaulted {
+    /// `meta` made `Nat` for a literal at `span`.
+    pub(crate) fn literal(meta: usize, span: Span, k: u32) -> Self {
+        Defaulted {
+            meta,
+            span,
+            literal: Some(k.into()),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -92,7 +106,7 @@ fn num_type(cx: &Ctx, kind: Kind) -> Result<Value> {
         Kind::Int => builtin_data(cx, Builtin::Int)?,
         Kind::Float => float_data(cx)?,
     };
-    Ok(Value::Data(d, Vec::new()))
+    Ok(Value::Data(d, Vec::new().into()))
 }
 
 /// The library's `Float`, which a decimal literal loads (its references
@@ -333,8 +347,11 @@ fn check_literal_with(
             // Where the type has `Add` (generic code, a user's `Point`), say
             // what to write instead (docs/proposals/interfaces.md §5.13).
             if let Some(add) = crate::interfaces::library_interface(cx.e, "Std.Add")
-                && crate::interfaces::findable(cx, &Value::Data(add, vec![expected.clone()]))?
-                    .is_none()
+                && crate::interfaces::findable(
+                    cx,
+                    &Value::Data(add, vec![expected.clone()].into()),
+                )?
+                .is_none()
             {
                 return Err(
                     e.with_note("for another type's zero or one, write `Add.zero` or `Mul.one`")
@@ -582,6 +599,7 @@ fn negative_nat() -> Diagnostic {
 
 /// Adds the "defaulted literal" explanation to `d` if one of `types` is a
 /// metavariable that a literal made `Nat`.
+#[inline(never)]
 pub(crate) fn explain_default(cx: &Ctx, d: Diagnostic, types: &[&Value]) -> Diagnostic {
     if d.code != "E-TYPE-MISMATCH" || d.notes.iter().any(|n| n.contains("because of the literal")) {
         return d;
@@ -778,10 +796,15 @@ impl<'a> Group<'a> {
             else {
                 continue;
             };
-            if used
-                && crate::interfaces::findable(cx, &Value::Data(interface, vec![t.clone()]))?
-                    .is_some()
-            {
+            if !used {
+                continue;
+            }
+            let goal = Value::Data(interface, vec![t.clone()].into());
+            if let Some(why) = crate::interfaces::findable(cx, &goal)? {
+                // Its instance failed: the operator waits for it.
+                if why.code == "E-FAILED-DEPENDENCY" {
+                    return Err(why);
+                }
                 return Ok(Some(format!(
                     "on other types `{op}` is `{name}.{field}`, and there's no `{name}` instance for `{}` here",
                     cx.show(t)
@@ -1286,7 +1309,7 @@ fn queue_group(
     }
     let ty = match top {
         None => t.clone(),
-        Some(BinOp::EqEq) => Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new()),
+        Some(BinOp::EqEq) => Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into()),
         Some(_) => Value::Sort(Sort::Prop),
     };
     let error = cx.error(
@@ -1464,7 +1487,7 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
             let not = builtin_def(cx, Builtin::Not)?;
             Ok((Term::app(Term::Def(not), eq), prop))
         }
-        // `a == b` is `toBool d`, for a decision procedure `d` for `a = b`,
+        // `a == b` is `holds d`, for a decision procedure `d` for `a = b`,
         // found as for `if h : a = b`.
         // The search sees the operands as variables where it can
         // (`bind.rs`), so they aren't computed here or by the kernel.
@@ -1472,7 +1495,7 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
         // yet, K4) is waited for (`check::decide_or_wait`), so the search
         // sees it as written, as it would have had nothing waited.
         _ => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
             if crate::check::decision_blocker(cx, &eq, crate::check::Depth::Written)?.is_some() {
                 let span = cx.span;
                 let waiting = crate::check::decide_or_wait(
@@ -1606,17 +1629,25 @@ fn check_leaf(
         }
         return Ok(term);
     }
-    crate::queue::framed(
-        cx,
-        |cx| check(cx, expr, t),
-        |_| LeafFrame {
-            leaf: expr.clone(),
-            decided: decided_leaf(g, decider).map(|(e, op)| (e.clone(), op)),
-            t: t.clone(),
-            decider,
-            what: what.to_string(),
-        },
-    )
+    // A side of an `=` between propositions isn't one a `Bool` is read as a
+    // proposition at (docs/proposals/bool-as-proposition.md §4.1).
+    let mut sides = Vec::new();
+    if matches!(force(&cx.g(), t.clone())?, Value::Sort(Sort::Prop)) {
+        crate::logic::equation_side(cx, expr, &mut sides);
+    }
+    crate::check::without_coercion(cx, sides, |cx| {
+        crate::queue::framed(
+            cx,
+            |cx| check(cx, expr, t),
+            |_| LeafFrame {
+                leaf: expr.clone(),
+                decided: decided_leaf(g, decider).map(|(e, op)| (e.clone(), op)),
+                t: t.clone(),
+                decider,
+                what: what.to_string(),
+            },
+        )
+    })
 }
 
 /// What decided a group's type, if a leaf did: that leaf's expression and
@@ -1953,6 +1984,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Goal(_)
+            | Expr::Missing(_)
             | Expr::Unit(_) => {}
             Expr::App(a, b)
             | Expr::Arrow(a, b)
@@ -2020,7 +2052,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             } => {
                 stack.extend(scrutinees.iter().map(|s| &s.expr));
                 stack.extend(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)));
-                stack.extend(alts.iter().map(|a| &a.body));
+                stack.extend(alts.iter().filter_map(|a| a.body.as_ref()));
             }
             Expr::Induct { call, alts, .. } => {
                 stack.push(call);

@@ -15,14 +15,13 @@ def setting: Instruction → Option Bool
 
 --| "Only the most recent do() or don't() instruction applies. At the
 --| beginning of the program, mul instructions are enabled."
-def enabledAfter (earlier: List Instruction): Bool :=
-  match earlier.filterMap setting |> .last with
-    | Some enabled => enabled
-    | None => True
+def enabledAfter (earlier: List Instruction): Bool := match earlier.filterMap setting |> .last with
+  | Some enabled => enabled
+  | None => True
 
 --| "Add up all of the results of just the enabled multiplications": each
 --| instruction counts when the instructions before it leave `mul` enabled.
-def enabledResults (instructions: List Instruction): Nat :=
-  instructions.withIndex.sumBy (((index, instruction)) => if enabledAfter (instructions.take index) then instruction.result else 0)
+def enabledResults (instructions: List Instruction): Nat := instructions.withIndex.sumBy (((index, instruction)) =>
+  if enabledAfter (instructions.take index) then instruction.result else 0)
 
 def isDont: Instruction → Bool := matches | Dont

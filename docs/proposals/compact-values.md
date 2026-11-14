@@ -974,6 +974,162 @@ recommendation.
   today's figure are firm.
 - Nothing was timed: no speed claim is made here.
 
+### 9.7 How often are enum fields stored in cells, and how much would D save? (9 Nov 2026, SW-2478)
+
+§9.5 left this open: how common are enum fields (option D's candidates) in cells, and in
+cells of what size? A measurement only; the recommendation is unchanged.
+
+**Method.**
+
+- **The census.** The machine census (`stitchwort run` of a `value-census` build, §9.1) was
+  extended to know the *declared* type of each stored field. Lowering marks a constructor's
+  field as an enum when its type is a data type none of whose constructors has a runtime
+  field (`Bool`, `Ordering`, a `Color`, a `Direction`; not the number types). The marks
+  travel to the machine in the top byte of the tag of `Instr::Ctor` and `CtorReuse` (the
+  first eight fields; no cell had more than five), and `value_census.rs` counts every cell
+  built, and every cell refilled in place, by field count `n` and by how many of its fields
+  are marked and hold a `Tag` value (`enum.<n>.<k>`, `enum_refill.<n>.<k>`). The code is
+  compiled only with the feature; a build without it has no extra instruction.
+  `task bench:instructions -- binary-trees --runs 3` before and after: 20.54 G to 20.54 G
+  instructions, +0.02% (the spread of its runs).
+- **Programs.** Every entry of `bench/compare/programs.toml` except that octopus is the real
+  2021 day 11 grid (the tiled one flashes every octopus never and runs 10,000 steps), scaled
+  down so that each run takes under 20 s: pidigits 300 digits, binary-trees depth 12,
+  memory-game 300,000 turns, spectral-norm N = 100, const-fold depth 14 with 2 rounds, rbmap
+  100,000 inserts, rbmap-ck 10,000 inserts, and the AoC-based ones on the real input
+  (dijkstra, memory-game) or the real input repeated 2 to 3 times (disk, expressions, scan,
+  bridge) or once (matcher). Ten more AoC days on their real inputs: 2020 days 7, 11, 17,
+  2021 days 9, 12, 2024 days 6, 10, 2025 days 4, 7, 8 (grids, graphs, trees, parsers).
+  Shapes are those of native code; the counts are `stitchwort run`'s (§9.1).
+- **Sizes.** Per cell, today is 16 + 24n bytes; C, 8-byte header, 8 + 24n; E, two-word values,
+  8 + 16n; D, enum fields as one byte each after the other fields, 16 + 24(n - k) + k, and
+  C + D and E + D likewise. Each is rounded to mimalloc's block size. mimalloc 2's `mi_bin`
+  (the one in `libmimalloc-sys` 0.1.49, v2, which the build uses) gives every size up to 64
+  bytes in 8-byte steps, and above that four classes per doubling in words: 80, 96, 112,
+  128, then 160, 192, 224, 256, then 320, ... (`src/page-queue.c`, `mi_bin`); the analysis script
+  asserts 136 to 160, 128, 88 to 96, 58 to 64, 34 to 40, 82 to 96. This confirms §9.4's
+  inferred table. The savings are for bytes **allocated** (cells built), summed over the run,
+  not the live peak.
+
+**Per cell.** After rounding, bytes by layout (a cell without enum fields: today 40, 64, 96,
+112, 160 for 1 to 5 fields; C 32, 56, 80, 112, 128; E 24, 40, 56, 80, 96):
+
+| Fields | Enum fields | Today | D | C | E | C+D | E+D |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 1 | 1 | 40 | 24 | 32 | 24 | 16 | 16 |
+| 2 | 1 | 64 | 48 | 56 | 40 | 40 | 32 |
+| 2 | 2 | 64 | 24 | 56 | 40 | 16 | 16 |
+| 3 | 1 | 96 | 80 | 80 | 56 | 64 | 48 |
+| 3 | 2 | 96 | 48 | 80 | 56 | 40 | 32 |
+| 4 | 1 | 112 | 96 | 112 | 80 | 96 | 64 |
+| 4 | 2 | 112 | 80 | 112 | 80 | 64 | 48 |
+| 5 | 1 | 160 | 128 | 128 | 96 | 112 | 80 |
+| 5 | 2 | 160 | 96 | 128 | 96 | 96 | 64 |
+| 1, 2, 3, 4, 5 | 0 | 40, 64, 96, 112, 160 | same | 32, 56, 80, 112, 128 | 24, 40, 56, 80, 96 | as C | as E |
+
+C does nothing for a four-field cell (104 rounds to 112), E does 112 to 80, and D with one enum
+field gives 96. With two enum fields in five, D alone is 96, the same as E, and E + D is 64.
+
+**Per program** (cells built; the columns "1" to "5+" are the share of cells with that many
+fields; "Enum fields" is the share of all stored fields that are declared enums; "Cells with
+one" those with at least one; the last five are the share of today's allocated bytes saved,
+after rounding):
+
+| Program | Cells | 1 | 2 | 3 | 4 | 5+ | Enum fields | Cells with one | D | C | E | C+D | E+D |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| null | 4 | 75% | 25% | 0% | 0% | 0% | 0% | 0% | 0.0% | 17.4% | 39.1% | 17.4% | 39.1% |
+| pidigits | 3,916 | 25% | 50% | 25% | 0% | 0% | 0% | 0% | 0.0% | 15.2% | 39.4% | 15.2% | 39.4% |
+| binary-trees | 674,564 | 0% | 100% | 0% | 0% | 0% | 0% | 0% | 0.0% | 12.5% | 37.5% | 12.5% | 37.5% |
+| memory-game | 302,581 | 0% | 0% | 100% | 0% | 0% | 0% | 0% | 0.0% | 16.7% | 41.7% | 16.7% | 41.7% |
+| dijkstra | 12,933,808 | 40% | 52% | 0% | 4% | 5% | 0% | 0% | 0.0% | 14.4% | 37.8% | 14.5% | 37.8% |
+| disk | 3,526,058 | 35% | 53% | 1% | 1% | 10% | 1% | 2% | 0.6% | 15.7% | 38.5% | 16.3% | 38.8% |
+| expressions | 4,124,168 | 49% | 45% | 2% | 3% | 0% | 3% | 5% | 1.3% | 14.6% | 38.0% | 16.0% | 38.7% |
+| scan | 3,474,857 | 44% | 50% | 1% | 5% | 0% | 2% | 4% | 1.0% | 13.6% | 37.4% | 14.7% | 38.0% |
+| matcher | 2,530,186 | 74% | 24% | 1% | 1% | 0% | 1% | 2% | 0.5% | 17.1% | 39.0% | 17.6% | 39.2% |
+| bridge | 1,194,146 | 39% | 53% | 4% | 4% | 0% | 1% | 3% | 0.7% | 13.8% | 37.7% | 14.5% | 38.1% |
+| spectral-norm | 408,471 | 1% | 99% | 0% | 0% | 0% | 0% | 0% | 0.0% | 12.5% | 37.5% | 12.5% | 37.5% |
+| const-fold | 163,874 | 53% | 47% | 0% | 0% | 0% | 0% | 0% | 0.0% | 15.6% | 38.5% | 15.6% | 38.5% |
+| rbmap | 100,018 | 0% | 0% | 0% | 0% | 100% | 40% | 100% | 40.0% | 20.0% | 40.0% | 40.0% | 60.0% |
+| rbmap-ck | 188,266 | 0% | 5% | 0% | 0% | 95% | 39% | 95% | 39.1% | 19.8% | 39.9% | 39.4% | 59.5% |
+| AoC 2020 day 07 | 383,565 | 29% | 63% | 3% | 4% | 1% | 1% | 1% | 0.4% | 13.4% | 37.6% | 13.8% | 37.8% |
+| AoC 2020 day 11 | 14,119,756 | 64% | 36% | 0% | 0% | 0% | 0% | 0% | 0.0% | 16.4% | 38.8% | 16.4% | 38.8% |
+| AoC 2020 day 17 | 1,650,636 | 6% | 88% | 0% | 0% | 5% | 0% | 0% | 0.0% | 13.8% | 37.9% | 13.8% | 37.9% |
+| AoC 2021 day 09 | 1,018,686 | 44% | 52% | 1% | 1% | 2% | 1% | 2% | 0.6% | 15.1% | 38.3% | 15.7% | 38.6% |
+| AoC 2021 day 11 | 4,810,530 | 3% | 97% | 0% | 0% | 0% | 0% | 0% | 0.0% | 12.6% | 37.5% | 12.6% | 37.5% |
+| AoC 2021 day 12 | 9,666,475 | 30% | 70% | 0% | 0% | 0% | 0% | 0% | 0.0% | 14.1% | 38.0% | 14.1% | 38.0% |
+| AoC 2024 day 06 | 3,972,086 | 39% | 40% | 0% | 0% | 21% | 5% | 11% | 2.4% | 17.4% | 39.1% | 19.7% | 40.3% |
+| AoC 2024 day 10 | 325,762 | 65% | 33% | 1% | 1% | 0% | 1% | 2% | 0.5% | 16.4% | 38.8% | 16.9% | 39.0% |
+| AoC 2025 day 04 | 1,723,864 | 2% | 98% | 0% | 0% | 0% | 0% | 0% | 0.0% | 12.6% | 37.5% | 12.6% | 37.5% |
+| AoC 2025 day 07 | 1,135,011 | 44% | 52% | 2% | 2% | 0% | 2% | 4% | 1.1% | 14.6% | 38.1% | 15.6% | 38.6% |
+| AoC 2025 day 08 | 4,978,521 | 32% | 23% | 10% | 0% | 34% | 0% | 0% | 0.0% | 18.4% | 39.8% | 18.4% | 39.8% |
+
+**By cell size, all 25 programs together:**
+
+| Fields | Cells | Enum fields / fields | Cells with an enum | B/cell today | D | C | E | C+D | E+D |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 28,917,965 | 2% | 2% | 40 | 0.8% | 20.0% | 40.0% | 20.8% | 40.4% |
+| 2 | 38,498,695 | 1% | 1% | 64 | 0.3% | 12.5% | 37.5% | 12.8% | 37.6% |
+| 3 | 1,118,894 | 1% | 2% | 96 | 0.4% | 16.7% | 41.7% | 17.0% | 41.8% |
+| 4 | 1,010,569 | 0% | 0% | 112 | 0.0% | 0.0% | 28.6% | 0.0% | 28.6% |
+| 5 | 3,863,686 | 3% | 7% | 160 | 2.9% | 20.0% | 40.0% | 21.4% | 41.4% |
+| all | 73,409,809 | 1% | | 61 | 0.8% | 15.3% | 38.4% | 15.8% | 38.7% |
+
+**Reading.**
+
+- **D's reach is small.** Declared enum fields are 1% of all stored fields (73.4 M cells), and D
+  alone saves 0.8% of allocated bytes, against 15.3% for C and 38.4% for E. In 23 of the 25
+  programs D saves at most 2.4%, and in 14 of them under 0.5%. The best of those is 2024 day 6
+  (2.4%: a direction in a two-field cell, 0.44 M of its 4.0 M cells), then expressions (1.3%).
+  C + D adds little to C (15.8% against 15.3%).
+- **Where it is not small, it is rbmap.** The two red-black tree programs have a five-field
+  node with two enum fields in every cell (the colour and the flag), and D takes the node
+  from 160 to 96: 40.0% (rbmap) and 39.1% (rbmap-ck), twice C's 20%, level with E's 40%, and
+  E + D saves 60%. rbmap is also the program that refills cells in place most (30 refills per
+  cell built). Nothing else in the suite has a cell with two enum fields among five, or a
+  five-field cell with any: `Map`'s node (`Map.Tree.Bin`), which the AoC days use, has no enum
+  field, so D does nothing for it; C is what helps it (160 to 128).
+- **Does it justify a design note?** Not by reach in this suite. D is a 40% saving on one
+  shape of cell and under 3% overall elsewhere; that cell is the one written to match Lean's
+  `rbmap`. It would justify a note if "memory on rbmap and rbmap-ck at Lean's size" is a goal
+  (§9.5, point 1), or if enum-bearing records of three or more fields are expected in programs
+  people write (two enum fields in a three-field cell: 96 to 48, better than E); the AoC
+  days written so far do not have them. D is the one option that cuts a cell's bytes without
+  changing the value width, so it is also the only one that stacks with C without the
+  risks of E; but C + D is 15.8% against C's 15.3% here.
+- **Where D beats C.** Only in cells with two or more enum fields (any size up to five), or
+  one in a cell of four or fewer where C has no effect (a four-field cell: C 112, D with one
+  enum 96), and on the suite this is rbmap and rbmap-ck alone. Everywhere else C is ahead,
+  by 12 to 18 points outside the two rbmaps, because most cells are one- and two-field (92% of the 73 M) and take 8
+  bytes off 40 or 64 whatever they hold.
+- **E and D.** E alone cuts every cell by 25% to 42%; D adds to it only in the rbmap cells
+  (96 to 64 = 20 points more) and in 2024 day 6 (1 point).
+
+**Uncertainties.**
+
+- **A lower bound for enums.** Only fields whose declared type is an enum count. A value
+  stored in a polymorphic field is not marked even if it is an enum at that use: a pair
+  `(Pos, Dir)`, a `List Dir`, an `Option Bool`, a `Map Pos Dir`. A layout that stored those
+  as bytes would need the generic cell specialised per instance (monomorphised or tagged
+  per cell), which is more than D as described in §3.4. How much more would be saved I did not
+  measure; the census could count the `Tag` values stored in unmarked fields, but those
+  include `Nil`, `None` and `Leaf`, which are not enums (an earlier version of this census
+  that counted every stored `Tag` gave 11% to 53% on some programs, nearly all of it these).
+- **Allocated, not live.** The bytes are summed over all cells built, so a program that builds
+  many short-lived cells of one shape weighs it more than the footprint would. For rbmap the
+  two agree (the tree is the live data, §9.2); for the others I did not weigh by lifetime.
+  Cells built by natives (`Value::data`: tuples, options and so on from primitives) have
+  no declared types here and count as having no enum field; I did not count their share.
+- **Scaled-down runs.** I did not rerun at the full sizes, so a program whose cell mix
+  changes with size may differ; rbmap's was the same at 50,000 and 100,000 inserts.
+- **Machine, not native.** The census counts `stitchwort run`'s allocations. Native code may
+  fuse or avoid some cells (the native census of SW-2479 counts arities only); I did not
+  compare the two on these programs.
+- **Sizes are formulas plus the mimalloc table**, as in §9.4: no allocation was measured for
+  C, D or E, which do not exist. D's byte stores assume no padding between the 8-byte fields
+  and the bytes, and that the block's last bytes are free for them.
+- **Refills.** `CtorReuse` refills a cell in place and its shape is counted separately
+  (`enum_refill.*`) but is not in the byte totals; it never changes a cell's size.
+
 ## Sources
 
 - Lean 4 `src/include/lean/lean.h` (master, fetched 8 Nov 2026): `lean_object`,

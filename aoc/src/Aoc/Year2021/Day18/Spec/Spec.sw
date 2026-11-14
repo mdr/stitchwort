@@ -55,10 +55,12 @@ def addToLast (amount: Nat): List Leaf → List Leaf
 --| its left (the last one before it), its right value to the first regular
 --| number to its right, and the pair becomes the regular number 0, inside
 --| one pair fewer than its values were.
-def explodeLeaves (leaves: List Leaf): Option (List Leaf) :=
-  match firstDeep leaves with
-    | Some found => Some (addToLast found.left.value found.before ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value found.after])
-    | None => None
+def explodeLeaves (leaves: List Leaf): Option (List Leaf) := match firstDeep leaves with
+  | Some found =>
+    Some
+      (addToLast found.left.value found.before
+        ++ [{ value = 0, depth = found.left.depth - 1 }, ..addToFirst found.right.value found.after])
+  | None => None
 
 --| Splitting: the leftmost regular number of 10 or more becomes a pair of
 --| its half rounded down and its half rounded up.
@@ -66,17 +68,20 @@ def splitLeaves: List Leaf → Option (List Leaf)
   | [] => None
   | [leaf, ..rest] =>
     if 10 ≤ leaf.value then
-      Some [{ value = leaf.value / 2, depth = leaf.depth + 1 }, { value = (leaf.value + 1) / 2, depth = leaf.depth + 1 }, ..rest]
+      Some [
+        { value = leaf.value / 2, depth = leaf.depth + 1 },
+        { value = (leaf.value + 1) / 2, depth = leaf.depth + 1 },
+        ..rest
+      ]
     else
       match splitLeaves rest with
         | Some after => Some [leaf, ..after]
         | None => None
 
 --| One step of reducing: explode if a pair can, else split if a number can.
-def reduceStep (leaves: List Leaf): Option (List Leaf) :=
-  match explodeLeaves leaves with
-    | Some after => Some after
-    | None => splitLeaves leaves
+def reduceStep (leaves: List Leaf): Option (List Leaf) := match explodeLeaves leaves with
+  | Some after => Some after
+  | None => splitLeaves leaves
 
 --| Reducing `start` ends at `final`: step until no step applies.
 type ReducesTo: List Leaf → List Leaf → Prop =
@@ -89,7 +94,7 @@ type ReducesTo: List Leaf → List Leaf → Prop =
 def IsReduced (number: Number): Prop := List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves 0 number)
 
 --| `x + y` is `sum`: the pair of `x` and `y`, reduced, has `sum`'s leaves.
-def IsSum (x: Number) (y: Number) (sum: Number): Prop := ReducesTo (leaves 0 (Pair x y)) (leaves 0 sum)
+def IsSum (x y sum: Number): Prop := ReducesTo (leaves 0 (Pair x y)) (leaves 0 sum)
 
 --| `total`, then each of `numbers` added to it in turn, is `final`.
 type AddsUpTo: Number → List Number → Number → Prop =
@@ -102,11 +107,20 @@ def magnitude: Number → Nat
 
 --| Part 1: the magnitude of the numbers added up in order.
 def Part1 (numbers: List Number) (answer: Nat): Prop :=
-  ∃ (first: Number) (rest: List Number) (final: Number) => numbers = [first, ..rest] ∧ AddsUpTo first rest final ∧ magnitude final = answer
+  ∃ (first: Number) (rest: List Number) (final: Number) => numbers = [first, ..rest]
+    ∧ AddsUpTo first rest final
+    ∧ magnitude final = answer
 
 --| Part 2: the largest magnitude of `x + y` for numbers `x` and `y` on
 --| different lines.
 def Part2 (numbers: List Number) (answer: Nat): Prop :=
-  (∃ (i: Nat) (j: Nat) (x: Number) (y: Number) (sum: Number) =>
-    i ≠ j ∧ numbers.get i = Some x ∧ numbers.get j = Some y ∧ IsSum x y sum ∧ magnitude sum = answer)
-    ∧ ((i: Nat) → (j: Nat) → (x: Number) → (y: Number) → (sum: Number) → i ≠ j → numbers.get i = Some x → numbers.get j = Some y → IsSum x y sum → magnitude sum ≤ answer)
+  (∃ (i: Nat) (j: Nat) (x: Number) (y: Number) (sum: Number) => i ≠ j
+    ∧ numbers.get i = Some x
+    ∧ numbers.get j = Some y
+    ∧ IsSum x y sum
+    ∧ magnitude sum = answer)
+    ∧ (∀ (i j: Nat) (x y sum: Number) => i ≠ j
+      → numbers.get i = Some x
+      → numbers.get j = Some y
+      → IsSum x y sum
+      → magnitude sum ≤ answer)

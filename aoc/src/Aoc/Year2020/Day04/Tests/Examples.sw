@@ -58,32 +58,57 @@ def validExample: Text := """
 
 def parsed (input: Text): Result (List Passport) Text := Fail.toResult (() => parsePassports input)
 
-def exampleAnswers (input: Text): Result (Nat, Nat) Text := (parsed input).map (passports => (solvePart1 passports, solvePart2 passports))
+def exampleAnswers (input: Text): Result (Nat, Nat) Text :=
+  (parsed input).map (passports => (solvePart1 passports, solvePart2 passports))
 
 test "example" := exampleAnswers example == Ok (2, 2)
-test "example, passport by passport" := (parsed example).map (.map Passport.hasRequired) == Ok [True, False, True, False]
+test "example, passport by passport" :=
+  (parsed example).map (.map Passport.hasRequired) == Ok [True, False, True, False]
 test "part 2, the invalid passports" := exampleAnswers invalidExample == Ok (4, 0)
 test "part 2, the valid passports" := exampleAnswers validExample == Ok (4, 4)
 
-test "a passport parsed" :=
-  parsed """
-    hcl:#ae17e1 iyr:2013
-    eyr:2024""" == Ok [{ fields = [{ key = HairColor, value = "#ae17e1" }, { key = IssueYear, value = "2013" }, { key = ExpirationYear, value = "2024" }] }]
+test "a passport parsed" := parsed """
+  hcl:#ae17e1 iyr:2013
+  eyr:2024"""
+  == Ok [
+    {
+      fields = [
+        { key = HairColor, value = "#ae17e1" },
+        { key = IssueYear, value = "2013" },
+        { key = ExpirationYear, value = "2024" }
+      ]
+    }
+  ]
 test "line breaks at the end" := (parsed "cid:1\n\ncid:2\n").map List.length == Ok 2
 test "an unknown key" :=
-  parsed "byr:1937 abc:1" == Err "line 1, column 10: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got 'abc'"
+  parsed "byr:1937 abc:1"
+    == Err "line 1, column 10: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got 'abc'"
 test "an empty value" := parsed "byr: iyr:2017" == Err "line 1, column 5: expected a value, got ' '"
 -- The extra blank line is line 3, where the next passport should start.
-test "two blank lines" := parsed "cid:1\n\n\ncid:2" == Err "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
+test "two blank lines" :=
+  parsed "cid:1\n\n\ncid:2"
+    == Err
+        "line 3, column 1: expected 'byr', 'iyr', 'eyr', 'hgt', 'hcl', 'ecl', 'pid' or 'cid', got the end of the line"
 
 test "byr" := Key.valid BirthYear "2002" ∧ not (Key.valid BirthYear "2003")
-test "hgt" := Key.valid Height "60in" ∧ Key.valid Height "190cm" ∧ not (Key.valid Height "190in") ∧ not (Key.valid Height "190")
+test "hgt" :=
+  Key.valid Height "60in" ∧ Key.valid Height "190cm" ∧ not (Key.valid Height "190in") ∧ not (Key.valid Height "190")
 test "hcl" := Key.valid HairColor "#123abc" ∧ not (Key.valid HairColor "#123abz") ∧ not (Key.valid HairColor "123abc")
 test "ecl" := Key.valid EyeColor "brn" ∧ not (Key.valid EyeColor "wat")
 test "pid" := Key.valid PassportId "000000001" ∧ not (Key.valid PassportId "0123456789")
 
-test "years have four digits" := not (Key.valid BirthYear "01990") ∧ not (Key.valid BirthYear "+990") ∧ Key.valid IssueYear "2010" ∧ not (Key.valid IssueYear "2021")
-test "a height needs a number" := not (Key.valid Height "cm") ∧ not (Key.valid Height "+60in") ∧ Key.valid Height "059in" ∧ not (Key.valid Height "60 in")
-test "hcl, six characters exactly" := not (Key.valid HairColor "#123ab") ∧ not (Key.valid HairColor "#123abcd") ∧ not (Key.valid HairColor "#123ABC")
-test "pid, nine digits with leading zeros" := Key.valid PassportId "000000000" ∧ not (Key.valid PassportId "00000000a") ∧ not (Key.valid PassportId "00000000")
+test "years have four digits" :=
+  not (Key.valid BirthYear "01990")
+    ∧ not (Key.valid BirthYear "+990")
+    ∧ Key.valid IssueYear "2010"
+    ∧ not (Key.valid IssueYear "2021")
+test "a height needs a number" :=
+  not (Key.valid Height "cm")
+    ∧ not (Key.valid Height "+60in")
+    ∧ Key.valid Height "059in"
+    ∧ not (Key.valid Height "60 in")
+test "hcl, six characters exactly" :=
+  not (Key.valid HairColor "#123ab") ∧ not (Key.valid HairColor "#123abcd") ∧ not (Key.valid HairColor "#123ABC")
+test "pid, nine digits with leading zeros" :=
+  Key.valid PassportId "000000000" ∧ not (Key.valid PassportId "00000000a") ∧ not (Key.valid PassportId "00000000")
 test "cid, anything" := Key.valid CountryId "x"

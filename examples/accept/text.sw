@@ -105,7 +105,7 @@ test "join nothing" := Text.join [] '-' == ""
 -- Proved for every text, in the prelude.
 theorem joinSplit: Text.join ("a,,b".split ',') ',' = "a,,b" := Text.joinSplit "a,,b" ','
 
-theorem roundTrip (t: Text): Text.fromList (Text.toList t) = t := Text.fromToList t
+theorem roundTrip ∀ (t: Text): Text.fromList (Text.toList t) = t := Text.fromToList t
 
 -- By computation.
 theorem helloLength: "hello".length = 5 := rfl

@@ -5,13 +5,13 @@
 //! premise filled from a hypothesis where one fits. Here each plan becomes
 //! proof text, and is checked: elaborated in the file's scope inside
 //! `(((h: A) => …): (h: A) → … → T)`, and, with no `?` left, checked by
-//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega`, `cases` and
-//! `byDecision`; what still fails is a goal the suggestion leaves.
+//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega`, `ring`,
+//! `cases` and `byDecision`; what still fails is a goal the suggestion leaves.
 //!
 //! Results come in four classes (review point 12): `exact` (the lemma
 //! applied to the goal's terms), `withHypotheses` (premises filled from
-//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega`, `cases` or
-//! `byDecision`), each kernel-checked; and `applicable` (it applies,
+//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega`, `ring`,
+//! `cases` or `byDecision`), each kernel-checked; and `applicable` (it applies,
 //! leaving goals, listed). Separately, `rewrites`: equations and `Iff`s
 //! whose side is a call in the target, as `rewrite L in ?` with the goal
 //! that leaves (`rw?`'s direction, S2c). Nothing is reported as closing
@@ -28,8 +28,9 @@ use stitchwort_core::DataId;
 use stitchwort_elab::Checked;
 use stitchwort_elab::closing::{Arg, Goal, Plan};
 use stitchwort_elab::search::{Candidate, Kind};
-use stitchwort_syntax::{Diagnostic, FileId, GoalData, Severity, SourceMap};
+use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Severity, SourceMap};
 
+use crate::audit::Generated;
 use crate::driver::Session;
 use crate::project::Files;
 use crate::search::{Scope, hidden, import_line};
@@ -57,6 +58,10 @@ pub struct AtOptions {
     /// than only applying to it): for the code action, which shows no more
     /// than that. None: try them all.
     pub stop_after_closing: Option<usize>,
+    /// Try the simple closers one at a time first ([`Rung`], the ladder),
+    /// and answer with the first that closes the goal alone, without the
+    /// search: the editor's "Search for a proof" (SW-2966).
+    pub simplest_first: bool,
 }
 
 impl Default for AtOptions {
@@ -69,6 +74,7 @@ impl Default for AtOptions {
             exclude: Vec::new(),
             within: Vec::new(),
             stop_after_closing: None,
+            simplest_first: false,
         }
     }
 }
@@ -205,10 +211,15 @@ pub fn pick(goals: &[FoundGoal], at: GoalAt) -> Result<&FoundGoal, String> {
 pub struct AtReport {
     pub version: u32,
     pub goal: GoalJson,
-    /// The closers that close the goal on their own (`rfl`, `omega`,
-    /// `byDecision`), kernel-checked, written as the file writes them
+    /// The closers that close the goal on their own (`rfl`, `omega`, `ring`,
+    /// `cases`, `byDecision`), kernel-checked, written as the file writes them
     /// (`Std.byDecision` without `import Std (byDecision)`).
     pub tactics: Vec<String>,
+    /// Set when the ladder answered ([`AtOptions::simplest_first`]): the
+    /// rung that closed the goal, and the only thing in `tactics` or
+    /// `results`; nothing else was searched for.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub simplest: Option<&'static str>,
     /// Suggestions that close the goal, every one checked by the kernel,
     /// then those that apply leaving goals; best first.
     pub results: Vec<Suggestion>,
@@ -590,6 +601,155 @@ impl Checker<'_> {
     }
 }
 
+/// The ladder (SW-2966): the simple closers that "Search for a proof" tries
+/// one at a time, cheapest first, before any search. The first that closes
+/// the goal is the whole answer: a goal `rfl` closes isn't also offered
+/// lemmas, and one `omega` closes isn't offered `omega` beside `ring`. Only
+/// when no rung closes it does the full search run, and it skips the rungs
+/// that failed. To change the ladder, change [`LADDER`] and [`Rung::texts`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Rung {
+    /// A hypothesis that is `False = True` (or `True = False`) rules the
+    /// goal out: `Void.exfalso (Bool.falseNotTrue h)`, which says why,
+    /// where `omega` and `cases` only happen to find it. First, since a
+    /// proof from a contradiction closes any goal, so the rungs after it
+    /// would add nothing.
+    Absurd,
+    /// The goal holds by computation.
+    Rfl,
+    /// A hypothesis is exactly the goal.
+    Hypothesis,
+    /// A closed goal with a decision procedure, run (`byDecision`).
+    Decision,
+    Omega,
+    Ring,
+    /// `cases`, tried only where a hypothesis is an equation, which is what
+    /// can rule a case out (`h: False = True`, two different constructors);
+    /// the language has no `cases h`, so the tactic finds that hypothesis
+    /// itself. A goal that only needs a split is left to the full search.
+    Cases,
+}
+
+/// The rungs, in the order they are tried.
+const LADDER: [Rung; 7] = [
+    Rung::Absurd,
+    Rung::Rfl,
+    Rung::Hypothesis,
+    Rung::Decision,
+    Rung::Omega,
+    Rung::Ring,
+    Rung::Cases,
+];
+
+/// The longest one rung's check may take. A rung that runs out is given up
+/// (not counted as failed: the full search tries it again with its own
+/// share), so a slow one costs this much and no more.
+const RUNG_TIME: Duration = Duration::from_millis(500);
+
+/// All the rungs together, however many give up.
+const LADDER_TIME: Duration = Duration::from_secs(2);
+
+impl Rung {
+    /// What the rung writes in place of the `?`, as the file writes it;
+    /// nothing when it doesn't apply to this goal.
+    fn texts(
+        self,
+        hypotheses: &[Hypothesis],
+        by_decision: Option<&str>,
+        absurd: &[String],
+    ) -> Vec<String> {
+        match self {
+            Rung::Absurd => absurd.to_vec(),
+            Rung::Rfl => vec!["rfl".to_string()],
+            Rung::Hypothesis => hypotheses
+                .iter()
+                .filter(|h| is_name(&h.name))
+                .map(|h| h.name.clone())
+                .collect(),
+            Rung::Decision => by_decision.map(str::to_string).into_iter().collect(),
+            Rung::Omega => vec!["omega".to_string()],
+            Rung::Ring => vec!["ring".to_string()],
+            Rung::Cases => {
+                if hypotheses.iter().any(|h| h.ty.contains(" = ")) {
+                    vec!["cases".to_string()]
+                } else {
+                    Vec::new()
+                }
+            }
+        }
+    }
+}
+
+/// The direct proofs from hypotheses that are an equation of the two
+/// `Bool`s: what ruling a case out by `h: False = True` reads as. The
+/// library's names are written as the file can write them, so none when it
+/// can't name them all.
+fn absurd_proofs(elab: &stitchwort_elab::Elaborator, hypotheses: &[Hypothesis]) -> Vec<String> {
+    let name = |path: &str| elab.write_name(path);
+    let (Some(exfalso), Some(false_not_true), Some(true_not_false)) = (
+        name("Std.Void.exfalso"),
+        name("Std.Bool.falseNotTrue"),
+        name("Std.Bool.trueNotFalse"),
+    ) else {
+        return Vec::new();
+    };
+    hypotheses
+        .iter()
+        .filter(|h| is_name(&h.name))
+        .filter_map(|h| {
+            let lemma = match h.ty.trim() {
+                "False = True" => &false_not_true,
+                "True = False" => &true_not_false,
+                _ => return None,
+            };
+            Some(format!("{exfalso} ({lemma} {})", h.name))
+        })
+        .collect()
+}
+
+/// Whether `name` can be written as a proof as it is.
+fn is_name(name: &str) -> bool {
+    name.chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '\'')
+}
+
+/// What [`climb`] found.
+enum Climb {
+    /// The first rung that closes the goal, and what it writes.
+    Closed(Rung, String),
+    /// None did; what was tried and failed outright, so the full search
+    /// needn't try it again (a check that ran out of time isn't here).
+    Open(Vec<String>),
+}
+
+/// Tries the [`LADDER`] at the checker's goal, each rung under its own
+/// time, the whole under [`LADDER_TIME`]. Each proof is checked as the full
+/// search's are: elaborated, and kernel-checked.
+fn climb(
+    checker: &mut Checker,
+    hypotheses: &[Hypothesis],
+    by_decision: Option<&str>,
+    absurd: &[String],
+) -> Climb {
+    let mut failed = Vec::new();
+    checker.per_check = RUNG_TIME;
+    checker.deadline = checker.deadline.min(Instant::now() + LADDER_TIME);
+    for rung in LADDER {
+        for text in rung.texts(hypotheses, by_decision, absurd) {
+            if checker.out_of_time() {
+                return Climb::Open(failed);
+            }
+            let gave_up = checker.gave_up.len();
+            match checker.check(&text, &[]) {
+                Outcome::Closed => return Climb::Closed(rung, text),
+                _ if checker.gave_up.len() > gave_up => {}
+                _ => failed.push(text),
+            }
+        }
+    }
+    Climb::Open(failed)
+}
+
 impl Session {
     /// What closes `goal` (one of this session's goals, `found` in a file
     /// whose names this session's scope sees): the four classes and the
@@ -619,28 +779,90 @@ impl Session {
         // The goal as the elaborator had it, if it kept it; else its
         // statement, printed and read back.
         let snapshot = found.snapshot(self);
-        let mut goal: Goal = match &snapshot {
+        // Opening the goal computes its target (a closed list of 130,000
+        // sequences took seconds, AoC 2024 day 22), so it is under the
+        // search's time too.
+        self.elab.kernel.machine.budget.take_timed_out();
+        (self.elab.kernel.machine.budget).set_deadline(Some(started + options.time));
+        let opened = match &snapshot {
             Some(snapshot) => {
                 let span = stitchwort_syntax::Span {
                     file: found.file.expect("a snapshot has a file"),
                     start: found.span.0 as u32,
                     end: found.span.1 as u32,
                 };
-                (self.elab.open_goal_at(snapshot, span)).map_err(|d| cannot_open(&data, d))?
+                self.elab.open_goal_at(snapshot, span)
             }
             None => {
                 let stmt = statement(&data);
-                let expr = self
-                    .parse_expression("<goal>", &stmt)
-                    .map_err(|d| cannot_open(&data, d))?;
-                (self.elab.open_goal(&expr, data.hypotheses.len()))
-                    .map_err(|d| cannot_open(&data, d))?
+                match self.parse_expression("<goal>", &stmt) {
+                    Ok(expr) => self.elab.open_goal(&expr, data.hypotheses.len()),
+                    Err(d) => Err(d),
+                }
             }
         };
+        (self.elab.kernel.machine.budget).set_deadline(None);
+        if self.elab.kernel.machine.budget.take_timed_out() {
+            return Ok(ran_out_opening(found, file, options));
+        }
+        let mut goal: Goal = opened.map_err(|d| cannot_open(&data, d))?;
         goal.deadline = Some(started + options.time);
+        let mut failed: Vec<String> = Vec::new();
+        let mut ladder_checks = 0;
+        let absurd = absurd_proofs(&self.elab, &data.hypotheses);
+        if options.simplest_first {
+            let by_decision = self.elab.write_name("Std.byDecision");
+            let on_checker: &mut Session = match checker.as_deref_mut() {
+                Some(other) => other,
+                None => &mut *self,
+            };
+            let mut ladder = Checker {
+                snapshot: snapshot.as_ref().and_then(|_| found.snapshot(on_checker)),
+                session: on_checker,
+                goal: data.clone(),
+                intros: goal.intros.clone(),
+                target_now: goal.target.clone(),
+                checks: 0,
+                deadline: started + options.time,
+                per_check: options.time,
+                gave_up: Vec::new(),
+                recursive: None,
+            };
+            let climbed = climb(
+                &mut ladder,
+                &data.hypotheses,
+                by_decision.as_deref(),
+                &absurd,
+            );
+            ladder_checks = ladder.checks;
+            drop(ladder);
+            debug_time("ladder", started);
+            match climbed {
+                Climb::Closed(rung, proof) => {
+                    return Ok(simplest_report(
+                        found,
+                        file,
+                        &data,
+                        &goal.intros,
+                        rung,
+                        proof,
+                    ));
+                }
+                Climb::Open(f) => failed = f,
+            }
+        }
         let g = &self.elab.ev();
         let prop = goal.prop;
-        let candidates = searchable(&self.elab, options, prop);
+        let mut candidates = searchable(&self.elab, options, prop);
+        // The theorem the goal is in is a candidate too once it is open
+        // (it has this `?`), but closing the goal with it is circular.
+        if let Some(owner) = snapshot.as_ref().and_then(|s| s.owner()) {
+            candidates.retain(|c| {
+                !matches!(c.item,
+                    stitchwort_elab::search::Item::Def(id)
+                    | stitchwort_elab::search::Item::Part(id, _) if id == owner)
+            });
+        }
         let keep = |_: &Candidate| true;
         debug_time("opened", started);
         let closing = self
@@ -675,6 +897,7 @@ impl Session {
         let closers: Vec<(&'static str, String)> = [
             ("rfl", Some("rfl".to_string())),
             ("omega", Some("omega".to_string())),
+            ("ring", Some("ring".to_string())),
             ("cases", Some("cases".to_string())),
             ("byDecision", self.elab.write_name("Std.byDecision")),
         ]
@@ -727,7 +950,10 @@ impl Session {
         // lemma.
         debug_time("rewrites planned", started);
         let mut tactics = Vec::new();
-        for (_, text) in &closers {
+        for text in absurd.iter().chain(closers.iter().map(|(_, text)| text)) {
+            if failed.contains(text) {
+                continue;
+            }
             if matches!(checker.check(text, &[]), Outcome::Closed) {
                 tactics.push(text.clone());
             }
@@ -735,11 +961,8 @@ impl Session {
         let mut results: Vec<(Suggestion, usize)> = Vec::new();
         // A hypothesis that is the goal (SW-989): it closes it alone.
         for h in &data.hypotheses {
-            let named = h
-                .name
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'');
-            if named
+            if is_name(&h.name)
+                && !failed.contains(&h.name)
                 && !checker.out_of_time()
                 && matches!(checker.check(&h.name, &[]), Outcome::Closed)
             {
@@ -821,12 +1044,8 @@ impl Session {
         }
         // The goal's equations, each way (SW-976: `rewrite <- h in …`).
         for h in &data.hypotheses {
-            let named = h
-                .name
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '_' || c == '\'');
             let equation = h.ty.contains(" = ") || h.ty.contains(" ↔ ");
-            if !named || !equation || checker.out_of_time() {
+            if !is_name(&h.name) || !equation || checker.out_of_time() {
                 continue;
             }
             for backwards in [false, true] {
@@ -966,11 +1185,12 @@ impl Session {
             }
         }
         debug_time("checks done", started);
-        budget.checks = checker.checks;
+        budget.checks = checker.checks + ladder_checks;
         budget.gave_up = checker.gave_up.len();
         let gave_up = std::mem::take(&mut checker.gave_up);
         drop(checker);
         let session = &*self;
+        let generated = Generated::new(&session.elab.ev());
         // What closes before what applies; among either, a written theorem
         // before a generated equation (`f.eqK`, whose side may compute to
         // the goal's: docs/proposals/function-equations.md §3.4, SW-1055),
@@ -978,7 +1198,7 @@ impl Session {
         results.sort_by_key(|(s, rank)| {
             (
                 s.class == "applicable",
-                stitchwort_elab::is_generated_name(&session.elab.ev(), &s.name),
+                generated.contains_name(&session.elab.ev(), &s.name),
                 class_rank(s.class),
                 s.witnesses,
                 s.goals.len(),
@@ -1074,6 +1294,7 @@ impl Session {
                 introduced: intros,
             },
             tactics,
+            simplest: None,
             results,
             rewrites,
             induction,
@@ -1114,6 +1335,91 @@ impl Session {
         r.file = file;
         r.line = line;
         r.import = import_line(g, item, scope);
+    }
+}
+
+/// The report when a rung of the ladder closed the goal: that proof alone.
+fn simplest_report(
+    found: &FoundGoal,
+    file: &str,
+    data: &GoalData,
+    intros: &[String],
+    rung: Rung,
+    proof: String,
+) -> AtReport {
+    let mut tactics = Vec::new();
+    let mut results = Vec::new();
+    let name = match rung {
+        Rung::Absurd => "absurd",
+        Rung::Rfl => "rfl",
+        Rung::Hypothesis => "hypothesis",
+        Rung::Decision => "byDecision",
+        Rung::Omega => "omega",
+        Rung::Ring => "ring",
+        Rung::Cases => "cases",
+    };
+    if rung == Rung::Hypothesis {
+        let ty = (data.hypotheses.iter())
+            .find(|h| h.name == proof)
+            .map_or(String::new(), |h| h.ty.clone());
+        let mut written = intros
+            .iter()
+            .map(|x| format!("{x} => "))
+            .collect::<String>();
+        written.push_str(&proof);
+        results.push(Suggestion {
+            class: "withHypotheses",
+            proof: written,
+            name: proof,
+            kind: "hypothesis",
+            ty,
+            file: String::new(),
+            line: 0,
+            import: None,
+            checked: "kernel",
+            obligations: Vec::new(),
+            goals: Vec::new(),
+            search_rank: None,
+            witnesses: false,
+            recursive: false,
+            conjunct: None,
+            item: None,
+        });
+    } else {
+        tactics.push(proof);
+    }
+    AtReport {
+        version: 1,
+        goal: GoalJson {
+            file: file.to_string(),
+            line: found.line,
+            column: found.column,
+            index: found.index,
+            hypotheses: (data.hypotheses.iter())
+                .map(|h| HypJson {
+                    name: h.name.clone(),
+                    ty: h.ty.clone(),
+                })
+                .collect(),
+            target: data.target.clone(),
+            introduced: intros.to_vec(),
+        },
+        simplest: Some(name),
+        total: Totals {
+            closing: results.len(),
+            applicable: 0,
+            rewrites: 0,
+        },
+        tactics,
+        results,
+        rewrites: Vec::new(),
+        induction: Vec::new(),
+        budget: AtBudget {
+            exhausted: true,
+            checks: 1,
+            ..AtBudget::default()
+        },
+        warnings: Vec::new(),
     }
 }
 
@@ -1223,6 +1529,48 @@ fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::I
 }
 
 /// The error for a goal that can't be opened here.
+/// The report of a search whose time ran out while opening the goal: no
+/// suggestions, and the time-out warning the other phases give.
+fn ran_out_opening(found: &FoundGoal, file: &str, options: &AtOptions) -> AtReport {
+    let data = &found.data;
+    AtReport {
+        version: 1,
+        goal: GoalJson {
+            file: file.to_string(),
+            line: found.line,
+            column: found.column,
+            index: found.index,
+            hypotheses: (data.hypotheses.iter())
+                .map(|h| HypJson {
+                    name: h.name.clone(),
+                    ty: h.ty.clone(),
+                })
+                .collect(),
+            target: data.target.clone(),
+            introduced: Vec::new(),
+        },
+        tactics: Vec::new(),
+        simplest: None,
+        results: Vec::new(),
+        rewrites: Vec::new(),
+        induction: Vec::new(),
+        total: Totals {
+            closing: 0,
+            applicable: 0,
+            rewrites: 0,
+        },
+        budget: AtBudget {
+            max_candidates: options.max_candidates,
+            exhausted: false,
+            ..AtBudget::default()
+        },
+        warnings: vec![format!(
+            "the time ran out ({} s) while opening the goal, before any candidate was tried: --time for more",
+            options.time.as_secs_f32()
+        )],
+    }
+}
+
 fn cannot_open(goal: &GoalData, d: Diagnostic) -> Diagnostic {
     let why = if goal.lemma.is_none() {
         "it can't be written as a statement of its own here (a name is shadowed or \
@@ -1791,22 +2139,43 @@ impl Session {
             dropped.push(format!("`{proof}`: {why}"));
             false
         };
-        let mut tactics = Vec::new();
-        for t in std::mem::take(&mut report.tactics) {
-            if confirm(self, &tactic_proof(&report, &t)) {
-                tactics.push(t);
-            }
+        // The ladder's answer stands only if it holds in the file too;
+        // otherwise the full search's answers are the ones to show.
+        let simplest_holds = report.simplest.is_some() && {
+            let proof = match (report.tactics.first(), report.results.first()) {
+                (Some(t), _) => tactic_proof(&report, t),
+                (None, Some(s)) => s.proof.clone(),
+                (None, None) => String::new(),
+            };
+            confirm(self, &proof)
+        };
+        if report.simplest.is_some() && !simplest_holds {
+            let full = AtOptions {
+                simplest_first: false,
+                ..options.clone()
+            };
+            let mut again = self.search_at(&found, &display, &full, &scope, None)?;
+            again.warnings.append(&mut report.warnings);
+            report = again;
         }
-        report.tactics = tactics;
-        let mut results = Vec::new();
-        for s in std::mem::take(&mut report.results) {
-            if s.class == "applicable" || confirm(self, &s.proof) {
-                results.push(s);
-            } else {
-                report.total.closing -= 1;
+        if !simplest_holds {
+            let mut tactics = Vec::new();
+            for t in std::mem::take(&mut report.tactics) {
+                if confirm(self, &tactic_proof(&report, &t)) {
+                    tactics.push(t);
+                }
             }
+            report.tactics = tactics;
+            let mut results = Vec::new();
+            for s in std::mem::take(&mut report.results) {
+                if s.class == "applicable" || confirm(self, &s.proof) {
+                    results.push(s);
+                } else {
+                    report.total.closing -= 1;
+                }
+            }
+            report.results = results;
         }
-        report.results = results;
         for d in dropped {
             (report.warnings).push(format!(
                 "checked at the goal but not in the file, so dropped: {d}"

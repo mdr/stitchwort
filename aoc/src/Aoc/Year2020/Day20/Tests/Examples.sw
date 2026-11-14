@@ -25,7 +25,8 @@ test "the example, part 1" := (parsed example).map (.cornerProduct) == Ok 208990
 --| A tile's edges, clockwise from the top; tile 2311's, as the puzzle draws it.
 test "tile 2311's top and left edges" :=
   (parsed example).map (jigsaw =>
-    jigsaw.tiles.headOr { id = 0, image = { rows = [] } } |> (tile => [tile.image.top, tile.image.left].map (edge => edge.pixels.map (.symbol) |> .joinWith "")))
+    jigsaw.tiles.headOr { id = 0, image = { rows = [] } }
+      |> (tile => [tile.image.top, tile.image.left].map (edge => edge.pixels.map (.symbol) |> .joinWith "")))
     == Ok ["..##.#..#.", ".#####..#."]
 
 def image3: Image := { rows = [[Rough, Calm, Calm], [Calm, Calm, Calm], [Calm, Calm, Calm]] }
@@ -37,21 +38,33 @@ test "four quarter turns are none" := image3.rotate.rotate.rotate.rotate == imag
 test "flipping twice is nothing" := image3.flip.flip == image3
 
 test "every tile of the example has eight different orientations" :=
-  (parsed example).map (jigsaw => jigsaw.tiles.all (tile =>
-    let all := tile.image.orientations
-    all.withIndex.all (((i, one)) => all.withIndex.all (((j, other)) => i == j || one != other)))) == Ok True
+  (parsed example).map (jigsaw =>
+    jigsaw.tiles.all (tile =>
+      let all := tile.image.orientations
+      all.withIndex.all (((i, one)) => all.withIndex.all (((j, other)) => i == j || one != other))))
+    == Ok True
 
 test "the example's arrangement is 3 by 3, with the corners at the corners" :=
   (Fail.toResult (() => parseJigsaw example |> .arrange)).map (arrangement =>
     let ids := arrangement.rows.map (row => row.map (.id))
-    (ids.map (.length), [ids.headOr [] |> .headOr 0, ids.headOr [] |> .last |> .getOrElse 0, ids.last |> .getOrElse [] |> .headOr 0, ids.last |> .getOrElse [] |> .last |> .getOrElse 0].sort))
+    (
+      ids.map (.length),
+      [
+        ids.headOr [] |> .headOr 0,
+        ids.headOr [] |> .last |> .getOrElse 0,
+        ids.last |> .getOrElse [] |> .headOr 0,
+        ids.last |> .getOrElse [] |> .last |> .getOrElse 0
+      ].sort
+    ))
     == Ok ([3, 3, 3], [1171, 1951, 2971, 3079])
 
-test "the example's image is 24 by 24" := (assembled example).map (image => (image.rows.length, image.columns.length)) == Ok (24, 24)
+test "the example's image is 24 by 24" :=
+  (assembled example).map (image => (image.rows.length, image.columns.length)) == Ok (24, 24)
 
 --| The puzzle finds two sea monsters, of 15 pixels each.
 test "the example has two sea monsters" :=
-  (assembled example).map (image => seaMonster.orientations.map (monster => (image.monsterPixels monster).size) |> .sort)
+  (assembled example).map (image =>
+    seaMonster.orientations.map (monster => (image.monsterPixels monster).size) |> .sort)
     == Ok [0, 0, 0, 0, 0, 0, 0, 30]
 
 test "a sea monster has 15 rough pixels" := seaMonster.roughAt.length == 15

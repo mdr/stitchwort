@@ -4,7 +4,7 @@
 import Std (Bool, List)
 
 def keep (b: Bool): Bool := b
-def both (a: Bool) (b: Bool): Bool := a && b
+def both (a b: Bool): Bool := a && b
 type Item = { done: Bool }
 
 test "a name" := (b => keep !b) False = True

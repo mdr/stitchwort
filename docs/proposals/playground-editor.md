@@ -430,8 +430,9 @@ higher than §5.2.1's).
     It works on any host, but it is a large change in the elaborator's core
     loop, and one long declaration still blocks.
   - *A flag in shared memory* (chosen). The page bumps a counter in a
-    `SharedArrayBuffer` for each `didChange` and `didClose`; the worker
-    counts those it has read; `Budget` reads a hook the host installs
+    `SharedArrayBuffer` for each `didOpen`, `didChange` and `didClose`
+    (opening another document stops the check of the one before it); the
+    worker counts those it has read; `Budget` reads a hook the host installs
     (`Budget::set_cancel_hook`, consulted with the native flag, every
     `POLL` steps) and the worker's hook says whether the page is ahead.
     The check stops as natively, rewinds, and the next tick checks the new

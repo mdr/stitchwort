@@ -63,10 +63,10 @@ def tick: Nat → {State Nat} ()
 
 export def countUp (n: Nat): Nat := sndOf (runState 0 (u => tick n))
 
-def safeDiv (n: Nat) (d: Nat): {Abort} Nat := if h: d ≠ 0 then n / d else fromEmpty abort()
+def safeDiv (n d: Nat): {Abort} Nat := if h: d ≠ 0 then n / d else fromEmpty abort()
 
 def orZero: Option Nat → Nat
   | None => 0
   | Some x => x
 
-export def divideOrZero (n: Nat) (d: Nat): Nat := orZero (toOption (u => safeDiv n d))
+export def divideOrZero (n d: Nat): Nat := orZero (toOption (u => safeDiv n d))

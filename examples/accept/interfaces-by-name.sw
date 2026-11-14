@@ -2,11 +2,9 @@
 -- different ones would fit, one is passed by name
 -- (docs/proposals/interfaces.md §5.5, §5.7, §5.8 (c)).
 
-interface Pretty (a: Type) =
-  { pretty: a → Text }
+interface Pretty (a: Type) = { pretty: a → Text }
 
-instance Pretty.instNat: Pretty Nat :=
-  { pretty = n => "global" }
+instance Pretty.instNat: Pretty Nat := { pretty = n => "global" }
 
 def loud: Pretty Nat := { pretty = n => "loud" }
 
@@ -18,17 +16,13 @@ def sideBySide [auto first: Pretty a] [auto second: Pretty a] (x: a): Text :=
   Pretty.pretty [pretty := first] x ++ "/" ++ Pretty.pretty [pretty := second] x
 
 -- A diamond: two routes to a `Root a` inside a `Both a`. A use names one.
-interface Root (a: Type) =
-  { name: a → Text }
+interface Root (a: Type) = { name: a → Text }
 
-interface Left (a: Type) =
-  { root: Root a, left: a → Text }
+interface Left (a: Type) = { root: Root a, left: a → Text }
 
-interface Right (a: Type) =
-  { root: Root a, right: a → Text }
+interface Right (a: Type) = { root: Root a, right: a → Text }
 
-interface Both (a: Type) =
-  { left: Left a, right: Right a }
+interface Both (a: Type) = { left: Left a, right: Right a }
 
 def viaLeft [auto d: Both a] (x: a): Text := Root.name [root := d.left.root] x
 

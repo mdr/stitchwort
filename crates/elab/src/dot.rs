@@ -219,6 +219,25 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
     Ok(Some(Ty::Term(ty, env)))
 }
 
+/// [`written_type`] as a term with the values of its free variables, for
+/// the Bool reader (`reading.rs`), which looks for a test's function in it.
+pub(crate) fn written_type_term(cx: &Ctx, term: &Term) -> Result<Option<(Rc<Term>, Vec<Value>)>> {
+    Ok(match written_type(cx, term)? {
+        Some(Ty::Term(t, env)) => Some((t, env)),
+        _ => None,
+    })
+}
+
+/// The type of the variable at `level` as written, with the values of its
+/// free variables, if known.
+pub(crate) fn written_at(cx: &Ctx, level: usize) -> Option<(Rc<Term>, Vec<Value>)> {
+    match &cx.written[level] {
+        Some(Written::Here(t)) => Some((t.clone(), cx.env[..level].to_vec())),
+        Some(Written::With(t, env)) => Some((t.clone(), env.clone())),
+        None => None,
+    }
+}
+
 /// The name noted for the unknown `ty` is, or was solved through
 /// (`Elaborator::meta_names`): `Counts` for a lambda parameter's type solved with
 /// `List Nat` where a `Counts` was expected (SW-858, D2092). Only while it
@@ -420,10 +439,54 @@ fn dot_on(
     rterm: Term,
     rty: Value,
 ) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
+    dot_on_reading(cx, recv, field, args, rterm, rty, true)
+}
+
+/// [`dot_on`], looking `field` up on what a test fact reads as when it has
+/// no such field itself, if `through_reading`.
+fn dot_on_reading(
+    cx: &mut Ctx,
+    recv: &Expr,
+    field: &AstName,
+    args: &[Arg],
+    rterm: Term,
+    rty: Value,
+    through_reading: bool,
+) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
+    // `h.read`: a test fact as the proposition its test reads as
+    // (docs/proposals/bool-as-proposition.md §6.8).
+    if field.text == "read"
+        && let Some(head) = crate::reading::dot_read(cx, &rterm, &rty, field.span)?
+    {
+        let written = Span {
+            start: recv.span().start,
+            ..field.span
+        };
+        crate::build::note_read(cx, written);
+        return Ok(Ok(crate::check::apply_args(cx, head, args)?));
+    }
     let start = view_start(cx, &rterm, &rty)?;
-    let (owner, f, key) = match find_or_block(cx, recv, field, start)? {
-        Lookup::Found(owner, f, key) => (owner, f, key),
-        Lookup::Blocked(blocker, error) => return Ok(Err((blocker, error))),
+    let (owner, f, key) = match find_or_block(cx, recv, field, start) {
+        Ok(Lookup::Found(owner, f, key)) => (owner, f, key),
+        Ok(Lookup::Blocked(blocker, error)) => return Ok(Err((blocker, error))),
+        // A field of a test fact is the field of what it reads as: `h.left`
+        // is `h.read.left` (§6.6), once. If the reading has no such field
+        // either, the error is the fact's own.
+        Err(e) if through_reading && e.code == "E-UNKNOWN-FIELD" => {
+            let waiting = crate::reading::waiting_note(&cx.g(), cx.e, &rty)?;
+            let e = match waiting {
+                Some(note) => e.with_note(note),
+                None => e,
+            };
+            let Some((term, ty)) = crate::reading::read_fact(cx, &rterm, &rty)? else {
+                return Err(e);
+            };
+            return match dot_on_reading(cx, recv, field, args, term, ty, false) {
+                Err(again) if again.code == "E-UNKNOWN-FIELD" => Err(e),
+                result => result,
+            };
+        }
+        Err(e) => return Err(e),
     };
     cx.e.note_dot(field, f);
     note_left_out(cx, field, f, args)?;
@@ -824,6 +887,11 @@ fn failed_receiver(cx: &Ctx, recv: &Expr) -> Option<Diagnostic> {
         } if rest.is_empty()
             && cx.g().def(id).state() == stitchwort_core::globals::State::Failed =>
         {
+            let key = stitchwort_core::globals::HashKey::Def(id);
+            if cx.e.tables.is_unfinished(key) {
+                crate::goals::note_used_unfinished(id);
+                return Some(crate::goals::uses_unfinished(Some(owner.span)));
+            }
             Some(crate::module::failed_name(owner))
         }
         _ => None,
@@ -932,7 +1000,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                         ));
                     }
                     Some((Global::Failed, _)) => {
-                        return Err(crate::module::failed_name(&AstName {
+                        return Err(cx.e.failed_global(&AstName {
                             text: shown_key,
                             span: field.span,
                         }));
@@ -1257,7 +1325,18 @@ fn unknown_member(
         })
         .collect();
     near.sort();
-    if let Some((_, best)) = near.first() {
+    // A function that exists elsewhere is the better explanation (its own
+    // note below), so a meaning-based guess would only be noise.
+    let explained =
+        elsewhere_taking(cx, field, tried).is_some() || in_scope_taking(cx, field, tried).is_some();
+    let meant = if explained {
+        Vec::new()
+    } else {
+        scope::meaning_suggestions(&ns, &field.text, |full| cx.e.scope.get(full).is_some())
+    };
+    if let Some(best) = meant.first() {
+        d = d.with_note(format!("did you mean `{best}`?"));
+    } else if let Some((_, best)) = near.first() {
         d = d.with_note(format!("did you mean `{best}`?"));
     }
     if let TyHead::Data(dd) = last
@@ -1889,7 +1968,7 @@ fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result
 fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
     use stitchwort_core::registry::Builtin;
     let g = cx.g();
-    let data = |d: DataId| Some(Ty::Value(Value::Data(d, Vec::new())));
+    let data = |d: DataId| Some(Ty::Value(Value::Data(d, Vec::new().into())));
     let name = match recv {
         Expr::Var(name) => name,
         Expr::Str(..) | Expr::Include(..) | Expr::Interpolated(..) => {
@@ -1955,7 +2034,7 @@ fn annotation_type(cx: &Ctx, ty: &Expr) -> Result<Option<Ty>> {
     }
     let g = cx.g();
     Ok(match cx.e.named(&name.text) {
-        Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new()))),
+        Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new().into()))),
         Some((Global::Def(id), _))
             if !applied && !matches!(g.def(*id).ty_value(), Value::Pi(..)) =>
         {

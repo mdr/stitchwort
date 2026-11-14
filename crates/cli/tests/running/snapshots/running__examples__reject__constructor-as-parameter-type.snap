@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NOT-A-TYPE] Error: expected a type
+    ╭─[ reject/constructor-as-parameter-type.sw:12:24 ]
+    │
+ 12 │ theorem runOf (cavern: Step) (n: Nat) (closed: Closed cavern n): Run cavern := Step n closed
+    │                        ──┬─  
+    │                          ╰─── `Step` is a constructor, so it isn't a type
+────╯

@@ -36,6 +36,7 @@ use crate::cache::{Body, Encoding, Read};
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InterfaceInfo};
 use crate::lift::MatchColumns;
+use crate::reading::ReadingInfo;
 use crate::records::RecordInfo;
 
 #[derive(Default)]
@@ -76,6 +77,9 @@ pub(crate) struct Tables {
     pub(crate) generated_alls: OwnedBy<DataId, DefId>,
     /// Each lifted `match`'s helper's parameters it matches (SW-1074).
     pub(crate) match_columns: OwnedBy<DefId, Rc<MatchColumns>>,
+    /// The `@[reading]` theorems, by theorem (`reading.rs`): what each
+    /// test reads as.
+    pub(crate) readings: OwnedBy<DefId, Rc<ReadingInfo>>,
     /// The definitions checked again with their bare row variables total
     /// (D1215), with where the first check failed.
     pub(crate) total_rows: OwnedBy<DefId, Span>,
@@ -141,6 +145,7 @@ pub(crate) struct Mark {
     no_decide: OwnedMark,
     generated_alls: OwnedMark,
     match_columns: OwnedMark,
+    readings: OwnedMark,
     total_rows: OwnedMark,
     field_defaults: OwnedMark,
     param_defaults: OwnedMark,
@@ -170,6 +175,7 @@ pub(crate) struct Delta {
     no_decide: Vec<(DataId, String)>,
     generated_alls: Vec<(DataId, DefId)>,
     match_columns: Vec<(DefId, Rc<MatchColumns>)>,
+    readings: Vec<(DefId, Rc<ReadingInfo>)>,
     total_rows: Vec<(DefId, Span)>,
     field_defaults: Vec<(DataId, Rc<FieldDefaults>)>,
     param_defaults: Vec<(DefId, Rc<ParamDefaults>)>,
@@ -230,6 +236,7 @@ impl Tables {
             no_decide,
             generated_alls,
             match_columns,
+            readings,
             total_rows,
             field_defaults,
             param_defaults,
@@ -259,6 +266,7 @@ impl Tables {
             no_decide: no_decide.mark(ids),
             generated_alls: generated_alls.mark(ids),
             match_columns: match_columns.mark(ids),
+            readings: readings.mark(ids),
             total_rows: total_rows.mark(ids),
             field_defaults: field_defaults.mark(ids),
             param_defaults: param_defaults.mark(ids),
@@ -289,6 +297,7 @@ impl Tables {
             no_decide,
             generated_alls,
             match_columns,
+            readings,
             total_rows,
             field_defaults,
             param_defaults,
@@ -317,6 +326,7 @@ impl Tables {
         no_decide.rewind(&m.no_decide);
         generated_alls.rewind(&m.generated_alls);
         match_columns.rewind(&m.match_columns);
+        readings.rewind(&m.readings);
         total_rows.rewind(&m.total_rows);
         field_defaults.rewind(&m.field_defaults);
         param_defaults.rewind(&m.param_defaults);
@@ -356,6 +366,7 @@ impl Tables {
             no_decide,
             generated_alls,
             match_columns,
+            readings,
             total_rows,
             field_defaults,
             param_defaults,
@@ -413,6 +424,7 @@ impl Tables {
         abilities.encode_since(&m.abilities, e)?;
         lifted.encode_since(&m.lifted, e)?;
         match_columns.encode_since(&m.match_columns, e)?;
+        readings.encode_since(&m.readings, e)?;
         helpers.sort();
         e.count(helpers.len());
         for k in helpers {
@@ -452,6 +464,7 @@ impl Tables {
         let abilities = GrowVec::decode(b)?;
         let lifted = GrowVec::decode(b)?;
         let match_columns = OwnedBy::decode(b)?;
+        let readings = OwnedBy::decode(b)?;
         let n = b.count()?;
         let helper_keys = (0..n).map(|_| String::decode(b)).collect::<Read<_>>()?;
         let equation_skips = GrowVec::decode(b)?;
@@ -475,6 +488,7 @@ impl Tables {
             no_decide,
             generated_alls,
             match_columns,
+            readings,
             total_rows,
             field_defaults,
             param_defaults,
@@ -503,6 +517,7 @@ impl Tables {
             no_decide,
             generated_alls,
             match_columns,
+            readings,
             total_rows,
             field_defaults,
             param_defaults,
@@ -533,6 +548,7 @@ impl Tables {
             no_decide: d_no_decide,
             generated_alls: d_generated_alls,
             match_columns: d_match_columns,
+            readings: d_readings,
             total_rows: d_total_rows,
             field_defaults: d_field_defaults,
             param_defaults: d_param_defaults,
@@ -556,6 +572,7 @@ impl Tables {
         no_decide.replay(d_no_decide, owners);
         generated_alls.replay(d_generated_alls, owners);
         match_columns.replay(d_match_columns, owners);
+        readings.replay(d_readings, owners);
         total_rows.replay(d_total_rows, owners);
         field_defaults.replay(d_field_defaults, owners);
         param_defaults.replay(d_param_defaults, owners);
@@ -587,6 +604,7 @@ impl Tables {
             no_decide,
             generated_alls,
             match_columns,
+            readings,
             total_rows,
             field_defaults,
             param_defaults,
@@ -609,6 +627,7 @@ impl Tables {
         no_decide.dump("no_decide", out);
         generated_alls.dump("generated_all", out);
         match_columns.dump("match columns", out);
+        readings.dump("reading", out);
         total_rows.dump("total_row", out);
         field_defaults.dump("field defaults", out);
         param_defaults.dump("param defaults", out);
@@ -694,6 +713,7 @@ impl Tables {
             no_decide: _,
             generated_alls: _,
             match_columns: _,
+            readings: _,
             total_rows: _,
             field_defaults: _,
             param_defaults: _,

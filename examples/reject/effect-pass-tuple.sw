@@ -14,4 +14,4 @@ def IsDone [a: Type]: Effect.Comp Effect.NoOp Effect.NoRes a → Prop
 def pairDone: (Nat, Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | (label, inner) => IsDone inner
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → pairDone (1, computation) := computation => Trivial
+theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): pairDone (1, computation) := Trivial

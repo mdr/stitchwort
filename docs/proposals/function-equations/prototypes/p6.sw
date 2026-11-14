@@ -11,14 +11,12 @@ def down (n: Nat): Nat
     | True => 0
     | False => 1 + down (n - 1) [decreasing := omega]
 
-theorem downRewrite (n: Nat) (h: Nat.leq n 0 = False): down n = 1 + down (n - 1) :=
-  rewrite down.unfold n, h in rfl
+theorem downRewrite ∀ (n: Nat) (h: Nat.leq n 0 = False): down n = 1 + down (n - 1) := rewrite down.unfold n, h in rfl
 
-theorem downMatch (n: Nat) (h: Nat.leq n 0 = False): down n = 1 + down (n - 1) :=
+theorem downMatch ∀ (n: Nat) (h: Nat.leq n 0 = False): down n = 1 + down (n - 1) :=
   rewrite down.unfold n in
     match e: Nat.leq n 0 with
       | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym e) h))
       | False => rfl
 
-theorem downCases (n: Nat) (h: Nat.leq n 0 = False): down n = 1 + down (n - 1) :=
-  rewrite down.unfold n in cases
+theorem downCases ∀ (n: Nat) (h: Nat.leq n 0 = False): down n = 1 + down (n - 1) := rewrite down.unfold n in cases

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-UNKNOWN-FIELD] Error: `P.Grid` has no field or function `probe`
@@ -10,11 +10,4 @@ expression: output
    │                                     ╰──── looked in `P.Grid`
    │ 
    │ Note: its fields are `width`
-───╯
-[E-NAMESPACE-FAILED] Error: namespace P has errors, so P.Spec isn't checked
-   ╭─[ extension-in-owner/src/spec.sw:4:8 ]
-   │
- 4 │ import P (Grid)
-   │        ┬  
-   │        ╰── `P.Spec` uses `P` here
 ───╯

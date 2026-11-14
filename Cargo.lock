@@ -1327,6 +1327,7 @@ version = "0.1.0"
 dependencies = [
  "blake3",
  "num-bigint",
+ "smallvec",
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-syntax",
@@ -1397,6 +1398,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
+ "stitchwort-elab",
  "stitchwort-rt",
  "stitchwort-syntax",
  "stitchwort-test-alloc",

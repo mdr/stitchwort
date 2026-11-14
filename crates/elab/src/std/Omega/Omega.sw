@@ -32,8 +32,7 @@ import Omega.Cert (Close, Then, Split, Cases)
 
 --| The atoms' values: `Nat` atoms and `Int` atoms, each numbered from 0 in
 --| its own list.
-type Omega.Env: Type =
-  | MkEnv (nats: List Nat) (ints: List Int)
+type Omega.Env: Type = | MkEnv (nats: List Nat) (ints: List Int)
 
 --| The `i`th entry, or 0 past the end.
 @[tailrec]
@@ -182,8 +181,7 @@ def Omega.Goal.holds (env: Omega.Env): (goal: Omega.Goal) → Prop
 -- Rows
 
 --| `0 <= c + Σ nats_i * x_i + Σ ints_j * y_j`.
-type Omega.Row: Type =
-  | MkRow (c: Int) (nats: List Int) (ints: List Int)
+type Omega.Row: Type = | MkRow (c: Int) (nats: List Int) (ints: List Int)
 
 --| `Σ a_i * v_i`, stopping at the shorter list.
 def Omega.dot: (xs: List Int) → (ys: List Int) → Int
@@ -198,7 +196,7 @@ def Omega.toInts: (xs: List Nat) → List Int
 
 --| A row's value `c + Σ nats_i * x_i + Σ ints_j * y_j`, given the atoms' values.
 @[noReceiver]
-def Omega.Row.value (nv: List Int) (iv: List Int): (row: Omega.Row) → Int
+def Omega.Row.value (nv iv: List Int): (row: Omega.Row) → Int
   | MkRow c ns is => c + (Omega.dot ns nv + Omega.dot is iv)
 
 --| A row's value with its atoms' values from `env`.
@@ -236,7 +234,7 @@ def Omega.Row.scale (k: Int): (row: Omega.Row) → Omega.Row
   | MkRow c ns is => MkRow (k * c) (Omega.scaleC k ns) (Omega.scaleC k is)
 
 --| One row minus another, `r - s`, coefficient by coefficient.
-def Omega.Row.sub (r: Omega.Row) (s: Omega.Row): Omega.Row := Omega.Row.add r (Omega.Row.scale (NegSucc 0) s)
+def Omega.Row.sub (r s: Omega.Row): Omega.Row := Omega.Row.add r (Omega.Row.scale (NegSucc 0) s)
 
 --| The row `0 <= 0`, which always holds.
 def Omega.Row.zero: Omega.Row := MkRow (OfNat 0) [] []
@@ -268,10 +266,10 @@ def Omega.ITerm.lin: (term: Omega.ITerm) → Omega.Row
 --| `a < b` is `Succ a <= b`; `Not (a <= b)` is `Succ b <= a`; `Not (a < b)`
 --| is `b <= a`; `a = b` is both `a <= b` and `b <= a`.
 -- (docs/proposals/omega.md §6.3)
-def Omega.leRow (a: Omega.NTerm) (b: Omega.NTerm): Omega.Row := Omega.Row.sub (Omega.NTerm.lin b) (Omega.NTerm.lin a)
+def Omega.leRow (a b: Omega.NTerm): Omega.Row := Omega.Row.sub (Omega.NTerm.lin b) (Omega.NTerm.lin a)
 
 --| The row of `a <= b` on `Int`, `b - a >= 0`; `a < b` gives the row of `a + 1 <= b`.
-def Omega.ileRow (a: Omega.ITerm) (b: Omega.ITerm): Omega.Row := Omega.Row.sub (Omega.ITerm.lin b) (Omega.ITerm.lin a)
+def Omega.ileRow (a b: Omega.ITerm): Omega.Row := Omega.Row.sub (Omega.ITerm.lin b) (Omega.ITerm.lin a)
 
 --| The quoted `Int` term `a + 1`.
 def Omega.ITerm.succ (a: Omega.ITerm): Omega.ITerm := IAdd a (IOfNat (NLit 1))
@@ -463,16 +461,21 @@ def Omega.Step.row (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Om
   | Divide r d => Omega.Row.divide d (Omega.getRow ctx r)
 
 --| Whether a certificate is valid from the rows so far (`ctx`): each step's references are good, and each branch ends at a false row.
-def Omega.checkCert (fs: List Omega.Fact) (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row): (cert: Omega.Cert) → Bool
+def Omega.checkCert (fs: List Omega.Fact) (facts: List Omega.Row) (neg: Option Omega.Row) (ctx: List Omega.Row):
+    (cert: Omega.Cert) → Bool
   | Close r => Omega.Row.isContra (Omega.getRow ctx r)
   | Then s rest =>
-    Omega.Step.valid facts neg ctx s ∧ Omega.checkCert fs facts neg (List.append ctx [Omega.Step.row facts neg ctx s]) rest
+    Omega.Step.valid facts neg ctx s
+      ∧ Omega.checkCert fs facts neg (List.append ctx [Omega.Step.row facts neg ctx s]) rest
   | Split l left right =>
-    Omega.checkCert fs facts neg (List.append ctx [l]) left ∧ Omega.checkCert fs facts neg (List.append ctx [Omega.Row.splitOther l]) right
+    Omega.checkCert fs facts neg (List.append ctx [l]) left
+      ∧ Omega.checkCert fs facts neg (List.append ctx [Omega.Row.splitOther l]) right
   | Cases f left right =>
     Omega.Fact.splits (Omega.getFact fs f)
       ∧ (Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.left (Omega.getFact fs f)))) left
-        ∧ Omega.checkCert fs facts neg (List.append ctx (Omega.Facts.rows (Omega.Fact.right (Omega.getFact fs f)))) right)
+        ∧ Omega.checkCert fs facts neg
+          (List.append ctx (Omega.Facts.rows (Omega.Fact.right (Omega.getFact fs f))))
+          right)
 
 --| Whether the certificate combines the facts and the negated goal into
 --| something false. It doesn't look at the environment: the kernel runs it on
@@ -482,8 +485,11 @@ def Omega.check (facts: List Omega.Fact) (goal: Omega.Goal) (cert: Omega.Cert): 
 
 --| `id <= last.to` and `last.to + 1 <= r.from` give `id < r.from` (day 5's
 --| `absorbStacked`): the three rows add up to `-1 >= 0`.
-test "check: absorbStacked" := Omega.check [FLe (NV 0) (NV 1), FLe (NAdd (NV 1) (NLit 1)) (NV 2)] (GLt (NV 0) (NV 2))
-  (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
+test "check: absorbStacked" :=
+  Omega.check
+    [FLe (NV 0) (NV 1), FLe (NAdd (NV 1) (NLit 1)) (NV 2)]
+    (GLt (NV 0) (NV 2))
+    (Then (Input 0) (Then (Input 1) (Then NegGoal (Then (Combine [MkPair 1 0, MkPair 1 1, MkPair 1 2]) (Close 3)))))
 
 --| No `n`: with `x = 1`, `x <= 0` is false, and its negation's row `x - 1 >= 0`
 --| keeps `x`'s coefficient, so `Close` refuses it.
@@ -493,132 +499,207 @@ test "check: no dropped coefficient" := Bool.not (Omega.check [] (GLe (NV 0) (NL
 -- certificate corrected, which is accepted, so the refusal is for the reason named.
 
 --| A row that doesn't exist yet: `Combine` naming row 5 when there are 2 (it would read as the zero row).
-test "check refuses: Combine of a missing row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 5]) (Close 1))))
+test "check refuses: Combine of a missing row" :=
+  Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 5]) (Close 1))))
 
-test "check accepts: Combine of an existing row" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 0]) (Close 1)))
+test "check accepts: Combine of an existing row" :=
+  Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 0]) (Close 1)))
 
 --| `Close` on a row that doesn't exist (the zero row isn't a contradiction).
-test "check refuses: Close of a missing row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Close 3)))
+test "check refuses: Close of a missing row" :=
+  Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Close 3)))
 
-test "check accepts: Close of an existing row" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Close 0))
+test "check accepts: Close of an existing row" := Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Close 0))
 
 --| `Input 3` with one fact: it would give the zero row, and row 1 would close.
-test "check refuses: Input of a missing fact" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 3) (Then (Input 0) (Close 1))))
+test "check refuses: Input of a missing fact" :=
+  Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 3) (Then (Input 0) (Close 1))))
 
-test "check accepts: Input of an existing fact" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (Input 0) (Close 1)))
+test "check accepts: Input of an existing fact" :=
+  Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Then (Input 0) (Close 1)))
 
 --| `NegGoal` when the goal is `GVoid`: there is no negation to use.
-test "check refuses: NegGoal for a void goal" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then NegGoal (Then (Input 0) (Close 1))))
+test "check refuses: NegGoal for a void goal" :=
+  Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid (Then NegGoal (Then (Input 0) (Close 1))))
 
-test "check accepts: NegGoal for a goal that has one" := Omega.check [FLt (NV 0) (NV 0)] (GLe (NV 0) (NV 0))
-  (Then NegGoal (Then (Input 0) (Close 1)))
+test "check accepts: NegGoal for a goal that has one" :=
+  Omega.check [FLt (NV 0) (NV 0)] (GLe (NV 0) (NV 0)) (Then NegGoal (Then (Input 0) (Close 1)))
 
 --| A row made in the left branch of a `Split` isn't there in the right one:
 --| the left makes row 2, the right (which has rows 0 and 1) closes it.
-test "check refuses: Close of the other branch's row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Close 2))))
+test "check refuses: Close of the other branch's row" :=
+  Bool.not
+    (Omega.check
+      [FLt (NV 0) (NV 0)]
+      GVoid
+      (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Close 2))))
 
-test "check accepts: Close of the branch's own row" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Close 0)))
+test "check accepts: Close of the branch's own row" :=
+  Omega.check
+    [FLt (NV 0) (NV 0)]
+    GVoid
+    (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Close 0)))
 
 --| The same for `Combine`: the right branch's new row would be 2, which it names.
-test "check refuses: Combine of the other branch's row" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Then (Combine [MkPair 1 0, MkPair 1 2]) (Close 2)))))
+test "check refuses: Combine of the other branch's row" :=
+  Bool.not
+    (Omega.check
+      [FLt (NV 0) (NV 0)]
+      GVoid
+      (Then
+        (Input 0)
+        (Split
+          (MkRow 0 [1] [])
+          (Then (Combine [MkPair 1 0]) (Close 2))
+          (Then (Combine [MkPair 1 0, MkPair 1 2]) (Close 2)))))
 
-test "check accepts: Combine of the branch's own rows" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Then (Combine [MkPair 1 0]) (Close 2))))
+test "check accepts: Combine of the branch's own rows" :=
+  Omega.check
+    [FLt (NV 0) (NV 0)]
+    GVoid
+    (Then
+      (Input 0)
+      (Split (MkRow 0 [1] []) (Then (Combine [MkPair 1 0]) (Close 2)) (Then (Combine [MkPair 1 0]) (Close 2))))
 
 --| `Divide` by 0 would leave the row alone, and row 1 would close.
-test "check refuses: Divide by 0" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (Divide 0 0) (Close 1))))
+test "check refuses: Divide by 0" :=
+  Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Then (Divide 0 0) (Close 1))))
 
-test "check accepts: Divide by 1" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (Divide 0 1) (Close 1)))
+test "check accepts: Divide by 1" :=
+  Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Then (Divide 0 1) (Close 1)))
 
 --| `Divide` where `d` doesn't divide a `Nat` coefficient (3 at atom 7, by 2 ...).
-test "check refuses: Divide by a non-divisor, Nat coefficient" := Bool.not (Omega.check
-  [FLe (NLit 1) (MulLeft 3 (NV 7)), FLe (MulLeft 3 (NV 7)) (NLit 0)] GVoid
-  (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Divide 1 2) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4)))))))
+test "check refuses: Divide by a non-divisor, Nat coefficient" :=
+  Bool.not
+    (Omega.check
+      [FLe (NLit 1) (MulLeft 3 (NV 7)), FLe (MulLeft 3 (NV 7)) (NLit 0)]
+      GVoid
+      (Then
+        (Input 0)
+        (Then (Input 1) (Then (Divide 0 2) (Then (Divide 1 2) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4)))))))
 
 --| ... and by 3, which divides it.
-test "check accepts: Divide by a divisor, Nat coefficient" := Omega.check
-  [FLe (NLit 1) (MulLeft 3 (NV 7)), FLe (MulLeft 3 (NV 7)) (NLit 0)] GVoid
-  (Then (Input 0) (Then (Input 1) (Then (Divide 0 3) (Then (Divide 1 3) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4))))))
+test "check accepts: Divide by a divisor, Nat coefficient" :=
+  Omega.check
+    [FLe (NLit 1) (MulLeft 3 (NV 7)), FLe (MulLeft 3 (NV 7)) (NLit 0)]
+    GVoid
+    (Then
+      (Input 0)
+      (Then (Input 1) (Then (Divide 0 3) (Then (Divide 1 3) (Then (Combine [MkPair 1 2, MkPair 1 3]) (Close 4))))))
 
 --| The same for an `Int` coefficient: the split's row `3 * y >= 0`, divided by 2.
-test "check refuses: Divide by a non-divisor, Int coefficient" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Split (MkRow 0 [] [3]) (Then (Divide 1 2) (Close 0)) (Close 0))))
+test "check refuses: Divide by a non-divisor, Int coefficient" :=
+  Bool.not
+    (Omega.check
+      [FLt (NV 0) (NV 0)]
+      GVoid
+      (Then (Input 0) (Split (MkRow 0 [] [3]) (Then (Divide 1 2) (Close 0)) (Close 0))))
 
-test "check accepts: Divide by a divisor, Int coefficient" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Split (MkRow 0 [] [3]) (Then (Divide 1 3) (Close 0)) (Close 0)))
+test "check accepts: Divide by a divisor, Int coefficient" :=
+  Omega.check
+    [FLt (NV 0) (NV 0)]
+    GVoid
+    (Then (Input 0) (Split (MkRow 0 [] [3]) (Then (Divide 1 3) (Close 0)) (Close 0)))
 
 --| `Close` needs every coefficient 0, including one past the facts' highest atom:
 --| `x_5 - 1 >= 0` is satisfiable.
-test "check refuses: Close with an atom beyond the facts" := Bool.not (Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (NatNonneg 5) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2)))))
+test "check refuses: Close with an atom beyond the facts" :=
+  Bool.not
+    (Omega.check
+      [FLt (NV 0) (NV 0)]
+      GVoid
+      (Then (Input 0) (Then (NatNonneg 5) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2)))))
 
-test "check accepts: Close without that atom" := Omega.check [FLt (NV 0) (NV 0)] GVoid
-  (Then (Input 0) (Then (NatNonneg 5) (Then (Combine [MkPair 1 0]) (Close 2))))
+test "check accepts: Close without that atom" :=
+  Omega.check [FLt (NV 0) (NV 0)] GVoid (Then (Input 0) (Then (NatNonneg 5) (Then (Combine [MkPair 1 0]) (Close 2))))
 
 --| `Divide` rounds down: `2x - 1 >= 0` gives `x - 1 >= 0`, so with `-x >= 0` the sum is `-1`
 --| (rounding to `x + 0` would not close).
-test "check: Divide floors a negative constant" := Omega.check [FLe (NLit 1) (MulLeft 2 (NV 0)), FLe (NV 0) (NLit 0)] GVoid
-  (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
+test "check: Divide floors a negative constant" :=
+  Omega.check
+    [FLe (NLit 1) (MulLeft 2 (NV 0)), FLe (NV 0) (NLit 0)]
+    GVoid
+    (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
 
 --| `1 - 2x >= 0` gives `-x >= 0` (the `1 / 2` is 0), so with `x - 1 >= 0` the sum is `-1`.
-test "check: Divide floors a positive constant" := Omega.check [FLe (MulLeft 2 (NV 0)) (NLit 1), FLe (NLit 1) (NV 0)] GVoid
-  (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
+test "check: Divide floors a positive constant" :=
+  Omega.check
+    [FLe (MulLeft 2 (NV 0)) (NLit 1), FLe (NLit 1) (NV 0)]
+    GVoid
+    (Then (Input 0) (Then (Input 1) (Then (Divide 0 2) (Then (Combine [MkPair 1 2, MkPair 1 1]) (Close 3)))))
 
 --| `Cases`: `t = a - b` and `b <= a` give `t + b <= a`. The left case (`b <= a`,
 --| `t + b = a`) has rows 0 to 2, and its row 1, `a - (t + b) >= 0`, meets the goal's
 --| negation; the right case (`a < b`, `t = 0`) has `b - a - 1 >= 0`, which meets the
 --| fact `b <= a` (input row 2: `FSub` gives two rows first).
 -- (stage 2)
-test "check: Cases on a subtraction" := Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
-  (Cases 0
-    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
-    (Then (Input 2) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4))))
+test "check: Cases on a subtraction" :=
+  Omega.check
+    [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)]
+    (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+    (Cases 0
+      (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+      (Then (Input 2) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4))))
 
 --| The same certificate naming a fact without cases, or one that isn't there.
-test "check refuses: Cases on a fact without cases" := Bool.not (Omega.check [FLe (NV 2) (NV 1), FSub (NV 0) (NV 1) (NV 2)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
-  (Cases 0
-    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
-    (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4)))))
+test "check refuses: Cases on a fact without cases" :=
+  Bool.not
+    (Omega.check
+      [FLe (NV 2) (NV 1), FSub (NV 0) (NV 1) (NV 2)]
+      (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+      (Cases 0
+        (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+        (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4)))))
 
-test "check refuses: Cases on a missing fact" := Bool.not (Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
-  (Cases 5
-    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
-    (Then (Input 2) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4)))))
+test "check refuses: Cases on a missing fact" :=
+  Bool.not
+    (Omega.check
+      [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)]
+      (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+      (Cases 5
+        (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+        (Then (Input 2) (Then (Combine [MkPair 1 0, MkPair 1 3]) (Close 4)))))
 
 --| A row of one case isn't there in the other: the right branch closing on the
 --| left case's row 1 is refused.
-test "check refuses: Cases using the other case's row" := Bool.not (Omega.check [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)] (GLe (NAdd (NV 0) (NV 2)) (NV 1))
-  (Cases 0
-    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
-    (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))))
+test "check refuses: Cases using the other case's row" :=
+  Bool.not
+    (Omega.check
+      [FSub (NV 0) (NV 1) (NV 2), FLe (NV 2) (NV 1)]
+      (GLe (NAdd (NV 0) (NV 2)) (NV 1))
+      (Cases 0
+        (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))
+        (Then NegGoal (Then (Combine [MkPair 1 1, MkPair 1 3]) (Close 4)))))
 
 --| `Int` atoms have no bound: `NatNonneg 1` is `Nat` atom 1, so the `Int` atom
 --| `y` in `x ≤ x + y` doesn't cancel.
-test "check refuses: NatNonneg for an Int atom" := Bool.not (Omega.check [] (GILe (IV 0) (IAdd (IV 0) (IV 1)))
-  (Then NegGoal (Then (NatNonneg 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2)))))
+test "check refuses: NatNonneg for an Int atom" :=
+  Bool.not
+    (Omega.check []
+      (GILe (IV 0) (IAdd (IV 0) (IV 1)))
+      (Then NegGoal (Then (NatNonneg 1) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2)))))
 
-test "check accepts: a fact bounding the Int atom" := Omega.check [FILe (IOfNat (NLit 0)) (IV 1)] (GILe (IV 0) (IAdd (IV 0) (IV 1)))
-  (Then NegGoal (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
+test "check accepts: a fact bounding the Int atom" :=
+  Omega.check
+    [FILe (IOfNat (NLit 0)) (IV 1)]
+    (GILe (IV 0) (IAdd (IV 0) (IV 1)))
+    (Then NegGoal (Then (Input 0) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
 
 --| A `Nat` atom inside `OfNat` keeps its bound.
-test "check: NatNonneg inside OfNat" := Omega.check [] (GILe (IV 0) (IAdd (IV 0) (IOfNat (NV 0))))
-  (Then NegGoal (Then (NatNonneg 0) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
+test "check: NatNonneg inside OfNat" :=
+  Omega.check []
+    (GILe (IV 0) (IAdd (IV 0) (IOfNat (NV 0))))
+    (Then NegGoal (Then (NatNonneg 0) (Then (Combine [MkPair 1 0, MkPair 1 1]) (Close 2))))
 
 --| `x ≤ y` and `x ≠ y` give `x < y`: the left case (`x < y`) meets the goal's
 --| negation, the right (`y < x`) meets `x ≤ y`.
-test "check: Cases on an Int inequation" := Omega.check [FILe (IV 0) (IV 1), FINe (IV 0) (IV 1)] (GILt (IV 0) (IV 1))
-  (Then (Input 0) (Then NegGoal (Cases 1
-    (Then (Combine [MkPair 1 1, MkPair 1 2]) (Close 3))
-    (Then (Combine [MkPair 1 0, MkPair 1 2]) (Close 3)))))
+test "check: Cases on an Int inequation" :=
+  Omega.check
+    [FILe (IV 0) (IV 1), FINe (IV 0) (IV 1)]
+    (GILt (IV 0) (IV 1))
+    (Then
+      (Input 0)
+      (Then NegGoal
+        (Cases 1
+          (Then (Combine [MkPair 1 1, MkPair 1 2]) (Close 3))
+          (Then (Combine [MkPair 1 0, MkPair 1 2]) (Close 3)))))

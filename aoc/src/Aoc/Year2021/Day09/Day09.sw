@@ -36,7 +36,8 @@ type HeightMap = { grid: Grid (Fin 10) }
 def parseHeightMap (input: Text): {Fail} HeightMap := { grid = parseGrid input digit }
 
 --| Every location with its height, row by row.
-def HeightMap.cells (map: HeightMap): List (Position, Nat) := map.grid.cells |> .map (((at, height)) => (at, height.toNat))
+def HeightMap.cells (map: HeightMap): List (Position, Nat) :=
+  map.grid.cells |> .map (((at, height)) => (at, height.toNat))
 
 --| The height at `position`; `None` off the map.
 def HeightMap.heightAt (map: HeightMap) (position: Position): Option Nat := map.grid.at position |> .map Fin.toNat
@@ -47,7 +48,8 @@ def HeightMap.isLowPoint (map: HeightMap) (position: Position) (height: Nat): Bo
   position.neighbours.all (next => map.heightAt next |> .all (other => height < other))
 
 --| The low points, each with its height.
-def HeightMap.lowPoints (map: HeightMap): List (Position, Nat) := map.cells.filter (((position, height)) => map.isLowPoint position height)
+def HeightMap.lowPoints (map: HeightMap): List (Position, Nat) :=
+  map.cells.filter (((position, height)) => map.isLowPoint position height)
 
 def solvePart1 (map: HeightMap): Nat := map.lowPoints.sumBy (((_, height)) => height + 1)
 

@@ -10,9 +10,9 @@
 
 All three print the same output and fail the same way, which the repository's tests check on every example program: the reference evaluator is the oracle, and the other two are compared with it. Tests use the fast runtime too (`stitchwort test --reference` uses the reference).
 
-Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number).
+Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number). How deep a recursion may go depends on the runner (D3450): `stitchwort run` allows 2 million pending calls, native code (`run --native`, `build --native`) allows 16 million, or fewer if a function's frames are so wide that 16 million wouldn't fit the 64 GiB cap on a native stack. The limit is the same on every run of a build, so a program fails at the same depth each time. A native run that recurses to its limit uses memory in proportion to the depth: several GB for a few million pending calls of a hundred bytes or more.
 
-`stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes.
+`stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes. `stitchwort test --native` runs tests the same way ([chapter 9](09-testing.md#two-runtimes)).
 
 ## Finding where the time goes
 
@@ -65,7 +65,7 @@ type Discount =
 -- A `Nat` is a `bigint`, a record a plain object, an `Option` a value or
 -- `undefined`, and a variant an object with a `$tag`.
 export def total (items: List Item) (discount: Discount): Nat :=
-  let full := items.map (.pence) |> .sum
+  let full := items.map .pence |> .sum
   match discount with
     | NoDiscount => full
     | PercentOff percent => full - full * percent / 100
@@ -163,7 +163,7 @@ The details, and the exact rules for each type, are in [syntax.md](../syntax.md#
 - **Tail calls are loops.** A function whose recursive call is the last thing it does runs in constant stack everywhere. That matters most in an exported module, which runs on the app's own JavaScript stack: there, a deep non-tail recursion over a long list can run out of stack (a `StitchwortResourceError`), so use an accumulator, as `sumFast` does in [chapter 10](10-proofs.md). The fast runtime has its own stack, and `stitchwort run --js` runs the program in a worker with a large one.
 - **Proofs cost nothing at run time.** Theorems, proof fields and `auto` proofs are erased. A one-field record is stored as its field.
 - **Types shaped like `Nat` are numbers.** On the fast runtime a `Fin n`, and any type of yours with one constructor that stores nothing and one that stores only a value of the type itself (proofs and indices aside), is a machine number, as `Nat` is, rather than a chain of cells. `Fin.toNat` and `Fin.ofNatLt` take constant time there, since the number is already the one they return.
-- **Checking can compute.** Tests and `rfl` proofs run code while checking. That's usually fast, but a proof that needs to compute a lot shows up as slow checking; `STITCHWORT_TIMINGS=1` prints where the time went, declaration by declaration. For a slow run, `stitchwort run --profile` (above).
+- **Checking can compute.** Tests and `rfl` proofs run code while checking. That's usually fast, but a proof that needs to compute a lot shows up as slow checking. A declaration still checking after about 7 seconds (250 million evaluation steps) gets a note on standard error, `` note: still checking `Main.t`: over 250,000,000 evaluation steps so far, unfolding `countdown` (it stops at 10,000,000,000) ``, and another each time the steps double; at 10 billion steps it fails with `E-RESOURCE`, naming the declaration and the definition it was unfolding. `STITCHWORT_TIMINGS=1` prints where the time went, declaration by declaration. For a slow run, `stitchwort run --profile` (above).
 - **Results are cached.** The check cache and the test cache are keyed by content, so after the first run only what changed is checked and tested again.
 - **`include` is cheap.** A file read with `include "…"` becomes one compact text literal, so a large puzzle input costs no more than a string of the same size.
 

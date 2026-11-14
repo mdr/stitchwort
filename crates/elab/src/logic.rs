@@ -76,6 +76,24 @@ pub(crate) fn classify<'a>(cx: &Ctx, expr: &'a Expr) -> Option<Logic<'a>> {
     }
 }
 
+/// The addresses of `expr` and of the operands of the `∧`, `∨` and `¬` it
+/// is made of, brackets looked through: a side of an `=` between
+/// propositions, where a `Bool` isn't read as one (`Decl::not_coerced`).
+pub(crate) fn equation_side(cx: &Ctx, expr: &Expr, out: &mut Vec<usize>) {
+    out.push(std::ptr::from_ref(expr) as usize);
+    match expr {
+        Expr::Bracketed(inner, _) => equation_side(cx, inner, out),
+        _ => match classify(cx, expr) {
+            Some(Logic::And(a, b) | Logic::Or(a, b)) => {
+                equation_side(cx, a, out);
+                equation_side(cx, b, out);
+            }
+            Some(Logic::Not(a, _)) => equation_side(cx, a, out),
+            None => {}
+        },
+    }
+}
+
 /// A condition, as `if c` reads it.
 pub(crate) enum Condition {
     /// A `Bool`.
@@ -238,7 +256,7 @@ pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Conditi
     if let Some((name, value, body)) = cond.as_chain_let() {
         return chain_condition(cx, name, value, body, what);
     }
-    let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
     let snapshot = crate::undo::Snapshot::take(cx);
     let outer =
         cx.e.decl
@@ -358,7 +376,7 @@ fn decided(
     Ok(Some(Condition::Decided { prop, decision }))
 }
 
-/// `expr` as a `Bool`: a decided proposition is `Decidable.toBool` of its
+/// `expr` as a `Bool`: a decided proposition is `Decidable.holds` of its
 /// decision.
 pub(crate) fn bool_operand(cx: &mut Ctx, expr: &Expr, what: &str) -> Result<Term> {
     let condition = condition(cx, expr, what)?;
@@ -371,7 +389,7 @@ fn condition_bool(cx: &mut Ctx, expr: &Expr, condition: Condition) -> Result<Ter
         Condition::Bool(term) | Condition::Conjunction { as_bool: term, .. } => term,
         Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
         Condition::Waiting { prop } => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
             crate::check::decide_or_wait(
                 cx,
                 expr.span(),
@@ -464,7 +482,7 @@ pub(crate) fn short_circuit(
     lhs_part: Option<&mut Option<Conjunct>>,
 ) -> Result<Term> {
     let lhs = a;
-    let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new());
+    let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new().into());
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
     let ite = Term::app_icit(Term::Def(ite), result.clone(), Icit::Implicit);
     // `b` is checked as the branch of `if a` that needs it: assuming `a`
@@ -557,12 +575,13 @@ pub(crate) fn short_circuit(
                 // Nothing in `b` can have used the assumption (only the
                 // search for an auto argument's proof sees it), so it's
                 // `if a then b else False` on the decision's `Bool`, as
-                // ever: the same term as `Bool.and (toBool …) b` reads, so
+                // ever: the same term as `Bool.and (… .holds) b` reads, so
                 // the library's facts about `&&` on `Bool`s apply to it.
                 let truth = match decision {
                     Some(decision) => decision.into_bool(cx, prop)?,
                     None => {
-                        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+                        let bool_ty =
+                            Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
                         crate::check::decide_or_wait(
                             cx,
                             lhs.span(),
@@ -620,21 +639,24 @@ fn needs_proofs(cx: &Ctx, before: usize) -> Result<bool> {
 }
 
 /// The proposition reading.
+///
+/// Each operand is a proposition, and a `Bool` operand `b` is read as `b =
+/// True` on its own (`check::bool_as_prop`), so `a ∧ b` on two `Bool`s is
+/// `a = True ∧ b = True`, never the test `(a && b) = True`: an operator
+/// written where a proposition is expected is always the logical one
+/// (D3486, docs/proposals/bool-as-proposition.md §4.3). This is the one
+/// place that rule is made; the printer's half of it is
+/// `Printer::bare_test` in `stitchwort_core::pretty`.
 pub(crate) fn as_prop(cx: &mut Ctx, logic: Logic) -> Result<Term> {
     let what = logic.symbol();
     let operand = |cx: &mut Ctx, e: &Expr| -> Result<Term> {
-        let note = format!(
-            "`{what}` here is on propositions; for a `Bool` `b`, the proposition that it's \
-             true is `b = True`"
-        );
         match crate::check::check_type_defaulting(cx, e, Sort::Prop) {
             Ok((term, Sort::Prop)) => Ok(term),
             Ok(_) => Err(
                 Diagnostic::error("E-TYPE-MISMATCH", "expected a proposition")
                     .with_label(e.span(), "this is a type of data, not a proposition")
-                    .with_note(note),
+                    .with_note(format!("`{what}` here is on propositions")),
             ),
-            Err(err) if err.code == "E-NOT-A-TYPE" => Err(err.with_note(note)),
             Err(err) => Err(err),
         }
     };
@@ -665,7 +687,7 @@ pub(crate) fn infer(cx: &mut Ctx, logic: Logic) -> Result<(Term, Value)> {
     let not_bool = match as_bool(cx, logic) {
         Ok(term) => {
             let bool_data = builtin_data(cx, Builtin::Bool)?;
-            return Ok((term, Value::Data(bool_data, Vec::new())));
+            return Ok((term, Value::Data(bool_data, Vec::new().into())));
         }
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(not_bool) => not_bool,
@@ -690,122 +712,9 @@ pub(crate) fn check_against(cx: &mut Ctx, logic: Logic, expected: &Value) -> Res
     crate::check::compare(cx, term, &found, expected)
 }
 
-/// The name of the `let` that carries the `Bool` an `if` on a conjunction is
-/// on, around its decision ([`tag_decision`]). No source can write it.
-const TAG: &str = "%conj";
-
-/// `decision`, a conjunction's `Decidable.andThen dp dq`, as `let %conj :=
-/// tag in decision`: `tag`, the `Bool` the `if` is on, is kept where the term
-/// is written until [`settle_tagged`] knows whether the branches use the
-/// proof. Only the elaborator writes the `let`, so settling trusts that `tag`
-/// and the decision agree.
-pub(crate) fn tag_decision(cx: &Ctx, decision: &Term, tag: &Term) -> Result<Term> {
-    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
-    Ok(Term::let_(
-        TAG.into(),
-        bool_ty,
-        tag.clone(),
-        decision.shift(&cx.g(), 1, 0)?,
-    ))
-}
-
-/// The name of the `let` that carries the `Bool` a plain `if` in a
-/// `decreasing` body is on, around the decision its branches' proofs come
-/// from ([`tag_plain`]). No source can write it.
-pub(crate) const PLAIN: &str = "%plain";
-
 /// Whether a `decreasing` definition's body is being elaborated, where a
 /// plain `if` gives its branches its condition
 /// (docs/proposals/decreasing-with-hypothesis.md, stage 1).
 pub(crate) fn in_decreasing(cx: &Ctx) -> bool {
     cx.e.decl.decreasing.borrow().is_some()
-}
-
-/// `decided`, `elimDec [p] [a] decision y n` for a plain `if` in a
-/// `decreasing` body, with its decision as `let %plain := plain in
-/// decision`: `plain`, the `Bool` the `if` is on when its branches don't use
-/// the proof. [`settle_tagged`] makes it the plain `if` if they don't, and
-/// otherwise keeps the tag for `f.unfold` (`decreasing.rs`, `plain_view`)
-/// while the step's own body is finished, or drops it.
-pub(crate) fn tag_plain(cx: &Ctx, decided: &Term, plain: &Term) -> Result<Term> {
-    let Term::App(rest, otherwise, i3) = decided else {
-        return Ok(decided.clone());
-    };
-    let Term::App(rest, then, i2) = &**rest else {
-        return Ok(decided.clone());
-    };
-    let Term::App(head, decision, i1) = &**rest else {
-        return Ok(decided.clone());
-    };
-    let bool_ty = Term::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
-    let tagged = Term::let_(
-        PLAIN.into(),
-        bool_ty,
-        plain.clone(),
-        decision.shift(&cx.g(), 1, 0)?,
-    );
-    cx.e.decl.tagged_conjunctions.set(true);
-    let rebuilt = Term::App(Rc::clone(head), Rc::new(tagged), *i1);
-    let rebuilt = Term::App(Rc::new(rebuilt), Rc::clone(then), *i2);
-    Ok(Term::App(Rc::new(rebuilt), Rc::clone(otherwise), *i3))
-}
-
-/// An `if` on a conjunction whose branches' helpers weren't lifted when it
-/// was written ([`tag_decision`]), in `term`, a finished body: on its `Bool`
-/// if neither branch mentions the proof, as `unused_proof_if` makes one whose
-/// branches are known not to; otherwise on the plain decision.
-pub(crate) fn settle_tagged(e: &crate::Elaborator, term: &Term, keep_plain: bool) -> Result<Term> {
-    let g = &e.ev();
-    let registry = g.env.registry();
-    let (Some(elim), Some(ite)) = (
-        registry.def(Builtin::ElimDec),
-        registry.def(Builtin::IfThenElse),
-    ) else {
-        return Ok(term.clone());
-    };
-    Ok(term.rewrite_up(g, &mut |node| {
-        let (head, args) = spine_icit(node);
-        if !matches!(head, Term::Def(id) if *id == elim) || args.len() != 5 {
-            return Ok(None);
-        }
-        let Term::Let(name, _, tag, decision, _) = args[2].0.strip_loc() else {
-            return Ok(None);
-        };
-        let plain = &**name == PLAIN;
-        if &**name != TAG && !plain {
-            return Ok(None);
-        }
-        let unused = |branch: &Term| {
-            matches!(branch.strip_loc(), Term::Lam(_, _, body) if !body.mentions(0))
-        };
-        if unused(&args[3].0) && unused(&args[4].0) {
-            let head = Term::app_icit(Term::Def(ite), args[1].0.clone(), Icit::Implicit);
-            let node = Term::app(
-                Term::app(Term::app(head, (**tag).clone()), args[3].0.clone()),
-                args[4].0.clone(),
-            );
-            return Ok(Some(node));
-        }
-        if plain && keep_plain {
-            return Ok(None);
-        }
-        let decision = decision.instantiate_var(g, 0)?;
-        let mut out = Term::Def(elim);
-        for (i, (arg, icit)) in args.iter().enumerate() {
-            let arg = if i == 2 { decision.clone() } else { arg.clone() };
-            out = Term::app_icit(out, arg, *icit);
-        }
-        Ok(Some(out))
-    })?)
-}
-
-fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
-    let mut args = Vec::new();
-    let mut head = t.strip_loc();
-    while let Term::App(f, a, icit) = head {
-        args.push(((**a).clone(), *icit));
-        head = f.strip_loc();
-    }
-    args.reverse();
-    (head, args)
 }

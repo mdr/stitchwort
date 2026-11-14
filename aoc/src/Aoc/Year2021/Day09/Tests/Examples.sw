@@ -19,14 +19,16 @@ def exampleText: Text := """
 def parsed (input: Text): Result HeightMap Text := Fail.toResult (() => parseHeightMap input)
 
 --| A map of these heights, row by row; the first row has a location.
-def heightsOf (rows: List (List (Fin 10))) [auto nonEmpty: (firstWidth rows == 0) = False]: HeightMap := { grid = Grid.of rows }
+def heightsOf (rows: List (List (Fin 10))) [auto nonEmpty: (firstWidth rows == 0) = False]: HeightMap :=
+  { grid = Grid.of rows }
 
 def example: HeightMap := Fail.orElse (heightsOf [[0]]) (() => parseHeightMap exampleText)
 
-def at (row: Nat) (column: Nat): Position := { row, column }
+def at (row column: Nat): Position := { row, column }
 
 test "parse the example" := example.grid.rows.length == 5 ∧ example.grid.rows.all (row => row.length == 10)
-test "heights" := example.heightAt (at 0 0) == Some 2 ∧ example.heightAt (at 4 9) == Some 8 ∧ example.heightAt (at 5 0) == None
+test "heights" :=
+  example.heightAt (at 0 0) == Some 2 ∧ example.heightAt (at 4 9) == Some 8 ∧ example.heightAt (at 5 0) == None
 test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
 test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
@@ -38,8 +40,13 @@ test "example, part 2" := solvePart2 example == 1134
 
 test "neighbours in a corner" := (at 0 0).neighbours == [at 0 1, at 1 0]
 test "neighbours inside" := (at 2 3).neighbours == [at 1 3, at 2 4, at 3 3, at 2 2]
-test "adjacent" := adjacent (at 2 3) (at 1 3) ∧ adjacent (at 2 3) (at 2 4) ∧ not (adjacent (at 2 3) (at 3 4)) ∧ not (adjacent (at 2 3) (at 2 3))
-test "a path in the example's top left basin" := isPath example (at 0 1) [at 0 0, at 1 0] (at 1 0) ∧ not (isPath example (at 0 1) [at 1 1] (at 1 1))
+test "adjacent" :=
+  adjacent (at 2 3) (at 1 3)
+    ∧ adjacent (at 2 3) (at 2 4)
+    ∧ not (adjacent (at 2 3) (at 3 4))
+    ∧ not (adjacent (at 2 3) (at 2 3))
+test "a path in the example's top left basin" :=
+  isPath example (at 0 1) [at 0 0, at 1 0] (at 1 0) ∧ not (isPath example (at 0 1) [at 1 1] (at 1 1))
 
 test "a map of one 9" := solvePart1 (heightsOf [[9]]) == 10 ∧ solvePart2 (heightsOf [[9]]) == 0
 test "a flat map has no low points" := solvePart1 (heightsOf [[5, 5], [5, 5]]) == 0

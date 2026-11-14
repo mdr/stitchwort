@@ -79,9 +79,15 @@
         "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)",
         "Completion in a warm editor 480 ms → 1 ms: one std-loaded session per search thread, rewound (SW-1798)",
         "Code action crash on an unapplied Succ or Cons fixed (SW-1799)",
-        "Kept search session reviewed: answers sound (SW-1808)"
+        "Kept search session reviewed: answers sound (SW-1808)",
+        "Refactoring design note (SW-2626, docs/proposals/refactoring.md)",
+        "Apart sets named once, so the kept session stops growing (SW-1819)"
       ],
-      "now": [],
+      "now": [
+        "Rename (D3467): R2 trial check with an apply-anyway problem list (SW-2628, Opus); next R1 references (SW-2627), then R3 rename in both editors (SW-2629), R3b CLI rename (SW-2630), R4 oracle tests (SW-2631)",
+        "Code action edits the right text; VS Code Restart Server and *.sw watching (SW-1949, SW-1980)",
+        "Counterexample search log in the kept session (SW-1937, absorbs SW-1818)"
+      ],
       "next": [
         "Kept search session: two leaks, panic recovery, hardening, a randomised test (SW-1818 to SW-1823; D2583, D2584)",
         "Text-only searches and the playground keep std loaded too (SW-1807)",
@@ -394,7 +400,7 @@
       "id": "performance",
       "title": "Speed",
       "goal": "Checking a whole project and running a solution are both fast enough that waiting is not part of the workflow.",
-      "status": "active",
+      "status": "paused",
       "done": [
         "Array a with versions: std type, JS extraction and Grid lookups backed by arrays (SW-1637, SW-1638, SW-1639)",
         "Runtime profiler for stitchwort run (SW-1528)",
@@ -406,11 +412,7 @@
       ],
       "now": [],
       "next": [
-        "In-place reuse stage 1: the copy note names its sites, then reuse columns in --profile and a measurement (SW-1809, SW-1810, SW-1811; D2273-D2277, D2590)",
-        "Array follow-ups from day 15: stop copying the array on every pop, and the JS memory peak (SW-1678, SW-1679)",
-        "Interpreter speed: about 6.5 ns per instruction (SW-813) and Map speed (SW-814)",
-        "Language-server edit loop: re-check less than a whole file, and the memory of the per-namespace marks (SW-1382, SW-1141); later the in-place reuse plan (SW-1163)",
-        "Faster Map without a new type: profile first, then native Map.Tree functions for structural keys (docs/proposals/nat-map.md; SW-1824 to SW-1827; D2595-D2601)"
+        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
       ],
       "links": [
         "docs/proposals/arrays.md",
@@ -423,7 +425,7 @@
       "id": "comparative-speed",
       "title": "Comparative speed",
       "goal": "For the same program, using the same algorithm, Stitchwort runs at least as fast as Python and Lean, and checks equivalent proofs about as fast as Lean (D3330).",
-      "status": "active",
+      "status": "paused",
       "done": [
         "Plan: ten programs, backends, fairness rules, harness, stages (SW-2290, docs/proposals/comparative-speed.md)",
         "Native build faces Python and compiled Lean; interpreter reported (D3340); no targets until the first measurement (D3341)",
@@ -447,16 +449,14 @@
         "Native comparisons and arrays inline: memory-game 8.3 -> 4.7 s (SW-2329)",
         "Cells through fixed-size helpers: binary-trees 4.3 -> 3.1 s with SW-2328/2329 (SW-2321)",
         "Re-dispatch depth: forwards 62% of routes on expressions (SW-2347); clause census (SW-2348)",
-        "Allocator note: keep mimalloc, per-run cell cache next (SW-2360; D3413, D3414)"
+        "Allocator note: keep mimalloc, per-run cell cache next (SW-2360; D3413, D3414)",
+        "Overnight 8-9 Nov: effect runtime R1-R3 and R7, many/pick in fewer operations, minOr, resumptions moved, capture-free closures once, record updates take unique records apart (core ten 11.66x -> 9.88x Lean by time)",
+        "Wide set (spectral-norm, const-fold, rbmap, rbmap-ck, mapops) and bench:aoc sweep",
+        "Performance log docs/performance/log.md (D3444)"
       ],
       "now": [],
       "next": [
-        "Operations in place stage A: classify clauses (SW-2348), then re-dispatch depth count (SW-2347) and stage B (SW-2349), then C, D, E (SW-2350-SW-2352); F optional (SW-2353)",
-        "Parse stage 2: error formatting (SW-2337); stage 1 fast paths (SW-2336) after stage B",
-        "Native Nat comparisons and Array fast paths (SW-2329), inline allocation (SW-2321)",
-        "Specialise capturing closures (SW-2135)",
-        "Rerun the table after each wave",
-        "Widen the program set when the ten stop teaching us much (SW-2346)"
+        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
@@ -517,7 +517,7 @@
       "id": "dev-loop-speed",
       "title": "Developer loop speed",
       "goal": "Builds, test runs and lanes are fast and light enough that changes flow without waiting on the machine.",
-      "status": "active",
+      "status": "paused",
       "done": [
         "Baseline from the 6 Nov daily tier: 3 h 8 min of test time, ten binaries over half of it",
         "Profile: rebuilds 131-136 s, mostly optimising 137 test binaries; std check 14 s (SW-1716)",
@@ -551,10 +551,7 @@
       ],
       "now": [],
       "next": [
-        "Measure the overnight savings with one daily run on a quiet machine (SW-1804, D2556)",
-        "mimalloc in the other test binaries, and kache, measured on a quiet machine (SW-1802, SW-1735)",
-        "elab unit tests in the library, if Matt takes the three-edit cost (SW-1776, D2565)",
-        "Lane rules in CLAUDE.md: dev/stop-mine, rm on variables, test:affected wording (SW-1805, D2574, D2576)"
+        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
       ],
       "links": [
         "D2532",

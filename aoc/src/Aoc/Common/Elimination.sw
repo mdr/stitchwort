@@ -46,16 +46,15 @@ def allSettled: List (Slot a) → Option (List a)
 --| Settles positions one at a time until all are, in at most `rounds`
 --| rounds (each settles one, so as many rounds as positions are enough);
 --| `None` when a round finds no position with one value left.
-def eliminate [auto eq: DecEq a] (rounds: Nat) (slots: List (Slot a)): Option (List a) :=
-  match allSettled slots with
-    | Some values => Some values
-    | None =>
-      match rounds with
-        | Zero => None
-        | Succ more =>
-          match settle (chosen slots) slots with
-            | Some next => eliminate more next
-            | None => None
+def eliminate [auto eq: DecEq a] (rounds: Nat) (slots: List (Slot a)): Option (List a) := match allSettled slots with
+  | Some values => Some values
+  | None =>
+    match rounds with
+      | Zero => None
+      | Succ more =>
+        match settle (chosen slots) slots with
+          | Some next => eliminate more next
+          | None => None
 
 --| The value taken at each position, given each position's candidates, if
 --| the elimination settles every position.

@@ -27,6 +27,135 @@ def main(): {IO, Fail} () :=
   IO.print (Text.join ((List.range 0 3).map show) ',')
 "#;
 
+/// A record whose list field is mapped by a record update, three times in
+/// a loop: nothing else holds the record, so the update takes it apart
+/// before the map runs, and the list's cells and the record's are reused
+/// as in the version written with a `match` ([`TAKEN_APART`]).
+const UPDATED: &str = r#"import Std (IO, List, Nat, Text)
+
+type Tally = { items: List Nat, steps: Nat }
+
+def Tally.step (t: Tally): Tally := { t | items = t.items.map (x => x + 1), steps = t.steps + 1 }
+
+def Tally.run (t: Tally): Nat → Tally
+  | Zero => t
+  | Succ rest => t.step.run rest
+
+def main(): {IO} () :=
+  let t: Tally := { items = List.range 0 3, steps = 0 }
+  let done := t.run 3
+  IO.print "${done.steps} ${Text.join (done.items.map Nat.toText) ','}"
+"#;
+
+/// [`UPDATED`] with the record taken apart by hand.
+const TAKEN_APART: &str = r#"import Std (IO, List, Nat, Text)
+
+type Tally = { items: List Nat, steps: Nat }
+
+def Tally.step (t: Tally): Tally :=
+  match t with
+    | { items, steps } => { items = items.map (x => x + 1), steps = steps + 1 }
+
+def Tally.run (t: Tally): Nat → Tally
+  | Zero => t
+  | Succ rest => t.step.run rest
+
+def main(): {IO} () :=
+  let t: Tally := { items = List.range 0 3, steps = 0 }
+  let done := t.run 3
+  IO.print "${done.steps} ${Text.join (done.items.map Nat.toText) ','}"
+"#;
+
+/// A size-balanced tree written as `Map.Tree` is: `insert` takes a node
+/// apart and calls `balance`, which picks a `Shape` in one function and
+/// rebuilds the node by it in another. Nothing else holds the tree, so each
+/// node on the path is rebuilt in its own cell, as in [`FUSED`], where
+/// `insert` builds the node itself.
+const BALANCED: &str = r#"import Std (IO, List, Nat, Text)
+
+type Tree: Type =
+  | Tip
+  | Bin (size: Nat) (left: Tree) (key: Nat) (right: Tree)
+
+type Shape: Type =
+  | Keep
+  | Lean
+
+def Tree.size: (tree: Tree) → Nat
+  | Tip => 0
+  | Bin s _ _ _ => s
+
+def Tree.lean (l: Tree) (key: Nat) (r: Tree): Tree :=
+  Bin (Succ (l.size + r.size)) r key l
+
+def Tree.shape (l: Tree) (r: Tree): Shape :=
+  let sizeL := l.size
+  let sizeR := r.size
+  if Succ (sizeL * 3) <= sizeR then Lean
+  else if Succ (sizeR * 3) <= sizeL then Lean
+  else Keep
+
+def Tree.rebuild: (shape: Shape) → (l: Tree) → (key: Nat) → (r: Tree) → Tree
+  | Keep, l, key, r => Bin (Succ (l.size + r.size)) l key r
+  | Lean, l, key, r => Tree.lean l key r
+
+def Tree.balance (l: Tree) (key: Nat) (r: Tree): Tree :=
+  Tree.rebuild (Tree.shape l r) l key r
+
+def Tree.insert (key: Nat): (tree: Tree) → Tree
+  | Tip => Bin 1 Tip key Tip
+  | Bin s l k r =>
+    if key < k then Tree.balance (Tree.insert key l) k r
+    else if k < key then Tree.balance l k (Tree.insert key r)
+    else Bin s l k r
+
+def Tree.sum: (tree: Tree) → Nat
+  | Tip => 0
+  | Bin _ l k r => l.sum + k + r.sum
+
+def main(): {IO} () :=
+  let tree := List.foldLeft [5, 2, 8, 1, 9, 3, 7] Tip (t k => Tree.insert k t)
+  IO.print "${tree.size} ${tree.sum}"
+"#;
+
+/// [`BALANCED`] with the unrotated node built where the old one is taken
+/// apart.
+const FUSED: &str = r#"import Std (IO, List, Nat, Text)
+
+type Tree: Type =
+  | Tip
+  | Bin (size: Nat) (left: Tree) (key: Nat) (right: Tree)
+
+def Tree.size: (tree: Tree) → Nat
+  | Tip => 0
+  | Bin s _ _ _ => s
+
+def Tree.lean (l: Tree) (key: Nat) (r: Tree): Tree :=
+  Bin (Succ (l.size + r.size)) r key l
+
+def Tree.balance (l: Tree) (key: Nat) (r: Tree): Tree :=
+  let sizeL := l.size
+  let sizeR := r.size
+  if Succ (sizeL * 3) <= sizeR then Tree.lean l key r
+  else if Succ (sizeR * 3) <= sizeL then Tree.lean l key r
+  else Bin (Succ (sizeL + sizeR)) l key r
+
+def Tree.insert (key: Nat): (tree: Tree) → Tree
+  | Tip => Bin 1 Tip key Tip
+  | Bin s l k r =>
+    if key < k then Tree.balance (Tree.insert key l) k r
+    else if k < key then Tree.balance l k (Tree.insert key r)
+    else Bin s l k r
+
+def Tree.sum: (tree: Tree) → Nat
+  | Tip => 0
+  | Bin _ l k r => l.sum + k + r.sum
+
+def main(): {IO} () :=
+  let tree := List.foldLeft [5, 2, 8, 1, 9, 3, 7] Tip (t k => Tree.insert k t)
+  IO.print "${tree.size} ${tree.sum}"
+"#;
+
 /// Runs `main` of `source` on the machine, recording from before the
 /// program is lowered: the trace, what `main` printed, and the failure
 /// message if it failed.
@@ -99,4 +228,37 @@ fn a_failure_escaping_mid_map_frees_everything() {
 fn the_same_program_gives_the_same_text_twice() {
     // Identities are renumbered by first appearance, not addresses.
     assert_eq!(traced(MAPPED).0.render(), traced(MAPPED).0.render());
+}
+
+#[test]
+fn a_record_update_of_a_unique_record_reuses_its_field_in_place() {
+    let (updated, output, failure) = traced(UPDATED);
+    assert_eq!((output.as_str(), failure), ("3 3,4,5\n", None));
+    assert_no_leaks(&updated);
+    let (by_hand, output, _) = traced(TAKEN_APART);
+    assert_eq!(output, "3 3,4,5\n");
+    assert_eq!(
+        (updated.count("alloc"), updated.count("reuse")),
+        (by_hand.count("alloc"), by_hand.count("reuse")),
+        "the update allocates more than the match:\n{}\nagainst\n{}",
+        updated.render(),
+        by_hand.render()
+    );
+}
+
+#[test]
+fn a_node_rebuilt_through_a_shape_reuses_its_cell() {
+    let (balanced, output, failure) = traced(BALANCED);
+    assert_eq!((output.as_str(), failure), ("7 35\n", None));
+    assert_no_leaks(&balanced);
+    let (fused, output, _) = traced(FUSED);
+    assert_eq!(output, "7 35\n");
+    assert!(balanced.count("reuse") > 0, "{}", balanced.render());
+    assert_eq!(
+        (balanced.count("alloc"), balanced.count("reuse")),
+        (fused.count("alloc"), fused.count("reuse")),
+        "the shape allocates more than the fused build:\n{}\nagainst\n{}",
+        balanced.render(),
+        fused.render()
+    );
 }

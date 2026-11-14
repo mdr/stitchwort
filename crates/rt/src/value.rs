@@ -4,9 +4,9 @@
 //!   `Int` in an `i64`), and a `BigUint` or `BigInt` otherwise. Each number
 //!   has exactly one form (a number that fits is never big), so equality
 //!   is structural.
-//! - A constructor without runtime fields (`Nil`, `True`, `None`, a `Yes`
-//!   whose proof is erased) is just its tag: no allocation. One with fields
-//!   is its tag and one reference-counted array of them.
+//! - A constructor without runtime fields (`Nil`, `True`, `None`) is just
+//!   its tag: no allocation. One with fields is its tag and one
+//!   reference-counted array of them.
 //! - Text is a reference-counted string.
 //! - An `Array` (std/Array/Array.sw) is a reference-counted buffer of its
 //!   elements, which a consuming native changes in place when it holds the
@@ -155,6 +155,8 @@ impl Value {
             Value::Tag(tag)
         } else {
             let fields: Rc<[Value]> = Rc::from(fields);
+            // Built by a native: its field types are not known here.
+            crate::value_census::stored_cell(0, &fields, false);
             crate::alloc_trace::alloc(tag, &fields);
             Value::Data(tag, Fields(fields))
         }
@@ -166,6 +168,8 @@ impl Value {
             Value::Tag(tag)
         } else {
             let fields: Rc<[Value]> = fields.into();
+            // Built by a native: its field types are not known here.
+            crate::value_census::stored_cell(0, &fields, false);
             crate::alloc_trace::alloc(tag, &fields);
             Value::Data(tag, Fields(fields))
         }

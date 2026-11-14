@@ -16,6 +16,7 @@ use crate::TestDecl;
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InstanceParam, InterfaceInfo};
 use crate::lift::MatchColumns;
+use crate::reading::{ReadingInfo, TestHead};
 use crate::records::RecordInfo;
 use crate::state::Codec;
 
@@ -205,6 +206,47 @@ impl Codec for Rc<MatchColumns> {
     }
 }
 
+impl Codec for Rc<ReadingInfo> {
+    fn encode(&self, e: &mut Encoding<'_>) {
+        e.w.bool(self.polarity);
+        match self.head {
+            TestHead::Def(f) => {
+                e.w.usize(0);
+                e.def(f);
+            }
+            TestHead::And => e.w.usize(1),
+            TestHead::Or => e.w.usize(2),
+        }
+        e.w.usize(self.slots.len());
+        for slot in self.slots.iter() {
+            e.w.usize(*slot);
+        }
+        e.w.usize(self.pure_rows.len());
+        for k in self.pure_rows.iter() {
+            e.w.usize(*k);
+        }
+    }
+    fn decode(b: &mut Body<'_>) -> Read<Self> {
+        let polarity = b.r.bool()?;
+        let head = match b.r.usize()? {
+            0 => TestHead::Def(b.def()?),
+            1 => TestHead::And,
+            2 => TestHead::Or,
+            _ => return bad("a reading's head"),
+        };
+        let k = b.count()?;
+        let slots = (0..k).map(|_| b.r.usize()).collect::<Read<Vec<_>>>()?;
+        let k = b.count()?;
+        let pure_rows = (0..k).map(|_| b.r.usize()).collect::<Read<Vec<_>>>()?;
+        Ok(Rc::new(ReadingInfo {
+            polarity,
+            head,
+            slots: slots.into(),
+            pure_rows: pure_rows.into(),
+        }))
+    }
+}
+
 impl Codec for AbilityInfo {
     fn encode(&self, e: &mut Encoding<'_>) {
         e.str(&self.name);
@@ -252,6 +294,13 @@ impl Codec for TestDecl {
                 e.probe(probe);
             }
         }
+        match &self.unfinished {
+            None => e.w.bool(false),
+            Some(name) => {
+                e.w.bool(true);
+                e.str(name);
+            }
+        }
     }
     fn decode(b: &mut Body<'_>) -> Read<Self> {
         let name = b.string()?;
@@ -259,6 +308,7 @@ impl Codec for TestDecl {
         let def = b.def()?;
         let span = b.span()?;
         let probe = if b.r.bool()? { Some(b.probe(0)?) } else { None };
+        let unfinished = if b.r.bool()? { Some(b.string()?) } else { None };
         Ok(TestDecl {
             library: false,
             name,
@@ -266,6 +316,7 @@ impl Codec for TestDecl {
             def,
             span,
             probe,
+            unfinished,
         })
     }
 }

@@ -509,6 +509,13 @@ terms (different motives), so they get an Opus review (D2364).
    review's `let k: Ignore Nat (isBig n) := 5`). The folded motive must type-check now (also for
    `cases`), and any error on the path falls back: today's generalisation, unchanged. Counts
    under `STITCHWORT_MATCH_METRICS`.
+
+   *Later (SW-2554).* Where the usual test finds no scrutinee in the goal, and the goal
+   mentions no copied variable, the arms get the goal read back folded rather than unfolded
+   (it is the goal itself, so there is nothing to check), whatever the as-written search found
+   elsewhere. Their errors and goals then name `list.allergens` instead of printing its body,
+   and `W-MATCH-NOT-FOUND` shows the expression and the goal as written, with their computed
+   forms as a note when the expression is visibly in the goal but not once both compute.
 3. **SW-1538's transport on the folded forms** (SW-1562), after SW-1604's fixes to the same
    function: test the scrutinee as written against `found` and `expected` read back folded,
    then today's test. Sonnet, 45 min. Known gap until then (accepted under D2476): with stage 2

@@ -2,8 +2,8 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.main 893720dda819ce3c507e440684d45c17986aa6fdac245ef82ffbab1878df4240
-Main.test "main under simulate rolls the same every time" 004a5b65f71e96283a603940955bae45d44a8fc88133ab9d1c50095dc4e0c000
-Main.test "the seed is 0 under simulate" eec13c5c2ef8ba2eb47cd58d26539bf2b6259b934d90fa5060f2c5362213cffb
-Main.test "simulateWith gives the seed" 4aad983b9ff8040f27eec9ba95e42728342b06c7505077ac8e44033dd3669b38
-Main.test "main under simulateWith rolls what that seed gives" 0ca566e6cefb2859d4b356620e9f1265d2e16deb786d80c0dc69f998afd4c744
+Main.main 224077122f124739bf084da2215e118c6b09ec4ea455d9e68e4dbabcad9a2246
+Main.test "main under simulate rolls the same every time" 213f4bd064d463405b814a58aef3a163194150a2d7a9b3608e3f1d8d8a35f459
+Main.test "the seed is 0 under simulate" 23736feaafdf1e81b6891c0122139b31728d9d66fa5a7f2d46dae910533258d2
+Main.test "simulateWith gives the seed" 57fd9054a8a9e1494671ec4b6bd44a290787e6097e0944984f3cea163bcc71fb
+Main.test "main under simulateWith rolls what that seed gives" a7b20dae4461a92d5581eb2612375584f8c8aa5cea60d939ed1b032bf082c292

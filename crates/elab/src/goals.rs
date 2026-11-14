@@ -22,7 +22,7 @@ use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_core::value::{Head, force, quote_shown};
 use stitchwort_core::{Ev, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Span};
+use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Span, cut_computed};
 
 use crate::Elaborator;
 use crate::check::Ctx;
@@ -39,15 +39,20 @@ pub(crate) const UNFINISHED: &str = "E-UNFINISHED";
 /// A goal noted, not printed yet.
 #[derive(Clone)]
 pub(crate) struct Pending {
-    span: Span,
+    pub(crate) span: Span,
     /// The frozen metavariable standing for the hole.
-    meta: usize,
+    pub(crate) meta: usize,
+    /// Whether it is an *error hole*: a missing expression where a syntax
+    /// error left none ([`stitchwort_syntax::ast::Expr::Missing`]), not a
+    /// `?`. It isn't printed as a goal, and nothing that mentions it is
+    /// reported (docs/proposals/syntax-error-recovery.md §4.2).
+    pub(crate) error: bool,
     expected: Value,
     /// The type checked against, as it is (`expected` may be a display
     /// form of it), for [`GoalSnapshot`].
-    target: Value,
+    pub(crate) target: Value,
     /// The context's display names, for printing.
-    names: Vec<Name>,
+    pub(crate) names: Vec<Name>,
     /// The entries of the context shown.
     context: Vec<Entry>,
     /// The context's own variables not shown (a compiler-made `%x`, a `_`):
@@ -73,6 +78,12 @@ pub(crate) struct Pending {
     /// list a case split took apart), at most one for each of its type's
     /// binders.
     owner_args: Vec<Value>,
+    /// How many variables are in scope at the hole.
+    pub(crate) level: usize,
+    /// The variables the hole's metavariable is applied to, in that order:
+    /// each one's level and type, and whether the compiler made it (`%…`).
+    /// Its assumption takes them as parameters ([`Elaborator::assume_goals`]).
+    pub(crate) applied: Vec<(usize, Value, bool)>,
 }
 
 #[derive(Clone)]
@@ -101,7 +112,11 @@ struct Found {
 /// The goals of the declaration being checked.
 #[derive(Clone, Default)]
 pub(crate) struct Goals {
-    pending: Vec<Pending>,
+    pub(crate) pending: Vec<Pending>,
+    /// Whether a message has shown an error hole ([`Pending::error`]) since
+    /// [`Elaborator::take_error_hole_shown`] last asked: the printer notes
+    /// it through the elaborator's `Shown`.
+    error_hole_shown: std::cell::Cell<bool>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
     /// The context asked for at a position ([`Elaborator::probe_context`]).
@@ -120,6 +135,15 @@ struct Probe {
     /// ([`Elaborator::probe_members`]), and what can be written there.
     members_at: Option<(FileId, u32)>,
     members: Option<Vec<crate::nav::ScopeName>>,
+    /// The text of the declaration the probed position is in: its steps
+    /// are recorded, and only its ([`Elaborator::probe_declaration`]).
+    within: Option<Span>,
+    steps: Vec<StepPending>,
+    printed: Vec<StepAt>,
+    /// The declaration the answer is in, as goals head it.
+    declaration: Option<String>,
+    /// The equation of the rewrite rule matched last, as used.
+    rule: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -127,8 +151,113 @@ struct ProbePending {
     span: Span,
     ty: Value,
     checked: bool,
+    proof: bool,
+    /// The type found for the expression, when it was also checked
+    /// against `ty` (inferred, then compared).
+    found: Option<Value>,
     names: Vec<Name>,
     context: Vec<Entry>,
+}
+
+/// A step of a proof: a place where the goal changes
+/// (docs/proposals/goal-at-any-point.md §3.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum StepForm {
+    /// `match e with`: its goal, before any arm.
+    Match,
+    /// `| pattern =>`: the arm's goal, with its pattern's variables.
+    Arm,
+    /// A rule of `rewrite r1, r2 in t`, or of `rewrite … at h`.
+    RewriteRule,
+    /// A line `_ R e` of a `calc`.
+    CalcLine,
+    /// A lambda's parameter.
+    Lambda,
+    /// `let x := v`.
+    Let,
+    /// The `then` or `else` of `if h: c`.
+    If,
+}
+
+impl StepForm {
+    /// The name `goal --at --json` and the editor use.
+    pub fn name(self) -> &'static str {
+        match self {
+            StepForm::Match => "match",
+            StepForm::Arm => "arm",
+            StepForm::RewriteRule => "rewriteRule",
+            StepForm::CalcLine => "calcLine",
+            StepForm::Lambda => "lambda",
+            StepForm::Let => "let",
+            StepForm::If => "if",
+        }
+    }
+}
+
+/// A step, as the form noting it knows it (`Elaborator::note_step`).
+#[derive(Clone)]
+pub(crate) struct StepNote {
+    pub form: StepForm,
+    /// The text the step answers for: an arm's pattern up to its body, a
+    /// rule, a calc line up to its proof, a parameter, a `let`'s name.
+    pub head: Span,
+    /// Which of how many (0-based): a rule of its `rewrite`, a line of its
+    /// `calc`, `then` (0) or `else` (1); a `match` gives its number of arms.
+    pub index: Option<(usize, usize)>,
+    /// The goal before the step, when it has one of its own; an arm takes
+    /// its `match`'s.
+    pub before: Option<Value>,
+    pub after: Value,
+    /// A `calc` line's statement as elaborated, for its as-written print:
+    /// [`StepNote::after`] is evaluated, so a right side like
+    /// `if True then Win else …` has computed away, while the line must
+    /// still show it (SW-2942).
+    pub after_term: Option<Term>,
+    /// The levels the step binds.
+    pub adds: Vec<usize>,
+    /// A rewrite rule's equation, as used.
+    pub rule: Option<Value>,
+    /// A `match`'s arms' heads, which number its arms' steps.
+    pub parts: Vec<Span>,
+    /// For a rule of `rewrite … at h`: `h`, whose type before and after
+    /// are what changes.
+    pub target: Option<String>,
+    /// Other places the step answers for: a `rewrite`'s keyword, `at` and
+    /// `in` (the rule itself is [`StepNote::head`]).
+    pub extra: Vec<Span>,
+}
+
+#[derive(Clone)]
+struct StepPending {
+    note: StepNote,
+    proof: bool,
+    names: Vec<Name>,
+    context: Vec<Entry>,
+}
+
+/// A step printed: see [`StepNote`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StepAt {
+    pub form: StepForm,
+    pub head: Span,
+    pub index: Option<(usize, usize)>,
+    pub before: Option<String>,
+    pub after: String,
+    /// `before` and `after` as written, when that prints differently
+    /// (D3522); the two above are then what they compute to.
+    pub before_written: Option<String>,
+    pub after_written: Option<String>,
+    /// Whether the goals are propositions.
+    pub proof: bool,
+    /// The names in scope after the step.
+    pub locals: Vec<Hypothesis>,
+    /// Those of `locals` the step added.
+    pub adds: Vec<String>,
+    pub rule: Option<String>,
+    pub target: Option<String>,
+    parts: Vec<Span>,
+    /// Places besides `head` the step answers for (`StepNote::extra`).
+    extra: Vec<Span>,
 }
 
 /// What is known at a position of a file: see [`Elaborator::probe_context`].
@@ -139,10 +268,49 @@ pub struct ContextAt {
     /// Its type: the one it was checked against (`checked`), else the one
     /// found for it.
     pub ty: String,
+    /// `ty` as written, when that prints differently (D3522); `ty` is then
+    /// what it computes to.
+    pub ty_written: Option<String>,
     pub checked: bool,
+    /// Whether `ty` is a proposition (the expression is a proof): the
+    /// editor shows `⊢ ty` for a proof and `expected ty` for a program.
+    pub proof: bool,
+    /// The type found for the expression, when it differs from the one it
+    /// was checked against (`ty`).
+    pub found: Option<String>,
     /// The names in scope there, as a goal lists them (a variable before
     /// anything whose type mentions it).
     pub locals: Vec<Hypothesis>,
+    /// The declaration it is in, as written (`addZero`).
+    pub declaration: Option<String>,
+    /// The step at the position, if it is on one; `ty` and `locals` are
+    /// then the goal after it and the names in scope there.
+    pub step: Option<StepAt>,
+    /// Every step of the declaration, in source order.
+    pub steps: Vec<StepAt>,
+}
+
+/// `value` printed as written (no call computed), unless that is the same
+/// text as `shown`, its computed print (D3522).
+fn written_unless_same(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+    shown: &str,
+) -> Option<String> {
+    pretty::value_for_goal_as_written(g, scope, names, predicates, value)
+        .filter(|w| w != shown && !shows_helper(w))
+}
+
+/// Whether `text` names a compiler-made helper (`Fail.%elim`, `%match1`):
+/// written out, a goal is longer and no clearer than what it computes to,
+/// so it is only shown computed.
+fn shows_helper(text: &str) -> bool {
+    text.split('%')
+        .skip(1)
+        .any(|after| after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 
 /// The names in scope where a goal at `span` is printed: the file's, as for
@@ -259,6 +427,19 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
 /// to the variables in scope (those a case split hasn't replaced), as a
 /// term. Notes the goal.
 pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
+    hole_of(cx, expected, false)
+}
+
+/// A missing expression ([`stitchwort_syntax::ast::Expr::Missing`]) checked
+/// against `expected`: a hole like `?`'s, flagged as an error hole
+/// ([`Pending::error`]). A term with one in it is never finished, so it
+/// never reaches the kernel; the declaration has failed already, for its
+/// syntax error.
+pub(crate) fn error_hole(cx: &Ctx, expected: &Value) -> Term {
+    hole_of(cx, expected, true)
+}
+
+fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
     let g = cx.g();
     let m = cx.metas().new_meta(cx.span);
     cx.metas().freeze_meta(m);
@@ -266,11 +447,17 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     // Each variable as its hypothesis is named, `n✝` for one that can't be
     // referred to here, numbered where two would be alike (SW-1000).
     let shown_names = cx.shown_names(true);
+    let mut applied = Vec::new();
     for (level, value) in cx.env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
         if own {
             term = Term::app(term, Term::Var(cx.level() - 1 - level));
+            applied.push((
+                level,
+                cx.types[level].clone(),
+                cx.names[level].starts_with('%'),
+            ));
         }
     }
     let (mut context, mut hidden) = scope_entries(cx, &shown_names);
@@ -298,6 +485,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
+        error,
         expected: shown.unwrap_or_else(|| expected.clone()),
         target: expected.clone(),
         names: shown_names,
@@ -309,6 +497,8 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         prop,
         owner_def,
         owner_args,
+        level: cx.level(),
+        applied,
     });
     term
 }
@@ -464,7 +654,7 @@ pub(crate) fn uses_unfinished(span: Option<Span>) -> Diagnostic {
     }
 }
 
-/// The kernel refused a declaration because `terms` (its body, or type)
+/// The kernel refused a declaration because `terms` (its bodies and types)
 /// use a failed declaration: if every failed declaration they use is
 /// unfinished, the refusal becomes [`UNFINISHED`]. `own` are the
 /// declarations being admitted, failed by the refusal itself.
@@ -475,10 +665,15 @@ pub(crate) fn unfinished_dependency<'t>(
     own: &[HashKey],
     error: Diagnostic,
 ) -> Diagnostic {
-    if error.code != "E-FAILED-DEPENDENCY" || tables.unfinished_count() == 0 {
+    if error.code != "E-FAILED-DEPENDENCY" {
         return error;
     }
-    let mut any = false;
+    let terms: Vec<&Term> = terms.into_iter().collect();
+    crate::module::note_failed_in(g, &terms, own);
+    if tables.unfinished_count() == 0 {
+        return error;
+    }
+    let mut used = Vec::new();
     for term in terms {
         for (t, _) in term.subterms() {
             let (key, state) = match t {
@@ -498,20 +693,96 @@ pub(crate) fn unfinished_dependency<'t>(
             if !tables.is_unfinished(key) {
                 return error;
             }
-            any = true;
+            used.push(key);
         }
     }
-    if any {
-        uses_unfinished(error.primary_span())
-    } else {
-        error
+    if used.is_empty() {
+        return error;
     }
+    for key in used {
+        if let HashKey::Def(id) = key {
+            note_used_unfinished(id);
+        }
+    }
+    uses_unfinished(error.primary_span())
+}
+
+thread_local! {
+    /// The unfinished definitions the declarations being checked use, as
+    /// found where a use of one became [`UNFINISHED`]: a declaration that
+    /// waits for an open goal makes its users wait for the same goals
+    /// (`Elaborator::blocked_on`). Here rather than on the elaborator
+    /// because the kernel's refusals are reworded where only the tables are
+    /// at hand ([`unfinished_dependency`]). The module empties it at the
+    /// start of each component and reads it at the end; an undone attempt's
+    /// entries can only name more goals for a component that is unfinished
+    /// anyway.
+    static USED_UNFINISHED: std::cell::RefCell<Vec<stitchwort_core::DefId>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Notes that the declaration being checked uses unfinished definition
+/// `id` (`USED_UNFINISHED`).
+pub(crate) fn note_used_unfinished(id: stitchwort_core::DefId) {
+    USED_UNFINISHED.with(|u| u.borrow_mut().push(id));
+}
+
+/// The unfinished definitions noted since the last call, emptying the list
+/// (`USED_UNFINISHED`).
+pub(crate) fn take_used_unfinished() -> Vec<stitchwort_core::DefId> {
+    USED_UNFINISHED.with(|u| std::mem::take(&mut *u.borrow_mut()))
 }
 
 impl Elaborator {
     /// Whether metavariable `m` is an open goal's.
     pub(crate) fn is_goal(&self, m: usize) -> bool {
         self.goals.borrow().pending.iter().any(|p| p.meta == m)
+    }
+
+    /// Whether metavariable `m` is an error hole's, or the unknown type of
+    /// one whose type nothing said ([`Pending::error`]).
+    pub(crate) fn is_error_hole(&self, m: usize) -> bool {
+        let Ok(goals) = self.goals.try_borrow() else {
+            return false;
+        };
+        goals.pending.iter().any(|p| {
+            p.error
+                && (p.meta == m
+                    || matches!(&p.target, Value::Neutral(Head::Meta(t), spine) if *t == m && spine.is_empty()))
+        })
+    }
+
+    /// Whether the declaration being checked has an error hole.
+    pub(crate) fn has_error_holes(&self) -> bool {
+        self.goals.borrow().pending.iter().any(|p| p.error)
+    }
+
+    /// Whether `value` mentions an error hole, its unknowns' solutions put
+    /// in.
+    pub(crate) fn mentions_error_hole(cx: &Ctx, value: &Value) -> bool {
+        let Ok(term) = crate::interfaces::scanned(cx, value) else {
+            return false;
+        };
+        let Ok(term) = cx.e.zonk_keeping(&term, cx.level(), &|_| true) else {
+            return false;
+        };
+        term.subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if cx.e.is_error_hole(*m)))
+    }
+
+    /// Notes that a message showed metavariable `m`: if it is an error
+    /// hole's, the message is about the hole, not the program.
+    pub(crate) fn note_meta_shown(&self, m: usize) {
+        if self.is_error_hole(m)
+            && let Ok(goals) = self.goals.try_borrow()
+        {
+            goals.error_hole_shown.set(true);
+        }
+    }
+
+    /// Whether a message showed an error hole since the last call.
+    pub(crate) fn take_error_hole_shown(&self) -> bool {
+        self.goals.borrow().error_hole_shown.replace(false)
     }
 
     /// Whether a goal noted, not printed yet, is at `span`.
@@ -558,17 +829,16 @@ impl Elaborator {
         if self.unit.module.items.get(item)?.kind != crate::module::Kind::Def {
             return None;
         }
-        (self.unit.module.def_items.iter())
-            .filter(|(_, i)| **i == item)
-            .map(|(id, _)| *id)
-            .min_by_key(|id| id.0)
+        (self.unit.module.item_defs.get(&item)?.iter().copied()).min_by_key(|id| id.0)
     }
 
     /// Prints the goals noted, while the metavariables in them still have
     /// their solutions. A goal at a span already printed replaces it.
     pub(crate) fn flush_goals(&self) {
         self.flush_probe();
-        let pending = std::mem::take(&mut self.goals.borrow_mut().pending);
+        let mut pending = std::mem::take(&mut self.goals.borrow_mut().pending);
+        // An error hole is no goal of the program's.
+        pending.retain(|p| !p.error);
         if pending.is_empty() {
             return;
         }
@@ -576,6 +846,7 @@ impl Elaborator {
         // Printing a goal that mentions a failed declaration isn't an error
         // message showing it (`Decl::failed_mentioned`).
         let mentioned = self.decl.failed_mentioned.get();
+        let stuck = self.decl.stuck_on_goal.take();
         let printed: Vec<Found> = pending
             .iter()
             .map(|p| {
@@ -597,10 +868,47 @@ impl Elaborator {
             })
             .collect();
         self.decl.failed_mentioned.set(mentioned);
+        *self.decl.stuck_on_goal.borrow_mut() = stuck;
         let mut goals = self.goals.borrow_mut();
         for found in printed {
             goals.found.retain(|f| f.span != found.span);
             goals.found.push(found);
+        }
+    }
+
+    /// By level, whether each variable of the context (shown or `hidden`)
+    /// has a type ending in `Prop`, for the printer to write a quantifier
+    /// over `p n` as `∀`. Each type is read back at the whole context's
+    /// depth, not its variable's level: a match refines a hypothesis to
+    /// mention the branch's fields, bound after it.
+    fn predicate_flags(
+        &self,
+        depth: usize,
+        context: &[Entry],
+        hidden: &[(usize, Value)],
+    ) -> Vec<bool> {
+        let g = &self.ev();
+        let mut flags = vec![false; depth];
+        let typed = context
+            .iter()
+            .map(|e| (e.level, &e.ty))
+            .chain(hidden.iter().map(|(l, t)| (*l, t)));
+        for (level, ty) in typed {
+            if level < depth {
+                flags[level] = pretty::is_predicate_type(g, depth, ty);
+            }
+        }
+        flags
+    }
+
+    /// The patterns that split a variable of type `ty` (see
+    /// [`Elaborator::constructor_patterns`]), if its type, unfolded, is a
+    /// data type.
+    fn split_patterns_of(&self, ty: &Value) -> Option<Vec<String>> {
+        let g = &self.ev();
+        match stitchwort_core::value::force(g, ty.clone()).ok()? {
+            Value::Data(d, _) => self.constructor_patterns(d),
+            _ => None,
         }
     }
 
@@ -613,7 +921,8 @@ impl Elaborator {
         context: &[Entry],
     ) -> Vec<Hypothesis> {
         let g = &self.ev();
-        let show = |v: &Value| pretty::value_for_goal(g, scope, names, v);
+        let predicates = self.predicate_flags(names.len(), context, &[]);
+        let show = |v: &Value| pretty::value_for_goal(g, scope, names, &predicates, v);
         context
             .iter()
             .map(|e| Hypothesis {
@@ -625,6 +934,7 @@ impl Elaborator {
                     .unwrap_or_else(|| e.ty.clone()),
                 ),
                 value: e.value.as_ref().map(show),
+                splits: self.split_patterns_of(&e.ty),
             })
             .collect()
     }
@@ -692,17 +1002,140 @@ impl Elaborator {
         files.iter().any(|f| f.file == Some(probed))
     }
 
-    /// What [`Elaborator::probe_context`] found, once: none if no
-    /// expression checked contains the position (it is in a signature, a
-    /// comment, a pattern, a declaration that didn't parse).
+    /// What [`Elaborator::probe_context`] found, once: none if neither an
+    /// expression checked nor a step contains the position (it is in a
+    /// signature, a comment, a declaration that didn't parse).
     pub fn take_probed_context(&self) -> Option<ContextAt> {
         self.flush_goals();
-        std::mem::take(&mut self.goals.borrow_mut().probe).found
+        let probe = std::mem::take(&mut self.goals.borrow_mut().probe);
+        let (file, at) = probe.want?;
+        let mut steps = probe.printed;
+        // A step checked twice (an arm compiled again) keeps the last.
+        let mut seen = stitchwort_core::collections::HashSet::default();
+        steps.reverse();
+        steps.retain(|s| seen.insert((s.form, s.head.start, s.head.end)));
+        steps.sort_by_key(|s| (s.head.start, std::cmp::Reverse(s.head.end)));
+        number_arms(&mut steps);
+        let step = (steps.iter())
+            .filter(|s| s.head.file == file && s.head.start <= at && at < s.head.end)
+            .min_by_key(|s| s.head.end - s.head.start)
+            .or_else(|| {
+                // A rule's `rewrite`, `at` or `in`: the first rule's step,
+                // as `steps` are in source order.
+                (steps.iter()).find(|s| {
+                    (s.extra.iter()).any(|r| r.file == file && r.start <= at && at < r.end)
+                })
+            })
+            .cloned();
+        let mut found = match (probe.found, &step) {
+            (_, Some(step)) => ContextAt {
+                span: step.head,
+                ty: step.after.clone(),
+                ty_written: step.after_written.clone(),
+                checked: true,
+                proof: step.proof,
+                found: None,
+                locals: step.locals.clone(),
+                declaration: None,
+                step: None,
+                steps: Vec::new(),
+            },
+            (Some(found), None) => found,
+            (None, None) => return None,
+        };
+        found.declaration = probe.declaration;
+        found.step = step;
+        found.steps = steps;
+        Some(found)
+    }
+
+    /// Notes the declaration of `module` the probed position is in, if
+    /// any: its steps are recorded while it is checked. Its text is that of
+    /// every declaration of its name (a signature and its equations).
+    pub(crate) fn probe_declaration(&self, module: &stitchwort_syntax::ast::Module) {
+        use stitchwort_syntax::ast::Decl;
+        let mut goals = self.goals.borrow_mut();
+        let Some((file, at)) = goals.probe.want else {
+            return;
+        };
+        let name = |d: &Decl| match d {
+            Decl::Signature { name, .. }
+            | Decl::Equation { name, .. }
+            | Decl::Data { name, .. }
+            | Decl::Ability { name, .. } => Some(name.text.clone()),
+            Decl::Test { .. } => None,
+        };
+        let inside = |d: &Decl| d.span().file == file && d.span().start <= at && at <= d.span().end;
+        let Some(hit) = module.decls.iter().find(|d| inside(d)) else {
+            return;
+        };
+        let mut span = hit.span();
+        if let Some(written) = name(hit) {
+            for d in &module.decls {
+                if d.span().file == file && name(d).as_ref() == Some(&written) {
+                    span = span.to(d.span());
+                }
+            }
+        }
+        goals.probe.within = Some(span);
+    }
+
+    /// Whether a step at `head` is recorded: it is in the probed
+    /// declaration, and written there (not generated, and not empty, as
+    /// what a declaration generates can be at an empty span).
+    pub(crate) fn records_steps(&self, head: Span) -> bool {
+        let goals = self.goals.borrow();
+        let Some(within) = goals.probe.within else {
+            return false;
+        };
+        head.file == within.file
+            && head.start < head.end
+            && within.start <= head.start
+            && head.end <= within.end
+            && !(self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0)
+    }
+
+    /// Notes a step, with the names in scope after it in `cx`; call when
+    /// [`Elaborator::records_steps`] says so.
+    pub(crate) fn note_step(&self, cx: &Ctx, note: StepNote) {
+        let names = cx.shown_names(true);
+        let (mut context, mut hidden) = scope_entries(cx, &names);
+        drop_superseded(cx, &note.after, &mut context, &mut hidden);
+        let context = dependency_order(&cx.g(), cx.level(), context);
+        let proof = crate::rewrite::is_proof_type(cx, &note.after).unwrap_or(false);
+        self.goals.borrow_mut().probe.steps.push(StepPending {
+            note,
+            proof,
+            names,
+            context,
+        });
+    }
+
+    /// A rewrite rule matched, as used: its equation with its unknowns
+    /// solved, for the step [`Elaborator::take_rule`] notes.
+    pub(crate) fn note_rule(&self, rule: Value) {
+        self.goals.borrow_mut().probe.rule = Some(rule);
+    }
+
+    pub(crate) fn take_rule(&self) -> Option<Value> {
+        self.goals.borrow_mut().probe.rule.take()
+    }
+
+    pub(crate) fn pending_steps(&self) -> usize {
+        self.goals.borrow().probe.steps.len()
+    }
+
+    /// Drops the steps noted after the first `len`: their attempt was
+    /// undone.
+    pub(crate) fn drop_steps_since(&self, len: usize) {
+        self.goals.borrow_mut().probe.steps.truncate(len);
     }
 
     /// The expression at `span`, of type `ty` (checked against it if
     /// `checked`), in `cx`: kept if it is the smallest so far to contain
-    /// the probed position.
+    /// the probed position. Also called on entry to a check, so that an
+    /// expression that fails has its goal.
+    #[inline]
     pub(crate) fn note_probe(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         let Some((file, at)) = self.goals.borrow().probe.want else {
             return;
@@ -710,15 +1143,38 @@ impl Elaborator {
         if span.file != file || span.start > at || at > span.end {
             return;
         }
+        self.note_probed(cx, span, ty, checked);
+    }
+
+    /// [`Elaborator::note_probe`] for an expression that contains the
+    /// probed position. Out of line: every check calls `note_probe`, and its
+    /// frame is under every nested check.
+    #[inline(never)]
+    fn note_probed(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         // What a declaration generates is written nowhere.
         if (self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0) {
             return;
         }
         let mut goals = self.goals.borrow_mut();
-        if let Some(p) = &goals.probe.pending
-            && p.span.end - p.span.start < span.end - span.start
-        {
-            return;
+        let mut found = None;
+        if let Some(p) = &mut goals.probe.pending {
+            if p.span.end - p.span.start < span.end - span.start {
+                return;
+            }
+            // The same expression noted again: once on entry to its check,
+            // once with the type inferred for it, once checked. Both the
+            // type expected and the type found are kept.
+            if p.span == span {
+                match (p.checked, checked) {
+                    (true, false) => {
+                        p.found = Some(ty.clone());
+                        return;
+                    }
+                    (false, true) => found = Some(p.ty.clone()),
+                    (true, true) => found = p.found.clone(),
+                    (false, false) => {}
+                }
+            }
         }
         let names = cx.shown_names(true);
         let (mut context, mut hidden) = scope_entries(cx, &names);
@@ -728,32 +1184,100 @@ impl Elaborator {
             span,
             ty: ty.clone(),
             checked,
+            proof: crate::rewrite::is_proof_type(cx, ty).unwrap_or(false),
+            found,
             names,
             context,
         });
     }
 
-    /// Prints the context a probe noted, while its metavariables have their
-    /// solutions.
+    /// Prints the context and steps a probe noted, while their
+    /// metavariables have their solutions.
     fn flush_probe(&self) {
-        let Some(p) = self.goals.borrow_mut().probe.pending.take() else {
+        let (pending, steps) = {
+            let mut goals = self.goals.borrow_mut();
+            let probe = &mut goals.probe;
+            (probe.pending.take(), std::mem::take(&mut probe.steps))
+        };
+        if pending.is_none() && steps.is_empty() {
             return;
-        };
+        }
         let g = &self.ev();
-        let scope = GoalScope {
-            e: self,
-            span: p.span,
-        };
         let was = g.machine.glue.replace(self.gluing());
-        let locals = self.print_hypotheses(&scope, &p.names, &p.context);
-        let ty = pretty::value_for_goal(g, &scope, &p.names, &p.ty);
-        g.machine.glue.set(was);
-        self.goals.borrow_mut().probe.found = Some(ContextAt {
-            span: p.span,
-            ty,
-            checked: p.checked,
-            locals,
+        let mut printed = Vec::new();
+        for s in &steps {
+            let scope = GoalScope {
+                e: self,
+                span: s.note.head,
+            };
+            let predicates = self.predicate_flags(s.names.len(), &s.context, &[]);
+            let show = |v: &Value| pretty::value_for_goal(g, &scope, &s.names, &predicates, v);
+            let written =
+                |v: &Value| written_unless_same(g, &scope, &s.names, &predicates, v, &show(v));
+            let locals = self.print_hypotheses(&scope, &s.names, &s.context);
+            let adds = (s.context.iter())
+                .filter(|e| s.note.adds.contains(&e.level))
+                .map(|e| e.name.clone())
+                .collect();
+            let after = show(&s.note.after);
+            let after_written = match &s.note.after_term {
+                Some(term) => {
+                    let line = pretty::term_for_goal_in(g, &scope, &s.names, &predicates, term);
+                    (line != after && !shows_helper(&line)).then_some(line)
+                }
+                None => written(&s.note.after),
+            };
+            printed.push(StepAt {
+                form: s.note.form,
+                head: s.note.head,
+                index: s.note.index,
+                before: s.note.before.as_ref().map(show),
+                before_written: s.note.before.as_ref().and_then(written),
+                after,
+                after_written,
+                proof: s.proof,
+                locals,
+                adds,
+                rule: s.note.rule.as_ref().map(show),
+                target: s.note.target.clone(),
+                parts: s.note.parts.clone(),
+                extra: s.note.extra.clone(),
+            });
+        }
+        let found = pending.map(|p| {
+            let scope = GoalScope {
+                e: self,
+                span: p.span,
+            };
+            let locals = self.print_hypotheses(&scope, &p.names, &p.context);
+            let predicates = self.predicate_flags(p.names.len(), &p.context, &[]);
+            let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, &predicates, v);
+            let ty = show(&p.ty);
+            let ty_written = written_unless_same(g, &scope, &p.names, &predicates, &p.ty, &ty);
+            let found = p.found.as_ref().map(show).filter(|f| *f != ty);
+            ContextAt {
+                span: p.span,
+                ty,
+                ty_written,
+                checked: p.checked,
+                proof: p.proof,
+                found,
+                locals,
+                declaration: None,
+                step: None,
+                steps: Vec::new(),
+            }
         });
+        g.machine.glue.set(was);
+        let owner = self.goal_owner().0;
+        let owner = owner.trim_matches('`').to_string();
+        let mut goals = self.goals.borrow_mut();
+        let probe = &mut goals.probe;
+        probe.printed.extend(printed);
+        if let Some(found) = found {
+            probe.found = Some(found);
+        }
+        probe.declaration = Some(owner);
     }
 
     fn print_goal(&self, p: &Pending) -> Found {
@@ -762,7 +1286,8 @@ impl Elaborator {
             e: self,
             span: p.span,
         };
-        let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, v);
+        let predicates = self.predicate_flags(p.names.len(), &p.context, &p.hidden);
+        let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, &predicates, v);
         let hypotheses = self.print_hypotheses(&scope, &p.names, &p.context);
         let mut lines: Vec<String> = hypotheses
             .iter()
@@ -781,7 +1306,15 @@ impl Elaborator {
         } else {
             "(the type here isn't known yet)".to_string()
         };
-        lines.push(format!("⊢ {target}"));
+        let written = if known {
+            written_unless_same(g, &scope, &p.names, &predicates, &p.expected, &target)
+        } else {
+            None
+        };
+        lines.push(format!("⊢ {}", written.as_deref().unwrap_or(&target)));
+        if written.is_some() {
+            lines.push(format!("  computes to {}", cut_computed(&target)));
+        }
         let lemma = if known {
             self.lemma_of(p, &hypotheses, &target).ok()
         } else {
@@ -802,6 +1335,8 @@ impl Elaborator {
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
             target,
+            written,
+            prop: p.prop,
             lemma: None,
         });
         Found {
@@ -1041,6 +1576,20 @@ impl GoalSnapshot {
     pub fn owner(&self) -> Option<stitchwort_core::DefId> {
         self.owner
     }
+
+    /// A goal of `target` in an empty context, for tests that build terms
+    /// the elaborator can't (too deep to elaborate).
+    #[cfg(feature = "test-bypass")]
+    #[doc(hidden)]
+    pub fn target_for_tests(target: Term) -> GoalSnapshot {
+        GoalSnapshot {
+            vars: Vec::new(),
+            level: 0,
+            target,
+            owner: None,
+            owner_args: Vec::new(),
+        }
+    }
 }
 
 pub(crate) struct SnapVar {
@@ -1057,7 +1606,7 @@ pub(crate) struct SnapVar {
 
 /// The levels `term`, in a context of `level` variables, mentions; `None`
 /// if it has an unknown in it.
-fn levels_in(term: &Term, level: usize) -> Option<Vec<usize>> {
+pub(crate) fn levels_in(term: &Term, level: usize) -> Option<Vec<usize>> {
     let mut out = Vec::new();
     for (t, binders) in term.subterms() {
         match t {
@@ -1231,4 +1780,24 @@ pub(crate) fn close_over(binders: &[SnapBinder], body: Term, ty: Term) -> Term {
         }
     }
     Term::Ann(std::rc::Rc::new(body), std::rc::Rc::new(ty))
+}
+
+/// Gives each arm the `match` it is in: its number among the `match`'s
+/// arms, and the `match`'s goal as the arm's goal before. `steps` are in
+/// source order, so a `match` comes before its arms.
+fn number_arms(steps: &mut [StepAt]) {
+    let matches: Vec<(Vec<Span>, Option<String>)> = (steps.iter())
+        .filter(|s| s.form == StepForm::Match)
+        .map(|s| (s.parts.clone(), Some(s.after.clone())))
+        .collect();
+    for step in steps.iter_mut().filter(|s| s.form == StepForm::Arm) {
+        for (parts, goal) in &matches {
+            if let Some(i) = parts.iter().position(|p| p.start == step.head.start) {
+                step.index = Some((i, parts.len()));
+                if step.before.is_none() {
+                    step.before = goal.clone();
+                }
+            }
+        }
+    }
 }

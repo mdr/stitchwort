@@ -14,18 +14,20 @@ import Std (List, Map, Nat)
 type PrefixSums = { sums: Map Nat (Map Nat Nat) }
 
 --| The cells of rows of numbers, row r and column c; 0 outside them.
-def PrefixSums.cell (rows: List (List Nat)) (r: Nat) (c: Nat): Nat := rows.getOr r [] |> .getOr c 0
+def PrefixSums.cell (rows: List (List Nat)) (r c: Nat): Nat := rows.getOr r [] |> .getOr c 0
 
 --| The sum of a block of cells, added cell by cell: what `PrefixSums.block` computes in four lookups.
 --| The block is rows `top` up to, not including, `bottom`, and columns `left`
 --| up to, not including, `right`.
-def PrefixSums.blockSpec (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
-  List.sumBy (List.rangeFrom (bottom - top) top) (r => List.sumBy (List.rangeFrom (right - left) left) (c => PrefixSums.cell rows r c))
+def PrefixSums.blockSpec (rows: List (List Nat)) (top bottom left right: Nat): Nat :=
+  List.sumBy (List.rangeFrom (bottom - top) top) (r =>
+    List.sumBy (List.rangeFrom (right - left) left) (c => PrefixSums.cell rows r c))
 
 --| The prefix sums of a grid of numbers, rows of any lengths, a missing cell counting as 0: O(n log n).
 def PrefixSums.of (rows: List (List Nat)): PrefixSums :=
   let width := List.maxLength rows
-  let table := PrefixSums.table (List.replicate (Succ width) 0) (rows.map (row => PrefixSums.runningSums (row.padRight width 0)))
+  let table :=
+    PrefixSums.table (List.replicate (Succ width) 0) (rows.map (row => PrefixSums.runningSums (row.padRight width 0)))
   { sums = table.map Map.byPosition |> Map.byPosition }
 
 --| The running sums of a row, from 0: `[2, 3]` gives `[0, 2, 5]`.
@@ -38,11 +40,11 @@ def PrefixSums.table (above: List Nat): (rows: List (List Nat)) → List (List N
   | [sums, ..rest] => [above, ..PrefixSums.table (List.zipWith above sums Nat.add) rest]
 
 --| Entry (r, c) of the table.
-def PrefixSums.at (prefix: PrefixSums) (r: Nat) (c: Nat): Nat := prefix.sums.getOr r Map.empty |> .getOr c 0
+def PrefixSums.at (prefix: PrefixSums) (r c: Nat): Nat := prefix.sums.getOr r Map.empty |> .getOr c 0
 
 --| The sum of the cells of rows `top` up to, not including, `bottom`, and
 --| columns `left` up to, not including, `right`. Inside the grid (`bottom` at
 --| most the number of rows, `right` at most the longest row's length), that
 --| is `PrefixSums.blockSpec`.
-def PrefixSums.block (prefix: PrefixSums) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat): Nat :=
+def PrefixSums.block (prefix: PrefixSums) (top bottom left right: Nat): Nat :=
   (prefix.at bottom right + prefix.at top left) - (prefix.at top right + prefix.at bottom left)

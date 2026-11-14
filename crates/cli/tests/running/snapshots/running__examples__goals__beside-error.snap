@@ -1,20 +1,20 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-   ╭─[ goals/beside-error.sw:7:17 ]
+   ╭─[ goals/beside-error.sw:6:15 ]
    │
- 7 │     | Succ k => rfl
-   │                 ─┬─  
-   │                  ╰─── `0` and `k * 0` aren't equal
+ 6 │   | Succ k => rfl
+   │               ─┬─  
+   │                ╰─── `0` and `k * 0` aren't equal
    │ 
    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯
 [GOAL] Goal: in `zeroMul`
-   ╭─[ goals/beside-error.sw:6:15 ]
+   ╭─[ goals/beside-error.sw:5:13 ]
    │
- 6 │     | Zero => ?
-   │               ┬  
-   │               ╰── ⊢ 0 = 0
+ 5 │   | Zero => ?
+   │             ┬  
+   │             ╰── ⊢ 0 = 0
 ───╯

@@ -109,6 +109,7 @@ impl Session {
         target: &Target,
         load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
+        self.elab.clear_broken_tests();
         if !analysis.diagnostics.is_empty() {
             return Err(analysis.diagnostics);
         }
@@ -283,27 +284,20 @@ impl Session {
         skipped: &BTreeMap<String, Vec<Diagnostic>>,
     ) -> Option<Vec<Diagnostic>> {
         let mut diagnostics: Vec<Diagnostic> = Vec::new();
-        let mut outcomes: BTreeMap<&str, NamespaceOutcome> = BTreeMap::new();
         let mut left_out = false;
         for name in order {
             if let Some(warnings) = skipped.get(name) {
                 left_out = true;
-                outcomes.insert(name, NamespaceOutcome::Checked);
                 diagnostics.extend(warnings.iter().cloned());
                 continue;
             }
             let ns = analysis.namespace(name).expect("a namespace");
-            let (found, outcome) =
-                self.check_project_namespace(analysis, order, ns, &|m| outcomes.get(m).copied());
-            // (Not checked because a namespace it uses failed: that says
-            // only which.)
+            let (found, _) = self.check_project_namespace(analysis, ns);
             if left_out
-                && outcome != NamespaceOutcome::Skipped
                 && (found.iter()).any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             {
                 return None;
             }
-            outcomes.insert(name, outcome);
             diagnostics.extend(found);
         }
         Some(diagnostics)
@@ -316,7 +310,8 @@ impl Session {
     /// that is loaded needs it. Loaded: the misses; the namespaces with
     /// syntax errors or doc links, whose diagnostics aren't all in the
     /// entry; the namespaces that use a miss or one with syntax errors
-    /// (which may fail, and so block them); and everything those use.
+    /// (which may fail, and so make some of theirs wait); and everything
+    /// those use.
     fn plan_skips(
         &mut self,
         analysis: &Analysis,
@@ -354,41 +349,16 @@ impl Session {
     }
 
     /// Checks one namespace `ns` of a project, after the namespaces it uses
-    /// (`outcome` says how each of those went). If one of them failed or
-    /// wasn't checked, `ns` isn't either (`E-NAMESPACE-FAILED`, naming the
-    /// first such namespace in `order`, the project's canonical order).
-    /// `analysis` says what each namespace uses.
+    /// (`analysis` says which), whatever happened to them: a declaration
+    /// that uses one of theirs that failed waits for it, and each file
+    /// says so once per failed name (`E-USES-FAILED`), but the rest is
+    /// checked (D3524).
     pub fn check_project_namespace(
         &mut self,
         analysis: &Analysis,
-        order: &[String],
         ns: &Namespace,
-        outcome: &dyn Fn(&str) -> Option<NamespaceOutcome>,
     ) -> (Vec<Diagnostic>, NamespaceOutcome) {
         let name = &ns.name;
-        let blocked = |m: &str| {
-            matches!(
-                outcome(m),
-                Some(NamespaceOutcome::Failed | NamespaceOutcome::Skipped)
-            )
-        };
-        // The first dependency, in canonical order, that has errors or
-        // wasn't checked.
-        let blocker = order
-            .iter()
-            .filter(|m| blocked(m))
-            .find_map(|m| ns.edges.iter().find(|e| &e.target == m));
-        if let Some(edge) = blocker {
-            let m = &edge.target;
-            let why = if outcome(m) == Some(NamespaceOutcome::Failed) {
-                format!("namespace {m} has errors, so {name} isn't checked")
-            } else {
-                format!("namespace {m} isn't checked, so neither is {name}")
-            };
-            let d = Diagnostic::error("E-NAMESPACE-FAILED", why)
-                .with_label(edge.span, format!("`{name}` uses `{m}` here"));
-            return (vec![d], NamespaceOutcome::Skipped);
-        }
         let dependencies = dependencies(analysis, name);
         let names: Vec<String> = ns
             .files
@@ -418,6 +388,11 @@ impl Session {
         let mut found = self
             .elab
             .elaborate_namespace(Some(name), &units, Some(&dependencies));
+        // After the cache, which holds the elaborator's own diagnostics:
+        // this one reads each file's text.
+        if ns.parse_errors.is_empty() {
+            self.statement_style(&mut found, &ns.files);
+        }
         self.check_exports(first_new_def, true, &mut found);
         // The declarations that parsed are checked even when others
         // didn't, so one run reports every error; the namespace still
@@ -514,17 +489,13 @@ impl Session {
         let mut outcomes: BTreeMap<String, NamespaceOutcome> = BTreeMap::new();
         for name in &order[..order.len() - 1] {
             let namespace = analysis.namespace(name).expect("a namespace");
-            let (found, outcome) =
-                self.check_project_namespace(analysis, &order, namespace, &|m| {
-                    outcomes.get(m).copied()
-                });
+            let (found, outcome) = self.check_project_namespace(analysis, namespace);
             outcomes.insert(name.clone(), outcome);
             before.extend(found);
         }
         let mark = self.mark();
         let namespace = analysis.namespace(ns).expect("a namespace");
-        let (diagnostics, _) = self
-            .check_project_namespace(analysis, &order, namespace, &|m| outcomes.get(m).copied());
+        let (diagnostics, _) = self.check_project_namespace(analysis, namespace);
         Ok(GoalLoad {
             diagnostics,
             before,
@@ -590,10 +561,7 @@ impl Session {
                     .with_label(edge.span, "used here"),
             ];
         }
-        let (diagnostics, _) =
-            self.check_project_namespace(analysis, &load.order, namespace, &|m| {
-                outcomes.get(m).copied()
-            });
+        let (diagnostics, _) = self.check_project_namespace(analysis, namespace);
         diagnostics
     }
 
@@ -653,8 +621,6 @@ pub enum NamespaceOutcome {
     Checked,
     /// It has errors.
     Failed,
-    /// It wasn't checked, because a namespace it uses failed or wasn't.
-    Skipped,
 }
 
 /// What a namespace's check cache key is made from.
@@ -923,6 +889,17 @@ pub fn analyse_parsed(
         })
         .collect();
     diagnostics.extend(clashes(&namespaces));
+    // A namespace that lost a declaration to a syntax error says so where
+    // one of its importers names it, rather than there being no such name
+    // (docs/proposals/tests-with-errors.md §4.2).
+    let syntax_errors: BTreeMap<String, Option<Span>> = (namespaces.iter())
+        .filter(|n| !n.parse_errors.is_empty())
+        .map(|n| {
+            let at = (n.parse_errors.iter()).find_map(|d| d.primary_span());
+            (n.name.clone(), at)
+        })
+        .collect();
+    elab.set_project_syntax_errors(syntax_errors);
     elab.set_project_namespaces(namespaces.iter().map(|n| n.name.clone()));
     // Every namespace's names first, since an import of everything from one
     // is read while another's edges are found.
@@ -1232,6 +1209,14 @@ pub fn cycle_diagnostic(analysis: &Analysis, chain: &[String]) -> Diagnostic {
 struct RawConfig {
     sources: Option<Vec<String>>,
     audit: Option<RawAudit>,
+    check: Option<RawCheck>,
+}
+
+/// `check:` in `stitchwort.yaml` (SW-2762).
+#[derive(serde::Deserialize, Default)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct RawCheck {
+    open_goals: Option<String>,
 }
 
 /// `audit:` in `stitchwort.yaml` (SW-912).
@@ -1250,6 +1235,19 @@ pub struct Config {
     /// the project lists them; `None` means the default
     /// (`audit::DEFAULT_ALLOWED`).
     pub allowed_axioms: Option<Vec<String>>,
+    /// What `stitchwort check` does with an open goal (`check: open-goals:`).
+    pub open_goals: OpenGoals,
+}
+
+/// How `stitchwort check` treats an open goal (`?`), per project
+/// (D3489, D3494). `audit` fails unfinished theorems either way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OpenGoals {
+    /// An open goal fails the check.
+    #[default]
+    Fail,
+    /// An open goal is reported as a warning, and the check can still pass.
+    Warn,
 }
 
 fn config_error(display: &str, what: impl std::fmt::Display) -> Diagnostic {
@@ -1301,6 +1299,17 @@ pub fn parse_config(file: FileId, display: &str, text: &str) -> Result<Config, D
             normalised.push(path);
         }
     }
+    let open_goals = match raw.check.and_then(|c| c.open_goals).as_deref() {
+        None | Some("fail") => OpenGoals::Fail,
+        Some("warn") => OpenGoals::Warn,
+        Some(other) => {
+            return Err(config_error(
+                display,
+                format!("`check: open-goals:` is `{other}`, which isn't a setting"),
+            )
+            .with_note("the settings are `warn` and `fail` (the default)"));
+        }
+    };
     let allowed_axioms = raw.audit.and_then(|a| a.allowed_axioms);
     if let Some(unknown) = allowed_axioms
         .iter()
@@ -1319,6 +1328,7 @@ pub fn parse_config(file: FileId, display: &str, text: &str) -> Result<Config, D
     Ok(Config {
         sources: normalised,
         allowed_axioms,
+        open_goals,
     })
 }
 
@@ -1335,8 +1345,10 @@ fn yaml_error(file: FileId, display: &str, text: &str, e: &serde_saphyr::Error) 
         let expected = first.split_once("expected ").map_or("", |(_, rest)| rest);
         if expected.contains("allowed-axioms") {
             note = Some("the known key under `audit:` is `allowed-axioms`");
+        } else if expected.contains("open-goals") {
+            note = Some("the known key under `check:` is `open-goals`");
         } else if expected.contains("sources") || expected.contains("audit") {
-            note = Some("the known keys are `sources` and `audit`");
+            note = Some("the known keys are `sources`, `audit` and `check`");
         }
         format!("unknown key `{key}`")
     } else {
@@ -1421,6 +1433,12 @@ pub trait Files {
     fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>>;
     fn read(&self, path: &str) -> std::io::Result<String>;
 
+    /// Whether `path` is a file, so a source entry that is a file is not
+    /// reported as a folder that doesn't exist.
+    fn is_file(&self, path: &str) -> bool {
+        self.read(path).is_ok()
+    }
+
     /// The same files for `include` to read (`Session::load_project` hands
     /// them over), if `include` can read them.
     fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
@@ -1483,6 +1501,10 @@ impl Files for DiskFiles {
 
     fn read(&self, path: &str) -> std::io::Result<String> {
         std::fs::read_to_string(self.path(path))
+    }
+
+    fn is_file(&self, path: &str) -> bool {
+        self.path(path).is_file()
     }
 }
 
@@ -1575,15 +1597,29 @@ pub fn project_sources(
     let mut found: BTreeMap<String, String> = BTreeMap::new();
     let mut errors = Vec::new();
     for root in &config.sources {
-        if files.entries(root).is_err() {
+        if let Err(e) = files.entries(root) {
             let shown = if root.is_empty() { "." } else { root };
-            errors.push(
-                config_error(
+            if files.is_file(root) {
+                errors.push(config_error(
                     &display,
-                    format!("the source folder `{shown}` doesn't exist"),
-                )
-                .with_note("create it, or list your folders under `sources` in `stitchwort.yaml`"),
-            );
+                    format!("`{shown}` is a file; `sources` lists folders"),
+                ));
+            } else if e.kind() == std::io::ErrorKind::NotFound {
+                errors.push(
+                    config_error(
+                        &display,
+                        format!("the source folder `{shown}` doesn't exist"),
+                    )
+                    .with_note(
+                        "create it, or list your folders under `sources` in `stitchwort.yaml`",
+                    ),
+                );
+            } else {
+                errors.push(Diagnostic::error(
+                    "E-IO",
+                    format!("can't read the folder `{project}/{shown}`: {e}"),
+                ));
+            }
             continue;
         }
         walk(files, project, root, &mut found, &mut errors);
@@ -1602,8 +1638,16 @@ fn walk(
     found: &mut BTreeMap<String, String>,
     errors: &mut Vec<Diagnostic>,
 ) {
-    let Ok(mut entries) = files.entries(dir) else {
-        return;
+    let mut entries = match files.entries(dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            let shown = if dir.is_empty() { "." } else { dir };
+            errors.push(Diagnostic::error(
+                "E-IO",
+                format!("can't read the folder `{project}/{shown}`: {e}"),
+            ));
+            return;
+        }
     };
     // Errors are found in name order, not the directory's.
     entries.sort_by(|a, b| a.name.cmp(&b.name));

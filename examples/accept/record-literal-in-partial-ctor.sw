@@ -7,10 +7,9 @@ import Std (List)
 
 type Hit = { row: Nat, column: Nat }
 
-def prefixAll (c: Nat) (xs: List (List Hit)): List (List Hit) :=
-  xs.map (Cons { row = 0, column = c })
+def prefixAll (c: Nat) (xs: List (List Hit)): List (List Hit) := xs.map (Cons { row = 0, column = c })
 
-def paths (r: Nat) (c: Nat): List Bool → List (List Hit)
+def paths (r c: Nat): List Bool → List (List Hit)
   | [] => [[]]
   | [b, ..rest] =>
     if b then

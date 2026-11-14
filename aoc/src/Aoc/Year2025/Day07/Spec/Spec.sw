@@ -33,9 +33,7 @@ import Std (Fin, List, Option, Vec)
 --| Is there a splitter in column c of a row? Past its end, empty space.
 def splitterAt (row: Vec Bool w) (c: Nat): Bool := row.getOr c False
 
-type Turn =
-  | Left
-  | Right
+type Turn = | Left | Right
 
 --| A timeline reaching the splitter at row `row`, column `column`, and the
 --| way it goes on from there.
@@ -44,7 +42,7 @@ type Hit = { row: Nat, column: Nat, turn: Turn }
 --| Every timeline of a particle falling into row r in column c, where `rows`
 --| are the rows from row r down: each is the list of the splitters it
 --| reaches, in order.
-def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) → List (List Hit)
+def timelinesFrom (r c: Nat): List (Vec Bool w) → List (List Hit)
   | [] => [[]]
   | [row, ..rest] =>
     if splitterAt row c then
@@ -59,11 +57,12 @@ def timelinesFrom (r: Nat) (c: Nat): List (Vec Bool w) → List (List Hit)
 def timelines (manifold: Manifold): List (List Hit) := timelinesFrom 0 manifold.start.toNat manifold.rows
 
 --| Some timeline reaches the splitter in row r, column c.
-def reached (ts: List (List Hit)) (r: Nat) (c: Nat): Bool := ts.any (t => t.any (hit => hit.row == r ∧ hit.column == c))
+def reached (ts: List (List Hit)) (r c: Nat): Bool := ts.any (t => t.any (hit => hit.row == r ∧ hit.column == c))
 
 --| Part 1: the splitters that some timeline reaches.
 def part1Spec (manifold: Manifold): Nat :=
-  List.range 0 manifold.rows.length |> .sumBy (r => List.range 0 manifold.width |> .count (c => reached (timelines manifold) r c))
+  List.range 0 manifold.rows.length
+    |> .sumBy (r => List.range 0 manifold.width |> .count (c => reached (timelines manifold) r c))
 
 --| Part 2: the timelines.
 def part2Spec (manifold: Manifold): Nat := timelines manifold |> .length

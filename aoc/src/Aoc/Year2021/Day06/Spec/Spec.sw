@@ -11,8 +11,7 @@ def nextTimer (timer: Nat): Nat := if timer == 0 then 6 else timer - 1
 
 --| A day: each fish's timer changes, and each fish that was at 0 adds a new
 --| fish at 8 to the end of the list.
-def nextDay (fish: List Nat): List Nat :=
-  fish.map nextTimer ++ List.replicate (fish.count (== 0)) 8
+def nextDay (fish: List Nat): List Nat := fish.map nextTimer ++ List.replicate (fish.count (== 0)) 8
 
 --| The list of every fish after `days` days.
 def afterDays (days: Nat) (fish: List Nat): List Nat := Nat.iterate days nextDay fish

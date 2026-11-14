@@ -18,9 +18,18 @@
 //! [`ResourceError::Cancelled`] until [`Budget::reset`]. It's never an
 //! answer, so the session layer drops whatever the cancelled check reported
 //! and rewinds.
+//!
+//! A host can also ask to be told when an operation runs long
+//! ([`Budget::set_progress`]): while it is installed, the same polling on
+//! the slow path calls it once the steps taken pass [`PROGRESS_FIRST`], and
+//! again each time they double. That's how `stitchwort check` says what a
+//! slow declaration is computing before it finishes or runs out (SW-2009).
+//! It counts steps, not time, so it says the same thing on every run, and it
+//! changes neither the steps taken nor the result.
 
 use std::cell::{Cell, RefCell};
 use std::fmt;
+use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 /// The clock deadlines are read from: the standard one, except in the
@@ -42,8 +51,9 @@ pub enum ResourceError {
     /// A term or expression nested too deeply for one of the passes that
     /// recurse over them (named here) to follow.
     Nesting(&'static str),
-    /// A value too large to turn back into a term or print.
-    Size,
+    /// A value too large to turn back into a term or print: the most nodes
+    /// a read-back may write ([`Limits::size`]).
+    Size(u64),
     /// The wall-clock deadline the host set ([`Budget::set_deadline`]) passed
     /// while the operation was running. Like running out of stack, an
     /// attempt inside the operation passes it on rather than taking it as
@@ -55,6 +65,30 @@ pub enum ResourceError {
     Cancelled,
 }
 
+/// The start of [`ResourceError::Size`]'s message, which callers that
+/// treat that error specially look for ([`ResourceError::is_size_message`]).
+const TOO_LARGE_TO_WRITE_OUT: &str = "a value was too large to write out";
+
+/// `n` with a comma between each group of three digits: `10,000,000,000`.
+pub fn with_commas(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
+}
+
+impl ResourceError {
+    /// Whether a diagnostic's message is that of [`ResourceError::Size`].
+    pub fn is_size_message(message: &str) -> bool {
+        message.contains(TOO_LARGE_TO_WRITE_OUT)
+    }
+}
+
 impl fmt::Display for ResourceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
@@ -63,18 +97,30 @@ impl fmt::Display for ResourceError {
             ResourceError::Nesting(pass) => {
                 return write!(f, "the program is nested too deeply for the {pass}");
             }
-            ResourceError::Size => "a value was too large to show",
+            ResourceError::Size(limit) => {
+                return write!(
+                    f,
+                    "{TOO_LARGE_TO_WRITE_OUT} (over {} parts)",
+                    with_commas(*limit)
+                );
+            }
             ResourceError::Deadline => "it took longer than the time allowed",
             ResourceError::Cancelled => "the check was cancelled",
         })
     }
 }
 
+/// The note every `E-RESOURCE` error starts with.
+pub const NO_ANSWER: &str =
+    "this isn't a type error or a failed test: there's no answer within the limits";
+
 impl From<ResourceError> for Diagnostic {
+    // Out of line: every `?` on a resource error in the kernel's recursive
+    // passes would otherwise carry the message's formatting in its frame.
+    #[cold]
+    #[inline(never)]
     fn from(e: ResourceError) -> Diagnostic {
-        Diagnostic::error("E-RESOURCE", format!("ran out of resources: {e}")).with_note(
-            "this isn't a type error or a failed test: there's no answer within the limits",
-        )
+        Diagnostic::error("E-RESOURCE", format!("ran out of resources: {e}")).with_note(NO_ANSWER)
     }
 }
 
@@ -89,14 +135,31 @@ pub struct Limits {
     /// started, and never below the floor of the operation it is started
     /// inside. Must be comfortably less than the thread's stack.
     pub stack: usize,
-    /// Nodes in a quoted term.
+    /// Nodes in a quoted term. Each node a read-back writes is a heap
+    /// allocation of 70 to 120 bytes, held until the error unwinds, so the
+    /// limit bounds the memory a runaway read-back takes (2 million: about
+    /// 0.3 GB). The largest read-back in the standard library, `aoc/` and
+    /// `games/rogue` is under 400,000 nodes (SW-2681).
     pub size: u64,
     /// Frames of pending work in the evaluator: how deeply a program may
     /// recurse. A frame keeps its environment alive, so in practice each
     /// costs a few hundred bytes: `length (replicate 1000000 1)`, a million
     /// frames deep, peaks at about 750 MB.
     pub frames: usize,
+    /// The most frames native code may have pending (the ceiling of its
+    /// depth budget, `E-RESOURCE`): the machine keeps `frames`, since each
+    /// machine frame costs heap and each native frame costs stack, which
+    /// is reserved lazily and so is cheap to size generously. The limit a
+    /// native run enforces is this, or less when the program's widest frame
+    /// would need more stack than the cap
+    /// (`stitchwort_rt::native_abi::native_frame_limit`). The one place the
+    /// value is set; [`NATIVE_FRAMES`] is its default.
+    pub native_frames: usize,
 }
+
+/// The default [`Limits::native_frames`]: 16 million, which runs
+/// `bench/compare/const-fold` at depth 23 (SW-2471, D3450).
+pub const NATIVE_FRAMES: usize = 16_000_000;
 
 impl Limits {
     /// For a thread with `stack_size` bytes of stack, leaving a quarter (and
@@ -106,8 +169,9 @@ impl Limits {
         Limits {
             work: 10_000_000_000,
             stack: stack_size.saturating_sub(reserve),
-            size: 10_000_000,
+            size: 2_000_000,
             frames: 2_000_000,
+            native_frames: NATIVE_FRAMES,
         }
     }
 
@@ -120,6 +184,7 @@ impl Limits {
             stack,
             size: u64::MAX,
             frames: usize::MAX,
+            native_frames: usize::MAX,
         }
     }
 }
@@ -160,6 +225,45 @@ static CANCEL_HOOK: std::sync::OnceLock<fn() -> bool> = std::sync::OnceLock::new
 /// flag: a fraction of a millisecond.
 pub const POLL: u64 = 1 << 14;
 
+/// The steps after which [`Budget::set_progress`]'s sink is first told of
+/// an operation: 250 million, about 7 seconds of evaluation on a 2026
+/// laptop (34 million steps a second, measured on a `countdown` loop). The
+/// operation's whole budget, [`Limits::work`], is 40 times that.
+pub const PROGRESS_FIRST: u64 = 250_000_000;
+
+/// What [`Budget::set_progress`] installs: called with the number of steps
+/// just passed since it was installed (its first, then twice that, and so
+/// on) and the definition the evaluator last entered (its index), if
+/// any.
+pub type ProgressSink = Rc<dyn Fn(u64, Option<usize>)>;
+
+/// An installed [`ProgressSink`] and when it is next due.
+pub struct Progress {
+    sink: ProgressSink,
+    /// [`Budget::total_work`] when it was installed.
+    start: u64,
+    /// Steps since `start` at which the sink is next called.
+    next: u64,
+}
+
+impl fmt::Debug for Progress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Progress")
+            .field("start", &self.start)
+            .field("next", &self.next)
+            .finish_non_exhaustive()
+    }
+}
+
+/// The largest read-back and deepest frames seen: [`Budget::take_peaks`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Peaks {
+    /// Nodes in the largest single read-back, counted as the size limit is.
+    pub readback: u64,
+    /// The most frames of pending work the evaluator had at once.
+    pub frames: usize,
+}
+
 /// What one operation has used so far. Lives in [`crate::machine::Machine`]; an
 /// operation starts with [`Budget::operation`].
 #[derive(Debug)]
@@ -191,6 +295,13 @@ pub struct Budget {
     /// When a value was too large to read back ([`ResourceError::Size`]): the
     /// definition its outermost call was of, if it was one.
     too_large: Cell<Option<usize>>,
+    /// The most nodes any one read-back has counted, and the most frames
+    /// pending at once, since [`Budget::take_peaks`]. Kept across
+    /// operations: the timings report (`STITCHWORT_TIMINGS`) reads them per
+    /// declaration. Each is one comparison where the limit is already
+    /// checked.
+    peak_readback: Cell<u64>,
+    peak_frames: Cell<usize>,
     /// The definition whose case tree the reference evaluator last entered.
     entered: Cell<usize>,
     /// The definition last entered when the operation ran out of steps or
@@ -214,6 +325,11 @@ pub struct Budget {
     /// Whether an operation was stopped by the deadline since
     /// [`Budget::take_timed_out`] last cleared it.
     timed_out: Cell<bool>,
+    /// Who to tell when an operation runs long, if anyone
+    /// ([`Budget::set_progress`]).
+    progress: RefCell<Option<Progress>>,
+    /// Whether `progress` is set, read by [`Budget::arm`].
+    progress_on: Cell<bool>,
 }
 
 impl Default for Budget {
@@ -231,6 +347,8 @@ impl Default for Budget {
             out_of_stack: Cell::new(false),
             deepest: RefCell::new(Vec::new()),
             too_large: Cell::new(None),
+            peak_readback: Cell::new(0),
+            peak_frames: Cell::new(0),
             entered: Cell::new(usize::MAX),
             ran_out_in: Cell::new(None),
             cancel: RefCell::new(None),
@@ -239,6 +357,8 @@ impl Default for Budget {
             number_words: Cell::new(false),
             deadline: Cell::new(None),
             timed_out: Cell::new(false),
+            progress: RefCell::new(None),
+            progress_on: Cell::new(false),
         }
     }
 }
@@ -319,6 +439,22 @@ impl Budget {
             previous: Some(saved),
             attempt: true,
         }
+    }
+
+    /// Runs `f` as an [`Budget::attempt`] within `limits`, leaving no trace
+    /// in what the running operation reports: where it ran out, and the
+    /// definition last entered, are as they were. For a computation a
+    /// message makes on the side, which may run out without saying so.
+    pub fn aside<T>(&self, limits: Limits, f: impl FnOnce() -> T) -> T {
+        let entered = self.entered.get();
+        let ran_out_in = self.ran_out_in.get();
+        let result = {
+            let _attempt = self.attempt(limits);
+            f()
+        };
+        self.entered.set(entered);
+        self.ran_out_in.set(ran_out_in);
+        result
     }
 
     /// Like [`Budget::attempt`], for callers that can't hold a borrow of the
@@ -410,7 +546,7 @@ impl Budget {
     fn arm(&self) {
         let at = if self.exhausted.get().is_some() {
             0
-        } else if self.watching.get() || self.deadline.get().is_some() {
+        } else if self.watching.get() || self.deadline.get().is_some() || self.progress_on.get() {
             self.limit.get().min(self.work.get().saturating_add(POLL))
         } else {
             self.limit.get()
@@ -444,6 +580,55 @@ impl Budget {
     pub fn set_deadline(&self, deadline: Option<Instant>) {
         self.deadline.set(deadline);
         self.arm();
+    }
+
+    /// Installs (or, with `None`, removes) a sink told when the work goes on
+    /// long: after `first` steps from now ([`PROGRESS_FIRST`] for a check),
+    /// then each time the steps double. Returns the one it replaces, for its
+    /// owner to put back: a check started inside another (a library file
+    /// loaded part way) installs its own. While one is installed,
+    /// [`Budget::step`] leaves its fast path every [`POLL`] steps, as for a
+    /// watched cancellation flag. Only the notes change: the steps taken,
+    /// and where the operation runs out, are the same.
+    pub fn set_progress(&self, sink: Option<ProgressSink>, first: u64) -> Option<Progress> {
+        let progress = sink.map(|sink| Progress {
+            sink,
+            start: self.total_work(),
+            next: first.max(1),
+        });
+        self.restore_progress(progress)
+    }
+
+    /// Puts back a sink [`Budget::set_progress`] returned, still due when it
+    /// was, counting from when it was first installed. Returns the one it
+    /// replaces.
+    pub fn restore_progress(&self, progress: Option<Progress>) -> Option<Progress> {
+        self.progress_on.set(progress.is_some());
+        let old = self.progress.replace(progress);
+        self.arm();
+        old
+    }
+
+    /// Calls the progress sink if it is due.
+    fn progress_due(&self) {
+        let due = {
+            let mut progress = self.progress.borrow_mut();
+            let Some(p) = progress.as_mut() else {
+                return;
+            };
+            let taken = self.total_work().saturating_sub(p.start);
+            if taken < p.next {
+                return;
+            }
+            let mut passed = p.next;
+            while p.next <= taken {
+                passed = p.next;
+                p.next = p.next.saturating_mul(2);
+            }
+            (p.sink.clone(), passed)
+        };
+        // Not borrowed while it runs: it may look at the budget.
+        (due.0)(due.1, self.last_entered());
     }
 
     /// Whether the deadline stopped an operation since this was last called.
@@ -642,6 +827,9 @@ impl Budget {
                 self.work_limit.set(0);
                 return Err(ResourceError::Deadline);
             }
+            if self.progress_on.get() {
+                self.progress_due();
+            }
             self.arm();
             return Ok(());
         }
@@ -686,8 +874,11 @@ impl Budget {
     }
 
     /// Notes the definition last entered as where the operation ran out,
-    /// unless it had already run out.
-    fn note_ran_out(&self) {
+    /// unless it had already run out: for whoever reports it
+    /// ([`Budget::take_ran_out_in`]). Running out of steps or frames notes it
+    /// here; a read-back that finds a value too large
+    /// ([`ResourceError::Size`]) notes it itself, before it fails.
+    pub fn note_ran_out(&self) {
         if self.exhausted.get().is_none() {
             self.ran_out_in.set(self.last_entered());
         }
@@ -697,6 +888,13 @@ impl Budget {
     /// steps or frames, if known. Clears it.
     pub fn take_ran_out_in(&self) -> Option<usize> {
         self.ran_out_in.take()
+    }
+
+    /// Puts back what [`Budget::take_ran_out_in`] took: for a caller that
+    /// tried something else after the operation ran out, and reports the
+    /// first error.
+    pub fn set_ran_out_in(&self, definition: Option<usize>) {
+        self.ran_out_in.set(definition);
     }
 
     /// Records which definitions the pending frames belong to, for
@@ -724,9 +922,39 @@ impl Budget {
         self.too_large.take()
     }
 
+    /// A read-back ([`crate::value::quote`], the unifier's `rename`) counted
+    /// `nodes` nodes, whether it finished or ran over a limit.
+    #[inline]
+    pub fn note_readback(&self, nodes: u64) {
+        if nodes > self.peak_readback.get() {
+            self.peak_readback.set(nodes);
+        }
+    }
+
+    /// The largest read-back and the most frames pending since the last call
+    /// (or the start), and starts counting again from zero.
+    pub fn take_peaks(&self) -> Peaks {
+        Peaks {
+            readback: self.peak_readback.take(),
+            frames: self.peak_frames.take(),
+        }
+    }
+
+    /// Puts back peaks taken with [`Budget::take_peaks`], keeping any larger
+    /// ones seen since.
+    pub fn restore_peaks(&self, peaks: Peaks) {
+        self.note_readback(peaks.readback);
+        if peaks.frames > self.peak_frames.get() {
+            self.peak_frames.set(peaks.frames);
+        }
+    }
+
     /// The evaluator is about to have `frames` frames of pending work.
     #[inline]
     pub fn frames(&self, frames: usize) -> Result<()> {
+        if frames > self.peak_frames.get() {
+            self.peak_frames.set(frames);
+        }
         if frames > self.frame_limit.get() {
             self.note_ran_out();
             let e = self.exhausted.get().unwrap_or(ResourceError::Depth);
@@ -767,6 +995,20 @@ impl Budget {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_size_message_names_the_limit() {
+        for (limit, shown) in [(2_000_000, "2,000,000"), (100, "100"), (1_000, "1,000")] {
+            let message = ResourceError::Size(limit).to_string();
+            assert_eq!(
+                message,
+                format!("a value was too large to write out (over {shown} parts)")
+            );
+            assert!(ResourceError::is_size_message(&message));
+        }
+        assert!(!ResourceError::Work.to_string().contains("write out"));
+        assert_eq!(Limits::for_stack(1 << 20).size, 2_000_000);
+    }
 
     fn steps(b: &Budget, n: u32) -> Result<()> {
         (0..n).try_for_each(|_| b.step())
@@ -966,6 +1208,44 @@ mod tests {
         // A deadline far away costs nothing.
         b.set_deadline(Some(Instant::now() + std::time::Duration::from_secs(3600)));
         assert_eq!(steps(&b, 4 * POLL as u32), Ok(()));
+    }
+
+    /// SW-2009: the sink is told when the steps pass its first count and
+    /// each double of it, with the definition last entered, and taking the
+    /// same steps with it installed runs out at the same point.
+    #[test]
+    fn a_progress_sink_is_told_at_each_doubling_and_changes_nothing() {
+        let b = Budget::default();
+        type Told = Rc<RefCell<Vec<(u64, Option<usize>)>>>;
+        let told: Told = Rc::default();
+        let sink = {
+            let told = told.clone();
+            Rc::new(move |steps, entered| told.borrow_mut().push((steps, entered)))
+        };
+        let limits = Limits {
+            work: 10 * POLL,
+            ..Limits::default()
+        };
+        let _op = b.operation(limits);
+        assert!(b.set_progress(Some(sink), 2 * POLL).is_none());
+        b.enter_definition(7);
+        assert_eq!(steps(&b, 9 * POLL as u32), Ok(()));
+        assert_eq!(
+            *told.borrow(),
+            [
+                (2 * POLL, Some(7)),
+                (4 * POLL, Some(7)),
+                (8 * POLL, Some(7))
+            ]
+        );
+        assert_eq!(steps(&b, POLL as u32), Ok(()));
+        assert_eq!(b.step(), Err(ResourceError::Work));
+        // Put back, it is due when it was; removed, it is told nothing more.
+        let taken = b.set_progress(None, 0);
+        assert!(taken.is_some());
+        assert!(b.restore_progress(taken).is_none());
+        assert!(b.set_progress(None, 0).is_some());
+        assert_eq!(told.borrow().len(), 3);
     }
 
     #[test]

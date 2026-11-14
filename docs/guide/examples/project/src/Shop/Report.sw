@@ -13,4 +13,4 @@ def printTotal (item: (Text, Nat)): {IO} () :=
   let (product, quantity) := item
   IO.print "${quantity} x ${product}"
 
-def bill (orders: List Order): Nat := orders.filterMap (.price) |> .sum
+def bill (orders: List Order): Nat := orders.filterMap .price |> .sum

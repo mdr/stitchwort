@@ -60,8 +60,7 @@ type Peek = { items: List (Option Nat), extra: Option (List (Option Nat)) }
 export def peek (p: Peek): Peek := p
 
 -- A constructor's field is not a record's, so it's `T | undefined`, present.
-type Both: Type =
-  | MkBoth (left: Option Nat) (right: Text)
+type Both: Type = | MkBoth (left: Option Nat) (right: Text)
 
 export def swapSides: Both → Both
   | MkBoth l r => MkBoth (Some (Text.length r)) (describe l)

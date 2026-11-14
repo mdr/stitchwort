@@ -346,6 +346,80 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
   assert.equal(await hash(), "#example/proofs-about-lists");
 });
 
+test("a direct link opens the book at line 167 and shows the line", async (page) => {
+  await page.open({ hash: "#book/2:167" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 167);
+  assert.equal(await page.ev(`window.editor.view.state.doc.line(167).text`),
+    "theorem noAndAnything (b: Answer): both No b = No := rfl");
+  const visible = await page.ev(`(() => {
+    const v = window.editor.view, pos = v.state.selection.main.head;
+    const at = v.coordsAtPos(pos), box = v.scrollDOM.getBoundingClientRect();
+    return !!at && at.top >= box.top - 1 && at.bottom <= box.bottom + 1;
+  })()`);
+  assert.equal(visible, true, "line 167 is in view");
+  assert.equal(await page.ev(`!!document.querySelector("#editor .cm-link-line")`), true, "the line is highlighted");
+});
+
+test("a direct link opens another file of a project at its line", async (page) => {
+  const path = "src/Sf/Lf/Basics/LateDays.sw";
+  await page.open({ hash: `#sf/basics:${path}:22` });
+  await page.until(`document.getElementById("example").value === "sf:0" &&
+    window.editor.path === ${JSON.stringify(path)}`, 60000, "LateDays.sw");
+  assert.equal(await page.ev(`location.hash`), `#sf/basics:${path}:22`);
+  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 22);
+  assert.match(await page.ev(`window.editor.view.state.doc.line(22).text`), /Then the modifiers/);
+  // The caret's line keeps the file's path in the link too.
+  await page.ev(`(() => { const e = window.editor; const pos = e.offset(23, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
+  await page.until(`location.hash === ${JSON.stringify(`#sf/basics:${path}:24`)}`, 5000, "the address bar to follow the caret");
+});
+
+test("moving the caret updates the address bar's line without a history entry", async (page) => {
+  await page.open({ hash: "#book/2:167" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+  const before = await page.ev(`history.length`);
+  await page.ev(`(() => { const e = window.editor; const pos = e.offset(199, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
+  await page.until(`location.hash === "#book/2:200"`, 5000, "the address bar to follow the caret");
+  assert.equal(await page.ev(`history.length`), before, "no history entries are added");
+});
+
+test("a direct link past the end of a file opens the entry with a notice", async (page) => {
+  await page.open({ hash: "#book/2:9999" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    !document.getElementById("link-notice").hidden`, 60000, "the notice");
+  assert.match(await page.ev(`document.getElementById("link-notice").textContent`), /No such line/);
+  assert.equal(await page.ev(`location.hash`), "#book/2");
+  assert.ok((await page.ev(`window.editor.value`)).includes("theorem noAndAnything"));
+  // A path that isn't one of the project's files says so, and opens the entry's own file.
+  await page.ev(`location.hash = "#book/2:src/Nope.sw:3"`);
+  await page.until(`/No such file/.test(document.getElementById("link-notice").textContent)`, 5000, "the file notice");
+  assert.equal(await page.ev(`document.getElementById("example").value`), "book:2");
+  assert.equal(await page.ev(`window.editor.path`), "src/02-cases.sw");
+});
+
+test("Copy link to this line copies the URL and says so", async (page) => {
+  await page.open({ hash: "#book/2:167" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+  await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel") ||
+    /(goals? open|in all)$/.test(document.getElementById("status").textContent)`, 180000, "the chapter to check");
+  await page.ev(`(() => {
+    window.__copied = null;
+    Object.defineProperty(navigator, "clipboard", { configurable: true,
+      value: { writeText: async (text) => { window.__copied = text; } } });
+  })()`);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 30000, "the action list");
+  const item = await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Copy link to this line"))?.textContent ?? null`);
+  assert.ok(item, "the list offers Copy link to this line");
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Copy link to this line")).click()`);
+  await page.until(`window.__copied !== null`, 5000, "the copied link");
+  assert.equal(await page.ev(`window.__copied`), `${await page.ev(`location.origin + location.pathname`)}#book/2:167`);
+  await page.until(`document.getElementById("link-notice").textContent === "Link copied"`, 5000, "the notice");
+}, { ms: 240000 });
+
 test("an unknown link at the start gives the default example and a notice", async (page) => {
   await page.open({ hash: "#aoc/2025/day99" });
   await page.untilChecked();
@@ -521,6 +595,10 @@ test("the compiler's files are asked for by content hash (pkg/version.json)", as
   const version = await page.ev(`fetch("pkg/version.json").then((r) => r.json())`);
   assert.match(version.compiler, /^[0-9a-f]{16}$/);
   assert.match(version.projects, /^[0-9a-f]{16}$/);
+  // The compiler's worker starts on the first request for it (the Tests tab,
+  // Run); the Check pane is the language server's.
+  await page.tab("tests");
+  await page.until(`document.getElementById("output").dataset.for === window.editor.value`, 30000, "the tests' results");
   const asked = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search)`);
   assert.ok(asked.includes("version.json"), `version.json is fetched: ${asked}`);
   assert.ok(asked.includes(`stitchwort_web_bg.wasm?v=${version.compiler}`), `the WebAssembly: ${asked}`);
@@ -529,7 +607,8 @@ test("the compiler's files are asked for by content hash (pkg/version.json)", as
   await page.pick("aoc:0");
   await page.untilStatus(dayStatus(1), 60000);
   const manifest = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search).filter((a) => a.startsWith("manifest.json"))`);
-  assert.deepEqual(manifest, Array(2).fill(`manifest.json?v=${version.projects}`), "one manifest per bundled project");
+  // One per bundled project: aoc, rogue, sf and book.
+  assert.ok(manifest.length === 4 && manifest.every((a) => a === `manifest.json?v=${version.projects}`), `one manifest per bundled project: ${manifest}`);
 });
 
 test("every example checks, and passes its tests but the failing one", async (page) => {
@@ -634,7 +713,7 @@ test("errors show in the Check tab", async (page) => {
   await page.open();
   await page.untilChecked();
   await page.setSource("def x : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   assert.match(await page.ev(`document.querySelector("pre.errors").textContent`), /E-TYPE-MISMATCH/);
 });
 
@@ -661,11 +740,11 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   let s = await shown();
   assert.equal(s.count, "1 warning");
   assert.match(s.output, /Every definition type-checks/);
-  assert.match(s.warnings, /^\[W-MODULE-NAME\] Warning:/);
+  assert.match(s.warnings, /^\[W-MODULE-NAME\] `a` in this type/);
   assert.equal(s.errors, null);
   // With an error as well: each in its own box, in its own colour.
   await page.setSource(WARNED + "\ndef bad : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   s = await shown();
   assert.equal(s.count, "1 warning");
   assert.match(s.errors, /E-TYPE-MISMATCH/);
@@ -714,14 +793,18 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.setSource("theorem plus_zero (n : Nat) : n + 0 = n := ?\n");
   await page.untilStatus("1 goal open");
   assert.match((await shown()).goals, /^in `plus_zero`\nn: Nat\n⊢ /);
-  // Beside an error: the goals come first, the errors in their own box.
+  // Beside an error: the errors come first, and the goals are collapsed.
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   s = await shown();
-  assert.deepEqual(s.headings, ["Goals (1 open)", "Errors"]);
+  assert.equal(s.headings.length, 1);
+  assert.match(s.headings[0], /^1 error, line \d+$/);
   assert.match(s.goals, /⊢ two = 2/);
   assert.match(s.errors, /E-TYPE-MISMATCH/);
   assert.doesNotMatch(s.errors, /GOAL/);
+  // The errors come first, and the goals are collapsed out of the way.
+  assert.equal(await page.ev(`document.querySelector("#output details").open`), false);
+  assert.equal(await page.ev(`document.querySelector("#output details summary").textContent`), "1 open goal");
   const colours = await page.ev(`["pre.errors", "pre.goals"].map((s) => getComputedStyle(document.querySelector(s)).color)`);
   assert.notEqual(colours[0], colours[1], "errors and goals look different");
   // Gone once filled in.
@@ -739,19 +822,191 @@ test("the goals panel shows the goal at the cursor, and follows it", async (page
   const text = "def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n";
   await page.setSource(text);
   await page.untilStatus("1 goal open");
-  // Off the goal: the panel is there (the file has a goal) and says so.
+  // On another declaration, where the server has nothing: no panel yet.
   await caretAt("def two");
-  await page.until(`document.getElementById("goalpanel").innerText.includes("No goal at the cursor")`, 30000, "the panel to say there is no goal here");
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(await panel(), null, "nothing to show before any answer");
   // On the `?`.
   await caretAt("?");
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ two = 2")`, 30000, "the goal at the ?");
   assert.match(await panel(), /two_is_two/);
+  // Moved to where there is nothing: the last answer stays, marked.
+  await caretAt("def two");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("Nothing at the cursor")`, 30000, "the last answer to be marked");
+  assert.match(await panel(), /⊢ two = 2/);
   // The Check output keeps its Goals list.
   assert.match(await page.ev(`document.querySelector("#output pre.goals")?.textContent ?? ""`), /⊢ two = 2/);
   // Filled in: no goal, no panel.
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
   await page.untilChecked();
-  await page.until(`document.getElementById("goalpanel").hidden`, 30000, "the panel to go");
+  // Filled in, the panel follows the cursor anyway: it still shows the statement's goal at the proof.
+  await caretAt("rfl");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("two = 2")`, 30000, "the expected type at rfl");
+});
+
+test("the book's chapter 2 shows a ?'s goal in the panel", async (page) => {
+  await page.open({ hash: "#book/2" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  assert.ok(text.includes(line), text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  await caretAt(page, "both No b = No := ?", "both No b = No := ?".length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  const panel = await page.ev(`document.getElementById("goalpanel").innerText`);
+  assert.match(panel, /b: Answer/);
+  assert.match(panel, /⊢ both No b = No/);
+  assert.match(panel, /computes to No = No/);
+}, { ms: 240000 });
+
+test("a book chapter's error comes first, with its open goals collapsed", async (page) => {
+  await page.open({ hash: "#book/2" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await page.ev(`window.editor.value`);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  const at = text.split("\n").findIndex((l) => l === line) + 1;
+  assert.ok(at > 0, text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "| x"));
+  await page.untilStatus("1 error", 180000);
+  const shown = await page.ev(`(() => {
+    const out = document.getElementById("output");
+    const details = out.querySelector("details.goal-details");
+    const h2 = [...out.querySelectorAll("h2")];
+    return { headings: h2.map((h) => h.textContent), headingColour: h2[0] && getComputedStyle(h2[0]).color,
+             summary: details?.querySelector("summary")?.textContent ?? null, open: details?.open ?? null,
+             goal: details?.querySelector("pre.goals")?.textContent ?? null,
+             files: [...(details?.querySelectorAll("h3") ?? [])].map((h) => h.textContent),
+             errors: [...out.querySelectorAll("pre.errors")].map((p) => p.textContent),
+             status: document.getElementById("status").textContent };
+  })()`);
+  assert.equal(shown.headings[0], `1 error in 02-cases.sw, line ${at}`);
+  assert.match(shown.errors[0], /E-/);
+  assert.equal(shown.open, false);
+  assert.match(shown.summary, /^\d+ open goals$/);
+  assert.match(shown.goal, /⊢/);
+  assert.notEqual(shown.headingColour, await page.ev(`getComputedStyle(document.querySelector("#output pre.goals")).color`));
+  // Expanded, the goals are grouped by file.
+  await page.ev(`document.querySelector("#output details.goal-details").open = true`);
+  const files = await page.ev(`[...document.querySelectorAll("#output details.goal-details h3")].map((h) => h.textContent)`);
+  assert.ok(files.length > 1, files.join());
+  assert.ok(files.every((f) => f.endsWith(".sw")), files.join());
+  assert.equal(shown.status, "1 error");
+}, { ms: 240000 });
+
+// The book's chapter 2 imports chapter 1, so its check has both chapters'
+// goals: the status counts the open file's first, then the project's.
+test("a multi-file project's status puts the open file's goals first", async (page) => {
+  await page.open({ hash: "#book/2" });
+  const status = await page.until(`/^\\d+ goals? open in this chapter, \\d+ in all$/.test(document.getElementById("status").textContent) &&
+    document.getElementById("status").textContent`, 180000, "the chapter's and the project's goal counts");
+  const [, chapter, all] = status.match(/^(\d+) goals? open in this chapter, (\d+) in all$/);
+  assert.ok(Number(chapter) > 0, status);
+  assert.ok(Number(chapter) < Number(all), `${status}: chapter 2's goals are some of the project's`);
+}, { ms: 240000 });
+
+test("a code action on the book's chapter 2 splits the theorem on b", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  assert.ok(text.includes(line), text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  // The server has checked the file when its goal is on show; from there the
+  // list comes from what the check published, with no search (D3529).
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  const pressed = Date.now();
+  await page.key(".", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 60000, "the code actions");
+  const listed = Date.now() - pressed;
+  console.log(`  Cmd+. to the list: ${listed} ms`);
+  assert.ok(listed < 3000, `the list took ${listed} ms`);
+  const titles = await page.ev(`window.editor.lastCodeActions`);
+  assert.ok(titles.includes("Split on `b`"), titles.join());
+  assert.ok(titles.includes("Search for a proof"), titles.join());
+  const picked = Date.now();
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Split on \`b\`")).click()`);
+  await page.until(`window.editor.value.includes("match b with")`, 30000, "the split");
+  console.log(`  Split applied in ${Date.now() - picked} ms`);
+  assert.ok(Date.now() - picked < 3000, "the split waited for a search");
+  assert.match(await sourceText(page),
+    /theorem noAndAnything \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
+  // The caret is on the first new ?, and the panel shows that arm's goal (D3530).
+  const caret = await page.ev(`(() => { const e = window.editor; return e.value.slice(e.selectionStart - 7, e.selectionEnd) + "|" + (e.selectionEnd - e.selectionStart); })()`);
+  assert.equal(caret, "Yes => ?|1", "the selection is the first ?");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ No = No")`, 60000, "the first arm's goal");
+}, { ms: 240000 });
+
+test("a second Cmd+. on the book's chapter 2 waits instead of saying no action", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  assert.ok(text.includes(line), text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  // Keep every notice the person would have seen.
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  // Press before and after the ?, as the person did: the second press comes
+  // while the first search is still loading the library for it.
+  await caretAt(page, hole, hole.length - 1);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await caretAt(page, hole, hole.length);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 120000, "the code actions");
+  const titles = await page.ev(`window.editor.lastCodeActions`);
+  assert.ok(titles.includes("Split on `b`"), titles.join());
+  assert.ok(titles.includes("Search for a proof"), titles.join());
+  const notices = await page.ev(`window.__notices`);
+  assert.ok(!notices.includes("No code action here"), JSON.stringify(notices));
+}, { ms: 240000 });
+
+test("the goals panel shows the goal at a rewrite step in a proof with no ?", async (page) => {
+  const panel = () => page.ev(`document.getElementById("goalpanel").innerText`);
+  const caretAt = (needle) => page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf(${JSON.stringify(needle)}); e.setSelectionRange(i, i); return i; })()`);
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("theorem swap_eq (a: Nat) (b: Nat) (h: a = b) : b = a :=\n  rewrite h in rfl\n");
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.querySelector("#output pre.goals")`), null, "the proof has no goals");
+  await caretAt("h in rfl");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("b = a")`, 60000, "the goal at the rewrite");
+  assert.match(await panel(), /a: Nat/);
+  assert.match(await panel(), /h: a = b/);
+});
+
+test("the settings menu switches the inlay hints off, keeps the choice, and Escape closes it", async (page) => {
+  const hints = () => page.ev(`document.querySelectorAll(".cm-inlay").length`);
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("def f (n: Nat): Nat :=\n  let a := n + 1\n  a\n");
+  await page.untilChecked();
+  await page.until(`document.querySelectorAll(".cm-inlay").length > 0`, 30000, "the let's type hint");
+  await page.ev(`document.getElementById("settings-button").click()`);
+  assert.equal(await page.ev(`document.getElementById("settings-menu").hidden`), false);
+  assert.equal(await page.ev(`document.getElementById("settings-button").getAttribute("aria-expanded")`), "true");
+  await page.ev(`document.querySelector("#settings-menu [name=letTypes]").click()`);
+  await page.until(`document.querySelectorAll(".cm-inlay").length === 0`, 30000, "the hint to go");
+  assert.equal(await hints(), 0);
+  assert.equal(JSON.parse(await page.ev(`localStorage.getItem("stitchwort.settings")`)).letTypes, false);
+  await page.ev(`document.querySelector("#settings-menu [name=letTypes]").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+  assert.equal(await page.ev(`document.getElementById("settings-menu").hidden`), true);
+  assert.equal(await page.ev(`document.getElementById("settings-button").getAttribute("aria-expanded")`), "false");
 });
 
 /** The labels of the completion list on show, or null when there is none. */
@@ -922,6 +1177,7 @@ test("the JavaScript tab", async (page) => {
 
 test("the JavaScript tab shows the declarations and the module in full, and scrolls", async (page) => {
   await page.open();
+  await page.untilChecked();
   await page.pick("ex-js");
   await page.untilChecked();
   await page.tab("js");
@@ -946,6 +1202,7 @@ test("the JavaScript tab shows the declarations and the module in full, and scro
 
 test("Run, with scripted input", async (page) => {
   await page.open();
+  await page.untilChecked();
   await page.pick("ex-main");
   await page.untilChecked();
   const result = await page.run();
@@ -1078,7 +1335,7 @@ test("a long run streams its output, and Stop cancels it", async (page) => {
   assert.match(await page.runResult(), /Running…/);
   // Checking goes on meanwhile, in its own worker.
   await page.setSource(SPIN + "\ndef bad : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   assert.match(await page.runResult(), /Running…/);
   const result = await page.run(5000, () => page.click(".runrow button:nth-child(2)"));
   assert.match(result, /Stopped after/);
@@ -1566,7 +1823,7 @@ test("Format rewrites the text, undo restores it, and a syntax error leaves it a
   await page.click("#format");
   await page.until(`window.editor.value !== ${JSON.stringify(messy)}`, 10000, "the formatted text");
   const formatted = await value();
-  assert.equal(formatted, "def x: Nat := 5\n\ndef y: Nat :=\n  x\n");
+  assert.equal(formatted, "def x: Nat := 5\n\ndef y: Nat := x\n");
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.draft")`), formatted, "the draft is the formatted text");
   await assertAligned(page, "after Format");
   // The caret was at the end of the text, and is still there.
@@ -1856,14 +2113,15 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
   const range = await sourceText(page);
   await edit(page, range + "\ndef broken: Nat := rfl\n");
-  await page.untilStatus("Doesn’t check", 60000);
+  await page.untilStatus("1 error", 60000);
   const shown = await page.ev(`({
     errors: [...document.querySelectorAll("#output pre.errors")].map((p) => p.textContent),
     marked: [...document.querySelectorAll("#filetabs button[data-errors]")].map((b) => b.firstChild.textContent),
     jumps: [...document.querySelectorAll("#output button.jump")].map((b) => b.textContent) })`);
-  assert.ok(shown.errors.length >= 2, shown.errors.join("\n"));
+  assert.ok(shown.errors.length >= 1, shown.errors.join("\n"));
   assert.match(shown.errors[0], /E-TYPE-MISMATCH/);
-  assert.match(shown.errors[1], /E-NAMESPACE-FAILED/, "listed after the error that caused it");
+  // Day 2 doesn't use `broken`, so it's checked as usual (D3524).
+  assert.ok(!shown.errors.some((e) => /E-USES-FAILED/.test(e)), shown.errors.join("\n"));
   assert.ok(shown.marked.includes("Common/Range.sw"));
   const line = range.split("\n").length + 1;
   assert.match(shown.jumps[0], new RegExp(`^src/Aoc/Common/Range\\.sw:${line}:`));
@@ -1944,6 +2202,39 @@ test("when the bundled file changes under a saved edit, the edit is kept and a b
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null);
 }, { ms: 120000 });
 
+test("F2 renames a function in every file of a project, including files that are not open", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  const text = await sourceText(page);
+  // The caret on the definition of `parseRanges`, which two other files of the day use.
+  await page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf("def parseRanges") + 6; e.setSelectionRange(i, i); })()`);
+  // The server answers only once the whole project is checked: F2 is tried until it does.
+  let prompt = false;
+  for (let i = 0; i < 240 && !prompt; i++) {
+    await page.key("F2", "F2", 113);
+    prompt = await page.ev(`!!document.querySelector(".rename-panel input")`).catch(() => false);
+    if (!prompt) await sleep(1000);
+  }
+  assert.ok(prompt, `F2 opens the name prompt once the project is checked (notice: ${await page.ev(`document.getElementById("link-notice").textContent`)}; focus: ${await page.ev(`document.activeElement?.className`)})`);
+  assert.equal(await page.ev(`document.querySelector(".rename-panel input").value`), "parseRanges");
+  await page.ev(`(() => { const i = document.querySelector(".rename-panel input"); i.value = "parseIdRanges"; i.form.requestSubmit(); })()`);
+  await page.until(`!document.querySelector(".rename-panel") || !document.querySelector(".rename-problems").hidden && !document.querySelector(".rename-problems.busy")`, 420000, "the rename to finish")
+    .catch(async (e) => { throw new Error(`${e.message}\n  log: ${await page.ev(`JSON.stringify(window.editor.stats.log.slice(-8))`)}`); });
+  assert.equal(await page.ev(`document.querySelector(".rename-panel")?.innerText ?? ""`), "", "the prompt closes without a refusal");
+  assert.equal(await sourceText(page), text.replaceAll("parseRanges", "parseIdRanges"), "the open file is edited");
+  // Files that are not open changed too: the page keeps them as the project's edits.
+  for (const file of ["Tests/Examples.sw", "Tests/Input.sw"]) {
+    const path = `src/Aoc/Year2025/Day02/${file}`;
+    const stored = await savedEdit(page, path).catch(() => null);
+    assert.ok(stored, `${file} is a saved edit`);
+    assert.match(stored, /parseIdRanges/);
+    assert.doesNotMatch(stored, /parseRanges/);
+  }
+  // And the project still checks.
+  await page.untilStatus(dayStatus(2), 120000);
+}, { ms: 900000 });
+
 test("Evaluate takes full names in a project", async (page) => {
   await page.open();
   await page.untilChecked();
@@ -1971,7 +2262,7 @@ test("the roguelike is a second project: it checks with its proofs, plays on key
   await page.untilChecked();
   const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].some((g) => g.label === "Roguelike") &&
     [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "every group");
-  assert.deepEqual(groups.at(-1), ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
+  assert.deepEqual(groups.find(([label]) => label === "Roguelike"), ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
   // The bundle is the sources alone.
   const manifest = await page.ev(`fetch("pkg/projects/rogue/manifest.json").then((r) => r.json())`);
   assert.ok(manifest.files.length > 15 && manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
@@ -2121,6 +2412,58 @@ test("Ctrl-C stops the roguelike", async (page) => {
   assert.equal(await liveState(page), "interrupted");
   assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
 }, { ms: 400000 });
+
+// The Software Foundations port (sf/), bundled with chapters as its entries -------
+
+test("sf/ is a project with a chapter per entry, opens by link, and shows open goals as goals", async (page) => {
+  await page.open({ hash: "#sf/induction" });
+  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].some((g) => g.label === "Software Foundations (port)") &&
+    [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "every group");
+  assert.deepEqual(groups.find(([label]) => label === "Software Foundations (port)"),
+    ["Software Foundations (port)", ["sf:0=Basics", "sf:1=Induction", "sf:2=Lists", "sf:3=Poly"]]);
+  const manifest = await page.ev(`fetch("pkg/projects/sf/manifest.json").then((r) => r.json())`);
+  assert.equal(manifest.openGoals, "warn");
+  assert.ok(manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
+  assert.equal(await page.ev(`fetch("pkg/projects/sf/stitchwort.yaml").then((r) => r.status)`), 404);
+  // The exercises are open goals, which are not errors.
+  await page.until(`/(goals? open|in all)$/.test(document.getElementById("status").textContent)`, 120000, "Induction's goals");
+  assert.equal(await page.ev(`document.getElementById("example").value`), "sf:1");
+  assert.equal(await page.ev(`location.hash`), "#sf/induction");
+  assert.ok((await fileTabs(page)).includes("Induction.sw"));
+}, { ms: 200000 });
+
+test("a chapter's Run is disabled and says chapters are checked, not run, until an AoC day is picked", async (page) => {
+  await page.open({ hash: "#book/2" });
+  const title = await page.until(`document.getElementById("example").value === "book:2" &&
+    (() => { const b = document.getElementById("run"); return b.disabled && b.title; })()`, 120000, "the chapter's Run button to be disabled");
+  assert.match(title, /checked, not run/);
+  assert.match(title, /Tests tab/);
+  // The chapters' manifests mark them so; the days' project has programs to run.
+  const flags = await page.ev(`Promise.all(["book", "sf", "aoc"].map((name) =>
+    fetch("pkg/projects/" + name + "/manifest.json").then((r) => r.json()).then((m) => !!m.noRun)))`);
+  assert.deepEqual(flags, [true, true, false]);
+  // An AoC day has a main, so Run comes back.
+  await openDay(page, 2);
+  assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
+  assert.match(await page.ev(`document.getElementById("run").title`), /^Run Aoc\.Year2025\.Day02\.main /);
+}, { ms: 200000 });
+
+test("switching to a day while a chapter is still checking starts the day's check at once", async (page) => {
+  await page.open({ hash: "#book/2" });
+  // The chapter is on show, and its check is being made; wait for neither.
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2 to open");
+  assert.equal(await page.ev(`window.editor.stats.isolated`), true, "the page is cross-origin isolated, so the running check can be stopped");
+  const started = Date.now();
+  await page.ev(`location.hash = "#aoc/2025/day02"`);
+  await page.untilStatus(dayStatus(2), 20000);
+  const took = Date.now() - started;
+  console.log(`  the day checked ${took} ms after switching from the chapter`);
+  assert.ok(took < 10000, `the day took ${took} ms to check: it waited for the chapter's check`);
+  // The chapter's check was stopped part way, and can be made again.
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`/(goals? open|checked by the kernel)$/.test(document.getElementById("status").textContent)`, 120000, "the chapter's check");
+}, { ms: 200000 });
 
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {
   await page.open();
@@ -2405,6 +2748,7 @@ test("in a project, after a jump into another file and the whole project's check
   // `published` keeps only the last few hundred, which the project's check has filled: those after the edit.
   const since = await page.ev(`performance.now() - window.editor.t0`);
   t = Date.now();
+  await page.ev(`window.editor.resetPhases()`);
   await page.setSource(own + "\ndef broken: Nat := rfl\n");
   try {
     await page.until(`window.editor.stats.published.some((p) => p.t > ${since} && p.uri.endsWith("Day02.sw") && p.count > 0)`, 60000, "the error published");
@@ -2417,6 +2761,14 @@ test("in a project, after a jump into another file and the whole project's check
   await untilErrorInView(page, "Day02.sw", "broken");
   await page.until(`!!document.querySelector("#editor .cm-lintRange-error")`, 10000, "the error underlined");
   console.log(`    (underlined ${Date.now() - t} ms after the edit)`);
+  // The settled namespaces after the day are replayed from the in-memory check cache (SW-2919), not elaborated again.
+  await page.until(`window.editor.stats.idle || window.editor.stats.restarts > 0`, 240000, "the project's re-check to finish");
+  console.log(`    (the project re-checked ${Math.round((Date.now() - t) / 100) / 10} s after the edit)`);
+  // Where the re-check went (SW-3113): server ticks, sending their output, waits between ticks, the page's handling.
+  console.log(`    (phases: ${JSON.stringify(await page.ev(`window.editor.stats.phases`))}, wall ${Date.now() - t} ms)`);
+  console.log(`    (server phases per idle: ${JSON.stringify(await page.ev(`window.editor.stats.phaseLog.slice(-2)`))})`);
+  // A crash of the server's worker: what it was checking, and how deep the stack got (SW-3128).
+  console.log(`    (crashed: ${JSON.stringify(await page.ev(`[window.editor.stats.crashed, window.editor.stats.crashedAtStack]`))})`);
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0, "the server didn't crash");
 }, { ms: 480000 });
 
@@ -2450,7 +2802,7 @@ test("the roguelike's files open without false errors", async (page) => {
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0);
 }, { ms: 280000 });
 
-test("a code action on a ? fills it in", async (page) => {
+test("a code action on a ? offers a proof search, and the proof picked fills it in", async (page) => {
   await page.open();
   await page.untilChecked();
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n");
@@ -2458,10 +2810,133 @@ test("a code action on a ? fills it in", async (page) => {
   await sleep(500);
   await caretAt(page, "?");
   await page.key(".", "Period", 190, { modifiers: CMD });
+  // The list comes at once, without a search having run.
+  await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+  assert.ok((await page.ev(`window.editor.lastCodeActions`)).includes("Search for a proof"));
+  assert.ok(!(await page.ev(`window.editor.lastCodeActions`)).some((t) => t.startsWith("Replace ? with")));
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+  // One proof (the ladder's `rfl`) is inserted without a list.
   await page.until(`!window.editor.value.includes("?")`, 100000, "the proof");
+  assert.equal(await page.ev(`document.querySelector(".pick-panel")`), null);
   assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
-  assert.match((await page.ev(`window.editor.lastCodeActions`))[0], /^Replace \? with/);
 }, { ms: 120000 });
+
+test("a proof search in the book's chapter 2 shows progress, and a second one doesn't load the library again", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  const search = async (label) => {
+    await caretAt(page, hole, hole.length - 1);
+    await page.key(".", "Period", 190, { modifiers: CMD });
+    await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+    const began = Date.now();
+    const proved = await page.ev(`window.__notices.filter((n) => n.startsWith("Proved by")).length`);
+    await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+    await page.until(`window.__notices.filter((n) => n.startsWith("Proved by")).length > ${proved}`, 150000, "the proof");
+    const took = Date.now() - began;
+    console.log(`  ${label} search: ${took} ms`);
+    // Undo restores the ? for the next search.
+    await page.key("z", "KeyZ", 90, { modifiers: CMD });
+    await page.until(`window.editor.value.includes("both No b = No := ?")`, 20000, "the ? back");
+    return took;
+  };
+  await search("first");
+  const notices = await page.ev(`window.__notices`);
+  assert.ok(notices.some((n) => n.startsWith("Searching for a proof")), JSON.stringify(notices));
+  const second = await search("second");
+  assert.ok(second < 8000, `the second search took ${second} ms`);
+}, { ms: 400000 });
+
+test("the search worker warms when the book opens, and a first proof search doesn't wait for the library", async (page) => {
+  await page.open({ hash: "#book/2" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  // The chapter has goals of its own, so its check finishes as "N goals open
+  // in this chapter, M in all" (or "checked by the kernel" once they are all
+  // proved).
+  await page.until(`/(goals? open|in all|checked by the kernel)$/.test(document.getElementById("status").textContent)`,
+    180000, "the book's check");
+  await page.until(`window.editor.stats.idle`, 180000, "the rest of the book's check");
+  // The search worker's library load starts at the first check; wait for it,
+  // then a few seconds more, so the first search has nothing left to load.
+  await page.until(`window.editor.stats.searchWorker`, 180000, "the search worker's library load");
+  const warm = await page.ev(`window.editor.stats.searchWorker`);
+  console.log(`  the search worker's library load: ${Math.round(warm.warm)} ms, done ${Math.round(warm.at)} ms after the page opened`);
+  await sleep(3000);
+  const memory = await page.ev(`(async () => {
+    const worker = window.editor.stats.searchWorker;
+    const fallback = worker && { kind: "search worker wasm", bytes: worker.memory, loadedAt: worker.at, warmMs: worker.warm };
+    if (typeof performance.measureUserAgentSpecificMemory !== "function") return fallback;
+    try {
+      const measured = await performance.measureUserAgentSpecificMemory();
+      return { kind: "page", bytes: measured.bytes, fallback };
+    } catch {
+      return fallback;
+    }
+  })()`);
+  console.log(`  memory after the warm load: ${JSON.stringify(memory)}`);
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  await caretAt(page, hole, hole.length - 1);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+  const started = Date.now();
+  const proved = await page.ev(`window.__notices.filter((n) => n.startsWith("Proved by")).length`);
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+  await page.until(`window.__notices.filter((n) => n.startsWith("Proved by")).length > ${proved}`, 150000, "the proof");
+  const took = Date.now() - started;
+  console.log(`  first search after opening: ${took} ms`);
+  assert.ok(took < 5000, `the first search took ${took} ms`);
+}, { ms: 400000 });
+
+test("a single proof is inserted at once with a notice, and undo restores the ?", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  await page.key(".", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+  await page.until(`window.editor.value.includes("both No b = No := rfl")`, 150000, "the proof");
+  assert.equal(await page.ev(`document.querySelector(".pick-panel")`), null, "no list");
+  assert.ok((await page.ev(`window.__notices`)).includes("Proved by `rfl`"), JSON.stringify(await page.ev(`window.__notices`)));
+  await page.key("z", "KeyZ", 90, { modifiers: CMD });
+  await page.until(`window.editor.value.includes("both No b = No := ?")`, 20000, "undo to restore the ?");
+}, { ms: 400000 });
 
 test("a let without a type shows its type after the name, and the drawn text is still the document", async (page) => {
   await page.open();

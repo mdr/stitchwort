@@ -5,12 +5,12 @@
 
 import Std (Nat, Int, Bool, Decidable)
 
-theorem natNeTrue (a b: Nat) (h: ((a != b): Bool) = True) (g: a ≤ b): a < b := omega
+theorem natNeTrue ∀ (a b: Nat) (h: ((a != b): Bool) = True) (g: a ≤ b): a < b := omega
 
-theorem natNeFalse (a b: Nat) (h: ((a != b): Bool) = False) (g: a ≤ b): b ≤ a := omega
+theorem natNeFalse ∀ (a b: Nat) (h: ((a != b): Bool) = False) (g: a ≤ b): b ≤ a := omega
 
-theorem intNeTrue (a b: Int) (h: ((a != b): Bool) = True) (g: a ≤ b): a < b := omega
+theorem intNeTrue ∀ (a b: Int) (h: ((a != b): Bool) = True) (g: a ≤ b): a < b := omega
 
-theorem intNeFalse (a b: Int) (h: ((a != b): Bool) = False): a ≤ b ∧ b ≤ a := omega
+theorem intNeFalse ∀ (a b: Int) (h: ((a != b): Bool) = False): a ≤ b ∧ b ≤ a := omega
 
-theorem eqFalse (a b: Nat) (h: (a == b) = False) (g: a ≤ b): a < b := omega
+theorem eqFalse ∀ (a b: Nat) (h: (a == b) = False) (g: a ≤ b): a < b := omega

@@ -25,9 +25,7 @@ type Box (a: Type) = { item: a }
 def applyBox (b: Box (Nat → Nat)) (x: Nat): Nat := b.item x
 
 -- 4: nested in data.
-type Shape =
-  | Circle (r: Count)
-  | Square (s: Count)
+type Shape = | Circle (r: Count) | Square (s: Count)
 
 def area: Shape → Nat
   | Circle r => 3 * r.n * r.n
@@ -56,11 +54,9 @@ type Inventory = { stock: Map Text Nat }
 def inv: Inventory := { stock = [("apple", 3), ("pear", 5)].toMap }
 
 -- 11: a one-method interface.
-interface Describe (a: Type) =
-  { describe: a → Text }
+interface Describe (a: Type) = { describe: a → Text }
 
-instance Describe.instCount: Describe Count :=
-  { describe = c => "count " ++ Nat.toText c.n }
+instance Describe.instCount: Describe Count := { describe = c => "count " ++ Nat.toText c.n }
 
 def counts: List Count := [{ n = 3 }, { n = 1 }, { n = 2 }]
 

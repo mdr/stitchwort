@@ -5,6 +5,4 @@ def total: List Nat -> Nat
   | [] => 0
   | [p, ..rest] => p + total rest
 
-type Status =
-  | Paid
-  | Due (amount: Nat)
+type Status = | Paid | Due (amount: Nat)

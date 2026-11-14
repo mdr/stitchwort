@@ -6,5 +6,4 @@ type Slot = { candidates: List Nat }
 
 def Slot.sound (slot: Slot): Prop := slot.candidates = []
 
-def AllSound (slots: List Slot): Prop :=
-  List.All (slot => slot.candidates = [] ∧ slot.sound) slots
+def AllSound (slots: List Slot): Prop := List.All (slot => slot.candidates = [] ∧ slot.sound) slots

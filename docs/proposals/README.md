@@ -7,6 +7,9 @@ This index says where each note stands. It was written on 7 November 2026
 (SW-2069) by reading the notes, the board and the code at `a0cea6157`.
 Nothing was built or run for it.
 
+The optimisations these notes led to, with their measurements and the ones
+dropped, are logged in [../performance/log.md](../performance/log.md).
+
 **Statuses**
 
 - **built**: the design (or the part of it that was decided) is in the code;
@@ -99,6 +102,7 @@ status line now says the wrong thing; the details are in
 | [proof-automation.md](proof-automation.md) | Rewriting under binders, `ring`, and a controlled `simp` | built, stages 0-2 (`crates/elab/src/ring.rs`); `simp` (stage 3) deferred | SW-374; open SW-897, SW-904 |
 | [simp.md](simp.md) | Automatic case splitting, and where `simp` fits | built, stage 1 as `cases`: `crates/elab/src/cases.rs` | SW-592 |
 | [decide.md](decide.md) | `decide`: check every case of a finite statement | built: `crates/elab/src/derive_finite.rs` (SW-807) | SW-800, SW-807 |
+| [bool-and-prop.md](bool-and-prop.md) | Whether a decidable fact lives in `Bool` or `Prop`: tests first, `Decidable` as a `Bool` with proofs, no `propext` | proposed: D3479-D3482 open | SW-2692 |
 | [counterexample-search.md](counterexample-search.md) | Search for a counterexample when a proof fails | built, stages 1-2: `crates/elab/src/counterexample/`; stages 3-4 not built | SW-330, SW-436 |
 | [proof-reification.md](proof-reification.md) | `match reify`: proofs that look inside a computation | built, R1-R2: `crates/elab/src/reify.rs` | SW-419, SW-420; open SW-660 |
 | [tailrec.md](tailrec.md) | A checked `@[tailrec]` attribute | built: `crates/elab/src/tailrec.rs` | SW-1213, SW-1222 |
@@ -120,12 +124,14 @@ status line now says the wrong thing; the details are in
 | [negative-arguments-review.md](negative-arguments-review.md) | Independent review of the note above | record | SW-853 |
 | [logic-notation.md](logic-notation.md) | `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` and their ASCII forms | built: `crates/elab/src/logic.rs`, `crates/elab/src/membership.rs` | SW-461 |
 | [number-patterns.md](number-patterns.md) | Number patterns without `Succ` chains | built: `crates/elab/src/numbers.rs` | SW-75 |
+| [text-patterns.md](text-patterns.md) | Text literals in patterns (`\| "def" => …`), on `Text` and `List Char`, and prefixes | proposed: D3591, D3592 | SW-3231 |
 | [fin-literals.md](fin-literals.md) | Checked `Fin` literals | built | SW-384 |
 | [brace-syntax-review.md](brace-syntax-review.md) | Braces after a constructor, and record syntax as a whole | built (stale): D2481-D2485 | SW-1613, SW-1632, SW-1633 |
 | [record-argument-braces.md](record-argument-braces.md) | A record literal as a constructor's argument (D1370) | superseded by brace-syntax-review.md | SW-606, SW-1322 |
 | [attributes.md](attributes.md) | Attributes `@[…]`, starting with the JavaScript wire format | built, stages 1, 2, 2b: `crates/elab/src/attributes.rs` | SW-341 |
 | [direct-style-grammars.md](direct-style-grammars.md) | Sequence expressions `(a; b)` and `Parse.before` | built | SW-888, SW-889; open SW-887 |
 | [private-helpers.md](private-helpers.md) | Hiding std's internal helpers, `@[internal]` | proposed | SW-2008, SW-2037-SW-2040 |
+| [entry-points.md](entry-points.md) | How a program declares its entry point: `@[entry]`, `main` checked where defined, or both | proposed: D3452-D3454 (recommends `main` by name, checked at definition) | SW-2550; SW-2549 |
 
 ## Effects
 
@@ -173,7 +179,10 @@ status line now says the wrong thing; the details are in
 | [nat-shaped-types.md](nat-shaped-types.md) | Types shaped like `Nat` after erasure (`Fin` first) as machine numbers at run time, with pinned identity natives; compared with Idris 2, Lean, Agda, Rocq, F* | proposed: questions in §9; §1.1/§2.3 wrong about `Fin`'s `n` (corrected in place) | SW-2397, SW-2398 |
 | [erase-determined-fields.md](erase-determined-fields.md) | Don't store constructor fields the type's indices determine (`Fin`'s and `Vec`'s `n`) on the fast runtimes, rebuilding them at a match from the kernel's own unification; reverses half of D141; compared with Brady et al., Agda, Idris 1 and 2, Lean, Rocq | proposed: questions in §9 | SW-2406 |
 | [compact-values.md](compact-values.md) | How big a run-time value should be: an 8-byte cell header, two-word values (16 bytes), or one-word tagged values with unboxed typed fields, compared with Lean, Koka, OCaml, GHC, Swift and others; most of the native/Lean gap is instructions, not memory stalls; a staged measurement plan with go/no-go points before any refactor | proposed: V0–V4 measured; V4 (§7) predicts E just under its gate, decision in §7.6 | SW-2324, SW-2429 |
+| [constant-hoisting.md](constant-hoisting.md) | Expressions that use no variables (`"mul(".toList`, `Parse.text "mul("`) computed once at first use and kept if small: literal folds, pooled static data, floating closed expressions out of bodies after inlining | proposed: D3438, D3439 (includes SW-2493 §7.4, capture-free closures built once) | SW-2497 |
 | [effect-runtime-allocation.md](effect-runtime-allocation.md) | Fewer objects built by the effect runtime (about 14 per operation on the parsers): one-object resumptions, the loop reusing the cells it takes apart, a perform's `bind` folded into its `Call`, no resumption for a fused state handler that can't use `k`; local changes, not operations in place (D3430) | proposed: staged plan in §4, questions in §5 | SW-2444 |
+| [compiled-handler-dispatch.md](compiled-handler-dispatch.md) | A handler's step lowered to one dispatch closure (switch on the operation's tag, clauses inlined) instead of `handlePlus` and `%elim` partial applications that copy every clause per operation; a lowering rewrite, no hash changes; complements operations in place | proposed: staged plan in §7, questions in §8 | SW-2498 |
+| [borrow-inference.md](borrow-inference.md) | Borrowed parameters inferred Lean-style (read-only, never stored, returned or reused), so walks like `Map.get` over a live map stop counting each node; tail calls and step/frame counts unchanged (owned copies for value uses), the machine checks borrows instead of exploiting them, native code gets the speed-up | proposed: D3440-D3442, staged plan in §6 (B0 measures first) | SW-2518 |
 
 ## Standard library and data types
 
@@ -207,7 +216,10 @@ status line now says the wrong thing; the details are in
 | [language-server.md](language-server.md) | A language server for `.sw` | built, stages 0-1: `crates/lsp/` | SW-31, SW-274, SW-275, SW-282; open SW-1141 |
 | [lsp-goal-holes.md](lsp-goal-holes.md) | Goal holes in the editor (server stage 2) | built, 2a-2d | SW-376 |
 | [lsp-failure-policy.md](lsp-failure-policy.md) | How the language server handles panics and failures | in progress: stage 1 built (SW-1820); D2741-D2744 open | SW-1955, SW-1820; open SW-1948, SW-1979-SW-1981, SW-2067 |
-| [parse-recovery.md](parse-recovery.md) | Recovering from syntax errors while someone types | proposed: D2780-D2785 | SW-1917, SW-1873, SW-1982-SW-1986 |
+| [parse-recovery.md](parse-recovery.md) | Recovering from syntax errors while someone types | superseded in part by syntax-error-recovery.md (D2780-D2785; nothing built) | SW-1917, SW-1873, SW-1982-SW-1986 |
+| [syntax-error-recovery.md](syntax-error-recovery.md) | Working through a broken declaration (D3563): recovery points, error nodes, gaps the checker skips without cascades | proposed: D3580 decided (Fable's split), D3581 open | SW-3161 |
+| [parser-end-state.md](parser-end-state.md) | The parser now it only records marks (D3579): keep marks but make them strict (starts kept, one way to record, a builder that checks), against rust-analyzer's events and direct tree building; the leftovers of the two-route period; a statement-changing bug found on the way | proposed: D3582 open | SW-3233 |
+| [tests-with-errors.md](tests-with-errors.md) | Checking and running tests when a project has errors or open goals: status per declaration, importers of a broken namespace | proposed: decisions D-a to D-f open | SW-2938; builds on SW-2909, SW-2932 |
 | [editor-and-playground-roadmap.md](editor-and-playground-roadmap.md) | Roadmap for VS Code and the playground | built: every ticket done | SW-1111, SW-1116-SW-1121, SW-1489 |
 | [playground-editor.md](playground-editor.md) | CodeMirror 6 in the playground | built: `web/editor/src/editor-entry.js` | SW-1118, SW-1375-SW-1378 |
 | [playground-live-keys.md](playground-live-keys.md) | Live keys and a terminal pane in the playground | built | SW-520, SW-521 |
@@ -236,11 +248,11 @@ status line now says the wrong thing; the details are in
 |---|---|
 | built | 102 |
 | in progress | 16 |
-| proposed | 19 |
+| proposed | 20 |
 | superseded | 4 |
 | parked | 4 |
 | record | 8 |
-| **total** | **153** |
+| **total** | **154** |
 
 "Built" includes notes where only the decided part is built and the rest
 was left as someday/maybe (partial.md, records.md, multi-file.md). Of the

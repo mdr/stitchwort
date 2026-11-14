@@ -14,11 +14,10 @@ test "describeTwo" := describe [3, 4] == 7
 test "describeMany" := describe [1, 2, 3] == 100
 
 -- `match`, with an ordinary constructor pattern as the last resort.
-def firstTwo (xs: List Nat): Nat :=
-  match xs with
-    | [] => 0
-    | [a, b] => a * b
-    | [a, .._] => a
+def firstTwo (xs: List Nat): Nat := match xs with
+  | [] => 0
+  | [a, b] => a * b
+  | [a, .._] => a
 
 test "firstTwoPair" := firstTwo [3, 4] == 12
 test "firstTwoLonger" := firstTwo [5, 6, 7] == 5
@@ -55,9 +54,10 @@ test "justsOne" := justs [Some 4, None] == 4
 -- `let` and lambda patterns must cover their type, and no list pattern does
 -- (see reject/list-pattern-let-refutable.sw), so lists go in `match`.
 -- `match` in a lambda body.
-def lengthOne: List Nat → Nat := xs => match xs with
-  | [_] => 1
-  | _ => 0
+def lengthOne: List Nat → Nat := xs =>
+  match xs with
+    | [_] => 1
+    | _ => 0
 
 test "lengthOneYes" := lengthOne [3] == 1
 test "lengthOneNo" := lengthOne [] == 0

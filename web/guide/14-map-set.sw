@@ -15,10 +15,10 @@ def tally (m: Map Text Nat) (word: Text): Map Text Nat := m.insertWith word 1 Na
 test "insertWith" := (["x", "x"].foldLeft Map.empty tally).get "x" == Some 2
 
 -- A set of positions a walk visits, ordered by row, then column.
-def visited: Set (Nat, Nat) := Set.fromList [(0, 0), (0, 1), (1, 1), (0, 1)]
+def visited: Set (Nat, Nat) := [(0, 0), (0, 1), (1, 1), (0, 1)].toSet
 
 test "no duplicates" := visited.size == 3
 test "membership" := visited.contains (1, 1) ∧ ¬visited.contains (1, 0)
 
 -- Two maps with the same entries are equal, however they were made.
-test "equal maps" := Map.fromList [("a", 1), ("b", 2)] == Map.fromList [("b", 2), ("a", 1)]
+test "equal maps" := [("a", 1), ("b", 2)].toMap == [("b", 2), ("a", 1)].toMap

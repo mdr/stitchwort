@@ -63,18 +63,15 @@ def nestedLambda (xs: List ((Nat, Nat), Nat)): List Nat := xs.map (((a, b), c) =
 def swapPair: (a, b) → (b, a)
   | (x, y) => (y, x)
 
-theorem swapTwice (p: (Nat, Nat)): swapPair (swapPair p) = p :=
+theorem swapTwice ∀ (p: (Nat, Nat)): swapPair (swapPair p) = p :=
   let (a, b) := p
   rfl
 
 -- Termination: `kids` is part of the tree `let` matched, so the recursive
 -- call is smaller, as for a pattern in the equation.
-type Tree: Type =
-  | Node (label: Nat) (kids: Forest)
+type Tree: Type = | Node (label: Nat) (kids: Forest)
 
-type Forest: Type =
-  | FNil
-  | FCons (t: Tree) (ts: Forest)
+type Forest: Type = | FNil | FCons (t: Tree) (ts: Forest)
 
 def sumTree (t: Tree): Nat :=
   let Node x kids := t
@@ -126,8 +123,7 @@ test "record lambda" := nameOf { name = "Ann", age = 3 } == "Ann"
 test "nested lambda" := nestedLambda [((2, 3), 1)] == [7]
 test "tree" := sumTree (Node 1 (FCons (Node 2 FNil) FNil)) == 3
 test "tree lifted" := sumTreeLifted (Node 1 (FCons (Node 2 FNil) FNil)) == 3
-test "effects run once, in order" :=
-  eqTexts (IO.simulate ["x", "y", "z", "w"] swapLines).fst ["y", "x", "done"]
+test "effects run once, in order" := eqTexts (IO.simulate ["x", "y", "z", "w"] swapLines).fst ["y", "x", "done"]
 test "effects result" := (IO.simulate ["x", "y"] swapLines).snd == 3
 test "in a test" :=
   let (a, b) := (1, 2)
@@ -140,16 +136,16 @@ def swapped (p: (Nat, Text)): (Text, Nat) :=
   let (a, b) := p
   (b, a)
 
-theorem swappedUnfolds (p: (Nat, Text)): swapped p = (p.snd, p.fst) := rfl
+theorem swappedUnfolds ∀ (p: (Nat, Text)): swapped p = (p.snd, p.fst) := rfl
 
 def sumOf (n: Nat): Nat :=
   let ((a, b), c) := ((n, n + 1), n + 2)
   a + b + c
 
-theorem sumOfIs (n: Nat): sumOf n = n + (n + 1) + (n + 2) := rfl
+theorem sumOfIs ∀ (n: Nat): sumOf n = n + (n + 1) + (n + 2) := rfl
 
 def nameLength (p: Person): Nat :=
   let { name, age } := p
   name.length + age
 
-theorem nameLengthIs (p: Person): nameLength p = p.name.length + p.age := rfl
+theorem nameLengthIs ∀ (p: Person): nameLength p = p.name.length + p.age := rfl

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/decreasing-measure-later-type.sw:7:16 ]
+   │
+ 7 │     decreasing Stack
+   │                ──┬──  
+   │                  ╰──── expected `Nat`, but this has type `Type`
+   │ 
+   │ Note: the measure after `decreasing` is a `Nat` that gets smaller at every recursive call
+───╯

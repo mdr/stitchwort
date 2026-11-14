@@ -7,48 +7,54 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Void)
 
-theorem secretsMatch: (count: Nat) → (secret: Nat) → secrets count secret = secretNumbers count secret
-  | Zero, secret => rfl
-  | Succ count, secret => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret) in rfl
+theorem secretsMatch ∀ (count secret: Nat): secrets count secret = secretNumbers count secret := match count with
+  | Zero => rfl
+  | Succ count => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret) in rfl
 
-theorem pricesMatch (count: Nat) (buyer: Nat): prices count buyer = offeredPrices count buyer :=
+theorem pricesMatch ∀ (count buyer: Nat): prices count buyer = offeredPrices count buyer :=
   rewrite secretsMatch count buyer in rfl
 
 --| Folding sales into a map, keeping the first price for each sequence,
 --| adds the first price in the list for a sequence the map lacks.
-theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Map Changes Nat) →
-    (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key =
-      Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd))
-  | [], sales => Eq.sym (Option.orElseNone (sales.get key))
-  | [entry, ..rest], sales =>
-    let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
-    match same: entry.fst == key with
-      | True =>
-        let equal := DecEq.sound same
-        rewrite later in
-          rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) in
-            match sales.get key with
-              | None => rfl
-              | Some old => rfl
-      | False =>
-        rewrite later in
-          rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => DecEq.soundFalse entry.fst key same (Eq.sym equal)) (new old => old) in
-            rfl
+theorem keepFirstGet ∀ (key: Changes) (found: List (Changes, Nat)) (sales: Map Changes Nat):
+    (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key
+      = Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd)) :=
+  match found with
+    | [] => Eq.sym (Option.orElseNone (sales.get key))
+    | [entry, ..rest] =>
+      let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
+      match same: entry.fst == key with
+        | True =>
+          let equal := same.read
+          rewrite later in
+            rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) in
+              match sales.get key with
+                | None => rfl
+                | Some old => rfl
+        | False =>
+          rewrite later in
+            rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => same.read (Eq.sym equal)) (new old =>
+                  old) in
+              rfl
 
 --| Looking for the first place the monkey sells is looking for the first
 --| sale with that sequence.
-theorem findMapSells (sequence: Changes): (places: List (List Nat)) →
-    places.findMap (sellsAt sequence) = (places.filterMap sale).find (entry => entry.fst == sequence) |> .map (entry => entry.snd)
-  | [] => rfl
-  | [[], ..rest] => findMapSells sequence rest
-  | [[a], ..rest] => findMapSells sequence rest
-  | [[a, b], ..rest] => findMapSells sequence rest
-  | [[a, b, c], ..rest] => findMapSells sequence rest
-  | [[a, b, c, d], ..rest] => findMapSells sequence rest
-  | [[a, b, c, d, e, ..after], ..rest] =>
-    match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
-      | True => rfl
-      | False => findMapSells sequence rest
+theorem findMapSells ∀ (sequence: Changes) (places: List (List Nat)):
+    places.findMap (sellsAt sequence)
+      = (places.filterMap sale).find (entry => entry.fst == sequence) |> .map (entry => entry.snd) :=
+  match places with
+    | [] => rfl
+    | [[], ..rest] => findMapSells sequence rest
+    | [[a], ..rest] => findMapSells sequence rest
+    | [[a, b], ..rest] => findMapSells sequence rest
+    | [[a, b, c], ..rest] => findMapSells sequence rest
+    | [[a, b, c, d], ..rest] => findMapSells sequence rest
+    | [[a, b, c, d, e, ..after], ..rest] =>
+      match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes)
+        == sequence with
+        | True => rfl
+        | False => findMapSells sequence rest
 
-theorem firstSalesSells (prices: List Nat) (sequence: Changes): (firstSales prices).get sequence = sellingPrice sequence prices :=
+theorem firstSalesSells ∀ (prices: List Nat) (sequence: Changes):
+    (firstSales prices).get sequence = sellingPrice sequence prices :=
   Eq.trans (keepFirstGet sequence (prices.tails.filterMap sale) Map.empty) (Eq.sym (findMapSells sequence prices.tails))

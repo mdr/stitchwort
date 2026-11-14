@@ -11,7 +11,7 @@ import Std (Bool, Fail, List, Text)
 
 def parsed (input: Text): Result Cavern Text := Fail.toResult (() => parseCavern input)
 
-def at (row: Nat) (column: Nat): Position := { row, column }
+def at (row column: Nat): Position := { row, column }
 
 --| A cavern of these levels, row by row; the first row has an octopus.
 def levelsOf (rows: List (List Nat)) [auto nonEmpty: (firstWidth rows == 0) = False]: Cavern := { grid = Grid.of rows }
@@ -26,21 +26,21 @@ def small: Cavern := cavernOf """
   11111
   """
 
-def example: Cavern :=
-  cavernOf """
-    5483143223
-    2745854711
-    5264556173
-    6141336146
-    6357385478
-    4167524645
-    2176841721
-    6882881134
-    4846848554
-    5283751526
-    """
+def example: Cavern := cavernOf """
+  5483143223
+  2745854711
+  5264556173
+  6141336146
+  6357385478
+  4167524645
+  2176841721
+  6882881134
+  4846848554
+  5283751526
+  """
 
-test "parse the small example" := small.grid.rows == [[1, 1, 1, 1, 1], [1, 9, 9, 9, 1], [1, 9, 1, 9, 1], [1, 9, 9, 9, 1], [1, 1, 1, 1, 1]]
+test "parse the small example" :=
+  small.grid.rows == [[1, 1, 1, 1, 1], [1, 9, 9, 9, 1], [1, 9, 1, 9, 1], [1, 9, 9, 9, 1], [1, 1, 1, 1, 1]]
 test "a short row" := parsed "123\n45\n" == Err "line 2: expected 3 cells, as on the first line, got 2"
 test "a letter" := parsed "123\n4x6\n" == Err "line 2, column 2: expected a digit or the end of the line, got 'x'"
 
@@ -63,7 +63,11 @@ test "the example, 10 steps" := example.flashesIn 10 == 204
 test "example, part 1" := example.solvePart1 == 1656
 test "example, part 2" := example.solvePart2 == Some 195
 
-test "touching" := touching (at 1 1) (at 0 0) ∧ touching (at 1 1) (at 2 1) ∧ not (touching (at 1 1) (at 1 1)) ∧ not (touching (at 1 1) (at 3 1))
+test "touching" :=
+  touching (at 1 1) (at 0 0)
+    ∧ touching (at 1 1) (at 2 1)
+    ∧ not (touching (at 1 1) (at 1 1))
+    ∧ not (touching (at 1 1) (at 3 1))
 
 --| Two adjacent 8s: each would be above 9 if both flashed, but neither
 --| reaches 10 on its own, so nothing flashes.
@@ -75,13 +79,15 @@ test "a ragged cavern" := (levelsOf [[9], [8, 8]]).step == levelsOf [[0], [0, 0]
 --| flash" is closed (each would be at 10), but it isn't the flashers.
 theorem eightsClosed: Closed (levelsOf [[8, 8]]) (q => True) := q level member above => rfl
 
-theorem eightsNotFlashers: ¬(Flashers (levelsOf [[8, 8]]) (at => True)) :=
-  both => Bool.falseNotTrue (And.right both (levelsOf [[8, 8]]).flashers.has (And.left (flashersCorrect (levelsOf [[8, 8]]))) (at 0 0) rfl)
+theorem eightsNotFlashers: ¬(Flashers (levelsOf [[8, 8]]) (at => True)) := both =>
+  Bool.falseNotTrue
+    (And.right both (levelsOf [[8, 8]]).flashers.has (And.left (flashersCorrect (levelsOf [[8, 8]]))) (at 0 0) rfl)
 
 --| The hypotheses of `onGridAfter`, `grows` and `stableOfCount` (an
 --| octopus has flashed after some rounds; and a round added nobody), which
 --| the counterexample search may not meet, can hold.
 theorem flashedAfterOneRound: (flashedAfter (levelsOf [[9]]) 1).has (at 0 0) = True := rfl
 
-theorem stableAfterOneRound: flashedCount (levelsOf [[9]]) 2 ≤ flashedCount (levelsOf [[9]]) 1 ∧ (flashedAfter (levelsOf [[9]]) 2).has (at 0 0) = True :=
+theorem stableAfterOneRound: flashedCount (levelsOf [[9]]) 2 ≤ flashedCount (levelsOf [[9]]) 1
+      ∧ (flashedAfter (levelsOf [[9]]) 2).has (at 0 0) = True :=
   Both (omega [(rfl: flashedCount (levelsOf [[9]]) 2 = 1), (rfl: flashedCount (levelsOf [[9]]) 1 = 1)]) rfl

@@ -11,6 +11,6 @@ def b: Ticket := { title = "fix bug", priority = 3 }
 
 test "equality" := a == a ∧ ¬(a == b)
 test "ordering" := Ord.compare Low High == Less
-test "sorting" := List.sort [High, Low, Medium] == [Low, Medium, High]
-test "sorting records" := List.sort [b, a] == [a, b]
+test "sorting" := [High, Low, Medium].sort == [Low, Medium, High]
+test "sorting records" := [b, a].sort == [a, b]
 test "text" := "${Medium} and ${a}" == "Medium and { title = \"fix bug\", priority = 2 }"

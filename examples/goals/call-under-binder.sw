@@ -4,4 +4,4 @@ import Std (Bool, List, Nat)
 
 def isSmall (n: Nat): Bool := n < 10
 
-theorem shown (xs: List Nat): xs.any isSmall = xs.any (n => isSmall n) := ?
+theorem shown ∀ (xs: List Nat): xs.any isSmall = xs.any (n => isSmall n) := ?

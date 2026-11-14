@@ -23,7 +23,7 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use stitchwort_core::value::{Head, Value, eval, force};
+use stitchwort_core::value::{Elim, Head, Value, eval, force};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Limits, Term};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
@@ -43,6 +43,7 @@ pub(crate) const ATTEMPT: Limits = Limits {
     stack: 4 * 1024 * 1024,
     size: 100_000,
     frames: 10_000,
+    native_frames: 10_000,
 };
 
 /// What a pattern's outermost layer is: the calls inside a candidate that
@@ -164,7 +165,7 @@ pub(crate) fn type_of_target(
             return Ok(Some(Ty::Type));
         }
         Term::Nat(_) if args.is_empty() => match g.env.builtins().nat {
-            Some(nat) => return Ok(Some(Ty::Of(Value::Data(nat, Vec::new())))),
+            Some(nat) => return Ok(Some(Ty::Of(Value::Data(nat, Vec::new().into())))),
             None => return Ok(None),
         },
         Term::Def(id) => g.def(*id).ty_value().clone(),
@@ -602,6 +603,9 @@ pub struct Candidate {
     /// How many explicit parameters the rest of the type doesn't mention:
     /// the premises, as against the variables (Isabelle's second key).
     pub premises: usize,
+    /// A theorem whose proof is, or has, an open goal (`?`): usable as an
+    /// assumption (SW-2805), but not finished.
+    pub open: bool,
 }
 
 /// A candidate the pattern matched.
@@ -628,6 +632,8 @@ pub struct Hit {
     pub instantiated: usize,
     pub size: usize,
     pub premises: usize,
+    /// Its candidate was [`Candidate::open`].
+    pub open: bool,
     /// Which halves of the instance double search found it.
     pub via: Vec<Via>,
 }
@@ -643,6 +649,7 @@ pub type Key = (
     usize,
     usize,
     usize,
+    bool,
     String,
 );
 
@@ -653,7 +660,8 @@ impl Hit {
     /// a written theorem before a generated equation (`f.eqK`,
     /// docs/proposals/function-equations.md §3.4: a hand-written lemma is
     /// the one meant, and the equations stay found after it), specificity,
-    /// premises, size, then the name.
+    /// premises, size, a finished theorem before an open one (so an open
+    /// theorem follows the finished matches of equal fit), then the name.
     pub fn key(&self, g: &stitchwort_core::Ev) -> Key {
         let place = match self.place {
             Place::Right => Place::Left,
@@ -669,6 +677,7 @@ impl Hit {
             self.instantiated,
             self.premises,
             self.size,
+            self.open,
             match self.item.part() {
                 Some(part) => format!("{} {}", self.item.path(g), part.name()),
                 None => self.item.path(g),
@@ -1217,14 +1226,21 @@ impl Elaborator {
                     _ => None,
                 })
                 .collect();
-            type_holes(g, &env, &holes, def.ty_value().clone(), args)?;
+            type_holes(g, &env, &holes, def.span(), def.ty_value().clone(), args)?;
             for arg in args {
                 for (sub, binders) in arg.subterms() {
                     if binders == 0
                         && let (Term::Def(id), sub_args) = sub.spine()
                         && !sub_args.is_empty()
                     {
-                        type_holes(g, &env, &holes, g.def(*id).ty_value().clone(), &sub_args)?;
+                        type_holes(
+                            g,
+                            &env,
+                            &holes,
+                            def.span(),
+                            g.def(*id).ty_value().clone(),
+                            &sub_args,
+                        )?;
                     }
                 }
             }
@@ -1275,12 +1291,27 @@ impl Elaborator {
 
     /// The candidates: every declaration `keep` keeps (given its full
     /// name), definitions, theorems and constructors, but those not checked
-    /// in full (unfinished, or failed).
+    /// in full (unfinished, or failed). A theorem with an open goal of its
+    /// own is kept, marked [`Candidate::open`]: its statement is as good as
+    /// any, and what uses it is checked as if it were an assumption.
     pub fn search_candidates(&self, keep: &dyn Fn(Item, &str) -> bool) -> Vec<Candidate> {
         let g = &self.ev();
+        let open_owners: BTreeSet<String> = (g.env.defs().iter())
+            .filter_map(|d| d.assumption())
+            // A declaration with an error isn't offered: its proof (or body)
+            // is wrong, unlike an open goal's, which is only missing.
+            .filter(|a| !a.is_error())
+            .map(|a| a.owner.to_string())
+            .collect();
+        let is_open = |id: DefId| {
+            !open_owners.is_empty()
+                && g.def(id).assumption().is_none()
+                && g.def(id).theorem()
+                && open_owners.contains(&**g.def(id).path())
+        };
         let defs = (0..g.env.defs().len())
             .map(DefId)
-            .filter(|id| !self.is_unfinished(*id))
+            .filter(|id| !self.is_unfinished(*id) || is_open(*id))
             .map(Item::Def);
         let ctors = (0..g.env.datas().len()).flat_map(|d| {
             (0..g.data(DataId(d)).ctors().len()).map(move |c| Item::Ctor(DataId(d), c))
@@ -1288,9 +1319,10 @@ impl Elaborator {
         let and = (0..g.env.datas().len())
             .map(DataId)
             .find(|d| &**g.data(*d).path() == "Std.And");
-        let candidate = |item: Item, ty: Term| {
+        let candidate = |item: Item, ty: Term, open: bool| {
             let (size, premises) = shape(&ty);
             Candidate {
+                open,
                 item,
                 index: self.type_index(&ty),
                 ty,
@@ -1314,9 +1346,10 @@ impl Elaborator {
                 }
                 _ => Vec::new(),
             };
-            out.push(candidate(item, ty));
+            let open = matches!(item, Item::Def(id) if is_open(id));
+            out.push(candidate(item, ty, open));
             for (part, t) in parts {
-                out.push(candidate(part, t));
+                out.push(candidate(part, t, open));
             }
         }
         out
@@ -1479,7 +1512,18 @@ impl Elaborator {
             let mut premises: Vec<(Term, usize)> = Vec::new();
             let mut t = candidate.ty.strip_loc();
             let mut whole: Option<(Term, usize)> = None;
+            // A pattern that starts with an `auto` or implicit binder
+            // (`[auto eq: DecEq ?a] → …`) is matched from each such binder
+            // of the candidate, skipping the ones before it.
+            let opens_hidden = matches!(
+                force(g, pattern.value.clone())?,
+                Value::Pi(_, icit, ..) if icit != Icit::Explicit
+            );
+            let mut hidden: Vec<(Term, usize)> = Vec::new();
             while let Term::Pi(_, icit, dom, cod) = t {
+                if opens_hidden && *icit != Icit::Explicit {
+                    hidden.push((t.clone(), env.len()));
+                }
                 if *icit == Icit::Explicit {
                     if whole.is_none() {
                         whole = Some((t.clone(), env.len()));
@@ -1501,6 +1545,11 @@ impl Elaborator {
                 && let Some((t, at)) = whole
             {
                 targets.insert(0, (Place::Whole, t, at, false));
+            }
+            if pattern.head == HeadKey::Pi {
+                for (i, (t, at)) in hidden.into_iter().enumerate() {
+                    targets.insert(i, (Place::Whole, t, at, false));
+                }
             }
             if mode == Mode::Rewrite {
                 targets.clear();
@@ -1664,6 +1713,7 @@ impl Elaborator {
                         instantiated,
                         size: candidate.size,
                         premises: candidate.premises,
+                        open: candidate.open,
                         via: Vec::new(),
                     });
                 }
@@ -1686,10 +1736,16 @@ impl Elaborator {
 
 /// For a call of something of type `ty` to `args` (terms in `env`): each
 /// argument that is one of `holes` with no type yet gets its parameter's.
+/// An argument that is a hole applied to terms (`p x`, a proof's predicate)
+/// makes the hole a function of that many arguments, of unknown domains,
+/// into the parameter's type: a candidate's term of another form (`Some y`)
+/// is then no solution for it, which computing the call would otherwise
+/// find out by applying a constructor.
 fn type_holes(
     g: &crate::unify::Unifier<'_>,
     env: &[Value],
     holes: &[usize],
+    span: Span,
     ty: Value,
     args: &[&Term],
 ) -> Res<()> {
@@ -1700,11 +1756,24 @@ fn type_holes(
         };
         let value = eval(g, env, arg)?;
         if let Value::Neutral(Head::Meta(m), s) = force(g, value.clone())?
-            && s.is_empty()
             && holes.contains(&m)
             && g.store.meta_type(m).is_none()
         {
-            g.store.set_meta_type(m, (*dom).clone(), 0);
+            if s.is_empty() {
+                g.store.set_meta_type(m, (*dom).clone(), 0);
+            } else if s.iter().all(|e| matches!(e, Elim::App(_, Icit::Explicit))) {
+                let mut function = stitchwort_core::value::quote_folded(g, 0, &dom)?;
+                for _ in 0..s.len() {
+                    let domain = g.store.new_meta(span);
+                    function = Term::Pi(
+                        "_".into(),
+                        Icit::Explicit,
+                        Rc::new(Term::Meta(domain)),
+                        Rc::new(function),
+                    );
+                }
+                g.store.set_meta_type(m, eval(g, &[], &function)?, 0);
+            }
         }
         ty = closure.apply(g, value)?;
     }

@@ -14,9 +14,9 @@ the estimator below, and you change no file.
    cheap (under ~1 s each) or the merge combined them with other changes.
 3. The inventory, `target/test-inventory.json` (build it:
    `nix develop -c task test:inventory`; refresh the times from the latest
-   run with `-- --junit target/nextest/merge/junit.xml`). Each test has
-   `id` (`<binary-id> <name>`), `package`, `binary`, `profiles` (merge,
-   daily, full, lane-AREA), `group` (`corpus-sweeps`: runs alone), `time`
+   run with `-- --junit target/nextest/quick/junit.xml`). Each test has
+   `id` (`<binary-id> <name>`), `package`, `binary`, `profiles` (quick,
+   broad, all, lane-AREA), `group` (`corpus-sweeps`: runs alone), `time`
    (seconds, from the last run that had it) and `time_known`.
 
 ## Budget and estimate
@@ -38,7 +38,7 @@ is over, drop whole groups from the bottom of your priority list.
 filterset, to paste in as `( ... )`.
 
 Sweeps (tests in `corpus-sweeps`, and the examples, hash and AoC corpora) run
-on the merge sample (STITCHWORT_TIER=merge) unless the environment variable
+on the quick sample (STITCHWORT_TIER=quick) unless the environment variable
 `EXAMPLES=<substrings>` is set: then every example or project whose name
 contains any of its comma-separated substrings runs, in `cli` `examples` and
 `run_js`, and in `hash_stability` `examples`/`projects` (nothing else is
@@ -96,17 +96,17 @@ a clause in the filterset; give it one line of reasoning.
    changed one.
 
 Rules: don't pad with tests unrelated to the change just to use the budget
-(stop at the table's list and the spread); do not select `daily`- or
-`full`-only tests of the whole-corpus kind (a test whose `time` is over
-30 s and not in `merge`) without a clear reason; never select a test the
+(stop at the table's list and the spread); do not select `broad`- or
+`all`-only tests of the whole-corpus kind (a test whose `time` is over
+30 s and not in `quick`) without a clear reason; never select a test the
 lane profiles exclude on purpose (the exclusion lists in
-`.config/nextest.toml` are for tests that are slow or flaky in the merge
+`.config/nextest.toml` are for tests that are slow or flaky in the quick
 tier).
 
 - **Memory-heavy tests.** Leave `binary(running) & test(/^run_js::/)` (`cli`) out of a selection
   unless `crates/js`, `crates/cli/tests/running/run_js.rs` or the JS runtime changed:
   its node processes take about 1 GB each, and including it pushed a
-  selection over the merge tier's 4 GB cap. The same goes for the `cli`
+  selection over the quick tier's 4 GB cap. The same goes for the `cli`
   `extract` tests that run `node test.mjs` (all but
   `generated_code_is_stable`): one node took 2.1 GB. Include them only for
   changes to `crates/js` or `extract.rs`, and then with little else.
@@ -149,6 +149,6 @@ and six parse/effect examples). The lane ran `lane-std` and its own snapshots.
 ## Scoring
 
 `task test:selected` appends to `dev/selector-log.tsv` (in the main checkout only). During the trial the
-verifier also runs the fixed merge tier; a failure the merge tier caught that
+verifier also runs the fixed quick tier; a failure the quick tier caught that
 the selection did not is a miss and counts against the selector. See
 docs/workflow.md, "Checks after a merge".

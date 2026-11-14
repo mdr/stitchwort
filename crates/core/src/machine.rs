@@ -10,6 +10,8 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use num_bigint::BigUint;
+
 use crate::term::DefId;
 
 #[derive(Default)]
@@ -45,10 +47,9 @@ pub struct Machine {
     /// The sets of numbers a variable is known not to be, which
     /// [`crate::value::Apart`] names: in a number case's default arm, the
     /// matched variable is none of its arms' numbers
-    /// (docs/proposals/literal-match-facts.md). Only added to, so a name
-    /// never changes what it stands for. Each set is sorted. Kept on
-    /// rewind: a name stays valid as long as any value holding one lives.
-    pub apart_sets: RefCell<Vec<Rc<[num_bigint::BigUint]>>>,
+    /// (docs/proposals/literal-match-facts.md). Kept on rewind: a name
+    /// stays valid as long as any value holding one lives.
+    pub apart_sets: RefCell<ApartSets>,
 }
 
 impl Machine {
@@ -85,6 +86,44 @@ pub(crate) fn in_kernel_modes<T>(
     *m.transparent.0.borrow_mut() = transparent;
     m.erasure.put_back(erasure);
     out
+}
+
+/// The sets [`crate::value::Apart`] names, each named once: the name of
+/// set `i` is `i + 1`, and naming a set already here gives back its name,
+/// so a session that matches numbers on every request doesn't grow. Only
+/// added to, so a name never changes what it stands for, and two names are
+/// equal exactly when their sets are.
+#[derive(Default)]
+pub struct ApartSets {
+    sets: Vec<Rc<[BigUint]>>,
+    names: crate::collections::HashMap<Rc<[BigUint]>, u32>,
+}
+
+impl ApartSets {
+    /// The name of `numbers` (sorted, without duplicates), never 0.
+    pub fn name(&mut self, numbers: Rc<[BigUint]>) -> u32 {
+        if let Some(&name) = self.names.get(&numbers) {
+            return name;
+        }
+        self.sets.push(numbers.clone());
+        let name = u32::try_from(self.sets.len()).expect("fewer than 2^32 sets of numbers");
+        self.names.insert(numbers, name);
+        name
+    }
+
+    /// The set named `name`, which [`ApartSets::name`] gave.
+    pub fn get(&self, name: u32) -> Rc<[BigUint]> {
+        self.sets[name as usize - 1].clone()
+    }
+
+    /// How many sets are named.
+    pub fn len(&self) -> usize {
+        self.sets.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.sets.is_empty()
+    }
 }
 
 /// The current transparency set ([`Machine::transparent`]).

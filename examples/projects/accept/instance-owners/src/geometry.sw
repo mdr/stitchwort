@@ -2,8 +2,6 @@
 -- here `Nat`, which `Std` owns.
 namespace Geometry
 
-interface Area (a: Type) =
-  { area: a → Nat }
+interface Area (a: Type) = { area: a → Nat }
 
-instance Area.instNat: Area Nat :=
-  { area = n => n * n }
+instance Area.instNat: Area Nat := { area = n => n * n }

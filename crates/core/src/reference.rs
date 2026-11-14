@@ -11,8 +11,8 @@
 //! `Kernel`) and the native number functions, which it calls with its own
 //! `force`, but never calls anything in `value.rs` that evaluates. It isn't
 //! optimised, and only changes when the language's evaluation rules do. It
-//! recurses on the Rust stack, so it's only for small inputs, and it doesn't
-//! count resources.
+//! recurses on the Rust stack, so it's only for small inputs, and it counts
+//! no resources unless a test sets it a step budget ([`set_budget`]).
 //!
 //! Only compiled for tests (the `reference` feature).
 //!
@@ -47,7 +47,7 @@ use std::rc::Rc;
 use crate::budget::Result;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
-use crate::value::{Closure, Elim, Head, Mode, Spine, Value, quot_mk_rep, quot_value};
+use crate::value::{Closure, Elim, Head, Mode, Shared, Spine, Value, quot_mk_rep, quot_value};
 
 thread_local! {
     static PLAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -74,6 +74,36 @@ thread_local! {
 /// ordinary reference evaluator counts nothing.
 pub fn set_plain_budget(steps: u64) {
     PLAIN_STEPS.with(|s| s.set(steps));
+}
+
+thread_local! {
+    /// Steps left to the evaluator in any mode, or `None` for no limit.
+    static STEPS: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Gives this thread's reference evaluator, plain or not, `steps`
+/// evaluations, read-back nodes and comparisons before it fails with
+/// [`crate::budget::ResourceError::Work`]; `None` removes the limit (the
+/// default). It shares nothing, so a normal form that is exponentially large
+/// takes exponentially many steps to read back or compare: the budget lets a
+/// test report that it is too big instead of filling memory. A run that
+/// finishes within it gives the same result as one with no budget.
+pub fn set_budget(steps: Option<u64>) {
+    STEPS.with(|s| s.set(steps));
+}
+
+/// One step of the evaluator, counted against [`set_budget`]'s budget and,
+/// in plain mode, [`set_plain_budget`]'s.
+fn step() -> Result<()> {
+    STEPS.with(|s| match s.get() {
+        None => Ok(()),
+        Some(0) => Err(crate::budget::ResourceError::Work),
+        Some(left) => {
+            s.set(Some(left - 1));
+            Ok(())
+        }
+    })?;
+    plain_step()
 }
 
 /// One step of the plain evaluator.
@@ -153,7 +183,7 @@ pub fn compact_or_lazy(g: &Ev, value: &Value) -> Option<&'static str> {
 }
 
 pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
-    plain_step()?;
+    step()?;
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
         args.iter().map(|a| eval(g, env, a)).collect()
     };
@@ -170,7 +200,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             Some(value) => value,
             None => Value::Neutral(Head::Meta(*m), Spine::new()),
         },
-        Term::Data(d, args) => Value::Data(*d, eval_all(args)?),
+        Term::Data(d, args) => Value::Data(*d, eval_all(args)?.into()),
         Term::Ctor(d, c, args) if plain() => Value::Ctor(*d, *c, eval_all(args)?.into()),
         Term::Ctor(d, c, args) => native::ctor(g, *d, *c, eval_all(args)?),
         Term::Nat(n) => nat(g, n),
@@ -181,7 +211,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         Term::Pi(x, i, a, b) => Value::Pi(
             x.clone(),
             *i,
-            Rc::new(eval(g, env, a)?),
+            Shared::new(eval(g, env, a)?),
             Closure {
                 env: env.into(),
                 body: b.clone(),
@@ -208,14 +238,14 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
-            Rc::new(eval(
+            Shared::new(eval(
                 g,
                 env,
                 ty.as_ref()
                     .expect("internal error: evaluating an unchecked equation"),
             )?),
-            Rc::new(eval(g, env, a)?),
-            Rc::new(eval(g, env, b)?),
+            Shared::new(eval(g, env, a)?),
+            Shared::new(eval(g, env, b)?),
         ),
         Term::Refl => Value::Refl,
         Term::J(motive, base, proof) => match unfold_folded(g, force(g, eval(g, env, proof)?)?)? {
@@ -413,6 +443,11 @@ fn unfold(g: &Ev, id: DefId, spine: Vec<Elim>) -> Result<Value> {
         match native::run(g, id, op, &spine, force)? {
             Some(native::Outcome::Done(value)) => return Ok(value),
             Some(native::Outcome::Again(spine)) => return unfold(g, id, spine),
+            Some(native::Outcome::Succs(k, spine)) => {
+                let rest = unfold(g, id, spine)?;
+                let (k2, base) = native::view_with(g, &rest, force)?;
+                return Ok(native::from_view(k + k2, base));
+            }
             None => {}
         }
     }
@@ -528,20 +563,29 @@ fn scrutinee(g: &Ev, value: Value) -> Result<Value> {
 /// `nat_add::reread` with this evaluator's unfolding: a stuck `m + n` with
 /// a folded call in `n`, as what R3 and R4 make of it.
 fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    crate::nat_add::reread(g, value, force, |x| {
-        if !is_folded(g, x) {
-            return Ok(None);
-        }
-        let x2 = unfold_folded(g, x.clone())?;
-        Ok(match (x, &x2) {
-            (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
-                if i1 == i2 && s1.ptr_eq(s2) =>
-            {
-                None
+    // Without a record of the sums found to have nothing to read
+    // (`nat_add::Unread`): this evaluator rereads a chain at each level.
+    let unread = &mut crate::nat_add::Unread::default();
+    crate::nat_add::reread(
+        g,
+        value,
+        force,
+        |x| {
+            if !is_folded(g, x) {
+                return Ok(None);
             }
-            _ => Some(x2),
-        })
-    })
+            let x2 = unfold_folded(g, x.clone())?;
+            Ok(match (x, &x2) {
+                (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+                    if i1 == i2 && s1.ptr_eq(s2) =>
+                {
+                    None
+                }
+                _ => Some(x2),
+            })
+        },
+        unread,
+    )
 }
 
 /// The number `value` is, as `k` plus what's unknown, a folded definition
@@ -572,7 +616,9 @@ fn eval_tree(
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match scrutinee(g, env[env.len() - 1 - ix].clone())? {
-                Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+                // Another type's constructor, from an ill-typed term the
+                // elaborator ran (SW-2961), stays stuck, as in `value.rs`.
+                Value::Ctor(d2, c, fields) if d2 == *d => (c, fields.to_vec()),
                 // Record eta, rule 2: the only branch, with the fields
                 // projected.
                 n @ Value::Neutral(..) if eta_case(g, *d) && !eta_held => {
@@ -681,6 +727,7 @@ fn lift(
 
 /// Converts a value back into a term, with `level` variables in scope.
 pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    step()?;
     let q = |v: &Value| quote(g, level, v);
     Ok(match force(g, value.clone())? {
         Value::Sort(s) => Term::Sort(s),
@@ -783,7 +830,7 @@ pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
 /// partially applied definitions and hidden opaque calls, each compared by
 /// its spine in shortcut mode.
 fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
-    plain_step()?;
+    step()?;
     // Folded calls: the same one applied to equal arguments is equal;
     // otherwise they're compared unfolded.
     if is_folded(g, a) || is_folded(g, b) {
@@ -1042,7 +1089,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
                     // and a number split, as `eval_tree` takes it (G1, G3).
                     let s = unfold_folded(g, force(g, e[e.len() - 1 - ix].clone())?)?;
                     let split = match &s {
-                        Value::Ctor(_, c, fields) => Some((*c, fields.to_vec())),
+                        Value::Ctor(d2, c, fields) if d2 == d => Some((*c, fields.to_vec())),
                         Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
                             native::split_value(&s)
                         }

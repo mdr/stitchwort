@@ -282,14 +282,14 @@ class Budget(unittest.TestCase):
         self.assertGreaterEqual(res["estimate"]["estimate"], 60)
 
 
-class MergeProfile(unittest.TestCase):
-    def test_the_merge_filter_is_generated_from_the_lane_filters(self):
+class QuickProfile(unittest.TestCase):
+    def test_the_quick_filter_is_generated_from_the_lane_filters(self):
         import subprocess
-        r = subprocess.run([os.path.join(here, "nextest-merge"), "--check"], capture_output=True, text=True)
+        r = subprocess.run([os.path.join(here, "nextest-quick"), "--check"], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
 
-    def test_a_stale_merge_filter_is_noticed_and_rewritten(self):
-        nm = load("nextest-merge")
+    def test_a_stale_quick_filter_is_noticed_and_rewritten(self):
+        nm = load("nextest-quick")
         text = open(nm.NEXTEST).read()
         stale = text.replace("package(stitchwort-syntax)", "package(stitchwort-syntaz)", 1)
         self.assertNotEqual(stale, text)
@@ -329,6 +329,20 @@ class ChangedTestFile(unittest.TestCase):
         self.assertIn("features::slow_one", ids_of(res))
         self.assertEqual(res["empty"], [])
         self.assertFalse([n for n in notes if "selects no test" in n])
+
+    def test_a_helper_beside_a_real_test_keeps_the_changed_test_when_over_budget(self):
+        """SW-2811: with the whole binary over the budget, the test the diff
+        touches still runs."""
+        old = ta.changed_test_names, dict(ta.TEST_NAMES)
+        ta.changed_test_names = lambda path, range_: ["quick_one", "cached_memory"]
+        ta.TEST_NAMES.update(enabled=True, range=None)
+        try:
+            res, _ = pick(["crates/lsp/tests/it/features.rs"], inv=INV + self.LSP, budget=5)
+        finally:
+            ta.changed_test_names = old[0]
+            ta.TEST_NAMES.update(old[1])
+        self.assertIn("features::quick_one", ids_of(res))
+        self.assertNotIn("features::slow_one", ids_of(res))
 
     def test_an_empty_rule_is_reported_for_the_refresh(self):
         res, _ = pick(["crates/lsp/tests/it/features.rs"], inv=INV, budget=1000)
@@ -448,9 +462,9 @@ class RealInventory(unittest.TestCase):
 NOT_REACHED = {
     "stitchwort-bench::baseline": "check counts against the committed baseline, 145 s; run by `task bench`",
     "stitchwort-bench::repeat": "repeatability of the counts, 12 s; run by `task bench`",
-    "stitchwort-driver::fuzz_elab": "mutated-example fuzzing, 100 s; daily tier",
-    "stitchwort-driver::soundness_fuzz": "soundness fuzzing, 95 s; daily tier",
-    "stitchwort-driver::search_at_aoc": "`search --at` over AoC goals, 250 s; daily tier",
+    "stitchwort-driver::fuzz_elab": "mutated-example fuzzing, 100 s; broad tier",
+    "stitchwort-driver::soundness_fuzz": "soundness fuzzing, 95 s; broad tier",
+    "stitchwort-driver::search_at_aoc": "`search --at` over AoC goals, 250 s; broad tier",
 }
 
 
@@ -467,7 +481,7 @@ class EveryBinaryIsReached(unittest.TestCase):
             if any(p.startswith("lane-") for p in t["profiles"]):
                 by_binary[t["binary"]] = True
         for rule in CFG["rule"]:
-            # A change to the build inputs runs the merge tier, which is not a place for any one binary.
+            # A change to the build inputs runs the quick tier, which is not a place for any one binary.
             if not rule.get("select") or rule["id"] == "build-config":
                 continue
             for i in ta.tests_of(ta.Rule(rule, []), inv):

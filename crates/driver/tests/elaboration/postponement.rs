@@ -304,7 +304,7 @@ def annotated (b: Box): Bool :=
 ";
     let later = mentions(source, "later");
     let annotated = mentions(source, "annotated");
-    assert!(later.iter().any(|d| d == "Decidable.toBool"), "{later:?}");
+    assert!(later.iter().any(|d| d == "Decidable.holds"), "{later:?}");
     assert_eq!(later, annotated);
     let set = "\
 import Std (Bool, Nat, Set)

@@ -36,7 +36,10 @@
 //!   call) and hands the steps back, so a run counts the same whichever
 //!   runner did the work.
 //! - **Ownership.** The arguments are moved into native code, which owns
-//!   them from then on. The result is moved back.
+//!   them from then on. The result is moved back. Inside native code, a
+//!   global's borrowed parameters ([`crate::borrow`]) hold their values
+//!   without a reference: only direct calls between compiled bodies lend,
+//!   never this crossing or a function value's apply.
 //! - **Errors.** Running out of steps or frames sets an error in the
 //!   [`Context`]; every native frame then drops its registers and returns,
 //!   and the executor returns the [`ResourceError`]. Nothing is leaked and
@@ -253,7 +256,9 @@ fn probe() -> Result<(), String> {
         (Value::data(5, [Value::Nat(1), Value::Nat(2)]), TAG_DATA),
         (Value::Fun(new_fun(Fun::Global(9))), TAG_FUN),
         (
-            Value::Delay(Rc::new(crate::value::Delay::Now(Value::Erased))),
+            Value::Delay(crate::value_census::new_delay(crate::value::Delay::Now(
+                Value::Erased,
+            ))),
             TAG_DELAY,
         ),
         (Value::Array(Rc::new(vec![Value::Nat(1)])), TAG_ARRAY),
@@ -728,6 +733,9 @@ pub(crate) struct NativeRun<'a> {
     /// was the machine's). Native code reads and fills it, so a constant is
     /// computed once per run.
     pub globals: &'a mut [Option<Value>],
+    /// Each capture-free lambda's shared closure, once built
+    /// (`Instr::StaticClosure`), by lambda number.
+    pub statics: &'a mut [Option<Value>],
     /// The effect runtime's work so far, which native code adds to.
     pub counts: &'a mut EffectCounts,
     /// Steps so far in this stretch; native code's steps are added.
@@ -891,6 +899,21 @@ pub fn native_stack(frame_limit: u64, max_frame: usize) -> Option<usize> {
     usize::try_from(rounded).ok()
 }
 
+/// The frame limit of a native run of code whose frames are at most
+/// `max_frame` bytes, when the most it may have is `ceiling` frames
+/// (`Limits::native_frames`): the ceiling, or fewer if `ceiling` frames
+/// would need more than [`STACK_CAP`]. It is the most frames for which
+/// [`native_stack`] gives a stack, so a program is never refused for the
+/// default depth, only given less of it, and the same program on the same
+/// build always stops at the same depth.
+pub fn native_frame_limit(ceiling: usize, max_frame: usize) -> usize {
+    let room = STACK_CAP.saturating_sub((HOST_ROOM + HELPER_ROOM) as u64);
+    // One frame is kept back for the check that runs before a call pushes
+    // its frame, as in `native_stack`.
+    let fit = (room / (max_frame as u64).max(1)).saturating_sub(1);
+    ceiling.min(usize::try_from(fit).unwrap_or(usize::MAX))
+}
+
 /// How far below the crossing the stack-pointer check puts its floor, for
 /// a stack of `stack_size` bytes and bodies of at most `max_frame`: the
 /// whole stack less the host's and helpers' room and one more frame (the
@@ -929,6 +952,10 @@ pub struct Crossing {
     lambdas: Box<[*const u8]>,
     /// Into the compiled entry body.
     enter: EnterTrampoline,
+    /// Into the body of each constant compiled as a root of its own (the
+    /// tests `stitchwort test --native` runs), by global; empty if none
+    /// was.
+    constants: Box<[Option<EnterTrampoline>]>,
     /// Into the apply stubs for one and two arguments: what the runner
     /// passes.
     apply: [ApplyTrampoline; 2],
@@ -953,6 +980,9 @@ pub struct CrossingCode {
     pub functions: Box<[*const u8]>,
     pub lambdas: Box<[*const u8]>,
     pub enter: EnterTrampoline,
+    /// [`Crossing`]'s `constants`: for each global, the trampoline into
+    /// its body if it's a constant compiled as a root; may be empty.
+    pub constants: Box<[Option<EnterTrampoline>]>,
     pub apply: [ApplyTrampoline; 2],
     pub step: Option<StepTrampoline>,
     pub max_frame: usize,
@@ -964,7 +994,8 @@ impl Crossing {
     /// `outline` describes.
     ///
     /// # Safety
-    /// - `code`'s trampolines are finished code of their kinds, and its
+    /// - `code`'s trampolines are finished code of their kinds (each of
+    ///   `constants` an entry trampoline into its global's body), and its
     ///   `functions` and `lambdas` are null or finished code of the
     ///   program's globals and lambdas, compiled against `tables` and
     ///   `outline`'s program (its shapes, numbering and globals), with
@@ -981,6 +1012,7 @@ impl Crossing {
             functions,
             lambdas,
             enter,
+            constants,
             apply,
             step,
             max_frame,
@@ -990,6 +1022,7 @@ impl Crossing {
             functions,
             lambdas,
             enter,
+            constants,
             apply,
             step,
             tables,
@@ -1067,6 +1100,32 @@ impl Crossing {
         unsafe { (self.enter)(&mut context, out.as_mut_ptr()) };
         // SAFETY: the entry wrote a whole value.
         unsafe { Crossing::finish(&mut context, out, run) }
+    }
+
+    /// Runs the compiled body of constant `g`, a root of its own, its frame
+    /// counted by the caller, as [`Crossing::enter`] runs the entry's: its
+    /// value, or `None` if `g` wasn't compiled as a root.
+    ///
+    /// Private and safe for the reasons [`Crossing::enter`] is.
+    #[allow(unsafe_code)]
+    fn enter_constant(
+        &self,
+        g: u32,
+        run: &mut NativeRun<'_>,
+    ) -> Option<Result<Value, ResourceError>> {
+        let trampoline = (*self.constants.get(g as usize)?)?;
+        let mut context = self.context(run);
+        let mut out = MaybeUninit::<Value>::uninit();
+        // SAFETY: as in `enter`: a finished entry trampoline into the
+        // constant's body (`Crossing::new`'s contract).
+        unsafe { trampoline(&mut context, out.as_mut_ptr()) };
+        // SAFETY: the body wrote a whole value.
+        Some(unsafe { Crossing::finish(&mut context, out, run) })
+    }
+
+    /// Whether constant `g` was compiled as a root of its own.
+    pub fn has_constant(&self, g: u32) -> bool {
+        matches!(self.constants.get(g as usize), Some(Some(_)))
     }
 
     /// `f` applied to `args` (one or two) through the apply stub, as the
@@ -1154,6 +1213,7 @@ pub struct NativeExecutor {
     /// into, and the outline of its program.
     code: Box<dyn NativeIslands>,
     globals: Vec<Option<Value>>,
+    statics: Vec<Option<Value>>,
     counts: EffectCounts,
     steps: u64,
     limits: Limits,
@@ -1185,6 +1245,7 @@ impl NativeExecutor {
     pub fn new(code: Box<dyn NativeIslands>, limits: Limits, stack_size: usize) -> NativeExecutor {
         NativeExecutor {
             globals: vec![None; code.crossing().outline().globals.len()],
+            statics: vec![None; code.crossing().outline().lambda_params.len()],
             code,
             counts: EffectCounts::default(),
             steps: 0,
@@ -1234,6 +1295,67 @@ impl NativeExecutor {
         self.counts
     }
 
+    /// The value of global `g`, as the machine's `Machine::global` gives
+    /// it: a constant is computed in a frame of its own the first time,
+    /// and kept; a function is a function value. For a runner that asks for
+    /// a global by name rather than running the entry (`stitchwort test
+    /// --native`). `None` if `g` is a constant not yet computed whose body
+    /// wasn't compiled as a root ([`Crossing::has_constant`]).
+    pub fn global(&mut self, g: u32) -> Option<Result<Value, ResourceError>> {
+        if let Some(v) = self.globals.get(g as usize)? {
+            return Some(Ok(v.clone()));
+        }
+        let kind = self.code.crossing().outline().globals[g as usize].kind;
+        let value = match kind {
+            Kind::Constant => {
+                if !self.code.crossing().has_constant(g) {
+                    return None;
+                }
+                // Counted as the machine's `push` of the constant's frame.
+                self.steps += 1;
+                if self.steps > self.limits.steps {
+                    return Some(Err(ResourceError::Work));
+                }
+                if self.limits.frames == 0 {
+                    return Some(Err(ResourceError::Depth));
+                }
+                // `has_constant` was checked, so the crossing enters it.
+                let out = self.cross(1, |crossing, run| {
+                    crossing
+                        .enter_constant(g, run)
+                        .unwrap_or(Err(ResourceError::Work))
+                });
+                match out {
+                    Ok(v) => v,
+                    Err(e) => return Some(Err(e)),
+                }
+            }
+            Kind::Native(op) if op.arity() == 0 => Value::Erased,
+            _ => Value::Fun(new_fun(Fun::Global(g))),
+        };
+        self.globals[g as usize] = Some(value.clone());
+        Some(Ok(value))
+    }
+
+    /// The constants computed so far, taken out, leaving none: to run
+    /// something as on a fresh machine (a partial test, which
+    /// `stitchwort test` runs on a machine of its own) without losing them
+    /// for what comes after ([`NativeExecutor::restore_globals`]).
+    pub fn set_aside_globals(&mut self) -> Vec<Option<Value>> {
+        let fresh = vec![None; self.globals.len()];
+        std::mem::replace(&mut self.globals, fresh)
+    }
+
+    /// Puts back what [`NativeExecutor::set_aside_globals`] took out.
+    pub fn restore_globals(&mut self, globals: Vec<Option<Value>>) {
+        assert_eq!(
+            globals.len(),
+            self.globals.len(),
+            "another program's globals"
+        );
+        self.globals = globals;
+    }
+
     /// Calls into the code with `frames` pending, as `call` does it, and
     /// drops what its frames gave up if it fails.
     fn cross(
@@ -1246,6 +1368,7 @@ impl NativeExecutor {
         let mut run = NativeRun {
             outline: crossing.outline(),
             globals: &mut self.globals,
+            statics: &mut self.statics,
             counts: &mut self.counts,
             steps: self.steps,
             frames,
@@ -1448,6 +1571,49 @@ pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
     }
 }
 
+/// A frame's registers in memory: `n` `Erased` values, for a body with too
+/// many registers to keep them in Cranelift variables (`n1`'s register
+/// file). Freed by [`sw_regs_free`] when the frame leaves.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub extern "C" fn sw_regs_new(n: u64) -> *mut Value {
+    let file: Box<[Value]> = (0..n).map(|_| Value::Erased).collect();
+    Box::into_raw(file).cast()
+}
+
+/// Drops the `n` values at `regs`, highest first (as the machine releases a
+/// frame's registers), leaving them `Erased`.
+///
+/// # Safety
+/// `regs` points at `n` initialised values.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_release_down(regs: *mut Value, n: u64) {
+    for i in (0..n as usize).rev() {
+        // SAFETY: within the values.
+        drop(unsafe { std::mem::take(&mut *regs.add(i)) });
+    }
+}
+
+/// Frees a register file from [`sw_regs_new`], dropping whatever is left in
+/// it as [`sw_release_down`] does (nothing, when the frame has released or
+/// unwound its registers first).
+///
+/// # Safety
+/// `regs` and `n` are a register file's from [`sw_regs_new`], which native
+/// code doesn't use again.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_regs_free(regs: *mut Value, n: u64) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        sw_release_down(regs, n);
+        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            regs, n as usize,
+        )));
+    }
+}
+
 /// The most fields a cell has on [`sw_cell_new`]'s and [`sw_cell_free`]'s
 /// fixed-size paths, whose layout is a constant; larger cells take a
 /// slice's general path.
@@ -1503,6 +1669,7 @@ fn cell_new(tag: u32, n: u64) -> u64 {
     let cell = by_arity!(n, fixed(), Rc::<[Value]>::new_uninit_slice(n as usize));
     let fields = Rc::into_raw(cell).cast::<u8>();
     crate::alloc_trace::alloc_at(tag, fields, n as usize);
+    crate::value_census::cell_native(n as usize);
     fields as u64 - RC_VALUE_AT as u64
 }
 
@@ -1524,6 +1691,7 @@ pub unsafe extern "C" fn sw_cell_free(cell: u64, n: u64) {
     crate::call_counts::hit(crate::call_counts::Helper::CellFree);
     let fields = (cell + RC_VALUE_AT as u64) as *const MaybeUninit<Value>;
     crate::alloc_trace::dec_at(fields.cast(), n as usize, true);
+    crate::value_census::cell_freed(n as usize);
     // SAFETY: the caller's contract.
     unsafe { free_emptied(cell, n) };
 }
@@ -1562,7 +1730,7 @@ pub(crate) unsafe fn free_emptied(cell: u64, n: u64) {
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_cell_cache_full(context: *mut Context, cell: u64, n: u64) {
-    if crate::alloc_trace::recording() {
+    if crate::alloc_trace::recording() || crate::value_census::SEES_EVERY_CELL {
         // SAFETY: the caller's contract.
         return unsafe { sw_cell_free(cell, n) };
     }
@@ -1638,7 +1806,10 @@ pub unsafe extern "C" fn sw_unpack(
     };
     if let Some(slice) = Rc::get_mut(&mut cell.0) {
         for p in pairs.as_chunks::<2>().0 {
-            *reg(p[1]) = std::mem::take(&mut slice[p[0] as usize]);
+            let field = std::mem::take(&mut slice[p[0] as usize]);
+            if p[1] != NO_REG {
+                *reg(p[1]) = field;
+            }
         }
         if token != NO_REG {
             for v in slice.iter_mut() {
@@ -1648,7 +1819,9 @@ pub unsafe extern "C" fn sw_unpack(
         }
     } else {
         for p in pairs.as_chunks::<2>().0 {
-            *reg(p[1]) = cell[p[0] as usize].clone();
+            if p[1] != NO_REG {
+                *reg(p[1]) = cell[p[0] as usize].clone();
+            }
         }
         if token != NO_REG {
             *reg(token) = Value::Erased;
@@ -2502,6 +2675,25 @@ pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: 
     unsafe { out.write(Value::Fun(new_fun(Fun::Closure { lambda, captures }))) };
 }
 
+/// `StaticClosure`: the shared closure of capture-free `lambda`, built on
+/// first use and held by the run (a new reference, put in `out`).
+///
+/// # Safety
+/// As [`sw_global`].
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_static_closure(context: *mut Context, lambda: u32, out: *mut Value) {
+    // SAFETY: the context's run outlives the native call.
+    let run = unsafe { &mut *(*context).run };
+    let v = run.statics[lambda as usize].get_or_insert_with(|| {
+        Value::Fun(new_fun(Fun::Closure {
+            lambda,
+            captures: Box::new([]),
+        }))
+    });
+    unsafe { out.write(v.clone()) };
+}
+
 /// `Pap`: global `g` (a function or a native) with the `n` values at `args`
 /// (moved), put in `out` (uninitialised).
 ///
@@ -2833,12 +3025,10 @@ pub unsafe extern "C" fn sw_eff_step(
     if tag == s.bind_node {
         counts.pushes += 1;
         crate::call_counts::hit_event(crate::call_counts::Event::Push);
-        let (inner, k) = crate::effect::pair(fields);
         // SAFETY: the caller's contract: `pending` is taken and replaced.
         unsafe {
-            let rest = pending.read();
-            crate::call_counts::hit_made(crate::call_counts::Made::PendingCell, 1);
-            pending.write(Value::data(0, [k, rest]));
+            let (inner, list) = crate::effect::push_pending(fields, pending.read());
+            pending.write(list);
             c.write(inner);
         }
         return STEP_AGAIN;
@@ -2850,7 +3040,7 @@ pub unsafe extern "C" fn sw_eff_step(
         if let Value::Data(_, cell) = list {
             counts.pops += 1;
             crate::call_counts::hit_event(crate::call_counts::Event::Pop);
-            let (k, next) = crate::effect::pair(cell);
+            let (k, next) = crate::effect::pop_pending(cell);
             let x = crate::effect::field(fields, 0);
             // SAFETY: as above.
             unsafe { pending.write(next) };
@@ -2900,7 +3090,7 @@ pub unsafe extern "C" fn sw_eff_step(
         write(0, Value::Data(s.call, fields));
         return STEP_RETURN;
     }
-    let (o, rest) = crate::effect::pair(fields);
+    let (o, rest, spare) = crate::effect::split_call(fields);
     if crate::call_counts::ENABLED {
         crate::call_counts::hit_chain_op();
         crate::call_counts::hit_event(
@@ -2923,13 +3113,15 @@ pub unsafe extern "C" fn sw_eff_step(
                     rest,
                     pending: list,
                 };
-                write(0, crate::effect::skipped(s, counts, o, resume));
+                write(0, crate::effect::skipped(s, counts, o, resume, spare));
                 return STEP_RETURN;
             }
             Err(o) => o,
         },
         _ => o,
     };
+    // Freed here, before the clause runs, as the cell always was.
+    drop(spare);
     if crate::call_counts::ENABLED {
         count_route(run.outline, &handler, &o);
     }
@@ -3159,8 +3351,8 @@ pub unsafe extern "C" fn sw_resume_begin(
     crate::call_counts::hit_event(crate::call_counts::Event::ResumeBegin);
     crate::call_counts::hit_chain_end();
     // SAFETY: the caller's contract: borrowed, so not dropped.
-    let k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
-    let Value::Fun(fun) = &*k else {
+    let mut k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
+    let Value::Fun(fun) = &mut *k else {
         internal(format_args!("resumed a value that isn't a function"))
     };
     let write = |i: usize, v: Value| {
@@ -3169,6 +3361,19 @@ pub unsafe extern "C" fn sw_resume_begin(
     };
     // SAFETY: the caller's contract.
     let y = unsafe { y.read() };
+    // An eager resumption that nothing else holds (a one-shot forward's,
+    // always) gives up its fields instead of copying them. The cell is left
+    // as `DoneK`, which owns nothing, so the caller's later drop of `k`
+    // only frees it.
+    if let Some(resume) = crate::effect::Resume::take_unique(fun) {
+        // SAFETY: the caller's contract.
+        unsafe { handler.write(Rc::into_raw(resume.handler) as u64) };
+        write(0, resume.pending);
+        write(1, resume.rest);
+        write(2, y);
+        return 0;
+    }
+    let fun = &*fun;
     let (resume, translate) = match &**fun {
         Fun::Resume(_, resume) => (resume, None),
         Fun::TranslateK(t) => (&t.resume, Some(t)),
@@ -3335,5 +3540,33 @@ mod tests {
     #[test]
     fn the_layout_probe_passes() {
         super::probe().expect("the layout is as native code expects");
+    }
+
+    /// Native code's frame limit is the ceiling when the widest frame fits
+    /// it under the cap, and otherwise the most the cap allows: always a
+    /// limit [`native_stack`] gives a stack for, one frame fewer fails it,
+    /// and the counter fires before the stack check.
+    #[test]
+    fn the_native_frame_limit_is_the_ceiling_or_what_the_cap_allows() {
+        use super::*;
+        let ceiling = 16_000_000;
+        assert_eq!(native_frame_limit(ceiling, 3_000), ceiling);
+        for max_frame in [8, 100, 2_760, 3_400, 4_000, 4_400, 20_000, 1 << 20, 1 << 30] {
+            let limit = native_frame_limit(ceiling, max_frame);
+            assert!(limit <= ceiling);
+            let stack = native_stack(limit as u64, max_frame)
+                .unwrap_or_else(|| panic!("{max_frame}: {limit} frames over the cap"));
+            assert!(
+                counter_fires_first(limit as u64, stack, max_frame),
+                "{max_frame}"
+            );
+            if limit < ceiling {
+                assert!(
+                    native_stack(limit as u64 + 1, max_frame).is_none(),
+                    "{max_frame}: could have had {}",
+                    limit + 1
+                );
+            }
+        }
     }
 }

@@ -13,6 +13,19 @@
 //! is an empty `#[inline(always)]` function, so no shipped or test build pays
 //! for it.
 //!
+//! A native executable is counted too, when it is linked against a runtime
+//! library built with the feature: `cargo build --release -p
+//! stitchwort-standalone --features value-census` (with its own
+//! `CARGO_TARGET_DIR`), then `STITCHWORT_RUNTIME=<that target
+//! dir>/release/libstitchwort_standalone.a stitchwort build --native ...`,
+//! and run the executable with `STITCHWORT_VALUE_CENSUS` set. Native code
+//! allocates its cells in `sw_cell_new`, where the census counts them by
+//! field count and size (`cells.native` of `cells.total` came this way); it
+//! fills them afterwards, so the `cell_field.*` kinds cover only the cells
+//! the runtime built. In such a build native code does not use its cache of
+//! freed cells, so every cell passes through the runtime. The executable's
+//! start-up self-check adds a constant 7 cells and a few other objects.
+//!
 //! The sizes of the four models, per object (`n` fields, `k` captures, `v`
 //! the number of `Value` slots in the largest variant of an enum):
 //!
@@ -45,6 +58,53 @@ pub(crate) fn cell(fields: &[Value]) {
     #[cfg(not(feature = "value-census"))]
     let _ = fields;
 }
+
+/// Under the census, `Instr::Ctor` and `CtorReuse` carry in their tag's top
+/// byte which of the first eight fields are of enum types (see
+/// [`tag_with_enum_fields`]); this takes it off. Without the census the tag
+/// is the tag. Native code, which has no use for the mask, strips it too.
+#[inline(always)]
+pub fn split_tag(tag: u32) -> (u32, u8) {
+    #[cfg(feature = "value-census")]
+    return (tag & 0x00ff_ffff, (tag >> 24) as u8);
+    #[cfg(not(feature = "value-census"))]
+    (tag, 0)
+}
+
+/// `tag` with the enum-typed fields among the first eight as a mask in its top byte.
+#[cfg(feature = "value-census")]
+pub(crate) fn tag_with_enum_fields(tag: u32, enum_fields: &[bool]) -> u32 {
+    assert!(tag < 1 << 24);
+    let mask =
+        (enum_fields.iter().take(8).enumerate()).fold(0u32, |m, (i, e)| m | (*e as u32) << i);
+    tag | mask << 24
+}
+
+/// A cell was built (or refilled in place, `refill`) from these fields, of
+/// which the bits of `enum_mask` are declared enum types.
+#[inline(always)]
+pub(crate) fn stored_cell(enum_mask: u8, fields: &[Value], refill: bool) {
+    #[cfg(feature = "value-census")]
+    enabled::stored_cell(enum_mask, fields, refill);
+    #[cfg(not(feature = "value-census"))]
+    let _ = (enum_mask, fields, refill);
+}
+
+/// A cell of `n` fields that native code is about to fill has been
+/// allocated (`sw_cell_new`). Counted by size only: what it will hold is
+/// not known yet, so the `cell_field.*` lines cover the other cells.
+#[inline(always)]
+pub(crate) fn cell_native(n: usize) {
+    #[cfg(feature = "value-census")]
+    enabled::cell_native(n);
+    #[cfg(not(feature = "value-census"))]
+    let _ = n;
+}
+
+/// Whether native code must allocate and free every cell through the
+/// runtime, not through its cache of freed cells, so that the census sees
+/// them all.
+pub const SEES_EVERY_CELL: bool = cfg!(feature = "value-census");
 
 /// A cell was refilled in place (`CtorReuse`).
 #[inline(always)]

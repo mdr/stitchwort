@@ -1,6 +1,6 @@
 //! Simplifying the lowered IR before it runs (fast-runtime.md, "As built
 //! (stage 4)"). Lowering keeps the program's own structure, so a comparison
-//! `a < b` on `Nat` is a call of `Decidable.toBool` on a call of
+//! `a < b` on `Nat` is a call of `Decidable.holds` on a call of
 //! `Nat.decLessThan`, which calls `Bool.decTrue`; `==` on `Char` goes
 //! through `Char.decEq`; and an `Ord` method is a projection out of a
 //! dictionary, then a closure call. This pass removes that overhead, the
@@ -10,22 +10,32 @@
 //! - **Inlining** a call of a small, non-recursive global function (its
 //!   arguments bound by `let`s, or substituted when they're variables or
 //!   constants), and **beta** for a closure applied where it's made.
+//!   Somewhat bigger ones are inlined where the call's context pays for it
+//!   ([`Context`]): a function returning one of a few constructors where
+//!   its result is taken apart at once, and a function taking an argument
+//!   apart where that argument's constructor is known or so selected.
 //! - **Known constructors**: a `match` on a value whose constructor is known
 //!   (built by a `let` in scope, matched by an enclosing arm, a constant
 //!   whose value is a constructor such as an instance dictionary, or a
 //!   literal) takes its arm, with no test.
 //! - **Case of case**: a `match` (or `if`) on the result of a branching
 //!   expression is pushed into the branches, when it's small, so that each
-//!   branch's constructor meets it: `toBool (decTrue b)` is `b`.
-//! - A `match` on a `Bool` is an `if`; `if c then True else False` is `c`;
-//!   a `match` on a decision from `decEq` on native values is an `if` on
-//!   the native equality.
+//!   branch's constructor meets it: `holds (decTrue b)` is `b`. Where
+//!   every branch ends in a constructor, only the arm each takes is copied,
+//!   so the size allowed counts those arms.
+//! - A `match` on a `Bool` is an `if`; `if c then True else False` is `c`.
+//!   A decision is stored as its test, a `Bool`, so this covers matches on
+//!   decisions too.
 //! - **Calls of known functions**: applying a global, a partial application
 //!   or a closure literal is a direct call; a closure capturing constants
 //!   (`sortBy Nat.compare`'s comparison) gets its own lambda with them
 //!   substituted, which the rules above can then simplify. A recursive
 //!   function called with known functions or known instance dictionaries
 //!   (`Map.insertWith` at `Nat.instOrd`) gets a copy with them substituted.
+//! - **Taking records apart first**: an expression that reads a record's
+//!   fields more than once (a record update) matches it once, before it
+//!   starts, so a record nothing else holds gives up its fields unshared
+//!   and its cell can be reused ([`Simp::take_apart`]).
 //!
 //! Everything here is pure and total (a partial computation is a value until
 //! the runner runs it), so a binding nothing reads is dropped and work may
@@ -43,7 +53,7 @@ use crate::ir::{
     Arm, Body, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind, PrimOp,
     Program, Slot, TypeId,
 };
-use crate::natives::{IntNative, TextNative};
+use crate::natives::TextNative;
 
 /// The largest body (in [`size`]) that is inlined at a call.
 const INLINE_SIZE: usize = 24;
@@ -51,6 +61,13 @@ const INLINE_SIZE: usize = 24;
 const BETA_SIZE: usize = 48;
 /// How much code case of case may copy at once.
 const PUSH_SIZE: usize = 48;
+/// The largest body inlined for its context: where its result, one of a
+/// few constructors, is taken apart at once, or where it takes apart an
+/// argument whose constructor is known there ([`Context`]).
+const CONTEXT_SIZE: usize = 80;
+/// How much code case of case may copy when each leaf is a constructor:
+/// only the arm that leaf takes is copied, so this counts those arms.
+const KNOWN_PUSH_SIZE: usize = 96;
 /// Inlining and case of case per body, so that nothing runs away.
 const FUEL: u32 = 200;
 /// How deeply inlined code may inline in turn.
@@ -66,7 +83,6 @@ pub(crate) const MAX_NESTING: usize = 1000;
 #[derive(Clone, Copy, Debug)]
 pub struct Types {
     pub bool_: Option<TypeId>,
-    pub decidable: Option<TypeId>,
 }
 
 /// Simplifies every body of `p`.
@@ -74,6 +90,7 @@ pub fn optimize(p: &mut Program, types: Types) {
     let n = p.globals.len();
     let mut cx = Cx {
         inline: vec![None; n],
+        context: vec![None; n],
         consts: vec![None; n],
         natives: p
             .globals
@@ -87,8 +104,6 @@ pub fn optimize(p: &mut Program, types: Types) {
         types,
         true_: p.shapes.true_,
         false_: p.shapes.false_,
-        yes: p.shapes.yes,
-        no: p.shapes.no,
         lambdas: std::mem::take(&mut p.lambdas),
         specialised: HashMap::default(),
         ctor_arity: p
@@ -122,6 +137,9 @@ struct Cx {
     /// Each global function small enough to inline: its parameters and its
     /// (simplified) body.
     inline: Vec<Option<Rc<(u32, Expr)>>>,
+    /// Each global function too big for that but worth inlining in the
+    /// right context.
+    context: Vec<Option<Rc<Context>>>,
     /// Each constant whose value is a constructor of closed expressions.
     consts: Vec<Option<Rc<Expr>>>,
     natives: Vec<Option<PrimOp>>,
@@ -129,8 +147,6 @@ struct Cx {
     types: Types,
     true_: u32,
     false_: u32,
-    yes: u32,
-    no: u32,
     lambdas: Vec<Lambda>,
     /// Lambdas made by substituting constants for captures, by the lambda
     /// and the constants.
@@ -142,6 +158,76 @@ struct Cx {
     /// Copies of recursive functions with known arguments substituted, by
     /// the function and the arguments.
     copies: HashMap<String, GlobalId>,
+}
+
+/// A function inlined only where that lets [`Simp::match_`] pick an arm
+/// with no test, as `Map.Tree.balance`'s `rebuild (shape l r) l k v r`:
+/// `shape` returns one of five constants, which `rebuild` takes apart at
+/// once. Inlined, each of `shape`'s leaves meets `rebuild`'s match and
+/// takes its arm, so no `Shape` is made or tested, and the node `rebuild`
+/// builds is in the same body as what it's built from (where a reuse
+/// token for it may be).
+struct Context {
+    params: u32,
+    body: Expr,
+    kind: ContextKind,
+}
+
+enum ContextKind {
+    /// Every leaf of the body is a constructor of trivial fields, these:
+    /// inlined where the result is taken apart at once.
+    Selects(Vec<(TypeId, u32)>),
+    /// The body is a match on this parameter: inlined where the argument's
+    /// constructor is known, or is a call of a function that selects.
+    Dispatches(u32),
+}
+
+impl Context {
+    fn of(params: u32, body: &Expr) -> Option<Context> {
+        let kind = match body {
+            Expr::Match(x, MatchKind::Data(_), _) => match **x {
+                Expr::Local(p) if p < params => ContextKind::Dispatches(p),
+                _ => return None,
+            },
+            _ if branching(body) => ContextKind::Selects(ctor_leaves(body)?),
+            _ => return None,
+        };
+        Some(Context {
+            params,
+            body: body.clone(),
+            kind,
+        })
+    }
+}
+
+/// The constructors `e`'s leaves are, if each is one of trivial fields
+/// (unreachable leaves left out).
+fn ctor_leaves(e: &Expr) -> Option<Vec<(TypeId, u32)>> {
+    fn go(e: &Expr, out: &mut Vec<(TypeId, u32)>) -> bool {
+        match e {
+            Expr::If(_, t, e) => go(t, out) && go(e, out),
+            Expr::Match(_, _, arms) => arms.iter().all(|a| go(&a.body, out)),
+            Expr::NumSwitch(_, arms, d) => arms.iter().all(|(_, b)| go(b, out)) && go(d, out),
+            Expr::Let(_, _, b) => go(b, out),
+            Expr::Unreachable => true,
+            Expr::Ctor(t, c, fields) if fields.iter().all(trivial) => {
+                out.push((*t, *c));
+                true
+            }
+            _ => false,
+        }
+    }
+    let mut out = Vec::new();
+    go(e, &mut out).then_some(out)
+}
+
+/// The code case of case copies when a match of type `t` with `arms` is
+/// pushed into leaves that are `leaves`: the arm each takes.
+fn pushed(arms: &[Arm], t: TypeId, leaves: &[(TypeId, u32)]) -> Option<usize> {
+    leaves.iter().try_fold(0, |n, &(u, c)| {
+        let arm = arms.iter().find(|a| a.ctor == c).filter(|_| u == t)?;
+        Some(n + size(&arm.body))
+    })
 }
 
 impl Cx {
@@ -181,8 +267,13 @@ impl Cx {
         let kind = match kind {
             GlobalKind::Function { params, body } => {
                 let body = self.body(body, params, Some(i));
-                if size(&body.expr) <= INLINE_SIZE && !self.recursive(&body.expr, i) {
-                    self.inline[i] = Some(Rc::new((params, body.expr.clone())));
+                let n = size(&body.expr);
+                if n <= CONTEXT_SIZE && !self.recursive(&body.expr, i) {
+                    if n <= INLINE_SIZE {
+                        self.inline[i] = Some(Rc::new((params, body.expr.clone())));
+                    } else {
+                        self.context[i] = Context::of(params, &body.expr).map(Rc::new);
+                    }
                 }
                 GlobalKind::Function { params, body }
             }
@@ -243,6 +334,7 @@ impl Cx {
             global,
         };
         let expr = s.simp(expr);
+        let expr = s.take_apart(expr);
         let mut packer = Packer {
             map: HashMap::default(),
             depth: params,
@@ -423,6 +515,75 @@ pub(crate) fn reads(e: &Expr, s: Slot) -> usize {
     }
 }
 
+/// `e` with each match of `s` (a variable whose type has one constructor)
+/// replaced by its arm, whose fields are to be read from `fields`: `map`
+/// gets what each slot the arms bound stands for.
+fn without_projections(e: Expr, s: Slot, fields: &[Slot], map: &mut HashMap<Slot, Expr>) -> Expr {
+    let all = |a: Vec<Expr>, map: &mut HashMap<Slot, Expr>| -> Vec<Expr> {
+        a.into_iter()
+            .map(|x| without_projections(x, s, fields, map))
+            .collect()
+    };
+    match e {
+        Expr::Match(x, MatchKind::Data(_), mut arms)
+            if matches!(*x, Expr::Local(y) if y == s) && arms.len() == 1 =>
+        {
+            let arm = arms.pop().expect("one arm");
+            for (i, slot) in arm.fields {
+                map.insert(slot, Expr::Local(fields[i as usize]));
+            }
+            without_projections(arm.body, s, fields, map)
+        }
+        Expr::Local(_)
+        | Expr::Captured(_)
+        | Expr::Global(_)
+        | Expr::Erased
+        | Expr::Lit(_)
+        | Expr::DoneK
+        | Expr::Unreachable => e,
+        Expr::Call(g, a) => Expr::Call(g, all(a, map)),
+        Expr::Prim(op, a) => Expr::Prim(op, all(a, map)),
+        Expr::PartialApp(g, a) => Expr::PartialApp(g, all(a, map)),
+        Expr::Closure(l, a) => Expr::Closure(l, all(a, map)),
+        Expr::Ctor(t, c, a) => Expr::Ctor(t, c, all(a, map)),
+        Expr::Apply(f, a) => {
+            let f = without_projections(*f, s, fields, map);
+            Expr::Apply(Box::new(f), all(a, map))
+        }
+        Expr::Let(x, v, b) => {
+            let v = without_projections(*v, s, fields, map);
+            let b = without_projections(*b, s, fields, map);
+            Expr::Let(x, Box::new(v), Box::new(b))
+        }
+        Expr::Match(x, k, arms) => {
+            let x = without_projections(*x, s, fields, map);
+            let arms = arms
+                .into_iter()
+                .map(|a| Arm {
+                    body: without_projections(a.body, s, fields, map),
+                    ..a
+                })
+                .collect();
+            Expr::Match(Box::new(x), k, arms)
+        }
+        Expr::NumSwitch(x, arms, d) => {
+            let x = without_projections(*x, s, fields, map);
+            let arms = arms
+                .into_iter()
+                .map(|(n, b)| (n, without_projections(b, s, fields, map)))
+                .collect();
+            let d = without_projections(*d, s, fields, map);
+            Expr::NumSwitch(Box::new(x), arms, Box::new(d))
+        }
+        Expr::If(c, t, f) => {
+            let c = without_projections(*c, s, fields, map);
+            let t = without_projections(*t, s, fields, map);
+            let f = without_projections(*f, s, fields, map);
+            Expr::If(Box::new(c), Box::new(t), Box::new(f))
+        }
+    }
+}
+
 /// A value that's free to copy: reading it does no work worth sharing.
 fn trivial(e: &Expr) -> bool {
     match e {
@@ -475,16 +636,6 @@ fn leaves(e: &Expr) -> usize {
         Expr::Let(_, _, b) => leaves(b),
         Expr::Unreachable => 0,
         _ => 1,
-    }
-}
-
-/// The native `Bool` equality a `decEq` native decides.
-fn equality(op: PrimOp) -> Option<PrimOp> {
-    match op {
-        PrimOp::Nat(Native::DecEqNat) => Some(PrimOp::Nat(Native::EqNat)),
-        PrimOp::Int(IntNative::DecEqInt) => Some(PrimOp::IntEqual),
-        PrimOp::Text(TextNative::DecEqText) => Some(PrimOp::TextEqual),
-        _ => None,
     }
 }
 
@@ -699,9 +850,6 @@ enum Known {
     Alias(Expr),
     /// A constructor of this type with these fields (trivial expressions).
     Ctor(TypeId, u32, Vec<Expr>),
-    /// The decision a `decEq` native makes on these arguments: its
-    /// `Bool` version is this native.
-    Decision(PrimOp, Vec<Expr>),
     /// A closure or partial application of trivial values: applying it
     /// is a call.
     Fun(Expr),
@@ -758,11 +906,6 @@ impl Simp<'_> {
             }
             Expr::Closure(_, caps) | Expr::PartialApp(_, caps) if caps.iter().all(trivial) => {
                 self.env.insert(slot, Known::Fun(value.clone()));
-            }
-            Expr::Prim(op, args) => {
-                if let Some(eq) = equality(*op) {
-                    self.env.insert(slot, Known::Decision(eq, args.clone()));
-                }
             }
             _ => {}
         }
@@ -870,6 +1013,26 @@ impl Simp<'_> {
         self.learn(slot, &value);
         let body = simp_body(self);
         self.env.remove(&slot);
+        let mut value = value;
+        // A call whose result, one of a few constructors, is taken apart at
+        // once: inlined, so that case of case below meets each constructor
+        // with its arm.
+        if let Expr::Match(x, MatchKind::Data(t), arms) = &body
+            && matches!(**x, Expr::Local(s) if s == slot)
+            && let Expr::Call(h, _) = &value
+            && reads(&body, slot) == 1
+            && let Some(context) = self.selector(*h, *t, arms)
+        {
+            self.fuel -= 1;
+            let Expr::Call(_, args) = value else {
+                unreachable!("matched above")
+            };
+            debug_assert_eq!(context.params as usize, args.len());
+            value = self.instantiate(&context.body, args, None, &[]);
+            if let Expr::Ctor(..) = value {
+                return self.let_(slot, value, body);
+            }
+        }
         match reads(&body, slot) {
             // Nothing reads it: it needn't be computed.
             0 => return body,
@@ -891,7 +1054,14 @@ impl Simp<'_> {
                     }
                     _ => false,
                 };
-                if scrutinised && size(&body) * (leaves(&value) - 1) <= PUSH_SIZE {
+                // Each leaf a constructor: the match takes one arm there.
+                let known = match &body {
+                    Expr::Match(_, MatchKind::Data(t), arms) => ctor_leaves(&value)
+                        .and_then(|leaves| pushed(arms, *t, &leaves))
+                        .is_some_and(|n| n <= KNOWN_PUSH_SIZE),
+                    _ => false,
+                };
+                if scrutinised && (known || size(&body) * (leaves(&value) - 1) <= PUSH_SIZE) {
                     self.fuel -= 1;
                     return self.map_leaves(value, &mut |s, leaf| {
                         let n = s.fresh();
@@ -1006,6 +1176,164 @@ impl Simp<'_> {
         }
     }
 
+    /// Takes records apart before the expressions that read their fields
+    /// more than once, in simplified code. `{ w | map = w.map.insert k v }`
+    /// builds its constructor from `insert`'s result and `w.check`, so `w`
+    /// would stay alive while `insert` runs and the map be shared; taken
+    /// apart first, `w`'s cell (if nothing else holds it) gives up its
+    /// fields, the map is passed on unshared, and the cell is reused for
+    /// the new record, as in `match w with | { map, seed, check } => …`.
+    ///
+    /// An expression qualifies if it reads a field of a variable wherever
+    /// it's evaluated (not only in a branch) and reads the variable again,
+    /// a field or the whole: a constructor, a call, a native, a closure,
+    /// or a `let` whose value reads the field. Only a type with one
+    /// constructor is taken apart, so the match can't fail wherever it's
+    /// put. Everything here is pure, so reading the fields earlier changes
+    /// no result; a field read early is held a little longer, until its
+    /// last use.
+    fn take_apart(&mut self, e: Expr) -> Expr {
+        let e = match self.taken_apart_first(&e) {
+            Some((s, t)) => {
+                let n = self.cx.ctor_arity[t.0 as usize][0];
+                let fields: Vec<Slot> = (0..n).map(|_| self.fresh()).collect();
+                let mut map = HashMap::default();
+                let body = without_projections(e, s, &fields, &mut map);
+                let body = self.copy(&body, map, None);
+                let fields = fields
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, f)| reads(&body, *f) > 0)
+                    .map(|(i, f)| (u32::try_from(i).expect("fields fit"), f))
+                    .collect();
+                let arm = Arm {
+                    ctor: 0,
+                    fields,
+                    body,
+                };
+                Expr::Match(Box::new(Expr::Local(s)), MatchKind::Data(t), vec![arm])
+            }
+            None => e,
+        };
+        match e {
+            Expr::Local(_)
+            | Expr::Captured(_)
+            | Expr::Global(_)
+            | Expr::Erased
+            | Expr::Lit(_)
+            | Expr::DoneK
+            | Expr::Unreachable => e,
+            Expr::Call(g, a) => Expr::Call(g, self.take_apart_all(a)),
+            Expr::Prim(op, a) => Expr::Prim(op, self.take_apart_all(a)),
+            Expr::PartialApp(g, a) => Expr::PartialApp(g, self.take_apart_all(a)),
+            Expr::Closure(l, a) => Expr::Closure(l, self.take_apart_all(a)),
+            Expr::Ctor(t, c, a) => Expr::Ctor(t, c, self.take_apart_all(a)),
+            Expr::Apply(f, a) => Expr::Apply(Box::new(self.take_apart(*f)), self.take_apart_all(a)),
+            Expr::Let(s, v, b) => Expr::Let(
+                s,
+                Box::new(self.take_apart(*v)),
+                Box::new(self.take_apart(*b)),
+            ),
+            Expr::Match(x, k, arms) => Expr::Match(
+                Box::new(self.take_apart(*x)),
+                k,
+                arms.into_iter()
+                    .map(|a| Arm {
+                        body: self.take_apart(a.body),
+                        ..a
+                    })
+                    .collect(),
+            ),
+            Expr::NumSwitch(x, arms, d) => Expr::NumSwitch(
+                Box::new(self.take_apart(*x)),
+                arms.into_iter()
+                    .map(|(n, b)| (n, self.take_apart(b)))
+                    .collect(),
+                Box::new(self.take_apart(*d)),
+            ),
+            Expr::If(c, t, f) => Expr::If(
+                Box::new(self.take_apart(*c)),
+                Box::new(self.take_apart(*t)),
+                Box::new(self.take_apart(*f)),
+            ),
+        }
+    }
+
+    fn take_apart_all(&mut self, es: Vec<Expr>) -> Vec<Expr> {
+        es.into_iter().map(|e| self.take_apart(e)).collect()
+    }
+
+    /// A variable [`Simp::take_apart`] takes apart before `e`, and its
+    /// type.
+    fn taken_apart_first(&self, e: &Expr) -> Option<(Slot, TypeId)> {
+        let mut found = Vec::new();
+        match e {
+            Expr::Let(_, v, _) => self.projections(v, &mut found),
+            Expr::Call(_, a)
+            | Expr::Prim(_, a)
+            | Expr::PartialApp(_, a)
+            | Expr::Closure(_, a)
+            | Expr::Ctor(_, _, a) => a.iter().for_each(|x| self.projections(x, &mut found)),
+            Expr::Apply(f, a) => {
+                self.projections(f, &mut found);
+                a.iter().for_each(|x| self.projections(x, &mut found));
+            }
+            _ => return None,
+        }
+        found.into_iter().find(|(s, _)| reads(e, *s) >= 2)
+    }
+
+    /// The variables of types with one constructor whose fields `e` reads
+    /// wherever it's evaluated (not in a branch), and their types.
+    fn projections(&self, e: &Expr, found: &mut Vec<(Slot, TypeId)>) {
+        match e {
+            Expr::Match(x, k, arms) => {
+                if let Some(s) = self.projection(x, *k, arms)
+                    && !found.iter().any(|(f, _)| *f == s.0)
+                {
+                    found.push(s);
+                }
+                self.projections(x, found);
+            }
+            Expr::Call(_, a)
+            | Expr::Prim(_, a)
+            | Expr::PartialApp(_, a)
+            | Expr::Closure(_, a)
+            | Expr::Ctor(_, _, a) => a.iter().for_each(|x| self.projections(x, found)),
+            Expr::Apply(f, a) => {
+                self.projections(f, found);
+                a.iter().for_each(|x| self.projections(x, found));
+            }
+            Expr::Let(x, v, b) => {
+                self.projections(v, found);
+                self.projections(b, found);
+                // Bound here, so it can't be taken apart before.
+                found.retain(|(f, _)| f != x);
+            }
+            Expr::If(x, ..) | Expr::NumSwitch(x, ..) => self.projections(x, found),
+            Expr::Local(_)
+            | Expr::Captured(_)
+            | Expr::Global(_)
+            | Expr::Erased
+            | Expr::Lit(_)
+            | Expr::DoneK
+            | Expr::Unreachable => {}
+        }
+    }
+
+    /// The variable and type of a match of a variable whose type has one
+    /// constructor.
+    fn projection(&self, x: &Expr, k: MatchKind, arms: &[Arm]) -> Option<(Slot, TypeId)> {
+        match (x, k, arms) {
+            (Expr::Local(s), MatchKind::Data(t), [arm])
+                if arm.ctor == 0 && self.cx.ctor_arity[t.0 as usize].len() == 1 =>
+            {
+                Some((*s, t))
+            }
+            _ => None,
+        }
+    }
+
     /// `if c then t else e`, `c` simplified already.
     fn if_(&mut self, c: Expr, t: Expr, e: Expr) -> Expr {
         if let Some(b) = self.truth(&c) {
@@ -1094,14 +1422,6 @@ impl Simp<'_> {
             return out;
         }
         if let MatchKind::Data(t) = k {
-            // A decision from `decEq` on native values: an `if` on equality.
-            if Some(t) == self.cx.types.decidable
-                && let Expr::Local(s) = &x
-                && let Some(Known::Decision(eq, args)) = self.env.get(s).cloned()
-            {
-                let (yes, no) = self.two(arms, self.cx.yes, self.cx.no);
-                return self.if_(Expr::Prim(eq, args), yes, no);
-            }
             // A match on a `Bool` is an `if`.
             if Some(t) == self.cx.types.bool_ {
                 let (t, e) = self.two(arms, self.cx.true_, self.cx.false_);
@@ -1186,10 +1506,56 @@ impl Simp<'_> {
             debug_assert_eq!(*params as usize, args.len());
             return self.instantiate(body, args, None, &[]);
         }
+        if Some(i) != self.global
+            && self.fuel > 0
+            && self.depth < DEPTH
+            && let Some(context) = self.cx.context[i].clone()
+            && let ContextKind::Dispatches(p) = context.kind
+            && let Expr::Match(_, MatchKind::Data(t), arms) = &context.body
+            && self.dispatched(&args[p as usize], *t, arms)
+        {
+            self.fuel -= 1;
+            debug_assert_eq!(context.params as usize, args.len());
+            return self.instantiate(&context.body, args, None, &[]);
+        }
         match self.specialise(g, &args) {
             Some(call) => call,
             None => Expr::Call(g, args),
         }
+    }
+
+    /// Whether a function whose body is a match of type `t` with `arms` on
+    /// a parameter is worth inlining where that parameter's argument is
+    /// `arg`: its constructor is known, so one arm is taken, or it selects
+    /// one of a few (a branching expression whose leaves are constructors,
+    /// or a call of a function that is one, [`Simp::selector`]), which
+    /// case of case can then push the match into.
+    fn dispatched(&self, arg: &Expr, t: TypeId, arms: &[Arm]) -> bool {
+        match arg {
+            Expr::Ctor(u, ..) => *u == t,
+            Expr::Local(s) => matches!(self.env.get(s), Some(Known::Ctor(u, ..)) if *u == t),
+            Expr::Global(g) => self.cx.consts[g.0 as usize].is_some(),
+            Expr::Call(h, _) => self.selector(*h, t, arms).is_some(),
+            // A selecting function inlined already.
+            _ if branching(arg) => ctor_leaves(arg)
+                .and_then(|leaves| pushed(arms, t, &leaves))
+                .is_some_and(|n| n <= KNOWN_PUSH_SIZE),
+            _ => false,
+        }
+    }
+
+    /// Global `h` if it selects one of a few constructors, and a match of
+    /// type `t` with `arms` on its result is worth inlining it for.
+    fn selector(&self, h: GlobalId, t: TypeId, arms: &[Arm]) -> Option<Rc<Context>> {
+        let h = h.0 as usize;
+        if Some(h) == self.global || self.fuel == 0 || self.depth >= DEPTH {
+            return None;
+        }
+        let context = self.cx.context.get(h)?.clone()?;
+        let ContextKind::Selects(leaves) = &context.kind else {
+            return None;
+        };
+        (pushed(arms, t, leaves)? <= KNOWN_PUSH_SIZE).then_some(context)
     }
 
     /// A function value that's the same wherever it's read: a global, a
@@ -1287,6 +1653,7 @@ impl Simp<'_> {
                     reuse: crate::ir::Reuse::None,
                 });
                 self.cx.inline.push(None);
+                self.cx.context.push(None);
                 self.cx.consts.push(None);
                 self.cx.natives.push(None);
                 self.cx.params.push(kept);
@@ -1448,6 +1815,7 @@ impl Simp<'_> {
                     params: lambda.params,
                     captures: u32::try_from(kept.len()).expect("fits"),
                     body: Body { frame: next, expr },
+                    dispatch: lambda.dispatch,
                 };
                 let id = LambdaId(u32::try_from(self.cx.lambdas.len()).expect("fits"));
                 self.cx.lambdas.push(new);

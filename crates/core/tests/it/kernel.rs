@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::common::*;
 use stitchwort_core::check::infer_closed;
 use stitchwort_core::value::{conv, eval, quote};
-use stitchwort_core::{Icit, Kernel, Sort, Term, Value};
+use stitchwort_core::{Icit, Kernel, Limits, Sort, Term, Value};
 
 fn nat_value(term: &Term) -> Option<usize> {
     match term.strip_loc() {
@@ -645,6 +645,94 @@ fn rejects_extracting_a_type_hidden_in_a_proof() {
     assert_eq!(define(&mut p.g, "reveal", ty, body), Err("E-PROP-ELIM"));
 }
 
+// The sort of a variable applied to arguments (`sort_of`, seen through
+// `telescope`'s erasure flags and errors)
+
+/// The erasure flags `telescope` gives the parameters of the closed type
+/// `ty`, or the code of its error.
+fn erased_params(p: &Prelude, ty: &Term) -> Result<Vec<bool>, &'static str> {
+    let value = eval(&p.g.ev(), &[], ty).expect("type evaluates");
+    stitchwort_core::check::telescope(&p.g.ev(), &value, span())
+        .map(|t| t.params.iter().map(|(_, _, erased)| *erased).collect())
+        .map_err(|d| d.code)
+}
+
+#[test]
+fn sort_of_an_applied_variable_follows_the_codomain_of_its_type() {
+    let p = Prelude::new();
+    // (q : (T : Type 1) -> T) -> q Prop -> q (Type 0) -> Nat: `q Prop` is
+    // a proposition (its proof is erased), `q (Type 0)` a type.
+    let ty = pi(
+        "q",
+        pi("T", ty_n(1), v(0)),
+        pi(
+            "x",
+            app(v(0), [prop()]),
+            pi("y", app(v(1), [ty()]), p.nat_ty()),
+        ),
+    );
+    assert_eq!(erased_params(&p, &ty), Ok(vec![false, true, false]));
+}
+
+#[test]
+fn sort_of_an_applied_variable_still_rejects_wrong_applications() {
+    let p = Prelude::new();
+    let zero = p.num(0);
+    // `q 0` with `q : Nat -> Nat -> Prop` is a function, not a type.
+    let partial = pi(
+        "q",
+        arrow(p.nat_ty(), arrow(p.nat_ty(), prop())),
+        pi("x", app(v(0), [zero.clone()]), p.nat_ty()),
+    );
+    assert_eq!(erased_params(&p, &partial), Err("E-NOT-A-TYPE"));
+    // `q 0 0` with `q : Nat -> Prop` applies a non-function.
+    let over = pi(
+        "q",
+        arrow(p.nat_ty(), prop()),
+        pi("x", app(v(0), [zero.clone(), zero]), p.nat_ty()),
+    );
+    assert_eq!(erased_params(&p, &over), Err("E-NOT-A-FUNCTION"));
+}
+
+#[test]
+fn rejects_matching_on_or_to_produce_a_type_valued_variable_applied_to_a_big_term() {
+    let mut s = props();
+    let or = s.or;
+    let big = s.p.plus(s.p.num(20), s.p.num(20));
+    // (r : Nat -> Type) (p q : Prop) (w : r big) -> Or p q -> r big
+    let ty = pi(
+        "r",
+        arrow(s.p.nat_ty(), ty()),
+        pi(
+            "p",
+            prop(),
+            pi(
+                "q",
+                prop(),
+                pi(
+                    "w",
+                    app(v(2), [big.clone()]),
+                    arrow(Term::data(or, vec![v(2), v(1)]), app(v(3), [big])),
+                ),
+            ),
+        ),
+    );
+    let body = lam(
+        "r",
+        lam(
+            "p",
+            lam(
+                "q",
+                lam(
+                    "w",
+                    lam("h", case(0, or, vec![(vec!["l"], v(2)), (vec!["r"], v(2))])),
+                ),
+            ),
+        ),
+    );
+    assert_eq!(define(&mut s.p.g, "elim", ty, body), Err("E-PROP-ELIM"));
+}
+
 // Equality
 
 #[test]
@@ -1146,24 +1234,62 @@ fn matching_refines_the_types_of_later_variables() {
 
 // Validators: what extracted JS runs to check an export's preconditions.
 
-/// A prelude with `Decidable`, and a definition `f : (n : Nat) -> [auto ok : n = n] -> Nat`.
-fn with_decidable() -> (Prelude, stitchwort_core::DataId, stitchwort_core::DefId) {
-    let mut p = Prelude::new();
-    let void = data(&mut p.g, "Void", vec![], Sort::Prop);
-    stitchwort_core::check::define_ctors(&mut p.g, void, vec![]).unwrap();
-    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
+/// A prelude's `Bool`, registered, with its type and `True`.
+fn with_bool(p: &mut Prelude) -> (stitchwort_core::DataId, Term, Term) {
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
     stitchwort_core::check::define_ctors(
         &mut p.g,
-        decidable,
-        vec![
-            ctor("Yes", vec![("proof", v(0))]),
-            ctor(
-                "No",
-                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
-            ),
-        ],
+        bool_,
+        vec![ctor("False", vec![]), ctor("True", vec![])],
     )
     .unwrap();
+    stitchwort_core::native::register_bool(&mut p.g, bool_).unwrap();
+    (
+        bool_,
+        Term::data(bool_, vec![]),
+        Term::ctor(bool_, 1, vec![]),
+    )
+}
+
+/// A record type with parameters `params` and fields `fields`.
+fn record_type(
+    p: &mut Prelude,
+    name: &str,
+    params: Vec<(&str, Term)>,
+    fields: Vec<(&str, Term)>,
+) -> stitchwort_core::DataId {
+    let d = stitchwort_core::check::declare_data_group_as(
+        &mut p.g,
+        params.into_iter().map(|(x, t)| (x.into(), t)).collect(),
+        Sort::Type(0),
+        vec![(name.into(), name.into(), span(), true)],
+    )
+    .unwrap()[0];
+    stitchwort_core::check::define_ctors(&mut p.g, d, vec![ctor(&format!("Mk{name}"), fields)])
+        .unwrap();
+    d
+}
+
+/// A prelude with `Decidable`, the record `{ holds: Bool, sound: holds =
+/// True → p }`, and a definition `f : (n : Nat) -> [auto ok : n = n] -> Nat`;
+/// with `True`.
+fn with_decidable() -> (
+    Prelude,
+    stitchwort_core::DataId,
+    stitchwort_core::DefId,
+    Term,
+) {
+    let mut p = Prelude::new();
+    let (_, bool_ty, tru) = with_bool(&mut p);
+    let decidable = record_type(
+        &mut p,
+        "Decidable",
+        vec![("p", prop())],
+        vec![
+            ("holds", bool_ty.clone()),
+            ("sound", arrow(eq(Some(bool_ty), v(0), tru.clone()), v(1))),
+        ],
+    );
     let ty = pi(
         "n",
         p.nat_ty(),
@@ -1176,7 +1302,7 @@ fn with_decidable() -> (Prelude, stitchwort_core::DataId, stitchwort_core::DefId
     );
     let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
     let f = define(&mut p.g, "f", ty, body).unwrap();
-    (p, decidable, f)
+    (p, decidable, f, tru)
 }
 
 fn validate(
@@ -1193,25 +1319,25 @@ fn validate(
 
 #[test]
 fn accepts_a_validator_that_decides_the_precondition() {
-    let (mut p, decidable, f) = with_decidable();
-    // `Yes rfl`, in the context [n].
-    let yes = Term::ctor(decidable, 0, vec![Term::Refl]);
+    let (mut p, decidable, f, tru) = with_decidable();
+    // `{ holds = True, sound = h => rfl }`, in the context [n].
+    let yes = Term::ctor(decidable, 0, vec![tru, lam("h", Term::Refl)]);
     assert_eq!(validate(&mut p, f, 1, decidable, yes), "ok");
     assert_eq!(p.g.def(f).validators().len(), 1);
 }
 
 #[test]
 fn rejects_validators_that_do_not_decide_the_precondition() {
-    let (mut p, decidable, f) = with_decidable();
-    let yes = || Term::ctor(decidable, 0, vec![Term::Refl]);
+    let (mut p, decidable, f, tru) = with_decidable();
+    let yes = || Term::ctor(decidable, 0, vec![tru.clone(), lam("h", Term::Refl)]);
     // Not for a proof parameter: `n` is data.
     assert_eq!(validate(&mut p, f, 0, decidable, yes()), "E-MALFORMED");
     // No such parameter.
     assert_eq!(validate(&mut p, f, 5, decidable, yes()), "E-MALFORMED");
-    // A decision of something else: `Yes` of a proof of `0 = 0` has type
-    // `Decidable (0 = 0)`, not `Decidable (n = n)`.
+    // A decision of something else: one of `0 = 0` has type `Decidable (0
+    // = 0)`, not `Decidable (n = n)`.
     let other = Term::Ann(
-        Rc::new(Term::ctor(decidable, 0, vec![Term::Refl])),
+        Rc::new(yes()),
         Rc::new(Term::data(decidable, vec![eq(None, p.num(0), p.num(0))])),
     );
     assert_eq!(validate(&mut p, f, 1, decidable, other), "E-TYPE-MISMATCH");
@@ -1222,40 +1348,48 @@ fn rejects_validators_that_do_not_decide_the_precondition() {
 
 #[test]
 fn rejects_validators_whose_data_type_is_not_shaped_like_decidable() {
-    let (mut p, _, f) = with_decidable();
-    // Each of these differs from `Decidable` in one way that matters: extracted
-    // JS reads the first constructor as "the precondition holds".
-    type Shape<'a> = (Vec<(&'a str, Term)>, Vec<stitchwort_core::check::CtorDecl>);
+    let (mut p, _, f, tru) = with_decidable();
+    let bool_ty = match &tru {
+        Term::Ctor(b, _, _) => Term::data(*b, vec![]),
+        _ => unreachable!(),
+    };
+    let sound = |p_ix: usize| arrow(eq(Some(bool_ty.clone()), v(0), tru.clone()), v(p_ix));
+    // Each of these differs from `Decidable` in one way that matters:
+    // extracted JS reads the first field being `True` as "the precondition
+    // holds".
+    type Shape<'a> = (Vec<(&'a str, Term)>, Vec<(&'a str, Term)>);
     let shapes: Vec<Shape> = vec![
         // A `Type` parameter instead of a `Prop`.
         (
             vec![("p", ty())],
-            vec![ctor("Yes", vec![("proof", v(0))]), ctor("No", vec![])],
+            vec![("holds", bool_ty.clone()), ("sound", sound(1))],
         ),
         // Two parameters.
         (
             vec![("p", prop()), ("q", prop())],
-            vec![ctor("Yes", vec![("proof", v(1))]), ctor("No", vec![])],
+            vec![("holds", bool_ty.clone()), ("sound", sound(2))],
         ),
-        // Only one constructor.
+        // Only the test.
+        (vec![("p", prop())], vec![("holds", bool_ty.clone())]),
+        // The test isn't a `Bool`.
         (
             vec![("p", prop())],
-            vec![ctor("Yes", vec![("proof", v(0))])],
+            vec![
+                ("holds", p.nat_ty()),
+                ("sound", arrow(eq(None, v(0), p.num(1)), v(1))),
+            ],
         ),
-        // The first constructor carries no proof.
+        // The second field doesn't say that `True` proves `p`.
         (
             vec![("p", prop())],
-            vec![ctor("Yes", vec![]), ctor("No", vec![("proof", v(0))])],
-        ),
-        // The first constructor carries something other than a proof of `p`.
-        (
-            vec![("p", prop())],
-            vec![ctor("Yes", vec![("proof", prop())]), ctor("No", vec![])],
+            vec![
+                ("holds", bool_ty.clone()),
+                ("sound", arrow(eq(Some(bool_ty.clone()), v(0), v(0)), v(1))),
+            ],
         ),
     ];
-    for (i, (params, ctors)) in shapes.into_iter().enumerate() {
-        let d = data(&mut p.g, &format!("Fake{i}"), params, Sort::Type(1));
-        stitchwort_core::check::define_ctors(&mut p.g, d, ctors).expect("data checks");
+    for (i, (params, fields)) in shapes.into_iter().enumerate() {
+        let d = record_type(&mut p, &format!("Fake{i}"), params, fields);
         // Whatever the decision term, the shape is refused first.
         assert_eq!(
             validate(&mut p, f, 1, d, Term::Refl),
@@ -1263,6 +1397,15 @@ fn rejects_validators_whose_data_type_is_not_shaped_like_decidable() {
             "shape {i}"
         );
     }
+    // Not a record: `Yes p | No`.
+    let two = data(&mut p.g, "TwoCtors", vec![("p", prop())], Sort::Type(0));
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        two,
+        vec![ctor("Yes", vec![("proof", v(0))]), ctor("No", vec![])],
+    )
+    .unwrap();
+    assert_eq!(validate(&mut p, f, 1, two, Term::Refl), "E-MALFORMED");
 }
 
 // Refinement with dependent fields (from the second review of the abilities
@@ -1969,4 +2112,538 @@ fn kept_calls_still_refuse_false_goals() {
     );
     let body = lam("n", on_nat(&p, 0, Term::Refl, Term::Refl));
     assert_eq!(define_small(&mut p, "wrongBig", goal, body), Err("E-REFL"));
+}
+
+/// The erased placeholder reads back as the elision `…`, alone, applied and
+/// inside a constructor, not as a variable outside the context, whose index
+/// `level - 1 - l` would wrap (a debug assertion, a wrong variable in a
+/// release build). An error message's counterexample reads back values that
+/// hold it for a hypothesis's proof (SW-2757: `MkChar 98 h` with `h`
+/// erased). A real variable still reads back as itself.
+#[test]
+fn the_erased_placeholder_reads_back_as_the_elision() {
+    let p = Prelude::new();
+    let g = p.g.ev();
+    let env = [stitchwort_core::erase::erased()];
+    let read = |t: Term| format!("{:?}", quote(&g, 0, &eval(&g, &env, &t).unwrap()).unwrap());
+    let elided = || Term::Meta(stitchwort_core::value::ELIDED);
+    assert_eq!(read(v(0)), format!("{:?}", elided()));
+    assert_eq!(read(app(v(0), [p.num(1)])), format!("{:?}", elided()));
+    assert_eq!(
+        read(Term::ctor(p.nat, 1, vec![v(0)])),
+        format!("{:?}", Term::ctor(p.nat, 1, vec![elided()]))
+    );
+    assert_eq!(
+        format!("{:?}", quote(&g, 1, &Value::var(0)).unwrap()),
+        format!("{:?}", Term::Var(0))
+    );
+}
+
+/// `Args : Nat -> Type`, where `Args 0 = Nat` and `Args (m + 1) = Nat ->
+/// `Args m`: the type of a function of `n` numbers.
+fn args_family(p: &mut Prelude) -> stitchwort_core::DefId {
+    let nat = p.nat_ty();
+    let args_ty = declare(&mut p.g, "Args", arrow(nat.clone(), ty()));
+    let body = lam(
+        "n",
+        case(
+            0,
+            p.nat,
+            vec![
+                (vec![], nat.clone()),
+                (
+                    vec!["m"],
+                    arrow(nat.clone(), app(Term::Def(args_ty), [v(0)])),
+                ),
+            ],
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, args_ty, &body).expect("Args");
+    args_ty
+}
+
+/// An application's spine is checked in one loop, not a level of the Rust
+/// stack per argument: `f n 0 0 … 0`, with `f : (n: Nat) → Args n` and
+/// `Args n` the type of a function of `n` numbers, applied to 20,000 of
+/// them (SW-3133).
+#[test]
+fn a_long_spine_is_inferred_in_a_loop() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let n = 20_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into()))).chain((0..n).map(|_| p.num(0))),
+    );
+    let (checked, ty) = infer_closed(&p.g.ev(), &term, span()).expect("checks");
+    assert_eq!(checked.spine().1.len(), n + 1);
+    assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+}
+
+/// The stack the playground lets the checker use (`crates/web/build.rs`).
+const PLAYGROUND_STACK: usize = 320 * 1024;
+
+/// `f (f (… (f 0)))`, `f : Nat → Nat`, checked against `Nat`: an argument
+/// that is itself an application is checked in `check_app`'s loop, not by
+/// a level of the Rust stack (SW-3174). Each level took about 1.3 KiB
+/// natively, so about 250 fitted the playground's guard; 10,000 check
+/// under it now.
+#[test]
+fn nested_applications_are_checked_in_a_loop() {
+    let p = Prelude::new();
+    let nat = p.nat_ty();
+    let mut g = p.g;
+    let f = declare(&mut g, "f", arrow(nat.clone(), nat.clone()));
+    let mut term = Term::ctor(p.nat, 0, vec![]);
+    for _ in 0..10_000 {
+        term = app(Term::Def(f), [term]);
+    }
+    let _op = g.machine.budget.operation(Limits {
+        stack: PLAYGROUND_STACK,
+        ..Limits::default()
+    });
+    let (_, ty) =
+        infer_closed(&g.ev(), &Term::Ann(Rc::new(term), Rc::new(nat)), span()).expect("checks");
+    assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+}
+
+/// `not (not (… (not x)))` against itself, `not` defined by a `case`: two
+/// calls stuck on a variable are compared by their arguments, which are
+/// two such calls, so the comparison recurses once per level. That took
+/// about 2.3 KiB of stack a level natively, so about 140 levels fitted the
+/// playground's guard; now it takes about 1.3 KiB (SW-3174), and 180 levels
+/// compare under it.
+///
+/// This pins a native frame size: the playground (wasm) guard is a fixed
+/// stack budget, and the test fails if one level of the comparison grows
+/// past what 180 levels leave of it. It guards the playground against a
+/// stack overflow on deep terms, not the answer. When a toolchain or
+/// dependency change trips it, re-measure the frame first (a deeper
+/// level count, or the stack used per level) and find what grew; raise
+/// the bound, or lower the level count, only once the new frame size is
+/// explained, never just because the test failed.
+#[test]
+fn nested_stuck_calls_compare_under_the_playground_guard() {
+    let mut g = Kernel::default();
+    let b = data(&mut g, "B", vec![], Sort::Type(0));
+    stitchwort_core::check::define_ctors(&mut g, b, vec![ctor("T", vec![]), ctor("F", vec![])])
+        .expect("B");
+    let b_ty = Term::Data(b, vec![]);
+    let not = define(
+        &mut g,
+        "not",
+        arrow(b_ty.clone(), b_ty),
+        lam(
+            "x",
+            case(
+                0,
+                b,
+                vec![
+                    (vec![], Term::ctor(b, 1, vec![])),
+                    (vec![], Term::ctor(b, 0, vec![])),
+                ],
+            ),
+        ),
+    )
+    .expect("not");
+    let mut term = v(0);
+    for _ in 0..180 {
+        term = app(Term::Def(not), [term]);
+    }
+    let env = [Value::var(0)];
+    let (x, y) = (
+        eval(&g.ev(), &env, &term).unwrap(),
+        eval(&g.ev(), &env, &term).unwrap(),
+    );
+    let _op = g.machine.budget.operation(Limits {
+        stack: PLAYGROUND_STACK,
+        ..Limits::default()
+    });
+    assert_eq!(conv(&g.ev(), 1, &x, &y), Ok(true));
+}
+
+/// A loop that checked the arguments but kept the first argument's type for
+/// every position would accept this; the bad argument is half-way down the
+/// spine (SW-3133).
+#[test]
+fn a_bad_argument_in_the_middle_of_a_long_spine_is_rejected() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let (_, _, tru) = with_bool(&mut p);
+    let n: usize = 1_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into())))
+            .chain((0..n).map(|i| if i == 500 { tru.clone() } else { p.num(0) })),
+    );
+    assert_eq!(infer_code(&p.g, &term), "E-TYPE-MISMATCH");
+}
+
+/// The same with the ill-typed argument last (SW-3133).
+#[test]
+fn a_bad_argument_at_the_end_of_a_long_spine_is_rejected() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let (_, _, tru) = with_bool(&mut p);
+    let n: usize = 1_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into())))
+            .chain((0..n).map(|i| if i == n - 1 { tru.clone() } else { p.num(0) })),
+    );
+    assert_eq!(infer_code(&p.g, &term), "E-TYPE-MISMATCH");
+}
+
+/// A later argument's type is the codomain applied to the earlier argument:
+/// `g : (n: Nat) → Args n → Nat` accepts a function of three numbers where it
+/// expects `Args 3`, but not where it expects `Args 2` (SW-3133).
+#[test]
+fn a_later_domain_is_instantiated_with_the_earlier_argument() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let g = declare(
+        &mut p.g,
+        "g",
+        pi(
+            "n",
+            nat.clone(),
+            arrow(app(Term::Def(args_ty), [v(0)]), nat.clone()),
+        ),
+    );
+    // `Args 3 = Nat → Nat → Nat → Nat`, so three lambdas have type `Args 3`.
+    let three = lam("a", lam("b", lam("c", p.num(0))));
+    let applied_to_three = app(Term::Def(g), [p.num(3), three.clone()]);
+    let (_, ty) = infer_closed(&p.g.ev(), &applied_to_three, span()).expect("checks");
+    assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+    let applied_to_two = app(Term::Def(g), [p.num(2), three]);
+    assert_eq!(infer_code(&p.g, &applied_to_two), "E-TYPE-MISMATCH");
+}
+
+/// Past the last domain the type is `Nat`, not `Args 0`, and the message says
+/// so (SW-3133).
+#[test]
+fn an_argument_too_many_is_not_a_function() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let zero = p.num(0);
+    let term = app(
+        Term::Def(f),
+        [p.num(3), zero.clone(), zero.clone(), zero.clone(), zero],
+    );
+    let d = infer_closed(&p.g.ev(), &term, span()).expect_err("refused");
+    assert_eq!(d.code, "E-NOT-A-FUNCTION");
+    assert!(
+        d.labels[0].message.contains("its type is `Nat`"),
+        "{}",
+        d.labels[0].message
+    );
+    assert!(
+        !d.labels[0].message.contains("Args"),
+        "{}",
+        d.labels[0].message
+    );
+}
+
+/// `check` infers a long spine and compares its type with the expected one
+/// (`check_app`), not only `infer` (SW-3133).
+#[test]
+fn checking_a_long_spine_against_the_wrong_type_is_rejected() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    // A function of `n` numbers, recursively: `f 0 = 0` and
+    // `f (m + 1) = λ_. f m` (so `f` is a definition the body may refer to).
+    let f_body = lam(
+        "n",
+        case(
+            0,
+            p.nat,
+            vec![
+                (vec![], p.num(0)),
+                (vec!["m"], lam("x", app(Term::Def(f), [v(1)]))),
+            ],
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, f, &f_body).expect("f");
+    let (_, bool_ty, _) = with_bool(&mut p);
+    let n: usize = 1_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into()))).chain((0..n).map(|_| p.num(0))),
+    );
+    assert_eq!(
+        define(&mut p.g, "bad", bool_ty, term),
+        Err("E-TYPE-MISMATCH")
+    );
+}
+
+// Applications nested in arguments: `check_app` sets the spine waiting for
+// an argument that is itself an application on its `Waiting` list and takes
+// it up again once that argument is checked.
+
+fn call1(f: Term, a: Term) -> Term {
+    app(f, [a])
+}
+
+/// `s : Nat -> Nat`, `kb : Bool -> Bool`, `h : Nat -> Bool -> Nat`, with
+/// the Bool constructor `True`.
+struct Nested {
+    p: Prelude,
+    s: Term,
+    kb: Term,
+    h: Term,
+    tru: Term,
+}
+
+fn nested() -> Nested {
+    let mut p = Prelude::new();
+    let (_, bool_ty, tru) = with_bool(&mut p);
+    let nat = p.nat_ty();
+    let s = Term::Def(declare(&mut p.g, "s", arrow(nat.clone(), nat.clone())));
+    let kb = Term::Def(declare(
+        &mut p.g,
+        "kb",
+        arrow(bool_ty.clone(), bool_ty.clone()),
+    ));
+    let h = Term::Def(declare(
+        &mut p.g,
+        "h",
+        arrow(nat.clone(), arrow(bool_ty, nat)),
+    ));
+    Nested { p, s, kb, h, tru }
+}
+
+/// An inner application that finishes (the pop in `check_app`), then the
+/// outer spine resumes and checks its next argument.
+#[test]
+fn check_app_resumes_after_a_nested_argument_and_checks_the_next() {
+    let n = nested();
+    let (s, kb, h, tru) = (&n.s, &n.kb, &n.h, &n.tru);
+    let zero = n.p.num(0);
+    // h (s 0) True; h (s (s 0)) (kb True): both arguments nested.
+    let ok1 = app(h.clone(), [call1(s.clone(), zero.clone()), tru.clone()]);
+    let ok2 = app(
+        h.clone(),
+        [
+            call1(s.clone(), call1(s.clone(), zero.clone())),
+            call1(kb.clone(), tru.clone()),
+        ],
+    );
+    assert_eq!(infer_code(&n.p.g, &ok1), "ok");
+    assert_eq!(infer_code(&n.p.g, &ok2), "ok");
+    // After the pop the next argument is ill-typed: a constructor, a
+    // nested application, and a plain variable-free term of the wrong type.
+    let bad_ctor = app(h.clone(), [call1(s.clone(), zero.clone()), zero.clone()]);
+    let bad_nested = app(
+        h.clone(),
+        [
+            call1(s.clone(), zero.clone()),
+            call1(s.clone(), zero.clone()),
+        ],
+    );
+    assert_eq!(infer_code(&n.p.g, &bad_ctor), "E-TYPE-MISMATCH");
+    assert_eq!(infer_code(&n.p.g, &bad_nested), "E-TYPE-MISMATCH");
+    // The inner application itself has the wrong type at its pop: it's
+    // compared with the outer domain when it finishes.
+    let bad_inner = app(h.clone(), [call1(kb.clone(), tru.clone()), tru.clone()]);
+    assert_eq!(infer_code(&n.p.g, &bad_inner), "E-TYPE-MISMATCH");
+    // And the same one level down: the mismatch is in an argument of the
+    // inner application, which is itself waiting.
+    let bad_deep = app(
+        h.clone(),
+        [call1(s.clone(), call1(s.clone(), tru.clone())), tru.clone()],
+    );
+    assert_eq!(infer_code(&n.p.g, &bad_deep), "E-TYPE-MISMATCH");
+}
+
+/// `dep2 : (a b : Nat) -> a = b -> Nat`: the domain of the third argument
+/// depends on the first two, which, when they are applications, were
+/// checked while the spine waited; the codomain must be taken at their
+/// values.
+fn dependent(p: &mut Prelude) -> Term {
+    let nat = p.nat_ty();
+    let ty = pi(
+        "a",
+        nat.clone(),
+        pi("b", nat.clone(), arrow(eq(None, v(1), v(0)), nat)),
+    );
+    Term::Def(declare(&mut p.g, "dep2", ty))
+}
+
+#[test]
+fn check_app_substitutes_nested_arguments_into_later_domains() {
+    let mut p = Prelude::new();
+    let dep2 = dependent(&mut p);
+    // 1 + 1 = 0 + 2 by computation, each side a nested application.
+    let ok = app(
+        dep2.clone(),
+        [
+            p.plus(p.num(1), p.num(1)),
+            p.plus(p.num(0), p.num(2)),
+            Term::Refl,
+        ],
+    );
+    assert_eq!(infer_code(&p.g, &ok), "ok");
+    // 1 + 1 = 0 + 3 doesn't hold: the proof is checked against the
+    // instantiated domain, not the bound variables.
+    let bad_b = app(
+        dep2.clone(),
+        [
+            p.plus(p.num(1), p.num(1)),
+            p.plus(p.num(0), p.num(3)),
+            Term::Refl,
+        ],
+    );
+    assert_eq!(infer_code(&p.g, &bad_b), "E-REFL");
+    // The first argument alone decides it, too (the second is plain).
+    let bad_a = app(
+        dep2.clone(),
+        [p.plus(p.num(2), p.num(2)), p.num(2), Term::Refl],
+    );
+    assert_eq!(infer_code(&p.g, &bad_a), "E-REFL");
+    let ok_a = app(
+        dep2.clone(),
+        [p.plus(p.num(1), p.num(1)), p.num(2), Term::Refl],
+    );
+    assert_eq!(infer_code(&p.g, &ok_a), "ok");
+    // The type of the whole application is the codomain at those values.
+    let sym = app(
+        dep2,
+        [
+            p.plus(p.num(1), p.num(1)),
+            p.plus(p.num(0), p.num(2)),
+            Term::Refl,
+        ],
+    );
+    let (_, found) = infer_closed(&p.g.ev(), &sym, span()).expect("checks");
+    assert!(
+        matches!(found, Value::Data(d, _) if d == p.nat),
+        "{found:?}"
+    );
+}
+
+/// `ik : {a : Nat} -> (b : Nat) -> a = b -> Nat`, an implicit argument
+/// that is an application.
+#[test]
+fn check_app_waits_on_an_implicit_nested_argument() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let ty = ipi(
+        "a",
+        nat.clone(),
+        pi("b", nat.clone(), arrow(eq(None, v(1), v(0)), nat)),
+    );
+    let ik = Term::Def(declare(&mut p.g, "ik", ty));
+    let with = |a: Term, b: Term| {
+        let head = Term::App(Rc::new(ik.clone()), Rc::new(a), Icit::Implicit);
+        app(head, [b, Term::Refl])
+    };
+    let ok = with(p.plus(p.num(1), p.num(1)), p.plus(p.num(0), p.num(2)));
+    assert_eq!(infer_code(&p.g, &ok), "ok");
+    // The implicit argument's value reaches the later domain.
+    let bad = with(p.plus(p.num(1), p.num(1)), p.plus(p.num(0), p.num(3)));
+    assert_eq!(infer_code(&p.g, &bad), "E-REFL");
+    // An explicit argument where the parameter is implicit.
+    let wrong_icit = app(
+        ik.clone(),
+        [p.plus(p.num(1), p.num(1)), p.num(2), Term::Refl],
+    );
+    assert_eq!(infer_code(&p.g, &wrong_icit), "E-NOT-A-FUNCTION");
+    // A nested application of the wrong type as the implicit argument.
+    let (_, _, tru) = with_bool(&mut p);
+    let bad_ty = Term::App(
+        Rc::new(ik),
+        Rc::new(call1(Term::Def(p.add), tru)),
+        Icit::Implicit,
+    );
+    assert_eq!(
+        infer_code(&p.g, &app(bad_ty, [p.num(2), Term::Refl])),
+        "E-TYPE-MISMATCH"
+    );
+}
+
+/// With gluing on, a definition's call in a type is a `Value::Call`, so
+/// the expected type of an application is forced to a new value: the
+/// forced branch of `check_app`, for the outer spine and for an inner one
+/// whose domain is such a call.
+#[test]
+fn check_app_forces_a_glued_expected_type_and_domain() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let (_, bool_ty, tru) = with_bool(&mut p);
+    // idt A = A, so `idt Nat` is a call that unfolds to `Nat`.
+    let idt = define(&mut p.g, "idt", arrow(ty(), ty()), lam("A", v(0))).expect("idt");
+    let idt_nat = app(Term::Def(idt), [nat.clone()]);
+    let s = Term::Def(declare(&mut p.g, "s", arrow(nat.clone(), nat.clone())));
+    // g : Nat -> idt Nat -> idt Nat: the second domain is a call after
+    // the first argument's substitution.
+    let g_def = Term::Def(declare(
+        &mut p.g,
+        "g",
+        arrow(nat.clone(), arrow(idt_nat.clone(), idt_nat.clone())),
+    ));
+    let zero = p.num(0);
+    let ok = app(
+        g_def.clone(),
+        [
+            call1(s.clone(), zero.clone()),
+            call1(s.clone(), zero.clone()),
+        ],
+    );
+    let bad_arg = app(
+        g_def.clone(),
+        [
+            call1(s.clone(), zero.clone()),
+            call1(Term::Def(p.add), tru.clone()),
+        ],
+    );
+    // Annotated with the call: the expected type needs forcing.
+    let ann = |t: Term, ty: &Term| Term::Ann(Rc::new(t), Rc::new(ty.clone()));
+    let ok_ann = ann(ok.clone(), &idt_nat);
+    let bad_ann = ann(ok.clone(), &bool_ty);
+    p.g.machine.glue.set(true);
+    let results = [
+        infer_code(&p.g, &ok_ann),
+        infer_code(&p.g, &bad_ann),
+        infer_code(&p.g, &ann(bad_arg, &idt_nat)),
+    ];
+    p.g.machine.glue.set(false);
+    assert_eq!(results, ["ok", "E-TYPE-MISMATCH", "E-TYPE-MISMATCH"]);
+    // The same terms without gluing agree.
+    assert_eq!(infer_code(&p.g, &ok_ann), "ok");
+    assert_eq!(infer_code(&p.g, &bad_ann), "E-TYPE-MISMATCH");
 }

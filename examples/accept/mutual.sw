@@ -3,8 +3,8 @@
 -- throughout the module; definitions that refer to each other are checked
 -- together, and their termination is decided for the group.
 
--- Written top-down: `main` uses what's defined below it.
-def main: Nat := total [[1, 2], [3]] + countdown 4
+-- Written top-down: `topDown` uses what's defined below it.
+def topDown: Nat := total [[1, 2], [3]] + countdown 4
 
 -- Each calls the other on a smaller number.
 def isEven: Nat → Bool
@@ -36,11 +36,11 @@ def inner: List Nat → List (List Nat) → Nat
 
 -- Proofs by mutual induction, about `isEven` and `isOdd`, which are finished
 -- before these are checked, so their types compute.
-theorem evenNotOdd: (n: Nat) → isEven n = not (isOdd n)
+theorem evenNotOdd ∀ (n: Nat): isEven n = not (isOdd n) := match n with
   | 0 => rfl
   | Succ n => oddNotEven n
 
-theorem oddNotEven: (n: Nat) → isOdd n = not (isEven n)
+theorem oddNotEven ∀ (n: Nat): isOdd n = not (isEven n) := match n with
   | 0 => rfl
   | Succ n => evenNotOdd n
 
@@ -72,7 +72,7 @@ def walk: Nat → Nat
   | 0 => 0
   | Succ k => applyTo (x => stepBy k x) 1
 
-def stepBy (k: Nat) (x: Nat): Nat := x + walk k
+def stepBy (k x: Nat): Nat := x + walk k
 
 def applyTo (f: Nat → Nat) (x: Nat): Nat := f x
 
@@ -80,7 +80,7 @@ def applyTo (f: Nat → Nat) (x: Nat): Nat := f x
 -- not the definitions of those names, so they make no dependency on them.
 def shadows (step: Nat): Nat := applyTo (isOdd => isOdd + step) 1
 
-test "main" := main == 6
+test "top-down" := topDown == 6
 test "isEven 10" := isEven 10
 test "isOdd 7" := isOdd 7
 test "total" := total [[1, 2], [], [3, 4]] == 10

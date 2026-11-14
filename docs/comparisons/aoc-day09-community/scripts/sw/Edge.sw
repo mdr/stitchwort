@@ -7,7 +7,7 @@ import Aoc.Year2025.Day09 (Tile, largest, loopLines, pairArea, parseTiles, solve
 import Std (Fail, IO, List, Nat)
 
 -- The line stays out of the open interior of the rectangle with corners a, b.
-def away (a: Tile) (b: Tile) (line: (Tile, Tile)): Bool :=
+def away (a b: Tile) (line: (Tile, Tile)): Bool :=
   Nat.max line.fst.x line.snd.x ≤ Nat.min a.x b.x
     ∨ Nat.min line.fst.x line.snd.x ≥ Nat.max a.x b.x
     ∨ Nat.max line.fst.y line.snd.y ≤ Nat.min a.y b.y

@@ -1,4 +1,6 @@
 -- expect-error: E-CASES
+-- expect-warning: W-ARROW-FORALL
+-- The after-colon form is kept on purpose to test binder introduction.
 -- A case still open after `cases` introduced the goal's binders: the case
 -- and its hypotheses are shown under the names written after the colon, and
 -- an unnamed hypothesis (`A → B`) by its position.

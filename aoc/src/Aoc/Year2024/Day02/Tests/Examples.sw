@@ -27,11 +27,14 @@ def safeWithDampener (levels: List Nat): Bool := Report.isSafeWithDampener { lev
 
 test "example, part 1" := exampleReports.map solvePart1 == Ok 2
 test "example, part 2" := exampleReports.map solvePart2 == Ok 4
-test "each example report, part 1" := exampleReports.map (reports => reports.map .isSafe) == Ok [True, False, False, False, False, True]
-test "each example report, part 2" := exampleReports.map (reports => reports.map .isSafeWithDampener) == Ok [True, False, False, True, True, True]
+test "each example report, part 1" :=
+  exampleReports.map (reports => reports.map .isSafe) == Ok [True, False, False, False, False, True]
+test "each example report, part 2" :=
+  exampleReports.map (reports => reports.map .isSafeWithDampener) == Ok [True, False, False, True, True, True]
 test "parse a report" := parsed "7 6 4 2 1" == Ok [{ levels = [7, 6, 4, 2, 1] }]
 test "parse extra spaces" := parsed "  1   3 " == Ok [{ levels = [1, 3] }]
-test "a level that isn't a number" := parsed "1 2\n1 x 3" == Err "line 2, column 3: expected a number or the end of the line, got 'x'"
+test "a level that isn't a number" :=
+  parsed "1 2\n1 x 3" == Err "line 2, column 3: expected a number or the end of the line, got 'x'"
 test "an empty line" := parsed "1 2\n\n" == Err "line 2, column 1: expected a number, got the end of the line"
 test "no lines" := parsed "" == Ok []
 test "one level is safe" := safe [5]

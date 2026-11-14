@@ -1,8 +1,8 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-RESOURCE] Error: ran out of resources: a value was too large to show
+[E-RESOURCE] Error: ran out of resources: a value was too large to write out (over 2,000,000 parts)
     ╭─[ reject/as-written-unconfirmed-slow-check.sw:33:3 ]
     │
  33 │ ╭─▶   match found: outer x k 12 with
@@ -14,4 +14,6 @@ expression: output
     │     Note 1: this isn't a type error or a failed test: there's no answer within the limits
     │     
     │     Note 2: it happened while checking `slowCheck`
+    │     
+    │     Note 3: `outer` is called here with the number `12`, so it is computed in full: make the number a variable, stating a lemma for any `n`, and use the lemma with `12`
 ────╯

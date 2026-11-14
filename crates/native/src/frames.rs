@@ -2,27 +2,21 @@
 //! stack-pointer check behind the frame limit (stage N2b of
 //! docs/proposals/native-compilation.md).
 //!
-//! Cranelift 0.136 doesn't report a compiled function's frame size, so it is
-//! read from what the prologue was emitted as, by architecture:
-//! - **aarch64**: the machine buffer keeps the unwind pseudo-instructions
-//!   (`vcode` prints them as `unwind ...`): `PushFrameRegs` (the saved frame
-//!   pointer and link register), `DefineNewFrame` (the saved callee-saved
-//!   registers) and `StackAlloc` (the rest: stack slots, spill slots and the
-//!   outgoing argument area). Their sum is the frame; an aarch64 body
-//!   measured by hand at 304 bytes agrees.
-//! - **x86-64**: Cranelift emits no `StackAlloc` there, but the prologue is
-//!   always `push %rbp; mov %rsp,%rbp; sub $N,%rsp`, so `N` is read from the
-//!   code bytes. Frames of a page or more are probed first (a `sub` of the
-//!   guard size), and any other start is a prologue the reader doesn't know
-//!   (a tail call to a callee with more stack arguments moves the frame
-//!   first): both take the fallback.
+//! A compiled function's frame is what its machine buffer's frame layout
+//! says (`MachBufferFinalized::frame_layout`): the distance from the stack
+//! pointer after the prologue up to the frame pointer, which covers the
+//! saved callee-saved registers, the stack and spill slots and the outgoing
+//! argument area, plus the frame pointer and return address saved above it.
+//! It holds on every architecture, whatever the prologue's code: a frame of
+//! a page or more is probed first (SW-1157), so reading the frame from the
+//! code would mean knowing every probe sequence.
 //!
 //! A tail call to a callee that takes more arguments on the stack than the
-//! caller was given grows the frame by the difference, which none of these
-//! record, so a bound adds every stack argument its widest signature could
-//! have. A body whose prologue isn't read falls back to a bound from its IR
-//! (stack slots, and two spill slots for each value), which is safe but far
-//! above the real size.
+//! caller was given grows the frame by the difference, which the frame
+//! layout doesn't include, so a bound adds every stack argument its widest
+//! signature could have. Code without a frame layout (none Cranelift
+//! emits) falls back to a bound from its IR (stack slots, and two spill
+//! slots for each value), which is safe but far above the real size.
 //!
 //! Nothing nests (stage NO4 of native-only.md): every crossing is from the
 //! runner, near the top of the stack, and one counted frame is a body with
@@ -34,7 +28,6 @@
 
 use cranelift_codegen::CompiledCode;
 use cranelift_codegen::ir::Function;
-use cranelift_codegen::isa::unwind::UnwindInst;
 // The rule for the stack check is the crossing's, in the runtime, which a
 // standalone executable's linked code shares (standalone-executables.md
 // S5).
@@ -42,9 +35,10 @@ pub use stitchwort_rt::native_abi::{
     HELPER_ROOM, HOST_ROOM, STACK_CAP, counter_fires_first, floor_depth, native_stack,
 };
 
-/// The page size Cranelift probes frames by (its default,
-/// `probestack_size_log2` 12).
-const GUARD: usize = 4096;
+/// The frame pointer and the return address (the link register on
+/// aarch64), saved above the frame layout's part: the setup area of every
+/// body, since `n1` keeps frame pointers.
+const SETUP: usize = 16;
 
 /// A bound on the stack one call of the compiled `func` uses, in bytes.
 pub fn frame_bound(func: &Function, compiled: &CompiledCode) -> usize {
@@ -73,49 +67,13 @@ pub fn frame_bound(func: &Function, compiled: &CompiledCode) -> usize {
         .max()
         .unwrap_or(0);
     // 16 for alignment.
-    match read_frame(compiled) {
-        Some(frame) => frame + arguments + 16,
+    match compiled.buffer.frame_layout() {
+        Some(layout) => SETUP + layout.frame_to_fp_offset as usize + arguments + 16,
         None => fallback_bound(func) + arguments,
     }
 }
 
-/// The frame the prologue sets up, if it is one of the two known shapes.
-fn read_frame(compiled: &CompiledCode) -> Option<usize> {
-    let (mut pushed, mut clobbers, mut allocated) = (0, 0, None);
-    for (_, inst) in &compiled.buffer.unwind_info {
-        match inst {
-            UnwindInst::PushFrameRegs {
-                offset_upward_to_caller_sp,
-            } => pushed = pushed.max(*offset_upward_to_caller_sp as usize),
-            UnwindInst::DefineNewFrame {
-                offset_downward_to_clobbers,
-                ..
-            } => clobbers = clobbers.max(*offset_downward_to_clobbers as usize),
-            UnwindInst::StackAlloc { size } => {
-                allocated = Some(allocated.unwrap_or(0) + *size as usize);
-            }
-            _ => {}
-        }
-    }
-    match allocated {
-        Some(allocated) => Some(pushed.max(16) + clobbers + allocated),
-        None => x64_frame(compiled.code_buffer()),
-    }
-}
-
-/// The frame of x86-64 code that starts `push %rbp; mov %rsp,%rbp; sub $N,%rsp`
-/// with `N` under a page: the return address, the saved `%rbp` and `N`.
-fn x64_frame(code: &[u8]) -> Option<usize> {
-    let rest = code.strip_prefix(&[0x55, 0x48, 0x89, 0xE5])?;
-    let n = match rest {
-        [0x48, 0x83, 0xEC, imm, ..] if *imm < 0x80 => *imm as usize,
-        [0x48, 0x81, 0xEC, a, b, c, d, ..] => u32::from_le_bytes([*a, *b, *c, *d]) as usize,
-        _ => return None,
-    };
-    (n < GUARD).then_some(16 + n)
-}
-
-/// For a body whose prologue wasn't read: its stack slots and two spill
+/// For code without a frame layout: its stack slots and two spill
 /// slots for each value, with generous room for saved registers.
 fn fallback_bound(func: &Function) -> usize {
     let slots: usize = func

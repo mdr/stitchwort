@@ -145,9 +145,10 @@ pub struct Scope {
     /// whose extensions it sees.
     extenders: Vec<BTreeSet<String>>,
     /// The files (of the current module) with a `(..)` import that failed
-    /// with an error of its own, so the uses of names in them aren't
+    /// with an error of its own, each with the namespace it names and where
+    /// that is written, so the uses of names in them aren't
     /// reported again as unknown.
-    pub(crate) wildcard_failed: BTreeSet<usize>,
+    pub(crate) wildcard_failed: BTreeMap<usize, (String, Span)>,
     /// The names of imports that failed with an error of their own, so the
     /// uses of them aren't reported again as unknown.
     pub(crate) import_failed: HashSet<String>,
@@ -216,7 +217,7 @@ pub(crate) struct SavedImports {
     renamed: Vec<HashMap<String, Vec<String>>>,
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
     extenders: Vec<BTreeSet<String>>,
-    wildcard_failed: BTreeSet<usize>,
+    wildcard_failed: BTreeMap<usize, (String, Span)>,
     import_failed: HashSet<String>,
 }
 
@@ -1676,7 +1677,12 @@ impl Elaborator {
             .collect();
         near.sort_unstable();
         near.dedup();
-        let near: Vec<String> = near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect();
+        let meant = meaning_suggestions(key, member, |full| self.scope.get(full).is_some());
+        let near: Vec<String> = if meant.is_empty() {
+            near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+        } else {
+            meant.iter().map(|m| format!("`{shown}.{m}`")).collect()
+        };
         if !near.is_empty() {
             d = d.with_note(format!("did you mean {}?", or_list(&near)));
         }
@@ -1814,17 +1820,57 @@ impl Elaborator {
         }
     }
 
+    /// The type and constructor among `keys`, if exactly two candidates are
+    /// a type and one of its constructors with the same name: `type YUp =
+    /// | YUp`. The type first.
+    fn type_and_constructor<'a>(&self, keys: &'a [String]) -> Option<(&'a str, &'a str)> {
+        let [a, b] = keys else {
+            return None;
+        };
+        let (ga, _) = self.scope.get(a)?;
+        let (gb, _) = self.scope.get(b)?;
+        match (ga, gb) {
+            (Global::Data(d), Global::Ctor(e, _)) if d == e => Some((a, b)),
+            (Global::Ctor(e, _), Global::Data(d)) if d == e => Some((b, a)),
+            _ => None,
+        }
+    }
+
     /// `E-AMBIGUOUS`, where an ambiguous name is used.
     pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String], level: Level) -> Diagnostic {
         let shown: Vec<String> = keys
             .iter()
             .map(|k| format!("`{}`", self.written(k)))
             .collect();
+        let same_named = self.type_and_constructor(keys);
         let mut d = Diagnostic::error(
             "E-AMBIGUOUS",
             format!("`{}` could mean {}", name.text, or_list(&shown)),
-        )
-        .with_label(name.span, format!("write {} in full", or_list(&shown)));
+        );
+        d = match same_named {
+            Some((type_key, ctor_key)) => {
+                let type_shown = self.written(type_key);
+                let ctor_shown = self.written(ctor_key);
+                let type_alternative = match parent(type_key) {
+                    Some(_) => format!(", or write the type as `{type_shown}`"),
+                    None => {
+                        "; the type has no qualified name, so its uses need the rename".to_string()
+                    }
+                };
+                d.with_label(
+                    name.span,
+                    format!("`{}` is both a type and its constructor", name.text),
+                )
+                .with_note(format!(
+                    "`{type_shown}` names both the type and its constructor `{ctor_shown}`, so \
+                     on its own it is ambiguous: rename the constructor, as in \
+                     `| Mk{ctor_short}`, or write the constructor as `{ctor_shown}`\
+                     {type_alternative}",
+                    ctor_short = short(ctor_key),
+                ))
+            }
+            None => d.with_label(name.span, format!("write {} in full", or_list(&shown))),
+        };
         for key in keys {
             if let Some((_, span)) = self.scope.get(key)
                 && span.file == name.span.file
@@ -1989,8 +2035,18 @@ impl Elaborator {
                 }
                 near.sort_unstable();
                 near.dedup();
-                let near: Vec<String> =
-                    near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect();
+                let meant: Vec<String> = imported
+                    .iter()
+                    .flat_map(|key| {
+                        meaning_suggestions(key, member, |full| self.scope.get(full).is_some())
+                    })
+                    .map(|m| format!("`{first}.{m}`"))
+                    .collect();
+                let near: Vec<String> = if meant.is_empty() {
+                    near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+                } else {
+                    meant
+                };
                 if !near.is_empty() {
                     d = d.with_note(format!("did you mean {}?", or_list(&near)));
                 }
@@ -2160,6 +2216,91 @@ impl Elaborator {
         d
     }
 
+    /// Whether `key` names a data type (including one this module declares
+    /// and hasn't checked yet).
+    fn is_data_key(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((Global::Data(..) | Global::Pending(_, crate::library::PendingKind::Data), _)) => {
+                true
+            }
+            Some((Global::Unchecked(i), _)) => {
+                self.unit
+                    .module
+                    .items
+                    .get(i)
+                    .is_some_and(|item| item.kind == crate::module::Kind::Data)
+                    && !self.scope.is_member(key)
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether `key` names a constructor (including one this module declares
+    /// and hasn't checked yet).
+    fn is_ctor_key(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((Global::Ctor(..), _)) => true,
+            Some((Global::Pending(_, crate::library::PendingKind::Ctor), _)) => true,
+            Some((Global::Unchecked(i), _)) => {
+                self.unit
+                    .module
+                    .items
+                    .get(i)
+                    .is_some_and(|item| item.kind == crate::module::Kind::Data)
+                    && self.scope.is_member(key)
+            }
+            _ => false,
+        }
+    }
+
+    /// The constructors of types declared directly in `namespace` whose short
+    /// name is `name`, sorted: what `import N (name)` imports when no
+    /// declaration of `namespace` has that name (D3503).
+    fn constructors_named(&self, namespace: &str, name: &str) -> Vec<String> {
+        let prefix = format!("{namespace}.");
+        let suffix = format!(".{name}");
+        let mut keys: Vec<String> = self
+            .scope
+            .keys()
+            .filter_map(|key| {
+                let owner = key.strip_prefix(&prefix)?.strip_suffix(&suffix)?;
+                (!owner.contains('.') && self.is_ctor_key(key)).then_some(key)
+            })
+            .cloned()
+            .collect();
+        keys.sort_unstable();
+        keys
+    }
+
+    /// `E-AMBIGUOUS`: `import N (x)` names a constructor `x` of more than one
+    /// type in `N`, so it names no one thing.
+    fn ambiguous_import_ctor(&self, item: &ast::Name, keys: &[String]) -> Diagnostic {
+        let shown: Vec<String> = keys.iter().map(|k| format!("`{}`", display(k))).collect();
+        let types: Vec<String> = keys
+            .iter()
+            .filter_map(|k| parent(k))
+            .map(short)
+            .map(|t| format!("`{t}`"))
+            .collect();
+        let namespace = keys
+            .first()
+            .and_then(|k| parent(k))
+            .and_then(parent)
+            .map(display)
+            .unwrap_or_default();
+        Diagnostic::error(
+            "E-AMBIGUOUS",
+            format!("`{}` could mean {}", item.text, or_list(&shown)),
+        )
+        .with_label(item.span, "it is a constructor of more than one type")
+        .with_note(format!(
+            "`{}` is a constructor of {}: import the type you mean, as in `import {namespace} ({})`",
+            item.text,
+            or_list(&types),
+            short(parent(&keys[0]).unwrap_or(&keys[0])),
+        ))
+    }
+
     /// Resolves the module's imports. An import of the library's is
     /// resolved before the module's qualified declarations are registered
     /// (`own: false`), and one of the module's own namespaces after them.
@@ -2177,6 +2318,18 @@ impl Elaborator {
                         && let Some(d) = context.diagnostic(&import.path.text, import.path.span)
                     {
                         diagnostics.push(d);
+                        self.scope
+                            .import_failed
+                            .extend(import.items.iter().map(|i| i.local().text.clone()));
+                        self.wildcard_failed(import);
+                        continue;
+                    }
+                    // A namespace with syntax errors may have lost every
+                    // name it declares, so the path itself isn't in scope:
+                    // say why, once per imported name, rather than that
+                    // there is no such namespace (§4.2).
+                    if let Some(found) = self.import_unparsed_path(import) {
+                        diagnostics.extend(found);
                         self.scope
                             .import_failed
                             .extend(import.items.iter().map(|i| i.local().text.clone()));
@@ -2241,16 +2394,58 @@ impl Elaborator {
                 self.add_wildcard(import, &namespace, diagnostics);
                 continue;
             }
+            // The types this import names: each brings its constructors, so
+            // naming one beside its type is accepted and adds nothing.
+            let types: Vec<String> = import
+                .items
+                .iter()
+                .filter_map(|whole| {
+                    let key = format!("{namespace}.{}", whole.name.text);
+                    self.is_data_key(&key).then_some(key)
+                })
+                .collect();
             for whole in &import.items {
                 let (name, item) = (&whole.name, whole.local());
-                let key = format!("{namespace}.{}", name.text);
+                let mut key = format!("{namespace}.{}", name.text);
                 // An item may be a namespace that declares no name of its
                 // own (`import Std (Eq)`).
-                if name.text.starts_with('%')
-                    || (self.scope.get(&key).is_none() && !self.scope.is_namespace(&key))
-                {
+                if name.text.starts_with('%') {
                     diagnostics.push(self.import_unknown(&namespace, name));
                     continue;
+                }
+                if self.scope.get(&key).is_none() && !self.scope.is_namespace(&key) {
+                    // A constructor by its short name, as a type brings its
+                    // constructors: `import N (S)` imports just `S` (D3503).
+                    match self.constructors_named(&namespace, &name.text).as_slice() {
+                        [] => {
+                            match self.import_unparsed_at(&namespace, name) {
+                                Some(d) => {
+                                    diagnostics.push(d);
+                                    // What uses the name waits for the
+                                    // syntax error, so it isn't reported
+                                    // again as unknown (§4.2).
+                                    self.scope.import_failed.insert(item.text.clone());
+                                    self.scope.import_failed.insert(name.text.clone());
+                                }
+                                None => diagnostics.push(self.import_unknown(&namespace, name)),
+                            }
+                            continue;
+                        }
+                        [only] => {
+                            let owner = parent(only).unwrap_or("");
+                            if types.iter().any(|t| t == owner) {
+                                // The type, named in this import, already
+                                // brings it.
+                                self.note_import(name, only);
+                                continue;
+                            }
+                            key = only.clone();
+                        }
+                        many => {
+                            diagnostics.push(self.ambiguous_import_ctor(name, many));
+                            continue;
+                        }
+                    }
                 }
                 // A declaration of the module's own with this name would hide
                 // the import completely.
@@ -2421,7 +2616,8 @@ impl Elaborator {
     fn wildcard_failed(&mut self, import: &Import) {
         if import.everything.is_some() {
             let file = self.current_file();
-            self.scope.wildcard_failed.insert(file);
+            (self.scope.wildcard_failed.entry(file))
+                .or_insert_with(|| (import.path.text.clone(), import.path.span));
         }
     }
 
@@ -2481,7 +2677,8 @@ impl Elaborator {
             }
             Some(WildcardSource::Refused(refusal)) => {
                 diagnostics.push(self.refused_wildcard(&refusal, k, &import.path));
-                self.scope.wildcard_failed.insert(file);
+                (self.scope.wildcard_failed.entry(file))
+                    .or_insert_with(|| (import.path.text.clone(), import.path.span));
             }
             // The namespace didn't parse: it isn't checked either.
             Some(WildcardSource::Unknown) => {}
@@ -2494,7 +2691,8 @@ impl Elaborator {
                     )
                     .with_note("`import` takes a namespace, such as `List` or `Text`"),
                 );
-                self.scope.wildcard_failed.insert(file);
+                (self.scope.wildcard_failed.entry(file))
+                    .or_insert_with(|| (import.path.text.clone(), import.path.span));
             }
         }
     }
@@ -2636,6 +2834,52 @@ impl Elaborator {
             .with_note(note)
     }
 
+    /// `E-USES-FAILED` for an import whose namespace isn't in scope at all
+    /// (it lost every declaration): one per item, or one for the whole
+    /// namespace when it imports `(..)`.
+    fn import_unparsed_path(&self, import: &Import) -> Option<Vec<Diagnostic>> {
+        if import.everything.is_some() {
+            let error_at = *self.session.project_syntax_errors.get(&import.path.text)?;
+            let mut d = Diagnostic::error(
+                "E-USES-FAILED",
+                format!(
+                    "`{}` has a syntax error, so its names can't be found",
+                    import.path.text
+                ),
+            )
+            .with_label(import.path.span, "its declarations are missing");
+            if let Some(span) = error_at {
+                d = d.with_label(span, "the syntax error is here");
+            }
+            return Some(vec![d]);
+        }
+        let found: Vec<Diagnostic> = (import.items.iter())
+            .filter_map(|whole| self.import_unparsed_at(&import.path.text, &whole.name))
+            .collect();
+        (!found.is_empty()).then_some(found)
+    }
+
+    /// `E-USES-FAILED` for an import of `item` from `namespace`, which no
+    /// longer declares it because its file has a syntax error
+    /// (docs/proposals/tests-with-errors.md §4.2): `None` when the
+    /// namespace has no syntax error, so the name is simply unknown.
+    fn import_unparsed_at(&self, namespace: &str, item: &ast::Name) -> Option<Diagnostic> {
+        let error_at = *self.session.project_syntax_errors.get(namespace)?;
+        let mut d = Diagnostic::error(
+            "E-USES-FAILED",
+            format!(
+                "`{}` has a syntax error, so `{}` can't be found",
+                display(namespace),
+                item.text
+            ),
+        )
+        .with_label(item.span, format!("`{}` can't be found here", item.text));
+        if let Some(span) = error_at {
+            d = d.with_label(span, "the syntax error is here");
+        }
+        Some(d)
+    }
+
     fn import_unknown(&self, namespace: &str, item: &ast::Name) -> Diagnostic {
         let mut d = error(
             "E-IMPORT-UNKNOWN",
@@ -2651,29 +2895,7 @@ impl Elaborator {
             .filter(|m| edit_distance(m, &item.text) <= 2)
             .collect();
         near.sort_unstable();
-        // A constructor of a type in the namespace: it comes with its type.
-        let suffix = format!(".{}", item.text);
-        let mut types: Vec<&str> = self
-            .scope
-            .entries
-            .iter()
-            .filter(|(_, (g, _))| {
-                matches!(
-                    g,
-                    Global::Ctor(..) | Global::Pending(_, crate::library::PendingKind::Ctor)
-                )
-            })
-            .filter_map(|(k, _)| k.strip_prefix(&prefix)?.strip_suffix(&suffix))
-            .filter(|t| !t.contains('.'))
-            .collect();
-        types.sort_unstable();
-        if let Some(t) = types.first() {
-            d = d.with_note(format!(
-                "`{}` is a constructor of `{t}`, and constructors come with their type: import `{t}` instead, as in `import {} ({t})`",
-                item.text,
-                display(namespace)
-            ));
-        } else if let Some(m) = near.first() {
+        if let Some(m) = near.first() {
             d = d.with_note(format!("did you mean `{m}`?"));
         }
         d
@@ -2891,6 +3113,114 @@ fn alias_target(key: &str) -> Option<String> {
         .iter()
         .find(|(alias, _)| *alias == path)
         .map(|(_, target)| format!("Std.{target}"))
+}
+
+/// Names other languages use for what std calls something else, per
+/// namespace: `(namespace, [aliases], [std names])`. Aliases compare
+/// ignoring case; a std name is only ever suggested when it exists.
+const MEANING_TABLE: &[(&str, &[&str], &[&str])] = &[
+    (
+        "Char",
+        &["isLower", "isLowerCase", "isLowercase"],
+        &["isAsciiLowercase"],
+    ),
+    (
+        "Char",
+        &["isUpper", "isUpperCase", "isUppercase"],
+        &["isAsciiUppercase"],
+    ),
+    (
+        "Char",
+        &["isAlpha", "isLetter", "isAlphabetic"],
+        &["isAsciiLetter"],
+    ),
+    (
+        "Char",
+        &["isSpace", "isBlank"],
+        &["isWhitespace", "isAsciiSpace"],
+    ),
+    (
+        "Char",
+        &["isAlphaNum", "isAlnum", "isAlphanumeric"],
+        &["isAsciiAlphanumeric"],
+    ),
+    ("Char", &["ord", "code", "toInt", "toCode"], &["toNat"]),
+    ("Char", &["chr", "ofNat"], &["fromNat"]),
+    ("List", &["size", "len", "count"], &["length"]),
+    (
+        "List",
+        &["includes", "has", "member", "isMember"],
+        &["contains"],
+    ),
+    ("List", &["fold", "foldl", "reduce"], &["foldLeft"]),
+    ("List", &["foldr"], &["foldRight"]),
+    ("List", &["flatten"], &["concat"]),
+    ("List", &["each", "foreach", "for_each"], &["forEach"]),
+    ("List", &["first", "car"], &["head"]),
+    ("List", &["reversed"], &["reverse"]),
+    ("List", &["uniq", "nub", "distinct"], &["dedup", "unique"]),
+    ("List", &["max"], &["maximum"]),
+    ("List", &["min"], &["minimum"]),
+    ("List", &["exists", "some"], &["any"]),
+    ("List", &["forall", "every"], &["all"]),
+    ("List", &["empty", "null", "isNull"], &["isEmpty"]),
+    ("List", &["push", "add", "concatenate"], &["append"]),
+    ("Text", &["size", "len"], &["length"]),
+    ("Text", &["includes", "has"], &["contains"]),
+    ("Text", &["strip"], &["trim"]),
+    ("Text", &["parseInt"], &["toInt", "toNat"]),
+    ("Text", &["parseNat"], &["toNat"]),
+    ("Text", &["concat"], &["append"]),
+    ("Text", &["empty", "null"], &["isEmpty"]),
+    ("Text", &["splitBy"], &["split"]),
+    ("Text", &["chars"], &["toList"]),
+    ("Text", &["startswith", "hasPrefix"], &["startsWith"]),
+    ("Text", &["hasSuffix"], &["endsWith"]),
+    ("Option", &["isDefined", "isPresent"], &["isSome"]),
+    ("Option", &["isEmpty"], &["isNone"]),
+    (
+        "Option",
+        &["unwrapOr", "getOr", "withDefault", "valueOr"],
+        &["getOrElse"],
+    ),
+    ("Option", &["bind", "andThen", "then"], &["flatMap"]),
+    ("Map", &["length", "len", "count"], &["size"]),
+    (
+        "Map",
+        &["has", "containsKey", "hasKey", "member"],
+        &["contains"],
+    ),
+    ("Map", &["put", "set", "add"], &["insert"]),
+    ("Map", &["delete", "erase"], &["remove"]),
+    ("Map", &["entries", "items", "toArray"], &["toList"]),
+    ("Map", &["getOrDefault", "findWithDefault"], &["getOr"]),
+    ("Nat", &["plus", "sum"], &["add"]),
+    ("Nat", &["minus", "subtract"], &["sub"]),
+    ("Nat", &["times", "multiply"], &["mul"]),
+    ("Nat", &["divide"], &["div"]),
+    ("Nat", &["modulo", "rem", "remainder"], &["mod"]),
+    ("Nat", &["power", "exp"], &["pow"]),
+    ("Nat", &["maximum"], &["max"]),
+    ("Nat", &["minimum"], &["min"]),
+    ("Nat", &["toString"], &["toText"]),
+];
+
+/// The members of namespace `key` (written `Std.Char` or `Char`) that
+/// `member` is another language's name for, as std spells them. `exists`
+/// says whether `key.name` is declared, so only real names come back.
+pub fn meaning_suggestions(key: &str, member: &str, exists: impl Fn(&str) -> bool) -> Vec<String> {
+    let namespace = key.rsplit('.').next().unwrap_or(key);
+    let mut found: Vec<String> = Vec::new();
+    for (ns, aliases, targets) in MEANING_TABLE {
+        if *ns == namespace && aliases.iter().any(|a| a.eq_ignore_ascii_case(member)) {
+            for t in *targets {
+                if exists(&format!("{key}.{t}")) && !found.iter().any(|f| f == t) {
+                    found.push((*t).to_string());
+                }
+            }
+        }
+    }
+    found
 }
 
 fn or_list(items: &[String]) -> String {

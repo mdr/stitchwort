@@ -69,9 +69,9 @@ class T(unittest.TestCase):
     def test_the_report_has_every_section(self):
         _, tests = tr.read_junit(self.junit)
         areas = {("stitchwort-core", "kernel::a"): "core", ("stitchwort-core", "kernel::b"): "core"}
-        text, _ = tr.render("merge", "abc123", 100.0, 140.0, (1.0, 2.0, 3.0), (4.0, 5.0, 6.0),
+        text, _ = tr.render("quick", "abc123", 100.0, 140.0, (1.0, 2.0, 3.0), (4.0, 5.0, 6.0),
                             tr.read_steps(self.log), tests, 12.5, areas)
-        for want in ["# Tier report: merge, abc123", "| nextest build | 20.0 |", "beside: builtins",
+        for want in ["# Tier report: quick, abc123", "| nextest build | 20.0 |", "beside: builtins",
                      "## 15 slowest tests", "`slow`", "## Test time per binary", "| core | 2 | 2.0 |",
                      "(no lane area) | 2 | 32.0", "load average (1, 5, 15 min) at the start: 1.0, 2.0, 3.0",
                      "peak memory under the guard: 3.00 GB", "failed (exit 1)", "(between steps)"]:
@@ -81,8 +81,8 @@ class T(unittest.TestCase):
         _, tests = tr.read_junit(self.junit)
         steps = tr.read_steps(self.log)
         sm = tr.summarise(steps, tests, 12.5, 100.0, 140.0)
-        row = tr.history_row("merge", "abc123", 100.0, steps, sm)
-        self.assertEqual(row[1:8], ["merge", "abc123", "1", "40", "4", "1", "34"])
+        row = tr.history_row("quick", "abc123", 100.0, steps, sm)
+        self.assertEqual(row[1:8], ["quick", "abc123", "1", "40", "4", "1", "34"])
         self.assertIn("nextest_build=20", row[9])
         self.assertNotIn("builtins", row[9])
         path = os.path.join(self.dir, "h.tsv")
@@ -92,10 +92,10 @@ class T(unittest.TestCase):
 
     def test_a_report_without_junit_still_writes(self):
         out = os.path.join(self.dir, "out")
-        path, text = tr.write_report("merge", self.log, None, 100.0, 140.0, (0, 0, 0), (0, 0, 0),
+        path, text = tr.write_report("quick", self.log, None, 100.0, 140.0, (0, 0, 0), (0, 0, 0),
                                      areas_fn=lambda: {}, out=out, history=os.path.join(out, "h.tsv"))
         self.assertTrue(os.path.exists(path))
-        self.assertTrue(os.path.exists(os.path.join(out, "latest-merge.md")))
+        self.assertTrue(os.path.exists(os.path.join(out, "latest-quick.md")))
         self.assertIn("No JUnit file", text)
 
     def test_tier_step_logs_and_keeps_the_exit_code(self):

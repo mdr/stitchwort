@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `Eq` has no field or function `wrong`
+    ╭─[ reject/reading-failed.sw:13:43 ]
+    │
+ 13 │   forward = h => { low = h.left, high = h.wrong },
+    │                                           ──┬──  
+    │                                             ╰──── looked in `Eq`
+    │ 
+    │ Note: did you mean `cong`?
+────╯

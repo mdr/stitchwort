@@ -23,8 +23,7 @@ def eqNats: List Nat → List Nat → Bool
 
 def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
   | [], [] => True
-  | [MkPair a b, ..xs], [MkPair c d, ..ys] =>
-    if a == c then (if b == d then eqPairs xs ys else False) else False
+  | [MkPair a b, ..xs], [MkPair c d, ..ys] => if a == c then (if b == d then eqPairs xs ys else False) else False
   | _, _ => False
 
 -- Abilities
@@ -100,21 +99,18 @@ def scaleGets (prog: () → {State Nat | e} a): {State Nat | e} a :=
       put n
       k()
 
-test "a clause's own get goes to the outer handler" :=
-  fstOf (runState 5 (u => scaleGets (v => get() + 1))) == 51
+test "a clause's own get goes to the outer handler" := fstOf (runState 5 (u => scaleGets (v => get() + 1))) == 51
 
 -- Abort
 
-def safeDiv (n: Nat) (d: Nat): {Abort} Nat :=
-  if h: d ≠ 0 then n / d else fromEmpty abort()
+def safeDiv (n d: Nat): {Abort} Nat := if h: d ≠ 0 then n / d else fromEmpty abort()
 
 def orZero: Option Nat → Nat
   | None => 0
   | Some x => x
 
 test "abort stops" := orZero (toOption (u => safeDiv 7 0)) == 0
-test "no abort" :=
-  orZero (toOption (u => safeDiv 100 (safeDiv 7 2))) == 33
+test "no abort" := orZero (toOption (u => safeDiv 100 (safeDiv 7 2))) == 33
 
 -- Order of operations: arguments run left to right, and lines in order.
 
@@ -137,8 +133,7 @@ test "arguments run left to right" :=
 -- An operation's argument can perform operations too.
 def increment(): {State Nat} () := put (get() + 1)
 
-test "an effectful argument" :=
-  sndOf (runState 41 (u => increment())) == 42
+test "an effectful argument" := sndOf (runState 41 (u => increment())) == 42
 
 -- Functions in state
 
@@ -149,5 +144,4 @@ def storeAndRun(): {State (Nat → {Choose} Nat)} List Nat :=
   let g := get()
   allResults (v => g 5)
 
-test "an effectful function in state" :=
-  eqNats (fstOf (runState ((n => n): Nat → {Choose} Nat) storeAndRun)) [15, 5]
+test "an effectful function in state" := eqNats (fstOf (runState ((n => n): Nat → {Choose} Nat) storeAndRun)) [15, 5]

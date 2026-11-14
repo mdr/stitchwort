@@ -20,4 +20,4 @@ test "division rounds down" := Nat.leq (7 / 2) 3
 test "remainder" := Nat.leq (7 % 2) 1
 
 -- A test is a proof by computation of one fact; a theorem covers every input.
-theorem reverseOfSingleton (x: Nat): reverse [x] = [x] := rfl
+theorem reverseOfSingleton ∀ (x: Nat): reverse [x] = [x] := rfl

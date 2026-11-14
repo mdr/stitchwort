@@ -76,7 +76,7 @@ def shifted (n: Nat) (i: Int): Int := n.toInt + i
 
 -- A generic function's literal argument defaults when it's checked, so
 -- the `Int` has to come first or be written.
-def chooseFirst [a: Type] (x: a) (y: a): a := x
+def chooseFirst [a: Type] (x y: a): a := x
 
 def firstWritten (i: Int): Int := chooseFirst (5: Int) i
 

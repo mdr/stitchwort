@@ -28,6 +28,20 @@ theorem introducing: (n: Nat) → n + 0 = n := ?
 
 theorem falseOne (m: Nat) (n: Nat): m + n = n + m + 1 := ?
 
+theorem byComputing: List.length [1, 2, 3] = 3 := ?
+
+theorem fromHypothesis (a: Nat) (h: a = 3): a = 3 := ?
+
+theorem onlyOmega (a: Nat) (b: Nat) (h: a < b): a ≤ b := ?
+
+theorem onlyRing (x: Nat) (y: Nat): (x + y) * (x + y) = x * x + 2 * x * y + y * y := ?
+
+theorem ruledOut (a: Nat) (h: Some a = None): a = 5 := ?
+
+theorem falseIsTrue (h: False = True): 1 = 2 := ?
+
+theorem trueIsFalse (n: Nat) (h: True = False): n = 5 := ?
+
 theorem byCases (x: Nat) (shared: Nat) (y: Nat): Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) := ?
 ";
 
@@ -64,6 +78,11 @@ fn options() -> AtOptions {
 
 /// What closes the goal on `line` of `text`.
 fn at(text: &str, line: usize) -> AtReport {
+    at_with(text, line, &options())
+}
+
+/// [`at`], with the given options.
+fn at_with(text: &str, line: usize, options: &AtOptions) -> AtReport {
     with_session(STACK, Session::for_stack, |session| {
         let (file, diagnostics) = load(session, text);
         assert!(
@@ -82,7 +101,7 @@ fn at(text: &str, line: usize) -> AtReport {
             .search_at(
                 &found,
                 "goals.sw",
-                &options(),
+                options,
                 &Scope::File,
                 Some(&mut checking),
             )
@@ -209,6 +228,40 @@ fn a_target_that_binds_a_variable_is_introduced() {
     all_paste(&report, line);
 }
 
+/// Opening the goal computes its target, which is under the search's time
+/// like the other phases (SW-2594): a goal that takes longer to open than
+/// the time reports that it ran out, instead of opening for as long as it
+/// takes.
+#[test]
+fn a_goal_that_takes_too_long_to_open_reports_running_out() {
+    // 10,000 folds take more evaluation steps than the budget's first poll
+    // (`budget::POLL`, 16,384), so opening is cut short by the zero time; at
+    // 2,000 it finishes before then and opens the goal, which isn't what this
+    // tests. It was 100,000, which took minutes in a debug build for the same
+    // outcome.
+    let text = "\
+import Std (Nat, List)
+
+def countDown (n: Nat) (acc: List Nat): List Nat := match n with
+  | Zero => acc
+  | Succ k => countDown k [k, ..acc]
+
+theorem opening: countDown 10000 [] = [] := ?
+";
+    let options = AtOptions {
+        time: std::time::Duration::ZERO,
+        ..AtOptions::default()
+    };
+    let report = at_with(text, 7, &options);
+    assert!(!report.budget.exhausted, "{report:#?}");
+    assert!(report.results.is_empty() && report.tactics.is_empty());
+    assert!(
+        report.warnings.iter().any(|w| w.contains("while opening")),
+        "{:?}",
+        report.warnings
+    );
+}
+
 #[test]
 fn nothing_closes_a_false_goal() {
     let report = at(GOALS, line_of("falseOne"));
@@ -229,6 +282,22 @@ fn cases_closes_a_goal_alone() {
         "{report:#?}"
     );
     pastes(GOALS, line, "cases");
+    all_paste(&report, line);
+}
+
+/// `ring` is a closer of the full search too (SW-2973), not only a rung of
+/// the ladder: a goal it closes, and `omega` doesn't, lists it in `tactics`
+/// without `--simplest-first`.
+#[test]
+fn ring_closes_a_goal_alone_in_the_full_report() {
+    let line = line_of("onlyRing");
+    let report = at(GOALS, line);
+    assert!(report.tactics.iter().any(|t| t == "ring"), "{report:#?}");
+    assert!(
+        !report.tactics.iter().any(|t| t == "omega"),
+        "omega closes this goal too, so it doesn't show that ring did: {report:#?}"
+    );
+    pastes(GOALS, line, "ring");
     all_paste(&report, line);
 }
 
@@ -550,4 +619,93 @@ def fib: Nat → Nat
         assert!(session.elab.check_proof(&quick).is_ok());
         assert!(!session.elab.kernel.machine.budget.take_timed_out());
     });
+}
+
+/// [`options`] answering with the simplest closer alone (SW-2966).
+fn simplest() -> AtOptions {
+    AtOptions {
+        simplest_first: true,
+        ..options()
+    }
+}
+
+/// The only thing offered is `proof`, found by the ladder's `rung`, and it
+/// pastes.
+fn only_offer(name: &str, rung: &str, proof: &str) {
+    let line = line_of(name);
+    let report = at_with(GOALS, line, &simplest());
+    assert_eq!(report.simplest, Some(rung), "{report:#?}");
+    let offered: Vec<&str> = (report.tactics.iter().map(String::as_str))
+        .chain(report.results.iter().map(|s| s.proof.as_str()))
+        .collect();
+    assert_eq!(offered, [proof], "{report:#?}");
+    assert!(report.rewrites.is_empty() && report.induction.is_empty());
+    assert_eq!(report.budget.candidates, 0, "nothing was searched");
+    pastes(GOALS, line, proof);
+}
+
+/// A goal `rfl` closes is answered with `rfl` alone, where the full search
+/// lists `omega`, `byDecision` and lemmas too.
+#[test]
+fn simplest_first_offers_only_rfl() {
+    only_offer("byComputing", "rfl", "rfl");
+    let full = at(GOALS, line_of("byComputing"));
+    assert!(full.tactics.len() > 1, "{full:#?}");
+}
+
+#[test]
+fn simplest_first_offers_a_hypothesis_that_is_the_goal() {
+    only_offer("fromHypothesis", "hypothesis", "h");
+}
+
+/// A goal only `omega` closes: not `ring`, not `cases`, not lemmas.
+#[test]
+fn simplest_first_offers_only_omega() {
+    only_offer("onlyOmega", "omega", "omega");
+}
+
+#[test]
+fn simplest_first_offers_ring_when_omega_cannot() {
+    only_offer("onlyRing", "ring", "ring");
+}
+
+#[test]
+fn simplest_first_offers_cases_for_an_impossible_hypothesis() {
+    only_offer("ruledOut", "cases", "cases");
+}
+
+/// A case ruled out by `False = True` gets the direct proof, not `omega` or
+/// `cases` (SW-2912); the full search lists it first among the tactics.
+#[test]
+fn simplest_first_offers_the_direct_proof_of_an_impossible_bool_equation() {
+    only_offer(
+        "falseIsTrue",
+        "absurd",
+        "Std.Void.exfalso (Bool.falseNotTrue h)",
+    );
+    only_offer(
+        "trueIsFalse",
+        "absurd",
+        "Std.Void.exfalso (Bool.trueNotFalse h)",
+    );
+    let full = at(GOALS, line_of("falseIsTrue"));
+    assert_eq!(
+        full.tactics.first().map(String::as_str),
+        Some("Std.Void.exfalso (Bool.falseNotTrue h)"),
+        "{full:#?}"
+    );
+}
+
+/// A goal no rung closes gets the full search's offers: the same lemma
+/// first as without the ladder, and no `simplest`.
+#[test]
+fn simplest_first_leaves_the_full_search_when_no_rung_closes() {
+    let line = line_of("exactly");
+    let report = at_with(GOALS, line, &simplest());
+    assert_eq!(report.simplest, None);
+    assert_eq!(
+        report.results[0].proof, "List.lengthAppend xs ys",
+        "{report:#?}"
+    );
+    assert!(report.budget.candidates > 0);
 }

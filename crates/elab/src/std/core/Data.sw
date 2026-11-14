@@ -13,9 +13,7 @@
 --| when all their arguments are numbers. Each computes exactly what the
 --| definition here computes, proofs included; they're tested against these
 --| definitions.
-type Nat: Type =
-  | Zero
-  | Succ (n: Nat)
+type Nat: Type = | Zero | Succ (n: Nat)
 
 --| `a + b` means `Nat.add a b`. It recurses on its first argument, so
 --| `Succ m + n` computes to `Succ (m + n)`.
@@ -43,9 +41,7 @@ def Nat.pred: (n: Nat) → Nat
 -- Booleans
 
 --| `True` or `False`: what a test computes, and what `if` branches on.
-type Bool: Type =
-  | False
-  | True
+type Bool: Type = | False | True
 
 --| The opposite of `b`: `True` for `False` and `False` for `True`.
 def Bool.not: (b: Bool) → Bool
@@ -66,17 +62,15 @@ def Nat.leq: (m: Nat) → (n: Nat) → Bool
   | Succ m, Succ n => Nat.leq m n
 
 --| `m <= n` as a proposition, defined by computation: `Nat.leq m n` is `True`.
-def Nat.LessEq (m: Nat) (n: Nat): Prop := Nat.leq m n = True
+def Nat.LessEq (m n: Nat): Prop := Nat.leq m n = True
 
 --| `m < n` as a proposition, defined by computation: `m + 1 <= n`.
-def Nat.LessThan (m: Nat) (n: Nat): Prop := Nat.leq (Succ m) n = True
+def Nat.LessThan (m n: Nat): Prop := Nat.leq (Succ m) n = True
 
 -- Lists
 
 --| A sequence of values of one type: `[1, 2, 3]` is `Cons 1 (Cons 2 (Cons 3 Nil))`.
-type List (a: Type): Type =
-  | Nil
-  | Cons (head: a) (tail: List a)
+type List (a: Type): Type = | Nil | Cons (head: a) (tail: List a)
 
 --| `n` plus the length of `xs`, counted in a loop. The runtimes run it for
 --| [`List.length`], so a long list doesn't run out of stack
@@ -100,14 +94,11 @@ def List.append: (xs: List a) → (ys: List a) → List a
   | [x, ..xs], ys => [x, ..List.append xs ys]
 
 --| A value that may be missing.
-type Option (a: Type): Type =
-  | None
-  | Some (value: a)
+type Option (a: Type): Type = | None | Some (value: a)
 
 --| Two values together, of any two types: `(1, "a")`. Its fields' accessors, [`Pair.fst`] and [`Pair.snd`], are
 --| generated.
-type Pair (a: Type) (b: Type): Type =
-  | MkPair (fst: a) (snd: b)
+type Pair (a: Type) (b: Type): Type = | MkPair (fst: a) (snd: b)
 
 --| `List.reverseOnto xs acc` is `xs` reversed, followed by `acc`; `acc` is the
 --| accumulator, so a loop can build the result in reverse. Tail-recursive, O(n).

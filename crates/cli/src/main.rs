@@ -16,8 +16,14 @@ use stitchwort_elab::project::FileModeContext;
 use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
+mod breaks_cmd;
 mod build;
 mod doc_cmd;
+mod oracle_cmd;
+mod oracle_sites;
+mod rename_cmd;
+mod sweep_cmd;
+mod trial_cmd;
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -27,7 +33,8 @@ struct Cli {
     /// Read the standard library from this directory (laid out as
     /// `crates/elab/src/std`) instead of the copy built in, so edits to it
     /// take effect without a rebuild. The environment variable
-    /// `STITCHWORT_STD_DIR` does the same; this wins
+    /// `STITCHWORT_STD_DIR` does the same; this wins. A library file is
+    /// checked only when a program needs it: `check --std` checks named ones
     #[arg(long, global = true, value_name = "DIR")]
     std_dir: Option<PathBuf>,
     /// Show each goal in full. Without it, a line of a goal (a hypothesis,
@@ -51,7 +58,187 @@ fn new_session(navigation: bool) -> Session {
 }
 
 #[derive(Subcommand)]
+enum SweepCommand {
+    /// Move theorems' `∀` variables, and the premises their proofs name,
+    /// before the colon; a proof by arms becomes `:= match x with`
+    /// (docs/proposals/theorem-binders.md §5). Each rewrite is checked to
+    /// keep its statement's hash; one that doesn't is refused and listed.
+    /// Exit status: 0 done, 1 not clean (nothing written), 2 refused
+    TheoremBinders {
+        /// Files (`.sw`) or folders to sweep
+        paths: Vec<PathBuf>,
+        /// The files are the standard library's: check an edited copy
+        /// against the library as it is
+        #[arg(long)]
+        std: bool,
+        /// The paths are single files, each checked on its own: no project
+        /// is needed
+        #[arg(long, conflicts_with_all = ["std", "project"])]
+        files: bool,
+        /// With --std: the library's source folder (default:
+        /// `crates/elab/src/std` here or above)
+        #[arg(long, value_name = "DIR", requires = "std")]
+        std_root: Option<PathBuf>,
+        /// Check, but write nothing
+        #[arg(long)]
+        dry_run: bool,
+        /// Only list what would be rewritten and skipped: no check, nothing
+        /// written
+        #[arg(long)]
+        plan: bool,
+        /// Print the result as JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// Leave this theorem as it is (a full name, or as written; may be
+        /// repeated): listed as refused
+        #[arg(long, value_name = "NAME")]
+        keep: Vec<String>,
+        /// Check with the "proofs only" promise instead of "same
+        /// statement": a definition whose proofs changed (a theorem it
+        /// embeds was re-proved) is accepted if its hash with proofs left
+        /// out held
+        #[arg(long)]
+        proofs_only: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+}
+
+#[derive(Subcommand)]
+enum OracleCommand {
+    /// Delete each `.read` in turn and check the file: it must then fail
+    /// (the `.read` was needed) or keep every statement and definition
+    /// (redundant); anything else changed meaning silently (SW-3105 §4.6).
+    /// Exit status: 0 nothing changed meaning, 1 something did, 2 refused
+    Readings(OracleArgs),
+    /// Replace each call of a build helper (`Bool.falseOfNotTrue x p`,
+    /// `(r ..).backward p`, ...) by its proof and check the file: still
+    /// failing (needed), or meaning kept (removable: the sweep's work list),
+    /// or a statement changed (bad). Exit status as for `readings`
+    Builds(OracleArgs),
+}
+
+#[derive(clap::Args)]
+struct OracleArgs {
+    /// Files (`.sw`) or folders to try
+    paths: Vec<PathBuf>,
+    /// The files are the standard library's: check an edited copy against
+    /// the library as it is (one full library load per site)
+    #[arg(long)]
+    std: bool,
+    /// The paths are single files, each checked on its own: no project is
+    /// needed
+    #[arg(long, conflicts_with_all = ["std", "project"])]
+    files: bool,
+    /// The library's source folder (default: `crates/elab/src/std` here or
+    /// above): the `@[reading]` theorems whose `.backward` the `builds`
+    /// half looks for are listed from it, and with --std it is what is
+    /// edited
+    #[arg(long, value_name = "DIR")]
+    std_root: Option<PathBuf>,
+    /// Try at most this many sites, in file and line order
+    #[arg(long, value_name = "N")]
+    limit: Option<usize>,
+    /// Print the result as JSON (version 1)
+    #[arg(long)]
+    json: bool,
+    /// The project folder, if not the folder you're in or the nearest one
+    /// above it
+    #[arg(long)]
+    project: Option<PathBuf>,
+    #[command(flatten)]
+    cache: CacheArgs,
+}
+
+#[derive(Subcommand)]
 enum DevCommand {
+    /// Build the lossless syntax tree of every `.sw` file under the paths
+    /// and check that each reads back as the file, byte for byte. Prints
+    /// the files that don't, and totals: declarations, ones that didn't
+    /// parse, nodes, marks dropped and internal errors. Exit status 1 if any
+    /// file fails, a mark is dropped, a declaration is an internal error, or
+    /// (with --spans) a span is no node
+    Tree {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+        /// Print each file's tree
+        #[arg(long)]
+        print: bool,
+        /// Also time parsing every file this many times, and print the best
+        /// time of each: as `check` parses (the lossless tree, then the
+        /// compiler's tree lowered from it), and the lossless tree alone,
+        /// so the difference is the lowering
+        #[arg(long, value_name = "ROUNDS")]
+        time: Option<u32>,
+        /// With --time, time only parsing as `check` does, and skip the
+        /// round trip: for counting the instructions of that alone
+        #[arg(long, requires = "time")]
+        parse_only: bool,
+        /// Also check that every span in the compiler's tree is a node of
+        /// the lossless tree or a single token, and print each that isn't
+        #[arg(long)]
+        spans: bool,
+    },
+    /// The one-line-break oracle of syntax error recovery
+    /// (docs/proposals/syntax-error-recovery.md §6): break each line of
+    /// every file under the paths that checks, one at a time (its last
+    /// token dropped; a stray `)` before its middle token), check the
+    /// broken file, and count the errors other than the syntax error, which
+    /// are false ones, by the recovery point the parser used. Lists the
+    /// worst breaks. In a project by default; `--files` checks each file on
+    /// its own, `--std` library files
+    Breaks {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+        /// The paths are standard library files or folders, each break
+        /// checked in a copy of the library by `check --std`
+        #[arg(long, conflicts_with_all = ["files", "project"])]
+        std: bool,
+        /// The paths are files each checked on its own, as `check FILE` does
+        #[arg(long, conflicts_with = "project")]
+        files: bool,
+        /// With --std, the library's source (default: the nearest
+        /// `crates/elab/src/std` above this folder)
+        #[arg(long, requires = "std")]
+        std_root: Option<PathBuf>,
+        /// Try at most this many breaks
+        #[arg(long)]
+        limit: Option<usize>,
+        /// How many of the worst breaks to list
+        #[arg(long, default_value_t = 20)]
+        worst: usize,
+        /// Print the results as one JSON object
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// The formatter's report over a tree of files: format every `.sw` file
+    /// under the paths, without writing anything, and check each result: the same tokens up to the
+    /// deliberate rewrites, the same comments on the same tokens, the same
+    /// syntax tree, and the same text when formatted again. Prints each
+    /// file that fails a check, then totals: declarations left as written
+    /// (by the check they failed), constructs without a rule (by kind), and
+    /// code lines over 120 before and after. Exit status 1 if any file fails
+    /// a check or isn't idempotent
+    FmtTree {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+        /// Print each formatted file
+        #[arg(long)]
+        print: bool,
+        /// List each declaration left as written, with its line
+        #[arg(long)]
+        verbose: bool,
+    },
     /// Which machine instructions a program's reachable code uses, and
     /// whether it fits native compilation's N1 subset
     /// (docs/proposals/native-compilation.md, Appendix: N1 coverage census)
@@ -91,6 +278,19 @@ enum Command {
         /// Files (a name ending in `.sw`, or with a `/`), or namespaces of
         /// the project; not both
         targets: Vec<String>,
+        /// The targets are standard library files or folders, not a
+        /// project's: `Nat/Arith.sw`, `Nat`, or `Std.Nat.Arith`. Each is
+        /// checked in full, theorem bodies included, with the files it
+        /// needs, from the library `--std-dir` names (or the usual one);
+        /// unchanged files come from the check cache. A library file is
+        /// only checked when something needs it, so `check FILE` of a
+        /// program that doesn't use an edited library file doesn't see it
+        #[arg(
+            long,
+            requires = "targets",
+            conflicts_with_all = ["project", "index", "only", "counterexamples"]
+        )]
+        std: bool,
         /// The project folder (the one with `stitchwort.yaml`), if not the
         /// folder you're in or the nearest one above it
         #[arg(long)]
@@ -138,6 +338,15 @@ enum Command {
         /// which is much slower) instead of the fast runtime
         #[arg(long)]
         reference: bool,
+        /// Run the tests as native code, compiled together; a test that
+        /// can't run natively runs on the fast runtime, with the same
+        /// outcome. Needs a build with the `native` feature
+        #[arg(long, conflicts_with = "reference")]
+        native: bool,
+        /// With --native, say on standard error what ran natively, and why
+        /// anything didn't
+        #[arg(long, requires = "native")]
+        verbose: bool,
         /// Run every test afresh and compare each result with the cached
         /// one, failing on any that differs; the cache is not written. A
         /// check that the cache's key covers everything a result depends on
@@ -324,12 +533,44 @@ enum Command {
         /// With --at FILE: the file's N-th goal, in source order
         #[arg(long, value_name = "N")]
         goal: Option<usize>,
+        /// With --at: answer with the simplest closer alone if one closes
+        /// the goal (`rfl`, a hypothesis, `byDecision`, `omega`, `ring`,
+        /// `cases`, in that order), as the editor's "Search for a proof"
+        /// does, instead of searching
+        #[arg(long)]
+        simplest_first: bool,
         /// With --at: how many matching declarations to try
         #[arg(long, value_name = "N", default_value_t = 50)]
         candidates: usize,
         /// With --at: how long checking may take, as `10s` or `500ms`
         #[arg(long, value_name = "TIME", default_value = "10s")]
         time: String,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Without `--at`, every open goal (`?`) of the project and what relies
+    /// on it or can't be checked until it is filled (docs/syntax.md, "Goals").
+    /// With `--at`, the goal at a point of a proof, and the names in scope
+    /// there: `⊢ goal` in a proof, `expected T` in program code
+    /// (docs/syntax.md, "The goal at a point"). Exits with status 0 with an
+    /// answer, 2 with none there or for a bad argument, 1 if the file
+    /// doesn't parse
+    Goal {
+        /// FILE:LINE[:COL], 1-based; without COL, the line's first
+        /// character that isn't a blank
+        #[arg(long, value_name = "FILE:LINE[:COL]")]
+        at: Option<String>,
+        /// Count the open goals per namespace, in the project's order, with
+        /// the total, instead of listing them: for a book's chapters
+        #[arg(long)]
+        summary: bool,
+        /// The answer as a JSON object (docs/syntax.md, "The goal at a
+        /// point")
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the nearest one above the file
+        #[arg(long)]
+        project: Option<PathBuf>,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -380,9 +621,114 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Rename a local, hypothesis, function or theorem everywhere in the
+    /// project (docs/proposals/refactoring.md). The renamed project is
+    /// checked first, and compared with the project now: its diagnostics,
+    /// and the meaning (content hash) of every declaration. Written only if
+    /// that finds no problem, or with `--anyway`. Exit status: 0 renamed
+    /// cleanly, 1 problems and nothing written, 2 refused or not understood
+    /// (nothing written; `--anyway` doesn't override that), 3 written with
+    /// problems left to fix
+    Rename {
+        /// A declaration's full name (`Shop.step`), or a position in a
+        /// project file, `src/shop.sw:12:5` (line and column from 1): a
+        /// declaration's name, a use of it, or a local's binder or use
+        target: String,
+        /// The new name: one lowercase identifier, not a keyword
+        new_name: String,
+        /// Write the edits even if the check finds problems, and list them
+        /// as what is left to fix by hand
+        #[arg(long)]
+        anyway: bool,
+        /// Write nothing: list the edits, and the problems
+        #[arg(long)]
+        dry_run: bool,
+        /// Print the result as JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Developer tool for sweeps: try edits on the checked project, or an
+    /// edited copy of the standard library, and list the new diagnostics and
+    /// the declarations whose content hash moved. Writes nothing unless
+    /// `--apply`. Exit status: 0 nothing found, 1 problems, 2 refused
+    #[command(hide = true)]
+    TrialEdits {
+        /// JSON: a list of edits (or an object with an `edits` list, as
+        /// `rename --dry-run --json` prints). An edit is `{file, line,
+        /// column, endLine, endColumn, newText}` (from 1), or `{file, text}`
+        /// to replace a whole file
+        edits: Option<PathBuf>,
+        /// Accept a theorem's changed proof if its statement (type hash)
+        /// held; definitions must keep their hash. Default: every
+        /// declaration keeps its hash
+        #[arg(long)]
+        same_statement: bool,
+        /// Accept any declaration whose hash with its proofs left out held:
+        /// only proofs changed, a theorem's or those a definition embeds
+        /// (its statement still says the same, and it computes the same)
+        #[arg(long, conflicts_with = "same_statement")]
+        proofs_only: bool,
+        /// Write the edited files if nothing was found
+        #[arg(long)]
+        apply: bool,
+        /// With `--apply`, write them even if problems were found
+        #[arg(long, requires = "apply")]
+        anyway: bool,
+        /// Print the result as JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// With the global `--std-dir EDITED`: compare the whole library as
+        /// `EDITED` has it with the library as it was, from this directory
+        /// (default: what the environment picks without `--std-dir`)
+        #[arg(long, value_name = "DIR")]
+        std_before: Option<PathBuf>,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Developer tool: print the content hashes of declarations (their
+    /// names, or all of them): the hash, the hash of the statement alone,
+    /// the kind and the full name
+    #[command(hide = true)]
+    Hash {
+        /// Full names; a name includes what is declared under it
+        names: Vec<String>,
+        /// Hash the standard library instead of the project
+        #[arg(long)]
+        std: bool,
+        /// Print JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// With --json, list the declarations each definition mentions
+        #[arg(long, requires = "json")]
+        uses: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// Developer tools for measuring the implementation (not a stable interface)
     #[command(hide = true, subcommand)]
     Dev(DevCommand),
+    /// Developer tools that rewrite many declarations, writing only what
+    /// the trial check accepts
+    #[command(hide = true, subcommand)]
+    Sweep(SweepCommand),
+    /// The deletion oracle: try deleting each `.read`, or replacing each
+    /// build helper by its proof, and check what the edit does
+    #[command(hide = true, subcommand)]
+    Oracle(OracleCommand),
     /// Format source files in place: indentation, spacing, blank lines and brackets, in the house style. Prints the files it changed
     Fmt {
         /// Files (`.sw`) or folders to format; `-` reads standard input and
@@ -534,6 +880,11 @@ struct CacheArgs {
 /// have room before they run into their resource limits.
 const STACK: usize = 64 * 1024 * 1024;
 
+/// How much of [`STACK`] `dev tree` lets the parser and the lowering use,
+/// as `check` does (`Limits::for_stack`): the rest is room for what runs
+/// below the point the limit is measured from.
+const TREE_STACK: usize = STACK - STACK / 4;
+
 /// Checking builds and frees terms and values by the million; with the
 /// system allocator (on macOS at least) allocating and freeing was about a
 /// quarter of a `check`. mimalloc makes `check` of the AoC project retire
@@ -590,17 +941,22 @@ fn main() -> ExitCode {
     if matches!(cli.command, Command::Run { js: true, .. }) {
         stitchwort_cli::node_wait::wait_for_node();
     }
-    // `run --native` runs native code on this thread, whose stack must hold
-    // whatever the run sizes for its frames: up to the cap
-    // (docs/proposals/native-only.md §3).
+    // `run --native` and `test --native` run native code on this thread,
+    // whose stack must hold whatever the run sizes for its frames: up to
+    // the cap (docs/proposals/native-only.md §3). Checking still uses only
+    // `STACK` of it (`new_session`).
     let stack = match &cli.command {
-        Command::Run { native: true, .. } => stitchwort_host::NATIVE_STACK,
+        Command::Run { native: true, .. } | Command::Test { native: true, .. } => {
+            stitchwort_host::NATIVE_STACK
+        }
         _ => STACK,
     };
     let ran = stitchwort_host::try_with_stack(stack, move || {
         stitchwort_elab::timings::start();
+        stitchwort_elab::progress::report_to(|note| eprintln!("note: {note}"));
         let code = run(cli);
         stitchwort_elab::timings::report();
+        stitchwort_syntax::stack::probe::report_deepest();
         code
     });
     ran.unwrap_or_else(|e| {
@@ -609,10 +965,21 @@ fn main() -> ExitCode {
     })
 }
 
+/// Runs `cli`'s command, each by a function of its own. Those that would be
+/// inlined here are `#[inline(never)]`: inlined, every command's locals
+/// shared one frame of 21 KiB, under whichever command ran (SW-3180).
 fn run(cli: Cli) -> ExitCode {
+    let std_dir_given = cli.std_dir.is_some();
     match cli.command {
         Command::Check {
             targets,
+            std: true,
+            cache,
+            ..
+        } => check_std(&targets, &cache),
+        Command::Check {
+            targets,
+            std: false,
             project,
             index,
             only,
@@ -641,6 +1008,8 @@ fn run(cli: Cli) -> ExitCode {
             cache,
             project,
             reference,
+            native,
+            verbose,
             verify_cache,
             only,
             json,
@@ -649,6 +1018,7 @@ fn run(cli: Cli) -> ExitCode {
             &cache,
             project.as_deref(),
             reference,
+            native.then_some(verbose),
             verify_cache,
             &TestOutput {
                 only: only.as_deref(),
@@ -686,6 +1056,21 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => axioms(&target, &names, project.as_deref(), &cache),
+        Command::Goal {
+            at,
+            summary,
+            json,
+            project,
+            cache,
+        } => match (at, summary) {
+            (Some(_), true) => {
+                eprintln!("error: --summary counts each namespace's goals: it takes no --at");
+                ExitCode::from(2)
+            }
+            (Some(at), false) => goal_at(&at, project.as_deref(), json, &cache),
+            (None, true) => goal_summary(project.as_deref(), json, &cache),
+            (None, false) => goal_list(project.as_deref(), json, &cache),
+        },
         Command::Search {
             query,
             file,
@@ -701,6 +1086,7 @@ fn run(cli: Cli) -> ExitCode {
             log,
             at,
             goal,
+            simplest_first,
             candidates,
             time,
             cache,
@@ -725,6 +1111,7 @@ fn run(cli: Cli) -> ExitCode {
                     exclude: Vec::new(),
                     within,
                     stop_after_closing: None,
+                    simplest_first,
                 };
                 return search_at(
                     &at,
@@ -788,6 +1175,102 @@ fn run(cli: Cli) -> ExitCode {
                 cache: &cache,
             })
         }
+        Command::Rename {
+            target,
+            new_name,
+            anyway,
+            dry_run,
+            json,
+            project,
+            cache,
+        } => rename_cmd::rename(&rename_cmd::Args {
+            target: &target,
+            new_name: &new_name,
+            anyway,
+            dry_run,
+            json,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::TrialEdits {
+            edits,
+            same_statement,
+            proofs_only,
+            apply,
+            anyway,
+            json,
+            std_before,
+            project,
+            cache,
+        } => trial_cmd::trial_edits(&trial_cmd::TrialArgs {
+            edits: edits.as_deref(),
+            same_statement,
+            proofs_only,
+            apply,
+            anyway,
+            json,
+            std_before: std_before.as_deref(),
+            std_mode: std_dir_given,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::Sweep(SweepCommand::TheoremBinders {
+            paths,
+            std,
+            files,
+            std_root,
+            dry_run,
+            plan,
+            json,
+            keep,
+            proofs_only,
+            project,
+            cache,
+        }) => sweep_cmd::theorem_binders(&sweep_cmd::Args {
+            paths: &paths,
+            std,
+            files,
+            std_root: std_root.as_deref(),
+            dry_run,
+            plan,
+            json,
+            keep: &keep,
+            proofs_only,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::Oracle(which) => {
+            let (half, a) = match which {
+                OracleCommand::Readings(a) => (oracle_sites::Half::Readings, a),
+                OracleCommand::Builds(a) => (oracle_sites::Half::Builds, a),
+            };
+            oracle_cmd::run(&oracle_cmd::Args {
+                half,
+                paths: &a.paths,
+                std: a.std,
+                files: a.files,
+                std_root: a.std_root.as_deref(),
+                limit: a.limit,
+                json: a.json,
+                project: a.project.as_deref(),
+                cache: &a.cache,
+            })
+        }
+        Command::Hash {
+            names,
+            std,
+            json,
+            uses,
+            project,
+            cache,
+        } => trial_cmd::hash(&trial_cmd::HashArgs {
+            names: &names,
+            std,
+            json,
+            uses,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
         Command::Audit {
             targets,
             json,
@@ -870,6 +1353,39 @@ fn run(cli: Cli) -> ExitCode {
             },
             &cache,
         ),
+        Command::Dev(DevCommand::Tree {
+            paths,
+            print,
+            time,
+            parse_only,
+            spans,
+        }) => tree_command(&paths, print, time, parse_only, spans),
+        Command::Dev(DevCommand::Breaks {
+            paths,
+            std,
+            files,
+            std_root,
+            limit,
+            worst,
+            json,
+            project,
+            cache,
+        }) => breaks_cmd::run(&breaks_cmd::Args {
+            paths: &paths,
+            std,
+            files,
+            std_root: std_root.as_deref(),
+            limit,
+            worst,
+            json,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::Dev(DevCommand::FmtTree {
+            paths,
+            print,
+            verbose,
+        }) => fmt_tree_command(&paths, print, verbose),
         Command::Dev(DevCommand::NativeSpike { rounds, memory }) => {
             native_spike(rounds, memory.as_deref())
         }
@@ -877,6 +1393,7 @@ fn run(cli: Cli) -> ExitCode {
 }
 
 #[cfg(feature = "native")]
+#[inline(never)]
 fn native_spike(rounds: u64, memory: Option<&str>) -> ExitCode {
     let memory = match memory.map(str::parse).transpose() {
         Ok(memory) => memory.unwrap_or_default(),
@@ -898,6 +1415,7 @@ fn native_spike(rounds: u64, memory: Option<&str>) -> ExitCode {
 }
 
 #[cfg(not(feature = "native"))]
+#[inline(never)]
 fn native_spike(_rounds: u64, _memory: Option<&str>) -> ExitCode {
     eprintln!("error: this `stitchwort` was built without native code; build it with `task build`");
     ExitCode::FAILURE
@@ -927,16 +1445,155 @@ fn goals_open(reported: &[Diagnostic]) -> usize {
         .count()
 }
 
-/// "2 goals open", after the goals themselves, if there are any
-/// (docs/proposals/lsp-goal-holes.md, D636): a declaration with one isn't
-/// finished, and nor is anything that uses it, so none of them is checked.
-fn report_goals(goals: usize) {
-    if goals > 0 {
-        let s = if goals == 1 { "" } else { "s" };
+/// `project`'s `stitchwort.yaml`, or `None` after reporting why it can't be
+/// read.
+fn read_project_config(project: &Project) -> Option<stitchwort_cli::project::Config> {
+    let text = std::fs::read_to_string(project.dir.join("stitchwort.yaml")).unwrap_or_default();
+    let mut sources = SourceMap::new();
+    let id = sources.add("stitchwort.yaml", text.clone());
+    match stitchwort_cli::project::parse_config(id, "stitchwort.yaml", &text) {
+        Ok(config) => Some(config),
+        Err(d) => {
+            report(&sources, &[d]);
+            None
+        }
+    }
+}
+
+/// "N goals open, allowed by `check: open-goals: warn`": the start of the
+/// line `check` and the REPL print for a project that allows open goals.
+fn open_goals_allowed(goals: usize) -> String {
+    let s = if goals == 1 { "" } else { "s" };
+    format!("{goals} goal{s} open, allowed by `check: open-goals: warn`")
+}
+
+/// The error lines of the summary (docs/proposals/tests-with-errors.md
+/// §4.3): which declarations have an error, and which can't be checked
+/// until one is fixed. Nothing for a project without errors.
+fn report_errors(session: &Session) {
+    let errors = session.errors();
+    if !errors.has.is_empty() {
+        let names: Vec<String> = (errors.has.iter().take(3))
+            .map(|e| format!("`{}`", e.declaration))
+            .collect();
+        let shown = match (names.as_slice(), errors.has.len()) {
+            ([one], _) => one.clone(),
+            ([a, b], 2) => format!("{a} and {b}"),
+            ([a, b, c], 3) => format!("{a}, {b} and {c}"),
+            (names, n) => format!("{} and {} more", names.join(", "), n - names.len()),
+        };
+        let s = if errors.has.len() == 1 { "" } else { "s" };
+        eprintln!("{} error{s}: in {shown}", errors.has.len());
+    }
+    let waiting = &errors.waiting;
+    if !waiting.is_empty() {
+        let s = if waiting.len() == 1 { "" } else { "s" };
         eprintln!(
-            "{goals} goal{s} open: the declarations with them, and what uses them, aren't \
-             finished, so they aren't checked"
+            "{} declaration{s} can't be checked until an error is fixed:",
+            waiting.len()
         );
+        let width = waiting.iter().map(|w| w.name.len()).max().unwrap_or(0);
+        const SHOWN: usize = 20;
+        for w in waiting.iter().take(SHOWN) {
+            eprintln!("  {:width$}  needs {}", w.name, w.needs.describe());
+        }
+        if waiting.len() > SHOWN {
+            eprintln!("  and {} more", waiting.len() - SHOWN);
+        }
+    }
+}
+
+/// The goal count line, then what relies on the goals and what can't be
+/// checked until they are filled (docs/proposals/using-unfinished-proofs.md
+/// §5.1), after the goals themselves. `warn` is `check: open-goals: warn`,
+/// which reports the goals as warnings that don't fail the check. Before
+/// them, the error lines, and what relies on a declaration with an error
+/// that stands in for its statement (docs/proposals/tests-with-errors.md
+/// §4.3, D3527).
+fn report_goals(session: &Session, reported: &[Diagnostic]) {
+    use stitchwort_driver::reliance::{Dependent, GoalPlace, describe_goals, is_goal};
+    report_errors(session);
+    let goals = reported.iter().filter(|d| is_goal(d)).count();
+    let stand_ins = (session.elab.assumptions().iter()).any(|a| session.elab.is_error_stand_in(*a));
+    if goals == 0 && !stand_ins {
+        return;
+    }
+    let reliance = session.reliance(reported);
+    // Each dependent with only the gaps of one kind, if it has any.
+    let of_kind = |list: &[Dependent], error: bool| -> Vec<Dependent> {
+        (list.iter())
+            .filter_map(|d| {
+                let gaps: Vec<GoalPlace> = (d.goals.iter())
+                    .filter(|g| g.is_error() == error)
+                    .cloned()
+                    .collect();
+                (!gaps.is_empty()).then(|| Dependent {
+                    name: d.name.clone(),
+                    goals: gaps,
+                })
+            })
+            .collect()
+    };
+    let rely = |n: usize| {
+        if n == 1 {
+            ("", "relies")
+        } else {
+            ("s", "rely")
+        }
+    };
+    let list_blocked = |blocked: &[Dependent], needs: &dyn Fn(&[GoalPlace]) -> String| {
+        let width = blocked.iter().map(|b| b.name.len()).max().unwrap_or(0);
+        const SHOWN: usize = 20;
+        for b in blocked.iter().take(SHOWN) {
+            eprintln!("  {:width$}  needs {}", b.name, needs(&b.goals));
+        }
+        if blocked.len() > SHOWN {
+            eprintln!(
+                "  and {} more (`stitchwort goal` lists them)",
+                blocked.len() - SHOWN
+            );
+        }
+    };
+    // What waits for an error is listed with the errors, above.
+    let relying = of_kind(&reliance.relying, true).len();
+    if relying > 0 {
+        let (s, rely) = rely(relying);
+        eprintln!(
+            "{relying} declaration{s} {rely} on a declaration with an error, checked assuming \
+             its statement"
+        );
+    }
+    if goals > 0 {
+        let allowed = reported
+            .iter()
+            .any(|d| d.severity == Severity::Warning && d.code == "GOAL");
+        let s = if goals == 1 { "" } else { "s" };
+        if allowed {
+            eprintln!(
+                "{}; `stitchwort audit` fails what relies on {}",
+                open_goals_allowed(goals),
+                if goals == 1 { "it" } else { "them" }
+            );
+        } else {
+            eprintln!("{goals} goal{s} open");
+        }
+        let relying = of_kind(&reliance.relying, false).len();
+        if relying > 0 {
+            let (s, rely) = rely(relying);
+            eprintln!(
+                "{relying} declaration{s} {rely} on open goals, checked assuming they hold \
+                 (`stitchwort goal` lists them)"
+            );
+        }
+        let blocked = of_kind(&reliance.blocked, false);
+        if !blocked.is_empty() {
+            let s = if blocked.len() == 1 { "" } else { "s" };
+            eprintln!(
+                "{} declaration{s} can't be checked until a goal is filled (not checked at all):",
+                blocked.len()
+            );
+            list_blocked(&blocked, &|gaps| describe_goals(gaps, true));
+        }
     }
 }
 
@@ -1006,7 +1663,15 @@ fn load_project_into(
     target: &Target,
     reported: &mut Vec<Diagnostic>,
 ) -> bool {
-    load_project_counting(session, project, target, Load::Everything, reported).is_some()
+    load_project_counting(
+        session,
+        project,
+        target,
+        Load::Everything,
+        stitchwort_cli::project::OpenGoals::Fail,
+        reported,
+    )
+    .is_some()
 }
 
 /// [`load_project_into`], giving the number of namespaces checked.
@@ -1015,11 +1680,17 @@ fn load_project_counting(
     project: &Project,
     target: &Target,
     load: Load,
+    open_goals: stitchwort_cli::project::OpenGoals,
     reported: &mut Vec<Diagnostic>,
 ) -> Option<(usize, Option<TheoremCount>)> {
     match session.load_project_for(&project.files, &project.name, target, load) {
         Ok(loaded) => {
             reported.extend(std::mem::take(&mut session.warnings));
+            if open_goals == stitchwort_cli::project::OpenGoals::Warn {
+                for d in reported.iter_mut().filter(|d| d.severity == Severity::Goal) {
+                    d.severity = Severity::Warning;
+                }
+            }
             report(&session.sources, reported);
             Some((loaded.checked.len(), loaded.theorems))
         }
@@ -1158,6 +1829,28 @@ fn write_index(
     }
 }
 
+/// `check --std`: the library files and folders `targets` name, with what
+/// they need, checked in full.
+#[inline(never)]
+fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, Path::new("."));
+    match session.elab.check_library_targets(targets) {
+        Ok(files) => {
+            let plural = if files.len() == 1 { "" } else { "s" };
+            eprintln!("checked {} standard library file{plural}", files.len());
+            discard(session);
+            ExitCode::SUCCESS
+        }
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            discard(session);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+#[inline(never)]
 fn check(
     targets: &[String],
     project: Option<&Path>,
@@ -1193,7 +1886,7 @@ fn check(
                 &mut reported,
             );
             let goals = goals_open(&reported);
-            report_goals(goals);
+            report_goals(&session, &reported);
             ok &= loaded && goals == 0;
             if loaded && goals == 0 {
                 eprintln!("checked {path}");
@@ -1221,6 +1914,9 @@ fn check(
     } else {
         Target::Namespaces(targets.to_vec())
     };
+    let Some(config) = read_project_config(&project) else {
+        return ExitCode::FAILURE;
+    };
     let mut session = new_session(index.is_some());
     use_cache(&mut session, cache, &project.dir);
     let mut reported = Vec::new();
@@ -1231,9 +1927,16 @@ fn check(
     } else {
         Load::Everything
     };
-    let checked = load_project_counting(&mut session, &project, &target, load, &mut reported);
+    let checked = load_project_counting(
+        &mut session,
+        &project,
+        &target,
+        load,
+        config.open_goals,
+        &mut reported,
+    );
     let goals = goals_open(&reported);
-    report_goals(goals);
+    report_goals(&session, &reported);
     let mut ok = checked.is_some() && goals == 0;
     if let (true, Some((count, theorems))) = (ok, checked) {
         let plural = if count == 1 { "" } else { "s" };
@@ -1405,12 +2108,10 @@ fn verified(cache: &Cache) -> bool {
         return true;
     };
     for d in &v.disagreements {
-        let show = |o: Outcome| {
-            if o == Outcome::Passed {
-                "passed"
-            } else {
-                "failed"
-            }
+        let show = |o: Outcome| match o {
+            Outcome::Passed => "passed",
+            Outcome::Failed => "failed",
+            Outcome::OutOfResources(_) => "unfinished",
         };
         eprintln!(
             "error: cache disagrees with a fresh run: {}.{} (hash {}): cached {}, fresh {}",
@@ -1427,6 +2128,18 @@ fn verified(cache: &Cache) -> bool {
         v.missing,
         v.disagreements.len()
     );
+    // A cache that knows nothing about this build (a fresh binary's first
+    // run) verifies nothing, and saying so is not a pass.
+    if v.compared == 0 && v.missing > 0 {
+        let tests = if v.missing == 1 { "test" } else { "tests" };
+        eprintln!(
+            "error: the cache was empty for this binary: {} {tests} had no cached result, so \
+             there was nothing to compare; run `stitchwort test` first (or `task \
+             test:verify-cache`, which fills the cache)",
+            v.missing
+        );
+        return false;
+    }
     v.disagreements.is_empty()
 }
 
@@ -1445,23 +2158,33 @@ impl TestOutput<'_> {
         results: &[TestResult],
         grouped: bool,
         asked_for_some: bool,
+        errors: usize,
     ) -> ExitCode {
         if self.json {
-            print_tests_json(session, results, asked_for_some)
+            print_tests_json(session, results, asked_for_some, errors)
         } else {
             print_tests(results, grouped)
         }
     }
 }
 
+#[inline(never)]
 fn test(
     target: Option<&str>,
     cache: &CacheArgs,
     project: Option<&Path>,
     reference: bool,
+    native: Option<bool>,
     verify_cache: bool,
     output: &TestOutput,
 ) -> ExitCode {
+    #[cfg(not(feature = "native"))]
+    if native.is_some() {
+        eprintln!(
+            "error: this `stitchwort` was built without native code; build it with `task build`"
+        );
+        return ExitCode::FAILURE;
+    }
     let mut session = new_session(false);
     let test_cache = |cache: &CacheArgs, base: &Path| {
         let cache = test_cache(cache, base);
@@ -1471,34 +2194,50 @@ fn test(
             cache
         }
     };
+    // Whatever checks runs, also when a declaration has errors: a test that
+    // uses one fails, saying so (D3523).
     let run_tests = |session: &Session, cache: &Cache| {
         let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
-        if reference {
+        let results = if reference {
             session.run_tests_where(cache, keep)
         } else {
-            session.run_tests_fast_where(cache, keep)
-        }
+            #[cfg(feature = "native")]
+            let results = match native {
+                Some(verbose) => {
+                    let native = NativeTestCompiler { verbose };
+                    session.run_tests_native_where(cache, keep, &native)
+                }
+                None => session.run_tests_fast_where(cache, keep),
+            };
+            #[cfg(not(feature = "native"))]
+            let results = session.run_tests_fast_where(cache, keep);
+            results
+        };
+        session.with_broken_tests(results, |name| output.only.is_none_or(|n| n == name))
     };
     match target {
         Some(file) if is_file_target(file) => {
             use_cache(&mut session, cache, Path::new("."));
             let mut reported = Vec::new();
-            if !load_file_into(&mut session, Path::new(file), Some("tested"), &mut reported) {
+            let loaded =
+                load_file_into(&mut session, Path::new(file), Some("tested"), &mut reported);
+            if !loaded && !something_checked(&session) {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
             let results = run_tests(&session, &cache);
-            let code = output.print(&session, &results, false, output.only.is_some());
+            let errors = session.errors().has.len().max(usize::from(!loaded));
+            let code = output.print(&session, &results, false, output.only.is_some(), errors);
             let code = if verified(&cache) {
                 code
             } else {
                 ExitCode::FAILURE
             };
-            discard(session);
             // The tests of unfinished declarations aren't checked, so they
             // didn't run.
             let goals = goals_open(&reported);
-            report_goals(goals);
+            report_goals(&session, &reported);
+            discard(session);
             let none = output.only.is_some_and(|name| {
                 let none = results.is_empty();
                 if none {
@@ -1506,7 +2245,7 @@ fn test(
                 }
                 none
             });
-            if goals > 0 || none {
+            if goals > 0 || none || !loaded {
                 ExitCode::FAILURE
             } else {
                 code
@@ -1516,6 +2255,9 @@ fn test(
             let Some(project) = locate_project(project, "test", "test hello.sw") else {
                 return ExitCode::FAILURE;
             };
+            let Some(config) = read_project_config(&project) else {
+                return ExitCode::FAILURE;
+            };
             let target_name = target;
             let target = match target {
                 Some(name) => Target::Subtrees(vec![name.to_string()]),
@@ -1523,22 +2265,35 @@ fn test(
             };
             use_cache(&mut session, cache, &project.dir);
             let mut reported = Vec::new();
-            if !load_project_into(&mut session, &project, &target, &mut reported) {
+            let loaded = load_project_counting(
+                &mut session,
+                &project,
+                &target,
+                Load::Everything,
+                config.open_goals,
+                &mut reported,
+            )
+            .is_some();
+            if !loaded && !something_checked(&session) {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
             let results = run_tests(&session, &cache);
+            let errors = session.errors().has.len().max(usize::from(!loaded));
             let code = output.print(
                 &session,
                 &results,
                 true,
                 output.only.is_some() || target_name.is_some(),
+                errors,
             );
             let code = if verified(&cache) {
                 code
             } else {
                 ExitCode::FAILURE
             };
+            let goals = goals_open(&reported);
+            report_goals(&session, &reported);
             discard(session);
             // A target that matched no tests (a typo, a namespace without
             // any) must never look like a pass.
@@ -1553,9 +2308,7 @@ fn test(
                 }
                 _ => false,
             };
-            let goals = goals_open(&reported);
-            report_goals(goals);
-            if goals > 0 || none {
+            if goals > 0 || none || !loaded {
                 ExitCode::FAILURE
             } else {
                 code
@@ -1564,19 +2317,87 @@ fn test(
     }
 }
 
+/// Whether a load that failed still checked some tests, which then run
+/// (D3523): the errors are reported, and the run still fails.
+fn something_checked(session: &Session) -> bool {
+    !session.elab.tests().is_empty() || !session.elab.broken_tests().is_empty()
+}
+
+/// `test --native`'s compiler (`stitchwort_driver::test_run::NativeTests`):
+/// the tests' program compiled as `run --native` compiles `main`'s, with
+/// each test a way in.
+#[cfg(feature = "native")]
+struct NativeTestCompiler {
+    verbose: bool,
+}
+
+#[cfg(feature = "native")]
+impl stitchwort_driver::test_run::NativeTests for NativeTestCompiler {
+    fn compile(
+        &self,
+        program: &stitchwort_rt::Program,
+        roots: &[u32],
+        limits: stitchwort_rt::Limits,
+    ) -> Result<stitchwort_driver::test_run::NativeTestCode, Vec<String>> {
+        let image = stitchwort_rt::code::compile(program);
+        let islands = stitchwort_native::n1::compile_roots(
+            program,
+            image,
+            roots,
+            stitchwort_native::n1::Options::default(),
+        )?;
+        let limits = limits.for_native(islands.max_frame);
+        let stack = stitchwort_native::n1::stack_for(
+            limits.frames as u64,
+            islands.max_frame,
+            &islands.widest,
+        )?;
+        // The thread's stack is the cap (`main`), so whatever this sizes fits.
+        debug_assert!(stack <= stitchwort_host::NATIVE_STACK);
+        let summary = format!(
+            "native: compiled {} test(s), {} bodies (frames of at most {} bytes, in {:.1} ms)",
+            roots.len(),
+            islands.bodies,
+            islands.max_frame,
+            islands.compile_time.as_secs_f64() * 1000.0
+        );
+        Ok(stitchwort_driver::test_run::NativeTestCode {
+            code: Box::new(islands),
+            stack,
+            limits,
+            summary,
+        })
+    }
+
+    fn note(&self, line: &str) {
+        if self.verbose {
+            eprintln!("{line}");
+        }
+    }
+}
+
 /// Prints the results as `test --json` describes: one JSON object, with
 /// where each test is declared and, for a failure, the message an editor
 /// shows and the sides it compares.
-fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: bool) -> ExitCode {
+fn print_tests_json(
+    session: &Session,
+    results: &[TestResult],
+    asked_for_some: bool,
+    errors: usize,
+) -> ExitCode {
     let tests: Vec<serde_json::Value> = results
         .iter()
         .map(|r| {
             let (outcome, message) = match r.outcome {
                 Outcome::Passed => ("passed", None),
                 Outcome::Failed => {
-                    let message = match r.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
-                        Some(c) => format!("`{}` is False", c.op),
-                        None => "evaluated to False".to_string(),
+                    let message = match (&r.unfinished, r.detail.as_ref()) {
+                        (Some(why), _) => why.clone(),
+                        (None, Some(d)) => match d.comparison.as_ref() {
+                            Some(c) => format!("`{}` is False", c.op),
+                            None => "evaluated to False".to_string(),
+                        },
+                        (None, None) => "evaluated to False".to_string(),
                     };
                     ("failed", Some(message))
                 }
@@ -1592,6 +2413,7 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
                 "line": at.as_ref().map(|a| a.line),
                 "column": at.as_ref().map(|a| a.column),
                 "message": message,
+                "assuming": r.assuming,
             });
             if let Some(detail) = &r.detail {
                 let part = detail.part.as_ref().map(|p| {
@@ -1613,9 +2435,33 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
         })
         .collect();
     let ok = results.iter().all(|r| r.outcome == Outcome::Passed)
-        && !(asked_for_some && results.is_empty());
-    println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
+        && !(asked_for_some && results.is_empty())
+        && errors == 0;
+    println!(
+        "{}",
+        serde_json::json!({"ok": ok, "errors": errors, "tests": tests})
+    );
     exit(ok)
+}
+
+/// `  (assuming `a`, `b`)`, the gaps a passing test relies on (SW-2939,
+/// D3525): open goals by name, a declaration with an error as "`x`, which
+/// has an error (place)"; the first three, then "and N more". Empty for
+/// none.
+fn assuming_note(gaps: &[stitchwort_driver::reliance::GoalPlace]) -> String {
+    if gaps.is_empty() {
+        return String::new();
+    }
+    let mut parts: Vec<String> = (gaps.iter().take(3))
+        .map(|g| match g.is_error() {
+            true => g.describe(false),
+            false => format!("`{}`", g.short()),
+        })
+        .collect();
+    if gaps.len() > 3 {
+        parts.push(format!("and {} more", gaps.len() - 3));
+    }
+    format!("  (assuming {})", parts.join(", "))
 }
 
 /// Prints the results, with each namespace's name above its tests if
@@ -1628,18 +2474,43 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
             namespace = Some(result.namespace.as_str());
             println!("{}", result.namespace);
         }
-        let (mark, why) = match result.outcome {
-            Outcome::Passed => ("✓", String::new()),
+        let (mark, how, why) = match result.outcome {
+            Outcome::Passed => (
+                "✓",
+                if result.cached { "cached" } else { "ran" },
+                assuming_note(&result.assuming),
+            ),
             Outcome::Failed => (
                 "✗",
-                match result.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
-                    Some(c) => format!("  (`{}` is False)", c.op),
-                    None => "  (evaluated to False)".to_string(),
+                // A test with `unfinished` never ran: its code reaches an
+                // open goal, or uses a declaration with an error.
+                if result.unfinished.is_some() {
+                    "not run"
+                } else if result.cached {
+                    "cached"
+                } else {
+                    "ran"
+                },
+                match (&result.unfinished, result.detail.as_ref()) {
+                    (Some(why), _) => format!("  ({why})"),
+                    (None, Some(d)) => {
+                        let shown = match d.comparison.as_ref() {
+                            Some(c) => format!("  (`{}` is False)", c.op),
+                            None => "  (evaluated to False)".to_string(),
+                        };
+                        shown + &assuming_note(&result.assuming)
+                    }
+                    (None, None) => {
+                        "  (evaluated to False)".to_string() + &assuming_note(&result.assuming)
+                    }
                 },
             ),
-            Outcome::OutOfResources(e) => ("!", format!("  (no result: {e})")),
+            Outcome::OutOfResources(e) => (
+                "!",
+                if result.cached { "cached" } else { "ran" },
+                format!("  (no result: {e})") + &assuming_note(&result.assuming),
+            ),
         };
-        let how = if result.cached { "cached" } else { "ran" };
         println!("  {mark} {:width$}  {how}{why}", result.name);
         if let Some(detail) = &result.detail {
             if let Some(c) = &detail.comparison {
@@ -1670,7 +2541,8 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
         String::new()
     };
     println!(
-        "{} test(s): {passed} passed, {failed} failed{unfinished_note} ({cached} from the cache)",
+        "{} test(s): {passed} passed, {failed} failed{unfinished_note} \
+         ({cached} from the cache)",
         results.len(),
     );
     exit(passed == results.len())
@@ -1693,7 +2565,7 @@ fn load_main(
         }
         // What's finished can run; `main` can't if it isn't (`Session::main`).
         goals = goals_open(&reported);
-        report_goals(goals);
+        report_goals(&session, &reported);
         session.main()
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
@@ -1729,7 +2601,7 @@ fn load_main(
                 let reported = std::mem::take(&mut session.warnings);
                 report(&session.sources, &reported);
                 goals = goals_open(&reported);
-                report_goals(goals);
+                report_goals(&session, &reported);
             }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
@@ -1750,6 +2622,7 @@ fn load_main(
 
 /// `run`: a file's `main`, or a function of the project by its full name.
 #[allow(clippy::too_many_arguments)] // one per `run` option
+#[inline(never)]
 fn run_target(
     target: &str,
     js: bool,
@@ -1968,6 +2841,7 @@ fn render_census(target: &str, census: &stitchwort_rt::census::Census, functions
 /// `axioms`: loads the file or project, finds the definitions and prints
 /// the axioms each depends on (`stitchwort_driver::axioms`). One name is
 /// reported plainly; several, each under its own heading.
+#[inline(never)]
 fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
     let keys: Vec<&str> = if is_file_target(target) {
@@ -2001,11 +2875,25 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
             eprintln!("error: there's no definition `{key}`");
             return ExitCode::FAILURE;
         };
-        if session.elab.is_unfinished(id) {
-            eprintln!(
-                "error: `{key}` isn't finished: it, or something it uses, has an open goal \
-                 (`?`), so it isn't checked"
-            );
+        // Checked assuming open goals hold is reported below; what wasn't
+        // checked has no terms to walk.
+        if session.elab.is_unfinished(id)
+            && (!session.elab.relies_on_goal(id)
+                || session.elab.ev().def(id).state() != stitchwort_core::globals::State::Final)
+        {
+            let waits = session.elab.blocked_on(id).into_iter().collect();
+            let goals = session.goal_places(&waits);
+            if goals.is_empty() {
+                eprintln!(
+                    "error: `{key}` isn't finished: it, or something it uses, has an open goal \
+                     (`?`), so it isn't checked"
+                );
+            } else {
+                eprintln!(
+                    "error: `{key}` can't be checked until {}",
+                    stitchwort_driver::reliance::until(&goals)
+                );
+            }
             return ExitCode::FAILURE;
         }
         ids.push(id);
@@ -2017,11 +2905,29 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
         if several {
             println!("{key}:");
         }
-        if found.is_empty() {
+        let goals = session.elab.goals_relied_on(id);
+        if found.is_empty() && goals.is_empty() {
             println!("{indent}no axioms are used");
         }
         for axiom in found {
             println!("{indent}{axiom}");
+        }
+        for goal in goals {
+            let place = session.goal_place(goal);
+            let what = if place.is_error() {
+                "has an error, assumed"
+            } else {
+                "open goal in"
+            };
+            let what = match place.is_error() {
+                true => format!("`{}` {what}", place.declaration),
+                false => format!("{what} `{}`", place.declaration),
+            };
+            println!(
+                "{indent}{what} ({}): {}",
+                place.place(),
+                session.goal_type_text(goal)
+            );
         }
     }
     discard(session);
@@ -2179,6 +3085,398 @@ fn search_at(
     let result = session.search_at(&found, &name, options, &Scope::File, Some(&mut checking));
     discard(checking);
     finish_search_at(session, result, json, log, at, started)
+}
+
+/// Splits `FILE`, `FILE:LINE` or `FILE:LINE:COL` into the file and the
+/// numbers after it, in order.
+fn split_at_argument(at: &str) -> (&str, Vec<usize>) {
+    let mut path = at;
+    let mut numbers = Vec::new();
+    for _ in 0..2 {
+        match path.rsplit_once(':') {
+            Some((head, tail)) if tail.parse::<usize>().is_ok() => {
+                numbers.push(tail.parse::<usize>().expect("just parsed"));
+                path = head;
+            }
+            _ => break,
+        }
+    }
+    numbers.reverse();
+    (path, numbers)
+}
+
+/// `goal --at FILE:LINE[:COL]`: the goal and the names in scope at a point,
+/// found by checking the file with a probe there
+/// ([`stitchwort_driver::Session::context_at_text`], and
+/// `context_at_project` for a file of a project).
+fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
+    let fail = |code: &str, message: String, status: u8| {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"version": 1, "error": {"code": code, "message": message}})
+            );
+        }
+        eprintln!("error: {message}");
+        ExitCode::from(status)
+    };
+    let (path, numbers) = split_at_argument(at);
+    let (line, column) = match numbers[..] {
+        [line] => (line, None),
+        [line, column] => (line, Some(column)),
+        _ => {
+            return fail(
+                "E-GOAL-AT",
+                "--at takes FILE:LINE or FILE:LINE:COL".into(),
+                2,
+            );
+        }
+    };
+    if line == 0 || column == Some(0) {
+        return fail("E-GOAL-AT", "lines and columns count from 1".into(), 2);
+    }
+    let path = Path::new(path);
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            return fail(
+                "E-GOAL-AT",
+                format!("can't read {}: {err}", path.display()),
+                2,
+            );
+        }
+    };
+    let Some(line_text) = text.split('\n').nth(line - 1) else {
+        return fail(
+            "E-GOAL-AT",
+            format!("{} has no line {line}", path.display()),
+            2,
+        );
+    };
+    let line_text = line_text.strip_suffix('\r').unwrap_or(line_text);
+    // The column as the answer reports it (1-based, in characters), and the
+    // protocol's (0-based, in UTF-16 units) for the probe.
+    let column = match column {
+        Some(column) => column,
+        None => match line_text.chars().position(|c| !c.is_whitespace()) {
+            Some(i) => i + 1,
+            None => return no_goal(path, line, 1, json),
+        },
+    };
+    let character: u32 = (line_text.chars().take(column - 1))
+        .map(|c| c.len_utf16() as u32)
+        .sum();
+    // A file that doesn't parse has no answer to give; say why.
+    let mut sources = SourceMap::new();
+    let id = sources.add(path.display().to_string(), text.clone());
+    if let Err(diagnostics) = stitchwort_syntax::parse_module(id, &text) {
+        report(&sources, &diagnostics);
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"version": 1, "error": {
+                    "code": "E-GOAL-AT-PARSE",
+                    "message": format!("{} doesn't parse", path.display()),
+                }})
+            );
+        }
+        return ExitCode::from(1);
+    }
+    let name = path.display().to_string();
+    let mut session = new_session(false);
+    let found = match project_of_file(path, project) {
+        Ok(Some((dir, relative))) => {
+            let cache_dir = cache_dir(cache, &dir);
+            let files = DiskFiles { root: dir.clone() };
+            session.context_at_project(
+                &project_name(&dir),
+                &files,
+                &relative,
+                cache_dir.as_deref(),
+                (line - 1) as u32,
+                character,
+            )
+        }
+        Ok(None) => {
+            use_cache(&mut session, cache, Path::new("."));
+            let folder = path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            if let Some(file) = path.file_name().and_then(|n| n.to_str()) {
+                session.include_in_folder(
+                    std::rc::Rc::new(DiskFiles {
+                        root: folder.to_path_buf(),
+                    }),
+                    file,
+                );
+            }
+            session.context_at_text(&name, &text, (line - 1) as u32, character)
+        }
+        Err(message) => return fail("E-GOAL-AT", message, 2),
+    };
+    let Some(context) = found else {
+        return no_goal(path, line, column, json);
+    };
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&goal_json(&name, line, column, &context))
+                .expect("an answer serialises")
+        );
+    } else {
+        println!("{name}:{line}:{column}");
+        print!("{}", context.render_text());
+    }
+    ExitCode::SUCCESS
+}
+
+/// `goal` without `--at`: every open goal of the project, and the
+/// declarations that rely on it or wait for it
+/// (docs/proposals/using-unfinished-proofs.md §5.2). With `--json`:
+/// version 1; `goals`, each with `declaration`, `file`, `line`, `column`,
+/// `goal` (what must be shown), `reliedOnBy`, `blocking` and
+/// `equationLemmas` (unfinished lemmas made for a definition with a `?`).
+fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
+    let Some((session, reliance, _)) = load_project_goals(project, cache) else {
+        return ExitCode::FAILURE;
+    };
+    if json {
+        let goals: Vec<_> = reliance
+            .goals
+            .iter()
+            .map(|g| {
+                serde_json::json!({
+                    "declaration": g.place.declaration,
+                    "file": g.place.file,
+                    "line": g.place.line,
+                    "column": g.place.column,
+                    "goal": g.target,
+                    "goalComputed": g.computed,
+                    "reliedOnBy": g.relied_on_by,
+                    "blocking": g.blocking,
+                    "equationLemmas": g.equations,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({"version": 2, "open": goals.len(), "goals": goals})
+        );
+        discard(session);
+        return ExitCode::SUCCESS;
+    }
+    let n = reliance.goals.len();
+    if n == 0 {
+        println!("no goals open");
+    } else {
+        println!("{n} goal{} open", if n == 1 { "" } else { "s" });
+    }
+    for g in &reliance.goals {
+        println!(
+            "\n`{}`  {}\n  ⊢ {}",
+            g.place.declaration,
+            g.place.place(),
+            g.target.replace('\n', "\n    ")
+        );
+        if let Some(computed) = &g.computed {
+            println!(
+                "    computes to {}",
+                stitchwort_syntax::cut_computed(computed)
+            );
+        }
+        let list = |names: &[String]| {
+            const SHOWN: usize = 8;
+            let mut text = names
+                .iter()
+                .take(SHOWN)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            if names.len() > SHOWN {
+                text.push_str(&format!(
+                    " and {} more (--json lists them)",
+                    names.len() - SHOWN
+                ));
+            }
+            text
+        };
+        if !g.relied_on_by.is_empty() {
+            println!("  relied on by: {}", list(&g.relied_on_by));
+        }
+        if !g.blocking.is_empty() {
+            println!(
+                "  can't be checked until it is filled: {}",
+                list(&g.blocking)
+            );
+        }
+        if !g.equations.is_empty() {
+            println!(
+                "  its equation lemmas ({}) are unfinished too",
+                g.equations
+                    .iter()
+                    .map(|e| format!("`{e}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+    }
+    discard(session);
+    ExitCode::SUCCESS
+}
+
+/// The project's open goals and its namespaces in canonical order, for
+/// `goal`'s listings. `None` (reported) if the project can't be loaded.
+fn load_project_goals(
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> Option<(Session, stitchwort_driver::reliance::Reliance, Vec<String>)> {
+    let project = locate_project(project, "list goals of", "goal --at hello.sw:3")?;
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, &project.dir);
+    let loaded = session.load_project_for(
+        &project.files,
+        &project.name,
+        &Target::Everything,
+        Load::Diagnostics,
+    );
+    let order = match loaded {
+        Ok(loaded) => loaded.checked,
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            return None;
+        }
+    };
+    let reported = std::mem::take(&mut session.warnings);
+    let reliance = session.reliance(&reported);
+    Some((session, reliance, order))
+}
+
+/// `goal --summary`: how many open goals each namespace has, in the
+/// project's order, and the total, so a reader working through a book sees
+/// their progress chapter by chapter. With `--json`: `namespaces` (`name`,
+/// `open`) and `open`.
+fn goal_summary(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
+    let Some((session, reliance, order)) = load_project_goals(project, cache) else {
+        return ExitCode::FAILURE;
+    };
+    let mut counts: Vec<(&str, usize)> = order.iter().map(|ns| (ns.as_str(), 0)).collect();
+    for goal in &reliance.goals {
+        // A goal is in the longest namespace that prefixes its declaration:
+        // both `A` and `A.B` may be namespaces.
+        let owner = order
+            .iter()
+            .filter(|ns| {
+                goal.place
+                    .declaration
+                    .strip_prefix(ns.as_str())
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+            })
+            .max_by_key(|ns| ns.len());
+        if let Some(owner) = owner
+            && let Some((_, open)) = counts.iter_mut().find(|(name, _)| *name == owner)
+        {
+            *open += 1;
+        }
+    }
+    let total = reliance.goals.len();
+    if json {
+        let each: Vec<_> = counts
+            .iter()
+            .map(|(name, open)| serde_json::json!({"name": name, "open": open}))
+            .collect();
+        println!("{}", serde_json::json!({"namespaces": each, "open": total}));
+        discard(session);
+        return ExitCode::SUCCESS;
+    }
+    for (name, open) in &counts {
+        if *open == 0 {
+            println!("{name}: done");
+        } else {
+            println!("{name}: {open} open");
+        }
+    }
+    let plural = |n: usize, word: &str| format!("{n} {word}{}", if n == 1 { "" } else { "s" });
+    println!(
+        "{} open in {} of {}",
+        plural(total, "goal"),
+        counts.iter().filter(|(_, open)| *open > 0).count(),
+        plural(counts.len(), "namespace"),
+    );
+    discard(session);
+    ExitCode::SUCCESS
+}
+
+/// `goal --at --json`'s answer: version 2; `at` (`file`, `line`, `column`,
+/// 1-based); `declaration`; `context`: `kind` (`proof` or `program`),
+/// `target` (the goal, or the expected type), `checked` (whether `target`
+/// is what the expression was checked against rather than a type found for
+/// it), `hasType` (the type found, when it isn't `target`), `range` (the
+/// expression: 1-based `line`, `column`, `endLine`, `endColumn`; columns in
+/// UTF-16 units), `locals` (`name`, `type`, `value?`) and `step` (on a step
+/// of a proof, else null: `form`, `description`, `range`, `index` and `of`
+/// from 1, `before`, `after`, `kind`, `adds`, `rule`, `target`). Every
+/// goal (`target`, `before`, `after`) is as written, and its
+/// `…Computed` twin (`targetComputed`, `beforeComputed`, `afterComputed`)
+/// is what it computes to, or null when it prints the same (D3522).
+fn goal_json(
+    file: &str,
+    line: usize,
+    column: usize,
+    context: &stitchwort_driver::at::Context,
+) -> serde_json::Value {
+    let range = |[l1, c1, l2, c2]: [u32; 4]| serde_json::json!({"line": l1 + 1, "column": c1 + 1, "endLine": l2 + 1, "endColumn": c2 + 1});
+    let kind = |proof: bool| if proof { "proof" } else { "program" };
+    let step = context.step.as_ref().map(|s| {
+        serde_json::json!({
+            "form": s.form,
+            "description": s.description,
+            "range": range(s.range),
+            "index": s.index,
+            "of": s.of,
+            "kind": kind(s.proof),
+            "before": s.before,
+            "beforeComputed": s.before_computed,
+            "after": s.after,
+            "afterComputed": s.after_computed,
+            "adds": s.adds,
+            "rule": s.rule,
+            "target": s.target,
+        })
+    });
+    serde_json::json!({
+        "version": 2,
+        "at": {"file": file, "line": line, "column": column},
+        "declaration": context.declaration,
+        "context": {
+            "kind": kind(context.proof),
+            "target": context.ty,
+            "targetComputed": context.ty_computed,
+            "checked": context.checked,
+            "hasType": context.found,
+            "range": range(context.range),
+            "locals": context.locals,
+            "step": step,
+        },
+    })
+}
+
+/// Nothing was checked at the point (a comment, a signature, between
+/// declarations): status 2, with `"context": null` in JSON.
+fn no_goal(path: &Path, line: usize, column: usize, json: bool) -> ExitCode {
+    let name = path.display();
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "version": 1,
+                "at": {"file": name.to_string(), "line": line, "column": column},
+                "context": null,
+            })
+        );
+    }
+    eprintln!("no goal at {name}:{line}:{column}: nothing was checked there");
+    ExitCode::from(2)
 }
 
 /// The project that file `path` is a source file of: `--project`'s, or the
@@ -2505,6 +3803,7 @@ fn is_under(path: &str, root: &str) -> bool {
 /// `audit` (SW-912, D2040): loads the files or the project's namespaces,
 /// audits the theorems the targets select (`stitchwort_driver::audit`) and
 /// prints the findings, as text or JSON.
+#[inline(never)]
 fn audit(
     targets: &[String],
     args: &AuditArgs,
@@ -2555,13 +3854,19 @@ fn audit(
             search,
         };
         let mut audits = Vec::new();
+        let mut errors = 0;
         // Each file gets its own session, as for `check`.
         for file in files {
             let mut session = new_session(false);
             use_cache(&mut session, cache, Path::new("."));
-            if !load_file(&mut session, Path::new(file.as_str()), Some("checked")) {
+            // A file with errors is still audited, theorem by theorem.
+            let loaded = load_file(&mut session, Path::new(file.as_str()), Some("checked"));
+            if !loaded && session.elab.failed_decls().is_empty() {
                 return ExitCode::FAILURE;
             }
+            // A failure with no declaration of its own to blame (a failed
+            // import) is still an error.
+            errors += session.errors().has.len().max(usize::from(!loaded));
             session.elab.leave_namespace();
             match audit_loaded(&mut session, &[], &names, true, &options) {
                 Ok(found) => audits.extend(found),
@@ -2569,12 +3874,13 @@ fn audit(
             }
             discard(session);
         }
-        return print_audit(&audits, &options.allowed, args);
+        return print_audit(&audits, &options.allowed, errors, args);
     }
     let mut session = new_session(false);
     // Which theorems: those under the `roots`, and those `named`.
     let mut roots: Vec<String> = Vec::new();
     let mut named: Vec<String> = Vec::new();
+    let mut loaded = true;
     if !targets.is_empty() && targets.iter().all(|t| is_std_target(t)) {
         // The standard library is loaded with every session.
         roots = targets.to_vec();
@@ -2641,8 +3947,13 @@ fn audit(
                 report(&session.sources, &reported);
             }
             Err(diagnostics) => {
+                loaded = false;
                 report(&session.sources, &diagnostics);
-                return ExitCode::FAILURE;
+                // Errors in declarations leave the rest checked, and
+                // audited; anything else (a bad project) leaves nothing.
+                if session.elab.failed_decls().is_empty() {
+                    return ExitCode::FAILURE;
+                }
             }
         }
         session.elab.leave_namespace();
@@ -2663,8 +3974,9 @@ fn audit(
         Ok(audits) => audits,
         Err(code) => return code,
     };
+    let errors = session.errors().has.len().max(usize::from(!loaded));
     discard(session);
-    print_audit(&audits, &options.allowed, args)
+    print_audit(&audits, &options.allowed, errors, args)
 }
 
 /// The allowlist given, or the default.
@@ -2711,16 +4023,27 @@ fn audit_loaded(
     } else {
         selected
     };
-    Ok(session.audit(&selected, options))
+    let mut audits = session.audit(&selected, options);
+    // Theorems with errors have no definition to audit; they get a verdict
+    // too, unless they were audited (a failed definition that exists).
+    for failed in session.audit_failed(&keep) {
+        if !audits.iter().any(|a| a.name == failed.name) {
+            audits.push(failed);
+        }
+    }
+    Ok(audits)
 }
 
 /// Prints `audit`'s findings, as text or JSON, and gives its exit status.
 fn print_audit(
     audits: &[stitchwort_driver::audit::TheoremAudit],
     allowed: &BTreeSet<String>,
+    errors: usize,
     args: &AuditArgs,
 ) -> ExitCode {
     use stitchwort_driver::audit;
+    // The counts cover every audited declaration, generated ones included;
+    // only the number before the colon is the theorems written in source.
     let failed = audits
         .iter()
         .filter(|a| a.worst() == Some(audit::Severity::Fail))
@@ -2729,11 +4052,21 @@ fn print_audit(
         .iter()
         .filter(|a| a.worst() == Some(audit::Severity::Warn))
         .count();
-    let ok = failed == 0 && (!args.strict || warned == 0);
-    let total = audits.len();
+    let ok = failed == 0 && errors == 0 && (!args.strict || warned == 0);
+    let written: Vec<_> = audits.iter().filter(|a| !a.generated).collect();
+    let generated = audits.len() - written.len();
+    let total = written.len();
+    let assuming = audits
+        .iter()
+        .filter(|a| a.status == audit::Status::Assuming)
+        .count();
+    let unchecked = audits
+        .iter()
+        .filter(|a| a.status == audit::Status::Unfinished)
+        .count();
     if args.json {
         let json = serde_json::json!({
-            "version": 1,
+            "version": 2,
             "ok": ok,
             "strict": args.strict,
             "allowed_axioms": allowed,
@@ -2741,9 +4074,13 @@ fn print_audit(
             "theorems": audits,
             "summary": {
                 "theorems": total,
+                "generated": generated,
                 "failed": failed,
                 "warned": warned,
-                "passed": total - failed - warned,
+                "passed": audits.len() - failed - warned,
+                "assuming": assuming,
+                "unfinished": unchecked,
+                "errors": errors,
             },
         });
         println!("{json}");
@@ -2779,23 +4116,57 @@ fn print_audit(
         }
     }
     let s = if total == 1 { "" } else { "s" };
+    let separated = if generated > 0 {
+        let lemma = if generated == 1 { "lemma" } else { "lemmas" };
+        format!(" and {generated} generated {lemma}")
+    } else {
+        String::new()
+    };
     let strict = if args.strict && warned > 0 {
         " (--strict: warnings fail)"
     } else {
         ""
     };
+    // Relying on a declaration with an error (its stand-in, D3527) is said
+    // apart from relying on an open goal.
+    let on_errors = (audits.iter())
+        .filter(|a| a.status == audit::Status::Assuming)
+        .filter(|a| !a.open_goals.is_empty() && a.open_goals.iter().all(|g| g.is_error()))
+        .count();
+    let mut parts = Vec::new();
+    if assuming > on_errors {
+        parts.push(format!("{} rely on open goals", assuming - on_errors));
+    }
+    if on_errors > 0 {
+        parts.push(format!("{on_errors} rely on errors"));
+    }
+    if unchecked > 0 {
+        parts.push(format!("{unchecked} not checked"));
+    }
+    let goals = match parts.is_empty() {
+        true => String::new(),
+        false => format!(" ({})", parts.join(", ")),
+    };
+    let in_project = match errors {
+        0 => String::new(),
+        1 => " (1 error in the project)".to_string(),
+        n => format!(" ({n} errors in the project)"),
+    };
     println!(
-        "audited {total} theorem{s}: {failed} failed, {warned} with warnings{strict}, {} passed",
-        total - failed - warned
+        "audited {total} theorem{s}{separated}: {failed} failed, {warned} with \
+         warnings{strict}, {} passed{goals}{in_project}",
+        audits.len() - failed - warned
     );
     exit(ok)
 }
 
 /// `fmt`: formats files or folders in place (`-` is standard input and
 /// output), or with no files the project's sources.
+#[inline(never)]
 fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCode {
     let mut paths = Vec::new();
     let mut stdin = false;
+    let mut skipped = 0usize;
     if files.is_empty() {
         let Some(project) = locate_project(project, "format", "fmt hello.sw") else {
             return ExitCode::FAILURE;
@@ -2815,7 +4186,13 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
             if file == Path::new("-") {
                 stdin = true;
             } else if file.is_dir() {
-                paths.extend(sw_files_in(file));
+                for path in sw_files_in(file) {
+                    if deliberately_unformatted(&path) {
+                        skipped += 1;
+                    } else {
+                        paths.push(path);
+                    }
+                }
             } else {
                 paths.push(file.clone());
             }
@@ -2857,6 +4234,13 @@ fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCo
         failure |= !format_file(path, check, &mut would_change);
     }
 
+    if skipped > 0 {
+        eprintln!(
+            "{skipped} file{} skipped as deliberately unformatted",
+            if skipped == 1 { "" } else { "s" }
+        );
+    }
+
     if failure {
         ExitCode::from(2)
     } else if check && would_change {
@@ -2885,6 +4269,33 @@ fn sw_files_in(dir: &Path) -> Vec<PathBuf> {
     walk(dir, &mut found);
     found.sort();
     found
+}
+
+/// Whether `path` is one the repository keeps as written (D1019): its path
+/// relative to the nearest enclosing directory that has a `.git` (a file or a
+/// folder, found by walking up from the file) is under an entry of
+/// [`stitchwort_fmt::DELIBERATELY_UNFORMATTED`]. A file outside a repository
+/// is never skipped.
+fn deliberately_unformatted(path: &Path) -> bool {
+    let Ok(absolute) = std::fs::canonicalize(path) else {
+        return false;
+    };
+    let Some(root) = absolute
+        .ancestors()
+        .skip(1)
+        .find(|dir| dir.join(".git").exists())
+    else {
+        return false;
+    };
+    let Ok(relative) = absolute.strip_prefix(root) else {
+        return false;
+    };
+    let relative = relative
+        .to_string_lossy()
+        .replace(std::path::MAIN_SEPARATOR, "/");
+    stitchwort_fmt::DELIBERATELY_UNFORMATTED
+        .iter()
+        .any(|excluded| relative.starts_with(excluded))
 }
 
 /// Formats `path` in place, unless `check`; prints it if it changed. Returns
@@ -3060,14 +4471,15 @@ fn compile_native(
         pc_map: false,
     };
     let compiled = stitchwort_native::n1::compile(&program, image, options).and_then(|islands| {
+        let limits = limits.for_native(islands.max_frame);
         let stack = stitchwort_native::n1::stack_for(
             limits.frames as u64,
             islands.max_frame,
             &islands.widest,
         )?;
-        Ok((islands, stack))
+        Ok((islands, limits, stack))
     });
-    let (islands, stack) = compiled.map_err(|why| {
+    let (islands, limits, stack) = compiled.map_err(|why| {
         report_native_refusal(&why);
         ExitCode::FAILURE
     })?;
@@ -3252,10 +4664,11 @@ impl Drop for TempDir {
     }
 }
 
+#[inline(never)]
 fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
     use_cache(&mut session, cache, Path::new("."));
-    if !load(&mut session, path) {
+    if !load_for_evaluation(&mut session, path) {
         return ExitCode::FAILURE;
     }
     match evaluate(&mut session, expr, false) {
@@ -3270,21 +4683,79 @@ fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
     }
 }
 
-/// Evaluates `expr`, or with `type_only`, shows its type.
-fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String, Diagnostic> {
-    let expr = session.parse_expression("<input>", expr)?;
-    if type_only {
-        let (_, ty) = session.elab.infer_expr(&expr)?;
-        return Ok(session.elab.show(&ty));
+/// Loads `path` for `eval` and `repl`. A source file of a project (found
+/// from the file's folder, as `check` and `test` find it) is loaded as its
+/// namespace in the project, so its imports of other namespaces resolve, and
+/// the namespace's names are imported for the expressions typed. Any other
+/// file is loaded on its own.
+fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
+    let Ok(Some((dir, _))) = project_of_file(path, None) else {
+        return load(session, path);
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return load(session, path);
+    };
+    let mut scratch = SourceMap::new();
+    let id = scratch.add("<file>", text.as_str());
+    let Ok(Some(line)) = parse_namespace_line(id, &text) else {
+        return load(session, path);
+    };
+    let namespace = line.path.text;
+    let project = Project {
+        name: project_name(&dir),
+        files: DiskFiles { root: dir.clone() },
+        dir,
+    };
+    let Some(config) = read_project_config(&project) else {
+        return false;
+    };
+    let target = Target::Namespaces(vec![namespace.clone()]);
+    match session.load_project_for(&project.files, &project.name, &target, Load::Everything) {
+        Ok(_) => {
+            let mut reported = std::mem::take(&mut session.warnings);
+            let goals = goals_open(&reported);
+            if config.open_goals == stitchwort_cli::project::OpenGoals::Warn && goals > 0 {
+                // A project that allows open goals (a course's exercises)
+                // would otherwise print a box for each one on every start.
+                reported.retain(|d| d.severity != Severity::Goal);
+                report(&session.sources, &reported);
+                eprintln!(
+                    "{}; `stitchwort goal` lists them",
+                    open_goals_allowed(goals)
+                );
+            } else {
+                report(&session.sources, &reported);
+            }
+        }
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            return false;
+        }
     }
-    let (value, ty) = session.elab.eval_expr(&expr)?;
+    let diagnostics = session.add_imports("<input>", &format!("import {namespace} (..)"));
+    if !diagnostics.is_empty() {
+        report(&session.sources, &diagnostics);
+    }
+    true
+}
+
+/// Evaluates `expr`, or with `type_only`, shows it with its type.
+fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String, Diagnostic> {
+    let expr = expr.trim();
+    let parsed = session.parse_expression("<input>", expr)?;
+    if type_only {
+        let (_, ty) = session.elab.infer_expr_type_only(&parsed)?;
+        return Ok(format!("{expr}: {}", session.elab.show(&ty)));
+    }
+    let (value, ty) = session.elab.eval_expr(&parsed)?;
     Ok(format!("{value}: {ty}"))
 }
 
+#[inline(never)]
 fn repl(path: Option<&Path>) -> ExitCode {
     let mut session = new_session(false);
     if let Some(path) = path
-        && !load(&mut session, path)
+        && !load_for_evaluation(&mut session, path)
     {
         return ExitCode::FAILURE;
     }
@@ -3336,6 +4807,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
     }
 }
 
+#[inline(never)]
 fn build(
     target: &str,
     out: &Path,
@@ -3536,7 +5008,7 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
     let color = std::io::stderr().is_terminal();
     let full_goals = FULL_GOALS.load(std::sync::atomic::Ordering::Relaxed);
     for diagnostic in diagnostics {
-        if diagnostic.severity == Severity::Goal && !full_goals {
+        if diagnostic.code == "GOAL" && !full_goals {
             let cut = stitchwort_cli::render::with_long_goal_lines_cut(
                 diagnostic,
                 stitchwort_cli::render::GOAL_LINE_LIMIT,
@@ -3545,5 +5017,262 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
         } else {
             eprint!("{}", render(sources, diagnostic, color));
         }
+    }
+}
+
+/// `dev fmt-tree`: the formatter's report over files and folders.
+fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let mut total = stitchwort_fmt::printer::TreeStats::default();
+    let (mut refused, mut failed, mut unstable) = (0, 0, 0);
+    let (mut long_before, mut long_after) = (0, 0);
+    for file in &files {
+        let text = match std::fs::read_to_string(file) {
+            Ok(text) => text,
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        };
+        let gate = match stitchwort_fmt::printer::gate(&text) {
+            Ok(gate) => gate,
+            Err(_) => {
+                refused += 1;
+                continue;
+            }
+        };
+        if print {
+            print!("{}", gate.text);
+        }
+        total.add(&gate.stats);
+        long_before += gate.long_lines.0;
+        long_after += gate.long_lines.1;
+        if let Err(problem) = &gate.check {
+            failed += 1;
+            println!("{}: {problem}", file.display());
+        }
+        if !gate.idempotent {
+            unstable += 1;
+            println!("{}: formatting twice differs from once", file.display());
+        }
+        if verbose {
+            for (line, reason) in &gate.stats.verbatim_at {
+                println!("{}:{line}: left as written ({reason})", file.display());
+            }
+        }
+    }
+    let verbatim: Vec<String> = total
+        .verbatim
+        .iter()
+        .map(|(reason, n)| format!("{n} {reason}"))
+        .collect();
+    let unruled: Vec<String> = total
+        .unruled
+        .iter()
+        .map(|(kind, n)| format!("{n} {kind:?}"))
+        .collect();
+    println!(
+        "{} files ({refused} not formatted: they don't parse): {failed} fail a check, {unstable} not \
+         idempotent",
+        files.len()
+    );
+    println!(
+        "{} declarations, {} left as written{}",
+        total.decls,
+        total.verbatim_decls(),
+        if verbatim.is_empty() {
+            String::new()
+        } else {
+            format!(" ({})", verbatim.join(", "))
+        }
+    );
+    println!(
+        "constructs without a rule: {}",
+        if unruled.is_empty() {
+            "none".to_string()
+        } else {
+            unruled.join(", ")
+        }
+    );
+    println!(
+        "parameter groups merged (D3565): {}; code lines over 120: {long_before} before, \
+         {long_after} after",
+        total.merged_groups
+    );
+    if failed > 0 || unstable > 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+/// The `.sw` files under `path`, in name order.
+fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    if path.is_dir() {
+        let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
+            .map(|entry| entry.map(|e| e.path()))
+            .collect::<std::io::Result<_>>()?;
+        entries.sort();
+        for entry in entries {
+            sw_files(&entry, out)?;
+        }
+    } else if path.extension().is_some_and(|e| e == "sw") {
+        out.push(path.to_path_buf());
+    }
+    Ok(())
+}
+
+fn tree_command(
+    paths: &[PathBuf],
+    print: bool,
+    time: Option<u32>,
+    parse_only: bool,
+    spans: bool,
+) -> ExitCode {
+    let mut files = Vec::new();
+    for path in paths {
+        if let Err(e) = sw_files(path, &mut files) {
+            eprintln!("error: {}: {e}", path.display());
+            return ExitCode::FAILURE;
+        }
+    }
+    let mut texts = Vec::new();
+    for file in &files {
+        match std::fs::read_to_string(file) {
+            Ok(text) => texts.push(text),
+            Err(e) => {
+                eprintln!("error: {}: {e}", file.display());
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    let id = SourceMap::new().next_id();
+    // The lossless tree alone (`lowered` false), or the compiler's tree
+    // lowered from it, what `check` pays.
+    let time_parse = |rounds: u32, lowered: bool| {
+        (0..rounds.max(1))
+            .map(|_| {
+                let start = std::time::Instant::now();
+                for text in &texts {
+                    if lowered {
+                        std::hint::black_box(stitchwort_syntax::parse_module_recovering(
+                            id, text, TREE_STACK,
+                        ));
+                    } else {
+                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, TREE_STACK));
+                    }
+                }
+                start.elapsed()
+            })
+            .min()
+            .unwrap_or_default()
+    };
+    let bytes: usize = texts.iter().map(String::len).sum();
+    if let Some(rounds) = time
+        && parse_only
+    {
+        println!(
+            "{} files, {bytes} bytes, best of {rounds}: parse and lower {:.1} ms",
+            files.len(),
+            time_parse(rounds, true).as_secs_f64() * 1000.0
+        );
+        return ExitCode::SUCCESS;
+    }
+    let mut total = stitchwort_syntax::tree::TreeStats::default();
+    let mut failed = 0;
+    let (mut checked, mut misses, mut unparsed, mut internal) = (0, 0, 0, 0);
+    let mut synthetic = std::collections::BTreeMap::new();
+    for (file, text) in files.iter().zip(&texts) {
+        let (module, errors, tree) = stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
+        // The parser's own bugs, such as a tree that lost a node.
+        for error in errors.iter().filter(|e| e.code == "E-INTERNAL") {
+            internal += 1;
+            let at = error.primary_span().map_or(0, |span| span.start as usize);
+            let line = text[..at].matches('\n').count() + 1;
+            println!("{}:{line}: {}", file.display(), error.message);
+        }
+        if print {
+            println!("{}:\n{}", file.display(), tree.dump(text));
+        }
+        match tree.check_round_trip(text) {
+            Ok(stats) => {
+                total.decls += stats.decls;
+                total.errors += stats.errors;
+                total.unlexed += stats.unlexed;
+                total.nodes += stats.nodes;
+                total.dropped += stats.dropped;
+            }
+            Err(problem) => {
+                failed += 1;
+                println!("{}: {problem}", file.display());
+            }
+        }
+        if spans {
+            let check = tree.check_spans(&module);
+            checked += check.checked;
+            unparsed += check.unparsed;
+            misses += check.misses.len();
+            for (kind, count) in check.synthetic {
+                *synthetic.entry(kind).or_insert(0) += count;
+            }
+            for miss in &check.misses {
+                let at = miss.span.start as usize;
+                let line = text[..at].matches('\n').count() + 1;
+                let column = at - text[..at].rfind('\n').map_or(0, |n| n + 1) + 1;
+                let written: String = text[miss.span.range()]
+                    .split_whitespace()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+                    .chars()
+                    .take(80)
+                    .collect();
+                println!(
+                    "{}:{line}:{column}: {} is no node: {written}",
+                    file.display(),
+                    miss.what
+                );
+            }
+        }
+    }
+    println!(
+        "{} files ({failed} not read back): {} declarations ({} not parsed, {} of them not \
+         lexed), {} nodes, {} marks dropped, {internal} internal errors",
+        files.len(),
+        total.decls,
+        total.errors,
+        total.unlexed,
+        total.nodes,
+        total.dropped
+    );
+    if spans {
+        let made_up: Vec<String> = synthetic
+            .iter()
+            .map(|(kind, count)| format!("{count} {kind:?}"))
+            .collect();
+        println!(
+            "{checked} spans of the compiler's tree checked, {misses} not a node or a token; \
+             besides, {unparsed} in declarations that didn't parse, and these the lowering \
+             makes up that are no node: {}",
+            made_up.join(", ")
+        );
+    }
+    if let Some(rounds) = time {
+        println!(
+            "{bytes} bytes, best of {rounds}: parse and lower {:.1} ms, parse to the lossless tree \
+             alone {:.1} ms (the lowering is the difference)",
+            time_parse(rounds, true).as_secs_f64() * 1000.0,
+            time_parse(rounds, false).as_secs_f64() * 1000.0
+        );
+    }
+    if failed > 0 || total.dropped > 0 || misses > 0 || internal > 0 {
+        ExitCode::FAILURE
+    } else {
+        ExitCode::SUCCESS
     }
 }

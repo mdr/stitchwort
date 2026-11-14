@@ -382,9 +382,60 @@ fn a_binder_never_captures_a_variable_its_body_mentions() {
     assert_eq!(show(&p, &[], &run), "x x1 => x1 = x");
     // A dependent function type and a `let` alike.
     let dependent = pi("n", ty(), eq(None, v(0), v(1)));
-    assert_eq!(show(&p, &["n"], &dependent), "(n1: Type) → n1 = n");
+    assert_eq!(show(&p, &["n"], &dependent), "∀ (n1: Type) => n1 = n");
     let let_ = Term::let_("c".into(), p.nat_ty(), p.num(1), eq(None, v(0), v(1)));
     assert_eq!(show(&p, &["c"], &let_), "let c1 := 1; c1 = c");
+}
+
+/// A function type whose result is evidently a proposition, binding a
+/// variable the result uses, prints as `∀` (D3458): one `∀` for the run, a
+/// group for neighbours of the same kind and type, and an unused binder left
+/// as an implication. One into data, or into a variable's call, stays an
+/// arrow.
+#[test]
+fn a_function_type_into_a_proposition_prints_as_forall() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let small = declare(&mut p.g, "Small", arrow(nat.clone(), prop()));
+    let even = data(&mut p.g, "Even", vec![("n", nat.clone())], Sort::Prop);
+    // `(a b: Nat) → [c: Nat] → a = c → b = c`.
+    let run = pi(
+        "a",
+        nat.clone(),
+        pi(
+            "b",
+            nat.clone(),
+            ipi(
+                "c",
+                nat.clone(),
+                arrow(eq(None, v(2), v(0)), eq(None, v(1), v(0))),
+            ),
+        ),
+    );
+    assert_eq!(
+        show(&p, &[], &run),
+        "∀ (a b: Nat) [c: Nat] => a = c → b = c"
+    );
+    let ascii = pretty::term_ascii(&p.g.ev(), &[], &run);
+    assert_eq!(ascii, "forall (a b: Nat) [c: Nat] => a = c -> b = c");
+    // A type that mentions the name before it starts a new group.
+    let typed = pi("a", ty(), pi("x", v(0), eq(None, v(0), v(0))));
+    assert_eq!(show(&p, &[], &typed), "∀ (a: Type) (x: a) => x = x");
+    // A definition whose type ends in `Prop`, and a data type in `Prop`.
+    let call = pi("n", nat.clone(), app(Term::Def(small), [v(0)]));
+    assert_eq!(show(&p, &[], &call), "∀ (n: Nat) => Small n");
+    let held = pi("n", nat.clone(), Term::Data(even, vec![v(0).into()]));
+    assert_eq!(show(&p, &[], &held), "∀ (n: Nat) => Even n");
+    // Under a non-dependent binder, the `∀` is the arrow's result.
+    let implied = arrow(prop(), pi("n", nat.clone(), eq(None, v(0), v(0))));
+    assert_eq!(show(&p, &[], &implied), "Prop → ∀ (n: Nat) => n = n");
+    // As an argument or an arrow's domain, it's bracketed.
+    let domain = arrow(pi("n", nat.clone(), eq(None, v(0), v(0))), prop());
+    assert_eq!(show(&p, &[], &domain), "(∀ (n: Nat) => n = n) → Prop");
+    // A variable's call isn't evidently a proposition, nor is data.
+    let variable = pi("n", nat.clone(), app(v(1), [v(0)]));
+    assert_eq!(show(&p, &["p"], &variable), "(n: Nat) → p n");
+    assert_eq!(show(&p, &[], &pi("a", ty(), v(0))), "(a: Type) → a");
 }
 
 fn difference(p: &Prelude, names: &[&str], a: &Term, b: &Term) -> Option<pretty::Difference> {
@@ -594,4 +645,67 @@ fn a_chain_of_calls_on_an_anonymous_receiver_prints_without_exponential_work() {
         "Tree.size (Tree.size (Tree.size x✝))"
     );
     assert_eq!(show(&p, &["x✝"], &chain(40)), text(40));
+}
+
+/// A term of many nested nodes (the closed list of 130,000 sequences of
+/// AoC 2024 day 22, SW-2591) is cut off without printing it whole: the
+/// full print, built from the inside out, took a goal's search over an hour.
+#[test]
+fn a_huge_nested_term_is_cut_off_without_printing_it_whole() {
+    std::thread::Builder::new()
+        .stack_size(1024 * 1024 * 1024)
+        .spawn(|| {
+            let mut p = Prelude::new();
+            let tree = data(&mut p.g, "Tree", vec![], Sort::Type(0));
+            stitchwort_core::check::define_ctors(
+                &mut p.g,
+                tree,
+                vec![
+                    ctor("Leaf", vec![]),
+                    ctor(
+                        "Node",
+                        vec![
+                            ("left", Term::Data(tree, vec![])),
+                            ("right", Term::Data(tree, vec![])),
+                        ],
+                    ),
+                ],
+            )
+            .expect("Tree");
+            let leaf = || Term::Ctor(tree, 0, vec![]);
+            let nested =
+                (0..300_000).fold(leaf(), |inner, _| Term::ctor(tree, 1, vec![inner, leaf()]));
+            let started = std::time::Instant::now();
+            let text = pretty::term_for_message(&p.g.ev(), &[], &nested);
+            assert!(text.chars().count() <= 400, "{} characters", text.len());
+            assert!(text.starts_with("Node"), "{text}");
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(10),
+                "took {:?}",
+                started.elapsed()
+            );
+            std::mem::forget(nested);
+        })
+        .expect("spawn")
+        .join()
+        .expect("the thread ran");
+}
+
+/// A deep term through the forms the printer recurses on most, an operator
+/// and an application, prints in full: `x + f (x + f (… y))`, 300 deep
+/// (SW-3133, where each form went into a method of its own).
+#[test]
+fn prints_a_deep_chain_of_operators_and_applications() {
+    let p = Prelude::new();
+    let names = ["x", "f", "y"];
+    let depth = 300;
+    let term = (0..depth).fold(v(0), |t, _| p.plus(v(2), app(v(1), [t])));
+    let text = (0..depth).fold("y".to_string(), |s, k| {
+        if k == 0 {
+            format!("x + f {s}")
+        } else {
+            format!("x + f ({s})")
+        }
+    });
+    assert_eq!(show(&p, &names, &term), text);
 }

@@ -7,14 +7,11 @@
 
 import Std (Nat)
 
-type Shape =
-  | Circle (radius: Nat)
-  | Square (side: Nat)
+type Shape = | Circle (radius: Nat) | Square (side: Nat)
 
-def Shape.size (shape: Shape): Nat :=
-  match shape with
-    | Circle r => r
-    | Square s => s
+def Shape.size (shape: Shape): Nat := match shape with
+  | Circle r => r
+  | Square s => s
 
 test "compared" :=
   let sizeOf := (shape) => shape.size

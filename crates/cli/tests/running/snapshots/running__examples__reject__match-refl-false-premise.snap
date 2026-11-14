@@ -9,7 +9,9 @@ expression: output
     │                          ─┬─  
     │                           ╰─── `width slot.field 3` and `4` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: the left side is stuck on `slot`: it can't compute further until `slot` is known; a `match` on `slot` (or `cases slot`) splits it
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
     ╭─[ reject/match-refl-false-premise.sw:16:9 ]
@@ -29,7 +31,9 @@ expression: output
     │                          ─┬─  
     │                           ╰─── `width slot.field 3` and `4` aren't equal
     │ 
-    │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: the left side is stuck on `slot`: it can't compute further until `slot` is known; a `match` on `slot` (or `cases slot`) splits it
+    │ 
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
     ╭─[ reject/match-refl-false-premise.sw:21:12 ]

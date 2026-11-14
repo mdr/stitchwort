@@ -27,8 +27,8 @@
 //! `Nat`, or `Not (a <= b)`; other forms reach these through proved bridge
 //! lemmas, applied in the emitted term: `Nat.leq a b = False`
 //! (`Nat.leqFalse`), `(p && q) = True` (`Bool.andLeft`/`andRight`),
-//! `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&`
-//! comes out (`Decidable.toBoolSound`/`toBoolFalse`), and `And p q`
+//! `Decidable.holds d = True`/`False`, which is how `a <= b` inside `&&`
+//! comes out (`d.sound` and `Decidable.refute`), and `And p q`
 //! (`And.left`/`right`), and likewise `||` and `not` (`Bool.orFalseLeft`,
 //! `Bool.notTrue`, ...). Each is read again until it's arithmetic.
 //!
@@ -64,7 +64,11 @@
 //! `Nat.divFuelBound`, whose fuel `f + 1` is `x` or a number more,
 //! `Nat.leAddLeft`); `x % k` computes to `x - q * k`, a subtraction atom
 //! over it. `x / 0`, stuck as `Nat.divFuel f x 0` on the fuel `f`, is an
-//! atom with the fact that it is 0 (`Nat.divFuelZero f x`).
+//! atom with the fact that it is 0 (`Nat.divFuelZero f x`). A call folded by
+//! name (a `decreasing` definition's) is read as what it unfolds to when
+//! that is arithmetic of the kinds above, so `two 0` is `2`; a call that is
+//! stuck, unfolds to something else, or takes more than [`UNFOLD_WORK`]
+//! steps stays an atom as written.
 //!
 //! **`Int`** works the same way over `Int` syntax (`ITerm`), read as `Int`
 //! arithmetic computes: `a <= b` is `Int.leq a b = True`, `a < b` is
@@ -142,10 +146,9 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Bool.notOfFalse",
     "Std.Bool.notOfTrue",
     "Std.Or.elim",
-    "Std.Decidable.toBoolSound",
-    "Std.Decidable.toBoolFalse",
-    "Std.Decidable.toBoolOf",
+    "Std.Decidable.refute",
     "Std.Decidable.toBoolOfNot",
+    "Std.Decidable.notNotOf",
     "Std.Nat.max",
     "Std.Nat.min",
     "Std.Nat.mulComm",
@@ -366,11 +369,10 @@ struct Lib {
     not_of_false: DefId,
     not_of_true: DefId,
     prop_or_elim: DefId,
-    to_bool_sound: DefId,
-    to_bool_false: DefId,
+    decidable: DataId,
+    refute: DefId,
     decidable_not: DefId,
     not_not_of: DefId,
-    to_bool_of: DefId,
     to_bool_of_not: DefId,
     and_fst: DefId,
     and_snd: DefId,
@@ -447,7 +449,11 @@ struct Lib {
     div_fuel: DefId,
     div_step: DefId,
     ite: DefId,
+    /// What `Decidable.elim` computes to (`crate::carry::elim_helper`).
+    elim_helper: Option<DefId>,
     to_bool: DefId,
+    nat_dec_eq: DefId,
+    int_dec_eq: DefId,
     not: DefId,
     bool_not: DefId,
     less_than: DefId,
@@ -659,12 +665,26 @@ impl Lib {
             not_of_false: def("Std.Bool.notOfFalse")?,
             not_of_true: def("Std.Bool.notOfTrue")?,
             prop_or_elim: def("Std.Or.elim")?,
-            to_bool_sound: def("Std.Decidable.toBoolSound")?,
-            to_bool_false: def("Std.Decidable.toBoolFalse")?,
+            decidable: cx
+                .g()
+                .env
+                .registry()
+                .data(Builtin::Decidable)
+                .ok_or_else(|| missing("Decidable"))?,
+            refute: cx
+                .g()
+                .env
+                .registry()
+                .def(Builtin::Refute)
+                .ok_or_else(|| missing("Std.Decidable.refute"))?,
             decidable_not: def("Std.Decidable.not")?,
             not_not_of: def("Std.Decidable.notNotOf")?,
-            to_bool_of: def("Std.Decidable.toBoolOf")?,
-            to_bool_of_not: def("Std.Decidable.toBoolOfNot")?,
+            to_bool_of_not: cx
+                .g()
+                .env
+                .registry()
+                .def(Builtin::ToBoolOfNot)
+                .ok_or_else(|| missing("Std.Decidable.toBoolOfNot"))?,
             and_fst: def("Std.And.left")?,
             and_snd: def("Std.And.right")?,
             mk_env: ctor("Std.Omega.Env.MkEnv")?,
@@ -739,7 +759,10 @@ impl Lib {
             div_fuel: builtin_def(cx, Builtin::DivFuel)?,
             div_step: builtin_def(cx, Builtin::DivStep)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
-            to_bool: builtin_def(cx, Builtin::ToBool)?,
+            elim_helper: crate::carry::elim_helper(&cx.g()),
+            to_bool: builtin_def(cx, Builtin::Holds)?,
+            nat_dec_eq: def("Std.Nat.decEq")?,
+            int_dec_eq: builtin_def(cx, Builtin::DecEqInt)?,
             not: builtin_def(cx, Builtin::Not)?,
             bool_not: builtin_def(cx, Builtin::BoolNot)?,
             less_than: builtin_def(cx, Builtin::LessThan)?,
@@ -845,8 +868,8 @@ fn call_args(value: &Value, def: DefId) -> Option<Vec<Value>> {
 }
 
 /// A `Bool` reading of `l`: `Nat.leq x y`, `Int.leq x y`, `Int.less x y`,
-/// `p && q`, `p || q`, `not p`, or `Decidable.toBool d` (with the
-/// proposition it decides).
+/// `p && q`, `p || q`, `not p`, or `Decidable.holds d` (with the
+/// proposition it decides), `Nat.equal x y` among them as `Nat.decEq x y`'s.
 enum BoolForm {
     Leq(Value, Value),
     IntLeq(Value, Value),
@@ -880,6 +903,34 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
     if let Some([p, d]) = call_args(&l, lib.to_bool).as_deref() {
         return Ok(Some(BoolForm::ToBool(p.clone(), d.clone())));
     }
+    // `m == n` on numbers: the test of `Nat.decEq m n`, which it computes to.
+    if let Some([x, y]) = call_args(&l, lib.nat_equal).as_deref() {
+        let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
+        let p = Value::Eq(
+            nat.into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(y.clone()).into(),
+        );
+        let d = apps(
+            Term::Def(lib.nat_dec_eq),
+            vec![cx.quote_folded(x)?, cx.quote_folded(y)?],
+        );
+        return Ok(Some(BoolForm::ToBool(p, cx.eval(&d)?)));
+    }
+    // `x == y` on `Int`s: the test of `Int.decEq x y`, a field of that call.
+    if let Value::Neutral(Head::Def(id), spine) = &l
+        && *id == lib.int_dec_eq
+        && let [Elim::App(x, _), Elim::App(y, _), Elim::Proj(_, 0)] = &spine[..]
+    {
+        let int = Rc::new(Value::Data(lib.int, Vec::new().into()));
+        let p = Value::Eq(
+            int.into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(y.clone()).into(),
+        );
+        let d = Value::Neutral(Head::Def(*id), spine[..2].to_vec().into());
+        return Ok(Some(BoolForm::ToBool(p, d)));
+    }
     if let Some([p]) = call_args(&l, lib.bool_not).as_deref() {
         return Ok(Some(BoolForm::Not(p.clone())));
     }
@@ -894,6 +945,16 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
         }
         if is_ctor(cx, &then, lib.tru)? {
             return Ok(Some(BoolForm::Or(p.clone(), otherwise)));
+        }
+    }
+    // The same on a decided proposition, `Decidable.elim d (_ => q) (_ =>
+    // False)` computed: the test, `d.holds`, for `p`.
+    if let Some((p, then, otherwise)) = crate::carry::as_if(&cx.g(), lib.elim_helper, &l)? {
+        if is_ctor(cx, &otherwise, lib.fls)? {
+            return Ok(Some(BoolForm::And(p, then)));
+        }
+        if is_ctor(cx, &then, lib.tru)? {
+            return Ok(Some(BoolForm::Or(p, otherwise)));
         }
     }
     Ok(None)
@@ -930,6 +991,15 @@ fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)
         ty = cod.apply(&g, value.clone())?;
     }
     Ok((term, ty))
+}
+
+/// The field `k` (1 `sound`, 2 `complete`) of the decision `d`, applied to
+/// `proof`.
+fn decision_field(cx: &Ctx, lib: &Lib, k: usize, d: &Value, proof: Term) -> Result<Term> {
+    Ok(Term::app(
+        Term::Proj(lib.decidable, k, Rc::new(cx.quote_folded(d)?)),
+        proof,
+    ))
 }
 
 /// A value with its term.
@@ -1026,8 +1096,7 @@ fn prove_goal(
                 }
                 (Some(true), Some(BoolForm::ToBool(p, d))) => {
                     let proof = prove_goal(cx, lib, &p, extra, span)?;
-                    let args = [both(cx, &p)?, both(cx, &d)?, (proof, p.clone())];
-                    return Ok(lemma(cx, lib.to_bool_of, &args)?.0);
+                    return decision_field(cx, lib, 2, &d, proof);
                 }
                 (Some(false), Some(BoolForm::ToBool(p, d))) => {
                     let proof = refute_hypothesis(cx, lib, &p, extra, span)?;
@@ -1037,10 +1106,17 @@ fn prove_goal(
                 }
                 (Some(true), Some(BoolForm::And(p, q))) => {
                     let true_v = cx.eval(&Term::ctor(lib.tru.0, lib.tru.1, Vec::new()))?;
-                    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new()));
-                    let p_true =
-                        Value::Eq(bool_ty.clone(), Rc::new(p.clone()), Rc::new(true_v.clone()));
-                    let q_true = Value::Eq(bool_ty, Rc::new(q.clone()), Rc::new(true_v));
+                    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new().into()));
+                    let p_true = Value::Eq(
+                        bool_ty.clone().into(),
+                        Rc::new(p.clone()).into(),
+                        Rc::new(true_v.clone()).into(),
+                    );
+                    let q_true = Value::Eq(
+                        bool_ty.into(),
+                        Rc::new(q.clone()).into(),
+                        Rc::new(true_v).into(),
+                    );
                     let hp = prove_goal(cx, lib, &p_true, extra, span)?;
                     let hq = prove_goal(cx, lib, &q_true, extra, span)?;
                     let args = [both(cx, &p)?, both(cx, &q)?, (hp, p_true), (hq, q_true)];
@@ -1151,7 +1227,7 @@ fn prove_goal(
         Some(prop) => prop,
         None => crate::cases::is_proposition(cx, &goal)?,
     };
-    let void = Value::Data(lib.void, Vec::new());
+    let void = Value::Data(lib.void, Vec::new().into());
     let Ok(proof) = linear(cx, lib, Goal::Void, &void, extra, span) else {
         return Err(unsupported.with_note(
             "for any other goal, `omega` looks for facts that contradict each other, and found none",
@@ -1184,8 +1260,12 @@ fn lex_less(
     if let Some(proof) = crate::undo::attempt(cx, |cx| prove_goal(cx, lib, &first, extra, span))? {
         return Ok(Term::ctor(lex, 0, vec![proof]));
     }
-    let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
-    let same = Value::Eq(nat, Rc::new(params[0].clone()), Rc::new(params[2].clone()));
+    let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
+    let same = Value::Eq(
+        nat.into(),
+        Rc::new(params[0].clone()).into(),
+        Rc::new(params[2].clone()).into(),
+    );
     let second = less(cx, &params[1], &params[3])?;
     let both = crate::undo::attempt(cx, |cx| {
         let same = prove_goal(cx, lib, &same, extra, span)?;
@@ -1235,7 +1315,7 @@ fn refute_hypothesis(
     extra: &[Extra],
     span: Span,
 ) -> Result<Term> {
-    let void = Value::Data(lib.void, Vec::new());
+    let void = Value::Data(lib.void, Vec::new().into());
     assuming(cx, "h", p, extra, |cx, extra| {
         prove_goal(cx, lib, &void, extra, span)
     })
@@ -1401,8 +1481,12 @@ struct Disjunction {
 fn bool_is(cx: &Ctx, lib: &Lib, b: &Value, truth: bool) -> Result<Value> {
     let which = if truth { lib.tru } else { lib.fls };
     let value = cx.eval(&Term::ctor(which.0, which.1, Vec::new()))?;
-    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new()));
-    Ok(Value::Eq(bool_ty, Rc::new(b.clone()), Rc::new(value)))
+    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new().into()));
+    Ok(Value::Eq(
+        bool_ty.into(),
+        Rc::new(b.clone()).into(),
+        Rc::new(value).into(),
+    ))
 }
 
 /// `Ord.lessThan [a] d x y` or `Ord.lessEq [a] d x y` at `Nat` or `Int`,
@@ -1546,13 +1630,12 @@ impl Reader<'_> {
                         self.read(cx, right, &ty, origin, depth + 1)?;
                     }
                     (true, Some(BoolForm::ToBool(p, d))) => {
-                        let args = [both(cx, &p)?, both(cx, &d)?, (proof.clone(), prop.clone())];
-                        let (sound, ty) = lemma(cx, lib.to_bool_sound, &args)?;
-                        self.read(cx, sound, &ty, origin, depth + 1)?;
+                        let sound = decision_field(cx, lib, 1, &d, proof.clone())?;
+                        self.read(cx, sound, &p, origin, depth + 1)?;
                     }
                     (false, Some(BoolForm::ToBool(p, d))) => {
                         let args = [both(cx, &p)?, both(cx, &d)?, (proof.clone(), prop.clone())];
-                        let (not_p, ty) = lemma(cx, lib.to_bool_false, &args)?;
+                        let (not_p, ty) = lemma(cx, lib.refute, &args)?;
                         // `a != b` is the decision of `¬(a = b)`, so its
                         // `False` is `¬¬(a = b)`: the decision of `a = b`
                         // inside it is decided, and the double negation goes.
@@ -1628,7 +1711,7 @@ impl Reader<'_> {
                             Some(BoolForm::Leq(x, y)) => {
                                 self.facts.push(fact(Kind::NotLe, false, &x, &y));
                             }
-                            // `Not (Decidable.toBool d = True)`, and the
+                            // `Not (Decidable.holds d = True)`, and the
                             // same on `Int`: `= False` first.
                             Some(
                                 BoolForm::ToBool(..)
@@ -1952,6 +2035,11 @@ struct Quoter {
     products: Vec<(usize, Value, Value, bool)>,
 }
 
+/// Steps a folded call may take to unfold in [`Quoter::unfolded_arithmetic`]
+/// before it stays an atom, as small as the comparisons that find an atom
+/// again.
+const UNFOLD_WORK: u64 = 20_000;
+
 /// Quoting stopped at an unsolved metavariable.
 struct Unknown;
 
@@ -2062,6 +2150,9 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(q)));
         }
+        if let Some(unfolded) = self.unfolded_arithmetic(cx, lib, &base, false)? {
+            return self.quote(cx, lib, &unfolded, span);
+        }
         if let Some(reduced) = recomputed(cx, &base)? {
             return self.quote(cx, lib, &reduced, span);
         }
@@ -2161,6 +2252,9 @@ impl Quoter {
                 });
             }
             return Ok(Ok(ITerm::V(i)));
+        }
+        if let Some(unfolded) = self.unfolded_arithmetic(cx, lib, &value, true)? {
+            return self.quote_int(cx, lib, &unfolded, span);
         }
         if let Some(reduced) = recomputed(cx, &value)? {
             return self.quote_int(cx, lib, &reduced, span);
@@ -2346,6 +2440,75 @@ impl Quoter {
         }
     }
 
+    /// What a call folded by name (a `decreasing` definition's call) unfolds
+    /// to, if that is arithmetic `quote` can read: a number, `k + x`, or a
+    /// sum, product, subtraction, `max`/`min` or division. `None` when the
+    /// call isn't folded, is stuck, unfolds to something else (a call stuck on
+    /// a variable unfolds to the definition's internal form, which as an atom
+    /// would read worse than the call as written), or takes more than
+    /// [`UNFOLD_WORK`] steps: `omega` quotes every fact in scope, so an
+    /// expensive call in one the goal doesn't need must not fail it. In each
+    /// case the caller keeps the folded call as it is.
+    fn unfolded_arithmetic(
+        &self,
+        cx: &Ctx,
+        lib: &Lib,
+        value: &Value,
+        int: bool,
+    ) -> Result<Option<Value>> {
+        let g = cx.g();
+        let attempt = g.machine.budget.aside(
+            Limits {
+                work: UNFOLD_WORK,
+                stack: 128 * 1024,
+                size: 10_000,
+                frames: 10_000,
+                native_frames: 10_000,
+            },
+            || -> Result<Option<Value>> {
+                let Some(unfolded) = unfold_folded(&g, value)? else {
+                    return Ok(None);
+                };
+                let unfolded = force(&g, unfolded)?;
+                let reads = if int {
+                    self.reads_as_int(cx, lib, &unfolded)?
+                } else {
+                    self.reads_as_nat(cx, lib, &unfolded)?
+                };
+                Ok(reads.then_some(unfolded))
+            },
+        );
+        // Running out is "keep the call", as `atom`'s comparisons take it.
+        Ok(attempt.unwrap_or(None))
+    }
+
+    /// Whether `quote` takes `value` apart as something other than an atom.
+    fn reads_as_nat(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<bool> {
+        let (k, base) = stitchwort_core::native::view(&cx.g(), value)?;
+        Ok(base.is_none()
+            || k != BigUint::default()
+            || self.mul_left(cx, lib, value)?.is_some()
+            || call_args(value, lib.add).is_some()
+            || call_args(value, lib.mul).is_some()
+            || self.operation(cx, lib, value)?.is_some()
+            || self.division(cx, lib, value)?.is_some())
+    }
+
+    /// Whether `quote_int` takes `value` apart as something other than an atom.
+    fn reads_as_int(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<bool> {
+        if let Value::Ctor(d, c, fields) = value
+            && fields.len() == 1
+            && *d == lib.of_nat.0
+            && (*c == lib.of_nat.1 || *c == lib.neg_succ.1)
+        {
+            return Ok(true);
+        }
+        Ok(call_args(value, lib.int_add).is_some()
+            || call_args(value, lib.int_neg).is_some()
+            || call_args(value, lib.int_mul).is_some()
+            || self.sub_nat_nat(cx, lib, value)?.is_some())
+    }
+
     /// The atom `value` is, adding it if it's new; `int` says it's an `Int`.
     fn atom(
         &mut self,
@@ -2372,6 +2535,7 @@ impl Quoter {
                 stack: 128 * 1024,
                 size: 10_000,
                 frames: 10_000,
+                native_frames: 10_000,
             });
             if conv(&g, cx.level(), &a.value, &value) == Ok(true) {
                 return Ok(i);
@@ -2393,6 +2557,7 @@ impl Quoter {
                 stack: 128 * 1024,
                 size: 10_000,
                 frames: 10_000,
+                native_frames: 10_000,
             });
             let snapshot = crate::undo::Snapshot::take(cx);
             if cx.unify(&self.atoms[i].value, &value) == Ok(true) {
@@ -2934,7 +3099,7 @@ fn refuted_case(
     span: Span,
 ) -> Result<Option<Term>> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    let void = Value::Data(lib.void, Vec::new());
+    let void = Value::Data(lib.void, Vec::new().into());
     let made = assuming(cx, "case", side, extra, |cx, extra| {
         let reader = read_context(cx, lib, extra)?;
         let proof = linear_once(cx, lib, &Goal::Void, &void, span, reader, &mut Vec::new())?;
@@ -2979,9 +3144,15 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         {
             reader.waiting.push(note);
         }
+        if let Some(note) = unknown_type_note(cx, &name, &ty)? {
+            reader.waiting.push(note);
+        }
         reader.read(cx, proof, &ty, &name, 0)?;
     }
     for (name, term, ty) in cx.visible_locals()? {
+        if let Some(note) = unknown_type_note(cx, &name, &ty)? {
+            reader.waiting.push(note);
+        }
         reader.read(cx, term, &ty, &name, 0)?;
     }
     for e in extra {
@@ -2998,6 +3169,53 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         }
     }
     Ok(reader)
+}
+
+/// Whether `ty` is an unsolved unknown that could stand for a fact, or an
+/// equality whose type is such an unknown: `omega` can't read a hypothesis
+/// of that type yet. An unknown of `Type` (`?a` for a value, as a lambda
+/// parameter gets) is not a fact, so it's no reason to say the type isn't
+/// known. When the unknown's own type can't be told, it isn't either.
+fn unknown_type(cx: &Ctx, ty: &Value) -> Result<bool> {
+    Ok(match force(&cx.g(), ty.clone())? {
+        Value::Neutral(Head::Meta(m), spine) => meta_is_prop(cx, m, &spine)?,
+        Value::Eq(inner, _, _) => matches!(
+            force(&cx.g(), (*inner).clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        ),
+        _ => false,
+    })
+}
+
+/// Whether the unknown `m`, applied to `spine`, is a proposition: its type
+/// is known and is `Prop` (`MetaStore::meta_type` gives it for the first
+/// `arity` arguments). Anything else, including a type not recorded, is not.
+fn meta_is_prop(cx: &Ctx, m: usize, spine: &[Elim]) -> Result<bool> {
+    use stitchwort_core::Sort;
+    let g = cx.g();
+    let Some((mut ty, arity)) = cx.metas().meta_type(m) else {
+        return Ok(false);
+    };
+    if spine.len() < arity {
+        return Ok(false);
+    }
+    for elim in &spine[arity..] {
+        let Elim::App(arg, _) = elim else {
+            return Ok(false);
+        };
+        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+            return Ok(false);
+        };
+        ty = cod.apply(&g, arg.clone())?;
+    }
+    Ok(matches!(force(&g, ty)?, Value::Sort(Sort::Prop)))
+}
+
+/// A note for a local hypothesis called `name` whose type isn't known yet:
+/// `omega` skips it, so the failure says why it's missing from the facts.
+fn unknown_type_note(cx: &Ctx, name: &str, ty: &Value) -> Result<Option<String>> {
+    Ok(unknown_type(cx, ty)?
+        .then(|| format!("`{name}`'s type isn't known yet here, so omega couldn't use it")))
 }
 
 /// A note for a `let` called `name` whose type is a function ending in a
@@ -3219,11 +3437,11 @@ fn linear_once(
     // the atom's own term.
     for op in quoter.ops.clone() {
         let atom = &quoter.atoms[op.t];
-        let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
+        let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
         let prop = Value::Eq(
-            nat,
-            Rc::new(atom.value.clone()),
-            Rc::new(atom.value.clone()),
+            nat.into(),
+            Rc::new(atom.value.clone()).into(),
+            Rc::new(atom.value.clone()).into(),
         );
         let fact = Fact {
             kind: Kind::Op(op.kind),

@@ -1,1 +1,2 @@
 dev/selector-log.tsv merge=union
+docs/performance/log.md merge=union

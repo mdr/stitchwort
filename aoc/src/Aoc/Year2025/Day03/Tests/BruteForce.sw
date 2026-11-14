@@ -16,10 +16,12 @@ def choices: Nat → Bank → List Bank
   | Succ _, [] => []
   | Succ k, [d, ..rest] => (choices k rest).map (Cons d) ++ choices (Succ k) rest
 
-def bruteForce (k: Nat) (bank: Bank): Nat :=
-  choices k bank |> .map joltageOf |> .foldLeft 0 Nat.max
+def bruteForce (k: Nat) (bank: Bank): Nat := choices k bank |> .map joltageOf |> .foldLeft 0 Nat.max
 
 test "choices" := choices 2 [1, 2, 3] == [[1, 2], [1, 3], [2, 3]]
-test "brute force, 2 batteries" := exampleBanks.map (banks => banks.all (b => b.maxJoltage 2 == bruteForce 2 b)) == Ok True
-test "brute force, 3 batteries" := exampleBanks.map (banks => banks.all (b => b.maxJoltage 3 == bruteForce 3 b)) == Ok True
-test "brute force, 12 batteries" := exampleBanks.map (banks => banks.all (b => b.maxJoltage 12 == bruteForce 12 b)) == Ok True
+test "brute force, 2 batteries" :=
+  exampleBanks.map (banks => banks.all (b => b.maxJoltage 2 == bruteForce 2 b)) == Ok True
+test "brute force, 3 batteries" :=
+  exampleBanks.map (banks => banks.all (b => b.maxJoltage 3 == bruteForce 3 b)) == Ok True
+test "brute force, 12 batteries" :=
+  exampleBanks.map (banks => banks.all (b => b.maxJoltage 12 == bruteForce 12 b)) == Ok True

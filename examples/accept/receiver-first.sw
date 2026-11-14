@@ -11,8 +11,7 @@ type Meter = { v: Nat }
 
 def Meter.scale (m: Meter) (k: Nat): Meter := { v = k * m.v }
 
-def Meter.combine (m: Meter) (other: Meter) (f: Nat → Nat → Nat): Meter :=
-  { v = f m.v other.v }
+def Meter.combine (m other: Meter) (f: Nat → Nat → Nat): Meter := { v = f m.v other.v }
 
 def m3: Meter := { v = 3 }
 

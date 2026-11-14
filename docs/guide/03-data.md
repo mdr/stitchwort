@@ -71,9 +71,29 @@ def Shape.area: Shape → Nat
    │ │
    │ ╰───────────────────────────────────────────── missing case: no arm matches `Dot`
 ───╯
+1 error: in `Shape.area`
 ```
 
 This is what makes adding a constructor safe: the compiler lists every function that needs a new arm. A wildcard `_` matches anything, so a final `| _ => …` arm covers whatever is left, at the cost of that safety.
+
+### Cases that can't happen
+
+A case that can't happen needs no arm. Here `h` says the shape has an area, so it isn't a `Dot`:
+
+<!-- snippet: data.sw#impossible -->
+```stitchwort
+def Shape.hasArea: Shape → Bool
+  | Dot => False
+  | _ => True
+
+def Shape.width (shape: Shape) (h: shape.hasArea): Nat := match shape with
+  | Circle radius => 2 * radius
+  | Rect width _ => width
+
+test "width" := (Rect 3 4).width rfl == 3
+```
+
+For `Dot`, `h`'s type computes to `False = True`, an equation of two different constructors, which nothing can prove; so no one can call `width` with a `Dot`, and the compiler fills in that case itself. A caller passes the proof that its shape has an area: for `Rect 3 4` that is computing, `rfl`. The arm can also be written, with `()` in place of the pattern for the value that can't exist and no `=>`: `match shape, h with` and the alternative `| Dot, ()`. If you write the arm with a proof instead (`| Dot => Void.exfalso …`), the checker warns that the case can't happen and that the arm can be deleted; the editor fades it. Leave out a case that can happen and it's still an error that names it. [Chapter 10](10-proofs.md) has more on statements like `h`, and [syntax.md](../syntax.md#impossible-cases) the details.
 
 ## Records
 
@@ -98,7 +118,7 @@ test "the original is unchanged" := ada.age == 36
 test "field punning" := (newborn "Grace").age == 0
 ```
 
-- `{ name = "Ada", age = 36 }` builds a record. It needs to know which record type it is, from a signature, an argument's type or an annotation such as `({ … }: Person)`. Nothing is guessed from the field names.
+- `{ name = "Ada", age = 36 }` builds a record. Its type comes from where it's used: a signature, an argument's type, an annotation such as `({ … }: Person)`, or something later in the declaration, such as the other side of `==`. Only when nothing says it does the compiler look at the field names: the one record type in scope with exactly those fields. With none, or two, it asks for an annotation.
 - `ada.name` reads a field.
 - `{ person | age = … }` is a copy with some fields replaced. Values are never changed in place, so the original is untouched.
 - A field name alone, as in `{ name, age = 0 }`, is short for `name = name`.
@@ -162,6 +182,7 @@ def everything: Query := { limit = 100 }
    │
    │ Note: `limit` and `caseSensitive` have default values, so they may be left out
 ───╯
+1 error: in `everything`
 ```
 
 Use an `Option` field when a value can really be missing.
@@ -236,9 +257,10 @@ def ada: Booking := Guest { name = "Ada", age = 36 }
    │
    │ Note 2: `Guest` is declared with its fields in braces, so braces after it name its own fields; to build the `Person` it holds, write `Guest ({ … })`
 ───╯
+1 error: in `ada`
 ```
 
-Naming a bracket-declared constructor's fields works with named arguments instead, `Circle (id := "a") (radius := 1)`, which also fill the defaults of fields left out.
+Naming a bracket-declared constructor's fields works with named arguments instead, `Rect (height := 4) (width := 3)`, which also fill the defaults of fields left out.
 
 ## Patterns
 
@@ -272,11 +294,10 @@ def Colour.isWarm: Colour → Bool
   | Red | Yellow => True
   | Green | Blue => False
 
-def keyMove (key: Char): Option Text :=
-  match key with
-    | 'k' | 'w' => Some "north"
-    | 'j' | 's' => Some "south"
-    | _ => None
+def keyMove (key: Char): Option Text := match key with
+  | 'k' | 'w' => Some "north"
+  | 'j' | 's' => Some "south"
+  | _ => None
 
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
 ```
@@ -285,16 +306,14 @@ test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 
 
 <!-- snippet: data.sw#match -->
 ```stitchwort
-def compareAges (a: Person) (b: Person): Text :=
-  match Ord.compare a.age b.age with
-    | Less => "${a.name} is younger"
-    | Equal => "the same age"
-    | Greater => "${a.name} is older"
+def compareAges (a: Person) (b: Person): Text := match Ord.compare a.age b.age with
+  | Less => "${a.name} is younger"
+  | Equal => "the same age"
+  | Greater => "${a.name} is older"
 
-def both (x: Option Nat) (y: Option Nat): Option Nat :=
-  match x, y with
-    | Some a, Some b => Some (a + b)
-    | _, _ => None
+def both (x: Option Nat) (y: Option Nat): Option Nat := match x, y with
+  | Some a, Some b => Some (a + b)
+  | _, _ => None
 ```
 
 `Ord.compare` gives `Less`, `Equal` or `Greater`, a variant type of the library.
@@ -328,10 +347,9 @@ def grade: Nat → Text
 
 test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" ∧ grade 10 == "fail"
 
-def share (total: Nat) (parts: Nat): Nat :=
-  match total, parts with
-    | amount, count if count != 0 => amount / count
-    | amount, _ => amount
+def share (total: Nat) (parts: Nat): Nat := match total, parts with
+  | amount, count if count != 0 => amount / count
+  | amount, _ => amount
 
 test "a condition picks the arm" := share 12 4 == 3 ∧ share 12 0 == 12
 ```
@@ -362,6 +380,7 @@ def grade: Nat → Text
    │
    │     Note: an arm with `if` covers no case for sure: add an arm without `if` for these values
 ───╯
+1 error: in `grade`
 ```
 
 End with an arm that has no condition, as `grade` does. Conditions can't perform abilities.
@@ -374,13 +393,12 @@ A value that may be missing has the type `Option a`, which is `Some value` or `N
 ```stitchwort
 def findAdult (people: List Person): Option Person := people.find isAdult
 
-def adultName (people: List Person): Text :=
-  match findAdult people with
-    | Some person => person.name
-    | None => "nobody"
+def adultName (people: List Person): Text := match findAdult people with
+  | Some person => person.name
+  | None => "nobody"
 
 test "found" := adultName [newborn "Bo", ada] == "Ada"
-test "with helpers" := ((findAdult []).map (.name)).getOrElse "nobody" == "nobody"
+test "with helpers" := (findAdult []).map .name |> .getOrElse "nobody" == "nobody"
 ```
 
 `Result a e` is the same idea for operations that can fail with a reason: `Ok value` or `Err error`. [Chapter 6](06-namespaces-and-library.md) has more of both, and [chapter 8](08-abilities.md) shows `Fail`, which is often more convenient than returning a `Result` by hand.
@@ -393,7 +411,7 @@ test "with helpers" := ((findAdult []).map (.name)).getOrElse "nobody" == "nobod
 ```stitchwort
 type Grid = List (List Nat)
 
-def Grid.width (grid: Grid): Nat := grid.map (.length) |> .maximum |> .getOrElse 0
+def Grid.width (grid: Grid): Nat := grid.map .length |> .maximum |> .getOrElse 0
 
 test "a synonym is the type it names" := ([[1, 2, 3], [4]]: Grid).width == 3
 ```

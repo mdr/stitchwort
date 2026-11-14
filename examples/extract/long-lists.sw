@@ -59,7 +59,6 @@ export def sameNats (n: Nat): Bool := List.range 0 n == List.range 0 n
 export def sameItems (n: Nat): Bool := items n == items n
 
 -- Equal but for the last element, and equal but for the length.
-export def lastDiffers (n: Nat): Bool :=
-  List.range 0 n == (List.range 0 n).map (i => if i + 1 == n then n + 7 else i)
+export def lastDiffers (n: Nat): Bool := List.range 0 n == (List.range 0 n).map (i => if i + 1 == n then n + 7 else i)
 
 export def shorter (n: Nat): Bool := List.range 0 n == List.range 0 (n + 1)

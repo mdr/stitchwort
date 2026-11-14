@@ -13,13 +13,18 @@ mod indexed_families;
 mod lambda_shadow;
 mod no_effect;
 mod opcode_census;
+mod open_goals;
+mod oracle;
 mod project;
 mod receiver_first;
 mod redundant_arms;
 mod scope;
+mod statement_style;
 mod std_dir;
+mod sweep;
 mod test_failures;
 mod test_json;
 mod timings;
+mod trial_edits;
 
 use stitchwort_test_alloc as _;

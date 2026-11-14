@@ -30,10 +30,7 @@ type Guard = { position: Position, facing: Direction }
 
 type Lab = { height: Nat, width: Nat, obstructions: Set Position, start: Position }
 
-type Cell =
-  | Floor
-  | Obstruction
-  | GuardStart
+type Cell = | Floor | Obstruction | GuardStart
 
 --| One line per row, all as long as the first: `.` floor, `#` an obstruction,
 --| `^` the guard. A failure names the line.
@@ -55,12 +52,11 @@ def parseRow (width: Nat) (line: Text): {Fail} List Cell :=
   Fail.ensure (line.length == width) "expected ${width} characters, as on the first line, got ${line.length}"
   line.toList.map parseCell
 
-def parseCell (ch: Char): {Fail} Cell :=
-  match ch with
-    | '.' => Floor
-    | '#' => Obstruction
-    | '^' => GuardStart
-    | _ => Fail.fail "expected '.', '#' or '^', got '${ch}'"
+def parseCell (ch: Char): {Fail} Cell := match ch with
+  | '.' => Floor
+  | '#' => Obstruction
+  | '^' => GuardStart
+  | _ => Fail.fail "expected '.', '#' or '^', got '${ch}'"
 
 def Lab.startGuard (lab: Lab): Guard := { position = lab.start, facing = Up }
 
@@ -78,7 +74,8 @@ def Lab.ahead (lab: Lab) (guard: Guard): Option Position :=
 def Lab.step (lab: Lab) (guard: Guard): Option Guard :=
   lab.ahead guard
     |> .map (next =>
-      if lab.obstructions.contains next then { guard | facing = guard.facing.turnRight } else { guard | position = next })
+      if lab.obstructions.contains next then { guard | facing = guard.facing.turnRight }
+      else { guard | position = next })
 
 --| How many states the guard can be in: a walk this long has repeated one.
 def Lab.stateCount (lab: Lab): Nat := lab.height * lab.width * 4
@@ -153,4 +150,5 @@ def solvePart1 (lab: Lab): Option Nat := lab.patrol |> .map .size
 def solvePart2 (lab: Lab): Option Nat :=
   let sightlines := Sightlines.of lab.obstructions
   lab.patrol
-    |> .map (visited => visited.filter (position => position != lab.start && lab.loopsWith (sightlines.add position)) |> .size)
+    |> .map (visited =>
+      visited.filter (position => position != lab.start && lab.loopsWith (sightlines.add position)) |> .size)

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches `Rock`
+| Rock => ?
+    ╭─[ reject/impossible-cases-one-possible.sw:17:3 ]
+    │
+ 17 │ ╭─▶   match theirs with
+ 18 │ ├─▶     | Scissors => 0
+    │ │                         
+    │ ╰───────────────────────── missing case: no alternative of this `match` matches `Rock`
+────╯

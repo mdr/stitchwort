@@ -4,12 +4,12 @@
 
 import Std (IO, Nat)
 
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
 
-def halvings (n: Nat) (count: Nat): Nat
+def halvings (n count: Nat): Nat
     decreasing n
 :=
   let next := n / 2

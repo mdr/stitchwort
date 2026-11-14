@@ -31,11 +31,11 @@ use smallvec::SmallVec;
 
 use stitchwort_core::ResourceError;
 
-use crate::code::{Image, Instr, MOVE, NO_REG, compile};
+use crate::code::{Image, Instr, MOVE, NO_REG, Reg, compile};
 use crate::effect::{
     EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, TranslateResume, delay_k, done_k,
-    field, forwarded, handler_for, jump_k, pair, resume_lazily, skipped, state_handler, state_k,
-    state_step,
+    field, forwarded, handler_for, jump_k, resume_lazily, skipped, split_call, state_handler,
+    state_k, state_step,
 };
 use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
 use crate::natives::{ArrayNative, TextNative};
@@ -44,6 +44,7 @@ use crate::profile::{Profile, Profiler, Sampling};
 pub use crate::shared::Limits;
 use crate::shared::{arity, body_name, deepest};
 use crate::value::{Fields, Fun, Value};
+use stitchwort_core::collections::HashMap;
 
 /// Where a frame's result goes.
 enum Ret {
@@ -106,6 +107,8 @@ pub(crate) struct State {
     frames: Vec<Frame>,
     /// Each global's value, once known: a constant's, or a function value.
     pub(crate) globals: Vec<Option<Value>>,
+    /// Each capture-free lambda's shared closure, once built.
+    statics: Vec<Option<Value>>,
     pub(crate) steps: u64,
     limits: Limits,
     scratch: Vec<Value>,
@@ -181,6 +184,7 @@ impl<'p> Machine<'p> {
                 regs: Vec::new(),
                 frames: Vec::new(),
                 globals: vec![None; program.globals.len()],
+                statics: vec![None; program.lambdas.len()],
                 steps: 0,
                 limits,
                 scratch: Vec::new(),
@@ -298,7 +302,7 @@ impl<'p> Machine<'p> {
         let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
         count_instructions(std::mem::take(&mut self.st.executed));
         if result.is_err() {
-            self.st.release_failed();
+            self.st.release_failed(&self.image);
         }
         result
     }
@@ -357,7 +361,45 @@ impl State {
     /// After a failed run: drops everything pending, outermost first: every
     /// frame's closure and pending return, then every register, then a
     /// tail call's fetched arguments.
-    fn release_failed(&mut self) {
+    fn release_failed(&mut self, image: &Image) {
+        // First the copies of lent values, which native code holds without
+        // a count and so doesn't drop: in each frame, those its code holds
+        // where it stopped (a frame's `pc` is past the instruction it was
+        // in), and a failed tail call's arguments to borrowed parameters.
+        // Each body's table is made once: running out of frames can leave
+        // millions of frames of one recursive walk.
+        let mut plain: Option<Vec<bool>> = None;
+        let mut tables: HashMap<u32, Vec<Vec<Reg>>> = HashMap::default();
+        for frame in &self.frames {
+            let code = &image.codes[frame.code as usize];
+            if !code.borrowed.iter().any(|b| *b) {
+                continue;
+            }
+            let table = tables.entry(frame.code).or_insert_with(|| {
+                let plain =
+                    plain.get_or_insert_with(|| image.pool.iter().map(|v| !v.owns()).collect());
+                crate::borrow::lent_table(code, plain)
+            });
+            let at = (frame.pc as usize).saturating_sub(1);
+            for &r in table.get(at).map_or(&[][..], Vec::as_slice) {
+                forget(std::mem::take(
+                    &mut self.regs[frame.base as usize + r as usize],
+                ));
+            }
+        }
+        if let Some(top) = self.frames.last()
+            && !self.scratch.is_empty()
+            && let Some(Instr::TailCall { g, .. }) = image.codes[top.code as usize]
+                .instrs
+                .get((top.pc as usize).saturating_sub(1))
+        {
+            let callee = &image.codes[image.global_code[*g as usize].expect("code") as usize];
+            for (j, v) in self.scratch.iter_mut().enumerate() {
+                if callee.borrows(j) {
+                    forget(std::mem::take(v));
+                }
+            }
+        }
         self.frames.clear();
         self.regs.clear();
         self.scratch.clear();
@@ -506,13 +548,27 @@ impl State {
         &mut self,
         program: &Program,
         image: &Image,
-        f: Value,
+        mut f: Value,
         n: usize,
         ret: Ret,
     ) -> Result<Pending> {
-        let Value::Fun(fun) = &f else {
+        let Value::Fun(fun) = &mut f else {
             panic!("internal error: applied {f:?}, which isn't a function")
         };
+        // A resumption nothing else holds is taken apart, not copied (as
+        // native code's `sw_resume_begin` does).
+        if n == 1
+            && let Some(resume) = Resume::take_unique(fun)
+        {
+            let after = Ret::Eff(Box::new(EffRet {
+                handler: resume.handler,
+                pending: resume.pending,
+                state: Value::Erased,
+                ret,
+            }));
+            return self.apply(program, image, resume.rest, 1, after);
+        }
+        let fun = &*fun;
         let (head, held): (&Value, &[Value]) = match &**fun {
             Fun::Pap { head, args } => (head, args),
             _ => (&f, &[]),
@@ -789,13 +845,11 @@ impl State {
             };
             if tag == s.bind_node {
                 self.counts.pushes += 1;
-                let (inner, k) = pair(fields);
-                pending = Value::data(0, [k, pending]);
-                c = inner;
+                (c, pending) = crate::effect::push_pending(fields, pending);
             } else if tag == s.done {
                 if let Value::Data(_, cell) = pending {
                     self.counts.pops += 1;
-                    let (k, next) = pair(cell);
+                    let (k, next) = crate::effect::pop_pending(cell);
                     let x = field(fields, 0);
                     let after = Ret::Eff(Box::new(EffRet {
                         handler,
@@ -852,7 +906,7 @@ impl State {
             // can tell a request in tail position by its `rest`.
             return Ok(Some((Value::Data(s.call, fields), ret)));
         }
-        let (o, rest) = pair(fields);
+        let (o, rest, spare) = split_call(fields);
         let o = match &*handler {
             Handler::Fold {
                 forwards: Some(table),
@@ -864,12 +918,14 @@ impl State {
                         rest,
                         pending,
                     };
-                    return Ok(Some((skipped(s, &mut self.counts, o, resume), ret)));
+                    return Ok(Some((skipped(s, &mut self.counts, o, resume, spare), ret)));
                 }
                 Err(o) => o,
             },
             _ => o,
         };
+        // Freed here, before the clause runs, as the cell always was.
+        drop(spare);
         let resume = |handler| Resume {
             handler,
             rest,
@@ -1131,9 +1187,14 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     save!();
                     st.enter_frame()?;
                     let callee = image.global_code[g as usize].expect("a function has code");
+                    let lends = &image.codes[callee as usize];
                     let new_base = st.regs.len();
-                    for r in ops!(args) {
-                        let v = get!(*r);
+                    for (j, r) in ops!(args).iter().enumerate() {
+                        let v = if *r & MOVE == 0 && lends.borrows(j) {
+                            lend(&reg!(*r))
+                        } else {
+                            get!(*r)
+                        };
                         st.regs.push(v);
                     }
                     st.regs.resize(
@@ -1152,10 +1213,18 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::TailCall { g, args } => {
                     let callee = image.global_code[g as usize].expect("a function has code");
-                    for r in ops!(args) {
-                        let v = get!(*r);
+                    let lends = &image.codes[callee as usize];
+                    for (j, r) in ops!(args).iter().enumerate() {
+                        let v = if *r & MOVE == 0 && lends.borrows(j) {
+                            lend(&reg!(*r))
+                        } else {
+                            get!(*r)
+                        };
                         st.scratch.push(v);
                     }
+                    // Where the frame stopped, if out of steps (for its
+                    // lent arguments, `release_failed`).
+                    save!();
                     st.replace(image, callee, None)?;
                     continue 'outer;
                 }
@@ -1295,6 +1364,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                             let v = get!(*r);
                             st.scratch.push(v);
                         }
+                        // As `TailCall`'s.
+                        save!();
                         st.replace(image, callee, env)?;
                         continue 'outer;
                     }
@@ -1315,8 +1386,20 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         captures: captures.into(),
                     }));
                 }
+                Instr::StaticClosure { dst, lambda } => {
+                    let slot = &mut st.statics[lambda as usize];
+                    let v = slot.get_or_insert_with(|| {
+                        Value::Fun(new_fun(Fun::Closure {
+                            lambda,
+                            captures: Box::new([]),
+                        }))
+                    });
+                    reg!(dst) = v.clone();
+                }
                 Instr::Ctor { dst, tag, args } => {
+                    let (tag, enum_mask) = crate::value_census::split_tag(tag);
                     let fields: Rc<[Value]> = ops!(args).iter().map(|r| get!(*r)).collect();
+                    crate::value_census::stored_cell(enum_mask, &fields, false);
                     crate::alloc_trace::alloc(tag, &fields);
                     reg!(dst) = Value::Data(tag, Fields(fields));
                 }
@@ -1327,17 +1410,20 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     token,
                 } => {
                     let o = ops!(args);
+                    let (tag, enum_mask) = crate::value_census::split_tag(tag);
                     let v = match std::mem::take(&mut reg!(token)) {
                         Value::Data(_, mut cell) if cell.len() == o.len() && unique(&cell.0) => {
                             for (i, r) in o.iter().enumerate() {
                                 let v = get!(*r);
                                 Rc::get_mut(&mut cell.0).expect("unique")[i] = v;
                             }
+                            crate::value_census::stored_cell(enum_mask, &cell.0, true);
                             crate::alloc_trace::reuse(tag, &cell.0);
                             Value::Data(tag, cell)
                         }
                         _ => {
                             let fields: Rc<[Value]> = o.iter().map(|r| get!(*r)).collect();
+                            crate::value_census::stored_cell(enum_mask, &fields, false);
                             crate::alloc_trace::alloc(tag, &fields);
                             Value::Data(tag, Fields(fields))
                         }
@@ -1356,8 +1442,10 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     };
                     if let Some(slice) = Rc::get_mut(&mut cell.0) {
                         for p in pairs.as_chunks::<2>().0 {
-                            st.regs[base + p[1] as usize] =
-                                std::mem::take(&mut slice[p[0] as usize]);
+                            let field = std::mem::take(&mut slice[p[0] as usize]);
+                            if p[1] != NO_REG {
+                                st.regs[base + p[1] as usize] = field;
+                            }
                         }
                         if token != NO_REG {
                             // Empty the cell: what the arm doesn't use is
@@ -1369,7 +1457,9 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         }
                     } else {
                         for p in pairs.as_chunks::<2>().0 {
-                            st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
+                            if p[1] != NO_REG {
+                                st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
+                            }
                         }
                         if token != NO_REG {
                             reg!(token) = Value::Erased;
@@ -1501,9 +1591,71 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     continue 'outer;
                 }
                 Instr::Unreachable => panic!("internal error: reached unreachable code"),
+                Instr::Peek { dst, src, i } => {
+                    still_owned(&reg!(src));
+                    let v = match &reg!(src) {
+                        Value::Data(_, fields) => lend(&fields[i as usize]),
+                        other => panic!("internal error: field {i} of {other:?}"),
+                    };
+                    let old = std::mem::replace(&mut reg!(dst), v);
+                    if dst == src {
+                        forget(old);
+                    }
+                }
+                Instr::Lend { dst, src } => {
+                    let v = lend(&reg!(src));
+                    reg!(dst) = v;
+                }
+                Instr::Forget { reg } => forget(std::mem::take(&mut reg!(reg))),
+                Instr::Own { reg } => {
+                    still_owned(&reg!(reg));
+                    if let Value::Data(_, fields) = &reg!(reg) {
+                        crate::alloc_trace::inc(&fields.0);
+                    }
+                }
             }
         }
     }
+}
+
+/// The machine's copy of a lent value (`crate::borrow`). Native code holds
+/// the value without a count, so the copy's count is left out of the
+/// allocation trace: the machine's counts are native code's plus one per
+/// live lent copy, and both make the same uniqueness decisions, since a
+/// value is lent only while its owner holds it too.
+#[inline]
+fn lend(v: &Value) -> Value {
+    crate::alloc_trace::quietly(|| v.clone())
+}
+
+/// Drops the machine's copy of a lent value, where native code stops
+/// holding it. The owner must still hold the value: if the copy were the
+/// last reference, native code would have freed the value while it was
+/// lent.
+#[inline]
+fn forget(v: Value) {
+    still_owned(&v);
+    crate::alloc_trace::quietly(|| drop(v));
+}
+
+/// Checks that a lent copy is not the last reference: its owner, further
+/// down the stack, still holds the value. Where native code would read,
+/// count or free memory already freed, the machine panics here instead.
+fn still_owned(v: &Value) {
+    let references = match v {
+        Value::Data(_, fields) => Rc::strong_count(&fields.0),
+        Value::Fun(f) => Rc::strong_count(f),
+        Value::Delay(d) => Rc::strong_count(d),
+        Value::Array(a) => Rc::strong_count(a),
+        Value::BigNat(n) => Rc::strong_count(n),
+        Value::BigInt(i) => Rc::strong_count(i),
+        Value::Text(t) => Rc::strong_count(t),
+        _ => usize::MAX,
+    };
+    assert!(
+        references > 1,
+        "internal error: a borrowed value outlived its owner"
+    );
 }
 
 /// Drops the registers from `base` on (a frame's, when it ends). Most hold

@@ -15,7 +15,8 @@
 use std::cell::RefCell;
 
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::{DefId, Icit, Name, Term, Value, pretty};
+use stitchwort_core::registry::Builtin;
+use stitchwort_core::{DefId, Ev, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{FileId, Span};
 
@@ -37,12 +38,21 @@ pub(crate) struct Recorder {
     pub(crate) pending: Vec<(Span, Value, Vec<Name>, bool)>,
     /// The printed types, by where the use starts.
     pub(crate) local_types: Logged<(FileId, u32), String>,
+    /// Those with an outermost `Not` written as `p → Void` (`not_unfolded`).
+    pub(crate) local_unfolded: Logged<(FileId, u32), String>,
     /// Local variables used, from the walk.
     pub(crate) locals: Vec<LocalUse>,
     /// Where local variables are bound (a binder refers to itself).
     pub(crate) binders: Vec<LocalUse>,
     /// The definitions of the files walked.
     pub(crate) outline: Vec<OutlineItem>,
+    /// The parameters of the declarations walked, by their binders in the
+    /// declaration's header (a library file loaded from the cache has its
+    /// own, kept in the entry).
+    pub(crate) params: Vec<ParamBinder>,
+    /// The names in named arguments `(x := e)` and `[x := p]` that the walk
+    /// found, to be linked to the callee's parameter in the index.
+    pub(crate) named: Vec<NamedUse>,
     /// Each record field's name, by its type's declaration and its name.
     pub(crate) field_spans: Logged<(Span, String), Span>,
     /// Whether to note the type of every elaborated expression
@@ -55,8 +65,11 @@ pub(crate) struct Recorder {
     /// The printed type of the expression written at a span (the last one
     /// elaborated there), for hovering over a selection.
     pub(crate) expr_types: Logged<Span, String>,
+    /// Those with an outermost `Not` written as `p → Void` (`not_unfolded`).
+    pub(crate) expr_unfolded: Logged<Span, String>,
     /// For hover on the head of a call that left defaulted parameters out,
-    /// by the head's span: the defaults it used.
+    /// by the head's span: the defaults it used; and on a term a test fact
+    /// was built from, what it built (`build.rs`).
     pub(crate) call_defaults: Logged<Span, String>,
 }
 
@@ -95,6 +108,11 @@ impl Recorder {
                 .iter()
                 .map(|((file, at), ty)| format!("nav type @{}:{at} {ty}", file.index())),
         );
+        lines.extend(
+            self.local_unfolded
+                .iter()
+                .map(|((file, at), ty)| format!("nav type-unfolded @{}:{at} {ty}", file.index())),
+        );
         for (what, uses) in [("local", &self.locals), ("binder", &self.binders)] {
             lines.extend(uses.iter().enumerate().map(|(i, u)| {
                 format!(
@@ -125,6 +143,11 @@ impl Recorder {
             self.expr_types
                 .iter()
                 .map(|(at, ty)| format!("nav expr {} {ty}", span(*at))),
+        );
+        lines.extend(
+            self.expr_unfolded
+                .iter()
+                .map(|(at, ty)| format!("nav expr-unfolded {} {ty}", span(*at))),
         );
         lines.extend(
             self.call_defaults
@@ -158,6 +181,8 @@ pub(crate) struct NavMark {
     locals: usize,
     binders: usize,
     outline: usize,
+    params: usize,
+    named: usize,
     pending: Vec<(Span, Value, Vec<Name>, bool)>,
     exprs: bool,
     generated: usize,
@@ -167,8 +192,10 @@ pub(crate) struct NavMark {
 pub(crate) struct Positions {
     refs: usize,
     local_types: usize,
+    local_unfolded: usize,
     field_spans: usize,
     expr_types: usize,
+    expr_unfolded: usize,
     call_defaults: usize,
 }
 
@@ -178,6 +205,8 @@ impl Recorder {
             locals: self.locals.len(),
             binders: self.binders.len(),
             outline: self.outline.len(),
+            params: self.params.len(),
+            named: self.named.len(),
             pending: self.pending.clone(),
             exprs: self.exprs,
             generated: self.generated,
@@ -195,28 +224,42 @@ impl Recorder {
         self.locals.truncate(mark.locals);
         self.binders.truncate(mark.binders);
         self.outline.truncate(mark.outline);
+        self.params.truncate(mark.params);
+        self.named.truncate(mark.named);
         self.pending = mark.pending.clone();
         self.exprs = mark.exprs;
         self.generated = mark.generated;
     }
 
     /// The logged maps, with what each does in [`Logs`]'s methods.
-    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 5] {
+    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 7] {
         let Recorder {
             refs,
             local_types,
+            local_unfolded,
             field_spans,
             expr_types,
+            expr_unfolded,
             call_defaults,
             // Lists, cut back by `rewind`, or put back from the mark.
             pending: _,
             locals: _,
             binders: _,
             outline: _,
+            params: _,
+            named: _,
             exprs: _,
             generated: _,
         } = self;
-        [refs, local_types, field_spans, expr_types, call_defaults]
+        [
+            refs,
+            local_types,
+            local_unfolded,
+            field_spans,
+            expr_types,
+            expr_unfolded,
+            call_defaults,
+        ]
     }
 }
 
@@ -231,8 +274,10 @@ impl Logs for Recorder {
         Positions {
             refs: self.refs.position(),
             local_types: self.local_types.position(),
+            local_unfolded: self.local_unfolded.position(),
             field_spans: self.field_spans.position(),
             expr_types: self.expr_types.position(),
+            expr_unfolded: self.expr_unfolded.position(),
             call_defaults: self.call_defaults.position(),
         }
     }
@@ -241,16 +286,20 @@ impl Logs for Recorder {
         let Positions {
             refs,
             local_types,
+            local_unfolded,
             field_spans,
             expr_types,
+            expr_unfolded,
             call_defaults,
         } = at;
-        let [a, b, c, d, e] = self.logged();
+        let [a, b, c, d, e, f, g] = self.logged();
         a.undo_to(refs)
             + b.undo_to(local_types)
-            + c.undo_to(field_spans)
-            + d.undo_to(expr_types)
-            + e.undo_to(call_defaults)
+            + c.undo_to(local_unfolded)
+            + d.undo_to(field_spans)
+            + e.undo_to(expr_types)
+            + f.undo_to(expr_unfolded)
+            + g.undo_to(call_defaults)
     }
 
     fn set_generation(&mut self, g: Option<u32>) {
@@ -260,24 +309,30 @@ impl Logs for Recorder {
     fn entries(&self) -> usize {
         self.refs.entries()
             + self.local_types.entries()
+            + self.local_unfolded.entries()
             + self.field_spans.entries()
             + self.expr_types.entries()
+            + self.expr_unfolded.entries()
             + self.call_defaults.entries()
     }
 
     fn bytes(&self) -> usize {
         self.refs.bytes()
             + self.local_types.bytes()
+            + self.local_unfolded.bytes()
             + self.field_spans.bytes()
             + self.expr_types.bytes()
+            + self.expr_unfolded.bytes()
             + self.call_defaults.bytes()
     }
 
     fn distinct_keys(&self) -> usize {
         self.refs.distinct_keys()
             + self.local_types.distinct_keys()
+            + self.local_unfolded.distinct_keys()
             + self.field_spans.distinct_keys()
             + self.expr_types.distinct_keys()
+            + self.expr_unfolded.distinct_keys()
             + self.call_defaults.distinct_keys()
     }
 }
@@ -290,6 +345,25 @@ pub(crate) struct Noted {
     pub(crate) global: Global,
     /// The reference is the last component of a dotted written name.
     pub(crate) dot: Option<String>,
+}
+
+/// A parameter written in a declaration's header.
+#[derive(Clone)]
+pub(crate) struct ParamBinder {
+    /// The declaration's name where it's declared.
+    pub(crate) owner: Span,
+    pub(crate) name: String,
+    pub(crate) binder: Span,
+}
+
+/// The name in a named argument or pattern, and the head it is for.
+#[derive(Clone)]
+pub(crate) struct NamedUse {
+    /// The places a reference to the head may be noted: the whole written
+    /// name, and its last component (`xs.foldl`).
+    pub(crate) head: [Span; 2],
+    pub(crate) name: String,
+    pub(crate) span: Span,
 }
 
 #[derive(Clone)]
@@ -311,6 +385,9 @@ pub(crate) struct OutlineItem {
     span: Span,
     /// The whole declaration.
     range: Span,
+    /// Whether its body didn't parse: the signature stands for the
+    /// declaration, and its `range` stops at the header (SW-3199).
+    body_error: bool,
     container: Option<usize>,
 }
 
@@ -319,8 +396,10 @@ pub struct NavIndex {
     pub symbols: Vec<NavSymbol>,
     pub refs: Vec<NavRef>,
     /// The type of the expression written at each span, if recorded
-    /// ([`Elaborator::enable_expression_types`]), sorted by position.
-    pub exprs: Vec<(Span, String)>,
+    /// ([`Elaborator::enable_expression_types`]), sorted by position. The
+    /// third is the type with an outermost `Not` written as `p → Void`
+    /// (`not_unfolded`), when it has one.
+    pub exprs: Vec<(Span, String, Option<String>)>,
 }
 
 pub struct NavSymbol {
@@ -331,6 +410,10 @@ pub struct NavSymbol {
     pub span: Span,
     /// The whole declaration, if known.
     pub range: Option<Span>,
+    /// Whether the declaration's body didn't parse: `range` is only its
+    /// header, and the editor extends the outline item to the whole
+    /// declaration (SW-3199).
+    pub body_error: bool,
     /// The symbol it's declared in (a constructor's type), by index.
     pub container: Option<usize>,
     pub ty: Option<String>,
@@ -344,6 +427,9 @@ pub struct NavSymbol {
     /// `(low: Nat) [n: Nat]: Nat → Nat`; for a hover, which puts the kind and
     /// name before it.
     pub header: Option<String>,
+    /// Its type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`not_unfolded`), for hover.
+    pub unfolded: Option<String>,
 }
 
 /// A name a file can write unqualified ([`Elaborator::names_in_scope`]).
@@ -370,9 +456,15 @@ pub struct NavRef {
     pub dot: Option<String>,
     pub target: NavTarget,
     pub ty: Option<String>,
+    /// The type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`not_unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used, "`step` left out: its default `1`".
     pub defaults: Option<String>,
+    /// A record field punned with a variable, `{ name }`: this and another
+    /// reference (the field, the variable) are written by the same text.
+    pub pun: bool,
 }
 
 pub enum NavTarget {
@@ -428,7 +520,9 @@ impl Elaborator {
         }
     }
 
-    /// The expression written at `span` has type `ty` in `cx`.
+    /// The expression written at `span` has type `ty` in `cx`. Out of line,
+    /// as every check calls it.
+    #[inline(never)]
     pub(crate) fn note_expr(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         self.note_probe(cx, span, ty, checked);
         if span.start == span.end {
@@ -479,6 +573,22 @@ impl Elaborator {
             nav.borrow_mut().generated -= 1;
         }
         out
+    }
+
+    /// What the term written at `at` builds (`build.rs`), for hover: kept
+    /// with the defaults a call there used.
+    pub(crate) fn note_build(&self, at: Span, what: String) {
+        if let Some(nav) = &self.present.nav {
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                let text = match nav.call_defaults.get(&at) {
+                    Some(defaults) if !defaults.contains(&what) => format!("{defaults}\n\n{what}"),
+                    Some(defaults) => defaults.clone(),
+                    None => what,
+                };
+                nav.call_defaults.insert(at, text);
+            }
+        }
     }
 
     /// The defaults a call whose head is written at `at` used, for hover.
@@ -701,11 +811,18 @@ impl Elaborator {
             let budget = &self.kernel.machine.budget;
             let saved = budget.start_attempt(self.options.limits);
             let text = pretty::value_for_message(&self.ev(), &names, &ty);
+            let unfolded = value_not_unfolded(&self.ev(), &names, &ty);
             budget.restore(saved);
             if expr {
                 nav.expr_types.insert(span, text);
+                if let Some(unfolded) = unfolded {
+                    nav.expr_unfolded.insert(span, unfolded);
+                }
             } else {
                 nav.local_types.insert((span.file, span.start), text);
+                if let Some(unfolded) = unfolded {
+                    nav.local_unfolded.insert((span.file, span.start), unfolded);
+                }
             }
         }
     }
@@ -772,10 +889,15 @@ impl Elaborator {
                     .scope
                     .get(&key)
                     .and_then(|(global, _)| self.global_header(global)),
+                unfolded: self
+                    .scope
+                    .get(&key)
+                    .and_then(|(global, _)| self.global_not_unfolded(global)),
                 name: item.name.clone(),
                 kind: item.kind,
                 span: item.span,
                 range: Some(item.range),
+                body_error: item.body_error,
                 container: item.container,
             });
         }
@@ -784,6 +906,31 @@ impl Elaborator {
         // declarations (and the name and type each is shown with) don't
         // depend on the hash map's order.
         let mut noted_refs: Vec<(&Span, &Noted)> = nav.refs.iter().collect();
+        // The field of a constructor named in a named argument or pattern
+        // (`VCons [n := k] …`) is a reference to the field.
+        let named_fields: Vec<(Span, Noted)> = nav
+            .named
+            .iter()
+            .filter_map(|used| {
+                let ctor = used.head.iter().find_map(|at| nav.refs.get(at))?;
+                (matches!(ctor.global, Global::Ctor(..))
+                    && nav
+                        .field_spans
+                        .contains_key(&(ctor.target, used.name.clone())))
+                .then(|| {
+                    (
+                        used.span,
+                        Noted {
+                            key: format!("{}.{}", ctor.key, used.name),
+                            target: ctor.target,
+                            global: ctor.global,
+                            dot: None,
+                        },
+                    )
+                })
+            })
+            .collect();
+        noted_refs.extend(named_fields.iter().map(|(at, noted)| (at, noted)));
         noted_refs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
         // The symbols whose name is one a user writes (not a generated `%`
         // member's): the first such reference names the symbol.
@@ -840,6 +987,7 @@ impl Elaborator {
                     kind,
                     span: target,
                     range: None,
+                    body_error: false,
                     container: None,
                     ty: ty_of(),
                     signature: if field_span.is_none() {
@@ -849,6 +997,11 @@ impl Elaborator {
                     },
                     header: if field_span.is_none() {
                         self.global_header(global)
+                    } else {
+                        None
+                    },
+                    unfolded: if field_span.is_none() {
+                        self.global_not_unfolded(global)
                     } else {
                         None
                     },
@@ -882,12 +1035,16 @@ impl Elaborator {
                 dot: noted.dot.clone(),
                 target: NavTarget::Symbol(index),
                 ty: symbols[index].ty.clone(),
+                unfolded: symbols[index].unfolded.clone(),
                 defaults: nav.call_defaults.get(at).cloned(),
+                pun: false,
             });
         }
         // A name taken for an implicitly bound variable (`implicit_guesses`)
         // that is a declaration's: its binder is its own first use, and a
-        // reference to the declaration is noted there.
+        // reference to the declaration is noted there. The name is not a
+        // local anywhere else in the declaration either (a later use in the
+        // body is the declaration's, noted by the elaborator).
         let guesses: stitchwort_core::collections::HashSet<Span> = nav
             .locals
             .iter()
@@ -895,8 +1052,54 @@ impl Elaborator {
             .map(|l| l.span)
             .filter(|span| nav.binders.iter().any(|b| b.span == *span))
             .collect();
+        // The name in a named argument `(x := e)` is a use of the callee's
+        // parameter. (A callee that isn't known leaves the name as a variable
+        // of its own.)
+        let mut linked: stitchwort_core::collections::HashSet<Span> =
+            stitchwort_core::collections::HashSet::default();
+        for used in &nav.named {
+            if named_fields.iter().any(|(at, _)| *at == used.span) {
+                linked.insert(used.span);
+                continue;
+            }
+            let Some(head) = used.head.iter().find_map(|at| nav.refs.get(at)) else {
+                continue;
+            };
+            let Some(param) = nav
+                .params
+                .iter()
+                .find(|p| p.owner == head.target && p.name == used.name)
+            else {
+                continue;
+            };
+            linked.insert(used.span);
+            if !wanted(used.span, None) {
+                continue;
+            }
+            refs.push(NavRef {
+                span: used.span,
+                dot: None,
+                target: NavTarget::Binder {
+                    name: used.name.clone(),
+                    span: param.binder,
+                },
+                ty: nav
+                    .local_types
+                    .get(&(used.span.file, used.span.start))
+                    .cloned(),
+                unfolded: nav
+                    .local_unfolded
+                    .get(&(used.span.file, used.span.start))
+                    .cloned(),
+                defaults: None,
+                pun: false,
+            });
+        }
         for local in &nav.locals {
-            if guesses.contains(&local.span) {
+            if guesses.contains(&local.span)
+                || guesses.contains(&local.binder)
+                || linked.contains(&local.span)
+            {
                 continue;
             }
             refs.push(NavRef {
@@ -910,7 +1113,12 @@ impl Elaborator {
                     .local_types
                     .get(&(local.span.file, local.span.start))
                     .cloned(),
+                unfolded: nav
+                    .local_unfolded
+                    .get(&(local.span.file, local.span.start))
+                    .cloned(),
                 defaults: nav.call_defaults.get(&local.span).cloned(),
+                pun: false,
             });
         }
         // Each declaration's own name refers to it, for hover and definition there.
@@ -926,7 +1134,9 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbols[i].ty.clone(),
+                unfolded: symbols[i].unfolded.clone(),
                 defaults: None,
+                pun: false,
             });
         }
         // In `def Pt.sum`, the `Pt` is a reference to the type (when it's
@@ -959,10 +1169,12 @@ impl Elaborator {
                     kind,
                     span: target,
                     range: None,
+                    body_error: false,
                     container: None,
                     ty: self.global_type(global),
                     signature: self.global_signature(global),
                     header: self.global_header(global),
+                    unfolded: self.global_not_unfolded(global),
                 });
                 symbols.len() - 1
             });
@@ -971,7 +1183,9 @@ impl Elaborator {
                 dot: None,
                 target: NavTarget::Symbol(index),
                 ty: symbols[index].ty.clone(),
+                unfolded: symbols[index].unfolded.clone(),
                 defaults: None,
+                pun: false,
             });
         }
         // The same for a declaration outside the outline (the library's: only
@@ -995,15 +1209,29 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbol.ty.clone(),
+                unfolded: symbol.unfolded.clone(),
                 defaults: None,
+                pun: false,
             });
         }
         // A local variable's binder refers to itself (a record field is a declaration, above).
+        // (A pun `{ name }` in a pattern is both the field and the variable
+        // it binds, at one span.)
+        let field_refs: stitchwort_core::collections::HashSet<Span> = refs
+            .iter()
+            .filter(|r| {
+                matches!(r.target, NavTarget::Symbol(i)
+                if symbols[i].kind == "field" && symbols[i].span != r.span)
+            })
+            .map(|r| r.span)
+            .collect();
         for binder in &nav.binders {
             if guesses.contains(&binder.span) {
                 continue;
             }
-            if !taken.insert((binder.span.file, binder.span.start)) {
+            if !taken.insert((binder.span.file, binder.span.start))
+                && !field_refs.contains(&binder.span)
+            {
                 continue;
             }
             refs.push(NavRef {
@@ -1017,16 +1245,47 @@ impl Elaborator {
                     .local_types
                     .get(&(binder.span.file, binder.span.start))
                     .cloned(),
-                defaults: None,
+                unfolded: nav
+                    .local_unfolded
+                    .get(&(binder.span.file, binder.span.start))
+                    .cloned(),
+                // A lambda's first binder: what the lambda built, if a test
+                // fact (`build.rs`).
+                defaults: nav.call_defaults.get(&binder.span).cloned(),
+                pun: false,
             });
         }
         refs.sort_by_key(|r| (r.span.file.index(), r.span.start, r.span.end));
-        let mut exprs: Vec<(Span, String)> = nav
+        // A field and a variable at one span are a pun.
+        let mut start = 0;
+        while start < refs.len() {
+            let mut end = start + 1;
+            while end < refs.len() && refs[end].span == refs[start].span {
+                end += 1;
+            }
+            let group = &mut refs[start..end];
+            let field = |r: &NavRef| {
+                matches!(r.target, NavTarget::Symbol(i)
+                    if symbols[i].kind == "field" && symbols[i].span != r.span)
+            };
+            if group.iter().any(field)
+                && group
+                    .iter()
+                    .any(|r| matches!(r.target, NavTarget::Binder { .. }))
+            {
+                group
+                    .iter_mut()
+                    .filter(|r| field(r) || matches!(r.target, NavTarget::Binder { .. }))
+                    .for_each(|r| r.pun = true);
+            }
+            start = end;
+        }
+        let mut exprs: Vec<(Span, String, Option<String>)> = nav
             .expr_types
             .iter()
-            .map(|(at, ty)| (*at, ty.clone()))
+            .map(|(at, ty)| (*at, ty.clone(), nav.expr_unfolded.get(at).cloned()))
             .collect();
-        exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+        exprs.sort_by_key(|(at, _, _)| (at.file.index(), at.start, at.end));
         NavIndex {
             symbols,
             refs,
@@ -1275,6 +1534,16 @@ impl Elaborator {
         ))
     }
 
+    /// A definition's type with an outermost `Not` written as `p → Void`
+    /// ([`not_unfolded`]), for hover.
+    fn global_not_unfolded(&self, global: Global) -> Option<String> {
+        let Global::Def(id) = global else {
+            return None;
+        };
+        let g = &self.ev();
+        not_unfolded(g, &[], g.def(id).ty())
+    }
+
     fn global_type(&self, global: Global) -> Option<String> {
         let g = &self.ev();
         match global {
@@ -1364,6 +1633,9 @@ impl Walk<'_> {
                     theorem,
                     synonym,
                     instance,
+                    decreasing,
+                    defaults,
+                    syntax_error,
                     span,
                     ..
                 } => {
@@ -1383,8 +1655,12 @@ impl Walk<'_> {
                     } else {
                         "def"
                     };
-                    self.item(&name.text, kind, name.span, range, None);
-                    self.signature(ty, equations);
+                    let owner = self.item(&name.text, kind, name.span, range, None);
+                    if self.outline {
+                        self.nav.outline[owner].body_error = syntax_error.is_some();
+                    }
+                    self.params(name.span, ty);
+                    self.signature(ty, defaults, decreasing.as_deref(), equations);
                     i = j;
                     continue;
                 }
@@ -1465,6 +1741,7 @@ impl Walk<'_> {
             kind,
             span,
             range,
+            body_error: false,
             container,
         });
         self.nav.outline.len() - 1
@@ -1490,6 +1767,15 @@ impl Walk<'_> {
             "data"
         };
         let owner = self.item(&name.text, kind, name.span, span, None);
+        for binder in params {
+            for param in &binder.names {
+                self.nav.params.push(ParamBinder {
+                    owner: name.span,
+                    name: param.text.clone(),
+                    binder: param.span,
+                });
+            }
+        }
         let mut work = Vec::new();
         for binder in params {
             work.push(Work::Expr(&binder.ty));
@@ -1557,11 +1843,40 @@ impl Walk<'_> {
         self.run(work);
     }
 
+    /// The parameters a header's type names, which a named argument of a
+    /// call to the declaration `owner` may name.
+    fn params(&mut self, owner: Span, ty: &Expr) {
+        let mut ty = ty;
+        loop {
+            match ty {
+                Expr::Pi { names, cod, .. } => {
+                    for name in names {
+                        self.nav.params.push(ParamBinder {
+                            owner,
+                            name: name.text.clone(),
+                            binder: name.span,
+                        });
+                    }
+                    ty = cod;
+                }
+                Expr::Arrow(_, cod) => ty = cod,
+                _ => break,
+            }
+        }
+    }
+
     /// A signature and its equations.
-    fn signature(&mut self, ty: &Expr, equations: &[Decl]) {
+    fn signature(
+        &mut self,
+        ty: &Expr,
+        defaults: &[Option<Expr>],
+        decreasing: Option<&Expr>,
+        equations: &[Decl],
+    ) {
         let guesses = implicit_guesses(ty);
         let mut work: Vec<Work> = guesses.iter().map(|n| Work::Bind(n)).collect();
         work.push(Work::Expr(ty));
+        work.extend(Self::header_work(ty, defaults, decreasing));
         let binders = body_binders(ty, equations);
         for eq in equations {
             let Decl::Equation {
@@ -1596,11 +1911,61 @@ impl Walk<'_> {
         self.run(work);
     }
 
+    /// The walk of a header's parameter defaults, each with the parameters
+    /// before it bound, and of its `decreasing` measure, with all of them.
+    fn header_work<'a>(
+        ty: &'a Expr,
+        defaults: &'a [Option<Expr>],
+        decreasing: Option<&'a Expr>,
+    ) -> Vec<Work<'a>> {
+        let mut names: Vec<Option<&ast::Name>> = Vec::new();
+        let mut cursor = ty;
+        loop {
+            match cursor {
+                Expr::Pi { names: ns, cod, .. } => {
+                    names.extend(ns.iter().map(Some));
+                    cursor = cod;
+                }
+                Expr::Arrow(_, cod) => {
+                    names.push(None);
+                    cursor = cod;
+                }
+                _ => break,
+            }
+        }
+        let mut work = Vec::new();
+        for (k, default) in defaults.iter().enumerate() {
+            let Some(default) = default else { continue };
+            let before: Vec<&ast::Name> = names[..k.min(names.len())]
+                .iter()
+                .flatten()
+                .copied()
+                .collect();
+            work.extend(before.iter().map(|n| Work::Bind(n)));
+            work.push(Work::Expr(default));
+            work.extend(before.iter().rev().map(|n| Work::Unbind(&n.text)));
+        }
+        if let Some(measure) = decreasing {
+            let params = names.iter().flatten().copied().collect::<Vec<_>>();
+            work.extend(params.iter().map(|n| Work::Bind(n)));
+            work.push(Work::Expr(measure));
+            work.extend(params.iter().rev().map(|n| Work::Unbind(&n.text)));
+        }
+        work
+    }
+
     fn local_def<'a>(def: &'a ast::LocalDef) -> Vec<Work<'a>> {
-        let Decl::Signature { ty, .. } = &def.signature else {
+        let Decl::Signature {
+            ty,
+            defaults,
+            decreasing,
+            ..
+        } = &def.signature
+        else {
             return Vec::new();
         };
         let mut work = vec![Work::Expr(ty)];
+        work.extend(Self::header_work(ty, defaults, decreasing.as_deref()));
         let binders = body_binders(ty, &def.equations);
         for eq in &def.equations {
             let Decl::Equation {
@@ -1682,7 +2047,16 @@ impl Walk<'_> {
                             self.nav.note_binder(&x.text, x.span);
                             bound.entry(&x.text).or_default().push(x.span);
                         }
-                        Pattern::Ctor(_, args, _) => {
+                        Pattern::Ctor(ctor, args, _) => {
+                            for arg in args {
+                                if let Pattern::Named(name, ..) = arg {
+                                    self.nav.named.push(NamedUse {
+                                        head: name_spans(ctor),
+                                        name: name.text.clone(),
+                                        span: name.span,
+                                    });
+                                }
+                            }
                             then(&mut stack, args.iter().map(Work::Pattern).collect());
                         }
                         Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
@@ -1720,12 +2094,23 @@ impl Walk<'_> {
                 | Expr::Prop(_)
                 | Expr::Hole(_)
                 | Expr::Goal(_)
+                | Expr::Missing(_)
                 | Expr::Unit(_) => {}
-                Expr::App(a, b)
-                | Expr::Arrow(a, b)
-                | Expr::Binary(_, a, b)
-                | Expr::Pipe(a, b)
-                | Expr::Seq(a, b) => then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]),
+                Expr::App(a, b) => {
+                    if let Expr::NamedArg(name, ..) = &**b
+                        && let Some(head) = head_spans(a)
+                    {
+                        self.nav.named.push(NamedUse {
+                            head,
+                            name: name.text.clone(),
+                            span: name.span,
+                        });
+                    }
+                    then(&mut stack, vec![Work::Expr(a), Work::Expr(b)]);
+                }
+                Expr::Arrow(a, b) | Expr::Binary(_, a, b) | Expr::Pipe(a, b) | Expr::Seq(a, b) => {
+                    then(&mut stack, vec![Work::Expr(a), Work::Expr(b)])
+                }
                 Expr::Neg(a, _, _) | Expr::Bracketed(a, _) | Expr::Interpolated(a, _) => {
                     stack.push(Work::Expr(a))
                 }
@@ -1852,7 +2237,7 @@ impl Walk<'_> {
                                 vars.push(&h.text);
                             }
                         }
-                        steps.push(Work::Expr(&alt.body));
+                        steps.extend(alt.body.as_ref().map(Work::Expr));
                         steps.extend(vars.into_iter().map(Work::Unbind));
                     }
                     steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
@@ -1913,6 +2298,30 @@ impl Walk<'_> {
                     then(&mut stack, steps);
                 }
             }
+        }
+    }
+}
+
+/// Where a reference to the head of a call may be noted: the whole of a
+/// written name, and its last component.
+fn name_spans(name: &ast::Name) -> [Span; 2] {
+    let last = name.text.rsplit('.').next().unwrap_or_default().len() as u32;
+    let tail = if name.span.end - name.span.start == name.text.len() as u32 {
+        Span::new(name.span.file, name.span.end - last, name.span.end)
+    } else {
+        name.span
+    };
+    [name.span, tail]
+}
+
+/// [`name_spans`] of the head of a call, if it is a name.
+fn head_spans(mut head: &Expr) -> Option<[Span; 2]> {
+    loop {
+        match head {
+            Expr::App(f, _) => head = f,
+            Expr::Var(name) => return Some(name_spans(name)),
+            Expr::Field(_, name) => return Some([name.span, name.span]),
+            _ => return None,
         }
     }
 }
@@ -1994,6 +2403,53 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a ast::Name> {
     names
 }
 
+/// A type with an outermost `Not` written as `p → Void` under its
+/// parameters: `(n: Nat) → n + 1 ≠ 0` gives
+/// `(n: Nat) → n + 1 = 0 → Void`. None unless the type after its parameters
+/// is `Not p`, which is why applying a proof of it gives a `Void`.
+fn not_unfolded(g: &Ev, names: &[Name], ty: &Term) -> Option<String> {
+    let mut names = names.to_vec();
+    let mut parts: Vec<String> = Vec::new();
+    let mut ty = ty.clone();
+    while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+        if !name.starts_with('%') {
+            let shown = pretty::term(g, &names, dom);
+            parts.push(match icit {
+                Icit::Explicit => format!("({name}: {shown})"),
+                Icit::Auto => format!("[auto {name}: {shown}]"),
+                _ => format!("[{name}: {shown}]"),
+            });
+        }
+        names.push(name.clone());
+        ty = (**cod).clone();
+    }
+    let (head, args) = ty.spine();
+    let Term::Def(not) = head.strip_loc() else {
+        return None;
+    };
+    if !g.env.registry().is_def(Builtin::Not, *not) {
+        return None;
+    }
+    let [prop] = args.as_slice() else {
+        return None;
+    };
+    let void = g.env.registry().data(Builtin::Void)?;
+    let unfolded = Term::Pi(
+        "_".into(),
+        Icit::Explicit,
+        (*prop).clone().into(),
+        Term::data(void, Vec::new()).into(),
+    );
+    parts.push(pretty::term_not_unfolded(g, &names, &unfolded));
+    Some(parts.join(" → "))
+}
+
+/// [`not_unfolded`] for a local's or expression's type, a value.
+fn value_not_unfolded(g: &Ev, names: &[Name], value: &Value) -> Option<String> {
+    let ty = stitchwort_core::value::quote_shown(g, names.len(), value).ok()?;
+    not_unfolded(g, names, &ty)
+}
+
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
@@ -2021,7 +2477,11 @@ mod tests {
         let mut ty = Value::Sort(Sort::Type(0));
         for _ in 0..100_000 {
             let type1 = Rc::new(Value::Sort(Sort::Type(1)));
-            ty = Value::Eq(type1, Rc::new(ty), Rc::new(Value::Sort(Sort::Type(0))));
+            ty = Value::Eq(
+                type1.into(),
+                Rc::new(ty).into(),
+                Rc::new(Value::Sort(Sort::Type(0))).into(),
+            );
         }
         // Dropping it would recurse as deeply: the test keeps it.
         let kept = ty.clone();

@@ -7,7 +7,7 @@ expression: output
     │
  19 │   withinTrans once again
     │                    ──┬──  
-    │                      ╰──── expected `(x: Nat) → x ∈ image.flip.rotate.rows → x ∈ image.rotate.rows`, but this has type `Within image.flip image.flip.rotate`
+    │                      ╰──── expected `∀ (x: Nat) => x ∈ image.flip.rotate.rows → x ∈ image.rotate.rows`, but this has type `Within image.flip image.flip.rotate`
     │ 
-    │ Note: `Within image.flip image.flip.rotate` is `(x: Nat) → x ∈ (image.rows.map (row => row + 1)).reverseOnto [] → x ∈ image.rows.map (row => row + 1)`
+    │ Note: `Within image.flip image.flip.rotate` is `∀ (x: Nat) => x ∈ (image.rows.map (row => row + 1)).reverseOnto [] → x ∈ image.rows.map (row => row + 1)`
 ────╯

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/build-after-read.sw:14:75 ]
+    │
+ 14 │ theorem convert ∀ (xs: List Nat) (x: Nat) (h: has xs x): xs.contains x := h.read
+    │                                                                           ───┬──  
+    │                                                                              ╰──── expected `xs.contains x`, but this has type `x ∈ xs`
+    │ 
+    │ Note: `.read` gives the proposition, and it isn't built back into the test fact `xs.contains x`: give the proof of `x ∈ xs` itself
+────╯

@@ -115,11 +115,8 @@ fn floats_print_the_same_both_ways() {
     let path = dir.join("floats.sw");
     std::fs::write(&path, PROGRAM).expect("write source");
     let run = |js: bool| {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-        command.args(["run", "--no-cache"]);
-        if js {
-            command.arg("--js");
-        }
+        let mut command = crate::common::cli_with("run", if js { &["--js"] } else { &[] });
+        command.arg("--no-cache");
         let out = command.arg(&path).output().expect("start stitchwort");
         assert!(
             out.status.success(),
@@ -194,11 +191,8 @@ fn operators_sorts_and_printing_agree_both_ways() {
     let path = dir.join("operators.sw");
     std::fs::write(&path, OPERATORS).expect("write source");
     let run = |js: bool| {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-        command.args(["run", "--no-cache"]);
-        if js {
-            command.arg("--js");
-        }
+        let mut command = crate::common::cli_with("run", if js { &["--js"] } else { &[] });
+        command.arg("--no-cache");
         let out = command.arg(&path).output().expect("start stitchwort");
         assert!(
             out.status.success(),

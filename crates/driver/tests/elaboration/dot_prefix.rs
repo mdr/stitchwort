@@ -76,7 +76,7 @@ fn long_dot_chains_are_cheap() {
 /// times on three threads at once, from varied heap layouts, it takes the
 /// same steps every time.
 #[test]
-#[ignore = "about 30 s: run by name, or in the full tier"]
+#[ignore = "about 30 s: run by name, or in the all tier"]
 fn a_postponed_dot_call_takes_the_same_steps_every_time() {
     same_steps_every_time("reject/postponed-lambda-second-error.sw");
 }

@@ -36,7 +36,9 @@ use std::sync::{Arc, OnceLock};
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_syntax::ast::{Decl, Expr, Module};
-use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, parse_module_within};
+use stitchwort_syntax::{
+    Diagnostic, FileId, Severity, SourceMap, Span, parse_module_recovering, parse_module_within,
+};
 
 use crate::module::{ModuleState, Ref, decl_refs, declared_names, expr_refs};
 use crate::project::{SourceUnit, grouped};
@@ -79,6 +81,12 @@ pub struct IndexedFile {
     pub id: FileId,
     pub text: String,
     pub module: Module,
+    /// Its syntax errors, for a library file being edited (`--std-dir`):
+    /// `module` is what parsed, as for a program's file
+    /// ([`stitchwort_syntax::parse_module_recovering`]), and loading the
+    /// file reports these with what checking it found. The core always
+    /// parses.
+    pub parse_errors: Vec<Diagnostic>,
     /// Every name it declares, generated ones included.
     pub names: Vec<IndexedName>,
     /// The files it needs, by index: every reference resolved to its owning
@@ -156,18 +164,24 @@ impl LibraryIndex {
         let mut parsed: Vec<IndexedFile> = Vec::new();
         for (path, text) in std::iter::once(("core", core)).chain(sorted) {
             let id = sources.add(path, text);
-            let module = parse_module_within(id, text, stack).map_err(|errors| {
-                let mut report = format!("the library file `{path}` doesn't parse:");
-                for d in errors {
-                    report.push_str(&format!("\n  {}: {}", d.code, d.message));
-                }
-                report
-            })?;
+            let (module, parse_errors) = if path == "core" {
+                let module = parse_module_within(id, text, stack).map_err(|errors| {
+                    let mut report = format!("the library file `{path}` doesn't parse:");
+                    for d in errors {
+                        report.push_str(&format!("\n  {}: {}", d.code, d.message));
+                    }
+                    report
+                })?;
+                (module, Vec::new())
+            } else {
+                parse_module_recovering(id, text, stack)
+            };
             parsed.push(IndexedFile {
                 path: path.to_string(),
                 id,
                 text: text.to_string(),
                 module,
+                parse_errors,
                 names: Vec::new(),
                 edges: Vec::new(),
                 equation_needs: BTreeSet::new(),
@@ -954,6 +968,12 @@ impl Elaborator {
         self.unit.omega_for_auto
     }
 
+    /// The warnings the library's own files reported as they loaded. They
+    /// aren't shown to programs: a test of the library itself reads them.
+    pub fn library_warnings(&self) -> &[Diagnostic] {
+        &self.library_warnings
+    }
+
     /// The paths of the library files loaded so far, in the order they
     /// loaded.
     pub fn loaded_library_files(&self) -> Vec<String> {
@@ -1181,6 +1201,64 @@ impl Elaborator {
         self.load_libraries(&all)
     }
 
+    /// The library files a `check --std` target names, as indexes into the
+    /// index: a path under `std/` (`Nat/Arith.sw`), a folder (`Nat`, every
+    /// file below it), or a namespace spelled with dots
+    /// (`Std.Nat.Arith`, `Nat.Arith`), which names the same file or folder.
+    /// `Std` alone is every file. The core isn't one (it always loads).
+    pub fn library_files_named(&self, target: &str) -> Result<Vec<usize>, Diagnostic> {
+        let Some(lib) = &self.session.library else {
+            return Ok(Vec::new());
+        };
+        let rest = target
+            .strip_prefix("std/")
+            .or_else(|| target.strip_prefix("Std."))
+            .unwrap_or(target);
+        let prefix = match rest.strip_suffix(".sw") {
+            Some(file) => file.to_string(),
+            None if rest == "Std" => String::new(),
+            None => rest.replace('.', "/"),
+        };
+        let exact = format!("{prefix}.sw");
+        let below = format!("{prefix}/");
+        let found: Vec<usize> = (1..lib.index.files.len())
+            .filter(|&f| {
+                let path = &lib.index.files[f].path;
+                prefix.is_empty() || *path == exact || path.starts_with(&below)
+            })
+            .collect();
+        if found.is_empty() {
+            return Err(Diagnostic::error(
+                "E-STD-TARGET",
+                format!("there's no standard library file or folder `{target}`"),
+            )
+            .with_note("name one as `Nat/Arith.sw`, `Nat` or `Std.Nat.Arith`"));
+        }
+        Ok(found)
+    }
+
+    /// Checks the library files `targets` name ([`Self::library_files_named`])
+    /// and the files they need, bodies and all, in canonical order. The
+    /// check cache answers for a file whose text and dependencies are
+    /// unchanged. Returns the paths of the files named.
+    pub fn check_library_targets(
+        &mut self,
+        targets: &[String],
+    ) -> Result<Vec<String>, Vec<Diagnostic>> {
+        let mut files = BTreeSet::new();
+        for target in targets {
+            files.extend(self.library_files_named(target).map_err(|d| vec![d])?);
+        }
+        self.load_libraries(&files)?;
+        let Some(lib) = &self.session.library else {
+            return Ok(Vec::new());
+        };
+        Ok(files
+            .into_iter()
+            .map(|f| lib.index.files[f].path.clone())
+            .collect())
+    }
+
     /// Loads every library file but those in `skip` (paths under `std/`,
     /// `Float/Theory.sw`) and those that need one of them, in canonical
     /// order. The files left out load when something needs them, as in a
@@ -1334,7 +1412,21 @@ impl Elaborator {
             name: &name,
             module: &file.module,
         };
-        let diagnostics = self.elaborate_namespace(None, &[unit], None);
+        let mut diagnostics = self.elaborate_namespace(None, &[unit], None);
+        if !file.parse_errors.is_empty() {
+            diagnostics = crate::with_syntax_errors(file.parse_errors.clone(), diagnostics);
+        }
+        crate::keep_written_arrows(&mut diagnostics, |id| {
+            (id == file.id).then_some(file.text.as_str())
+        });
+        // Programs don't see the library's warnings, but a test of the
+        // library itself must (`library_warnings`).
+        self.library_warnings.extend(
+            diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Warning)
+                .cloned(),
+        );
         self.scope.loading = None;
         self.leave_nested_unit(saved);
         let lib = self
@@ -1362,7 +1454,8 @@ impl Elaborator {
         if !ok {
             // Running out of resources isn't a bug in the file: it's the
             // answer for the program that needed it, as for the core.
-            if diagnostics.iter().any(|d| d.code == "E-RESOURCE") {
+            // Nor is a syntax error in a library file being edited.
+            if diagnostics.iter().any(|d| d.code == "E-RESOURCE") || !file.parse_errors.is_empty() {
                 return Err(diagnostics);
             }
             let mut all = vec![internal(format!("the library file `{name}` doesn't check"))];

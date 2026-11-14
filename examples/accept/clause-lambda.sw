@@ -3,24 +3,22 @@
 -- definition's whole body it is the arms form, with the same equations.
 import Std (List, Nat, Bool)
 
-type Operator =
-  | Add
-  | Multiply
+type Operator = | Add | Multiply
 
 -- Whether `operator` can combine `a` and `b` into `target`.
-def combines (target: Nat) (a: Nat) (b: Nat): Operator → Bool := match
+def combines (target a b: Nat): Operator → Bool := match
   | Add => a + b == target
   | Multiply => a * b == target
 
-def anyCombines (operators: List Operator) (target: Nat) (a: Nat) (b: Nat): Bool :=
-  operators.any (match
-    | Add => a + b == target
-    | Multiply => a * b == target)
+def anyCombines (operators: List Operator) (target a b: Nat): Bool := operators.any (match
+  | Add => a + b == target
+  | Multiply => a * b == target)
 
 -- Two parameters, written as a definition's arms are.
-def sum: List Nat → Nat := xs => xs.foldLeft 0 (match
-  | total, 0 => total
-  | total, n => total + n)
+def sum: List Nat → Nat := xs =>
+  xs.foldLeft 0 (match
+    | total, 0 => total
+    | total, n => total + n)
 
 def Operator.symbol: Operator → Nat := match
   | Add => 43

@@ -22,7 +22,7 @@ def sumMap (g: Nat -> Nat): Nat -> Nat
   | Zero => 0
   | Succ n => g (Succ n) + sumMap g n
 
-theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q: Nat -> Prop) (k: q 0):
+theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: ∀ (n: Nat) => f (sumMap g n) = 0) (q: Nat -> Prop) (k: q 0):
     q (f (sumMap g 41)) :=
   rewrite h 40 in k
 ";
@@ -84,6 +84,20 @@ fn the_budget_is_for_one_rewrite_not_for_the_declaration() {
     assert_eq!(codes(Some(20), &after), vec!["E-REWRITE-BUDGET"]);
 }
 
+/// A motive that doesn't type-check is reported with its body, which is
+/// under the motive's two binders: the goal's outermost variable `g` sits
+/// past the goal's own context there (SW-2842: an index went below zero
+/// printing it).
+#[test]
+fn a_motive_mentioning_the_outermost_variable_is_reported() {
+    let text = "\
+theorem bad (g: (d: Nat) → [auto ok: d ≠ 0] → Nat) (d: Nat) (e: Nat) (h: d = e) [auto p: d ≠ 0]:
+    g d + 1 = g d + 1 :=
+  rewrite h
+";
+    assert_eq!(codes(None, text), vec!["E-REWRITE-MOTIVE"]);
+}
+
 #[test]
 fn rewrite_is_a_keyword() {
     assert_eq!(codes(None, "def rewrite: Nat := 1\n"), vec!["E-PARSE"]);
@@ -117,7 +131,7 @@ def sumMap (g: Nat -> Nat): Nat -> Nat
 
 def hide (f: Nat -> Nat) (g: Nat -> Nat): Nat := f (sumMap g 39)
 
-theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q: Nat -> Nat -> Prop)
+theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: ∀ (n: Nat) => f (sumMap g n) = 0) (q: Nat -> Nat -> Prop)
     (k: q 0 (hide f g)): q (f (sumMap g 40)) (hide f g) :=
   rewrite h 40 in k
 ";

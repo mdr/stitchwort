@@ -18,7 +18,7 @@ def walk (lab: Lab) (guard: Option Guard): (steps: Nat) → Option Guard
 def after (lab: Lab) (steps: Nat): Option Guard := walk lab (Some lab.startGuard) steps
 
 --| "The guard will get stuck in a loop": she never leaves the mapped area.
-def Loops (lab: Lab): Prop := (steps: Nat) → after lab steps ≠ None
+def Loops (lab: Lab): Prop := ∀ (steps: Nat) => after lab steps ≠ None
 
 --| Where the guard stands over her first `steps` steps from `guard`, in
 --| order, fewer if she leaves sooner.
@@ -49,4 +49,4 @@ def trapPositions (lab: Lab) (trapped: Position → Bool): Set Position :=
 --| `trapped` decides whether the guard loops with an obstruction added at
 --| each position.
 def Decides (lab: Lab) (trapped: Position → Bool): Prop :=
-  (position: Position) → (trapped position = True) ↔ (Loops (lab.withObstruction position))
+  ∀ (position: Position) => (trapped position = True) ↔ (Loops (lab.withObstruction position))

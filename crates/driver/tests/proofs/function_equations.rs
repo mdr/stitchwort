@@ -3,6 +3,7 @@
 //! ones it shows, binder names included, and what isn't generated is
 //! recorded with its reason.
 
+use crate::common::{BIG_STACK, STACK};
 use stitchwort_core::{Name, Term};
 use stitchwort_driver::driver::Session;
 
@@ -86,9 +87,9 @@ fn with_session(f: impl FnOnce(&Session) + Send + 'static) {
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             if let Err(errors) = session.load("equations.sw", &source) {
                 panic!("doesn't load: {errors:#?}");
             }
@@ -142,7 +143,7 @@ fn the_notes_worked_examples() {
         assert_eq!(
             generated(s, "ex.eq3"),
             "(depth: Nat) → (left: Number) → (right: Number) → \
-             (notArm2: (a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b) → \
+             (notArm2: ∀ (a b: Nat) => left = Regular a → right ≠ Regular b) → \
              ex depth (Pair left right) = ex (depth + 1) left + ex (depth + 1) right"
         );
         // §3.2, "Literal patterns".
@@ -188,7 +189,7 @@ fn an_overlapped_arms_branches_are_read_from_each_case() {
         generated(s, "explode.eq2");
         let why = skipped(s, "explode.eq3");
         assert!(why.contains("refined") && why.contains("branches"), "{why}");
-        let not_arm2 = "(notArm2: (a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b)";
+        let not_arm2 = "(notArm2: ∀ (a b: Nat) => left = Regular a → right ≠ Regular b)";
         assert_eq!(
             generated(s, "explode.eq3.some"),
             format!(
@@ -318,9 +319,9 @@ fn a_catch_all_after_more_than_64_number_arms_is_skipped_with_its_reason() {
 #[ignore]
 fn the_librarys_equations() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
-            let mut session = Session::eager();
+            let mut session = Session::eager_for_stack(BIG_STACK);
             session.elab.generate_deferred_equations().unwrap();
             let g = &session.elab.ev();
             let made: Vec<&str> = g
@@ -448,7 +449,7 @@ fn branch_equations() {
             ),
             (
                 "countFresh.eq2.ifFalse",
-                "(b: Bool) → (rest: List Bool) → (notFresh: b = True) → \
+                "(b: Bool) → (rest: List Bool) → (notFresh: b) → \
                  countFresh [b, ..rest] = countFresh rest",
             ),
             // The printer shows `Nat.leq 4 x = True` as `3 < x`.
@@ -505,7 +506,7 @@ fn branch_equations() {
             (
                 "both.eq.alt2",
                 "(a: Option Nat) → (b: Option Nat) → \
-                 (notAlt1: (x: Nat) → (y: Nat) → (a, b) ≠ (Some x, Some y)) → both a b = 0",
+                 (notAlt1: ∀ (x y: Nat) => (a, b) ≠ (Some x, Some y)) → both a b = 0",
             ),
             (
                 "firstTwo.eq.some.alt1",
@@ -584,13 +585,13 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
             (
                 "cellAhead.eq.zero.ifTrue",
                 "(cell: Cell) → (isZero: cell.row = 0) → \
-                 (h1: (x => (x.decEq 0).toBool) cell.column = True) → \
+                 (h1: (x => (x.decEq 0).holds) cell.column) → \
                  cellAhead cell = None",
             ),
             (
                 "cellAhead.eq.zero.ifFalse",
                 "(cell: Cell) → (isZero: cell.row = 0) → \
-                 (h1: (x => (x.decEq 0).toBool) cell.column = False) → \
+                 (h1: (x => (x.decEq 0).holds) cell.column = False) → \
                  cellAhead cell = Some cell.column",
             ),
             (
@@ -609,7 +610,7 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
             ),
             (
                 "flagged.eq.ifTrue",
-                "(f: Flagged) → (h1: f.flag = True) → flagged f = f.value",
+                "(f: Flagged) → (h1: f.flag) → flagged f = f.value",
             ),
             (
                 "flagged.eq.ifFalse",
@@ -734,9 +735,9 @@ theorem threeOther (a: Option Nat) (c: Nat) (ha: a = None) (hc: c = 0): three 1 
 fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
     with_source(SEVERAL.to_string(), |s| {
         let not_zero = "(k: Nat) → (a: Option Nat) → (b: Option Nat) → \
-                        (h1: (k.decEq 0).toBool = False)";
+                        (h1: (k.decEq 0).holds = False)";
         let three_not_zero = "(k: Nat) → (a: Option Nat) → (b: Bool) → (c: Nat) → \
-                              (h1: (k.decEq 0).toBool = False)";
+                              (h1: (k.decEq 0).holds = False)";
         let cases = [
             (
                 "two.eq.ifFalse.alt1",
@@ -776,8 +777,8 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
             (
                 "three.eq.ifFalse.alt4",
                 format!(
-                    "{three_not_zero} → (notAlt1: (x: Nat) → a = Some x → b ≠ True) → \
-                     (notAlt2: b = False → c ≠ 0) → (notAlt3: (n: Nat) → a = None → c ≠ Succ n) → \
+                    "{three_not_zero} → (notAlt1: ∀ (x: Nat) => a = Some x → ¬b) → \
+                     (notAlt2: b = False → c ≠ 0) → (notAlt3: ∀ (n: Nat) => a = None → c ≠ Succ n) → \
                      three k a b c = 2"
                 ),
             ),
@@ -806,7 +807,7 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
             (
                 "computed.eq.alt2",
                 "(k: Nat) → (a: Option Nat) → \
-                 (notAlt1: (x: Nat) → (y: Nat) → a = Some x → k + 1 ≠ Succ y) → computed k a = k"
+                 (notAlt1: ∀ (x y: Nat) => a = Some x → k + 1 ≠ Succ y) → computed k a = k"
                     .to_string(),
             ),
         ];
@@ -873,9 +874,9 @@ theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
   rfl
 "#;
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             let errors = session
                 .load("wall.sw", source)
                 .expect_err("the three proofs fail");
@@ -953,7 +954,7 @@ fn box_equations(session: &Session) -> Vec<(String, String, [u8; 32])> {
 
 fn in_thread(f: impl FnOnce() + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(f)
         .unwrap()
         .join()
@@ -1010,7 +1011,7 @@ fn a_library_equation_is_the_same_however_it_is_made() {
 #[test]
 fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
     in_thread(|| {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         let program = "import Std (Map, Nat)\n\ndef one: Map Nat Nat := Map.singleton 1 1\n";
         if let Err(errors) = session.load("map.sw", program) {
             panic!("doesn't load: {errors:#?}");
@@ -1036,7 +1037,7 @@ fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
 #[ignore]
 fn a_projects_equations() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
             let project = std::env::var("EQUATIONS_PROJECT").unwrap_or_else(|_| "aoc".to_string());
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1044,7 +1045,7 @@ fn a_projects_equations() {
                 .join(&project);
             let name = root.file_name().unwrap().to_string_lossy().to_string();
             let files = stitchwort_driver::project::DiskFiles { root };
-            let mut session = Session::eager_for_stack(256 << 20);
+            let mut session = Session::eager_for_stack(BIG_STACK);
             let first = session.elab.kernel.env.defs().len();
             if let Err(errors) = session.load_project(
                 &files,
@@ -1094,7 +1095,7 @@ fn a_projects_equations() {
 }
 
 /// SW-1182: a lifted `match h: e` that generalises `e` in the goal has
-/// alternatives whose right sides have the type at their pattern (`Yes rfl:
+/// alternatives whose right sides have the type at their pattern (`Decidable.yes rfl:
 /// Decidable (0 = 0)`), not at `e`, so its branch equations are skipped with
 /// the reason; they were stated ill-typed and refused by the kernel. One
 /// whose result type doesn't mention `e` still gets its equations.
@@ -1102,11 +1103,11 @@ fn a_projects_equations() {
 fn a_generalising_matchs_branches_are_skipped_not_refused() {
     let source = r#"
 import List (length)
-import Std (Bool, Eq, Nat)
+import Std (Bool, Decidable, Eq, Nat)
 
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Yes rfl
-  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes rfl
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p → Bool
   | _ => True
@@ -1144,10 +1145,10 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
 #[test]
 fn library_equations_come_out_the_same_whoever_asks() {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(|| {
             let imports = "import Std (List, Nat)\n\n";
-            let mut driven = Session::new();
+            let mut driven = Session::for_stack(STACK);
             driven.elab.options.glue = false;
             driven
                 .load(
@@ -1171,7 +1172,7 @@ fn library_equations_come_out_the_same_whoever_asks() {
                 .collect();
             assert!(names.len() > 100, "{} equations", names.len());
 
-            let mut asked = Session::new();
+            let mut asked = Session::for_stack(STACK);
             for (i, name) in names.iter().enumerate() {
                 let source = format!("{imports}def use{i}: _ := {name}\n");
                 let _ = asked.load(&format!("asked{i}.sw"), &source);
@@ -1197,4 +1198,58 @@ fn library_equations_come_out_the_same_whoever_asks() {
         .unwrap()
         .join()
         .unwrap();
+}
+
+/// A `()` arm has no equation of its own, and the arms around it keep
+/// theirs, numbered by their place among all the arms; theorems use them
+/// by applying them. A `match` below an arm with an absurd alternative
+/// gets the equations of its other alternatives too, and the absurd one
+/// is recorded as skipped.
+const ABSURD_ARMS: &str = r#"
+import Std (Nat)
+
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+
+type Fin: Nat → Type =
+  | FZero: Fin (Succ n)
+  | FSucc (i: Fin n): Fin (Succ n)
+
+def at: (v: Vec Nat n) → Fin n → Nat
+  | VCons x _, FZero => x
+  | VNil, ()
+  | VCons _ xs, FSucc j => at xs j
+
+def pick (d: Nat): (v: Vec Nat n) → Fin n → Nat
+  | VCons x xs, i =>
+    match i with
+      | FZero => x
+      | FSucc j => pick d xs j
+  | VNil, i =>
+    match i with
+      | ()
+
+theorem atZero (x: Nat) (xs: Vec Nat n): at (VCons x xs) FZero = x := at.eq1 n x xs
+
+theorem atSucc (x: Nat) (xs: Vec Nat n) (j: Fin n): at (VCons x xs) (FSucc j) = at xs j :=
+  at.eq3 n x xs j
+"#;
+
+#[test]
+fn an_absurd_arm_leaves_the_equations_around_it_numbered_by_their_place() {
+    with_source(ABSURD_ARMS.to_string(), |s| {
+        let eq1 = generated(s, "at.eq1");
+        assert!(eq1.contains("at (VCons n x xs) (FZero n) = x"), "{eq1}");
+        let eq3 = generated(s, "at.eq3");
+        assert!(
+            eq3.contains("at (VCons n x xs) (FSucc n j) = at xs j"),
+            "{eq3}"
+        );
+        let made = |name: &str| s.elab.ev().env.defs().iter().any(|d| &**d.name() == name);
+        assert!(!made("at.eq2"), "an absurd arm has no equation");
+        assert!(made("pick.eq1.fZero") && made("pick.eq1.fSucc"));
+        let why = skipped(s, "pick.eq2.alt1");
+        assert!(why.contains("no right side"), "{why}");
+    });
 }

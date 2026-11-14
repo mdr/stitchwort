@@ -129,6 +129,10 @@ pub struct Local {
     /// For a `let` of data, its value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    /// How it splits into its type's constructors, as written where it is
+    /// in scope ([`Session::split_patterns`]).
+    #[serde(skip)]
+    pub splits: Option<Vec<String>>,
 }
 
 /// An open goal `?`.
@@ -137,9 +141,16 @@ pub struct Goal {
     pub range: Range,
     /// What the hole is in: "`addZero`".
     pub owner: String,
-    /// What must be shown (after `⊢`).
+    /// What must be shown (after `⊢`), as written (D3522).
     pub goal: String,
+    /// What it computes to, when that prints differently.
+    #[serde(rename = "goalComputed")]
+    pub goal_computed: Option<String>,
     pub context: Vec<Local>,
+    /// Whether the goal is a proposition (a proof goal), if its sort was
+    /// known when the hole was checked.
+    #[serde(skip)]
+    pub prop: Option<bool>,
     /// The goal as the command line prints it (the label, then the notes).
     pub text: String,
 }
@@ -166,14 +177,17 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
                     .strip_prefix("in ")
                     .unwrap_or(&d.message)
                     .to_string(),
-                goal: data.target.clone(),
+                goal: data.shown().to_string(),
+                goal_computed: data.computed().map(str::to_string),
                 context: (data.hypotheses.iter())
                     .map(|h| Local {
                         name: h.name.clone(),
                         ty: h.ty.clone(),
                         value: h.value.clone(),
+                        splits: h.splits.clone(),
                     })
                     .collect(),
+                prop: data.prop,
                 text: body.join("\n"),
             })
         })
@@ -266,10 +280,16 @@ pub fn hover_of(r: &LiveRef) -> Hover {
                 "```stitchwort\n{} {} {header}\n```",
                 r.kind, r.name
             ));
+            if let Some(unfolded) = &r.unfolded {
+                text.push_str(&format!("\nthat is, {unfolded}"));
+            }
         }
         _ => {
             if let Some(ty) = &r.ty {
                 text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
+                if let Some(unfolded) = &r.unfolded {
+                    text.push_str(&format!("that is, {unfolded}\n"));
+                }
             }
             text.push_str(&format!("{} `{}`", r.kind, r.name));
         }
@@ -342,15 +362,16 @@ fn selection_hover(
         if let Some(binder) = file.binder_exactly(place, selection) {
             return Some(hover_of(&binder));
         }
-        if file.exprs.iter().all(|(r, _)| *r != selection) {
+        if file.exprs.iter().all(|(r, _, _)| *r != selection) {
             return None;
         }
     }
-    let (range, ty) = file.expr_covering(selection)?;
-    Some(Hover {
-        range,
-        markdown: format!("```stitchwort\n{ty}\n```"),
-    })
+    let (range, ty, unfolded) = file.expr_covering(selection)?;
+    let mut markdown = format!("```stitchwort\n{ty}\n```");
+    if let Some(unfolded) = unfolded {
+        markdown.push_str(&format!("\nthat is, {unfolded}"));
+    }
+    Some(Hover { range, markdown })
 }
 
 // ---- signature ----------------------------------------------------------
@@ -500,12 +521,14 @@ pub struct Action {
     pub new_text: String,
 }
 
-/// Options for the quick fixes' search: the top three, within 5 s, and no
-/// more candidates once `wanted` have closed the goal.
+/// Options for the quick fixes' search: the simplest closer alone if one
+/// closes the goal (SW-2966); else the top three, within 5 s, and no more
+/// candidates once `wanted` have closed the goal.
 pub fn action_options(wanted: usize) -> AtOptions {
     AtOptions {
         limit: 3,
         stop_after_closing: Some(wanted),
+        simplest_first: true,
         time: Duration::from_secs(5),
         ..Default::default()
     }
@@ -600,19 +623,246 @@ impl Session {
 // ---- context -----------------------------------------------------------
 
 /// What is known at a cursor: the type of the smallest expression there,
-/// and the names in scope.
+/// and the names in scope; or, on a step of a proof, the goal after it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Context {
-    /// The expression the answer is about.
+    /// The expression (or step) the answer is about.
     pub range: Range,
     /// Its type: what it was checked against when `checked` (the expected
     /// type), else the type found for it.
     #[serde(rename = "type")]
     pub ty: String,
+    /// What `ty` computes to, when that prints differently (D3522: `ty` is
+    /// as written).
+    #[serde(rename = "typeComputed")]
+    pub ty_computed: Option<String>,
     pub checked: bool,
+    /// Whether `ty` is a proposition: the answer is a goal to prove, not the
+    /// type of a program's expression.
+    pub proof: bool,
+    /// The type found for the expression, when it isn't `ty`, the one it
+    /// was checked against (D3499: `expected T`, `has type U`).
+    pub found: Option<String>,
     /// The names in scope there, a variable before anything whose type
     /// mentions it; the same list and the same printing as a goal's.
     pub locals: Vec<Local>,
+    /// The declaration it is in, as written.
+    pub declaration: Option<String>,
+    /// The step of the proof the cursor is on, if any.
+    pub step: Option<Step>,
+    /// Every step of the declaration, in source order.
+    pub steps: Vec<Step>,
+}
+
+/// A step of a proof: a place where its goal changes
+/// (docs/proposals/goal-at-any-point.md §3.1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Step {
+    /// `match`, `arm`, `rewriteRule`, `calcLine`, `lambda`, `let`, `if`, or
+    /// `statement` in a declaration's signature (its body's goal).
+    pub form: &'static str,
+    /// Where it is, as a reader would name it: "rule 2 of 2 of `rewrite`".
+    pub description: String,
+    /// The text it answers for: a rule, an arm's pattern, a calc line up to
+    /// its proof, a parameter, a `let`'s name.
+    pub range: Range,
+    /// Which of how many, from 1: a rule of its `rewrite`, an arm of its
+    /// `match`, a line of its `calc`, `then` (1) or `else` (2).
+    pub index: Option<usize>,
+    pub of: Option<usize>,
+    /// The goal before the step: for a `calc` line, what the lines before
+    /// it prove.
+    pub before: Option<String>,
+    /// What `before` computes to, when that prints differently.
+    #[serde(rename = "beforeComputed")]
+    pub before_computed: Option<String>,
+    /// The goal after it: for a `calc` line, the line's statement.
+    pub after: String,
+    /// What `after` computes to, when that prints differently.
+    #[serde(rename = "afterComputed")]
+    pub after_computed: Option<String>,
+    /// Whether the goals are propositions.
+    pub proof: bool,
+    /// The names the step brings into scope.
+    pub adds: Vec<String>,
+    /// A rewrite rule's equation as used, its unknowns solved.
+    pub rule: Option<String>,
+    /// For `rewrite … at h`: `h`, whose type the rules rewrite.
+    pub target: Option<String>,
+    /// The names in scope after the step.
+    pub locals: Vec<Local>,
+}
+
+impl Step {
+    fn of(step: stitchwort_elab::StepAt, text: &str) -> Step {
+        use stitchwort_elab::StepForm;
+        let (l1, c1) = position_at(text, step.head.start as usize);
+        let (l2, c2) = position_at(text, step.head.end as usize);
+        let written = (text.get(step.head.start as usize..step.head.end as usize))
+            .unwrap_or("")
+            .trim()
+            .trim_end_matches("=>")
+            .trim_end_matches(":=")
+            .trim();
+        let numbered = |what: &str| match step.index {
+            Some((i, n)) => format!("{what} {} of {n}", i + 1),
+            None => what.to_string(),
+        };
+        // A declaration's own body, `name (params): T := body`, is the arm
+        // of no `match`: its head is the signature, and what it adds are the
+        // parameters, the declaration's own.
+        let statement = step.form == StepForm::Arm && !written.starts_with('|');
+        let description = match step.form {
+            _ if statement => "the statement".into(),
+            StepForm::Match => match step.index {
+                Some((_, n)) => format!("`match` with {n} arm{}", if n == 1 { "" } else { "s" }),
+                None => "`match`".into(),
+            },
+            StepForm::Arm => format!("{}, `{written}`", numbered("arm")),
+            StepForm::RewriteRule => match &step.target {
+                Some(h) => format!("{} of `rewrite … at {h}`", numbered("rule")),
+                None => format!("{} of `rewrite`", numbered("rule")),
+            },
+            StepForm::CalcLine => format!("{} of `calc`, `{written}`", numbered("line")),
+            StepForm::Lambda => format!("parameter `{written}`"),
+            StepForm::Let => format!("`let {written}`"),
+            StepForm::If => match step.index {
+                Some((1, _)) => "`else` of `if`".into(),
+                _ => "`then` of `if`".into(),
+            },
+        };
+        let before = match step.before {
+            Some(computed) => {
+                let (shown, computed) = written_first(computed, step.before_written);
+                (Some(shown), computed)
+            }
+            None => (None, None),
+        };
+        let after = written_first(step.after, step.after_written);
+        Step {
+            form: if statement {
+                "statement"
+            } else {
+                step.form.name()
+            },
+            description,
+            range: [l1, c1, l2, c2],
+            index: step.index.map(|(i, _)| i + 1),
+            of: step.index.map(|(_, n)| n),
+            before: before.0,
+            before_computed: before.1,
+            after: after.0,
+            after_computed: after.1,
+            proof: step.proof,
+            adds: if statement { Vec::new() } else { step.adds },
+            rule: step.rule,
+            target: step.target,
+            locals: step.locals.into_iter().map(Local::of).collect(),
+        }
+    }
+}
+
+/// What a reader sees first and what it computes to, from a goal's computed
+/// print and its print as written, if that differs (D3522).
+fn written_first(computed: String, written: Option<String>) -> (String, Option<String>) {
+    match written {
+        Some(written) => (written, Some(computed)),
+        None => (computed, None),
+    }
+}
+
+impl Local {
+    fn of(h: stitchwort_syntax::Hypothesis) -> Local {
+        Local {
+            name: h.name,
+            ty: h.ty,
+            value: h.value,
+            splits: h.splits,
+        }
+    }
+}
+
+/// The line `computes to …` under a goal printed after `indent` columns,
+/// plain (the editors dim it), cut to [`stitchwort_syntax::COMPUTES_TO_LIMIT`].
+fn computes_to(out: &mut String, indent: usize, computed: &Option<String>) {
+    if let Some(computed) = computed {
+        let cut = stitchwort_syntax::cut_computed(computed);
+        out.push_str(&format!("{:indent$}computes to {cut}\n", ""));
+    }
+}
+
+impl Context {
+    /// The answer as the command line prints it: where it is, the names in
+    /// scope, then `⊢ goal` in a proof or `expected T` in a program (and
+    /// `has type U` when the expression's own type differs); on a step, the
+    /// goal before and after it.
+    pub fn render_text(&self) -> String {
+        let mut out = String::new();
+        if let Some(declaration) = &self.declaration {
+            match &self.step {
+                Some(step) => out.push_str(&format!("in `{declaration}`, {}\n", step.description)),
+                None => out.push_str(&format!("in `{declaration}`\n")),
+            }
+        }
+        let added =
+            |name: &str| (self.step.as_ref()).is_some_and(|s| s.adds.iter().any(|a| a == name));
+        for local in &self.locals {
+            let mark = if added(&local.name) { "+ " } else { "" };
+            match &local.value {
+                Some(value) => out.push_str(&format!(
+                    "  {mark}{}: {} := {value}\n",
+                    local.name, local.ty
+                )),
+                None => out.push_str(&format!("  {mark}{}: {}\n", local.name, local.ty)),
+            }
+        }
+        let goal = |proof: bool| if proof { "⊢" } else { "expected" };
+        match &self.step {
+            Some(step) => {
+                // `rewrite … at h` rewrites `h`'s type, not the goal.
+                let target = step.target.as_ref().map(|h| format!("{h}:"));
+                let label = target.as_deref().unwrap_or(goal(step.proof));
+                match step.form {
+                    "calcLine" => {
+                        if let Some(before) = &step.before {
+                            out.push_str(&format!("  so far {before}\n"));
+                            computes_to(&mut out, 9, &step.before_computed);
+                        }
+                        out.push_str(&format!("  line   {label} {}\n", step.after));
+                        computes_to(&mut out, 9, &step.after_computed);
+                    }
+                    "match" | "statement" => {
+                        out.push_str(&format!("  {label} {}\n", step.after));
+                        computes_to(&mut out, 2, &step.after_computed);
+                    }
+                    _ => {
+                        let at = 9;
+                        if let Some(before) = &step.before {
+                            out.push_str(&format!("  before {label} {before}\n"));
+                            computes_to(&mut out, at, &step.before_computed);
+                        }
+                        if let Some(rule) = &step.rule {
+                            out.push_str(&format!("  rule   {rule}\n"));
+                        }
+                        out.push_str(&format!("  after  {label} {}\n", step.after));
+                        computes_to(&mut out, at, &step.after_computed);
+                    }
+                }
+            }
+            // Nothing was expected: the type is the one found.
+            None if !self.checked && !self.proof => {
+                out.push_str(&format!("  has type {}\n", self.ty))
+            }
+            None => {
+                out.push_str(&format!("  {} {}\n", goal(self.proof), self.ty));
+                computes_to(&mut out, 2, &self.ty_computed);
+                if let Some(found) = &self.found {
+                    out.push_str(&format!("  has type {found}\n"));
+                }
+            }
+        }
+        out
+    }
 }
 
 impl Session {
@@ -620,16 +870,19 @@ impl Session {
         let found = self.elab.take_probed_context()?;
         let (l1, c1) = position_at(text, found.span.start as usize);
         let (l2, c2) = position_at(text, found.span.end as usize);
+        let ty = written_first(found.ty, found.ty_written);
         Some(Context {
             range: [l1, c1, l2, c2],
-            ty: found.ty,
+            ty: ty.0,
+            ty_computed: ty.1,
             checked: found.checked,
-            locals: (found.locals.into_iter())
-                .map(|h| Local {
-                    name: h.name,
-                    ty: h.ty,
-                    value: h.value,
-                })
+            proof: found.proof,
+            found: found.found,
+            locals: found.locals.into_iter().map(Local::of).collect(),
+            declaration: found.declaration,
+            step: found.step.map(|s| Step::of(s, text)),
+            steps: (found.steps.into_iter())
+                .map(|s| Step::of(s, text))
                 .collect(),
         })
     }
@@ -805,16 +1058,41 @@ impl Session {
 impl Session {
     /// The patterns that split the variable `local` of `context` into its
     /// constructors (`MissingCases::fills` form), if its type is a data
-    /// type this session knows ([`stitchwort_elab::Elaborator::
-    /// constructor_patterns`]).
+    /// type ([`stitchwort_elab::Elaborator::constructor_patterns`], found
+    /// from the elaborated type, not its printed name).
     pub fn split_patterns(&self, context: &Context, local: &str) -> Option<Vec<String>> {
-        let ty = &context.locals.iter().rev().find(|l| l.name == local)?.ty;
-        let head = ty.split_whitespace().next()?;
-        if !head.starts_with(|c: char| c.is_alphabetic()) {
-            return None;
-        }
-        self.elab.constructor_patterns(head)
+        context
+            .locals
+            .iter()
+            .rev()
+            .find(|l| l.name == local)?
+            .splits
+            .clone()
     }
+
+    /// The variables of `context` that can be split, each with the
+    /// patterns of its type's constructors ([`Session::split_patterns`]),
+    /// in scope order. A name that a later variable shadows is not offered.
+    pub fn splittable(&self, context: &Context) -> Vec<(String, Vec<String>)> {
+        splittable_locals(&context.locals)
+    }
+}
+
+/// [`Session::splittable`] from the locals alone: a published goal's
+/// context carries each variable's constructor patterns, so the splits at
+/// a `?` need no session.
+pub fn splittable_locals(locals: &[Local]) -> Vec<(String, Vec<String>)> {
+    let mut out = Vec::new();
+    for (i, local) in locals.iter().enumerate() {
+        let shadowed = locals[i + 1..].iter().any(|l| l.name == local.name);
+        if shadowed || !local.name.starts_with(|c: char| c.is_lowercase()) {
+            continue;
+        }
+        if let Some(patterns) = &local.splits {
+            out.push((local.name.clone(), patterns.clone()));
+        }
+    }
+    out
 }
 
 /// The name completion writes after a `.` so that the text parses while

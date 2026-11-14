@@ -1,3 +1,3 @@
 namespace N
 
-instance helper: Decidable Token := Yes MkToken
+instance helper: Decidable Token := Std.Decidable.yes MkToken

@@ -8,7 +8,6 @@ opaque def countDown (n: Nat): Nat
 :=
   if n < 1 then 0 else 1 + countDown (n - 1) [decreasing := omega]
 
-theorem countDownZero: countDown 0 = 0 :=
-  rewrite countDown.unfold in rfl
+theorem countDownZero: countDown 0 = 0 := rewrite countDown.unfold in rfl
 
 test "countDown runs" := countDown 16 == 16

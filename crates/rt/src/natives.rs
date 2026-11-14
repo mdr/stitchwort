@@ -78,7 +78,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "7190060523547217c6932d39434bf97daca0527bb8077c91343deefeb4097461",
+        "2386c2ad2b5b1b4b27bda6f60bfa4c3eba1bc37d5c7084e336bd923d836e9252",
     ),
     (
         Builtin::TextCompare,
@@ -118,7 +118,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextSplit,
         TextNative::TextSplit,
-        "fd37643a598f7d4d70326f536b4e759e7eb1b5f83feacd0c202c56a1ea4350e5",
+        "8fe46e1198ee8243158f1f91dc0f215efe8ab472e590ae29be729a13f575218d",
     ),
     (
         Builtin::TextJoin,
@@ -437,7 +437,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::DecEqInt,
         IntNative::DecEqInt,
-        "5dd2b4e35593ffe88e70b21f871b9a0f9bfada56fcc5803b23b1a2b6cb543ecc",
+        "2d47ac360bceb3e58f4c321d30391677d4db21e55adb37abde559ea2c9fb61b7",
     ),
     (
         Builtin::IntLeq,
@@ -625,7 +625,7 @@ const FIN_NATIVES: &[(Builtin, FinNative, &str)] = &[
     (
         Builtin::FinOfNatLt,
         FinNative::OfNatLt,
-        "611c35e0501875b77124d9ece23151f8d8d211dde99cfd0ef92441ac0a3c3b9a",
+        "eb62ae31e78cd162de92fcbe29736b46353a8ba13aedee582ce8d6fba638888a",
     ),
 ];
 
@@ -868,7 +868,7 @@ const ARRAY_NATIVES: &[(Builtin, ArrayNative, &str)] = &[
     (
         Builtin::ArrayGetLt,
         ArrayNative::GetLt,
-        "16baf6632826c3d51720f53d5349dd76d5f8edde040fd9829c8c9913e3742b3a",
+        "edc9d5e4c5a5b3fd6d411b565867354b854f2ab214f46b4d2bf0d2174d550aaf",
     ),
     (
         Builtin::ArraySet,

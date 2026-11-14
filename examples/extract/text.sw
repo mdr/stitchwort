@@ -121,11 +121,11 @@ export def codeOf (c: Char): Nat := Char.toNat c
 
 export def charOf (n: Nat): Option Char := Char.fromNat n
 
-export def same (a: Text) (b: Text): Bool := a == b
+export def same (a b: Text): Bool := a == b
 
-export def order (a: Text) (b: Text): Ordering := Text.compare a b
+export def order (a b: Text): Ordering := Text.compare a b
 
-export def join (a: Text) (b: Text): Text := a ++ b
+export def join (a b: Text): Text := a ++ b
 
 export def split (c: Char) (t: Text): List Text := Text.split t c
 
@@ -143,7 +143,7 @@ export def take (n: Nat) (t: Text): Text := Text.take t n
 
 export def drop (n: Nat) (t: Text): Text := Text.drop t n
 
-export def contains (needle: Text) (t: Text): Bool := Text.contains t needle
+export def contains (needle t: Text): Bool := Text.contains t needle
 
 -- User code over the characters.
 export def reverse (t: Text): Text := Text.fromList (List.reverseOnto (Text.toList t) Nil)
@@ -155,8 +155,7 @@ def countIn (c: Char): List Char → Nat
 export def countChar (c: Char) (t: Text): Nat := countIn c (Text.toList t)
 
 -- Text inside a user's data type, a list and the prelude's `Option` and `Pair`.
-type Person: Type =
-  | MkPerson (name: Text) (initial: Char) (tags: List Text)
+type Person: Type = | MkPerson (name: Text) (initial: Char) (tags: List Text)
 
 export def greet: Person → Text
   | MkPerson name initial tags => "Hello, " ++ name ++ " (" ++ Text.fromList (Cons initial Nil) ++ ")"
@@ -177,8 +176,7 @@ export def orEmpty: Option Text → Text
 export def firstOf (p: Pair Char Text): Char := Pair.fst p
 
 -- Fields named like the decoder's own variables.
-type Located: Type =
-  | At (path: Text) (x: Char) (inside: List Char)
+type Located: Type = | At (path: Text) (x: Char) (inside: List Char)
 
 export def located: Located → Located
   | At p c cs => At (p ++ "/") c (Cons c cs)
@@ -188,7 +186,7 @@ export def located: Located → Located
 -- taken apart by ordinary pattern matching.
 export def empty (t: Text): Bool := Text.isEmpty t
 
-export def less (a: Text) (b: Text): Bool := Text.less a b
+export def less (a b: Text): Bool := Text.less a b
 
 export def codes (t: Text): List Nat := Text.fold t Nil (c ns => Cons (Char.toNat c) ns)
 

@@ -13,12 +13,9 @@
 
 import Std (List)
 
-type Tree: Type =
-  | Node (label: Nat) (kids: Forest)
+type Tree: Type = | Node (label: Nat) (kids: Forest)
 
-type Forest: Type =
-  | FNil
-  | FCons (first: Tree) (rest: Forest)
+type Forest: Type = | FNil | FCons (first: Tree) (rest: Forest)
 
 export def size: Tree → Nat
   | Node n kids => Succ (sizeForest kids)
@@ -47,12 +44,9 @@ def deepOnto (t: Tree): Nat → Tree
 export def deep (n: Nat): Tree := deepOnto (Node 0 FNil) n
 
 -- With a parameter.
-type Rose (a: Type): Type =
-  | Bloom (value: a) (kids: Roses a)
+type Rose (a: Type): Type = | Bloom (value: a) (kids: Roses a)
 
-type Roses (a: Type): Type =
-  | NoRoses
-  | MoreRoses (first: Rose a) (rest: Roses a)
+type Roses (a: Type): Type = | NoRoses | MoreRoses (first: Rose a) (rest: Roses a)
 
 def flattenRose: Rose a → List a
   | Bloom x kids => Cons x (flattenRoses kids)

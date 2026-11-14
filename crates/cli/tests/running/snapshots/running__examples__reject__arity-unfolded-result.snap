@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-ARITY] Error: this arm has 1 pattern(s), but `holdsAll` takes more arguments after the colon

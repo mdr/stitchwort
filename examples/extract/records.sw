@@ -25,7 +25,7 @@ export def birthday (p: Person): Person := { p | age = p.age + 1 }
 
 export def rename (n: Text) (p: Person): Person := { p | name = n }
 
-def older (p: Person) (q: Person): Person := if Nat.leq q.age p.age then p else q
+def older (p q: Person): Person := if Nat.leq q.age p.age then p else q
 
 export def oldest: List Person → Option Person
   | Nil => None

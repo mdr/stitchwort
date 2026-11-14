@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/search.rs
+source: crates/cli/tests/server/search.rs
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -38,7 +38,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "relation": "instance",
       "size": 25,
       "summary": null,
-      "type": "(xs: List Nat) → (twice xs).length = xs.length + xs.length"
+      "type": "∀ (xs: List Nat) => (twice xs).length = xs.length + xs.length"
     }
   ],
   "searchTier": "filtered",

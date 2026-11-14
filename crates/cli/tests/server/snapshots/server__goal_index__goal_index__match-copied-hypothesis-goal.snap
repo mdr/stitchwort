@@ -1,0 +1,88 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "True = True"
+        }
+      ],
+      "lemma": "theorem copiedGoal1 (n: Nat) (h: True = True): h = h := ?",
+      "target": "h = h"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nh: True = True\n⊢ h = h",
+        "range": [
+          8,
+          14,
+          8,
+          15
+        ]
+      }
+    ],
+    "message": "in `copied`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      8,
+      14,
+      8,
+      15
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "h",
+          "type": "False = True"
+        }
+      ],
+      "lemma": "theorem copiedGoal2 (n: Nat) (h: False = True): h = h := ?",
+      "target": "h = h"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "n: Nat\nh: False = True\n⊢ h = h",
+        "range": [
+          9,
+          15,
+          9,
+          16
+        ]
+      }
+    ],
+    "message": "in `copied`",
+    "notes": [
+      "1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it"
+    ],
+    "range": [
+      9,
+      15,
+      9,
+      16
+    ],
+    "severity": "goal"
+  }
+]

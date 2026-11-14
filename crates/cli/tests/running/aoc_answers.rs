@@ -36,6 +36,12 @@ const ANSWERS: &[(&str, &str, &str, &str)] = &[
     ("2020", "18", "15285807527593", "461295257566346"),
     ("2020", "19", "182", "334"),
     ("2020", "20", "66020135789767", "1537"),
+    (
+        "2020",
+        "21",
+        "2380",
+        "ktpbgdn,pnpfjb,ndfb,rdhljms,xzfj,bfgcms,fkcmf,hdqkqhh",
+    ),
     ("2021", "01", "1616", "1645"),
     ("2021", "02", "1635930", "1781819478"),
     ("2021", "03", "4191876", "3414905"),
@@ -111,8 +117,7 @@ fn check_with(year: &str, day: &str, cache: &[&str]) {
     let input = std::fs::File::open(dir.join(format!("inputs/{year}/day{day}.txt")))
         .expect("open the puzzle input");
     let output = spawn(
-        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+        crate::common::cli("run")
             .args(cache)
             .arg(format!("Aoc.Year{year}.Day{day}.main"))
             .current_dir(&dir)
@@ -251,6 +256,11 @@ fn year2020_day20() {
 }
 
 #[test]
+fn year2020_day21() {
+    check("2020", "21");
+}
+
+#[test]
 fn year2021_day01() {
     check("2021", "01");
 }
@@ -322,7 +332,7 @@ fn year2021_day14() {
 
 /// About 20 s interpreted with `--no-cache` (part 2: Dijkstra over 250,000
 /// positions with std's tree-based `Set` and `Map`), the slowest day here;
-/// 4.5 s with `--native`, 3 s with `--js` (aoc/NOTES-2021.md, day 15).
+/// 4.5 s with `run --native`, 3 s with `--js` (aoc/NOTES-2021.md, day 15).
 #[test]
 fn year2021_day15() {
     check("2021", "15");

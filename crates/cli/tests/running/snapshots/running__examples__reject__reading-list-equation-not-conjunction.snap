@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be taken apart with `Both`
+   ╭─[ reject/reading-list-equation-not-conjunction.sw:9:7 ]
+   │
+ 9 │     | Both heads tails => heads.read
+   │       ────────┬───────  
+   │               ╰───────── `((x.decEq y).and (Std.List.decEq (x y => x.decEq y) xs ys)).holds` reads as `[x, ..xs] = [y, ..ys]` (by its decision)
+   │ 
+   │ Note 1: this pattern matches an `And`, and `[x, ..xs] = [y, ..ys]` isn't one
+   │ 
+   │ Note 2: a test fact can always be matched by a name, and `.read` gives the proposition
+───╯

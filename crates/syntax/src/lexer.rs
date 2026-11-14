@@ -17,12 +17,20 @@ pub enum Tok {
     Float(String),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
-    /// The text before `${` in an interpolated string: `"a${x}"`.
+    /// The opening quote (`"` or `"""` and its line break) and the text
+    /// before the first `${` of an interpolated string: `"a` in `"a${x}"`.
+    /// Every text token's span is exactly the source it was read from.
     StrStart(String),
     /// The text between a `}` and the next `${` in an interpolated string.
+    /// Left out when there is none (`"${x}${y}"`).
     StrMid(String),
-    /// The text after the last `}` in an interpolated string.
+    /// The text after the last `}` of an interpolated string, with the
+    /// closing quote: `b"` in `"${x}b"`.
     StrEnd(String),
+    /// The `${` that opens an interpolation inside a text literal.
+    InterpOpen,
+    /// The `}` that closes an interpolation inside a text literal.
+    InterpClose,
     /// A character literal: `'a'`.
     Char(char),
     /// `type`, which starts a data type declaration.
@@ -90,6 +98,10 @@ pub enum Tok {
     /// `Exists T ((x: T) => P)` (D1203). Right after a `.` it's an ordinary
     /// name: `x.exists` is a field or method called `exists`.
     KwExists,
+    /// `forall` (or `∀`), followed by parameters and `=>`: `forall (x: T) =>
+    /// P` is the function type `(x: T) -> P` (D3458). After a `.` it's an
+    /// ordinary name, as `exists` is.
+    KwForall,
     KwIf,
     KwThen,
     KwElse,
@@ -160,9 +172,9 @@ pub enum Tok {
 macro_rules! keyword_table {
     ($($word:literal => $tok:ident),* $(,)?) => {
         impl Tok {
-            /// The word of a keyword written as one: `test`, `then`. `in` and
-            /// `exists` may also be written `∈` and `∃`, which this can't tell
-            /// apart.
+            /// The word of a keyword written as one: `test`, `then`. `in`,
+            /// `exists` and `forall` may also be written `∈`, `∃` and `∀`,
+            /// which this can't tell apart.
             pub fn keyword(&self) -> Option<&'static str> {
                 match self {
                     $(Tok::$tok => Some($word),)*
@@ -197,6 +209,7 @@ keyword_table! {
     "else" => KwElse,
     "exists" => KwExists,
     "export" => KwExport,
+    "forall" => KwForall,
     "handle" => KwHandle,
     "if" => KwIf,
     "import" => KwImport,
@@ -290,6 +303,162 @@ pub fn lex_with_bars(file: FileId, text: &str) -> Result<(Vec<Token>, Vec<Span>)
 /// `--` inside a string or text literal is part of the literal, not a comment.
 pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
     lex_keeping(file, text, true)
+}
+
+/// A declaration that didn't lex, from [`lex_recovering`].
+#[derive(Clone, Debug)]
+pub struct LexFailure {
+    /// The lexical error, as [`lex`] reports it.
+    pub error: Diagnostic,
+    /// The bytes of the declaration (its attributes through to just before
+    /// the next declaration), which the tokens leave out.
+    pub range: std::ops::Range<usize>,
+}
+
+/// What [`lex_recovering`] read.
+#[derive(Clone, Debug)]
+pub struct Recovered {
+    /// The tokens of the parts that lexed, at their positions in `text`.
+    pub tokens: Vec<Token>,
+    /// The `--|` comments' spans, as [`lex_with_bars`] gives them.
+    pub bars: Vec<Span>,
+    /// One per declaration that has a lexical error, in file order.
+    pub failures: Vec<LexFailure>,
+}
+
+/// Whether a line starting with `line` can begin a declaration (or its
+/// attributes): it starts in column 0 with something other than a comment, or
+/// a bracket or `:=` that continues the line before.
+fn starts_declaration(line: &[u8]) -> bool {
+    match line.first() {
+        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b',' | b')' | b']' | b'}') => false,
+        Some(b'-') => line.get(1) != Some(&b'-'),
+        Some(b':') => line.get(1) != Some(&b'='),
+        Some(_) => true,
+    }
+}
+
+/// [`lex_with_bars`] that survives lexical errors. A declaration with one is
+/// left out of the tokens and reported in `failures`, so the declarations
+/// around it still lex and the parser can recover from it as it does from a
+/// parse error. The declaration is the lines from the nearest line above the
+/// error that starts in column 0 (and the `@[…]` lines before that) to the next
+/// such line below it, less the comments just before that one. A file that
+/// lexes gives the tokens of [`lex_with_bars`] and no failures.
+pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
+    let bytes = text.as_bytes();
+    // Searched by byte, since an error's span can end inside a character
+    // (a `ℕ`); a line start is always a character boundary.
+    let line_of = |at: usize| {
+        bytes[..at]
+            .iter()
+            .rposition(|&b| b == b'\n')
+            .map_or(0, |newline| newline + 1)
+    };
+    let next_line = |at: usize| {
+        bytes[at..]
+            .iter()
+            .position(|&b| b == b'\n')
+            .map_or(text.len(), |n| at + n + 1)
+    };
+    // `text` with the failed declarations' bytes replaced by spaces, so every
+    // other token keeps its position.
+    let mut current = text.to_string();
+    let mut failures: Vec<LexFailure> = Vec::new();
+    loop {
+        let error = match lex_keeping(file, &current, false) {
+            Ok(lexed) => {
+                failures.sort_by_key(|failure| failure.range.start);
+                return Recovered {
+                    tokens: lexed.tokens,
+                    bars: lexed.bars,
+                    failures,
+                };
+            }
+            Err(error) => error,
+        };
+        let (start, end) = error.primary_span().map_or((0, 0), |span| {
+            let start = (span.start as usize).min(text.len());
+            (start, (span.end as usize).clamp(start, text.len()))
+        });
+        // Back to the declaration's first line, and over the attributes above it.
+        let mut from = line_of(start);
+        while from > 0 && !starts_declaration(&bytes[from..]) {
+            from = line_of(from - 1);
+        }
+        while from > 0 {
+            let above = line_of(from - 1);
+            if !bytes[above..].starts_with(b"@[") {
+                break;
+            }
+            from = above;
+        }
+        // Forward to the next declaration's first line, less its comments.
+        let mut to = next_line(line_of(end));
+        while to < text.len() && !starts_declaration(&bytes[to..]) {
+            to = next_line(to);
+        }
+        while to > from {
+            let above = line_of(to - 1);
+            if above <= from || !bytes[above..].starts_with(b"--") {
+                break;
+            }
+            to = above;
+        }
+        let mut blanked = std::mem::take(&mut current).into_bytes();
+        let mut changed = false;
+        for byte in &mut blanked[from..to] {
+            if !matches!(*byte, b' ' | b'\n') {
+                *byte = b' ';
+                changed = true;
+            }
+        }
+        current = String::from_utf8(blanked).expect("spaces replace whole characters");
+        if !changed {
+            // The error is in text that is already blank, which can't
+            // happen; give up on the file rather than loop.
+            return Recovered {
+                tokens: Vec::new(),
+                bars: Vec::new(),
+                failures: vec![LexFailure {
+                    error,
+                    range: 0..text.len(),
+                }],
+            };
+        }
+        failures.push(LexFailure {
+            error,
+            range: from..to,
+        });
+    }
+}
+
+/// [`lex_with_trivia`] that survives lexical errors, as [`lex_recovering`]
+/// does: the declarations that don't lex are blanked out (their trivia goes
+/// with them) and listed, and the rest keep their positions.
+pub fn lex_recovering_with_trivia(file: FileId, text: &str) -> (Lexed, Vec<LexFailure>) {
+    if let Ok(lexed) = lex_keeping(file, text, true) {
+        return (lexed, Vec::new());
+    }
+    let recovered = lex_recovering(file, text);
+    let mut blanked = text.as_bytes().to_vec();
+    for failure in &recovered.failures {
+        for byte in &mut blanked[failure.range.clone()] {
+            if !matches!(*byte, b' ' | b'\n') {
+                *byte = b' ';
+            }
+        }
+    }
+    let blanked = String::from_utf8(blanked).expect("spaces replace whole characters");
+    // The same blanking lexes in `lex_recovering`; if it somehow doesn't,
+    // there is nothing to read.
+    let lexed = lex_keeping(file, &blanked, true).unwrap_or(Lexed {
+        tokens: Vec::new(),
+        trivia: Vec::new(),
+        eof: Trivia::default(),
+        bars: Vec::new(),
+    });
+    (lexed, recovered.failures)
 }
 
 /// Lexes `text`, recording the trivia only if `keep_trivia` (otherwise
@@ -483,7 +652,7 @@ fn lex_from(
                 match word {
                     "_" => Tok::Underscore,
                     // After a `.`, a field or a dot call: `x.exists p`.
-                    "exists" if start > 0 && bytes[start - 1] == b'.' => {
+                    "exists" | "forall" if start > 0 && bytes[start - 1] == b'.' => {
                         Tok::Lower(word.to_string())
                     }
                     _ if let Some(tok) = keyword_tok(word) => tok,
@@ -559,6 +728,15 @@ fn lex_from(
                     span: Span::new(file, start as u32, stop as u32),
                     column,
                     line_start: fresh_line,
+                });
+                if let Some(newline) = text[start..stop].rfind('\n') {
+                    line_start = start + newline + 1;
+                }
+                tokens.push(Token {
+                    tok: Tok::InterpOpen,
+                    span: Span::new(file, stop as u32, (stop + 2) as u32),
+                    column: (stop - line_start) as u32,
+                    line_start: false,
                 });
                 interps.push(Interp {
                     depth: 0,
@@ -653,6 +831,12 @@ fn lex_from(
                     closed_at = Some(start);
                     break;
                 }
+                tokens.push(Token {
+                    tok: Tok::InterpClose,
+                    span: Span::new(file, start as u32, i as u32),
+                    column,
+                    line_start: fresh_line,
+                });
                 let text_start = i;
                 let (chars, stop, interpolation) = match &mut interp.block {
                     Some(pieces) => {
@@ -676,21 +860,38 @@ fn lex_from(
                     None => scan_string(file, text, i, interp.start)?,
                 };
                 let close_len = if interp.block.is_some() { 3 } else { 1 };
-                let tok = if interpolation {
-                    i = stop + 2;
-                    Tok::StrMid(chars)
+                // The text up to the next `${` (or through the closing
+                // quote), then that `${`. A `}${` has no text between.
+                let text_end = if interpolation {
+                    stop
                 } else {
-                    i = stop + close_len;
-                    Tok::StrEnd(chars)
+                    stop + close_len
                 };
-                tokens.push(Token {
-                    tok,
-                    span: Span::new(file, text_start as u32, i as u32),
-                    column,
-                    line_start: fresh_line,
-                });
+                if !interpolation || text_end > text_start {
+                    tokens.push(Token {
+                        tok: if interpolation {
+                            Tok::StrMid(chars)
+                        } else {
+                            Tok::StrEnd(chars)
+                        },
+                        span: Span::new(file, text_start as u32, text_end as u32),
+                        column: (text_start - line_start) as u32,
+                        line_start: false,
+                    });
+                }
                 if let Some(newline) = text[text_start..stop].rfind('\n') {
                     line_start = text_start + newline + 1;
+                }
+                if interpolation {
+                    tokens.push(Token {
+                        tok: Tok::InterpOpen,
+                        span: Span::new(file, stop as u32, (stop + 2) as u32),
+                        column: (stop - line_start) as u32,
+                        line_start: false,
+                    });
+                    i = stop + 2;
+                } else {
+                    i = text_end;
                 }
                 if interpolation {
                     interps.push(interp);
@@ -1162,6 +1363,7 @@ pub const UNICODE_ALIASES: &[(char, &str)] = &[
     ('≥', ">="),
     ('≠', "!="),
     ('∃', "exists"),
+    ('∀', "forall"),
 ];
 
 /// The token a Unicode alias stands for.
@@ -1178,6 +1380,7 @@ fn unicode_alias(ch: char) -> Option<Tok> {
         '≥' => Tok::Ge,
         '≠' => Tok::NotEq,
         '∃' => Tok::KwExists,
+        '∀' => Tok::KwForall,
         _ => return None,
     })
 }
@@ -1185,7 +1388,6 @@ fn unicode_alias(ch: char) -> Option<Tok> {
 /// Symbols from logic and mathematics that aren't aliases, with what to
 /// write instead (D1208).
 const UNSUPPORTED: &[(char, &str)] = &[
-    ('∀', "\"for all\" is a function type: write `(x: T) -> P`"),
     (
         '⇒',
         "write `=>` for a lambda or a match arm, or `->` (or `→`) for implication",
@@ -1342,6 +1544,57 @@ mod tests {
         lex(file, text)
             .map(|ts| ts.into_iter().map(|t| t.tok).collect())
             .map_err(|d| d.code)
+    }
+
+    /// The declared names left after recovering, the names marked failed, and
+    /// the error messages' first lines' spans' starts.
+    fn recover(text: &str) -> (Vec<String>, Vec<String>, Vec<u32>) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);
+        let kept = module
+            .decls
+            .iter()
+            .filter_map(|decl| match decl {
+                crate::ast::Decl::Signature { name, .. } => Some(name.text.clone()),
+                _ => None,
+            })
+            .collect();
+        let failed = module.failed.iter().map(|f| f.name.text.clone()).collect();
+        let at = errors
+            .iter()
+            .map(|e| e.primary_span().expect("a span").start)
+            .collect();
+        (kept, failed, at)
+    }
+
+    #[test]
+    fn recovers_from_an_unclosed_string_at_the_next_declaration() {
+        let text =
+            "def a : Nat := 1\n\ndef b : Str := \"oops\n  + 1\n\n-- about c\ndef c : Nat := 3\n";
+        let (kept, failed, at) = recover(text);
+        assert_eq!(kept, ["a", "c"]);
+        assert_eq!(failed, ["b"]);
+        assert_eq!(at, [text.find('"').unwrap() as u32]);
+    }
+
+    #[test]
+    fn recovers_from_each_lexical_error_and_keeps_attributes_with_their_declaration() {
+        let text = "def a : Nat := 1 # 2\n@[inline]\ndef b : Nat := 2\n@[inline]\ndef c : Nat := \t3\ndef d : Nat := 4\n";
+        let (kept, failed, at) = recover(text);
+        assert_eq!(kept, ["b", "d"]);
+        assert_eq!(failed, ["a", "c"]);
+        assert_eq!(at.len(), 2);
+    }
+
+    #[test]
+    fn a_file_that_lexes_has_no_failures() {
+        let mut sources = SourceMap::new();
+        let text = "def a : Nat := 1\n";
+        let file = sources.add("test.sw", text);
+        let recovered = lex_recovering(file, text);
+        assert!(recovered.failures.is_empty());
+        assert_eq!(recovered.tokens.len(), lex(file, text).unwrap().len());
     }
 
     #[test]
@@ -1513,7 +1766,7 @@ mod tests {
     #[test]
     fn rejects_tabs_and_unknown_characters() {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
-        assert_eq!(tokens("a ∀ b"), Err("E-PARSE"));
+        assert_eq!(tokens("a λ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ⊆ b"), Err("E-PARSE"));
         assert_eq!(tokens("a # b"), Err("E-PARSE"));
         assert_eq!(
@@ -1568,11 +1821,18 @@ mod tests {
 
     #[test]
     fn logic_operators_and_their_unicode_aliases() {
-        let ascii = tokens("x in xs y !in ys p <-> q exists a -> b && c || !d <= e >= f != g");
-        let unicode = tokens("x ∈ xs y ∉ ys p ↔ q ∃ a → b ∧ c ∨ ¬d ≤ e ≥ f ≠ g");
+        let ascii =
+            tokens("x in xs y !in ys p <-> q exists a forall b -> b && c || !d <= e >= f != g");
+        let unicode = tokens("x ∈ xs y ∉ ys p ↔ q ∃ a ∀ b → b ∧ c ∨ ¬d ≤ e ≥ f ≠ g");
         assert_eq!(ascii, unicode);
         let toks = ascii.unwrap();
-        for tok in [Tok::KwIn, Tok::NotIn, Tok::Iff, Tok::KwExists] {
+        for tok in [
+            Tok::KwIn,
+            Tok::NotIn,
+            Tok::Iff,
+            Tok::KwExists,
+            Tok::KwForall,
+        ] {
             assert!(toks.contains(&tok), "{tok:?}");
         }
         // Every alias is a token, and the table says what it stands for.
@@ -1596,7 +1856,7 @@ mod tests {
     }
 
     #[test]
-    fn exists_after_a_dot_is_a_name() {
+    fn exists_and_forall_after_a_dot_are_names() {
         let lower = |s: &str| Tok::Lower(s.into());
         assert_eq!(
             tokens("o.exists Option.exists exists"),
@@ -1608,6 +1868,10 @@ mod tests {
                 Tok::KwExists
             ])
         );
+        assert_eq!(
+            tokens("o.forall forall"),
+            Ok(vec![lower("o"), Tok::Dot, lower("forall"), Tok::KwForall])
+        );
     }
 
     #[test]
@@ -1618,7 +1882,7 @@ mod tests {
             let d = lex(file, text).expect_err("an error");
             d.notes.join(" ")
         };
-        assert!(note("∀").contains("(x: T) -> P"));
+        assert!(note("⇒").contains("`=>`"));
         assert!(note("⊆").contains("set operators"));
         assert!(note("≡").contains("write `=`"));
         // A symbol the table doesn't name lists the aliases.
@@ -1665,7 +1929,9 @@ mod tests {
             tokens("\"a${x}b\""),
             Ok(vec![
                 Tok::StrStart("a".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("b".into()),
             ])
         );
@@ -1673,9 +1939,13 @@ mod tests {
             tokens("\"a${x}b${y}c\""),
             Ok(vec![
                 Tok::StrStart("a".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrMid("b".into()),
+                Tok::InterpOpen,
                 Tok::Lower("y".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("c".into()),
             ])
         );
@@ -1683,11 +1953,13 @@ mod tests {
             tokens("\"${ {value = 1} }\""),
             Ok(vec![
                 Tok::StrStart(String::new()),
+                Tok::InterpOpen,
                 Tok::LBrace,
                 Tok::Lower("value".into()),
                 Tok::Equals,
                 Tok::Num(1u32.into()),
                 Tok::RBrace,
+                Tok::InterpClose,
                 Tok::StrEnd(String::new()),
             ])
         );
@@ -1695,14 +1967,95 @@ mod tests {
             tokens("\"${f \"x\"}\""),
             Ok(vec![
                 Tok::StrStart(String::new()),
+                Tok::InterpOpen,
                 Tok::Lower("f".into()),
                 Tok::Str("x".into()),
+                Tok::InterpClose,
                 Tok::StrEnd(String::new()),
             ])
         );
         assert_eq!(tokens("\"\\${x}\""), Ok(vec![Tok::Str("${x}".into())]));
         assert_eq!(tokens("\"${x\""), Err("E-PARSE"));
         assert_eq!(tokens("\"${x\ny}\""), Err("E-PARSE"));
+    }
+
+    /// Each token's source text, so a test can see which bytes it covers.
+    fn pieces(text: &str) -> Vec<(Tok, &str)> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        lex(file, text)
+            .expect("lexes")
+            .into_iter()
+            .map(|t| (t.tok, &text[t.span.start as usize..t.span.end as usize]))
+            .collect()
+    }
+
+    #[test]
+    fn interpolation_delimiters_are_tokens_and_spans_are_their_text() {
+        assert_eq!(
+            pieces("\"a${x}b${y}c\""),
+            vec![
+                (Tok::StrStart("a".into()), "\"a"),
+                (Tok::InterpOpen, "${"),
+                (Tok::Lower("x".into()), "x"),
+                (Tok::InterpClose, "}"),
+                (Tok::StrMid("b".into()), "b"),
+                (Tok::InterpOpen, "${"),
+                (Tok::Lower("y".into()), "y"),
+                (Tok::InterpClose, "}"),
+                (Tok::StrEnd("c".into()), "c\""),
+            ]
+        );
+    }
+
+    #[test]
+    fn interpolation_with_braces_inside() {
+        assert_eq!(
+            pieces("\"${ {a := 1}.a }\""),
+            vec![
+                (Tok::StrStart(String::new()), "\""),
+                (Tok::InterpOpen, "${"),
+                (Tok::LBrace, "{"),
+                (Tok::Lower("a".into()), "a"),
+                (Tok::ColonEq, ":="),
+                (Tok::Num(1u32.into()), "1"),
+                (Tok::RBrace, "}"),
+                (Tok::Dot, "."),
+                (Tok::Lower("a".into()), "a"),
+                (Tok::InterpClose, "}"),
+                (Tok::StrEnd(String::new()), "\""),
+            ]
+        );
+    }
+
+    #[test]
+    fn back_to_back_interpolations_have_no_middle_text() {
+        assert_eq!(
+            tokens("\"${x}${y}\""),
+            Ok(vec![
+                Tok::StrStart(String::new()),
+                Tok::InterpOpen,
+                Tok::Lower("x".into()),
+                Tok::InterpClose,
+                Tok::InterpOpen,
+                Tok::Lower("y".into()),
+                Tok::InterpClose,
+                Tok::StrEnd(String::new()),
+            ])
+        );
+        assert_eq!(
+            tokens("\"\"\"\n  ${x}${y}\n  \"\"\""),
+            Ok(vec![
+                Tok::StrStart(String::new()),
+                Tok::InterpOpen,
+                Tok::Lower("x".into()),
+                Tok::InterpClose,
+                Tok::InterpOpen,
+                Tok::Lower("y".into()),
+                Tok::InterpClose,
+                Tok::StrEnd("\n".into()),
+            ])
+        );
     }
 
     #[test]
@@ -1795,13 +2148,17 @@ mod tests {
             tokens("\"\"\"\n  a ${x} b\n    c ${f \"}\" '}' {}}\n  \"\"\""),
             Ok(vec![
                 Tok::StrStart("a ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrMid(" b\n  c ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("f".into()),
                 Tok::Str("}".into()),
                 Tok::Char('}'),
                 Tok::LBrace,
                 Tok::RBrace,
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1844,12 +2201,16 @@ mod tests {
                 Tok::Upper("Text".into()),
                 Tok::ColonEq,
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Num(1u32.into()),
                 Tok::Char('}'),
                 Tok::PlusPlus,
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1858,11 +2219,17 @@ mod tests {
             tokens("\"\"\"\n  ${\"${\"}\"}\"} ${y}\n  \"\"\""),
             Ok(vec![
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Str("}".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("".into()),
+                Tok::InterpClose,
                 Tok::StrMid(" ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("y".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1871,9 +2238,13 @@ mod tests {
             tokens("\"\"\"\n  ${x'} ${y}\n  \"\"\""),
             Ok(vec![
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x'".into()),
+                Tok::InterpClose,
                 Tok::StrMid(" ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("y".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1939,7 +2310,7 @@ mod tests {
         assert!(failure("a\u{00A0}b").notes[0].contains("plain space"));
         assert!(failure("a\u{2061}b").notes[0].contains("delete it"));
         assert!(failure("a\u{061C}b").notes[0].contains("text-direction control"));
-        assert_eq!(failure("a ∀ b").message, "unexpected character `∀`");
+        assert_eq!(failure("a λ b").message, "unexpected character `λ`");
         assert_eq!(failure("a # b").message, "unexpected character `#`");
     }
 

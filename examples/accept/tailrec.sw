@@ -50,7 +50,9 @@ test "halves" := sumHalves [0, 10, 7] 0 == 8
 
 -- A definition by `decreasing`.
 @[tailrec]
-def halfAcc (n: Nat) (acc: Nat): Nat decreasing n :=
+def halfAcc (n acc: Nat): Nat
+    decreasing n
+:=
   if h: n < 2 then acc else halfAcc (n - 2) (acc + 1)
 
 test "half" := halfAcc 9 0 == 4
@@ -67,10 +69,9 @@ test "local tailrec" := reverseOnto [1, 2, 3] == [3, 2, 1]
 
 -- The attribute may be on its own line, and on an exported definition.
 @[tailrec]
-export def lengthOnto (xs: List Nat) (n: Nat): Nat :=
-  match xs with
-    | [] => n
-    | [_, ..rest] => lengthOnto rest (n + 1)
+export def lengthOnto (xs: List Nat) (n: Nat): Nat := match xs with
+  | [] => n
+  | [_, ..rest] => lengthOnto rest (n + 1)
 
 test "export" := lengthOnto [5, 6] 0 == 2
 

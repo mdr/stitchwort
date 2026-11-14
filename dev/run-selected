@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run the selector's choice (SW-1098): `task test:selected -- '<filterset>'`.
-# Same as test:merge (STITCHWORT_TIER=merge, memory guard, merge
+# Same as test:quick (STITCHWORT_TIER=quick, memory guard, quick
 # profile) but with the profile's own filter ignored, so the selection may
-# include tests the merge tier leaves out. In the main checkout it appends a
+# include tests the quick tier leaves out. In the main checkout it appends a
 # line to dev/selector-log.tsv (a lane's worktree doesn't: the file is tracked,
 # and lanes would each dirty it): date, commit, estimated s, actual s, result, failed
 # tests, EXAMPLES, filter. Env: SELECTOR_ESTIMATE (the selector's estimate, in s);
@@ -17,17 +17,17 @@ main_checkout=0
 [ "$(git rev-parse --path-format=absolute --git-dir)" = "$(git rev-parse --path-format=absolute --git-common-dir)" ] && main_checkout=1
 [ "$main_checkout" = 0 ] || [ -e "$log" ] || printf 'date\tcommit\testimated_s\tactual_s\tresult\tfailed\texamples\tfilter\n' > "$log"
 est=${SELECTOR_ESTIMATE:-$(dev/test-inventory --estimate "$filter" | sed -n '1s/.*ESTIMATE \([0-9.]*\) s.*/\1/p')}
-export STITCHWORT_TIER=merge
+export STITCHWORT_TIER=quick
 out=$(mktemp)
 start=$(date +%s)
 "$root/dev/memguard" --cap-gb "${STITCHWORT_MEM_CAP_GB_SELECTED:-16}" -- cargo nextest run --release \
-  $("$root/dev/test-scope" --profile merge --ignore-default-filter -E "$filter") \
-  --profile merge --ignore-default-filter --no-tests=fail -E "$filter" 2>&1 | tee "$out"
+  $("$root/dev/test-scope" --profile quick --ignore-default-filter -E "$filter") \
+  --profile quick --ignore-default-filter --no-tests=fail -E "$filter" 2>&1 | tee "$out"
 status=${PIPESTATUS[0]}
 actual=$(( $(date +%s) - start ))
-# Keep this run's times: the next merge or selection run overwrites the JUnit
+# Keep this run's times: the next quick or selection run overwrites the JUnit
 # file, and the inventory would otherwise lose them before anyone refreshes it.
-junit="$root/target/nextest/merge/junit.xml"
+junit="$root/target/nextest/quick/junit.xml"
 if [ -f "$junit" ]; then
   "$root/dev/test-inventory" --fold-only --junit "$junit" >/dev/null || true
 fi

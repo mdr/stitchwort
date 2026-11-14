@@ -2,7 +2,7 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-RESOURCE] Error: ran out of resources: a value was too large to show
+[E-RESOURCE] Error: ran out of resources: a value was too large to write out (over 2,000,000 parts)
     ╭─[ reject/rewrite-solution-too-large.sw:18:3 ]
     │
  18 │   rewrite same in h

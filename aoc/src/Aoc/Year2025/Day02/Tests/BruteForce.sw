@@ -12,10 +12,10 @@ import Aoc.Year2025.Day02 (..)
 import Aoc.Year2025.Day02.Spec (..)
 import Std (Bool, List, Nat)
 
-test "written as" := (writtenAs [1, 2, 1, 2] 2 2, writtenAs [1, 2, 1, 2] 1 4, writtenAs [1, 1, 1] 1 3) == (True, False, True)
+test "written as" :=
+  (writtenAs [1, 2, 1, 2] 2 2, writtenAs [1, 2, 1, 2] 1 4, writtenAs [1, 1, 1] 1 3) == (True, False, True)
 
-def bruteSum (invalid: Nat → Bool) (r: Range): Nat :=
-  r.ids |> .filter invalid |> .sum
+def bruteSum (invalid: Nat → Bool) (r: Range): Nat := r.ids |> .filter invalid |> .sum
 
 def agrees (r: Range): Bool :=
   sumOfIdsWrittenTwice r == bruteSum doubled r ∧ sumOfIdsWrittenRepeatedly r == (bruteSum repeats r).toInt
@@ -43,4 +43,7 @@ def longRanges: List Range := [
 ]
 
 test "long ids" := longRanges.all (r => sumOfIdsWrittenRepeatedly r == (bruteSum repeats r).toInt)
-test "long ids found" := longRanges.map sumOfIdsWrittenRepeatedly == [11111111111, 111111111111, 1111111111111, 121212121212, 123412341234, 99999999999, 11111111111111111, 10101010101010101010]
+test "long ids found" :=
+  longRanges.map sumOfIdsWrittenRepeatedly
+    == [11111111111, 111111111111, 1111111111111, 121212121212, 123412341234, 99999999999, 11111111111111111,
+      10101010101010101010]

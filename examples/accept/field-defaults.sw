@@ -6,18 +6,13 @@
 
 import Std (Vec)
 
-type RangeOptions = {
-  start: Nat := 0,
-  stop: Nat,
-  step: Nat := 1
-}
+type RangeOptions = { start: Nat := 0, stop: Nat, step: Nat := 1 }
 
 def bounds (options: RangeOptions): List Nat := [options.start, options.stop, options.step]
 
 def small: RangeOptions := { stop = 10 }
 
-test "left out fields are their defaults" :=
-  small.start == 0 ∧ small.step == 1 ∧ small.stop == 10
+test "left out fields are their defaults" := small.start == 0 ∧ small.step == 1 ∧ small.stop == 10
 test "a given field replaces its default" := bounds { stop = 10, step = 3 } == [0, 10, 3]
 test "as a named argument" := bounds (options := { start = 2, stop = 5 }) == [2, 5, 1]
 
@@ -34,17 +29,13 @@ test "every field left out" := plain.width == 80 ∧ plain.indent == 2
 -- A default may use earlier fields, and a later field's type may mention
 -- a defaulted one: the default computes, so `{ cells = … }` with eight
 -- cells fits.
-type Sized = {
-  size: Nat := 8,
-  cells: Vec Bool size := Vec.replicate size False
-}
+type Sized = { size: Nat := 8, cells: Vec Bool size := Vec.replicate size False }
 
 def eight: Sized := {}
 def three: Sized := { size = 3 }
 def eightAgain: Sized := { cells = Vec.replicate 8 True }
 
-test "dependent defaults" :=
-  eight.cells.toList.length == 8 ∧ three.cells.toList.length == 3
+test "dependent defaults" := eight.cells.toList.length == 8 ∧ three.cells.toList.length == 3
 test "a later field fits the default" := eightAgain.size == 8
 
 -- A default uses the actual value of the earlier field, never an assumed
@@ -74,9 +65,7 @@ test "generic" := boxed.label == "box" ∧ boxed.extra == []
 
 -- Constructor fields: named construction, and named arguments, leave them
 -- out; a positional call gives every field.
-type Shape =
-  | Circle { radius: Nat, id: Text := "anonymous" }
-  | Square (side: Nat) (id: Text := "square")
+type Shape = | Circle { radius: Nat, id: Text := "anonymous" } | Square (side: Nat) (id: Text := "square")
 
 def idOf (shape: Shape): Text := shape.id
 
@@ -84,8 +73,7 @@ test "named construction" := idOf (Circle { radius = 1 }) == "anonymous"
 test "positional construction gives every field" := idOf (Circle 1 "c") == "c"
 test "named arguments fill them too" := idOf (Square (side := 3)) == "square"
 test "a named argument can give one" := idOf (Square (id := "s") (side := 3)) == "s"
-test "a positional argument is the field without a default" :=
-  Square 3 (id := "t") == Square 3 "t"
+test "a positional argument is the field without a default" := Square 3 (id := "t") == Square 3 "t"
 test "without an expected type" :=
   let made := Square (side := 2)
   made == Square 2 "square"

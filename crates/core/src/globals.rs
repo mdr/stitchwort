@@ -123,7 +123,63 @@ pub struct Def {
     /// backend must make a loop of it. Set once, on a pending definition
     /// ([`crate::check::mark_tailrec`]); never hashed (it changes no term).
     pub(crate) tailrec: bool,
+    /// Set for an assumption ([`crate::check::assume`], docs/core.md
+    /// "Assumptions (open goals)"), an open goal's or an error's stand-in:
+    /// a constant final at once, with no body, run body or native, which
+    /// never unfolds. Hashed.
+    pub(crate) assumption: Option<Rc<Assumption>>,
+    /// Where it was declared; for an assumption, where its `?` or error is.
     pub(crate) span: Span,
+}
+
+/// What an assumption stands for: the label that, with its type, is its
+/// identity in hashes (docs/core.md "Assumptions (open goals)"). Its
+/// location is the declaration's span, which isn't hashed, so editing
+/// above a `?` changes no hash.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Assumption {
+    /// The full logical name of the declaration the gap is in
+    /// (`Main.Demo.addComm`). For an open goal that declaration is pending,
+    /// or not yet declared, when its assumptions are made, so it's named,
+    /// not referred to; for an error's stand-in it has failed.
+    pub owner: Name,
+    pub kind: AssumptionKind,
+}
+
+/// The two kinds of gap an assumption stands for. Part of the label, so
+/// hashed: a user of an error's stand-in never shares a hash with a user
+/// of a goal of the same type, or with one of the finished declaration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AssumptionKind {
+    /// An open goal `?`: its number in its owner, in source order, from 1.
+    Goal(u32),
+    /// A stand-in (docs/proposals/tests-with-errors.md §3.3): the owner's
+    /// statement checked but its body didn't, so the assumption is the
+    /// statement itself. At most one per owner.
+    Error,
+}
+
+impl Assumption {
+    /// The label of open goal `hole` of `owner`.
+    pub fn goal(owner: Name, hole: u32) -> Assumption {
+        Assumption {
+            owner,
+            kind: AssumptionKind::Goal(hole),
+        }
+    }
+
+    /// The label of the stand-in for `owner`, which has an error.
+    pub fn error(owner: Name) -> Assumption {
+        Assumption {
+            owner,
+            kind: AssumptionKind::Error,
+        }
+    }
+
+    /// Whether it stands for a declaration with an error.
+    pub fn is_error(&self) -> bool {
+        self.kind == AssumptionKind::Error
+    }
 }
 
 /// How a call of an update's helper is shown ([`crate::ev::Shown::update_shown`]):
@@ -227,6 +283,11 @@ impl Def {
         self.tailrec
     }
 
+    /// The gap it stands for, if it's an assumption.
+    pub fn assumption(&self) -> Option<&Assumption> {
+        self.assumption.as_deref()
+    }
+
     /// Where it was declared.
     pub fn span(&self) -> Span {
         self.span
@@ -282,6 +343,16 @@ impl Def {
         self.body = body;
     }
 
+    /// Installs a type without checking it: for tests that build
+    /// deliberately broken states only (a type too deep to build by
+    /// elaboration). `ty_value` is its evaluation, kept with it because
+    /// `ty` and `ty_value` must agree: the caller evaluates (`eval`).
+    #[cfg(feature = "test-bypass")]
+    pub fn set_type_unchecked_for_tests(&mut self, ty: Term, ty_value: Value) {
+        self.ty = ty;
+        self.ty_value = ty_value;
+    }
+
     /// Bypasses admission: for tests that build deliberately broken states only.
     #[cfg(feature = "test-bypass")]
     pub fn set_state_unchecked_for_tests(&mut self, state: State) {
@@ -304,7 +375,7 @@ impl Def {
 
 /// A decision procedure for an exported function's proof parameter `param`,
 /// in the context of the parameters before it. Extracted JS runs it on the
-/// decoded inputs, and rejects them unless it says `Yes`.
+/// decoded inputs, and rejects them unless its test is `True`.
 #[derive(Clone)]
 pub struct Validator {
     pub param: usize,
@@ -831,17 +902,36 @@ impl Kernel {
     /// What the derived caches still hold for declarations from `mark` on,
     /// which [`Kernel::forget_since`] removed: content hashes (read by pin
     /// checks and cache keys, so one left for a removed id would be read
-    /// again once the id is reused) and erasure. `None` if nothing.
+    /// again once the id is reused, and those without proofs) and erasure
+    /// (and proof positions), and reliance on open goals. `None` if nothing.
     pub fn derived_state_since(&self, mark: &KernelMark) -> Option<String> {
+        let past = |k: &HashKey| match k {
+            HashKey::Def(id) => id.0 >= mark.defs,
+            HashKey::Data(d) => d.0 >= mark.datas,
+        };
         let hashes = (self.caches.hashes.borrow().keys())
-            .filter(|k| match k {
-                HashKey::Def(id) => id.0 >= mark.defs,
-                HashKey::Data(d) => d.0 >= mark.datas,
+            .filter(|k| past(k))
+            .count()
+            + (self.caches.proofless.borrow().keys())
+                .filter(|k| past(k))
+                .count();
+        let erasure = (self.caches.erasure_defs.borrow().len()).saturating_sub(mark.defs)
+            + (self.caches.proof_positions.borrow().len()).saturating_sub(mark.defs);
+        let reliance = (self.caches.reliance.borrow().iter())
+            .filter(|(d, a)| {
+                let key = match **d {
+                    crate::assumption::Decl::Def(id) => HashKey::Def(id),
+                    crate::assumption::Decl::Data(d) => HashKey::Data(d),
+                };
+                past(&key) || a.is_some_and(|a| a.0 >= mark.defs)
             })
             .count();
-        let erasure = (self.caches.erasure_defs.borrow().len()).saturating_sub(mark.defs);
-        (hashes + erasure > 0)
-            .then(|| format!("{hashes} content hashes and {erasure} erasure slots past the mark"))
+        (hashes + erasure + reliance > 0).then(|| {
+            format!(
+                "{hashes} content hashes, {erasure} erasure slots and {reliance} reliance \
+                 entries past the mark"
+            )
+        })
     }
 }
 

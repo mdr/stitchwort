@@ -536,6 +536,73 @@ there were 47.50 M `Rc<Resume>` besides their wrappers. Matcher: 2.54 M. Bridge:
 step and effect counts (`steps`, `pushes`, `routes`, `forwards`, `resumes`...) are
 unchanged: the effect tests of `stitchwort-rt` pass as they were, with no snapshot touched.
 
+## 4.3 Stage 2 results (SW-2463, 9 Nov 2026, Sonnet): R2 and R3
+
+**[measured]**, the way stage 1 was: native instructions retired (`/usr/bin/time -l`), five
+runs each, the three executables built in the lane worktree through kache with
+`stitchwort build --native` at the comparison sizes of `bench/compare/programs.toml`; every
+output matched `expected.txt`. Object counts are from the `call-counts` report of
+executables built with `--count-bodies`, one run each. The step, push, pop, route, forward
+and resume counts are identical before and after both changes (expressions: 46.37 M pushes,
+42.49 M pops, 20.05 M routes, 29.13 M forwards).
+
+**R2 (commit `1a48b1157`).** `effect::push_pending` and `effect::pop_pending` are the one
+leaf behind the machine's `eff_run` and `sw_eff_step`. A pending cell is `[next, k]`; a
+unique `Bind inner k` node has `inner` moved out and the pending list written in its place,
+and the node itself is the new cell (`alloc_trace::reuse`, so the traces of the machine and
+native code still agree). A shared node is copied as before. Differences from §2.2: none.
+
+**R3 (the next commit).** `effect::split_call` takes `Call o rest` apart and, when the cell
+was unique, hands the emptied cell back; `effect::skipped` refills it with `o'` and the new
+resumption. When the clause is not skipped, the cell is dropped at once (before the clause
+runs), as `pair` dropped it: left to the end of the function it freed the cell after the
+clause's first steps, which the machine/native trace comparison caught
+(`effect_examples_agree_with_the_machine`).
+
+**Instructions retired** (G; min, with min to max over five runs):
+
+| | before | after R2 | R2 change | after R3 | R3 change | both |
+|---|---|---|---|---|---|---|
+| expressions | 305.362 (to 305.547) | 294.968 (to 295.019) | **-3.40%** | 289.644 (to 289.785) | **-1.81%** | -5.15% |
+| scan | 292.800 (to 292.916) | 283.417 (to 283.454) | **-3.20%** | 279.314 (to 279.467) | **-1.45%** | -4.61% |
+| matcher | 67.925 (to 67.930) | 67.460 (to 67.465) | -0.69% | 67.198 (to 67.203) | -0.39% | -1.07% |
+| bridge | 105.864 (to 105.871) | 102.824 (to 102.831) | -2.87% | 102.139 (to 102.144) | -0.67% | -3.52% |
+
+(R3 was measured twice, before and after the drop-order fix above: 289.632 and 289.644 on
+expressions, 279.307 and 279.314 on scan.) Spreads are under 0.1% except R3's final
+expressions and scan runs (0.05% and 0.05%); no program is slower.
+
+**Against the bars.** The notes' estimates scaled by 100/140 (stage 1 saved about 100
+instructions per object, not 140): R2 1.3 to 1.6% (1.8 to 2.2% as written), R3 0.6 to 1.0%
+(0.9 to 1.4% as written). The bar is 60% of the scaled low end: R2 0.8%, R3 0.4%. Both clear
+it on expressions and scan, R2 at about 2.6 times the scaled high estimate, R3 at 1.8 and
+2.3 times its. Both are kept.
+
+**Per object, more than stage 1's 100.** R2 saved 227 instructions per cell removed on
+expressions (10.39 G over 45.83 M) and 229 on scan (9.38 G over 40.9 M); R3 183 and 193 (5.32 G
+over 29.13 M, 4.10 G over 21.25 M). Not tested why; likely candidates are that the removed
+cell was written and read back on each of its trips (a push, and a pop that follows), so
+the cell's cache line and the allocator's free-list traffic go too, and that a reused cell
+keeps its reference count at 1 and skips the free/alloc pair's branching. A guess; the next
+stages' estimates should not assume 100 for a *cell* either way.
+
+**Objects built** (expressions; before from §4.1, after from the report on each change):
+
+| | before | after R2 | after R3 |
+|---|---|---|---|
+| pending cells (`PendingCell`) | 46.37 M | 0.54 M (shared `Bind` nodes copied) | 0.54 M |
+| skip `Call` cells (`SkipCall`) | 29.13 M | 29.13 M | **0** |
+
+Scan: pending cells 40.90 M to 5, skip `Call`s 21.25 M to 0. Matcher: 2.01 M to 6, 1.40 M to
+0. Bridge: 13.88 M to 0.38 M, 2.83 M to 0. A skip's `Call` cell was never shared in these
+programs, so R3 reuses every one.
+
+**For the later stages.** R4's estimate (§2.4) counted the `Bind` node it removes and the
+pending cell separately; with R2, a `Bind` node *is* the pending cell, so a `bind (Call o
+DoneK) k` folded into `Call o k` now saves one cell per perform (20.05 M on expressions), not
+two, and the pushes it removes are not the 46.4 M of cells it was written against. Redo R4's
+prediction from the new counts before stage 3.
+
 ## 5. Recommendation
 
 **The problem.** Our two slowest programs, both parsers, spend about half their time

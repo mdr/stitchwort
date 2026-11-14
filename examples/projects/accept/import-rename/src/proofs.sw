@@ -7,7 +7,7 @@ import Shop.Spec (total as specified)
 
 theorem emptyAgrees: charged [] = S.total [] := rfl
 
-theorem oneAgrees (p: Nat): specified [p] = p + 0 := rfl
+theorem oneAgrees ∀ (p: Nat): specified [p] = p + 0 := rfl
 
 -- Two names in this file for `Shop.Spec.total`.
-theorem sameTotal (xs: List Nat): specified xs = S.total xs := rfl
+theorem sameTotal ∀ (xs: List Nat): specified xs = S.total xs := rfl

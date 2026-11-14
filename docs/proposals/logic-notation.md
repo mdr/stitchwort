@@ -1,6 +1,6 @@
 # Notation for logic and sets: `x in xs`, `<->`, `exists`?
 
-**Status:** design note, 25 October 2026 (SW-461). **As built** (25 October 2026): D1200–D1211 as amended, with the eleven aliases `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` (no `⇒` or `λ`, which get errors naming `=>` and `x => e`); `exists` stays a name after a `.`, so `Option.exists` is unchanged (D1221); the printer shows `∧ ∨ ¬ ≠ ≤ ∈ ∉ ↔ ∃ →` in goals, hover and messages (D1222), but ASCII inside exported JavaScript (D1223). Reference: [syntax.md](../syntax.md#logic-notation-in--and-exists).
+**Status:** design note, 25 October 2026 (SW-461). **As built** (25 October 2026): D1200–D1211 as amended, with the eleven aliases `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` (no `⇒` or `λ`, which get errors naming `=>` and `x => e`); `exists` stays a name after a `.`, so `Option.exists` is unchanged (D1221); the printer shows `∧ ∨ ¬ ≠ ≤ ∈ ∉ ↔ ∃ →` in goals, hover and messages (D1222), but ASCII inside exported JavaScript (D1223). **Amended** (9 November 2026, D3458, SW-2587): `forall (x: T) => P` and `∀ (x: T) => P` are another spelling of `(x: T) -> P`, and goals print a function type into a proposition that way (§6.1); `∀` is the twelfth alias and no longer an error. Reference: [syntax.md](../syntax.md#logic-notation-in--and-exists).
 The decisions are D1200–D1208 (§9). The counts are in §3; the survey of other
 languages is in §4, with a link for every claim.
 
@@ -616,10 +616,41 @@ Not recommended. It can be revisited if a concrete need comes up.
 
 "For all" is `(x: T) -> P`. Lean writes `∀ x : T, P` and accepts
 `forall` (§4.1); Rocq `forall x : T, P` (§4.4); Dafny `forall x :: P`
-(§4.7). A `forall` keyword would
+(§4.7).
+
+The first version of this note recommended no `forall` keyword: it would
 duplicate 1,700 binders' worth of an existing form, and the dependent
-function type *is* the meaning, which the proofs chapter already teaches
-(`theorem plusZero: (n: Nat) -> n + 0 = n`). Not recommended.
+function type *is* the meaning. Matt reversed that (D3458, 9 November 2026:
+"it reads more obviously when eyeballing proofs"). As built (SW-2587):
+
+- **`forall (x: T) => P`, or `∀ (x: T) => P`, is `(x: T) -> P`**: the same
+  term, so hashes don't change. It mirrors `exists`: the parameters are a
+  lambda's without patterns (`(a b: Nat)`, `[a: Type]`, `[auto h: P]`, or a
+  bare name whose type is inferred, `∀ n => n + 0 = n`), and the body runs
+  to the end of the expression, so `∀ (n: Nat) => n > 0 -> P n` is
+  `(n: Nat) -> (n > 0 -> P n)`. It may follow `&&`, `||` and `<->`, as
+  `exists` may. Lean's and Rocq's `,` after the parameters is an error that
+  names `=>`.
+- **House style** (proving guide): `∀` for a quantified hypothesis and for
+  a statement after the colon, `(h: ∀ (x: T) => P x)` and `theorem t: ∀
+  (n: Nat) => …`; a theorem's parameters before the colon stay parameters.
+  A function type that isn't a proposition, `(n: Nat) -> Vec n`, stays an
+  arrow.
+- **The printer** shows a function type as `∀` when its result is evidently
+  a proposition and it binds a variable that result uses (or an implicit
+  one): `∀ (n: Nat) => n + 0 = n`. A run of such binders is one `∀`,
+  neighbours of the same kind and type sharing a group (`∀ (a b: Nat)
+  [c: Nat] => …`); an unused explicit binder ends the run, so `∀ (n: Nat) =>
+  n > 0 → P n` keeps its implication. "Evidently a proposition" is judged
+  from the form alone, since the printer has no types for the variables in
+  scope: after any function types, an equation, a data type declared in
+  `Prop` (`And`, `Exists`, `Void`, a user's `type Even (n: Nat): Prop`), or
+  a call of a definition whose declared type ends in `Prop` (`Nat.lessEq`,
+  `List.Sorted`). A variable applied to arguments, `p x` with `p: a ->
+  Prop`, isn't evidently one, so `(x: a) → p x` stays an arrow. Exported
+  JavaScript's comments spell it `forall` (D1223).
+- The formatter keeps whichever spelling the source used, as for every
+  alias.
 
 A **bounded** form, `∀ x ∈ xs, P x` in Lean, is tempting given S2.
 `(e in xs) -> e in ys` can't be it: today that's a function type whose
@@ -650,7 +681,8 @@ what ASCII already types.
 
 Someone pasting `x ∈ xs` from Lean or a paper gets "unexpected character"
 today. A table of the common symbols would let the error say what to write:
-`∈` → `in`, `∉` → `!in`, `∀` → `(x: T) ->`, `∃` → `exists`, `∧` → `&&`,
+`∈` → `in`, `∉` → `!in`, `∀` → `(x: T) ->` (since D3458, `∀` is an
+alias of `forall`), `∃` → `exists`, `∧` → `&&`,
 `∨` → `||`, `¬` → `!`, `→` → `->`, `↔` → `<->`, `≤` → `<=`, `≥` → `>=`,
 `≠` → `!=`, `λ` → `x => …`. Small, and it makes D1200 friendly (D1208).
 
@@ -690,7 +722,8 @@ reserved, and inside a `rewrite` rule membership needs brackets.
 **D1203. `exists (x: T) => P` for `Exists T (x => P)`**, with `exists` a
 keyword followed by a lambda; `Option.exists`/`Option.forall` are renamed
 `Option.any`/`Option.all` to match `List.any`/`List.all`. No `forall`
-keyword: "for all" stays `(x: T) -> P`. *Recommended: yes.*
+keyword: "for all" stays `(x: T) -> P`. *Recommended: yes.* (The `forall`
+part is replaced by D3458.)
 
 **D1204. The printer shows the operators**: `x in xs`, `x !in xs`,
 `p <-> q`, `exists (x: T) => …`, and `!p` for `Not p`.
@@ -710,3 +743,13 @@ examples after rule E lands. `And`, `Or`, `Not`, `Iff`, `Exists` and
 **D1208. Unicode logic symbols in source get an error naming the ASCII**
 (the table in §6.4). No rendering (concealment) in the playground or the
 editor extension; ligatures are left to users' fonts. *Recommended: yes.*
+(`∀` is an alias since D3458.)
+
+**D3458. `forall (x: T) => P` and `∀ (x: T) => P`** are another spelling of
+`(x: T) -> P`, mirroring `exists`: several parameters, and the body takes
+everything to its right. Goals and messages print a function type whose
+result is a proposition this way; the formatter keeps the source spelling.
+House style: `∀` for quantified hypotheses and statements after the colon;
+parameters before the colon stay parameters. *Decided: yes* (Matt,
+9 November 2026: "it reads more obviously when eyeballing proofs"). Built
+in SW-2587; §6.1 has the details.

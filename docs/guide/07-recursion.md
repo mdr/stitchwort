@@ -42,18 +42,17 @@ type Tree =
   | Leaf
   | Node (left: Tree) (value: Nat) (right: Tree)
 
-def Tree.insert (tree: Tree) (value: Nat): Tree :=
-  match tree with
-    | Leaf => Node Leaf value Leaf
-    | Node left here right =>
-      if value < here then Node (left.insert value) here right
-      else Node left here (right.insert value)
+def Tree.insert (tree: Tree) (value: Nat): Tree := match tree with
+  | Leaf => Node Leaf value Leaf
+  | Node left here right =>
+    if value < here then Node (left.insert value) here right
+    else Node left here (right.insert value)
 
 def Tree.toList: Tree → List Nat
   | Leaf => []
   | Node left value right => left.toList ++ [value] ++ right.toList
 
-def treeSort (values: List Nat): List Nat := (values.foldLeft Leaf (tree value => tree.insert value)).toList
+def treeSort (values: List Nat): List Nat := values.foldLeft Leaf Tree.insert |> .toList
 
 test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
 ```
@@ -81,6 +80,7 @@ def halvings (n: Nat): Nat :=
    │
    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
 ───╯
+1 error: in `halvings`
 ```
 
 `decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `omega` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
@@ -116,6 +116,7 @@ def countDown (n: Nat) (step: Nat): Nat
    │
    │ Note: give a proof with `[decreasing := …]`, or test it with `if n - step < n then … else …`
 ───╯
+1 error: in `countDown`
 ```
 
 The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:
@@ -138,10 +139,9 @@ A `match` does the same for its arms: a recursive call in one has the `match`'s 
 ```stitchwort
 def total (set: Set Nat): Nat
     decreasing set.size
-:=
-  match found: set.popMin with
-    | None => 0
-    | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
+:= match found: set.popMin with
+  | None => 0
+  | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
 
 test "total" := total [3, 1, 2].toSet == 6
 ```
@@ -154,11 +154,10 @@ A proof can also be given directly, as `[decreasing := proof]` after the call. W
 ```stitchwort
 def ackermann (m: Nat) (n: Nat): Nat
     decreasing (m, n)
-:=
-  match m, n with
-    | Zero, n => n + 1
-    | Succ k, Zero => ackermann k 1
-    | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
+:= match m, n with
+  | Zero, n => n + 1
+  | Succ k, Zero => ackermann k 1
+  | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
 
 test "ackermann" := ackermann 2 3 == 9
 ```
@@ -215,10 +214,9 @@ type Packet =
 
 def Packet.depth (packet: Packet): Nat
     decreasing Packet.size packet
-:=
-  match packet with
-    | Number n => 0
-    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+:= match packet with
+  | Number n => 0
+  | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets []]) == 3
 ```

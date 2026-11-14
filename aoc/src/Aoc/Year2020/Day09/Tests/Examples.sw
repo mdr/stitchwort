@@ -7,7 +7,8 @@ import Std (Fail, List, Option, Result, Text)
 
 def parsed (input: Text): Result XmasData Text := Fail.toResult (() => parseData input)
 
-def part1 (input: Text) (preamble: Nat): Result (Option Nat) Text := (parsed input).map (data => data.firstInvalid preamble)
+def part1 (input: Text) (preamble: Nat): Result (Option Nat) Text :=
+  (parsed input).map (data => data.firstInvalid preamble)
 
 def part2 (input: Text) (preamble: Nat): Result (Option Nat) Text :=
   (parsed input).map (data => data.firstInvalid preamble |> .flatMap data.weakness)
@@ -52,11 +53,13 @@ test "two equal numbers still don't count" := not ((window [4, 4]).sumsTo 8)
 test "every number valid" := part1 "1\n2\n3\n5" (preamble := 2) == Ok None
 test "the preamble itself is never checked" := part1 "1\n100\n101" (preamble := 2) == Ok None
 
-test "a run needs two numbers, not the target alone" := ({ numbers = [3, 9, 4, 5] }: XmasData).runSumming 9 == Some [4, 5]
+test "a run needs two numbers, not the target alone" :=
+  ({ numbers = [3, 9, 4, 5] }: XmasData).runSumming 9 == Some [4, 5]
 test "a run at the very start" := ({ numbers = [2, 7, 1] }: XmasData).runSumming 9 == Some [2, 7]
 test "a run at the very end" := ({ numbers = [5, 1, 2] }: XmasData).runSumming 3 == Some [1, 2]
 test "no run" := ({ numbers = [5, 1, 2] }: XmasData).runSumming 4 == None
 test "zeros in a run" := ({ numbers = [9, 0, 0, 3] }: XmasData).runSumming 3 == Some [0, 0, 3]
-test "the weakness is the run's smallest plus largest" := ({ numbers = [8, 1, 5, 3, 2] }: XmasData).weakness 11 == Some 6
+test "the weakness is the run's smallest plus largest" :=
+  ({ numbers = [8, 1, 5, 3, 2] }: XmasData).weakness 11 == Some 6
 
 test "not a number" := parsed "12\nx" == Err "line 2, column 1: expected a number, got 'x'"

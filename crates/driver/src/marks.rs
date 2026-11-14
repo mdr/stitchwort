@@ -6,7 +6,7 @@
 //! published [`FileAnswers`] and the editor's text, with plain results; a
 //! range that no longer matches the text after an edit just finds nothing.
 
-use stitchwort_syntax::{SourceMap, Tok, lex};
+use stitchwort_syntax::{SourceMap, Tok, lex_recovering};
 
 use crate::live::{FileAnswers, Place};
 use crate::nav::Range;
@@ -61,9 +61,7 @@ pub fn let_hints(
 ) -> Vec<LetHint> {
     let mut sources = SourceMap::new();
     let id = sources.add("hints", "");
-    let Ok(tokens) = lex(id, text) else {
-        return Vec::new();
-    };
+    let tokens = lex_recovering(id, text).tokens;
     let lines = Lines::new(text);
     let mut hints = Vec::new();
     for window in tokens.windows(3) {

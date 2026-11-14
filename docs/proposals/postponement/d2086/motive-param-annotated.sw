@@ -11,6 +11,9 @@ def one (m: Nat) (p: m = 1): Bool → Nat
 def apply (f: a → Nat) (v: a): Nat := f v
 
 def annotated (b: Bool) (q: one 1 rfl b = 1) (p: P): Nat :=
-  apply ((r: P) => match List.length [r] with
-    | Zero => 0
-    | Succ k => k) p
+  apply
+    ((r: P) =>
+      match List.length [r] with
+        | Zero => 0
+        | Succ k => k)
+    p

@@ -1,4 +1,4 @@
 -- expect-error: E-PARSE
--- `∀` isn't one of the Unicode spellings (D1200, D1208): "for all" is a
--- function type, `(x: Nat) -> x <= x`. The error says so.
+-- `∀` is `forall` (D3458), whose parameters are followed by `=>`, not by
+-- the `,` of Lean and Rocq. The error says so.
 theorem leRefl: ∀ x, x <= x := ?

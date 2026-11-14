@@ -6,6 +6,6 @@
 type Token: Prop =
   | MkToken
 
-def decToken: Decidable Token := Yes MkToken
+def decToken: Decidable Token := Std.Decidable.yes MkToken
 
 test "not found" := if Token then True else False

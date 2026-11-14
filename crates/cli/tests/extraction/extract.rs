@@ -95,8 +95,8 @@ fn random_inputs_agree_with_the_reference_evaluator() {
                         args.push(data[i].clone());
                     } else {
                         let check = sig.checks.iter().find(|c| c.position == position).unwrap();
-                        let decision = force(g, eval(g, &args, &check.decision).unwrap()).unwrap();
-                        accepted &= matches!(decision, Value::Ctor(_, 0, _));
+                        let decision = eval(g, &args, &check.decision).unwrap();
+                        accepted &= decision_holds(g, decision);
                         args.push(Value::Refl);
                     }
                 }
@@ -127,9 +127,38 @@ fn random_inputs_agree_with_the_reference_evaluator() {
     }
 }
 
+/// `perPerson 2 0` fails its precondition `people ≠ 0`: the reference
+/// evaluator must say so, so the random test expects `rejected` and the
+/// generated JS must refuse it (SW-2810).
+#[test]
+fn per_person_two_by_zero_fails_the_reference_precondition() {
+    let examples = examples();
+    let (name, text, session) = examples.get("discount.sw");
+    assert!(
+        text.lines()
+            .any(|l| l.trim() == "-- rejects: perPerson 2 0"),
+        "{name} no longer pins `perPerson 2 0` as rejected"
+    );
+    let g = &session.elab.backend();
+    let id = (0..g.env.defs().len())
+        .map(DefId)
+        .find(|id| g.def(*id).name().ends_with("perPerson"))
+        .expect("discount.sw exports perPerson");
+    let sig = exportable(g, id).expect("perPerson exports");
+    let nat = g.find_data("Nat").expect("the prelude has Nat");
+    let zero = Value::Ctor(nat, 0, vec![].into());
+    let nat_of = |n: usize| (0..n).fold(zero.clone(), |n, _| Value::Ctor(nat, 1, vec![n].into()));
+    let check = sig.checks.first().expect("perPerson has a precondition");
+    let decision = eval(g, &[nat_of(2), zero], &check.decision).expect("decision evaluates");
+    assert!(
+        !decision_holds(g, decision),
+        "{name}: `perPerson 2 0` holds its precondition in the reference evaluator"
+    );
+}
+
 /// A session whose library files replay from the test std cache outside the
-/// full tier (docs/testing.md, "The test std cache"): these tests are of the
-/// extracted code, and the full tier still checks the library from source in
+/// all tier (docs/testing.md, "The test std cache"): these tests are of the
+/// extracted code, and the all tier still checks the library from source in
 /// each.
 fn new_session() -> Session {
     let mut session = Session::new();
@@ -172,9 +201,32 @@ fn generated_code_is_stable() {
     }
 }
 
+/// A helper that an `if h:` or a decision combinator unfolds to is not
+/// emitted when every call of it was unfolded away (SW-2835).
+#[test]
+fn unfolded_helpers_are_not_emitted() {
+    let examples = examples();
+    let (_, _, session) = examples.get("chained-comparisons.sw");
+    let output = stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
+        .expect("extraction succeeds");
+    for helper in [
+        // `Decidable.elim` and the helper its lifted `match` became.
+        "const $Std$dDecidable$delim",
+        "const $Std$dDecidable$delim$d$gmatch1",
+        // `Bool.not` and `Bool.ifThenElse`, the tests' own helpers.
+        "const $Std$dBool$dnot",
+        "const $Std$dBool$difThenElse",
+    ] {
+        assert!(
+            !output.js.contains(helper),
+            "`{helper}` is emitted though every call of it is unfolded away"
+        );
+    }
+}
+
 /// The generated declarations type-check. The `tsc` runs, one per example,
-/// take about 10 s, so this is in the daily tier and `generated_code_is_stable`
-/// in the merge tier.
+/// take about 10 s, so this is in the broad tier and `generated_code_is_stable`
+/// in the quick tier.
 #[test]
 fn the_declarations_type_check() {
     // Checking an example and its `tsc` run are both slow and independent of
@@ -265,8 +317,8 @@ fn read_and_load(session: &mut Session, path: &Path) -> (String, String) {
 
 impl Examples {
     /// A corpus sweep's share of the examples in this tier (`tier_sample`).
-    fn sampled(self, daily_stride: usize) -> Examples {
-        Examples(tier_sample(self.0, daily_stride))
+    fn sampled(self, broad_stride: usize) -> Examples {
+        Examples(tier_sample(self.0, broad_stride))
     }
 
     /// The examples' paths, none of them checked.
@@ -678,6 +730,17 @@ fn as_key(g: &View<'_>, key_type: &Boundary, text: Value) -> Value {
     }
 }
 
+/// Whether a `Decidable P` value holds: its test, the record's first field,
+/// is `True`.
+fn decision_holds(g: &View<'_>, decision: Value) -> bool {
+    let Value::Ctor(_, 0, decision) = force(g, decision).unwrap() else {
+        return false;
+    };
+    let test = force(g, decision[0].clone()).unwrap();
+    matches!(test, Value::Ctor(d, c, _)
+        if g.env.registry().ctor(Builtin::True) == Some((d, c)))
+}
+
 /// Whether the proof fields of every record in `value`, of boundary type
 /// `b`, hold according to their decision procedures, run by the reference
 /// evaluator: what the generated decoder checks.
@@ -714,8 +777,7 @@ fn proofs_hold(g: &View<'_>, b: &Boundary, value: &Value) -> bool {
             let checked = data.validators().iter().filter(|v| v.ctor == *c).all(|v| {
                 let mut env = params.clone();
                 env.extend(fields[..v.field].iter().cloned());
-                let decision = force(g, eval(g, &env, &v.decision).unwrap()).unwrap();
-                matches!(decision, Value::Ctor(_, 0, _))
+                decision_holds(g, eval(g, &env, &v.decision).unwrap())
             });
             let runtime = fields
                 .iter()
@@ -1754,7 +1816,7 @@ refused(() => m.bump(41), /^c: expected a non-negative bigint$/);
 
 // A proof field is checked, wherever the microtype is.
 assert.equal(m.domain("ada@example.com"), "ada@example.com");
-refused(() => m.domain("nobody"), /^e: proof field `valid` \(`Email\.isValid value = True`\) doesn't hold$/);
+refused(() => m.domain("nobody"), /^e: proof field `valid` \(`Email\.isValid value`\) doesn't hold$/);
 
 // Maps from a microtype are plain objects, in `Text`'s order; their keys'
 // proof fields are checked.
@@ -1806,14 +1868,15 @@ fn microtype_comparisons_are_their_fields() {
     let output = stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
         .expect("extraction succeeds");
     for (name, field) in [
-        ("CardId$d$gdecEq", "Text$ddecEq"),
+        ("CardId$d$gdecide", "Text$ddecEq"),
         ("CardId$d$gcompare", "Text$dcompare"),
         ("CardId$d$ginstDecEq", "Text$dinstDecEq"),
         ("CardId$d$ginstOrd", "Text$dinstOrd"),
-        ("Count$d$gdecEq", "Nat$ddecEq"),
+        // `Nat.decEq` is `Nat.equal` at run time (a decision is its test).
+        ("Count$d$gdecide", "Nat$dequal"),
         ("Count$d$gcompare", "Nat$dcompare"),
         ("Count$d$ginstDecEq", "Nat$dinstDecEq"),
-        ("Email$d$gdecEq", "Text$ddecEq"),
+        ("Email$d$gdecide", "Text$ddecEq"),
         ("Email$d$gcompare", "Text$dcompare"),
         ("Email$d$ginstDecEq", "Text$dinstDecEq"),
         ("Email$d$ginstOrd", "Text$dinstOrd"),
@@ -1825,7 +1888,7 @@ fn microtype_comparisons_are_their_fields() {
     // code calls its `compare`, and the library is passed `Text.instOrd`.
     for line in [
         "const $Main$dorder = $Std$dText$dcompare;",
-        "const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));",
+        "const $Main$dsame = $Std$dText$ddecEq;",
         "const $Main$ddistinctIds = (v0) => $Std$dList$dunique($Std$dText$dinstOrd, v0);",
     ] {
         assert!(output.js.contains(line), "no `{line}` in:\n{}", output.js);
@@ -3856,7 +3919,7 @@ fn callbacks_apply_no_function_where_it_is_made() {
             "a function applied where it's made: {line}"
         );
     }
-    // The membership test reads the field where it's used, and the `let`
+    // The membership test is `List.contains`, and the `let`
     // is a `const`, computed once, before the `filter`.
     assert!(
         line("notIn")
@@ -3866,7 +3929,7 @@ fn callbacks_apply_no_function_where_it_is_made() {
     );
     assert!(
         line("notIn")
-            .contains("$Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v3), v2)"),
+            .contains("$Std$dList$dcontains($Std$dText$dinstDecEq, v2, $Main$dCard$did(v3))"),
         "{}",
         line("notIn")
     );
@@ -4583,15 +4646,12 @@ fn changed_prelude(from: &str, to: &str) -> String {
 #[test]
 fn built_in_boundary_types_take_no_attributes() {
     for (from, to) in [
+        ("type Bool: Type =", "@[js.tag \"kind\"]\ntype Bool: Type ="),
+        ("type Bool: Type =", "@[js.enum]\ntype Bool: Type ="),
+        ("| True\n", "| @[js.name \"yes\"] True\n"),
         (
-            "type Bool: Type =\n",
-            "@[js.tag \"kind\"]\ntype Bool: Type =\n",
-        ),
-        ("type Bool: Type =\n", "@[js.enum]\ntype Bool: Type =\n"),
-        ("  | True\n", "  | @[js.name \"yes\"] True\n"),
-        (
-            "  | Some (value: a)\n",
-            "  | Some (@[js.name \"it\"] value: a)\n",
+            "| Some (value: a)\n",
+            "| Some (@[js.name \"it\"] value: a)\n",
         ),
     ] {
         let prelude = changed_prelude(from, to);

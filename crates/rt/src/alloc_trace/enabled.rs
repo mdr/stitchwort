@@ -130,9 +130,24 @@ pub fn finish() -> Trace {
     }
 }
 
+thread_local! {
+    /// While above 0, counts aren't recorded ([`super::quietly`]).
+    static QUIET: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+pub(super) fn quietly<R>(f: impl FnOnce() -> R) -> R {
+    QUIET.with(|q| q.set(q.get() + 1));
+    let r = f();
+    QUIET.with(|q| q.set(q.get() - 1));
+    r
+}
+
 #[cold]
 #[inline(never)]
 pub(super) fn record(kind: Kind, address: *const u8, tag: u32, arity: usize) {
+    if matches!(kind, Kind::Inc | Kind::Dec) && QUIET.with(std::cell::Cell::get) > 0 {
+        return;
+    }
     let _ = TRACE.try_with(|t| {
         let mut t = t.borrow_mut();
         let Some(state) = t.as_mut() else { return };

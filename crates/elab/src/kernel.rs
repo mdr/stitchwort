@@ -79,10 +79,14 @@ pub fn define_group(g: &mut Kernel, tables: &Tables, members: &[(DefId, Term)]) 
     let (members, expanded) = crate::saturate::saturate(&g.ev(), members)?;
     timed(g, |g| k::define_group(g, &members)).map_err(|d| {
         let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
+        // A member's type was declared without its failed references being
+        // refused: the kernel finds them here, with the body's.
+        let ev = g.ev();
+        let types = members.iter().map(|(id, _)| ev.def(*id).ty());
         let d = crate::goals::unfinished_dependency(
-            &g.ev(),
+            &ev,
             tables,
-            members.iter().map(|(_, t)| t),
+            members.iter().map(|(_, t)| t).chain(types),
             &own,
             d,
         );
@@ -191,6 +195,26 @@ pub fn substitute_folded(
     values: &[stitchwort_core::Value],
 ) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
     k::substitute_in(g, env, x, value, values)
+}
+
+/// Each of `values`, with `level` variables in scope, with the solved
+/// metavariables in it replaced by their solutions (`check::reread`).
+pub fn reread(
+    g: &Ev,
+    level: usize,
+    values: &[stitchwort_core::Value],
+) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
+    k::reread(g, level, values)
+}
+
+/// Each of `values` read back folded and evaluated again in `env`
+/// (`check::reread_in`).
+pub fn reread_in(
+    g: &Ev,
+    env: &[stitchwort_core::Value],
+    values: &[stitchwort_core::Value],
+) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
+    k::reread_in(g, env, values)
 }
 
 /// Definition `id`'s type as a value under the current transparency set

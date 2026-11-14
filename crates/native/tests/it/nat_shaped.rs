@@ -84,6 +84,6 @@ fn nat_shaped_types_agree_on_every_runner() {
             frames: n as usize,
             ..limits
         });
-        assert_eq!((steps, frames), (263, 11));
+        assert_eq!((steps, frames), (264, 11));
     });
 }

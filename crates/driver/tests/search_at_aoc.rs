@@ -6,13 +6,16 @@
 //! how often the original lemma is among the closers, its rank, and the
 //! time a goal takes; and the misses, with what the search found instead.
 //!
-//! The full tier runs every such theorem of the AoC project; the daily tier
+//! The all tier runs every such theorem of the AoC project; the broad tier
 //! a sample, in a part of the project (`Aoc.Common` and the 2021 days) so
 //! that a cold check cache costs seconds, not the minute the whole project
-//! takes to check. The merge and lane tiers skip it.
+//! takes to check. The quick and lane tiers skip it.
 //!
 //! `STITCHWORT_AT_BENCH_ONLY=Year2024/Day06` limits it to the goals whose
-//! file path contains that text (any tier but merge and lane).
+//! file path contains that text (any tier but quick and lane).
+//! `STITCHWORT_AT_BENCH_SKIP=<n>` and `STITCHWORT_AT_BENCH_LIMIT=<n>` take a
+//! slice of those goals, to measure or bisect (the rate assertions then need
+//! not hold).
 //! `STITCHWORT_AT_BENCH_VERBOSE=1` prints each goal as it starts and, with
 //! its time, as it ends, to find the slow ones while it runs.
 
@@ -20,7 +23,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use stitchwort_driver::driver::{Session, Tier, par_map, tier};
+use stitchwort_driver::driver::{Session, Tier, par_map, par_map_with_at_most, tier};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, project_sources};
 use stitchwort_driver::search_at::{AtOptions, GoalAt, Overlay, ProjectGoal};
 use stitchwort_syntax::ast::{Decl, Expr};
@@ -294,11 +297,23 @@ fn cases(files: &dyn Files) -> Vec<Case> {
     let mut sources = SourceMap::new();
     let found = project_sources(files, "aoc", &mut sources).expect("aoc reads");
     let only = std::env::var("STITCHWORT_AT_BENCH_ONLY").ok();
-    found
+    let mut cases: Vec<Case> = found
         .iter()
         .filter(|(p, _)| only.as_ref().is_none_or(|o| p.contains(o.as_str())))
         .flat_map(|(p, t)| cases_in(p, t))
-        .collect()
+        .collect();
+    let count = |name: &str| {
+        std::env::var(name)
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+    };
+    if let Some(n) = count("STITCHWORT_AT_BENCH_SKIP") {
+        cases.drain(..n.min(cases.len()));
+    }
+    if let Some(n) = count("STITCHWORT_AT_BENCH_LIMIT") {
+        cases.truncate(n);
+    }
+    cases
 }
 
 fn report(label: &str, outcomes: &[Outcome]) {
@@ -365,19 +380,22 @@ fn report(label: &str, outcomes: &[Outcome]) {
     }
 }
 
-/// Every one-lemma proof of the AoC project (a sample in daily), as a goal.
+/// Goals searched at once in [`search_at_on_aoc_goals`].
+const MAX_GOAL_WORKERS: usize = 3;
+
+/// Every one-lemma proof of the AoC project (a sample in broad), as a goal.
 #[test]
 fn search_at_on_aoc_goals() {
     let keep: Option<Vec<String>> = match tier() {
-        Tier::Lane | Tier::Merge => {
-            eprintln!("skipped: daily and full tiers only");
+        Tier::Lane | Tier::Quick => {
+            eprintln!("skipped: broad and all tiers only");
             return;
         }
-        Tier::Daily => Some(vec![
+        Tier::Broad => Some(vec![
             "src/Aoc/Common".to_string(),
             "src/Aoc/Year2021".to_string(),
         ]),
-        Tier::Full => None,
+        Tier::All => None,
     };
     let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-at-aoc-cache");
     let files: Box<dyn Files + Sync> = match &keep {
@@ -394,7 +412,16 @@ fn search_at_on_aoc_goals() {
     let mut outcomes = vec![stitchwort_driver::driver::with_stack(STACK, || {
         run(&first[0], &*files, &cache)
     })];
-    outcomes.extend(par_map(STACK, rest, |case| run(case, &*files, &cache)));
+    // Each goal holds a session with the project's files it imports, about
+    // 0.7 GB (measured: 5.7 GB on 8 workers, 1.5 GB on 2, SW-2614), so the
+    // pool is capped by memory, not by cores.
+    outcomes.extend(par_map_with_at_most(
+        STACK,
+        MAX_GOAL_WORKERS,
+        rest,
+        || (),
+        |(), case| run(case, &*files, &cache),
+    ));
     report("AoC theorems proved by one lemma or a closer", &outcomes);
     let lemmas = outcomes.iter().filter(|o| o.case.lemma.is_some()).count();
     let found = (outcomes.iter())
@@ -444,17 +471,17 @@ const D: &str = "src/Aoc/Year2021/";
 const REAL: &[Real] = &[
     Real { label: "landsFoldDot after `match fold`: `cases`", kind: "context order", path: "Day13/Proofs/Fold.sw",
         from: "| AlongX line => cases", until: None, to: "| AlongX line => ?", want: &["cases"], exclude: &[] },
-    Real { label: "widthCovers, equation-style `Cons dot rest, spot, Inl same`", kind: "context order", path: "Day13/Proofs/Picture.sw",
-        from: "| [dot, ..rest], spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]", until: None,
-        to: "| [dot, ..rest], spot, Inl same => ?", want: &[], exclude: &[] },
+    Real { label: "widthCovers's `Cons dot rest, Inl same`", kind: "context order", path: "Day13/Proofs/Picture.sw",
+        from: "| [dot, ..rest], Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]", until: None,
+        to: "| [dot, ..rest], Inl same => ?", want: &[], exclude: &[] },
     Real { label: "widthCons: `List.foldRightCons`", kind: "works", path: "Day13/Proofs/Picture.sw",
         from: "List.foldRightCons rest dot 0 (dot widest => Nat.max (dot.x + 1) widest)", until: None, to: "?", want: &["foldRightCons"], exclude: &[] },
     Real { label: "addToFirstZero's `Cons leaf rest` (a record after `Cons`)", kind: "record after a constructor", path: "Day18/Proofs/Leaves.sw",
         from: "| [leaf, ..rest] => Eq.cong (l => [l, ..rest]) (addZeroLeaf leaf)", until: None, to: "| [leaf, ..rest] => ?", want: &[], exclude: &[] },
     Real { label: "shiftAppend's `Some found` (a record update in `Some`)", kind: "record after a constructor", path: "Day18/Proofs/Explode.sw",
         from: "| Some found => Eq.cong Some (Exploding.ext", until: Some("\n"), to: "| Some found => ?", want: &[], exclude: &[] },
-    Real { label: "leavesShallow's `Regular value, small`", kind: "context order", path: "Day18/Proofs/Reduced.sw",
-        from: "| Regular value, small => And.left (And.left small)", until: None, to: "| Regular value, small => ?", want: &[], exclude: &[] },
+    Real { label: "leavesShallow's `Regular value`", kind: "context order", path: "Day18/Proofs/Reduced.sw",
+        from: "| Regular value => And.left (And.left small)", until: None, to: "| Regular value => ?", want: &[], exclude: &[] },
     Real { label: "leavesSmall's `Pair left right` (`split.%match1` in a hypothesis)", kind: "hidden %match name", path: "Day18/Proofs/Reduced.sw",
         from: "match el: split left with", until: Some("\n\ntheorem leavesShallow"), to: "?", want: &[], exclude: &[] },
     Real { label: "memberPairs: `(if i == j then None else Some (x, y)) = Some (x, y)`", kind: "works", path: "Day18/Proofs/Answers.sw",
@@ -478,9 +505,9 @@ const REAL: &[Real] = &[
     Real { label: "hittingDistinct: `List.distinctFilter`", kind: "works", path: "Day17/Proofs/Answers.sw",
         from: "List.distinctFilter (candidates target) (v => hitsWithin target (steps target) (launch v)) (candidatesDistinct target)", until: None, to: "?", want: &["distinctFilter"], exclude: &[] },
     Real { label: "dyAfter's base case: `omega`", kind: "works", path: "Day17/Proofs/Motion.sw",
-        from: "| 0, probe => omega", until: None, to: "| 0, probe => ?", want: &["omega"], exclude: &[] },
+        from: "| 0 => omega", until: None, to: "| 0 => ?", want: &["omega"], exclude: &[] },
     Real { label: "dyAfter's step: the induction hypothesis", kind: "induction hypothesis", path: "Day17/Proofs/Motion.sw",
-        from: "| Succ n, probe => omega [dyAfter n (step probe)]", until: None, to: "| Succ n, probe => ?", want: &["dyAfter"], exclude: &[] },
+        from: "| Succ n => omega [dyAfter n (step probe)]", until: None, to: "| Succ n => ?", want: &["dyAfter"], exclude: &[] },
     Real { label: "differ: `(x == y) = False` from `x ≠ y`", kind: "works", path: "Day12/Proofs/Neighbours.sw",
         from: "match e: x == y with", until: Some("\n\n"), to: "?", want: &["toBoolOfNot", "equalFalse", "soundFalse"], exclude: &[] },
     Real { label: "appendStep: `List.appendAssoc` backwards", kind: "works", path: "Day12/Proofs/Rules.sw",
@@ -608,13 +635,13 @@ fn run_real(real: &Real, files: &dyn Files, cache: &Path) -> RealOutcome {
 
 /// The benchmark of real goals (SW-989): AoC 2021 days 9 to 18, in the
 /// project (`Aoc.Common`, the 2021 days, and 2024 day 24, which day 12
-/// imports). Daily and full tiers; `STITCHWORT_AT_BENCH_ONLY` as above.
+/// imports). Broad and all tiers; `STITCHWORT_AT_BENCH_ONLY` as above.
 /// Reported: how many are refused, read and closed, and how many are closed
 /// (or offered a step) by what their proof used; the time of each.
 #[test]
 fn search_at_on_real_2021_goals() {
-    if matches!(tier(), Tier::Lane | Tier::Merge) {
-        eprintln!("skipped: daily and full tiers only");
+    if matches!(tier(), Tier::Lane | Tier::Quick) {
+        eprintln!("skipped: broad and all tiers only");
         return;
     }
     let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-at-aoc-cache");

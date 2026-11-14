@@ -17,9 +17,7 @@ type Color = | Red | Black
 --| A red-black tree from keys to flags. A node holds its colour, its two
 --| subtrees and its key and value; every key in `left` is below `key` and
 --| every key in `right` above it.
-type Tree =
-  | Leaf
-  | Node (color: Color) (left: Tree) (key: Nat) (value: Bool) (right: Tree)
+type Tree = | Leaf | Node (color: Color) (left: Tree) (key: Nat) (value: Bool) (right: Tree)
 
 --| `step` applied to each key and value in key order, starting from `start`.
 def Tree.fold: Tree → a → (Nat → Bool → a → a) → a
@@ -58,9 +56,7 @@ def Tree.ins: Tree → Nat → Bool → Tree
     else if key == ky then Node Red a key value b
     else Node Red a ky vy (b.ins key value)
   | Node Black a ky vy b, key, value =>
-    if key < ky then
-      if a.isRed then balanceLeft (a.ins key value) ky vy b
-      else Node Black (a.ins key value) ky vy b
+    if key < ky then if a.isRed then balanceLeft (a.ins key value) ky vy b else Node Black (a.ins key value) ky vy b
     else if key == ky then Node Black a key value b
     else if b.isRed then balanceRight a ky vy (b.ins key value)
     else Node Black a ky vy (b.ins key value)
@@ -91,8 +87,7 @@ def countNodes: List Tree → Nat → Nat
 def main(): {IO, Fail} () :=
   let (count, frequency) := match IO.args() with
     | [] => (2000000, 10)
-    | [text, every] =>
-      (Fail.need text.toNat "expected a count", Fail.need every.toNat "expected a frequency")
+    | [text, every] => (Fail.need text.toNat "expected a count", Fail.need every.toNat "expected a frequency")
     | _ => Fail.fail "expected no arguments, or a count and a frequency"
   let frequency := if frequency == 0 then 1 else frequency
   let kept := mkMap frequency count Leaf []

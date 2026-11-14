@@ -20,8 +20,7 @@ export def interleave: List Nat → List Nat → List Nat
 export def merge: List Nat → List Nat → List Nat
   | Nil, ys => ys
   | Cons x xs, Nil => Cons x xs
-  | Cons x xs, Cons y ys =>
-    if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
+  | Cons x xs, Cons y ys => if Nat.leq x y then Cons x (merge xs (Cons y ys)) else Cons y (merge (Cons x xs) ys)
 
 -- Each call takes one off the first argument and swaps the first two,
 -- counting the calls: a tail call with its arguments in a different order.

@@ -1,0 +1,8 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+Main.sumsDiffer 44cd9c4596aed8b225d9a3bfeae47945f23cda2d25b667d04c04dd96bbd0c53f
+Main.intsDiffer 788d6f253ad8c26c2e8ee9db333ac93866682d0e5b58bbf25b941fb14769eadc
+Main.typed 44cd9c4596aed8b225d9a3bfeae47945f23cda2d25b667d04c04dd96bbd0c53f
+Main.operands 44cd9c4596aed8b225d9a3bfeae47945f23cda2d25b667d04c04dd96bbd0c53f

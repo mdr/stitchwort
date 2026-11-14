@@ -30,10 +30,9 @@ test "value parameter" := Ord.compare (Within 2 rfl: Bounded 5) (Within 4 rfl) =
 -- Derived instances nest: a tree of entries, sorted.
 def forest: List (Tree (Entry Text Nat)) := [leaf { key = "z", value = 0 }, Leaf, leaf { key = "a", value = 0 }]
 
-test "nested instances" :=
-  List.sort forest == [Leaf, leaf { key = "a", value = 0 }, leaf { key = "z", value = 0 }]
+test "nested instances" := List.sort forest == [Leaf, leaf { key = "a", value = 0 }, leaf { key = "z", value = 0 }]
 
 -- A generic function given any derived ordering.
-def smallest [auto ord: Ord a] (x: a) (y: a) (z: a): a := Ord.min x (Ord.min y z)
+def smallest [auto ord: Ord a] (x y z: a): a := Ord.min x (Ord.min y z)
 
 test "generic" := smallest (leaf 3) (leaf 1) (leaf 2) == leaf 1

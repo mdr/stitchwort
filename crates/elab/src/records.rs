@@ -207,19 +207,38 @@ impl Elaborator {
         ty: Option<&Value>,
     ) -> Result<CtorPattern<'a>> {
         let g = &self.ev();
-        let d = match ty.map(|t| force(g, t.clone())).transpose()? {
+        // On a test fact, the record its test reads as
+        // (docs/proposals/bool-as-proposition.md §6.1).
+        let read = match ty {
+            Some(t) => Some(crate::reading::read_type(g, self, t)?.unwrap_or_else(|| t.clone())),
+            None => None,
+        };
+        let d = match read.map(|t| force(g, t)).transpose()? {
             Some(Value::Data(d, _)) if g.data(d).record() => d,
             Some(Value::Data(d, _)) => {
-                return Err(error(
+                let e = error(
                     "E-NOT-A-RECORD",
                     span,
                     format!(
                         "this is a record pattern, but it matches a `{}`, which isn't a record",
                         g.data(d).name()
                     ),
-                ));
+                );
+                let waiting = match ty {
+                    Some(t) => crate::reading::waiting_note(g, self, t)?,
+                    None => None,
+                };
+                return Err(match waiting {
+                    Some(note) => e.with_note(note),
+                    None => e,
+                });
             }
             _ => {
+                if let Some(t) = ty
+                    && let Some(p) = crate::reading::pending_of_type(g, self, t)?
+                {
+                    return Err(crate::reading::pending_error(self, span, p));
+                }
                 return Err(error(
                     "E-CANNOT-INFER",
                     span,
@@ -942,7 +961,7 @@ fn unknown_field(g: &Ev, d: DataId, name: &ast::Name) -> Diagnostic {
 fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)> {
     let g = cx.g();
     match force(&g, ty.clone())? {
-        Value::Data(d, params) if g.data(d).record() => Ok((d, params)),
+        Value::Data(d, params) if g.data(d).record() => Ok((d, params.into_vec())),
         Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err(cx
             .error(
                 "E-CANNOT-INFER",
@@ -1054,13 +1073,8 @@ impl crate::queue::Check for Literal {
         let [(d, _)] = with_field_names(cx, &self.fields)[..] else {
             return Ok(false);
         };
-        let params = (0..cx.g().data(d).params().len())
-            .map(|_| {
-                let meta = cx.fresh_meta();
-                cx.eval(&meta)
-            })
-            .collect::<Result<Vec<_>>>()?;
-        let chosen = cx.unify(&Value::Data(d, params), &self.expected)?;
+        let params = crate::check::fresh_telescope(cx, cx.g().data(d).params())?;
+        let chosen = cx.unify(&Value::Data(d, params.into()), &self.expected)?;
         if chosen {
             let name = cx.g().data(d).name().to_string();
             cx.e.attempt
@@ -1170,14 +1184,15 @@ pub(crate) fn infer_update(
         return Ok((term, ty));
     }
     let mut result = params;
-    for (param, u) in result.iter_mut().zip(&uses) {
+    for (i, u) in uses.iter().enumerate() {
         if matches!(u, ParamUse::Free) {
-            let meta = cx.fresh_meta();
-            *param = cx.eval(&meta)?;
+            let ty = eval(&cx.g(), &result[..i], &cx.g().data(d).params()[i].1)?;
+            let meta = cx.fresh_meta_of(&ty);
+            result[i] = cx.eval(&meta)?;
         }
     }
     let term = update(cx, base, &ty, Some(result.clone()), fields)?;
-    Ok((term, Value::Data(d, result)))
+    Ok((term, Value::Data(d, result.into())))
 }
 
 /// What an update does with one of the record's type parameters.
@@ -1300,7 +1315,13 @@ fn changing_update(
     }
     let (base, ty) = infer(cx, base)?;
     let (base, ty) = insert(cx, base, ty)?;
-    Ok(Some(update(cx, base, &ty, Some(wanted), fields)?))
+    Ok(Some(update(
+        cx,
+        base,
+        &ty,
+        Some(wanted.into_vec()),
+        fields,
+    )?))
 }
 
 /// `{ f = e, … }` at record `d` with parameters `params`: every field given
@@ -1404,7 +1425,7 @@ fn update(
     let (d, params) = record_type(cx, ty, "this update")?;
     let uses = param_uses(&g, d, fields);
     let new_ty = match &result {
-        Some(new) => Value::Data(d, new.clone()),
+        Some(new) => Value::Data(d, new.clone().into()),
         None => ty.clone(),
     };
     let new_params = result.unwrap_or_else(|| params.clone());

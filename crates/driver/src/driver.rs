@@ -102,7 +102,7 @@ pub fn par_map_with<S, T: Sync, R: Send>(
 /// [`par_map_with`] on at most `max_workers` threads: for a sweep whose
 /// `init` costs far more than an item (an eager session loads for seconds,
 /// a hash snapshot takes milliseconds), where each extra worker repeats the
-/// load and the merge tier's other tests already keep every core busy.
+/// load and the quick tier's other tests already keep every core busy.
 #[doc(hidden)]
 pub fn par_map_with_at_most<S, T: Sync, R: Send>(
     stack: usize,
@@ -151,55 +151,79 @@ pub fn par_map_with_at_most<S, T: Sync, R: Send>(
 }
 
 /// The test tier being run (docs/testing.md, "Tiers"): `STITCHWORT_TIER`
-/// is `lane`, `merge`, `daily` or `full`, and unset means `daily`. Which
-/// tests run at all is chosen by the nextest profile of the same name
-/// (`.config/nextest.toml`); the tier decides how much of a corpus a sweep
-/// covers ([`tier_sample`]) and whether a full-only part of a test runs
-/// ([`full_tier`]).
+/// is `lane`, `quick`, `broad` or `all`; when it is unset, the nextest
+/// profile of the same name (`.config/nextest.toml`) says which tier, and
+/// no profile at all means `broad` ([`tier`]). The tier decides how much of
+/// a corpus a sweep covers ([`tier_sample`]) and whether an all-only part of
+/// a test runs ([`all_tier`]).
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
     Lane,
-    Merge,
-    Daily,
-    Full,
+    Quick,
+    Broad,
+    All,
 }
 
-/// The tier from `STITCHWORT_TIER`; panics on an unknown name, so a typo
-/// doesn't quietly run the wrong amount.
+/// The tier from `STITCHWORT_TIER`; when that is unset, from the nextest
+/// profile, which nextest puts in each test's `NEXTEST_PROFILE` and
+/// `.config/nextest.toml` names after the tier (`all`, `quick`, `broad`, and
+/// `lane-AREA` for a lane): so `cargo nextest run --profile all` runs the
+/// all-only tests without the variable having to be set. `default` (and no
+/// profile at all) means `broad`. A set `STITCHWORT_TIER` wins. Panics on an
+/// unknown name, so a typo doesn't quietly run the wrong amount.
 #[doc(hidden)]
 pub fn tier() -> Tier {
-    match std::env::var("STITCHWORT_TIER").as_deref() {
-        Err(_) | Ok("" | "daily") => Tier::Daily,
-        Ok("lane") => Tier::Lane,
-        Ok("merge") => Tier::Merge,
-        Ok("full") => Tier::Full,
-        Ok(other) => panic!("STITCHWORT_TIER={other}: expected lane, merge, daily or full"),
+    let named = std::env::var("STITCHWORT_TIER").ok();
+    let profile = std::env::var("NEXTEST_PROFILE").ok();
+    tier_from(named.as_deref(), profile.as_deref())
+}
+
+/// [`tier`] from the two names it reads, so that its fallback is testable
+/// without changing the process environment that other tests see.
+fn tier_from(named: Option<&str>, profile: Option<&str>) -> Tier {
+    if let Some(name) = named {
+        return match name {
+            "" | "broad" => Tier::Broad,
+            "lane" => Tier::Lane,
+            "quick" => Tier::Quick,
+            "all" => Tier::All,
+            other => panic!("STITCHWORT_TIER={other}: expected lane, quick, broad or all"),
+        };
+    }
+    match profile {
+        None | Some("" | "default" | "broad") => Tier::Broad,
+        Some("quick") => Tier::Quick,
+        Some("all") => Tier::All,
+        Some(name) if name == "lane" || name.starts_with("lane-") => Tier::Lane,
+        Some(other) => {
+            panic!("NEXTEST_PROFILE={other}: expected default, lane-AREA, quick, broad or all")
+        }
     }
 }
 
-/// Whether the full tier is on, for a test or part of one that runs only
+/// Whether the all tier is on, for a test or part of one that runs only
 /// there; when it is off, says what was skipped.
 #[doc(hidden)]
-pub fn full_tier(test: &str) -> bool {
-    let on = tier() == Tier::Full;
+pub fn all_tier(test: &str) -> bool {
+    let on = tier() == Tier::All;
     if !on {
-        eprintln!("skipped {test}: full tier only (`task test:full`)");
+        eprintln!("skipped {test}: all tier only (`task test:all`)");
     }
     on
 }
 
 /// A corpus sweep's share of `items` in this tier, a fixed sample (every
-/// n-th item, from the first, in the order given): every item in the full
-/// tier, every `daily_stride`-th in `daily`, and every
-/// `4 * daily_stride`-th in `merge` and `lane`. A stride of 1 means the
-/// whole corpus in `daily`.
+/// n-th item, from the first, in the order given): every item in the all
+/// tier, every `broad_stride`-th in `broad`, and every
+/// `4 * broad_stride`-th in `quick` and `lane`. A stride of 1 means the
+/// whole corpus in `broad`.
 #[doc(hidden)]
-pub fn tier_sample<T>(items: Vec<T>, daily_stride: usize) -> Vec<T> {
+pub fn tier_sample<T>(items: Vec<T>, broad_stride: usize) -> Vec<T> {
     let stride = match tier() {
-        Tier::Full => 1,
-        Tier::Daily => daily_stride.max(1),
-        Tier::Merge | Tier::Lane => 4 * daily_stride.max(1),
+        Tier::All => 1,
+        Tier::Broad => broad_stride.max(1),
+        Tier::Quick | Tier::Lane => 4 * broad_stride.max(1),
     };
     items.into_iter().step_by(stride).collect()
 }
@@ -237,6 +261,25 @@ pub fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
         .join(stack.to_string())
 }
 
+/// What a filled test std cache's marker holds: the build's fingerprint (the
+/// Rust sources) and the library's text. A change to a library file alone
+/// leaves the fingerprint as it was but makes the entries of every file
+/// after it miss, so a marker of the fingerprint alone called the cache full
+/// and let every process check those files from source at once (about
+/// 1.3 GB each, SW-3000).
+fn cache_stamp() -> &'static str {
+    static STAMP: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    STAMP.get_or_init(|| {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(stitchwort_elab::prelude().as_bytes());
+        for (path, text) in stitchwort_elab::library_files() {
+            hasher.update(path.as_bytes());
+            hasher.update(text.as_bytes());
+        }
+        format!("{FINGERPRINT}-{}", &hasher.finalize().to_hex()[..16])
+    })
+}
+
 /// Lets one process at a time load the library into an empty test std cache.
 ///
 /// After a compiler change every test process finds the cache empty and would
@@ -258,7 +301,7 @@ impl TestCacheTurn {
         let marker = cache_dir.with_extension("done");
         let none = |marker| TestCacheTurn { file: None, marker };
         let full = |marker: &std::path::Path| {
-            std::fs::read_to_string(marker).is_ok_and(|text| text == FINGERPRINT)
+            std::fs::read_to_string(marker).is_ok_and(|text| text == cache_stamp())
         };
         if full(&marker) {
             return none(marker);
@@ -300,7 +343,7 @@ impl TestCacheTurn {
     /// The library loaded through the cache: it is full.
     pub fn finish(&self) {
         if self.file.is_some() {
-            let _ = std::fs::write(&self.marker, FINGERPRINT);
+            let _ = std::fs::write(&self.marker, cache_stamp());
         }
     }
 }
@@ -342,6 +385,21 @@ impl Session {
             StdCache::Test,
         )
         .unwrap_or_else(|report| panic!("{report}"))
+    }
+
+    /// A session with the whole library loaded from source (the library
+    /// this process reads, `--std-dir` included), under limits for a thread
+    /// with `stack` bytes; the report of what failed to load if it doesn't.
+    pub fn try_eager_library_for_stack(stack: usize) -> Result<Self, String> {
+        Self::start(
+            prelude(),
+            Library::Standard,
+            true,
+            false,
+            false,
+            Limits::for_stack(stack),
+            StdCache::Source,
+        )
     }
 
     /// [`Session::eager_for_stack`], checking the whole library from source
@@ -603,6 +661,7 @@ impl Session {
         };
         session.elab.set_core_link_names(Some(index.clone()));
         let mut diagnostics = session.elab.elaborate_module(module);
+        session.statement_style(&mut diagnostics, &[file]);
         session.elab.set_core_link_names(None);
         // A broken doc link in the core fails the load, as in a library
         // file (SW-1046). A test's own library files don't have the names
@@ -660,15 +719,15 @@ impl Session {
     }
 
     /// For a test of what a program does, not of how the library checks:
-    /// in every tier but the full one, library files load through the test
+    /// in every tier but the all one, library files load through the test
     /// std cache (the one [`Session::eager_for_stack`] fills), where they
     /// would each be checked from source in every session, which was most
-    /// of the CPU of the tests that make many. The full tier still checks
+    /// of the CPU of the tests that make many. The all tier still checks
     /// from source, as a second guard beside `hash_stability`'s `prelude`. `Session::eager_from_source_for_stack` is
     /// for the tests of that check.
     #[doc(hidden)]
     pub fn use_test_std_cache(&mut self) {
-        if tier() == Tier::Full {
+        if tier() == Tier::All {
             return;
         }
         let dir = test_std_cache_dir(self.elab.options.limits.stack);
@@ -730,7 +789,7 @@ impl Session {
             parse_module_recovering(file, text, self.elab.options.limits.stack);
         let first_new_def = self.elab.kernel.env.defs().len();
         self.elab.set_file_mode(context);
-        let diagnostics =
+        let mut diagnostics =
             if module.namespace.is_none() && module.decls.is_empty() && !parse_errors.is_empty() {
                 Vec::new()
             } else {
@@ -738,9 +797,17 @@ impl Session {
             };
         self.elab.set_file_mode(None);
         if parse_errors.is_empty() {
+            self.statement_style(&mut diagnostics, &[file]);
             self.finish_load(first_new_def, diagnostics)?;
             Ok(file)
         } else {
+            // A file that doesn't parse has no statement style yet: the
+            // recovered module can suggest `W-ARROW-FORALL` at a header
+            // parameter, which isn't written as an arrow. Keep the written
+            // arrows only, as for a file that parses.
+            stitchwort_elab::keep_written_arrows(&mut diagnostics, |id| {
+                Some(self.sources.get(id).text.as_str())
+            });
             Err(merge_recovered(parse_errors, diagnostics))
         }
     }
@@ -792,10 +859,27 @@ impl Session {
             })
             .collect();
         let first_new_def = self.elab.kernel.env.defs().len();
-        let diagnostics = self
+        let mut diagnostics = self
             .elab
             .elaborate_namespace(Some(&namespace), &units, None);
+        self.statement_style(&mut diagnostics, &ids);
         self.finish_load(first_new_def, diagnostics)
+    }
+
+    /// The warnings about how statements are written, which need the
+    /// files' text: drops the elaborator's `W-ARROW-FORALL` candidates that
+    /// weren't written with `->`, and adds `W-THEOREM-FORALL` for each file
+    /// of `files`.
+    pub(crate) fn statement_style(&self, diagnostics: &mut Vec<Diagnostic>, files: &[FileId]) {
+        stitchwort_elab::keep_written_arrows(diagnostics, |id| {
+            Some(self.sources.get(id).text.as_str())
+        });
+        for &id in files {
+            diagnostics.extend(crate::binder_sweep::warnings(
+                id,
+                &self.sources.get(id).text,
+            ));
+        }
     }
 
     /// What `load` does once the elaborator is done: checks that the new
@@ -956,26 +1040,13 @@ impl Session {
     }
 }
 
-/// What a load that had syntax errors reports: those, then what checking
-/// the declarations that did parse found, in file order. Uses of
-/// declarations that failed to parse (`E-FAILED-DEPENDENCY`) go without
-/// saying: the syntax error is the cause.
+/// What a load that had syntax errors reports
+/// ([`stitchwort_elab::with_syntax_errors`]).
 pub(crate) fn merge_recovered(
     parse_errors: Vec<Diagnostic>,
     checked: Vec<Diagnostic>,
 ) -> Vec<Diagnostic> {
-    let mut all = parse_errors;
-    all.extend(
-        checked
-            .into_iter()
-            .filter(|d| d.code != "E-FAILED-DEPENDENCY"),
-    );
-    all.sort_by_key(|d| {
-        d.labels.first().map_or((usize::MAX, u32::MAX), |l| {
-            (l.span.file.index(), l.span.start)
-        })
-    });
-    all
+    stitchwort_elab::with_syntax_errors(parse_errors, checked)
 }
 
 /// Whether a test's expression evaluated to `True`.
@@ -999,6 +1070,17 @@ pub struct TestResult {
     pub hash: Option<ContentHash>,
     /// For a failed test, what can be said about why (D601).
     pub detail: Option<Failure>,
+    /// For a test that wasn't run, why: its code reaches an open goal
+    /// (`?`), naming the `?` and where it is, or it uses a declaration with
+    /// an error, or has one of its own ([`Session::with_broken_tests`]). The test fails
+    /// (`outcome` is [`Outcome::Failed`]). Never cached.
+    pub unfinished: Option<String>,
+    /// For a passing test, the gaps it relies on: open goals or
+    /// declarations with an error that are proofs or types it passes
+    /// around, which are erased when it runs, so it still runs (SW-2939,
+    /// D3525). Empty for a test that relies on none, and for a test that
+    /// didn't pass: a failure keeps its own reason.
+    pub assuming: Vec<crate::reliance::GoalPlace>,
 }
 
 /// Why a test failed, as far as it can be told: the part of the test that is
@@ -1466,14 +1548,83 @@ impl Session {
     /// the attributes before it): `text` is empty, `line` and `column`
     /// count from 1.
     pub fn test_location(&self, namespace: &str, name: &str) -> Option<Part> {
-        let test = self
-            .elab
-            .tests()
-            .iter()
-            .find(|t| t.namespace == namespace && t.name == name)?;
-        let mut at = self.part(test.span)?;
+        let span = self.test_span(namespace, name)?;
+        let mut at = self.part(span)?;
         at.text.clear();
         Some(at)
+    }
+
+    /// Where the test `name` of `namespace` is declared, whether it could be
+    /// checked or not.
+    fn test_span(&self, namespace: &str, name: &str) -> Option<stitchwort_syntax::Span> {
+        let same = |n: &str, ns: &str| n == name && ns == namespace;
+        (self.elab.tests().iter())
+            .find(|t| same(&t.name, &t.namespace))
+            .map(|t| t.span)
+            .or_else(|| {
+                (self.elab.broken_tests().iter())
+                    .find(|t| same(&t.name, &t.namespace))
+                    .map(|t| t.span)
+            })
+    }
+
+    /// `results` with the tests that couldn't be checked because they use a
+    /// declaration with an error (`Elaborator::broken_tests`, D3523), those
+    /// whose name `keep` keeps, each failed saying so: in `results` among
+    /// the tests of its namespace, in source order.
+    pub fn with_broken_tests(
+        &self,
+        mut results: Vec<TestResult>,
+        keep: impl Fn(&str) -> bool,
+    ) -> Vec<TestResult> {
+        let order = |s: stitchwort_syntax::Span| (s.file.index(), s.start);
+        for test in self.elab.broken_tests().iter().filter(|t| keep(&t.name)) {
+            let place = |span: stitchwort_syntax::Span| {
+                let file = self.sources.get(span.file);
+                let end = (span.start as usize).min(file.text.len());
+                let before = file.text.get(..end)?;
+                let line = before.matches('\n').count() + 1;
+                let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+                Some(format!("{}:{line}:{column}", file.name))
+            };
+            let at = (test
+                .error_at
+                .filter(|s| s.file.index() < self.sources.len()))
+            .and_then(place)
+            .map_or_else(String::new, |p| format!(" ({p})"));
+            let how = if test.uses == test.broken {
+                String::new()
+            } else {
+                format!(", which depends on `{}`", test.broken)
+            };
+            let why = if test.own {
+                format!("it has an error{at}")
+            } else {
+                format!("it uses `{}`{how}, which has an error{at}", test.uses)
+            };
+            let result = TestResult {
+                name: test.name.clone(),
+                namespace: test.namespace.clone(),
+                outcome: Outcome::Failed,
+                cached: false,
+                hash: None,
+                detail: None,
+                unfinished: Some(why),
+                assuming: Vec::new(),
+            };
+            let span_of = |r: &TestResult| self.test_span(&r.namespace, &r.name).map(order);
+            let same_namespace = |r: &TestResult| r.namespace == test.namespace;
+            let index = (results.iter())
+                .position(|r| same_namespace(r) && span_of(r).is_some_and(|o| o > order(test.span)))
+                .or_else(|| {
+                    (results.iter())
+                        .rposition(same_namespace)
+                        .map(|last| last + 1)
+                })
+                .unwrap_or(results.len());
+            results.insert(index, result);
+        }
+        results
     }
 
     fn part(&self, span: stitchwort_syntax::Span) -> Option<Part> {
@@ -1548,6 +1699,31 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_nextest_profile_names_the_tier_when_the_variable_does_not() {
+        assert_eq!(tier_from(None, Some("all")), Tier::All);
+        assert_eq!(tier_from(None, Some("quick")), Tier::Quick);
+        assert_eq!(tier_from(None, Some("lane-syntax")), Tier::Lane);
+        assert_eq!(tier_from(None, Some("lane-search")), Tier::Lane);
+        assert_eq!(tier_from(None, Some("broad")), Tier::Broad);
+        assert_eq!(tier_from(None, Some("default")), Tier::Broad);
+        assert_eq!(tier_from(None, None), Tier::Broad);
+    }
+
+    #[test]
+    fn a_set_variable_wins_over_the_nextest_profile() {
+        assert_eq!(tier_from(Some("broad"), Some("all")), Tier::Broad);
+        assert_eq!(tier_from(Some(""), Some("all")), Tier::Broad);
+        assert_eq!(tier_from(Some("quick"), Some("all")), Tier::Quick);
+        assert_eq!(tier_from(Some("all"), Some("default")), Tier::All);
+    }
+
+    #[test]
+    #[should_panic(expected = "NEXTEST_PROFILE=ful")]
+    fn an_unknown_nextest_profile_panics() {
+        tier_from(None, Some("ful"));
+    }
 
     #[test]
     fn a_part_keeps_the_brackets_the_parser_left_out_of_its_span() {

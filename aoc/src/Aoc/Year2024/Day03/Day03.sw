@@ -18,20 +18,16 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 instructions}"
 
 --| An uncorrupted instruction.
-type Instruction =
-  | Mul (left: Nat) (right: Nat)
-  | Do
-  | Dont
+type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
 --| A number of one to three digits.
 def shortNumber(): {Parse} Nat := natDigits (atLeast := 1) (atMost := 3)
 
 --| "mul(44,46)", "do()" or "don't()", exactly: no spaces, no other brackets.
-def instruction(): {Parse} Instruction :=
-  oneOf [
-    () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
-    () => pick [("do()", Do), ("don't()", Dont)]
-  ]
+def instruction(): {Parse} Instruction := oneOf [
+  () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
+  () => pick [("do()", Do), ("don't()", Dont)]
+]
 
 --| Every instruction in the memory, in order; everything else is noise.
 def parseInstructions (memory: Text): {Fail} List Instruction := Parse.all memory (() => findAll instruction)
@@ -55,5 +51,4 @@ def Tally.step (tally: Tally): Instruction → Tally
   | Do => { tally | enabled = True }
   | Dont => { tally | enabled = False }
 
-def solvePart2 (instructions: List Instruction): Nat :=
-  instructions.foldLeft Tally.start Tally.step |> .total
+def solvePart2 (instructions: List Instruction): Nat := instructions.foldLeft Tally.start Tally.step |> .total

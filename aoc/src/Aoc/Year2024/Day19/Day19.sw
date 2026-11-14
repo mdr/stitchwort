@@ -18,12 +18,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 onsen}"
   IO.print "Part 2: ${solvePart2 onsen}"
 
-type Stripe =
-  | White
-  | Blue
-  | Black
-  | Red
-  | Green
+type Stripe = | White | Blue | Black | Red | Green
 
 --| A towel's pattern: its stripes, in order.
 type Pattern = { stripes: NonEmptyList Stripe }

@@ -1,0 +1,18 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 692
+expression: output
+---
+[E-CASES-BUDGET] Error: `cases` made a case too large to split: its goal and hypotheses, written out in full, have more than a million parts
+    ╭─[ reject/cases-split-too-large.sw:17:70 ]
+    │
+ 17 │ theorem pickGrown (b: Bool): pick b (grow 20 Leaf) = grow 20 Leaf := cases
+    │                                                                      ──┬──  
+    │                                                                        ╰──── this `cases`
+    │ 
+    │ Note 1: it split on 1: `b`
+    │ 
+    │ Note 2: the first case still open: the first, before any split
+    │ 
+    │ Note 3: prove a fact that decides some of the cases at once and give it as `cases in t`, or split by hand with `match`
+────╯

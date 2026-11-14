@@ -38,7 +38,7 @@ export def shifted (xs: List Nat) (k: Nat): List Nat :=
   let b := a * 2
   xs.map (x => x + a + b)
 
-export def anyAll (xs: List Nat) (ys: List Nat): Bool :=
+export def anyAll (xs ys: List Nat): Bool :=
   let zs := ys.map (y => y * 2)
   xs.any (x => x + x ∈ zs) && xs.all (x => x + 1 ∉ zs)
 
@@ -47,10 +47,9 @@ export def weighted (xs: List Nat) (k: Nat): Nat :=
   xs.foldLeft 0 (acc x => acc + x * step)
 
 -- A `let` inside a callback, used twice: a `const` in the callback's body.
-export def usedTwice (xs: List Nat) (k: Nat): List Nat :=
-  xs.map (x =>
-    let y := x * k
-    y + y)
+export def usedTwice (xs: List Nat) (k: Nat): List Nat := xs.map (x =>
+  let y := x * k
+  y + y)
 
 export def direct (x: Nat): Nat := ((y: Nat) => y + y) (x * 3)
 

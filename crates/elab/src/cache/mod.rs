@@ -67,7 +67,7 @@ use stitchwort_core::{DataId, DefId, Ev, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
 use crate::library::{Needs, PendingKind};
-use crate::nav::{LocalUse, Noted};
+use crate::nav::{LocalUse, NamedUse, Noted, ParamBinder};
 use crate::project::SourceUnit;
 use crate::scope::ScopeOp;
 use crate::state::{self, Transaction, UnitId};
@@ -78,7 +78,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 29;
+pub const FORMAT: u32 = 34;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -120,6 +120,12 @@ pub struct Stats {
     pub namespace_misses: usize,
     pub namespace_written: usize,
     pub namespace_uncacheable: usize,
+    /// Namespaces checked without an error but not written because one they
+    /// use failed (SW-2951). Their entry would be valid; writing it under
+    /// the broken dependency's key would evict the one a fixed source finds
+    /// again. Unlike `namespace_uncacheable`, this clears when that error
+    /// is fixed.
+    pub namespace_waiting_on_error: usize,
     /// Namespace entries found not to fit after their replay had begun
     /// (loading the library files they need): the namespace is then
     /// elaborated in what the replay left. Never expected; the differential
@@ -183,7 +189,9 @@ pub(crate) struct Before {
     defs: usize,
     datas: usize,
     tables: state::TablesMark,
-    nav: Option<(usize, usize, usize)>,
+    /// How many locals, binders, outline items, parameters and named
+    /// arguments navigation held.
+    nav: Option<(usize, usize, usize, usize, usize)>,
 }
 
 /// A unit's write-set (docs/proposals/elaborator-state.md §4.8.3): the keys
@@ -390,7 +398,13 @@ impl Elaborator {
             tables: self.tables.mark(self.ids()),
             nav: self.present.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
-                (nav.locals.len(), nav.binders.len(), nav.outline.len())
+                (
+                    nav.locals.len(),
+                    nav.binders.len(),
+                    nav.outline.len(),
+                    nav.params.len(),
+                    nav.named.len(),
+                )
             }),
         }
     }
@@ -686,6 +700,9 @@ impl Elaborator {
             .take()
             .expect("the namespace's capture is there until it ends");
         self.unit.skip_navigation_walk = false;
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            self.session.failed_namespaces.insert(ns.to_string(), ());
+        }
         // A namespace with open goals is unfinished, like one with errors:
         // checked again each time, so its goals are always fresh. So is one
         // with a declaration that uses an unfinished one (which reports
@@ -695,7 +712,20 @@ impl Elaborator {
             .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             && self.tables.unfinished_count() == unfinished
             && !self.kernel.machine.budget.cancelled();
-        if ok {
+        // An importer of a namespace that failed is checked, but its entry
+        // would be keyed to the broken source: storing it would delete the
+        // healthy entry, which is the one the fixed source finds again.
+        let broken_dependency = closure.iter().find(|dependency| {
+            self.session
+                .failed_namespaces
+                .contains_key(dependency.as_str())
+        });
+        if ok && let Some(dependency) = broken_dependency {
+            debug(&format!(
+                "{ns} can't be cached: it uses {dependency}, which has an error"
+            ));
+            self.session.cache_stats.namespace_waiting_on_error += 1;
+        } else if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
                 .filter(|d| d.code != crate::doc_links::CODE)
                 .cloned()
@@ -1731,7 +1761,7 @@ impl Elaborator {
         // What code navigation recorded in the unit's files.
         let own = |file: &FileId| unit.own_files.contains(file);
         match (&self.present.nav, before.nav) {
-            (Some(nav), Some((locals, binders, outline))) => {
+            (Some(nav), Some((locals, binders, outline, params, named))) => {
                 let nav = nav.borrow();
                 if !nav.pending.is_empty() || nav.outline.len() != outline {
                     return Err("navigation left something unfinished".to_string());
@@ -1772,6 +1802,18 @@ impl Elaborator {
                     e.span_after(*at, &mut prev);
                     e.str(ty);
                 }
+                let mut exprs: Vec<(&Span, &String)> = nav
+                    .expr_unfolded
+                    .iter()
+                    .filter(|(at, _)| own(&at.file))
+                    .collect();
+                exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+                e.w.usize(exprs.len());
+                let mut prev = 0;
+                for (at, ty) in exprs {
+                    e.span_after(*at, &mut prev);
+                    e.str(ty);
+                }
                 let mut used: Vec<(&Span, &String)> = nav
                     .call_defaults
                     .iter()
@@ -1796,6 +1838,18 @@ impl Elaborator {
                     e.span_after(Span::new(*file, *at, *at), &mut prev);
                     e.str(ty);
                 }
+                let mut types: Vec<(&(FileId, u32), &String)> = nav
+                    .local_unfolded
+                    .iter()
+                    .filter(|((file, _), _)| own(file))
+                    .collect();
+                types.sort_by_key(|((file, at), _)| (file.index(), *at));
+                e.w.usize(types.len());
+                let mut prev = 0;
+                for ((file, at), ty) in types {
+                    e.span_after(Span::new(*file, *at, *at), &mut prev);
+                    e.str(ty);
+                }
                 for uses in [&nav.locals[locals..], &nav.binders[binders..]] {
                     e.w.usize(uses.len());
                     let mut prev = 0;
@@ -1803,6 +1857,37 @@ impl Elaborator {
                         e.span_after(u.span, &mut prev);
                         e.str(&u.name);
                         e.span_after(u.binder, &mut u.span.start.clone());
+                    }
+                }
+                // A library file's parameters and named arguments, which
+                // link the second to the first in the index, are not found
+                // again when it loads from the entry (it isn't walked).
+                let (params, named): (Vec<&ParamBinder>, Vec<&NamedUse>) = if unit.library {
+                    (
+                        (nav.params[params..].iter())
+                            .filter(|p| own(&p.owner.file))
+                            .collect(),
+                        (nav.named[named..].iter())
+                            .filter(|u| own(&u.span.file))
+                            .collect(),
+                    )
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                e.w.usize(params.len());
+                let mut prev = 0;
+                for p in &params {
+                    e.span_after(p.owner, &mut prev);
+                    e.str(&p.name);
+                    e.span_after(p.binder, &mut p.owner.start.clone());
+                }
+                e.w.usize(named.len());
+                let mut prev = 0;
+                for u in &named {
+                    e.span_after(u.span, &mut prev);
+                    e.str(&u.name);
+                    for at in u.head {
+                        e.span_after(at, &mut u.span.start.clone());
                     }
                 }
                 // A namespace's are found again by walking its syntax.
@@ -2075,10 +2160,14 @@ enum Target {
 struct NavEntry {
     refs: Vec<(Span, String, Target, GlobalEntry, Option<String>)>,
     exprs: Vec<(Span, String)>,
+    expr_unfolded: Vec<(Span, String)>,
     call_defaults: Vec<(Span, String)>,
     local_types: Vec<(Span, String)>,
+    local_unfolded: Vec<(Span, String)>,
     locals: Vec<(Span, String, Span)>,
     binders: Vec<(Span, String, Span)>,
+    params: Vec<ParamBinder>,
+    named: Vec<NamedUse>,
     fields: Vec<(Span, String, Span)>,
 }
 
@@ -3073,11 +3162,17 @@ impl Elaborator {
             for (at, ty) in entry.exprs {
                 nav.expr_types.insert(at, ty);
             }
+            for (at, ty) in entry.expr_unfolded {
+                nav.expr_unfolded.insert(at, ty);
+            }
             for (at, used) in entry.call_defaults {
                 nav.call_defaults.insert(at, used);
             }
             for (at, ty) in entry.local_types {
                 nav.local_types.insert((at.file, at.start), ty);
+            }
+            for (at, ty) in entry.local_unfolded {
+                nav.local_unfolded.insert((at.file, at.start), ty);
             }
             for (span, name, binder) in entry.locals {
                 nav.locals.push(LocalUse { span, name, binder });
@@ -3085,6 +3180,8 @@ impl Elaborator {
             for (span, name, binder) in entry.binders {
                 nav.binders.push(LocalUse { span, name, binder });
             }
+            nav.params.extend(entry.params);
+            nav.named.extend(entry.named);
             for (at, name, span) in entry.fields {
                 nav.field_spans.insert((at, name), span);
             }
@@ -3161,10 +3258,14 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         let mut nav = NavEntry {
             refs: Vec::new(),
             exprs: Vec::new(),
+            expr_unfolded: Vec::new(),
             call_defaults: Vec::new(),
             local_types: Vec::new(),
+            local_unfolded: Vec::new(),
             locals: Vec::new(),
             binders: Vec::new(),
+            params: Vec::new(),
+            named: Vec::new(),
             fields: Vec::new(),
         };
         let n = b.count()?;
@@ -3189,6 +3290,12 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         let n = b.count()?;
         let mut prev = 0;
         for _ in 0..n {
+            nav.expr_unfolded
+                .push((b.span_after(&mut prev)?, b.string()?));
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
             nav.call_defaults
                 .push((b.span_after(&mut prev)?, b.string()?));
         }
@@ -3196,6 +3303,12 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         let mut prev = 0;
         for _ in 0..n {
             nav.local_types
+                .push((b.span_after(&mut prev)?, b.string()?));
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
+            nav.local_unfolded
                 .push((b.span_after(&mut prev)?, b.string()?));
         }
         for uses in [&mut nav.locals, &mut nav.binders] {
@@ -3207,6 +3320,29 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
                 let binder = b.span_after(&mut span.start.clone())?;
                 uses.push((span, name, binder));
             }
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
+            let owner = b.span_after(&mut prev)?;
+            let name = b.string()?;
+            let binder = b.span_after(&mut owner.start.clone())?;
+            nav.params.push(ParamBinder {
+                owner,
+                name,
+                binder,
+            });
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
+            let span = b.span_after(&mut prev)?;
+            let name = b.string()?;
+            let head = [
+                b.span_after(&mut span.start.clone())?,
+                b.span_after(&mut span.start.clone())?,
+            ];
+            nav.named.push(NamedUse { head, name, span });
         }
         let n = b.count()?;
         let mut prev = 0;

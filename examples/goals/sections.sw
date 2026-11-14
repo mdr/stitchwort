@@ -3,7 +3,7 @@
 -- expression is a lambda, with its parameter named.
 type Item: Type = { name: Text, id: Nat }
 
-def summary (xs: List Nat) (items: List Item) (id: Nat) (n: Nat): Nat :=
+def summary (xs: List Nat) (items: List Item) (id n: Nat): Nat :=
   let matching := xs.count (== id)
   let flipped := xs.count (id ==)
   let others := xs.count (!= id)
@@ -15,4 +15,4 @@ def summary (xs: List Nat) (items: List Item) (id: Nat) (n: Nat): Nat :=
   let found := items.filter (.id == id)
   ?
 
-theorem countBelow (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
+theorem countBelow ∀ (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?

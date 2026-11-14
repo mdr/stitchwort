@@ -59,7 +59,7 @@ def point(): {Parse} Point :=
 
 --| The straight-line distance squared: it orders pairs the same way as the
 --| distance, and needs no square root.
-def Point.squaredDistance (point: Point) (other: Point): Nat :=
+def Point.squaredDistance (point other: Point): Nat :=
   square (point.x.absDiff other.x) + square (point.y.absDiff other.y) + square (point.z.absDiff other.z)
 
 def square (n: Nat): Nat := n * n
@@ -72,12 +72,10 @@ type Connection = { distance: Nat, first: Nat, second: Nat }
 
 --| Every pair of boxes, closest first.
 def closestFirst (points: List Point): List Connection :=
-  points.withIndex.pairs
-    |> .map (uncurry Connection.between)
-    |> .sort
+  points.withIndex.pairs |> .map (uncurry Connection.between) |> .sort
 
 --| The connection of two numbered boxes.
-def Connection.between (first: (Nat, Point)) (second: (Nat, Point)): Connection :=
+def Connection.between (first second: (Nat, Point)): Connection :=
   { distance = first.snd.squaredDistance second.snd, first = first.fst, second = second.fst }
 
 --| Which circuit each box is in, and how many circuits there are. The label
@@ -99,14 +97,15 @@ def Circuits.labelOf (circuits: Circuits) (box: Nat): Nat := circuits.labels |> 
 
 --| Joins the circuits of two boxes: every box in the first box's circuit
 --| takes the second's label.
-def Circuits.join (circuits: Circuits) (first: Nat) (second: Nat): Circuits :=
+def Circuits.join (circuits: Circuits) (first second: Nat): Circuits :=
   let firstLabel := circuits.labelOf first
   let secondLabel := circuits.labelOf second
   if firstLabel == secondLabel then circuits
-  else {
-    labels = circuits.labels |> .map (label => if label == firstLabel then secondLabel else label),
-    count = circuits.count - 1
-  }
+  else
+    {
+      labels = circuits.labels |> .map (label => if label == firstLabel then secondLabel else label),
+      count = circuits.count - 1
+    }
 
 --| Joins the two boxes of a pair from `closestFirst`.
 def Circuits.connect (circuits: Circuits) (connection: Connection): Circuits :=
@@ -121,8 +120,7 @@ def Circuits.sizes (circuits: Circuits) (boxes: Nat): List Nat :=
 --| 10 for its example), then multiply the sizes of the three biggest circuits.
 --| For `boxes` built by `Boxes.of` (see `Boxes`).
 def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
-  let joined := boxes.pairs.take connections
-    |> .foldLeft (Circuits.separate boxes.points.length) Circuits.connect
+  let joined := boxes.pairs.take connections |> .foldLeft (Circuits.separate boxes.points.length) Circuits.connect
   joined.sizes boxes.points.length |> .sortBy (first second => second.compare first) |> .take 3 |> .product
 
 --| Part 2: the product of the x coordinates of the two boxes whose joining
@@ -132,7 +130,8 @@ def solvePart1 (connections: Nat) (boxes: Boxes): Nat :=
 def solvePart2 (boxes: Boxes): Option Nat :=
   Circuits.separate boxes.points.length
     |> .lastJoin boxes.pairs
-    |> .map (((first, second)) => (boxes.points.getOr first Point.origin).x * (boxes.points.getOr second Point.origin).x)
+    |> .map (((first, second)) =>
+      (boxes.points.getOr first Point.origin).x * (boxes.points.getOr second Point.origin).x)
 
 --| Every box number is in range, so this default is never used.
 def Point.origin: Point := { x = 0, y = 0, z = 0 }
@@ -143,5 +142,4 @@ def Circuits.lastJoin (circuits: Circuits): List Connection → Option (Nat, Nat
   | [] => None
   | [connection, ..rest] =>
     let joined := circuits.connect connection
-    if circuits.count > 1 ∧ joined.count == 1 then Some (connection.first, connection.second)
-    else joined.lastJoin rest
+    if circuits.count > 1 ∧ joined.count == 1 then Some (connection.first, connection.second) else joined.lastJoin rest

@@ -63,13 +63,14 @@ def solvePart1 (tiles: List Point): Nat := tiles.pairs |> .map Rectangle.ofPair 
 
 --| The lines of the loop: from each red tile to the next, and from the last
 --| back to the first.
-def loopLines (tiles: List Point): List Line := tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
+def loopLines (tiles: List Point): List Line :=
+  tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
 
 --| `value` is from `one` to `other`, in either order.
-def isBetween (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ≤ other) ∨ (other ≤ value ≤ one)
+def isBetween (one other value: Nat): Bool := (one ≤ value ≤ other) ∨ (other ≤ value ≤ one)
 
 --| `value` is from `one` to `other`, `other` left out, in either order.
-def isBetweenHalfOpen (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value < other) ∨ (other ≤ value < one)
+def isBetweenHalfOpen (one other value: Nat): Bool := (one ≤ value < other) ∨ (other ≤ value < one)
 
 --| The tile is on the line (a red tile at either end, or a green tile).
 def Point.isOnLine (tile: Point) (line: Line): Bool :=
@@ -108,7 +109,7 @@ def Floor.of (tiles: List Point): Floor :=
 --| The floor through the key columns and rows, row by row: 1 for each tile
 --| outside the loop. A row's tiles are tested against the lines that touch
 --| the row; the others are too far away to matter.
-def Floor.outsideCells (lines: List Line) (columns: List Nat) (rows: List Nat): List (List Nat) :=
+def Floor.outsideCells (lines: List Line) (columns rows: List Nat): List (List Nat) :=
   rows.map (y => Floor.outsideRow (lines.filter (touchesRow y)) columns y)
 
 --| One row of the floor: 1 for each tile outside the loop.
@@ -128,7 +129,8 @@ type FloorRectangle = { corner: Corner, opposite: Corner }
 
 def FloorRectangle.ofPair (pair: (Corner, Corner)): FloorRectangle := { corner = pair.fst, opposite = pair.snd }
 
-def FloorRectangle.area (rectangle: FloorRectangle): Nat := Rectangle.area { corner = rectangle.corner.tile, opposite = rectangle.opposite.tile }
+def FloorRectangle.area (rectangle: FloorRectangle): Nat :=
+  Rectangle.area { corner = rectangle.corner.tile, opposite = rectangle.opposite.tile }
 
 --| Every tile of the rectangle is red or green: none of its key columns
 --| and rows is outside the loop.

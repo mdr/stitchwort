@@ -507,9 +507,11 @@ fn queue_item(
             (0..cx.level()).all(|i| !t.mentions(i))
         });
     let placeholder = if closed {
-        Term::Meta(cx.metas().new_meta(cx.span))
+        let m = cx.metas().new_meta(cx.span);
+        cx.metas().set_meta_type(m, ty.clone(), 0);
+        Term::Meta(m)
     } else {
-        cx.fresh_meta()
+        cx.fresh_meta_of(&ty)
     };
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
@@ -677,39 +679,74 @@ pub(crate) fn framed<T, F: ErrorFrame + 'static>(
     body: impl FnOnce(&mut Ctx) -> Result<T>,
     frame: impl FnOnce(&mut Ctx) -> F,
 ) -> Result<T> {
+    let (id, from) = enter_frame(cx);
+    let result = body(cx);
+    leave_frame(cx, id);
+    // `body` is often a check that recurses into `framed` again, so what
+    // happens after it is out of line, and this frame stays small: only an
+    // error or a waiting item needs `frame`.
+    match result {
+        Err(e) if !crate::undo::fatal(&e) => Err(map_in_frame(cx, frame, e)),
+        Err(e) => Err(e),
+        Ok(t) => {
+            give_frame(cx, id, from, frame);
+            Ok(t)
+        }
+    }
+}
+
+/// The start of [`framed`]: the construct's id, and how long the queue was.
+#[inline(never)]
+fn enter_frame(cx: &Ctx) -> (u64, usize) {
     let frames = &cx.e.attempt.queue.frames;
     let id = frames.next.get();
     frames.next.set(id + 1);
     let from = cx.e.attempt.queue.len();
     frames.active.borrow_mut().push(id);
-    let result = body(cx);
-    let frames = &cx.e.attempt.queue.frames;
-    {
-        let mut active = frames.active.borrow_mut();
-        debug_assert_eq!(active.last(), Some(&id), "frames nest");
-        active.pop();
-    }
-    match result {
-        Err(e) if !crate::undo::fatal(&e) => Err(frame(cx).map(cx, e)),
-        Err(e) => Err(e),
-        Ok(t) => {
-            let q = &cx.e.attempt.queue;
-            let waiting: Vec<usize> = (from.min(q.len())..q.len())
-                .filter(|&i| !matches!(q.state(i), State::Done))
-                .collect();
-            if !waiting.is_empty() {
-                let map = Box::new(frame(cx));
-                let q = &cx.e.attempt.queue;
-                let frame = Rc::new(Frame {
-                    id,
-                    saved: cx.save(),
-                    map,
-                });
-                for i in waiting {
-                    q.item(i).frames.borrow_mut().push(frame.clone());
-                }
-            }
-            Ok(t)
+    (id, from)
+}
+
+/// The end of [`framed`]'s body: construct `id` is no longer running.
+#[inline(never)]
+fn leave_frame(cx: &Ctx, id: u64) {
+    let mut active = cx.e.attempt.queue.frames.active.borrow_mut();
+    debug_assert_eq!(active.last(), Some(&id), "frames nest");
+    active.pop();
+}
+
+/// An error of [`framed`]'s body, mapped by its frame.
+#[inline(never)]
+fn map_in_frame<F: ErrorFrame>(
+    cx: &mut Ctx,
+    frame: impl FnOnce(&mut Ctx) -> F,
+    e: Diagnostic,
+) -> Diagnostic {
+    frame(cx).map(cx, e)
+}
+
+/// The frame of construct `id`, given to the items queued since the queue
+/// was `from` long that still wait, if any, after [`framed`]'s body.
+#[inline(never)]
+fn give_frame<F: ErrorFrame + 'static>(
+    cx: &mut Ctx,
+    id: u64,
+    from: usize,
+    frame: impl FnOnce(&mut Ctx) -> F,
+) {
+    let q = &cx.e.attempt.queue;
+    let waiting: Vec<usize> = (from.min(q.len())..q.len())
+        .filter(|&i| !matches!(q.state(i), State::Done))
+        .collect();
+    if !waiting.is_empty() {
+        let map = Box::new(frame(cx));
+        let q = &cx.e.attempt.queue;
+        let frame = Rc::new(Frame {
+            id,
+            saved: cx.save(),
+            map,
+        });
+        for i in waiting {
+            q.item(i).frames.borrow_mut().push(frame.clone());
         }
     }
 }
@@ -1175,6 +1212,7 @@ pub(crate) fn queue_constraint(
     blocker: usize,
     error: Diagnostic,
 ) -> Result<()> {
+    // Untyped: it stands for no value.
     let placeholder = cx.fresh_meta();
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
@@ -1848,20 +1886,26 @@ fn count(counter: &AtomicUsize) {
 /// Invariant 6 for a `.field` whose receiver is kept as a term (K2,
 /// docs/proposals/postponement.md §5.5): the receiver, elaborated since
 /// `before`, made none of the choices of §5.10 from an unknown's shape that
-/// a type known later could make otherwise: no number literal made `Nat`
-/// at once (`numbers::Defaulted`), and no operator left with a generic
-/// dictionary. Counted (`kept`, and `kept chose` for one that did), and
-/// asserted in a debug build.
+/// a type known later could make otherwise: no default applied
+/// (`numbers::Defaulted`, pushed only by the ladder's `apply_default`, so
+/// only a closed pattern's defaults inside the receiver can trip this; the
+/// receiver's own literals wait, K4). The assertion stays as a tripwire
+/// should a literal ever be defaulted at once again. Counted (`kept`, and
+/// `kept chose` for one that did), and asserted in a debug build.
+///
+/// An operator left with a generic dictionary is not such a choice: its
+/// projection is made when the declaration is zonked
+/// ([`Elaborator::specialise_operators`]), so its term is the one a type
+/// known at once gives (`((x => x * x) 3).toInt`, whose `x * x` waits for
+/// the literal's default, is `Nat.mul x x`).
 pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
     count(&cx.e.session.stats.kept);
     let defaulted = cx.e.attempt.defaulted.borrow().len() > before.defaulted();
-    let generic =
-        (cx.e.attempt.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
-    if defaulted || generic {
+    if defaulted {
         count(&cx.e.session.stats.kept_chose);
     }
     debug_assert!(
-        !defaulted && !generic,
+        !defaulted,
         "a receiver kept as a term chose from an unknown (invariant 6)"
     );
 }
@@ -2419,8 +2463,8 @@ mod tests {
     fn a_filled_placeholder_is_its_term_in_the_arguments_it_is_given() {
         let (e, n, two, _) = numbers();
         let mut cx = Ctx::new(&e, span());
-        cx.bind("x", Value::Data(n, Vec::new()));
-        cx.bind("y", Value::Data(n, Vec::new()));
+        cx.bind("x", Value::Data(n, Vec::new().into()));
+        cx.bind("y", Value::Data(n, Vec::new().into()));
         let log = Log::default();
         let succ = |t: Term| Term::ctor(n, 1, vec![t]);
         let (blocker, needs) = unknown(&cx);
@@ -2450,7 +2494,7 @@ mod tests {
     fn a_frozen_placeholder_is_never_guessed_by_comparing_calls() {
         let (e, n, two, pred) = numbers();
         let mut cx = Ctx::new(&e, at_span());
-        cx.bind("x", Value::Data(n, Vec::new()));
+        cx.bind("x", Value::Data(n, Vec::new().into()));
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);
         let placeholder = push(&cx, probe("a", &log, Term::Def(two)), needs);
@@ -2562,11 +2606,15 @@ mod tests {
         let (_, placeholder) = waiting_item(&cx, &log, anything());
         let (x, unknown_value) = unknown(&cx);
         let a = Value::Eq(
-            Rc::new(ty(0)),
-            Rc::new(unknown_value),
-            Rc::new(zero.clone()),
+            Rc::new(ty(0)).into(),
+            Rc::new(unknown_value).into(),
+            Rc::new(zero.clone()).into(),
         );
-        let b = Value::Eq(Rc::new(ty(0)), Rc::new(placeholder), Rc::new(two));
+        let b = Value::Eq(
+            Rc::new(ty(0)).into(),
+            Rc::new(placeholder).into(),
+            Rc::new(two).into(),
+        );
         assert!(!compare_waiting(&mut cx, &a, &b, Failure::Mismatch).unwrap());
         assert_eq!(e.attempt.queue.len(), 1);
         assert!(cx.g().meta_solution(x).is_none(), "undone");
@@ -2638,7 +2686,7 @@ mod tests {
             let d = (e.kernel.env.datas().iter())
                 .position(|d| d.path().rsplit('.').next() == Some(name))
                 .unwrap_or_else(|| panic!("{name} declared"));
-            Value::Data(DataId(d), Vec::new())
+            Value::Data(DataId(d), Vec::new().into())
         };
         (e, data)
     }
@@ -2788,9 +2836,9 @@ mod tests {
     }
 
     /// Invariant 6's assertion: a receiver kept as a term must have made no
-    /// choice of §5.10 from an unknown, such as leaving an operator with a
-    /// generic dictionary. Made by hand here: a debug build's assertion
-    /// says so; a release build counts it.
+    /// choice of §5.10 from an unknown, such as making a number literal
+    /// `Nat` at once. Made by hand here: a debug build's assertion says so;
+    /// a release build counts it.
     #[test]
     #[cfg_attr(debug_assertions, should_panic(expected = "invariant 6"))]
     fn a_kept_receiver_that_chose_from_an_unknown_is_caught() {
@@ -2798,7 +2846,8 @@ mod tests {
         let cx = Ctx::new(&e, span());
         let before = Snapshot::take(&cx);
         let (m, _) = unknown(&cx);
-        (e.attempt.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
+        let defaulted = crate::numbers::Defaulted::literal(m, span(), 1);
+        e.attempt.defaulted.borrow_mut().push(defaulted);
         let chose = e.session.stats.kept_chose.load(Ordering::Relaxed);
         kept_receiver(&cx, &before);
         assert!(e.session.stats.kept_chose.load(Ordering::Relaxed) > chose);

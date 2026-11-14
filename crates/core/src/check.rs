@@ -19,8 +19,8 @@ use crate::term::{Branch, DataId, DefId, Icit, MAX_LEVEL, Name, NumArm, QuotForm
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
-    Apart, Elim, Head, Spine, Value, apply, conv, eval, force, force_ref, quot_value, quote,
-    quote_folded, unused,
+    Apart, Closure, DataArgs, Elim, Head, Shared, Spine, Value, Values, apply, conv, eval, force,
+    force_ref, quot_value, quote, quote_folded, unused,
 };
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -184,10 +184,13 @@ impl<'g> Ctx<'g> {
         Ok(quote_folded(&self.g, self.level(), value)?)
     }
 
+    #[inline(never)]
     fn conv(&self, a: &Value, b: &Value) -> Result<bool> {
         Ok(conv(&self.g, self.level(), a, b)?)
     }
 
+    #[cold]
+    #[inline(never)]
     fn show(&self, value: &Value) -> String {
         pretty::value_for_message(&self.g, &self.names, value)
     }
@@ -201,6 +204,8 @@ impl<'g> Ctx<'g> {
         Diagnostic::error(code, message).with_label(self.span, label)
     }
 
+    #[cold]
+    #[inline(never)]
     fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
         if let (Value::Sort(_), Value::Sort(_)) = (expected, found) {
             return self
@@ -230,6 +235,14 @@ impl<'g> Ctx<'g> {
 /// The name the type checker's depth guard reports.
 const PASS: &str = "type checker";
 
+// `infer` and `check` recurse once per level of a term, and a term read back
+// from a normal form can be hundreds of levels deep (a list of 100 numbers
+// computed out in a `match`'s motive), so their own frames are kept small:
+// only the forms they pass through on the way down are handled in them, and
+// the rest are in functions of their own, never inlined. In the playground
+// the whole check must fit a stack of 320 KiB (`crates/web/build.rs`).
+
+#[inline(never)]
 pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
     let g = cx.g;
     g.machine.budget.nesting(PASS)?;
@@ -244,50 +257,160 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         Term::Var(ix) if *ix < cx.level() => {
             Ok((term.clone(), cx.types[cx.level() - 1 - ix].clone()))
         }
+        Term::App(..) => infer_app(cx, term),
+        Term::Data(d, args) => infer_data(cx, *d, args),
+        _ => infer_other(cx, term),
+    }
+}
+
+/// [`infer`] of an application.
+#[inline(never)]
+fn infer_app(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
+    infer_spine(cx, term)
+}
+
+/// The type of `f a1 … an`, `term`, already visited: the head, then each
+/// argument in turn, in one frame for the whole spine rather than one per
+/// argument. Each application inside it counts as a visit, as [`infer`]
+/// counts the terms it is given.
+#[inline(always)]
+fn infer_spine(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
+    let mut apps = Apps::new();
+    let head = push_apps(cx, term, &mut apps)?;
+    let (mut f, mut f_ty) = infer(cx, head)?;
+    for app in apps.iter().rev() {
+        let Term::App(_, a, icit) = app else {
+            unreachable!("an application, pushed above")
+        };
+        let icit = *icit;
+        let (dom, cod) = function_type(cx, f_ty, icit)?;
+        let a = check(cx, a, &dom)?;
+        f_ty = result_type(cx, &cod, &a)?;
+        f = Term::app_icit(f, a, icit);
+    }
+    Ok((f, f_ty))
+}
+
+/// The applications of a spine, outermost first, each the `App` term
+/// itself (the argument and its implicitness are in it): one pointer each,
+/// so that the frame that holds them stays small.
+type Apps<'t> = smallvec::SmallVec<[&'t Term; 8]>;
+
+/// Pushes the applications of `term`'s spine onto `apps`, outermost first,
+/// and returns its head. `term` is already visited; each application inside
+/// it counts as a visit, as [`infer`] counts the terms it is given.
+fn push_apps<'t>(cx: &Ctx, term: &'t Term, apps: &mut Apps<'t>) -> Result<&'t Term> {
+    let mut head = term;
+    let mut first = true;
+    while let Term::App(f, _, _) = head {
+        if !first {
+            cx.g.machine.budget.nesting(PASS)?;
+        }
+        first = false;
+        apps.push(head);
+        head = f;
+    }
+    Ok(head)
+}
+
+/// The domain and codomain of `ty`, the type of a function applied to an
+/// argument whose implicitness is `icit`.
+#[inline(never)]
+fn function_type(cx: &Ctx, ty: Value, icit: Icit) -> Result<(Shared, Closure)> {
+    match force(&cx.g, ty)? {
+        Value::Pi(_, pi_icit, dom, cod) if pi_icit == icit => Ok((dom, cod)),
+        other => Err(not_a_function(cx, &other)),
+    }
+}
+
+/// The type of a function whose codomain is `cod` applied to `a`.
+#[inline(never)]
+fn result_type(cx: &mut Ctx, cod: &Closure, a: &Term) -> Result<Value> {
+    // As `Closure::apply_lazy`: `a` is computed only if the result type
+    // depends on it.
+    let arg = if cod.body.mentions(0) {
+        cx.eval(a)?
+    } else {
+        unused()
+    };
+    Ok(cod.apply(&cx.g, arg)?)
+}
+
+#[cold]
+#[inline(never)]
+fn not_a_function(cx: &Ctx, ty: &Value) -> Diagnostic {
+    cx.error(
+        "E-NOT-A-FUNCTION",
+        "this isn't a function",
+        format!(
+            "it's applied to an argument, but its type is `{}`",
+            cx.show(ty)
+        ),
+    )
+}
+
+/// [`infer`] of data type `d` applied to `args`.
+#[inline(never)]
+fn infer_data(cx: &mut Ctx, d: DataId, args: &[Rc<Term>]) -> Result<(Term, Value)> {
+    let g = cx.g;
+    let Some(data) = g.env.datas().get(d.0) else {
+        return Err(malformed(cx, "reference to an unknown data type"));
+    };
+    if args.len() != data.params.len() + data.indices.len() {
+        return Err(data_arity_error(cx, data));
+    }
+    // The parameters then the indices: one telescope.
+    let telescope: std::borrow::Cow<[(Name, Term)]> = if data.indices.is_empty() {
+        std::borrow::Cow::Borrowed(&data.params)
+    } else {
+        std::borrow::Cow::Owned(data.params.iter().chain(&data.indices).cloned().collect())
+    };
+    let mut params = Vec::new();
+    let mut out = Vec::new();
+    for (i, ((_, param_ty), arg)) in telescope.iter().zip(args).enumerate() {
+        let ty = eval(&g, &params, param_ty)?;
+        let arg = check(cx, arg, &ty)?;
+        params.push(if later_types_mention(&telescope, i) {
+            cx.eval(&arg)?
+        } else {
+            unused()
+        });
+        out.push(arg);
+    }
+    Ok((Term::data(d, out), Value::Sort(data.sort)))
+}
+
+/// The error for data type `data` given the wrong number of arguments.
+#[cold]
+#[inline(never)]
+fn data_arity_error(cx: &Ctx, data: &Data) -> Diagnostic {
+    let wanted = if data.indices.is_empty() {
+        format!("{} parameter(s)", data.params.len())
+    } else {
+        format!(
+            "{} parameter(s) and {} index(es)",
+            data.params.len(),
+            data.indices.len()
+        )
+    };
+    malformed(cx, format!("`{}` needs {wanted}", data.name))
+}
+
+/// [`infer`] of the forms it doesn't handle itself.
+#[inline(never)]
+fn infer_other(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
+    let g = cx.g;
+    match term {
+        Term::Loc(..) | Term::App(..) | Term::Data(..) => infer(cx, term),
+        Term::Var(ix) if *ix < cx.level() => infer(cx, term),
         Term::Var(ix) => Err(malformed(cx, format!("variable {ix} is out of scope"))),
         Term::Def(id) => match g.env.defs().get(id.0) {
             Some(def) => Ok((term.clone(), def_type(&g, def)?)),
             None => Err(malformed(cx, "reference to an unknown definition")),
         },
-        Term::Data(d, args) => {
-            let Some(data) = g.env.datas().get(d.0) else {
-                return Err(malformed(cx, "reference to an unknown data type"));
-            };
-            if args.len() != data.params.len() + data.indices.len() {
-                let wanted = if data.indices.is_empty() {
-                    format!("{} parameter(s)", data.params.len())
-                } else {
-                    format!(
-                        "{} parameter(s) and {} index(es)",
-                        data.params.len(),
-                        data.indices.len()
-                    )
-                };
-                return Err(malformed(cx, format!("`{}` needs {wanted}", data.name)));
-            }
-            // The parameters then the indices: one telescope.
-            let telescope: std::borrow::Cow<[(Name, Term)]> = if data.indices.is_empty() {
-                std::borrow::Cow::Borrowed(&data.params)
-            } else {
-                std::borrow::Cow::Owned(data.params.iter().chain(&data.indices).cloned().collect())
-            };
-            let mut params = Vec::new();
-            let mut out = Vec::new();
-            for (i, ((_, param_ty), arg)) in telescope.iter().zip(args).enumerate() {
-                let ty = eval(&g, &params, param_ty)?;
-                let arg = check(cx, arg, &ty)?;
-                params.push(if later_types_mention(&telescope, i) {
-                    cx.eval(&arg)?
-                } else {
-                    unused()
-                });
-                out.push(arg);
-            }
-            Ok((Term::data(*d, out), Value::Sort(data.sort)))
-        }
         Term::Sort(s) => Ok((term.clone(), Value::Sort(universe_above(cx, *s)?))),
         Term::Nat(_) => match g.env.builtins().nat {
-            Some(nat) => Ok((term.clone(), Value::Data(nat, Vec::new()))),
+            Some(nat) => Ok((term.clone(), Value::Data(nat, DataArgs::default()))),
             None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
         },
         // A compact list of characters is a `List Char`: its expansion's
@@ -296,7 +419,10 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         Term::Chars(_) => match &g.env.builtins().text {
             Some(text) => Ok((
                 term.clone(),
-                Value::Data(text.list, vec![Value::Data(text.char, Vec::new())]),
+                Value::Data(
+                    text.list,
+                    vec![Value::Data(text.char, DataArgs::default())].into(),
+                ),
             )),
             None => Err(malformed(
                 cx,
@@ -314,31 +440,6 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 Term::Pi(x.clone(), *icit, Rc::new(dom), Rc::new(cod)),
                 Value::Sort(Sort::pi(s1, s2)),
             ))
-        }
-        Term::App(f, a, icit) => {
-            let (f, f_ty) = infer(cx, f)?;
-            match force(&g, f_ty)? {
-                Value::Pi(_, pi_icit, dom, cod) if pi_icit == *icit => {
-                    let a = check(cx, a, &dom)?;
-                    // As `Closure::apply_lazy`: `a` is computed only if the
-                    // result type depends on it.
-                    let arg = if cod.body.mentions(0) {
-                        cx.eval(&a)?
-                    } else {
-                        unused()
-                    };
-                    let ty = cod.apply(&g, arg)?;
-                    Ok((Term::app_icit(f, a, *icit), ty))
-                }
-                other => Err(cx.error(
-                    "E-NOT-A-FUNCTION",
-                    "this isn't a function",
-                    format!(
-                        "it's applied to an argument, but its type is `{}`",
-                        cx.show(&other)
-                    ),
-                )),
-            }
         }
         Term::Ann(e, ty) => {
             let (ty, _) = check_type(cx, ty)?;
@@ -391,7 +492,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 .get(d.0)
                 .is_some_and(|d| d.params.is_empty() && d.indices.is_empty()) =>
         {
-            let ty = Value::Data(*d, Vec::new());
+            let ty = Value::Data(*d, DataArgs::default());
             Ok((check(cx, term, &ty)?, ty))
         }
         // With indices but no parameters, its type is the type applied to
@@ -407,7 +508,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 .iter()
                 .map(|r| eval(&g, &env, r))
                 .collect::<budget::Result<Vec<Value>>>()?;
-            Ok((Term::ctor(*d, *c, out), Value::Data(*d, indices)))
+            Ok((Term::ctor(*d, *c, out), Value::Data(*d, indices.into())))
         }
         Term::Meta(_) => Err(malformed(cx, "unsolved metavariable")),
         Term::Lam(..) | Term::Ctor(..) | Term::Refl | Term::Case(..) | Term::NumCase(..) => Err(cx
@@ -420,8 +521,142 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
 }
 
 pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
+    cx.g.machine.budget.nesting(PASS)?;
+    // An application, the form a deep term nests through most, in a frame
+    // of its own; the rest in another.
+    match term {
+        Term::App(..) => check_app(cx, term, expected),
+        _ => check_form(cx, term, expected),
+    }
+}
+
+/// [`check`] of an application: inferred, then compared.
+///
+/// An argument that is itself an application (`f (g (h x))`, the shape a
+/// deep term nests through most) is checked in the same loop rather than by
+/// a call of [`check`]: the spine waiting for it is set aside on a list on
+/// the heap, and taken up again once the argument is checked. So a level of
+/// such nesting takes no Rust stack. The steps are those [`check`] and a
+/// call of this function would take, in the same order: the visit `check`
+/// counts, the expected type forced, the visit [`infer`] would count, the
+/// head inferred, each argument checked against its domain, and the type
+/// found compared with the one expected.
+#[inline(never)]
+fn check_app(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     let g = cx.g;
+    let mut apps = Apps::new();
+    // The spines set aside for an argument, innermost last.
+    let mut waiting: Vec<Waiting> = Vec::new();
+    // The spine in hand: its applications are `apps[base..]`, `f` is its
+    // head applied to the arguments checked so far, of type `f_ty`, and
+    // `forced` the type it is checked against, if forcing that made a new
+    // value (otherwise the type is `expected`, or the domain of the spine
+    // waiting for it).
+    let forced = force_type(&g, expected)?;
     g.machine.budget.nesting(PASS)?;
+    let (mut base, mut forced, (mut f, mut f_ty)) = (0, forced, start_spine(cx, term, &mut apps)?);
+    loop {
+        if apps.len() > base {
+            let Some(Term::App(_, a, icit)) = apps.pop() else {
+                unreachable!("an application, pushed by push_apps")
+            };
+            let icit = *icit;
+            let (dom, cod) = function_type(cx, f_ty, icit)?;
+            if let Term::App(..) = &**a {
+                // `check(cx, a, &dom)`, as `check` and `check_app` take it.
+                g.machine.budget.nesting(PASS)?;
+                let inner_forced = force_type(&g, &dom)?;
+                g.machine.budget.nesting(PASS)?;
+                let inner_base = apps.len();
+                let (inner_f, inner_ty) = start_spine(cx, a, &mut apps)?;
+                waiting.push(Waiting {
+                    f,
+                    forced,
+                    base,
+                    dom,
+                    cod,
+                    icit,
+                });
+                (base, forced, f, f_ty) = (inner_base, inner_forced, inner_f, inner_ty);
+                continue;
+            }
+            let a = check(cx, a, &dom)?;
+            f_ty = result_type(cx, &cod, &a)?;
+            f = Term::app_icit(f, a, icit);
+        } else {
+            let expected = match (&forced, waiting.last()) {
+                (Some(forced), _) => forced,
+                (None, Some(outer)) => &*outer.dom,
+                (None, None) => expected,
+            };
+            let checked = found_as_expected(cx, f, &f_ty, expected)?;
+            drop(f_ty);
+            drop(forced);
+            let Some(outer) = waiting.pop() else {
+                return Ok(checked);
+            };
+            let Waiting {
+                f: outer_f,
+                forced: outer_forced,
+                base: outer_base,
+                dom,
+                cod,
+                icit,
+            } = outer;
+            (base, forced) = (outer_base, outer_forced);
+            f_ty = result_type(cx, &cod, &checked)?;
+            f = Term::app_icit(outer_f, checked, icit);
+            // As when the argument's check returns: the codomain, then the
+            // domain.
+            drop(cod);
+            drop(dom);
+        }
+    }
+}
+
+/// A spine [`check_app`] has set aside while it checks an argument that is
+/// an application: what it held in hand then, and the argument's domain
+/// (`dom`, the type the argument is checked against) and codomain.
+struct Waiting {
+    f: Term,
+    forced: Option<Value>,
+    base: usize,
+    dom: Shared,
+    cod: Closure,
+    icit: Icit,
+}
+
+/// `ty` forced, as [`force_ref`] forces it, if that makes a new value.
+#[inline(never)]
+fn force_type(g: &Ev, ty: &Value) -> Result<Option<Value>> {
+    Ok(match force_ref(g, ty)? {
+        std::borrow::Cow::Owned(forced) => Some(forced),
+        std::borrow::Cow::Borrowed(_) => None,
+    })
+}
+
+/// The applications of `term`, an application already visited, pushed onto
+/// `apps`, and its head inferred.
+#[inline(never)]
+fn start_spine<'t>(cx: &mut Ctx, term: &'t Term, apps: &mut Apps<'t>) -> Result<(Term, Value)> {
+    let head = push_apps(cx, term, apps)?;
+    infer(cx, head)
+}
+
+/// `term`, whose type is `found`, if that is `expected`.
+#[inline(never)]
+fn found_as_expected(cx: &Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+    if cx.conv(found, expected)? {
+        Ok(term)
+    } else {
+        Err(cx.mismatch(expected, found))
+    }
+}
+
+/// [`check`] of a term that isn't an application.
+#[inline(never)]
+fn check_form(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
+    let g = cx.g;
     // A type the elaborator passed in may be a call (`Value::Call`); the
     // kernel's own values never are, so this changes nothing for them.
     let expected = &*force_ref(&g, expected)?;
@@ -433,74 +668,146 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
             Ok(Term::Loc(*span, Rc::new(result?)))
         }
         (Term::Lam(x, icit, body), Value::Pi(_, pi_icit, dom, cod)) if icit == pi_icit => {
-            let var = Value::var(cx.level());
+            let body_ty = body_type(cx, cod)?;
             cx.bind(x.clone(), (**dom).clone());
-            let result = check(cx, body, &cod.apply(&g, var)?);
+            let result = check(cx, body, &body_ty);
             cx.unbind(1);
             Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
         }
+        (Term::Ctor(d, c, args), _) => check_ctor(cx, *d, *c, args, expected),
+        (Term::Let(x, ty, value, body, _), _) => {
+            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
+            let result = check(cx, body, expected);
+            cx.unbind(1);
+            let body = result?;
+            let skip = erased || !body.mentions(0);
+            Ok(Term::Let(x, ty, value, Rc::new(body), skip))
+        }
+        (Term::Lam(..) | Term::Refl | Term::Case(..) | Term::NumCase(..), _) => {
+            check_other(cx, term, expected)
+        }
+        _ => {
+            let (term, found) = infer(cx, term)?;
+            if cx.conv(&found, expected)? {
+                Ok(term)
+            } else {
+                Err(cx.mismatch(expected, &found))
+            }
+        }
+    }
+}
+
+/// The type of a function's body, where the function's type has codomain
+/// `cod`: the codomain at the variable the function binds.
+#[inline(never)]
+fn body_type(cx: &Ctx, cod: &Closure) -> Result<Value> {
+    Ok(cod.apply(&cx.g, Value::var(cx.level()))?)
+}
+
+/// [`check`] of constructor `c` of `d` applied to `args`.
+#[inline(never)]
+fn check_ctor(
+    cx: &mut Ctx,
+    d: DataId,
+    c: usize,
+    args: &[Rc<Term>],
+    expected: &Value,
+) -> Result<Term> {
+    let g = cx.g;
+    if g.env
+        .datas()
+        .get(d.0)
+        .and_then(|d| d.ctors.get(c))
+        .is_none()
+    {
+        return Err(malformed(cx, "reference to an unknown constructor"));
+    }
+    let Value::Data(d2, type_args) = expected else {
+        return Err(ctor_mismatch(cx, d, c, expected));
+    };
+    if d != *d2 {
+        return Err(ctor_mismatch(cx, d, c, expected));
+    }
+    let data = g.data(d);
+    let np = data.params.len();
+    if type_args.len() != np + data.indices.len() {
+        return Err(malformed(
+            cx,
+            "a data type with the wrong number of arguments",
+        ));
+    }
+    let (params, indices) = type_args.split_at(np);
+    let (out, env) = check_ctor_fields(cx, d, c, params.to_vec(), args)?;
+    // The constructor's result indices, with the parameters and
+    // fields substituted, must be the expected type's.
+    let ctor = &data.ctors[c];
+    for (r, expected_index) in ctor.result.iter().zip(indices) {
+        let found = eval(&g, &env, r)?;
+        if !cx.conv(&found, expected_index)? {
+            return Err(ctor_index_mismatch(cx, d, c, params, &env, expected)?);
+        }
+    }
+    Ok(Term::ctor(d, c, out))
+}
+
+/// The error for constructor `c` of `d` where `expected` is another type.
+#[cold]
+#[inline(never)]
+fn ctor_mismatch(cx: &Ctx, d: DataId, c: usize, expected: &Value) -> Diagnostic {
+    let g = cx.g;
+    cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "`{}` builds a `{}`, but the expected type is `{}`",
+            g.data(d).ctors[c].name,
+            g.data(d).name,
+            cx.show(expected)
+        ),
+    )
+}
+
+/// The error for constructor `c` of `d`, its fields' values and the
+/// parameters in `env`, whose result indices aren't `expected`'s.
+#[cold]
+#[inline(never)]
+fn ctor_index_mismatch(
+    cx: &Ctx,
+    d: DataId,
+    c: usize,
+    params: &[Value],
+    env: &[Value],
+    expected: &Value,
+) -> Result<Diagnostic> {
+    let g = cx.g;
+    let ctor = &g.data(d).ctors[c];
+    let found_indices = ctor
+        .result
+        .iter()
+        .map(|r| eval(&g, env, r))
+        .collect::<budget::Result<Vec<Value>>>()?;
+    let found_ty = Value::Data(d, params.iter().cloned().chain(found_indices).collect());
+    Ok(cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "`{}` builds a `{}`, but the expected type is `{}`",
+            ctor.name,
+            cx.show(&found_ty),
+            cx.show(expected)
+        ),
+    ))
+}
+
+/// [`check`] of the forms it doesn't handle itself.
+#[inline(never)]
+fn check_other(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
+    match (term, expected) {
         (Term::Lam(..), _) => Err(cx.error(
             "E-TYPE-MISMATCH",
             "type mismatch",
             format!(
                 "this is a function, but the expected type is `{}`",
-                cx.show(expected)
-            ),
-        )),
-        (Term::Ctor(d, c, _), _)
-            if g.env
-                .datas()
-                .get(d.0)
-                .and_then(|d| d.ctors.get(*c))
-                .is_none() =>
-        {
-            Err(malformed(cx, "reference to an unknown constructor"))
-        }
-        (Term::Ctor(d, c, args), Value::Data(d2, type_args)) if d == d2 => {
-            let data = g.data(*d);
-            let np = data.params.len();
-            if type_args.len() != np + data.indices.len() {
-                return Err(malformed(
-                    cx,
-                    "a data type with the wrong number of arguments",
-                ));
-            }
-            let (params, indices) = type_args.split_at(np);
-            let (out, env) = check_ctor_fields(cx, *d, *c, params.to_vec(), args)?;
-            // The constructor's result indices, with the parameters and
-            // fields substituted, must be the expected type's.
-            let ctor = &data.ctors[*c];
-            for (r, expected_index) in ctor.result.iter().zip(indices) {
-                let found = eval(&g, &env, r)?;
-                if !cx.conv(&found, expected_index)? {
-                    let found_indices = ctor
-                        .result
-                        .iter()
-                        .map(|r| eval(&g, &env, r))
-                        .collect::<budget::Result<Vec<Value>>>()?;
-                    let found_ty =
-                        Value::Data(*d, params.iter().cloned().chain(found_indices).collect());
-                    return Err(cx.error(
-                        "E-TYPE-MISMATCH",
-                        "type mismatch",
-                        format!(
-                            "`{}` builds a `{}`, but the expected type is `{}`",
-                            ctor.name,
-                            cx.show(&found_ty),
-                            cx.show(expected)
-                        ),
-                    ));
-                }
-            }
-            Ok(Term::ctor(*d, *c, out))
-        }
-        (Term::Ctor(d, c, _), _) => Err(cx.error(
-            "E-TYPE-MISMATCH",
-            "type mismatch",
-            format!(
-                "`{}` builds a `{}`, but the expected type is `{}`",
-                g.data(*d).ctors[*c].name,
-                g.data(*d).name,
                 cx.show(expected)
             ),
         )),
@@ -527,24 +834,9 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
                 cx.show(expected)
             ),
         )),
-        (Term::Let(x, ty, value, body, _), _) => {
-            let (x, ty, value, erased) = check_let_value(cx, x, ty, value)?;
-            let result = check(cx, body, expected);
-            cx.unbind(1);
-            let body = result?;
-            let skip = erased || !body.mentions(0);
-            Ok(Term::Let(x, ty, value, Rc::new(body), skip))
-        }
         (Term::Case(ix, d, branches), _) => check_case(cx, *ix, *d, branches, expected),
         (Term::NumCase(ix, arms, default), _) => check_num_case(cx, *ix, arms, default, expected),
-        _ => {
-            let (term, found) = infer(cx, term)?;
-            if cx.conv(&found, expected)? {
-                Ok(term)
-            } else {
-                Err(cx.mismatch(expected, &found))
-            }
-        }
+        _ => unreachable!("`check` handles the other forms itself"),
     }
 }
 
@@ -597,6 +889,7 @@ pub fn check_type(cx: &mut Ctx, term: &Term) -> Result<(Term, Sort)> {
 /// removes it. Also whether `x` is erased when running: exactly when a
 /// parameter of type `A` would be (a proposition, or a type former;
 /// docs/proposals/let.md §6.1 rule 5), whatever the term said.
+#[inline(never)]
 fn check_let_value(
     cx: &mut Ctx,
     x: &Name,
@@ -612,7 +905,9 @@ fn check_let_value(
     Ok((x.clone(), Rc::new(ty), value, erased))
 }
 
-/// The universe that `ty` lives in.
+/// The universe that `ty` lives in. `ty` must be well typed in `cx`: the
+/// arms for equations, data types and applied variables answer without
+/// looking at its arguments.
 pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
@@ -624,10 +919,39 @@ pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
         // are, so they aren't quoted: an argument can be a list whose
         // normal form is enormous.
         Value::Data(d, _) => return Ok(cx.g.data(*d).sort),
+        // A variable applied to arguments, `q (settle x k 3000)`: its sort
+        // is the one its type ends in, read off the type without quoting
+        // the arguments, which can be as large as the data type's.
+        Value::Neutral(Head::Var(level, _), spine) => {
+            if let Some(sort) = sort_of_applied_variable(cx, *level, spine)? {
+                return Ok(sort);
+            }
+        }
         _ => {}
     }
     let term = cx.quote_kept(ty)?;
     Ok(check_type(cx, &term)?.1)
+}
+
+/// The sort `s` such that the variable at `level`, applied to `spine`, has
+/// type `Sort s`: its type with the arguments substituted in turn. `None`
+/// when that isn't a plain run of applications ending in a sort.
+fn sort_of_applied_variable(cx: &Ctx, level: usize, spine: &Spine) -> Result<Option<Sort>> {
+    let Some(var_ty) = cx.types.get(level) else {
+        return Ok(None);
+    };
+    let mut ty = force(&cx.g, var_ty.clone())?;
+    for elim in spine.iter() {
+        let (Elim::App(arg, _), Value::Pi(_, _, _, cod)) = (elim, &ty) else {
+            return Ok(None);
+        };
+        let next = cod.apply(&cx.g, arg.clone())?;
+        ty = force(&cx.g, next)?;
+    }
+    Ok(match ty {
+        Value::Sort(s) => Some(s),
+        _ => None,
+    })
 }
 
 fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Term, Value)> {
@@ -651,7 +975,7 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
     cx.bind(y_name.clone(), (*ty).clone());
     cx.bind(
         p_name.clone(),
-        Value::Eq(ty.clone(), x.clone(), Rc::new(Value::var(level))),
+        Value::Eq(ty.clone(), x.clone(), Shared::new(Value::var(level))),
     );
     let result = check_type(cx, body);
     cx.unbind(2);
@@ -861,12 +1185,16 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
             let related = cx.eval(&related)?;
             let r = check(cx, &args[4], &related)?;
             let mk = |v: Value| {
-                Rc::new(quot_value(
+                Shared::new(quot_value(
                     QuotForm::Mk,
                     vec![carrier_value.clone(), relation_value.clone(), v],
                 ))
             };
-            let ty = Value::Eq(Rc::new(quot_ty_value), mk(cx.eval(&x)?), mk(cx.eval(&y)?));
+            let ty = Value::Eq(
+                Shared::new(quot_ty_value),
+                mk(cx.eval(&x)?),
+                mk(cx.eval(&y)?),
+            );
             (vec![x, y, r], ty, false)
         }
     };
@@ -1366,7 +1694,6 @@ pub fn substitute_in(
     value: &Value,
     values: &[Value],
 ) -> budget::Result<Vec<Value>> {
-    let level = env.len();
     let mut identity: Vec<Value> = env
         .iter()
         .enumerate()
@@ -1380,18 +1707,10 @@ pub fn substitute_in(
         Value::Neutral(Head::Var(at, known), spine) if *at == l && spine.is_empty() => Some(*known),
         _ => Some(Apart::NONE),
     };
-    let mut unchanged = Unchanged::new(g, x, known);
+    let unchanged = Unchanged::new(g, x, known);
     identity[x] = value.clone();
-    values
-        .iter()
-        .map(|v| {
-            if unchanged.check(v) {
-                Ok(v.clone())
-            } else {
-                eval(g, &identity, &quote_folded(g, level, v)?)
-            }
-        })
-        .collect()
+    let mut rebuild = Rebuild::new(g, &identity, Readback::Folded, Some(unchanged));
+    values.iter().map(|v| rebuild.substitute(v)).collect()
 }
 
 /// Substitutes `value` for variable `x` in each of `values`, with `level`
@@ -1408,17 +1727,455 @@ pub fn substitute(
 ) -> budget::Result<Vec<Value>> {
     let mut env: Vec<Value> = (0..level).map(Value::var).collect();
     env[x] = value.clone();
-    let mut unchanged = Unchanged::new(g, x, |l| (l < level).then_some(Apart::NONE));
-    values
-        .iter()
-        .map(|v| {
-            if unchanged.check(v) {
-                Ok(v.clone())
-            } else {
-                eval(g, &env, &quote_folded(g, level, v)?)
+    let unchanged = Unchanged::new(g, x, |l| (l < level).then_some(Apart::NONE));
+    let mut rebuild = Rebuild::new(g, &env, Readback::Folded, Some(unchanged));
+    values.iter().map(|v| rebuild.substitute(v)).collect()
+}
+
+/// Each of `values` read back ([`quote`]) and evaluated again in the
+/// identity environment of `level` variables: what's left once every
+/// solved metavariable in them is replaced by its solution, as the index
+/// unifier, which doesn't look inside them, needs. Computed as
+/// [`Rebuild`] does, so parts the values share are done once.
+pub fn reread(g: &Ev, level: usize, values: &[Value]) -> budget::Result<Vec<Value>> {
+    let identity: Vec<Value> = (0..level).map(Value::var).collect();
+    let mut rebuild = Rebuild::new(g, &identity, Readback::Unfolded, None::<Unchanged<NoKnown>>);
+    values.iter().map(|v| rebuild.value(v)).collect()
+}
+
+/// Each of `values` read back folded ([`quote_folded`]) and evaluated
+/// again in `env`, computed as [`Rebuild`] does: a case's goal, made again
+/// for each branch.
+pub fn reread_in(g: &Ev, env: &[Value], values: &[Value]) -> budget::Result<Vec<Value>> {
+    let mut rebuild = Rebuild::new(g, env, Readback::Folded, None::<Unchanged<NoKnown>>);
+    values.iter().map(|v| rebuild.value(v)).collect()
+}
+
+/// The type of a [`Rebuild`] that doesn't track [`Unchanged`].
+type NoKnown = fn(usize) -> Option<Apart>;
+
+/// Which read-back a [`Rebuild`] stands for.
+#[derive(Clone, Copy)]
+pub(crate) enum Readback {
+    /// [`quote_folded`], as substitution reads back.
+    Folded,
+    /// [`quote`].
+    Unfolded,
+}
+
+/// A part of a value as [`Rebuild`] made it: the new part, whether that
+/// differs from the old one (if not, it is the old one, still shared), and
+/// whether [`Unchanged::check`] would accept the old one.
+#[derive(Clone)]
+struct Rebuilt<T> {
+    new: T,
+    changed: bool,
+    clean: bool,
+}
+
+/// `eval(ρ, quote(v))` for values `v` with `ρ.len()` variables in scope
+/// (`quote_folded`, or `quote`, by [`Readback`]), as [`substitute`] and
+/// [`reread`] compute it, built node by node where evaluating the readback
+/// would rebuild the node from its parts (SW-2481).
+///
+/// A deep match refines the context at every step, and the values in it
+/// share parts: matching `FSucc` on a `Fin` k times leaves the first
+/// variable as `FSucc` around `FSucc` … k deep, the next variable as the
+/// same chain one shorter, and so on, all sharing their tails. Reading
+/// each back and evaluating it again would write every chain out in full,
+/// so each step would cost the square of the depth, and a k-armed `Fin`
+/// table about k³ (k⁴ with the equation generator's probe of each arm).
+/// So a constructor's fields, by address, are rebuilt once per
+/// substitution, however many values share them, and a part that comes out
+/// the same is kept as it is, still shared.
+///
+/// The result is the same value, node for node, as `eval(ρ, quote(v))`
+/// (with the one exception below), since only these nodes are built
+/// directly, each as the readback and evaluation would build it:
+///
+/// - a variable with no eliminations: readback gives `Var`, evaluation
+///   looks it up, so it's `ρ`'s entry;
+/// - a variable applied to arguments, where `ρ`'s entry for it is a
+///   variable: evaluation applies that to the arguments, each evaluated
+///   alone, which adds each to its spine (`value::apply_step`);
+/// - `Sort`, a number and `Refl` are read back and evaluated as themselves;
+/// - a type former `Data`, an equation type `Eq`, and a constructor:
+///   readback and evaluation are structural there (`QuoteTask::Data`/
+///   `Ctor`/`Eq`, and `value::fields` and `Frame::EqParts`), each part read
+///   back and evaluated alone in the same `ρ`, and nothing is forced (a
+///   node that's none of these needs forcing to be one). A constructor is
+///   made as `native::ctor` makes it from the rebuilt fields: a number if
+///   it's `Zero` or `Succ` of a number, else `Value::Ctor`. The exceptions
+///   are left to the readback: with erasure active, evaluation puts the
+///   placeholder for erased fields, so nothing is built directly then; and
+///   read back unfolded, `Succ` around a glued call is read back through
+///   the call's unfolding (`value::succ_unglued`).
+///
+/// Every other node (a sum `k + x`, read back as a call of `add`; a spine
+/// other than a variable's applications; a closure, a call, a
+/// metavariable, a compact list) is read back and evaluated as before, as
+/// a part on its own; for substitution, only if [`Unchanged::check`] turns
+/// it down, else it's kept as it is. That's the one way the result can
+/// differ from `eval(ρ, quote_folded(v))`, and it's the difference
+/// [`Unchanged`] already allows for a whole value: a glued call that steps
+/// at once, kept rather than unfolded, inside a value that changes. It
+/// reads back folded as the same term and forces to the same value; only
+/// display (`quote_shown`) can tell. Keeping it is what saves the work (a
+/// `List.replicate 160000 0` in scope isn't written out at every branch).
+///
+/// For substitution, it also works out, in the same pass, whether
+/// [`Unchanged::check`] would accept each value: [`Unchanged`] looks
+/// through the same nodes, accepting one when it accepts its parts (and,
+/// at a variable, when the variable isn't `x` and its [`Apart`] facts are
+/// the context's), so the answer for a node built directly comes from its
+/// parts', remembered with them, and only the other nodes are handed to
+/// [`Unchanged::check`]. Asked of each whole value, it would look through
+/// the shared chains again for every value that changes (it forgets what
+/// it saw in a value it turns down).
+///
+/// A variable's applications are remembered by their spine's address too,
+/// as [`Unchanged`] does: `let`s whose values apply a function to the one
+/// before twice share spines, and walked as a tree they'd be exponential.
+/// Each node visited is a step of the budget, as reading it back was.
+pub(crate) struct Rebuild<'g, 'r, K> {
+    g: &'g Ev<'g>,
+    rho: &'r [Value],
+    readback: Readback,
+    /// For substitution: which values may be kept as they are.
+    unchanged: Option<Unchanged<'g, K>>,
+    /// Each constructor's fields seen so far that other values share, by
+    /// address, as rebuilt. The values being rebuilt outlive the
+    /// substitution, so an address isn't reused while it's a key.
+    fields: crate::collections::HashMap<*const (), Rebuilt<Values>>,
+    /// The same for a variable's applications: their arguments rebuilt,
+    /// by the address of the spine.
+    spines: crate::collections::HashMap<*const (), Rebuilt<Spine>>,
+}
+
+impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
+    pub(crate) fn new(
+        g: &'g Ev<'g>,
+        rho: &'r [Value],
+        readback: Readback,
+        unchanged: Option<Unchanged<'g, K>>,
+    ) -> Self {
+        Rebuild {
+            g,
+            rho,
+            readback,
+            unchanged,
+            fields: Default::default(),
+            spines: Default::default(),
+        }
+    }
+
+    /// `eval(ρ, quote(v))`.
+    pub(crate) fn value(&mut self, v: &Value) -> budget::Result<Value> {
+        Ok(self.start(v)?.new)
+    }
+
+    /// What substitution makes of `v`: `v` itself if [`Unchanged::check`]
+    /// accepts it, else `eval(ρ, quote_folded(v))`.
+    fn substitute(&mut self, v: &Value) -> budget::Result<Value> {
+        let done = self.start(v)?;
+        Ok(if done.clean { v.clone() } else { done.new })
+    }
+
+    /// `v` rebuilt. A work list, not recursion: a list of a million
+    /// elements is a million nested constructors. Each part is visited
+    /// (`RebuildTask::Visit`), and a node built from its parts is put
+    /// together once they're done, from the top of `done`.
+    fn start(&mut self, v: &Value) -> budget::Result<Rebuilt<Value>> {
+        // With erasure active, evaluation puts the placeholder for erased
+        // fields, so nothing is built directly.
+        if self.g.machine.erasure.active() {
+            return self.read_back(v);
+        }
+        let mut tasks = Vec::new();
+        let mut done: Vec<Rebuilt<Value>> = Vec::new();
+        // Most values in a context are variables, done at once.
+        self.visit(v, &mut tasks, &mut done)?;
+        while let Some(task) = tasks.pop() {
+            match task {
+                RebuildTask::Visit(v) => self.visit(v, &mut tasks, &mut done)?,
+                RebuildTask::Build(v, n) => {
+                    let at = done.len() - n;
+                    let changed = done[at..].iter().any(|p| p.changed);
+                    let clean = self.unchanged.is_some() && done[at..].iter().all(|p| p.clean);
+                    let parts: Vec<Value> = done.drain(at..).map(|p| p.new).collect();
+                    let built = self.build(v, parts, changed, clean);
+                    done.push(built);
+                }
             }
+        }
+        Ok(done.pop().expect("one value"))
+    }
+
+    /// Whether [`Unchanged`] accepts variable `l` with facts `known`.
+    fn clean_var(&self, l: usize, known: Apart) -> bool {
+        self.unchanged
+            .as_ref()
+            .is_some_and(|u| l != u.x && Some(known) == (u.known)(l))
+    }
+
+    /// Rebuilds `v` if it's done at once, or else schedules its parts and
+    /// putting it together.
+    fn visit<'v>(
+        &mut self,
+        v: &'v Value,
+        tasks: &mut Vec<RebuildTask<'v>>,
+        done: &mut Vec<Rebuilt<Value>>,
+    ) -> budget::Result<()> {
+        self.g.machine.budget.step()?;
+        // Put together last, from its parts visited first-first.
+        let parts = |tasks: &mut Vec<RebuildTask<'v>>,
+                     values: &mut dyn DoubleEndedIterator<Item = &'v Value>| {
+            let at = tasks.len();
+            tasks.push(RebuildTask::Build(v, 0));
+            tasks.extend(values.rev().map(RebuildTask::Visit));
+            tasks[at] = RebuildTask::Build(v, tasks.len() - at - 1);
+        };
+        match v {
+            Value::Sort(_) | Value::Nat(_) | Value::Refl => done.push(Rebuilt {
+                new: v.clone(),
+                changed: false,
+                clean: self.unchanged.is_some(),
+            }),
+            Value::Neutral(Head::Var(l, known), spine)
+                if spine.is_empty() && *l < self.rho.len() =>
+            {
+                let clean = self.clean_var(*l, *known);
+                let new = &self.rho[*l];
+                let same = matches!(new, Value::Neutral(Head::Var(l2, k2), s)
+                    if l2 == l && k2 == known && s.is_empty());
+                done.push(Rebuilt {
+                    new: if same { v.clone() } else { new.clone() },
+                    changed: !same,
+                    clean,
+                });
+            }
+            Value::Neutral(Head::Var(l, _), spine) if self.var_applied(*l, spine) => {
+                let memo = spine
+                    .shared_key()
+                    .and_then(|key| self.spines.get(&key).cloned());
+                match memo {
+                    Some(memo) => done.push(self.applied(v, memo)),
+                    None => {
+                        let args = spine.iter().map(|e| match e {
+                            Elim::App(arg, _) => arg,
+                            _ => unreachable!("only applications"),
+                        });
+                        parts(tasks, &mut { args });
+                    }
+                }
+            }
+            Value::Ctor(d, _, fields) if !self.succ_of_call(*d, fields) => {
+                let memo = (fields.is_shared())
+                    .then(|| self.fields.get(&fields_key(fields)).cloned())
+                    .flatten();
+                match memo {
+                    Some(memo) => done.push(self.ctor(v, memo)),
+                    None => parts(tasks, &mut fields.iter()),
+                }
+            }
+            Value::Data(_, args) => parts(tasks, &mut args.iter()),
+            Value::Eq(ty, a, b) => parts(tasks, &mut [&**ty, &**a, &**b].into_iter()),
+            _ => done.push(self.read_back(v)?),
+        }
+        Ok(())
+    }
+
+    /// Whether `l` applied to `spine` is built directly: only
+    /// applications, of a variable `ρ` keeps a variable.
+    fn var_applied(&self, l: usize, spine: &Spine) -> bool {
+        l < self.rho.len()
+            && spine.iter().all(|e| matches!(e, Elim::App(..)))
+            && matches!(&self.rho[l], Value::Neutral(Head::Var(l2, _), s)
+                if s.is_empty() && *l2 < self.rho.len())
+    }
+
+    /// Node `v` put together from its rebuilt `parts`, of which any
+    /// `changed`, and all are `clean`.
+    fn build(
+        &mut self,
+        v: &Value,
+        parts: Vec<Value>,
+        changed: bool,
+        clean: bool,
+    ) -> Rebuilt<Value> {
+        let new = |parts: Vec<Value>| parts.into_iter();
+        match v {
+            Value::Neutral(_, spine) => {
+                let memo = Rebuilt {
+                    new: if changed {
+                        let elims = spine.iter().zip(new(parts)).map(|(e, arg)| match e {
+                            Elim::App(_, icit) => Elim::App(arg, *icit),
+                            _ => unreachable!("only applications"),
+                        });
+                        elims.collect()
+                    } else {
+                        spine.clone()
+                    },
+                    changed,
+                    clean,
+                };
+                if let Some(key) = spine.shared_key() {
+                    self.spines.insert(key, memo.clone());
+                }
+                self.applied(v, memo)
+            }
+            Value::Ctor(_, _, fields) => {
+                let memo = Rebuilt {
+                    new: if changed {
+                        Values::from(parts)
+                    } else {
+                        fields.clone()
+                    },
+                    changed,
+                    clean,
+                };
+                // Fields held once are reached once (unless what holds
+                // them is shared another way), so aren't worth remembering.
+                if fields.is_shared() {
+                    self.fields.insert(fields_key(fields), memo.clone());
+                }
+                self.ctor(v, memo)
+            }
+            Value::Data(d, _) => Rebuilt {
+                new: if changed {
+                    Value::Data(*d, new(parts).collect())
+                } else {
+                    v.clone()
+                },
+                changed,
+                clean,
+            },
+            Value::Eq(..) => Rebuilt {
+                new: if changed {
+                    let mut parts = new(parts).map(Shared::new);
+                    let mut part = || parts.next().expect("three parts");
+                    Value::Eq(part(), part(), part())
+                } else {
+                    v.clone()
+                },
+                changed,
+                clean,
+            },
+            _ => unreachable!("only these are put together"),
+        }
+    }
+
+    /// Variable `v` applied to arguments, with its spine rebuilt as `spine`:
+    /// `ρ`'s variable for it applied to them.
+    fn applied(&self, v: &Value, spine: Rebuilt<Spine>) -> Rebuilt<Value> {
+        let Value::Neutral(Head::Var(l, known), _) = v else {
+            unreachable!("a variable applied")
+        };
+        let Value::Neutral(Head::Var(l2, k2), _) = &self.rho[*l] else {
+            unreachable!("checked by `var_applied`")
+        };
+        let changed = spine.changed || l2 != l || k2 != known;
+        Rebuilt {
+            new: if changed {
+                Value::Neutral(Head::Var(*l2, *k2), spine.new)
+            } else {
+                v.clone()
+            },
+            changed,
+            clean: spine.clean && self.clean_var(*l, *known),
+        }
+    }
+
+    /// Constructor `v` with its fields rebuilt as `fields`: made as
+    /// `native::ctor` would make it.
+    fn ctor(&self, v: &Value, fields: Rebuilt<Values>) -> Rebuilt<Value> {
+        let g = self.g;
+        let Value::Ctor(d, c, old) = v else {
+            unreachable!("a constructor")
+        };
+        // `Zero`, or `Succ` of a number, is a number, which `Unchanged`
+        // turns down for that reason.
+        let number = |fields: &[Value]| {
+            Some(*d) == g.env.builtins().nat
+                && (*c == 0 || matches!(fields.first(), Some(Value::Nat(_) | Value::NatAdd(..))))
+        };
+        let clean = fields.clean && !number(old);
+        if number(&fields.new) {
+            Rebuilt {
+                new: crate::native::ctor(g, *d, *c, fields.new.to_vec()),
+                changed: true,
+                clean,
+            }
+        } else if fields.changed {
+            Rebuilt {
+                new: Value::Ctor(*d, *c, fields.new),
+                changed: true,
+                clean,
+            }
+        } else {
+            Rebuilt {
+                new: v.clone(),
+                changed: false,
+                clean,
+            }
+        }
+    }
+
+    /// `v` read back and evaluated again, as a whole; or for substitution,
+    /// kept if [`Unchanged`] accepts it.
+    fn read_back(&mut self, v: &Value) -> budget::Result<Rebuilt<Value>> {
+        let clean = match &mut self.unchanged {
+            Some(unchanged) => unchanged.check(v),
+            None => false,
+        };
+        if clean {
+            return Ok(Rebuilt {
+                new: v.clone(),
+                changed: false,
+                clean,
+            });
+        }
+        let level = self.rho.len();
+        let term = match self.readback {
+            Readback::Folded => quote_folded(self.g, level, v)?,
+            Readback::Unfolded => quote(self.g, level, v)?,
+        };
+        Ok(Rebuilt {
+            new: eval(self.g, self.rho, &term)?,
+            changed: true,
+            clean,
         })
-        .collect()
+    }
+
+    /// Whether constructor `d` with `fields` is `Succ` around `Succ` …
+    /// around a glued call, which the unfolded readback builds another way
+    /// (`value::succ_unglued`).
+    fn succ_of_call(&self, d: DataId, fields: &[Value]) -> bool {
+        let nat = self.g.env.builtins().nat;
+        if !matches!(self.readback, Readback::Unfolded) || Some(d) != nat {
+            return false;
+        }
+        let mut field = fields.first();
+        loop {
+            match field {
+                Some(Value::Call(..)) => return true,
+                Some(Value::Ctor(d2, 1, inner)) if Some(*d2) == nat => field = inner.first(),
+                _ => return false,
+            }
+        }
+    }
+}
+
+/// [`Rebuild`]'s work still to do.
+enum RebuildTask<'v> {
+    Visit(&'v Value),
+    /// Put this node together from the last this many parts done.
+    Build(&'v Value, usize),
+}
+
+/// The key a constructor's fields are remembered by: their address.
+fn fields_key(fields: &Values) -> *const () {
+    fields.as_ptr().cast()
 }
 
 /// Which values [`substitute`] and [`substitute_in`] can return as they
@@ -1884,22 +2641,30 @@ pub fn declare_def(
         g.machine.glue.set(was);
         let (ty, sort) = checked?;
         if theorem && sort != Sort::Prop {
-            let ty_value = cx.eval(&ty)?;
-            return Err(Diagnostic::error(
-                "E-NOT-A-PROP",
-                format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
-            )
-            .with_label(
-                span,
-                format!(
-                    "`{}` is a type of data, not a proposition",
-                    cx.show(&ty_value)
-                ),
-            )
-            .with_note("remove `theorem` to make it an ordinary definition"));
+            return Err(not_a_prop(&mut cx, name, &ty, span)?);
         }
         push_def(g, name, path, ty, theorem, export, span)
     })
+}
+
+/// `E-NOT-A-PROP`: `name` is a theorem whose checked type `ty` isn't a
+/// proposition. Every way a theorem enters the kernel ([`declare_def`],
+/// [`retype_def`], [`assume`]) refuses this, so a theorem's type is always
+/// a proposition.
+fn not_a_prop(cx: &mut Ctx, name: &Name, ty: &Term, span: Span) -> Result<Diagnostic> {
+    let ty_value = cx.eval(ty)?;
+    Ok(Diagnostic::error(
+        "E-NOT-A-PROP",
+        format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
+    )
+    .with_label(
+        span,
+        format!(
+            "`{}` is a type of data, not a proposition",
+            cx.show(&ty_value)
+        ),
+    )
+    .with_note("remove `theorem` to make it an ordinary definition"))
 }
 
 /// Adds a pending definition with the checked type `ty`, for
@@ -1938,9 +2703,94 @@ fn push_def(
         run_body: None,
         param_default: false,
         tailrec: false,
+        assumption: None,
         span,
     });
     Ok(DefId(g.env.defs().len() - 1))
+}
+
+/// Adds an **assumption** (docs/core.md "Assumptions (open goals)";
+/// docs/proposals/using-unfinished-proofs.md, option A): a constant of type
+/// `ty` with no body, final at once, standing for the gap `label` names: an
+/// open goal `?`, or a declaration whose statement checked but whose body
+/// didn't (its stand-in, docs/proposals/tests-with-errors.md §3.3). `span`
+/// is where the gap is.
+///
+/// It is a theorem if `theorem` (the stand-in of a theorem: it is a proof,
+/// which nothing computes with, as any theorem), else a definition. A
+/// theorem's type must be a proposition, as [`declare_def`] asks:
+/// `E-NOT-A-PROP` otherwise.
+///
+/// `ty` is checked to be a type (in any universe) that refers only to final
+/// declarations: a pending one is `E-MALFORMED` (so the goal of a `?` that
+/// mentions its own group can't be assumed), and a failed one is
+/// `E-FAILED-DEPENDENCY` here, since there's no later step to find it. A
+/// `label` some assumption already has is `E-MALFORMED`. On any refusal
+/// nothing is added.
+///
+/// The constant never unfolds, so it's a neutral head wherever it's used:
+/// a premise, like `Quot.sound`, not a rule. Nothing can give it a body
+/// afterwards (it isn't pending), a run body ([`set_run_body`]) or a
+/// native. Which declarations rely on assumptions is read off their checked
+/// terms ([`crate::assumption::relied_on`]); the kernel itself keeps no
+/// record of it.
+pub fn assume(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    label: crate::globals::Assumption,
+    theorem: bool,
+    span: Span,
+) -> Result<DefId> {
+    in_kernel_modes(g, |g| {
+        // A type is checked with every opaque definition hidden.
+        let _set = g.machine.transparent.set(Rc::default());
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, span);
+        if !case_only_in_tree(ty, false) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        // The label and type are the assumption's identity in hashes, so
+        // two with one label and type would be two constants conversion
+        // tells apart with one hash. The label alone is refused: it names
+        // one `?`, so a second use is a numbering slip whatever the type.
+        if g.env
+            .defs()
+            .iter()
+            .any(|d| d.assumption.as_deref() == Some(&label))
+        {
+            let what = match label.kind {
+                crate::globals::AssumptionKind::Goal(hole) => format!("open goal {hole}"),
+                crate::globals::AssumptionKind::Error => "the error".to_string(),
+            };
+            return Err(malformed(
+                &cx,
+                format!("a second assumption for {what} of `{}`", label.owner),
+            ));
+        }
+        if let Some(dep) = admissible(&cx, [ty], None)? {
+            return Err(failed_dependency(&cx, name, &dep));
+        }
+        // Glued, as `declare_def` checks a signature; the kept value is
+        // made unglued by `push_def`.
+        let was = g.machine.glue.replace(true);
+        let checked = check_type(&mut cx, ty);
+        g.machine.glue.set(was);
+        let (ty, sort) = checked?;
+        if theorem && sort != Sort::Prop {
+            return Err(not_a_prop(&mut cx, name, &ty, span)?);
+        }
+        let id = push_def(g, name, path, ty, theorem, false, span)?;
+        let def = &mut g.env.defs_mut()[id.0];
+        def.assumption = Some(Rc::new(label));
+        def.recursive = false;
+        def.state = State::Final;
+        Ok(id)
+    })
 }
 
 /// Gives pending definition `id` the type `ty` instead of the one it was
@@ -1968,7 +2818,11 @@ pub fn retype_def(g: &mut Kernel, id: DefId, ty: &Term) -> Result<()> {
             ));
         }
         admissible(&cx, [ty], None)?;
-        let (ty, _) = check_type(&mut cx, ty)?;
+        let (ty, sort) = check_type(&mut cx, ty)?;
+        let def = &g.env.defs()[id.0];
+        if def.theorem && sort != Sort::Prop {
+            return Err(not_a_prop(&mut cx, &def.name, &ty, span)?);
+        }
         let ty_value = eval(&g.ev(), &[], &ty)?;
         let def = &mut g.env.defs_mut()[id.0];
         def.ty = ty;
@@ -2020,6 +2874,11 @@ fn run_body_shape(g: &Ev, id: DefId, body: &Term) -> Result<()> {
             &cx,
             "a run body for a definition that isn't final",
         ));
+    }
+    // An assumption has nothing to run: a run body would be an unhashed
+    // filling of its goal.
+    if def.assumption.is_some() {
+        return Err(malformed(&cx, "a run body for an open goal's assumption"));
     }
     if def.run_body.is_some() || body.count_lams() != def.arity {
         return Err(malformed(
@@ -2379,6 +3238,14 @@ pub fn declare_indexed_data_group(
         admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
         let mut checked = Vec::new();
         for (x, ty) in params {
+            // As for every telescope: a `case` only at the top of a
+            // definition (docs/core.md, "Terms").
+            if !case_only_in_tree(&ty, false) {
+                return Err(malformed(
+                    &cx,
+                    "`case` may only appear at the top of a definition",
+                ));
+            }
             let (ty, _) = check_type(&mut cx, &ty)?;
             let value = cx.eval(&ty)?;
             cx.bind(x.clone(), value);
@@ -2646,9 +3513,17 @@ fn admit_data_group(
     members: Vec<(DataId, Vec<CtorDecl>)>,
 ) -> Result<Vec<(DataId, Vec<Ctor>)>> {
     // The members' parameters are one telescope, shared by construction.
+    // `declare_indexed_data_group` let a failed reference through in it and
+    // in every member's index types: nothing built on a failed declaration
+    // is accepted (docs/core.md, "Admission").
     let first = g.data(group[0]);
     let mut cx = Ctx::new(g, first.span);
-    let mut failed = admissible(&cx, first.params.iter().map(|(_, ty)| ty), None)?;
+    let telescopes = first.params.iter().map(|(_, ty)| ty).chain(
+        group
+            .iter()
+            .flat_map(|d| g.data(*d).indices.iter().map(|(_, ty)| ty)),
+    );
+    let mut failed = admissible(&cx, telescopes, None)?;
     for (x, ty) in &first.params {
         let value = cx.eval(ty)?;
         cx.bind(x.clone(), value);
@@ -2947,6 +3822,13 @@ pub fn admit_trusted_data_decls(
         if let Some(dep) = admissible(&cx, types, None)? {
             return Err(failed_dependency(&cx, &first, &dep));
         }
+        // Structural, so checked even here (docs/core.md, "Terms": `Case`).
+        if !params.iter().all(|(_, ty)| case_only_in_tree(ty, false)) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
         for member in &members {
             if member.record && !member.indices.is_empty() {
                 return Err(malformed(
@@ -3204,6 +4086,8 @@ fn universe_above(cx: &Ctx, s: Sort) -> Result<Sort> {
 }
 
 /// An error for a term no correct elaborator would produce.
+#[cold]
+#[inline(never)]
 fn malformed(cx: &Ctx, message: impl Into<String>) -> Diagnostic {
     cx.error("E-MALFORMED", "malformed core term", message)
         .with_note("this is a bug in the compiler, not in your program")
@@ -3770,10 +4654,10 @@ fn occurs(term: &Term, group: &[DataId]) -> Option<DataId> {
 /// definition: `decision` must have type `decidable P`, where `P` is the
 /// parameter's type, in the context of the parameters before it.
 ///
-/// `decidable` must be shaped like the prelude's `Decidable`: one `Prop`
-/// parameter `p`, and a first constructor whose only field is a proof of `p`.
-/// That's what lets extracted code treat the first constructor as "the
-/// precondition holds".
+/// `decidable` must be shaped like the prelude's `Decidable`: a record with
+/// one `Prop` parameter `p` whose first field is a `Bool` and whose second
+/// says that `True` there proves `p`. That's what lets extracted code treat
+/// the first field being `True` as "the precondition holds".
 pub fn add_validator(
     g: &mut Kernel,
     id: DefId,
@@ -3799,6 +4683,11 @@ pub fn add_validator(
                 "a validator for a definition that isn't final",
             ));
         }
+        // An assumption is exactly its label and type, as `assume` made it
+        // and as it's hashed: nothing is added to it afterwards.
+        if def.assumption.is_some() {
+            return Err(malformed(&cx, "a validator for an open goal's assumption"));
+        }
         let Some((_, prop, true)) = tel.params.get(param) else {
             return Err(malformed(
                 &cx,
@@ -3812,7 +4701,7 @@ pub fn add_validator(
         for (x, ty, _) in &tel.params[..param] {
             cx.bind(x.clone(), ty.clone());
         }
-        let expected = Value::Data(decidable, vec![prop.clone()]);
+        let expected = Value::Data(decidable, vec![prop.clone()].into());
         let decision = check(&mut cx, decision, &expected)?;
         if let Some(dep) = failed {
             return Err(failed_dependency(&cx, &def.name, &dep));
@@ -3879,7 +4768,7 @@ pub fn add_field_validator(
             cx.bind(x.clone(), value);
         }
         let prop = cx.eval(&c.fields[field].1)?;
-        let expected = Value::Data(decidable, vec![prop]);
+        let expected = Value::Data(decidable, vec![prop].into());
         let decision = check(&mut cx, decision, &expected)?;
         if let Some(dep) = failed {
             return Err(failed_dependency(&cx, &data.name, &dep));
@@ -3893,16 +4782,39 @@ pub fn add_field_validator(
     })
 }
 
-/// Whether `decidable` is shaped like the prelude's `Decidable`: one `Prop`
-/// parameter, and two constructors, the first holding a proof of it.
+/// Whether `decidable` is shaped like the prelude's `Decidable`: a record
+/// with one `Prop` parameter `p`, whose fields start with `holds: Bool` and
+/// `sound: holds = True → p`. Its other fields don't matter here: the kernel
+/// checks a validator's type, so a decision it accepts with `holds` `True`
+/// has the proof of `p` behind it.
 fn shaped_like_decidable(g: &Ev, decidable: DataId) -> bool {
+    let Some(bool) = g.env.builtins().bool else {
+        return false;
+    };
+    let is_bool =
+        |t: &Term| matches!(t.strip_loc(), Term::Data(b, args) if *b == bool && args.is_empty());
+    let is_true =
+        |t: &Term| matches!(t.strip_loc(), Term::Ctor(b, 1, fs) if *b == bool && fs.is_empty());
+    // `holds = True → p`, under `p` and `holds`.
+    let is_sound = |t: &Term| match t.strip_loc() {
+        Term::Pi(_, Icit::Explicit, dom, cod) => {
+            matches!(cod.strip_loc(), Term::Var(2))
+                && matches!(dom.strip_loc(), Term::Eq(ty, lhs, rhs)
+                    if ty.as_deref().is_none_or(is_bool)
+                        && matches!(lhs.strip_loc(), Term::Var(0))
+                        && is_true(rhs))
+        }
+        _ => false,
+    };
     g.env.datas().get(decidable.0).is_some_and(|d| {
         d.state == State::Final
+            && d.record
             && d.params.len() == 1
             && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))
-            && d.ctors.len() == 2
-            && d.ctors[0].fields.len() == 1
-            && matches!(d.ctors[0].fields[0].1.strip_loc(), Term::Var(0))
+            && d.ctors.len() == 1
+            && d.ctors[0].fields.len() >= 2
+            && is_bool(&d.ctors[0].fields[0].1)
+            && is_sound(&d.ctors[0].fields[1].1)
     })
 }
 
@@ -3950,6 +4862,23 @@ pub fn telescope(g: &Ev, ty: &Value, span: Span) -> Result<Telescope> {
         result: ty,
         result_erased,
     })
+}
+
+/// Which of an already-checked type's parameters are proofs (their types are
+/// propositions), and whether its result is one: [`telescope`]'s erasure
+/// without the type formers.
+pub fn proof_telescope(g: &Ev, ty: &Value, span: Span) -> Result<(Vec<bool>, bool)> {
+    let mut cx = Ctx::new(g, span);
+    let mut params = Vec::new();
+    let mut ty = force(g, ty.clone())?;
+    while let Value::Pi(x, _, dom, cod) = &ty {
+        params.push(sort_of(&mut cx, dom)? == Sort::Prop);
+        let next = cod.apply(g, Value::var(cx.level()))?;
+        cx.bind(x.clone(), (**dom).clone());
+        ty = force(g, next)?;
+    }
+    let result = sort_of(&mut cx, &ty)? == Sort::Prop;
+    Ok((params, result))
 }
 
 fn is_erased(cx: &mut Ctx, ty: &Value) -> Result<bool> {

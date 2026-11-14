@@ -6,7 +6,7 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Output, Stdio};
 
 use stitchwort_cli::driver::par_map;
 
@@ -29,11 +29,14 @@ fn examples() -> PathBuf {
 
 /// Runs `stitchwort run [--reference] args...` with `input` piped to it.
 fn run_args(args: &[&std::ffi::OsStr], reference: bool, input: &[u8]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.args(["run", "--no-cache"]);
-    if reference {
+    let mut command = if reference {
+        let mut command = crate::common::cli_plain("run");
         command.arg("--reference");
-    }
+        command
+    } else {
+        crate::common::cli("run")
+    };
+    command.arg("--no-cache");
     let mut child = command
         .args(args)
         .stdin(Stdio::piped())
@@ -82,7 +85,8 @@ fn same_both_ways(path: &Path, input: &[u8], same_errors: bool) -> Output {
     fast
 }
 
-/// Every example with a `main`, with input that the interactive ones read.
+/// Every example with a `main` runs, and every `def main` in an example is a
+/// real entry point, with input that the interactive ones read.
 #[test]
 fn examples_print_the_same_both_ways() {
     let mut entries: Vec<_> = std::fs::read_dir(examples())
@@ -95,7 +99,20 @@ fn examples_print_the_same_both_ways() {
     // they run on the thread pool.
     let ran = par_map(STACK, &entries, |path| {
         let source = std::fs::read_to_string(path).expect("read example");
-        if !(source.contains("def main()") || source.contains("def main ()")) {
+        let mains: Vec<&str> = source
+            .lines()
+            .filter(|line| line.starts_with("def main"))
+            .collect();
+        // A `main` is a program entry point (`main(): {IO…} ()`), so one that
+        // isn't takes another name; it isn't skipped here unseen.
+        for line in &mains {
+            assert!(
+                line.starts_with("def main()") || line.starts_with("def main ()"),
+                "{}: `{line}` is not an entry point; rename it",
+                path.display()
+            );
+        }
+        if mains.is_empty() {
             return false;
         }
         // These end in an unhandled `Fail` on purpose; see below.
@@ -278,8 +295,8 @@ fn type_errors_stop_it_before_running() {
 /// `--reference` and `--js` choose different runners.
 #[test]
 fn reference_and_js_conflict() {
-    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["run", "--no-cache", "--reference", "--js"])
+    let output = crate::common::cli_plain("run")
+        .args(["--no-cache", "--reference", "--js"])
         .arg(examples().join("collatz.sw"))
         .output()
         .expect("run stitchwort");

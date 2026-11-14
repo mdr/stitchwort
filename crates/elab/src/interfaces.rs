@@ -291,7 +291,12 @@ impl Elaborator {
         let data_key = self.data_key(d);
         let span = data.span();
         let name = data.name().clone();
-        let relations = relation_pairs(&fields, g.env.builtins().decidable);
+        let relations = relation_pairs(
+            &fields,
+            g.env
+                .registry()
+                .data(stitchwort_core::registry::Builtin::Decidable),
+        );
         let mut methods = Vec::new();
         for (i, (field, _)) in fields.iter().enumerate() {
             let proj = projections[i];
@@ -665,7 +670,7 @@ impl Elaborator {
                 shown.push(g.data(at).ctors()[0].fields[field].0.to_string());
                 at = parent;
             }
-            let goal = Value::Data(at, vec![arg.clone()]);
+            let goal = Value::Data(at, vec![arg.clone()].into());
             let shown_goal = cx.show(&goal);
             let shown_path = shown.join(".");
             let meta = implicit_arg(&mut cx, Icit::Auto, &goal);
@@ -882,7 +887,7 @@ pub(crate) fn attempt(
         return Ok(Attempt::Solved);
     }
     let arg = &refresh(cx, arg)?;
-    let goal = Value::Data(interface, vec![arg.clone()]);
+    let goal = Value::Data(interface, vec![arg.clone()].into());
     let iface_name = g.data(interface).name().to_string();
     let dict = cx.e.tables.interfaces[&interface].dict.clone();
     step(cx, ob.tree, &goal)?;
@@ -999,6 +1004,15 @@ pub(crate) fn attempt(
     if !info.valid {
         let name = info.name.clone();
         let failed = g.def(info.def).state() == stitchwort_core::globals::State::Failed;
+        // It has an error: what needs it waits for it, as for any
+        // declaration with one, reported there (tests-with-errors.md §4.2).
+        if failed && let Some(key) = cx.e.instance_key(info.def) {
+            crate::module::note_failed_used(&key);
+            return Err(crate::module::failed_name(&ast::Name {
+                text: name,
+                span: cx.span,
+            }));
+        }
         let reason = if failed || cx.e.kernel.def(info.def).body().is_some() {
             format!("`{name}` has errors")
         } else {
@@ -1574,7 +1588,7 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
             "the library's `DecEq` isn't available yet",
         ));
     };
-    let goal = Value::Data(dec, vec![ty.clone()]);
+    let goal = Value::Data(dec, vec![ty.clone()].into());
     let meta = implicit_arg(cx, Icit::Auto, &goal);
     cx.e.solve_tree(&meta, true)?;
     // A definition, applied or not (not a lambda, whose type the kernel
@@ -1751,6 +1765,110 @@ pub(crate) fn find_ready_dictionaries(
     }
 }
 
+/// [`crate::undo::unify`] of `ty` with `expected`, after choosing the global
+/// instance that makes them equal for the one dictionary this application
+/// made and hasn't found yet. `own` are its metavariables (`own_dictionaries`):
+/// a dictionary made inside another argument's lambda lives in a deeper
+/// context, which this one can't evaluate it in.
+///
+/// `DecEq.trueOfNe (same => …)` against `(a + a != n) = True`: `expected`
+/// has the instance's method already applied (`Nat.decEq (a + a) n`), while
+/// `ty` is `DecEq.decide ?d ?x ?y`, stuck on a dictionary whose type only
+/// `?x` and `?y` could say, and only the comparison can solve those. Each
+/// instance without prerequisites is tried, and the comparison is made with
+/// the one that fits only if exactly one does, so nothing is chosen that the
+/// expected type doesn't force. Only instances without prerequisites or head
+/// variables are tried: `List Nat` and `Fin n` operands are not found. A dictionary whose type is known is just
+/// found. Several unsolved dictionaries, or none, is `false`.
+pub(crate) fn unify_guessing_instance(
+    cx: &mut Ctx,
+    ty: &Value,
+    expected: &Value,
+    own: &[usize],
+) -> Result<bool> {
+    if cx.e.tables.interfaces.is_empty() {
+        return Ok(false);
+    }
+    let g = cx.g();
+    let mut unknown = Vec::new();
+    let obligations: Vec<Obligation> = cx.e.attempt.obligations.borrow().clone();
+    for ob in obligations {
+        let Term::Meta(m) = ob.meta.spine().0 else {
+            continue;
+        };
+        if !own.contains(m) || g.meta_solution(*m).is_some() {
+            continue;
+        }
+        if let Some((interface, arg)) = interface_goal(cx.e, &ob.goal)? {
+            unknown.push((ob, interface, arg));
+        }
+    }
+    let [(ob, interface, arg)] = unknown.as_slice() else {
+        return Ok(false);
+    };
+    // A type that is known needs no guess for its head, only its instance.
+    let heads: Vec<Option<DataId>> = if matches!(
+        force(&g, refresh(cx, arg)?)?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        (cx.e.tables.instances.iter())
+            .filter(|((i, _), info)| i == interface && info.valid && info.params.is_empty())
+            .map(|((_, head), _)| Some(*head))
+            .collect()
+    } else {
+        vec![None]
+    };
+    let mut fitting = Vec::new();
+    for head in heads {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let fits = guess_with(cx, ob, *interface, arg, head, ty, expected);
+        snapshot.restore(cx);
+        // A trial that errors (an ambiguous instance, a spent budget) is a
+        // guess that doesn't fit: the caller reports the original mismatch.
+        if fits.or_else(not_fatal)? {
+            fitting.push(head);
+        }
+    }
+    let [head] = fitting.as_slice() else {
+        return Ok(false);
+    };
+    let done = crate::undo::transaction(cx, |cx| {
+        let fits = guess_with(cx, ob, *interface, arg, *head, ty, expected).or_else(not_fatal)?;
+        Ok(fits.then_some(()))
+    })?;
+    Ok(done.is_some())
+}
+
+/// A trial's error other than running out of resources: the trial doesn't fit.
+fn not_fatal(e: Diagnostic) -> Result<bool> {
+    if crate::undo::fatal(&e) {
+        Err(e)
+    } else {
+        Ok(false)
+    }
+}
+
+/// Whether `ty` and `expected` unify once the obligation `ob`'s type is the
+/// type `head` and its dictionary the global instance for it.
+fn guess_with(
+    cx: &mut Ctx,
+    ob: &Obligation,
+    interface: DataId,
+    arg: &Value,
+    head: Option<DataId>,
+    ty: &Value,
+    expected: &Value,
+) -> Result<bool> {
+    let head_type = head.map(|head| Value::Data(head, Vec::new().into()));
+    let typed = match head_type {
+        Some(t) => cx.unify(arg, &t)?,
+        None => true,
+    };
+    Ok(typed
+        && matches!(attempt(cx, ob, interface, arg)?, Attempt::Solved)
+        && cx.unify(ty, expected)?)
+}
+
 /// The library's interface called `path` (`Std.Add`), once it's declared.
 pub(crate) fn library_interface(e: &Elaborator, path: &str) -> Option<DataId> {
     match e.scope.get(path) {
@@ -1790,7 +1908,7 @@ pub(crate) fn method_call(
     ty: &Value,
     args: Vec<Term>,
 ) -> Result<Term> {
-    let goal = Value::Data(interface, vec![ty.clone()]);
+    let goal = Value::Data(interface, vec![ty.clone()].into());
     let meta = implicit_arg(cx, Icit::Auto, &goal);
     cx.e.solve_tree(&meta, true)?;
     let g = cx.g();

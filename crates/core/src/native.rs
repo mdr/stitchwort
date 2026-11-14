@@ -40,7 +40,7 @@ use crate::globals::{Kernel, State};
 use crate::partial::Primitive;
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
-use crate::value::{Elim, Head, Value, conv, eval, force};
+use crate::value::{Elim, Head, Shared, Value, conv, eval, force};
 
 /// A definition with a native implementation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -57,27 +57,23 @@ pub enum Native {
     EqNat,
     /// `divFuel fuel n d`: how many times `d` fits into `n`, at most `fuel`.
     DivFuel,
-    /// `decEqNat m n : Decidable (m = n)`: `Yes rfl` or `No (natNeq m n rfl)`,
-    /// exactly what its definition computes.
-    DecEqNat,
     /// `eqNatRefl n : eqNat n n = True`, which is `rfl` for any number. Without
-    /// this, using `natNeq` would count down its first argument.
+    /// this, a proof of `eqNat n n = True` would count down `n`.
     EqNatRefl,
     /// `eqNatSound m n h : m = n`, which is `rfl` when `m` and `n` are the same
-    /// number, whatever `h` is. Without this, the `Yes` that `decEqNat`'s
-    /// definition computes would count down its arguments.
+    /// number, whatever `h` is. Without this, transporting along a decided
+    /// equation (`Nat.decEq m n`'s `sound`) would count down its arguments.
     EqNatSound,
 }
 
 impl Native {
-    pub const ALL: [Native; 9] = [
+    pub const ALL: [Native; 8] = [
         Native::Add,
         Native::Sub,
         Native::Mul,
         Native::Leq,
         Native::EqNat,
         Native::DivFuel,
-        Native::DecEqNat,
         Native::EqNatRefl,
         Native::EqNatSound,
     ];
@@ -91,7 +87,6 @@ impl Native {
             Native::Leq => Builtin::Leq,
             Native::EqNat => Builtin::EqNat,
             Native::DivFuel => Builtin::DivFuel,
-            Native::DecEqNat => Builtin::DecEqNat,
             Native::EqNatRefl => Builtin::EqNatRefl,
             Native::EqNatSound => Builtin::EqNatSound,
         }
@@ -127,11 +122,6 @@ pub struct Builtins {
     pub nat: Option<DataId>,
     /// `Bool`: constructor 0 is `False`, constructor 1 is `True`.
     pub bool: Option<DataId>,
-    /// `Decidable p`: constructor 0 is `Yes`, constructor 1 is `No`.
-    pub decidable: Option<DataId>,
-    /// `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`, which
-    /// `decEqNat`'s definition puts in its `No`, and so the native does too.
-    pub nat_neq: Option<DefId>,
     natives: HashMap<DefId, Native>,
     /// The same registrations the other way round: each native is
     /// registered at most once.
@@ -251,8 +241,6 @@ impl Builtins {
         let Builtins {
             nat,
             bool,
-            decidable,
-            nat_neq,
             // Keyed by definition: cut by id.
             natives: _,
             native_defs: _,
@@ -270,8 +258,6 @@ impl Builtins {
         BuiltinsMark {
             nat: *nat,
             bool: *bool,
-            decidable: *decidable,
-            nat_neq: *nat_neq,
             nat_add_rule: *nat_add_rule,
             text: text.clone(),
             float: float.clone(),
@@ -285,8 +271,6 @@ impl Builtins {
         let Builtins {
             nat,
             bool,
-            decidable,
-            nat_neq,
             natives,
             native_defs,
             primitives,
@@ -306,16 +290,12 @@ impl Builtins {
         let BuiltinsMark {
             nat: was_nat,
             bool: was_bool,
-            decidable: was_decidable,
-            nat_neq: was_nat_neq,
             nat_add_rule: was_nat_add_rule,
             text: was_text,
             float: was_float,
         } = mark.clone();
         *nat = was_nat;
         *bool = was_bool;
-        *decidable = was_decidable;
-        *nat_neq = was_nat_neq;
         *nat_add_rule = was_nat_add_rule;
         *text = was_text;
         *float = was_float;
@@ -330,8 +310,6 @@ impl Builtins {
         let Builtins {
             nat,
             bool,
-            decidable,
-            nat_neq,
             natives,
             native_defs,
             primitives,
@@ -346,8 +324,7 @@ impl Builtins {
         } = self;
         let _ = writeln!(
             out,
-            "builtins nat {nat:?} bool {bool:?} decidable {decidable:?} nat_neq {nat_neq:?} \
-             nat_add_rule {nat_add_rule:?}"
+            "builtins nat {nat:?} bool {bool:?} nat_add_rule {nat_add_rule:?}"
         );
         // `small` is made from the two, so it isn't printed.
         let text = text.as_ref().map(|t| (t.list, t.char));
@@ -385,8 +362,6 @@ impl Builtins {
 pub(crate) struct BuiltinsMark {
     nat: Option<DataId>,
     bool: Option<DataId>,
-    decidable: Option<DataId>,
-    nat_neq: Option<DefId>,
     nat_add_rule: Option<DefId>,
     text: Option<crate::chars::CompactText>,
     float: crate::float::FloatBinding,
@@ -445,54 +420,9 @@ pub fn register_bool(g: &mut Kernel, d: DataId) -> Result<()> {
     })
 }
 
-/// Registers `Decidable (p : Prop)`, which must be `Yes p | No (Not p)`.
-/// Checked by comparing it with the type it must have, so a native `Yes`
-/// built from `rfl` and a native `No` built from `natNeq` are well-typed.
-pub fn register_decidable(g: &mut Kernel, d: DataId) -> Result<()> {
-    in_kernel_modes(g, |g| {
-        let data = g.data(d);
-        let p = Value::var(0);
-        // `No`'s field relies on `Void` being empty, so it must be final.
-        let void = g.env.registry().data(Builtin::Void);
-        let shaped = data.state == State::Final
-            && data.params.len() == 1
-            && data.indices.is_empty()
-            && data.sort == Sort::Type(0)
-            && data_sig(&g.ev(), d) == [vec![0], vec![0]];
-        let shaped = shaped
-            && match void {
-                None => false,
-                Some(void) => {
-                    let params = [p.clone()];
-                    let yes = eval(&g.ev(), &params, &data.ctors[0].fields[0].1)?;
-                    let no = eval(&g.ev(), &params, &data.ctors[1].fields[0].1)?;
-                    let param = eval(&g.ev(), &[], &data.params[0].1)?;
-                    let not_p = Value::Pi(
-                        "h".into(),
-                        Icit::Explicit,
-                        Rc::new(p.clone()),
-                        crate::value::Closure {
-                            env: [p.clone()].into(),
-                            body: Rc::new(Term::Data(void, Vec::new())),
-                        },
-                    );
-                    conv(&g.ev(), 0, &param, &Value::Sort(Sort::Prop))?
-                        && conv(&g.ev(), 1, &yes, &p)?
-                        && conv(&g.ev(), 1, &no, &not_p)?
-                }
-            };
-        if !shaped {
-            return Err(shape_error(data.span, "Decidable"));
-        }
-        g.env.builtins_mut().decidable = Some(d);
-        Ok(())
-    })
-}
-
 /// Registers a native implementation for definition `id`, after checking
 /// that it is the declaration the native was written for ([`crate::pins`])
-/// and its type. Natives returning `Bool` or `Decidable` need those
-/// registered first. Each native is registered once, and each definition
+/// and its type. Natives returning `Bool` need it registered first. Each native is registered once, and each definition
 /// has at most one.
 pub fn register_native(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     in_kernel_modes(g, |g| {
@@ -517,28 +447,16 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     let (State::Final, Some(nat)) = (def.state, g.env.builtins().nat) else {
         return Err(shape_error(span, native.name()));
     };
+    // An open goal's assumption never computes, by a native or otherwise.
+    if def.assumption().is_some() {
+        return Err(shape_error(span, native.name()));
+    }
     let nat_ty = || Term::Data(nat, Vec::new());
     let arrow =
         |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
     let result = match native {
         Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
         Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),
-        // (m : Nat) -> (n : Nat) -> Decidable (m = n), and `natNeq` must exist.
-        Native::DecEqNat => g
-            .env
-            .builtins()
-            .decidable
-            .filter(|_| g.env.builtins().nat_neq.is_some())
-            .map(|dec| {
-                Term::data(
-                    dec,
-                    vec![Term::Eq(
-                        Some(Rc::new(nat_ty())),
-                        Rc::new(Term::Var(1)),
-                        Rc::new(Term::Var(0)),
-                    )],
-                )
-            }),
         // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
         Native::EqNatSound => g
             .env
@@ -616,61 +534,6 @@ fn native_def(g: &Ev, native: Native) -> Option<DefId> {
     g.env.builtins().native_defs.get(&native).copied()
 }
 
-/// Registers `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`.
-/// Like a native, it must be the pinned declaration ([`crate::pins`]), and
-/// it is registered once.
-pub fn register_nat_neq(g: &mut Kernel, id: DefId) -> Result<()> {
-    in_kernel_modes(g, |g| {
-        crate::pins::check_def(&g.ev(), id, Builtin::NatNeq)?;
-        let def = g.def(id);
-        let span = def.span;
-        if g.env.builtins().nat_neq.is_some() {
-            return Err(
-                Diagnostic::error("E-BUILTIN", "`Nat.equalFalse` is bound already")
-                    .with_label(span, "a second binding"),
-            );
-        }
-        let (State::Final, Some(nat), Some(bool), Some(eq_nat), Some(void)) = (
-            def.state,
-            g.env.builtins().nat,
-            g.env.builtins().bool,
-            native_def(&g.ev(), Native::EqNat),
-            g.env.registry().data(Builtin::Void),
-        ) else {
-            return Err(shape_error(span, "natNeq"));
-        };
-        let pi =
-            |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
-        let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
-        let expected = pi(
-            Term::Data(nat, Vec::new()),
-            pi(
-                Term::Data(nat, Vec::new()),
-                pi(
-                    Term::Eq(
-                        Some(Rc::new(Term::Data(bool, Vec::new()))),
-                        Rc::new(Term::app(
-                            Term::app(Term::Def(eq_nat), Term::Var(1)),
-                            Term::Var(0),
-                        )),
-                        Rc::new(Term::Ctor(bool, 0, Vec::new())),
-                    ),
-                    pi(
-                        Term::Eq(Some(nat_ty()), Rc::new(Term::Var(2)), Rc::new(Term::Var(1))),
-                        Term::Data(void, Vec::new()),
-                    ),
-                ),
-            ),
-        );
-        // It must still need its last argument, so applying it to three stays stuck.
-        if def.arity != 4 || !conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)? {
-            return Err(shape_error(span, "natNeq"));
-        }
-        g.env.builtins_mut().nat_neq = Some(id);
-        Ok(())
-    })
-}
-
 /// A number value. `Zero` and `Succ` of a number are numbers too.
 pub fn nat_value(n: BigUint) -> Value {
     Value::Nat(Rc::new(n))
@@ -723,12 +586,38 @@ pub fn view_with(g: &Ev, value: &Value, force: Force) -> budget::Result<(BigUint
     }
 }
 
+/// [`view_with`], but with the base as it was before forcing: as a case
+/// tree that peels the `Succ`s binds it, so a glued call in it stays the
+/// call. `None` for a number, as there.
+fn view_keeping(g: &Ev, value: &Value, force: Force) -> budget::Result<(BigUint, Option<Value>)> {
+    let mut k = BigUint::zero();
+    let mut unforced = value.clone();
+    let mut value = force(g, unforced.clone())?;
+    loop {
+        let next = match &value {
+            Value::Nat(n) => return Ok((k + &**n, None)),
+            Value::NatAdd(n, base) => {
+                k += &**n;
+                (**base).clone()
+            }
+            Value::Ctor(d, 0, _) if Some(*d) == g.env.builtins().nat => return Ok((k, None)),
+            Value::Ctor(d, 1, fields) if Some(*d) == g.env.builtins().nat && fields.len() == 1 => {
+                k += 1u32;
+                fields[0].clone()
+            }
+            _ => return Ok((k, Some(unforced))),
+        };
+        value = force(g, next.clone())?;
+        unforced = next;
+    }
+}
+
 /// The value for `k + base` (see [`view`]).
 pub fn from_view(k: BigUint, base: Option<Value>) -> Value {
     match base {
         None => nat_value(k),
         Some(base) if k.is_zero() => base,
-        Some(base) => Value::NatAdd(Rc::new(k), Rc::new(base)),
+        Some(base) => Value::NatAdd(Rc::new(k), Shared::new(base)),
     }
 }
 
@@ -960,6 +849,11 @@ pub enum Outcome {
     /// now be applied to these arguments instead. (The evaluator does that
     /// itself, so a native never calls back into it.)
     Again(Vec<Elim>),
+    /// A number of `Succ`s the result starts with (`k`), and the definition
+    /// applied to these arguments for what is left. The result is `k` more
+    /// than that: the evaluator adds them once it has it, so a rest that
+    /// still computes is never left as a call that has to be unfolded.
+    Succs(BigUint, Vec<Elim>),
 }
 
 /// Shortcuts for numbers with unknowns in them, each a number of steps of
@@ -1015,6 +909,87 @@ fn run_partial(
                 explicit(from_view(k2 - &shared, b2)),
             ])))
         }
+        // `mul (Succ m) n = n + mul m n`, so for a number `n`,
+        // `mul (k + m) n = k·n + mul m n`, stuck on `m`: what `k` steps of the
+        // case tree and `add`'s native make of it, in one step. One step at
+        // a time, each would walk the rest of a chain of `k` `Succ`s to find
+        // it isn't a number, which is quadratic in `k`: `(x + 16000) % 2`
+        // multiplies a quotient of 8000 `Succ`s around a stuck step (SW-2572).
+        // `m`'s head is looked at first: with no `Succ` there the case tree
+        // is stuck on `m` and never looks at `n`, so neither may this. Then
+        // `n`, so that a `y` that isn't a number leaves the chain unwalked
+        // (the case tree then peels it one `Succ` a step).
+        (Native::Mul, [m, n]) => {
+            let starts_with_succ = match force(g, (*m).clone())? {
+                Value::NatAdd(..) => true,
+                Value::Ctor(d, 1, _) => Some(d) == g.env.builtins().nat,
+                _ => false,
+            };
+            if !starts_with_succ {
+                return Ok(None);
+            }
+            let Some(times) = as_nat_with(g, n, force)? else {
+                return Ok(None);
+            };
+            let (k, base) = view_keeping(g, m, force)?;
+            let Some(base) = base.filter(|_| !k.is_zero()) else {
+                return Ok(None);
+            };
+            g.machine
+                .budget
+                .number_words(|| number_words(Native::Mul, &[k.clone(), times.clone()]))?;
+            Ok(Some(Outcome::Done(from_view(
+                k * times,
+                Some(Value::Neutral(
+                    Head::Def(id),
+                    vec![explicit(base), explicit((*n).clone())].into(),
+                )),
+            ))))
+        }
+        // `divFuel (Succ f) n d = Succ (divFuel f (n - d) d)` while `d ≤ n`, so
+        // for a number `d > 0`, `q = min(kf, k / d)` steps are all `Succ`s:
+        // `divFuel (kf + f) (k + m) d = q + divFuel ((kf - q) + f) ((k - q·d) + m) d`.
+        // One step at a time, `(x + 2^128) / 2` would take 2^127 of them.
+        // Arguments are looked at in the order the case tree looks at them, so
+        // this never forces more than the steps it stands for would: the
+        // fuel's head (with no `Succ` the case tree is stuck on it), then `d`
+        // and `n`, which the first step's `leq d n` compares, and only once a
+        // step is sure to happen, the rest of the fuel.
+        (Native::DivFuel, [fuel, n, d]) => {
+            let starts_with_succ = match force(g, (*fuel).clone())? {
+                Value::Nat(n) => !n.is_zero(),
+                Value::NatAdd(..) => true,
+                Value::Ctor(d, 1, _) => Some(d) == g.env.builtins().nat,
+                _ => false,
+            };
+            if !starts_with_succ {
+                return Ok(None);
+            }
+            let Some(divisor) = as_nat_with(g, d, force)?.filter(|d| !d.is_zero()) else {
+                return Ok(None);
+            };
+            let (k, n_base) = view(n)?;
+            if k < divisor {
+                return Ok(None);
+            }
+            let (kf, fuel_base) = view_keeping(g, fuel, force)?;
+            g.machine.budget.number_words(|| {
+                number_words(Native::DivFuel, &[kf.clone(), k.clone(), divisor.clone()])
+            })?;
+            let q = (&k / &divisor).min(kf.clone());
+            if q.is_zero() {
+                return Ok(None);
+            }
+            let rest = &k - &q * &divisor;
+            Ok(Some(Outcome::Succs(
+                q.clone(),
+                vec![
+                    explicit(from_view(kf - &q, fuel_base)),
+                    explicit(from_view(rest, n_base)),
+                    explicit((*d).clone()),
+                ],
+            )))
+        }
         // `eqNatRefl (Succ n) = eqNatRefl n`.
         (Native::EqNatRefl, [n]) => {
             let (k, base) = view(n)?;
@@ -1023,6 +998,15 @@ fn run_partial(
                 .map(|base| Outcome::Again(vec![explicit(base)])))
         }
         _ => Ok(None),
+    }
+}
+
+/// Whether forced `value` may be a number: it's one, `Zero` or a `Succ`.
+pub(crate) fn number_head(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Nat(_) => true,
+        Value::Ctor(d, c, _) => Some(*d) == g.env.builtins().nat && *c <= 1,
+        _ => false,
     }
 }
 
@@ -1081,6 +1065,18 @@ pub fn run(
     else {
         return Ok(None);
     };
+    // An argument whose head is plainly no number (neither a number nor
+    // `Zero` or `Succ`) settles it before a chain of `Succ`s in another is
+    // walked: a recursion peeling one `Succ` a step, as `(k + m) * y` does
+    // for an unknown `y`, would otherwise walk the rest of the chain at
+    // every step, which is quadratic in `k` (SW-2572). The forced heads
+    // aren't kept, so this frame stays small (see `run_partial`): forcing
+    // again finds a call's kept unfolding.
+    for v in values.iter().take(native.numbers()) {
+        if !number_head(g, &force(g, (*v).clone())?) {
+            return run_partial(g, id, native, &values, force);
+        }
+    }
     let mut args = Vec::new();
     for v in values.iter().take(native.numbers()) {
         match as_nat_with(g, v, force)? {
@@ -1132,27 +1128,6 @@ fn run_numbers(g: &Ev, native: Native, args: &[BigUint]) -> Option<Value> {
         // When the numbers differ, the definition unfolds instead (to a proof
         // from `h`, which can only be a hypothesis).
         (Native::EqNatSound, [m, n]) => (m == n).then_some(Value::Refl),
-        (Native::DecEqNat, [m, n]) => {
-            let dec = g.env.builtins().decidable?;
-            if m == n {
-                Some(Value::Ctor(dec, 0, [Value::Refl].into()))
-            } else {
-                // `natNeq m n rfl`, as the definition's `False` case gives
-                // (`eqNat m n` is `False`, so `h` is `rfl`). It's stuck until
-                // it's given a proof of `m = n`, and there isn't one.
-                let arg = |v| Elim::App(v, Icit::Explicit);
-                let refutation = Value::Neutral(
-                    Head::Def(g.env.builtins().nat_neq?),
-                    vec![
-                        arg(nat_value(m.clone())),
-                        arg(nat_value(n.clone())),
-                        arg(Value::Refl),
-                    ]
-                    .into(),
-                );
-                Some(Value::Ctor(dec, 1, [refutation].into()))
-            }
-        }
         _ => None,
     }
 }

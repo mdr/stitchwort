@@ -5,10 +5,9 @@
 
 -- The `let`'s value mentions the scrutinee.
 def viaValue (x: Result Nat Nat) (n: Nat): Nat :=
-  let chosen: Nat :=
-    match x with
-      | Ok a => a
-      | Err b => b
+  let chosen: Nat := match x with
+    | Ok a => a
+    | Err b => b
   match x with
     | Ok a =>
       Succ
@@ -32,8 +31,9 @@ def viaFunction (x: Result Nat Nat) (n: Nat): Nat :=
     | Err b => b
 
 -- The `let`'s type mentions the scrutinee.
-def viaType (fam: Result Nat Nat → Type) (make: (r: Result Nat Nat) → fam r)
-    (use: (r: Result Nat Nat) → fam r → Nat) (x: Result Nat Nat) (n: Nat): Nat :=
+def viaType (fam: Result Nat Nat → Type) (make: (r: Result Nat Nat) → fam r) (use: (r: Result Nat Nat) → fam r → Nat)
+    (x: Result Nat Nat) (n: Nat):
+    Nat :=
   let made: fam x := make x
   match x with
     | Ok a =>

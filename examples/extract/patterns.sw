@@ -30,6 +30,6 @@ export def describe: Nat → Nat
   | 7 => 70
   | n => n
 
-export def sameLength (xs: List Nat) (ys: List Nat): Bool := List.length xs == List.length ys
+export def sameLength (xs ys: List Nat): Bool := List.length xs == List.length ys
 
 export def bigEqual (n: Nat): Bool := n * 2 == n + n

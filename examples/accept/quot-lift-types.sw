@@ -32,7 +32,7 @@ def eightVariable: Nat := liftWith (a => 8) (Quot.mk (List Nat))
 
 -- For contrast, a carrier whose elements are data: the representative is
 -- passed to the lifted function.
-def BoolEq (x: Bool) (y: Bool): Prop := x = y
+def BoolEq (x y: Bool): Prop := x = y
 def QE: Type := Quot Bool BoolEq
 
 def toNat (b: Bool): Nat := if b then 1 else 0

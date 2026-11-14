@@ -7,13 +7,10 @@
 -- Comparisons
 
 --| The result of comparing two values: `Less`, `Equal` or `Greater`.
-type Ordering: Type =
-  | Less
-  | Equal
-  | Greater
+type Ordering: Type = | Less | Equal | Greater
 
 --| How `m` compares with `n`: `Nat.compare 2 5` is `Less`.
-def Nat.compare (m: Nat) (n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
+def Nat.compare (m n: Nat): Ordering := if Nat.equal m n then Equal else (if Nat.leq m n then Less else Greater)
 
 --| The first comparison, unless it's `Equal`.
 def Ordering.andThen: (first: Ordering) → (second: Ordering) → Ordering
@@ -29,12 +26,12 @@ def Ordering.index: (ordering: Ordering) → Nat
 
 --| Decides whether two orderings are equal.
 def Ordering.decEq: (a: Ordering) → (b: Ordering) → Decidable (a = b)
-  | Less, Less => Yes rfl
-  | Less, Equal => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
-  | Less, Greater => No (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
-  | Equal, Less => No (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
-  | Equal, Equal => Yes rfl
-  | Equal, Greater => No (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p)))
-  | Greater, Less => No (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
-  | Greater, Equal => No (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p))))
-  | Greater, Greater => Yes rfl
+  | Less, Less => Decidable.yes rfl
+  | Less, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
+  | Less, Greater => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
+  | Equal, Less => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
+  | Equal, Equal => Decidable.yes rfl
+  | Equal, Greater => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p)))
+  | Greater, Less => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
+  | Greater, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p))))
+  | Greater, Greater => Decidable.yes rfl

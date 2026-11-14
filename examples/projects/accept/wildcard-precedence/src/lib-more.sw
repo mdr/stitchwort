@@ -1,8 +1,6 @@
 namespace Lib
 
-type Option =
-  | Nope
-  | Yep (n: Nat)
+type Option = | Nope | Yep (n: Nat)
 
 def only(): Nat := 5
 

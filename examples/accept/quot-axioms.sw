@@ -6,7 +6,7 @@
 -- or for `usesInd` and `usesLift`, which use `Quot.ind` and `Quot.lift`:
 -- those are rules of the core, not axioms. `crates/cli/tests/axioms.rs`
 -- checks the reports.
-def AllTrue (x: Bool) (y: Bool): Prop := Unit
+def AllTrue (x y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
 def plain (n: Nat): Nat := n
@@ -21,4 +21,4 @@ def viaDef: Nat := viaTheorem + 1
 
 def usesLift (q: Q): Bool := Quot.lift (b => False) (x y related => rfl) q
 
-theorem usesInd (q: Q): Unit := Quot.ind [p := q => Unit] (x => Trivial) q
+theorem usesInd ∀ (q: Q): Unit := Quot.ind [p := q => Unit] (x => Trivial) q

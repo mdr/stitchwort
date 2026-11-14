@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/as-written-unconfirmed-other-rounds.sw:35:72 ]
+    │
+ 35 │     | Some y => Witness y (Option.someInjective [x := y] [y := answer] solved |> Eq.sym)
+    │                                                                        ───┬──  
+    │                                                                           ╰──── expected `Some y = Some answer`, but this has type `None = Some answer`
+────╯
+[W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
+    ╭─[ reject/as-written-unconfirmed-other-rounds.sw:33:16 ]
+    │
+ 33 │   match found: outer x k 12 with
+    │                ──────┬─────  
+    │                      ╰─────── looked for `outer x k 12`
+    │ 
+    │ Note 1: in the goal `∃ (y: Nat) => answer = y`
+    │ 
+    │ Note 2: the search compares what terms compute to: write the expression as the goal shows it (or `rewrite` the goal to the form you want, or bind it with a `let` before the `match`)
+    │ 
+    │ Note 3: the goal has a function written as a lambda: a function given without its argument (`f x`) is not the same term as `y => f x y`, so write the lambda
+────╯

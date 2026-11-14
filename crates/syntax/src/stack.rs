@@ -14,7 +14,110 @@
 #[inline(always)]
 pub fn position() -> usize {
     let marker = 0u8;
-    std::hint::black_box(&marker) as *const u8 as usize
+    let here = std::hint::black_box(&marker) as *const u8 as usize;
+    if PROBE {
+        probe::note(here);
+    }
+    here
+}
+
+/// Whether this build keeps [`probe`]'s record: set `STITCHWORT_STACK_PROBE` when
+/// building to measure how deep the stack gets (SW-3128). Off, the probe
+/// compiles away. Set to `deepest`, it also keeps a backtrace of the deepest
+/// point, which [`probe::report_deepest`] prints (SW-3227; `task stack:peak`).
+const PROBE: bool = option_env!("STITCHWORT_STACK_PROBE").is_some();
+
+/// The `deepest` mode of [`PROBE`]: a backtrace at each new deepest point,
+/// which costs a stack walk each time, so it is its own setting.
+const DEEPEST: bool = match option_env!("STITCHWORT_STACK_PROBE") {
+    Some(mode) => mode.as_bytes().eq_ignore_ascii_case(b"deepest"),
+    None => false,
+};
+
+/// How deep the stack has been, for measuring how much a run reaches
+/// (`web/stress.html`): in WebAssembly the numbers survive the engine's own
+/// stack overflowing, since they live in linear memory.
+pub mod probe {
+    use std::backtrace::Backtrace;
+    use std::sync::Mutex;
+    use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+    /// The highest position seen, never reset: about the base of the stack.
+    static HIGHEST: AtomicUsize = AtomicUsize::new(0);
+    static LOWEST: AtomicUsize = AtomicUsize::new(usize::MAX);
+    static LAST: AtomicUsize = AtomicUsize::new(usize::MAX);
+    /// Where the kept backtrace was taken.
+    static TRACE_AT: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+    /// The deepest point so far in `deepest` mode: its position, and the
+    /// backtrace taken there.
+    static DEEPEST_TRACE: Mutex<Option<(usize, Backtrace)>> = Mutex::new(None);
+
+    /// How far apart (in bytes) two backtraces are kept: a walk of a deep
+    /// stack is slow, and a few hundred bytes of difference doesn't change
+    /// which frames make up the peak.
+    const TRACE_STEP: usize = 256;
+
+    #[cold]
+    #[inline(never)]
+    fn keep_trace(here: usize) {
+        let trace = Backtrace::force_capture();
+        if let Ok(mut deepest) = DEEPEST_TRACE.lock() {
+            *deepest = Some((here, trace));
+        }
+    }
+
+    #[inline(always)]
+    pub(super) fn note(here: usize) {
+        LAST.store(here, Relaxed);
+        if here < LOWEST.load(Relaxed) {
+            LOWEST.store(here, Relaxed);
+            if super::DEEPEST && here + TRACE_STEP < TRACE_AT.load(Relaxed) {
+                TRACE_AT.store(here, Relaxed);
+                keep_trace(here);
+            }
+        }
+        if here > HIGHEST.load(Relaxed) {
+            HIGHEST.store(here, Relaxed);
+        }
+    }
+
+    /// In `deepest` mode, prints the backtrace of the deepest point to
+    /// standard error, for `dev/stack-peak`: a line `DEEPEST <bytes below the
+    /// stack's base>`, then each frame's symbol, innermost first, as `<index>
+    /// <name>`. (`Backtrace` offers only its text, so no addresses: the
+    /// script finds each symbol by name.) Does nothing in other builds.
+    pub fn report_deepest() {
+        if !super::DEEPEST {
+            return;
+        }
+        let Ok(deepest) = DEEPEST_TRACE.lock() else {
+            return;
+        };
+        let Some((here, trace)) = deepest.as_ref() else {
+            return;
+        };
+        eprintln!("DEEPEST {}", HIGHEST.load(Relaxed).saturating_sub(*here));
+        // The debug form is `Backtrace [{ fn: "name" }, ...]`, with a file
+        // and line after the name where the binary has them.
+        let text = format!("{trace:?}");
+        for (index, part) in text.split("{ fn: \"").skip(1).enumerate() {
+            let name = part.split('"').next().unwrap_or("");
+            eprintln!("{index} {name}");
+        }
+    }
+
+    /// The deepest the stack has been since the last call, and how deep it
+    /// was at the last position taken, in bytes below its base (0 if the
+    /// probe is off); starts again. After a crash, a last depth well short of
+    /// the deepest means the crash came from a recursion that doesn't measure
+    /// the stack.
+    pub fn take() -> (usize, usize) {
+        let highest = HIGHEST.load(Relaxed);
+        let deepest = highest.saturating_sub(LOWEST.swap(usize::MAX, Relaxed));
+        let last = highest.saturating_sub(LAST.swap(usize::MAX, Relaxed));
+        (deepest, last)
+    }
 }
 
 /// The lowest stack address a pass may reach.

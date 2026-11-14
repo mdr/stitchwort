@@ -41,6 +41,8 @@ A few things to notice, all explained in later chapters:
 - The body of `main` is a block: each line runs in order, `let` names a value, and the last line is the result.
 - `"Hello, ${name}!"` inserts a value into text.
 - `test` declares a test, which `stitchwort test` runs; running the program doesn't.
+- `main` is the name for a program's entry point and nothing else: give a helper or a value that a test checks a name that says what it is.
+- `stitchwort run hello.sw` runs the file's `main`. `main` is a convention, not a keyword: in a project, `stitchwort run Shop.report` runs any function of that name whose type is `() -> {IO} ()` (or the same with `Fail` and `Partial`, or no abilities at all), and a function of any other type is refused with `E-RUN-TYPE` ([projects](../projects.md#running-and-testing)).
 - `main` comes before `greeting`. Declarations can be in any order.
 
 Run it with input from a file:
@@ -70,6 +72,8 @@ Greeted 2 people
 | `stitchwort build --js FILE -o DIR` | Writes an ES module and its TypeScript declarations for the file's `export`s. |
 | `stitchwort lsp` | The language server, for editors. |
 
+A syntax error doesn't hide the rest of the definition it is in. When a line runs out (`let a := n +`, with the operand still to type), the missing part is left as a gap and the lines after it are checked as usual, so a type error two lines further down is reported beside the syntax error. When the parser can't tell how a body goes on (a stray `)`, say), it skips the rest of that body. Either way nothing is reported about the gap or what uses it: no type mismatch for `a`, whose value is missing. The definition still has an error, so it is never admitted, and the declarations that use it are checked against its header, as for any declaration with an error ([chapter 9](09-testing.md)). A header that doesn't parse loses the whole declaration, as before (`examples/reject/recover-ran-out.sw`, `examples/reject/recover-body.sw`).
+
 `check`, `test`, `run`, `axioms`, `audit`, `search`, `doc`, `eval` and `build` keep a cache in `.stitchwort/` (it writes its own `.gitignore`); `--no-cache` ignores it. `stitchwort run` exits with 0 on success, 1 if the program didn't check, and 2 if it failed while running.
 
 Here are the tests of the program above:
@@ -82,7 +86,7 @@ Here are the tests of the program above:
 
 Run `test` again without changing anything and each test says `cached` instead of `ran`. Tests are cached by the content of what they depend on, not by file times, so editing a comment or renaming a local variable doesn't rerun anything, and changing a function reruns exactly the tests that use it.
 
-The REPL evaluates expressions in the context of a file, and prints each result with its type. `:t` shows the type alone, and `import` lines accumulate. Given these lines (from the file `values.sw` of [chapter 2](02-values-and-definitions.md)):
+The REPL evaluates expressions in the context of a file (a file of a [project](#projects), found from the file's folder, is loaded as its namespace in the project, so its imports resolve, and its names are in scope), and prints each result with its type. `:t` prints the expression with its type, without evaluating it, and `import` lines accumulate. Given these lines (from the file `values.sw` of [chapter 2](02-values-and-definitions.md)):
 
 <!-- snippet: repl-session.txt -->
 ```text
@@ -90,7 +94,7 @@ double 21
 summary "Ada" [3, 4]
 :t describe
 import Std (List)
-List.range 0 4
+0 ..< 4
 ```
 
 it prints:
@@ -100,7 +104,7 @@ it prints:
 Stitchwort 0.1.0. Enter an expression to evaluate it, `import Std (List)` to use a namespace's names, `:t expr` for its type, `:q` to quit.
 42: Nat
 "Ada bought 2 items: [3, 4], costing 7": Text
-Nat → Text
+describe: Nat → Text
 [0, 1, 2, 3]: List Nat
 ```
 
@@ -141,7 +145,7 @@ The playground is a browser page with an editor, the compiler (built to WebAssem
 
 Its tabs check the code, run its tests, evaluate an expression, show the generated JavaScript and TypeScript, and run `main` with input you type.
 
-Put the cursor on a `?` and a panel under the editor shows the goal there: what has to go in its place, and the names in scope, as VS Code's goals panel does. **Share** copies a link that carries the program itself in its address (compressed, nothing is stored on a server); opening it shows that program and leaves your own saved work alone until you edit it. For an Advent of Code day, Share links to the day.
+Press F2 on a name to rename it (see "Editor support" below); a prompt above the editor asks for the new name and offers "Rename anyway" when the check finds problems. Put the cursor on a `?` and a panel under the editor shows the goal there: what has to go in its place, and the names in scope, as VS Code's goals panel does. **Share** copies a link that carries the program itself in its address (compressed, nothing is stored on a server); opening it shows that program and leaves your own saved work alone until you edit it. For an Advent of Code day, Share links to the day.
 
 ## Editor support
 
@@ -157,9 +161,14 @@ Put the cursor on a `?` and a panel under the editor shows the goal there: what 
 - a quick fix on an unknown name that needs an import (`Map` without `import Std (Map)`): "Add `import Std (Map)`" inserts it, into an existing `import Std (…)` line if there is one;
 - a quick fix on a `match` that leaves cases out (`E-NONEXHAUSTIVE`): "Add the missing arms" adds one arm per missing case after the last arm, each with `?` as its body and variables named after the constructor's fields (`| Circle ref text => ?`, `| [x, ..xs] => ?`);
 - "Split `x` into its cases", with the cursor on a variable in an arm's patterns whose right-hand side doesn't use it: the arm becomes one arm per constructor of the variable's type (`| Some o => ?` on an `Option Nat` becomes `| None => ?` and `| Some value => ?`), for data types without indices;
+- "Split on `b`", with the cursor on a `?` (or on a parameter's name in the header, when the body is a single `?`): one action for each variable in scope whose type is a data type without indices (a hypothesis such as `h: andb b c = True` isn't offered). It replaces the `?` with `match b with` and an arm for each constructor, each with a `?` body and fields named as "Add the missing arms" names them. When the `?` is a whole arm of a `match` (after splitting `b`, on `| True => ?`), splitting `c` adds `c` as a new column of that `match` (`| True, True => ?`, `| True, False => ?`, and `_` in the new column of the other arms) instead of nesting another one. When the arm already has the variable in its patterns, as a name (`| Paper, theirs => ?`), as a `_` in the column the `match` scrutinises it in (`| Scissors, _ => ?`), or inside a constructor (`| S n => ?`), the action splits that arm in place, as "Split `x` into its cases" does, rather than nesting a `match`;
+- "Search for a proof", with the cursor on a `?` in a proof (whose expected type is a proposition, such as `a = b` or `p ∧ q`; not on a `?` in a program, whose expected type is data such as `Nat` or `List a`): the quick actions (Cmd+. or Ctrl+.) always answer at once, and this one runs a search for proofs that close the goal only when you pick it, with a progress message. If a simple proof closes the goal (`rfl`, a hypothesis that is the goal, `byDecision`, `omega`, `ring`, or `cases` for an impossible hypothesis, tried in that order), it is the only one found. When the search finds exactly one proof, it replaces the `?` at once, with the cursor after it and a notice "Proved by `rfl`" (undo restores the `?`). When it finds several, they are listed, best first (in VS Code a pick list; each shows the proof text), and the one you choose replaces the `?`. If none is found within the time limit, a message says "No proof found within 5 s". The search is stopped if you cancel it or edit the file meanwhile;
 - the type of a `let` whose type you didn't write, shown after its name (`let total` becomes `total: Nat`), once something uses the variable; no other inlay hints;
 - colours from what the checker resolved each name to: functions, types, constructors, variables, theorems and abilities, with declarations in bold (VS Code: semantic highlighting; the playground draws them too);
 - formatting (Format Document and Format Selection);
+- **renaming** (F2, also in the playground): put the cursor on a local, a hypothesis, a function or a theorem, press F2, and type the new name; every use follows, in every file of the project, including `import` lines and the uses through dots, pipes and `rewrite`. The renamed project is checked before anything is changed. If the new name would cause an error or change what some declaration means (it captures another name, say), the rename is refused and the problems are listed. Choose **Rename anyway** to make the change regardless: the declarations whose meaning changed are marked with a warning, "meaning changed by rename: check this", until you next edit the file, and the new errors show as ordinary errors, for you to fix by hand. Fields, constructors, types and the standard library can't be renamed yet; `stitchwort rename` does the same from the command line;
 - **run icons** above the declarations, in any `.sw` file (a single file outside a project too): "▶ Run test" above each `test`, "▶ Run tests" above the first when the file has several, and "▶ Run" above `main`. A test shows its result in a message, and a failure lists the two sides of its comparison in the Output panel and marks the line in the file. "▶ Run" starts `stitchwort run` in a terminal, so it can read input. They use the same `stitchwort test` and `stitchwort run` you can type yourself; `stitchwort test FILE --only "name" --json` is the form with one test's result as JSON;
 - **the Testing panel** (the flask icon) lists the tests of the files of a project, those under a `stitchwort.yaml`: run all of them, a file, or one test, and see a failure at its line, with the two sides. A result that came from the test cache is marked "cached". Files outside a project use the run icons instead;
-- **goals**: each `?` in a proof shows what has to go there, and the command "Stitchwort: Show Goals" opens a panel that follows the cursor ([chapter 10](10-proofs.md)).
+- **goals**: each `?` in a proof shows what has to go there, and the command "Stitchwort: Show Goals" opens a panel that follows the cursor, showing the goal or expected type anywhere ([chapter 10](10-proofs.md)).
+
+**Settings.** Each optional feature can be switched off in one place. In VS Code, search the settings for "Stitchwort": `stitchwort.inlayHints.letTypes` (the types after `let`s), `stitchwort.codeLens.run` (the run icons), `stitchwort.proofSearch.enabled` and `stitchwort.proofSearch.timeLimitMs` (whether "Search for a proof" is offered on a `?`, and how long a search may run), `stitchwort.semanticColours`, and `stitchwort.goals.openAutomatically` (open the Goals panel when a file with a `?` opens; off by default). Stitchwort files are formatted when you save them; set `"[stitchwort]": { "editor.formatOnSave": false }` to stop that. In the playground the ⚙ button beside Share opens a menu with the same switches (except the run icons, which the playground doesn't have), "Format on save" (Ctrl/Cmd+S) and the editor's font size; the choices are kept in your browser.

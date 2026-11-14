@@ -23,8 +23,7 @@ import Std (IO, List, Nat)
 def digitsOnto (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
-  if big: Nat.leq n 9 = False
-  then digitsOnto (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n big]
+  if big: Nat.leq n 9 = False then digitsOnto (n / 10) [n % 10, ..acc] [decreasing := Nat.divTenLess n big]
   else [n, ..acc]
 
 def digits (n: Nat): List Nat := digitsOnto n []
@@ -37,12 +36,12 @@ theorem digitsByRfl: digits 1234 = [1, 2, 3, 4] := rfl
 
 -- The equation the compiler proves, with `digitsOnto` itself in the
 -- recursive call.
-theorem digitsOntoStep (n: Nat) (acc: List Nat):
+theorem digitsOntoStep ∀ (n: Nat) (acc: List Nat):
     digitsOnto n acc = (if big: Nat.leq n 9 = False then digitsOnto (n / 10) [n % 10, ..acc] else [n, ..acc]) :=
   digitsOnto.unfold n acc
 
 -- Euclid's algorithm: `a % b < b` when `b != 0`.
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
@@ -50,7 +49,7 @@ def gcd (a: Nat) (b: Nat): Nat
 test "gcd" := gcd 12 18 == 6 ∧ gcd 17 5 == 1 ∧ gcd 0 9 == 9
 
 -- The guard style: test the decrease, and `auto` finds the proof in scope.
-def halvings (n: Nat) (count: Nat): Nat
+def halvings (n count: Nat): Nat
     decreasing n
 :=
   let next := n / 2
@@ -81,9 +80,7 @@ def takeFirst [a: Type] (xs: List a): Nat → List a
 test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] ∧ takeFirst [1, 2, 3] 5 == [1, 2, 3]
 
 -- A recursive call written with a dot.
-type Stack =
-  | Empty
-  | Push (x: Nat) (rest: Stack)
+type Stack = | Empty | Push (x: Nat) (rest: Stack)
 
 def Stack.count: Stack → Nat
   | Empty => 0
@@ -110,15 +107,15 @@ def evens (n: Nat): List Nat
 
 test "evens" := evens 7 == [5, 3, 1]
 
-theorem evensShort (n: Nat): List.length (evens n) ≤ n
+theorem evensShort ∀ (n: Nat): List.length (evens n) ≤ n
     decreasing n
 :=
   rewrite evens.unfold n in
-  match n with
-    | Zero => rfl
-    | Succ Zero => rfl
-    | Succ (Succ k) =>
-      Nat.leTrans (List.length (evens k)) k (Succ k) (evensShort k [decreasing := Nat.leSucc k]) (Nat.leSucc k)
+    match n with
+      | Zero => rfl
+      | Succ Zero => rfl
+      | Succ (Succ k) =>
+        Nat.leTrans (List.length (evens k)) k (Succ k) (evensShort k [decreasing := Nat.leSucc k]) (Nat.leSucc k)
 
 def main(): {IO} () :=
   IO.print ("digits: " ++ Nat.toText (List.length (digits 1234)))

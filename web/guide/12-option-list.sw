@@ -9,10 +9,10 @@ def scores: List Nat := [3, 8, 5, 12]
 
 def summary: Text :=
   let big := scores.filter (n => n > 4)
-  "${big.length} big scores, total ${big.sum}, best ${scores.maximum}"
+  "${big.length} big scores, total ${big.sum}, best ${scores.maximum.getOrElse 0}"
 
 test "found" := firstEven scores == Some 8
 test "not found" := firstEven [1, 3] == None
 test "map" := doubled scores == Some 16
 test "fallback" := (firstEven [1, 3]).getOrElse 0 == 0
-test "summary" := summary == "3 big scores, total 25, best Some 12"
+test "summary" := summary == "3 big scores, total 25, best 12"

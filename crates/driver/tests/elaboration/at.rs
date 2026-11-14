@@ -89,6 +89,36 @@ fn hover_shows_the_type_and_what_a_name_is() {
     assert!(hover.markdown.contains("Nat"), "{}", hover.markdown);
 }
 
+/// A proof a test fact was built from (D3549a) says so on hover.
+#[test]
+fn hover_on_a_term_a_test_fact_was_built_from() {
+    let source = "import Std (List, Nat)
+
+theorem fromMember (x: Nat) (xs: List Nat) (m: x ∈ xs): xs.contains x := m
+
+theorem notZero (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => omega
+";
+    let file = answers(source);
+    let place = Place::Program("demo.sw".into());
+    let (line, col) = at_text(source, ":= m", 3);
+    let hover = at::hover_at(&file, &place, Some(source), line, col, None).expect("a hover");
+    assert!(
+        hover.markdown.contains(
+            "builds the test fact `xs.contains x` from a proof of `x ∈ xs` (by `List.memContains`)"
+        ),
+        "{}",
+        hover.markdown
+    );
+    // A lambda built into a fact says so on its first binder.
+    let (line, col) = at_text(source, "isZero =>", 0);
+    let hover = at::hover_at(&file, &place, Some(source), line, col, None).expect("a hover");
+    assert!(
+        hover.markdown.contains("from a proof of `n ≠ 0`"),
+        "{}",
+        hover.markdown
+    );
+}
+
 #[test]
 fn the_parameters_of_a_call_being_typed() {
     let file = answers(SOURCE);
@@ -155,4 +185,33 @@ fn context_at_a_goal_matches_the_goal() {
 #[test]
 fn no_context_outside_expressions() {
     assert_eq!(context(SOURCE, "namespace", 2), None);
+}
+
+/// A declaration with an unclosed string loses only itself: hover still
+/// answers elsewhere in the file, with the doc of what it names.
+#[test]
+fn hover_works_outside_a_declaration_with_a_lexical_error() {
+    let source = "namespace Demo
+
+--| Doubles a number.
+def twice (n: Nat): Nat := n + n
+
+def broken: Text := \"never closed
+
+def useTwice: Nat := twice 2
+";
+    let file = answers(source);
+    let place = Place::Program("demo.sw".into());
+    let (line, col) = at_text(source, "twice 2", 1);
+    let hover = at::hover_at(&file, &place, Some(source), line, col, None).expect("a hover");
+    assert!(
+        hover.markdown.contains("def Demo.twice (n: Nat): Nat"),
+        "{}",
+        hover.markdown
+    );
+    assert!(
+        hover.markdown.contains("Doubles a number."),
+        "{}",
+        hover.markdown
+    );
 }

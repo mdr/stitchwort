@@ -196,11 +196,11 @@ fn label_ops(cx: &Ctx, label: &Label) -> Value {
     if label.ability == REC {
         // `Rec A`, recognised by `decode` only while describing.
         let rec = data(cx, Builtin::Rec).expect("the prelude declares `Rec`");
-        return Value::Data(rec, label.args.clone());
+        return Value::Data(rec, label.args.clone().into());
     }
     Value::Data(
         cx.e.tables.abilities[label.ability].op_data,
-        label.args.clone(),
+        label.args.clone().into(),
     )
 }
 
@@ -230,11 +230,11 @@ pub fn ops(cx: &Ctx, row: &Row) -> Result<Value> {
             Value::Neutral(Head::Def(def(cx, Builtin::RowOp)?), Spine::new()),
             e.clone(),
         )?,
-        None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new()),
+        None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new().into()),
     };
     let plus = data(cx, Builtin::Plus)?;
     for label in row.labels.iter().rev() {
-        value = Value::Data(plus, vec![label_ops(cx, label), value]);
+        value = Value::Data(plus, vec![label_ops(cx, label), value].into());
     }
     Ok(value)
 }
@@ -291,7 +291,7 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
     }
     Ok(Value::Data(
         data(cx, Builtin::Comp)?,
-        vec![ops(cx, row)?, res(cx, row)?, t],
+        vec![ops(cx, row)?, res(cx, row)?, t].into(),
     ))
 }
 
@@ -435,12 +435,12 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                 match force(&g, args[0].clone())? {
                     Value::Data(od, oargs) if Some(od) == rec => labels.push(Label {
                         ability: REC,
-                        args: oargs,
+                        args: oargs.into_vec(),
                     }),
                     Value::Data(od, oargs) => match ability_of(od) {
                         Some(ability) => labels.push(Label {
                             ability,
-                            args: oargs,
+                            args: oargs.into_vec(),
                         }),
                         None => return Ok(None),
                     },
@@ -466,7 +466,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                         value = force(&g, fields[0].clone())?
                     }
                     Value::Ctor(d, c, _) if d == row_data && c == empty => {
-                        value = Value::Data(no_op, Vec::new())
+                        value = Value::Data(no_op, Vec::new().into())
                     }
                     x => {
                         no_duplicates(cx, &labels)?;
@@ -1246,7 +1246,7 @@ fn align(cx: &mut Ctx, from: &Row, to: &Row) -> Result<(Row, Row)> {
     if from_open && to_open && !same_tail {
         // `{A | ?f}` into `{B | ?t}`: with a fresh `?r`, `?f` is `B∖A | ?r`
         // and `?t` is `A∖B | ?r`.
-        let fresh = cx.fresh_meta();
+        let fresh = crate::rows::fresh_row(cx);
         let fresh = cx.eval(&fresh)?;
         let (for_from, for_to) = (missing_in(&from, &to), missing_in(&to, &from));
         extend_with(cx, &from, for_from, fresh.clone())?;
@@ -1374,7 +1374,7 @@ fn ops_ending(cx: &Ctx, labels: &[Label], end: Value) -> Result<Value> {
     let plus = data(cx, Builtin::Plus)?;
     let mut value = end;
     for label in labels.iter().rev() {
-        value = Value::Data(plus, vec![label_ops(cx, label), value]);
+        value = Value::Data(plus, vec![label_ops(cx, label), value].into());
     }
     Ok(value)
 }
@@ -1615,7 +1615,7 @@ fn extend(cx: &mut Ctx, row: &Row, extra: Vec<Label>) -> Result<Option<Row>> {
         Some(tail) if is_unknown(cx, tail)? => {}
         _ => return Ok(None),
     }
-    let fresh = cx.fresh_meta();
+    let fresh = crate::rows::fresh_row(cx);
     let fresh = cx.eval(&fresh)?;
     if !extend_with(cx, row, extra, fresh)? {
         return Ok(None);
@@ -1799,7 +1799,7 @@ pub fn effect_type(
     let tail = match &row.tail {
         None => None,
         Some(name) => {
-            let row_type = Value::Data(data(cx, Builtin::Row)?, Vec::new());
+            let row_type = Value::Data(data(cx, Builtin::Row)?, Vec::new().into());
             let term = check(cx, &Expr::Var(name.clone()), &row_type)?;
             Some(cx.eval(&term)?)
         }
@@ -1811,7 +1811,7 @@ pub fn effect_type(
             let x = divergence_name(&name.text);
             match cx.lookup(&x) {
                 Some(_) => {
-                    let ty = Value::Data(data(cx, Builtin::Divergence)?, Vec::new());
+                    let ty = Value::Data(data(cx, Builtin::Divergence)?, Vec::new().into());
                     let term = check(
                         cx,
                         &Expr::Var(AstName {
@@ -2244,8 +2244,89 @@ pub fn may_perform(cx: &Ctx, expr: &Expr) -> Result<bool> {
 
 /// [`may_perform`] for `expr` checked against `expected`, which may say
 /// that parts of a list, tuple or record literal are computations.
+///
+/// Programs nest deeply along a few forms: the rest of a block after a
+/// `let`, an `else if`, and a chain of operators such as a long sum
+/// (`1 + 1 + …`, nested on the left). Those are followed in a loop here,
+/// asking about the parts in the order the recursion would, so the answer
+/// and the work are the same but the depth isn't spent on them. That
+/// matters in WebAssembly: the stack guard measures the stack in linear
+/// memory, and this function's frames there are tiny next to its frames on
+/// the engine's own stack, so a long sum overflowed V8's stack well inside
+/// the guard (SW-3128). The other forms are kept out of line, in
+/// [`compound_performs`] and [`call_performs`], so a level's frame stays
+/// small.
 pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
-    cx.g().machine.budget.nesting(crate::check::PASS)?;
+    let (mut expr, mut expected) = (expr, expected);
+    loop {
+        cx.g().machine.budget.nesting(crate::check::PASS)?;
+        expr = match expr {
+            Expr::Interpolated(text, _) => {
+                expr = text;
+                continue;
+            }
+            Expr::Var(_) | Expr::App(..) => return call_performs(cx, expr, 0),
+            Expr::Binary(BinOp::Eq, ..) => return compound_performs(cx, expr, expected),
+            Expr::Binary(_, a, b) => {
+                // The operators down the left, then the operand at the
+                // bottom and the right operands from the bottom up.
+                let mut rights = vec![&**b];
+                let mut left = &**a;
+                while let Expr::Binary(op, a, b) = left
+                    && *op != BinOp::Eq
+                {
+                    cx.g().machine.budget.nesting(crate::check::PASS)?;
+                    rights.push(b);
+                    left = a;
+                }
+                if may_perform(cx, left)? {
+                    return Ok(true);
+                }
+                let last = rights.remove(0);
+                for right in rights.into_iter().rev() {
+                    if may_perform(cx, right)? {
+                        return Ok(true);
+                    }
+                }
+                last
+            }
+            Expr::Neg(a, _, _) | Expr::Spread(a, _) => a,
+            Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _, _) => e,
+            // A `let` performs what its value or the rest of the block does
+            // (docs/proposals/let.md §5). The rest is judged here without the
+            // name in scope, and asked again once it is (so a call of a bound
+            // effectful function is judged by its type then).
+            Expr::Let { value, body, .. } => {
+                if may_perform(cx, value)? {
+                    return Ok(true);
+                }
+                body
+            }
+            Expr::Seq(..) | Expr::Handle { .. } => return Ok(true),
+            // The definitions are elaborated on their own; what's run is the
+            // rest of the block (asked again once the names are in scope).
+            Expr::LocalDefs { body, .. } => body,
+            Expr::If {
+                cond,
+                then,
+                otherwise,
+                ..
+            } => {
+                if may_perform(cx, cond)? || may_perform(cx, then)? {
+                    return Ok(true);
+                }
+                otherwise
+            }
+            _ => return compound_performs(cx, expr, expected),
+        };
+        expected = None;
+    }
+}
+
+/// [`may_perform_at`] for the forms with more to work out than their parts:
+/// pipes, `=`, matches, compounds and fields.
+#[inline(never)]
+fn compound_performs(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result<bool> {
     let any = |items: &mut dyn Iterator<Item = &Expr>| -> Result<bool> {
         for item in items {
             if may_perform(cx, item)? {
@@ -2276,8 +2357,6 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
         Ok(false)
     };
     Ok(match expr {
-        Expr::Interpolated(text, _) => may_perform_at(cx, text, expected)?,
-        Expr::Var(_) | Expr::App(..) => call_performs(cx, expr, 0)?,
         // `x |> y => body` runs `body`; `x |> y z => …` is a function.
         Expr::Pipe(value, f) => {
             (may_perform(cx, value)? && !piped_passed(cx, f)?)
@@ -2298,31 +2377,13 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             }
             performs
         }
-        Expr::Binary(_, a, b) => any(&mut [&**a, &**b].into_iter())?,
         Expr::Match {
             scrutinees, alts, ..
         } => any(&mut scrutinees
             .iter()
             .map(|s| &s.expr)
-            .chain(alts.iter().map(|a| &a.body)))?,
-        Expr::Neg(a, _, _) => may_perform(cx, a)?,
-        // A `let` performs what its value or the rest of the block does
-        // (docs/proposals/let.md §5). The rest is judged here without the
-        // name in scope, and asked again once it is (so a call of a bound
-        // effectful function is judged by its type then).
-        Expr::Let { value, body, .. } => may_perform(cx, value)? || may_perform(cx, body)?,
-        Expr::Seq(..) | Expr::Handle { .. } => true,
-        // The definitions are elaborated on their own; what's run is the
-        // rest of the block (asked again once the names are in scope).
-        Expr::LocalDefs { body, .. } => may_perform(cx, body)?,
-        Expr::If {
-            cond,
-            then,
-            otherwise,
-            ..
-        } => any(&mut [&**cond, &**then, &**otherwise].into_iter())?,
+            .chain(alts.iter().filter_map(|a| a.body.as_ref())))?,
         Expr::List(items, _) => parts(&items.iter().collect::<Vec<_>>())?,
-        Expr::Spread(list, _) => may_perform(cx, list)?,
         Expr::Record { base, fields, .. } => {
             any(&mut base.iter().map(|b| &**b))?
                 || parts(&fields.iter().map(|(_, e)| e).collect::<Vec<_>>())?
@@ -2334,7 +2395,6 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
             (may_perform(cx, e)? && !receiver_passed(cx, e, field)?)
                 || dot_performs(cx, e, field, 0)?
         }
-        Expr::Ann(e, _, _) | Expr::NamedArg(_, e, _, _) => may_perform(cx, e)?,
         Expr::Tuple(a, b, _) => parts(&[&**a, &**b])?,
         _ => false,
     })
@@ -2342,6 +2402,8 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
 
 /// Whether the call `expr` (a variable, or an application) may perform
 /// operations, given `extra` more arguments (the value piped in by `|>`).
+/// Out of line for the reason in [`may_perform_at`].
+#[inline(never)]
 fn call_performs(cx: &Ctx, expr: &Expr, extra: usize) -> Result<bool> {
     let mut args = Vec::new();
     let mut head = expr;
@@ -2772,7 +2834,7 @@ fn comp_check_in(
                 ));
             }
             // Run the condition first, then branch on its result.
-            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
             let c = comp_check(cx, cond, row, &bool_ty)?;
             let var = Expr::Var(AstName {
                 text: "%cond".into(),
@@ -2833,7 +2895,7 @@ fn comp_check_in(
             // An unannotated `let`'s value has no expected type yet, but a
             // proposition can't perform: this is the `Bool` reading.
             if is_unknown(cx, t)? {
-                let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+                let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
                 cx.unify(t, &bool_ty)?;
             }
             if !may_perform(cx, a)? {
@@ -2865,7 +2927,7 @@ fn comp_check_in(
                     )
                 });
             }
-            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
             let c = comp_check(cx, a, row, &bool_ty)?;
             let left = Expr::Var(AstName {
                 text: "%left".into(),
@@ -3130,7 +3192,7 @@ pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)>
             Ok((c, t))
         }
         Expr::Binary(BinOp::And | BinOp::Or, ..) if may_perform(cx, expr)? => {
-            let t = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let t = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
             let c = comp_check(cx, expr, row, &t)?;
             Ok((c, t))
         }
@@ -3393,7 +3455,7 @@ fn comp_ctor_app(
         },
         None => None,
     };
-    let slots = ctor_slots(cx, d, c, params.as_deref())?;
+    let slots = ctor_slots(cx, d, c, params.as_deref().map(Vec::as_slice))?;
     if args.iter().any(|a| matches!(a, Expr::NamedArg(..)))
         || slots.iter().filter(|s| s.explicit).count() != args.len()
     {
@@ -3475,7 +3537,7 @@ fn comp_app(
     if let Some(crate::logic::Logic::Not(operand, _)) = crate::logic::classify(cx, expr)
         && is_proposition(operand)
     {
-        let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+        let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
         let c = comp_check(cx, operand, row, &bool_ty)?;
         let name = format!("%{}", cx.level());
         bound.push(hold(cx, row, &name, c, bool_ty)?);
@@ -4116,7 +4178,7 @@ fn run_argument(
     if !decided {
         return run_first(cx, e, row, bound);
     }
-    let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+    let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
     let c = comp_check(cx, e, row, &bool_ty)?;
     let name = format!("%{}", cx.level());
     bound.push(hold(cx, row, &name, c, bool_ty)?);
@@ -4465,13 +4527,7 @@ fn op_call(
         Some(pos) => pos,
         None => {
             // An unknown tail of the row can take the ability.
-            let params = cx.g().data(info.op_data).params().len();
-            let args = (0..params)
-                .map(|_| {
-                    let m = cx.fresh_meta();
-                    cx.eval(&m)
-                })
-                .collect::<Result<_>>()?;
+            let args = crate::check::fresh_telescope(cx, cx.g().data(info.op_data).params())?;
             let label = Label { ability: a, args };
             match extend(cx, &row, vec![label.clone()])? {
                 Some(wider) => {
@@ -4580,13 +4636,7 @@ fn make_call(
 /// `(x : A) -> {Ability args} B`.
 pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let op_data = cx.e.tables.abilities[a].op_data;
-    let params = cx.g().data(op_data).params().len();
-    let args: Vec<Value> = (0..params)
-        .map(|_| {
-            let m = cx.fresh_meta();
-            cx.eval(&m)
-        })
-        .collect::<Result<_>>()?;
+    let args = crate::check::fresh_telescope(cx, cx.g().data(op_data).params())?;
     let label = Label { ability: a, args };
     let row = Row {
         labels: vec![label.clone()],
@@ -4658,6 +4708,16 @@ pub fn pure_let(
         .and_then(|()| {
             if let Some(w) = written {
                 cx.set_written(w);
+            }
+            if let Some(t) = expected {
+                crate::check::note_binder_step(
+                    cx,
+                    crate::goals::StepForm::Let,
+                    name.span,
+                    None,
+                    t,
+                    t,
+                );
             }
             // The body's type is computed with the name standing for the
             // value, so it never mentions the name: it's the block's type.
@@ -4797,13 +4857,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
     // The handled computation's row: this ability first, then everything in
     // `out` except this ability.
-    let params = cx.g().data(op_data).params().len();
-    let args: Vec<Value> = (0..params)
-        .map(|_| {
-            let m = cx.fresh_meta();
-            cx.eval(&m)
-        })
-        .collect::<Result<_>>()?;
+    let args = crate::check::fresh_telescope(cx, cx.g().data(op_data).params())?;
     let handled = Label { ability: a, args };
     let rest = Row {
         labels: out
@@ -4875,7 +4929,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Pattern::Var(n) => n.text.clone(),
             Pattern::Wildcard(_) => "_".to_string(),
             Pattern::Absurd(_) => {
-                let unit = Value::Data(data(cx, Builtin::UnitType)?, Vec::new());
+                let unit = Value::Data(data(cx, Builtin::UnitType)?, Vec::new().into());
                 if !cx.unify(&dom, &unit)? {
                     cx.reset(mark);
                     return Err(cx.mismatch(&dom, &unit));
@@ -4897,7 +4951,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let k_ty = Value::Pi(
             "y".into(),
             Icit::Explicit,
-            Rc::new(b),
+            Rc::new(b).into(),
             stitchwort_core::value::Closure {
                 env: cx.env.as_slice().into(),
                 body: Rc::new(cx.quote_folded(&r)?.shift(&cx.g(), 1, 0)?),

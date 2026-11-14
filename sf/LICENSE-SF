@@ -1,0 +1,33 @@
+The files under sf/src/Sf/Lf/ are a port to Stitchwort of chapters of
+Software Foundations, Volume 1: Logical Foundations, by Benjamin C. Pierce
+et al. (Author of Record for the volume: Benjamin C. Pierce), from the
+release sources at https://softwarefoundations.cis.upenn.edu/ (lf.tgz,
+files dated 2026-08-24). The book's explanations are kept as comments,
+shortened and adapted; its definitions and proofs are translated. They are
+used under the book's licence, reproduced below exactly as it appears in
+the LICENSE file of that release.
+
+The book's authors ask that solutions to its exercises not be posted
+publicly. This port states each exercise and leaves it unsolved.
+
+----------------------------------------------------------------------------
+
+Copyright (c) 2026
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.

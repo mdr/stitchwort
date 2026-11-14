@@ -16,12 +16,13 @@ def render (state: State): List Text :=
 --| items, so that the first mark of a column is the one drawn.
 def marksIn (state: State) (row: Nat): List (Nat, Char) :=
   let player := if state.player.row == row then [(state.player.column, '@')] else []
-  let monsters := state.monsters.filterMap (monster => if monster.position.row == row then Some (monster.position.column, monster.kind.glyph) else None)
-  let items := state.items.filterMap (item => if item.position.row == row then Some (item.position.column, item.loot.glyph) else None)
+  let monsters := state.monsters.filterMap (monster =>
+    if monster.position.row == row then Some (monster.position.column, monster.kind.glyph) else None)
+  let items := state.items.filterMap (item =>
+    if item.position.row == row then Some (item.position.column, item.loot.glyph) else None)
   player ++ monsters ++ items
 
-def glyphAt (marks: List (Nat, Char)) (column: Nat) (terrain: Char): Char :=
-  marks.lookup column |> .getOrElse terrain
+def glyphAt (marks: List (Nat, Char)) (column: Nat) (terrain: Char): Char := marks.lookup column |> .getOrElse terrain
 
 def statusLine (state: State): Text :=
   "Level ${state.level.depth}/${deepest}   HP ${state.hitPoints}/${maxHitPoints}   Potions ${state.potions}   Blows 2-${state.strength}   Turn ${state.turn}"
@@ -39,14 +40,13 @@ def paintRow (row: Text): Text := row.toList.concatMap (char => paint char |> .t
 
 --| A cell's character, coloured by what it is: the player bold yellow,
 --| monsters red, items cyan, the stairs green, and rock as it is.
-def paint (char: Char): Text :=
-  match char with
-    | '@' => Ansi.bold (Ansi.colour Yellow "@")
-    | 'g' => Ansi.colour Red "g"
-    | 'o' => Ansi.colour Red "o"
-    | 'T' => Ansi.bold (Ansi.colour Red "T")
-    | '!' => Ansi.colour Cyan "!"
-    | ')' => Ansi.colour Cyan ")"
-    | '"' => Ansi.bold (Ansi.colour Yellow "\"")
-    | '>' => Ansi.bold (Ansi.colour Green ">")
-    | _ => char.toText
+def paint (char: Char): Text := match char with
+  | '@' => Ansi.bold (Ansi.colour Yellow "@")
+  | 'g' => Ansi.colour Red "g"
+  | 'o' => Ansi.colour Red "o"
+  | 'T' => Ansi.bold (Ansi.colour Red "T")
+  | '!' => Ansi.colour Cyan "!"
+  | ')' => Ansi.colour Cyan ")"
+  | '"' => Ansi.bold (Ansi.colour Yellow "\"")
+  | '>' => Ansi.bold (Ansi.colour Green ">")
+  | _ => char.toText

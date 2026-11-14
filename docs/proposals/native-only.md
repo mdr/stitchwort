@@ -385,6 +385,23 @@ the guard page at the end of the stack region to detect stack overflow" (§2).
   address space **[inferred]**, less than today's 16 GiB.
 - If that exceeds a cap (64 GiB), `build` fails with a message naming the
   frame limit and the widest body, and suggests a smaller `frames` limit.
+- **Superseded by D3450 (Matt, 9 Nov 2026: limits may differ by runner).**
+  Native code has its own depth budget, `Limits::native_frames` (16,000,000
+  by default; the machine keeps `frames`, 2,000,000, since its frames cost
+  heap). The limit a run enforces is
+  `min(native_frames, (cap - rooms) / widest frame - 1)`
+  (`native_abi::native_frame_limit`), so a program is no longer refused
+  for wide frames: it gets fewer frames, the most the cap holds, and the
+  refusal remains only for a single frame that no depth fits. The limit is
+  fixed by the program and the build, so a run fails at the same depth every
+  time. `E-RESOURCE` on native code means "past native code's depth budget";
+  it need not fire at the depth the machine's does (`run --native` and
+  `run` agree on every program that stays under both, and on the error
+  otherwise). The stack is lazily mapped, so the reservation costs address
+  space, not memory: what a deep run touches is its frames (`const-fold` at
+  depth 23: 4.0 GB), and a runaway recursion uses up to the limit before
+  failing (about 6 GB for a 380-byte frame). Measured in SW-2471, in
+  `docs/performance/log.md`.
 - If the reservation fails at start-up (the operating system refuses),
   the binary says so before running anything, and exits 2.
 - The stack-pointer check stays as the backstop. If it ever fires, which

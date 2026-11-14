@@ -2,5 +2,4 @@
 -- what each runner costs before any work (bench/compare/README.md).
 import Std (IO)
 
-def main(): {IO} () :=
-  IO.print "ok"
+def main(): {IO} () := IO.print "ok"

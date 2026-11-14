@@ -43,6 +43,27 @@ proxy for one machine. Raw counts (startup not subtracted) are in the JSON
 under `instructions`. Parsing is tested by
 `python3 -I bench/compare/test_instructions.py`.
 
+### Before and after a change: `task bench:instructions`
+
+```
+task bench:instructions -- --save before                 # all core and wide programs, 5 runs each
+task bench:instructions -- --against before              # after the change: % change of medians + geomean
+task bench:instructions -- --set wide --runs 3 --save wide-before
+task bench:instructions -- pidigits binary-trees --runs 2
+```
+
+Builds like `bench:compare` (non-incremental, into `target/bench`), builds
+each program's native executable once, runs it `--runs` times (default 5)
+under the instruction counter above, checks every run's output against
+`expected.txt`, and prints min, median, max and spread
+((max - min) / median) per program. `--save NAME` writes
+`target/bench/instructions/NAME.json` (not committed); `--against NAME`
+adds each median's change against that file and the geometric mean of the
+changes. Counts include startup (the null program is not subtracted), which
+cancels in a comparison. Compare only runs made on the same machine and
+the same kind of build. The comparison and mean are tested by
+`python3 -I bench/compare/test_instructions.py`.
+
 The runners, named as in the table:
 
 | Runner | Command |
@@ -117,6 +138,8 @@ see its README) has all four too. `dijkstra`, `octopus`, `disk`, `expressions`,
 `scan`, `matcher` and `bridge` (AoC days) have Stitchwort, Python and Lean.
 `const-fold`, `rbmap` and `rbmap-ck` (wide set; Lean's own const_fold, rbmap and
 rbmap_checkpoint, see "Lean's programs" below) have all four.
+`mapops` (wide set; a mix of inserts, lookups, updates and removes on std's `Map`, against
+Python's `dict` and Lean's `Std.TreeMap`, see its README) has all four.
 
 Most of the AoC days run a scaled copy of the real input so that Lean takes
 0.4 to 0.6 s, not the 20 to 60 ms of the real one. `programs.toml` gives each a
@@ -125,9 +148,11 @@ Most of the AoC days run a scaled copy of the real input so that Lean takes
 scaled is committed. `expressions` repeats the real input 180 times, `scan`
 200 and `bridge` 150; `matcher` keeps the rules once and repeats the messages
 16 times; `disk` repeats the disk map 45 times with a `0` between copies, so
-files and gaps still alternate. `octopus` is the real grid tiled 2 by 2, where
-Lean takes about 0.14 s, below the 0.3 s floor: a bigger cavern rarely flashes
-all at once, and the one that does (30 by 30) takes `run` over two minutes.
+files and gaps still alternate. `octopus` is the real grid tiled 2 by 2; its part 2
+finds the first all-flash step (353), so it stops far short of the programs'
+10,000-step limit. A 30 by 30 cavern never
+flashes all at once with plain tiling, and one that does takes `run` over two
+minutes.
 After changing a scale, regenerate `expected.txt` from the Lean program and
 check that the other runners agree.
 

@@ -19,12 +19,14 @@ type Offset = { rows: Int, columns: Int }
 --| Staying put.
 def Offset.zero: Offset := { rows = 0, columns = 0 }
 
-def Offset.plus (offset: Offset) (other: Offset): Offset := { rows = offset.rows + other.rows, columns = offset.columns + other.columns }
+def Offset.plus (offset other: Offset): Offset :=
+  { rows = offset.rows + other.rows, columns = offset.columns + other.columns }
 
 --| The same distance the other way.
 def Offset.negate (offset: Offset): Offset := { rows = 0 - offset.rows, columns = 0 - offset.columns }
 
-def Offset.times (offset: Offset) (factor: Int): Offset := { rows = offset.rows * factor, columns = offset.columns * factor }
+def Offset.times (offset: Offset) (factor: Int): Offset :=
+  { rows = offset.rows * factor, columns = offset.columns * factor }
 
 --| One step in `direction`. (`Aoc.Common.Proofs.stepOffset`: a step is an
 --| offset by this.)
@@ -39,7 +41,7 @@ def Direction.offset: Direction → Offset
 def Offset.step (offset: Offset) (direction: Direction): Offset := offset.plus direction.offset
 
 --| The offset from `from` to `position`.
-def Position.minus (position: Position) (from: Position): Offset :=
+def Position.minus (position from: Position): Offset :=
   { rows = position.row.toInt - from.row.toInt, columns = position.column.toInt - from.column.toInt }
 
 --| The position `offset` away: `None` above row 0 or left of column 0.
@@ -62,7 +64,7 @@ def Grid.offset (grid: Grid a) (position: Position) (offset: Offset): Option Pos
 --| columns whose edges wrap round: moving down past the last row comes back
 --| in at the top, and up past the top in at the bottom; the same for
 --| columns.
-def Position.wrap (position: Position) (offset: Offset) (height: Nat) (width: Nat): Position := {
+def Position.wrap (position: Position) (offset: Offset) (height width: Nat): Position := {
   row = Int.modNat (position.row.toInt + offset.rows) height,
   column = Int.modNat (position.column.toInt + offset.columns) width
 }

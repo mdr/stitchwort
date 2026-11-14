@@ -25,8 +25,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
-use stitchwort_driver::live::{LiveProject, Progress};
+use stitchwort_driver::audit;
+use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
+use stitchwort_driver::live::{LiveProject, Place, Progress};
 use stitchwort_driver::nav::index_json;
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -49,7 +50,7 @@ impl Source {
     }
 }
 
-/// A navigable session. Outside the full tier:
+/// A navigable session. Outside the all tier:
 /// - the library's files replay from the test std cache instead of being
 ///   checked from source in every one of the many sessions here
 ///   (docs/testing.md, "The test std cache"): the differential is of the
@@ -59,7 +60,7 @@ impl Source {
 ///   rejected example, and what rewinding must restore of one is the same
 ///   in all of them.
 ///
-/// The full tier checks the library and searches in every session.
+/// The all tier checks the library and searches in every session.
 fn session(source: &Source) -> Session {
     let mut session = Session::navigable_for_stack(STACK);
     session.use_test_std_cache();
@@ -68,9 +69,9 @@ fn session(source: &Source) -> Session {
 }
 
 /// Whether the counterexample search runs when a theorem of `source` fails:
-/// always in the full tier, and in the others for the examples named for it.
+/// always in the all tier, and in the others for the examples named for it.
 fn searches(source: &Source) -> bool {
-    stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::Full
+    stitchwort_driver::driver::tier() == stitchwort_driver::driver::Tier::All
         || source.name().contains("counterexample")
 }
 
@@ -303,7 +304,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// full tier, a fixed sample ([`tier_sample`]: in the daily tier every
+/// all tier, a fixed sample ([`tier_sample`]: in the broad tier every
 /// eighth file and every fourth project), and every one with open goals
 /// (`goals/`, few; their tables are new) and every one about counterexample
 /// searches ([`searches`]).
@@ -348,7 +349,7 @@ fn aoc() -> Source {
 
 #[test]
 fn rewinding_changes_nothing_for_the_aoc_project() {
-    if !full_tier("rewinding_changes_nothing_for_the_aoc_project") {
+    if !all_tier("rewinding_changes_nothing_for_the_aoc_project") {
         return;
     }
     let source = aoc();
@@ -428,7 +429,7 @@ fn mark_and_rewind_cost(source: &Source) {
 /// promptly it stopped is printed (`--nocapture`).
 #[test]
 fn a_check_cancelled_part_way_rewinds() {
-    if !full_tier("a_check_cancelled_part_way_rewinds") {
+    if !all_tier("a_check_cancelled_part_way_rewinds") {
         return;
     }
     let source = aoc();
@@ -788,7 +789,7 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
         );
         (outcome(&s, &result), uses)
     });
-    // Every use in the full tier; in the others a fixed sample, every third
+    // Every use in the all tier; in the others a fixed sample, every third
     // (neighbouring uses are a library file's lookup and its write, or
     // the next file's).
     let points: Vec<(usize, usize)> = (fresh.iter().enumerate())
@@ -820,4 +821,263 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
     let cancelled = cancelled.iter().filter(|c| **c).count();
     eprintln!("{cancelled} of {} checks cancelled", points.len());
     assert!(cancelled * 2 > points.len(), "most were cancelled");
+}
+
+// ---- editing re-checks what an edit can affect ------------------------------
+
+/// A number no other run has used: the entries it keys are this run's, so
+/// the cache's hits and misses are the run's own.
+fn nonce() -> String {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos()
+        .to_string()
+}
+
+/// A's text, with `nonce` in it: its cache entries are new.
+fn order_a(nonce: &str) -> String {
+    format!("namespace Order.A\n\ndef base: Nat := {nonce}\n")
+}
+const ORDER_B: &str = "namespace Order.B\n\nimport Order.A (base)\n\ndef next: Nat := base + 1\n";
+const ORDER_C: &str = "namespace Order.C\n\ndef lone: Nat := 7\n";
+
+fn order_files(a: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("src/a.sw".to_string(), a.to_string()),
+        ("src/b.sw".to_string(), ORDER_B.to_string()),
+        ("src/c.sw".to_string(), ORDER_C.to_string()),
+    ])
+}
+
+/// The cache the whole test shares, so that `Order.C` can be replayed after
+/// an edit rewinds it. Its own directory, rather than the test std cache:
+/// [`Session::use_test_std_cache`] sets no cache at all in the all tier,
+/// where this test still needs one for the namespaces alone.
+fn order_cache(nonce: &str) -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("rewind-order-{nonce}"));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn order_project(files: BTreeMap<String, String>, cache: &Path) -> LiveProject {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_check_cache(cache);
+    LiveProject::new(
+        session,
+        "order",
+        Some("sources: [src]\n".to_string()),
+        files,
+    )
+}
+
+/// Steps `live` until everything is checked, giving the namespaces it
+/// checked, in order.
+fn checked_log(live: &mut LiveProject) -> Vec<String> {
+    let mut log = Vec::new();
+    while let Progress::Checked { .. } = live.step().expect("not cancelled") {
+        log.push(live.last_checked().unwrap().to_string());
+    }
+    log
+}
+
+/// A, then B using A, then C using neither. An edit of A rewinds the kernel
+/// to before A, which drops C too; A and its user are checked again first
+/// (so that their diagnostics come at once), then C, replayed from the
+/// check cache, not elaborated. The diagnostics and answers are a fresh
+/// check's, and so are the cache's hits.
+#[test]
+fn an_edit_checks_again_only_what_uses_it() {
+    with_stack(STACK, || {
+        let nonce = nonce();
+        let order_a = order_a(&nonce);
+        let cache = order_cache(&nonce);
+        let mut live = order_project(order_files(&order_a), &cache);
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let stats = |live: &LiveProject| live.session.elab.check_cache_stats();
+
+        // The first edit: C goes with the rewind, and comes back from the
+        // cache after A and B.
+        let before = stats(&live);
+        let edited = format!("{order_a}\ndef more: Nat := base + 1\n");
+        live.set_text("src/a.sw", Some(edited));
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let after = stats(&live);
+        assert_eq!(
+            after.namespace_hits - before.namespace_hits,
+            1,
+            "C replayed"
+        );
+        assert_eq!(
+            after.namespace_misses - before.namespace_misses,
+            2,
+            "A and B elaborated"
+        );
+
+        // The second, which breaks B.
+        let before = stats(&live);
+        let broken = order_a.replace("base", "root");
+        live.set_text("src/a.sw", Some(broken.clone()));
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let after = stats(&live);
+        assert_eq!(
+            after.namespace_hits - before.namespace_hits,
+            1,
+            "C replayed"
+        );
+        assert_eq!(
+            after.namespace_misses - before.namespace_misses,
+            2,
+            "A and B elaborated; C not"
+        );
+
+        let mut fresh = order_project(order_files(&broken), &cache);
+        checked_log(&mut fresh);
+        let (now, then) = (live.answers(), fresh.answers());
+        assert!(
+            now.values().any(|file| !file.diagnostics.is_empty()),
+            "B no longer finds `base`"
+        );
+        assert_eq!(format!("{now:?}"), format!("{then:?}"));
+
+        // And back: the same answers as the first check's.
+        live.set_text("src/a.sw", Some(order_a.clone()));
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let mut first = order_project(order_files(&order_a), &cache);
+        checked_log(&mut first);
+        let (mut now, mut then) = (live.answers(), first.answers());
+        // The library's answers were given with the first call.
+        now.retain(|place, _| matches!(place, Place::Program(_)));
+        then.retain(|place, _| matches!(place, Place::Program(_)));
+        assert_eq!(format!("{now:?}"), format!("{then:?}"));
+        let _ = std::fs::remove_dir_all(&cache);
+    });
+}
+
+// ---- an importer of a namespace with an error ------------------------------
+
+const GAP_A: &str = "namespace Gap.A\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
+/// `twoIs` uses only `two`; `oneSame` cites `one` without computing it, so
+/// it can be checked against a stand-in for `one`; `oneIs` must compute
+/// `one`, so it waits for it.
+const GAP_B: &str = "namespace Gap.B\n\nimport Gap.A (one, two)\n\n\
+    theorem twoIs: two = 2 := rfl\n\n\
+    theorem oneSame: one = one := rfl\n\n\
+    theorem oneIs: one = 1 := rfl\n";
+
+fn gap_files(a: &str, nonce: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        (
+            "src/a.sw".to_string(),
+            format!("{a}\ndef tag: Nat := {nonce}\n"),
+        ),
+        ("src/b.sw".to_string(), GAP_B.to_string()),
+    ])
+}
+
+/// How `audit` sees each of `Gap.B`'s theorems.
+fn gap_statuses(live: &mut LiveProject) -> BTreeMap<String, audit::Status> {
+    let keep = |name: &str| name.starts_with("Gap.B.");
+    let theorems = audit::theorems(&live.session.elab.ev(), &keep);
+    let options = audit::Options {
+        allowed: audit::DEFAULT_ALLOWED
+            .iter()
+            .map(|a| a.to_string())
+            .collect(),
+        search: None,
+    };
+    let mut audits = live.session.audit(&theorems, &options);
+    audits.extend(live.session.audit_failed(&keep));
+    (audits.into_iter()).map(|a| (a.name, a.status)).collect()
+}
+
+/// The codes of the diagnostics answered for `path`.
+fn codes(answers: &stitchwort_driver::live::Answers, path: &str) -> Vec<&'static str> {
+    let file = &answers[&Place::Program(path.to_string())];
+    file.diagnostics.iter().map(|d| d.code).collect()
+}
+
+/// In the editor, a namespace that imports one with an error is checked
+/// like any user in that namespace's own file
+/// (docs/proposals/tests-with-errors.md §3, §6): with a body that doesn't
+/// parse or doesn't check, what only cites the broken declaration relies
+/// on its stand-in, what computes with it waits, and the rest is checked;
+/// with a broken statement or header, everything that uses it waits. A
+/// namespace relying on a stand-in is never stored in the check cache.
+/// Fixing the error gives back exactly a fresh check's answers.
+#[test]
+fn an_importer_is_checked_against_a_broken_declarations_stand_in() {
+    use audit::Status::{Assuming, Checked, Waiting};
+    with_stack(STACK, || {
+        let nonce = nonce();
+        let cache = order_cache(&format!("gap-{nonce}"));
+        let mut live = order_project(gap_files(GAP_A, &nonce), &cache);
+        assert_eq!(checked_log(&mut live), ["Gap.A", "Gap.B"]);
+        let first = live.answers();
+        assert_eq!(codes(&first, "src/b.sw"), Vec::<&str>::new());
+        let clean = BTreeMap::from([
+            ("Gap.B.oneIs".to_string(), Checked),
+            ("Gap.B.oneSame".to_string(), Checked),
+            ("Gap.B.twoIs".to_string(), Checked),
+        ]);
+        assert_eq!(gap_statuses(&mut live), clean);
+        let stats = |live: &LiveProject| live.session.elab.check_cache_stats();
+
+        let body_syntax = GAP_A.replace("def one: Nat := 1", "def one: Nat := (1");
+        let body_type = GAP_A.replace("def one: Nat := 1", "def one: Nat := \"one\"");
+        let statement = GAP_A.replace("def one: Nat := 1", "def one: Nat Nat := 1");
+        let header = GAP_A.replace("def one: Nat := 1", "def one: := 1");
+        let relying = BTreeMap::from([
+            ("Gap.B.oneIs".to_string(), Waiting),
+            ("Gap.B.oneSame".to_string(), Assuming),
+            ("Gap.B.twoIs".to_string(), Checked),
+        ]);
+        let waiting = BTreeMap::from([
+            ("Gap.B.oneIs".to_string(), Waiting),
+            ("Gap.B.oneSame".to_string(), Waiting),
+            ("Gap.B.twoIs".to_string(), Checked),
+        ]);
+        for (what, a, expected) in [
+            ("a body with a syntax error", &body_syntax, &relying),
+            ("a body with a type error", &body_type, &relying),
+            ("a statement with an error", &statement, &waiting),
+            ("a header with a syntax error", &header, &waiting),
+        ] {
+            let before = stats(&live);
+            live.set_text("src/a.sw", Some(gap_files(a, &nonce)["src/a.sw"].clone()));
+            assert_eq!(checked_log(&mut live), ["Gap.A", "Gap.B"], "{what}");
+            let answers = live.answers();
+            assert_eq!(codes(&answers, "src/b.sw"), ["E-USES-FAILED"], "{what}");
+            assert_eq!(&gap_statuses(&mut live), expected, "{what}");
+            // Neither namespace is stored: A has an error, and B relies on
+            // it or waits for it, which keeps it out whatever A is.
+            let after = stats(&live);
+            assert_eq!(after.namespace_written, before.namespace_written, "{what}");
+            assert_eq!(
+                after.namespace_waiting_on_error, before.namespace_waiting_on_error,
+                "{what}: B isn't held back only by A's error"
+            );
+            // The same as a fresh check of the broken text.
+            let mut fresh = order_project(gap_files(a, &nonce), &cache);
+            checked_log(&mut fresh);
+            let (mut now, mut then) = (answers, fresh.answers());
+            now.retain(|place, _| matches!(place, Place::Program(_)));
+            then.retain(|place, _| matches!(place, Place::Program(_)));
+            assert_eq!(format!("{now:?}"), format!("{then:?}"), "{what}");
+
+            // Fixed: B is back, with nothing left of the stand-in.
+            live.set_text(
+                "src/a.sw",
+                Some(gap_files(GAP_A, &nonce)["src/a.sw"].clone()),
+            );
+            assert_eq!(checked_log(&mut live), ["Gap.A", "Gap.B"], "{what}, fixed");
+            let mut now = live.answers();
+            let mut then = first.clone();
+            now.retain(|place, _| matches!(place, Place::Program(_)));
+            then.retain(|place, _| matches!(place, Place::Program(_)));
+            assert_eq!(format!("{now:?}"), format!("{then:?}"), "{what}, fixed");
+            assert_eq!(gap_statuses(&mut live), clean, "{what}, fixed");
+        }
+        let _ = std::fs::remove_dir_all(&cache);
+    });
 }

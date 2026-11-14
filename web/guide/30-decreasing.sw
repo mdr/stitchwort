@@ -2,7 +2,7 @@
 -- (like `xs` in `[x, ..xs]`) is accepted as it is. When a call isn't on a
 -- piece, say what shrinks with `decreasing`; the `if` supplies the proof
 -- that it does.
-def halvings (n: Nat) (count: Nat): Nat
+def halvings (n count: Nat): Nat
     decreasing n
 :=
   let next := n / 2

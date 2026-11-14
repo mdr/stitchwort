@@ -66,9 +66,11 @@ def operatorTypeOf: Nat → Option OperatorType := match some
 
 --| The operator of a type, holding the sub-packets read; none if there
 --| aren't as many as the type takes.
-def operatorOf (version: Nat) (operatorType: OperatorType) (lengthType: LengthType) (subPackets: List Packet): Option Packet :=
+def operatorOf (version: Nat) (operatorType: OperatorType) (lengthType: LengthType) (subPackets: List Packet):
+    Option Packet :=
   match operatorType, subPackets with
-    | Calculation operation, [first, ..rest] => Some (Operator version operation lengthType (NonEmptyList.cons first rest))
+    | Calculation operation, [first, ..rest] =>
+      Some (Operator version operation lengthType (NonEmptyList.cons first rest))
     | Comparing comparison, [first, second] => Some (Comparator version comparison lengthType first second)
     | _, _ => None
 
@@ -139,8 +141,8 @@ def nextWanted: Wanted → BitReader → Option Wanted
   | Filling, { unread = [_, .._] } => Some Filling
 
 --| Puts a packet in front of the ones read after it.
-def andThen (packet: Packet): Option (List Packet, BitReader) → Option (List Packet, BitReader) :=
-  match some | Some (packets, rest) => ([packet, ..packets], rest)
+def andThen (packet: Packet): Option (List Packet, BitReader) → Option (List Packet, BitReader) := match some
+  | Some (packets, rest) => ([packet, ..packets], rest)
 
 --| Reads the packets wanted from the bits, and gives back the reader after
 --| them; none if the bits don't hold them. Every call reads from fewer bits,
@@ -162,7 +164,9 @@ def readPackets (wanted: Wanted) (reader: BitReader): Option (List Packet, BitRe
                   match readGroups afterType with
                     | None => None
                     | Some (groups, after) =>
-                      if shorter: after.length < reader.length then andThen (Literal version groups) (readPackets later after) else None
+                      if shorter: after.length < reader.length then
+                        andThen (Literal version groups) (readPackets later after)
+                      else None
                 | Some operatorType =>
                   match afterType.readBit with
                     | None => None
@@ -180,7 +184,9 @@ def readPackets (wanted: Wanted) (reader: BitReader): Option (List Packet, BitRe
                                     match operatorOf version operatorType TotalLength subPackets with
                                       | None => None
                                       | Some packet =>
-                                        if shorterAfter: following.length < reader.length then andThen packet (readPackets later following) else None
+                                        if shorterAfter: following.length < reader.length then
+                                          andThen packet (readPackets later following)
+                                        else None
                               else None
                     | Some (True, afterLengthType) =>
                       match afterLengthType.read 11 with
@@ -193,7 +199,9 @@ def readPackets (wanted: Wanted) (reader: BitReader): Option (List Packet, BitRe
                                 match operatorOf version operatorType Count subPackets with
                                   | None => None
                                   | Some packet =>
-                                    if shorterAfter: following.length < reader.length then andThen packet (readPackets later following) else None
+                                    if shorterAfter: following.length < reader.length then
+                                      andThen packet (readPackets later following)
+                                    else None
                           else None
 
 --| One packet, and the reader after it.
@@ -209,13 +217,14 @@ def zeroBits (bits: List Bool): Bool := bits.all not
 
 --| An operator with no sub-packets, or a comparison without exactly two,
 --| isn't a packet: it fails to decode.
-def decodeTransmission (bits: List Bool): {Fail} Packet :=
-  match readPacket { unread = bits } with
-    | Some ((packet, rest)) =>
-      match zeroBits rest.unread with
-        | True => packet
-        | False => Fail.fail "the bits after the packet aren't all zero padding"
-    | None => Fail.fail "the transmission isn't a packet (or an operator in it has no sub-packets, or a comparison doesn't have exactly two)"
+def decodeTransmission (bits: List Bool): {Fail} Packet := match readPacket { unread = bits } with
+  | Some ((packet, rest)) =>
+    match zeroBits rest.unread with
+      | True => packet
+      | False => Fail.fail "the bits after the packet aren't all zero padding"
+  | None =>
+    Fail.fail
+        "the transmission isn't a packet (or an operator in it has no sub-packets, or a comparison doesn't have exactly two)"
 
 --| The sum of the versions of a packet and every packet inside it.
 def versionSum: Packet → Nat
@@ -232,7 +241,8 @@ def solvePart1 (packet: Packet): Nat := versionSum packet
 --| A packet's value.
 def evaluate: Packet → Nat
   | Literal _ groups => groups.foldLeft 0 (value group => value * 16 + group)
-  | Operator _ operation _ ({ head = first, tail = rest }) => operation.apply { head = evaluate first, tail = evaluateAll rest }
+  | Operator _ operation _ ({ head = first, tail = rest }) =>
+    operation.apply { head = evaluate first, tail = evaluateAll rest }
   | Comparator _ comparison _ first second => comparison.apply (evaluate first) (evaluate second)
 
 def evaluateAll: List Packet → List Nat
@@ -240,18 +250,16 @@ def evaluateAll: List Packet → List Nat
   | [packet, ..rest] => [evaluate packet, ..evaluateAll rest]
 
 --| An operation on its sub-packets' values.
-def Operation.apply (operation: Operation) (values: NonEmptyList Nat): Nat :=
-  match operation with
-    | Sum => values.toList.sum
-    | Product => values.toList.product
-    | Minimum => values.minimum
-    | Maximum => values.maximum
+def Operation.apply (operation: Operation) (values: NonEmptyList Nat): Nat := match operation with
+  | Sum => values.toList.sum
+  | Product => values.toList.product
+  | Minimum => values.minimum
+  | Maximum => values.maximum
 
 --| 1 if the comparison holds between the first value and the second, else 0.
-def Comparison.apply (comparison: Comparison) (first: Nat) (second: Nat): Nat :=
-  match comparison with
-    | GreaterThan => if first > second then 1 else 0
-    | LessThan => if first < second then 1 else 0
-    | EqualTo => if first == second then 1 else 0
+def Comparison.apply (comparison: Comparison) (first second: Nat): Nat := match comparison with
+  | GreaterThan => if first > second then 1 else 0
+  | LessThan => if first < second then 1 else 0
+  | EqualTo => if first == second then 1 else 0
 
 def solvePart2 (packet: Packet): Nat := evaluate packet

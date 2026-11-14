@@ -10,5 +10,4 @@ def inner (n: Nat) (more: Nat → {Log, Partial | e} Nat): {Log, Partial | e} Na
   log n
   more n
 
-def outer (b: Bool) (more: Nat → {Log, Partial | e} Nat): {Log, Partial | e} Nat :=
-  if b then 0 else inner 1 more
+def outer (b: Bool) (more: Nat → {Log, Partial | e} Nat): {Log, Partial | e} Nat := if b then 0 else inner 1 more

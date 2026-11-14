@@ -48,7 +48,8 @@ def Cave.width (cave: Cave): Nat := cave.grid.width
 type RiskMap = { height: Nat, width: Nat, level: Position → Nat }
 
 --| The level at `position`; `None` off the map.
-def RiskMap.levelAt (risks: RiskMap) (position: Position): Option Nat := boxEnter risks.height risks.width risks.level position
+def RiskMap.levelAt (risks: RiskMap) (position: Position): Option Nat :=
+  boxEnter risks.height risks.width risks.level position
 
 --| The map as a graph for std's search: a step to each neighbour on the
 --| map, costing its level.
@@ -64,14 +65,14 @@ def RiskMap.target (risks: RiskMap): Position := { row = risks.height - 1, colum
 
 --| The lowest total risk from the top left to the bottom right: Dijkstra's
 --| search from the top left, starting at 0 (its level isn't counted).
-def RiskMap.lowestRisk (risks: RiskMap): Nat := risks.graph.distances (index := risks.index) [(risks.start, 0)] |> .getOr risks.target 0
+def RiskMap.lowestRisk (risks: RiskMap): Nat :=
+  risks.graph.distances (index := risks.index) [(risks.start, 0)] |> .getOr risks.target 0
 
 --| The levels, looked up in O(log n); 0 off the cave.
 def Cave.levels (cave: Cave): Position → Nat := (cave.grid.map (_ digit => digit.toNat)).lookupOr 0
 
 --| The cave's own map.
-def Cave.risks (cave: Cave): RiskMap :=
-  { height = cave.height, width = cave.width, level = cave.levels }
+def Cave.risks (cave: Cave): RiskMap := { height = cave.height, width = cave.width, level = cave.levels }
 
 --| A level raised by up to 8, wrapping past 9 round to 1.
 def wrap (level: Nat): Nat := if level > 9 then level - 9 else level

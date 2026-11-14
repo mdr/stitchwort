@@ -61,6 +61,13 @@ impl LanguageServer {
             .add(memory_project(root, sources, paths, texts));
     }
 
+    /// The file `path` of the project in `root` has this text, changed by
+    /// the page (a rename edited a file the editor hasn't opened).
+    pub fn set_project_file(&mut self, root: &str, path: &str, text: String) {
+        self.projects
+            .set_file(std::path::Path::new(root), path, text);
+    }
+
     /// Handles one message from the client: what the server sent at once.
     pub fn receive(&mut self, message: &str) -> String {
         array(self.inner.receive(message))
@@ -73,10 +80,15 @@ impl LanguageServer {
     }
 
     /// Stops a check whenever `globalThis.stitchwortEditsWaiting()` says
-    /// that the page has sent an edit the worker hasn't read yet: the
-    /// worker's shared counter (lsp-worker.js). For the whole instance.
+    /// that the page has sent a document message the worker hasn't read yet:
+    /// the worker's shared counter (lsp-worker.js). For the whole instance.
     pub fn watch_edits(&self) {
         stitchwort_core::budget::Budget::set_cancel_hook(edits_waiting);
+    }
+
+    /// Time per phase of the project check since the last call (SW-3113), as JSON.
+    pub fn phases(&self) -> String {
+        stitchwort_driver::live::phases::take()
     }
 
     /// The proof searches queued, for the search worker: a JSON array of
@@ -134,10 +146,22 @@ impl SearchWorker {
             .add(memory_project(root, sources, paths, texts));
     }
 
+    /// As [`LanguageServer::set_project_file`].
+    pub fn set_project_file(&mut self, root: &str, path: &str, text: String) {
+        self.projects
+            .set_file(std::path::Path::new(root), path, text);
+    }
+
     /// Runs the search `job` (a `search` of `take_searches`), and returns
     /// its result as JSON.
     pub fn run(&self, job: &str) -> String {
         self.inner.run(job)
+    }
+
+    /// Loads the library the searches replay, so the first doesn't wait for
+    /// it (`stitchwort_lsp::Searcher::warm`).
+    pub fn warm(&self) {
+        self.inner.warm();
     }
 }
 
@@ -165,19 +189,35 @@ pub fn describe_library_cache(bytes: &[u8]) -> String {
     })
 }
 
-/// The server's options in the worker: the playground sessions' guard
-/// (`STITCHWORT_GUARD`, 256 KiB; `Limits::for_stack` keeps a quarter, at
-/// least 256 KiB, in reserve), as for searches.
-pub(crate) fn options() -> stitchwort_lsp::Options {
-    let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
-    stitchwort_lsp::Options::new(guard + 256 * 1024)
+/// The namespace the project check last began on: after a crash, the one
+/// that crashed. Not a method: a crash leaves the server borrowed.
+#[wasm_bindgen]
+pub fn checking_namespace() -> String {
+    stitchwort_driver::live::phases::current()
 }
 
-/// The search worker's options: proof searches run in a worker of their own,
-/// with the playground sessions' guard.
+/// The server's options in the worker, and the search worker's: the
+/// playground sessions' guard (`STITCHWORT_GUARD`, see `build.rs`).
+pub(crate) fn options() -> stitchwort_lsp::Options {
+    stitchwort_lsp::Options::new(stack_for_guard(crate::guard()))
+}
+
+/// Proof searches run in a worker of their own, with the same guard.
 fn search_options() -> stitchwort_lsp::Options {
-    let guard: usize = env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024);
-    stitchwort_lsp::Options::new(guard + 256 * 1024)
+    options()
+}
+
+/// The stack to tell the server it has, so that the guard it derives from it
+/// (`Limits::for_stack`, which keeps a quarter, at least 256 KiB, in
+/// reserve) is `guard`: the worker has no threads of its own, and its real
+/// limit is the engine's stack, which the guard was measured against.
+fn stack_for_guard(guard: usize) -> usize {
+    let reserve = 256 * 1024;
+    if guard <= 3 * reserve {
+        guard + reserve
+    } else {
+        guard.div_ceil(3) * 4
+    }
 }
 
 pub(crate) fn memory_project(

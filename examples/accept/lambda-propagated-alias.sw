@@ -22,8 +22,7 @@ def both (f: a → b → Nat) (g: a → b → b) (x: a) (z: b): Nat := f x (g x 
 
 def sized: Nat := both (n counts => counts.size n) (n counts => Counts.add (same counts) n) 1 [2, 3]
 
-def annotated: Nat :=
-  both (n (counts: _) => counts.size n) (n counts => Counts.add (same counts) n) 1 [2, 3]
+def annotated: Nat := both (n (counts: _) => counts.size n) (n counts => Counts.add (same counts) n) 1 [2, 3]
 
 def summed: Nat :=
   both (n counts => counts.total + counts.size n) (n counts => Counts.add (same (same counts)) n) 1 [2, 3]

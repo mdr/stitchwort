@@ -14,6 +14,7 @@ use stitchwort_core::check as kernel;
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::{DefId, Limits, ResourceError, Term, pretty};
 use stitchwort_driver::driver::Session;
+use stitchwort_elab::search::Item;
 use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
 
 /// Set in a child process.
@@ -43,6 +44,31 @@ fn isolated(name: &str, body: impl FnOnce()) {
         "the child process failed ({}):\n{stdout}\n{stderr}",
         out.status
     );
+    // The child's output would otherwise be lost: pass on the lines its test
+    // writes (`size …` and `threshold …` with `--nocapture`), without
+    // libtest's own lines. libtest prints `running 1 test`, then the test's
+    // name followed by ` ... ` with the test's first output on the same line,
+    // and at the end a bare `ok` and `test result: …`.
+    let prefix = format!("test nesting::{name} ... ");
+    for line in stdout.lines() {
+        let line = line.strip_prefix(&prefix).unwrap_or(line);
+        let libtest = line.is_empty()
+            || line == "ok"
+            || line.starts_with("running ")
+            || line.starts_with("test result:");
+        if !libtest {
+            println!("{line}");
+        }
+    }
+}
+
+/// A stack guard of `kib` KiB as measured with release frames. Debug frames
+/// are about 5 times bigger (measured: 4 times is too little for either
+/// test below, 5 just enough), so the same programs need a bigger guard to
+/// mean the same thing. 6 times 320 KiB still fits the 2 MiB test thread.
+fn guard(kib: usize) -> usize {
+    let debug_factor = if cfg!(debug_assertions) { 6 } else { 1 };
+    kib * 1024 * debug_factor
 }
 
 /// What loading a program gave: the first error's code, if any.
@@ -103,6 +129,56 @@ fn nested_applications() {
             )
         });
     });
+}
+
+/// Nested applications checked against a known type (`f (f (… 0))` where a
+/// `Nat` is expected) take about 5 KiB of stack a level natively (SW-3172;
+/// they took 12): 40 of them check under the playground's guard of 320 KiB
+/// (`crates/web/build.rs`), where about 25 did before.
+#[test]
+fn nested_applications_under_the_playground_guard() {
+    isolated("nested_applications_under_the_playground_guard", || {
+        let mut session = Session::new();
+        session.elab.options.limits = Limits {
+            stack: guard(320),
+            ..Limits::default()
+        };
+        let program = format!(
+            "def f (n : Nat) : Nat := n\n\ndef x : Nat := {}\n",
+            nested(40, "f (", "0")
+        );
+        assert_eq!(first_error(&mut session, "x.sw", &program), None);
+    });
+}
+
+/// Two calls of one opaque definition, each 88 levels deep, compared under
+/// the playground's guard (SW-3172, SW-3179). The calls are built by
+/// evaluation (`up k y` is `f (up k y')`), so checking the program takes no
+/// nesting of its own and the depth is all the unifier's: it compares the
+/// calls by their arguments, one nested comparison a level.
+///
+/// Measured in release: 100 levels pass, 105 run out; before SW-3172's
+/// smaller unifier frames 72 passed and 76 ran out. 88 is past the old
+/// limit and 12% under the new one.
+#[test]
+fn nested_calls_of_one_definition_unify_under_the_playground_guard() {
+    isolated(
+        "nested_calls_of_one_definition_unify_under_the_playground_guard",
+        || {
+            let mut session = Session::new();
+            session.elab.options.limits = Limits {
+                stack: guard(320),
+                ..Limits::default()
+            };
+            // `up2` differs from `up` only in a `+ 0` that conversion
+            // removes, so the two sides are never the same term.
+            let program = "opaque def f (n : Nat) : Nat := n\n\n\
+                 def up : Nat -> Nat -> Nat\n  | 0, y => y\n  | Succ k, y => f (up k y)\n\n\
+                 def up2 : Nat -> Nat -> Nat\n  | 0, y => y\n  | Succ k, y => f (up2 k (y + 0))\n\n\
+                 theorem t (y : Nat) : up 88 y = up2 88 y := rfl\n";
+            assert_eq!(first_error(&mut session, "x.sw", program), None);
+        },
+    );
 }
 
 #[test]
@@ -197,7 +273,7 @@ fn long_list_literals_with_a_small_guard() {
     isolated("long_list_literals_with_a_small_guard", || {
         let mut session = Session::new();
         session.elab.options.limits = Limits {
-            stack: 256 * 1024,
+            stack: guard(256),
             ..Limits::default()
         };
         if let Err(ds) = session.load("xs.sw", &list_program(100_000)) {
@@ -285,6 +361,42 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
     (session, id)
 }
 
+/// [`with_deep_definition`], but the deep term is the definition's type
+/// `(n : Nat) → f (f (… n)) = n`, installed with its evaluation: the
+/// closing search, hashing and the printer all walk a lemma's type.
+fn with_deep_type(depth: usize) -> (Session, DefId) {
+    let (mut session, id) = with_deep_definition(1);
+    let g = &mut session.elab.kernel;
+    let f = DefId(
+        g.env
+            .defs()
+            .iter()
+            .position(|d| &**d.name() == "f")
+            .unwrap(),
+    );
+    let Term::Pi(_, _, nat, _) = g.env.defs()[id.0].ty().strip_loc() else {
+        panic!("a function type")
+    };
+    let nat = nat.clone();
+    let deep = deep_term(Term::Def(f), Term::Var(0), depth);
+    let eq = Term::Eq(Some(nat.clone()), Rc::new(deep), Rc::new(Term::Var(0)));
+    let ty = Term::Pi(
+        "n".into(),
+        stitchwort_core::Icit::Explicit,
+        nat,
+        Rc::new(eq),
+    );
+    let value = {
+        let ev = g.ev();
+        let _op = ev.machine.budget.operation(Limits::default());
+        stitchwort_core::value::eval(&ev, &[], &ty).expect("evaluates")
+    };
+    g.env
+        .def_mut_for_tests(id)
+        .set_type_unchecked_for_tests(ty, value);
+    (session, id)
+}
+
 /// Terms built directly, for the passes after the elaborator: each would
 /// otherwise only see what the passes before it could handle.
 #[test]
@@ -294,10 +406,36 @@ fn deep_terms_in_later_passes() {
         let g = &session.elab.ev();
         let body = g.def(id).body().unwrap();
         {
+            // An argument that is itself an application is checked in a
+            // loop, not a level of the stack (SW-3174), so the kernel
+            // takes this depth.
             let _op = g.machine.budget.operation(Limits::default());
             let def = g.def(id);
             let mut cx = kernel::Ctx::new(g, def.span());
-            let e = kernel::check(&mut cx, body, def.ty_value()).unwrap_err();
+            assert!(kernel::check(&mut cx, body, def.ty_value()).is_ok());
+        }
+        {
+            // With a location around each argument, each level is a call of
+            // `check` again: the kernel runs out rather than crashing.
+            let _op = g.machine.budget.operation(Limits::default());
+            let def = g.def(id);
+            let Term::Lam(_, _, inner) = &**body else {
+                panic!("a function")
+            };
+            let Term::App(f, _, _) = &**inner else {
+                panic!("an application")
+            };
+            let mut located = Term::Var(0);
+            for _ in 0..1_000_000 {
+                located = Term::app((**f).clone(), Term::Loc(def.span(), Rc::new(located)));
+            }
+            let located = Term::Lam(
+                "n".into(),
+                stitchwort_core::Icit::Explicit,
+                Rc::new(located),
+            );
+            let mut cx = kernel::Ctx::new(g, def.span());
+            let e = kernel::check(&mut cx, &located, def.ty_value()).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("type checker"), "{}", e.message);
         }
@@ -324,6 +462,72 @@ fn deep_terms_in_later_passes() {
             // Hashing walks a term with a work list, so any depth hashes.
             let _op = g.machine.budget.operation(Limits::default());
             assert!(def_hash(g, id).unwrap().is_some());
+        }
+        {
+            // The same depth in a lemma's type: hashing and the printer walk
+            // it, and the closing search counts what its conclusion names
+            // (SW-3190).
+            let (mut session, id) = with_deep_type(1_000_000);
+            {
+                let g = &session.elab.ev();
+                let _op = g.machine.budget.operation(Limits::default());
+                assert!(def_hash(g, id).unwrap().is_some());
+            }
+            {
+                let g = &session.elab.ev();
+                let _op = g.machine.budget.operation(Limits::default());
+                assert_eq!(
+                    pretty::term_in_full(g, &[], g.def(id).ty()),
+                    Err(ResourceError::Nesting("printer"))
+                );
+                assert!(pretty::term(g, &[], g.def(id).ty()).contains('…'));
+            }
+            // The session's default stack budget is more than a test
+            // thread has.
+            session.elab.options.limits.stack = 1 << 20;
+            let candidates = {
+                let _op = session
+                    .elab
+                    .ev()
+                    .machine
+                    .budget
+                    .operation(Limits::default());
+                session
+                    .elab
+                    .search_candidates(&|item, _| item == Item::Def(id))
+            };
+            assert_eq!(candidates.len(), 1);
+            // A goal that is an instance of the deep conclusion (`n := 0`).
+            // Matching it walks both terms with the unifier, which stops
+            // at its depth limit, so the candidate runs out of budget
+            // and no hit reaches `defs_named` or `named`; those two are
+            // covered by `closing`'s own test.
+            let (f, nat) = {
+                let g = &session.elab.kernel;
+                let f = (g.env.defs().iter())
+                    .position(|d| &**d.name() == "f")
+                    .unwrap();
+                let Term::Pi(_, _, nat, _) = g.env.defs()[id.0].ty().strip_loc() else {
+                    panic!("a function type")
+                };
+                (DefId(f), nat.clone())
+            };
+            let zero = || Rc::new(Term::Nat(Rc::new(0u32.into())));
+            let deep = deep_term(Term::Def(f), (*zero()).clone(), 1_000_000);
+            let target = Term::Eq(Some(nat), Rc::new(deep), zero());
+            let snapshot = stitchwort_elab::GoalSnapshot::target_for_tests(target);
+            let span = session.elab.ev().def(id).span();
+            let goal = session.elab.open_goal_at(&snapshot, span);
+            let _op = session
+                .elab
+                .ev()
+                .machine
+                .budget
+                .operation(Limits::default());
+            let goal = goal.expect("a deep goal opens");
+            let plans = session.elab.closing_plans(&goal, &candidates, &|_| true, 5);
+            assert!(plans.plans.is_empty());
+            assert_eq!(plans.found.stats.out_of_budget_items, [Item::Def(id)]);
         }
         let e = session.extract().err().expect("too deep to generate");
         assert_eq!(e.code, "E-RESOURCE");

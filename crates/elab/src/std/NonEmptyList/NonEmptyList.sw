@@ -34,10 +34,9 @@ def NonEmptyList.toList (xs: NonEmptyList a): List a := [xs.head, ..xs.tail]
 --| The list as a `NonEmptyList`, where it is known not to be empty: `auto` finds
 --| the proof for a literal, in the `[x, ..rest]` arm of a match and after
 --| `if h: xs ≠ [] then`. The result is the list again ([`List.toNonEmptyToList`]).
-def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a :=
-  match xs with
-    | [] => Void.absurd (nonEmpty rfl)
-    | [x, ..rest] => { head = x, tail = rest }
+def List.toNonEmpty (xs: List a) [auto nonEmpty: xs ≠ []]: NonEmptyList a := match xs with
+  | [] => Void.absurd (nonEmpty rfl)
+  | [x, ..rest] => { head = x, tail = rest }
 
 --| The list as a `NonEmptyList`, or `None` for an empty list
 --| ([`List.nonEmptyNil`], [`List.nonEmptyCons`]). It keeps the list's own head
@@ -58,10 +57,12 @@ def NonEmptyList.count (xs: NonEmptyList a) (p: a → {e} Bool): {e} Nat := List
 def NonEmptyList.sumBy [auto add: Add b] (xs: NonEmptyList a) (f: a → {e} b): {e} b := List.sumBy xs.toList f
 
 --| Left fold: `xs.foldLeft z f` is `xs.toList.foldLeft z f`. `f` may perform abilities, which run in list order.
-def NonEmptyList.foldLeft (xs: NonEmptyList a) (initial: b) (f: b → a → {e} b): {e} b := List.foldLeft xs.toList initial f
+def NonEmptyList.foldLeft (xs: NonEmptyList a) (initial: b) (f: b → a → {e} b): {e} b :=
+  List.foldLeft xs.toList initial f
 
 --| Right fold: `xs.foldRight z f` is `xs.toList.foldRight z f`.
-def NonEmptyList.foldRight (xs: NonEmptyList a) (initial: b) (f: a → b → {e} b): {e} b := List.foldRight xs.toList initial f
+def NonEmptyList.foldRight (xs: NonEmptyList a) (initial: b) (f: a → b → {e} b): {e} b :=
+  List.foldRight xs.toList initial f
 
 --| Combines the elements left to right, starting from the first: `[x, y, z].reduce f` is
 --| `f (f x y) z`. Where `List` has no first element to start from and
@@ -104,10 +105,12 @@ def NonEmptyList.minBy [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): a :=
   List.foldLeft xs.tail xs.head (best y => List.minByStep f best y)
 
 --| The largest value of `f` over the elements ([`NonEmptyList.maximumOfToList`]).
-def NonEmptyList.maximumOf [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): b := NonEmptyList.maximum (NonEmptyList.map xs f)
+def NonEmptyList.maximumOf [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): b :=
+  NonEmptyList.maximum (NonEmptyList.map xs f)
 
 --| The smallest value of `f` over the elements ([`NonEmptyList.minimumOfToList`]).
-def NonEmptyList.minimumOf [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): b := NonEmptyList.minimum (NonEmptyList.map xs f)
+def NonEmptyList.minimumOf [auto ord: Ord b] (xs: NonEmptyList a) (f: a → b): b :=
+  NonEmptyList.minimum (NonEmptyList.map xs f)
 
 --| `f` on every element, in order; `f` may perform abilities ([`NonEmptyList.mapToList`]).
 def NonEmptyList.map (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b :=
@@ -133,10 +136,11 @@ def NonEmptyList.reverseOnto (acc: NonEmptyList a): (xs: List a) → NonEmptyLis
   | [y, ..ys] => NonEmptyList.reverseOnto { head = y, tail = [acc.head, ..acc.tail] } ys
 
 --| The elements in the opposite order ([`NonEmptyList.reverseToList`]).
-def NonEmptyList.reverse (xs: NonEmptyList a): NonEmptyList a := NonEmptyList.reverseOnto { head = xs.head, tail = [] } xs.tail
+def NonEmptyList.reverse (xs: NonEmptyList a): NonEmptyList a :=
+  NonEmptyList.reverseOnto { head = xs.head, tail = [] } xs.tail
 
 --| `xs` then `ys` ([`NonEmptyList.appendToList`]).
-def NonEmptyList.append (xs: NonEmptyList a) (ys: NonEmptyList a): NonEmptyList a :=
+def NonEmptyList.append (xs ys: NonEmptyList a): NonEmptyList a :=
   { head = xs.head, tail = List.append xs.tail ys.toList }
 
 --| `xs` then the elements of a plain list ([`NonEmptyList.appendListToList`]).
@@ -150,7 +154,7 @@ def NonEmptyList.prependList (prefix: List a) (xs: NonEmptyList a): NonEmptyList
   | [y, ..rest] => { head = y, tail = List.append rest xs.toList }
 
 --| Sorting a `NonEmptyList` leaves a list with elements: the sorted list is as long as the original.
-theorem NonEmptyList.sortByNotNil (xs: NonEmptyList a) (cmp: a → a → Ordering): List.sortBy xs.toList cmp ≠ [] :=
+theorem NonEmptyList.sortByNotNil ∀ (xs: NonEmptyList a) (cmp: a → a → Ordering): List.sortBy xs.toList cmp ≠ [] :=
   sorted =>
     let same := List.permLength (List.sortBy xs.toList cmp) xs.toList (List.sortByPerm xs.toList cmp)
     let empty := rewrite sorted at same in same
@@ -176,10 +180,23 @@ def NonEmptyList.all (xs: NonEmptyList a) (p: a → {e} Bool): {e} Bool := List.
 @[noReceiver]
 def NonEmptyList.Mem (x: a) (xs: NonEmptyList a): Prop := x ∈ xs.toList
 
+--| `xs.contains x` is `True` exactly when `x` is one of the elements: its
+--| reading, as `List.contains`'s.
+@[reading]
+theorem NonEmptyList.containsMem ∀ [auto eq: DecEq a] (xs: NonEmptyList a) (x: a):
+    (xs.contains x = True) ↔ NonEmptyList.Mem x xs :=
+  List.memContains xs.toList x
+
+--| `xs.contains x` is `False` exactly when `x` is not an element.
+@[reading]
+theorem NonEmptyList.containsReadsFalse ∀ [auto eq: DecEq a] (xs: NonEmptyList a) (x: a):
+    (xs.contains x = False) ↔ ¬(NonEmptyList.Mem x xs) :=
+  List.containsReadsFalse xs.toList x
+
 instance NonEmptyList.instShow [auto show: Show a]: Show (NonEmptyList a) :=
   Show.fromText (xs => Show.list (x => Show.toSource x) xs.toList)
 
-theorem NonEmptyList.toListInjective (xs: NonEmptyList a) (ys: NonEmptyList a) (same: xs.toList = ys.toList): xs = ys :=
+theorem NonEmptyList.toListInjective ∀ (xs ys: NonEmptyList a) (same: xs.toList = ys.toList): xs = ys :=
   match xs, ys with
     | { head = x, tail = s }, { head = y, tail = t } =>
       let heads := List.consInjectiveHead x y s t same
@@ -188,19 +205,23 @@ theorem NonEmptyList.toListInjective (xs: NonEmptyList a) (ys: NonEmptyList a) (
 
 --| Decides equality from a decision about the elements: the lists' ([`List.decEq`]).
 @[noReceiver]
-def NonEmptyList.decEq (d: (x: a) → (y: a) → Decidable (x = y)) (xs: NonEmptyList a) (ys: NonEmptyList a): Decidable (xs = ys) :=
-  match List.decEq d xs.toList ys.toList with
-    | Yes same => Yes (NonEmptyList.toListInjective xs ys same)
-    | No different => No (equal => different (Eq.cong NonEmptyList.toList equal))
+def NonEmptyList.decEq (d: (x: a) → (y: a) → Decidable (x = y)) (xs ys: NonEmptyList a): Decidable (xs = ys) :=
+  Decidable.elim
+    (List.decEq d xs.toList ys.toList)
+    (same => Decidable.yes (NonEmptyList.toListInjective xs ys same))
+    (different => Decidable.no (equal => different (Eq.cong NonEmptyList.toList equal)))
 
 instance NonEmptyList.instDecEq [auto decEq: DecEq a]: DecEq (NonEmptyList a) :=
   { decide = NonEmptyList.decEq (x y => DecEq.decide x y) }
 
 --| Ordered as the lists are: lexicographically ([`NonEmptyList.compareToList`]).
 instance NonEmptyList.instOrd [auto ord: Ord a]: Ord (NonEmptyList a) :=
-  Ord.fromCompare (xs ys => Ord.compare xs.toList ys.toList)
+  Ord.fromCompare
+    (xs ys => Ord.compare xs.toList ys.toList)
     (xs ys h => NonEmptyList.toListInjective xs ys (List.instOrd.equal xs.toList ys.toList h))
     (xs ys => List.instOrd.flip xs.toList ys.toList)
     (xs ys zs => List.instOrd.trans xs.toList ys.toList zs.toList)
 
-theorem NonEmptyList.compareToList [auto ord: Ord a] (xs: NonEmptyList a) (ys: NonEmptyList a): Ord.compare xs ys = Ord.compare xs.toList ys.toList := rfl
+theorem NonEmptyList.compareToList ∀ [auto ord: Ord a] (xs ys: NonEmptyList a):
+    Ord.compare xs ys = Ord.compare xs.toList ys.toList :=
+  rfl

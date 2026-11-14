@@ -38,7 +38,7 @@ def zeroOrOther: Int → Bool
   | 0 => True
   | _ => False
 
-theorem negativeIsOther (k: Nat): zeroOrOther (NegSucc k) = False := rfl
+theorem negativeIsOther ∀ (k: Nat): zeroOrOther (NegSucc k) = False := rfl
 
 -- `0` and `-0` are one key; the first row with it wins, and the
 -- second warns `W-REDUNDANT`.

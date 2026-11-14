@@ -43,6 +43,7 @@ def headcount (people: List Person): Nat :=
    │
    │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `(p: Person) => p.name`, or write the function's full name
 ───╯
+1 error: in `headcount`
 ```
 
 Annotating it, `let nameOf := (person: Person) => person.name`, always works.
@@ -105,6 +106,17 @@ test "leaving some out" := [1, 50, 200].map (clamp (low := 5) (high := 100)) == 
 
 Implicit parameters are named with square brackets, `[b := Text]`, as above. The language server completes parameter names after `(` and `[`.
 
+A constructor's fields are named the same way, and so are its type's parameters, by the names in the type's header: they are implicit in the constructor, so they take square brackets. `Nil [a := Int]` is the empty list of integers, where nothing else says what its items are:
+
+<!-- snippet: functions.sw#named-constructors -->
+```stitchwort
+type Pair (a: Type) (b: Type) =
+  | MkPair (first: a) (second: b)
+
+test "an empty list of integers" := (Nil [a := Int]).length == 0
+test "the type's parameters by name" := MkPair [b := Text] [a := Int] 1 "one" == MkPair (1: Int) "one"
+```
+
 ## Default values
 
 An explicit parameter may have a default, written after `:=`, as a record field may ([chapter 3](03-data.md#default-values)). A call that leaves it out gets the default. Defaults are given by name, so a positional argument never lands on a defaulted parameter, and adding a default to a function never changes what existing calls mean:
@@ -149,10 +161,9 @@ type Key =
   | BirthYear
   | IssueYear
 
-def Key.valid (key: Key) (text: Text): Bool :=
-  match key with
-    | BirthYear => text.length == 4
-    | IssueYear => text.length == 4
+def Key.valid (key: Key) (text: Text): Bool := match key with
+  | BirthYear => text.length == 4
+  | IssueYear => text.length == 4
 
 def check: Bool := BirthYear.valid "2002"
 ```
@@ -160,14 +171,15 @@ def check: Bool := BirthYear.valid "2002"
 <!-- output: check errors/constructor-dot.sw -->
 ```text
 [E-UNKNOWN-NAME] Error: unknown name `BirthYear.valid`
-    ╭─[ errors/constructor-dot.sw:10:20 ]
-    │
- 10 │ def check: Bool := BirthYear.valid "2002"
-    │                    ───────┬───────
-    │                           ╰───────── not in scope
-    │
-    │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
-────╯
+   ╭─[ errors/constructor-dot.sw:9:20 ]
+   │
+ 9 │ def check: Bool := BirthYear.valid "2002"
+   │                    ───────┬───────
+   │                           ╰───────── not in scope
+   │
+   │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
+───╯
+1 error: in `check`
 ```
 
 A negative number as an argument needs no brackets when the `-` has a space before it and none after it: `f -4` is `f (-4)` and `f -x` is `f (-x)`. `n - 4`, `n-4` and `n- 4` are subtractions, so `n -4` for a number `n` is an error with a note saying so.
@@ -182,7 +194,7 @@ def wordLengths (line: Text): List Nat :=
   line
     |> .split ' '
     |> .filter (word => word ≠ "")
-    |> .map (.length)
+    |> .map .length
 
 test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
 ```

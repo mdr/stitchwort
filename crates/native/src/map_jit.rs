@@ -37,6 +37,106 @@ unsafe extern "C" {
     fn sys_icache_invalidate(start: *mut libc::c_void, len: libc::size_t);
 }
 
+// From libSystem (`<sys/codesign.h>`); not in the libc crate.
+#[allow(unsafe_code)]
+unsafe extern "C" {
+    fn csops(
+        pid: libc::pid_t,
+        ops: libc::c_uint,
+        useraddr: *mut libc::c_void,
+        usersize: libc::size_t,
+    ) -> libc::c_int;
+}
+
+const CS_OPS_STATUS: libc::c_uint = 0;
+const CS_OPS_ENTITLEMENTS_BLOB: libc::c_uint = 7;
+/// The hardened runtime is on for this process.
+const CS_RUNTIME: u32 = 0x0001_0000;
+const ALLOW_JIT: &[u8] = b"com.apple.security.cs.allow-jit";
+
+/// Why this process can't JIT, if it can't: it runs under the hardened
+/// runtime without the `com.apple.security.cs.allow-jit` entitlement. Asking
+/// the kernel for the code-signing flags and entitlements costs two system
+/// calls and doesn't depend on `mmap` refusing `MAP_JIT`: a hardened binary
+/// without the entitlement can be given a `MAP_JIT` mapping all the same and
+/// then dies with SIGTRAP at the first `pthread_jit_write_protect_np`.
+/// Anything this can't read counts as allowed, so only a process that
+/// positively lacks the entitlement is refused.
+#[allow(unsafe_code)]
+pub fn jit_unavailable() -> Option<String> {
+    let pid = std::process::id() as libc::pid_t;
+    let mut flags = 0u32;
+    // SAFETY: `csops` writes at most `usersize` bytes to `useraddr`.
+    let status = unsafe {
+        csops(
+            pid,
+            CS_OPS_STATUS,
+            (&raw mut flags).cast(),
+            size_of::<u32>(),
+        )
+    };
+    if status != 0 || flags & CS_RUNTIME == 0 {
+        return None;
+    }
+    // The blob starts with a big-endian magic and length. Too small a
+    // buffer fails with ERANGE, but still fills in that header.
+    let mut blob = vec![0u8; 8];
+    // SAFETY: as above, with `blob`'s length.
+    let status = unsafe {
+        csops(
+            pid,
+            CS_OPS_ENTITLEMENTS_BLOB,
+            blob.as_mut_ptr().cast(),
+            blob.len(),
+        )
+    };
+    if status != 0 {
+        match io::Error::last_os_error().raw_os_error() {
+            Some(libc::ENOENT) => return Some(refusal()),
+            Some(libc::ERANGE) => {}
+            _ => return None,
+        }
+        let len = u32::from_be_bytes(blob[4..8].try_into().expect("four bytes")) as usize;
+        if !(8..=1 << 20).contains(&len) {
+            return None;
+        }
+        blob = vec![0u8; len];
+        // SAFETY: as above.
+        let status = unsafe {
+            csops(
+                pid,
+                CS_OPS_ENTITLEMENTS_BLOB,
+                blob.as_mut_ptr().cast(),
+                blob.len(),
+            )
+        };
+        if status != 0 {
+            return None;
+        }
+    }
+    (!grants_jit(&blob)).then(refusal)
+}
+
+fn refusal() -> String {
+    "this `stitchwort` runs under the hardened runtime without the \
+     com.apple.security.cs.allow-jit entitlement, which macOS needs for native code"
+        .to_string()
+}
+
+/// Whether an entitlements plist sets `allow-jit` to true.
+fn grants_jit(plist: &[u8]) -> bool {
+    let Some(at) = plist.windows(ALLOW_JIT.len()).position(|w| w == ALLOW_JIT) else {
+        return false;
+    };
+    let rest = &plist[at + ALLOW_JIT.len()..];
+    let rest = rest.strip_prefix(b"</key>").unwrap_or(rest);
+    rest.iter()
+        .skip_while(|b| b.is_ascii_whitespace())
+        .copied()
+        .take(7)
+        .eq(*b"<true/>")
+}
+
 /// Code in `MAP_JIT` memory; data (which the spike doesn't use) in the
 /// system provider's ordinary memory.
 pub struct MapJitMemoryProvider {
@@ -188,5 +288,29 @@ impl Drop for MapJitMemoryProvider {
         if self.writing == Some(thread::current().id()) {
             self.set_writing(false);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn allow_jit_must_be_present_and_true() {
+        let plist = |value: &str| {
+            format!("<dict><key>com.apple.security.cs.allow-jit</key>\n  {value}</dict>")
+                .into_bytes()
+        };
+        assert!(grants_jit(&plist("<true/>")));
+        assert!(!grants_jit(&plist("<false/>")));
+        assert!(!grants_jit(
+            b"<dict><key>com.apple.security.cs.disable-library-validation</key><true/></dict>"
+        ));
+    }
+
+    /// The test binary isn't hardened, so it may JIT.
+    #[test]
+    fn an_unhardened_process_may_jit() {
+        assert_eq!(jit_unavailable(), None);
     }
 }

@@ -22,13 +22,26 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   path is a document link to the included file. Nothing of these is
   computed in the extension.
 - **Goals panel.** Run "Stitchwort: Show Goals" from the command palette: a
-  panel opens beside the editor and follows the cursor, showing the open goal
-  there (the declaration, the names in scope with their types and `let`
-  values, and `⊢` the goal). It asks the server's `stitchwort/goalAt` request
-  150 ms after the cursor or the text moves. On a `?`, or elsewhere in a
-  declaration that has one (then the nearest `?`), it shows that goal;
-  elsewhere it says there is none. It shows what the server already published
-  as the blue diagnostics, so it also stays through an edit that doesn't parse.
+  panel opens beside the editor and follows the cursor, anywhere in the file
+  (docs/proposals/goal-at-any-point.md, stages 1 and 3). It names the
+  declaration, shows the names in scope with their types and `let` values, and
+  then: `⊢ goal` in a proof, `expected T` for a program expression (with `has
+  type U` below it when the expression's own type differs), `has type T` where
+  only the type found is known. On a step of a proof (a `rewrite` rule, an
+  arm's pattern, `match … with`, a `calc` line, a lambda's parameter, a `let`'s
+  name, the `then` or `else` of `if h:`, the signature) it shows the goal
+  before the step, a rewrite rule as used, and the goal after it in bold, with
+  the names the step brings into scope marked `+`.
+  On a `?` it asks `stitchwort/goalAt` 150 ms after the cursor or the text
+  moves, and shows that hole's goal. Elsewhere it asks `stitchwort/contextAt`
+  after the cursor has rested 300 ms (the server checks the file again, 0.3 to
+  1.6 s on real files). An answer a later move has overtaken is dropped, and the
+  previous answer stays until the next arrives. Where `contextAt` has nothing
+  (a comment, a blank line) it shows the declaration's nearest `?` if it has
+  one, else the last answer, dimmed. `?` goals are what the server already
+  published as the blue diagnostics, so they also stay through an edit that
+  doesn't parse. Not yet: Next/Previous Step commands, and highlighting the
+  part of a goal a step changed.
 - **Run icons** (SW-1121, D2513). The server offers code lenses
   (`textDocument/codeLens`, `crates/lsp/src/lens.rs`) in every `.sw` file, a
   single file outside a project too: "▶ Run test" above each `test`, "▶ Run
@@ -57,10 +70,18 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   when it is a comparison. A result from the cache has the description
   "cached" (and says so in the run's output). Debugging and coverage profiles
   are not offered.
+- **Rename.** F2 renames a local, hypothesis, function or theorem in every
+  file of the project, served by `stitchwort lsp` (`prepareRename`, `rename`).
+  The renamed project is checked first: a rename that would cause an error or
+  change what a declaration means is refused, with the problems listed. The
+  server then offers a "Rename anyway" button (`window/showMessageRequest`),
+  and on it applies the edit (`workspace/applyEdit`); the declarations whose
+  meaning changed get a warning until the file is next edited. The extension
+  has no code of its own for this.
 - **Formatting.** Format Document and Format Selection work, served by
   `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
-  off, as in VS Code generally; to turn it on for Stitchwort files, add
-  `"[stitchwort]": { "editor.formatOnSave": true }` to your settings.
+  on for Stitchwort files (the extension's `configurationDefaults`); to turn it
+  off, set `"[stitchwort]": { "editor.formatOnSave": false }`.
 - **Library source.** Definitions in the standard library open as the real
   `std/` files when the server read std from a directory (the usual case in a
   checkout, or with `STITCHWORT_STD_DIR`). Such a file gets hover, go to
@@ -70,6 +91,28 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   embedded in the program, definitions open as read-only documents with the
   scheme `stitchwort-std:`, whose text comes from `stitchwort std-source` (run
   by the extension).
+
+## Settings
+
+Every optional feature has a switch in the settings (search for "Stitchwort"),
+on unless noted (D3468):
+
+| Setting | Effect |
+| --- | --- |
+| `stitchwort.inlayHints.letTypes` | the type after a `let` whose type isn't written |
+| `stitchwort.codeLens.run` | the "▶ Run" and "▶ Run test" icons |
+| `stitchwort.proofSearch.enabled` | "Search for a proof" on a `?` (and the "Split" quick fixes there) |
+| `stitchwort.proofSearch.timeLimitMs` | how long one "Search for a proof" may run (default 5000) |
+| `stitchwort.semanticColours` | colours from what the checker resolved each name to |
+| `stitchwort.goals.openAutomatically` | open the Goals panel when a `.sw` file with a `?` opens (off by default) |
+| `stitchwort.path` | the `stitchwort` program (restarts the server) |
+
+The first five are sent to the server in `initializationOptions` and, when one
+changes, in `workspace/didChangeConfiguration` (`{"settings": {"stitchwort":
+…}}`; built by `serverSettings` in `client.js`). A feature that is off stays
+advertised and is answered with nothing; the server then asks the editor to
+refresh hints, lenses and colours. The Testing panel is not part of the run
+icons setting.
 
 ## How the client finds and starts the server
 

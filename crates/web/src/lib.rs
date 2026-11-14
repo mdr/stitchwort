@@ -42,10 +42,17 @@ fn stack() -> usize {
 /// WebAssembly the stack guard is much smaller (see `build.rs`).
 fn session_limits() -> stitchwort_core::Limits {
     let mut l = stitchwort_core::Limits::for_stack(stack());
-    if let Ok(guard) = env!("STITCHWORT_GUARD").parse() {
-        l.stack = guard;
+    if cfg!(target_arch = "wasm32") {
+        l.stack = guard();
     }
     l
+}
+
+/// The stack guard in WebAssembly (`STITCHWORT_GUARD`, set by `build.rs`).
+/// Native builds (tests) have none, and the language server's sessions there
+/// get 256 KiB, which their 2 MiB test threads have room for.
+fn guard() -> usize {
+    env!("STITCHWORT_GUARD").parse().unwrap_or(256 * 1024)
 }
 
 thread_local! {
@@ -73,6 +80,15 @@ pub fn load_library_cache(bytes: &[u8]) -> bool {
     SHARED.with(|options| {
         LibraryBundle::decode(bytes).is_some_and(|b| options.library.set(Arc::new(b)).is_ok())
     })
+}
+
+/// How deep the WebAssembly stack has been since the last call, in bytes,
+/// and how deep it was last measured, as `[deepest, last]`: zeros unless
+/// built with `STITCHWORT_STACK_PROBE` (see `web/stress.html`).
+#[wasm_bindgen]
+pub fn stack_reached() -> Vec<usize> {
+    let (deepest, last) = stitchwort_syntax::stack::probe::take();
+    vec![deepest, last]
 }
 
 /// The resource limits programs run with:
@@ -107,7 +123,7 @@ pub fn check(source: &str) -> String {
     }
 }
 
-/// Formats a file (docs/proposals/formatter.md §5.3): `{"ok": true, "text": …}`,
+/// Formats a file (docs/proposals/formatter.md §5.3, still the interface): `{"ok": true, "text": …}`,
 /// or `{"ok": false, "errors": "…", "diagnostics": [{"severity", "code",
 /// "file", "line", "column", "text"}, …]}` when the file is refused (a lexical
 /// or syntax error) or the formatter's own check failed, which leaves the
@@ -209,7 +225,8 @@ pub fn std_source(path: &str) -> String {
 /// Runs a program's tests, reusing the results in `known`:
 /// `{"ok": true, "tests": [{"name": …, "passed": …, "outcome": …, "cached": …,
 /// "detail": {"op": …, "left": …, "right": …}}],
-/// "added": "…"}`, where the outcome is `passed`, `failed`, or what the test
+/// "added": "…"}`, where the outcome is `passed`, `failed` (a test that reaches
+/// an unfinished `?` also has a `why`), or what the test
 /// ran out of. `known` is one `KEY passed` or `KEY failed` per line, and
 /// malformed lines are ignored; `added` is the results that weren't cached,
 /// in the same format (empty if none).
@@ -217,7 +234,18 @@ pub fn std_source(path: &str) -> String {
 pub fn test(source: &str, known: &str) -> String {
     let session = match load_shared(source) {
         Ok(session) => session,
-        Err(failed) => return failed,
+        // The errors, with the results of the tests that don't use what has
+        // them (`ok` stays false).
+        Err(failed) => {
+            let (session, _) = load_keeping(source);
+            let tests = session.elab.tests().len() + session.elab.broken_tests().len();
+            return match failed.strip_suffix('}') {
+                Some(errors) if tests > 0 => {
+                    format!("{errors},{}}}", test_fields(&session, known, false))
+                }
+                _ => failed,
+            };
+        }
     };
     test_answer(&session, known, false)
 }
@@ -225,9 +253,19 @@ pub fn test(source: &str, known: &str) -> String {
 /// [`test`]'s answer for a loaded session; each result also has its
 /// `namespace` if `with_namespace`.
 fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
+    format!(
+        r#"{{"ok":true,{}}}"#,
+        test_fields(session, known, with_namespace)
+    )
+}
+
+/// `"tests": […], "added": "…"`, the part of [`test_answer`] that is the
+/// results.
+fn test_fields(session: &Session, known: &str, with_namespace: bool) -> String {
     let cache = Cache::memory(known_results(known));
+    let results = session.run_tests_fast(&cache);
     let tests: Vec<String> = session
-        .run_tests_fast(&cache)
+        .with_broken_tests(results, |_| true)
         .iter()
         .map(|r| {
             let outcome = match r.outcome {
@@ -241,6 +279,10 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
                 String::new()
             };
             let detail = failure_json(r.detail.as_ref());
+            let detail = match &r.unfinished {
+                Some(why) => format!(r#","why":{}{detail}"#, json_string(why)),
+                None => detail,
+            };
             format!(
                 r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{}{detail}}}"#,
                 json_string(&r.name),
@@ -263,7 +305,7 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
         })
         .collect();
     format!(
-        r#"{{"ok":true,"tests":[{}],"added":{}}}"#,
+        r#""tests":[{}],"added":{}"#,
         tests.join(","),
         json_string(&added)
     )
@@ -308,8 +350,25 @@ fn evaluate_in(session: &mut Session, imports: &str, expr: &str) -> String {
             return failure_in(session, &errors);
         }
     }
-    if expr.trim().is_empty() {
+    let expr = expr.trim();
+    if expr.is_empty() {
         return r#"{"ok":true,"value":"","type":""}"#.to_string();
+    }
+    // `:t expr` is the CLI REPL's type-only form: the expression as typed,
+    // then its type, which the Evaluate tab shows as `expr: type`.
+    if let Some(type_only) = expr.strip_prefix(":t ") {
+        let type_only = type_only.trim();
+        let result = session
+            .parse_expression("expression", type_only)
+            .and_then(|e| session.elab.infer_expr(&e));
+        return match result {
+            Ok((_, ty)) => format!(
+                r#"{{"ok":true,"value":{},"type":{}}}"#,
+                json_string(type_only),
+                json_string(&session.elab.show(&ty))
+            ),
+            Err(error) => failure_in(session, &[error]),
+        };
     }
     let result = session
         .parse_expression("expression", expr)
@@ -663,6 +722,13 @@ fn load_shared(source: &str) -> Result<Rc<Session>, String> {
 /// A session with `source` loaded, or the answer for a source that doesn't
 /// load: its errors, and its warnings, if any.
 fn load(source: &str) -> Result<Session, String> {
+    let (session, loaded) = load_keeping(source);
+    loaded.map(|()| session)
+}
+
+/// [`load`], also giving the session when the source has errors: the tests
+/// that don't use a declaration with an error still run (D3523).
+fn load_keeping(source: &str) -> (Session, Result<(), String>) {
     #[cfg(test)]
     LOADS.with(|loads| loads.set(loads.get() + 1));
     let mut session = new_session();
@@ -670,8 +736,8 @@ fn load(source: &str) -> Result<Session, String> {
     {
         session.elab.options.limits = session_limits();
     }
-    match session.load(FILE, source) {
-        Ok(_) => Ok(session),
+    let loaded = match session.load(FILE, source) {
+        Ok(_) => Ok(()),
         Err(diagnostics) => {
             let (goals, diagnostics) = split_goals(diagnostics);
             let (warnings, errors): (Vec<_>, Vec<_>) = diagnostics
@@ -684,7 +750,8 @@ fn load(source: &str) -> Result<Session, String> {
                 goals_field(&session, &goals)
             ))
         }
-    }
+    };
+    (session, loaded)
 }
 
 /// `,"warnings":["…",…]`, or nothing if there are none.
@@ -857,6 +924,22 @@ mod tests {
         assert!(!whole.contains(r#""part""#), "{whole}");
     }
 
+    #[test]
+    fn tests_run_beside_an_error_that_they_dont_use() {
+        let source = "def good: Nat := 1\ndef broken: Nat := \"x\"\n\
+                      test \"fine\" := good == 1\ntest \"uses it\" := broken == 1\n";
+        let answer = test(source, "");
+        assert!(answer.starts_with(r#"{"ok":false,"errors":"#), "{answer}");
+        assert!(
+            answer.contains(r#""name":"fine","passed":true,"outcome":"passed""#),
+            "{answer}"
+        );
+        assert!(
+            answer.contains(r#""name":"uses it","passed":false,"outcome":"failed","cached":false,"why":"it uses `broken`, which has an error"#),
+            "{answer}"
+        );
+    }
+
     /// Forgets the remembered load and resets the [`load`] count.
     fn reset_loads() {
         LAST_LOAD.with(|last| *last.borrow_mut() = None);
@@ -901,6 +984,16 @@ mod tests {
         assert_eq!(
             evaluate("", "import Std (List)", ""),
             r#"{"ok":true,"value":"","type":""}"#
+        );
+    }
+
+    /// `:t expr` is the CLI REPL's type-only form: the expression as typed,
+    /// then its type, without evaluating it.
+    #[test]
+    fn type_only_says_the_expression_and_its_type() {
+        assert_eq!(
+            evaluate("", "", ":t  1 + 2  "),
+            r#"{"ok":true,"value":"1 + 2","type":"Nat"}"#
         );
     }
 

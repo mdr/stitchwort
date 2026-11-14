@@ -13,13 +13,9 @@ import Std (Text)
 -- `Option` and `Yes`.
 def length: Nat := 3
 
-type Answer: Type =
-  | Yes
-  | No
+type Answer: Type = | Yes | No
 
-type Option (a: Type): Type =
-  | Absent
-  | Present (value: a)
+type Option (a: Type): Type = | Absent | Present (value: a)
 
 -- The library's `Option` is still there, written in full. Its constructors
 -- went with the default `Option`, so they're written in full too.
@@ -40,9 +36,7 @@ test "own Option" := Std.List.length [lookup 0, lookup 2] == 2
 
 -- A type owns a namespace: its constructors are in it, and so is anything
 -- declared with its name in front.
-type Shape: Type =
-  | Square (side: Nat)
-  | Rect (width: Nat) (height: Nat)
+type Shape: Type = | Square (side: Nat) | Rect (width: Nat) (height: Nat)
 
 def Shape.area: Shape → Nat
   | Square s => s * s
@@ -56,9 +50,7 @@ def Geometry.double (n: Nat): Nat := n + n
 test "own namespace" := Geometry.double (Shape.area (Shape.Square 2)) == 8
 
 -- A file with its own `List` can add to it: `List` means this file's.
-type List: Type =
-  | Empty
-  | More (rest: List)
+type List: Type = | Empty | More (rest: List)
 
 def List.size: List → Nat
   | Empty => 0

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -14,16 +14,17 @@ expression: json
         },
         {
           "name": "all",
-          "type": "next = True"
+          "type": "next"
         }
       ],
-      "lemma": "theorem shownGoal1 (next: Bool) (all: next = True): next = True := ?",
-      "target": "next = True"
+      "lemma": "theorem shownGoal1 (next: Bool) (all: next): next := ?",
+      "target": "allTrue [next]",
+      "targetComputed": "next"
     },
     "labels": [
       {
         "file": 0,
-        "message": "next: Bool\nall: next = True\n⊢ next = True",
+        "message": "next: Bool\nall: next\n⊢ allTrue [next]\n  computes to next",
         "range": [
           14,
           16,
@@ -64,12 +65,13 @@ expression: json
           "type": "(next✝ && allTrue [head✝, ..tail✝]) = True"
         }
       ],
-      "target": "(next✝ && allTrue [head✝, ..tail✝]) = True"
+      "target": "allTrue [next✝, head✝, ..tail✝]",
+      "targetComputed": "(next✝ && allTrue [head✝, ..tail✝]) = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "next✝: Bool\nhead✝: Bool\ntail✝: List Bool\nall: (next✝ && allTrue [head✝, ..tail✝]) = True\n⊢ (next✝ && allTrue [head✝, ..tail✝]) = True",
+        "message": "next✝: Bool\nhead✝: Bool\ntail✝: List Bool\nall: (next✝ && allTrue [head✝, ..tail✝]) = True\n⊢ allTrue [next✝, head✝, ..tail✝]\n  computes to (next✝ && allTrue [head✝, ..tail✝]) = True",
         "range": [
           15,
           15,

@@ -68,7 +68,8 @@ test "example, part 2" := part2 example == Ok (Some 8)
 test "larger example, part 1" := part1 largerExample == Ok (Some 220)
 test "larger example, part 2" := part2 largerExample == Ok (Some 19208)
 
-test "an empty bag has no device" := (bag []).device == None && (bag []).distribution == None && (bag []).arrangements == None
+test "an empty bag has no device" :=
+  (bag []).device == None && (bag []).distribution == None && (bag []).arrangements == None
 test "one adapter, 3 jolts up" := (bag [3]).distribution == Some 0 && (bag [3]).arrangements == Some 1
 test "one adapter, 1 jolt up" := (bag [1]).distribution == Some 1 && (bag [1]).arrangements == Some 1
 test "a gap of 4 breaks the chain" := (bag [1, 5]).distribution == None && (bag [1, 5]).arrangements == Some 0
@@ -81,8 +82,10 @@ test "differences of 2 count toward neither" := (bag [2, 4]).distribution == Som
 def specCount (adapters: List Nat): Option Nat :=
   (bag adapters).device |> .map (device => (Spec.subsequences adapters.sort).count (kept => Spec.Connects kept device))
 
-test "the count agrees with the spec's on the example" := (parsed example).map (b => b.arrangements == specCount b.adapters) == Ok True
+test "the count agrees with the spec's on the example" :=
+  (parsed example).map (b => b.arrangements == specCount b.adapters) == Ok True
 test "the count agrees with the spec's, small bags" :=
-  [[1, 2, 3, 4, 5, 6, 7], [2, 3, 5, 6, 9], [1, 4, 5, 6, 7, 10, 11, 12], [3, 6, 7, 8]].all (adapters => (bag adapters).arrangements == specCount adapters)
+  [[1, 2, 3, 4, 5, 6, 7], [2, 3, 5, 6, 9], [1, 4, 5, 6, 7, 10, 11, 12], [3, 6, 7, 8]].all (adapters =>
+    (bag adapters).arrangements == specCount adapters)
 
 test "not a number" := parsed "12\nx" == Err "line 2, column 1: expected a number, got 'x'"

@@ -5,12 +5,11 @@
 -- What was printed before the failure stays printed. (run: fails)
 import Std (IO, Fail, Text)
 
-def sumLines (total: Nat): {IO, Fail, Partial} Nat :=
-  match IO.readLine() with
-    | None => total
-    | Some line =>
-      let number := Text.toNatOrFail line
-      IO.print "total so far ${total + number}"
-      sumLines (total + number)
+def sumLines (total: Nat): {IO, Fail, Partial} Nat := match IO.readLine() with
+  | None => total
+  | Some line =>
+    let number := Text.toNatOrFail line
+    IO.print "total so far ${total + number}"
+    sumLines (total + number)
 
 def main(): {IO, Fail, Partial} () := IO.print "sum ${sumLines 0}"

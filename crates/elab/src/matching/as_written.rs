@@ -90,6 +90,9 @@ pub(super) struct Today<'a> {
     /// The variables' types read back unfolded (`refl` for a skipped one).
     pub(super) type_terms: &'a [Term],
     pub(super) goal_term: &'a Term,
+    /// The goal read back folded, when the usual test refines nothing in it
+    /// ([`super::unrefined_goal`]).
+    pub(super) goal_folded: Option<&'a Term>,
 }
 
 /// The generalisation as written: terms in the `match`'s context followed by
@@ -277,7 +280,10 @@ fn search(
         });
     }
     // From the values as bound, not forced: forcing unfolds an outer call.
-    let goal_written = cx.quote_folded(goal)?;
+    let goal_written = match today.and_then(|today| today.goal_folded) {
+        Some(folded) => folded.clone(),
+        None => cx.quote_folded(goal)?,
+    };
     let types_written = (0..base)
         .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
             true => Ok(None),
@@ -410,6 +416,7 @@ fn search(
         depth: base + e,
         exprs: today.occurrences,
         copies: &Default::default(),
+        transport: None,
     };
     let mut pairs = vec![(goal_unfolded, todays.apply(&g, today.goal_term)?)];
     for ((l, _), unfolded) in copied.iter().zip(unfolded_types) {

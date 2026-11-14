@@ -86,6 +86,20 @@ fn shown(report: &Value) -> Vec<(&str, &str)> {
         .collect()
 }
 
+/// The line `declaration` is on in the standard library file `file` (under
+/// `std/`), for the source locations the report shows. Found by name, so a
+/// sweep moving the library's text doesn't fail the test.
+fn std_line(file: &str, declaration: &str) -> u64 {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../elab/src/std")
+        .join(file);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let at = text
+        .find(declaration)
+        .unwrap_or_else(|| panic!("{file} has no `{declaration}`"));
+    text[..at].lines().count() as u64 + 1
+}
+
 #[test]
 fn a_library_name_shows_header_doc_location_and_theorems() {
     let (code, out, err) = doc(&["List.filterMap"]);
@@ -97,7 +111,11 @@ fn a_library_name_shows_header_doc_location_and_theorems() {
         lines[1],
         "  def List.filterMap: (xs: List a) → (f: a → {e} Option b) → {e} List b"
     );
-    assert_eq!(lines[2], "  std/List/Toolkit.sw:237  (import Std (List))");
+    let line = std_line("List/Toolkit.sw", "def List.filterMap");
+    assert_eq!(
+        lines[2],
+        format!("  std/List/Toolkit.sw:{line}  (import Std (List))")
+    );
     assert!(
         out.contains("\n  Keeps the `Some` results, in order."),
         "{out}"
@@ -141,7 +159,10 @@ fn the_json_contract() {
     assert_eq!(report["name"], "Std.List.filterMap");
     assert_eq!(report["kind"], "definition");
     assert_eq!(report["file"], "std/List/Toolkit.sw");
-    assert_eq!(report["line"], 237);
+    assert_eq!(
+        report["line"],
+        std_line("List/Toolkit.sw", "def List.filterMap")
+    );
     assert_eq!(report["import"], "import Std (List)");
     assert_eq!(report["summary"], "Keeps the `Some` results, in order.");
     assert_eq!(report["docMarker"], "--|");
@@ -160,7 +181,12 @@ fn the_json_contract() {
     assert_eq!(first["file"], "std/List/Lemmas.sw");
     assert_eq!(first["group"], "rewrite");
     // The JSON keeps the whole type.
-    assert!(first["type"].as_str().unwrap().starts_with("[a: Type] → "));
+    assert!(
+        first["type"]
+            .as_str()
+            .unwrap()
+            .starts_with("∀ [a b: Type] ")
+    );
     // `--theorems N` caps the list, and the total stays.
     let (_, three) = json(&["List.filterMap", "--theorems", "3"]);
     assert_eq!(three["theorems"]["shown"].as_array().unwrap().len(), 3);
@@ -295,7 +321,7 @@ fn theorems_are_ranked_for_filter_map_map_and_add() {
     let names: Vec<&str> = theorems.iter().map(|(n, _)| *n).collect();
     assert_eq!(
         names[..3],
-        ["Std.Nat.addZero", "Std.Nat.addOne", "Std.Ring.natAddOne"]
+        ["Std.Nat.addZero", "Std.Nat.zeroAdd", "Std.Nat.addOne"]
     );
     assert!(names.contains(&"Std.Nat.addComm"), "{names:?}");
     assert!(names.contains(&"Std.Nat.addAssoc"), "{names:?}");
@@ -565,14 +591,17 @@ fn every_kind_of_declaration() {
     let (_, report) = json(&["Nat.addComm"]);
     assert_eq!(
         report["header"],
-        "theorem Nat.addComm: (m: Nat) → (n: Nat) → m + n = n + m"
+        "theorem Nat.addComm ∀ (m n: Nat): m + n = n + m"
     );
     assert!(report["theorems"].is_null());
     assert!(report["type"].as_str().unwrap().contains("m + n = n + m"));
-    // A constructor shows its type.
-    let (_, report) = json(&["List.Cons", "--theorems", "0"]);
-    assert_eq!(report["container"], "Std.List");
-    assert_eq!(report["header"], "Cons (head: a) (tail: List a)");
+    // A constructor on a line of its own shows its type.
+    let (_, report) = json(&["Effect.Comp.Call", "--theorems", "0"]);
+    assert_eq!(report["container"], "Std.Effect.Comp");
+    assert_eq!(
+        report["header"],
+        "Call (o: op) (rest: res o → Comp op res a)"
+    );
     // An instance has tests named after it.
     let (_, report) = json(&["List.decMem", "--theorems", "0"]);
     let examples = report["examples"].as_array().unwrap();

@@ -623,6 +623,7 @@ impl Elaborator {
             if let Err(d) = self.after_definition(signature, *id) {
                 out.push((item, d));
             }
+            out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
         }
         Ok(out)
     }

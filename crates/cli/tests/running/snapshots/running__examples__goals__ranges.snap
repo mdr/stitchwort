@@ -1,31 +1,31 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `lengthThrough`
-   ╭─[ goals/ranges.sw:6:57 ]
+   ╭─[ goals/ranges.sw:6:59 ]
    │
- 6 │ theorem lengthThrough (n: Nat): (1 ..= n).length = n := ?
-   │                                                         ┬  
-   │                                                         ╰── n: Nat
-   │                                                             ⊢ (1 ..= n).length = n
+ 6 │ theorem lengthThrough ∀ (n: Nat): (1 ..= n).length = n := ?
+   │                                                           ┬  
+   │                                                           ╰── n: Nat
+   │                                                               ⊢ (1 ..= n).length = n
 ───╯
 [GOAL] Goal: in `lengthUpTo`
-   ╭─[ goals/ranges.sw:8:62 ]
+   ╭─[ goals/ranges.sw:8:64 ]
    │
- 8 │ theorem lengthUpTo (n: Nat): (0 ..< n + 1).length = n + 1 := ?
-   │                                                              ┬  
-   │                                                              ╰── n: Nat
-   │                                                                  ⊢ (0 ..= n).length = n + 1
+ 8 │ theorem lengthUpTo ∀ (n: Nat): (0 ..< n + 1).length = n + 1 := ?
+   │                                                                ┬  
+   │                                                                ╰── n: Nat
+   │                                                                    ⊢ (0 ..= n).length = n + 1
 ───╯
 [GOAL] Goal: in `members`
-    ╭─[ goals/ranges.sw:10:44 ]
+    ╭─[ goals/ranges.sw:10:46 ]
     │
- 10 │ theorem members (x n: Nat): x ∈ 2 ..< n := ?
-    │                                            ┬  
-    │                                            ╰── x: Nat
-    │                                                n: Nat
-    │                                                ⊢ x ∈ 2 ..< n
+ 10 │ theorem members ∀ (x n: Nat): x ∈ 2 ..< n := ?
+    │                                              ┬  
+    │                                              ╰── x: Nat
+    │                                                  n: Nat
+    │                                                  ⊢ x ∈ 2 ..< n
     │ 
     │ Note: this statement is false; a counterexample:
     │         x = 0
@@ -33,10 +33,10 @@ expression: output
     │       `x ∈ 2 ..< n` is false
 ────╯
 [GOAL] Goal: in `pairs`
-    ╭─[ goals/ranges.sw:12:50 ]
+    ╭─[ goals/ranges.sw:12:52 ]
     │
- 12 │ theorem pairs (n: Nat): 1 ..= n = 1 ..< n + 1 := ?
-    │                                                  ┬  
-    │                                                  ╰── n: Nat
-    │                                                      ⊢ 1 ..= n = 1 ..= n
+ 12 │ theorem pairs ∀ (n: Nat): 1 ..= n = 1 ..< n + 1 := ?
+    │                                                    ┬  
+    │                                                    ╰── n: Nat
+    │                                                        ⊢ 1 ..= n = 1 ..= n
 ────╯

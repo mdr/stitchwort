@@ -340,6 +340,19 @@ pub(crate) fn replace_with(
     go_replace(g, term, depth, 0, f, hook, &|_| Ok(None))
 }
 
+/// [`replace_with`] on `term` found under `under` binders of its own, for a
+/// hook that rebuilds a node and replaces inside its parts.
+pub(crate) fn replace_with_under(
+    g: &Ev,
+    term: &Term,
+    depth: usize,
+    under: usize,
+    f: &dyn Fn(usize) -> Result<Term>,
+    hook: &dyn Fn(&Term, usize) -> Option<Term>,
+) -> Result<Term> {
+    go_replace(g, term, depth, under, f, hook, &|_| Ok(None))
+}
+
 /// [`replace`], where a variable applied to arguments, at a level that
 /// `head` gives a type for (a term in the target context), is replaced
 /// annotated with that type: for a variable whose replacement is a value
@@ -365,109 +378,201 @@ fn go_replace(
     hook: &dyn Fn(&Term, usize) -> Option<Term>,
     head: &dyn Fn(usize) -> Result<Option<Term>>,
 ) -> Result<Term> {
-    g.machine.budget.nesting(crate::check::PASS)?;
-    if let Some(t) = hook(term, under) {
-        return Ok(t);
+    Replace {
+        g,
+        depth,
+        f,
+        hook,
+        head,
     }
-    let go = |t: &Rc<Term>, under| go_replace(g, t, depth, under, f, hook, head).map(Rc::new);
-    let var = |ix: usize| -> Result<Term> {
+    .go(term, under)
+}
+
+/// What [`go_replace`] does at each sub-term. It recurses once per level of
+/// the term, and a term read back from a normal form can be hundreds of
+/// levels deep (a `match` generalised over a goal that mentions a list of
+/// 100 numbers computed out), so the frame of [`Replace::go`] is kept small:
+/// an application's spine is one frame, and the rarer forms are rebuilt in
+/// [`Replace::other`]. In the playground the whole check must fit a stack of
+/// 320 KiB (`crates/web/build.rs`).
+struct Replace<'a> {
+    g: &'a Ev<'a>,
+    depth: usize,
+    f: &'a dyn Fn(usize) -> Result<Term>,
+    hook: &'a dyn Fn(&Term, usize) -> Option<Term>,
+    head: &'a dyn Fn(usize) -> Result<Option<Term>>,
+}
+
+impl Replace<'_> {
+    /// `term`, under `under` binders of its own, with its free variables
+    /// replaced.
+    fn go(&self, term: &Term, under: usize) -> Result<Term> {
+        self.g.machine.budget.nesting(crate::check::PASS)?;
+        if let Some(t) = (self.hook)(term, under) {
+            return Ok(t);
+        }
+        let go = |t: &Rc<Term>, under| self.go(t, under).map(Rc::new);
+        Ok(match term {
+            // Returned as they are, so that the call can take this frame's
+            // place.
+            Term::App(..) => return self.app(term, under),
+            Term::Var(ix) => self.var(*ix, under)?,
+            Term::Def(_)
+            | Term::Nat(_)
+            | Term::Chars(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_) => term.clone(),
+            Term::Data(d, args) => Term::Data(*d, self.all(args, under)?),
+            Term::Ctor(d, c, args) => Term::Ctor(*d, *c, self.all(args, under)?),
+            Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, under)?, go(b, under + 1)?),
+            Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
+            Term::Loc(span, t) => Term::Loc(*span, go(t, under)?),
+            _ => return self.other(term, under),
+        })
+    }
+
+    /// The level of the free variable `ix`, under `under` binders, in a
+    /// context of `depth` variables: `ix >= under` must be one of them.
+    fn level(&self, ix: usize, under: usize) -> usize {
+        let depth = self.depth;
+        debug_assert!(
+            ix < depth + under,
+            "lifting: free de Bruijn index {ix} is out of range for a context of {depth} \
+             variables under {under} binders (it must be less than {depth} + {under})"
+        );
+        depth - 1 - (ix - under)
+    }
+
+    fn var(&self, ix: usize, under: usize) -> Result<Term> {
         if ix < under {
             return Ok(Term::Var(ix));
         }
-        Ok(f(depth - 1 - (ix - under))?.shift(g, under, 0)?)
-    };
-    let split = |ix: usize| -> Result<usize> {
-        match var(ix)? {
-            Term::Var(new) => Ok(new),
-            _ => Err(Diagnostic::error(
-                "E-MALFORMED",
-                "internal error: lifting replaced a case split's variable",
-            )),
+        Ok((self.f)(self.level(ix, under))?.shift(self.g, under, 0)?)
+    }
+
+    fn all(&self, args: &[Rc<Term>], under: usize) -> Result<Vec<Rc<Term>>> {
+        let mut out = Vec::with_capacity(args.len());
+        for a in args {
+            out.push(Rc::new(self.go(a, under)?));
         }
-    };
-    Ok(match term {
-        Term::Var(ix) => var(*ix)?,
-        Term::Def(_)
-        | Term::Nat(_)
-        | Term::Chars(_)
-        | Term::Sort(_)
-        | Term::Refl
-        | Term::Meta(_) => term.clone(),
-        Term::Data(d, args) => Term::Data(
-            *d,
-            args.iter().map(|a| go(a, under)).collect::<Result<_>>()?,
-        ),
-        Term::Ctor(d, c, args) => Term::Ctor(
-            *d,
-            *c,
-            args.iter().map(|a| go(a, under)).collect::<Result<_>>()?,
-        ),
-        Term::Pi(x, i, a, b) => Term::Pi(x.clone(), *i, go(a, under)?, go(b, under + 1)?),
-        Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
-        Term::App(h, a, i) => {
-            let h = match h.strip_loc() {
-                Term::Var(ix) if *ix >= under => match head(depth - 1 - (ix - under))? {
-                    Some(ty) => Rc::new(Term::Ann(
-                        Rc::new(var(*ix)?),
-                        Rc::new(ty.shift(g, under, 0)?),
-                    )),
-                    None => go(h, under)?,
-                },
-                _ => go(h, under)?,
+        Ok(out)
+    }
+
+    /// An application `h a1 … an`, its spine in one frame: each application
+    /// along it is visited, and offered to the hook, as [`Replace::go`]
+    /// visits a term, outermost first; then the head, then the arguments in
+    /// order.
+    fn app(&self, term: &Term, under: usize) -> Result<Term> {
+        // The arguments, last first.
+        let mut args: smallvec::SmallVec<[(&Rc<Term>, Icit); 8]> = smallvec::SmallVec::new();
+        let mut node = term;
+        let head = loop {
+            let Term::App(h, a, i) = node else {
+                unreachable!("an application")
             };
-            Term::App(h, go(a, under)?, *i)
+            args.push((a, *i));
+            if let Term::App(..) = &**h {
+                self.g.machine.budget.nesting(crate::check::PASS)?;
+                if let Some(t) = (self.hook)(h, under) {
+                    break t;
+                }
+                node = h;
+                continue;
+            }
+            // A variable applied to arguments, which `head` may annotate.
+            break match h.strip_loc() {
+                Term::Var(ix) if *ix >= under => match (self.head)(self.level(*ix, under))? {
+                    Some(ty) => Term::Ann(
+                        Rc::new(self.var(*ix, under)?),
+                        Rc::new(ty.shift(self.g, under, 0)?),
+                    ),
+                    None => self.go(h, under)?,
+                },
+                _ => self.go(h, under)?,
+            };
+        };
+        let mut term = head;
+        for (a, i) in args.into_iter().rev() {
+            term = Term::App(Rc::new(term), Rc::new(self.go(a, under)?), i);
         }
-        Term::Ann(e, t) => Term::Ann(go(e, under)?, go(t, under)?),
-        Term::Let(x, a, v, b, e) => Term::Let(
-            x.clone(),
-            go(a, under)?,
-            go(v, under)?,
-            go(b, under + 1)?,
-            *e,
-        ),
-        Term::Case(ix, d, branches) => Term::Case(
-            split(*ix)?,
-            *d,
-            branches
-                .iter()
-                .map(|b| {
-                    Ok(Branch {
-                        names: b.names.clone(),
-                        body: b
-                            .body
-                            .as_ref()
-                            .map(|body| go(body, under + b.names.len()))
-                            .transpose()?,
+        Ok(term)
+    }
+
+    /// [`Replace::go`] of the forms it doesn't rebuild itself.
+    #[inline(never)]
+    fn other(&self, term: &Term, under: usize) -> Result<Term> {
+        let go = |t: &Rc<Term>, under| self.go(t, under).map(Rc::new);
+        let split = |ix: usize| -> Result<usize> {
+            match self.var(ix, under)? {
+                Term::Var(new) => Ok(new),
+                _ => Err(Diagnostic::error(
+                    "E-MALFORMED",
+                    "internal error: lifting replaced a case split's variable",
+                )),
+            }
+        };
+        Ok(match term {
+            Term::Ann(e, t) => Term::Ann(go(e, under)?, go(t, under)?),
+            Term::Let(x, a, v, b, e) => Term::Let(
+                x.clone(),
+                go(a, under)?,
+                go(v, under)?,
+                go(b, under + 1)?,
+                *e,
+            ),
+            Term::Case(ix, d, branches) => Term::Case(
+                split(*ix)?,
+                *d,
+                branches
+                    .iter()
+                    .map(|b| {
+                        Ok(Branch {
+                            names: b.names.clone(),
+                            body: b
+                                .body
+                                .as_ref()
+                                .map(|body| go(body, under + b.names.len()))
+                                .transpose()?,
+                        })
                     })
-                })
-                .collect::<Result<_>>()?,
-        ),
-        Term::NumCase(ix, arms, default) => Term::NumCase(
-            split(*ix)?,
-            arms.iter()
-                .map(|a| {
-                    Ok(NumArm {
-                        value: a.value.clone(),
-                        body: go(&a.body, under)?,
+                    .collect::<Result<_>>()?,
+            ),
+            Term::NumCase(ix, arms, default) => Term::NumCase(
+                split(*ix)?,
+                arms.iter()
+                    .map(|a| {
+                        Ok(NumArm {
+                            value: a.value.clone(),
+                            body: go(&a.body, under)?,
+                        })
                     })
-                })
-                .collect::<Result<_>>()?,
-            go(default, under)?,
-        ),
-        Term::Eq(t, a, b) => Term::Eq(
-            t.as_ref().map(|t| go(t, under)).transpose()?,
-            go(a, under)?,
-            go(b, under)?,
-        ),
-        Term::J(m, b, p) => Term::J(go(m, under)?, go(b, under)?, go(p, under)?),
-        Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, under)?),
-        Term::Quot(form, args, e) => Term::Quot(
-            *form,
-            args.iter().map(|a| go(a, under)).collect::<Result<_>>()?,
-            *e,
-        ),
-        Term::Loc(span, t) => Term::Loc(*span, go(t, under)?),
-    })
+                    .collect::<Result<_>>()?,
+                go(default, under)?,
+            ),
+            Term::Eq(t, a, b) => Term::Eq(
+                t.as_ref().map(|t| go(t, under)).transpose()?,
+                go(a, under)?,
+                go(b, under)?,
+            ),
+            Term::J(m, b, p) => Term::J(go(m, under)?, go(b, under)?, go(p, under)?),
+            Term::Proj(d, i, t) => Term::Proj(*d, *i, go(t, under)?),
+            Term::Quot(form, args, e) => Term::Quot(*form, self.all(args, under)?, *e),
+            Term::Var(_)
+            | Term::Def(_)
+            | Term::Nat(_)
+            | Term::Chars(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Meta(_)
+            | Term::Data(..)
+            | Term::Ctor(..)
+            | Term::Pi(..)
+            | Term::Lam(..)
+            | Term::App(..)
+            | Term::Loc(..) => unreachable!("rebuilt by `Replace::go`"),
+        })
+    }
 }
 
 /// The levels of the free variables of `term`, in a context of `depth`
@@ -622,10 +727,14 @@ impl Elaborator {
         // (`queue.rs`, W2).
         self.resume_before_lifting()?;
         if self.attempt.drafts.borrow().is_empty() {
+            self.assume_goals();
             return Ok(Vec::new());
         }
         self.solve_obligations()?;
         self.check_motives_later()?;
+        // Before the helpers are made: a goal in one is then its call of
+        // the assumption, which lifts like any other term.
+        self.assume_goals();
         let drafts = std::mem::take(&mut *self.attempt.drafts.borrow_mut());
         Ok(self.resolve_batch(owner, drafts, join)?.0)
     }
@@ -771,7 +880,7 @@ impl Elaborator {
                 }
                 self.metas().solve_meta(d.meta, eval(g, &[], &call)?);
                 if let Some(item) = self.unit.module.item {
-                    self.unit.module.def_items.insert(id, item);
+                    self.unit.module.note_def(id, item);
                 }
                 match &d.local {
                     Some(local) => {
@@ -809,11 +918,9 @@ impl Elaborator {
             let mut bodies = Vec::new();
             for &(i, id) in &members {
                 let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
-                bodies.push((id, self.lifted_helper_body(id, &lam)?));
+                bodies.push((id, lam));
                 if let Some(run) = self.run_body(&drafts[i], &ordered[i])? {
-                    self.decl
-                        .pending_run_bodies
-                        .push((id, self.settle_tagged(&run)?));
+                    self.decl.pending_run_bodies.push((id, run));
                 }
             }
             let ids: HashSet<DefId> = members.iter().map(|(_, id)| *id).collect();
@@ -1082,7 +1189,7 @@ impl Elaborator {
                     // uses by a constructor whose fields are bound after the
                     // `let`: then the normal form is in a context that has
                     // them.
-                    let forms = crate::unify::both_forms(g, n, &draft.env[l])?;
+                    let forms = crate::unify::value_forms(g, n, &draft.env[l])?;
                     let mut free = BTreeSet::new();
                     for form in &forms {
                         uses(form, n, &|_| None, &mut free);
@@ -1623,21 +1730,34 @@ impl Elaborator {
             }
         }
         // Longest first, so `f.%match1` isn't found inside `f.%match10`.
-        let mut lifted: Vec<(String, Span)> = self
+        let mut lifted: Vec<(String, Span, DefId)> = self
             .tables
             .lifted
             .iter()
-            .map(|&(id, span)| (self.kernel.def(id).name().to_string(), span))
+            .map(|&(id, span)| (self.kernel.def(id).name().to_string(), span, id))
             .collect();
-        lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+        lifted.sort_by_key(|(name, _, _)| std::cmp::Reverse(name.len()));
+        let printed = self.printed_matches(&d);
         let mut owners: Vec<String> = Vec::new();
         // How many different generated helpers the message mentions inline:
         // each prints as `(match …)`, so two of them look like one.
         let mut inline_helpers = 0;
-        for (bare, span) in lifted {
+        for (bare, span, id) in lifted {
             let mentioned = d.message.contains(&bare)
                 || d.labels.iter().any(|l| l.message.contains(&bare))
                 || d.notes.iter().any(|n| n.contains(&bare));
+            if !mentioned && printed.contains(&id) {
+                // Shown by the printer as `(match s with …)`: nothing to
+                // reword.
+                inline_helpers += 1;
+                if let Some((owner, _)) = bare.rsplit_once(".%match")
+                    && !owners.iter().any(|o| o == owner)
+                {
+                    owners.push(owner.to_string());
+                }
+                d = d.with_label(span, "this `match`");
+                continue;
+            }
             if !mentioned {
                 continue;
             }
@@ -1702,6 +1822,36 @@ impl Elaborator {
         self.explain_tuple_match(d)
     }
 
+    /// The lifted `match` helpers whose calls the printer showed as
+    /// `(match s with …)` ([`Shown::note_match_shown`]) in `d`'s text: a
+    /// text it made names its helper. Where one text stands for several
+    /// helpers, the latest ones, as many as the text occurs.
+    fn printed_matches(&self, d: &Diagnostic) -> Vec<DefId> {
+        let texts: Vec<&str> = std::iter::once(d.message.as_str())
+            .chain(d.labels.iter().map(|l| l.message.as_str()))
+            .chain(d.notes.iter().map(String::as_str))
+            .collect();
+        let shown = self.decl.matches_shown.borrow();
+        let mut found = Vec::new();
+        let mut done: Vec<&str> = Vec::new();
+        for (text, _) in shown.iter() {
+            if done.contains(&text.as_str()) {
+                continue;
+            }
+            done.push(text);
+            let occurrences: usize = texts.iter().map(|t| t.matches(text.as_str()).count()).sum();
+            found.extend(
+                shown
+                    .iter()
+                    .rev()
+                    .filter(|(t, _)| t == text)
+                    .take(occurrences)
+                    .map(|(_, id)| *id),
+            );
+        }
+        found
+    }
+
     /// A termination error at a call inside `match (xs, n) with` (SW-941):
     /// the pieces its patterns bind come from the tuple, so they aren't seen
     /// as parts of `xs` or `n`. Matching the variables themselves,
@@ -1737,5 +1887,73 @@ impl Elaborator {
             d.notes.insert(0, note);
         }
         d
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `x a1 … an` for the variable `x` at index `x`, each argument `Var(0)`
+    /// under one binder (`a => …`) of its own.
+    fn spine(x: usize, n: usize) -> Term {
+        (0..n).fold(Term::Var(x), |t, _| {
+            Term::app(
+                t,
+                Term::Lam("a".into(), Icit::Explicit, Rc::new(Term::Var(0))),
+            )
+        })
+    }
+
+    /// An application's spine is rebuilt in one loop, not a level of the
+    /// Rust stack per argument: 100,000 arguments (SW-3133).
+    #[test]
+    fn replace_rebuilds_a_long_spine_in_a_loop() {
+        let kernel = stitchwort_core::Kernel::default();
+        let g = &kernel.ev();
+        let n = 100_000;
+        let replaced = replace(g, &spine(0, n), 1, &|_| Ok(Term::Sort(Sort::Prop))).unwrap();
+        let (head, args) = replaced.spine();
+        assert!(matches!(head, Term::Sort(Sort::Prop)), "{head:?}");
+        assert_eq!(args.len(), n);
+        assert!(
+            args.iter()
+                .all(|a| matches!(a, Term::Lam(_, _, b) if matches!(**b, Term::Var(0))))
+        );
+    }
+
+    /// Along a spine, the hook is offered each application, outermost
+    /// first, and what it gives replaces that part whole; a variable applied
+    /// at the head is annotated with the type `head` gives.
+    #[test]
+    fn replace_offers_each_application_of_a_spine_to_the_hook() {
+        let kernel = stitchwort_core::Kernel::default();
+        let g = &kernel.ev();
+        let offered = std::cell::RefCell::new(Vec::new());
+        let hook = |t: &Term, _: usize| {
+            let (_, args) = t.spine();
+            offered.borrow_mut().push(args.len());
+            (args.len() == 2).then_some(Term::Nat(Rc::new(7u32.into())))
+        };
+        let to_prop = |_| Ok(Term::Sort(Sort::Prop));
+        let replaced = replace_with(g, &spine(0, 4), 1, &to_prop, &hook).unwrap();
+        let (head, args) = replaced.spine();
+        assert!(matches!(head, Term::Nat(_)), "{head:?}");
+        assert_eq!(args.len(), 2);
+        // The applications, outermost first, down to the one the hook
+        // replaces.
+        assert_eq!(offered.borrow()[..3], [4, 3, 2]);
+
+        let annotated = replace_annotating_heads(g, &spine(0, 3), 1, &to_prop, &|_| {
+            Ok(Some(Term::Sort(Sort::Type(0))))
+        })
+        .unwrap();
+        let (head, args) = annotated.spine();
+        assert!(
+            matches!(head, Term::Ann(e, t) if matches!(**e, Term::Sort(Sort::Prop))
+                && matches!(**t, Term::Sort(Sort::Type(0)))),
+            "{head:?}"
+        );
+        assert_eq!(args.len(), 3);
     }
 }

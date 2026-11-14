@@ -6,9 +6,7 @@
 -- run: areas [Square 1, Rect 2 3]
 -- run: grow (Rect 2 5)
 
-type Shape: Type =
-  | Square (side: Nat)
-  | Rect (width: Nat) (height: Nat)
+type Shape: Type = | Square (side: Nat) | Rect (width: Nat) (height: Nat)
 
 export def area: Shape → Nat
   | Square s => s * s

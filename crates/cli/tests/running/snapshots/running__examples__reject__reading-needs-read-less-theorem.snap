@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/reading-needs-read-less-theorem.sw:7:60 ]
+   │
+ 7 │ theorem earlier (m n: Nat) (h: (m <= n) = False): n < m := h
+   │                                                            ┬  
+   │                                                            ╰── expected `n < m`, but this has type `(m <= n) = False`
+   │ 
+   │ Note: this is the test fact `(m <= n) = False`, which reads as `n < m`: add `.read` to use it as that
+───╯

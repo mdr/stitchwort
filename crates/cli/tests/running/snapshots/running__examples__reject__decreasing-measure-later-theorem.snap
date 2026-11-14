@@ -1,0 +1,19 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-MUTUAL-SIGNATURE] Error: `evensNil`'s type mentions `evens`, which is defined together with it
+    ╭─[ reject/decreasing-measure-later-theorem.sw:15:28 ]
+    │
+  7 │ def evens (n: Nat): List Nat
+    │     ──┬──  
+    │       ╰──── `evens` is defined here
+    │ 
+ 15 │ theorem evensNil (n: Nat): evens n = Nil := rfl
+    │                            ──┬──  
+    │                              ╰──── `evens` is used here, in `evensNil`'s type
+    │ 
+    │ Note 1: they're checked together because `evens` uses `evensNil`
+    │ 
+    │ Note 2: a definition's type can only mention definitions that are finished before it, and definitions that call each other are finished together; move what the type needs out of the cycle
+────╯

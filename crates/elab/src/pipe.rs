@@ -118,7 +118,12 @@ fn lambda(cx: &mut Ctx, f: &Expr, piped: Piped) -> Result<(Term, Value)> {
         env: cx.env.as_slice().into(),
         body: Rc::new(cod),
     };
-    let pi = Value::Pi(name, Icit::Explicit, Rc::new(piped.ty.clone()), cod.clone());
+    let pi = Value::Pi(
+        name,
+        Icit::Explicit,
+        Rc::new(piped.ty.clone()).into(),
+        cod.clone(),
+    );
     let lam = check(cx, f, &pi)?;
     let ty = cod.apply(&g, cx.eval(&piped.term)?)?;
     // Annotated for the kernel, which doesn't infer a lambda's type.

@@ -12,6 +12,9 @@ def apply (f: a → Nat) (v: a): Nat := f v
 
 -- `r`'s type is fixed by the later argument `p`.
 def later (b: Bool) (q: two 2 rfl b = 2) (p: P): Nat :=
-  apply (r => match List.length [r.x, r.x] with
-    | Zero => 0
-    | Succ k => k) p
+  apply
+    (r =>
+      match List.length [r.x, r.x] with
+        | Zero => 0
+        | Succ k => k)
+    p

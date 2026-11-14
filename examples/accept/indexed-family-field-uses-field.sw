@@ -9,5 +9,5 @@ type Holds (p: Nat → Prop): Option Nat → Prop =
   | HoldsNone: Holds p None
   | HoldsSome (x: Nat) (holds: p x): Holds p (Some x)
 
-theorem holdsSome (p: Nat → Prop) (x: Nat): Holds p (Some x) → p x
+theorem holdsSome ∀ (p: Nat → Prop) (x: Nat): Holds p (Some x) → p x
   | HoldsSome _ holds => holds

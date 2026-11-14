@@ -15,12 +15,14 @@
 use stitchwort_test_alloc as _;
 
 pub mod alloc_trace;
+pub mod borrow;
 pub mod call_counts;
 pub mod cell_cache;
 pub mod census;
 pub mod clauses;
 pub mod code;
 pub mod codec;
+pub mod dispatch;
 pub mod effect;
 pub mod erasure;
 pub mod fusion;
@@ -56,6 +58,6 @@ pub use machine::Machine;
 pub use run::{
     Advanced, Executor, LimitScope, LiveLimits, LiveRun, Outcome, Policy, RouteCounts, run_main,
     run_main_counting, run_main_counting_on, run_main_native, run_main_on, run_main_profiling_on,
-    run_main_with, run_partial,
+    run_main_with, run_partial, run_partial_on,
 };
 pub use shared::Limits;

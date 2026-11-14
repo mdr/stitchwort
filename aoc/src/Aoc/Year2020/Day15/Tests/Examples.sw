@@ -10,7 +10,8 @@ def spoken (input: Text) (turn: Nat): Result Nat Text := (parsed input).map (sta
 
 test "the example's starting numbers" := (parsed "0,3,6\n").map (starting => starting.numbers.toList) == Ok [0, 3, 6]
 
-test "the example's first ten turns" := (parsed "0,3,6").map (starting => (1 ..= 10).map starting.numberSpoken) == Ok [0, 3, 6, 0, 3, 3, 1, 0, 4, 0]
+test "the example's first ten turns" :=
+  (parsed "0,3,6").map (starting => (1 ..= 10).map starting.numberSpoken) == Ok [0, 3, 6, 0, 3, 3, 1, 0, 4, 0]
 
 test "turn 0 says nothing" := spoken "0,3,6" 0 == Ok 0
 

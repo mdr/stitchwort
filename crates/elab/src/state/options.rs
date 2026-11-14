@@ -35,8 +35,18 @@ pub struct Options {
     /// ([`crate::Elaborator::glued`]), never while it is checked by the
     /// kernel or run.
     pub glue: bool,
+    /// Whether a declaration that fails where a test fact is expected and
+    /// a proof of its reading is given is checked again with the fact
+    /// built there (`build.rs`, docs/proposals/bool-as-proposition-building.md):
+    /// on unless `STITCHWORT_BUILD=0`, which gives the behaviour from
+    /// before, for comparison.
+    pub build: bool,
     /// For tests: the instance step budget, instead of the default.
     pub instance_budget: Option<usize>,
+    /// For tests: the evaluation steps after which a declaration still
+    /// checking is first reported (`progress.rs`), instead of
+    /// [`stitchwort_core::budget::PROGRESS_FIRST`].
+    pub progress_after: Option<u64>,
     /// For tests: `+ * < <=` on `Nat` and `Int` always find their
     /// dictionary and project its field, instead of building the term the
     /// projection would give directly when no dictionary of the interface is
@@ -78,6 +88,10 @@ pub struct Options {
     pub counterexample_runner: Option<counterexample::FastRunner>,
     /// For tests: no counterexample search when a theorem fails.
     pub no_counterexamples: bool,
+    /// For tests: keep each failure-time search's log in
+    /// `Presentation::counterexample_log`. Off otherwise, since a kept
+    /// session would grow it with every request (SW-1818).
+    pub log_counterexamples: bool,
     /// Searches stop at their count of inputs, never at their wall-time
     /// limit: for the benchmarks, whose counts must be the same on every
     /// run (a timed search tries as many inputs as the machine manages), and
@@ -96,12 +110,14 @@ pub struct Options {
 impl Options {
     /// The options a new elaborator starts with: glued evaluation
     /// (docs/proposals/folded-calls.md) is on while elaborating, and
-    /// `STITCHWORT_GLUE=0` turns it off, for comparison;
+    /// `STITCHWORT_GLUE=0` turns it off, for comparison; building test
+    /// facts is on unless `STITCHWORT_BUILD=0`;
     /// `STITCHWORT_UNTIMED_COUNTEREXAMPLES=1` (set for the workspace's
     /// tests by `.cargo/config.toml`) is `untimed_counterexamples`.
     pub(crate) fn from_env() -> Options {
         Options {
             glue: std::env::var("STITCHWORT_GLUE").map_or(true, |v| v != "0"),
+            build: std::env::var("STITCHWORT_BUILD").map_or(true, |v| v != "0"),
             untimed_counterexamples: std::env::var("STITCHWORT_UNTIMED_COUNTEREXAMPLES")
                 .is_ok_and(|v| v == "1"),
             ..Options::default()
@@ -120,6 +136,7 @@ impl Options {
             instance_budget,
             uniform_operators,
             glue,
+            build,
             // Not usable with the library test target (`cache_usable`).
             library_tests: _,
             // Where entries are kept, and a test's way of making replays fail.
@@ -134,17 +151,20 @@ impl Options {
             skip_theorems: _,
             // Caches only save work.
             clear_caches_per_declaration: _,
+            // Notes said while checking, not what is checked.
+            progress_after: _,
             // Counterexample searches only run when a theorem fails, and
             // a library file's don't.
             counterexample_runner: _,
             no_counterexamples: _,
+            log_counterexamples: _,
             untimed_counterexamples: _,
             // Only for a changed prelude, which is checked from source.
             #[cfg(feature = "test-bypass")]
                 stale_pins_fall_back: _,
         } = self;
         format!(
-            "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} glue {}",
+            "succ {} limits {} {} {} {} rewrite {:?} instances {:?} uniform {} glue {} build {}",
             numbers_as_succ,
             limits.work,
             limits.stack,
@@ -154,6 +174,7 @@ impl Options {
             instance_budget,
             uniform_operators,
             glue,
+            build,
         )
     }
 }

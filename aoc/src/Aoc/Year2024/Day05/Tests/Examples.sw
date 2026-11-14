@@ -49,8 +49,8 @@ test "example, part 2" := solvePart2 exampleQueue == 123
 test "example, which updates are in order" :=
   exampleQueue.updates.map (update => inOrder examplePrecedes update.pages) == [True, True, True, False, False, False]
 test "example, reordered" :=
-  exampleQueue.updates.map (update => (update.reorder examplePrecedes).pages) |> .drop 3 ==
-    [[97, 75, 47, 61, 53], [61, 29, 13], [97, 75, 47, 29, 13]]
+  exampleQueue.updates.map (update => (update.reorder examplePrecedes).pages) |> .drop 3
+    == [[97, 75, 47, 61, 53], [61, 29, 13], [97, 75, 47, 29, 13]]
 test "example, middle pages" := exampleQueue.updates.map .middlePage == [61, 53, 29, 47, 13, 75]
 
 test "parse" := parsed """
@@ -59,19 +59,30 @@ test "parse" := parsed """
 
   1,2,3
   4
-  """ ==
-  Ok ({ rules = [{ before = 1, after = 2 }, { before = 3, after = 4 }], updates = [{ pages = [1, 2, 3] }, { pages = [4] }] }: PrintQueue)
-test "parse without a final line break" := parsed "1|2\n\n1,2,3" ==
-  Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2, 3] }] }: PrintQueue)
-test "a bad rule" := parsed "1|2\n3x4\n\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
-test "a rule with no second page" := parsed "1|2\n3|\n\n1,2\n" == Err "line 2, column 3: expected a number or a blank line before this line, got the end of the line"
+  """
+  == Ok
+    ({
+      rules = [{ before = 1, after = 2 }, { before = 3, after = 4 }],
+      updates = [{ pages = [1, 2, 3] }, { pages = [4] }]
+    }: PrintQueue)
+test "parse without a final line break" :=
+  parsed "1|2\n\n1,2,3" == Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2, 3] }] }: PrintQueue)
+test "a bad rule" :=
+  parsed "1|2\n3x4\n\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
+test "a rule with no second page" :=
+  parsed "1|2\n3|\n\n1,2\n"
+    == Err "line 2, column 3: expected a number or a blank line before this line, got the end of the line"
 test "a bad update" := parsed "1|2\n\n1,2\n3,x\n" == Err "line 4, column 3: expected a number, got 'x'"
-test "a bad separator in an update" := parsed "1|2\n\n1,2\n3;4\n" == Err "line 4, column 2: expected ',' or the end of the line, got ';'"
-test "a rule among the updates" := parsed "1|2\n\n1,2\n3|4\n" == Err "line 4, column 2: expected ',' or the end of the line, got '|'"
-test "no blank line" := parsed "1|2\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got ','"
+test "a bad separator in an update" :=
+  parsed "1|2\n\n1,2\n3;4\n" == Err "line 4, column 2: expected ',' or the end of the line, got ';'"
+test "a rule among the updates" :=
+  parsed "1|2\n\n1,2\n3|4\n" == Err "line 4, column 2: expected ',' or the end of the line, got '|'"
+test "no blank line" :=
+  parsed "1|2\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got ','"
 test "no updates" := parsed "1|2\n\n" == Err "line 3, column 1: expected a number, got the end of the input"
 test "two blank lines" := parsed "1|2\n\n\n1,2\n" == Err "line 3, column 1: expected a number, got the end of the line"
-test "blank lines at the end" := parsed "1|2\n\n1,2\n\n\n" == Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2] }] }: PrintQueue)
+test "blank lines at the end" :=
+  parsed "1|2\n\n1,2\n\n\n" == Ok ({ rules = [{ before = 1, after = 2 }], updates = [{ pages = [1, 2] }] }: PrintQueue)
 
 def precedesIn (rules: List Rule): Nat → Nat → Bool := mustPrecede (ruleSet rules)
 
@@ -84,7 +95,11 @@ test "a rule about a missing page" := inOrder (precedesIn [{ before = 1, after =
 test "one page" := inOrder (precedesIn [{ before = 1, after = 1 }]) [1]
 test "no pages" := inOrder (precedesIn [{ before = 1, after = 2 }]) []
 test "reorder: a chain" :=
-  (Update.reorder { pages = [1, 2, 3] } (precedesIn [{ before = 3, after = 2 }, { before = 2, after = 1 }, { before = 3, after = 1 }])).pages == [3, 2, 1]
-test "reorder: pages no rule mentions keep their order" := (Update.reorder { pages = [5, 4, 6] } (precedesIn [])).pages == [5, 4, 6]
+  (Update.reorder
+    { pages = [1, 2, 3] }
+    (precedesIn [{ before = 3, after = 2 }, { before = 2, after = 1 }, { before = 3, after = 1 }])).pages
+    == [3, 2, 1]
+test "reorder: pages no rule mentions keep their order" :=
+  (Update.reorder { pages = [5, 4, 6] } (precedesIn [])).pages == [5, 4, 6]
 test "middle of one page" := Update.middlePage { pages = [7] } == 7
 test "middle of three" := Update.middlePage { pages = [1, 2, 3] } == 2

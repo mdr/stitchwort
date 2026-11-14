@@ -9,34 +9,51 @@ import Aoc.Year2020.Day17 (..)
 import Aoc.Year2020.Day17 (Spec)
 import Std (Eq, Exists, Fail, List, Nat, Result, Set, Text)
 
-theorem startsUnique (slice: Slice) (dimensions: Nat) (one: Set Cube) (other: Set Cube)
-    (starts: Spec.Starts slice dimensions one) (alsoStarts: Spec.Starts slice dimensions other): one = other :=
-  Set.extIff one other (cube => {
-    forward = there => (alsoStarts cube).backward ((starts cube).forward there),
-    backward = there => (starts cube).backward ((alsoStarts cube).forward there)
-  })
+theorem startsUnique ∀ (slice: Slice) (dimensions: Nat) (one other: Set Cube)
+    (starts: Spec.Starts slice dimensions one)
+    (alsoStarts: Spec.Starts slice dimensions other):
+    one = other :=
+  Set.extIff one other (cube =>
+    {
+      forward = there => (alsoStarts cube).backward ((starts cube).forward there),
+      backward = there => (starts cube).backward ((alsoStarts cube).forward there)
+    })
 
-theorem cyclesUnique: (count: Nat) → (start: Set Cube) → (one: Set Cube) → (other: Set Cube) →
-    Spec.Cycles count start one → Spec.Cycles count start other → one = other
-  | Zero, start, one, other, same, alsoSame => Eq.trans same (Eq.sym alsoSame)
-  | Succ more, start, one, other, Witness next (Both cycle rest), Witness alsoNext (Both alsoCycle alsoRest) =>
-    let nextSame: next = alsoNext := Set.ext next alsoNext (cube => Eq.trans (cycle cube) (Eq.sym (alsoCycle cube)))
-    cyclesUnique more next one other rest (rewrite nextSame in alsoRest)
+theorem cyclesUnique ∀ (count: Nat) (start one other: Set Cube)
+    (same: Spec.Cycles count start one)
+    (alsoSame: Spec.Cycles count start other):
+    one = other :=
+  match count, same, alsoSame with
+    | Zero, same, alsoSame => Eq.trans same (Eq.sym alsoSame)
+    | Succ more, Witness next (Both cycle rest), Witness alsoNext (Both alsoCycle alsoRest) =>
+      let nextSame: next = alsoNext := Set.ext next alsoNext (cube => Eq.trans (cycle cube) (Eq.sym (alsoCycle cube)))
+      cyclesUnique more next one other rest (rewrite nextSame in alsoRest)
 
 --| The spec's answer is the program's and no other.
-theorem answerExactly (slice: Slice) (dimensions: Nat) (answer: Nat):
-    Spec.Answer slice dimensions answer ↔ answer = (slice.pocket dimensions |> .boot |> .activeCount) := {
-  forward = (Witness start (Witness final (Both starts (Both cycled counted)))) =>
-    let startSame := startsUnique slice dimensions start (slice.pocket dimensions).active starts (startsPocket slice dimensions)
-    let finalSame := cyclesUnique 6 (slice.pocket dimensions).active final (slice.pocket dimensions).boot.active
-      (rewrite <- startSame in cycled) (cycles 6 (slice.pocket dimensions))
-    Eq.trans counted (Eq.cong Set.size finalSame),
-  backward = same =>
-    Witness (slice.pocket dimensions).active (Witness (slice.pocket dimensions).boot.active
-      (Both (startsPocket slice dimensions) (Both (cycles 6 (slice.pocket dimensions)) same)))
-}
+theorem answerExactly ∀ (slice: Slice) (dimensions answer: Nat):
+    Spec.Answer slice dimensions answer ↔ answer = (slice.pocket dimensions |> .boot |> .activeCount) :=
+  {
+    forward = (Witness start (Witness final (Both starts (Both cycled counted)))) =>
+      let startSame :=
+        startsUnique slice dimensions start (slice.pocket dimensions).active starts (startsPocket slice dimensions)
+      let finalSame :=
+        cyclesUnique 6
+          (slice.pocket dimensions).active
+          final
+          (slice.pocket dimensions).boot.active
+          (rewrite <- startSame in cycled)
+          (cycles 6 (slice.pocket dimensions))
+      Eq.trans counted (Eq.cong Set.size finalSame),
+    backward = same =>
+      Witness
+        (slice.pocket dimensions).active
+        (Witness
+          (slice.pocket dimensions).boot.active
+          (Both (startsPocket slice dimensions) (Both (cycles 6 (slice.pocket dimensions)) same)))
+  }
 
-theorem correct (input: Text) (slice: Slice) (parsed: Fail.toResult (() => parseSlice input) = Ok slice) (dimensions: Nat) (answer: Nat):
+theorem correct ∀ (input: Text) (slice: Slice)
+    (parsed: Fail.toResult (() => parseSlice input) = Ok slice) (dimensions answer: Nat):
     (List.All2 Spec.RowWritten (input.lines.map Text.toList) slice.grid.rows ∧ slice.grid.Rectangle)
       ∧ (Spec.Answer slice dimensions answer ↔ answer = (slice.pocket dimensions |> .boot |> .activeCount)) :=
   Both (parseWritten input slice parsed) (answerExactly slice dimensions answer)

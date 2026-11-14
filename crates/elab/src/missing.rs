@@ -32,9 +32,30 @@ pub(crate) struct Arm {
     /// The condition of a guarded arm this case is reached through when it
     /// fails, if any: that arm covers nothing.
     pub guard: Option<Span>,
+    /// For the numbers no arm of a number case matches: the message that
+    /// lists the ones that are matched, which says more than a pattern `_`.
+    pub other_numbers: Option<String>,
 }
 
 impl Arm {
+    /// The case of the numbers a number case has no arm for, which `message`
+    /// describes.
+    pub(crate) fn other_numbers(message: String) -> Arm {
+        Arm {
+            definite: true,
+            other_numbers: Some(message),
+            ..Arm::default()
+        }
+    }
+
+    /// The error for this case alone, at the `match` at `span`.
+    pub(crate) fn diagnostic(&self, span: Span) -> Diagnostic {
+        match &self.other_numbers {
+            Some(message) => number_diagnostic(span, message.clone()),
+            None => diagnostic(span, vec![(self.order.clone(), self.pattern.clone())]),
+        }
+    }
+
     /// The case left when the guarded arm whose condition is at `guard`
     /// fails and no row follows it.
     pub(crate) fn through_guard(guard: Span) -> Arm {
@@ -69,6 +90,12 @@ enum Shape {
         c: usize,
         count: usize,
     },
+}
+
+fn number_diagnostic(span: Span, message: String) -> Diagnostic {
+    Diagnostic::error("E-NONEXHAUSTIVE", message.clone())
+        .with_label(span, message)
+        .with_note("add an arm with a variable or `_` in that position")
 }
 
 /// The error for the cases `cases` (each with its place in the tree): one
@@ -214,18 +241,20 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
 }
 
 impl Elaborator {
-    /// The patterns that split a value of the data type named `name`, one
-    /// per constructor, in the form of [`MissingCases::fills`]: a list as
-    /// `[]` and `[_, .._]`, a pair as `(_, _)`, a field with a declared
-    /// name as `‹name›`. The last type of that name is taken, so a program's
-    /// own shadows the library's. `None` for a name that isn't a data type
-    /// here, and for an indexed family (some constructors may not fit).
-    pub fn constructor_patterns(&self, name: &str) -> Option<Vec<String>> {
+    /// The patterns that split a value of data type `d`, one per
+    /// constructor, in the form of [`MissingCases::fills`]: a list as `[]`
+    /// and `[_, .._]`, a pair as `(_, _)`, a field with a declared name as
+    /// `‹name›`. Constructors are written as they resolve at the current
+    /// spot ([`Elaborator::ctor_written`]). `None` for an indexed family
+    /// (some constructors may not fit) and for a proposition.
+    pub fn constructor_patterns(&self, d: DataId) -> Option<Vec<String>> {
         let g = &self.ev();
         let reg = g.env.registry();
-        let d = DataId(g.env.datas().iter().rposition(|d| &**d.name() == name)?);
         let data = g.data(d);
-        if !data.indices().is_empty() || data.ctors().is_empty() {
+        if !data.indices().is_empty()
+            || data.ctors().is_empty()
+            || data.sort() == stitchwort_core::Sort::Prop
+        {
             return None;
         }
         let non_empty = reg.loaded_data(Builtin::NonEmptyList) == Some(d);
@@ -244,7 +273,7 @@ impl Elaborator {
             } else if reg.ctor(Builtin::UnitValue) == here {
                 "()".to_string()
             } else {
-                let mut text = ctor.name.to_string();
+                let mut text = self.ctor_written(d, c);
                 for i in fields {
                     text.push(' ');
                     text.push_str(&hole(&ctor.fields[i].0));
@@ -253,6 +282,37 @@ impl Elaborator {
             });
         }
         Some(out)
+    }
+
+    /// Constructor `c` of `d` as a pattern here can write it: its short
+    /// name when that means it (`S` after `import Sf.Nat (Nat, S)`, or the
+    /// prelude's own), else qualified by its type (`Nat.Succ`, or the type's
+    /// full key), so that a program's own type that shares a name with
+    /// another one is not confused with it.
+    pub(crate) fn ctor_written(&self, d: DataId, c: usize) -> String {
+        let g = &self.ev();
+        let short = g.data(d).ctors()[c].name.to_string();
+        let data_short = g.data(d).name().to_string();
+        let full = format!(
+            "{}.{short}",
+            stitchwort_core::pretty::NameScope::full_name(
+                self,
+                stitchwort_core::pretty::Declaration::Data(d)
+            )
+        );
+        for candidate in [short.clone(), format!("{data_short}.{short}"), full] {
+            if let crate::scope::Resolved::Found {
+                global: crate::Global::Ctor(d2, c2),
+                rest,
+                ..
+            } = self.resolve_any(&candidate)
+                && (d2, c2) == (d, c)
+                && rest.is_empty()
+            {
+                return candidate;
+            }
+        }
+        short
     }
 
     /// Writes into each `Tree::Missing` the pattern row it stands for.
@@ -463,16 +523,40 @@ impl Elaborator {
                 }
             })
             .collect();
+        let written = self.ctor_written(d, c);
         if args.is_empty() {
-            return ctor.name.to_string();
+            return written;
         }
-        let text = format!("{} {}", ctor.name, args.join(" "));
+        let text = format!("{written} {}", args.join(" "));
         if atom { format!("({text})") } else { text }
     }
 }
 
 /// The error for the cases of `tree` that are certainly missing, if any.
 pub(crate) fn definite(tree: &Tree, span: Span) -> Option<Diagnostic> {
+    /// The first number case in the tree: it is reported alone, as it was
+    /// when coverage met it.
+    fn numbers<'t>(tree: &'t Tree<'_>) -> Option<&'t Arm> {
+        match tree {
+            Tree::Leaf { .. } | Tree::Absurd { .. } => None,
+            Tree::Guard { otherwise, .. } => numbers(otherwise),
+            Tree::Missing { arm, .. } => arm.other_numbers.as_ref().map(|_| arm),
+            Tree::Case { branches, .. } => branches.iter().find_map(|(_, t)| numbers(t)),
+            // A default that is itself missing names every number the arms
+            // leave out ("other than 0 and 1"); an arm's own nested gap
+            // ("other than 5") would hide that.
+            Tree::NumCase { arms, default, .. } => match &**default {
+                Tree::Missing { arm, .. } if arm.other_numbers.is_some() => Some(arm),
+                _ => (arms.iter())
+                    .find_map(|(_, t)| numbers(t))
+                    .or_else(|| numbers(default)),
+            },
+            Tree::FinNumbers { numbers: fin, .. } => fin.subtrees().find_map(numbers),
+        }
+    }
+    if let Some(arm) = numbers(tree) {
+        return Some(arm.diagnostic(span));
+    }
     fn collect(tree: &Tree, out: &mut Vec<(Vec<usize>, String)>, guards: &mut Vec<Span>) {
         match tree {
             Tree::Leaf { .. } | Tree::Absurd { .. } => {}

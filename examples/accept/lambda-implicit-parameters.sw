@@ -9,16 +9,15 @@ import Std (List, Ord)
 def idf: [a: Type] → a → a := [a: Type] => (x: a) => x
 
 -- Several, side by side or grouped, mixed with explicit parameters.
-def first: [a: Type] → [b: Type] → a → b → a := [a: Type] [b: Type] (x: a) (y: b) => x
+def first: [a: Type] → [b: Type] → a → b → a := [a b: Type] (x: a) (y: b) => x
 
 def firstGrouped: [a b: Type] → a → b → a := [a b: Type] (x: a) (y: b) => x
 
 -- An `auto` parameter, named or not.
-def larger: [a: Type] → [auto order: Ord a] → a → a → a :=
-  [a: Type] [auto order: Ord a] (x: a) (y: a) => if x ≤ y then y else x
+def larger: [a: Type] → [auto order: Ord a] → a → a → a := [a: Type] [auto order: Ord a] (x y: a) =>
+  if x ≤ y then y else x
 
-def atMost: [a: Type] → [auto Ord a] → a → a → Bool :=
-  [a: Type] [auto Ord a] (x: a) (y: a) => x ≤ y
+def atMost: [a: Type] → [auto Ord a] → a → a → Bool := [a: Type] [auto Ord a] (x y: a) => x ≤ y
 
 -- Without `[…]`, the implicit parameter is introduced for the lambda, as
 -- before: in a definition by its signature, which puts `a` in scope ...
@@ -39,7 +38,7 @@ test "checked" :=
 -- No expected type: the lambda's type is inferred, with an implicit
 -- parameter, and each use fills it in.
 test "inferred" :=
-  let pick := [a: Type] (x: a) (y: a) => x
+  let pick := [a: Type] (x y: a) => x
   pick 1 2 == 1 ∧ pick "a" "b" == "a"
 
 -- Applied on the spot: the implicit argument is filled in.

@@ -9,19 +9,24 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
+mod assume;
 mod attributes;
 mod auto;
 mod autobind;
 mod bind;
+mod build;
 mod builtin_docs;
+pub use arrow_forall::keep_written_arrows;
 pub use builtin_docs::is_builtin;
 pub mod cache;
 mod calc;
+mod carry;
 mod chain;
 mod check;
 pub mod closing;
 mod congruence;
 pub use congruence::std_congruence_failures;
+mod arrow_forall;
 pub mod counterexample;
 mod data_auto;
 mod decreasing;
@@ -67,9 +72,11 @@ mod partial;
 mod patlet;
 mod pipe;
 mod probe;
+pub mod progress;
 pub mod project;
 mod queue;
 mod quot;
+mod reading;
 mod records;
 mod redundant;
 mod reify;
@@ -90,7 +97,8 @@ pub use kernel::{
 pub use library::LibraryIndex;
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
-pub use goals::{ContextAt, GoalSnapshot};
+pub use goals::{ContextAt, GoalSnapshot, StepAt, StepForm};
+pub use module::{UNPARSED_BODY, with_syntax_errors};
 pub use rewind::Mark;
 pub use scope::edit_distance;
 pub use state::JournalStats;
@@ -250,6 +258,59 @@ pub struct TestDecl {
     /// What a failure can say about the test's expression (D601): its
     /// comparison, or the part of an `&&` that is false.
     pub probe: Option<Probe>,
+    /// For a test that uses a declaration with an open goal (`?`), the open
+    /// goal's declaration: `stitchwort test` fails it, saying so (SW-2909).
+    pub unfinished: Option<String>,
+}
+
+/// A test that couldn't be checked because it uses a declaration with an
+/// error (D3523): it isn't a [`TestDecl`], having no definition, but
+/// `stitchwort test` fails it, saying why, and runs the others.
+#[derive(Clone, Debug)]
+pub struct BrokenTest {
+    pub name: String,
+    /// The namespace of the module that declares it; empty if it has none.
+    pub namespace: String,
+    pub span: Span,
+    /// The declaration it uses that has an error.
+    pub uses: String,
+    /// The declaration the error is in: `uses` itself, or something it uses.
+    pub broken: String,
+    /// Where the error is reported, if it has a place.
+    pub error_at: Option<Span>,
+    /// The error is in the test's own body, not in what it uses.
+    pub own: bool,
+}
+
+/// A declaration that has an error, or can't be checked until one is fixed
+/// (SW-2943): what `check`'s summary, `test` and `audit` report. Each
+/// declaration of a failed component is listed, whether the error is its
+/// own or its dependency's.
+#[derive(Clone, Debug)]
+pub struct FailedDecl {
+    /// The namespace of the module that declares it; empty if it has none.
+    pub namespace: String,
+    /// As written; a test's is `test "label"`.
+    pub name: String,
+    pub theorem: bool,
+    pub test: bool,
+    /// The declaration the error is in, by its own name: this one if `own`.
+    pub root: String,
+    /// Where that error is reported, if it has a place.
+    pub error_at: Option<Span>,
+    /// The error is in this declaration, not in what it uses.
+    pub own: bool,
+}
+
+impl FailedDecl {
+    /// `Namespace.name`, the name audit and the summary give it.
+    pub fn full_name(&self) -> String {
+        if self.namespace.is_empty() {
+            self.name.clone()
+        } else {
+            format!("{}.{}", self.namespace, self.name)
+        }
+    }
 }
 
 /// The shape of a test's expression, for showing why it failed: through
@@ -327,6 +388,9 @@ pub struct Elaborator {
     /// What the editor and `search` read back: navigation, the goals
     /// shown, the counterexample logs (`state::Presentation`).
     pub present: state::Presentation,
+    /// Warnings the library's own files reported while loading, which
+    /// programs don't see: kept for tests that check the library itself.
+    pub library_warnings: Vec<Diagnostic>,
 }
 
 /// The elaborator's hints for the printer (globals-split.md §3.5): its
@@ -362,6 +426,18 @@ impl stitchwort_core::Shown for Elaborator {
         self.tables.update_shown.get(&id).cloned()
     }
 
+    fn match_columns(&self, id: DefId) -> Option<Rc<[usize]>> {
+        let recorded = self.tables.match_columns.get(&id)?;
+        Some(recorded.cols.as_slice().into())
+    }
+
+    fn note_match_shown(&self, id: DefId, text: &str) {
+        let mut shown = self.decl.matches_shown.borrow_mut();
+        if !shown.iter().any(|(t, i)| *i == id && t == text) {
+            shown.push((text.to_string(), id));
+        }
+    }
+
     fn param_defaults(&self, id: DefId) -> Option<Rc<stitchwort_core::globals::ParamDefaults>> {
         self.tables.param_defaults.get(&id).cloned()
     }
@@ -370,8 +446,38 @@ impl stitchwort_core::Shown for Elaborator {
         !self.decl.failed_mentioned.get()
     }
 
-    fn note_failed_mentioned(&self) {
+    fn note_meta_shown(&self, m: usize) {
+        Elaborator::note_meta_shown(self, m);
+    }
+
+    fn note_failed_mentioned(&self, def: DefId) {
         self.decl.failed_mentioned.set(true);
+        // One of another namespace's: the declaration waits for it.
+        let path = self.kernel.def(def).name().to_string();
+        if !self.unit.module.names.contains(&path) {
+            crate::module::note_failed_used(&path);
+        }
+    }
+
+    /// A definition that relies on an open goal and computes, so a term
+    /// that calls it may be stuck on the goal's assumption
+    /// (docs/proposals/using-unfinished-proofs.md §4, "Blocked users"). A
+    /// theorem is a proof, which nothing computes with.
+    fn waits_on_goal(&self, id: DefId) -> bool {
+        !self.kernel.def(id).theorem() && self.relies_on_goal(id)
+    }
+
+    /// Always: each message may show a term stuck on goals the others
+    /// don't, and the declaration waits for all of them.
+    fn wants_stuck_mention(&self) -> bool {
+        true
+    }
+
+    fn note_stuck_on_goal(&self, goals: &[DefId]) {
+        let mut stuck = self.decl.stuck_on_goal.borrow_mut();
+        stuck.extend_from_slice(goals);
+        stuck.sort_by_key(|id| id.0);
+        stuck.dedup();
     }
 }
 
@@ -386,6 +492,19 @@ struct CtorPattern<'a> {
 /// A pattern during compilation: one from the source, or one made by the
 /// compiler (a wildcard for a field, or `n - 1` inside a number pattern `n`).
 type Pat<'a> = Cow<'a, Pattern>;
+
+/// An arm's or equation's patterns as a row's: a `()` on its own is the
+/// unit pattern when the arm has a right side (`| () => e`), and absurd
+/// when it has none (`| Rock, ()`). Equations and `match` alternatives
+/// both come through here, so the two forms mean the same.
+fn row_patterns(patterns: &[Pattern], has_rhs: bool) -> Vec<Pat<'_>> {
+    (patterns.iter())
+        .map(|p| match p {
+            Pattern::Absurd(span) if has_rhs => Cow::Owned(unit_pattern(*span)),
+            p => Cow::Borrowed(p),
+        })
+        .collect()
+}
 
 /// The variable a pattern binds, if it's a variable from the source.
 fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
@@ -524,6 +643,11 @@ enum Tree<'a> {
         span: Span,
         /// The spans of the or-pattern alternatives that chose the arm.
         alternatives: Vec<Span>,
+        /// The spans of the rows after the arm's that could match here too:
+        /// without the arm, one of them would take the case, so
+        /// `W-UNREACHABLE` can promise the arm can be deleted only along
+        /// with all of them.
+        later: Vec<Span>,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -554,6 +678,9 @@ enum Tree<'a> {
         depth: usize,
         branches: Vec<(Vec<Name>, Tree<'a>)>,
         span: Span,
+        /// The pattern that split the variable: where a fact it can't take
+        /// apart is reported.
+        pattern: Span,
     },
     /// The variable at `level` is a `Nat`, compared with numbers in
     /// increasing order (docs/proposals/number-patterns.md).
@@ -621,12 +748,14 @@ impl<'a> Tree<'a> {
                 rhs,
                 span,
                 alternatives,
+                later,
             } => Tree::Leaf {
                 aliases: aliases.iter().map(|&(x, level)| (x, at(level))).collect(),
                 written: written.clone(),
                 rhs: *rhs,
                 span: *span,
                 alternatives: alternatives.clone(),
+                later: later.clone(),
             },
             Tree::Guard {
                 guard,
@@ -652,6 +781,7 @@ impl<'a> Tree<'a> {
                 depth,
                 branches,
                 span,
+                pattern,
             } => Tree::Case {
                 level: at(*level),
                 data: *data,
@@ -660,6 +790,7 @@ impl<'a> Tree<'a> {
                     .map(|(names, t)| (names.clone(), t.shifted(from, by)))
                     .collect(),
                 span: *span,
+                pattern: *pattern,
             },
             Tree::NumCase {
                 level,
@@ -758,6 +889,7 @@ impl<'a> FinNumbers<'a> {
             depth: self.depth + by,
             branches,
             span: self.span,
+            pattern: self.largest_span,
         })
     }
 }
@@ -942,7 +1074,17 @@ impl Elaborator {
     /// One operation, with its own resource limits.
     pub fn infer_expr(&mut self, expr: &Expr) -> Result<(Term, Value)> {
         let saved = self.kernel.machine.budget.start(self.options.limits);
-        let result = self.infer_expr_in_operation(expr);
+        let result = self.infer_expr_in_operation(expr, false);
+        self.kernel.machine.budget.restore(saved);
+        result.map_err(|d| self.locate(d, expr.span()))
+    }
+
+    /// [`Elaborator::infer_expr`] for a caller that only shows the type and
+    /// never runs the term (`:t`): a declaration with an open goal is fine
+    /// there, since its header is checked and the `?` is an assumption.
+    pub fn infer_expr_type_only(&mut self, expr: &Expr) -> Result<(Term, Value)> {
+        let saved = self.kernel.machine.budget.start(self.options.limits);
+        let result = self.infer_expr_in_operation(expr, true);
         self.kernel.machine.budget.restore(saved);
         result.map_err(|d| self.locate(d, expr.span()))
     }
@@ -970,6 +1112,66 @@ impl Elaborator {
         &self.tables.tests
     }
 
+    /// The tests the last load couldn't check because they use a
+    /// declaration with an error, in load order (D3523).
+    pub fn broken_tests(&self) -> &[BrokenTest] {
+        &self.session.broken_tests
+    }
+
+    /// The declarations the last load found errors in or couldn't check
+    /// because of one, in the order the namespaces were checked.
+    pub fn failed_decls(&self) -> &[FailedDecl] {
+        &self.session.failed_decls
+    }
+
+    /// Forgets [`Self::broken_tests`] and [`Self::failed_decls`]: a host
+    /// does, before it loads a project.
+    pub fn clear_broken_tests(&mut self) {
+        self.session.failed_decls.clear();
+        self.session.broken_tests.clear();
+    }
+
+    /// Forgets the entries of [`Self::broken_tests`] and
+    /// [`Self::failed_decls`] of the namespaces `keep` doesn't keep: a host
+    /// that rewinds past some namespaces and checks them again does, so
+    /// the logs describe each namespace's latest check only.
+    pub fn retain_broken_tests(&mut self, keep: impl Fn(&str) -> bool) {
+        self.session.failed_decls.retain(|f| keep(&f.namespace));
+        self.session.broken_tests.retain(|t| keep(&t.namespace));
+    }
+
+    /// The first declaration with an open goal (`?`) that definition `id`
+    /// uses, directly or through what it uses: its name, for `test` to say
+    /// why it skipped the test. `None` if `id` doesn't use one (or isn't a
+    /// declaration of the module being elaborated).
+    pub fn unfinished_use(&self, id: DefId) -> Option<String> {
+        let item = *self.unit.module.def_items.get(&id)?;
+        self.unfinished_use_of(item, &mut stitchwort_core::collections::HashSet::default())
+    }
+
+    fn unfinished_use_of(
+        &self,
+        item: usize,
+        seen: &mut stitchwort_core::collections::HashSet<usize>,
+    ) -> Option<String> {
+        if !seen.insert(item) {
+            return None;
+        }
+        let info = self.unit.module.items.get(item)?;
+        // The open goal's own declaration is a leaf of the unfinished part
+        // of the dependency graph.
+        for dep in &info.deps {
+            let used = self.unit.module.items.get(dep.item)?;
+            if used.status != crate::module::Status::Unfinished {
+                continue;
+            }
+            return self
+                .unfinished_use_of(dep.item, seen)
+                .or_else(|| Some(used.name.clone()));
+        }
+        (info.status == crate::module::Status::Unfinished).then(|| info.name.clone())
+    }
+
     /// How many declarations there are.
     pub(crate) fn ids(&self) -> state::Ids {
         state::Ids {
@@ -978,11 +1180,16 @@ impl Elaborator {
         }
     }
 
-    /// Whether definition `id` isn't checked by the kernel. In a session
-    /// that loaded without errors, that's an unfinished one: it, or
-    /// something it uses, has an open goal (`?`).
+    /// Whether definition `id` isn't finished: not checked by the kernel,
+    /// or checked assuming an open goal (`?`) holds, as read off its terms
+    /// (`assume.rs`). In a session that loaded without errors, it, or
+    /// something it uses, has an open goal.
     pub fn is_unfinished(&self, id: DefId) -> bool {
         self.kernel.def(id).state() != stitchwort_core::globals::State::Final
+            || self
+                .tables
+                .is_unfinished(stitchwort_core::globals::HashKey::Def(id))
+            || self.relies_on_goal(id)
     }
 
     /// Whether the elaborator gave up on declaration `key` for an open
@@ -1106,7 +1313,7 @@ impl Elaborator {
     /// printing the value.
     pub fn eval_expr(&mut self, expr: &Expr) -> Result<(String, String)> {
         let saved = self.kernel.machine.budget.start(self.options.limits);
-        let inferred = self.infer_expr_in_operation(expr);
+        let inferred = self.infer_expr_in_operation(expr, false);
         let run = || -> Result<(String, String)> {
             let (term, ty) = inferred?;
             let value = eval(&self.ev(), &[], &term)?;
@@ -1147,6 +1354,7 @@ impl Elaborator {
     /// [`state::Decl`], and what it leaves there is dropped.
     pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         self.decl.reset();
+        self.decl.matches_shown.take();
         if self.options.clear_caches_per_declaration {
             self.caches.clear();
         } else {
@@ -1159,8 +1367,8 @@ impl Elaborator {
         out
     }
 
-    fn infer_expr_in_operation(&mut self, expr: &Expr) -> Result<(Term, Value)> {
-        self.glued(|e| e.infer_expr_glued(expr))
+    fn infer_expr_in_operation(&mut self, expr: &Expr, type_only: bool) -> Result<(Term, Value)> {
+        self.glued(|e| e.infer_expr_glued(expr, type_only))
     }
 
     /// The limits of one tried proof: the options', but no value larger
@@ -1213,11 +1421,7 @@ impl Elaborator {
         }
         self.lift(&key, false)?;
         let term = self.finish(&term, 0)?;
-        let unfinished = term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
-            _ => false,
-        });
-        if unfinished {
+        if self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {
@@ -1295,11 +1499,7 @@ impl Elaborator {
         }
         self.lift(&key, false)?;
         let term = self.finish(&term, 0)?;
-        let unfinished = term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
-            _ => false,
-        });
-        if unfinished {
+        if self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(body.span())));
         }
         kernel::without_glue(&self.ev(), || {
@@ -1308,7 +1508,7 @@ impl Elaborator {
         Ok(Checked::Closed)
     }
 
-    fn infer_expr_glued(&mut self, expr: &Expr) -> Result<(Term, Value)> {
+    fn infer_expr_glued(&mut self, expr: &Expr, type_only: bool) -> Result<(Term, Value)> {
         self.clear_metas();
         self.session.standalone_inputs += 1;
         let key = format!("<input {}>", self.session.standalone_inputs);
@@ -1335,11 +1535,7 @@ impl Elaborator {
         // A `?` typed in is never shown as a goal; and nothing unfinished
         // runs: it has no body.
         self.clear_goals();
-        let unfinished = term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
-            _ => false,
-        });
-        if unfinished {
+        if !type_only && self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {
@@ -1382,15 +1578,7 @@ impl Elaborator {
     /// solutions into `term`, failing if any are unsolved. The end of a
     /// declaration part for the queued checks too: they are resumed with
     /// the obligations, defaulted, or reported stuck (`queue.rs`, W4).
-    fn finish(&self, term: &Term, level: usize) -> Result<Term> {
-        let zonked = self.finish_unsettled(term, level)?;
-        self.settle_tagged(&zonked)
-    }
-
-    /// [`Elaborator::finish`] but for settling the tagged `if`s, which the
-    /// caller does: a `decreasing` step keeps some of its tags
-    /// ([`Elaborator::settle_tagged_keeping`]).
-    pub(crate) fn finish_unsettled(&self, term: &Term, level: usize) -> Result<Term> {
+    pub(crate) fn finish(&self, term: &Term, level: usize) -> Result<Term> {
         self.compare_awaiting_helpers()?;
         let stuck = self.settle_queue()?;
         self.settle_rows(stuck)?;
@@ -1400,22 +1588,6 @@ impl Elaborator {
             None => self.zonk(term, level)?,
         };
         Ok(zonked)
-    }
-
-    /// `term`, a finished body, with the conjunctions the elaborator tagged
-    /// settled (`logic::settle_tagged`).
-    pub(crate) fn settle_tagged(&self, term: &Term) -> Result<Term> {
-        self.settle_tagged_keeping(term, false)
-    }
-
-    /// [`Elaborator::settle_tagged`]; with `keep_plain`, plain `if`s in a
-    /// `decreasing` body whose proof the branches use keep their tag
-    /// (`logic::tag_plain`), for `decreasing/plain.rs`.
-    pub(crate) fn settle_tagged_keeping(&self, term: &Term, keep_plain: bool) -> Result<Term> {
-        if self.decl.tagged_conjunctions.get() {
-            return logic::settle_tagged(self, term, keep_plain);
-        }
-        Ok(term.clone())
     }
 
     /// Substitutes metavariable solutions into `term`, failing if any are
@@ -1474,6 +1646,11 @@ impl Elaborator {
     ) -> Result<Term> {
         unify::zonk_in(&self.unifier(), level, term, keep, lets).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
+            // An unknown that a syntax error's gap left unsolved: no error
+            // of the program's (`goals::error_hole`).
+            unify::ZonkError::Unsolved(m) if self.is_error_hole(m) => {
+                goals::open_goal(self.attempt.store.metas.borrow()[m].span)
+            }
             unify::ZonkError::Unsolved(m) => self.unsolved_error(m),
         })
     }
@@ -1535,6 +1712,11 @@ impl Elaborator {
                 let note = if self.attempt.proof_holes.borrow().contains(&m) {
                     // A proof left as `_` (D641).
                     "write `?` to see what's needed here"
+                } else if matches!(self.unit.module.phase, Phase::Signature | Phase::Header) {
+                    // A `_` in a declaration's type is checked before its
+                    // body, so no argument or body can fill it (SW-2850).
+                    "a `_` in a declaration's type must be worked out from the type alone, \
+                     since the header is checked before the body: write the type here"
                 } else {
                     "supply it explicitly with `f [x := …]`, or add a type annotation"
                 };
@@ -1632,7 +1814,7 @@ impl Elaborator {
                             partial: true,
                             div: None,
                         };
-                        let bool_ty = Value::Data(bool_data, Vec::new());
+                        let bool_ty = Value::Data(bool_data, Vec::new().into());
                         let ty = effects::comp_type(&cx, &row, bool_ty)?;
                         let term = check::check(&mut cx, expr, &ty)?;
                         (term, cx.quote_folded(&ty)?)
@@ -1670,15 +1852,54 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
-        self.tables.tests.push(TestDecl {
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.note_def(id, item);
+        }
+        let defined = kernel::define_def(&mut self.kernel, &self.tables, id, &body);
+        let unfinished = match &defined {
+            Err(d) if d.code == goals::UNFINISHED => self.unfinished_use(id).or_else(|| {
+                // A dependency from another namespace isn't one of this
+                // module's items; name the first unfinished declaration the
+                // test's body mentions.
+                body.subterms().find_map(|(term, _)| match term {
+                    Term::Def(other)
+                        if *other != id
+                            && self
+                                .tables
+                                .is_unfinished(stitchwort_core::globals::HashKey::Def(*other)) =>
+                    {
+                        Some(self.kernel.def(*other).name().to_string())
+                    }
+                    _ => None,
+                })
+            }),
+            // Checked assuming an open goal holds: named as before, or by
+            // the declaration the goal is in.
+            Ok(()) => self
+                .goal_relied_on(id)
+                .and_then(|a| self.unfinished_use(id).or_else(|| self.assumption_owner(a))),
+            _ => None,
+        };
+        let test = TestDecl {
             library: self.unit.loading_prelude,
             name: name.to_string(),
             namespace: self.unit.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
             probe,
-        });
+            unfinished,
+        };
+        match defined {
+            Ok(()) => self.tables.tests.push(test),
+            Err(d) => {
+                // A test that uses an unfinished declaration is still a
+                // test: `stitchwort test` fails it, naming the `?` (SW-2909).
+                if d.code == goals::UNFINISHED {
+                    self.tables.tests.push(test);
+                }
+                return Err(d);
+            }
+        }
         Ok(())
     }
 
@@ -1849,6 +2070,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            syntax_error: None,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -1952,6 +2174,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            syntax_error: None,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -2714,10 +2937,30 @@ impl Elaborator {
         owner: &ast::Name,
         mut attempt: impl FnMut(&mut Self) -> Result<T>,
     ) -> Result<T> {
+        let outer = std::mem::take(&mut *self.decl.builds.borrow_mut());
+        let result = self.local_retries(key, owner, &mut attempt);
+        *self.decl.builds.borrow_mut() = outer;
+        result
+    }
+
+    /// [`Self::with_local_retries`]'s loop. A body that fails where a
+    /// test fact is expected and a proof of its reading is given is also
+    /// tried again, with the fact built there (`build.rs`).
+    fn local_retries<T>(
+        &mut self,
+        key: &str,
+        owner: &ast::Name,
+        attempt: &mut impl FnMut(&mut Self) -> Result<T>,
+    ) -> Result<T> {
+        // The other failed arms' errors an attempt leaves are its own: a
+        // later attempt, which may get past them, mustn't report them too.
+        let others = self.attempt.branch_errors.borrow().len();
         loop {
             self.clear_metas();
             *self.decl.owner.borrow_mut() = vec![key.to_string()];
             self.attempt.local_keys.borrow_mut().clear();
+            self.attempt.branch_errors.borrow_mut().truncate(others);
+            build::start_attempt(self);
             let result = attempt(self);
             self.decl.owner.borrow_mut().clear();
             let d = match result {
@@ -2725,6 +2968,19 @@ impl Elaborator {
                 Err(d) if undo::fatal(&d) => return Err(d),
                 Err(d) => d,
             };
+            let again = {
+                let mut errors = self.attempt.branch_errors.borrow_mut();
+                build::again(self, d, &mut errors[others..])
+            };
+            let d = match again {
+                Ok(()) => continue,
+                Err(d) => d,
+            };
+            // A body with a syntax error is never admitted, nor are its
+            // local definitions.
+            if self.has_error_holes() {
+                return Err(d);
+            }
             let before = self.decl.preadmitted.borrow().len();
             match self.preadmit(key) {
                 Ok((true, _)) if self.decl.preadmitted.borrow().len() > before => {}
@@ -2733,6 +2989,78 @@ impl Elaborator {
                 Err(_) => return Err(d),
             }
         }
+    }
+
+    /// The errors of the body of definition `id` (one of the group `ids`),
+    /// which has a syntax error: those of its other lines. Its terms are
+    /// thrown away. An error whose message shows an error hole, or that
+    /// stands for one being unfinished, is about the gap the syntax error
+    /// left, not the program, so it isn't reported (§4.2's backstop), and
+    /// neither are the body's warnings.
+    fn broken_body(
+        &mut self,
+        id: DefId,
+        ids: &[DefId],
+        name: &ast::Name,
+        equations: &[Decl],
+    ) -> Vec<Diagnostic> {
+        self.unit.module.phase = Phase::Body;
+        self.clear_metas();
+        self.attempt.branch_errors.take();
+        self.attempt.take_rigid_divergence();
+        self.take_error_hole_shown();
+        let checked = self.in_body_of(id, ids, |e| e.lifted_body(id, name, equations));
+        let shown = self.take_error_hole_shown();
+        self.attempt.lambda_warnings.take();
+        let branches = self.attempt.branch_errors.take();
+        let Err(d) = checked else {
+            return Vec::new();
+        };
+        if undo::fatal(&d) && d.code == "E-RESOURCE" {
+            return vec![d];
+        }
+        if shown || d.code == goals::UNFINISHED {
+            return Vec::new();
+        }
+        let mut out = vec![d];
+        for b in branches {
+            let at = b.labels.first().map(|l| l.span);
+            if b.code != goals::UNFINISHED
+                && !out.iter().any(|o| o.labels.first().map(|l| l.span) == at)
+            {
+                out.push(b);
+            }
+        }
+        out
+    }
+
+    /// A refusal of the group as a whole, attributed to the member whose
+    /// source holds all its labels. One that is about no one member (no
+    /// label, labels in several members, or outside them all: a cycle of
+    /// calls that don't terminate, say) is every member's: one copy each,
+    /// which the caller reports once.
+    fn blame_group(members: &[(usize, &Decl, &[Decl])], d: Diagnostic) -> Vec<(usize, Diagnostic)> {
+        let holds = |signature: &Decl, equations: &[Decl], at: Span| {
+            let (start, end) = equations
+                .iter()
+                .map(Decl::span)
+                .chain([signature.span()])
+                .filter(|s| s.file == at.file)
+                .fold((u32::MAX, 0), |(a, b), s| (a.min(s.start), b.max(s.end)));
+            start <= at.start && at.end <= end
+        };
+        if members.len() > 1
+            && let Some(&(item, signature, equations)) = members
+                .iter()
+                .find(|(_, s, e)| d.primary_span().is_some_and(|at| holds(s, e, at)))
+            && d.labels.iter().all(|l| holds(signature, equations, l.span))
+        {
+            return vec![(item, d)];
+        }
+        if members.len() > 1 {
+            return members.iter().map(|m| (m.0, d.clone())).collect();
+        }
+        vec![(members[0].0, d)]
     }
 
     /// A group of definitions that may call each other (or one definition),
@@ -2753,6 +3081,30 @@ impl Elaborator {
         // `Builtins.sw`'s documentation of the names the checker knows.
         if let Some(done) = self.builtin_group(members) {
             return done;
+        }
+        // A `decreasing` definition gets no stand-in, so one whose body
+        // didn't parse is failed without checking anything.
+        let unparsed = |s: &Decl| match s {
+            Decl::Signature {
+                syntax_error: Some(at),
+                ..
+            } => Some(*at),
+            _ => None,
+        };
+        let refused: Vec<(usize, Diagnostic)> = (members.iter())
+            .filter(|(_, s, _)| {
+                matches!(
+                    s,
+                    Decl::Signature {
+                        decreasing: Some(_),
+                        ..
+                    }
+                )
+            })
+            .filter_map(|(item, s, _)| Some((*item, module::unparsed_body(unparsed(s)?))))
+            .collect();
+        if !refused.is_empty() {
+            return refused;
         }
         // Recursion on a measure (`decreasing.rs`).
         if members.iter().any(|(_, s, _)| {
@@ -2860,6 +3212,30 @@ impl Elaborator {
         if refused {
             return out;
         }
+        // A definition with a syntax error: its statement is checked (a
+        // stand-in can be made for it), and its body for the errors of its
+        // other lines, but it fails whatever that finds, so nothing in the
+        // group is admitted (docs/proposals/syntax-error-recovery.md §4.1).
+        if members.iter().any(|(_, s, _)| unparsed(s).is_some()) {
+            for (&(item, signature, equations), id) in members.iter().zip(&ids) {
+                let Some(at) = unparsed(signature) else {
+                    continue;
+                };
+                self.unit.module.item = Some(item);
+                if !equations.is_empty() {
+                    let Decl::Signature { name, .. } = signature else {
+                        unreachable!()
+                    };
+                    out.extend(
+                        self.broken_body(*id, &ids, name, equations)
+                            .into_iter()
+                            .map(|d| (item, d)),
+                    );
+                }
+                out.push((item, module::unparsed_body(at)));
+            }
+            return out;
+        }
         if recursive {
             let partial = match members
                 .iter()
@@ -2869,7 +3245,7 @@ impl Elaborator {
             {
                 Ok(partial) => partial,
                 Err(d) => {
-                    out.push((members[0].0, d));
+                    out.extend(Self::blame_group(members, d));
                     return out;
                 }
             };
@@ -2878,7 +3254,8 @@ impl Elaborator {
                 return out;
             }
             if partial.iter().any(|p| *p) {
-                out.push((members[0].0, self.mixed_partial(members, &ids, &partial)));
+                let d = self.mixed_partial(members, &ids, &partial);
+                out.extend(Self::blame_group(members, d));
                 return out;
             }
         }
@@ -2964,18 +3341,19 @@ impl Elaborator {
         bodies.extend(helpers);
         if let Err(d) = kernel::define_group(&mut self.kernel, &self.tables, &bodies) {
             let d = self.explain_lifted(d);
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
             return out;
         }
         let local_helpers = self.decl.local_helpers.clone();
         if let Err(d) = self.bind_local_helpers() {
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
         }
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
             self.unit.module.item = Some(item);
             if let Err(d) = self.after_definition(signature, *id) {
                 out.push((item, d));
             }
+            out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
             if let Decl::Signature { name, .. } = signature
                 && let Err(d) = self.opaque_unfold(name, *id)
             {
@@ -2986,7 +3364,7 @@ impl Elaborator {
         // and their local definitions'. The library's and the core's are
         // made on demand (their local definitions' still here).
         if let Err(d) = self.local_equations(&local_helpers, false) {
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
         }
         if self.defers_equations() {
             return out;
@@ -3029,6 +3407,7 @@ impl Elaborator {
             unfolding: _,
             defaults,
             attrs: _,
+            syntax_error: _,
             span,
         } = signature
         else {
@@ -3079,7 +3458,7 @@ impl Elaborator {
         )
         .map_err(|d| notes.iter().fold(d, |d, n| d.with_note(n.clone())))?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         if attributes.tailrec.is_some() {
             kernel::mark_tailrec(&mut self.kernel, id);
@@ -3206,7 +3585,7 @@ impl Elaborator {
                 {
                     let x = effects::divergence_name(&n.text);
                     binders.push((x.as_str().into(), Term::Data(d, Vec::new())));
-                    cx.bind(&x, Value::Data(d, Vec::new()));
+                    cx.bind(&x, Value::Data(d, Vec::new().into()));
                 }
             }
             cx.span = span;
@@ -3243,6 +3622,14 @@ impl Elaborator {
         };
         if *instance {
             self.validate_instance(id)?;
+            let at = self.kernel.def(id).span();
+            self.check_instance_readings(id, at);
+        }
+        // Filed once proved, so its own proof reads its test as it would
+        // without it.
+        if let Some(at) = self.definition_attributes(signature)?.reading {
+            self.register_reading(id, at)?;
+            self.check_reading_decisions(id, at);
         }
         if self.kernel.def(id).tailrec() {
             self.check_tailrec(id)?;
@@ -3267,7 +3654,6 @@ impl Elaborator {
         match bound {
             Some(Builtin::Nat) => native::register_nat(&mut self.kernel, d)?,
             Some(Builtin::Bool) => native::register_bool(&mut self.kernel, d)?,
-            Some(Builtin::Decidable) => native::register_decidable(&mut self.kernel, d)?,
             Some(Builtin::Float) => stitchwort_core::float::register_data(&mut self.kernel, d)?,
             // `Char` comes after `List`. If either isn't the declaration
             // the compact representation of text was written for, text
@@ -3297,7 +3683,6 @@ impl Elaborator {
         }
         pins::check_bound_def(&mut self.kernel, id, b)?;
         match b {
-            Builtin::NatNeq => native::register_nat_neq(&mut self.kernel, id)?,
             // `+` computes on its second argument too from here on.
             Builtin::NatAddSucc => stitchwort_core::nat_add::register(&mut self.kernel, id)?,
             b if stitchwort_core::float::PINNED_DEFS.contains(&b) => {
@@ -3588,6 +3973,13 @@ impl Elaborator {
                 _ => break,
             }
         }
+        // A test fact's column keeps its test's function, so a pattern on it
+        // compiles against what the function reads as.
+        for (ty, &level) in column_types.iter_mut().zip(&columns) {
+            if let Some(t) = ty {
+                *t = reading::variable_as_written(cx, level, t)?;
+            }
+        }
         let rest_written = written.clone();
         cx.goal = written.map(|w| (cx.level(), w));
         if let Some(h) = header {
@@ -3673,6 +4065,7 @@ impl Elaborator {
             ));
         }
 
+        let mut rows: Vec<Row> = Vec::new();
         let tree = if arity == 0 {
             if let Some(&(_, _, span)) = equations.get(1) {
                 return Err(error(
@@ -3687,28 +4080,14 @@ impl Elaborator {
                 rhs: first_rhs,
                 span: first_span,
                 alternatives: Vec::new(),
+                later: Vec::new(),
             }
         } else {
-            let rows: Vec<Row> = equations
+            rows = equations
                 .iter()
                 .zip(&guards)
                 .map(|(&(patterns, rhs, span), &guard)| Row {
-                    // `()` with a right-hand side is the unit pattern; without
-                    // one, it's absurd.
-                    pats: patterns
-                        .iter()
-                        .map(|p| match p {
-                            Pattern::Absurd(span) if rhs.is_some() => Cow::Owned(Pattern::Ctor(
-                                ast::Name {
-                                    text: UNIT_PATTERN.into(),
-                                    span: *span,
-                                },
-                                Vec::new(),
-                                *span,
-                            )),
-                            p => Cow::Borrowed(p),
-                        })
-                        .collect(),
+                    pats: row_patterns(patterns, rhs.is_some()),
                     aliases: Vec::new(),
                     written: written_names(patterns),
                     rhs,
@@ -3718,8 +4097,8 @@ impl Elaborator {
                 })
                 .collect();
             let tree = self.compile_top(
+                cx,
                 &rows,
-                cx.level(),
                 &columns,
                 &column_types,
                 header.unwrap_or(0),
@@ -3729,10 +4108,18 @@ impl Elaborator {
             tree
         };
         let root = self.decl.leaf_log.borrow_mut().enter_root(def_name.span);
-        let term = families::warn_unreachable(cx, |cx| {
-            let start = columns.first().copied().unwrap_or(cx.level());
-            check_tree_from(cx, start, &tree, &ty)
-        });
+        let start = columns.first().copied().unwrap_or(cx.level());
+        let recheck = Recheck {
+            rows: &rows,
+            columns: &columns,
+            types: &column_types,
+            skip: header.unwrap_or(0),
+            span,
+            start,
+            goal: &ty,
+        };
+        let term =
+            families::warn_unreachable(cx, &recheck, |cx| check_tree_from(cx, start, &tree, &ty));
         self.decl.leaf_log.borrow_mut().leave_root(root);
         let mut term = term?;
         for (x, icit) in lams.into_iter().rev() {
@@ -3741,24 +4128,49 @@ impl Elaborator {
         Ok(term)
     }
 
+    /// Whether a `()` at type `ty` may be refuted without splitting
+    /// anything first: `ty` is a data type with no constructors, an indexed
+    /// family (which only the checker can tell), or an equation of two
+    /// different constructors.
+    fn empty_as_it_is(&self, ty: Option<&Value>) -> Result<bool> {
+        let Some(ty) = ty else {
+            return Ok(false);
+        };
+        let ev = self.ev();
+        Ok(match force(&ev, ty.clone())? {
+            Value::Data(d, _) => {
+                let data = self.kernel.data(d);
+                data.ctors().is_empty() || !data.indices().is_empty()
+            }
+            Value::Eq(_, l, r) => matches!(
+                (force(&ev, (*l).clone())?, force(&ev, (*r).clone())?),
+                (Value::Ctor(d1, c1, _), Value::Ctor(d2, c2, _)) if d1 == d2 && c1 != c2
+            ),
+            _ => false,
+        })
+    }
+
     /// [`Self::compile`] for a whole match: the cases certainly missing are
     /// reported together, each as the arm that would cover it. The first
     /// `skip` columns are a header's parameters, which arms don't match.
+    /// The variables in scope are `cx`'s.
     fn compile_top<'a>(
         &self,
+        cx: &Ctx,
         rows: &[Row<'a>],
-        depth: usize,
         columns: &[usize],
         types: &[Option<Value>],
         skip: usize,
         span: Span,
     ) -> Result<Tree<'a>> {
         self.decl.guard_nodes.set(0);
-        let tree = self.compile(rows, depth, columns, types, span);
+        let tree = self.compile(rows, cx.level(), columns, types, span);
         self.decl.guard_nodes.set(0);
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
         match missing::definite(&tree, span) {
+            // The checker reports the cases that are possible after all.
+            Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
             Some(d) => Err(d),
             None => Ok(tree),
         }
@@ -3808,10 +4220,27 @@ impl Elaborator {
                     .collect();
                 return self.compile(&rows, depth, columns, types, span);
             }
-            return Ok(Tree::Absurd {
-                level: columns[j],
-                span: first.pats[j].span(),
-            });
+            // The row's constructor patterns are matched first: in
+            // `| Rock, ()`, the `()` is about the type its column has once
+            // the first is `Rock`. The split below leaves `()` alone. A
+            // type that may be empty as it is (a data type with no
+            // constructors, an indexed family, an equation of different
+            // constructors) is refuted at once, without the splits.
+            let mut splits_first = false;
+            if !self.empty_as_it_is(types[j].as_ref())? {
+                for (k, p) in first.pats.iter().enumerate() {
+                    if k != j && self.pattern_ctor(p, types[k].as_ref())?.is_some() {
+                        splits_first = true;
+                        break;
+                    }
+                }
+            }
+            if !splits_first {
+                return Ok(Tree::Absurd {
+                    level: columns[j],
+                    span: first.pats[j].span(),
+                });
+            }
         }
         let mut split = None;
         // A guarded first row that has nothing left to match still waits for
@@ -3877,7 +4306,7 @@ impl Elaborator {
                     return self.compile_fin_numbers(rows, depth, columns, types, j, span);
                 }
                 if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
-                    split = Some((j, ctor.data));
+                    split = Some((j, ctor.data, ctor.span));
                     break 'rows;
                 }
             }
@@ -3885,7 +4314,7 @@ impl Elaborator {
                 break;
             }
         }
-        let Some((j, d)) = split else {
+        let Some((j, d, pattern)) = split else {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
             for (pattern, level) in first.pats.iter().zip(columns) {
@@ -3899,6 +4328,7 @@ impl Elaborator {
                 rhs: first.rhs,
                 span: first.span,
                 alternatives: first.alternatives.clone(),
+                later: rows[1..].iter().map(|row| row.span).collect(),
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -4049,6 +4479,7 @@ impl Elaborator {
             depth,
             branches,
             span,
+            pattern,
         })
     }
 
@@ -4162,7 +4593,10 @@ impl Elaborator {
                 _ => others.push(i),
             }
         }
-        if others.is_empty() {
+        // No arm for the other numbers: the case is missing, unless the
+        // checker finds it impossible (`impossible_case`), as for the
+        // constructors a split leaves out.
+        let default_missing = if others.is_empty() {
             let chars = self.decl.char_patterns.borrow();
             let as_chars: Option<Vec<String>> = by_key
                 .values()
@@ -4181,13 +4615,12 @@ impl Elaborator {
                     list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len()),
                 ),
             };
-            return Err(error(
-                "E-NONEXHAUSTIVE",
-                span,
-                format!("missing case: no arm matches {what} other than {listed}"),
-            )
-            .with_note("add an arm with a variable or `_` in that position"));
-        }
+            Some(missing::Arm::other_numbers(format!(
+                "missing case: no arm matches {what} other than {listed}"
+            )))
+        } else {
+            None
+        };
         let mut arms = Vec::new();
         for (key, matching) in by_key {
             // In the order of the source.
@@ -4207,8 +4640,17 @@ impl Elaborator {
             let tree = self.compile(&arm_rows, depth, columns, types, span)?;
             arms.push((key.clone(), tree));
         }
-        let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
-        let default = self.compile(&default_rows, depth, columns, types, span)?;
+        let default = match default_missing {
+            Some(arm) => Tree::Missing {
+                columns: columns.to_vec(),
+                span,
+                arm,
+            },
+            None => {
+                let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
+                self.compile(&default_rows, depth, columns, types, span)?
+            }
+        };
         Ok(Tree::NumCase {
             level: columns[j],
             arms,
@@ -4355,7 +4797,16 @@ impl Elaborator {
     ) -> Result<Vec<Option<Value>>> {
         let g = &self.ev();
         let fields = &g.data(d).ctors()[c].fields;
-        let params = match ty.map(|t| force(g, t.clone())).transpose()? {
+        // A test fact split by a proposition's constructors is split by
+        // what its test reads as (`read_case`). That binds one variable
+        // more than the tree is compiled for, so a field type here that
+        // mentions an earlier field is a level short: these types only
+        // pick patterns' data types, never meet the context.
+        let ty = match ty {
+            Some(t) => Some(crate::reading::read_type(g, self, t)?.unwrap_or_else(|| t.clone())),
+            None => None,
+        };
+        let params = match ty.map(|t| force(g, t)).transpose()? {
             Some(Value::Data(d2, params)) if d2 == d => params,
             _ => return Ok(vec![None; fields.len()]),
         };
@@ -4784,7 +5235,7 @@ impl Elaborator {
                 Ok((d, c))
             }
             (Global::Unchecked(item), ..) => Err(self.unchecked(&used, item)),
-            (Global::Failed, ..) => Err(module::failed_name(&used)),
+            (Global::Failed, ..) => Err(self.failed_global(&used)),
             (Global::Pending(file, _), ..) => Err(self.unloaded(&used, file)),
             _ => {
                 let error = error(
@@ -4936,11 +5387,30 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         rhs,
         span,
         alternatives,
+        later,
     } = tree
     else {
         unreachable!("a leaf")
     };
+    // Coverage alone is checked (`deletable`): the arms' bodies aren't.
+    if cx.e.decl.coverage_only.get() > 0 && rhs.is_some() {
+        return Ok(Term::Refl);
+    }
     families::reached(cx, *span);
+    // An arm `cases` makes as it splits has its `cases` as the whole arm:
+    // nothing written there can be deleted.
+    if let Some(body) = rhs
+        && *span != Span::NOWHERE
+        && body.span() != *span
+        && !guarded
+    {
+        let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
+        let why = match impossible_reason(cx, &bound)? {
+            Some(why) if fills_in(cx, goal)? => Some(why),
+            _ => None,
+        };
+        families::note_arm_case(cx, *span, !alternatives.is_empty(), why, later);
+    }
     cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
     let Some(rhs) = rhs else {
         return Err(error(
@@ -4957,6 +5427,28 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     hide_unnamed_variables(cx);
     let order = written_order(cx, aliases, written);
     let saved_order = std::mem::replace(&mut cx.order, order);
+    let head = Span {
+        end: rhs.span().start,
+        ..*span
+    };
+    if cx.e.records_steps(head) {
+        cx.e.note_step(
+            cx,
+            goals::StepNote {
+                form: goals::StepForm::Arm,
+                head,
+                index: None,
+                before: None,
+                after: goal.clone(),
+                after_term: None,
+                adds: aliases.iter().map(|(_, level)| *level).collect(),
+                rule: None,
+                parts: Vec::new(),
+                target: None,
+                extra: Vec::new(),
+            },
+        );
+    }
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
@@ -4984,12 +5476,15 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     match tree {
         Tree::Leaf { .. } => check_leaf(cx, tree, goal, true),
         Tree::Missing { columns, span, arm } => {
-            for &level in columns {
-                if let Some(term) = families::empty_case(cx, level, None)? {
-                    return Ok(term);
+            if let Some(term) = impossible_case(cx, columns, goal)? {
+                // A guard's `else` can't hold a `case`, which an empty
+                // type's proof is: it goes in a helper of its own.
+                if matches!(term, Term::Case(..)) && cx.e.decl.errors_only.get() == 0 {
+                    return lift::draft(cx, cx.level(), Vec::new(), term, goal, *span);
                 }
+                return Ok(term);
             }
-            let mut d = missing::diagnostic(*span, vec![(arm.order.clone(), arm.pattern.clone())]);
+            let mut d = arm.diagnostic(*span);
             if let Some(guard) = arm.guard {
                 d = d
                     .with_label(guard, "this arm has a condition, so it covers nothing")
@@ -5004,13 +5499,272 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     }
 }
 
-fn empty_in_columns(cx: &mut Ctx, columns: &[usize]) -> Result<Option<Term>> {
+/// A proof of `goal` where no arm covers the case: the term an absurd arm
+/// `()` would give (`check_tree`'s `Tree::Absurd`), when a variable in
+/// scope has a type with no values once the splits above the case have
+/// refined it (D3534). Indexed families are tried first on the case's
+/// `columns`, so a case they rule out keeps its term; then each column and
+/// each other variable in scope, from the outermost, is tried as an
+/// equation of two different constructors (`h: False = True` once
+/// `beats Rock Rock` computes) or a data type with no constructors; last,
+/// the other variables as indexed families (`i: Fin 0` once `n` is `0`).
+fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Option<Term>> {
     for &level in columns {
         if let Some(term) = families::empty_case(cx, level, None)? {
             return Ok(Some(term));
         }
     }
+    let others = (0..cx.level()).filter(|level| !columns.contains(level));
+    for level in columns.iter().copied().chain(others) {
+        if let Some(term) = cases::refute_equation(cx, level, goal)? {
+            return Ok(Some(term));
+        }
+        if let Some(term) = empty_data_case(cx, level)? {
+            return Ok(Some(term));
+        }
+    }
+    for level in (0..cx.level()).filter(|level| !columns.contains(level)) {
+        if let Some(term) = families::empty_case(cx, level, None)? {
+            return Ok(Some(term));
+        }
+    }
     Ok(None)
+}
+
+/// Whether the checker would fill in the case being checked if its arm
+/// were deleted ([`impossible_case`]), which `W-UNREACHABLE` promises:
+/// building that proof can still fail where the arm's own proof doesn't (a
+/// hypothesis too large to show). Nothing it does is kept.
+fn fills_in(cx: &mut Ctx, goal: &Value) -> Result<bool> {
+    let snapshot = undo::Snapshot::take(cx);
+    let result = impossible_case(cx, &[], goal);
+    snapshot.restore(cx);
+    match result {
+        Ok(term) => Ok(term.is_some()),
+        Err(e) if undo::recoverable(cx, &e) => {
+            undo::recovered(cx);
+            Ok(false)
+        }
+        Err(e) if undo::fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
+}
+
+/// What a compiled `match` was compiled from, so that [`deletable`] can
+/// compile it again without some of its arms: `compile_top`'s inputs, and
+/// the level and goal its tree is checked at.
+struct Recheck<'r, 'a> {
+    rows: &'r [Row<'a>],
+    columns: &'r [usize],
+    types: &'r [Option<Value>],
+    skip: usize,
+    span: Span,
+    start: usize,
+    goal: &'r Value,
+}
+
+/// Whether the `match` would still check with the arms or or-pattern
+/// alternatives at `deleted` taken out of its source, as far as its cases
+/// go: it's compiled again, as the source without them would be, and each
+/// case no arm covers must be one the checker fills in. The other arms'
+/// bodies aren't checked again: none of them takes a case it didn't have
+/// (`Tree::Leaf::later`). Nothing it does is kept; `W-UNREACHABLE`
+/// promises what it says (SW-3008).
+fn deletable(cx: &mut Ctx, recheck: &Recheck, deleted: &[Span]) -> Result<bool> {
+    let rows: Vec<Row> = (recheck.rows.iter())
+        .filter(|row| !deleted.contains(&row.span))
+        .filter_map(|row| {
+            let pats = (row.pats.iter())
+                .map(|p| without_alternatives(p, deleted).map(Cow::Owned))
+                .collect::<Option<Vec<_>>>()?;
+            Some(Row {
+                pats,
+                ..row.clone()
+            })
+        })
+        .collect();
+    if rows.is_empty() {
+        // A `match` needs an arm.
+        return Ok(false);
+    }
+    let snapshot = undo::Snapshot::take(cx);
+    let reach = cx.e.decl.arm_reach.take();
+    let decl = &cx.e.decl;
+    decl.coverage_only.set(decl.coverage_only.get() + 1);
+    decl.errors_only.set(decl.errors_only.get() + 1);
+    let result = (cx.e.compile_top(
+        cx,
+        &rows,
+        recheck.columns,
+        recheck.types,
+        recheck.skip,
+        recheck.span,
+    ))
+    .and_then(|tree| check_tree_from(cx, recheck.start, &tree, recheck.goal));
+    let decl = &cx.e.decl;
+    decl.coverage_only.set(decl.coverage_only.get() - 1);
+    decl.errors_only.set(decl.errors_only.get() - 1);
+    cx.e.decl.arm_reach.replace(reach);
+    snapshot.restore(cx);
+    match result {
+        Ok(_) => Ok(true),
+        Err(e) if undo::recoverable(cx, &e) => {
+            undo::recovered(cx);
+            Ok(false)
+        }
+        Err(e) if undo::fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
+}
+
+/// `pattern` without its or-pattern alternatives at `deleted`, at any
+/// depth: `None` if an or-pattern loses them all, so nothing matches.
+fn without_alternatives(pattern: &Pattern, deleted: &[Span]) -> Option<Pattern> {
+    let all = |ps: &[Pattern]| -> Option<Vec<Pattern>> {
+        ps.iter()
+            .map(|p| without_alternatives(p, deleted))
+            .collect()
+    };
+    let one = |p: &Pattern| without_alternatives(p, deleted).map(Box::new);
+    let fields = |fs: &[(ast::Name, Pattern)]| -> Option<Vec<(ast::Name, Pattern)>> {
+        (fs.iter())
+            .map(|(x, p)| Some((x.clone(), without_alternatives(p, deleted)?)))
+            .collect()
+    };
+    Some(match pattern {
+        Pattern::Or(alternatives, span) => {
+            let kept: Vec<Pattern> = (alternatives.iter())
+                .filter(|p| !deleted.contains(&p.span()))
+                .map(|p| without_alternatives(p, deleted))
+                .collect::<Option<_>>()?;
+            match kept.len() {
+                0 => return None,
+                _ => Pattern::Or(kept, *span),
+            }
+        }
+        Pattern::Ctor(c, args, span) => Pattern::Ctor(c.clone(), all(args)?, *span),
+        Pattern::Tuple(p, q, span) => Pattern::Tuple(one(p)?, one(q)?, *span),
+        Pattern::Cons(p, q, span) => Pattern::Cons(one(p)?, one(q)?, *span),
+        Pattern::Named(x, p, span) => Pattern::Named(x.clone(), one(p)?, *span),
+        Pattern::Record {
+            fields: fs,
+            rest,
+            span,
+        } => Pattern::Record {
+            fields: fields(fs)?,
+            rest: *rest,
+            span: *span,
+        },
+        Pattern::CtorFields {
+            ctor,
+            fields: fs,
+            rest,
+            span,
+            ..
+        } => Pattern::ctor_fields(ctor.clone(), fields(fs)?, *rest, *span),
+        other => other.clone(),
+    })
+}
+
+/// Why the case an arm's body is checked in can't happen, for its warning
+/// (`W-UNREACHABLE`): a variable in scope whose type is an equation of
+/// different constructors, an empty data type or an indexed family with no
+/// constructor that fits, in the order [`impossible_case`] tries them. The
+/// arm's own pattern variables (`bound`) don't count: `| h => absurd h` is
+/// how an arm uses an impossible hypothesis, not a case a hypothesis rules out.
+fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
+    let g = cx.g();
+    for level in (0..cx.level()).filter(|level| !bound.contains(level)) {
+        let name = match &*cx.names[level] {
+            n if n == "_" || n.starts_with('%') || n.ends_with('✝') => "an argument".to_string(),
+            n => format!("`{n}`"),
+        };
+        let ty = cx.types[level].clone();
+        // Shown only once a reason is found: this runs on every arm.
+        let shown = |cx: &mut Ctx| cx.show(&cx.types[level].clone());
+        if cases::equates_different_ctors(cx, level)? {
+            let shown = shown(cx);
+            let computed = match cases::computed_equation(cx, level)? {
+                Some(eq) => format!(", that is `{eq}`"),
+                None => String::new(),
+            };
+            return Ok(Some(format!(
+                "here {name} is `{shown}`{computed}, which can't hold"
+            )));
+        }
+        match force(&g, ty)? {
+            Value::Data(d, _) if g.data(d).ctors().is_empty() => {
+                let shown = shown(cx);
+                return Ok(Some(format!(
+                    "here {name} is a `{shown}`, which has no values"
+                )));
+            }
+            Value::Data(d, _)
+                if !g.data(d).indices().is_empty()
+                    && families::empty_case(cx, level, None)?.is_some() =>
+            {
+                let shown = shown(cx);
+                return Ok(Some(format!(
+                    "here {name} is a `{shown}`, which has no constructor that fits"
+                )));
+            }
+            _ => {}
+        }
+    }
+    Ok(None)
+}
+
+/// `case x of {}` for the variable `x` at `level`, when its type is a data
+/// type with no constructors.
+fn empty_data_case(cx: &Ctx, level: usize) -> Result<Option<Term>> {
+    let g = cx.g();
+    Ok(match force(&g, cx.types[level].clone())? {
+        Value::Data(d, _) if g.data(d).ctors().is_empty() => {
+            Some(Term::Case(cx.level() - 1 - level, d, Vec::new().into()))
+        }
+        _ => None,
+    })
+}
+
+/// Whether a case no arm covers may yet be impossible, so that coverage
+/// waits for the checker ([`impossible_case`]) rather than reporting it
+/// when the arms are compiled: some variable in scope has a type with no
+/// values already, a type that mentions a matched variable, which a
+/// split may make empty (`h: IsSome o` is `Void` once `o` is `None`), or an
+/// indexed family, which may have no constructor that fits. Only
+/// asked when a case is missing.
+fn may_be_impossible(cx: &Ctx, columns: &[usize]) -> Result<bool> {
+    let g = cx.g();
+    for level in 0..cx.level() {
+        if cases::equates_different_ctors(cx, level)? {
+            return Ok(true);
+        }
+        if let Value::Data(d, _) = force(&g, cx.types[level].clone())?
+            && g.data(d).ctors().is_empty()
+        {
+            return Ok(true);
+        }
+        if let Value::Data(d, _) = force(&g, cx.types[level].clone())?
+            && !g.data(d).indices().is_empty()
+        {
+            return Ok(true);
+        }
+        let ty = cx.quote(&cx.types[level])?;
+        if (columns.iter()).any(|&c| c < level && ty.mentions(cx.level() - 1 - c)) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Checks `tree` for its arms' errors only: its term is thrown away.
+fn check_for_errors(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
+    let errors_only = &cx.e.decl.errors_only;
+    errors_only.set(errors_only.get() + 1);
+    let result = check_tree(cx, tree, goal);
+    let errors_only = &cx.e.decl.errors_only;
+    errors_only.set(errors_only.get() - 1);
+    result
 }
 
 /// The missing case at the end of a chain of guards, if that is how the
@@ -5107,6 +5861,71 @@ fn check_guard(
     result
 }
 
+/// A split on `x` by the constructors of proposition `d` where `x`'s type
+/// `ty` is a test fact: the split on what its test reads as
+/// (docs/proposals/bool-as-proposition.md §6.1), or `None` where `ty`
+/// isn't a test fact. The reading is bound to a new variable after the
+/// context, which the split then matches: a `case` is only on a variable,
+/// and only at the top of a definition, so the split is a helper of its
+/// own, lifted as a `match` is, called with `Iff.forward (r args) x`.
+#[allow(clippy::too_many_arguments)]
+fn read_case(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    depth: usize,
+    branches: &[(Vec<Name>, Tree)],
+    span: Span,
+    pattern: Span,
+    ty: &Value,
+    goal: &Value,
+) -> Result<Option<Term>> {
+    if !reading::readable_data(cx, d) || cx.level() != depth {
+        return Ok(None);
+    }
+    let ty = reading::variable_as_written(cx, x, ty)?;
+    let Some((test, polarity)) = reading::test_fact(cx, &ty)? else {
+        return Ok(None);
+    };
+    let found = match reading::read_through(cx, &test, polarity)? {
+        reading::Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d2, _) if d2 == d) => {
+            found
+        }
+        read => {
+            let how = format!("taken apart with {}", reading::constructors_shown(cx, d));
+            return Err(reading::no_reading(
+                cx,
+                pattern,
+                &test,
+                polarity,
+                &how,
+                &read,
+                Some((d, "this pattern matches")),
+            ));
+        }
+    };
+    let read = found.forward(cx, Term::Var(depth - 1 - x))?;
+    // The fields the split binds come one variable later than the tree was
+    // compiled for.
+    let split = Tree::Case {
+        level: depth,
+        data: d,
+        depth: depth + 1,
+        branches: branches
+            .iter()
+            .map(|(names, t)| (names.clone(), t.shifted(depth, 1)))
+            .collect(),
+        span,
+        pattern,
+    };
+    let mark = cx.mark();
+    cx.bind_hidden("read".into(), found.prop.clone());
+    let body = check_tree(cx, &split, goal)
+        .and_then(|body| lift::draft(cx, depth, vec![read], body, goal, span));
+    cx.reset(mark);
+    Ok(Some(body?))
+}
+
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(check::PASS)?;
     match tree {
@@ -5117,11 +5936,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             leaf,
             otherwise,
         } => check_guard(cx, guard, leaf, otherwise, goal),
-        Tree::Missing { columns, span, .. } => Err(error(
-            "E-NONEXHAUSTIVE",
-            *span,
-            format!("missing case ({} columns left)", columns.len()),
-        )),
+        Tree::Missing { columns, span, arm } => match impossible_case(cx, columns, goal)? {
+            Some(term) => Ok(term),
+            None => Err(arm.diagnostic(*span)),
+        },
         // An indexed family whose every constructor conflicts here is empty
         // too (docs/proposals/indexed-families.md §7.3).
         Tree::Absurd { level, span }
@@ -5135,26 +5953,24 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         {
             Ok(Term::Loc(*span, Rc::new(term)))
         }
-        Tree::Absurd { level, span } => match force(&cx.g(), cx.types[*level].clone())? {
-            Value::Data(d, _) if cx.g().data(d).ctors().is_empty() => Ok(Term::Loc(
-                *span,
-                Rc::new(Term::Case(cx.level() - 1 - level, d, Vec::new().into())),
-            )),
-            other => Err(error(
-                "E-NOT-EMPTY",
-                *span,
-                format!(
-                    "`{}` has values, so this argument can't be `()`",
-                    cx.show(&other)
-                ),
-            )),
-        },
+        Tree::Absurd { level, span } if let Some(term) = empty_data_case(cx, *level)? => {
+            Ok(Term::Loc(*span, Rc::new(term)))
+        }
+        Tree::Absurd { level, span } => Err(error(
+            "E-NOT-EMPTY",
+            *span,
+            format!(
+                "`{}` has values, so this argument can't be `()`",
+                cx.show(&force(&cx.g(), cx.types[*level].clone())?)
+            ),
+        )),
         Tree::Case {
             level: x,
             data: d,
             branches,
             span,
-            ..
+            pattern,
+            depth,
         } => {
             let g = cx.g();
             let data = g.data(*d);
@@ -5165,10 +5981,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // the argument that fixes its type, as in `List.map ((a, b)
                 // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
-                let params = (0..data.params().len() + data.indices().len())
-                    .map(|_| cx.eval(&cx.fresh_meta()))
-                    .collect::<Result<Vec<_>>>()?;
-                let known = Value::Data(*d, params);
+                let params =
+                    crate::check::fresh_telescope(cx, data.params().iter().chain(data.indices()))?;
+                let known = Value::Data(*d, params.into());
                 if cx.unify(&ty, &known)? {
                     ty = known;
                 }
@@ -5176,6 +5991,11 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let params = match ty {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
+                    if let Some(term) =
+                        read_case(cx, *x, *d, *depth, branches, *span, *pattern, &other, goal)?
+                    {
+                        return Ok(term);
+                    }
                     let mut e = error(
                         "E-TYPE-MISMATCH",
                         *span,
@@ -5188,16 +6008,22 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     if let Some(note) = quot::match_note(&other) {
                         e = e.with_note(note);
                     }
+                    if Some(*d) == g.env.registry().loaded_data(Builtin::UnitType) {
+                        e = e.with_note(
+                            "`()` in an arm with `=>` is the unit value; for a case that can't \
+                             happen, write the arm with `()` and no `=>`",
+                        );
+                    }
                     return Err(e);
                 }
             };
             effects::unpin_goal(cx, goal, *x)?;
             check::unpin_parameter_types(cx, *x)?;
-            let goal_term = cx.quote_folded(goal)?;
             if !data.indices().is_empty() {
-                let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
+                let term = families::check_case(cx, *x, *d, &params, branches, goal, *span)?;
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }
+            let goal_term = cx.quote_folded(goal)?;
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
@@ -5237,15 +6063,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
                     Tree::Missing { columns, span, arm } => (|| {
-                        for &level in columns {
-                            if let Some(term) = families::empty_case(cx, level, None)? {
-                                return Ok(term);
-                            }
+                        if let Some(term) = impossible_case(cx, columns, &branch_goal)? {
+                            return Ok(term);
                         }
-                        Err(missing::diagnostic(
-                            *span,
-                            vec![(arm.order.clone(), arm.pattern.clone())],
-                        ))
+                        Err(arm.diagnostic(*span))
                     })(),
                     // Where a column's type is empty, a guard chain is that
                     // empty case (a `case` can't sit in the `else`). The
@@ -5253,9 +6074,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     Tree::Guard { .. }
                         if let Some(Tree::Missing { columns, .. }) =
                             guard_chain_missing(subtree)
-                            && let Some(term) = empty_in_columns(cx, columns)? =>
+                            && let Some(term) = impossible_case(cx, columns, &branch_goal)? =>
                     {
-                        check_tree(cx, subtree, &branch_goal).map(|_| term)
+                        check_for_errors(cx, subtree, &branch_goal).map(|_| term)
                     }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
@@ -5470,7 +6291,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
             } => {
                 pending.extend(scrutinees.iter().map(|s| &s.expr));
                 pending.extend(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)));
-                pending.extend(alts.iter().map(|a| &a.body));
+                pending.extend(alts.iter().filter_map(|a| a.body.as_ref()));
             }
             _ => {}
         }

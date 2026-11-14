@@ -46,10 +46,9 @@ def Entry.validByCount (entry: Entry): Bool :=
 
 --| Whether the letter is at `position` of the password, counting from 1:
 --| there is no position 0.
-def Entry.letterAt (entry: Entry) (position: Nat): Bool :=
-  match position with
-    | Zero => False
-    | Succ index => entry.password.toList.get index == Some entry.letter
+def Entry.letterAt (entry: Entry) (position: Nat): Bool := match position with
+  | Zero => False
+  | Succ index => entry.password.toList.get index == Some entry.letter
 
 --| Part 2's policy: the letter is at exactly one of `low` and `high`.
 def Entry.validByPosition (entry: Entry): Bool := entry.letterAt entry.low != entry.letterAt entry.high

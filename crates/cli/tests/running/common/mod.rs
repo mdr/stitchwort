@@ -3,6 +3,61 @@
 #![allow(dead_code)] // each test binary uses some of these
 
 use std::path::Path;
+use std::process::Command;
+
+/// The test binary's `stitchwort` command for `subcommand`, with `--native`
+/// added after `run` and `build` when `STITCHWORT_TEST_RUN=native`
+/// (docs/reviews/SW-2535-native-default-plan.md, N5a). Unset or `machine`
+/// leaves them as they are.
+///
+/// Use [`cli_plain`] for a run that names its own backend (`--js`,
+/// `--reference`) or needs the machine (`--profile`, `--alloc-trace`):
+/// `--native` conflicts with those.
+pub fn cli(subcommand: &str) -> Command {
+    let mut command = cli_plain(subcommand);
+    if matches!(subcommand, "run" | "build") && native_wanted() {
+        command.arg("--native");
+    }
+    command
+}
+
+/// [`cli`] with `flags` after the subcommand, except that a run which names
+/// its own backend (`--js`, `--reference`, `--native`) or needs the machine
+/// (`--profile`, `--alloc-trace`) stays as written.
+pub fn cli_with(subcommand: &str, flags: &[&str]) -> Command {
+    let own = |flag: &&str| {
+        matches!(
+            *flag,
+            "--js" | "--reference" | "--native" | "--profile" | "--alloc-trace"
+        )
+    };
+    let mut command = if flags.iter().any(own) {
+        cli_plain(subcommand)
+    } else {
+        cli(subcommand)
+    };
+    command.args(flags);
+    command
+}
+
+/// The test binary's `stitchwort` command for `subcommand`, whatever
+/// `STITCHWORT_TEST_RUN` says.
+pub fn cli_plain(subcommand: &str) -> Command {
+    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+    command.arg(subcommand);
+    command
+}
+
+/// Whether `STITCHWORT_TEST_RUN` is `native`; unset or `machine` is not.
+/// Anything else is a typo, and fails rather than quietly testing the
+/// machine.
+pub fn native_wanted() -> bool {
+    match std::env::var("STITCHWORT_TEST_RUN").as_deref() {
+        Err(_) | Ok("") | Ok("machine") => false,
+        Ok("native") => true,
+        Ok(other) => panic!("STITCHWORT_TEST_RUN={other}: expected `native` or `machine`"),
+    }
+}
 
 /// Every name `EXAMPLES` can match: the `.sw` files in every folder under
 /// `examples/` (except `examples/projects`), and every project folder under

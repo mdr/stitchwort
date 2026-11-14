@@ -282,7 +282,7 @@ def fit_machine(cap_gb):
     """A tier's cap, lowered to MACHINE_SHARE of the machine's memory. A cap
     above what the machine has never fires: the tier is stopped by the
     system's out-of-memory handling instead, with nothing saying which test
-    grew (the 16 GB full tier on a 15 GiB laptop, SW-2413)."""
+    grew (the 16 GB all tier on a 15 GiB laptop, SW-2413)."""
     total = machine_gb()
     if cap_gb <= 0 or total is None or cap_gb <= total * MACHINE_SHARE:
         return cap_gb

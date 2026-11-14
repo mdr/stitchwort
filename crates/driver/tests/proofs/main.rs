@@ -1,6 +1,7 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
 mod call_fields;
+mod common;
 mod conv_shortcut;
 mod counterexamples;
 mod decision_search;
@@ -19,6 +20,7 @@ mod partial_kernel;
 mod proof_equivalence;
 mod proof_masks;
 mod rewrite;
+mod stand_ins;
 mod update_lemmas;
 
 use stitchwort_test_alloc as _;

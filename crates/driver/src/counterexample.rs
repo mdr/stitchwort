@@ -187,17 +187,19 @@ impl Session {
     /// Searches the statement of every theorem of the program (not the
     /// library's) whose full name `keep` keeps, whether its proof checked or
     /// failed, within `budget`, in the order they were declared
-    /// (docs/proposals/counterexample-search.md §7.3). Not a definition's
-    /// generated equations (`f.eqK`, docs/proposals/function-equations.md):
-    /// they restate its arms and are proved by construction, so a search
-    /// could only spend its inputs on them, a line per arm of every
-    /// function (SW-1051).
+    /// (docs/proposals/counterexample-search.md §7.3). Not a declaration
+    /// the compiler made rather than the source ([`crate::audit::Generated`]):
+    /// a definition's equations (`f.eqK`, docs/proposals/function-equations.md)
+    /// restate its arms and are proved by construction, so a search could
+    /// only spend its inputs on them, a line per arm of every function
+    /// (SW-1051); nor its `f.induct`, `f.unfold` or a type's lemmas.
     pub fn search_theorems(
         &mut self,
         budget: Budget,
         keep: &dyn Fn(&str) -> bool,
     ) -> Vec<TheoremSearch> {
         let g = &self.elab.ev();
+        let generated = crate::audit::Generated::new(g);
         let theorems: Vec<(DefId, String, bool)> = (0..g.env.defs().len())
             .map(DefId)
             .filter_map(|id| {
@@ -205,12 +207,18 @@ impl Session {
                 let path = def.path().to_string();
                 let state = def.state();
                 (def.theorem()
+                    && def.assumption().is_none()
                     && !path.contains('%')
                     && !path.starts_with("Std.")
-                    && !stitchwort_elab::is_generated_name(g, def.name())
+                    && !generated.contains(g, id)
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
-                .then(|| (id, def.name().to_string(), state == State::Final))
+                // Checked assuming an open goal holds isn't checked: a
+                // counterexample may only show the goal is false.
+                .then(|| {
+                    let checked = state == State::Final && !self.elab.relies_on_goal(id);
+                    (id, def.name().to_string(), checked)
+                })
             })
             .collect();
         theorems
@@ -265,6 +273,7 @@ pub fn run_fast(
         stitchwort_rt::Limits {
             steps: FAST_STEPS,
             frames: limits.frames,
+            native_frames: limits.frames,
             // A step per word of a big number, so that an input's steps
             // bound its time and memory (SW-907).
             number_words: true,

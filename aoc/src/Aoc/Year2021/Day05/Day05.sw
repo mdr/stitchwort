@@ -47,10 +47,9 @@ def Line.parse(): {Parse} Line :=
 
 --| The lines, if each is horizontal, vertical or diagonal at 45 degrees;
 --| otherwise fail, naming the first that isn't.
-def checkShapes (lines: List Line): {Fail} List Line :=
-  match firstBent lines with
-    | Some (index, _) => Fail.fail "line ${index + 1} isn't horizontal, vertical or diagonal"
-    | None => lines
+def checkShapes (lines: List Line): {Fail} List Line := match firstBent lines with
+  | Some (index, _) => Fail.fail "line ${index + 1} isn't horizontal, vertical or diagonal"
+  | None => lines
 
 --| The first line, with its index, that isn't horizontal, vertical or
 --| diagonal at 45 degrees.
@@ -58,8 +57,7 @@ def firstBent (lines: List Line): Option (Nat, Line) :=
   lines.withIndex.find (((_, line)) => not (line.isStraight ∨ line.isDiagonal))
 
 --| The number of points covered by at least two of the lines.
-def overlaps (lines: List Line): Nat :=
-  lines.flatMap Line.points |> Map.counts |> .count (_ times => 2 ≤ times)
+def overlaps (lines: List Line): Nat := lines.flatMap Line.points |> Map.counts |> .count (_ times => 2 ≤ times)
 
 --| Part 1: the horizontal and vertical lines only.
 def solvePart1 (lines: List Line): Nat := overlaps (lines.filter Line.isStraight)

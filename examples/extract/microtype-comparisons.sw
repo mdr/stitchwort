@@ -38,9 +38,9 @@ def Email.isValid (t: Text): Bool := Text.contains t "@"
 @[js.unboxed]
 type Email = { value: Text, valid: Email.isValid value = True }
 
-export def same (a: CardId) (b: CardId): Bool := a == b
+export def same (a b: CardId): Bool := a == b
 
-export def order (a: CardId) (b: CardId): Ordering := Ord.compare a b
+export def order (a b: CardId): Ordering := Ord.compare a b
 
 export def unseen (cards: List Card) (seen: List CardId): List Card := cards.filter (c => c.id ∉ seen)
 
@@ -48,12 +48,12 @@ export def byId (cards: List Card): Map CardId Card := Map.indexBy cards (c => c
 
 export def distinctIds (ids: List CardId): List CardId := List.unique ids
 
-export def sameCount (a: Count) (b: Count): Bool := a == b
+export def sameCount (a b: Count): Bool := a == b
 
-export def orderCount (a: Count) (b: Count): Ordering := Ord.compare a b
+export def orderCount (a b: Count): Ordering := Ord.compare a b
 
 export def distinctCounts (counts: List Count): List Count := List.unique counts
 
-export def sameEmail (a: Email) (b: Email): Bool := a == b
+export def sameEmail (a b: Email): Bool := a == b
 
-export def orderEmail (a: Email) (b: Email): Ordering := Ord.compare a b
+export def orderEmail (a b: Email): Ordering := Ord.compare a b

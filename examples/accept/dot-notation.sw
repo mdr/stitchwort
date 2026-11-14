@@ -5,9 +5,7 @@
 
 import Std (Pair, Text)
 
-type Bag (a: Type): Type =
-  | Empty
-  | Put (x: a) (rest: Bag a)
+type Bag (a: Type): Type = | Empty | Put (x: a) (rest: Bag a)
 
 def Bag.length: Bag a → Nat
   | Empty => 0
@@ -44,7 +42,7 @@ def readIt (s: Sized 3): Nat := s.read
 
 def nameLength (p: Person): Nat := p.name.length
 
-def symm (x: Nat) (y: Nat) (p: x = y): y = x := p.sym
+def symm (x y: Nat) (p: x = y): y = x := p.sym
 
 def projected (ps: Bag Person): Bag Text := Bag.map ps Person.name
 

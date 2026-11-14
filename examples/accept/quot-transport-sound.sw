@@ -10,15 +10,14 @@
 --   0
 import Std (IO, Nat)
 
-def AllTrue (x: Bool) (y: Bool): Prop := Unit
+def AllTrue (x y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
 theorem same: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial
 
 def n: Nat := J (y p => Nat) 0 same
 
-def nInline: Nat :=
-  J (y p => Nat) 0 (Quot.sound [x := False] [y := True] Trivial: (Quot.mk False: Q) = Quot.mk True)
+def nInline: Nat := J (y p => Nat) 0 (Quot.sound [x := False] [y := True] Trivial: (Quot.mk False: Q) = Quot.mk True)
 
 test "transport along a theorem" := n == 0
 test "transport along an inline Quot.sound" := nInline == 0

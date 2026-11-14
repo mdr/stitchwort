@@ -7,8 +7,7 @@
 import Std.Effect (Comp, Plus, PlusRes, SigMap, bind, sigCompose, sigId, sigLeft, sigRight, sigSwap, translate)
 import Std (List)
 
-type Unit1: Type =
-  | MkUnit
+type Unit1: Type = | MkUnit
 
 type Empty: Type
 
@@ -25,34 +24,28 @@ def eqNats: List Nat → List Nat → Bool
 
 def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
   | [], [] => True
-  | [MkPair a b, ..xs], [MkPair c d, ..ys] =>
-    if a == c then (if b == d then eqPairs xs ys else False) else False
+  | [MkPair a b, ..xs], [MkPair c d, ..ys] => if a == c then (if b == d then eqPairs xs ys else False) else False
   | _, _ => False
 
 -- Signatures
 
-type StateOp: Type =
-  | Get
-  | Put (n: Nat)
+type StateOp: Type = | Get | Put (n: Nat)
 
 def StateRes: StateOp → Type
   | Get => Nat
   | Put n => Unit1
 
-type ChooseOp: Type =
-  | Choose
+type ChooseOp: Type = | Choose
 
 def ChooseRes: ChooseOp → Type
   | Choose => Bool
 
-type TickOp: Type =
-  | Tick
+type TickOp: Type = | Tick
 
 def TickRes: TickOp → Type
   | Tick => Unit1
 
-type AbortOp: Type =
-  | Abort
+type AbortOp: Type = | Abort
 
 def AbortRes: AbortOp → Type
   | Abort => Empty
@@ -71,7 +64,8 @@ def answerTick: (o: TickOp) → Pair Nat (TickRes o)
   | Tick => MkPair 3 MkUnit
 
 def answerPlus [l r: Type] [lres: l → Type] [rres: r → Type]
-    (al: (o: l) → Pair Nat (lres o)) (ar: (o: r) → Pair Nat (rres o)):
+    (al: (o: l) → Pair Nat (lres o))
+    (ar: (o: r) → Pair Nat (rres o)):
     (o: Plus l r) → Pair Nat (PlusRes lres rres o)
   | L o => al o
   | R o => ar o
@@ -79,9 +73,11 @@ def answerPlus [l r: Type] [lres: l → Type] [rres: r → Type]
 -- A program in the row `{State, Choose}`
 def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseRes) a
 
-def answerSC (o: Plus StateOp ChooseOp): Pair Nat (PlusRes StateRes ChooseRes o) := answerPlus answerState answerChoose o
+def answerSC (o: Plus StateOp ChooseOp): Pair Nat (PlusRes StateRes ChooseRes o) :=
+  answerPlus answerState answerChoose o
 
-def answerCS (o: Plus ChooseOp StateOp): Pair Nat (PlusRes ChooseRes StateRes o) := answerPlus answerChoose answerState o
+def answerCS (o: Plus ChooseOp StateOp): Pair Nat (PlusRes ChooseRes StateRes o) :=
+  answerPlus answerChoose answerState o
 
 -- Weakening `{Choose}` into `{{State, Choose}, Tick}` in two steps, and in one.
 def SCT: Type := Plus (Plus StateOp ChooseOp) TickOp
@@ -121,8 +117,7 @@ theorem rowsBehave: Unit :=
   -- Runs a computation with fixed answers, recording a number for each
   -- operation and then 1000 + the result. `answer` gives both the number to
   -- record and the response.
-  def trace [op: Type] [res: op → Type]
-      (answer: (o: op) → Pair Nat (res o)): Comp op res Nat → List Nat
+  def trace [op: Type] [res: op → Type] (answer: (o: op) → Pair Nat (res o)): Comp op res Nat → List Nat
     | Done x => [1000 + x]
     | Call o rest => [fstOf (answer o), ..trace answer (rest (sndOf (answer o)))]
 
@@ -143,34 +138,39 @@ theorem rowsBehave: Unit :=
 
   let swap: eqNats (trace answerCS (translate sigSwap p)) (trace answerSC p) = True := rfl
 
-  let swapBack:
-    eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p) = True := rfl
+  let swapBack: eqNats (trace answerSC (translate sigSwap (translate sigSwap p))) (trace answerSC p) = True := rfl
 
   def chooseOnly: Comp ChooseOp ChooseRes Nat := Call Choose (b => Done (if b then 1 else 0))
 
-  let composedWeakenings:
-    eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerSCT (translate oneStep chooseOnly)) = True := rfl
+  let composedWeakenings: eqNats
+    (trace answerSCT (translate twoSteps chooseOnly))
+    (trace answerSCT (translate oneStep chooseOnly))
+    = True :=
+    rfl
 
-  let weakeningKeepsTrace:
-    eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerChoose chooseOnly) = True := rfl
+  let weakeningKeepsTrace: eqNats (trace answerSCT (translate twoSteps chooseOnly)) (trace answerChoose chooseOnly)
+    = True :=
+    rfl
 
   -- Handlers over an abstract rest of the row
 
   -- `State` on the left of any row `e`.
-  def runStateL [e: Type] [eres: e → Type] [a: Type]
-      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a → Comp e eres (Pair a Nat)
+  def runStateL [e: Type] [eres: e → Type] [a: Type] (s: Nat):
+      Comp (Plus StateOp e) (PlusRes StateRes eres) a → Comp e eres (Pair a Nat)
     | Done x => Done (MkPair x s)
     | Call (L Get) rest => runStateL s (rest s)
     | Call (L (Put n)) rest => runStateL n (rest MkUnit)
     | Call (R o) rest => Call o (y => runStateL s (rest y))
 
   -- `Choose` on the left of any row `e`: every outcome, `True` first.
-  def allResultsL: [e: Type] → [eres: e → Type] → [a: Type] →
-      Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a → Comp e eres (List a)
+  def allResultsL: [e: Type]
+        → [eres: e → Type]
+        → [a: Type]
+        → Comp (Plus ChooseOp e) (PlusRes ChooseRes eres) a
+        → Comp e eres (List a)
     | Done x => Done [x]
     | Call (L Choose) rest =>
-      bind (allResultsL (rest True)) (xs =>
-        bind (allResultsL (rest False)) (ys => Done (List.append xs ys)))
+      bind (allResultsL (rest True)) (xs => bind (allResultsL (rest False)) (ys => Done (List.append xs ys)))
     | Call (R o) rest => Call o (y => allResultsL (rest y))
 
   -- Removing the last ability.
@@ -194,11 +194,9 @@ theorem rowsBehave: Unit :=
 
   def pWider: Comp SCA SCARes Nat := translate (MkSigMap intoSCA replySCA) p
 
-  let widerRest:
-    eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice = True := rfl
+  let widerRest: eqPairs (fromSomeNil (toOption (allResultsL (runStateL 0 pWider)))) stateThenChoice = True := rfl
 
   -- Handling `Choose` when it's on the left instead: swap the program, then
   -- use `allResultsL` with `e = State`. Choice inside, state outside.
-  let otherPosition:
-    eqNats (fstOf (runState 0 (allResultsL (translate sigSwap p)))) [1, 1] = True := rfl
+  let otherPosition: eqNats (fstOf (runState 0 (allResultsL (translate sigSwap p)))) [1, 1] = True := rfl
   Trivial

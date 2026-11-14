@@ -47,8 +47,9 @@ pub struct Index {
     pub refs: Vec<Ref>,
     /// The type of each expression of the program's files, if the session
     /// recorded them (`Elaborator::enable_expression_types`): file (of
-    /// `files`), range, and the type as printed.
-    pub exprs: Vec<(usize, Range, String)>,
+    /// `files`), range, and the type as printed. The last is the type with
+    /// an outermost `Not` written as `p → Void`, when it has one.
+    pub exprs: Vec<(usize, Range, String, Option<String>)>,
     pub diagnostics: Vec<IndexDiagnostic>,
 }
 
@@ -73,6 +74,9 @@ pub struct Symbol {
     pub range: Range,
     /// The whole declaration, for the program's declarations.
     pub full_range: Option<Range>,
+    /// Whether its body didn't parse, so `full_range` stops at its header
+    /// (SW-3199).
+    pub body_error: bool,
     /// The symbol it is declared in, by index.
     pub container: Option<usize>,
     pub ty: Option<String>,
@@ -82,6 +86,9 @@ pub struct Symbol {
     /// A function's header as its declaration writes it, after its name
     /// (`NavSymbol::header`).
     pub header: Option<String>,
+    /// Its type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`NavSymbol::unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// Its doc, read from the comments above it (docs/proposals/documentation.md
     /// §4), with the first sentence of it and its marker (always `--|`).
     pub doc: Option<SymbolDoc>,
@@ -118,9 +125,23 @@ pub struct Ref {
     pub range: Range,
     pub target: RefTarget,
     pub ty: Option<String>,
+    /// The type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`NavRef::unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used.
     pub defaults: Option<String>,
+    /// What a rename of the target edits: the last component of the written
+    /// name (`map` in `List.map`; `range` covers the whole name).
+    pub name_range: Range,
+    /// The text written here is not the target's name (a use of an import's
+    /// alias, `import List (map as each)`, or an operator's symbol): a
+    /// rename of the target must leave it.
+    pub alias: bool,
+    /// A punned record field, `{ name }`: this and another reference (the
+    /// field, the variable) have one range. A rename edits one of them to
+    /// `{ label = name }` or `{ name = who }`.
+    pub pun: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -370,7 +391,7 @@ pub fn index_json(
     // the parentheses already put back (see `index_data_of`).
     if !index.exprs.is_empty() {
         out.push_str(r#","exprs":["#);
-        for (i, (file, range, ty)) in index.exprs.iter().enumerate() {
+        for (i, (file, range, ty, _)) in index.exprs.iter().enumerate() {
             if i > 0 {
                 out.push(',');
             }
@@ -437,6 +458,9 @@ pub fn index_data_of(
         Some(crate::doc::equations_hover(&session.elab.ev(), ids))
     };
     let mut symbols = Vec::with_capacity(index.symbols.len());
+    // The links in the docs of the program's declarations that name a
+    // declaration: file, range of the name, and the declaration's full name.
+    let mut doc_links: Vec<(usize, Range, String, String)> = Vec::new();
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
         let at = range(&mut lines, sources, symbol.span, last_component(symbol));
@@ -497,16 +521,33 @@ pub fn index_data_of(
                     })
                     .collect(),
             });
+        if user(symbol.span.file)
+            && let Some(doc) = &doc
+            && let Some(parsed) = docs
+                .get(&symbol.span.file)
+                .and_then(|d| d.get(&symbol.span.start))
+        {
+            for (link, resolved) in parsed.links.iter().zip(&doc.links) {
+                if let Some(target) = &resolved.target {
+                    // Inside the brackets and backticks.
+                    let name = Span::new(link.span.file, link.span.start + 2, link.span.end - 2);
+                    let at = range(&mut lines, sources, name, None);
+                    doc_links.push((file, at, link.name.clone(), target.clone()));
+                }
+            }
+        }
         symbols.push(Symbol {
             name: symbol.name.clone(),
             kind: symbol.kind,
             file,
             range: at,
             full_range,
+            body_error: symbol.body_error,
             container: symbol.container,
             ty: symbol.ty.clone(),
             signature: symbol.signature.clone(),
             header: symbol.header.clone(),
+            unfolded: symbol.unfolded.clone(),
             doc,
             equations: equations_text(&symbol.name),
         });
@@ -534,17 +575,60 @@ pub fn index_data_of(
                 }
             }
         };
+        let (name_range, alias) = match &r.target {
+            NavTarget::Symbol(s) => {
+                let target = &index.symbols[*s].name;
+                written_name(&mut lines, sources, r.span, at, target)
+            }
+            NavTarget::Binder { .. } => (at, false),
+        };
         refs.push(Ref {
             file,
             range: at,
             target,
             ty: r.ty.clone(),
+            unfolded: r.unfolded.clone(),
             defaults: r.defaults.clone(),
+            name_range,
+            alias,
+            pun: r.pun,
         });
+    }
+    // A link in a doc is a reference to the declaration it names.
+    let by_name: HashMap<&str, usize> = symbols
+        .iter()
+        .enumerate()
+        .rev()
+        .map(|(i, s): (usize, &Symbol)| (s.name.as_str(), i))
+        .collect();
+    let mut linked = false;
+    for (file, at, written, target) in doc_links {
+        let Some(&s) = by_name.get(target.as_str()) else {
+            continue;
+        };
+        let tail = written.rsplit('.').next().unwrap_or(&written);
+        let last = target.rsplit('.').next().unwrap_or(&target);
+        let width: u32 = tail.chars().map(|c| c.len_utf16() as u32).sum();
+        let name_range = [at[0], at[3] - width, at[2], at[3]];
+        linked = true;
+        refs.push(Ref {
+            file,
+            range: at,
+            target: RefTarget::Symbol(s),
+            ty: symbols[s].ty.clone(),
+            unfolded: symbols[s].unfolded.clone(),
+            defaults: None,
+            name_range,
+            alias: last != tail,
+            pun: false,
+        });
+    }
+    if linked {
+        refs.sort_by_key(|r| (r.file, r.range));
     }
 
     let mut exprs = Vec::new();
-    for (span, ty) in &index.exprs {
+    for (span, ty, unfolded) in &index.exprs {
         if user(span.file) {
             let file = file_of(*span, &mut files);
             let parens = parens
@@ -553,15 +637,25 @@ pub fn index_data_of(
             // The expression, and again with the parentheses around it.
             let inner = parens.around(*span, false);
             let outer = parens.around(*span, true);
-            exprs.push((file, range(&mut lines, sources, inner, None), ty.clone()));
+            exprs.push((
+                file,
+                range(&mut lines, sources, inner, None),
+                ty.clone(),
+                unfolded.clone(),
+            ));
             if outer != inner {
-                exprs.push((file, range(&mut lines, sources, outer, None), ty.clone()));
+                exprs.push((
+                    file,
+                    range(&mut lines, sources, outer, None),
+                    ty.clone(),
+                    unfolded.clone(),
+                ));
             }
         }
     }
     // Each `${…}`: the parser builds it from pieces that don't cover it.
     let mut with_text: Vec<FileId> = Vec::new();
-    for (span, _) in &index.exprs {
+    for (span, _, _) in &index.exprs {
         if user(span.file) && !with_text.contains(&span.file) {
             with_text.push(span.file);
         }
@@ -570,12 +664,12 @@ pub fn index_data_of(
         let in_file: Vec<(Span, &String)> = index
             .exprs
             .iter()
-            .filter(|(span, _)| span.file == f)
-            .map(|(span, ty)| (*span, ty))
+            .filter(|(span, _, _)| span.file == f)
+            .map(|(span, ty, _)| (*span, ty))
             .collect();
         for (span, ty) in parens[&f].interpolations(f, &in_file) {
             let file = file_of(span, &mut files);
-            exprs.push((file, range(&mut lines, sources, span, None), ty));
+            exprs.push((file, range(&mut lines, sources, span, None), ty, None));
         }
     }
 
@@ -659,11 +753,10 @@ impl Parens {
         let mut partner = HashMap::default();
         let mut open = Vec::new();
         let mut interpolations = Vec::new();
-        // For each literal being lexed (they nest in `${…}`), where its
-        // latest `${` starts.
-        let mut texts: Vec<u32> = Vec::new();
-        for (i, token) in stitchwort_syntax::lex(file, text)
-            .unwrap_or_default()
+        // The `${`s not yet closed (texts nest in `${…}`).
+        let mut dollars: Vec<u32> = Vec::new();
+        for (i, token) in stitchwort_syntax::lex_recovering(file, text)
+            .tokens
             .iter()
             .enumerate()
         {
@@ -676,16 +769,10 @@ impl Parens {
                         partner.insert(i, o);
                     }
                 }
-                Tok::StrStart(_) => texts.push(token.span.end),
-                // These start after the `}` before them, and `StrMid` ends
-                // after the `${` after them.
-                Tok::StrMid(_) | Tok::StrEnd(_) => {
-                    if let Some(dollar) = texts.last_mut() {
-                        interpolations.push((*dollar, token.span.start));
-                        *dollar = token.span.end.saturating_sub(2);
-                        if matches!(token.tok, Tok::StrEnd(_)) {
-                            texts.pop();
-                        }
+                Tok::InterpOpen => dollars.push(token.span.start),
+                Tok::InterpClose => {
+                    if let Some(dollar) = dollars.pop() {
+                        interpolations.push((dollar, token.span.end));
                     }
                 }
                 _ => {}
@@ -810,6 +897,30 @@ fn last_component(symbol: &stitchwort_elab::NavSymbol) -> Option<&str> {
     (symbol.kind != "test").then(|| symbol.name.rsplit('.').next().unwrap_or_default())
 }
 
+/// The range of the last component of the name written at `span` (`range`
+/// is its range), and whether that component isn't `target`'s name.
+fn written_name(
+    lines: &mut Lines,
+    sources: &SourceMap,
+    span: Span,
+    full: Range,
+    target: &str,
+) -> (Range, bool) {
+    let text = &sources.get(span.file).text;
+    let Some(written) = text.get(span.start as usize..span.end as usize) else {
+        return (full, false);
+    };
+    let tail = written.rsplit('.').next().unwrap_or(written);
+    let last = target.rsplit('.').next().unwrap_or(target);
+    let alias = last.trim_start_matches('%') != tail;
+    if tail.len() == written.len() {
+        return (full, alias);
+    }
+    let start = span.end - tail.len() as u32;
+    let name = range(lines, sources, Span::new(span.file, start, span.end), None);
+    (name, alias)
+}
+
 /// With `last`, the span covers a dotted name whose last component is
 /// `last`: only that.
 fn range(lines: &mut Lines, sources: &SourceMap, span: Span, last: Option<&str>) -> Range {
@@ -883,7 +994,7 @@ fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavInde
 
 /// `text` as a JSON string.
 /// A goal's `goal` member: `{"hypotheses":[{"name","type","value"?}],
-/// "target","lemma"?}`, each part as the goal's label prints it.
+/// "target","targetComputed"?,"lemma"?}`, each part as the goal's label prints it.
 fn goal_json(out: &mut String, goal: &GoalData) {
     out.push_str(r#"{"hypotheses":["#);
     for (i, h) in goal.hypotheses.iter().enumerate() {
@@ -901,7 +1012,12 @@ fn goal_json(out: &mut String, goal: &GoalData) {
         }
         out.push('}');
     }
-    let _ = write!(out, r#"],"target":{}"#, string(&goal.target));
+    // The goal as written; what it computes to only when it prints
+    // differently (D3522).
+    let _ = write!(out, r#"],"target":{}"#, string(goal.shown()));
+    if let Some(computed) = goal.computed() {
+        let _ = write!(out, r#","targetComputed":{}"#, string(computed));
+    }
     if let Some(lemma) = &goal.lemma {
         let _ = write!(out, r#","lemma":{}"#, string(lemma));
     }

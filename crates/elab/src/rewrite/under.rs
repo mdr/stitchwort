@@ -68,9 +68,9 @@ impl Site {
                 let piped = Piped {
                     term: self.proof.clone(),
                     ty: Value::Eq(
-                        Rc::new(self.carrier.clone()),
-                        Rc::new(lhs.clone()),
-                        Rc::new(rhs.clone()),
+                        Rc::new(self.carrier.clone()).into(),
+                        Rc::new(lhs.clone()).into(),
+                        Rc::new(rhs.clone()).into(),
                     ),
                     span: rule.proof.span(),
                     dot: false,
@@ -309,13 +309,13 @@ fn by_lemma(
     let mut ty = eval(&g, &[], g.def(desc.lemma).ty())?;
     let mut lemma_args: Vec<(Term, Icit)> = Vec::new();
     for level in 0..desc.params {
-        let Value::Pi(_, icit, _, rest) = force(&g, ty)? else {
+        let Value::Pi(_, icit, dom, rest) = force(&g, ty)? else {
             snapshot.restore(cx);
             return Ok(None);
         };
         let arg = match desc.copy(level) {
             Some((m, _)) => args[desc.callbacks[m].position].0.clone(),
-            None => cx.fresh_meta(),
+            None => cx.fresh_meta_of(&dom),
         };
         ty = rest.apply(&g, cx.eval(&arg)?)?;
         lemma_args.push((arg, icit));
@@ -558,9 +558,9 @@ fn rewrite_body(
         let left = cx.quote(body)?;
         let goal = |right: &Value| {
             Value::Eq(
-                Rc::new(ty.clone()),
-                Rc::new(body.clone()),
-                Rc::new(right.clone()),
+                Rc::new(ty.clone()).into(),
+                Rc::new(body.clone()).into(),
+                Rc::new(right.clone()).into(),
             )
         };
         let mut current = body.clone();

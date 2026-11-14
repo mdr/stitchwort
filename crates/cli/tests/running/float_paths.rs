@@ -244,11 +244,8 @@ fn shown(n: &str) -> String {
 }
 
 fn stitchwort_run(path: &Path, js: bool) -> String {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.args(["run", "--no-cache"]);
-    if js {
-        command.arg("--js");
-    }
+    let mut command = crate::common::cli_with("run", if js { &["--js"] } else { &[] });
+    command.arg("--no-cache");
     let out = command.arg(path).output().expect("start stitchwort");
     assert!(
         out.status.success(),

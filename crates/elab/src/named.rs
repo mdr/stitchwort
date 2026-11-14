@@ -821,8 +821,8 @@ fn infer_missing(cx: &mut Ctx, head: Typed, slots: &[Slot]) -> Result<Vec<(Name,
                 (term, ty) = crate::check::apply_args(cx, (term, ty), &chunk)?;
                 chunk.clear();
                 (term, ty) = crate::check::insert(cx, term, ty)?;
-                let (_, cod) = crate::check::function_parts(cx, &ty)?;
-                let meta = cx.fresh_meta();
+                let (dom, cod) = crate::check::function_parts(cx, &ty)?;
+                let meta = cx.fresh_meta_of(&dom);
                 let value = cx.eval(&meta)?;
                 unknowns.push(((*name).clone(), value.clone()));
                 term = Term::app(term, meta);

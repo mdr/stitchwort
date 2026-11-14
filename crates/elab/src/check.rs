@@ -4,11 +4,12 @@
 
 use std::rc::Rc;
 
+use crate::goals::StepForm;
 use crate::kernel;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
+use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, quote_at_most, unused};
 use stitchwort_core::{DataId, Ev, Icit, MAX_LEVEL, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -41,6 +42,26 @@ fn superscript(k: usize) -> String {
     (k.to_string().chars())
         .map(|d| DIGITS[d.to_digit(10).unwrap_or(0) as usize])
         .collect()
+}
+
+/// One side of a failed comparison, for the notes in its message: each
+/// readback ([`Ctx::normal_of`], [`Ctx::shown_of`]) is made the first time a
+/// note asks and shared by the rest, since a big side takes long to read
+/// back (SW-2600).
+pub(crate) struct NoteSide<'a> {
+    value: &'a Value,
+    normal: std::cell::OnceCell<Option<Term>>,
+    shown: std::cell::OnceCell<Option<Term>>,
+}
+
+impl<'a> NoteSide<'a> {
+    pub(crate) fn new(value: &'a Value) -> Self {
+        NoteSide {
+            value,
+            normal: std::cell::OnceCell::new(),
+            shown: std::cell::OnceCell::new(),
+        }
+    }
 }
 
 pub struct Ctx<'e> {
@@ -270,7 +291,7 @@ fn same_value(a: &Value, b: &Value) -> bool {
         (Value::Pi(x, i, a, f), Value::Pi(y, j, b, g)) => {
             x == y
                 && i == j
-                && (Rc::ptr_eq(a, b) || same_value(a, b))
+                && (stitchwort_core::value::Shared::ptr_eq(a, b) || same_value(a, b))
                 && Rc::ptr_eq(&f.body, &g.body)
                 && std::ptr::eq(f.env.as_ptr(), g.env.as_ptr())
                 && f.env.len() == g.env.len()
@@ -286,6 +307,10 @@ pub struct Mark {
     scope: usize,
     locals: usize,
 }
+
+/// A message shows a few hundred characters, so a value that unfolds to
+/// more than this many nodes is not read back whole for one (SW-2569).
+const UNFOLD_NODES: u64 = 200_000;
 
 impl<'e> Ctx<'e> {
     pub fn new(e: &'e Elaborator, span: Span) -> Self {
@@ -649,6 +674,38 @@ impl<'e> Ctx<'e> {
         Ok(quote(&self.g(), self.level(), value)?)
     }
 
+    /// [`Ctx::quote`] for a note in a message, or `None` past
+    /// [`UNFOLD_NODES`] nodes: `Parse.exactly 2^128 p` unfolds 2^128 levels
+    /// deep, and a note does without a side that big (SW-2580).
+    pub fn quote_for_note(&self, value: &Value) -> Option<Term> {
+        quote_at_most(&self.g(), self.level(), value, UNFOLD_NODES)
+            .ok()
+            .flatten()
+    }
+
+    /// `side`'s normal form for a note, read back on first use ([`NoteSide`]).
+    pub(crate) fn normal_of<'s>(&self, side: &'s NoteSide) -> Option<&'s Term> {
+        side.normal
+            .get_or_init(|| self.quote_for_note(side.value))
+            .as_ref()
+    }
+
+    /// `side` with calls written as calls, for a note, read back on first
+    /// use ([`NoteSide`]).
+    pub(crate) fn shown_of<'s>(&self, side: &'s NoteSide) -> Option<&'s Term> {
+        side.shown
+            .get_or_init(|| self.quote_shown_for_note(side.value))
+            .as_ref()
+    }
+
+    /// [`Ctx::quote_for_note`] with calls written as calls, one that steps
+    /// at once by that step (`value::quote_shown`).
+    pub fn quote_shown_for_note(&self, value: &Value) -> Option<Term> {
+        stitchwort_core::value::quote_shown_at_most(&self.g(), self.level(), value, UNFOLD_NODES)
+            .ok()
+            .flatten()
+    }
+
     /// [`Ctx::quote`] with calls written as calls, not their unfoldings
     /// (`value::quote_folded`): for terms the elaboration produces, such as
     /// annotations and helper types.
@@ -751,11 +808,21 @@ impl<'e> Ctx<'e> {
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
-        match stitchwort_core::value::quote_unfolded_shown(&self.g(), self.level(), value) {
-            Ok(term) => {
+        // A message shows a few hundred characters of the top of a value, so
+        // only this many levels are read back (and [`UNFOLD_NODES`] nodes,
+        // for a value that is wide rather than deep).
+        const UNFOLD_DEPTH: usize = 12;
+        match stitchwort_core::value::quote_unfolded_shown_to_depth(
+            &self.g(),
+            self.level(),
+            value,
+            UNFOLD_NODES,
+            UNFOLD_DEPTH,
+        ) {
+            Ok(Some(term)) => {
                 pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
             }
-            Err(_) => "…".into(),
+            Ok(None) | Err(_) => "…".into(),
         }
     }
 
@@ -763,13 +830,19 @@ impl<'e> Ctx<'e> {
     /// §6.10) for the opaque definitions left folded in `values`, the sides
     /// of a failed comparison. Error path only.
     pub fn with_opaque_notes(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
+        let sides: Vec<NoteSide> = values.iter().map(|v| NoteSide::new(v)).collect();
+        self.with_opaque_notes_in(d, &sides)
+    }
+
+    /// [`Ctx::with_opaque_notes`] over sides already (or yet to be) read back.
+    pub(crate) fn with_opaque_notes_in(&self, d: Diagnostic, sides: &[NoteSide]) -> Diagnostic {
         let g = self.g();
         if !g.env.defs().iter().any(|def| def.opaque()) {
             return d;
         }
-        let terms: Vec<Term> = values
+        let terms: Vec<Term> = sides
             .iter()
-            .filter_map(|v| quote(&g, self.level(), v).ok())
+            .filter_map(|s| self.normal_of(s).cloned())
             .collect();
         let ids = crate::opaque::declined_in(&g, &terms);
         crate::opaque::opaque_notes(self.e, &ids)
@@ -788,15 +861,23 @@ impl<'e> Ctx<'e> {
     /// path only.
     pub(crate) fn with_unused_equation_notes(
         &self,
-        mut d: Diagnostic,
+        d: Diagnostic,
         values: &[&Value],
+    ) -> Diagnostic {
+        let sides: Vec<NoteSide> = values.iter().map(|v| NoteSide::new(v)).collect();
+        self.with_unused_equation_notes_in(d, &sides)
+    }
+
+    /// [`Ctx::with_unused_equation_notes`] over sides already (or yet to be)
+    /// read back.
+    pub(crate) fn with_unused_equation_notes_in(
+        &self,
+        mut d: Diagnostic,
+        sides: &[NoteSide],
     ) -> Diagnostic {
         let g = self.g();
         let level = self.level();
-        let hay: Vec<Term> = values
-            .iter()
-            .filter_map(|v| quote(&g, level, v).ok())
-            .collect();
+        let hay: Vec<&Term> = sides.iter().filter_map(|s| self.normal_of(s)).collect();
         if hay.is_empty() {
             return d;
         }
@@ -813,13 +894,13 @@ impl<'e> Ctx<'e> {
             ) {
                 continue;
             }
-            let Ok(needle) = quote(&g, level, &lhs) else {
+            let Some(needle) = self.quote_for_note(&lhs) else {
                 continue;
             };
             if matches!(needle.strip_loc(), Term::Ctor(..) | Term::Nat(_)) {
                 continue;
             }
-            let under_binder = |t: &Term| {
+            let under_binder = |t: &&Term| {
                 t.subterms().any(|(sub, under)| {
                     under > 0 && crate::matching::same_shifted(&needle, sub, under, 0)
                 })
@@ -858,32 +939,37 @@ impl<'e> Ctx<'e> {
     /// Whether `a` and `b` differ only in arguments the compiler fills in,
     /// as shown (calls folded) or as computed. Error path only.
     pub fn differ_only_in_hidden(&self, a: &Value, b: &Value) -> bool {
+        self.differ_only_in_hidden_in(&NoteSide::new(a), &NoteSide::new(b))
+    }
+
+    /// [`Ctx::differ_only_in_hidden`] over sides already (or yet to be) read back.
+    pub(crate) fn differ_only_in_hidden_in(&self, a: &NoteSide, b: &NoteSide) -> bool {
         let g = self.g();
-        let level = self.level();
-        let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
-        let normal = |v| quote(&g, level, v).ok();
-        [(folded(a), folded(b)), (normal(a), normal(b))]
-            .iter()
-            .any(|pair| match pair {
-                (Some(x), Some(y)) => pretty::differ_only_in_hidden(&g, x, y),
-                _ => false,
-            })
+        [
+            (self.shown_of(a), self.shown_of(b)),
+            (self.normal_of(a), self.normal_of(b)),
+        ]
+        .iter()
+        .any(|pair| match pair {
+            (Some(x), Some(y)) => pretty::differ_only_in_hidden(&g, x, y),
+            _ => false,
+        })
     }
 
     /// Whether `a` and `b` differ only in proof positions (a constructor's
     /// proof field, a data type's proof parameter, a definition's inert
     /// argument), as shown (calls folded) or as computed. Error path only.
-    pub fn differ_only_in_proofs(&self, a: &Value, b: &Value) -> bool {
+    pub(crate) fn differ_only_in_proofs_in(&self, a: &NoteSide, b: &NoteSide) -> bool {
         let g = self.g();
-        let level = self.level();
-        let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
-        let normal = |v| quote(&g, level, v).ok();
-        [(folded(a), folded(b)), (normal(a), normal(b))]
-            .iter()
-            .any(|pair| match pair {
-                (Some(x), Some(y)) => pretty::differ_only_in_proofs(&g, x, y),
-                _ => false,
-            })
+        [
+            (self.shown_of(a), self.shown_of(b)),
+            (self.normal_of(a), self.normal_of(b)),
+        ]
+        .iter()
+        .any(|pair| match pair {
+            (Some(x), Some(y)) => pretty::differ_only_in_proofs(&g, x, y),
+            _ => false,
+        })
     }
 
     /// Where what `a` and `b` compute to first differ, as a note. Error
@@ -891,10 +977,24 @@ impl<'e> Ctx<'e> {
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
         let g = self.g();
         let level = self.level();
-        let shown = |v| stitchwort_core::value::quote_unfolded_shown(&g, level, v).ok();
+        // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
+        // levels deep (SW-2580). Deeper parts are `…` on both sides, which
+        // compare alike, so a difference is only found above the depth.
+        const DIFFERENCE_DEPTH: usize = 256;
+        let shown = |v| {
+            stitchwort_core::value::quote_unfolded_shown_to_depth(
+                &g,
+                level,
+                v,
+                UNFOLD_NODES,
+                DIFFERENCE_DEPTH,
+            )
+            .ok()
+            .flatten()
+        };
         let (x, y) = (shown(a)?, shown(b)?);
         let found = pretty::first_difference_in(&g, self.e, &self.shown_names(false), &x, &y)?;
-        if found.left == found.right {
+        if found.left == found.right || found.left == "…" || found.right == "…" {
             return None;
         }
         let within = found
@@ -912,14 +1012,20 @@ impl<'e> Ctx<'e> {
     /// two different helpers of updates (each prints as `{ x | f = s }`).
     /// Error path only.
     pub fn with_alike_updates_note(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
-        let g = self.g();
-        let level = self.level();
+        let sides: Vec<NoteSide> = values.iter().map(|v| NoteSide::new(v)).collect();
+        self.with_alike_updates_note_in(d, &sides)
+    }
+
+    /// [`Ctx::with_alike_updates_note`] over sides already (or yet to be)
+    /// read back.
+    pub(crate) fn with_alike_updates_note_in(
+        &self,
+        d: Diagnostic,
+        sides: &[NoteSide],
+    ) -> Diagnostic {
         let mut helpers: Vec<stitchwort_core::DefId> = Vec::new();
-        for value in values {
-            let terms = [
-                stitchwort_core::value::quote_shown(&g, level, value),
-                quote(&g, level, value),
-            ];
+        for side in sides {
+            let terms = [self.shown_of(side), self.normal_of(side)];
             for term in terms.iter().flatten() {
                 for (t, _) in term.subterms() {
                     if let Term::Def(id) = t
@@ -1059,6 +1165,10 @@ impl<'e> Ctx<'e> {
             d.with_note(NE_AS_PROP_NOTE)
         } else {
             d
+        };
+        let d = match crate::reading::read_note(self, expected, found) {
+            Ok(Some(note)) => d.with_note(note),
+            _ => d,
         };
         let mut notes = Vec::new();
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
@@ -1495,9 +1605,9 @@ impl<'e> Ctx<'e> {
             kcx.bind(
                 "p".into(),
                 Value::Eq(
-                    Rc::new(along.carrier.clone()),
-                    Rc::new(along.lhs_value.clone()),
-                    Rc::new(y),
+                    Rc::new(along.carrier.clone()).into(),
+                    Rc::new(along.lhs_value.clone()).into(),
+                    Rc::new(y).into(),
                 ),
             );
             crate::kernel::without_glue(&g, || crate::kernel::check_type(&mut kcx, &body))?;
@@ -1605,10 +1715,10 @@ pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is a `Bool` test (`Decidable.toBool …`, or `….toBool`): a `Bool` `!=` that was read as `≠`
+/// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
 /// because it sits beside `=` in a statement.
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.toBool") || found.contains(".toBool"))
+    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }
 
 /// Whether two forced types are built by the same outermost former (the
@@ -1861,18 +1971,17 @@ impl PureFirst {
 }
 
 /// [`infer_inner`] once it's known that `expr` isn't run as a whole.
+///
+/// A nested application or lambda recurses through here at every level,
+/// so the arms with bodies of their own are out of line: this frame was
+/// 2.6 KiB, sized for every arm, on each level of 2021 day 6's proofs
+/// (SW-3180).
 pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     if let Some(logic) = crate::logic::classify(cx, expr) {
         return crate::logic::infer(cx, logic);
     }
     match expr {
-        Expr::Unit(_) => {
-            let unit = builtin_data(cx, Builtin::UnitType)?;
-            Ok((
-                Term::Ctor(unit, 0, Vec::new()),
-                Value::Data(unit, Vec::new()),
-            ))
-        }
+        Expr::Unit(_) => infer_unit(cx),
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
         Expr::Reify { .. } => crate::reify::infer_reify(cx, expr),
@@ -1883,10 +1992,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Cases { .. } => Err(crate::cases::no_goal(cx, expr)),
         Expr::Ring { .. } => Err(crate::ring::no_goal(cx, expr)),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
-        Expr::Effect(row, ty) => {
-            let (term, sort) = effects::effect_type(cx, row, ty)?;
-            Ok((term, Value::Sort(sort)))
-        }
+        Expr::Effect(row, ty) => infer_effect(cx, row, ty),
         Expr::Let {
             name,
             ty,
@@ -1897,14 +2003,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Seq(..) | Expr::Handle { .. } => {
             unreachable!("these may perform operations, so they're handled above")
         }
-        Expr::Var(_) | Expr::App(..) => {
-            if let Some((call, args)) = finished_call(cx, expr) {
-                let head = infer(cx, call)?;
-                return apply_args(cx, head, &args);
-            }
-            let (head, args) = spine(expr);
-            infer_app(cx, head, &args)
-        }
+        Expr::Var(_) | Expr::App(..) => infer_call(cx, expr),
         Expr::Bracketed(call, _) => infer(cx, call),
         Expr::Interpolated(text, _) => {
             let (term, ty) = infer_value(cx, text)?;
@@ -1912,218 +2011,33 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             Ok((term, ty))
         }
         Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
-        Expr::NamedArg(_, _, _, Bracket::Square) => Err(cx.error(
-            "E-PARSE",
-            "a named implicit argument must follow a function",
-            "write `f [x := …]`",
-        )),
-        Expr::NamedArg(_, _, _, Bracket::Round) => Err(cx.error(
-            "E-PARSE",
-            "a named argument must follow a function",
-            "write `f (x := …)`",
-        )),
+        Expr::NamedArg(..) | Expr::Spread(..) => Err(out_of_place(cx, expr)),
         // `-k` with nothing expected is an `Int`.
         Expr::Neg(..) => crate::numbers::group(cx, expr, None),
-        // A number with nothing expected waits for its type as a checked
-        // one does (K4, D2126): its type is a new unknown, which a later use
-        // may say, and which is `Nat` by default. The unknown mentions no
-        // variable: a numeral's type is `Nat`, `Int`, `Float`, `SafeNat`,
-        // `SafeInt` or `Fin n`, and only `Fin n` could, which an inferred
-        // literal never was (it was `Nat` at once). Applied to the variables
-        // in scope, a `match` on one of them would substitute into it, and
-        // `?0 (Node x kids) = Nat` can't be solved.
-        Expr::Num(n, _) => {
-            let ty = Value::Neutral(Head::Meta(cx.metas().new_meta(cx.span)), Default::default());
-            let term = crate::numbers::check_literal(cx, n, false, &ty)?;
-            Ok((term, ty))
-        }
+        Expr::Num(n, _) => infer_number(cx, n),
         Expr::Float(text, _) => crate::numbers::infer_decimal(cx, text),
-        Expr::Char(c, _) => {
-            let char_data = builtin_data(cx, Builtin::Char)?;
-            Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new())))
-        }
-        // `"ab"` is `MkText ['a', 'b']`: its characters are one compact list
-        // when the prelude's `List` and `Char` are registered for it
-        // (`stitchwort_core::chars`), and otherwise cons cells.
-        Expr::Str(s, _) => {
-            let (text, mk_text) = builtin_ctor(cx, Builtin::MkText)?;
-            let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
-            let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
-            let chars = match cx.g().env.builtins().compact_literals() {
-                Some(text_rep) => {
-                    let buffer: std::rc::Rc<[char]> = s.chars().collect();
-                    compact::term(text_rep, &Chars::whole(buffer))
-                }
-                None => {
-                    let mut chars = Term::Ctor(list, nil, Vec::new());
-                    for c in s.chars().rev() {
-                        chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
-                    }
-                    chars
-                }
-            };
-            Ok((
-                Term::ctor(text, mk_text, vec![chars]),
-                Value::Data(text, Vec::new()),
-            ))
-        }
-        Expr::Include(path, span) => {
-            let text = cx.e.read_include(path, *span)?;
-            infer(cx, &Expr::Str(text, *span))
-        }
+        Expr::Char(c, _) => infer_char(cx, *c),
+        Expr::Str(s, _) => infer_text(cx, s),
+        Expr::Include(path, span) => infer_include(cx, path, *span),
         Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
         Expr::Binary(op @ (BinOp::Range | BinOp::RangeThrough), a, b) => range(cx, *op, a, b),
-        // `Type MAX_LEVEL` is the top universe: nothing for it to live in
-        // (SW-902).
-        Expr::Type(i, span) => match Sort::Type(*i).succ() {
-            Some(above) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(above))),
-            None => Err(Diagnostic::error("E-UNIVERSE", format!("`Type {i}` has no type"))
-                .with_label(
-                    *span,
-                    format!("`Type {MAX_LEVEL}` is the largest universe, and no universe holds it"),
-                )
-                .with_note(format!(
-                    "`Type n` can be used as a term for `n` up to {}: every term needs a type, and `Type n : Type n` would make the logic inconsistent",
-                    MAX_LEVEL - 1
-                ))),
-        },
+        Expr::Type(i, span) => infer_universe(*i, *span),
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
-        Expr::Hole(_) => {
-            let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty)?;
-            Ok((cx.fresh_meta(), ty))
-        }
-        // A goal where nothing says its type: that's unknown too, and
-        // printed as such if nothing works it out.
-        Expr::Goal(_) => {
-            let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty)?;
-            Ok((crate::goals::hole(cx, &ty), ty))
-        }
+        Expr::Hole(_) | Expr::Goal(_) | Expr::Missing(_) => infer_hole(cx, expr),
         Expr::Lam(..) if expr.section_name().is_some() => infer_section(cx, expr),
         // `x => y => b` is inferred as `x y => b` is (SW-910): one function
         // type for all its parameters, so the inner lambda is checked
         // against a function type, not an unknown.
-        Expr::Lam(..) => {
-            let (names, _) = curried_lambda(expr);
-            let names: Vec<Name> = names.iter().map(|name| name.text.as_str().into()).collect();
-            infer_lambda(cx, expr, &names)
-        }
-        // `(x: A) => body`, `[a: Type] => body`, `[auto h: P] => body`:
-        // the parameter's type is written, so the function's type follows
-        // from the body's, with the parameter's mode (§4.3 of
-        // docs/proposals/lambda-syntax.md).
-        Expr::TypedLam(name, mode, ann, body, _) => {
-            let icit = mode_icit(*mode);
-            let (dom, _) = check_type(cx, ann)?;
-            let dom = cx.eval(&dom)?;
-            let (row, row_value) = inferred_row(cx)?;
-            let mark = cx.mark();
-            cx.bind(&name.text, dom.clone());
-            // A body that may perform abilities is checked against a
-            // computation whose row it works out.
-            let inferred = effects::may_perform(cx, body).and_then(|performs| {
-                if performs {
-                    let result = cx.fresh_meta();
-                    let cod = cx.eval(&inferred_comp(cx, &row_value, result)?)?;
-                    let term = check(cx, body, &cod)?;
-                    Ok((term, cx.quote_folded(&cod)?, true))
-                } else {
-                    let (term, ty) = infer(cx, body)?;
-                    let (term, ty) = insert(cx, term, ty)?;
-                    Ok((term, cx.quote_folded(&ty)?, false))
-                }
-            });
-            cx.reset(mark);
-            let (body, cod, performs) = inferred?;
-            if performs {
-                settle_inferred_row(cx, &row, &row_value)?;
-            }
-            let x: Name = name.text.as_str().into();
-            let lam = Term::Lam(x.clone(), icit, Rc::new(body));
-            let cod = Closure {
-                env: cx.env.as_slice().into(),
-                body: Rc::new(cod),
-            };
-            let pi = Value::Pi(x, icit, Rc::new(dom), cod);
-            // Annotated for the kernel, which doesn't infer a lambda's type.
-            // For an implicit or auto lambda, this shape (an annotation
-            // straight around the lambda) is what tells [`insert`] not to
-            // apply it to unknowns.
-            let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote_folded(&pi)?));
-            Ok((ann, pi))
-        }
-        Expr::Pi {
-            names,
-            implicit,
-            auto,
-            dom,
-            cod,
-            ..
-        } => {
-            let icit = match (implicit, auto) {
-                (_, true) => Icit::Auto,
-                (true, false) => Icit::Implicit,
-                (false, false) => Icit::Explicit,
-            };
-            let (dom, s1) = check_type(cx, dom)?;
-            let mark = cx.mark();
-            for (k, name) in names.iter().enumerate() {
-                let shifted = Rc::new(dom.shift(&cx.g(), k, 0)?);
-                let ty = cx.eval(&shifted)?;
-                cx.bind(&name.text, ty);
-                // The type as written, so dot notation on this variable
-                // starts from an alias (`bank: Bank`), as for a parameter.
-                cx.set_written(crate::dot::Written::Here(shifted));
-            }
-            let result = check_type(cx, cod);
-            cx.reset(mark);
-            let (mut term, s2) = result?;
-            for (k, name) in names.iter().enumerate().rev() {
-                term = Term::Pi(
-                    name.text.as_str().into(),
-                    icit,
-                    Rc::new(dom.shift(&cx.g(), k, 0)?),
-                    Rc::new(term),
-                );
-            }
-            Ok((term, Value::Sort(Sort::pi(s1, s2))))
-        }
-        Expr::Arrow(a, b) => {
-            let (a, s1) = check_type(cx, a)?;
-            let mark = cx.mark();
-            let a_value = cx.eval(&a)?;
-            cx.bind_hidden("_".into(), a_value);
-            let result = check_type(cx, b);
-            cx.reset(mark);
-            let (b, s2) = result?;
-            Ok((
-                Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b)),
-                Value::Sort(Sort::pi(s1, s2)),
-            ))
-        }
+        Expr::Lam(..) => infer_curried_lambda(cx, expr),
+        Expr::TypedLam(name, mode, ann, body, _) => infer_typed_lambda(cx, name, *mode, ann, body),
+        Expr::Pi { .. } => infer_pi(cx, expr),
+        Expr::Arrow(a, b) => infer_arrow(cx, a, b),
         // `x in c`: a proposition, by the type of `c`.
         Expr::Binary(BinOp::In(op), a, b) => crate::membership::infer_member(cx, *op, a, b),
         // Arithmetic and comparisons: typed a group at a time.
         Expr::Binary(..) => crate::numbers::group(cx, expr, None),
-        Expr::If {
-            binder,
-            cond,
-            then,
-            otherwise,
-            ..
-        } => {
-            let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty)?;
-            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
-            Ok((term, ty))
-        }
-        Expr::Ann(e, ty, _) => {
-            let (ty, _) = check_type(cx, ty)?;
-            let ty_value = cx.eval(&ty)?;
-            let e = check(cx, e, &ty_value)?;
-            Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
-        }
+        Expr::If { .. } => infer_if(cx, expr),
+        Expr::Ann(e, ty, _) => infer_annotated(cx, e, ty),
         Expr::Record {
             base: None, fields, ..
         } => records::infer_literal(cx, fields),
@@ -2134,35 +2048,361 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         } => records::infer_update(cx, base, fields),
         Expr::CtorFields {
             ctor, fields, span, ..
-        } => {
-            match records::ctor_fields(cx, ctor, fields, *span, None)? {
-                records::Construction::Positional(positional) => infer_inner(cx, &positional),
-                records::Construction::Argument(positional, hint) => {
-                    infer_inner(cx, &positional).map_err(|e| match &hint {
-                        Some(hint) => hint.apply(e),
-                        None => e,
-                    })
-                }
-                records::Construction::Defaults(d, c) => {
-                    crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
-                }
-            }
-        }
+        } => infer_ctor_fields(cx, ctor, fields, *span),
         Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
-        Expr::Spread(..) => Err(cx.error(
+        Expr::List(items, _) => infer_list(cx, expr, items),
+    }
+}
+
+/// [`infer_value`] of a name or an application.
+fn infer_call(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    if let Some((call, args)) = finished_call(cx, expr) {
+        let head = infer(cx, call)?;
+        return apply_args(cx, head, &args);
+    }
+    let (head, args) = spine(expr);
+    infer_app(cx, head, &args)
+}
+
+/// [`infer_value`] of an effect type.
+#[inline(never)]
+fn infer_effect(
+    cx: &mut Ctx,
+    row: &stitchwort_syntax::ast::Row,
+    ty: &Expr,
+) -> Result<(Term, Value)> {
+    let (term, sort) = effects::effect_type(cx, row, ty)?;
+    Ok((term, Value::Sort(sort)))
+}
+
+/// [`infer_value`] of an included file: its text.
+#[inline(never)]
+fn infer_include(cx: &mut Ctx, path: &str, span: Span) -> Result<(Term, Value)> {
+    let text = cx.e.read_include(path, span)?;
+    infer(cx, &Expr::Str(text, span))
+}
+
+/// [`infer_value`] of `()`: the unit value.
+#[inline(never)]
+fn infer_unit(cx: &mut Ctx) -> Result<(Term, Value)> {
+    let unit = builtin_data(cx, Builtin::UnitType)?;
+    Ok((
+        Term::Ctor(unit, 0, Vec::new()),
+        Value::Data(unit, Vec::new().into()),
+    ))
+}
+
+/// The error for a named argument or a `..` spread where
+/// [`infer_value`] finds one: outside an application or a list.
+#[cold]
+#[inline(never)]
+fn out_of_place(cx: &Ctx, expr: &Expr) -> Diagnostic {
+    match expr {
+        Expr::NamedArg(_, _, _, Bracket::Square) => cx.error(
+            "E-PARSE",
+            "a named implicit argument must follow a function",
+            "write `f [x := …]`",
+        ),
+        Expr::NamedArg(_, _, _, Bracket::Round) => cx.error(
+            "E-PARSE",
+            "a named argument must follow a function",
+            "write `f (x := …)`",
+        ),
+        Expr::Spread(..) => cx.error(
             "E-PARSE",
             "a `..` spread outside a list",
             "`..xs` joins a list into a list literal: write `[x, ..xs]`",
-        )),
-        Expr::List(items, _) => {
-            warn_range_in_brackets(cx, items);
-            let list = builtin_data(cx, Builtin::List)?;
-            let elem = cx.fresh_meta();
-            let ty = Value::Data(list, vec![cx.eval(&elem)?]);
-            let term = check(cx, expr, &ty)?;
-            Ok((annotate(cx, term, &ty)?, ty))
+        ),
+        _ => unreachable!("only named arguments and spreads are out of place"),
+    }
+}
+
+/// [`infer_value`] of a number. With nothing expected it waits for its
+/// type as a checked one does (K4, D2126): its type is a new unknown,
+/// which a later use may say, and which is `Nat` by default. The unknown
+/// mentions no variable: a numeral's type is `Nat`, `Int`, `Float`,
+/// `SafeNat`, `SafeInt` or `Fin n`, and only `Fin n` could, which an
+/// inferred literal never was (it was `Nat` at once). Applied to the
+/// variables in scope, a `match` on one of them would substitute into it,
+/// and `?0 (Node x kids) = Nat` can't be solved.
+#[inline(never)]
+fn infer_number(cx: &mut Ctx, n: &num_bigint::BigUint) -> Result<(Term, Value)> {
+    let ty = Value::Neutral(Head::Meta(cx.metas().new_meta(cx.span)), Default::default());
+    let term = crate::numbers::check_literal(cx, n, false, &ty)?;
+    Ok((term, ty))
+}
+
+/// [`infer_value`] of a character.
+#[inline(never)]
+fn infer_char(cx: &mut Ctx, c: char) -> Result<(Term, Value)> {
+    let char_data = builtin_data(cx, Builtin::Char)?;
+    Ok((char_term(cx, c)?, Value::Data(char_data, Vec::new().into())))
+}
+
+/// [`infer_value`] of a text: `"ab"` is `MkText ['a', 'b']`, its
+/// characters one compact list when the prelude's `List` and `Char` are
+/// registered for it (`stitchwort_core::chars`), and otherwise cons cells.
+#[inline(never)]
+fn infer_text(cx: &mut Ctx, s: &str) -> Result<(Term, Value)> {
+    let (text, mk_text) = builtin_ctor(cx, Builtin::MkText)?;
+    let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
+    let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
+    let chars = match cx.g().env.builtins().compact_literals() {
+        Some(text_rep) => {
+            let buffer: std::rc::Rc<[char]> = s.chars().collect();
+            compact::term(text_rep, &Chars::whole(buffer))
+        }
+        None => {
+            let mut chars = Term::Ctor(list, nil, Vec::new());
+            for c in s.chars().rev() {
+                chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
+            }
+            chars
+        }
+    };
+    Ok((
+        Term::ctor(text, mk_text, vec![chars]),
+        Value::Data(text, Vec::new().into()),
+    ))
+}
+
+/// [`infer_value`] of `Type i`. `Type MAX_LEVEL` is the top universe:
+/// nothing for it to live in (SW-902).
+#[inline(never)]
+fn infer_universe(i: u32, span: Span) -> Result<(Term, Value)> {
+    match Sort::Type(i).succ() {
+        Some(above) => Ok((Term::Sort(Sort::Type(i)), Value::Sort(above))),
+        None => Err(Diagnostic::error("E-UNIVERSE", format!("`Type {i}` has no type"))
+            .with_label(
+                span,
+                format!("`Type {MAX_LEVEL}` is the largest universe, and no universe holds it"),
+            )
+            .with_note(format!(
+                "`Type n` can be used as a term for `n` up to {}: every term needs a type, and `Type n : Type n` would make the logic inconsistent",
+                MAX_LEVEL - 1
+            ))),
+    }
+}
+
+/// [`infer_value`] of a hole, a goal or a gap, where nothing says its type:
+/// that's unknown too, and printed as such if nothing works it out.
+#[inline(never)]
+fn infer_hole(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let ty = cx.fresh_meta();
+    let ty = cx.eval(&ty)?;
+    match expr {
+        Expr::Hole(_) => Ok((cx.fresh_meta_of(&ty), ty)),
+        // A gap's type is flagged with it: a message that shows it isn't
+        // reported.
+        Expr::Missing(_) => Ok((crate::goals::error_hole(cx, &ty), ty)),
+        _ => Ok((crate::goals::hole(cx, &ty), ty)),
+    }
+}
+
+/// [`infer_value`] of a lambda whose parameters' types aren't written.
+#[inline(never)]
+fn infer_curried_lambda(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let (names, _) = curried_lambda(expr);
+    let names: Vec<Name> = names.iter().map(|name| name.text.as_str().into()).collect();
+    infer_lambda(cx, expr, &names)
+}
+
+/// [`infer_value`] of `(x: A) => body`, `[a: Type] => body`, `[auto h: P]
+/// => body`: the parameter's type is written, so the function's type
+/// follows from the body's, with the parameter's mode (§4.3 of
+/// docs/proposals/lambda-syntax.md).
+#[inline(never)]
+fn infer_typed_lambda(
+    cx: &mut Ctx,
+    name: &AstName,
+    mode: Mode,
+    ann: &Expr,
+    body: &Expr,
+) -> Result<(Term, Value)> {
+    let icit = mode_icit(mode);
+    let (dom, _) = check_type(cx, ann)?;
+    let dom = cx.eval(&dom)?;
+    let (row, row_value) = inferred_row(cx)?;
+    let mark = cx.mark();
+    cx.bind(&name.text, dom.clone());
+    // A body that may perform abilities is checked against a
+    // computation whose row it works out.
+    let inferred = effects::may_perform(cx, body).and_then(|performs| {
+        if performs {
+            let result = cx.fresh_meta();
+            let cod = cx.eval(&inferred_comp(cx, &row_value, result)?)?;
+            let term = check(cx, body, &cod)?;
+            Ok((term, cx.quote_folded(&cod)?, true))
+        } else {
+            let (term, ty) = infer(cx, body)?;
+            let (term, ty) = insert(cx, term, ty)?;
+            Ok((term, cx.quote_folded(&ty)?, false))
+        }
+    });
+    cx.reset(mark);
+    let (body, cod, performs) = inferred?;
+    if performs {
+        settle_inferred_row(cx, &row, &row_value)?;
+    }
+    let x: Name = name.text.as_str().into();
+    let lam = Term::Lam(x.clone(), icit, Rc::new(body));
+    let cod = Closure {
+        env: cx.env.as_slice().into(),
+        body: Rc::new(cod),
+    };
+    let pi = Value::Pi(x, icit, Rc::new(dom).into(), cod);
+    // Annotated for the kernel, which doesn't infer a lambda's type.
+    // For an implicit or auto lambda, this shape (an annotation
+    // straight around the lambda) is what tells [`insert`] not to
+    // apply it to unknowns.
+    let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote_folded(&pi)?));
+    Ok((ann, pi))
+}
+
+/// [`infer_value`] of a function type with named parameters.
+#[inline(never)]
+fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let Expr::Pi {
+        names,
+        implicit,
+        auto,
+        dom,
+        cod,
+        span,
+    } = expr
+    else {
+        unreachable!("called on a function type")
+    };
+    let icit = match (implicit, auto) {
+        (_, true) => Icit::Auto,
+        (true, false) => Icit::Implicit,
+        (false, false) => Icit::Explicit,
+    };
+    let dom_end = dom.span().end;
+    let (dom, s1) = check_type(cx, dom)?;
+    let mark = cx.mark();
+    for (k, name) in names.iter().enumerate() {
+        let shifted = Rc::new(dom.shift(&cx.g(), k, 0)?);
+        let ty = cx.eval(&shifted)?;
+        cx.bind(&name.text, ty);
+        // The type as written, so dot notation on this variable
+        // starts from an alias (`bank: Bank`), as for a parameter.
+        cx.set_written(crate::dot::Written::Here(shifted));
+    }
+    let result = check_type(cx, cod);
+    cx.reset(mark);
+    let (mut term, s2) = result?;
+    crate::arrow_forall::note(cx, names, *implicit || *auto, dom_end, cod, s1, s2, *span);
+    for (k, name) in names.iter().enumerate().rev() {
+        term = Term::Pi(
+            name.text.as_str().into(),
+            icit,
+            Rc::new(dom.shift(&cx.g(), k, 0)?),
+            Rc::new(term),
+        );
+    }
+    Ok((term, Value::Sort(Sort::pi(s1, s2))))
+}
+
+/// [`infer_value`] of `A -> B`.
+#[inline(never)]
+fn infer_arrow(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let (a, s1) = check_type(cx, a)?;
+    let mark = cx.mark();
+    let a_value = cx.eval(&a)?;
+    cx.bind_hidden("_".into(), a_value);
+    let result = check_type(cx, b);
+    cx.reset(mark);
+    let (b, s2) = result?;
+    Ok((
+        Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b)),
+        Value::Sort(Sort::pi(s1, s2)),
+    ))
+}
+
+/// [`infer_value`] of an `if`. A fresh unknown for the type is right for
+/// data. For proofs the branches solve it with a proposition, where a
+/// `Type` is expected (an `E-UNIVERSE` raised later, by whoever uses the
+/// type), so that outcome is undone and retried with the branches' own
+/// proposition. Data takes the first path only.
+#[inline(never)]
+fn infer_if(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let Expr::If {
+        binder,
+        cond,
+        then,
+        otherwise,
+        ..
+    } = expr
+    else {
+        unreachable!("called on an `if`")
+    };
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let ty = cx.fresh_meta();
+    let ty = cx.eval(&ty)?;
+    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+    if crate::omega::is_prop(cx, &ty)? != Some(true) {
+        return Ok((term, ty));
+    }
+    snapshot.restore(cx);
+    match proof_branch_type(cx, then, otherwise)? {
+        Some(ty) => {
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            Ok((term, ty))
+        }
+        // Not inferable on its own: left as it was.
+        None => {
+            let ty = cx.fresh_meta();
+            let ty = cx.eval(&ty)?;
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            Ok((term, ty))
         }
     }
+}
+
+/// [`infer_value`] of `(e : T)`.
+#[inline(never)]
+fn infer_annotated(cx: &mut Ctx, e: &Expr, ty: &Expr) -> Result<(Term, Value)> {
+    let (ty, _) = check_type(cx, ty)?;
+    let ty_value = cx.eval(&ty)?;
+    let expected = crate::reading::here_as_written(cx, &ty, &ty_value)?;
+    let e = check(cx, e, &expected)?;
+    Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
+}
+
+/// [`infer_value`] of `C { … }`.
+#[inline(never)]
+fn infer_ctor_fields(
+    cx: &mut Ctx,
+    ctor: &AstName,
+    fields: &[(AstName, Expr)],
+    span: Span,
+) -> Result<(Term, Value)> {
+    match records::ctor_fields(cx, ctor, fields, span, None)? {
+        records::Construction::Positional(positional) => infer_inner(cx, &positional),
+        records::Construction::Argument(positional, hint) => {
+            infer_inner(cx, &positional).map_err(|e| match &hint {
+                Some(hint) => hint.apply(e),
+                None => e,
+            })
+        }
+        records::Construction::Defaults(d, c) => {
+            crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
+        }
+    }
+}
+
+/// [`infer_value`] of a list literal.
+#[inline(never)]
+fn infer_list(cx: &mut Ctx, expr: &Expr, items: &[Expr]) -> Result<(Term, Value)> {
+    warn_range_in_brackets(cx, items);
+    let list = builtin_data(cx, Builtin::List)?;
+    let ty = Value::Data(
+        list,
+        fresh_telescope(cx, cx.g().data(list).params())?.into(),
+    );
+    let term = check(cx, expr, &ty)?;
+    Ok((annotate(cx, term, &ty)?, ty))
 }
 
 /// Infers a function on its own, ready to be applied (a name, without
@@ -2197,24 +2437,15 @@ fn apply_named_head(
     }
 }
 
+/// A nested application recurses through here at every level, on the way
+/// to [`apply_named_head`] or [`apply_args`]: the rarer heads and names are
+/// out of line, so that this frame stays small (SW-3180).
 fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result<(Term, Value)> {
-    let g = cx.g();
     if let Expr::Field(recv, field) = head {
         return crate::dot::infer_call(cx, recv, field, args);
     }
     let Expr::Var(name) = head else {
-        let head = match head {
-            // A numeral given arguments is never a function, whatever its
-            // type turns out to be: decided by its syntax, as a `Nat`, not
-            // by the literal waiting for its type while the arguments ask
-            // for a function (stage 7, D2126).
-            Expr::Num(n, _) => (
-                Term::Nat(Rc::new(n.clone())),
-                Value::Data(nat(cx)?, Vec::new()),
-            ),
-            _ => infer(cx, head)?,
-        };
-        return apply_args(cx, head, args);
+        return infer_unnamed_head_app(cx, head, args);
     };
     if let Some(head) = cx.local(&name.text)? {
         cx.note_local_use(name, &head.1);
@@ -2225,6 +2456,51 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
+    if let Some(done) = infer_unusual_name_app(cx, name, args, fill) {
+        return done;
+    }
+    cx.e.note_name(name);
+    match cx.e.named(&name.text) {
+        None => Err(cx.e.not_found(name)),
+        Some((Global::Def(id), _)) => {
+            let head = (Term::Def(*id), crate::kernel::def_ty(&cx.g(), *id)?);
+            apply_named_head(cx, head, args, fill, name.span)
+        }
+        // The parameters, then the indices: one telescope; `auto` parameters
+        // are found (docs/proposals/interfaces.md §7.5).
+        Some((Global::Data(d), _)) => crate::data_auto::data_app(cx, *d, args),
+        Some((global, _)) => infer_other_global_app(cx, name, global, args),
+    }
+}
+
+/// [`infer_app_with`] of a head that isn't a name.
+#[inline(never)]
+fn infer_unnamed_head_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
+    let head = match head {
+        // A numeral given arguments is never a function, whatever its
+        // type turns out to be: decided by its syntax, as a `Nat`, not
+        // by the literal waiting for its type while the arguments ask
+        // for a function (stage 7, D2126).
+        Expr::Num(n, _) => (
+            Term::Nat(Rc::new(n.clone())),
+            Value::Data(nat(cx)?, Vec::new().into()),
+        ),
+        _ => infer(cx, head)?,
+    };
+    apply_args(cx, head, args)
+}
+
+/// [`infer_app_with`] of a name that isn't a variable, before it's looked
+/// up as a global: the answer, if the name is a member probe, an equation
+/// that can't be used, a variable's fields, or a built-in form; otherwise
+/// `None`.
+#[inline(never)]
+fn infer_unusual_name_app(
+    cx: &mut Ctx,
+    name: &AstName,
+    args: &[Arg],
+    fill: bool,
+) -> Option<Result<(Term, Value)>> {
     if let Some((written, last)) = name.text.rsplit_once('.')
         && last == crate::dot::DUMMY
     {
@@ -2235,16 +2511,16 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         crate::dot::probe_members(cx, &recv, name);
     }
     if let Some(d) = crate::opaque::no_unfold_equation(cx.e, name) {
-        return Err(d);
+        return Some(Err(d));
     }
     if let Some(d) = crate::equations::no_equation(cx.e, name) {
-        return Err(d);
+        return Some(Err(d));
     }
     if let Some(d) = crate::equation_notes::unknown_equation(cx, name) {
-        return Err(d);
+        return Some(Err(d));
     }
     if let Some(fields) = as_fields(cx, name) {
-        return infer_app_with(cx, &fields, args, fill);
+        return Some(infer_app_with(cx, &fields, args, fill));
     }
     // The built-ins have no declaration but `Builtins.sw`'s, which
     // navigation is pointed to (SW-1146).
@@ -2253,16 +2529,14 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         cx.e.note_builtin(name);
     }
     if let Some(form) = crate::quot::head_form(cx, &name.text) {
-        return crate::quot::elaborate(cx, form, args, None);
+        return Some(crate::quot::elaborate(cx, form, args, None));
     }
     match name.text.as_str() {
-        "rfl" => {
-            return Err(cx.error(
-                "E-CANNOT-INFER",
-                "can't work out what `rfl` proves here",
-                "add a type annotation: `(rfl: a = b)`",
-            ));
-        }
+        "rfl" => Some(Err(cx.error(
+            "E-CANNOT-INFER",
+            "can't work out what `rfl` proves here",
+            "add a type annotation: `(rfl: a = b)`",
+        ))),
         "J" => {
             let [
                 Arg::Explicit(motive),
@@ -2270,40 +2544,42 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
                 Arg::Explicit(proof),
             ] = args[..]
             else {
-                return Err(cx.error(
+                return Some(Err(cx.error(
                     "E-ARITY",
                     "`J` takes 3 arguments: a motive, a base case and a proof",
                     "here",
-                ));
+                )));
             };
-            return infer_j(cx, motive, base, proof);
+            Some(infer_j(cx, motive, base, proof))
         }
-        _ => {}
+        _ => None,
     }
-    cx.e.note_name(name);
-    match cx.e.named(&name.text) {
-        None => Err(cx.e.not_found(name)),
-        Some((Global::Def(id), _)) => {
-            let head = (Term::Def(*id), crate::kernel::def_ty(&g, *id)?);
-            apply_named_head(cx, head, args, fill, name.span)
-        }
-        // The parameters, then the indices: one telescope; `auto` parameters
-        // are found (docs/proposals/interfaces.md §7.5).
-        Some((Global::Data(d), _)) => crate::data_auto::data_app(cx, *d, args),
-        Some((Global::Unchecked(item), _)) => Err(cx.e.unchecked(name, *item)),
-        Some((Global::Failed, _)) => Err(crate::module::failed_name(name)),
-        Some((Global::Pending(file, _), _)) => Err(cx.e.unloaded(name, *file)),
-        Some((Global::Ability(_), _)) => Err(cx.error(
+}
+
+/// [`infer_app_with`] of a global that isn't a definition or a data type.
+#[inline(never)]
+fn infer_other_global_app(
+    cx: &mut Ctx,
+    name: &AstName,
+    global: &Global,
+    args: &[Arg],
+) -> Result<(Term, Value)> {
+    match global {
+        Global::Def(_) | Global::Data(_) => unreachable!("applied by `infer_app_with`"),
+        Global::Unchecked(item) => Err(cx.e.unchecked(name, *item)),
+        Global::Failed => Err(cx.e.failed_global(name)),
+        Global::Pending(file, _) => Err(cx.e.unloaded(name, *file)),
+        Global::Ability(_) => Err(cx.error(
             "E-ABILITY",
             format!("`{}` is an ability, not a type or a value", name.text),
             "abilities go in a function type's row: `-> {State s} …`",
         )),
-        Some((Global::Op(a, i), _)) if args.is_empty() => {
+        Global::Op(a, i) if args.is_empty() => {
             let (term, ty) = effects::op_value(cx, *a, *i)?;
             let ty_term = cx.quote_folded(&ty)?;
             Ok((Term::Ann(Rc::new(term), Rc::new(ty_term)), ty))
         }
-        Some((Global::Op(a, _), _)) => {
+        Global::Op(a, _) => {
             let ability = cx.e.tables.abilities[*a].name.clone();
             Err(cx
                 .error(
@@ -2318,7 +2594,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
                     "add `{ability}` to the function's type: `-> {{{ability} …}} …`"
                 )))
         }
-        Some((Global::Ctor(d, c), _)) => {
+        Global::Ctor(d, c) => {
             let explicit = ctor_args(args);
             let missing = ctor_missing(cx, *d, *c, &explicit)?;
             if !missing.is_empty() {
@@ -2400,7 +2676,7 @@ fn fresh_function_type_in(
 /// abilities, made outside its parameters, as a row doesn't depend on
 /// their values.
 fn inferred_row(cx: &Ctx) -> Result<(Term, Value)> {
-    let row = cx.fresh_meta();
+    let row = crate::rows::fresh_row(cx);
     let value = cx.eval(&row)?;
     Ok((row, value))
 }
@@ -2419,7 +2695,7 @@ fn inferred_comp(cx: &Ctx, row: &Value, result: Term) -> Result<Term> {
 /// still unknown is the empty one if nothing else settles it.
 fn settle_inferred_row(cx: &Ctx, row: &Term, value: &Value) -> Result<()> {
     effects::close_inferred_row(cx, value)?;
-    let row_type = Value::Data(builtin_data(cx, Builtin::Row)?, Vec::new());
+    let row_type = Value::Data(builtin_data(cx, Builtin::Row)?, Vec::new().into());
     crate::rows::note_row_meta(cx, &row_type, row);
     Ok(())
 }
@@ -2531,7 +2807,7 @@ fn settle_section_comparison(
         force(&cx.g(), result.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
-        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
         crate::undo::unify(cx, &result, &bool_ty)?;
     }
     Ok(())
@@ -2598,29 +2874,52 @@ fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
         .collect()
 }
 
-/// The fields of constructor `c` of `d` as a signature, for named
-/// arguments.
+/// The data type's parameters, then the fields of constructor `c` of `d`,
+/// as a signature for named arguments: `Cons [a := Nat] 1 Nil` names
+/// `List`'s parameter `a` (D3514). A parameter is implicit in the
+/// constructor whatever its bracket in the type's header, and `auto` stays
+/// `auto`. One that an implicit field of the same name shadows, as in the
+/// declaration, can't be named, so `[n := …]` still means the field.
 fn ctor_signature(cx: &Ctx, d: DataId, c: usize) -> crate::named::Signature {
-    let ctor = &cx.g().data(d).ctors()[c];
-    crate::named::declared(ctor.fields.iter().enumerate().map(|(i, (name, _))| {
-        let implicit = ctor.implicit.get(i).copied().unwrap_or(false);
-        let icit = if implicit {
+    let g = cx.g();
+    let data = g.data(d);
+    let ctor = &data.ctors()[c];
+    let implicit = |i: usize| ctor.implicit.get(i).copied().unwrap_or(false);
+    let shadowed =
+        |name: &Name| (ctor.fields.iter().enumerate()).any(|(i, (f, _))| implicit(i) && f == name);
+    let params = data.params().iter().enumerate().map(|(j, (name, _))| {
+        let name = match shadowed(name) {
+            true => Name::from("%shadowed"),
+            false => name.clone(),
+        };
+        let icit = match data.auto_params().get(j).copied().unwrap_or(false) {
+            true => Icit::Auto,
+            false => Icit::Implicit,
+        };
+        (name, icit)
+    });
+    let fields = ctor.fields.iter().enumerate().map(|(i, (name, _))| {
+        let icit = if implicit(i) {
             Icit::Implicit
         } else {
             Icit::Explicit
         };
         (name.clone(), icit)
-    }))
+    });
+    crate::named::declared(params.chain(fields).collect::<Vec<_>>())
 }
 
-/// What `args` give each field of constructor `c` of `d` (§4.2 rule 1,
-/// D1096), or an error if they don't fit its fields.
-fn ctor_fill<'a>(
-    cx: &Ctx,
-    d: DataId,
-    c: usize,
-    args: &[CtorArg<'a>],
-) -> Result<Vec<Option<&'a Expr>>> {
+/// What a constructor's arguments give: the data type's parameters named,
+/// and each field.
+struct CtorGiven<'a> {
+    params: Vec<Option<&'a Expr>>,
+    fields: Vec<Option<&'a Expr>>,
+}
+
+/// What `args` give each field of constructor `c` of `d`, and each of the
+/// data type's parameters named (§4.2 rule 1, D1096, D3514), or an error if
+/// they don't fit its signature.
+fn ctor_fill<'a>(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg<'a>]) -> Result<CtorGiven<'a>> {
     let ctor = &cx.g().data(d).ctors()[c];
     let as_args: Vec<Arg<'a>> = (args.iter())
         .map(|a| match a {
@@ -2634,7 +2933,12 @@ fn ctor_fill<'a>(
         // The constructor's own wording for a field it doesn't have.
         if e.code == "E-UNKNOWN-NAME" {
             let mut e = e;
-            e.message = format!("`{}` has no such field", ctor.name);
+            e.message = format!("`{}` has no such field or type parameter", ctor.name);
+            if let Some(label) = e.labels.first_mut() {
+                let data = cx.g().data(d).name().clone();
+                label.message =
+                    format!("not a field of `{}` or a parameter of `{data}`", ctor.name);
+            }
             e
         } else {
             e
@@ -2660,24 +2964,53 @@ fn ctor_fill<'a>(
         }) {
             error = error.with_note(note);
         }
+        // `Nil Nat`, as if the type's parameters were explicit: an extra
+        // argument that names a type.
+        let names_a_type = |arg: &Arg| {
+            let &Arg::Explicit(mut e) = arg else {
+                return false;
+            };
+            while let Expr::App(f, _) = e {
+                e = f;
+            }
+            matches!(e, Expr::Var(name)
+                if cx.lookup(&name.text).is_none()
+                    && matches!(cx.e.named(&name.text), Some((Global::Data(_), _))))
+        };
+        let data = cx.g().data(d);
+        if overflow.iter().any(names_a_type)
+            && let Some((param, _)) = (sig.params.iter().zip(data.params()))
+                .find(|(p, _)| p.icit != Icit::Explicit && !p.name.starts_with('%'))
+        {
+            error = error.with_note(format!(
+                "`{}`'s parameters are given by name, if at all: `{} [{} := …]`",
+                data.name(),
+                ctor.name,
+                param.name
+            ));
+        }
         return Err(match cx.e.hiding_note(&ctor.name) {
             Some(note) => error.with_note(note),
             None => error,
         });
     }
-    Ok(assigned
-        .into_iter()
+    let mut given: Vec<Option<&Expr>> = (assigned.into_iter())
         .map(|a| match a {
             Some(Arg::Explicit(e) | Arg::Named(_, e)) => Some(e),
             _ => None,
         })
-        .collect())
+        .collect();
+    let fields = given.split_off(cx.g().data(d).params().len());
+    Ok(CtorGiven {
+        params: given,
+        fields,
+    })
 }
 
 /// The explicit fields of constructor `c` of `d` that `args` leave out: the
 /// parameters of the function the application is.
 fn ctor_missing(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg]) -> Result<Vec<Name>> {
-    let given = ctor_fill(cx, d, c, args)?;
+    let given = ctor_fill(cx, d, c, args)?.fields;
     let ctor = &cx.g().data(d).ctors()[c];
     Ok((ctor.fields.iter().enumerate())
         .filter(|(i, _)| !ctor.implicit.get(*i).copied().unwrap_or(false) && given[*i].is_none())
@@ -2714,45 +3047,86 @@ pub(crate) fn apply_args_with(
     args: &[Arg],
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    // Named arguments: in their parameters' places (`named.rs`).
-    let ordered;
-    let args = if crate::named::any(args) {
-        let sig = crate::named::signature(cx, &head.1)?;
-        // Names behind a type that computes once the arguments are given:
-        // `(pick 1) (count := 2)` for `pick 1 (count := 2)`.
-        if let Some((first, rest)) = crate::named::split(cx, &sig, args)? {
-            let head = apply_args_with(cx, head, &first, supply)?;
-            return apply_args_with(cx, head, &rest, supply);
-        }
-        let slots = crate::named::plan(cx, &sig, args, None)?;
-        match crate::named::positional(&slots) {
-            Some(positional) => {
-                ordered = positional;
-                &ordered[..]
-            }
-            None => return crate::named::apply_slots(cx, head, &slots),
-        }
-    } else {
-        args
-    };
-    let relevant =
-        (args.iter()).any(|a| matches!(a, Arg::Explicit(value) if numbers_in_list(value)));
-    let run = |cx: &mut Ctx, head: (Term, Value), supply: &mut Supply| {
-        let mut first_error = None;
-        match apply_args_postponing(cx, head, args, supply, &mut first_error) {
-            Err(e) if !crate::undo::fatal(&e) => Err(first_error.unwrap_or(e)),
-            result => result,
-        }
-    };
-    if !relevant {
-        return run(cx, head, supply);
+    // The rarer cases are functions of their own, so that this one's frame,
+    // which every nested application's argument stands on, holds only what
+    // the common path needs.
+    if crate::named::any(args) {
+        return apply_named_args(cx, head, args, supply);
     }
-    // A list with number literals among the arguments: as written first,
-    // and only if that fails with it checked last (`numbers_in_list`).
+    apply_args_in_place(cx, head, args, supply)
+}
+
+/// [`apply_args_with`] for arguments all in their parameters' places.
+#[inline]
+fn apply_args_in_place(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    if (args.iter()).any(|a| matches!(a, Arg::Explicit(value) if numbers_in_list(value))) {
+        return apply_args_retrying(cx, head, args, supply);
+    }
+    apply_args_once(cx, head, args, supply)
+}
+
+/// [`apply_args_with`] for arguments some of which are named: in their
+/// parameters' places (`named.rs`).
+#[inline(never)]
+fn apply_named_args(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    let sig = crate::named::signature(cx, &head.1)?;
+    // Names behind a type that computes once the arguments are given:
+    // `(pick 1) (count := 2)` for `pick 1 (count := 2)`.
+    if let Some((first, rest)) = crate::named::split(cx, &sig, args)? {
+        let head = apply_args_with(cx, head, &first, supply)?;
+        return apply_args_with(cx, head, &rest, supply);
+    }
+    let slots = crate::named::plan(cx, &sig, args, None)?;
+    match crate::named::positional(&slots) {
+        Some(positional) => apply_args_in_place(cx, head, &positional, supply),
+        None => crate::named::apply_slots(cx, head, &slots),
+    }
+}
+
+/// The error of the first argument of an application that failed in place
+/// and was held for after the expected type: boxed, as it is rare, and the
+/// frames that pass it on are under every nested argument's check.
+type FirstError = Option<Box<Diagnostic>>;
+
+/// One go at [`apply_args_postponing`], giving the first argument error kept
+/// for after the expected type where one failed in place.
+#[inline]
+fn apply_args_once(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    let mut first_error = None;
+    match apply_args_postponing(cx, head, args, supply, &mut first_error) {
+        Err(e) if !crate::undo::fatal(&e) => Err(first_error.map_or(e, |first| *first)),
+        result => result,
+    }
+}
+
+/// A list with number literals among the arguments: as written first, and
+/// only if that fails with it checked last (`numbers_in_list`).
+#[inline(never)]
+fn apply_args_retrying(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
     let saved = supply.clone();
     let (result, left) = retrying(cx, |cx| {
         let mut left = saved.clone();
-        run(cx, head.clone(), &mut left).map(|result| (result, left))
+        apply_args_once(cx, head.clone(), args, &mut left).map(|result| (result, left))
     })?;
     *supply = left;
     Ok(result)
@@ -2798,192 +3172,436 @@ fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
 }
 
 /// [`apply_args_with`], keeping the error of the first argument that failed
-/// in place and was kept for after the expected type.
-fn apply_args_postponing(
+/// in place and was kept for after the expected type. Each kind of argument
+/// is applied by a function of its own, so that this loop's frame, which
+/// every nested argument's check stands on, holds only what they share.
+#[inline(never)]
+fn apply_args_postponing<'a>(
     cx: &mut Ctx,
     head: (Term, Value),
-    args: &[Arg],
+    args: &[Arg<'a>],
     supply: &mut Supply,
-    first_error: &mut Option<Diagnostic>,
+    first_error: &mut FirstError,
 ) -> Result<(Term, Value)> {
-    let (mut term, mut ty) = head;
-    // The checks queued from here on are this application's (`queue.rs`),
-    // and so are the unknowns made from here on.
-    let queued_from = cx.e.attempt.queue.len();
-    let metas_from = cx.metas().metas.borrow().len();
-    let mut postponed = Vec::new();
-    // Lambdas to check after the application's type is compared with the
-    // type expected of it, if `infer_expecting` says what that is.
-    let expecting = match &*cx.e.decl.app_expected.borrow() {
-        Some((key, expected))
-            if args.iter().any(
-                |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
-            ) =>
-        {
-            Some(expected.clone())
-        }
-        _ => None,
-    };
-    let mut after_expected = Vec::new();
-    // Proof searches, checked once the rest of the call has said what
-    // their goals are (rule 1 of stage 7).
-    let mut searches = Vec::new();
+    let mut applied = head;
+    let mut held = Held::start(cx, args);
     // The argument just passed, when it was a name given as a function.
     let mut function_name: Option<&AstName> = None;
     for (i, arg) in args.iter().enumerate() {
         let previous_function_name = function_name.take();
-        match arg {
+        applied = match arg {
             Arg::Explicit(value @ Expr::Lam(..)) => {
-                (term, ty) = insert_with(cx, term, ty, supply)?;
-                let (dom, cod) = function_parts(cx, &ty)?;
-                // A lambda is checked in place: what in it needs a type
-                // the later arguments give (a `.field`, a number, a record
-                // literal, a `match`) waits in the queue and is resumed at
-                // this application's end (W1). Where the application's
-                // expected type is known, a lambda whose type has unknowns
-                // that fails in place is checked again once the
-                // application's type has been compared with it, if no
-                // later parameter's type mentions it: a proof found from
-                // its goal (postponement.md §5.11, kept).
-                let late_able = expecting.is_some()
-                    && only_lambdas_depend_on_it(&cod.body, &[])
-                    && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
-                if !late_able {
-                    let value = check_arg(cx, &term, value, &dom)?;
-                    ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
-                    term = Term::app(term, value);
-                    continue;
-                }
-                let snapshot = crate::undo::Snapshot::take(cx);
-                match check_arg(cx, &term, value, &dom) {
-                    Ok(value) => {
-                        ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
-                        term = Term::app(term, value);
-                        continue;
-                    }
-                    Err(e) if crate::undo::fatal(&e) => return Err(e),
-                    Err(e) => {
-                        snapshot.restore(cx);
-                        first_error.get_or_insert(e);
-                    }
-                }
-                let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
-                after_expected.push((*value, dom, placeholder, id));
+                lambda_arg(cx, applied, value, supply, &mut held, first_error)?
             }
             Arg::NamedExplicit(..) => {
                 unreachable!("`apply_args_with` puts named arguments in their places")
             }
-            Arg::Named(name, value) => {
-                (term, ty) = insert_until(cx, term, ty, name, supply)?;
-                let Value::Pi(_, icit, dom, cod) = force(&cx.g(), ty.clone())? else {
-                    unreachable!("insert_until stops at the named implicit parameter");
-                };
-                let value = check(cx, value, &dom)?;
-                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
-                term = Term::app_icit(term, value, icit);
-            }
-            Arg::Piped(piped) => {
-                (term, ty) = insert_with(cx, term, ty, supply)?;
-                let (dom, cod) = function_parts(cx, &ty)?;
-                if !cx.unify(&piped.ty, &dom)? {
-                    return Err(piped_mismatch(cx, piped, &dom));
-                }
-                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &piped.term))?;
-                term = Term::app(term, piped.term.clone());
-            }
-            Arg::Default(default) => {
-                (term, ty) = insert_with(cx, term, ty, supply)?;
-                let (_, cod) = function_parts(cx, &ty)?;
-                let value = crate::defaults::helper_call(cx, *default, &term)?;
-                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
-                term = Term::app(term, value);
-            }
+            Arg::Named(name, value) => named_arg(cx, applied, name, value, supply)?,
+            Arg::Piped(piped) => piped_arg(cx, applied, piped, supply)?,
+            Arg::Default(default) => default_arg(cx, applied, *default, supply)?,
             Arg::Explicit(value) => {
-                (term, ty) = insert_with(cx, term, ty, supply)?;
-                let hole_of = match (value, force(&cx.g(), ty.clone())?) {
-                    (Expr::Hole(_), Value::Pi(x, ..)) => Some(x),
-                    _ => None,
+                let at = Position {
+                    value,
+                    later: &args[i + 1..],
+                    previous_function_name,
                 };
-                let (dom, cod) = function_parts(cx, &ty).map_err(|e| {
-                    not_a_function_hint(cx, &term, previous_function_name, value, e)
-                })?;
-                // A proof search (`omega`, `cases`, `ring`, `rewrite`, `rfl`) is
-                // checked last, once the other arguments, the application's
-                // own waiting checks, the expected type and the instances
-                // now findable have fixed its goal (stage 7, rule 1;
-                // docs/proposals/postponement.md): checked here, it would
-                // fail on the unknowns they fix, or solve them by a guess
-                // (`P.ext _ _ cases cases` making the second `_` the first).
-                if proof_search(cx, value) && only_lambdas_depend_on_it(&cod.body, &args[i + 1..]) {
-                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
-                    searches.push((*value, dom, placeholder, id));
-                    continue;
-                }
-                // When retrying, a list of numbers whose element type isn't
-                // known is checked last: in `List.map [1, 2] (x => x): List
-                // Int` the list comes first (D303), and only the lambda ties
-                // its elements to `Int`.
-                let later = args[i + 1..]
-                    .iter()
-                    .any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
-                if later
-                    && cx.e.decl.late_literals.get() > 0
-                    && only_lambdas_depend_on_it(&cod.body, &args[i + 1..])
-                    && numbers_in_list(value)
-                    && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
-                {
-                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
-                    postponed.push((*value, dom, placeholder, id));
-                    continue;
-                }
-                let next_is_unit = matches!(args.get(i + 1), Some(Arg::Explicit(Expr::Unit(_))));
-                // An argument that fails in place while its type has
-                // unknowns is checked again once the application's type has
-                // been compared with the type expected of it, as a lambda is
-                // above: a proof found from its goal, as in
-                // `Eq.cong Some (omega)` against `Some a = Some b`, or a
-                // proof about a `_` that only the expected type fixes, as in
-                // `walk _ rest (snocStep moved)` against
-                // `P (walk outcome (Cons x rest))`. Whether the type has
-                // unknowns is only asked after a failure: it reads the whole
-                // type back, which can be large.
-                let snapshot = (expecting.is_some() && only_lambdas_depend_on_it(&cod.body, &[]))
-                    .then(|| crate::undo::Snapshot::take(cx));
-                let value = match check_arg(cx, &term, value, &dom) {
-                    Ok(value) => {
-                        if let Some(x) = &hole_of {
-                            note_origin(cx, &value, x, &term, true);
-                        }
-                        value
-                    }
-                    Err(e) if crate::undo::fatal(&e) => return Err(e),
-                    Err(e) => {
-                        let Some(snapshot) = snapshot else {
-                            return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
-                        };
-                        snapshot.restore(cx);
-                        if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
-                            return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
-                        }
-                        first_error.get_or_insert(e);
-                        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
-                        after_expected.push((*value, dom, placeholder, id));
-                        continue;
-                    }
-                };
-                if let Arg::Explicit(Expr::Var(name)) = arg
-                    && matches!(
-                        force(&cx.g(), dom.clone())?,
-                        Value::Pi(_, Icit::Explicit, ..)
-                    )
-                {
-                    function_name = Some(name);
-                }
-                ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
-                term = Term::app(term, value);
+                let (next, name) = explicit_arg(cx, applied, at, supply, &mut held, first_error)?;
+                function_name = name;
+                next
             }
+        };
+    }
+    let (term, ty) = applied;
+    finish_application(cx, term, ty, held, first_error)
+}
+
+/// A lambda argument `value` of the application `term` of type `ty`:
+/// checked in place, or held for after the expected type.
+#[inline(never)]
+fn lambda_arg<'a>(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    value: &'a Expr,
+    supply: &mut Supply,
+    held: &mut Held<'a>,
+    first_error: &mut FirstError,
+) -> Result<(Term, Value)> {
+    (term, ty) = insert_with(cx, term, ty, supply)?;
+    let (dom, cod) = function_parts(cx, &ty)?;
+    // A lambda is checked in place: what in it needs a type
+    // the later arguments give (a `.field`, a number, a record
+    // literal, a `match`) waits in the queue and is resumed at
+    // this application's end (W1). Where the application's
+    // expected type is known, a lambda whose type has unknowns
+    // that fails in place is checked again once the
+    // application's type has been compared with it, if no
+    // later parameter's type mentions it: a proof found from
+    // its goal (postponement.md §5.11, kept).
+    let late_able = held.expecting.is_some()
+        && only_lambdas_depend_on_it(&cod.body, &[])
+        && crate::interfaces::unsolved_in(cx, &dom)?.is_some();
+    if !late_able {
+        let value = check_arg(cx, &term, value, &dom)?;
+        ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
+        term = Term::app(term, value);
+        return Ok((term, ty));
+    }
+    // Inside another lambda's trial in place, in an application
+    // elaborated again after a propagation by `_`s failed, it
+    // waits for the expected type at once: tried in place and
+    // again after it at every level, a failing proof of n
+    // nested lambdas costs 2^n (SW-2638).
+    let again = cx.e.decl.no_hole_propagation.get() > 0;
+    if again && cx.e.decl.in_place_trial.get() > 0 {
+        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
+        held.after_expected.push((value, dom, placeholder, id));
+        return Ok((term, ty));
+    }
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let trial = &cx.e.decl.in_place_trial;
+    trial.set(trial.get() + usize::from(again));
+    let checked = check_arg(cx, &term, value, &dom);
+    let trial = &cx.e.decl.in_place_trial;
+    trial.set(trial.get() - usize::from(again));
+    match checked {
+        Ok(value) => {
+            ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
+            term = Term::app(term, value);
+            return Ok((term, ty));
+        }
+        Err(e) if crate::undo::fatal(&e) => return Err(e),
+        Err(e) => {
+            snapshot.restore(cx);
+            first_error.get_or_insert_with(|| Box::new(e));
         }
     }
+    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
+    held.after_expected.push((value, dom, placeholder, id));
+    Ok((term, ty))
+}
+
+/// `[name := value]`, an implicit or `auto` argument by name, of the
+/// application `term` of type `ty`.
+#[inline(never)]
+fn named_arg(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    name: &AstName,
+    value: &Expr,
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    (term, ty) = insert_until(cx, term, ty, name, supply)?;
+    let Value::Pi(_, icit, dom, cod) = force(&cx.g(), ty.clone())? else {
+        unreachable!("insert_until stops at the named implicit parameter");
+    };
+    let value = check(cx, value, &dom)?;
+    ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
+    term = Term::app_icit(term, value, icit);
+    Ok((term, ty))
+}
+
+/// The value piped in by `|>`, an argument of the application `term` of
+/// type `ty`.
+#[inline(never)]
+fn piped_arg(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    piped: &Piped,
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    (term, ty) = insert_with(cx, term, ty, supply)?;
+    let (dom, cod) = function_parts(cx, &ty)?;
+    if !cx.unify(&piped.ty, &dom)? {
+        return Err(piped_mismatch(cx, piped, &dom));
+    }
+    ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &piped.term))?;
+    term = Term::app(term, piped.term.clone());
+    Ok((term, ty))
+}
+
+/// A parameter's default, the argument of the application `term` of type
+/// `ty` where the call leaves it out.
+#[inline(never)]
+fn default_arg(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    default: crate::defaults::DefaultRef,
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    (term, ty) = insert_with(cx, term, ty, supply)?;
+    let (_, cod) = function_parts(cx, &ty)?;
+    let value = crate::defaults::helper_call(cx, default, &term)?;
+    ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
+    term = Term::app(term, value);
+    Ok((term, ty))
+}
+
+/// An explicit argument other than a lambda, of the application `term` of
+/// type `ty`: checked in place, or held back. With the argument's name,
+/// if it is a name given as a function.
+///
+/// Its check, which may recurse to any depth, runs from here; what comes
+/// before and after it is out of line, so that this frame holds little more
+/// than what they share.
+#[inline(never)]
+fn explicit_arg<'a>(
+    cx: &mut Ctx,
+    applied: (Term, Value),
+    at: Position<'a, '_>,
+    supply: &mut Supply,
+    held: &mut Held<'a>,
+    first_error: &mut FirstError,
+) -> Result<((Term, Value), Option<&'a AstName>)> {
+    let value = at.value;
+    let ready = match explicit_arg_ready(cx, applied, at, supply, held)? {
+        Ready::Held(applied) => return Ok((applied, None)),
+        Ready::Check(ready) => ready,
+    };
+    match check_arg(cx, &ready.term, value, &ready.dom) {
+        Ok(checked) => explicit_arg_checked(cx, ready, value, checked),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(e) => explicit_arg_failed(cx, ready, value, e, held, first_error)
+            .map(|applied| (applied, None)),
+    }
+}
+
+/// What [`explicit_arg_ready`] made of an explicit argument.
+enum Ready {
+    /// Held back, with the application as it now is.
+    Held((Term, Value)),
+    /// To check in place.
+    Check(Box<Checking>),
+}
+
+/// An explicit argument about to be checked in place, against `dom`, in
+/// the application `term` of type `ty`, a function from `dom` to `cod`.
+/// Boxed in [`Ready`]: the frame every nested argument's check stands on
+/// holds a pointer.
+struct Checking {
+    term: Term,
+    ty: Value,
+    dom: Value,
+    cod: Closure,
+    /// The parameter's name, if the argument is a `_`.
+    hole_of: Option<Name>,
+    /// Whether `()` follows it.
+    next_is_unit: bool,
+    /// Where it was checked from, if it may be checked again after the
+    /// expected type.
+    snapshot: Option<crate::undo::Snapshot>,
+}
+
+/// [`explicit_arg`] up to the argument's check.
+#[inline(never)]
+fn explicit_arg_ready<'a>(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    at: Position<'a, '_>,
+    supply: &mut Supply,
+    held: &mut Held<'a>,
+) -> Result<Ready> {
+    let Position {
+        value,
+        later,
+        previous_function_name,
+    } = at;
+    (term, ty) = insert_with(cx, term, ty, supply)?;
+    let hole_of = match (value, force(&cx.g(), ty.clone())?) {
+        (Expr::Hole(_), Value::Pi(x, ..)) => Some(x),
+        _ => None,
+    };
+    let (dom, cod) = function_parts(cx, &ty)
+        .map_err(|e| not_a_function_hint(cx, &term, previous_function_name, value, e))?;
+    // A proof search (`omega`, `cases`, `ring`, `rewrite`, `rfl`) is
+    // checked last, once the other arguments, the application's
+    // own waiting checks, the expected type and the instances
+    // now findable have fixed its goal (stage 7, rule 1;
+    // docs/proposals/postponement.md): checked here, it would
+    // fail on the unknowns they fix, or solve them by a guess
+    // (`P.ext _ _ cases cases` making the second `_` the first).
+    if proof_search(cx, value) && only_lambdas_depend_on_it(&cod.body, later) {
+        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
+        held.searches.push((value, dom, placeholder, id));
+        return Ok(Ready::Held((term, ty)));
+    }
+    // When retrying, a list of numbers whose element type isn't
+    // known is checked last: in `List.map [1, 2] (x => x): List
+    // Int` the list comes first (D303), and only the lambda ties
+    // its elements to `Int`.
+    let more = (later.iter()).any(|a| matches!(a, Arg::Explicit(_) | Arg::Piped(_)));
+    if more
+        && cx.e.decl.late_literals.get() > 0
+        && only_lambdas_depend_on_it(&cod.body, later)
+        && numbers_in_list(value)
+        && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
+    {
+        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
+        held.postponed.push((value, dom, placeholder, id));
+        return Ok(Ready::Held((term, ty)));
+    }
+    let next_is_unit = matches!(later.first(), Some(Arg::Explicit(Expr::Unit(_))));
+    // An argument that fails in place while its type has
+    // unknowns is checked again once the application's type has
+    // been compared with the type expected of it, as a lambda is
+    // above: a proof found from its goal, as in
+    // `Eq.cong Some (omega)` against `Some a = Some b`, or a
+    // proof about a `_` that only the expected type fixes, as in
+    // `walk _ rest (snocStep moved)` against
+    // `P (walk outcome (Cons x rest))`. Whether the type has
+    // unknowns is only asked after a failure: it reads the whole
+    // type back, which can be large.
+    let snapshot = (held.expecting.is_some() && only_lambdas_depend_on_it(&cod.body, &[]))
+        .then(|| crate::undo::Snapshot::take(cx));
+    Ok(Ready::Check(Box::new(Checking {
+        term,
+        ty,
+        dom,
+        cod,
+        hole_of,
+        next_is_unit,
+        snapshot,
+    })))
+}
+
+/// [`explicit_arg`] after the argument `written` checked in place as
+/// `value`.
+#[inline(never)]
+fn explicit_arg_checked<'a>(
+    cx: &mut Ctx,
+    ready: Box<Checking>,
+    written: &'a Expr,
+    value: Term,
+) -> Result<((Term, Value), Option<&'a AstName>)> {
+    let Checking {
+        term,
+        dom,
+        cod,
+        hole_of,
+        ..
+    } = *ready;
+    if let Some(x) = &hole_of {
+        note_origin(cx, &value, x, &term, true);
+    }
+    let mut function_name = None;
+    if let Expr::Var(name) = written
+        && matches!(
+            force(&cx.g(), dom.clone())?,
+            Value::Pi(_, Icit::Explicit, ..)
+        )
+    {
+        function_name = Some(name);
+    }
+    let ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
+    Ok(((Term::app(term, value), ty), function_name))
+}
+
+/// [`explicit_arg`] after the argument `value` failed in place with `e`, not
+/// for lack of resources: held for after the expected type if it may be, or
+/// the application's error.
+#[inline(never)]
+fn explicit_arg_failed<'a>(
+    cx: &mut Ctx,
+    ready: Box<Checking>,
+    value: &'a Expr,
+    e: Diagnostic,
+    held: &mut Held<'a>,
+    first_error: &mut FirstError,
+) -> Result<(Term, Value)> {
+    let Checking {
+        mut term,
+        mut ty,
+        dom,
+        cod,
+        next_is_unit,
+        snapshot,
+        ..
+    } = *ready;
+    let Some(snapshot) = snapshot else {
+        return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
+    };
+    snapshot.restore(cx);
+    if crate::interfaces::unsolved_in(cx, &dom)?.is_none() {
+        return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
+    }
+    first_error.get_or_insert_with(|| Box::new(e));
+    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
+    held.after_expected.push((value, dom, placeholder, id));
+    Ok((term, ty))
+}
+
+/// An explicit argument, where it is in its application.
+struct Position<'a, 'b> {
+    value: &'a Expr,
+    /// The arguments after it.
+    later: &'b [Arg<'a>],
+    /// The argument before it, when that was a name given as a function.
+    previous_function_name: Option<&'a AstName>,
+}
+
+/// The arguments [`apply_args_postponing`] held back, and where the
+/// application began.
+struct Held<'a> {
+    postponed: Vec<(&'a Expr, Value, Value, usize)>,
+    searches: Vec<(&'a Expr, Value, Value, usize)>,
+    after_expected: Vec<(&'a Expr, Value, Value, usize)>,
+    expecting: Option<Value>,
+    queued_from: usize,
+    metas_from: usize,
+}
+
+impl<'a> Held<'a> {
+    /// Nothing held yet, for an application of `args` that starts here.
+    #[inline(never)]
+    fn start(cx: &Ctx, args: &[Arg<'a>]) -> Held<'a> {
+        // The checks queued from here on are this application's
+        // (`queue.rs`), and so are the unknowns made from here on.
+        let queued_from = cx.e.attempt.queue.len();
+        let metas_from = cx.metas().metas.borrow().len();
+        // Lambdas to check after the application's type is compared with
+        // the type expected of it, if `infer_expecting` says what that is.
+        let expecting = match &*cx.e.decl.app_expected.borrow() {
+            Some((key, expected))
+                if args.iter().any(
+                    |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
+                ) =>
+            {
+                Some(expected.clone())
+            }
+            _ => None,
+        };
+        Held {
+            postponed: Vec::new(),
+            // Proof searches, checked once the rest of the call has said
+            // what their goals are (rule 1 of stage 7).
+            searches: Vec::new(),
+            after_expected: Vec::new(),
+            expecting,
+            queued_from,
+            metas_from,
+        }
+    }
+}
+
+/// The end of [`apply_args_postponing`]: the held arguments, checked once
+/// the others are. Its own function so that the frame of the loop over the
+/// arguments, which each nested argument's check stands on, doesn't hold
+/// this part's locals.
+#[inline(never)]
+fn finish_application(
+    cx: &mut Ctx,
+    mut term: Term,
+    mut ty: Value,
+    held: Held<'_>,
+    first_error: &mut FirstError,
+) -> Result<(Term, Value)> {
+    let Held {
+        postponed,
+        searches,
+        after_expected,
+        expecting,
+        queued_from,
+        metas_from,
+    } = held;
     for (value, dom, placeholder, id) in postponed {
         let checked = match check(cx, value, &dom) {
             Ok(checked) => checked,
@@ -3037,6 +3655,10 @@ fn apply_args_postponing(
         // (`readsDone { first, second } _ …`, whose record waits for the
         // `Pair` the expected type names) holds what it can and waits for
         // the rest, so the unknowns it does fix reach the lambdas (SW-1406).
+        // Last, a dictionary of this call whose type is unknown is chosen
+        // from the expected type if exactly one instance makes them equal
+        // (`unify_guessing_instance`): `(a + a != n)` has its instance's
+        // method applied, so `decide ?d ?x ?y` can't be compared with it.
         if implicit_next
             || !(crate::undo::unify(cx, &ty, expected)?
                 || crate::undo::unify_solving_arguments(cx, &ty, expected)?
@@ -3045,15 +3667,25 @@ fn apply_args_postponing(
                     &ty,
                     expected,
                     crate::queue::Failure::Mismatch,
+                )?
+                || crate::interfaces::unify_guessing_instance(
+                    cx,
+                    &ty,
+                    expected,
+                    &own_dictionaries(&term),
                 )?)
         {
-            return Err(first_error.take().expect("set when the lambda was put off"));
+            return Err(match first_error.take() {
+                Some(first) => *first,
+                None => cx.mismatch(expected, &ty),
+            });
         }
         // With the expected type compared, a lambda that still fails is
         // blamed against the goal as it now stands, not the in-place one.
         *first_error = None;
         for (value, dom, placeholder, id) in after_expected {
-            let checked = check_arg(cx, &term, value, &dom)?;
+            let head = head_before_placeholder(&term, id).unwrap_or_else(|| term.clone());
+            let checked = check_arg(cx, &head, value, &dom)?;
             let evaluated = cx.eval(&checked)?;
             if !cx.unify(&evaluated, &placeholder)? {
                 return Err(cx.mismatch(&placeholder, &evaluated));
@@ -3085,14 +3717,16 @@ fn proof_search(cx: &Ctx, value: &Expr) -> bool {
 
 /// An explicit argument held back: a placeholder in its place in `term`,
 /// and `ty` the rest of the application's type with the placeholder for
-/// it. The placeholder's value and its unknown.
+/// it, of type `dom`. The placeholder's value and its unknown.
+#[inline(never)]
 fn hold_argument(
     cx: &mut Ctx,
     term: &mut Term,
     ty: &mut Value,
+    dom: &Value,
     cod: &Closure,
 ) -> Result<(Value, usize)> {
-    let meta = cx.fresh_meta();
+    let meta = cx.fresh_meta_of(dom);
     let placeholder = cx.eval(&meta)?;
     *ty = cod.apply(&cx.g(), placeholder.clone())?;
     let id = match meta.spine().0 {
@@ -3159,7 +3793,8 @@ fn check_searches_last(
     cx.e.resume_application(queued_from)?;
     for (value, dom, placeholder, id) in searches {
         let dom = cx.eval(&cx.quote_folded(&dom)?)?;
-        let checked = check_arg(cx, term, value, &dom)?;
+        let head = head_before_placeholder(term, id).unwrap_or_else(|| term.clone());
+        let checked = check_arg(cx, &head, value, &dom)?;
         let evaluated = cx.eval(&checked)?;
         if !cx.unify(&evaluated, &placeholder)? {
             return Err(cx.mismatch(&placeholder, &evaluated));
@@ -3187,6 +3822,21 @@ fn numbers_in_list(expr: &Expr) -> bool {
 /// `term`, an application, with its argument that is the metavariable `id`
 /// (applied to the variables in scope) replaced by `with`; `None` if it has
 /// no such argument.
+/// The application `term` up to the argument that is placeholder `id`
+/// ([`fill_placeholder`]): the head that argument is passed to.
+fn head_before_placeholder(term: &Term, id: usize) -> Option<Term> {
+    match term {
+        Term::Loc(_, t) => head_before_placeholder(t, id),
+        Term::App(f, a, _) => {
+            if matches!(a.strip_loc().spine().0, Term::Meta(m) if *m == id) {
+                return Some((**f).clone());
+            }
+            head_before_placeholder(f, id)
+        }
+        _ => None,
+    }
+}
+
 fn fill_placeholder(term: &Term, id: usize, with: &Term) -> Option<Term> {
     match term {
         Term::Loc(span, t) => fill_placeholder(t, id, with).map(|t| Term::Loc(*span, Rc::new(t))),
@@ -3239,9 +3889,10 @@ pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Resu
 
 /// Checks an explicit argument of `head` against its parameter type `dom`.
 fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
+    let expected = crate::reading::domain_as_written(cx, head, dom)?;
     crate::queue::framed(
         cx,
-        |cx| check(cx, value, dom),
+        |cx| check(cx, value, &expected),
         |_| ArgFrame {
             head: head.clone(),
             value: value.clone(),
@@ -3279,6 +3930,7 @@ impl crate::queue::ErrorFrame for ArgFrame {
 /// `play start ()` is `(play start) ()`: when the argument that doesn't fit is
 /// a name of a function from `()` and a `()` follows it, the call was meant to be
 /// the argument (`play (start ())`).
+#[inline(never)]
 fn unit_call_hint(
     cx: &Ctx,
     head: &Term,
@@ -3302,6 +3954,7 @@ fn unit_call_hint(
 /// `apply start ()`, where `apply` takes a function and `start` is one: the
 /// call to `apply` isn't a function, so the `()` was meant for `start`
 /// (`apply (start ())`).
+#[inline(never)]
 fn not_a_function_hint(
     cx: &Ctx,
     head: &Term,
@@ -3664,7 +4317,7 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
             let pi = Value::Pi(
                 "x".into(),
                 Icit::Explicit,
-                Rc::new(dom.clone()),
+                Rc::new(dom.clone()).into(),
                 cod.clone(),
             );
             if !cx.unify(ty, &pi)? {
@@ -3672,14 +4325,20 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
             }
             Ok((dom, cod))
         }
-        other => Err(cx.error(
-            "E-NOT-A-FUNCTION",
-            "this isn't a function",
-            format!(
-                "it's applied to an argument, but its type is `{}`",
-                cx.show(&other)
-            ),
-        )),
+        other => {
+            let error = cx.error(
+                "E-NOT-A-FUNCTION",
+                "this isn't a function",
+                format!(
+                    "it's applied to an argument, but its type is `{}`",
+                    cx.show(&other)
+                ),
+            );
+            Err(match crate::reading::cons_step_note(cx, &other)? {
+                Some(note) => error.with_note(note),
+                None => error,
+            })
+        }
     }
 }
 
@@ -3879,6 +4538,7 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
                 env: cx.env.clone(),
                 types: cx.types.clone(),
                 names: cx.names.clone(),
+                written: cx.written.clone(),
                 goal: ty.clone(),
                 meta: meta.clone(),
                 span: cx.span,
@@ -4016,8 +4676,17 @@ fn typed_lambda(
     let mark = cx.mark();
     let var = Value::var(cx.level());
     cx.bind(&name.text, dom.clone());
-    let cod = cod.apply(&g, var)?;
-    let result = check(cx, body, &cod);
+    let body_ty = cod.apply(&g, var)?;
+    if cx.e.records_steps(name.span) {
+        let before = Value::Pi(
+            name.text.as_str().into(),
+            icit,
+            Rc::new(dom.clone()).into(),
+            cod.clone(),
+        );
+        note_binder_step(cx, StepForm::Lambda, name.span, None, &before, &body_ty);
+    }
+    let result = check(cx, body, &body_ty);
     cx.reset(mark);
     Ok(Term::Lam(name.text.as_str().into(), icit, Rc::new(result?)))
 }
@@ -4073,15 +4742,95 @@ fn check_binder_lambda(
     }
 }
 
+/// A probe's step at `head`, a name just bound (the last variable of
+/// `cx`): `before` is the goal it was bound under, `after` the goal of what
+/// it is in scope for.
+pub(crate) fn note_binder_step(
+    cx: &Ctx,
+    form: StepForm,
+    head: Span,
+    index: Option<(usize, usize)>,
+    before: &Value,
+    after: &Value,
+) {
+    if !cx.e.records_steps(head) {
+        return;
+    }
+    cx.e.note_step(
+        cx,
+        crate::goals::StepNote {
+            form,
+            head,
+            index,
+            before: Some(before.clone()),
+            after: after.clone(),
+            after_term: None,
+            adds: vec![cx.level() - 1],
+            rule: None,
+            parts: Vec::new(),
+            target: None,
+            extra: Vec::new(),
+        },
+    );
+}
+
 pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(PASS)?;
     let span = expr.span();
+    // A probe notes the goal before the check, which may fail.
+    cx.e.note_probe(cx, span, expected, true);
     with_span(cx, span, |cx| {
-        let term = check_inner(cx, expr, expected)
-            .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
+        let term = match whole_test(cx, expr, expected) {
+            Ok(Some(term)) => Ok(term),
+            Ok(None) => check_inner(cx, expr, expected),
+            Err(e) => Err(e),
+        }
+        .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))
+        .map_err(|e| hidden_function_note(cx, expr, expected, e))?;
         cx.e.note_expr(cx, span, expected, true);
         Ok(Term::Loc(span, Rc::new(term)))
     })
+}
+
+/// SW-1498: a type mismatch at a local variable whose name is also that of a
+/// function in scope, where the function would have fit: say that the local
+/// variable hides the function, since the message would otherwise only show
+/// the two types.
+fn hidden_function_note(cx: &mut Ctx, expr: &Expr, expected: &Value, e: Diagnostic) -> Diagnostic {
+    if e.code != "E-TYPE-MISMATCH" {
+        return e;
+    }
+    let Expr::Var(name) = expr else {
+        return e;
+    };
+    if cx.lookup(&name.text).is_none() {
+        return e;
+    }
+    let Some((id, key, ty)) = (match cx.e.resolve(&name.text) {
+        scope::Resolved::Found {
+            key,
+            rest,
+            global: Global::Def(id),
+            ..
+        } if rest.is_empty() => Some((id, key.to_string(), cx.g().def(id).ty_value().clone())),
+        _ => None,
+    }) else {
+        return e;
+    };
+    // The function's implicit arguments are inserted as they would be at a
+    // use of it, and solving is undone: this only decides whether to say it.
+    let fits = crate::undo::attempt(cx, |cx| {
+        let (_, ty) = insert(cx, Term::Def(id), ty)?;
+        cx.unify(&ty, expected)
+    });
+    match fits {
+        Ok(Some(true)) => e.with_note(format!(
+            "`{}` here is a local variable, and it hides the function `{key}`, which would fit \
+             here: rename the local variable to use the function",
+            name.text
+        )),
+        _ => e,
+    }
 }
 
 /// Whether `d` is the library's `NonEmptyList`, which list literals and list
@@ -4105,8 +4854,8 @@ fn non_empty_literal(
     non_empty: DataId,
     elem: &Value,
 ) -> Result<Term> {
-    let list_ty = Value::Data(builtin_data(cx, Builtin::List)?, vec![elem.clone()]);
-    let expected = Value::Data(non_empty, vec![elem.clone()]);
+    let list_ty = Value::Data(builtin_data(cx, Builtin::List)?, vec![elem.clone()].into());
+    let expected = Value::Data(non_empty, vec![elem.clone()].into());
     let Some(first) = items.iter().position(|i| !matches!(i, Expr::Spread(..))) else {
         if items.is_empty() {
             return Err(cx
@@ -4165,25 +4914,52 @@ enum ListPart {
 }
 
 fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    let forced = match check_special(cx, expr, expected)? {
+        Special::Done(term) => return Ok(term),
+        Special::Value(forced) => forced,
+    };
+    if !effects::comp_headed(cx, &forced) {
+        return check_value(cx, expr, &forced, expected);
+    }
+    check_comp_value(cx, expr, forced, expected)
+}
+
+/// What [`check_special`] found.
+enum Special {
+    /// The expression, checked.
+    Done(Term),
+    /// The expected type, forced: a plain value is expected, for
+    /// [`check_value`].
+    Value(Value),
+}
+
+/// The forms [`check_inner`] handles before checking a plain value, and
+/// the forcing of the expected type. Out of line, so that the frame every
+/// nested check stands on doesn't hold their locals.
+#[inline(never)]
+fn check_special(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Special> {
     if let Expr::Var(name) = expr
         && name.text == crate::equations::PROBE
     {
-        return Ok(crate::equations::probe(cx, expected, name.span));
+        return Ok(Special::Done(crate::equations::probe(
+            cx, expected, name.span,
+        )));
     }
     if let Expr::Interpolated(text, _) = expr {
         let term = check_inner(cx, text, expected)?;
         cx.e.note_expr(cx, text.span(), expected, true);
-        return Ok(term);
+        return Ok(Special::Done(term));
     }
     if let Expr::App(..) = expr
         && let Some(rewritten) = records::brace_arguments(cx, expr)?
     {
-        return check_inner(cx, &rewritten, expected);
+        return check_inner(cx, &rewritten, expected).map(Special::Done);
     }
     if let Expr::App(..) = expr
         && let Some((d, c, fields)) = records::named_ctor_call(cx, expr)?
     {
-        return Ok(crate::defaults::ctor_with_defaults(cx, d, c, &fields, Some(expected))?.0);
+        let built = crate::defaults::ctor_with_defaults(cx, d, c, &fields, Some(expected))?;
+        return Ok(Special::Done(built.0));
     }
     let g = cx.g();
     let named = expected;
@@ -4192,10 +4968,10 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if cx.e.divergence_case_body() {
         let (term, found) = infer_unrun(cx, expr)?;
         let (term, found) = insert(cx, term, found)?;
-        return compare(cx, term, &found, &expected);
+        return compare(cx, term, &found, &expected).map(Special::Done);
     }
     // A computation in a row of abilities: computation mode.
-    if !matches!(expr, Expr::Hole(_) | Expr::Goal(_))
+    if !matches!(expr, Expr::Hole(_) | Expr::Goal(_) | Expr::Missing(_))
         && let Some((row, t)) = effects::comp_parts(cx, &expected)?
     {
         // While its results are unknown (`Comp NoOp ?r Nat`), a computation
@@ -4217,10 +4993,10 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 }
             })?
         {
-            return Ok(term);
+            return Ok(Special::Done(term));
         }
         if effects::settle_results(cx, &expected)? {
-            return effects::comp_check_written(cx, expr, &row, &t);
+            return effects::comp_check_written(cx, expr, &row, &t).map(Special::Done);
         }
     }
     if effects::may_perform_at(cx, expr, Some(&expected))? {
@@ -4234,20 +5010,24 @@ fn check_inner(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         {
             let (term, found) = infer_unrun(cx, expr)?;
             let (term, found) = insert(cx, term, found)?;
-            return compare(cx, term, &found, &expected);
+            return compare(cx, term, &found, &expected).map(Special::Done);
         }
         let plain = |cx: &mut Ctx| Ok((check_value(cx, expr, &expected, named)?, expected.clone()));
         return match pure_first(cx, expr, Some(&expected), plain)? {
-            PureFirst::Done((term, _)) => Ok(term),
+            PureFirst::Done((term, _)) => Ok(Special::Done(term)),
             PureFirst::Run(plain_error) => effects::run_pure(cx, expr, Some(&expected))
-                .map(|(term, _)| term)
+                .map(|(term, _)| Special::Done(term))
                 .map_err(|e| PureFirst::error(plain_error, e)),
         };
     }
     name_unknown_type(cx, expr, named)?;
-    if !effects::comp_headed(cx, &expected) {
-        return check_value(cx, expr, &expected, named);
-    }
+    Ok(Special::Value(expected))
+}
+
+/// [`check_value`] against `expected`, a forced `Comp` type, with the
+/// computation's error frame.
+#[inline(never)]
+fn check_comp_value(cx: &mut Ctx, expr: &Expr, expected: Value, named: &Value) -> Result<Term> {
     crate::queue::framed(
         cx,
         |cx| check_value(cx, expr, &expected, named),
@@ -4342,6 +5122,47 @@ fn name_unknown(cx: &mut Ctx, found: &Value, named: &Value) -> Result<()> {
     Ok(())
 }
 
+/// A lambda checked against `expected`, which isn't a function type: an
+/// error, unless `expected` is a test fact whose reading is a function
+/// type and the lambda builds it (`build.rs`). Apart from `check_value`,
+/// whose frame every nested expression pays for.
+#[inline(never)]
+fn lambda_not_function(
+    cx: &mut Ctx,
+    expr: &Expr,
+    names: &[AstName],
+    span: Span,
+    expected: &Value,
+) -> Result<Term> {
+    let shadowed = lambda_shadow(cx, names, span)?;
+    let error = cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "this is a function, but the expected type is `{}`",
+            cx.show(expected)
+        ),
+    );
+    let error = if names.len() == 1 && names[0].text == SECTION {
+        // A section inside the body of another section.
+        error.with_note(
+            "a section's argument is used once, at the start of the expression: to \
+                 use it twice, write the lambda, as in `x => x.f || x.g`",
+        )
+    } else {
+        error
+    };
+    let error = shadow_note(error, shadowed.as_ref());
+    if expr.section_name().is_some() {
+        return Err(error);
+    }
+    // A test fact whose reading is a function type, built from the
+    // lambda (`build.rs`).
+    crate::build::lambda(cx, span, names[0].span, expected, error, |cx, reading| {
+        check_inner(cx, expr, reading)
+    })
+}
+
 /// [`check_inner`] once it's known that `expr` isn't run as a whole, against
 /// a forced `expected` that isn't a computation.
 pub(crate) fn check_value(
@@ -4356,34 +5177,16 @@ pub(crate) fn check_value(
         return crate::logic::check_against(cx, logic, &expected);
     }
     match (expr, &expected) {
-        (Expr::Unit(_), Value::Sort(_)) => {
-            let unit = builtin_data(cx, Builtin::UnitType)?;
-            let found = Value::Sort(Sort::Type(0));
-            if cx.unify(&found, &expected)? {
-                Ok(Term::Data(unit, Vec::new()))
-            } else {
-                Err(cx.mismatch(&expected, &found))
-            }
-        }
+        (Expr::Unit(_), Value::Sort(_)) => unit_type(cx, &expected),
         // `()` where a proof of the proposition `Unit` is wanted is its one
         // proof, `Trivial`.
         (Expr::Unit(_), Value::Data(d, _)) if g.env.registry().is_data(Builtin::Unit, *d) => {
             let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
             Ok(Term::Ctor(unit, trivial, Vec::new()))
         }
-        (Expr::Hole(_), _) => {
-            let hole = cx.fresh_meta_of(&expected);
-            if let Some(log) = cx.e.decl.hole_log.borrow_mut().as_mut() {
-                log.push((hole.clone(), cx.level(), expected.clone()));
-            }
-            if crate::patlet::proposition(cx, &expected)?
-                && let Term::Meta(m) = hole.spine().0
-            {
-                cx.e.attempt.proof_holes.borrow_mut().insert(*m);
-            }
-            Ok(hole)
-        }
+        (Expr::Hole(_), _) => hole_against(cx, &expected),
         (Expr::Goal(_), _) => Ok(crate::goals::hole(cx, &expected)),
+        (Expr::Missing(_), _) => Ok(crate::goals::error_hole(cx, &expected)),
         (Expr::LocalDefs { defs, body, .. }, _) => {
             crate::local::around(cx, defs, |cx| check(cx, body, &expected))
         }
@@ -4399,21 +5202,11 @@ pub(crate) fn check_value(
         ) => Ok(effects::pure_let(cx, name, ty.as_deref(), value, body, Some(&expected))?.0),
         // `(A, B)` where a type is expected is `Pair A B`, and `(a, b)` where
         // a pair is expected is `MkPair a b`.
-        (Expr::Tuple(a, b, _), Value::Sort(_)) => {
-            let (term, ty) = type_tuple(cx, a, b)?;
-            if cx.unify(&ty, &expected)? {
-                Ok(term)
-            } else {
-                Err(cx.mismatch(&expected, &ty))
-            }
-        }
+        (Expr::Tuple(a, b, _), Value::Sort(_)) => tuple_type(cx, a, b, &expected),
         (Expr::Tuple(a, b, _), Value::Data(d, params))
             if *d == builtin_data(cx, Builtin::Pair)? =>
         {
-            let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
-            let a = check(cx, a, &params[0])?;
-            let b = check(cx, b, &params[1])?;
-            Ok(Term::ctor(pair, mk, vec![a, b]))
+            pair_literal(cx, a, b, params)
         }
         // `[a: Type] => body` and `[auto h: P] => body` take the parameter
         // of the function type they're checked against, rather than having
@@ -4423,12 +5216,7 @@ pub(crate) fn check_value(
         }
         // Implicit parameters are introduced automatically.
         (_, Value::Pi(x, icit, dom, cod)) if icit.is_implicit() => {
-            let mark = cx.mark();
-            let var = Value::var(cx.level());
-            cx.bind_hidden(x.clone(), (**dom).clone());
-            let result = check(cx, expr, &cod.apply(&g, var)?);
-            cx.reset(mark);
-            Ok(Term::Lam(x.clone(), *icit, Rc::new(result?)))
+            implicit_lambda(cx, expr, x, *icit, dom, cod)
         }
         // A literal takes its type from what's expected (a `Nat` or an
         // `Int`), and so does arithmetic.
@@ -4466,227 +5254,37 @@ pub(crate) fn check_value(
             _,
         ) => check_if(cx, binder.as_ref(), cond, then, otherwise, &expected),
         (Expr::Lam(names, body, span), Value::Pi(_, Icit::Explicit, dom, cod)) => {
-            if expr.section_name().is_some() {
-                // What the section takes isn't known yet: it waits (K3).
-                if let Some(term) = crate::dot::queue_section(cx, expr, dom, &expected)? {
-                    return Ok(term);
-                }
-                if let Some(term) = crate::dot::section_partial(cx, expr, dom, &expected)? {
-                    return Ok(term);
-                }
-            }
-            let shadowed = lambda_shadow(cx, names, *span)?;
-            let (first, rest) = names.split_first().expect("lambdas have parameters");
-            let mark = cx.mark();
-            let var = Value::var(cx.level());
-            cx.bind(&first.text, (**dom).clone());
-            let cod = cod.apply(&g, var)?;
-            let check_body = |cx: &mut Ctx| {
-                let result = if rest.is_empty() {
-                    settle_section_comparison(cx, first, body, &cod)
-                        .and_then(|()| check(cx, body, &cod))
-                } else {
-                    check(cx, &Expr::Lam(rest.to_vec(), body.clone(), *span), &cod)
-                };
-                cx.reset(mark);
-                result
-            };
-            let result = match &shadowed {
-                None => check_body(cx),
-                Some(shadowed) => crate::queue::framed(cx, check_body, |_| ShadowFrame {
-                    shadowed: shadowed.clone(),
-                }),
-            };
-            Ok(Term::Lam(
-                first.text.as_str().into(),
-                Icit::Explicit,
-                Rc::new(result?),
-            ))
+            explicit_lambda(cx, expr, (names, body, *span), dom, cod, &expected)
         }
         (
             Expr::TypedLam(name, Mode::Explicit, ann, body, _),
             Value::Pi(_, Icit::Explicit, dom, cod),
         ) => typed_lambda(cx, name, Icit::Explicit, ann, body, dom, cod),
-        (Expr::Lam(names, _, span), _) => {
-            let shadowed = lambda_shadow(cx, names, *span)?;
-            let error = cx.error(
-                "E-TYPE-MISMATCH",
-                "type mismatch",
-                format!(
-                    "this is a function, but the expected type is `{}`",
-                    cx.show(&expected)
-                ),
-            );
-            let error = if names.len() == 1 && names[0].text == SECTION {
-                // A section inside the body of another section.
-                error.with_note(
-                    "a section's argument is used once, at the start of the expression: to \
-                     use it twice, write the lambda, as in `x => x.f || x.g`",
-                )
-            } else {
-                error
-            };
-            Err(shadow_note(error, shadowed.as_ref()))
-        }
+        (Expr::Lam(names, _, span), _) => lambda_not_function(cx, expr, names, *span, &expected),
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
         {
-            cx.e.note_builtin(name);
-            if crate::undo::unify(cx, a, b)?
-                || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
-                || refl_after_instances(cx, a, b)?
-                || crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?
-            {
-                Ok(Term::Refl)
-            } else {
-                // The message shows the sides as the failed comparison left
-                // them.
-                cx.unify(a, b)?;
-                Err(refl_error(cx, a, b))
-            }
+            rfl_against_equation(cx, name, a, b)
         }
         (Expr::Var(name), _) if name.text == "rfl" && cx.lookup("rfl").is_none() => {
-            cx.e.note_builtin(name);
-            // The expected type is a placeholder its check hasn't filled (a
-            // number group waiting for its type, stage 4): `rfl` is `?x = ?x`,
-            // compared with it, which waits for it (stage 6).
-            if crate::queue::headed_by_pending(cx, &expected)? {
-                let ty = cx.fresh_meta();
-                let x = cx.fresh_meta();
-                let (ty, x) = (cx.eval(&ty)?, cx.eval(&x)?);
-                let eq = Value::Eq(Rc::new(ty), Rc::new(x.clone()), Rc::new(x));
-                return compare(cx, Term::Refl, &eq, &expected);
-            }
-            Err(cx.error(
-                "E-TYPE-MISMATCH",
-                "type mismatch",
-                format!(
-                    "`rfl` proves an equation, but the expected type is `{}`",
-                    cx.show(&expected)
-                ),
-            ))
+            rfl_against_other(cx, name, &expected)
         }
         (Expr::List(items, span), Value::Data(d, params)) if is_non_empty_list(cx, *d) => {
             warn_range_in_brackets(cx, items);
             non_empty_literal(cx, items, *span, *d, &params[0])
         }
         (Expr::List(items, _), Value::Data(d, params)) => {
-            warn_range_in_brackets(cx, items);
-            let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
-            let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
-            if *d != list {
-                return fallback_named(cx, expr, &expected, named);
-            }
-            let elem = params[0].clone();
-            // In order: a number literal in an item waits while the element
-            // type is unknown (K4), so a later item can still say it. A
-            // `..xs` item is a list of the same type (docs/proposals/
-            // list-spread.md).
-            let mut parts: Vec<ListPart> = Vec::new();
-            for item in items {
-                if let Expr::Spread(list_expr, _) = item {
-                    let term = check(cx, list_expr, &expected).map_err(|mut e| {
-                        if e.code == "E-TYPE-MISMATCH" {
-                            e = e.with_note(format!(
-                                "after `..` comes a list, a `{}`; to add an item to the list, \
-                                 write it without the `..`",
-                                cx.show(&expected)
-                            ));
-                        }
-                        e
-                    })?;
-                    parts.push(ListPart::Spread(term));
-                } else {
-                    let term = check(cx, item, &elem)?;
-                    match parts.last_mut() {
-                        Some(ListPart::Items(run)) => run.push(term),
-                        _ => parts.push(ListPart::Items(vec![term])),
-                    }
-                }
-            }
-            // A long literal would be a `Cons` chain as deep as it is long,
-            // and every pass over terms recurses on that depth (the checker,
-            // zonking, lowering, code generation, …): so it's cut into chunks
-            // joined by a balanced tree of `append`s, which is as deep as a
-            // chunk plus the logarithm of their number (SW-62).
-            // Chunking is a fallback: evaluating the `append`s costs about
-            // 200 steps an element, so a literal that fits the stack as one
-            // chain stays one (SW-332: `rfl` on a 20,000-element literal got
-            // six times dearer).
-            let count: usize = parts
-                .iter()
-                .map(|p| match p {
-                    ListPart::Items(run) => run.len(),
-                    ListPart::Spread(_) => 0,
-                })
-                .sum();
-            let chunk = if count <= cx.e.options.limits.stack / LITERAL_BYTES {
-                usize::MAX
-            } else {
-                LITERAL_CHUNK
-            };
-            let append = |cx: &mut Ctx| -> Result<Term> {
-                Ok(Term::app_icit(
-                    Term::Def(builtin_def(cx, Builtin::Append)?),
-                    cx.quote_folded(&elem)?,
-                    Icit::Implicit,
-                ))
-            };
-            // Built from the right: `rest` is what follows the part, none
-            // at the end, where a run ends in `Nil` and a spread is the tail
-            // itself.
-            let mut rest: Option<Term> = None;
-            for part in parts.into_iter().rev() {
-                rest = Some(match (part, rest) {
-                    (ListPart::Spread(term), None) => term,
-                    (ListPart::Spread(term), Some(rest)) => {
-                        let append = append(cx)?;
-                        Term::app(Term::app(append, term), rest)
-                    }
-                    (ListPart::Items(run), rest) => {
-                        let mut chunks: Vec<Term> = run
-                            .chunks(chunk)
-                            .map(|chunk| {
-                                let mut term = match (&rest, run.len() <= chunk.len()) {
-                                    (Some(rest), true) => rest.clone(),
-                                    _ => Term::Ctor(list, nil, Vec::new()),
-                                };
-                                for item in chunk.iter().rev() {
-                                    term = Term::ctor(list, cons, vec![item.clone(), term]);
-                                }
-                                term
-                            })
-                            .collect();
-                        if chunks.len() > 1 {
-                            let append = append(cx)?;
-                            while chunks.len() > 1 {
-                                let mut joined = Vec::with_capacity(chunks.len().div_ceil(2));
-                                let mut pairs = chunks.into_iter();
-                                while let Some(a) = pairs.next() {
-                                    joined.push(match pairs.next() {
-                                        Some(b) => Term::app(Term::app(append.clone(), a), b),
-                                        None => a,
-                                    });
-                                }
-                                chunks = joined;
-                            }
-                        }
-                        let built = chunks
-                            .pop()
-                            .unwrap_or_else(|| Term::Ctor(list, nil, Vec::new()));
-                        match rest {
-                            // A run short enough to be one chunk has `rest`
-                            // as its tail already.
-                            Some(rest) if run.len() > chunk => {
-                                let append = append(cx)?;
-                                Term::app(Term::app(append, built), rest)
-                            }
-                            _ => built,
-                        }
-                    }
-                });
-            }
-            Ok(rest.unwrap_or_else(|| Term::Ctor(list, nil, Vec::new())))
+            list_literal(cx, expr, items, (*d, params), &expected, named)
+        }
+        // A constructor of a proposition where a test fact is expected
+        // builds what the test reads as (docs/proposals/bool-as-proposition.md
+        // §6.6): `Both x y` for `(a && b) = True`.
+        (Expr::Var(_) | Expr::App(..), Value::Eq(..))
+            if let Some((d, _, _)) = ctor_head(cx, expr)?
+                && let Some(found) = crate::reading::for_ctor(cx, d, &expected, expr.span())? =>
+        {
+            let term = check_inner(cx, expr, &found.prop)?;
+            found.backward(cx, term)
         }
         (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
             match ctor_head(cx, expr)? {
@@ -4699,16 +5297,17 @@ pub(crate) fn check_value(
                 {
                     fallback_named(cx, expr, &expected, named)
                 }
-                Some((d, c, args)) => {
-                    let (term, ty) = ctor_app(cx, d, c, &args, Some(&expected))?;
-                    if cx.unify(&ty, &expected)? {
-                        Ok(term)
-                    } else {
-                        Err(cx.mismatch(&expected, &ty))
-                    }
-                }
+                Some((d, c, args)) => ctor_against(cx, d, c, &args, &expected),
                 None => fallback_named(cx, expr, &expected, named),
             }
+        }
+        // A record literal where a test fact is expected builds the record
+        // its test reads as (§6.6).
+        (Expr::Record { base: None, .. }, Value::Eq(..))
+            if let Some(found) = crate::reading::for_record(cx, &expected, expr.span())? =>
+        {
+            let term = check_inner(cx, expr, &found.prop)?;
+            found.backward(cx, term)
         }
         (Expr::Record { base, fields, .. }, _) => {
             records::check_record(cx, base.as_deref(), fields, &expected)
@@ -4718,29 +5317,359 @@ pub(crate) fn check_value(
                 ctor, fields, span, ..
             },
             _,
-        ) => match records::ctor_fields(cx, ctor, fields, *span, Some(&expected))? {
-            records::Construction::Positional(positional) => {
-                check_inner(cx, &positional, &expected)
-            }
-            records::Construction::Argument(positional, hint) => {
-                check_inner(cx, &positional, &expected).map_err(|e| match &hint {
-                    Some(hint) => hint.apply(e),
-                    None => e,
-                })
-            }
-            records::Construction::Defaults(d, c) => {
-                Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(&expected))?.0)
-            }
-        },
+        ) => ctor_fields_against(cx, ctor, fields, *span, &expected),
         // A quotient form, with the expected type to find its implicit
         // arguments from.
         (Expr::Var(_) | Expr::App(..), _) if crate::quot::applied(cx, expr).is_some() => {
-            let (form, args) = crate::quot::applied(cx, expr).expect("just checked");
-            let (term, ty) = crate::quot::elaborate(cx, form, &args, Some(&expected))?;
-            compare(cx, term, &ty, &expected)
+            quotient_against(cx, expr, &expected)
         }
         _ => fallback_named(cx, expr, &expected, named),
     }
+}
+
+/// `()` where a type is expected: the type `Unit`.
+#[inline(never)]
+fn unit_type(cx: &mut Ctx, expected: &Value) -> Result<Term> {
+    let unit = builtin_data(cx, Builtin::UnitType)?;
+    let found = Value::Sort(Sort::Type(0));
+    if cx.unify(&found, expected)? {
+        Ok(Term::Data(unit, Vec::new()))
+    } else {
+        Err(cx.mismatch(expected, &found))
+    }
+}
+
+/// `_` checked against `expected`: an unknown of that type.
+#[inline(never)]
+fn hole_against(cx: &mut Ctx, expected: &Value) -> Result<Term> {
+    let hole = cx.fresh_meta_of(expected);
+    if let Some(log) = cx.e.decl.hole_log.borrow_mut().as_mut() {
+        log.push((hole.clone(), cx.level(), expected.clone()));
+    }
+    if crate::patlet::proposition(cx, expected)?
+        && let Term::Meta(m) = hole.spine().0
+    {
+        cx.e.attempt.proof_holes.borrow_mut().insert(*m);
+    }
+    Ok(hole)
+}
+
+/// `(A, B)` where a type is expected: `Pair A B`.
+#[inline(never)]
+fn tuple_type(cx: &mut Ctx, a: &Expr, b: &Expr, expected: &Value) -> Result<Term> {
+    let (term, ty) = type_tuple(cx, a, b)?;
+    if cx.unify(&ty, expected)? {
+        Ok(term)
+    } else {
+        Err(cx.mismatch(expected, &ty))
+    }
+}
+
+/// `(a, b)` where a `Pair` with parameters `params` is expected:
+/// `MkPair a b`.
+#[inline(never)]
+fn pair_literal(cx: &mut Ctx, a: &Expr, b: &Expr, params: &[Value]) -> Result<Term> {
+    let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
+    let a = check(cx, a, &params[0])?;
+    let b = check(cx, b, &params[1])?;
+    Ok(Term::ctor(pair, mk, vec![a, b]))
+}
+
+/// `expr` checked against a function type whose parameter is implicit
+/// (`icit`): the parameter is introduced for it.
+#[inline(never)]
+fn implicit_lambda(
+    cx: &mut Ctx,
+    expr: &Expr,
+    x: &Name,
+    icit: Icit,
+    dom: &Value,
+    cod: &Closure,
+) -> Result<Term> {
+    let mark = cx.mark();
+    let var = Value::var(cx.level());
+    cx.bind_hidden(x.clone(), dom.clone());
+    let result = check(cx, expr, &cod.apply(&cx.g(), var)?);
+    cx.reset(mark);
+    Ok(Term::Lam(x.clone(), icit, Rc::new(result?)))
+}
+
+/// The lambda `expr` (`names => body`, at `span`) checked against an
+/// explicit function type, `expected`, from `dom` to `cod`.
+#[inline(never)]
+fn explicit_lambda(
+    cx: &mut Ctx,
+    expr: &Expr,
+    (names, body, span): (&[AstName], &Expr, Span),
+    dom: &Value,
+    cod: &Closure,
+    expected: &Value,
+) -> Result<Term> {
+    if expr.section_name().is_some() {
+        // What the section takes isn't known yet: it waits (K3).
+        if let Some(term) = crate::dot::queue_section(cx, expr, dom, expected)? {
+            return Ok(term);
+        }
+        if let Some(term) = crate::dot::section_partial(cx, expr, dom, expected)? {
+            return Ok(term);
+        }
+    }
+    let shadowed = lambda_shadow(cx, names, span)?;
+    let (first, rest) = names.split_first().expect("lambdas have parameters");
+    let mark = cx.mark();
+    let var = Value::var(cx.level());
+    cx.bind(&first.text, dom.clone());
+    let cod = cod.apply(&cx.g(), var)?;
+    note_binder_step(cx, StepForm::Lambda, first.span, None, expected, &cod);
+    let check_body = |cx: &mut Ctx| {
+        let result = if rest.is_empty() {
+            settle_section_comparison(cx, first, body, &cod).and_then(|()| check(cx, body, &cod))
+        } else {
+            check(
+                cx,
+                &Expr::Lam(rest.to_vec(), Box::new(body.clone()), span),
+                &cod,
+            )
+        };
+        cx.reset(mark);
+        result
+    };
+    let result = match &shadowed {
+        None => check_body(cx),
+        Some(shadowed) => crate::queue::framed(cx, check_body, |_| ShadowFrame {
+            shadowed: shadowed.clone(),
+        }),
+    };
+    Ok(Term::Lam(
+        first.text.as_str().into(),
+        Icit::Explicit,
+        Rc::new(result?),
+    ))
+}
+
+/// The builtin `rfl` checked against the equation `a = b`.
+#[inline(never)]
+fn rfl_against_equation(cx: &mut Ctx, name: &AstName, a: &Value, b: &Value) -> Result<Term> {
+    cx.e.note_builtin(name);
+    if crate::undo::unify(cx, a, b)?
+        || crate::lift::await_helpers(cx, a, b, crate::lift::Failure::Refl)?
+        || refl_after_instances(cx, a, b)?
+        || crate::queue::compare_waiting(cx, a, b, crate::queue::Failure::Refl)?
+    {
+        Ok(Term::Refl)
+    } else {
+        // The message shows the sides as the failed comparison left
+        // them.
+        cx.unify(a, b)?;
+        Err(refl_error(cx, a, b))
+    }
+}
+
+/// The builtin `rfl` checked against `expected`, which isn't an equation.
+#[inline(never)]
+fn rfl_against_other(cx: &mut Ctx, name: &AstName, expected: &Value) -> Result<Term> {
+    cx.e.note_builtin(name);
+    // The expected type is a placeholder its check hasn't filled (a
+    // number group waiting for its type, stage 4): `rfl` is `?x = ?x`,
+    // compared with it, which waits for it (stage 6).
+    if crate::queue::headed_by_pending(cx, expected)? {
+        let ty = cx.fresh_meta();
+        let ty = cx.eval(&ty)?;
+        let x = cx.fresh_meta_of(&ty);
+        let x = cx.eval(&x)?;
+        let eq = Value::Eq(
+            Rc::new(ty).into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(x).into(),
+        );
+        return compare(cx, Term::Refl, &eq, expected);
+    }
+    Err(cx.error(
+        "E-TYPE-MISMATCH",
+        "type mismatch",
+        format!(
+            "`rfl` proves an equation, but the expected type is `{}`",
+            cx.show(expected)
+        ),
+    ))
+}
+
+/// The list literal `expr`, with `items`, checked against `expected`, the
+/// data type `d` applied to `params` (named `named`).
+#[inline(never)]
+fn list_literal(
+    cx: &mut Ctx,
+    expr: &Expr,
+    items: &[Expr],
+    (d, params): (DataId, &[Value]),
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    warn_range_in_brackets(cx, items);
+    let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
+    let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
+    if d != list {
+        return fallback_named(cx, expr, expected, named);
+    }
+    let elem = params[0].clone();
+    // In order: a number literal in an item waits while the element
+    // type is unknown (K4), so a later item can still say it. A
+    // `..xs` item is a list of the same type (docs/proposals/
+    // list-spread.md).
+    let mut parts: Vec<ListPart> = Vec::new();
+    for item in items {
+        if let Expr::Spread(list_expr, _) = item {
+            let term = check(cx, list_expr, expected).map_err(|mut e| {
+                if e.code == "E-TYPE-MISMATCH" {
+                    e = e.with_note(format!(
+                        "after `..` comes a list, a `{}`; to add an item to the list, \
+                         write it without the `..`",
+                        cx.show(expected)
+                    ));
+                }
+                e
+            })?;
+            parts.push(ListPart::Spread(term));
+        } else {
+            let term = check(cx, item, &elem)?;
+            match parts.last_mut() {
+                Some(ListPart::Items(run)) => run.push(term),
+                _ => parts.push(ListPart::Items(vec![term])),
+            }
+        }
+    }
+    // A long literal would be a `Cons` chain as deep as it is long,
+    // and every pass over terms recurses on that depth (the checker,
+    // zonking, lowering, code generation, …): so it's cut into chunks
+    // joined by a balanced tree of `append`s, which is as deep as a
+    // chunk plus the logarithm of their number (SW-62).
+    // Chunking is a fallback: evaluating the `append`s costs about
+    // 200 steps an element, so a literal that fits the stack as one
+    // chain stays one (SW-332: `rfl` on a 20,000-element literal got
+    // six times dearer).
+    let count: usize = parts
+        .iter()
+        .map(|p| match p {
+            ListPart::Items(run) => run.len(),
+            ListPart::Spread(_) => 0,
+        })
+        .sum();
+    let chunk = if count <= cx.e.options.limits.stack / LITERAL_BYTES {
+        usize::MAX
+    } else {
+        LITERAL_CHUNK
+    };
+    let append = |cx: &mut Ctx| -> Result<Term> {
+        Ok(Term::app_icit(
+            Term::Def(builtin_def(cx, Builtin::Append)?),
+            cx.quote_folded(&elem)?,
+            Icit::Implicit,
+        ))
+    };
+    // Built from the right: `rest` is what follows the part, none
+    // at the end, where a run ends in `Nil` and a spread is the tail
+    // itself.
+    let mut rest: Option<Term> = None;
+    for part in parts.into_iter().rev() {
+        rest = Some(match (part, rest) {
+            (ListPart::Spread(term), None) => term,
+            (ListPart::Spread(term), Some(rest)) => {
+                let append = append(cx)?;
+                Term::app(Term::app(append, term), rest)
+            }
+            (ListPart::Items(run), rest) => {
+                let mut chunks: Vec<Term> = run
+                    .chunks(chunk)
+                    .map(|chunk| {
+                        let mut term = match (&rest, run.len() <= chunk.len()) {
+                            (Some(rest), true) => rest.clone(),
+                            _ => Term::Ctor(list, nil, Vec::new()),
+                        };
+                        for item in chunk.iter().rev() {
+                            term = Term::ctor(list, cons, vec![item.clone(), term]);
+                        }
+                        term
+                    })
+                    .collect();
+                if chunks.len() > 1 {
+                    let append = append(cx)?;
+                    while chunks.len() > 1 {
+                        let mut joined = Vec::with_capacity(chunks.len().div_ceil(2));
+                        let mut pairs = chunks.into_iter();
+                        while let Some(a) = pairs.next() {
+                            joined.push(match pairs.next() {
+                                Some(b) => Term::app(Term::app(append.clone(), a), b),
+                                None => a,
+                            });
+                        }
+                        chunks = joined;
+                    }
+                }
+                let built = chunks
+                    .pop()
+                    .unwrap_or_else(|| Term::Ctor(list, nil, Vec::new()));
+                match rest {
+                    // A run short enough to be one chunk has `rest`
+                    // as its tail already.
+                    Some(rest) if run.len() > chunk => {
+                        let append = append(cx)?;
+                        Term::app(Term::app(append, built), rest)
+                    }
+                    _ => built,
+                }
+            }
+        });
+    }
+    Ok(rest.unwrap_or_else(|| Term::Ctor(list, nil, Vec::new())))
+}
+
+/// Constructor `c` of `d` applied to `args`, checked against `expected`.
+#[inline(never)]
+fn ctor_against(
+    cx: &mut Ctx,
+    d: DataId,
+    c: usize,
+    args: &[CtorArg],
+    expected: &Value,
+) -> Result<Term> {
+    let (term, ty) = ctor_app(cx, d, c, args, Some(expected))?;
+    if cx.unify(&ty, expected)? {
+        Ok(term)
+    } else {
+        Err(cx.mismatch(expected, &ty))
+    }
+}
+
+/// A constructor with its fields named (`Ctor { f = x }`), checked against
+/// `expected`.
+#[inline(never)]
+fn ctor_fields_against(
+    cx: &mut Ctx,
+    ctor: &AstName,
+    fields: &[(AstName, Expr)],
+    span: Span,
+    expected: &Value,
+) -> Result<Term> {
+    match records::ctor_fields(cx, ctor, fields, span, Some(expected))? {
+        records::Construction::Positional(positional) => check_inner(cx, &positional, expected),
+        records::Construction::Argument(positional, hint) => check_inner(cx, &positional, expected)
+            .map_err(|e| match &hint {
+                Some(hint) => hint.apply(e),
+                None => e,
+            }),
+        records::Construction::Defaults(d, c) => {
+            Ok(crate::defaults::ctor_with_defaults(cx, d, c, fields, Some(expected))?.0)
+        }
+    }
+}
+
+/// A quotient form, with the expected type to find its implicit arguments
+/// from.
+#[inline(never)]
+fn quotient_against(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
+    let (form, args) = crate::quot::applied(cx, expr).expect("just checked");
+    let (term, ty) = crate::quot::elaborate(cx, form, &args, Some(expected))?;
+    compare(cx, term, &ty, expected)
 }
 
 /// `'a'` is `MkChar 97 rfl`: the kernel checks that 97 is a scalar value by
@@ -4921,6 +5850,50 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
+    // A probe's steps: `then` and `else`, each with `h` in scope.
+    if binder.is_some()
+        && cx.e.records_steps(Span {
+            end: otherwise.span().end,
+            ..cond.span()
+        })
+    {
+        let heads = [
+            Span {
+                start: cond.span().end,
+                end: then.span().start,
+                ..cond.span()
+            },
+            Span {
+                start: then.span().end,
+                end: otherwise.span().start,
+                ..cond.span()
+            },
+        ];
+        fn branch<'a>(
+            index: usize,
+            head: Span,
+            body: &'a Expr,
+        ) -> impl FnMut(&mut Ctx, &Value) -> Result<Term> + 'a {
+            move |cx, expected| {
+                note_binder_step(cx, StepForm::If, head, Some((index, 2)), expected, expected);
+                check(cx, body, expected)
+            }
+        }
+        return check_if_with(
+            cx,
+            binder,
+            cond,
+            &mut CheckedBranch {
+                run: branch(0, heads[0], then),
+                hides_proof: false,
+            },
+            &mut CheckedBranch {
+                run: branch(1, heads[1], otherwise),
+                hides_proof: false,
+            },
+            expected,
+        );
+    }
     check_if_with(
         cx,
         binder,
@@ -5008,6 +5981,35 @@ fn proof_expected(cx: &Ctx, expected: &Value) -> Result<bool> {
     }
 }
 
+/// The proposition an `if` with no expected type proves, read off its
+/// branches: the first of `then` and `otherwise` that can be inferred on its
+/// own (outside the scope of the condition's proof) and has a proposition for
+/// its type. A fresh unknown can't stand for it, since it would be solved with
+/// a proposition where a `Type` is expected (`E-UNIVERSE`); the other branch
+/// is then checked against this type, so a different proposition is a type
+/// mismatch. Everything the probe does is undone, and a type that still
+/// mentions an unknown the probe made is not used. `None` where neither
+/// branch is a proof, or each needs the condition's proof to be inferred.
+fn proof_branch_type(cx: &mut Ctx, then: &Expr, otherwise: &Expr) -> Result<Option<Value>> {
+    for branch in [then, otherwise] {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let found = crate::undo::attempt(cx, |cx| {
+            let (_, ty) = infer(cx, branch)?;
+            if crate::interfaces::unsolved_in(cx, &ty)?.is_some() || !proof_expected(cx, &ty)? {
+                return Ok(None);
+            }
+            // Quoted before the undo, so the type doesn't depend on anything
+            // the probe solved.
+            Ok(Some(cx.quote_folded(&ty)?))
+        })?;
+        snapshot.restore(cx);
+        if let Some(Some(term)) = found {
+            return Ok(Some(cx.eval(&term)?));
+        }
+    }
+    Ok(None)
+}
+
 /// An `if` whose branches are proofs (SW-1015, before which it was
 /// `E-UNIVERSE`, SW-373): `if h: P then a else b` is `Decidable.elimProof d
 /// (h => a) (h => b)`, the `Prop` form of `Decidable.elim`, with `h: P` in
@@ -5086,13 +6088,7 @@ pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(
         return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
     }
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
-        if e.code == "E-NOT-A-TYPE" {
-            e.with_note(format!(
-                "`if {0}: P` needs a proposition `P`; for a `Bool` `c`, write `if c then … else …`, \
-                 or `if {0}: c = True then … else …` to have `{0}: c = True` in the branches",
-                h.text
-            ))
-        } else if is_true_test(cond) {
+        if is_true_test(cond) {
             e.with_note(format!(
                 "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
                  for `a < b`, without `= True`",
@@ -5134,23 +6130,21 @@ fn check_if_in(
         None => {
             let unit_data = builtin_data(cx, Builtin::Unit)?;
             let condition = crate::logic::condition(cx, cond, "if")?;
-            // A decision that has to wait is made now for the branches'
-            // proofs; if they don't use them, the `Bool` it is waits.
-            let waiting =
-                matches!(condition, crate::logic::Condition::Waiting { .. }).then(|| cond.span());
-            let (prop, decision, unused) = match condition.decided_now(cx, cond.span())? {
+            // On a decided proposition the branches may use its proof, as
+            // in `if h:`; where they don't, the term is the plain `if` on
+            // the decision's test all the same, by computation
+            // (docs/proposals/decidable-record.md §3.1).
+            let (prop, decision) = match condition.decided_now(cx, cond.span())? {
                 // In a `decreasing` body the branches get `cond = True` (or
                 // its negation), so a recursive call under the `if` can use
-                // it; `f.unfold` shows the plain `if` all the same
-                // (docs/proposals/decreasing-with-hypothesis.md, stage 1).
+                // it (docs/proposals/decreasing-with-hypothesis.md, stage 1).
                 crate::logic::Condition::Bool(cond) if crate::logic::in_decreasing(cx) => {
                     let prop = crate::logic::true_prop(cx, cond.clone())?;
                     let dec_true = builtin_def(cx, Builtin::DecTrue)?;
-                    let decision = Term::app(Term::Def(dec_true), cond.clone());
-                    (prop, decision, Unused::Bool(cond))
+                    (prop, Term::app(Term::Def(dec_true), cond))
                 }
                 crate::logic::Condition::Bool(cond) => {
-                    let unit = Value::Data(unit_data, Vec::new());
+                    let unit = Value::Data(unit_data, Vec::new().into());
                     let then = branch(cx, "_", unit.clone(), then)?;
                     let otherwise = branch(cx, "_", unit, otherwise)?;
                     let ite = builtin_def(cx, Builtin::IfThenElse)?;
@@ -5160,31 +6154,11 @@ fn check_if_in(
                 crate::logic::Condition::Waiting { .. } => {
                     unreachable!("decided_now decides a waiting condition")
                 }
-                crate::logic::Condition::Decided { prop, decision } => {
-                    let unused = match waiting {
-                        Some(span) => Unused::Waiting(span),
-                        None => Unused::Decision(decision.clone()),
-                    };
-                    (prop, decision.term(cx)?, unused)
-                }
+                crate::logic::Condition::Decided { prop, decision } => (prop, decision.term(cx)?),
                 // `if a && b`: the branches may use its proof, `a ∧ b`.
-                crate::logic::Condition::Conjunction {
-                    as_bool,
-                    prop,
-                    decision,
-                } => (prop, decision, Unused::Bool(as_bool)),
+                crate::logic::Condition::Conjunction { prop, decision, .. } => (prop, decision),
             };
-            let decided = decided_if(
-                cx,
-                "_",
-                prop.clone(),
-                decision,
-                result_ty.clone(),
-                &branch,
-                then,
-                otherwise,
-            )?;
-            unused_proof_if(cx, decided, unused, prop, result_ty)
+            decided_if(cx, "_", prop, decision, result_ty, &branch, then, otherwise)
         }
         Some(h) => {
             let (prop, decision) = if_h_condition(cx, h, cond)?;
@@ -5202,136 +6176,6 @@ fn is_true_test(cond: &Expr) -> bool {
         Expr::Bracketed(inner, _) => is_true_test(inner),
         _ => false,
     }
-}
-
-/// What an `if` on a decided proposition is on when its branches don't use
-/// the proof ([`unused_proof_if`]).
-enum Unused {
-    /// The decision's `Bool`.
-    Decision(crate::bind::Decision),
-    /// The `Bool` of a decision that had to wait (`decision_blocker`), once
-    /// it can be made, not the one made at once.
-    Waiting(Span),
-    /// The `Bool` reading of `a && b` ([`crate::logic::Condition::Conjunction`]).
-    Bool(Term),
-}
-
-/// `if c then a else b` on a decided proposition `c` whose branches don't
-/// use the proof: `ifThenElse` on the decision's `Bool`, the term a `Bool`
-/// is expected (`filter (x => x < k)`) gives, so lemmas stated with a
-/// `Bool` test match. `decided` (the `elimDec` form) where a branch uses
-/// the proof (an `auto` argument found from it) or may yet.
-fn unused_proof_if(
-    cx: &mut Ctx,
-    decided: Term,
-    unused: Unused,
-    prop: Term,
-    result_ty: Term,
-) -> Result<Term> {
-    let Term::App(rest, otherwise, _) = &decided else {
-        return Ok(decided);
-    };
-    let Term::App(_, then, _) = &**rest else {
-        return Ok(decided);
-    };
-    let level = cx.level();
-    let zonked = |cx: &Ctx, branch: &Term| -> Result<Term> {
-        crate::unify::zonk_in(&cx.u(), level, branch, &|_| true, &[]).map_err(|e| match e {
-            crate::unify::ZonkError::Resource(e) => Diagnostic::from(e),
-            crate::unify::ZonkError::Unsolved(_) => {
-                unreachable!("every unsolved metavariable is kept")
-            }
-        })
-    };
-    // A number literal waiting for its type (K4) is applied to every
-    // variable in scope, the proof too, but it is a literal once filled:
-    // it doesn't use the proof (step 4.3).
-    let literals = |t: &Term, _: usize| {
-        crate::queue::waiting_literal(cx.e, t).then(|| Term::Nat(Rc::new(0u32.into())))
-    };
-    let uses_proof = |branch: &Term| match branch.strip_loc() {
-        Term::Lam(_, _, body) => match crate::unify::fold_back(&cx.g(), body, 0, &literals) {
-            Ok(Some(body)) => body.mentions(0),
-            _ => body.mentions(0),
-        },
-        _ => true,
-    };
-    let mut branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
-    // An unsolved metavariable is applied to the proof, as to every
-    // variable in scope. Instances whose type is known are found now, so
-    // that one that doesn't use the proof doesn't count as using it.
-    if branches.iter().any(uses_proof) {
-        let unsolved: Vec<usize> = (branches.iter())
-            .flat_map(|b| b.subterms().map(|(t, _)| t))
-            .filter_map(|t| match t {
-                Term::Meta(m) => Some(*m),
-                _ => None,
-            })
-            .collect();
-        if unsolved.is_empty() || !cx.e.solve_ready_instances_keeping(&[], Some(&unsolved))? {
-            return kept_if(cx, decided, unused, prop, !unsolved.is_empty());
-        }
-        branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
-        if branches.iter().any(uses_proof) {
-            return kept_if(cx, decided, unused, prop, true);
-        }
-    }
-    let cond = match unused {
-        Unused::Decision(decision) => decision.into_bool(cx, prop)?,
-        Unused::Waiting(span) => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
-            decide_or_wait(cx, span, &prop, &bool_ty, Depth::Written)?
-        }
-        Unused::Bool(cond) => cond,
-    };
-    let ite = builtin_def(cx, Builtin::IfThenElse)?;
-    let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
-    Ok(Term::app(
-        Term::app(Term::app(head, cond), (**then).clone()),
-        (**otherwise).clone(),
-    ))
-}
-
-/// `decided`, an `if` whose branches use (or may use) its proof. In a
-/// `decreasing` body its decision is tagged with the `Bool` the plain `if`
-/// would be on (`logic::tag_plain`), so that `f.unfold` can show that `if`
-/// when only recursive calls' proofs use it; elsewhere as [`tagged_if`].
-fn kept_if(cx: &mut Ctx, decided: Term, unused: Unused, prop: Term, maybe: bool) -> Result<Term> {
-    if crate::logic::in_decreasing(cx) {
-        let plain = match &unused {
-            Unused::Decision(decision) => Some(decision.clone().into_bool(cx, prop)?),
-            Unused::Bool(c) => Some(c.clone()),
-            Unused::Waiting(_) => None,
-        };
-        if let Some(plain) = plain {
-            return crate::logic::tag_plain(cx, &decided, &plain);
-        }
-    }
-    tagged_if(cx, decided, &unused, maybe)
-}
-
-/// `decided`, an `if` on a conjunction `a && b` whose branches are not known
-/// to leave its proof alone (`maybe`: only because a helper they call isn't
-/// lifted yet), with its decision tagged by `a && b` for
-/// `logic::settle_tagged`, which makes it an `if` on `a && b` once they are.
-fn tagged_if(cx: &mut Ctx, decided: Term, unused: &Unused, maybe: bool) -> Result<Term> {
-    let (Unused::Bool(tag), true) = (unused, maybe) else {
-        return Ok(decided);
-    };
-    let Term::App(rest, otherwise, i3) = &decided else {
-        return Ok(decided);
-    };
-    let Term::App(rest, then, i2) = &**rest else {
-        return Ok(decided);
-    };
-    let Term::App(head, decision, i1) = &**rest else {
-        return Ok(decided);
-    };
-    let tagged = crate::logic::tag_decision(cx, decision, tag)?;
-    cx.e.decl.tagged_conjunctions.set(true);
-    let rebuilt = Term::App(Rc::clone(head), Rc::new(tagged), *i1);
-    let rebuilt = Term::App(Rc::new(rebuilt), Rc::clone(then), *i2);
-    Ok(Term::App(Rc::new(rebuilt), Rc::clone(otherwise), *i3))
 }
 
 /// `elimDec decision (name => then) (name => otherwise)`, where `decision`
@@ -5413,19 +6257,58 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
         && literal_value(value)
         && !matches!(&**f, Expr::Lam(..) | Expr::TypedLam(..))
     {
-        let call = crate::pipe::as_call((**value).clone(), f);
-        return fallback_named(cx, &call, expected, named);
+        return fallback_pipe(cx, value, f, expected, named);
     }
     if cx.e.decl.no_propagation.get() == 0
         && let Some(found) = propagate(cx, expr, expected, named)?
     {
         return found;
     }
+    fallback_inferred(cx, expr, expected, named)
+}
+
+/// `value |> f` checked as the call it is ([`fallback_named`]).
+#[inline(never)]
+fn fallback_pipe(
+    cx: &mut Ctx,
+    value: &Expr,
+    f: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let call = crate::pipe::as_call(value.clone(), f);
+    fallback_named(cx, &call, expected, named)
+}
+
+/// [`fallback_named`] once its expected type hasn't been propagated into
+/// `expr`: inferred, then compared. Out of line, so that the frame a
+/// propagated application's arguments stand on doesn't hold its locals.
+#[inline(never)]
+fn fallback_inferred(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
     let (term, found) = infer_expecting(cx, expr, expected)?;
+    inferred_against(cx, expr, (term, found), expected, named)
+}
+
+/// [`fallback_inferred`] once `expr` is inferred as `term` of type `found`:
+/// compared with `expected`. Out of line, so that the frame an inferred
+/// application stands on doesn't hold the comparison's locals.
+#[inline(never)]
+fn inferred_against(
+    cx: &mut Ctx,
+    expr: &Expr,
+    (term, found): (Term, Value),
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
     let (term, found) = insert(cx, term, found)?;
     name_unknown(cx, &found, named)?;
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
+    }
+    if matches!(force(&cx.g(), expected.clone())?, Value::Sort(Sort::Prop))
+        && let Some(prop) = bool_as_prop(cx, expr, &term, &found)?
+    {
+        return Ok(prop);
     }
     if !matches!(expr, Expr::App(..)) {
         return compare(cx, term, &found, expected);
@@ -5569,7 +6452,7 @@ fn awaiting_note(
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
 /// decided, as Lean's `decide` coercion does: `term : Prop` becomes
-/// `Decidable.toBool {term} decision`, so `List.filter (n => n <= k) xs`
+/// `Decidable.holds {term} decision`, so `List.filter (n => n <= k) xs`
 /// works. `None` (nothing done) unless `expected` is the library's `Bool`
 /// and `found` is `Prop`, so other comparisons don't pay for it. A
 /// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't
@@ -5739,7 +6622,7 @@ pub(crate) fn decision_or_wait(
         return crate::bind::decide(cx, prop);
     };
     let decidable = builtin_data(cx, Builtin::Decidable)?;
-    let ty = Value::Data(decidable, vec![cx.eval(prop)?]);
+    let ty = Value::Data(decidable, vec![cx.eval(prop)?].into());
     let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
         .with_label(span, "it holds a value whose type isn't known here");
     let check = DecideTerm { term: prop.clone() };
@@ -5845,18 +6728,41 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     if let Some(term) = cx.along_match_equation(&term, found, expected)? {
         return Ok(term);
     }
+    compare_failed(cx, term, found, expected)
+}
+
+/// [`compare`] once everything it tries has failed: a test fact built
+/// from a proof of its reading, where an earlier attempt at the body
+/// failed here (`build.rs`), or else the mismatch. Apart from `compare`,
+/// whose frame every nested comparison pays for.
+#[inline(never)]
+fn compare_failed(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+    // Where a syntax error left a hole, a mismatch that involves it is no
+    // error of the program's: the term becomes another error hole, of the
+    // type expected, so what flows on stays well typed (the unifier never
+    // solves an error hole; docs/proposals/syntax-error-recovery.md §4.2).
+    if cx.e.has_error_holes()
+        && (crate::Elaborator::mentions_error_hole(cx, found)
+            || crate::Elaborator::mentions_error_hole(cx, expected))
+    {
+        return Ok(crate::goals::error_hole(cx, expected));
+    }
+    if let Some(term) = crate::build::build(cx, &term, found, expected)? {
+        return Ok(term);
+    }
+    let site = crate::build::site(cx, found, expected)?;
     // The message shows the types as the failed comparison left them, as it
     // always has: repeat it, keeping what it solved before failing.
     cx.unify(found, expected)?;
     if let Some(d) = effects::partial_mismatch(cx, found, expected)? {
-        Err(d)
-    } else {
-        Err(crate::numbers::explain_default(
-            cx,
-            cx.mismatch(expected, found),
-            &[found],
-        ))
+        return Err(d);
     }
+    let d = crate::numbers::explain_default(cx, cx.mismatch(expected, found), &[found]);
+    Err(match site {
+        crate::build::Site::At(at, fact) => d.with_build(at, fact),
+        crate::build::Site::Note(note) => d.with_note(note),
+        crate::build::Site::Nothing => d,
+    })
 }
 
 /// Whether `found` and `expected` unify, once the dictionaries they need
@@ -5942,12 +6848,166 @@ pub(crate) fn ordered_args<'a>(
     })
 }
 
+#[inline(never)]
 fn propagate(
     cx: &mut Ctx,
     expr: &Expr,
     expected: &Value,
     named: &Value,
 ) -> Result<Option<Result<Term>>> {
+    // Planned out of line, and applied out of line, so that this frame,
+    // which the arguments' checks stand on, holds little more than a
+    // pointer to the plan.
+    let Some(mut plan) = propagation_plan(cx, expr, expected, named)? else {
+        return Ok(None);
+    };
+    match plan.apply(cx, expr.span(), expected) {
+        Ok(term) => Ok(Some(Ok(term))),
+        Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(propagated) => {
+            let Propagation {
+                args,
+                pipes,
+                snapshot,
+                by_holes,
+                ..
+            } = *plan;
+            snapshot.restore(cx);
+            let args = with_pipes(&args, &pipes);
+            Ok(Some(propagate_failed(
+                cx, expr, expected, &args, propagated, by_holes,
+            )))
+        }
+    }
+}
+
+/// The end of [`propagate`]'s application at `span`, `applied`, with the
+/// implicit arguments its walk made left in `supply`: compared with
+/// `expected`.
+#[inline(never)]
+fn propagated(
+    cx: &mut Ctx,
+    (term, found): (Term, Value),
+    span: Span,
+    mut supply: Supply,
+    expected: &Value,
+) -> Result<Term> {
+    let term = Term::Loc(span, Rc::new(term));
+    let (term, found) = insert_with(cx, term, found, &mut supply)?;
+    if !supply.is_empty() {
+        // The types as elaborated didn't line up with the walk's.
+        return Err(Diagnostic::error(
+            "E-PROPAGATE",
+            "unused implicit arguments",
+        ));
+    }
+    compare(cx, term, &found, expected)
+}
+
+/// After [`propagate`] failed with `propagated` for the application `expr`
+/// of `args`, put back as it was: `expr` elaborated again as it would have
+/// been without this propagation: its result, or the error to give if it
+/// fails.
+#[inline(never)]
+fn propagate_failed(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    args: &[Arg],
+    propagated: Diagnostic,
+    by_holes: bool,
+) -> Result<Term> {
+    // Elaborated again as it would have been without this
+    // propagation. After one by `_`s, the applications inside still
+    // use their expected types, all but those by `_`s, so what was
+    // accepted before still is, and a failure isn't tried twice at
+    // every level.
+    let off = if by_holes {
+        &cx.e.decl.no_hole_propagation
+    } else {
+        &cx.e.decl.no_propagation
+    };
+    off.set(off.get() + 1);
+    let old = (|| {
+        let (term, found) = infer(cx, expr)?;
+        let (term, found) = insert(cx, term, found)?;
+        compare(cx, term, &found, expected)
+    })();
+    let off = if by_holes {
+        &cx.e.decl.no_hole_propagation
+    } else {
+        &cx.e.decl.no_propagation
+    };
+    off.set(off.get() - 1);
+    // Both fail inside the same argument: the first knew what the
+    // argument must prove, where the second only had unknowns (a
+    // `rewrite` in `Eq.trans (List.filterSkip _ _ _ (rewrite …)) e`
+    // against a goal of `?p ?x = False`, SW-931).
+    match old {
+        Err(old) if !crate::undo::fatal(&old) && in_same_argument(args, &propagated, &old) => {
+            Err(propagated)
+        }
+        old => old,
+    }
+}
+
+/// An application [`propagate`] elaborates against its expected type,
+/// planned by [`propagation_plan`]: the head, the arguments (those written
+/// `_` checked first are in `pipes`), the implicit arguments the walk made,
+/// and where to go back to if it fails.
+struct Propagation<'a> {
+    /// Taken by [`Propagation::apply`].
+    head: Option<(Term, Value)>,
+    args: Vec<Arg<'a>>,
+    pipes: Vec<(usize, Piped)>,
+    supply: Supply,
+    snapshot: crate::undo::Snapshot,
+    by_holes: bool,
+}
+
+/// `args` with those at the positions in `pipes` (written `_`, and checked
+/// first) replaced by their values.
+fn with_pipes<'a>(
+    args: &'a [Arg<'a>],
+    pipes: &'a [(usize, Piped)],
+) -> std::borrow::Cow<'a, [Arg<'a>]> {
+    if pipes.is_empty() {
+        return std::borrow::Cow::Borrowed(args);
+    }
+    let with_pipes = (args.iter().enumerate())
+        .map(|(i, arg)| match pipes.iter().find(|(at, _)| *at == i) {
+            Some((_, piped)) => Arg::Piped(piped),
+            None => *arg,
+        })
+        .collect();
+    std::borrow::Cow::Owned(with_pipes)
+}
+
+impl Propagation<'_> {
+    /// The application at `span`, elaborated as planned, as `infer` and
+    /// then `insert` would, and compared with `expected`.
+    #[inline(never)]
+    fn apply(&mut self, cx: &mut Ctx, span: Span, expected: &Value) -> Result<Term> {
+        cx.g().machine.budget.nesting(PASS)?;
+        let head = self.head.take().expect("applied once");
+        let mut supply = std::mem::take(&mut self.supply);
+        let args = with_pipes(&self.args, &self.pipes);
+        let applied = apply_args_with(cx, head, &args, &mut supply)?;
+        propagated(cx, applied, span, supply, expected)
+    }
+}
+
+/// The first half of [`propagate`]: the application `expr` against
+/// `expected` (named `named`), if its result type as written unifies with
+/// it before the arguments are checked; `None`, with everything as it was,
+/// if not.
+#[inline(never)]
+fn propagation_plan<'a>(
+    cx: &mut Ctx,
+    expr: &'a Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Option<Box<Propagation<'a>>>> {
     if matches!(
         force(&cx.g(), expected.clone())?,
         Value::Neutral(Head::Meta(_), _)
@@ -5958,14 +7018,12 @@ fn propagate(
     if args.is_empty() && !matches!(head, Expr::Field(..)) {
         return Ok(None);
     }
-    let dotted;
     let (head, args) = if let Expr::Field(recv, field) = head {
         // `recv.f a` is `T.f … recv …` (SW-129).
         let Some((head, full)) = crate::dot::prefix_form(cx, recv, field, &args)? else {
             return Ok(None);
         };
-        dotted = full;
-        (head, &dotted)
+        (head, full)
     } else {
         let Some(head) = known_head(cx, head) else {
             return Ok(None);
@@ -5983,10 +7041,10 @@ fn propagate(
             };
             args = ordered;
         }
-        (head, &args)
+        (head, args)
     };
     let mut snapshot = crate::undo::Snapshot::take(cx);
-    let mut found = written_result(cx, &head.1, args, false)?;
+    let mut found = written_result(cx, &head.1, &args, false)?;
     // A result type that depends only on arguments written `_` (a lemma's
     // conclusion, as `Parse.readsBind _ _ _ _ reads (x => …)`'s): the
     // unknowns the `_`s get stand for them, so the conclusion is compared
@@ -6003,9 +7061,9 @@ fn propagate(
     if by_holes {
         snapshot.restore(cx);
         snapshot = crate::undo::Snapshot::take(cx);
-        found = written_result(cx, &head.1, args, true)?;
+        found = written_result(cx, &head.1, &args, true)?;
     }
-    let Some((written, mut supply, doms, checked)) = found else {
+    let Some((written, supply, doms, checked)) = found else {
         snapshot.restore(cx);
         return Ok(None);
     };
@@ -6025,18 +7083,7 @@ fn propagate(
             (i, piped)
         })
         .collect();
-    let with_holes: Vec<Arg>;
-    let args: &[Arg] = if pipes.is_empty() {
-        args
-    } else {
-        with_holes = (args.iter().enumerate())
-            .map(|(i, arg)| match pipes.iter().find(|(at, _)| *at == i) {
-                Some((_, piped)) => Arg::Piped(piped),
-                None => *arg,
-            })
-            .collect();
-        &with_holes
-    };
+    let written_args = with_pipes(&args, &pipes);
     // A result in a bare row not known yet (`List.map`'s `{e} (List b)`):
     // its value type is compared, and the row is left to the arguments, so a
     // callback with abilities makes it effectful (D1124) before the
@@ -6061,7 +7108,7 @@ fn propagate(
     // A variable passed where that unknown is expected (`counts` in `same
     // counts`) gets the name too: checked against the unknown's solution, it
     // couldn't tell the name from there.
-    for (arg, dom) in args.iter().zip(&doms) {
+    for (arg, dom) in written_args.iter().zip(&doms) {
         if let Arg::Explicit(Expr::Var(name)) = arg
             && cx.local(&name.text)?.is_none()
             && let Some(level) = cx.lookup(&name.text)
@@ -6070,63 +7117,14 @@ fn propagate(
             name_unknown(cx, &found, dom)?;
         }
     }
-    // As `infer` and then `insert` would, for the application.
-    let span = expr.span();
-    let result = (|| -> Result<Term> {
-        cx.g().machine.budget.nesting(PASS)?;
-        let (term, found) = apply_args_with(cx, head, args, &mut supply)?;
-        let term = Term::Loc(span, Rc::new(term));
-        let (term, found) = insert_with(cx, term, found, &mut supply)?;
-        if !supply.is_empty() {
-            // The types as elaborated didn't line up with the walk's.
-            return Err(Diagnostic::error(
-                "E-PROPAGATE",
-                "unused implicit arguments",
-            ));
-        }
-        compare(cx, term, &found, expected)
-    })();
-    match result {
-        Ok(term) => Ok(Some(Ok(term))),
-        Err(e) if crate::undo::fatal(&e) => Err(e),
-        Err(propagated) => {
-            snapshot.restore(cx);
-            // Elaborated again as it would have been without this
-            // propagation. After one by `_`s, the applications inside still
-            // use their expected types, all but those by `_`s, so what was
-            // accepted before still is, and a failure isn't tried twice at
-            // every level.
-            let off = if by_holes {
-                &cx.e.decl.no_hole_propagation
-            } else {
-                &cx.e.decl.no_propagation
-            };
-            off.set(off.get() + 1);
-            let old = (|| {
-                let (term, found) = infer(cx, expr)?;
-                let (term, found) = insert(cx, term, found)?;
-                compare(cx, term, &found, expected)
-            })();
-            let off = if by_holes {
-                &cx.e.decl.no_hole_propagation
-            } else {
-                &cx.e.decl.no_propagation
-            };
-            off.set(off.get() - 1);
-            // Both fail inside the same argument: the first knew what the
-            // argument must prove, where the second only had unknowns (a
-            // `rewrite` in `Eq.trans (List.filterSkip _ _ _ (rewrite …)) e`
-            // against a goal of `?p ?x = False`, SW-931).
-            match old {
-                Err(old)
-                    if !crate::undo::fatal(&old) && in_same_argument(args, &propagated, &old) =>
-                {
-                    Ok(Some(Err(propagated)))
-                }
-                old => Ok(Some(old)),
-            }
-        }
-    }
+    Ok(Some(Box::new(Propagation {
+        head: Some(head),
+        args,
+        pipes,
+        supply,
+        snapshot,
+        by_holes,
+    })))
 }
 
 /// Whether the errors `first` and `second` both point inside the same
@@ -6134,8 +7132,12 @@ fn propagate(
 /// any other argument, so in one of its parts (the `rewrite` in
 /// `List.filterSkip _ _ _ (rewrite …)`). An error about a whole argument
 /// that isn't a lambda (`True` in `chooseFirst 5 True` at `Int`) keeps the
-/// second's message, which says how its type was fixed.
+/// second's message, which says how its type was fixed, unless the first
+/// isn't a type mismatch: then the argument was checked against what it
+/// must be and failed at that (`rfl` in `Decidable.yes rfl`, `E-REFL`), where
+/// the second only had an unknown to check it against.
 fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
+    let whole_ok = first.code != "E-TYPE-MISMATCH";
     let (Some(first), Some(second)) = (first.labels.first(), second.labels.first()) else {
         return false;
     };
@@ -6148,7 +7150,7 @@ fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bo
         }
         Arg::Explicit(value) => {
             let whole = value.span();
-            let part = |span: Span| inside(whole, span) && span != whole;
+            let part = |span: Span| inside(whole, span) && (whole_ok || span != whole);
             part(first.span) && part(second.span)
         }
         _ => false,
@@ -6518,6 +7520,17 @@ pub fn builtin_data(cx: &Ctx, b: Builtin) -> Result<DataId> {
         .ok_or_else(|| missing_builtin(cx, b))
 }
 
+/// The projection of field `i` of the prelude's `Decidable`: 0 is `holds`, 1
+/// `sound` and 2 `complete`.
+pub fn decidable_field(cx: &Ctx, i: usize) -> Result<stitchwort_core::DefId> {
+    let decidable = builtin_data(cx, Builtin::Decidable)?;
+    cx.e.tables
+        .records
+        .get(&decidable)
+        .and_then(|r| r.projections.get(i).copied().flatten())
+        .ok_or_else(|| missing_builtin(cx, Builtin::Decidable))
+}
+
 /// The prelude's constructor `b`: its data type and index.
 pub fn builtin_ctor(cx: &Ctx, b: Builtin) -> Result<(DataId, usize)> {
     cx.g()
@@ -6626,6 +7639,21 @@ pub(crate) enum CtorArg<'a> {
     NamedExplicit(&'a AstName, &'a Expr),
 }
 
+/// An unknown for each binder of `telescope` (a data type's parameters, say),
+/// each of its type given the ones before it.
+pub(crate) fn fresh_telescope<'t>(
+    cx: &Ctx,
+    telescope: impl IntoIterator<Item = &'t (Name, Term)>,
+) -> Result<Vec<Value>> {
+    let mut params = Vec::new();
+    for (_, ty) in telescope {
+        let ty = eval(&cx.g(), &params, ty)?;
+        let meta = cx.fresh_meta_of(&ty);
+        params.push(cx.eval(&meta)?);
+    }
+    Ok(params)
+}
+
 /// Elaborates constructor `c` of `d` applied to `args`. The data type's
 /// parameters come from `expected` if given, or are left to unification;
 /// implicit fields not given by name are left to unification too.
@@ -6644,8 +7672,12 @@ fn ctor_app(
     let implicit: Vec<bool> = (0..k)
         .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
         .collect();
-    // What each field is given, by position or by name (`named.rs`).
-    let given = ctor_fill(cx, d, c, args)?;
+    // What each field is given, by position or by name (`named.rs`), and
+    // the parameters named.
+    let CtorGiven {
+        params: named_params,
+        fields: given,
+    } = ctor_fill(cx, d, c, args)?;
     let missing: Vec<usize> = (0..k)
         .filter(|&i| !implicit[i] && given[i].is_none())
         .collect();
@@ -6662,13 +7694,7 @@ fn ctor_app(
     let fallback_params: Vec<Value> = if missing.is_empty() {
         Vec::new()
     } else {
-        data.params()
-            .iter()
-            .map(|_| {
-                let meta = cx.fresh_meta();
-                cx.eval(&meta)
-            })
-            .collect::<Result<_>>()?
+        fresh_telescope(cx, data.params())?
     };
     let mut target = expected.cloned();
     for &i in &missing {
@@ -6700,18 +7726,39 @@ fn ctor_app(
         Some(t) => effects::unknown_bare_value(cx, t)?.or_else(|| Some(t.clone())),
         None => None,
     };
+    // The whole of the expected type, when the parameters come from it.
+    let mut expected_args: Option<Vec<Value>> = None;
     let params = match value_target.map(|t| force(&g, t)).transpose()? {
-        Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
+        Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => {
+            expected_args = Some(args.to_vec());
+            args[..np].to_vec()
+        }
         _ if !missing.is_empty() => fallback_params,
-        _ => data
-            .params()
-            .iter()
-            .map(|_| {
-                let meta = cx.fresh_meta();
-                cx.eval(&meta)
-            })
-            .collect::<Result<_>>()?,
+        _ => fresh_telescope(cx, data.params())?,
     };
+    // A parameter given by name, `[a := Nat]`, is checked against its type
+    // and must agree with what `expected` says, if anything. A disagreement
+    // is reported as a function's is, between the whole types: `List Nat`
+    // expected, `List Text` given.
+    for (j, given) in named_params.iter().enumerate() {
+        let Some(e) = given else { continue };
+        let ty = eval(&g, &params[..j], &data.params()[j].1)?;
+        let term = check(cx, e, &ty)?;
+        let value = cx.eval(&term)?;
+        if !cx.unify(&params[j], &value)? {
+            let error = match &expected_args {
+                Some(args) => {
+                    let mut found = args.clone();
+                    found[j] = value;
+                    let expected = Value::Data(d, args.clone().into());
+                    cx.mismatch(&expected, &Value::Data(d, found.into()))
+                }
+                None => cx.mismatch(&params[j], &value),
+            };
+            cx.reset(mark);
+            return Err(error);
+        }
+    }
     // A missing field's type is known from `expected` (`List Hit` in
     // `xs.map (Cons { … })`): unify it first, so the parameters it fixes are
     // known when the given arguments are checked, whatever the field order.
@@ -6737,8 +7784,11 @@ fn ctor_app(
         let term = if let Some(level) = missing_level[i] {
             let found = cx.types[level].clone();
             if !cx.unify(&found, &ty)? {
+                // Both types may mention the parameters bound above `mark`,
+                // so the message is made before they are unbound.
+                let error = cx.mismatch(&ty, &found);
                 cx.reset(mark);
-                return Err(cx.mismatch(&ty, &found));
+                return Err(error);
             }
             Term::Var(cx.level() - 1 - level)
         } else {
@@ -6833,7 +7883,7 @@ fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
     Ok((
         Term::ctor(pair, mk, vec![ta, tb]),
-        Value::Data(pair, vec![tya, tyb]),
+        Value::Data(pair, vec![tya, tyb].into()),
     ))
 }
 
@@ -6870,7 +7920,7 @@ pub(crate) fn check_type_defaulting(
         written = inner;
     }
     if let Expr::Num(..) = written {
-        let nat = Value::Data(nat(cx)?, Vec::new());
+        let nat = Value::Data(nat(cx)?, Vec::new().into());
         return Err(not_a_type(cx, span, &nat));
     }
     if let Some((name, value, body)) = expr.as_chain_let() {
@@ -6882,7 +7932,24 @@ pub(crate) fn check_type_defaulting(
         let term = with_span(cx, span, |cx| crate::logic::as_prop(cx, logic))?;
         return Ok((Term::Loc(span, Rc::new(term)), Sort::Prop));
     }
-    let (term, ty) = infer(cx, expr)?;
+    let (term, ty) = match infer(cx, expr) {
+        Ok(found) => found,
+        // A constructor with arguments missing is inferred as a function whose
+        // parameter types are unknown yet, and that can fail on a dependent
+        // field with an error about those unknowns; say what's wrong instead.
+        Err(error) => match ctor_head(cx, written)? {
+            Some((d, c, _)) => {
+                let name = cx.g().data(d).ctors()[c].name.clone();
+                return Err(
+                    Diagnostic::error("E-NOT-A-TYPE", "expected a type").with_label(
+                        span,
+                        format!("`{name}` is a constructor, so it isn't a type"),
+                    ),
+                );
+            }
+            None => return Err(error),
+        },
+    };
     // Trailing implicit and `auto` parameters, as in a synonym's
     // `type Set (k: Type) [auto ord: Ord k] = …`: `Set Nat` finds `ord`
     // (docs/proposals/interfaces.md §7.5).
@@ -6900,15 +7967,141 @@ pub(crate) fn check_type_defaulting(
                 Err(not_a_type(cx, span, &ty))
             }
         }
-        other => Err(not_a_type(cx, span, &other)),
+        other => match bool_as_prop(cx, expr, &term, &other)? {
+            Some(prop) => Ok((prop, Sort::Prop)),
+            None => Err(not_a_type(cx, span, &other)),
+        },
+    }
+}
+
+/// `term`, a `Bool` `b` written as `expr` where a proposition is expected,
+/// as the proposition `b = True` (docs/proposals/bool-as-proposition.md
+/// §4): the same term as writing the equation out, so which was written
+/// doesn't show in a hash. `None` if `found` isn't `Bool`, or `expr` is a
+/// side of an `=` ([`Decl::not_coerced`](crate::state::Decl)).
+pub(crate) fn bool_as_prop(
+    cx: &Ctx,
+    expr: &Expr,
+    term: &Term,
+    found: &Value,
+) -> Result<Option<Term>> {
+    let is_bool = matches!(force(&cx.g(), found.clone())?,
+        Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d));
+    if !is_bool || is_equation_side(cx, expr) {
+        return Ok(None);
+    }
+    Ok(Some(crate::logic::true_prop(cx, term.clone())?))
+}
+
+fn is_equation_side(cx: &Ctx, expr: &Expr) -> bool {
+    let address = std::ptr::from_ref(expr) as usize;
+    cx.e.decl.not_coerced.borrow().contains(&address)
+}
+
+/// `f`, with a `Bool` not read as a proposition at the expressions whose
+/// addresses are `at` ([`Decl::not_coerced`](crate::state::Decl)).
+pub(crate) fn without_coercion<T>(
+    cx: &mut Ctx,
+    at: Vec<usize>,
+    f: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    if at.is_empty() {
+        return f(cx);
+    }
+    let marked = at.len();
+    cx.e.decl.not_coerced.borrow_mut().extend(at);
+    let result = f(cx);
+    let mut marks = cx.e.decl.not_coerced.borrow_mut();
+    let kept = marks.len() - marked;
+    marks.truncate(kept);
+    result
+}
+
+/// The results of `expr`, an `if`, `let` or `match`, through the ones
+/// nested in them: where an expected proposition is pushed in.
+fn results(expr: &Expr, out: &mut Vec<usize>) {
+    // A work list, in the order of a recursive walk: a block of `let`s nests
+    // as deeply as it has lines, which a recursion would follow before any
+    // stack check had run.
+    let address = |e: &Expr| std::ptr::from_ref(e) as usize;
+    let mut work: Vec<(&Expr, bool)> = vec![(expr, false)];
+    while let Some((expr, is_result)) = work.pop() {
+        if is_result {
+            out.push(address(expr));
+        }
+        match expr {
+            Expr::Bracketed(inner, _) => work.push((inner, false)),
+            Expr::If {
+                then, otherwise, ..
+            } => work.extend([(&**otherwise, true), (&**then, true)]),
+            Expr::Let { body, .. } => work.push((body, true)),
+            Expr::Match { alts, .. } => work.extend(
+                alts.iter()
+                    .rev()
+                    .filter_map(|a| Some((a.body.as_ref()?, true))),
+            ),
+            _ => {}
+        }
+    }
+}
+
+/// `expr`, an `if`, `let` or `match` checked against `Prop`
+/// (`expected`): pushed in, as for any type, unless its results are
+/// `Bool`s; then it is a test, and the proposition is the whole test being
+/// `True`, as where a type is expected ([`check_type`]), not a test per
+/// branch (docs/proposals/bool-operators-in-propositions.md §5, rule 2).
+/// `None` for any other expression.
+#[inline(never)]
+fn whole_test(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Term>> {
+    // Every check comes here: most expressions have no results to look for,
+    // and [`results`]' work list would be an allocation each time.
+    if !matches!(
+        expr,
+        Expr::Bracketed(..) | Expr::If { .. } | Expr::Let { .. } | Expr::Match { .. }
+    ) {
+        return Ok(None);
+    }
+    let mut at = Vec::new();
+    results(expr, &mut at);
+    if at.is_empty() || !matches!(force(&cx.g(), expected.clone())?, Value::Sort(Sort::Prop)) {
+        return Ok(None);
+    }
+    let pushed = without_coercion(cx, at, |cx| {
+        crate::undo::attempt(cx, |cx| check_inner(cx, expr, expected))
+    })?;
+    if let Some(term) = pushed {
+        return Ok(Some(term));
+    }
+    let whole = crate::undo::attempt(cx, |cx| {
+        let (term, found) = infer(cx, expr)?;
+        match bool_as_prop(cx, expr, &term, &found)? {
+            Some(prop) => Ok(prop),
+            None => Err(Diagnostic::error("E-TYPE-MISMATCH", "not a test")),
+        }
+    })?;
+    match whole {
+        Some(prop) => Ok(Some(prop)),
+        // Neither: the error is the one pushing in gives.
+        None => check_inner(cx, expr, expected).map(Some),
     }
 }
 
 fn not_a_type(cx: &Ctx, span: Span, ty: &Value) -> Diagnostic {
-    Diagnostic::error("E-NOT-A-TYPE", "expected a type").with_label(
+    let error = Diagnostic::error("E-NOT-A-TYPE", "expected a type").with_label(
         span,
         format!("this has type `{}`, so it isn't a type", cx.show(ty)),
-    )
+    );
+    let is_bool = matches!(force(&cx.g(), ty.clone()),
+        Ok(Value::Data(d, _)) if cx.g().env.registry().is_data(Builtin::Bool, d));
+    if is_bool {
+        // A `Bool` is refused only as a side of an `=` ([`bool_as_prop`]).
+        error.with_note(
+            "a `Bool` stands for the proposition that it is `True`, but not as a side of `=`, \
+             where that would make an equation between propositions: write its `= True` out",
+        )
+    } else {
+        error
+    }
 }
 
 fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Term, Value)> {
@@ -6933,7 +8126,7 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
     cx.bind(&y_name.text, (*ty).clone());
     cx.bind(
         &p_name.text,
-        Value::Eq(ty.clone(), x.clone(), Rc::new(Value::var(level))),
+        Value::Eq(ty.clone(), x.clone(), Rc::new(Value::var(level)).into()),
     );
     let result = check_type(cx, body);
     cx.reset(mark);
@@ -7022,9 +8215,9 @@ pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result
 
 /// The function both sides apply, when they are applications of the same one:
 /// `Eq.cong` then proves the goal from an equation between the arguments.
-fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+fn same_function(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
     let g = cx.g();
-    let (ta, tb) = (cx.quote(a).ok()?, cx.quote(b).ok()?);
+    let (ta, tb) = (cx.normal_of(a)?, cx.normal_of(b)?);
     let (ha, xa) = ta.spine();
     let (hb, xb) = tb.spine();
     if xa.is_empty() || xb.is_empty() || !stitchwort_core::value::same_term(ha, hb) {
@@ -7048,12 +8241,12 @@ fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
 /// equation states, where `rfl` fails because the goal came to mention the
 /// scrutinee only after the `match` refined it (after a `rewrite`, say): the
 /// equation proves it. Unnamed, the note says to name it.
-fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
     let g = cx.g();
     let level = cx.level();
     // Compared as normal forms, so that building the note solves nothing.
-    let read = |v: &Value| quote(&g, level, v).ok();
-    let (ta, tb) = (read(a)?, read(b)?);
+    let read = |v: &Value| cx.quote_for_note(v);
+    let (ta, tb) = (cx.normal_of(a)?, cx.normal_of(b)?);
     let same = crate::matching::same;
     cx.scrutinees
         .iter()
@@ -7062,8 +8255,8 @@ fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
             let needle = needle.shift(&g, level - base, 0).ok()?;
             let value = read(cx.env.get(*var)?)?;
             // The sides are the scrutinee and this branch's value of it.
-            let forward = same(&ta, &needle) && same(&tb, &value);
-            let backward = same(&tb, &needle) && same(&ta, &value);
+            let forward = same(ta, &needle) && same(tb, &value);
+            let backward = same(tb, &needle) && same(ta, &value);
             if !forward && !backward {
                 return None;
             }
@@ -7085,11 +8278,56 @@ fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
         })
 }
 
+/// Whether `note` is [`stuck_side_note`]'s.
+pub(crate) fn is_stuck_side_note(note: &str) -> bool {
+    [
+        "the left side is stuck on `",
+        "the right side is stuck on `",
+    ]
+    .iter()
+    .any(|p| note.starts_with(p))
+}
+
+/// The note for sides of an `E-REFL` where a call is stuck on a variable
+/// the other side isn't stuck on (`choose b p` against `p`): they differ at
+/// the outermost layer, where the first-difference note doesn't look.
+fn stuck_side_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+    let g = cx.g();
+    let (sa, sb) = (
+        stitchwort_core::value::stuck_on_variable(&g, a),
+        stitchwort_core::value::stuck_on_variable(&g, b),
+    );
+    if sa == sb {
+        return None;
+    }
+    let names = cx.shown_names(false);
+    let name = |level: usize| names.get(level).map(|n| n.to_string());
+    let hint = |v: &str| {
+        format!(
+            "it can't compute further until `{v}` is known; a `match` on `{v}` (or `cases {v}`) splits it"
+        )
+    };
+    match (sa.and_then(name), sb.and_then(name)) {
+        (Some(x), Some(y)) => Some(format!(
+            "the left side is stuck on `{x}` and the right side on `{y}`: neither can compute \
+             further until its variable is known; a `match` (or `cases`) on one splits it"
+        )),
+        (Some(x), None) if sb.is_none() => {
+            Some(format!("the left side is stuck on `{x}`: {}", hint(&x)))
+        }
+        (None, Some(y)) if sa.is_none() => {
+            Some(format!("the right side is stuck on `{y}`: {}", hint(&y)))
+        }
+        _ => None,
+    }
+}
+
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
 pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let (shown_a, shown_b) = (cx.show(a), cx.show(b));
+    let sides = [NoteSide::new(a), NoteSide::new(b)];
     // What the sides compute to: their normal forms, calls unfolded.
     let (normal_a, normal_b) = if cx.g().machine.glue.get() {
         (cx.show_unfolded(a), cx.show_unfolded(b))
@@ -7112,7 +8350,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     // in (`Int.modNat x 3 [ok := p]` with two different proofs `p`).
     let (label, hidden) = if shown_a == shown_b || side_a == side_b {
         let (ha, hb) = (cx.show_hidden(a), cx.show_hidden(b));
-        if ha != hb && cx.differ_only_in_hidden(a, b) {
+        if ha != hb && cx.differ_only_in_hidden_in(&sides[0], &sides[1]) {
             (format!("`{ha}` and `{hb}` aren't equal"), true)
         } else {
             (label, false)
@@ -7141,8 +8379,8 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     // The sides print the same because they differ only in proofs, which a
     // comparison under an opaque, axiom or same-group call doesn't skip.
-    if !hidden && side_a == side_b && cx.differ_only_in_proofs(a, b) {
-        let hint = same_function(cx, a, b)
+    if !hidden && side_a == side_b && cx.differ_only_in_proofs_in(&sides[0], &sides[1]) {
+        let hint = same_function(cx, &sides[0], &sides[1])
             .map(|f| format!("; prove it with `Eq.cong` (e.g. `Eq.cong {f} h`)"))
             .unwrap_or_default();
         error = error.with_note(format!(
@@ -7152,23 +8390,25 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     // Both sides still print the same, as written or computed.
     if alike {
-        error = cx.with_alike_updates_note(error, &[a, b]);
+        error = cx.with_alike_updates_note_in(error, &sides);
+    }
+    if let Some(note) = stuck_side_note(cx, a, b) {
+        error = error.with_note(note);
     }
     let error =
         error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
-    let error = match match_equation_note(cx, a, b) {
+    let error = match match_equation_note(cx, &sides[0], &sides[1]) {
         Some(note) => error.with_note(note),
         None => error,
     };
-    let error = cx.with_unused_equation_notes(error, &[a, b]);
+    let error = cx.with_unused_equation_notes_in(error, &sides);
     // A side stuck on a lifted `match`: its branches' equations.
-    let sides: Vec<Term> = [a, b].iter().filter_map(|v| cx.quote(v).ok()).collect();
-    let sides: Vec<&Term> = sides.iter().collect();
-    let error = match crate::equation_notes::branch_note(cx.e, &sides) {
+    let read: Vec<&Term> = sides.iter().filter_map(|s| cx.normal_of(s)).collect();
+    let error = match crate::equation_notes::branch_note(cx.e, &read) {
         Some(note) => error.with_note(note),
         None => error,
     };
-    cx.with_opaque_notes(error, &[a, b])
+    cx.with_opaque_notes_in(error, &sides)
 }
 
 #[cfg(test)]
@@ -7193,7 +8433,11 @@ mod tests {
         let e = Elaborator::new();
         let type0 = || Value::Sort(Sort::Type(0));
         let eq = |a: Value, b: Value| {
-            Value::Eq(Rc::new(Value::Sort(Sort::Type(1))), Rc::new(a), Rc::new(b))
+            Value::Eq(
+                Rc::new(Value::Sort(Sort::Type(1))).into(),
+                Rc::new(a).into(),
+                Rc::new(b).into(),
+            )
         };
         // `a: Type0`, `ok: n = n`, `n: Type0`, proving `Type0 = Type0`.
         let cx = Ctx::from_parts(

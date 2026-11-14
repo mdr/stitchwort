@@ -10,7 +10,7 @@ theorem sevenHalves: 7 / 2 = 3 := rfl
 theorem sevenMod: 7 % 2 = 1 := rfl
 
 -- An `if` on a proposition decides it at runtime.
-def safeDiv (n: Nat) (d: Nat): Nat := if d ≠ 0 then n / d else 0
+def safeDiv (n d: Nat): Nat := if d ≠ 0 then n / d else 0
 
 theorem safeDivByZero: safeDiv 5 0 = 0 := rfl
 
@@ -18,13 +18,12 @@ theorem safeDivWorks: safeDiv 9 3 = 3 := rfl
 
 -- A function can ask for a proof itself, and its callers' `auto` provides it:
 -- here, so that there is no average of nothing.
-def average (total: Nat) (count: Nat): [auto ok: count ≠ 0] → Nat := total / count
+def average (total count: Nat): [auto ok: count ≠ 0] → Nat := total / count
 
 def averageOfThree: Nat := average 12 3
 
 -- A hypothesis can also be passed on explicitly, by name.
-def averageOrZero (total: Nat) (count: Nat): Nat :=
-  if h: count ≠ 0 then average total count [ok := h] else 0
+def averageOrZero (total count: Nat): Nat := if h: count ≠ 0 then average total count [ok := h] else 0
 
 -- Comparisons are propositions, decided by computation.
 theorem twoBelowThree: 2 < 3 := rfl

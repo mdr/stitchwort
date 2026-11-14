@@ -65,10 +65,9 @@ def element(): {Parse} Char := satisfy "a capital letter" Char.isAsciiUppercase
 
 --| The manual, if no two rules are for the same pair; otherwise fail,
 --| naming the first pair with two.
-def checkManual (manual: Manual): {Fail} Manual :=
-  match firstRepeated (manual.rules.map .pair) with
-    | Some pair => Fail.fail "two rules for the pair ${pair.first}${pair.second}"
-    | None => manual
+def checkManual (manual: Manual): {Fail} Manual := match firstRepeated (manual.rules.map .pair) with
+  | Some pair => Fail.fail "two rules for the pair ${pair.first}${pair.second}"
+  | None => manual
 
 --| The first pair that is listed again further on.
 def firstRepeated: List ElementPair → Option ElementPair
@@ -80,10 +79,9 @@ def ruleTable (rules: List Rule): Map ElementPair Char := rules.map (rule => (ru
 
 --| What a pair becomes in a step: with a rule inserting `c`, the pairs `a c`
 --| and `c b`; without one, itself.
-def ElementPair.becomes (pair: ElementPair) (table: Map ElementPair Char): List ElementPair :=
-  match table.get pair with
-    | Some c => [{ first = pair.first, second = c }, { first = c, second = pair.second }]
-    | None => [pair]
+def ElementPair.becomes (pair: ElementPair) (table: Map ElementPair Char): List ElementPair := match table.get pair with
+  | Some c => [{ first = pair.first, second = c }, { first = c, second = pair.second }]
+  | None => [pair]
 
 --| How many times each pair of neighbours occurs.
 type PairCounts = Map ElementPair Nat
@@ -109,16 +107,15 @@ def elementCount (first: Char) (counts: PairCounts) (element: Char): Nat :=
 --| elements looked at are the first and the second of every pair counted,
 --| and one counted 0 times is left out. (None is: every count added is at
 --| least 1. The filter saves the proofs from showing that.)
-def spread (template: List Char) (counts: PairCounts): Nat :=
-  match template with
-    | [] => 0
-    | [first, .._] =>
-      let quantities :=
-        [first, ..counts.keys.map .second]
-          |> .unique
-          |> .map (elementCount first counts)
-          |> .filter (quantity => 0 < quantity)
-      quantities.maximum.getOrElse 0 - quantities.minimum.getOrElse 0
+def spread (template: List Char) (counts: PairCounts): Nat := match template with
+  | [] => 0
+  | [first, .._] =>
+    let quantities :=
+      [first, ..counts.keys.map .second]
+        |> .unique
+        |> .map (elementCount first counts)
+        |> .filter (quantity => 0 < quantity)
+    quantities.maximum.getOrElse 0 - quantities.minimum.getOrElse 0
 
 --| The answer after `steps` steps.
 def spreadAfter (steps: Nat) (manual: Manual): Nat :=

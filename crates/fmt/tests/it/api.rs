@@ -46,16 +46,21 @@ fn errors_say_what_happened() {
 }
 
 #[test]
-fn every_line_and_gap_has_a_rule() {
-    // F2: continuation lines are at +2 (D1040) and `g(x)` is `g (x)`
-    // (D1039), so nothing is left on the copy path.
+fn every_construct_has_a_rule() {
+    // `g(x)` is `g (x)` (D1039), and a call that fits is on one line.
     let text = "def f (x: Nat): Nat :=\n    let y := x\n    g(y)\n         (h x)\n           x\n";
     let result = format_with_stats(text).unwrap();
     assert_eq!(
         result.text,
-        "def f (x: Nat): Nat :=\n  let y := x\n  g (y)\n    (h x)\n      x\n"
+        "def f (x: Nat): Nat :=\n  let y := x\n  g (y) (h x) x\n"
     );
-    assert_eq!(result.stats, Stats::default());
+    assert_eq!(
+        result.stats,
+        Stats {
+            decls: 1,
+            ..Stats::default()
+        }
+    );
 }
 
 #[test]
@@ -90,4 +95,28 @@ fn a_space_before_a_parenthesis_does_not_change_the_tree() {
         format("def a: Nat := g f()").unwrap(),
         "def a: Nat := g f()\n"
     );
+}
+
+#[test]
+fn a_theorem_with_explicit_parameters_gets_forall() {
+    // D3472: written before the first parameter, after the name when the
+    // parameters start on the next line, and not at all where only implicit
+    // parameters are (or a `def`, or none).
+    let text = "theorem a (n: Nat): n = n := rfl\n\n\
+                theorem b [x: Bool] (n: Nat): n = n := rfl\n\n\
+                theorem c\n  (n: Nat): n = n := rfl\n\n\
+                theorem d [x: Bool]: x = x := rfl\n\n\
+                theorem e: True := trivial\n\n\
+                theorem f ∀ (n: Nat): n = n := rfl\n\n\
+                def g (n: Nat): Nat := n\n";
+    let want = "theorem a ∀ (n: Nat): n = n := rfl\n\n\
+                theorem b ∀ [x: Bool] (n: Nat): n = n := rfl\n\n\
+                theorem c ∀ (n: Nat): n = n := rfl\n\n\
+                theorem d [x: Bool]: x = x := rfl\n\n\
+                theorem e: True := trivial\n\n\
+                theorem f ∀ (n: Nat): n = n := rfl\n\n\
+                def g (n: Nat): Nat := n\n";
+    let once = format(text).unwrap();
+    assert_eq!(once, want);
+    assert_eq!(format(&once).unwrap(), want);
 }

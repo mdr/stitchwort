@@ -6,9 +6,7 @@
 
 import Std (List)
 
-type Dir: Type =
-  | TL
-  | TR
+type Dir: Type = | TL | TR
 
 type Rot = { dir: Dir, amount: Nat }
 
@@ -39,7 +37,7 @@ test "parse nothing" := amountOf (parse 1 None) == 0
 test "sumPoints" := (sumPoints [1, 2, 3]).x == 6
 
 -- Literals take their type from the expected result.
-def chooseFirst [a: Type] (x: a) (y: a): a := x
+def chooseFirst [a: Type] (x y: a): a := x
 
 -- `a := Int` from the result, before `5` is checked.
 def r (i: Int): Int := chooseFirst 5 i
@@ -49,7 +47,7 @@ def r (i: Int): Int := chooseFirst 5 i
 def partly: Int → Int := chooseFirst 5
 
 -- A named implicit argument.
-def second [a: Type] [b: Type] (x: a) (y: b): b := y
+def second [a b: Type] (x: a) (y: b): b := y
 
 def named (i: Int): Int := second [a := Nat] 5 i
 
@@ -72,8 +70,7 @@ ability State (s: Type) where
   get: () → {State s} s
   put: s → {State s} ()
 
-type Box (a: Type): Type =
-  | MkBox (x: a)
+type Box (a: Type): Type = | MkBox (x: a)
 
 def unbox: [a: Type] → Box a → a
   | MkBox x => x

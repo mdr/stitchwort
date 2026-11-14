@@ -12,5 +12,11 @@ test "the other examples, the spec" := seatIds (written """
   BFFFBBFRRR
   FFFBBBFRRR
   BBFFBBFRLL""") == [567, 119, 820]
-test "not a pass, the spec" := seat "FBFBBFFRLB".toList == None ∧ seat "FBFBBFFRL".toList == None ∧ seat "FBFBBFFRLRL".toList == None
-test "real input, the spec" := (part1Answer (written (include "../../../../../inputs/2020/day05.txt")), part2Answers (written (include "../../../../../inputs/2020/day05.txt"))) == (Some 813, [612])
+test "not a pass, the spec" :=
+  seat "FBFBBFFRLB".toList == None ∧ seat "FBFBBFFRL".toList == None ∧ seat "FBFBBFFRLRL".toList == None
+test "real input, the spec" :=
+  (
+    part1Answer (written (include "../../../../../inputs/2020/day05.txt")),
+    part2Answers (written (include "../../../../../inputs/2020/day05.txt"))
+  )
+    == (Some 813, [612])

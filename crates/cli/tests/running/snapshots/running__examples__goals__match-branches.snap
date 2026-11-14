@@ -1,19 +1,19 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `addZero`
-   ╭─[ goals/match-branches.sw:6:15 ]
+   ╭─[ goals/match-branches.sw:5:13 ]
    │
- 6 │     | Zero => ?
-   │               ┬  
-   │               ╰── ⊢ 0 = 0
+ 5 │   | Zero => ?
+   │             ┬  
+   │             ╰── ⊢ 0 = 0
 ───╯
 [GOAL] Goal: in `addZero`
-   ╭─[ goals/match-branches.sw:7:17 ]
+   ╭─[ goals/match-branches.sw:6:15 ]
    │
- 7 │     | Succ k => ?
-   │                 ┬  
-   │                 ╰── k: Nat
-   │                     ⊢ Succ k = Succ k
+ 6 │   | Succ k => ?
+   │               ┬  
+   │               ╰── k: Nat
+   │                   ⊢ Succ k = Succ k
 ───╯

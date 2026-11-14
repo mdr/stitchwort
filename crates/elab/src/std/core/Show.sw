@@ -30,10 +30,7 @@ def Ordering.toText: (ordering: Ordering) → Text
 
 --| Types whose values can be shown as text: `"${e}"` inserts `Show.toText e`.
 --| `toSource` is the form used inside lists, tuples and records (`"tea"` with its quotes).
-interface Show (a: Type) = {
-  toText: a → Text,
-  toSource: a → Text
-}
+interface Show (a: Type) = { toText: a → Text, toSource: a → Text }
 
 --| A `Show` instance that shows values with `f`, the same way inside lists and records as on their own.
 --| For numbers, and for a user's own type with a
@@ -41,7 +38,7 @@ interface Show (a: Type) = {
 def Show.fromText (f: a → Text): Show a := { toText = f, toSource = f }
 
 --| A character as it's written in a literal quoted with `quote`, then `rest`.
-def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
+def Show.escapeChar (quote char: Char) (rest: List Char): List Char :=
   if Nat.equal (Char.toNat char) 92 then ['\\', '\\', ..rest]
   else if Nat.equal (Char.toNat char) (Char.toNat quote) then ['\\', char, ..rest]
   else if Nat.equal (Char.toNat char) 10 then ['\\', 'n', ..rest]
@@ -51,7 +48,7 @@ def Show.escapeChar (quote: Char) (char: Char) (rest: List Char): List Char :=
 
 --| A character as it's written in a literal quoted with `quote`, when it's
 --| followed by `next`: a `$` before a `{` would start an interpolation, so it is escaped.
-def Show.escapeBefore (quote: Char) (char: Char) (rest: List Char): (chars: List Char) → List Char
+def Show.escapeBefore (quote char: Char) (rest: List Char): (chars: List Char) → List Char
   | [] => Show.escapeChar quote char rest
   | [next, .._] =>
     if Nat.equal (Char.toNat char) 36 then
@@ -64,8 +61,7 @@ def Show.escapeChars (quote: Char): (chars: List Char) → List Char
   | [char, ..chars] => Show.escapeBefore quote char (Show.escapeChars quote chars) chars
 
 --| `"tea"` with its quotes and escapes.
-def Show.quoteText (text: Text): Text :=
-  MkText ['"', ..List.append (Show.escapeChars '"' (Text.toList text)) ['"']]
+def Show.quoteText (text: Text): Text := MkText ['"', ..List.append (Show.escapeChars '"' (Text.toList text)) ['"']]
 
 --| A character in quotes, escaped as in a literal: `'a'`.
 def Show.quoteChar (char: Char): Text := MkText ['\'', ..Show.escapeChar '\'' char ['\'']]
@@ -111,8 +107,7 @@ def Show.items (f: a → Text): (xs: List a) → Text
   | [x, ..xs] => Text.append (f x) (Show.itemsAfter f xs)
 
 --| `[1, 2, 3]`, the elements through `f`.
-def Show.list (f: a → Text) (xs: List a): Text :=
-  Text.append "[" (Text.append (Show.items f xs) "]")
+def Show.list (f: a → Text) (xs: List a): Text := Text.append "[" (Text.append (Show.items f xs) "]")
 
 --| An option as source text, the value shown by `f`: `None`, or `Some 3`.
 @[noReceiver]
@@ -132,11 +127,9 @@ instance Text.instShow: Show Text := { toText = Text.toText, toSource = Show.quo
 
 instance Ordering.instShow: Show Ordering := Show.fromText Ordering.toText
 
-instance List.instShow [auto show: Show a]: Show (List a) :=
-  Show.fromText (xs => Show.list (x => Show.toSource x) xs)
+instance List.instShow [auto show: Show a]: Show (List a) := Show.fromText (xs => Show.list (x => Show.toSource x) xs)
 
-instance Option.instShow [auto show: Show a]: Show (Option a) :=
-  Show.fromText (Option.showWith (x => Show.toSource x))
+instance Option.instShow [auto show: Show a]: Show (Option a) := Show.fromText (Option.showWith (x => Show.toSource x))
 
 --| A result as source text, the value shown by `f` and the error by `g`: `Ok 3`, or `Err "bad"`.
 @[noReceiver]

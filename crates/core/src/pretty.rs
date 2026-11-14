@@ -15,7 +15,10 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, proof_field, proof_param, quote_shown, quote_unfolded_shown, same_term};
+use crate::value::{
+    Value, proof_field, proof_param, quote_as_written_shown, quote_shown, quote_unfolded_shown,
+    same_term,
+};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -93,6 +96,16 @@ pub fn term_ascii(g: &Ev, names: &[Name], term: &Term) -> String {
     printer.print(&mut names, term, Prec::Arrow)
 }
 
+/// Prints `term` with its outermost `p → Void` function type written as
+/// that arrow rather than `¬p`: what a hover says a `Not p` unfolds to.
+/// Anything inside it keeps the notation.
+pub fn term_not_unfolded(g: &Ev, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g, None);
+    printer.unfold_not.set(true);
+    printer.print(&mut names, term, Prec::Arrow)
+}
+
 /// [`term_ascii`] for a value.
 pub fn value_ascii(g: &Ev, names: &[Name], value: &Value) -> String {
     match quote_unfolded_shown(g, names.len(), value) {
@@ -146,7 +159,7 @@ const MESSAGE_LIMIT: usize = 240;
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
-    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, false)
+    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, None)
 }
 
 /// [`value_for_message`], with names as `scope` writes them.
@@ -163,7 +176,7 @@ pub fn value_for_message_in(
         value,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        false,
+        None,
     )
 }
 
@@ -190,6 +203,11 @@ fn value_hidden(g: &Ev, scope: Option<&dyn NameScope>, names: &[Name], value: &V
     let mut ns = names.to_vec();
     let printer = Printer::new(g, scope);
     printer.show_hidden.set(true);
+    // As in `term_within`: a huge term is printed only to a depth, not in
+    // full and then cut.
+    if t.subterms().nth(FULL_PRINT_NODES).is_some() {
+        printer.max_depth.set(Some(10));
+    }
     let text = printer.print(&mut ns, &t, Prec::Arrow);
     if text.chars().count() <= MESSAGE_LIMIT * 2 {
         return text;
@@ -243,7 +261,7 @@ fn difference(
         _ => return None,
     };
     let show = |names: &[Name], t: &Term| {
-        term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow, false)
+        term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow, None)
     };
     let Mismatch {
         mut left,
@@ -296,7 +314,7 @@ pub fn differ_only_in_proofs(g: &Ev, a: &Term, b: &Term) -> bool {
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Ev, names: &[Name], term_: &Term) -> String {
-    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, false)
+    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, None)
 }
 
 /// [`term_for_message`], with names as `scope` writes them.
@@ -308,7 +326,7 @@ pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_:
         term_,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        false,
+        None,
     )
 }
 
@@ -317,23 +335,92 @@ pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_:
 const GOAL_LIMIT: usize = 4000;
 
 /// [`value_for_message_in`], with the larger limit of a goal's types.
-pub fn value_for_goal(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(g, Some(scope), names, value, GOAL_LIMIT, Prec::Arrow, true)
+///
+/// `predicates[level]` says whether the context variable at that level has a
+/// type ending in `Prop` ([`predicate_flags`]), so that `(n: Nat) → p n` is
+/// written as a `∀`; a level past its end is not one.
+pub fn value_for_goal(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+) -> String {
+    value_within(
+        g,
+        Some(scope),
+        names,
+        value,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    )
+}
+
+/// [`value_for_goal`], but as it was written: every call stays a call, so
+/// that `beats Rock Rock = False` isn't printed as `False = False`
+/// (D3522). `None` if the value can't be read back.
+pub fn value_for_goal_as_written(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+) -> Option<String> {
+    let t = quote_as_written_shown(g, names.len(), value).ok()?;
+    Some(term_within(
+        g,
+        Some(scope),
+        names,
+        &t,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    ))
+}
+
+/// [`value_for_goal`], for a term already read back: a step's statement as
+/// written, where the value's normal form has computed a side away and so
+/// can't give the written side back (SW-2942).
+pub fn term_for_goal_in(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    term_: &Term,
+) -> String {
+    term_within(
+        g,
+        Some(scope),
+        names,
+        term_,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    )
+}
+
+/// Whether the type `ty` (a value under `level` binders) is
+/// `Prop`, or a function type into it: the variable is a predicate, and
+/// applied to arguments it is a proposition.
+pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
+    let Ok(mut t) = quote_shown(g, level, ty) else {
+        return false;
+    };
+    loop {
+        match t.strip_loc() {
+            Term::Pi(_, _, _, b) => t = (**b).clone(),
+            Term::Sort(Sort::Prop) => return true,
+            _ => return false,
+        }
+    }
 }
 
 /// [`value_for_message_in`] for one side of an equation shown as `a = b`:
 /// in brackets if it's an operation that binds more loosely than `=`
 /// (`(n < n) = True`).
 pub fn side_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(
-        g,
-        Some(scope),
-        names,
-        value,
-        MESSAGE_LIMIT,
-        Prec::Add,
-        false,
-    )
+    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Add, None)
 }
 
 /// [`term_within`] for a value, with calls shown as written.
@@ -344,17 +431,17 @@ fn value_within(
     value: &Value,
     limit: usize,
     prec: Prec,
-    equations: bool,
+    goal: Option<&[bool]>,
 ) -> String {
     let Ok(t) = quote_shown(g, names.len(), value) else {
         return "…".into();
     };
-    term_within(g, scope, names, &t, limit, prec, equations)
+    term_within(g, scope, names, &t, limit, prec, goal)
 }
 
 /// [`term_for_message`] at precedence `prec`, with a result longer than
-/// `limit` characters shortened; with `equations`, as a goal writes
-/// decided equations ([`Printer::equations`]).
+/// `limit` characters shortened; as a `goal` (with its context's
+/// `predicates`), writing decided equations ([`Printer::equations`]).
 fn term_within(
     g: &Ev,
     scope: Option<&dyn NameScope>,
@@ -362,18 +449,30 @@ fn term_within(
     term_: &Term,
     limit: usize,
     prec: Prec,
-    equations: bool,
+    goal: Option<&[bool]>,
 ) -> String {
-    note_failed_mention(g, term_);
+    note_failed_mention(g, names.len(), term_);
     let printer = || {
         let printer = Printer::new(g, scope);
-        printer.equations.set(equations);
+        printer.equations.set(goal.is_some());
+        *printer.predicates.borrow_mut() = goal.unwrap_or_default().to_vec();
         printer
     };
-    let mut ns = names.to_vec();
-    let full = printer().print(&mut ns, term_, prec);
-    if full.chars().count() <= limit || std::env::var_os("STITCHWORT_FULL_TERMS").is_some() {
-        return full;
+    let full_terms = std::env::var_os("STITCHWORT_FULL_TERMS").is_some();
+    // Printing a term builds its text from the inside out, so a huge one
+    // (a closed list of 130,000 sequences, AoC 2024 day 22) takes minutes
+    // and gigabytes; one this big is longer than `limit` anyway.
+    let too_big = !full_terms && term_.subterms().nth(FULL_PRINT_NODES).is_some();
+    let full = if too_big {
+        None
+    } else {
+        let mut ns = names.to_vec();
+        Some(printer().print(&mut ns, term_, prec))
+    };
+    if let Some(full) = &full
+        && (full.chars().count() <= limit || full_terms)
+    {
+        return full.clone();
     }
     // Reprint with less and less depth until it fits.
     for depth in (1..=10).rev() {
@@ -386,10 +485,20 @@ fn term_within(
         }
     }
     // Still too wide (a long list, say): cut it off.
-    let mut text: String = full.chars().take(limit).collect();
+    let wide = full.unwrap_or_else(|| {
+        let mut ns = names.to_vec();
+        let printer = printer();
+        printer.max_depth.set(Some(10));
+        printer.print(&mut ns, term_, prec)
+    });
+    let mut text: String = wide.chars().take(limit).collect();
     text.push('…');
     text
 }
+
+/// A term of more nodes than this is not printed in full by
+/// [`term_within`]: the text would be far longer than any limit.
+const FULL_PRINT_NODES: usize = 20_000;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
@@ -446,9 +555,15 @@ struct Printer<'g> {
     /// Write a decided equation as the `a == b` that elaborates to it
     /// ([`Printer::decided_equation`]): in a goal, which is pasted back.
     equations: Cell<bool>,
+    /// Write the next `p → Void` as an arrow instead of `¬p`
+    /// ([`term_not_unfolded`]).
+    unfold_not: Cell<bool>,
     /// The names in scope, to shorten declarations' names by; without it,
     /// names are written from the root.
     scope: Option<&'g dyn NameScope>,
+    /// By context level, whether the variable's type ends in `Prop`
+    /// ([`is_predicate_type`]); empty when the types aren't known.
+    predicates: RefCell<Vec<bool>>,
     /// What `scope` said each written name means, by declaration.
     meant: RefCell<HashMap<(Declaration, String), bool>>,
 }
@@ -464,7 +579,9 @@ impl<'g> Printer<'g> {
             ascii: Cell::new(false),
             calls: Cell::new(false),
             equations: Cell::new(false),
+            unfold_not: Cell::new(false),
             scope,
+            predicates: RefCell::new(Vec::new()),
             meant: RefCell::new(HashMap::default()),
         }
     }
@@ -529,6 +646,11 @@ impl<'g> Printer<'g> {
         self.short_name(names, &self.g.data(d).name, Declaration::Data(d))
     }
 
+    /// Whether `head` is an open goal's assumption.
+    fn is_assumed(&self, head: &Term) -> bool {
+        matches!(head, Term::Def(id) if self.g.def(*id).assumption.is_some())
+    }
+
     /// `unicode`, or `ascii` when printing for JavaScript.
     fn sym(&self, unicode: &'static str, ascii: &'static str) -> &'static str {
         if self.ascii.get() { ascii } else { unicode }
@@ -578,6 +700,15 @@ impl<'g> Printer<'g> {
         })
     }
 
+    /// The last element of an open list: `..xs`, or `…` where the tail is
+    /// left out, as the rest of a list too long to show.
+    fn spread(&self, names: &mut Vec<Name>, tail: &Term) -> String {
+        match self.print(names, tail, Prec::Arrow) {
+            left_out if left_out == "…" => left_out,
+            shown => format!("..{shown}"),
+        }
+    }
+
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         if matches!(term, Term::Loc(..) | Term::Ann(..)) {
             return self.go_node(names, term);
@@ -598,8 +729,37 @@ impl<'g> Printer<'g> {
             self.elided.set(true);
             return ("…".into(), Prec::Atom);
         }
+        // Each kind of term in a method of its own, never inlined, so that
+        // a level of a deep term holds the frame of its own kind only, not
+        // one sized for every notation: in WebAssembly the engine's own
+        // stack, which the guard doesn't see, ran out first in the printer
+        // (SW-3128).
         match term {
             Term::Loc(_, t) | Term::Ann(t, _) => self.go(names, t),
+            Term::Var(_)
+            | Term::Def(_)
+            | Term::Sort(_)
+            | Term::Refl
+            | Term::Nat(_)
+            | Term::Chars(_) => self.go_leaf(names, term),
+            Term::Data(..) => self.go_data(names, term),
+            Term::Ctor(..) => self.go_ctor(names, term),
+            Term::Pi(..) => self.go_pi(names, term),
+            Term::Lam(..) | Term::Let(..) => self.go_binder(names, term),
+            Term::Meta(_) | Term::App(..) => self.go_app(names, term),
+            Term::Case(..)
+            | Term::NumCase(..)
+            | Term::Eq(..)
+            | Term::J(..)
+            | Term::Proj(..)
+            | Term::Quot(..) => self.go_rest(names, term),
+        }
+    }
+
+    /// [`Printer::go_node`] of variables, definitions, sorts and literals.
+    #[inline(never)]
+    fn go_leaf(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        match term {
             Term::Var(ix) => {
                 let name = names.len().checked_sub(ix + 1).map_or_else(
                     || format!("?{ix}"),
@@ -616,6 +776,7 @@ impl<'g> Printer<'g> {
             {
                 self.go(names, body)
             }
+            Term::Def(id) if self.g.def(*id).assumption.is_some() => ("?".into(), Prec::Atom),
             Term::Def(id) => (self.def_name(names, *id), Prec::Atom),
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
@@ -624,6 +785,14 @@ impl<'g> Printer<'g> {
             Term::Nat(n) => (n.to_string(), Prec::Atom),
             // A compact list of characters, as the list literal it stands for.
             Term::Chars(chars) => (show_chars(chars.as_slice()), Prec::Atom),
+            _ => unreachable!("`go_node` sends only leaf forms here"),
+        }
+    }
+
+    /// [`Printer::go_node`] of a data type applied to its arguments.
+    #[inline(never)]
+    fn go_data(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        match term {
             Term::Data(d, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A computation over a row of abilities: `{State Nat | e} a`.
             Term::Data(d, args) if is(self.g, Builtin::Comp, *d) && args.len() == 3 => {
@@ -711,6 +880,14 @@ impl<'g> Printer<'g> {
                 let name = self.data_name(names, *d);
                 self.applied(names, name, args.iter().map(|a| &**a))
             }
+            _ => unreachable!("`go_node` sends only data forms here"),
+        }
+    }
+
+    /// [`Printer::go_node`] of a constructor applied to its fields.
+    #[inline(never)]
+    fn go_ctor(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        match term {
             Term::Ctor(d, 0, _) if is(self.g, Builtin::UnitType, *d) => ("()".into(), Prec::Atom),
             // A double with known valid bits, as its literal: `1.5`, `-0.0`,
             // `Float.nan`. Whatever its witness: every way of building a
@@ -753,7 +930,7 @@ impl<'g> Printer<'g> {
                     .map(|t| self.print(names, t, Prec::Arrow))
                     .collect();
                 if let Some(rest) = rest {
-                    shown.push(format!("..{}", self.print(names, rest, Prec::Arrow)));
+                    shown.push(self.spread(names, rest));
                 }
                 (format!("[{}]", shown.join(", ")), Prec::Atom)
             }
@@ -840,7 +1017,7 @@ impl<'g> Printer<'g> {
                         .iter()
                         .map(|t| self.print(names, t, Prec::Arrow))
                         .collect();
-                    shown.push(format!("..{}", self.print(names, tail, Prec::Arrow)));
+                    shown.push(self.spread(names, tail));
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
@@ -871,14 +1048,32 @@ impl<'g> Printer<'g> {
                 };
                 (text, prec)
             }
+            _ => unreachable!("`go_node` sends only ctor forms here"),
+        }
+    }
+
+    /// [`Printer::go_node`] of a function type.
+    #[inline(never)]
+    fn go_pi(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        match term {
             // `p -> Void` is how `Not p` computes; print it the way it's written.
             Term::Pi(_, Icit::Explicit, a, b)
-                if !b.mentions(0)
+                if !self.unfold_not.get()
+                    && !b.mentions(0)
                     && matches!(b.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
             {
                 self.not(names, a)
             }
+            // A function type whose result is a proposition, binding a
+            // variable the result uses (or an implicit one), as the
+            // quantifier: `∀ (n: Nat) => n + 0 = n` (D3458).
+            Term::Pi(_, icit, _, b)
+                if (icit.is_implicit() || b.mentions(0)) && self.is_proposition(names, b) =>
+            {
+                self.forall(names, term)
+            }
             Term::Pi(x, icit, a, b) => {
+                self.unfold_not.set(false);
                 let uses = b.mentions(0);
                 let dom = if icit.is_implicit() || uses {
                     self.print(names, a, Prec::Arrow)
@@ -899,6 +1094,14 @@ impl<'g> Printer<'g> {
                     (format!("{dom} {arrow} {cod}"), Prec::Arrow)
                 }
             }
+            _ => unreachable!("`go_node` sends only pi forms here"),
+        }
+    }
+
+    /// [`Printer::go_node`] of a lambda or a `let`.
+    #[inline(never)]
+    fn go_binder(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        match term {
             // An operator section or a bare operator is shown as written:
             // `(== id)`, `(k +)`, `(&&)`.
             Term::Lam(..) if let Some(section) = self.section(names, term) => (section, Prec::Atom),
@@ -945,6 +1148,21 @@ impl<'g> Printer<'g> {
                 names.pop();
                 (format!("let {x} := {value}; {body}"), Prec::Arrow)
             }
+            _ => unreachable!("`go_node` sends only binder forms here"),
+        }
+    }
+
+    /// [`Printer::go_node`] of an application or an unknown.
+    #[inline(never)]
+    fn go_app(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        if let Term::Meta(m) = term {
+            self.g.shown.note_meta_shown(*m);
+        }
+        match term {
+            Term::Meta(crate::value::ELIDED) => ("…".into(), Prec::Atom),
+            // An open goal's assumption, with the variables it was closed
+            // over: the `?` the reader wrote.
+            Term::App(..) if self.is_assumed(full_spine(term).0) => ("?".into(), Prec::Atom),
             Term::Meta(_) | Term::App(..) if let Some(shown) = self.placeholder(names, term) => {
                 shown
             }
@@ -967,202 +1185,10 @@ impl<'g> Printer<'g> {
                 // Implicit arguments are filled in by the compiler, so they
                 // aren't shown.
                 let (head, args) = explicit_spine(term);
-                if let Term::Def(id) = head {
-                    // At the empty row, a computation is its value: `CompIn
-                    // Empty a` is `a`, and `doneIn Empty v` is `v`, as a pure
-                    // callback of an effect-polymorphic function has it.
-                    if (self.g.env.registry().is_def(Builtin::CompIn, *id)
-                        || self.g.env.registry().is_def(Builtin::DoneIn, *id))
-                        && let [row, value] = &args[..]
-                        && let Term::Ctor(d, c, fields) = row.strip_loc()
-                        && fields.is_empty()
-                        && self.g.env.registry().ctor(Builtin::RowEmpty) == Some((*d, *c))
-                    {
-                        return self.go(names, value);
-                    }
-                    // A value made a computation, `doneIn e v` or `doneD d e
-                    // v`, is the value as written: the wrapper is the
-                    // compiler's, unless the hidden arguments are asked for.
-                    if !self.show_hidden.get()
-                        && let Some(value) = match &args[..] {
-                            [_, value] if self.g.env.registry().is_def(Builtin::DoneIn, *id) => {
-                                Some(value)
-                            }
-                            [_, _, value] if self.g.env.registry().is_def(Builtin::DoneD, *id) => {
-                                Some(value)
-                            }
-                            _ => None,
-                        }
-                    {
-                        return self.go(names, value);
-                    }
-                    // A computation in a bare row that may be partial
-                    // (docs/proposals/partial-stage-3.md): `CompD d e a` is
-                    // `{e} a`, as written; at `Total` it's `CompIn e a`, and
-                    // at `MayDiverge` `{Partial | e} a`. `doneD Total e v`
-                    // is `doneIn e v`.
-                    if (self.g.env.registry().is_def(Builtin::CompD, *id)
-                        || self.g.env.registry().is_def(Builtin::DoneD, *id))
-                        && let [div, row, result] = &args[..]
-                    {
-                        let ctor = match div.strip_loc() {
-                            Term::Ctor(d, c, fields) if fields.is_empty() => Some((*d, *c)),
-                            _ => None,
-                        };
-                        let empty = matches!(row.strip_loc(), Term::Ctor(d, c, fields)
-                            if fields.is_empty()
-                                && self.g.env.registry().ctor(Builtin::RowEmpty) == Some((*d, *c)));
-                        let total =
-                            ctor.is_some() && ctor == self.g.env.registry().ctor(Builtin::DivTotal);
-                        let may =
-                            ctor.is_some() && ctor == self.g.env.registry().ctor(Builtin::DivMay);
-                        if self.g.env.registry().is_def(Builtin::DoneD, *id) {
-                            if total && empty {
-                                return self.go(names, result);
-                            }
-                        } else {
-                            if total && empty {
-                                return self.go(names, result);
-                            }
-                            let shown = self.print(names, result, Prec::App);
-                            if may && empty {
-                                return (format!("{{Partial}} {shown}"), Prec::App);
-                            }
-                            // A row with abilities, `Ops op res`
-                            // (docs/proposals/partial-handlers.md §4):
-                            // `{A | e} a`, or `{A, Partial | e} a`.
-                            if let Term::Ctor(d, c, fields) = row.strip_loc()
-                                && self.g.env.registry().ctor(Builtin::RowOps) == Some((*d, *c))
-                                && let [op, _] = &fields[..]
-                                && let Some(row) = self.row_with(names, op, may)
-                            {
-                                return (format!("{row} {shown}"), Prec::App);
-                            }
-                            let row = self.print(names, row, Prec::App);
-                            if may {
-                                return (format!("{{Partial | {row}}} {shown}"), Prec::App);
-                            }
-                            return (format!("{{{row}}} {shown}"), Prec::App);
-                        }
-                    }
-                    // A computation in a row variable's row: `{e} a`.
-                    if self.g.env.registry().is_def(Builtin::CompIn, *id)
-                        && let [row, result] = &args[..]
-                    {
-                        let row = self.print(names, row, Prec::App);
-                        let result = self.print(names, result, Prec::App);
-                        return (format!("{{{row}}} {result}"), Prec::App);
-                    }
-                    // A projection, as written: `x.name` or `p.fst`.
-                    if let Some(field) = self.projection_field(*id)
-                        && let [arg] = &args[..]
-                    {
-                        let arg = self.print(names, arg, Prec::Atom);
-                        return (format!("{arg}.{field}"), Prec::Atom);
-                    }
-                    // `-x` and `n.toInt`, as they're written (SW-937).
-                    if let [arg] = &args[..] {
-                        if self.g.env.registry().loaded_def(Builtin::IntNeg) == Some(*id) {
-                            return self.int_negation(names, arg);
-                        }
-                        if self.g.env.registry().loaded_def(Builtin::NatToInt) == Some(*id) {
-                            return (self.to_int(names, arg), Prec::Atom);
-                        }
-                    }
-                    if let Some(shown) = self.bool_logic(names, term) {
-                        return shown;
-                    }
-                    // `if c then a else b`.
-                    if self.g.env.registry().is_def(Builtin::IfThenElse, *id)
-                        && let [cond, then, otherwise] = &args[..]
-                        && let Some(then) = self.unused_branch(names, then)
-                        && let Some(otherwise) = self.unused_branch(names, otherwise)
-                    {
-                        let cond = if matches!(cond.strip_loc(), Term::Lam(..)) {
-                            self.print(names, cond, Prec::Or)
-                        } else {
-                            self.print(names, cond, Prec::Arrow)
-                        };
-                        return (
-                            format!("if {cond} then {then} else {otherwise}"),
-                            Prec::Arrow,
-                        );
-                    }
-                    // A partial computation: `{IO, Partial} a`.
-                    if self.g.env.builtins().primitive(*id)
-                        == Some(crate::partial::Primitive::Delay)
-                        && let [ops, _, result] = &args[..]
-                        && let Some(row) = self.row_with(names, ops, true)
-                    {
-                        let result = self.print(names, result, Prec::App);
-                        return (format!("{row} {result}"), Prec::App);
-                    }
-                    if let Some((op, lhs, rhs)) =
-                        self.comparison(term).or_else(|| self.relation(term))
-                    {
-                        let lhs = self.print(names, lhs, Prec::Range);
-                        let rhs = self.print(names, rhs, Prec::Range);
-                        return (format!("{lhs} {op} {rhs}"), Prec::Eq);
-                    }
-                    if let Some((lhs, rhs)) = self.decided_equation(names.len(), term) {
-                        let lhs = self.print(names, lhs, Prec::Range);
-                        let rhs = self.print(names, rhs, Prec::Add);
-                        return (format!("{lhs} == {rhs}"), Prec::Eq);
-                    }
-                    if let Some(range) = self.range(names, *id, &args) {
-                        return (range, Prec::Range);
-                    }
-                    if let Some((op, prec, lhs, rhs)) = self.arithmetic(*id, &args) {
-                        // `+`, `-`, `*`, `/` and `%` associate left;
-                        // comparisons don't associate.
-                        let (left, right) = match prec {
-                            Prec::Add => (Prec::Add, Prec::App),
-                            Prec::Mul => (Prec::Mul, Prec::Neg),
-                            Prec::Append => (Prec::Add, Prec::Append),
-                            _ => (Prec::Add, Prec::Add),
-                        };
-                        let lhs = self.print(names, lhs, left);
-                        let rhs = self.print(names, rhs, right);
-                        return (format!("{lhs} {op} {rhs}"), prec);
-                    }
-                    if self.g.env.registry().is_def(Builtin::Not, *id)
-                        && let [prop] = &args[..]
-                    {
-                        return self.not(names, prop);
-                    }
-                    // `List.Mem x xs` as `x ∈ xs`.
-                    if let Some((x, under, xs)) = self.membership(term) {
-                        let x = self.print_under(names, under, x, Prec::Add);
-                        let xs = self.print(names, xs, Prec::Range);
-                        return (format!("{x} {} {xs}", self.sym("∈", "in")), Prec::Eq);
-                    }
-                    // An interface's own projection of a field, `Ord.%compare
-                    // d x y`, as the method that computes to it (SW-1000):
-                    // `Ord.compare x y`, the dictionary given by name unless
-                    // it's a variable, a dictionary in scope, which the
-                    // method finds itself (`Ord.compare [ord := Nat.instOrd]
-                    // x y`).
-                    // `toBool (DecEq.%decide d a b)`, `d` a dictionary in
-                    // scope, is `a == b` as it elaborates there.
-                    if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id)
-                        && let [decision] = &args[..]
-                        && let Some((lhs, rhs)) = self.decide_in_scope(decision)
-                    {
-                        let lhs = self.print(names, lhs, Prec::Add);
-                        let rhs = self.print(names, rhs, Prec::Add);
-                        return (format!("{lhs} == {rhs}"), Prec::Eq);
-                    }
-                    if let Some(scope) = self.scope
-                        && let Some((method, dict)) = scope.method(*id)
-                        && let Some((d, rest)) = args.split_first()
-                    {
-                        let mut head = self.def_name(names, method);
-                        if !matches!(d.strip_loc(), Term::Var(_)) {
-                            let d = self.print(names, d, Prec::Arrow);
-                            head = format!("{head} [{dict} := {d}]");
-                        }
-                        return self.applied(names, head, rest.iter().copied());
-                    }
+                if let Term::Def(id) = head
+                    && let Some(shown) = self.def_notation(names, term, id, &args)
+                {
+                    return shown;
                 }
                 if self.show_hidden.get() {
                     return self.applied_with_hidden(names, term);
@@ -1181,9 +1207,230 @@ impl<'g> Printer<'g> {
                         Dot::No => {}
                     }
                 }
+                // Last, so the notations that print a library helper (`if`
+                // on a decision) are tried first.
+                if let Some(shown) = self.lifted_match(names, term) {
+                    return (shown, Prec::Atom);
+                }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
             }
+            _ => unreachable!("`go_node` sends only app forms here"),
+        }
+    }
+
+    /// The notation an application of definition `id` to the explicit
+    /// arguments `args` is written in, if it has one: out of
+    /// [`Printer::go_app`], which is on the stack at every level of a deep
+    /// application.
+    #[inline(never)]
+    fn def_notation(
+        &self,
+        names: &mut Vec<Name>,
+        term: &Term,
+        id: &DefId,
+        args: &[&Term],
+    ) -> Option<(String, Prec)> {
+        // At the empty row, a computation is its value: `CompIn
+        // Empty a` is `a`, and `doneIn Empty v` is `v`, as a pure
+        // callback of an effect-polymorphic function has it.
+        if (self.g.env.registry().is_def(Builtin::CompIn, *id)
+            || self.g.env.registry().is_def(Builtin::DoneIn, *id))
+            && let [row, value] = args
+            && let Term::Ctor(d, c, fields) = row.strip_loc()
+            && fields.is_empty()
+            && self.g.env.registry().ctor(Builtin::RowEmpty) == Some((*d, *c))
+        {
+            return Some(self.go(names, value));
+        }
+        // A value made a computation, `doneIn e v` or `doneD d e
+        // v`, is the value as written: the wrapper is the
+        // compiler's, unless the hidden arguments are asked for.
+        if !self.show_hidden.get()
+            && let Some(value) = match args {
+                [_, value] if self.g.env.registry().is_def(Builtin::DoneIn, *id) => Some(value),
+                [_, _, value] if self.g.env.registry().is_def(Builtin::DoneD, *id) => Some(value),
+                _ => None,
+            }
+        {
+            return Some(self.go(names, value));
+        }
+        // A computation in a bare row that may be partial
+        // (docs/proposals/partial-stage-3.md): `CompD d e a` is
+        // `{e} a`, as written; at `Total` it's `CompIn e a`, and
+        // at `MayDiverge` `{Partial | e} a`. `doneD Total e v`
+        // is `doneIn e v`.
+        if (self.g.env.registry().is_def(Builtin::CompD, *id)
+            || self.g.env.registry().is_def(Builtin::DoneD, *id))
+            && let [div, row, result] = args
+        {
+            let ctor = match div.strip_loc() {
+                Term::Ctor(d, c, fields) if fields.is_empty() => Some((*d, *c)),
+                _ => None,
+            };
+            let empty = matches!(row.strip_loc(), Term::Ctor(d, c, fields)
+                if fields.is_empty()
+                    && self.g.env.registry().ctor(Builtin::RowEmpty) == Some((*d, *c)));
+            let total = ctor.is_some() && ctor == self.g.env.registry().ctor(Builtin::DivTotal);
+            let may = ctor.is_some() && ctor == self.g.env.registry().ctor(Builtin::DivMay);
+            if self.g.env.registry().is_def(Builtin::DoneD, *id) {
+                if total && empty {
+                    return Some(self.go(names, result));
+                }
+            } else {
+                if total && empty {
+                    return Some(self.go(names, result));
+                }
+                let shown = self.print(names, result, Prec::App);
+                if may && empty {
+                    return Some((format!("{{Partial}} {shown}"), Prec::App));
+                }
+                // A row with abilities, `Ops op res`
+                // (docs/proposals/partial-handlers.md §4):
+                // `{A | e} a`, or `{A, Partial | e} a`.
+                if let Term::Ctor(d, c, fields) = row.strip_loc()
+                    && self.g.env.registry().ctor(Builtin::RowOps) == Some((*d, *c))
+                    && let [op, _] = &fields[..]
+                    && let Some(row) = self.row_with(names, op, may)
+                {
+                    return Some((format!("{row} {shown}"), Prec::App));
+                }
+                let row = self.print(names, row, Prec::App);
+                if may {
+                    return Some((format!("{{Partial | {row}}} {shown}"), Prec::App));
+                }
+                return Some((format!("{{{row}}} {shown}"), Prec::App));
+            }
+        }
+        // A computation in a row variable's row: `{e} a`.
+        if self.g.env.registry().is_def(Builtin::CompIn, *id)
+            && let [row, result] = args
+        {
+            let row = self.print(names, row, Prec::App);
+            let result = self.print(names, result, Prec::App);
+            return Some((format!("{{{row}}} {result}"), Prec::App));
+        }
+        // A projection, as written: `x.name` or `p.fst`. Not a
+        // decision's test, which the operator rules below print
+        // as the `==` or `<` it elaborates from where they can.
+        if self.g.env.registry().loaded_def(Builtin::Holds) != Some(*id)
+            && let Some(field) = self.projection_field(*id)
+            && let [arg] = args
+        {
+            let arg = self.print(names, arg, Prec::Atom);
+            return Some((format!("{arg}.{field}"), Prec::Atom));
+        }
+        // `-x` and `n.toInt`, as they're written (SW-937).
+        if let [arg] = args {
+            if self.g.env.registry().loaded_def(Builtin::IntNeg) == Some(*id) {
+                return Some(self.int_negation(names, arg));
+            }
+            if self.g.env.registry().loaded_def(Builtin::NatToInt) == Some(*id) {
+                return Some((self.to_int(names, arg), Prec::Atom));
+            }
+        }
+        if let Some(shown) = self.bool_logic(names, term) {
+            return Some(shown);
+        }
+        // `if c then a else b`.
+        if self.g.env.registry().is_def(Builtin::IfThenElse, *id)
+            && let [cond, then, otherwise] = args
+            && let Some(then) = self.unused_branch(names, then)
+            && let Some(otherwise) = self.unused_branch(names, otherwise)
+        {
+            let cond = if matches!(cond.strip_loc(), Term::Lam(..)) {
+                self.print(names, cond, Prec::Or)
+            } else {
+                self.print(names, cond, Prec::Arrow)
+            };
+            return Some((
+                format!("if {cond} then {then} else {otherwise}"),
+                Prec::Arrow,
+            ));
+        }
+        // `if c then a else b` on a decided proposition.
+        if let Some(shown) = self.decided_if(names, term, *id) {
+            return Some(shown);
+        }
+        // A partial computation: `{IO, Partial} a`.
+        if self.g.env.builtins().primitive(*id) == Some(crate::partial::Primitive::Delay)
+            && let [ops, _, result] = args
+            && let Some(row) = self.row_with(names, ops, true)
+        {
+            let result = self.print(names, result, Prec::App);
+            return Some((format!("{row} {result}"), Prec::App));
+        }
+        if let Some((op, lhs, rhs)) = self.comparison(term).or_else(|| self.relation(term)) {
+            let lhs = self.print(names, lhs, Prec::Range);
+            let rhs = self.print(names, rhs, Prec::Range);
+            return Some((format!("{lhs} {op} {rhs}"), Prec::Eq));
+        }
+        if let Some((lhs, rhs)) = self.decided_equation(names.len(), term) {
+            let lhs = self.print(names, lhs, Prec::Range);
+            let rhs = self.print(names, rhs, Prec::Add);
+            return Some((format!("{lhs} == {rhs}"), Prec::Eq));
+        }
+        if let Some(range) = self.range(names, *id, args) {
+            return Some((range, Prec::Range));
+        }
+        if let Some((op, prec, lhs, rhs)) = self.arithmetic(*id, args) {
+            // `+`, `-`, `*`, `/` and `%` associate left;
+            // comparisons don't associate.
+            let (left, right) = match prec {
+                Prec::Add => (Prec::Add, Prec::App),
+                Prec::Mul => (Prec::Mul, Prec::Neg),
+                Prec::Append => (Prec::Add, Prec::Append),
+                _ => (Prec::Add, Prec::Add),
+            };
+            let lhs = self.print(names, lhs, left);
+            let rhs = self.print(names, rhs, right);
+            return Some((format!("{lhs} {op} {rhs}"), prec));
+        }
+        if self.g.env.registry().is_def(Builtin::Not, *id)
+            && let [prop] = args
+        {
+            return Some(self.not(names, prop));
+        }
+        // `List.Mem x xs` as `x ∈ xs`.
+        if let Some((x, under, xs)) = self.membership(term) {
+            let x = self.print_under(names, under, x, Prec::Add);
+            let xs = self.print(names, xs, Prec::Range);
+            return Some((format!("{x} {} {xs}", self.sym("∈", "in")), Prec::Eq));
+        }
+        // An interface's own projection of a field, `Ord.%compare
+        // d x y`, as the method that computes to it (SW-1000):
+        // `Ord.compare x y`, the dictionary given by name unless
+        // it's a variable, a dictionary in scope, which the
+        // method finds itself (`Ord.compare [ord := Nat.instOrd]
+        // x y`).
+        // `(DecEq.%decide d a b).holds`, `d` a dictionary in
+        // scope, is `a == b` as it elaborates there (SW-1000).
+        if self.g.env.registry().loaded_def(Builtin::Holds) == Some(*id)
+            && let [decision] = args
+            && let Some((lhs, rhs)) = self.decide_in_scope(decision)
+        {
+            let lhs = self.print(names, lhs, Prec::Add);
+            let rhs = self.print(names, rhs, Prec::Add);
+            return Some((format!("{lhs} == {rhs}"), Prec::Eq));
+        }
+        if let Some(scope) = self.scope
+            && let Some((method, dict)) = scope.method(*id)
+            && let Some((d, rest)) = args.split_first()
+        {
+            let mut head = self.def_name(names, method);
+            if !matches!(d.strip_loc(), Term::Var(_)) {
+                let d = self.print(names, d, Prec::Arrow);
+                head = format!("{head} [{dict} := {d}]");
+            }
+            return Some(self.applied(names, head, rest.iter().copied()));
+        }
+        None
+    }
+
+    /// [`Printer::go_node`] of case splits, equations, `J`, projections and quotients.
+    #[inline(never)]
+    fn go_rest(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        match term {
             Term::Case(ix, _, _) | Term::NumCase(ix, _, _) => {
                 let scrutinee = self.print(names, &Term::Var(*ix), Prec::Atom);
                 (format!("case {scrutinee} of …"), Prec::Arrow)
@@ -1199,9 +1446,22 @@ impl<'g> Printer<'g> {
                 let rhs = self.print(names, rhs, Prec::Add);
                 (format!("{lhs} {op} {rhs}"), Prec::Eq)
             }
+            // A test being `True` as the test alone, `c.isDigit`, which reads
+            // back to this where a proposition is expected
+            // (docs/proposals/bool-as-proposition.md §4.4).
+            Term::Eq(_, a, b) if self.bare_test(a, b) => self.go(names, a),
             Term::Eq(_, a, b) => {
-                let lhs = self.print(names, a, Prec::Range);
-                let rhs = self.print(names, b, Prec::Range);
+                // A side that is a test being `True` keeps its `= True`: a
+                // side of `=` isn't read as a proposition.
+                let side = |names: &mut Vec<Name>, side: &Term| match side.strip_loc() {
+                    Term::Eq(_, test, t) if self.bare_test(test, t) => {
+                        let test = self.print(names, test, Prec::Range);
+                        format!("({test} = True)")
+                    }
+                    _ => self.print(names, side, Prec::Range),
+                };
+                let lhs = side(names, a);
+                let rhs = side(names, b);
                 (format!("{lhs} = {rhs}"), Prec::Eq)
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
@@ -1241,11 +1501,101 @@ impl<'g> Printer<'g> {
                     args[hidden..].iter().map(|a| &**a),
                 )
             }
+            _ => unreachable!("`go_node` sends only rest forms here"),
         }
     }
 
-    /// `Not p` as the operators that write it, in their Unicode spellings
-    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
+    /// `∀ (a b: Nat) [c: Nat] => body` for the run of function types at
+    /// `term` that [`Printer::go_node`] prints as one: each binder implicit,
+    /// or explicit and used by what follows. Neighbouring binders of the same
+    /// kind and type share a group, unless the type mentions one before it
+    /// in the group. An unused explicit binder, `p → q`, ends the run, so a
+    /// hypothesis stays an implication inside the body.
+    fn forall(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        // Each group: its kind, its type as printed, and its names.
+        let mut groups: Vec<(Icit, String, Vec<Name>)> = Vec::new();
+        let mut bound = 0;
+        let mut body = term.strip_loc();
+        while let Term::Pi(x, icit, a, b) = body {
+            if !(icit.is_implicit() || b.mentions(0)) {
+                break;
+            }
+            let dom = self.print(names, a, Prec::Arrow);
+            let x = binder(x, names, b);
+            match groups.last_mut() {
+                Some((kind, ty, xs))
+                    if kind == icit && *ty == dom && !(0..xs.len()).any(|i| a.mentions(i)) =>
+                {
+                    xs.push(x.clone());
+                }
+                _ => groups.push((*icit, dom, vec![x.clone()])),
+            }
+            names.push(x);
+            bound += 1;
+            body = b.strip_loc();
+        }
+        let body = self.print(names, body, Prec::Arrow);
+        names.truncate(names.len() - bound);
+        let groups: Vec<String> = groups
+            .into_iter()
+            .map(|(icit, ty, xs)| {
+                let xs: Vec<String> = xs.iter().map(|x| x.to_string()).collect();
+                let xs = xs.join(" ");
+                match icit {
+                    Icit::Explicit => format!("({xs}: {ty})"),
+                    Icit::Implicit => format!("[{xs}: {ty}]"),
+                    Icit::Auto => format!("[auto {xs}: {ty}]"),
+                }
+            })
+            .collect();
+        let forall = self.sym("∀", "forall");
+        (
+            format!("{forall} {} => {body}", groups.join(" ")),
+            Prec::Arrow,
+        )
+    }
+
+    /// Whether the type `ty` is evidently a proposition, from its form
+    /// alone (the printer has no types for the variables in scope): after
+    /// any function types, an equation, or a data type declared in `Prop`
+    /// (`And`, `Exists`, `Void`, a user's `type Even (n: Nat): Prop`)
+    /// applied to its arguments, or a call of a definition whose declared
+    /// type ends in `Prop` (`Nat.lessEq`, `List.Sorted`), or a context
+    /// variable known to be a predicate applied to arguments (`p x`, with
+    /// `p: Nat → Prop`; see [`value_for_goal`]). A variable not known to be
+    /// one isn't evidently a proposition, nor is an unknown.
+    fn is_proposition(&self, names: &[Name], ty: &Term) -> bool {
+        let mut ty = ty.strip_loc();
+        let mut depth = names.len() + 1;
+        while let Term::Pi(_, _, _, b) = ty {
+            ty = b.strip_loc();
+            depth += 1;
+        }
+        match ty {
+            Term::Eq(..) => true,
+            Term::Data(d, _) => self.g.data(*d).sort == Sort::Prop,
+            _ => {
+                let (head, _) = full_spine(ty);
+                if let Term::Var(i) = head {
+                    // The level of a variable bound outside the term; those
+                    // bound within it are not known to be predicates.
+                    let level = depth.checked_sub(i + 1);
+                    return level.is_some_and(|l| {
+                        self.predicates.borrow().get(l).copied().unwrap_or(false)
+                    });
+                }
+                let Term::Def(id) = head else {
+                    return false;
+                };
+                let mut result = self.g.def(*id).ty.strip_loc();
+                while let Term::Pi(_, _, _, b) = result {
+                    result = b.strip_loc();
+                }
+                matches!(result, Term::Sort(Sort::Prop))
+            }
+        }
+    }
+
     /// `n.toInt`: `Nat.toInt n`, or `OfNat n`, which it computes to. A
     /// number is put in brackets, `(5).toInt`, so the `.` isn't read as
     /// its decimal point.
@@ -1270,8 +1620,12 @@ impl<'g> Printer<'g> {
         }
     }
 
+    /// `Not p` as the operators that write it, in their Unicode spellings
+    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
     fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
-        if let Term::Eq(_, a, b) = prop.strip_loc() {
+        if let Term::Eq(_, a, b) = prop.strip_loc()
+            && !self.bare_test(a, b)
+        {
             let a = self.print(names, a, Prec::Range);
             let b = self.print(names, b, Prec::Range);
             return (format!("{a} {} {b}", self.sym("≠", "!=")), Prec::Eq);
@@ -1479,6 +1833,50 @@ impl<'g> Printer<'g> {
     }
 
     /// Whether `t` is the constructor `ctor` with no fields.
+    /// Whether `test = rhs` is printed as `test` alone: `rhs` is `True`, and
+    /// the text of `test` reads back, where a proposition is expected, as
+    /// `test = True` and not as some other proposition
+    /// (docs/proposals/bool-as-proposition.md §4.4). So not when `test`'s
+    /// printed form starts with an operator that is logical where a
+    /// proposition is expected (D3486,
+    /// docs/proposals/bool-operators-in-propositions.md §5; the
+    /// elaborator's half of that rule is `logic::as_prop` in
+    /// `stitchwort_elab`):
+    ///
+    /// - `a && b` and `a || b`, which would read back as `a = True ∧ b =
+    ///   True`;
+    /// - `Bool.not a` written as a call rather than `a.not`, which would
+    ///   read back as `¬(a = True)`;
+    /// - `a != b`, which reads back as the proposition `a ≠ b`.
+    ///
+    /// An `if` or a `match` is printed bare: where a proposition is expected
+    /// a test of that shape is read back whole. The constants keep `= True`
+    /// too: `False = True` is the familiar shape of a case that can't happen.
+    fn bare_test(&self, test: &Term, rhs: &Term) -> bool {
+        if !self.is_ctor(rhs, Builtin::True)
+            || self.is_ctor(test, Builtin::True)
+            || self.is_ctor(test, Builtin::False)
+        {
+            return false;
+        }
+        if let Some((_, then, otherwise)) = self.bool_if(test)
+            && !self.both_constants(&then, &otherwise)
+            && (self.is_ctor(&otherwise.1, Builtin::False) || self.is_ctor(&then.1, Builtin::True))
+        {
+            return false;
+        }
+        let (head, args) = full_spine(test.strip_loc());
+        let reg = self.g.env.registry();
+        match head.strip_loc() {
+            Term::Def(id) if reg.is_def(Builtin::BoolNot, *id) => !self.calls.get(),
+            Term::Def(id) if reg.loaded_def(Builtin::Holds) == Some(*id) => !matches!(
+                args[..],
+                [(prop, Icit::Implicit), _] if self.negated(prop).is_some()
+            ),
+            _ => true,
+        }
+    }
+
     fn is_ctor(&self, t: &Term, ctor: Builtin) -> bool {
         matches!(t.strip_loc(), Term::Ctor(d, c, fields)
             if fields.is_empty() && self.g.env.registry().ctor(ctor) == Some((*d, *c)))
@@ -1565,14 +1963,14 @@ impl<'g> Printer<'g> {
     /// The operator and operands of a `Bool` comparison, as `<` and `<=`
     /// elaborate: on `Nat`, `Nat.leq (Succ a) b` and `Nat.leq a b`; on `Int`
     /// and `Float`, `Int.less a b`, `Int.leq a b` and `Float`'s alike; and
-    /// through an `Ord` dictionary, `Decidable.toBool (Ord.decLessThan d a
-    /// b)` and `Decidable.toBool (Ord.decLessEq d a b)`.
+    /// through an `Ord` dictionary, `Decidable.holds (Ord.decLessThan d a
+    /// b)` and `Decidable.holds (Ord.decLessEq d a b)`.
     fn comparison<'t>(&self, term: &'t Term) -> Option<(&'static str, &'t Term, &'t Term)> {
         let (head, args) = explicit_spine(term.strip_loc());
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id) {
+        if self.g.env.registry().loaded_def(Builtin::Holds) == Some(*id) {
             let [decision] = args[..] else {
                 return None;
             };
@@ -1640,14 +2038,13 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// The sides of `Decidable.toBool {a = b} d`, to be written `a == b`:
+    /// The sides of `Decidable.holds {a = b} d`, to be written `a == b`:
     /// only where that elaborates to this term or one it computes to, and
-    /// only in a goal. `a == b` elaborates to `toBool {a = b} (f a b)`, `f`
+    /// only in a goal. `a == b` elaborates to `holds {a = b} (f a b)`, `f`
     /// what the scope's `==` decides an equation of the type by
     /// ([`NameScope::eq_decision`]). `d` is that, or something it computes
-    /// to with the goal's `level` variables unknown: `Nat.decEq (Succ m)
-    /// (Succ n)` is a goal's `Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m
-    /// n) rfl` once computed, and `a == b` pasted back checks as the same.
+    /// to with the goal's `level` variables unknown, which `a == b` pasted
+    /// back checks as the same.
     fn decided_equation<'t>(&self, level: usize, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
         if !self.equations.get() || self.show_hidden.get() {
             return None;
@@ -1657,7 +2054,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.env.registry().loaded_def(Builtin::ToBool) != Some(*id) {
+        if self.g.env.registry().loaded_def(Builtin::Holds) != Some(*id) {
             return None;
         }
         let [(prop, Icit::Implicit), (decision, Icit::Explicit)] = args[..] else {
@@ -1755,7 +2152,7 @@ impl<'g> Printer<'g> {
     /// The operator, the precedence its operand in a section is printed at,
     /// and the two operands of an operation a section can write. Besides the
     /// operators printed everywhere, these include the `Bool` ones as they
-    /// are elaborated: `a == b` is `Decidable.toBool {a = b} d`, `a != b`
+    /// are elaborated: `a == b` is `Decidable.holds {a = b} d`, `a != b`
     /// the same with `Not (a = b)`, `a < b` on `Nat` is `Nat.leq (Succ a)
     /// b`, and `a <= b` is `Nat.leq a b`.
     fn operation<'t>(&self, term: &'t Term) -> Option<(&'static str, Prec, &'t Term, &'t Term)> {
@@ -1770,7 +2167,7 @@ impl<'g> Printer<'g> {
             return None;
         };
         let reg = &self.g.env.registry();
-        if reg.loaded_def(Builtin::ToBool) == Some(*id) {
+        if reg.loaded_def(Builtin::Holds) == Some(*id) {
             let [(prop, Icit::Implicit), (_, Icit::Explicit)] = args[..] else {
                 return None;
             };
@@ -2064,6 +2461,34 @@ impl<'g> Printer<'g> {
             })
     }
 
+    /// A call of a lifted `match`'s helper (`Shown::match_columns`), as the
+    /// `match` with its scrutinees and the alternatives left out:
+    /// `(match s₁, s₂ with …)`. Not source: the alternatives aren't shown,
+    /// and written out they would make a different helper.
+    fn lifted_match(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
+        let (head, args) = term.spine();
+        let Term::Def(id) = head else {
+            return None;
+        };
+        // Only a `match` written in source: a definition's own clauses
+        // (`Bool.ifThenElse`, `Nat.leq`) record columns too, and print as
+        // the call or notation they have.
+        if !self.g.def(*id).name().contains(".%match") {
+            return None;
+        }
+        let cols = self.g.shown.match_columns(*id)?;
+        if args.len() != self.g.def(*id).arity() || cols.iter().any(|&c| c >= args.len()) {
+            return None;
+        }
+        let scrutinees: Vec<String> = cols
+            .iter()
+            .map(|&c| self.print(names, args[c], Prec::Arrow))
+            .collect();
+        let shown = format!("(match {} with …)", scrutinees.join(", "));
+        self.g.shown.note_match_shown(*id, &shown);
+        Some(shown)
+    }
+
     /// A call of an update's helper (`Shown::update_shown`), as the update:
     /// `{ x | f = s, g = t }`.
     fn update(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
@@ -2210,6 +2635,53 @@ impl<'g> Printer<'g> {
                 if matches!(dom.strip_loc(), Term::Data(d, _) if *d == DataId(ix))
         );
         takes_record.then(|| field.to_string())
+    }
+
+    /// `if p then a else b`, or `if h: p then a else b` where a branch uses
+    /// the proof, for `Decidable.elim [p] [r] d (h => a) (h => b)` and for
+    /// the call of its helper it computes to (`Decidable.elim.%match1 p r d
+    /// (h => a) (h => b) t e`), whose test the decision `d` holds.
+    fn decided_if(&self, names: &mut Vec<Name>, term: &Term, id: DefId) -> Option<(String, Prec)> {
+        let reg = self.g.env.registry();
+        let elim = reg.def(Builtin::ElimDec)?;
+        let (_, args) = full_spine(term);
+        let whole = (id == elim && args.len() == 5)
+            || (args.len() == 7 && Some(id) == elim_helper(self.g, elim));
+        if !whole {
+            return None;
+        }
+        let (prop, then, otherwise) = (args[0].0, args[3].0, args[4].0);
+        let (Term::Lam(x, _, yes), Term::Lam(y, _, no)) = (then.strip_loc(), otherwise.strip_loc())
+        else {
+            return None;
+        };
+        let used = yes.mentions(0) || no.mentions(0);
+        let name = if yes.mentions(0) || !no.mentions(0) {
+            x
+        } else {
+            y
+        };
+        let mut branch = |body: &Term| {
+            names.push(name.clone());
+            let text = if matches!(body.strip_loc(), Term::Lam(..)) {
+                self.print(names, body, Prec::Or)
+            } else {
+                self.print(names, body, Prec::Arrow)
+            };
+            names.pop();
+            text
+        };
+        let (yes, no) = (branch(yes), branch(no));
+        let prop = self.print(names, prop, Prec::Arrow);
+        let binder = if used {
+            format!("{name}: ")
+        } else {
+            String::new()
+        };
+        Some((
+            format!("if {binder}{prop} then {yes} else {no}"),
+            Prec::Arrow,
+        ))
     }
 
     /// The body of `t`, if it's a lambda whose body doesn't use its parameter:
@@ -2773,6 +3245,22 @@ fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
     (head, args)
 }
 
+/// The helper `Decidable.elim` (`elim`) computes to: the head of its body.
+fn elim_helper(g: &Ev, elim: DefId) -> Option<DefId> {
+    let mut body = g.def(elim).body()?.strip_loc();
+    while let Term::Lam(_, _, b) = body {
+        body = b.strip_loc();
+    }
+    let mut head = body;
+    while let Term::App(f, _, _) = head {
+        head = f.strip_loc();
+    }
+    match head {
+        Term::Def(id) => Some(*id),
+        _ => None,
+    }
+}
+
 fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {
     let mut args = Vec::new();
     let mut head = term.strip_loc();
@@ -2949,17 +3437,83 @@ fn open_list<'t>(g: &Ev, term: &'t Term) -> Option<(Vec<&'t Term>, &'t Term)> {
 
 /// Records on `g` that a message showed a term that uses a definition that
 /// failed: whatever went wrong then is fallout of that failure (see
-/// `Shown::note_failed_mentioned`). Looks at the whole term, whatever the
-/// message elides.
-fn note_failed_mention(g: &Ev, term: &Term) {
+/// `Shown::note_failed_mentioned`). Or, failing that, one that is stuck on
+/// an open goal's assumption once computed (`Shown::note_stuck_on_goal`):
+/// not one that merely calls a definition relying on a goal, which may
+/// use the goal only in a proof and compute normally. Looks at the whole
+/// term, whatever the message elides; `level` is how many variables it is
+/// under.
+fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
     if !g.shown.wants_failed_mention() || g.machine.budget.stack_exhausted() {
         return;
     }
-    if let Term::Def(d) = term
-        && g.def(*d).state() == crate::globals::State::Failed
-    {
-        g.shown.note_failed_mentioned();
-        return;
+    let mut waits = false;
+    if let Some(def) = mentions_failed(g, term, &mut waits) {
+        g.shown.note_failed_mentioned(def);
+    } else if waits && g.shown.wants_stuck_mention() {
+        let goals = stuck_on_goal(g, level, term);
+        if !goals.is_empty() {
+            g.shown.note_stuck_on_goal(&goals);
+        }
     }
-    term.for_each_child(|c, _| note_failed_mention(g, c));
+}
+
+/// The first failed definition `term` uses, if any; `waits` is set if it
+/// uses one that may be stuck on an open goal (`Shown::waits_on_goal`).
+fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> Option<DefId> {
+    // Iteratively: a shown term can be nested far deeper than the stack.
+    term.subterms().find_map(|(t, _)| match t {
+        Term::Def(d) if g.def(*d).state() == crate::globals::State::Failed => Some(*d),
+        Term::Def(d) => {
+            *waits = *waits || g.shown.waits_on_goal(*d);
+            None
+        }
+        _ => None,
+    })
+}
+
+/// The open goals' assumptions `term`, under `level` variables, computed to
+/// its normal form, mentions. None if that is too large to read back or
+/// can't be computed: the message is then taken at its word.
+fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> Vec<DefId> {
+    const CAP: u64 = 10_000;
+    // A part a depth-limited readback left out (`ELIDED`) is no
+    // metavariable the session has, so can't be computed.
+    let in_scope = term.subterms().all(|(t, binders)| match t {
+        Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders + level,
+        Term::Meta(m) => *m != crate::value::ELIDED,
+        _ => true,
+    });
+    if !in_scope {
+        return Vec::new();
+    }
+    // On the side, within a small budget of its own: a message mustn't
+    // compute deeply (`countDown 100000 []`), nor change how the check it
+    // reports on ran out.
+    let limits = crate::budget::Limits {
+        work: 100_000,
+        size: CAP,
+        frames: 10_000,
+        ..crate::budget::Limits::default()
+    };
+    g.machine.budget.aside(limits, || {
+        let env: Vec<Value> = (0..level).map(Value::var).collect();
+        let Ok(value) = crate::value::eval(g, &env, term) else {
+            return Vec::new();
+        };
+        let Ok(Some(normal)) = crate::value::quote_unfolded_shown_at_most(g, level, &value, CAP)
+        else {
+            return Vec::new();
+        };
+        let mut found: Vec<DefId> = Vec::new();
+        for (t, _) in normal.subterms() {
+            if let Term::Def(d) = t
+                && g.def(*d).assumption().is_some()
+                && !found.contains(d)
+            {
+                found.push(*d);
+            }
+        }
+        found
+    })
 }

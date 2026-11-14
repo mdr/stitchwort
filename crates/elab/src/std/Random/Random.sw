@@ -21,7 +21,7 @@ def Random.xorBits: (fuel: Nat) → (x: Nat) → (y: Nat) → Nat
   | Succ n, a, b => (a % 2 + b % 2) % 2 + 2 * Random.xorBits n (a / 2) (b / 2)
 
 --| Exclusive or of two numbers below 2^64.
-def Random.xor64 (a: Nat) (b: Nat): Nat := Random.xorBits 64 a b
+def Random.xor64 (a b: Nat): Nat := Random.xorBits 64 a b
 
 --| One SplitMix64 step: the output for `state`, and the next state.
 def Random.next (state: Nat): Pair Nat Nat :=
@@ -33,18 +33,18 @@ def Random.next (state: Nat): Pair Nat Nat :=
 --| A number from 0 up to but not including `bound`, and the next state. A
 --| `bound` of 0 gives 0. Taking the remainder of 64 bits favours small numbers
 --| by a part in 2^64 / bound: nothing for a game's purposes.
-def Random.below (state: Nat) (bound: Nat): Pair Nat Nat :=
+def Random.below (state bound: Nat): Pair Nat Nat :=
   let (output, following) := Random.next state
   MkPair (if bound == 0 then 0 else output % Succ (bound - 1)) following
 
 --| A number from `low` to `high`, both included (`low` if `high` is smaller),
 --| and the next state.
-def Random.between (state: Nat) (low: Nat) (high: Nat): Pair Nat Nat :=
+def Random.between (state low high: Nat): Pair Nat Nat :=
   let (offset, following) := Random.below state (high + 1 - low)
   MkPair (low + offset) following
 
 --| Whether a 1-in-`chances` event happens, and the next state.
-def Random.chance (state: Nat) (chances: Nat): Pair Bool Nat :=
+def Random.chance (state chances: Nat): Pair Bool Nat :=
   let (roll, following) := Random.below state chances
   MkPair (roll == 0) following
 
@@ -57,8 +57,11 @@ test "Random.next: reference outputs" :=
   let (c, s3) := Random.next s2
   let (d, s4) := Random.next s3
   let (e, s5) := Random.next s4
-  a == 1985237415132408290 ∧ b == 2979275885539914483 ∧ c == 13511426838097143398
-    ∧ d == 8488337342461049707 ∧ e == 15141737807933549159
+  a == 1985237415132408290
+    ∧ b == 2979275885539914483
+    ∧ c == 13511426838097143398
+    ∧ d == 8488337342461049707
+    ∧ e == 15141737807933549159
 
 --| Seed 0, from the same C code (checked against an independent run of it).
 test "Random.next: seed 0" := (Random.next 0).fst == 16294208416658607535

@@ -5,43 +5,71 @@
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (..)
-import Std (Bool, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
+import Std (Bool, DecEq, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
 
-theorem versionSumTotal: (packet: Packet) → versionSum packet = (packetsIn packet).sumBy versionOf
+theorem versionSumTotal ∀ (packet: Packet): versionSum packet = (packetsIn packet).sumBy versionOf := match packet with
   | Literal version groups => rfl
   | Operator version operation lengthType ({ head = first, tail = rest }) =>
-    rewrite List.sumByCons (packetsIn first ++ packetsInAll rest) (Operator version operation lengthType (NonEmptyList.cons first rest)) versionOf,
-      List.sumByAppend (packetsIn first) (packetsInAll rest) versionOf, versionSumTotal first, versionSumsTotal rest in omega
+    rewrite List.sumByCons
+          (packetsIn first ++ packetsInAll rest)
+          (Operator version operation lengthType (NonEmptyList.cons first rest))
+          versionOf,
+        List.sumByAppend (packetsIn first) (packetsInAll rest) versionOf,
+        versionSumTotal first,
+        versionSumsTotal rest in
+      omega
   | Comparator version comparison lengthType first second =>
-    rewrite List.sumByCons (packetsIn first ++ packetsIn second) (Comparator version comparison lengthType first second) versionOf,
-      List.sumByAppend (packetsIn first) (packetsIn second) versionOf, versionSumTotal first, versionSumTotal second in omega
+    rewrite List.sumByCons
+          (packetsIn first ++ packetsIn second)
+          (Comparator version comparison lengthType first second)
+          versionOf,
+        List.sumByAppend (packetsIn first) (packetsIn second) versionOf,
+        versionSumTotal first,
+        versionSumTotal second in
+      omega
 
-theorem versionSumsTotal: (packets: List Packet) → versionSums packets = (packetsInAll packets).sumBy versionOf
-  | [] => rfl
-  | [packet, ..rest] => rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf, versionSumTotal packet, versionSumsTotal rest in rfl
+theorem versionSumsTotal ∀ (packets: List Packet): versionSums packets = (packetsInAll packets).sumBy versionOf :=
+  match packets with
+    | [] => rfl
+    | [packet, ..rest] =>
+      rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf,
+          versionSumTotal packet,
+          versionSumsTotal rest in
+        rfl
 
 --| Part 1, for every packet.
-theorem part1Correct (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet
+theorem part1Correct ∀ (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet
 
 --| A literal's value: its groups, each below 16, read as one binary number.
-theorem groupsValue (acc: Nat): (groups: List Nat) → groups.all (group => group < 16) = True →
-    groups.foldLeft acc (value group => value * 16 + group) = (groups.flatMap (Nat.toBits 4)).foldLeft acc (acc bit => acc * 2 + bit.toNat)
-  | [], small => rfl
-  | [group, ..rest], small =>
-    let fits: group < Nat.pow 2 4 := omega [Bool.andLeft small]
-    let ih := groupsValue (acc * 16 + group) rest (Bool.andRight small)
-    let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
-      rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl
-    let step: List.foldLeft (rest.flatMap (Nat.toBits 4)) (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) =
-        List.foldLeft (rest.flatMap (Nat.toBits 4)) (acc * 16 + group) (acc bit => acc * 2 + Bool.toNat bit) :=
-      Eq.cong (start => List.foldLeft (rest.flatMap (Nat.toBits 4)) start (acc bit => acc * 2 + Bool.toNat bit)) inner
-    let appended: List.foldLeft (Nat.toBits 4 group ++ rest.flatMap (Nat.toBits 4)) acc (acc bit => acc * 2 + Bool.toNat bit) =
-        List.foldLeft (rest.flatMap (Nat.toBits 4)) (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit)) (acc bit => acc * 2 + Bool.toNat bit) :=
-      List.foldLeftAppend (Nat.toBits 4 group) acc (rest.flatMap (Nat.toBits 4)) (acc bit => acc * 2 + Bool.toNat bit)
-    Eq.trans ih (Eq.trans (Eq.sym step) (Eq.sym appended))
+theorem groupsValue ∀ (acc: Nat) (groups: List Nat)
+    (small: groups.all (group => group < 16) = True):
+    groups.foldLeft acc (value group => value * 16 + group)
+      = (groups.flatMap (Nat.toBits 4)).foldLeft acc (acc bit => acc * 2 + bit.toNat) :=
+  match groups with
+    | [] => rfl
+    | [group, ..rest] =>
+      let fits: group < Nat.pow 2 4 := omega [small.left]
+      let ih := groupsValue (acc * 16 + group) rest small.right
+      let inner: List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit) = acc * 16 + group :=
+        rewrite Nat.fromBitsFrom acc (Nat.toBits 4 group), Nat.fromBitsToBits 4 group fits in rfl
+      let step: List.foldLeft
+        (rest.flatMap (Nat.toBits 4))
+        (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))
+        (acc bit => acc * 2 + Bool.toNat bit)
+        = List.foldLeft (rest.flatMap (Nat.toBits 4)) (acc * 16 + group) (acc bit => acc * 2 + Bool.toNat bit) :=
+        Eq.cong (start => List.foldLeft (rest.flatMap (Nat.toBits 4)) start (acc bit => acc * 2 + Bool.toNat bit)) inner
+      let appended: List.foldLeft (Nat.toBits 4 group ++ rest.flatMap (Nat.toBits 4)) acc (acc bit =>
+        acc * 2 + Bool.toNat bit)
+        = List.foldLeft
+          (rest.flatMap (Nat.toBits 4))
+          (List.foldLeft (Nat.toBits 4 group) acc (acc bit => acc * 2 + Bool.toNat bit))
+          (acc bit => acc * 2 + Bool.toNat bit) :=
+        List.foldLeftAppend (Nat.toBits 4 group) acc (rest.flatMap (Nat.toBits 4)) (acc bit => acc * 2 + Bool.toNat bit)
+      Eq.trans ih (Eq.trans (Eq.sym step) (Eq.sym appended))
 
 --| An operation computes the spec's value from the values it is given.
-theorem operationComputes (operation: Operation) (values: NonEmptyList Nat): Computes operation values.toList (operation.apply values) :=
+theorem operationComputes ∀ (operation: Operation) (values: NonEmptyList Nat):
+    Computes operation values.toList (operation.apply values) :=
   match operation with
     | Sum => SumOf values.toList
     | Product => ProductOf values.toList
@@ -53,7 +81,8 @@ theorem operationComputes (operation: Operation) (values: NonEmptyList Nat): Com
       MaximumOf found.left found.right
 
 --| A comparison computes the spec's value from the two values it is given.
-theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): Compares comparison first second (comparison.apply first second) :=
+theorem comparisonCompares ∀ (comparison: Comparison) (first second: Nat):
+    Compares comparison first second (comparison.apply first second) :=
   match comparison with
     | GreaterThan =>
       match h: (second < first: Bool) with
@@ -64,34 +93,49 @@ theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): 
         | True => Less first second (omega [h])
         | False => NotLess first second (omega [h])
     | EqualTo =>
-      match Nat.decEq first second with
-        | Yes same => rewrite same in Equal second
-        | No different => NotEqual first second different
+      match h: first == second with
+        | True => rewrite h.read in Equal second
+        | False => NotEqual first second h.read
 
 --| Part 2: a well-formed packet has the value the program computes.
-theorem evaluateCorrect: (packet: Packet) → wellFormed packet = True → HasValue packet (evaluate packet)
-  | Literal version groups, formed => rewrite groupsValue 0 groups.toList (Bool.andRight formed) in LiteralValue version groups
-  | Operator version operation lengthType ({ head = first, tail = rest }), formed =>
-    let others := Bool.andRight (Bool.andRight formed)
-    OperationValue [operands := { head = first, tail = rest }]
-      (NextValue (evaluateCorrect first (Bool.andLeft others)) (evaluateAllCorrect rest (Bool.andRight others)))
-      (operationComputes operation { head = evaluate first, tail = evaluateAll rest })
-  | Comparator version comparison lengthType first second, formed =>
-    let others := Bool.andRight (Bool.andRight formed)
-    ComparisonValue (evaluateCorrect first (Bool.andLeft others)) (evaluateCorrect second (Bool.andRight others))
-      (comparisonCompares comparison (evaluate first) (evaluate second))
+theorem evaluateCorrect ∀ (packet: Packet) (formed: wellFormed packet = True): HasValue packet (evaluate packet) :=
+  match packet with
+    | Literal version groups =>
+      let Both _ groupsOk := formed
+      rewrite groupsValue 0 groups.toList groupsOk in LiteralValue version groups
+    | Operator version operation lengthType ({ head = first, tail = rest }) =>
+      let Both _ (Both _ (Both firstOk restOk)) := formed
+      OperationValue
+        [operands := { head = first, tail = rest }]
+        (NextValue (evaluateCorrect first firstOk) (evaluateAllCorrect rest restOk))
+        (operationComputes operation { head = evaluate first, tail = evaluateAll rest })
+    | Comparator version comparison lengthType first second =>
+      let Both _ (Both _ (Both firstOk secondOk)) := formed
+      ComparisonValue
+        (evaluateCorrect first firstOk)
+        (evaluateCorrect second secondOk)
+        (comparisonCompares comparison (evaluate first) (evaluate second))
 
-theorem evaluateAllCorrect: (packets: List Packet) → allWellFormed packets = True → Values packets (evaluateAll packets)
-  | [], formed => NoValues
-  | [packet, ..rest], formed => NextValue (evaluateCorrect packet (Bool.andLeft formed)) (evaluateAllCorrect rest (Bool.andRight formed))
+theorem evaluateAllCorrect ∀ (packets: List Packet)
+    (formed: allWellFormed packets = True):
+    Values packets (evaluateAll packets) :=
+  match packets with
+    | [] => NoValues
+    | [packet, ..rest] =>
+      let Both first more := formed
+      NextValue (evaluateCorrect packet first) (evaluateAllCorrect rest more)
 
-theorem part2Correct (packet: Packet) (formed: wellFormed packet = True): HasValue packet (solvePart2 packet) :=
+theorem part2Correct ∀ (packet: Packet) (formed: wellFormed packet = True): HasValue packet (solvePart2 packet) :=
   evaluateCorrect packet formed
 
 --| Both answers for whatever the parser reads, with no hypothesis left.
-theorem part1FromInput (input: Text) (packet: Packet) (parsed: Fail.toResult (() => parsePacket input) = Ok packet): solvePart1 packet = versionTotal packet :=
+theorem part1FromInput ∀ (input: Text) (packet: Packet)
+    (parsed: Fail.toResult (() => parsePacket input) = Ok packet):
+    solvePart1 packet = versionTotal packet :=
   part1Correct packet
 
-theorem part2FromInput (input: Text) (packet: Packet) (parsed: Fail.toResult (() => parsePacket input) = Ok packet): HasValue packet (solvePart2 packet) :=
+theorem part2FromInput ∀ (input: Text) (packet: Packet)
+    (parsed: Fail.toResult (() => parsePacket input) = Ok packet):
+    HasValue packet (solvePart2 packet) :=
   match parsePacketReads input packet parsed with
     | Witness bits (Witness rest (Both _ (Both _ (Both _ formed)))) => part2Correct packet formed

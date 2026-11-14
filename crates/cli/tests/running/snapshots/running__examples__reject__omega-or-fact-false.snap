@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-OMEGA] Error: `omega` can't prove `probe.x + probe.dx < left`
@@ -17,14 +17,14 @@ expression: output
     │ 
     │ Note 4: in the case `(right < (step probe).x) = False` of the disjunction from case
     │ 
-    │ Note 5: in the case `short left probe = True` of the disjunction from h
+    │ Note 5: in the case `short left probe` of the disjunction from h
     │ 
     │ Note 6: this statement is false; a counterexample:
     │           left = 0
     │           right = 0
     │           probe = { x = -1, dx = 1 }
-    │         `past left right probe = True` holds
-    │         `past left right (step probe) = True` is false:
+    │         `past left right probe` holds
+    │         `past left right (step probe)` is false:
     │           left:  False
     │           right: True
 ────╯

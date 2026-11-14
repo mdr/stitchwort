@@ -13,8 +13,11 @@ def code(): {Parse} Nat := natDigits 2 5
 
 test "digits" := toResult (() => Parse.all "0,3,5" threeBits) == Ok [0, 3, 5]
 
-test "one digit" := toResult (() => Parse.all "0,10" threeBits) == Err "line 1, column 3: expected a 1-digit number, got '1'"
+test "one digit" :=
+  toResult (() => Parse.all "0,10" threeBits) == Err "line 1, column 3: expected a 1-digit number, got '1'"
 
-test "four digits" := toResult (() => Parse.all "202" year) == Err "line 1, column 1: expected a 4-digit number, got '2'"
+test "four digits" :=
+  toResult (() => Parse.all "202" year) == Err "line 1, column 1: expected a 4-digit number, got '2'"
 
-test "a range" := toResult (() => Parse.all "7" code) == Err "line 1, column 1: expected a number of 2 to 5 digits, got '7'"
+test "a range" :=
+  toResult (() => Parse.all "7" code) == Err "line 1, column 1: expected a number of 2 to 5 digits, got '7'"

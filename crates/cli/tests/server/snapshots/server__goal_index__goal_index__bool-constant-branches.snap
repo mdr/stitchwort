@@ -67,12 +67,13 @@ expression: json
         }
       ],
       "lemma": "theorem allTwoGoal1 (b: Bool) (c: Bool): (b && c && True) = b := ?",
-      "target": "(b && c && True) = b"
+      "target": "[b, c].all (x => x) = b",
+      "targetComputed": "(b && c && True) = b"
     },
     "labels": [
       {
         "file": 0,
-        "message": "b: Bool\nc: Bool\n⊢ (b && c && True) = b",
+        "message": "b: Bool\nc: Bool\n⊢ [b, c].all (x => x) = b\n  computes to (b && c && True) = b",
         "range": [
           10,
           68,
@@ -122,12 +123,13 @@ expression: json
         }
       ],
       "lemma": "theorem anyTwoGoal1 (b: Bool) (c: Bool): (b || c || False) = b := ?",
-      "target": "(b || c || False) = b"
+      "target": "[b, c].any (x => x) = b",
+      "targetComputed": "(b || c || False) = b"
     },
     "labels": [
       {
         "file": 0,
-        "message": "b: Bool\nc: Bool\n⊢ (b || c || False) = b",
+        "message": "b: Bool\nc: Bool\n⊢ [b, c].any (x => x) = b\n  computes to (b || c || False) = b",
         "range": [
           12,
           68,

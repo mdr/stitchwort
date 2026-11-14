@@ -14,6 +14,7 @@ def Code.runFrom (code: Code) (step: Progress) (n: Nat): Nat
 :=
   match step with
     | Step instruction left =>
-      if h: 0 < left then Code.runFrom code (Step instruction (left - 1)) (instruction.run n) [decreasing := omega] else n
+      if h: 0 < left then Code.runFrom code (Step instruction (left - 1)) (instruction.run n) [decreasing := omega]
+      else n
 
 def Code.run (code: Code) (instruction: Instruction): Nat := code.runFrom (Step instruction code.limit) 0

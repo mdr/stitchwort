@@ -34,8 +34,11 @@ type AimedSubmarine = { horizontal: Nat, depth: Int, aim: Int }
 --| `forward X` increases the horizontal position by X and the depth by the aim
 --| times X.
 def AimedSubmarine.follow (submarine: AimedSubmarine): Command → AimedSubmarine
-  | Forward units =>
-    { horizontal = submarine.horizontal + units, depth = submarine.depth + submarine.aim * units.toInt, aim = submarine.aim }
+  | Forward units => {
+    horizontal = submarine.horizontal + units,
+    depth = submarine.depth + submarine.aim * units.toInt,
+    aim = submarine.aim
+  }
   | Down units => { horizontal = submarine.horizontal, depth = submarine.depth, aim = submarine.aim + units.toInt }
   | Up units => { horizontal = submarine.horizontal, depth = submarine.depth, aim = submarine.aim - units.toInt }
 

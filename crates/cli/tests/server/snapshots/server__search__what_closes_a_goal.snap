@@ -8,7 +8,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "checks": "(varies)",
     "exhausted": true,
     "internalErrors": 0,
-    "matched": 66,
+    "matched": 67,
     "maxCandidates": 50,
     "outOfBudget": 3,
     "tried": 50,
@@ -54,7 +54,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "name": "Std.Nat.leTrans",
       "proof": "Nat.leTrans a b c h1 h2",
       "searchRank": 15,
-      "type": "(a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → b ≤ c → a ≤ c"
+      "type": "∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c"
     },
     {
       "checked": "kernel",
@@ -68,11 +68,11 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       ],
       "import": "import Std (Nat)",
       "kind": "theorem",
-      "line": 97,
+      "line": 103,
       "name": "Std.Nat.leOfEq",
       "proof": "Nat.leOfEq a c ?",
       "searchRank": 1,
-      "type": "(a: Nat) → (b: Nat) → a = b → a ≤ b"
+      "type": "∀ (a b: Nat) => a = b → a ≤ b"
     }
   ],
   "rewrites": [
@@ -83,12 +83,12 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "direction": "rightToLeft",
       "equation": "eq",
       "file": "std/List/SortLemmas.sw",
-      "goal": "(a.compare c).isLessEq = True",
+      "goal": "(a.compare c).isLessEq",
       "import": "import Std (Nat)",
-      "line": 535,
+      "line": 773,
       "name": "Std.Nat.compareLeq",
       "proof": "rewrite <- Nat.compareLeq a c in ?",
-      "type": "(m: Nat) → (n: Nat) → (m.compare n).isLessEq = (m <= n)"
+      "type": "∀ (m n: Nat) => (m.compare n).isLessEq = (m <= n)"
     }
   ],
   "tactics": [
@@ -102,7 +102,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
   },
   "version": 1,
   "warnings": [
-    "66 declarations match the target; the first 50 were tried (--candidates N for more)",
+    "67 declarations match the target; the first 50 were tried (--candidates N for more)",
     "3 comparisons ran out of steps (with Std.Float.Theory.overflowHalf, Std.Float.Theory.largestBelow, Std.Float.Theory.infinityAbove): those may match and weren't listed"
   ]
 }

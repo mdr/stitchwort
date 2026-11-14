@@ -9,5 +9,7 @@ expression: output
    │                                 ─┬─  
    │                                  ╰─── `-x` and `x` aren't equal
    │ 
-   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: the left side is stuck on `x`: it can't compute further until `x` is known; a `match` on `x` (or `cases x`) splits it
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

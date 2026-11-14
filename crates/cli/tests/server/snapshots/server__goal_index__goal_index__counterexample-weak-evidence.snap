@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -14,16 +14,16 @@ expression: json
         },
         {
           "name": "h",
-          "type": "increasing xs = True"
+          "type": "increasing xs"
         }
       ],
-      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): xs.length ≤ 5 := ?",
+      "lemma": "theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs): xs.length ≤ 5 := ?",
       "target": "xs.length ≤ 5"
     },
     "labels": [
       {
         "file": 0,
-        "message": "xs: List Nat\nh: increasing xs = True\n⊢ xs.length ≤ 5",
+        "message": "xs: List Nat\nh: increasing xs\n⊢ xs.length ≤ 5",
         "range": [
           13,
           83,

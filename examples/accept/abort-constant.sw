@@ -6,10 +6,8 @@ import Std.Abort (abort, toOption, need)
 import Std (Abort, IO)
 
 -- The first line is "a": `Some 3`; any other line, or none: `None`.
-def firstIsA: {IO} Option Nat :=
-  toOption (() => if (need (IO.readLine())) == "a" then 3 else abort())
+def firstIsA: {IO} Option Nat := toOption (() => if (need (IO.readLine())) == "a" then 3 else abort())
 
-def main(): {IO} () :=
-  match firstIsA with
-    | Some n => IO.print "a"
-    | None => IO.print "not a"
+def main(): {IO} () := match firstIsA with
+  | Some n => IO.print "a"
+  | None => IO.print "not a"

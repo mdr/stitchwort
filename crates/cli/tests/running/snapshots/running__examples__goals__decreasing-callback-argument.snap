@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `g`
-    ╭─[ goals/decreasing-callback-argument.sw:11:101 ]
+    ╭─[ goals/decreasing-callback-argument.sw:13:101 ]
     │
- 11 │   [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?])
+ 13 │   [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?])
     │                                                                                                     ┬  
     │                                                                                                     ╰── xs: List Nat
     │                                                                                                         k: Nat
@@ -13,13 +13,13 @@ expression: output
     │                                                                                                         ⊢ (xs.filter (c => c == other)).length < xs.length
 ────╯
 [GOAL] Goal: in `withLet`
-    ╭─[ goals/decreasing-callback-argument.sw:16:57 ]
+    ╭─[ goals/decreasing-callback-argument.sw:21:59 ]
     │
- 16 │     if k == 0 then 0 else withLet left k [decreasing := ?])
-    │                                                         ┬  
-    │                                                         ╰── xs: List Nat
-    │                                                             k: Nat
-    │                                                             other: Nat
-    │                                                             left: List Nat := xs.filter (c => c == other)
-    │                                                             ⊢ (xs.filter (c => c == other)).length < xs.length
+ 21 │       if k == 0 then 0 else withLet left k [decreasing := ?])
+    │                                                           ┬  
+    │                                                           ╰── xs: List Nat
+    │                                                               k: Nat
+    │                                                               other: Nat
+    │                                                               left: List Nat := xs.filter (c => c == other)
+    │                                                               ⊢ (xs.filter (c => c == other)).length < xs.length
 ────╯

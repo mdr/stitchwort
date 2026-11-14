@@ -2,3 +2,5 @@
 # (git config blame.ignoreRevsFile .git-blame-ignore-revs).
 # SW-366 F7, D1061: the one-off repo reformat with stitchwort fmt.
 feab72ffefca996805a60b336af98c1a4135d4f1
+# SW-3194, stage 5: the repo reformat with the tree printer.
+39de3aa7d5126b3c08a859425b99dd53478281a2

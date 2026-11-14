@@ -1,0 +1,81 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Bool"
+        },
+        {
+          "name": "b",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        },
+        {
+          "name": "xs",
+          "type": "List Nat"
+        },
+        {
+          "name": "h1",
+          "type": "a"
+        },
+        {
+          "name": "h2",
+          "type": "(a && b) = True"
+        },
+        {
+          "name": "h3",
+          "type": "xs.any (x => x <= n)"
+        },
+        {
+          "name": "h4",
+          "type": "a = False"
+        },
+        {
+          "name": "h5",
+          "type": "¬a"
+        },
+        {
+          "name": "h6",
+          "type": "a ∧ b"
+        },
+        {
+          "name": "h7",
+          "type": "(a = True) = (b = True)"
+        }
+      ],
+      "lemma": "theorem shownGoal1 (a: Bool) (b: Bool) (n: Nat) (xs: List Nat) (h1: a) (h2: (a && b) = True) (h3: xs.any (x => x <= n)) (h4: a = False) (h5: ¬a) (h6: a ∧ b) (h7: (a = True) = (b = True)): b := ?",
+      "target": "b"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Bool\nb: Bool\nn: Nat\nxs: List Nat\nh1: a\nh2: (a && b) = True\nh3: xs.any (x => x <= n)\nh4: a = False\nh5: ¬a\nh6: a ∧ b\nh7: (a = True) = (b = True)\n⊢ b",
+        "range": [
+          10,
+          47,
+          10,
+          48
+        ]
+      }
+    ],
+    "message": "in `shown`",
+    "notes": [],
+    "range": [
+      10,
+      47,
+      10,
+      48
+    ],
+    "severity": "goal"
+  }
+]

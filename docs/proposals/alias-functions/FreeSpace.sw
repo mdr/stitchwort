@@ -8,8 +8,7 @@ def FreeSpace.of (spans: List Nat): FreeSpace := spans
 def FreeSpace.move (free: FreeSpace) (file: Nat): FreeSpace := Cons file free
 
 -- The initial state comes before the step function.
-def steps (files: List Nat): List FreeSpace :=
-  List.scanLeft files (FreeSpace.of [1]) (free file => free.move file)
+def steps (files: List Nat): List FreeSpace := List.scanLeft files (FreeSpace.of [1]) (free file => free.move file)
 
 -- Through a `let` with no annotation.
 def viaLet (files: List Nat): List FreeSpace :=

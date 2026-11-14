@@ -9,6 +9,8 @@ use std::process::{Child, Command, Output, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use crate::common;
+
 use stitchwort_cli::driver::Session;
 
 /// Held while creating pipes and spawning children. On macOS, std makes a
@@ -54,8 +56,8 @@ fn run(path: &Path, input: &[u8]) -> Output {
 /// or a function of the project `cwd` is in, by its full name.
 fn run_in(cwd: &Path, target: &std::ffi::OsStr, input: &[u8]) -> Output {
     let mut child = spawn(
-        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--cache-dir", CACHE])
+        common::cli("run")
+            .args(["--cache-dir", CACHE])
             .arg(target)
             .current_dir(cwd)
             .stdin(Stdio::piped())
@@ -426,17 +428,15 @@ fn a_main_may_have_fail_with_partial_and_nothing_else() {
 }
 
 /// Runs `stitchwort run [flag] path` with `input` piped to it, for each of
-/// the three runners: native, `--js` and `--reference`. Each run's stdout,
+/// the three runners: machine, `--js` and `--reference`. Each run's stdout,
 /// stderr and exit status.
 fn run_three_ways(path: &Path, input: &[u8]) -> Vec<(&'static str, String, String, Option<i32>)> {
     ["", "--js", "--reference"]
         .into_iter()
         .map(|flag| {
-            let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-            command.args(["run", "--cache-dir", CACHE]);
-            if !flag.is_empty() {
-                command.arg(flag);
-            }
+            let flags: Vec<&str> = Some(flag).filter(|f| !f.is_empty()).into_iter().collect();
+            let mut command = common::cli_with("run", &flags);
+            command.args(["--cache-dir", CACHE]);
             let mut child = spawn(
                 command
                     .arg(path)
@@ -554,7 +554,7 @@ fn a_total_main_that_may_fail_runs_three_ways() {
 
 /// `Fail.toResult` takes a partial program, and is then partial itself: its
 /// row `{Fail | e}` has a divergence index (lane D of
-/// docs/proposals/partial-handlers.md, D1255). The native and JS runners
+/// docs/proposals/partial-handlers.md, D1255). The machine and JS runners
 /// run a handler around partial code from lane C of that note; until then,
 /// the reference runner.
 #[test]
@@ -746,8 +746,8 @@ fn std_dir_reads_the_library_from_disk() {
     let cache = std.with_extension("cache");
     let run_with_std = || {
         let _guard = SPAWN.lock().unwrap_or_else(|e| e.into_inner());
-        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--cache-dir"])
+        common::cli("run")
+            .arg("--cache-dir")
             .arg(&cache)
             .arg(&program)
             .env("STITCHWORT_STD_DIR", &std)
@@ -851,9 +851,8 @@ fn the_arguments_after_a_double_dash_are_the_programs() {
         "import Std (IO, List, Text)\ndef main () : {IO} () := IO.print (Text.joinWith (IO.args ()) \"|\")\n",
     );
     let run_with = |flags: &[&str], args: &[&str]| {
-        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--cache-dir", CACHE])
-            .args(flags)
+        let output = common::cli_with("run", flags)
+            .args(["--cache-dir", CACHE])
             .arg(&path)
             .args(args)
             .output()
@@ -891,9 +890,8 @@ fn list_builders_run_on_two_million_elements() {
     );
     let want = "2100000\n1050000\n4200000\n4200000\n";
     let run_with = |flags: &[&str]| {
-        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .args(["run", "--cache-dir", CACHE])
-            .args(flags)
+        let output = common::cli_with("run", flags)
+            .args(["--cache-dir", CACHE])
             .arg(&path)
             .output()
             .expect("run stitchwort");

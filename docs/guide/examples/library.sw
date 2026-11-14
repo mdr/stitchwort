@@ -27,14 +27,13 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
 
-theorem upTo (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
+theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
 -- end ranges
 
 -- begin option
-def lookupAge (name: Text): Option Nat :=
-  if name == "Ada" then Some 36 else None
+def lookupAge (name: Text): Option Nat := if name == "Ada" then Some 36 else None
 
 test "map" := (lookupAge "Ada").map (age => age + 1) == Some 37
 test "getOrElse" := (lookupAge "Bob").getOrElse 0 == 0
@@ -43,10 +42,9 @@ test "filterMap" := ["1", "x", "3"].filterMap Text.toNat == [1, 3]
 -- end option
 
 -- begin result
-def parseAge (text: Text): Result Nat Text :=
-  match text.toNat with
-    | Some age => Ok age
-    | None => Err "not a number: '${text}'"
+def parseAge (text: Text): Result Nat Text := match text.toNat with
+  | Some age => Ok age
+  | None => Err "not a number: '${text}'"
 
 test "ok" := parseAge "36" == Ok 36
 test "err" := parseAge "old" == Err "not a number: 'old'"
@@ -71,7 +69,8 @@ def wordCounts (words: List Text): Map Text Nat :=
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
+test "group by" :=
+  (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
 test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 -- end map

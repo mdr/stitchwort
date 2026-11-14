@@ -584,7 +584,12 @@ one is used for:
   folded term mentions an unsolved metavariable (one inside a call's
   arguments that the unfolding may not have); then unfolded, as before.
   `refold` looks for a `let`'s value in both forms (`both_forms`), since a
-  solution may hold either.
+  solution may hold either. *Since SW-2843:* read back as written
+  (`quote_as_written`), a call that steps at once kept as the call too, so
+  zonking never computes one (`countDown 100000 []` was read back as the
+  whole list); the unfolding is tried only within a small budget
+  (100,000 steps), and `value_forms` (was `both_forms`) has the as-written
+  form as well. Goals are stated as assumptions the same way (`assume.rs`).
 - **Lifted helper types** (`lift.rs`: the goal, the captures' types, the
   refined variables' values), and the type annotations the elaborator
   writes (`check.rs`: lambdas, operations, partly applied constructors,

@@ -10,15 +10,14 @@
 --   0
 import Std (IO, Nat)
 
-def AllTrue (x: Bool) (y: Bool): Prop := Unit
+def AllTrue (x y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
 def p: 0 = 0 := Quot.lift (b => rfl) (x y related => rfl) (Quot.mk False: Q)
 
 def n: Nat := J (y proof => Nat) 0 p
 
-def nInline: Nat :=
-  J (y proof => Nat) 0 (Quot.lift [b := 0 = 0] (b => rfl) (x y related => rfl) (Quot.mk False: Q))
+def nInline: Nat := J (y proof => Nat) 0 (Quot.lift [b := 0 = 0] (b => rfl) (x y related => rfl) (Quot.mk False: Q))
 
 theorem nInlineIsZero: nInline = 0 := rfl
 

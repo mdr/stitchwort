@@ -33,9 +33,15 @@ Folders whose names start with `.` are skipped, so `.stitchwort/` and `.git/`
 are ignored. Files that aren't `.sw` are ignored. A folder that doesn't
 exist, or a source path that is absolute or contains `..`, is an error. So is
 a `stitchwort.yaml` inside another project. `sources` must be a list:
-`sources: src` (a bare string) is `E-PROJECT-CONFIG`. The only other key is
+`sources: src` (a bare string) is `E-PROJECT-CONFIG`. The other keys are
 `audit:`, whose `allowed-axioms:` lists the axioms `stitchwort audit` allows
-(default `Quot.sound`); an unknown key is an error.
+(default `Quot.sound`), and `check:`, whose `open-goals:` is `warn` or `fail`
+(default): with `warn`, `stitchwort check` reports each open goal `?` as a
+warning and exits 0 if nothing else fails, and `stitchwort test` runs the tests
+that don't use an unfinished declaration and reports the others as skipped,
+naming the declaration with the open goal, exiting 0 if nothing else fails
+(`audit` still fails unfinished theorems). An unknown key, or a value other
+than those, is an error.
 
 A flat layout uses `sources: [.]`.
 
@@ -260,9 +266,35 @@ name that resolves into `M`.
   which may span files, or move what both need into a third namespace.
 - **Cycles inside one namespace are fine.** Its files and declarations may
   refer to each other in any order.
-- **A broken namespace doesn't stop unrelated ones.** If `Aoc` has errors,
-  namespaces that depend on it aren't checked and get `E-NAMESPACE-FAILED`.
-  Namespaces that don't depend on it are checked normally.
+- **An error stops only what needs it** (D3524, D3527). If a declaration in
+  `Aoc` has an error, every namespace is still checked, declaration by
+  declaration, those that import `Aoc` included. A `def` or `theorem` whose
+  statement checked but whose body didn't (a type error, or a syntax error
+  after its `:=`) stands in for its statement, as a `?` does: what uses it is checked against the statement, its own mistakes
+  are reported, and it's counted as relying on the broken declaration
+  ("relies on a declaration with an error, checked assuming its
+  statement"), never as finished. A declaration that has to compute through
+  the broken one (`rfl` on `beats Rock Paper` while `beats` has an error),
+  or uses one whose statement is broken (or a type, interface, ability or
+  instance with an error), can't be checked until it's fixed; it reports
+  nothing itself. Instead each file with such declarations gets one
+  `E-USES-FAILED` per broken name, on its import of the name (or on the
+  first declaration that waits, if the file doesn't import it by name),
+  listing what waits. Everything else is checked as usual, its goals are
+  shown and its tests run: a test that only cites a broken theorem as a
+  proof runs, and says what it assumed. `check` still exits 1, and ends
+  with a summary of the errors: which declarations have one, how many rely
+  on one, and which can't be checked until one is fixed, and what each needs
+  (`stitchwort test` and `audit` print the same, and `audit` still gives
+  every theorem its verdict). A
+  namespace with a *syntax* error may have lost a declaration altogether:
+  an import of a name it no longer declares then says so once, on the
+  import (`E-USES-FAILED`: "`A` has a syntax error, so `beats` can't be
+  found"), pointing at the syntax error, and what uses the name waits for
+  it rather than being told it is unknown. The editor does the same as
+  `check`: an edit that breaks a namespace rechecks the namespaces that use
+  it, and a half-typed body leaves its statement, so their answers change
+  only where they use the declaration being typed.
 
 ## `auto` across files
 
@@ -310,6 +342,13 @@ run. Problems found for the project as a whole before checking (a file with no
 namespace line, a reserved namespace, a namespace/type clash, or a bad
 `stitchwort.yaml`) stop every command, `run` included.
 
+There is no entry-point annotation, and `main` is only a convention. In a
+project a function is run by its full name, `stitchwort run Shop.report`, so
+a namespace can have several programs; a type that can't be run is
+`E-RUN-TYPE`, and a name that isn't in the project is `E-RUN-UNKNOWN`. A
+namespace name alone (`run Day05`) names no function and is `E-RUN-UNKNOWN`
+([syntax.md](syntax.md#entry-points)).
+
 A path argument is always **file mode**:
 
 ```
@@ -317,7 +356,7 @@ stitchwort run path/file.sw
 ```
 
 File mode loads that file and the standard library only, inside a project or
-not. The file must have a `main`. A namespace line is optional. An import
+not. The file must have a `main`, which is the only function file mode runs. A namespace line is optional. An import
 from anything but `Std`, or a qualified name reaching outside the file and
 `Std`, is `E-FILE-MODE`. File mode is a reading of the file on its own, so
 its meaning can differ from the project's when the file has sibling files.
@@ -370,7 +409,7 @@ the working directory. `--cache-dir` overrides both.
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |
 | `E-FOREIGN-NAMESPACE` | A file adds something other than a function to another namespace's type, or names another namespace as a declaration's qualifier. |
 | `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
-| `E-NAMESPACE-FAILED` | A namespace wasn't checked because a namespace it depends on has errors. |
+| `E-USES-FAILED` | Declarations of this file use a declaration of another namespace that has an error, so they can't be checked until it's fixed: one per broken name per file, listing what waits. Also an import of a name that namespace no longer declares because it has a syntax error (`A` has a syntax error, so `beats` can't be found). |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-UNKNOWN-THEOREM` | `check --only` named something that is not a theorem of the namespaces being checked. |
 | `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |

@@ -15,9 +15,9 @@ expression: json
         "file": 0,
         "message": "⊢ Nat",
         "range": [
-          3,
+          5,
           29,
-          3,
+          5,
           30
         ]
       }
@@ -25,9 +25,9 @@ expression: json
     "message": "in test \"double\"",
     "notes": [],
     "range": [
-      3,
+      5,
       29,
-      3,
+      5,
       30
     ],
     "severity": "goal"

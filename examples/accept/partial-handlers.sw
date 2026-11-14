@@ -54,8 +54,7 @@ test "no failure" := caught 2 == Ok 0
 test "stopping drops the loop" := dropped() == Err "no"
 -- Seed 1 rolls 3, 5, 4, 2, 2, then a six (a roll is its number mod 6, plus 1).
 test "a seeded loop" := seeded 1 (() => rollsUntilSix 0) == 6
-test "the same seed, the same rolls" :=
-  seeded 7 (() => rollsUntilSix 0) == seeded 7 (() => rollsUntilSix 0)
+test "the same seed, the same rolls" := seeded 7 (() => rollsUntilSix 0) == seeded 7 (() => rollsUntilSix 0)
 
 def showResult: Result Nat Text → Text
   | Ok n => "Ok " ++ Nat.toText n

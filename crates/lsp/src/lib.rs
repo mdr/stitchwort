@@ -22,11 +22,11 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
@@ -36,13 +36,17 @@ use lsp_types::notification::Notification as _;
 use lsp_types::request::Request as _;
 use lsp_types::{
     DiagnosticRelatedInformation, DiagnosticSeverity, DocumentLink, DocumentSymbol,
-    DocumentSymbolResponse, GotoDefinitionResponse, Hover, HoverContents, Location, MarkupContent,
-    MarkupKind, NumberOrString, Position, PublishDiagnosticsParams, SymbolInformation, SymbolKind,
-    Url, WorkspaceSymbolResponse, notification, request,
+    DocumentSymbolResponse, FoldingRange, FoldingRangeKind, GotoDefinitionResponse, Hover,
+    HoverContents, Location, MarkupContent, MarkupKind, NumberOrString, Position,
+    PublishDiagnosticsParams, SymbolInformation, SymbolKind, Url, WorkspaceSymbolResponse,
+    notification, request,
 };
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_driver::at as pos;
-use stitchwort_driver::check_cache::{BundleRecorder, BundleStore, CheckCache, LibraryBundle};
+use stitchwort_driver::check_cache::{
+    BundleRecorder, BundleStore, CheckCache, LAYER_CAP_BYTES, LayerBudget, LayeredStore,
+    LibraryBundle,
+};
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
     Answers, FileAnswers, LiveFile, LiveProject, LiveRef, Loc, OutlineItem, Place, Progress,
@@ -60,7 +64,9 @@ mod arms;
 mod complete;
 mod imports;
 mod lens;
+mod rename;
 mod source;
+mod style;
 use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
 
@@ -110,12 +116,27 @@ pub struct Options {
     /// Read when a project or file is loaded, so a host may set it after
     /// starting the server (the playground fetches it meanwhile).
     pub library: Arc<std::sync::OnceLock<Arc<LibraryBundle>>>,
+    /// For tests: every namespace entry a project's in-memory check cache
+    /// (the one used with `library`) is asked for, and whether it had it.
+    #[doc(hidden)]
+    pub namespace_log: Option<stitchwort_driver::check_cache::StoreLog>,
+    /// The editor features the user can switch off, and the search time
+    /// limit; shared by every thread of the server, and changed by
+    /// `workspace/didChangeConfiguration`.
+    pub settings: Arc<Settings>,
     /// The client asked to be told when semantic tokens are out of date
     /// (`workspace/semanticTokens/refresh`) after a check. Set by
     /// `initialize`.
     pub refresh_tokens: bool,
+    /// The client shows server-started progress
+    /// (`window/workDoneProgress/create`): the proof search reports it.
+    pub work_done_progress: bool,
     /// The same for inlay hints (`workspace/inlayHint/refresh`).
     pub refresh_hints: bool,
+    /// The client can show a message with buttons
+    /// (`window/showMessageRequest`): a refused rename offers "Rename
+    /// anyway" that way. Set by `initialize`.
+    pub offer_rename_anyway: bool,
     /// The members found after the last `.` completed, with the text they
     /// were found from ([`members_at`]), so that the request after the
     /// first letter typed, which asks again, doesn't check the file again.
@@ -124,6 +145,89 @@ pub struct Options {
     /// (nothing set in use).
     #[doc(hidden)]
     pub faults: Arc<Faults>,
+}
+
+/// The user's settings (D3468), as the client sends them in
+/// `initializationOptions` and `workspace/didChangeConfiguration`:
+///
+/// ```json
+/// {"inlayHints": {"letTypes": true}, "codeLens": {"run": true},
+///  "proofSearch": {"enabled": true, "timeLimitMs": 5000},
+///  "semanticColours": true}
+/// ```
+///
+/// Every feature is on until switched off; a key left out keeps its value.
+/// A feature the server advertised stays advertised and answers with
+/// nothing when it is off, so no dynamic registration is needed.
+pub struct Settings {
+    inlay_hints: AtomicBool,
+    code_lens: AtomicBool,
+    proof_search: AtomicBool,
+    semantic_colours: AtomicBool,
+    /// The time limit of a code action's search; zero for
+    /// [`Options::search_time`].
+    search_time_ms: AtomicU64,
+    /// The client can be asked to refresh what it draws from the server.
+    refresh_lenses: AtomicBool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            inlay_hints: AtomicBool::new(true),
+            code_lens: AtomicBool::new(true),
+            proof_search: AtomicBool::new(true),
+            semantic_colours: AtomicBool::new(true),
+            search_time_ms: AtomicU64::new(0),
+            refresh_lenses: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Settings {
+    fn on(flag: &AtomicBool) -> bool {
+        flag.load(Ordering::Relaxed)
+    }
+
+    /// Takes the settings in `value` (the section above, or a client's
+    /// `{"stitchwort": section}` around it); returns whether any changed.
+    pub fn apply(&self, value: &serde_json::Value) -> bool {
+        let value = value.get("stitchwort").unwrap_or(value);
+        let mut changed = false;
+        let mut flag = |target: &AtomicBool, pointer: &str| {
+            if let Some(v) = value.pointer(pointer).and_then(serde_json::Value::as_bool) {
+                changed |= target.swap(v, Ordering::Relaxed) != v;
+            }
+        };
+        flag(&self.inlay_hints, "/inlayHints/letTypes");
+        flag(&self.code_lens, "/codeLens/run");
+        flag(&self.proof_search, "/proofSearch/enabled");
+        flag(&self.semantic_colours, "/semanticColours");
+        if let Some(ms) = value
+            .pointer("/proofSearch/timeLimitMs")
+            .and_then(serde_json::Value::as_u64)
+        {
+            changed |= self.search_time_ms.swap(ms, Ordering::Relaxed) != ms;
+        }
+        changed
+    }
+
+    /// The time limit set, if any.
+    fn search_time(&self) -> Option<u64> {
+        Some(self.search_time_ms.load(Ordering::Relaxed)).filter(|&ms| ms > 0)
+    }
+}
+
+impl std::fmt::Debug for Settings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Settings")
+            .field("inlay_hints", &Self::on(&self.inlay_hints))
+            .field("code_lens", &Self::on(&self.code_lens))
+            .field("proof_search", &Self::on(&self.proof_search))
+            .field("semantic_colours", &Self::on(&self.semantic_colours))
+            .field("search_time_ms", &self.search_time())
+            .finish()
+    }
 }
 
 /// Panics a test asks the server to cause ([`Options::faults`]). A relaxed
@@ -237,8 +341,12 @@ impl Options {
             search_wanted: 3,
             search_time: Duration::from_secs(5),
             library: Arc::default(),
+            namespace_log: None,
+            settings: Arc::default(),
             refresh_tokens: false,
+            work_done_progress: false,
             refresh_hints: false,
+            offer_rename_anyway: false,
             members: Arc::default(),
             faults: Arc::default(),
         }
@@ -277,11 +385,14 @@ pub fn capabilities() -> serde_json::Value {
         "experimental": { "hoverRange": true },
         "referencesProvider": true,
         "documentSymbolProvider": true,
+        "foldingRangeProvider": true,
         "codeLensProvider": { "resolveProvider": false },
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
         "documentRangeFormattingProvider": true,
-        "codeActionProvider": { "codeActionKinds": ["quickfix"] }
+        "codeActionProvider": { "codeActionKinds": ["quickfix"] },
+        "renameProvider": { "prepareProvider": true },
+        "executeCommandProvider": { "commands": [rename::RENAME_ANYWAY, SEARCH_PROOF, SELECT_RANGE] }
     })
 }
 
@@ -294,6 +405,9 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     {
         options.debounce = Duration::from_millis(ms);
     }
+    if let Some(settings) = params.get("initializationOptions") {
+        options.settings.apply(settings);
+    }
     let supports = |pointer: &str| {
         params
             .pointer(pointer)
@@ -301,7 +415,13 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
             .unwrap_or(false)
     };
     options.refresh_tokens = supports("/capabilities/workspace/semanticTokens/refreshSupport");
+    options.work_done_progress = supports("/capabilities/window/workDoneProgress");
     options.refresh_hints = supports("/capabilities/workspace/inlayHint/refreshSupport");
+    options.settings.refresh_lenses.store(
+        supports("/capabilities/workspace/codeLens/refreshSupport"),
+        Ordering::Relaxed,
+    );
+    options.offer_rename_anyway = params.pointer("/capabilities/window/showMessage").is_some();
     let document_changes = params
         .pointer("/capabilities/workspace/workspaceEdit/documentChanges")
         .and_then(serde_json::Value::as_bool)
@@ -394,6 +514,11 @@ pub fn serve_from(
         document_changes,
         faults: options.faults.clone(),
         notices,
+        settings: options.settings.clone(),
+        refreshes: AtomicU64::new(0),
+        refresh_tokens: AtomicBool::new(options.refresh_tokens),
+        work_done_progress: options.work_done_progress,
+        refresh_hints: AtomicBool::new(options.refresh_hints),
     };
     let result = main.run();
     // Stops the check in progress; the checker then sees the channel closed.
@@ -533,6 +658,8 @@ enum Edit {
     Focus {
         paths: Vec<PathBuf>,
     },
+    /// A request about renaming, answered by the checker.
+    Rename(rename::RenameJob),
 }
 
 impl Edit {
@@ -544,6 +671,7 @@ impl Edit {
             | Edit::Close { path }
             | Edit::Saved { path, .. }
             | Edit::Disk { path } => Some(path),
+            Edit::Rename(job) => job.path(),
             Edit::Focus { .. } => None,
         }
     }
@@ -566,15 +694,21 @@ pub struct Search {
     uri: Url,
     target: SearchTarget,
     kind: SearchKind,
+    /// The user's time limit for a code action's search, in milliseconds,
+    /// when set ([`Settings`]): carried here because a browser's search
+    /// worker has no settings of its own.
+    #[serde(default)]
+    time_ms: Option<u64>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
 enum SearchKind {
-    /// What closes the goal at `range` ([`Main::code_action`]); with
-    /// `versioned`, edits name that version of the document.
-    CodeAction {
+    /// What closes the goal at `range` ([`SEARCH_PROOF`]), as
+    /// `{version, range, proofs: [{title, newText}], timeLimitMs}`, for the
+    /// document at `version`, the search having had `timeLimitMs`.
+    Proofs {
         range: lsp_types::Range,
-        versioned: Option<i32>,
+        version: i32,
     },
     /// The context at a position ([`Main::context_at`]).
     ContextAt { line: u32, character: u32 },
@@ -584,6 +718,17 @@ enum SearchKind {
         split: arms::Split,
         versioned: Option<i32>,
         fixes: serde_json::Value,
+    },
+    /// Splitting a variable at the `?` at `hole`: just `only` when set,
+    /// else every variable ([`hole_splits`]), after the quick fixes
+    /// `fixes` already found and before `last`, the "Search for a proof"
+    /// action, which closes the list.
+    SplitHole {
+        hole: Position,
+        only: Option<String>,
+        versioned: Option<i32>,
+        fixes: serde_json::Value,
+        last: Option<serde_json::Value>,
     },
     /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
     /// name typed ([`Main::member_completion`]).
@@ -606,12 +751,17 @@ impl Search {
         source: &dyn Source,
         cancel: Arc<AtomicBool>,
     ) -> serde_json::Value {
-        let Search { uri, target, kind } = self;
+        let Search {
+            uri,
+            target,
+            kind,
+            time_ms,
+        } = self;
         match kind {
-            SearchKind::CodeAction { range, versioned } => {
+            SearchKind::Proofs { range, version } => {
                 let mut options = pos::action_options(server.search_wanted);
-                options.time = server.search_time;
-                let found = match target.project {
+                options.time = time_ms.map_or(server.search_time, Duration::from_millis);
+                let found = match target.project.clone() {
                     Some((root, relative, open)) => project_closing_actions(
                         server, source, &root, &relative, open, range, cancel, &options,
                     ),
@@ -619,7 +769,42 @@ impl Search {
                         closing_actions(server, source, &target.path, &target.text, range, &options)
                     }
                 };
-                code_actions(found, &uri, range, versioned)
+                let proofs: Vec<_> = (found.unwrap_or_default().iter())
+                    .map(|a| serde_json::json!({"title": a.title, "newText": a.new_text}))
+                    .collect();
+                serde_json::json!({
+                    "version": version,
+                    "range": range,
+                    "proofs": proofs,
+                    "timeLimitMs": options.time.as_millis() as u64,
+                })
+            }
+            SearchKind::SplitHole {
+                hole,
+                only,
+                versioned,
+                fixes,
+                last,
+            } => {
+                let text = target.text.clone();
+                let mut actions = fixes.as_array().cloned().unwrap_or_default();
+                actions.extend(hole_splits(
+                    server,
+                    source,
+                    target,
+                    &text,
+                    hole,
+                    only.as_deref(),
+                    &uri,
+                    versioned,
+                    cancel,
+                ));
+                actions.extend(last);
+                if actions.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(actions)
+                }
             }
             SearchKind::ContextAt { line, character } => {
                 context_at(server, source, target, line, character, cancel)
@@ -645,18 +830,16 @@ impl Search {
                     .and_then(|p| arms::split_arm(&text, &split, &p))
                 {
                     let edits = [edit];
-                    let edit = match versioned {
-                        Some(version) => serde_json::json!({"documentChanges": [{
-                            "textDocument": {"uri": uri.as_str(), "version": version},
-                            "edits": edits,
-                        }]}),
-                        None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-                    };
-                    actions.push(serde_json::json!({
-                        "title": format!("Split `{}` into its cases", split.name),
-                        "kind": "refactor.rewrite",
-                        "edit": edit,
-                    }));
+                    actions.push(with_cursor(
+                        serde_json::json!({
+                            "title": format!("Split `{}` into its cases", split.name),
+                            "kind": "refactor.rewrite",
+                            "edit": workspace_edit(&uri, versioned, &edits),
+                        }),
+                        &uri,
+                        &text,
+                        &edits,
+                    ));
                 }
                 if actions.is_empty() {
                     serde_json::Value::Null
@@ -695,6 +878,16 @@ impl Searcher {
         let cancel = Arc::new(AtomicBool::new(false));
         search.run(&self.options, &*self.source, cancel).to_string()
     }
+
+    /// Loads the library into the session [`Self::run`] keeps for a project's
+    /// searches, so that the first search doesn't wait for the load. A host
+    /// calls this when the search worker starts, while its page goes on
+    /// checking. No check cache: the browser's worker replays the library from
+    /// `Options::library`, which is where this load would look anyway.
+    pub fn warm(&self) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        with_project_session(&self.options, None, cancel, |_| ());
+    }
 }
 
 /// A code action request not answered yet. Whoever swaps `answered` first
@@ -712,14 +905,29 @@ struct PendingSearch {
     /// answers null.
     cancel: Arc<AtomicBool>,
     answered: AtomicBool,
+    /// The progress token the client was shown for this search; ended with
+    /// the answer, whoever sends it.
+    progress: Option<String>,
 }
 
 impl PendingSearch {
     fn answer(&self, sender: &Sender<Message>, response: Response) {
         if !self.answered.swap(true, Ordering::SeqCst) {
             let _ = sender.send(response.into());
+            if let Some(token) = &self.progress {
+                let _ = sender.send(progress_message(token, serde_json::json!({"kind": "end"})));
+            }
         }
     }
+}
+
+/// A `$/progress` notification for `token`.
+fn progress_message(token: &str, value: serde_json::Value) -> Message {
+    Notification::new(
+        "$/progress".to_string(),
+        serde_json::json!({"token": token, "value": value}),
+    )
+    .into()
 }
 
 /// What the main thread and the search workers share: the requests not
@@ -1008,7 +1216,7 @@ fn searched(
 }
 
 /// The document a search is about ([`Main::search_target`]).
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct SearchTarget {
     text: String,
     path: PathBuf,
@@ -1029,6 +1237,15 @@ struct Main {
     document_changes: bool,
     faults: Arc<Faults>,
     notices: Arc<Notices>,
+    settings: Arc<Settings>,
+    /// Counts the requests Main makes of the client (refreshes).
+    refreshes: AtomicU64,
+    /// The client asked for refreshes of tokens and hints after a check
+    /// ([`Options::refresh_tokens`], [`Options::refresh_hints`]).
+    refresh_tokens: AtomicBool,
+    /// The client shows server-started progress ([`Options::work_done_progress`]).
+    work_done_progress: bool,
+    refresh_hints: AtomicBool,
 }
 
 impl Main {
@@ -1046,7 +1263,7 @@ impl Main {
                     self.request(request);
                 }
                 Message::Notification(n) => self.notified(n),
-                Message::Response(_) => {}
+                Message::Response(response) => self.replied(response),
             }
         }
         Ok(())
@@ -1077,7 +1294,96 @@ impl Main {
         }
     }
 
+    /// `textDocument/prepareRename`, `textDocument/rename` and the command
+    /// that renames anyway: jobs for the checker, which has the project and
+    /// answers. They don't stop the check running (they change no text).
+    fn rename_request(&self, request: Request) {
+        let id = request.id.clone();
+        let refuse = |message: &str| {
+            let response = Response::new_err(
+                id.clone(),
+                ErrorCode::RequestFailed as i32,
+                message.to_string(),
+            );
+            let _ = self.connection.sender.send(response.into());
+        };
+        let document_changes = self.document_changes;
+        let file = |uri: &Url| -> Result<PathBuf, &'static str> {
+            if std_path(uri).is_some() {
+                return Err("the standard library can't be renamed here");
+            }
+            if uri.scheme() != "file" {
+                return Err("only files of a project can be renamed in");
+            }
+            uri.to_file_path()
+                .map_err(|()| "only files of a project can be renamed in")
+        };
+        let job = match request.method.as_str() {
+            request::PrepareRenameRequest::METHOD => {
+                let Ok(p) = parse::<lsp_types::TextDocumentPositionParams>(&request) else {
+                    return refuse("unreadable prepareRename request");
+                };
+                match file(&p.text_document.uri) {
+                    Ok(path) => rename::RenameJob::Prepare {
+                        id,
+                        path,
+                        position: p.position,
+                    },
+                    Err(why) => return refuse(why),
+                }
+            }
+            request::Rename::METHOD => {
+                let Ok(p) = parse::<lsp_types::RenameParams>(&request) else {
+                    return refuse("unreadable rename request");
+                };
+                let at = p.text_document_position;
+                match file(&at.text_document.uri) {
+                    Ok(path) => rename::RenameJob::Rename {
+                        id,
+                        path,
+                        position: at.position,
+                        new_name: p.new_name,
+                        document_changes,
+                    },
+                    Err(why) => return refuse(why),
+                }
+            }
+            _ => rename::RenameJob::Anyway {
+                id,
+                document_changes,
+            },
+        };
+        let _ = self.to_checker.send(Edit::Rename(job));
+    }
+
     fn request_uncaught(&self, request: Request) {
+        if matches!(
+            request.method.as_str(),
+            request::PrepareRenameRequest::METHOD | request::Rename::METHOD
+        ) {
+            self.rename_request(request);
+            return;
+        }
+        if request.method == request::ExecuteCommand::METHOD {
+            let command = request.params.get("command").and_then(|c| c.as_str());
+            if command == Some(rename::RENAME_ANYWAY) {
+                self.rename_request(request);
+            } else if command == Some(SEARCH_PROOF) {
+                self.search_proof(request);
+            } else if command == Some(SELECT_RANGE) {
+                // The client moves the cursor itself; there is nothing to do here.
+                let _ = (self.connection.sender)
+                    .send(Response::new_ok(request.id, serde_json::Value::Null).into());
+            } else {
+                let response = Response::new_err(
+                    request.id,
+                    ErrorCode::InvalidParams as i32,
+                    format!("unknown command {}", command.unwrap_or("")),
+                );
+                let _ = self.connection.sender.send(response.into());
+            }
+            return;
+        }
         let request = if request.method == request::CodeActionRequest::METHOD {
             self.code_action(request);
             return;
@@ -1117,22 +1423,67 @@ impl Main {
             nav.goals.get(&uri).and_then(|goals| {
                 goals
                     .iter()
-                    .map(|g| range(g.range))
-                    .find(|r| key(r.start) <= key(p.range.end) && key(p.range.start) <= key(r.end))
+                    .find(|g| {
+                        let r = range(g.range);
+                        key(r.start) <= key(p.range.end) && key(p.range.start) <= key(r.end)
+                    })
+                    .cloned()
             })
         };
-        let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
-            let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+        // The goals are from the last check; the text may have moved on
+        // since (the edit would land in the wrong place), so offer a goal
+        // only where a `?` still sits in the current text.
+        let goal = goal.filter(|g| {
+            let r = range(g.range);
+            let texts = self.texts.borrow();
+            texts.get(&uri).is_some_and(|t| {
+                let start = offset_at(t, r.start);
+                t.get(start..).is_some_and(|rest| rest.starts_with('?'))
+                    && position_at(t, start + 1) == r.end
+            })
+        });
+        let searching = Settings::on(&self.settings.proof_search);
+        let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+        let (Some(goal), Some(_)) = (
+            goal.filter(|_| searching),
+            self.search_target(&uri).filter(|_| searching),
+        ) else {
+            let header = {
+                let texts = self.texts.borrow();
+                let at = p.range.start;
+                (texts.get(&uri)).and_then(|t| arms::header_hole(t, at.line, at.character))
+            };
+            if let (Some((hole, name)), Some(target), true) =
+                (header, self.search_target(&uri), searching)
+            {
+                let document_changes = self.document_changes;
+                let fixes = fixes.clone();
+                self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+                    uri,
+                    target,
+                    time_ms: None,
+                    kind: SearchKind::SplitHole {
+                        hole,
+                        only: Some(name),
+                        versioned: document_changes.then_some(version),
+                        fixes,
+                        last: None,
+                    },
+                });
+                return;
+            }
             let split = {
                 let texts = self.texts.borrow();
                 let at = p.range.start;
                 (texts.get(&uri)).and_then(|t| arms::split_target(t, at.line, at.character))
             };
-            if let (Some(split), Some(target)) = (split, self.search_target(&uri)) {
+            if let (Some(split), Some(target), true) = (split, self.search_target(&uri), searching)
+            {
                 let document_changes = self.document_changes;
                 self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
                     uri,
                     target,
+                    time_ms: None,
                     kind: SearchKind::Split {
                         split,
                         versioned: document_changes.then_some(version),
@@ -1147,15 +1498,137 @@ impl Main {
                 .send(Response::new_ok(id, fixes).into());
             return;
         };
-        let document_changes = self.document_changes;
-        self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+        let range = range(goal.range);
+        // Only a `?` whose expected type is a proposition is a proof goal:
+        // a hole in a program's data (`Nat`, `List a`) has no proof to
+        // search for. When the sort wasn't known, don't offer it.
+        let proof = goal.prop == Some(true);
+        // The search for a proof is offered, not run: everything else is
+        // answered at once (D3519).
+        let search = proof.then(|| {
+            serde_json::json!({
+                "title": SEARCH_TITLE,
+                "kind": "quickfix",
+                "command": {
+                    "title": SEARCH_TITLE,
+                    "command": SEARCH_PROOF,
+                    "arguments": [{"uri": uri.as_str(), "range": range}],
+                },
+            })
+        });
+        // The splits come from the goal the last check published: each
+        // variable's constructor patterns are already in its context, so
+        // the list needs no search session and answers at once. Only the
+        // search for a proof is slow, and it waits to be picked.
+        let version = lock(&self.searches.versions).get(&uri).copied();
+        let versioned = self.document_changes.then_some(version).flatten();
+        let mut actions = fixes.as_array().cloned().unwrap_or_default();
+        {
+            let texts = self.texts.borrow();
+            if let Some(text) = texts.get(&uri) {
+                for (name, patterns) in pos::splittable_locals(&goal.context) {
+                    let Some(edits) = arms::split_hole(text, range.start, &name, &patterns) else {
+                        continue;
+                    };
+                    actions.push(with_cursor(
+                        serde_json::json!({
+                            "title": format!("Split on `{name}`"),
+                            "kind": "refactor.rewrite",
+                            "edit": workspace_edit(&uri, versioned, &edits),
+                        }),
+                        &uri,
+                        text,
+                        &edits,
+                    ));
+                }
+            }
+        }
+        actions.extend(search);
+        let answer = if actions.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::Value::Array(actions)
+        };
+        let _ = self
+            .connection
+            .sender
+            .send(Response::new_ok(id, answer).into());
+    }
+
+    /// `workspace/executeCommand` of [`SEARCH_PROOF`], with the document's
+    /// URI and the range of its `?`: runs the proof search the code action
+    /// offered. The answer is [`SearchKind::Proofs`]' (an empty `proofs`
+    /// when nothing closes the goal), or null when the text moved on
+    /// meanwhile; an error when the `?` is no longer there to start from,
+    /// or when it isn't a proof goal.
+    fn search_proof(&self, request: Request) {
+        let id = request.id.clone();
+        let argument = request.params.get("arguments").and_then(|a| a.get(0));
+        let uri = argument
+            .and_then(|a| a.get("uri"))
+            .and_then(|u| u.as_str())
+            .and_then(|u| Url::parse(u).ok());
+        let range = argument
+            .and_then(|a| a.get("range"))
+            .and_then(|r| serde_json::from_value::<lsp_types::Range>(r.clone()).ok());
+        let (Some(uri), Some(range)) = (uri, range) else {
+            self.fail_request(id, ErrorCode::InvalidParams, "bad arguments".to_string());
+            return;
+        };
+        let still_a_hole = self.texts.borrow().get(&uri).is_some_and(|t| {
+            let start = offset_at(t, range.start);
+            t.get(start..).is_some_and(|rest| rest.starts_with('?'))
+                && position_at(t, start + 1) == range.end
+        });
+        if !still_a_hole {
+            self.fail_request(
+                id,
+                ErrorCode::RequestFailed,
+                "The ? has moved or changed since the search was offered".to_string(),
+            );
+            return;
+        }
+        // The `?` must still be the proof goal the action was offered on:
+        // a hole in a program has no proof to search for, and when the
+        // sort isn't known it isn't offered either.
+        let proof = {
+            let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
+            let at = [
+                range.start.line,
+                range.start.character,
+                range.end.line,
+                range.end.character,
+            ];
+            (nav.goals.get(&uri))
+                .and_then(|goals| goals.iter().find(|g| g.range == at))
+                .and_then(|g| g.prop)
+        };
+        if proof != Some(true) {
+            self.fail_request(id, ErrorCode::RequestFailed, "not a proof goal".to_string());
+            return;
+        }
+        let target = self
+            .search_target(&uri)
+            .filter(|_| Settings::on(&self.settings.proof_search));
+        let Some(target) = target else {
+            self.fail_request(
+                id,
+                ErrorCode::RequestFailed,
+                "Proof search is switched off".to_string(),
+            );
+            return;
+        };
+        self.queue_search(id, &uri.clone(), "searchProof", move |version| Search {
             uri,
             target,
-            kind: SearchKind::CodeAction {
-                range,
-                versioned: document_changes.then_some(version),
-            },
+            time_ms: None,
+            kind: SearchKind::Proofs { range, version },
         });
+    }
+
+    fn fail_request(&self, id: lsp_server::RequestId, code: ErrorCode, message: String) {
+        let response = Response::new_err(id, code as i32, message);
+        let _ = self.connection.sender.send(response.into());
     }
 
     /// The quick fixes for the unknown names among `diagnostics`: each adds
@@ -1168,17 +1641,30 @@ impl Main {
         };
         let version = lock(&self.searches.versions).get(uri).copied();
         let mut actions = Vec::new();
-        let with_edit = |edit: lsp_types::TextEdit| {
-            let edits = [edit];
-            match version.filter(|_| self.document_changes) {
+        let with_edits =
+            |edits: &[lsp_types::TextEdit]| match version.filter(|_| self.document_changes) {
                 Some(version) => serde_json::json!({"documentChanges": [{
                     "textDocument": {"uri": uri.as_str(), "version": version},
                     "edits": edits,
                 }]}),
                 None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-            }
-        };
+            };
+        let with_edit = |edit: lsp_types::TextEdit| with_edits(&[edit]);
         for d in diagnostics {
+            if let Some(lsp_types::NumberOrString::String(code)) = &d.code
+                && let Some(title) = style::title(code)
+            {
+                let edits = style::edits(text, code, d.range);
+                if !edits.is_empty() {
+                    actions.push(serde_json::json!({
+                        "title": title,
+                        "kind": "quickfix",
+                        "diagnostics": [d],
+                        "edit": with_edits(&edits),
+                    }));
+                }
+                continue;
+            }
             let Some(data) = d.data.as_ref() else {
                 continue;
             };
@@ -1190,13 +1676,23 @@ impl Main {
                     .filter_map(|a| a.as_str().map(str::to_string))
                     .collect();
                 if let Some(edit) = arms::add_arms(text, d.range, &fills) {
-                    actions.push(serde_json::json!({
+                    let cursor = with_cursor(
+                        serde_json::json!({}),
+                        uri,
+                        text,
+                        std::slice::from_ref(&edit),
+                    );
+                    let mut action = serde_json::json!({
                         "title": if fills.len() == 1 { "Add the missing arm" } else { "Add the missing arms" },
                         "kind": "quickfix",
                         "diagnostics": [d],
                         "edit": with_edit(edit),
                         "isPreferred": actions.is_empty(),
-                    }));
+                    });
+                    if let Some(command) = cursor.get("command") {
+                        action["command"] = command.clone();
+                    }
+                    actions.push(action);
                 }
                 continue;
             }
@@ -1233,7 +1729,11 @@ impl Main {
     /// through its check cache, the file's own namespace unreplayed), so
     /// like the code action it runs on a search thread, and a newer
     /// request for the document, or an edit, supersedes it. The answer is
-    /// `{range, type, checked, locals: [{name, type, value?}]}`, or null.
+    /// `{range, type, checked, kind, hasType, locals: [{name, type,
+    /// value?}], declaration, step}` (`kind` is `proof` when the type is a
+    /// proposition, else `program`; `hasType` the type found when it isn't
+    /// `type`; `step`, on a step of a proof, `{form, description, range,
+    /// index, of, kind, before, after, adds, rule, target}`), or null.
     fn context_at(&self, request: Request) {
         let id = request.id.clone();
         let Ok(p) = serde_json::from_value::<lsp_types::TextDocumentPositionParams>(request.params)
@@ -1250,6 +1750,7 @@ impl Main {
         self.queue_search(id, &uri.clone(), "contextAt", move |_| Search {
             uri,
             target,
+            time_ms: None,
             kind: SearchKind::ContextAt { line, character },
         });
     }
@@ -1280,6 +1781,7 @@ impl Main {
         self.queue_search(request.id, &uri.clone(), "completion", move |_| Search {
             uri,
             target,
+            time_ms: None,
             kind: SearchKind::Members { dot, wanted },
         });
         None
@@ -1334,18 +1836,42 @@ impl Main {
         kind: &'static str,
         make: impl FnOnce(i32) -> Search,
     ) {
-        self.supersede(uri, Some(kind));
+        self.supersede(uri, Some(kind), "A newer request replaced this code action");
         let Some(version) = lock(&self.searches.versions).get(uri).copied() else {
             self.answer_null(id);
             return;
         };
+        // The proof search is the slow one (seconds, more the first time in
+        // a browser): the client shows it as progress while it runs.
+        let progress = (kind == "searchProof" && self.work_done_progress).then(|| {
+            format!(
+                "stitchwort-search-{}",
+                self.refreshes.fetch_add(1, Ordering::Relaxed) + 1
+            )
+        });
+        if let Some(token) = &progress {
+            let create = Request::new(
+                lsp_server::RequestId::from(format!("{token}-create")),
+                "window/workDoneProgress/create".to_string(),
+                serde_json::json!({"token": token}),
+            );
+            let _ = self.connection.sender.send(create.into());
+            let begin = serde_json::json!({
+                "kind": "begin",
+                "title": "Searching for a proof",
+                "cancellable": false,
+            });
+            let _ = self.connection.sender.send(progress_message(token, begin));
+        }
         let pending = Arc::new(PendingSearch {
             uri: uri.clone(),
             kind,
             cancel: Arc::new(AtomicBool::new(false)),
             answered: AtomicBool::new(false),
+            progress,
         });
-        let search = make(version);
+        let mut search = make(version);
+        search.time_ms = self.settings.search_time();
         let key = (uri.clone(), version, search.key());
         if lock(&self.searches.panicked).contains(&key) {
             self.answer_null(id);
@@ -1373,12 +1899,14 @@ impl Main {
             None => lock(&self.searches.versions).remove(uri),
         };
         lock(&self.searches.panicked).retain(|(u, ..)| u != uri);
-        self.supersede(uri, None);
+        self.supersede(uri, None, "The text changed while looking for code actions");
     }
 
-    /// Stops the searches for `uri` not answered yet, answering them with
-    /// no action (`null`).
-    fn supersede(&self, uri: &Url, kind: Option<&str>) {
+    /// Stops the searches for `uri` not answered yet. A code action is
+    /// answered with `ContentModified` (`reason`), not no action: the person
+    /// asked at a `?` that has a goal, and "No code action here" would be
+    /// false. Others are answered with no answer (`null`).
+    fn supersede(&self, uri: &Url, kind: Option<&str>, reason: &str) {
         let old: Vec<_> = lock(&self.searches.pending)
             .iter()
             .filter(|(_, p)| &p.uri == uri && kind.is_none_or(|k| p.kind == k))
@@ -1386,10 +1914,47 @@ impl Main {
             .collect();
         for (id, p) in old {
             p.cancel.store(true, Ordering::Relaxed);
-            p.answer(
-                &self.connection.sender,
-                Response::new_ok(id, serde_json::Value::Null),
-            );
+            let response = if p.kind == "codeAction" {
+                Response::new_err(id, ErrorCode::ContentModified as i32, reason.to_string())
+            } else {
+                Response::new_ok(id, serde_json::Value::Null)
+            };
+            p.answer(&self.connection.sender, response);
+        }
+    }
+
+    /// The client's response to a request of the server's: only the one that
+    /// offers "rename anyway" matters.
+    fn replied(&self, response: Response) {
+        let job = rename::RenameJob::Reply {
+            id: response.id,
+            result: response.result,
+            document_changes: self.document_changes,
+        };
+        let _ = self.to_checker.send(Edit::Rename(job));
+    }
+
+    /// Asks the client to ask again for what the settings change: hints,
+    /// lenses and tokens, if it said it can refresh them.
+    fn refresh_client(&self) {
+        let lenses = Settings::on(&self.settings.refresh_lenses);
+        for (wanted, method) in [
+            (
+                Settings::on(&self.refresh_tokens),
+                "workspace/semanticTokens/refresh",
+            ),
+            (
+                Settings::on(&self.refresh_hints),
+                "workspace/inlayHint/refresh",
+            ),
+            (lenses, "workspace/codeLens/refresh"),
+        ] {
+            if wanted {
+                let n = self.refreshes.fetch_add(1, Ordering::Relaxed) + 1;
+                let id = lsp_server::RequestId::from(format!("stitchwort-settings-{n}"));
+                let request = Request::new(id, method.to_string(), serde_json::Value::Null);
+                let _ = self.connection.sender.send(request.into());
+            }
         }
     }
 
@@ -1495,6 +2060,12 @@ impl Main {
                     let _ = self.to_checker.send(Edit::Saved { path, text: p.text });
                 }
             }
+            notification::DidChangeConfiguration::METHOD => {
+                let settings = n.params.get("settings").unwrap_or(&n.params);
+                if self.settings.apply(settings) {
+                    self.refresh_client();
+                }
+            }
             notification::DidChangeWatchedFiles::METHOD => {
                 let Ok(p) =
                     serde_json::from_value::<lsp_types::DidChangeWatchedFilesParams>(n.params)
@@ -1590,6 +2161,9 @@ impl Main {
         p: &lsp_types::InlayHintParams,
     ) -> Option<Vec<lsp_types::InlayHint>> {
         let uri = &p.text_document.uri;
+        if !Settings::on(&self.settings.inlay_hints) {
+            return Some(Vec::new());
+        }
         let texts = self.texts.borrow();
         let text = texts.get(uri)?;
         let (_, ws, place) = locate(nav, uri)?;
@@ -1615,6 +2189,12 @@ impl Main {
     /// `textDocument/semanticTokens/full`: each name coloured by what it
     /// resolved to ([`pos_marks::semantic_marks`]), from the last check.
     fn semantic_tokens(&self, nav: &Nav, uri: &Url) -> Option<lsp_types::SemanticTokens> {
+        if !Settings::on(&self.settings.semantic_colours) {
+            return Some(lsp_types::SemanticTokens {
+                result_id: None,
+                data: Vec::new(),
+            });
+        }
         let (_, ws, place) = locate(nav, uri)?;
         let file = ws.files.get(&place)?;
         let mut data = Vec::new();
@@ -1808,6 +2388,23 @@ impl Main {
                     serde_json::to_value(outline.map(DocumentSymbolResponse::Nested))
                 })
             }
+            request::FoldingRangeRequest::METHOD => {
+                parse::<lsp_types::FoldingRangeParams>(&request).map(|p| {
+                    let uri = &p.text_document.uri;
+                    let text = self.text(uri);
+                    let ranges = match locate(&nav, uri).and_then(|(_, ws, p)| ws.files.get(&p)) {
+                        Some(f) => folding_ranges(&f.outline, text.as_deref()),
+                        None => text.as_deref().map_or_else(Vec::new, |text| {
+                            (uri.scheme() == "file" && std_path(uri).is_none())
+                                .then(|| outline_of_text(text, OUTLINE_STACK))
+                                .map_or_else(Vec::new, |outline| {
+                                    folding_ranges(&outline, Some(text))
+                                })
+                        }),
+                    };
+                    serde_json::to_value(ranges)
+                })
+            }
             request::WorkspaceSymbolRequest::METHOD => {
                 parse::<lsp_types::WorkspaceSymbolParams>(&request).map(|p| {
                     let found = workspace_symbols(&nav, &p.query);
@@ -1819,7 +2416,9 @@ impl Main {
                     let texts = self.texts.borrow();
                     let uri = &p.text_document.uri;
                     let lenses = match texts.get(uri) {
-                        Some(text) if uri.scheme() == "file" => {
+                        Some(text)
+                            if uri.scheme() == "file" && Settings::on(&self.settings.code_lens) =>
+                        {
                             lens::code_lenses(uri.as_str(), text)
                         }
                         _ => Vec::new(),
@@ -2019,9 +2618,7 @@ fn lookup<'n>(
 /// quotes included.
 fn includes(text: &str) -> Vec<(String, stitchwort_syntax::Span)> {
     let file = SourceMap::new().add("include.sw", text);
-    let Ok(tokens) = stitchwort_syntax::lex(file, text) else {
-        return Vec::new();
-    };
+    let tokens = stitchwort_syntax::lex_recovering(file, text).tokens;
     tokens
         .windows(2)
         .filter(|pair| pair[0].tok == stitchwort_syntax::Tok::KwInclude)
@@ -2236,6 +2833,67 @@ fn document_symbols(outline: &[OutlineItem]) -> Vec<DocumentSymbol> {
     build(outline, None)
 }
 
+/// A file's folds: one per top-level declaration on more than one line, and
+/// one per run of three or more consecutive line comments.
+fn folding_ranges(outline: &[OutlineItem], text: Option<&str>) -> Vec<FoldingRange> {
+    let mut folds: Vec<FoldingRange> = (outline.iter())
+        .filter(|item| item.parent.is_none())
+        .filter_map(|item| {
+            let [start, _, end, _] = item.full_range;
+            (start < end).then(|| FoldingRange {
+                start_line: start,
+                end_line: end,
+                ..Default::default()
+            })
+        })
+        .collect();
+    if let Some(text) = text {
+        folds.extend(comment_folds(text));
+    }
+    folds.sort_by_key(|f| (f.start_line, f.end_line));
+    folds
+}
+
+/// The folds of runs of three or more consecutive line comments.
+fn comment_folds(text: &str) -> Vec<FoldingRange> {
+    let mut sources = SourceMap::new();
+    let id = sources.add(String::new(), text.to_string());
+    let (lexed, _) = stitchwort_syntax::lex_recovering_with_trivia(id, text);
+    let push_run = |folds: &mut Vec<FoldingRange>, (start, end): (u32, u32)| {
+        if end - start >= 2 {
+            folds.push(FoldingRange {
+                start_line: start,
+                end_line: end,
+                kind: Some(FoldingRangeKind::Comment),
+                ..Default::default()
+            });
+        }
+    };
+    let mut folds = Vec::new();
+    let mut run: Option<(u32, u32)> = None;
+    let (mut at, mut line) = (0, 0);
+    for trivia in lexed.trivia.iter().chain(std::iter::once(&lexed.eof)) {
+        for comment in &trivia.leading {
+            let start = comment.span.start as usize;
+            line += text[at..start].bytes().filter(|&b| b == b'\n').count() as u32;
+            at = start;
+            run = Some(match run {
+                // Two comments on one line belong to the same run.
+                Some((first, last)) if line <= last + 1 => (first, line),
+                Some((first, last)) => {
+                    push_run(&mut folds, (first, last));
+                    (line, line)
+                }
+                None => (line, line),
+            });
+        }
+    }
+    if let Some(run) = run {
+        push_run(&mut folds, run);
+    }
+    folds
+}
+
 /// Whether the letters of `query` appear in order in `name`, ignoring case.
 fn subsequence(query: &str, name: &str) -> bool {
     let mut chars = name.chars().flat_map(char::to_lowercase);
@@ -2418,6 +3076,62 @@ impl ProjectWork {
     }
 }
 
+/// The in-memory check caches of the projects loaded so far, by project
+/// folder, kept for the life of the checker so that loading the same project
+/// again (the page re-opening it, SW-3072) replays what the first check
+/// wrote instead of elaborating it again. Entries are keyed by content, so a
+/// store from an earlier load is sound for a later one: a changed file, a
+/// changed dependency or another compiler build is a miss, not a stale hit.
+///
+/// All the stores share one [`LayerBudget`], so their entries together stay
+/// under the 192 MB cap (`LAYER_CAP_BYTES`) rather than each having its own.
+/// A newly loaded project makes room for itself by clearing the least
+/// recently loaded projects' entries while the others hold more than half
+/// the budget. The stores are kept (emptied) rather than dropped, since the
+/// loaded project's session holds the same store and would keep it alive.
+#[derive(Default)]
+struct ProjectCaches {
+    budget: LayerBudget,
+    /// The number of the most recent load: each store's age.
+    loaded: Cell<u64>,
+    stores: RefCell<BTreeMap<PathBuf, (u64, Rc<LayeredStore>)>>,
+}
+
+impl ProjectCaches {
+    /// The store for the project at `root`: the one an earlier load made, or
+    /// a new one sharing the budget.
+    fn store(
+        &self,
+        root: &Path,
+        bundle: &Arc<LibraryBundle>,
+        log: Option<&stitchwort_driver::check_cache::StoreLog>,
+    ) -> Rc<LayeredStore> {
+        let mut stores = self.stores.borrow_mut();
+        let loaded = self.loaded.get() + 1;
+        self.loaded.set(loaded);
+        if let Some((age, store)) = stores.get_mut(root) {
+            *age = loaded;
+            return store.clone();
+        }
+        while self.budget.used() > LAYER_CAP_BYTES / 2 {
+            let oldest = (stores.iter())
+                .min_by_key(|(_, (age, _))| *age)
+                .map(|(root, _)| root.clone());
+            let Some(oldest) = oldest else { break };
+            if let Some((_, store)) = stores.remove(&oldest) {
+                store.clear();
+            }
+        }
+        let mut store = LayeredStore::with_budget(bundle.clone(), self.budget.clone());
+        if let Some(log) = log {
+            store = store.logging(log.clone());
+        }
+        let store = Rc::new(store);
+        stores.insert(root.to_path_buf(), (loaded, store.clone()));
+        store
+    }
+}
+
 enum Work {
     Project(Box<ProjectWork>),
     File(Box<LiveFile>),
@@ -2492,6 +3206,12 @@ struct Checker {
     stopped: Option<String>,
     /// Where recovered errors are shown; none when driven inline.
     notices: Option<Arc<Notices>>,
+    /// The rename last refused for its problems, which can be applied anyway.
+    anyway: Option<rename::Anyway>,
+    /// Warnings kept on the declarations a rename changed the meaning of.
+    warnings: rename::Warnings,
+    /// The projects' in-memory check caches, kept across loads (SW-3072).
+    caches: ProjectCaches,
 }
 
 /// A panic in the checker: the workspace it was working on, if known.
@@ -2707,6 +3427,9 @@ impl Checker {
             retired: BTreeSet::new(),
             stopped: None,
             notices: None,
+            anyway: None,
+            warnings: BTreeMap::new(),
+            caches: ProjectCaches::default(),
         }
     }
 
@@ -3018,14 +3741,17 @@ impl Checker {
     /// each open document that everything it is looking at has been checked
     /// and published for: once the files being edited and those it asked for
     /// (`stitchwort/focus`) are checked, though the rest of a project may not
-    /// be. Sent again when a version has changed, whether or not that
-    /// changed any diagnostic (a document opened with the text the server
-    /// has already).
+    /// be. A document waits only for its own workspace: another one may still
+    /// be checking in the background (the project edited before it), which
+    /// mustn't hold back a document of the one now edited. Sent again when a
+    /// version has changed, whether or not that changed any diagnostic (a
+    /// document opened with the text the server has already).
     fn announce(&mut self) {
-        if self.work.values().any(Work::focus_pending) {
-            return;
-        }
         let versions: BTreeMap<String, i32> = (self.versions.iter())
+            .filter(|(path, _)| {
+                let key = self.workspace_of(path);
+                self.work.get(&key).is_none_or(|work| !work.focus_pending())
+            })
             .filter_map(|(path, v)| Some((Url::from_file_path(path).ok()?.to_string(), *v)))
             .collect();
         if versions == self.announced {
@@ -3122,7 +3848,9 @@ impl Checker {
             };
             let project = matches!(work, Work::Project(_));
             let answered = started.elapsed();
+            let published = Instant::now();
             self.publish(key, project, answers);
+            stitchwort_driver::live::phases::add("publish", published.elapsed());
             self.unanswered = false;
             trace(|| {
                 format!(
@@ -3134,6 +3862,13 @@ impl Checker {
     }
 
     fn publish(&mut self, key: &Path, project: bool, answers: Answers) {
+        self.publish_as(key, project, answers, true);
+    }
+
+    /// Publishes `answers`; with `versioned` false the diagnostics aren't
+    /// for any version of a document (they are for the text a rename left,
+    /// which the client has yet to apply).
+    fn publish_as(&mut self, key: &Path, project: bool, answers: Answers, versioned: bool) {
         let mut guard = self.nav.write().unwrap_or_else(|e| e.into_inner());
         let nav = &mut *guard;
         let nav_goals = &mut nav.goals;
@@ -3150,12 +3885,15 @@ impl Checker {
                 && let Some(uri) = ws.uri(key, &place)
             {
                 let path = uri.to_file_path().ok();
-                let version = path.and_then(|p| self.versions.get(&p).copied());
+                let version = path
+                    .and_then(|p| self.versions.get(&p).copied())
+                    .filter(|_| versioned);
                 let mut diagnostics: Vec<lsp_types::Diagnostic> = file
                     .diagnostics
                     .iter()
                     .map(|d| diagnostic(ws, key, d))
                     .collect();
+                diagnostics.extend(rename::warnings_for(&self.warnings, &uri));
                 let mut goals = pos::goals_of(&file);
                 if let Some((_, before)) = self.published.get(&uri) {
                     let kept = goals_kept(before, &file);
@@ -3306,6 +4044,13 @@ impl Checker {
     }
 
     fn apply(&mut self, edit: Edit) {
+        if let Edit::Rename(job) = edit {
+            self.rename_job(job);
+            return;
+        }
+        if let Edit::Change { path, text, .. } = &edit {
+            self.rename_warnings_stale(path, text);
+        }
         self.unanswered = true;
         self.record(&edit);
         if let Some(path) = edit.path()
@@ -3382,6 +4127,7 @@ impl Checker {
                 self.also = paths;
                 self.give_also();
             }
+            Edit::Rename(_) => unreachable!("handled first"),
             Edit::Disk { path } => {
                 let open = self.versions.contains_key(&path);
                 let disk = self.source.read(&path);
@@ -3508,6 +4254,14 @@ impl Checker {
             .insert(path.to_path_buf(), Work::File(Box::new(live)));
     }
 
+    /// Forgets the project at `root`, as a host that closed it would: the
+    /// next document opened or edited under it loads the project again. Its
+    /// in-memory check cache is kept ([`ProjectCaches`]), so the reload
+    /// replays what the first load checked (SW-3072).
+    fn forget_project(&mut self, root: &Path) {
+        self.work.remove(root);
+    }
+
     /// Reads the project in folder `dir`.
     fn load_project(&self, dir: &Path) -> Option<ProjectWork> {
         if self.options.faults.load_panics_now(dir) {
@@ -3530,9 +4284,13 @@ impl Checker {
                 writable: writable.clone(),
             }));
         } else if let Some(bundle) = self.options.library.get() {
-            session
-                .elab
-                .set_check_cache(Rc::new(BundleStore(bundle.clone())));
+            // The same project loaded again (the page re-opened it) gets the
+            // store the first load filled (SW-3072): its entries are keyed by
+            // content, so they are found again unless something changed.
+            let store = self
+                .caches
+                .store(dir, bundle, self.options.namespace_log.as_ref());
+            session.elab.set_check_cache(store);
             skip = bundle.left_out.clone();
         }
         if let Some(include) = self.source.files(dir).include_files() {
@@ -3559,9 +4317,10 @@ impl Checker {
 /// from the client ([`Inline::receive`]) and, between messages, lets it do
 /// its background work a piece at a time ([`Inline::tick`]): the check of
 /// one namespace, or a queued search. An edit received between two ticks
-/// makes the next tick check the new text first; nothing is cancelled
-/// mid-namespace, as there is no other thread to set the flag. Waiting for
-/// typing to pause is the host's.
+/// makes the next tick check the new text first; a host that installs a
+/// cancel hook (`stitchwort_core::budget::Budget::set_cancel_hook`) can
+/// also stop a check part way through a namespace. Waiting for typing to
+/// pause is the host's.
 ///
 /// A search takes seconds, so a host with a second worker takes the
 /// searches as they are queued ([`Inline::take_searches`]), runs them there
@@ -3612,6 +4371,11 @@ impl Inline {
             document_changes: false,
             faults: options.faults.clone(),
             notices,
+            settings: options.settings.clone(),
+            refreshes: AtomicU64::new(0),
+            refresh_tokens: AtomicBool::new(false),
+            work_done_progress: false,
+            refresh_hints: AtomicBool::new(false),
         };
         Ok(Inline {
             main,
@@ -3622,6 +4386,14 @@ impl Inline {
             handed: HashMap::default(),
             options,
         })
+    }
+
+    /// For tests: forgets the project at `root` as if the page had closed it,
+    /// so that the next edit or open under it loads the project again; the
+    /// in-memory check cache kept by [`ProjectCaches`] is reused (SW-3072).
+    #[doc(hidden)]
+    pub fn forget_project(&mut self, root: &Path) {
+        self.checker.forget_project(root);
     }
 
     /// The searches queued since the last call, for the host to run:
@@ -3669,8 +4441,13 @@ impl Inline {
                 request::Initialize::METHOD => {
                     let (reply, document_changes) = initialize(&request.params, &mut self.options);
                     self.main.document_changes = document_changes;
+                    self.main.work_done_progress = self.options.work_done_progress;
+                    (self.main.refresh_tokens)
+                        .store(self.options.refresh_tokens, Ordering::Relaxed);
+                    (self.main.refresh_hints).store(self.options.refresh_hints, Ordering::Relaxed);
                     self.checker.options.refresh_tokens = self.options.refresh_tokens;
                     self.checker.options.refresh_hints = self.options.refresh_hints;
+                    self.checker.options.offer_rename_anyway = self.options.offer_rename_anyway;
                     let response = Response::new_ok(request.id, reply);
                     let _ = self.main.connection.sender.send(response.into());
                 }
@@ -3678,7 +4455,7 @@ impl Inline {
                 _ => self.main.request(request),
             },
             Ok(Message::Notification(n)) => self.main.notified(n),
-            Ok(Message::Response(_)) => {}
+            Ok(Message::Response(response)) => self.main.replied(response),
             Err(e) => trace(|| format!("unreadable message: {e}")),
         }
         self.sent()
@@ -3833,7 +4610,8 @@ fn diagnostic(
         source: Some("stitchwort".to_string()),
         message,
         related_information: (!related.is_empty()).then_some(related),
-        tags: None,
+        // An arm that can't be chosen is shown faded, as unused code is.
+        tags: (d.code == "W-UNREACHABLE").then(|| vec![lsp_types::DiagnosticTag::UNNECESSARY]),
         data: match (&d.import, &d.missing) {
             (Some(i), _) => {
                 Some(serde_json::json!({ "import": { "path": i.path, "item": i.item } }))
@@ -3858,12 +4636,37 @@ fn context_at(
 ) -> serde_json::Value {
     let found = with_context(server, source, target, line, character, cancel, |_, c| c);
     match found {
-        Some(c) => serde_json::json!({
-            "range": range(c.range),
-            "type": c.ty,
-            "checked": c.checked,
-            "locals": c.locals,
-        }),
+        Some(c) => {
+            let kind = |proof: bool| if proof { "proof" } else { "program" };
+            let step = c.step.as_ref().map(|s| {
+                serde_json::json!({
+                    "form": s.form,
+                    "description": s.description,
+                    "range": range(s.range),
+                    "index": s.index,
+                    "of": s.of,
+                    "kind": kind(s.proof),
+                    "before": s.before,
+                    "beforeComputed": s.before_computed,
+                    "after": s.after,
+                    "afterComputed": s.after_computed,
+                    "adds": s.adds,
+                    "rule": s.rule,
+                    "target": s.target,
+                })
+            });
+            serde_json::json!({
+                "range": range(c.range),
+                "type": c.ty,
+                "typeComputed": c.ty_computed,
+                "checked": c.checked,
+                "kind": kind(c.proof),
+                "hasType": c.found,
+                "locals": c.locals,
+                "declaration": c.declaration,
+                "step": step,
+            })
+        }
         None => serde_json::Value::Null,
     }
 }
@@ -3933,7 +4736,6 @@ fn search_session(server: &Options) -> Session {
 /// searches of projects' files, rewound to just after the load: a rewound
 /// session gives what a fresh one does (`rewind.rs`), and loading the
 /// library again is most of a search of a small project.
-#[cfg(not(target_family = "wasm"))]
 struct Warm {
     /// What the session was made from; another stack or library bundle
     /// makes another session.
@@ -3942,7 +4744,6 @@ struct Warm {
     mark: stitchwort_driver::rewind::Mark,
 }
 
-#[cfg(not(target_family = "wasm"))]
 thread_local! {
     static WARM: std::cell::RefCell<Option<Warm>> = const { std::cell::RefCell::new(None) };
 }
@@ -3952,21 +4753,14 @@ thread_local! {
 /// from the project's check cache `cache` (the first time, or when the
 /// library bundle changes) or the bundle. The session is kept, rewound,
 /// for the next search on this thread: about 0.45 GB for as long as the
-/// thread lives. Not in the browser, where memory is dearer and a page
-/// has one search worker.
+/// thread lives. In the browser that thread is the page's one search
+/// worker, so only its first search loads the library (17 s there).
 fn with_project_session<T>(
     server: &Options,
     cache: Option<&Path>,
     cancel: Arc<AtomicBool>,
     f: impl FnOnce(&mut Session) -> T,
 ) -> T {
-    #[cfg(target_family = "wasm")]
-    {
-        let mut session = search_session(server);
-        session.share_cancel_flag(cancel);
-        f(&mut session)
-    }
-    #[cfg(not(target_family = "wasm"))]
     {
         let key = (
             server.stack,
@@ -4090,6 +4884,65 @@ fn members_key(target: &SearchTarget, dot: usize, wanted: usize) -> String {
     format!("{:?}\n{others:?}\n{text}", target.path)
 }
 
+/// The edit that applies `edits` to the document, named by `versioned`
+/// when the client checks versions.
+fn workspace_edit(
+    uri: &Url,
+    versioned: Option<i32>,
+    edits: &[lsp_types::TextEdit],
+) -> serde_json::Value {
+    match versioned {
+        Some(version) => serde_json::json!({"documentChanges": [{
+            "textDocument": {"uri": uri.as_str(), "version": version},
+            "edits": edits,
+        }]}),
+        None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+    }
+}
+
+/// The "Split `x`" actions for the `?` at `hole`: one for each variable in
+/// scope there that can be split (all of them, or just `only`).
+#[allow(clippy::too_many_arguments)]
+fn hole_splits(
+    server: &Options,
+    source: &dyn Source,
+    target: SearchTarget,
+    text: &str,
+    hole: Position,
+    only: Option<&str>,
+    uri: &Url,
+    versioned: Option<i32>,
+    cancel: Arc<AtomicBool>,
+) -> Vec<serde_json::Value> {
+    let variables = with_context(
+        server,
+        source,
+        target,
+        hole.line,
+        hole.character,
+        cancel,
+        |session, context| context.map(|c| session.splittable(&c)),
+    );
+    variables
+        .into_iter()
+        .flatten()
+        .filter(|(name, _)| only.is_none_or(|o| o == name))
+        .filter_map(|(name, patterns)| {
+            let edits = arms::split_hole(text, hole, &name, &patterns)?;
+            Some(with_cursor(
+                serde_json::json!({
+                    "title": format!("Split on `{name}`"),
+                    "kind": "refactor.rewrite",
+                    "edit": workspace_edit(uri, versioned, &edits),
+                }),
+                uri,
+                text,
+                &edits,
+            ))
+        })
+        .collect()
+}
+
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on
 /// its own) with a proof that closes it.
 fn closing_actions(
@@ -4158,33 +5011,61 @@ fn ranged(r: lsp_types::Range) -> [u32; 4] {
     [r.start.line, r.start.character, r.end.line, r.end.character]
 }
 
-/// The code actions for the client: each edit replaces `range` of the
-/// document.
-fn code_actions(
-    found: Option<Vec<pos::Action>>,
+/// The command a split or "add the missing arms" action carries: the client
+/// runs it after the edit, to put the cursor on the first new `?` (D3530).
+/// A `WorkspaceEdit` cannot move the cursor, so this is the one rule for
+/// every editor; its argument is `{uri, range}` of that `?` in the text as
+/// it is after the edit.
+pub const SELECT_RANGE: &str = "stitchwort.selectRange";
+
+/// `action` with the [`SELECT_RANGE`] command for the first `?` the `edits`
+/// (non-overlapping, in any order) insert into `text`; unchanged when they
+/// insert none.
+fn with_cursor(
+    mut action: serde_json::Value,
     uri: &Url,
-    range: lsp_types::Range,
-    versioned: Option<i32>,
+    text: &str,
+    edits: &[lsp_types::TextEdit],
 ) -> serde_json::Value {
-    let Some(found) = found else {
-        return serde_json::Value::Null;
-    };
-    let action = |a: &pos::Action| {
-        let edits = [serde_json::json!({"range": range, "newText": a.new_text})];
-        // A client that applies versioned edits checks the version itself;
-        // the others get the plain form (the server has already dropped a
-        // result for text that moved on).
-        let edit = match versioned {
-            Some(version) => serde_json::json!({"documentChanges": [{
-                "textDocument": {"uri": uri.as_str(), "version": version},
-                "edits": edits,
-            }]}),
-            None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-        };
-        serde_json::json!({"title": a.title, "kind": "quickfix", "edit": edit})
-    };
-    serde_json::Value::Array(found.iter().map(action).collect())
+    let mut spans: Vec<(usize, usize, &str)> = edits
+        .iter()
+        .map(|e| {
+            (
+                offset_at(text, e.range.start),
+                offset_at(text, e.range.end),
+                e.new_text.as_str(),
+            )
+        })
+        .collect();
+    spans.sort_by_key(|s| s.0);
+    let mut after = String::new();
+    let mut copied = 0;
+    let mut first = None;
+    for (from, to, new_text) in spans {
+        after.push_str(text.get(copied..from).unwrap_or_default());
+        if first.is_none() {
+            first = new_text.find('?').map(|i| after.len() + i);
+        }
+        after.push_str(new_text);
+        copied = to;
+    }
+    after.push_str(text.get(copied..).unwrap_or_default());
+    if let Some(at) = first {
+        let range = lsp_types::Range::new(position_at(&after, at), position_at(&after, at + 1));
+        action["command"] = serde_json::json!({
+            "title": "Select the first new ?",
+            "command": SELECT_RANGE,
+            "arguments": [{"uri": uri.as_str(), "range": range}],
+        });
+    }
+    action
 }
+
+/// The command of the code action that searches for a proof of a `?`
+/// (D3519): the search runs when it is picked, not in the code-action
+/// request, which answers at once.
+pub const SEARCH_PROOF: &str = "stitchwort.searchProof";
+const SEARCH_TITLE: &str = "Search for a proof";
 
 /// The custom request for the goal at the cursor (docs/proposals/
 /// lsp-goal-holes.md §5, D640).
@@ -4206,6 +5087,7 @@ fn goal_at(nav: &Nav, uri: &Url, position: Position) -> Option<serde_json::Value
         "range": range(found.range),
         "owner": found.owner,
         "goal": found.goal,
+        "goalComputed": found.goal_computed,
         "context": found.context,
         "text": found.text,
     }))
@@ -4223,7 +5105,10 @@ fn is_goal(diagnostic: &lsp_types::Diagnostic) -> bool {
 /// while the next token is typed, and flicker back. A goal stays when it
 /// lies in a stretch outside every declaration that parses, and a parse
 /// error is in the same stretch. It keeps its old place (docs/proposals/
-/// lsp-goal-holes.md §4.1).
+/// lsp-goal-holes.md §4.1). A declaration whose body didn't parse is kept
+/// in the outline with a range covering that body (SW-3199); for this, its
+/// name alone is the declaration, so a goal in the broken body stays in the
+/// stretch the parse error is in.
 fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_types::Diagnostic> {
     let position = |p: Position| (p.line, p.character);
     // The stretch a position is in: the end of the declaration before it
@@ -4232,7 +5117,8 @@ fn goals_kept(before: &[lsp_types::Diagnostic], file: &FileAnswers) -> Vec<lsp_t
         let mut previous_end = (0, 0);
         let mut next_start = (u32::MAX, u32::MAX);
         for item in file.outline.iter().filter(|item| item.parent.is_none()) {
-            let [l1, c1, l2, c2] = item.full_range;
+            let full = item.full_range;
+            let [l1, c1, l2, c2] = if item.body_error { item.range } else { full };
             let (start, end) = ((l1, c1), (l2, c2));
             if start <= at && at <= end {
                 return None;

@@ -1,0 +1,32 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `followsCons`
+    ╭─[ goals/lifted-match.sw:14:91 ]
+    │
+ 14 │ theorem followsCons ∀ (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?
+    │                                                                                           ┬  
+    │                                                                                           ╰── x: Nat
+    │                                                                                               rest: List Nat
+    │                                                                                               flag: Bool
+    │                                                                                               ⊢ x ≤ 3 ∧ (match flag with …)
+────╯
+[GOAL] Goal: in `statementMatch`
+    ╭─[ goals/lifted-match.sw:22:3 ]
+    │
+ 22 │   ?
+    │   ┬  
+    │   ╰── flag: Bool
+    │       n: Nat
+    │       ⊢ (match flag with …) ≤ n
+────╯
+[GOAL] Goal: in `pairMatch`
+    ╭─[ goals/lifted-match.sw:31:3 ]
+    │
+ 31 │   ?
+    │   ┬  
+    │   ╰── a: Nat
+    │       b: Nat
+    │       ⊢ (match a, b with …) ≤ 2
+────╯

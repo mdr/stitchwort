@@ -41,15 +41,14 @@ def Window.sumsTo (window: Window) (number: Nat): Bool :=
 
 --| The first number of `front.drop preamble` that its `preamble` numbers
 --| before it don't sum to.
-def firstInvalidFrom (preamble: Nat) (front: List Nat): Option Nat :=
-  match front.drop preamble with
-    | [] => None
-    | [number, .._] =>
-      if ({ numbers = front.take preamble }: Window).sumsTo number then
-        match front with
-          | [] => None
-          | [_, ..rest] => firstInvalidFrom preamble rest
-      else Some number
+def firstInvalidFrom (preamble: Nat) (front: List Nat): Option Nat := match front.drop preamble with
+  | [] => None
+  | [number, .._] =>
+    if ({ numbers = front.take preamble }: Window).sumsTo number then
+      match front with
+        | [] => None
+        | [_, ..rest] => firstInvalidFrom preamble rest
+    else Some number
 
 --| Part 1: the first number after the preamble that isn't the sum of two
 --| different numbers among the `preamble` before it.
@@ -59,7 +58,7 @@ def XmasData.firstInvalid (data: XmasData) (preamble: Nat): Option Nat := firstI
 --| `front`, summing to `sum`, followed by `rest` (`front.drop count`).
 --| It grows by taking from `rest` and shrinks by dropping from `front`;
 --| each step does one or the other, so the run ends.
-def runFrom (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat): Option (List Nat)
+def runFrom (target: Nat) (front: List Nat) (count sum: Nat) (rest: List Nat): Option (List Nat)
     decreasing front.length + rest.length
 :=
   if target < sum then
@@ -75,7 +74,8 @@ def runFrom (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List 
 --| A contiguous run of at least two numbers summing to `target`: for each
 --| end, the window is the longest run ending there whose sum is at most
 --| `target`, so any run summing to it is found.
-def XmasData.runSumming (data: XmasData) (target: Nat): Option (List Nat) := runFrom target data.numbers 0 0 data.numbers
+def XmasData.runSumming (data: XmasData) (target: Nat): Option (List Nat) :=
+  runFrom target data.numbers 0 0 data.numbers
 
 --| Part 2: the smallest plus the largest number of a contiguous run of at
 --| least two numbers summing to `invalid`.

@@ -3,14 +3,9 @@
 -- stays in column 0 (docs/proposals/opaque-definitions.md).
 export opaque def double (n: Nat): Nat := n + n
 
-opaque def triple (n: Nat): Nat
-    unfolding double, half
-:=
-  double n + n
+opaque def triple (n: Nat): Nat unfolding double, half := double n + n
 
-theorem tripleTwo: triple 2 = 6
-    unfolding triple :=
-  rfl
+theorem tripleTwo: triple 2 = 6 unfolding triple := rfl
 
 opaque def countDown (n: Nat): Nat
     decreasing n

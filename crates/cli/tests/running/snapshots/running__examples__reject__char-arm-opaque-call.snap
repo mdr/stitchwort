@@ -1,13 +1,13 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
-    ╭─[ reject/char-arm-opaque-call.sw:12:15 ]
+    ╭─[ reject/char-arm-opaque-call.sw:12:12 ]
     │
- 12 │   | 'a', h => rfl
-    │               ─┬─  
-    │                ╰─── `secret 'a'` and `secret 'a'` aren't equal
+ 12 │   | 'a' => rfl
+    │            ─┬─  
+    │             ╰─── `secret 'a'` and `secret 'a'` aren't equal
     │ 
     │ Note 1: the two sides differ only in a proof inside them, which isn't skipped under an opaque, axiom or same-group call; prove it with `Eq.cong` (e.g. `Eq.cong secret h`)
     │ 

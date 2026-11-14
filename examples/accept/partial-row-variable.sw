@@ -8,12 +8,11 @@ import Std (Each, Fail, IO, Pair)
 
 -- Echoes every line it reads, until the input runs out: a loop with no
 -- bound, so it's partial.
-def echo(): {IO, Partial} () :=
-  match IO.readLine() with
-    | None => ()
-    | Some line =>
-      IO.print line
-      echo()
+def echo(): {IO, Partial} () := match IO.readLine() with
+  | None => ()
+  | Some line =>
+    IO.print line
+    echo()
 
 -- `IO.simulate` around it: partial too, and a test can run it, since a
 -- scripted input runs out.
@@ -49,11 +48,10 @@ def parsed (t: Text): Result Nat Text := Fail.toResult (() => t.toNatOrFail)
 
 theorem parsedSeven: parsed "7" = Ok 7 := rfl
 
-def echoedOnce: Pair (List Text) () :=
-  IO.simulate ["hi"] (() =>
-    match IO.readLine() with
-      | None => ()
-      | Some line => IO.print line)
+def echoedOnce: Pair (List Text) () := IO.simulate ["hi"] (() =>
+  match IO.readLine() with
+    | None => ()
+    | Some line => IO.print line)
 
 theorem echoedOnceHi: echoedOnce = MkPair ["hi"] () := rfl
 

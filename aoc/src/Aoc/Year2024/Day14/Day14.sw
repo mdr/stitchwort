@@ -34,7 +34,8 @@ def Space.fromArgs (args: List Text): {Fail} Space :=
 def solveIn (space: Space): {IO, Fail} () :=
   let robots := parseRobots IO.readAll()
   robots.withIndex
-    |> .map (((line, robot)) => Fail.ensure (space.contains robot.position) "line ${line + 1}: the robot starts outside the space")
+    |> .map (((line, robot)) =>
+      Fail.ensure (space.contains robot.position) "line ${line + 1}: the robot starts outside the space")
   IO.print "Part 1: ${solvePart1 space robots}"
   IO.print "Part 2: ${solvePart2 space robots |> .orFail "no second shows a picture"}"
 
@@ -44,7 +45,7 @@ type Robot = { position: Position, velocity: Offset }
 --| The space the robots are in, `width` tiles wide and `height` tall.
 type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositive: height ≠ 0 }
 
-def Space.of (width: Nat) (height: Nat) [auto widthPositive: width ≠ 0] [auto heightPositive: height ≠ 0]: Space :=
+def Space.of (width height: Nat) [auto widthPositive: width ≠ 0] [auto heightPositive: height ≠ 0]: Space :=
   { width, height, widthPositive, heightPositive }
 
 --| One robot: "p=0,4 v=3,-3", `x` then `y` (a column, then a row).
@@ -71,15 +72,13 @@ def Space.wrap (space: Space) (position: Position) (offset: Offset): Position :=
 
 --| Where `robot` is after `seconds` seconds: the velocity times the
 --| seconds away, wrapping round the space.
-def Space.positionAfter (space: Space) (seconds: Nat) (robot: Robot): Position := space.wrap robot.position (robot.velocity.times seconds.toInt)
+def Space.positionAfter (space: Space) (seconds: Nat) (robot: Robot): Position :=
+  space.wrap robot.position (robot.velocity.times seconds.toInt)
 
-def Space.positionsAfter (space: Space) (seconds: Nat) (robots: List Robot): List Position := robots.map (space.positionAfter seconds)
+def Space.positionsAfter (space: Space) (seconds: Nat) (robots: List Robot): List Position :=
+  robots.map (space.positionAfter seconds)
 
-type Quadrant =
-  | TopLeft
-  | TopRight
-  | BottomLeft
-  | BottomRight
+type Quadrant = | TopLeft | TopRight | BottomLeft | BottomRight
 
 def quadrants: List Quadrant := [TopLeft, TopRight, BottomLeft, BottomRight]
 

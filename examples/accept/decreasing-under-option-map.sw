@@ -7,6 +7,11 @@ def down (n: Nat): Option Nat
 :=
   match n with
     | Zero => Some 0
-    | Succ m => Option.map (Some m) (k => if h: k < n then (match down k with | Some v => v | None => 0) else 0)
+    | Succ m => Option.map (Some m) (k =>
+      if h: k < n then
+        (match down k with
+          | Some v => v
+          | None => 0)
+      else 0)
 
-theorem downStep (n: Nat): down n = down n := rfl
+theorem downStep ∀ (n: Nat): down n = down n := rfl

@@ -40,8 +40,7 @@ def findPair (target: Nat) (entries: List Nat): Option (Nat, Nat) := findPairAft
 def findPairAfter (target: Nat) (seen: Set Nat): List Nat → Option (Nat, Nat)
   | [] => None
   | [x, ..rest] =>
-    if x <= target ∧ seen.contains (target - x) then Some (target - x, x)
-    else findPairAfter target (seen.insert x) rest
+    if x <= target ∧ seen.contains (target - x) then Some (target - x, x) else findPairAfter target (seen.insert x) rest
 
 --| Three entries summing to `target`, in the order they come.
 def findTriple (target: Nat): List Nat → Option (Nat, Nat, Nat)

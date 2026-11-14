@@ -891,6 +891,142 @@ runtime runs as the library's (§10); only its empty-row variant is a
 `foldComp` with known clauses. So `Pick.relay` at `{Pick, Counter}` is
 skipped nowhere, while `Std.Parse`'s handlers (closed `{Parse}`) are.
 
+## 12. Stage C as built
+
+*Not merged: operations in place stopped after stage B (D3430, Matt, 8 Nov 2026). The code was on `lane/SW-2350` at `901a93884`, deleted on 10 Nov 2026 when the speed work was paused (D3465); this section is the record.*
+
+SW-2350, 8 Nov 2026 (D3400, D3412). On the machine only, behind an
+internal switch that is off by default: `STITCHWORT_IN_PLACE=1` in the
+environment, or `crate::effect::set_in_place` for a thread (tests).
+Lowering reads it (to give folds their classes and thunked bodies) and so
+does `code::compile_for_machine` (to emit performs). Native code is
+unchanged: `run --native` and `build --native` force it off, and
+`code::compile`, which native code uses, never emits the new instructions.
+`STITCHWORT_EFFECT_COUNTS=1`, also internal, makes a machine print its
+steps and `EffectCounts` on standard error when it is dropped. JS is
+untouched (D3410).
+
+**Entries** (§2.1). `State.entries`, one `Entry { handler, state,
+outer_linked, serial }` per running activation, pushed wherever an
+activation starts (a fold, `translate` or `runPure` native, an eager
+resumption, a state handler's function of the state, a state step's jump)
+and popped where it ends (`Done` with nothing pending, and every way out of
+`eff_call`). The handler and a state handler's state moved out of
+`EffRet` into the entry (§2.7). Entries are kept with the switch off too:
+that changes no count, and keeps one code path.
+
+**The consumer link** (§2.2) is a property of a frame's `Ret`, not a
+number: a frame is linked iff its result goes to a loop (`Ret::Eff`), to a
+register in a consuming position of a linked frame (the new
+`Ret::LinkedReg`), or back to a clause in place whose target entry is
+`outer_linked`. That is `linked_depth` without the number: only the top
+frame is ever asked, a tail call keeps its frame's `Ret` and so its
+linkedness, and every other return destination (`Reg`, `Then`, `Apply`,
+`Inject`, `Step`, `Const`) is unlinked, the safe side. Consuming positions
+are compiled by `Compiler::consuming` in `code.rs`: the first operand of a
+`bind` in tail position, or in a consuming position (recursively), through
+`let`s; a call there is `CallLinked`/`ApplyLinked`/`PrimLinked`, whose
+callee gets `LinkedReg` only if the caller is linked at that moment.
+
+**Thunked bodies** (§2.1) are made by the lowering:
+`EffectOp::FoldInPlace` (a lazy `foldComp` whose clauses are classified,
+stage B's skips plus the classes in its text), `FoldStateInPlace` and
+`FoldStateCompInPlace` (a fused state handler, with fusion's classes), and
+`TranslateInPlace` (a `translate` whose mapping is renaming rules, stage
+B's reading of `mapping`). Each takes its computation as a function of
+`()`: `f` itself for `f ()`, otherwise a lambda over the body. The native
+pushes the entry and applies it with `Ret::Eff`. `runPure` keeps its
+strict argument: it has no outer operations, so nothing would look
+through it.
+
+**Performs** (§2.4). `Call O DoneK` (by its constructors) in a consuming
+position is `Perform`, in tail position `TailPerform`; eligible iff the
+frame is linked. The lookup (`effect::lookup`) walks entries from the
+innermost, one step each (counted as `looked`, charged to the step
+limit): a fold whose class for `L o` is `t` or `a` is the target; a
+skipped clause (`f`) or a forwarded `R o` is crossed with stage B's
+`forwarded`; a `translate` with rules is crossed with `translated`; a
+crossing (`crossed`) needs the entry to be `outer_linked`. Anything else
+stops it and the `Call` is built as before. Replies aren't called: every
+crossing is by renaming rules, whose replies are `o x => x` (stage B's
+argument), so there is nothing to remember. A state handler is only ever a
+target (its `f` clauses aren't crossed).
+
+**In place** (§2.5). The entries from the target inwards are set aside,
+the clause runs with `k` an `InPlace::K` (and, for a state handler, the
+state taken from the entry and a `JumpK`), on `Ret::InPlace`. `Resumed y`
+(lazy: `Done (Resumed y)`) or `Jumped y s′` (the entry's state becomes
+`s′`) gives `Done y` (`in_place`); anything else is aimed (§2.6).
+
+**Aimed** (§2.6). `Call (Aimed serial C abort) DoneK`, returned as any
+operation is, so `bind`s make their nodes. Each loop between forwards it
+with an eager resumption of its rest (asserting that it is a fold or a
+rules `translate` and that the target's serial is older than its own); a
+rules `translate`'s resumption made this way skips the reply. The
+target's loop returns `C` if `abort`, otherwise `bind C (AimedK k)`, `k`
+the lazy resumption and `AimedK` mapping `Resumed y` to `k y` and anything
+else to `Done v`. `abort` is: the class is `a`, or the fold isn't lazy (at
+the empty row a clause has no outer operations, so it ran to its end and
+`k` isn't left anywhere in `C`), or `C` is `Done`.
+
+**Soundness, case by case, as implemented** (§3.3). None failed.
+
+- *Multi-shot.* A clause in place makes no resumption; `pausing` (a Tail
+  clause whose outer `pick` is resumed three times) goes aimed, and each
+  resumption of the pick runs `C`'s rest, whose `k ()` is `AimedK`'s, a
+  persistent lazy resumption, each run a new activation with its own
+  entry.
+- *Stored and late resumptions.* A resumption carries a pending list, not
+  entries; `resumedElsewhere` resumes one under a different counter, which
+  answers. Entries are those of whoever resumes.
+- *Handlers inside handlers.* The clause runs with only the entries below
+  its handler (`debug_assert` that it left none on top).
+- *Masking, handlers between.* Rows have no duplicates, so renaming is all
+  there is; only rules are crossed.
+- *Abort.* `stoppedInside`: aimed, the target returns `C`, the loops and
+  `Bind` nodes between are dropped.
+- *`Partial`, `IO`, `runPure`, `Step`.* Not crossable: the lookup stops.
+- *A computation made in one place and folded in another.* `constant`
+  (`current`, a constant) and `inPure` (a handler inside a pure function)
+  build their `Call`s: `Ret::Const` and argument positions are unlinked.
+- *Error exits and step limits.* An error clears the entries with the
+  frames; `step_limits_agree_with_operations_in_place` runs every case at
+  limits from 1 step up: each run fails with `Work` or gives the reference
+  answer.
+
+**Tests.** `crates/rt/tests/it/effect-in-place.sw` (the cases above, its
+`-- run:` lines checked against the reference evaluator, outside
+`examples/` so no hash snapshot moves) and, with the switch on, every
+`-- run:` line of `effect-runtime.sw`, `effect-handlers.sw`,
+`effect-state.sw`, `effect-forwarding.sw`, `effect-lists.sw`,
+`effect-rows.sw` and `effects.sw` (116 in all);
+`operations_run_in_place` pins which path each case takes by its counts;
+`shapes_agree_with_operations_in_place` compares the effect-runtime shapes
+off and on.
+
+**Measured** (machine, release, `STITCHWORT_EFFECT_COUNTS=1`, the real
+inputs repeated 20 times, best of 3 wall times including about 0.4 s of
+loading; answers identical):
+
+| | effect-loop steps | machine steps | in place | aimed | time |
+|---|---|---|---|---|---|
+| `expressions` (2020 day 18) | 15.71 M → 5.05 M (3.1×) | 39.94 M → 33.69 M (1.19×) | 1.72 M | 0.16 M | 5.03 s → 4.55 s (1.11×) |
+| `scan` (2024 day 3) | 12.00 M → 3.66 M (3.3×) | 29.97 M → 25.61 M (1.17×) | 1.86 M | 0.38 M | 4.12 s → 3.77 s (1.09×) |
+| `bridge` (2024 day 7) | 5.08 M → 0.19 M (26×) | 29.48 M → 25.86 M (1.14×) | 0.87 M | 0.02 M | 3.29 s → 3.15 s (1.04×) |
+
+The effect loop's work falls about as estimated, but on the machine it was
+a minority of the steps: the parsers' own code dominates, so the 2–3×
+estimated for native code (stage D) shows up here as 1.04–1.11× in time.
+Lookups cost a step per entry looked at (2.3 per perform that runs in
+place or is aimed, on `expressions`), which machine steps include.
+
+**Not reached: row-generic code.** The effect-runtime and `effect-state.sw`
+shapes, and `bench/effect-runtime`, perform in `List.map`'s callback, and
+`List.map` is row-generic: it sequences through `bindIn`, a library call,
+so no operation there is in a consuming position and none runs in place
+(their counts are unchanged). That is §2.2's row-helper limit, for stage
+E. `Std.Parse`'s handlers have closed rows, so the AoC parsers are reached.
+
 ## Tickets to file
 
 In order. A first; B and C can run side by side after it; D after C; E

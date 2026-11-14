@@ -69,7 +69,9 @@ def Network.bothWays (network: Network): List Connection :=
   network.connections.flatMap (connection => [connection, connection.reverse])
 
 def Network.links (network: Network): Links :=
-  network.bothWays |> .groupBy Connection.one |> .map (connections => connections.map Connection.other |> .toList |> .toSet)
+  network.bothWays
+    |> .groupBy Connection.one
+    |> .map (connections => connections.map Connection.other |> .toList |> .toSet)
 
 def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.getOr computer Set.empty
 
@@ -77,7 +79,10 @@ def Links.neighbours (links: Links) (computer: Computer): Set Computer := links.
 def Links.setsWith (links: Links) (first: Computer): List Party :=
   let firstNeighbours := links.neighbours first
   firstNeighbours.toList.flatMap (second =>
-    links.neighbours second |> .intersect firstNeighbours |> .toList |> .map (third => { members = [first, second, third].toSet }))
+    links.neighbours second
+      |> .intersect firstNeighbours
+      |> .toList
+      |> .map (third => { members = [first, second, third].toSet }))
 
 --| Every set of three different computers, each connected to the other two.
 def Links.setsOfThree (links: Links): Set Party :=
@@ -90,7 +95,7 @@ def solvePart1 (network: Network): Nat := network.links.setsOfThree |> .filter .
 --| connected to all of `clique`. Each candidate in turn is either in the set
 --| (and then only its neighbours stay candidates) or not. A search that
 --| can't beat `best`, with too few candidates left, stops.
-def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer): Set Computer
+def Links.largestFrom (links: Links) (clique candidates best: Set Computer): Set Computer
     decreasing candidates.size
 :=
   if clique.size + candidates.size ≤ best.size then best
@@ -100,10 +105,10 @@ def Links.largestFrom (links: Links) (clique: Set Computer) (candidates: Set Com
       | Some (candidate, others) =>
         let fewer := Set.sizePopMin candidates candidate others found
         let narrowed := links.neighbours candidate |> .intersect others
-        let withinOthers: narrowed.size ≤ others.size :=
-          Set.sizeSubset others narrowed (key inside =>
-            Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
-        let withIt := links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
+        let withinOthers: narrowed.size ≤ others.size := Set.sizeSubset others narrowed (key inside =>
+          Bool.andRight (Eq.trans (Eq.sym (Set.containsIntersect (links.neighbours candidate) key others)) inside))
+        let withIt :=
+          links.largestFrom (clique.insert candidate) narrowed best [decreasing := omega [withinOthers, fewer]]
         links.largestFrom clique others withIt
 
 --| The largest set of computers that are all connected to each other.

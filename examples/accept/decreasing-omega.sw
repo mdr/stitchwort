@@ -22,8 +22,6 @@ test "takeFirst" := takeFirst [1, 2, 3] 2 == [1, 2] ∧ takeFirst [1, 2, 3] 5 ==
 def digitsOnto (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
-  if big: Nat.leq n 9 = False
-  then digitsOnto (n / 10) [n % 10, ..acc]
-  else [n, ..acc]
+  if big: Nat.leq n 9 = False then digitsOnto (n / 10) [n % 10, ..acc] else [n, ..acc]
 
 test "digits" := digitsOnto 1234 [] == [1, 2, 3, 4]

@@ -17,7 +17,8 @@ type Point = { x: Nat, y: Nat }
 
 --| Ordered by `x`, then `y`, so lists and maps of points can drop repeats
 --| and count them.
-instance Point.instOrd: Ord Point := Ord.byKey (point => (point.x, point.y)) (a b same => Point.ext a b (Eq.cong Pair.fst same) (Eq.cong Pair.snd same))
+instance Point.instOrd: Ord Point :=
+  Ord.byKey (point => (point.x, point.y)) (a b same => Point.ext a b (Eq.cong Pair.fst same) (Eq.cong Pair.snd same))
 
 --| The position on a grid drawn with `x` as the column and `y` as the row:
 --| row = `y`, column = `x`.
@@ -40,7 +41,7 @@ def Line.isStraight (line: Line): Bool := line.isVertical ∨ line.isHorizontal
 def Line.isDiagonal (line: Line): Bool := line.from.x.absDiff line.to.x == line.from.y.absDiff line.to.y
 
 --| The coordinate `step` steps from `start` towards `stop`, one at a time.
-def towards (start: Nat) (stop: Nat) (step: Nat): Nat :=
+def towards (start stop step: Nat): Nat :=
   if start < stop then start + step else if stop < start then start - step else start
 
 --| The points a horizontal, vertical or diagonal line covers: from the
@@ -49,4 +50,5 @@ def towards (start: Nat) (stop: Nat) (step: Nat): Nat :=
 --| that this misses.)
 def Line.points (line: Line): List Point :=
   let steps := Nat.max (line.from.x.absDiff line.to.x) (line.from.y.absDiff line.to.y)
-  List.range 0 (steps + 1) |> .map (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step })
+  List.range 0 (steps + 1)
+    |> .map (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step })

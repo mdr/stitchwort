@@ -18,7 +18,7 @@ import Std (Int, List, Nat, Option)
 --| seat's state does not change." `occupiedNear` is how many of the seats
 --| it considers are occupied, and `crowded` how many are too many (four in
 --| part 1, five in part 2). Floor is not a seat and never changes.
-def becomes (seat: Seat) (occupiedNear: Nat) (crowded: Nat): Seat :=
+def becomes (seat: Seat) (occupiedNear crowded: Nat): Seat :=
   if seat == Empty && occupiedNear == 0 then Occupied
   else if seat == Occupied && crowded <= occupiedNear then Empty
   else seat
@@ -33,7 +33,7 @@ def occupiedSeats (layout: Layout): Nat := layout.grid.cells.count (((_, seat)) 
 
 --| The rounds from `start` reach `final`, and a round changes nothing
 --| there: "at this point, people stop moving around".
-def Settles (round: Layout → Layout) (start: Layout) (final: Layout): Prop :=
+def Settles (round: Layout → Layout) (start final: Layout): Prop :=
   ∃ (rounds: Nat) => Nat.iterate rounds round start = final ∧ round final = final
 
 -- Part 1
@@ -58,7 +58,8 @@ def Part1 (start: Layout) (answer: Nat): Prop :=
 --| a step of at most one row and at most one column, either way, that
 --| moves.
 def directions: List Offset :=
-  [-1, 0, 1].flatMap (rows => [-1, 0, 1].map (columns => ({ rows, columns }: Offset))) |> .filter (step => step != Offset.zero)
+  [-1, 0, 1].flatMap (rows => [-1, 0, 1].map (columns => ({ rows, columns }: Offset)))
+    |> .filter (step => step != Offset.zero)
 
 --| The cell `distance` steps from `at` in `direction`, with its position,
 --| if that is on the layout.
@@ -70,7 +71,10 @@ def cellAlong (layout: Layout) (at: Position) (direction: Offset) (distance: Nat
 --| moves a row or a column, so a line of sight leaves the layout within
 --| its height plus its width steps.
 def lineOfSight (layout: Layout) (at: Position) (direction: Offset): List (Position, Seat) :=
-  List.range 1 (layout.grid.height + layout.grid.width + 1) |> .map (cellAlong layout at direction) |> .takeWhile (.isSome) |> .somes
+  List.range 1 (layout.grid.height + layout.grid.width + 1)
+    |> .map (cellAlong layout at direction)
+    |> .takeWhile (.isSome)
+    |> .somes
 
 --| "The first seat they can see in each of those eight directions": the
 --| first cell along the line of sight that isn't floor.

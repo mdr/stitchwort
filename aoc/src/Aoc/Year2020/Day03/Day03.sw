@@ -19,9 +19,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 map}"
   IO.print "Part 2: ${solvePart2 map}"
 
-type Square =
-  | Open
-  | Tree
+type Square = | Open | Tree
 
 --| The two characters a map is drawn with.
 def isSquare (char: Char): Bool := char == '.' || char == '#'
@@ -47,7 +45,12 @@ def treesOn (map: Grid Square) (slope: Slope): Nat :=
 
 def solvePart1 (map: Grid Square): Nat := treesOn map { right = 3, down = 1 }
 
-def slopes: List Slope :=
-  [{ right = 1, down = 1 }, { right = 3, down = 1 }, { right = 5, down = 1 }, { right = 7, down = 1 }, { right = 1, down = 2 }]
+def slopes: List Slope := [
+  { right = 1, down = 1 },
+  { right = 3, down = 1 },
+  { right = 5, down = 1 },
+  { right = 7, down = 1 },
+  { right = 1, down = 2 }
+]
 
 def solvePart2 (map: Grid Square): Nat := slopes.map (treesOn map) |> List.product

@@ -1,12 +1,12 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `addZero`
-   ╭─[ goals/proof-hole.sw:3:40 ]
+   ╭─[ goals/proof-hole.sw:3:42 ]
    │
- 3 │ theorem addZero (n: Nat): n + 0 = n := ?
-   │                                        ┬  
-   │                                        ╰── n: Nat
-   │                                            ⊢ n = n
+ 3 │ theorem addZero ∀ (n: Nat): n + 0 = n := ?
+   │                                          ┬  
+   │                                          ╰── n: Nat
+   │                                              ⊢ n = n
 ───╯

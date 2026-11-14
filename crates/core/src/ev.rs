@@ -74,6 +74,18 @@ pub trait Shown {
         None
     }
 
+    /// For a lifted `match`'s helper `id`: which of its parameters are the
+    /// scrutinees, in the order written. A call of it is shown as the
+    /// `match` (`(match s₁, s₂ with …)`), not by the helper's internal name.
+    fn match_columns(&self, _id: DefId) -> Option<Rc<[usize]>> {
+        None
+    }
+
+    /// Records that the printer showed a call of lifted `match` helper `id`
+    /// as `text`, so a message that contains `text` can say where that
+    /// `match` is (`Elaborator::explain_lifted`).
+    fn note_match_shown(&self, _id: DefId, _text: &str) {}
+
     /// The parameter defaults of definition `id`'s header.
     fn param_defaults(&self, _id: DefId) -> Option<Rc<ParamDefaults>> {
         None
@@ -86,8 +98,33 @@ pub trait Shown {
         false
     }
 
-    /// Records that a message showed a term that uses a failed definition.
-    fn note_failed_mentioned(&self) {}
+    /// Records that a message showed a term that uses failed definition
+    /// `def` (the first such, reading the term left to right).
+    fn note_failed_mentioned(&self, _def: DefId) {}
+
+    /// Records that a message showed unknown `m` (a metavariable): the
+    /// elaborator holds back a message that shows a hole a syntax error
+    /// left.
+    fn note_meta_shown(&self, _m: usize) {}
+
+    /// Whether a term that mentions final definition `id` may be stuck on
+    /// an open goal's assumption: `id` is checked assuming the goal holds
+    /// and computes (docs/core.md "Assumptions (open goals)"). The printer
+    /// then computes the shown term to see ([`Shown::note_stuck_on_goal`]).
+    fn waits_on_goal(&self, _id: DefId) -> bool {
+        false
+    }
+
+    /// Whether a message's showing a term stuck on an open goal's
+    /// assumption is still worth recording ([`Shown::note_stuck_on_goal`]).
+    fn wants_stuck_mention(&self) -> bool {
+        false
+    }
+
+    /// Records that a message showed a term that, computed, is stuck on an
+    /// open goal's assumption: whatever went wrong can't be decided until
+    /// the goal is filled. `goals` are the assumptions it is stuck on.
+    fn note_stuck_on_goal(&self, _goals: &[DefId]) {}
 }
 
 /// No hints.

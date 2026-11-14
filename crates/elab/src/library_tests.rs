@@ -55,6 +55,7 @@ fn units(index: &LibraryIndex, f: usize) -> Vec<Unit> {
                 failed: Vec::new(),
                 doc_links: Vec::new(),
             },
+            parse_errors: Vec::new(),
             names: Vec::new(),
             edges: Vec::new(),
             equation_needs: Default::default(),

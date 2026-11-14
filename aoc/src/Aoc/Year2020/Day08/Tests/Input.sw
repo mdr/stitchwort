@@ -13,5 +13,6 @@ test "real input, part 2" := part2 input == Ok 662
 test "real input, exactly one repair terminates" :=
   (parsed input).map (program =>
     let code := program.code
-    program.instructions.withIndex.filterMap (((position, instruction)) => code.terminatesRepaired position instruction) |> .length)
+    program.instructions.withIndex.filterMap (((position, instruction)) => code.terminatesRepaired position instruction)
+      |> .length)
     == Ok 1

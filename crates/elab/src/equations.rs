@@ -105,12 +105,40 @@ const ATTEMPT: stitchwort_core::budget::Limits = stitchwort_core::budget::Limits
     stack: 0,
     size: 1_000_000,
     frames: 100_000,
+    native_frames: 100_000,
 };
 
 /// A right side larger than this many times its arm's elaborated body
 /// (`let`s substituted can make it so) isn't generated (§10; the factor is
 /// the note's guess).
 const SIZE_FACTOR: usize = 10;
+
+/// Whether a right side of `size` nodes is too large to state for an arm
+/// whose elaborated body has `arm_size` (§10).
+fn too_large(size: usize, arm_size: usize) -> bool {
+    size > 256 && size > SIZE_FACTOR.saturating_mul(arm_size)
+}
+
+/// A leaf body with `let`s substituted larger than this isn't read further
+/// for its row's equation, whatever the branches its splits take: reading
+/// it costs time linear in it (a quarter of a second at 150,000 nodes), for
+/// every row, and a chain of `let`s each using the last twice substitutes
+/// to a tree exponential in the chain's length (SW-2512). A body this
+/// large is also more than ten times its arm's (§10), so a row with no
+/// splits loses nothing; a row whose split takes a small branch of it
+/// loses its equation.
+const READ_CAP: usize = 1 << 16;
+
+fn too_large_to_read(size: usize, arm_size: usize) -> String {
+    format!(
+        "its body with `let`s substituted would be {size} nodes, too many to read (over \
+         {READ_CAP}, and ten times its arm's {arm_size})"
+    )
+}
+
+fn too_large_why(size: usize, arm_size: usize) -> String {
+    format!("its right side would be {size} nodes, more than ten times its arm's {arm_size}")
+}
 
 /// An equation that would take more than this many hypotheses `x ≠ k` for
 /// earlier number arms isn't generated (D2189): its proof splits on the
@@ -326,7 +354,7 @@ fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
             alts,
             kind: MatchKind::Let,
             ..
-        } if alts.len() == 1 => tail_split(&alts[0].body),
+        } if alts.len() == 1 => tail_split(alts[0].body.as_ref()?),
         Expr::If {
             binder,
             then,
@@ -346,12 +374,12 @@ fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
             alts,
             kind: MatchKind::Match,
             ..
-        } => Some((
+        } if alts.iter().all(|a| a.body.is_some()) => Some((
             TailSplit::Match { scrutinees, alts },
             alt_names(alts)
                 .into_iter()
                 .zip(alts)
-                .map(|(s, a)| (s, &a.body))
+                .filter_map(|(s, a)| Some((s, a.body.as_ref()?)))
                 .collect(),
         )),
         _ => None,
@@ -468,11 +496,11 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
             patterns: parent.patterns.clone(),
             alternatives: Vec::new(),
             span: alt.span,
-            has_rhs: true,
+            has_rhs: alt.body.is_some(),
             guarded: alt.guard.is_some(),
             guard: alt.guard.clone(),
             suffix: format!("{}.{seg}", parent.suffix),
-            rhs: Some(alt.body.clone()),
+            rhs: alt.body.clone(),
             parent: Some(at),
             alt: a + 1,
             chain,
@@ -526,7 +554,9 @@ fn probe_body(rhs: Option<&Expr>, span: Span, known: &[String]) -> Expr {
                 Alt {
                     guard: a.guard.clone(),
                     patterns: a.patterns.clone(),
-                    body: probe_body(Some(&a.body), a.span, &inner),
+                    // An absurd alternative stays one: given a body, its `()`
+                    // would be the unit pattern.
+                    body: (a.body.as_ref()).map(|b| probe_body(Some(b), a.span, &inner)),
                     span: a.span,
                 }
             })
@@ -744,7 +774,7 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
         .map(|a: &Alt| SourceArm {
             patterns: a.patterns.clone(),
             guard: a.guard.clone(),
-            rhs: Some(a.body.clone()),
+            rhs: a.body.clone(),
             span: a.span,
         })
         .collect();
@@ -839,7 +869,7 @@ struct Shape {
 /// arm uses, or `if h: P`). `cond` is a term at the shape's depth.
 ///
 /// `prop` is set where the `Bool` is a decided proposition's,
-/// `Decidable.toBool d` (but not a comparison's, which reads as itself):
+/// `Decidable.holds d` (but not a comparison's, which reads as itself):
 /// the hypotheses say the proposition, `P` and `¬P`.
 #[derive(Clone)]
 struct GuardRead {
@@ -1070,21 +1100,18 @@ struct BranchLib {
     deceq_decide: Option<DefId>,
     inspect: Option<DefId>,
     to_bool: DefId,
-    /// `Decidable.toBoolOf`, `toBoolOfNot`, `toBoolSound` and
-    /// `toBoolFalse`, if std is loaded: a guard on a decided proposition
-    /// that the definition tests by its `Bool` is stated as the
-    /// proposition only with them.
-    to_bool_lemmas: Option<[DefId; 4]>,
-    /// `Decidable.andBoolOf`, `andBoolOfNot`, `andBoolSound` and
-    /// `andBoolFalse`, the same four for a conjunction `a && b`
-    /// ([`Decided::Conj`]).
-    and_lemmas: Option<[DefId; 4]>,
-    /// `Bool.decTrue`, and `Bool.decTrueToBool` (`toBool (decTrue c) = c`).
-    dec_true: Option<(DefId, DefId)>,
+    /// `Decidable` and `Decidable.refute` and `Decidable.toBoolOfNot`, if
+    /// std is loaded: a guard on a decided proposition that the definition
+    /// tests by its `Bool` is stated as the proposition only with them and
+    /// the decision's `sound` and `complete` fields.
+    to_bool_lemmas: Option<(DataId, DefId, DefId)>,
+    /// `Bool.decTrue`, which decides a `Bool` operand `c` as `c = True`.
+    dec_true: Option<DefId>,
     and_data: DataId,
-    /// `Decidable.and` and `Decidable.andBoolDec` (`toBool (and dp dq) = (a
-    /// && b)`), which decide a conjunction that is itself an operand.
-    and_dec: Option<(DefId, DefId)>,
+    /// `Decidable.and`, whose `holds` is the `a && b` of its sides', so a
+    /// conjunction ([`Decided::Conj`]) is decided by it and the four
+    /// lemmas above apply to that decision.
+    and_dec: Option<DefId>,
     /// `Decidable.notNotOf` and `Decidable.not`, which decide `¬Q` from `Q`'s decision.
     not_not: Option<(DefId, DefId)>,
 }
@@ -1093,7 +1120,7 @@ struct BranchLib {
 /// guard say it.
 #[derive(Clone)]
 enum Decided {
-    /// `Decidable.toBool [P] d`.
+    /// `Decidable.holds [P] d`.
     One(Term, Term),
     /// `a && b`, as `if a then b else False`, each operand a decided
     /// proposition's `Bool` or another `Bool` `c` (as `c = True`).
@@ -1101,8 +1128,7 @@ enum Decided {
 }
 
 /// `a && b` read as the conjunction `pa ∧ pb`: each side's proposition
-/// `p`, its decision `d`, its `Bool` `x` and the proof `e` of `toBool d =
-/// x`.
+/// `p` and its decision `d`, whose `holds` is that side's `Bool`.
 #[derive(Clone)]
 struct ConjView {
     left: Operand,
@@ -1113,8 +1139,6 @@ struct ConjView {
 struct Operand {
     prop: Term,
     decision: Term,
-    value: Term,
-    equation: Term,
 }
 
 impl Decided {
@@ -1138,8 +1162,6 @@ impl Decided {
                     Ok(Operand {
                         prop: sh(&o.prop)?,
                         decision: sh(&o.decision)?,
-                        value: sh(&o.value)?,
-                        equation: sh(&o.equation)?,
                     })
                 };
                 Decided::Conj(Box::new(ConjView {
@@ -1150,30 +1172,15 @@ impl Decided {
         })
     }
 
-    /// The lemma `which` (0 `toBoolOf`, 1 `toBoolOfNot`, 2 `toBoolSound`, 3
-    /// `toBoolFalse`, or the conjunction's) of the proposition and the
-    /// `Bool`, applied to `h`.
+    /// The proof `which` (0 `d.complete`, 1 `Decidable.toBoolOfNot`, 2
+    /// `d.sound`, 3 `Decidable.refute`; for a conjunction, its decision's)
+    /// of the proposition and the `Bool`, applied to `h`.
     fn lemma(&self, lib: &BranchLib, which: usize, h: Term) -> R<Term> {
         match self {
             Decided::One(p, d) => lib.to_bool_lemma(which, p.clone(), d.clone(), h),
             Decided::Conj(v) => {
-                let lemmas = lib
-                    .and_lemmas
-                    .ok_or_else(|| Stop::Skip("`Decidable.andBoolOf` isn't loaded yet".into()))?;
-                Ok(apps(
-                    Term::Def(lemmas[which]),
-                    [
-                        (v.left.prop.clone(), Icit::Implicit),
-                        (v.right.prop.clone(), Icit::Implicit),
-                        (v.left.decision.clone(), Icit::Explicit),
-                        (v.right.decision.clone(), Icit::Explicit),
-                        (v.left.value.clone(), Icit::Explicit),
-                        (v.right.value.clone(), Icit::Explicit),
-                        (v.left.equation.clone(), Icit::Explicit),
-                        (v.right.equation.clone(), Icit::Explicit),
-                        (h, Icit::Explicit),
-                    ],
-                ))
+                let decision = lib.conjunction_decision(v)?;
+                lib.to_bool_lemma(which, self.prop(lib), decision, h)
             }
         }
     }
@@ -1184,6 +1191,22 @@ impl BranchLib {
         Term::Data(self.bool, Vec::new())
     }
 
+    /// `Decidable.and` of a conjunction's sides' decisions.
+    fn conjunction_decision(&self, v: &ConjView) -> R<Term> {
+        let and = self
+            .and_dec
+            .ok_or_else(|| Stop::Skip("`Decidable.and` isn't loaded yet".into()))?;
+        Ok(apps(
+            Term::Def(and),
+            [
+                (v.left.prop.clone(), Icit::Implicit),
+                (v.right.prop.clone(), Icit::Implicit),
+                (v.left.decision.clone(), Icit::Explicit),
+                (v.right.decision.clone(), Icit::Explicit),
+            ],
+        ))
+    }
+
     fn bool_value(&self, value: bool) -> Term {
         Term::Ctor(
             self.bool,
@@ -1192,7 +1215,7 @@ impl BranchLib {
         )
     }
 
-    /// `P` and `d`, when `c` is `Decidable.toBool [P] d`: a decided
+    /// `P` and `d`, when `c` is `Decidable.holds [P] d`: a decided
     /// proposition's `Bool` that isn't a comparison's.
     fn decided(&self, c: &Term) -> Option<(Term, Term)> {
         let (head, args) = c.spine();
@@ -1209,47 +1232,17 @@ impl BranchLib {
             return Ok(Some(Operand {
                 prop: p,
                 decision: d,
-                value: c.clone(),
-                equation: Term::Refl,
             }));
         }
         if let Some(view) = self.conjunction(g, c)? {
-            let (Some((and, by)), Some(lemmas)) = (self.and_dec, self.and_lemmas) else {
-                return Ok(None);
-            };
-            let _ = lemmas;
-            let (l, r) = (&view.left, &view.right);
-            let ps = [
-                (l.prop.clone(), Icit::Implicit),
-                (r.prop.clone(), Icit::Implicit),
-            ];
-            let prop = Term::data(self.and_data, vec![l.prop.clone(), r.prop.clone()]);
-            let decision = apps(
-                Term::Def(and),
-                ps.iter().cloned().chain([
-                    (l.decision.clone(), Icit::Explicit),
-                    (r.decision.clone(), Icit::Explicit),
-                ]),
+            let prop = Term::data(
+                self.and_data,
+                vec![view.left.prop.clone(), view.right.prop.clone()],
             );
-            let equation = apps(
-                Term::Def(by),
-                ps.iter().cloned().chain([
-                    (l.decision.clone(), Icit::Explicit),
-                    (r.decision.clone(), Icit::Explicit),
-                    (l.value.clone(), Icit::Explicit),
-                    (r.value.clone(), Icit::Explicit),
-                    (l.equation.clone(), Icit::Explicit),
-                    (r.equation.clone(), Icit::Explicit),
-                ]),
-            );
-            return Ok(Some(Operand {
-                prop,
-                decision,
-                value: c.clone(),
-                equation,
-            }));
+            let decision = self.conjunction_decision(&view)?;
+            return Ok(Some(Operand { prop, decision }));
         }
-        let Some((dec_true, to_bool)) = self.dec_true else {
+        let Some(dec_true) = self.dec_true else {
             return Ok(None);
         };
         Ok(Some(Operand {
@@ -1259,15 +1252,13 @@ impl BranchLib {
                 Rc::new(self.bool_value(true)),
             ),
             decision: Term::app(Term::Def(dec_true), c.clone()),
-            value: c.clone(),
-            equation: Term::app(Term::Def(to_bool), c.clone()),
         }))
     }
 
     /// `c` as `a && b` (`if a then b else False`), each side an
     /// [`Operand`].
     fn conjunction(&self, g: &Ev, c: &Term) -> R<Option<ConjView>> {
-        if self.and_lemmas.is_none() {
+        if self.and_dec.is_none() || self.to_bool_lemmas.is_none() {
             return Ok(None);
         }
         let (head, args) = spine_icit(c.strip_loc());
@@ -1326,21 +1317,26 @@ impl BranchLib {
         Some(((*q).clone(), dq.clone()))
     }
 
-    /// `lemma [P] d h`, with `lemma` one of [`BranchLib::to_bool_lemmas`]:
-    /// 0 `toBoolOf` (`P` to `toBool d = True`), 1 `toBoolOfNot`, 2
-    /// `toBoolSound` (back to `P`), 3 `toBoolFalse`.
+    /// `which` applied to `h`, for the decision `d` of `p`: 0 `d.complete`
+    /// (`p` to `holds d = True`), 1 `toBoolOfNot` (`¬p` to `holds d = False`),
+    /// 2 `d.sound` (back to `p`), 3 `refute d` (`holds d = False` to `¬p`).
     fn to_bool_lemma(&self, which: usize, p: Term, d: Term, h: Term) -> R<Term> {
-        let lemmas = self
+        let (decidable, of_not, refute) = self
             .to_bool_lemmas
-            .ok_or_else(|| Stop::Skip("`Decidable.toBoolOf` isn't loaded yet".into()))?;
-        Ok(apps(
-            Term::Def(lemmas[which]),
-            [
-                (p, Icit::Implicit),
-                (d, Icit::Explicit),
-                (h, Icit::Explicit),
-            ],
-        ))
+            .ok_or_else(|| Stop::Skip("`Decidable.refute` isn't loaded yet".into()))?;
+        let field = |k| Term::Proj(decidable, k, Rc::new(d.clone()));
+        let lemma = |f: DefId| {
+            apps(
+                Term::Def(f),
+                [(p.clone(), Icit::Implicit), (d.clone(), Icit::Explicit)],
+            )
+        };
+        Ok(match which {
+            0 => apps(field(2), [(h, Icit::Explicit)]),
+            1 => apps(lemma(of_not), [(h, Icit::Explicit)]),
+            2 => apps(field(1), [(h, Icit::Explicit)]),
+            _ => apps(lemma(refute), [(h, Icit::Explicit)]),
+        })
     }
 
     /// `b` and whether `X` is `True`, when `p` is `b = X` with `X` a
@@ -2207,6 +2203,14 @@ impl Elaborator {
             skip_all(self, "its body isn't available");
             return Ok(());
         };
+        let body = match plain_ifs(&self.ev(), &body) {
+            Ok(body) => Rc::new(body),
+            Err(Stop::Skip(why)) => {
+                skip_all(self, &why);
+                return Ok(());
+            }
+            Err(Stop::Error(e)) => return Err(e),
+        };
         let tree_params = arity + usize::from(tree_lams.is_some());
         if self.kernel.def(tree_def).arity() != tree_params {
             skip_all(
@@ -2309,10 +2313,7 @@ impl Elaborator {
                     d.leaves = leaves;
                     None
                 }
-                Ok(None) => Some(
-                    "an arm with `()` keeps a definition's equations from being made on demand"
-                        .to_string(),
-                ),
+                Ok(None) => Some("its arms couldn't be compiled again as a `match`".to_string()),
                 Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
                 Err(Stop::Error(e)) => Some(format!(
                     "its arms couldn't be compiled again: {}",
@@ -2711,7 +2712,7 @@ impl Elaborator {
                         Alt {
                             guard: None,
                             patterns: patterns.clone(),
-                            body,
+                            body: Some(body),
                             span: probe_span,
                         },
                         Alt {
@@ -2720,7 +2721,7 @@ impl Elaborator {
                                 .iter()
                                 .map(|_| Pattern::Wildcard(other_span))
                                 .collect(),
-                            body: var(PROBE, other_span),
+                            body: Some(var(PROBE, other_span)),
                             span: other_span,
                         },
                     ],
@@ -2741,7 +2742,7 @@ impl Elaborator {
                     Alt {
                         guard: None,
                         patterns: row.patterns.clone(),
-                        body,
+                        body: Some(body),
                         span: probe_span,
                     },
                     Alt {
@@ -2751,7 +2752,7 @@ impl Elaborator {
                             .iter()
                             .map(|_| Pattern::Wildcard(other_span))
                             .collect(),
-                        body: var(PROBE, other_span),
+                        body: Some(var(PROBE, other_span)),
                         span: other_span,
                     },
                 ],
@@ -3036,10 +3037,8 @@ impl Elaborator {
         // §10: a right side much larger than the arm's body (a `let` used
         // many times, substituted) isn't generated.
         let (size, arm_size) = (s.rhs_size, s.arm_size);
-        if size > 256 && size > SIZE_FACTOR * arm_size {
-            return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
-            ));
+        if too_large(size, arm_size) {
+            return skip(too_large_why(size, arm_size));
         }
         // The proof.
         let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, depth, &body, Then::Own)?;
@@ -3328,7 +3327,7 @@ impl Elaborator {
         }
         kernel::define_group(&mut self.kernel, &self.tables, &[(id, proof)])?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         let key = format!("{}.{suffix}", d.key);
         self.scope
@@ -3550,10 +3549,8 @@ impl Elaborator {
         let top = binders.len();
         // §10, for the branch's right side too.
         let size = z.subterms().count();
-        if size > 256 && size > SIZE_FACTOR * arm_size {
-            return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
-            ));
+        if too_large(size, arm_size) {
+            return skip(too_large_why(size, arm_size));
         }
         // The row's proof, walking the definition's tree (its case splits
         // at the top), going on along the proof that its right side is the
@@ -4239,6 +4236,7 @@ impl Elaborator {
             .body()
             .cloned()
             .ok_or_else(|| Stop::Skip("its `match`'s helper has no body".into()))?;
+        let body = Rc::new(plain_ifs(g, &body)?);
         let special = special_params(g, &binders);
         if special.iter().any(Option::is_some) {
             return skip("its `match`'s helper is polymorphic in abilities");
@@ -4253,11 +4251,11 @@ impl Elaborator {
                 patterns: a.patterns.clone(),
                 alternatives: Vec::new(),
                 span: a.span,
-                has_rhs: true,
+                has_rhs: a.body.is_some(),
                 guarded: a.guard.is_some(),
                 guard: a.guard.clone(),
                 suffix: format!("alt{}", i + 1),
-                rhs: Some(a.body.clone()),
+                rhs: a.body.clone(),
                 parent: None,
                 alt: i + 1,
                 chain: Vec::new(),
@@ -4287,14 +4285,14 @@ impl Elaborator {
             .map(|a| SourceArm {
                 patterns: a.patterns.clone(),
                 guard: a.guard.clone(),
-                rhs: Some(a.body.clone()),
+                rhs: a.body.clone(),
                 span: a.span,
             })
             .collect();
         let root = alts.first().map_or(owner.rows[0].span, |a| a.span);
         hd.leaves = match self.recompute_leaves(&hd, &arms, root) {
             Ok(Some(leaves)) => leaves,
-            Ok(None) => return skip("its `match` has an alternative with `()`"),
+            Ok(None) => return skip("its `match`'s alternatives couldn't be compiled again"),
             Err(Stop::Error(e)) if !crate::undo::fatal(&e) => {
                 return skip(format!(
                     "its `match`'s alternatives couldn't be compiled again: {}",
@@ -4373,7 +4371,7 @@ impl Elaborator {
         }
         kernel::define_group(&mut self.kernel, &self.tables, &[(id, he.proof.clone())])?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         Ok(id)
     }
@@ -4504,36 +4502,17 @@ impl Elaborator {
             deceq_unique,
             deceq_decide: self.lookup_def("Std.DecEq.decide"),
             inspect: self.lookup_def("Std.Bool.inspect"),
-            to_bool: r.def(Builtin::ToBool).ok_or_else(none)?,
+            to_bool: r.def(Builtin::Holds).ok_or_else(none)?,
             to_bool_lemmas: (|| {
-                Some([
-                    self.lookup_def("Std.Decidable.toBoolOf")?,
-                    self.lookup_def("Std.Decidable.toBoolOfNot")?,
-                    self.lookup_def("Std.Decidable.toBoolSound")?,
-                    self.lookup_def("Std.Decidable.toBoolFalse")?,
-                ])
-            })(),
-            and_lemmas: (|| {
-                Some([
-                    self.lookup_def("Std.Decidable.andBoolOf")?,
-                    self.lookup_def("Std.Decidable.andBoolOfNot")?,
-                    self.lookup_def("Std.Decidable.andBoolSound")?,
-                    self.lookup_def("Std.Decidable.andBoolFalse")?,
-                ])
-            })(),
-            dec_true: (|| {
                 Some((
-                    r.def(Builtin::DecTrue)?,
-                    self.lookup_def("Std.Bool.decTrueToBool")?,
+                    r.data(Builtin::Decidable)?,
+                    r.def(Builtin::ToBoolOfNot)?,
+                    r.def(Builtin::Refute)?,
                 ))
             })(),
+            dec_true: r.def(Builtin::DecTrue),
             and_data: r.data(Builtin::And).ok_or_else(none)?,
-            and_dec: (|| {
-                Some((
-                    self.lookup_def("Std.Decidable.and")?,
-                    self.lookup_def("Std.Decidable.andBoolDec")?,
-                ))
-            })(),
+            and_dec: self.lookup_def("Std.Decidable.and"),
             not_not: (|| {
                 Some((
                     self.lookup_def("Std.Decidable.notNotOf")?,
@@ -4595,6 +4574,7 @@ impl Elaborator {
     fn right_side(&self, d: &Def, k: usize, shape: &Shape) -> R<(Option<Term>, usize)> {
         match self.seek(d, k, shape)?.found {
             Found::Rhs(t, size) => Ok((Some(t), size)),
+            Found::TooLarge(size, arm_size) => skip(too_large_to_read(size, arm_size)),
             Found::Match => skip(
                 "its right side is a `match` on its variables, compiled into the case tree, so \
                  no one equation states it: each alternative's has its own (`f.eqK.cons`, …)",
@@ -4952,6 +4932,154 @@ fn match_pattern(
     }
 }
 
+/// `t` with each plain `if` on a decided proposition as the `if` on the
+/// decision's `Bool`: `Decidable.elim [p] [a] d (_ => y) (_ => n)` whose
+/// branches don't use the proof is `Bool.ifThenElse [a] b (_ => y) (_ =>
+/// n)`, `b` the test as a plain `if`'s condition reads it
+/// (`bind::Decision::into_bool`: a comparison's `Bool`, `c` for `Bool.decTrue
+/// c`, `a && b` for `Decidable.andThen`, else `Decidable.holds [p] d`). The
+/// two compute alike (docs/proposals/decidable-record.md §3.1), so the
+/// equations are stated, and proved, as for a `Bool` `if`, with the
+/// hypotheses `b = True` and `b = False`. An `if h:` (its binder named)
+/// stays as it is.
+fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
+    let r = g.env.registry();
+    let (Some(elim), Some(ite), Some(bool_data), Some((_, fls))) = (
+        r.def(Builtin::ElimDec),
+        r.def(Builtin::IfThenElse),
+        r.data(Builtin::Bool),
+        r.ctor(Builtin::False),
+    ) else {
+        return Ok(t.clone());
+    };
+    let to_bool = r.def(Builtin::Holds);
+    let dec_true = r.def(Builtin::DecTrue);
+    let and_then = r.def(Builtin::DecAndThen);
+    let bool_ty = Term::Data(bool_data, Vec::new());
+    let is = |t: &Term, id: Option<DefId>| matches!(t.strip_loc(), Term::Def(h) if Some(*h) == id);
+    // The test of decision `d` of `p`, as a plain `if` reads it.
+    fn test(
+        g: &Ev,
+        d: &Term,
+        p: &Term,
+        is: &dyn Fn(&Term, Option<DefId>) -> bool,
+        ids: (Option<DefId>, Option<DefId>, Option<DefId>, DefId),
+        bool_ty: &Term,
+        fls: Term,
+    ) -> Option<Term> {
+        let (to_bool, dec_true, and_then, ite) = ids;
+        if let Some(c) = crate::bind::comparison_in(g, d) {
+            return Some(c);
+        }
+        let (head, args) = spine_icit(d.strip_loc());
+        if is(head, dec_true) && args.len() == 1 {
+            return Some(args[0].0.clone());
+        }
+        if is(head, and_then) && args.len() == 4 {
+            let (pa, pb) = (&args[0].0, &args[1].0);
+            let a = test(g, &args[2].0, pa, is, ids, bool_ty, fls.clone())?;
+            let Term::Lam(x, i, db) = args[3].0.strip_loc() else {
+                return None;
+            };
+            if db.mentions(0) {
+                return None;
+            }
+            let b = test(
+                g,
+                db,
+                &pb.shift(g, 1, 0).ok()?,
+                is,
+                ids,
+                bool_ty,
+                fls.clone(),
+            )?;
+            let head = Term::app_icit(Term::Def(ite), bool_ty.clone(), Icit::Implicit);
+            return Some(apps(
+                head,
+                [
+                    (a, Icit::Explicit),
+                    (Term::Lam(x.clone(), *i, Rc::new(b)), Icit::Explicit),
+                    (
+                        Term::Lam("_".into(), Icit::Explicit, Rc::new(fls)),
+                        Icit::Explicit,
+                    ),
+                ],
+            ));
+        }
+        // With the operands bound, `(x… => d') ops…` (`bind::Bound`).
+        if let Term::Ann(lam, pi) = head
+            && !args.is_empty()
+        {
+            let k = args.len();
+            let mut body = lam.strip_loc();
+            let mut cod = pi.strip_loc();
+            let mut names = Vec::new();
+            for _ in 0..k {
+                match (body, cod) {
+                    (Term::Lam(x, i, b), Term::Pi(_, _, _, c)) => {
+                        names.push((x.clone(), *i));
+                        body = b.strip_loc();
+                        cod = c.strip_loc();
+                    }
+                    _ => return None,
+                }
+            }
+            let Term::Data(_, ps) = cod else {
+                return None;
+            };
+            let inner = test(g, body, ps.first()?, is, ids, bool_ty, fls)?;
+            let mut pi_bool = bool_ty.shift(g, k, 0).ok()?;
+            let mut pis = Vec::new();
+            let mut node = pi.strip_loc();
+            for _ in 0..k {
+                if let Term::Pi(x, i, a, c) = node {
+                    pis.push((x.clone(), *i, a.clone()));
+                    node = c.strip_loc();
+                }
+            }
+            for (x, i, a) in pis.into_iter().rev() {
+                pi_bool = Term::Pi(x, i, a, Rc::new(pi_bool));
+            }
+            let lam_bool = names
+                .into_iter()
+                .rev()
+                .fold(inner, |b, (x, i)| Term::Lam(x, i, Rc::new(b)));
+            return Some(apps(Term::Ann(Rc::new(lam_bool), Rc::new(pi_bool)), args));
+        }
+        let to_bool = to_bool?;
+        Some(Term::app(
+            Term::app_icit(Term::Def(to_bool), p.clone(), Icit::Implicit),
+            d.clone(),
+        ))
+    }
+    let ids = (to_bool, dec_true, and_then, ite);
+    let fls = Term::Ctor(bool_data, fls, Vec::new());
+    Ok(t.rewrite_up(g, &mut |node| {
+        let (head, args) = spine_icit(node);
+        if !is(head, Some(elim)) || args.len() != 5 {
+            return Ok(None);
+        }
+        let plain = |b: &Term| {
+            matches!(b.strip_loc(), Term::Lam(x, _, body) if &**x == "_" && !body.mentions(0))
+        };
+        if !plain(&args[3].0) || !plain(&args[4].0) {
+            return Ok(None);
+        }
+        let Some(c) = test(g, &args[2].0, &args[0].0, &is, ids, &bool_ty, fls.clone()) else {
+            return Ok(None);
+        };
+        let head = Term::app_icit(Term::Def(ite), args[1].0.clone(), Icit::Implicit);
+        Ok(Some(apps(
+            head,
+            [
+                (c, Icit::Explicit),
+                (args[3].0.clone(), Icit::Explicit),
+                (args[4].0.clone(), Icit::Explicit),
+            ],
+        )))
+    })?)
+}
+
 /// `t` as a head applied to arguments, with how each is passed, looking
 /// through locations.
 fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
@@ -5189,6 +5317,51 @@ fn zeta(g: &Ev, t: &Term) -> stitchwort_core::budget::Result<Term> {
         return b.instantiate(g, &v);
     }
     rebuild(t, &mut |s, _| Ok(Rc::new(zeta(g, s)?)))
+}
+
+/// `zeta(t).subterms().count()`, counted without building it, and whether
+/// `zeta(t)` is a variable under its `Loc`s. A chain of `let`s each using
+/// the last twice substitutes to a tree exponential in the chain's length,
+/// which [`READ_CAP`] must turn down before it is built (SW-2512). `lets`
+/// has, per variable in scope (outermost first), what its `let`'s value
+/// substitutes as, or `None` for another binder's. Sizes saturate.
+fn zeta_size(
+    g: &Ev,
+    t: &Term,
+    lets: &mut Vec<Option<(usize, bool)>>,
+) -> stitchwort_core::budget::Result<(usize, bool)> {
+    g.machine.budget.nesting("equations")?;
+    match t {
+        Term::Var(i) => Ok(lets
+            .len()
+            .checked_sub(i + 1)
+            .and_then(|l| lets[l])
+            .unwrap_or((1, true))),
+        Term::Loc(_, inner) => {
+            let (size, var) = zeta_size(g, inner, lets)?;
+            Ok((size.saturating_add(1), var))
+        }
+        Term::Let(_, _, v, b, _) => {
+            // `instantiate` puts a variable in bare, else the value whole.
+            let (size, var) = zeta_size(g, v, lets)?;
+            lets.push(Some(if var { (1, true) } else { (size, false) }));
+            let r = zeta_size(g, b, lets);
+            lets.pop();
+            r
+        }
+        _ => {
+            let mut children = Vec::new();
+            t.for_each_child(|c, under| children.push((c, under)));
+            let mut size: usize = 1;
+            for (c, under) in children {
+                lets.extend(std::iter::repeat_n(None, under));
+                let r = zeta_size(g, c, lets);
+                lets.truncate(lets.len() - under);
+                size = size.saturating_add(r?.0);
+            }
+            Ok((size, false))
+        }
+    }
 }
 
 /// `t` (at `depth`) with the effect library's plumbing at the empty row and
@@ -5484,6 +5657,9 @@ enum Found {
     GuardProof,
     /// The right side, and the size of the leaf's body it came from.
     Rhs(Term, usize),
+    /// A right side over [`READ_CAP`] (and [`too_large`]) with its `let`s
+    /// substituted: that size, and its leaf body's.
+    TooLarge(usize, usize),
 }
 
 /// Why a row whose body uses the proof that an earlier arm's condition is
@@ -5592,9 +5768,17 @@ fn find_rhs(
                 } else {
                     rhs
                 };
-                // `let`s substituted, as goals show them (§3.1).
-                let rhs = zeta(g, &rhs)?;
-                out.found = Found::Rhs(rhs, t.subterms().count());
+                // `let`s substituted, as goals show them (§3.1). The
+                // branches a row's splits take are smaller, and §10
+                // bounds what is stated; [`READ_CAP`] bounds what is
+                // built on the way.
+                let arm_size = t.subterms().count();
+                let (size, _) = zeta_size(g, &rhs, &mut Vec::new())?;
+                out.found = if size > READ_CAP && too_large(size, arm_size) {
+                    Found::TooLarge(size, arm_size)
+                } else {
+                    Found::Rhs(zeta(g, &rhs)?, arm_size)
+                };
             }
             None => {
                 if matches!(out.found, Found::None) {
@@ -5882,17 +6066,13 @@ impl Elaborator {
     /// The leaves of the definition's case tree, when none were recorded
     /// (its equations made on demand, after it): its arms compiled again,
     /// as its body was, with a probe for each body, under a root of their
-    /// own, and read off the log. `None` for an arm with `()`, which
-    /// compiles differently as an alternative of a `match`.
+    /// own, and read off the log.
     fn recompute_leaves(
         &mut self,
         d: &Def,
         arms: &[SourceArm],
         root: Span,
     ) -> R<Option<Vec<Leaf>>> {
-        if arms.iter().any(|a| a.rhs.is_none()) {
-            return Ok(None);
-        }
         let n = d.binders.len();
         let pred_ty = eval(&self.ev(), &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
         let nav = self.present.nav.take();
@@ -5952,7 +6132,9 @@ impl Elaborator {
                         Alt {
                             guard: a.guard.clone(),
                             patterns: a.patterns.clone(),
-                            body: probe_body(a.rhs.as_ref(), a.span, &known),
+                            // An absurd arm stays absurd: given a probe body,
+                            // its `()` would be the unit pattern.
+                            body: (a.rhs.as_ref()).map(|rhs| probe_body(Some(rhs), a.span, &known)),
                             span: a.span,
                         }
                     })
@@ -6653,6 +6835,11 @@ impl<'a> Walk<'a> {
         } else {
             body
         };
+        let size = t.subterms().count();
+        let (full, _) = zeta_size(&g, &body, &mut Vec::new())?;
+        if full > READ_CAP && too_large(full, size) {
+            return skip(too_large_to_read(full, size));
+        }
         let body = zeta(&g, &body)?;
         let mut images = Vec::new();
         for j in 0..self.tk {
@@ -6660,7 +6847,6 @@ impl<'a> Walk<'a> {
                 images.push((j, self.term(&PV::Var(j))?));
             }
         }
-        let size = t.subterms().count();
         if let Some(found) = &mut self.dry {
             found.push(LeafCtx {
                 path: path.to_vec(),
@@ -6942,7 +7128,7 @@ impl<'a> Walk<'a> {
         };
         let recorded = self.shapes[j].as_ref().ok().and_then(|s| s.guard.as_ref());
         // For a condition stated as its proposition but tested by its
-        // `Bool` `toBool d`: `P` and `d` here, to go between the two.
+        // `Bool` `holds d`: `P` and `d` here, to go between the two.
         let decided = match recorded {
             Some(r) if r.prop.is_some() => {
                 Some(blib.decided_view(&g, &read.args[1].0)?.ok_or_else(|| {
@@ -7409,5 +7595,70 @@ impl Elaborator {
     /// with the reason.
     pub fn equation_skips(&self) -> &[(DefId, String, String)] {
         &self.tables.equation_skips
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use stitchwort_core::globals::Kernel;
+    use stitchwort_core::{Icit, Term};
+    use stitchwort_syntax::{SourceMap, Span};
+
+    use super::{zeta, zeta_size};
+
+    fn rc(t: Term) -> Rc<Term> {
+        Rc::new(t)
+    }
+
+    fn let_(v: Term, b: Term) -> Term {
+        Term::Let("t".into(), rc(Term::Refl), rc(v), rc(b), false)
+    }
+
+    /// `f a a`, `f` being variable `f`.
+    fn twice(f: usize, a: Term) -> Term {
+        Term::App(
+            rc(Term::App(rc(Term::Var(f)), rc(a.clone()), Icit::Explicit)),
+            rc(a),
+            Icit::Explicit,
+        )
+    }
+
+    /// `zeta_size` counts what `zeta` builds: through `Loc`s, binders, a
+    /// `let` of a variable (put in bare) and a chain of `let`s each using
+    /// the last twice, whose substituted size doubles with each link.
+    #[test]
+    fn zeta_size_counts_what_zeta_builds() {
+        let k = Kernel::default();
+        let g = k.ev();
+        let span = Span::point(SourceMap::new().add("t", ""), 0);
+        let loc = |t: Term| Term::Loc(span, rc(t));
+        // Under `f`, `x`: `let t1 := f x x; …; let tn := f t(n-1) t(n-1); tn`.
+        let chain = |n: usize| {
+            let mut body = loc(Term::Var(0));
+            for i in (1..=n).rev() {
+                // `ti` is under `f`, `x` and i - 1 `let`s.
+                body = let_(loc(twice(i, loc(Term::Var(0)))), body);
+            }
+            body
+        };
+        let cases = [
+            chain(1),
+            chain(6),
+            let_(loc(Term::Var(1)), loc(twice(1, loc(Term::Var(0))))),
+            let_(
+                twice(1, Term::Var(0)),
+                Term::Lam("y".into(), Icit::Explicit, rc(twice(2, loc(Term::Var(1))))),
+            ),
+        ];
+        for t in &cases {
+            let built = zeta(&g, t).unwrap();
+            let (size, var) = zeta_size(&g, t, &mut Vec::new()).unwrap();
+            assert_eq!(size, built.subterms().count(), "{t:?}");
+            assert_eq!(var, matches!(built.strip_loc(), Term::Var(_)), "{t:?}");
+        }
+        let (size, _) = zeta_size(&g, &chain(60), &mut Vec::new()).unwrap();
+        assert!(size > 1 << 60, "{size}");
     }
 }

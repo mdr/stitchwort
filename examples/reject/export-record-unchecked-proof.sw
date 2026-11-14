@@ -6,7 +6,7 @@
 
 import Std (List)
 
-def Sorted (xs: List Nat): Prop := (n: Nat) → List.length xs ≤ n + List.length xs
+def Sorted (xs: List Nat): Prop := ∀ (n: Nat) => List.length xs ≤ n + List.length xs
 
 type SortedList = { items: List Nat, sorted: Sorted items }
 

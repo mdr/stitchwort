@@ -10,10 +10,9 @@ test "describeEmpty" := describe [] == "empty"
 test "describeOne" := describe [1] == "one"
 test "describeMany" := describe [1, 2, 3] == "two or more"
 
-def sumTwo (xs: List Nat): Nat :=
-  match xs with
-    | [a, b, .._] => a + b
-    | _ => 0
+def sumTwo (xs: List Nat): Nat := match xs with
+  | [a, b, .._] => a + b
+  | _ => 0
 
 test "sumTwoLong" := sumTwo [1, 2, 3, 4] == 3
 test "sumTwoShort" := sumTwo [1] == 0

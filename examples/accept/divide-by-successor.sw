@@ -5,17 +5,17 @@
 
 -- Division by 0 is defined (`n / 0 = 0`), so these ask for the proof
 -- themselves.
-def rem (n: Nat) (d: Nat) [auto ok: d ≠ 0]: Nat := n % d
+def rem (n d: Nat) [auto ok: d ≠ 0]: Nat := n % d
 
-def per (n: Nat) (d: Nat) [auto ok: d ≠ 0]: Nat := n / d
+def per (n d: Nat) [auto ok: d ≠ 0]: Nat := n / d
 
 -- A roll from 0 up to `most`.
-def upTo (seed: Nat) (most: Nat): Nat := rem seed (most + 1)
+def upTo (seed most: Nat): Nat := rem seed (most + 1)
 
-def perPair (total: Nat) (pairs: Nat): Nat := per total (pairs + 2)
+def perPair (total pairs: Nat): Nat := per total (pairs + 2)
 
 -- The same as `Succ most`, which was always accepted.
-def upToSucc (seed: Nat) (most: Nat): Nat := rem seed (Succ most)
+def upToSucc (seed most: Nat): Nat := rem seed (Succ most)
 
 test "upTo" := upTo 10 2 == 1 && upTo 7 0 == 0 && upTo 6 6 == 6
 

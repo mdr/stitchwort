@@ -11,4 +11,4 @@ instance decToken: Decidable Token := laterHelper
 
 def client: Nat := needsToken
 
-def laterHelper: Decidable Token := Yes MkToken
+def laterHelper: Decidable Token := Std.Decidable.yes MkToken

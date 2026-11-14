@@ -141,7 +141,8 @@ impl Source for Disk {
 
 /// Projects held in memory: the playground's (the AoC project, the
 /// roguelike), at made-up folders such as `/playground/aoc`. Their
-/// configuration comes parsed, and there is no check cache.
+/// configuration comes parsed. With no cache folder, the server keeps an
+/// in-memory check cache for their namespaces (`LayeredStore`).
 #[derive(Default)]
 pub struct Memory {
     projects: RwLock<Vec<MemoryProject>>,
@@ -179,6 +180,20 @@ impl Memory {
         projects.push(project);
     }
 
+    /// Gives the file `path` of the project in `root` this text, when the
+    /// page has changed it behind the server's back (a rename that edited a
+    /// file the editor hasn't opened). No such project or file: nothing.
+    pub fn set_file(&self, root: &Path, path: &str, text: String) {
+        let mut projects = self.projects.write().unwrap_or_else(|e| e.into_inner());
+        if let Some(project) = projects.iter_mut().find(|p| p.root == root) {
+            let mut files = (*project.files).clone();
+            if let Some(old) = files.get_mut(path) {
+                *old = text;
+                project.files = Arc::new(files);
+            }
+        }
+    }
+
     /// The project holding `path`, and `path` within it.
     fn locate(&self, path: &Path) -> Option<(MemoryProject, String)> {
         let projects = self.projects.read().unwrap_or_else(|e| e.into_inner());
@@ -195,6 +210,7 @@ impl MemoryProject {
         Config {
             sources: self.sources.clone(),
             allowed_axioms: None,
+            open_goals: Default::default(),
         }
     }
 
@@ -248,6 +264,7 @@ impl Source for Memory {
                 config: Config {
                     sources: Vec::new(),
                     allowed_axioms: None,
+                    open_goals: Default::default(),
                 },
                 config_text: String::new(),
                 files: Arc::default(),

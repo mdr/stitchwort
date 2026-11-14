@@ -118,6 +118,31 @@ fn constructors_come_with_an_imported_type() {
     );
 }
 
+/// An import may name a constructor (D3503): listed beside its type it adds
+/// nothing, since the type brings its constructors; listed alone it imports
+/// just that constructor, not its type or the type's other constructors.
+#[test]
+fn a_constructor_may_be_named_in_an_import_list() {
+    load(
+        "import Turns (Move, Clockwise)\n\
+         import Turns (Counterclockwise)\n\n\
+         type Turns.Move : Type =\n  | Forward\n  | Clockwise\n  | Counterclockwise\n\n\
+         def turn : Move := Clockwise\n\n\
+         test \"with its type\" := turn == Clockwise\n\
+         test \"alone\" := Counterclockwise == Counterclockwise\n",
+    );
+    // Alone, the constructor is imported; its type and the type's other
+    // constructors are not.
+    assert_eq!(
+        codes(
+            "import Turns (Clockwise)\n\n\
+             type Turns.Move : Type =\n  | Forward\n  | Clockwise\n\n\
+             def turn : Move := Clockwise\n"
+        ),
+        ["E-UNKNOWN-NAME"]
+    );
+}
+
 /// The extension check is on what the qualifier means, not its spelling:
 /// an imported library type can't be added to either, nor can a library
 /// namespace that isn't a type.

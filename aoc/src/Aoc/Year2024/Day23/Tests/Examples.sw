@@ -16,43 +16,41 @@ def computerNamed (name: Text): Computer := { name = name }
 def networkOf (connections: List Text): Network :=
   { connections = connections.map (line => { one = computerNamed (line.take 2), other = computerNamed (line.drop 3) }) }
 
-def exampleText: Text :=
-  """
-    kh-tc
-    qp-kh
-    de-cg
-    ka-co
-    yn-aq
-    qp-ub
-    cg-tb
-    vc-aq
-    tb-ka
-    wh-tc
-    yn-cg
-    kh-ub
-    ta-co
-    de-co
-    tc-td
-    tb-wq
+def exampleText: Text := """
+  kh-tc
+  qp-kh
+  de-cg
+  ka-co
+  yn-aq
+  qp-ub
+  cg-tb
+  vc-aq
+  tb-ka
+  wh-tc
+  yn-cg
+  kh-ub
+  ta-co
+  de-co
+  tc-td
+  tb-wq
+  """ ++ """
+    wh-td
+    ta-ka
+    td-qp
+    aq-cg
+    wq-ub
+    ub-vc
+    de-ta
+    wq-aq
+    wq-vc
+    wh-yn
+    ka-de
+    kh-ta
+    co-tc
+    wh-qp
+    tb-vc
+    td-yn
     """
-    ++ """
-      wh-td
-      ta-ka
-      td-qp
-      aq-cg
-      wq-ub
-      ub-vc
-      de-ta
-      wq-aq
-      wq-vc
-      wh-yn
-      ka-de
-      kh-ta
-      co-tc
-      wh-qp
-      tb-vc
-      td-yn
-      """
 
 --| The example's connections, split by hand rather than parsed.
 def example: Network := exampleText.lines |> networkOf
@@ -70,7 +68,8 @@ test "example, part 2" := solvePart2 example == "co,de,ka,ta"
 --| computers".
 test "example, every set of three" :=
   listed example.links.setsOfThree
-    == ["aq,cg,yn", "aq,vc,wq", "co,de,ka", "co,de,ta", "co,ka,ta", "de,ka,ta", "kh,qp,ub", "qp,td,wh", "tb,vc,wq", "tc,td,wh", "td,wh,yn", "ub,vc,wq"]
+    == ["aq,cg,yn", "aq,vc,wq", "co,de,ka", "co,de,ta", "co,ka,ta", "de,ka,ta", "kh,qp,ub", "qp,td,wh", "tb,vc,wq",
+      "tc,td,wh", "td,wh,yn", "ub,vc,wq"]
 
 --| "That narrows the list down to 7 sets".
 test "example, the sets with a t" :=
@@ -83,7 +82,9 @@ def specSetsOfThree (network: Network): Set Party :=
   names
     |> .flatMap (one => names.flatMap (two => names.map (three => { members = [one, two, three].toSet })))
     |> .toSet
-    |> .filter (party => party.size == 3 && party.members.all (one => party.members.all (other => one == other || connected network one other)))
+    |> .filter (party =>
+      party.size == 3
+        && party.members.all (one => party.members.all (other => one == other || connected network one other)))
 
 test "example, the spec's sets of three agree" :=
   specSetsOfThree example == example.links.setsOfThree && (specSetsOfThree example |> .filter hasT |> .size) == 7
@@ -98,7 +99,8 @@ test "connections go both ways" :=
   connected example tc kh && connected example kh tc && !connected example kh (computerNamed "co")
 
 test "no sets of three" :=
-  solvePart1 (networkOf ["ta-tb", "tb-tc", "tc-td", "td-ta"]) == 0 && solvePart2 (networkOf ["ta-tb", "tb-tc", "tc-td", "td-ta"]) == "ta,tb"
+  solvePart1 (networkOf ["ta-tb", "tb-tc", "tc-td", "td-ta"]) == 0
+    && solvePart2 (networkOf ["ta-tb", "tb-tc", "tc-td", "td-ta"]) == "ta,tb"
 test "a set of three without a t" := solvePart1 (networkOf ["aa-bb", "bb-cc", "cc-aa"]) == 0
 test "a t anywhere in the set counts" := solvePart1 (networkOf ["aa-bb", "bb-tc", "tc-aa"]) == 1
 test "t only as the second letter doesn't count" := solvePart1 (networkOf ["at-bt", "bt-ct", "ct-at"]) == 0
@@ -126,11 +128,13 @@ test "no connections" := solvePart2 (networkOf []) == "" && solvePart1 (networkO
 
 --| A larger set found after a smaller one.
 test "the largest set found late" :=
-  solvePart2 (networkOf ["aa-bb", "aa-cc", "bb-cc", "zw-zx", "zw-zy", "zw-zz", "zx-zy", "zx-zz", "zy-zz", "aa-zw"]) == "zw,zx,zy,zz"
+  solvePart2 (networkOf ["aa-bb", "aa-cc", "bb-cc", "zw-zx", "zw-zy", "zw-zz", "zx-zy", "zx-zz", "zy-zz", "aa-zw"])
+    == "zw,zx,zy,zz"
 
 test "parse" := parsed exampleText == Ok example
 test "parse without a final line break" := parsed "kh-tc\nqp-kh" == Ok (networkOf ["kh-tc", "qp-kh"])
 test "a capital letter" := parsed "kh-Tc\n" == Err "line 1, column 4: expected a lowercase letter, got 'T'"
 test "a name of three letters" := parsed "kh-tcd\n" == Err "line 1, column 6: expected the end of the line, got 'd'"
 test "no dash" := parsed "kh tc\n" == Err "line 1, column 3: expected '-', got ' '"
-test "no connections to parse" := parsed "" == Err "line 1, column 1: expected a lowercase letter, got the end of the input"
+test "no connections to parse" :=
+  parsed "" == Err "line 1, column 1: expected a lowercase letter, got the end of the input"

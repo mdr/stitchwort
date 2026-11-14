@@ -13,6 +13,11 @@ use serde_json::{Value, json};
 use stitchwort_cli::lsp::{Options, serve};
 
 const STACK: usize = 64 * 1024 * 1024;
+/// The longest a test waits for the server's reply or diagnostics. It returns
+/// the moment the event arrives, so the ceiling only matters when the
+/// machine is so loaded that a check takes many times as long (7 to 37 times
+/// in the all tier, SW-2584); a hung server still fails, after this.
+const WAIT: Duration = Duration::from_secs(30 * 60);
 
 struct Client {
     conn: Connection,
@@ -92,7 +97,7 @@ impl Client {
                     None => Ok(resp.result.unwrap_or(Value::Null)),
                 };
             }
-            match self.conn.receiver.recv_timeout(Duration::from_secs(60)) {
+            match self.conn.receiver.recv_timeout(WAIT) {
                 Ok(Message::Response(resp)) => self.responses.push(resp),
                 Ok(Message::Notification(n)) => self.queue.push_back(n),
                 Ok(other) => panic!("unexpected {other:?}"),
@@ -112,7 +117,7 @@ impl Client {
         let r = Request::new(id.clone(), method.to_string(), params);
         self.conn.sender.send(r.into()).unwrap();
         loop {
-            match self.conn.receiver.recv_timeout(Duration::from_secs(120)) {
+            match self.conn.receiver.recv_timeout(WAIT) {
                 Ok(Message::Response(resp)) if resp.id == id => {
                     assert!(resp.error.is_none(), "{method}: {:?}", resp.error);
                     return resp.result.unwrap_or(Value::Null);
@@ -131,7 +136,7 @@ impl Client {
     }
 
     fn diagnostics_checking(&mut self, uri: &str, version: i32, never: Option<i32>) -> Vec<Value> {
-        self.diagnostics_within(uri, version, never, Duration::from_secs(120))
+        self.diagnostics_within(uri, version, never, WAIT)
     }
 
     fn diagnostics_within(
@@ -550,7 +555,7 @@ fn library_navigation_survives_later_namespace_answers() {
     client.open(&first_uri, first);
     assert_eq!(client.diagnostics(&first_uri, 1), Vec::<Value>::new());
     // `Second` is checked in the background, after `First`.
-    let got = client.diagnostics_within(&second_uri, 0, None, Duration::from_secs(120));
+    let got = client.diagnostics_within(&second_uri, 0, None, WAIT);
     assert_eq!(got, Vec::<Value>::new());
     let library = client.at("textDocument/definition", &second_uri, 4, 20);
     let std_uri = library["uri"].as_str().unwrap().to_string();
@@ -972,7 +977,7 @@ fn aoc_navigation_matches_check_index() {
     // expression types) aren't the ones `check` warmed, so some proofs take
     // seconds each (about 100 s in all, measured; SW-1050).
     let last = uri(&project.join(files[1]));
-    client.diagnostics_within(&last, 0, None, Duration::from_secs(600));
+    client.diagnostics_within(&last, 0, None, WAIT);
 
     let mut compared = 0;
     for path in files {
@@ -1097,10 +1102,11 @@ fn aoc_navigation_matches_check_index() {
     assert_eq!(place(&project, &found[0]["location"]), files[0]);
 
     // An edit that breaks `Aoc.Year2025.Day01`, unsaved: its diagnostics, and its
-    // dependents' (`Aoc.Year2025.Day01.Proofs` can't be checked).
+    // dependents' (`Aoc.Year2025.Day01.Proofs` says once that what uses
+    // `Dial.isZero` can't be checked until it's fixed).
     let broken = text.replace(
-        "def solvePart1 (turns: List Turn): Nat :=",
-        "def solvePart1 (turns: List Turn): Text :=",
+        "def Dial.isZero (dial: Dial n): Bool := dial.position.isZero",
+        "def Dial.isZero (dial: Dial n): Bool := \"no\"",
     );
     assert_ne!(broken, text);
     client.change(&first, 2, &broken);
@@ -1114,7 +1120,7 @@ fn aoc_navigation_matches_check_index() {
             break;
         }
     }
-    assert_eq!(codes(&dependent), ["E-NAMESPACE-FAILED"], "{dependent:?}");
+    assert_eq!(codes(&dependent), ["E-USES-FAILED"], "{dependent:?}");
     client.change(&first, 3, &text);
     assert_eq!(client.diagnostics(&first, 3), Vec::<Value>::new());
     client.shutdown();
@@ -1900,6 +1906,69 @@ fn outline_ranges_keep_the_closing_parenthesis() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A declaration whose body has a broken line in the middle (SW-3199).
+const BROKEN_BODY_PROGRAM: &str =
+    "def broken (n: Nat): Nat :=\n  n +\n  )\n  n\n\ndef fine (n: Nat): Nat := n + 1\n";
+
+#[test]
+fn outline_range_of_a_declaration_whose_body_does_not_parse() {
+    let dir = temp_dir("outline-broken-body");
+    let file = dir.join("broken.sw");
+    std::fs::write(&file, BROKEN_BODY_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, BROKEN_BODY_PROGRAM);
+    // Before the first check answers, the outline comes from the text alone:
+    // the broken declaration's range runs to its body there too.
+    let early = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    assert_eq!(
+        early.as_array().unwrap()[0]["range"]["end"]["line"],
+        3,
+        "{early}"
+    );
+    let errors = client.diagnostics(&uri, 1);
+    assert!(errors.iter().any(|d| d["code"] == "E-PARSE"), "{errors:?}");
+    let outline = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let lines: Vec<&str> = BROKEN_BODY_PROGRAM.lines().collect();
+    let symbols = outline.as_array().unwrap();
+    assert_eq!(symbols.len(), 2, "{outline}");
+    // The first declaration's range runs to its body's last line, not to
+    // its header.
+    let first = &symbols[0];
+    assert_eq!(first["name"], "broken", "{first}");
+    assert_eq!(
+        first["range"]["start"],
+        json!({"line": 0, "character": 0}),
+        "{first}"
+    );
+    assert_eq!(
+        first["range"]["end"],
+        json!({"line": 3, "character": lines[3].len()}),
+        "{first}"
+    );
+    // The next declaration is unaffected.
+    let second = &symbols[1];
+    assert_eq!(second["name"], "fine", "{second}");
+    assert_eq!(
+        second["range"]["start"],
+        json!({"line": 5, "character": 0}),
+        "{second}"
+    );
+    assert_eq!(
+        second["range"]["end"],
+        json!({"line": 5, "character": lines[5].len()}),
+        "{second}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A call whose lambda argument is postponed (SW-300): the generic `acc + f x`
 /// can't be checked until `xs` fixes the element type.
 const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft xs Add.zero (acc x => acc + f x)\n";
@@ -2318,6 +2387,7 @@ fn context_at_answers_anywhere_in_an_expression() {
     };
     let found = context_at(&mut client, 5, 18);
     assert_eq!(found["type"], "Nat", "{found:?}");
+    assert_eq!(found["kind"], "program", "{found:?}");
     let names: Vec<&str> = (found["locals"].as_array().expect("locals").iter())
         .map(|l| l["name"].as_str().unwrap())
         .collect();
@@ -2326,8 +2396,132 @@ fn context_at_answers_anywhere_in_an_expression() {
     assert_eq!(next["type"], "Nat");
     assert_eq!(next["value"], "start + y");
     assert_eq!(found["range"]["start"]["line"], 5);
-    // Nothing in the `match` arm's pattern, or in the signature's name.
-    assert_eq!(context_at(&mut client, 0, 5), Value::Null);
+    // In the signature: the statement, its body's expected type.
+    let statement = context_at(&mut client, 0, 5);
+    assert_eq!(statement["step"]["form"], "statement", "{statement:?}");
+    assert_eq!(statement["type"], "Nat", "{statement:?}");
+    // On an arm's pattern: the arm, and what its pattern binds.
+    let arm = context_at(&mut client, 3, 8);
+    assert_eq!(
+        arm["step"]["description"], "arm 2 of 2, `| Cons y rest`",
+        "{arm:?}"
+    );
+    assert_eq!(arm["step"]["adds"], json!(["y", "rest"]), "{arm:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `kind` tells a goal to prove from the type of a program's expression.
+#[test]
+fn context_at_says_whether_the_type_is_a_proposition() {
+    let dir = temp_dir("context-at-kind");
+    let file = dir.join("kind.sw");
+    let text =
+        "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  rfl\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    let proof = context_at(&mut client, 3, 3);
+    assert_eq!(proof["kind"], "proof", "{proof:?}");
+    assert_eq!(proof["type"], "double n = n + n", "{proof:?}");
+    let program = context_at(&mut client, 0, 30);
+    assert_eq!(program["kind"], "program", "{program:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// On a rewrite rule the answer has the step: the goal before and after
+/// the rule; a program point whose type differs from the one expected has
+/// both (D3499).
+#[test]
+fn context_at_a_step_and_has_type() {
+    let dir = temp_dir("context-at-step");
+    let file = dir.join("step.sw");
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
+                def widen (n: Nat): Int := n\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    let rule = context_at(&mut client, 1, 10);
+    assert_eq!(rule["declaration"], "flip", "{rule:?}");
+    let step = &rule["step"];
+    assert_eq!(step["form"], "rewriteRule", "{rule:?}");
+    assert_eq!(step["description"], "rule 1 of 1 of `rewrite`");
+    assert_eq!(step["before"], "b = a");
+    assert_eq!(step["rule"], "a = b");
+    assert_eq!(step["after"], "b = b");
+    assert_eq!(rule["type"], "b = b");
+    let program = context_at(&mut client, 3, 27);
+    assert_eq!(program["type"], "Int", "{program:?}");
+    assert_eq!(program["hasType"], "Nat", "{program:?}");
+    assert_eq!(program["step"], serde_json::Value::Null);
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The `rewrite`, `at` and `in` keywords answer with their first rule's
+/// step, as the rule itself does (SW-2930).
+#[test]
+fn context_at_a_rewrite_keyword_shows_the_rule_step() {
+    let dir = temp_dir("context-at-rewrite-keyword");
+    let file = dir.join("keyword.sw");
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
+                theorem twice (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h1, h2 in rfl\n\n\
+                theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h2 at h1 in h1\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    // On the rule, its `rewrite`, and its `in`: one step.
+    let rule = context_at(&mut client, 1, 10);
+    assert_eq!(rule["step"]["description"], "rule 1 of 1 of `rewrite`");
+    assert_eq!(context_at(&mut client, 1, 3)["step"], rule["step"]);
+    assert_eq!(context_at(&mut client, 1, 13)["step"], rule["step"]);
+
+    // Several rules: the keyword, `in` and the first rule give its step;
+    // the second rule still gives its own.
+    let first = context_at(&mut client, 4, 10);
+    assert_eq!(first["step"]["description"], "rule 1 of 2 of `rewrite`");
+    assert_eq!(first["step"]["before"], "a = c");
+    assert_eq!(first["step"]["rule"], "a = b");
+    assert_eq!(first["step"]["after"], "b = c");
+    assert_eq!(context_at(&mut client, 4, 3)["step"], first["step"]);
+    assert_eq!(context_at(&mut client, 4, 18)["step"], first["step"]);
+    let second = context_at(&mut client, 4, 14);
+    assert_eq!(second["step"]["description"], "rule 2 of 2 of `rewrite`");
+    assert_ne!(second["step"], first["step"]);
+
+    // On `at`, in `rewrite … at h`.
+    let target = context_at(&mut client, 7, 10);
+    assert_eq!(
+        target["step"]["description"],
+        "rule 1 of 1 of `rewrite … at h1`"
+    );
+    assert_eq!(context_at(&mut client, 7, 13)["step"], target["step"]);
+    assert_eq!(context_at(&mut client, 7, 20)["step"], target["step"]);
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -2367,8 +2561,29 @@ fn context_at_in_a_projects_file_reads_the_editors_text() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The code action at a `?` (SW-915 stage 2): replace it with what closes
-/// it, kernel-checked by `search --at`; none away from a goal.
+/// Runs the "Search for a proof" action among `actions` (D3519): the
+/// answer of its command, and that no proof was among the actions.
+fn run_proof_search(client: &mut Client, actions: &Value) -> Value {
+    let actions = actions.as_array().expect("actions");
+    assert!(
+        !actions
+            .iter()
+            .any(|a| a["title"].as_str().unwrap().starts_with("Replace ? with")),
+        "{actions:?}"
+    );
+    let search = (actions.iter())
+        .find(|a| a["title"] == "Search for a proof")
+        .unwrap_or_else(|| panic!("{actions:?}"));
+    client.request(
+        "workspace/executeCommand",
+        json!({"command": search["command"]["command"],
+               "arguments": search["command"]["arguments"]}),
+    )
+}
+
+/// The code action at a `?` (SW-915 stage 2, D3519): "Search for a proof",
+/// whose command replaces the `?` with what closes it, kernel-checked by
+/// `search --at`; none away from a goal.
 #[test]
 fn a_code_action_at_a_goal_offers_what_closes_it() {
     let dir = temp_dir("code-action");
@@ -2389,19 +2604,25 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
         )
     };
     let found = actions(&mut client, 2, 50);
-    let titles: Vec<&str> = (found.as_array().expect("actions").iter())
-        .map(|a| a["title"].as_str().unwrap())
+    let answer = run_proof_search(&mut client, &found);
+    let proofs = answer["proofs"].as_array().expect("proofs");
+    let titles: Vec<&str> = proofs
+        .iter()
+        .map(|p| p["title"].as_str().unwrap())
         .collect();
     assert!(
         titles.contains(&"Replace ? with `Nat.addComm m n` (exact, Std.Nat.addComm)"),
         "{titles:?}"
     );
-    let first = (found.as_array().unwrap().iter())
-        .find(|a| a["title"].as_str().unwrap().contains("Nat.addComm"))
+    let first = (proofs.iter())
+        .find(|p| p["title"].as_str().unwrap().contains("Nat.addComm"))
         .unwrap();
-    let edit = &first["edit"]["changes"][uri.as_str()][0];
-    assert_eq!(edit["newText"], "Nat.addComm m n");
-    assert_eq!(edit["range"]["start"], json!({"line": 2, "character": 49}));
+    assert_eq!(first["newText"], "Nat.addComm m n");
+    assert_eq!(
+        answer["range"]["start"],
+        json!({"line": 2, "character": 49})
+    );
+    assert_eq!(answer["version"], 1);
     assert_eq!(actions(&mut client, 0, 3), Value::Null);
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
@@ -2449,24 +2670,26 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
         json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
                "context": {"diagnostics": []}}),
     );
-    let titles: Vec<&str> = (found.as_array().expect("actions").iter())
-        .map(|a| a["title"].as_str().unwrap())
+    let answer = run_proof_search(&mut client, &found);
+    let proofs = answer["proofs"].as_array().expect("proofs");
+    let titles: Vec<&str> = proofs
+        .iter()
+        .map(|p| p["title"].as_str().unwrap())
         .collect();
     assert!(
         titles.contains(&"Replace ? with `Shop.Spec.doubleSwap a b` (exact, Shop.Spec.doubleSwap)"),
         "{titles:?}"
     );
-    let first = (found.as_array().unwrap().iter())
-        .find(|a| {
-            a["title"]
-                .as_str()
-                .unwrap()
-                .contains("doubleSwap a b` (exact")
-        })
-        .unwrap();
-    let edit = &first["edit"]["changes"][uri.as_str()][0];
-    assert_eq!(edit["newText"], "Shop.Spec.doubleSwap a b");
-    assert_eq!(edit["range"]["start"], json!({"line": 6, "character": 68}));
+    assert_eq!(
+        answer["range"]["start"],
+        json!({"line": 6, "character": 68})
+    );
+    assert!(
+        proofs
+            .iter()
+            .any(|p| p["newText"] == "Shop.Spec.doubleSwap a b"),
+        "{proofs:?}"
+    );
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -2689,6 +2912,7 @@ fn swap_action(client: &mut Client, uri: &str) -> RequestId {
 fn first_proof_only() -> Options {
     let mut options = Options::new(STACK);
     options.search_wanted = 1;
+    options.search_time = Duration::from_secs(120);
     options
 }
 
@@ -2707,7 +2931,9 @@ fn a_code_action_edit_names_its_document_version_when_the_client_can_use_it() {
     client.diagnostics(&uri, 1);
     let id = swap_action(&mut client, &uri);
     let found = client.response(&id).unwrap();
-    let first = &found.as_array().expect("actions")[0];
+    let first = (found.as_array().expect("actions").iter())
+        .find(|a| a["title"].as_str().unwrap().starts_with("Split on"))
+        .unwrap_or_else(|| panic!("{found}"));
     assert!(first["edit"]["changes"].is_null(), "{first}");
     let change = &first["edit"]["documentChanges"][0];
     assert_eq!(change["textDocument"], json!({"uri": uri, "version": 1}));

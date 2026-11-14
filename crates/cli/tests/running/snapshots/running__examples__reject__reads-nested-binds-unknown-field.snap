@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-FIELD] Error: `R` has no field `first`
+    ╭─[ reject/reads-nested-binds-unknown-field.sw:49:47 ]
+    │
+ 49 │                             Parse.readsPure { first = x0, fx2 = x2, fx4 = x4, fx6 = x6, fx8 = x8, fx10 = x10 })))))))))))))
+    │                                               ──┬──  
+    │                                                 ╰──── `R` has no field `first`
+    │ 
+    │ Note: its fields are `fx0`, `fx2`, `fx4`, `fx6`, `fx8`, `fx10`
+────╯

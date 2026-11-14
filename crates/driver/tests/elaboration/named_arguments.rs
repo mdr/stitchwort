@@ -17,8 +17,8 @@
 //! `named_forms_have_the_positional_hash` checks pairs written both ways in
 //! one file: method sections, dot notation, pipes and constructors.
 //!
-//! Every file in the daily and full tiers, a quarter of them (`tier_sample`)
-//! in the merge tier.
+//! Every file in the broad and all tiers, a quarter of them (`tier_sample`)
+//! in the quick tier.
 //!
 //! `NAMED_ARGUMENTS=<text>` limits the differential test to the files whose
 //! name contains it.
@@ -311,7 +311,9 @@ impl Walk {
                 }
                 for alt in alts {
                     alt.patterns.iter().for_each(|p| self.pattern(p));
-                    self.expr(&alt.body);
+                    if let Some(body) = &alt.body {
+                        self.expr(body);
+                    }
                 }
             }
             Expr::List(items, _) => items.iter().for_each(|i| self.expr(i)),
@@ -574,6 +576,9 @@ def implicitNamed: Nat := pick [label := "a"] (x := 1) [count := 3]
 def ctorPositional: Shape := Circle 1 "a"
 def ctorNamed: Shape := Circle (id := "a") (radius := 1)
 
+def ctorParamPositional: List Nat := Cons 1 Nil
+def ctorParamNamed: List Nat := Cons [a := Nat] 1 Nil
+
 def mixedPositional: Nat := clampTo 1 3 2
 def mixedNamed: Nat := clampTo (high := 2) 1 3
 "#;
@@ -595,7 +600,7 @@ def mixedNamed: Nat := clampTo (high := 2) 1 3
         );
         checked += 1;
     }
-    assert_eq!(checked, 8);
+    assert_eq!(checked, 9);
 }
 
 /// The hash of each declaration `text` adds, by full name (`data …` for a

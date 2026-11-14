@@ -66,7 +66,7 @@ fn each_shared_field_gets_one_per_shared_field() {
     );
     // The same field: the new value. Another: the old value's.
     assert!(
-        found[0].ends_with("}.ref = ref") && found[0].contains("(x: Shape) → (ref: Nat) →"),
+        found[0].ends_with("}.ref = ref") && found[0].contains("∀ (x: Shape) (ref: Nat) =>"),
         "{}",
         found[0]
     );
@@ -124,7 +124,7 @@ fn a_field_that_forces_others_updates_them_too() {
         "{found:#?}"
     );
     assert!(
-        found[0].contains("(n: Nat) → (xs: Vec Nat n) →"),
+        found[0].contains("(n: Nat) (xs: Vec Nat n) =>"),
         "{}",
         found[0]
     );
@@ -155,7 +155,7 @@ fn parameters_are_implicit() {
     let found = lemmas(&session, "Tagged");
     assert_eq!(found.len(), 1, "{found:#?}");
     assert!(
-        found[0].starts_with("Tagged.tag.update.tag : [a: Type] → (x: Tagged a) → (tag: a) →"),
+        found[0].starts_with("Tagged.tag.update.tag : ∀ [a: Type] (x: Tagged a) (tag: a) =>"),
         "{}",
         found[0]
     );

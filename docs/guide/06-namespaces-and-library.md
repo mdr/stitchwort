@@ -24,6 +24,7 @@ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
    │
    │ Note 2: the prelude's `Text` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ───╯
+1 error: in `numbers`
 ```
 
 `import Std (List, Text)` at the top of a file makes `List.…` and `Text.…` usable. Some things need no import:
@@ -32,7 +33,7 @@ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
 - **Full names.** `Std.Text.toNat` always works.
 - **Syntax.** `+`, `==`, `++`, `if`, literals and `${…}` always mean the library's.
 
-`import N (a, b)` brings particular names into scope: `import Std.Fail (fail, need)` lets you write `fail` for `Fail.fail`. `import N (..)` brings every name declared directly in `N`, at a lower priority than the file's own names and named imports. Types outside the prelude, such as `Map`, `Set`, `Vec`, `Array` and `Float`, need an import even for the type's name.
+`import N (a, b)` brings particular names into scope: `import Std.Fail (fail, need)` lets you write `fail` for `Fail.fail`. A constructor may be named too: beside its type, `import Turns (Move, Clockwise)`, it adds nothing, since importing the type already brings its constructors; alone, `import Turns (Counterclockwise)`, it imports just that constructor, and neither the type nor the type's other constructors. `import N (..)` brings every name declared directly in `N`, at a lower priority than the file's own names and named imports. Types outside the prelude, such as `Map`, `Set`, `Vec`, `Array` and `Float`, need an import even for the type's name.
 
 A short name means, first found: a local variable, the file's own declaration, a name imported by name, a name from an `(..)` import, the prelude. So a file can declare its own `length` or `Option` without a clash.
 
@@ -84,10 +85,9 @@ import Std (Fail, List, Text)
 import Std.Fail (fail, need)
 
 -- "tea 3" is three teas.
-def Order.read (line: Text): {Fail} Order :=
-  match line.words with
-    | [product, quantity] => { product, quantity = need quantity.toNat "expected a quantity, got '${quantity}'" }
-    | _ => fail "expected a product and a quantity, got '${line}'"
+def Order.read (line: Text): {Fail} Order := match line.words with
+  | [product, quantity] => { product, quantity = need quantity.toNat "expected a quantity, got '${quantity}'" }
+  | _ => fail "expected a product and a quantity, got '${line}'"
 ```
 
 The program is a namespace of its own, `Shop.Report`. A dotted namespace doesn't see its parent's names: it imports what it uses.
@@ -109,7 +109,7 @@ def printTotal (item: (Text, Nat)): {IO} () :=
   let (product, quantity) := item
   IO.print "${quantity} x ${product}"
 
-def bill (orders: List Order): Nat := orders.filterMap (.price) |> .sum
+def bill (orders: List Order): Nat := orders.filterMap .price |> .sum
 ```
 
 <!-- output: run --project project Shop.Report.main < project/orders.txt -->
@@ -206,9 +206,9 @@ test "range membership" := 3 in 0 ..< 5 ∧ 5 !in 0 ..< 5
 test "in a spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 test "each number of a range" := Each.collect (() => each (1 ..= 3) * 10) == [10, 20, 30]
 
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
 
-theorem upTo (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
+theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
 ```
 
 `0 ..< n` is the usual way to count `n` things from zero, and `1 ..= n` the way to say "1 to n". The end can be any expression (`0 ..< xs.length`), but a range binds more loosely than `++` and `+`, and more tightly than `==`, `in` and `|>`: `x in 0 ..< n` is `x in (0 ..< n)`, and `0 ..< n |> .map f` is `(0 ..< n) |> .map f`. A method on a range needs brackets, `(0 ..< n).length`, since a dot binds tighter; the pipe reads better. In a spread a range needs no brackets, `[0, ..2 ..< 5, 9]`.
@@ -230,10 +230,9 @@ test "filterMap" := ["1", "x", "3"].filterMap Text.toNat == [1, 3]
 
 <!-- snippet: library.sw#result -->
 ```stitchwort
-def parseAge (text: Text): Result Nat Text :=
-  match text.toNat with
-    | Some age => Ok age
-    | None => Err "not a number: '${text}'"
+def parseAge (text: Text): Result Nat Text := match text.toNat with
+  | Some age => Ok age
+  | None => Err "not a number: '${text}'"
 
 test "ok" := parseAge "36" == Ok 36
 test "err" := parseAge "old" == Err "not a number: 'old'"

@@ -64,16 +64,16 @@ def instruction(): {Parse} Instruction :=
 
 def parseProgram (input: Text): {Fail} Program := { instructions = Parse.eachLine input instruction }
 
-def Instruction.execute (instruction: Instruction) (state: State): State :=
-  match instruction.operation with
-    | Acc => { next = state.next + 1, accumulator = state.accumulator + instruction.argument }
-    | Jmp => { state | next = state.next + instruction.argument }
-    | Nop => { state | next = state.next + 1 }
+def Instruction.execute (instruction: Instruction) (state: State): State := match instruction.operation with
+  | Acc => { next = state.next + 1, accumulator = state.accumulator + instruction.argument }
+  | Jmp => { state | next = state.next + instruction.argument }
+  | Nop => { state | next = state.next + 1 }
 
 --| The boot code by position, for lookup, and how many instructions it has.
 type Code = { byPosition: Map Nat Instruction, length: Nat }
 
-def Program.code (program: Program): Code := { byPosition = Map.byPosition program.instructions, length = program.instructions.length }
+def Program.code (program: Program): Code :=
+  { byPosition = Map.byPosition program.instructions, length = program.instructions.length }
 
 --| Runs `code` from `state`, where `unvisited` holds the positions of the
 --| instructions not run yet. Each step removes one, so the run ends.
@@ -87,28 +87,30 @@ def Code.runFrom (code: Code) (unvisited: Set Nat) (state: State): Outcome
         | None => if position == code.length then Terminates state.accumulator else JumpsAway state.accumulator
         | Some instruction =>
           if fresh: unvisited.contains position = True then
-            Code.runFrom code (unvisited.remove position) (instruction.execute state)
-              [decreasing := omega [Set.sizeRemovePresent unvisited position fresh, Set.sizePositive unvisited position fresh]]
+            Code.runFrom code
+              (unvisited.remove position)
+              (instruction.execute state)
+              [decreasing := omega [
+                Set.sizeRemovePresent unvisited position fresh,
+                Set.sizePositive unvisited position fresh
+              ]]
           else Loops state.accumulator
 
 def Code.run (code: Code): Outcome := code.runFrom (0 ..< code.length).toSet start
 
-def solvePart1 (program: Program): {Fail} Int :=
-  match program.code.run with
-    | Loops accumulator => accumulator
-    | Terminates accumulator => Fail.fail "the boot code terminates, with the accumulator at ${accumulator}"
-    | JumpsAway accumulator => Fail.fail "the boot code jumps outside itself, with the accumulator at ${accumulator}"
+def solvePart1 (program: Program): {Fail} Int := match program.code.run with
+  | Loops accumulator => accumulator
+  | Terminates accumulator => Fail.fail "the boot code terminates, with the accumulator at ${accumulator}"
+  | JumpsAway accumulator => Fail.fail "the boot code jumps outside itself, with the accumulator at ${accumulator}"
 
 --| The accumulator, if the run terminated.
-def Outcome.terminated: Outcome → Option Int := match some
-  | Terminates accumulator => accumulator
+def Outcome.terminated: Outcome → Option Int := match some | Terminates accumulator => accumulator
 
 --| The instruction with `jmp` and `nop` swapped, if it is either.
-def Instruction.repaired (instruction: Instruction): Option Instruction :=
-  match instruction.operation with
-    | Acc => None
-    | Jmp => Some { instruction | operation = Nop }
-    | Nop => Some { instruction | operation = Jmp }
+def Instruction.repaired (instruction: Instruction): Option Instruction := match instruction.operation with
+  | Acc => None
+  | Jmp => Some { instruction | operation = Nop }
+  | Nop => Some { instruction | operation = Jmp }
 
 --| The accumulator at the end, if the code terminates with `instruction`
 --| at `position` repaired.

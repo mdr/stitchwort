@@ -387,7 +387,7 @@ fn run_partial_forwarding(program: &stitchwort_js::run::Program, depth: u64) -> 
 
 /// The `run --js` runner routes an operation by its index of `Map` and `Tie`
 /// frames, never looking at the ordinary frames between them (§9.1.6, stage
-/// 4c), as the native runner does: in `partial-forwarding.sw` every `print`
+/// 4c), as the machine's runner does: in `partial-forwarding.sw` every `print`
 /// leaves the focus with one waiting frame per level below it, so the
 /// frames below the focus per operation grow with the depth, while the
 /// frames routing looks at per operation stay the same, a few.

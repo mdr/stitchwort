@@ -3,8 +3,7 @@
 -- written with it. The goal is still `Box Nat = Box Nat`, closed by
 -- computation, and `Box Nat = Box Bool` is still the hypothesis `h0`
 -- (SW-862: the kernel's conversion compares unknowns by their numbers).
-type Box (a: Type) =
-  | MkBox (x: a)
+type Box (a: Type) = | MkBox (x: a)
 
 def ok [a: Type] (b: Box a) (h: Box a = Box Nat): Nat := 0
 

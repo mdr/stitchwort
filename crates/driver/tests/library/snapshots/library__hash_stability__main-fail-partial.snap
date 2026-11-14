@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.sumLines.Request faf6430b2401e31f7e4dcec3462f5ae51e92a0402732bee4bb98d4d79e1830f9

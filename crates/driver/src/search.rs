@@ -513,6 +513,10 @@ pub struct Result1 {
     /// not a written theorem; absent for the others.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub generated: bool,
+    /// A theorem with an open goal (`?`) in its proof: usable, not finished;
+    /// absent for the others.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub open: bool,
     pub absorbed: usize,
     pub instantiated: usize,
     pub premises: usize,
@@ -846,6 +850,7 @@ impl Session {
             equation: (pattern && rewrite).then_some(if hit.iff { "iff" } else { "eq" }),
             via: hit.via.iter().map(|v| Via::name(*v)).collect(),
             generated: item.generated_equation(g),
+            open: hit.open,
             absorbed: hit.absorbed,
             instantiated: hit.instantiated,
             premises: hit.premises,
@@ -952,6 +957,7 @@ fn list(
             instantiated: 0,
             size: c.size,
             premises: c.premises,
+            open: c.open,
             via: Vec::new(),
         })
         .collect();
@@ -1072,8 +1078,9 @@ pub fn render_text(report: &Report) -> String {
             None => r.name.clone(),
         };
         let generated = if r.generated { " · generated" } else { "" };
+        let open = if r.open { " (open goal)" } else { "" };
         out.push_str(&format!(
-            "{:>2}. {name}  {}{generated}{how}\n",
+            "{:>2}. {name}{open}  {}{generated}{how}\n",
             i + 1,
             r.kind
         ));

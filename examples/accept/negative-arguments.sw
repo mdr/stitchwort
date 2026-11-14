@@ -4,7 +4,7 @@
 import Std (Float, Int, List, Option)
 
 def shift (n: Int): Int := n + 10
-def clamp (x: Int) (lo: Int) (hi: Int): Int := if x < lo then lo else if hi < x then hi else x
+def clamp (x lo hi: Int): Int := if x < lo then lo else if hi < x then hi else x
 
 test "a literal argument" := shift -2 = 8
 test "a name" := (n => shift -n) 3 = 7
@@ -30,10 +30,9 @@ test "-2.5.abs is (-2.5).abs" := -2.5.abs = 2.5
 test "an argument's method" := shift -3.neg = 13
 
 -- Patterns: `Some -1` is `Some (-1)`.
-def isMinusOne (o: Option Int): Bool :=
-  match o with
-    | Some -1 => True
-    | _ => False
+def isMinusOne (o: Option Int): Bool := match o with
+  | Some -1 => True
+  | _ => False
 
 test "Some -1" := isMinusOne (Some -1) = True
 test "not Some -1" := isMinusOne (Some 1) = False

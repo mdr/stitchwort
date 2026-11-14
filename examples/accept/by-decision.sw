@@ -1,14 +1,10 @@
 -- `byDecision` (docs/proposals/decide.md §2, §6.2): a closed decidable
 -- statement, proved by running its decision procedure. It is `auto` under a
--- name: the proof is `Decidable.fromYes d Trivial`, which the kernel checks
--- by running `d` again. A false one is `E-AUTO-FALSE`.
+-- name: the proof is `d.sound rfl`, which the kernel checks by running `d`'s
+-- test again. A false one is `E-AUTO-FALSE`.
 import Std (byDecision, List, Nat)
 
-type Key =
-  | Digit0
-  | Digit1
-  | Digit2
-  | Enter
+type Key = | Digit0 | Digit1 | Digit2 | Enter
 
 def keys: List Key := [Digit0, Digit1, Digit2, Enter]
 
@@ -21,4 +17,4 @@ theorem notThree: Digit1 ≠ Digit2 := byDecision
 theorem either: (Digit2 ∈ keys) ∨ (3 = 4) := byDecision
 
 -- Every key, closed by deciding each case once `cases` has split it.
-theorem everyKey (key: Key): key ∈ keys := cases
+theorem everyKey ∀ (key: Key): key ∈ keys := cases

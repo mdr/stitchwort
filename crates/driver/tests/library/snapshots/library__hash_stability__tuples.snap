@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.NatText 7ad0ca9e6622d32d38766eca7b8c52a44b4f91728dab96279cb1dba2f072a82a
@@ -21,8 +21,8 @@ Main.nestsToTheRight 76d9ee6d4d689d263fb5c5a2d52eed0cc356175c25fd9d8f3eee905eebd
 Main.typeNestsToTheRight 277e7d0f36d33e37a609923fcf8dad8c0d8613bd204ea96f876c9b295bc524ca
 Main.swapped f4a16c6ea5a0ac5a79c470c2fb0275433dcb5cdbc5f2011b5bcb422647ebbdf6
 Main.zipped 9951726ada09c0b93c9feb0c5704dc60fe4e58ac26997651229d8cc0073e846a
-Main.test "third" d5324696066d7b116dd334b203e05f523c8dbe7101139ee08b8a07873386e605
-Main.test "nested" 3752485517037385eb667fef1f081a5c3b5424ebc112af62b9bddac016bfba94
-Main.test "firstOf" 56269cf1ef8b9da2faa6971259e036916860490b68661ac38b4e8e985a057519
-Main.test "grouping" 1a8cb41c128637aee38a01f559792bd61f9a3158ad3b8cb784d13cca61e53d25
-Main.test "dot" 5ac0850d67ce4d79d97ffd53f99353cee5e8d356244ac5ebf2830d893e208b0b
+Main.test "third" 5a16980de667efca0daac3ae0d0453c5cab3a2d0ccf24595315617f7c3ba1e72
+Main.test "nested" fc2e630009e14dea64206803baad08051de17dfd191a637300beacf19b2efeba
+Main.test "firstOf" 6e37cdf369d024ade090fa1285ae73a451e578a05a55fb890033feacdea3323c
+Main.test "grouping" 4c74deba0b6bd7c86622b72afb4ef965b1ebdf812d3ae4a56fed4f0dab07cedf
+Main.test "dot" 7f6c20a12ed701cc152bcf91b7336dd9d58f07520e35a033196a4ae9a762e708

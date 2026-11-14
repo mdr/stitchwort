@@ -11,10 +11,10 @@ def List.IsNil: (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => Void
 
-theorem List.nilNotCons (x: a) (xs: List a): [] ≠ [x, ..xs]
+theorem List.nilNotCons ∀ (x: a) (xs: List a): [] ≠ [x, ..xs]
   | p => J (y q => List.IsNil y) Trivial p
 
-theorem List.consNotNil (x: a) (xs: List a): [x, ..xs] ≠ []
+theorem List.consNotNil ∀ (x: a) (xs: List a): [x, ..xs] ≠ []
   | p => List.nilNotCons x xs (Eq.sym p)
 
 --| The first element, or `fallback` for an empty list. A result equal to
@@ -31,26 +31,32 @@ def List.tailOf: (xs: List a) → List a
 
 --| Decides whether two non-empty lists are equal, from decisions about their heads and tails.
 @[noReceiver]
-def List.decCons (x: a) (y: a) (xs: List a) (ys: List a):
-    (headEq: Decidable (x = y)) → (tailEq: Decidable (xs = ys)) → Decidable ([x, ..xs] = [y, ..ys])
-  | Yes p, Yes q => Yes (J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) q) p)
-  | No r, dq => No (e => r (Eq.cong (.headOr x) e))
-  | Yes p, No r => No (e => r (Eq.cong List.tailOf e))
+def List.decCons (x y: a) (xs ys: List a)
+    (headEq: Decidable (x = y))
+    (tailEq: Decidable (xs = ys)):
+    Decidable ([x, ..xs] = [y, ..ys]) :=
+  Decidable.map
+    (Decidable.and headEq tailEq)
+    (pq => J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) (And.right pq)) (And.left pq))
+    (e => Both (Eq.cong (.headOr x) e) (Eq.cong List.tailOf e))
 
 --| Equality of lists, from equality of their elements.
 @[noReceiver]
 def List.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (xs: List a) → (ys: List a) → Decidable (xs = ys)
-  | [], [] => Yes rfl
-  | [], [y, ..ys] => No (List.nilNotCons y ys)
-  | [x, ..xs], [] => No (List.consNotNil x xs)
+  | [], [] => Decidable.yes rfl
+  | [], [y, ..ys] => Decidable.no (List.nilNotCons y ys)
+  | [x, ..xs], [] => Decidable.no (List.consNotNil x xs)
   | [x, ..xs], [y, ..ys] => List.decCons x y xs ys (d x y) (List.decEq d xs ys)
 
 --| Decides whether two pairs are equal, from decisions about their parts.
-def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b):
-    (fstEq: Decidable (x1 = x2)) → (sndEq: Decidable (y1 = y2)) → Decidable (MkPair x1 y1 = MkPair x2 y2)
-  | Yes p, Yes q => Yes (J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
-  | No r, dq => No (e => r (Eq.cong Pair.fst e))
-  | Yes p, No r => No (e => r (Eq.cong Pair.snd e))
+def Pair.decMk (x1 x2: a) (y1 y2: b)
+    (fstEq: Decidable (x1 = x2))
+    (sndEq: Decidable (y1 = y2)):
+    Decidable (MkPair x1 y1 = MkPair x2 y2) :=
+  Decidable.map
+    (Decidable.and fstEq sndEq)
+    (pq => J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) (And.right pq)) (And.left pq))
+    (e => Both (Eq.cong Pair.fst e) (Eq.cong Pair.snd e))
 
 --| Equality of pairs, from equality of their parts.
 @[noReceiver]
@@ -63,10 +69,10 @@ def Option.IsNone: (option: Option a) → Prop
   | None => Unit
   | Some x => Void
 
-theorem Option.noneNotSome (x: a): None ≠ Some x
+theorem Option.noneNotSome ∀ (x: a): None ≠ Some x
   | p => J (y q => Option.IsNone y) Trivial p
 
-theorem Option.someNotNone (x: a): Some x ≠ None
+theorem Option.someNotNone ∀ (x: a): Some x ≠ None
   | p => Option.noneNotSome x (Eq.sym p)
 
 --| The value, or `fallback` if there isn't one.
@@ -75,16 +81,15 @@ def Option.getOrElse: (option: Option a) → (fallback: a) → a
   | Some x, fallback => x
 
 --| Decides whether two `Some`s are equal, from a decision about their values.
-def Option.decSome (x: a) (y: a): (dec: Decidable (x = y)) → Decidable (Some x = Some y)
-  | Yes p => Yes (Eq.cong Some p)
-  | No r => No (e => r (Eq.cong (.getOrElse x) e))
+def Option.decSome (x y: a) (dec: Decidable (x = y)): Decidable (Some x = Some y) :=
+  Decidable.map dec (Eq.cong Some) (Eq.cong (.getOrElse x))
 
 --| Equality of optional values, from equality of the values.
 @[noReceiver]
 def Option.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (m: Option a) → (n: Option a) → Decidable (m = n)
-  | None, None => Yes rfl
-  | None, Some y => No (Option.noneNotSome y)
-  | Some x, None => No (Option.someNotNone x)
+  | None, None => Decidable.yes rfl
+  | None, Some y => Decidable.no (Option.noneNotSome y)
+  | Some x, None => Decidable.no (Option.someNotNone x)
   | Some x, Some y => Option.decSome x y (d x y)
 
 -- Every element, part or value satisfies the predicate: `List.All`,
@@ -121,12 +126,12 @@ def Pair.All (p: a → Prop) (q: b → Prop): (pair: Pair a b) → Prop
   | MkPair x y => (p x) ∧ (q y)
 
 --| What holds of every element holds of each one.
-theorem List.memOfAll (p: a → Prop): (xs: List a) → List.All p xs → (x: a) → List.Mem x xs → p x
+theorem List.memOfAll ∀ (p: a → Prop): ∀ (xs: List a) => List.All p xs → ∀ (x: a) => List.Mem x xs → p x
   | [], all, x, member => Void.exfalso member
   | [y, ..ys], Both here rest, x, Inl same => J (z e => p z) here same
   | [y, ..ys], Both here rest, x, Inr member => List.memOfAll p ys rest x member
 
 --| What holds of the value, if any, holds of the value there is.
-theorem Option.memOfAll (p: a → Prop): (o: Option a) → Option.All p o → (x: a) → o = Some x → p x
+theorem Option.memOfAll ∀ (p: a → Prop): ∀ (o: Option a) => Option.All p o → ∀ (x: a) => o = Some x → p x
   | None, all, x, e => Void.exfalso (Option.noneNotSome x e)
   | Some y, here, x, e => J (z s => p z) here (Eq.cong (.getOrElse y) e)

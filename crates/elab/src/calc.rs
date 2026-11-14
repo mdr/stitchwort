@@ -105,9 +105,9 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let (start, ty) = infer(cx, first)?;
     let (start, ty) = insert(cx, start, ty)?;
     let ty_term = Rc::new(cx.quote(&ty)?);
-    let nat_ty = Value::Data(nat(cx)?, Vec::new());
+    let nat_ty = Value::Data(nat(cx)?, Vec::new().into());
     let mut link: Option<Link> = None;
-    for step in steps {
+    for (index, step) in steps.iter().enumerate() {
         let rel = Rel::of(step.rel);
         if rel != Rel::Eq && !cx.unify(&ty, &nat_ty)? {
             return Err(relation_error(cx, step, rel, &ty));
@@ -117,9 +117,40 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
             .map_or_else(|| start.clone(), |l| l.end.clone());
         let next = check(cx, &step.rhs, &ty)?;
         cx.e.resume_from(queued_from)?;
-        let prop_term = relation(cx, rel, &ty_term, end, next.clone())?;
+        let prop_term = relation(cx, rel, &ty_term, end.clone(), next.clone())?;
         let prop = cx.eval(&prop_term)?;
         let line = written(cx, &prop_term);
+        // A line's statement for the goals panel: the previous value as it
+        // computes (so the last line of the book's chain reads `Win = Win`),
+        // and this line's value as written (`if True then …` hasn't computed
+        // to `Win` yet). `prop` itself is evaluated, so both would have.
+        let shown_end = stitchwort_core::value::quote_shown(&cx.g(), cx.level(), &cx.eval(&end)?)?;
+        let shown_prop = relation(cx, rel, &ty_term, shown_end, next.clone())?;
+        let head = Span {
+            end: step
+                .proof
+                .as_ref()
+                .map_or(step.span.end, |p| p.span().start),
+            ..step.span
+        };
+        if cx.e.records_steps(head) {
+            cx.e.note_step(
+                cx,
+                crate::goals::StepNote {
+                    form: crate::goals::StepForm::CalcLine,
+                    head,
+                    index: Some((index, steps.len())),
+                    before: link.as_ref().map(|l| l.prop.clone()),
+                    after: prop.clone(),
+                    after_term: Some(shown_prop),
+                    adds: Vec::new(),
+                    rule: None,
+                    parts: Vec::new(),
+                    target: None,
+                    extra: Vec::new(),
+                },
+            );
+        }
         let proof = match &step.proof {
             Some(p) => check_step(cx, p, &prop, &prop_term, &line)?,
             None => by_computation(cx, step, &prop, &line)?,
@@ -372,7 +403,7 @@ struct Step {
 /// the proofs fit the lemmas by conversion and the table needs no new lemma.
 fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step) -> Result<Link> {
     let (a, b, c) = (start.clone(), acc.end.clone(), step.end.clone());
-    let nat_ty = Value::Data(nat(cx)?, Vec::new());
+    let nat_ty = Value::Data(nat(cx)?, Vec::new().into());
     let push = |piped: &mut Vec<Piped>, term: Term, ty: &Value| {
         piped.push(Piped {
             term,

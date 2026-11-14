@@ -12,7 +12,8 @@ else every frame whose name contains NAME; a name or prefix that matches
 nothing is an error listing the closest names. In a
 native executable, `stitchwort build --native` names each compiled body after
 its Stitchwort definition (`Std.List.get#67`; a lambda is
-`Owner/lambda12#340`; a global's function-value adapter `Name/value`), so
+`Owner/lambda12#340`; a handler's step `Owner/dispatch7#341`; a global's
+function-value adapter `Name/value`), so
 these are definition names. Inclusive entries marked `*` have the runtime's loop beneath them in at least a tenth
 of their samples: the function installed an effect handler, and the rest of
 the program ran as its continuation, so the figure includes that. A tail call replaces its caller's frame, so

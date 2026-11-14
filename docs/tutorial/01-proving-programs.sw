@@ -13,13 +13,13 @@
 --
 -- From a checkout of the Stitchwort repository:
 --
---     nix develop -c cargo build --release -p stitchwort-cli
---     ./editors/vscode/install.sh
+--     nix develop -c task vscode:install
 --
--- The first builds the `stitchwort` program, the second installs the
--- VS Code extension. Put `target/release` on your PATH, or set the setting
--- `stitchwort.path` to `target/release/stitchwort`, then run "Developer:
--- Reload Window" from the command palette (Cmd-Shift-P, or Ctrl-Shift-P).
+-- This builds the `stitchwort` program and installs the VS Code
+-- extension; run it again after pulling, so the two stay in step. Put
+-- `target/release` on your PATH, or set the setting `stitchwort.path` to
+-- `target/release/stitchwort`, then run "Developer: Reload Window" from
+-- the command palette (Cmd-Shift-P, or Ctrl-Shift-P).
 --
 -- Check that it works: in Step 2, hover over `cost` in `def Item.cost`.
 -- A box shows `def Main.Item.cost (item: Item): Nat` and its doc comment
@@ -35,8 +35,9 @@
 -- - F12 on a name jumps to its definition, including into the standard
 --   library; Shift-F12 lists its uses.
 -- - Cmd-Shift-O (Ctrl-Shift-O) lists the declarations of this file.
--- - Above each `test` there is a "▶ Run test" link (and "▶ Run" above
---   `main`): click it to run that test and see the result.
+-- - Above each `test` there is a "▶ Run test" link (above the first also
+--   "▶ Run tests", and "▶ Run" above `main`): click it to run that test
+--   and see the result.
 -- - Errors show as red squiggles as you type, without saving. The
 --   Problems panel (Cmd-Shift-M, Ctrl-Shift-M) lists them in full.
 --
@@ -52,11 +53,7 @@ import Std (List, Nat)
 -- A basket holds items; each item has a price in pence and a count. A
 -- coupon takes something off the total.
 
-type Item = {
-  name: Text,
-  pence: Nat,
-  count: Nat
-}
+type Item = { name: Text, pence: Nat, count: Nat }
 
 --| What the basket's line for this item costs, in pence.
 def Item.cost (item: Item): Nat := item.pence * item.count
@@ -73,32 +70,29 @@ def Basket.empty: Basket := { items = [] }
 def Basket.add (basket: Basket) (item: Item): Basket := { items = [item, ..basket.items] }
 
 --| Two baskets put together at the till.
-def Basket.merge (basket: Basket) (other: Basket): Basket := { items = basket.items ++ other.items }
+def Basket.merge (basket other: Basket): Basket := { items = basket.items ++ other.items }
 
 def Basket.total (basket: Basket): Nat := totalOf basket.items
 
-type Coupon =
-  | NoCoupon
-  | PenceOff (pence: Nat)
-  | PercentOff (percent: Nat)
+type Coupon = | NoCoupon | PenceOff (pence: Nat) | PercentOff (percent: Nat)
 
 --| What is left to pay of `total` pence. `-` on `Nat` stops at 0, so a
 --| coupon worth more than the basket makes it free.
-def Coupon.apply (coupon: Coupon) (total: Nat): Nat :=
-  match coupon with
-    | NoCoupon => total
-    | PenceOff pence => total - pence
-    | PercentOff percent => total - total * percent / 100
+def Coupon.apply (coupon: Coupon) (total: Nat): Nat := match coupon with
+  | NoCoupon => total
+  | PenceOff pence => total - pence
+  | PercentOff percent => total - total * percent / 100
 
 def tea: Item := { name = "tea", pence = 250, count = 2 }
 def milk: Item := { name = "milk", pence = 90, count = 1 }
 def shopping: Basket := Basket.empty.add tea |>.add milk
 
 -- Tests are `Bool` expressions run by `stitchwort test`. Run them now from
--- a terminal (Step 1 has the command): they all pass. The editor checks
--- that a test's types are right, but doesn't run it: change `590` to
--- `600` below and nothing turns red, while `stitchwort test` reports a
--- failure. Put it back afterwards.
+-- a terminal (Step 1 has the command), or with "▶ Run tests": they all
+-- pass. The editor checks that a test's types are right, but doesn't run
+-- it as you type: change `590` to `600` below and nothing turns red until
+-- you click "▶ Run test", which then marks the failing test in the file
+-- (`stitchwort test` reports it too). Put it back afterwards.
 
 test "the total adds up each line" := shopping.total == 590
 test "pence off" := (PenceOff 100).apply shopping.total == 490
@@ -121,14 +115,14 @@ theorem shoppingTotal: shopping.total = 590 := rfl
 -- front of the list, and `totalOf` has an arm for exactly that shape, so
 -- this holds by computing, for every basket and every item:
 
-theorem addCost (basket: Basket) (item: Item): (basket.add item).total = item.cost + basket.total := rfl
+theorem addCost ∀ (basket: Basket) (item: Item): (basket.add item).total = item.cost + basket.total := rfl
 
 theorem emptyTotal: Basket.empty.total = 0 := rfl
 
--- Hover over the name `addCost`: the box shows the statement as the
--- checker reads it, `Basket.total (Basket.add basket item) = …`. The dot
--- form `basket.add item` is a call of `Basket.add`, and messages write it
--- that way. Hover over `rfl` for what `rfl` is.
+-- Hover over the name `addCost`: the box shows the statement as you wrote
+-- it. The dot form `basket.add item` is a call of `Basket.add`, and some
+-- messages write it that way, as `Basket.total shopping`. Hover over
+-- `rfl` for what `rfl` is.
 
 -- ## Step 4. Holes: let the checker tell you what's needed
 --
@@ -177,11 +171,10 @@ theorem emptyTotal: Basket.empty.total = 0 := rfl
 --    `omega` yourself, in each arm. (Cmd-. on the single `?` of step 1
 --    offers `cases`, which is the next paragraph.)
 
-theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ total :=
-  match coupon with
-    | NoCoupon => omega
-    | PenceOff pence => omega
-    | PercentOff percent => omega
+theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total ≤ total := match coupon with
+  | NoCoupon => omega
+  | PenceOff pence => omega
+  | PercentOff percent => omega
 
 -- `cases` does steps 2 to 4 in one go: it splits on whatever the goal is
 -- stuck on, as `match` would, and closes each case by computing, by a
@@ -196,7 +189,7 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 -- way. Take `totalAppend`'s proof apart again, and follow along:
 --
 -- 1. The proof has two arms, as `totalOf` has: a theorem whose statement
---    ends `(items: List Item) → …` can have arms, as a function can.
+--    ends `∀ (items: List Item) => …` can have arms, as a function can.
 --    Replace each arm's proof with `?`:
 --
 --        | [] => ?
@@ -230,13 +223,14 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 --    `omega [totalAppend others rest]` proves it too: `omega` with an
 --    extra fact. Try it.
 
-theorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others
+theorem totalAppend ∀ (others: List Item):
+    ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
   | [] => rfl
   | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc
 
 -- With the lemma proved, the fact about baskets needs no work of its own.
 
-theorem mergeTotal (basket: Basket) (other: Basket): (basket.merge other).total = basket.total + other.total :=
+theorem mergeTotal ∀ (basket other: Basket): (basket.merge other).total = basket.total + other.total :=
   totalAppend other.items basket.items
 
 -- `Basket.total` and `Basket.merge` compute straight to `totalOf` and
@@ -261,7 +255,7 @@ test "shared three ways" := shopping.share (people := 3) == 196
 -- or run `stitchwort search --at 01-proving-programs.sw:LINE` in a
 -- terminal, with the line of the `?`.
 
-theorem shareAtMost (basket: Basket) (people: Nat) (someone: people ≠ 0): basket.share people ≤ basket.total :=
+theorem shareAtMost ∀ (basket: Basket) (people: Nat) (someone: people ≠ 0): basket.share people ≤ basket.total :=
   Nat.divLe basket.total people
 
 -- ## Step 7. Mistakes on purpose

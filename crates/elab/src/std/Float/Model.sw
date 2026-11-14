@@ -65,8 +65,7 @@ def Float.Model.bitLengthWhen: (small: Bool) → (n: Nat) → Nat
 def Float.Model.signBit (bits: Nat): Bool := Nat.leq 9223372036854775808 bits
 
 --| The bits without the sign bit.
-def Float.Model.magnitude (bits: Nat): Nat :=
-  if Float.Model.signBit bits then bits - 9223372036854775808 else bits
+def Float.Model.magnitude (bits: Nat): Nat := if Float.Model.signBit bits then bits - 9223372036854775808 else bits
 
 --| A finite double's value in units of 2^-1074.
 --| For a subnormal that is its fraction; for a normal double it is the
@@ -76,19 +75,14 @@ def Float.Model.units (bits: Nat): Int :=
   let m: Nat := Float.Model.magnitude bits
   let e: Nat := Nat.divFuel m m 4503599627370496
   let f: Nat := m - e * 4503599627370496
-  Int.signed (Float.Model.signBit bits)
-    (if Nat.equal e 0 then f else Float.Model.pow2 (e - 1) * (f + 4503599627370496))
+  Int.signed (Float.Model.signBit bits) (if Nat.equal e 0 then f else Float.Model.pow2 (e - 1) * (f + 4503599627370496))
 
 --| Where an exact value lies between two neighbouring candidates: on the
 --| lower one, below the point halfway to the upper, on it, or above it.
-type Float.Model.Location: Type =
-  | Exact
-  | BelowHalf
-  | Half
-  | AboveHalf
+type Float.Model.Location: Type = | Exact | BelowHalf | Half | AboveHalf
 
 --| The location of `q + r / d`, for `r < d`, between `q` and `q + 1`.
-def Float.Model.locate (r: Nat) (d: Nat): Float.Model.Location :=
+def Float.Model.locate (r d: Nat): Float.Model.Location :=
   if Nat.equal r 0 then Exact
   else if Nat.equal (2 * r) d then Half
   else if Nat.leq (2 * r) d then BelowHalf
@@ -111,7 +105,7 @@ def Float.Model.zeroBits (negative: Bool): Nat := if negative then 9223372036854
 --| counts from 1 for normal doubles: a subnormal has `exponent` 0 and
 --| `q < 2^52`, and rounding up to 2^53 carries into the exponent. At
 --| +infinity's bits or beyond it overflows to infinity.
-def Float.Model.roundCore (negative: Bool) (exponent: Nat) (q: Nat) (loc: Float.Model.Location): Nat :=
+def Float.Model.roundCore (negative: Bool) (exponent q: Nat) (loc: Float.Model.Location): Nat :=
   let rounded: Nat := if Float.Model.roundsUp q loc then q + 1 else q
   let bits: Nat := exponent * 4503599627370496 + rounded
   let finite: Nat := if Nat.leq 9218868437227405312 bits then 9218868437227405312 else bits
@@ -134,7 +128,7 @@ def Float.Model.scaleDown (d: Nat): (shift: Int) → Nat
 --| 0, for a subnormal): at `c = bitLength den + 53 - bitLength n` the
 --| scaled quotient has 53 or 54 bits, and one comparison tells which. The
 --| division's remainder gives the location.
-def Float.Model.roundMagnitude (negative: Bool) (n: Nat) (den: Nat) (s: Int): Nat :=
+def Float.Model.roundMagnitude (negative: Bool) (n den: Nat) (s: Int): Nat :=
   let c: Int := Int.subNatNat (Float.Model.bitLength den + 53) (Float.Model.bitLength n)
   let wide: Bool := Nat.leq (Float.Model.scaleDown den c * Float.Model.pow2 53) (Float.Model.scaleUp n c)
   let exponent: Nat := Int.toNat (Int.sub s (if wide then Int.sub c (OfNat 1) else c))
@@ -152,7 +146,7 @@ def Float.Model.roundRatio (num: Int) (den: Nat) (scale: Int) (zeroSign: Bool): 
   else Float.Model.roundMagnitude (Int.isNeg num) (Int.natAbs num) den (Int.add scale (OfNat 1074))
 
 --| The double nearest `n × 2^e`.
-def Float.Model.roundScaled (n: Int) (e: Int) (zeroSign: Bool): Nat := Float.Model.roundRatio n 1 e zeroSign
+def Float.Model.roundScaled (n e: Int) (zeroSign: Bool): Nat := Float.Model.roundRatio n 1 e zeroSign
 
 --| Whether a bit pattern is the NaN's.
 def Float.Model.isNaN (bits: Nat): Bool := Nat.equal bits 9221120237041090560
@@ -163,20 +157,27 @@ def Float.Model.isInfinite (bits: Nat): Bool := Nat.equal (Float.Model.magnitude
 --| `x + y`: the NaN if either is, or for infinities of opposite signs; an
 --| infinity if either is; otherwise the exact sum, rounded. The sum of two
 --| zeros is `-0.0` only if both are, and a nonzero sum never rounds to zero.
-def Float.Model.addBits (a: Nat) (b: Nat): Nat :=
+def Float.Model.addBits (a b: Nat): Nat :=
   if Float.Model.isNaN a ∨ Float.Model.isNaN b then 9221120237041090560
   else if Float.Model.isInfinite a then (if Float.Model.isInfinite b ∧ ¬(Nat.equal a b) then 9221120237041090560 else a)
   else if Float.Model.isInfinite b then b
   else
-    Float.Model.roundScaled (Int.add (Float.Model.units a) (Float.Model.units b)) (-1074)
+    Float.Model.roundScaled
+      (Int.add (Float.Model.units a) (Float.Model.units b))
+      (-1074)
       (Float.Model.signBit a ∧ Float.Model.signBit b)
 
-test "Float.Model.pow2" := Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616
+test "Float.Model.pow2" :=
+  Float.Model.pow2 0 == 1 ∧ Float.Model.pow2 1 == 2 ∧ Float.Model.pow2 64 == 18446744073709551616
 test "Float.Model.bitLength" :=
-  Float.Model.bitLength 0 == 0 ∧ Float.Model.bitLength 1 == 1 ∧ Float.Model.bitLength 255 == 8
-    ∧ Float.Model.bitLength 256 == 9 ∧ Float.Model.bitLength (Nat.pow 2 2097) == 2098
+  Float.Model.bitLength 0 == 0
+    ∧ Float.Model.bitLength 1 == 1
+    ∧ Float.Model.bitLength 255 == 8
+    ∧ Float.Model.bitLength 256 == 9
+    ∧ Float.Model.bitLength (Nat.pow 2 2097) == 2098
 test "Float.Model.units" :=
-  Float.Model.units 1 == OfNat 1 ∧ Float.Model.units 9223372036854775808 == OfNat 0
+  Float.Model.units 1 == OfNat 1
+    ∧ Float.Model.units 9223372036854775808 == OfNat 0
     ∧ Float.Model.units 4607182418800017408 == OfNat (Nat.pow 2 1074)
 --| 0.1 + 0.2, and 1.0 + 2^-53 (a tie, to even: 1.0).
 test "Float.Model.addBits" :=

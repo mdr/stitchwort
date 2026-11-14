@@ -33,10 +33,12 @@ def parseCity (input: Text): {Fail} City :=
   let grid := Parse.all input (() => Parse.grid cell)
   let rows := grid.toList.map .toList
   let width := grid.head.length
-  let antennas :=
-    rows.withIndex.flatMap (((row, cells)) =>
-      Fail.ensure (cells.length == width) "line ${row + 1}: expected ${width} characters, as on the first line, got ${cells.length}"
-      cells.withIndex.filterMap (match some | (column, Some frequency) => ({ frequency, position = { row, column } }: Antenna)))
+  let antennas := rows.withIndex.flatMap (((row, cells)) =>
+    Fail.ensure
+      (cells.length == width)
+      "line ${row + 1}: expected ${width} characters, as on the first line, got ${cells.length}"
+    cells.withIndex.filterMap (match some
+      | (column, Some frequency) => ({ frequency, position = { row, column } }: Antenna)))
   { height = rows.length, width, antennas }
 
 def City.contains (city: City) (position: Position): Bool := position.within city.height city.width
@@ -56,9 +58,11 @@ def City.locations (city: City) (positions: List Position): Set Position := posi
 --| as `near`: past `near` by the step from `far` to it, and a third of the
 --| way back from `near` to `far` when that is a grid point. Those above or
 --| left of the map are left out here, the rest past it by `locations`.
-def antinodesOf (far: Position) (near: Position): List Position :=
+def antinodesOf (far near: Position): List Position :=
   let difference := near.minus far
-  let steps := if difference.rows % 3 == 0 && difference.columns % 3 == 0 then [difference, (divideBy difference 3).negate] else [difference]
+  let steps :=
+    if difference.rows % 3 == 0 && difference.columns % 3 == 0 then [difference, (divideBy difference 3).negate]
+    else [difference]
   steps.filterMap near.offset
 
 --| Both parts divided by `divisor`, rounding down.
@@ -68,20 +72,19 @@ def divideBy (offset: Offset) (divisor: Nat): Offset :=
 --| The smallest step from `start` towards `end` that lands on grid points:
 --| the offset between them divided by the greatest common divisor of its
 --| parts.
-def Position.stepToward (start: Position) (end: Position): Offset :=
+def Position.stepToward (start end: Position): Offset :=
   let difference := end.minus start
   divideBy difference (difference.rows.natAbs.gcd difference.columns.natAbs)
 
 --| The grid points in line with `start` and `end`: whole steps from `start`
 --| either way, as many as the map is high or wide, which reaches past it.
 --| Those above or left of the map are left out here.
-def City.harmonics (city: City) (start: Position) (end: Position): List Position :=
+def City.harmonics (city: City) (start end: Position): List Position :=
   let step := start.stepToward end
   List.range 0 (Nat.max city.height city.width)
     |> .flatMap (count => [step.times count.toInt, (step.times count.toInt).negate] |> .filterMap start.offset)
 
-def solvePart1 (city: City): Nat :=
-  city.antennaPairs |> .flatMap (uncurry antinodesOf) |> city.locations |> .size
+def solvePart1 (city: City): Nat := city.antennaPairs |> .flatMap (uncurry antinodesOf) |> city.locations |> .size
 
 def solvePart2 (city: City): Nat :=
   city.antennaPairs |> .flatMap (((start, end)) => city.harmonics start end) |> city.locations |> .size

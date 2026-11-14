@@ -5,24 +5,19 @@
 import Pretty (pretty)
 import Std (Text)
 
-interface Pretty (a: Type) =
-  { pretty: a → Text }
+interface Pretty (a: Type) = { pretty: a → Text }
 
-instance Pretty.instNat: Pretty Nat :=
-  { pretty = n => if n == 0 then "zero" else "some" }
+instance Pretty.instNat: Pretty Nat := { pretty = n => if n == 0 then "zero" else "some" }
 
-instance Pretty.instBool: Pretty Bool :=
-  { pretty = b => if b then "yes" else "no" }
+instance Pretty.instBool: Pretty Bool := { pretty = b => if b then "yes" else "no" }
 
 -- An instance may ask for instances of its head's variables.
 instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
   { pretty = xs => "[" ++ Text.join (xs.map Pretty.pretty) ',' ++ "]" }
 
-type Item =
-  | MkItem
+type Item = | MkItem
 
-instance Item.instPretty: Pretty Item :=
-  { pretty = i => "item" }
+instance Item.instPretty: Pretty Item := { pretty = i => "item" }
 
 -- Asking for one: named, or not.
 def shout [auto p: Pretty a] (x: a): Text := Pretty.pretty x ++ "!"

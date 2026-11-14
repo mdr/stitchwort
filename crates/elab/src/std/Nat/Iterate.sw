@@ -5,28 +5,34 @@
 --| `Nat.iterate n f x` is `f` applied `n` times to `x`: `Nat.iterate 3 f x` is
 --| `f (f (f x))`. Written with `n.iterate f x` too.
 @[tailrec]
-def Nat.iterate (count: Nat) (step: a → a) (seed: a): a :=
-  match count with
-    | Zero => seed
-    | Succ n => Nat.iterate n step (step seed)
+def Nat.iterate (count: Nat) (step: a → a) (seed: a): a := match count with
+  | Zero => seed
+  | Succ n => Nat.iterate n step (step seed)
 
 --| One more step is a step first.
-theorem Nat.iterateSucc (n: Nat) (f: a → a) (x: a): Nat.iterate (Succ n) f x = Nat.iterate n f (f x) := rfl
+theorem Nat.iterateSucc ∀ (n: Nat) (f: a → a) (x: a): Nat.iterate (Succ n) f x = Nat.iterate n f (f x) := rfl
 
 --| One more step is a step last.
-theorem Nat.iterateSuccLast (f: a → a): (n: Nat) → (x: a) → Nat.iterate (Succ n) f x = f (Nat.iterate n f x)
-  | Zero, x => rfl
-  | Succ n, x => Nat.iterateSuccLast f n (f x)
+theorem Nat.iterateSuccLast ∀ (f: a → a) (n: Nat) (x: a): Nat.iterate (Succ n) f x = f (Nat.iterate n f x) :=
+  match n with
+    | Zero => rfl
+    | Succ n => Nat.iterateSuccLast f n (f x)
 
 --| Iterating two functions that agree everywhere gives the same result.
-theorem Nat.iterateCong: (count: Nat) → (f1: a → a) → (f2: a → a) → (seed: a) → (same: (x: a) → f1 x = f2 x) → Nat.iterate count f1 seed = Nat.iterate count f2 seed
-  | Zero, f1, f2, seed, same => rfl
-  | Succ n, f1, f2, seed, same => rewrite same seed, Nat.iterateCong n f1 f2 (f2 seed) same
+theorem Nat.iterateCong ∀ (count: Nat) (f1 f2: a → a) (seed: a)
+    (same: ∀ (x: a) => f1 x = f2 x):
+    Nat.iterate count f1 seed = Nat.iterate count f2 seed :=
+  match count with
+    | Zero => rfl
+    | Succ n => rewrite same seed, Nat.iterateCong n f1 f2 (f2 seed) same
 
 --| A property every step keeps holds after any number of steps.
-theorem Nat.iterateKeeps (f: a → a) (keep: a → Prop) (kept: (x: a) → keep x → keep (f x)): (n: Nat) → (x: a) → keep x → keep (Nat.iterate n f x)
-  | Zero, x, h => h
-  | Succ n, x, h => Nat.iterateKeeps f keep kept n (f x) (kept x h)
+theorem Nat.iterateKeeps ∀ (f: a → a) (keep: a → Prop) (kept: ∀ (x: a) => keep x → keep (f x)) (n: Nat)
+    (x: a) (h: keep x):
+    keep (Nat.iterate n f x) :=
+  match n with
+    | Zero => h
+    | Succ n => Nat.iterateKeeps f keep kept n (f x) (kept x h)
 
 test "Nat.iterate" := Nat.iterate 3 (* 2) 1 == 8 ∧ Nat.iterate 0 (* 2) 5 == 5
 test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!!"
@@ -39,44 +45,47 @@ test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!
 --| `Nat.iterateUntilStable grid step size proof`.
 @[tailrec]
 def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
-    (shrinks: (y: a) → step y ≠ y → measure (step y) < measure y): a
+    (shrinks: ∀ (y: a) => step y ≠ y → measure (step y) < measure y):
+    a
     decreasing measure x
 :=
-  if h: step x = x
-  then x
-  else Nat.iterateUntilStable (step x) step measure shrinks [decreasing := shrinks x h]
-
---| The decision `Nat.iterateUntilStable` makes, taken apart: the lemmas below
---| hand it to these.
-theorem Nat.untilStableDecYes (p: Prop) (x: a) (r: a) (h: p): (d: Decidable p) → Decidable.elim d (y => x) (n => r) = x
-  | Yes y => rfl
-  | No n => Void.exfalso (n h)
-
-theorem Nat.untilStableDecNo (p: Prop) (x: a) (r: a) (h: ¬p): (d: Decidable p) → Decidable.elim d (y => x) (n => r) = r
-  | Yes y => Void.exfalso (h y)
-  | No n => rfl
+  if h: step x = x then x else Nat.iterateUntilStable (step x) step measure shrinks [decreasing := shrinks x h]
 
 --| A value `step` leaves alone is already the answer.
-theorem Nat.iterateUntilStableStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
-    (shrinks: (y: a) → step y ≠ y → measure (step y) < measure y) (h: step x = x):
+theorem Nat.iterateUntilStableStable ∀ [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
+    (shrinks: ∀ (y: a) => step y ≠ y → measure (step y) < measure y)
+    (h: step x = x):
     Nat.iterateUntilStable x step measure shrinks = x :=
   rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
-  Nat.untilStableDecYes (step x = x) x (Nat.iterateUntilStable (step x) step measure shrinks) h (DecEq.decide (step x) x)
+    Decidable.elimEq
+      (DecEq.decide (step x) x)
+      (y => x)
+      (n => Nat.iterateUntilStable (step x) step measure shrinks)
+      x
+      (y => rfl)
+      (n => Void.exfalso (n h))
 
 --| A value `step` changes goes on from the changed value.
-theorem Nat.iterateUntilStableStep [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
-    (shrinks: (y: a) → step y ≠ y → measure (step y) < measure y) (h: step x ≠ x):
+theorem Nat.iterateUntilStableStep ∀ [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
+    (shrinks: ∀ (y: a) => step y ≠ y → measure (step y) < measure y)
+    (h: step x ≠ x):
     Nat.iterateUntilStable x step measure shrinks = Nat.iterateUntilStable (step x) step measure shrinks :=
   rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
-  Nat.untilStableDecNo (step x = x) x (Nat.iterateUntilStable (step x) step measure shrinks) h (DecEq.decide (step x) x)
+    Decidable.elimEq
+      (DecEq.decide (step x) x)
+      (y => x)
+      (n => Nat.iterateUntilStable (step x) step measure shrinks)
+      (Nat.iterateUntilStable (step x) step measure shrinks)
+      (y => Void.exfalso (h y))
+      (n => rfl)
 
 --| What it returns is a fixed point: `step` leaves it alone.
-theorem Nat.iterateUntilStableFixed [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
-    (shrinks: (y: a) → step y ≠ y → measure (step y) < measure y):
+theorem Nat.iterateUntilStableFixed ∀ [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
+    (shrinks: ∀ (y: a) => step y ≠ y → measure (step y) < measure y):
     step (Nat.iterateUntilStable x step measure shrinks) = Nat.iterateUntilStable x step measure shrinks
     decreasing measure x
 :=
-  rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
-  match DecEq.decide (step x) x with
-    | Yes y => y
-    | No n => Nat.iterateUntilStableFixed (step x) step measure shrinks [decreasing := shrinks x n]
+  if same: step x = x then rewrite Nat.iterateUntilStableStable x step measure shrinks same in same
+  else
+    rewrite Nat.iterateUntilStableStep x step measure shrinks same in
+      Nat.iterateUntilStableFixed (step x) step measure shrinks [decreasing := shrinks x same]

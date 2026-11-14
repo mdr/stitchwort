@@ -51,15 +51,13 @@ type Tags = { value: List Text }
 -- Inside a record, an `Option` and a list, and in a constructor's field.
 type Order = { id: OrderId, owner: UserId, helper: Option UserId }
 
-type Event =
-  | Created (by: UserId)
-  | Deleted
+type Event = | Created (by: UserId) | Deleted
 
 export def wrap (t: Text): UserId := { value = t }
 
 export def unwrap (u: UserId): Text := u.value
 
-export def same (a: UserId) (b: UserId): Bool := a == b
+export def same (a b: UserId): Bool := a == b
 
 export def owners (orders: List Order): List UserId := orders.map (o => o.owner)
 

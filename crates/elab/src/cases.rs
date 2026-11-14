@@ -13,10 +13,15 @@
 //!    same thing (`rfl`);
 //! 2. **contradiction**: a hypothesis is an equation between different
 //!    constructors (`False = True`), refuted by `J` along it into a family
-//!    that is `Unit` at one constructor and `Void` at the other;
+//!    that is `Unit` at one constructor and `Void` at the other; or `e =
+//!    True` beside `e = False` for the same Bool `e`, stuck or not
+//!    ([`bool_clash`]);
 //! 3. **taking an equation apart**: a hypothesis `C a = C b` adds `a = b`
 //!    (by `J` along it with a projection), and the node starts again;
-//! 4. **a hypothesis** of exactly the goal's type;
+//! 4. **a hypothesis** of exactly the goal's type, or a part of one: a
+//!    side of a conjunction, or what a test fact reads as
+//!    (docs/proposals/bool-as-proposition.md §9: `(a && b) = True` as `a ∧
+//!    b`), taken apart in turn;
 //! 5. **`t`**, for `cases in t`, elaborated in the case;
 //! 6. **`omega`**, only where nothing is left to split (D1319).
 //!
@@ -66,8 +71,8 @@
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!
 //! A case still open then is tried by its goal's decision procedure, as
-//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): `Yes` closes
-//! it with `auto`'s term, `Decidable.fromYes d Trivial`; `No` doesn't fail
+//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): a test that
+//! computes to `True` closes it with `auto`'s term, `d.sound rfl`; `False` doesn't fail
 //! it, since its hypotheses may still contradict each other.
 //!
 //! A case still open then, whose goal is a `Π`, has the goal's leading
@@ -96,7 +101,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{
-    Elim, Head, body_seen, conv, eval, force, is_folded, quote, unfold_folded,
+    Elim, Head, body_seen, conv, eval, force, is_folded, quote_at_most, unfold_folded,
 };
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Expr, Pattern};
@@ -128,6 +133,9 @@ pub(crate) struct Run {
     closed: RefCell<Closed>,
     /// Set once the budget is exceeded: every case after that fails at once.
     over: Cell<bool>,
+    /// Set when the budget ran out because a case was too large to split
+    /// ([`SPLIT_READ_BACK_NODES`]), not because of the number of cases.
+    over_size: Cell<bool>,
     /// The split that exceeded the budget, `x : T`, when it was a fallback.
     over_fallback: RefCell<Option<String>>,
     /// Whether an `Int` was split into its constructors (`OfNat`, `NegSucc`).
@@ -221,6 +229,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         split_int: Cell::new(false),
         closed: RefCell::new(Closed::default()),
         over: Cell::new(false),
+        over_size: Cell::new(false),
         over_fallback: RefCell::new(None),
         atom_types: RefCell::new(Vec::new()),
         over_finite: RefCell::new(None),
@@ -266,11 +275,14 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 
 fn budget_error(run: &Run) -> Diagnostic {
     let atoms = run.atoms.borrow();
-    let mut d = Diagnostic::error(
-        "E-CASES-BUDGET",
-        format!("`cases` made more than {CASES} cases without closing them all"),
-    )
-    .with_label(run.span, "this `cases`");
+    let message = if run.over_size.get() {
+        "`cases` made a case too large to split: its goal and hypotheses, written out in \
+         full, have more than a million parts"
+            .to_string()
+    } else {
+        format!("`cases` made more than {CASES} cases without closing them all")
+    };
+    let mut d = Diagnostic::error("E-CASES-BUDGET", message).with_label(run.span, "this `cases`");
     if let Some(split) = &*run.over_fallback.borrow() {
         d = d.with_note(format!(
             "`cases` tried splitting `{split}` as a fallback; this would exceed the \
@@ -324,7 +336,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         run.closed.borrow_mut().computation += 1;
         return Ok(term);
     }
-    if let Some(term) = by_contradiction(cx, goal)? {
+    if let Some(term) = by_contradiction(cx, goal, &visible(cx))? {
         run.closed.borrow_mut().contradiction += 1;
         return Ok(term);
     }
@@ -332,6 +344,10 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         return Ok(term);
     }
     if let Some(term) = by_hypothesis(cx, goal)? {
+        run.closed.borrow_mut().hypothesis += 1;
+        return Ok(term);
+    }
+    if let Some(term) = by_hypothesis_part(cx, goal)? {
         run.closed.borrow_mut().hypothesis += 1;
         return Ok(term);
     }
@@ -424,9 +440,9 @@ fn visibly_false(cx: &Ctx, goal: &Value) -> Result<bool> {
 
 /// What the decision closer made of a goal.
 enum Decided {
-    /// Its decision procedure says `Yes`: the proof.
+    /// Its decision procedure's test is `True`: the proof.
     Yes(Term),
-    /// It says `No`. The case isn't failed for that: its hypotheses may
+    /// The test is `False`. The case isn't failed for that: its hypotheses may
     /// still contradict each other (decide/closer_order.sw,
     /// `falseGoalImpossibleCase`), which a later step may show.
     No,
@@ -436,7 +452,7 @@ enum Decided {
 
 /// The decision closer (docs/proposals/decide.md §6.1.2): the goal's
 /// decision procedure, found as `auto` finds one (`auto::decide`), run now,
-/// and on `Yes` the proof `Decidable.fromYes d Trivial` (`auto::from_yes`).
+/// and when its test is `True` the proof `d.sound rfl` (`auto::from_yes`).
 ///
 /// Trust: nothing new enters the trusted base. The term is the one `auto`
 /// writes for `[auto h: P]`; the kernel checks it by running `d` again
@@ -454,13 +470,13 @@ fn by_decision(cx: &mut Ctx, goal: &Value) -> Result<Decided> {
             Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(_) => return Ok(None),
         };
-        match force(&cx.g(), cx.eval(&decision)?)? {
-            Value::Ctor(_, 0, _) => crate::auto::from_yes(cx, &goal, decision).map(Some),
-            Value::Ctor(..) => {
+        match crate::auto::verdict(cx, &decision)? {
+            Some(true) => crate::auto::from_yes(cx, &goal, decision).map(Some),
+            Some(false) => {
                 no = true;
                 Ok(None)
             }
-            _ => Ok(None),
+            None => Ok(None),
         }
     })?;
     Ok(match found {
@@ -526,7 +542,12 @@ fn path(cx: &Ctx) -> Vec<String> {
     (0..cx.level())
         .filter(|&l| is_equation(cx, l) && cx.name_of_level(l).is_some())
         .map(|l| {
-            let shown = cx.show(&cx.types[l]);
+            // A split is shown as the assignment it is, `b = True`, not as
+            // the fact `b` that goals show it as.
+            let shown = match force(&cx.g(), cx.types[l].clone()) {
+                Ok(Value::Eq(_, a, b)) => format!("{} = {}", cx.show_side(&a), cx.show_side(&b)),
+                _ => cx.show(&cx.types[l]),
+            };
             if is_fallback(cx, l) {
                 format!("{shown} (fallback)")
             } else {
@@ -587,8 +608,11 @@ fn open_case(
         )
         .with_label(run.span, "this `cases`")
     } else {
-        Diagnostic::error("E-CASES", format!("`cases` can't close the case {case}"))
-            .with_label(run.span, "this `cases`")
+        Diagnostic::error(
+            "E-CASES",
+            format!("`cases` couldn't close the case it reached by the splits {case}"),
+        )
+        .with_label(run.span, "this `cases`")
     };
     for level in 0..cx.level() {
         if is_equation(cx, level) {
@@ -703,6 +727,18 @@ fn by_hypothesis(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
     Ok(None)
 }
 
+/// A part of a hypothesis of exactly the goal's type: a side of a
+/// conjunction, or what a test fact reads as, taken apart in turn
+/// (`auto::hypothesis_parts`; docs/proposals/bool-as-proposition.md §9).
+fn by_hypothesis_part(cx: &Ctx, goal: &Value) -> Result<Option<Term>> {
+    for (proof, ty) in crate::auto::hypothesis_parts(cx, &visible(cx))? {
+        if conv(&cx.g(), cx.level(), &ty, goal)? {
+            return Ok(Some(proof));
+        }
+    }
+    Ok(None)
+}
+
 /// An equation `l = r` of data `d` whose sides compute to constructors.
 struct CtorEquation {
     level: usize,
@@ -712,9 +748,9 @@ struct CtorEquation {
     right: (usize, Vec<Value>),
 }
 
-fn ctor_equations(cx: &Ctx) -> Result<Vec<CtorEquation>> {
+fn ctor_equations(cx: &Ctx, levels: &[usize]) -> Result<Vec<CtorEquation>> {
     let mut out = Vec::new();
-    for level in visible(cx) {
+    for &level in levels {
         out.extend(ctor_equation(cx, level)?);
     }
     Ok(out)
@@ -744,6 +780,27 @@ fn ctor_equation(cx: &Ctx, level: usize) -> Result<Option<CtorEquation>> {
     }))
 }
 
+/// Whether the variable at `level` has a type that equates two different
+/// constructors, which [`refute_equation`] refutes.
+pub(crate) fn equates_different_ctors(cx: &Ctx, level: usize) -> Result<bool> {
+    Ok(ctor_equation(cx, level)?.is_some_and(|eq| eq.left.0 != eq.right.0))
+}
+
+/// The variable at `level`'s equation with its sides computed, as it would
+/// read in a message (`Equal = Less`), when that differs from how it's
+/// written: what [`equates_different_ctors`] refutes, and why. Only asked
+/// once a reason is found.
+pub(crate) fn computed_equation(cx: &Ctx, level: usize) -> Result<Option<String>> {
+    let g = cx.g();
+    let Value::Eq(_, l, r) = force(&g, cx.types[level].clone())? else {
+        return Ok(None);
+    };
+    let (left, right) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+    let written = format!("{} = {}", cx.show_side(&l), cx.show_side(&r));
+    let computed = format!("{} = {}", cx.show_side(&left), cx.show_side(&right));
+    Ok((written != computed).then_some(computed))
+}
+
 /// A proof of `goal` from the variable at `level`, when its type equates
 /// two different constructors (an argument matched by `()`).
 pub(crate) fn refute_equation(cx: &mut Ctx, level: usize, goal: &Value) -> Result<Option<Term>> {
@@ -753,24 +810,139 @@ pub(crate) fn refute_equation(cx: &mut Ctx, level: usize, goal: &Value) -> Resul
     }
 }
 
-fn by_contradiction(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
-    let Some(eq) = ctor_equations(cx)?
+/// A proof of `goal` from hypotheses that can't both hold: an equation
+/// between different constructors, or `e = True` beside `e = False`. (`auto`
+/// uses it too, over every level: its context has no names.) `levels` are
+/// the hypotheses to look at.
+pub(crate) fn by_contradiction(
+    cx: &mut Ctx,
+    goal: &Value,
+    levels: &[usize],
+) -> Result<Option<Term>> {
+    if let Some(eq) = ctor_equations(cx, levels)?
         .into_iter()
         .find(|e| e.left.0 != e.right.0)
-    else {
+    {
+        return contradiction(cx, eq, goal).map(Some);
+    }
+    bool_clash(cx, goal, levels)
+}
+
+/// A hypothesis `e = C` or `C = e` (`C` a Bool constructor, `e` a Bool term
+/// that doesn't compute to one), as `(level, e, C is True, C on the left)`.
+fn bool_facts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(usize, Value, bool, bool)>> {
+    let g = cx.g();
+    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    let tru = builtin_ctor(cx, Builtin::True)?.1;
+    let mut out = Vec::new();
+    for &level in levels {
+        let Value::Eq(ty, l, r) = force(&g, cx.types[level].clone())? else {
+            continue;
+        };
+        if !matches!(force(&g, (*ty).clone())?, Value::Data(d, _) if d == bool_data) {
+            continue;
+        }
+        let (l, r) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+        let ctor = |v: &Value| match v {
+            Value::Ctor(d, c, _) if *d == bool_data => Some(*c == tru),
+            _ => None,
+        };
+        match (ctor(&l), ctor(&r)) {
+            (None, Some(is_true)) => out.push((level, l, is_true, false)),
+            (Some(is_true), None) => out.push((level, r, is_true, true)),
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
+/// Hypotheses `h1: e = True` and `h2: e = False` (either way round) for the
+/// same `e`, whatever `e` is: no reader or decision needed.
+///
+/// With both turned to the form `e = C` (a `J` along `C = e` into `y = C`,
+/// when the constructor is on the left), the proof of `False = True` is
+/// two `J`s: along `h2` into `y = e`, from `rfl`, gives `False = e`; along
+/// `h1` into `False = y`, from that, gives `False = True`. `Bool.falseNotTrue`
+/// refutes it.
+fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Term>> {
+    let facts = bool_facts(cx, levels)?;
+    let g = cx.g();
+    let mut pair = None;
+    'search: for a in &facts {
+        if !a.2 {
+            continue;
+        }
+        for b in &facts {
+            if !b.2 && conv(&g, cx.level(), &a.1, &b.1)? {
+                pair = Some((a.clone(), b.clone()));
+                break 'search;
+            }
+        }
+    }
+    let Some(((t_level, e, _, t_left), (f_level, _, _, f_left))) = pair else {
         return Ok(None);
     };
-    contradiction(cx, eq, goal).map(Some)
+    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    let bool_ty = || Some(Rc::new(Term::data(bool_data, Vec::new())));
+    let (tru, fls) = (
+        builtin_ctor(cx, Builtin::True)?,
+        builtin_ctor(cx, Builtin::False)?,
+    );
+    let ctor = |(d, c): (DataId, usize)| Term::ctor(d, c, Vec::new());
+    let motive = |body: Term| {
+        Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+        )
+    };
+    let var = |level: usize| Term::Var(cx.level() - 1 - level);
+    // `h: C = e` turned into `e = C`.
+    let turned = |h: Term, c: Term, flipped: bool| {
+        if !flipped {
+            return h;
+        }
+        let body = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(c));
+        Term::J(Rc::new(motive(body)), Rc::new(Term::Refl), Rc::new(h))
+    };
+    let e_term = cx.quote(&e)?;
+    let h_true = turned(var(t_level), ctor(tru), t_left);
+    let h_false = turned(var(f_level), ctor(fls), f_left);
+    let e_under = e_term.shift(&g, 2, 0)?;
+    let back = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(e_under));
+    let false_eq_e = Term::J(Rc::new(motive(back)), Rc::new(Term::Refl), Rc::new(h_false));
+    let forward = Term::Eq(bool_ty(), Rc::new(ctor(fls)), Rc::new(Term::Var(1)));
+    let false_eq_true = Term::J(
+        Rc::new(motive(forward)),
+        Rc::new(false_eq_e),
+        Rc::new(h_true),
+    );
+    let void_proof = Term::app(
+        Term::Def(builtin_def(cx, Builtin::FalseNotTrue)?),
+        false_eq_true,
+    );
+    absurd(cx, void_proof, goal).map(Some)
 }
 
 /// `Void.exfalso` (or `Void.absurd`, for a goal that isn't a proposition)
 /// of `J (y q => D y) Trivial h`, where `D` is a helper that is `Unit` at
-/// `h`'s left constructor and `Void` at the others.
+/// `h`'s left constructor and `Void` at the others. Two kinds of equation
+/// need no helper: on `Bool`, `Bool.falseNotTrue`, and on `Ordering`, its
+/// six lemmas such as `Ordering.lessNotEqual`, once they're bound. The
+/// `compare` laws meet `Ordering`'s equations in most of their cases, and
+/// a helper for each would be a declaration of its own.
 fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
-    let g = cx.g();
     let h = Term::Var(cx.level() - 1 - eq.level);
+    if let Some(lemma) = ordering_distinct(cx, &eq) {
+        return absurd(cx, Term::app(Term::Def(lemma), h), goal);
+    }
+    let g = cx.g();
     let bool_data = builtin_data(cx, Builtin::Bool)?;
-    let void_proof = if eq.d == bool_data {
+    // Until the prelude has admitted `Bool.falseNotTrue`, a `Bool` equation
+    // takes the helper below like any other type's; that is how the lemma
+    // itself is proved, by `()`.
+    let false_not_true = g.env.registry().def(Builtin::FalseNotTrue);
+    let void_proof = if let (true, Some(lemma)) = (eq.d == bool_data, false_not_true) {
         // `Bool.falseNotTrue h`, or for `h: True = False`, of `h` turned
         // round by `J (y q => y = True) rfl h`.
         let tru = builtin_ctor(cx, Builtin::True)?;
@@ -789,10 +961,7 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
         } else {
             h
         };
-        Term::app(
-            Term::Def(builtin_def(cx, Builtin::FalseNotTrue)?),
-            false_true,
-        )
+        Term::app(Term::Def(lemma), false_true)
     } else {
         let unit = builtin_data(cx, Builtin::Unit)?;
         let void = builtin_data(cx, Builtin::Void)?;
@@ -821,14 +990,50 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
             Rc::new(h),
         )
     };
+    absurd(cx, void_proof, goal)
+}
+
+/// The lemma refuting `eq` when it's an equation of two different
+/// `Ordering`s (`Ordering.lessNotEqual` for `Less = Equal`): `None` for
+/// another type, or while the prelude loads, before the lemma is admitted.
+fn ordering_distinct(cx: &Ctx, eq: &CtorEquation) -> Option<stitchwort_core::DefId> {
+    let g = cx.g();
+    let registry = g.env.registry();
+    if registry.data(Builtin::Ordering) != Some(eq.d) {
+        return None;
+    }
+    let which = |c: usize| {
+        [
+            Builtin::OrderingLess,
+            Builtin::OrderingEqual,
+            Builtin::OrderingGreater,
+        ]
+        .into_iter()
+        .find(|b| registry.ctor(*b) == Some((eq.d, c)))
+    };
+    let lemma = match (which(eq.left.0)?, which(eq.right.0)?) {
+        (Builtin::OrderingLess, Builtin::OrderingEqual) => Builtin::LessNotEqual,
+        (Builtin::OrderingLess, Builtin::OrderingGreater) => Builtin::LessNotGreater,
+        (Builtin::OrderingEqual, Builtin::OrderingLess) => Builtin::EqualNotLess,
+        (Builtin::OrderingEqual, Builtin::OrderingGreater) => Builtin::EqualNotGreater,
+        (Builtin::OrderingGreater, Builtin::OrderingLess) => Builtin::GreaterNotLess,
+        (Builtin::OrderingGreater, Builtin::OrderingEqual) => Builtin::GreaterNotEqual,
+        _ => return None,
+    };
+    registry.def(lemma)
+}
+
+/// `goal` from a proof of `Void`: `Void.exfalso` for a proposition,
+/// `Void.absurd` otherwise.
+fn absurd(cx: &mut Ctx, void_proof: Term, goal: &Value) -> Result<Term> {
     let goal_term = cx.quote_folded(goal)?;
-    let (via, implicit) = if is_proposition(cx, goal)? {
-        (builtin_def(cx, Builtin::VoidExfalso)?, goal_term)
+    let via = if is_proposition(cx, goal)? {
+        builtin_def(cx, Builtin::VoidExfalso)?
     } else {
-        (builtin_def(cx, Builtin::VoidAbsurd)?, goal_term)
+        builtin_def(cx, Builtin::VoidAbsurd)?
     };
     Ok(Term::app(
-        Term::app_icit(Term::Def(via), implicit, Icit::Implicit),
+        Term::app_icit(Term::Def(via), goal_term, Icit::Implicit),
         void_proof,
     ))
 }
@@ -850,9 +1055,9 @@ fn family(
     cx.bind_hidden(
         "q".into(),
         Value::Eq(
-            Rc::new(ty.clone()),
-            Rc::new(l.clone()),
-            Rc::new(Value::var(y)),
+            Rc::new(ty.clone()).into(),
+            Rc::new(l.clone()).into(),
+            Rc::new(Value::var(y)).into(),
         ),
     );
     let body = Term::Case(1, d, branches.into());
@@ -889,7 +1094,7 @@ pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
 fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
     let g = cx.g();
     let mut facts: Vec<(usize, usize, Value, Value, Value)> = Vec::new();
-    for eq in ctor_equations(cx)? {
+    for eq in ctor_equations(cx, &visible(cx))? {
         if eq.left.0 != eq.right.0 {
             continue;
         }
@@ -920,9 +1125,9 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
                 .collect();
             let field_ty = eval(&g, &env, &ctor.fields[i].1)?;
             let fact = Value::Eq(
-                Rc::new(field_ty.clone()),
-                Rc::new(a.clone()),
-                Rc::new(b.clone()),
+                Rc::new(field_ty.clone()).into(),
+                Rc::new(a.clone()).into(),
+                Rc::new(b.clone()).into(),
             );
             if visible(cx)
                 .into_iter()
@@ -1116,6 +1321,9 @@ struct Finder<'a, 'e> {
     /// The split equations' left sides, as types hold them: values known
     /// in this case, never split again.
     known: Vec<Term>,
+    /// The ones too large to read back ([`READ_BACK_NODES`]), compared as
+    /// values.
+    known_big: Vec<Value>,
     /// Values visited, against runaway sharing.
     visits: usize,
     in_goal: bool,
@@ -1149,14 +1357,17 @@ const VISITS: usize = 100_000;
 impl<'a, 'e> Finder<'a, 'e> {
     fn new(cx: &'a Ctx<'e>, run: &'a Run) -> Self {
         let mut known = Vec::new();
+        let mut known_big = Vec::new();
         for level in 0..cx.level() {
             if !is_equation(cx, level) {
                 continue;
             }
-            if let Ok(Value::Eq(_, l, _)) = force(&cx.g(), cx.types[level].clone())
-                && let Ok(t) = quote(&cx.g(), cx.level(), &l)
-            {
-                known.push(t);
+            if let Ok(Value::Eq(_, l, _)) = force(&cx.g(), cx.types[level].clone()) {
+                match read_back(&cx.g(), cx.level(), &l) {
+                    Ok(Some(t)) => known.push(t),
+                    Ok(None) => known_big.push((*l).clone()),
+                    Err(_) => {}
+                }
             }
         }
         Finder {
@@ -1165,6 +1376,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             single: None,
             stuck: None,
             known,
+            known_big,
             visits: 0,
             in_goal: false,
             under_stuck: 0,
@@ -1243,7 +1455,9 @@ impl<'a, 'e> Finder<'a, 'e> {
     fn survey_chain(&mut self, stuck: &Value, first: Option<(Value, DataId)>) -> Result<()> {
         let cx = self.cx;
         let g = cx.g();
-        let start = quote(&g, cx.level(), stuck)?;
+        let Some(start) = read_back(&g, cx.level(), stuck)? else {
+            return Ok(());
+        };
         let survey = self.survey.as_ref().expect("in the survey pass");
         if survey.seen.iter().any(|t| crate::matching::same(t, &start)) {
             return Ok(());
@@ -1281,12 +1495,20 @@ impl<'a, 'e> Finder<'a, 'e> {
             if is_first {
                 continue;
             }
-            seen.push(quote(&g, cx.level(), &raw)?);
+            let Some(term) = read_back(&g, cx.level(), &raw)? else {
+                return Ok(());
+            };
+            seen.push(term);
             end = Some((raw.clone(), d));
             let next = force(&g, raw)?;
             current = if is_folded(&g, &next) {
                 match unfold_folded(&g, &next)? {
                     Some(u) => u,
+                    // A field of a stuck call (`(Bool.decEq a b).holds`)
+                    // waits for what the call waits for.
+                    None if matches!(&next, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine)) => {
+                        next
+                    }
                     None => break,
                 }
             } else {
@@ -1298,7 +1520,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         }
         let end = match end {
             Some((raw, d)) if atom_outside && direct && recursive(cx, d) => {
-                Some((quote(&g, cx.level(), &raw)?, raw, d))
+                read_back(&g, cx.level(), &raw)?.map(|term| (term, raw, d))
             }
             _ => None,
         };
@@ -1327,7 +1549,10 @@ impl<'a, 'e> Finder<'a, 'e> {
                 continue;
             }
             for field in fields.iter() {
-                if crate::matching::same(&quote(&g, cx.level(), field)?, term) {
+                let Some(read) = read_back(&g, cx.level(), field)? else {
+                    continue;
+                };
+                if crate::matching::same(&read, term) {
                     return Ok(true);
                 }
             }
@@ -1469,9 +1694,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             };
             // A comparison of numbers that something outside tests (`if
             // x + 1 == y then …`) is one atom, true or false, which `omega`
-            // reads in each case; its `Decidable` and its operands are
-            // `Int`'s insides.
-            if best.is_some() && number_equality(&g, &force(&g, raw.clone())?) {
+            // reads in each case; what its decision waits for, the operands,
+            // is `Int`'s insides.
+            if best.is_some() && number_equality(&g, &current) {
                 break;
             }
             match self.ctors(d) {
@@ -1483,6 +1708,20 @@ impl<'a, 'e> Finder<'a, 'e> {
                     };
                     if n >= 2 {
                         best = Some(atom);
+                    } else if best.as_ref().is_some_and(|b| b.side)
+                        && last_unsplittable.is_none()
+                        && self.under_stuck == 0
+                    {
+                        // The call's own result (`eqbId x x = True` on
+                        // `eqbId x x`) waits on a record (`x`): taking the
+                        // record apart first is one case, and reaches the
+                        // real obstacle, where splitting the result would
+                        // report a case (`eqbId x x = False`) that reads as
+                        // if the statement were false.
+                        best = Some(Atom {
+                            side: false,
+                            ..atom
+                        });
                     } else if self.single.is_none()
                         && last_unsplittable.is_none()
                         && self.under_stuck == 0
@@ -1504,6 +1743,11 @@ impl<'a, 'e> Finder<'a, 'e> {
             current = if is_folded(&g, &next) {
                 match unfold_folded(&g, &next)? {
                     Some(u) => u,
+                    // A field of a stuck call (`(Bool.decEq a b).holds`)
+                    // waits for what the call waits for.
+                    None if matches!(&next, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine)) => {
+                        next
+                    }
                     None => break,
                 }
             } else {
@@ -1563,11 +1807,21 @@ impl<'a, 'e> Finder<'a, 'e> {
     }
 
     fn is_known(&self, value: &Value) -> Result<bool> {
-        if self.known.is_empty() {
+        if self.known.is_empty() && self.known_big.is_empty() {
             return Ok(false);
         }
-        let t = quote(&self.cx.g(), self.cx.level(), value)?;
-        Ok(self.known.iter().any(|k| crate::matching::same(k, &t)))
+        let g = self.cx.g();
+        match read_back(&g, self.cx.level(), value)? {
+            Some(t) => Ok(self.known.iter().any(|k| crate::matching::same(k, &t))),
+            None => {
+                for k in &self.known_big {
+                    if conv(&g, self.cx.level(), k, value)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+        }
     }
 
     /// The number of constructors of `d` if it's splittable.
@@ -1582,7 +1836,10 @@ impl<'a, 'e> Finder<'a, 'e> {
 }
 
 fn has_meta(cx: &Ctx, value: &Value) -> Result<bool> {
-    let t = cx.quote(value)?;
+    // Too large to read back: not split, as if it had one.
+    let Some(t) = read_back(&cx.g(), cx.level(), value)? else {
+        return Ok(true);
+    };
     Ok(t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
 }
 
@@ -1622,8 +1879,22 @@ fn int_arithmetic(g: &Ev, value: &Value) -> bool {
         )
 }
 
-/// Whether `value` (forced) is a call of `Int.decEq`: the decision an `Int`
-/// `==` computes through.
+/// The most nodes of a value's normal form that the search for an atom
+/// reads back to compare. A scrutinee can unfold to a term that doubles with
+/// every split, because the value shares its parts and a read-back copies
+/// them: a mutated proof of `operatorStepComplete` reached 3.9 million nodes
+/// in 15 cases, read back several times per case, and held 7 GB (SW-2576).
+/// Folding the calls doesn't help; the term is large either way.
+const READ_BACK_NODES: u64 = 100_000;
+
+/// `value` as a term for comparing with others, or `None` if its normal
+/// form has more than [`READ_BACK_NODES`] nodes.
+fn read_back(g: &Ev, level: usize, value: &Value) -> Result<Option<Term>> {
+    Ok(quote_at_most(g, level, value, READ_BACK_NODES)?)
+}
+
+/// Whether `value` (forced) is the test of a call of `Int.decEq`
+/// (`(Int.decEq x y).holds`): what an `Int` `==` is.
 fn number_equality(g: &Ev, value: &Value) -> bool {
     let Value::Neutral(Head::Def(id), _) = value else {
         return false;
@@ -1768,10 +2039,14 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         }
     }
     run.cases.set(run.cases.get() + data.ctors().len() - 1);
-    if run.cases.get() > CASES {
+    let too_many = run.cases.get() > CASES;
+    if too_many || too_large_to_split(cx, goal)? {
         run.over.set(true);
-        *run.over_finite.borrow_mut() = finite_atoms(cx, run)?;
-        if fallback {
+        run.over_size.set(!too_many);
+        if too_many {
+            *run.over_finite.borrow_mut() = finite_atoms(cx, run)?;
+        }
+        if fallback && too_many {
             let ty = atom_type(cx, &cx.quote_folded(&atom.value)?, atom.d)?;
             *run.over_fallback.borrow_mut() = Some(format!("{shown} : {}", cx.show(&ty)));
         }
@@ -1783,7 +2058,17 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         });
         return Err(Diagnostic::error("E-CASES-BUDGET", "over budget"));
     }
+    // A decision's test, `d.holds`, is split as what it computes to: that
+    // is what an `if` on `d`, unfolded, is stuck on.
     let term = cx.quote_folded(&atom.value)?;
+    let holds = g.env.registry().def(Builtin::Holds);
+    let term = match term.spine().0 {
+        Term::Def(id) if Some(*id) == holds => cx.quote(&atom.value)?,
+        Term::Proj(d, 0, _) if g.env.registry().data(Builtin::Decidable) == Some(*d) => {
+            cx.quote(&atom.value)?
+        }
+        _ => term,
+    };
     let ty = atom_type(cx, &term, atom.d)?;
     let depth = (0..cx.level()).filter(|&l| is_equation(cx, l)).count();
     let name = ast::Name {
@@ -1806,10 +2091,10 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
             Alt {
                 guard: None,
                 patterns: vec![crate::internal_ctor_pattern(atom.d, c, fields, run.span)],
-                body: Expr::Cases {
+                body: Some(Expr::Cases {
                     body: run.body.clone(),
                     span: run.span,
-                },
+                }),
                 span: run.span,
             }
         })
@@ -1828,6 +2113,35 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
     )
 }
 
+/// The most nodes of a case's goal and hypotheses, read back unfolded, that
+/// a split generalises. The generalisation (`matching::generalised_now`)
+/// reads all of them back in full and builds its motive and the copied
+/// hypotheses from them, several copies in all: a mutated proof of
+/// `operatorStepComplete` reached a goal of 3.9 million nodes, and the
+/// hypothesis repeating it, after 13 cases, and its split held 2 GB more
+/// (SW-2606). Ordinary splits read back a few thousand. `E-CASES-BUDGET`
+/// says "a million".
+const SPLIT_READ_BACK_NODES: u64 = 1_000_000;
+
+/// Whether the goal and the hypotheses a split would read back in this case
+/// have more than [`SPLIT_READ_BACK_NODES`] nodes between them.
+fn too_large_to_split(cx: &Ctx, goal: &Value) -> Result<bool> {
+    let g = cx.g();
+    let level = cx.level();
+    let mut left = SPLIT_READ_BACK_NODES;
+    let read = (0..level)
+        .filter(|&l| !stale(cx, l))
+        .map(|l| &cx.types[l])
+        .chain([goal]);
+    for value in read {
+        let Some(term) = quote_at_most(&g, level, value, left)? else {
+            return Ok(true);
+        };
+        left = left.saturating_sub(term.subterms().count() as u64);
+    }
+    Ok(false)
+}
+
 /// The variables split so far, `x : T`, if every atom split is a variable
 /// whose type has a `Finite` instance: then `Finite.check` can check the
 /// statement for every value of them (docs/proposals/decide.md §6.1.4).
@@ -1842,7 +2156,7 @@ fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
         let Some(ty) = ty else {
             return Ok(None);
         };
-        let goal = Value::Data(finite, vec![ty.clone()]);
+        let goal = Value::Data(finite, vec![ty.clone()].into());
         if crate::interfaces::findable(cx, &goal)?.is_some() {
             return Ok(None);
         }
@@ -1856,7 +2170,7 @@ fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
 fn atom_type(cx: &Ctx, term: &Term, d: DataId) -> Result<Value> {
     let g = cx.g();
     if g.data(d).params().is_empty() {
-        return Ok(Value::Data(d, Vec::new()));
+        return Ok(Value::Data(d, Vec::new().into()));
     }
     let mut kcx = crate::rewrite::kernel_context(cx)?;
     let (_, ty) = crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, term))?;

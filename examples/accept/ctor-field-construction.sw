@@ -5,15 +5,11 @@
 
 import Std (Eq, Int, IO, List, Nat, Option, Pair)
 
-type Shape =
-  | Dot { ref: Nat, id: Text }
-  | Circle { ref: Nat, id: Text, text: Text }
+type Shape = | Dot { ref: Nat, id: Text } | Circle { ref: Nat, id: Text, text: Text }
 
 type Item = { name: Text, price: Nat }
 
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
 
 type Pos = | MkPos { n: Nat, ok: 0 < n }
 
@@ -26,8 +22,7 @@ def idOf: Shape → Text
   | Dot { id, .. } => id
   | Circle { id, .. } => id
 
-test "any order is the positional form" :=
-  Circle { text = "t", id = "a", ref = 1 } == Circle 1 "a" "t"
+test "any order is the positional form" := Circle { text = "t", id = "a", ref = 1 } == Circle 1 "a" "t"
 
 theorem sameTerm: Circle { id = "a", text = "t", ref = 1 } = Circle 1 "a" "t" := rfl
 
@@ -40,13 +35,13 @@ def one: Vec Int 1 := VCons { x = 1, xs = VNil }
 def three: Pos := MkPos { n = 3, ok = omega }
 
 -- A parameterised type; fields nest.
-def boxed: Box (Option Shape) :=
-  MkBox { label = "b", inner = Some (Dot { id = "d", ref = 0 }) }
+def boxed: Box (Option Shape) := MkBox { label = "b", inner = Some (Dot { id = "d", ref = 0 }) }
 
 test "nesting" :=
   (match boxed.inner with
     | Some s => idOf s
-    | None => "") == "d"
+    | None => "")
+    == "d"
 
 -- `Some` is declared with brackets, so braces after it are a record
 -- argument, as after a function. Its field can still be named, with `(f := e)`.
@@ -54,8 +49,7 @@ def tea: Option Item := Some { name = "tea", price = 3 }
 def coffee: Option Item := Some (value := { name = "coffee", price = 4 })
 
 test "a record argument both ways" :=
-  (tea == Some { name = "tea", price = 3 })
-    ∧ (coffee == Some { name = "coffee", price = 4 })
+  (tea == Some { name = "tea", price = 3 }) ∧ (coffee == Some { name = "coffee", price = 4 })
 
 -- A field access on the result.
 test "field access" := (Circle { ref = 1, id = "a", text = "t" }).id == "a"
@@ -69,5 +63,4 @@ def next(): {IO} Text := orNone IO.readLine()
 
 def read(): {IO} Shape := Circle { text = next(), ref = 1, id = next() }
 
-test "effects run in the order written" :=
-  idOf (Pair.snd (IO.simulate ["1", "2"] read)) == "2"
+test "effects run in the order written" := idOf (Pair.snd (IO.simulate ["1", "2"] read)) == "2"

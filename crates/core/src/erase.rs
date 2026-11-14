@@ -43,7 +43,19 @@
 //! differ only where they're proofs or types, which are never printed or
 //! compared (`print` takes `Text`, a test is a `Bool`). Proofs are already
 //! checked (and total) when the program runs, so skipping them can't hide a
-//! failure. Like JS, a proof in a position that isn't erased (passed through
+//! failure.
+//!
+//! An open goal's assumption that is a proof is erased too, and the
+//! argument above holds for it only if its goal is true: it is the one proof
+//! that isn't checked. Under a false goal the run can treat a value as the
+//! wrong type (`J` on `h : 2 = 3` takes its base), reach a branch that has
+//! no body, or not terminate (an assumed `decreasing` goal). So every `J`
+//! that takes its base on the placeholder is noted
+//! ([`Erasure::take_transported`]), and a test that relies on an
+//! assumption gives no result if its run noted one (docs/core.md
+//! "Assumptions (open goals)", Running).
+//!
+//! Like JS, a proof in a position that isn't erased (passed through
 //! a polymorphic function, say) is still the placeholder if it was made by
 //! rule 3, and is only ever passed along.
 //!
@@ -61,7 +73,7 @@ use crate::term::DefId;
 use crate::value::{Apart, Head, Spine, Value};
 
 /// The level of the placeholder's variable: never a real one.
-const ERASED: usize = usize::MAX - 1;
+pub(crate) const ERASED: usize = usize::MAX - 1;
 
 /// What stands for an erased value: a variable no binder has.
 pub fn erased() -> Value {
@@ -90,6 +102,11 @@ pub struct Erasure {
     program: Cell<bool>,
     /// Off only to compare runs with and without erasure, in tests.
     disabled: Cell<bool>,
+    /// Whether `J` has taken its base on the placeholder (rule 4) since
+    /// [`Erasure::take_transported`] last asked: the one step whose result
+    /// is right only if the erased proof is true, which a run that relies
+    /// on an assumption can't promise.
+    transported: Cell<bool>,
 }
 
 /// Erasure in effect until dropped.
@@ -145,6 +162,17 @@ impl Erasure {
         self.active.get()
     }
 
+    /// Notes that `J` took its base on the placeholder.
+    pub(crate) fn note_transport(&self) {
+        self.transported.set(true);
+    }
+
+    /// Whether `J` has taken its base on the placeholder since this was
+    /// last asked, clearing it.
+    pub fn take_transported(&self) -> bool {
+        self.transported.replace(false)
+    }
+
     /// Turns erasure off (or back on) for later runs: for tests comparing
     /// the two.
     pub fn set_disabled(&self, disabled: bool) {
@@ -184,4 +212,42 @@ pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     }
     defs[id.0] = Some(erasure.clone());
     Some(erasure)
+}
+
+/// Which parts of a definition are proofs: the subset of [`DefErasure`]
+/// that excludes types. The content hash without proofs
+/// ([`crate::hash::proofless_hash`]) leaves out exactly these, since a run
+/// never computes them (rules 1 and 3 above).
+pub struct ProofPositions {
+    /// For each parameter of its type, whether its type is a proposition.
+    pub params: Box<[bool]>,
+    /// Whether its result (after all the parameters) is a proof.
+    pub result: bool,
+}
+
+/// Which parts of definition `id` are proofs, or `None` if it isn't final.
+pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
+    if let Some(Some(known)) = g.caches.proof_positions.borrow().get(id.0) {
+        return Some(known.clone());
+    }
+    let def = g.def(id);
+    if def.state != State::Final {
+        return None;
+    }
+    let was = g.machine.erasure.active.replace(false);
+    let tel = check::proof_telescope(g, &def.ty_value, def.span);
+    g.machine.erasure.active.set(was);
+    // Out of resources: nothing is a proof, which only makes more
+    // differences count.
+    let (params, result) = tel.unwrap_or_default();
+    let positions = Rc::new(ProofPositions {
+        params: params.into(),
+        result,
+    });
+    let mut known = g.caches.proof_positions.borrow_mut();
+    if known.len() <= id.0 {
+        known.resize(id.0 + 1, None);
+    }
+    known[id.0] = Some(positions.clone());
+    Some(positions)
 }

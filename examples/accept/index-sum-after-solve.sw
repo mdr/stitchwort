@@ -1,7 +1,5 @@
 -- An indexed family over a list literal and a sum: the index stays checkable once the literal and the sum are solved.
-type Sums: List Nat → Nat → Prop =
-  | SumsNil: Sums [] 0
-  | SumsCons (tail: Sums xs n): Sums [x, ..xs] (x + n)
+type Sums: List Nat → Nat → Prop = | SumsNil: Sums [] 0 | SumsCons (tail: Sums xs n): Sums [x, ..xs] (x + n)
 
 theorem t1: Sums [1, 2] 3 := SumsCons (SumsCons SumsNil)
 theorem t2: Sums [1, 2] (1 + 2) := SumsCons (SumsCons SumsNil)

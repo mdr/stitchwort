@@ -1,12 +1,11 @@
 -- A text block moves with the line it starts on, closing `"""` included:
 -- its value doesn't change.
-def left: Text :=
-  """
-  one
-    two
+def left: Text := """
+one
+  two
 
-  three
-  """
+three
+"""
 
 def right: Text :=
   let t := """
@@ -23,7 +22,6 @@ x
 """
   t
 
-test "closed after the text" :=
-  """
-    a
-    b""" == "a\nb" -- trailing comment
+test "closed after the text" := """
+  a
+  b""" == "a\nb" -- trailing comment

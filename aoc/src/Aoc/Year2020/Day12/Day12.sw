@@ -23,14 +23,9 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${route.shipDistance}"
   IO.print "Part 2: ${route.waypointDistance}"
 
-type Side =
-  | Left
-  | Right
+type Side = | Left | Right
 
-type Action =
-  | Move (heading: Heading)
-  | Turn (side: Side)
-  | Forward
+type Action = | Move (heading: Heading) | Turn (side: Side) | Forward
 
 def Action.letter: Action → Text
   | Move North => "N"
@@ -68,35 +63,33 @@ type Location = Coords YUp
 
 --| A turn of `degrees` as quarter turns clockwise, 0 to 3: a left turn
 --| goes the rest of the way round to the right.
-def clockwiseQuarters (side: Side) (degrees: Nat): Nat :=
-  match side with
-    | Right => degrees / 90 % 4
-    | Left => (4 - degrees / 90 % 4) % 4
+def clockwiseQuarters (side: Side) (degrees: Nat): Nat := match side with
+  | Right => degrees / 90 % 4
+  | Left => (4 - degrees / 90 % 4) % 4
 
 --| Part 1's ship: where it is and which way it faces.
 type Ship = { location: Location, facing: Heading }
 
 def Ship.start: Ship := { location = Coords.zero, facing = East }
 
-def Ship.follow (ship: Ship) (instruction: Instruction): Ship :=
-  match instruction.action with
-    | Move heading => { ship | location = ship.location.moved heading instruction.value }
-    | Turn side => { ship | facing = ship.facing.turned (clockwiseQuarters side instruction.value) }
-    | Forward => { ship | location = ship.location.moved ship.facing instruction.value }
+def Ship.follow (ship: Ship) (instruction: Instruction): Ship := match instruction.action with
+  | Move heading => { ship | location = ship.location.moved heading instruction.value }
+  | Turn side => { ship | facing = ship.facing.turned (clockwiseQuarters side instruction.value) }
+  | Forward => { ship | location = ship.location.moved ship.facing instruction.value }
 
 --| Part 2's ship: where it is, and where the waypoint is from it.
 type WaypointShip = { location: Location, waypoint: Location }
 
 def WaypointShip.start: WaypointShip := { location = Coords.zero, waypoint = { x = 10, y = 1 } }
 
-def WaypointShip.follow (ship: WaypointShip) (instruction: Instruction): WaypointShip :=
-  match instruction.action with
-    | Move heading => { ship | waypoint = ship.waypoint.moved heading instruction.value }
-    | Turn side => { ship | waypoint = ship.waypoint.turned (clockwiseQuarters side instruction.value) }
-    | Forward => { ship | location = ship.location.plus (ship.waypoint.times instruction.value.toInt) }
+def WaypointShip.follow (ship: WaypointShip) (instruction: Instruction): WaypointShip := match instruction.action with
+  | Move heading => { ship | waypoint = ship.waypoint.moved heading instruction.value }
+  | Turn side => { ship | waypoint = ship.waypoint.turned (clockwiseQuarters side instruction.value) }
+  | Forward => { ship | location = ship.location.plus (ship.waypoint.times instruction.value.toInt) }
 
 --| Part 1: how far the ship ends from its start.
 def Route.shipDistance (route: Route): Nat := (route.instructions.foldLeft Ship.start Ship.follow).location.manhattan
 
 --| Part 2: how far the ship ends from its start, steered by the waypoint.
-def Route.waypointDistance (route: Route): Nat := (route.instructions.foldLeft WaypointShip.start WaypointShip.follow).location.manhattan
+def Route.waypointDistance (route: Route): Nat :=
+  (route.instructions.foldLeft WaypointShip.start WaypointShip.follow).location.manhattan

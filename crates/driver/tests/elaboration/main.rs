@@ -2,6 +2,8 @@
 
 mod ability_errors;
 mod at;
+mod bool_clash;
+mod bool_props;
 mod chars;
 mod ctor_fields;
 mod division;
@@ -16,6 +18,7 @@ mod int_patterns;
 mod interfaces;
 mod lambda_migration;
 mod lambda_printer;
+mod lexical_recovery;
 mod named_arguments;
 mod natives;
 mod negative_arguments;
@@ -25,8 +28,10 @@ mod operators;
 mod pipe_forms;
 mod postponement;
 mod prelude_errors;
+mod readings;
 mod records;
 mod signature_defaults;
+mod syntax_recovery;
 mod text_interpolation;
 
 use stitchwort_test_alloc as _;

@@ -5,6 +5,7 @@
 //! off: the critical pairs join, stuck sums compute the same everywhere,
 //! and the rules are bound only to the library's `Nat.add`.
 
+use crate::common::STACK;
 use std::rc::Rc;
 
 use stitchwort_core::nat_add;
@@ -14,9 +15,6 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{self, Value};
 use stitchwort_core::{BigUint, DefId, Kernel, Term};
 use stitchwort_driver::driver::{Session, with_stack};
-
-/// Room for the reference evaluator's recursion.
-const STACK: usize = 64 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug)]
 enum Evaluator {
@@ -114,7 +112,7 @@ fn nat_add_is_the_pinned_declaration() {
 #[test]
 fn the_critical_pairs_join() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         let g = &mut session.elab.kernel;
         let pairs = nat_add::critical_pairs(&g.ev(), add_id(&g.ev())).expect("`Nat` is bound");
         assert_eq!(pairs.len(), 4);
@@ -166,7 +164,7 @@ fn the_critical_pairs_join() {
 #[test]
 fn the_parallel_rule_is_reached() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         let g = &mut session.elab.kernel;
         let add = add_id(&g.ev());
         let nat = g.env.builtins().nat.expect("`Nat` is bound");
@@ -218,7 +216,7 @@ fn the_parallel_rule_is_reached() {
 #[test]
 fn stuck_sums_compute_on_their_second_argument() {
     with_stack(STACK, || {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         let g = &mut session.elab.kernel;
         let add = add_id(&g.ev());
         let nat = g.env.builtins().nat.expect("`Nat` is bound");
@@ -304,6 +302,34 @@ fn the_rules_are_only_for_the_librarys_add() {
         .map(|d| d.code)
         .collect();
     assert_eq!(codes, ["E-REFL"]);
+}
+
+/// A stand-in for `Nat.addSucc` (an assumption of its statement) never
+/// switches the rules on, even handed to `nat_add::register` directly:
+/// they rest on the library's proofs, not on a gap.
+#[test]
+fn a_stand_in_never_switches_the_rules_on() {
+    let mut session = Session::new();
+    let g = &mut session.elab.kernel;
+    let real = (g.env.registry())
+        .def(Builtin::NatAddSucc)
+        .expect("`Nat.addSucc` is bound");
+    let (ty, span) = (g.def(real).ty().clone(), g.def(real).span());
+    let name: stitchwort_core::Name = "Nat.addSucc".into();
+    let stand_in = stitchwort_core::check::assume(
+        g,
+        &name,
+        &name,
+        &ty,
+        stitchwort_core::globals::Assumption::error("Main.addSucc".into()),
+        true,
+        span,
+    )
+    .expect("a proposition");
+    let refused = nat_add::register(g, stand_in).map_err(|d| d.code);
+    assert_eq!(refused, Err("E-BUILTIN"));
+    // Paired: the library's own theorem is accepted.
+    assert!(nat_add::register(g, real).is_ok());
 }
 
 /// The unifier reads the rules backwards for a sum stuck on an unknown

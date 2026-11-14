@@ -31,7 +31,7 @@ test "decreasing" := digits 2025 == [2, 0, 2, 5]
 -- end decreasing
 
 -- begin gcd
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if a % b < b then gcd b (a % b) else a
@@ -51,7 +51,7 @@ test "total" := total [3, 1, 2].toSet == 6
 -- end match-fact
 
 -- begin lexicographic
-def ackermann (m: Nat) (n: Nat): Nat
+def ackermann (m n: Nat): Nat
     decreasing (m, n)
 :=
   match m, n with
@@ -75,12 +75,9 @@ test "mutual recursion" := isEven 10 ∧ isOdd 7
 -- end mutual
 
 -- begin mutual-types
-type Rose =
-  | Branch (label: Nat) (kids: Roses)
+type Rose = | Branch (label: Nat) (kids: Roses)
 
-type Roses =
-  | RNil
-  | RCons (first: Rose) (rest: Roses)
+type Roses = | RNil | RCons (first: Rose) (rest: Roses)
 
 def Rose.total: Rose → Nat
   | Branch label kids => label + Roses.total kids
@@ -93,9 +90,7 @@ test "types that refer to each other" := Rose.total (Branch 1 (RCons (Branch 2 R
 -- end mutual-types
 
 -- begin nested
-type Packet =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet = | Number (value: Nat) | Packets (items: List Packet)
 
 def Packet.depth (packet: Packet): Nat
     decreasing Packet.size packet
@@ -108,22 +103,18 @@ test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Num
 -- end nested
 
 -- begin trees
-type Tree =
-  | Leaf
-  | Node (left: Tree) (value: Nat) (right: Tree)
+type Tree = | Leaf | Node (left: Tree) (value: Nat) (right: Tree)
 
-def Tree.insert (tree: Tree) (value: Nat): Tree :=
-  match tree with
-    | Leaf => Node Leaf value Leaf
-    | Node left here right =>
-      if value < here then Node (left.insert value) here right
-      else Node left here (right.insert value)
+def Tree.insert (tree: Tree) (value: Nat): Tree := match tree with
+  | Leaf => Node Leaf value Leaf
+  | Node left here right =>
+    if value < here then Node (left.insert value) here right else Node left here (right.insert value)
 
 def Tree.toList: Tree → List Nat
   | Leaf => []
   | Node left value right => left.toList ++ [value] ++ right.toList
 
-def treeSort (values: List Nat): List Nat := (values.foldLeft Leaf (tree value => tree.insert value)).toList
+def treeSort (values: List Nat): List Nat := values.foldLeft Leaf Tree.insert |> .toList
 
 test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
 -- end trees

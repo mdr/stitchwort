@@ -23,7 +23,8 @@ use stitchwort_syntax::docs::{
     link_ranges,
 };
 use stitchwort_syntax::{
-    DEFAULT_STACK, FileId, SourceMap, Tok, Token, decl_ranges, lex, parse_module_recovering,
+    DEFAULT_STACK, FileId, SourceMap, Tok, Token, decl_ranges, lex_recovering,
+    parse_module_recovering,
 };
 
 use crate::driver::Session;
@@ -223,9 +224,7 @@ impl Decls {
             lines,
         });
         let (module, _) = parse_module_recovering(id, text, DEFAULT_STACK);
-        let Ok(tokens) = lex(id, text) else {
-            return;
-        };
+        let tokens = lex_recovering(id, text).tokens;
         let groups = decl_ranges(&tokens).unwrap_or_default();
         // A file with no `namespace` line is in `Main`, as in file mode.
         let prefix = match (&std, &module.namespace, &ns) {
@@ -701,9 +700,7 @@ impl Decls {
         let e = &self.entries[i];
         let file = &self.files[e.file];
         let text = &self.sources.get(file.id).text;
-        let Ok(tokens) = lex(file.id, text) else {
-            return e.header.clone();
-        };
+        let tokens = lex_recovering(file.id, text).tokens;
         let groups = decl_ranges(&tokens).unwrap_or_default();
         match group_of(&tokens, &groups, e.start) {
             Some(group) => text[e.start as usize..group_end(&tokens, &group)].to_string(),
@@ -1308,13 +1305,11 @@ impl Session {
 /// the order of the arms (`f.eq2` before `f.eq2.or1` before `f.eq3`).
 pub(crate) fn generated_equations(g: &Ev) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
     let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
+    let generated = crate::audit::Generated::new(g);
     for id in (0..g.env.defs().len()).map(DefId) {
         let d = g.def(id);
         // Not the hidden lemmas branches use (`f.%match1.eq2`).
-        if !d.theorem()
-            || !stitchwort_elab::is_generated_name(g, d.name())
-            || d.path().contains('%')
-        {
+        if !d.theorem() || !generated.contains(g, id) || d.path().contains('%') {
             continue;
         }
         // The owner is what precedes the first `.eqK` (or `.eq`, below a

@@ -11,22 +11,19 @@ def mapSpread: List a → (f: a → {e} b) → {e} List b
   | [], f => []
   | [x, ..xs], f => [f x, ..mapSpread xs f]
 
-def takeCons (xs: List a) (p: a → {e} Bool): {e} List a :=
-  match xs with
-    | [] => []
-    | [x, ..ys] => if p x then Cons x (takeCons ys p) else []
+def takeCons (xs: List a) (p: a → {e} Bool): {e} List a := match xs with
+  | [] => []
+  | [x, ..ys] => if p x then Cons x (takeCons ys p) else []
 
-def takeSpread (xs: List a) (p: a → {e} Bool): {e} List a :=
-  match xs with
-    | [] => []
-    | [x, ..ys] => if p x then [x, ..takeSpread ys p] else []
+def takeSpread (xs: List a) (p: a → {e} Bool): {e} List a := match xs with
+  | [] => []
+  | [x, ..ys] => if p x then [x, ..takeSpread ys p] else []
 
 def mapPure: List a → (f: a → b) → List b
   | [], f => []
   | [x, ..xs], f => [f x, ..mapPure xs f]
 
-test "same results" :=
-  mapSpread [1, 2, 3] (x => x + 1) = mapCons [1, 2, 3] (x => x + 1)
+test "same results" := mapSpread [1, 2, 3] (x => x + 1) = mapCons [1, 2, 3] (x => x + 1)
 
 -- A comparison that performs, in a Bool field, is decided (SW-573).
 def orNone: Option Text → Text

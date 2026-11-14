@@ -45,6 +45,9 @@ const ZERO_I: AtomicI64 = AtomicI64::new(0);
 static CELLS: [AtomicU64; ARITIES] = [ZERO; ARITIES];
 /// Fields summed over the cells in the last bucket (the rest are exact).
 static LAST_BUCKET_FIELDS: AtomicU64 = AtomicU64::new(0);
+/// Cells native code allocated (`sw_cell_new`): counted by arity and size,
+/// but not by what they hold, since native code fills them afterwards.
+static NATIVE_CELLS: AtomicU64 = AtomicU64::new(0);
 static REUSES: AtomicU64 = AtomicU64::new(0);
 static CELL_KINDS: [AtomicU64; 15] = [ZERO; 15];
 static REUSE_KINDS: [AtomicU64; 15] = [ZERO; 15];
@@ -128,6 +131,18 @@ fn kind(v: &Value) -> usize {
     }
 }
 
+/// Cells (and in-place refills) by field count and by how many of their
+/// fields are of an enum type and hold its value: `ENUM_CELLS[refill][n][k]`.
+static ENUM_CELLS: [[[AtomicU64; ARITIES]; ARITIES]; 2] =
+    [const { [const { [ZERO; ARITIES] }; ARITIES] }; 2];
+
+pub(super) fn stored_cell(enum_mask: u8, fields: &[Value], refill: bool) {
+    let k = (fields.iter().take(8).enumerate())
+        .filter(|(i, v)| enum_mask >> i & 1 == 1 && matches!(v, Value::Tag(_)))
+        .count();
+    ENUM_CELLS[refill as usize][fields.len().min(ARITIES - 1)][k].fetch_add(1, Relaxed);
+}
+
 fn count_kinds(table: &[AtomicU64; 15], values: &[Value]) -> u64 {
     let mut boxes = 0;
     for v in values {
@@ -159,20 +174,30 @@ fn cell_sizes(n: u64) -> [u64; 4] {
     [RC + 24 * n, 8 + 24 * n, 8 + 16 * n, 8 + 8 * n]
 }
 
-pub(super) fn cell(fields: &[Value]) {
-    register();
-    let n = fields.len();
+/// The counts of a cell of `n` fields that do not depend on what it holds.
+fn cell_of_arity(n: usize) {
     CELLS[n.min(ARITIES - 1)].fetch_add(1, Relaxed);
     if n >= ARITIES - 1 {
         LAST_BUCKET_FIELDS.fetch_add(n as u64, Relaxed);
     }
-    let boxes = count_kinds(&CELL_KINDS, fields);
-    A_BOXES.fetch_add(boxes, Relaxed);
     let sizes = cell_sizes(n as u64);
     add(&CELL_BYTES, sizes);
     live(sizes.map(|s| s as i64));
     let now = LIVE_CELLS.fetch_add(1, Relaxed) + 1;
     PEAK_CELLS.fetch_max(now as u64, Relaxed);
+}
+
+pub(super) fn cell(fields: &[Value]) {
+    register();
+    cell_of_arity(fields.len());
+    let boxes = count_kinds(&CELL_KINDS, fields);
+    A_BOXES.fetch_add(boxes, Relaxed);
+}
+
+pub(super) fn cell_native(n: usize) {
+    register();
+    NATIVE_CELLS.fetch_add(1, Relaxed);
+    cell_of_arity(n);
 }
 
 pub(super) fn cell_reuse(fields: &[Value]) {
@@ -342,6 +367,7 @@ fn report() -> String {
     fields += get(&LAST_BUCKET_FIELDS);
     line("cells.total".into(), cells);
     line("cells.fields".into(), fields);
+    line("cells.native".into(), get(&NATIVE_CELLS));
     line("cells.reused_in_place".into(), get(&REUSES));
     for (i, name) in KINDS.iter().enumerate() {
         line(format!("cell_field.{name}"), get(&CELL_KINDS[i]));
@@ -392,6 +418,17 @@ fn report() -> String {
         "end_live_negative.cells".into(),
         (-LIVE_CELLS.load(Relaxed)).max(0) as u64,
     );
+    // `enum.<fields>.<enum fields>` and `enum_refill.…`: cells, and in-place
+    // refills, by how many fields are enums (declared so, among the first eight).
+    for (refill, name) in ["enum", "enum_refill"].into_iter().enumerate() {
+        for (n, row) in ENUM_CELLS[refill].iter().enumerate() {
+            for (k, c) in row.iter().enumerate() {
+                if c.load(Relaxed) > 0 {
+                    line(format!("{name}.{n}.{k}"), c.load(Relaxed));
+                }
+            }
+        }
+    }
     out
 }
 

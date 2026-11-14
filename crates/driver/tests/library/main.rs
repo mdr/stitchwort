@@ -1,8 +1,10 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
 mod builtins;
+mod deformat;
 mod fmt_hashes;
 mod hash_stability;
+mod import_cost;
 mod pinned_hashes;
 mod search_at;
 mod search_at_bench;

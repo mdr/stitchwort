@@ -9,4 +9,5 @@ test "the spec's error rate on the example" := (parsed example).map Spec.errorRa
 test "the spec's error rate on the input" := (parsed input).map Spec.errorRate == Ok 21071
 
 test "the spec's departure product on the input's order" :=
-  (parsed input).map (notes => notes.fieldOrder.map (order => Spec.departureProduct order notes.yours.values)) == Ok (Some 3429967441937)
+  (parsed input).map (notes => notes.fieldOrder.map (order => Spec.departureProduct order notes.yours.values))
+    == Ok (Some 3429967441937)

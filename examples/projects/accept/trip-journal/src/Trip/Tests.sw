@@ -49,8 +49,7 @@ test "merging a trip with itself changes nothing" := merge base base == base
 
 def longWalk: Leg := { walk | duration = 900.0, points = walk.points ++ [{ id = 5, time = 800.0 }] }
 
-def extended: Trip := {
-  base |
+def extended: Trip := { base |
   legs = [longWalk, moveLeg 900.0 ferry],
   pins = [{ id = 1, start = 50.0, duration = 30.0 }, { id = 2, start = 1600.0, duration = 100.0 }],
   summary = Some (summarize [longWalk, moveLeg 900.0 ferry])
@@ -71,11 +70,13 @@ test "an extended leg moves the legs after it, and what is pinned in them" :=
     ∧ (merged.albums.map (album => album.start)) == [0.0, 900.0]
 
 test "the ferry's points and notes move with it" :=
-  ((merge base extended).legs.flatMap (leg => leg.points.map (point => point.time))) == [0.0, 300.0, 800.0, 900.0, 1500.0]
+  ((merge base extended).legs.flatMap (leg => leg.points.map (point => point.time)))
+    == [0.0, 300.0, 800.0, 900.0, 1500.0]
 
 -- The remote copy laid the legs out as the merge does, so the merged legs are
 -- the remote legs, and the remote summary is kept.
-test "a summary made from the merged legs is kept" := (merge base extended).summary == Some (summarize [longWalk, moveLeg 900.0 ferry])
+test "a summary made from the merged legs is kept" :=
+  (merge base extended).summary == Some (summarize [longWalk, moveLeg 900.0 ferry])
 
 -- The walk's notes come from the remote copy, which has them.
 test "route notes come from the remote copy" := (merge base extended).legs.map (leg => leg.notes) == [walk.notes, None]
@@ -101,7 +102,8 @@ test "a stop past its shortened leg is clamped to the leg's end" :=
 -- A local pin in the ferry that the remote copy doesn't have, while the
 -- remote copy moved pin 1: the remote position wins, and the pins are
 -- sorted by start.
-def movedPin: Trip := { base | pins = [{ id = 2, start = 1300.0, duration = 100.0 }, { id = 1, start = 400.0, duration = 30.0 }] }
+def movedPin: Trip :=
+  { base | pins = [{ id = 2, start = 1300.0, duration = 100.0 }, { id = 1, start = 400.0, duration = 30.0 }] }
 
 def extraPin: Trip := { base | pins = base.pins ++ [{ id = 4, start = 20.0, duration = 5.0 }] }
 
@@ -110,8 +112,9 @@ test "pins take the remote position and are sorted by start" :=
 
 -- Concurrent edits to the same album: each device added a photo to album 1.
 
-def withPhoto (trip: Trip) (photo: Photo): Trip :=
-  { trip | albums = trip.albums.map (album => if album.id == 1 then { album | photos = album.photos ++ [photo] } else album) }
+def withPhoto (trip: Trip) (photo: Photo): Trip := { trip |
+  albums = trip.albums.map (album => if album.id == 1 then { album | photos = album.photos ++ [photo] } else album)
+}
 
 test "an album edited on both devices has the remote photos, then the new local ones" :=
   ((merge (withPhoto base (Plain 10)) (withPhoto base (Plain 11))).albums.map (album => album.photos))
@@ -119,8 +122,7 @@ test "an album edited on both devices has the remote photos, then the new local 
 
 -- A photo moved between albums on one device.
 
-def movedLocally: Trip := {
-  base |
+def movedLocally: Trip := { base |
   albums = [
     { id = 1, start = 0.0, label = "morning", photos = [Plain 1, Panorama 2 180, Plain 3] },
     { id = 2, start = 600.0, label = "crossing", photos = [] }
@@ -149,7 +151,8 @@ def withPlace (trip: Trip) (place: Place): Trip :=
   { trip | itinerary = trip.itinerary.map (plan => { plan | places = plan.places ++ [place] }) }
 
 test "the same plan merges its places" :=
-  ((merge (withPlace base { id = 3, name = "fort" }) (withPlace base { id = 4, name = "mill" })).itinerary.map (plan => plan.places.map (place => place.id)))
+  ((merge (withPlace base { id = 3, name = "fort" }) (withPlace base { id = 4, name = "mill" })).itinerary.map (plan =>
+    plan.places.map (place => place.id)))
     == Some [1, 2, 4, 3]
 
 -- A summary is dropped when the merged legs are neither copy's: each device
@@ -201,4 +204,5 @@ theorem baseMergedWithItself: merge base base = base := mergeSelf base baseWellF
 -- its leg after the merge.
 def latePin: Pin := { id = 2, start = 1600.0, duration = 100.0 }
 
-theorem extendedPinKept: latePin ∈ (merge localPin extended).pins := remotePinsKept localPin extended latePin (Inr (Inl rfl)) latePin rfl
+theorem extendedPinKept: latePin ∈ (merge localPin extended).pins :=
+  remotePinsKept localPin extended latePin (Inr (Inl rfl)) latePin rfl

@@ -15,4 +15,4 @@ def allDone: List (Effect.Comp Effect.NoOp Effect.NoRes Nat) → Prop
   | Nil => Unit
   | Cons first rest => And (IsDone first) (allDone rest)
 
-theorem anyIsDone: (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat) → allDone [computation] := computation => Trivial
+theorem anyIsDone ∀ (computation: Effect.Comp Effect.NoOp Effect.NoRes Nat): allDone [computation] := Trivial

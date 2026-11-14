@@ -20,7 +20,11 @@ export def suits (n: Nat): Text :=
   "${List.sort hand}"
 
 export def items (n: Nat): Text :=
-  let xs: List Item := [{ name = "tea", price = n, positive = rfl }, { name = "jam", price = 4, positive = rfl }, { name = "jam", price = n, positive = rfl }]
+  let xs: List Item := [
+    { name = "tea", price = n, positive = rfl },
+    { name = "jam", price = 4, positive = rfl },
+    { name = "jam", price = n, positive = rfl }
+  ]
   "${List.sort xs}"
 
 export def shapes (n: Nat): Text := "${List.sort [Group Dot (Circle n), Circle 2, Group Dot Dot, Dot]}"

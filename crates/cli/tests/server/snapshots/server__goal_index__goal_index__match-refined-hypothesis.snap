@@ -1,0 +1,53 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "small",
+          "type": "∀ (m: Nat) => p m → m < 3"
+        },
+        {
+          "name": "k",
+          "type": "Nat"
+        },
+        {
+          "name": "holds",
+          "type": "p (Succ k)"
+        }
+      ],
+      "lemma": "theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?",
+      "target": "k ≤ 2"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nsmall: ∀ (m: Nat) => p m → m < 3\nk: Nat\nholds: p (Succ k)\n⊢ k ≤ 2",
+        "range": [
+          5,
+          16,
+          5,
+          17
+        ]
+      }
+    ],
+    "message": "in `bounded`",
+    "notes": [],
+    "range": [
+      5,
+      16,
+      5,
+      17
+    ],
+    "severity": "goal"
+  }
+]

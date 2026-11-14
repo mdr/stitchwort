@@ -31,11 +31,12 @@
 //! tree gets stuck, with natives on or off: the rule is not a native, and
 //! switching the natives off doesn't switch it off.
 //!
-//! Looking at the second argument forces it (a glued call is unfolded, a
-//! solved metavariable replaced), but does not unfold a call left folded
-//! by name. The only such call of type `Nat` is `k * x` with `x` a variable
-//! (`native::folds_mul`), which unfolds to `x + (k - 1) * x`, stuck on `x`:
-//! never `Zero` or a `Succ`, so nothing is missed (the proposal's §9.2, A3).
+//! Looking at the second argument while evaluating forces it (a glued call
+//! is unfolded, a solved metavariable replaced), but does not unfold a call
+//! left folded by name (a `decreasing` definition's, or `k * x` with `x` a
+//! variable, `native::folds_mul`): evaluation leaves `x + two 0` as written.
+//! The comparisons and eliminations that read such a sum unfold those calls
+//! with [`reread`], as rule E asks (docs/core.md, "The equality rule").
 //!
 //! **Why it's sound** (the argument in full, with its assumptions, is in the
 //! proposal's §9): R3 and R4 are typed, left-linear, first-order rules on
@@ -115,42 +116,173 @@ pub fn stuck_value(
 
 /// `value` read by rule E (docs/core.md, "The equality rule"; SW-2251 F6),
 /// if it's a stuck `m + n` whose second argument, under its `Succ`s, is a
-/// call folded by name: R3 and R4 read the head of `n`, unfolding it with
-/// `unfold` (the evaluator's own, `None` when there's nothing to unfold),
-/// and this is what they make of the sum. `None` if `value` isn't such a
-/// sum, or nothing unfolds, or the sum stays stuck once `n` is unfolded.
+/// call folded by name, or another such sum: R3 and R4 read the head of
+/// `n`, unfolding a folded call with `unfold` (the evaluator's own, `None`
+/// when there's nothing to unfold) and reading a stuck sum by this rule in
+/// turn (`x + (y + two 0)` is `2 + (x + y)`, SW-2874), and this is what
+/// they make of the sum. `None` if `value` isn't such a sum, or nothing
+/// unfolds, or the sum stays stuck once `n` is read.
 ///
 /// Evaluation doesn't do this (it reads `n` with `force` only), so goals
 /// and read-back keep `x + two 0`, and `rewrite` and `match` find the sum
 /// as written; only the comparisons and `case`s that read the sum call it.
+///
+/// The walk goes to the bottom of a right-nested chain of sums, including
+/// one that unfolding builds (`y + f m y` for each `m` below `f 200 y`);
+/// the one cut is a folded `k * x`, whose head is `x`'s. It's a loop, not
+/// a recursion, and takes a step per sum it goes down to, so a deep chain
+/// costs budget and not stack. A comparison reads the chain's sums one
+/// after another as it goes down the two sides, so `unread` keeps the sums
+/// a walk found nothing to unfold in, and a later walk stops at one: a
+/// chain `rep 10000 x` is walked once, not once per level (SW-2875).
+/// `unread` must only be kept while `force` and `unfold` would give the
+/// same answers, as within one comparison with no metavariable solved.
 pub fn reread(
     g: &Ev,
     value: &Value,
     force: Force,
     unfold: impl Fn(&Value) -> budget::Result<Option<Value>>,
+    unread: &mut Unread,
 ) -> budget::Result<Option<Value>> {
-    let Value::Neutral(Head::Def(id), spine) = value else {
+    let Some(mut sum) = Sum::of(g, value) else {
         return Ok(None);
     };
-    let [Elim::App(m, _), Elim::App(n, _)] = &spine[..] else {
-        return Ok(None);
-    };
-    if g.env.builtins().nat_add_rule != Some(*id) {
+    if unread.contains(value) {
         return Ok(None);
     }
-    let mut n = n.clone();
-    let mut unfolded = false;
+    // The sums `sum` is below, outermost first, each with the `Succ`s over
+    // the next one's.
+    let mut above: Vec<(Sum, BigUint)> = Vec::new();
+    let mut walked = vec![value.clone()];
+    let mut unfolded_any = false;
     loop {
-        let (k, base) = view_with(g, &n, force)?;
-        let Some(base) = base else { break };
-        let Some(next) = unfold(&base)? else { break };
-        n = crate::native::from_view(k, Some(next));
-        unfolded = true;
+        let (k, base) = view_with(g, &sum.n, force)?;
+        let next = match base {
+            None => None,
+            // `k * x` left folded unfolds to `x + (k - 1) * x`, and so on `k`
+            // levels down, all stuck on the variable `x`: R3 and R4 never
+            // find a `Zero` or a `Succ` in it, and `k` can be 2^53.
+            Some(Value::Neutral(Head::Def(f), args)) if crate::native::folds_mul(g, f, &args) => {
+                None
+            }
+            Some(base) => match unfold(&base)? {
+                Some(next) => {
+                    unfolded_any = true;
+                    Some(next)
+                }
+                None => match Sum::of(g, &base) {
+                    Some(below) if !unread.contains(&base) => {
+                        g.machine.budget.step()?;
+                        walked.push(base);
+                        above.push((std::mem::replace(&mut sum, below), k));
+                        continue;
+                    }
+                    _ => None,
+                },
+            },
+        };
+        if let Some(next) = next {
+            sum.n = crate::native::from_view(k, Some(next));
+            sum.unfolded = true;
+            continue;
+        }
+        // `sum` is read as far as it goes; hand what it reads to (by R3 and
+        // R4 on the `n` it's part of) the sums above, until one of them has
+        // more to read.
+        let mut read = sum.read(g, force)?;
+        loop {
+            let Some((mut parent, k)) = above.pop() else {
+                // Nothing unfolded: a walk from any sum below the first
+                // goes over the same sums from there down, unfolding
+                // nothing either, so each reads as nothing.
+                if !unfolded_any {
+                    unread.extend(walked);
+                }
+                return Ok(read);
+            };
+            if let Some(next) = read {
+                parent.n = crate::native::from_view(k, Some(next));
+                parent.unfolded = true;
+                sum = parent;
+                break;
+            }
+            read = parent.read(g, force)?;
+        }
     }
-    if !unfolded {
-        return Ok(None);
+}
+
+/// A stuck `m + n` of the `Nat.add` the rules are bound to, as
+/// [`reread`] reads it: `n` as read so far, and whether anything in it
+/// was unfolded.
+struct Sum {
+    id: DefId,
+    m: Value,
+    n: Value,
+    unfolded: bool,
+}
+
+impl Sum {
+    fn of(g: &Ev, value: &Value) -> Option<Sum> {
+        let Value::Neutral(Head::Def(id), spine) = value else {
+            return None;
+        };
+        let [Elim::App(m, _), Elim::App(n, _)] = &spine[..] else {
+            return None;
+        };
+        (g.env.builtins().nat_add_rule == Some(*id)).then(|| Sum {
+            id: *id,
+            m: m.clone(),
+            n: n.clone(),
+            unfolded: false,
+        })
     }
-    stuck_value(g, *id, m, &n, force)
+
+    /// What R3 and R4 make of the sum with `n` as read, if anything in it
+    /// was unfolded.
+    fn read(&self, g: &Ev, force: Force) -> budget::Result<Option<Value>> {
+        if !self.unfolded {
+            return Ok(None);
+        }
+        stuck_value(g, self.id, &self.m, &self.n, force)
+    }
+}
+
+/// The stuck sums [`reread`] found nothing to unfold in, kept for the rest
+/// of a comparison. Filed by the addresses of their spines, and holding the
+/// values so an address isn't reused while it's filed. With the shortcuts
+/// off (`value::set_shortcuts_disabled`) nothing is filed, so each walk is
+/// made in full.
+#[derive(Default)]
+pub struct Unread {
+    spines: crate::collections::HashSet<usize>,
+    kept: Vec<Value>,
+}
+
+impl Unread {
+    /// The key of `value`, a sum [`Sum::of`] accepted: its spine holds the
+    /// two arguments, so it has an address of its own.
+    fn key(value: &Value) -> usize {
+        let Value::Neutral(Head::Def(_), spine) = value else {
+            unreachable!("only sums are filed")
+        };
+        debug_assert_eq!(spine.len(), 2, "only sums are filed");
+        spine.addr()
+    }
+
+    fn contains(&self, value: &Value) -> bool {
+        self.spines.contains(&Self::key(value))
+    }
+
+    fn extend(&mut self, values: Vec<Value>) {
+        if crate::value::shortcuts_disabled() {
+            return;
+        }
+        for value in values {
+            if self.spines.insert(Self::key(&value)) {
+                self.kept.push(value);
+            }
+        }
+    }
 }
 
 /// The stuck call `add m n`.
@@ -231,9 +363,10 @@ pub fn add_hash(g: &Ev) -> Option<String> {
 /// `Nat.addSucc` (`add_succ`), which comes after `Nat.addZero`, if
 /// `Nat.add` has the pinned content hash (otherwise they stay off). Then the
 /// two theorems must have the types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m: Nat) → n + Succ m =
-/// Succ (n + m)`. The theorems are checked as a safety net against binding
-/// the rules to the wrong definition: what makes the rules sound is the
-/// argument in the module comment, not their proofs.
+/// Succ (n + m)`, and be theorems that aren't themselves assumptions (a
+/// stand-in or a goal's, whatever binds them). The theorems are checked as a
+/// safety net against binding the rules to the wrong definition: what makes
+/// the rules sound is the argument in the module comment, not their proofs.
 pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
     in_kernel_modes(g, |g| {
         let span = g.def(add_succ).span;
@@ -285,6 +418,7 @@ pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
             let def = g.def(id);
             let fits = def.state == State::Final
                 && def.theorem
+                && def.assumption.is_none()
                 && conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?;
             if !fits {
                 return Err(Diagnostic::error(

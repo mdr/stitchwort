@@ -1,7 +1,5 @@
 -- A variant type: one of several shapes, each with its own fields.
-type Shape =
-  | Circle (radius: Nat)
-  | Rect (width: Nat) (height: Nat)
+type Shape = | Circle (radius: Nat) | Rect (width: Nat) (height: Nat)
 
 def Shape.area: Shape → Nat
   | Circle r => 3 * r * r

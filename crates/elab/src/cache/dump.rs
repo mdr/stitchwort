@@ -21,6 +21,7 @@ use crate::TestDecl;
 use crate::effects::AbilityInfo;
 use crate::interfaces::{InstanceInfo, InterfaceInfo};
 use crate::lift::MatchColumns;
+use crate::reading::{ReadingInfo, TestHead};
 use crate::records::RecordInfo;
 use crate::state::Dump;
 use std::rc::Rc;
@@ -440,6 +441,21 @@ impl Dump for Rc<MatchColumns> {
     }
 }
 
+impl Dump for Rc<ReadingInfo> {
+    fn dump(&self, out: &mut String) {
+        let head = match self.head {
+            TestHead::Def(f) => format!("def {}", f.0),
+            TestHead::And => "and".to_string(),
+            TestHead::Or => "or".to_string(),
+        };
+        let _ = write!(
+            out,
+            "{} {head} {:?} pure {:?}",
+            self.polarity, self.slots, self.pure_rows
+        );
+    }
+}
+
 impl Dump for AbilityInfo {
     fn dump(&self, out: &mut String) {
         let _ = write!(
@@ -461,6 +477,9 @@ impl Dump for TestDecl {
         if let Some(probe) = &self.probe {
             out.push_str(" probe ");
             dump_probe(out, probe);
+        }
+        if let Some(name) = &self.unfinished {
+            let _ = write!(out, " unfinished {name}");
         }
     }
 }

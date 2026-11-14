@@ -40,8 +40,8 @@
 //! types occur. (What a proposition may be matched to produce does depend on
 //! it, which is §5.4's rule, not tested here.)
 //!
-//! Cases: the seeds, then generated ones up to 50 in the lane and merge
-//! tiers (about 1.5 s), 400 in daily (about 12 s), 4000 in full (about
+//! Cases: the seeds, then generated ones up to 50 in the lane and quick
+//! tiers (about 1.5 s), 400 in broad (about 12 s), 4000 in all (about
 //! 3.5 minutes), each case on a pool of its own (`par_map`). `ORACLE_CASES`
 //! and `ORACLE_SEED` (decimal) set others, and `ORACLE_SHOW` how many of
 //! property 2's other counterexamples to print (3).
@@ -1434,9 +1434,9 @@ fn nested_accepted_means_translation_accepted() {
         .ok()
         .and_then(|n| n.parse().ok())
         .unwrap_or(match tier() {
-            Tier::Lane | Tier::Merge => 50,
-            Tier::Daily => 400,
-            Tier::Full => 4000,
+            Tier::Lane | Tier::Quick => 50,
+            Tier::Broad => 400,
+            Tier::All => 4000,
         });
     let seed = std::env::var("ORACLE_SEED")
         .ok()

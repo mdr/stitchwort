@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Cache, Outcome, Session, full_tier, par_map_with, tier_sample};
+use stitchwort_driver::driver::{
+    Cache, Outcome, Session, all_tier, par_map_with, tier_sample, with_session, with_stack,
+};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::{LibraryIndex, library_files, prelude};
@@ -131,32 +133,34 @@ fn library_files_do_not_form_a_cycle() {
 
 #[test]
 fn the_index_holds_exactly_the_names_an_eager_load_makes() {
-    let session = Session::eager_from_source();
-    let index = standard_index();
-    assert!(
-        session.elab.pending_keys().is_empty(),
-        "names still pending after every file loaded: {:?}",
-        session.elab.pending_keys()
-    );
-    // Every name the index promises exists, and every name the library
-    // declares (not the compiler's `%` names, nor a definition's local
-    // helpers `f.go`) is promised. A candidate shared-field accessor is
-    // declared only if its field is shared (docs/proposals/variant-fields.md
-    // §12.1): `Exists.value` isn't (data out of a proof).
-    let keys: BTreeSet<String> = session.elab.scope_keys().into_iter().collect();
-    let promised: BTreeSet<String> = index.names().map(|(k, _)| k.to_string()).collect();
-    let candidates: BTreeSet<&str> = index.candidates().collect();
-    assert!(candidates.contains("Std.Exists.value"), "{candidates:?}");
-    let missing: Vec<&String> = promised
-        .difference(&keys)
-        .filter(|k| !candidates.contains(k.as_str()))
-        .collect();
-    assert!(missing.is_empty(), "promised but not declared: {missing:?}");
-    let unpromised: Vec<&String> = keys.difference(&promised).collect();
-    assert!(
-        unpromised.is_empty(),
-        "declared but not in the index: {unpromised:?}"
-    );
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        let index = standard_index();
+        assert!(
+            session.elab.pending_keys().is_empty(),
+            "names still pending after every file loaded: {:?}",
+            session.elab.pending_keys()
+        );
+        // Every name the index promises exists, and every name the library
+        // declares (not the compiler's `%` names, nor a definition's local
+        // helpers `f.go`) is promised. A candidate shared-field accessor is
+        // declared only if its field is shared (docs/proposals/variant-fields.md
+        // §12.1): `Exists.value` isn't (data out of a proof).
+        let keys: BTreeSet<String> = session.elab.scope_keys().into_iter().collect();
+        let promised: BTreeSet<String> = index.names().map(|(k, _)| k.to_string()).collect();
+        let candidates: BTreeSet<&str> = index.candidates().collect();
+        assert!(candidates.contains("Std.Exists.value"), "{candidates:?}");
+        let missing: Vec<&String> = promised
+            .difference(&keys)
+            .filter(|k| !candidates.contains(k.as_str()))
+            .collect();
+        assert!(missing.is_empty(), "promised but not declared: {missing:?}");
+        let unpromised: Vec<&String> = keys.difference(&promised).collect();
+        assert!(
+            unpromised.is_empty(),
+            "declared but not in the index: {unpromised:?}"
+        );
+    });
 }
 
 #[test]
@@ -612,11 +616,14 @@ fn dot_notation_loads_a_file_only_when_the_receivers_type_can_be_loaded() {
 
 /// The library files a program loads, with the standard library.
 fn std_loaded_by(program: &str) -> Vec<String> {
-    let mut session = Session::new();
-    session
-        .load("t.sw", program)
-        .unwrap_or_else(|e| panic!("{}", messages(&e)));
-    session.elab.loaded_library_files()
+    // The toolkit's proofs recurse deeper than a test thread's default stack
+    // allows, so the thread and the session's limits come from `STACK`.
+    with_session(STACK, Session::for_stack, |session| {
+        session
+            .load("t.sw", program)
+            .unwrap_or_else(|e| panic!("{}", messages(&e)));
+        session.elab.loaded_library_files()
+    })
 }
 
 #[test]
@@ -632,7 +639,11 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // `Result`, so nothing is lost.
     // The toolkit's lemmas are in `List/Lemmas.sw` and the `Option` helpers'
     // in `Option/Lemmas.sw`, so neither loads, nor what only they use
-    // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `Nat/Arith.sw` is for
+    // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `∃` and the `Iff` and
+    // `Exists` lemmas are in the core, and `List.memContains` uses the
+    // decision's own `sound` and `complete` rather than `DecEq.sound` (a dot
+    // call `.sound` or `.trans` loads every file with one in a core
+    // namespace). `Nat/Arith.sw` is for
     // the bounds facts that `List.chunksOf` and the congruence lemmas use.
     let toolkit = [
         "Bool/Bool.sw",
@@ -792,70 +803,71 @@ fn a_library_file_that_doesnt_check_is_reported_as_internal() {
 
 #[test]
 fn no_library_file_declares_a_decision_procedure() {
-    let session = Session::eager_from_source();
-    // Except `Float`'s equality (docs/proposals/float.md, "As built"): it
-    // decides only equations between `Float`s, which no program can write
-    // without loading std/Float/Float.sw, so `auto` still can't depend on
-    // what else is loaded. It is a definition of its own because the kernel
-    // binds a native to it. The same holds for `Map`'s and `Set`'s equality
-    // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
-    // needs their file loaded. So does `List.decMem` (D1201), which decides
-    // `List.Mem`, declared beside it in std/List/Toolkit.sw. So does
-    // `List.decDistinct` (SW-983), which decides `List.Distinct`, declared
-    // beside it in the same file: only a goal that is or unfolds to
-    // `List.Distinct` matches it, and that needs the toolkit loaded. And `Float.decLessEq` and
-    // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
-    // what `x <= y` and `x < y` on `Float` are, declared beside them. And
-    // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
-    // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
-    // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
-    // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
-    // `List.LeHead`, declared beside them in std/List/Sort.sw. And
-    // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
-    // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
-    assert_eq!(
-        session.elab.library_decision_procedures(),
-        [
-            "Std.Nat.decPowSuccNotZero",
-            "Std.List.decMem",
-            "Std.List.decDistinct",
-            "Std.List.decLeHead",
-            "Std.List.decSorted",
-            "Std.Float.decEqFrom",
-            "Std.Float.decEq",
-            "Std.Float.decLessEq",
-            "Std.Float.decLessThan",
-            "Std.NonEmptyList.decEq",
-            "Std.NonEmptyList.decEq.%match1",
-            "Std.Map.decEq",
-            "Std.Map.decEq.%match1",
-            "Std.Set.decEq",
-            "Std.Set.decEq.%match1"
-        ],
-        "every `Decidable` procedure stays in the core (D58), so `auto` never \
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        // Except `Float`'s equality (docs/proposals/float.md, "As built"): it
+        // decides only equations between `Float`s, which no program can write
+        // without loading std/Float/Float.sw, so `auto` still can't depend on
+        // what else is loaded. It is a definition of its own because the kernel
+        // binds a native to it. The same holds for `Map`'s and `Set`'s equality
+        // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
+        // needs their file loaded. So does `List.decMem` (D1201), which decides
+        // `List.Mem`, declared beside it in std/List/Toolkit.sw. So does
+        // `List.decDistinct` (SW-983), which decides `List.Distinct`, declared
+        // beside it in the same file: only a goal that is or unfolds to
+        // `List.Distinct` matches it, and that needs the toolkit loaded. And `Float.decLessEq` and
+        // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
+        // what `x <= y` and `x < y` on `Float` are, declared beside them. And
+        // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
+        // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
+        // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
+        // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
+        // `List.LeHead`, declared beside them in std/List/Sort.sw. And
+        // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
+        // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
+        assert_eq!(
+            session.elab.library_decision_procedures(),
+            [
+                "Std.Nat.decPowSuccNotZero",
+                "Std.List.decMem",
+                "Std.List.decDistinct",
+                "Std.List.decLeHead",
+                "Std.List.decSorted",
+                "Std.Float.decEqFrom",
+                "Std.Float.decEq",
+                "Std.Float.decLessEq",
+                "Std.Float.decLessThan",
+                "Std.NonEmptyList.decEq",
+                "Std.Map.decEq",
+                "Std.Set.decEq"
+            ],
+            "every `Decidable` procedure stays in the core (D58), so `auto` never \
          depends on what is loaded"
-    );
-    // The check does find one.
-    let files = [(
-        "A.sw",
-        "def Nat.libDec (n: Nat): Decidable (n = n) := Nat.decEq n n\n",
-    )];
-    let session = Session::with_library_files(&files, true, false).unwrap();
-    assert_eq!(
-        session.elab.library_decision_procedures(),
-        ["Std.Nat.libDec"]
-    );
+        );
+        // The check does find one.
+        let files = [(
+            "A.sw",
+            "def Nat.libDec (n: Nat): Decidable (n = n) := Nat.decEq n n\n",
+        )];
+        let session = Session::with_library_files(&files, true, false).unwrap();
+        assert_eq!(
+            session.elab.library_decision_procedures(),
+            ["Std.Nat.libDec"]
+        );
+    });
 }
 
 // ------------------------------------------------------------------ natives
 
 #[test]
 fn every_builtin_is_bound_once_every_file_has_loaded() {
-    let session = Session::eager_from_source();
-    session
-        .elab
-        .check_registry_complete()
-        .expect("the registry is complete");
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        session
+            .elab
+            .check_registry_complete()
+            .expect("the registry is complete");
+    });
 }
 
 #[test]
@@ -997,9 +1009,9 @@ fn name(source: &Source) -> &str {
 /// declaration the program made and every library declaration that
 /// was loaded (§4.0).
 ///
-/// A corpus sweep: every eighth source in the daily tier (a fixed sample),
-/// all of them in the full tier ([`tier_sample`]); the AoC project only in
-/// the full tier.
+/// A corpus sweep: every eighth source in the broad tier (a fixed sample),
+/// all of them in the all tier ([`tier_sample`]); the AoC project only in
+/// the all tier.
 fn assert_lazy_is_eager(sources: Vec<Source>) {
     let sources = tier_sample(sources, 8);
     // Each worker keeps one eager session (loading the whole library takes a
@@ -1067,7 +1079,7 @@ fn lazy_loading_changes_nothing_for_the_example_projects() {
 
 #[test]
 fn lazy_loading_changes_nothing_for_the_aoc_project() {
-    if !full_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
+    if !all_tier("lazy_loading_changes_nothing_for_the_aoc_project") {
         return;
     }
     assert_lazy_is_eager(aoc());
@@ -1080,7 +1092,7 @@ fn lazy_loading_changes_nothing_for_the_aoc_project() {
 fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let mut sources = example_files("accept");
     sources.extend(example_files("extract"));
-    // Outside the full tier, a fixed sample: what is checked is the core's
+    // Outside the all tier, a fixed sample: what is checked is the core's
     // independence of the library, which a sample of the examples shows.
     let sources = tier_sample(sources, 4);
     // Whether each source used no library name (and so the core alone ran it).
@@ -1119,12 +1131,12 @@ fn the_core_alone_runs_every_example_that_uses_no_library_name() {
     let used_the_library = ran_alone.len() - ran;
     eprintln!("core alone ran {ran}; {used_the_library} use a library name");
     // The sample shrinks with the tier (`tier_sample`): about 125 sources
-    // in full, a quarter in daily, a sixteenth in merge and lanes.
+    // in all, a quarter in broad, a sixteenth in quick and lanes.
     use stitchwort_driver::driver::{Tier, tier};
     let enough = match tier() {
-        Tier::Full => 50,
-        Tier::Daily => 10,
-        Tier::Merge | Tier::Lane => 3,
+        Tier::All => 50,
+        Tier::Broad => 10,
+        Tier::Quick | Tier::Lane => 3,
     };
     assert!(ran > enough, "only {ran} examples ran on the core alone");
 }
@@ -1244,4 +1256,60 @@ fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
     assert!(session.elab.omega_for_auto());
     let _ = session.parse_expression("<t>", "List.lengthAppend [1] [2]");
     assert!(session.elab.omega_for_auto());
+}
+
+/// An arm the checker proves can't happen says so (`W-UNREACHABLE`, and the
+/// arm can be deleted), and the library is kept free of them: programs
+/// never see its warnings, so nothing else would notice (SW-3020).
+#[test]
+fn the_library_has_no_unreachable_arms() {
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        let mut found: Vec<String> = Vec::new();
+        let warnings = session
+            .elab
+            .library_warnings()
+            .iter()
+            .chain(&session.warnings);
+        for d in warnings.filter(|d| d.code == "W-UNREACHABLE") {
+            let span = d.primary_span().expect("a warning about an arm");
+            let file = &session.sources.get(span.file);
+            let line = file.text[..span.start as usize].matches('\n').count() + 1;
+            found.push(format!("{}:{line}: {}", file.name, d.message));
+        }
+        assert!(
+            found.is_empty(),
+            "the library has {} arm(s) it proves can't happen:\n{}",
+            found.len(),
+            found.join("\n")
+        );
+    });
+}
+
+/// A statement is written `∀ (x: T) => P`, never `(x: T) -> P`
+/// (`W-ARROW-FORALL`, D3462), and the library is kept free of the warning:
+/// programs never see its warnings, so nothing else would notice.
+#[test]
+fn the_library_writes_its_statements_with_forall() {
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        let mut found: Vec<String> = Vec::new();
+        let warnings = session
+            .elab
+            .library_warnings()
+            .iter()
+            .chain(&session.warnings);
+        for d in warnings.filter(|d| d.code == "W-ARROW-FORALL") {
+            let span = d.primary_span().expect("a warning about a binder");
+            let file = &session.sources.get(span.file);
+            let line = file.text[..span.start as usize].matches('\n').count() + 1;
+            found.push(format!("{}:{line}", file.name));
+        }
+        assert!(
+            found.is_empty(),
+            "the library has {} statement(s) written with `->` for `∀`:\n{}",
+            found.len(),
+            found.join("\n")
+        );
+    });
 }

@@ -7,7 +7,9 @@ use std::collections::BTreeMap;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Cache, Outcome, Session};
-use stitchwort_driver::project::{Loaded, MemoryFiles, Target, parse_config, project_sources};
+use stitchwort_driver::project::{
+    Entry, Files, Loaded, MemoryFiles, Target, parse_config, project_sources,
+};
 use stitchwort_syntax::{Diagnostic, Severity};
 
 fn owned(files: &[(&str, &str)]) -> Vec<(String, String)> {
@@ -175,26 +177,29 @@ fn foreign_namespace() {
 }
 
 #[test]
-fn a_failed_namespace_stops_its_dependents_only() {
-    let lib = "namespace Lib\n\ndef f: Nat := True\n";
-    let day = "namespace Day\n\nimport Lib (f)\n\ndef g: Nat := f\n";
+fn a_failed_declaration_stops_only_what_uses_it() {
+    let lib = "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem gIs: g = 1 := rfl\n\ntheorem fIs: f + 1 = 2 := rfl\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
     let other = "namespace Other\n\ndef h: Nat := 1\n\ntest \"h\" := h == 1\n";
     let files = [("lib.sw", lib), ("day.sw", day), ("other.sw", other)];
     let found = errors(&files);
-    let found_codes = codes(&found);
-    assert!(
-        found_codes.contains(&"E-NAMESPACE-FAILED"),
-        "{found_codes:?}"
-    );
-    assert_eq!(found_codes.len(), 2, "{found:#?}");
-    let failed = found
-        .iter()
-        .find(|d| d.code == "E-NAMESPACE-FAILED")
-        .unwrap();
+    // `Day` is checked: its own error is found. `g` only refers to `f`, so
+    // is checked against `f`'s statement, which stands in for it (D3527);
+    // the two theorems that must compute `f` wait, said once, on the
+    // import (D3524).
     assert_eq!(
-        failed.message,
-        "namespace Lib has errors, so Day isn't checked"
+        codes(&found),
+        ["E-TYPE-MISMATCH", "E-USES-FAILED", "E-TYPE-MISMATCH"],
+        "{found:#?}"
     );
+    let uses = &found[1];
+    assert_eq!(
+        uses.message,
+        "`f` has an error, so 2 declarations here can't be checked until it's fixed"
+    );
+    assert_eq!(uses.notes, ["waiting for it: `gIs`, `fIs`"]);
+    let day_file = uses.primary_span().unwrap().file;
+    assert_eq!(found[2].primary_span().unwrap().file, day_file);
     // The independent namespace can be checked alone.
     let (session, result) = load_target(&files, &Target::Namespaces(vec!["Other".into()]));
     result.unwrap_or_else(|e| panic!("{e:#?}"));
@@ -202,7 +207,84 @@ fn a_failed_namespace_stops_its_dependents_only() {
     // Its own error is reported too.
     let broken = "namespace Other\n\ndef h: Nat := False\n";
     let found = errors(&[("lib.sw", lib), ("day.sw", day), ("other.sw", broken)]);
-    assert_eq!(found.len(), 3, "{found:#?}");
+    assert_eq!(found.len(), 4, "{found:#?}");
+}
+
+/// SW-2943: the load says which declarations have an error and which wait
+/// for one, by full name, with what each needs.
+#[test]
+fn the_errors_of_a_load_name_what_has_one_and_what_waits() {
+    let lib =
+        "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n\ntheorem wrong: k = 2 := rfl\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem tg: g = 1 := rfl\n\ntest \"own\" := k == True\n\ntest \"uses g\" := g == 1\n\ntest \"fine\" := k == 1\n";
+    let (session, result) = load_target(&[("lib.sw", lib), ("day.sw", day)], &Target::Everything);
+    assert!(result.is_err());
+    let errors = session.errors();
+    let has: Vec<&str> = errors.has.iter().map(|e| e.declaration.as_str()).collect();
+    assert_eq!(has, ["Lib.f", "Lib.wrong", "Day.test \"own\""]);
+    assert_eq!(errors.has[0].place(), "proj/lib.sw:3:15");
+    let waiting: Vec<(&str, bool, bool, String)> = (errors.waiting.iter())
+        .map(|w| (w.name.as_str(), w.theorem, w.test, w.needs.describe()))
+        .collect();
+    // `g` and the test that calls it only refer to `f`, so are checked
+    // against its statement, which stands in for it (D3527): they rely on
+    // it rather than wait. `tg` must compute `f`, so waits.
+    assert_eq!(
+        waiting,
+        [("Day.tg", true, false, "`f` (proj/lib.sw:3:15)".to_string())]
+    );
+    // The test with an error of its own fails without being checked; the
+    // one that calls `g` is a test that relies on `f`.
+    let own = (session.elab.broken_tests().iter())
+        .map(|t| (t.name.as_str(), t.own))
+        .collect::<Vec<_>>();
+    assert_eq!(own, [("own", true)]);
+    let uses_g = (session.elab.tests().iter()).find(|t| t.name == "uses g");
+    assert!(uses_g.is_some_and(|t| session.elab.relies_on_goal(t.def)));
+}
+
+/// SW-2970: an instance with an error is found by type, not named, so
+/// what needs it waits for it like any declaration with an error (§4.2):
+/// one error at the instance, and in another namespace one
+/// `E-USES-FAILED`, not "no instance" at each use. What another instance
+/// serves is checked as usual.
+#[test]
+fn what_needs_a_failed_instance_waits_for_it() {
+    let colors = "namespace Colors\n\ntype Color =\n  | Red\n  | Green\n\ninstance colorOrd: Ord Color := True\n";
+    let uses = "def before (a: Color) (b: Color): Bool := a < b\n\ndef lists (a: List Color) (b: List Color): Bool := a < b\n\ndef same (a: Color) (b: Color): Bool := a == b\n\ntest \"same\" := same Red Red\n";
+    let day = format!("namespace Day\n\nimport Colors (Color, Red, Green)\n\n{uses}");
+    let (session, result) = load_target(
+        &[("colors.sw", colors), ("day.sw", &day)],
+        &Target::Everything,
+    );
+    let found: Vec<Diagnostic> = (result.err().expect("has errors").into_iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    assert_eq!(
+        codes(&found),
+        ["E-TYPE-MISMATCH", "E-USES-FAILED"],
+        "{found:#?}"
+    );
+    assert_eq!(
+        found[1].message,
+        "`colorOrd` has an error, so 2 declarations here can't be checked until it's fixed"
+    );
+    let errors = session.errors();
+    let has: Vec<&str> = errors.has.iter().map(|e| e.declaration.as_str()).collect();
+    assert_eq!(has, ["Colors.colorOrd"]);
+    let waiting: Vec<&str> = errors.waiting.iter().map(|w| w.name.as_str()).collect();
+    assert_eq!(waiting, ["Day.before", "Day.lists"]);
+    passes(&session);
+    // In its own namespace, the same: only the instance's error.
+    let one = format!("{}\n{uses}", colors.trim_end());
+    let (session, result) = load_target(&[("colors.sw", &one)], &Target::Everything);
+    let found: Vec<Diagnostic> = (result.err().expect("has errors").into_iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    assert_eq!(codes(&found), ["E-TYPE-MISMATCH"], "{found:#?}");
+    let errors = session.errors();
+    let waiting: Vec<&str> = errors.waiting.iter().map(|w| w.name.as_str()).collect();
+    assert_eq!(waiting, ["Colors.before", "Colors.lists"]);
 }
 
 #[test]
@@ -222,8 +304,8 @@ def needsToken: [auto t: Token] -> Nat := 1
 
 #[test]
 fn auto_uses_a_dependency_not_an_unrelated_namespace() {
-    let a = "namespace A\n\nimport Base (Token)\n\ninstance decA: Decidable Token := Yes MkToken\n";
-    let another = "namespace Another\n\nimport Base (Token)\n\ninstance decU: Decidable Token := Yes MkToken\n";
+    let a = "namespace A\n\nimport Base (Token)\n\ninstance decA: Decidable Token := Std.Decidable.yes MkToken\n";
+    let another = "namespace Another\n\nimport Base (Token)\n\ninstance decU: Decidable Token := Std.Decidable.yes MkToken\n";
     let day = "namespace Day
 
 import Base (needsToken)
@@ -265,7 +347,7 @@ test \"client\" := client == 1
 fn auto_choice_doesnt_depend_on_file_order() {
     let procedure = |ns: &str, name: &str| {
         format!(
-            "namespace {ns}\n\nimport Base (Token)\n\ninstance {name}: Decidable Token := Yes MkToken\n"
+            "namespace {ns}\n\nimport Base (Token)\n\ninstance {name}: Decidable Token := Std.Decidable.yes MkToken\n"
         )
     };
     let (a, b) = (procedure("A", "decA"), procedure("B", "decB"));
@@ -463,6 +545,37 @@ fn config_booleans_and_numbers_are_text() {
     assert_eq!(d.labels.len(), 1);
 }
 
+/// `check: open-goals:` is `warn` or `fail`, and `fail` when left out.
+#[test]
+fn config_open_goals_is_warn_or_fail() {
+    use stitchwort_driver::project::OpenGoals;
+    let open_goals = |text: &str| {
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let id = sources.add("proj/stitchwort.yaml", text);
+        parse_config(id, "proj/stitchwort.yaml", text).map(|c| c.open_goals)
+    };
+    let open_goals_ok = |text: &str| open_goals(text).unwrap();
+    assert_eq!(open_goals_ok(""), OpenGoals::Fail);
+    assert_eq!(
+        open_goals_ok("check:\n  open-goals: fail\n"),
+        OpenGoals::Fail
+    );
+    assert_eq!(
+        open_goals_ok("check:\n  open-goals: warn\n"),
+        OpenGoals::Warn
+    );
+    let d = open_goals("check:\n  open-goals: maybe\n").unwrap_err();
+    assert!(
+        d.message.ends_with("`maybe`, which isn't a setting"),
+        "{}",
+        d.message
+    );
+    assert_eq!(
+        d.notes,
+        ["the settings are `warn` and `fail` (the default)"]
+    );
+}
+
 #[test]
 fn config_errors_say_what_is_wrong() {
     let d = config("sources: [a]\nsources: [b]\n").unwrap_err();
@@ -473,7 +586,10 @@ fn config_errors_say_what_is_wrong() {
     );
     let d = config("source: [a]\n").unwrap_err();
     assert!(d.message.ends_with("unknown key `source`"), "{}", d.message);
-    assert_eq!(d.notes, ["the known keys are `sources` and `audit`"]);
+    assert_eq!(
+        d.notes,
+        ["the known keys are `sources`, `audit` and `check`"]
+    );
     let d = config("audit:\n  allowed-axiom: [Quot.sound]\n").unwrap_err();
     assert!(
         d.message.ends_with("unknown key `allowed-axiom`"),
@@ -549,6 +665,77 @@ fn reading_a_project_reports_missing_and_nested_folders() {
     assert!(
         d[0].message
             .contains("`src/inner/` is a project inside the project proj/"),
+        "{}",
+        d[0].message
+    );
+}
+
+/// A source entry that is a file is not a folder that doesn't exist.
+#[test]
+fn reading_a_project_reports_a_source_file_as_a_file() {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let files = memory(
+        &[
+            ("stitchwort.yaml", "sources: [main.sw]\n"),
+            ("main.sw", "namespace Main\n"),
+        ],
+        false,
+    );
+    let d = project_sources(&files, "proj", &mut sources).unwrap_err();
+    assert_eq!(d.len(), 1, "{d:#?}");
+    assert!(
+        d[0].message
+            .ends_with("`main.sw` is a file; `sources` lists folders"),
+        "{}",
+        d[0].message
+    );
+    assert!(!d[0].message.contains("doesn't exist"), "{}", d[0].message);
+}
+
+/// `MemoryFiles` whose `entries` fails for one folder, as an unreadable
+/// folder does.
+struct Unreadable {
+    inner: MemoryFiles,
+    unreadable: &'static str,
+}
+
+impl Files for Unreadable {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
+        if dir == self.unreadable {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "permission denied",
+            ));
+        }
+        self.inner.entries(dir)
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        self.inner.read(path)
+    }
+}
+
+/// A subfolder that exists but can't be listed is an error, not silence.
+#[test]
+fn reading_a_project_reports_an_unreadable_subfolder() {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let files = Unreadable {
+        inner: memory(
+            &[
+                ("stitchwort.yaml", "sources: [.]\n"),
+                ("src/ok.sw", "namespace Ok\n"),
+                ("src/locked/a.sw", "namespace A\n"),
+            ],
+            false,
+        ),
+        unreadable: "src/locked",
+    };
+    let d = project_sources(&files, "proj", &mut sources).unwrap_err();
+    assert_eq!(d.len(), 1, "{d:#?}");
+    assert_eq!(d[0].code, "E-IO");
+    assert!(
+        d[0].message
+            .contains("can't read the folder `proj/src/locked`: permission denied"),
         "{}",
         d[0].message
     );
@@ -657,7 +844,7 @@ type Token: Prop =
 
 def needsToken: [auto t: Token] -> Nat := 1
 
-instance decZ: Decidable Token := Yes MkToken
+instance decZ: Decidable Token := Std.Decidable.yes MkToken
 ";
     let alpha = "namespace Alpha
 

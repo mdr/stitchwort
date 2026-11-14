@@ -23,11 +23,7 @@ type Registers = { a: Nat, b: Nat, c: Nat }
 type Debugger = { registers: Registers, program: List Nat }
 
 --| What a combo operand stands for: 0 to 3 themselves, 4 to 6 a register.
-type Combo =
-  | Value (value: Nat)
-  | RegisterA
-  | RegisterB
-  | RegisterC
+type Combo = | Value (value: Nat) | RegisterA | RegisterB | RegisterC
 
 type Instruction =
   | Adv (operand: Combo)
@@ -44,17 +40,11 @@ type Machine = { registers: Registers, pointer: Nat }
 
 --| What one instruction does: halt, fail on an invalid instruction, or go on
 --| from another machine, having output a value or not.
-type Step =
-  | Halt
-  | Fault
-  | Next (machine: Machine) (printed: Option Nat)
+type Step = | Halt | Fault | Next (machine: Machine) (printed: Option Nat)
 
 --| How a run ends: halted with what it output, on an invalid instruction,
 --| or not halted within its steps.
-type Outcome =
-  | Finished (output: List Nat)
-  | Faulted
-  | OutOfFuel
+type Outcome = | Finished (output: List Nat) | Faulted | OutOfFuel
 
 --| A digit from 0 to 7.
 def threeBit(): {Parse} Nat :=
@@ -82,32 +72,29 @@ def debugger(): {Parse} Debugger :=
 def parseDebugger (input: Text): {Fail} Debugger := Parse.all input debugger
 
 --| The combo operand `operand` stands for; operand 7 is reserved.
-def Combo.decode (operand: Nat): Option Combo :=
-  match operand with
-    | 4 => Some RegisterA
-    | 5 => Some RegisterB
-    | 6 => Some RegisterC
-    | _ => if operand < 4 then Some (Value operand) else None
+def Combo.decode (operand: Nat): Option Combo := match operand with
+  | 4 => Some RegisterA
+  | 5 => Some RegisterB
+  | 6 => Some RegisterC
+  | _ => if operand < 4 then Some (Value operand) else None
 
 --| The instruction an opcode and its operand make, if they make one.
-def Instruction.decode (opcode: Nat) (operand: Nat): Option Instruction :=
-  match opcode with
-    | 0 => Combo.decode operand |> .map Adv
-    | 1 => Some (Bxl operand)
-    | 2 => Combo.decode operand |> .map Bst
-    | 3 => Some (Jnz operand)
-    | 4 => Some Bxc
-    | 5 => Combo.decode operand |> .map Out
-    | 6 => Combo.decode operand |> .map Bdv
-    | 7 => Combo.decode operand |> .map Cdv
-    | _ => None
+def Instruction.decode (opcode operand: Nat): Option Instruction := match opcode with
+  | 0 => Combo.decode operand |> .map Adv
+  | 1 => Some (Bxl operand)
+  | 2 => Combo.decode operand |> .map Bst
+  | 3 => Some (Jnz operand)
+  | 4 => Some Bxc
+  | 5 => Combo.decode operand |> .map Out
+  | 6 => Combo.decode operand |> .map Bdv
+  | 7 => Combo.decode operand |> .map Cdv
+  | _ => None
 
-def Registers.value (registers: Registers) (operand: Combo): Nat :=
-  match operand with
-    | Value value => value
-    | RegisterA => registers.a
-    | RegisterB => registers.b
-    | RegisterC => registers.c
+def Registers.value (registers: Registers) (operand: Combo): Nat := match operand with
+  | Value value => value
+  | RegisterA => registers.a
+  | RegisterB => registers.b
+  | RegisterC => registers.c
 
 --| A divided by 2 to the power of the operand, truncated.
 def Registers.divide (registers: Registers) (operand: Combo): Nat := registers.a.shiftRight (registers.value operand)
@@ -121,7 +108,8 @@ def Machine.execute (machine: Machine) (instruction: Instruction): Step :=
     | Adv operand => Next (machine.advance { registers | a = registers.divide operand }) None
     | Bxl operand => Next (machine.advance { registers | b = registers.b.xor operand }) None
     | Bst operand => Next (machine.advance { registers | b = registers.value operand % 8 }) None
-    | Jnz target => if registers.a == 0 then Next (machine.advance registers) None else Next ({ machine | pointer = target }) None
+    | Jnz target =>
+      if registers.a == 0 then Next (machine.advance registers) None else Next ({ machine | pointer = target }) None
     | Bxc => Next (machine.advance { registers | b = registers.b.xor registers.c }) None
     | Out operand => Next (machine.advance registers) (Some (registers.value operand % 8))
     | Bdv operand => Next (machine.advance { registers | b = registers.divide operand }) None
@@ -129,16 +117,15 @@ def Machine.execute (machine: Machine) (instruction: Instruction): Step :=
 
 --| The instruction at the pointer: halt past the end of the program, and
 --| fail on an opcode without an operand or an invalid instruction.
-def Machine.step (machine: Machine) (program: List Nat): Step :=
-  match program.get machine.pointer with
-    | None => Halt
-    | Some opcode =>
-      match program.get (machine.pointer + 1) |> .flatMap (Instruction.decode opcode) with
-        | Some instruction => machine.execute instruction
-        | None => Fault
+def Machine.step (machine: Machine) (program: List Nat): Step := match program.get machine.pointer with
+  | None => Halt
+  | Some opcode =>
+    match program.get (machine.pointer + 1) |> .flatMap (Instruction.decode opcode) with
+      | Some instruction => machine.execute instruction
+      | None => Fault
 
 --| At most `fuel` steps; `printed` is what was output so far, newest first.
-def Machine.run (machine: Machine) (program: List Nat) (printed: List Nat): (fuel: Nat) → Outcome
+def Machine.run (machine: Machine) (program printed: List Nat): (fuel: Nat) → Outcome
   | Zero => OutOfFuel
   | Succ fuel =>
     match machine.step program with
@@ -154,11 +141,10 @@ def fuelFor (registers: Registers) (program: List Nat): Nat := (registers.a + 1)
 def outcome (registers: Registers) (program: List Nat): Outcome :=
   ({ registers, pointer = 0 }: Machine).run program [] (fuelFor registers program)
 
-def solvePart1 (debugger: Debugger): {Fail} Text :=
-  match outcome debugger.registers debugger.program with
-    | Finished output => output.map (value => "${value}") |> .joinWith ","
-    | Faulted => Fail.fail "the program has an invalid instruction"
-    | OutOfFuel => Fail.fail "the program didn't halt"
+def solvePart1 (debugger: Debugger): {Fail} Text := match outcome debugger.registers debugger.program with
+  | Finished output => output.map (value => "${value}") |> .joinWith ","
+  | Faulted => Fail.fail "the program has an invalid instruction"
+  | OutOfFuel => Fail.fail "the program didn't halt"
 
 -- Part 2.
 
@@ -181,8 +167,6 @@ def candidates (output: Nat → List Nat): (target: List Nat) → List Nat
 --| The lowest positive initial A for which `output` is `target`, among the
 --| candidates.
 def lowestOutputting (output: Nat → List Nat) (target: List Nat): Option Nat :=
-  candidates output target
-    |> .filter (a => 0 < a ∧ output a == target)
-    |> .minimum
+  candidates output target |> .filter (a => 0 < a ∧ output a == target) |> .minimum
 
 def solvePart2 (debugger: Debugger): Option Nat := lowestOutputting debugger.outputFor debugger.program

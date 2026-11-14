@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `summary`
@@ -23,11 +23,11 @@ expression: output
     │       ⊢ Nat
 ────╯
 [GOAL] Goal: in `countBelow`
-    ╭─[ goals/sections.sw:18:75 ]
+    ╭─[ goals/sections.sw:18:77 ]
     │
- 18 │ theorem countBelow (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
-    │                                                                           ┬  
-    │                                                                           ╰── xs: List Nat
-    │                                                                               n: Nat
-    │                                                                               ⊢ xs.count (< n) ≤ xs.length
+ 18 │ theorem countBelow ∀ (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
+    │                                                                             ┬  
+    │                                                                             ╰── xs: List Nat
+    │                                                                                 n: Nat
+    │                                                                                 ⊢ xs.count (< n) ≤ xs.length
 ────╯

@@ -8,7 +8,7 @@ import Std (Eq, Nat)
 
 type Box = { size: Nat }
 
-theorem addZeroAgain (n: Nat): n + 0 = n := Nat.addZero n
+theorem addZeroAgain ∀ (n: Nat): n + 0 = n := Nat.addZero n
 
 def sizes (b: Box): b.size + 0 = b.size :=
   let f := c => (rewrite addZeroAgain c.size in rfl: c.size + 0 = c.size)

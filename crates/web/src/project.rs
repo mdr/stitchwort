@@ -20,7 +20,8 @@ use super::{
 };
 
 /// The tests run on threads with a big stack: the AoC proofs need more than
-/// the 2 MiB a test thread has (in WebAssembly they fit its 256 KiB guard).
+/// the 2 MiB a test thread has (in WebAssembly most fit its guard, set in
+/// `build.rs`).
 #[cfg(test)]
 const TEST_STACK: usize = 256 * 1024 * 1024;
 
@@ -614,7 +615,8 @@ mod tests {
             answer.starts_with(r#"{"ok":false,"errors":"[E-"#),
             "{answer}"
         );
-        assert!(answer.contains("[E-NAMESPACE-FAILED]"), "{answer}");
+        // Day 2 doesn't use `broken`, so it's checked as usual (D3524).
+        assert!(!answer.contains("[E-USES-FAILED]"), "{answer}");
         assert!(
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),
             "{answer}"
@@ -624,11 +626,6 @@ mod tests {
         assert!(
             answer.contains(r#""line":28,"column":21,"endLine":27,"endColumn":23,"#),
             "{answer}"
-        );
-        assert!(
-            answer.contains(
-                r#""code":"E-NAMESPACE-FAILED","file":"src/Aoc/Year2025/Day02/Day02.sw""#
-            )
         );
     }
 

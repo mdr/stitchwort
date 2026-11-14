@@ -33,12 +33,10 @@ def Email.isValid (t: Text): Bool := Text.contains t "@"
 type Email = { value: Text, valid: Email.isValid value = True }
 
 -- The smart constructor: the only way to get an `Email` from arbitrary text.
-def Email.parse (t: Text): Option Email :=
-  if h: Email.isValid t = True then Some { value = t, valid = h } else None
+def Email.parse (t: Text): Option Email := if h: Email.isValid t = True then Some { value = t, valid = h } else None
 
 -- The same check for code that may fail, with a message.
-def Email.parseOrFail (t: Text): {Fail} Email :=
-  Email.parse t |> .orFail "not an email address: ${t}"
+def Email.parseOrFail (t: Text): {Fail} Email := Email.parse t |> .orFail "not an email address: ${t}"
 
 test "a valid address" := (Email.parse "ada@example.com").isSome
 test "an invalid address" := (Email.parse "nobody").isNone
@@ -55,8 +53,7 @@ export def emailText (e: Email): Text := e.value
 -- JavaScript, `{ [orderId: string]: string }`.
 export def ownerOf (owners: Map OrderId UserId) (o: OrderId): Option UserId := Map.get owners o
 
-export def assign (owners: Map OrderId UserId) (o: OrderId) (u: UserId): Map OrderId UserId :=
-  Map.insert owners o u
+export def assign (owners: Map OrderId UserId) (o: OrderId) (u: UserId): Map OrderId UserId := Map.insert owners o u
 
 export def ordersOf (owners: Map OrderId UserId) (u: UserId): List OrderId :=
   (Map.toList owners).filterMap (entry => if entry.snd == u then Some entry.fst else None)

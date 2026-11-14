@@ -770,6 +770,22 @@ pub struct Reach {
     pub empty: Vec<bool>,
 }
 
+/// How a call is compiled: as a call of its definition, or replaced by
+/// something built from the call's arguments, so that the definition itself
+/// isn't used.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Inlined {
+    /// The call stays a call.
+    No,
+    /// The call becomes an expression built from its arguments, and the
+    /// definition's body isn't part of it (`if`, which takes its branches as
+    /// arguments).
+    Args,
+    /// The call becomes the definition's body: what its body uses is used,
+    /// but the definition isn't.
+    Body,
+}
+
 /// The definitions the `roots` and the terms `entries` use, directly or
 /// indirectly, as [`crate::erasure::reachable`] finds them, except that a
 /// call at the empty row ([`Specialiser::empty_call`]) uses the callee's
@@ -781,6 +797,19 @@ pub fn reachable(
     entries: &[&Term],
     opaque: impl Fn(DefId) -> bool,
 ) -> std::result::Result<Reach, Diagnostic> {
+    reachable_inlining(sp, roots, entries, opaque, |_, _| Inlined::No)
+}
+
+/// [`reachable`], with `inline` saying which calls a backend replaces rather
+/// than calls (see [`Inlined`]). An inlined definition isn't used itself,
+/// though an [`Inlined::Body`] call still uses what its body uses.
+pub fn reachable_inlining(
+    sp: &Specialiser,
+    roots: impl IntoIterator<Item = DefId>,
+    entries: &[&Term],
+    opaque: impl Fn(DefId) -> bool,
+    inline: impl Fn(DefId, &[&Term]) -> Inlined,
+) -> std::result::Result<Reach, Diagnostic> {
     let g = sp.g;
     let mut reach = Reach {
         used: vec![false; g.env.defs().len()],
@@ -789,8 +818,11 @@ pub fn reachable(
     // (definition, whether its variant)
     let mut todo: Vec<(DefId, bool)> = roots.into_iter().map(|id| (id, false)).collect();
     let mut found = Vec::new();
+    // Definitions whose bodies are being followed for an inlined call, so
+    // that a self-call doesn't recurse.
+    let mut inlined = Vec::new();
     for entry in entries {
-        scan(sp, entry, &opaque, &mut found)?;
+        scan(sp, entry, &opaque, &inline, &mut found, &mut inlined)?;
     }
     todo.append(&mut found);
     while let Some((id, variant)) = todo.pop() {
@@ -813,11 +845,18 @@ pub fn reachable(
                 }
             };
             if let Some(body) = body {
-                scan(sp, &body, &opaque, &mut found)?;
+                scan(sp, &body, &opaque, &inline, &mut found, &mut inlined)?;
             }
         }
         for validator in def.validators() {
-            scan(sp, &validator.decision, &opaque, &mut found)?;
+            scan(
+                sp,
+                &validator.decision,
+                &opaque,
+                &inline,
+                &mut found,
+                &mut inlined,
+            )?;
         }
         todo.append(&mut found);
     }
@@ -830,15 +869,37 @@ fn scan(
     sp: &Specialiser,
     term: &Term,
     opaque: &impl Fn(DefId) -> bool,
+    inline: &impl Fn(DefId, &[&Term]) -> Inlined,
     found: &mut Vec<(DefId, bool)>,
+    inlined: &mut Vec<DefId>,
 ) -> std::result::Result<(), Diagnostic> {
     let mut pending = vec![term];
     while let Some(term) = pending.pop() {
         if let Term::App(..) = term {
             let (head, args) = term.spine();
             if let Term::Def(id) = head.strip_loc() {
-                let variant = !opaque(*id) && sp.empty_call(*id, &args)?;
-                found.push((*id, variant));
+                let id = *id;
+                match inline(id, &args) {
+                    Inlined::No => {
+                        let variant = !opaque(id) && sp.empty_call(id, &args)?;
+                        found.push((id, variant));
+                    }
+                    Inlined::Args => {}
+                    Inlined::Body if !opaque(id) && !inlined.contains(&id) => {
+                        // What the body uses is used, but not the
+                        // definition itself. A self-call is recorded
+                        // instead, so that a recursive body ends.
+                        if let Some(body) = sp.g.def(id).run_body() {
+                            inlined.push(id);
+                            scan(sp, body, opaque, inline, found, inlined)?;
+                            inlined.pop();
+                        }
+                    }
+                    Inlined::Body => {
+                        let variant = !opaque(id) && sp.empty_call(id, &args)?;
+                        found.push((id, variant));
+                    }
+                }
                 pending.extend(args);
                 continue;
             }

@@ -216,12 +216,12 @@ the same in both modes. 107 checks, on both kernels.
   proofs can take the NaN case apart; the sign flip's validity is `Float.flipValid`, proved with
   `omega`.
 - **Natives are bound by content hash in the kernel**, not by name and type alone as the number
-  natives are: `Float` (`FLOAT_DATA_HASH`, which covers `isValid`) and each definition with a
-  native or referred to by one (`NATIVE_HASHES`). A library that doesn't match is refused with
-  `E-BUILTIN`, rather than silently losing its natives, since the primitives can't work without
-  `Float` and `decEq`'s native names `bitsExt` and `bitsNe`. The runtimes use the kernel's
-  binding, plus `Float.ieeeEq`, bound by hash in `crates/rt/src/natives.rs` (it has no kernel
-  native).
+  natives are: `Float` (whose pin covers `isValid`) and each definition with a native or
+  referred to by one, pinned in `crates/core/src/pins.rs` (`PINS`). A library that doesn't match
+  is refused with `E-BUILTIN`, rather than silently losing its natives, since the primitives
+  can't work without `Float` and `decEq`'s native names `bitsExt` and `bitsNe`. The runtimes use
+  the kernel's binding, plus `Float.ieeeEq`, bound by hash in `crates/rt/src/natives.rs` (it has
+  no kernel native).
 - **`std/Float/Float.sw` isn't cached** by the check cache: it declares primitives and binds
   natives, which replay can't do. It checks in a fraction of a second. The check-cache test now
   expects exactly this file to be uncacheable.
@@ -920,7 +920,8 @@ with all bit reinterpretation in one audited module**:
   native `DecEq` can compare `to_bits()`, native `Ord` can use the bits' key (not raw
   `f64::total_cmp`, which puts negative NaNs before `-∞`: `total_cmp(-NaN, -∞)` is `Less` [run],
   while the model's one NaN is greatest), and hashing is of the bits. The record is replaced by the
-  `f64` when `Float`'s hash matches `FLOAT_DATA_HASH`; `.bits` and the constructor become natives.
+  `f64` when `Float`'s content hash matches its pin (`crates/core/src/pins.rs`); `.bits` and the
+  constructor become natives.
 - **JS:** a `Float` is a `number`, and canonicalising every result (`x !== x ? NaN : x`) would cost
   a test per operation for nothing observable. JS code can see a NaN's bits only through typed
   arrays and `DataView` [inferred]; `===`, `<`, `Object.is`, `Map`, `Set` and `String` treat all
@@ -1126,8 +1127,8 @@ preserved (§3.5).
 - **Attributes** (docs/proposals/attributes.md): `Float` joins the special-codec types that reject
   `@[js.*]` attributes inside them ([checked] attributes.md:447), through the shared registry of
   D613.
-- **Binding:** by content hash (`FLOAT_DATA_HASH`, one hash per primitive and per native
-  definition), as `SAFE_NAT_HASH` is.
+- **Binding:** by content hash (one pin for `Float` and one for each definition with a native,
+  in `crates/core/src/pins.rs`), as `SAFE_NAT_HASH` is.
 
 ## 6. Proofs
 

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NOT-A-TYPE] Error: expected a type
+   ╭─[ reject/bool-side-of-equation.sw:6:42 ]
+   │
+ 6 │ def sides (a b: Bool) (p: Prop) (h: p = (a ∧ b)): Nat := 0
+   │                                          ┬  
+   │                                          ╰── this has type `Bool`, so it isn't a type
+   │ 
+   │ Note: a `Bool` stands for the proposition that it is `True`, but not as a side of `=`, where that would make an equation between propositions: write its `= True` out
+───╯

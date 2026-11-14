@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -27,7 +27,7 @@ expression: json
         },
         {
           "name": "step",
-          "type": "(k: Nat) → k + 1 = k + 1"
+          "type": "∀ (k: Nat) => k + 1 = k + 1"
         }
       ],
       "target": "total (n + 3) = total (n + 3)"
@@ -35,7 +35,7 @@ expression: json
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\nwide: Nat := n + 3\nsplit: n + 3 = n + 3\nboth: n + 3 = n + 3\nstep: (k: Nat) → k + 1 = k + 1\n⊢ total (n + 3) = total (n + 3)",
+        "message": "n: Nat\nwide: Nat := n + 3\nsplit: n + 3 = n + 3\nboth: n + 3 = n + 3\nstep: ∀ (k: Nat) => k + 1 = k + 1\n⊢ total (n + 3) = total (n + 3)",
         "range": [
           11,
           2,

@@ -45,29 +45,37 @@ def column (lines: List Text) (c: Nat): List Char := lines.map (line => charAt l
 def blank (lines: List Text) (c: Nat): Bool := column lines c |> .all Char.isAsciiSpace
 
 --| Columns lo .. hi - 1 hold one problem.
-def isProblem (lines: List Text) (lo: Nat) (hi: Nat): Bool :=
-  (lo == 0 ∨ blank lines (lo - 1)) ∧ (lo < hi ∧ ((List.rangeFrom (hi - lo) lo).all (c => not (blank lines c)) ∧ blank lines hi))
+def isProblem (lines: List Text) (lo hi: Nat): Bool :=
+  (lo == 0 ∨ blank lines (lo - 1))
+    ∧ (lo < hi ∧ ((List.rangeFrom (hi - lo) lo).all (c => not (blank lines c)) ∧ blank lines hi))
 
 --| The lines with numbers in them: all but the last.
 def numberLines (lines: List Text): List Text := lines.init
 
 --| The + or * under the problem in the last line (the first, if there are several).
-def operatorOf (lines: List Text) (lo: Nat) (hi: Nat): Option Operator :=
-  List.rangeFrom (hi - lo) lo |> .filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c))) |> .head
+def operatorOf (lines: List Text) (lo hi: Nat): Option Operator :=
+  List.rangeFrom (hi - lo) lo
+    |> .filterMap (c => lines.last.flatMap (bottom => Operator.parse (charAt bottom c)))
+    |> .head
 
 --| Part 1: each number line, read across the problem's columns.
-def rowNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
+def rowNumbers (lines: List Text) (lo hi: Nat): List Nat :=
   numberLines lines |> .map (line => List.rangeFrom (hi - lo) lo |> .map (c => charAt line c) |> parseNumber)
 
 --| Part 2: each of the problem's columns, right to left, read top to bottom.
-def columnNumbers (lines: List Text) (lo: Nat) (hi: Nat): List Nat :=
-  List.rangeFrom (hi - lo) lo |> .reverse |> .map (c => numberLines lines |> .map (line => charAt line c) |> parseNumber)
+def columnNumbers (lines: List Text) (lo hi: Nat): List Nat :=
+  List.rangeFrom (hi - lo) lo
+    |> .reverse
+    |> .map (c => numberLines lines |> .map (line => charAt line c) |> parseNumber)
 
 --| The answers of all the problems, added up.
 def grandTotal (lines: List Text) (answer: Nat → Nat → Nat): Nat :=
-  List.range 0 (gridWidth lines) |> .sumBy (lo =>
-    List.range 0 (gridWidth lines + 1) |> .sumBy (hi => if isProblem lines lo hi then answer lo hi else 0))
+  List.range 0 (gridWidth lines)
+    |> .sumBy (lo =>
+      List.range 0 (gridWidth lines + 1) |> .sumBy (hi => if isProblem lines lo hi then answer lo hi else 0))
 
-def part1Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi))
+def part1Spec (lines: List Text): Nat :=
+  grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi))
 
-def part2Spec (lines: List Text): Nat := grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi))
+def part2Spec (lines: List Text): Nat :=
+  grandTotal lines (lo hi => evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi))

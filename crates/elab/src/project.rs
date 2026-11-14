@@ -237,6 +237,17 @@ impl Elaborator {
         self.session.project_names = Arc::new(names);
     }
 
+    /// Where each project namespace's first syntax error is, if it has one:
+    /// an import from it of a name it no longer declares says the syntax
+    /// error is why (docs/proposals/tests-with-errors.md §4.2). Call with
+    /// [`Self::set_project_namespaces`].
+    pub fn set_project_syntax_errors(
+        &mut self,
+        errors: BTreeMap<String, Option<stitchwort_syntax::Span>>,
+    ) {
+        self.session.project_syntax_errors = Arc::new(errors);
+    }
+
     /// What the project pre-pass says `import N (..)` brings from namespace
     /// `ns`, if its files parsed.
     pub fn project_names(&self, ns: &str) -> Option<&BTreeSet<String>> {

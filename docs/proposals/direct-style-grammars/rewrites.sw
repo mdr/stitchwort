@@ -27,7 +27,7 @@ def before (value: a) (suffix: Text): {Parse} a :=
   value
 
 -- `open`, `parser`'s value, then `close`.
-def between (open: Text) (close: Text) (parser: () → {Parse} a): {Parse} a :=
+def between (open close: Text) (parser: () → {Parse} a): {Parse} a :=
   text open
   let value := parser()
   text close
@@ -35,10 +35,7 @@ def between (open: Text) (close: Text) (parser: () → {Parse} a): {Parse} a :=
 
 -- Day 3 (2024): "mul(44,46)".
 
-type Instruction =
-  | Mul (left: Nat) (right: Nat)
-  | Do
-  | Dont
+type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
 def shortNumber(): {Parse} Nat := natDigits 1 3
 
@@ -60,11 +57,10 @@ def mulSemicolon(): {Parse} Instruction :=
   Mul (let () := text "mul("; shortNumber()) (let () := char ','; shortNumber()) |> before ")"
 
 -- The whole of day 3's `instruction` in that form.
-def instruction(): {Parse} Instruction :=
-  oneOf [
-    () => Mul (let () := text "mul("; shortNumber()) (let () := char ','; shortNumber()) |> before ")",
-    () => pick [("do()", Do), ("don't()", Dont)]
-  ]
+def instruction(): {Parse} Instruction := oneOf [
+  () => Mul (let () := text "mul("; shortNumber()) (let () := char ','; shortNumber()) |> before ")",
+  () => pick [("do()", Do), ("don't()", Dont)]
+]
 
 test "day 3: instruction in context" :=
   allResult "xmul(2,4)%don't()_mul(5,5)+mul(32,64]do()mul(11,8)" (() => findAll instruction)
@@ -80,7 +76,8 @@ test "day 3: the same value" :=
     == [Ok (Mul 44 46), Ok (Mul 44 46), Ok (Mul 44 46), Ok (Mul 44 46), Ok (Mul 44 46)]
 
 test "day 3: the same errors" :=
-  ["mul[1,2)", "mul(1;2)", "mul(1,2]", "mul(1234,5)"].map (line => [mulToday, mulAfterBefore, mulBetween, mulSemicolon, mulTuple].map (parser => lineResult line parser))
+  ["mul[1,2)", "mul(1;2)", "mul(1,2]", "mul(1234,5)"].map (line =>
+    [mulToday, mulAfterBefore, mulBetween, mulSemicolon, mulTuple].map (parser => lineResult line parser))
     == [
       List.replicate 5 (Err "column 1: expected 'mul(', got 'mul['"),
       List.replicate 5 (Err "column 6: expected ',', got ';'"),
@@ -108,8 +105,10 @@ def robotToday(): {Parse} Robot :=
   { position = { x, y }, velocity = { x = dx, y = dy } }
 
 -- A record's fields run in the order they are written.
-def robotAfter(): {Parse} Robot :=
-  { position = ({ x = after "p=" nat, y = after "," nat }: Position), velocity = ({ x = after " v=" int, y = after "," int }: Velocity) }
+def robotAfter(): {Parse} Robot := {
+  position = ({ x = after "p=" nat, y = after "," nat }: Position),
+  velocity = ({ x = after " v=" int, y = after "," int }: Velocity)
+}
 
 def robotSemicolon(): {Parse} Robot := {
   position = ({ x = (let () := text "p="; nat()), y = (let () := char ','; nat()) }: Position),
@@ -169,4 +168,5 @@ def machineText: Text := "Button A: X+94, Y+34\nButton B: X+22, Y+67\nPrize: X=8
 
 test "day 13: the same value" :=
   [machineToday, machineAfter, machineSemicolon].map (parser => allResult machineText parser)
-    == List.replicate 3 (Ok ({ buttonA = { x = 94, y = 34 }, buttonB = { x = 22, y = 67 }, prize = { x = 8400, y = 5400 } }))
+    == List.replicate 3
+      (Ok ({ buttonA = { x = 94, y = 34 }, buttonB = { x = 22, y = 67 }, prize = { x = 8400, y = 5400 } }))

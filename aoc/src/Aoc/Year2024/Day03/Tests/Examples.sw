@@ -55,5 +55,6 @@ test "the most recent one applies" := solvePart2 [Do, Dont, Mul 2 3, Dont, Do, M
 --| Error messages, from parsing exactly one instruction.
 test "error, four digits" := instructionError "mul(1234,5)" == "column 5: expected a number of 1 to 3 digits, got '1'"
 test "error, no closing bracket" := instructionError "mul(1,2" == "column 8: expected ')', got the end of the line"
-test "error, a space" := instructionError "mul ( 1,2)" == "column 1: expected 'mul(', 'do()' or 'don't()', got 'mul ( 1'"
+test "error, a space" :=
+  instructionError "mul ( 1,2)" == "column 1: expected 'mul(', 'do()' or 'don't()', got 'mul ( 1'"
 test "error, a square bracket" := instructionError "mul(32,64]" == "column 10: expected ')', got ']'"

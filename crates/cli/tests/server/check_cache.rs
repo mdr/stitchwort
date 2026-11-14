@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-use stitchwort_cli::driver::{full_tier, par_map, tier_sample};
+use stitchwort_cli::driver::{all_tier, par_map, tier_sample};
 
 /// A new, empty directory.
 fn temp_dir(name: &str) -> PathBuf {
@@ -151,7 +151,7 @@ fn the_index_is_the_same_from_the_cache_for_the_example_projects() {
 /// namespace on each save (`editors/vscode/extension.js`).
 #[test]
 fn the_index_is_the_same_from_the_cache_for_aoc() {
-    if !full_tier("the_index_is_the_same_from_the_cache_for_aoc") {
+    if !all_tier("the_index_is_the_same_from_the_cache_for_aoc") {
         return;
     }
     let aoc = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
@@ -664,8 +664,8 @@ fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
     edit_std(
         &std_dir,
         "Option/Option.sw",
-        "Option.map x f1 = Option.map x f2\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => Eq.cong Some (ef y)",
-        "Option.map x f1 = Option.map x f1\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => rfl",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => Eq.cong Some (ef y)",
+        "Option.map x f1 = Option.map x f1 :=\n  match x with\n    | None => rfl\n    | Some y => rfl",
     );
     let after = check_step(dirs, "a lemma found by lookup changed", &["A", "B"]);
     assert!(after.contains("E-REWRITE-CONG"), "{after}");
@@ -798,4 +798,68 @@ fn a_namespace_checks_the_same_whatever_else_the_run_loads() {
         let _ = std::fs::remove_dir_all(&project);
         let _ = std::fs::remove_dir_all(&cache);
     }
+}
+
+/// `check --std` loads the library file it names and checks its bodies,
+/// even from a warm cache, and a program that never names the file doesn't
+/// see the edit (SW-2863: the lazy library only checks what is needed).
+#[test]
+fn check_std_checks_the_named_library_file_in_full() {
+    let (project, std_dir, cache) = std_edit_fixture("check-std", &[]);
+    let std_arg = std_dir.to_str().unwrap();
+    let cache_arg = cache.to_str().unwrap();
+    let check_std = |target: &str| {
+        let output = stitchwort(
+            &[
+                "--std-dir",
+                std_arg,
+                "check",
+                "--cache-dir",
+                cache_arg,
+                "--std",
+                target,
+            ],
+            &[],
+        );
+        (
+            output.status.code(),
+            String::from_utf8_lossy(&output.stderr).into_owned(),
+        )
+    };
+    for target in ["Option/Option.sw", "Std.Option.Option", "Option"] {
+        let (status, stderr) = check_std(target);
+        assert_eq!(status, Some(0), "{target}: {stderr}");
+    }
+    edit_std(
+        &std_dir,
+        "Option/Option.sw",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => Eq.cong Some (ef y)",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => rfl",
+    );
+    let (status, stderr) = check_std("Std.Option.Option");
+    assert_eq!(status, Some(1), "{stderr}");
+    assert!(
+        stderr.contains("the library file `std/Option/Option.sw` doesn't check"),
+        "{stderr}"
+    );
+    // A program that doesn't use the file, with the same library, is fine.
+    let program = project.join("a.sw");
+    std::fs::write(&program, "def x: Nat := 1\n").unwrap();
+    let output = stitchwort(
+        &[
+            "--std-dir",
+            std_arg,
+            "check",
+            "--no-cache",
+            program.to_str().unwrap(),
+        ],
+        &[],
+    );
+    assert!(output.status.success(), "{}", shown(&output));
+    let (status, stderr) = check_std("Nope");
+    assert_eq!(status, Some(1), "{stderr}");
+    assert!(stderr.contains("E-STD-TARGET"), "{stderr}");
+    let _ = std::fs::remove_dir_all(&project);
+    let _ = std::fs::remove_dir_all(&std_dir);
+    let _ = std::fs::remove_dir_all(&cache);
 }

@@ -28,10 +28,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 commands}"
   IO.print "Part 2: ${solvePart2 commands}"
 
-type Command =
-  | Forward (units: Nat)
-  | Down (units: Nat)
-  | Up (units: Nat)
+type Command = | Forward (units: Nat) | Down (units: Nat) | Up (units: Nat)
 
 --| One command per line. Spaces around a command are allowed; anything else
 --| fails, naming the line and column.
@@ -63,14 +60,12 @@ def Command.down: Command → Int
 def horizontal (commands: List Command): Nat := commands.sumBy .ahead
 
 --| Part 1: horizontal position times depth.
-def solvePart1 (commands: List Command): Int :=
-  (horizontal commands).toInt * commands.sumBy .down
+def solvePart1 (commands: List Command): Int := (horizontal commands).toInt * commands.sumBy .down
 
 --| Part 2: the aim before each command is the sum of the downs before it, and
 --| each forward move sinks the submarine by the aim it is made at times its
 --| length.
-def solvePart2 (commands: List Command): Int :=
-  (horizontal commands).toInt * aimedDepth 0 commands
+def solvePart2 (commands: List Command): Int := (horizontal commands).toInt * aimedDepth 0 commands
 
 --| The depth the commands sink the submarine by, starting at aim `aim`.
 def aimedDepth (aim: Int) (commands: List Command): Int :=

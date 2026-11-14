@@ -8,6 +8,6 @@ import Std (Eq, Char)
 opaque def secret: Char → Nat
   | _ => 3
 
-theorem viaOpaque: (c: Char) → c = 'a' → secret c = secret 'a'
-  | 'a', h => rfl
-  | _, h => Eq.cong secret h
+theorem viaOpaque ∀ (c: Char) (h: c = 'a'): secret c = secret 'a' := match c with
+  | 'a' => rfl
+  | _ => Eq.cong secret h

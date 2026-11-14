@@ -3,10 +3,10 @@
 -- is shown as `0 ..= n`.
 import Std (List, Nat)
 
-theorem lengthThrough (n: Nat): (1 ..= n).length = n := ?
+theorem lengthThrough ∀ (n: Nat): (1 ..= n).length = n := ?
 
-theorem lengthUpTo (n: Nat): (0 ..< n + 1).length = n + 1 := ?
+theorem lengthUpTo ∀ (n: Nat): (0 ..< n + 1).length = n + 1 := ?
 
-theorem members (x n: Nat): x ∈ 2 ..< n := ?
+theorem members ∀ (x n: Nat): x ∈ 2 ..< n := ?
 
-theorem pairs (n: Nat): 1 ..= n = 1 ..< n + 1 := ?
+theorem pairs ∀ (n: Nat): 1 ..= n = 1 ..< n + 1 := ?

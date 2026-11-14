@@ -597,6 +597,10 @@ fn bodies_count_their_entries_when_asked() {
             .unwrap_or_else(|e| panic!("{e:#?}"));
         assert!(!plain.contains("symbol_value"));
         assert!(asked.contains("symbol_value"));
+        // By its full address: JIT code and data can be mapped too far
+        // apart for a PC-relative reference (SW-3139).
+        assert!(asked.contains("= symbol "));
+        assert!(!asked.contains("symbol colocated"), "{asked}");
 
         let (ran, notes) = native_with(&program, limits, counting, STACK);
         assert!(ran_natively(&notes), "{notes:#?}");

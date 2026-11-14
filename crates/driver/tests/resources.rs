@@ -6,7 +6,7 @@
 //! limits, which are sized for them.
 
 use stitchwort_core::{Limits, ResourceError};
-use stitchwort_driver::driver::{Cache, Outcome, Session, tier_sample};
+use stitchwort_driver::driver::{Cache, Outcome, Session, tier_sample, with_stack};
 
 // mimalloc, the CLI's allocator, and so the language server's. With macOS's own,
 // `running_out_at_any_point_only_ever_means_no_answer` grew to 6.7 GB,
@@ -39,6 +39,15 @@ fn codes(
         Ok(_) => Vec::new(),
         Err(diagnostics) => diagnostics.iter().map(|d| d.code).collect(),
     }
+}
+
+/// The code of the first error among `diagnostics`. Warnings may come before
+/// it: the library's declarations that were checked before one ran out report
+/// theirs (the library's own are dropped when it loads as usual).
+fn first_error(diagnostics: &[stitchwort_syntax::Diagnostic]) -> &'static str {
+    (diagnostics.iter())
+        .find(|d| d.severity == stitchwort_syntax::Severity::Error)
+        .map_or("no error", |d| d.code)
 }
 
 /// The evaluator keeps its pending work on the heap, so recursion a million
@@ -123,7 +132,7 @@ fn printing_too_large_a_value_is_an_error() {
     assert_eq!(error.code, "E-RESOURCE");
 }
 
-/// "A value was too large to show" in a theorem that unfolds an opaque
+/// "A value was too large to write out" in a theorem that unfolds an opaque
 /// definition names the theorem and the definition it unfolds, so the
 /// reader knows where the large value came from
 /// (docs/proposals/opaque-definitions.md §6.10).
@@ -154,7 +163,7 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
         .find(|d| d.code == "E-RESOURCE")
         .unwrap_or_else(|| panic!("{diagnostics:?}"));
     assert!(
-        resource.message.ends_with("too large to show"),
+        stitchwort_core::budget::ResourceError::is_size_message(&resource.message),
         "{resource:?}"
     );
     let notes = resource.notes.join("\n");
@@ -231,8 +240,8 @@ test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 /// The limits are every one while they're small, then in growing steps: 161
 /// up to enough for everything, about 107 s, most of it the counterexample
 /// searches on the library's theorems that fail at limits from about 2,000
-/// to 8,000. Outside the full tier the test takes a corpus sweep's sample of
-/// them, every 4th in the daily tier (docs/testing.md).
+/// to 8,000. Outside the all tier the test takes a corpus sweep's sample of
+/// them, every 4th in the broad tier (docs/testing.md).
 #[test]
 fn running_out_at_any_point_only_ever_means_no_answer() {
     let mut limits = Vec::new();
@@ -251,7 +260,8 @@ fn running_out_at_any_point_only_ever_means_no_answer() {
         match session.load("program.sw", PROGRAM) {
             Err(diagnostics) => {
                 assert_eq!(
-                    diagnostics[0].code, "E-RESOURCE",
+                    first_error(&diagnostics),
+                    "E-RESOURCE",
                     "work {work}: {diagnostics:?}"
                 );
             }
@@ -571,6 +581,52 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
     }
 }
 
+/// Checking `%` of a number with an unknown in it, `(x + k) % 2`, takes time
+/// linear in `k` (SW-2572). Its quotient `(x + k) / 2` is `k / 2` `Succ`s
+/// around a stuck step, and `%` multiplies it back; `*` took one `Succ` off
+/// a step and walked the rest of the chain each time to see it wasn't a
+/// number, so `k = 16000` took 10 s and the effect fuzzer's programs, with
+/// constants near a million, over ten minutes. Its time, not its steps, is
+/// what's measured: the walk took no steps, only forced calls already
+/// unfolded. `y` unknown takes the case tree one `Succ` at a time, which
+/// was quadratic for the same reason.
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in a debug build")]
+fn remainders_of_long_numbers_check_in_linear_time() {
+    use std::time::{Duration, Instant};
+    let source = "import Std (Nat)\n\n\
+                  def remainder (x: Nat): Nat := if (x + 40000) % 2 == 0 then 1 else 2\n\
+                  def times (x: Nat) (y: Nat): Nat := if ((x + 40000) / 2) * y == 0 then 1 else 2\n\
+                  def twice (x: Nat): Nat :=\n  \
+                  let a := if (x + 40000) % 2 == 0 then 4 else 4\n  \
+                  if a % 2 == 0 then 1 else 2\n";
+    let mut session = Session::new();
+    let started = Instant::now();
+    let result = codes(session.load("long.sw", source));
+    let elapsed = started.elapsed();
+    assert!(result.is_empty(), "{result:?}");
+    eprintln!("remainders of long numbers: {elapsed:?}");
+    // Quadratic, this was minutes; linear, it's about a second, most of it
+    // loading the library.
+    assert!(elapsed < Duration::from_secs(10), "took {elapsed:?}");
+}
+
+/// `x * t` with `x` unknown is stuck on `x` at once, and `*`'s shortcut for
+/// unknowns (SW-2572) doesn't compute `t` either, as `Nat.mul`'s definition
+/// never looks at it then: `count 100000000` would take 10^8 steps.
+#[test]
+fn a_product_stuck_on_its_left_does_not_compute_its_right() {
+    let mut session = Session::new();
+    let before = session.elab.kernel.machine.budget.total_work();
+    let source = "def count: (n: Nat) → Nat\n  | Zero => 0\n  | Succ n => Succ (count n)\n\n\
+                  def f (x: Nat): Nat := x * count 100000000\n\n\
+                  theorem t (x: Nat): f x = x * count 100000000 := rfl\n";
+    let result = codes(session.load("stuck.sw", source));
+    assert!(result.is_empty(), "{result:?}");
+    let work = session.elab.kernel.machine.budget.total_work() - before;
+    assert!(work < 1_000_000, "{work} steps");
+}
+
 /// Whatever a check ran out of, the error says which declaration it was
 /// checking, and points at it (SW-843).
 #[test]
@@ -593,6 +649,44 @@ fn running_out_of_steps_names_the_declaration_being_checked() {
         "{notes}"
     );
     assert_eq!(resource.labels.len(), 1, "{resource:?}");
+}
+
+/// A declaration that checks for long is reported while it runs: when its
+/// steps pass the first count and each time they double, naming it and the
+/// definition being unfolded (SW-2009). The notes change nothing: the
+/// declaration still checks, in the same steps.
+#[test]
+fn a_long_check_says_what_it_is_computing_while_it_runs() {
+    static NOTES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    let source =
+        format!("{REPLICATE}\ntheorem long : List.length (replicate 2000 1) = 2000 := rfl\n");
+    let steps = |progress: bool| {
+        let mut session = Session::new();
+        if progress {
+            stitchwort_elab::progress::report_to(|note| NOTES.lock().unwrap().push(note.into()));
+            // More than `POLL` steps, how often the budget looks.
+            session.elab.options.progress_after = Some(20_000);
+        }
+        let before = session.elab.kernel.machine.budget.total_work();
+        session.load("long.sw", &source).expect("checks");
+        session.elab.kernel.machine.budget.total_work() - before
+    };
+    let quiet = steps(false);
+    assert!(NOTES.lock().unwrap().is_empty());
+    assert_eq!(steps(true), quiet);
+    let notes = NOTES.lock().unwrap();
+    let long: Vec<&String> = notes.iter().filter(|n| n.contains("long`")).collect();
+    assert!(long.len() >= 3, "{notes:?}");
+    assert!(
+        long[0].starts_with("still checking `")
+            && long[0].contains("`: over 20,000 evaluation steps so far, unfolding `")
+            && long[1].contains("over 40,000 evaluation steps"),
+        "{long:?}"
+    );
+    assert!(
+        long.iter().any(|n| n.contains("unfolding `replicate`")),
+        "{long:?}"
+    );
 }
 
 const SEARCH: &str = "import Std (List, Nat, Option)\n\n\
@@ -677,4 +771,61 @@ fn a_doubling_hypothesis_is_never_unfolded_in_full() {
         ..Limits::default()
     };
     session.load("doubling.sw", &source).expect("checks");
+}
+
+/// A proof that splits a list and rewrites in each arm: running out of stack
+/// inside it, at any depth, leaves the elaborator's contexts and lifted
+/// terms consistent for what is checked next.
+const SPLIT_PROOF: &str = "
+import Std (Add, Eq, List)
+
+theorem sumByFlatMapAgain [auto add: Add c] (xs: List a) (f: b → c) (g: a → List b): List.sumBy (List.flatMap xs g) f = List.sumBy xs (x => List.sumBy (g x) f) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      Eq.trans (List.sumByAppend (g x) (List.flatMap xs g) f)
+        (Eq.trans (Eq.cong (t => List.sumBy (g x) f + t) (sumByFlatMapAgain xs f g)) (Eq.sym (List.sumByCons xs x (x => List.sumBy (g x) f))))
+
+def afterwards (n : Nat) : Nat := n + 1
+";
+
+/// With the stack guard at sizes from a few kilobytes up, a quarter again each time, loading either
+/// succeeds or fails, and the first error is running out of resources; a
+/// session that ran out checks a later file as usual. Debug builds run it
+/// too: their arithmetic overflow checks are what notice contexts that
+/// disagree after an error unwinds.
+#[test]
+fn running_out_of_stack_at_any_point_only_ever_means_no_answer() {
+    const STACK: usize = 64 * 1024 * 1024;
+    with_stack(STACK, || {
+        let roomy = Limits::for_stack(STACK);
+        let mut stack = 16 * 1024;
+        loop {
+            let mut session = Session::new();
+            session.elab.options.limits = Limits { stack, ..roomy };
+            let finished = match session.load("proof.sw", SPLIT_PROOF) {
+                Err(diagnostics) => {
+                    assert_eq!(
+                        first_error(&diagnostics),
+                        "E-RESOURCE",
+                        "stack {stack}: {diagnostics:?}"
+                    );
+                    false
+                }
+                Ok(_) => true,
+            };
+            session.elab.options.limits = roomy;
+            session
+                .load(
+                    "later.sw",
+                    "def double (n : Nat) : Nat := n + n\n\ntest \"double\" := double 21 == 42\n",
+                )
+                .unwrap_or_else(|d| panic!("stack {stack}: a later file: {d:?}"));
+            if finished {
+                break;
+            }
+            stack += 1 + stack / 4;
+            assert!(stack < roomy.stack, "never checked");
+        }
+    });
 }

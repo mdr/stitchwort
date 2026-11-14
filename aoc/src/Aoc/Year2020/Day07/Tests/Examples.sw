@@ -33,7 +33,16 @@ def example2: Text := """
 def lightRed: Colour := { shade = "light", hue = "red" }
 
 test "example, the first rule" :=
-  (parsed example).map (rules => rules.all.take 1) == Ok [{ colour = lightRed, contents = [{ count = 1, colour = { shade = "bright", hue = "white" } }, { count = 2, colour = { shade = "muted", hue = "yellow" } }] }]
+  (parsed example).map (rules => rules.all.take 1)
+    == Ok [
+      {
+        colour = lightRed,
+        contents = [
+          { count = 1, colour = { shade = "bright", hue = "white" } },
+          { count = 2, colour = { shade = "muted", hue = "yellow" } }
+        ]
+      }
+    ]
 test "example, an empty rule" := (parsed example).map (rules => rules.all.drop 8 |> .map .contents) == Ok [[]]
 test "example, the colours outside shiny gold" :=
   (parsed example).map (rules => (rules.outside shinyGold).toList.map .name)
@@ -45,12 +54,19 @@ test "second example, part 2" := part2 example2 == Ok 126
 
 test "a bag with no rule holds nothing" := part2 "shiny gold bags contain 3 faded blue bags." == Ok 3
 test "a cycle below shiny gold" :=
-  part2 "shiny gold bags contain 1 dark red bag.\ndark red bags contain 2 dark blue bags.\ndark blue bags contain 1 dark red bag." == Err "the rules for shiny gold bags go round in a cycle"
+  part2
+      "shiny gold bags contain 1 dark red bag.\ndark red bags contain 2 dark blue bags.\ndark blue bags contain 1 dark red bag."
+    == Err "the rules for shiny gold bags go round in a cycle"
 test "a cycle through shiny gold counts it for part 1" :=
   (parsed "shiny gold bags contain 1 dark red bag.\ndark red bags contain 2 shiny gold bags.").map solvePart1 == Ok 2
 test "a cycle elsewhere is fine for part 2" :=
-  part2 "shiny gold bags contain 2 faded blue bags.\ndark red bags contain 1 dark blue bag.\ndark blue bags contain 1 dark red bag." == Ok 2
+  part2
+      "shiny gold bags contain 2 faded blue bags.\ndark red bags contain 1 dark blue bag.\ndark blue bags contain 1 dark red bag."
+    == Ok 2
 
-test "one bag must be singular" := parsed "light red bags contain 1 bright white bags." == Err "line 1, column 42: expected ', ' or '.', got 's.'"
-test "a capital letter" := parsed "Light red bags contain no other bags." == Err "line 1, column 1: expected a colour, 'a' to 'z', got 'L'"
-test "a missing full stop" := parsed "light red bags contain no other bags" == Err "line 1, column 37: expected '.', got the end of the line"
+test "one bag must be singular" :=
+  parsed "light red bags contain 1 bright white bags." == Err "line 1, column 42: expected ', ' or '.', got 's.'"
+test "a capital letter" :=
+  parsed "Light red bags contain no other bags." == Err "line 1, column 1: expected a colour, 'a' to 'z', got 'L'"
+test "a missing full stop" :=
+  parsed "light red bags contain no other bags" == Err "line 1, column 37: expected '.', got the end of the line"

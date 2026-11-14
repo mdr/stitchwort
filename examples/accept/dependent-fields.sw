@@ -5,9 +5,7 @@ def PayloadType: Bool → Type
   | True => Nat
   | False => Bool
 
-type Tree: Type =
-  | Leaf
-  | Node (tag: Bool) (payload: PayloadType tag) (rest: PayloadType tag → Tree)
+type Tree: Type = | Leaf | Node (tag: Bool) (payload: PayloadType tag) (rest: PayloadType tag → Tree)
 
 -- How many nodes, following `rest` with the payload (plus one, for numbers).
 def depth: Tree → Nat

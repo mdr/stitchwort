@@ -7,7 +7,7 @@ type Counter = { limit: Nat }
 
 def Step.run (step: Step) (n: Nat): Nat := n + step.by
 
-def Counter.runFrom (counter: Counter) (step: Step) (left: Nat) (n: Nat): Nat
+def Counter.runFrom (counter: Counter) (step: Step) (left n: Nat): Nat
     decreasing left
 :=
   if h: 0 < left then Counter.runFrom counter step (left - 1) (step.run n) [decreasing := omega] else n
@@ -15,7 +15,7 @@ def Counter.runFrom (counter: Counter) (step: Step) (left: Nat) (n: Nat): Nat
 def Counter.run (counter: Counter) (step: Step): Nat := counter.runFrom step counter.limit 0
 
 -- The receiver's type written by an annotation.
-def Counter.runOnes (counter: Counter) (left: Nat) (n: Nat): Nat
+def Counter.runOnes (counter: Counter) (left n: Nat): Nat
     decreasing left
 :=
   if h: 0 < left then Counter.runOnes counter (left - 1) (({ by = 1 }: Step).run n) [decreasing := omega] else n

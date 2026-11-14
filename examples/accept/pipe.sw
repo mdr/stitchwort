@@ -20,16 +20,11 @@ test "inference through a pipe" := names == ["Ann", "Bob"]
 -- A multi-line pipeline: a line may start with `|>` when it's indented at
 -- least as far as the line the expression starts on, even at the block's own
 -- column, as with `then` and `else`.
-def total: Nat :=
-  people
-    |> List.map (p => p.age)
-    |> List.sum
+def total: Nat := people |> List.map (p => p.age) |> List.sum
 
 def sortedDoubled: List Nat :=
   let xs := [3, 1, 2]
-  xs
-    |> List.sort
-    |> List.map (* 2)
+  xs |> List.sort |> List.map (* 2)
 
 test "total" := total == 55
 test "sorted and doubled" := sortedDoubled == [2, 4, 6]
@@ -88,16 +83,13 @@ def say (text: Text) (n: Nat): {IO} Nat :=
   IO.print text
   n
 
-def addSay (a: Nat) (b: Nat): {IO} Nat :=
+def addSay (a b: Nat): {IO} Nat :=
   IO.print "call"
   a + b
 
 def order(): {IO} Nat := say "left" 1 |> addSay (say "right" 2)
 
-def chain(): {IO} Nat :=
-  say "a" 1
-    |> addSay 10
-    |> x => say "end" x
+def chain(): {IO} Nat := say "a" 1 |> addSay 10 |> x => say "end" x
 
 test "effect order" := Pair.fst (IO.simulate [] order) == ["left", "right", "call"]
 test "effect value" := Pair.snd (IO.simulate [] order) == 3

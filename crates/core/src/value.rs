@@ -6,7 +6,7 @@
 //! has all its parameters *and* its case tree can take a step. This keeps
 //! comparison from unfolding recursive definitions forever. See `docs/core.md`.
 
-use crate::collections::{HashMap, QuickHasher};
+use crate::collections::{HashMap, HashSet, QuickHasher};
 use crate::ev::Ev;
 use std::rc::Rc;
 
@@ -15,15 +15,16 @@ use num_bigint::BigUint;
 use crate::budget::{ResourceError, Result};
 use crate::chars::{self, Chars};
 use crate::erase::{self, erased};
+use crate::nat_add::Unread;
 use crate::native;
 use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 
 #[derive(Clone, Debug)]
 pub enum Value {
     Sort(Sort),
-    Pi(Name, Icit, Rc<Value>, Closure),
+    Pi(Name, Icit, Shared, Closure),
     Lam(Name, Icit, Closure),
-    Data(DataId, Vec<Value>),
+    Data(DataId, DataArgs),
     /// Fields are shared, so copying a value (a list, say) is cheap.
     Ctor(DataId, usize, Values),
     /// A number, standing for `Succ (Succ … Zero)`. See [`native`].
@@ -31,11 +32,11 @@ pub enum Value {
     /// `k + x` for a number `k ≥ 1` and an `x` not built from numbers:
     /// `Succ` applied `k` times to `x`. See [`native::view`]. The exception
     /// is `compare_lazily`, which can build `k + call` for a folded call.
-    NatAdd(Rc<BigUint>, Rc<Value>),
+    NatAdd(Rc<BigUint>, Shared),
     /// A `List Char`, standing for `Cons (MkChar c rfl) … Nil`. Never empty
     /// when made by evaluation (that's `Nil`). See [`chars`].
     Chars(Chars),
-    Eq(Rc<Value>, Rc<Value>, Rc<Value>),
+    Eq(Shared, Shared, Shared),
     Refl,
     /// A computation stuck on a variable or an unsolved metavariable, or a
     /// folded definition.
@@ -54,6 +55,190 @@ pub enum Value {
     /// the argument of a partly applied `foldD`, the resumption `k` a
     /// handler's clause gets, and never reaches the checker.
     Resumption(Rc<crate::step::Capture>),
+}
+
+/// A value owned through a shared pointer: a function type's domain, the
+/// number a `NatAdd` adds to, the parts of an equality type.
+///
+/// A chain of these a million deep (`Eq (Eq (Eq …))`) would overflow the
+/// stack in the default drop (SW-2482), so freeing the last reference drops
+/// the value the default way only down to [`NESTING_LIMIT`] levels, then
+/// frees the rest iteratively, as [`Values`] does.
+#[derive(Clone, Debug)]
+pub struct Shared(Rc<Value>);
+
+impl Shared {
+    pub fn new(value: Value) -> Shared {
+        Shared(Rc::new(value))
+    }
+
+    /// The pointer itself, for comparing by address and for keeping alive.
+    pub fn rc(&self) -> &Rc<Value> {
+        &self.0
+    }
+
+    pub fn ptr_eq(a: &Shared, b: &Shared) -> bool {
+        Rc::ptr_eq(&a.0, &b.0)
+    }
+
+    /// The value, if this was the only reference to it; otherwise just drops
+    /// the reference.
+    pub fn into_unique(mut self) -> Option<Value> {
+        if Rc::strong_count(&self.0) != 1 {
+            return None;
+        }
+        let hole = HOLE.try_with(Rc::clone).ok()?;
+        Rc::try_unwrap(std::mem::replace(&mut self.0, hole)).ok()
+    }
+}
+
+impl From<Rc<Value>> for Shared {
+    fn from(rc: Rc<Value>) -> Shared {
+        Shared(rc)
+    }
+}
+
+impl From<Value> for Shared {
+    fn from(value: Value) -> Shared {
+        Shared::new(value)
+    }
+}
+
+impl std::ops::Deref for Shared {
+    type Target = Value;
+    fn deref(&self) -> &Value {
+        &self.0
+    }
+}
+
+impl Drop for Shared {
+    #[inline]
+    fn drop(&mut self) {
+        if Rc::strong_count(&self.0) == 1 && !self.0.is_atom() {
+            self.free_nested();
+        }
+    }
+}
+
+impl Shared {
+    /// Drops the value the default way, counting the nesting.
+    #[inline(never)]
+    fn free_nested(&mut self) {
+        if let Some(value) = Rc::get_mut(&mut self.0) {
+            drop_nested(std::mem::replace(value, Value::Refl), |value, pending| {
+                pending.push(value)
+            });
+        }
+    }
+}
+
+/// The arguments of a [`Value::Data`]. Like [`Values`] and [`Shared`], freeing
+/// them is bounded the same way as a [`Shared`] (SW-2482): `List (List (List
+/// …))` a million deep is a chain of these.
+#[derive(Clone, Debug, Default)]
+pub struct DataArgs(Vec<Value>);
+
+impl DataArgs {
+    /// The arguments, leaving none behind.
+    pub fn take(&mut self) -> Vec<Value> {
+        std::mem::take(&mut self.0)
+    }
+
+    pub fn into_vec(mut self) -> Vec<Value> {
+        self.take()
+    }
+}
+
+impl std::ops::Deref for DataArgs {
+    type Target = Vec<Value>;
+    fn deref(&self) -> &Vec<Value> {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for DataArgs {
+    fn deref_mut(&mut self) -> &mut Vec<Value> {
+        &mut self.0
+    }
+}
+
+impl From<Vec<Value>> for DataArgs {
+    fn from(args: Vec<Value>) -> DataArgs {
+        DataArgs(args)
+    }
+}
+
+impl FromIterator<Value> for DataArgs {
+    fn from_iter<I: IntoIterator<Item = Value>>(args: I) -> DataArgs {
+        DataArgs(args.into_iter().collect())
+    }
+}
+
+impl IntoIterator for DataArgs {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Value>;
+    fn into_iter(mut self) -> Self::IntoIter {
+        self.take().into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DataArgs {
+    type Item = &'a Value;
+    type IntoIter = std::slice::Iter<'a, Value>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl Drop for DataArgs {
+    #[inline]
+    fn drop(&mut self) {
+        if self.0.iter().any(|arg| !arg.is_atom()) {
+            drop_nested(self.take(), |args, pending| pending.extend(args));
+        }
+    }
+}
+
+/// How many [`Shared`] and [`DataArgs`] drops are running inside one another
+/// on this thread. A level takes between 256 and 512 bytes of stack (a limit
+/// of 512 passes the tests on their 256 KB stack, 1024 overflows it), so 128
+/// uses at most about 64 KB: the tests have a factor of four to spare, and a
+/// drop started deep in the checker has room.
+const NESTING_LIMIT: usize = 128;
+
+thread_local! {
+    static NESTING: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Drops `owned` the default (recursive) way, which is the cheapest for the
+/// shallow values nearly all of them are, until the drops are
+/// [`NESTING_LIMIT`] deep; then `to_pending` moves it onto the work list
+/// instead, and [`free_iteratively`] frees it and all it holds without
+/// recursing. Each level here costs a few small stack frames, so the limit
+/// bounds the stack a drop uses however deep the value is (SW-2482).
+fn drop_nested<T>(owned: T, to_pending: impl FnOnce(T, &mut Vec<Value>)) {
+    let depth = NESTING.try_with(|n| n.get()).unwrap_or(NESTING_LIMIT);
+    if depth >= NESTING_LIMIT {
+        free_iteratively(|pending| to_pending(owned, pending));
+    } else {
+        NESTING.with(|n| n.set(depth + 1));
+        drop(owned);
+        NESTING.with(|n| n.set(depth));
+    }
+}
+
+impl Value {
+    /// Whether dropping this can't start a drop chain: it owns no value
+    /// through a [`Shared`] or [`DataArgs`]. (Constructor fields, closure
+    /// environments, spines and unfoldings free iteratively themselves.)
+    #[inline]
+    fn is_atom(&self) -> bool {
+        match self {
+            Value::Data(_, args) => args.is_empty(),
+            Value::Eq(..) | Value::Pi(..) | Value::NatAdd(..) => false,
+            _ => true,
+        }
+    }
 }
 
 /// The unfolding of a [`Value::Call`] once computed: the value the call
@@ -158,10 +343,22 @@ impl Unfolding {
 /// limit, SW-2452); the default drop would overflow the stack there. The
 /// value goes through [`Values`]' iterative free, as the fields of a
 /// constructor do.
+///
+/// The base it shares is a chain too (one unfolding per projection of a long
+/// run of them), so that is walked, not recursed into.
 impl Drop for Unfolding {
     fn drop(&mut self) {
         if let Some(Kept { value, .. }) = self.kept.get_mut().take() {
             drop(Values::from([value]));
+        }
+        let mut base = self.base.take();
+        while let Some(rc) = base {
+            // Dropping `unfolding` at the end of the iteration frees its kept
+            // value as above, and has no base left to recurse into.
+            let Ok(mut unfolding) = Rc::try_unwrap(rc) else {
+                break;
+            };
+            base = unfolding.base.take();
         }
     }
 }
@@ -221,6 +418,9 @@ impl std::hash::Hash for Head {
 /// known not to be takes its default: a proof that matches a character
 /// against `'k'`, `'j'` and `_` has the program's own match on `'k'`, `'j'`
 /// and `_` reach its `_` arm in the proof's `_` arm.
+///
+/// Each set has one name ([`crate::machine::ApartSets`]), so two `Apart`s
+/// are equal exactly when they stand for the same numbers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Apart(u32);
 
@@ -230,16 +430,14 @@ impl Apart {
 
     /// The set `numbers` (sorted, without duplicates), named in `g`.
     pub fn new(g: &Ev, numbers: Rc<[BigUint]>) -> Apart {
-        let mut sets = g.machine.apart_sets.borrow_mut();
-        sets.push(numbers);
-        Apart(u32::try_from(sets.len()).expect("fewer than 2^32 number cases"))
+        Apart(g.machine.apart_sets.borrow_mut().name(numbers))
     }
 
     /// The numbers, sorted; empty for [`Apart::NONE`].
     pub fn numbers(self, g: &Ev) -> Rc<[BigUint]> {
         match self.0 {
             0 => Rc::from([]),
-            i => g.machine.apart_sets.borrow()[i as usize - 1].clone(),
+            i => g.machine.apart_sets.borrow().get(i),
         }
     }
 
@@ -329,13 +527,27 @@ impl Spine {
     }
 
     /// The eliminations, copied only if they're shared.
-    pub fn into_vec(self) -> Vec<Elim> {
-        match self.0 {
+    pub fn into_vec(mut self) -> Vec<Elim> {
+        match self.0.take() {
             Some(elims) => Rc::try_unwrap(elims)
                 .unwrap_or_else(|elims| (*elims).clone())
                 .into_vec(),
             None => Vec::new(),
         }
+    }
+
+    /// The address of the eliminations, if another value holds them too.
+    pub fn shared_key(&self) -> Option<*const ()> {
+        let elims = self.0.as_ref()?;
+        (Rc::strong_count(elims) > 1).then(|| Rc::as_ptr(elims).cast())
+    }
+
+    /// The address of the eliminations (0 for none): an identity for as
+    /// long as the spine is held.
+    pub(crate) fn addr(&self) -> usize {
+        self.0
+            .as_ref()
+            .map_or(0, |elims| Rc::as_ptr(elims) as usize)
     }
 
     /// Whether `self` and `other` are the same shared list (so equal).
@@ -407,6 +619,13 @@ impl std::ops::Deref for Values {
     }
 }
 
+impl Values {
+    /// Whether another value holds these same values.
+    pub fn is_shared(&self) -> bool {
+        Rc::strong_count(&self.0) > 1
+    }
+}
+
 impl From<Vec<Value>> for Values {
     fn from(values: Vec<Value>) -> Values {
         Values(values.into())
@@ -435,6 +654,8 @@ thread_local! {
     /// What a taken-apart sequence is left holding, so taking it apart
     /// doesn't allocate.
     static EMPTY: Rc<[Value]> = Rc::new([]);
+    /// What a taken-apart [`Shared`] is left pointing at.
+    static HOLE: Rc<Value> = Rc::new(Value::Refl);
     /// The work list for freeing, kept between uses so that freeing doesn't
     /// allocate either.
     static PENDING: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -448,27 +669,66 @@ impl Drop for Values {
         let Ok(empty) = EMPTY.try_with(Rc::clone) else {
             return; // the thread is ending
         };
-        let mut values = Some(std::mem::replace(&mut self.0, empty.clone()));
-        let mut free = |pending: &mut Vec<Value>| {
-            if let Some(values) = values.take() {
-                take_apart(values, pending);
+        let values = std::mem::replace(&mut self.0, empty);
+        free_iteratively(|pending| take_apart(values, pending));
+    }
+}
+
+/// A spine can hold values that hold spines, millions deep (a stuck
+/// computation applied to a stuck computation, and so on), so freeing one
+/// goes through the same iterative free as [`Values`] rather than recursing
+/// through `Elim`, `Value` and `Spine` in turn (SW-2468).
+impl Drop for Spine {
+    fn drop(&mut self) {
+        if let Some(elims) = self.0.take_if(|elims| Rc::strong_count(elims) == 1) {
+            free_iteratively(|pending| take_elims(elims, pending));
+        }
+    }
+}
+
+/// Frees what `seed` puts on the work list, and everything those values
+/// hold, one value at a time. Freeing never starts another free that needs
+/// the shared work list (everything it frees has been taken apart), but if
+/// it ever did, a local one would do.
+fn free_iteratively(seed: impl FnOnce(&mut Vec<Value>)) {
+    let Ok(empty) = EMPTY.try_with(Rc::clone) else {
+        return; // the thread is ending
+    };
+    let mut seed = Some(seed);
+    let mut free = |pending: &mut Vec<Value>| {
+        if let Some(seed) = seed.take() {
+            seed(pending);
+        }
+        while let Some(value) = pending.pop() {
+            detach(value, &empty, pending);
+        }
+    };
+    let shared = PENDING.try_with(|p| match p.try_borrow_mut() {
+        Ok(mut p) => {
+            free(&mut p);
+            true
+        }
+        Err(_) => false,
+    });
+    if shared != Ok(true) {
+        free(&mut Vec::new());
+    }
+}
+
+/// Moves the values in `elims` onto `pending`, if this is the last reference
+/// to them; otherwise just drops the reference.
+fn take_elims(elims: Rc<Elims>, pending: &mut Vec<Value>) {
+    let Ok(elims) = Rc::try_unwrap(elims) else {
+        return;
+    };
+    for elim in elims {
+        match elim {
+            Elim::App(v, _) => pending.push(v),
+            Elim::J { motive, base } => {
+                pending.push(*motive);
+                pending.push(*base);
             }
-            while let Some(value) = pending.pop() {
-                detach(value, &empty, pending);
-            }
-        };
-        // Freeing never starts another free that needs the shared work list
-        // (everything it frees has been taken apart), but if it ever did, a
-        // local one would do.
-        let shared = PENDING.try_with(|p| match p.try_borrow_mut() {
-            Ok(mut p) => {
-                free(&mut p);
-                true
-            }
-            Err(_) => false,
-        });
-        if shared != Ok(true) {
-            free(&mut Vec::new());
+            Elim::Proj(..) => {}
         }
     }
 }
@@ -486,8 +746,8 @@ fn take_apart(mut values: Rc<[Value]>, pending: &mut Vec<Value>) {
 /// Moves whatever `value` holds onto `pending` (when it's the only owner),
 /// so that dropping `value` itself doesn't recurse.
 fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
-    let mut unwrap = |v: Rc<Value>| {
-        if let Ok(v) = Rc::try_unwrap(v) {
+    let mut unwrap = |v: Shared| {
+        if let Some(v) = v.into_unique() {
             pending.push(v);
         }
     };
@@ -523,21 +783,9 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             }
             pending.push(Value::Neutral(Head::Var(0, Apart::NONE), spine));
         }
-        Value::Neutral(_, spine) => {
-            // Only the last owner takes the eliminations apart.
-            let elims = match spine.0 {
-                Some(elims) => Rc::try_unwrap(elims).unwrap_or_default(),
-                None => Elims::new(),
-            };
-            for elim in elims {
-                match elim {
-                    Elim::App(v, _) => pending.push(v),
-                    Elim::J { motive, base } => {
-                        pending.push(*motive);
-                        pending.push(*base);
-                    }
-                    Elim::Proj(..) => {}
-                }
+        Value::Neutral(_, mut spine) => {
+            if let Some(elims) = spine.0.take() {
+                take_elims(elims, pending);
             }
         }
         Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl | Value::Resumption(_) => {}
@@ -769,9 +1017,11 @@ fn describe(value: &Value) -> &'static str {
 //
 // Inside the machine nothing calls `eval`, `apply` or `force`, which would
 // start another machine; it moves to the matching control state instead. The
-// one exception is natives forcing their arguments (`native::view`), which
-// only does work on values containing solved metavariables, during
-// elaboration.
+// one exception is natives forcing their arguments (`native::view`). A
+// native's arguments that are glued calls are forced by the machine first
+// ([`Control::NativeArg`]), so the native's own `force` finds each one's
+// kept unfolding: what is left for it is a solved metavariable, during
+// elaboration, or a call inside a number it walks.
 
 type Env = Values;
 
@@ -794,6 +1044,12 @@ enum Control {
     /// A definition with these arguments: run its native implementation or
     /// its case tree, or leave it folded.
     Unfold(DefId, Spine),
+    /// [`Control::Unfold`], with the result to be that many more `Succ`s
+    /// ([`native::Outcome::Succs`]). (Boxed through its `Rc`: rare.)
+    UnfoldAfterSuccs(Rc<BigUint>, DefId, Spine),
+    /// Force argument `index` of native definition `id` applied to the
+    /// spine, then run the native ([`unforced_number_arg`]).
+    NativeArg(DefId, Spine, usize),
     /// Walk a case tree. If it's stuck, the result is the definition left
     /// folded (or, for a case outside a definition, an internal error).
     Tree(Rc<Term>, Vec<Value>, Stuck),
@@ -817,6 +1073,9 @@ enum Frame {
     AppFun(Value, Icit),
     /// The function of `f a`, whose argument is erased (`erase.rs`).
     AppErased(Icit),
+    /// A number this many more than the value it waits for
+    /// ([`native::Outcome::Succs`]).
+    AddNat(Rc<BigUint>),
     /// The next argument of a data type or constructor (`term`).
     Args {
         term: Rc<Term>,
@@ -921,6 +1180,14 @@ enum Frame {
     AppTo(Value, Icit),
     /// The unfolding of a call, to force and then keep.
     Unfolded(Rc<Unfolding>, DefId),
+    /// Argument `next - 1` of native definition `id` applied to `spine`,
+    /// forced and kept in its call ([`Control::NativeArg`]): the arguments
+    /// from `next` on are looked at next, then the native runs.
+    NativeArg {
+        id: DefId,
+        spine: Spine,
+        next: usize,
+    },
     /// The forced value of the call that field call `id spine` (spine
     /// ending in projection `d`, `i`; [`project_call`]) takes field `i`
     /// of ([`CallField`]). (Boxed: it's large, and rare.)
@@ -1125,6 +1392,11 @@ fn run(g: &Ev, mut control: Control) -> Result<Value> {
                 }
             }
             Control::Unfold(id, spine) => unfold(g, id, spine)?,
+            Control::NativeArg(id, spine, index) => native_arg(g, &mut stack, id, spine, index)?,
+            Control::UnfoldAfterSuccs(k, id, spine) => {
+                push(g, &mut stack, Frame::AddNat(k))?;
+                unfold(g, id, spine)?
+            }
             Control::Tree(node, env, stuck) => {
                 if let Some((id, ..)) = &stuck {
                     g.machine.budget.enter_definition(id.0);
@@ -1261,6 +1533,7 @@ fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
             let def = g.def(*id);
             match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && !folds(g, *id) => None,
+                None if def.assumption.is_some() && erases_result(g, *id) => Some(erased()),
                 _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
@@ -1278,6 +1551,11 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             let def = g.def(*id);
             match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
+                // An open goal's assumption that is a proof (or a type) is
+                // erased like a theorem; one that is data stays neutral.
+                None if def.assumption.is_some() && erases_result(g, *id) => {
+                    Control::Return(erased())
+                }
                 // While gluing, a constant written in the source, or a
                 // parameter default's helper, is kept as a call with no
                 // arguments: read back by name, unfolded when forced. Other
@@ -1301,7 +1579,9 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             Some(value) => value,
             None => Value::Neutral(Head::Meta(*m), Spine::new()),
         }),
-        Term::Data(d, args) if args.is_empty() => Control::Return(Value::Data(*d, Vec::new())),
+        Term::Data(d, args) if args.is_empty() => {
+            Control::Return(Value::Data(*d, DataArgs::default()))
+        }
         Term::Ctor(d, c, args) if args.is_empty() => {
             Control::Return(native::ctor(g, *d, *c, Vec::new()))
         }
@@ -1489,7 +1769,7 @@ fn fields(
         }
     }
     Ok(Control::Return(match &*term {
-        Term::Data(d, _) => Value::Data(*d, done),
+        Term::Data(d, _) => Value::Data(*d, done.into()),
         Term::Ctor(d, c, _) => native::ctor(g, *d, *c, done),
         _ => unreachable!(),
     }))
@@ -1543,6 +1823,19 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
         }
         Frame::AppFun(f, icit) => apply_step(f, value, icit),
         Frame::AppErased(icit) => apply_step(value, erased(), icit),
+        Frame::NativeArg { id, spine, next } => {
+            // Forcing an argument whose head is no number, `native::run`
+            // stops there and forces no more (`run_partial` may).
+            if native::number_head(g, &value) {
+                from_native(g, id, spine, next)?
+            } else {
+                run_native(g, id, spine)?
+            }
+        }
+        Frame::AddNat(k) => {
+            let (k2, base) = native::view_with(g, &value, force)?;
+            Control::Return(native::from_view(&*k + k2, base))
+        }
         Frame::Args {
             term,
             env,
@@ -1597,7 +1890,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Return(Value::Pi(
                 x.clone(),
                 *i,
-                Rc::new(value),
+                Shared::new(value),
                 Closure {
                     env,
                     body: b.clone(),
@@ -1632,7 +1925,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     Control::Eval(next, env)
                 }
                 _ => {
-                    let mut parts = done.into_iter().map(Rc::new);
+                    let mut parts = done.into_iter().map(Shared::new);
                     let (ty, a, b) = (
                         parts.next().expect("three parts"),
                         parts.next().expect("three parts"),
@@ -1662,7 +1955,10 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             match value {
                 Value::Refl => Control::Eval(base.clone(), env),
                 // Every closed proof of an equation is `refl` (`erase.rs`).
-                v if erase::is_erased(&v) => Control::Eval(base.clone(), env),
+                v if erase::is_erased(&v) => {
+                    g.machine.erasure.note_transport();
+                    Control::Eval(base.clone(), env)
+                }
                 Value::Neutral(head, spine) => {
                     let motive = motive.clone();
                     push(
@@ -1997,7 +2293,7 @@ fn branch(
                 (k, Some(base)) => match arms.last() {
                     Some(last) if *last.value < k => default.clone(),
                     _ if apart_of(&base).excludes(g, &k, arms) => default.clone(),
-                    _ => match reread_sum(g, &base)? {
+                    _ => match reread_sum(g, &base, &mut Unread::default())? {
                         Some(base) => {
                             let value = native::from_view(k, Some(base));
                             return branch(g, tree, env, stuck, value);
@@ -2011,7 +2307,21 @@ fn branch(
         _ => unreachable!("a case node"),
     };
     let (c, fields) = match value {
-        Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+        Value::Ctor(d2, c, fields) if d2 == *d => (c, fields.to_vec()),
+        // A constructor of another type: only an ill-typed term gets here,
+        // which the kernel never runs, but the elaborator may, before the
+        // kernel sees it: unification's first-order rule can solve an
+        // unknown whose type it doesn't know with a value of another type
+        // (`unify::first_order`, SW-919, SW-2961). It doesn't compute, as a
+        // neutral wouldn't; taking the constructor's index as this type's
+        // would pick a wrong branch, or one past the end. A program run with
+        // one is a compiler bug, and fails loudly.
+        Value::Ctor(..) => {
+            if g.machine.erasure.program_running() {
+                panic!("internal error: a case on one type was given another type's constructor");
+            }
+            return stuck_tree(g, stuck);
+        }
         other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
             match native::split_value(&other) {
                 Some(split) => split,
@@ -2040,7 +2350,8 @@ fn branch(
         // the shape the other side of a comparison computes to
         // (`Bag.has ?b x` against `Bag.has b x` meet at `?b.items` and
         // `b.items`, which the unifier compares by their records). Not while
-        // a program runs (its values are closed).
+        // a program runs (its values are closed; an open goal's data-typed
+        // assumption is closed but neutral, and a `case` on it stays stuck).
         //
         // The fields are projections of the scrutinee as it was (§6.4): a
         // glued call stays a call in them ([`project_call`]), so a goal
@@ -2052,7 +2363,7 @@ fn branch(
             let k = g.data(*d).ctors[0].fields.len();
             (0, eta_fields(g, *d, k, scrutinee, n)?)
         }
-        other => match reread_sum(g, &other)? {
+        other => match reread_sum(g, &other, &mut Unread::default())? {
             Some(value) => return branch(g, tree, env, stuck, value),
             None => return stuck_tree(g, stuck),
         },
@@ -2074,8 +2385,8 @@ fn branch(
 /// make of it once that is unfolded ([`crate::nat_add::reread`]): for a
 /// comparison or a `case` that reads the sum (rule E, G2), never for
 /// evaluation itself.
-fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    crate::nat_add::reread(g, value, force, |x| unfold_folded(g, x))
+fn reread_sum(g: &Ev, value: &Value, unread: &mut Unread) -> Result<Option<Value>> {
+    crate::nat_add::reread(g, value, force, |x| unfold_folded(g, x), unread)
 }
 
 /// Field `i` of `value`, a forced value of data type `d`, which has eta
@@ -2279,12 +2590,89 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     if let Some(op) = g.env.builtins().native(id)
         && op.arity() == spine.len()
     {
-        match native::run(g, id, op, &spine, force)? {
-            Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
-            Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
-            None => {}
+        return from_native(g, id, spine, 0);
+    }
+    case_tree(g, id, spine, glue)
+}
+
+/// Native definition `id` applied to all its arguments, `spine`, once its
+/// number arguments before `from` have been looked at: the next argument
+/// [`native::run`] would force that is a call not yet unfolded is forced
+/// by this machine first ([`Control::NativeArg`]); with none left, the
+/// native runs.
+///
+/// A native forces its arguments by calling [`force`], which starts another
+/// machine, on the Rust stack. A number computed by glued calls nested
+/// `n` deep (`Nat.iterate 2000 nextSecret seed` in 2024 day 22's proof)
+/// would recurse `n` deep there, through each call's natives; forced here,
+/// each nesting is frames on this machine's stack, and the native's own
+/// `force` finds every argument's kept unfolding at once.
+#[inline(always)]
+fn from_native(g: &Ev, id: DefId, spine: Spine, from: usize) -> Result<Control> {
+    let op = g.env.builtins().native(id).expect("a native");
+    match unforced_number_arg(g, op, &spine, from) {
+        Some(index) => Ok(Control::NativeArg(id, spine, index)),
+        None => run_native(g, id, spine),
+    }
+}
+
+/// Native definition `id` applied to all its arguments, `spine`: its
+/// native implementation, or else its case tree.
+fn run_native(g: &Ev, id: DefId, spine: Spine) -> Result<Control> {
+    let op = g.env.builtins().native(id).expect("a native");
+    match native::run(g, id, op, &spine, force)? {
+        Some(native::Outcome::Done(value)) => return Ok(Control::Return(value)),
+        Some(native::Outcome::Again(spine)) => return Ok(Control::Unfold(id, spine.into())),
+        Some(native::Outcome::Succs(k, spine)) => {
+            return Ok(Control::UnfoldAfterSuccs(Rc::new(k), id, spine.into()));
+        }
+        None => {}
+    }
+    // A native is never glued ([`glues`]), so this is the same as `glue` on.
+    case_tree(g, id, spine, false)
+}
+
+/// The index of the first number argument of native `op`, from `from` on,
+/// that [`native::run`] would force and that is a glued call without a kept
+/// unfolding, if there is one. It looks at the arguments as `native::run`
+/// does, in order, and stops where it stops (an argument whose head is no
+/// number, or a spine that isn't all explicit arguments), so the machine
+/// forces only what the native would have. A solved metavariable it leaves
+/// to the native: it keeps no unfolding to find.
+fn unforced_number_arg(g: &Ev, op: native::Native, spine: &Spine, from: usize) -> Option<usize> {
+    if !spine
+        .iter()
+        .all(|e| matches!(e, Elim::App(_, Icit::Explicit)))
+    {
+        return None;
+    }
+    for (index, elim) in spine.iter().enumerate().take(op.numbers()).skip(from) {
+        let Elim::App(arg, _) = elim else {
+            unreachable!("checked above")
+        };
+        let kept;
+        let head = match arg {
+            Value::Call(_, _, unfolding) => match unfolding.get(g) {
+                Some(value) => {
+                    kept = value;
+                    &kept
+                }
+                None => return Some(index),
+            },
+            other => other,
+        };
+        if needs_forcing(g, head) || !native::number_head(g, head) {
+            return None;
         }
     }
+    None
+}
+
+/// [`unfold_now`] once natives and floats are ruled out: the case tree of
+/// definition `id`, if it has all its arguments (kept as the call instead
+/// while gluing, if `glue`), or else it stays folded.
+#[inline(always)]
+fn case_tree(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
     let def = g.def(id);
     if let Some(body) = &def.body
         && def.arity == spine.len()
@@ -2307,6 +2695,33 @@ fn unfold_now(g: &Ev, id: DefId, spine: Spine, glue: bool) -> Result<Control> {
         }
     }
     Ok(Control::Return(Value::Neutral(Head::Def(id), spine)))
+}
+
+/// Forcing argument `index` of native `id` applied to `spine`
+/// ([`Control::NativeArg`]), with the native to run once it is forced.
+#[cold]
+#[inline(never)]
+fn native_arg(
+    g: &Ev,
+    stack: &mut Vec<Frame>,
+    id: DefId,
+    spine: Spine,
+    index: usize,
+) -> Result<Control> {
+    let Some(Elim::App(arg, _)) = spine.get(index) else {
+        unreachable!("an explicit argument, by unforced_number_arg")
+    };
+    let arg = arg.clone();
+    push(
+        g,
+        stack,
+        Frame::NativeArg {
+            id,
+            spine,
+            next: index + 1,
+        },
+    )?;
+    Ok(Control::Force(arg))
 }
 
 /// Whether definition `id` stays folded when it has all its arguments, except
@@ -2332,8 +2747,9 @@ pub fn hidden(g: &Ev, id: DefId) -> bool {
 }
 
 /// Whether a call of definition `id` can't unfold here but may elsewhere
-/// or later: it's [`hidden`], or it has no body yet (a member of the group
-/// being checked, or an axiom). Its arguments are compared in shortcut
+/// or later: it's [`hidden`], or it has no body (a member of the group
+/// being checked, an axiom, or an open goal's assumption, whose `?` may
+/// later be filled). Its arguments are compared in shortcut
 /// mode, so that the call's unfolding, wherever it happens, can only add
 /// equalities (docs/proposals/proof-irrelevance.md §7.10, K4).
 pub fn sealed(g: &Ev, id: DefId) -> bool {
@@ -2567,11 +2983,12 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
     }
 }
 
-/// Whether, while erasing, definition `id` (with a body) applied to all its
-/// parameters is erased rather than run (`erase.rs`).
+/// Whether, while erasing, definition `id` (with a body, or an open goal's
+/// assumption) applied to all its parameters is erased rather than run
+/// (`erase.rs`).
 fn erases_result(g: &Ev, id: DefId) -> bool {
     g.machine.erasure.active()
-        && g.def(id).body.is_some()
+        && (g.def(id).body.is_some() || g.def(id).assumption.is_some())
         && erase::of_def(g, id).is_some_and(|e| e.result)
 }
 
@@ -2599,14 +3016,14 @@ fn erased_arg(g: &Ev, f: &Term) -> bool {
 /// Solved metavariables are replaced by their solutions, and a glued call
 /// ([`Value::Call`]) by its unfolding: the normal form.
 pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, Readback::Unfolded, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Unfolded, None, None)?.expect("no cap"))
 }
 
 /// [`quote`], or `None` if the term would have more than `cap` nodes: for
 /// callers that only inspect the normal form and can do without it when it's
 /// large.
 pub fn quote_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
-    quote_as(g, level, value, Readback::Unfolded, Some(cap))
+    quote_as(g, level, value, Readback::Unfolded, Some(cap), None)
 }
 
 /// [`quote`], but a glued call ([`Value::Call`]) is written as the call,
@@ -2618,7 +3035,22 @@ pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     if g.machine.glue.get() && force_unglued_first() {
         force_unglued(g, level, value);
     }
-    Ok(quote_as(g, level, value, Readback::Folded, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Folded, None, None)?.expect("no cap"))
+}
+
+/// [`quote_folded`], but every glued call is written as the call, one that
+/// steps at once too: nothing is computed but what applying a solution to
+/// its arguments takes. For substituting solutions into a term
+/// (`countDown 100000 []` stays that, where [`quote_folded`] computes the
+/// list) and stating a goal as written.
+pub fn quote_as_written(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    Ok(quote_as(g, level, value, Readback::AsWritten, None, None)?.expect("no cap"))
+}
+
+/// [`quote_as_written`] for display: a sum stuck on an unknown is written
+/// `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
+pub fn quote_as_written_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    Ok(quote_as(g, level, value, Readback::AsWrittenShown, None, None)?.expect("no cap"))
 }
 
 /// Instrumentation (SW-1782): with `STITCHWORT_DEBUG_FORCE_UNGLUED` set,
@@ -2637,6 +3069,7 @@ fn force_unglued(g: &Ev, level: usize, value: &Value) {
         stack: usize::MAX,
         size: 1_000_000,
         frames: 100_000,
+        native_frames: 100_000,
     });
     let glue = g.machine.glue.replace(false);
     let _ = quote(g, level, value);
@@ -2651,13 +3084,66 @@ fn force_unglued(g: &Ev, level: usize, value: &Value) {
 /// A sum stuck on an unknown is written `x + k`
 /// ([`native::nat_add_shown`], SW-895).
 pub fn quote_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, Readback::Shown, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Shown, None, None)?.expect("no cap"))
+}
+
+/// [`quote_shown`], or `None` if reading it back visits more than `cap`
+/// nodes: for a note in a message (SW-2600).
+pub fn quote_shown_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+    quote_as(g, level, value, Readback::Shown, Some(cap), None)
 }
 
 /// [`quote`] for display: the normal form, but a sum stuck on an unknown is
 /// written `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
 pub fn quote_unfolded_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, Readback::UnfoldedShown, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::UnfoldedShown, None, None)?.expect("no cap"))
+}
+
+/// [`quote_unfolded_shown`], or `None` if reading it back visits more than
+/// `cap` nodes: for a message that cuts the text short anyway, so it needn't
+/// unfold a value up to the budget's size limit (SW-2569).
+pub fn quote_unfolded_shown_at_most(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+    cap: u64,
+) -> Result<Option<Term>> {
+    quote_as(g, level, value, Readback::UnfoldedShown, Some(cap), None)
+}
+
+/// [`quote_unfolded_shown_at_most`], but a part more than `max_depth` levels
+/// below the root is not read back: it is [`ELIDED`], which prints as `…`.
+/// A message shows only the top of a value, so this never unfolds the rest
+/// (SW-2598). Still `None` past `cap` nodes, for a value that is wide
+/// rather than deep.
+pub fn quote_unfolded_shown_to_depth(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+    cap: u64,
+    max_depth: usize,
+) -> Result<Option<Term>> {
+    quote_as(
+        g,
+        level,
+        value,
+        Readback::UnfoldedShown,
+        Some(cap),
+        Some(max_depth),
+    )
+}
+
+/// The metavariable number of the placeholder for a part a depth-limited
+/// readback left out ([`quote_unfolded_shown_to_depth`]): never a real one.
+pub const ELIDED: usize = usize::MAX;
+
+/// Whether reading `value` back takes no work: a leaf, shown whatever the depth.
+fn is_atomic_value(value: &Value) -> bool {
+    match value {
+        Value::Sort(_) | Value::Nat(_) | Value::Refl | Value::Chars(_) => true,
+        Value::Neutral(_, spine) => spine.is_empty(),
+        _ => false,
+    }
 }
 
 /// How [`quote_as`] reads back glued calls.
@@ -2669,8 +3155,12 @@ enum Readback {
     Folded,
     /// As calls, one that steps at once by that step ([`quote_shown`]).
     Shown,
+    /// As calls, every one ([`quote_as_written`]).
+    AsWritten,
     /// As [`Readback::Unfolded`], for display ([`quote_unfolded_shown`]).
     UnfoldedShown,
+    /// As [`Readback::AsWritten`], for display ([`quote_as_written_shown`]).
+    AsWrittenShown,
 }
 
 impl Readback {
@@ -2682,7 +3172,16 @@ impl Readback {
     /// Whether the term is only printed, so a stuck sum `k + x` is written
     /// `x + k` ([`native::nat_add_shown`]).
     fn for_display(self) -> bool {
-        matches!(self, Readback::Shown | Readback::UnfoldedShown)
+        matches!(
+            self,
+            Readback::Shown | Readback::UnfoldedShown | Readback::AsWrittenShown
+        )
+    }
+
+    /// Whether every glued call is read back as the call, even one that
+    /// steps at once.
+    fn keeps_every_call(self) -> bool {
+        matches!(self, Readback::AsWritten | Readback::AsWrittenShown)
     }
 }
 
@@ -2694,11 +3193,12 @@ fn quote_as(
     value: &Value,
     mode: Readback,
     cap: Option<u64>,
+    max_depth: Option<usize>,
 ) -> Result<Option<Term>> {
     // A work list rather than recursion: `tasks` are values still to visit
     // and terms still to assemble, and `done` holds finished terms, which
     // each assembly takes its parts from.
-    let mut tasks = vec![QuoteTask::Visit(level, value.clone())];
+    let mut tasks = vec![QuoteTask::Visit(level, value.clone(), 0)];
     let mut done: Vec<Term> = Vec::new();
     let mut size = 0u64;
     // If it gets too large: which definition's call the whole value was.
@@ -2711,17 +3211,24 @@ fn quote_as(
     let rc = |t: Term| Rc::new(t);
     while let Some(task) = tasks.pop() {
         match task {
-            QuoteTask::Visit(level, value) => {
+            QuoteTask::Visit(level, value, depth) => {
                 g.machine.budget.step()?;
+                if max_depth.is_some_and(|m| depth > m) && !is_atomic_value(&value) {
+                    done.push(Term::Meta(ELIDED));
+                    continue;
+                }
                 size += 1;
                 if cap.is_some_and(|cap| size > cap) {
+                    g.machine.budget.note_readback(size);
                     return Ok(None);
                 }
                 if size > limit {
+                    g.machine.budget.note_readback(size);
                     g.machine.budget.set_too_large(root_def);
-                    return Err(ResourceError::Size);
+                    g.machine.budget.note_ran_out();
+                    return Err(ResourceError::Size(limit));
                 }
-                visit(g, level, value, mode, &mut tasks, &mut done)?;
+                visit(g, level, value, depth, mode, &mut tasks, &mut done)?;
             }
             QuoteTask::Pi(x, i) => {
                 let (a, b) = pop2(&mut done);
@@ -2782,13 +3289,15 @@ fn quote_as(
             }
         }
     }
+    g.machine.budget.note_readback(size);
     Ok(Some(done.pop().expect("one term")))
 }
 
 /// Quotation still to do.
 enum QuoteTask {
-    /// Quote a value, with this many variables in scope.
-    Visit(usize, Value),
+    /// Quote a value, with this many variables in scope, `depth` levels below
+    /// the root.
+    Visit(usize, Value, usize),
     /// Assemble from the finished terms on top of the stack:
     Pi(Name, Icit),
     Lam(Name, Icit),
@@ -2853,6 +3362,7 @@ fn visit(
     g: &Ev,
     level: usize,
     value: Value,
+    depth: usize,
     mode: Readback,
     tasks: &mut Vec<QuoteTask>,
     done: &mut Vec<Term>,
@@ -2860,12 +3370,14 @@ fn visit(
     // Parts are pushed last-first, so they're finished first-first.
     let visit_all = |tasks: &mut Vec<QuoteTask>, values: &[Value]| {
         for v in values.iter().rev() {
-            tasks.push(QuoteTask::Visit(level, v.clone()));
+            tasks.push(QuoteTask::Visit(level, v.clone(), depth + 1));
         }
     };
     let value = if !mode.unfolds() {
         match force_solved(g, value)? {
-            Value::Call(id, spine, _) if !matches_at_once(g, id, &spine)? => {
+            Value::Call(id, spine, _)
+                if mode.keeps_every_call() || !matches_at_once(g, id, &spine)? =>
+            {
                 let shapes = spine
                     .iter()
                     .map(|elim| match elim {
@@ -2877,7 +3389,7 @@ fn visit(
                 tasks.push(QuoteTask::Spine(SpineHead::Term(Term::Def(id)), shapes));
                 for elim in spine.iter().rev() {
                     if let Elim::App(v, _) = elim {
-                        tasks.push(QuoteTask::Visit(level, v.clone()));
+                        tasks.push(QuoteTask::Visit(level, v.clone(), depth + 1));
                     }
                 }
                 return Ok(());
@@ -2885,7 +3397,7 @@ fn visit(
             // Shown, a call that steps at once is read back as that one step,
             // in which the calls it returns stay folded.
             Value::Call(id, spine, _) if mode == Readback::Shown => {
-                tasks.push(QuoteTask::Visit(level, unfold_once(g, id, spine)?));
+                tasks.push(QuoteTask::Visit(level, unfold_once(g, id, spine)?, depth));
                 return Ok(());
             }
             other => force(g, other)?,
@@ -2907,6 +3419,7 @@ fn visit(
             tasks.push(QuoteTask::Visit(
                 level,
                 Value::Call(*id, call, Rc::default()),
+                depth,
             ));
             return Ok(());
         }
@@ -2923,12 +3436,20 @@ fn visit(
         Value::Refl => done.push(Term::Refl),
         Value::Pi(x, i, a, b) => {
             tasks.push(QuoteTask::Pi(x, i));
-            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?));
-            tasks.push(QuoteTask::Visit(level, (*a).clone()));
+            tasks.push(QuoteTask::Visit(
+                level + 1,
+                b.apply(g, Value::var(level))?,
+                depth + 1,
+            ));
+            tasks.push(QuoteTask::Visit(level, (*a).clone(), depth + 1));
         }
         Value::Lam(x, i, b) => {
             tasks.push(QuoteTask::Lam(x, i));
-            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?));
+            tasks.push(QuoteTask::Visit(
+                level + 1,
+                b.apply(g, Value::var(level))?,
+                depth + 1,
+            ));
         }
         Value::Data(d, args) => {
             tasks.push(QuoteTask::Data(d, args.len()));
@@ -2939,7 +3460,15 @@ fn visit(
         Value::Ctor(d, 1, args)
             if mode.unfolds() && Some(d) == g.env.builtins().nat && has_call_base(g, &args) =>
         {
-            visit(g, level, succ_unglued(g, &args[0])?, mode, tasks, done)?;
+            visit(
+                g,
+                level,
+                succ_unglued(g, &args[0])?,
+                depth,
+                mode,
+                tasks,
+                done,
+            )?;
         }
         Value::Ctor(d, c, args) => {
             tasks.push(QuoteTask::Ctor(d, c, args.len()));
@@ -2947,11 +3476,20 @@ fn visit(
         }
         Value::NatAdd(k, base) => {
             tasks.push(QuoteTask::NatAdd(k));
-            tasks.push(QuoteTask::Visit(level, (*base).clone()));
+            tasks.push(QuoteTask::Visit(level, (*base).clone(), depth + 1));
         }
         Value::Eq(ty, a, b) => {
             tasks.push(QuoteTask::Eq);
             visit_all(tasks, &[(*ty).clone(), (*a).clone(), (*b).clone()]);
+        }
+        // The erased placeholder ([`erase::erased`]), applied or not, stands
+        // for a proof or a type no binder has: it reads back as the elision
+        // `…`, which no checked term contains, rather than as a variable
+        // outside the context (whose index would wrap). Values computed with
+        // erasure on hold it in their erased fields, and an error message's
+        // counterexample puts it for a hypothesis's proof.
+        Value::Neutral(Head::Var(l, _), _) if l == erase::ERASED => {
+            done.push(Term::Meta(ELIDED));
         }
         Value::Neutral(head, spine) => {
             let head = match head {
@@ -3086,6 +3624,12 @@ pub enum Mode {
 
 /// [`conv`] in `mode`, inside an outermost one whose record of glued calls
 /// compared so far is `memo`.
+///
+/// This is the frame that recurs once per level of nesting where `conv`
+/// recurses (in [`recurse`]), so it holds only the work list and the pair
+/// in hand: comparing a pair's outer layer ([`conv_step`]) and comparing
+/// codomains have frames of their own, which are gone before the recursion
+/// starts.
 fn conv_with(
     g: &Ev,
     level: usize,
@@ -3095,27 +3639,55 @@ fn conv_with(
     mode: Mode,
 ) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
-    while let Some(task) = work.pop() {
+    while let Some(mut task) = work.pop() {
         g.machine.budget.step()?;
         let same = match task {
-            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo, mode)?,
-            // Function types' codomains, compared once their domains are.
-            // The same function gives the same codomain (see `same_closure`).
-            ConvTask::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
-            ConvTask::Codomains(level, b1, b2) => {
-                let fresh = Value::var(level);
-                work.push(ConvTask::Values(
-                    level + 1,
-                    b1.apply(g, fresh.clone())?,
-                    b2.apply(g, fresh)?,
-                ));
-                true
+            // The pair is compared where it lies in `task`, not moved out.
+            ConvTask::Values(level, ref mut a, ref mut b) => {
+                // `conv_step` stops where the comparison recurses, and is
+                // called again, from where it stopped, if the recursion
+                // doesn't settle it.
+                let mut from = Stage::Calls;
+                loop {
+                    let kind = match conv_step(g, level, a, b, from, &mut work, memo, mode)? {
+                        Step::Answer(same) => break same,
+                        Step::Recurse(kind) => kind,
+                    };
+                    match recurse(g, level, a, b, kind, &mut work, memo, mode)? {
+                        Resume::Answer(same) => break same,
+                        Resume::From(stage) => from = stage,
+                    }
+                }
             }
+            ConvTask::Codomains(level, b1, b2) => codomains(g, level, b1, b2, &mut work)?,
         };
         if !same {
             return Ok(false);
         }
     }
+    Ok(true)
+}
+
+/// Function types' codomains, compared once their domains are: pushes the
+/// two applied to a fresh variable, unless they are the same function,
+/// which gives the same codomain (see `same_closure`).
+#[inline(never)]
+fn codomains(
+    g: &Ev,
+    level: usize,
+    b1: Closure,
+    b2: Closure,
+    work: &mut Vec<ConvTask>,
+) -> Result<bool> {
+    if same_closure(g, &b1, &b2)? {
+        return Ok(true);
+    }
+    let fresh = Value::var(level);
+    work.push(ConvTask::Values(
+        level + 1,
+        b1.apply(g, fresh.clone())?,
+        b2.apply(g, fresh)?,
+    ));
     Ok(true)
 }
 
@@ -3156,9 +3728,13 @@ enum ConvTask {
 /// What one outermost [`conv`] has found about pairs of glued calls of the
 /// same definition, by mode, level and the addresses of their unfolding
 /// cells. The mode is part of the key: a pair different in shortcut mode
-/// can be equal in the normal one.
+/// can be equal in the normal one. Also the stuck sums found to have
+/// nothing for rule E to read ([`crate::nat_add::Unread`]).
 #[derive(Default)]
-struct CallMemo(HashMap<CallKey, (Differ, Value, Value)>);
+struct CallMemo {
+    calls: HashMap<CallKey, (Differ, Value, Value)>,
+    sums: crate::nat_add::Unread,
+}
 
 /// A pair of calls in a [`CallMemo`]: mode, level and the two unfolding
 /// cells' addresses.
@@ -3188,12 +3764,12 @@ impl CallMemo {
 
     fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Differ> {
         let key = Self::key(mode, level, a, b)?;
-        self.0.get(&key).map(|entry| entry.0)
+        self.calls.get(&key).map(|entry| entry.0)
     }
 
     fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, differ: Differ) {
         if let Some(key) = Self::key(mode, level, a, b) {
-            self.0.insert(key, (differ, a.clone(), b.clone()));
+            self.calls.insert(key, (differ, a.clone(), b.clone()));
         }
     }
 }
@@ -3231,32 +3807,86 @@ fn same_spines(
     Ok(true)
 }
 
-/// Compares the outermost layer of `a` and `b`: `false` if they differ
-/// there; otherwise pushes the pairs of parts still to compare.
+/// Where [`conv_step`] starts comparing a pair, or takes it up again after
+/// [`recurse`] has compared parts of it without settling it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Stage {
+    /// From the start: two glued calls of one definition.
+    Calls,
+    /// Dictionaries left folded by name, compared by their arguments.
+    Folded,
+    /// The same, unfolded: the arguments differ, or the heads do.
+    Unfold,
+}
+
+/// Where [`conv_step`] stopped: the answer for the pair, or the point where
+/// comparing it recurses.
+enum Step {
+    Answer(bool),
+    Recurse(Recursion),
+}
+
+/// Moves a value out of a pair [`conv_step`] is comparing, which isn't
+/// looked at again.
+fn take(value: &mut Value) -> Value {
+    std::mem::replace(value, Value::Refl)
+}
+
+/// The comparisons of a pair that call [`conv_with`] for parts of it, each
+/// done by [`recurse`] once [`conv_step`] has found it applies.
+#[derive(Clone, Copy)]
+enum Recursion {
+    /// Two glued calls of one definition, by their arguments.
+    Calls,
+    /// Two folded dictionaries of one definition, by their arguments.
+    Folded,
+    /// Two hidden opaque calls of one definition, by their arguments.
+    Sealed,
+    /// Two calls of one definition stuck on a `case`.
+    StuckSame,
+    /// Two partially applied calls of one definition: arguments, or eta.
+    Underapplied,
+    /// Calls of two different definitions, each stuck on a `case`.
+    StuckDifferent,
+}
+
+/// What [`recurse`] found: the answer for the pair, or the stage of
+/// [`conv_step`] to go on from.
+enum Resume {
+    Answer(bool),
+    From(Stage),
+}
+
+/// Compares the outermost layer of `a` and `b`, starting at stage `from`:
+/// `false` if they differ there; otherwise pushes the pairs of parts still
+/// to compare. Where comparing them would call [`conv_with`] for parts of
+/// them, it stops instead and hands the pair back, for [`recurse`] to do
+/// that from a smaller frame: the stack a level of nesting takes is then
+/// `conv_with`'s and `recurse`'s, not this function's, which has room for
+/// every rule. The rules are tried in the same order either way.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
 fn conv_step(
     g: &Ev,
     level: usize,
-    a: Value,
-    b: Value,
+    a: &mut Value,
+    b: &mut Value,
+    mut from: Stage,
     work: &mut Vec<ConvTask>,
     memo: &mut CallMemo,
     mode: Mode,
-) -> Result<bool> {
+) -> Result<Step> {
     // Two glued calls of the same definition: their arguments first, then
     // (below) their unfoldings. See `CallMemo`.
-    if let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (&a, &b)
+    if from == Stage::Calls
+        && let (Value::Call(i1, ..), Value::Call(i2, ..)) = (&*a, &*b)
         && i1 == i2
         && !shortcuts_disabled()
     {
-        match memo.get(mode, level, &a, &b) {
-            Some(Differ::Values) => return Ok(false),
+        match memo.get(mode, level, a, b) {
+            Some(Differ::Values) => return Ok(Step::Answer(false)),
             Some(Differ::Arguments) => {}
-            None => {
-                if same_spines(g, level, *i1, s1, s2, memo)? {
-                    return Ok(true);
-                }
-                memo.record(mode, level, &a, &b, Differ::Arguments);
-            }
+            None => return Ok(Step::Recurse(Recursion::Calls)),
         }
     }
     // Dictionaries left folded by name: the same one applied to equal
@@ -3265,30 +3895,36 @@ fn conv_step(
     // nested dictionaries, which is bounded by the program.) Before numbers
     // and text: a folded definition with `decreasing` can be a number
     // (`f n` against `1 + …`), and is compared as one once unfolded.
-    if is_folded(g, &a) || is_folded(g, &b) {
-        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
+    if from != Stage::Unfold && (is_folded(g, a) || is_folded(g, b)) {
+        if let (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _)) = (&*a, &*b)
             && i1 == i2
-            && same_spines(g, level, *i1, s1, s2, memo)?
         {
-            return Ok(true);
+            return Ok(Step::Recurse(Recursion::Folded));
         }
-        let a2 = unfold_folded(g, &a)?;
-        let b2 = unfold_folded(g, &b)?;
+        from = Stage::Unfold;
+    }
+    if from == Stage::Unfold {
+        let a2 = unfold_folded(g, a)?;
+        let b2 = unfold_folded(g, b)?;
         if a2.is_some() || b2.is_some() {
-            work.push(ConvTask::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
-            return Ok(true);
+            work.push(ConvTask::Values(
+                level,
+                a2.unwrap_or(take(a)),
+                b2.unwrap_or(take(b)),
+            ));
+            return Ok(Step::Answer(true));
         }
     }
     // A sum stuck on its first argument, with a folded call in its second:
     // compared as what R3 and R4 make of it once that is unfolded (G2).
-    let reread = |v: &Value| reread_sum(g, v);
-    if let Some(a2) = reread(&a)? {
-        work.push(ConvTask::Values(level, a2, b));
-        return Ok(true);
+    let mut reread = |v: &Value| reread_sum(g, v, &mut memo.sums);
+    if let Some(a2) = reread(a)? {
+        work.push(ConvTask::Values(level, a2, take(b)));
+        return Ok(Step::Answer(true));
     }
-    if let Some(b2) = reread(&b)? {
-        work.push(ConvTask::Values(level, a, b2));
-        return Ok(true);
+    if let Some(b2) = reread(b)? {
+        work.push(ConvTask::Values(level, take(a), b2));
+        return Ok(Step::Answer(true));
     }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`. Glued calls in them are
@@ -3297,7 +3933,7 @@ fn conv_step(
     // a folded call, which is unfolded and compared again (`Succ (f 0)`
     // against `2`, SW-2157), as the rule above does at the top, or a sum
     // that R3 and R4 read further (G2).
-    if native::nat_like(g, &a) || native::nat_like(g, &b) {
+    if native::nat_like(g, a) || native::nat_like(g, b) {
         let mut unfolded = None;
         let same = |x: &Value, y: &Value| {
             work.push(ConvTask::Values(level, x.clone(), y.clone()));
@@ -3317,29 +3953,31 @@ fn conv_step(
             })
         };
         let equal = if shortcuts_disabled() {
-            native::compare(g, &a, &b, same, assign)
+            native::compare(g, a, b, same, assign)
         } else {
-            native::compare_lazily(g, &a, &b, same, assign)
+            native::compare_lazily(g, a, b, same, assign)
         }?;
         if let Some((x, rest)) = unfolded {
             work.push(ConvTask::Values(level, x, rest));
         }
-        return Ok(equal);
+        return Ok(Step::Answer(equal));
     }
     // Compact lists: two ranges are equal when their characters are (their
     // expansions are then the same), and a range against anything else is
     // expanded one cell, which is then compared as a constructor. So a
     // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal: `h` and `rfl`
     // are in `MkChar`'s proof field.
-    match (&a, &b) {
-        (Value::Chars(x), Value::Chars(y)) => return Ok(x.as_slice() == y.as_slice()),
+    match (&*a, &*b) {
+        (Value::Chars(x), Value::Chars(y)) => {
+            return Ok(Step::Answer(x.as_slice() == y.as_slice()));
+        }
         (Value::Chars(_), _) => {
-            work.push(ConvTask::Values(level, expand_step(g, a), b));
-            return Ok(true);
+            work.push(ConvTask::Values(level, expand_step(g, take(a)), take(b)));
+            return Ok(Step::Answer(true));
         }
         (_, Value::Chars(_)) => {
-            work.push(ConvTask::Values(level, a, expand_step(g, b)));
-            return Ok(true);
+            work.push(ConvTask::Values(level, take(a), expand_step(g, take(b))));
+            return Ok(Step::Answer(true));
         }
         _ => {}
     }
@@ -3350,11 +3988,11 @@ fn conv_step(
             work.push(ConvTask::Values(level, x.clone(), y.clone()));
         }
     };
-    Ok(match (&a, &b) {
+    let same = match (&*a, &*b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
         (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
             if i1 != i2 {
-                return Ok(false);
+                return Ok(Step::Answer(false));
             }
             work.push(ConvTask::Codomains(level, b1.clone(), b2.clone()));
             work.push(ConvTask::Values(level, (**a1).clone(), (**a2).clone()));
@@ -3362,7 +4000,7 @@ fn conv_step(
         }
         // The same function, recognised without running it: comparing its
         // body applied to a fresh variable would find the same value twice.
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(b1, b2) => true,
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(g, b1, b2)? => true,
         (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
             work.push(ConvTask::Values(
                 level + 1,
@@ -3387,7 +4025,7 @@ fn conv_step(
         // the skipped parts prove the same proposition.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             if d1 != d2 || a1.len() != a2.len() {
-                return Ok(false);
+                return Ok(Step::Answer(false));
             }
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
                 if !proof_param(g, *d1, k) {
@@ -3398,7 +4036,7 @@ fn conv_step(
         }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             if d1 != d2 || c1 != c2 || a1.len() != a2.len() {
-                return Ok(false);
+                return Ok(Step::Answer(false));
             }
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
                 if mode == Mode::Shortcut || !proof_field(g, *d1, *c1, k) {
@@ -3417,91 +4055,42 @@ fn conv_step(
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
-            if let Some(f) = def_head(h1)
-                && sealed(g, f)
-            {
+            let kind = if def_head(h1).is_some_and(|f| sealed(g, f)) {
                 // A hidden opaque call never unfolds here, but does where
                 // `f` is transparent, and a pending group member's does once
                 // the group is admitted: compared in shortcut mode, so that
                 // the body being seen only ever adds equalities.
-                same_spines(g, level, f, s1, s2, memo)?
-            } else if opens_by_tree(g, &a) && opens_by_tree(g, &b) {
-                // Two calls of one definition stuck on a `case`: equal
-                // arguments make them equal, but different ones don't make
-                // them different (`ignoresFirst 1 x` against `ignoresFirst 2
-                // x`), so then they're compared by their case trees, as two
-                // different definitions are below; otherwise conversion
-                // isn't transitive (G6, docs/core.md). The arguments are
-                // compared here, each by a `conv` of its own, which recurses
-                // as the tree comparison does.
-                let arguments = |same: CompareAt<'_>| -> Result<bool> {
-                    let Some(pairs) = spine_pairs(g, level, def_head(h1), s1, s2) else {
-                        return Ok(false);
-                    };
-                    for pair in pairs {
-                        let ConvTask::Values(l, x, y) = pair else {
-                            unreachable!()
-                        };
-                        if !same(l, &x, &y)? {
-                            return Ok(false);
-                        }
-                    }
-                    Ok(true)
-                };
-                same_stuck_trees(
-                    g,
-                    level,
-                    &a,
-                    &b,
-                    Relation::Conv,
-                    mode,
-                    true,
-                    arguments,
-                    &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
-                )?
-            } else if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
+                Recursion::Sealed
+            } else if opens_by_tree(g, a) && opens_by_tree(g, b) {
+                // Two calls of one definition stuck on a `case`: see
+                // `recurse`.
+                Recursion::StuckSame
+            } else if underapplied(g, a).is_none() && underapplied(g, b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
-                match spine_pairs(g, level, def_head(h1), s1, s2) {
-                    Some(pairs) => {
-                        work.extend(pairs.into_iter().rev());
-                        true
-                    }
-                    None => false,
-                }
+                return Ok(Step::Answer(
+                    match spine_pairs(g, level, def_head(h1), s1, s2) {
+                        Some(pairs) => {
+                            work.extend(pairs.into_iter().rev());
+                            true
+                        }
+                        None => false,
+                    },
+                ));
+            } else if def_head(h1).is_some() {
+                // A function: equal if the spines match, or else by eta.
+                Recursion::Underapplied
             } else {
-                // A function: equal if the spines match, or else by eta. This
-                // recurses once per level of nested partially applied
-                // definitions, which is bounded by the program, not by the
-                // size of the data.
-                let same = match def_head(h1) {
-                    Some(f) => same_spines(g, level, f, s1, s2, memo)?,
-                    None => false,
-                };
-                same || push_eta(g, level, &a, &b, work)?
-            }
+                return Ok(Step::Answer(push_eta(g, level, a, b, work)?));
+            };
+            return Ok(Step::Recurse(kind));
         }
         // Two different definitions, each stuck on a `case`: compared by
-        // their case trees (`same_stuck_trees`), as are two calls of one
-        // definition whose arguments differ (above). Like a partially applied
-        // definition above, this recurses: once per level of nested calls of
-        // such definitions, in their leaves (bounded by the program, as they
-        // aren't recursive) and in the scrutinees and arguments compared
-        // (bounded by how deeply the data nests stuck calls). Deep nesting
-        // ends in the stack guard (`budget.rs`, E-RESOURCE), not a crash.
+        // their case trees (`same_stuck_trees`, in `recurse`), as are two
+        // calls of one definition whose arguments differ (above).
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
-            if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
+            if i1 != i2 && opens_by_tree(g, a) && opens_by_tree(g, b) =>
         {
-            same_stuck_trees(
-                g,
-                level,
-                &a,
-                &b,
-                Relation::Conv,
-                mode,
-                true,
-                |_| Ok(false),
-                &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
-            )?
+            return Ok(Step::Recurse(Recursion::StuckDifferent));
         }
         // Calls are compared by their unfoldings: two calls of the same
         // definition whose arguments differ (tried at the top), or a call
@@ -3509,7 +4098,11 @@ fn conv_step(
         // (numbers, compact lists, dictionaries, eta) look inside it
         // themselves.
         (Value::Call(..), _) | (_, Value::Call(..)) => {
-            work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
+            work.push(ConvTask::Values(
+                level,
+                force(g, take(a))?,
+                force(g, take(b))?,
+            ));
             true
         }
         // Record eta, rule 1 (docs/proposals/record-eta.md §6.3): a
@@ -3541,8 +4134,145 @@ fn conv_step(
             }
             true
         }
-        _ => push_eta(g, level, &a, &b, work)?,
-    })
+        _ => push_eta(g, level, a, b, work)?,
+    };
+    Ok(Step::Answer(same))
+}
+
+/// The comparisons [`conv_step`] stops at, which call [`conv_with`] for
+/// parts of `a` and `b`: this is where `conv` recurses on the Rust stack, so
+/// it is kept out of `conv_step`'s frame, and the rarer kinds are in frames
+/// of their own.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+fn recurse(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    kind: Recursion,
+    work: &mut Vec<ConvTask>,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<Resume> {
+    match kind {
+        Recursion::Calls => {
+            let (Value::Call(f, s1, _), Value::Call(_, s2, _)) = (a, b) else {
+                unreachable!("two calls, from conv_step")
+            };
+            if same_spines(g, level, *f, s1, s2, memo)? {
+                return Ok(Resume::Answer(true));
+            }
+            memo.record(mode, level, a, b, Differ::Arguments);
+            Ok(Resume::From(Stage::Folded))
+        }
+        Recursion::Folded => {
+            let (f, s1, s2) = def_spines(a, b);
+            Ok(if same_spines(g, level, f, s1, s2, memo)? {
+                Resume::Answer(true)
+            } else {
+                Resume::From(Stage::Unfold)
+            })
+        }
+        Recursion::Sealed => {
+            let (f, s1, s2) = def_spines(a, b);
+            Ok(Resume::Answer(same_spines(g, level, f, s1, s2, memo)?))
+        }
+        Recursion::Underapplied => {
+            // This recurses once per level of nested partially applied
+            // definitions, which is bounded by the program, not by the size
+            // of the data.
+            let (f, s1, s2) = def_spines(a, b);
+            let same = same_spines(g, level, f, s1, s2, memo)?;
+            Ok(Resume::Answer(same || push_eta(g, level, a, b, work)?))
+        }
+        Recursion::StuckSame => stuck_same(g, level, a, b, memo, mode).map(Resume::Answer),
+        Recursion::StuckDifferent => {
+            stuck_different(g, level, a, b, memo, mode).map(Resume::Answer)
+        }
+    }
+}
+
+/// The definition at the head of two neutral values, and their spines.
+fn def_spines<'v>(a: &'v Value, b: &'v Value) -> (DefId, &'v [Elim], &'v [Elim]) {
+    match (a, b) {
+        (Value::Neutral(Head::Def(f), s1), Value::Neutral(_, s2)) => (*f, s1, s2),
+        _ => unreachable!("two calls of a definition, from conv_step"),
+    }
+}
+
+/// Two calls of one definition stuck on a `case`: equal arguments make them
+/// equal, but different ones don't make them different (`ignoresFirst 1 x`
+/// against `ignoresFirst 2 x`), so then they're compared by their case
+/// trees, as two different definitions are ([`stuck_different`]);
+/// otherwise conversion isn't transitive (G6, docs/core.md). The arguments
+/// are compared here, each by a `conv` of its own, which recurses as the
+/// tree comparison does.
+#[inline(never)]
+fn stuck_same(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<bool> {
+    let (f, s1, s2) = def_spines(a, b);
+    let arguments = |same: CompareAt<'_>| -> Result<bool> {
+        let Some(pairs) = spine_pairs(g, level, Some(f), s1, s2) else {
+            return Ok(false);
+        };
+        for pair in pairs {
+            let ConvTask::Values(l, x, y) = pair else {
+                unreachable!()
+            };
+            if !same(l, &x, &y)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    };
+    same_stuck_trees(
+        g,
+        level,
+        a,
+        b,
+        Relation::Conv,
+        mode,
+        true,
+        arguments,
+        &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+    )
+}
+
+/// Two different definitions, each stuck on a `case`: compared by their
+/// case trees (`same_stuck_trees`), as are two calls of one definition
+/// whose arguments differ ([`stuck_same`]). Like a partially applied
+/// definition, this recurses: once per level of nested calls of such
+/// definitions, in their leaves (bounded by the program, as they aren't
+/// recursive) and in the scrutinees and arguments compared (bounded by how
+/// deeply the data nests stuck calls). Deep nesting ends in the stack guard
+/// (`budget.rs`, E-RESOURCE), not a crash.
+#[inline(never)]
+fn stuck_different(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<bool> {
+    same_stuck_trees(
+        g,
+        level,
+        a,
+        b,
+        Relation::Conv,
+        mode,
+        true,
+        |_| Ok(false),
+        &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+    )
 }
 
 /// The pairs of values in two spines of the same length, or `None` if their
@@ -3551,6 +4281,7 @@ fn conv_step(
 /// only the leading applications are its arguments, so none after a `J`,
 /// which eliminates its result; and the marks stop at its arity, so none of
 /// the arguments its result is applied to.
+#[inline(never)]
 fn spine_pairs(
     g: &Ev,
     level: usize,
@@ -3697,6 +4428,47 @@ pub fn opens_by_tree(g: &Ev, value: &Value) -> bool {
         && !g.env.builtins().float_bound(*id)
 }
 
+/// The level of the variable that call `value` is stuck on, for a note:
+/// `value` forced is a definition applied to all its arguments whose case
+/// tree, walked as [`same_stuck_trees`] walks it, stops at a `case` on a
+/// neutral value headed by a variable, or on a call that is itself stuck on
+/// one (`if beats m m then …` is stuck on `m`). `None` for anything else (a
+/// value that computes, a call stuck on an opaque one, a bare variable). Error path only; it runs in the machine's budget.
+pub fn stuck_on_variable(g: &Ev, value: &Value) -> Option<usize> {
+    let value = force(g, value.clone()).ok()?;
+    let Value::Neutral(Head::Def(id), spine) = &value else {
+        return None;
+    };
+    let def = g.def(*id);
+    let body = body_seen(g, *id)?;
+    if spine.len() != def.arity
+        || def.arity == 0
+        || folds(g, *id)
+        || def.lift_leaf
+        || g.env.builtins().native(*id).is_some()
+        || g.env.builtins().float_bound(*id)
+    {
+        return None;
+    }
+    let mut args = Vec::with_capacity(spine.len());
+    for elim in spine.iter() {
+        match elim {
+            Elim::App(v, _) => args.push(v.clone()),
+            Elim::J { .. } | Elim::Proj(..) => return None,
+        }
+    }
+    let tree = Term::peel_lams_rc(body, def.arity);
+    match walk_tree(g, tree, args, eta_held(g, *id)).ok()? {
+        TreeEnd::Stuck(_, _, Value::Neutral(Head::Var(level, _), _)) => Some(level),
+        // An `if` or a `match` on a call (`if beats m m then …`) waits for
+        // whatever that call waits for.
+        TreeEnd::Stuck(_, _, scrutinee @ Value::Neutral(Head::Def(_), _)) => {
+            stuck_on_variable(g, &scrutinee)
+        }
+        _ => None,
+    }
+}
+
 /// Where a case tree, walked with its environment, ends up.
 enum TreeEnd {
     /// A `case` stuck on the (forced) neutral scrutinee.
@@ -3719,7 +4491,9 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Res
                 let unforced = env[env.len() - 1 - ix].clone();
                 let scrutinee = tree_scrutinee(g, unforced.clone())?;
                 let split = match &scrutinee {
-                    Value::Ctor(_, c, fields) => Some((*c, fields.to_vec())),
+                    // Another type's constructor (ill-typed, as at `branch`)
+                    // selects nothing.
+                    Value::Ctor(d2, c, fields) if d2 == d => Some((*c, fields.to_vec())),
                     Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
                         native::split_value(&scrutinee)
                     }
@@ -3801,6 +4575,34 @@ pub fn same_stuck_trees(
     arguments: impl FnOnce(CompareAt<'_>) -> Result<bool>,
     same: CompareAt<'_>,
 ) -> Result<bool> {
+    let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
+    if let Some(answer) = memo.known(g)? {
+        return Ok(answer);
+    }
+    // A pair equal by its arguments isn't recorded: a lookup (`known`) walks
+    // each recorded pair under its key, so recording every such pair made
+    // lookups slow enough to exhaust a small budget where none was needed
+    // (SW-2285). Only "different" needs remembering to keep nested calls
+    // linear (SW-2269).
+    if arguments(same)? {
+        return Ok(true);
+    }
+    let same = same_trees_of_calls(g, level, a, b, same)?;
+    memo.record(same);
+    Ok(same)
+}
+
+/// [`same_trees_of`] for two calls that [`opens_by_tree`]: out of
+/// [`same_stuck_trees`]'s frame, which a level of nested calls compared by
+/// their arguments goes through.
+#[inline(never)]
+fn same_trees_of_calls(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    same: CompareAt<'_>,
+) -> Result<bool> {
     let tree = |value: &Value| -> (Rc<Term>, Vec<Value>, bool) {
         let Value::Neutral(Head::Def(id), spine) = value else {
             unreachable!("checked by opens_by_tree")
@@ -3816,21 +4618,7 @@ pub fn same_stuck_trees(
             .collect();
         (Term::peel_lams_rc(body, def.arity), args, eta_held(g, *id))
     };
-    let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
-    if let Some(answer) = memo.known(g)? {
-        return Ok(answer);
-    }
-    // A pair equal by its arguments isn't recorded: a lookup (`known`) walks
-    // each recorded pair under its key, so recording every such pair made
-    // lookups slow enough to exhaust a small budget where none was needed
-    // (SW-2285). Only "different" needs remembering to keep nested calls
-    // linear (SW-2269).
-    if arguments(same)? {
-        return Ok(true);
-    }
-    let same = same_trees_of(g, level, tree(a), tree(b), same)?;
-    memo.record(same);
-    Ok(same)
+    same_trees_of(g, level, tree(a), tree(b), same)
 }
 
 /// How [`same_stuck_trees`] compares two values at a level.
@@ -4001,7 +4789,11 @@ struct TreeMemo {
     settled: bool,
 }
 
+// `enter`, `known`, `record` and `drop` are out of line: they run in
+// `same_stuck_trees`, whose frame is one of those a level of nested calls
+// compared by their arguments takes.
 impl TreeMemo {
+    #[inline(never)]
     fn enter(
         g: &Ev,
         level: usize,
@@ -4010,7 +4802,7 @@ impl TreeMemo {
         relation: Relation,
         mode: Mode,
         settled: bool,
-    ) -> Result<TreeMemo> {
+    ) -> Result<Box<TreeMemo>> {
         let def = |v: &Value| match v {
             Value::Neutral(Head::Def(id), _) => *id,
             _ => unreachable!("checked by opens_by_tree"),
@@ -4025,12 +4817,14 @@ impl TreeMemo {
                 settled && m.unifying == 0
             }
         });
-        let mut memo = TreeMemo {
+        // Boxed, so that the frame of `same_stuck_trees`, which holds it
+        // while the arguments are compared, stays small.
+        let mut memo = Box::new(TreeMemo {
             key: (relation, mode, level, g.metas.epoch(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
             settled,
-        };
+        });
         if !shortcuts_disabled() {
             let (ha, hb) = TREE_MEMO.with(|m| -> Result<(u64, u64)> {
                 let shapes = &mut m.borrow_mut().shapes;
@@ -4046,6 +4840,7 @@ impl TreeMemo {
     /// different (`Some(false)`). Telling the pairs filed under the key
     /// apart costs a budget step per layer compared ([`identical_charged`]):
     /// a key can collect many pairs, each walked on every lookup.
+    #[inline(never)]
     fn known(&self, g: &Ev) -> Result<Option<bool>> {
         if shortcuts_disabled() {
             return Ok(None);
@@ -4074,6 +4869,7 @@ impl TreeMemo {
 
     /// Remembers that this pair is equal, or different where that can't
     /// change.
+    #[inline(never)]
     fn record(&self, equal: bool) {
         if shortcuts_disabled() || !(equal || self.settled) {
             return;
@@ -4094,6 +4890,7 @@ impl TreeMemo {
 }
 
 impl Drop for TreeMemo {
+    #[inline(never)]
     fn drop(&mut self) {
         TREE_MEMO.with(|m| {
             let mut m = m.borrow_mut();
@@ -4189,7 +4986,7 @@ impl<K: std::hash::Hash + Eq> ShapeMemo<K> {
 #[derive(Clone, Copy)]
 enum Part<'v> {
     Value(&'v Value),
-    Boxed(&'v Rc<Value>),
+    Boxed(&'v Shared),
     Fields(&'v Values),
     Spine(&'v Spine),
     Closure(&'v Closure),
@@ -4211,7 +5008,7 @@ struct ShapeCache {
 /// A handle on a shared allocation, only held to keep it alive.
 #[allow(dead_code)]
 enum Owner {
-    Boxed(Rc<Value>),
+    Boxed(Shared),
     Fields(Values),
     Spine(Spine),
     Closure(Closure),
@@ -4224,7 +5021,7 @@ impl Part<'_> {
         let at = |p: *const u8| p as usize;
         match self {
             Part::Value(_) => None,
-            Part::Boxed(v) => Some((at(Rc::as_ptr(v).cast()), 0)),
+            Part::Boxed(v) => Some((at(Rc::as_ptr(v.rc()).cast()), 0)),
             Part::Fields(f) => Some((at(Rc::as_ptr(&f.0).cast()), 0)),
             Part::Spine(s) => s.0.as_ref().map(|e| (at(Rc::as_ptr(e).cast()), 0)),
             // A closure's hash depends on its body and its environment.
@@ -4464,8 +5261,9 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
 // whatever running the two bodies could observe, it would observe the same in
 // both. When the closures aren't identical, nothing is concluded and the
 // comparison runs as before; so this can only skip work that would have
-// answered "equal", never change an answer (apart from not running out of
-// resources where the long way would have).
+// answered "equal", never change an answer, only whether the comparison
+// runs out of resources: the walk costs a budget step per pair of parts it
+// compares, each pair of shared parts once (`identical_within`).
 //
 // The elaborator's unification (`crates/elab/src/unify.rs`) uses it too:
 // unifying identical values succeeds without solving any metavariable (a
@@ -4500,7 +5298,7 @@ pub fn set_shortcuts_disabled(disabled: bool) {
 }
 
 #[inline]
-fn shortcuts_disabled() -> bool {
+pub(crate) fn shortcuts_disabled() -> bool {
     #[cfg(any(test, feature = "reference"))]
     {
         SHORTCUTS_OFF.with(|s| s.get())
@@ -4514,42 +5312,49 @@ fn shortcuts_disabled() -> bool {
 /// Whether closures `a` and `b` are identical: the same body term (ignoring
 /// names and source locations) and, for each variable it uses from its
 /// environment, identical values. Variables the body doesn't use can differ:
-/// they're never looked at.
-pub fn same_closure(a: &Closure, b: &Closure) -> bool {
-    !shortcuts_disabled() && identical(Same::Closures(a, b), None)
+/// they're never looked at. A budget step per pair of parts compared
+/// ([`identical_within`]); running out is an error, never "different".
+pub fn same_closure(g: &Ev, a: &Closure, b: &Closure) -> Result<bool> {
+    if shortcuts_disabled() {
+        return Ok(false);
+    }
+    identical_within(Same::Closures(a, b), None, Some(g))
 }
 
 /// [`same_closure`], with a solved metavariable alike to its solution: where
 /// a value headed by one differs from the value on the other side, it is
 /// compared again with the solution applied. For the elaborator.
-pub fn same_closure_solved(g: &Ev, a: &Closure, b: &Closure) -> bool {
-    !shortcuts_disabled() && identical(Same::Closures(a, b), Some(g))
+pub fn same_closure_solved(g: &Ev, a: &Closure, b: &Closure) -> Result<bool> {
+    if shortcuts_disabled() {
+        return Ok(false);
+    }
+    identical_within(Same::Closures(a, b), Some(g), Some(g))
 }
 
 /// Whether `a` and `b`, which differ as they are, are alike once a solved
-/// metavariable heading either is replaced by its solution ([`identical`]
-/// with `g`). `false` if neither is headed by one, or if applying a
-/// solution runs out of resources (the caller then takes the long way,
-/// which reports that).
+/// metavariable heading either is replaced by its solution
+/// ([`identical_within`] with `g`), charging `charge` as [`identical_within`] does. `false` if
+/// neither is headed by one, or if applying a solution runs out of
+/// resources (the caller then takes the long way, which reports that).
 #[cold]
 #[inline(never)]
-fn same_when_solved(g: &Ev, a: &Value, b: &Value) -> bool {
+fn same_when_solved(g: &Ev, a: &Value, b: &Value, charge: Option<&Ev>) -> Result<bool> {
     let solved =
         |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some());
     if !solved(a) && !solved(b) {
-        return false;
+        return Ok(false);
     }
     let (Ok(a), Ok(b)) = (force_solved(g, a.clone()), force_solved(g, b.clone())) else {
-        return false;
+        return Ok(false);
     };
-    identical(Same::Values(&a, &b), Some(g))
+    identical_within(Same::Values(&a, &b), Some(g), charge)
 }
 
 /// Whether two terms are alike apart from names and source locations, as
 /// [`same_closure`] compares bodies. The elaborator uses it to find the
 /// same recursive call written twice (`crates/elab/src/decreasing.rs`).
 pub fn same_term(a: &Term, b: &Term) -> bool {
-    identical(Same::Terms(a, b), None)
+    identical(Same::Terms(a, b))
 }
 
 /// A pair still to compare for [`identical`].
@@ -4559,13 +5364,30 @@ enum Same<'v> {
     Terms(&'v Term, &'v Term),
 }
 
+impl Same<'_> {
+    /// What the pair is and where its two sides are, for
+    /// [`identical_within`]'s record of pairs compared.
+    fn addresses(&self) -> (u8, usize, usize) {
+        fn at<T>(x: &T) -> usize {
+            std::ptr::from_ref(x) as usize
+        }
+        match self {
+            Same::Values(a, b) => (0, at(*a), at(*b)),
+            Same::Closures(a, b) => (1, at(*a), at(*b)),
+            Same::Terms(a, b) => (2, at(*a), at(*b)),
+        }
+    }
+}
+
+/// How many pairs [`identical_within`] compares before it starts recording
+/// them: most comparisons are smaller, and a record would only slow them.
+const IDENTICAL_UNRECORDED: usize = 64;
+
 /// Whether two values, closures or terms are exactly alike (see
-/// [`same_closure`]). A work list, not recursion, as values can nest deeply.
-/// No evaluation: the cost is at most the size of the smaller side. With
-/// `g`, a solved metavariable is alike to its solution
-/// ([`same_when_solved`]), which applies the solution.
-fn identical(first: Same, g: Option<&Ev>) -> bool {
-    identical_within(first, g, None).unwrap_or(false)
+/// [`same_closure`]), uncharged: for [`same_term`], whose callers have no
+/// budget. No evaluation; the cost is as for [`identical_within`].
+fn identical(first: Same) -> bool {
+    identical_within(first, None, None).unwrap_or(false)
 }
 
 /// [`identical`] at a budget step per pair of layers compared, for the
@@ -4577,20 +5399,42 @@ fn identical_charged(g: &Ev, first: Same) -> Result<bool> {
 
 /// [`identical`], charging a step per pair of layers to `charge`'s budget
 /// where given (and so failing only when that runs out).
+///
+/// Values, closures' environments and terms share parts, so walked as trees
+/// they can be exponentially larger than they are in memory: a value built
+/// by doubling `n` times is `n` cells but `2ⁿ` paths (SW-2730: one
+/// comparison walked millions of pairs). So once a walk is past
+/// [`IDENTICAL_UNRECORDED`] pairs, each pair of parts compared is recorded
+/// by the two addresses, and a pair met again is skipped: the answer is the
+/// conjunction over all pairs, and a pair at the same two addresses is the
+/// same two parts, borrowed and so unchanged for the whole walk, with the
+/// same answer. Skipping one can't turn "different" into "alike". The cost
+/// is then at most the number of distinct pairs of parts reached, which is
+/// at most the smaller side's size as a tree, and about its size in memory
+/// where both sides share alike.
 fn identical_within(first: Same, g: Option<&Ev>, charge: Option<&Ev>) -> Result<bool> {
     let mut work = vec![first];
+    let mut walked = 0usize;
+    let mut seen: HashSet<(u8, usize, usize)> = HashSet::default();
     while let Some(pair) = work.pop() {
         if let Some(charge) = charge {
             charge.machine.budget.step()?;
+        }
+        walked += 1;
+        if walked > IDENTICAL_UNRECORDED && !seen.insert(pair.addresses()) {
+            continue;
         }
         let alike = match pair {
             Same::Values(a, b) => {
                 let len = work.len();
                 same_layer(a, b, &mut work)
-                    || g.is_some_and(|g| {
-                        work.truncate(len);
-                        same_when_solved(g, a, b)
-                    })
+                    || match g {
+                        Some(g) => {
+                            work.truncate(len);
+                            same_when_solved(g, a, b, charge)?
+                        }
+                        None => false,
+                    }
             }
             Same::Closures(a, b) => same_closure_layer(a, b, &mut work),
             Same::Terms(a, b) => same_term_layer(a, b, &mut work),
@@ -4648,8 +5492,8 @@ fn free_variables(term: &Term) -> Vec<usize> {
 /// Compares the outermost layer of two values for [`identical`], pushing
 /// their parts.
 fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool {
-    let rc_values = |work: &mut Vec<Same<'v>>, x: &'v Rc<Value>, y: &'v Rc<Value>| {
-        if !Rc::ptr_eq(x, y) {
+    let rc_values = |work: &mut Vec<Same<'v>>, x: &'v Shared, y: &'v Shared| {
+        if !Shared::ptr_eq(x, y) {
             work.push(Same::Values(x, y));
         }
     };
@@ -4907,6 +5751,20 @@ mod tests {
         Value::Lam("x".into(), Icit::Explicit, c)
     }
 
+    /// [`same_closure`] with a kernel's default budget.
+    fn same(a: &Closure, b: &Closure) -> bool {
+        let g = crate::globals::Kernel::default();
+        same_closure(&g.ev(), a, b).unwrap()
+    }
+
+    /// A pair of `[x, x]` nested `depth` deep around `leaf`, each level's
+    /// two fields one value shared: `depth` cells, `2^depth` paths.
+    fn doubled(depth: usize, leaf: Value) -> Value {
+        (0..depth).fold(leaf, |x, _| {
+            Value::Ctor(DataId(0), 0, Values::from(vec![x.clone(), x]))
+        })
+    }
+
     /// `conv` with and without the shortcut, which must agree; and the steps
     /// each took.
     fn conv_both(g: &Ev, a: &Value, b: &Value) -> (bool, u64, u64) {
@@ -4926,9 +5784,142 @@ mod tests {
         Value::Neutral(Head::Def(DefId(def)), Spine::from(Vec::new()))
     }
 
+    /// Freeing a stuck computation applied to a stuck computation, a million
+    /// deep, must not recurse (SW-2468): on a stack far too small for that,
+    /// the default drop would overflow it.
+    #[test]
+    fn freeing_a_deep_spine_does_not_overflow_the_stack() {
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let mut value = stuck_call(0);
+                for _ in 0..1_000_000 {
+                    let mut spine = Spine::new();
+                    spine.push(Elim::App(value, Icit::Explicit));
+                    value = Value::Neutral(Head::Def(DefId(0)), spine);
+                }
+                drop(value);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    /// Runs `build` on a stack far too small for recursing through a million
+    /// levels, then drops what it returns there. The default drop of such a
+    /// chain would overflow the stack and abort the process (SW-2482).
+    fn drops_on_a_small_stack(build: fn() -> Value) {
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || drop(build()))
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    const DEEP: usize = 1_000_000;
+
+    #[test]
+    fn freeing_deep_data_arguments_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Data(DataId(0), DataArgs::default());
+            for _ in 0..DEEP {
+                value = Value::Data(DataId(0), vec![value].into());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_function_domain_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let closure = || Closure {
+                env: Values::from([]),
+                body: Rc::new(Term::Sort(Sort::Type(0))),
+            };
+            let mut value = Value::Sort(Sort::Type(0));
+            for _ in 0..DEEP {
+                value = Value::Pi(Name::from("x"), Icit::Explicit, value.into(), closure());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_equality_type_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Refl;
+            for _ in 0..DEEP {
+                value = Value::Eq(Value::Refl.into(), value.into(), Value::Refl.into());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_number_sum_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Refl;
+            for _ in 0..DEEP {
+                value = Value::NatAdd(Rc::new(BigUint::from(1u32)), value.into());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_closure_environment_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Refl;
+            for _ in 0..DEEP {
+                value = Value::Lam(
+                    Name::from("x"),
+                    Icit::Explicit,
+                    Closure {
+                        env: Values::from([value]),
+                        body: Rc::new(Term::Sort(Sort::Type(0))),
+                    },
+                );
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_unfolding_base_chain_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut base = None;
+            for _ in 0..DEEP {
+                base = Some(Rc::new(Unfolding {
+                    kept: Default::default(),
+                    base,
+                }));
+            }
+            Value::Call(DefId(0), Spine::new(), base.unwrap())
+        });
+    }
+
     /// How many pairs the memo holds as different.
     fn remembered_different() -> usize {
         TREE_MEMO.with(|m| m.borrow().different.values().map(Vec::len).sum())
+    }
+
+    /// The editor's kept session matches numbers on every request, so naming
+    /// a set it has seen must not add one (SW-1819).
+    #[test]
+    fn naming_the_same_numbers_again_gives_the_same_apart() {
+        let g = crate::globals::Kernel::default();
+        let ev = g.ev();
+        let set = |ns: &[u32]| -> Rc<[BigUint]> { ns.iter().map(|&n| BigUint::from(n)).collect() };
+        let a = Apart::new(&ev, set(&[1, 2]));
+        let b = Apart::new(&ev, set(&[3]));
+        assert_eq!(g.machine.apart_sets.borrow().len(), 2);
+        assert_eq!(Apart::new(&ev, set(&[1, 2])), a);
+        assert_eq!(Apart::new(&ev, set(&[3])), b);
+        assert_ne!(a, b);
+        assert_ne!(a, Apart::NONE);
+        assert_eq!(g.machine.apart_sets.borrow().len(), 2);
+        assert_eq!(*a.numbers(&ev), *set(&[1, 2]));
     }
 
     #[test]
@@ -4974,7 +5965,7 @@ mod tests {
                 rc(call_last()),
             ),
         );
-        assert!(same_closure(&a, &b));
+        assert!(same(&a, &b));
         let g = crate::globals::Kernel::default();
         let (equal, with, without) = conv_both(&g.ev(), &lam(a), &lam(b));
         assert!(equal);
@@ -4998,7 +5989,7 @@ mod tests {
             )
         };
         let (x, y) = (wrap(a), wrap(b));
-        assert!(identical(Same::Values(&x, &y), None));
+        assert!(identical(Same::Values(&x, &y)));
         let mut shared = ShapeCache::default();
         let hash = shape_hash(&g.ev(), &mut shared, &x).unwrap();
         assert_eq!(hash, shape_hash(&g.ev(), &mut shared, &y).unwrap());
@@ -5009,7 +6000,7 @@ mod tests {
         // A used variable's value counts.
         let c = closure(vec![Value::var(7), Value::var(4)], call_last());
         let z = wrap(c);
-        assert!(!identical(Same::Values(&x, &z), None));
+        assert!(!identical(Same::Values(&x, &z)));
         assert_ne!(hash, shape_hash(&g.ev(), &mut shared, &z).unwrap());
     }
 
@@ -5017,7 +6008,7 @@ mod tests {
     fn a_different_value_for_a_used_variable_is_not_the_same_closure() {
         let a = closure(vec![Value::var(3)], call_last());
         let b = closure(vec![Value::var(4)], call_last());
-        assert!(!same_closure(&a, &b));
+        assert!(!same(&a, &b));
         let g = crate::globals::Kernel::default();
         assert!(!conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
@@ -5044,16 +6035,13 @@ mod tests {
         let unknown = Value::Neutral(Head::Meta(0), Spine::from(Vec::new()));
         let a = closure(vec![unknown], call_last());
         let b = closure(vec![Value::var(3)], call_last());
-        assert!(!same_closure_solved(&ev, &a, &b), "unsolved");
+        assert!(!same_closure_solved(&ev, &a, &b).unwrap(), "unsolved");
         *metas.0.borrow_mut() = Some(Value::var(3));
-        assert!(same_closure_solved(&ev, &a, &b));
-        assert!(
-            !same_closure(&a, &b),
-            "the kernel's form looks at no solution"
-        );
+        assert!(same_closure_solved(&ev, &a, &b).unwrap());
+        assert!(!same(&a, &b), "the kernel's form looks at no solution");
         *metas.0.borrow_mut() = Some(Value::var(4));
         assert!(
-            !same_closure_solved(&ev, &a, &b),
+            !same_closure_solved(&ev, &a, &b).unwrap(),
             "solved with another value"
         );
     }
@@ -5065,12 +6053,12 @@ mod tests {
             vec![Value::var(3)],
             Term::App(rc(Term::Var(1)), rc(Term::Var(1)), Icit::Explicit),
         );
-        assert!(!same_closure(&a, &b));
+        assert!(!same(&a, &b));
         let implicit = closure(
             vec![Value::var(3)],
             Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Implicit),
         );
-        assert!(!same_closure(&a, &implicit));
+        assert!(!same(&a, &implicit));
         let g = crate::globals::Kernel::default();
         assert!(!conv_both(&g.ev(), &lam(a.clone()), &lam(b)).0);
         // (Conversion ignores how an argument is passed, so this pair is
@@ -5083,9 +6071,47 @@ mod tests {
         let inner = |n| lam(closure(vec![Value::var(n)], call_last()));
         let a = closure(vec![inner(3)], call_last());
         let b = closure(vec![inner(3)], call_last());
-        assert!(same_closure(&a, &b));
+        assert!(same(&a, &b));
         let c = closure(vec![inner(4)], call_last());
-        assert!(!same_closure(&a, &c));
+        assert!(!same(&a, &c));
+    }
+
+    /// SW-2730: two closures over separately built but alike values that
+    /// share their parts are compared once per pair of parts, not once per
+    /// path: as trees these are 2^60 pairs. Conversion takes the shortcut
+    /// too, and a difference at the bottom is still found.
+    #[test]
+    fn shared_parts_are_compared_once() {
+        let g = crate::globals::Kernel::default();
+        let a = closure(vec![doubled(60, Value::var(3))], call_last());
+        let b = closure(vec![doubled(60, Value::var(3))], call_last());
+        let before = g.ev().machine.budget.total_work();
+        assert!(same(&a, &b));
+        assert!(conv(&g.ev(), 0, &lam(a.clone()), &lam(b)).unwrap());
+        assert!(g.ev().machine.budget.total_work() - before < 2_000);
+        let c = closure(vec![doubled(60, Value::var(4))], call_last());
+        assert!(!same(&a, &c));
+    }
+
+    /// The shortcut's walk costs budget steps, so a large one runs out of
+    /// budget (`E-RESOURCE`) rather than running uncharged.
+    #[test]
+    fn the_same_closure_walk_is_charged() {
+        let g = crate::globals::Kernel::default();
+        let long = || {
+            (0..5_000).fold(Value::var(3), |x, n| {
+                Value::Ctor(DataId(0), 0, Values::from(vec![x, Value::var(n)]))
+            })
+        };
+        let a = closure(vec![long()], call_last());
+        let b = closure(vec![long()], call_last());
+        let limits = crate::budget::Limits {
+            work: 1_000,
+            ..crate::budget::Limits::for_stack(1 << 20)
+        };
+        let ev = g.ev();
+        let _operation = ev.machine.budget.operation(limits);
+        assert!(same_closure(&ev, &a, &b).is_err());
     }
 
     #[test]
@@ -5095,7 +6121,7 @@ mod tests {
         let eta = lam(closure(vec![f.clone()], call_last()));
         let a = closure(vec![f], call_last());
         let b = closure(vec![eta], call_last());
-        assert!(!same_closure(&a, &b));
+        assert!(!same(&a, &b));
         let g = crate::globals::Kernel::default();
         assert!(conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
@@ -5106,7 +6132,7 @@ mod tests {
             Value::Pi(
                 "x".into(),
                 Icit::Explicit,
-                Rc::new(Value::Sort(Sort::Type(0))),
+                Rc::new(Value::Sort(Sort::Type(0))).into(),
                 closure(env, call_last()),
             )
         };

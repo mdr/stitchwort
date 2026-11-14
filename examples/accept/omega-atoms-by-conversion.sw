@@ -4,19 +4,22 @@
 -- identified by conversion, not by how they are written (SW-1435). Here
 -- `sums` and the rewritten `within` meet only through that.
 
-import Std (Eq, List, Nat, Void)
+import Std (Eq, List, Nat)
 
-theorem sumTakeLe: (xs: List Nat) → (a: Nat) → (b: Nat) → a ≤ b → (xs.take a).sum ≤ (xs.take b).sum
-  | xs, Zero, b, le => omega
-  | [], Succ a, b, le => rfl
-  | [x, ..xs], Succ a, Zero, le => Void.exfalso (omega)
-  | [x, ..xs], Succ a, Succ b, le =>
+theorem sumTakeLe ∀ (xs: List Nat) (a b: Nat) (le: a ≤ b): (xs.take a).sum ≤ (xs.take b).sum := match xs, a, b with
+  | xs, Zero, b => omega
+  | [], Succ a, b => rfl
+  | [x, ..xs], Succ a, Succ b =>
     omega [List.sumCons x (xs.take a), List.sumCons x (xs.take b), sumTakeLe xs a b (omega)]
 
-theorem shrinksInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
-    (front: List Nat) (count: Nat) (sum: Nat) (from: Nat) (at: front = numbers.drop from) (total: sum = (front.take count).sum)
-    (notBeyond: from + count ≤ start + length) (over: target < sum): from ≠ start :=
+theorem shrinksInside ∀ (numbers: List Nat) (target start length: Nat)
+    (sums: ((numbers.drop start).take length).sum = target)
+    (front: List Nat) (count sum from: Nat)
+    (at: front = numbers.drop from)
+    (total: sum = (front.take count).sum)
+    (notBeyond: from + count ≤ start + length)
+    (over: target < sum):
+    from ≠ start :=
   same =>
-    let within: (front.take count).sum ≤ (front.take length).sum :=
-      sumTakeLe front count length (omega)
+    let within: (front.take count).sum ≤ (front.take length).sum := sumTakeLe front count length (omega)
     omega [rewrite at, same at within in within, rewrite at, same at total in total]

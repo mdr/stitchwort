@@ -17,8 +17,7 @@ def annotated (pairs: List (Nat, Item)): Nat :=
   List.sumBy pairs counted
 
 -- An argument instead of a `let`: checked after `pairs`, which fixes it.
-def inline (pairs: List (Nat, Item)): Nat :=
-  List.sumBy pairs ((index, item) => if index < 3 then item.value else 0)
+def inline (pairs: List (Nat, Item)): Nat := List.sumBy pairs ((index, item) => if index < 3 then item.value else 0)
 
 def pairs: List (Nat, Item) := [(0, { value = 5 }), (7, { value = 9 }), (2, { value = 4 })]
 

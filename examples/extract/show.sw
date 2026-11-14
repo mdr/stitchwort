@@ -18,5 +18,4 @@ export def describe (n: Nat): Text :=
 
 export def names (xs: List Text): Text := "${xs} / ${xs.length}"
 
-export def shapes (n: Nat): Text :=
-  if n == 0 then "${[Dot]}" else "${[Circle n, Rect n n]}"
+export def shapes (n: Nat): Text := if n == 0 then "${[Dot]}" else "${[Circle n, Rect n n]}"

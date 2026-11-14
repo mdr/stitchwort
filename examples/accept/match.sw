@@ -4,33 +4,37 @@
 -- lifted into a generated definition named after its owner.
 
 import List (length)
-import Std (Eq, Nat, Void)
+import Std (Decidable, Eq, Nat, Void)
 
 -- In the tree: the whole right-hand side.
-def describe (xs: List Nat): Text :=
-  match xs with
-    | [] => "empty"
-    | [x] => "one"
-    | _ => "many"
+def describe (xs: List Nat): Text := match xs with
+  | [] => "empty"
+  | [x] => "one"
+  | _ => "many"
 
 -- Lifted: the `match` is an argument of `+`. Not a tail call.
-def count (n: Nat): Nat := 1 + match n with
-  | Zero => 0
-  | Succ k => count k
+def count (n: Nat): Nat :=
+  1
+    + match n with
+      | Zero => 0
+      | Succ k => count k
 
 -- In the tree, with a recursive call in tail position.
-def countTail (n: Nat): Nat := match n with | Zero => 0 | Succ k => countTail k
+def countTail (n: Nat): Nat := match n with
+  | Zero => 0
+  | Succ k => countTail k
 
 -- Lifted, with a variable of the equation used in a branch.
-def f (n: Nat) (xs: List Nat): Nat := 1 + match xs with
-  | [] => n
-  | [x, .._] => x + n
+def f (n: Nat) (xs: List Nat): Nat :=
+  1
+    + match xs with
+      | [] => n
+      | [x, .._] => x + n
 
 -- A proof by `match`, in the tree.
-theorem appendNil (xs: List a): xs.append [] = xs :=
-  match xs with
-    | [] => rfl
-    | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
+theorem appendNil ∀ (xs: List a): xs.append [] = xs := match xs with
+  | [] => rfl
+  | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
 
 -- A `match` in a test.
 test "describe" := describe [1, 2] == "many"
@@ -38,7 +42,10 @@ test "count" := count 3 == 4
 test "countTail" := countTail 5 == 0
 test "f" := f 2 [5] == 8
 test "f nil" := f 2 [] == 3
-test "lifted in test" := (match 3 with | Zero => False | Succ _ => True)
+test "lifted in test" :=
+  (match 3 with
+    | Zero => False
+    | Succ _ => True)
 
 -- Expression scrutinee, named: `h` is an equation about the expression.
 def isEmpty (xs: List Nat): Bool := match h: xs.length with
@@ -47,8 +54,8 @@ def isEmpty (xs: List Nat): Bool := match h: xs.length with
 
 -- The equation used in a branch.
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Yes rfl
-  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes rfl
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p → Bool
   | _ => True
@@ -58,37 +65,55 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
   | Succ k => keep (xs.length = Succ k) h
 
 -- Expression scrutinee generalised in the goal.
-theorem same (n: Nat): (n + 0) = (n + 0) := match n + 0 with
+theorem same ∀ (n: Nat): (n + 0) = (n + 0) := match n + 0 with
   | Zero => rfl
   | Succ m => rfl
 
 -- Variable scrutinee with a dependent hypothesis, lifted.
-def pred (n: Nat) (q: n ≠ 0): Nat := 0 + match n with
-  | Zero => Void.absurd (q rfl)
-  | Succ m => m
+def pred (n: Nat) (q: n ≠ 0): Nat :=
+  0
+    + match n with
+      | Zero => Void.absurd (q rfl)
+      | Succ m => m
 
 -- Nested matches.
-def both (xs: List Nat) (ys: List Nat): Nat := 1 + match xs with
-  | [] => 0
-  | [x, .._] => x + match ys with
-    | [] => 0
-    | [y, .._] => y
+def both (xs ys: List Nat): Nat :=
+  1
+    + match xs with
+      | [] => 0
+      | [x, .._] =>
+        x
+          + match ys with
+            | [] => 0
+            | [y, .._] => y
 
 -- A `match` in a signature.
-def Pick (b: Bool): Type := match b with | True => Nat | False => Text
+def Pick (b: Bool): Type := match b with
+  | True => Nat
+  | False => Text
 
-def pickType (b: Bool): (match b with | True => Nat | False => Text) := match b with
-  | True => 1
-  | False => "one"
+def pickType (b: Bool):
+    (match b with
+      | True => Nat
+      | False => Text) :=
+  match b with
+    | True => 1
+    | False => "one"
 
 -- Two scrutinees.
-def zipLen (xs: List Nat) (ys: List Nat): Nat := 1 + match xs, ys with
-  | [_, ..a], [_, ..b] => zipLen a b
-  | _, _ => 0
+def zipLen (xs ys: List Nat): Nat :=
+  1
+    + match xs, ys with
+      | [_, ..a], [_, ..b] => zipLen a b
+      | _, _ => 0
 
 -- A user function named `match1` next to a match: no clash with the
 -- generated names.
-def match1 (n: Nat): Nat := n + match n with | Zero => 1 | Succ _ => 2
+def match1 (n: Nat): Nat :=
+  n
+    + match n with
+      | Zero => 1
+      | Succ _ => 2
 
 -- Number patterns in a match.
 def size (n: Nat): Text := match n with
@@ -99,9 +124,11 @@ def size (n: Nat): Text := match n with
 -- A record pattern in a match.
 type Person = { name: Text, age: Nat }
 
-def greeting (p: Person): Text := "hi " ++ match p with
-  | { name, age = 0 } => name ++ " (newborn)"
-  | { name, .. } => name
+def greeting (p: Person): Text :=
+  "hi "
+    ++ match p with
+      | { name, age = 0 } => name ++ " (newborn)"
+      | { name, .. } => name
 
 -- A tuple pattern in a match.
 def swapIfZero (p: (Nat, Nat)): (Nat, Nat) := match p with

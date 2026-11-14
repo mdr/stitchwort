@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-DECISION-TEST] Warning: `decSmall` decides `Small n` by a test other than the one that reads as it
+    ╭─[ accept/reading-decision-test.sw:18:1 ]
+    │
+ 18 │ instance decSmall (n: Nat): Decidable (Small n) := { holds = smallTest n, sound = h => h, complete = h => h }
+    │ ───────────────────────┬──────────────────────  
+    │                        ╰──────────────────────── `if Small n` tests `smallTest n`, but `isSmallReads` reads `isSmall n` as `Small n`
+    │ 
+    │ Note: write the decision with that test, `holds = isSmall n`, its proofs from `isSmallReads`: then `if Small n` and `if isSmall n` are one test, and `rewrite` and `match h:` treat them alike
+────╯

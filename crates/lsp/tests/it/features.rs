@@ -131,11 +131,18 @@ impl Session {
     /// worker (a code action away from a `?`, `stitchwort/contextAt`): the
     /// search is run here, as the playground's second worker would.
     fn request_searched(&mut self, method: &str, params: Value) -> Value {
+        self.run_request(method, params, false)
+    }
+
+    fn run_request(&mut self, method: &str, params: Value, at_once: bool) -> Value {
         let id = self.next_id;
         self.next_id += 1;
         let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
         for m in self.server.receive(&message.to_string()) {
             let m: Value = serde_json::from_str(&m).unwrap();
+            if m["id"] == id && at_once {
+                return m["result"].clone();
+            }
             assert!(m["id"] != id, "answered without a search: {m}");
             self.note(m);
         }
@@ -152,6 +159,12 @@ impl Session {
             }
         }
         panic!("no answer to {method}");
+    }
+
+    /// [`Session::request_searched`] for a request the server may also
+    /// answer at once, from what the last check published.
+    fn request_any(&mut self, method: &str, params: Value) -> Value {
+        self.run_request(method, params, true)
     }
 
     /// The searches a request queues, as the strings a [`Searcher`] runs.
@@ -210,6 +223,63 @@ fn an_unknown_name_gets_a_quick_fix_that_adds_its_import() {
         let edit = &action["edit"]["documentChanges"][0]["edits"][0];
         assert_eq!(edit["newText"], ", Map");
         assert_eq!(edit["range"]["start"], json!({"line": 1, "character": 16}));
+    });
+}
+
+#[test]
+fn a_theorem_that_starts_with_forall_gets_a_quick_fix_that_moves_its_variables() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem addZero: ∀ (n: Nat) => n + 0 = n\n  | Zero => rfl\n  | Succ k => rfl\n";
+        let mut s = Session::open(text);
+        let d = s
+            .diagnostics
+            .iter()
+            .find(|d| d["code"] == "W-THEOREM-FORALL")
+            .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+            .clone();
+        let actions = s.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI}, "range": d["range"],
+                   "context": {"diagnostics": [d]}}),
+        );
+        let action = &actions[0];
+        assert_eq!(action["title"], "Move ∀ variables before the colon");
+        let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+        let new_text = edit["newText"].as_str().unwrap();
+        assert!(
+            new_text.starts_with("theorem addZero ∀ (n: Nat): n + 0 = n := match n with"),
+            "{new_text}"
+        );
+        assert_eq!(edit["range"]["start"], json!({"line": 2, "character": 0}));
+    });
+}
+
+#[test]
+fn a_statement_written_with_an_arrow_gets_a_quick_fix_that_writes_forall() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem addZero: (n: Nat) -> n + 0 = n := n => rfl\n";
+        let mut s = Session::open(text);
+        let d = s
+            .diagnostics
+            .iter()
+            .find(|d| d["code"] == "W-ARROW-FORALL")
+            .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+            .clone();
+        let actions = s.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI}, "range": d["range"],
+                   "context": {"diagnostics": [d]}}),
+        );
+        let action = &actions[0];
+        assert_eq!(action["title"], "Write ∀ instead of ->");
+        let edits = action["edit"]["documentChanges"][0]["edits"]
+            .as_array()
+            .unwrap();
+        let texts: Vec<&str> = edits
+            .iter()
+            .map(|e| e["newText"].as_str().unwrap())
+            .collect();
+        assert_eq!(texts, ["∀ ", "=>"]);
     });
 }
 
@@ -399,38 +469,126 @@ fn hover_works_in_a_library_file_the_library_checked_itself() {
     });
 }
 
-/// The playground's library bundle, made by [`stitchwort_lsp::library_bundle`]
-/// (which checks the whole library, twice) once per build: the bytes are kept
-/// in the test std cache's folder, whose marker holds the build's fingerprint,
-/// so a change to the compiler makes the next run make the bundle again, and
-/// so check that it loads.
-fn cached_bundle(options: &Options) -> Vec<u8> {
-    let dir = stitchwort_driver::driver::test_std_cache_dir(STACK).join("lsp-bundle");
-    let file = dir.join("std.cache");
-    let turn = stitchwort_driver::driver::TestCacheTurn::take(&dir);
-    if !turn.is_filling()
-        && let Ok(bytes) = std::fs::read(&file)
-    {
-        return bytes;
-    }
-    let (bytes, _) = stitchwort_lsp::library_bundle(options).unwrap();
-    if turn.is_filling() {
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(&file, &bytes).unwrap();
-        turn.finish();
-    }
-    bytes
-}
-
 #[test]
 fn hover_works_in_a_library_file_the_library_was_replayed() {
     big_stack(|| {
         let options = Options::new(STACK);
-        let bytes = cached_bundle(&options);
+        let bytes = common::cached_bundle(&options, STACK);
         let bundle = stitchwort_driver::check_cache::LibraryBundle::decode(&bytes).unwrap();
         options.library.set(Arc::new(bundle)).ok().unwrap();
         let replayed = hover_in_library(Session::open_loose(USES_LIBRARY, options));
         assert!(replayed["contents"].is_object(), "replayed: {replayed}");
+    });
+}
+
+/// The hover at the first `needle` of `text`.
+fn hover_at(s: &mut Session, text: &str, needle: &str) -> Value {
+    let offset = text.find(needle).expect("in the text") + needle.len() / 2;
+    let before = &text[..offset];
+    let line = before.matches('\n').count();
+    let character = before.rsplit('\n').next().unwrap_or("").chars().count();
+    s.request(
+        "textDocument/hover",
+        json!({"textDocument": {"uri": URI},
+               "position": {"line": line, "character": character}}),
+    )
+}
+
+#[test]
+fn hover_and_semantic_tokens_work_outside_a_declaration_with_an_unclosed_string() {
+    big_stack(|| {
+        let text = "namespace Demo\n\n\
+                    --| Doubles a number.\n\
+                    def twice (n: Nat): Nat := n + n\n\
+                    \n\
+                    def broken: Text := \"never closed\n\
+                    \n\
+                    def useTwice: Nat := twice 2\n";
+        let mut s = Session::open(text);
+        assert!(
+            s.diagnostics.iter().any(|d| d["code"] == "E-PARSE"),
+            "{:?}",
+            s.diagnostics
+        );
+        let hover = hover_at(&mut s, text, "twice 2");
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert!(shown.contains("twice"), "{hover}");
+        assert!(shown.contains("Doubles a number."), "{hover}");
+        let symbols = s.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert!(symbols.to_string().contains("twice"), "{symbols}");
+        let tokens = s.request(
+            "textDocument/semanticTokens/full",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert!(
+            !tokens["data"].as_array().unwrap().is_empty(),
+            "no semantic tokens: {tokens}"
+        );
+    });
+}
+
+#[test]
+fn hover_unfolds_the_outermost_not_once() {
+    big_stack(|| {
+        let text = "namespace Demo\n\
+                    import Std (Bool, Void)\n\
+                    \n\
+                    theorem absurdOne (h: False = True): Void := Bool.falseNotTrue h\n\
+                    \n\
+                    theorem ordinary (a b: Nat) (h: a = b): a = b := h\n\
+                    \n\
+                    theorem positive (n: Nat): n + 1 ≠ 0 := ?\n\
+                    \n\
+                    def usesPositive: (n: Nat) → n + 1 ≠ 0 := positive\n\
+                    \n\
+                    theorem negation (p: Prop): ¬p := ?\n\
+                    \n\
+                    def usesNegation: ¬False := negation False\n\
+                    \n\
+                    theorem andNot (a b: Prop): ¬a ∧ b := ?\n\
+                    \n\
+                    def usesAndNot: ¬False ∧ False := andNot False False\n\
+                    \n\
+                    theorem notAnd (a b: Prop): ¬(a ∧ b) := ?\n\
+                    \n\
+                    def usesNotAnd: ¬(False ∧ False) := notAnd False False\n\
+                    \n\
+                    def n: Nat := ordinary 1 1 rfl\n";
+        let mut s = Session::open(text);
+        let shown = hover_at(&mut s, text, "falseNotTrue");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(markdown.contains("False ≠ True"), "{shown}");
+        assert!(markdown.contains("that is, False = True → Void"), "{shown}");
+        let shown = hover_at(&mut s, text, "ordinary 1");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(markdown.contains("a = b"), "{shown}");
+        assert!(!markdown.contains("that is,"), "{shown}");
+        let shown = hover_at(&mut s, text, ":= positive");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            markdown.contains("that is, (n: Nat) → n + 1 = 0 → Void"),
+            "{shown}"
+        );
+        let shown = hover_at(&mut s, text, "negation False");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            markdown.contains("that is, (p: Prop) → p → Void"),
+            "{shown}"
+        );
+        // `(¬a) ∧ b` is an And, not a Not after the parameters.
+        let shown = hover_at(&mut s, text, ":= andNot False");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(markdown.contains("¬a ∧ b"), "{shown}");
+        assert!(!markdown.contains("that is,"), "{shown}");
+        let shown = hover_at(&mut s, text, ":= notAnd False");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            markdown.contains("that is, (a: Prop) → (b: Prop) → a ∧ b → Void"),
+            "{shown}"
+        );
     });
 }
 
@@ -767,6 +925,8 @@ fn filled(s: &mut Session, version: i32, text: &str) -> String {
         "{action}"
     );
     let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+    let command = &action["command"];
+    assert_eq!(command["command"], "stitchwort.selectRange", "{action}");
     let (line, character) = (
         edit["range"]["start"]["line"].as_u64().unwrap() as usize,
         edit["range"]["start"]["character"].as_u64().unwrap() as usize,
@@ -825,29 +985,186 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     });
 }
 
-/// The closing search prints each candidate as a bare term, so a constructor
-/// it shows unapplied (`Succ`, with no argument) must print as its name
-/// (SW-1799).
+/// The code action at a proof goal runs no search (D3519) and queues none
+/// (SW-2959): the splits come from the published goal and the list answers
+/// at once, ending with "Search for a proof", whose command then runs the
+/// search and answers the candidates.
 #[test]
-fn a_code_action_on_a_goal_prints_unapplied_constructors() {
+fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem f (o: Option (Option Nat)): o = o := ?\n";
+        let mut s = Session::open(text);
+        let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
+        let at = json!({"textDocument": {"uri": URI},
+                        "range": {"start": {"line": 2, "character": character},
+                                  "end": {"line": 2, "character": character}},
+                        "context": {"diagnostics": []}});
+        let actions = s.request_any("textDocument/codeAction", at);
+        assert!(s.server.take_searches().is_empty(), "queued a search");
+        let actions = actions.as_array().unwrap_or_else(|| panic!("{actions}"));
+        let titles: Vec<&str> = actions
+            .iter()
+            .map(|a| a["title"].as_str().unwrap())
+            .collect();
+        assert!(titles.contains(&"Split on `o`"), "{titles:?}");
+        assert!(
+            titles.iter().all(|t| !t.starts_with("Replace ? with")),
+            "{titles:?}"
+        );
+        assert_eq!(titles.last(), Some(&"Search for a proof"), "{titles:?}");
+        let search = actions
+            .iter()
+            .find(|a| a["title"] == "Search for a proof")
+            .unwrap_or_else(|| panic!("{titles:?}"));
+        assert_eq!(search["command"]["command"], "stitchwort.searchProof");
+
+        let answer = s.request_searched(
+            "workspace/executeCommand",
+            json!({"command": search["command"]["command"],
+                   "arguments": search["command"]["arguments"]}),
+        );
+        let proofs = answer["proofs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{answer}"));
+        assert!(
+            proofs.iter().any(|p| p["title"]
+                .as_str()
+                .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
+            "{proofs:?}"
+        );
+        // `rfl` closes it, so it is the only proof offered (SW-2966).
+        assert_eq!(proofs.len(), 1, "{proofs:?}");
+        assert_eq!(
+            answer["range"]["start"],
+            json!({"line": 2, "character": character})
+        );
+        assert_eq!(answer["version"], 1);
+    });
+}
+
+/// A client that shows progress is shown the proof search running, from the
+/// command being picked to its answer.
+#[test]
+fn a_proof_search_reports_progress_to_a_client_that_shows_it() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem f (o: Option Nat): o = o := ?\n";
+        let mut s = Session::open_with(
+            text,
+            json!({"window": {"workDoneProgress": true},
+                   "workspace": {"workspaceEdit": {"documentChanges": true}}}),
+        );
+        let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
+        let range = json!({"start": {"line": 2, "character": character},
+                           "end": {"line": 2, "character": character + 1}});
+        let answer = s.request_searched(
+            "workspace/executeCommand",
+            json!({"command": "stitchwort.searchProof",
+                   "arguments": [{"uri": URI, "range": range}]}),
+        );
+        assert!(answer["proofs"].is_array(), "{answer}");
+        s.settle();
+        assert!(
+            s.asked
+                .iter()
+                .any(|m| m == "window/workDoneProgress/create"),
+            "{:?}",
+            s.asked
+        );
+    });
+}
+
+/// "Search for a proof" is offered only on a `?` whose expected type is a
+/// proposition (SW-2917): a theorem's goal, not a `def`'s body, where the
+/// expected type is data (`Nat`). The command refuses the program hole too.
+/// A `?` is answered at once, with the search offered as a command to run
+/// when picked (D3519).
+#[test]
+fn a_code_action_offers_a_proof_search_only_on_a_proof_goal() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ndef f (n: Nat): Nat := ?\n\ntheorem t (n: Nat): n + 0 = n := ?\n";
+        let mut s = Session::open(text);
+        let at = |line: usize| text.lines().nth(line).unwrap().find('?').unwrap() as u32;
+        let code_action = |s: &mut Session, line: u32, character: u32| {
+            s.request_any(
+                "textDocument/codeAction",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": line, "character": character},
+                                 "end": {"line": line, "character": character}},
+                       "context": {"diagnostics": []}}),
+            )
+        };
+        let titles = |actions: &Value| -> Vec<String> {
+            actions
+                .as_array()
+                .map(|all| {
+                    all.iter()
+                        .map(|a| a["title"].as_str().unwrap().to_string())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let program = code_action(&mut s, 2, at(2));
+        let offered = titles(&program);
+        assert!(
+            !offered.iter().any(|t| t == "Search for a proof"),
+            "a program ?: {offered:?}"
+        );
+        // The command refuses it as well.
+        let id = s.next_id;
+        s.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": "workspace/executeCommand",
+            "params": {"command": "stitchwort.searchProof", "arguments": [{
+                "uri": URI,
+                "range": {"start": {"line": 2, "character": at(2)},
+                          "end": {"line": 2, "character": at(2) + 1}}}]}});
+        let replies: Vec<Value> = s
+            .server
+            .receive(&message.to_string())
+            .iter()
+            .map(|m| serde_json::from_str(m).unwrap())
+            .collect();
+        let reply = replies.iter().find(|m| m["id"] == id).unwrap();
+        assert_eq!(reply["error"]["message"], "not a proof goal", "{reply}");
+        assert!(
+            s.server.take_searches().is_empty(),
+            "the program ? was searched"
+        );
+
+        let proof = code_action(&mut s, 4, at(4));
+        let offered = titles(&proof);
+        assert!(
+            offered.iter().any(|t| t == "Search for a proof"),
+            "a proof ?: {offered:?}"
+        );
+    });
+}
+
+/// The search command refuses to start from a `?` that has moved.
+#[test]
+fn the_search_command_on_a_moved_goal_is_refused() {
     big_stack(|| {
         let text =
             "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
         let mut s = Session::open(text);
-        let actions = s.request_searched(
-            "textDocument/codeAction",
-            json!({"textDocument": {"uri": URI},
-                   "range": {"start": {"line": 3, "character": 14},
-                             "end": {"line": 3, "character": 14}},
-                   "context": {"diagnostics": []}}),
-        );
-        let actions = actions.as_array().unwrap_or_else(|| panic!("{actions}"));
-        assert!(
-            actions.iter().any(|a| a["title"]
-                .as_str()
-                .is_some_and(|t| t.starts_with("Replace ? with `0`"))),
-            "{actions:?}"
-        );
+        let typed = text.replace("namespace Demo\n", "namespace Demo\n-- note\n");
+        s.change(2, &typed);
+        let id = s.next_id;
+        s.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": "workspace/executeCommand",
+            "params": {"command": "stitchwort.searchProof", "arguments": [{
+                "uri": URI,
+                "range": {"start": {"line": 3, "character": 14},
+                          "end": {"line": 3, "character": 15}}}]}});
+        let replies: Vec<Value> = s
+            .server
+            .receive(&message.to_string())
+            .iter()
+            .map(|m| serde_json::from_str(m).unwrap())
+            .collect();
+        let reply = replies.iter().find(|m| m["id"] == id).unwrap();
+        assert!(reply["error"]["message"].is_string(), "{reply}");
+        assert!(s.server.take_searches().is_empty());
     });
 }
 
@@ -885,6 +1202,279 @@ fn a_variable_of_an_arm_splits_into_its_types_constructors() {
         assert_eq!(new_text, "  | Some None => ?\n  | Some (Some value) => ?");
         let (_, new_text) = split(&mut s, 7, 4);
         assert_eq!(new_text, "  | [] => 0\n  | [x, ..xs] => 0");
+    });
+}
+
+/// The titles of the "Split" actions at `line`, `character` of `text`
+/// (opened in `s` as `version`), and the text with the one called `title`
+/// applied.
+fn split_at(
+    s: &mut Session,
+    version: i32,
+    text: &str,
+    (line, character): (u32, u32),
+    title: &str,
+) -> (Vec<String>, Option<String>) {
+    s.change(version, text);
+    let actions = s.request_any(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI},
+               "range": {"start": {"line": line, "character": character},
+                         "end": {"line": line, "character": character}},
+               "context": {"diagnostics": []}}),
+    );
+    let actions = actions.as_array().cloned().unwrap_or_default();
+    let titles = actions
+        .iter()
+        .filter_map(|a| a["title"].as_str())
+        .filter(|t| t.starts_with("Split"))
+        .map(str::to_string)
+        .collect();
+    let applied = actions.iter().find(|a| a["title"] == title).map(|a| {
+        let mut edits = a["edit"]["documentChanges"][0]["edits"]
+            .as_array()
+            .unwrap()
+            .clone();
+        let offset = |p: &Value| -> usize {
+            let line = p["line"].as_u64().unwrap() as usize;
+            let character = p["character"].as_u64().unwrap() as usize;
+            text.split_inclusive('\n')
+                .take(line)
+                .map(str::len)
+                .sum::<usize>()
+                + character
+        };
+        edits.sort_by_key(|e| std::cmp::Reverse(offset(&e["range"]["start"])));
+        let mut out = text.to_string();
+        for e in edits {
+            out.replace_range(
+                offset(&e["range"]["start"])..offset(&e["range"]["end"]),
+                e["newText"].as_str().unwrap(),
+            );
+        }
+        assert_cursor_on_new_hole(a, &out);
+        out
+    });
+    (titles, applied)
+}
+
+/// The line of the `?` the action called `title` asks the client to select.
+fn cursor_line(
+    s: &mut Session,
+    version: i32,
+    text: &str,
+    (line, character): (u32, u32),
+    title: &str,
+) -> usize {
+    s.change(version, text);
+    let actions = s.request_any(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI},
+               "range": {"start": {"line": line, "character": character},
+                         "end": {"line": line, "character": character}},
+               "context": {"diagnostics": []}}),
+    );
+    let action = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["title"] == title)
+        .unwrap();
+    action["command"]["arguments"][0]["range"]["start"]["line"]
+        .as_u64()
+        .unwrap() as usize
+}
+
+/// That `action` asks the client to select a `?` of `after` (the text with
+/// its edit applied), and returns the line it is on.
+fn assert_cursor_on_new_hole(action: &Value, after: &str) -> usize {
+    let command = &action["command"];
+    assert_eq!(command["command"], "stitchwort.selectRange", "{action}");
+    let range = &command["arguments"][0]["range"];
+    let line = range["start"]["line"].as_u64().unwrap() as usize;
+    let (from, to) = (
+        range["start"]["character"].as_u64().unwrap() as usize,
+        range["end"]["character"].as_u64().unwrap() as usize,
+    );
+    assert_eq!(
+        &after.lines().nth(line).unwrap()[from..to],
+        "?",
+        "{command}"
+    );
+    line
+}
+
+/// The position of the `n`th `?` of `text`.
+fn hole(text: &str, n: usize) -> (u32, u32) {
+    let at = text.match_indices('?').nth(n).unwrap().0;
+    let line = text[..at].matches('\n').count();
+    let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+    (line as u32, (at - start) as u32)
+}
+
+fn errors(s: &Session) -> Vec<&Value> {
+    s.diagnostics
+        .iter()
+        .filter(|d| d["severity"] == 1)
+        .collect()
+}
+
+#[test]
+fn a_goal_splits_on_a_variable_and_then_on_another_as_a_new_column() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := ?\n";
+        let mut s = Session::open(text);
+        let (titles, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `b`");
+        assert_eq!(titles, ["Split on `b`", "Split on `c`"]);
+        let by_b = applied.unwrap();
+        let first_arm = by_b.lines().position(|l| l == "  | False => ?").unwrap();
+        assert_eq!(
+            cursor_line(&mut s, 2, text, hole(text, 0), "Split on `b`"),
+            first_arm,
+            "the cursor goes to the first new ?"
+        );
+        assert_eq!(
+            by_b,
+            "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b with\n  | False => ?\n  | True => ?\n"
+        );
+        // The cursor on the `?` of the `True` arm: `c` becomes a column.
+        let (titles, applied) = split_at(&mut s, 3, &by_b, hole(&by_b, 1), "Split on `c`");
+        assert_eq!(titles, ["Split on `c`"], "b is already a scrutinee");
+        let by_c = applied.unwrap();
+        s.change(4, &by_c);
+        assert_eq!(
+            by_c,
+            "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b, c with\n  | False, _ => ?\n  | True, False => ?\n  | True, True => ?\n"
+        );
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
+#[test]
+fn a_goal_splits_a_nat_a_list_and_a_parameter_named_in_the_header() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef f (n: Nat): Nat := ?\n\ndef g (xs: List Nat): Nat :=\n  ?\n\ndef h (n: Nat) (k: Nat): Nat := match k with\n  | 0 => 1\n  | m => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `n`");
+        let applied = applied.unwrap();
+        assert!(
+            applied
+                .contains("def f (n: Nat): Nat := match n with\n  | Zero => ?\n  | Succ n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(3, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+        let (_, applied) = split_at(&mut s, 4, text, hole(text, 1), "Split on `xs`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.contains("  match xs with\n    | [] => ?\n    | [x, ..xs1] => ?\n"),
+            "{applied}"
+        );
+        s.change(5, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+        // A cursor on the name in the header, where the body is a `?`.
+        let (titles, applied) = split_at(&mut s, 6, text, (2, 7), "Split on `n`");
+        assert_eq!(titles, ["Split on `n`"]);
+        assert!(
+            applied
+                .unwrap()
+                .contains("def f (n: Nat): Nat := match n with")
+        );
+        // The `?` is a whole arm of the match on `k`: `n` becomes a column of
+        // it, and `k` isn't offered, being known in the arm. `m` is bound by
+        // the arm, so splitting it expands the arm.
+        let (titles, applied) = split_at(&mut s, 7, text, hole(text, 2), "Split on `n`");
+        assert_eq!(titles, ["Split on `n`", "Split on `m`"]);
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with(
+                "def h (n: Nat) (k: Nat): Nat := match k, n with\n  | 0, _ => 1\n  | m, Zero => ?\n  | m, Succ n1 => ?\n"
+            ),
+            "{applied}"
+        );
+        s.change(8, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+        let (_, applied) = split_at(&mut s, 9, text, hole(text, 2), "Split on `m`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | 0 => 1\n  | Zero => ?\n  | Succ n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(10, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
+#[test]
+fn a_split_of_a_program_s_own_nat_uses_its_constructors_not_the_preludes() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Nat = | O | S (n: Nat)\n\ndef plus (n m: Nat): Nat := match n with\n  | O => m\n  | S k => S (plus k m)\n\ntheorem plusO (n: Nat): plus n O = n := ?\n\ndef pred (n: Nat): Nat := match n with\n  | m => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `n`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.contains(":= match n with\n  | O => ?\n  | S n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(3, &applied);
+        assert!(
+            errors(&s)
+                .iter()
+                .all(|d| !d["message"].as_str().unwrap_or_default().contains("Succ")),
+            "{:?}",
+            s.diagnostics
+        );
+        // The variable of an arm.
+        let (_, applied) = split_at(&mut s, 4, text, hole(text, 1), "Split on `m`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | O => ?\n  | S n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(5, &applied);
+        assert!(
+            errors(&s).iter().all(|d| d["code"] != "E-UNKNOWN-NAME"),
+            "{:?}",
+            s.diagnostics
+        );
+    });
+}
+
+#[test]
+fn a_goal_splits_a_variable_the_arm_binds_in_place() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Move = | Rock | Paper | Scissors\n\ndef play (a b: Move): Move := a\n\ntheorem t (mine: Move) (theirs: Move): play mine theirs = play mine theirs := match mine, theirs with\n  | Rock, _ => ?\n  | Paper, theirs => ?\n  | Scissors, _ => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 1), "Split on `theirs`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | Rock, _ => ?\n  | Paper, Rock => ?\n  | Paper, Paper => ?\n  | Paper, Scissors => ?\n  | Scissors, _ => ?\n"),
+            "{applied}"
+        );
+        let (_, applied) = split_at(&mut s, 3, text, hole(text, 2), "Split on `theirs`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | Paper, theirs => ?\n  | Scissors, Rock => ?\n  | Scissors, Paper => ?\n  | Scissors, Scissors => ?\n"),
+            "{applied}"
+        );
+        s.change(4, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
+#[test]
+fn a_goal_splits_a_variable_inside_a_constructor_pattern_in_place() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Nat = | O | S (n: Nat)\n\ndef f (k: Nat): Nat := match k with\n  | O => O\n  | S n => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `n`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | O => O\n  | S O => ?\n  | S (S n) => ?\n"),
+            "{applied}"
+        );
+        s.change(3, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
     });
 }
 
@@ -932,6 +1522,66 @@ fn the_outline_asked_as_the_file_opens_is_not_empty() {
         s.settle();
         let late = s.request("textDocument/documentSymbol", params);
         assert_eq!(names(&early), names(&late));
+    });
+}
+
+#[test]
+fn the_folds_cover_the_multiline_declarations() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Color =\n  | Red\n  | Green\n\n\
+            def first (c: Color): Nat :=\n  let n := 1\n  n\n\n\
+            def two: Nat := 2\n";
+        let mut s = Session::open(text);
+        let folds = s.request(
+            "textDocument/foldingRange",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert_eq!(
+            folds,
+            json!([
+                {"startLine": 2, "endLine": 4},
+                {"startLine": 6, "endLine": 8},
+            ])
+        );
+    });
+}
+
+#[test]
+fn a_run_of_three_line_comments_folds() {
+    big_stack(|| {
+        let text = "namespace Demo\n\n-- one\n-- two\n-- three\n-- four\n\ndef one: Nat := 1\n";
+        let mut s = Session::open(text);
+        let folds = s.request(
+            "textDocument/foldingRange",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert_eq!(
+            folds,
+            json!([{"startLine": 2, "endLine": 5, "kind": "comment"}])
+        );
+    });
+}
+
+#[test]
+fn a_declaration_whose_body_does_not_parse_folds_over_its_whole_body() {
+    big_stack(|| {
+        let text = "namespace Demo\n\n\
+            def doubles (n: Nat): Nat :=\n  n * 2\n\n\
+            def f (count: Nat): Nat :=\n  let doubled := count * 2\n  doubled + (co\n\n\
+            def after (n: Nat): Nat :=\n  n + 1\n";
+        let mut s = Session::open(text);
+        let folds = s.request(
+            "textDocument/foldingRange",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert_eq!(
+            folds,
+            json!([
+                {"startLine": 2, "endLine": 3},
+                {"startLine": 5, "endLine": 7},
+                {"startLine": 9, "endLine": 10},
+            ])
+        );
     });
 }
 
@@ -1011,7 +1661,11 @@ fn searches_in_a_row_give_what_fresh_ones_do() {
                        "position": {"line": line, "character": character}}),
             ));
         }
-        for (line, character) in [(4, 9), (9, 25)] {
+        // The code actions that still wait for a search worker: splitting a
+        // pattern variable (`o`) and splitting from a parameter of a
+        // declaration whose body is a `?` (`n`). A `?` itself is answered at
+        // once.
+        for (line, character) in [(4, 9), (9, 7)] {
             jobs.extend(s.queued_searches(
                 "textDocument/codeAction",
                 json!({"textDocument": {"uri": URI},
@@ -1029,5 +1683,205 @@ fn searches_in_a_row_give_what_fresh_ones_do() {
             fresh.iter().filter(|f| !f.is_null()).count() >= 6,
             "{fresh:?}"
         );
+    });
+}
+
+/// The goals are from the last check: after the text moved on, a code action
+/// on a stale goal must not edit where the `?` used to be (SW-1949).
+#[test]
+fn a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+        let mut s = Session::open(text);
+        // A line typed above the goal, before the check has run again.
+        let typed = text.replace("namespace Demo\n", "namespace Demo\n-- note\n");
+        s.notify(
+            "textDocument/didChange",
+            json!({"textDocument": {"uri": URI, "version": 2},
+                   "contentChanges": [{"text": typed}]}),
+        );
+        // No proof search is queued for the stale goal.
+        let jobs = s.queued_searches(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI},
+                   "range": {"start": {"line": 3, "character": 14},
+                             "end": {"line": 3, "character": 14}},
+                   "context": {"diagnostics": []}}),
+        );
+        assert!(jobs.is_empty(), "{jobs:?}");
+    });
+}
+
+/// Switching features off (D3468): searches (here the one behind splitting a
+/// pattern variable's arm) are not queued, hints, lenses and tokens come back
+/// empty, and the client is asked to refresh.
+#[test]
+fn switching_features_off_with_a_configuration_change() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef f (o: Option Nat): Nat :=\n  let a := 1\n  match o with\n    | Some n => ?\n    | None => a\n\ntest \"a\" := 1 == 1\n";
+        let capabilities = json!({"workspace": {
+            "semanticTokens": {"refreshSupport": true},
+            "inlayHint": {"refreshSupport": true},
+            "codeLens": {"refreshSupport": true},
+        }});
+        let mut s = Session::open_with(text, capabilities);
+        let hints = |s: &mut Session| {
+            s.request(
+                "textDocument/inlayHint",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": 0, "character": 0}, "end": {"line": 8, "character": 0}}}),
+            )
+        };
+        let action = json!({"textDocument": {"uri": URI},
+            "range": {"start": {"line": 5, "character": 11}, "end": {"line": 5, "character": 11}},
+            "context": {"diagnostics": []}});
+        let lenses = json!({"textDocument": {"uri": URI}});
+        let tokens = json!({"textDocument": {"uri": URI}});
+
+        // On by default.
+        assert!(!hints(&mut s).as_array().unwrap().is_empty());
+        assert!(
+            !s.request("textDocument/codeLens", lenses.clone())
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            !s.request("textDocument/semanticTokens/full", tokens.clone())["data"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let searches = s.queued_searches("textDocument/codeAction", action.clone());
+        assert_eq!(searches.len(), 1, "{searches:?}");
+        let timed: Value = serde_json::from_str(&searches[0]).unwrap();
+        assert!(timed["time_ms"].is_null(), "{timed}");
+
+        // The way VS Code sends them.
+        s.asked.clear();
+        s.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings": {"stitchwort": {
+                "inlayHints": {"letTypes": false},
+                "codeLens": {"run": false},
+                "proofSearch": {"enabled": false, "timeLimitMs": 1234},
+                "semanticColours": false,
+            }}}),
+        );
+        for method in [
+            "workspace/semanticTokens/refresh",
+            "workspace/inlayHint/refresh",
+            "workspace/codeLens/refresh",
+        ] {
+            assert!(s.asked.iter().any(|m| m == method), "{:?}", s.asked);
+        }
+        assert!(hints(&mut s).as_array().unwrap().is_empty());
+        assert!(
+            s.request("textDocument/codeLens", lenses)
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            s.request("textDocument/semanticTokens/full", tokens.clone())["data"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let searches = s.queued_searches("textDocument/codeAction", action.clone());
+        assert!(searches.is_empty(), "{searches:?}");
+
+        // Search back on: queued with the time limit.
+        s.asked.clear();
+        s.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings": {"stitchwort": {"proofSearch": {"enabled": true}}}}),
+        );
+        let searches = s.queued_searches("textDocument/codeAction", action);
+        assert_eq!(searches.len(), 1, "{searches:?}");
+        let timed: Value = serde_json::from_str(&searches[0]).unwrap();
+        assert_eq!(timed["time_ms"], 1234, "{timed}");
+        // Nothing else changed, so a repeated setting asks for no refresh.
+        s.asked.clear();
+        s.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings": {"stitchwort": {"proofSearch": {"enabled": true}}}}),
+        );
+        assert!(s.asked.is_empty(), "{:?}", s.asked);
+    });
+}
+
+/// Typing an unfinished body (`:= (n + n`) leaves the rest of the file
+/// checked: `double`'s signature stands in for it, so what only calls it
+/// keeps its diagnostics and goals, and what must compute it waits, quietly
+/// (docs/proposals/tests-with-errors.md §3.3). Finishing the body removes
+/// the stand-in: what waited is checked again.
+#[test]
+fn a_body_being_typed_leaves_its_users_checked() {
+    big_stack(|| {
+        let fine = "namespace Demo\n\ndef double (n: Nat): Nat := n + n\n\ntheorem five: double 2 = 5 := rfl\n\ndef quad (n: Nat): Bool := double (double n)\n\ntheorem later: quad 3 = True := ?\n";
+        let typing = fine.replace(":= n + n\n", ":= (n + n\n");
+        let mut s = Session::open(fine);
+        let shown = |s: &Session| -> Vec<(String, u64)> {
+            (s.diagnostics.iter())
+                .map(|d| {
+                    let code = d["code"].as_str().unwrap().to_string();
+                    (code, d["range"]["start"]["line"].as_u64().unwrap())
+                })
+                .collect()
+        };
+        let before = shown(&s);
+        assert_eq!(
+            before,
+            [
+                ("E-REFL".to_string(), 4),
+                ("E-TYPE-MISMATCH".to_string(), 6),
+                ("GOAL".to_string(), 8),
+            ],
+            "{:#?}",
+            s.diagnostics
+        );
+        // `five` must compute `double 2`, so it waits; `quad`'s own
+        // mistake and `later`'s goal are as they were.
+        s.change(2, &typing);
+        assert_eq!(
+            shown(&s),
+            [
+                ("E-PARSE".to_string(), 2),
+                ("E-TYPE-MISMATCH".to_string(), 6),
+                ("GOAL".to_string(), 8),
+            ],
+            "{:#?}",
+            s.diagnostics
+        );
+        s.change(3, fine);
+        assert_eq!(shown(&s), before, "{:#?}", s.diagnostics);
+    });
+}
+
+/// Cmd-click on a name whose declaration has an error goes to the
+/// declaration, as it does without the error, not to where the error is
+/// (a stand-in is made at the error's place): by name, and by a dot call.
+#[test]
+fn go_to_definition_on_a_declaration_with_an_error_goes_to_its_name() {
+    big_stack(|| {
+        let broken = "namespace Demo\n\ntype Box = { n: Nat }\n\ndef Box.twice (self: Box): Nat := \"oops\"\n\ndef byName (b: Box): Nat := Box.twice b\n\ndef byDot (b: Box): Nat := b.twice\n";
+        for text in [broken.replace("\"oops\"", "self.n"), broken.to_string()] {
+            let mut s = Session::open(&text);
+            for (line, prefix) in [
+                (6, "def byName (b: Box): Nat := Box.tw"),
+                (8, "def byDot (b: Box): Nat := b.tw"),
+            ] {
+                let at = json!({"line": line, "character": prefix.len()});
+                let found = s.request(
+                    "textDocument/definition",
+                    json!({"textDocument": {"uri": URI}, "position": at}),
+                );
+                let start = &found["range"]["start"];
+                assert_eq!(start["line"], 4, "{text}\n{prefix}: {found}");
+                assert_eq!(start["character"], "def Box.".len(), "{prefix}: {found}");
+            }
+        }
     });
 }

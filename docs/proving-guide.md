@@ -61,10 +61,51 @@ These aren't style. A lane that breaks one has to say so in its report.
 
 Statements are read by people deciding what was proved, so write them as
 statements. Use the operators, not the prefix forms: `a ∧ b`, `a ∨ b`,
-`¬p`, `a ↔ b`, `x ≠ y`, `(x: T) → p`, `∃ (x: T) => p`, rather than
+`¬p`, `a ↔ b`, `x ≠ y`, `∀ (x: T) => p`, `∃ (x: T) => p`, rather than
 `And a b`, `Or a b`, `Not p`, `Iff a b`, `Not (x = y)` or `Exists (x => p)`.
 They are the same terms (same hashes), so proofs that take them apart with
-`Inl`, `Both` and so on don't change. Write an ability row's result type
+`Inl`, `Both` and so on don't change.
+
+A `Bool` where a proposition is expected means `b = True`
+(docs/syntax.md, "A `Bool` as a proposition"), so state a test's fact
+bare: `(h: xs.any p)`, `isSmall m ∧ isSmall n`, `¬a`. State facts with
+`∧`; write `(a && b) = True` only for a fact a program hands you and you
+mean to `rewrite` with, since that is the term an `if a && b` or a
+`match h: a && b` gives (D3486). Keep `= True` on a side of `=`, and write
+`b = False` as it is.
+
+Tests and statements (docs/guide/10-proofs.md, "Tests and
+propositions"): take a fact about a test apart with the patterns of the
+statement it reads as (`| Both a b`, `| Inl a`, `| { low, high }` for a
+record reading), take a part with `h.left`, and write `.read` where the
+whole fact is wanted as its statement (`h.read`, `(h.read x m).right`).
+Build a fact with the statement's constructors (`Both a b`, `Inr hb`, a
+record literal). Don't write a helper that converts a test to its
+statement, or a `= True ↔` lemma, where a pattern or `.read` does it; `auto`
+and `cases` already use the test facts in scope as what they read as, and
+apply a `∀` once. A new test with a statement of its own gets a
+`@[reading]` theorem beside it.
+
+A theorem puts every variable before the colon, as a parameter
+(`theorem plusZero ∀ (n: Nat): n + 0 = n`), and a proof by cases is a `match`
+on them: `theorem timesOne ∀ (n: Nat): n * 1 = n := match n with | Zero => …
+| Succ k => …` (D3470). The `∀` right after the name is how a theorem's header
+reads as "for all"; it is cosmetic (the same term and hash), `stitchwort fmt`
+writes it on every theorem with explicit parameters, and it stays off a header
+with only implicit ones (D3472). Premises the proof names are parameters too
+(`(h: x < y)`), not a `→` after the colon (D3471). This is the house style
+for theorems; a `def` keeps its arms and its `→`. `stitchwort sweep
+theorem-binders` converts old-style theorems; `check` warns (`W-THEOREM-FORALL`) on a theorem whose statement still starts with `∀` after the colon, and the editor's quick fix "Move ∀ variables before the colon" converts it. Likewise `W-ARROW-FORALL` on a statement written `(x: T) → P` for `∀ (x: T) => P` (D3462), with the quick fix "Write ∀ instead of ->".
+
+Write "for all" as `∀` in a quantified hypothesis and where a quantifier is
+part of the statement itself, after the colon: `(all: ∀ (x: a) => x ∈ xs →
+p x)`, `theorem t (p: Nat → Prop): (∀ (n: Nat) => p n) → p 0` (D3458). It is
+the same term as `(x: T) → p`, so it's applied and introduced as before
+(`all x mem`, `n => …`). A function type that isn't a proposition stays an
+arrow, `(n: Nat) → Vec Nat n`. Goals print a quantified proposition with `∀` too, including one whose
+result is a hypothesis's predicate applied to arguments (`∀ (x: a) => p x`,
+with `p: a → Prop`). Messages, which have no types for the variables, show
+that as `(x: a) → p x`. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
 Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
@@ -245,8 +286,26 @@ Import what you use: std's theorems live in namespaces that need an import
   argument, from evidence given by name, a hypothesis in scope of exactly
   that type, or a decision procedure (DESIGN.md "`auto` and `Decidable`").
   Its search stops after 8 levels of nested decisions; past that, pass the
-  proof (`Decidable.fromYes …`), as the roguelike did for its 7th key
+  proof (`d.sound rfl`), as the roguelike did for its 7th key
   (games/rogue/PROOFS.md:192). An `if h: …` puts `h` in scope for `auto`.
+- **A decision is a record**, `{ holds: Bool, sound: holds = True → p,
+  complete: p → holds = True }` (D3483, SW-2746). Build one test first,
+  `{ holds = Nat.equal m n, sound = …, complete = … }`, so that `==`
+  computes to the test, or with `Decidable.yes h` and `Decidable.no r`
+  (`import Std (Decidable)`). To split on one, write `if h: p then … else
+  …`: `h` is the proof of `p` in the first branch and its refutation in the
+  second, and nothing in the goal is rewritten. To refine a goal or
+  hypothesis that has an `if` on `p`, match on the test: `match e: x < y
+  with | True => … | False => …`, where `e` is the proof in the `True` arm.
+  A hypothesis `e: (x == y) = False` becomes `x ≠ y` with
+  `DecEq.soundFalse x y e` (or `Decidable.refute d e`), and `e: … = True`
+  becomes `x = y` with `DecEq.sound e` (or `d.sound e`). `d.holds` is the
+  `Bool` a decision stands for. A goal that holds the decision itself (the
+  `if h:` of a program whose branch uses `h`) splits by a `match` on the
+  record, `| { holds = True, sound = s, complete = _ } => … s rfl …`, or,
+  when that is refused (`E-MATCH-MOTIVE`: the decision computes to its
+  fields), by a `match` on what its test waits for (`match h: cave.height
+  with | Zero | Succ _`; `aoc/src/Aoc/Year2021/Day15/Proofs/Levels.sw`).
 - **`byDecision`** (`import Std (byDecision)`) is Lean's `by decide`: it
   proves a closed proposition by running its decision procedure. False is
   `E-AUTO-FALSE`; stuck on a variable is `E-AUTO-STUCK`, so split the
@@ -340,7 +399,7 @@ Each was run on the example named; the output is quoted, shortened.
   statement is false:
 
   ```
-  [E-CASES] Error: `cases` can't close the case a = True, (n <= 2) = False
+  [E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, (n <= 2) = False
     Note 1: h: n ≤ 3
     Note 2: goal: False = True
     Note 5: this statement is false; a counterexample: a = True, n = 3
@@ -351,6 +410,9 @@ Each was run on the example named; the output is quoted, shortened.
   and, when every variable is finite, points at `Finite.check`
   (`examples/reject/cases-budget.sw`). Otherwise prove a fact that decides
   several cases at once and pass it with `cases in t`, or `match` by hand.
+  The same error comes sooner when a case grows too large to split: a
+  goal and hypotheses that, written out in full, have more than a million
+  parts (`examples/reject/cases-split-too-large.sw`).
 - **`E-OMEGA`**: the facts don't give the goal. "an integer model …
   satisfies the facts" names values for the atoms; often a fact is missing
   (pass it in `omega […]`) or an atom hides arithmetic (`x % 2`, `x / 2`,
@@ -368,9 +430,8 @@ Each was run on the example named; the output is quoted, shortened.
     goal, so inside its arm a hypothesis already has the branch's form: use
     it as it is rather than rewriting it
     (`examples/reject/rewrite-refined-by-match.sw`). A proof follows a
-    program's `if` by matching on its `Bool` (its condition), not on the
-    comparison's decision, which can silently miss an `if` compiled to a `Bool`
-    test (`W-MATCH-DECISION-IF`, below), also for `if a && b`: one
+    program's `if` by matching on its `Bool` (its condition), or on the
+    comparison's decision when the arms need its proofs; also for `if a && b`: one
     `match e: a && b with` refines the goal, and `omega` reads `e` as
     `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
@@ -387,15 +448,6 @@ Each was run on the example named; the output is quoted, shortened.
     An unnamed `match` is given it too, but only when its arms fail: it
     is often a case split for the arms' own sake (SW-1721,
     `examples/reject/match-not-found-unnamed.sw`).
-  - `W-MATCH-DECISION-IF`: a `match` on a decision (`Nat.decLessThan 9
-    value`) that finds neither the decision nor a hypothesis holding it, while
-    its `Bool` (`Nat.leq 10 value`) is the condition of an `if` in the goal or a
-    hypothesis. An `if` whose branches don't use its comparison's proof is a
-    test of the `Bool`, so the decision match refines nothing in it. The
-    warning names the condition: `match h: 10 <= value with | True => … |
-    False => …`, which refines the `if` whichever form it has. Given for
-    named and unnamed matches, whether or not the arms fail
-    (`examples/reject/match-decision-if.sw`, 2021 day 18's `split`).
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
     because an `auto` proof (the `i < xs.length` in `xs.getLt i`) is about
     it. Rewrite a larger term (`xs.getLt i`), or use `calc`
@@ -458,9 +510,22 @@ Each was run on the example named; the output is quoted, shortened.
     │ Note 2: it happened while checking `countBig`
     │ Note 3: it ran out while unfolding `count`
   ```
-  The last note names the definition being unfolded; when it doesn't, find
-  it by replacing parts with `?`. Then see §6. Other forms: "a value was
-  too large to show" (aoc/NOTES-2024.md:1479–1485). Two of the roguelike's
+  The last note names the definition being unfolded (for "a value was too
+  large to write out" too, unless it is the standard library's); when it
+  doesn't, find it by replacing parts with `?`. Then see §6. Other forms:
+  "a value was too large to show" (aoc/NOTES-2024.md:1479–1485). A `match`
+  that runs out on a call given a number also says so: "`outer` is called
+  here with the number `12`, so it is computed in full: make the number a
+  variable, stating a lemma for any `n`, and use the lemma with `12`"
+  (`examples/reject/as-written-unconfirmed-slow-check.sw`).
+  A check can take minutes before it runs out (its limit is 10 billion
+  evaluation steps). While it runs, `stitchwort check` says which
+  declaration it is on and what it is unfolding, after 250 million steps
+  (about 7 s) and each time the steps double:
+
+  ```
+  note: still checking `Main.t`: over 250,000,000 evaluation steps so far, unfolding `countdown` (it stops at 10,000,000,000)
+  ``` Two of the roguelike's
   three failures in one proof were this (games/rogue/PROOFS.md:216–226).
   A `rewrite` or `match` whose goal (or a hypothesis) is too large once its
   calls are computed, on a call with a large literal such as
@@ -507,6 +572,18 @@ Aoc.Year2024.Day06` lists a namespace's declarations with their summaries.
 ([syntax.md](syntax.md#what-a-declaration-does-stitchwort-doc)). `stitchwort
 search '"filterMap"'` ranks the declaration with that name first, then the
 theorems that merely contain it.
+
+**See the goal at any point with `stitchwort goal --at FILE:LINE[:COL]`.**
+You don't need a `?` there: it prints the names in scope and `⊢` the goal at
+that point of a finished or half-written proof (`expected T` in program
+code). On a step it gives the goal before and after: put the point on each
+rule of a `rewrite` chain in turn, on an arm's pattern, or on a `calc` line's
+`_`, to follow the proof without editing the file; on an expression that
+fails, it gives the goal it had to prove. `--json` gives the same for a
+script (`context.step` has `before`, `after` and `rule`). Exit 2 means
+nothing was checked there (a comment); a file of a project is read in the
+project from any folder, taking about as long as `check` of the file
+([syntax.md](syntax.md#the-goal-at-a-point-stitchwort-goal---at)).
 
 **At a `?`, run `stitchwort search --at FILE:LINE` before writing a proof by
 hand.** It lists the lemmas that close the goal there, as proofs to paste,

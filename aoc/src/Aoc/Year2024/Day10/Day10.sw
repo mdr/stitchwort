@@ -26,13 +26,12 @@ def main(): {IO, Fail} () :=
 type TopographicMap = { grid: Grid (Option Nat) }
 
 --| One tile: a height, or `.`.
-def tile(): {Parse} Option Nat :=
-  Parse.oneOf [
-    () => Some digit().toNat,
-    () =>
-      char '.'
-      None
-  ]
+def tile(): {Parse} Option Nat := Parse.oneOf [
+  () => Some digit().toNat,
+  () =>
+    char '.'
+    None
+]
 
 --| One row of tiles per line, every row as long as the first (the puzzle's
 --| map is a rectangle; `parseGrid` checks it).
@@ -45,10 +44,9 @@ def TopographicMap.heightAt (map: TopographicMap) (position: Position): Option N
 def TopographicMap.positions (map: TopographicMap): List Position := map.grid.cells |> .map Pair.fst
 
 --| `to` is exactly one higher than `from`.
-def TopographicMap.isOneHigher (map: TopographicMap) (from: Position) (to: Position): Bool :=
-  match map.heightAt from with
-    | Some height => map.heightAt to == Some (height + 1)
-    | None => False
+def TopographicMap.isOneHigher (map: TopographicMap) (from to: Position): Bool := match map.heightAt from with
+  | Some height => map.heightAt to == Some (height + 1)
+  | None => False
 
 --| The neighbours a trail can step to from `position`.
 def TopographicMap.uphill (map: TopographicMap) (position: Position): List Position :=
@@ -61,10 +59,12 @@ def TopographicMap.trailEnds (map: TopographicMap): (steps: Nat) → (position: 
   | Succ steps, position => map.uphill position |> .flatMap (map.trailEnds steps)
 
 --| The positions of height 0.
-def TopographicMap.trailheads (map: TopographicMap): List Position := map.positions |> .filter (position => map.heightAt position == Some 0)
+def TopographicMap.trailheads (map: TopographicMap): List Position :=
+  map.positions |> .filter (position => map.heightAt position == Some 0)
 
 --| A trailhead's score: the distinct 9s its trails reach, nine steps up.
-def TopographicMap.score (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .unique |> .length
+def TopographicMap.score (map: TopographicMap) (trailhead: Position): Nat :=
+  map.trailEnds 9 trailhead |> .unique |> .length
 
 --| A trailhead's rating: its trails, one end each.
 def TopographicMap.rating (map: TopographicMap) (trailhead: Position): Nat := map.trailEnds 9 trailhead |> .length

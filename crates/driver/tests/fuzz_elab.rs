@@ -30,7 +30,12 @@
 //!    `E-RESOURCE`, an acceptable outcome), and a wall-clock watchdog of
 //!    `WATCHDOG` reports a hang, naming the case;
 //! 5. on every `CACHE_EVERY`th case, a cold and then a warm check cache give
-//!    the same verdict and the same diagnostic codes.
+//!    the same verdict and the same diagnostic codes;
+//! 6. no check holds more than `MEM_CAP` bytes of heap (`FUZZ_MEM_CAP_MB`
+//!    sets another): a check that does is cancelled and the case reported
+//!    with its input saved, and the run goes on (SW-2582). The test's
+//!    allocator counts each thread's live bytes, and the budget's cancel hook
+//!    reads the count every few thousand evaluation steps.
 //!
 //! The seed is fixed. A failure prints the oracle, the case number, the seed
 //! and the generator's state, and writes the input to
@@ -53,23 +58,33 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use stitchwort_core::budget::Limits;
+use stitchwort_core::budget::{Budget, Limits};
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier};
 use stitchwort_syntax::{SourceMap, parse_module_recovering};
 
-/// The default number of cases, about 20 s in the daily tier (four times as
-/// many in the full tier); `FUZZ_CASES` sets another count.
+#[path = "support/heap_cap.rs"]
+mod heap_cap;
+
+/// The default number of cases, about 20 s in the broad tier (four times as
+/// many in the all tier); `FUZZ_CASES` sets another count.
 const CASES: usize = 400;
 const SEED: u64 = 0x5eed_e1ab_0000_0685;
 const MAX_LEN: usize = 64 * 1024;
 const STACK: usize = 16 * 1024 * 1024;
 /// Evaluation steps a case may spend (the default, 10^10, takes minutes).
 const WORK: u64 = 300_000_000;
+/// Nodes a value may grow to when read back (the default is 2 million;
+/// several of the runaway cases reached it, for a verdict, `E-RESOURCE`,
+/// that comes the same at half).
+const SIZE: u64 = 1_000_000;
 /// A case still running after this long is a hang.
 const WATCHDOG: Duration = Duration::from_secs(60);
 /// A check of a case running this long is named as it runs. Short, because
 /// a case that runs away in memory can fill 16 GB in under ten seconds.
 const SLOW: Duration = Duration::from_secs(5);
+/// The most heap one check may hold. A normal case takes under 200 MB; the
+/// cases that ran away took 6 to 16 GB each. Four checks run at once.
+const MEM_CAP: i64 = 2 << 30;
 /// Every this many cases also check the cold and warm cache agree.
 const CACHE_EVERY: usize = 10;
 
@@ -529,6 +544,14 @@ struct Verdict {
     codes: Vec<&'static str>,
 }
 
+#[global_allocator]
+static ALLOCATOR: heap_cap::Counting = heap_cap::Counting;
+
+/// The cap in bytes: `FUZZ_MEM_CAP_MB` or [`MEM_CAP`].
+fn mem_cap() -> i64 {
+    env_number("FUZZ_MEM_CAP_MB").map_or(MEM_CAP, |mb| (mb as i64) << 20)
+}
+
 struct Report {
     verdict: Verdict,
     /// The text parsed with no error.
@@ -540,9 +563,14 @@ struct Report {
     messages: Vec<String>,
     /// A message of each diagnostic with an INTERNAL code.
     internal: Vec<String>,
+    /// The most heap the check held at once, in bytes.
+    peak: i64,
 }
 
-fn check(text: &str, cache: Option<&Path>) -> Report {
+/// `None` if the check held more heap than the cap and was cancelled.
+fn check(text: &str, cache: Option<&Path>) -> Option<Report> {
+    Budget::set_cancel_hook(heap_cap::over_cap);
+    let before = heap_cap::start(mem_cap(), None);
     let mut sources = SourceMap::new();
     let file = sources.add("fuzz.sw", text);
     let (module, errors) = parse_module_recovering(file, text, STACK);
@@ -552,6 +580,7 @@ fn check(text: &str, cache: Option<&Path>) -> Report {
     let mut session = Session::for_stack(STACK);
     session.elab.options.limits = Limits {
         work: WORK,
+        size: SIZE,
         ..Limits::for_stack(STACK)
     };
     // A timed counterexample search can differ between two runs.
@@ -561,7 +590,15 @@ fn check(text: &str, cache: Option<&Path>) -> Report {
     }
     stitchwort_elab::record_kernel_rejections(true);
     stitchwort_elab::take_kernel_rejections();
+    let budget = &session.elab.kernel.machine.budget;
+    budget.set_cancel_flag(Default::default());
+    budget.watch_cancel(true);
     let result = session.load("fuzz.sw", text);
+    session.elab.kernel.machine.budget.watch_cancel(false);
+    if session.elab.kernel.machine.budget.cancelled() {
+        stitchwort_elab::take_kernel_rejections();
+        return None;
+    }
     let rejections = stitchwort_elab::take_kernel_rejections();
     let (accepted, diagnostics) = match result {
         Ok(_) => (true, std::mem::take(&mut session.warnings)),
@@ -574,18 +611,22 @@ fn check(text: &str, cache: Option<&Path>) -> Report {
         .collect();
     let codes = diagnostics.iter().map(|d| d.code).collect();
     let messages = diagnostics.iter().map(|d| d.message.clone()).collect();
-    Report {
+    let peak = heap_cap::peak_since(before);
+    Some(Report {
         verdict: Verdict { accepted, codes },
         parsed,
         reached,
         rejections,
         messages,
         internal,
-    }
+        peak,
+    })
 }
 
 enum Ran {
     Done(Box<Report>),
+    /// Cancelled for holding more heap than the cap.
+    OverMemory,
     Panicked(String),
     Hung,
 }
@@ -600,7 +641,8 @@ fn run_watched(text: &str, cache: Option<&Path>) -> Ran {
         .spawn(move || {
             let outcome = catch_unwind(AssertUnwindSafe(|| check(&text, cache.as_deref())));
             let _ = tx.send(match outcome {
-                Ok(report) => Ran::Done(Box::new(report)),
+                Ok(Some(report)) => Ran::Done(Box::new(report)),
+                Ok(None) => Ran::OverMemory,
                 Err(payload) => Ran::Panicked(
                     payload
                         .downcast_ref::<String>()
@@ -647,6 +689,18 @@ struct Tally {
     failures: Vec<(usize, String)>,
 }
 
+/// Names a check that held over a quarter of the cap, on standard error, so
+/// a case heading for the cap can be found in the log.
+fn note_heavy(case: &Case, run: &str, report: &Report) {
+    if report.peak > mem_cap() / 4 {
+        eprintln!(
+            "fuzz_elab: case {} ({run}) held {} MB of heap",
+            case.number,
+            report.peak >> 20
+        );
+    }
+}
+
 /// Checks `case`, calling `starting` before each check of it (the slow-case
 /// report times each one).
 fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting: &dyn Fn()) {
@@ -665,12 +719,23 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
             ),
         ));
     };
+    let over_memory = |tally: &mut Tally, run: &str| {
+        fail(
+            tally,
+            "6 (memory)",
+            format!(
+                "a check ({run}) held over {} MB of heap and was cancelled",
+                mem_cap() >> 20
+            ),
+        )
+    };
     starting();
     let report = match run_watched(&case.text, None) {
         Ran::Done(report) => *report,
         Ran::Panicked(message) => {
             return fail(tally, "1 (no panic)", format!("panicked: {message}"));
         }
+        Ran::OverMemory => return over_memory(tally, "no cache"),
         Ran::Hung => {
             return fail(
                 tally,
@@ -679,6 +744,7 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
             );
         }
     };
+    note_heavy(case, "no cache", &report);
     tally.parsed += usize::from(report.parsed);
     tally.reached += usize::from(report.reached);
     tally.accepted += usize::from(report.verdict.accepted);
@@ -710,6 +776,8 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
         let _ = std::fs::remove_dir_all(&dir);
         match (cold, warm) {
             (Ran::Done(cold), Ran::Done(warm)) => {
+                note_heavy(case, "cold cache", &cold);
+                note_heavy(case, "warm cache", &warm);
                 if cold.verdict != warm.verdict {
                     fail(
                         tally,
@@ -728,6 +796,7 @@ fn run_case(case: &Case, seed: u64, out_dir: &Path, tally: &mut Tally, starting:
             (Ran::Panicked(m), _) | (_, Ran::Panicked(m)) => {
                 fail(tally, "1 (no panic, with the cache)", m);
             }
+            (Ran::OverMemory, _) | (_, Ran::OverMemory) => over_memory(tally, "with the cache"),
             _ => fail(tally, "4 (budget, with the cache)", "hung".into()),
         }
     }
@@ -746,8 +815,8 @@ fn env_number(name: &str) -> Option<u64> {
 
 #[test]
 fn mutated_examples_check_without_internal_errors() {
-    // The full tier runs four times as many.
-    let default = if tier() == Tier::Full {
+    // The all tier runs four times as many.
+    let default = if tier() == Tier::All {
         4 * CASES
     } else {
         CASES
@@ -902,5 +971,3 @@ fn mutated_examples_check_without_internal_errors() {
         );
     }
 }
-
-use stitchwort_test_alloc as _;

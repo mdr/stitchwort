@@ -8,23 +8,15 @@ fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
   else
     apply v2(erased)
 native Std.Nat.leq = %Nat.leq/2
-fn Std.Decidable.toBool(v0) {1 slots} =
-  match v0: Decidable {
-    Yes => True
-    No => False
-  }
-native Std.Nat.decEq = %Nat.decEq/2
+native Std.Nat.equal = %Nat.equal/2
+fn Std.Decidable.holds(v0) {1 slots} = v0
+fn Std.Nat.decEq(v0, v1) {2 slots} = %Nat.equal(v0, v1)
 fn Std.Char.toNat(v0) {2 slots} =
   match v0: Char {
     MkChar(code: v1) => v1
   }
-fn Std.Char.decEqFrom(v0, v1, v2) {3 slots} =
-  match v2: Decidable {
-    Yes => Yes
-    No => No
-  }
 fn Std.Char.decEq(v0, v1) {3 slots} =
-  if %Nat.equal({
+  %Nat.equal({
     match v0: Char {
       MkChar(code: v2) => v2
     }
@@ -32,10 +24,7 @@ fn Std.Char.decEq(v0, v1) {3 slots} =
     match v1: Char {
       MkChar(code: v2) => v2
     }
-  }) then
-    Yes
-  else
-    No
+  })
 native Std.Text.decEq = %DecEqText/2
 native Std.Int.decEq = %DecEqInt/2
 native Std.Int.less = %IntLess/2

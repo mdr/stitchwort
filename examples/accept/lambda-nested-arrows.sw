@@ -26,9 +26,10 @@ test "let, three parameters" :=
 
 -- A body that may fail: a function returning a computation, either way.
 def checkedNested (base: Nat): {Fail} Nat :=
-  let span := lo => hi =>
-    Fail.ensure (lo < hi) "out of order"
-    hi - lo
+  let span := lo =>
+    hi =>
+      Fail.ensure (lo < hi) "out of order"
+      hi - lo
   span base 3 + span 2 5
 
 def checkedFlat (base: Nat): {Fail} Nat :=
@@ -37,17 +38,14 @@ def checkedFlat (base: Nat): {Fail} Nat :=
     hi - lo
   span base 3 + span 2 5
 
-test "let, with effects" :=
-  Fail.toResult (() => checkedNested 1) == Ok 5 ∧ Fail.toResult (() => checkedFlat 1) == Ok 5
+test "let, with effects" := Fail.toResult (() => checkedNested 1) == Ok 5 ∧ Fail.toResult (() => checkedFlat 1) == Ok 5
 
-def apply2 (f: Nat → Nat → Nat) (a: Nat) (b: Nat): Nat := f a b
+def apply2 (f: Nat → Nat → Nat) (a b: Nat): Nat := f a b
 
-def applyAny [a: Type] [b: Type] [c: Type] (f: a → b → c) (x: a) (y: b): c := f x y
+def applyAny [a b c: Type] (f: a → b → c) (x: a) (y: b): c := f x y
 
 -- As an argument, where the parameter's type is known.
-test "argument, known type" :=
-  apply2 (x => y => x + y) 2 3 == 5 ∧ apply2 (x y => x + y) 2 3 == 5
+test "argument, known type" := apply2 (x => y => x + y) 2 3 == 5 ∧ apply2 (x y => x + y) 2 3 == 5
 
 -- As an argument whose types the later arguments fix.
-test "argument, unknown type" :=
-  applyAny (x => y => x + y) 2 3 == 5 ∧ applyAny (x y => x + y) 2 3 == 5
+test "argument, unknown type" := applyAny (x => y => x + y) 2 3 == 5 ∧ applyAny (x y => x + y) 2 3 == 5

@@ -6,5 +6,4 @@ def spin: Nat → Nat → Nat
   | Zero, acc => acc
   | Succ n, acc => spin n (acc + n)
 
-def main(): {IO} () :=
-  IO.print "${spin 1000 0}"
+def main(): {IO} () := IO.print "${spin 1000 0}"

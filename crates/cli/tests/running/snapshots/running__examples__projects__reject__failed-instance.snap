@@ -1,0 +1,26 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ failed-instance/src/colors.sw:8:33 ]
+   │
+ 8 │ instance colorOrd: Ord Color := True
+   │                                 ──┬─  
+   │                                   ╰─── expected `Ord Color`, but this has type `Bool`
+───╯
+[E-USES-FAILED] Error: `colorOrd` has an error, so 2 declarations here can't be checked until it's fixed
+   ╭─[ failed-instance/src/day.sw:9:5 ]
+   │
+ 9 │ def before (a: Color) (b: Color): Bool := a < b
+   │     ───┬──  
+   │        ╰──── `colorOrd` has an error
+   │
+   ├─[ failed-instance/src/colors.sw:8:33 ]
+   │
+ 8 │ instance colorOrd: Ord Color := True
+   │                                 ──┬─  
+   │                                   ╰─── the error is here
+   │ 
+   │ Note: waiting for it: `before`, test "before"
+───╯

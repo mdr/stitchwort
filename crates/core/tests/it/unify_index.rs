@@ -849,6 +849,50 @@ fn the_occurs_check_looks_through_types_transitively() {
     assert!(matches!(solve(0), Outcome::Solved(_)));
 }
 
+/// Two numbers lose the `Succ`s they share in one step, not one entry per
+/// `Succ` (SW-2580: `2^128` against `2^128 - 1` used 10 GB), with the
+/// outcomes repeated injectivity gives. (A solved `k + x` with a huge `k`
+/// isn't tried: without the prelude's `Nat.add`, this signature reads it
+/// back as a chain of `k` `Succ`s.)
+#[test]
+fn huge_numbers_lose_their_shared_succs_at_once() {
+    use num_bigint::BigUint;
+    use std::rc::Rc;
+    let sig = Sig::new();
+    let g = &sig.p.g;
+    let n = context().len();
+    let big = || BigUint::from(1u32) << 128u32;
+    let num = |k: BigUint| Value::Nat(Rc::new(k));
+    let plus = |k: BigUint, x: usize| Value::NatAdd(Rc::new(k), Value::var(x).into());
+    let succ = |x: Value| Value::Ctor(sig.p.nat, 1, vec![x].into());
+    let solve = |lhs: Value, rhs: Value| {
+        let mut scope = sig.scope();
+        let vars: Vec<Value> = (0..n).map(Value::var).collect();
+        let binders = vec![(Name::from("e"), sig.p.nat_ty())];
+        let outcome = unify(&g.ev(), &mut scope, &binders, vars, vec![lhs], vec![rhs]).unwrap();
+        let a = quote(&g.ev(), n, &scope.env[0]).unwrap();
+        (outcome, a)
+    };
+    let one = BigUint::from(1u32);
+    let (outcome, _) = solve(num(big()), num(big() - &one));
+    assert!(matches!(outcome, Outcome::Conflict(_)), "{outcome:?}");
+    let two = BigUint::from(2u32);
+    let (outcome, a) = solve(num(big()), succ(succ(Value::var(0))));
+    assert!(matches!(outcome, Outcome::Solved(_)), "{outcome:?}");
+    assert!(
+        matches!(a.strip_loc(), Term::Nat(k) if **k == big() - &two),
+        "{a:?}"
+    );
+    let (outcome, a) = solve(succ(Value::var(0)), num(big()));
+    assert!(matches!(outcome, Outcome::Solved(_)), "{outcome:?}");
+    assert!(
+        matches!(a.strip_loc(), Term::Nat(k) if **k == big() - &one),
+        "{a:?}"
+    );
+    let (outcome, _) = solve(plus(big(), 0), num(big() - &one));
+    assert!(matches!(outcome, Outcome::Conflict(_)), "{outcome:?}");
+}
+
 #[test]
 fn refined_types_are_quoted_at_the_branch_depth() {
     // n : Nat, Q : Nat -> Type, h : Q n, then a field m : Nat bound later;

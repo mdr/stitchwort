@@ -15,7 +15,7 @@
 
 use std::path::{Path, PathBuf};
 
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
+use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::JournalStats;
@@ -278,7 +278,7 @@ fn example_projects(dir: &str) -> Vec<Source> {
 }
 
 /// Every example: files and projects, accepted and rejected. Outside the
-/// full tier, a fixed sample ([`tier_sample`]: every eighth in daily).
+/// all tier, a fixed sample ([`tier_sample`]: every eighth in broad).
 fn examples() -> Vec<Source> {
     let mut sources = Vec::new();
     for dir in ["accept", "extract", "reject", "soundness"] {
@@ -329,7 +329,7 @@ fn the_cache_keeps_glued_results_from_an_unglued_run() {
 
 /// SW-1072: an example that derives `Ord` over its own `DecEq`, with
 /// navigation recorded, round-trips through the cache. Always runs, so the
-/// merge tier covers it without the full example sweep.
+/// quick tier covers it without the full example sweep.
 #[test]
 fn the_cache_changes_nothing_for_derive_ord_own_deceq() {
     let path = examples_dir().join("accept/derive-ord-own-deceq.sw");
@@ -354,6 +354,18 @@ fn the_cache_replays_opaque_definitions() {
     assert_cache_changes_nothing(&project, true);
 }
 
+/// Readings (docs/proposals/bool-as-proposition.md §5) are replayed with
+/// the namespace that declares them, and read the same from another,
+/// whatever the sample.
+#[test]
+fn the_cache_replays_readings() {
+    let project = Source::Project(
+        "readings-across-namespaces".into(),
+        examples_dir().join("projects/accept/readings-across-namespaces"),
+    );
+    assert_cache_changes_nothing(&project, false);
+}
+
 /// Functions a namespace adds to another namespace's type are replayed with
 /// the keys they stand for (docs/proposals/extending-types.md), whatever
 /// the sample.
@@ -364,6 +376,19 @@ fn the_cache_replays_extensions() {
         examples_dir().join("projects/accept/extension-visibility"),
     );
     assert_cache_changes_nothing(&project, false);
+    assert_cache_changes_nothing(&project, true);
+}
+
+/// `P.Spec` adds a function to `P`'s type, but its `import P` brings the
+/// namespace whose own error says `P` can't see the addition. `P.Spec` is
+/// checked and not written (SW-2951); the differential test must not read
+/// that as an entry that can't be encoded.
+#[test]
+fn the_cache_changes_nothing_for_extension_in_owner() {
+    let project = Source::Project(
+        "extension-in-owner".into(),
+        examples_dir().join("projects/reject/extension-in-owner"),
+    );
     assert_cache_changes_nothing(&project, true);
 }
 
@@ -483,7 +508,7 @@ fn the_cache_replays_tailrec() {
 
 #[test]
 fn the_cache_changes_nothing_for_the_aoc_project() {
-    if !full_tier("the_cache_changes_nothing_for_the_aoc_project") {
+    if !all_tier("the_cache_changes_nothing_for_the_aoc_project") {
         return;
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");
@@ -731,6 +756,67 @@ fn an_edit_re_elaborates_the_namespace_and_what_uses_it() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// `A` declares a test and its reading, `B` takes a fact apart through it,
+/// `C` uses neither.
+const READING: &[(&str, &str)] = &[
+    (
+        "src/A.sw",
+        "namespace A\n\ntype Small (n: Nat): Prop = { below: n < 10 }\n\n\
+         def small (n: Nat): Bool := n < 10\n\n\
+         @[reading]\ntheorem smallReads (n: Nat): small n ↔ Small n := \
+         { forward = h => { below = h }, backward = s => s.below }\n",
+    ),
+    (
+        "src/B.sw",
+        "namespace B\n\nimport A (small)\n\n\
+         theorem below (n: Nat) (h: small n): n < 10 :=\n  match h with\n    | { below } => below\n",
+    ),
+    ("src/C.sw", "namespace C\n\ndef three: Nat := 3\n"),
+];
+
+/// A reading is declared with its test, so a namespace that reads through
+/// it uses the namespace that declares it, whose key changes with it: an
+/// edited reading checks again what reads through it.
+#[test]
+fn an_edited_reading_re_checks_what_reads_through_it() {
+    let dir = temp_project("reading", READING);
+    let cache = temp_dir("reading-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!((cold.namespace_hits, cold.namespace_written), (0, 3));
+    let warm = fresh_and_cached(&dir, &cache);
+    assert_eq!((warm.namespace_hits, warm.namespace_misses), (3, 0));
+    // A comment in `B`: it is checked again, reading through `A`'s
+    // reading as replayed from the cache.
+    write_file(&dir, "src/B.sw", &format!("-- a comment\n{}", READING[1].1));
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (2, 1));
+    // The reading no longer gives a record, so `B`'s record pattern fails.
+    write_file(
+        &dir,
+        "src/A.sw",
+        "namespace A\n\ndef small (n: Nat): Bool := n < 10\n\n\
+         @[reading]\ntheorem smallReads (n: Nat): small n ↔ n < 10 := \
+         { forward = h => h, backward = h => h }\n",
+    );
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (1, 2));
+    let source = Source::Project("p".to_string(), dir.clone());
+    let again = run(&source, true, Some(&cache));
+    assert!(
+        again.dump.contains("accepted false") && again.dump.contains("B.sw"),
+        "`B` should fail through the edited reading:\n{}",
+        again
+            .dump
+            .lines()
+            .rev()
+            .take(20)
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 #[test]
 fn a_namespace_with_errors_is_not_written() {
     let dir = temp_project("errors", ABC);
@@ -740,6 +826,33 @@ fn a_namespace_with_errors_is_not_written() {
     assert_eq!((cold.namespace_written, cold.namespace_uncacheable), (2, 0));
     let warm = fresh_and_cached(&dir, &cache);
     assert_eq!((warm.namespace_hits, warm.namespace_misses), (2, 1));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// A namespace that uses one with an error is checked, but its entry isn't
+/// written: its key would be keyed to the broken source, and writing it
+/// would delete the entry the healthy source finds again (SW-2951).
+#[test]
+fn removing_an_error_finds_its_importers_earlier_entries() {
+    let dir = temp_project("errors-removed", ABC);
+    let cache = temp_dir("errors-removed-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!((cold.namespace_written, cold.namespace_uncacheable), (3, 0));
+    // `A` gets an error in `bad`, which `B` doesn't use: `B` still checks,
+    // with `A`'s new key, and is the one that must not be written.
+    write_file(
+        &dir,
+        "src/A.sw",
+        "namespace A\n\ndef one: Nat := 1\n\ndef bad: Nat := True\n\ntest \"one\" := one == 1\n",
+    );
+    let broken = fresh_and_cached(&dir, &cache);
+    assert_eq!((broken.namespace_hits, broken.namespace_written), (1, 0));
+    assert_eq!(broken.namespace_uncacheable, 0);
+    assert_eq!(broken.namespace_waiting_on_error, 1);
+    write_file(&dir, "src/A.sw", ABC[0].1);
+    let fixed = fresh_and_cached(&dir, &cache);
+    assert_eq!((fixed.namespace_hits, fixed.namespace_misses), (3, 0));
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
 }
@@ -942,7 +1055,7 @@ fn different_targets_share_one_cache() {
 /// load them), from a cache the whole project wrote.
 #[test]
 fn aocs_namespaces_load_on_their_own_from_the_whole_projects_cache() {
-    if !full_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
+    if !all_tier("aocs_namespaces_load_on_their_own_from_the_whole_projects_cache") {
         return;
     }
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");

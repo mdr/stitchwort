@@ -45,11 +45,7 @@ test "pipeline" := piped == 18
 test "pipeline over a field" := ages == 34
 
 -- A multi-line pipeline: the `|>` starts each line.
-def multi: Nat :=
-  people
-    |> .map .age
-    |> .filter (== 4)
-    |> .length
+def multi: Nat := people |> .map .age |> .filter (== 4) |> .length
 
 test "multi-line" := multi == 1
 

@@ -13,7 +13,8 @@ def mainPart1(): {IO, Fail} () :=
 def mainFloor(): {IO, Fail} () :=
   let tiles := parseTiles IO.readAll()
   let floor := Floor.of tiles
-  IO.print "Floor ${floor.columns.length} x ${floor.rows.length}, outside ${floor.outside.block 0 floor.rows.length 0 floor.columns.length}"
+  IO.print
+    "Floor ${floor.columns.length} x ${floor.rows.length}, outside ${floor.outside.block 0 floor.rows.length 0 floor.columns.length}"
 
 def mainParse(): {IO, Fail} () :=
   let tiles := parseTiles IO.readAll()

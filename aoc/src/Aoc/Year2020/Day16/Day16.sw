@@ -102,7 +102,8 @@ def allowing (fields: List Rule) (value: Nat): List Rule := fields.filter (rule 
 
 --| The fields still possible at each position, once `ticket` has ruled out
 --| those that don't allow its value there.
-def narrow (candidates: List (List Rule)) (ticket: Ticket): List (List Rule) := List.zipWith candidates ticket.values allowing
+def narrow (candidates: List (List Rule)) (ticket: Ticket): List (List Rule) :=
+  List.zipWith candidates ticket.values allowing
 
 --| For each position, the fields that allow every valid ticket's value there.
 def Notes.candidates (notes: Notes): List (List Rule) :=
@@ -111,8 +112,7 @@ def Notes.candidates (notes: Notes): List (List Rule) :=
 --| The field at each position, if the tickets settle it. Every valid
 --| ticket must have a value for every field.
 def Notes.fieldOrder (notes: Notes): Option (List Rule) :=
-  if notes.validTickets.all (ticket => ticket.values.length == notes.rules.length) then
-    assign notes.candidates
+  if notes.validTickets.all (ticket => ticket.values.length == notes.rules.length) then assign notes.candidates
   else None
 
 --| The product of the ticket's values whose field, in `order`, starts with

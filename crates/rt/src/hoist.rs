@@ -66,8 +66,41 @@ impl SigMaps {
 }
 
 /// `id` applied to `args` reads no variable at run time: its erased
-/// arguments aren't looked at.
+/// arguments aren't looked at. Conservative: a lambda, a `let` or a match
+/// counts as reading one. A work list, not recursion: lowering calls this
+/// before its own guard has seen the arguments, which can nest deeper than
+/// the stack (docs/core.md).
 fn runtime_closed_app(g: &Ev, id: DefId, args: &[&Term]) -> bool {
+    let mut pending = Vec::new();
+    if !push_runtime_args(g, id, args, &mut pending) {
+        return false;
+    }
+    while let Some(term) = pending.pop() {
+        let (head, args) = term.spine();
+        match head {
+            Term::Def(id) => {
+                if !push_runtime_args(g, *id, &args, &mut pending) {
+                    return false;
+                }
+            }
+            Term::Ctor(_, _, params) if args.is_empty() => {
+                pending.extend(params.iter().map(|p| &**p));
+            }
+            Term::Nat(_) | Term::Chars(_) if args.is_empty() => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Pushes `id`'s runtime (unerased) arguments among `args` onto `pending`,
+/// or `false` if a call of `id` can't be closed whatever its arguments.
+fn push_runtime_args<'t>(
+    g: &Ev,
+    id: DefId,
+    args: &[&'t Term],
+    pending: &mut Vec<&'t Term>,
+) -> bool {
     let Ok(shape) = def_shape(g, id, false) else {
         return false;
     };
@@ -75,19 +108,11 @@ fn runtime_closed_app(g: &Ev, id: DefId, args: &[&Term]) -> bool {
         return false;
     }
     let mask = shape.mask();
-    args.iter()
-        .enumerate()
-        .all(|(i, a)| mask.get(i).copied().unwrap_or(false) || runtime_closed(g, a))
-}
-
-/// `term` reads no variable at run time. Conservative: a lambda, a `let`
-/// or a match counts as reading one.
-fn runtime_closed(g: &Ev, term: &Term) -> bool {
-    let (head, args) = term.spine();
-    match head {
-        Term::Def(id) => runtime_closed_app(g, *id, &args),
-        Term::Ctor(_, _, params) if args.is_empty() => params.iter().all(|p| runtime_closed(g, p)),
-        Term::Nat(_) | Term::Chars(_) if args.is_empty() => true,
-        _ => false,
-    }
+    pending.extend(
+        args.iter()
+            .enumerate()
+            .filter(|(i, _)| !mask.get(*i).copied().unwrap_or(false))
+            .map(|(_, a)| *a),
+    );
+    true
 }

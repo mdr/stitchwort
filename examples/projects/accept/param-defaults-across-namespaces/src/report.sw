@@ -9,5 +9,4 @@ def wide: Nat := padding "ab" (width := 5)
 
 theorem threeColumns: columns 3 = 5 := rfl
 
-test "defaults across namespaces" :=
-  heading == "Total:" && padding "ab" == 2 && wide == 3 && columns 3 (gap := 2) == 7
+test "defaults across namespaces" := heading == "Total:" && padding "ab" == 2 && wide == 3 && columns 3 (gap := 2) == 7

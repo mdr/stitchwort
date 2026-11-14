@@ -9,12 +9,7 @@
 --| terminals, and the terminal's size, 0 by 0 when it isn't known.
 -- (docs/proposals/terminal-io.md §4.2)
 -- A registry built-in, so the runners can build it.
-type Console = {
-  inputIsTerminal: Bool,
-  outputIsTerminal: Bool,
-  columns: Nat,
-  rows: Nat
-}
+type Console = { inputIsTerminal: Bool, outputIsTerminal: Bool, columns: Nat, rows: Nat }
 
 --| Input and output on the console: printing, reading lines and bytes, and the terminal. Only a host interpreter performs these for real; in Stitchwort
 --| code, [`IO.simulate`] interprets them as data. `console`, `keysMode`,
@@ -39,8 +34,7 @@ def IO.nextLine: (lines: List Text) → Option Text
 
 --| All of the scripted input, as [`IO.readAll`] gives it: each line followed by a
 --| line feed, as a real interpreter would read it.
-def IO.restOf (ins: List Text): Text :=
-  MkText (List.concatMap ins (line => List.append (Text.toList line) ['\n']))
+def IO.restOf (ins: List Text): Text := MkText (List.concatMap ins (line => List.append (Text.toList line) ['\n']))
 
 --| The UTF-8 encoding of a character: one to four bytes.
 def Char.utf8 (c: Char): List Nat :=

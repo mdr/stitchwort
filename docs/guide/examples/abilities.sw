@@ -87,7 +87,8 @@ def parseTurns (lines: List Text): {Fail} List Turn := lines.map Turn.parse
 
 test "a turn" := toResult (() => Turn.parse "L68") == Ok { left = True, distance = 68 }
 test "a bad turn" := toResult (() => parseTurns ["L1", "X2"]) == Err "expected L or R, got 'X2'"
-test "context" := toResult (() => Fail.context "line 2" (() => Turn.parse "R")) == Err "line 2: expected a whole number, got ''"
+test "context" :=
+  toResult (() => Fail.context "line 2" (() => Turn.parse "R")) == Err "line 2: expected a whole number, got ''"
 -- end fail
 
 -- begin abort
@@ -100,9 +101,9 @@ test "abort" := Abort.toOption (() => halfOf 6) == Some 3 ∧ Abort.toOption (()
 
 -- begin each
 def triples (n: Nat): List (Nat, Nat, Nat) := Each.collect (() =>
-  let a := Each.each (List.range 1 (n + 1))
-  let b := Each.each (List.range a (n + 1))
-  let c := Each.each (List.range b (n + 1))
+  let a := Each.each (1 ..= n)
+  let b := Each.each (a ..= n)
+  let c := Each.each (b ..= n)
   Each.require (a * a + b * b == c * c)
   (a, b, c))
 
@@ -122,15 +123,15 @@ def box(): {Parse} Box :=
 
 def parseBoxes (input: Text): {Fail} List Box := Parse.eachLine input box
 
-test "boxes" := toResult (() => parseBoxes "162,817,812\n57,618,57\n") == Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
-test "a bad box" := toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ',', got 'x'"
+test "boxes" :=
+  toResult (() => parseBoxes "162,817,812\n57,618,57\n")
+    == Ok [{ x = 162, y = 817, z = 812 }, { x = 57, y = 618, z = 57 }]
+test "a bad box" :=
+  toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ',', got 'x'"
 -- end parse
 
 -- begin effects-parameter
-type Hooks (e: Effects) = {
-  before: Nat → {e} (),
-  after: Nat → {e} ()
-}
+type Hooks (e: Effects) = { before: Nat → {e} (), after: Nat → {e} () }
 
 def withHooks (hooks: Hooks e) (step: Nat → Nat) (n: Nat): {e} Nat :=
   hooks.before n

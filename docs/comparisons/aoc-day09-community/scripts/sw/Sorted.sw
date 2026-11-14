@@ -7,7 +7,8 @@ import Aoc.Year2025.Day09 (Corner, Floor, Tile, cornersArea, loopLines, pairArea
 import Scratch.Edge (away)
 import Std (Fail, IO, List, Nat, Option)
 
-def byAreaDown (rects: List (a, a)) (size: (a, a) → Nat): List (a, a) := rects.sortBy (p q => Nat.compare (size q) (size p))
+def byAreaDown (rects: List (a, a)) (size: (a, a) → Nat): List (a, a) :=
+  rects.sortBy (p q => Nat.compare (size q) (size p))
 
 def firstArea (found: Option (a, a)) (size: (a, a) → Nat): Nat := match found with
   | Some p => size p

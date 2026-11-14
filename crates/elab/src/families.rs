@@ -8,11 +8,12 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 
+use crate::Recheck;
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::unify_index::{Constraint, Outcome, Reason, Scope, unify};
-use stitchwort_core::value::{Elim, Head, eval, force, quote};
+use stitchwort_core::value::{Elim, Head, eval, force};
 use stitchwort_core::{DataId, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -335,11 +336,23 @@ impl Elaborator {
                 }
             };
             let Some(i) = (0..k).find(|&i| implicit[i] && *ctor.fields[i].0 == *field.text) else {
-                return Err(error(
+                let mut e = error(
                     "E-UNKNOWN-NAME",
                     field.span,
                     format!("`{}` has no implicit field `{}`", ctor.name, field.text),
-                ));
+                );
+                // `[a := …]` names a type parameter in an expression, but a
+                // pattern matches only what the constructor holds.
+                let data = self.kernel.data(d);
+                if data.params().iter().any(|(p, _)| **p == *field.text) {
+                    e = e.with_note(format!(
+                        "`{}` is a parameter of `{}`, which the type of what is matched fixes: a \
+                         pattern can't match it",
+                        field.text,
+                        data.name()
+                    ));
+                }
+                return Err(e);
             };
             if out[i].replace(inner).is_some() {
                 return Err(error(
@@ -385,11 +398,22 @@ impl Elaborator {
 pub(crate) struct ArmReach {
     dropped: Vec<(Span, String)>,
     reached: Vec<Span>,
+    /// The arms with a body whose case was impossible where one of their
+    /// leaves was checked (with why, whether the span is an or-pattern's
+    /// alternative rather than the whole arm, and the later rows that would
+    /// take the case without it), and the arms with a leaf that wasn't. An
+    /// arm may warn when it is in the first and not the second: every case
+    /// it covers is ruled out.
+    impossible: Vec<(Span, String, bool, Vec<Span>)>,
+    possible: Vec<Span>,
 }
 
 impl ArmReach {
     pub(crate) fn is_empty(&self) -> bool {
-        self.dropped.is_empty() && self.reached.is_empty()
+        self.dropped.is_empty()
+            && self.reached.is_empty()
+            && self.impossible.is_empty()
+            && self.possible.is_empty()
     }
 }
 
@@ -398,34 +422,190 @@ pub(crate) fn reached(cx: &Ctx, span: Span) {
     cx.e.decl.arm_reach.borrow_mut().reached.push(span);
 }
 
+/// Records whether the arm at `span` (an or-pattern's alternative if
+/// `alternative`), whose body is checked now, covers this case though a
+/// hypothesis rules it out (`why`); `later` are the rows after it that
+/// would take the case without it.
+pub(crate) fn note_arm_case(
+    cx: &Ctx,
+    span: Span,
+    alternative: bool,
+    why: Option<String>,
+    later: &[Span],
+) {
+    let mut reach = cx.e.decl.arm_reach.borrow_mut();
+    match why {
+        Some(why) => reach
+            .impossible
+            .push((span, why, alternative, later.to_vec())),
+        None => reach.possible.push(span),
+    }
+}
+
+const CANT_HAPPEN: &str = "this case can't happen";
+
 /// Runs `f`, which checks a compiled pattern match, then warns
 /// (`W-UNREACHABLE`) about each arm a case dropped because its constructor
 /// can't be there, and that no other branch reached. An arm that's dropped
-/// isn't checked, so it may not even be well typed.
+/// isn't checked, so it may not even be well typed. `recheck` is what the
+/// match was compiled from, to tell which arms a hypothesis rules out can
+/// be deleted.
 pub(crate) fn warn_unreachable<T>(
     cx: &mut Ctx,
+    recheck: &Recheck,
+    f: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    warn_unreachable_unless(cx, false, recheck, f)
+}
+
+/// [`warn_unreachable`], but with no warning for an arm whose case a
+/// hypothesis rules out when `as_written`: in a `match` refined as written
+/// (`W-MATCH-UNCONFIRMED`), a hypothesis too large to compute can make the
+/// proof the checker fills in for a missing case too large to check, where
+/// the arm's own proof isn't.
+pub(crate) fn warn_unreachable_unless<T>(
+    cx: &mut Ctx,
+    as_written: bool,
+    recheck: &Recheck,
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
     let saved = cx.e.decl.arm_reach.take();
     let errors = cx.e.attempt.branch_errors.borrow().len();
     let result = f(cx);
     let result = crate::missing::merge(cx, errors, result);
-    let here = cx.e.decl.arm_reach.replace(saved);
+    let mut here = cx.e.decl.arm_reach.replace(saved);
+    if as_written {
+        here.impossible.clear();
+    }
     if result.is_ok() {
+        // A `match reify` clause is required however its case goes, so it
+        // is never warned about as deletable.
+        let keep = cx.e.decl.keep_arms.borrow().clone();
+        {
+            let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+            for (span, why) in here.dropped {
+                let warned =
+                    (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
+                if here.reached.contains(&span) || warned || keep.contains(&span) {
+                    continue;
+                }
+                warnings.push(
+                    Diagnostic::warning("W-UNREACHABLE", "this arm can never match")
+                        .with_label(span, why),
+                );
+            }
+        }
+        let deleted = deletable_arms(
+            cx,
+            &keep,
+            &here.reached,
+            &here.possible,
+            &here.impossible,
+            recheck,
+        )?;
+        // Each arm offered by every check of it, and no other.
+        let mut blocked = cx.e.decl.kept_by_a_check.borrow_mut();
+        let spans = (here.possible.iter().copied())
+            .chain(here.impossible.iter().map(|(s, ..)| *s))
+            .filter(|s| !deleted.contains(s) || here.possible.contains(s));
+        for span in spans.collect::<Vec<_>>() {
+            if !blocked.contains(&span) {
+                blocked.push(span);
+            }
+        }
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
-        for (span, why) in here.dropped {
+        warnings.retain(|w| {
+            let held = w.labels.first().is_some_and(|l| blocked.contains(&l.span));
+            !(held && w.message == CANT_HAPPEN)
+        });
+        for (span, why, alternative, _) in here.impossible {
             let warned =
                 (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-            if here.reached.contains(&span) || warned {
+            if !deleted.contains(&span) || blocked.contains(&span) || warned {
                 continue;
             }
             warnings.push(
-                Diagnostic::warning("W-UNREACHABLE", "this arm can never match")
-                    .with_label(span, why),
+                Diagnostic::warning("W-UNREACHABLE", CANT_HAPPEN)
+                    .with_label(span, why)
+                    .with_note(match alternative {
+                        true => "this alternative of the pattern can be deleted",
+                        false => "the arm can be deleted",
+                    }),
             );
         }
     }
     result
+}
+
+/// The arms (or or-pattern alternatives) a hypothesis rules out that
+/// `W-UNREACHABLE` says can be deleted: every case each covers is ruled
+/// out, and the `match` without all of them still checks
+/// ([`crate::deletable`]), so deleting every one warned about leaves a
+/// `match` that checks. An arm whose case a later row would take without it
+/// goes only with that row. When they can't all go, the most that can are
+/// chosen from the last arm up, each kept only if those chosen with it can
+/// go too: two arms that leave a case the checker won't split when both
+/// are gone (`[], []` and `[], [x, ..xs]` leave `[], _`) warn one at a
+/// time.
+fn deletable_arms(
+    cx: &mut Ctx,
+    required: &[Span],
+    reached: &[Span],
+    possible: &[Span],
+    impossible: &[(Span, String, bool, Vec<Span>)],
+    recheck: &Recheck,
+) -> Result<Vec<Span>> {
+    // An arm the syntax requires (a `match reify` clause) can't be deleted
+    // however its case goes, so it never counts as ruled out.
+    let ruled_out = |span: &Span| {
+        !required.contains(span)
+            && !possible.contains(span)
+            && impossible.iter().any(|(s, ..)| s == span)
+    };
+    // When every arm reached is ruled out, deleting them all would leave
+    // a `match` with no arms, which can't be written: the last one stays.
+    let kept = match reached.iter().all(ruled_out) {
+        true => reached.iter().max_by_key(|s| (s.start, s.end)).copied(),
+        false => None,
+    };
+    let mut arms: Vec<(Span, Vec<Span>)> = Vec::new();
+    for (span, _, _, later) in impossible {
+        if !ruled_out(span) || kept == Some(*span) {
+            continue;
+        }
+        match arms.iter_mut().find(|(s, _)| s == span) {
+            Some((_, needs)) => needs.extend(later.iter().copied()),
+            None => arms.push((*span, later.clone())),
+        }
+    }
+    // An arm goes only with the rows that would take its cases.
+    loop {
+        let before = arms.len();
+        let chosen: Vec<Span> = arms.iter().map(|(s, _)| *s).collect();
+        arms.retain(|(_, needs)| needs.iter().all(|n| chosen.contains(n)));
+        if arms.len() == before {
+            break;
+        }
+    }
+    if arms.is_empty() {
+        return Ok(Vec::new());
+    }
+    let all: Vec<Span> = arms.iter().map(|(s, _)| *s).collect();
+    if crate::deletable(cx, recheck, &all)? {
+        return Ok(all);
+    }
+    arms.sort_by_key(|(s, _)| std::cmp::Reverse((s.start, s.end)));
+    let mut chosen = Vec::new();
+    for (span, needs) in arms {
+        if !needs.iter().all(|n| chosen.contains(n)) {
+            continue;
+        }
+        chosen.push(span);
+        if !crate::deletable(cx, recheck, &chosen)? {
+            chosen.pop();
+        }
+    }
+    Ok(chosen)
 }
 
 /// The spans of the arms a compiled match's leaves come from.
@@ -464,20 +644,23 @@ pub(crate) fn check_case(
     d: DataId,
     args: &[Value],
     branches: &[(Vec<Name>, Tree)],
-    goal_term: &Term,
+    goal: &Value,
     span: Span,
 ) -> Result<Term> {
+    // The goal each branch starts from: read back and evaluated again here,
+    // in the context every branch starts from.
+    let goal = kernel::reread_in(&cx.g(), &cx.env, std::slice::from_ref(goal))?
+        .pop()
+        .expect("one value in, one out");
     let mut out = Vec::new();
     let mut missing: Vec<Diagnostic> = Vec::new();
-    let scrutinee = cx.show(&Value::Data(d, args.to_vec()));
+    let scrutinee = cx.show(&Value::Data(d, args.to_vec().into()));
     for (c, (names, subtree)) in branches.iter().enumerate() {
         let mark = cx.mark();
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
         cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
-        let result = case_branch(
-            cx, x, d, c, args, names, subtree, goal_term, span, &scrutinee,
-        );
+        let result = case_branch(cx, x, d, c, args, names, subtree, &goal, span, &scrutinee);
         cx.e.decl.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
         cx.env = saved_env;
@@ -507,13 +690,13 @@ fn case_branch(
     args: &[Value],
     names: &[Name],
     subtree: &Tree,
-    goal_term: &Term,
+    goal: &Value,
     span: Span,
     scrutinee: &str,
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let ctor_name = g.data(d).ctors()[c].name.clone();
-    let goal = eval(&g, &cx.env, goal_term)?;
+    let goal = goal.clone();
     // Before entering, while `x` is still a variable in the context.
     let number = match subtree {
         Tree::Missing { .. } => fin_missing(cx, x, d, c)?,
@@ -543,10 +726,8 @@ fn case_branch(
         }
         Entered::Solved(goal) => match subtree {
             Tree::Missing { columns, span, arm } => {
-                for &level in columns {
-                    if let Some(term) = empty_case(cx, level, None)? {
-                        return Ok(Some(term));
-                    }
+                if let Some(term) = crate::impossible_case(cx, columns, &goal)? {
+                    return Ok(Some(term));
                 }
                 if let Some(missing) = number {
                     return Err(missing.diagnostic(*span));
@@ -565,10 +746,10 @@ fn case_branch(
             Tree::Guard { .. }
                 if let Some(Tree::Missing { columns, .. }) =
                     crate::guard_chain_missing(subtree)
-                    && let Some(term) = crate::empty_in_columns(cx, columns)? =>
+                    && let Some(term) = crate::impossible_case(cx, columns, &goal)? =>
             {
                 // The arms are still checked, for their own errors.
-                check_tree(cx, subtree, &goal)?;
+                crate::check_for_errors(cx, subtree, &goal)?;
                 Ok(Some(term))
             }
             tree => check_tree(cx, tree, &goal).map(Some),
@@ -697,28 +878,25 @@ fn enter(
         cx.bind_hidden(name.clone(), ty);
     }
     let level = cx.level();
-    // The unifier compares with the kernel's conversion, which doesn't look
-    // inside solved metavariables: they're substituted first.
-    let identity: Vec<Value> = (0..level).map(Value::var).collect();
-    let solved = |v: &Value| -> Result<Value> { Ok(eval(&g, &identity, &quote(&g, level, v)?)?) };
-    let all = |vs: &[Value]| vs.iter().map(solved).collect::<Result<Vec<_>>>();
     let result = (ctor.result.iter())
         .map(|r| eval(&g, &field_env, r))
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    // The unifier compares with the kernel's conversion, which doesn't look
+    // inside solved metavariables: they're substituted first, all in one
+    // call, so what the values share is done once.
+    let parts = [&cx.env[..], &cx.types, &[goal], params, indices, &result];
+    let mut solved = kernel::reread(&g, level, &parts.concat())?.into_iter();
+    let mut take = |n: usize| solved.by_ref().take(n).collect::<Vec<_>>();
+    let (env, types) = (take(cx.env.len()), take(cx.types.len()));
+    let extra = take(1);
+    let (params, indices, result) = (take(params.len()), take(indices.len()), take(result.len()));
     let mut scope = Scope {
-        env: all(&cx.env)?,
-        types: all(&cx.types)?,
-        extra: vec![solved(&goal)?],
+        env,
+        types,
+        extra,
         rigid: vec![x],
     };
-    let outcome = unify(
-        &g,
-        &mut scope,
-        data.indices(),
-        all(params)?,
-        all(indices)?,
-        all(&result)?,
-    )?;
+    let outcome = unify(&g, &mut scope, data.indices(), params, indices, result)?;
     match outcome {
         Outcome::Solved(_) => {}
         Outcome::Conflict(k) => return Ok(Entered::Conflict(k)),
@@ -726,14 +904,15 @@ fn enter(
     }
     let goal = scope.extra.pop().expect("the goal");
     let value = Value::Ctor(d, c, scope.env[base..].to_vec().into());
-    let mut env = kernel::substitute_folded(&g, &scope.env, x, &value, &scope.env[..base])?;
+    // In one call, so the parts these share are substituted into once.
+    let parts = [&scope.env[..base], &scope.types[..base], &[goal]].concat();
+    let mut done = kernel::substitute_folded(&g, &scope.env, x, &value, &parts)?.into_iter();
+    let mut env: Vec<Value> = done.by_ref().take(base).collect();
     env[x] = value.clone();
     env.extend_from_slice(&scope.env[base..]);
-    let mut types = kernel::substitute_folded(&g, &scope.env, x, &value, &scope.types[..base])?;
+    let mut types: Vec<Value> = done.by_ref().take(base).collect();
     types.extend_from_slice(&scope.types[base..]);
-    let goal = kernel::substitute_folded(&g, &scope.env, x, &value, &[goal])?
-        .pop()
-        .expect("one value in, one out");
+    let goal = done.next().expect("the goal");
     cx.env = env;
     cx.types = types;
     Ok(Entered::Solved(goal))

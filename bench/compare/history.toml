@@ -64,5 +64,82 @@ report = "docs/reviews/SW-2295-comparative-speed.md"
 native_over_cpython = 2.68
 native_over_lean = 11.26
 
-# From here on (SW-2474, 9 Nov 2026) the timing tasks build non-incrementally into target/bench:
-# about 3% fewer native instructions than every entry above, from build mode alone.
+# From here on (SW-2474, 9 Nov 2026) the timing tasks build non-incrementally into target/bench.
+# On Speedwell that is about 3% fewer native instructions; on Overmind it made no difference (job 32).
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "096a27327"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.66
+native_over_lean = 11.17
+wide_native_over_cpython = 0.20
+wide_native_over_lean = 2.37
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "3f3ba9e6c"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.62
+native_over_lean = 11.05
+wide_native_over_cpython = 0.19
+wide_native_over_lean = 2.42
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "7d137b9d7"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.41
+native_over_lean = 10.15
+wide_native_over_cpython = 0.20
+wide_native_over_lean = 2.43
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "11f9f73ca"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.36
+native_over_lean = 9.88
+wide_native_over_cpython = 0.20
+wide_native_over_lean = 2.45
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "9cc3fa3b8"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.18
+native_over_lean = 9.18
+wide_native_over_cpython = 0.34
+wide_native_over_lean = 2.86
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck", "mapops"]
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "f9d2d8320"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 1.90
+native_over_lean = 7.99
+wide_native_over_cpython = 0.32
+wide_native_over_lean = 2.68
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck", "mapops"]
+
+[[run]]
+date = "2026-11-10"
+host = "overmind"
+commit = "292a85385"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 1.82
+native_over_lean = 7.67
+wide_native_over_cpython = 0.31
+wide_native_over_lean = 2.60
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck", "mapops"]

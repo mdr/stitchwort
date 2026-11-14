@@ -60,12 +60,14 @@ def parsed (input: Text): Result Garden Text := Fail.toResult (() => parseGarden
 
 def garden (input: Text): Garden := Fail.orElse { plots = Map.empty } (() => parseGarden input)
 
-def at (row: Nat) (column: Nat): Position := { row, column }
+def at (row column: Nat): Position := { row, column }
 
 --| Each region's plant, area, perimeter and sides, in the program's order.
 def summary (input: Text): List (Option Char, Nat, Nat, Nat) :=
   let map := garden input
-  map.regions |> .map (region => (region.plots.headOr (at 0 0) |> map.plantAt, region.area, region.perimeter map, region.sides map))
+  map.regions
+    |> .map (region =>
+      (region.plots.headOr (at 0 0) |> map.plantAt, region.area, region.perimeter map, region.sides map))
 
 test "small example, part 1" := solvePart1 (garden small) == 140
 test "inside example, part 1" := solvePart1 (garden inside) == 772
@@ -79,7 +81,8 @@ test "larger example, part 2" := solvePart2 (garden larger) == 1206
 --| "Regions A through E": areas 4, 4, 4, 1, 3; perimeters 10, 8, 10, 4, 8;
 --| sides 4, 4, 8, 4, 4.
 test "small example, each region" :=
-  summary small == [(Some 'A', 4, 10, 4), (Some 'B', 4, 8, 4), (Some 'C', 4, 10, 8), (Some 'D', 1, 4, 4), (Some 'E', 3, 8, 4)]
+  summary small
+    == [(Some 'A', 4, 10, 4), (Some 'B', 4, 8, 4), (Some 'C', 4, 10, 8), (Some 'D', 1, 4, 4), (Some 'E', 3, 8, 4)]
 
 test "inside example, the O region" := summary inside |> .headOr (None, 0, 0, 0) == (Some 'O', 21, 36, 20)
 test "inside example, five regions" := (garden inside).regions.length == 5
@@ -153,7 +156,8 @@ test "an L" := summary """
 test "a region covers every plot it touches" := (garden larger).regionOf (at 0 0) |> .area == 12
 test "regions cover every plot once" :=
   let map := garden larger
-  map.positions.all (position => map.regions.count (region => region.contains position) == 1) && map.positions.length == 100
+  map.positions.all (position => map.regions.count (region => region.contains position) == 1)
+    && map.positions.length == 100
 
 test "no plots" := parsed "" == Err "line 1, column 1: expected a letter, got the end of the input"
 test "parse" := (parsed """
@@ -161,20 +165,29 @@ test "parse" := (parsed """
   CD
   """ |> .map (map => map.plots.toList)) == Ok [(at 0 0, 'A'), (at 0 1, 'B'), (at 1 0, 'C'), (at 1 1, 'D')]
 test "parse without a final line break" := (parsed "AB\nCD" |> .map (map => map.positions.length)) == Ok 4
-test "a bad plot" := (parsed "AB\nC.\n" |> .map (map => ())) == Err "line 2, column 2: expected a letter or the end of the line, got '.'"
-test "a short row" := (parsed "ABC\nAB\n" |> .map (map => ())) == Err "line 2: expected 3 plots, as on the first line, got 2"
+test "a bad plot" :=
+  (parsed "AB\nC.\n" |> .map (map => ())) == Err "line 2, column 2: expected a letter or the end of the line, got '.'"
+test "a short row" :=
+  (parsed "ABC\nAB\n" |> .map (map => ())) == Err "line 2: expected 3 plots, as on the first line, got 2"
 
 test "steps" :=
-  (at 0 0).step Up == None && (at 0 0).step Left == None && (at 0 0).step Down == Some (at 1 0) && (at 2 3).step Right == Some (at 2 4)
-    && (at 2 3).step Up == Some (at 1 3) && (at 2 3).step Left == Some (at 2 2)
+  (at 0 0).step Up == None
+    && (at 0 0).step Left == None
+    && (at 0 0).step Down == Some (at 1 0)
+    && (at 2 3).step Right == Some (at 2 4)
+    && (at 2 3).step Up == Some (at 1 3)
+    && (at 2 3).step Left == Some (at 2 2)
 
 test "fences and corners of one plot" :=
   let map := garden """
     AB
     AA
     """
-  map.fences (at 1 0) == 2 && map.fences (at 0 1) == 4 && map.cornerCount (at 1 0) == 2
-    && map.cornerCount (at 1 1) == 2 && map.cornerCount (at 0 0) == 2
+  map.fences (at 1 0) == 2
+    && map.fences (at 0 1) == 4
+    && map.cornerCount (at 1 0) == 2
+    && map.cornerCount (at 1 1) == 2
+    && map.cornerCount (at 0 0) == 2
 
 --| The spec runs on the program's regions, and gives the puzzle's prices.
 test "the spec's prices" :=
@@ -188,4 +201,6 @@ test "the spec's sides of the A region" := (garden diagonal).regions |> .headOr 
 
 test "the spec's chains" :=
   let map := garden small
-  isChain map (at 1 2) [at 2 2, at 2 3, at 3 3] (at 3 3) && !isChain map (at 0 0) [at 1 0] (at 1 0) && !isChain map (at 1 2) [at 2 3] (at 2 3)
+  isChain map (at 1 2) [at 2 2, at 2 3, at 3 3] (at 3 3)
+    && !isChain map (at 0 0) [at 1 0] (at 1 0)
+    && !isChain map (at 1 2) [at 2 3] (at 2 3)

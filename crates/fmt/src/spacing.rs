@@ -1,11 +1,11 @@
 //! Spacing between two tokens on one line: rules R3 to R6 and the decisions
-//! D1037 and D1039 (docs/proposals/formatter.md §3, §8), copying the source
+//! D1037 and D1039 (docs/proposals/formatter.md §3, §8; still in force), copying the source
 //! wherever spacing can change meaning (§2.3).
 
-use stitchwort_syntax::Tok;
+use stitchwort_syntax::{Tok, Token, argument_minus, closes_operand, record_braces};
 
 /// What a token is, where its spelling alone doesn't say. Worked out from
-/// the position in the program (see `layout::roles`), the way the parser
+/// the position in the program (see [`roles`]), the way the parser
 /// reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub(crate) enum Role {
@@ -38,8 +38,8 @@ pub(crate) enum Gap {
     /// A space or not, copied from the source because no rule covers the
     /// pair: the copy path, counted in the stats.
     Copied(bool),
-    /// The source text between them, exactly: the `${` and `}` of an
-    /// interpolation, which belong to no token.
+    /// The source text between them, exactly: inside an interpolated text,
+    /// where the gaps are text or the writer's own spacing in `${ x }`.
     Source,
 }
 
@@ -59,7 +59,9 @@ pub(crate) struct Pair<'a> {
 pub(crate) fn gap(pair: &Pair) -> Gap {
     use Tok::*;
     let (left, right, spaced) = (pair.left, pair.right, pair.spaced);
-    if matches!(left, StrStart(_) | StrMid(_)) || matches!(right, StrMid(_) | StrEnd(_)) {
+    if matches!(left, StrStart(_) | StrMid(_) | InterpOpen | InterpClose)
+        || matches!(right, StrMid(_) | StrEnd(_) | InterpOpen | InterpClose)
+    {
         return Gap::Source;
     }
     // Spacing that changes meaning: `p.name` against `f .name` (a section),
@@ -95,8 +97,8 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
     if *left == Bang {
         return Gap::Rule(false);
     }
-    // `exists (x: T) => P`, `∃ x => P`: the keyword stands apart.
-    if *left == KwExists {
+    // `exists (x: T) => P`, `∃ x => P`, `∀ x => P`: the keyword stands apart.
+    if matches!(left, KwExists | KwForall) {
         return Gap::Rule(true);
     }
     // `(let x := e; body)`: the `;` touches the value, a space follows.
@@ -197,4 +199,65 @@ fn spaced_operator(tok: &Tok) -> bool {
             | NotIn
             | Iff
     )
+}
+
+/// The role of each token (see [`Role`]).
+pub(crate) fn roles(tokens: &[Token]) -> Vec<Role> {
+    let mut roles = vec![Role::Plain; tokens.len()];
+    let mut braces: Vec<bool> = Vec::new();
+    // The column of the first token of the line before the current one.
+    let (mut line_col, mut prev_line_col) = (0u32, 0u32);
+    for (k, t) in tokens.iter().enumerate() {
+        if t.line_start {
+            prev_line_col = line_col;
+            line_col = t.column;
+        }
+        match t.tok {
+            Tok::LBrace => {
+                // Only a function's result type has a row, and it follows
+                // the `:` or `->` before it (`result_type` in the parser),
+                // unless the braces are a record (a theorem's statement may
+                // start with one, `{ p | x = 3 }.x = 3`).
+                let row = k > 0
+                    && matches!(tokens[k - 1].tok, Tok::Colon | Tok::Arrow)
+                    && !record_braces(tokens, k);
+                if row {
+                    roles[k] = Role::Row;
+                }
+                braces.push(row);
+            }
+            Tok::RBrace => {
+                if braces.pop().unwrap_or(false) {
+                    roles[k] = Role::Row;
+                }
+            }
+            Tok::Minus => {
+                let before = k.checked_sub(1).map(|j| &tokens[j]);
+                roles[k] = if before.is_some_and(|b| {
+                    b.tok == Tok::Lt && b.span.end == t.span.start && !t.line_start
+                }) {
+                    Role::RewriteArrow
+                } else {
+                    let operand = before.is_some_and(|b| closes_operand(&b.tok));
+                    // A line starting with `-` at or left of the line above
+                    // starts a statement, so the `-` is a prefix.
+                    let continues = !t.line_start || t.column > prev_line_col;
+                    if operand && continues && argument_minus(tokens, k) {
+                        // `f -2`: the parser's own test, so the two agree.
+                        Role::ArgumentMinus
+                    } else if operand && continues {
+                        Role::Binary
+                    } else if operand {
+                        // A statement `- y` after an operand: written
+                        // `-y` it would read as an argument minus.
+                        Role::StatementMinus
+                    } else {
+                        Role::Unary
+                    }
+                };
+            }
+            _ => {}
+        }
+    }
+    roles
 }

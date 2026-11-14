@@ -19,6 +19,7 @@ use stitchwort_core::{BigUint, DataId, DefId, Ev, Icit, Limits, QuotForm, Sort, 
 use stitchwort_syntax::Diagnostic;
 
 use crate::clauses::Classifier;
+use crate::dispatch::{Dispatch, Step};
 use crate::effect::{Carrier, EffectNatives, EffectOp, Forwards};
 use crate::erasure::{
     DefShape, def_shape, is_done_continuation, nat_shape, stored_count, stored_fields, text_literal,
@@ -179,14 +180,9 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
     }
     let entry = cx.frame_body(&[], |cx| cx.expr(entry))?;
     globals.append(&mut cx.hoisted);
-    // The simplifier needs to recognise, and build, `Bool` and `Decidable`.
+    // The simplifier needs to recognise, and build, `Bool`.
     let types = Types {
         bool_: g.env.registry().data(Builtin::Bool).map(|d| cx.type_id(d)),
-        decidable: g
-            .env
-            .registry()
-            .data(Builtin::Decidable)
-            .map(|d| cx.type_id(d)),
     };
     let mut program = Program {
         globals,
@@ -249,8 +245,6 @@ fn shapes(g: &Ev) -> Result<Shapes> {
         true_: ctor(Builtin::True, 0)?,
         none: ctor(Builtin::None, 0)?,
         some: ctor(Builtin::Some, 1)?,
-        yes: ctor(Builtin::Yes, 0)?,
-        no: ctor(Builtin::No, 0)?,
         nil: ctor(Builtin::Nil, 0)?,
         cons: ctor(Builtin::Cons, 2)?,
         pair: ctor(Builtin::MkPair, 2)?,
@@ -392,6 +386,9 @@ struct Lowerer<'g> {
     hoisting: bool,
     /// Where lowering is in the case tree of the definition being lowered.
     tree: Option<Tree>,
+    /// Lowers each handler's step as one closure that dispatches on the
+    /// operation ([`crate::dispatch`]), when there are natives.
+    dispatch: Option<Dispatch>,
 }
 
 impl<'g> Lowerer<'g> {
@@ -427,7 +424,7 @@ impl<'g> Lowerer<'g> {
             array_natives,
             shapes: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
-            to_bool: g.env.registry().def(Builtin::ToBool),
+            to_bool: g.env.registry().def(Builtin::Holds),
             effect: EffectNatives::new(g),
             fusion: EffectNatives::new(g).and_then(|_| StateFusion::new(g)),
             classifier: EffectNatives::new(g).and_then(|_| Classifier::new(g)),
@@ -445,6 +442,7 @@ impl<'g> Lowerer<'g> {
             hoisted_base: 0,
             hoisting: false,
             tree: None,
+            dispatch: EffectNatives::new(g).and_then(|_| Dispatch::new(g)),
         })
     }
 
@@ -516,6 +514,12 @@ impl<'g> Lowerer<'g> {
                     .zip(stored_fields(self.g, d, c))
                     .filter(|(_, stored)| *stored)
                     .map(|((name, _), _)| name.clone())
+                    .collect(),
+                #[cfg(feature = "value-census")]
+                enum_fields: (ctor.fields.iter())
+                    .zip(stored_fields(self.g, d, c))
+                    .filter(|(_, stored)| *stored)
+                    .map(|((_, ty), _)| is_enum_type(self.g, ty))
                     .collect(),
             })
             .collect();
@@ -875,6 +879,12 @@ impl<'g> Lowerer<'g> {
     /// A definition applied to `args`: erased arguments are left out, and
     /// with all its runtime arguments it's a saturated call.
     fn apply_def(&mut self, id: DefId, args: &[&Term]) -> Result<Expr> {
+        if let Some(dispatch) = &self.dispatch
+            && id == dispatch.handle_plus
+            && let Some(step) = dispatch.rewrite(self.g, args, false)?
+        {
+            return self.dispatch_step(step);
+        }
         // A closed signature map (a `translate`'s, say): a constant,
         // computed when first used and kept, not built again on every call
         // (crate::hoist). It reads no variable, so it's lowered in a frame
@@ -908,13 +918,10 @@ impl<'g> Lowerer<'g> {
         if Some(id) == self.to_bool
             && let [_, decision] = args
         {
-            // `a == b` on native values: `toBool (Nat.decEq a b)` is
-            // `Nat.equal a b`, and likewise for `Int` and `Text`.
+            // `a == b` on native values: `holds (Int.decEq a b)` is the
+            // native equality, and likewise for `Text`.
             let decision = self.expr(decision)?;
             let fused = match decision {
-                Expr::Prim(PrimOp::Nat(Native::DecEqNat), operands) => {
-                    Ok((PrimOp::Nat(Native::EqNat), operands))
-                }
                 Expr::Prim(PrimOp::Int(IntNative::DecEqInt), operands) => {
                     Ok((PrimOp::IntEqual, operands))
                 }
@@ -948,7 +955,15 @@ impl<'g> Lowerer<'g> {
             } else {
                 EffectOp::FoldState
             };
-            let runtime = self.exprs(&[&fused.done, &fused.call, args[6]])?;
+            let done = self.expr(&fused.done)?;
+            let call = match &self.dispatch {
+                Some(dispatch) => match dispatch.rewrite_term(self.g, &fused.call, true)? {
+                    Some(step) => self.dispatch_step(step)?,
+                    None => self.expr(&fused.call)?,
+                },
+                None => self.expr(&fused.call)?,
+            };
+            let runtime = vec![done, call, self.expr(args[6])?];
             let rest = self.exprs(&args[7..])?;
             return Ok(apply(Expr::Prim(PrimOp::Effect(op), runtime), rest));
         }
@@ -1121,9 +1136,33 @@ impl<'g> Lowerer<'g> {
         Ok(apply(f, vec![Expr::Erased]))
     }
 
+    /// A handler's step rewritten as a dispatch: its bound clauses, each
+    /// computed once, then the dispatch's closure.
+    fn dispatch_step(&mut self, step: Step) -> Result<Expr> {
+        let mark = self.mark();
+        let mut lets = Vec::with_capacity(step.bound.len());
+        for value in &step.bound {
+            let value = self.expr(value);
+            let slot = self.bind_slot();
+            lets.push((slot, value));
+        }
+        let closure = self.closure(&step.closure, true);
+        self.leave(mark);
+        let mut out = closure?;
+        for (slot, value) in lets.into_iter().rev() {
+            out = Expr::Let(slot, Box::new(value?), Box::new(out));
+        }
+        Ok(out)
+    }
+
     /// Consecutive lambdas, as one closure capturing the outer variables
     /// its body reads.
     fn lambda(&mut self, term: &Term) -> Result<Expr> {
+        self.closure(term, false)
+    }
+
+    /// [`Self::lambda`], marked as a handler's dispatch if `dispatch`.
+    fn closure(&mut self, term: &Term, dispatch: bool) -> Result<Expr> {
         if let Term::Lam(_, _, body) = strip(term)
             && is_done_continuation(self.g, body)
         {
@@ -1149,6 +1188,7 @@ impl<'g> Lowerer<'g> {
             params: u32::try_from(params).expect("params fit"),
             captures: u32::try_from(captures.len()).expect("captures fit"),
             body: code,
+            dispatch,
         });
         Ok(Expr::Closure(id, sources))
     }
@@ -1645,4 +1685,15 @@ fn free_levels(term: &Term, level: usize) -> Vec<usize> {
             _ => None,
         })
         .collect()
+}
+
+/// Whether a field of type `ty` holds an enum: a data type none of whose
+/// constructors has a runtime field, other than the number types.
+#[cfg(feature = "value-census")]
+fn is_enum_type(g: &Ev, ty: &Term) -> bool {
+    let Term::Data(e, _) = ty.spine().0.strip_loc() else {
+        return false;
+    };
+    let ctors = g.data(*e).ctors().len();
+    ctors > 0 && nat_shape(g, *e).is_none() && (0..ctors).all(|c| stored_count(g, *e, c) == 0)
 }

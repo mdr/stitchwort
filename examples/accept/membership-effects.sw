@@ -8,28 +8,21 @@
 import Std (List)
 
 -- The motivating shapes: a `map` on the right, in a filter's callback.
-def shifted (xs: List Nat) (ys: List Nat): List Nat :=
-  List.filter ys (y => y ∈ List.map xs (n => n + 1))
+def shifted (xs ys: List Nat): List Nat := List.filter ys (y => y ∈ List.map xs (n => n + 1))
 
-def notShifted (xs: List Nat) (ys: List Nat): List Nat :=
-  List.filter ys (y => y ∉ List.map xs (n => n + 1))
+def notShifted (xs ys: List Nat): List Nat := List.filter ys (y => y ∉ List.map xs (n => n + 1))
 
-def allShifted (xs: List Nat) (ys: List Nat): Bool :=
-  List.all ys (y => y ∈ List.map xs (n => n + 1))
+def allShifted (xs ys: List Nat): Bool := List.all ys (y => y ∈ List.map xs (n => n + 1))
 
 -- The first list, then the second's items whose key isn't among the first's.
-def joinByKey (key: a → b) (xs: List a) (ys: List a) [auto eq: DecEq b]: List a :=
-  xs ++ ys.filter (y => key y ∉ xs.map key)
+def joinByKey (key: a → b) (xs ys: List a) [auto eq: DecEq b]: List a := xs ++ ys.filter (y => key y ∉ xs.map key)
 
 -- A comparison with a computed side, and `!` of one.
-def belowLength (xs: List Nat) (ys: List Nat): List Nat :=
-  List.filter ys (y => y < List.length (List.map xs (n => n + 1)))
+def belowLength (xs ys: List Nat): List Nat := List.filter ys (y => y < List.length (List.map xs (n => n + 1)))
 
-def notBelowLength (xs: List Nat) (ys: List Nat): List Nat :=
-  List.filter ys (y => !(y < List.length (List.map xs (n => n + 1))))
+def notBelowLength (xs ys: List Nat): List Nat := List.filter ys (y => !(y < List.length (List.map xs (n => n + 1))))
 
-def otherThanLength (xs: List Nat) (ys: List Nat): List Nat :=
-  List.filter ys (y => List.length (List.map xs (n => n + 1)) != y)
+def otherThanLength (xs ys: List Nat): List Nat := List.filter ys (y => List.length (List.map xs (n => n + 1)) != y)
 
 -- With operations to perform: the element runs before the container.
 ability Log where

@@ -28,7 +28,10 @@
 //!    the declaration has other binders ([`check_shape`]); and the standard
 //!    library must declare every library built-in
 //!    ([`check_library_declares_all`]). Entries without a shape are not
-//!    checked; adding one is how a call site gets protected.
+//!    checked; adding one is how a call site gets protected. The empty shape
+//!    `""` means the built-in takes its hypothesis directly (as
+//!    `Bool.falseNotTrue h`): it's only checked to have no leading binders,
+//!    not its statement, which the kernel checks at every use.
 //!
 //! Binding a built-in only says which declaration is meant. Whether a native
 //! implementation may replace it is decided separately, by the checks in
@@ -109,8 +112,6 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FloatAbs,
     Builtin::FloatIsNaN,
     Builtin::FloatDecEq,
-    Builtin::FloatBitsExt,
-    Builtin::FloatBitsNe,
     Builtin::FloatIeeeEq,
     Builtin::FloatMul,
     Builtin::FloatDiv,
@@ -140,10 +141,12 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FinToNat,
     Builtin::Fail,
     Builtin::FailStop,
-    Builtin::Iff,
-    Builtin::Exists,
     Builtin::NonEmptyList,
     Builtin::NonEmptyListPrependList,
+    Builtin::ListAllReads,
+    Builtin::ListAllReadsFalse,
+    Builtin::ListAnyReads,
+    Builtin::ListAnyReadsFalse,
 ];
 
 macro_rules! builtins {
@@ -206,7 +209,7 @@ builtins! {
     And = "And": Data,
     Or = "Or": Data,
     // Printed as the notation that writes them, `p ↔ q`, `∃ (x: T) => P`
-    // and `x ∈ xs` (D1204): library declarations, except `List.Mem` (core)
+    // and `x ∈ xs` (D1204)
     Iff = "Iff": Data,
     Exists = "Exists": Data,
     ListMem = "List.Mem": Def,
@@ -214,7 +217,7 @@ builtins! {
     // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
     EqSym = "Eq.sym": Def => "[a] [x] [y] p",
     EqTrans = "Eq.trans": Def => "[a] [x] [y] [z] p q",
-    LeTrans = "Nat.leTrans": Def => "a b c _ _",
+    LeTrans = "Nat.leTrans": Def => "a b c h1 h2",
     LessTrans = "Nat.lessTrans": Def => "m n p h1 h2",
     // What `decreasing` generates refers to these (crates/elab/src/decreasing.rs)
     VoidAbsurd = "Void.absurd": Def => "[a] v",
@@ -223,16 +226,12 @@ builtins! {
     LeRefl = "Nat.leRefl": Def => "n",
     ElimDecCong = "Decidable.elimCong": Def => "[p] [a] d y1 y2 n1 n2 sameYes sameNo",
     IfCong = "Bool.ifThenElseCong": Def => "[a] c t1 t2 e1 e2 sameThen sameElse",
-    // and these for `f.unfold` showing a plain `if` whose condition a
-    // recursive call's proof used (docs/proposals/decreasing-with-hypothesis.md)
-    ElimDecIf = "Decidable.elimIf": Def => "[p] [a] d y n t e sameYes sameNo",
-    ElimDecTrueIf = "Bool.elimDecTrueIf": Def => "[a] c y n t e sameYes sameNo",
     // and these for a lexicographic measure, `decreasing (m1, m2)`
     ElimDecEq = "Decidable.elimEq": Def => "[p] [a] d y n z yesEq noEq",
     ElimDecProof = "Decidable.elimProof": Def => "[p] [a] d ifYes ifNo",
     LexLess = "Nat.LexLess": Data,
-    LexKeepsFirst = "Nat.lexKeepsFirst": Def => "a1 a2 b1 b2 k _ _ _",
-    LexSecondLess = "Nat.lexSecondLess": Def => "a1 a2 b1 b2 k _ _ _",
+    LexKeepsFirst = "Nat.lexKeepsFirst": Def => "a1 a2 b1 b2 k lex no h",
+    LexSecondLess = "Nat.lexSecondLess": Def => "a1 a2 b1 b2 k lex no h",
     // Numbers: syntax and natives
     Nat = "Nat": Data,
     Zero = "Zero": Ctor(Builtin::Nat),
@@ -249,7 +248,7 @@ builtins! {
     LessEq = "Nat.LessEq": Def,
     LessThan = "Nat.LessThan": Def,
     // The standard decisions of `<=` and `<`: in a `Bool` they read as the
-    // comparison itself (`Nat.leq`, `Int.leq`, `Int.less`), not as `toBool`
+    // comparison itself (`Nat.leq`, `Int.leq`, `Int.less`), not as the `holds`
     // of them
     DecLessEqNat = "Nat.decLessEq": Def,
     DecLessThanNat = "Nat.decLessThan": Def,
@@ -260,7 +259,6 @@ builtins! {
     DivFuel = "Nat.divFuel": Def,
     // One step of `divFuel`, which goals show as the `/` it comes from
     DivStep = "Nat.divStep": Def,
-    DecEqNat = "Nat.decEq": Def,
     // Integers
     Int = "Int": Data,
     OfNat = "OfNat": Ctor(Builtin::Int),
@@ -314,8 +312,6 @@ builtins! {
     FloatAbs = "Float.abs": Def,
     FloatIsNaN = "Float.isNaN": Def,
     FloatDecEq = "Float.decEq": Def,
-    FloatBitsExt = "Float.bitsExt": Def,
-    FloatBitsNe = "Float.bitsNe": Def,
     // JS's `===` on doubles: a native in the runtimes only
     FloatIeeeEq = "Float.ieeeEq": Def,
     FloatMul = "Float.mul": Def,
@@ -354,6 +350,19 @@ builtins! {
     // `Fin.toNat` and `Fin.ofNatLt` are the identity in the fast runtimes,
     // where a `Fin` is a number (`stitchwort_rt::natives::FinNative`)
     FinToNat = "Fin.toNat": Def,
+    // A case that hypothesis `h: Less = Equal` rules out is filled in as
+    // `Ordering.lessNotEqual h`, the term its written arm would be, not
+    // with a helper of its own (crates/elab/src/cases.rs `contradiction`)
+    Ordering = "Ordering": Data,
+    OrderingLess = "Less": Ctor(Builtin::Ordering),
+    OrderingEqual = "Equal": Ctor(Builtin::Ordering),
+    OrderingGreater = "Greater": Ctor(Builtin::Ordering),
+    LessNotEqual = "Ordering.lessNotEqual": Def => "",
+    LessNotGreater = "Ordering.lessNotGreater": Def => "",
+    EqualNotLess = "Ordering.equalNotLess": Def => "",
+    EqualNotGreater = "Ordering.equalNotGreater": Def => "",
+    GreaterNotLess = "Ordering.greaterNotLess": Def => "",
+    GreaterNotEqual = "Ordering.greaterNotEqual": Def => "",
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),
@@ -362,10 +371,11 @@ builtins! {
     // `not`, by identity, so `not p` on a proposition can mean `Not p`
     BoolNot = "Bool.not": Def,
     Decidable = "Decidable": Data,
-    Yes = "Yes": Ctor(Builtin::Decidable),
-    No = "No": Ctor(Builtin::Decidable),
-    FromYes = "Decidable.fromYes": Def => "[p] d yes",
-    ToBool = "Decidable.toBool": Def => "[p] d",
+    Holds = "Decidable.holds": Def => "[p] r",
+    // A test fact on a decision that doesn't compute reads as its
+    // proposition through these (crates/elab/src/reading.rs, step 2)
+    Refute = "Decidable.refute": Def => "[p] d e",
+    ToBoolOfNot = "Decidable.toBoolOfNot": Def => "[p] d n",
     // `match h: c < x` on a comparison its decision reduces to `Bool.decTrue b`
     // for matches on `b` itself (crates/elab/src/matching.rs)
     DecTrue = "Bool.decTrue": Def => "b",
@@ -388,6 +398,12 @@ builtins! {
     // `List.length` runs as `List.lengthOnto xs 0`, a loop (`Def::run_body`)
     ListLengthOnto = "List.lengthOnto": Def,
     ListLength = "List.length": Def,
+    // The quantifier readings of `all` and `any`, which the reader skips on
+    // a cons list (docs/proposals/bool-as-proposition.md §5.4, step 2c)
+    ListAllReads = "List.allReads": Def,
+    ListAllReadsFalse = "List.allReadsFalse": Def,
+    ListAnyReads = "List.anyReads": Def,
+    ListAnyReadsFalse = "List.anyReadsFalse": Def,
     Option = "Option": Data,
     None = "None": Ctor(Builtin::Option),
     Some = "Some": Ctor(Builtin::Option),
@@ -759,7 +775,7 @@ pub fn bind_data(g: &mut Kernel, d: DataId) -> Option<Builtin> {
 pub fn bind_def(g: &mut Kernel, id: DefId) -> Option<Builtin> {
     in_kernel_modes(g, |g| {
         let def = g.def(id);
-        if def.state != State::Final {
+        if def.state != State::Final || def.assumption().is_some() {
             return None;
         }
         let b = unbound(&g.ev(), &def.name, |k| k == Kind::Def)?;

@@ -5,7 +5,7 @@
 -- would prove `Void` (D143). Pairs with `leTrans` in
 -- accept/indexed-families.sw, structural recursion on a proof
 -- (docs/proposals/indexed-families.md §6.7, test 12).
-def IdP: Prop := (p: Prop) → p → p
+def IdP: Prop := ∀ (p: Prop) => p → p
 
 type Bad: IdP → Prop =
   | B (f: IdP): Bad f

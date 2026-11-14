@@ -304,18 +304,34 @@ fn a_proof_cannot_refer_to_a_pending_declaration() {
 #[test]
 fn a_validator_cannot_refer_to_a_pending_declaration() {
     let mut p = Prelude::new();
-    let void = void(&mut p);
-    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
+    check::define_ctors(
+        &mut p.g,
+        bool_,
+        vec![ctor("False", vec![]), ctor("True", vec![])],
+    )
+    .unwrap();
+    stitchwort_core::native::register_bool(&mut p.g, bool_).unwrap();
+    let bool_ty = Term::data(bool_, vec![]);
+    let tru = Term::ctor(bool_, 1, vec![]);
+    // `type Decidable (p: Prop) = { holds: Bool, sound: holds = True → p }`.
+    let decidable = check::declare_data_group_as(
+        &mut p.g,
+        vec![("p".into(), prop())],
+        Sort::Type(0),
+        vec![("Decidable".into(), "Decidable".into(), span(), true)],
+    )
+    .unwrap()[0];
     check::define_ctors(
         &mut p.g,
         decidable,
-        vec![
-            ctor("Yes", vec![("proof", v(0))]),
-            ctor(
-                "No",
-                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
-            ),
-        ],
+        vec![ctor(
+            "MkDecidable",
+            vec![
+                ("holds", bool_ty.clone()),
+                ("sound", arrow(eq(Some(bool_ty), v(0), tru.clone()), v(1))),
+            ],
+        )],
     )
     .unwrap();
     // f : (n : Nat) -> [auto ok : n = n] -> Nat
@@ -342,7 +358,10 @@ fn a_validator_cannot_refer_to_a_pending_declaration() {
     let r = check::add_validator(&mut p.g, f, 1, decidable, &decision);
     assert_eq!(code(r), "E-MALFORMED");
     // Neighbour: once `dec` is final.
-    let yes = lam("n", Term::ctor(decidable, 0, vec![Term::Refl]));
+    let yes = lam(
+        "n",
+        Term::ctor(decidable, 0, vec![tru, lam("h", Term::Refl)]),
+    );
     check::define_def(&mut p.g, dec, &yes).unwrap();
     let r = check::add_validator(&mut p.g, f, 1, decidable, &decision);
     assert_eq!(code(r), "ok");
@@ -350,24 +369,11 @@ fn a_validator_cannot_refer_to_a_pending_declaration() {
 
 #[test]
 fn builtins_must_be_final() {
-    // `Decidable`'s `No` mentions `Void` before `Void`'s constructors are in:
-    // registering it would let a native `No` rely on `Void` being empty.
+    // A `Bool` whose constructors aren't in yet: registering it would let
+    // natives rely on a shape it might not get.
     let mut p = Prelude::new();
-    let void = data(&mut p.g, "Void", vec![], Sort::Prop);
-    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
-    let r = check::define_ctors(
-        &mut p.g,
-        decidable,
-        vec![
-            ctor("Yes", vec![("proof", v(0))]),
-            ctor(
-                "No",
-                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
-            ),
-        ],
-    );
-    assert_eq!(code(r), "E-MALFORMED");
-    let r = stitchwort_core::native::register_decidable(&mut p.g, decidable);
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
+    let r = stitchwort_core::native::register_bool(&mut p.g, bool_);
     assert_eq!(code(r), "E-BUILTIN");
 }
 
@@ -441,5 +447,74 @@ fn references_to_declarations_that_do_not_exist_are_refused() {
         "E-MALFORMED"
     );
     let r = check::define_ctors(&mut p.g, DataId(1000), vec![]);
+    assert_eq!(code(r), "E-MALFORMED");
+}
+
+#[test]
+fn an_index_type_that_uses_a_failed_declaration_fails_the_type() {
+    let mut p = Prelude::new();
+    let f = declare(&mut p.g, "f", nat_to_nat(p.nat));
+    assert_eq!(define_def(&mut p, f, lam("n", ty())), "E-TYPE-MISMATCH");
+    // D (h: f 0 = 0): Type, with no constructors, so no field or result
+    // index mentions `f`: only the index telescope does.
+    let d = family(
+        &mut p.g,
+        "D",
+        vec![],
+        vec![("h", about(p.nat, f))],
+        Sort::Type(0),
+    );
+    assert_eq!(
+        code(check::define_ctors(&mut p.g, d, vec![])),
+        "E-FAILED-DEPENDENCY"
+    );
+    assert_eq!(data_hash(&p.g.ev(), d).unwrap(), None);
+    // Neighbour: the same index with `f` final.
+    let g = declare(&mut p.g, "g", nat_to_nat(p.nat));
+    assert_eq!(define_def(&mut p, g, lam("n", v(0))), "ok");
+    let e = family(
+        &mut p.g,
+        "E",
+        vec![],
+        vec![("h", about(p.nat, g))],
+        Sort::Type(0),
+    );
+    assert_eq!(code(check::define_ctors(&mut p.g, e, vec![])), "ok");
+}
+
+#[test]
+fn a_parameter_type_cannot_hold_a_case() {
+    let mut p = Prelude::new();
+    // D (n: Nat) (x: (m => case m of Zero => Nat | Succ k => Nat) n): Type.
+    // The `case` is stuck on `n`, and a stuck `case` outside a definition's
+    // tree can't be evaluated.
+    let nat = p.nat_ty();
+    let pick = lam(
+        "m",
+        case(
+            0,
+            p.nat,
+            vec![(vec![], nat.clone()), (vec!["k"], nat.clone())],
+        ),
+    );
+    let pick = Term::Ann(Rc::new(pick), Rc::new(arrow(nat.clone(), ty())));
+    let params = || {
+        vec![
+            ("n".into(), nat.clone()),
+            ("x".into(), app(pick.clone(), [v(0)])),
+        ]
+    };
+    let decl = || {
+        vec![check::DataDecl {
+            name: "D".into(),
+            path: "D".into(),
+            span: span(),
+            record: false,
+            indices: vec![],
+        }]
+    };
+    let r = check::declare_indexed_data_group(&mut p.g, params(), Sort::Type(0), decl());
+    assert_eq!(code(r), "E-MALFORMED");
+    let r = check::admit_trusted_data_decls(&mut p.g, params(), Sort::Type(0), decl());
     assert_eq!(code(r), "E-MALFORMED");
 }

@@ -402,7 +402,7 @@ fn call_both(g: &stitchwort_core::Ev, f: DefId, arg: &Value) -> String {
 }
 
 fn plus(k: u64, base: Value) -> Value {
-    Value::NatAdd(Rc::new(BigUint::from(k)), Rc::new(base))
+    Value::NatAdd(Rc::new(BigUint::from(k)), Rc::new(base).into())
 }
 
 #[test]

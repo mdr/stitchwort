@@ -3,17 +3,16 @@
 -- instance is checked, and uses it as its `eq`. The order compares the
 -- fields in order: `Version`s by `major`, then `minor`.
 
-import Std (Eq, List, Ord)
+import Std (Decidable, Eq, List, Ord)
 
 type Version = { major: Nat, minor: Nat }
 
-def Version.decide (x: Version) (y: Version): Decidable (x = y) :=
-  if h: (x.major, x.minor) = (y.major, y.minor) then Yes (Version.sameParts x y h)
-  else No (e => h (Eq.cong (v => (v.major, v.minor)) e))
+def Version.decide (x y: Version): Decidable (x = y) :=
+  if h: (x.major, x.minor) = (y.major, y.minor) then Decidable.yes (Version.sameParts x y h)
+  else Decidable.no (e => h (Eq.cong (v => (v.major, v.minor)) e))
 
-theorem Version.sameParts: (x: Version) → (y: Version) → (x.major, x.minor) = (y.major, y.minor) → x = y
-  | { major = a1, minor = b1 }, { major = a2, minor = b2 }, h =>
-    rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h in rfl
+theorem Version.sameParts ∀ (x y: Version) (h: (x.major, x.minor) = (y.major, y.minor)): x = y := match x, y with
+  | { major = a1, minor = b1 }, { major = a2, minor = b2 } => rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h in rfl
 
 instance Version.instDecEq: DecEq Version := { decide = Version.decide }
 

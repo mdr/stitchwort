@@ -29,6 +29,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::chars::Chars;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Head, Value, conv, eval, set_shortcuts_disabled};
 use stitchwort_core::{DataId, DefId, Ev, Icit, reference};
@@ -922,6 +923,29 @@ fn contexts() -> Vec<Ctx> {
                 (expected, app(sig.def("Nat.add"), vec![var(N, 0), h]))
             },
         },
+        // A sum whose second argument is a sum, read by R3 and R4 in turn
+        // (SW-2874).
+        Ctx {
+            name: "n + (n + hole)",
+            closed_only: false,
+            build: |sig, b, _, h| {
+                let plus = |x: Term, y: Term| app(sig.def("Nat.add"), vec![x, y]);
+                (
+                    plus(var(N, 0), plus(var(N, 0), b.clone())),
+                    plus(var(N, 0), plus(var(N, 0), h)),
+                )
+            },
+        },
+        Ctx {
+            name: "n + (n + hole), against Succ^k (n + n)",
+            closed_only: true,
+            build: |sig, _, k, h| {
+                let plus = |x: Term, y: Term| app(sig.def("Nat.add"), vec![x, y]);
+                let expected =
+                    (0..k.unwrap()).fold(plus(var(N, 0), var(N, 0)), |t, _| succ_term(sig, t));
+                (expected, plus(var(N, 0), plus(var(N, 0), h)))
+            },
+        },
         Ctx {
             name: "hole + n",
             closed_only: false,
@@ -1260,6 +1284,179 @@ fn probe_g2_sum_with_a_folded_number() {
         "g2.sw",
         include_str!("../../../../docs/repros/sw-2236/g2.sw"),
     );
+}
+
+/// G2 for a sum nested in `+`'s second argument (SW-2874): the inner sum
+/// is read by R3 and R4 too, by `Nat` and through `Int`.
+const NESTED_SUM: &str = r#"
+import Std (Nat, Int)
+
+def two (x: Nat): Nat
+    decreasing x
+:=
+  match x with
+    | Zero => 2
+    | Succ m => two m [decreasing := omega]
+
+def isPos (n: Nat): Nat :=
+  match n with
+    | Zero => 0
+    | Succ _ => 1
+
+theorem nested (x y: Nat): x + (y + two 0) = x + y + 2 := rfl
+
+theorem deeper (x y z: Nat): x + (y + (z + two 0)) = Succ (Succ (x + (y + z))) := rfl
+
+theorem twice (x y: Nat): x + (two 0 + (y + two 0)) = x + (y + 4) := rfl
+
+theorem matched (x y: Nat): isPos (x + (y + two 0)) = 1 := rfl
+
+def small (n: Nat): Nat :=
+  match n with
+    | 0 => 10
+    | 1 => 11
+    | _ => 12
+
+-- Numeral arms: a `NumCase`, which reads the sum for its `Succ`s.
+theorem numberMatched (x y: Nat): small (x + (y + two 0)) = 12 := rfl
+
+theorem nestedInt (x y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt + 2 := rfl
+"#;
+
+#[test]
+fn probe_g2_nested_sum_with_a_folded_number() {
+    load_probe("g2-nested.sw", NESTED_SUM);
+}
+
+/// Loads `NESTED_SUM` with `extra` after it: what the load said, and how
+/// many steps it took.
+fn load_nested(extra: &str) -> (Result<(), String>, u64) {
+    let mut session = Session::eager();
+    let before = session.elab.ev().machine.budget.total_work();
+    let result = session
+        .load("nested.sw", &format!("{NESTED_SUM}\n{extra}"))
+        .map(|_| ())
+        .map_err(|e| format!("{e:?}"));
+    let steps = session.elab.ev().machine.budget.total_work() - before;
+    (result, steps)
+}
+
+/// Reading the nested sum tells it apart from a different number: a type
+/// error, not acceptance and not E-RESOURCE.
+#[test]
+fn nested_sum_with_a_folded_number_is_still_told_apart() {
+    let (result, _) = load_nested("theorem wrong (x y: Nat): x + (y + two 0) = x + y + 3 := rfl\n");
+    let err = result.expect_err("rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL"), "{err}");
+}
+
+/// A folded `k * x` under a sum's second argument isn't unfolded: it would
+/// be `k` levels of sums stuck on `x`, and std's Float.Theory has `k` near
+/// 2^53. The sides are written apart, so their values aren't shared.
+#[test]
+fn nested_sum_leaves_a_large_folded_product() {
+    let (result, steps) = load_nested(
+        "theorem big (x y z: Nat): x + (y + 9007199254740992 * z) = x + (y + 9007199254740992 * z) := rfl\n\
+         theorem bigDiffers (x y z: Nat): x + (y + 9007199254740992 * z) = x + (z + 9007199254740992 * y) := rfl\n",
+    );
+    let err = result.expect_err("bigDiffers is rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL") && !err.contains("`big`"), "{err}");
+    assert!(steps < 1_000_000, "{steps} steps");
+}
+
+/// A right-nested chain that unfolding builds, 200 sums deep, is read to
+/// the bottom: equal to itself and different from a shorter one, each
+/// answered, not E-RESOURCE, and the whole load under a million steps
+/// (about 137,000 and 411,000 when written).
+#[test]
+fn nested_sum_reads_a_long_unfolded_chain() {
+    let chain = "def f (m: Nat) (y: Nat): Nat\n    decreasing m\n:=\n  match m with\n    | Zero => 0\n    | Succ k => y + f k y [decreasing := omega]\n";
+    let (result, same_steps) = load_nested(&format!(
+        "{chain}\ntheorem same (x y: Nat): x + f 200 y = x + f 200 y := rfl\n"
+    ));
+    result.expect("same is accepted");
+    let (result, differ_steps) = load_nested(&format!(
+        "{chain}\ntheorem differ (x y: Nat): x + f 200 y = x + f 199 y := rfl\n"
+    ));
+    let err = result.expect_err("differ is rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL"), "{err}");
+    eprintln!("steps: same {same_steps}, differ {differ_steps}");
+    assert!(same_steps < 1_000_000, "{same_steps} steps");
+    assert!(differ_steps < 1_000_000, "{differ_steps} steps");
+}
+
+/// `repEnd n x e`, `x + (x + … + e)` with `n` sums: a chain of sums with
+/// nothing folded in it.
+const REP_END: &str = "def repEnd (n: Nat) (x: Nat) (e: Nat): Nat :=\n  match n with\n    | Zero => e\n    | Succ k => x + repEnd k x e\n";
+
+/// A chain with nothing folded in it, 400 sums deep, is read once per
+/// comparison, not once per level: each sum it goes down to is a step, so
+/// walking it at every level would take about 320,000 more (SW-2875; about
+/// 75,000 when written). Deeper chains run out of this test thread's stack
+/// elsewhere in the comparison, not in the walk.
+#[test]
+fn nested_sum_walks_a_plain_chain_once() {
+    let (result, steps) = load_nested(&format!(
+        "{REP_END}\ntheorem same (x y: Nat): repEnd 400 x y = repEnd 399 x (x + y) := rfl\n"
+    ));
+    result.expect("same is accepted");
+    eprintln!("steps: {steps}");
+    assert!(steps < 200_000, "{steps} steps");
+}
+
+/// Two chains that differ only at the bottom are told apart with the
+/// record of sums with nothing to read in use: a type error, not
+/// acceptance and not E-RESOURCE.
+#[test]
+fn nested_sum_tells_plain_chains_apart() {
+    let (result, _) = load_nested(&format!(
+        "{REP_END}\ntheorem differ (x y: Nat): repEnd 400 x y = repEnd 400 x x := rfl\n"
+    ));
+    let err = result.expect_err("differ is rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL"), "{err}");
+}
+
+/// The same chains in every mode: the machine's comparison keeps a record
+/// of the sums with nothing to read, while the shortcuts-off, reference
+/// and plain ones walk each in full; all give the same answers (SW-2875).
+/// On a thread of its own: outside an operation nothing guards the stack,
+/// and the reference evaluator recurses once per sum.
+#[test]
+fn nested_sum_plain_chains_are_compared_alike() {
+    let run = || {
+        let mut session = Session::eager();
+        (session.load("chain.sw", &format!("import Std (Nat)\n\n{REP_END}"))).expect("loads");
+        let g = &session.elab.ev();
+        let sig = signature(g, &["Nat"], &["repEnd"]);
+        let add = Term::Def(g.env.registry().def(Builtin::Add).expect("Nat.add"));
+        let (x, y) = (var(P, 0), var(Q, 0));
+        let rep = |k: u32, bottom: Term| {
+            app(
+                sig.def("repEnd"),
+                vec![Term::Nat(Rc::new(k.into())), x.clone(), bottom],
+            )
+        };
+        let terms = vec![
+            ("repEnd 300 x y".to_string(), rep(300, y.clone())),
+            (
+                "repEnd 299 x (x + y)".to_string(),
+                rep(299, app(add, vec![x.clone(), y.clone()])),
+            ),
+            ("repEnd 300 x x".to_string(), rep(300, x.clone())),
+        ];
+        // Each against itself, and the first two against each other.
+        assert_eq!(compared_alike(g, &sig, &terms), 5);
+    };
+    std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(run)
+        .expect("a thread")
+        .join()
+        .expect("the modes agree");
 }
 
 #[test]

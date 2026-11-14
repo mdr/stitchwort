@@ -11,5 +11,4 @@ def outer: Nat → Nat → Nat
   | Zero, acc => acc
   | Succ k, acc => outer k (acc + down 20)
 
-def main(): {IO} () :=
-  IO.print "${outer 1000 0}"
+def main(): {IO} () := IO.print "${outer 1000 0}"

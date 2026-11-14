@@ -11,4 +11,4 @@ def increasing: List Nat → Bool
   | [_] => True
   | [a, b, ..rest] => a < b && increasing [b, ..rest]
 
-theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6 := ?
+theorem shortIncreasing ∀ (xs: List Nat) (h: increasing xs = True): xs.length < 6 := ?

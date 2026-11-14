@@ -11,7 +11,8 @@ rules that are easy to forget.
 The main session in `~/repos/mdr/stitchwort` (on `main`) orchestrates. It
 does not do significant work itself:
 
-- It picks lanes from the board (up to three build lanes at once; paper
+- It picks lanes from the board (up to three build lanes at once, D3548,
+  tuned to load: below; paper
   lanes, which put no load on the machine, run beside them and don't count
   towards the three), writes each lane's
   brief, and starts a background agent for it in its own git worktree and
@@ -22,9 +23,9 @@ does not do significant work itself:
   as a batch: everything waiting goes into `main` together, then one
   background verifier runs the checks over the batch, in about two
   minutes in all: a selection of tests that fits the changes (budget about
-  90 s) and `task audit:touched -- <Namespace>` for proof lanes. The merge
-  tier and the full audit wait for the daily and full tiers; regressions
-  that slip past are an accepted risk (D2441, Matt, 5 Nov 2026: "it's got
+  90 s) and `task audit:touched -- <Namespace>` for proof lanes. Broader
+  checks are Overmind's rolling check after the push (see "Test budget");
+  regressions that slip past are an accepted risk (D2441, Matt, 5 Nov 2026: "it's got
   to be only a couple of minutes ... The important thing is not to get
   bogged down and slow the flow of work"). A failure is fixed, or the merge
   that caused it reverted,
@@ -47,7 +48,10 @@ does not do significant work itself:
   only when a lane is about to need the answer (Matt, 7 Nov 2026: "I can't
   possibly review 80 decisions"). Sequencing, implementation details and
   reversible calls it makes itself, records on the ticket as the
-  orchestrator's call, and mentions in one line. The answer is recorded on
+  orchestrator's call, and mentions in one line. So are optimisations that
+  only lower step, frame or allocation counts with results, messages,
+  hashes and proofs unchanged (D3447, Matt, 9 Nov 2026); each still gets its
+  performance-log entry (D3444). The answer is recorded on
   the ticket. See "Reporting to Matt" in `docs/workflow.md`.
 - It may do small mechanical work itself: board edits, merge commits, staging
   regenerated snapshots, one-line fixups found in review. Anything bigger
@@ -58,7 +62,15 @@ does not do significant work itself:
   when you can"). Moderate merge-conflict risk is fine; only lanes known to
   clash heavily (two sweeps, two lanes rewriting the same files) run one
   after another. Slots that would sit idle get paper lanes (designs,
-  reviews, research: no builds or tests; D3343).
+  reviews, research: no builds or tests; D3343). In lanes mode, every time
+  a lane, verifier or review finishes, it refills the slots (three build
+  lanes, DeepSeek runs counting as one each, plus paper lanes) from the
+  board before replying, without waiting to be asked (Matt, 11 Nov 2026:
+  "I had to prompt you to keep filling up work").
+- It watches Overmind's long jobs: when it starts one, it notes the
+  expected end time, and once that passes without a report it asks
+  Overmind for a status check at the next turn (Matt, 11 Nov 2026: a full
+  tier hit its cap and stopped, and Matt had to prompt the check).
 - It creates each lane's worktree itself, from the main checkout:
   `nix develop -c task worktree:new -- SW-N` (`.claude/worktrees/SW-N`,
   branch `lane/SW-N`, from local `main`), and gives the agent the path.
@@ -86,6 +98,11 @@ does not do significant work itself:
   lsp` runs the main checkout's release binary. It selects a run by its
   process tree (see "Stopping a lane's own test runs" in
   `docs/workflow.md`).
+- It keeps a daily work log, `docs/worklog/YYYY-MM-DD.md` (Matt, 13 Nov
+  2026): one table row per finished piece of work, added as it is merged or
+  decided: the time, the ticket(s), the epic, and in a sentence or two what
+  changed, in Matt's words for the work. Decisions Matt made that day and
+  overnight compute results get rows too.
 - Opus reviews, and long lane reports worth keeping, go in the repo as
   `docs/reviews/SW-N-topic.md`, linked from the ticket (D2530).
 
@@ -102,7 +119,12 @@ Details and examples are in "Reporting to Matt" in `docs/workflow.md`.
   names Matt gave the work, each item's status first.
 - "aw" means a table of active work. Every table of running work has the
   same seven columns: Ticket, Epic, Machine, Model, Paper, Running for,
-  Summary.
+  Summary. "Running for" is measured with a command each time, never
+  recalled or estimated: the worktree's creation time (`/usr/bin/stat -f
+  '%SB' -t '%H:%M' .claude/worktrees/SW-N`) against `date`, `ps -o etime=`
+  for a DeepSeek run, and the start time Overmind reported for its job
+  (Matt, 11 Nov 2026: a table guessed from memory got stage 3's time
+  wrong by over an hour). See "Reporting to Matt" in `docs/workflow.md`.
 - Before quoting how long a job takes, look up how long it took before, and
   set a stop point up front (Matt stopped a "two-minute" job at 25 min,
   5 Nov 2026).
@@ -121,6 +143,11 @@ Details and examples are in "Reporting to Matt" in `docs/workflow.md`.
 Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 2 Nov 2026), from the SW-1084 experiment (three tasks, one run each):
 
+- **Fable:** paper lanes on the hardest and most critical questions, where
+  a mistake is silent or costly to undo: soundness audits of the kernel,
+  reviews of kernel changes, and end-state designs that are hard to reverse
+  (D3473, Matt, 10 Nov 2026). Started as `opus-lane` with the model set to
+  Fable.
 - **Opus:** the hardest, deepest thinking: design decisions and design
   notes, the kernel and soundness, the tricky implementation parts of the
   code base, tricky bugs, specs for other models, and a proof only when it
@@ -152,6 +179,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   mechanical work (renames, sweeps, boilerplate, new tests). In SW-1084 its
   code matched Sonnet's at all three levels; its failures were in process.
   So every DeepSeek brief has these lines:
+  - Work only in this clone: every path you read, edit or search starts
+    with its own path or is relative to it, never `~/repos/mdr/stitchwort/`
+    itself (SW-2798, 11 Nov 2026: a run edited the main checkout by
+    absolute path).
   - Never run a command in the background: wait for each to finish.
   - Run every test you add and show it passing.
   - Finish with a report: what you changed, each command you ran and its
@@ -189,12 +220,14 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   examples' hash snapshots, std core's native pins, which comment rules
   apply): see "Writing a brief" in `docs/workflow.md`.
 
-## Choosing work by pace (D3427, D3433, Matt, 8 Nov 2026)
+## Choosing work by usage (D3427, Matt, 8 Nov 2026; D3570, 13 Nov 2026)
 
 Tokens and machine time are separate budgets. The orchestrator reads the
-week's pace (`seven_day.pace` in `~/.claude/usage.json`: share of the
-week's allowance used over share of the week gone) before starting work and
-at every status table, and picks the kind of work to fit it:
+week's sustainable rate (`seven_day.sustainable_rate` in
+`~/.claude/usage.json`: the share of the allowance left over the share of
+the week left, so 1.0 means an even pace from now lands exactly on the
+reset) before starting work and at every status table, and picks the kind
+of work to fit it:
 
 - **Lanes mode**: the normal mix of token-heavy work: lanes on code,
   proofs and designs, reviews, AoC days. Machines a lane leaves idle still
@@ -202,18 +235,27 @@ at every status table, and picks the kind of work to fit it:
 - **Compute mode**: no new token-heavy lanes; running lanes finish
   and are merged as usual. Instead the machines are kept busy with
   compute-heavy, token-light work, started without asking Matt: the fuzzers
-  (`task fuzz:*`, large counts and fresh seeds), the full audit, the daily
-  and full tiers (still never back to back), uncached whole-AoC checks and
+  (`task fuzz:*`, large counts and fresh seeds), the full audit, the broad
+  and all tiers (still never back to back), uncached whole-AoC checks and
   Overmind comparison runs. One heavy job per machine at a time, as plain
   background commands that no agent watches; Overmind gets one long job
   per message.
 - **Findings made in compute mode** are filed as tickets with their
   reproducers and investigated in lanes mode, since triage is token-heavy.
-- **Switching** (D3433, Matt, 8 Nov 2026): lanes mode switches to compute
-  mode when pace is above 1.05, and back when it falls to 0.92 or below;
-  either way, at most once every 2 hours. Usage is reported in whole
-  percents, so early in the week one percent moves pace by 0.05–0.1 and a
-  narrower band flipped the mode hourly.
+- **Switching** (D3570, Matt, 13 Nov 2026, replacing D3433's pace band):
+  lanes mode switches to compute mode when the sustainable rate falls
+  below 0.7 (the status line's bar turns orange), and back when it reaches
+  0.85 or above (green); either way, at most once every 2 hours, and no
+  switch while the figure is missing. Pace looked back and meant different
+  things on different days (pace 1.05 is a rate of about 0.99 on day 1 and
+  0.55 on day 6); the rate looks forward, so it is calm early in the week
+  and sensitive late, when overspending matters. Late in the week one
+  percent of usage moves it by up to 0.1, hence the wide band. Matt chose
+  the most lane-friendly option to try ("we'll see how it goes"). The
+  allowance is shared with Matt's other agents, so the usage figures can't
+  measure one mode's own cost; to compare the modes, count this session's
+  tokens from its transcripts (main and subagents) over a few hours of
+  each.
 
 ## Lane agents
 
@@ -265,30 +307,75 @@ at every status table, and picks the kind of work to fit it:
 
 ## Test budget (Matt, 2 Nov 2026)
 
-- Don't run the daily tier (`task test:daily`, `nix flake check`) or the
-  full tier without asking Matt first. Never run them back to back.
+The doctrine (D3542, D3545, D3546, D3547; Matt, 13 Nov 2026): optimistic.
+Lanes test a little, the orchestrator verifies a little more, `main` is
+pushed at once and may be broken for a while, and Overmind checks broadly a
+little behind; what it finds is fixed or reverted.
+
+| Layer | Who, where | When | What runs | Budget |
+|---|---|---|---|---|
+| Lane tests | each lane, its worktree | while it works | a few named tests the change could affect; a check of the AoC day or std namespace it edits | seconds to a minute a run; one at a time, `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19` |
+| Verifier | orchestrator, `main`, in the background | after each batch of merges (lanes finishing close together share one) | chosen by what the batch touched: hash snapshots always; example kinds for elaborator changes; std's own tests and pins for std changes | about 90 s |
+| Push | orchestrator | after each verified batch | nothing more | 0 |
+| Rolling broad check | Overmind, a script loop | each newly pushed commit, about an hour behind | the quick tier, whole-AoC and roguelike `check --no-cache`; reports only new failures, with the last passing commit | under 60 min a cycle |
+| Broad tier | Overmind or Speedwell | with Matt's approval, or in compute mode | quick tier plus sampled sweeps | long |
+| All tier | Overmind | paused (Matt, 12 Nov 2026) | everything | hours |
+| Fuzzers, audits | Overmind or Speedwell | compute mode or overnight | `task fuzz:*`, std/AoC/rogue audits | one heavy job per machine |
+
+The tiers are named by size: quick (was merge), broad (was daily), all
+(was full) (D3547; the rename is SW-3080). Every test, check and build the
+orchestrator starts runs in the background, so it never stops answering
+Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
+
+- Don't run the broad tier (`task test:broad`, `nix flake check`) or the
+  all tier without asking Matt first. Never run them back to back.
 - Except in compute mode: then the orchestrator may run these without
-  asking (D3427; see "Choosing work by pace" above).
+  asking (D3427; see "Choosing work by usage" above).
 - Lanes are very selective about tests. Run only targeted, fast tests that
   check the work your change directly affects: `task test:one -- NAME` for
   the tests you touched, and `task test:lane AREA=…` when it fits. No single
   run takes more than a minute or two. Don't run broader suites "to be
   safe"; the orchestrator's verifier checks each batch after merging. After a
   failure, rerun only the failing tests.
+- Minimal and tactical (Matt, 11 Nov 2026: "lanes are just very minimal in
+  what they run ... not enormous test packs or suites or big
+  compilations"): a lane never runs a whole test binary or package, the
+  examples suite, a std-wide audit, a whole-project `aoc/` or
+  `games/rogue` check (cached or not; checking the one AoC day or
+  roguelike namespace it edited is fine, D3517), the benchmark, or a
+  workspace-wide build of test targets, and runs one test command at a
+  time, prefixed `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19`,
+  and at most three build lanes run at once (D3542; D3548 raised two to three, Matt, 13 Nov 2026: "tune in-flight work to be filling but not overloading the machine": the orchestrator reads `uptime` before starting a lane and holds new lanes while the 5-minute load, the middle of `uptime`'s three numbers, is above 12 on Speedwell's 10 cores, about one job per core; lane builds run 4 compiler jobs each, from `.claude/worktrees/.cargo/config.toml`, D3554, Matt, 13 Nov 2026: "2x the number of cores feels like we are maybe over parallelizing") (D3542, Matt, 13 Nov 2026: "it's good
+  for the lanes to have lighter CPU load ... targeted, intelligent tests,
+  selecting individual test cases that might have been impacted by the change.
+  And then we catch bigger regressions through other mechanisms"). A lane that thinks it needs one stops and asks. Briefs never ask for these
+  either: whole-project measurements go to the verifier or Overmind. (One
+  lane ran 6-8 std audits and 8-10 aoc checks in 2.5 h and held Matt's
+  machine at load 146.)
 - Exceptions (a lane working on the test suites themselves, say) are agreed
   with Matt before the lane starts: the orchestrator asks, and the brief
   states the agreed strategy. A brief never allows a broader suite on the
   orchestrator's own judgement. A whole-AoC or roguelike `check
   --no-cache`, or a profile across all of `aoc/`, is a broader suite.
 - Spend test time according to risk, within a stated budget.
-- Run long jobs (builds, browser tests, the daily tier when it's approved)
+- Run long jobs (builds, browser tests, the broad tier when it's approved)
   in the background.
 
 ## Always
 
 - Use `nix develop -c …` for project tools. `git add` new files before
   anything that goes through the flake.
-- Push to GitHub only when Matt asks.
+- Push `main` after each verified batch, with no `task test:quick` first:
+  Overmind runs a rolling broad check (the quick tier, whole-AoC and
+  roguelike checks) of each newly pushed commit and reports only failures,
+  which are then fixed or reverted. Main may be broken for a while; that's
+  accepted (D3546, Matt, 13 Nov 2026: "I don't care about main being
+  broken ... As long as we are going to detect it and fix it later").
+  Verifiers stay about 90 s of tests chosen by what the batch touched,
+  with lanes that finish close together verified together, and the
+  whole-AoC check left to Overmind (D3545). Every test, check and build the
+  orchestrator starts runs in the background, so it stays responsive.
+  Board-only commits wait for the next push. Lanes never push.
 - A lane that adds or changes a user-visible language feature (syntax,
   sugar, a new error, a std function people will reach for) also updates
   the language guide (`docs/guide/`, its examples checked) and

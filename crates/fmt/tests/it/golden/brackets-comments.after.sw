@@ -17,7 +17,4 @@ def ys: List Nat := [ -- the list
 -- before the opener
 def zs: List Nat :=
   -- a note on the opener
-  [
-    1,
-    2
-  ]
+  [1, 2]

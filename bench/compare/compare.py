@@ -174,20 +174,27 @@ def instructions_wrapper(system):
     return None
 
 
-def count_instructions(program, command):
-    """Instructions retired by one run of a command (children included), or
-    None. Run apart from hyperfine, once, since the count is stable."""
+def run_counted(program, command):
+    """(instructions retired or None, stdout bytes, return code) of one run
+    of a command (children included), counted by the platform's wrapper.
+    The wrapper reports on stderr, so stdout is the program's own."""
     system = platform.system()
     wrapper = instructions_wrapper(system)
     if wrapper is None:
-        return None
+        return None, b"", 0
     stdin = open(program.input, "rb") if program.input else subprocess.DEVNULL
     try:
         done = subprocess.run(wrapper + ["sh", "-c", command], stdin=stdin, capture_output=True)
     finally:
         if program.input:
             stdin.close()
-    return parse_instructions(done.stderr.decode(errors="replace"), system)
+    return parse_instructions(done.stderr.decode(errors="replace"), system), done.stdout, done.returncode
+
+
+def count_instructions(program, command):
+    """Instructions retired by one run of a command, or None. Run apart from
+    hyperfine, once, since the count is stable."""
+    return run_counted(program, command)[0]
 
 
 def geomean(values):

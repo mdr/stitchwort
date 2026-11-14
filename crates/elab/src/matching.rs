@@ -29,7 +29,7 @@ use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
 use crate::check::{Ctx, Result, infer, insert};
 use crate::lift::{self, Draft};
-use crate::{Row, UNIT_PATTERN, check_tree_here};
+use crate::{Row, check_tree_here};
 
 mod as_written;
 pub(crate) use as_written::{Outcome as AsWritten, report_transport, transport_target};
@@ -133,6 +133,35 @@ fn motive_error(span: stitchwort_syntax::Span, message: impl Into<String>) -> Di
         )
 }
 
+/// A `match` compiled ([`compile`]): its case tree, and the rows and
+/// column types it was compiled from, for `W-UNREACHABLE` to compile it
+/// again without some arms (`crate::deletable`).
+struct Compiled<'a> {
+    tree: crate::Tree<'a>,
+    rows: Vec<Row<'a>>,
+    types: Vec<Option<Value>>,
+}
+
+impl<'a> Compiled<'a> {
+    fn recheck<'r>(
+        &'r self,
+        columns: &'r [usize],
+        span: stitchwort_syntax::Span,
+        start: usize,
+        goal: &'r Value,
+    ) -> crate::Recheck<'r, 'a> {
+        crate::Recheck {
+            rows: &self.rows,
+            columns,
+            types: &self.types,
+            skip: 0,
+            span,
+            start,
+            goal,
+        }
+    }
+}
+
 /// Compiles the alternatives into a case tree on `columns`. `absurd` are
 /// rows with no right-hand side, whose `()` patterns say a type has no
 /// values (only the compiler writes them: `reify.rs`).
@@ -143,7 +172,7 @@ fn compile<'a>(
     columns: &[usize],
     span: stitchwort_syntax::Span,
     kind: MatchKind,
-) -> Result<crate::Tree<'a>> {
+) -> Result<Compiled<'a>> {
     let absurd_rows = absurd.iter().map(|pats| Row {
         pats: pats.iter().map(std::borrow::Cow::Borrowed).collect(),
         aliases: Vec::new(),
@@ -156,37 +185,24 @@ fn compile<'a>(
     let rows: Vec<Row> = alts
         .iter()
         .map(|alt| Row {
-            pats: alt
-                .patterns
-                .iter()
-                .map(|p| match p {
-                    Pattern::Absurd(span) => std::borrow::Cow::Owned(Pattern::Ctor(
-                        ast::Name {
-                            text: UNIT_PATTERN.into(),
-                            span: *span,
-                        },
-                        Vec::new(),
-                        *span,
-                    )),
-                    p => std::borrow::Cow::Borrowed(p),
-                })
-                .collect(),
+            pats: crate::row_patterns(&alt.patterns, alt.body.is_some()),
             aliases: Vec::new(),
             written: crate::written_names(&alt.patterns),
-            rhs: Some(&alt.body),
+            rhs: alt.body.as_ref(),
             span: alt.span,
             alternatives: Vec::new(),
             guard: alt.guard.as_ref(),
         })
         .chain(absurd_rows)
         .collect();
-    let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
-    let tree = (cx
-        .e
-        .compile_top(&rows, cx.level(), columns, &types, 0, span))
-    .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
+    let types: Vec<Option<Value>> = columns
+        .iter()
+        .map(|&l| crate::reading::variable_as_written(cx, l, &cx.types[l]).map(Some))
+        .collect::<crate::check::Result<_>>()?;
+    let tree = (cx.e.compile_top(cx, &rows, columns, &types, 0, span))
+        .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
     cx.e.warn_redundant(&rows[..alts.len()], &tree);
-    Ok(tree)
+    Ok(Compiled { tree, rows, types })
 }
 
 /// The first alternative's patterns: a refutable `let`'s or lambda's.
@@ -309,6 +325,7 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         Err(e) => return Some(Err(e)),
     }
     let (scrutinees, alts, span, kind) = parts(expr);
+    note_match_step(cx, alts, span, goal);
     let mut columns = Vec::new();
     for s in scrutinees {
         let level = variable(cx, s)?;
@@ -318,12 +335,52 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         columns.push(level);
     }
     Some(
-        compile(cx, alts, &[], &columns, span, kind).and_then(|tree| {
+        compile(cx, alts, &[], &columns, span, kind).and_then(|compiled| {
             in_alternatives(cx, kind, alts, &columns, |cx| {
-                crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+                let recheck = compiled.recheck(&columns, span, cx.level(), goal);
+                crate::families::warn_unreachable(cx, &recheck, |cx| {
+                    check_tree_here(cx, &compiled.tree, goal)
+                })
             })
         }),
     )
+}
+
+/// A probe's step for a `match` at `span` against `goal`: its head is
+/// `match … with`, and it numbers its arms.
+fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: &Value) {
+    let Some(first) = alts.first() else {
+        return;
+    };
+    let head = stitchwort_syntax::Span {
+        end: first.span.start,
+        ..span
+    };
+    if !cx.e.records_steps(head) {
+        return;
+    }
+    let parts = (alts.iter())
+        .map(|a| stitchwort_syntax::Span {
+            end: a.body.as_ref().map_or(a.span.end, |b| b.span().start),
+            ..a.span
+        })
+        .collect();
+    cx.e.note_step(
+        cx,
+        crate::goals::StepNote {
+            form: crate::goals::StepForm::Match,
+            head,
+            index: Some((0, alts.len())),
+            before: None,
+            after: goal.clone(),
+            after_term: None,
+            adds: Vec::new(),
+            rule: None,
+            parts,
+            target: None,
+            extra: Vec::new(),
+        },
+    );
 }
 
 /// A `match`, lifted (§4.4).
@@ -335,6 +392,7 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
         return crate::check::check(cx, body, goal);
     }
     let (scrutinees, alts, span, kind) = parts(expr);
+    note_match_step(cx, alts, span, goal);
     note_tuple_match(cx, scrutinees, span);
     let base = cx.level();
     let mark = cx.mark();
@@ -436,10 +494,13 @@ fn unit_parameter<'e>(cx: &mut Ctx, expr: &'e Expr, goal: &Value) -> Result<Opti
     }
     let unit = Value::Data(
         crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::UnitType)?,
-        Vec::new(),
+        Vec::new().into(),
     );
     let ty = cx.types[level].clone();
-    Ok(crate::undo::unify(cx, &ty, &unit)?.then_some(&alt.body))
+    let Some(body) = &alt.body else {
+        return Ok(None);
+    };
+    Ok(crate::undo::unify(cx, &ty, &unit)?.then_some(body))
 }
 
 /// What a scrutinee is matched as.
@@ -498,27 +559,22 @@ fn lifted(
             let term = crate::logic::bool_operand(cx, &s.expr, "match")?;
             let bool_ty = Value::Data(
                 crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?,
-                Vec::new(),
+                Vec::new().into(),
             );
             (term, bool_ty)
         } else {
             (term, ty)
         };
-        // A decision that computes to `Bool.decTrue b` (`c < x` on a `Fin`,
-        // by `Ord.byKey`, is `Bool.decTrue (Nat.leq (Succ c.toNat) x.toNat)`)
-        // is matched as `b`, the comparison itself, as `Nat`'s is: that is
-        // what an `if` on it holds once unfolded, so the branches see it
-        // decided (D1073). Any other scrutinee's normal form is left for the
-        // occurrence test to compute, as far as it needs ([`normals`]).
-        let (term, normal) = if decided {
-            let normal = (|| Ok(quote(&g, base, &cx.eval(&term)?)?))()
-                .map_err(|d| in_scrutinee(d, s.expr.span()))?;
-            match tested_bool(cx, &normal) {
-                Some(b) => (b.clone(), Some(b)),
-                None => (term, Some(normal)),
-            }
+        // A decision's normal form is read now; any other scrutinee's is
+        // left for the occurrence test to compute, as far as it needs
+        // ([`normals`]).
+        let normal = if decided {
+            Some(
+                (|| Ok(quote(&g, base, &cx.eval(&term)?)?))()
+                    .map_err(|d| in_scrutinee(d, s.expr.span()))?,
+            )
         } else {
-            (term, None)
+            None
         };
         let ty_term = cx.quote(&ty)?;
         // A `let`'s variable, matched by name: in the alternatives, the
@@ -563,9 +619,12 @@ fn lifted(
                 _ => unreachable!(),
             })
             .collect();
-        let tree = compile(cx, alts, &[], &levels, span, kind)?;
+        let compiled = compile(cx, alts, &[], &levels, span, kind)?;
         let body = in_alternatives(cx, kind, alts, &levels, |cx| {
-            crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+            let recheck = compiled.recheck(&levels, span, cx.level(), goal);
+            crate::families::warn_unreachable(cx, &recheck, |cx| {
+                check_tree_here(cx, &compiled.tree, goal)
+            })
         })?;
         let eqs = vec![None; levels.len()];
         return lift::draft_with(
@@ -582,26 +641,10 @@ fn lifted(
     generalised(cx, columns, exprs, alts, &[], span, kind, goal, base, None)
 }
 
-/// `b`, when `normal` is `Decidable.toBool {p} (Bool.decTrue b)`: the two
-/// are the same `Bool` (by cases on `b`), and `b` is the one an unfolded
-/// `if` on the same decision mentions.
-fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {
-    use stitchwort_core::registry::Builtin;
-    let reg = &cx.g().env.registry();
-    let is = |t: &Term, b| matches!(t, Term::Def(id) if reg.def(b) == Some(*id));
-    let (head, args) = normal.spine();
-    let [_, d] = args[..] else {
-        return None;
-    };
-    if !is(head, Builtin::ToBool) {
-        return None;
-    }
-    let (head, args) = d.spine();
-    match args[..] {
-        [b] if is(head, Builtin::DecTrue) => Some(b.clone()),
-        _ => None,
-    }
-}
+/// The name of a `match`'s equation when the source doesn't name it and a
+/// decision's proofs are carried along it ([`Transport`]). No source can
+/// name it.
+const TESTED: &str = "%tested";
 
 /// An expression scrutinee, elaborated in the `match`'s context.
 #[derive(Clone)]
@@ -918,7 +961,7 @@ impl crate::queue::Check for WaitingMatch {
 fn generalised_now(
     cx: &mut Ctx,
     columns: Vec<Column>,
-    exprs: Vec<Scrut>,
+    mut exprs: Vec<Scrut>,
     alts: &[Alt],
     absurd: &[Vec<Pattern>],
     span: stitchwort_syntax::Span,
@@ -934,7 +977,7 @@ fn generalised_now(
     if let Some(e) = too_large {
         let e = ran_out_at(e, span, "while generalising this `match`");
         return unconfirmed_now(
-            cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e,
+            cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, true,
         );
     }
     // What the scrutinees are looked for in: the variables' types and the
@@ -958,7 +1001,7 @@ fn generalised_now(
         // can't run and this `match` fails today: as written, unconfirmed.
         Err(e) if crate::undo::recoverable(cx, &e) => {
             return unconfirmed_now(
-                cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e,
+                cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, true,
             );
         }
         Err(e) => return Err(e),
@@ -1026,11 +1069,13 @@ fn generalised_now(
             .with_label(s.span, "this scrutinee"));
         }
     }
+    let goal_folded = unrefined_goal(cx, &occurrences, &copied, goal, &goal_term, base)?;
     let today = as_written::Today {
         occurrences: &occurrences,
         copied: &copied,
         type_terms: &type_terms,
         goal_term: &goal_term,
+        goal_folded: goal_folded.as_ref(),
     };
     let written = as_written::first(cx, &exprs, &today, goal, base, skip, span)?;
     let mut not_found = if skip.is_none() {
@@ -1043,15 +1088,11 @@ fn generalised_now(
             &type_terms,
             goal,
             &goal_term,
+            goal_folded.as_ref(),
         )?
     } else {
         Vec::new()
     };
-    if skip.is_none() {
-        let ifs = decision_if(cx, &exprs, &normals, &type_terms, goal, &goal_term)?;
-        not_found.retain(|(i, _)| ifs.iter().all(|(j, _)| i != j));
-        not_found.extend(ifs);
-    }
     // The generalisation as written, if it found something that agrees
     // with the usual test, and if its motive checks now: check 3 of
     // `as_written`, made even for `cases`, whose usual motive is left to the
@@ -1061,7 +1102,7 @@ fn generalised_now(
     if let Some(w) = &written {
         // Any error on this path but running out of resources falls back.
         let bound = crate::undo::attempt(cx, |cx| {
-            let bound = bind_generalised(cx, &exprs, &today, Some(w), base)?;
+            let bound = bind_generalised(cx, &exprs, &today, Some(w), base, None)?;
             let checks = motive_checks_now(cx, base, &bound.extra, &bound.motive, span)?;
             Ok(checks.then_some(bound))
         })?
@@ -1079,10 +1120,63 @@ fn generalised_now(
     let (bound, motive_later) = match kept {
         Some(bound) => (bound, false),
         None => {
-            let bound = bind_generalised(cx, &exprs, &today, None, base)?;
-            let later =
-                skip.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
-            (bound, later)
+            let usual = |cx: &mut Ctx, exprs: &[Scrut], transport| -> Result<_> {
+                let bound = bind_generalised(cx, exprs, &today, None, base, transport)?;
+                let later =
+                    skip.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
+                Ok((bound, later))
+            };
+            let retry = crate::undo::Snapshot::take(cx);
+            let split = crate::undo::Snapshot::take(cx);
+            let first = usual(cx, &exprs, None);
+            // `cases`' motive is otherwise left to the kernel; checked here,
+            // so that a split that would need the proofs carried has them.
+            let first = match first {
+                Ok((bound, _))
+                    if skip.is_some()
+                        && !motive_checks_now(cx, base, &bound.extra, &bound.motive, span)? =>
+                {
+                    split.restore(cx);
+                    let again = crate::undo::Snapshot::take(cx);
+                    match usual(cx, &exprs, Some(Transport::new(cx)?)) {
+                        Ok(found) => Ok(found),
+                        Err(e) if crate::undo::fatal(&e) => return Err(e),
+                        Err(_) => {
+                            again.restore(cx);
+                            usual(cx, &exprs, None)
+                        }
+                    }
+                }
+                other => other,
+            };
+            // A decision's test, generalised where the decision is, takes
+            // the decision's proofs with it ([`Transport`]). Tried second, so
+            // nothing that checks the usual way changes.
+            let first = match first {
+                Err(e) if e.code == "E-MATCH-MOTIVE" && skip.is_none() => {
+                    retry.restore(cx);
+                    let named: Vec<Scrut> = (exprs.iter())
+                        .map(|s| {
+                            let mut s = s.clone();
+                            s.name.get_or_insert_with(|| ast::Name {
+                                text: TESTED.into(),
+                                span: s.span,
+                            });
+                            s
+                        })
+                        .collect();
+                    match usual(cx, &named, Some(Transport::new(cx)?)) {
+                        Ok(found) => {
+                            exprs = named;
+                            Ok(found)
+                        }
+                        Err(again) if crate::undo::fatal(&again) => return Err(again),
+                        Err(_) => Err(e),
+                    }
+                }
+                other => other,
+            };
+            first?
         }
     };
     in_arms(
@@ -1098,6 +1192,7 @@ fn generalised_now(
         motive_later,
         &normals,
         not_found,
+        false,
     )
 }
 
@@ -1115,6 +1210,9 @@ fn generalised_now(
 /// only which hypotheses are refined: a copy of the scrutinee hidden inside
 /// a call stays unrefined, so an arm that needed it fails with its own
 /// error. Nothing false can be accepted.
+///
+/// Also the fallback when the usual generalisation of record scrutinees has
+/// an ill-formed motive ([`generalised_now`]), without the warning.
 #[allow(clippy::too_many_arguments)]
 fn unconfirmed_now(
     cx: &mut Ctx,
@@ -1128,13 +1226,25 @@ fn unconfirmed_now(
     base: usize,
     skip: Option<Skip>,
     cause: Diagnostic,
+    // Whether to say so (`W-MATCH-UNCONFIRMED`): not when the usual
+    // generalisation ran and its motive was ill-formed.
+    warn: bool,
 ) -> Result<Term> {
-    // What `cause` noted as too large, for its report if it is returned:
-    // reading back on this path can note another.
+    // What `cause` noted as too large, and the definition it was unfolding,
+    // for its report if it is returned: reading back on this path can note
+    // others.
     let noted = cx.g().machine.budget.take_too_large();
+    let ran_out_in = cx.g().machine.budget.take_ran_out_in();
     let fail = |cx: &Ctx, cause: Diagnostic| {
         cx.g().machine.budget.set_too_large(noted);
-        Err(cause)
+        cx.g().machine.budget.set_ran_out_in(ran_out_in);
+        let note = (cause.code == "E-RESOURCE")
+            .then(|| number_argument_note(cx, &exprs))
+            .flatten();
+        Err(match note {
+            Some(note) => cause.with_note(note),
+            None => cause,
+        })
     };
     let Some(written) = as_written::unconfirmed(cx, &exprs, goal, base, skip, span)? else {
         return fail(cx, cause);
@@ -1144,6 +1254,7 @@ fn unconfirmed_now(
         copied: &[],
         type_terms: &[],
         goal_term: &Term::Refl,
+        goal_folded: None,
     };
     // The motive check has its own budget: a goal too large to read back
     // can be as slow to compare, and today this `match` fails at once.
@@ -1152,7 +1263,7 @@ fn unconfirmed_now(
     let g = cx.g();
     let bound = g.machine.budget.limited(&mut budget, || {
         crate::undo::attempt(cx, |cx| {
-            let bound = bind_generalised(cx, &exprs, &today, Some(&written), base)?;
+            let bound = bind_generalised(cx, &exprs, &today, Some(&written), base, None)?;
             let checks = motive_checks_now(cx, base, &bound.extra, &bound.motive, span)?;
             Ok(checks.then_some(bound))
         })
@@ -1170,7 +1281,7 @@ fn unconfirmed_now(
     as_written::report(written.outcome, span);
     let at = exprs.first().map_or(span, |s| s.span);
     let warning = as_written::unconfirmed_warning(at);
-    {
+    if warn {
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         let first = Some(at);
         if !(warnings.iter())
@@ -1193,6 +1304,7 @@ fn unconfirmed_now(
         false,
         &normals,
         Vec::new(),
+        true,
     )
 }
 
@@ -1213,6 +1325,8 @@ fn in_arms(
     motive_later: bool,
     normals: &[Option<Term>],
     not_found: Vec<(usize, Diagnostic)>,
+    // Refined as written (`unconfirmed_now`).
+    as_written: bool,
 ) -> Result<Term> {
     let Bound {
         extra,
@@ -1227,7 +1341,7 @@ fn in_arms(
             Column::Expr(i) => base + i,
         })
         .collect();
-    let tree = compile(cx, alts, absurd, &levels, span, kind)?;
+    let compiled = compile(cx, alts, absurd, &levels, span, kind)?;
     // While the alternatives are checked, a mismatch that still contains a
     // scrutinee says why (`Ctx::mismatch`).
     let known = cx.scrutinees.len();
@@ -1244,7 +1358,10 @@ fn in_arms(
             }),
     );
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
-        let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
+        let recheck = compiled.recheck(&levels, span, cx.level(), &motive);
+        let body = crate::families::warn_unreachable_unless(cx, as_written, &recheck, |cx| {
+            check_tree_here(cx, &compiled.tree, &motive)
+        });
         cx.scrutinees.truncate(known);
         body
     });
@@ -1254,22 +1371,20 @@ fn in_arms(
         let used = body.as_ref().ok().map(|body| free_levels(body, depth));
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (i, warning) in not_found {
-            // A `match` on a decision that the `if` doesn't hold is wrong
-            // however its arms turn out. One without a name has no equation
-            // to be unused, so is given only when its arms fail: a pass
-            // there is a case split for evidence.
-            let unused = warning.code == "W-MATCH-DECISION-IF"
-                || if exprs[i]
-                    .name
-                    .as_ref()
-                    .is_none_or(|n| n.text == crate::decreasing::FOUND)
-                {
-                    body.is_err()
-                } else {
-                    (equations.iter()).any(|&(j, level)| {
-                        j == i && used.as_ref().is_none_or(|used| !used.contains(&level))
-                    })
-                };
+            // One without a name has no equation to be unused, so is given
+            // only when its arms fail: a pass there is a case split for
+            // evidence.
+            let unused = if exprs[i]
+                .name
+                .as_ref()
+                .is_none_or(|n| n.text == crate::decreasing::FOUND || n.text == TESTED)
+            {
+                body.is_err()
+            } else {
+                (equations.iter()).any(|&(j, level)| {
+                    j == i && used.as_ref().is_none_or(|used| !used.contains(&level))
+                })
+            };
             let span = warning.labels.first().map(|l| l.span);
             let warned = (warnings.iter())
                 .any(|w| w.code == warning.code && w.labels.first().map(|l| l.span) == span);
@@ -1300,6 +1415,37 @@ fn in_arms(
     )
 }
 
+/// The goal read back folded (calls as calls, [`Ctx::quote_folded`]), in the
+/// `match`'s context, when the usual occurrence test refines nothing in it:
+/// no scrutinee occurs in its unfolded form `goal_term`, and it mentions no
+/// copied variable either way. The arms' goal is then the goal itself, so
+/// they keep it as the user wrote it (`list.allergens`, not its unfolded
+/// body) and their errors and goals print it that way (SW-2554). It is equal
+/// by computation to the unfolded goal the usual test would give the arms.
+/// `None` otherwise, or if reading it back fails in a way that can be
+/// recovered from.
+fn unrefined_goal(
+    cx: &Ctx,
+    occurrences: &[Option<&Term>],
+    copied: &[usize],
+    goal: &Value,
+    goal_term: &Term,
+    base: usize,
+) -> Result<Option<Term>> {
+    let mentions_copy = |t: &Term| free_levels(t, base).iter().any(|l| copied.contains(l));
+    if any_occurs(occurrences, goal_term) || mentions_copy(goal_term) {
+        return Ok(None);
+    }
+    match cx.quote_folded(goal) {
+        Ok(folded) => Ok((!mentions_copy(&folded)).then_some(folded)),
+        Err(e) if crate::undo::recoverable(cx, &e) => {
+            crate::undo::recovered(cx);
+            Ok(None)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 /// A generalised `match`'s variables bound and its motive made: the
 /// arguments its helper is passed, the equations `h : e = s` (scrutinee
 /// index, level), and the motive, in `depth` variables.
@@ -1319,6 +1465,7 @@ fn bind_generalised(
     today: &as_written::Today,
     written: Option<&as_written::Written>,
     base: usize,
+    transport: Option<Transport>,
 ) -> Result<Bound> {
     let g = cx.g();
     let e = exprs.len();
@@ -1330,13 +1477,46 @@ fn bind_generalised(
         }
         extra.push(s.term.clone());
     }
+    // The equations `h : e = s`, about the original expression: after the
+    // copies, unless a decision's proofs are carried along them, which the
+    // copies' types may then mention.
+    let mut equations = Vec::new();
+    let bind_equations =
+        |cx: &mut Ctx, equations: &mut Vec<(usize, usize)>, extra: &mut Vec<Term>| {
+            for (i, s) in exprs.iter().enumerate() {
+                if let Some(h) = &s.name {
+                    let depth = cx.level();
+                    equations.push((i, depth));
+                    let shift = |t: &Term| t.shift(&g, depth - base, 0);
+                    let eq = Term::Eq(
+                        Some(Rc::new(shift(&s.ty_term)?)),
+                        Rc::new(shift(&s.term)?),
+                        Rc::new(Term::Var(depth - 1 - (base + i))),
+                    );
+                    let value = cx.eval(&eq)?;
+                    cx.bind(&h.text, value);
+                    extra.push(Term::Refl);
+                }
+            }
+            Result::Ok(())
+        };
+    let transport = match transport {
+        Some(mut t) => {
+            bind_equations(cx, &mut equations, &mut extra)?;
+            t.equations = (0..e)
+                .map(|i| equations.iter().find(|&&(j, _)| j == i).map(|&(_, l)| l))
+                .collect();
+            Some(t)
+        }
+        None => None,
+    };
     let copied: Vec<usize> = match written {
         Some(w) => w.copied.iter().map(|(l, _)| *l).collect(),
         None => today.copied.to_vec(),
     };
     let mut copies = HashMap::default();
     for (i, &l) in copied.iter().enumerate() {
-        let depth = base + e + i;
+        let depth = cx.level();
         let ty = match written {
             Some(w) => as_written::moved(&g, &w.copied[i].1, base, e, depth, &copies)?,
             None => Generalise {
@@ -1344,6 +1524,7 @@ fn bind_generalised(
                 depth,
                 exprs: today.occurrences,
                 copies: &copies,
+                transport: transport.as_ref(),
             }
             .apply(&g, &today.type_terms[l])?,
         };
@@ -1353,32 +1534,19 @@ fn bind_generalised(
         copies.insert(l, depth);
         extra.push(Term::Var(base - 1 - l));
     }
-    // The equations, after the motive is built: `h : e = s`, about the
-    // original expression.
-    let mut equations = Vec::new();
-    for (i, s) in exprs.iter().enumerate() {
-        if let Some(h) = &s.name {
-            let depth = cx.level();
-            equations.push((i, depth));
-            let shift = |t: &Term| t.shift(&g, depth - base, 0);
-            let eq = Term::Eq(
-                Some(Rc::new(shift(&s.ty_term)?)),
-                Rc::new(shift(&s.term)?),
-                Rc::new(Term::Var(depth - 1 - (base + i))),
-            );
-            let value = cx.eval(&eq)?;
-            cx.bind(&h.text, value);
-            extra.push(Term::Refl);
-        }
+    if transport.is_none() {
+        bind_equations(cx, &mut equations, &mut extra)?;
     }
     let depth = cx.level();
-    let goal_term = match written {
-        Some(w) => as_written::moved(&g, &w.goal, base, e, depth, &copies)?,
-        None => Generalise {
+    let goal_term = match (written, today.goal_folded) {
+        (Some(w), _) => as_written::moved(&g, &w.goal, base, e, depth, &copies)?,
+        (None, Some(folded)) => folded.shift(&g, depth - base, 0)?,
+        (None, None) => Generalise {
             base,
             depth,
             exprs: today.occurrences,
             copies: &copies,
+            transport: transport.as_ref(),
         }
         .apply(&g, today.goal_term)?,
     };
@@ -1516,6 +1684,46 @@ fn cannot_occur<'a>(
     })
 }
 
+/// For a `match` that ran out of resources generalising: the first call in
+/// a scrutinee given a number (a literal of 2 or more, or a definition that
+/// is one), suggesting a variable in its place. A call such as `settle
+/// plan 1000` is computed that many rounds deep when the hypotheses that
+/// mention it are read back, and a lemma for any number isn't (AoC 2020 day
+/// 11, SW-1477).
+fn number_argument_note(cx: &Ctx, exprs: &[Scrut]) -> Option<String> {
+    let g = cx.g();
+    // The number as the note shows it, and as it says to use it.
+    let number = |arg: &Term| -> Option<(String, String)> {
+        let literal = |t: &Term| match t.strip_loc() {
+            Term::Nat(n) if **n >= 2u32.into() => Some(n.to_string()),
+            _ => None,
+        };
+        match arg.strip_loc() {
+            Term::Def(id) => {
+                let def = g.def(*id);
+                let value = literal(def.body()?)?;
+                let name = format!("`{}`", crate::scope::display(def.name()));
+                Some((format!("{name} ({value})"), name))
+            }
+            arg => literal(arg).map(|n| (format!("`{n}`"), format!("`{n}`"))),
+        }
+    };
+    let (call, (shown, used)) = exprs
+        .iter()
+        .flat_map(|scrut| scrut.term.subterms())
+        .find_map(|(t, _)| {
+            let (Term::Def(head), args) = t.spine() else {
+                return None;
+            };
+            let n = args.iter().find_map(|a| number(a))?;
+            Some((crate::scope::display(g.def(*head).name()).to_string(), n))
+        })?;
+    Some(format!(
+        "`{call}` is called here with the number {shown}, so it is computed in full: make \
+         the number a variable, stating a lemma for any `n`, and use the lemma with {used}"
+    ))
+}
+
 /// `d`, if it is running out of resources with nothing saying where, said
 /// to have happened computing the scrutinee at `span`.
 fn in_scrutinee(d: Diagnostic, span: stitchwort_syntax::Span) -> Diagnostic {
@@ -1536,8 +1744,11 @@ fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diag
 /// the goal nor in a hypothesis, by index: such a `match` replaces nothing,
 /// so every alternative has the goal unchanged. Each is given only if the
 /// alternatives don't use its equation either, and only in a proof, whose
-/// goal is a proposition. The note shows the goal as the occurrence test
-/// saw it, and none if the goal holds an unknown. None is given for one left uncomputed with free variables
+/// goal is a proposition. The label shows the expression and the note the
+/// goal as written (`goal_folded`, [`unrefined_goal`]), the forms the arms
+/// see, not the unfolded ones the occurrence test compared, which print a
+/// definition's body for each call in them (SW-2554). None is given if the
+/// goal holds an unknown, or for one left uncomputed with free variables
 /// (`unread`): its normal form might have been a variable, which this
 /// never warns about.
 #[allow(clippy::too_many_arguments)]
@@ -1550,6 +1761,7 @@ fn not_found(
     type_terms: &[Term],
     goal: &Value,
     goal_normal: &Term,
+    goal_folded: Option<&Term>,
 ) -> Result<Vec<(usize, Diagnostic)>> {
     let g = cx.g();
     let mut out = Vec::new();
@@ -1573,24 +1785,43 @@ fn not_found(
         {
             continue;
         }
-        let shown = pretty::term_for_message_in(
-            &g,
-            cx.e,
-            &cx.shown_names(false),
-            normal.as_ref().unwrap_or(&s.term),
-        );
-        let goal_shown = pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), goal_normal);
-        // `f x` and `y => f x y` are different terms to the search.
+        let names = cx.shown_names(false);
+        // Without the goal as written, the goal shown is the computed one, so
+        // the expression is shown computed too.
+        let shown_term = match (goal_folded, normal) {
+            (None, Some(normal)) => normal,
+            _ => &s.term,
+        };
+        let shown = pretty::term_for_message_in(&g, cx.e, &names, shown_term);
+        let goal_shown_term = goal_folded.unwrap_or(goal_normal);
+        let goal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_shown_term);
+        // `f x` and `y => f x y` are different terms to the search. Said
+        // only of a lambda the goal shows.
         let has_lambda = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Lam(..)));
-        let eta = has_lambda(goal_normal) && !normal.as_ref().is_some_and(has_lambda);
+        let eta = has_lambda(goal_shown_term)
+            && has_lambda(goal_normal)
+            && !normal.as_ref().is_some_and(has_lambda);
         let mut warning = Diagnostic::warning(
             "W-MATCH-NOT-FOUND",
             "this `match` didn't find its expression in the goal, so every arm has the goal \
              unchanged",
         )
         .with_label(s.span, format!("looked for `{shown}`"))
-        .with_note(format!("in the goal `{goal_shown}`"))
-        .with_note(
+        .with_note(format!("in the goal `{goal_shown}`"));
+        // The expression is in the goal as written, but not once both are
+        // computed (`isBig 20` in `pick (isBig 20) = 1`, which computes to
+        // `1 = 1`): show the computed forms, which say why.
+        if let Some(normal) = normal
+            && goal_folded.is_some_and(|folded| occurs(&s.term, folded))
+        {
+            let normal_shown = pretty::term_for_message_in(&g, cx.e, &names, normal);
+            let goal_normal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_normal);
+            warning = warning.with_note(format!(
+                "computed, the expression is `{normal_shown}` and the goal \
+                 `{goal_normal_shown}`, which doesn't contain it"
+            ));
+        }
+        warning = warning.with_note(
             "the search compares what terms compute to: write the expression as the goal \
              shows it (or `rewrite` the goal to the form you want, or bind it with a `let` \
              before the `match`)",
@@ -1602,86 +1833,6 @@ fn not_found(
             );
         }
         out.push((i, warning));
-    }
-    Ok(out)
-}
-
-/// The warnings, by scrutinee index, for a `match` on a decision that
-/// computes to `Bool.decTrue b`, found in neither the goal nor a hypothesis,
-/// when `b` is the condition of a `Bool.ifThenElse` in one of them: an `if`
-/// whose branches don't use its proof is a test of `b`, so the decision
-/// refines nothing there. Matching on `b` itself refines the `if` in either
-/// form (D1073).
-fn decision_if(
-    cx: &Ctx,
-    exprs: &[Scrut],
-    normals: &[Option<Term>],
-    type_terms: &[Term],
-    goal: &Value,
-    goal_normal: &Term,
-) -> Result<Vec<(usize, Diagnostic)>> {
-    use stitchwort_core::registry::Builtin;
-    let g = cx.g();
-    let reg = &g.env.registry();
-    let is = |t: &Term, b| matches!(t, Term::Def(id) if reg.def(b) == Some(*id));
-    let mut out = Vec::new();
-    let unsettled = goal_normal
-        .subterms()
-        .any(|(t, _)| matches!(t, Term::Meta(_)));
-    if unsettled || !crate::patlet::proposition(cx, goal)? {
-        return Ok(out);
-    }
-    let hypotheses = || {
-        (type_terms.iter().enumerate())
-            .filter(|(_, t)| !matches!(t, Term::Refl))
-            .map(|(l, t)| (Some(l), t))
-            .chain([(None, goal_normal)])
-    };
-    for (i, (s, normal)) in exprs.iter().zip(normals).enumerate() {
-        let Some(normal) = normal else {
-            continue;
-        };
-        let (head, args) = normal.spine();
-        let [b] = args[..] else {
-            continue;
-        };
-        if !is(head, Builtin::DecTrue) || hypotheses().any(|(_, t)| occurs(normal, t)) {
-            continue;
-        }
-        let tests = |t: &Term| {
-            t.subterms().any(|(t, under)| {
-                let (head, args) = t.spine();
-                is(head, Builtin::IfThenElse)
-                    && args.get(1).is_some_and(|c| same_shifted(b, c, under, 0))
-            })
-        };
-        let Some((place, _)) = hypotheses().find(|(_, t)| tests(t)) else {
-            continue;
-        };
-        let names = cx.shown_names(false);
-        let shown = |t: &Term| pretty::term_for_message_in(&g, cx.e, &names, t);
-        let looked = shown(normal);
-        let condition = shown(b);
-        let place = match place {
-            Some(l) => format!("in `{}`", names[l]),
-            None => "in the goal".to_string(),
-        };
-        out.push((
-            i,
-            Diagnostic::warning(
-                "W-MATCH-DECISION-IF",
-                format!("this `match` on a decision doesn't refine the `if` {place}"),
-            )
-            .with_label(s.span, format!("looked for `{looked}`"))
-            .with_note(format!(
-                "the `if` tests the `Bool` `{condition}` directly, since its branches don't use \
-                 the proof of the comparison, so it doesn't hold the decision"
-            ))
-            .with_note(format!(
-                "match on the condition instead: `match h: {condition} with | True => … | False => …`; \
-                 that refines the `if` whichever form it has"
-            )),
-        ));
     }
     Ok(out)
 }
@@ -2002,26 +2153,174 @@ struct Generalise<'a> {
     /// `None` for a scrutinee that occurs nowhere ([`normals`]).
     exprs: &'a [Option<&'a Term>],
     copies: &'a HashMap<usize, usize>,
+    /// Set when a decision's test is generalised with its proofs carried
+    /// along ([`Transport`]).
+    transport: Option<&'a Transport>,
+}
+
+/// A `Bool` scrutinee that is a decision's whole test, generalised with the
+/// decision's proofs carried along the `match`'s equation where the
+/// decision occurs (`crate::carry`): an `if` on `a && b`, on `x ∈ xs`, or
+/// on `d.holds` while the goal mentions `d.sound`.
+pub(crate) struct Transport {
+    carry: crate::carry::Carry,
+    /// [`crate::carry::elim_helper`].
+    elim_helper: Option<stitchwort_core::DefId>,
+    /// Each scrutinee's equation's level, if it is carried along.
+    equations: Vec<Option<usize>>,
+}
+
+impl Transport {
+    fn new(cx: &Ctx) -> Result<Transport> {
+        Ok(Transport {
+            carry: crate::carry::Carry::new(cx)?,
+            elim_helper: crate::carry::elim_helper(&cx.g()),
+            equations: Vec::new(),
+        })
+    }
 }
 
 impl Generalise<'_> {
     fn apply(&self, g: &Ev, term: &Term) -> Result<Term> {
+        self.apply_under(g, term, 0)
+    }
+
+    fn apply_under(&self, g: &Ev, term: &Term, under: usize) -> Result<Term> {
         let hook = |t: &Term, under: usize| {
+            if let Some(found) = self.transported(g, t, under) {
+                return found.ok();
+            }
+            if let Some(found) = self.decided_if(g, t, under) {
+                return found.ok();
+            }
             self.exprs.iter().enumerate().find_map(|(i, e)| {
                 e.is_some_and(|e| same_shifted(e, t, under, 0))
                     .then(|| Term::Var(self.depth + under - 1 - (self.base + i)))
             })
         };
-        lift::replace_with(
-            g,
-            term,
-            self.base,
-            &|l| {
-                let new = self.copies.get(&l).copied().unwrap_or(l);
-                Ok(Term::Var(self.depth - 1 - new))
-            },
-            &hook,
-        )
+        lift::replace_with_under(g, term, self.base, under, &|l| self.var(l), &hook)
+    }
+
+    fn var(&self, l: usize) -> Result<Term> {
+        let new = self.copies.get(&l).copied().unwrap_or(l);
+        Ok(Term::Var(self.depth - 1 - new))
+    }
+
+    /// An `if` on a decision that is a scrutinee, computed to the helper
+    /// `Decidable.elim` computes to (`elim.%match1 p a d y n t e`, with `t`
+    /// the decision's test and `e: d.holds = t`): with the decision's
+    /// variable `X` for `d`, `X.holds` for `t` and `rfl` for `e`, so that
+    /// it still type-checks, and computes once `X` is a constructor.
+    fn decided_if(&self, g: &Ev, t: &Term, under: usize) -> Option<Result<Term>> {
+        let tr = self.transport?;
+        let helper = tr.elim_helper?;
+        let (head, args) = t.spine();
+        if !matches!(head.strip_loc(), Term::Def(id) if *id == helper) || args.len() != 7 {
+            return None;
+        }
+        let i = self.exprs.iter().position(|e| {
+            e.is_some_and(|e| {
+                matches!(e.strip_loc(), Term::Ctor(d, 0, _) if *d == tr.carry.decidable)
+                    && same_shifted(e, args[2], under, 0)
+            })
+        })?;
+        Some((|| {
+            let x = Term::Var(self.depth + under - 1 - (self.base + i));
+            let mut icits = Vec::new();
+            let mut node = t.strip_loc();
+            while let Term::App(f, _, icit) = node {
+                icits.push(*icit);
+                node = f.strip_loc();
+            }
+            icits.reverse();
+            let mut out = head.clone();
+            for (k, (a, icit)) in args.iter().zip(icits).enumerate() {
+                let a = match k {
+                    2 => x.clone(),
+                    5 => Term::Proj(tr.carry.decidable, 0, Rc::new(x.clone())),
+                    6 => Term::Refl,
+                    _ => self.apply_under(g, a, under)?,
+                };
+                out = Term::App(Rc::new(out), Rc::new(a), icit);
+            }
+            Ok(out)
+        })())
+    }
+
+    /// A record whose test mentions a scrutinee, a decision's test, without
+    /// being it (`Decidable.not d`'s, `Bool.not d.holds`, split on
+    /// `d.holds`):
+    /// its proofs carried along the test's own equation, `t[s] = t[X]`,
+    /// made from the scrutinee's.
+    fn transported_inside(
+        &self,
+        g: &Ev,
+        tr: &Transport,
+        met: &crate::carry::Met,
+        holds: &Term,
+        under: usize,
+    ) -> Option<Result<Term>> {
+        let crate::carry::Met::Record(sound, complete) = met else {
+            return None;
+        };
+        let (i, level) = self.exprs.iter().enumerate().find_map(|(i, e)| {
+            let level = (*tr.equations.get(i)?)?;
+            let e = (*e)?;
+            // Only a decision's test: a scrutinee of another form (a
+            // comparison's `Bool`, `Bool.not d.holds`) is generalised
+            // inside the record's proofs' types as well.
+            if !matches!(e.strip_loc(), Term::Proj(d, 0, _) if *d == tr.carry.decidable) {
+                return None;
+            }
+            let inside = holds
+                .subterms()
+                .any(|(t, u)| same_shifted(e, t, under + u, 0));
+            (inside && !same_shifted(e, holds, under, 0)).then_some((i, level))
+        })?;
+        Some((|| {
+            let e = self.exprs[i].expect("found above");
+            let var = |l| self.var(l);
+            let s = lift::replace_with_under(g, holds, self.base, under, &var, &|_, _| None)?;
+            let x = self.apply_under(g, holds, under)?;
+            let inner = under + 2;
+            let ty = lift::replace_with_under(
+                g,
+                &holds.shift(g, 2, 0)?,
+                self.base,
+                inner,
+                &var,
+                &|t, u| same_shifted(e, t, u, 0).then(|| Term::Var(u - inner + 1)),
+            )?;
+            let c = Term::Var(self.depth + under - 1 - level);
+            let c = tr.carry.along(g, &s, ty, &c)?;
+            let met = crate::carry::Met::Record(sound, complete);
+            tr.carry
+                .carried(g, met, &s, &c, x, &|part| self.apply_under(g, part, under))
+        })())
+    }
+
+    /// `t` with a decision's proofs carried along, if it is one of the
+    /// forms that need it and its test is a scrutinee carried along.
+    fn transported(&self, g: &Ev, t: &Term, under: usize) -> Option<Result<Term>> {
+        let tr = self.transport?;
+        let (met, holds) = tr.carry.met(t)?;
+        if let Some(found) = self.transported_inside(g, tr, &met, &holds, under) {
+            return Some(found);
+        }
+        let (i, level) = self.exprs.iter().enumerate().find_map(|(i, e)| {
+            let level = (*tr.equations.get(i)?)?;
+            e.is_some_and(|e| same_shifted(e, &holds, under, 0))
+                .then_some((i, level))
+        })?;
+        Some((|| {
+            let s = self.exprs[i].expect("found above");
+            let s = lift::replace_with(g, s, self.base, &|l| self.var(l), &|_, _| None)?;
+            let s = s.shift(g, under, 0)?;
+            let c = Term::Var(self.depth + under - 1 - level);
+            let x = Term::Var(self.depth + under - 1 - (self.base + i));
+            tr.carry
+                .carried(g, met, &s, &c, x, &|part| self.apply_under(g, part, under))
+        })())
     }
 }
 

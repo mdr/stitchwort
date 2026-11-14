@@ -3,11 +3,7 @@
 -- (`Decidable.fromYes d Trivial`). One line of library would name it.
 import Std (Bool, List)
 
-type Key =
-  | Digit0
-  | Digit1
-  | Digit2
-  | Enter
+type Key = | Digit0 | Digit1 | Digit2 | Enter
 
 def keys: List Key := [Digit0, Digit1, Digit2, Enter]
 

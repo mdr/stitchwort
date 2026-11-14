@@ -508,6 +508,7 @@ fn walk_at(
         | Expr::Prop(_)
         | Expr::Hole(_)
         | Expr::Goal(_)
+        | Expr::Missing(_)
         | Expr::Unit(_) => {}
         // `{State s | e} b`: `e` is a row variable, bound like a type.
         Expr::Effect(row, ty) => {
@@ -573,7 +574,9 @@ fn walk_at(
                     walk(e, &guard.cond, bound, false, uses)?;
                     bound.extend(guard.binder.iter().map(|h| h.text.clone()));
                 }
-                walk(e, &alt.body, bound, false, uses)?;
+                if let Some(body) = &alt.body {
+                    walk(e, body, bound, false, uses)?;
+                }
                 bound.truncate(before);
             }
         }

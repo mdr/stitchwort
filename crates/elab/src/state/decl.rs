@@ -2,7 +2,7 @@
 //! typed in) being elaborated. It starts empty and is emptied again when
 //! the declaration is done (`Elaborator::glued`), by `Decl::default()`, so
 //! nothing is listed by hand and nothing one declaration leaves reaches the
-//! next. It is empty at every rewind mark (but for the `failed_mentioned` flag), and a rewind empties it.
+//! next. It is empty at every rewind mark (but for the `failed_mentioned` and `stuck_on_goal` flags), and a rewind empties it.
 //!
 //! Unlike [`super::Attempt`], none of it is taken back when an attempt is
 //! undone: what's here is either set and put back around one call (a
@@ -31,6 +31,13 @@ pub(crate) struct Decl {
     /// blame is decided after it. So [`Decl::reset`] keeps it, the
     /// component's start clears it, and a rewind empties it.
     pub(crate) failed_mentioned: Cell<bool>,
+    /// The open goals' assumptions an error message has shown a term stuck
+    /// on, once computed, since the component's check began (the first such
+    /// message's): its errors then can't be decided until the goals are
+    /// filled
+    /// (`blame_failed_dependency`). Kept, cleared and emptied as
+    /// [`Self::failed_mentioned`] is.
+    pub(crate) stuck_on_goal: RefCell<Vec<stitchwort_core::DefId>>,
     /// While a test is checked: the comparisons in it whose sides are
     /// shown when it fails (`probe.rs`).
     pub(crate) sides_capture: RefCell<SidesCapture>,
@@ -49,6 +56,12 @@ pub(crate) struct Decl {
     /// with its expected type first failed: no application inside is
     /// compared that way (`check::propagate`, D2342).
     pub(crate) no_hole_propagation: Cell<usize>,
+    /// Above zero while a lambda is checked in place in an application
+    /// elaborated again after a propagation by `_`s failed
+    /// (`check::apply_args_postponing`): a lambda inside is not tried in
+    /// place first, only after its application's expected type, so nested
+    /// lambdas that fail aren't each checked twice per level (SW-2638).
+    pub(crate) in_place_trial: Cell<usize>,
     /// Set while asking whether an expression in a pure context performs
     /// anything besides calls whose result is in a bare row (`{e} b`, as
     /// `List.map`'s): those are elaborated as plain calls first, and the row
@@ -64,6 +77,14 @@ pub(crate) struct Decl {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     pub(crate) condition: Cell<usize>,
+    /// The addresses of the expressions a `Bool` isn't read as a proposition
+    /// at, though one is expected there (`check::bool_as_prop`): a side of
+    /// an `=` between propositions, and the operands of the `∧`, `∨` and `¬`
+    /// that side is made of, where coercing would turn a comparison of
+    /// `Bool`s into an equation between propositions; and the results of an
+    /// `if`, `let` or `match` checked against `Prop`, which is coerced whole
+    /// instead (`check::whole_test`).
+    pub(crate) not_coerced: RefCell<Vec<usize>>,
     /// While `logic::condition` tries the `Bool` reading of a condition `a
     /// && b`: the address of `a`, and the conjunction that reading decides
     /// with its decision, once `logic::as_bool` has found them. A guard.
@@ -150,18 +171,43 @@ pub(crate) struct Decl {
     /// matches can explain it. (Before SW-1149 it was a log that only grew,
     /// emptied only by a rewind.)
     pub(crate) tuple_matches: RefCell<Vec<(Span, String, Vec<String>)>>,
+    /// The calls of lifted `match` helpers the printer showed as
+    /// `(match … with …)`, by that text, so `explain_lifted` finds which
+    /// `match` a message means. Kept between declarations like
+    /// [`Self::stuck_on_goal`] (the messages are explained after the
+    /// declaration is done), and emptied as the next one starts.
+    pub(crate) matches_shown: RefCell<Vec<(String, DefId)>>,
     /// The characters whose patterns became number patterns (by span), so
     /// a missing case can be reported as characters. Written and read while
     /// one pattern match is compiled. (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
-    /// Whether a term written so far holds a `let %conj` around a decision
-    /// (`logic::tag_decision`), for [`Elaborator::finish`] and lifting
-    /// (`lift.rs`) to settle.
-    pub(crate) tagged_conjunctions: Cell<bool>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
+    /// How deep the checker is in a guard chain checked only for its arms'
+    /// errors, its term thrown away (the chain's case is impossible): a
+    /// case filled in at its end isn't lifted into a helper there.
+    pub(crate) errors_only: Cell<usize>,
+    /// How deep the checker is in a `match` checked again for its cases
+    /// alone (`deletable`): an arm's body stands for itself unchecked.
+    pub(crate) coverage_only: Cell<usize>,
+    /// The clauses of a `match reify` being checked. Each one is required
+    /// whatever its case, so `W-UNREACHABLE` doesn't offer to delete them
+    /// (`reify.rs`, `families.rs`).
+    pub(crate) keep_arms: RefCell<Vec<Span>>,
+    /// The arms a `W-UNREACHABLE` ("this case can't happen") isn't offered
+    /// for, because some check of their `match` found the case possible or
+    /// couldn't delete the arm. A `match` in an arm that is split further
+    /// (`match z, xs` with an arm `z, [x, ..rest]`) is checked once for each
+    /// case of the split, and an arm ruled out in one may not be in the
+    /// next: offering each check's arms would delete them all.
+    pub(crate) kept_by_a_check: RefCell<Vec<Span>>,
+    /// Where the body being checked may build a test fact from a proof of
+    /// its reading, what it built, and where it wrote `.read`
+    /// (`build.rs`). Kept across the attempts at one body on purpose: a
+    /// failed attempt is what adds a place.
+    pub(crate) builds: RefCell<crate::build::Builds>,
 }
 
 /// [`Decl::conjunction`].
@@ -173,19 +219,26 @@ pub(crate) struct Conjunction {
 }
 
 impl Decl {
-    /// Empties everything but [`Self::failed_mentioned`].
+    /// Empties everything but [`Self::failed_mentioned`] and
+    /// [`Self::stuck_on_goal`].
     pub(crate) fn reset(&mut self) {
         let failed_mentioned = self.failed_mentioned.get();
+        let stuck_on_goal = self.stuck_on_goal.take();
+        let matches_shown = self.matches_shown.take();
         *self = Decl {
+            matches_shown: RefCell::new(matches_shown),
             failed_mentioned: Cell::new(failed_mentioned),
+            stuck_on_goal: RefCell::new(stuck_on_goal),
             ..Decl::default()
         };
     }
 
-    /// Empties everything, the flag too: a rewind.
+    /// Empties everything, the flags too: a rewind.
     pub(crate) fn rewind(&mut self) {
         self.reset();
         self.failed_mentioned.set(false);
+        self.stuck_on_goal.take();
+        self.matches_shown.take();
     }
 
     /// The first field that isn't empty, if any: none should be between
@@ -194,13 +247,17 @@ impl Decl {
         let Decl {
             // Kept between declarations on purpose (see its doc).
             failed_mentioned: _,
+            stuck_on_goal: _,
+            matches_shown: _,
             sides_capture,
             arm_reach,
             no_propagation,
             no_hole_propagation,
+            in_place_trial,
             bare_rows_pure,
             late_literals,
             condition,
+            not_coerced,
             conjunction,
             app_expected,
             decreasing,
@@ -223,16 +280,22 @@ impl Decl {
             tuple_matches,
             char_patterns,
             guard_nodes,
-            tagged_conjunctions,
+            errors_only,
+            coverage_only,
+            keep_arms,
+            kept_by_a_check,
+            builds,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
             ("arm_reach", arm_reach.borrow().is_empty()),
             ("no_propagation", no_propagation.get() == 0),
             ("no_hole_propagation", no_hole_propagation.get() == 0),
+            ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
+            ("not_coerced", not_coerced.borrow().is_empty()),
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
             ("decreasing", decreasing.borrow().is_none()),
@@ -255,7 +318,11 @@ impl Decl {
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
-            ("tagged_conjunctions", !tagged_conjunctions.get()),
+            ("errors_only", errors_only.get() == 0),
+            ("coverage_only", coverage_only.get() == 0),
+            ("keep_arms", keep_arms.borrow().is_empty()),
+            ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
+            ("builds", builds.borrow().is_empty()),
         ];
         fields
             .into_iter()

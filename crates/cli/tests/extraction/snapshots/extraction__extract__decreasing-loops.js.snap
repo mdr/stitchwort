@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/extract.rs
+source: crates/cli/tests/extraction/extract.rs
 expression: loops
 ---
 const $Main$dpairsIn = (v0, v1) => {
@@ -8,7 +8,7 @@ const $Main$dpairsIn = (v0, v1) => {
     const v0 = s0, v1 = s1;
     const v2 = v0;
     const v3 = v1;
-    if ($Std$dNat$ddecLessEq(v2, 1n).tag === "Yes") {
+    if ($Std$dNat$dleq(v2, 1n).tag === "True") {
       return v3;
     } else {
       const v6 = $Std$dNat$dsub(v2, 2n);
@@ -25,7 +25,7 @@ const $Main$dcountdownFrom = (v0) => {
   for (;;) {
     const v0 = s0;
     const v1 = v0;
-    if ($Std$dNat$ddecEq(v1, 0n).tag === "Yes") {
+    if ($Std$dNat$dequal(v1, 0n).tag === "True") {
       { const r$ = { tag: "Nil" }; if (l$ === null) return r$; l$[k$] = r$; return h$; }
     } else {
       const v4 = $Std$dNat$dsub(v1, 1n);

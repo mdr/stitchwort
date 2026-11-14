@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-DECREASING] Error: `totalCong` exists, but its statement isn't a congruence lemma for `total`
-    ╭─[ reject/decreasing-bad-cong.sw:18:7 ]
+    ╭─[ reject/decreasing-bad-cong.sw:19:7 ]
     │
- 18 │   1 + total (d => if h: d < n then weight d else 0) (List.range 0 n)
+ 19 │   1 + total (d => if h: d < n then weight d else 0) (List.range 0 n)
     │       ──────────────────────────────┬──────────────────────────────  
     │                                     ╰──────────────────────────────── this function calls it
     │ 

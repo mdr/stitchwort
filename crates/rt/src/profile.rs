@@ -315,7 +315,7 @@ fn rows(program: &Program, image: &Image) -> (Vec<Box<str>>, Vec<u32>) {
     let mut maker: Vec<Option<u32>> = vec![None; codes];
     for (code, body) in image.codes.iter().enumerate() {
         for instr in &body.instrs {
-            if let Instr::Closure { lambda, .. } = instr {
+            if let Instr::Closure { lambda, .. } | Instr::StaticClosure { lambda, .. } = instr {
                 let made = image.lambda_code[*lambda as usize] as usize;
                 maker[made].get_or_insert(u32::try_from(code).expect("codes fit"));
             }

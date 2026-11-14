@@ -31,13 +31,11 @@ def sizeRecord: NonEmptyList a → Text
   | { head = x, tail = [y, ..rest] } => "many"
 
 -- Items that perform run in order, as in a `List` literal.
-def mapBrackets (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b :=
-  match xs with
-    | [x, ..rest] => [f x, ..rest.map f]
+def mapBrackets (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b := match xs with
+  | [x, ..rest] => [f x, ..rest.map f]
 
-def mapRecord (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b :=
-  match xs with
-    | { head = x, tail = rest } => { head = f x, tail = rest.map f }
+def mapRecord (xs: NonEmptyList a) (f: a → {e} b): {e} NonEmptyList b := match xs with
+  | { head = x, tail = rest } => { head = f x, tail = rest.map f }
 
 -- A `Bool` item that performs is decided, as in a `List Bool`.
 def orNone: Option Text → Text
@@ -49,7 +47,7 @@ def len(): {IO} Nat := (orNone IO.readLine()).length
 def shortLines(): {IO} NonEmptyList Bool := [len() < 3, len() < 3]
 
 -- Where the type isn't known, a literal is a `List`, as everywhere else.
-def maxOfTwo (x: Nat) (y: Nat): Nat :=
+def maxOfTwo (x y: Nat): Nat :=
   let both: NonEmptyList Nat := [x, y]
   both.maximum
 

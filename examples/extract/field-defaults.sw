@@ -27,14 +27,9 @@
 
 import Std (List, Nat, Option, Text)
 
-type RangeOptions = {
-  start: Nat := 0,
-  stop: Nat,
-  step: Nat := 1
-}
+type RangeOptions = { start: Nat := 0, stop: Nat, step: Nat := 1 }
 
-export def bounds (options: RangeOptions): List Nat :=
-  [options.start, options.stop, options.step]
+export def bounds (options: RangeOptions): List Nat := [options.start, options.stop, options.step]
 
 -- A result has every field.
 export def widen (options: RangeOptions): RangeOptions := { options | stop = options.stop + 10 }
@@ -42,28 +37,19 @@ export def widen (options: RangeOptions): RangeOptions := { options | stop = opt
 -- A missing `colour` is its default; `undefined` is `None`. `nick` has no
 -- default, so it keeps the encoding of a record's `Option` field: missing
 -- and `undefined` are both `None`, and `None` is no property.
-type Config = {
-  colour: Option Text := Some "blue",
-  nick: Option Text
-}
+type Config = { colour: Option Text := Some "blue", nick: Option Text }
 
 export def colourOf (config: Config): Option Text := config.colour
 
 export def echo (config: Config): Config := config
 
 -- Defaults that use the fields before them, given or defaulted.
-type Rect = {
-  width: Nat,
-  height: Nat := width,
-  area: Nat := width * height
-}
+type Rect = { width: Nat, height: Nat := width, area: Nat := width * height }
 
 export def area (rect: Rect): List Nat := [rect.width, rect.height, rect.area]
 
 -- A constructor's field.
-type Shape =
-  | Circle { radius: Nat, label: Text := "circle" }
-  | Dot
+type Shape = | Circle { radius: Nat, label: Text := "circle" } | Dot
 
 export def label: Shape → Text
   | Circle _ l => l

@@ -13,7 +13,7 @@ test "several at once" := wordCount "a" == 1 ∧ wordCount "a b" == 2
 -- begin block
 test "longest word" :=
   let words := "a tea pot of milk".words
-  let longest := words.maxBy (.length)
+  let longest := words.maxBy .length
   longest == Some "milk"
 -- end block
 
@@ -27,10 +27,9 @@ test "greets everyone" := (IO.simulate ["Ada", "Grace"] greetAll).fst == ["Hello
 -- end io
 
 -- begin fail
-def parsePair (line: Text): {Fail} (Nat, Nat) :=
-  match line.split ',' with
-    | [a, b] => (a.toNatOrFail, b.toNatOrFail)
-    | _ => Fail.fail "expected two numbers, got '${line}'"
+def parsePair (line: Text): {Fail} (Nat, Nat) := match line.split ',' with
+  | [a, b] => (a.toNatOrFail, b.toNatOrFail)
+  | _ => Fail.fail "expected two numbers, got '${line}'"
 
 test "a pair" := Fail.toResult (() => parsePair "3,4") == Ok (3, 4)
 test "not a pair" := Fail.toResult (() => parsePair "3") == Err "expected two numbers, got '3'"

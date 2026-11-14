@@ -19,14 +19,13 @@ import Std.Fail (fail, ensure)
 type Range = { from: Nat, to: Nat }
 
 -- "11-22" is `{ from = 11, to = 22 }`; spaces around either number are allowed.
-def Range.read (t: Text): {Fail} Range :=
-  match Text.split t '-' with
-    | [a, b] =>
-      let from := a.toNatOrFail
-      let to := b.toNatOrFail
-      ensure (from ≤ to) "the range '${t}' ends before it starts"
-      { from, to }
-    | _ => fail "expected a range like 11-22, got '${t}'"
+def Range.read (t: Text): {Fail} Range := match Text.split t '-' with
+  | [a, b] =>
+    let from := a.toNatOrFail
+    let to := b.toNatOrFail
+    ensure (from ≤ to) "the range '${t}' ends before it starts"
+    { from, to }
+  | _ => fail "expected a range like 11-22, got '${t}'"
 
 export def parseRange (t: Text): Result Range Text := Fail.toResult (() => Range.read t)
 
@@ -35,7 +34,7 @@ export def size: Result Range Text → Result Nat Text
   | Ok r => Ok (r.to - r.from + 1)
   | Err m => Err m
 
-export def sizes (ts: List Text): Result (List Nat) Text :=
-  Fail.toResult (() => ts.map (t =>
+export def sizes (ts: List Text): Result (List Nat) Text := Fail.toResult (() =>
+  ts.map (t =>
     let r := Range.read t
     r.to - r.from + 1))

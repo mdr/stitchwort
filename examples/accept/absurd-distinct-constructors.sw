@@ -16,4 +16,4 @@ theorem trueNotFalse: True = False -> Void
 -- A hypothesis inside a branch: `cases` finds it.
 def tileOf (n: Nat): Tile := if n == 0 then Wall else Robot
 
-theorem notBoxLeft (n: Nat) (isLeft: tileOf n = BoxLeft): Void := cases
+theorem notBoxLeft ∀ (n: Nat) (isLeft: tileOf n = BoxLeft): Void := cases

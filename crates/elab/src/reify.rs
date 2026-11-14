@@ -58,8 +58,15 @@ pub(crate) fn check_reify(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     let (alts, absurd) = alternatives(cx, clauses, &row, &ty, *span)?;
     let display = return_display(cx, clauses, thunk, &term, goal);
     let saved = std::mem::replace(&mut cx.reify_display, display);
+    // A clause is required even when its case can't happen, so none may be
+    // warned about as deletable.
+    let saved_keep =
+        cx.e.decl
+            .keep_arms
+            .replace(alts.iter().map(|a| a.span).collect());
     let result =
         crate::matching::generalised_term(cx, term, ty, thunk.span(), &alts, &absurd, *span, goal);
+    cx.e.decl.keep_arms.replace(saved_keep);
     cx.reify_display = saved;
     result
 }
@@ -139,7 +146,7 @@ fn computation(cx: &mut Ctx, thunk: &Expr) -> Result<(Term, Value, Row)> {
             let Value::Pi(_, stitchwort_core::Icit::Explicit, dom, cod) = &ty else {
                 return Err(not_a_thunk(cx, span, &ty));
             };
-            if !cx.unify(dom, &Value::Data(unit, Vec::new()))? {
+            if !cx.unify(dom, &Value::Data(unit, Vec::new().into()))? {
                 return Err(not_a_thunk(cx, span, &ty));
             }
             // `t ()`.
@@ -215,7 +222,7 @@ fn lambda_body(thunk: &Expr) -> Option<&Expr> {
             if matches!(&s.expr, Expr::Var(x) if x.text == name.text)
                 && matches!(&alt.patterns[..], [Pattern::Absurd(_)]) =>
         {
-            Some(&alt.body)
+            alt.body.as_ref()
         }
         _ => None,
     }
@@ -263,7 +270,7 @@ fn alternatives(
                 alts.push(Alt {
                     guard: None,
                     patterns: vec![pattern],
-                    body: body.clone(),
+                    body: Some(body.clone()),
                     span: var.span.to(body.span()),
                 });
             }
@@ -339,7 +346,7 @@ fn alternatives(
                 alts.push(Alt {
                     guard: None,
                     patterns: vec![pattern],
-                    body: body.clone(),
+                    body: Some(body.clone()),
                     span: op.span.to(body.span()),
                 });
             }

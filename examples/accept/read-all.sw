@@ -34,27 +34,21 @@ def twice(): {IO} Pair Text Text :=
   let b := IO.readAll()
   MkPair a b
 
-test "readAll gives every line, each followed by LF" :=
-  result (IO.simulate ["a", "b"] slurp) == "a\nb\n"
+test "readAll gives every line, each followed by LF" := result (IO.simulate ["a", "b"] slurp) == "a\nb\n"
 
-test "IO.readAll is the same operation" :=
-  result (IO.simulate ["a"] (u => IO.readAll())) == "a\n"
+test "IO.readAll is the same operation" := result (IO.simulate ["a"] (u => IO.readAll())) == "a\n"
 
 test "readAll of empty input is empty" := result (IO.simulate [] slurp) == ""
 
 test "an empty line is kept" := result (IO.simulate ["", ""] slurp) == "\n\n"
 
-test "readAll after a readLine gives the rest" :=
-  result (IO.simulate ["a", "b", "c"] afterOne) == MkPair "[a]" "b\nc\n"
+test "readAll after a readLine gives the rest" := result (IO.simulate ["a", "b", "c"] afterOne) == MkPair "[a]" "b\nc\n"
 
-test "readAll after the last line is empty" :=
-  result (IO.simulate ["a"] afterOne) == MkPair "[a]" ""
+test "readAll after the last line is empty" := result (IO.simulate ["a"] afterOne) == MkPair "[a]" ""
 
-test "readLine after readAll is end of input" :=
-  result (IO.simulate ["a", "b"] afterAll) == MkPair "a\nb\n" "<end>"
+test "readLine after readAll is end of input" := result (IO.simulate ["a", "b"] afterAll) == MkPair "a\nb\n" "<end>"
 
-test "a second readAll is empty" :=
-  result (IO.simulate ["a"] twice) == MkPair "a\n" ""
+test "a second readAll is empty" := result (IO.simulate ["a"] twice) == MkPair "a\n" ""
 
 -- Text.lines
 
@@ -86,14 +80,11 @@ test "lines method style" := ("x\ny".lines).length == 2
 
 def allLines(): {IO} List Text := IO.readAllLines()
 
-test "readAllLines is total under simulate" :=
-  eqTexts (result (IO.simulate ["a", "b"] allLines)) ["a", "b"]
+test "readAllLines is total under simulate" := eqTexts (result (IO.simulate ["a", "b"] allLines)) ["a", "b"]
 
-test "readAllLines of empty input is empty" :=
-  eqTexts (result (IO.simulate [] allLines)) []
+test "readAllLines of empty input is empty" := eqTexts (result (IO.simulate [] allLines)) []
 
-test "readAllLines keeps an empty line" :=
-  eqTexts (result (IO.simulate ["a", "", "b"] allLines)) ["a", "", "b"]
+test "readAllLines keeps an empty line" := eqTexts (result (IO.simulate ["a", "", "b"] allLines)) ["a", "", "b"]
 
 -- `f().x` is `(f()).x`: dot notation applies to the result of the call.
 
@@ -109,12 +100,10 @@ def countLines (ls: List Text): Nat := ls.length
 
 def lineCount(): {IO} Nat := countLines IO.readAllLines()
 
-test "a call with no space is a single argument" :=
-  result (IO.simulate ["a", "b", "c"] lineCount) == 3
+test "a call with no space is a single argument" := result (IO.simulate ["a", "b", "c"] lineCount) == 3
 
 def applyTo (f: () → {IO} Nat) (u: ()): {IO} Nat := f u
 
 def viaApply(): {IO} Nat := applyTo lineCount ()
 
-test "a space keeps two arguments" :=
-  result (IO.simulate ["a", "b"] viaApply) == 2
+test "a space keeps two arguments" := result (IO.simulate ["a", "b"] viaApply) == 2

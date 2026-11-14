@@ -11,19 +11,16 @@ def isOdd: Nat → Bool
   | Succ n => isEven n
 
 -- Types can refer to each other too: a tree whose children are a forest.
-type Tree =
-  | Node (label: Nat) (kids: Forest)
+type Tree = | Node (label: Nat) (kids: Forest)
 
-type Forest =
-  | FNil
-  | FCons (first: Tree) (rest: Forest)
+type Forest = | FNil | FCons (first: Tree) (rest: Forest)
 
 def Tree.total: Tree → Nat
-  | Node label kids => label + Forest.total kids
+  | Node label kids => label + kids.total
 
 def Forest.total: Forest → Nat
   | FNil => 0
-  | FCons first rest => Tree.total first + Forest.total rest
+  | FCons first rest => first.total + rest.total
 
 test "even and odd" := describe 10 == "even" ∧ describe 7 == "odd"
-test "tree total" := Tree.total (Node 1 (FCons (Node 2 FNil) (FCons (Node 3 FNil) FNil))) == 6
+test "tree total" := (Node 1 (FCons (Node 2 FNil) (FCons (Node 3 FNil) FNil))).total == 6

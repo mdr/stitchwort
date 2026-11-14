@@ -4,7 +4,8 @@
 
 use stitchwort_core::check::{declare_def, define_def};
 use stitchwort_core::native::{self, Native};
-use stitchwort_core::value::{apply, conv, eval, force, quote};
+use stitchwort_core::reference;
+use stitchwort_core::value::{apply, conv, eval, force, quote, quote_folded};
 use stitchwort_core::{BigUint, DefId, Kernel, Term, Value};
 use stitchwort_driver::driver::Session;
 use stitchwort_elab::{Elaborator, prelude};
@@ -272,9 +273,6 @@ fn a_native_is_registered_once() {
     let again = native::register_native(g, add, Native::Add).unwrap_err();
     assert_eq!(again.code, "E-BUILTIN");
     assert!(again.message.contains("already"), "{}", again.message);
-    let neq = def(&g.ev(), "Nat.equalFalse");
-    let again = native::register_nat_neq(g, neq).unwrap_err();
-    assert!(again.message.contains("already"), "{}", again.message);
     // Another definition is refused for its pin before anything else.
     let sub = def(&g.ev(), Native::Sub.name());
     let other = native::register_native(g, sub, Native::Add).unwrap_err();
@@ -314,17 +312,6 @@ fn builtins_with_the_wrong_shape_are_refused() {
         )),
         ["E-BUILTIN"]
     );
-    // A `Decidable` whose `Yes` doesn't hold a proof.
-    assert_eq!(
-        as_prelude(
-            "type Void : Prop\n\n\
-             def Not (p : Prop) : Prop := p -> Void\n\n\
-             type Decidable (p : Prop) : Type =\n  \
-             | Yes (proof : Not p)\n  \
-             | No (refutation : Not p)\n"
-        ),
-        ["E-BUILTIN"]
-    );
     // Outside the prelude, these names mean nothing special.
     let mut session = Session::new();
     assert!(
@@ -350,12 +337,19 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
     with_big_stack(|| {
         let mut session = Session::new();
         let g = &mut session.elab.kernel;
-        for op in [Native::Add, Native::Sub, Native::Leq, Native::EqNat] {
+        for op in [
+            Native::Add,
+            Native::Sub,
+            Native::Leq,
+            Native::EqNat,
+            Native::Mul,
+        ] {
             let id = def(&g.ev(), op.name());
             for k1 in 0..12 {
                 for k2 in 0..12 {
                     // `k1 + x` against `k2 + y`, `k2`, and `k2 + x`; and
-                    // against `y` under `k2` `Succ` constructors. For `Add`
+                    // against `y` under `k2` `Succ` constructors; and `x`
+                    // under `k1` `Succ` constructors against `k2`. For `Add`
                     // these are sums stuck on either side, or both, which
                     // compute on the second side when stuck on the first
                     // (R3 and R4, `nat_add.rs`; crates/driver/tests/
@@ -366,6 +360,7 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                         (plus_var(k1, None), plus_var(k2, Some(0))),
                         (plus_var(k1, Some(0)), plus_var(k2, Some(0))),
                         (plus_var(k1, Some(0)), succs(&g.ev(), k2, Value::var(1))),
+                        (succs(&g.ev(), k1, Value::var(0)), plus_var(k2, None)),
                     ] {
                         let fast = call(&g.ev(), id, &[a.clone(), b.clone()]);
                         g.env.set_disable_natives(true);
@@ -375,6 +370,26 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                             conv(&g.ev(), 2, &fast, &slow).unwrap(),
                             "{}({a:?}, {b:?}): native {fast:?}, definition {slow:?}",
                             op.name()
+                        );
+                    }
+                }
+            }
+        }
+        // `divFuel`'s shortcut, natives on against off, over every way it
+        // can stop (fuel used up, too few known `Succ`s left, `d` 0 or 1).
+        let id = def(&g.ev(), Native::DivFuel.name());
+        for kf in 0..7 {
+            for k in 0..10 {
+                for d in 0..5 {
+                    for [fuel, n] in division_cases(&g.ev(), kf, k) {
+                        let args = [fuel, n, nat(d)];
+                        let fast = call(&g.ev(), id, &args);
+                        g.env.set_disable_natives(true);
+                        let slow = call(&g.ev(), id, &args);
+                        g.env.set_disable_natives(false);
+                        assert!(
+                            conv(&g.ev(), 2, &fast, &slow).unwrap(),
+                            "Nat.divFuel({args:?}): native {fast:?}, definition {slow:?}"
                         );
                     }
                 }
@@ -393,6 +408,143 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                 "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
             );
         }
+    });
+}
+
+/// Fuel and numerator for `Nat.divFuel` with `kf` and `k` known `Succ`s, over
+/// unknowns 0 and 1: both open, either closed, the same unknown, and as
+/// `Succ` constructors rather than the compact `k + x`.
+fn division_cases(g: &stitchwort_core::Ev, kf: u64, k: u64) -> [[Value; 2]; 6] {
+    [
+        [plus_var(kf, Some(0)), plus_var(k, Some(1))],
+        [plus_var(kf, Some(0)), plus_var(k, None)],
+        [plus_var(kf, None), plus_var(k, Some(0))],
+        [plus_var(kf, Some(0)), plus_var(k, Some(0))],
+        [succs(g, kf, Value::var(0)), succs(g, k, Value::var(1))],
+        [succs(g, kf, Value::var(0)), plus_var(k, Some(0))],
+    ]
+}
+
+/// `divFuel`'s shortcut hands the evaluator a count of `Succ`s to add to the
+/// rest (`Outcome::Succs`), which the machine and the reference evaluator
+/// each do their own way: their normal forms agree, natives on and off. And
+/// `(x + 2^128) / 2`, 2^127 steps of the definition, takes a few.
+#[test]
+fn the_division_shortcut_is_the_same_in_both_evaluators() {
+    with_big_stack(|| {
+        let mut session = Session::new();
+        let g = &mut session.elab.kernel;
+        let id = def(&g.ev(), Native::DivFuel.name());
+        let term = Term::app(
+            Term::app(Term::app(Term::Def(id), Term::Var(2)), Term::Var(1)),
+            Term::Var(0),
+        );
+        for natives in [true, false] {
+            g.env.set_disable_natives(!natives);
+            let ev = g.ev();
+            for kf in 0..7 {
+                for k in 0..10 {
+                    for d in 0..5 {
+                        for [fuel, n] in division_cases(&ev, kf, k) {
+                            let env = [fuel, n, nat(d)];
+                            let machine = call(&ev, id, &env);
+                            let from_term = eval(&ev, &env, &term).unwrap();
+                            let slow = reference::eval(&ev, &env, &term).unwrap();
+                            let shown =
+                                |v: &Value| format!("{:?}", reference::quote(&ev, 2, v).unwrap());
+                            assert_eq!(shown(&machine), shown(&from_term), "{env:?}");
+                            assert_eq!(
+                                shown(&machine),
+                                shown(&slow),
+                                "Nat.divFuel({env:?}), natives {natives}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        g.env.set_disable_natives(false);
+        let ev = g.ev();
+        let big = BigUint::from(2u32).pow(128);
+        let n = native::from_view(big.clone(), Some(Value::var(0)));
+        let before = ev.machine.budget.total_work();
+        let quotient = call(&ev, def(&ev, "Nat.div"), &[n.clone(), nat(2)]);
+        let steps = ev.machine.budget.total_work() - before;
+        assert!(steps < 1_000, "{steps} steps");
+        let (q, rest) = native::view(&ev, &quotient).unwrap();
+        assert_eq!(q, big / 2u32);
+        assert!(rest.is_some(), "{quotient:?}");
+        let div = Term::app(
+            Term::app(Term::Def(def(&ev, "Nat.div")), Term::Var(1)),
+            Term::Var(0),
+        );
+        let slow = reference::eval(&ev, &[n, nat(2)], &div).unwrap();
+        assert!(conv(&ev, 1, &quotient, &slow).unwrap(), "{slow:?}");
+    });
+}
+
+/// `*`'s shortcut, `(k + m) * n = k·n + m * n` for a number `n` and a stuck
+/// `m`, gives the very value one step of `Nat.mul`'s definition gives over
+/// the shortcut for `k - 1` (the same read-back, folded and in full, not only
+/// an equal value; `Term` has no `==`, so its debug form is compared), so read-back and hashes can't tell them apart. With the
+/// case tree's own result at `k = 0`, that's an induction over `k`. The
+/// stuck parts: a variable, a stuck call (glued and not), a folded
+/// `3 * x`; the `Succ`s as a compact `k + m`, as constructors, and mixed.
+#[test]
+fn the_mul_shortcut_is_one_step_of_the_definition() {
+    with_big_stack(|| {
+        let mut session = Session::new();
+        let source = "def count: (n: Nat) → Nat\n  | Zero => 0\n  | Succ n => Succ (count n)\n";
+        assert!(session.load("count.sw", source).is_ok());
+        let g = &mut session.elab.kernel;
+        let mul = def(&g.ev(), Native::Mul.name());
+        let once = unfolded_once(g, Native::Mul);
+        let count = def(&g.ev(), "count");
+        let nat_type = g.env.builtins().nat.expect("`Nat` is bound");
+        for glue in [false, true] {
+            g.machine.glue.set(glue);
+            let ev = g.ev();
+            let bases = [
+                Value::var(0),
+                call(&ev, count, &[Value::var(0)]),
+                call(&ev, mul, &[nat(3), Value::var(0)]),
+            ];
+            let big = native::nat_value(BIG.parse::<BigUint>().unwrap());
+            for base in &bases {
+                for k in 1..6u64 {
+                    let ms = [
+                        native::from_view(BigUint::from(k), Some(base.clone())),
+                        succs(&ev, k, base.clone()),
+                        Value::Ctor(
+                            nat_type,
+                            1,
+                            vec![native::from_view(BigUint::from(k - 1), Some(base.clone()))]
+                                .into(),
+                        ),
+                    ];
+                    for m in &ms {
+                        for n in [nat(0), nat(1), nat(3), big.clone()] {
+                            let args = [m.clone(), n];
+                            let fast = call(&ev, mul, &args);
+                            let slow = call(&ev, once, &args);
+                            let what = format!("glue {glue}, mul{args:?}");
+                            same_result(&ev, &what, &fast, &slow);
+                            assert_eq!(
+                                format!("{:?}", quote(&ev, 1, &fast).unwrap()),
+                                format!("{:?}", quote(&ev, 1, &slow).unwrap()),
+                                "{what}: read back"
+                            );
+                            assert_eq!(
+                                format!("{:?}", quote_folded(&ev, 1, &fast).unwrap()),
+                                format!("{:?}", quote_folded(&ev, 1, &slow).unwrap()),
+                                "{what}: read back folded"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        g.machine.glue.set(false);
     });
 }
 
@@ -427,12 +579,6 @@ fn accepts(source: &str) {
 const COPIES: &str = "\
 import Std (Bool, Nat, Void)
 
-def myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
-  | Zero,   Zero   => Yes rfl
-  | Zero,   Succ n => No (Nat.equalFalse 0 (Succ n) rfl)
-  | Succ m, Zero   => No (Nat.equalFalse (Succ m) 0 rfl)
-  | Succ m, Succ n => Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m n) rfl
-
 theorem myEqNatRefl : (n : Nat) -> Nat.equal n n = True
   | Zero   => rfl
   | Succ n => myEqNatRefl n
@@ -447,27 +593,10 @@ theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
 const BIG: &str = "1180591620717411303424"; // 2^70
 
 /// `rfl` proves a native's result equal to its definition's, for the natives
-/// that return proofs. (`decEqNat 3 5` used to give a different refutation.)
+/// that return proofs.
 #[test]
 fn rfl_proves_proof_natives_equal_to_their_definitions() {
     let mut source = COPIES.to_string();
-    let pairs = [
-        ("0", "0"),
-        ("0", "1"),
-        ("1", "0"),
-        ("1", "1"),
-        ("3", "5"),
-        ("5", "3"),
-        ("4", "4"),
-        ("0", BIG),
-        (BIG, "1"),
-        (BIG, BIG),
-        (BIG, "1180591620717411303425"),
-    ];
-    for (i, (m, n)) in pairs.iter().enumerate() {
-        source +=
-            &format!("\ntheorem sameDec{i} : myDecEqNat {m} {n} = Nat.decEq {m} {n} := rfl\n");
-    }
     for n in ["0", "1", "7"] {
         source += &format!(
             "\n\

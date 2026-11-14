@@ -1,7 +1,6 @@
 namespace N
 
-type Token: Prop =
-  | MkToken
+type Token: Prop = | MkToken
 
 instance p1: Decidable Token := helper
 

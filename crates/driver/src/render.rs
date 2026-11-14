@@ -66,7 +66,7 @@ pub fn render(sources: &SourceMap, diagnostic: &Diagnostic, color: bool) -> Stri
         .write(cache, &mut out)
         .expect("writing to a Vec cannot fail");
     let mut out = String::from_utf8(out).expect("ariadne writes UTF-8");
-    if diagnostic.severity == Severity::Goal {
+    if diagnostic.code == "GOAL" {
         // ariadne colours a report kind of its own whatever the setting.
         if !color {
             out = without_colour(&out);
@@ -91,7 +91,7 @@ pub const GOAL_LINE_LIMIT: usize = 400;
 /// `limit` characters cut in the middle ([`GOAL_LINE_LIMIT`]).
 pub fn with_long_goal_lines_cut(diagnostic: &Diagnostic, limit: usize) -> Diagnostic {
     let mut d = diagnostic.clone();
-    if d.severity != Severity::Goal {
+    if d.code != "GOAL" {
         return d;
     }
     for label in &mut d.labels {

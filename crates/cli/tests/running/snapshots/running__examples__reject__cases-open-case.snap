@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-CASES] Error: `cases` can't close the case a = True, (n <= 2) = False
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, (n <= 2) = False
    ╭─[ reject/cases-open-case.sw:6:79 ]
    │
  6 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ Nat.leq n 3) = True): n <= 2 := cases

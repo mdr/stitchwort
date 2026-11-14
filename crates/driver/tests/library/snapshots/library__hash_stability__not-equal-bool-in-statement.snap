@@ -1,8 +1,8 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.notEqualBool dfe1dd0495193704b13abb435291a665e8ac0a11bb91cf7aa230a9ce792bc2a3
+Main.notEqualBool 4c662bbefccfa6c9992c3d437d2163814120d5cf78ccc82ba8ca0cb4b73869a5
 Main.notEqualProp 2c6d798d4067ca52f9829d21fab3e2df223a3f4e82d6dd941cbe40ef5ef5bb07
-Main.nonEmptyBool f0fd2762114ef0f05cf6786a06a103a8410d7399e9924046501e0258a6da357d
-Main.firstOr 05f7f0f01cb504d358339e8ed0127b2f1442858aedb875d50e8a7ec042748c5e
+Main.nonEmptyBool 09ebda7cb1fddc044cd27789bb71086fe98b283eda0b19a53928a8e92c859709
+Main.firstOr 9ea419138fe5570c12f1a9d3284a6f87d0c04f10f6bda76ad8a6d68b719cfc98

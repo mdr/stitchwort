@@ -25,6 +25,14 @@ use crate::Elaborator;
 use crate::check::{Ctx, Result};
 use crate::unify::{RowConstraint, unify_postponing};
 
+/// A new unknown row, of type `Effect.Effects` where the prelude has it.
+pub(crate) fn fresh_row(cx: &Ctx) -> Term {
+    match cx.g().env.registry().data(Builtin::Row) {
+        Some(row) => cx.fresh_meta_of(&Value::Data(row, Vec::new().into())),
+        None => cx.fresh_meta(),
+    }
+}
+
 /// A row unknown made for an implicit row parameter, with the context it was
 /// made in.
 #[derive(Clone)]
@@ -564,7 +572,10 @@ mod tests {
     }
 
     fn data(g: &crate::unify::Unifier<'_>, builtin: Builtin, args: Vec<Value>) -> Value {
-        Value::Data(g.env.registry().data(builtin).expect("a built-in"), args)
+        Value::Data(
+            g.env.registry().data(builtin).expect("a built-in"),
+            args.into(),
+        )
     }
 
     fn applied(head: Head, args: Vec<Value>) -> Value {

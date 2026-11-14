@@ -6,8 +6,8 @@
 //! order. For examples only the declarations the file added are listed.
 //!
 //! Files that fail to load in a fresh session are skipped (computed, not
-//! hard-coded). The daily and full tiers check every file and project; the
-//! merge tier and the lanes check a fixed quarter of them (`tier_sample`),
+//! hard-coded). The broad and all tiers check every file and project; the
+//! quick tier and the lanes check a fixed quarter of them (`tier_sample`),
 //! and `EXAMPLES` keeps exactly the names matching its comma-separated
 //! substrings. A part that matches no example or project is an error, so a
 //! typo can't pass by sweeping nothing.
@@ -16,7 +16,9 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, Tier, par_map, par_map_with_at_most, tier, tier_sample};
+use stitchwort_driver::driver::{
+    Session, Tier, par_map, par_map_with_at_most, tier, tier_sample, with_session,
+};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::rewind::Mark;
 
@@ -85,12 +87,12 @@ fn a_filter_part_that_matches_nothing_is_an_error() {
 
 /// How many workers a sweep uses. Each has a whole library loaded, which
 /// costs seconds of CPU where it's checked from source, for a few
-/// milliseconds of examples, so in the merge tier and the lanes, with their
+/// milliseconds of examples, so in the quick tier and the lanes, with their
 /// quarter sample and every core already busy, two repeat the load least; the
-/// daily and full tiers check everything and use them all.
+/// broad and all tiers check everything and use them all.
 fn workers() -> usize {
     match tier() {
-        Tier::Merge | Tier::Lane => 2,
+        Tier::Quick | Tier::Lane => 2,
         _ => usize::MAX,
     }
 }
@@ -100,14 +102,14 @@ fn workers() -> usize {
 /// without loading the library again for every example. The rewind tests
 /// check that rewinding gives exactly what a fresh session does.
 ///
-/// Except in the full tier the library is replayed from the test std cache:
+/// Except in the all tier the library is replayed from the test std cache:
 /// `prelude` checks it from source in the same run and holds every hash of it
 /// to its snapshot, and an example's hashes come out the same only if the
-/// library it uses does. The full tier checks it from source in every worker,
+/// library it uses does. The all tier checks it from source in every worker,
 /// as a second guard.
 fn eager_worker() -> (Session, Mark) {
     let mut session = match tier() {
-        Tier::Full => Session::eager_from_source_for_stack(STACK),
+        Tier::All => Session::eager_from_source_for_stack(STACK),
         _ => Session::eager_for_stack(STACK),
     };
     let mark = session.mark();
@@ -266,7 +268,7 @@ fn quoted(names: &[&str]) -> String {
 
 /// A sweep's share of the examples or projects in this tier: all of them when
 /// `EXAMPLES` picks some by name, otherwise `tier_sample`'s fixed sample
-/// (every one in the daily and full tiers, every fourth in merge and lane).
+/// (every one in the broad and all tiers, every fourth in quick and lane).
 fn share<T>(items: Vec<T>) -> Vec<T> {
     if filtering() {
         items
@@ -297,8 +299,9 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
 fn prelude() {
     // The snapshot is of the library this run reads (`STITCHWORT_STD_DIR`).
     eprintln!("hash_stability: {}", stitchwort_elab::std_text().mode());
-    let session = Session::eager_from_source();
-    let text = lines(&session, 0, 0);
+    let text = with_session(STACK, Session::eager_from_source_for_stack, |session| {
+        lines(session, 0, 0)
+    });
     let mut sorted: Vec<&str> = text.lines().collect();
     sorted.sort_by_key(|l| {
         (
@@ -408,6 +411,22 @@ theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True :=
         .map(|l| format!("{l}\n"))
         .collect();
     assert_eq!(without_d, own_lines(long));
+}
+
+/// `forall` and `∀` are another spelling of the dependent function type
+/// (D3458): a statement written with either is the term `(x: T) -> P`
+/// writes, so its hash is the same. A bare name's type is inferred.
+#[test]
+fn forall_hashes_as_the_function_type() {
+    let pi = "theorem a: (n: Nat) -> n + 0 = n := n => rfl
+theorem b (h: (a b: Nat) -> [c: Nat] -> a + b + c = c + b + a): 1 + 2 + 3 = 3 + 2 + 1 := h 1 2
+theorem c (p: Nat -> Prop) (h: (n: Nat) -> p n): (m: Nat) -> m > 0 -> p m := m => _ => h m
+";
+    let forall = "theorem a: forall (n: Nat) => n + 0 = n := n => rfl
+theorem b (h: ∀ (a b: Nat) [c: Nat] => a + b + c = c + b + a): 1 + 2 + 3 = 3 + 2 + 1 := h 1 2
+theorem c (p: Nat -> Prop) (h: ∀ n => p n): ∀ (m: Nat) => m > 0 → p m := m => _ => h m
+";
+    assert_eq!(own_lines(pi), own_lines(forall));
 }
 
 /// A declaration with `match`es in its type and its body: its helpers are

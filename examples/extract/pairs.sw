@@ -7,8 +7,7 @@
 
 import Std (Nat)
 
-type NatPair: Type =
-  | MkNatPair (left: Nat) (right: Nat)
+type NatPair: Type = | MkNatPair (left: Nat) (right: Nat)
 
 export def first: NatPair → Nat
   | MkNatPair a b => a

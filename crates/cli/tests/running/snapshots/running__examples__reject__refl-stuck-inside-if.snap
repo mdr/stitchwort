@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/refl-stuck-inside-if.sw:19:50 ]
+    │
+ 19 │ theorem selfPlayDraws (m: Move): play m m = 0 := rfl
+    │                                                  ─┬─  
+    │                                                   ╰─── `play m m` and `0` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `if beats m m then 1 else if beats m m then 2 else 0`
+    │ 
+    │ Note 2: the left side is stuck on `m`: it can't compute further until `m` is known; a `match` on `m` (or `cases m`) splits it
+    │ 
+    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+────╯

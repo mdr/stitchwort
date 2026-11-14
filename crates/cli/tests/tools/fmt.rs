@@ -1,4 +1,4 @@
-//! `stitchwort fmt` (docs/proposals/formatter.md §5.1), end to end with the
+//! `stitchwort fmt` (docs/proposals/formatter.md §5.1, still the interface), end to end with the
 //! built command.
 
 use std::io::Write;
@@ -140,6 +140,41 @@ fn formats_a_folder() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A folder walk skips the paths the repository keeps as written (D1019),
+/// saying how many it skipped; a file named explicitly is still formatted.
+#[test]
+fn a_folder_walk_skips_deliberately_unformatted_files() {
+    let dir = temp("excluded");
+    std::fs::create_dir_all(dir.join(".git")).unwrap();
+    let excluded = dir.join("examples/reject/bad.sw");
+    let formatted = dir.join("src/ok.sw");
+    std::fs::create_dir_all(excluded.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(formatted.parent().unwrap()).unwrap();
+    std::fs::write(&excluded, UNFORMATTED).unwrap();
+    std::fs::write(&formatted, UNFORMATTED).unwrap();
+    let folder = dir.display().to_string();
+
+    let output = stitchwort(&dir, &["fmt", "--check", &folder], None);
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    assert_eq!(text(&output), format!("{}\n", formatted.display()));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("1 file skipped as deliberately unformatted"),
+        "{stderr}"
+    );
+    assert_eq!(std::fs::read_to_string(&excluded).unwrap(), UNFORMATTED);
+    assert_eq!(std::fs::read_to_string(&formatted).unwrap(), UNFORMATTED);
+
+    // A file named explicitly is formatted: the user asked for it.
+    let path = excluded.display().to_string();
+    let output = stitchwort(&dir, &["fmt", &path], None);
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output), format!("{path}\n"));
+    assert_eq!(std::fs::read_to_string(&excluded).unwrap(), FORMATTED);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// The repository's own `.sw` sources are formatted. The reject and
 /// soundness examples are left out: their layout may be what's tested.
 #[test]
@@ -157,10 +192,16 @@ fn the_repository_sources_are_formatted() {
         "crates/elab/src/std",
     ]);
     let output = stitchwort(&root, &args, None);
+    // `--check` lists what would change. `list-literal-layout.sw` exists to
+    // exercise layouts the formatter rewrites (fmt_repo leaves it out too).
+    let listed = text(&output);
+    let unformatted: Vec<&str> = listed
+        .lines()
+        .filter(|line| !line.ends_with("examples/accept/list-literal-layout.sw"))
+        .collect();
     assert!(
-        output.status.success(),
-        "unformatted (run `stitchwort fmt` on them):\n{}{}",
-        text(&output),
+        unformatted.is_empty() && output.status.code().is_some_and(|code| code <= 1),
+        "unformatted (run `stitchwort fmt` on them):\n{listed}{}",
         String::from_utf8_lossy(&output.stderr)
     );
 }

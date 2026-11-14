@@ -27,8 +27,7 @@ import Ring.Mono (MkMono)
 
 --| The atoms' values: `Nat` atoms and `Int` atoms, each numbered from 0 in
 --| its own list.
-type Ring.Env: Type =
-  | MkEnv (nats: List Nat) (ints: List Int)
+type Ring.Env: Type = | MkEnv (nats: List Nat) (ints: List Int)
 
 --| The `i`th entry, or 0 past the end.
 @[tailrec]
@@ -149,8 +148,7 @@ def Ring.var (env: Ring.Env) (v: Nat): Int := Ring.lookup (Ring.Env.nats env) (R
 -- Polynomials
 
 --| A monomial: `c` times the product of the variables `vs`.
-type Ring.Mono: Type =
-  | MkMono (c: Int) (vs: List Nat)
+type Ring.Mono: Type = | MkMono (c: Int) (vs: List Nat)
 
 --| The product of the variables' values.
 def Ring.prod (env: Ring.Env): (vars: List Nat) → Int
@@ -249,28 +247,35 @@ def Ring.ZExpr.poly: (expr: Ring.ZExpr) → List Ring.Mono
 -- that return numbers and lists of numbers as tests.
 
 --| `Nat` atoms 0 and 1 are variables 0 and 2.
-theorem Ring.polyAddCommExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAtom 1)) = Ring.NExpr.poly (NAdd (NAtom 1) (NAtom 0)) := rfl
+theorem Ring.polyAddCommExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAtom 1))
+      = Ring.NExpr.poly (NAdd (NAtom 1) (NAtom 0)) :=
+  rfl
 
 theorem Ring.polyMulExample: Ring.NExpr.poly (NMul (NAtom 1) (NAtom 0)) = [MkMono (OfNat 1) [0, 2]] := rfl
 
-theorem Ring.polySquareExample:
-    Ring.NExpr.poly (NMul (NSucc (NAtom 0)) (NSucc (NAtom 0))) = [MkMono (OfNat 1) [], MkMono (OfNat 2) [0], MkMono (OfNat 1) [0, 0]] :=
+theorem Ring.polySquareExample: Ring.NExpr.poly (NMul (NSucc (NAtom 0)) (NSucc (NAtom 0)))
+      = [MkMono (OfNat 1) [], MkMono (OfNat 2) [0], MkMono (OfNat 1) [0, 0]] :=
   rfl
 
-theorem Ring.polyLikeTermsExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAdd (NNum 2) (NAtom 0))) = [MkMono (OfNat 2) [], MkMono (OfNat 2) [0]] := rfl
+theorem Ring.polyLikeTermsExample: Ring.NExpr.poly (NAdd (NAtom 0) (NAdd (NNum 2) (NAtom 0)))
+      = [MkMono (OfNat 2) [], MkMono (OfNat 2) [0]] :=
+  rfl
 
 --| Zero is the empty list, however it comes about.
 theorem Ring.polyZeroExample: Ring.NExpr.poly (NMul (NNum 0) (NAtom 0)) = [] := rfl
 
 theorem Ring.polySubSelfExample: Ring.ZExpr.poly (ZSub (ZAtom 0) (ZAtom 0)) = [] := rfl
 
-theorem Ring.polyNegSuccExample: Ring.ZExpr.poly (ZNeg (ZOfNat (NSucc (NAtom 0)))) = Ring.ZExpr.poly (ZNegSucc (NAtom 0)) := rfl
+theorem Ring.polyNegSuccExample: Ring.ZExpr.poly (ZNeg (ZOfNat (NSucc (NAtom 0))))
+      = Ring.ZExpr.poly (ZNegSucc (NAtom 0)) :=
+  rfl
 
 --| A `Nat` atom under `OfNat` is variable `2 * i`, an `Int` atom `2 * j + 1`.
-theorem Ring.polyAtomsExample: Ring.ZExpr.poly (ZAdd (ZOfNat (NAtom 3)) (ZAtom 3)) = [MkMono (OfNat 1) [6], MkMono (OfNat 1) [7]] := rfl
+theorem Ring.polyAtomsExample: Ring.ZExpr.poly (ZAdd (ZOfNat (NAtom 3)) (ZAtom 3))
+      = [MkMono (OfNat 1) [6], MkMono (OfNat 1) [7]] :=
+  rfl
 
-theorem Ring.polySquaresExample:
-    Ring.ZExpr.poly (ZMul (ZAdd (ZAtom 0) (ZAtom 1)) (ZSub (ZAtom 0) (ZAtom 1)))
+theorem Ring.polySquaresExample: Ring.ZExpr.poly (ZMul (ZAdd (ZAtom 0) (ZAtom 1)) (ZSub (ZAtom 0) (ZAtom 1)))
       = Ring.ZExpr.poly (ZSub (ZMul (ZAtom 0) (ZAtom 0)) (ZMul (ZAtom 1) (ZAtom 1))) :=
   rfl
 
@@ -279,12 +284,19 @@ test "poly: different polynomials have different values somewhere" :=
     ≠ Ring.Poly.eval (MkEnv [3] []) (Ring.NExpr.poly (NAdd (NAtom 0) (NNum 2)))
 
 test "poly: a normal form means the side" :=
-  Ring.Poly.eval (MkEnv [3, 4] [-5]) (Ring.ZExpr.poly (ZMul (ZSub (ZOfNat (NAtom 0)) (ZAtom 0)) (ZNegSucc (NAtom 1)))) == -40
+  Ring.Poly.eval (MkEnv [3, 4] [-5]) (Ring.ZExpr.poly (ZMul (ZSub (ZOfNat (NAtom 0)) (ZAtom 0)) (ZNegSucc (NAtom 1))))
+    == -40
 
 test "mulVars keeps the variables sorted" := Ring.mulVars [3, 1, 2] [0, 2] == [0, 1, 2, 2, 3]
 
 test "cmp: lexicographic, shorter first" :=
-  Ring.cmp [] [0] == Less ∧ Ring.cmp [0, 1] [0, 2] == Less ∧ Ring.cmp [1] [0, 5] == Greater ∧ Ring.cmp [2, 2] [2, 2] == Equal
+  Ring.cmp [] [0] == Less
+    ∧ Ring.cmp [0, 1] [0, 2] == Less
+    ∧ Ring.cmp [1] [0, 5] == Greater
+    ∧ Ring.cmp [2, 2] [2, 2] == Equal
 
 test "lookup: Nat atoms at even variables, Int atoms at odd, 0 past the end" :=
-  Ring.lookup [5, 6] [-1, -2] 2 == 6 ∧ Ring.lookup [5, 6] [-1, -2] 3 == -2 ∧ Ring.lookup [5] [] 7 == 0 ∧ Ring.lookup [5] [] 4 == 0
+  Ring.lookup [5, 6] [-1, -2] 2 == 6
+    ∧ Ring.lookup [5, 6] [-1, -2] 3 == -2
+    ∧ Ring.lookup [5] [] 7 == 0
+    ∧ Ring.lookup [5] [] 4 == 0

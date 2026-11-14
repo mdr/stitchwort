@@ -25,17 +25,16 @@ export def identity (x: Float): Float := x
 
 export def makeInfinity (): Float := Float.infinity
 
-export def shift (t: Float) (by: Float): Float := t + by
+export def shift (t by: Float): Float := t + by
 
-export def sameDouble (x: Float) (y: Float): Bool := x == y
+export def sameDouble (x y: Float): Bool := x == y
 
-export def tripleEquals (x: Float) (y: Float): Bool := Float.ieeeEq x y
+export def tripleEquals (x y: Float): Bool := Float.ieeeEq x y
 
 export def bits (x: Float): Nat := x.bits
 
 -- The record's constructor, with bits known only at run time.
-export def fromBits (b: Nat): Option Float :=
-  if h: Float.isValid b = True then Some { bits = b, valid = h } else None
+export def fromBits (b: Nat): Option Float := if h: Float.isValid b = True then Some { bits = b, valid = h } else None
 
 export def firstOf: List Float → Option Float
   | Nil => None

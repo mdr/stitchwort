@@ -31,7 +31,7 @@ def reportLine(): {Parse} Report :=
   { levels }
 
 --| From `lower` to `higher` is a rise of one to three.
-def risesGently (lower: Nat) (higher: Nat): Bool := lower < higher <= lower + 3
+def risesGently (lower higher: Nat): Bool := lower < higher <= lower + 3
 
 --| Every step rises gently, or every step falls gently.
 def Report.isSafe (report: Report): Bool :=
@@ -50,7 +50,7 @@ def passesDampened (ok: Nat → Nat → Bool): List Nat → Bool
 
 --| The same, after a good step from `before` to `level`. Taking out `level`
 --| makes a step from `before` to `next`.
-def passesDampenedAfter (ok: Nat → Nat → Bool) (before: Nat) (level: Nat): List Nat → Bool
+def passesDampenedAfter (ok: Nat → Nat → Bool) (before level: Nat): List Nat → Bool
   | [] => True
   | [next, ..rest] =>
     if ok level next then passesDampenedAfter ok level next rest

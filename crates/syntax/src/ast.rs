@@ -1,4 +1,10 @@
-//! The surface syntax tree, as written by the user.
+//! The surface syntax tree, as written by the user: what the elaborator reads.
+//!
+//! It is not built by the parser. The parser marks constructs in the lossless
+//! tree ([`crate::tree`]), and the lowering ([`crate::lower`]) builds this
+//! tree from it, expanding shorthand (a chain, a method section, `let (a, b)
+//! = e`) into the forms below, so a new construct's grammar goes in the parser
+//! and its meaning in the lowering (docs/syntax.md, "Where to add syntax").
 
 use num_bigint::BigUint;
 
@@ -24,6 +30,15 @@ pub const CHAIN: &str = "%chain";
 /// (docs/proposals/interfaces.md §5.3): it can't be referred to, or given by
 /// name.
 pub const NAMELESS: &str = "_";
+
+/// The library functions the parser writes at an operator, so the function
+/// of an application is at the operator rather than before its operands:
+/// `p <-> q` is `Std.Iff p q`, and `x !in xs` is `Std.Bool.not (x in xs)`.
+pub const OPERATOR_HEADS: &[&str] = &["Std.Iff", "Std.Bool.not"];
+
+fn is_operator_head_var(e: &Expr) -> bool {
+    matches!(e, Expr::Var(n) if OPERATOR_HEADS.contains(&n.text.as_str()))
+}
 
 /// The brackets a named argument is written in, which say what kind of
 /// parameter it names (D1093).
@@ -96,6 +111,15 @@ pub enum Expr {
     /// and the names in scope) and carries on; the declaration is
     /// unfinished, not wrong (docs/proposals/lsp-goal-holes.md).
     Goal(Span),
+    /// Where a syntax error left no expression: text the parser skipped, or
+    /// an expression that wasn't written before the line or the declaration
+    /// ended (then the span is empty, at the end of what came before). The
+    /// checker treats it as an *error hole*: like `?`, checked around and
+    /// never sent to the kernel, but with nothing reported about it or
+    /// about anything that depends on it (docs/proposals/
+    /// syntax-error-recovery.md §4). Only a declaration with a syntax error
+    /// has one ([`Decl::Signature`]'s `syntax_error`).
+    Missing(Span),
     /// `A -> B`
     Arrow(Box<Expr>, Box<Expr>),
     /// `a = b`, `a + b`, …
@@ -225,6 +249,12 @@ pub enum Expr {
         rules: Vec<RewriteRule>,
         target: Option<Box<Expr>>,
         body: Option<Box<Expr>>,
+        /// The `rewrite` keyword's span.
+        keyword: Span,
+        /// The `at` keyword's span, with a target.
+        at: Option<Span>,
+        /// The `in` keyword's span, with a body.
+        in_: Option<Span>,
         span: Span,
     },
     /// `omega`, or `omega [e1, e2]` with extra facts (docs/syntax.md,
@@ -348,8 +378,10 @@ pub struct Alt {
     pub patterns: Vec<Pattern>,
     /// `if c` after the patterns: the alternative applies only when it holds.
     pub guard: Option<Guard>,
-    pub body: Expr,
-    /// From the `|` to the end of the body.
+    /// `None` for an absurd alternative, `| p, ()`: an alternative with an
+    /// absurd pattern `()` and no body, as an equation can have.
+    pub body: Option<Expr>,
+    /// From the `|` to the end of the body (or of the patterns, with none).
     pub span: Span,
 }
 
@@ -399,13 +431,26 @@ impl Expr {
         }
     }
 
+    /// The span of the whole expression as written, from its first part to
+    /// its last. The brackets around a composite expression are no part of
+    /// it: in `(a + b) * c` the sum's span is `a + b`.
+    ///
     /// Chains like `f a b c …` and `1 + 2 + 3 + …` are parsed in a loop and
     /// nest as deeply as they're long, so this walks down each side of them
-    /// in a loop: the first part's start to the last part's end.
+    /// in a loop. Two forms don't have their parts in written order, so
+    /// their span covers both parts: a comparison `a > b` is stored as
+    /// `b < a` (only `<` and `<=` are stored turned round, so only they pay
+    /// for the check), and the function the parser writes at an operator
+    /// ([`OPERATOR_HEADS`]) is at the operator, which may be in the middle
+    /// of the application: `p <-> q` is `Std.Iff p q`.
     pub fn span(&self) -> Span {
         let mut first = self;
         let start = loop {
             match first {
+                Expr::Binary(BinOp::Lt | BinOp::Le, a, b) => break a.span().to(b.span()),
+                Expr::App(f, arg) if is_operator_head_var(f) => {
+                    break f.own_span().to(arg.span());
+                }
                 Expr::App(a, _)
                 | Expr::Arrow(a, _)
                 | Expr::Binary(_, a, _)
@@ -420,6 +465,7 @@ impl Expr {
         let mut last = self;
         let end = loop {
             match last {
+                Expr::Binary(BinOp::Lt | BinOp::Le, a, b) => break a.span().to(b.span()),
                 Expr::App(_, b)
                 | Expr::Arrow(_, b)
                 | Expr::Binary(_, _, b)
@@ -450,6 +496,7 @@ impl Expr {
             | Expr::If { span, .. }
             | Expr::Hole(span)
             | Expr::Goal(span)
+            | Expr::Missing(span)
             | Expr::Ann(_, _, span)
             | Expr::Bracketed(_, span)
             | Expr::Neg(_, span, _)
@@ -492,7 +539,7 @@ impl Expr {
 }
 
 /// Freeing an expression frees its sub-expressions without recursing: the
-/// parser builds chains like `f a b c …` in a loop, so they can nest more
+/// lowering builds chains like `f a b c …` in a loop, so they can nest more
 /// deeply than recursion could follow. Rust frees nested data recursively by
 /// default, which would overflow the stack.
 impl Drop for Expr {
@@ -559,7 +606,10 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::Induct { call, alts, .. } => nested(call) || alts.iter().any(|a| nested(&a.body)),
         Expr::Match {
             scrutinees, alts, ..
-        } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
+        } => {
+            scrutinees.iter().any(|s| nested(&s.expr))
+                || alts.iter().any(|a| a.body.as_ref().is_some_and(nested))
+        }
         Expr::List(items, _) => !items.is_empty(),
         Expr::Spread(e, _) => nested(e),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
@@ -582,6 +632,7 @@ fn is_leaf(expr: &Expr) -> bool {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Goal(_)
+            | Expr::Missing(_)
             | Expr::Unit(_)
     )
 }
@@ -696,7 +747,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             for e in scrutinees
                 .iter_mut()
                 .map(|s| &mut s.expr)
-                .chain(alts.iter_mut().map(|a| &mut a.body))
+                .chain(alts.iter_mut().filter_map(|a| a.body.as_mut()))
             {
                 if !is_leaf(e) {
                     pending.push(std::mem::replace(e, Expr::Prop(Span::NOWHERE)));
@@ -1031,6 +1082,17 @@ pub enum Decl {
         /// The attributes written before the declaration (before `export`,
         /// if it's there).
         attrs: Vec<Attribute>,
+        /// Where its first syntax error is, when the parser recovered from
+        /// one in it (docs/proposals/syntax-error-recovery.md §4.1): its
+        /// header parsed, and its equations are what the parser made of the
+        /// rest, with a missing expression ([`Expr::Missing`]) where text
+        /// was skipped or ran out. The elaborator checks it, for the errors
+        /// of its other lines, then fails it whatever it checks to, without
+        /// a message of its own (the parser reported the error), so it never
+        /// gets a kernel term; its signature stands in for it
+        /// (docs/proposals/tests-with-errors.md §3.3). With no equations, a
+        /// definition whose body the lowering refused.
+        syntax_error: Option<Span>,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.
@@ -1099,6 +1161,16 @@ impl ImportItem {
     }
 }
 
+/// A name declared by a declaration that failed to parse
+/// ([`Module::failed`]), and where that declaration's first error is
+/// reported.
+#[derive(Clone, Debug)]
+pub struct FailedName {
+    pub name: Name,
+    /// The primary span of the declaration's first error, if it has one.
+    pub error_at: Option<Span>,
+}
+
 /// `namespace Day05`: the first line of a file, saying which namespace its
 /// declarations go in (docs/proposals/multi-file.md §4.2).
 #[derive(Clone, Debug)]
@@ -1117,7 +1189,7 @@ pub struct Module {
     pub decls: Vec<Decl>,
     /// Names declared by declarations that failed to parse, so aren't in
     /// `decls` (only `parse_module_recovering` fills it).
-    pub failed: Vec<Name>,
+    pub failed: Vec<FailedName>,
     /// The doc links (``[`Name`]``) in the file's `--|` comments, in order:
     /// resolved after the namespace is checked
     /// (docs/proposals/documentation.md §7).

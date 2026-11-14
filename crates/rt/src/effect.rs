@@ -33,7 +33,7 @@
 //! non-tail calls.
 
 use crate::call_counts::{Made, hit_made};
-use crate::value_census::{new_fun, new_handler};
+use crate::value_census::{new_fun, new_handler, new_state_run};
 use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
@@ -265,6 +265,34 @@ pub struct Resume {
     pub pending: Value,
 }
 
+impl Resume {
+    /// The fields of an eager resumption (`Fun::Resume`, not suspending)
+    /// that nothing else holds, moved out instead of copied: the
+    /// reference counts a copy would raise and later lower are saved. The
+    /// cell is left as `Fun::DoneK`, which owns nothing, so its drop only
+    /// frees it. `None` (and nothing changed) if the resumption is shared or
+    /// isn't one.
+    #[allow(unsafe_code)]
+    pub(crate) fn take_unique(fun: &mut Rc<Fun>) -> Option<Resume> {
+        let cell = Rc::get_mut(fun)?;
+        if !matches!(cell, Fun::Resume(false, _)) {
+            return None;
+        }
+        // `Fun` has a `Drop`, so its fields can't be moved out of it: take
+        // the values, read the handler, and forget what remains.
+        let mut old = std::mem::ManuallyDrop::new(std::mem::replace(cell, Fun::DoneK));
+        let Fun::Resume(_, resume) = &mut *old else {
+            unreachable!("matched above")
+        };
+        Some(Resume {
+            // SAFETY: `old` is never dropped, so the handler has one owner.
+            handler: unsafe { std::ptr::read(&resume.handler) },
+            rest: std::mem::replace(&mut resume.rest, Value::Erased),
+            pending: std::mem::replace(&mut resume.pending, Value::Erased),
+        })
+    }
+}
+
 /// A `translate` handler's resumption (`Fun::TranslateK`), which also needs
 /// the operation, for the reply. Kept out of [`Resume`] so that the common
 /// resumptions, and every `Fun`, are a word smaller (the third value).
@@ -439,6 +467,40 @@ pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
     }
 }
 
+/// A `Bind inner k` node met by the loop with `pending` before it: `inner`,
+/// the computation to run next, and the pending list with `k` pushed on it.
+///
+/// A pending cell is `[next, k]`, the layout of a `Bind` node with the
+/// pending list where `inner` was. So when the node is unique, `inner` is
+/// moved out and `next` written in its place, and the node itself is the new
+/// cell (no allocation, `k` untouched). A shared node (a stored computation)
+/// is copied. Sound because a pending list is never changed once built, and
+/// nothing else saw a unique node as a list. Popped by [`pop_pending`].
+#[inline]
+pub(crate) fn push_pending(mut fields: Fields, pending: Value) -> (Value, Value) {
+    match Rc::get_mut(&mut fields.0) {
+        Some(slice) => {
+            let inner = std::mem::replace(&mut slice[0], pending);
+            crate::alloc_trace::reuse(0, &fields.0);
+            (inner, Value::Data(0, fields))
+        }
+        None => {
+            let k = fields[1].clone();
+            let inner = fields[0].clone();
+            hit_made(Made::PendingCell, 1);
+            (inner, Value::data(0, [pending, k]))
+        }
+    }
+}
+
+/// The continuation on top of a pending list cell, and the list below it
+/// (see [`push_pending`]).
+#[inline]
+pub(crate) fn pop_pending(cell: Fields) -> (Value, Value) {
+    let (next, k) = pair(cell);
+    (k, next)
+}
+
 /// A state-passing handler's fold (`op`: `FoldState` or `FoldStateComp`)
 /// on the arguments `arg` gives in order (`done`, `call`, the computation):
 /// its function of the state, as the machine's `effect` makes it; shared
@@ -461,7 +523,7 @@ pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> V
 /// A state-passing handler's function of the state, `Done` of it if the
 /// handler's carrier is a computation.
 fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
-    let f = Value::Fun(new_fun(Fun::StateRun(Rc::new(run))));
+    let f = Value::Fun(new_fun(Fun::StateRun(new_state_run(run))));
     if comp { Value::data(s.done, [f]) } else { f }
 }
 
@@ -498,7 +560,7 @@ pub(crate) fn handler_for(
                 lazy,
                 forwards,
             };
-            (Rc::new(handler), c)
+            (new_handler(handler), c)
         }
         EffectOp::Translate => {
             let (m, c) = (arg(), arg());
@@ -662,30 +724,81 @@ pub(crate) fn forwarded(s: &Shapes, table: &str, o: Value) -> Result<Value, Valu
     };
     let wraps = &rest[4..];
     let wraps = &wraps[..wraps.iter().position(|b| *b == b'.').unwrap_or(wraps.len())];
+    enum Arg {
+        /// The inner constructor's own field, which is the one argument.
+        Field,
+        Unit,
+        None,
+    }
     let arg = match (field, inner) {
         (b'a', Value::Data(_, f)) if f.len() == 1 => {
             if outer == ctor && wraps.len() == 1 && hex(wraps) == Some(s.left) {
                 return Ok(o);
             }
-            Some(f[0].clone())
+            Arg::Field
         }
-        (b'u', _) => Some(Value::Tag(s.unit)),
-        (b'n', _) => None,
+        (b'u', _) => Arg::Unit,
+        (b'n', _) => Arg::None,
         _ => return Err(o),
     };
-    let mut op = match arg {
-        Some(a) => {
-            hit_made(Made::ForwardedOpCells, 1);
-            Value::data(outer, [a])
-        }
-        None => Value::Tag(outer),
+    // `o` is `L inner`: its cell, if nothing else holds it, becomes one of
+    // the new operation's, and `inner`'s own cell becomes the outer
+    // constructor's (it holds the same one field).
+    let Value::Data(_, mut cell) = o else {
+        unreachable!("matched above")
     };
-    hit_made(Made::ForwardedOpCells, wraps.len() as u64);
+    let unique = Rc::get_mut(&mut cell.0).is_some();
+    let mut spare = None;
+    let mut op = match arg {
+        Arg::Field => {
+            let f = match Rc::get_mut(&mut cell.0) {
+                Some(slice) => {
+                    let Value::Data(_, f) = std::mem::take(&mut slice[0]) else {
+                        unreachable!("matched above")
+                    };
+                    spare = Some(cell);
+                    f
+                }
+                None => {
+                    let Value::Data(_, f) = &cell[0] else {
+                        unreachable!("matched above")
+                    };
+                    f.clone()
+                }
+            };
+            Value::Data(outer, f)
+        }
+        Arg::Unit => {
+            spare = unique.then_some(cell);
+            refill(outer, Value::Tag(s.unit), &mut spare)
+        }
+        Arg::None => {
+            spare = unique.then_some(cell);
+            Value::Tag(outer)
+        }
+    };
     for w in wraps.iter().rev() {
         let w = char::from(*w).to_digit(16).expect("encoded");
-        op = Value::data(w, [op]);
+        op = refill(w, op, &mut spare);
     }
     Ok(op)
+}
+
+/// `tag` of `field`: in the `spare` cell if there is one (taken; it is
+/// unique and has one field), else in a new cell.
+fn refill(tag: u32, field: Value, spare: &mut Option<Fields>) -> Value {
+    match spare.take() {
+        Some(mut cell) => {
+            let slice = Rc::get_mut(&mut cell.0).expect("a spare cell is unique");
+            slice[0] = field;
+            crate::alloc_trace::reuse(tag, &cell.0);
+            Value::Data(tag, cell)
+        }
+        None => {
+            hit_made(Made::ForwardedOpCells, 1);
+            Value::data(tag, [field])
+        }
+    }
 }
 
 /// An operation `R o′` of the other abilities, renamed by the fold's
@@ -740,15 +853,48 @@ fn renamed(s: &Shapes, bytes: &[u8], o: Value) -> Result<Value, Value> {
     Err(o)
 }
 
-/// The fold `resume`'s handler skipped its clause for an operation, which
-/// goes on as `o`: `Call o r`, `r` the resumption, eager.
+/// An operation `Call o rest` (`fields`) taken apart: `o`, `rest`, and,
+/// when the cell was unique and so is now empty, the cell itself, for
+/// [`skipped`] to refill. A shared cell is copied and gives none.
 #[inline]
-pub(crate) fn skipped(s: &Shapes, counts: &mut EffectCounts, o: Value, resume: Resume) -> Value {
+pub(crate) fn split_call(mut fields: Fields) -> (Value, Value, Option<Fields>) {
+    match Rc::get_mut(&mut fields.0) {
+        Some(slice) => {
+            let (o, rest) = (std::mem::take(&mut slice[0]), std::mem::take(&mut slice[1]));
+            (o, rest, Some(fields))
+        }
+        None => (fields[0].clone(), fields[1].clone(), None),
+    }
+}
+
+/// The fold `resume`'s handler skipped its clause for an operation, which
+/// goes on as `o`: `Call o r`, `r` the resumption, eager. The operation's
+/// own cell (`spare`, from [`split_call`]) is refilled when there is one:
+/// nothing else holds it, and it has the right size.
+#[inline]
+pub(crate) fn skipped(
+    s: &Shapes,
+    counts: &mut EffectCounts,
+    o: Value,
+    resume: Resume,
+    spare: Option<Fields>,
+) -> Value {
     counts.forwards += 1;
-    hit_made(Made::SkipCall, 1);
     hit_made(Made::ResumeSkip, 1);
     let r = Value::Fun(new_fun(Fun::Resume(false, resume)));
-    Value::data(s.call, [o, r])
+    match spare {
+        Some(mut cell) => {
+            let slice = Rc::get_mut(&mut cell.0).expect("a spare cell is unique");
+            slice[0] = o;
+            slice[1] = r;
+            crate::alloc_trace::reuse(s.call, &cell.0);
+            Value::Data(s.call, cell)
+        }
+        None => {
+            hit_made(Made::SkipCall, 1);
+            Value::data(s.call, [o, r])
+        }
+    }
 }
 
 /// A lazy resumption `resume` called with `y`: `Bind (Done y) r`, `r` a copy
@@ -809,5 +955,5 @@ pub(crate) fn jump_k(v: Value, s: Value) -> Value {
 #[inline]
 pub(crate) fn delay_k(capture: &Rc<crate::run::Capture>, y: Value) -> Value {
     let resumed = crate::value::Delay::Resumed(capture.clone(), y);
-    Value::Delay(Rc::new(resumed))
+    Value::Delay(crate::value_census::new_delay(resumed))
 }

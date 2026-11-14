@@ -20,7 +20,7 @@ def nameOf: Person → Text
   | { name, .. } => name
 
 -- A field is read with `.`, which binds tighter than application.
-def older (p: Person) (q: Person): Bool := Nat.leq q.age p.age
+def older (p q: Person): Bool := Nat.leq q.age p.age
 
 -- Records nest, and patterns nest inside other patterns. A record pattern
 -- as a constructor's argument is in brackets: braces right after a
@@ -46,20 +46,17 @@ def push (x: a) (s: Sized a): Sized a := { items = [x, ..s.items], size = Succ s
 def grown: Sized Nat := { push 1 empty | items = [1, 2], size = 2, ok = rfl }
 
 -- A projection's type mentions the earlier fields as projections.
-theorem sizeIsLength (s: Sized a): s.items.length = s.size := s.ok
+theorem sizeIsLength ∀ (s: Sized a): s.items.length = s.size := s.ok
 
 -- A record of proofs.
 type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = { above: lo ≤ n, below: n ≤ hi }
 
 theorem fiveBetween: Between 1 10 5 := { above = rfl, below = rfl }
 
-theorem belowOf (b: Between 1 10 5): 5 ≤ 10 := b.below
+theorem belowOf ∀ (b: Between 1 10 5): 5 ≤ 10 := b.below
 
--- An update that changes nothing isn't `rfl` until stage 2 (eta), but it's
--- provable by matching. (After `->`, `{` starts a row of abilities, so a
--- record there is in parentheses.)
-theorem sameAge: (p: Person) → ({ p | age = p.age } = p)
-  | { name, age } => rfl
+-- An update that changes nothing is `rfl`, by record eta.
+theorem sameAge ∀ (p: Person): { p | age = p.age } = p := rfl
 
 -- A field called `tag` is an ordinary field.
 type Labelled = { tag: Text, value: Nat }

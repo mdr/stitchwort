@@ -5,9 +5,12 @@
 //! A [`LiveProject`] checks the project's namespaces one at a time
 //! ([`LiveProject::step`]), marking the session before each. When a file's
 //! text changes, it rewinds to the mark before the first namespace whose
-//! files changed and checks from there on: what the edited namespace uses
-//! (if it was rewound too), then the edited namespace, then the rest,
-//! among them the namespaces that use it. The caller decides
+//! files changed. The session's rewind is a stack, so every namespace
+//! checked after that mark goes with it; those that neither changed nor
+//! use what did are checked again first (replayed from the check cache,
+//! when the session has one), then the edited namespaces, then what uses
+//! them. So the edited namespace and its dependants end up the last steps,
+//! and the next edit to them rewinds no further. The caller decides
 //! when to stop between steps, and takes what to show
 //! ([`LiveProject::answers`]) whenever it likes: diagnostics and navigation,
 //! as plain data with LSP positions.
@@ -17,6 +20,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::rc::Rc;
+use stitchwort_core::budget::Instant;
 
 pub use stitchwort_elab::ScopeName;
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
@@ -32,6 +36,13 @@ use crate::project::{
     canonical_order, closure, cycle_diagnostic, dependents, namespace_keys,
 };
 use crate::rewind::{Cancelled, Mark};
+
+pub(crate) mod term_diff;
+pub(crate) mod trial;
+pub use term_diff::Difference;
+pub use trial::{
+    ChangedMeaning, Edit, NewDiagnostic, Problems, Promise, Refusal, Trial, TrialOutcome,
+};
 
 /// A file an answer is about.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -62,6 +73,9 @@ pub struct LiveRef {
     /// The declaration's kind (`def`, `ctor`, ...), or `local`.
     pub kind: &'static str,
     pub ty: Option<String>,
+    /// The type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`NavRef::unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// For a function, its parameters with their names
     /// (`(low: Nat) -> [n: Nat] -> Nat`).
     pub signature: Option<String>,
@@ -75,6 +89,16 @@ pub struct LiveRef {
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used, "`step` left out: its default `1`".
     pub defaults: Option<String>,
+    /// What a rename of the target edits: the last component of the written
+    /// name (`map` in `List.map`; `range` covers the whole name).
+    pub name_range: Range,
+    /// The text written here is not the target's name (a use of an import's
+    /// alias, or an operator's symbol): a rename of the target leaves it.
+    pub alias: bool,
+    /// A punned record field `{ name }`: this and another reference (the
+    /// field, the variable) have one range. A rename edits it to
+    /// `{ label = name }` (the field) or `{ name = who }` (the variable).
+    pub pun: bool,
 }
 
 /// A declaration of a file, for its outline.
@@ -88,6 +112,9 @@ pub struct OutlineItem {
     pub range: Range,
     /// The whole declaration.
     pub full_range: Range,
+    /// Whether its body didn't parse, so `full_range` stops at its header
+    /// (SW-3199). The editor extends it to the declaration's column-0 end.
+    pub body_error: bool,
     /// The item it's declared in (a constructor's type), by index.
     pub parent: Option<usize>,
 }
@@ -122,8 +149,9 @@ pub struct FileAnswers {
     /// Sorted by position.
     pub refs: Vec<LiveRef>,
     /// The type of each expression, sorted by start, then longest first
-    /// (empty unless the session records them).
-    pub exprs: Vec<(Range, String)>,
+    /// (empty unless the session records them), and that type with an
+    /// outermost `Not` written as `p → Void`, when it has one.
+    pub exprs: Vec<(Range, String, Option<String>)>,
     pub outline: Vec<OutlineItem>,
     pub diagnostics: Vec<LiveDiagnostic>,
     /// The names the file can write unqualified, its own first (empty
@@ -147,12 +175,12 @@ impl FileAnswers {
     /// type. Of two expressions with the same range (an application and
     /// its last step) the outer one is found first and the type is the
     /// same anyway.
-    pub fn expr_covering(&self, range: Range) -> Option<(Range, &str)> {
+    pub fn expr_covering(&self, range: Range) -> Option<(Range, &str, Option<&str>)> {
         self.exprs
             .iter()
-            .filter(|(r, _)| contains(*r, range))
-            .min_by_key(|(r, _)| innermost_first(*r))
-            .map(|(r, ty)| (*r, ty.as_str()))
+            .filter(|(r, _, _)| contains(*r, range))
+            .min_by_key(|(r, _, _)| innermost_first(*r))
+            .map(|(r, ty, unfolded)| (*r, ty.as_str(), unfolded.as_deref()))
     }
 
     /// The ranges of the expressions containing `range`, smallest first,
@@ -161,7 +189,7 @@ impl FileAnswers {
         let mut chain: Vec<Range> = self
             .exprs
             .iter()
-            .map(|(r, _)| *r)
+            .map(|(r, _, _)| *r)
             .filter(|r| contains(*r, range))
             .collect();
         // Nested ranges: the later the start, then the earlier the end,
@@ -242,6 +270,18 @@ pub type Answers = BTreeMap<Place, FileAnswers>;
 /// references in. A diagnostic with no place goes on `unplaced`, at its
 /// start.
 pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) -> Answers {
+    answers_from_with(index, wanted, unplaced, |_| None)
+}
+
+/// [`answers_from`], with the text of each program file (by its path) for
+/// the outlines of declarations whose bodies didn't parse: those cover the
+/// whole declaration, not only its header (SW-3199).
+fn answers_from_with<'t>(
+    index: &Index,
+    wanted: &BTreeSet<String>,
+    unplaced: &str,
+    text_of: impl Fn(&str) -> Option<&'t str>,
+) -> Answers {
     let place = |f: usize| match &index.files[f].std {
         Some(std) => Place::Library(std.clone()),
         None => Place::Program(index.files[f].path.clone()),
@@ -255,10 +295,13 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         .chain(std::iter::once(&unplaced.to_string()))
         .map(|p| (Place::Program(p.clone()), FileAnswers::default()))
         .collect();
-    for (file, range, ty) in &index.exprs {
+    for (file, range, ty, unfolded) in &index.exprs {
         let at = place(*file);
         if keep(&at) {
-            out.entry(at).or_default().exprs.push((*range, ty.clone()));
+            out.entry(at)
+                .or_default()
+                .exprs
+                .push((*range, ty.clone(), unfolded.clone()));
         }
     }
     for r in &index.refs {
@@ -270,7 +313,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         let mut header = None;
         let mut doc = None;
         let mut equations = None;
-        let (target, name, kind, ty) = match &r.target {
+        let (target, name, kind, ty, unfolded) = match &r.target {
             RefTarget::Symbol(s) => {
                 let s = &index.symbols[*s];
                 signature = s.signature.clone();
@@ -286,6 +329,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
                     s.name.clone(),
                     s.kind,
                     r.ty.clone().or(s.ty.clone()),
+                    r.unfolded.clone().or(s.unfolded.clone()),
                 )
             }
             RefTarget::Binder { name, file, range } => {
@@ -293,7 +337,13 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
                     place: place(*file),
                     range: *range,
                 };
-                (target, name.clone(), "local", r.ty.clone())
+                (
+                    target,
+                    name.clone(),
+                    "local",
+                    r.ty.clone(),
+                    r.unfolded.clone(),
+                )
             }
         };
         out.entry(at).or_default().refs.push(LiveRef {
@@ -302,11 +352,15 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             name,
             kind,
             ty,
+            unfolded,
             signature,
             header,
             doc,
             equations,
             defaults: r.defaults.clone(),
+            name_range: r.name_range,
+            alias: r.alias,
+            pun: r.pun,
         });
     }
     // The outline: the program's declarations, by file.
@@ -327,6 +381,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             ty: s.ty.clone(),
             range: s.range,
             full_range,
+            body_error: s.body_error,
             parent: s.container,
         });
     }
@@ -366,7 +421,89 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             missing: d.missing.clone(),
         });
     }
+    // A declaration whose body didn't parse keeps only its signature's
+    // range; its outline item covers the whole declaration.
+    for (place, file) in &mut out {
+        if !file.outline.iter().any(|item| item.body_error) {
+            continue;
+        }
+        let Place::Program(path) = place else {
+            continue;
+        };
+        let Some(text) = text_of(path) else {
+            continue;
+        };
+        let starts = declaration_starts(text);
+        for item in &mut file.outline {
+            if item.body_error {
+                extend_failed_outline(text, &starts, item);
+            }
+        }
+    }
     out
+}
+
+/// The start of each top-level declaration in `text`, from its lossless
+/// tree (a declaration that failed to parse is an `Error` root): the
+/// declaration's first token's byte.
+fn declaration_starts(text: &str) -> Vec<usize> {
+    let mut sources = SourceMap::new();
+    let id = sources.add(String::new(), text.to_string());
+    let tree = stitchwort_syntax::parse_tree(id, text, stitchwort_syntax::DEFAULT_STACK);
+    (tree.decls())
+        .filter_map(|root| {
+            // A declaration that didn't lex holds no tokens, only raw bytes.
+            if let Some(raw) = root.raw_text_range() {
+                return Some(raw.start);
+            }
+            let range = root.token_range();
+            tree.tokens()
+                .get(range.start)
+                .map(|t| t.span.start as usize)
+        })
+        .collect()
+}
+
+/// The end of a declaration whose body didn't parse: `end`, the start of
+/// the next declaration's line (or the end of the file), without its
+/// trailing blank lines.
+fn declaration_end(text: &str, end: usize) -> u32 {
+    let mut end = end.min(text.len());
+    while end > 0 {
+        let line_start = text[..end].rfind('\n').map_or(0, |n| n + 1);
+        let line = &text[line_start..end];
+        if line.trim().is_empty() {
+            if line_start == 0 {
+                return 0;
+            }
+            end = line_start - 1;
+        } else {
+            return (line_start + line.trim_end().len()) as u32;
+        }
+    }
+    0
+}
+
+/// Extends `item` (whose body didn't parse) to the end of its declaration:
+/// the start of the next declaration's line in `starts`, or the end of the
+/// file, without trailing blank lines (SW-3199).
+fn extend_failed_outline(text: &str, starts: &[usize], item: &mut OutlineItem) {
+    let line = item.full_range[0] as usize;
+    let start = if line == 0 {
+        0
+    } else {
+        text.match_indices('\n')
+            .nth(line - 1)
+            .map_or(text.len(), |(at, _)| at + 1)
+    };
+    let Some(at) = starts.iter().position(|&start_at| start_at == start) else {
+        return;
+    };
+    let next = starts.get(at + 1).copied().unwrap_or(text.len());
+    let [l1, c1, l2, c2] = lsp_range(text, start, declaration_end(text, next) as usize);
+    if (l2, c2) > (item.full_range[2], item.full_range[3]) {
+        item.full_range = [l1, c1, l2, c2];
+    }
 }
 
 // ---- projects -----------------------------------------------------------
@@ -379,6 +516,10 @@ struct Step {
     files: Vec<(String, String)>,
     outcome: NamespaceOutcome,
     diagnostics: Vec<Diagnostic>,
+    /// The data types and definitions it added to the kernel's environment,
+    /// by index, in the order they were added.
+    datas: std::ops::Range<usize>,
+    defs: std::ops::Range<usize>,
 }
 
 /// A project kept checked in memory.
@@ -428,12 +569,6 @@ pub struct LiveProject {
     /// `importable_from_project` filters for each file. Made from the
     /// syntax on the first answers after the files are read again.
     declared: Option<BTreeMap<String, Vec<Declared>>>,
-    /// For each file of a namespace last checked cleanly (not failed or
-    /// skipped): its text then and what was answered for it, plain data
-    /// that holds nothing of the session. A namespace skipped because an
-    /// import failed serves these in place of the answers it has no check
-    /// for, while its text is the same ([`LiveProject::answers`]).
-    last_good: BTreeMap<String, (String, FileAnswers)>,
     /// The names in scope in each file of the namespaces checked as the
     /// focus's, by path: what the session knows only while it is still in
     /// that namespace.
@@ -494,7 +629,6 @@ impl LiveProject {
             parsed: BTreeMap::new(),
             outlines_stale: true,
             declared: None,
-            last_good: BTreeMap::new(),
             names: BTreeMap::new(),
         }
     }
@@ -576,6 +710,52 @@ impl LiveProject {
     /// the session is as before the step, and the namespace is checked again
     /// by the next.
     pub fn step(&mut self) -> Result<Progress, Cancelled> {
+        let began = Instant::now();
+        let before = self.session.elab.check_cache_stats();
+        stitchwort_syntax::stack::probe::take();
+        let result = self.step_inner();
+        let (stack, _) = stitchwort_syntax::stack::probe::take();
+        if let Ok(Progress::Checked { .. }) = &result {
+            let after = self.session.elab.check_cache_stats();
+            let how = if after.namespace_hits > before.namespace_hits {
+                "replayed"
+            } else if after.late_misses > before.late_misses {
+                "late miss"
+            } else if after.namespace_uncacheable > before.namespace_uncacheable {
+                "uncacheable"
+            } else if after.namespace_waiting_on_error > before.namespace_waiting_on_error {
+                "waiting on error"
+            } else if after.namespace_written > before.namespace_written {
+                "elaborated, written"
+            } else {
+                "elaborated, not cached"
+            };
+            let why = self
+                .steps
+                .last()
+                .map(|s| {
+                    let bad: Vec<_> = (s.diagnostics.iter())
+                        .filter(|d| !matches!(d.severity, stitchwort_syntax::Severity::Warning))
+                        .collect();
+                    match bad.first() {
+                        Some(d) => format!(
+                            " [{} non-warnings, first {:?}: {}]",
+                            bad.len(),
+                            d.severity,
+                            d.message.chars().take(100).collect::<String>()
+                        ),
+                        None => String::new(),
+                    }
+                })
+                .unwrap_or_default();
+            let name = format!("{} ({how}){why}", self.last_checked().unwrap_or_default());
+            phases::step(&name, !why.is_empty(), stack, began.elapsed());
+            phases::add(how, began.elapsed());
+        }
+        result
+    }
+
+    fn step_inner(&mut self) -> Result<Progress, Cancelled> {
         let planned = self.dirty;
         if planned {
             self.make_plan();
@@ -591,21 +771,20 @@ impl LiveProject {
             }
             return Ok(Progress::Done);
         };
+        phases::begin(&name);
         let focus = self.focus_namespaces().contains(&name);
         let mark = self.session.mark();
         let files = self.namespace_files.get(&name).cloned().unwrap_or_default();
         let project = self.project.clone();
         let analysis = self.analysis.as_ref().expect("a plan has an analysis");
-        let canonical = &self.canonical;
-        let outcomes: BTreeMap<&str, NamespaceOutcome> = self
-            .steps
-            .iter()
-            .map(|s| (s.name.as_str(), s.outcome))
-            .collect();
+        let first = self.env_sizes();
         let checked = self.session.cancellable_at(&mark, |s| {
+            let began = Instant::now();
             let ns = parse_namespace(s, &project, &name, &files);
-            let found =
-                s.check_project_namespace(analysis, canonical, &ns, &|m| outcomes.get(m).copied());
+            phases::add("parse", began.elapsed());
+            let began = Instant::now();
+            let found = s.check_project_namespace(analysis, &ns);
+            phases::add("check", began.elapsed());
             let mut names: Vec<(String, Vec<ScopeName>)> = Vec::new();
             if focus {
                 for ((path, _), id) in files.iter().zip(&ns.files) {
@@ -629,12 +808,15 @@ impl LiveProject {
                 return Err(Cancelled);
             }
         };
+        let last = self.env_sizes();
         self.steps.push(Step {
             name,
             mark,
             files,
             outcome,
             diagnostics,
+            datas: first.0..last.0,
+            defs: first.1..last.1,
         });
         Ok(Progress::Checked {
             focus,
@@ -650,6 +832,13 @@ impl LiveProject {
     /// add to an earlier one's answers (a use of a generated declaration
     /// such as a record's `ext` makes it a symbol, at its declaration).
     pub fn answers(&mut self) -> Answers {
+        let began = Instant::now();
+        let answers = self.answers_inner();
+        phases::add("answers", began.elapsed());
+        answers
+    }
+
+    fn answers_inner(&mut self) -> Answers {
         let (diagnostics, wanted): (Vec<Diagnostic>, BTreeSet<String>) = if self.fatal.is_empty() {
             let fresh = &self.steps;
             (
@@ -666,8 +855,9 @@ impl LiveProject {
         let library = !self.library_answered;
         let index = index_data_of(&self.session, &root, &diagnostics, library);
         self.library_answered = true;
-        let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
-        self.keep_last_good(&mut answers);
+        let mut answers = answers_from_with(&index, &wanted, "stitchwort.yaml", |path| {
+            self.texts.get(path).map(String::as_str)
+        });
         self.declared_names();
         for (place, file) in answers.iter_mut() {
             if let Place::Program(path) = place
@@ -686,61 +876,6 @@ impl LiveProject {
             answers.retain(|place, _| !matches!(place, Place::Library(_)));
         }
         answers
-    }
-
-    /// A namespace skipped because an import failed was not elaborated, so
-    /// it has no answers of its own; its files serve the ones they had when
-    /// last checked cleanly, as long as their text is unchanged (the
-    /// positions in them would be wrong otherwise: then they have none).
-    /// Diagnostics are always the fresh ones. A namespace that failed
-    /// itself, or one not in the project any more, keeps nothing.
-    fn keep_last_good(&mut self, answers: &mut Answers) {
-        if !self.fatal.is_empty() {
-            self.last_good.clear();
-            return;
-        }
-        let mut live: BTreeSet<&str> = BTreeSet::new();
-        for step in &self.steps {
-            for (path, text) in &step.files {
-                let place = Place::Program(path.clone());
-                match step.outcome {
-                    NamespaceOutcome::Checked => {
-                        live.insert(path);
-                        if let Some(now) = answers.get(&place) {
-                            let mut good = now.clone();
-                            good.diagnostics.clear();
-                            self.last_good.insert(path.clone(), (text.clone(), good));
-                        }
-                    }
-                    NamespaceOutcome::Skipped => {
-                        let Some((then, good)) = self.last_good.get(path) else {
-                            continue;
-                        };
-                        if then != text {
-                            self.last_good.remove(path);
-                            continue;
-                        }
-                        live.insert(path);
-                        if let Some(now) = answers.get_mut(&place) {
-                            now.refs = good.refs.clone();
-                            now.exprs = good.exprs.clone();
-                            now.outline = good.outline.clone();
-                        }
-                    }
-                    NamespaceOutcome::Failed => {}
-                }
-            }
-        }
-        // Namespaces rewound and not yet checked again keep their entries.
-        let unchecked: BTreeSet<&str> = self
-            .plan
-            .iter()
-            .filter_map(|n| self.namespace_files.get(n))
-            .flatten()
-            .map(|(p, _)| p.as_str())
-            .collect();
-        self.last_good
-            .retain(|p, _| live.contains(p.as_str()) || unchecked.contains(p.as_str()));
     }
 
     /// The declarations of the project's other namespaces that the file at
@@ -909,6 +1044,23 @@ impl LiveProject {
         } else {
             0
         };
+        // What the rewind throws away, and of it what the edit changed.
+        // The rewind is a stack, so the steps after the first changed one
+        // go with it, whether or not they use it; those that don't (the
+        // settled ones) are checked again after the edited namespace.
+        let changed: Vec<String> = if same_names && self.fatal.is_empty() {
+            (self.steps.iter())
+                .filter(|s| namespace_files.get(&s.name) != Some(&s.files))
+                .map(|s| s.name.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mut settled: BTreeSet<String> = (self.steps.iter().skip(keep))
+            .map(|s| s.name.clone())
+            .filter(|n| !changed.contains(n))
+            .collect();
+        let old_analysis = self.analysis.take();
         self.namespace_files = namespace_files;
         self.rewind_to(keep);
         let analysis = loop {
@@ -942,7 +1094,52 @@ impl LiveProject {
             .filter(|n| !done.contains(n.as_str()))
             .cloned()
             .collect();
-        let plan = self.order_rest(&analysis, &rest);
+        // Settled: thrown away but not changed, and not using anything
+        // changed, under the edited texts' uses or the ones before.
+        let mut affected: BTreeSet<String> = BTreeSet::new();
+        for name in &changed {
+            affected.extend(dependents(&analysis, name));
+            if let Some(old) = &old_analysis {
+                affected.extend(dependents(old, name));
+            }
+        }
+        settled.retain(|n| rest.contains(n) && !affected.contains(n));
+        // A settled namespace must not use one that isn't (one never
+        // checked, say): the order below puts it first.
+        while let Some(bad) = settled
+            .iter()
+            .find(|n| {
+                analysis.namespace(n).is_some_and(|ns| {
+                    ns.edges
+                        .iter()
+                        .any(|e| rest.contains(&e.target) && !settled.contains(&e.target))
+                })
+            })
+            .cloned()
+        {
+            settled.remove(&bad);
+        }
+        // What the edit changed is checked first, with what it uses, so
+        // that its diagnostics come at once; the settled steps (checked
+        // again from the cache, or in full without one: minutes, for a
+        // large project) follow. None of them uses the first part, as
+        // `settled` was made above.
+        let mut front: BTreeSet<String> = rest.difference(&settled).cloned().collect();
+        front.extend(
+            self.focus_namespaces()
+                .into_iter()
+                .filter(|n| rest.contains(n)),
+        );
+        let needed: Vec<String> = front.iter().cloned().collect();
+        let front: BTreeSet<String> = (closure(&analysis, &needed).into_iter())
+            .filter(|n| rest.contains(n))
+            .chain(front)
+            .collect();
+        let tail: BTreeSet<String> = settled.difference(&front).cloned().collect();
+        let mut plan = self.order_rest(&analysis, &front);
+        plan.extend(
+            canonical_order(&analysis, &tail).expect("a part of an acyclic project is acyclic"),
+        );
         if self.session.elab.uses_check_cache() {
             let namespaces: Vec<NamespaceSources> = analysis
                 .namespaces
@@ -985,6 +1182,10 @@ impl LiveProject {
         }
         self.steps.truncate(keep);
         self.plan.clear();
+        // The logs of failed declarations and broken tests aren't rewound
+        // with the session; those of the namespaces dropped go here.
+        let kept: BTreeSet<&str> = self.steps.iter().map(|s| s.name.as_str()).collect();
+        (self.session.elab).retain_broken_tests(|ns| kept.contains(ns));
     }
 
     /// The project can't be checked: reads it again into the session (so
@@ -1180,7 +1381,9 @@ impl LiveFile {
     pub fn answers(&mut self) -> Answers {
         let index = index_data(&self.session, "", &self.diagnostics);
         let wanted = BTreeSet::from([self.name.clone()]);
-        let mut answers = answers_from(&index, &wanted, &self.name);
+        let mut answers = answers_from_with(&index, &wanted, &self.name, |path| {
+            (path == self.name).then_some(self.text.as_str())
+        });
         if let Some(file) = answers.get_mut(&Place::Program(self.name.clone())) {
             file.names = self.names.clone();
         }
@@ -1285,6 +1488,7 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
             ty,
             range,
             full_range: range,
+            body_error: false,
             parent,
         });
         out.len() - 1
@@ -1340,6 +1544,7 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 theorem,
                 instance,
                 synonym,
+                syntax_error,
                 span,
                 ..
             } => {
@@ -1356,7 +1561,9 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 let ty = (!*synonym)
                     .then(|| written_signature(text, name, *span))
                     .flatten();
-                item(&mut out, full, kind, name_range(name), None, ty);
+                let owner = item(&mut out, full, kind, name_range(name), None, ty);
+                // Its range is extended to the declaration's end below.
+                out[owner].body_error = syntax_error.is_some();
             }
             Decl::Ability { name, ops, .. } => {
                 let full = format!("{prefix}{}", name.text);
@@ -1380,5 +1587,129 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
             Decl::Equation { .. } => {}
         }
     }
+    if out.iter().any(|item| item.body_error) {
+        let starts = declaration_starts(text);
+        for item in &mut out {
+            if item.body_error {
+                extend_failed_outline(text, &starts, item);
+            }
+        }
+    }
     out
+}
+
+/// Wall-clock totals per phase of a project check (SW-3113), read by the
+/// playground's stats (`phases::take`). Bounded: the native language server
+/// never calls `take`, so only the slowest steps and the first failing ones
+/// are kept between calls.
+pub mod phases {
+    use std::collections::BTreeMap;
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    /// How many of the slowest steps are kept, and of the failing ones.
+    const KEEP: usize = 12;
+    const KEEP_FAILED: usize = 40;
+
+    struct State {
+        totals: BTreeMap<&'static str, (u64, f64)>,
+        count: u64,
+        ms: f64,
+        /// The namespace being checked, for a crash's report.
+        current: String,
+        slowest: Vec<(String, f64)>,
+        deepest: Vec<(String, usize)>,
+        failed: Vec<String>,
+    }
+    static STATE: Mutex<State> = Mutex::new(State {
+        totals: BTreeMap::new(),
+        count: 0,
+        ms: 0.0,
+        current: String::new(),
+        slowest: Vec::new(),
+        deepest: Vec::new(),
+        failed: Vec::new(),
+    });
+
+    /// The namespace a step is about to check.
+    pub fn begin(name: &str) {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        s.current.clear();
+        s.current.push_str(name);
+    }
+
+    /// The namespace the last step began on.
+    pub fn current() -> String {
+        STATE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .current
+            .clone()
+    }
+
+    pub fn add(phase: &'static str, d: Duration) {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        let e = s.totals.entry(phase).or_default();
+        e.0 += 1;
+        e.1 += d.as_secs_f64() * 1000.0;
+    }
+
+    /// A step that took `d` and reached `stack` bytes of stack (0 unless
+    /// built with `STITCHWORT_STACK_PROBE`); `failed` if it reported an error.
+    pub fn step(name: &str, failed: bool, stack: usize, d: Duration) {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        let ms = d.as_secs_f64() * 1000.0;
+        s.count += 1;
+        s.ms += ms;
+        if failed && s.failed.len() < KEEP_FAILED {
+            s.failed.push(name.to_string());
+        }
+        if s.slowest.len() < KEEP || s.slowest.last().is_some_and(|l| l.1 < ms) {
+            s.slowest.push((name.to_string(), ms));
+            s.slowest.sort_by(|a, b| b.1.total_cmp(&a.1));
+            s.slowest.truncate(KEEP);
+        }
+        if stack > 0 && (s.deepest.len() < KEEP || s.deepest.last().is_some_and(|l| l.1 < stack)) {
+            s.deepest.push((name.to_string(), stack));
+            s.deepest.sort_by_key(|d| std::cmp::Reverse(d.1));
+            s.deepest.truncate(KEEP);
+        }
+    }
+
+    /// The totals since the last call, as JSON: `{"steps": n, "stepsMs",
+    /// "totals": {phase: [count, ms]}, "top": [[name, ms]], "failed": [name]}`
+    /// (the slowest steps first).
+    pub fn take() -> String {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        let totals = std::mem::take(&mut s.totals);
+        let slowest = std::mem::take(&mut s.slowest);
+        let failed = std::mem::take(&mut s.failed);
+        let deepest = std::mem::take(&mut s.deepest);
+        let (n, all) = (std::mem::take(&mut s.count), std::mem::take(&mut s.ms));
+        let quote = |k: &str| {
+            k.replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', " ")
+        };
+        let totals: Vec<String> = totals
+            .iter()
+            .map(|(k, (c, ms))| format!("\"{k}\":[{c},{ms:.1}]"))
+            .collect();
+        let top: Vec<String> = slowest
+            .iter()
+            .map(|(k, ms)| format!("[\"{}\",{ms:.1}]", quote(k)))
+            .collect();
+        let failed: Vec<String> = failed.iter().map(|k| format!("\"{}\"", quote(k))).collect();
+        let deepest: Vec<String> = deepest
+            .iter()
+            .map(|(k, b)| format!("[\"{}\",{}]", quote(k), b / 1024))
+            .collect();
+        format!(
+            "{{\"steps\":{n},\"stepsMs\":{all:.1},\"totals\":{{{}}},\"top\":[{}],\"failed\":[{}],\"deepestKiB\":[{}]}}",
+            totals.join(","),
+            top.join(","),
+            failed.join(","),
+            deepest.join(",")
+        )
+    }
 }

@@ -34,9 +34,9 @@ def exampleSpace: Space := Space.of 11 7
 def puzzleSpace: Space := Space.of 101 103
 
 --| The tile at `x` and `y`, as the puzzle writes them: column, then row.
-def tile (x: Nat) (y: Nat): Position := { row = y, column = x }
+def tile (x y: Nat): Position := { row = y, column = x }
 
-def robotAt (x: Nat) (y: Nat) (dx: Int) (dy: Int): Robot := { position = tile x y, velocity = { rows = dy, columns = dx } }
+def robotAt (x y: Nat) (dx dy: Int): Robot := { position = tile x y, velocity = { rows = dy, columns = dx } }
 
 test "example, part 1" := solvePart1 exampleSpace (robotsOf example) == 12
 test "example, part 2: two robots share 3,0 at the start" := solvePart2 exampleSpace (robotsOf example) == Some 1
@@ -48,52 +48,59 @@ test "example, the quadrant counts" :=
   quadrants.map (quadrant => inQuadrants.count (== quadrant)) == [1, 3, 4, 1]
 
 test "example, the tiles after 100 seconds" :=
-  exampleSpace.positionsAfter 100 (robotsOf example) |> .sortOn (position => (position.row, position.column)) == [
-    tile 6 0,
-    tile 6 0,
-    tile 9 0,
-    tile 0 2,
-    tile 1 3,
-    tile 2 3,
-    tile 5 4,
-    tile 3 5,
-    tile 4 5,
-    tile 4 5,
-    tile 1 6,
-    tile 6 6
-  ]
+  exampleSpace.positionsAfter 100 (robotsOf example) |> .sortOn (position => (position.row, position.column))
+    == [
+      tile 6 0,
+      tile 6 0,
+      tile 9 0,
+      tile 0 2,
+      tile 1 3,
+      tile 2 3,
+      tile 5 4,
+      tile 3 5,
+      tile 4 5,
+      tile 4 5,
+      tile 1 6,
+      tile 6 6
+    ]
 
 --| "Here is what robot p=2,4 v=2,-3 does for the first few seconds".
 test "the puzzle's robot, second by second" :=
   [0, 1, 2, 3, 4, 5].map (seconds => exampleSpace.positionAfter seconds (robotAt 2 4 2 (-3)))
     == [tile 2 4, tile 4 1, tile 6 5, tile 8 2, tile 10 6, tile 1 3]
-test "the spec's robot, one tile at a time" :=
-  [0, 1, 2, 3, 4, 5].all (seconds => after exampleSpace seconds (robotAt 2 4 2 (-3)) == exampleSpace.positionAfter seconds (robotAt 2 4 2 (-3)))
+test "the spec's robot, one tile at a time" := [0, 1, 2, 3, 4, 5].all (seconds =>
+  after exampleSpace seconds (robotAt 2 4 2 (-3)) == exampleSpace.positionAfter seconds (robotAt 2 4 2 (-3)))
 
 test "a negative velocity wraps to the far edge" := exampleSpace.positionAfter 1 (robotAt 0 0 (-1) (-1)) == tile 10 6
 test "a velocity of more than the width wraps more than once" :=
-  exampleSpace.positionAfter 1 (robotAt 3 2 (-25) 15) == tile 0 3 && after exampleSpace 1 (robotAt 3 2 (-25) 15) == tile 0 3
+  exampleSpace.positionAfter 1 (robotAt 3 2 (-25) 15) == tile 0 3
+    && after exampleSpace 1 (robotAt 3 2 (-25) 15) == tile 0 3
 test "a velocity of the width stays put" := exampleSpace.positionAfter 7 (robotAt 4 2 11 (-7)) == tile 4 2
 test "no seconds" := exampleSpace.positionAfter 0 (robotAt 4 2 3 3) == tile 4 2
 test "back after width times height seconds" :=
-  parsed example |> .map (robots => robots.all (robot => exampleSpace.positionAfter 77 robot == robot.position)) == Ok True
+  parsed example |> .map (robots => robots.all (robot => exampleSpace.positionAfter 77 robot == robot.position))
+    == Ok True
 
-test "the middle column is in no quadrant" := [0, 1, 2, 3, 4, 5, 6].all (y => exampleSpace.quadrantOf (tile 5 y) == None)
-test "the middle row is in no quadrant" := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].all (x => exampleSpace.quadrantOf (tile x 3) == None)
+test "the middle column is in no quadrant" :=
+  [0, 1, 2, 3, 4, 5, 6].all (y => exampleSpace.quadrantOf (tile 5 y) == None)
+test "the middle row is in no quadrant" :=
+  [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].all (x => exampleSpace.quadrantOf (tile x 3) == None)
 test "the tiles beside the middle" :=
   exampleSpace.quadrantOf (tile 4 2) == Some TopLeft
     && exampleSpace.quadrantOf (tile 6 2) == Some TopRight
     && exampleSpace.quadrantOf (tile 4 4) == Some BottomLeft
     && exampleSpace.quadrantOf (tile 6 4) == Some BottomRight
 test "the corners" :=
-  [tile 0 0, tile 100 0, tile 0 102, tile 100 102].map puzzleSpace.quadrantOf == [Some TopLeft, Some TopRight, Some BottomLeft, Some BottomRight]
-test "the spec's halves agree on the edge cases" :=
-  [tile 4 2, tile 5 2, tile 6 3, tile 0 6, tile 10 0].all (position =>
-    (exampleSpace.quadrantOf position == Some TopLeft) == (isTop exampleSpace position && isLeft exampleSpace position)
-      && (exampleSpace.quadrantOf position == Some BottomRight) == (isBottom exampleSpace position && isRight exampleSpace position))
+  [tile 0 0, tile 100 0, tile 0 102, tile 100 102].map puzzleSpace.quadrantOf
+    == [Some TopLeft, Some TopRight, Some BottomLeft, Some BottomRight]
+test "the spec's halves agree on the edge cases" := [tile 4 2, tile 5 2, tile 6 3, tile 0 6, tile 10 0].all (position =>
+  (exampleSpace.quadrantOf position == Some TopLeft) == (isTop exampleSpace position && isLeft exampleSpace position)
+    && (exampleSpace.quadrantOf position == Some BottomRight)
+      == (isBottom exampleSpace position && isRight exampleSpace position))
 test "everyone in the middle is a safety factor of 0" := exampleSpace.safetyFactor [tile 5 0, tile 0 3, tile 5 3] == 0
 test "an empty quadrant makes 0" := exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6] == 0
-test "one robot in each quadrant" := exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6, tile 10 6, tile 10 6] == 2
+test "one robot in each quadrant" :=
+  exampleSpace.safetyFactor [tile 0 0, tile 10 0, tile 0 6, tile 10 6, tile 10 6] == 2
 
 test "no overlap" := [tile 0 0, tile 1 0, tile 0 1].isDistinct
 test "an overlap" := ![tile 0 0, tile 1 0, tile 0 0].isDistinct
@@ -170,7 +177,8 @@ def generatedCrowded: Text := """
   """
 
 test "generated, 40 robots, never apart" :=
-  solvePart1 exampleSpace (robotsOf generatedCrowded) == 3564 && solvePart2 exampleSpace (robotsOf generatedCrowded) == None
+  solvePart1 exampleSpace (robotsOf generatedCrowded) == 3564
+    && solvePart2 exampleSpace (robotsOf generatedCrowded) == None
 
 --| Seed 3: 30 robots on the puzzle's space; Python gives 2200 and 0.
 def generatedLarge: Text := """
@@ -224,14 +232,17 @@ test "a bad number" := parsed "p=1,4 v=3,x\n" == Err "line 1, column 11: expecte
 def ran (lines: List Text): Pair (List Text) (Result Bool Text) :=
   IO.simulate lines (() => Result.map (Fail.toResult (() => solveIn exampleSpace)) (unit => True))
 
-def sizeFrom (args: List Text): Result (Nat, Nat) Text := Fail.toResult (() => Space.fromArgs args) |> .map (space => (space.width, space.height))
+def sizeFrom (args: List Text): Result (Nat, Nat) Text :=
+  Fail.toResult (() => Space.fromArgs args) |> .map (space => (space.width, space.height))
 
 test "the space from the arguments" :=
-  sizeFrom [] == Ok (101, 103) && sizeFrom ["11", "7"] == Ok (11, 7)
+  sizeFrom [] == Ok (101, 103)
+    && sizeFrom ["11", "7"] == Ok (11, 7)
     && sizeFrom ["11"] == Err "expected no arguments, or a width and a height above 0, such as `11 7`"
     && sizeFrom ["0", "7"] == Err "expected no arguments, or a width and a height above 0, such as `11 7`"
     && sizeFrom ["11", "x"] == Err "expected no arguments, or a width and a height above 0, such as `11 7`"
 
 test "main on the example" := ran (example.lines) == MkPair ["Part 1: 12", "Part 2: 1"] (Ok True)
-test "main with a robot outside the space" := ran ["p=0,0 v=1,1", "p=11,0 v=1,1"] == MkPair [] (Err "line 2: the robot starts outside the space")
+test "main with a robot outside the space" :=
+  ran ["p=0,0 v=1,1", "p=11,0 v=1,1"] == MkPair [] (Err "line 2: the robot starts outside the space")
 test "main with no picture" := ran (generatedCrowded.lines) == MkPair ["Part 1: 3564"] (Err "no second shows a picture")

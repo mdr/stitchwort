@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.double 5b10fe50cf84beeac1ee72f9320e4169949d818028349c607c9cd2000e24c4c0
@@ -16,6 +16,6 @@ Main.answer.%body 71da0b5874fea37497a85774c2ed308fff67e17894f6a91bad86e6d67240ba
 Main.answer.unfold d4bd67e6f19ea4f50f696ec2cfce8c90796c6322f4180c2bdcbb53025e3f1da3
 Main.doubleTwo e19bc78cd5040c873f663a9a6a21bea70dabd02557f9672b2f0fd2e5c3b112a5
 Main.answerIs c08c0dd3379b167e51efb3467520381af4bfdc0324f12c7f0d484b51da2692e2
-Main.test "double runs" 18f3543267aef5234a58c5eabdcced01e4edabc4281e5d720c30153c813e88ba
-Main.test "triple runs" 417a6eb70aa9af0de21b7c05edde7d661b1d67f924b34c6df5f4ad1b8fb7befc
-Main.test "quadruple runs" b3bc906610014af7c6c71ed3a5831f6e129fb66030d777ebc4864ca70909ba7f
+Main.test "double runs" 4fd7801807a8407578235c87601e2d93ffc9ea0119e64f10fe2ee36eca936fbc
+Main.test "triple runs" 8fb71228668018f1781071ee65b0e77e84798cb0b10d233d8ceed674b0b7e3e3
+Main.test "quadruple runs" 2eb1dce921cfc5ef93ff25f2123f2a6122d257470ce1921bc0989222b52e174f

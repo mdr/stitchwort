@@ -42,16 +42,26 @@
 //! (`Elaborator::decreasing_theorem`), each call with the decrease proof
 //! `f`'s own call was made with (kept by [`Def::mark_rec`]).
 //!
+//! **A lifted `match`** is split as far as its alternatives' patterns go:
+//! the scrutinee by its type's lemma, then, below each
+//! constructor, the first field where the first alternative that agrees
+//! with the splits so far has a constructor, and so on; a number literal is
+//! `Zero` or `Succ` of the one before it. Where that alternative's
+//! constructors are all split, it takes the place: its variables are the
+//! values there, its equation `e = pattern` is built from the splits' by
+//! `J`, and each hypothesis that an earlier alternative `p` didn't match
+//! (`(vars) → v = p → Void`, about the scrutinee for a catch-all, about a
+//! variable for an alternative that overlaps an earlier one) is proved
+//! where the value there and `p` differ in a constructor.
+//!
 //! **Not made** (recorded with the reason, `E-NO-EQUATION` when named): a
 //! definition one of whose cases has no equation, or takes an overlap
 //! hypothesis (`notArmJ`, which the proof would have to establish); a
 //! recursive call whose arguments depend on a binder it is under (a lambda
 //! passed to `List.map`, §5.1), or inside a lifted `match` that isn't in
-//! tail position; a lifted `match` whose alternatives aren't one
-//! constructor each, applied to variables or to nested constructors of
-//! one-constructor types (`Some (MkPair v next)`, split again by the
-//! field's own lemma, SW-1073), covering the type. Mutual groups
-//! get none (D2181).
+//! tail position; a lifted `match` on several expressions, or whose
+//! patterns aren't constructors, variables and number literals up to 64,
+//! or on an indexed type. Mutual groups get none (D2181).
 
 use super::*;
 use stitchwort_core::Ev;
@@ -316,6 +326,64 @@ fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih
     }
 }
 
+/// `step` with the marks of [`Def::mark_rec`] dropped from the terms the
+/// proof takes from it.
+fn unmark_step(g: &Ev, d: &Def, step: Step) -> R<Step> {
+    let all = |ts: Vec<(Term, Icit)>| -> R<Vec<(Term, Icit)>> {
+        (ts.into_iter())
+            .map(|(t, icit)| Ok((unmark(g, d, &t)?, icit)))
+            .collect()
+    };
+    Ok(match step {
+        Step::Ite { depth, head, args } => Step::Ite {
+            depth,
+            head,
+            args: all(args)?,
+        },
+        Step::Dec {
+            depth,
+            args,
+            yes,
+            uniq,
+            normal,
+        } => Step::Dec {
+            depth,
+            args: all(args)?,
+            yes,
+            uniq,
+            normal: match normal {
+                Some((t, x)) => Some((unmark(g, d, &t)?, x)),
+                None => None,
+            },
+        },
+        Step::Helper {
+            depth,
+            after,
+            head,
+            args,
+            cols,
+            col_tys,
+            eq,
+            hyp,
+            proof,
+            result,
+        } => Step::Helper {
+            depth,
+            after,
+            head,
+            args: all(args)?,
+            cols,
+            col_tys: (col_tys.iter())
+                .map(|t| Ok(unmark(g, d, t)?))
+                .collect::<R<_>>()?,
+            eq,
+            hyp,
+            proof,
+            result,
+        },
+    })
+}
+
 /// The core's lemmas the proof splits with.
 struct Splitters {
     inspect: DefId,
@@ -496,6 +564,17 @@ impl Elaborator {
                 if steps.len() != choices.len() {
                     return skip("a branch's splits couldn't be followed");
                 }
+                // A recursive call can be in a split's scrutinee or
+                // condition too (`match f rest with`), so in a hypothesis.
+                // Its mark is no term the kernel takes (`f y… p` applies
+                // `f`'s result to `p`), and only the right side's calls
+                // need their proofs.
+                let binders = (binders.into_iter())
+                    .map(|(x, icit, ty)| Ok((x, icit, unmark(g, d, &ty)?)))
+                    .collect::<R<Vec<_>>>()?;
+                let steps = (steps.into_iter())
+                    .map(|s| unmark_step(g, d, s))
+                    .collect::<R<Vec<_>>>()?;
                 cases.push(Case {
                     row: k,
                     name: case_name(suffix).into(),
@@ -670,7 +749,7 @@ impl Elaborator {
             false,
             span,
         )?;
-        let mut splits: HashMap<DataId, DefId> = HashMap::default();
+        let mut splits = Splits::default();
         let mut row_proofs: HashMap<usize, RowProof> = HashMap::default();
         for k in 0..d.rows.len() {
             let mine: Vec<(usize, &Case)> = cases
@@ -694,7 +773,7 @@ impl Elaborator {
             );
         }
         let q = lay.prefix();
-        let mut made: Vec<DefId> = splits.values().copied().collect();
+        let mut made: Vec<DefId> = splits.made();
         let mut walk = Tree {
             e: self,
             d,
@@ -704,7 +783,7 @@ impl Elaborator {
             pvals: (0..q).map(PV::Var).collect(),
             facts: Vec::new(),
             sp: &sp,
-            discs: HashMap::default(),
+            discs: std::mem::take(&mut splits.discs),
             made: &mut made,
         };
         let mut fvals = Vec::new();
@@ -740,9 +819,9 @@ impl Elaborator {
             kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, tree))])?;
         }
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
             for s in made {
-                self.unit.module.def_items.insert(s, item);
+                self.unit.module.note_def(s, item);
             }
         }
         let key = format!("{}.induct", d.key);
@@ -866,7 +945,7 @@ impl Elaborator {
         cases: &[(usize, &Case)],
         level: usize,
         rd: usize,
-        splits: &mut HashMap<DataId, DefId>,
+        splits: &mut Splits,
     ) -> R<Term> {
         let q = lay.prefix();
         let (ci, first) = cases[0];
@@ -981,71 +1060,93 @@ impl Elaborator {
                 if !decl.indices().is_empty() {
                     return skip("a lifted `match` on an indexed family isn't split by stage 2a");
                 }
-                // Each way's constructor, from its equation `e = C fields`,
-                // the last of the binders the alternative adds.
-                type Way<'c> = (usize, Vec<(usize, &'c Case)>, Pat);
-                let mut by_ctor: Vec<Option<Way>> = vec![None; decl.ctors().len()];
-                for (_, group) in &ways {
+                // Each alternative's pattern, from its equation `e = pattern`
+                // (the binder `hyp`, after the pattern's variables and before
+                // the hypotheses that the earlier alternatives didn't match),
+                // or none for a catch-all, which has only those hypotheses.
+                let nat = g.env.builtins().nat;
+                let mut alts: Vec<Alt> = Vec::new();
+                for (choice, group) in &ways {
                     let case = group[0].1;
                     let Step::Helper { after, hyp, .. } = &case.steps[level] else {
                         return skip("a branch's splits couldn't be followed");
                     };
                     let after = *after;
-                    if *hyp != Some(after - 1) || after <= depth {
+                    let Some(h) = *hyp else {
+                        if after < depth {
+                            return skip("a branch's splits couldn't be followed");
+                        }
+                        if alts.iter().any(|a| a.pat.is_none()) {
+                            return skip("a lifted `match` has two catch-all alternatives");
+                        }
+                        alts.push(Alt {
+                            choice: *choice,
+                            group: group.clone(),
+                            after,
+                            pat: None,
+                            eq: None,
+                        });
+                        continue;
+                    };
+                    if h < depth || h >= after {
                         return skip(
-                            "a lifted `match`'s alternative doesn't end with its equation `e = \
-                             pattern`, which stage 2a splits on",
+                            "a lifted `match`'s alternative doesn't have its equation `e = \
+                             pattern` after its variables, which stage 2a splits on",
                         );
                     }
-                    let (_, _, eq_ty) = &case.binders[after - 1];
-                    let fields = after - 1 - depth;
+                    let (_, _, eq_ty) = &case.binders[h];
+                    let vars = h - depth;
                     let pat = match eq_ty.strip_loc() {
                         Term::Eq(_, _, pat) => {
                             let mut seen = 0;
-                            parse_pat(pat, fields, &mut seen).filter(|_| seen == fields)
+                            parse_pat(pat, vars, nat, &mut seen).filter(|_| seen == vars)
                         }
                         _ => None,
                     };
-                    let Some(Pat::Node {
+                    let Some(pat @ Pat::Node { .. }) = pat else {
+                        if matches!(eq_ty.strip_loc(), Term::Eq(_, _, p) if big_literal(p)) {
+                            return skip(format!(
+                                "a lifted `match`'s alternative has a number literal above \
+                                 {LITERAL_LIMIT}, which stage 2a would split one `Succ` at a time"
+                            ));
+                        }
+                        return skip(
+                            "a lifted `match`'s alternative isn't a constructor applied to \
+                             variables, nested constructors or number literals, which stage 2a \
+                             splits on",
+                        );
+                    };
+                    let Pat::Node {
                         data: pd,
                         ctor: c,
                         fields: pf,
-                    }) = pat
+                    } = &pat
                     else {
-                        return skip(
-                            "a lifted `match`'s alternative isn't a constructor applied to \
-                             variables or to nested constructors, which stage 2a splits on",
-                        );
+                        unreachable!("matched as a constructor above")
                     };
-                    if pd != data || decl.ctors()[c].fields.len() != pf.len() {
+                    if *pd != data || decl.ctors()[*c].fields.len() != pf.len() {
                         return skip(
                             "a lifted `match`'s alternative isn't of its scrutinee's type, or \
                              isn't applied to the fields of that type's constructor",
                         );
                     }
-                    // A nested pattern can only be split on a non-indexed
-                    // type with one constructor. Say so here, before the
-                    // alternatives' constructors are checked for
-                    // repetition: `Some None` and `Some (Some k)` would
-                    // otherwise be reported as not covering their type once.
-                    if pf.iter().any(|f| nested_unsplittable(g, f)) {
-                        return skip(
-                            "a nested pattern on a type with several constructors or indices \
-                             isn't split by stage 2a",
-                        );
-                    }
-                    let pat = Pat::Node {
-                        data: pd,
-                        ctor: c,
-                        fields: pf,
-                    };
-                    if by_ctor[c].is_some() {
-                        return skip("a lifted `match`'s alternatives don't cover its type once");
-                    }
-                    by_ctor[c] = Some((after, group.clone(), pat));
+                    alts.push(Alt {
+                        choice: *choice,
+                        group: group.clone(),
+                        after,
+                        pat: Some(pat),
+                        eq: Some(h),
+                    });
                 }
-                let e = args[col].0.shift(g, rd - depth, 0)?;
+                alts.sort_by_key(|a| a.choice);
+                // The alternatives' proofs are moved below the splits, which
+                // binds the variables after the row's (`rd`) at `depth`.
+                if rd != depth {
+                    return skip("a lifted `match` is below a split of its own");
+                }
+                let e = args[col].0.clone();
                 let data_args: Vec<Term> = data_args.iter().map(|a| (**a).clone()).collect();
+                let ctors = decl.ctors().len();
                 let gl = goal(self, rd)?;
                 let split = match splits.get(&data) {
                     Some(s) => *s,
@@ -1061,42 +1162,33 @@ impl Elaborator {
                 }
                 out = Term::app(out, gl.clone());
                 out = Term::app(out, e.clone());
-                for way in by_ctor {
-                    let Some((after, group, pat)) = way else {
-                        return skip("a lifted `match`'s alternatives don't cover its type");
-                    };
-                    let sub =
-                        self.induct_split(d, lay, sp, id, &group, level + 1, after, splits)?;
-                    let names: Vec<(Name, Icit)> = group[0].1.binders[depth..after]
-                        .iter()
-                        .map(|(x, _, _)| (x.clone(), Icit::Explicit))
-                        .collect();
-                    let Pat::Node { fields, .. } = &pat else {
-                        unreachable!("an alternative's pattern is a constructor")
-                    };
-                    if fields.iter().all(|f| matches!(f, Pat::Leaf)) {
-                        out = Term::app(out, lams(&names, sub));
-                    } else {
-                        if rd != depth {
-                            return skip("a nested pattern's `match` is below a split of its own");
+                let mut x = AltSplit {
+                    d,
+                    lay,
+                    sp,
+                    id,
+                    level,
+                    depth,
+                    data,
+                    data_args: &data_args,
+                    scrut: &e,
+                    goal: &gl,
+                    alts: &alts,
+                    subs: vec![None; alts.len()],
+                };
+                for c in 0..ctors {
+                    // The proofs of the alternatives on this constructor
+                    // first, so the hidden lemmas are numbered in the
+                    // alternatives' order.
+                    for (a, alt) in alts.iter().enumerate() {
+                        if matches!(&alt.pat, Some(Pat::Node { ctor, .. }) if *ctor == c) {
+                            self.alt_sub(&mut x, a, splits)?;
                         }
-                        let nested = self.induct_nested(
-                            d,
-                            splits,
-                            Nest {
-                                data,
-                                data_args: &data_args,
-                                scrut: &e,
-                                goal: &gl,
-                                sub: &sub,
-                                after,
-                                prefix: lay.prefix(),
-                                depth,
-                            },
-                            &pat,
-                        )?;
-                        out = Term::app(out, nested);
                     }
+                    let m = self.kernel.data(data).ctors()[c].fields.len();
+                    let mut nodes = vec![Open::new(data, c, m, data_args.clone(), None, depth)];
+                    let body = self.alt_descend(&mut x, splits, &mut nodes, depth + m + 1)?;
+                    out = Term::app(out, lams(&self.field_names(data, c), body));
                 }
                 Ok(out)
             }
@@ -1203,6 +1295,438 @@ impl Elaborator {
             Rc::new(applied),
             Rc::new(back),
         ))
+    }
+
+    /// The hidden definition `[params] → (y: root params) → Prop` that is
+    /// `Unit` for a value with the constructors of `path`, then `at`, and
+    /// `Void` for any other; with `inst`, `(y: root inst) → Prop`, for a
+    /// path through a field whose declared type is a parameter, which only
+    /// the instance makes a data type.
+    fn induct_apart(
+        &mut self,
+        d: &Def,
+        discs: &mut HashMap<String, DefId>,
+        root: DataId,
+        path: &[(DataId, usize, usize)],
+        at: (DataId, usize),
+        inst: Option<&[Term]>,
+    ) -> R<DefId> {
+        let key = match inst {
+            None => format!("{root:?}{path:?}{at:?}"),
+            Some(args) => format!("{root:?}{args:?}{path:?}{at:?}"),
+        };
+        if let Some(id) = discs.get(&key) {
+            return Ok(*id);
+        }
+        let g = self.ev();
+        let unit = g
+            .env
+            .registry()
+            .data(Builtin::Unit)
+            .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
+        let void = g
+            .env
+            .registry()
+            .data(Builtin::Void)
+            .ok_or_else(|| Stop::Skip("no `Void`".into()))?;
+        let sort = g.data(unit).sort();
+        if g.data(void).sort() != sort {
+            return skip("`Unit` and `Void` aren't in one universe");
+        }
+        let decl = g.data(root);
+        let (mut binders, y) = match inst {
+            None => {
+                let np = decl.params().len();
+                let params: Vec<Binder> = (decl.params().iter())
+                    .map(|(x, ty)| Binder {
+                        name: x.clone(),
+                        icit: Icit::Implicit,
+                        ty: ty.clone(),
+                    })
+                    .collect();
+                let y = Term::data(root, (0..np).map(|j| Term::Var(np - 1 - j)).collect());
+                (params, y)
+            }
+            Some(args) => (Vec::new(), Term::data(root, args.to_vec())),
+        };
+        let np = binders.len();
+        binders.push(Binder {
+            name: "y".into(),
+            icit: Icit::Explicit,
+            ty: y,
+        });
+        // The case tree, from the scrutinee at `level` in a context of
+        // `depth`, at step `i` of the path.
+        #[allow(clippy::too_many_arguments)]
+        fn build(
+            g: &Ev,
+            path: &[(DataId, usize, usize)],
+            at: (DataId, usize),
+            unit: DataId,
+            void: DataId,
+            level: usize,
+            depth: usize,
+            i: usize,
+        ) -> Term {
+            let (data, take, field) = match path.get(i) {
+                Some(&(d, c, f)) => (d, c, Some(f)),
+                None => (at.0, at.1, None),
+            };
+            let branches: Vec<Branch> = g
+                .data(data)
+                .ctors()
+                .iter()
+                .enumerate()
+                .map(|(c, ctor)| {
+                    let m = ctor.fields.len();
+                    let body = match (c == take, field) {
+                        (true, Some(f)) => {
+                            build(g, path, at, unit, void, depth + f, depth + m, i + 1)
+                        }
+                        (true, None) => Term::Data(unit, Vec::new()),
+                        (false, _) => Term::Data(void, Vec::new()),
+                    };
+                    Branch {
+                        names: ctor.fields.iter().map(|(x, _)| x.clone()).collect(),
+                        body: Some(Rc::new(body)),
+                    }
+                })
+                .collect();
+            Term::Case(depth - 1 - level, data, branches.into())
+        }
+        let tree = build(&g, path, at, unit, void, np, np + 1, 0);
+        let ty = pis(&binders, Term::Sort(sort));
+        let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
+        let name: Name = format!("{}.induct.%apart{}", d.display, discs.len() + 1).into();
+        let span = d.rows[0].span;
+        let id = kernel::declare_def(
+            &mut self.kernel,
+            &self.tables,
+            &self.unit,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
+        kernel::define_group(&mut self.kernel, &self.tables, &[(id, lams(&names, tree))])?;
+        discs.insert(key, id);
+        Ok(id)
+    }
+
+    /// Alternative `a`'s proof below the split, made once: a term in the
+    /// context of the prefix and its `after` binders.
+    fn alt_sub(&mut self, x: &mut AltSplit, a: usize, splits: &mut Splits) -> R<Term> {
+        if let Some(sub) = &x.subs[a] {
+            return Ok(sub.clone());
+        }
+        let alt = &x.alts[a];
+        let sub = self.induct_split(
+            x.d,
+            x.lay,
+            x.sp,
+            x.id,
+            &alt.group,
+            x.level + 1,
+            alt.after,
+            splits,
+        )?;
+        x.subs[a] = Some(sub.clone());
+        Ok(sub)
+    }
+
+    /// Below the split of a lifted `match`'s scrutinee and of the fields
+    /// opened in `nodes`, in a context of `cur` variables: the first
+    /// alternative that agrees with every split so far takes this place,
+    /// once its pattern's constructors are all split. Until then, the first
+    /// field it has a constructor at is split by its type's lemma.
+    fn alt_descend(
+        &mut self,
+        x: &mut AltSplit,
+        splits: &mut Splits,
+        nodes: &mut Vec<Open>,
+        cur: usize,
+    ) -> R<Term> {
+        let Some(a) =
+            (x.alts.iter()).position(|alt| alt.pat.as_ref().is_none_or(|p| agrees(nodes, 0, p)))
+        else {
+            return skip("a lifted `match`'s alternatives don't cover its type");
+        };
+        let next = x.alts[a].pat.as_ref().and_then(|p| unsplit(nodes, p));
+        let Some((ni, k, pd)) = next else {
+            return self.alt_leaf(x, splits, a, nodes, cur);
+        };
+        let g = &self.ev();
+        let node = nodes[ni].clone();
+        let decl = g.data(node.data);
+        // A later field whose type mentions this one: splitting the field
+        // would need the later field's type rewritten by the split, which
+        // stage 2a's lemma doesn't do.
+        let fields = &decl.ctors()[node.ctor].fields;
+        if let Some(j) = (k + 1..fields.len()).find(|&j| fields[j].1.mentions(j - 1 - k)) {
+            return skip(format!(
+                "a later field `{}` of the constructor has a type that depends on the nested \
+                 field `{}`, which stage 2a doesn't split",
+                fields[j].0, fields[k].0
+            ));
+        }
+        // The field's type here.
+        let np = decl.params().len();
+        let mut vals: Vec<(Term, usize)> = node
+            .args
+            .iter()
+            .map(|a| (a.clone(), node.args_at))
+            .collect();
+        for j in 0..k {
+            vals.push((Term::Var(cur - 1 - node.fields[j]), cur));
+        }
+        let fty = instantiate(g, &fields[k].1, np + k, &vals, cur)?;
+        let env: Vec<Value> = (0..cur).map(Value::var).collect();
+        let fty = stitchwort_core::value::quote(g, cur, &force(g, eval(g, &env, &fty)?)?)?;
+        let Term::Data(fd, fargs) = fty.strip_loc() else {
+            return skip("a nested pattern's field isn't of a data type");
+        };
+        let fd = *fd;
+        if fd != pd {
+            return skip("a nested pattern isn't of its field's type");
+        }
+        if !g.data(fd).indices().is_empty() {
+            return skip("a nested pattern on an indexed family isn't split by stage 2a");
+        }
+        let fargs: Vec<Term> = fargs.iter().map(|a| (**a).clone()).collect();
+        let field = node.fields[k];
+        let goal = x.goal.shift(g, cur - x.depth, 0)?;
+        let split = match splits.get(&fd) {
+            Some(s) => *s,
+            None => {
+                let s = self.induct_declare_split(x.d, fd, splits.len() + 1)?;
+                splits.insert(fd, s);
+                s
+            }
+        };
+        let mut out = Term::Def(split);
+        for a in fargs.iter().cloned() {
+            out = Term::app_icit(out, a, Icit::Implicit);
+        }
+        out = Term::app(out, goal);
+        out = Term::app(out, Term::Var(cur - 1 - field));
+        for c in 0..self.kernel.data(fd).ctors().len() {
+            let m = self.kernel.data(fd).ctors()[c].fields.len();
+            let open = Open::new(fd, c, m, fargs.clone(), Some((ni, k, field)), cur);
+            nodes.push(open);
+            nodes[ni].kids[k] = Some(nodes.len() - 1);
+            let body = self.alt_descend(x, splits, nodes, cur + m + 1);
+            nodes.pop();
+            nodes[ni].kids[k] = None;
+            out = Term::app(out, lams(&self.field_names(fd, c), body?));
+        }
+        Ok(out)
+    }
+
+    /// Alternative `a`'s proof where every constructor of its pattern is
+    /// split: its variables are the values the splits gave, its equation
+    /// `e = pattern` is built from theirs by `J`, and each hypothesis that
+    /// an earlier alternative `p` didn't match, `(vars) → v = p → Void`, is
+    /// proved where the value here and `p` differ in a constructor, bound by
+    /// a `let`.
+    fn alt_leaf(
+        &mut self,
+        x: &mut AltSplit,
+        splits: &mut Splits,
+        a: usize,
+        nodes: &[Open],
+        cur: usize,
+    ) -> R<Term> {
+        let sub = self.alt_sub(x, a, splits)?;
+        let alts = x.alts;
+        let alt = &alts[a];
+        let depth = x.depth;
+        let g = &self.ev();
+        let (root, proof) = node_proof(g, x.scrut, depth, nodes, 0, cur)?;
+        // The pattern's variables, each the value here and the node it is,
+        // if a split made it one.
+        let mut vs: Vec<(Term, Option<usize>)> = Vec::new();
+        if let Some(p) = &alt.pat {
+            values(nodes, 0, p, cur, &mut vs)?;
+        }
+        let from = alt.eq.map_or(depth, |h| h + 1);
+        if alt.eq.is_some_and(|h| h - depth != vs.len()) {
+            return skip("a lifted `match`'s alternative's variables aren't its pattern's");
+        }
+        let nh = alt.after - from;
+        // The alternative's binder at level `l`, where `j` hypotheses are
+        // bound after the `cur` variables.
+        let at = |g: &Ev, l: usize, j: usize| -> R<Term> {
+            Ok(if l < depth {
+                Term::Var(cur + j - 1 - l)
+            } else if l < depth + vs.len() {
+                vs[l - depth].0.shift(g, j, 0)?
+            } else if l < from {
+                proof.shift(g, j, 0)?
+            } else {
+                Term::Var(j - 1 - (l - from))
+            })
+        };
+        let mut lets: Vec<(Name, Term, Term)> = Vec::new();
+        for j in 0..nh {
+            let level = from + j;
+            let (name, _, ty) = &alt.group[0].1.binders[level];
+            let g = &self.ev();
+            let here = remap(g, ty, level, cur + j, &|l| at(g, l, j).ok())?.ok_or_else(|| {
+                Stop::Skip("an alternative's hypothesis couldn't be moved".into())
+            })?;
+            let value = self.alt_refute(
+                x,
+                splits,
+                a,
+                ty,
+                &here,
+                (j, cur),
+                nodes,
+                &vs,
+                (&root, &proof),
+            )?;
+            lets.push((name.clone(), here, value));
+        }
+        let g = &self.ev();
+        let q = x.lay.prefix();
+        let to = q + cur + nh;
+        let mut body = remap(g, &sub, q + alt.after, to, &|l| {
+            if l < q {
+                Some(Term::Var(to - 1 - l))
+            } else {
+                at(g, l - q, nh).ok()
+            }
+        })?
+        .ok_or_else(|| Stop::Skip("a lifted `match`'s alternative couldn't be moved".into()))?;
+        for (name, ty, value) in lets.into_iter().rev() {
+            body = Term::let_(name, ty, value, body);
+        }
+        Ok(body)
+    }
+
+    /// A proof of an alternative's hypothesis `(vars) → v = p → Void`
+    /// (`ty` as stated, `here` at the leaf, after `j` hypotheses), where
+    /// `v` is the scrutinee (a catch-all's) or one of the alternative's
+    /// variables: `J` with the hidden definition that tells `p` from the
+    /// value here (`Unit` for that value, `Void` for `p`), carried along
+    /// the scrutinee's equation for the former.
+    #[allow(clippy::too_many_arguments)]
+    fn alt_refute(
+        &mut self,
+        x: &AltSplit,
+        splits: &mut Splits,
+        a: usize,
+        ty: &Term,
+        here: &Term,
+        (j, cur): (usize, usize),
+        nodes: &[Open],
+        vs: &[(Term, Option<usize>)],
+        (root, proof): (&Term, &Term),
+    ) -> R<Term> {
+        let alt = &x.alts[a];
+        let g = &self.ev();
+        let (Some((nv, lhs, _)), Some((_, _, pattern))) = (hyp_parts(g, ty), hyp_parts(g, here))
+        else {
+            return skip("an alternative's hypothesis isn't `v = pattern → Void`");
+        };
+        // Which value the hypothesis is about: one of the variables (by its
+        // level in the hypothesis's own context), or the scrutinee.
+        let own = alt.eq.map_or(x.depth, |h| h + 1) + j + nv;
+        let var = match lhs.strip_loc() {
+            Term::Var(ix) if *ix < own => (own - 1 - ix).checked_sub(x.depth),
+            _ => None,
+        }
+        .filter(|&i| i < vs.len());
+        let (mine, data, args, transport) = match var {
+            Some(i) => {
+                let Some(c) = vs[i].1 else {
+                    return skip(
+                        "an alternative's hypothesis is about a variable that no split takes \
+                         apart, which stage 2a's proof doesn't establish",
+                    );
+                };
+                let n = &nodes[c];
+                let args: Vec<Term> = (n.args.iter())
+                    .map(|t| t.shift(g, cur - n.args_at, 0))
+                    .collect::<std::result::Result<_, _>>()?;
+                (vs[i].0.clone(), n.data, args, false)
+            }
+            None if alt.pat.is_none() => {
+                let args: Vec<Term> = (x.data_args.iter())
+                    .map(|t| t.shift(g, cur - x.depth, 0))
+                    .collect::<std::result::Result<_, _>>()?;
+                (root.clone(), x.data, args, true)
+            }
+            None => {
+                return skip(
+                    "an alternative's hypothesis isn't about its scrutinee or its variables, \
+                     which stage 2a's proof doesn't establish",
+                );
+            }
+        };
+        let mut path = Vec::new();
+        let Some(at) = clash(g, &mine, &pattern, &mut path) else {
+            return skip(
+                "a lifted `match`'s alternative follows one that a value it takes doesn't differ \
+                 from in a constructor, which stage 2a's proof doesn't establish",
+            );
+        };
+        let inst = apart_instance(g, &path, at, &args, cur)?;
+        let disc = self.induct_apart(x.d, &mut splits.discs, data, &path, at, inst.as_deref())?;
+        let args = if inst.is_some() { Vec::new() } else { args };
+        let g = &self.ev();
+        let registry = g.env.registry();
+        let (Some(unit), Some((_, trivial))) = (
+            registry.data(Builtin::Unit),
+            registry.ctor(Builtin::Trivial),
+        ) else {
+            return skip("no `Unit`");
+        };
+        // Under the `j` hypotheses and this one's variables and equation.
+        let under = j + nv + 1;
+        let applied = |y: Term, extra: usize| -> R<Term> {
+            let mut t = Term::Def(disc);
+            for a in &args {
+                t = Term::app_icit(t, a.shift(g, under + extra, 0)?, Icit::Implicit);
+            }
+            Ok(Term::app(t, y))
+        };
+        let lam = |x: &str, body: Term| Term::Lam(x.into(), Icit::Explicit, Rc::new(body));
+        let trivial = Term::Ctor(unit, trivial, Vec::new());
+        // `disc v`: by computation for a variable, which is the value here;
+        // for the scrutinee, from its equation turned round.
+        let got = if transport {
+            let e = x.scrut.shift(g, cur - x.depth + under, 0)?;
+            let m1 = lam(
+                "y",
+                lam(
+                    "e",
+                    Term::Pi(
+                        "w".into(),
+                        Icit::Explicit,
+                        Rc::new(applied(Term::Var(1), 2)?),
+                        Rc::new(applied(e.shift(g, 3, 0)?, 3)?),
+                    ),
+                ),
+            );
+            Term::app(
+                Term::J(
+                    Rc::new(m1),
+                    Rc::new(lam("w", Term::Var(0))),
+                    Rc::new(proof.shift(g, under, 0)?),
+                ),
+                trivial,
+            )
+        } else {
+            trivial
+        };
+        let m2 = lam("y", lam("e", applied(Term::Var(1), 2)?));
+        let void = Term::J(Rc::new(m2), Rc::new(got), Rc::new(Term::Var(0)));
+        let names: Vec<(Name, Icit)> = (0..=nv)
+            .map(|i| (format!("x{i}").into(), Icit::Explicit))
+            .collect();
+        Ok(lams(&names, void))
     }
 
     /// A hidden lemma `f.induct.%splitN` that splits a value of `data`:
@@ -1313,35 +1837,7 @@ impl Elaborator {
         Ok(id)
     }
 
-    /// The case of a split lemma for an alternative whose pattern has
-    /// nested constructors (`Some (MkPair v next)`): the outer constructor's
-    /// fields and equation bound, each field a nested pattern covers split
-    /// in turn by its type's own lemma (its type having one constructor),
-    /// and below, the alternative's proof `inner` given the pattern's
-    /// variables and its equation `e = pattern`, built from the equations
-    /// bound on the way by `J`.
-    fn induct_nested(
-        &mut self,
-        d: &Def,
-        splits: &mut HashMap<DataId, DefId>,
-        n: Nest,
-        pat: &Pat,
-    ) -> R<Term> {
-        let Pat::Node { ctor, fields, .. } = pat else {
-            return skip("a nested pattern isn't a constructor");
-        };
-        let root = self.open_node(n.data, *ctor, fields, n.data_args.to_vec(), None, n.depth);
-        let m = root.fields.len();
-        let mut nodes = vec![root];
-        let work: Vec<(usize, usize)> = (0..m)
-            .filter(|&k| matches!(nodes[0].pats[k], Pat::Node { .. }))
-            .map(|k| (0, k))
-            .collect();
-        let body = self.nested_descend(d, splits, &n, &mut nodes, work, n.depth + m + 1)?;
-        let names = self.field_names(n.data, *ctor);
-        Ok(lams(&names, body))
-    }
-
+    /// A constructor's fields' names, then `e` for its equation.
     fn field_names(&self, data: DataId, ctor: usize) -> Vec<(Name, Icit)> {
         let mut names: Vec<(Name, Icit)> = self.kernel.data(data).ctors()[ctor]
             .fields
@@ -1351,151 +1847,11 @@ impl Elaborator {
         names.push(("e".into(), Icit::Explicit));
         names
     }
-
-    /// A constructor node whose fields are bound at levels `at..`, then
-    /// its equation; its `args` are in a context of `at` variables.
-    fn open_node(
-        &self,
-        data: DataId,
-        ctor: usize,
-        pats: &[Pat],
-        args: Vec<Term>,
-        target: Option<usize>,
-        at: usize,
-    ) -> NestNode {
-        let m = self.kernel.data(data).ctors()[ctor].fields.len();
-        NestNode {
-            data,
-            ctor,
-            args,
-            args_at: at,
-            pats: pats.to_vec(),
-            kids: vec![None; m],
-            fields: (at..at + m).collect(),
-            eq: at + m,
-            target,
-        }
-    }
-
-    /// Splits the nested fields on `work` one by one, in a context of
-    /// `cur` variables, then the alternative at the end.
-    fn nested_descend(
-        &mut self,
-        d: &Def,
-        splits: &mut HashMap<DataId, DefId>,
-        n: &Nest,
-        nodes: &mut Vec<NestNode>,
-        mut work: Vec<(usize, usize)>,
-        cur: usize,
-    ) -> R<Term> {
-        let g = &self.ev();
-        let up = cur - n.depth;
-        let Some((ni, k)) = work.first().copied() else {
-            // The leaves' variables, and the equation `e = pattern`.
-            fn leaves(nodes: &[NestNode], i: usize, out: &mut Vec<usize>) {
-                for (k, p) in nodes[i].pats.iter().enumerate() {
-                    match (p, nodes[i].kids[k]) {
-                        (Pat::Node { .. }, Some(c)) => leaves(nodes, c, out),
-                        _ => out.push(nodes[i].fields[k]),
-                    }
-                }
-            }
-            let mut ls = Vec::new();
-            leaves(nodes, 0, &mut ls);
-            let (_, proof) = nested_proof(g, n, nodes, 0, cur)?;
-            let nvars = ls.len();
-            let depth = n.depth;
-            let q = n.prefix;
-            return remap(g, n.sub, q + n.after, q + cur, &|l| {
-                Some(if l < q + depth {
-                    Term::Var(q + cur - 1 - l)
-                } else if l < q + depth + nvars {
-                    Term::Var(cur - 1 - ls[l - q - depth])
-                } else {
-                    proof.clone()
-                })
-            })?
-            .ok_or_else(|| Stop::Skip("a nested pattern's alternative couldn't be moved".into()));
-        };
-        work.remove(0);
-        let node = nodes[ni].clone();
-        let Pat::Node {
-            data: pd,
-            ctor: pc,
-            fields: pf,
-        } = node.pats[k].clone()
-        else {
-            return skip("a nested pattern's field isn't a constructor");
-        };
-        let decl = g.data(node.data);
-        // A later field whose type mentions this one: splitting the field
-        // would need the later field's type rewritten by the split, which
-        // stage 2a's lemma doesn't do.
-        let fields = &decl.ctors()[node.ctor].fields;
-        if let Some(j) = (k + 1..fields.len()).find(|&j| fields[j].1.mentions(j - 1 - k)) {
-            return skip(format!(
-                "a later field `{}` of the constructor has a type that depends on the nested \
-                 field `{}`, which stage 2a doesn't split",
-                fields[j].0, fields[k].0
-            ));
-        }
-        // The field's type here.
-        let np = decl.params().len();
-        let mut vals: Vec<(Term, usize)> = node
-            .args
-            .iter()
-            .map(|a| (a.clone(), node.args_at))
-            .collect();
-        for j in 0..k {
-            vals.push((Term::Var(cur - 1 - node.fields[j]), cur));
-        }
-        let fty = instantiate(g, &decl.ctors()[node.ctor].fields[k].1, np + k, &vals, cur)?;
-        let env: Vec<Value> = (0..cur).map(Value::var).collect();
-        let fty = stitchwort_core::value::quote(g, cur, &force(g, eval(g, &env, &fty)?)?)?;
-        let Term::Data(fd, fargs) = fty.strip_loc() else {
-            return skip("a nested pattern's field isn't of a data type");
-        };
-        let fd = *fd;
-        let fdecl = g.data(fd);
-        if fd != pd || !fdecl.indices().is_empty() || fdecl.ctors().len() != 1 || pc != 0 {
-            return skip(
-                "a nested pattern on a type with several constructors or indices isn't split \
-                 by stage 2a",
-            );
-        }
-        let fargs: Vec<Term> = fargs.iter().map(|a| (**a).clone()).collect();
-        let m = fdecl.ctors()[0].fields.len();
-        let child = self.open_node(fd, 0, &pf, fargs.clone(), Some(node.fields[k]), cur);
-        let ci = nodes.len();
-        nodes[ni].kids[k] = Some(ci);
-        nodes.push(child);
-        for (j, p) in pf.iter().enumerate() {
-            if matches!(p, Pat::Node { .. }) {
-                work.push((ci, j));
-            }
-        }
-        let split = match splits.get(&fd) {
-            Some(s) => *s,
-            None => {
-                let s = self.induct_declare_split(d, fd, splits.len() + 1)?;
-                splits.insert(fd, s);
-                s
-            }
-        };
-        let body = self.nested_descend(d, splits, n, nodes, work, cur + m + 1)?;
-        let names = self.field_names(fd, 0);
-        let mut out = Term::Def(split);
-        for a in fargs {
-            out = Term::app_icit(out, a, Icit::Implicit);
-        }
-        out = Term::app(out, n.goal.shift(&self.ev(), up, 0)?);
-        out = Term::app(out, Term::Var(cur - 1 - node.fields[k]));
-        Ok(Term::app(out, lams(&names, body)))
-    }
 }
 
 /// A lifted `match` alternative's pattern, as its equation `e = pattern`
-/// states it: a constructor applied to variables or to constructors.
+/// states it: a constructor applied to variables or to constructors, a
+/// number being `Zero` or `Succ` of the number before it.
 #[derive(Clone)]
 enum Pat {
     Leaf,
@@ -1506,9 +1862,13 @@ enum Pat {
     },
 }
 
+/// The largest number literal a pattern is split for, one `Succ` at a
+/// time: each is a split of its own in the proof.
+const LITERAL_LIMIT: u32 = 64;
+
 /// `t`, the right side of an alternative's equation with `n` variables, as
 /// a pattern, the variables being bound in order, left to right.
-fn parse_pat(t: &Term, n: usize, seen: &mut usize) -> Option<Pat> {
+fn parse_pat(t: &Term, n: usize, nat: Option<DataId>, seen: &mut usize) -> Option<Pat> {
     match t.strip_loc() {
         Term::Var(i) if *seen < n && *i == n - 1 - *seen => {
             *seen += 1;
@@ -1517,7 +1877,7 @@ fn parse_pat(t: &Term, n: usize, seen: &mut usize) -> Option<Pat> {
         Term::Ctor(data, ctor, xs) => {
             let fields = xs
                 .iter()
-                .map(|x| parse_pat(x, n, seen))
+                .map(|x| parse_pat(x, n, nat, seen))
                 .collect::<Option<Vec<_>>>()?;
             Some(Pat::Node {
                 data: *data,
@@ -1525,63 +1885,225 @@ fn parse_pat(t: &Term, n: usize, seen: &mut usize) -> Option<Pat> {
                 fields,
             })
         }
+        Term::Nat(k) if **k <= LITERAL_LIMIT.into() => {
+            let nat = nat?;
+            let mut pat = Pat::Node {
+                data: nat,
+                ctor: 0,
+                fields: Vec::new(),
+            };
+            for _ in 0..k.to_u32_digits().first().copied().unwrap_or(0) {
+                pat = Pat::Node {
+                    data: nat,
+                    ctor: 1,
+                    fields: vec![pat],
+                };
+            }
+            Some(pat)
+        }
         _ => None,
     }
 }
 
-/// Whether a nested pattern can't be split: somewhere in it, a constructor
-/// of a type with indices or with several constructors.
-fn nested_unsplittable(g: &Ev, pat: &Pat) -> bool {
-    match pat {
-        Pat::Leaf => false,
-        Pat::Node { data, fields, .. } => {
-            let decl = g.data(*data);
-            !decl.indices().is_empty()
-                || decl.ctors().len() != 1
-                || fields.iter().any(|f| nested_unsplittable(g, f))
-        }
+/// Whether a pattern has a number literal above [`LITERAL_LIMIT`].
+fn big_literal(t: &Term) -> bool {
+    match t.strip_loc() {
+        Term::Nat(k) => **k > LITERAL_LIMIT.into(),
+        Term::Ctor(_, _, xs) => xs.iter().any(|x| big_literal(x)),
+        _ => false,
     }
 }
 
-/// What a nested alternative is split in: the outer split, at `depth`.
-struct Nest<'a> {
+/// The hidden definitions the proof of `f.induct` shares: the lemma that
+/// splits each data type (`%splitN`), and those that tell a constructor
+/// apart (`%apartN`), by the constructors on the way to it.
+#[derive(Default)]
+struct Splits {
+    data: HashMap<DataId, DefId>,
+    discs: HashMap<String, DefId>,
+}
+
+impl Splits {
+    fn get(&self, data: &DataId) -> Option<&DefId> {
+        self.data.get(data)
+    }
+
+    fn insert(&mut self, data: DataId, id: DefId) {
+        self.data.insert(data, id);
+    }
+
+    fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn made(&self) -> Vec<DefId> {
+        (self.data.values().chain(self.discs.values()))
+            .copied()
+            .collect()
+    }
+}
+
+/// One alternative of a lifted `match`: its cases, how many binders its
+/// proof has (`after`), and its pattern and the level of its equation `e =
+/// pattern` (none for a catch-all).
+struct Alt<'c> {
+    choice: usize,
+    group: Vec<(usize, &'c Case)>,
+    after: usize,
+    pat: Option<Pat>,
+    eq: Option<usize>,
+}
+
+/// A lifted `match`'s split ([`Elaborator::alt_descend`]): the scrutinee
+/// `scrut` of type `data data_args` and the goal, at `depth`, and its
+/// alternatives' proofs, each made once.
+struct AltSplit<'a, 'c> {
+    d: &'a Def,
+    lay: &'a Layout,
+    sp: &'a Splitters,
+    id: DefId,
+    level: usize,
+    depth: usize,
     data: DataId,
     data_args: &'a [Term],
     scrut: &'a Term,
     goal: &'a Term,
-    /// The alternative's proof, in a context of `after` variables: the
-    /// `depth` before the split, the pattern's variables, its equation.
-    sub: &'a Term,
-    after: usize,
-    /// The variables of `f.induct`'s prefix, below the row's.
-    prefix: usize,
-    depth: usize,
+    alts: &'a [Alt<'c>],
+    subs: Vec<Option<Term>>,
 }
 
-/// A constructor of a nested pattern, opened: where its fields are bound.
+/// A constructor split out of the scrutinee, or out of a field of another
+/// such: where its fields are bound, and those split again.
 #[derive(Clone)]
-struct NestNode {
+struct Open {
     data: DataId,
     ctor: usize,
     /// The data type's arguments, in a context of `args_at` variables.
     args: Vec<Term>,
     args_at: usize,
-    pats: Vec<Pat>,
     kids: Vec<Option<usize>>,
     /// Levels of its fields, and of its equation `target = C fields`.
     fields: Vec<usize>,
     eq: usize,
-    /// The level of the variable it is a field of (none: the scrutinee).
-    target: Option<usize>,
+    /// The node and field it was split out of, and that field's level
+    /// (none: the scrutinee).
+    parent: Option<(usize, usize, usize)>,
 }
 
-/// The term of a nested pattern's node and a proof `target = term` of it,
-/// from the equations bound on the way, in a context of `cur` variables.
-fn nested_proof(g: &Ev, n: &Nest, nodes: &[NestNode], i: usize, cur: usize) -> R<(Term, Term)> {
+impl Open {
+    fn new(
+        data: DataId,
+        ctor: usize,
+        m: usize,
+        args: Vec<Term>,
+        parent: Option<(usize, usize, usize)>,
+        at: usize,
+    ) -> Open {
+        Open {
+            data,
+            ctor,
+            args,
+            args_at: at,
+            kids: vec![None; m],
+            fields: (at..at + m).collect(),
+            eq: at + m,
+            parent,
+        }
+    }
+}
+
+/// Whether pattern `p` takes the value node `i` stands for, as far as the
+/// splits go.
+fn agrees(nodes: &[Open], i: usize, p: &Pat) -> bool {
+    match p {
+        Pat::Leaf => true,
+        Pat::Node { ctor, fields, .. } => {
+            *ctor == nodes[i].ctor
+                && fields.len() == nodes[i].kids.len()
+                && (fields.iter().zip(&nodes[i].kids))
+                    .all(|(f, kid)| kid.is_none_or(|c| agrees(nodes, c, f)))
+        }
+    }
+}
+
+/// The part of pattern `p` at node `i`, if `p` has a constructor there.
+fn pat_at<'p>(nodes: &[Open], i: usize, p: &'p Pat) -> Option<&'p Pat> {
+    let Some((parent, k, _)) = nodes[i].parent else {
+        return Some(p);
+    };
+    match pat_at(nodes, parent, p)? {
+        Pat::Node { fields, .. } => fields.get(k),
+        Pat::Leaf => None,
+    }
+}
+
+/// The first field (by node, then field) where pattern `p` has a
+/// constructor that isn't split yet, and that constructor's type.
+fn unsplit(nodes: &[Open], p: &Pat) -> Option<(usize, usize, DataId)> {
+    for i in 0..nodes.len() {
+        let Some(Pat::Node { fields, .. }) = pat_at(nodes, i, p) else {
+            continue;
+        };
+        for (k, f) in fields.iter().enumerate() {
+            if let (None, Pat::Node { data, .. }) = (nodes[i].kids[k], f) {
+                return Some((i, k, *data));
+            }
+        }
+    }
+    None
+}
+
+/// The values of pattern `p`'s variables at node `i`, in a context of `cur`
+/// variables, left to right: each a field, or the term of the node split
+/// out of it.
+fn values(
+    nodes: &[Open],
+    i: usize,
+    p: &Pat,
+    cur: usize,
+    out: &mut Vec<(Term, Option<usize>)>,
+) -> R<()> {
+    let Pat::Node { fields, .. } = p else {
+        return skip("a nested pattern isn't a constructor");
+    };
+    for (k, f) in fields.iter().enumerate() {
+        match (f, nodes[i].kids[k]) {
+            (Pat::Node { .. }, Some(c)) => values(nodes, c, f, cur, out)?,
+            (Pat::Node { .. }, None) => return skip("a nested pattern isn't split"),
+            (Pat::Leaf, Some(c)) => out.push((node_term(nodes, c, cur), Some(c))),
+            (Pat::Leaf, None) => out.push((Term::Var(cur - 1 - nodes[i].fields[k]), None)),
+        }
+    }
+    Ok(())
+}
+
+/// The value node `i` stands for, in a context of `cur` variables.
+fn node_term(nodes: &[Open], i: usize, cur: usize) -> Term {
     let node = &nodes[i];
-    let target = match node.target {
-        Some(l) => Term::Var(cur - 1 - l),
-        None => n.scrut.shift(g, cur - n.depth, 0)?,
+    let args = (node.fields.iter().zip(&node.kids))
+        .map(|(&l, kid)| match kid {
+            Some(c) => node_term(nodes, *c, cur),
+            None => Term::Var(cur - 1 - l),
+        })
+        .collect();
+    Term::ctor(node.data, node.ctor, args)
+}
+
+/// The term of node `i` and a proof `target = term` of it, from the
+/// equations bound on the way, in a context of `cur` variables; the root's
+/// target is `scrut`, at `depth`.
+fn node_proof(
+    g: &Ev,
+    scrut: &Term,
+    depth: usize,
+    nodes: &[Open],
+    i: usize,
+    cur: usize,
+) -> R<(Term, Term)> {
+    let node = &nodes[i];
+    let target = match node.parent {
+        Some((_, _, l)) => Term::Var(cur - 1 - l),
+        None => scrut.shift(g, cur - depth, 0)?,
     };
     let mut args: Vec<Term> = node
         .fields
@@ -1598,7 +2120,7 @@ fn nested_proof(g: &Ev, n: &Nest, nodes: &[NestNode], i: usize, cur: usize) -> R
     );
     for k in 0..args.len() {
         let Some(c) = node.kids[k] else { continue };
-        let (t, p) = nested_proof(g, n, nodes, c, cur)?;
+        let (t, p) = node_proof(g, scrut, depth, nodes, c, cur)?;
         let mut shifted = Vec::new();
         for (j, a) in args.iter().enumerate() {
             shifted.push(if j == k {
@@ -1624,6 +2146,32 @@ fn nested_proof(g: &Ev, n: &Nest, nodes: &[NestNode], i: usize, cur: usize) -> R
         args[k] = t;
     }
     Ok((Term::ctor(node.data, node.ctor, args), proof))
+}
+
+/// A hypothesis `(vars) → v = p → Void` (or `¬(v = p)`, under its
+/// variables): how many variables, and `v` and `p` under them.
+fn hyp_parts(g: &Ev, ty: &Term) -> Option<(usize, Term, Term)> {
+    let not = g.env.registry().def(Builtin::Not);
+    let mut binders: Vec<Term> = Vec::new();
+    let mut t = ty.strip_loc();
+    loop {
+        match t {
+            Term::Pi(_, _, dom, cod) => {
+                binders.push((**dom).clone());
+                t = cod.strip_loc();
+            }
+            Term::App(f, a, _) if matches!(f.strip_loc(), Term::Def(x) if Some(*x) == not) => {
+                binders.push((**a).clone());
+                break;
+            }
+            _ => break,
+        }
+    }
+    let nv = binders.len().checked_sub(1)?;
+    match binders.pop()?.strip_loc() {
+        Term::Eq(_, v, p) => Some((nv, (**v).clone(), (**p).clone())),
+        _ => None,
+    }
 }
 
 /// `t`, a term in the context of `f`'s first `from` parameters, at `to`,
@@ -1820,7 +2368,9 @@ impl Tree<'_> {
             );
         }
         let args: Vec<Term> = args.iter().map(|a| (**a).clone()).collect();
-        let disc = self.disc(root, &path, at)?;
+        let inst = apart_instance(&g, &path, at, &args, depth)?;
+        let disc = self.disc(root, &path, at, inst.as_deref())?;
+        let args = if inst.is_some() { Vec::new() } else { args };
         let g = self.g();
         let unit = g
             .env
@@ -1858,108 +2408,22 @@ impl Tree<'_> {
         Ok(lams(&names, void))
     }
 
-    /// The hidden definition `[params] → (y: root params) → Prop` that is
-    /// `Unit` for a value with the constructors of `path`, then `at`, and
-    /// `Void` for any other.
+    /// The hidden definition that tells a constructor apart
+    /// ([`Elaborator::induct_apart`]).
     fn disc(
         &mut self,
         root: DataId,
         path: &[(DataId, usize, usize)],
         at: (DataId, usize),
+        inst: Option<&[Term]>,
     ) -> R<DefId> {
-        let key = format!("{root:?}{path:?}{at:?}");
-        if let Some(id) = self.discs.get(&key) {
-            return Ok(*id);
+        let before = self.discs.len();
+        let id = self
+            .e
+            .induct_apart(self.d, &mut self.discs, root, path, at, inst)?;
+        if self.discs.len() > before {
+            self.made.push(id);
         }
-        let g = self.g();
-        let unit = g
-            .env
-            .registry()
-            .data(Builtin::Unit)
-            .ok_or_else(|| Stop::Skip("no `Unit`".into()))?;
-        let void = g
-            .env
-            .registry()
-            .data(Builtin::Void)
-            .ok_or_else(|| Stop::Skip("no `Void`".into()))?;
-        let sort = g.data(unit).sort();
-        if g.data(void).sort() != sort {
-            return skip("`Unit` and `Void` aren't in one universe");
-        }
-        let decl = g.data(root);
-        let np = decl.params().len();
-        let mut binders: Vec<Binder> = decl
-            .params()
-            .iter()
-            .map(|(x, ty)| Binder {
-                name: x.clone(),
-                icit: Icit::Implicit,
-                ty: ty.clone(),
-            })
-            .collect();
-        binders.push(Binder {
-            name: "y".into(),
-            icit: Icit::Explicit,
-            ty: Term::data(root, (0..np).map(|j| Term::Var(np - 1 - j)).collect()),
-        });
-        // The case tree, from the scrutinee at `level` in a context of
-        // `depth`, at step `i` of the path.
-        #[allow(clippy::too_many_arguments)]
-        fn build(
-            g: &Ev,
-            path: &[(DataId, usize, usize)],
-            at: (DataId, usize),
-            unit: DataId,
-            void: DataId,
-            level: usize,
-            depth: usize,
-            i: usize,
-        ) -> Term {
-            let (data, take, field) = match path.get(i) {
-                Some(&(d, c, f)) => (d, c, Some(f)),
-                None => (at.0, at.1, None),
-            };
-            let branches: Vec<Branch> = g
-                .data(data)
-                .ctors()
-                .iter()
-                .enumerate()
-                .map(|(c, ctor)| {
-                    let m = ctor.fields.len();
-                    let body = match (c == take, field) {
-                        (true, Some(f)) => {
-                            build(g, path, at, unit, void, depth + f, depth + m, i + 1)
-                        }
-                        (true, None) => Term::Data(unit, Vec::new()),
-                        (false, _) => Term::Data(void, Vec::new()),
-                    };
-                    Branch {
-                        names: ctor.fields.iter().map(|(x, _)| x.clone()).collect(),
-                        body: Some(Rc::new(body)),
-                    }
-                })
-                .collect();
-            Term::Case(depth - 1 - level, data, branches.into())
-        }
-        let tree = build(&g, path, at, unit, void, np, np + 1, 0);
-        let ty = pis(&binders, Term::Sort(sort));
-        let names: Vec<(Name, Icit)> = binders.iter().map(|b| (b.name.clone(), b.icit)).collect();
-        let name: Name = format!("{}.induct.%apart{}", self.d.display, self.discs.len() + 1).into();
-        let span = self.d.rows[0].span;
-        let e = &mut *self.e;
-        let id = kernel::declare_def(
-            &mut e.kernel,
-            &e.tables,
-            &e.unit,
-            &name,
-            &ty,
-            false,
-            false,
-            span,
-        )?;
-        kernel::define_group(&mut e.kernel, &e.tables, &[(id, lams(&names, tree))])?;
-        self.discs.insert(key, id);
-        self.made.push(id);
         Ok(id)
     }
 
@@ -2216,8 +2680,8 @@ impl Tree<'_> {
             let unit = PV::Term(Term::Ctor(d, c, Vec::new()), depth + 1);
             let cond = self.guard_arg(&node, 1, fvals)?;
             // A decided proposition stated as itself, tested by its `Bool`
-            // `toBool d`: the facts are `toBoolSound d h` and
-            // `toBoolFalse d h`.
+            // `holds d`: the facts are `d.sound h` and
+            // `Decidable.refute d h`.
             let stated = self.shapes[j]
                 .as_ref()
                 .ok()
@@ -2500,5 +2964,42 @@ fn bind(g: &Ev, pat: &Term, shape: &Shape, v: &PV, out: &mut Vec<Option<PV>>) ->
             }
         }
         _ => skip("an arm's pattern isn't constructors and variables, which stage 2a reads"),
+    }
+}
+
+/// Whether each field on `path` is declared at a data type, so the hidden
+/// definition that follows it can be stated over its root type's parameters.
+fn generic_path(g: &Ev, path: &[(DataId, usize, usize)], at: (DataId, usize)) -> bool {
+    path.iter().enumerate().all(|(i, &(data, ctor, field))| {
+        let next = path.get(i + 1).map_or(at.0, |p| p.0);
+        let fields = &g.data(data).ctors()[ctor].fields;
+        matches!(fields[field].1.strip_loc(), Term::Data(d, _) if *d == next)
+    })
+}
+
+/// The closed instance of the type (`args`, at `depth`) that a hidden
+/// definition telling a value apart along `path` is stated at, where a
+/// field on the path is declared at a parameter's type (as `Some`'s): only
+/// the instance makes it a data type. None where the definition can be
+/// stated over the type's parameters.
+fn apart_instance(
+    g: &Ev,
+    path: &[(DataId, usize, usize)],
+    at: (DataId, usize),
+    args: &[Term],
+    depth: usize,
+) -> R<Option<Vec<Term>>> {
+    if generic_path(g, path, at) {
+        return Ok(None);
+    }
+    let closed: Option<Vec<Term>> = (args.iter())
+        .map(|a| remap(g, a, depth, 0, &|_| None).ok().flatten())
+        .collect();
+    match closed {
+        Some(closed) => Ok(Some(closed)),
+        None => skip(
+            "two patterns differ inside a field whose type is a type parameter's, at a type \
+             with variables, which stage 2a's proof doesn't establish",
+        ),
     }
 }

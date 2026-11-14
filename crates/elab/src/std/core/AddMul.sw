@@ -10,9 +10,9 @@
 interface Add (a: Type) = {
   zero: a,
   add: a → a → a,
-  zeroAdd: (x: a) → add zero x = x,
-  assoc: (x: a) → (y: a) → (z: a) → add (add x y) z = add x (add y z),
-  comm: (x: a) → (y: a) → add x y = add y x
+  zeroAdd: ∀ (x: a) => add zero x = x,
+  assoc: ∀ (x y z: a) => add (add x y) z = add x (add y z),
+  comm: ∀ (x y: a) => add x y = add y x
 }
 
 --| Things you can multiply, starting from one (a monoid; not commutative):
@@ -20,9 +20,9 @@ interface Add (a: Type) = {
 interface Mul (a: Type) = {
   one: a,
   mul: a → a → a,
-  oneMul: (x: a) → mul one x = x,
-  mulOne: (x: a) → mul x one = x,
-  assoc: (x: a) → (y: a) → (z: a) → mul (mul x y) z = mul x (mul y z)
+  oneMul: ∀ (x: a) => mul one x = x,
+  mulOne: ∀ (x: a) => mul x one = x,
+  assoc: ∀ (x y z: a) => mul (mul x y) z = mul x (mul y z)
 }
 
 -- The bootstrap phase ends here (D187): from now on `+`, `*`, `<` and `<=`
@@ -41,9 +41,7 @@ instance Int.instMul: Mul Int :=
   { one = OfNat 1, mul = Int.mul, oneMul = Int.oneMul, mulOne = Int.mulOne, assoc = Int.mulAssoc }
 
 --| Equal summands give equal sums.
-theorem Int.addCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
-  Eq.cong2 Int.add p q
+theorem Int.addCong ∀ [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 := Eq.cong2 Int.add p q
 
 --| Equal factors give equal products.
-theorem Int.mulCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 :=
-  Eq.cong2 Int.mul p q
+theorem Int.mulCong ∀ [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 := Eq.cong2 Int.mul p q

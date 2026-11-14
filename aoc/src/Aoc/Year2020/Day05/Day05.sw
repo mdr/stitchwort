@@ -21,7 +21,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${solvePart2 passes |> .orFail "no missing seat between two passes"}"
 
 --| One letter, `True` for `upper`.
-def half (lower: Char) (upper: Char): {Parse} Bool :=
+def half (lower upper: Char): {Parse} Bool :=
   Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper) == upper
 
 def frontBack(): {Parse} Bool := half 'F' 'B'

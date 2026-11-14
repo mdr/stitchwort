@@ -21,10 +21,7 @@ def main(): {IO, Fail} () :=
 --| One line of the input: the test value, then the numbers in order.
 type Equation = { testValue: Nat, numbers: NonEmptyList Nat }
 
-type Operator =
-  | Add
-  | Multiply
-  | Concatenate
+type Operator = | Add | Multiply | Concatenate
 
 --| "3267: 81 40 27".
 def equationLine(): {Parse} Equation :=
@@ -43,19 +40,18 @@ def placeValue (number: Nat): Nat := Nat.pow 10 number.digitCount
 --| Whether the operators can join `first` and the numbers after it to make
 --| `target`. The numbers after `first` come last one first: the last operator
 --| is undone from `target`, leaving what the numbers before it must make.
-def canMake (operators: List Operator) (first: Nat) (target: Nat): List Nat → Bool
+def canMake (operators: List Operator) (first target: Nat): List Nat → Bool
   | [] => target == first
-  | [last, ..earlier] =>
-    operators.any (match
-      | Add => last <= target && canMake operators first (target - last) earlier
-      | Multiply =>
-        if last != 0 then
-          target % last == 0 && canMake operators first (target / last) earlier
-        -- Anything times 0 is 0.
-        else target == 0
-      | Concatenate =>
-        let place := placeValue last
-        target % place == last && canMake operators first (target / place) earlier)
+  | [last, ..earlier] => operators.any (match
+    | Add => last <= target && canMake operators first (target - last) earlier
+    | Multiply =>
+      if last != 0 then target % last == 0 && canMake operators first (target / last) earlier
+      -- Anything times 0 is 0.
+      else
+        target == 0
+    | Concatenate =>
+      let place := placeValue last
+      target % place == last && canMake operators first (target / place) earlier)
 
 --| Whether some choice of the operators between the numbers makes the test
 --| value.

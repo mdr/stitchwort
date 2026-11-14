@@ -29,6 +29,6 @@ test "from lit" := codeOr (Char.fromNat 233) == Char.toNat 'é'
 
 theorem aIsA: 'a' = 'a' := rfl
 
-def sameChar (x: Char) (y: Char): Bool := if h: x = y then True else False
+def sameChar (x y: Char): Bool := if h: x = y then True else False
 
 test "if h" := sameChar 'x' 'x'

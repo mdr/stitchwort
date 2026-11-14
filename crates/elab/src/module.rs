@@ -41,8 +41,10 @@
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::rc::Rc;
 
 use crate::kernel;
+use stitchwort_core::budget::NO_ANSWER;
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::globals::State;
 use stitchwort_core::registry::Builtin;
@@ -51,7 +53,7 @@ use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
 use crate::project::SourceUnit;
-use crate::{Elaborator, Global, error, goals, interfaces};
+use crate::{BrokenTest, Elaborator, Global, error, goals, interfaces};
 
 /// What a declaration of the module is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -145,6 +147,11 @@ pub(crate) struct ItemInfo {
     /// It failed by running out of resources, or by using a declaration
     /// that did.
     pub ran_out: bool,
+    /// For a `@[reading]` theorem: its test's function and polarity as
+    /// written ([`crate::reading::written_reading`]), known before anything
+    /// is checked: uses of the test are ordered after it
+    /// (`reading_edges`), and one that can't be says why.
+    pub reading: Option<(crate::reading::WrittenHead, bool)>,
 }
 
 /// One file of the module being elaborated.
@@ -182,10 +189,32 @@ pub(crate) struct ModuleState {
     /// The item being elaborated.
     pub item: Option<usize>,
     pub phase: Phase,
-    /// The item that declared each definition of this module.
+    /// The item that declared each definition of this module
+    /// ([`ModuleState::note_def`]).
     pub def_items: HashMap<DefId, usize>,
+    /// The definitions each item declared: [`Self::def_items`] the other
+    /// way round.
+    pub item_defs: HashMap<usize, Vec<DefId>>,
     /// The key of every name the module declares.
     pub names: HashSet<String>,
+    /// The open goals' assumptions each unfinished item waits for: it
+    /// wasn't checked, because something it computes with is stuck on
+    /// them, or it uses what waits for them.
+    pub waiting: HashMap<usize, Rc<[DefId]>>,
+    /// For each item that failed with errors: the declaration the errors
+    /// come from (itself, or what it uses, maybe in another namespace), by
+    /// name, and where the first one is reported
+    /// ([`Elaborator::note_error_source`]).
+    pub error_sources: HashMap<usize, (String, Option<Span>)>,
+    /// The key each item declares under, by item.
+    pub item_keys: HashMap<usize, String>,
+    /// The names of the module's declarations that didn't parse
+    /// (`Module::failed`), by key: the name, and where its syntax error is.
+    pub parse_failed: HashMap<String, (String, Option<Span>)>,
+    /// The items that weren't checked because they use a declaration of
+    /// another namespace that failed, directly or through an item that
+    /// waits for one: that declaration's key (`E-USES-FAILED`).
+    pub waits_elsewhere: HashMap<usize, String>,
     /// Data types (by item) whose `Ord` is derived once their module's own
     /// `DecEq` instance is checked.
     pub ord_after_dec_eq: HashMap<usize, DataId>,
@@ -196,6 +225,19 @@ pub(crate) struct ModuleState {
 }
 
 impl ModuleState {
+    /// Notes that `item` declared definition `id`.
+    pub fn note_def(&mut self, id: DefId, item: usize) {
+        if let Some(old) = self.def_items.insert(id, item) {
+            if old == item {
+                return;
+            }
+            if let Some(defs) = self.item_defs.get_mut(&old) {
+                defs.retain(|d| *d != id);
+            }
+        }
+        self.item_defs.entry(item).or_default().push(id);
+    }
+
     /// Whether `item` is in the component being checked.
     pub fn in_current(&self, item: usize) -> bool {
         self.current.contains(&item)
@@ -207,6 +249,20 @@ struct Item<'m> {
     decl: &'m Decl,
     equations: &'m [Decl],
     position: usize,
+}
+
+/// "unfolding `f`", for definition `name`; a function the compiler made is
+/// named by the definition it was made for. `None` for one made for
+/// something without a name of its own.
+pub(crate) fn unfolding(name: &str) -> Option<String> {
+    let shown = crate::scope::display(name);
+    Some(match shown.split_once(".%") {
+        None if !shown.contains('%') => format!("unfolding `{shown}`"),
+        Some((owner, _)) if !owner.contains('%') => format!(
+            "unfolding a function the compiler made for `{owner}`, such as an inner `match`"
+        ),
+        _ => return None,
+    })
 }
 
 /// Whether an `E-RESOURCE` message is for running out of evaluation steps
@@ -319,6 +375,9 @@ impl Elaborator {
                 .into();
             }
         }
+        for f in files {
+            self.probe_declaration(f.module);
+        }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let mut first_test = self.tables.tests.len();
         self.unit.module = ModuleState {
@@ -381,6 +440,9 @@ impl Elaborator {
         self.capture_after_needs();
         // After the loads: each library file loaded sets its own.
         self.unit.omega_for_auto = self.needs_reach_omega(&needs);
+        // Readings order the library too, so a library use of a test is
+        // checked after the test's reading wherever it is written.
+        self.reading_edges();
         // The core and the library are written in an order that works,
         // instances after what the rest of them uses: their uses of syntax
         // (`if`, `<=`) refer to declarations no name does.
@@ -404,6 +466,13 @@ impl Elaborator {
             }
             // Each component is one operation, with its own resource limits.
             let saved = self.kernel.machine.budget.start(self.options.limits);
+            let progress = crate::progress::begin(
+                &self.kernel.machine.budget,
+                self.kernel.env.defs(),
+                || self.component_label(&items, &component),
+                self.options.limits.work,
+                self.options.progress_after,
+            );
             self.unit.module.current = component.clone();
             let before = diagnostics.len();
             let (defs_before, datas_before) =
@@ -412,11 +481,15 @@ impl Elaborator {
             // component's.
             self.clear_goals();
             self.decl.failed_mentioned.set(false);
+            self.decl.stuck_on_goal.take();
+            goals::take_used_unfinished();
+            take_failed_used();
             let timed = crate::timings::enabled();
             if timed {
                 crate::timings::decl_begin(&self.ev());
             }
             self.glued(|e| e.check_component(&items, &component, &mut diagnostics));
+            crate::progress::end(&self.kernel.machine.budget, progress);
             self.kernel.machine.budget.restore(saved);
             if timed {
                 let label = self.component_label(&items, &component);
@@ -444,8 +517,12 @@ impl Elaborator {
             // Unfinished, not wrong: the only errors stand for open goals
             // (`goals::UNFINISHED`), which aren't reported as errors (D636).
             let unfinished = !errors.is_empty() && errors.iter().all(|c| *c == goals::UNFINISHED);
+            // Checked by the kernel assuming its goals, or those of what it
+            // uses, hold: still not finished (`assume.rs`).
+            let relying = !failed && self.mark_relying(&component, defs_before, datas_before);
             for &i in &component {
                 self.unit.module.items[i].status = match (failed, unfinished) {
+                    (false, _) if relying => Status::Unfinished,
                     (false, _) => Status::Checked,
                     (true, true) => Status::Unfinished,
                     (true, false) => Status::Failed,
@@ -456,10 +533,59 @@ impl Elaborator {
                 rest.into_iter()
                     .filter(|(_, d)| d.code != goals::UNFINISHED),
             );
+            let used_failed = take_failed_used();
+            if failed && !unfinished {
+                self.note_error_source(&items, &component, &diagnostics[before..], &used_failed);
+                // Waiting for another namespace's error, which is reported
+                // there, and once per file here (`E-USES-FAILED`).
+                if component
+                    .iter()
+                    .all(|i| self.unit.module.waits_elsewhere.contains_key(i))
+                {
+                    let rest = diagnostics.split_off(before);
+                    diagnostics.extend(
+                        rest.into_iter()
+                            .filter(|(_, d)| d.severity != Severity::Error),
+                    );
+                }
+            }
             let position = items[component[0]].position;
             diagnostics.extend(goals.into_iter().map(|d| (position, d)));
+            let used_unfinished = goals::take_used_unfinished();
             if unfinished {
-                self.mark_unfinished(&component, defs_before, datas_before);
+                // Stuck on a goal, or using what waits for one: waiting
+                // for the same goals, so a chain of uses names the goal at
+                // its end.
+                let mut blocked = self.decl.stuck_on_goal.borrow().clone();
+                for id in used_unfinished {
+                    if self.kernel.def(id).assumption().is_some() {
+                        blocked.push(id);
+                    } else {
+                        blocked.extend(self.blocked_on(id));
+                    }
+                }
+                blocked.sort_by_key(|id| id.0);
+                blocked.dedup();
+                // Waiting for another namespace's declaration with an error,
+                // reported there: said once per file here (`E-USES-FAILED`),
+                // as for one with no stand-in.
+                // (A stand-in made before this module is another
+                // namespace's, whose path is its key.)
+                let elsewhere = (blocked.iter())
+                    .find(|id| id.0 < self.unit.module.first_def && self.is_error_stand_in(**id))
+                    .map(|id| self.kernel.def(*id).path().to_string());
+                if let Some(key) = elsewhere {
+                    for &i in &component {
+                        self.unit.module.waits_elsewhere.insert(i, key.clone());
+                    }
+                }
+                let blocked: Rc<[DefId]> = blocked.into();
+                if !blocked.is_empty() {
+                    for &i in &component {
+                        self.unit.module.waiting.insert(i, blocked.clone());
+                    }
+                }
+                self.mark_unfinished(&component, defs_before, datas_before, &blocked);
             }
             // A component that failed leaves nothing behind for the next,
             // and anything it left declared is failed, so later uses fail
@@ -473,18 +599,11 @@ impl Elaborator {
                 let ran_out_in = self.kernel.machine.budget.take_ran_out_in();
                 for (position, d) in &mut diagnostics[before..] {
                     if d.code == "E-RESOURCE" {
-                        d.notes.push(self.while_checking_note(&component));
-                    }
-                    if d.code == "E-RESOURCE" && d.message.ends_with("too large to show") {
-                        for note in self.too_large_notes(&component, too_large) {
-                            d.notes.push(note);
-                        }
-                    }
-                    if d.code == "E-RESOURCE"
-                        && is_steps_or_depth(&d.message)
-                        && let Some(note) = self.ran_out_note(ran_out_in)
-                    {
-                        d.notes.push(note);
+                        let notes =
+                            self.ran_out_notes(&component, &d.message, too_large, ran_out_in);
+                        // Where, before any advice the error came with.
+                        let at = usize::from(d.notes.first().is_some_and(|n| n == NO_ANSWER));
+                        d.notes.splice(at..at, notes);
                     }
                     if d.labels.is_empty() {
                         let span = decl_spans[*position];
@@ -501,6 +620,25 @@ impl Elaborator {
                 if component.len() == 1 && !ran_out {
                     self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
                 }
+                if !unfinished {
+                    self.stand_in_for_failed(&items, &component, &diagnostics[before..]);
+                }
+            } else if relying && component.len() == 1 && !ran_out {
+                // A proof that is wholly `?`, checked assuming its goal.
+                self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
+            }
+            // A refusal of a whole group is held by each member (so each
+            // is blamed for it), and reported once.
+            if component.len() > 1 {
+                let mut kept: Vec<(usize, Diagnostic)> = Vec::new();
+                for (p, d) in diagnostics.split_off(before) {
+                    let once = d.severity == Severity::Error
+                        && kept.iter().any(|(q, k)| *q != p && *k == d);
+                    if !once {
+                        kept.push((p, d));
+                    }
+                }
+                diagnostics.extend(kept);
             }
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.
@@ -525,6 +663,8 @@ impl Elaborator {
         }
         // Names that were never checked now just name failures.
         self.fail_unchecked_names();
+        self.note_failed_sources(files);
+        diagnostics.extend(self.uses_failed(files));
         // The names in the library's tests are references too, so that an
         // editor can navigate there; they are noted from the written names
         // alone (a dot call on a local needs its receiver's type, and
@@ -552,32 +692,7 @@ impl Elaborator {
         let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
         // The names of an import that failed (and was reported) aren't
         // reported again where they're used.
-        if !self.scope.import_failed.is_empty() {
-            let failed = &self.scope.import_failed;
-            diagnostics.retain(|d| {
-                d.code != "E-UNKNOWN-NAME"
-                    || !failed
-                        .iter()
-                        .any(|n| d.message == format!("unknown name `{n}`"))
-            });
-        }
-        // The same for the names a failed `(..)` import would have brought.
-        if !self.scope.wildcard_failed.is_empty() {
-            let files: Vec<Option<FileId>> = self
-                .scope
-                .wildcard_failed
-                .iter()
-                .filter_map(|i| self.unit.module.files.get(*i).map(|f| f.id))
-                .collect();
-            diagnostics.retain(|d| {
-                d.code != "E-UNKNOWN-NAME"
-                    || d.message.contains('.')
-                    || !d
-                        .labels
-                        .first()
-                        .is_some_and(|l| files.iter().any(|f| f.is_none_or(|id| id == l.span.file)))
-            });
-        }
+        diagnostics.retain(|d| !self.lost_to_a_failed_import(d));
         // Failing because something used failed goes without saying when
         // that failure is reported too.
         if diagnostics
@@ -592,7 +707,124 @@ impl Elaborator {
         if !diagnostics.iter().any(|d| d.severity == Severity::Error) {
             diagnostics.extend(self.doc_link_warnings(files));
         }
+        // A body that didn't parse is reported by the parser, not here; it
+        // stays until the two are merged, so that a counterexample found for
+        // its statement reaches that error (`with_syntax_errors`).
         diagnostics
+    }
+
+    /// Whether `d` is an error of the declaration's own, not one that
+    /// reports something else's failure (what it uses, or a name a failed
+    /// import lost).
+    fn is_own_error(&self, d: &Diagnostic) -> bool {
+        d.severity == Severity::Error
+            && !matches!(d.code, "E-FAILED-DEPENDENCY" | "E-USES-FAILED")
+            && !self.lost_to_a_failed_import(d)
+    }
+
+    /// Whether `d` is `E-UNKNOWN-NAME` for a name an import that failed
+    /// (and was reported there) would have brought: a named item, or one
+    /// of a failed `(..)` import written in a file that has one. What
+    /// reports it is the import, so the declaration that uses it has no
+    /// error of its own; it waits.
+    fn lost_to_a_failed_import(&self, d: &Diagnostic) -> bool {
+        if d.code != "E-UNKNOWN-NAME" {
+            return false;
+        }
+        let failed = &self.scope.import_failed;
+        failed
+            .iter()
+            .any(|n| d.message == format!("unknown name `{n}`"))
+            || self.lost_to_a_failed_wildcard(d).is_some()
+    }
+
+    /// The failed `(..)` import (the namespace it names, and where) that an
+    /// undotted `E-UNKNOWN-NAME` in a file that has one is put down to: it
+    /// may be a name that import would have brought, or a real typo; the
+    /// import is the error reported.
+    fn lost_to_a_failed_wildcard(&self, d: &Diagnostic) -> Option<(String, Span)> {
+        if d.code != "E-UNKNOWN-NAME" || d.message.contains('.') {
+            return None;
+        }
+        let at = d.labels.first()?.span.file;
+        self.scope
+            .wildcard_failed
+            .iter()
+            .filter_map(|(i, import)| Some((self.unit.module.files.get(*i)?.id, import)))
+            .find(|(file, _)| file.is_none_or(|id| id == at))
+            .map(|(_, import)| import.clone())
+    }
+
+    /// Stand-ins (docs/proposals/tests-with-errors.md §3.3, D3527) for the
+    /// definitions and theorems of `component`, which failed with `found`:
+    /// each whose statement the kernel declared is named by an assumption
+    /// of that statement from now on, so what uses it is checked against
+    /// the statement and relies on it. Not for a component whose only
+    /// errors are what it uses failing (it waits, and so do its users), nor
+    /// for a member of a group with no error of its own, nor for a type, synonym, instance, opaque or `decreasing` definition, or
+    /// one with parameter defaults: those keep failing their users, which
+    /// would otherwise be refused for what a stand-in lacks (an instance's
+    /// registration, an `unfolding` body, a default's helper).
+    fn stand_in_for_failed(
+        &mut self,
+        items: &[Item],
+        component: &[usize],
+        found: &[(usize, Diagnostic)],
+    ) {
+        let own: Vec<&(usize, Diagnostic)> =
+            found.iter().filter(|(_, d)| self.is_own_error(d)).collect();
+        // The positions of the declarations with an error of their own.
+        let own_at: Vec<usize> = own.iter().map(|(p, _)| *p).collect();
+        if own_at.is_empty() {
+            return;
+        }
+        for &i in component {
+            // A group fails together, and a member whose own body checked
+            // is not trusted alone: it waits for the member with the error.
+            if component.len() > 1 && !own_at.contains(&items[i].position) {
+                continue;
+            }
+            let Decl::Signature {
+                name,
+                synonym: false,
+                instance: false,
+                opaque: false,
+                decreasing: None,
+                defaults,
+                ..
+            } = items[i].decl
+            else {
+                continue;
+            };
+            if defaults.iter().any(Option::is_some) {
+                continue;
+            }
+            let Ok(key) = self.declaration_key(name) else {
+                continue;
+            };
+            let Some(&(Global::Def(failed), _)) = self.scope.stored(&key) else {
+                continue;
+            };
+            let at = (own.iter().find(|(p, _)| *p == items[i].position))
+                .or_else(|| own.first())
+                .and_then(|(_, d)| d.primary_span())
+                .unwrap_or(name.span);
+            let saved = self.kernel.machine.budget.start(self.options.limits);
+            let made = self.stand_in(failed, at);
+            self.kernel.machine.budget.restore(saved);
+            if let Some(id) = made {
+                self.scope
+                    .set_global(&key, |global| *global = Global::Def(id));
+                // A reading with an error is filed as its stand-in, so a fact
+                // read through it relies on it, as any other use does,
+                // instead of reading its test as what it unfolds to.
+                if let Ok(attributes) = self.definition_attributes(items[i].decl)
+                    && let Some(at) = attributes.reading
+                {
+                    let _ = self.register_reading(id, at);
+                }
+            }
+        }
     }
 
     /// Whether `diagnostics` blame a declaration of `component`'s that
@@ -666,48 +898,65 @@ impl Elaborator {
         if !diagnostics.iter().any(|(_, d)| d.severity == wanted) {
             return;
         }
-        let Some(note) = self.counterexample_note(def) else {
+        let Some((note, log)) = self.counterexample_note(def) else {
             return;
         };
         // The note as data, for the index: the search's log has its bindings.
-        let data = self
-            .present
-            .counterexample_log
-            .borrow()
-            .last()
-            .and_then(|log| {
-                let found = log.found.as_ref()?;
-                Some(Box::new(stitchwort_syntax::Counterexample {
-                    verdict: "false",
-                    types: (log.found_types.iter())
-                        .map(|a| (a.clone(), "Nat".to_string()))
-                        .collect(),
-                    bindings: (found.iter())
-                        .filter_map(|b| b.split_once(" = "))
-                        .map(|(name, value)| (name.to_string(), value.to_string()))
-                        .collect(),
-                }))
-            });
+        let data = log.found.as_ref().map(|found| {
+            Box::new(stitchwort_syntax::Counterexample {
+                verdict: "false",
+                types: (log.found_types.iter())
+                    .map(|a| (a.clone(), "Nat".to_string()))
+                    .collect(),
+                bindings: (found.iter())
+                    .filter_map(|b| b.split_once(" = "))
+                    .map(|(name, value)| (name.to_string(), value.to_string()))
+                    .collect(),
+            })
+        });
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
+            // Splitting a case won't prove a false statement.
+            d.notes.retain(|n| !crate::check::is_stuck_side_note(n));
             d.notes.push(note);
             d.detail_mut().counterexample = data.map(|b| *b);
         }
     }
 
-    /// Names the definition being unfolded when checking ran out of steps or
-    /// frames; a function the compiler made is named by the definition it
-    /// was made for.
+    /// The notes saying where checking `component` ran out of resources,
+    /// with `message`: the declarations, and what was being computed.
+    /// `too_large` is the call a value too large to write out was of, and
+    /// `ran_out_in` the definition last unfolded.
+    fn ran_out_notes(
+        &self,
+        component: &[usize],
+        message: &str,
+        too_large: Option<usize>,
+        ran_out_in: Option<usize>,
+    ) -> Vec<String> {
+        let mut notes = vec![self.while_checking_note(component)];
+        let size = ResourceError::is_size_message(message);
+        if size {
+            notes.extend(self.too_large_notes(component, too_large));
+        }
+        // A value too large to write out was being computed by the
+        // definition last unfolded: worth naming unless the note above
+        // names it, or it is the standard library's (an `if` unfolds
+        // `Decidable.holds`), which says nothing about the cause.
+        let unfolding = ran_out_in.filter(|&id| {
+            is_steps_or_depth(message)
+                || (size
+                    && ran_out_in != too_large
+                    && (self.kernel.env.defs().get(id))
+                        .is_some_and(|d| !d.path().starts_with("Std.")))
+        });
+        notes.extend(self.ran_out_note(unfolding));
+        notes
+    }
+
+    /// Names the definition being unfolded when checking ran out ([`unfolding`]).
     fn ran_out_note(&self, definition: Option<usize>) -> Option<String> {
-        let name = &self.kernel.env.defs().get(definition?)?.name();
-        let shown = crate::scope::display(name);
-        Some(match shown.split_once(".%") {
-            None if !shown.contains('%') => format!("it ran out while unfolding `{shown}`"),
-            Some((owner, _)) if !owner.contains('%') => format!(
-                "it ran out while unfolding a function the compiler made for `{owner}`, \
-                 such as an inner `match`"
-            ),
-            _ => return None,
-        })
+        let name = self.kernel.env.defs().get(definition?)?.name();
+        Some(format!("it ran out while {}", unfolding(name)?))
     }
 
     /// Names the declaration(s) of `component`, so a check that ran out of
@@ -768,14 +1017,22 @@ impl Elaborator {
     /// those its items declared, and the ones made while checking it (from
     /// definition `defs` and data type `datas` on) that aren't final: failed,
     /// or pending until the component is abandoned.
-    fn mark_unfinished(&mut self, component: &[usize], defs: usize, datas: usize) {
+    ///
+    /// `blocked` are the assumptions of the open goals it is stuck on, if
+    /// that is why (`Elaborator::blocked_on`).
+    fn mark_unfinished(
+        &mut self,
+        component: &[usize],
+        defs: usize,
+        datas: usize,
+        blocked: &Rc<[DefId]>,
+    ) {
         let g = &self.ev();
-        let mut def_ids: Vec<DefId> = Vec::new();
-        for (id, item) in &self.unit.module.def_items {
-            if component.contains(item) && g.def(*id).state() != State::Final {
-                def_ids.push(*id);
-            }
-        }
+        let mut def_ids: Vec<DefId> = (component.iter())
+            .flat_map(|i| self.unit.module.item_defs.get(i).into_iter().flatten())
+            .filter(|id| g.def(**id).state() != State::Final)
+            .copied()
+            .collect();
         def_ids.extend(
             (defs..g.env.defs().len())
                 .filter(|&id| g.env.defs()[id].state() != State::Final)
@@ -788,6 +1045,10 @@ impl Elaborator {
         let owners = &self.session.owners;
         for id in def_ids {
             self.tables.unfinished_defs.insert(owners, id, ());
+            self.session
+                .blocked
+                .borrow_mut()
+                .insert(id, blocked.clone());
         }
         for d in data_ids {
             self.tables.unfinished_datas.insert(owners, d, ());
@@ -799,8 +1060,11 @@ impl Elaborator {
     /// the text: messages elide), its errors are fallout of that failure (a
     /// failed definition is stuck, so a proof about it won't check): they
     /// become one saying the failed declaration has errors, which goes
-    /// without saying when that failure is reported too. Unknown names stay,
-    /// and so does everything when no message showed a failed definition.
+    /// without saying when that failure is reported too. When one showed a
+    /// term stuck on an open goal's assumption (`Decl::stuck_on_goal`), from
+    /// this module or another, they can't be decided until the goal is
+    /// filled, so they are unfinished. Unknown names stay, and so does
+    /// everything when no message showed either.
     fn blame_failed_dependency(
         &self,
         component: &[usize],
@@ -817,14 +1081,41 @@ impl Elaborator {
             })
             .map(|d| (d, self.unit.module.items[d.item].name.as_str()))
             .collect();
-        if failed.is_empty() || !self.decl.failed_mentioned.get() {
+        let blamed = !failed.is_empty() && self.decl.failed_mentioned.get();
+        // Fallout of another namespace's failure: what's shown uses a
+        // declaration of its that failed, and nothing here did.
+        let elsewhere = (failed.is_empty() && self.decl.failed_mentioned.get())
+            .then(|| {
+                let used = FAILED_USED.with(|u| u.borrow().clone());
+                used.into_iter()
+                    .find(|k| !self.unit.module.names.contains(k))
+            })
+            .flatten();
+        if let Some(key) = elsewhere {
+            let text = key.rsplit('.').next().unwrap_or(&key).to_string();
+            for (_, d) in &mut diagnostics[before..] {
+                if d.severity == Severity::Error && d.code != "E-UNKNOWN-NAME" {
+                    *d = match d.primary_span() {
+                        Some(span) => failed_name(&ast::Name {
+                            text: text.clone(),
+                            span,
+                        }),
+                        None => {
+                            Diagnostic::error("E-FAILED-DEPENDENCY", format!("`{text}` has errors"))
+                        }
+                    };
+                }
+            }
+            return;
+        }
+        if !blamed && self.decl.stuck_on_goal.borrow().is_empty() {
             return;
         }
         // Blamed on a declaration with errors if there is one; if they're
-        // all unfinished, so is this (D636).
-        let errored = failed
-            .iter()
-            .position(|(d, _)| self.unit.module.items[d.item].status == Status::Failed);
+        // all unfinished, or it is stuck on a goal, so is this (D636).
+        let errored = (failed.iter())
+            .position(|(d, _)| self.unit.module.items[d.item].status == Status::Failed)
+            .filter(|_| blamed);
         for (_, d) in &mut diagnostics[before..] {
             if d.severity != Severity::Error
                 || d.code == "E-UNKNOWN-NAME"
@@ -833,6 +1124,9 @@ impl Elaborator {
                 continue;
             }
             let Some(errored) = errored else {
+                for (dep, _) in &failed {
+                    self.note_waits_for(dep.item);
+                }
                 *d = goals::uses_unfinished(d.primary_span());
                 continue;
             };
@@ -843,6 +1137,279 @@ impl Elaborator {
             };
             *d = failed_name(&name);
         }
+    }
+
+    /// Notes where the errors of this module's failed declarations are, for
+    /// the namespaces that use them (`Session::failed_sources`).
+    fn note_failed_sources(&mut self, files: &[SourceUnit]) {
+        let parse_failed: Vec<(String, (String, Option<Span>))> = (files.iter())
+            .flat_map(|unit| &unit.module.failed)
+            .filter_map(|failed| {
+                let key = self.declaration_key(&failed.name).ok()?;
+                Some((key, (failed.name.text.clone(), failed.error_at)))
+            })
+            .collect();
+        let module = &self.unit.module;
+        let sources = &mut self.session.failed_sources;
+        sources.retain(|key, _| !module.names.contains(key));
+        let namespace = module.namespace.clone().unwrap_or_default();
+        for (key, source) in parse_failed {
+            if module.names.contains(&key) {
+                let log = &mut self.session.failed_decls;
+                log.retain(|f| (&f.namespace, &f.name) != (&namespace, &source.0));
+                log.push(crate::FailedDecl {
+                    namespace: namespace.clone(),
+                    name: source.0.clone(),
+                    theorem: false,
+                    test: false,
+                    root: source.0.clone(),
+                    error_at: source.1,
+                    own: true,
+                });
+                sources.insert(key, source);
+            }
+        }
+        for (item, source) in &module.error_sources {
+            if let Some(key) = module.item_keys.get(item) {
+                sources.insert(key.clone(), source.clone());
+            }
+        }
+    }
+
+    /// `E-USES-FAILED`: for each declaration of another namespace that
+    /// failed and each file whose declarations wait for it, one error,
+    /// on the file's import of it if it has one, listing what waits. The
+    /// waiting declarations report nothing themselves, so a broken name
+    /// costs a file one error however often it is used.
+    fn uses_failed(&self, files: &[SourceUnit]) -> Vec<(usize, Diagnostic)> {
+        let module = &self.unit.module;
+        let short = |key: &str| key.rsplit('.').next().unwrap_or(key).to_string();
+        // The declaration with the error, which may be behind the one used.
+        let source = |key: &str| {
+            (self.session.failed_sources.get(key).cloned()).unwrap_or_else(|| (short(key), None))
+        };
+        let mut waiting: Vec<(&str, usize, usize)> = (module.waits_elsewhere.iter())
+            .map(|(item, key)| (key.as_str(), module.items[*item].file, *item))
+            .collect();
+        waiting.sort_by_key(|(key, file, item)| (*file, module.items[*item].position, *key));
+        // By the declaration with the error and the file.
+        type Group<'k> = ((String, Option<Span>), usize, Vec<&'k str>, Vec<usize>);
+        let mut groups: Vec<Group> = Vec::new();
+        for (key, file, item) in waiting {
+            let root = source(key);
+            match (groups.iter_mut()).find(|(r, f, _, _)| *r == root && *f == file) {
+                Some((_, _, keys, items)) => {
+                    if !keys.contains(&key) {
+                        keys.push(key);
+                    }
+                    items.push(item);
+                }
+                None => groups.push((root, file, vec![key], vec![item])),
+            }
+        }
+        let mut out = Vec::new();
+        for ((broken, error_at), file, keys, items) in groups {
+            let shown = |i: &usize| {
+                let item = &module.items[*i];
+                match item.kind {
+                    // Its name is `test "…"` already.
+                    Kind::Test => item.name.clone(),
+                    _ => format!("`{}`", item.name),
+                }
+            };
+            let message = match items.as_slice() {
+                [one] => format!(
+                    "`{broken}` has an error, so {} can't be checked until it's fixed",
+                    shown(one)
+                ),
+                _ => format!(
+                    "`{broken}` has an error, so {} declarations here can't be checked until \
+                     it's fixed",
+                    items.len()
+                ),
+            };
+            // On the file's import of what it uses, if it names it.
+            let imported = (files.get(file)).and_then(|unit| {
+                (keys.iter()).find_map(|k| Some((*k, import_of(&unit.module.imports, k)?)))
+            });
+            let label = |key: &str| match short(key) {
+                used if used == broken => format!("`{broken}` has an error"),
+                used => format!("`{used}` depends on `{broken}`, which has an error"),
+            };
+            let (at, label) = match imported {
+                Some((key, at)) => (at, label(key)),
+                None => (module.items[items[0]].span, label(keys[0])),
+            };
+            let mut d = Diagnostic::error("E-USES-FAILED", message).with_label(at, label);
+            if let Some(error_at) = error_at {
+                d = d.with_label(error_at, "the error is here");
+            }
+            if items.len() > 1 {
+                let names: Vec<String> = items.iter().map(shown).collect();
+                d = d.with_note(format!("waiting for it: {}", names.join(", ")));
+            }
+            out.push((module.items[items[0]].position, d));
+        }
+        out
+    }
+
+    /// Records where the errors of `component`, which failed with `found`,
+    /// come from, and, if it is a test that only failed because of what it
+    /// uses, that it is a broken test (D3523). `used_failed` are the keys
+    /// of the failed declarations it was refused for using, as noted where
+    /// it was refused: if nothing else is wrong with it and one is another
+    /// namespace's, it waits for that one.
+    fn note_error_source(
+        &mut self,
+        items: &[Item],
+        component: &[usize],
+        found: &[(usize, Diagnostic)],
+        used_failed: &[String],
+    ) {
+        let errors: Vec<&Diagnostic> = found
+            .iter()
+            .map(|(_, d)| d)
+            .filter(|d| d.severity == Severity::Error)
+            .collect();
+        let Some(first) = errors.first() else {
+            return;
+        };
+        // Its only errors are what it uses failing, or a name a failed
+        // import lost, which is reported on the import.
+        let lost = (errors.iter()).find(|d| self.lost_to_a_failed_import(d));
+        let only_dependencies = errors
+            .iter()
+            .all(|d| d.code == "E-FAILED-DEPENDENCY" || self.lost_to_a_failed_import(d));
+        let module = &self.unit.module;
+        // What it uses that failed: (its name, the source of its error,
+        // and the key of the other namespace's declaration it waits for).
+        type Used = (String, (String, Option<Span>), Option<String>);
+        let used: Option<Used> = if !only_dependencies {
+            None
+        } else if let Some(key) = (used_failed.iter()).find(|k| !module.names.contains(*k)) {
+            let short = key.rsplit('.').next().unwrap_or(key).to_string();
+            let source = (self.session.failed_sources.get(key).cloned())
+                .unwrap_or_else(|| (short.clone(), None));
+            Some((short, source, Some(key.clone())))
+        } else {
+            // What it names, or else what the refusal found (a dot call is
+            // only a speculative dependency).
+            let noted = used_failed.iter().filter_map(|k| {
+                (module.item_keys.iter())
+                    .find(|(_, key)| *key == k)
+                    .map(|(i, _)| *i)
+            });
+            (component.iter())
+                .flat_map(|i| &module.items[*i].deps)
+                .filter(|d| d.speculative.is_none() && !component.contains(&d.item))
+                .map(|d| d.item)
+                .chain(noted)
+                .find(|i| {
+                    !component.contains(i)
+                        && module.items[*i].status == Status::Failed
+                        && module.error_sources.contains_key(i)
+                })
+                .and_then(|i| {
+                    let source = module.error_sources.get(&i)?.clone();
+                    let waits = module.waits_elsewhere.get(&i).cloned();
+                    Some((module.items[i].name.clone(), source, waits))
+                })
+                // A declaration of this module's that didn't parse.
+                .or_else(|| {
+                    let source = used_failed
+                        .iter()
+                        .find_map(|k| module.parse_failed.get(k))?;
+                    Some((source.0.clone(), source.clone(), None))
+                })
+        };
+        // Waiting for a name lost to a failed import, which is all there is
+        // to name.
+        let used = used.or_else(|| {
+            let d = lost.filter(|_| only_dependencies)?;
+            // A name a failed `(..)` import may have brought is waiting for
+            // that import, which is where the error is printed.
+            if !self
+                .scope
+                .import_failed
+                .iter()
+                .any(|n| d.message == format!("unknown name `{n}`"))
+                && let Some((namespace, at)) = self.lost_to_a_failed_wildcard(d)
+            {
+                let import = format!("import {namespace} (..)");
+                return Some((import.clone(), (import, Some(at)), None));
+            }
+            let name = d
+                .message
+                .strip_prefix("unknown name `")?
+                .strip_suffix('`')?;
+            Some((name.to_string(), (name.to_string(), d.primary_span()), None))
+        });
+        // The member of a group whose error it is, not just the first.
+        let own_first = found.iter().find(|(_, d)| self.is_own_error(d));
+        let owner = (component.iter().copied())
+            .find(|i| own_first.is_some_and(|(position, _)| items[*i].position == *position))
+            .unwrap_or(component[0]);
+        let source = match &used {
+            Some((_, source, _)) => source.clone(),
+            None => (
+                module.items[owner].name.clone(),
+                own_first.map_or(*first, |(_, d)| d).primary_span(),
+            ),
+        };
+        let own = !only_dependencies || used.is_none();
+        let namespace = self.unit.module.namespace.clone().unwrap_or_default();
+        for &i in component {
+            // In a group, a member with an error of its own is what its
+            // users wait for, at that error.
+            let own_here = found
+                .iter()
+                .find(|(position, d)| *position == items[i].position && self.is_own_error(d));
+            let source = match (&used, own_here) {
+                (None, Some((_, d))) if component.len() > 1 => {
+                    (self.unit.module.items[i].name.clone(), d.primary_span())
+                }
+                _ => source.clone(),
+            };
+            self.unit.module.error_sources.insert(i, source.clone());
+            if let Some((_, _, Some(key))) = &used {
+                self.unit.module.waits_elsewhere.insert(i, key.clone());
+            }
+            let info = &self.unit.module.items[i];
+            let failed = crate::FailedDecl {
+                namespace: namespace.clone(),
+                name: info.name.clone(),
+                theorem: matches!(items[i].decl, Decl::Signature { theorem: true, .. }),
+                test: info.kind == Kind::Test,
+                root: source.0.clone(),
+                error_at: source.1,
+                // A member of a group with no error of its own isn't one:
+                // it waits for the member that has.
+                own: own && (component.len() == 1 || own_here.is_some() || own_first.is_none()),
+            };
+            let log = &mut self.session.failed_decls;
+            log.retain(|f| (&f.namespace, &f.name) != (&failed.namespace, &failed.name));
+            log.push(failed);
+        }
+        let [i] = component else {
+            return;
+        };
+        let Decl::Test { name, span, .. } = items[*i].decl else {
+            return;
+        };
+        let uses = match used {
+            Some((uses, _, _)) => uses,
+            None => name.to_string(),
+        };
+        let broken = BrokenTest {
+            name: name.to_string(),
+            namespace,
+            span: *span,
+            uses,
+            broken: source.0,
+            error_at: source.1,
+            own,
+        };
+        self.session.broken_tests.push(broken);
     }
 
     /// Step 1: the module's declarations, with every name they declare
@@ -963,6 +1530,7 @@ impl Elaborator {
                     interface: None,
                     head: None,
                     ran_out: false,
+                    reading: crate::reading::written_reading(decl),
                 });
                 items.push(Item {
                     decl,
@@ -1108,7 +1676,8 @@ impl Elaborator {
     /// error having been reported) rather than `E-UNKNOWN-NAME`.
     fn declare_parse_failed(&mut self, files: &[SourceUnit]) {
         for unit in files {
-            for name in &unit.module.failed {
+            for failed in &unit.module.failed {
+                let name = &failed.name;
                 let Ok(key) = self.declaration_key(name) else {
                     continue;
                 };
@@ -1119,6 +1688,8 @@ impl Elaborator {
                 if let Some(target) = self.extension_target(name) {
                     self.scope.add_extension(&key, &target);
                 }
+                (self.unit.module.parse_failed)
+                    .insert(key.clone(), (name.text.clone(), failed.error_at));
                 self.unit.module.names.insert(key);
             }
         }
@@ -1175,6 +1746,7 @@ impl Elaborator {
         self.scope
             .insert(&key, Global::Unchecked(index), main.span, false);
         self.unit.module.names.insert(key.clone());
+        self.unit.module.item_keys.insert(index, key.clone());
         let mut result = Ok(());
         for (k, (member, follower)) in members.iter().enumerate() {
             let within = members[..k].iter().find(|(o, _)| o.text == member.text);
@@ -1565,6 +2137,92 @@ impl Elaborator {
         }
     }
 
+    /// Ordering edges for readings (D3537): every declaration that mentions
+    /// a test function with a `@[reading]` in this module is checked after
+    /// the reading, so which uses see a reading is decided by dependencies,
+    /// not by where things are written. Except the reading's own
+    /// dependencies (a lemma its proof uses), which can't wait for it: they
+    /// read the test as what it unfolds to, as the reading's own proof does.
+    /// An edge into the reading never closes a cycle, since what the reading
+    /// reaches is left out. The library is written in an order that works.
+    fn reading_edges(&mut self) {
+        let readings: Vec<(usize, crate::reading::WrittenHead)> = (self.unit.module.items.iter())
+            .enumerate()
+            .filter_map(|(r, info)| Some((r, info.reading.as_ref()?.0.clone())))
+            .collect();
+        for (r, head) in readings {
+            let tests = self.reading_tests(r, &head);
+            if tests.is_empty() {
+                continue;
+            }
+            let reached = self.reachable(r);
+            let span = self.unit.module.items[r].span;
+            for x in 0..self.unit.module.items.len() {
+                let item = &self.unit.module.items[x];
+                if reached.contains(&x)
+                    || !matches!(item.kind, Kind::Def | Kind::Test)
+                    || !item.deps.iter().any(|d| tests.contains(&d.item))
+                {
+                    continue;
+                }
+                self.unit.module.items[x].deps.push(Dep {
+                    item: r,
+                    span,
+                    in_header: false,
+                    speculative: Some("it may read a test through its reading".to_string()),
+                });
+            }
+        }
+    }
+
+    /// The module's functions the `@[reading]` item `r` may be the reading
+    /// of, from how its statement names its test.
+    fn reading_tests(&mut self, r: usize, head: &crate::reading::WrittenHead) -> Vec<usize> {
+        let defs = |this: &Self, keep: &dyn Fn(&str) -> bool| -> Vec<usize> {
+            (this.unit.module.items.iter())
+                .enumerate()
+                .filter(|(i, info)| *i != r && info.kind == Kind::Def && keep(&info.name))
+                .map(|(i, _)| i)
+                .collect()
+        };
+        match head {
+            crate::reading::WrittenHead::Method(m, receiver_type) => {
+                // The receiver's written type names the function (`T.m`).
+                // Only a checked statement says it otherwise (a receiver
+                // that is not a parameter, a nickname's namespace), and
+                // that is after the order is fixed, so those keep every
+                // function with the last name: extra edges only order a
+                // few more declarations after the reading.
+                if let Some(t) = receiver_type {
+                    let found = self.reading_function(r, &format!("{t}.{m}"));
+                    if !found.is_empty() {
+                        return found;
+                    }
+                }
+                defs(self, &|name: &str| {
+                    name.rsplit('.').next() == Some(m.as_str())
+                })
+            }
+            crate::reading::WrittenHead::Name(text) => self.reading_function(r, text),
+        }
+    }
+
+    /// The module's function that `text`, written in reading `r`'s file,
+    /// names, if it is one.
+    fn reading_function(&mut self, r: usize, text: &str) -> Vec<usize> {
+        self.unit.module.file = Some(self.unit.module.items[r].file);
+        let found = match self.resolve(text) {
+            crate::scope::Resolved::Found {
+                global: Global::Unchecked(j),
+                rest,
+                ..
+            } if rest.is_empty() => vec![j],
+            _ => Vec::new(),
+        };
+        self.unit.module.file = None;
+        found
+    }
+
     /// The items item `from` depends on, directly or not, itself included.
     /// (Adding edges into `from` never changes it, unless they close a
     /// cycle, which `instance_edges` doesn't do.)
@@ -1645,12 +2303,25 @@ impl Elaborator {
     }
 
     /// Names that were declared but never checked now just name failures:
-    /// the module's own.
+    /// the module's own. Those waiting for open goals are noted as such
+    /// (`Session::waiting_names`).
     fn fail_unchecked_names(&mut self) {
-        for key in &self.unit.module.names {
-            if let Some((Global::Unchecked(_), _)) = self.scope.stored(key) {
+        let module = &self.unit.module;
+        let mut waiting = self.session.waiting_names.borrow_mut();
+        for key in &module.names {
+            if let Some((Global::Unchecked(item), _)) = self.scope.stored(key) {
+                match module.waiting.get(item) {
+                    Some(goals) if module.items[*item].status == Status::Unfinished => {
+                        waiting.insert(key.clone(), goals.clone());
+                    }
+                    _ => {
+                        waiting.remove(key);
+                    }
+                }
                 self.scope
                     .set_global(key, |global| *global = Global::Failed);
+            } else {
+                waiting.remove(key);
             }
         }
     }
@@ -2116,6 +2787,59 @@ impl Elaborator {
         )
     }
 
+    /// Notes that the declaration being checked uses `item` of this
+    /// module, so waits for the goals it waits for, if any.
+    fn note_waits_for(&self, item: usize) {
+        for id in self
+            .unit
+            .module
+            .waiting
+            .get(&item)
+            .into_iter()
+            .flat_map(|g| g.iter())
+        {
+            goals::note_used_unfinished(*id);
+        }
+    }
+
+    /// The key of instance `id`, which is found by type rather than named,
+    /// for noting that what searched for it waits for it
+    /// (`note_failed_used`). Another namespace's path is its key; this
+    /// module's paths have the module's prefix (`Main.` for a single file),
+    /// so its own are looked up by item.
+    pub(crate) fn instance_key(&self, id: DefId) -> Option<String> {
+        let module = &self.unit.module;
+        if id.0 < module.first_def {
+            return Some(self.kernel.def(id).path().to_string());
+        }
+        let item = module.def_items.get(&id)?;
+        module.item_keys.get(item).cloned()
+    }
+
+    /// The error for using `name`, which names a failed declaration: one
+    /// that is waiting for open goals (`Session::waiting_names`) is
+    /// unfinished, and its user waits for the same goals.
+    pub(crate) fn failed_global(&self, name: &ast::Name) -> Diagnostic {
+        let waits = match self.resolve(&name.text) {
+            crate::scope::Resolved::Found { key, .. } => {
+                if !self.unit.module.names.contains(key)
+                    || self.unit.module.parse_failed.contains_key(key)
+                {
+                    note_failed_used(key);
+                }
+                self.session.waiting_names.borrow().get(key).cloned()
+            }
+            _ => None,
+        };
+        let Some(waits) = waits else {
+            return failed_name(name);
+        };
+        for id in waits.iter() {
+            goals::note_used_unfinished(*id);
+        }
+        goals::uses_unfinished(Some(name.span))
+    }
+
     /// The error for using `name`, which declaration `item` of this module
     /// declares, before it's checked.
     pub(crate) fn unchecked(&self, name: &ast::Name, item: usize) -> Diagnostic {
@@ -2124,6 +2848,7 @@ impl Elaborator {
             return failed_name(name);
         }
         if info.status == Status::Unfinished {
+            self.note_waits_for(item);
             return goals::uses_unfinished(Some(name.span));
         }
         if self.unit.module.in_current(item) {
@@ -2314,6 +3039,131 @@ fn listed<'a>(names: impl Iterator<Item = &'a String>) -> String {
         Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
         _ => names.join(""),
     }
+}
+
+thread_local! {
+    /// The keys of the failed declarations the component being checked was
+    /// refused for using, as found where the refusal is made: by name
+    /// lookup ([`Elaborator::failed_global`]), or by the kernel, whose
+    /// refusals are reworded where only the environment is at hand
+    /// ([`note_failed_in`]). The module empties it at the start of each
+    /// component and reads it at the end, keeping those another namespace
+    /// declares: the component waits for them (`E-USES-FAILED`).
+    static FAILED_USED: std::cell::RefCell<Vec<String>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The code of the error that fails a definition whose body didn't parse
+/// (`Decl::Signature`'s `syntax_error`): its own error, so it gets a stand-in
+/// and is the declaration its users' messages name, but never reported,
+/// since the parser reported the syntax error at the same place. The caller
+/// that holds the parser's errors merges what was found about the statement
+/// into that one (`with_syntax_errors`).
+pub const UNPARSED_BODY: &str = "E-UNPARSED-BODY";
+
+/// What a load that had syntax errors reports: those, then what checking
+/// the declarations that did parse found, in file order. Uses of
+/// declarations that failed to parse (`E-FAILED-DEPENDENCY`) go without
+/// saying: the syntax error is the cause.
+pub fn with_syntax_errors(
+    parse_errors: Vec<Diagnostic>,
+    checked: Vec<Diagnostic>,
+) -> Vec<Diagnostic> {
+    let mut all = parse_errors;
+    let mut recovered = Vec::new();
+    for d in checked {
+        if d.code == "E-FAILED-DEPENDENCY" {
+            continue;
+        }
+        // A body that didn't parse fails with its own error, which isn't
+        // reported: the parser's error at the same place is. What the check
+        // found about its statement, a counterexample, belongs on that one.
+        if d.code == UNPARSED_BODY {
+            if let Some(at) = d.primary_span()
+                && let Some(error) = all.iter_mut().find(|e| e.primary_span() == Some(at))
+            {
+                let counterexample = d.counterexample_data().cloned();
+                error.notes.extend(d.notes);
+                if let Some(counterexample) = counterexample {
+                    error.detail_mut().counterexample = Some(counterexample);
+                }
+            }
+            continue;
+        }
+        recovered.push(d);
+    }
+    all.extend(recovered);
+    all.sort_by_key(|d| {
+        d.labels.first().map_or((usize::MAX, u32::MAX), |l| {
+            (l.span.file.index(), l.span.start)
+        })
+    });
+    all
+}
+
+/// The error failing a definition whose body has a syntax error at `at`
+/// (`UNPARSED_BODY`).
+pub(crate) fn unparsed_body(at: Span) -> Diagnostic {
+    Diagnostic::error(UNPARSED_BODY, "this body didn't parse")
+        .with_label(at, "the syntax error is here")
+}
+
+/// Notes that the declaration being checked was refused for using failed
+/// declaration `key` (`FAILED_USED`).
+pub(crate) fn note_failed_used(key: &str) {
+    FAILED_USED.with(|u| u.borrow_mut().push(key.to_string()));
+}
+
+/// The failed declarations noted since the last call, emptying the list.
+fn take_failed_used() -> Vec<String> {
+    FAILED_USED.with(|u| std::mem::take(&mut *u.borrow_mut()))
+}
+
+/// Notes the failed definitions and data types `terms` refer to, other
+/// than `own` (`FAILED_USED`): the kernel refused them for it. Each by its
+/// name from the root, which is its key in the scope (its path has the
+/// module's prefix, `Main.` for a single file, which no key has).
+pub(crate) fn note_failed_in(
+    g: &stitchwort_core::Ev,
+    terms: &[&stitchwort_core::Term],
+    own: &[stitchwort_core::globals::HashKey],
+) {
+    use stitchwort_core::Term;
+    use stitchwort_core::globals::HashKey;
+    for term in terms {
+        for (t, _) in term.subterms() {
+            let (key, state, path) = match t {
+                Term::Def(id) if id.0 < g.env.defs().len() => {
+                    let def = g.def(*id);
+                    (HashKey::Def(*id), def.state(), def.name().to_string())
+                }
+                Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _)
+                    if d.0 < g.env.datas().len() =>
+                {
+                    let data = g.data(*d);
+                    (HashKey::Data(*d), data.state(), data.name().to_string())
+                }
+                _ => continue,
+            };
+            if state == State::Failed && !own.contains(&key) {
+                note_failed_used(&path);
+            }
+        }
+    }
+}
+
+/// Where `imports` import the declaration `key` by name, if they do: the
+/// name in the import.
+fn import_of(imports: &[ast::Import], key: &str) -> Option<Span> {
+    imports.iter().find_map(|import| {
+        let path = import.path.text.as_str();
+        import.items.iter().find_map(|item| {
+            let ns = key
+                .strip_suffix(item.name.text.as_str())?
+                .strip_suffix('.')?;
+            (ns == path || ns.ends_with(&format!(".{path}"))).then_some(item.name.span)
+        })
+    })
 }
 
 /// The error for using a declaration that failed.
@@ -2695,6 +3545,13 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 false,
             );
             let binders = body_binders(ty, equations);
+            // The measure is checked with the header's parameters in scope,
+            // before the body.
+            if let Some(measure) = decreasing {
+                let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
+                work.push(Work::Expr(measure));
+                add(free_names(work), false);
+            }
             let param_types = explicit_param_types(ty, equations);
             let mut body = Vec::new();
             for eq in equations {
@@ -2871,23 +3728,15 @@ pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
 /// guard on a decided proposition tested by its `Bool` is stated as the
 /// proposition, and its proofs go between the two with these
 /// (`equations.rs`, `BranchLib::to_bool_lemmas`); so does a conjunction of
-/// them (`BranchLib::and_lemmas`).
-pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 13]> =
+/// them (decided by `Decidable.and`).
+pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 5]> =
     std::sync::LazyLock::new(|| {
         [
-            "Std.Decidable.toBoolOf",
             "Std.Decidable.toBoolOfNot",
-            "Std.Decidable.toBoolSound",
-            "Std.Decidable.toBoolFalse",
-            "Std.Decidable.andBoolOf",
-            "Std.Decidable.andBoolOfNot",
-            "Std.Decidable.andBoolSound",
-            "Std.Decidable.andBoolFalse",
+            "Std.Decidable.refute",
             "Std.Bool.decTrue",
-            "Std.Bool.decTrueToBool",
             "Std.Decidable.notNotOf",
             "Std.Decidable.not",
-            "Std.Decidable.andBoolDec",
         ]
         .map(|text| ast::Name {
             text: text.to_string(),
@@ -3134,6 +3983,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Goal(_)
+            | Expr::Missing(_)
             | Expr::Unit(_) => {}
             Expr::Binary(BinOp::In(_), a, b) => {
                 out.extend(MEMBERSHIP.iter().map(Ref::Name));
@@ -3325,7 +4175,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                             vars.push(&h.text);
                         }
                     }
-                    steps.push(Work::Expr(&alt.body));
+                    steps.extend(alt.body.as_ref().map(Work::Expr));
                     steps.extend(vars.into_iter().map(Work::Unbind));
                 }
                 then(&mut stack, steps);

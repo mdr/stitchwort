@@ -5,7 +5,7 @@
 //! builds a constructor with as many fields ([`crate::code`], "Moves and
 //! reuse"). Often the body instead calls a function that builds it, perhaps
 //! a few calls down (`Map.Tree.insertWith` takes a node apart and calls
-//! `balance`, which calls `rebuild`, which builds the node). For such a
+//! `balance`, which builds the node, or calls a rotation that does). For such a
 //! function this pass makes a *copy* with one more parameter, last: a reuse
 //! token, the emptied cell. Wherever the compiler holds a token of that size
 //! at a call of the function, it calls the copy and passes the token; the
@@ -60,8 +60,8 @@ use crate::opt::{MAX_NESTING, nesting, size};
 use crate::trmc::{each, shift};
 
 /// How many calls down a token is passed before something builds in it.
-/// `Map.Tree` needs 2 (`balance` is inlined): `insertWith`'s lifted match
-/// calls `rebuild`, which calls the rotation that builds.
+/// `Map.Tree` needs 2: `insertWith`'s lifted match calls `balance`, which
+/// calls the rotation that builds.
 pub const DEPTH: usize = 4;
 /// The most copies made for a program.
 pub const MAX_COPIES: usize = 256;

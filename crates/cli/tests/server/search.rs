@@ -182,6 +182,53 @@ fn hidden_helpers_are_searched_only_with_all() {
 }
 
 #[test]
+fn an_open_theorem_is_listed_marked_and_ranked_after_finished_ones() {
+    let dir = project("open");
+    // `scaleAbc` sorts before `scaleOne` and has the same statement, but its
+    // proof is a `?`: found, marked, and after the finished theorem.
+    let file = dir.join("src/shapes.sw");
+    let mut text = std::fs::read_to_string(&file).unwrap();
+    text.push_str("\ntheorem Shape.scaleAbc: (s: Shape) → Shape.scale 1 s = s := ?\n");
+    std::fs::write(&file, text).unwrap();
+    let (code, report) = json(&dir, &["Shape.scale _ _ = _"]);
+    assert_eq!(code, 0, "{report}");
+    let found = names(&report);
+    let at = |n: &str| found.iter().position(|f| *f == n).unwrap();
+    assert!(
+        at("Shapes.Shape.scaleOne") < at("Shapes.Shape.scaleAbc"),
+        "{found:?}"
+    );
+    assert_eq!(result(&report, "Shapes.Shape.scaleAbc")["open"], true);
+    assert!(
+        result(&report, "Shapes.Shape.scaleOne")
+            .get("open")
+            .is_none()
+    );
+    let (_, out, _) = search(&dir, &["Shape.scale _ _ = _"]);
+    assert!(
+        out.contains(". Shapes.Shape.scaleAbc (open goal)  theorem"),
+        "{out}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_theorem_with_an_error_is_not_offered() {
+    let dir = project("error");
+    // Its statement checks, so it stands in for what uses it, but its proof
+    // is wrong, so search doesn't offer it as an open theorem would be.
+    let file = dir.join("src/shapes.sw");
+    let mut text = std::fs::read_to_string(&file).unwrap();
+    text.push_str("\ntheorem Shape.scaleAbc: (s: Shape) → Shape.scale 1 s = s := rfl\n");
+    std::fs::write(&file, text).unwrap();
+    let (_, report) = json(&dir, &["Shape.scale _ _ = _"]);
+    let found = names(&report);
+    assert!(found.contains(&"Shapes.Shape.scaleOne"), "{found:?}");
+    assert!(!found.contains(&"Shapes.Shape.scaleAbc"), "{found:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn rewrite_mode_takes_iff_sides_and_conditional_equations() {
     let dir = folder("rewrite");
     let (code, report) = json(&dir, &["_ ∈ List.unique _", "--rewrite"]);
@@ -224,7 +271,7 @@ fn a_file_is_searched_with_its_own_names_even_if_it_doesnt_check() {
     assert_eq!(
         out,
         " 1. Main.twiceLength  theorem · instance · conclusion\n    \
-         (xs: List Nat) → (twice xs).length = xs.length + xs.length\n    \
+         ∀ (xs: List Nat) => (twice xs).length = xs.length + xs.length\n    \
          a.sw:5\n\
          1 result, filtered pass\n"
     );

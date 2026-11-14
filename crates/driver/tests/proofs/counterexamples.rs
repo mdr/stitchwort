@@ -31,6 +31,7 @@ fn search_source(name: &str, text: String, fast: bool) -> (Vec<String>, Vec<Sear
     let name = name.to_string();
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
+        session.elab.options.log_counterexamples = true;
         if !fast {
             session.elab.options.counterexample_runner = None;
         }
@@ -297,8 +298,8 @@ fn the_random_inputs_are_the_same_every_time() {
     assert_eq!((a.tried, a.shrinks), (b.tried, b.shrinks));
 }
 
-/// `check --counterexamples` (D1159): every theorem of the program is
-/// searched, its proof checked or not, each with a verdict.
+/// `check --counterexamples` (D1159): every written theorem of the program
+/// is searched, its proof checked or not, each with a verdict.
 fn verdicts(name: &str) -> Vec<(String, bool, Verdict, String)> {
     let text = example(name);
     let name = name.to_string();
@@ -330,25 +331,58 @@ fn check_counterexamples_gives_every_theorem_a_verdict() {
     assert_eq!(
         rows,
         [
-            // The record's own extensionality theorem, which checks.
-            ("Range.ext", true, Verdict::GaveUp),
+            // The record's `Range.ext` is generated, so not searched
+            // ([`stitchwort_driver::audit`] counts it apart too).
             ("rangeOrdered", false, Verdict::NoneFound),
             ("rangeEmpty", false, Verdict::False),
         ],
         "{found:?}"
     );
     assert_eq!(
-        found[1].3,
+        found[0].3,
         "none in 2000 cases (sizes up to 63; evidence, not a proof)"
     );
     assert_eq!(
-        found[2].3,
+        found[1].3,
         "counterexample: r = { lo = 0, hi = 1, ok = rfl }"
     );
     // Out of scope: said why.
     let out = verdicts("reject/counterexample-out-of-scope.sw");
     assert_eq!(out[0].2, Verdict::NotApplicable, "{out:?}");
     assert_eq!(out[0].3, "not applicable: `f` is a function");
+}
+
+/// `f.unfold`, the equation the compiler proves for a `decreasing`
+/// definition, is generated: like audit, `check --counterexamples` searches
+/// the theorems written in source, not it (SW-2866).
+#[test]
+fn a_decreasing_definitions_unfold_is_not_searched() {
+    let source = "def halvings (n: Nat) (count: Nat): Nat
+    decreasing n
+:=
+  let next := n / 2
+  if h: next < n then halvings next (count + 1) else count
+
+theorem written (n: Nat): n = n := rfl
+";
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        let _ = session.load("unfold.sw", source);
+        let budget = Budget {
+            inputs: 200,
+            millis: 1000,
+        };
+        let names: Vec<String> = session
+            .search_theorems(budget, &|_| true)
+            .into_iter()
+            .map(|s| s.name)
+            .collect();
+        assert!(names.iter().any(|n| n.ends_with("written")), "{names:?}");
+        assert!(
+            !names.iter().any(|n| n.ends_with("halvings.unfold")),
+            "{names:?}"
+        );
+    });
 }
 
 /// SW-903: a false statement whose hypothesis only short lists satisfy
@@ -533,5 +567,66 @@ fn scope() {
         for ((part, outcome), n) in &tally {
             println!("{part}\t{n}\t{outcome}");
         }
+    });
+}
+
+/// A kept session probes the same failing theorem over and over (SW-1818):
+/// what it holds of the searches stays the same size, and the statement is
+/// searched once.
+#[test]
+fn repeated_probes_of_a_failing_theorem_leave_the_session_the_same_size() {
+    let text = example("reject/counterexample-reverse-append.sw");
+    with_stack(STACK, move || {
+        let mut session = Session::for_stack(STACK);
+        let mark = session.mark();
+        let mut notes = Vec::new();
+        for _ in 0..20 {
+            let diagnostics = session.load("probe.sw", &text).unwrap_err();
+            notes.push(
+                diagnostics
+                    .iter()
+                    .flat_map(|d| d.notes.iter())
+                    .filter(|n| n.contains("this statement is false"))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
+            session.rewind(&mark);
+            assert_eq!(session.elab.present.counterexample_log.borrow().len(), 0);
+            assert_eq!(session.elab.present.remembered_searches(), 1);
+        }
+        assert_eq!(notes[0].len(), 1, "{notes:?}");
+        assert!(notes.iter().all(|n| *n == notes[0]), "{notes:?}");
+    });
+}
+
+/// A statement that mentions a definition that failed has no content hash,
+/// so no search of it is remembered: editing that definition could not
+/// change the key.
+#[test]
+fn a_statement_mentioning_a_failed_definition_is_not_remembered() {
+    use stitchwort_core::DefId;
+    use stitchwort_core::hash::type_hash;
+    let text = "def bad (n: Nat): Nat := true\n\
+                theorem t (n: Nat): bad n = 0 := rfl\n\
+                theorem u (n: Nat): n + 1 = n := rfl\n";
+    with_stack(STACK, move || {
+        let mut session = Session::for_stack(STACK);
+        let _ = session.load("failed.sw", text);
+        let g = &session.elab.ev();
+        let _op = g
+            .machine
+            .budget
+            .operation(stitchwort_core::Limits::for_stack(STACK));
+        let hash_of = |name: &str| {
+            let id = (0..g.env.defs().len())
+                .map(DefId)
+                .rev()
+                .find(|id| g.def(*id).name().to_string() == name);
+            id.map(|id| type_hash(g, id).unwrap())
+        };
+        let t = hash_of("t").expect("t is declared");
+        assert!(t.is_none(), "t mentions a failed definition");
+        let u = hash_of("u").expect("u is declared");
+        assert!(u.is_some(), "u mentions only final definitions");
     });
 }

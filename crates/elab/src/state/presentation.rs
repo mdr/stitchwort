@@ -11,8 +11,11 @@
 //!   the check cache (`cache`) and dumped.
 //! - `goal_snapshots`: the latest goals printed, as terms. Emptied by a
 //!   rewind (their terms may name what is forgotten); not encoded or dumped.
-//! - `counterexample_log`: only grows; a rewind leaves it; not encoded or
+//! - `counterexample_log`: only filled when `Options::log_counterexamples`
+//!   is on (tests); then it only grows; a rewind leaves it; not encoded or
 //!   dumped.
+//! - `counterexample_memo`: the answers of searches by statement content;
+//!   kept by a rewind, since a key is the content, not an id; bounded.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -29,7 +32,15 @@ pub struct Presentation {
     /// `search --at` searches (SW-989).
     pub(crate) goal_snapshots: RefCell<Vec<(Span, Rc<goals::GoalSnapshot>)>>,
     /// What each counterexample search did, in this session. Only grows.
+    /// Filled only when `Options::log_counterexamples` is on.
     pub counterexample_log: RefCell<Vec<counterexample::SearchLog>>,
+    /// The note and log of a search, by statement (SW-1937).
+    pub(crate) counterexample_memo: RefCell<
+        stitchwort_core::collections::HashMap<
+            counterexample::MemoKey,
+            (Option<String>, counterexample::SearchLog),
+        >,
+    >,
 }
 
 /// What a rewind mark keeps of [`Presentation`]: where navigation's lists
@@ -46,6 +57,7 @@ impl Presentation {
             goal_snapshots: _,
             // Only grows.
             counterexample_log: _,
+            counterexample_memo: _,
         } = self;
         Mark {
             nav: nav.as_ref().map(|n| n.borrow_mut().mark()),
@@ -58,14 +70,20 @@ impl Presentation {
         let Presentation {
             nav,
             goal_snapshots,
-            // Kept: the log of searches already run.
+            // Kept: the log is for tests, the memo is by content.
             counterexample_log: _,
+            counterexample_memo: _,
         } = self;
         // Their terms may name what is forgotten.
         goal_snapshots.get_mut().clear();
         if let (Some(nav), Some(at_mark)) = (nav.as_mut(), &mark.nav) {
             nav.get_mut().rewind(at_mark);
         }
+    }
+
+    /// How many statements' searches are remembered (for tests).
+    pub fn remembered_searches(&self) -> usize {
+        self.counterexample_memo.borrow().len()
     }
 
     /// Navigation's recorder, for the session's journal.
@@ -79,6 +97,7 @@ impl Presentation {
             nav,
             goal_snapshots: _,
             counterexample_log: _,
+            counterexample_memo: _,
         } = self;
         if let Some(nav) = nav {
             nav.borrow().dump(out, now);

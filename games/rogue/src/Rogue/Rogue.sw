@@ -38,17 +38,15 @@ def play (state: State): {Terminal, Random, Partial} State :=
 --| One key: a turn, and its frame, if the key is a command. Keys that aren't
 --| commands are skipped, and the end of the input gives up. It is total, so
 --| what a turn does on the terminal is proved about (Proofs/Loop.sw).
-def playTurn (state: State): {Terminal, Random} State :=
-  match nextCommand() with
-    | None => state
-    | Some command =>
-      let next := step state command
-      Terminal.draw (frame next)
-      next
+def playTurn (state: State): {Terminal, Random} State := match nextCommand() with
+  | None => state
+  | Some command =>
+    let next := step state command
+    Terminal.draw (frame next)
+    next
 
-def ending (state: State): Text :=
-  match state.phase with
-    | Won => "You won on turn ${state.turn} with ${state.hitPoints} hit points."
-    | Died => "You died on level ${state.level.depth}, on turn ${state.turn}."
-    | GaveUp => "You gave up on level ${state.level.depth}, on turn ${state.turn}."
-    | Playing => "The game stopped while still playing."
+def ending (state: State): Text := match state.phase with
+  | Won => "You won on turn ${state.turn} with ${state.hitPoints} hit points."
+  | Died => "You died on level ${state.level.depth}, on turn ${state.turn}."
+  | GaveUp => "You gave up on level ${state.level.depth}, on turn ${state.turn}."
+  | Playing => "The game stopped while still playing."

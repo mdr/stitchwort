@@ -19,8 +19,8 @@
 //!    passing a procedure explicitly makes it a dependency, checked first. Its arguments are found by unification, and any
 //!    `Decidable` or auto arguments it needs are found recursively, one
 //!    deeper each time, up to `MAX_DEPTH`. It's run at
-//!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
-//!    which the kernel re-checks by running `d` itself.
+//!    compile time, and its test must be `True`. The proof is then `d.sound
+//!    rfl`, which the kernel re-checks by computing `d`'s test itself.
 //!
 //! Between 1 and 2, a lexicographic `decreasing` obligation, `Nat.LexLess a1
 //! a2 b1 b2`, is split: `a1 < b1`, or else `a1` the same as `b1` and `a2 <
@@ -33,9 +33,14 @@
 //! and then proved from the facts in scope where that's quick: `d ≠ 0` from
 //! a fact `Succ k ≤ d`, `Nat.toInt d ≠ 0` from `d ≠ 0`, and, in a module that
 //! loads `omega`'s library, an arithmetic goal by `omega` within a small
-//! budget (`from_facts`). Last, the parts of a conjunction in scope are facts
-//! too, each as in 1 or as `Succ k ≤ d` (`from_conjuncts`): `h: b ≠ 0 ∧ c ≠ 0`,
-//! or the proof an `if b != 0 && c != 0` gives its branch.
+//! budget (`from_facts`). Last, the parts of the facts in scope are facts
+//! too, each as in 1 or as `Succ k ≤ d` (`from_hypothesis_parts`): the
+//! sides of a conjunction (`h: b ≠ 0 ∧ c ≠ 0`, or the proof an `if b != 0
+//! && c != 0` gives its branch), and what a test fact reads as
+//! (docs/proposals/bool-as-proposition.md §9: `h: (b != 0 && c != 0) =
+//! True` as `b ≠ 0 ∧ c ≠ 0`), taken apart in turn. Failing that, a context
+//! that contradicts itself proves anything: `e = True` beside `e = False`, or
+//! an equation of different constructors (`cases`' closer, `by_contradiction`).
 //!
 //! An obligation whose type is an interface applied to a type is an instance
 //! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
@@ -76,6 +81,10 @@ pub struct Obligation {
     pub env: Vec<Value>,
     pub types: Vec<Value>,
     pub names: Vec<Name>,
+    /// The context's types as written (`Ctx::written`): with gluing off,
+    /// a test fact's type has its calls unfolded, and the reader starts
+    /// from the type as written to read it by its function (`reading.rs`).
+    pub written: Vec<Option<crate::dot::Written>>,
     pub goal: Value,
     pub meta: Term,
     pub span: Span,
@@ -160,6 +169,7 @@ impl Elaborator {
                     continue;
                 }
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
+                cx.written = ob.written;
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
                     force(&cx.g(), placeholder.clone())?,
@@ -224,6 +234,7 @@ impl Elaborator {
                     env: ob.env.clone(),
                     types: ob.types.clone(),
                     names: ob.names.clone(),
+                    written: ob.written.clone(),
                     goal: ob.goal.clone(),
                     meta: ob.meta.clone(),
                     span: ob.span,
@@ -238,6 +249,7 @@ impl Elaborator {
                 ob.names.clone(),
                 span,
             );
+            cx.written = ob.written.clone();
             let placeholder = cx.eval(&meta)?;
             if !matches!(
                 force(&cx.g(), placeholder.clone())?,
@@ -287,9 +299,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     }
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
-    match force(&cx.g(), cx.eval(&decision)?)? {
-        Value::Ctor(_, 0, _) => from_yes(cx, &goal, decision),
-        Value::Ctor(_, _, _) => {
+    match verdict(cx, &decision)? {
+        Some(true) => from_yes(cx, &goal, decision),
+        Some(false) => {
             let message = match not_in_list(cx, &goal)? {
                 Some(message) => message,
                 None => format!("`{shown}` is false"),
@@ -307,7 +319,16 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             if let Some(proof) = from_facts(cx, &goal)? {
                 return Ok(proof);
             }
-            if let Some(proof) = from_conjuncts(cx, &goal)? {
+            let latest_first: Vec<usize> = (0..cx.level()).rev().collect();
+            let parts = hypothesis_parts(cx, &latest_first)?;
+            if let Some(proof) = from_hypothesis_parts(cx, &goal, &parts)? {
+                return Ok(proof);
+            }
+            let levels: Vec<usize> = (0..cx.level()).collect();
+            if let Some(proof) = crate::cases::by_contradiction(cx, &goal, &levels)? {
+                return Ok(proof);
+            }
+            if let Some(proof) = from_rules(cx, &goal, &parts)? {
                 return Ok(proof);
             }
             let mut error = cx
@@ -344,19 +365,36 @@ fn hidden_name_note(shown: &str) -> Option<String> {
     ))
 }
 
-/// `fromYes [p := goal] decision Trivial`: the proof from a decision that
-/// says `Yes`. (`cases`' decision closer writes it too, `cases.rs`.)
+/// `Decidable.sound [p := goal] decision rfl`: the proof from a decision
+/// whose test computes to `True`, which the kernel checks by running the
+/// test, not the proofs. (`cases`' decision closer writes it too,
+/// `cases.rs`.)
 pub(crate) fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
-    let from_yes = builtin_def(cx, Builtin::FromYes)?;
-    let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
+    let sound = crate::check::decidable_field(cx, 1)?;
     let goal_term = cx.quote_folded(goal)?;
     Ok(Term::app(
         Term::app(
-            Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
+            Term::app_icit(Term::Def(sound), goal_term, Icit::Implicit),
             decision,
         ),
-        Term::Ctor(unit, trivial, Vec::new()),
+        Term::Refl,
     ))
+}
+
+/// What a decision says, run now: `Some(true)` when its test computes to
+/// `True`, `Some(false)` for `False`, `None` when it's stuck.
+pub(crate) fn verdict(cx: &mut Ctx, decision: &Term) -> Result<Option<bool>> {
+    let Value::Ctor(_, 0, fields) = force(&cx.g(), cx.eval(decision)?)? else {
+        return Ok(None);
+    };
+    let Some(holds) = fields.first() else {
+        return Ok(None);
+    };
+    let (bool, true_) = builtin_ctor(cx, Builtin::True)?;
+    Ok(match force(&cx.g(), holds.clone())? {
+        Value::Ctor(d, c, _) if d == bool => Some(c == true_),
+        _ => None,
+    })
 }
 
 /// A proof of a goal that computing doesn't decide, by a decision procedure
@@ -373,10 +411,7 @@ fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<
             let Some(decision) = instantiate(cx, id, decidable, goal, depth, true)? else {
                 return Ok(None);
             };
-            match force(&cx.g(), cx.eval(&decision)?)? {
-                Value::Ctor(_, 0, _) => Ok(Some(decision)),
-                _ => Ok(None),
-            }
+            Ok((verdict(cx, &decision)? == Some(true)).then_some(decision))
         })?;
         if let Some(decision) = found {
             return from_yes(cx, goal, decision).map(Some);
@@ -447,10 +482,10 @@ fn apply_fact_lemma(
     let mut term = Term::Def(lemma);
     let mut ty = g.def(lemma).ty_value().clone();
     for _ in 0..arguments {
-        let Value::Pi(_, icit, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, icit, dom, cod) = force(&g, ty)? else {
             return Ok(None);
         };
-        let meta = cx.fresh_meta();
+        let meta = cx.fresh_meta_of(&dom);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&g, value)?;
@@ -476,60 +511,239 @@ fn apply_fact_lemma(
     Ok(None)
 }
 
-/// How deep a conjunction in scope is taken apart: `p ∧ (q ∧ r)` is two.
-const MAX_CONJUNCTS: usize = 8;
+/// How deep a fact in scope is taken apart: `p ∧ (q ∧ r)` is two, and so
+/// is `(a && b) = True` read as `a ∧ b` and then split.
+const MAX_PART_DEPTH: usize = 8;
 
-/// A proof of `goal` from the parts of the conjunctions in scope: one whose
-/// type is `goal`, or `d ≠ 0` from one that is `Succ k ≤ d`.
-fn from_conjuncts(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
-    let mut parts = Vec::new();
-    for level in (0..cx.level()).rev() {
-        let proof = Term::Var(cx.level() - 1 - level);
-        conjuncts(cx, proof, &cx.types[level].clone(), 1, &mut parts)?;
-    }
+/// How many test facts one collection of parts reads (each reading may
+/// unfold its test up to eight steps, `reading.rs`), latest hypotheses
+/// first, so that a large context costs a bounded amount of reading.
+const MAX_READS: usize = 64;
+
+/// A proof of `goal` from `parts`, the parts of the facts in scope
+/// ([`hypothesis_parts`]): one whose type is `goal`, or `d ≠ 0` from one
+/// that is `Succ k ≤ d`.
+fn from_hypothesis_parts(
+    cx: &mut Ctx,
+    goal: &Value,
+    parts: &[(Term, Value)],
+) -> Result<Option<Term>> {
     if parts.is_empty() {
         return Ok(None);
     }
-    for (proof, ty) in &parts {
+    for (proof, ty) in parts {
         if attempt(cx, |cx| Ok(cx.unify(ty, goal)?.then_some(())))?.is_some() {
             return Ok(Some(proof.clone()));
         }
     }
-    attempt(cx, |cx| nonzero_from(cx, goal, &parts))
+    attempt(cx, |cx| nonzero_from(cx, goal, parts))
 }
 
-/// Adds to `parts` those of `proof: ty`, if `ty` is a conjunction `p ∧ q`:
-/// `And.left proof: p` and `And.right proof: q`, each followed by its own.
-fn conjuncts(
+/// What the hypotheses at `levels` give besides themselves, as proofs with
+/// their types (docs/proposals/bool-as-proposition.md §9): each side of a
+/// conjunction, `And.left h: p` and `And.right h: q`, and what a test fact
+/// reads as (`reading::hypothesis_reads`: `(a && b) = True` as `a ∧ b`,
+/// `xs.all p = True` as `∀ x ∈ xs, p x`, `(a == b) = False` as `a ≠ b`),
+/// each taken apart again in turn. The parts found without a reading come
+/// first, in the order of `levels`, then those a reading gave: a goal a
+/// conjunction proved before keeps that proof.
+pub(crate) fn hypothesis_parts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(Term, Value)>> {
+    let mut parts = Vec::new();
+    let mut reads = 0;
+    for &level in levels {
+        let proof = Term::Var(cx.level() - 1 - level);
+        take_apart(
+            cx,
+            proof,
+            &cx.types[level],
+            1,
+            false,
+            &mut reads,
+            &mut parts,
+        )?;
+    }
+    // Stable: each kind keeps its order.
+    parts.sort_by_key(|(_, _, read)| *read);
+    Ok(parts
+        .into_iter()
+        .map(|(proof, ty, _)| (proof, ty))
+        .collect())
+}
+
+/// Adds to `parts` those of `proof: ty`: if `ty` is a conjunction `p ∧ q`,
+/// `And.left proof: p` and `And.right proof: q`; if it is a test fact with
+/// a reading, `proof` read as it; each followed by its own. `read` says
+/// whether a reading was used on the way to `proof`, and `reads` counts
+/// the test facts read so far, up to [`MAX_READS`].
+fn take_apart(
     cx: &Ctx,
     proof: Term,
     ty: &Value,
     depth: usize,
-    parts: &mut Vec<(Term, Value)>,
+    read: bool,
+    reads: &mut usize,
+    parts: &mut Vec<(Term, Value, bool)>,
 ) -> Result<()> {
-    if depth > MAX_CONJUNCTS {
+    if depth > MAX_PART_DEPTH {
         return Ok(());
     }
     let g = cx.g();
-    let Value::Data(d, args) = force(&g, ty.clone())? else {
-        return Ok(());
-    };
-    if !g.env.registry().is_data(Builtin::And, d) || args.len() != 2 {
+    if let Value::Data(d, args) = force(&g, ty.clone())?
+        && g.env.registry().is_data(Builtin::And, d)
+        && args.len() == 2
+    {
+        let (p, q) = (cx.quote(&args[0])?, cx.quote(&args[1])?);
+        for (side, part_ty) in [(Builtin::AndLeft, &args[0]), (Builtin::AndRight, &args[1])] {
+            let head = Term::Def(builtin_def(cx, side)?);
+            let head = Term::app_icit(
+                Term::app_icit(head, p.clone(), Icit::Implicit),
+                q.clone(),
+                Icit::Implicit,
+            );
+            let part = Term::app(head, proof.clone());
+            parts.push((part.clone(), part_ty.clone(), read));
+            take_apart(cx, part, part_ty, depth + 1, read, reads, parts)?;
+        }
         return Ok(());
     }
-    let (p, q) = (cx.quote(&args[0])?, cx.quote(&args[1])?);
-    for (side, part_ty) in [(Builtin::AndLeft, &args[0]), (Builtin::AndRight, &args[1])] {
-        let head = Term::Def(builtin_def(cx, side)?);
-        let head = Term::app_icit(
-            Term::app_icit(head, p.clone(), Icit::Implicit),
-            q.clone(),
-            Icit::Implicit,
-        );
-        let part = Term::app(head, proof.clone());
-        parts.push((part.clone(), part_ty.clone()));
-        conjuncts(cx, part, part_ty, depth + 1, parts)?;
+    if *reads >= MAX_READS || crate::reading::test_fact(cx, ty)?.is_none() {
+        return Ok(());
+    }
+    *reads += 1;
+    // A hypothesis is read by its type as written; a part of one already
+    // has the type a conjunction or a reading gave it.
+    let ty = if depth == 1 {
+        crate::reading::term_as_written(cx, &proof, ty)?
+    } else {
+        ty.clone()
+    };
+    // `all` and `any` of a cons read as `∧` and `∨`; the quantifier they
+    // read as on any other list is a fact too, which `from_rules` applies to
+    // a member.
+    let readings = [
+        crate::reading::hypothesis_reads(cx, &proof, &ty)?,
+        crate::reading::hypothesis_quantifier_reads(cx, &proof, &ty)?,
+    ];
+    for (part, part_ty) in readings.into_iter().flatten() {
+        parts.push((part.clone(), part_ty.clone(), true));
+        take_apart(cx, part, &part_ty, depth + 1, true, reads, parts)?;
     }
     Ok(())
+}
+
+/// How many binders a `∀` fact may have for [`from_rules`] to apply it.
+const MAX_RULE_BINDERS: usize = 8;
+
+/// A proof of `goal` by applying a `∀` fact in scope once: a hypothesis, or
+/// one of `parts` ([`hypothesis_parts`]), such as what `xs.all p = True`
+/// reads as, `∀ (x: a) => x ∈ xs → p x`. Its leading binders become
+/// unknowns, as few as make the rest unify with `goal` (`apply_rule`), and
+/// each premise left unknown after that (a proposition, such as `y ∈ xs`)
+/// must be a hypothesis or a part of one exactly. Nothing is searched
+/// deeper: a premise is never proved by applying another fact, and a
+/// conclusion that is a test fact isn't read (`(y != 0) = True` doesn't
+/// match a goal `y ≠ 0`).
+fn from_rules(cx: &mut Ctx, goal: &Value, parts: &[(Term, Value)]) -> Result<Option<Term>> {
+    let mut facts: Vec<(Term, Value)> = (0..cx.level())
+        .rev()
+        .map(|level| (Term::Var(cx.level() - 1 - level), cx.types[level].clone()))
+        .collect();
+    facts.extend_from_slice(parts);
+    let g = cx.g();
+    for (proof, ty) in &facts {
+        if !matches!(force(&g, ty.clone())?, Value::Pi(..)) {
+            continue;
+        }
+        if let Some(term) = attempt(cx, |cx| apply_rule(cx, proof, ty, goal, &facts))? {
+            return Ok(Some(term));
+        }
+    }
+    Ok(None)
+}
+
+/// `proof: ty`, a `∀`, applied to an unknown for each of its first binders,
+/// as few as make what is left unify with `goal`, if each premise that
+/// leaves unknown is one of `facts`. The goal is tried before each binder
+/// is taken off, not only at the end: a conclusion `x ≠ 0` is itself a
+/// function type (`x = 0 → Void`), whose binder must stay.
+fn apply_rule(
+    cx: &mut Ctx,
+    proof: &Term,
+    ty: &Value,
+    goal: &Value,
+    facts: &[(Term, Value)],
+) -> Result<Option<Term>> {
+    let g = cx.g();
+    let mut term = proof.clone();
+    let mut ty = ty.clone();
+    let mut binders = Vec::new();
+    loop {
+        if !binders.is_empty()
+            && let Some(()) = attempt(cx, |cx| premises_filled(cx, &ty, goal, &binders, facts))?
+        {
+            return Ok(Some(term));
+        }
+        let Value::Pi(_, icit, dom, cod) = force(&g, ty.clone())? else {
+            return Ok(None);
+        };
+        if binders.len() == MAX_RULE_BINDERS {
+            return Ok(None);
+        }
+        let meta = cx.fresh_meta_of(&dom);
+        let value = cx.eval(&meta)?;
+        term = Term::app_icit(term, meta, icit);
+        binders.push((value.clone(), (**dom.rc()).clone()));
+        ty = cod.apply(&g, value)?;
+    }
+}
+
+/// Whether `conclusion` unifies with `goal` and then each of `binders`
+/// (unknowns with their types) still unknown is a proposition that one of
+/// `facts` proves exactly, leaving no unknown.
+fn premises_filled(
+    cx: &mut Ctx,
+    conclusion: &Value,
+    goal: &Value,
+    binders: &[(Value, Value)],
+    facts: &[(Term, Value)],
+) -> Result<Option<()>> {
+    let g = cx.g();
+    if !cx.unify(conclusion, goal)? {
+        return Ok(None);
+    }
+    let unknown = |v: &Value| -> Result<bool> {
+        Ok(matches!(
+            force(&g, v.clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        ))
+    };
+    for (value, dom) in binders {
+        if !unknown(value)? {
+            continue;
+        }
+        if !crate::cases::is_proposition(cx, dom)? {
+            return Ok(None);
+        }
+        let mut proved = false;
+        for (fact, fact_ty) in facts {
+            let fits = attempt(cx, |cx| {
+                Ok((cx.unify(fact_ty, dom)? && cx.unify(value, &cx.eval(fact)?)?).then_some(()))
+            })?;
+            if fits.is_some() {
+                proved = true;
+                break;
+            }
+        }
+        if !proved {
+            return Ok(None);
+        }
+    }
+    for (value, _) in binders {
+        if unknown(value)? {
+            return Ok(None);
+        }
+    }
+    Ok(Some(()))
 }
 
 /// For a nested type `T` (`derive_induct.rs`), a goal `T.size y < T.size
@@ -592,7 +806,7 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                         term = Term::app_icit(term, proof.clone(), icit);
                         break;
                     }
-                    let meta = cx.fresh_meta();
+                    let meta = cx.fresh_meta_of(&dom);
                     let value = cx.eval(&meta)?;
                     metas.push(value.clone());
                     term = Term::app_icit(term, meta, icit);
@@ -945,6 +1159,47 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     Ok(found)
 }
 
+/// Decision procedure `id` applied to make a decision of `prop`, with its
+/// own arguments found as `auto` finds them, if it fits.
+pub(crate) fn instance_for(cx: &mut Ctx, id: DefId, prop: &Value) -> Result<Option<Term>> {
+    let decidable = decidable(cx)?;
+    attempt(cx, |cx| instantiate(cx, id, decidable, prop, 0, false))
+}
+
+/// Whether definition `id` is one the current module can see, by the rule
+/// `auto` uses for its candidates ([`earlier_candidates`]): the module's
+/// own, those of the namespaces it depends on, the library files it needs,
+/// and the prelude. Never one only because the run happened to load it.
+pub(crate) fn visible(e: &Elaborator, id: DefId) -> bool {
+    let first_def = e.unit.module.first_def;
+    if id.0 >= first_def {
+        return true;
+    }
+    if id.0 < e.tables.prelude_defs {
+        return true;
+    }
+    let g = &e.ev();
+    let reachable = match (e.library_index(), &e.unit.module.library_reach) {
+        (Some(index), Some(reach)) => index
+            .owner_of_path(g.def(id).path())
+            .is_none_or(|f| f == 0 || reach.contains(&f)),
+        _ => true,
+    };
+    match &e.unit.module.closure {
+        None => reachable,
+        Some(closure) => {
+            let depended_on = closure
+                .iter()
+                .any(|n| (e.tables.namespace_defs.get(n)).is_some_and(|r| r.contains(&id.0)));
+            if depended_on {
+                return true;
+            }
+            let project = e.tables.namespace_defs.values().any(|r| r.contains(&id.0));
+            !project && reachable
+        }
+    }
+}
+
 /// What `decision_procedures` tries after the current module's own
 /// definitions, in its order, with what that was worked out from
 /// (`Elaborator::decision_order`).
@@ -1155,17 +1410,29 @@ fn instantiate(
     as_written: bool,
 ) -> Result<Option<Term>> {
     let g = &cx.u();
-    let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value().clone();
+    // Whether each parameter is mentioned by the ones after it or the
+    // result: one that isn't needs no solution for its unknown.
+    let mut mentioned = Vec::new();
+    let mut written = g.def(id).ty().clone();
+    while let Term::Pi(_, _, _, cod) = written.strip_loc() {
+        mentioned.push(cod.mentions(0));
+        written = (**cod).clone();
+    }
     let mut args = Vec::new();
+    let mut arg_terms = Vec::new();
     while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
-        let meta = cx.fresh_meta();
+        // Typed, so unification's first-order rule won't pair it with a
+        // value of another type: `?p Greater h` against `?x < ?y` would
+        // solve `?x: Int` with `Greater`, and the test is run at once
+        // ([`verdict`]), long before the kernel would refuse it (SW-2961).
+        let meta = cx.fresh_meta_of(&dom);
         let value = cx.eval(&meta)?;
         args.push((value.clone(), icit, (*dom).clone()));
-        term = Term::app_icit(term, meta, icit);
+        arg_terms.push((meta, icit));
         ty = cod.apply(g, value)?;
     }
-    let wanted = Value::Data(decidable, vec![prop.clone()]);
+    let wanted = Value::Data(decidable, vec![prop.clone()].into());
     let fits = if as_written {
         crate::unify::unify_solving_arguments(g, cx.level(), &ty, &wanted)?
     } else {
@@ -1174,7 +1441,7 @@ fn instantiate(
     if !fits {
         return Ok(None);
     }
-    for (value, icit, dom) in args {
+    for (i, (value, icit, dom)) in args.into_iter().enumerate() {
         if !matches!(force(g, value.clone())?, Value::Neutral(Head::Meta(_), _)) {
             continue;
         }
@@ -1191,13 +1458,22 @@ fn instantiate(
             _ => return Ok(None),
         };
         let found = match found {
-            Ok(found) => cx.eval(&found)?,
+            Ok(found) => found,
             Err(e) => return give_up_on(e),
         };
-        if !cx.unify(&value, &found)? {
+        // The decision as found goes in the term, not its unknown's
+        // solution read back, and the unknown is solved only if something
+        // after it depends on it: a decision is a record that computes to
+        // its fields, each holding the decisions it was made from
+        // (`Decidable.or dp dq`'s test and proofs all mention `dp` and
+        // `dq`), so read back it grows with each level of nesting.
+        if mentioned.get(i).copied().unwrap_or(true) && !cx.unify(&value, &cx.eval(&found)?)? {
             return Ok(None);
         }
+        arg_terms[i].0 = found;
     }
+    let term =
+        (arg_terms.into_iter()).fold(Term::Def(id), |f, (arg, icit)| Term::app_icit(f, arg, icit));
     Ok(Some(term))
 }
 

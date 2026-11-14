@@ -693,14 +693,14 @@ contains a call that computes gets a new hash, and so does everything that menti
 **[checked that hashes cover the type: `def_hash` hashes `def.ty`, `crates/core/src/hash.rs:105`; inferred that dependents move, as for any definition]**
 Concretely:
 
-- **Float pins.** `NATIVE_HASHES` (`crates/core/src/float.rs:81`) pins the content hash of
-  each definition with a native. The natives' bindings check it (`float.rs:742–757`, "its
-  content hash isn't the pinned one"). `Float.neg`, `Float.abs`, `Float.sub` and others use
-  `x.valid` (`Float.sw:200`, …), so their pins move in the same commit, as they already moved
-  once on `lane/SW-1642` (`float.rs` diff, FloatNeg, FloatAbs, FloatSub). `FLOAT_DATA_HASH` is
-  the data type's and doesn't move. The `*_bound_to_the_prelude` tests
-  (`crates/cli/tests/extract.rs:3198–3243`) and the float gate (`crates/driver/src/float_gate.rs`)
-  are the checks. **[checked]**
+- **Float pins.** `PINS` (`crates/core/src/pins.rs`) pins the content hash of each definition
+  with a native. A stale pin refuses the library (`E-BUILTIN`, naming the declaration and its
+  new hash). `Float.neg`, `Float.abs`, `Float.sub` and others use `x.valid` (`Float.sw:200`,
+  …), so their pins move in the same commit, as they already moved once on `lane/SW-1642`
+  (`FloatNeg`, `FloatAbs`, `FloatSub`). The pin on `Float` is the data type's and doesn't move.
+  `pinned_hashes`, `the_float_bindings_are_the_pinned_declarations`
+  (`crates/driver/tests/elaboration/float.rs:63`) and the float gate
+  (`crates/driver/src/float_gate.rs`) are the checks. **[checked]**
 - **Snapshots.** `hash_stability` snapshots move for every example with a record whose field
   types compute. A record update's annotations (`shared.rs:600–644`, `records.rs:1448–1543`)
   and `fromYes`'s goal move the same way. Not a cost (migration cost doesn't count), but the

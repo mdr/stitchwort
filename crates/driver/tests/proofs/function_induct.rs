@@ -3,6 +3,7 @@
 //! split, in the unfolding form with a fixed prefix and cases named after
 //! the equations, and what isn't generated, with the reason.
 
+use crate::common::{BIG_STACK, STACK};
 use stitchwort_core::{Name, Term};
 use stitchwort_driver::driver::Session;
 
@@ -106,9 +107,9 @@ fn statement(g: &stitchwort_core::Ev, ty: &Term) -> String {
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             if let Err(errors) = session.load("induct.sw", &source) {
                 panic!("doesn't load: {errors:#?}");
             }
@@ -177,7 +178,7 @@ fn each_kind_of_recursion_and_split() {
                 "(motive: List Bool → Nat → Prop) → (eq1: motive [] 0) → \
                  (eq2IfTrue: (b: Bool) → (rest: List Bool) → b = False → \
                  motive rest (countFresh rest) → motive [b, ..rest] (1 + countFresh rest)) → \
-                 (eq2IfFalse: (b: Bool) → (rest: List Bool) → b = True → \
+                 (eq2IfFalse: (b: Bool) → (rest: List Bool) → b → \
                  motive rest (countFresh rest) → motive [b, ..rest] (countFresh rest)) → \
                  (x: List Bool) → motive x (countFresh x)",
             ),
@@ -212,7 +213,7 @@ fn each_kind_of_recursion_and_split() {
                  (eq2IfFalse: (depth: Nat) → (a: Nat) → (b: Nat) → (3 < depth) = False → \
                  motive depth (Pair (Regular a) (Regular b)) 0) → \
                  (eq3: (depth: Nat) → (left: Number) → (right: Number) → \
-                 ((a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b) → \
+                 (∀ (a b: Nat) => left = Regular a → right ≠ Regular b) → \
                  motive (depth + 1) left (ex (depth + 1) left) → \
                  motive (depth + 1) right (ex (depth + 1) right) → \
                  motive depth (Pair left right) (ex (depth + 1) left + ex (depth + 1) right)) → \
@@ -375,22 +376,24 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
             ),
             "{before}"
         );
-        let why = skipped(s, "nestedDeeper.induct");
+        let deeper = generated(s, "nestedDeeper.induct");
         assert!(
-            why.contains("a nested pattern on a type with several constructors"),
-            "{why}"
+            deeper.contains("(c: Nat) → rest.head = Some (None, c) → motive")
+                && deeper.contains("(k: Nat) → (c: Nat) → rest.head = Some (Some k, c) → motive"),
+            "{deeper}"
         );
-        let why = skipped(s, "nestedMulti.induct");
+        let multi = generated(s, "nestedMulti.induct");
         assert!(
-            why.contains("a nested pattern on a type with several constructors"),
-            "{why}"
+            multi.contains("rest.head = Some None → motive")
+                && multi.contains("(k: Nat) → rest.head = Some (Some k) → motive"),
+            "{multi}"
         );
         let unfold = generated(s, "List.unfold.induct");
         let shrinks =
-            "(shrinks: (x: s) → (y: s) → (v: a) → step x = Some (v, y) → measure y < measure x)";
+            "(shrinks: ∀ (x y: s) (v: a) => step x = Some (v, y) → measure y < measure x)";
         let want = format!(
             "[s: Type] → [a: Type] → (motive: s → (step: s → Option (a, s)) → \
-             (measure: s → Nat) → ((x: s) → (y: s) → (v: a) → step x = Some (v, y) → \
+             (measure: s → Nat) → (∀ (x y: s) (v: a) => step x = Some (v, y) → \
              measure y < measure x) → List a → Prop) → \
              (eqNone: (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
              step seed = None → motive seed step measure shrinks []) → \
@@ -402,6 +405,107 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
              motive seed step measure shrinks (List.unfold seed step measure shrinks)"
         );
         assert_eq!(unfold, want);
+    });
+}
+
+/// A lifted `match` with a catch-all alternative (SW-1073): its case takes
+/// the hypotheses that the earlier alternatives didn't match, as the
+/// equation does, proved at each constructor the catch-all takes, number
+/// literals and nested patterns split as far as they go (SW-2868).
+#[test]
+fn a_catch_all_in_a_lifted_match() {
+    let source = r#"
+import Std (Eq, List, Nat, Option, Ord, Ordering)
+
+def below (k: Nat): List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match Ord.compare x k with
+      | Less => Succ (below k rest)
+      | _ => below k rest
+
+-- The earlier alternative has a field: `notSome: (y: Nat) → … = Some y → Void`.
+def skipTo (d: Nat): List Nat → Nat
+  | Nil => d
+  | Cons x rest =>
+    match List.head rest with
+      | Some y => skipTo y rest
+      | _ => x
+
+-- A catch-all after two constructors of three leaves one for it.
+def third: List Ordering → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match x with
+      | Less => 1
+      | Equal => third rest
+      | _ => third rest
+
+def literal: List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match x % 3 with
+      | 0 => Succ (literal rest)
+      | 2 => literal rest
+      | _ => literal rest
+
+-- `Some n` after `Some 0` takes `n ≠ 0`, proved where `n` is `Succ`.
+def overlap: List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some 0 => overlap rest
+      | Some n => n + overlap rest
+
+-- A catch-all after a nested pattern on a field of a parameter's type:
+-- told apart at the closed `Option (Option Nat)`, not at `Option (Option a)`.
+def closed: List (Option Nat) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | Some None => 1
+      | _ => closed rest
+
+def generic (d: a): List (Option a) → a
+  | Nil => d
+  | Cons x rest =>
+    match List.head rest with
+      | Some None => d
+      | _ => generic d rest
+"#
+    .to_string();
+    with_source(source, |session| {
+        let below = generated(session, "below.induct");
+        assert!(
+            below.contains("→ Ord.compare x k = Less → motive")
+                && below.contains("→ Ord.compare x k ≠ Less → motive"),
+            "{below}"
+        );
+        let skip_to = generated(session, "skipTo.induct");
+        assert!(
+            skip_to.contains("(∀ (y: Nat) => rest.head ≠ Some y) → motive"),
+            "{skip_to}"
+        );
+        generated(session, "third.induct");
+        let literal = generated(session, "literal.induct");
+        assert!(
+            literal.contains("→ x % 3 = 2 → motive")
+                && literal.contains("→ x % 3 ≠ 0 → x % 3 ≠ 2 → motive"),
+            "{literal}"
+        );
+        let overlap = generated(session, "overlap.induct");
+        assert!(
+            overlap.contains("(n: Nat) → rest.head = Some n → n ≠ 0 → motive"),
+            "{overlap}"
+        );
+        let closed = generated(session, "closed.induct");
+        assert!(
+            closed.contains("rest.head ≠ Some None → motive"),
+            "{closed}"
+        );
+        let why = skipped(session, "generic.induct");
+        assert!(why.contains("a type parameter's"), "{why}");
     });
 }
 
@@ -448,9 +552,9 @@ theorem Count.induct: Nat := 0
 "#
     );
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             let errors = session.load("induct.sw", &wrong).expect_err("they fail");
             let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
             codes.sort_unstable();
@@ -482,9 +586,9 @@ theorem Count.induct: Nat := 0
 #[ignore]
 fn the_librarys_inducts() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
-            let mut session = Session::eager();
+            let mut session = Session::eager_for_stack(BIG_STACK);
             session.elab.generate_deferred_equations().unwrap();
             report(&session, |_| true);
         })
@@ -500,7 +604,7 @@ fn the_librarys_inducts() {
 #[ignore]
 fn a_projects_inducts() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
             let project = std::env::var("INDUCT_PROJECT").unwrap_or_else(|_| "aoc".to_string());
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -508,7 +612,7 @@ fn a_projects_inducts() {
                 .join(&project);
             let name = root.file_name().unwrap().to_string_lossy().to_string();
             let files = stitchwort_driver::project::DiskFiles { root };
-            let mut session = Session::eager_for_stack(256 << 20);
+            let mut session = Session::eager_for_stack(BIG_STACK);
             let target = stitchwort_driver::project::Target::Everything;
             if let Err(errors) = session.load_project(&files, &name, &target) {
                 panic!("{project} doesn't load: {errors:#?}");

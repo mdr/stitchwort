@@ -141,6 +141,23 @@
     min-height: 36px;
   }
 
+  /* The settings menu (the ⚙ button): a small panel under the source pane's header. */
+  .pane-head { position: relative; }
+  #settings-button { font-size: 1rem; padding: 4px 9px; line-height: 1; }
+  #settings-menu {
+    position: absolute; z-index: 20; top: calc(100% + 4px); right: 0;
+    width: min(20rem, calc(100vw - 32px)); box-sizing: border-box;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); padding: 10px 14px;
+  }
+  #settings-menu[hidden] { display: none; }
+  #settings-menu h2 { margin: 0 0 6px; font-size: 0.9rem; }
+  #settings-menu fieldset { border: 0; margin: 0 0 6px; padding: 0; }
+  #settings-menu label { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 0.88rem; }
+  #settings-menu label.number input { width: 5.5rem; margin-left: auto; }
+  #settings-menu .note { margin: 4px 0 0; color: var(--muted); font-size: 0.78rem; }
+
   /* The editor is CodeMirror 6 (web/editor/src/editor-entry.js), drawn from
      the page's own colours. Dragging its corner makes it taller. */
   .editor {
@@ -163,7 +180,7 @@
     color: var(--ink);
     font-family: var(--mono);
     font-variation-settings: "MONO" 1, "CASL" 0;
-    font-size: 13.5px;
+    font-size: var(--editor-size, 13.5px);
     font-weight: 400;
     line-height: 1.55;
   }
@@ -212,6 +229,12 @@
   .cm-editor .sem-enumMember { color: var(--hl-number); }
   .cm-editor .sem-decl { font-weight: 600; }
   .cm-inlay { color: var(--hl-comment); font-style: italic; pointer-events: none; }
+  /* The line a link opened: it fades out after the editor has scrolled to it. */
+  @keyframes link-line-fade { from { background: var(--leaf-soft); } to { background: transparent; } }
+  .cm-editor .cm-link-line { animation: link-line-fade 1.5s ease-out both; }
+  @media (prefers-reduced-motion: reduce) {
+    .cm-editor .cm-link-line { animation: none; background: var(--leaf-soft); }
+  }
 
   /* A project's files: a row of tabs that scrolls inside itself (so the page
      never scrolls sideways), and the controls for the open file. */
@@ -309,6 +332,11 @@
   pre.errors { color: var(--bad); }
   pre.warnings { color: var(--warn); }
   pre.goals { color: var(--goal); }
+  h2.errors { color: var(--bad); }
+  details.goal-details summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--goal); }
+  details.goal-details[open] summary { margin-bottom: 8px; }
+  .goalgroup { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  h3.goalfile { margin: 0; font-size: 0.78rem; font-family: var(--mono); font-weight: 600; color: var(--muted); }
   .goalpanel {
     border: 1px solid var(--line); border-left: 3px solid var(--goal); border-radius: 8px;
     background: var(--petal); padding: 8px 12px; max-height: 12rem; overflow: auto;
@@ -319,7 +347,25 @@
   .goalpanel .row { white-space: pre-wrap; }
   .goalpanel .row b { font-weight: 600; }
   .goalpanel .row i { font-style: normal; color: var(--muted); }
+  .goalpanel .added { color: var(--leaf); }
+  .goalpanel .before { color: var(--muted); white-space: pre-wrap; }
+  .goalpanel .label { color: var(--muted); font-weight: 400; }
+  .goalpanel .before + .target { border-top: none; margin-top: 2px; padding-top: 0; }
+  .goalpanel .computed { color: var(--muted); opacity: 0.8; white-space: pre-wrap; }
+  .goalpanel .before + .target + .computed { margin-top: 0; }
+  .goalpanel .stale { opacity: 0.6; }
   .goalpanel .target { color: var(--goal); font-weight: 600; white-space: pre-wrap; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+  .rename-panel { border: 1px solid var(--line); border-left: 3px solid var(--leaf); border-radius: 8px; background: var(--petal); padding: 6px 10px; margin-bottom: 6px; font-size: 0.85rem; }
+  .rename-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .rename-row input { font-family: var(--mono); font-size: 0.85rem; padding: 2px 6px; min-width: 10rem; border: 1px solid var(--line); border-radius: 4px; background: var(--paper); color: var(--ink); }
+  .rename-row button[hidden] { display: none; }
+  .rename-problems { color: var(--bad); white-space: pre-wrap; margin: 6px 0 0; font-family: var(--mono); font-size: 12.5px; }
+  .pick-panel { display: flex; flex-direction: column; gap: 2px; }
+  .pick-item { text-align: left; font: inherit; padding: 2px 6px; border: 1px solid transparent; border-radius: 4px; background: none; color: var(--ink); cursor: pointer; }
+  .pick-item:hover, .pick-item:focus { border-color: var(--leaf); outline: none; }
+  .pick-detail { color: var(--muted); font-size: 0.8em; }
+  .rename-problems.busy { color: var(--muted); }
+  .rename-problems[hidden] { display: none; }
   .goalbox { border-left: 3px solid var(--goal); padding-left: 10px; margin: 0 0 8px; }
 
   .evalrow, .runrow { display: flex; gap: 8px; }
@@ -442,7 +488,7 @@
      Text boxes get 16px text, as with less a phone zooms in on focusing
      them, and the editor's padding shrinks to leave room for the code. */
   @media (max-width: 600px) {
-    .editor .cm-editor { font-size: 16px; }
+    .editor .cm-editor { font-size: max(16px, var(--editor-size, 16px)); }
     .editor .cm-content { padding: 10px 0; }
     select, input[type="text"], textarea#run-input { font-size: 16px; }
     .output { min-height: 70vh; }
@@ -529,6 +575,21 @@
       <span id="status" class="status idle">Loading the compiler…</span>
       <span id="link-notice" class="status idle" role="status" hidden></span>
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
+      <button id="settings-button" type="button" aria-label="Editor settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-menu" title="Editor settings">⚙</button>
+      <form id="settings-menu" role="dialog" aria-label="Editor settings" hidden>
+        <h2>Editor settings</h2>
+        <fieldset>
+          <label><input type="checkbox" name="letTypes"> Show the types of <code>let</code>s</label>
+          <label><input type="checkbox" name="semanticColours"> Colour names by what they are</label>
+          <label><input type="checkbox" name="proofSearch"> Offer a proof search on <code>?</code></label>
+          <label class="number">Proof search time limit (ms)
+            <input type="number" name="timeLimitMs" min="100" step="100" inputmode="numeric"></label>
+          <label><input type="checkbox" name="formatOnSave"> Format on save (Ctrl/Cmd+S)</label>
+          <label class="number">Font size (px)
+            <input type="number" name="fontSize" min="9" max="32" step="1" inputmode="numeric"></label>
+        </fieldset>
+        <p class="note">Kept in this browser. Escape closes this.</p>
+      </form>
       <button id="share" type="button" title="Copy a link to this program (the code is in the link itself); for an Advent of Code day, a link to the day">Share</button>
       <button id="format" type="button" title="Format the code (Shift+Alt+F)">Format</button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
@@ -1054,15 +1115,32 @@ export def area: Shape -> Nat
   /** The editor's own text, even while a library file is shown. */
   const sourceText = () => source.value;
   const runHint = el("p", { className: "hint" });
+  /** Whether the open entry has a program to run; a chapter is checked, not run. */
+  const canRun = () => !project?.manifest.noRun;
+  /** Enables Run and the run panel's buttons, unless there is no program or a run is going. */
+  function setRunEnabled(on) {
+    const enabled = on && canRun() && stopButton.disabled;
+    runButton.disabled = runAgain.disabled = liveButton.disabled = !enabled;
+  }
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
-    const main = project ? project.manifest.days[project.day].main : "main";
+    if (!canRun()) {
+      runButton.title = "Chapters are checked, not run: the Tests tab checks the chapter's tests";
+      runHint.textContent =
+        "This chapter has no program to run. The Check tab shows what is proved and which goals (the ?s) are still open; " +
+        "the Tests tab checks the chapter's tests.";
+      runInput.hidden = false;
+      setRunEnabled(false);
+      return;
+    }
+    const main = (project && project.manifest.days[project.day].main) || "main";
     runButton.title = `Run ${main} (Ctrl+Enter)`;
     // A live day has no input box: its keys come from the terminal pane.
     const live = !!project?.manifest.days[project.day].live;
     runInput.hidden = live;
     if (live) {
       runHint.textContent = project.manifest.days[project.day].hint ?? `Run opens a terminal and calls ${main} () in it.`;
+      setRunEnabled(true);
       return;
     }
     runHint.textContent =
@@ -1070,6 +1148,7 @@ export def area: Shape -> Nat
       "IO.readAll () gets all that's left at once. " +
       `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.` +
       (project ? (project.manifest.days[project.day].hint ? ` ${project.manifest.days[project.day].hint}` : " The input starts as the day's example.") : "");
+    setRunEnabled(true);
   }
   setRunHint();
 
@@ -1088,11 +1167,12 @@ export def area: Shape -> Nat
   ];
 
   async function runMain() {
+    if (!canRun()) return;
     // A project day that says `"live": true` in its manifest runs in the terminal.
     if (project?.manifest.days[project.day].live) return runLive();
     selectView("run");
     const src = stateKey();
-    runButton.disabled = runAgain.disabled = liveButton.disabled = true;
+    setRunEnabled(false);
     stopButton.disabled = false;
     // The output shows as it's printed: the worker sends each line, and the
     // lines that arrive between frames are added together.
@@ -1121,8 +1201,8 @@ export def area: Shape -> Nat
     if (fallBack(result)) result = await runner.call(request, RUN_SECONDS, onOutput);
     const took = performance.now() - started;
     ended = true;
-    runButton.disabled = runAgain.disabled = liveButton.disabled = false;
     stopButton.disabled = true;
+    setRunEnabled(true);
     ranSource = src;
     runStale.hidden = true;
 
@@ -1425,7 +1505,7 @@ export def area: Shape -> Nat
   async function runLive() {
     selectView("run");
     liveRun?.stop();
-    runButton.disabled = runAgain.disabled = liveButton.disabled = true;
+    setRunEnabled(false);
     stopButton.disabled = false;
     const grid = new TerminalGrid(24, 80);
     const screen = el("pre", { id: "live-screen", className: "program-output", tabIndex: 0 });
@@ -1519,8 +1599,8 @@ export def area: Shape -> Nat
       }
       screen.removeEventListener("keydown", onKey);
       screen.removeEventListener("blur", onBlur);
-      runButton.disabled = runAgain.disabled = liveButton.disabled = false;
       stopButton.disabled = true;
+      setRunEnabled(true);
       if (out.state === "failed") {
         set("failed", "The run failed.");
         runResult.append(...errorsView(out.errors));
@@ -1571,7 +1651,7 @@ export def area: Shape -> Nat
   const bundlePromises = new Map();
 
   /** The bundled projects, in the Example dropdown's order. */
-  const PROJECT_NAMES = ["aoc", "rogue"];
+  const PROJECT_NAMES = ["aoc", "rogue", "sf", "book"];
   /** The project a dropdown value (`aoc:3`) is for, or null. */
   const projectOfId = (id) => PROJECT_NAMES.find((name) => id.startsWith(`${name}:`)) ?? null;
   const keysOf = (name) => `stitchwort.project.${name}.`;
@@ -1730,8 +1810,12 @@ export def area: Shape -> Nat
 
   /** Saves the editor's text as the open file's (an edit, if it differs from the bundled). */
   function saveOpenFile() {
-    const path = project.open;
-    const text = source.value;
+    saveFile(project.open, source.value);
+    renderTabs();
+  }
+
+  /** Keeps `text` as the file's: an edit, if it differs from the bundled one. */
+  function saveFile(path, text) {
     const bundled = project.bundled.get(path);
     project.texts.set(path, text);
     if (text === bundled) {
@@ -1740,7 +1824,6 @@ export def area: Shape -> Nat
     } else {
       store(fileKey(path), JSON.stringify({ text, from: project.stale.get(path) ?? shortHash(bundled) }));
     }
-    renderTabs();
   }
 
   function rememberCaret() {
@@ -1820,7 +1903,7 @@ export def area: Shape -> Nat
     }
   }
 
-  /** The errors of a project check, grouped by file, each with a link to its place in the file. */
+  /** The errors of a project check, first, then its open goals collapsed, and each error with a link to its place. */
   function projectErrorsView(answer) {
     const groups = new Map();
     for (const d of answer.diagnostics ?? []) {
@@ -1829,13 +1912,15 @@ export def area: Shape -> Nat
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(d);
     }
-    const goals = goalsView(answer.goals, answer.diagnostics);
-    if (groups.size === 0) return [...goals, ...errorsView(answer.errors, answer.warnings)];
-    const views = [...goals];
-    for (const [file, found] of groups) {
+    if (groups.size === 0) {
+      return [...goalsView(answer.goals, answer.diagnostics), ...errorsView(answer.errors, answer.warnings)];
+    }
+    const found = [...groups.values()].flat();
+    const views = [el("h2", { className: "errors" }, errorsHeading(found))];
+    for (const [file, errors] of groups) {
       const group = el("div", { className: "errorfile" });
       if (file) group.dataset.file = file;
-      for (const d of found) {
+      for (const d of errors) {
         if (file) {
           const jump = el("button", { type: "button", className: "jump" }, `${file}:${d.line}:${d.column}`);
           jump.addEventListener("click", () => goTo(file, d.line, d.column, d));
@@ -1843,8 +1928,9 @@ export def area: Shape -> Nat
         }
         group.append(el("pre", { className: "errors" }, d.text));
       }
-      views.push(el("h2", {}, "Errors" + (file ? ` in ${tabLabel(file)}` : "")), group);
+      views.push(group);
     }
+    views.push(...goalsView(answer.goals, answer.diagnostics, { collapsed: true }));
     return [...views, ...warningsView(answer.warnings)];
   }
 
@@ -1877,7 +1963,7 @@ export def area: Shape -> Nat
     showEntryLink(id);
     store(`${keysOf(name)}open`, project.open);
     evalImports = [];
-    evalInput = day.evalInput ?? (day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1" : `${day.main.replace(/main$/, "Tests.example")}`);
+    evalInput = day.evalInput ?? (!day.main ? "" : day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1" : `${day.main.replace(/main$/, "Tests.example")}`);
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
     inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),
@@ -1915,14 +2001,18 @@ export def area: Shape -> Nat
   // Direct links to the Example dropdown's entries: `#example/<slug>`, the
   // slug being the entry's name in lowercase with runs of other characters
   // as `-` (`#example/proofs-about-lists`), and `#aoc/YYYY/dayNN`
-  // (`#aoc/2025/day02`).
+  // (`#aoc/2025/day02`). A chapter project's entries are `#sf/basics` (the
+  // Software Foundations port) and `#book/3` (the book's chapter 3): the entry's
+  // `slug` in the manifest. A project entry may name a line (`#book/2:167`)
+  // or, with a line, another file of the project (`#book/2:src/Book/Chapter1.sw:30`);
+  // the path is one of the manifest's `files`, and lines are 1-based.
   const linkNotice = document.getElementById("link-notice");
   const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const dayNumber = (day) => String(day.open.match(/Day(\d+)\.sw$/)?.[1] ?? "").padStart(2, "0");
   /** A project entry's part of its link: `2025/day02` for a day of Advent of Code, else the slug of its title. */
   /** A project entry's name: `2024 / Day 1` for a day with a year, else its title. */
   const dayName = (day) => (day.year ? `${day.year} / ${day.title}` : day.title);
-  const daySlug = (name, day) => (name === "aoc" ? `${day.year}/day${dayNumber(day)}` : slugOf(day.title));
+  const daySlug = (name, day) => (name === "aoc" ? `${day.year}/day${dayNumber(day)}` : day.slug ?? slugOf(day.title));
 
   /** The fragment for a dropdown value, without the `#`. */
   function hashFor(id) {
@@ -1935,10 +2025,31 @@ export def area: Shape -> Nat
     return ex ? `example/${slugOf(ex.dataset.title)}` : null;
   }
 
-  /** The dropdown value a fragment names, or null (also for anything but plain tokens). */
+  /** The line and file a fragment names, or null when it has no line part. The entry is before the first `:`; a path is before the last. */
+  function lineLinkOf(hash) {
+    const colon = hash.indexOf(":");
+    if (colon < 0) return null;
+    const m = /^(?:([A-Za-z0-9\/._-]+):)?(\d+)$/.exec(hash.slice(colon + 1));
+    return m ? { entry: hash.slice(0, colon), path: m[1] ?? null, line: Number(m[2]) } : null;
+  }
+
+  /** The fragment for a project entry's line: its own file, or `path` when that is another file. */
+  function lineHashFor(id, path, line) {
+    const base = hashFor(id);
+    const name = projectOfId(id);
+    if (!base || !name || project?.name !== name) return null;
+    const day = project.manifest.days[project.day];
+    return path === day.open ? `${base}:${line}` : `${base}:${path}:${line}`;
+  }
+
+  /** The dropdown value a fragment names, or null (also for anything but plain tokens, or a damaged line part). */
   async function idForHash(hash) {
-    if (!/^[A-Za-z0-9\/._-]+$/.test(hash)) return null;
-    const [kind, ...rest] = hash.split("/");
+    const colon = hash.indexOf(":");
+    // A `:` must introduce a line (or path and line); anything else is no link.
+    if (colon >= 0 && lineLinkOf(hash) === null) return null;
+    const entry = colon < 0 ? hash : hash.slice(0, colon);
+    if (!/^[A-Za-z0-9\/._-]+$/.test(entry)) return null;
+    const [kind, ...rest] = entry.split("/");
     const name = rest.join("/");
     if (kind === "example") return rest.length === 1 ? examples.find((ex) => slugOf(ex.dataset.title) === name)?.id ?? null : null;
     if (PROJECT_NAMES.includes(kind)) {
@@ -1955,6 +2066,75 @@ export def area: Shape -> Nat
     const hash = hashFor(id);
     if (hash === null || location.hash === `#${hash}`) return;
     try { history.replaceState(null, "", `#${hash}`); } catch {}
+  }
+
+  /**
+   * The full URL for a line of the open project's file, or null. Only project
+   * entries have line links: a program on its own has no entry to name.
+   */
+  function lineLinkUrl(uri, line) {
+    if (!project) return null;
+    const group = `file:///playground/${project.name}/`;
+    if (!uri.startsWith(group)) return null;
+    const path = uri.slice(group.length);
+    if (!project.manifest.files.includes(path)) return null;
+    const hash = lineHashFor(`${project.name}:${project.day}`, path, line);
+    return hash ? `${location.origin}${location.pathname}#${hash}` : null;
+  }
+
+  // The address bar follows the caret, without history entries. It waits a
+  // moment so that typing (which moves the caret on every key) is not slowed.
+  let caretLinkTimer = 0;
+  function followCaret(uri, head) {
+    const at = project;
+    if (!at) return;
+    const group = `file:///playground/${at.name}/`;
+    if (!uri.startsWith(group)) return;
+    const path = uri.slice(group.length);
+    if (path !== at.open) return;
+    clearTimeout(caretLinkTimer);
+    caretLinkTimer = setTimeout(() => {
+      const view = source.views.get(uri);
+      if (project !== at || at.open !== path || !view) return;
+      const line = view.state.doc.lineAt(Math.min(head, view.state.doc.length)).number;
+      const hash = lineHashFor(`${at.name}:${at.day}`, path, line);
+      if (hash && location.hash !== `#${hash}`) {
+        try { history.replaceState(null, "", `#${hash}`); } catch {}
+      }
+    }, 150);
+  }
+
+  /** Opens the file a line link names (or the entry's own), puts the caret at the line, and shows it briefly. */
+  function showLinkedLine(id, path, line) {
+    const day = project.manifest.days[project.day];
+    const entryOnly = () => {
+      const hash = hashFor(id);
+      if (hash && location.hash !== `#${hash}`) {
+        try { history.replaceState(null, "", `#${hash}`); } catch {}
+      }
+    };
+    let file = path ?? day.open;
+    if (path !== null && !project.manifest.files.includes(path)) {
+      notify(`No such file in this project: ${path}`);
+      if (project.open !== day.open) openFile(day.open);
+      entryOnly();
+      return;
+    }
+    if (project.open !== file) openFile(file);
+    const lines = project.texts.get(file).split("\n").length;
+    if (line < 1 || line > lines) {
+      notify(`No such line in ${tabLabel(file)}: ${line}`);
+      entryOnly();
+      return;
+    }
+    const from = source.offset(line - 1, 0);
+    source.focus();
+    source.reveal(from);
+    source.flashLine(from);
+    const hash = lineHashFor(id, file, line);
+    if (hash && location.hash !== `#${hash}`) {
+      try { history.replaceState(null, "", `#${hash}`); } catch {}
+    }
   }
 
   // Share by URL. A program on its own travels in the fragment, `#s/<text>`:
@@ -2071,6 +2251,8 @@ export def area: Shape -> Nat
       return;
     }
     await loadExample(id);
+    const link = lineLinkOf(hash);
+    if (link && projectOfId(id)) showLinkedLine(id, link.path, link.line);
   }
 
   /** Adds the project's days to the Example dropdown: one group per year
@@ -2140,30 +2322,111 @@ export def area: Shape -> Nat
     status.className = "status " + (kind || "");
   }
 
+  /**
+   * "N goals open", and in a project of several files, the open file's
+   * goals first: a checked chapter imports the ones before it, so the
+   * project's goals are more than this chapter's ("3 goals open in this
+   * chapter, 11 in all").
+   */
+  function goalsStatus(openGoals, diagnostics = []) {
+    const count = (n) => `${n} goal${n === 1 ? "" : "s"} open`;
+    if (!project || project.manifest.files.length < 2) return count(openGoals);
+    const inChapter = diagnostics.filter((d) => d.severity === "goal" && d.file === project.open).length;
+    return `${count(inChapter)} in this chapter, ${openGoals} in all`;
+  }
+
+  /** How many errors a check's answer has; the rendered codes stand in for an answer without diagnostics. */
+  function errorCountOf(answer) {
+    const found = answer.diagnostics?.filter((d) => d.severity === "error").length ?? 0;
+    if (found) return found;
+    if (answer.ok) return 0;
+    return (answer.errors?.match(/^\[[A-Z0-9-]+\]/gm) ?? []).length || 1;
+  }
+
+  /** "line 239" or "lines 239 and 241". */
+  function linesText(lines) {
+    return lines.length === 1
+      ? `line ${lines[0]}`
+      : `lines ${lines.slice(0, -1).join(", ")} and ${lines[lines.length - 1]}`;
+  }
+
+  /** "a and b" or "a, b and c". */
+  function namesText(names) {
+    return names.length <= 1
+      ? names[0] ?? ""
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  }
+
+  /** How many errors, and where: "1 error in 02-cases.sw, line 239". */
+  function errorsHeading(diagnostics = []) {
+    const errors = diagnostics.filter((d) => d.severity === "error");
+    const count = errors.length === 1 ? "1 error" : `${errors.length} errors`;
+    const files = [...new Set(errors.map((d) => d.file).filter(Boolean))];
+    if (!files.length) {
+      const lines = [...new Set(errors.map((d) => d.line).filter(Boolean))];
+      return lines.length ? `${count}, ${linesText(lines)}` : count;
+    }
+    const names = files.map((file) => project ? tabLabel(file) : file);
+    if (files.length > 1) return `${count} in ${namesText(names)}`;
+    const lines = [...new Set(errors.filter((d) => d.file === files[0]).map((d) => d.line).filter(Boolean))];
+    return `${count} in ${names[0]}${lines.length ? `, ${linesText(lines)}` : ""}`;
+  }
+
   /** The errors, then the warnings, if any (from a check's answer). */
-  function errorsView(errors, warnings) {
-    return [el("h2", {}, "Errors"), el("pre", { className: "errors" }, errors), ...warningsView(warnings)];
+  function errorsView(errors, warnings, diagnostics = []) {
+    const heading = diagnostics.some((d) => d.severity === "error") ? errorsHeading(diagnostics) : "Errors";
+    return [el("h2", { className: "errors" }, heading), el("pre", { className: "errors" }, errors), ...warningsView(warnings)];
+  }
+
+  /** A goal's box, with a link to its place when `d` gives one. */
+  function goalBox(text, d) {
+    const box = el("div", { className: "goalbox" });
+    if (d) {
+      const jump = el("button", { type: "button", className: "jump" }, `${d.file}:${d.line}:${d.column}`);
+      jump.addEventListener("click", () => goTo(d.file, d.line, d.column));
+      box.append(jump);
+    }
+    box.append(el("pre", { className: "goals" }, text));
+    return box;
+  }
+
+  /**
+   * The goal boxes, each linked to its place when the diagnostics line up. With
+   * `byFile`, they are grouped under their file's name, the open file first.
+   */
+  function goalBoxes(goals, diagnostics, byFile) {
+    const places = diagnostics.filter((d) => d.severity === "goal" && d.file);
+    const entries = goals.map((text, i) => [text, project && places.length === goals.length ? places[i] : null]);
+    if (!byFile) return entries.map(([text, d]) => goalBox(text, d));
+    const groups = new Map();
+    for (const entry of entries) {
+      const key = entry[1]?.file ?? "";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(entry);
+    }
+    const open = ([file]) => file === project?.open ? 0 : 1;
+    const ordered = [...groups].sort((a, b) => open(a) - open(b));
+    return ordered.map(([file, found]) => el("div", { className: "goalgroup" },
+      ...(file ? [el("h3", { className: "goalfile" }, project ? tabLabel(file) : file)] : []),
+      ...found.map(([text, d]) => goalBox(text, d))));
   }
 
   /**
    * The open goals (`?`), if any, each in full, under a "Goals" heading. In a
-   * project, a goal with a place has a button that jumps to it.
+   * project, a goal with a place has a button that jumps to it. While there are
+   * errors they are collapsed, grouped by file, so the errors stay in view.
    */
-  function goalsView(goals = [], diagnostics = []) {
+  function goalsView(goals = [], diagnostics = [], { collapsed = false } = {}) {
     if (!goals.length) return [];
-    const places = diagnostics.filter((d) => d.severity === "goal" && d.file);
-    const boxes = goals.map((text, i) => {
-      const box = el("div", { className: "goalbox" });
-      const d = project && places.length === goals.length ? places[i] : null;
-      if (d) {
-        const jump = el("button", { type: "button", className: "jump" }, `${d.file}:${d.line}:${d.column}`);
-        jump.addEventListener("click", () => goTo(d.file, d.line, d.column));
-        box.append(jump);
-      }
-      box.append(el("pre", { className: "goals" }, text));
-      return box;
-    });
-    return [el("h2", {}, goals.length === 1 ? "Goals (1 open)" : `Goals (${goals.length} open)`), ...boxes];
+    const count = goals.length === 1 ? "1 open goal" : `${goals.length} open goals`;
+    if (collapsed) {
+      return [el("details", { className: "goal-details" },
+        el("summary", {}, count), ...goalBoxes(goals, diagnostics, true))];
+    }
+    return [
+      el("h2", {}, goals.length === 1 ? "Goals (1 open)" : `Goals (${goals.length} open)`),
+      ...goalBoxes(goals, diagnostics, false),
+    ];
   }
 
   function warningsView(warnings = []) {
@@ -2237,13 +2500,21 @@ export def area: Shape -> Nat
     if (project) markErrors(checked.diagnostics);
     const day = project?.manifest.days[project.day];
     const openGoals = checked.goals?.length ?? 0;
+    const errorCount = errorCountOf(checked);
     setStatus(checked.ok && openGoals
-      ? (openGoals === 1 ? "1 goal open" : `${openGoals} goals open`)
+      ? goalsStatus(openGoals, checked.diagnostics)
       : checked.ok
       ? (day ? `${dayName(day)}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
-      : "Doesn’t check", checked.ok ? "" : "bad");
-    /** The errors, with links to their files in a project. */
-    const errorsOf = (answer) => project ? projectErrorsView(answer) : [...goalsView(answer.goals), ...errorsView(answer.errors, answer.warnings)];
+      : errorCount === 1 ? "1 error" : `${errorCount} errors`, checked.ok ? "" : "bad");
+    /** The errors first, then the goals (collapsed while there are errors). */
+    const errorsOf = (answer) => {
+      if (project) return projectErrorsView(answer);
+      if (!answer.ok) {
+        return [...errorsView(answer.errors, answer.warnings, answer.diagnostics),
+                ...goalsView(answer.goals, answer.diagnostics, { collapsed: true })];
+      }
+      return [...goalsView(answer.goals, answer.diagnostics), ...errorsView(answer.errors, answer.warnings)];
+    };
 
     if (view === "run") {
       runChecked.replaceChildren(...(checked.ok ? [] :
@@ -2283,7 +2554,7 @@ export def area: Shape -> Nat
       return;
     }
 
-    if (!checked.ok) {
+    if (!checked.ok && view !== "tests") {
       output.append(el("p", { className: "hint" }, "Fix the errors first; the Check tab shows them."),
                     ...errorsOf(checked));
       return;
@@ -2296,7 +2567,10 @@ export def area: Shape -> Nat
       if (current !== rendering || !result) return;
       output.replaceChildren();
       // The server's check passed but this session's didn't: say why.
-      if (!result.ok) { output.append(...errorsOf(result)); return; }
+      if (!result.ok && !result.tests) { output.append(...errorsOf(result)); return; }
+      // Errors elsewhere don't stop the tests that don't use them.
+      if (!result.ok) output.append(el("p", { className: "hint" },
+        "The source has errors (the Check tab shows them). These tests don't use them, or fail saying so."));
       output.dataset.for = src; // which source these results are for (the browser tests wait on it)
       if (result.tests.length === 0) {
         output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" := leq (1 + 1) 2'));
@@ -2316,7 +2590,7 @@ export def area: Shape -> Nat
         }
         list.append(el("li", { className: t.passed ? "pass" : "fail" },
           el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
-          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
+          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : t.why ? ` (${t.why})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
           el("span", { className: "how" }, t.cached ? "cached" : "ran"),
           ...(t.detail || t.part ? [el("div", { className: "detail" }, [
             ...(t.detail ? [`left:  ${t.detail.left}`, `right: ${t.detail.right}`] : []),
@@ -2399,8 +2673,8 @@ export def area: Shape -> Nat
   // closing quote or the end of the line, with `\` escaping the next
   // character. A string's `${…}` interpolation holds ordinary code, braces
   // and all, delimited in its own colour. `auto` is only a keyword as the
-  // first word in `[…]`, as in the parser, and `exists` only where it isn't
-  // after a `.` (`opt.exists p` is a call). A name after `def`, `theorem` or `instance`
+  // first word in `[…]`, as in the parser, and `exists` and `forall` only
+  // where they aren't after a `.` (`opt.exists p` is a call). A name after `def`, `theorem` or `instance`
   // is being defined; `:=` and `=>` are coloured as operators, like the rest
   // of the punctuation, and so are the Unicode spellings of operators
   // (`∈`, `↔`, …: every character outside ASCII in code). One pass over the
@@ -2408,7 +2682,7 @@ export def area: Shape -> Nat
   const KEYWORDS = new Set(["type", "def", "theorem", "export", "test", "if", "then", "else",
                             "ability", "where", "handle", "with", "match", "return", "let", "Type", "Prop",
                             "namespace", "import", "include", "calc", "rewrite", "omega", "ring", "cases", "decreasing", "opaque", "unfolding", "interface", "instance",
-                            "in", "exists"]);
+                            "in", "exists", "forall"]);
   const KINDS = ["keyword", "name", "defined", "number", "string", "interp", "comment", "operator"];
   const isWordStart = (c) => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
   const isWord = (c) => isWordStart(c) || (c >= "0" && c <= "9") || c === "'";
@@ -2482,7 +2756,7 @@ export def area: Shape -> Nat
         // (clause lambdas); anywhere else they are names.
         const bar = (word === "some" && previous === "match") || word === "matches"
           ? /^\s*\|(?![|>])/.test(text.slice(i, i + 40)) : false;
-        const k = (KEYWORDS.has(word) && !(word === "exists" && previous === ".")) || bar
+        const k = (KEYWORDS.has(word) && !((word === "exists" || word === "forall") && previous === ".")) || bar
             || (word === "auto" && previous === "[") ? "keyword"
           : word !== "_" && (previous === "def" || previous === "theorem" || previous === "instance") ? "defined"
           : c >= "A" && c <= "Z" ? "name"
@@ -2577,6 +2851,34 @@ export def area: Shape -> Nat
   const projectUri = (path) => `file:///playground/${project.name}/${path}`;
   await versionReady;
   const { createEditor, SINGLE_URI } = await import(`./dist/editor.bundle.js${LOAD}`);
+
+  // ---- Settings (D3468) ------------------------------------------------------
+  // The ⚙ menu. The switches the language server reads are sent to it as in
+  // VS Code (crates/lsp `Settings`); format on save and the font size are the
+  // page's own. Kept in localStorage, as one JSON object.
+  const SETTINGS_KEY = "stitchwort.settings";
+  const DEFAULT_SETTINGS = { letTypes: true, semanticColours: true, proofSearch: true, timeLimitMs: 5000, formatOnSave: true, fontSize: 13.5 };
+  const loadSettings = () => {
+    try {
+      const saved = JSON.parse(stored(SETTINGS_KEY) ?? "{}");
+      const settings = { ...DEFAULT_SETTINGS };
+      for (const [key, value] of Object.entries(saved ?? {})) {
+        if (key in settings && typeof value === typeof settings[key]) settings[key] = value;
+      }
+      return settings;
+    } catch { return { ...DEFAULT_SETTINGS }; }
+  };
+  let settings = loadSettings();
+  /** The settings as the language server reads them. */
+  const serverSettings = () => ({
+    inlayHints: { letTypes: settings.letTypes },
+    proofSearch: { enabled: settings.proofSearch, timeLimitMs: settings.timeLimitMs },
+    semanticColours: settings.semanticColours,
+  });
+  const applySettings = () => {
+    document.documentElement.style.setProperty("--editor-size", `${settings.fontSize}px`);
+    source?.configure(serverSettings());
+  };
   const source = createEditor(document.getElementById("editor"), {
     colour,
     worker: new URL(`lsp-worker.js${LOAD}`, import.meta.url),
@@ -2584,6 +2886,10 @@ export def area: Shape -> Nat
     load: LOAD,
     onInput: () => { leaveShared(); refresh(); },
     onGoal: showGoal,
+    // The address bar follows the caret's line in a project's file.
+    onCaret: followCaret,
+    // The Cmd+. list's "Copy link to this line"; null where there is no such link.
+    lineLink: lineLinkUrl,
     // A jump to a file of the project, from go to definition or a reference.
     onFile: (path) => { if (!project?.texts.has(path)) return false; openFile(path); return true; },
     onStd: (path) => {
@@ -2592,9 +2898,55 @@ export def area: Shape -> Nat
       formatButton.disabled = !!path;
     },
     onNotice: (text) => notify(text),
+    // A rename edits files of the project that aren't open in the editor.
+    fileText: (path) => project?.texts.get(path),
+    setFile: (path, text) => { if (project?.texts.has(path)) { saveFile(path, text); renderTabs(); } },
     run: () => { if (runButton.disabled) return false; runMain(); return true; },
+    // Ctrl/Cmd+S: formats, when "Format on save" is on; else the browser's.
+    save: () => {
+      if (!settings.formatOnSave || formatButton.disabled) return false;
+      source.format();
+      return true;
+    },
+    settings: serverSettings(),
   });
   window.editor = source;
+  document.documentElement.style.setProperty("--editor-size", `${settings.fontSize}px`);
+
+  const settingsButton = document.getElementById("settings-button");
+  const settingsMenu = document.getElementById("settings-menu");
+  const settingsField = (name) => settingsMenu.elements[name];
+  function showSettings() {
+    for (const name of Object.keys(settings)) {
+      const input = settingsField(name);
+      if (input.type === "checkbox") input.checked = settings[name]; else input.value = settings[name];
+    }
+  }
+  function setSettingsOpen(open) {
+    if (open) showSettings();
+    settingsMenu.hidden = !open;
+    settingsButton.setAttribute("aria-expanded", String(open));
+    if (open) settingsField("letTypes").focus();
+  }
+  settingsButton.addEventListener("click", () => setSettingsOpen(settingsMenu.hidden));
+  settingsMenu.addEventListener("change", (e) => {
+    const input = e.target;
+    const value = input.type === "checkbox" ? input.checked : Number(input.value);
+    if (typeof value === "number" && !(value >= Number(input.min) && (!input.max || value <= Number(input.max)))) {
+      showSettings(); // out of range: back to the last good value
+      return;
+    }
+    settings = { ...settings, [input.name]: value };
+    store(SETTINGS_KEY, JSON.stringify(settings));
+    applySettings();
+  });
+  settingsMenu.addEventListener("submit", (e) => e.preventDefault());
+  settingsMenu.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.stopPropagation(); setSettingsOpen(false); settingsButton.focus(); }
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!settingsMenu.hidden && !settingsMenu.contains(e.target) && e.target !== settingsButton) setSettingsOpen(false);
+  });
 
   function notify(text) {
     clearTimeout(noticeTimer);
@@ -2603,20 +2955,66 @@ export def area: Shape -> Nat
     noticeTimer = setTimeout(() => { linkNotice.hidden = true; }, 8000);
   }
 
-  // The goal at the caret (the server's `stitchwort/goalAt`, as VS Code's
-  // Goals panel asks it): shown under the editor, and only while the file has
-  // an open goal, so the editor doesn't change height as the caret moves.
+  // The goal or expected type at the caret, as VS Code's Goals panel shows it
+  // (editors/vscode/client.js `contextHtml`, `goalHtml`): the server's
+  // `stitchwort/goalAt` on a `?`, else `stitchwort/contextAt` anywhere in an
+  // expression. Where the server has nothing, the last answer stays, dimmed.
+  // The panel stays hidden until the first answer.
   const goalPanel = document.getElementById("goalpanel");
-  function showGoal(answer, any) {
-    goalPanel.hidden = !any;
-    if (!any) return;
-    if (!answer) { goalPanel.replaceChildren(el("span", { className: "none" }, "No goal at the cursor")); return; }
-    goalPanel.replaceChildren(
-      el("div", { className: "owner" }, `in ${answer.owner}`),
-      ...(answer.context ?? []).map((h) => el("div", { className: "row" },
-        el("b", {}, h.name), `: ${h.type}`, ...(h.value === undefined ? [] : [el("i", {}, ` := ${h.value}`)]))),
-      el("div", { className: "target" }, `⊢ ${answer.goal}`),
-    );
+  let lastGoal = null;
+  const hypothesis = (h, added) => el("div", { className: added ? "row added" : "row" },
+    added ? "+ " : "", el("b", {}, h.name), `: ${h.type}`, ...(h.value === undefined ? [] : [el("i", {}, ` := ${h.value}`)]));
+  const goalRows = (answer) => [
+    el("div", { className: "owner" }, `in ${answer.owner}`),
+    ...(answer.context ?? []).map((h) => hypothesis(h, false)),
+    el("div", { className: "target" }, `⊢ ${answer.goal}`),
+    ...computesRow(answer.goalComputed),
+  ];
+  // The `computes to` line under a goal shown as written (D3522), cut at 240 characters.
+  const computesRow = (computed) => {
+    if (!computed) return [];
+    const chars = [...computed];
+    const cut = chars.length > 240 ? `${chars.slice(0, 239).join("")}…` : computed;
+    return [el("div", { className: "computed" }, `computes to ${cut}`)];
+  };
+  function contextRows(answer) {
+    const step = answer.step;
+    const where = [answer.declaration && `\`${answer.declaration}\``, step?.description].filter(Boolean).join(", ");
+    const added = new Set(step?.adds ?? []);
+    const rows = [
+      ...(where ? [el("div", { className: "owner" }, `in ${where}`)] : []),
+      ...(answer.locals ?? []).map((h) => hypothesis(h, added.has(h.name))),
+    ];
+    const line = (cls, label, text) => el("div", { className: cls }, el("span", { className: "label" }, label), text);
+    if (step) {
+      const sign = step.target ? `${step.target}: ` : step.kind === "proof" ? "⊢ " : "expected ";
+      if (step.form === "calcLine") {
+        if (step.before) rows.push(line("before", "so far ", step.before), ...computesRow(step.beforeComputed));
+        rows.push(line("target", `line ${sign}`, step.after), ...computesRow(step.afterComputed));
+      } else if (step.form === "match" || step.form === "statement") {
+        rows.push(line("target", sign, step.after), ...computesRow(step.afterComputed));
+      } else {
+        if (step.before) rows.push(line("before", `before ${sign}`, step.before), ...computesRow(step.beforeComputed));
+        if (step.rule) rows.push(line("before", "rule ", step.rule));
+        rows.push(line("target", `after ${sign}`, step.after), ...computesRow(step.afterComputed));
+      }
+      return rows;
+    }
+    rows.push(line("target", !answer.checked ? "has type " : answer.kind === "proof" ? "⊢ " : "expected ", answer.type), ...computesRow(answer.typeComputed));
+    if (answer.checked && answer.hasType) rows.push(el("div", { className: "before" }, `has type ${answer.hasType}`));
+    return rows;
+  }
+  function showGoal(result, hide) {
+    if (hide) { lastGoal = null; goalPanel.hidden = true; return; }
+    if (result) {
+      // On a `?` its goal; else the expression's context; else the nearest `?` of the declaration.
+      const rows = result.here || !result.context ? goalRows(result.goal) : contextRows(result.context);
+      lastGoal = rows;
+      goalPanel.replaceChildren(...rows);
+      goalPanel.hidden = false;
+    } else if (lastGoal) {
+      goalPanel.replaceChildren(el("div", { className: "stale" }, el("div", { className: "none" }, "Nothing at the cursor; the last answer:"), ...lastGoal));
+    }
   }
 
   /** Shows a program on its own. */
@@ -2837,7 +3235,12 @@ export def area: Shape -> Nat
     if (!hash) return;
     if (hash.startsWith("s/")) { openSharedHash(hash); return; }
     const id = await idForHash(hash);
-    if (id !== null && id === picker.value) return;
+    if (id !== null && id === picker.value) {
+      // The entry is open already; a line part still moves the caret to it.
+      const link = lineLinkOf(hash);
+      if (link && projectOfId(id)) showLinkedLine(id, link.path, link.line);
+      return;
+    }
     openFromHash(hash);
   });
   const savedView = stored("stitchwort.view");

@@ -1,9 +1,12 @@
 //! Generated differential tests of the effect runtime
 //! (docs/proposals/effect-runtime.md §9.3, stage 4e): random well-typed
 //! effectful programs, each run on the reference evaluator (the type
-//! checker's own, whose computations are trees), on the native machine of
+//! checker's own, whose computations are trees), on the machine of
 //! `stitchwort-rt` and as JavaScript under Node, which must print the same
-//! and end the same way.
+//! and end the same way. With `STITCHWORT_TEST_RUN=native`, a fourth backend
+//! compiles the program to Cranelift code in process and runs that too (the
+//! rest of the suite's switch, docs/reviews/SW-2535-native-default-plan.md,
+//! N5a); without it nothing changes.
 //!
 //! A program is a tree of functions over `Nat` that perform the operations of
 //! four abilities, `Fail` and `IO`, and handle them with handlers of every
@@ -27,13 +30,26 @@
 //! the program is shrunk (statements removed, handlers simplified, depths
 //! reduced) while it still disagrees and still checks, and the test fails
 //! with the seed, the smallest program and what each backend printed.
+//! `STITCHWORT_EFFECT_FUZZ_VERBOSE=1` prints each batch's seed as it starts
+//! and ends; a batch slower than `STITCHWORT_EFFECT_FUZZ_SLOW` seconds
+//! (default 60) is reported with its seed while it runs.
+//! `STITCHWORT_EFFECT_FUZZ_DUMP=dir` saves each batch's module as
+//! `dir/seed<N>.sw` (creating `dir`) before it is checked, so a hang, a
+//! crash or a generator bug still leaves the source to read or run:
+//!
+//! ```text
+//! STITCHWORT_EFFECT_FUZZ_DUMP=/tmp/fuzz STITCHWORT_EFFECT_FUZZ_SEED=43 \
+//!   STITCHWORT_EFFECT_FUZZ_BATCHES=1 nix develop -c task test:one -- \
+//!   generated_effect_programs_agree_on_every_backend
+//! ```
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use stitchwort_cli::driver::{Session, par_map};
 use stitchwort_cli::run::RunError;
@@ -45,6 +61,36 @@ const STACK: usize = 256 * 1024 * 1024;
 const PER_BATCH: usize = 8;
 /// Batches run by default (the CI budget).
 const DEFAULT_BATCHES: u64 = 64;
+/// Evaluation steps one operation (checking the module, or a backend's run
+/// of it) may take. The generated programs take a few million at most; the
+/// default of ten billion lets a runaway one spin for hours (SW-2570), so
+/// this stops it as `resource`, which the test skips.
+const WORK: u64 = 2_000_000_000;
+/// Evaluation steps the checker may take for one batch. Steps are the same
+/// on every run and under any machine load, so this, not time, is what stops
+/// a batch the checker can't finish: seed 1794200310 checked for over ten
+/// minutes within `WORK` (SW-2570), until SW-2572. The default batches check
+/// in at most about 14 million (seed 43: 13 million; measured with
+/// `total_work`, which includes loading the library, about 10 million), so
+/// this leaves a wide margin.
+const CHECK_WORK: u64 = 400_000_000;
+thread_local! {
+    /// A smaller [`CHECK_WORK`], for the regression test of a runaway batch.
+    static CHECK_WORK_OVERRIDE: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+/// Wall-clock time the checker, or the reference evaluator, may take for one
+/// batch: only a backstop against a hang, since the step limits are what
+/// normally stop a batch. Loose enough for a machine under heavy load (the
+/// slowest default batch checks in about a minute alone, SW-2584).
+const DEADLINE: Duration = Duration::from_secs(30 * 60);
+/// How long the JavaScript run may take before it counts as `resource`:
+/// Node has no step cap of its own, so this is its only limit, and a
+/// backstop like [`DEADLINE`].
+const JS_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+/// A batch (or phase) that takes longer than this many seconds is reported
+/// with its seed while it runs and again when it ends
+/// (`STITCHWORT_EFFECT_FUZZ_SLOW`).
+const SLOW_SECS: u64 = 60;
 /// The modulus that keeps numbers short.
 const M: &str = "1000003";
 
@@ -1213,12 +1259,84 @@ struct Run {
 }
 
 enum Ran {
-    Three([Run; 3]),
+    /// One run per backend, in [`backends`]' order.
+    Runs(Vec<Run>),
     /// It didn't check: the diagnostics.
     Rejected(String),
+    /// Checking it ran out of resources (steps, size or time): no answer.
+    Exhausted(String),
 }
 
-const BACKENDS: [&str; 3] = ["reference", "native", "js"];
+/// The backends a program runs on, in the order of [`Ran::Runs`]: native
+/// code is the last, and only when `STITCHWORT_TEST_RUN=native`.
+fn backends() -> Vec<&'static str> {
+    let mut names = vec!["reference", "machine", "js"];
+    if native_wanted() {
+        names.push("native");
+    }
+    names
+}
+
+/// Whether `STITCHWORT_TEST_RUN` is `native` (unset or `machine` is not;
+/// the CLI suites' helper, `tests/running/common`, reads it the same way).
+fn native_wanted() -> bool {
+    match std::env::var("STITCHWORT_TEST_RUN").as_deref() {
+        Err(_) | Ok("") | Ok("machine") => false,
+        Ok("native") => true,
+        Ok(other) => panic!("STITCHWORT_TEST_RUN={other}: expected `native` or `machine`"),
+    }
+}
+
+/// `main` compiled to native code in process, as `run --native` does, and
+/// run with no input: what it printed and how it ended. A program native
+/// code refuses is an `error`, which no other backend can match.
+fn run_native(session: &Session, main: &stitchwort_cli::run::Main) -> Run {
+    use stitchwort_native::n1;
+    use stitchwort_rt::host::NoTerminal;
+    let program = match session.lower_fast(main) {
+        Ok(program) => program,
+        Err(e) => {
+            return Run {
+                stdout: String::new(),
+                end: format!("error: {e}"),
+            };
+        }
+    };
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
+    let image = stitchwort_rt::code::compile(&program);
+    let options = n1::Options {
+        trace_refcounts: false,
+        count_bodies: false,
+        pc_map: false,
+    };
+    let compiled = n1::compile(&program, image, options).and_then(|islands| {
+        let stack = n1::stack_for(limits.frames as u64, islands.max_frame, &islands.widest)?;
+        Ok((islands, stack))
+    });
+    let (islands, stack) = match compiled {
+        Ok(compiled) => compiled,
+        Err(why) => {
+            return Run {
+                stdout: String::new(),
+                end: format!("error: native refused: {}", why.join("; ")),
+            };
+        }
+    };
+    let mut out = Vec::new();
+    // The thread's stack (`STACK`) is the cap, as `run --native`'s is.
+    let result = stitchwort_rt::run_main_native(
+        Box::new(islands),
+        limits,
+        stack.min(STACK),
+        &mut &b""[..],
+        &mut out,
+        &mut NoTerminal,
+    );
+    Run {
+        stdout: String::from_utf8_lossy(&out).into_owned(),
+        end: end_of(result),
+    }
+}
 
 fn end_of(result: Result<(), RunError>) -> String {
     match result {
@@ -1248,14 +1366,54 @@ fn run_js(program: &stitchwort_js::run::Program, input: &str) -> Run {
     let input_file = dir.join("input.txt");
     std::fs::write(&input_file, input).expect("write input");
     let error_file = dir.join("error.txt");
-    let output = Command::new("node")
+    let mut child = Command::new("node")
         .arg(dir.join("run.mjs"))
         .arg(&error_file)
         .stdin(std::fs::File::open(&input_file).expect("open input"))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
-        .output()
+        .spawn()
         .expect("run node (in the nix dev shell)");
+    // Waits on a timer so that a runaway program is killed, not waited for.
+    let (mut out_pipe, mut err_pipe) = (child.stdout.take().unwrap(), child.stderr.take().unwrap());
+    let readers = std::thread::scope(|scope| {
+        let out = scope.spawn(move || {
+            let mut v = Vec::new();
+            let _ = std::io::Read::read_to_end(&mut out_pipe, &mut v);
+            v
+        });
+        let err = scope.spawn(move || {
+            let mut v = Vec::new();
+            let _ = std::io::Read::read_to_end(&mut err_pipe, &mut v);
+            v
+        });
+        let started = Instant::now();
+        let status = loop {
+            if let Some(status) = child.try_wait().expect("wait for node") {
+                break Some(status);
+            }
+            if started.elapsed() > JS_TIMEOUT {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+            std::thread::sleep(Duration::from_millis(5));
+        };
+        (status, out.join().unwrap(), err.join().unwrap())
+    });
+    let (status, stdout_bytes, stderr_bytes) = readers;
+    let Some(status) = status else {
+        let _ = std::fs::remove_dir_all(&dir);
+        return Run {
+            stdout: String::new(),
+            end: "resource".into(),
+        };
+    };
+    let output = std::process::Output {
+        status,
+        stdout: stdout_bytes,
+        stderr: stderr_bytes,
+    };
     let message = std::fs::read_to_string(&error_file).unwrap_or_default();
     let end = match output.status.code() {
         Some(0) => "ok".into(),
@@ -1273,25 +1431,43 @@ fn run_js(program: &stitchwort_js::run::Program, input: &str) -> Run {
     }
 }
 
-fn run_three(source: &str) -> Ran {
+fn run_all(source: &str) -> Ran {
     let mut session = Session::for_stack(STACK);
+    let deadline = |session: &Session| {
+        (session.elab.kernel.machine.budget).set_deadline(Some(Instant::now() + DEADLINE));
+    };
+    session.elab.options.limits.work = CHECK_WORK_OVERRIDE.with(|w| w.get()).unwrap_or(CHECK_WORK);
+    deadline(&session);
+    phase("check");
     if let Err(diagnostics) = session.load("generated.sw", source) {
         let shown: Vec<String> = diagnostics
             .iter()
             .map(|d| stitchwort_cli::render::render(&session.sources, d, false))
             .collect();
+        if diagnostics.iter().any(|d| d.code == "E-RESOURCE") {
+            return Ran::Exhausted(shown.join("\n"));
+        }
         return Ran::Rejected(shown.join("\n"));
     }
     let main = match session.main() {
         Ok(main) => main,
+        Err(d) if d.code == "E-RESOURCE" => {
+            return Ran::Exhausted(stitchwort_cli::render::render(&session.sources, &d, false));
+        }
         Err(d) => {
             return Ran::Rejected(stitchwort_cli::render::render(&session.sources, &d, false));
         }
     };
+    session.elab.options.limits.work = WORK;
+    deadline(&session);
+    phase("reference");
     let mut reference = Vec::new();
     let reference_end = end_of(session.run_main(&main, &mut &b""[..], &mut reference));
-    let mut native = Vec::new();
-    let native_end = end_of(session.run_main_fast(&main, &mut &b""[..], &mut native));
+    (session.elab.kernel.machine.budget).set_deadline(None);
+    phase("machine");
+    let mut machine = Vec::new();
+    let machine_end = end_of(session.run_main_fast(&main, &mut &b""[..], &mut machine));
+    phase("js");
     let js = match session.extract_program(&main) {
         Ok(program) => run_js(&program, ""),
         Err(d) => Run {
@@ -1299,25 +1475,30 @@ fn run_three(source: &str) -> Ran {
             end: format!("error: extract: {}", d.message),
         },
     };
-    Ran::Three([
+    let mut runs = vec![
         Run {
             stdout: String::from_utf8_lossy(&reference).into_owned(),
             end: reference_end,
         },
         Run {
-            stdout: String::from_utf8_lossy(&native).into_owned(),
-            end: native_end,
+            stdout: String::from_utf8_lossy(&machine).into_owned(),
+            end: machine_end,
         },
         js,
-    ])
+    ];
+    if native_wanted() {
+        phase("native");
+        runs.push(run_native(&session, &main));
+    }
+    Ran::Runs(runs)
 }
 
-fn inconclusive(runs: &[Run; 3]) -> bool {
+fn inconclusive(runs: &[Run]) -> bool {
     runs.iter().any(|r| r.end == "resource")
 }
 
-fn agree(runs: &[Run; 3]) -> bool {
-    runs[0] == runs[1] && runs[1] == runs[2]
+fn agree(runs: &[Run]) -> bool {
+    runs.iter().all(|run| *run == runs[0])
 }
 
 /// The lines program `k` printed.
@@ -1326,9 +1507,9 @@ fn lines_of(stdout: &str, k: usize) -> Vec<&str> {
     stdout.lines().filter(|l| l.starts_with(&tag)).collect()
 }
 
-fn show_runs(runs: &[Run; 3]) -> String {
+fn show_runs(runs: &[Run]) -> String {
     let mut out = String::new();
-    for (name, run) in BACKENDS.iter().zip(runs) {
+    for (name, run) in backends().iter().zip(runs) {
         writeln!(out, "--- {name}: {} ---\n{}", run.end, run.stdout).unwrap();
     }
     out
@@ -1513,15 +1694,15 @@ fn shrinks(p: &Program) -> Vec<Program> {
 }
 
 /// Program `p` alone, if it still disagrees: the runs.
-fn disagrees(p: &Program) -> Option<[Run; 3]> {
-    match run_three(&module(&[(0, p)])) {
-        Ran::Three(runs) if !inconclusive(&runs) && !agree(&runs) => Some(runs),
+fn disagrees(p: &Program) -> Option<Vec<Run>> {
+    match run_all(&module(&[(0, p)])) {
+        Ran::Runs(runs) if !inconclusive(&runs) && !agree(&runs) => Some(runs),
         _ => None,
     }
 }
 
 /// The smallest program found that still disagrees.
-fn shrink(mut p: Program, mut runs: [Run; 3]) -> (Program, [Run; 3]) {
+fn shrink(mut p: Program, mut runs: Vec<Run>) -> (Program, Vec<Run>) {
     let start = Instant::now();
     'outer: loop {
         for q in shrinks(&p) {
@@ -1542,6 +1723,64 @@ fn shrink(mut p: Program, mut runs: [Run; 3]) -> (Program, [Run; 3]) {
 // ---------------------------------------------------------------------------
 // The test.
 
+// ---------------------------------------------------------------------------
+// Progress (SW-2570): the test prints nothing until every batch is done, so
+// a batch that never ends left no seed to rerun.
+
+/// What each running batch is doing: (thread, seed, started, phase).
+static IN_FLIGHT: Mutex<Vec<(std::thread::ThreadId, u64, Instant, &'static str)>> =
+    Mutex::new(Vec::new());
+
+fn verbose() -> bool {
+    env_u64("STITCHWORT_EFFECT_FUZZ_VERBOSE").is_some_and(|v| v != 0)
+}
+
+fn slow_secs() -> u64 {
+    env_u64("STITCHWORT_EFFECT_FUZZ_SLOW").unwrap_or(SLOW_SECS)
+}
+
+fn enter(seed: u64) {
+    let me = std::thread::current().id();
+    let mut all = IN_FLIGHT.lock().unwrap();
+    all.retain(|e| e.0 != me);
+    all.push((me, seed, Instant::now(), "generate"));
+}
+
+fn leave() {
+    let me = std::thread::current().id();
+    IN_FLIGHT.lock().unwrap().retain(|e| e.0 != me);
+}
+
+/// Notes which stage this thread's batch has reached.
+fn phase(name: &'static str) {
+    let me = std::thread::current().id();
+    if let Some(e) = IN_FLIGHT.lock().unwrap().iter_mut().find(|e| e.0 == me) {
+        e.3 = name;
+    }
+}
+
+/// Every 10 s, reports each batch that has run longer than the slow limit,
+/// with its seed and stage, until `stop` is set.
+fn watch(stop: &AtomicBool) {
+    let mut last = Instant::now();
+    while !stop.load(Ordering::Relaxed) {
+        std::thread::sleep(Duration::from_millis(200));
+        if last.elapsed() < Duration::from_secs(10) {
+            continue;
+        }
+        last = Instant::now();
+        for (_, seed, since, stage) in IN_FLIGHT.lock().unwrap().iter() {
+            if since.elapsed().as_secs() >= slow_secs() {
+                eprintln!(
+                    "slow: seed {seed} has run {} s, in {stage} (rerun: \
+                     STITCHWORT_EFFECT_FUZZ_SEED={seed} STITCHWORT_EFFECT_FUZZ_BATCHES=1)",
+                    since.elapsed().as_secs()
+                );
+            }
+        }
+    }
+}
+
 struct BatchResult {
     programs: usize,
     features: Vec<String>,
@@ -1550,6 +1789,40 @@ struct BatchResult {
 }
 
 fn batch(seed: u64) -> BatchResult {
+    enter(seed);
+    let start = Instant::now();
+    if verbose() {
+        eprintln!("seed {seed}: start");
+    }
+    let result = batch_inner(seed);
+    leave();
+    let secs = start.elapsed().as_secs_f64();
+    if verbose() || secs >= slow_secs() as f64 {
+        eprintln!(
+            "seed {seed}: {} in {secs:.1} s{}",
+            if result.failure.is_some() {
+                "FAILED"
+            } else if result.inconclusive > 0 {
+                "skipped (out of resources)"
+            } else {
+                "agreed"
+            },
+            if secs >= slow_secs() as f64 {
+                " (SLOW)"
+            } else {
+                ""
+            }
+        );
+    }
+    // A disagreement is shown as soon as it is found: the run may not
+    // reach its end.
+    if let Some(failure) = &result.failure {
+        eprintln!("FAILURE:\n{failure}\n");
+    }
+    result
+}
+
+fn batch_inner(seed: u64) -> BatchResult {
     let mut rng = Rng(seed);
     let mut programs = Vec::new();
     let mut features = Vec::new();
@@ -1565,7 +1838,7 @@ fn batch(seed: u64) -> BatchResult {
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(PathBuf::from(dir).join(format!("seed{seed}.sw")), &source);
     }
-    let runs = match run_three(&source) {
+    let runs = match run_all(&source) {
         Ran::Rejected(errors) => {
             return BatchResult {
                 programs: 0,
@@ -1576,7 +1849,16 @@ fn batch(seed: u64) -> BatchResult {
                 )),
             };
         }
-        Ran::Three(runs) => runs,
+        Ran::Exhausted(why) => {
+            eprintln!("seed {seed}: checking ran out of resources:\n{why}");
+            return BatchResult {
+                programs: 0,
+                features,
+                inconclusive: PER_BATCH,
+                failure: None,
+            };
+        }
+        Ran::Runs(runs) => runs,
     };
     if inconclusive(&runs) {
         return BatchResult {
@@ -1695,12 +1977,18 @@ const REQUIRED: &[&str] = &[
 ];
 
 #[test]
-fn generated_effect_programs_agree_on_all_three_backends() {
+fn generated_effect_programs_agree_on_every_backend() {
     let batches = env_u64("STITCHWORT_EFFECT_FUZZ_BATCHES").unwrap_or(DEFAULT_BATCHES);
     let first = env_u64("STITCHWORT_EFFECT_FUZZ_SEED").unwrap_or(1);
     let seeds: Vec<u64> = (first..first + batches).collect();
     let start = Instant::now();
-    let results = par_map(STACK, &seeds, |&seed| batch(seed));
+    let stop = AtomicBool::new(false);
+    let results = std::thread::scope(|scope| {
+        scope.spawn(|| watch(&stop));
+        let results = par_map(STACK, &seeds, |&seed| batch(seed));
+        stop.store(true, Ordering::Relaxed);
+        results
+    });
     let elapsed = start.elapsed();
     let mut features: BTreeMap<String, usize> = BTreeMap::new();
     let mut ran = 0;
@@ -1715,9 +2003,9 @@ fn generated_effect_programs_agree_on_all_three_backends() {
         failures.extend(r.failure);
     }
     eprintln!(
-        "{ran} generated programs agreed on the reference evaluator, native and JS \
-         ({batches} batches of {PER_BATCH} from seed {first}) in {:.1} s: {:.1} programs/s; \
+        "{ran} generated programs agreed on {} ({batches} batches of {PER_BATCH} from seed {first}) in {:.1} s: {:.1} programs/s; \
          {skipped} skipped for running out of resources",
+        backends().join(", "),
         elapsed.as_secs_f64(),
         (ran + skipped) as f64 / elapsed.as_secs_f64()
     );
@@ -1751,6 +2039,50 @@ fn generated_effect_programs_agree_on_all_three_backends() {
             "programs ran out of resources: the generator's caps are too loose"
         );
     }
+}
+
+/// A module whose check takes far more steps than any limit, by
+/// construction: `rfl` must unfold the naive, doubly recursive `fib 40`,
+/// which is about 3 * 10^8 calls, some 50 steps each (measured on `fib 22`),
+/// however fast one step becomes, since the checker has no memo table to
+/// share its two recursive calls.
+const SLOW_BY_CONSTRUCTION: &str = "
+def fib: Nat -> Nat
+  | 0 => 0
+  | 1 => 1
+  | Succ (Succ n) => fib n + fib (Succ n)
+
+theorem fibForty: fib 40 = 102334155 := rfl
+
+def main(): {IO} () := ()
+";
+
+/// A module the checker cannot finish stops at the step limit, as
+/// `Exhausted` (which a batch skips), not by running on. The input is slow by
+/// construction, so the test doesn't depend on how fast the checker is
+/// (SW-2605; it used seed 1794200310, which SW-2572 made 100 times faster).
+#[test]
+fn a_batch_the_checker_cannot_finish_stops_at_the_step_limit() {
+    let started = Instant::now();
+    let ran = std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(|| {
+            CHECK_WORK_OVERRIDE.with(|w| w.set(Some(10_000_000)));
+            run_all(&format!("{PRELUDE}{SLOW_BY_CONSTRUCTION}"))
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+    match ran {
+        Ran::Exhausted(why) => assert!(why.contains("E-RESOURCE"), "{why}"),
+        Ran::Rejected(errors) => panic!("did not check: {errors}"),
+        Ran::Runs(_) => panic!("the checker finished"),
+    }
+    assert!(
+        started.elapsed() < Duration::from_secs(60),
+        "took {:?}",
+        started.elapsed()
+    );
 }
 
 /// A seed always gives the same programs (the generator has no other
@@ -1788,7 +2120,7 @@ def main(): {IO, Partial} () :=
 /// `run --js` runner, which no source program makes (stage 4c's note):
 /// `main` wrapped in two `Effect.mapSig Effect.sigSwap`s at the term level,
 /// as `io_operations_cross_translations_on_their_way_to_the_runner` does for
-/// the native runner. Each operation is renamed twice and its reply mapped
+/// the machine's runner. Each operation is renamed twice and its reply mapped
 /// back through both; the output is the reference evaluator's for the
 /// unwrapped program.
 #[test]

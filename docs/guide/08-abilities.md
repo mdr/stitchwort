@@ -23,6 +23,7 @@ def total (prices: List Nat): Nat :=
    │
    │     Note: add `IO` to the function's type (`-> {IO …} …`), or handle it
 ───╯
+1 error: in `total`
 ```
 
 Abilities are Stitchwort's version of algebraic effects, the design behind Unison's abilities and Koka's effects. The code that performs operations is plain, direct-style code: no monads, no `await`. What the operations *mean* is decided separately, by a **handler**. The same code can print its log in one place and collect it into a list in a test.
@@ -204,9 +205,9 @@ test "abort" := Abort.toOption (() => halfOf 6) == Some 3 ∧ Abort.toOption (()
 <!-- snippet: abilities.sw#each -->
 ```stitchwort
 def triples (n: Nat): List (Nat, Nat, Nat) := Each.collect (() =>
-  let a := Each.each (List.range 1 (n + 1))
-  let b := Each.each (List.range a (n + 1))
-  let c := Each.each (List.range b (n + 1))
+  let a := Each.each (1 ..= n)
+  let b := Each.each (a ..= n)
+  let c := Each.each (b ..= n)
   Each.require (a * a + b * b == c * c)
   (a, b, c))
 
@@ -256,13 +257,12 @@ error: expected a quantity, got 'two'
 
 <!-- snippet: sum-lines.sw@sumLines,main -->
 ```stitchwort
-def sumLines (total: Nat): {IO, Fail, Partial} Nat :=
-  match IO.readLine() with
-    | None => total
-    | Some line =>
-      let number := line.toNatOrFail
-      IO.print "total so far ${total + number}"
-      sumLines (total + number)
+def sumLines (total: Nat): {IO, Fail, Partial} Nat := match IO.readLine() with
+  | None => total
+  | Some line =>
+    let number := line.toNatOrFail
+    IO.print "total so far ${total + number}"
+    sumLines (total + number)
 
 def main(): {IO, Fail, Partial} () := IO.print "sum ${sumLines 0}"
 ```

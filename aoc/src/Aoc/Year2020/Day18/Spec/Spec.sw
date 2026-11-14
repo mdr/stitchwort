@@ -31,9 +31,11 @@ def symbol: Operator → Char
 def Written: Expression → List Char → Prop
   | Number value, read => NumberWritten read value
   | Operation operator left right, read =>
-    ∃ (leftRead: List Char) => ∃ (rightRead: List Char) =>
-      read = leftRead ++ [' ', symbol operator, ' '] ++ rightRead ∧ Written left leftRead ∧ Written right rightRead
-  | Parenthesised inner, read => ∃ (innerRead: List Char) => read = ['('] ++ innerRead ++ [')'] ∧ Written inner innerRead
+    ∃ (leftRead: List Char) => ∃ (rightRead: List Char) => read = leftRead ++ [' ', symbol operator, ' '] ++ rightRead
+      ∧ Written left leftRead
+      ∧ Written right rightRead
+  | Parenthesised inner, read =>
+    ∃ (innerRead: List Char) => read = ['('] ++ innerRead ++ [')'] ∧ Written inner innerRead
 
 -- The rules
 
@@ -80,8 +82,8 @@ def value: Expression → Nat
 --| "What do you get if you add up the resulting values?": the sum of the
 --| values of the expressions the lines are, under the rules `strengthOf`.
 def Answer (strengthOf: Operator → Nat) (input: Text) (answer: Nat): Prop :=
-  ∃ (expressions: List Expression) =>
-    List.All2 (Means strengthOf) (input.lines.map Text.toList) expressions ∧ answer = (expressions.map value).sum
+  ∃ (expressions: List Expression) => List.All2 (Means strengthOf) (input.lines.map Text.toList) expressions
+    ∧ answer = (expressions.map value).sum
 
 def Part1 (input: Text) (answer: Nat): Prop := Answer part1Strength input answer
 

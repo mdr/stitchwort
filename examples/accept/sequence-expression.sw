@@ -18,7 +18,7 @@ test "the last value" := pair == 2 && chain == 3
 -- Nested, and as arguments: each pair of brackets is one sequence.
 def nested: Nat := ((1; 2); (3; 4))
 
-def add (a: Nat) (b: Nat): Nat := a + b
+def add (a b: Nat): Nat := a + b
 
 def arguments: Nat := add (0; 1) (0; 2)
 
@@ -44,12 +44,12 @@ def lambdas: List Nat := [1, 2].map (x => 0; x + 1)
 
 def branches (b: Bool): Nat := if b then 0; 1 else 2; 3
 
-def arms (o: Option Nat): Nat :=
-  match o with
-    | Some k => 0; k
-    | None => 1; 2
+def arms (o: Option Nat): Nat := match o with
+  | Some k => 0; k
+  | None => 1; 2
 
-test "positions" := lambdas == [2, 3] && branches True == 1 && branches False == 3 && arms (Some 5) == 5 && arms None == 2
+test "positions" :=
+  lambdas == [2, 3] && branches True == 1 && branches False == 3 && arms (Some 5) == 5 && arms None == 2
 
 -- It ends at a comma, so `(1; 2, 3)` is the pair `((1; 2), 3)`, and at the
 -- end of a `|>` stage's operand it takes the whole stage: `0; 1 |> f` is
@@ -68,14 +68,12 @@ def lineResult (line: Text) (parser: () → {Parse} a): Result a Text := Fail.to
 
 def afterComma(): {Parse} Nat := char ','; nat()
 
-test "effects in order" := lineResult ",12" afterComma == Ok 12 && lineResult "12" afterComma == Err "column 1: expected ',', got '1'"
+test "effects in order" :=
+  lineResult ",12" afterComma == Ok 12 && lineResult "12" afterComma == Err "column 1: expected ',', got '1'"
 
 -- The motivating use: a grammar rule on one line. `before` reads ")" after
 -- `|>`'s left side has run.
-type Instruction =
-  | Mul (left: Nat) (right: Nat)
-  | Do
-  | Dont
+type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
 def shortNumber(): {Parse} Nat := natDigits 1 3
 
@@ -91,14 +89,14 @@ def mulBlocks(): {Parse} Instruction :=
   Mul left right
 
 test "a grammar rule" :=
-  lineResult "mul(44,46)" mul == Ok (Mul 44 46) && lineResult "mul(44;46)" mul == lineResult "mul(44;46)" mulBlocks
+  lineResult "mul(44,46)" mul == Ok (Mul 44 46)
+    && lineResult "mul(44;46)" mul == lineResult "mul(44;46)" mulBlocks
     && lineResult "mul(44,46]" mul == lineResult "mul(44,46]" mulBlocks
 
-def instruction(): {Parse} Instruction :=
-  oneOf [
-    () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
-    () => pick [("do()", Do), ("don't()", Dont)]
-  ]
+def instruction(): {Parse} Instruction := oneOf [
+  () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
+  () => pick [("do()", Do), ("don't()", Dont)]
+]
 
 test "in context" :=
   Fail.toResult (() => Parse.all "xmul(2,4)%don't()_mul(5,5)+mul(32,64]do()mul(11,8)" (() => findAll instruction))
@@ -111,4 +109,4 @@ def twoLines (n: Nat): Nat :=
   n
   n + 1
 
-theorem sameAsBlock (n: Nat): oneLine n = twoLines n := rfl
+theorem sameAsBlock ∀ (n: Nat): oneLine n = twoLines n := rfl

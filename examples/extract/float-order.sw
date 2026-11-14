@@ -31,13 +31,13 @@ import Std (Float, List, Map, Nat, Option, Ord, Ordering)
 
 type Event = { startTime: Float, id: Nat }
 
-export def atMost (x: Float) (y: Float): Bool := x <= y
+export def atMost (x y: Float): Bool := x <= y
 
-export def below (x: Float) (y: Float): Bool := x < y
+export def below (x y: Float): Bool := x < y
 
 export def belowTen (x: Float): Bool := x < 10.0
 
-export def order (x: Float) (y: Float): Ordering := Ord.compare x y
+export def order (x y: Float): Ordering := Ord.compare x y
 
 export def upTo (limit: Float) (times: List Float): List Float := times.filter (t => t <= limit)
 

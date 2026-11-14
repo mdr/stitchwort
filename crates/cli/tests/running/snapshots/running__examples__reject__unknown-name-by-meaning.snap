@@ -1,0 +1,47 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: no function `isLower` in `Char`
+   ╭─[ reject/unknown-name-by-meaning.sw:8:16 ]
+   │
+ 8 │ def a: Bool := Char.isLower 'a'
+   │                ──────┬─────  
+   │                      ╰─────── `Char` has no `isLower`
+   │ 
+   │ Note: did you mean `Char.isAsciiLowercase`?
+───╯
+[E-UNKNOWN-NAME] Error: no function `size` in `List`
+   ╭─[ reject/unknown-name-by-meaning.sw:9:15 ]
+   │
+ 9 │ def b: Nat := List.size [1, 2, 3]
+   │               ────┬────  
+   │                   ╰────── `List` has no `size`
+   │ 
+   │ Note: did you mean `List.length`?
+───╯
+[E-UNKNOWN-NAME] Error: no function `len` in `Text`
+    ╭─[ reject/unknown-name-by-meaning.sw:10:15 ]
+    │
+ 10 │ def c: Nat := Text.len "abc"
+    │               ────┬───  
+    │                   ╰───── `Text` has no `len`
+    │ 
+    │ Note: did you mean `Text.length`?
+────╯
+[E-UNKNOWN-FIELD] Error: `Char` has no field or function `isLowercase`
+    ╭─[ reject/unknown-name-by-meaning.sw:11:20 ]
+    │
+ 11 │ def d: Bool := 'a'.isLowercase
+    │                    ─────┬─────  
+    │                         ╰─────── looked in `Char`
+    │ 
+    │ Note: did you mean `isAsciiLowercase`?
+────╯
+[E-UNKNOWN-NAME] Error: no function `isFrobnicated` in `Char`
+    ╭─[ reject/unknown-name-by-meaning.sw:12:16 ]
+    │
+ 12 │ def e: Bool := Char.isFrobnicated 'a'
+    │                ─────────┬────────  
+    │                         ╰────────── `Char` has no `isFrobnicated`
+────╯

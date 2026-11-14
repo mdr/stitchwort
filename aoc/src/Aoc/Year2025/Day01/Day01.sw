@@ -37,21 +37,13 @@ def Dial.start: Dial 100 := { position = Mod.ofNat 50 }
 
 --| Part 1: the positions after each turn that are 0.
 def zerosLandedOn (turns: List Turn) (startingDial: Dial n): Nat :=
-  turns
-    |> .scanLeft startingDial .move
-    |> .drop 1
-    |> .count .isZero
+  turns |> .scanLeft startingDial .move |> .drop 1 |> .count .isZero
 
 --| Part 2: for each turn, the clicks onto 0 from where the dial was before it.
 def zerosPassed (turns: List Turn) (startingDial: Dial n): Nat :=
-  turns
-    |> .scanLeft startingDial .move
-    |> .zipWith turns .zerosDuring
-    |> .sum
+  turns |> .scanLeft startingDial .move |> .zipWith turns .zerosDuring |> .sum
 
-type Turn =
-  | Left (distance: Nat)
-  | Right (distance: Nat)
+type Turn = | Left (distance: Nat) | Right (distance: Nat)
 
 --| "L68" is `Left 68`; " R5 " is `Right 5`.
 def turn(): {Parse} Turn :=

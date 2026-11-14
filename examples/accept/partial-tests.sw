@@ -9,7 +9,7 @@ def collatzSteps: Nat → {Partial} Nat
   | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
 
 -- A partial helper that a test calls.
-def takes (n: Nat) (steps: Nat): {Partial} Bool := collatzSteps n == steps
+def takes (n steps: Nat): {Partial} Bool := collatzSteps n == steps
 
 -- Mutual recursion, partial.
 def isEven: Nat → {Partial} Bool

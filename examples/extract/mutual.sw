@@ -34,7 +34,7 @@ def mapList (f: a → b): List a → List b
 
 -- Members returning functions, applied to one more argument outside the
 -- group.
-export def shifted (n: Nat) (x: Nat): Nat := evenShift n x
+export def shifted (n x: Nat): Nat := evenShift n x
 
 def evenShift: Nat → (Nat → Nat)
   | 0, x => x

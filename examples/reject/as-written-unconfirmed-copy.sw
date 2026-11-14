@@ -16,7 +16,7 @@ def settle (x: Nat) (k: Nat): (rounds: Nat) → Option Nat
     let next := step x k
     if next == x then Some x else settle next k more
 
-def limit: Nat := 1000
+def limit: Nat := 3000
 
 def settled (x: Nat) (k: Nat): Option Nat := settle x k limit
 

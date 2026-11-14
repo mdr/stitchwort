@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.pure 72522b654feddbf4c98ebb8e54664a3df9c8ec05d7453b9da07c87ac4432f1de
@@ -10,7 +10,7 @@ Main.option 1ab9f0df6bd9f50db003864062a97ebe0b51388b5260908da2439ae6a7e31044
 Main.option.%match1 d0295ec4e885125059d8cd8db129f645ca0f036bd3c167ee1962ac319875573e
 Main.nested 6dfb9abc6885c6a2666e2f851545dd39dfb9b831f149a172b859162fe2e38200
 Main.nested.%match1 c96b89b0836965912594b857570a650306239b40f492bf315e1c7b1900da2c61
-Main.test "pure" 9adc5cb78316ac8c4920615b1b99487b0246cec9abd6c9de74703e9a3b25486b
-Main.test "effects" e229a5af0e2fae8a18ba737487d9d78a2668cf3296f6d19da84290ae1696caee
-Main.test "Option" 020d212c05f85386b9a9ef316bb9ae96f03b5919650f093685fef032d540269c
-Main.test "nested" 6315143867e52a6106d054a814a5a3fd963594379e3945f12f43a409ed5c5d64
+Main.test "pure" 6f1bc1e931cec20cd4a405a3b6c45f262bb76d454e174395d441c3d5557a0fae
+Main.test "effects" 1f8728140ecd863e66384a06b617e2bb2c016fcc061e46507936290755c614c7
+Main.test "Option" aac3a4bbbe4f6dd6a6f1d0a58c76ebc269105c279b932ff65d809783d8d137b3
+Main.test "nested" af364c84b8c4e79d4c092d90fbacdc220e96e60e898bb3c698ecaff1608e3cdf
