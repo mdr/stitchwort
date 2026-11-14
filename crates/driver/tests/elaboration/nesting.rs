@@ -14,6 +14,7 @@ use stitchwort_core::check as kernel;
 use stitchwort_core::hash::def_hash;
 use stitchwort_core::{DefId, Limits, ResourceError, Term, pretty};
 use stitchwort_driver::driver::Session;
+use stitchwort_elab::search::Item;
 use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
 
 /// Set in a child process.
@@ -447,25 +448,40 @@ fn deep_terms_in_later_passes() {
                     .operation(Limits::default());
                 session
                     .elab
-                    .search_candidates(&|item, _| item == stitchwort_elab::search::Item::Def(id))
+                    .search_candidates(&|item, _| item == Item::Def(id))
             };
             assert_eq!(candidates.len(), 1);
-            let expr = session
-                .parse_expression("<goal>", "f 0 = 0")
-                .expect("parses");
-            let goal = session.elab.open_goal(&expr, 0).expect("opens");
+            // A goal that is an instance of the deep conclusion (`n := 0`).
+            // Matching it walks both terms with the unifier, which stops
+            // at its depth limit, so the candidate runs out of budget
+            // and no hit reaches `defs_named` or `named`; those two are
+            // covered by `closing`'s own test.
+            let (f, nat) = {
+                let g = &session.elab.kernel;
+                let f = (g.env.defs().iter())
+                    .position(|d| &**d.name() == "f")
+                    .unwrap();
+                let Term::Pi(_, _, nat, _) = g.env.defs()[id.0].ty().strip_loc() else {
+                    panic!("a function type")
+                };
+                (DefId(f), nat.clone())
+            };
+            let zero = || Rc::new(Term::Nat(Rc::new(0u32.into())));
+            let deep = deep_term(Term::Def(f), (*zero()).clone(), 1_000_000);
+            let target = Term::Eq(Some(nat), Rc::new(deep), zero());
+            let snapshot = stitchwort_elab::GoalSnapshot::target_for_tests(target);
+            let span = session.elab.ev().def(id).span();
+            let goal = session.elab.open_goal_at(&snapshot, span);
             let _op = session
                 .elab
                 .ev()
                 .machine
                 .budget
                 .operation(Limits::default());
+            let goal = goal.expect("a deep goal opens");
             let plans = session.elab.closing_plans(&goal, &candidates, &|_| true, 5);
-            // The goal is too shallow to be an instance of the deep
-            // conclusion, so `defs_named` on it isn't reached here (its
-            // own test in `closing` covers that); the search still indexes
-            // and matches against the deep type.
             assert!(plans.plans.is_empty());
+            assert_eq!(plans.found.stats.out_of_budget_items, [Item::Def(id)]);
         }
         let e = session.extract().err().expect("too deep to generate");
         assert_eq!(e.code, "E-RESOURCE");
