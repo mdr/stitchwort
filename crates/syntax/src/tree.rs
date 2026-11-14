@@ -3,19 +3,19 @@
 //! Reading its leaves left to right, each with the text between it and the
 //! previous one, gives back the file byte for byte.
 //!
-//! It is step 1 of docs/proposals/syntax-tree-architecture.md (architecture
-//! A2, D3562), and stage 1 of docs/proposals/formatter-architecture.md: it
-//! is what the parser builds, and the compiler's tree ([`crate::ast`]) is
-//! lowered from it ([`crate::lower`], steps 3 and 4). The formatter, the editor's shape features
-//! (outline, folding, selection) and the quick fixes and sweeps are its
-//! readers (formatter-architecture.md §4).
+//! It is the one thing the parser builds (architecture A2 of
+//! docs/proposals/syntax-tree-architecture.md, D3562): the compiler's tree
+//! ([`crate::ast`]) is lowered from it ([`crate::lower`]), and the formatter
+//! (docs/proposals/formatter-architecture.md), the editor's shape features
+//! (outline, folding, selection) and the quick fixes and sweeps read it
+//! directly (formatter-architecture.md §4).
 //!
-//! Step 1 is finished: every construct is marked, and its gates hold over
-//! the repo (std, `aoc/src`, `games`, `examples`): every file reads back as
-//! written, no mark is dropped, every span of the compiler's tree is a node
-//! ([`SyntaxFile::check_spans`]), the compiler's tree and its hashes are
-//! unchanged, and parsing without marks costs what it did. The whole-repo
-//! gate is one command, for a rolling check:
+//! Every construct is marked, and the whole-repo gate over std, `aoc/src`,
+//! `games` and `examples` is one command, for a rolling check: every file
+//! reads back as written, no mark is dropped, and every span of the
+//! compiler's tree is a node ([`SyntaxFile::check_spans`]). A construct the
+//! parser forgets to mark fails it, since the lowering gives the compiler's
+//! tree a span that no node has.
 //!
 //! ```text
 //! stitchwort dev tree --spans crates/elab/src/std aoc/src games examples
@@ -23,9 +23,11 @@
 //!
 //! which exits 1 if any file doesn't read back, a mark is dropped, or a span
 //! is no node, and prints each. (`examples` has files that don't lex or
-//! parse on purpose; they are counted, not failures.) `--time N
-//! --parse-only` times parsing without marks alone, so that an instruction
-//! count of the process measures that and nothing else.
+//! parse on purpose; they are counted, not failures.) `--time N` times
+//! parsing as `check` does (the lossless tree, then the lowering) and the
+//! lossless tree alone, so the difference is the lowering; with
+//! `--parse-only` it times the first alone and skips the rest, so that an
+//! instruction count of the process measures that and nothing else.
 //!
 //! # The tree
 //!
@@ -49,7 +51,7 @@
 //!
 //! Every construct of the language has a kind, including the shorthand as
 //! written (`let (a, b) = e`, a chain `a ≤ b < c`, a `.f` section), since
-//! the lowering to the compiler's tree will need them all. A construct of
+//! the lowering to the compiler's tree needs them all. A construct of
 //! one token (a name, a literal, `_`) is that token, with no node around it.
 //! A construct the parser forgot to mark would leave its tokens flat in its
 //! parent; the span-containment check ([`SyntaxFile::check_spans`]) is what
@@ -59,7 +61,7 @@
 //!
 //! The parser doesn't build this tree. It records *marks*: when a parsing
 //! function finishes a construct it notes the construct's kind and the
-//! token range it started and ended at ([`Mark`]). Its position only ever
+//! token range it started and ended at (`Mark`). Its position only ever
 //! moves forward, so the ranges of the marks of one parse nest; the builder
 //! here sorts them (by start, then the longest first, then the one finished
 //! last first, since a construct finishes after everything inside it) and
@@ -81,10 +83,6 @@
 //! span-containment check holds this up: an operand left unmarked would
 //! start its operator's node in the wrong place, and the compiler's span
 //! for the operator's expression would be no node.
-//!
-//! The marks are recorded only when asked for ([`crate::parse_tree`]): the
-//! parser holds an `Option` of the list, so with marks off each mark costs
-//! one test of `None`, and nothing is allocated.
 //!
 //! # Errors
 //!

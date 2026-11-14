@@ -168,7 +168,8 @@ enum DevCommand {
         print: bool,
         /// Also time parsing every file this many times, and print the best
         /// time of each: as `check` parses (the lossless tree, then the
-        /// compiler's tree lowered from it), and the lossless tree alone
+        /// compiler's tree lowered from it), and the lossless tree alone,
+        /// so the difference is the lowering
         #[arg(long, value_name = "ROUNDS")]
         time: Option<u32>,
         /// With --time, time only parsing as `check` does, and skip the
@@ -5099,7 +5100,7 @@ fn tree_command(
         && parse_only
     {
         println!(
-            "{} files, {bytes} bytes, best of {rounds}: parse {:.1} ms",
+            "{} files, {bytes} bytes, best of {rounds}: parse and lower {:.1} ms",
             files.len(),
             time_parse(rounds, true).as_secs_f64() * 1000.0
         );
@@ -5171,15 +5172,15 @@ fn tree_command(
             .collect();
         println!(
             "{checked} spans of the compiler's tree checked, {misses} not a node or a token; \
-             besides, {unparsed} in declarations that didn't parse, and these the parser \
+             besides, {unparsed} in declarations that didn't parse, and these the lowering \
              makes up that are no node: {}",
             made_up.join(", ")
         );
     }
     if let Some(rounds) = time {
         println!(
-            "{bytes} bytes, best of {rounds}: parse {:.1} ms (the tree lowered), the tree alone \
-             {:.1} ms",
+            "{bytes} bytes, best of {rounds}: parse and lower {:.1} ms, parse to the lossless tree \
+             alone {:.1} ms (the lowering is the difference)",
             time_parse(rounds, true).as_secs_f64() * 1000.0,
             time_parse(rounds, false).as_secs_f64() * 1000.0
         );

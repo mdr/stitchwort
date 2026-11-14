@@ -35116,12 +35116,12 @@
     {
       "id": 3214,
       "title": "[Sonnet] Lowering L7 (docs/proposals/syntax-tree-lowering.md): Tidy: docs and dev tree modes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2.5 h (Sonnet).",
+      "body": "Expected: 2.5 h (Sonnet).\n\nProgress (lane, 14 Nov): commit 1d3e5d766 on lane/SW-3214. Docs: lowering note (status, section 4 retired, stage table with tickets, what differed, 1.30x measured, decisions applied), architecture steps 3-4 done, tree.rs/ast.rs/spans.rs headers, lower.rs error rule and stack split, syntax.md contributor pointer, perf-log note on SW-3212. dev tree --time labels now say parse and lower / lossless alone. No dead Synthetic reasons (all 13 counted in the spans gate). 3 cargo doc link warnings fixed. Gates: dev tree --spans 0 misses; syntax package 269/269; fmt, clippy clean.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []

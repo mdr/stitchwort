@@ -89,7 +89,7 @@ pub fn parse_module_within(
 /// parsed and whose body didn't is kept instead, as its signature with
 /// `body_error` set and no equations. Returns the declarations that did
 /// parse and every error, in file order. A lexical error is recovered from
-/// the same way: the declaration holding it (see [`lex_recovering`]) is
+/// the same way: the declaration holding it (see [`crate::lexer::lex_recovering`]) is
 /// left out, its names are in `failed`, and the rest of the file parses. A
 /// first declaration not at the start of a line stops everything: the
 /// module is empty.

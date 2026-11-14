@@ -227,8 +227,8 @@ Lane hours are [estimated].
 |---|---|---|---|---|
 | 1 | **Marks beside today's tree** (architecture B, as a waypoint). This is stage 1 of the formatter plan, unchanged, with two additions: a kind for every construct including the shorthand as written, and a test that every span in the compiler's tree is the range of some lossless node | Every file reads back from its tree; compiler's tree and hashes unchanged | Opus | 15–25 (already in the formatter plan) |
 | 2 | The formatter (stages 2–5 of its plan) and the tools (stage 6) on the lossless tree | As that plan says | as planned | as planned |
-| 3 | **Lowering**: write the step from the lossless tree to the compiler's tree. Step 1's parser is the oracle: for every file in the repo, lowering must give exactly the tree the parser builds directly | Trees equal over the repo and the reject examples' error text unchanged | Opus | 25–40 |
-| 4 | **Delete the direct construction** from the parser: parsing functions return nothing. Each lowered node carries the node it came from | Hash snapshots unchanged | Opus | 8–12 |
+| 3 | **Lowering** (done 14 Nov 2026, SW-3207–SW-3212, in syntax-tree-lowering.md): write the step from the lossless tree to the compiler's tree. Step 1's parser is the oracle: for every file in the repo, lowering must give exactly the tree the parser builds directly | Trees equal over the repo and the reject examples' error text unchanged | Opus | 25–40 |
+| 4 | **Delete the direct construction** (done 14 Nov 2026, SW-3213; the lowered tree carries no link to its node: spans are the link) from the parser: parsing functions return nothing. Each lowered node carries the node it came from | Hash snapshots unchanged | Opus | 8–12 |
 | 5 | **Error nodes**: recovery inside a declaration; lowering turns a gap into a hole. Its own design note first (which errors to recover from; cascades) | New examples under `reject/`; the editor keeps its answers for the rest of a broken declaration | Opus | 15–25 |
 
 Steps 3–5 don't block the formatter and can wait for it to land. Step 3 is
