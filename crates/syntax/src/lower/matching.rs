@@ -280,6 +280,7 @@ theorem w: P := rewrite h, <- (g x) at k in t
 theorem w2: P := rewrite h at (k)
 theorem w3: P := rewrite <- h
   in t
+theorem w4: P := rewrite at, h at at in at
 theorem o: P := omega [h, (0 ..< n)] && ring [(a)] && ring && omega
 theorem s: P := cases in (t)
 theorem s2: P := f cases
@@ -287,7 +288,7 @@ theorem s2: P := f cases
         let report = report(text);
         assert_eq!(differences(&report), Vec::<String>::new());
         assert!(report.unsupported.is_empty(), "{:?}", report.unsupported);
-        assert_eq!(report.lowered.len(), 12);
+        assert_eq!(report.lowered.len(), 13);
         assert!(!report.lowered.contains(&crate::tree::NodeKind::Error));
         assert!(report.expressions.unsupported.is_empty());
     }

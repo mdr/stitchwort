@@ -13,7 +13,7 @@ use crate::tree::{Element, Leaf, Node, NodeKind};
 
 use super::access::required;
 use super::decls::name;
-use super::exprs::{Argument, binary, prefix_op};
+use super::exprs::{binary, prefix_op};
 use super::{Lower, Lowering, Unsupported};
 
 /// The hidden parameters of a bare operator, `(&&)`.
@@ -250,26 +250,29 @@ impl<'f> Lower<'f> {
         };
         let mut expr = self.method_section(head)?;
         for arg in parts {
-            if matches!(arg, Element::Node(n) if n.kind() == NodeKind::CtorFields) {
-                expr = match self.argument(arg)? {
-                    Argument::One(arg) => Expr::App(Box::new(expr), Box::new(arg)),
-                    Argument::Two(ctor, record) => Expr::App(
-                        Box::new(Expr::App(Box::new(expr), Box::new(ctor))),
-                        Box::new(record),
-                    ),
-                };
-                continue;
-            }
-            let arg = self.argument(arg)?.into_expr();
-            if let Expr::Lam(_, body, span) = &mut expr {
-                *span = span.to(arg.span());
-                let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
-                **body = Expr::App(Box::new(f), Box::new(arg));
-            } else {
-                expr = Expr::App(Box::new(expr), Box::new(arg));
-            }
+            self.section_apply(&mut expr, arg)?;
         }
         Ok(expr)
+    }
+
+    /// A method section `expr` applied to `arg`: inside its lambda, except
+    /// a `C { … }`, which is applied to the section. Out of line, for the
+    /// same reason as [`Self::apply`].
+    #[inline(never)]
+    fn section_apply(&self, expr: &mut Expr, arg: Element<'f>) -> Lowering<()> {
+        if matches!(arg, Element::Node(n) if n.kind() == NodeKind::CtorFields) {
+            return self.apply(expr, arg);
+        }
+        let arg = self.argument(arg)?;
+        if let Expr::Lam(_, body, span) = expr {
+            *span = span.to(arg.span());
+            let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
+            **body = Expr::App(Box::new(f), Box::new(arg));
+        } else {
+            let f = std::mem::replace(expr, Expr::Hole(Span::NOWHERE));
+            *expr = Expr::App(Box::new(f), Box::new(arg));
+        }
+        Ok(())
     }
 
     /// A method section's body, before its arguments: `%section.f`, with

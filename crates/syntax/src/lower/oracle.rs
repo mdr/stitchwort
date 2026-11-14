@@ -271,10 +271,9 @@ mod tests {
             .collect()
     }
 
-    /// Namespaces, imports, tests with leaf bodies and declarations that
-    /// fail come out of the lowering as the parser builds them, spans
-    /// included; the rest are counted as unsupported, not as differences,
-    /// under the first kind the lowering can't lower yet (`def g`'s body).
+    /// Namespaces, imports, tests, definitions and data types come out of
+    /// the lowering as the parser builds them, spans included, and each
+    /// one-line body and type parsed on its own does too.
     #[test]
     fn the_simplest_declarations_lower_as_parsed() {
         let text = "\
@@ -297,14 +296,13 @@ type T = | A
         assert_eq!(
             report.lowered,
             [
-                Namespace, Import, Import, Test, Test, Test, Test, Test, DataType
+                Namespace, Import, Import, Test, Test, Test, Test, Test, Def, DataType
             ]
         );
-        assert_eq!(report.unsupported, [Unsupported::Kind(Lambda)]);
-        // The bodies, on their own, and `def g`'s type; its body isn't
-        // lowered yet.
+        assert_eq!(report.unsupported, []);
+        // The bodies, on their own, and `def g`'s type.
         assert_eq!(report.expressions.checked, 7);
-        assert_eq!(report.expressions.lowered, 6);
+        assert_eq!(report.expressions.lowered, 7);
     }
 
     /// A file the lowering lowers whole is compared as a whole module too,
