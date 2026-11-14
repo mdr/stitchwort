@@ -2,7 +2,7 @@
 //! ([`crate::ast`]) carries is the token range of a node of the lossless
 //! tree, or a single token. It is how stage 1 shows the lossless tree has a
 //! node for everything the compiler's tree talks about, which the lowering
-//! (docs/proposals/syntax-tree-architecture.md, step 3) will need; and it
+//! (docs/proposals/syntax-tree-architecture.md, step 3) needs; and it
 //! guards the parser's `operand_start`, which assumes every operand of more
 //! than one token is marked.
 //!
@@ -10,7 +10,7 @@
 //! node for brackets, so a span it works out from its parts can stop inside
 //! them (`f (g x)` from `f` to `x`): a span is found if adding back the
 //! brackets at its ends makes it a node. And some of its spans are not
-//! anything written: the parser expands shorthand, and the pieces it makes
+//! anything written: the lowering expands shorthand, and the pieces it makes
 //! up get spans of their own. The walk below knows each place that can
 //! happen and gives the span its reason ([`Synthetic`]); such a span is
 //! still looked for, and only if it isn't found is it counted under its
@@ -30,7 +30,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct SpanCheck {
     /// Spans found, or missed with no reason.
     pub checked: usize,
-    /// Spans of the parser's own making that are no node, by kind.
+    /// Spans of the lowering's own making that are no node, by kind.
     pub synthetic: BTreeMap<Synthetic, usize>,
     /// Spans in declarations that didn't parse, which the compiler's tree
     /// keeps part of (a signature whose body failed) and whose lossless
@@ -49,11 +49,11 @@ pub struct SpanMiss {
 }
 
 /// Why a span may be no node: the construct it belongs to was made up by
-/// the parser when it expanded something written, or its span was worked
+/// the lowering when it expanded something written, or its span was worked
 /// out from such a part.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Synthetic {
-    /// An empty span: a name or alternative the parser adds (the
+    /// An empty span: a name or alternative the lowering adds (the
     /// `_ => None` of `match some`, a clause lambda's parameters).
     Empty,
     /// `f a b` is `App(App(f, a), b)`: the inner applications are parts of
@@ -66,12 +66,12 @@ pub enum Synthetic {
     /// definitions with the rest of the block inside it: its span runs from
     /// the line to the end of the block.
     BlockRest,
-    /// A name the parser makes up (`%arg0`, `%section`, `%chain…`), at the
+    /// A name the lowering makes up (`%arg0`, `%section`, `%chain…`), at the
     /// place it stands for, which may be no one construct: a clause
     /// lambda's parameters are at its keywords, `match some`.
     Generated,
     /// The last alternative of `match some | …` or `matches | …`, `_ =>
-    /// None` or `_ => False`, which the parser adds; its wildcards are at
+    /// None` or `_ => False`, which the lowering adds; its wildcards are at
     /// the keywords.
     Added,
     /// A data type's span starts at `type`, after its attributes, which the
@@ -175,7 +175,7 @@ impl<'a> Walk<'a> {
     }
 
     /// An alternative of a `match`; `added` if it is the last of a `match
-    /// some` or `matches`, which the parser adds.
+    /// some` or `matches`, which the lowering adds.
     fn alt(&mut self, alt: &'a Alt, why: Option<Synthetic>, added: bool) {
         self.tagged("Alt", alt.span, why);
         for pattern in &alt.patterns {
@@ -735,7 +735,7 @@ fn head(mut expr: &Expr) -> &Expr {
     expr
 }
 
-/// Whether `a && b` is two links of a chain `a ≤ b < c`, as the parser
+/// Whether `a && b` is two links of a chain `a ≤ b < c`, as the lowering
 /// expands it: the two comparisons share their middle operand, the same
 /// expression (or the `%chain` name it is bound to) with the same span. A
 /// written `a ≤ b && b < c` has two `b`s, at different places.
@@ -868,7 +868,7 @@ impl SyntaxFile {
     /// Checks that every span in `module`, the compiler's tree from the
     /// same parse, is the token range of one of this tree's nodes or a
     /// single token, except the spans of constructs
-    /// the parser made up ([`Synthetic`]).
+    /// the lowering made up ([`Synthetic`]).
     pub fn check_spans(&self, module: &Module) -> SpanCheck {
         // Token indices by the byte they start or end at.
         let mut starts = BTreeMap::new();

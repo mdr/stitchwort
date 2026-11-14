@@ -2,6 +2,22 @@
 
 **Status:** describes `crates/syntax` as of 1 November 2026. DESIGN.md §4 shows the intended language. Not yet implemented: anonymous record types and functions over any record with a field (records stages 3 and 4) and a `case` expression.
 
+## Where to add syntax (for contributors)
+
+The parser (`crates/syntax/src/parser.rs` and `parser/`) decides only how
+tokens group, and records each construct as a mark in the lossless tree
+(`tree.rs`: a `NodeKind` for it, and a mark where the construct ends). The
+meaning is in `crates/syntax/src/lower/`: one function per node kind builds
+the compiler's tree (`ast.rs`), expands shorthand, and makes checks that need
+the grouped form, such as a parameter named twice. A new construct is a
+`NodeKind` and its mark in the parser, then its lowering; the formatter
+(`crates/fmt`) reads the lossless tree, so it needs a rule too. The rules for
+errors and the stack are in the module doc of `lower.rs`, and the design is
+in [proposals/syntax-tree-lowering.md](proposals/syntax-tree-lowering.md).
+`stitchwort dev tree --spans PATHS` checks that every span the lowering gives
+the compiler's tree is a node or a token of the lossless tree, which finds a
+construct the parser forgot to mark.
+
 ## Layout
 
 Interim rule, until the full layout specification (DESIGN.md §14):

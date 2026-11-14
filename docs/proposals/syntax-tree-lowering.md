@@ -1,13 +1,19 @@
 # Lowering: building the compiler's tree from the lossless tree
 
-**Status:** design note, 14 November 2026 (SW-3160). Paper lane: nothing is
-built. Steps 3 and 4 of
+**Status:** done, 14 November 2026. Written as a design note (SW-3160, a
+paper lane), then built the same day in lanes L0 to L7 (SW-3207 to
+SW-3214; [§5](#5-stages) has each). Steps 3 and 4 of
 [syntax-tree-architecture.md](syntax-tree-architecture.md) (end state A2,
-D3562 yes). Steps 1 (the lossless tree, SW-3170) and 2 (the formatter on it,
-SW-3194) are done. It stops for Matt on two questions ([§9](#9-questions-for-matt)).
+D3562 yes) are done; steps 1 (the lossless tree, SW-3170) and 2 (the
+formatter on it, SW-3194) were before. Matt's two questions are decided
+([§9](#9-questions-for-matt)). The text below is the design as written; the
+sections on the oracle and the tool ([§4](#4-the-oracle-and-test-plan)) say
+what was used to build the lowering and is now deleted, and the stage table
+([§5](#5-stages)) and the measurements ([§6](#6-performance)) say what
+happened.
 It fits with [syntax-error-recovery.md](syntax-error-recovery.md) (SW-3161):
 the lowering lowers that note's error gaps, and its corpus of half-typed
-declarations is part of the oracle.
+declarations was to be part of the oracle.
 
 Claims are marked **[source]** (read in the code at `051fe154a`),
 **[measured]** (the main checkout's release binary, built 08:01 today; the
@@ -314,6 +320,18 @@ right firing point; the fuzzers and the S5 corpus are how we find out
 
 ## 4. The oracle and test plan
 
+**Retired (L6, SW-3213).** The oracle, `stitchwort dev tree --lower`, and
+the parser's direct route it compared against were deleted with step 4,
+after a last run over 20,000 fuzz-generated programs (215,344 declarations
+and 48,648 expressions) and the repo's 2,983 files with 0 differences (the
+performance log's SW-3213 entry has the numbers). What stands in their
+place is the parser's unit tests, which call the public functions and so
+test the lowering, the hash and reject snapshots, `dev tree --spans` (every
+span of the compiler's tree is a node or a token), and `task fuzz:syntax`.
+`--cuts` over S5's corpus was never built: recovery came after the
+lowering (see the order below), so there were no gaps to compare. What
+follows is the plan the lanes worked to.
+
 **The tool.** `stitchwort dev tree --lower PATHS`: for every `.sw` file,
 parse by both routes (today's `parse_module_recovering`, and the lossless
 tree then the lowering) and compare:
@@ -382,18 +400,48 @@ real test.
 
 ## 5. Stages
 
-Each lane has its gate in the oracle. Hours [estimated].
+Each lane had its gate in the oracle. Hours [estimated]. All eight are done
+(14 November 2026): L0 is SW-3207, L1 SW-3208, L2 SW-3209, L3 SW-3210, L4
+SW-3211, L5 SW-3212, L6 SW-3213 and L7 SW-3214. The table is the plan; what
+differed is under it.
 
 | Lane | What | Gate | Model | Hours | After |
 |---|---|---|---|---|---|
-| L0 | **Scaffolding.** `lower` module, accessors, required slots, dispatch with "unsupported"; `dev tree --lower` with the exact comparison, diagnostics, per-kind counts, and `--cuts` over S5's corpus; the `Expression` root and `parse_tree` for expressions; the `Error`-node and absent-slot framework (`Expr::Missing` at the parent's end; the `Missing` span reason); `lex_recovering_with_trivia` on the tree route unless SW-3185 did it; marks under `Error` roots only if recovery hasn't landed. Lowers `namespace`, `import`, `test` and leaves (names, literals, `_`, `?`, `Type`) | Tool runs over the repo and the cuts; namespace, import and test declarations with leaf bodies equal; `dev tree --spans` unchanged | Opus | 6–7 | – |
+| L0 | **Scaffolding.** `lower` module, accessors, required slots, dispatch with "unsupported"; `dev tree --lower` with the exact comparison, diagnostics, per-kind counts, and `--cuts` over S5's corpus (`--cuts` and the gap framework were not built: see below); the `Expression` root and `parse_tree` for expressions; the `Error`-node and absent-slot framework (`Expr::Missing` at the parent's end; the `Missing` span reason); `lex_recovering_with_trivia` on the tree route unless SW-3185 did it; marks under `Error` roots only if recovery hasn't landed. Lowers `namespace`, `import`, `test` and leaves (names, literals, `_`, `?`, `Type`) | Tool runs over the repo and the cuts; namespace, import and test declarations with leaf bodies equal; `dev tree --spans` unchanged | Opus | 6–7 | – |
 | L1 | **Expressions.** `Paren`/`Bracketed`, `Unit`, unit calls, `App`, `NamedArg`, `FieldAccess`, `Binary` (flips), `Prefix` (`not`, `NegForm`), `Membership`, `Range`, `Pipe` (not into a section), `Arrow`, `Annotation`, `Iff`, `Chain`, `Interpolated`, `Tuple`, `List`/`Spread`, `Record`, `RecordField`, `CtorFields`, `Universe`, `Include`; gaps: R2 (inside brackets), R2b (stray closers), R1 after an operator or in a bracket | 0 unequal, on the files and the cuts; these kinds 0 unsupported | Opus | 7–9 | L0 |
 | L2 | **Declarations.** `Def`/`Theorem`/`Instance` (signature, `Pi`s, equations, arm counts, defaults, `∀`), `Arms`/`Arm`/`Guard` at top level, `Decreasing`, `Unfolding`, `DataType`/`RecordType`/`Interface`/`TypeSynonym`, `Constructor`, `Fields`, `Field`, `Binder`, `Attributes`, `Ability`/`AbilityOp`, `FunctionType`, `Effect`/`Row`; R6 (the rest of a body: one equation with a missing body), or, if recovery hasn't landed, today's signatures with `body_error` | 0 unequal; reject examples' recovered declarations equal | Opus | 6–8 | L0 (parallel with L1) |
 | L3 | **Binding and sections.** `Block` (statements, `LocalDefs` grouping), `Let`, `LetExpr`, `Seq`, `Lambda`/`LambdaParam` (pattern parameters), `Section`, `OperatorSection`, pipe into a section, `ClauseLambda`, `Forall`, `Exists`, `If`; gaps: R3 (a block's line, a broken `let`'s name kept), R1 in `let`, `if`, lambdas | as above | Opus | 7–9 | L1 |
 | L4 | **Matching, proofs, patterns.** `Match`/`Scrutinee`, `Handle`/`HandlerClause`, `Reify`, `Induct`/`InductArm`, `Calc`/`CalcStep` (reversal), `Rewrite`/`RewriteRule`, `Omega`, `Ring`, `Cases`; all 11 pattern kinds; gaps: R4 (arms, incomplete matches), R5 (calc steps), R1 after `=>`, `with`, `in` | **Whole repo and the whole cut corpus: 0 unsupported, 0 unequal, diagnostics equal** (Overmind); expressions equal; `fuzz:syntax` with the agreement property clean on Overmind | Opus | 7–9 | L1 (parallel with L3) |
 | L5 | **Switch.** The public functions (`parse_module*`, `parse_expression*`, `parse_tree`) go through the lowering; the direct route is kept only for the oracle (`parse_module_direct`, test-only) | Hash snapshots unchanged; the verifier's example kinds; both nesting benchmarks parse; performance-log entry (D3444) | Opus | 3–4 | L2, L3, L4 |
 | L6 | **Step 4: delete direct construction.** Parsing functions return `Result<()>` or a small value; group B rewritten on marks and tokens; group C moved into the lowering with the rule for errors; the recovery points stop building `Missing`, error statements and incomplete matches (they only mark); `header` parking, `Stmt`, `LamParam`, `Param` values and `parse_module_direct` gone | Reject snapshots unchanged; parser unit tests; hash snapshots; nesting benchmarks; a last oracle run against L5's route on the fuzz and cut corpora before the old route is deleted | Opus | 6–8 | L5 plus a day of Overmind's rolling checks |
-| L7 | **Tidy.** Docs (`tree.rs` and `ast.rs` headers, `docs/syntax.md`'s pointer for contributors on where to add syntax), `dev tree --time` timing the lowering, dead `Synthetic` reasons, the chain and pattern-`let` follow-up filed | Docs only, plus `dev tree --spans` | Sonnet | 2–3 | L6 |
+| L7 | **Tidy.** Docs (this note, `tree.rs` and `ast.rs` headers, the lowering module's rules for errors and stack, `docs/syntax.md`'s pointer for contributors on where to add syntax), `dev tree --time` timing the lowering, dead `Synthetic` reasons, the chain and pattern-`let` follow-up filed | Docs only, plus `dev tree --spans` | Sonnet | 2–3 | L6 |
+
+**What differed from the plan.**
+
+- **No gaps in the lowering.** Matt: editor delay doesn't matter, so
+  recovery (SW-3161's S1–S3) comes after the lowering, not before (the
+  orchestrator's call, 14 Nov). L0 built no `--cuts`, `Expr::Missing` or
+  `Missing` span reason, and the error-node lowering (S7) was not a lane
+  between L4 and L5: it moves to the recovery lanes, which will build the
+  gaps and lower them together. Until then an `Error` node is a declaration
+  the compiler skips, as before.
+- **L5 followed L4 directly** (orchestrator's call). Its last gap was
+  `rewrite h in at`, a body that is the name `at`; it ended with 30,713
+  declarations lowered, 0 not lowered, 0 differences over all 2,983 files.
+  L5 kept the direct route only for the oracle (`parse_module_direct`),
+  1.57x the old parser's time for the window between L5 and L6.
+- **L6 waited** for L5's rolling checks to come back clean. It deleted the
+  direct route and the oracle after a last comparison on fuzz programs.
+  Orchestrator's calls on it (14 Nov): the parser gets half the stack and
+  the lowering all of it (`parser_limit`), so everything that parses
+  lowers (about 18,000 nested brackets in release, against 12,740 in
+  October); and two changes in which errors appear were accepted as in
+  D3574's spirit, each needing two errors in one file: a true "imports go at
+  the top" after a declaration the lowering refuses, and a meaning error
+  lost inside a declaration that fails to parse later. None occurs in the
+  repo.
+- **L7 (this lane)** is the tidy-up below. Its note about `chain.rs` and
+  `patlet.rs` is a follow-up, not done here ([Findings](#findings-worth-tickets)).
 
 Total 44–58 hours, against the architecture note's 33–52. The +4–5 over a design without gaps is SW-3161's S7 (its estimate +3–5), spread over L0, L1, L3 and L4 by construct family rather than made a lane of its own, so each family's gaps are lowered by the lane that knows the family.
 
@@ -414,10 +462,10 @@ if the orchestrator wants the comparison.
 values, the lowering gains group C. The public functions keep their
 signatures, so the 26 files outside the crate that call them (in `elab`,
 `driver`, `lsp`, `web`, `fmt`, `cli`, `bench`) don't change [source,
-grep]. Two things outside do: `dev tree`'s modes (`--lower` goes, since
-there is nothing left to compare with), and the formatter's safety check,
-which compares `equivalence::shape` of the compiler's tree (it keeps
-working; it could compare lossless trees instead, see Findings).
+grep]. Outside the crate only `dev tree`'s modes changed (`--lower` went, since
+there was nothing left to compare with). The formatter's safety check
+compares `equivalence::shape` of the compiler's tree and kept working (it
+could compare lossless trees instead, see Findings).
 
 ## 6. Performance
 
@@ -445,7 +493,12 @@ Through the stages [estimated]:
 - **End state:** marks and the tree builder (part of the measured +15%,
   which also includes lexing trivia), then the lowering, which allocates
   what the parser allocates today, plus a walk. About 1.1–1.3× today:
-  std 60–72 ms, a check 5–15 ms slower. If trivia turns out to be a
+  std 60–72 ms, a check 5–15 ms slower. **Measured at L6 (SW-3213):
+  1.30×**, std 69.0 ms against the old parser's 53.2 ms and the whole repo
+  209.9 against 161.2 ms (release, best of 5, load 3–5); at the top of the
+  estimate. The lossless tree alone is now cheaper than the old parser was
+  (46.4 ms for std), and the lowering is the rest. L5's window was 1.57×
+  (83.5 ms), as estimated. If trivia turns out to be a
   noticeable part, the compiler's route can build the tree without
   comments, which only the formatter and the editor read [implementation
   choice for L5, decided by measuring].
@@ -526,7 +579,10 @@ yes]**
 every message is shown when."* Broader than asked: the order in which
 errors are reported may change anywhere; only which errors appear, and
 their text, are held. Reject snapshots whose only change is order are
-re-blessed.
+re-blessed. *Applied:* the lowering's error ends the declaration's
+errors (the parser's later errors in it are dropped, so "the earliest" for
+the declaration), and L6 accepted two differences in which errors appear
+(L6's calls in §5).
 
 **D3575: may the lowering lanes run the parse-only oracle over the whole
 repo themselves?** *The problem:* the lanes' only real test is "both
@@ -542,7 +598,8 @@ test binary. **[rec: yes, for this tool only]**
 to the rule. It feels like this piece of work running these checks is
 critical, so let's include them."* Lanes run `dev tree --lower` (and
 `--cuts` once it exists) over the whole repo as their gate; every other
-whole-repo check stays with the verifier and Overmind.
+whole-repo check stays with the verifier and Overmind. *Applied:* L1–L6
+ran it as their gate; it was deleted with L6.
 
 ## Implementation choices made here
 

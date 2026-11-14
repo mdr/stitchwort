@@ -139,7 +139,7 @@ in [../proposals/README.md](../proposals/README.md).
   the lowering builds the compiler's tree again.
 - **Why results stay the same.** The two routes are compared exactly, as
   `Debug` text with spans plus the diagnostics, by `stitchwort dev tree
-  --lower` (`lower::oracle`): over all 2,983 `.sw` files in the repo,
+  --lower` (`lower::oracle`; both removed in L6, SW-3213, below): over all 2,983 `.sw` files in the repo,
   30,713 declarations and 34,376 one-line bodies and types parsed as
   expressions, 0 differences and 0 not lowered. The hash snapshots (`binary(library) &
   test(/hash_stability/)`) are unchanged.

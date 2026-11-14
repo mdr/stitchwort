@@ -35,6 +35,33 @@
 //!   declaration are dropped.
 //! - **`Error` nodes are not looked inside**: what finished before an error
 //!   keeps its nodes for the editor, but for the checker it is skipped text.
+//!
+//! # Errors
+//!
+//! A declaration reports one error, the earliest. The parser stops a
+//! declaration at its first error; the lowering runs after the parse, so its
+//! own error ([`Unsupported::Invalid`]) can come after one the parser found
+//! later in the same declaration's text. The lowering's error replaces the
+//! parser's later ones in that declaration (`lowered_module` in
+//! `parser.rs`), and the errors are put back in file order. A `def` or
+//! `theorem` the lowering refuses keeps its signature
+//! (`Lower::signature_despite`), so what uses it still checks against its
+//! stated type; any other declaration it refuses is a failed name, as one
+//! that didn't parse is ([`crate::ast::Module::failed`]). Which errors are
+//! shown, and their text, are what is held; the order is not (D3574).
+//!
+//! # Stack
+//!
+//! The parser and the lowering each recurse as deep as the expression
+//! nests. The parser is given half of the stack a caller offers
+//! (`parser_limit` in `parser.rs`) and the lowering all of it
+//! ([`Lower::with_stack`]): the lowering's frames hold trees, and for some
+//! shapes it needs up to 1.55 times the parser's stack per level
+//! (`(.f (.f …))`, `f (f (…))`; 1.2 in release builds). Giving the parser
+//! half keeps the rule that whatever parses lowers, so [`Unsupported::TooDeep`]
+//! is reached only by a bug. A function on a recursive path should keep its
+//! frame small: a lowering function that inlines a large helper can cost the
+//! nesting limit more than a measurable slowdown would.
 
 use crate::ast::{Decl, Expr, FailedName, Import, Module, NamespaceDecl};
 use crate::source::FileId;
@@ -75,9 +102,9 @@ pub enum Unsupported {
     Missing(NodeKind, &'static str),
     /// An expression or pattern nested more deeply than the stack the
     /// lowering was given allows, at the first token of the node it was
-    /// about to lower. The parser has the same limit and frames larger than
-    /// the lowering's, so a declaration that parsed shouldn't reach it; if
-    /// one does, it is an `E-RESOURCE` error like the parser's.
+    /// about to lower. The parser stops at half the stack the lowering gets,
+    /// so a declaration that parsed shouldn't reach it; if one does, it is
+    /// an `E-RESOURCE` error like the parser's.
     TooDeep(Span),
 }
 

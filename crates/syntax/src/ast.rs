@@ -1,4 +1,10 @@
-//! The surface syntax tree, as written by the user.
+//! The surface syntax tree, as written by the user: what the elaborator reads.
+//!
+//! It is not built by the parser. The parser marks constructs in the lossless
+//! tree ([`crate::tree`]), and the lowering ([`crate::lower`]) builds this
+//! tree from it, expanding shorthand (a chain, a method section, `let (a, b)
+//! = e`) into the forms below, so a new construct's grammar goes in the parser
+//! and its meaning in the lowering (docs/syntax.md, "Where to add syntax").
 
 use num_bigint::BigUint;
 
