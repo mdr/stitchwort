@@ -285,6 +285,12 @@ The recovery corpus (S5) gives it the files.
 
 ### 3.2 A marks hazard
 
+*Gone with strict marks (parser-end-state.md T1, SW-3280): an operator
+keeps its left operand's start as a value, so an `Error` mark before it
+can't be taken for its operand, and a recovery point's `Error` node starts
+where the construct that failed started. R2b's rule below is now only a
+choice.* As first written:
+
 An operator finds its left operand from the last mark that ends where it
 stands (`operand_start`, `parser.rs:965`). An `Error` mark that ended just
 before an operator would be taken for its operand. R2b therefore skips

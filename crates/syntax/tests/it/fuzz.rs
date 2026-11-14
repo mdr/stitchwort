@@ -290,12 +290,12 @@ fn the_lexer_and_parser_never_panic() {
             let mut sources = SourceMap::new();
             let file = sources.add("<fuzz>", text.as_str());
             let (_, errors, tree) = parse_module_and_tree(file, &text, DEFAULT_STACK);
-            (errors.is_empty(), tree.stats().dropped)
+            (errors.is_empty(), tree.stats().misnested)
         }));
         match outcome {
-            Ok((_, dropped)) if dropped > 0 => panic!(
+            Ok((_, misnested)) if misnested > 0 => panic!(
                 "case {case} (seed {seed:#x}, rng state {state:#x}): \
-                 the tree left out {dropped} crossing marks for input:\n  {}",
+                 the marks of {misnested} declarations didn't nest for input:\n  {}",
                 text.escape_debug()
             ),
             Ok((true, _)) => accepted += 1,

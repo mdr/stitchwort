@@ -2,9 +2,7 @@
 //! ([`crate::ast`]) carries is the token range of a node of the lossless
 //! tree, or a single token. It is how stage 1 shows the lossless tree has a
 //! node for everything the compiler's tree talks about, which the lowering
-//! (docs/proposals/syntax-tree-architecture.md, step 3) needs; and it
-//! guards the parser's `operand_start`, which assumes every operand of more
-//! than one token is marked.
+//! (docs/proposals/syntax-tree-architecture.md, step 3) needs.
 //!
 //! Two things about the compiler's tree make room for leeway. It has no
 //! node for brackets, so a span it works out from its parts can stop inside

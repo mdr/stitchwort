@@ -872,17 +872,24 @@ struct Modes {
     /// §2.2): elsewhere, as in a header or a data type, an error still
     /// fails the declaration whole.
     recover: bool,
+    /// The token of a method section that starts an expression, `.f x + 1`,
+    /// which the expression's parser marks as the `Section` once it has
+    /// read the whole expression it takes (D1192), so the application at
+    /// the section's head doesn't. Only the application starting at this
+    /// token reads it, before reading anything, so it is never put back: a
+    /// value left from an expression already read names a token behind the
+    /// parser.
+    section_head: Option<usize>,
 }
 
 /// What a recovery point restores before it carries on past an error
-/// ([`Parser::recover_to`]): the modes, and how many constructs were open
-/// for the marks. The position isn't in it, since recovery only moves
-/// forward; marks recorded since stay, as finished constructs inside the
-/// skipped tokens.
+/// ([`Parser::recover_to`]): the modes. The position isn't in it, since
+/// recovery only moves forward; marks recorded since stay, as finished
+/// constructs inside the skipped tokens, and nest in the `Error` node the
+/// recovery point marks from where the construct that failed started.
 #[derive(Clone, Copy, Debug)]
 struct Snapshot {
     modes: Modes,
-    open: usize,
 }
 
 struct Parser<'t> {
@@ -907,12 +914,9 @@ struct Parser<'t> {
     /// doesn't parse, the declaration keeps its signature
     /// (docs/proposals/tests-with-errors.md §3.3).
     header_kept: bool,
-    /// The constructs finished so far, for the lossless tree (`crate::tree`,
-    /// "Marks").
+    /// The constructs finished so far, in the order they finished, for the
+    /// lossless tree (`crate::tree`, "Marks").
     marks: Vec<Mark>,
-    /// The constructs [`Self::open`] started and [`Self::close`] hasn't
-    /// finished, the latest last: where each starts, and its kind.
-    open: Vec<(u32, NodeKind)>,
     /// The syntax errors recovered from so far, in the order met. Nothing
     /// recovers yet (stage S0 of docs/proposals/syntax-error-recovery.md),
     /// so it stays empty; the entry points fail on any, as they do on an
@@ -1023,7 +1027,6 @@ impl<'t> Parser<'t> {
             keep_header: false,
             header_kept: false,
             marks: Vec::new(),
-            open: Vec::new(),
             errors: Vec::new(),
             recovered: Vec::new(),
         }
@@ -1037,143 +1040,19 @@ impl<'t> Parser<'t> {
     }
 
     /// Records the construct of kind `kind` from token `start` (a
-    /// [`Self::mark`]) to the last token read.
+    /// [`Self::mark`] its parsing function kept) to the last token read.
+    /// The one way a construct is marked: when it has finished, so the
+    /// marks are in finishing order, which is what the tree's builder
+    /// checks (`crate::tree`, "Marks").
     #[inline(always)]
     fn node(&mut self, start: u32, kind: NodeKind) {
         self.record(start, kind);
-    }
-
-    /// [`Self::node`] for a construct whose first token, already read,
-    /// starts where `start` does. The expression parser's recursive
-    /// functions use it with a span they keep anyway, so that marking costs
-    /// them no stack.
-    #[inline(always)]
-    fn node_at(&mut self, start: Span, kind: NodeKind) {
-        self.record_at(start, kind);
-    }
-
-    #[inline(never)]
-    fn record_at(&mut self, start: Span, kind: NodeKind) {
-        let first = self.tokens[..self.pos].partition_point(|t| t.span.start < start.start);
-        self.record(first as u32, kind);
     }
 
     #[inline(never)]
     fn record(&mut self, start: u32, kind: NodeKind) {
         let end = self.pos as u32;
         self.marks.push(Mark { kind, start, end });
-    }
-
-    /// Where the operand that ends at the current token starts: at the
-    /// construct marked last, if that ends here, or else at the token
-    /// before, an operand of one token. Every operand of more than one token
-    /// is marked, and finishes after everything inside it, so the last mark
-    /// ending here is the whole operand.
-    ///
-    /// Operators find their left operand's start this way rather than keep
-    /// it in a local, which would grow the frames of the recursive
-    /// functions nested expressions pile up (see [`Result`]).
-    fn operand_start(&self) -> u32 {
-        let end = self.pos as u32;
-        match self.marks.last() {
-            Some(mark) if mark.end == end => mark.start,
-            _ => end.saturating_sub(1),
-        }
-    }
-
-    /// [`Self::node`] for a construct that is the operand just read:
-    /// one that only turns out to be one after the fact.
-    #[inline(always)]
-    fn node_around_operand(&mut self, kind: NodeKind) {
-        self.record(self.operand_start(), kind);
-    }
-
-    /// Starts a construct whose first part is the operand just read, at an
-    /// operator: `a` in `a + b`. [`Self::close`] finishes it.
-    #[inline(always)]
-    fn open(&mut self, kind: NodeKind) {
-        self.record_open(kind);
-    }
-
-    #[inline(never)]
-    fn record_open(&mut self, kind: NodeKind) {
-        let start = self.operand_start();
-        self.open.push((start, kind));
-    }
-
-    /// Finishes the construct [`Self::open`] started last, at the last token
-    /// read: every construct opened inside it was closed before it, unless
-    /// an error stopped the parse, which drops the declaration's marks.
-    #[inline(always)]
-    fn close(&mut self) {
-        self.record_close();
-    }
-
-    #[inline(never)]
-    fn record_close(&mut self) {
-        if let Some((start, kind)) = self.open.pop() {
-            self.record(start, kind);
-        }
-    }
-
-    /// Marks the parameter just read, from token `first`, as a
-    /// `LambdaParam`, unless it is a single name, which is its own token, or
-    /// a pattern, which is its own node.
-    #[inline(always)]
-    fn mark_param(&mut self, first: u32) {
-        self.record_param(first);
-    }
-
-    #[inline(never)]
-    fn record_param(&mut self, first: u32) {
-        let end = self.pos as u32;
-        let marked = self
-            .marks
-            .last()
-            .is_some_and(|mark| mark.start == first && mark.end == end);
-        if end - first > 1 && !marked {
-            self.record(first, NodeKind::LambdaParam);
-        }
-    }
-
-    /// Makes the construct marked last into a `kind` that starts at the
-    /// keyword with span `keyword`, before it: `exists` reads its
-    /// parameters and body as a lambda, and the lambda's mark is the
-    /// `Exists`.
-    #[inline(never)]
-    fn retag_last(&mut self, keyword: Span, kind: NodeKind) {
-        let first = self.tokens[..self.pos].partition_point(|t| t.span.start < keyword.start);
-        if let Some(mark) = self.marks.last_mut() {
-            mark.kind = kind;
-            mark.start = first as u32;
-        }
-    }
-
-    /// An expression just read that starts with a method section, `.f.g x`,
-    /// becomes the section's body: the `Section` node moves out from the
-    /// section's head to the whole expression (the lowering's `widen`).
-    #[inline(never)]
-    fn widen_section(&mut self) {
-        let start = self.operand_start();
-        let end = self.pos as u32;
-        // Unless the whole expression is the section.
-        if let Some(last) = self.marks.last()
-            && last.kind == NodeKind::Section
-            && (last.start, last.end) == (start, end)
-        {
-            return;
-        }
-        let Some(head) = self
-            .marks
-            .iter_mut()
-            .rev()
-            .find(|m| m.kind == NodeKind::Section && m.start == start)
-        else {
-            return;
-        };
-        // Empty, so the tree leaves it out.
-        head.end = head.start;
-        self.record(start, NodeKind::Section);
     }
 
     /// The compiler's tree for the expression (or with `pattern`, the
@@ -1683,7 +1562,7 @@ impl<'t> Parser<'t> {
     /// recursive functions stays small (the nesting limit is measured in
     /// stack).
     #[inline(never)]
-    fn tuple_expr(&mut self, span: Span) -> Result<()> {
+    fn tuple_expr(&mut self, start: u32) -> Result<()> {
         let mut items = 1;
         while self.eat(&Tok::Comma) {
             if self.peek() == Some(&Tok::RParen) && items >= 2 {
@@ -1696,13 +1575,13 @@ impl<'t> Parser<'t> {
             return Err(self.tuple_annotation().into());
         }
         self.expect(Tok::RParen, "`)`")?;
-        self.node_at(span, NodeKind::Tuple);
+        self.node(start, NodeKind::Tuple);
         Ok(())
     }
 
     /// The same for patterns.
     #[inline(never)]
-    fn tuple_pattern(&mut self, span: Span) -> Result<()> {
+    fn tuple_pattern(&mut self, start: u32) -> Result<()> {
         let mut items = 1;
         while self.eat(&Tok::Comma) {
             if self.peek() == Some(&Tok::RParen) && items >= 2 {
@@ -1712,20 +1591,22 @@ impl<'t> Parser<'t> {
             items += 1;
         }
         self.expect(Tok::RParen, "`)`")?;
-        self.node_at(span, NodeKind::PatternTuple);
+        self.node(start, NodeKind::PatternTuple);
         Ok(())
     }
 
     /// A component of a tuple pattern, or several, `p | q`.
     fn tuple_item(&mut self) -> Result<()> {
+        let start = self.mark();
         self.tuple_component()?;
-        self.alternatives(Self::tuple_component)
+        self.alternatives(start, Self::tuple_component)
     }
 
     /// An element of a list pattern, or several, `p | q`.
     fn list_item(&mut self) -> Result<()> {
+        let start = self.mark();
         self.list_component()?;
-        self.alternatives(Self::list_component)
+        self.alternatives(start, Self::list_component)
     }
 
     /// A component of a list pattern: a constructor's arguments run to the
@@ -1789,19 +1670,15 @@ impl<'t> Parser<'t> {
     /// What [`Self::recover_to`] goes back to, taken before a recovery point
     /// tries the construct it may recover from.
     fn snapshot(&self) -> Snapshot {
-        Snapshot {
-            modes: self.modes,
-            open: self.open.len(),
-        }
+        Snapshot { modes: self.modes }
     }
 
     /// Undoes what a construct that failed left behind, before the parser
-    /// carries on past it: the modes it set and didn't put back, and the
-    /// operators it opened whose right operand never came. The position
-    /// stays where the error left it, for the recovery point to move on from.
+    /// carries on past it: the modes it set and didn't put back. The
+    /// position stays where the error left it, for the recovery point to
+    /// move on from.
     fn recover_to(&mut self, snapshot: Snapshot) {
         self.modes = snapshot.modes;
-        self.open.truncate(snapshot.open);
     }
 
     /// Records a syntax error the parser carries on from.
@@ -1867,45 +1744,44 @@ impl<'t> Parser<'t> {
     /// R6: parses a top-level definition's body (from its `:=` or first
     /// `|`) with `body`, recovering from any syntax error in it or after it
     /// that nothing inside caught. The error is reported, and the rest of
-    /// the declaration is an `Error` node: inside the `Body` node after
-    /// `:=`, or in place of the arms. The definition is then a definition
-    /// whose body is missing, never a primitive (one with no body at all).
+    /// the declaration is an `Error` node from where the body's expression
+    /// or its arms start, so what finished before the error nests in it:
+    /// inside the `Body` node after `:=`, or in place of the arms. The
+    /// definition is then a definition whose body is missing, never a
+    /// primitive (one with no body at all). `body` doesn't mark the `Body`
+    /// after `:=`, which ends where the error's node does.
     pub(super) fn recovering_body(
         &mut self,
         body: impl FnOnce(&mut Self) -> Result<bool>,
     ) -> Result<bool> {
         let snapshot = self.snapshot();
-        let (at, marks) = (self.pos, self.marks.len());
+        let at = self.pos;
+        let colon = self.tokens[at].tok == Tok::ColonEq;
         self.modes.recover = true;
         let parsed = body(self).and_then(|read| self.finish().map(|()| read));
         self.modes.recover = snapshot.modes.recover;
-        let error = match parsed {
-            Ok(read) => return Ok(read),
+        let read = match parsed {
+            Ok(read) => read,
             Err(error) if error.code == "E-RESOURCE" => return Err(error),
-            Err(error) => error,
+            Err(error) => {
+                self.recover_to(snapshot);
+                // One error a place: an `R1` gap may have left what came
+                // after it nothing to stand on.
+                if self.errors.last().and_then(Diagnostic::primary_span) != error.primary_span() {
+                    self.report(RecoveryPoint::Body, *error);
+                }
+                let from = at + usize::from(colon);
+                self.pos = self.tokens.len();
+                if from < self.pos {
+                    self.node(from as u32, NodeKind::Error);
+                }
+                true
+            }
         };
-        self.recover_to(snapshot);
-        // One error a place: an `R1` gap may have left what came after it
-        // nothing to stand on.
-        if self.errors.last().and_then(Diagnostic::primary_span) != error.primary_span() {
-            self.report(RecoveryPoint::Body, *error);
-        }
-        // What finished inside the skipped tokens stays, nested in the
-        // `Error` node; the body's or the first arm's own nodes would cross
-        // it, so they go.
-        let mut kept = self.marks.split_off(marks);
-        kept.retain(|mark| mark.start != at as u32);
-        self.marks.extend(kept);
-        let colon = self.tokens[at].tok == Tok::ColonEq;
-        let from = at + usize::from(colon);
-        self.pos = self.tokens.len();
-        if from < self.pos {
-            self.node(from as u32, NodeKind::Error);
-        }
         if colon {
             self.node(at as u32, NodeKind::Body);
         }
-        Ok(true)
+        Ok(read)
     }
 
     /// `result`, the outcome of parsing a whole declaration or expression,
@@ -2154,7 +2030,7 @@ impl<'t> Parser<'t> {
 
     fn pattern(&mut self) -> Result<()> {
         self.deeper()?;
-        let span = self.here();
+        let start = self.mark();
         match self.peek() {
             Some(Tok::Lower(_)) if !self.ctor_ahead() => {
                 self.lower("a pattern")?;
@@ -2169,7 +2045,7 @@ impl<'t> Parser<'t> {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
                 self.bump();
-                self.node_at(span, NodeKind::PatternAbsurd);
+                self.node(start, NodeKind::PatternAbsurd);
             }
             Some(Tok::LBrace) => self.record_pattern()?,
             // `[n := p]`: an implicit field of a constructor, by name.
@@ -2182,7 +2058,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.pattern()?;
                 self.expect(Tok::RBracket, "`]`")?;
-                self.node_at(span, NodeKind::PatternNamed);
+                self.node(start, NodeKind::PatternNamed);
             }
             Some(Tok::LBracket) => {
                 self.bump();
@@ -2224,7 +2100,7 @@ impl<'t> Parser<'t> {
                         "`,` or `]`"
                     },
                 )?;
-                self.node_at(span, NodeKind::PatternList);
+                self.node(start, NodeKind::PatternList);
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::Minus) => {
                 // `(-k)`: a negative number pattern, only in brackets (a
@@ -2232,10 +2108,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.tuple_item()?;
                 if self.peek() == Some(&Tok::Comma) {
-                    return self.tuple_pattern(span);
+                    return self.tuple_pattern(start);
                 }
                 self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::PatternParen);
+                self.node(start, NodeKind::PatternParen);
             }
             Some(Tok::LParen) => {
                 self.bump();
@@ -2248,13 +2124,13 @@ impl<'t> Parser<'t> {
                 } else {
                     self.pattern()?;
                 }
-                self.alternatives(Self::tuple_component)?;
+                self.alternatives(first, Self::tuple_component)?;
                 if self.peek() == Some(&Tok::Comma) {
                     // `(Some a, b)`: a constructor as a tuple's first component.
-                    return self.tuple_pattern(span);
+                    return self.tuple_pattern(start);
                 }
                 self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::PatternParen);
+                self.node(start, NodeKind::PatternParen);
             }
             _ => return Err(self.unexpected_name("a pattern or `=`").into()),
         }
@@ -3093,11 +2969,11 @@ impl<'t> Parser<'t> {
     }
 
     /// `handle e with | return x => … | op arg, k => …`
-    fn handle(&mut self, start: Span) -> Result<()> {
+    fn handle(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
         self.handler_clauses()?;
-        self.node_at(start, NodeKind::Handle);
+        self.node(start, NodeKind::Handle);
         Ok(())
     }
 
@@ -3141,7 +3017,7 @@ impl<'t> Parser<'t> {
 
     /// `match reify t with | return x => … | op arg, k => …`, after `match`
     /// and `reify` (docs/proposals/proof-reification.md §3 (iii)).
-    fn reify_expr(&mut self, start: Span) -> Result<()> {
+    fn reify_expr(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
@@ -3152,7 +3028,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::KwWith, "`with`")?;
         self.handler_clauses()?;
-        self.node_at(start, NodeKind::Reify);
+        self.node(start, NodeKind::Reify);
         Ok(())
     }
 
@@ -3168,7 +3044,7 @@ impl<'t> Parser<'t> {
 
     /// `match induct (f args) with | eqK x y ih => … | …`, after `match` and
     /// `induct` (docs/proposals/function-equations.md §5.3).
-    fn induct_expr(&mut self, start: Span) -> Result<()> {
+    fn induct_expr(&mut self, start: u32) -> Result<()> {
         self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
@@ -3214,12 +3090,12 @@ impl<'t> Parser<'t> {
                 .unexpected("`|` and an alternative named after a case")
                 .into());
         }
-        self.node_at(start, NodeKind::Induct);
+        self.node(start, NodeKind::Induct);
         Ok(())
     }
 
     /// `match e, h : e2 with | p, q => body | …`
-    fn match_expr(&mut self, start: Span) -> Result<()> {
+    fn match_expr(&mut self, start: u32) -> Result<()> {
         if self.induct_ahead() {
             self.bump();
             return self.induct_expr(start);
@@ -3247,7 +3123,10 @@ impl<'t> Parser<'t> {
             if named && self.reify_ahead() {
                 return Err(
                     Diagnostic::error("E-PARSE", "`match reify` can't name an equation")
-                        .with_label(start.to(self.here()), "`h:` names an equation here")
+                        .with_label(
+                            self.tokens[start as usize].span.to(self.here()),
+                            "`h:` names an equation here",
+                        )
                         .with_note(
                             "both sides would be computations, whose type has no spelling; in each \
                      clause the goal already says what the computation did",
@@ -3312,7 +3191,7 @@ impl<'t> Parser<'t> {
         if alts == 0 {
             return Err(self.unexpected("`|` and an alternative").into());
         }
-        self.node_at(start, NodeKind::Match);
+        self.node(start, NodeKind::Match);
         Ok(())
     }
 
@@ -3358,7 +3237,7 @@ impl<'t> Parser<'t> {
     /// `ClauseMatches` an alternative may leave its result out, which is
     /// `True` (the lowering builds them).
     #[inline(never)]
-    fn clause_lambda(&mut self, start: Span, kind: MatchKind) -> Result<()> {
+    fn clause_lambda(&mut self, start: u32, kind: MatchKind) -> Result<()> {
         // The first alternative's pattern count and first pattern.
         let mut first: Option<(usize, (u32, u32))> = None;
         let mut column = None;
@@ -3416,7 +3295,7 @@ impl<'t> Parser<'t> {
         if first.is_none() {
             return Err(self.unexpected("`|` and an alternative").into());
         }
-        self.node_at(start, NodeKind::ClauseLambda);
+        self.node(start, NodeKind::ClauseLambda);
         Ok(())
     }
 
@@ -3424,8 +3303,9 @@ impl<'t> Parser<'t> {
     /// an equation, so a constructor's arguments need no parentheses
     /// (`Cons x Nil`); or several, `p | q`.
     fn alt_pattern(&mut self) -> Result<()> {
+        let start = self.mark();
         self.alt_pattern_one()?;
-        self.alternatives(Self::alt_pattern_one)
+        self.alternatives(start, Self::alt_pattern_one)
     }
 
     fn alt_pattern_one(&mut self) -> Result<()> {
@@ -3458,31 +3338,32 @@ impl<'t> Parser<'t> {
         self.peek() == Some(&Tok::Pipe) && !self.tokens[self.pos].line_start
     }
 
-    /// After a pattern, `| q | …`, each further
+    /// After a pattern from token `start`, `| q | …`, each further
     /// alternative parsed by `next`; nothing more if no `|` follows. (That
     /// no alternative binds a variable is the lowering's check.)
-    fn alternatives(&mut self, next: fn(&mut Self) -> Result<()>) -> Result<()> {
+    fn alternatives(&mut self, start: u32, next: fn(&mut Self) -> Result<()>) -> Result<()> {
         if !self.or_bar_ahead() {
             return Ok(());
         }
-        self.open(NodeKind::PatternOr);
         while self.or_bar_ahead() {
             self.bump();
             next(self)?;
         }
-        self.close();
+        self.node(start, NodeKind::PatternOr);
         Ok(())
     }
 
-    /// `x (a, b) => body`, once `lambda_ahead` has said this is one. Out of
-    /// line, so that
-    /// `expr_inline`, which every nested expression recurses through, keeps
-    /// a small stack frame.
+    /// `x (a, b) => body`, once `lambda_ahead` has said this is one, from
+    /// token `start`, as a `kind`: a `Lambda`, or an `Exists` whose
+    /// keyword `start` is. Out of line, so that `expr_inline`, which every
+    /// nested expression recurses through, keeps a small stack frame.
     #[inline(never)]
-    fn lambda(&mut self, start: Span) -> Result<()> {
+    fn lambda(&mut self, start: u32, kind: NodeKind) -> Result<()> {
         let mut params = 0;
         loop {
             let first = self.mark();
+            // A parameter that is a name is its token, and a pattern is its
+            // own node; the others are `LambdaParam`s.
             match self.peek() {
                 Some(Tok::Lower(_)) => {
                     self.lower("a name")?;
@@ -3496,6 +3377,7 @@ impl<'t> Parser<'t> {
                     if let Some(default) = self.header_param_parts()?.default {
                         return Err(lambda_default(self.lowered_span(default)).into());
                     }
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 // `[a: Type]`, `[auto h: P]`, `[auto P]`: implicit and auto
                 // parameters, as in a header (§4.3, D91).
@@ -3503,6 +3385,7 @@ impl<'t> Parser<'t> {
                     if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
                 {
                     self.header_param_parts()?;
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 // `((a, b): A)`: a pattern with a written type.
                 Some(Tok::LParen) if self.annotated_pattern_ahead() => {
@@ -3517,14 +3400,13 @@ impl<'t> Parser<'t> {
                 _ => break,
             }
             params += 1;
-            self.mark_param(first);
         }
         if params == 0 {
             return Err(self.unexpected("a parameter name").into());
         }
         self.expect_fat_arrow("`=>`")?;
         self.expr()?;
-        self.node_at(start, NodeKind::Lambda);
+        self.node(start, kind);
         Ok(())
     }
 
@@ -3564,7 +3446,7 @@ impl<'t> Parser<'t> {
     /// frame of the parser's recursive functions stays small (the nesting
     /// limit is measured in stack).
     #[inline(never)]
-    fn if_expr(&mut self, start: Span) -> Result<()> {
+    fn if_expr(&mut self, start: u32) -> Result<()> {
         // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
         let binder =
             if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
@@ -3592,7 +3474,7 @@ impl<'t> Parser<'t> {
         self.expr()?;
         self.expect_keyword(Tok::KwElse, "`else`", indent)?;
         self.expr()?;
-        self.node_at(start, NodeKind::If);
+        self.node(start, NodeKind::If);
         Ok(())
     }
 
@@ -3600,7 +3482,7 @@ impl<'t> Parser<'t> {
     /// (no proof: closed by computation). The steps line up, and are
     /// indented past the line `calc` is on.
     #[inline(never)]
-    fn calc_expr(&mut self, start: Span) -> Result<()> {
+    fn calc_expr(&mut self, start: u32) -> Result<()> {
         let indent = self.line_indent(self.pos - 1);
         self.modes.calc_depth += 1;
         let result = self.calc_body(start, indent);
@@ -3611,18 +3493,19 @@ impl<'t> Parser<'t> {
     /// A `calc` expression: above the relations, so `a || b`, `a && b` and
     /// `xs |> f` need no parentheses.
     fn calc_operand(&mut self) -> Result<()> {
+        let start = self.mark();
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(start)?;
         }
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-            self.logic_chain()?;
+            self.logic_chain(start)?;
         }
         Ok(())
     }
 
     #[inline(never)]
-    fn calc_body(&mut self, start: Span, indent: u32) -> Result<()> {
+    fn calc_body(&mut self, start: u32, indent: u32) -> Result<()> {
         self.calc_operand()?;
         if matches!(
             self.peek(),
@@ -3657,7 +3540,8 @@ impl<'t> Parser<'t> {
                 }
                 Some(_) => {}
             }
-            let underscore = self.bump().span;
+            let underscore = self.mark();
+            self.bump();
             match self.peek() {
                 Some(Tok::Equals) => {}
                 Some(Tok::Le | Tok::Lt) => ascending = true,
@@ -3682,7 +3566,7 @@ impl<'t> Parser<'t> {
                 self.expr()?;
             }
             last = Some(self.prev_span());
-            self.node_at(underscore, NodeKind::CalcStep);
+            self.node(underscore, NodeKind::CalcStep);
         }
         let Some(last) = last else {
             return Err(self
@@ -3690,13 +3574,16 @@ impl<'t> Parser<'t> {
                 .with_note("a `calc` needs at least one step")
                 .into());
         };
-        self.node_at(start, NodeKind::Calc);
+        self.node(start, NodeKind::Calc);
         if descending && ascending {
             return Err(Diagnostic::error(
                 "E-CALC-RELATION",
                 "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`",
             )
-            .with_label(start.to(last), "this chain has steps in both directions")
+            .with_label(
+                self.tokens[start as usize].span.to(last),
+                "this chain has steps in both directions",
+            )
             .with_note(
                 "write the steps all with `<`/`<=` or all with `>`/`>=` (`=` goes with either)",
             )
@@ -3711,7 +3598,7 @@ impl<'t> Parser<'t> {
     /// where a rule could end: outside brackets, inside a rule (and `in`
     /// inside the target).
     #[inline(never)]
-    fn rewrite_expr(&mut self, start: Span) -> Result<()> {
+    fn rewrite_expr(&mut self, start: u32) -> Result<()> {
         let saved = (self.modes.rewrite_rule.take(), self.modes.rewrite_at);
         let result = self.rewrite_body(start);
         (self.modes.rewrite_rule, self.modes.rewrite_at) = saved;
@@ -3719,10 +3606,10 @@ impl<'t> Parser<'t> {
     }
 
     #[inline(never)]
-    fn rewrite_body(&mut self, start: Span) -> Result<()> {
+    fn rewrite_body(&mut self, start: u32) -> Result<()> {
         let column = self.tokens[self.pos - 1].column;
         loop {
-            let rule_start = self.here();
+            let rule_start = self.mark();
             let reverse = self.peek() == Some(&Tok::Lt)
                 && self.peek_at(1) == Some(&Tok::Minus)
                 && self.tokens[self.pos].span.end == self.tokens[self.pos + 1].span.start;
@@ -3735,7 +3622,7 @@ impl<'t> Parser<'t> {
             let proof = self.append_expr();
             self.modes.rewrite_rule = None;
             proof?;
-            self.node_at(rule_start, NodeKind::RewriteRule);
+            self.node(rule_start, NodeKind::RewriteRule);
             if !self.eat(&Tok::Comma) {
                 break;
             }
@@ -3764,19 +3651,19 @@ impl<'t> Parser<'t> {
             self.expr()?;
             self.rewrite_membership(body_start, first)?;
         }
-        self.node_at(start, NodeKind::Rewrite);
+        self.node(start, NodeKind::Rewrite);
         Ok(())
     }
 
     /// `cases` or `cases in t`, after the `cases` (docs/proposals/simp.md
     /// §5.1). As for `rewrite`, the body runs to the end of the expression.
-    fn cases_expr(&mut self, start: Span) -> Result<()> {
+    fn cases_expr(&mut self, start: u32) -> Result<()> {
         if self.peek() != Some(&Tok::KwIn) {
             return Ok(());
         }
         self.bump();
         self.expr()?;
-        self.node_at(start, NodeKind::Cases);
+        self.node(start, NodeKind::Cases);
         Ok(())
     }
 
@@ -3825,7 +3712,7 @@ impl<'t> Parser<'t> {
 
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
     #[inline(never)]
-    fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<()> {
+    fn pi_expr(&mut self, start: u32, implicit: bool) -> Result<()> {
         let binder = if implicit {
             self.implicit_binder()?
         } else {
@@ -3836,7 +3723,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::Arrow, "`->`")?;
         self.result_type()?;
-        self.node_at(start, NodeKind::FunctionType);
+        self.node(start, NodeKind::FunctionType);
         Ok(())
     }
 
@@ -3851,7 +3738,7 @@ impl<'t> Parser<'t> {
     }
 
     fn expr_inline(&mut self) -> Result<()> {
-        let start = self.here();
+        let start = self.mark();
         if self.eat(&Tok::KwHandle) {
             return self.handle(start);
         }
@@ -3871,7 +3758,7 @@ impl<'t> Parser<'t> {
             return self.cases_expr(start);
         }
         if self.lambda_ahead()? {
-            return self.lambda(start);
+            return self.lambda(start, NodeKind::Lambda);
         }
         if let Some(colon) = self.lambda_result_type_ahead() {
             return Err(lambda_result_type(self.tokens[colon].span).into());
@@ -3886,26 +3773,30 @@ impl<'t> Parser<'t> {
         if implicit || self.is_pi_binder() {
             return self.pi_expr(start, implicit);
         }
+        // A method section at the start takes the expression up to a `->`
+        // or `;` (D1192): its `Section` is marked here, around it.
         let section = self.peek() == Some(&Tok::Dot);
+        if section {
+            self.modes.section_head = Some(self.pos);
+        }
         self.cmp_expr()?;
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-            self.logic_chain()?;
+            self.logic_chain(start)?;
         }
         if self.peek() == Some(&Tok::Iff) {
-            self.iff()?;
-        }
-        if self.peek() == Some(&Tok::Arrow) {
-            self.open(NodeKind::Arrow);
-            self.bump();
-            self.result_type()?;
-            self.close();
-            return Ok(());
+            self.iff(start)?;
         }
         if section {
-            self.widen_section();
+            self.node(start, NodeKind::Section);
+        }
+        if self.peek() == Some(&Tok::Arrow) {
+            self.bump();
+            self.result_type()?;
+            self.node(start, NodeKind::Arrow);
+            return Ok(());
         }
         if self.peek() == Some(&Tok::Semi) && self.sequence_ahead() {
-            return self.sequence();
+            return self.sequence(start);
         }
         Ok(())
     }
@@ -3929,14 +3820,14 @@ impl<'t> Parser<'t> {
         depth > 0
     }
 
-    /// `a; b`, after `a`: run `a`, then give `b`'s value (SW-888, D1700).
+    /// `a; b`, after `a`, which starts at token `start`: run `a`, then give
+    /// `b`'s value (SW-888, D1700).
     /// The same tree as the block lines `a` and `b`, so `a; b; c` is
     /// `Seq(a, Seq(b, c))` and `a; let x := e; b` binds `x` for `b`. The
     /// rest runs as far as an expression can, as an expression `let`'s body
     /// does.
     #[inline(never)]
-    fn sequence(&mut self) -> Result<()> {
-        let start = self.operand_start();
+    fn sequence(&mut self, start: u32) -> Result<()> {
         let semi = self.bump().span;
         let at_end = self
             .peek()
@@ -3957,20 +3848,21 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&` and `||`,
+    /// `p <-> q`, after `p`, which starts at token `start`: `Iff p q`
+    /// (D1202). Looser than `&&` and `||`,
     /// tighter than `->`, and not associative, as in Rocq. The right
     /// side may be an `exists` or a `forall`. Out of line, as `logic_chain`
     /// is.
     #[inline(never)]
-    fn iff(&mut self) -> Result<()> {
-        let start = self.operand_start();
+    fn iff(&mut self, start: u32) -> Result<()> {
         self.bump();
         if self.at_quantifier() {
             self.quantifier()?;
         } else {
+            let right = self.mark();
             self.cmp_expr()?;
             if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-                self.logic_chain()?;
+                self.logic_chain(right)?;
             }
         }
         if self.peek() == Some(&Tok::Iff) {
@@ -3989,17 +3881,15 @@ impl<'t> Parser<'t> {
     /// `exists (a b: Nat) => P` is `exists (a: Nat) => exists (b: Nat) => P`.
     #[inline(never)]
     fn exists_expr(&mut self) -> Result<()> {
-        let keyword = self.bump().span;
+        let keyword = self.mark();
+        self.bump();
         if !self.lambda_ahead()? {
             return Err(self
                 .unexpected("a parameter and `=>` after `exists`")
                 .with_note("\"there exists\" is written `exists (x: T) => P`")
                 .into());
         }
-        let start = self.here();
-        self.lambda(start)?;
-        self.retag_last(keyword, NodeKind::Exists);
-        Ok(())
+        self.lambda(keyword, NodeKind::Exists)
     }
 
     /// Whether an `exists` or a `forall` starts here.
@@ -4026,7 +3916,8 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn forall_expr(&mut self) -> Result<()> {
         let written = self.spelled(&self.tokens[self.pos]);
-        let keyword = self.bump().span;
+        let keyword = self.mark();
+        self.bump();
         let mut groups = 0;
         loop {
             let first = self.mark();
@@ -4048,16 +3939,17 @@ impl<'t> Parser<'t> {
                         )
                         .into());
                     }
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 Some(Tok::LBracket)
                     if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
                 {
                     self.header_param_parts()?;
+                    self.node(first, NodeKind::LambdaParam);
                 }
                 _ => break,
             }
             groups += 1;
-            self.mark_param(first);
         }
         if groups == 0 || self.peek() != Some(&Tok::FatArrow) {
             let expected = if groups == 0 {
@@ -4076,7 +3968,7 @@ impl<'t> Parser<'t> {
         }
         self.bump();
         self.expr()?;
-        self.node_at(keyword, NodeKind::Forall);
+        self.node(keyword, NodeKind::Forall);
         Ok(())
     }
 
@@ -4302,20 +4194,32 @@ impl<'t> Parser<'t> {
     }
 
     /// `a && b` and `a || b`: binding more loosely than comparisons, `&&`
-    /// tighter than `||`, both grouping to the right. The operands are
-    /// read in a loop, so a chain costs one stack frame, not one per
-    /// operator. The first operand has been read. Every expression is
+    /// tighter than `||`, both grouping to the right, so `a || b && c || d`
+    /// is `a || ((b && c) || d)`. The first operand, from token `start`, has
+    /// been read. The operands are read in a loop, so a chain costs one
+    /// stack frame, not one per operator, and its `Binary` nodes are marked
+    /// as they finish: a conjunction's at the `||` after it or at the end,
+    /// inner first, then the disjunctions', inner first. Every expression is
     /// parsed by the caller, and this is only entered at a `&&` or `||`, out
     /// of line, so the frames nested expressions pile up (and so how deeply
     /// they can nest) stay as they were: the `check-nested-parens` benchmark
     /// fails otherwise.
     #[inline(never)]
-    fn logic_chain(&mut self) -> Result<()> {
-        // Where each operand starts, and whether it starts a disjunct.
-        let mut starts = vec![(self.operand_start(), true)];
+    fn logic_chain(&mut self, start: u32) -> Result<()> {
+        // Where each disjunct starts, and each operand of the last.
+        let mut disjuncts = vec![start];
+        let mut operands = vec![start];
         while let Some(Tok::AndAnd | Tok::OrOr) = self.peek() {
-            let or = self.bump().tok == Tok::OrOr;
-            starts.push((self.mark(), or));
+            let or = self.peek() == Some(&Tok::OrOr);
+            if or {
+                self.mark_right_nested(&operands);
+                operands.clear();
+            }
+            self.bump();
+            operands.push(self.mark());
+            if or {
+                disjuncts.push(self.mark());
+            }
             // `p && exists (x: T) => q`: the `exists` takes the rest, as
             // does a `forall`.
             if self.at_quantifier() {
@@ -4324,48 +4228,18 @@ impl<'t> Parser<'t> {
                 self.cmp_expr()?;
             }
         }
-        self.mark_logic_chain(&starts);
+        self.mark_right_nested(&operands);
+        self.mark_right_nested(&disjuncts);
         Ok(())
     }
 
-    /// The `Binary` nodes of a chain of `&&` and `||` that has just been
-    /// read, given where each operand starts and whether it starts a
-    /// disjunct. Both group to the right, `&&` tighter: `a || b && c || d`
-    /// is `a || ((b && c) || d)`.
-    ///
-    /// They are recorded in the order they finish, inner before outer, so
-    /// the last is the whole chain: an operator after it (`→`, `↔`, `;`)
-    /// finds its left operand's start from the last mark
-    /// ([`Self::operand_start`]), and with any other node last it would
-    /// start inside the chain and cross it.
-    #[inline(never)]
-    fn mark_logic_chain(&mut self, starts: &[(u32, bool)]) {
-        let end = self.pos as u32;
-        let firsts: Vec<usize> = (0..starts.len()).filter(|&i| starts[i].1).collect();
-        let mut ranges = Vec::with_capacity(starts.len());
-        for (k, &first) in firsts.iter().enumerate() {
-            let next = firsts.get(k + 1).copied();
-            // A disjunct before another ends at the `||` before the next.
-            let (last, until) = match next {
-                Some(next) => (next, starts[next].0 - 1),
-                None => (starts.len(), end),
-            };
-            for &(start, _) in &starts[first..last - 1] {
-                ranges.push((start, until));
-            }
-            if next.is_some() {
-                ranges.push((starts[first].0, end));
-            }
+    /// The `Binary` nodes of operands from tokens `starts` that end here,
+    /// grouped to the right: one from each start but the last, the last
+    /// start's first, since it finishes first.
+    pub(super) fn mark_right_nested(&mut self, starts: &[u32]) {
+        for &start in starts[..starts.len() - 1].iter().rev() {
+            self.node(start, NodeKind::Binary);
         }
-        // Finishing order: by end, and of two with the same end the inner
-        // (later starting) first.
-        ranges.sort_unstable_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(&a.0)));
-        self.marks
-            .extend(ranges.into_iter().map(|(start, end)| Mark {
-                kind: NodeKind::Binary,
-                start,
-                end,
-            }));
     }
 
     /// Whether a `|>` comes next: on this line, or starting a line (which a
@@ -4378,7 +4252,8 @@ impl<'t> Parser<'t> {
             .is_some_and(|t| t.tok == Tok::PipeGt && (!self.is_stop(self.pos) || t.line_start))
     }
 
-    /// `x |> f a |> g`: tighter than comparisons, `in`, `&&` and `||`,
+    /// `x |> f a |> g`, after `x`, which starts at token `start`: tighter
+    /// than comparisons, `in`, `&&` and `||`,
     /// looser than `++`, grouping to the left, so a pipeline reads top to
     /// bottom and `xs |> List.sum == 6` compares the sum. A line may start
     /// with `|>` to continue the expression, if it's indented at least as
@@ -4389,8 +4264,7 @@ impl<'t> Parser<'t> {
     /// `(x |> y => f y) |> g`. Out of line and in a loop, as `logic_chain`
     /// is.
     #[inline(never)]
-    fn pipe_chain(&mut self) -> Result<()> {
-        let start = self.operand_start();
+    fn pipe_chain(&mut self, start: u32) -> Result<()> {
         let indent = self.line_indent(self.written_start(start));
         loop {
             let continues = match self.tokens.get(self.pos) {
@@ -4403,14 +4277,19 @@ impl<'t> Parser<'t> {
                 break;
             }
             self.bump();
+            let operand = self.mark();
             if self.lambda_ahead()? {
-                let start = self.here();
-                self.lambda(start)?;
+                self.lambda(operand, NodeKind::Lambda)?;
             } else {
+                // A method section takes the operand it starts, as it
+                // takes an expression (`expr_inline`).
                 let section = self.peek() == Some(&Tok::Dot);
+                if section {
+                    self.modes.section_head = Some(self.pos);
+                }
                 self.append_expr()?;
                 if section {
-                    self.widen_section();
+                    self.node(operand, NodeKind::Section);
                 }
             }
             self.node(start, NodeKind::Pipe);
@@ -4439,10 +4318,10 @@ impl<'t> Parser<'t> {
     /// line left of the last alternative's line (which would otherwise
     /// take it), but at least as far right as the `match`'s line.
     #[inline(never)]
-    fn match_piped(&mut self, start: Span) -> Result<()> {
+    fn match_piped(&mut self, start: u32) -> Result<()> {
         self.match_expr(start)?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(start)?;
         }
         Ok(())
     }
@@ -4454,7 +4333,7 @@ impl<'t> Parser<'t> {
         let lhs_start = self.pos;
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(lhs_start as u32)?;
         }
         if matches!(self.peek(), Some(Tok::KwIn | Tok::NotIn)) {
             return self.membership(lhs_start);
@@ -4470,7 +4349,7 @@ impl<'t> Parser<'t> {
         // `a = if c then x else y`: the `if` on the right runs to the end of
         // the expression, as it does anywhere else.
         if self.peek() == Some(&Tok::KwIf) {
-            let start = self.here();
+            let start = self.mark();
             self.bump();
             self.if_expr(start)?;
             self.node(lhs_start as u32, NodeKind::Binary);
@@ -4479,7 +4358,7 @@ impl<'t> Parser<'t> {
         let second = self.mark();
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(second)?;
         }
         if !matches!(
             self.peek(),
@@ -4621,7 +4500,7 @@ impl<'t> Parser<'t> {
             let operand = self.mark();
             self.range_expr()?;
             if self.at_pipe() {
-                self.pipe_chain()?;
+                self.pipe_chain(operand)?;
             }
             operands.push((operand, self.mark()));
         }
@@ -4668,9 +4547,10 @@ impl<'t> Parser<'t> {
             )
             .into());
         }
+        let right = self.mark();
         self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain()?;
+            self.pipe_chain(right)?;
         }
         self.node(lhs_start as u32, NodeKind::Membership);
         Ok(())
@@ -4681,16 +4561,16 @@ impl<'t> Parser<'t> {
     /// `0 ..< xs.length` and `x in 0 ..< n |> f` read as they look
     /// (docs/proposals/ranges.md §11).
     fn range_expr(&mut self) -> Result<()> {
+        let start = self.mark();
         self.append_expr()?;
         match self.peek() {
             Some(Tok::DotDotLt | Tok::DotDotEq) => {}
             Some(Tok::DotDot) => return Err(self.bare_range().into()),
             _ => return Ok(()),
         }
-        self.open(NodeKind::Range);
         let first = self.bump().span;
         self.append_expr()?;
-        self.close();
+        self.node(start, NodeKind::Range);
         if let Some(Tok::DotDotLt | Tok::DotDotEq) = self.peek() {
             return Err(error(self.here(), "ranges don't chain")
                 .with_label(first, "this range already has both ends")
@@ -4724,37 +4604,37 @@ impl<'t> Parser<'t> {
     /// `"n = " ++ natToText (n + 1)` and `a ++ b ++ c` mean what they look like.
     fn append_expr(&mut self) -> Result<()> {
         self.deeper()?;
+        let start = self.mark();
         self.add_expr()?;
         if self.peek() != Some(&Tok::PlusPlus) {
             return Ok(());
         }
-        self.open(NodeKind::Binary);
         self.bump();
         self.append_expr()?;
-        self.close();
+        self.node(start, NodeKind::Binary);
         Ok(())
     }
 
     /// `+`, `-`: left-associative.
     fn add_expr(&mut self) -> Result<()> {
+        let start = self.mark();
         self.mul_expr()?;
         while matches!(self.peek(), Some(Tok::Plus | Tok::Minus)) {
-            self.open(NodeKind::Binary);
             self.bump();
             self.mul_expr()?;
-            self.close();
+            self.node(start, NodeKind::Binary);
         }
         Ok(())
     }
 
     /// `*`, `/`, `%`: left-associative, binding tighter than `+`.
     fn mul_expr(&mut self) -> Result<()> {
+        let start = self.mark();
         self.unary()?;
         while matches!(self.peek(), Some(Tok::Star | Tok::Slash | Tok::Percent)) {
-            self.open(NodeKind::Binary);
             self.bump();
             self.unary()?;
-            self.close();
+            self.node(start, NodeKind::Binary);
         }
         Ok(())
     }
@@ -4765,12 +4645,13 @@ impl<'t> Parser<'t> {
     fn unary(&mut self) -> Result<()> {
         // A `match` as an operand: `1 + match n with | …`. Its last
         // alternative's body takes whatever follows.
+        let start = self.mark();
         if self.peek() == Some(&Tok::KwMatch) {
-            let start = self.bump().span;
+            self.bump();
             return self.match_expr(start);
         }
         if self.matches_bar_ahead() {
-            let start = self.bump().span;
+            self.bump();
             return self.clause_lambda(start, MatchKind::ClauseMatches);
         }
         // A negative numeral is one atom (D1474): `-1.abs` is `(-1).abs`.
@@ -4779,21 +4660,24 @@ impl<'t> Parser<'t> {
         }
         if let Some(Tok::Minus | Tok::Bang) = self.peek() {
             self.deeper()?;
-            let start = self.bump().span;
+            self.bump();
             self.unary()?;
-            self.node_at(start, NodeKind::Prefix);
+            self.node(start, NodeKind::Prefix);
             return Ok(());
         }
         self.app()
     }
 
     fn app(&mut self) -> Result<()> {
+        let start = self.mark();
         // A section's arguments are its own: `.drop 1` is `x => x.drop 1`.
-        let section = self.peek() == Some(&Tok::Dot);
+        // One that starts an expression is marked by its parser, around
+        // more ([`Modes::section_head`]).
+        let section =
+            self.peek() == Some(&Tok::Dot) && self.modes.section_head != Some(start as usize);
         self.atom(true)?;
         // `f a b` is one `App` node, however many arguments.
         if self.starts_atom() {
-            self.open(NodeKind::App);
             loop {
                 if self.peek() == Some(&Tok::Dot) && self.tokens[self.pos].line_start {
                     return Err(self.section_line().into());
@@ -4809,11 +4693,11 @@ impl<'t> Parser<'t> {
                     break;
                 }
             }
-            self.close();
+            self.node(start, NodeKind::App);
         }
         // A section at the head takes the arguments: `.drop 1`.
         if section {
-            self.node_around_operand(NodeKind::Section);
+            self.node(start, NodeKind::Section);
         }
         if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
             return Err(self.cases_in_argument().into());
@@ -4933,24 +4817,24 @@ impl<'t> Parser<'t> {
     /// `app` takes it (`brace_argument`).
     fn atom(&mut self, head: bool) -> Result<()> {
         let section = self.peek() == Some(&Tok::Dot);
-        let start = self.here();
+        let start = self.mark();
         let upper = matches!(self.peek(), Some(Tok::Upper(_)));
         // Whether what has been read is a name or a field, which `()`
         // written against it calls; in brackets, `(f)()`, it may be one.
         let paren = self.peek() == Some(&Tok::LParen);
         let mut callable = matches!(self.peek(), Some(Tok::Lower(_) | Tok::Upper(_) | Tok::Dot));
-        let first = self.mark();
-        self.atom_base()?;
+        self.atom_base(start)?;
         if upper && head && self.peek() == Some(&Tok::LBrace) {
             self.ctor_fields_expr()?;
             callable = false;
         }
         loop {
-            if self.unit_call() && (callable || paren && self.callable_paren(first)) {
-                let open = self.bump().span;
+            if self.unit_call() && (callable || paren && self.callable_paren(start)) {
+                let open = self.mark();
                 self.bump();
-                self.node_at(open, NodeKind::Unit);
-                self.node_at(start, NodeKind::App);
+                self.bump();
+                self.node(open, NodeKind::Unit);
+                self.node(start, NodeKind::App);
             }
             if !(self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos)) {
                 break;
@@ -4976,13 +4860,13 @@ impl<'t> Parser<'t> {
                 );
             }
             self.pos += 2;
-            self.node_at(start, NodeKind::FieldAccess);
+            self.node(start, NodeKind::FieldAccess);
             callable = true;
         }
         // At the head of an application, `app` marks the section, around
         // the arguments.
         if section && !head {
-            self.node_at(start, NodeKind::Section);
+            self.node(start, NodeKind::Section);
         }
         Ok(())
     }
@@ -5025,6 +4909,7 @@ impl<'t> Parser<'t> {
     /// `.name`, starting a method section: its body's start, `%section.name`.
     #[inline(never)]
     fn section_start(&mut self) -> Result<()> {
+        let start = self.mark();
         let dot = self.bump().span;
         match self.tokens.get(self.pos) {
             Some(Token {
@@ -5039,7 +4924,7 @@ impl<'t> Parser<'t> {
             }
         }
         self.pos += 1;
-        self.node_at(dot, NodeKind::FieldAccess);
+        self.node(start, NodeKind::FieldAccess);
         Ok(())
     }
 
@@ -5060,7 +4945,7 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn brace_argument(&mut self) -> Result<()> {
         let ctor = self.mark();
-        self.atom_base()?;
+        self.atom_base(ctor)?;
         self.record_expr()?;
         self.node(ctor, NodeKind::CtorFields);
         Ok(())
@@ -5069,14 +4954,15 @@ impl<'t> Parser<'t> {
     /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
     /// (an update). A literal's fields are in the order written.
     fn record_expr(&mut self) -> Result<()> {
-        let start = self.expect(Tok::LBrace, "`{`")?.span;
+        let start = self.mark();
+        self.expect(Tok::LBrace, "`{`")?;
         self.record_body(start)
     }
 
-    fn record_body(&mut self, start: Span) -> Result<()> {
+    fn record_body(&mut self, start: u32) -> Result<()> {
         if self.peek() == Some(&Tok::RBrace) {
             self.bump();
-            self.node_at(start, NodeKind::Record);
+            self.node(start, NodeKind::Record);
             return Ok(());
         }
         let literal = matches!(self.peek(), Some(Tok::Lower(_)))
@@ -5093,10 +4979,11 @@ impl<'t> Parser<'t> {
             if self.peek() == Some(&Tok::RBrace) && fields > 0 {
                 break;
             }
-            let name = self.lower("a field name")?.span;
+            let name = self.mark();
+            self.lower("a field name")?;
             if self.eat(&Tok::Equals) {
                 self.expr()?;
-                self.node_at(name, NodeKind::RecordField);
+                self.node(name, NodeKind::RecordField);
             }
             fields += 1;
             if !self.eat(&Tok::Comma) {
@@ -5104,14 +4991,14 @@ impl<'t> Parser<'t> {
             }
         }
         self.expect(Tok::RBrace, "`,` or `}`")?;
-        self.node_at(start, NodeKind::Record);
+        self.node(start, NodeKind::Record);
         Ok(())
     }
 
     /// A list literal, at its `[`. The first `..` spread's tokens, if it
     /// has one.
     #[inline(never)]
-    fn list_expr(&mut self, span: Span) -> Result<Option<(u32, u32)>> {
+    fn list_expr(&mut self, start: u32) -> Result<Option<(u32, u32)>> {
         self.bump();
         let mut spread = None;
         if self.peek() != Some(&Tok::RBracket) {
@@ -5126,7 +5013,7 @@ impl<'t> Parser<'t> {
             }
         }
         self.expect(Tok::RBracket, "`,` or `]`")?;
-        self.node_at(span, NodeKind::List);
+        self.node(start, NodeKind::List);
         Ok(spread)
     }
 
@@ -5144,19 +5031,20 @@ impl<'t> Parser<'t> {
             self.expr()?;
             return Ok(false);
         }
-        let dots = self.bump().span;
+        let dots = self.mark();
+        self.bump();
         if matches!(self.peek(), Some(Tok::Comma | Tok::RBracket)) {
             return Err(error(self.here(), "expected a list after `..`, as in `[x, ..xs]`").into());
         }
         self.expr()?;
-        self.node_at(dots, NodeKind::Spread);
+        self.node(dots, NodeKind::Spread);
         Ok(true)
     }
 
     /// The facts of `omega [..]`, `ring [..]` and the like: a list of terms
     /// with no spread.
     fn fact_list(&mut self) -> Result<()> {
-        if let Some((dots, end)) = self.list_expr(self.here())? {
+        if let Some((dots, end)) = self.list_expr(self.mark())? {
             let at = self.tokens[dots as usize]
                 .span
                 .to(self.lowered_span((dots + 1, end)));
@@ -5170,7 +5058,8 @@ impl<'t> Parser<'t> {
     /// `"a${x}b${y}c"`: text pieces and interpolations, which the lowering
     /// joins.
     fn interpolated_str(&mut self) -> Result<()> {
-        let open = self.bump().span;
+        let open = self.mark();
+        self.bump();
         loop {
             // The lexer ends every text piece but the last with a `${`.
             let interpolation = self.mark();
@@ -5196,7 +5085,7 @@ impl<'t> Parser<'t> {
                 _ => return Err(self.unexpected("`${` or the end of the text").into()),
             }
         }
-        self.node_at(open, NodeKind::Interpolated);
+        self.node(open, NodeKind::Interpolated);
         Ok(())
     }
 
@@ -5209,7 +5098,8 @@ impl<'t> Parser<'t> {
         if !argument_minus(self.tokens, self.pos) && !numeral {
             return Err(self.unexpected_name("an expression").into());
         }
-        let start = self.bump().span;
+        let start = self.mark();
+        self.bump();
         if numeral {
             // The number `negative_numeral` saw, read here rather than by
             // `atom_base`, so that `atom` stays its only caller.
@@ -5217,7 +5107,7 @@ impl<'t> Parser<'t> {
         } else {
             self.atom(false)?;
         }
-        self.node_at(start, NodeKind::Prefix);
+        self.node(start, NodeKind::Prefix);
         Ok(())
     }
 
@@ -5228,20 +5118,21 @@ impl<'t> Parser<'t> {
         if !argument_bang(self.tokens, self.pos) {
             return Err(self.unexpected_name("an expression").into());
         }
-        let start = self.bump().span;
+        let start = self.mark();
+        self.bump();
         self.atom(false)?;
-        self.node_at(start, NodeKind::Prefix);
+        self.node(start, NodeKind::Prefix);
         Ok(())
     }
 
-    /// An atom without its dots and `()` calls. Always inlined in `atom`, its
+    /// An atom without its dots and `()` calls, starting at token `start`,
+    /// the next. Always inlined in `atom`, its
     /// only caller: every level of a nested expression (`((…(0)…))`) goes
     /// through both, and as two functions their frames don't share slots.
     /// When 7a14ec83 gave it a second caller it stopped being inlined, and
     /// each level took about 780 bytes more of the stack (SW-875).
     #[inline(always)]
-    fn atom_base(&mut self) -> Result<()> {
-        let span = self.here();
+    fn atom_base(&mut self, start: u32) -> Result<()> {
         match self.peek() {
             Some(Tok::Minus) => return self.negative_atom(),
             Some(Tok::Bang) => return self.bang_atom(),
@@ -5268,7 +5159,7 @@ impl<'t> Parser<'t> {
                 match self.peek() {
                     Some(Tok::Str(_)) => {
                         self.bump();
-                        self.node_at(span, NodeKind::Include);
+                        self.node(start, NodeKind::Include);
                     }
                     _ => {
                         return Err(self
@@ -5282,7 +5173,7 @@ impl<'t> Parser<'t> {
                 // `omega [e1, e2]`: extra facts, by term.
                 if self.peek() == Some(&Tok::LBracket) {
                     self.fact_list()?;
-                    self.node_at(span, NodeKind::Omega);
+                    self.node(start, NodeKind::Omega);
                 }
             }
             Some(Tok::KwRing) => {
@@ -5290,7 +5181,7 @@ impl<'t> Parser<'t> {
                 // `ring [h1, h2]`: hypotheses, by term.
                 if self.peek() == Some(&Tok::LBracket) {
                     self.fact_list()?;
-                    self.node_at(span, NodeKind::Ring);
+                    self.node(start, NodeKind::Ring);
                 }
             }
             Some(Tok::KwCases) if self.bare_cases() => {
@@ -5307,13 +5198,13 @@ impl<'t> Parser<'t> {
                             ))
                             .into());
                     }
-                    self.node_at(span, NodeKind::Universe);
+                    self.node(start, NodeKind::Universe);
                 }
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
                 self.bump();
-                self.node_at(span, NodeKind::Unit);
+                self.node(start, NodeKind::Unit);
             }
             // `(x := e)`: an explicit argument by name
             // (docs/proposals/named-arguments.md §4.1).
@@ -5326,14 +5217,14 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.expr()?;
                 self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::NamedArg);
+                self.node(start, NodeKind::NamedArg);
             }
             Some(Tok::LParen) if self.operator_section_ahead() => return self.operator_section(),
             Some(Tok::LParen) => {
                 self.bump();
                 self.expr()?;
                 if self.peek() == Some(&Tok::Comma) {
-                    return self.tuple_expr(span);
+                    return self.tuple_expr(start);
                 }
                 if self.eat(&Tok::Colon) {
                     self.expr()?;
@@ -5341,11 +5232,11 @@ impl<'t> Parser<'t> {
                         return Err(self.tuple_annotation().into());
                     }
                     self.expect(Tok::RParen, "`)`")?;
-                    self.node_at(span, NodeKind::Annotation);
+                    self.node(start, NodeKind::Annotation);
                     return Ok(());
                 }
                 self.expect(Tok::RParen, "`)`")?;
-                self.node_at(span, NodeKind::Paren);
+                self.node(start, NodeKind::Paren);
             }
             Some(Tok::LBracket)
                 if matches!(self.peek_at(1), Some(Tok::Lower(_) | Tok::KwDecreasing))
@@ -5362,10 +5253,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.expr()?;
                 self.expect(Tok::RBracket, "`]`")?;
-                self.node_at(span, NodeKind::NamedArg);
+                self.node(start, NodeKind::NamedArg);
             }
             Some(Tok::LBracket) => {
-                self.list_expr(span)?;
+                self.list_expr(start)?;
             }
             Some(Tok::LBrace) => return self.record_expr(),
             Some(Tok::Dot) => return self.section_start(),
@@ -5561,13 +5452,12 @@ mod tests {
         run(&mut parser)
     }
 
-    /// `recover_to` puts back every mode and drops the constructs a failed
-    /// parse left open, and leaves the position and the finished marks.
+    /// `recover_to` puts back every mode, and leaves the position and the
+    /// finished marks.
     #[test]
-    fn recover_to_restores_the_modes_and_the_open_constructs() {
+    fn recover_to_restores_the_modes() {
         with_parser("a + b * c", |parser| {
             parser.modes.limit = Some(2);
-            parser.open.push((0, NodeKind::Binary));
             let snapshot = parser.snapshot();
             parser.modes = Modes {
                 in_list: true,
@@ -5579,9 +5469,8 @@ mod tests {
                 rewrite_at: true,
                 let_value: Some(0),
                 recover: true,
+                section_head: Some(1),
             };
-            parser.open.push((2, NodeKind::Binary));
-            parser.open.push((4, NodeKind::Binary));
             parser.pos = 3;
             parser.record(2, NodeKind::App);
             parser.recover_to(snapshot);
@@ -5590,7 +5479,6 @@ mod tests {
                 format!("{:?}", snapshot.modes)
             );
             assert_eq!(parser.modes.limit, Some(2));
-            assert_eq!(parser.open, [(0, NodeKind::Binary)]);
             assert_eq!(parser.pos, 3);
             assert_eq!(parser.marks.len(), 1);
         });
@@ -9604,7 +9492,7 @@ mod tests {
         let (mut errors, mut groups) =
             parse_lexed(file, text, DEFAULT_STACK, &lexed.tokens, failures);
         tamper(&mut groups[0].marks);
-        let tree = SyntaxFile::build_allowing_crossed(
+        let tree = SyntaxFile::build_allowing_misnested(
             lexed.tokens,
             lexed.trivia,
             lexed.eof,
@@ -9615,9 +9503,9 @@ mod tests {
         (module, errors)
     }
 
-    /// A declaration whose tree lost a mark that crossed another fails with
-    /// an internal error, rather than being checked as the tree that's left
-    /// says (SW-3243: `a ∧ b ∧ c → q` read as `a ∧ b ∧ c`).
+    /// A declaration whose marks cross fails with an internal error, rather
+    /// than being checked as a tree that reads as another statement
+    /// (SW-3243: `a ∧ b ∧ c → q` read as `a ∧ b ∧ c`).
     #[test]
     fn a_crossed_mark_fails_its_declaration() {
         let text = "theorem t (a q: Prop): a ∧ a → q := sorry\n\ndef ok: Nat := 1\n";
@@ -9628,11 +9516,7 @@ mod tests {
         });
         assert_eq!(errors.len(), 1, "{errors:?}");
         assert_eq!(errors[0].code, "E-INTERNAL");
-        assert!(
-            errors[0].message.contains("crossing"),
-            "{}",
-            errors[0].message
-        );
+        assert!(errors[0].message.contains("cross"), "{}", errors[0].message);
         let failed: Vec<&str> = module.failed.iter().map(|f| f.name.text.as_str()).collect();
         assert_eq!(failed, ["t"]);
         assert_eq!(module.decls.len(), 2, "only `ok`: {:?}", module.decls);
