@@ -35133,15 +35133,17 @@
     {
       "id": 3216,
       "title": "[DeepSeek] Editor: the language server advertises no folding ranges at all (textDocument/foldingRange); add them from the outline (declarations, using SW-3199's whole-body range for broken ones) and multi-line blocks (SW-3199 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 45 min (DeepSeek).",
+      "body": "Expected: 45 min (DeepSeek).\nModel result: DeepSeek, needed fixes (quadratic line counting for comments, a duplicated block, a narrating comment; orchestrator's one-line fix for two comments on one line), ~25 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "9e13fb622cee5b5b8c62472f97042a26a48b729b"
+      ]
     },
     {
       "id": 3217,
