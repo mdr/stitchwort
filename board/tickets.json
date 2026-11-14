@@ -1,5 +1,5 @@
 {
-  "next": 3291,
+  "next": 3292,
   "tickets": [
     {
       "id": 47,
@@ -36094,12 +36094,12 @@
     {
       "id": 3284,
       "title": "[Opus] Text patterns stage 1 (text-patterns.md §6, D3591): text literals as patterns on Text and List Char, the missing-case message, docs/guide, docs/syntax.md and a feature-tour page",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3591 (Matt, 14 Nov 2026): text literals as patterns on Text and List Char. D3604 overnight chain C. Expected: 7.5 h (Opus), then an Opus review.",
+      "body": "D3591 (Matt, 14 Nov 2026): text literals as patterns on Text and List Char. D3604 overnight chain C. Expected: 7.5 h (Opus), then an Opus review.\n\n**Lane notes (Opus, 14 Nov 2026, 22:40–23:25, lane/SW-3284, commits df5ec23b9, bffb452b0, 78d073dbd):**\n- Built: `Pattern::Text` (parser bumps a `Tok::Str` as a pattern atom, like `'c'`; `StrStart` is `E-TEXT-PATTERN` \"a text pattern can't interpolate\"). `pattern_ctor` expands by the column's type: `MkText` of a list of `Pattern::Char` on `Text` (and when the type isn't known), the list itself on `List Char`, `E-TYPE-MISMATCH` otherwise. Each character gets its own sub-span inside the literal (`decl.text_spans` maps them back), so char messages don't collide.\n- Missing case: a column of text patterns alone marks the gaps its characters leave (`Arm::text_gap`) and reports them as \"no arm matches texts other than \"def\", \"do\" and \"else\"\" (\"character lists\" on `List Char`), with a note asking for `| _ => …`. Witnesses print a `MkText` column as its literal when fully known, else `_`.\n- Goals leave out `valid✝: Std.Char.isScalar 100` (inaccessible proofs that a known code is a scalar), for char patterns too.\n- Hashes: a throwaway example written with `\"def\"` and the same written as `MkText ['d', …]`/`['d', …]` gave identical hash snapshots for all 21 declarations, equation lemmas included. hash_stability (lane sample + prelude) passes; char-patterns and every missing-case example unchanged.\n- `\"lit\" ++ rest` still gives today's E-PARSE (stage 2, SW-3288).\n- Docs: guide ch. 3 (text patterns, missing-case output) and ch. 10 (\"Arms that match literals\"), docs/syntax.md (patterns, generated equations), tour page web/guide/40-text-patterns.sw (\"Matching words\").\n- Finding: `guide::the_guide_quotes_its_examples_and_the_compiler` fails with 87 stale blocks unrelated to this lane (e.g. `area (width height: Nat)` vs the quoted `(width: Nat) (height: Nat)`): the guide examples were reformatted without `task guide:update`.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -36181,6 +36181,19 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3291,
+      "title": "[Opus] dev breaks is too slow on large projects: aoc (62k lines) >18 s a break against 0.3-3 s elsewhere (Overmind, 14 Nov 2026, cold cache in a pinned worktree); profile first, likely re-checking the whole project per break; also '--project src' is refused (needs PATHS)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
