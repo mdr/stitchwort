@@ -1240,10 +1240,24 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// From the first token of `start..end` to its last.
+    /// From the first token of `start..end` to its last. An empty range
+    /// is a part R1 found missing ([`Self::ran_out`]), possibly at the end
+    /// of the input: the point where the text ran out, after the token
+    /// before it.
     fn tokens_span(&self, (start, end): (u32, u32)) -> Span {
+        if end <= start {
+            return match (start as usize).checked_sub(1) {
+                Some(last) => Span::point(self.file, self.tokens[last].span.end),
+                None => self
+                    .tokens
+                    .first()
+                    .map_or(Span::point(self.file, self.eof), |t| {
+                        Span::point(self.file, t.span.start)
+                    }),
+            };
+        }
         let first = self.tokens[start as usize].span;
-        first.to(self.tokens[(end as usize).max(start as usize + 1) - 1].span)
+        first.to(self.tokens[end as usize - 1].span)
     }
 
     /// Whether a pattern read since token `from` holds the absurd pattern
@@ -2884,8 +2898,16 @@ impl<'t> Parser<'t> {
             ).into());
         }
         if !definition.body {
+            // An empty result type ran out (R1), which reported the gap;
+            // at the gap's own span, R6 keeps this as the same error.
+            let (from, to) = definition.result;
+            let at = if from == to {
+                self.tokens_span(definition.result)
+            } else {
+                start.to(self.lowered_span(definition.result))
+            };
             return Err(error(
-                start.to(self.lowered_span(definition.result)),
+                at,
                 "a local definition needs a body: `:=` and an expression, or arms starting with `|`",
             ).into());
         }
@@ -7421,6 +7443,31 @@ mod tests {
         assert_eq!(errors.len(), 1, "{errors:?}");
         assert_eq!(points, [vec![RecoveryPoint::RanOut], vec![]]);
         assert!(matches!(equation_rhs(&module, "f"), Expr::Missing(_)));
+    }
+
+    /// A local definition whose result type runs out, at the end of the
+    /// input or before a line that ends the block, is one error at the gap
+    /// after its `:`. The empty type has no token to span, and at the end of
+    /// the input none follows it either (SW-3278).
+    #[test]
+    fn a_local_definition_whose_type_runs_out_is_one_error_at_the_gap() {
+        for text in [
+            "theorem t: Unit :=\n  def f (s: Nat):",
+            "theorem t: Unit :=\n  def f (s: Nat):\n",
+            "theorem t: Unit :=\n  def f:",
+            "def g: Unit :=\n  def f [x: Nat]:",
+            "def g: Unit :=\n  theorem h (n: Nat):\n",
+            "def g: Unit :=\n  def f (s: Nat):\ndef h: Nat := 1\n",
+        ] {
+            let (_, errors, points) = recovered(text);
+            assert_eq!(errors.len(), 1, "{text:?}: {errors:?}");
+            assert_eq!(points[0], [RecoveryPoint::RanOut], "{text:?}");
+            // The local header's line ends with its `:`.
+            let local = text.find("\n  ").unwrap() + 1;
+            let gap = text[local..].find('\n').map_or(text.len(), |i| local + i) as u32;
+            let at = errors[0].primary_span().unwrap();
+            assert_eq!((at.start, at.end), (gap, gap), "{text:?}");
+        }
     }
 
     /// R6: an error nothing inside recovers from skips the rest of the body,
