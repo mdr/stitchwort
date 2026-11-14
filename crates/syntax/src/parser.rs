@@ -16,7 +16,7 @@ use crate::ast::{
     Import, ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
     Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
-use crate::lexer::{Tok, Token, lex, lex_recovering, lex_with_trivia};
+use crate::lexer::{LexFailure, Tok, Token, lex, lex_recovering, lex_recovering_with_trivia};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -91,17 +91,59 @@ pub fn parse_module_recovering(
     stack: usize,
 ) -> (Module, Vec<Diagnostic>) {
     let recovered = lex_recovering(file, text);
-    let (mut module, mut errors, _) =
-        parse_tokens(file, text, stack, &recovered.tokens, &recovered.bars, false);
-    for failure in recovered.failures {
+    let (module, errors, _) = parse_lexed(
+        file,
+        text,
+        stack,
+        &recovered.tokens,
+        &recovered.bars,
+        recovered.failures,
+        false,
+    );
+    (module, errors)
+}
+
+/// [`parse_tokens`] on what [`lex_recovering`] (or its version with trivia)
+/// read, with the declarations that didn't lex (`failures`) recovered from:
+/// their names in `failed`, their errors among the others in file order,
+/// and with `record`, each an `Error` root over its raw text among the
+/// declarations' marks.
+fn parse_lexed(
+    file: FileId,
+    text: &str,
+    stack: usize,
+    tokens: &[Token],
+    bars: &[Span],
+    failures: Vec<LexFailure>,
+    record: bool,
+) -> (Module, Vec<Diagnostic>, Vec<DeclMarks>) {
+    let (mut module, mut errors, mut trees) = parse_tokens(file, text, stack, tokens, bars, record);
+    let raw_at = trees.len();
+    for failure in failures {
         let error_at = failure.error.primary_span();
         module
             .failed
             .extend(failed_names_in(file, text, &failure.range, error_at));
         errors.push(failure.error);
+        if record {
+            // At the first token after it, which the blanking left where it was.
+            let next = tokens.partition_point(|t| (t.span.start as usize) < failure.range.start);
+            trees.push(DeclMarks {
+                tokens: next as u32..next as u32,
+                root: NodeKind::Error,
+                marks: Vec::new(),
+                raw: Some(failure.range.start as u32..failure.range.end as u32),
+            });
+        }
     }
     errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
-    (module, errors)
+    if trees.len() > raw_at {
+        // Into file order: a declaration that didn't lex goes before the one
+        // starting at the token after it. The sort is stable, so the raw
+        // ones keep their order among themselves.
+        trees.sort_by_key(|tree| (tree.tokens.start, tree.raw.is_none()));
+    }
+    (module, errors, trees)
 }
 
 /// The names of the declaration in `text[range]`, which has a lexical error,
@@ -136,10 +178,11 @@ fn failed_names_in(
 
 /// The lossless tree of a file ([`crate::tree`]), from the same parse as
 /// [`parse_module_recovering`]'s, using at most `stack` bytes of stack. A
-/// declaration that doesn't parse is an `Error` node; only a lexical error
-/// leaves no tree.
-pub fn parse_tree(file: FileId, text: &str, stack: usize) -> Parsed<SyntaxFile> {
-    parse_module_and_tree(file, text, stack).map(|(_, _, tree)| tree)
+/// declaration that doesn't parse is an `Error` node, holding the nodes of
+/// what parsed before the error; one that doesn't lex is an `Error` node
+/// holding its raw text ([`crate::tree::Node::raw_text_range`]).
+pub fn parse_tree(file: FileId, text: &str, stack: usize) -> SyntaxFile {
+    parse_module_and_tree(file, text, stack).2
 }
 
 /// [`parse_module_recovering`]'s module and errors, and the lossless tree,
@@ -148,12 +191,19 @@ pub fn parse_module_and_tree(
     file: FileId,
     text: &str,
     stack: usize,
-) -> Parsed<(Module, Vec<Diagnostic>, SyntaxFile)> {
-    let lexed = lex_with_trivia(file, text)?;
-    let (module, errors, groups) =
-        parse_tokens(file, text, stack, &lexed.tokens, &lexed.bars, true);
+) -> (Module, Vec<Diagnostic>, SyntaxFile) {
+    let (lexed, failures) = lex_recovering_with_trivia(file, text);
+    let (module, errors, groups) = parse_lexed(
+        file,
+        text,
+        stack,
+        &lexed.tokens,
+        &lexed.bars,
+        failures,
+        true,
+    );
     let tree = SyntaxFile::build(lexed.tokens, lexed.trivia, lexed.eof, groups);
-    Ok((module, errors, tree))
+    (module, errors, tree)
 }
 
 /// Parses a file's tokens, declaration by declaration, recovering as
@@ -183,6 +233,7 @@ fn parse_tokens(
                     tokens: all,
                     root: NodeKind::Error,
                     marks: Vec::new(),
+                    raw: None,
                 });
             }
             return (Module::default(), vec![*d], trees);
@@ -196,6 +247,7 @@ fn parse_tokens(
             tokens: 0..offset,
             root: NodeKind::Error,
             marks: Vec::new(),
+            raw: None,
         });
     }
     for group in groups {
@@ -260,10 +312,10 @@ fn parse_tokens(
                     errors.push(diagnostic);
                     break 'group;
                 }
-                match parser
+                let decl = parser
                     .namespace()
-                    .and_then(|decl| parser.finish().map(|()| decl))
-                {
+                    .and_then(|decl| parser.finish().map(|()| decl));
+                match parser.strict(decl) {
                     Ok(decl) => {
                         namespace = Some(decl);
                         root = NodeKind::Namespace;
@@ -280,10 +332,10 @@ fn parse_tokens(
                     );
                     break 'group;
                 }
-                match parser
+                let import = parser
                     .import()
-                    .and_then(|import| parser.finish().map(|()| import))
-                {
+                    .and_then(|import| parser.finish().map(|()| import));
+                match parser.strict(import) {
                     Ok(import) => {
                         imports.push(import);
                         root = NodeKind::Import;
@@ -300,24 +352,37 @@ fn parse_tokens(
                 Some(Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque)
             );
             parser.keep_header = keep;
+            // The signature of a definition that parsed whole, for when
+            // something after its body, or an error recovered from inside
+            // it, fails it.
+            let signature = |parsed: Vec<Decl>| {
+                parsed.into_iter().next().filter(|decl| {
+                    keep && matches!(
+                        decl,
+                        Decl::Signature {
+                            instance: false,
+                            ..
+                        }
+                    )
+                })
+            };
             let parsed = match parser.decl() {
                 Ok(parsed) => match parser.finish() {
                     Ok(()) => Ok(parsed),
-                    // Something after the body: its signature is kept.
-                    Err(diagnostic) => {
-                        let header = parsed.into_iter().next().filter(|decl| {
-                            keep && matches!(
-                                decl,
-                                Decl::Signature {
-                                    instance: false,
-                                    ..
-                                }
-                            )
-                        });
-                        Err((diagnostic, header))
-                    }
+                    Err(diagnostic) => Err((vec![*diagnostic], signature(parsed))),
                 },
-                Err(diagnostic) => Err((diagnostic, parser.header.take())),
+                Err(diagnostic) => Err((vec![*diagnostic], parser.header.take())),
+            };
+            // Strict for now: an error recovered from fails the declaration
+            // as if it had unwound, and comes before the one that did, if any.
+            let parsed = match parsed {
+                Ok(parsed) if parser.errors.is_empty() => Ok(parsed),
+                Ok(parsed) => Err((std::mem::take(&mut parser.errors), signature(parsed))),
+                Err((unwound, header)) => {
+                    let mut all = std::mem::take(&mut parser.errors);
+                    all.extend(unwound);
+                    Err((all, header))
+                }
             };
             match parsed {
                 Ok(mut parsed) => {
@@ -332,9 +397,9 @@ fn parse_tokens(
                     root = decl_kind(parsed.first());
                     decls.extend(parsed)
                 }
-                Err((diagnostic, header)) => {
-                    let error_at = diagnostic.primary_span();
-                    errors.push(*diagnostic);
+                Err((diagnostics, header)) => {
+                    let error_at = diagnostics.first().and_then(Diagnostic::primary_span);
+                    errors.extend(diagnostics);
                     match header {
                         Some(mut signature) => {
                             if let Decl::Signature {
@@ -354,12 +419,14 @@ fn parse_tokens(
                 }
             }
         }
+        errors.append(&mut parser.errors);
         if let Some(marks) = parser.marks.take() {
             let end = offset + group.len() as u32;
             trees.push(DeclMarks {
                 tokens: offset..end,
                 root,
                 marks,
+                raw: None,
             });
         }
         offset += group.len() as u32;
@@ -492,9 +559,10 @@ fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
     if parser.peek() != Some(&Tok::KwNamespace) {
         return Ok(None);
     }
-    let decl = parser.namespace()?;
-    parser.finish()?;
-    Ok(Some(decl))
+    let decl = parser
+        .namespace()
+        .and_then(|decl| parser.finish().map(|()| decl));
+    parser.strict(decl).map(Some)
 }
 
 /// Parses an expression, using at most `stack` bytes of stack.
@@ -506,9 +574,10 @@ fn expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
     let limit = StackLimit::from_here(stack);
     let tokens = lex(file, text)?;
     let mut parser = Parser::new(&tokens, file, text.len(), limit);
-    let expr = parser.expr()?;
-    parser.finish()?;
-    Ok(expr)
+    let expr = parser
+        .expr()
+        .and_then(|expr| parser.finish().map(|()| expr));
+    parser.strict(expr)
 }
 
 /// `name`, unless it's qualified: a binder, a field or a constructor being
@@ -699,14 +768,17 @@ enum LamParam {
     TypedPattern(Name, Pattern, Expr),
 }
 
-struct Parser<'t> {
-    tokens: &'t [Token],
+/// The parser's modes: the state that says how the tokens ahead are read
+/// (which ones end the current construct), as opposed to where the parser
+/// is. Each construct that sets one saves the old value and puts it back
+/// when it finishes. A recovery point snapshots them all ([`Snapshot`]),
+/// since a construct that fails doesn't put back what it set
+/// (docs/proposals/syntax-error-recovery.md §2.5).
+#[derive(Clone, Copy, Debug, Default)]
+struct Modes {
     /// Whether the item being parsed is in a list literal's brackets, for the
     /// bare-`..` error's note.
     in_list: bool,
-    pos: usize,
-    file: FileId,
-    eof: u32,
     /// Inside a block: its column. A token starting a line at or left of it
     /// ends the current statement, so `peek` doesn't see it.
     limit: Option<u32>,
@@ -730,6 +802,25 @@ struct Parser<'t> {
     /// expression `let`'s body follows it), so it doesn't start a sequence
     /// `a; b` (SW-888). A block resets it.
     let_value: Option<usize>,
+}
+
+/// What a recovery point restores before it carries on past an error
+/// ([`Parser::recover_to`]): the modes, and how many constructs were open
+/// for the marks. The position isn't in it, since recovery only moves
+/// forward; marks recorded since stay, as finished constructs inside the
+/// skipped tokens.
+#[derive(Clone, Copy, Debug)]
+struct Snapshot {
+    modes: Modes,
+    open: usize,
+}
+
+struct Parser<'t> {
+    tokens: &'t [Token],
+    pos: usize,
+    file: FileId,
+    eof: u32,
+    modes: Modes,
     /// For each opening bracket (`(`, `[`, `{`), the index of its partner,
     /// and `NO_PARTNER` for every other token and for unmatched brackets.
     /// Built once per declaration, so that skipping a bracketed group is one
@@ -751,6 +842,11 @@ struct Parser<'t> {
     /// The constructs [`Self::open`] started and [`Self::close`] hasn't
     /// finished, the latest last: where each starts, and its kind.
     open: Vec<(u32, NodeKind)>,
+    /// The syntax errors recovered from so far, in the order met. Nothing
+    /// recovers yet (stage S0 of docs/proposals/syntax-error-recovery.md),
+    /// so it stays empty; the entry points fail on any, as they do on an
+    /// error that unwinds ([`Parser::strict`]).
+    errors: Vec<Diagnostic>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -891,24 +987,18 @@ impl<'t> Parser<'t> {
     fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
         Parser {
-            in_list: false,
             tokens,
             pos: 0,
             file,
             eof,
-            limit: None,
-            allow: None,
-            calc_depth: 0,
-            rewrite_rule: None,
-            guard_start: None,
-            rewrite_at: false,
-            let_value: None,
+            modes: Modes::default(),
             matching: match_brackets(tokens),
             stack,
             keep_header: false,
             header: None,
             marks: None,
             open: Vec::new(),
+            errors: Vec::new(),
         }
     }
 
@@ -1108,24 +1198,24 @@ impl<'t> Parser<'t> {
 
     /// Whether the token at `i` ends the current statement of a block.
     fn is_stop(&self, i: usize) -> bool {
-        if self.calc_depth > 0 && self.starts_calc_step(i) {
+        if self.modes.calc_depth > 0 && self.starts_calc_step(i) {
             return true;
         }
-        if let Some(start) = self.rewrite_rule
+        if let Some(start) = self.modes.rewrite_rule
             && self.ends_rewrite_rule(i, start)
         {
             return true;
         }
-        if let Some(start) = self.guard_start
+        if let Some(start) = self.modes.guard_start
             && self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
             && self.bracket_depth(start, i) <= 0
         {
             return true;
         }
-        let Some(limit) = self.limit else {
+        let Some(limit) = self.modes.limit else {
             return false;
         };
-        self.allow != Some(i)
+        self.modes.allow != Some(i)
             && self
                 .tokens
                 .get(i)
@@ -1153,7 +1243,7 @@ impl<'t> Parser<'t> {
     fn ends_rewrite_rule(&self, i: usize, start: usize) -> bool {
         let word = match self.tokens.get(i).map(|t| &t.tok) {
             Some(Tok::KwIn) => true,
-            Some(Tok::Lower(w)) => w == "at" && self.rewrite_at && i > start,
+            Some(Tok::Lower(w)) => w == "at" && self.modes.rewrite_at && i > start,
             _ => false,
         };
         if !word || (i > 0 && self.tokens[i - 1].tok == Tok::Dot) {
@@ -1189,9 +1279,9 @@ impl<'t> Parser<'t> {
             } else {
                 None
             };
-        let saved = self.guard_start.replace(self.pos);
+        let saved = self.modes.guard_start.replace(self.pos);
         let cond = self.expr();
-        self.guard_start = saved;
+        self.modes.guard_start = saved;
         let cond = cond?;
         self.node(mark, NodeKind::Guard);
         Ok(Some(Guard {
@@ -1402,7 +1492,7 @@ impl<'t> Parser<'t> {
                          left of the enclosing block's column ({}), so it starts a new statement",
                         self.spelled(token),
                         token.column + 1,
-                        self.limit.map_or(0, |l| l + 1)
+                        self.modes.limit.map_or(0, |l| l + 1)
                     ),
                 );
                 return if self.is_infix_only(&token.tok) {
@@ -1582,6 +1672,55 @@ impl<'t> Parser<'t> {
             Err(self.unexpected("the end of the declaration").into())
         } else {
             Ok(())
+        }
+    }
+
+    /// What [`Self::recover_to`] goes back to, taken before a recovery point
+    /// tries the construct it may recover from.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "recovery points come in stage S1")
+    )]
+    fn snapshot(&self) -> Snapshot {
+        Snapshot {
+            modes: self.modes,
+            open: self.open.len(),
+        }
+    }
+
+    /// Undoes what a construct that failed left behind, before the parser
+    /// carries on past it: the modes it set and didn't put back, and the
+    /// operators it opened whose right operand never came. The position
+    /// stays where the error left it, for the recovery point to move on from.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "recovery points come in stage S1")
+    )]
+    fn recover_to(&mut self, snapshot: Snapshot) {
+        self.modes = snapshot.modes;
+        self.open.truncate(snapshot.open);
+    }
+
+    /// Records a syntax error the parser carries on from.
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "recovery points come in stage S1")
+    )]
+    fn report(&mut self, error: Diagnostic) {
+        self.errors.push(error);
+    }
+
+    /// `result`, the outcome of parsing a whole declaration or expression,
+    /// unless an error was recovered from on the way: then the first such
+    /// error, which comes before anything `result` holds, since the parser
+    /// only moves forward. Taken out of [`Self::errors`]; any others stay.
+    /// The entry points that return one error go through this, so they stop
+    /// at the first syntax error whether or not the parser recovered from it.
+    fn strict<T>(&mut self, result: Result<T>) -> Result<T> {
+        if self.errors.is_empty() {
+            result
+        } else {
+            Err(Box::new(self.errors.remove(0)))
         }
     }
 
@@ -2463,11 +2602,11 @@ impl<'t> Parser<'t> {
             return Err(self.unexpected("the ability's operations").into());
         };
         let column = first.column;
-        let saved = (self.limit, self.allow);
-        self.limit = Some(column);
+        let saved = (self.modes.limit, self.modes.allow);
+        self.modes.limit = Some(column);
         let mut ops = Vec::new();
         let result = loop {
-            self.allow = Some(self.pos);
+            self.modes.allow = Some(self.pos);
             let op = (|| -> Result<_> {
                 let start = self.mark();
                 let op = self.lower("an operation name")?;
@@ -2484,7 +2623,7 @@ impl<'t> Parser<'t> {
                 break Ok(());
             }
         };
-        (self.limit, self.allow) = saved;
+        (self.modes.limit, self.modes.allow) = saved;
         result?;
         Ok(Decl::Ability {
             span: start.to(self.prev_span()),
@@ -2593,9 +2732,9 @@ impl<'t> Parser<'t> {
         if let Some(token) = self.tokens.get(self.pos)
             && token.line_start
             && self.pos > 0
-            && self.allow != Some(self.pos)
+            && self.modes.allow != Some(self.pos)
         {
-            match self.limit {
+            match self.modes.limit {
                 None => return self.block(token.column, true),
                 Some(limit) if token.column > limit => return self.block(token.column, true),
                 // A line at the block's own column after a line ending in an
@@ -2610,18 +2749,18 @@ impl<'t> Parser<'t> {
     /// Lines at `column`, each a statement, the last being the result. With
     /// `many` false, just one line.
     fn block(&mut self, column: u32, many: bool) -> Result<Expr> {
-        let saved = (self.limit, self.allow);
+        let saved = (self.modes.limit, self.modes.allow);
         // A new block's lines may be sequences, even inside a `let`'s value;
         // a line continuing the one before (`many` false) stays in it.
-        let let_value = self.let_value;
+        let let_value = self.modes.let_value;
         if many {
-            self.let_value = None;
+            self.modes.let_value = None;
         }
-        self.limit = Some(column);
+        self.modes.limit = Some(column);
         let start = self.mark();
         let mut stmts = Vec::new();
         let result = loop {
-            self.allow = Some(self.pos);
+            self.modes.allow = Some(self.pos);
             match self.statement() {
                 Ok(stmt) => stmts.push(stmt),
                 Err(e) => break Err(e),
@@ -2630,8 +2769,8 @@ impl<'t> Parser<'t> {
                 break Ok(());
             }
         };
-        (self.limit, self.allow) = saved;
-        self.let_value = let_value;
+        (self.modes.limit, self.modes.allow) = saved;
+        self.modes.let_value = let_value;
         result?;
         if stmts.len() > 1 {
             self.node(start, NodeKind::Block);
@@ -2713,8 +2852,12 @@ impl<'t> Parser<'t> {
             // the block's column.
             Some(Tok::At) => {
                 let attrs = self.attributes()?;
-                if self.limit.is_some_and(|column| self.starts_line_at(column)) {
-                    self.allow = Some(self.pos);
+                if self
+                    .modes
+                    .limit
+                    .is_some_and(|column| self.starts_line_at(column))
+                {
+                    self.modes.allow = Some(self.pos);
                 }
                 if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
                     return Err(misplaced_attributes(
@@ -2847,9 +2990,9 @@ impl<'t> Parser<'t> {
                 .into());
         }
         self.expect(Tok::ColonEq, "`:=`")?;
-        let outer = self.let_value.replace(start_index);
+        let outer = self.modes.let_value.replace(start_index);
         let value = self.expr();
-        self.let_value = outer;
+        self.modes.let_value = outer;
         let value = value?;
         self.node(start_index as u32, NodeKind::Let);
         Ok(match pattern {
@@ -3617,9 +3760,9 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn calc_expr(&mut self, start: Span) -> Result<Expr> {
         let indent = self.line_indent(self.pos - 1);
-        self.calc_depth += 1;
+        self.modes.calc_depth += 1;
         let result = self.calc_body(start, indent);
-        self.calc_depth -= 1;
+        self.modes.calc_depth -= 1;
         result
     }
 
@@ -3659,7 +3802,7 @@ impl<'t> Parser<'t> {
             && token.tok == Tok::Underscore
             && token.line_start
             && token.column > indent
-            && self.limit.is_none_or(|limit| token.column > limit)
+            && self.modes.limit.is_none_or(|limit| token.column > limit)
         {
             match column {
                 None => column = Some(token.column),
@@ -3761,9 +3904,9 @@ impl<'t> Parser<'t> {
     /// inside the target).
     #[inline(never)]
     fn rewrite_expr(&mut self, start: Span) -> Result<Expr> {
-        let saved = (self.rewrite_rule.take(), self.rewrite_at);
+        let saved = (self.modes.rewrite_rule.take(), self.modes.rewrite_at);
         let result = self.rewrite_body(start);
-        (self.rewrite_rule, self.rewrite_at) = saved;
+        (self.modes.rewrite_rule, self.modes.rewrite_at) = saved;
         result
     }
 
@@ -3780,10 +3923,10 @@ impl<'t> Parser<'t> {
                 self.bump();
                 self.bump();
             }
-            self.rewrite_rule = Some(self.pos);
-            self.rewrite_at = true;
+            self.modes.rewrite_rule = Some(self.pos);
+            self.modes.rewrite_at = true;
             let proof = self.append_expr();
-            self.rewrite_rule = None;
+            self.modes.rewrite_rule = None;
             let proof = proof?;
             rules.push(RewriteRule {
                 reverse,
@@ -3803,10 +3946,10 @@ impl<'t> Parser<'t> {
             if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
                 return Err(rewrite_at_without_target(at).into());
             }
-            self.rewrite_rule = Some(self.pos);
-            self.rewrite_at = false;
+            self.modes.rewrite_rule = Some(self.pos);
+            self.modes.rewrite_at = false;
             let target = self.append_expr();
-            self.rewrite_rule = None;
+            self.modes.rewrite_rule = None;
             Some(Box::new(target?))
         } else {
             None
@@ -3999,7 +4142,7 @@ impl<'t> Parser<'t> {
     /// brackets opened since that `let`.
     #[inline(never)]
     fn sequence_ahead(&self) -> bool {
-        let Some(start) = self.let_value else {
+        let Some(start) = self.modes.let_value else {
             return true;
         };
         let depth = self.tokens[start..self.pos]
@@ -4820,7 +4963,7 @@ impl<'t> Parser<'t> {
             "a range is `a ..< b` (up to, not including, `b`) or `a ..= b` (through `b`)",
         )
         .with_label(self.here(), "write `..<` or `..=` here");
-        if self.in_list {
+        if self.modes.in_list {
             d = d.with_note(
                 "inside brackets, a spread is `[2, ..n]` (with a comma), and a range needs no \
                  brackets: `2 ..< n` is already a list",
@@ -5308,9 +5451,9 @@ impl<'t> Parser<'t> {
     /// An element, or a `..xs` spread (docs/proposals/list-spread.md): a
     /// list joined in at that place.
     fn list_expr_item(&mut self) -> Result<Expr> {
-        let outer = std::mem::replace(&mut self.in_list, true);
+        let outer = std::mem::replace(&mut self.modes.in_list, true);
         let item = self.list_expr_item_inner();
-        self.in_list = outer;
+        self.modes.in_list = outer;
         item
     }
 
@@ -6018,6 +6161,71 @@ mod tests {
         let mut sources = SourceMap::new();
         let file = sources.add("test.sw", text);
         parse_expression(file, text)
+    }
+
+    /// A parser over `text`'s tokens, recording marks.
+    fn with_parser<T>(text: &str, run: impl FnOnce(&mut Parser<'_>) -> T) -> T {
+        let file = SourceMap::new().next_id();
+        let tokens = lex(file, text).unwrap();
+        let mut parser = Parser::new(
+            &tokens,
+            file,
+            text.len(),
+            StackLimit::from_here(DEFAULT_STACK),
+        );
+        parser.marks = Some(Vec::new());
+        run(&mut parser)
+    }
+
+    /// `recover_to` puts back every mode and drops the constructs a failed
+    /// parse left open, and leaves the position and the finished marks.
+    #[test]
+    fn recover_to_restores_the_modes_and_the_open_constructs() {
+        with_parser("a + b * c", |parser| {
+            parser.modes.limit = Some(2);
+            parser.open.push((0, NodeKind::Binary));
+            let snapshot = parser.snapshot();
+            parser.modes = Modes {
+                in_list: true,
+                limit: Some(4),
+                allow: Some(1),
+                calc_depth: 3,
+                rewrite_rule: Some(1),
+                guard_start: Some(2),
+                rewrite_at: true,
+                let_value: Some(0),
+            };
+            parser.open.push((2, NodeKind::Binary));
+            parser.open.push((4, NodeKind::Binary));
+            parser.pos = 3;
+            parser.record(2, NodeKind::App);
+            parser.recover_to(snapshot);
+            assert_eq!(
+                format!("{:?}", parser.modes),
+                format!("{:?}", snapshot.modes)
+            );
+            assert_eq!(parser.modes.limit, Some(2));
+            assert_eq!(parser.open, [(0, NodeKind::Binary)]);
+            assert_eq!(parser.pos, 3);
+            assert_eq!(parser.marks.as_ref().map(Vec::len), Some(1));
+        });
+    }
+
+    /// An error recovered from fails the entry points as if it had
+    /// unwound, ahead of one that did (stage S0: nothing recovers yet).
+    #[test]
+    fn strict_fails_on_an_error_recovered_from() {
+        with_parser("a b", |parser| {
+            assert!(parser.strict(Ok(())).is_ok());
+            parser.report(error(parser.here(), "first"));
+            parser.report(error(parser.here(), "second"));
+            let unwound: Result<()> = Err(Box::new(error(parser.here(), "unwound")));
+            let failed = parser.strict(unwound).unwrap_err();
+            assert_eq!(failed.message, "first");
+            let failed = parser.strict(Ok(())).unwrap_err();
+            assert_eq!(failed.message, "second");
+            assert!(parser.strict(Ok(())).is_ok());
+        });
     }
 
     #[test]

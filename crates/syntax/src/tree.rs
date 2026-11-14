@@ -89,13 +89,19 @@
 //!
 //! # Errors
 //!
-//! A declaration that doesn't parse is, for now, one [`NodeKind::Error`]
-//! node holding its tokens flat, and a file that doesn't lex has no tree.
-//! The end state (D3563, SW-3161) keeps going inside a declaration: a
-//! parsing function that meets an error marks an `Error` node around the
-//! tokens it skips and carries on, so a broken declaration's tree is whole
-//! but for the `Error` nodes, wherever in it they fall; the lowering turns
-//! each into a hole. Nothing here assumes an `Error` node is a root.
+//! A declaration that doesn't parse is, for now, an [`NodeKind::Error`]
+//! root: the constructs finished before the error keep their nodes (a
+//! definition's header, say), and the rest of its tokens are flat under the
+//! root. A declaration that doesn't lex has no tokens: it is an `Error` root
+//! with no children over its raw text ([`Node::raw_text_range`]), which
+//! the round trip reads back like the text between tokens, so the rest of
+//! the file still has its tree. The end state
+//! (docs/proposals/syntax-error-recovery.md, D3563) keeps going inside a
+//! declaration: a parsing function that meets an error marks an `Error` node
+//! around the tokens it skips and carries on, so a broken declaration's tree
+//! is whole but for the `Error` nodes, wherever in it they fall; the
+//! lowering turns each into a hole. Nothing here assumes an `Error` node is
+//! a root.
 
 use crate::lexer::{Comment, Token, Trivia};
 use std::ops::Range;
@@ -342,6 +348,9 @@ pub(crate) struct DeclMarks {
     /// The declaration's kind; `Error` if it didn't parse.
     pub(crate) root: NodeKind,
     pub(crate) marks: Vec<Mark>,
+    /// For a declaration that didn't lex, which has no tokens (`tokens` is
+    /// empty, at the first token after it): the bytes it covers.
+    pub(crate) raw: Option<Range<u32>>,
 }
 
 /// One node, stored flat: see the module's notes.
@@ -361,6 +370,8 @@ struct NodeData {
 #[derive(Clone, Debug)]
 struct DeclTree {
     nodes: Vec<NodeData>,
+    /// [`DeclMarks::raw`].
+    raw: Option<Range<u32>>,
 }
 
 /// The lossless tree of a file: its tokens with their trivia, and a tree for
@@ -405,6 +416,8 @@ pub struct TreeStats {
     pub decls: usize,
     /// Declarations that didn't parse.
     pub errors: usize,
+    /// Those of them that didn't lex: an `Error` root over raw text.
+    pub unlexed: usize,
     pub nodes: usize,
     /// Marks the builder left out because they crossed another's range.
     pub dropped: usize,
@@ -458,7 +471,9 @@ impl SyntaxFile {
     /// The file's text, read back from the tree: each leaf in tree order,
     /// with the source text between it and the leaf before. `source` is the
     /// text the tree was parsed from; only the gaps between tokens are read
-    /// from it besides the tokens themselves.
+    /// from it besides the tokens themselves. A declaration that didn't lex
+    /// is in such a gap, and [`Self::check_round_trip`] checks that the
+    /// gap holds only it, comments and whitespace.
     pub fn text(&self, source: &str) -> String {
         let mut out = String::with_capacity(source.len());
         let mut at = 0usize;
@@ -501,6 +516,21 @@ impl SyntaxFile {
                 self.tokens.len()
             ));
         }
+        let mut raws: Vec<Range<usize>> = self
+            .decls
+            .iter()
+            .filter_map(|decl| decl.raw.as_ref())
+            .map(|raw| raw.start as usize..raw.end as usize)
+            .collect();
+        raws.sort_by_key(|raw| raw.start);
+        let mut raws = raws.as_slice();
+        // The raw declarations that end by `to`, taken off the front.
+        let mut raws_until = |to: usize| {
+            let n = raws.partition_point(|raw| raw.end <= to);
+            let (now, later) = raws.split_at(n);
+            raws = later;
+            now
+        };
         let mut at = 0usize;
         for (i, token) in self.tokens.iter().enumerate() {
             let before = i
@@ -508,7 +538,7 @@ impl SyntaxFile {
                 .and_then(|p| self.trivia[p].trailing.as_ref());
             let comments = before.into_iter().chain(&self.trivia[i].leading);
             let range = token.span.start as usize..token.span.end as usize;
-            check_gap(source, at, range.start, comments)
+            check_gap(source, at, range.start, comments, raws_until(range.start))
                 .map_err(|e| format!("before token {i}: {e}"))?;
             at = range.end;
         }
@@ -518,8 +548,15 @@ impl SyntaxFile {
             at,
             source.len(),
             last.into_iter().chain(&self.eof.leading),
+            raws_until(source.len()),
         )
         .map_err(|e| format!("at the end: {e}"))?;
+        if let Some(raw) = raws.first() {
+            return Err(format!(
+                "the declaration that didn't lex at byte {} is inside a token",
+                raw.start
+            ));
+        }
         let text = self.text(source);
         if text != source {
             let at = text
@@ -541,6 +578,9 @@ impl SyntaxFile {
         for decl in &self.decls {
             if decl.nodes[0].kind == NodeKind::Error {
                 stats.errors += 1;
+            }
+            if decl.raw.is_some() {
+                stats.unlexed += 1;
             }
             stats.nodes += decl.nodes.len();
         }
@@ -565,6 +605,14 @@ fn dump_node(node: Node<'_>, source: &str, depth: usize, out: &mut String) {
         node.kind(),
         indent = depth * 2
     ));
+    if let Some(raw) = node.raw_text_range() {
+        out.push_str(&format!(
+            "{:indent$}{:?} (didn't lex)\n",
+            "",
+            source[raw].trim_end(),
+            indent = (depth + 1) * 2
+        ));
+    }
     for child in node.children() {
         match child {
             Element::Node(n) => dump_node(n, source, depth + 1, out),
@@ -580,17 +628,39 @@ fn dump_node(node: Node<'_>, source: &str, depth: usize, out: &mut String) {
     }
 }
 
-/// Checks that `source[from..to]` is whitespace and `comments`, in order.
+/// Checks that `source[from..to]` is whitespace, `comments` and the
+/// declarations that didn't lex (`raws`), each list in order.
 fn check_gap<'c>(
     source: &str,
     from: usize,
     to: usize,
     comments: impl Iterator<Item = &'c Comment>,
+    raws: &[Range<usize>],
 ) -> Result<(), String> {
     let blank = |s: &str| s.bytes().all(|b| matches!(b, b' ' | b'\n' | b'\r'));
     let mut at = from;
+    let mut raws = raws.iter().peekable();
+    // Steps over the raw declarations that start before `until`.
+    let mut skip_raws = |at: &mut usize, until: usize| -> Result<(), String> {
+        while let Some(raw) = raws.next_if(|raw| raw.start < until) {
+            if raw.start < *at {
+                return Err(format!(
+                    "the declaration that didn't lex at byte {} overlaps a token or a comment",
+                    raw.start
+                ));
+            }
+            if !blank(&source[*at..raw.start]) {
+                return Err(format!(
+                    "text at byte {at} is neither a token nor a comment"
+                ));
+            }
+            *at = raw.end;
+        }
+        Ok(())
+    };
     for comment in comments {
         let (start, end) = (comment.span.start as usize, comment.span.end as usize);
+        skip_raws(&mut at, start)?;
         if start < at || end > to {
             return Err(format!("a comment at byte {start} is outside its gap"));
         }
@@ -604,6 +674,7 @@ fn check_gap<'c>(
         }
         at = end;
     }
+    skip_raws(&mut at, to)?;
     if !blank(&source[at..to]) {
         return Err(format!(
             "text at byte {at} is neither a token nor a comment"
@@ -615,16 +686,12 @@ fn check_gap<'c>(
 /// Nests one declaration's marks into its tree.
 fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
     let offset = group.tokens.start;
-    let mut marks: Vec<(usize, Mark)> = if group.root == NodeKind::Error {
-        Vec::new()
-    } else {
-        group
-            .marks
-            .into_iter()
-            .filter(|m| m.start < m.end)
-            .enumerate()
-            .collect()
-    };
+    let mut marks: Vec<(usize, Mark)> = group
+        .marks
+        .into_iter()
+        .filter(|m| m.start < m.end)
+        .enumerate()
+        .collect();
     // Outer first: by start, then the longest, then the one finished last.
     marks.sort_by(|(i, a), (j, b)| a.start.cmp(&b.start).then(b.end.cmp(&a.end)).then(j.cmp(i)));
     let root = NodeData {
@@ -666,7 +733,10 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
     for open in stack {
         nodes[open].subtree_end = total;
     }
-    DeclTree { nodes }
+    DeclTree {
+        nodes,
+        raw: group.raw,
+    }
 }
 
 impl<'f> Node<'f> {
@@ -678,10 +748,22 @@ impl<'f> Node<'f> {
         self.data().kind
     }
 
-    /// The tokens it covers, as indices into [`SyntaxFile::tokens`].
+    /// The tokens it covers, as indices into [`SyntaxFile::tokens`]. Empty
+    /// for a declaration that didn't lex ([`Self::raw_text_range`]).
     pub fn token_range(&self) -> Range<usize> {
         let data = self.data();
         data.start as usize..data.end as usize
+    }
+
+    /// For the root of a declaration that didn't lex: the bytes of its
+    /// text, which no token holds. Such a root is an `Error` node with no
+    /// children, whose empty token range is at the first token after it.
+    pub fn raw_text_range(&self) -> Option<Range<usize>> {
+        if self.index != 0 {
+            return None;
+        }
+        let raw = self.file.decls[self.decl as usize].raw.as_ref()?;
+        Some(raw.start as usize..raw.end as usize)
     }
 
     /// Its child nodes and its own tokens, in source order.
@@ -780,7 +862,7 @@ mod tests {
 
     fn tree(text: &str) -> SyntaxFile {
         let file = SourceMap::new().next_id();
-        crate::parse_tree(file, text, crate::DEFAULT_STACK).expect("it lexes")
+        crate::parse_tree(file, text, crate::DEFAULT_STACK)
     }
 
     #[test]
@@ -802,7 +884,7 @@ mod tests {
             let (module, errors) =
                 crate::parse_module_recovering(file, &text, crate::DEFAULT_STACK);
             let (marked, marked_errors, _) =
-                parse_module_and_tree(file, &text, crate::DEFAULT_STACK).expect("it lexes");
+                parse_module_and_tree(file, &text, crate::DEFAULT_STACK);
             assert_eq!(format!("{module:?}"), format!("{marked:?}"), "{path}");
             assert_eq!(
                 format!("{errors:?}"),
@@ -817,8 +899,7 @@ mod tests {
         for path in SAMPLES {
             let text = sample(path);
             let file = SourceMap::new().next_id();
-            let (module, _, tree) =
-                parse_module_and_tree(file, &text, crate::DEFAULT_STACK).expect("it lexes");
+            let (module, _, tree) = parse_module_and_tree(file, &text, crate::DEFAULT_STACK);
             let check = tree.check_spans(&module);
             let misses: Vec<_> = check
                 .misses
@@ -853,8 +934,7 @@ def h (xs: List Nat): Nat := match xs with
 theorem t ∀ (n: Nat): ∃ (m k: Nat) => m = n + k := xs |> .map h
 "#;
         let file = SourceMap::new().next_id();
-        let (module, errors, tree) =
-            parse_module_and_tree(file, text, crate::DEFAULT_STACK).expect("it lexes");
+        let (module, errors, tree) = parse_module_and_tree(file, text, crate::DEFAULT_STACK);
         assert!(errors.is_empty(), "{errors:?}");
         let check = tree.check_spans(&module);
         let misses: Vec<_> = check
@@ -892,8 +972,7 @@ theorem t ∀ (n: Nat): ∃ (m k: Nat) => m = n + k := xs |> .map h
         use crate::ast::{Decl, Expr, Name};
         let text = "def x: Nat := f (g a) b\n";
         let file = SourceMap::new().next_id();
-        let (mut module, _, tree) =
-            parse_module_and_tree(file, text, crate::DEFAULT_STACK).expect("it lexes");
+        let (mut module, _, tree) = parse_module_and_tree(file, text, crate::DEFAULT_STACK);
         assert!(tree.check_spans(&module).misses.is_empty());
         let at = |s: &str| text.find(s).unwrap() as u32;
         // `f (g`, and `(g a` (which is `(g a)` but for its bracket).
@@ -1067,6 +1146,83 @@ def f (n: Nat): Nat :=
         assert_eq!((stats.decls, stats.errors), (2, 1));
         let kinds: Vec<NodeKind> = tree.decls().map(|d| d.kind()).collect();
         assert_eq!(kinds, [NodeKind::Error, NodeKind::Def]);
+    }
+
+    /// The constructs finished before the error keep their nodes, under the
+    /// `Error` root: here the header of a definition whose body broke.
+    #[test]
+    fn a_broken_body_keeps_its_headers_nodes() {
+        let text = "def f (n: Nat): Nat := (n +\n";
+        let tree = tree(text);
+        let stats = tree.check_round_trip(text).unwrap();
+        assert_eq!((stats.errors, stats.dropped), (1, 0), "{stats:?}");
+        let root = tree.decls().next().unwrap();
+        assert_eq!(
+            compact(root, text),
+            "Error[def f Param[( n : Nat )] ResultType[: Nat] := ( n +]"
+        );
+    }
+
+    /// A declaration that doesn't lex is an `Error` root over its raw
+    /// text, in its place among the others, and the file still reads back.
+    #[test]
+    fn a_declaration_that_does_not_lex_is_raw_text() {
+        let text = "\
+def f: Nat := 1
+
+-- About g.
+def g: Text := \"no end
+  more
+
+-- About h.
+def h: Nat := 2
+";
+        let tree = tree(text);
+        let stats = tree.check_round_trip(text).unwrap();
+        assert_eq!(
+            (stats.decls, stats.errors, stats.unlexed, stats.dropped),
+            (3, 1, 1, 0),
+            "{stats:?}"
+        );
+        let kinds: Vec<NodeKind> = tree.decls().map(|d| d.kind()).collect();
+        assert_eq!(kinds, [NodeKind::Def, NodeKind::Error, NodeKind::Def]);
+        let raw = tree.decls().nth(1).unwrap();
+        assert_eq!(raw.children().count(), 0);
+        assert_eq!(
+            &text[raw.raw_text_range().unwrap()],
+            "def g: Text := \"no end\n  more\n\n"
+        );
+        assert_eq!(raw.token_range(), 6..6);
+        assert_eq!(tree.decls().nth(2).unwrap().raw_text_range(), None);
+        assert!(
+            tree.dump(text)
+                .contains("Error\n  \"def g: Text := \\\"no end\\n  more\" (didn't lex)\n")
+        );
+        // The module and errors are those of the parse without the tree.
+        let file = SourceMap::new().next_id();
+        let (module, errors) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);
+        let (marked, marked_errors, tree) = parse_module_and_tree(file, text, crate::DEFAULT_STACK);
+        assert_eq!(format!("{module:?}"), format!("{marked:?}"));
+        assert_eq!(format!("{errors:?}"), format!("{marked_errors:?}"));
+        assert_eq!(errors.len(), 1);
+        assert!(tree.check_spans(&module).misses.is_empty());
+    }
+
+    /// At the end of the file, and as the whole file.
+    #[test]
+    fn a_last_or_only_declaration_that_does_not_lex_reads_back() {
+        for text in [
+            "def f: Nat := 1\ndef g: Text := \"no end\n",
+            "def g: Text := \"no end",
+            "def f: Nat := 1\n-- note\ndef g := `\n-- after\n",
+        ] {
+            let tree = tree(text);
+            let stats = tree
+                .check_round_trip(text)
+                .unwrap_or_else(|e| panic!("{text:?}: {e}"));
+            assert_eq!(stats.unlexed, 1, "{text:?}");
+            assert_eq!(tree.decls().last().unwrap().kind(), NodeKind::Error);
+        }
     }
 
     /// A node on one line, `Kind[child child]`, a token as its text.

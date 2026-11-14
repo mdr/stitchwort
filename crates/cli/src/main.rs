@@ -5047,7 +5047,7 @@ fn tree_command(
                 let start = std::time::Instant::now();
                 for text in &texts {
                     if tree {
-                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, STACK).ok());
+                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, STACK));
                     } else {
                         std::hint::black_box(stitchwort_syntax::parse_module_recovering(
                             id, text, STACK,
@@ -5071,17 +5071,11 @@ fn tree_command(
         return ExitCode::SUCCESS;
     }
     let mut total = stitchwort_syntax::tree::TreeStats::default();
-    let (mut failed, mut unlexed) = (0, 0);
+    let mut failed = 0;
     let (mut checked, mut misses, mut unparsed) = (0, 0, 0);
     let mut synthetic = std::collections::BTreeMap::new();
     for (file, text) in files.iter().zip(&texts) {
-        let (module, tree) = match stitchwort_syntax::parse_module_and_tree(id, text, STACK) {
-            Ok((module, _, tree)) => (module, tree),
-            Err(_) => {
-                unlexed += 1;
-                continue;
-            }
-        };
+        let (module, _, tree) = stitchwort_syntax::parse_module_and_tree(id, text, STACK);
         if print {
             println!("{}:\n{}", file.display(), tree.dump(text));
         }
@@ -5089,6 +5083,7 @@ fn tree_command(
             Ok(stats) => {
                 total.decls += stats.decls;
                 total.errors += stats.errors;
+                total.unlexed += stats.unlexed;
                 total.nodes += stats.nodes;
                 total.dropped += stats.dropped;
             }
@@ -5125,11 +5120,12 @@ fn tree_command(
         }
     }
     println!(
-        "{} files ({failed} not read back, {unlexed} not lexed): {} declarations ({} not parsed), \
-         {} nodes, {} marks dropped",
+        "{} files ({failed} not read back): {} declarations ({} not parsed, {} of them not \
+         lexed), {} nodes, {} marks dropped",
         files.len(),
         total.decls,
         total.errors,
+        total.unlexed,
         total.nodes,
         total.dropped
     );

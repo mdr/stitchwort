@@ -34,7 +34,7 @@ pub struct SpanCheck {
     pub synthetic: BTreeMap<Synthetic, usize>,
     /// Spans in declarations that didn't parse, which the compiler's tree
     /// keeps part of (a signature whose body failed) and whose lossless
-    /// tree is one `Error` node.
+    /// tree's root is an `Error` node.
     pub unparsed: usize,
     /// Spans that are no node's range and not a single token.
     pub misses: Vec<SpanMiss>,
@@ -922,6 +922,9 @@ impl SyntaxFile {
             .iter()
             .filter(|decl| decl.nodes[0].kind == NodeKind::Error)
             .filter_map(|decl| {
+                if let Some(raw) = &decl.raw {
+                    return Some((raw.start, raw.end));
+                }
                 let (start, end) = (decl.nodes[0].start as usize, decl.nodes[0].end as usize);
                 let first = self.tokens.get(start)?;
                 let last = self.tokens.get(end.checked_sub(1)?)?;

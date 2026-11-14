@@ -290,7 +290,7 @@ impl Parser<'_> {
                 .get(self.pos)
                 .is_some_and(|t| t.tok == Tok::ColonEq && t.line_start)
             {
-                self.allow = Some(self.pos);
+                self.modes.allow = Some(self.pos);
             }
             Some(Box::new(measure))
         } else {
@@ -325,7 +325,7 @@ impl Parser<'_> {
                 .get(self.pos)
                 .is_some_and(|t| t.tok == Tok::ColonEq && t.line_start)
             {
-                self.allow = Some(self.pos);
+                self.modes.allow = Some(self.pos);
             }
         }
         if self.peek() == Some(&Tok::KwDecreasing) && !unfolding.is_empty() {
@@ -682,11 +682,11 @@ impl Parser<'_> {
         }
         let (column, first_span) = (first.column, first.span);
         let arms = self.mark();
-        let saved = (self.limit, self.allow);
-        self.limit = Some(column);
+        let saved = (self.modes.limit, self.modes.allow);
+        self.modes.limit = Some(column);
         let result = (|| -> Result<()> {
             loop {
-                self.allow = Some(self.pos);
+                self.modes.allow = Some(self.pos);
                 decls.push(self.arm(name, header)?);
                 let Some(next) = self.tokens.get(self.pos) else {
                     return Ok(());
@@ -727,7 +727,7 @@ impl Parser<'_> {
                 }
             }
         })();
-        (self.limit, self.allow) = saved;
+        (self.modes.limit, self.modes.allow) = saved;
         result?;
         self.node(arms, NodeKind::Arms);
         Ok(())
