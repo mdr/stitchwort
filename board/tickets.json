@@ -34991,15 +34991,17 @@
     {
       "id": 3207,
       "title": "[Opus] Lowering L0 (docs/proposals/syntax-tree-lowering.md): Scaffolding: lower module, dispatch with unsupported, dev tree --lower (exact comparison, diagnostics, per-kind counts), Expression root, marks under Error roots",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 5.5 h (Opus). D3574, D3575 decided.",
+      "body": "Expected: 5.5 h (Opus). D3574, D3575 decided.\n\nProgress (lane, 14 Nov): done in about 20 min, commit 52588abb2 on lane/SW-3207 (on main 836cfb748, after SW-1982).\n- crates/syntax/src/lower/: dispatch with Unsupported (per kind; FailedDefinition for a failed def/theorem, L2's), accessors (child_nodes, own_leaves, after(tok), child(kind), span, required), lowering of Namespace, Import, Test, Error roots (failed names, raw unlexed roots too) and single-token expressions.\n- lower::oracle + `stitchwort dev tree --lower`: per-declaration {:#?} with spans, doc links, diagnostics, whole module when all lowered, one-line bodies as expressions; per-kind meter; exit 1 on differences.\n- Expression root kind, parse_expression_tree; SyntaxFile keeps bars (doc links).\n- Gate over crates aoc games examples docs web dev sf bench (2,980 files): 4,272 of 30,664 declarations lowered, 0 differences; 2,398 of 14,498 one-line bodies; dev tree --spans unchanged (989,469 spans, same synthetic counts).\n- Not built: --cuts (no S5 corpus), Expr::Missing / Missing span reason (error-node lowering is its own lane after L4), a StackLimit in Lower (L1 when recursion starts).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "52588abb2"
+      ]
     },
     {
       "id": 3208,
