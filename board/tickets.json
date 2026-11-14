@@ -35239,7 +35239,7 @@
     {
       "id": 3223,
       "title": "[Sonnet] A merge-time guard on std's import cost: a step-count test (or bench row with a tight threshold) for a one-line 'import Std (List)' / '(Nat)' program, so an expensive std proof (like SW-3067's omega-proved List.inRangeReads, +860k steps for every importer) fails at merge; also measure each new @[reading] proof's cost once (SW-3221 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
