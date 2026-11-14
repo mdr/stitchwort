@@ -255,7 +255,8 @@ mod tests {
 
     /// Namespaces, imports, tests with leaf bodies and declarations that
     /// fail come out of the lowering as the parser builds them, spans
-    /// included; the rest are counted as unsupported, not as differences.
+    /// included; the rest are counted as unsupported, not as differences,
+    /// under the first kind the lowering can't lower yet (`def g`'s body).
     #[test]
     fn the_simplest_declarations_lower_as_parsed() {
         let text = "\
@@ -269,7 +270,7 @@ test \"name\" := x
 test \"hole\" := _
 test \"type\" := Type
 test \"text\" := \"t\"
-def g: Nat := 1
+def g: Nat := f 1
 type T = | A
 ";
         let report = report(text);
@@ -277,15 +278,14 @@ type T = | A
         use NodeKind::*;
         assert_eq!(
             report.lowered,
-            [Namespace, Import, Import, Test, Test, Test, Test, Test]
+            [
+                Namespace, Import, Import, Test, Test, Test, Test, Test, DataType
+            ]
         );
-        assert_eq!(
-            report.unsupported,
-            [Unsupported::Kind(Def), Unsupported::Kind(DataType)]
-        );
-        // The bodies, on their own; `def g`'s too.
+        assert_eq!(report.unsupported, [Unsupported::Kind(App)]);
+        // The bodies, on their own; `def g`'s too, not lowered yet.
         assert_eq!(report.expressions.checked, 6);
-        assert_eq!(report.expressions.lowered, 6);
+        assert_eq!(report.expressions.lowered, 5);
     }
 
     /// A file the lowering lowers whole is compared as a whole module too,
@@ -309,8 +309,8 @@ type T = | A
     }
 
     /// Declarations that don't parse, or don't lex, lower to their names
-    /// as failed, marked with their first error; a definition that fails is
-    /// lane L2's.
+    /// as failed, marked with their first error; a definition whose header
+    /// parsed, to its signature.
     #[test]
     fn failed_declarations_lower_to_their_names() {
         let text = "\
@@ -321,8 +321,8 @@ def f: Nat := (
 ";
         let report = report(text);
         assert_eq!(differences(&report), Vec::<String>::new());
-        assert_eq!(report.lowered, [NodeKind::Error; 3]);
-        assert_eq!(report.unsupported, [Unsupported::FailedDefinition]);
+        assert_eq!(report.lowered, [NodeKind::Error; 4]);
+        assert!(report.unsupported.is_empty());
         // A file whose first declaration isn't at the start of a line is
         // one error and an empty module.
         let unsplit = super::tests::report("  test \"x\" := 1\n--| [`x`]\n");

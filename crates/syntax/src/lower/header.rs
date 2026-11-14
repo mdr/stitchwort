@@ -102,7 +102,6 @@ fn header_defaults(params: &[Param]) -> Vec<&Expr> {
         .collect()
 }
 
-
 /// Whether `body` is the `match` of a clause lambda written as it is
 /// (`match | …`, `match some | …`, `matches | …`).
 pub(crate) fn clause_match(body: &Expr) -> bool {
@@ -114,4 +113,3 @@ pub(crate) fn clause_match(body: &Expr) -> bool {
         }
     )
 }
-

@@ -126,7 +126,8 @@ impl<'f> Lower<'f> {
                     NodeKind::Param => params.push(self.param(node)?),
                     NodeKind::ResultType => {
                         let ty = node.after(&Tok::Colon);
-                        result = Some(self.expr(required(ty, NodeKind::ResultType, "its type")?)?);
+                        result =
+                            Some(self.expr(required(ty, NodeKind::ResultType, "its type")?)?);
                     }
                     _ => break,
                 },
@@ -280,7 +281,9 @@ impl<'f> Lower<'f> {
     /// The attributes written as groups `@[a, b "x"] @[c]` among `node`'s
     /// children, in order.
     pub(super) fn attributes(&self, node: Node<'f>) -> Lowering<Vec<Attribute>> {
-        let groups = node.child_nodes().filter(|n| n.kind() == NodeKind::Attributes);
+        let groups = node
+            .child_nodes()
+            .filter(|n| n.kind() == NodeKind::Attributes);
         attributes_in(groups)
     }
 
@@ -343,4 +346,128 @@ pub(super) fn as_leaf<'f>(element: &Element<'f>) -> Option<Leaf<'f>> {
 
 fn as_leaf_opt(element: Option<Element<'_>>) -> Option<Leaf<'_>> {
     as_leaf(&element?)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::SourceMap;
+    use crate::lower::oracle::{Report, compare};
+    use crate::tree::NodeKind;
+
+    fn report(text: &str) -> Report {
+        compare(SourceMap::new().next_id(), text, crate::DEFAULT_STACK, true)
+    }
+
+    fn differences(report: &Report) -> Vec<String> {
+        let at =
+            |d: &crate::lower::oracle::Difference| format!("{} at {}:\n{}", d.what, d.at, d.detail);
+        report.differences.iter().map(at).collect()
+    }
+
+    /// Every kind of declaration and header part comes out of the lowering
+    /// as the parser builds it, spans included: attributes, `export` and
+    /// `opaque`, each kind of parameter and its default, a theorem's `∀`,
+    /// `decreasing` and `unfolding`, arms with guards and an absurd one,
+    /// data types with indices, constructors in brackets and braces,
+    /// records, synonyms, interfaces, abilities, function types and rows.
+    #[test]
+    fn declarations_and_headers_lower_as_parsed() {
+        let text = "\
+@[inline] @[a.b \"c\", d] export def f (x y: Nat) [a: Type] (z: Nat := 3) (): Nat := x
+opaque def o: Nat := 1
+export opaque def o2: Nat := 1
+theorem t ∀ (x: Nat) [auto h: P] [auto Q]: P decreasing x unfolding g, H := h
+def g (x: Nat): Nat
+  | Zero => x
+  | n if n => n
+  | 'c' if h: m => h
+  | 3, _ => h
+  | ()
+def prim: Type
+@[js.tag \"t\"] type T (a: Type) [auto o: O] : Nat -> (n: Nat) -> Type =
+  | A
+  | @[x \"y\"] B (x: Nat := 1) [y: a] : T
+  | C { f: Nat, g: Nat := 2 }
+  | D [k: Nat] { f: Nat }
+type E
+type R = { x: Nat := 1, @[q.r \"s\"] y: Nat }
+type S (a: Type) [auto o: O] : Type = a
+@[inline] type S2 = Nat
+interface I (a: Type) = { op: a, op2: a := op }
+ability St (s: Type) where
+  get: (u: Nat) -> {St} s
+  put: (x: s) -> {St, r} Nat
+instance i: I := x
+def e: {IO | r} Nat := x
+def e2: {} Nat := x
+def ft: (x: Nat) -> [y: Type] -> [auto Q] -> Nat := ft
+";
+        let report = report(text);
+        assert_eq!(differences(&report), Vec::<String>::new());
+        assert!(report.unsupported.is_empty(), "{:?}", report.unsupported);
+        use NodeKind::*;
+        assert_eq!(
+            report.lowered,
+            [
+                Def,
+                Def,
+                Def,
+                Theorem,
+                Def,
+                Def,
+                DataType,
+                DataType,
+                RecordType,
+                TypeSynonym,
+                TypeSynonym,
+                Interface,
+                Ability,
+                Instance,
+                Def,
+                Def,
+                Def
+            ]
+        );
+    }
+
+    /// A definition that doesn't parse keeps its signature when its header
+    /// parsed, with where its first error is, and its attributes (not those
+    /// in its body); when its header didn't parse, it gives its name as
+    /// failed.
+    #[test]
+    fn a_failed_definition_keeps_its_signature_if_its_header_parsed() {
+        let text = "\
+def bad (x: Nat): Nat := (
+@[a] def bad2 (x: Nat): Nat decreasing x
+  | Zero => (
+theorem bad3 (x: Nat): x := h
+  | Zero => x
+def bad4 (x x: Nat): Nat := x
+def bad5 (x: Nat): Nat := x where
+def bad6 (x: Nat): Nat :=
+  @[tailrec]
+  x
+def bad7 (x: Nat) Nat := x
+";
+        let report = report(text);
+        assert_eq!(differences(&report), Vec::<String>::new());
+        assert!(report.unsupported.is_empty(), "{:?}", report.unsupported);
+        let file = SourceMap::new().next_id();
+        let (module, _) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);
+        let kept: Vec<&str> = module
+            .decls
+            .iter()
+            .map(|d| match d {
+                crate::ast::Decl::Signature {
+                    name,
+                    body_error: Some(_),
+                    ..
+                } => name.text.as_str(),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(kept, ["bad", "bad2", "bad3", "bad5", "bad6"]);
+        let failed: Vec<&str> = module.failed.iter().map(|f| f.name.text.as_str()).collect();
+        assert_eq!(failed, ["bad4", "bad7"]);
+    }
 }

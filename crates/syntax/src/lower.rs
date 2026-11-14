@@ -42,9 +42,9 @@ mod decls;
 mod definitions;
 mod exprs;
 pub(crate) mod header;
+pub mod oracle;
 mod patterns;
 mod types;
-pub mod oracle;
 
 /// What the lowering can't lower yet: the first such thing it met in a
 /// declaration. The oracle counts declarations by it.

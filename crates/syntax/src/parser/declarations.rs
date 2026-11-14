@@ -10,8 +10,8 @@
 use super::{Parser, Result, describe, error};
 use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, NAMELESS, Name, Pattern};
 use crate::lexer::Tok;
-use crate::tree::NodeKind;
 use crate::lower::header::{Param, clause_match, lower_header, take_defaults};
+use crate::tree::NodeKind;
 use crate::{Diagnostic, Span};
 
 /// `E-ATTRIBUTE`: attributes written where none can apply, `first` being

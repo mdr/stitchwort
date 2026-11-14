@@ -12,6 +12,9 @@ use super::definitions::{as_leaf, is_leaf, last_token};
 use super::header::{Param, lower_header};
 use super::{Lower, Lowering};
 
+/// A data type's index types, each with its name if written as a binder.
+type Indices = Vec<(Option<Name>, Expr)>;
+
 /// A binder as written: its parts, whether it is in square brackets, and
 /// whether it is `auto`.
 struct Written {
@@ -77,9 +80,7 @@ impl<'f> Lower<'f> {
         let name = required(name, kind, "its name")?;
         let mut params = Vec::new();
         for binder in root.child_nodes().filter(|n| n.kind() == NodeKind::Binder) {
-            let Written {
-                binder, auto, ..
-            } = self.binder(binder)?;
+            let Written { binder, auto, .. } = self.binder(binder)?;
             // An `auto` parameter, `[auto ord: Ord k]`, is one of the
             // definition's.
             params.push(Param::Named {
@@ -158,7 +159,7 @@ impl<'f> Lower<'f> {
 
     /// A data type's `: Nat -> (n: Nat) -> Type` after its parameters: the
     /// index types, named when written as binders, and the universe.
-    fn indices(&self, result: Node<'f>) -> Lowering<(Vec<(Option<Name>, Expr)>, Option<Expr>)> {
+    fn indices(&self, result: Node<'f>) -> Lowering<(Indices, Option<Expr>)> {
         let mut indices = Vec::new();
         let mut parts = result.children().skip(1).peekable();
         while let Some(part) = parts.next() {
@@ -293,7 +294,9 @@ impl<'f> Lower<'f> {
             .children()
             .filter(|part| !matches!(part, Element::Node(n) if n.kind() == NodeKind::Attributes))
             .collect();
-        let implicit = parts.first().is_some_and(|open| is_leaf(open, &Tok::LBracket));
+        let implicit = parts
+            .first()
+            .is_some_and(|open| is_leaf(open, &Tok::LBracket));
         let Some(colon) = parts.iter().position(|part| is_leaf(part, &Tok::Colon)) else {
             // `[auto Ord a]`, without a name.
             let auto = parts.get(1).and_then(as_leaf);

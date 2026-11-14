@@ -26,7 +26,9 @@ fn leaf_pattern(leaf: Leaf<'_>) -> Lowering<Pattern> {
     let span = leaf.span();
     Ok(match leaf.tok() {
         Tok::Lower(text) if text != "Quot.mk" => Pattern::Var(name(leaf).expect("a name")),
-        Tok::Lower(_) | Tok::Upper(_) => Pattern::Ctor(name(leaf).expect("a name"), Vec::new(), span),
+        Tok::Lower(_) | Tok::Upper(_) => {
+            Pattern::Ctor(name(leaf).expect("a name"), Vec::new(), span)
+        }
         Tok::Underscore => Pattern::Wildcard(span),
         Tok::Num(n) => Pattern::Num(n.clone(), span),
         Tok::Char(c) => Pattern::Char(*c, span),
