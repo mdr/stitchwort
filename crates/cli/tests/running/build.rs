@@ -5,8 +5,8 @@
 //!
 //! The executables link the runtime library the test build made
 //! (`libstitchwort_standalone.a`, built because this package depends on
-//! `stitchwort-standalone` for its tests), found beside the test binary;
-//! `STITCHWORT_RUNTIME` overrides that. Each test needs a C compiler to link
+//! `stitchwort-standalone`), found beside the test binary; one left from an
+//! older build is skipped; `STITCHWORT_RUNTIME` overrides that. Each test needs a C compiler to link
 //! with (`$CC`, or `cc`), and is skipped with a note without one.
 //!
 //! The roguelike's tests (with and without `--native`) each check the whole
@@ -23,7 +23,8 @@ use std::process::{Command, Output, Stdio};
 use crate::pty;
 
 /// The runtime library to link with: `STITCHWORT_RUNTIME`, or the newest
-/// `libstitchwort_standalone*.a` beside this test binary (in `deps/`).
+/// `libstitchwort_standalone*.a` beside this test binary (in `deps/`) built
+/// from the runtime sources this build has.
 fn runtime_library() -> PathBuf {
     if let Some(path) = std::env::var_os("STITCHWORT_RUNTIME") {
         return path.into();
@@ -38,6 +39,7 @@ fn runtime_library() -> PathBuf {
             let name = name.to_string_lossy();
             name.starts_with("libstitchwort_standalone") && name.ends_with(".a")
         })
+        .filter(|entry| holds_marker(&entry.path()))
         .max_by_key(|entry| entry.metadata().and_then(|m| m.modified()).ok())
         .map(|entry| entry.path())
         .unwrap_or_else(|| {
@@ -47,6 +49,12 @@ fn runtime_library() -> PathBuf {
                 dir.display()
             )
         })
+}
+
+/// Whether the library at `path` holds this build's runtime marker.
+fn holds_marker(path: &Path) -> bool {
+    let marker = stitchwort_rt::BUILD_MARKER.as_bytes();
+    std::fs::read(path).is_ok_and(|bytes| bytes.windows(marker.len()).any(|w| w == marker))
 }
 
 /// Whether there's a C compiler to link with; if not, says the test is
@@ -466,7 +474,11 @@ fn link_failures_are_explained() {
         return;
     }
     let bogus = dir.join("libbogus.a");
-    std::fs::write(&bogus, "not an archive").expect("write the bogus library");
+    std::fs::write(
+        &bogus,
+        format!("not an archive {}", stitchwort_rt::BUILD_MARKER),
+    )
+    .expect("write the bogus library");
     let failed = build_with("STITCHWORT_RUNTIME", bogus.as_os_str());
     assert_eq!(failed.status.code(), Some(1));
     let stderr = text(&failed.stderr);
@@ -480,6 +492,31 @@ fn link_failures_are_explained() {
         stderr.lines().count() > 1 && stderr.contains("libbogus.a"),
         "{stderr}"
     );
+    assert!(!dir.join("echo").exists());
+}
+
+/// A runtime library from another build of the runtime is refused with a
+/// message that says what to do, instead of linking an executable that can't
+/// read its own program (SW-3149).
+#[test]
+fn a_stale_runtime_library_is_refused() {
+    let dir = work_dir("stale-library");
+    std::fs::write(dir.join("echo.sw"), ECHO).expect("write the source");
+    let stale = dir.join("libstale.a");
+    std::fs::write(&stale, "stitchwort-runtime-build=1;").expect("write the library");
+    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+    command
+        .args(["build", "echo.sw", "--cache-dir", CACHE])
+        .current_dir(&dir)
+        .env("STITCHWORT_RUNTIME", &stale);
+    let output = run_with_input(command, b"");
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = text(&output.stderr);
+    assert!(
+        stderr.starts_with("error: the runtime library is from a different build"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("task build"), "{stderr}");
     assert!(!dir.join("echo").exists());
 }
 

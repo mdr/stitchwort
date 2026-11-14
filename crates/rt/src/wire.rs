@@ -20,6 +20,12 @@ use crate::natives::{ArrayNative, FloatPrim, IntNative, TextNative};
 /// runtime built from the same code as the writer.
 pub(crate) const BUILD_HASH: u64 = parse_hash(env!("SW_RT_BUILD_HASH"));
 
+/// Text that appears in `libstitchwort_standalone.a` exactly when it was
+/// built from the same runtime sources as the `stitchwort` that reads it
+/// (`BUILD_HASH` in decimal), so `stitchwort build` can refuse a stale
+/// library before it links an executable that can't start.
+pub const BUILD_MARKER: &str = concat!("stitchwort-runtime-build=", env!("SW_RT_BUILD_HASH"), ";");
+
 const fn parse_hash(text: &str) -> u64 {
     let bytes = text.as_bytes();
     let mut n: u64 = 0;

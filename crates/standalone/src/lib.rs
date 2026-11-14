@@ -38,6 +38,11 @@ use stitchwort_rt::native_aot::RunExecutable;
 
 pub mod aot;
 
+/// Puts [`stitchwort_rt::BUILD_MARKER`] in the library's data, where
+/// `stitchwort build` looks for it (`find_library` in crates/cli).
+#[used]
+static BUILD_MARKER: &str = stitchwort_rt::BUILD_MARKER;
+
 /// The executable's allocator, as `stitchwort`'s: the runtime allocates and
 /// frees cells by the million.
 #[global_allocator]

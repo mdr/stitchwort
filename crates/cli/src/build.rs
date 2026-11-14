@@ -505,17 +505,25 @@ fn link(object: &[u8], out: &Path) -> Result<(), String> {
 
 /// Where the runtime library is: the file `STITCHWORT_RUNTIME` names, or
 /// `libstitchwort_standalone.a` beside this `stitchwort`, or in
-/// `../lib/stitchwort/` from it (where the Nix package installs it).
+/// `../lib/stitchwort/` from it (where the Nix package installs it), or one
+/// of cargo's own copies in `deps/` beside it (the CLI depends on the
+/// runtime crate, so every cargo build of the CLI makes a current one).
+///
+/// Only a library built from the same runtime sources as this `stitchwort`
+/// will do (`stitchwort_rt::BUILD_MARKER`): one left over from an older
+/// build makes executables that can't read their own program.
 fn find_library() -> Result<PathBuf, String> {
     if let Some(path) = std::env::var_os(LIBRARY_VARIABLE) {
         let path = PathBuf::from(path);
-        return if path.is_file() {
-            Ok(path)
-        } else {
+        return if !path.is_file() {
             Err(format!(
                 "error: there's no runtime library at {}, which {LIBRARY_VARIABLE} names\n",
                 path.display()
             ))
+        } else if is_current(&path) {
+            Ok(path)
+        } else {
+            Err(stale_message(&[path]))
         };
     }
     let exe = std::env::current_exe().and_then(|exe| exe.canonicalize());
@@ -525,12 +533,41 @@ fn find_library() -> Result<PathBuf, String> {
              isn't known\n  note: set {LIBRARY_VARIABLE} to its path\n"
         ));
     };
-    let candidates = [
+    let mut candidates = vec![
         dir.join(LIBRARY),
         dir.join("..").join("lib").join("stitchwort").join(LIBRARY),
     ];
-    if let Some(found) = candidates.iter().find(|path| path.is_file()) {
+    // Cargo's copies are named with a hash of their build settings; the
+    // newest first.
+    let mut built: Vec<(std::time::SystemTime, PathBuf)> = std::fs::read_dir(dir.join("deps"))
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            name.starts_with("libstitchwort_standalone-") && name.ends_with(".a")
+        })
+        .map(|entry| {
+            let modified = entry
+                .metadata()
+                .and_then(|m| m.modified())
+                .unwrap_or(std::time::UNIX_EPOCH);
+            (modified, entry.path())
+        })
+        .collect();
+    built.sort_by_key(|(modified, _)| std::cmp::Reverse(*modified));
+    candidates.extend(built.into_iter().map(|(_, path)| path));
+    let existing: Vec<PathBuf> = candidates
+        .iter()
+        .filter(|path| path.is_file())
+        .cloned()
+        .collect();
+    if let Some(found) = existing.iter().find(|path| is_current(path)) {
         return Ok(found.clone());
+    }
+    if !existing.is_empty() {
+        return Err(stale_message(&existing));
     }
     Err(format!(
         "error: can't find the runtime library ({LIBRARY}): it isn't at {} or {}\n  \
@@ -538,6 +575,22 @@ fn find_library() -> Result<PathBuf, String> {
         candidates[0].display(),
         candidates[1].display()
     ))
+}
+
+/// Whether the library at `path` was built from this `stitchwort`'s runtime
+/// sources: it holds their build marker.
+fn is_current(path: &Path) -> bool {
+    let marker = stitchwort_rt::BUILD_MARKER.as_bytes();
+    std::fs::read(path).is_ok_and(|bytes| bytes.windows(marker.len()).any(|w| w == marker))
+}
+
+fn stale_message(found: &[PathBuf]) -> String {
+    let list: Vec<String> = found.iter().map(|p| p.display().to_string()).collect();
+    format!(
+        "error: the runtime library is from a different build than this `stitchwort`: {}\n  \
+         note: rebuild it with `task build` (or `cargo build --release -p stitchwort-standalone`)\n",
+        list.join(", ")
+    )
 }
 
 /// A fresh temporary directory, removed when dropped.
