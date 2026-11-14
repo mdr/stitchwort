@@ -89,8 +89,10 @@ impl<'f> Lower<'f> {
             .filter(|child| child.kind() == NodeKind::RewriteRule)
             .map(|rule| self.rewrite_rule(rule))
             .collect::<Lowering<Vec<_>>>()?;
+        // Before the `in`: a body can be a name `at`, `rewrite h in at`.
         let at = node
             .own_leaves()
+            .take_while(|leaf| *leaf.tok() != Tok::KwIn)
             .find(|leaf| matches!(leaf.tok(), Tok::Lower(word) if word == "at"));
         let target = match at {
             Some(at) => {

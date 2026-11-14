@@ -1,8 +1,9 @@
 //! The oracle: a file parsed both ways, the compiler's tree built directly
-//! ([`crate::parse_module_recovering`]) and lowered from the lossless tree
-//! ([`crate::parse_module_and_tree`] then [`Lower`]), and the two compared
-//! exactly, declaration by declaration (docs/proposals/syntax-tree-lowering.md
-//! §4). `stitchwort dev tree --lower` runs it over files.
+//! by the parser (`parse_module_direct`) and lowered from the lossless tree
+//! (the public route, [`crate::parse_module_and_tree`]), and the two
+//! compared exactly, declaration by declaration and as whole modules
+//! (docs/proposals/syntax-tree-lowering.md §4). `stitchwort dev tree
+//! --lower` runs it over files.
 //!
 //! Trees are compared as their `{:?}` text with spans: equal text means
 //! equal trees, spans, hidden names and tags, with no `PartialEq` on the
@@ -10,6 +11,8 @@
 //! where: its indentation costs time in proportion to the depth for each
 //! line, which for deeply nested expressions is most of the run. `Debug` recurses, so a caller comparing deeply nested
 //! files runs this on a thread with a large stack.
+
+pub use crate::parser::parse_module_direct;
 
 use super::{Lower, LoweredDecl, Unsupported};
 use crate::Span;
@@ -61,12 +64,12 @@ pub struct Difference {
 /// line, parsed on its own.
 pub fn compare(file: FileId, text: &str, stack: usize, expressions: bool) -> Report {
     let mut report = Report::default();
-    let (direct, direct_errors) = crate::parse_module_recovering(file, text, stack);
-    let (_, errors, tree) = crate::parse_module_and_tree(file, text, stack);
+    let (direct, direct_errors) = parse_module_direct(file, text, stack);
+    let (module, errors, tree) = crate::parse_module_and_tree(file, text, stack);
     if direct_errors != errors {
         report.differ(0, "diagnostics", &direct_errors, &errors);
     }
-    let lower = Lower::new(&tree, text, file, &errors).with_stack(stack);
+    let lower = Lower::new(&tree, text, file, &direct_errors).with_stack(stack);
     for root in tree.decls() {
         let range = match (root.raw_text_range(), root.span()) {
             (Some(raw), _) => raw.start..=raw.end,
@@ -83,11 +86,8 @@ pub fn compare(file: FileId, text: &str, stack: usize, expressions: bool) -> Rep
             Err(what) => report.unsupported.push(what),
         }
     }
-    let (module, unsupported) = lower.module();
     report.differ(0, "doc links", &direct.doc_links, &module.doc_links);
-    if unsupported.is_empty() {
-        report.differ(0, "module", &direct, &module);
-    }
+    report.differ(0, "module", &direct, &module);
     if expressions {
         for root in tree.decls() {
             report.bodies(root, file, text, stack);
@@ -185,24 +185,20 @@ impl Report {
     /// `source` parsed as an expression both ways, and compared.
     fn expression(&mut self, at: usize, file: FileId, source: &str, stack: usize) {
         self.expressions.checked += 1;
-        let direct = crate::parse_expression_within(file, source, stack);
-        let (parsed, tree) = crate::parse_expression_tree(file, source, stack);
-        let detail = match (direct, parsed) {
-            (Ok(want), Ok(_)) => {
+        let (direct, tree) = crate::parser::parse_expression_direct_with_tree(file, source, stack);
+        let detail = match (direct, crate::parse_expression_within(file, source, stack)) {
+            (Ok(want), got) => {
                 let root = tree.decls().next().expect("an expression's root");
-                match Lower::new(&tree, source, file, &[])
+                if let Err(what) = Lower::new(&tree, source, file, &[])
                     .with_stack(stack)
                     .expression(root)
                 {
-                    Ok(got) => {
-                        self.expressions.lowered += 1;
-                        difference(&want, &got)
-                    }
-                    Err(what) => {
-                        self.expressions.unsupported.push(what);
-                        return;
-                    }
+                    self.expressions.unsupported.push(what);
                 }
+                if got.is_ok() {
+                    self.expressions.lowered += 1;
+                }
+                difference(&Ok::<_, crate::Diagnostic>(want), &got)
             }
             (want, got) => difference(&want, &got.map(|_| ())),
         };
@@ -271,10 +267,9 @@ mod tests {
             .collect()
     }
 
-    /// Namespaces, imports, tests with leaf bodies and declarations that
-    /// fail come out of the lowering as the parser builds them, spans
-    /// included; the rest are counted as unsupported, not as differences,
-    /// under the first kind the lowering can't lower yet (`def g`'s body).
+    /// Namespaces, imports, tests, definitions and data types come out of
+    /// the lowering as the parser builds them, spans included, and each
+    /// one-line body and type parsed on its own does too.
     #[test]
     fn the_simplest_declarations_lower_as_parsed() {
         let text = "\
@@ -297,14 +292,13 @@ type T = | A
         assert_eq!(
             report.lowered,
             [
-                Namespace, Import, Import, Test, Test, Test, Test, Test, DataType
+                Namespace, Import, Import, Test, Test, Test, Test, Test, Def, DataType
             ]
         );
-        assert_eq!(report.unsupported, [Unsupported::Kind(Lambda)]);
-        // The bodies, on their own, and `def g`'s type; its body isn't
-        // lowered yet.
+        assert_eq!(report.unsupported, []);
+        // The bodies, on their own, and `def g`'s type.
         assert_eq!(report.expressions.checked, 7);
-        assert_eq!(report.expressions.lowered, 6);
+        assert_eq!(report.expressions.lowered, 7);
     }
 
     /// A file the lowering lowers whole is compared as a whole module too,
@@ -316,7 +310,7 @@ type T = | A
         assert_eq!(differences(&report), Vec::<String>::new());
         assert!(report.unsupported.is_empty());
         let file = SourceMap::new().next_id();
-        let (direct, _) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);
+        let (direct, _) = crate::parser::parse_module_direct(file, text, crate::DEFAULT_STACK);
         let (_, errors, tree) = crate::parse_module_and_tree(file, text, crate::DEFAULT_STACK);
         let (mut module, _) = Lower::new(&tree, text, file, &errors).module();
         assert_eq!(format!("{direct:#?}"), format!("{module:#?}"));

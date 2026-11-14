@@ -3,13 +3,15 @@
 //! docs/proposals/syntax-tree-architecture.md, designed in
 //! docs/proposals/syntax-tree-lowering.md.
 //!
-//! For now the parser still builds the compiler's tree directly, and the
-//! lowering runs only in the oracle ([`oracle`], `stitchwort dev tree
-//! --lower`), which parses every file both ways and requires the two trees
-//! to be identical, spans and hidden names included. It is written kind by
-//! kind, in lanes L0 to L4 of the design; a declaration holding a kind not
-//! lowered yet is [`Unsupported`], which the oracle counts per kind rather
-//! than failing.
+//! The public parse functions ([`crate::parse_module_recovering`],
+//! [`crate::parse_expression_within`] and the rest) build the lossless tree
+//! and lower it. Until step 4 the parser also still builds the compiler's
+//! tree directly, which only the oracle reads ([`oracle`], `stitchwort dev
+//! tree --lower`): it parses files both ways and requires the two trees to
+//! be identical, spans and hidden names included. A declaration the
+//! lowering can't lower ([`Unsupported`]) is an error on the public route:
+//! `E-RESOURCE` if it ran out of stack, otherwise an internal error, which
+//! the oracle would show as a difference.
 //!
 //! # Rules
 //!
@@ -27,15 +29,16 @@
 //!   in its slot.
 //! - **Spans are the parser's**, quirks included; the oracle compares them.
 //! - **Infallible.** In step 3 every error is still the parser's; the
-//!   lowering only ever reports that it can't lower something yet.
+//!   lowering only ever reports that it can't lower something, which is a
+//!   bug, or that it ran out of stack.
 //! - **`Error` nodes are not looked inside**: what finished before an error
 //!   keeps its nodes for the editor, but for the checker it is skipped text.
 
-use crate::Diagnostic;
 use crate::ast::{Decl, Expr, FailedName, Import, Module, NamespaceDecl};
 use crate::source::FileId;
 use crate::stack::StackLimit;
 use crate::tree::{Node, NodeKind, SyntaxFile};
+use crate::{Diagnostic, Span};
 use std::fmt;
 
 mod access;
@@ -51,9 +54,9 @@ pub(crate) mod proofs;
 pub(crate) mod sections;
 mod types;
 
-/// What the lowering can't lower yet: the first such thing it met in a
+/// What the lowering couldn't lower: the first such thing it met in a
 /// declaration. The oracle counts declarations by it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Unsupported {
     /// A node of this kind.
     Kind(NodeKind),
@@ -64,12 +67,12 @@ pub enum Unsupported {
     /// always gives it: a bug if ever counted, until recovery leaves parts
     /// out.
     Missing(NodeKind, &'static str),
-    /// An expression nested more deeply than the stack the lowering was
-    /// given allows. The parser has the same limit and frames larger than
-    /// the lowering's, so a declaration that parsed shouldn't reach it;
-    /// when the lowering is the parser's route (lane L5), this is its
-    /// `E-RESOURCE`.
-    TooDeep,
+    /// An expression or pattern nested more deeply than the stack the
+    /// lowering was given allows, at the first token of the node it was
+    /// about to lower. The parser has the same limit and frames larger than
+    /// the lowering's, so a declaration that parsed shouldn't reach it; if
+    /// one does, it is an `E-RESOURCE` error like the parser's.
+    TooDeep(Span),
 }
 
 impl fmt::Display for Unsupported {
@@ -78,7 +81,7 @@ impl fmt::Display for Unsupported {
             Unsupported::Kind(kind) => write!(f, "{kind:?}"),
             Unsupported::Token => write!(f, "a token read as an expression"),
             Unsupported::Missing(kind, part) => write!(f, "{kind:?} without {part}"),
-            Unsupported::TooDeep => write!(f, "nested too deeply to lower"),
+            Unsupported::TooDeep(_) => write!(f, "nested too deeply to lower"),
         }
     }
 }
@@ -178,6 +181,15 @@ impl<'f> Lower<'f> {
             NodeKind::Error => self.failed(root).map(LoweredDecl::Failed),
             kind => Err(Unsupported::Kind(kind)),
         }
+    }
+
+    /// That the stack ran out before `node`: cold and out of line, to keep
+    /// it out of the frames of the functions that check.
+    #[cold]
+    #[inline(never)]
+    pub(crate) fn too_deep(&self, node: Node<'f>) -> Unsupported {
+        let first = self.tree.tokens().get(node.token_range().start);
+        Unsupported::TooDeep(first.map_or(Span::NOWHERE, |token| token.span))
     }
 
     /// The root of a single expression's tree ([`NodeKind::Expression`],

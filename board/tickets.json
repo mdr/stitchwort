@@ -35073,15 +35073,18 @@
     {
       "id": 3212,
       "title": "[Opus] Lowering L5 (docs/proposals/syntax-tree-lowering.md): Switch the public parse functions to the lowering",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 4 h (Opus).\nOrchestrator's call (14 Nov): L5 follows L4 directly; the error-node lowering lane (S7 in the note) moves to the recovery lanes S1-S3, since recovery now comes after the lowering (Matt: editor delay doesn't matter) and there are no gaps to lower yet. The lane doesn't run stitchwort-bench; the orchestrator's verifier runs it and the lane writes the performance-log entry from those numbers.",
+      "body": "Expected: 4 h (Opus).\nOrchestrator's call (14 Nov): L5 follows L4 directly; the error-node lowering lane (S7 in the note) moves to the recovery lanes S1-S3, since recovery now comes after the lowering (Matt: editor delay doesn't matter) and there are no gaps to lower yet. The lane doesn't run stitchwort-bench; the orchestrator's verifier runs it and the lane writes the performance-log entry from those numbers.\nProgress (lane, 14 Nov, 10:50-12:00):\n- Last gap closed: `rewrite h in at` (a body that is the name `at`) was read as an `at` target; now only an `at` before the `in` counts. dev tree --lower over all 2,983 .sw files: 30,713 declarations, 0 not lowered, 0 differences; 34,376 one-line expressions, 0 differences.\n- Switch: parse_module, parse_module_within, parse_module_recovering, parse_module_and_tree, parse_expression, parse_expression_within, parse_expression_tree and parse_namespace_line go through the lowering; parse_tree builds the lossless tree only. Direct route kept as parse_module_direct (pub only via lower::oracle) and parse_direct_with_tree / parse_expression_direct_with_tree (crate-private). Unlowerable declaration -> E-RESOURCE (parser's text, TooDeep now carries a span) or E-INTERNAL, names into Module::failed.\n- Orchestrator's two verifier failures fixed: the oracle test now expects everything lowered; deep nesting in release: node_expr had grown to 816 B (function_type/effect inlined), plus 1 KB frames on the app/method-section path; now node_expr 96 B, lowering per level 5-43% of the parser's in release, test lowers with a third of the stack spare. Reproduced with main's own release test binary first.\n- Timings (release, best of 5, load 3-4): std 54.1 -> 85.0 ms (1.57x), repo 163.9 -> 256.3 ms (1.56x). Perf log entry written with a placeholder for the bench numbers.\n- Gates: syntax package 271/271; hash_stability 10/10 (debug); reject in release 2/2, no snapshot changes; nesting:: 15/15 in release; both bench nesting programs check (release CLI). In debug, reject (parser-count-differs-from-lemma notes, reads-nested-binds-unknown-field E-RESOURCE) and nesting (two small-guard tests) fail identically with the direct route forced (checked with a temporary env switch), so they are pre-existing debug-only stack limits, not this change.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "a872300d9",
+        "ee2664063"
+      ]
     },
     {
       "id": 3213,

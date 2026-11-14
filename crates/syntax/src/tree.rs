@@ -918,9 +918,9 @@ mod tests {
             let text = sample(path);
             let file = SourceMap::new().next_id();
             let (module, errors) =
-                crate::parse_module_recovering(file, &text, crate::DEFAULT_STACK);
+                crate::parser::parse_module_direct(file, &text, crate::DEFAULT_STACK);
             let (marked, marked_errors, _) =
-                parse_module_and_tree(file, &text, crate::DEFAULT_STACK);
+                crate::parser::parse_direct_with_tree(file, &text, crate::DEFAULT_STACK);
             assert_eq!(format!("{module:?}"), format!("{marked:?}"), "{path}");
             assert_eq!(
                 format!("{errors:?}"),
@@ -1236,8 +1236,9 @@ def h: Nat := 2
         );
         // The module and errors are those of the parse without the tree.
         let file = SourceMap::new().next_id();
-        let (module, errors) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);
-        let (marked, marked_errors, tree) = parse_module_and_tree(file, text, crate::DEFAULT_STACK);
+        let (module, errors) = crate::parser::parse_module_direct(file, text, crate::DEFAULT_STACK);
+        let (marked, marked_errors, tree) =
+            crate::parser::parse_direct_with_tree(file, text, crate::DEFAULT_STACK);
         assert_eq!(format!("{module:?}"), format!("{marked:?}"));
         assert_eq!(format!("{errors:?}"), format!("{marked_errors:?}"));
         assert_eq!(errors.len(), 1);

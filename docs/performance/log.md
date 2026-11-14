@@ -44,6 +44,54 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 14 Nov 2026
+
+### SW-3212: parsing goes through the lowering, 1.57x slower until L6 (accepted regression)
+
+- **Status:** accepted, temporary regression (Opus). Step 3's switch, lane
+  L5 of [syntax-tree-lowering.md](../proposals/syntax-tree-lowering.md#6-performance).
+- **Problem.** The compiler's tree is now built from the lossless tree by the
+  lowering (`crates/syntax/src/lower/`), but until L6 removes the parser's
+  direct construction, every public parse function (`parse_module*`,
+  `parse_expression*`, `parse_module_and_tree`, `parse_namespace_line`)
+  does three jobs: the parser builds the compiler's tree (thrown away) and
+  the marks, the tree builder builds the lossless tree (with trivia), and
+  the lowering builds the compiler's tree again.
+- **Why results stay the same.** The two routes are compared exactly, as
+  `Debug` text with spans plus the diagnostics, by `stitchwort dev tree
+  --lower` (`lower::oracle`): over all 2,983 `.sw` files in the repo,
+  30,713 declarations and 34,376 one-line bodies and types parsed as
+  expressions, 0 differences and 0 not lowered. The hash snapshots (`binary(library) &
+  test(/hash_stability/)`) are unchanged.
+- **Measured** (release CLI, `dev tree --time 5`, best of 5, `nice -n 15`,
+  load average 3-4; two runs agreed within 0.1 ms):
+
+  | | the parser alone (before) | with the lossless tree | through the lowering (after) |
+  |---|---|---|---|
+  | std, 2.12 MB | 54.1 ms | 63.4 ms | 85.0 ms (1.57x) |
+  | std, `aoc/src`, `games`, `examples`, 6.88 MB | 163.9 ms | 191.4 ms | 256.3 ms (1.56x) |
+
+  The design estimated 1.3-1.5x; the lowering itself is about 21 ms of
+  std's 85. A `check` that loads std parses it once (`library.rs`), so a
+  trivial check is about 30 ms slower [estimated from the table].
+- **Bench.** _The orchestrator adds stitchwort-bench's numbers from the
+  verifier's run on `main` here: both nesting programs' times and
+  allocation counts, which change since the lowering allocates the
+  compiler's tree a second time._
+- **Not optimised.** Speed work is paused (D3465) and most of the cost goes
+  with L6, which deletes the parser's own construction (end state about
+  1.1-1.3x, [estimated] in the design). If trivia proves a noticeable part
+  then, the compiler's route can build the tree without comments.
+- **Stack.** The lowering takes the parser's stack limit and reports its
+  `E-RESOURCE` if it runs out. Its frames per level of nesting are 5-43% of
+  the parser's in release (measured per shape, `(` to `(.f `), after making
+  the application and method-section path out of line and marking
+  `function_type` and `effect` `#[inline(never)]`: inlined into
+  `node_expr`, they had grown it from 96 to 816 bytes, so nested sections
+  ran out before the parser did. The test
+  `deep_nesting_lowers_within_the_parsers_stack` lowers each shape's
+  deepest parse with a third of the stack to spare.
+
 ## 10 Nov 2026
 
 ### SW-2609: `ignorable_arguments` profiled in real proofs: not a hotspot (no change)

@@ -339,6 +339,7 @@ impl<'f> Lower<'f> {
     }
 
     /// `(x: A) -> B` or `[x: A] -> B`.
+    #[inline(never)]
     pub(super) fn function_type(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::FunctionType;
         let binder = required(node.child(NodeKind::Binder), kind, "its binder")?;
@@ -362,6 +363,7 @@ impl<'f> Lower<'f> {
     }
 
     /// `{IO, State s} T`: a type with abilities.
+    #[inline(never)]
     pub(super) fn effect(&self, node: Node<'f>) -> Lowering<Expr> {
         let kind = NodeKind::Effect;
         let row = required(node.child(NodeKind::Row), kind, "its row")?;

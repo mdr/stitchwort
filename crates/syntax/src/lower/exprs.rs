@@ -36,19 +36,24 @@ impl<'f> Lower<'f> {
     /// parser's is).
     fn node_expr(&self, node: Node<'f>) -> Lowering<Expr> {
         if self.stack.exceeded() {
-            return Err(Unsupported::TooDeep);
+            return Err(self.too_deep(node));
         }
         use NodeKind::*;
         match node.kind() {
             Paren => self.paren(node),
-            Unit => Ok(Expr::Unit(whole(node)?)),
+            Unit => unit(node),
             Annotation => self.annotation(node),
             Tuple => self.tuple(node),
             NamedArg => self.named_arg(node),
             List => self.list(node),
             Spread => self.spread(node),
             Record => self.record(node),
-            CtorFields => self.ctor_fields(node, false).map(Argument::into_expr),
+            CtorFields => self.ctor_fields_expr(node),
+            // A method section's arguments are its own: `.f a` is
+            // `%section => %section.f a`.
+            App if node.children().next().and_then(section_dot).is_some() => {
+                self.method_section(node)
+            }
             App => self.app(node),
             FieldAccess => self.field_access(node),
             Prefix => self.prefix(node, false),
@@ -251,6 +256,13 @@ impl<'f> Lower<'f> {
         Ok((field, self.expr(value)?))
     }
 
+    /// A `C { … }` that isn't an argument, out of line to keep the
+    /// two-part result out of [`Self::node_expr`]'s frame.
+    #[inline(never)]
+    fn ctor_fields_expr(&self, node: Node<'f>) -> Lowering<Expr> {
+        self.ctor_fields(node, false).map(Argument::into_expr)
+    }
+
     /// `C { x = e }`: kept as [`Expr::CtorFields`] for the elaborator to
     /// read as construction by name or a record argument, as `C` is
     /// declared; `argument` says it is an application's argument. An
@@ -286,9 +298,6 @@ impl<'f> Lower<'f> {
     fn app(&self, node: Node<'f>) -> Lowering<Expr> {
         let mut parts = node.children();
         let head = required(parts.next(), NodeKind::App, "its function")?;
-        if section_dot(head).is_some() {
-            return self.method_section(node);
-        }
         let mut expr = self.expr(head)?;
         // Its first token, which may be inside a child: `(f)()` is a call.
         let bracketed = match head {
@@ -304,31 +313,54 @@ impl<'f> Lower<'f> {
             expr = Expr::Bracketed(Box::new(expr), span);
         }
         for arg in parts {
-            expr = match self.argument(arg)? {
-                Argument::One(arg) => Expr::App(Box::new(expr), Box::new(arg)),
-                Argument::Two(first, second) => Expr::App(
-                    Box::new(Expr::App(Box::new(expr), Box::new(first))),
-                    Box::new(second),
-                ),
-            };
+            self.apply(&mut expr, arg)?;
         }
         Ok(expr)
     }
 
-    /// An application's argument: as anywhere else, except for a minus
-    /// (`f -x`, an argument minus) and `C { … }`.
-    pub(super) fn argument(&self, arg: Element<'f>) -> Lowering<Argument> {
+    /// `f` applied to the argument `arg`. Out of line, and with `f` by
+    /// reference: the argument recurses from here, so this frame, not the
+    /// caller's larger one, is what each level of `f (f (…))` adds.
+    #[inline(never)]
+    pub(super) fn apply(&self, f: &mut Expr, arg: Element<'f>) -> Lowering<()> {
+        if let Element::Node(node) = arg
+            && node.kind() == NodeKind::CtorFields
+        {
+            return self.apply_ctor_fields(f, node);
+        }
+        let arg = self.argument(arg)?;
+        let head = Box::new(std::mem::replace(f, Expr::Hole(Span::NOWHERE)));
+        *f = Expr::App(head, Box::new(arg));
+        Ok(())
+    }
+
+    /// `f C { … }`: `f` applied to the construction, or to `C` and then the
+    /// updated record. Apart from [`Self::apply`], whose frame would
+    /// otherwise hold the two.
+    #[inline(never)]
+    pub(super) fn apply_ctor_fields(&self, f: &mut Expr, node: Node<'f>) -> Lowering<()> {
+        let head = std::mem::replace(f, Expr::Hole(Span::NOWHERE));
+        *f = match self.ctor_fields(node, true)? {
+            Argument::One(arg) => Expr::App(Box::new(head), Box::new(arg)),
+            Argument::Two(first, second) => Expr::App(
+                Box::new(Expr::App(Box::new(head), Box::new(first))),
+                Box::new(second),
+            ),
+        };
+        Ok(())
+    }
+
+    /// An application's argument other than a `C { … }`: as anywhere else,
+    /// except for a minus (`f -x`, an argument minus).
+    pub(super) fn argument(&self, arg: Element<'f>) -> Lowering<Expr> {
         match arg {
             Element::Node(node) if node.kind() == NodeKind::Prefix => {
                 if self.stack.exceeded() {
-                    return Err(Unsupported::TooDeep);
+                    return Err(self.too_deep(node));
                 }
-                self.prefix(node, true).map(Argument::One)
+                self.prefix(node, true)
             }
-            Element::Node(node) if node.kind() == NodeKind::CtorFields => {
-                self.ctor_fields(node, true)
-            }
-            arg => self.expr(arg).map(Argument::One),
+            arg => self.expr(arg),
         }
     }
 
@@ -621,7 +653,14 @@ fn operation(node: Node<'_>) -> Lowering<(Element<'_>, Leaf<'_>, Element<'_>)> {
     Ok((lhs, op, rhs))
 }
 
+/// `()`
+#[inline(never)]
+fn unit(node: Node<'_>) -> Lowering<Expr> {
+    Ok(Expr::Unit(whole(node)?))
+}
+
 /// `Type 1`
+#[inline(never)]
 fn universe(node: Node<'_>) -> Lowering<Expr> {
     let level = match node.after(&Tok::TypeU) {
         Some(Element::Leaf(leaf)) => match leaf.tok() {
@@ -635,6 +674,7 @@ fn universe(node: Node<'_>) -> Lowering<Expr> {
 }
 
 /// `include "inputs/day04.txt"`
+#[inline(never)]
 fn include(node: Node<'_>) -> Lowering<Expr> {
     let path = match node.after(&Tok::KwInclude) {
         Some(Element::Leaf(leaf)) => match leaf.tok() {
@@ -801,6 +841,7 @@ pub(crate) fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
 
 #[cfg(test)]
 mod tests {
+    use super::super::Lower;
     use super::super::oracle::{Report, compare};
     use crate::SourceMap;
     use crate::tree::NodeKind;
@@ -885,9 +926,14 @@ mod tests {
     }
 
     /// An expression nested as deeply as the parser can parse it lowers
-    /// within the same stack: the lowering takes fewer and smaller frames
-    /// per level. One level deeper, the parser's `E-RESOURCE` fails the
-    /// declaration, which the lowering gives as failed.
+    /// within the same stack, so the lowering never reports `E-RESOURCE`
+    /// where the parser didn't: it takes fewer and smaller frames per
+    /// level, and lowers even with a third of the stack to spare, so that
+    /// an inlining choice that grows a frame is caught here (in release
+    /// builds, `node_expr` once grew from 96 to 816 bytes when the
+    /// compiler inlined a kind's function into it). One level deeper, the
+    /// parser's `E-RESOURCE` fails the declaration, which the lowering
+    /// gives as failed.
     #[test]
     fn deep_nesting_lowers_within_the_parsers_stack() {
         let shapes: [(&str, &str); 8] = [
@@ -909,7 +955,7 @@ mod tests {
         };
         let parses = |text: &str| {
             let file = SourceMap::new().next_id();
-            crate::parse_module_recovering(file, text, crate::DEFAULT_STACK)
+            crate::parser::parse_module_direct(file, text, crate::DEFAULT_STACK)
                 .1
                 .is_empty()
         };
@@ -937,6 +983,15 @@ mod tests {
                         assert_eq!(report.unsupported, [], "{shape:?} at {depth}");
                         assert_eq!(report.lowered, [kind], "{shape:?} at {depth}");
                     }
+                    let text = nested(shape, deep);
+                    let file = SourceMap::new().next_id();
+                    let (_, errors, tree) =
+                        crate::parse_module_and_tree(file, &text, crate::DEFAULT_STACK);
+                    let root = tree.decls().next().expect("a declaration");
+                    let lowered = Lower::new(&tree, &text, file, &errors)
+                        .with_stack(crate::DEFAULT_STACK * 2 / 3)
+                        .decl(root);
+                    assert!(lowered.is_ok(), "{shape:?} at {deep}: {lowered:?}");
                 }
             })
             .expect("a thread")
