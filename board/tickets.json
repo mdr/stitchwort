@@ -34589,15 +34589,17 @@
     {
       "id": 3179,
       "title": "[Sonnet] A test of deep unification of nested calls of one definition under the playground's 320 KiB guard, to lock in SW-3172's unification saving (SW-3172 review)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 45 min (Sonnet).\n\nLane note: test nested_calls_of_one_definition_unify_under_the_playground_guard in crates/driver/tests/elaboration/nesting.rs: opaque f, up/up2 build the calls by evaluation (no elaboration nesting), asserted depth 88 under guard(320). Release: new unifier passes 100, fails 105; with a84724692's unify.rs reverted it passes 72, fails 76, and the test fails in release and debug. Plain nested f (f (... 0)) written in source can't show it: elaboration runs out at about 55 levels first.",
+      "body": "Expected: 45 min (Sonnet).\nModel result: Sonnet, worked, ~11 min (est. 45). Release: 100 pass/105 out on main, 72/76 with the pre-SW-3172 unifier; asserts 88.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "4d16b0dc36f531691f27931df748b0792a88942f"
+      ]
     },
     {
       "id": 3180,
