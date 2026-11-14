@@ -35244,7 +35244,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Expected: 60 min (Sonnet).",
+      "body": "\nExpected: 60 min (Sonnet).\n\nProgress (Sonnet lane): added crates/driver/tests/library/import_cost.rs, test importing_std_namespaces_stays_within_recorded_step_counts: checks 10 namespaces (Bool Int List Map Nat Option Result Set Text Vec) with check_library_targets, bounds +-10%, about 10 s. Reading theorems: none above 25k steps (top: List.noRepeatsIff 24,424).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
