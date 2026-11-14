@@ -34327,12 +34327,12 @@
     {
       "id": 3160,
       "title": "[Opus, design] Syntax tree A2 steps 2-3 (docs/proposals/syntax-tree-architecture.md): lower the compiler's tree from the lossless tree (all shorthand expansion in one place), checked against the direct-built tree over the repo; then delete direct construction. After the formatter switch-over",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.",
+      "body": "Note merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
