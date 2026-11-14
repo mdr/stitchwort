@@ -10014,16 +10014,16 @@
     {
       "id": 1498,
       "title": "Message: a parameter that hides a same-named function gives a bare type mismatch; say which is meant and the function's full name",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-1619.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -11833,16 +11833,16 @@
     {
       "id": 1619,
       "title": "type YUp = | YUp (a type and its constructor with the same name) makes every use E-AMBIGUOUS; say so in the message or docs (SW-1617)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-1617, 6 Nov 2026.",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-1498.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
