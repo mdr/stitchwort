@@ -35007,12 +35007,12 @@
     {
       "id": 3208,
       "title": "[Opus] Lowering L1 (docs/proposals/syntax-tree-lowering.md): Expressions",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35020,12 +35020,12 @@
     {
       "id": 3209,
       "title": "[Opus] Lowering L2 (docs/proposals/syntax-tree-lowering.md): Declarations and headers",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L1 expressions, L2 declarations).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
