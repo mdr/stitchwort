@@ -663,6 +663,32 @@ tasks:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
       - python3 -I bench/compare/instructions.py --sw {{.BENCH_SW}} {{.CLI_ARGS}}
 
+  stack:peak:
+    desc: 'Which frames make up the deepest native stack of a stitchwort run (args after --: the command; DIR=aoc to run in a project: task stack:peak DIR=aoc -- check --no-cache Aoc.Year2021.Day06.Proofs)'
+    summary: |
+      Builds the release CLI with `STITCHWORT_STACK_PROBE=deepest` into its
+      own folder (target/stack-probe, so the normal release build isn't
+      rebuilt), runs `stitchwort ARGS` in DIR (default: the repository root)
+      with its standard error in target/stack-probe/peak.txt, and prints
+      dev/stack-peak's table: the probe's backtrace at the run's deepest
+      stack point, each frame's size read from the binary's prologues,
+      summed by function. For the next step in stack work, say which
+      functions to shrink. Release and arm64 only. The first build takes a
+      few minutes; the probe's `deepest` mode walks the stack at each new
+      deepest point, so a run is slower than usual. docs/testing.md,
+      "Stack"; the first use is docs/performance/log.md, SW-3180.
+    vars:
+      PROBE_TARGET: '{{.ROOT_DIR}}/target/stack-probe'
+      PROBE_SW: '{{.ROOT_DIR}}/target/stack-probe/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
+    env:
+      CARGO_TARGET_DIR: '{{.PROBE_TARGET}}'
+      STITCHWORT_STACK_PROBE: deepest
+    cmds:
+      - cargo build --release -p stitchwort-cli
+      - cmd: 'cd {{.DIR | default "."}} && {{.PROBE_SW}} {{.CLI_ARGS}} 2>{{.PROBE_TARGET}}/peak.txt'
+        ignore_error: true
+      - python3 -I dev/stack-peak {{.PROBE_SW}} {{.PROBE_TARGET}}/peak.txt
+
   profile:native:
     desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --by-instruction [--bodies N], --no-counts)'
     summary: |
