@@ -17716,15 +17716,15 @@
     {
       "id": 2009,
       "title": "[Opus] One lane for slow or hung checks: say what a check is computing (SW-1537 with SW-1477, SW-1534); past its budget it fails naming the declaration and what it was unfolding",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "diagnostics"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. 17+ days. D2832 [rec: yes]. 90 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. 17+ days. D2832 [rec: yes]. 90 min.\nStarted 14 Nov (orchestrator): within Matt's error-robustness direction (D3563); covers SW-1537, SW-1477 and SW-1534. Expected: 2 h (Opus).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
