@@ -1820,17 +1820,57 @@ impl Elaborator {
         }
     }
 
+    /// The type and constructor among `keys`, if exactly two candidates are
+    /// a type and one of its constructors with the same name: `type YUp =
+    /// | YUp`. The type first.
+    fn type_and_constructor<'a>(&self, keys: &'a [String]) -> Option<(&'a str, &'a str)> {
+        let [a, b] = keys else {
+            return None;
+        };
+        let (ga, _) = self.scope.get(a)?;
+        let (gb, _) = self.scope.get(b)?;
+        match (ga, gb) {
+            (Global::Data(d), Global::Ctor(e, _)) if d == e => Some((a, b)),
+            (Global::Ctor(e, _), Global::Data(d)) if d == e => Some((b, a)),
+            _ => None,
+        }
+    }
+
     /// `E-AMBIGUOUS`, where an ambiguous name is used.
     pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String], level: Level) -> Diagnostic {
         let shown: Vec<String> = keys
             .iter()
             .map(|k| format!("`{}`", self.written(k)))
             .collect();
+        let same_named = self.type_and_constructor(keys);
         let mut d = Diagnostic::error(
             "E-AMBIGUOUS",
             format!("`{}` could mean {}", name.text, or_list(&shown)),
-        )
-        .with_label(name.span, format!("write {} in full", or_list(&shown)));
+        );
+        d = match same_named {
+            Some((type_key, ctor_key)) => {
+                let type_shown = self.written(type_key);
+                let ctor_shown = self.written(ctor_key);
+                let type_alternative = match parent(type_key) {
+                    Some(_) => format!(", or write the type as `{type_shown}`"),
+                    None => {
+                        "; the type has no qualified name, so its uses need the rename".to_string()
+                    }
+                };
+                d.with_label(
+                    name.span,
+                    format!("`{}` is both a type and its constructor", name.text),
+                )
+                .with_note(format!(
+                    "`{type_shown}` is the type and `{ctor_shown}` its constructor, and a type \
+                     and a constructor can't have the same name: rename the constructor, as in \
+                     `| Mk{ctor_short}`, or write the constructor as `{ctor_shown}`\
+                     {type_alternative}",
+                    ctor_short = short(ctor_key),
+                ))
+            }
+            None => d.with_label(name.span, format!("write {} in full", or_list(&shown))),
+        };
         for key in keys {
             if let Some((_, span)) = self.scope.get(key)
                 && span.file == name.span.file
