@@ -34602,12 +34602,12 @@
     {
       "id": 3180,
       "title": "[Opus] Stack frames left after SW-3172: stitchwort::run has a 21 KiB frame (outside the guard); unify::rename_in/rename_other 912/1,328 B a level at Day06's peak; run_tasks 864 B, shape rules 1,088 B (would need loops over spines); whole_test allocates a Vec per check",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 3 h (Opus).",
+      "body": "Expected: 3 h (Opus).\n\nLane done (14:18-15:05, 47 min). Measured (arm64 prologue frame sizes; Day06 peak from a STITCHWORT_STACK_PROBE build that kept the deepest backtrace): CLI run 21,664 -> 592 B (commands out of line; check's frame 10,560). It was never a crash risk: the budget's stack floor is measured from the operation's start with 16 MiB in reserve. infer_value 2,592 -> 400 (+infer_call 464), infer_app_with 1,168 -> 784, fallback_inferred 1,136 -> 640 (an inferred application level 4.8 -> 2.3 KiB). rename_other 1,328 -> 832; rename_in unchanged (rename_call out of line was tried and dropped: the call path got longer). whole_test no longer allocates per check. run_tasks/unify_shapes not done: unify::run out of line gave nothing; further cuts need loops over spines. 2021 Day06.Proofs peak 179,200 -> 171,120 B (whole thread). Release nesting thresholds: long_appends 349 -> 393, nested_functions_and_function_types 367 -> 477, others unchanged; debug 23 -> 39 and 31 -> 67, others unchanged. Hashes unchanged (hash_stability 10/10). Entry in docs/performance/log.md.\n",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
