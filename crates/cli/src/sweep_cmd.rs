@@ -459,7 +459,7 @@ fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         for (path, unhashed, diff) in results {
             let s = sweeps
                 .iter_mut()
-                .find(|s| &s.path == &path)
+                .find(|s| s.path == path)
                 .expect("a swept file");
             for (name, reason) in unhashed {
                 s.refuse(&name, reason);
