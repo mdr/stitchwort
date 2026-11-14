@@ -35092,12 +35092,12 @@
     {
       "id": 3213,
       "title": "[Opus] Lowering L6 (docs/proposals/syntax-tree-lowering.md): Delete direct construction from the parser (step 4)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 8 h (Opus).\nOrchestrator's call: the lane starts now; its merge waits for L5 (SW-3212, merged 14 Nov ~12:00) to pass several of Overmind's rolling cycles (the note asks a day; at least three clean cycles plus the lane's last oracle run over fuzz-generated programs).",
+      "body": "Expected: 8 h (Opus).\nOrchestrator's call: the lane starts now; its merge waits for L5 (SW-3212, merged 14 Nov ~12:00) to pass several of Overmind's rolling cycles (the note asks a day; at least three clean cycles plus the lane's last oracle run over fuzz-generated programs).\n\nProgress (lane, 14 Nov 13:25): done in about 1 h 20 min, commit e45c411b2 on lane/SW-3213.\n- Oracle before deleting: 20,000 fuzz programs (4 seeds), 215,344 declarations, 48,648 expressions, 0 differences once the old route's `failed` order is normalised; the whole repo, 0.\n- Deleted: the parser's Expr/Pattern/Decl construction, `Stmt`/`LamParam`/`Param` values in the parser, `header` parking, `parse_module_direct`, the oracle and `dev tree --lower`, the \"parser alone\" timing. Group B on marks and tokens; group C (duplicate parameters, or-pattern binds, absurd arm with a condition) in the lowering as `Unsupported::Invalid`.\n- Fingerprints (repo + 20,000 fuzz programs) before/after: 15 differ; 14 only in the lossless tree (a declaration with a meaning error is a whole node now); 1 fuzz program also reports \"imports go at the top of the file\".\n- Timing: std 83.5 → 69.0 ms (old parser alone 53.2, so 1.30x); repo 251.6 → 209.9 ms.\n- Parser takes half the stack so whatever parses lowers; release CLI: 18,000 brackets, 2,000 `f (` check.\n- Gates: hash_stability 10/10; reject snapshots pass in release (2 fail in debug, elaboration limits, see report); stitchwort-syntax 269/269; nesting 15/15 release; deep_nesting test debug+release.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
