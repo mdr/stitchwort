@@ -43,8 +43,10 @@ mod decls;
 mod definitions;
 pub(crate) mod exprs;
 pub(crate) mod header;
+mod matching;
 pub mod oracle;
-mod patterns;
+pub(crate) mod patterns;
+pub(crate) mod proofs;
 mod types;
 
 /// What the lowering can't lower yet: the first such thing it met in a

@@ -21,6 +21,8 @@ use crate::lexer::{
     lex_with_trivia,
 };
 use crate::lower::exprs::{binary, chain, piped, prefix_op};
+use crate::lower::patterns::with_span;
+use crate::lower::proofs::reverse_calc;
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -659,17 +661,6 @@ fn unqualified(name: Name) -> Result<Name> {
         .into());
     }
     Ok(name)
-}
-
-/// A constructor pattern, its span widened to `span` (its brackets).
-fn with_span(p: Pattern, span: Span) -> Pattern {
-    match p {
-        Pattern::Ctor(name, args, _) => Pattern::Ctor(name, args, span),
-        Pattern::CtorFields {
-            ctor, fields, rest, ..
-        } => Pattern::ctor_fields(ctor, fields, rest, span),
-        other => other,
-    }
 }
 
 /// Whether a pattern contains the absurd pattern `()`, so its equation or
@@ -5938,31 +5929,6 @@ fn library_var(path: &str, span: Span) -> Expr {
         text: path.into(),
         span,
     })
-}
-
-/// A chain `a > b >= c` (its steps stored as `<`/`<=`, the proofs being of
-/// the flipped forms `b < a`, `c <= b`) read the other way round:
-/// `c <= b < a`. A step `_ = x` flips its proof with `Eq.sym`.
-fn reverse_calc(first: Expr, steps: Vec<CalcStep>) -> (Expr, Vec<CalcStep>) {
-    let mut elements = vec![first];
-    elements.extend(steps.iter().map(|step| step.rhs.clone()));
-    let mut reversed = Vec::new();
-    for (i, mut step) in steps.into_iter().enumerate().rev() {
-        step.rhs = elements[i].clone();
-        if step.rel == BinOp::Eq
-            && let Some(proof) = step.proof.take()
-        {
-            // Empty, at the proof, so the application spans just the proof.
-            let at = proof.span();
-            let sym = Expr::Var(Name {
-                text: "Std.Eq.sym".into(),
-                span: Span::new(at.file, at.start, at.start),
-            });
-            step.proof = Some(Expr::App(Box::new(sym), Box::new(proof)));
-        }
-        reversed.push(step);
-    }
-    (elements.pop().expect("a last element"), reversed)
 }
 
 fn describe(tok: &Tok) -> String {

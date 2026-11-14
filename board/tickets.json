@@ -35054,12 +35054,12 @@
     {
       "id": 3211,
       "title": "[Opus] Lowering L4 (docs/proposals/syntax-tree-lowering.md): Matching, handle, calc, rewrite, patterns",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).\n\nProgress (lane, 14 Nov 10:33-10:44): done in about 11 min (est. 7 h), commit a0d0243c6.\n- Lowered: Match/Scrutinee/Arm (guards, absurd arms), Handle/HandlerClause, Reify, Induct/InductArm, Calc/CalcStep (descending reversed), Rewrite/RewriteRule, Omega, Ring, Cases; patterns PatternCtor, PatternTuple, PatternList, PatternNamed, PatternRecord, PatternCtorFields, PatternOr, PatternParen, PatternNegative, PatternAbsurd. PatternTyped (lambda parameters only) has a helper, `Lower::pattern_typed`, for L3.\n- New files lower/matching.rs, lower/proofs.rs; lower/patterns.rs extended. `reverse_calc` and `with_span` moved from parser.rs unchanged.\n- Gate (`dev tree --lower --spans crates/elab/src/std aoc/src games examples`): 18,728 declarations lowered (was 15,079), 0 differences; not lowered 8,855, all L3 kinds (4584 Lambda, 1634 Block, 850 Forall, 699 Section, 649 If, 228 Exists, 105 OperatorSection, 68 ClauseLambda, 23 LetExpr, 15 Seq). One-line expressions: 25,560 of 30,463 lowered (was 24,835).\n- One difference found and fixed: a rewrite rule's span runs from its first token to the proof's span (which excludes closing brackets), not the node's last token.\n- For L3: `Lower::arm_parts` (patterns, guard, body of an Arm) for clause lambdas; `Lower::pattern` for let and lambda patterns.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
