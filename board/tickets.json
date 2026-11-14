@@ -34784,12 +34784,12 @@
     {
       "id": 3193,
       "title": "[Sonnet] New formatter: a header's leading run of variables can leave its last variable alone on line 2 (isPathAppend in aoc/src/Aoc/Common/Proofs/GridGraph.sw:116: (middle: Position)); avoid the orphan, e.g. by wrapping the run so no line holds a single variable, keeping each premise on its own line (SW-3192 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Fixed in lane/SW-3194 (a2af84631): rules.rs balanced_fill: when the greedy fill of a header's variable run would leave its last variable alone on a line and the line above has two or more, the last variable of that line comes down. Premises still start their own lines (D3564). Unit test a_run_of_variables_does_not_leave_its_last_variable_alone_on_a_line. 114 declarations in the repo changed (isPathAppend among them).\n",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
@@ -34797,12 +34797,12 @@
     {
       "id": 3194,
       "title": "[Sonnet] New formatter stage 5 (D3573): switch over. SW-3193 first, then make the tree printer what stitchwort fmt, the editor and the playground use, reformat the repo in one commit, delete the line-based layout, update the guide and style docs (docs/proposals/formatter-architecture.md §6)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 14 Nov 2026: D3573 yes (\"please proceed with D3573 (stage 5)\"). Includes SW-3193. Expected: 3 h. Gate: fmt_repo and hash snapshots unchanged (verifier), dev fmt-tree gate clean.",
+      "body": "Matt, 14 Nov 2026: D3573 yes (\"please proceed with D3573 (stage 5)\"). Includes SW-3193. Expected: 3 h. Gate: fmt_repo and hash snapshots unchanged (verifier), dev fmt-tree gate clean.\n\nProgress (lane, 14 Nov 2026, 07:28-08:0x GMT, est. 3 h): branch lane/SW-3194.\n- format/format_with_stats/format_in now use the tree printer (printer::format_tree_in). Deleted layout.rs (1,355 lines) and doc.rs (211); roles() moved to spacing.rs; check.rs lost same_comments. Stats is now {decls, verbatim_decls, unruled_nodes}.\n- D2307 (drop redundant brackets after an ability row / around a binder's whole type) was only in the old layout: ported as printer/parens.rs, a rewrite pass checked like D3565's merge.\n- dev fmt-tree stays as the repo-wide report.\n- Reformat commit 39de3aa7d: 1,322 files, +51,120 -29,492; listed in .git-blame-ignore-revs.\n- Gate over the 1,696 files fmt_repo covers: 0 fail a check, 0 not idempotent, 0 left as written, no unruled constructs; code lines over 120: 8,202 before, 20 after.\n- Snapshots updated: 24 accept/goals example snapshots and 3 reject ones that show std/Parse/Parse.sw positions (positions and excerpts only; parser-count-differs-from-lemma also differs in content, already stale before).\n- Not run (verifier): fmt_repo, fmt_hashes/hash_stability, whole examples suite, browser test (one expectation edited by hand).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
