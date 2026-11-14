@@ -1,5 +1,5 @@
 {
-  "next": 3233,
+  "next": 3236,
   "tickets": [
     {
       "id": 47,
@@ -34202,14 +34202,14 @@
     {
       "id": 3150,
       "title": "[Opus] Design: IO has no file read, write or folder listing, and Text has no O(1) slice, indexed read or builder (Text.get goes through toList) (SW-3145 findings; needed for real tools such as the self-hosted formatter)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Superseded by SW-3234 (D3579 paper lane on Fable).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -35368,12 +35368,12 @@
     {
       "id": 3231,
       "title": "Text literals in patterns: '| \"def\" => …' is E-PARSE; matching on text needs if-chains (SW-3228 finding; language feature, needs a design note)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "D3579 (Matt, 14 Nov 2026): a foundation piece for a Stitchwort formatter. Expected: 1.5 h (Opus paper lane: design note).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35387,6 +35387,45 @@
       "labels": [],
       "epic": "std-library",
       "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3233,
+      "title": "[Fable] Paper: the parser's end state now it has one job (D3579): marks (sorted after the parse) against in-order events with precede (rust-analyzer), leftovers from the two-route period (signature_kept, parked failed declarations, relabelling), stack frames, recovery's needs; recommend the cleanest end state with numbers; the tidy waits for recovery S1",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3234,
+      "title": "[Fable] Paper: IO and Text design (D3579, SW-3150): file read/write and folder listing in the IO ability with errors as values; Text with O(1) slice, indexed read and a builder; runtime, native backend and JS support; what a formatter in Stitchwort needs",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3235,
+      "title": "[Fable] Paper: a generic Std.Parse (D3579): parse any token type, not only List Char, so a program can lex then parse a token list; keep every existing use and its proofs working; performance on large inputs",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
