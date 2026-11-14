@@ -34988,12 +34988,12 @@
     {
       "id": 3207,
       "title": "[Opus] Lowering L0 (docs/proposals/syntax-tree-lowering.md): Scaffolding: lower module, dispatch with unsupported, dev tree --lower (exact comparison, diagnostics, per-kind counts), Expression root, marks under Error roots",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 5.5 h (Opus). D3574, D3575 decided.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
