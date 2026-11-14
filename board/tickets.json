@@ -34696,12 +34696,12 @@
     {
       "id": 3187,
       "title": "[Sonnet] New formatter: the last long code lines: a call with a bracketed argument whose leading plain arguments already pass 120 (Day19 Parse.declinesLinesAtBlank, 2021 Day16 operatorOfWellFormed) should fill that prefix as D3569 does; lambda parameter lists can't break (one 292-character line in games/rogue's property proof) (SW-3186 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 75 min (Sonnet).",
+      "body": "Expected: 75 min (Sonnet).\n\nLane notes (14 Nov): call prefix of 3+ plain items before a non-plain argument fills at 4 when it does not fit, later arguments then at 4 (D3569); lambda parameters fill at 4 when the lambda goes below (S22), not in hugs. Lines over 120: 19 -> 16, all text literals. Reformatted 4 files. Two unit tests.\n",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []

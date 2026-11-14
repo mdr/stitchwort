@@ -394,6 +394,35 @@ fn plain_arguments_that_do_not_fit_fill_lines_at_four() {
 }
 
 #[test]
+fn leading_plain_arguments_past_the_width_fill_lines_and_the_rest_follow_at_the_same_indent() {
+    // D3569 for the plain arguments before a bracketed one (SW-3187).
+    let names: Vec<String> = (0..8).map(|k| format!("{}{k}", long(20))).collect();
+    let (first, second) = (names[..5].join(" "), names[5..].join(" "));
+    check(
+        &format!("def f (n: Nat): Nat :=\n  g {} (h n) n\n", names.join(" ")),
+        &format!("def f (n: Nat): Nat :=\n  g {first}\n      {second}\n      (h n)\n      n\n"),
+    );
+    // A prefix that fits keeps the rest at 2.
+    let name = long(115);
+    check(
+        &format!("def f (n: Nat): Nat :=\n  g {name} (h n) n\n"),
+        &format!("def f (n: Nat): Nat :=\n  g {name}\n    (h n)\n    n\n"),
+    );
+}
+
+#[test]
+fn a_lambdas_parameters_that_do_not_fit_fill_lines_at_four() {
+    // S22 (SW-3187): the body goes below at 2, the arrow stays after the
+    // last parameter.
+    let names: Vec<String> = (0..8).map(|k| format!("{}{k}", long(20))).collect();
+    let (first, second) = (names[..5].join(" "), names[5..].join(" "));
+    check(
+        &format!("def f: Nat := {} => n + 1\n", names.join(" ")),
+        &format!("def f: Nat :=\n  {first}\n      {second} =>\n    n + 1\n"),
+    );
+}
+
+#[test]
 fn a_match_joins_the_header_line_only_when_its_whole_head_fits() {
     // D3553, S12: a head that would wrap goes below at 2, arms at 4.
     check(

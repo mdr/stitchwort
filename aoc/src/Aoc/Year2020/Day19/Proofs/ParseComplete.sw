@@ -359,9 +359,10 @@ theorem runsReceived ∀ (read: List Char) (received2: Received)
                       (rewrite List.appendAssoc blank messagesRead ending in
                         cannotStartAtBlankBreak seqChar rfl rfl blank (messagesRead ++ ending) blankOk)
                       (rewrite List.appendAssoc blank messagesRead ending in
-                        Parse.declinesLinesAtBlank numberedRule Parse.isDigit declinesNumbered rfl rfl spaceNotDigit blank
-                          (messagesRead ++ ending)
-                          blankOk)
+                        Parse.declinesLinesAtBlank numberedRule Parse.isDigit declinesNumbered rfl rfl spaceNotDigit
+                            blank
+                            (messagesRead ++ ending)
+                            blankOk)
                       rulesRead
                       firstRule
                       otherRules
