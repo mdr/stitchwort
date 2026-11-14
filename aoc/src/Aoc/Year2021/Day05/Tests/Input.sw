@@ -5,7 +5,8 @@ import Aoc.Common (Line)
 import Aoc.Year2021.Day05 (..)
 import Std (Fail, Text)
 
-def inputLines: Result (List Line) Text := Fail.toResult (() => parseLines (include "../../../../../inputs/2021/day05.txt"))
+def inputLines: Result (List Line) Text :=
+  Fail.toResult (() => parseLines (include "../../../../../inputs/2021/day05.txt"))
 
 test "real input, part 1" := inputLines.map solvePart1 == Ok 8060
 test "real input, part 2" := inputLines.map solvePart2 == Ok 21577

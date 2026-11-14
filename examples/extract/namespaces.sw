@@ -8,9 +8,7 @@
 -- run: Geometry.Shape.area (Geometry.Shape.Rect 2 5)
 -- run: grow (Geometry.Shape.Square 1)
 
-type Geometry.Shape: Type =
-  | Square (side: Nat)
-  | Rect (width: Nat) (height: Nat)
+type Geometry.Shape: Type = | Square (side: Nat) | Rect (width: Nat) (height: Nat)
 
 export def Geometry.Shape.area: Geometry.Shape → Nat
   | Geometry.Shape.Square s => s * s

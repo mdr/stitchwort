@@ -12,12 +12,15 @@ def example: Text := include "../../../../../examples/2020/day21.txt"
 def names (ingredients: List Ingredient): List Text := ingredients.map .name
 
 test "the example has four foods" :=
-  (parsed example).map (list => list.foods.map (food => (food.ingredients.length, food.allergens.length))) == Ok [(4, 2), (4, 1), (2, 1), (3, 1)]
+  (parsed example).map (list => list.foods.map (food => (food.ingredients.length, food.allergens.length)))
+    == Ok [(4, 2), (4, 1), (2, 1), (3, 1)]
 
-test "the example's allergens, alphabetically" := (parsed example).map (list => list.allergens.map .name) == Ok ["dairy", "fish", "soy"]
+test "the example's allergens, alphabetically" :=
+  (parsed example).map (list => list.allergens.map .name) == Ok ["dairy", "fish", "soy"]
 
 test "the example's safe ingredients" :=
-  (parsed example).map (list => list.ingredients.filter list.isSafe |> names |> .sort) == Ok ["kfcds", "nhms", "sbzzf", "trh"]
+  (parsed example).map (list => list.ingredients.filter list.isSafe |> names |> .sort)
+    == Ok ["kfcds", "nhms", "sbzzf", "trh"]
 
 test "the example, part 1" := (parsed example).map (.safeAppearances) == Ok 5
 

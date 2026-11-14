@@ -12,19 +12,11 @@ namespace Sf.Lf.Basics.LateDays
 --
 -- First, a data type for the "letter" part of a grade:
 
-type Letter =
-  | A
-  | B
-  | C
-  | D
-  | F
+type Letter = | A | B | C | D | F
 
 -- Then the modifiers: a `Natural` `A` is a plain grade of A.
 
-type Modifier =
-  | Plus
-  | Natural
-  | Minus
+type Modifier = | Plus | Natural | Minus
 
 -- A full grade is a letter and a modifier. Informally, "A-" is
 -- `MkGrade A Minus`, and "C" is `MkGrade C Natural`.
@@ -34,8 +26,7 @@ type Modifier =
 -- (`E-AMBIGUOUS`), so the constructor is `MkGrade`, as the library's
 -- `Pair` has `MkPair`.
 
-type Grade =
-  | MkGrade (l: Letter) (m: Modifier)
+type Grade = | MkGrade (l: Letter) (m: Modifier)
 
 -- We want to say when one grade is better than another, so we need to
 -- compare grades. We could define tests (`gradeEqb`, `gradeLtb`, …), but
@@ -204,7 +195,10 @@ theorem lowerGradeFMinus: lowerGrade (MkGrade F Minus) = MkGrade F Minus := ?
 -- only need to split a letter in one case, and the case for `F` will
 -- probably use `lowerGradeFMinus`.
 
-theorem lowerGradeLowers ∀ (g: Grade) (h: gradeComparison (MkGrade F Minus) g = Less): gradeComparison (lowerGrade g) g = Less := ?
+theorem lowerGradeLowers ∀ (g: Grade)
+    (h: gradeComparison (MkGrade F Minus) g = Less):
+    gradeComparison (lowerGrade g) g = Less :=
+  ?
 
 -- With a function that lowers a grade by one step, we can write a
 -- late-days policy. Given a number of late days, `applyLatePolicy`
@@ -231,10 +225,11 @@ def applyLatePolicy (lateDays: Nat) (g: Grade): Grade :=
 -- internals:
 
 theorem applyLatePolicyUnfold ∀ (lateDays: Nat) (g: Grade):
-    applyLatePolicy lateDays g = (if lateDays < 9 then g
-      else if lateDays < 17 then lowerGrade g
-      else if lateDays < 21 then lowerGrade (lowerGrade g)
-      else lowerGrade (lowerGrade (lowerGrade g))) :=
+    applyLatePolicy lateDays g
+      = (if lateDays < 9 then g
+         else if lateDays < 17 then lowerGrade g
+         else if lateDays < 21 then lowerGrade (lowerGrade g)
+         else lowerGrade (lowerGrade (lowerGrade g))) :=
   rfl
 
 -- In Stitchwort this lemma is rarely needed: a `match` on a test, such as
@@ -261,4 +256,8 @@ theorem noPenaltyForMostlyOnTime ∀ (lateDays: Nat) (g: Grade) (h: lateDays < 9
 
 -- Exercise: 2 stars, standard (graded_lowered_once)
 
-theorem gradeLoweredOnce ∀ (lateDays: Nat) (g: Grade) (h1: (lateDays < 9) = False) (h2: lateDays < 17): applyLatePolicy lateDays g = lowerGrade g := ?
+theorem gradeLoweredOnce ∀ (lateDays: Nat) (g: Grade)
+    (h1: (lateDays < 9) = False)
+    (h2: lateDays < 17):
+    applyLatePolicy lateDays g = lowerGrade g :=
+  ?

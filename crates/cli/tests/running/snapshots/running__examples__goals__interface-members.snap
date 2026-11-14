@@ -3,25 +3,25 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `compareSame`
-   ╭─[ goals/interface-members.sw:7:93 ]
+   ╭─[ goals/interface-members.sw:7:88 ]
    │
- 7 │ theorem compareSame ∀ [auto ord: Ord a] (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
-   │                                                                                             ┬  
-   │                                                                                             ╰── a: Type
-   │                                                                                                 ord: Ord a
-   │                                                                                                 x: a
-   │                                                                                                 y: a
-   │                                                                                                 ⊢ Ord.compare x y = Ord.compare x y
+ 7 │ theorem compareSame ∀ [auto ord: Ord a] (x y: a): Ord.compare x y = Ord.compare x y := ?
+   │                                                                                        ┬  
+   │                                                                                        ╰── a: Type
+   │                                                                                            ord: Ord a
+   │                                                                                            x: a
+   │                                                                                            y: a
+   │                                                                                            ⊢ Ord.compare x y = Ord.compare x y
 ───╯
 [GOAL] Goal: in `equalSound`
-   ╭─[ goals/interface-members.sw:9:86 ]
+   ╭─[ goals/interface-members.sw:9:81 ]
    │
- 9 │ theorem equalSound ∀ [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y := ?
-   │                                                                                      ┬  
-   │                                                                                      ╰── a: Type
-   │                                                                                          eq: DecEq a
-   │                                                                                          x: a
-   │                                                                                          y: a
-   │                                                                                          h: x == y
-   │                                                                                          ⊢ x = y
+ 9 │ theorem equalSound ∀ [auto eq: DecEq a] (x y: a) (h: (x == y) = True): x = y := ?
+   │                                                                                 ┬  
+   │                                                                                 ╰── a: Type
+   │                                                                                     eq: DecEq a
+   │                                                                                     x: a
+   │                                                                                     y: a
+   │                                                                                     h: x == y
+   │                                                                                     ⊢ x = y
 ───╯

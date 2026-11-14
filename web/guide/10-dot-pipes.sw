@@ -11,10 +11,7 @@ def names: List Text := people.map .name
 
 -- `|>` feeds the left side in as the first argument, so pipelines read
 -- top to bottom.
-def totalAge: Nat :=
-  people
-    |> .map .age
-    |> .sum
+def totalAge: Nat := people |> .map .age |> .sum
 
 def greetings: List Text := people.map (.greet "Hi")
 

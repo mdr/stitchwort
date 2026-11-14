@@ -48,5 +48,4 @@ theorem notMultiple ∀ (d n: Nat) (h: Nat.divides d n = False): ¬(∃ (t: Nat)
 theorem repeats ∀ (xs: List Nat) (h: xs.isDistinct = False): ¬(List.Distinct xs) := h.read
 
 -- A pattern reads the bounds as the `∧` they are.
-theorem lowBound ∀ (x lo hi: Nat) (h: List.inRange x lo hi = True): lo ≤ x := match h with
-  | Both low high => low
+theorem lowBound ∀ (x lo hi: Nat) (h: List.inRange x lo hi = True): lo ≤ x := match h with | Both low high => low

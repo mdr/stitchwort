@@ -11,6 +11,6 @@ def Smallness.Small (s: Smallness): Prop := s.value < 10
 
 theorem t ∀ (s: Smallness) (h: s.Small): s.value < 10 := h
 
-theorem sub ∀ (xs: List Nat) (ys: List Nat) (h: xs.Subsequence ys): List.Subsequence xs ys := h
+theorem sub ∀ (xs ys: List Nat) (h: xs.Subsequence ys): List.Subsequence xs ys := h
 
 theorem distinct ∀ (xs: List Nat) (h: xs.Distinct): List.Distinct xs := h

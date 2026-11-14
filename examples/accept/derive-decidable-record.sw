@@ -30,8 +30,7 @@ def small (n: Nat): Bool := Small n
 
 theorem smallBelow ∀ (n: Nat) (h: small n = True): n < 10 := h.below
 
-theorem smallPattern ∀ (n: Nat) (h: small n = True): n ≠ 0 := match h with
-  | { below, notZero } => notZero
+theorem smallPattern ∀ (n: Nat) (h: small n = True): n ≠ 0 := match h with | { below, notZero } => notZero
 
 theorem smallWhole ∀ (n: Nat) (h: small n = True): Small n := h.read
 
@@ -42,7 +41,8 @@ theorem smallBuilt ∀ (n: Nat) (below: n < 10) (notZero: n ≠ 0): small n = Tr
 -- Decisions that are not a plain comparison are read the same way.
 def validRoster (ids: List Nat) (captain: Nat): Bool := Roster ids captain
 
-theorem rosterCaptain ∀ (ids: List Nat) (captain: Nat) (h: validRoster ids captain = True): captain ∈ ids := h.hasCaptain
+theorem rosterCaptain ∀ (ids: List Nat) (captain: Nat) (h: validRoster ids captain = True): captain ∈ ids :=
+  h.hasCaptain
 
 -- The test computes where the fields' decisions do.
 theorem smallThree: small 3 = True := rfl

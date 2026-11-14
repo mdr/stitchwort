@@ -1,5 +1,5 @@
 -- R3: no space before `:`, one after.
-def f (x: Nat) (y: Nat): Nat := x
+def f (x y: Nat): Nat := x
 
 -- R4: one space around `:=`, `=>`, `->`, `=`, `|` and binary operators, and
 -- between application arguments.

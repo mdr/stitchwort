@@ -20,8 +20,7 @@ type SafeNat = { value: Nat, fits: value ≤ 9007199254740991 }
 type SafeInt = { value: Int, fits: Int.natAbs value ≤ 9007199254740991 }
 
 --| `Some` of the number as a `SafeNat`, if it is small enough.
-def SafeNat.ofNat (n: Nat): Option SafeNat :=
-  if h: n ≤ 9007199254740991 then Some { value = n, fits = h } else None
+def SafeNat.ofNat (n: Nat): Option SafeNat := if h: n ≤ 9007199254740991 then Some { value = n, fits = h } else None
 
 --| `Some` of the number as a `SafeInt`, if it is within the bounds.
 def SafeInt.ofInt (n: Int): Option SafeInt :=
@@ -29,26 +28,43 @@ def SafeInt.ofInt (n: Int): Option SafeInt :=
 
 --| Two numbers with the same value are equal: their `fits` proofs are too,
 --| being proofs that a `Bool` is `True` ([`Bool.uniqueEq`]).
-theorem SafeNat.mkExt ∀ (a: Nat) (b: Nat) (p: a ≤ 9007199254740991) (e: a = b)
-    (q: b ≤ 9007199254740991): ({ value = a, fits = p }: SafeNat) = { value = b, fits = q } :=
-  let ext := J (b' e' => ∀ (q': b' ≤ 9007199254740991) => ({ value = a, fits = p }: SafeNat) = { value = b', fits = q' })
-    (q' => J (r e'' => ({ value = a, fits = p }: SafeNat) = { value = a, fits = r }) rfl
-      (Bool.uniqueEq (Nat.leq a 9007199254740991) True p q'))
-    e
+theorem SafeNat.mkExt ∀ (a b: Nat)
+    (p: a ≤ 9007199254740991)
+    (e: a = b)
+    (q: b ≤ 9007199254740991):
+    ({ value = a, fits = p }: SafeNat) = { value = b, fits = q } :=
+  let ext :=
+    J
+      (b' e' => ∀ (q': b' ≤ 9007199254740991) => ({ value = a, fits = p }: SafeNat) = { value = b', fits = q' })
+      (q' =>
+        J
+          (r e'' => ({ value = a, fits = p }: SafeNat) = { value = a, fits = r })
+          rfl
+          (Bool.uniqueEq (Nat.leq a 9007199254740991) True p q'))
+      e
   ext q
 
-theorem SafeNat.ext ∀ (i: SafeNat) (j: SafeNat) (e: i.value = j.value): i = j := match i, j with
+theorem SafeNat.ext ∀ (i j: SafeNat) (e: i.value = j.value): i = j := match i, j with
   | { value = a, fits = p }, { value = b, fits = q } => SafeNat.mkExt a b p e q
 
-theorem SafeInt.mkExt ∀ (a: Int) (b: Int) (p: Int.natAbs a ≤ 9007199254740991) (e: a = b)
-    (q: Int.natAbs b ≤ 9007199254740991): ({ value = a, fits = p }: SafeInt) = { value = b, fits = q } :=
-  let ext := J (b' e' => ∀ (q': Int.natAbs b' ≤ 9007199254740991) => ({ value = a, fits = p }: SafeInt) = { value = b', fits = q' })
-    (q' => J (r e'' => ({ value = a, fits = p }: SafeInt) = { value = a, fits = r }) rfl
-      (Bool.uniqueEq (Nat.leq (Int.natAbs a) 9007199254740991) True p q'))
-    e
+theorem SafeInt.mkExt ∀ (a b: Int)
+    (p: Int.natAbs a ≤ 9007199254740991)
+    (e: a = b)
+    (q: Int.natAbs b ≤ 9007199254740991):
+    ({ value = a, fits = p }: SafeInt) = { value = b, fits = q } :=
+  let ext :=
+    J
+      (b' e' =>
+        ∀ (q': Int.natAbs b' ≤ 9007199254740991) => ({ value = a, fits = p }: SafeInt) = { value = b', fits = q' })
+      (q' =>
+        J
+          (r e'' => ({ value = a, fits = p }: SafeInt) = { value = a, fits = r })
+          rfl
+          (Bool.uniqueEq (Nat.leq (Int.natAbs a) 9007199254740991) True p q'))
+      e
   ext q
 
-theorem SafeInt.ext ∀ (i: SafeInt) (j: SafeInt) (e: i.value = j.value): i = j := match i, j with
+theorem SafeInt.ext ∀ (i j: SafeInt) (e: i.value = j.value): i = j := match i, j with
   | { value = a, fits = p }, { value = b, fits = q } => SafeInt.mkExt a b p e q
 
 --| The number as a `Nat`.
@@ -58,15 +74,15 @@ def SafeNat.toNat (n: SafeNat): Nat := n.value
 def SafeInt.toInt (n: SafeInt): Int := n.value
 
 --| `==` on numbers: equal exactly when their values are.
-instance SafeNat.instDecEq: DecEq SafeNat :=
-  { decide = i j =>
-    if h: i.value = j.value then Decidable.yes (SafeNat.ext i j h)
-    else Decidable.no (e => h (Eq.cong (k => k.value) e)) }
+instance SafeNat.instDecEq: DecEq SafeNat := {
+  decide = i j =>
+    if h: i.value = j.value then Decidable.yes (SafeNat.ext i j h) else Decidable.no (e => h (Eq.cong (k => k.value) e))
+}
 
-instance SafeInt.instDecEq: DecEq SafeInt :=
-  { decide = i j =>
-    if h: i.value = j.value then Decidable.yes (SafeInt.ext i j h)
-    else Decidable.no (e => h (Eq.cong (k => k.value) e)) }
+instance SafeInt.instDecEq: DecEq SafeInt := {
+  decide = i j =>
+    if h: i.value = j.value then Decidable.yes (SafeInt.ext i j h) else Decidable.no (e => h (Eq.cong (k => k.value) e))
+}
 
 --| In order of their values.
 instance SafeNat.instOrd: Ord SafeNat := Ord.byKey (i => i.value) SafeNat.ext

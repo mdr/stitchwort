@@ -6,32 +6,29 @@
 import Ordered (compare)
 import Std (Nat, Text)
 
-interface Ordered (k: Type) =
-  { compare: k → k → Ordering }
+interface Ordered (k: Type) = { compare: k → k → Ordering }
 
-instance Ordered.instNat: Ordered Nat :=
-  { compare = Nat.compare }
+instance Ordered.instNat: Ordered Nat := { compare = Nat.compare }
 
-instance Ordered.instText: Ordered Text :=
-  { compare = Text.compare }
+instance Ordered.instText: Ordered Text := { compare = Text.compare }
 
 -- A named alternative: never found, passed by name.
 def descending: Ordered Nat := { compare = m n => Nat.compare n m }
 
 -- The ordering is a parameter of the type, found wherever the type is
 -- written, as for a function's `auto` argument.
-type Map (k: Type) (v: Type) [auto ord: Ordered k] =
-  { entries: List (k, v) }
+type Map (k: Type) (v: Type) [auto ord: Ordered k] = { entries: List (k, v) }
 
 -- Inside a generic function, `Map k v` is the map with its own `ord`.
 def Map.empty [auto ord: Ordered k]: Map k v := { entries = [] }
 
 def Map.insertList [auto ord: Ordered k] (key: k) (value: v): List (k, v) → List (k, v)
   | [] => [(key, value)]
-  | [(k2, v2), ..rest] => match compare key k2 with
-    | Less => [(key, value), (k2, v2), ..rest]
-    | Equal => [(key, value), ..rest]
-    | Greater => [(k2, v2), ..Map.insertList key value rest]
+  | [(k2, v2), ..rest] =>
+    match compare key k2 with
+      | Less => [(key, value), (k2, v2), ..rest]
+      | Equal => [(key, value), ..rest]
+      | Greater => [(k2, v2), ..Map.insertList key value rest]
 
 def Map.insert [auto ord: Ordered k] (m: Map k v) (key: k) (value: v): Map k v :=
   { entries = Map.insertList key value m.entries }
@@ -45,8 +42,7 @@ def words: Map Text Nat := Map.empty |> .insert "b" 2 |> .insert "a" 1 |> .inser
 test "filled by search" := words.keys == ["a", "b", "c"]
 
 -- Given by name: a different type, whose operations all use `descending`.
-def down: Map Nat Nat [ord := descending] :=
-  Map.empty |> .insert 1 1 |> .insert 3 3 |> .insert 2 2
+def down: Map Nat Nat [ord := descending] := Map.empty |> .insert 1 1 |> .insert 3 3 |> .insert 2 2
 
 test "given by name" := down.keys == [3, 2, 1]
 
@@ -61,8 +57,7 @@ test "a set" := small.keys == [1, 2]
 
 -- An operation on an existing map, with another `Ordered Nat` in scope: the
 -- map's type fixes `insert`'s `ord`, so the local one isn't used (§5.5 step 1).
-def insertFive [auto other: Ordered Nat] (m: Map Nat Nat [ord := descending]): List Nat :=
-  m.insert 5 5 |> .keys
+def insertFive [auto other: Ordered Nat] (m: Map Nat Nat [ord := descending]): List Nat := m.insert 5 5 |> .keys
 
 test "the map's own ordering" := insertFive down == [5, 3, 2, 1]
 
@@ -77,15 +72,17 @@ test "a local ordering" := (withLocal [other := descending]).keys == [2, 1]
 -- is the map's own ordering, so its first two keys are in order by `o`.
 -- (Found again, `Ordered Nat` would be `Ordered.instNat`, and `down`'s keys
 -- `3, 2` would be out of order.)
-interface Pretty (a: Type) =
-  { pretty: a → Text }
+interface Pretty (a: Type) = { pretty: a → Text }
 
-instance Map.instPretty: Pretty (Map k v [ord := o]) :=
-  { pretty = m => match m.entries with
-    | [(a, _), (b, _), .._] => match compare [ordered := o] a b with
-      | Less => "in order"
-      | _ => "out of order"
-    | _ => "short" }
+instance Map.instPretty: Pretty (Map k v [ord := o]) := {
+  pretty = m =>
+    match m.entries with
+      | [(a, _), (b, _), .._] =>
+        match compare [ordered := o] a b with
+          | Less => "in order"
+          | _ => "out of order"
+      | _ => "short"
+}
 
 test "the head's ordering is kept" := Pretty.pretty down == "in order"
 test "for any ordering" := Pretty.pretty words == "in order"
@@ -109,25 +106,21 @@ def runState (init: s) (prog: () → {State s | e} a): {e} (a, s) :=
       | put st2, k => st => k() st2
   run init
 
-def record (n: Nat): {State (Map Nat Nat [ord := descending])} () :=
-  put (get().insert n (n * 10))
+def record (n: Nat): {State (Map Nat Nat [ord := descending])} () := put (get().insert n (n * 10))
 
 def recordTwo(): {State (Map Nat Nat [ord := descending])} () :=
   record 4
   record 7
 
-def recorded: Map Nat Nat [ord := descending] := match runState Map.empty recordTwo with
-  | (_, m) => m
+def recorded: Map Nat Nat [ord := descending] := match runState Map.empty recordTwo with | (_, m) => m
 
 test "a map as state" := recorded.keys == [7, 4]
 
 -- Values that are pure functions are allowed in state too (abilities.md:
 -- only a computation using the ability itself is refused, Landin's knot;
 -- see examples/reject/data-auto-knot.sw).
-def functions: {State (Map Nat (Nat → Nat))} () :=
-  put (get().insert 1 (n => n + 1))
+def functions: {State (Map Nat (Nat → Nat))} () := put (get().insert 1 (n => n + 1))
 
-def stored: Map Nat (Nat → Nat) := match runState Map.empty (u => functions) with
-  | (_, m) => m
+def stored: Map Nat (Nat → Nat) := match runState Map.empty (u => functions) with | (_, m) => m
 
 test "functions as state" := stored.keys == [1]

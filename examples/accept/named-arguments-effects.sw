@@ -26,7 +26,7 @@ def staged (x: Nat): {Log} ((y: Nat) → (z: Nat) → Nat) :=
   say (100 + x)
   (y z => x * 100 + y * 10 + z)
 
-def plain (a: Nat) (b: Nat) (c: Nat): Nat := a * 100 + b * 10 + c
+def plain (a b c: Nat): Nat := a * 100 + b * 10 + c
 
 -- Invariant 2: reordered named arguments run in written order, and the
 -- stage after all of them, as in the positional call.
@@ -59,8 +59,7 @@ def stageInside(): {Log} Nat :=
   let second := h 2
   first 5 + second 6
 
-test "a stage after a skip runs at each call" :=
-  collect stageInside == ([3, 101, 102], 153 + 263)
+test "a stage after a skip runs at each call" := collect stageInside == ([3, 101, 102], 153 + 263)
 
 -- With no computation among the arguments, the call is a plain value.
 def stagedLater: (x: Nat) → {Log} ((y: Nat) → Nat) := staged (z := 4)
@@ -72,7 +71,7 @@ def usesStagedLater(): {Log} Nat :=
 test "a stage after a skip, as a value" := collect usesStagedLater == ([102], 274)
 
 -- A stage after a given argument, inside the function, and two stages.
-def stagedLate (x: Nat) (y: Nat): {Log} ((z: Nat) → Nat) :=
+def stagedLate (x y: Nat): {Log} ((z: Nat) → Nat) :=
   say (100 * x + y)
   (z => x * 100 + y * 10 + z)
 
@@ -90,8 +89,7 @@ def lateAndTwice(): {Log} Nat :=
   let b := fromTwice 2
   a + b
 
-test "stages inside, in parameter order" :=
-  collect lateAndTwice == ([1, 102, 2], 123 + 123)
+test "stages inside, in parameter order" := collect lateAndTwice == ([1, 102, 2], 123 + 123)
 
 -- A result type computed from a parameter: names after it are found once
 -- the arguments before it are given, in a computation too.
@@ -105,16 +103,14 @@ def adder (n: Nat): Adder n := match n with
 
 def computedNames(): {Log} Nat := adder (plus := given 4) 1
 
-test "names after a computed result type, in a computation" :=
-  collect computedNames == ([4], 5)
+test "names after a computed result type, in a computation" := collect computedNames == ([4], 5)
 
 -- A pure function: the given computations run once, at the call.
 def skippingPure(): {Log} Nat :=
   let k := plain (c := given 3) (a := given 1)
   k 2 + k 4
 
-test "a skip in a pure function runs the arguments once" :=
-  collect skippingPure == ([3, 1], 123 + 143)
+test "a skip in a pure function runs the arguments once" := collect skippingPure == ([3, 1], 123 + 143)
 
 -- The value piped in runs first, then the arguments as written.
 def piped(): {Log} Nat := given 7 |> plain (c := given 2) (b := given 1)
@@ -124,7 +120,7 @@ test "the piped value runs first" := collect piped == ([7, 2, 1], 712)
 -- Dot notation: the receiver runs first.
 type Counter = { count: Nat }
 
-def Counter.add (counter: Counter) (by: Nat) (times: Nat): Nat := counter.count + by * times
+def Counter.add (counter: Counter) (by times: Nat): Nat := counter.count + by * times
 
 def counterOf (n: Nat): {Log} Counter :=
   say n

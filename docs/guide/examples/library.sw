@@ -33,8 +33,7 @@ theorem upTo ∀ (x n: Nat) (h: x ∈ 0 ..< n): x < n := omega
 -- end ranges
 
 -- begin option
-def lookupAge (name: Text): Option Nat :=
-  if name == "Ada" then Some 36 else None
+def lookupAge (name: Text): Option Nat := if name == "Ada" then Some 36 else None
 
 test "map" := (lookupAge "Ada").map (age => age + 1) == Some 37
 test "getOrElse" := (lookupAge "Bob").getOrElse 0 == 0
@@ -70,7 +69,8 @@ def wordCounts (words: List Text): Map Text Nat :=
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
+test "group by" :=
+  (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
 test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 -- end map

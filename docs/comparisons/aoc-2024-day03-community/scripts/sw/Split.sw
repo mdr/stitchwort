@@ -6,7 +6,8 @@ import Aoc.Year2024.Day03 (parseInstructions, solvePart1)
 import Std (Fail, IO, List, Text)
 
 def enabledText (memory: Text): Text := match memory.splitOn "don't()" with
-  | Cons first later => Cons first (later.map (piece => piece.splitOn "do()" |> .drop 1 |> .joinWith "do()")) |> .joinWith ""
+  | Cons first later =>
+    Cons first (later.map (piece => piece.splitOn "do()" |> .drop 1 |> .joinWith "do()")) |> .joinWith ""
   | Nil => memory
 
 def main(): {IO, Fail} () :=

@@ -27,7 +27,8 @@ def main(): {IO, Fail} () :=
 
 --| The timers on one line, separated by commas. A timer above 8 fails,
 --| naming its place: no fish's timer starts above 8.
-def parseTimers (input: Text): {Fail} List Nat := checkTimers (Parse.line input (() => sepBy1 nat (() => char ',') |> .toList))
+def parseTimers (input: Text): {Fail} List Nat :=
+  checkTimers (Parse.line input (() => sepBy1 nat (() => char ',') |> .toList))
 
 --| The timers, if none is above 8; otherwise fail, naming the first that is.
 def checkTimers (timers: List Nat): {Fail} List Nat := match firstAbove8 timers with
@@ -70,8 +71,7 @@ def Counts.total (counts: Counts): Nat :=
   counts.t0 + counts.t1 + counts.t2 + counts.t3 + counts.t4 + counts.t5 + counts.t6 + counts.t7 + counts.t8
 
 --| The number of fish after `days` days.
-def fishAfter (days: Nat) (timers: List Nat): Nat :=
-  Nat.iterate days Counts.nextDay (Counts.ofTimers timers) |> .total
+def fishAfter (days: Nat) (timers: List Nat): Nat := Nat.iterate days Counts.nextDay (Counts.ofTimers timers) |> .total
 
 def solvePart1 (timers: List Nat): Nat := fishAfter 80 timers
 

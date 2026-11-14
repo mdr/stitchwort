@@ -72,22 +72,29 @@ def Instruction.execute (instruction: Instruction) (state: State): State := matc
 --| The boot code by position, for lookup, and how many instructions it has.
 type Code = { byPosition: Map Nat Instruction, length: Nat }
 
-def Program.code (program: Program): Code := { byPosition = Map.byPosition program.instructions, length = program.instructions.length }
+def Program.code (program: Program): Code :=
+  { byPosition = Map.byPosition program.instructions, length = program.instructions.length }
 
 --| Runs `code` from `state`, where `unvisited` holds the positions of the
 --| instructions not run yet. Each step removes one, so the run ends.
 def Code.runFrom (code: Code) (unvisited: Set Nat) (state: State): Outcome
     decreasing unvisited.size
-:= match state.next.toNatChecked with
-  | None => JumpsAway state.accumulator
-  | Some position =>
-    match code.byPosition.get position with
-      | None => if position == code.length then Terminates state.accumulator else JumpsAway state.accumulator
-      | Some instruction =>
-        if fresh: unvisited.contains position = True then
-          Code.runFrom code (unvisited.remove position) (instruction.execute state)
-            [decreasing := omega [Set.sizeRemovePresent unvisited position fresh, Set.sizePositive unvisited position fresh]]
-        else Loops state.accumulator
+:=
+  match state.next.toNatChecked with
+    | None => JumpsAway state.accumulator
+    | Some position =>
+      match code.byPosition.get position with
+        | None => if position == code.length then Terminates state.accumulator else JumpsAway state.accumulator
+        | Some instruction =>
+          if fresh: unvisited.contains position = True then
+            Code.runFrom code
+              (unvisited.remove position)
+              (instruction.execute state)
+              [decreasing := omega [
+                Set.sizeRemovePresent unvisited position fresh,
+                Set.sizePositive unvisited position fresh
+              ]]
+          else Loops state.accumulator
 
 def Code.run (code: Code): Outcome := code.runFrom (0 ..< code.length).toSet start
 
@@ -97,8 +104,7 @@ def solvePart1 (program: Program): {Fail} Int := match program.code.run with
   | JumpsAway accumulator => Fail.fail "the boot code jumps outside itself, with the accumulator at ${accumulator}"
 
 --| The accumulator, if the run terminated.
-def Outcome.terminated: Outcome → Option Int := match some
-  | Terminates accumulator => accumulator
+def Outcome.terminated: Outcome → Option Int := match some | Terminates accumulator => accumulator
 
 --| The instruction with `jmp` and `nop` swapped, if it is either.
 def Instruction.repaired (instruction: Instruction): Option Instruction := match instruction.operation with

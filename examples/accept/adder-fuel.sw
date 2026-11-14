@@ -28,8 +28,7 @@ def stepNumber (total: Nat) (l: Text): Option Nat → (Nat → {IO} Nat) → {IO
 -- of input, stops.
 def step (total: Nat): Option Text → (Nat → {IO} Nat) → {IO} Nat
   | None, more => total
-  | Some l, more =>
-    if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
+  | Some l, more => if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds the numbers on at most this many more lines. The bound keeps the
 -- recursion structural: every run of `main` performs a bounded number of
@@ -54,28 +53,13 @@ def eqTexts: List Text → List Text → Bool
 
 def printed (input: List Text): List Text := Pair.fst (IO.simulate input main)
 
-test "a session" :=
-  eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""]) [
-    "What's your name?",
-    "Hello, Ada! Type numbers to add, one per line, and an empty line to stop.",
-    "  total: 1",
-    "  total: 3",
-    "\"x\" isn't a number; skipped",
-    "  total: 42",
-    "The sum is 42. Goodbye, Ada."
-  ]
+test "a session" := eqTexts (printed ["Ada", "1", "2", "x", " 39 ", ""]) ["What's your name?",
+  "Hello, Ada! Type numbers to add, one per line, and an empty line to stop.", "  total: 1", "  total: 3",
+  "\"x\" isn't a number; skipped", "  total: 42", "The sum is 42. Goodbye, Ada."]
 
-test "end of input stops it too" :=
-  eqTexts (printed ["Ada", "5"]) [
-    "What's your name?",
-    "Hello, Ada! Type numbers to add, one per line, and an empty line to stop.",
-    "  total: 5",
-    "The sum is 5. Goodbye, Ada."
-  ]
+test "end of input stops it too" := eqTexts (printed ["Ada", "5"]) ["What's your name?",
+  "Hello, Ada! Type numbers to add, one per line, and an empty line to stop.", "  total: 5",
+  "The sum is 5. Goodbye, Ada."]
 
-test "no input at all" :=
-  eqTexts (printed []) [
-    "What's your name?",
-    "Hello, stranger! Type numbers to add, one per line, and an empty line to stop.",
-    "The sum is 0. Goodbye, stranger."
-  ]
+test "no input at all" := eqTexts (printed []) ["What's your name?",
+  "Hello, stranger! Type numbers to add, one per line, and an empty line to stop.", "The sum is 0. Goodbye, stranger."]

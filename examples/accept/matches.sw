@@ -4,10 +4,7 @@
 -- results go on their own lines.
 import Std (List, Nat, Bool)
 
-type Instruction =
-  | Mul (left: Nat) (right: Nat)
-  | Do
-  | Dont
+type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
 def isDont: Instruction → Bool := matches | Dont
 

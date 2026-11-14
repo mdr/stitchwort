@@ -34,11 +34,7 @@ type Parse.Mark = { rest: List Char, offset: Nat, left: Nat }
 --| text that was expected there, several texts that were (`Literals ws` is
 --| noted and shown exactly as `Literal w` for each `w` of `ws`, in order, but
 --| costs one operation), or a message of the parser's own.
-type Parse.Problem =
-  | Expected (what: Text)
-  | Literal (text: Text)
-  | Literals (texts: List Text)
-  | Message (text: Text)
+type Parse.Problem = | Expected (what: Text) | Literal (text: Text) | Literals (texts: List Text) | Message (text: Text)
 
 --| A failed parse, `offset` characters in: the parser's own messages and
 --| what was expected there. A runner makes one message of it with
@@ -108,10 +104,9 @@ def Parse.State.span (state: Parse.State) (passes: Char → Bool): (List Char, P
   (split.fst, state.advance split.snd split.fst.length)
 
 --| The next character, if it passes the test, and the state after reading it.
-def Parse.State.next (state: Parse.State) (passes: Char → Bool): (Option Char, Parse.State) :=
-  match state.at.rest with
-    | [char, ..after] => if passes char then (Some char, state.advance after 1) else (None, state)
-    | [] => (None, state)
+def Parse.State.next (state: Parse.State) (passes: Char → Bool): (Option Char, Parse.State) := match state.at.rest with
+  | [char, ..after] => if passes char then (Some char, state.advance after 1) else (None, state)
+  | [] => (None, state)
 
 --| Whether the characters come next, and the state after reading them if they do.
 def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.State) :=
@@ -134,16 +129,19 @@ def Parse.uniqueTexts (kept: List Text): (texts: List Text) → List Text
   | [text, ..rest] => if kept.any (== text) then Parse.uniqueTexts kept rest else Parse.uniqueTexts [text, ..kept] rest
 
 --| The length of the longest `Literal` text among the problems.
-def Parse.Problem.widest (problems: List Parse.Problem): Nat :=
-  problems.foldLeft 0 (width problem =>
-    match problem with
-      | Literal text => Nat.max width text.length
-      | Literals texts => texts.foldLeft width (width text => Nat.max width text.length)
-      | _ => width)
+def Parse.Problem.widest (problems: List Parse.Problem): Nat := problems.foldLeft 0 (width problem =>
+  match problem with
+    | Literal text => Nat.max width text.length
+    | Literals texts => texts.foldLeft width (width text => Nat.max width text.length)
+    | _ => width)
 
 --| The furthest point and its problems.
-def Parse.State.failure (state: Parse.State): Parse.Failure :=
-  { offset = state.furthest, messages = state.messages, expected = Parse.uniqueTexts [] (state.expected.reverse.concatMap Parse.Problem.shown), width = Parse.Problem.widest state.expected }
+def Parse.State.failure (state: Parse.State): Parse.Failure := {
+  offset = state.furthest,
+  messages = state.messages,
+  expected = Parse.uniqueTexts [] (state.expected.reverse.concatMap Parse.Problem.shown),
+  width = Parse.Problem.widest state.expected
+}
 
 --| Runs `parser` from `state`: its value, or where and why it failed.
 def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Parse.Failure :=
@@ -165,7 +163,8 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
       | Parse.reset at, k => state => k () { state | at }
       | Parse.note problem, k => state => k () (state.note problem)
       | Parse.stop u, k => state => Err state.failure
-      | Parse.fatal message, k => state => Err { offset = state.at.offset, messages = [message], expected = [], width = 0 }
+      | Parse.fatal message, k => state =>
+        Err { offset = state.at.offset, messages = [message], expected = [], width = 0 }
   go initial
 
 --| The state at the start of `input`.
@@ -256,7 +255,7 @@ def Parse.nat(): {Parse} Nat := match Parse.span Parse.isDigit with
 --| Otherwise it fails with "expected a number of 1 to 3 digits", or "expected
 --| a 2-digit number", where the number starts. All the digits there are read
 --| first, so "1234" is too long, not 123 and a 4.
-def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
+def Parse.natDigits (atLeast atMost: Nat): {Parse} Nat :=
   let start := Parse.mark()
   let digits := Parse.span Parse.isDigit
   let count := digits.length
@@ -264,7 +263,8 @@ def Parse.natDigits (atLeast: Nat) (atMost: Nat): {Parse} Nat :=
   else
     Parse.reset start
     let fewest := if atLeast == 0 then 1 else atLeast
-    Parse.expected (if fewest == atMost then "a ${atMost}-digit number" else "a number of ${fewest} to ${atMost} digits")
+    Parse.expected
+      (if fewest == atMost then "a ${atMost}-digit number" else "a number of ${fewest} to ${atMost} digits")
 
 --| A whole number with an optional '+' or '-' in front, else "expected a
 --| number". A leading '+' is accepted like a '-', so a stray '+' before a
@@ -319,11 +319,10 @@ def Parse.lineEnd(): {Parse} () :=
 
 --| A line break, a line of nothing but spaces and tabs, and its line break;
 --| else "expected a blank line" where it starts.
-def Parse.blankLine(): {Parse} () :=
-  Parse.labelWhole "a blank line" (() =>
-    Parse.newline()
-    Parse.spaces()
-    Parse.newline())
+def Parse.blankLine(): {Parse} () := Parse.labelWhole "a blank line" (() =>
+  Parse.newline()
+  Parse.spaces()
+  Parse.newline())
 
 --| The end of the input, else "expected the end".
 def Parse.end(): {Parse} () := if Parse.mark().left == 0 then () else Parse.expected "the end"
@@ -399,7 +398,8 @@ def Parse.manyFrom (fuel: Nat) (parser: () → {Parse} a) (found: List a) (befor
 -- round. `found.reverse` is computed only at the end: as a value it was
 -- computed every round, quadratic in the rounds (AoC 2024 day 9's 20,000
 -- digits: 0.6 s to 12 s, and 21 GB on the reference evaluator, SW-1055).
-def Parse.manyRound (more: Nat) (parser: () → {Parse} a) (found: List a) (before: Parse.Mark) (result: Option a): {Parse} List a :=
+def Parse.manyRound (more: Nat) (parser: () → {Parse} a) (found: List a) (before: Parse.Mark) (result: Option a):
+    {Parse} List a :=
   match result with
     | None => found.reverse
     | Some value =>
@@ -423,7 +423,9 @@ def Parse.many1 (parser: () → {Parse} a): {Parse} NonEmptyList a :=
 --| `parser` while it succeeds, at most `count` more times. `found` is newest first.
 def Parse.repeatOptional (count: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a := match count with
   | Zero => found.reverse
-  | Succ more => Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser [value, ..found]) (() => found.reverse)
+  | Succ more =>
+    Parse.onFound (Parse.optional parser) (value => Parse.repeatOptional more parser [value, ..found]) (() =>
+      found.reverse)
 
 --| `next` of what was found, else `done`.
 -- A function of its own, not a `match` in the loops that use it, so that
@@ -435,32 +437,31 @@ def Parse.onFound (found: Option a) (next: a → {Parse} b) (done: () → {Parse
 --| `parser` `count` times, failing as it fails, then at most `extra` more
 --| times while it succeeds. `found` is newest first.
 @[tailrec]
-def Parse.repeatFrom (count: Nat) (extra: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
-  match count with
-    | Zero => Parse.repeatOptional extra parser found
-    | Succ more =>
-      let value := parser()
-      Parse.repeatFrom more extra parser [value, ..found]
+def Parse.repeatFrom (count extra: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a := match count with
+  | Zero => Parse.repeatOptional extra parser found
+  | Succ more =>
+    let value := parser()
+    Parse.repeatFrom more extra parser [value, ..found]
 
 --| `parser`'s values, `atLeast` to `atMost` of them, as Megaparsec's `count'`:
 --| the first `atLeast` must match, then it stops at the first failure or at
 --| `atMost`. For exactly `count` values, [`Parse.exactly`] says so more
 --| plainly: `exactly 3 digit` is three digits.
-def Parse.repeat (atLeast: Nat) (atMost: Nat) (parser: () → {Parse} a): {Parse} List a :=
+def Parse.repeat (atLeast atMost: Nat) (parser: () → {Parse} a): {Parse} List a :=
   Parse.repeatFrom atLeast (atMost - atLeast) parser []
 
 --| `parser`'s values, exactly `count` of them: `Parse.exactly 3 Parse.digit`
 --| reads three digits. Fails if `parser` does before the `count`th value.
-def Parse.exactly (count: Nat) (parser: () → {Parse} a): {Parse} List a :=
-  Parse.repeat count count parser
+def Parse.exactly (count: Nat) (parser: () → {Parse} a): {Parse} List a := Parse.repeat count count parser
 
 --| `parser`, then `separator` and `parser` again as long as both match: at
 --| least one value, so a `NonEmptyList`.
 def Parse.sepBy1 (parser: () → {Parse} a) (separator: () → {Parse} ()): {Parse} NonEmptyList a :=
   let first := parser()
-  NonEmptyList.cons first (Parse.many (() =>
-    separator()
-    parser()))
+  NonEmptyList.cons first
+    (Parse.many (() =>
+      separator()
+      parser()))
 
 --| What `sepBy` found as a list: the values, or none.
 -- A function of its own so that proofs (Parse/Reads.sw) can name it.
@@ -575,7 +576,8 @@ def Parse.attemptFrom (start: Parse.Mark) (parser: () → {Parse} a): {Parse} Op
 --| `findAll`'s loop, at most `fuel` rounds: `skipNoise`, then `parser`, and
 --| if that didn't read anything, one character skipped. `found` is newest
 --| first.
-def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
+def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () → {Parse} a) (found: List a):
+    {Parse} List a :=
   match fuel with
     | Zero => found.reverse
     | Succ more =>
@@ -584,15 +586,22 @@ def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () →
         | Some (matched, progressed) =>
           let foundNow := [matched, ..found]
           if progressed then Parse.findAllFuel more skipNoise parser foundNow
-          else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser foundNow) (() => foundNow.reverse)
-        | None => Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser found) (() => found.reverse)
+          else
+            Parse.onFound
+              (Parse.next (char => True))
+              (skipped => Parse.findAllFuel more skipNoise parser foundNow)
+              (() => foundNow.reverse)
+        | None =>
+          Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser found) (() =>
+            found.reverse)
 
 --| Every match of `parser` in the rest of the input, left to right, as Python's `re.findall`.
 --| Matches don't overlap: where `parser` doesn't match, one character is
 --| skipped, and the next try starts there. A match that reads nothing is
 --| kept, and a character is skipped after it. Reads all of the input and
 --| never fails.
-def Parse.findAll (parser: () → {Parse} a): {Parse} List a := Parse.findAllFuel (Parse.mark().left + 1) (() => ()) parser []
+def Parse.findAll (parser: () → {Parse} a): {Parse} List a :=
+  Parse.findAllFuel (Parse.mark().left + 1) (() => ()) parser []
 
 --| The values of `parser` everywhere it matches, as `Parse.findAll`, for a
 --| `parser` that can match only where `starts` holds for the next character.
@@ -620,8 +629,7 @@ def Parse.labelFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a):
     | Parse.literal chars, k => k (Parse.literal chars)
     | Parse.mark u, k => k Parse.mark()
     | Parse.reset at, k => k (Parse.reset at)
-    | Parse.note problem, k =>
-      if Parse.mark().offset == start.offset then k () else k (Parse.note problem)
+    | Parse.note problem, k => if Parse.mark().offset == start.offset then k () else k (Parse.note problem)
     | Parse.stop u, k =>
       Parse.reset start
       Parse.expected what
@@ -644,7 +652,8 @@ def Parse.further (furthest: Parse.Mark): {Parse} Parse.Mark :=
 --| `labelWhole` once it has marked where it started, given the furthest
 --| point read to so far.
 -- A function of its own so that proofs (Parse/Reads.sw) can name it.
-def Parse.labelWholeFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a): (furthest: Parse.Mark) → {Parse} a :=
+def Parse.labelWholeFrom (what: Text) (start: Parse.Mark) (parser: () → {Parse} a):
+    (furthest: Parse.Mark) → {Parse} a :=
   handle parser() with
     | return value => furthest => value
     | Parse.span passes, k => furthest =>
@@ -678,18 +687,16 @@ def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse} a) → {Parse} a): {P
 --| reading anything between levels (left recursion), which would recurse
 --| forever: that stops the whole parse.
 -- Every other level reads a character, so the characters left are enough fuel.
-def Parse.recursive (body: (() → {Parse} a) → {Parse} a): {Parse} a :=
-  Parse.recursiveFuel (Parse.mark().left + 1) body
+def Parse.recursive (body: (() → {Parse} a) → {Parse} a): {Parse} a := Parse.recursiveFuel (Parse.mark().left + 1) body
 
 -- Runners. The parser must read all of its input; errors give the line and
 -- column, counted from 1.
 
 --| `parser`, then the end.
-def Parse.whole (chars: List Char) (parser: () → {Parse} a): Result a Parse.Failure :=
-  Parse.run chars (() =>
-    let value := parser()
-    Parse.end()
-    value)
+def Parse.whole (chars: List Char) (parser: () → {Parse} a): Result a Parse.Failure := Parse.run chars (() =>
+  let value := parser()
+  Parse.end()
+  value)
 
 --| The line and column of the character `offset` characters into `chars`.
 def Parse.lineAndColumn (chars: List Char) (offset: Nat): (Nat, Nat) :=
@@ -704,7 +711,10 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
   let endsLine := failure.expected.any (== "a line break") ∧ failure.expected.any (== "the end")
   failure.expected
     |> .filter (what => ¬(endsLine ∧ what == "the end"))
-    |> .map (what => if endsLine ∧ what == "a line break" then "the end of the line" else if what == "the end" then endOfInput else what)
+    |> .map (what =>
+      if endsLine ∧ what == "a line break" then "the end of the line"
+      else if what == "the end" then endOfInput
+      else what)
     |> .uniqueDecEq
 
 --| What was found `failure.offset` characters into `chars`, for "got 'x'".
@@ -712,7 +722,7 @@ def Parse.Failure.expectations (failure: Parse.Failure) (endOfInput: Text): List
 --| break, as Megaparsec shows, then on to the end of a word they stop in;
 --| a line break is `lineBreak`, and past the last character is
 --| `endOfInput`.
-def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
+def Parse.Failure.found (failure: Parse.Failure) (chars: List Char) (endOfInput lineBreak: Text): Text :=
   let rest := chars.drop failure.offset
   match rest with
     | [] => endOfInput
@@ -738,10 +748,11 @@ def Parse.joinOr: (items: List Text) → Text
 --| `failure` as one message: the parser's own messages, then "expected A,
 --| B or C, got 'x'" with what was found in `chars` instead. `endOfInput` and
 --| `lineBreak` name the end of `chars` and a line break in it.
-def Parse.Failure.describe (failure: Parse.Failure) (chars: List Char) (endOfInput: Text) (lineBreak: Text): Text :=
+def Parse.Failure.describe (failure: Parse.Failure) (chars: List Char) (endOfInput lineBreak: Text): Text :=
   let expectations := failure.expectations endOfInput
   let expectedPart :=
-    if expectations == [] then [] else ["expected ${Parse.joinOr expectations}, got ${failure.found chars endOfInput lineBreak}"]
+    if expectations == [] then []
+    else ["expected ${Parse.joinOr expectations}, got ${failure.found chars endOfInput lineBreak}"]
   match failure.messages ++ expectedPart with
     | [] => "the parser failed"
     | [only] => only
@@ -804,17 +815,22 @@ def Parse.withFinalLineBreak (parser: () → {Parse} a): {Parse} a :=
 def Parse.lineMessage (chars: List Char) (failure: Parse.Failure): Text :=
   match Parse.lineAndColumn chars failure.offset with
     | (1, column) => "column ${column}: ${failure.describe chars "the end of the line" "a line break"}"
-    | (lineNumber, column) => "line ${lineNumber}, column ${column}: ${failure.describe chars "the end of the input" "a line break"}"
+    | (lineNumber, column) =>
+      "line ${lineNumber}, column ${column}: ${failure.describe chars "the end of the input" "a line break"}"
 
 --| `parser` on each line of `input`, split as `Text.lines` splits, else fail
 --| with "line 3, column 5: expected ',', got ';'" for the first line that
 --| fails. Lines are numbered from 1.
-def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} List a :=
-  input.lines.withIndex.map (((index, line)) =>
-    let chars := line.toList
-    match Parse.whole chars parser with
-      | Ok value => value
-      | Err failure => Fail.fail "line ${index + 1}, column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}")
+def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} List a := input.lines.withIndex.map (((
+  index,
+  line
+)) =>
+  let chars := line.toList
+  match Parse.whole chars parser with
+    | Ok value => value
+    | Err failure =>
+      Fail.fail
+        "line ${index + 1}, column ${failure.offset + 1}: ${failure.describe chars "the end of the line" "a line break"}")
 
 -- What the handler does with each operation followed by the rest of the
 -- parser `k`. Each holds by `rfl`, or one `rewrite`.
@@ -822,23 +838,30 @@ def Parse.eachLine (input: Text) (parser: () → {Parse} a): {Fail} List a :=
 theorem Parse.runFromPure ∀ (state: Parse.State) (value: a): Parse.runFrom state (() => value) = Ok value := rfl
 
 theorem Parse.runFromMark ∀ (state: Parse.State) (k: Parse.Mark → {Parse} a):
-    Parse.runFrom state (() => k Parse.mark()) = Parse.runFrom state (() => k state.at) := rfl
+    Parse.runFrom state (() => k Parse.mark()) = Parse.runFrom state (() => k state.at) :=
+  rfl
 
 theorem Parse.runFromReset ∀ (state: Parse.State) (at: Parse.Mark) (k: () → {Parse} a):
-    Parse.runFrom state (() => k (Parse.reset at)) = Parse.runFrom { state | at } (() => k ()) := rfl
+    Parse.runFrom state (() => k (Parse.reset at)) = Parse.runFrom { state | at } (() => k ()) :=
+  rfl
 
 theorem Parse.runFromNote ∀ (state: Parse.State) (problem: Parse.Problem) (k: () → {Parse} a):
-    Parse.runFrom state (() => k (Parse.note problem)) = Parse.runFrom (state.note problem) (() => k ()) := rfl
+    Parse.runFrom state (() => k (Parse.note problem)) = Parse.runFrom (state.note problem) (() => k ()) :=
+  rfl
 
 theorem Parse.runFromStop ∀ (state: Parse.State) (k: Empty → {Parse} a):
-    Parse.runFrom state (() => k Parse.stop()) = Err state.failure := rfl
+    Parse.runFrom state (() => k Parse.stop()) = Err state.failure :=
+  rfl
 
 theorem Parse.runFromFatal ∀ (state: Parse.State) (message: Text) (k: Empty → {Parse} a):
-    Parse.runFrom state (() => k (Parse.fatal message)) = Err { offset = state.at.offset, messages = [message], expected = [], width = 0 } := rfl
+    Parse.runFrom state (() => k (Parse.fatal message))
+      = Err { offset = state.at.offset, messages = [message], expected = [], width = 0 } :=
+  rfl
 
 --| `next`: the handler's step, as `Parse.State.next` gives it.
 theorem Parse.runFromNext ∀ (state: Parse.State) (passes: Char → Bool) (k: Option Char → {Parse} a):
-    Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.next passes).snd (() => k (state.next passes).fst) :=
+    Parse.runFrom state (() => k (Parse.next passes))
+      = Parse.runFrom (state.next passes).snd (() => k (state.next passes).fst) :=
   match starts: state.at.rest with
     | [] => rfl
     | [char, ..after] =>
@@ -848,32 +871,41 @@ theorem Parse.runFromNext ∀ (state: Parse.State) (passes: Char → Bool) (k: O
 
 --| `literal`: the handler's step, as `Parse.State.literal` gives it.
 theorem Parse.runFromLiteral ∀ (state: Parse.State) (chars: List Char) (k: Bool → {Parse} a):
-    Parse.runFrom state (() => k (Parse.literal chars)) = Parse.runFrom (state.literal chars).snd (() => k (state.literal chars).fst) :=
+    Parse.runFrom state (() => k (Parse.literal chars))
+      = Parse.runFrom (state.literal chars).snd (() => k (state.literal chars).fst) :=
   match stripped: Text.stripPrefixChars chars state.at.rest with
     | None => rfl
     | Some after => rfl
 
 theorem Parse.runFromSpan ∀ (state: Parse.State) (passes: Char → Bool) (k: List Char → {Parse} a):
-    Parse.runFrom state (() => k (Parse.span passes)) =
-      Parse.runFrom (state.advance (state.at.rest.span passes).snd (state.at.rest.span passes).fst.length) (() => k (state.at.rest.span passes).fst) :=
+    Parse.runFrom state (() => k (Parse.span passes))
+      = Parse.runFrom (state.advance (state.at.rest.span passes).snd (state.at.rest.span passes).fst.length) (() =>
+        k (state.at.rest.span passes).fst) :=
   rfl
 
 --| `literal` where the input starts with the characters: it reads them.
-theorem Parse.runFromLiteralThere ∀ (state: Parse.State) (chars: List Char) (rest: List Char) (k: Bool → {Parse} a)
+theorem Parse.runFromLiteralThere ∀ (state: Parse.State) (chars rest: List Char) (k: Bool → {Parse} a)
     (starts: state.at.rest = List.append chars rest):
-    Parse.runFrom state (() => k (Parse.literal chars)) = Parse.runFrom (state.advance rest chars.length) (() => k True) :=
+    Parse.runFrom state (() => k (Parse.literal chars))
+      = Parse.runFrom (state.advance rest chars.length) (() => k True) :=
   rewrite starts, Text.stripPrefixCharsAppend rest chars
 
 --| `span` where the input starts with `taken`, all passing, and the character
 --| after them (if any) doesn't: it reads `taken`.
-theorem Parse.runFromSpanThere ∀ (state: Parse.State) (passes: Char → Bool) (taken: List Char) (rest: List Char) (k: List Char → {Parse} a)
-    (starts: state.at.rest = List.append taken rest) (all: List.all taken passes = True) (stops: List.takeWhile rest passes = []):
-    Parse.runFrom state (() => k (Parse.span passes)) = Parse.runFrom (state.advance rest taken.length) (() => k taken) :=
+theorem Parse.runFromSpanThere ∀ (state: Parse.State) (passes: Char → Bool)
+    (taken rest: List Char) (k: List Char → {Parse} a)
+    (starts: state.at.rest = List.append taken rest)
+    (all: List.all taken passes = True)
+    (stops: List.takeWhile rest passes = []):
+    Parse.runFrom state (() => k (Parse.span passes))
+      = Parse.runFrom (state.advance rest taken.length) (() => k taken) :=
   rewrite Parse.runFromSpan state passes k, starts, List.spanAppend passes taken rest all stops in rfl
 
 --| `next` where the next character passes: it reads it.
-theorem Parse.runFromNextThere ∀ (state: Parse.State) (passes: Char → Bool) (char: Char) (rest: List Char) (k: Option Char → {Parse} a)
-    (starts: state.at.rest = [char, ..rest]) (holds: passes char = True):
+theorem Parse.runFromNextThere ∀ (state: Parse.State) (passes: Char → Bool) (char: Char)
+    (rest: List Char) (k: Option Char → {Parse} a)
+    (starts: state.at.rest = [char, ..rest])
+    (holds: passes char = True):
     Parse.runFrom state (() => k (Parse.next passes)) = Parse.runFrom (state.advance rest 1) (() => k (Some char)) :=
   rewrite starts, holds in rfl
 
@@ -882,11 +914,11 @@ theorem Parse.runFromNextThere ∀ (state: Parse.State) (passes: Char → Bool) 
 
 theorem Parse.runFromTextThere ∀ (state: Parse.State) (expected: Text) (rest: List Char) (k: () → {Parse} a)
     (starts: state.at.rest = List.append expected.toList rest):
-    Parse.runFrom state (() => k (Parse.text expected)) = Parse.runFrom (state.advance rest expected.toList.length) (() => k ()) :=
+    Parse.runFrom state (() => k (Parse.text expected))
+      = Parse.runFrom (state.advance rest expected.toList.length) (() => k ()) :=
   rewrite starts, Text.stripPrefixCharsAppend rest expected.toList in rfl
 
-theorem Parse.sameChar ∀ (char: Char): (char == char) = True :=
-  DecEq.refl char
+theorem Parse.sameChar ∀ (char: Char): (char == char) = True := DecEq.refl char
 
 theorem Parse.runFromCharThere ∀ (state: Parse.State) (expected: Char) (rest: List Char) (k: () → {Parse} a)
     (starts: state.at.rest = [expected, ..rest]):
@@ -894,16 +926,20 @@ theorem Parse.runFromCharThere ∀ (state: Parse.State) (expected: Char) (rest: 
   rewrite starts, Parse.sameChar expected in rfl
 
 --| `nat` on a run of digits, followed by something else or nothing.
-theorem Parse.runFromNatThere ∀ (state: Parse.State) (digits: List Char) (rest: List Char) (k: Nat → {Parse} a)
-    (starts: state.at.rest = List.append digits rest) (some: digits ≠ []) (all: List.all digits Parse.isDigit = True)
+theorem Parse.runFromNatThere ∀ (state: Parse.State) (digits rest: List Char) (k: Nat → {Parse} a)
+    (starts: state.at.rest = List.append digits rest)
+    (some: digits ≠ [])
+    (all: List.all digits Parse.isDigit = True)
     (stops: List.takeWhile rest Parse.isDigit = []):
-    Parse.runFrom state (() => k (Parse.nat())) =
-      Parse.runFrom (state.advance rest digits.length) (() => k (digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits)) :=
+    Parse.runFrom state (() => k (Parse.nat()))
+      = Parse.runFrom (state.advance rest digits.length) (() =>
+        k (digits.map (digit => digit.digitValue.getOrElse 0) |> Nat.fromDigits)) :=
   match digits with
     | [] => Void.exfalso (some rfl)
     | [first, ..others] => rewrite starts, List.spanAppend Parse.isDigit [first, ..others] rest all stops in rfl
 
-theorem Parse.runFromEndThere ∀ (state: Parse.State) (k: () → {Parse} a) (atEnd: state.at.left = 0):
+theorem Parse.runFromEndThere ∀ (state: Parse.State) (k: () → {Parse} a)
+    (atEnd: state.at.left = 0):
     Parse.runFrom state (() => k (Parse.end())) = Parse.runFrom state (() => k ()) :=
   rewrite atEnd in rfl
 
@@ -913,377 +949,503 @@ theorem Parse.runFromEndThere ∀ (state: Parse.State) (k: () → {Parse} a) (at
 -- parser` follows the parser's own operations.
 
 theorem Parse.runFromOptional ∀ (state: Parse.State) (parser: () → {Parse} a) (k: Option a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.optional parser)) = Parse.runFrom state (() => k (Parse.optionalFrom state.at parser)) := rfl
+    Parse.runFrom state (() => k (Parse.optional parser))
+      = Parse.runFrom state (() => k (Parse.optionalFrom state.at parser)) :=
+  rfl
 
-theorem Parse.runFromOptionalFromSpan ∀ (state: Parse.State) (start: Parse.Mark) (passes: Char → Bool) (rest: List Char → {Parse} a)
-    (k: Option a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.span passes)))) =
-      Parse.runFrom state (() =>
+theorem Parse.runFromOptionalFromSpan ∀ (state: Parse.State) (start: Parse.Mark) (passes: Char → Bool)
+    (rest: List Char → {Parse} a) (k: Option a → {Parse} b):
+    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.span passes))))
+      = Parse.runFrom state (() =>
         let taken := Parse.span passes
         k (Parse.optionalFrom start (() => rest taken))) :=
   rfl
 
-theorem Parse.runFromOptionalFromNext ∀ (state: Parse.State) (start: Parse.Mark) (passes: Char → Bool) (rest: Option Char → {Parse} a)
-    (k: Option a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.next passes)))) =
-      Parse.runFrom state (() =>
+theorem Parse.runFromOptionalFromNext ∀ (state: Parse.State) (start: Parse.Mark) (passes: Char → Bool)
+    (rest: Option Char → {Parse} a) (k: Option a → {Parse} b):
+    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.next passes))))
+      = Parse.runFrom state (() =>
         let found := Parse.next passes
         k (Parse.optionalFrom start (() => rest found))) :=
   rfl
 
-theorem Parse.runFromOptionalFromLiteral ∀ (state: Parse.State) (start: Parse.Mark) (chars: List Char) (rest: Bool → {Parse} a)
-    (k: Option a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.literal chars)))) =
-      Parse.runFrom state (() =>
+theorem Parse.runFromOptionalFromLiteral ∀ (state: Parse.State) (start: Parse.Mark) (chars: List Char)
+    (rest: Bool → {Parse} a) (k: Option a → {Parse} b):
+    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.literal chars))))
+      = Parse.runFrom state (() =>
         let found := Parse.literal chars
         k (Parse.optionalFrom start (() => rest found))) :=
   rfl
 
 --| Success: the parser has given a value.
 theorem Parse.runFromOptionalFromPure ∀ (state: Parse.State) (start: Parse.Mark) (value: a) (k: Option a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.optionalFrom start (() => value))) = Parse.runFrom state (() => k (Some value)) := rfl
+    Parse.runFrom state (() => k (Parse.optionalFrom start (() => value)))
+      = Parse.runFrom state (() => k (Some value)) :=
+  rfl
 
 --| Backtracking: the parser has failed, so the input is as it was at the mark.
-theorem Parse.runFromOptionalFromStop ∀ (state: Parse.State) (start: Parse.Mark) (rest: Empty → {Parse} a) (k: Option a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest Parse.stop()))) = Parse.runFrom { state | at = start } (() => k None) :=
+theorem Parse.runFromOptionalFromStop ∀ (state: Parse.State) (start: Parse.Mark)
+    (rest: Empty → {Parse} a) (k: Option a → {Parse} b):
+    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest Parse.stop())))
+      = Parse.runFrom { state | at = start } (() => k None) :=
   rfl
 
 --| `optional (text expected)` from a state where `expected` comes next reads it and goes on with `Some ()`.
-theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State) (expected: Text) (rest: List Char) (k: Option () → {Parse} a)
+theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State) (expected: Text)
+    (rest: List Char) (k: Option () → {Parse} a)
     (starts: state.at.rest = List.append expected.toList rest):
-    Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected))) =
-      Parse.runFrom (state.advance rest expected.toList.length) (() => k (Some ())) :=
+    Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
+      = Parse.runFrom (state.advance rest expected.toList.length) (() => k (Some ())) :=
   rewrite starts, Text.stripPrefixCharsAppend rest expected.toList in rfl
 
 theorem Parse.runFromOptionalTextNotThere ∀ (state: Parse.State) (expected: Text) (k: Option () → {Parse} a)
     (absent: Text.stripPrefixChars expected.toList state.at.rest = None):
-    Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected))) =
-      Parse.runFrom { state.note (Literal expected) | at = state.at } (() => k None) :=
+    Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
+      = Parse.runFrom { state.note (Literal expected) | at = state.at } (() => k None) :=
   rewrite absent in rfl
 
 --| `oneOf` with an alternative after `first`: if `optional first` succeeds,
 --| whatever follows it, `first`'s value; if it backs up, the rest.
-theorem Parse.runFromOneOfFromSome ∀ (state: Parse.State) (after: Parse.State) (first: () → {Parse} a) (next: () → {Parse} a)
+theorem Parse.runFromOneOfFromSome ∀ (state after: Parse.State) (first next: () → {Parse} a)
     (rest: List (() → {Parse} a)) (value: a) (k: a → {Parse} b)
-    (succeeds: ∀ (choose: Option a → {Parse} a) (finish: a → {Parse} b) =>
-      Parse.runFrom state (() => finish (choose (Parse.optional first))) = Parse.runFrom after (() => finish (choose (Some value)))):
+    (succeeds: ∀ (choose: Option a → {Parse} a) (finish: a → {Parse} b) => Parse.runFrom state (() =>
+      finish (choose (Parse.optional first)))
+      = Parse.runFrom after (() => finish (choose (Some value)))):
     Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest])) = Parse.runFrom after (() => k value) :=
   succeeds (found => Parse.valueOr found (() => Parse.oneOfFrom next rest)) k
 
-theorem Parse.runFromOneOfFromNone ∀ (state: Parse.State) (after: Parse.State) (first: () → {Parse} a) (next: () → {Parse} a)
+theorem Parse.runFromOneOfFromNone ∀ (state after: Parse.State) (first next: () → {Parse} a)
     (rest: List (() → {Parse} a)) (k: a → {Parse} b)
-    (fails: ∀ (choose: Option a → {Parse} a) (finish: a → {Parse} b) =>
-      Parse.runFrom state (() => finish (choose (Parse.optional first))) = Parse.runFrom after (() => finish (choose None))):
-    Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest])) = Parse.runFrom after (() => k (Parse.oneOfFrom next rest)) :=
+    (fails: ∀ (choose: Option a → {Parse} a) (finish: a → {Parse} b) => Parse.runFrom state (() =>
+      finish (choose (Parse.optional first)))
+      = Parse.runFrom after (() => finish (choose None))):
+    Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest]))
+      = Parse.runFrom after (() => k (Parse.oneOfFrom next rest)) :=
   fails (found => Parse.valueOr found (() => Parse.oneOfFrom next rest)) k
 
 --| The last alternative is run as it is.
 theorem Parse.runFromOneOfFromLast ∀ (state: Parse.State) (only: () → {Parse} a) (k: a → {Parse} b):
-    Parse.runFrom state (() => k (Parse.oneOfFrom only [])) = Parse.runFrom state (() => k (only())) := rfl
+    Parse.runFrom state (() => k (Parse.oneOfFrom only [])) = Parse.runFrom state (() => k (only())) :=
+  rfl
 
 --| With concrete alternatives the run computes: the first of two words.
 theorem Parse.runFromOneOfExample ∀ (state: Parse.State) (rest: List Char) (k: Nat → {Parse} b)
     (starts: state.at.rest = List.append "ab".toList rest):
     Parse.runFrom state (() =>
-      k (Parse.oneOf [
-        () =>
-          Parse.text "ab"
-          1,
-        () =>
-          Parse.text "cd"
-          2
-      ])) = Parse.runFrom (state.advance rest 2) (() => k 1) :=
+      k
+        (Parse.oneOf [
+          () =>
+            Parse.text "ab"
+            1,
+          () =>
+            Parse.text "cd"
+            2
+        ]))
+      = Parse.runFrom (state.advance rest 2) (() => k 1) :=
   rewrite starts in rfl
 
 theorem Parse.runPure ∀ (input: List Char) (value: a): Parse.run input (() => value) = Ok value := rfl
 
-theorem Parse.runFail ∀ (message: Text): Parse.run [] (() => (Parse.fail message: Nat)) = Err { offset = 0, messages = [message], expected = [], width = 0 } := rfl
+theorem Parse.runFail ∀ (message: Text):
+    Parse.run [] (() => (Parse.fail message: Nat))
+      = Err { offset = 0, messages = [message], expected = [], width = 0 } :=
+  rfl
 
 -- Tests. Each runs a parser with `Parse.line` (errors give the column) or
 -- `Parse.all` (the line and column).
 
 --| The value of `parser` on `line`, or the error, with its column.
-def Parse.Tests.lineResult (line: Text) (parser: () → {Parse} a): Result a Text := Fail.toResult (() => Parse.line line parser)
+def Parse.Tests.lineResult (line: Text) (parser: () → {Parse} a): Result a Text :=
+  Fail.toResult (() => Parse.line line parser)
 
 --| The value of `parser` on the whole input, or the error, with its line and column.
-def Parse.Tests.allResult (input: Text) (parser: () → {Parse} a): Result a Text := Fail.toResult (() => Parse.all input parser)
+def Parse.Tests.allResult (input: Text) (parser: () → {Parse} a): Result a Text :=
+  Fail.toResult (() => Parse.all input parser)
 
 --| The error if `parser` fails on `line`, else "": for parsers whose value is `()`.
-def Parse.Tests.lineError (line: Text) (parser: () → {Parse} a): Text := Parse.Tests.lineResult line parser |> .errorOrElse ""
+def Parse.Tests.lineError (line: Text) (parser: () → {Parse} a): Text :=
+  Parse.Tests.lineResult line parser |> .errorOrElse ""
 
 test "Parse: char" := Parse.Tests.lineError "a" (() => Parse.char 'a') == ""
 test "Parse: char, error" := Parse.Tests.lineError "b" (() => Parse.char 'a') == "column 1: expected 'a', got 'b'"
-test "Parse: text" := Parse.Tests.lineResult "p=4" (() =>
-  Parse.text "p="
-  Parse.nat()) == Ok 4
+test "Parse: text" :=
+  Parse.Tests.lineResult "p=4" (() =>
+    Parse.text "p="
+    Parse.nat())
+    == Ok 4
 test "Parse: text, error" := Parse.Tests.lineError "p-4" (() => Parse.text "p=") == "column 1: expected 'p=', got 'p-'"
-test "Parse: satisfy" := Parse.Tests.lineResult "e" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char))) == Ok 'e'
+test "Parse: satisfy" :=
+  Parse.Tests.lineResult "e" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char))) == Ok 'e'
 test "Parse: satisfy, error" :=
-  Parse.Tests.lineResult "x" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char))) == Err "column 1: expected a vowel, got 'x'"
-test "Parse: takeWhile" := Parse.Tests.lineResult "aab" (() =>
-  let run := Parse.takeWhile (== 'a')
-  Parse.char 'b'
-  run) == Ok "aa"
+  Parse.Tests.lineResult "x" (() => Parse.satisfy "a vowel" (char => "aeiou".toList.any (== char)))
+    == Err "column 1: expected a vowel, got 'x'"
+test "Parse: takeWhile" :=
+  Parse.Tests.lineResult "aab" (() =>
+    let run := Parse.takeWhile (== 'a')
+    Parse.char 'b'
+    run)
+    == Ok "aa"
 test "Parse: takeWhile, none" := Parse.Tests.lineResult "" (() => Parse.takeWhile (== 'a')) == Ok ""
 test "Parse: takeWhile1" := Parse.Tests.lineResult "aa" (() => Parse.takeWhile1 "an a" (== 'a')) == Ok "aa"
-test "Parse: takeWhile1, error" := Parse.Tests.lineResult "b" (() => Parse.takeWhile1 "an a" (== 'a')) == Err "column 1: expected an a, got 'b'"
+test "Parse: takeWhile1, error" :=
+  Parse.Tests.lineResult "b" (() => Parse.takeWhile1 "an a" (== 'a')) == Err "column 1: expected an a, got 'b'"
 test "Parse: nat" := Parse.Tests.lineResult "1203" Parse.nat == Ok 1203
 test "Parse: nat, error" := Parse.Tests.lineResult "x" Parse.nat == Err "column 1: expected a number, got 'x'"
-test "Parse: nat, then the end" := Parse.Tests.lineResult "12x" Parse.nat == Err "column 3: expected the end of the line, got 'x'"
+test "Parse: nat, then the end" :=
+  Parse.Tests.lineResult "12x" Parse.nat == Err "column 3: expected the end of the line, got 'x'"
 test "Parse: int" := Parse.Tests.lineResult "-12" Parse.int == Ok (-12)
 test "Parse: int, positive" := Parse.Tests.lineResult "12" Parse.int == Ok 12
 test "Parse: int, leading plus" := Parse.Tests.lineResult "+12" Parse.int == Ok 12
 test "Parse: int, negative" := Parse.Tests.lineResult "-99" Parse.int == Ok (-99)
-test "Parse: int, error" := Parse.Tests.lineResult "-" Parse.int == Err "column 2: expected a number, got the end of the line"
-test "Parse: int, plus alone" := Parse.Tests.lineResult "+" Parse.int == Err "column 2: expected a number, got the end of the line"
+test "Parse: int, error" :=
+  Parse.Tests.lineResult "-" Parse.int == Err "column 2: expected a number, got the end of the line"
+test "Parse: int, plus alone" :=
+  Parse.Tests.lineResult "+" Parse.int == Err "column 2: expected a number, got the end of the line"
 test "Parse: digit" := Parse.Tests.lineResult "7" (() => Parse.digit().toNat) == Ok 7
-test "Parse: digit, error" := Parse.Tests.lineResult "x" (() => Parse.digit().toNat) == Err "column 1: expected a digit, got 'x'"
-test "Parse: spaces" := Parse.Tests.lineResult " \t 5" (() =>
-  Parse.spaces()
-  Parse.nat()) == Ok 5
-test "Parse: spaces1" := Parse.Tests.lineResult " 5" (() =>
-  Parse.spaces1()
-  Parse.nat()) == Ok 5
+test "Parse: digit, error" :=
+  Parse.Tests.lineResult "x" (() => Parse.digit().toNat) == Err "column 1: expected a digit, got 'x'"
+test "Parse: spaces" :=
+  Parse.Tests.lineResult " \t 5" (() =>
+    Parse.spaces()
+    Parse.nat())
+    == Ok 5
+test "Parse: spaces1" :=
+  Parse.Tests.lineResult " 5" (() =>
+    Parse.spaces1()
+    Parse.nat())
+    == Ok 5
 test "Parse: spaces1, error" := Parse.Tests.lineError "5" Parse.spaces1 == "column 1: expected a space, got '5'"
-test "Parse: token" := Parse.Tests.lineResult " 1 \t2 " (() => (Parse.many1 (() => Parse.token Parse.nat)).toList) == Ok [1, 2]
-test "Parse: token, error" := Parse.Tests.lineResult " 1 x" (() => (Parse.many1 (() => Parse.token Parse.nat)).toList) == Err "column 4: expected a number or the end of the line, got 'x'"
+test "Parse: token" :=
+  Parse.Tests.lineResult " 1 \t2 " (() => (Parse.many1 (() => Parse.token Parse.nat)).toList) == Ok [1, 2]
+test "Parse: token, error" :=
+  Parse.Tests.lineResult " 1 x" (() => (Parse.many1 (() => Parse.token Parse.nat)).toList)
+    == Err "column 4: expected a number or the end of the line, got 'x'"
 --| `|>` runs the value's parsers first, then `before` reads the suffix.
-test "Parse: before" := Parse.Tests.lineResult "(12,3)" (() => (Parse.char '('; (Parse.nat(), (Parse.char ','; Parse.nat()))) |> Parse.before ")") == Ok (12, 3)
-test "Parse: before, error" := Parse.Tests.lineResult "12]" (() => Parse.nat() |> Parse.before ")") == Err "column 3: expected ')', got ']'"
-test "Parse: newline" := Parse.Tests.lineResult "1\n2" (() => (Parse.sepBy1 Parse.nat Parse.newline).toList) == Ok [1, 2]
-test "Parse: newline, CRLF" := Parse.Tests.lineResult "1\r\n2" (() => (Parse.sepBy1 Parse.nat Parse.newline).toList) == Ok [1, 2]
+test "Parse: before" :=
+  Parse.Tests.lineResult "(12,3)" (() =>
+    (Parse.char '('; (Parse.nat(), (Parse.char ','; Parse.nat()))) |> Parse.before ")")
+    == Ok (12, 3)
+test "Parse: before, error" :=
+  Parse.Tests.lineResult "12]" (() => Parse.nat() |> Parse.before ")") == Err "column 3: expected ')', got ']'"
+test "Parse: newline" :=
+  Parse.Tests.lineResult "1\n2" (() => (Parse.sepBy1 Parse.nat Parse.newline).toList) == Ok [1, 2]
+test "Parse: newline, CRLF" :=
+  Parse.Tests.lineResult "1\r\n2" (() => (Parse.sepBy1 Parse.nat Parse.newline).toList) == Ok [1, 2]
 test "Parse: newline, error" := Parse.Tests.lineError "x" Parse.newline == "column 1: expected a line break, got 'x'"
 test "Parse: blankLine" := Parse.Tests.lineError "\n\n" Parse.blankLine == ""
-test "Parse: blankLine, error" := Parse.Tests.lineError "x" Parse.blankLine == "column 1: expected a blank line, got 'x'"
+test "Parse: blankLine, error" :=
+  Parse.Tests.lineError "x" Parse.blankLine == "column 1: expected a blank line, got 'x'"
 test "Parse: blankLine, spaces" := Parse.Tests.lineError "\n \t\n" Parse.blankLine == ""
 --| A blank line that fails part way is reported where it got to.
-test "Parse: blankLine, a line that is not blank" := Parse.Tests.lineError "\n x\n" Parse.blankLine == "line 2, column 2: expected a blank line, got 'x'"
-test "Parse: lineEnd" := Parse.Tests.lineResult "1\n2" (() => (Parse.sepBy1 (() => Parse.nat()) Parse.lineEnd).toList) == Ok [1, 2]
-test "Parse: lineEnd, error" := Parse.Tests.lineError "x" Parse.lineEnd == "column 1: expected the end of the line, got 'x'"
+test "Parse: blankLine, a line that is not blank" :=
+  Parse.Tests.lineError "\n x\n" Parse.blankLine == "line 2, column 2: expected a blank line, got 'x'"
+test "Parse: lineEnd" :=
+  Parse.Tests.lineResult "1\n2" (() => (Parse.sepBy1 (() => Parse.nat()) Parse.lineEnd).toList) == Ok [1, 2]
+test "Parse: lineEnd, error" :=
+  Parse.Tests.lineError "x" Parse.lineEnd == "column 1: expected the end of the line, got 'x'"
 test "Parse: end" := Parse.Tests.lineError "" Parse.end == ""
 test "Parse: pick" := Parse.Tests.lineResult "R" (() => Parse.pick [("L", 1), ("R", 2)]) == Ok 2
-test "Parse: pick, error" := Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2)]) == Err "column 1: expected 'L' or 'R', got 'X'"
+test "Parse: pick, error" :=
+  Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2)]) == Err "column 1: expected 'L' or 'R', got 'X'"
 --| What was found is shown as long as the longest word expected.
 test "Parse: pick, error, longer words" :=
-  Parse.Tests.lineResult "mul ( 1,2)" (() => Parse.pick [("mul(", 1), ("do()", 2), ("don't()", 3)]) ==
-    Err "column 1: expected 'mul(', 'do()' or 'don't()', got 'mul ( 1'"
+  Parse.Tests.lineResult "mul ( 1,2)" (() => Parse.pick [("mul(", 1), ("do()", 2), ("don't()", 3)])
+    == Err "column 1: expected 'mul(', 'do()' or 'don't()', got 'mul ( 1'"
 --| Three or more expectations are an English list.
 test "Parse: pick, error, three words" :=
-  Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2), ("S", 3)]) ==
-    Err "column 1: expected 'L', 'R' or 'S', got 'X'"
+  Parse.Tests.lineResult "X" (() => Parse.pick [("L", 1), ("R", 2), ("S", 3)])
+    == Err "column 1: expected 'L', 'R' or 'S', got 'X'"
 --| The word a short look stops inside is shown whole.
 test "Parse: found, to the end of the word" :=
   Parse.Tests.lineError "ab OR cd" (() => Parse.text "ab: ") == "column 1: expected 'ab: ', got 'ab OR'"
 test "Parse: pick, first word first" := Parse.Tests.lineResult "<=" (() => Parse.pick [("<=", 0), ("<", 1)]) == Ok 0
 
-test "Parse: optional" := Parse.Tests.lineResult "+5" (() =>
-  let sign := Parse.optional (() => Parse.char '+')
-  (sign.isSome, Parse.nat())) == Ok (True, 5)
-test "Parse: optional, absent" := Parse.Tests.lineResult "5" (() =>
-  let sign := Parse.optional (() => Parse.char '+')
-  (sign.isSome, Parse.nat())) == Ok (False, 5)
+test "Parse: optional" :=
+  Parse.Tests.lineResult "+5" (() =>
+    let sign := Parse.optional (() => Parse.char '+')
+    (sign.isSome, Parse.nat()))
+    == Ok (True, 5)
+test "Parse: optional, absent" :=
+  Parse.Tests.lineResult "5" (() =>
+    let sign := Parse.optional (() => Parse.char '+')
+    (sign.isSome, Parse.nat()))
+    == Ok (False, 5)
 --| A failed alternative leaves the input as it was, even after reading.
-test "Parse: optional backs up" := Parse.Tests.lineResult "abd" (() =>
-  let partial := Parse.optional (() =>
-    Parse.char 'a'
-    Parse.char 'b'
-    Parse.char 'c')
-  Parse.text "abd"
-  partial.isSome) == Ok False
-test "Parse: oneOf" := Parse.Tests.lineResult "ac" (() =>
-  Parse.oneOf [
-    () =>
-      Parse.text "ab"
-      1,
-    () =>
-      Parse.text "ac"
-      2
-  ]) == Ok 2
+test "Parse: optional backs up" :=
+  Parse.Tests.lineResult "abd" (() =>
+    let partial := Parse.optional (() =>
+      Parse.char 'a'
+      Parse.char 'b'
+      Parse.char 'c')
+    Parse.text "abd"
+    partial.isSome)
+    == Ok False
+test "Parse: oneOf" :=
+  Parse.Tests.lineResult "ac" (() =>
+    Parse.oneOf [
+      () =>
+        Parse.text "ab"
+        1,
+      () =>
+        Parse.text "ac"
+        2
+    ])
+    == Ok 2
 --| The error is from the furthest point, with everything expected there.
-test "Parse: oneOf, error" := Parse.Tests.lineError "ad" (() =>
-  Parse.oneOf [
-    () =>
-      Parse.char 'a'
-      Parse.char 'b',
-    () =>
-      Parse.char 'a'
-      Parse.char 'c'
-  ]) == "column 2: expected 'b' or 'c', got 'd'"
-test "Parse: oneOf, none" := Parse.Tests.lineResult "a" (() => (Parse.oneOf []: Nat)) == Err "column 1: `oneOf`: no alternatives"
-test "Parse: many" := Parse.Tests.lineResult "aaab" (() =>
-  let found := Parse.many (() => Parse.satisfy "an a" (== 'a'))
-  Parse.char 'b'
-  found) == Ok ['a', 'a', 'a']
+test "Parse: oneOf, error" :=
+  Parse.Tests.lineError "ad" (() =>
+    Parse.oneOf [
+      () =>
+        Parse.char 'a'
+        Parse.char 'b',
+      () =>
+        Parse.char 'a'
+        Parse.char 'c'
+    ])
+    == "column 2: expected 'b' or 'c', got 'd'"
+test "Parse: oneOf, none" :=
+  Parse.Tests.lineResult "a" (() => (Parse.oneOf []: Nat)) == Err "column 1: `oneOf`: no alternatives"
+test "Parse: many" :=
+  Parse.Tests.lineResult "aaab" (() =>
+    let found := Parse.many (() => Parse.satisfy "an a" (== 'a'))
+    Parse.char 'b'
+    found)
+    == Ok ['a', 'a', 'a']
 test "Parse: many, none" := Parse.Tests.lineResult "" (() => Parse.many Parse.nat) == Ok []
 test "Parse: many, reading nothing" :=
-  Parse.Tests.lineError "ab" (() => Parse.many Parse.spaces) == "column 1: `many`: the parser matched without reading anything"
+  Parse.Tests.lineError "ab" (() => Parse.many Parse.spaces)
+    == "column 1: `many`: the parser matched without reading anything"
 --| No choice backs out of that failure.
 test "Parse: many, reading nothing, inside optional" :=
-  Parse.Tests.lineError "ab" (() => Parse.optional (() => Parse.many Parse.spaces)) ==
-    "column 1: `many`: the parser matched without reading anything"
-test "Parse: many1" := Parse.Tests.lineResult "aa" (() => (Parse.many1 (() => Parse.satisfy "an a" (== 'a'))).toList) == Ok ['a', 'a']
-test "Parse: many1, error" := Parse.Tests.lineResult "" (() => (Parse.many1 (() => Parse.satisfy "an a" (== 'a'))).toList) == Err "column 1: expected an a, got the end of the line"
+  Parse.Tests.lineError "ab" (() => Parse.optional (() => Parse.many Parse.spaces))
+    == "column 1: `many`: the parser matched without reading anything"
+test "Parse: many1" :=
+  Parse.Tests.lineResult "aa" (() => (Parse.many1 (() => Parse.satisfy "an a" (== 'a'))).toList) == Ok ['a', 'a']
+test "Parse: many1, error" :=
+  Parse.Tests.lineResult "" (() => (Parse.many1 (() => Parse.satisfy "an a" (== 'a'))).toList)
+    == Err "column 1: expected an a, got the end of the line"
 def Parse.Tests.minus(): {Parse} (Nat → Nat → Nat) :=
   Parse.char '-'
   (left right => left - right)
 
 test "Parse: chainLeft" := Parse.Tests.lineResult "8-3-2" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Ok 3
-test "Parse: chainLeft, one operand" := Parse.Tests.lineResult "7" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Ok 7
-test "Parse: chainLeft, error" := Parse.Tests.lineResult "" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Err "column 1: expected a number, got the end of the line"
-test "Parse: sepBy" := Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
+test "Parse: chainLeft, one operand" :=
+  Parse.Tests.lineResult "7" (() => Parse.chainLeft Parse.nat Parse.Tests.minus) == Ok 7
+test "Parse: chainLeft, error" :=
+  Parse.Tests.lineResult "" (() => Parse.chainLeft Parse.nat Parse.Tests.minus)
+    == Err "column 1: expected a number, got the end of the line"
+test "Parse: sepBy" :=
+  Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []
-test "Parse: sepBy1, error" := Parse.Tests.lineResult "1,2," (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList) == Err "column 5: expected a number, got the end of the line"
+test "Parse: sepBy1, error" :=
+  Parse.Tests.lineResult "1,2," (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)
+    == Err "column 5: expected a number, got the end of the line"
 test "Parse: lines" := Parse.Tests.allResult "1\n2\n" (() => (Parse.lines Parse.nat).toList) == Ok [1, 2]
-test "Parse: lines, error" := Parse.Tests.allResult "1\n2\nx\n" (() => (Parse.lines Parse.nat).toList) == Err "line 3, column 1: expected a number or the end of the input, got 'x'"
-test "Parse: sections" := Parse.Tests.allResult "1\n2\n\n3\n" (() => (Parse.sections (() => (Parse.lines Parse.nat).toList)).toList) == Ok [[1, 2], [3]]
+test "Parse: lines, error" :=
+  Parse.Tests.allResult "1\n2\nx\n" (() => (Parse.lines Parse.nat).toList)
+    == Err "line 3, column 1: expected a number or the end of the input, got 'x'"
+test "Parse: sections" :=
+  Parse.Tests.allResult "1\n2\n\n3\n" (() => (Parse.sections (() => (Parse.lines Parse.nat).toList)).toList)
+    == Ok [[1, 2], [3]]
 --| A missing blank line is expected where the next section starts, with the
 --| end of the input.
 test "Parse: sections, no blank line" :=
-  Parse.Tests.allResult "1,2\n3,4\n" (() => (Parse.sections (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)).toList) ==
-    Err "line 2, column 1: expected a blank line or the end of the input, got '3'"
+  Parse.Tests.allResult "1,2\n3,4\n" (() =>
+    (Parse.sections (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)).toList)
+    == Err "line 2, column 1: expected a blank line or the end of the input, got '3'"
 --| A second blank line is where the next section should start, not the end of
 --| the input after the line breaks.
 test "Parse: sections, two blank lines" :=
-  Parse.Tests.allResult "a\n\n\nb" (() => (Parse.sections (() => (Parse.lines (() => Parse.pick [("a", 1), ("b", 2)])).toList)).toList) ==
-    Err "line 3, column 1: expected 'a' or 'b', got the end of the line"
+  Parse.Tests.allResult "a\n\n\nb" (() =>
+    (Parse.sections (() => (Parse.lines (() => Parse.pick [("a", 1), ("b", 2)])).toList)).toList)
+    == Err "line 3, column 1: expected 'a' or 'b', got the end of the line"
 --| Blank lines before more input that nothing else reads: the blank line is
 --| what is wrong.
 test "Parse: all, blank line before extra input" :=
-  Parse.Tests.allResult "1\n\nfoo" (() => Parse.nat ()) == Err "line 2, column 1: expected the end of the input, got a blank line"
+  Parse.Tests.allResult "1\n\nfoo" (() => Parse.nat ())
+    == Err "line 2, column 1: expected the end of the input, got a blank line"
 test "Parse: all, one line break before extra input" :=
   Parse.Tests.allResult "1\nfoo" (() => Parse.nat ()) == Err "line 2, column 1: expected the end of the input, got 'f'"
 test "Parse: grid" :=
-  Parse.Tests.allResult "@.\n.@\n" (() => (Parse.grid (() => Parse.pick [("@", True), (".", False)])).toList |> .map (row => row.toList)) == Ok [[True, False], [False, True]]
+  Parse.Tests.allResult "@.\n.@\n" (() =>
+    (Parse.grid (() => Parse.pick [("@", True), (".", False)])).toList |> .map (row => row.toList))
+    == Ok [[True, False], [False, True]]
 test "Parse: grid, error" :=
-  Parse.Tests.allResult "@.\n.x\n" (() => (Parse.grid (() => Parse.pick [("@", True), (".", False)])).toList |> .map (row => row.toList)) ==
-    Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
+  Parse.Tests.allResult "@.\n.x\n" (() =>
+    (Parse.grid (() => Parse.pick [("@", True), (".", False)])).toList |> .map (row => row.toList))
+    == Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
 test "Parse: looseGrid" :=
-  Parse.Tests.allResult "@.\n\n.\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok [[True, False], [], [False]]
-test "Parse: looseGrid, no rows" := Parse.Tests.allResult "" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok []
+  Parse.Tests.allResult "@.\n\n.\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)]))
+    == Ok [[True, False], [], [False]]
+test "Parse: looseGrid, no rows" :=
+  Parse.Tests.allResult "" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) == Ok []
 test "Parse: looseGrid, error" :=
-  Parse.Tests.allResult "@.\n.x\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)])) ==
-    Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
+  Parse.Tests.allResult "@.\n.x\n" (() => Parse.looseGrid (() => Parse.pick [("@", True), (".", False)]))
+    == Err "line 2, column 2: expected '@', '.' or the end of the line, got 'x'"
 test "Parse: label" :=
-  Parse.Tests.lineResult "X5" (() => Parse.label "a turn like L68" (() => Parse.pick [("L", 1), ("R", 2)])) ==
-    Err "column 1: expected a turn like L68, got 'X'"
+  Parse.Tests.lineResult "X5" (() => Parse.label "a turn like L68" (() => Parse.pick [("L", 1), ("R", 2)]))
+    == Err "column 1: expected a turn like L68, got 'X'"
 --| A labelled parser that got further reports what it expected there.
-test "Parse: label, further in" := Parse.Tests.lineResult "1,x" (() =>
-  Parse.label "a pair like 1,2" (() =>
-    let left := Parse.nat()
-    Parse.char ','
-    (left, Parse.nat()))) == Err "column 3: expected a number, got 'x'"
+test "Parse: label, further in" :=
+  Parse.Tests.lineResult "1,x" (() =>
+    Parse.label "a pair like 1,2" (() =>
+      let left := Parse.nat()
+      Parse.char ','
+      (left, Parse.nat())))
+    == Err "column 3: expected a number, got 'x'"
 
 --| Nested lists of numbers, summed: "[1,[2,[]],3]".
-def Parse.Tests.nestedSum(): {Parse} Nat :=
-  Parse.recursive (nested =>
-    Parse.oneOf [
-      Parse.nat,
-      () =>
-        Parse.char '['
-        let items := Parse.sepBy nested (() => Parse.char ',')
-        Parse.char ']'
-        items.sum
-    ])
+def Parse.Tests.nestedSum(): {Parse} Nat := Parse.recursive (nested =>
+  Parse.oneOf [
+    Parse.nat,
+    () =>
+      Parse.char '['
+      let items := Parse.sepBy nested (() => Parse.char ',')
+      Parse.char ']'
+      items.sum
+  ])
 
 test "Parse: recursive" := Parse.Tests.lineResult "[1,[2,[]],3]" Parse.Tests.nestedSum == Ok 6
 test "Parse: recursive, error" :=
   Parse.Tests.lineResult "[1,[2,x]]" Parse.Tests.nestedSum == Err "column 7: expected a number or '[', got 'x'"
-test "Parse: recursive, left recursion" := Parse.Tests.lineResult "1+2" (() =>
-  Parse.recursive (self =>
-    let left := self()
-    Parse.char '+'
-    left + Parse.nat())) ==
-  Err "column 1: `recursive`: the parser called itself without reading anything"
+test "Parse: recursive, left recursion" :=
+  Parse.Tests.lineResult "1+2" (() =>
+    Parse.recursive (self =>
+      let left := self()
+      Parse.char '+'
+      left + Parse.nat()))
+    == Err "column 1: `recursive`: the parser called itself without reading anything"
 
 test "Parse: fail" := Parse.Tests.lineResult "a" (() => (Parse.fail "no": Nat)) == Err "column 1: no"
-test "Parse: expected" := Parse.Tests.lineResult "a" (() => (Parse.expected "a b": Nat)) == Err "column 1: expected a b, got 'a'"
+test "Parse: expected" :=
+  Parse.Tests.lineResult "a" (() => (Parse.expected "a b": Nat)) == Err "column 1: expected a b, got 'a'"
 --| A message and an expectation at the same point are both reported.
-test "Parse: fail beside expected" := Parse.Tests.lineError "y" (() =>
-  Parse.oneOf [
-    () => Parse.fail "not this",
-    () => Parse.char 'x'
-  ]) == "column 1: not this; expected 'x', got 'y'"
-test "Parse: ensure" := Parse.Tests.lineResult "5" (() =>
-  let number := Parse.nat()
-  Parse.ensure (number > 9) "too small"
-  number) == Err "column 2: too small"
+test "Parse: fail beside expected" :=
+  Parse.Tests.lineError "y" (() => Parse.oneOf [() => Parse.fail "not this", () => Parse.char 'x'])
+    == "column 1: not this; expected 'x', got 'y'"
+test "Parse: ensure" :=
+  Parse.Tests.lineResult "5" (() =>
+    let number := Parse.nat()
+    Parse.ensure (number > 9) "too small"
+    number)
+    == Err "column 2: too small"
 --| What `many1` tried after the last digit is dropped for the message.
-test "Parse: ensure after a repetition" := Parse.Tests.lineResult "12" (() =>
-  let digits := Parse.many1 Parse.digit |> .toList
-  Parse.ensure (digits.length > 2) "too few digits"
-  digits.length) == Err "column 3: too few digits"
+test "Parse: ensure after a repetition" :=
+  Parse.Tests.lineResult "12" (() =>
+    let digits := Parse.many1 Parse.digit |> .toList
+    Parse.ensure (digits.length > 2) "too few digits"
+    digits.length)
+    == Err "column 3: too few digits"
 --| A tab and the end of the input are named, not shown.
 test "Parse: got a tab" := Parse.Tests.lineError "\t" (() => Parse.char 'a') == "column 1: expected 'a', got a tab"
-test "Parse: got the end of the input" := Parse.Tests.allResult "1," (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList) == Err "line 1, column 3: expected a number, got the end of the input"
-test "Parse: need" := Parse.Tests.lineResult "" (() => Parse.need (None: Option Nat) "nothing") == Err "column 1: nothing"
-test "Parse: fromFail" := Parse.Tests.lineResult "ab" (() =>
-  let word := Parse.takeWhile (char => char ≠ ' ')
-  Parse.fromFail (() => word.toNatOrFail)) == Err "column 3: expected a whole number, got 'ab'"
-test "Parse: fromFail, success" := Parse.Tests.lineResult "12" (() =>
-  let word := Parse.takeWhile (char => char ≠ ' ')
-  Parse.fromFail (() => word.toNatOrFail)) == Ok 12
+test "Parse: got the end of the input" :=
+  Parse.Tests.allResult "1," (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)
+    == Err "line 1, column 3: expected a number, got the end of the input"
+test "Parse: need" :=
+  Parse.Tests.lineResult "" (() => Parse.need (None: Option Nat) "nothing") == Err "column 1: nothing"
+test "Parse: fromFail" :=
+  Parse.Tests.lineResult "ab" (() =>
+    let word := Parse.takeWhile (char => char ≠ ' ')
+    Parse.fromFail (() => word.toNatOrFail))
+    == Err "column 3: expected a whole number, got 'ab'"
+test "Parse: fromFail, success" :=
+  Parse.Tests.lineResult "12" (() =>
+    let word := Parse.takeWhile (char => char ≠ ' ')
+    Parse.fromFail (() => word.toNatOrFail))
+    == Ok 12
 
 test "Parse: all" :=
-  Parse.Tests.allResult "1,2\n3,4" (() => (Parse.lines (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)).toList) == Ok [[1, 2], [3, 4]]
+  Parse.Tests.allResult "1,2\n3,4" (() =>
+    (Parse.lines (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)).toList)
+    == Ok [[1, 2], [3, 4]]
 test "Parse: all, error" :=
-  Parse.Tests.allResult "1,2\n3;4\n" (() => (Parse.lines (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)).toList) ==
-    Err "line 2, column 2: expected ',' or the end of the line, got ';'"
+  Parse.Tests.allResult "1,2\n3;4\n" (() =>
+    (Parse.lines (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)).toList)
+    == Err "line 2, column 2: expected ',' or the end of the line, got ';'"
 test "Parse: all, one line" :=
-  Parse.Tests.allResult "1,2x" (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList) == Err "line 1, column 4: expected ',' or the end of the line, got 'x'"
+  Parse.Tests.allResult "1,2x" (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)
+    == Err "line 1, column 4: expected ',' or the end of the line, got 'x'"
 test "Parse: eachLine" :=
-  Fail.toResult (() => Parse.eachLine "1,2\n3,4\n" (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)) == Ok [[1, 2], [3, 4]]
+  Fail.toResult (() => Parse.eachLine "1,2\n3,4\n" (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList))
+    == Ok [[1, 2], [3, 4]]
 test "Parse: eachLine, error" :=
-  Fail.toResult (() => Parse.eachLine "1,2\n3x4" (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList)) ==
-    Err "line 2, column 2: expected ',' or the end of the line, got 'x'"
+  Fail.toResult (() => Parse.eachLine "1,2\n3x4" (() => (Parse.sepBy1 Parse.nat (() => Parse.char ',')).toList))
+    == Err "line 2, column 2: expected ',' or the end of the line, got 'x'"
 test "Parse: eachLine, empty" := Fail.toResult (() => Parse.eachLine "" Parse.nat) == Ok []
 --| A failure keeps its line under `Fail.context`.
 test "Parse: eachLine, in context" :=
-  Fail.toResult (() => Fail.context "input" (() => Parse.eachLine "x" Parse.nat)) == Err "input: line 1, column 1: expected a number, got 'x'"
-test "Parse: all, trailing blank lines" := Parse.Tests.allResult "1\n2\n\n\n" (() => (Parse.lines Parse.nat).toList) == Ok [1, 2]
+  Fail.toResult (() => Fail.context "input" (() => Parse.eachLine "x" Parse.nat))
+    == Err "input: line 1, column 1: expected a number, got 'x'"
+test "Parse: all, trailing blank lines" :=
+  Parse.Tests.allResult "1\n2\n\n\n" (() => (Parse.lines Parse.nat).toList) == Ok [1, 2]
 test "Parse: line, a final line break" := Parse.Tests.lineResult "12\n" Parse.nat == Ok 12
 test "Parse: line, two final line breaks" :=
   Parse.Tests.lineResult "12\n\n" Parse.nat == Err "line 2, column 1: expected the end of the input, got a line break"
-test "Parse: line, a second line" := Parse.Tests.lineResult "12\n34\n" Parse.nat == Err "line 2, column 1: expected the end of the input, got '3'"
+test "Parse: line, a second line" :=
+  Parse.Tests.lineResult "12\n34\n" Parse.nat == Err "line 2, column 1: expected the end of the input, got '3'"
 test "Parse: line, an error on a second line" :=
-  Parse.Tests.lineResult "1\n2x" (() => (Parse.sepBy1 Parse.nat Parse.newline).toList) == Err "line 2, column 2: expected the end of the line, got 'x'"
+  Parse.Tests.lineResult "1\n2x" (() => (Parse.sepBy1 Parse.nat Parse.newline).toList)
+    == Err "line 2, column 2: expected the end of the line, got 'x'"
 
-test "Parse: ensureAt" := Parse.Tests.lineResult "x=12345" (() =>
-  Parse.text "x="
-  let start := Parse.mark()
-  let number := Parse.nat()
-  let finish := Parse.mark()
-  Parse.ensureAt start (finish.offset - start.offset ≤ 3) "too long"
-  number) == Err "column 3: too long"
+test "Parse: ensureAt" :=
+  Parse.Tests.lineResult "x=12345" (() =>
+    Parse.text "x="
+    let start := Parse.mark()
+    let number := Parse.nat()
+    let finish := Parse.mark()
+    Parse.ensureAt start (finish.offset - start.offset ≤ 3) "too long"
+    number)
+    == Err "column 3: too long"
 test "Parse: natDigits" := Parse.Tests.lineResult "123" (() => Parse.natDigits 1 3) == Ok 123
-test "Parse: natDigits, too long" := Parse.Tests.lineResult "x1234" (() =>
-  Parse.char 'x'
-  Parse.natDigits 1 3) == Err "column 2: expected a number of 1 to 3 digits, got '1'"
-test "Parse: natDigits, too short" := Parse.Tests.lineResult "12" (() => Parse.natDigits 3 3) == Err "column 1: expected a 3-digit number, got '1'"
-test "Parse: natDigits, none" := Parse.Tests.lineResult "x" (() => Parse.natDigits 0 3) == Err "column 1: expected a number of 1 to 3 digits, got 'x'"
-test "Parse: natDigits, a range" := Parse.Tests.lineResult "123456" (() => Parse.natDigits 2 5) == Err "column 1: expected a number of 2 to 5 digits, got '1'"
-test "Parse: natDigits, one digit" := Parse.Tests.lineResult "10" (() => Parse.natDigits 1 1) == Err "column 1: expected a 1-digit number, got '1'"
-test "Parse: repeat" := Parse.Tests.lineResult "aab" (() =>
-  let found := Parse.repeat (atLeast := 1) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))
-  Parse.char 'b'
-  found) == Ok ['a', 'a']
-test "Parse: repeat, at most" := Parse.Tests.lineResult "aaaa" (() =>
-  let found := Parse.repeat (atLeast := 1) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))
-  Parse.char 'a'
-  found) == Ok ['a', 'a', 'a']
-test "Parse: repeat, too few" := Parse.Tests.lineResult "ab" (() => Parse.repeat (atLeast := 2) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))) == Err "column 2: expected an a, got 'b'"
-test "Parse: exactly" := Parse.Tests.lineResult "123" (() => Parse.exactly 3 Parse.digit |> .map (digit => digit.toNat)) == Ok [1, 2, 3]
-test "Parse: exactly, too few" := Parse.Tests.lineResult "12" (() => Parse.exactly 3 Parse.digit) == Err "column 3: expected a digit, got the end of the line"
+test "Parse: natDigits, too long" :=
+  Parse.Tests.lineResult "x1234" (() =>
+    Parse.char 'x'
+    Parse.natDigits 1 3)
+    == Err "column 2: expected a number of 1 to 3 digits, got '1'"
+test "Parse: natDigits, too short" :=
+  Parse.Tests.lineResult "12" (() => Parse.natDigits 3 3) == Err "column 1: expected a 3-digit number, got '1'"
+test "Parse: natDigits, none" :=
+  Parse.Tests.lineResult "x" (() => Parse.natDigits 0 3) == Err "column 1: expected a number of 1 to 3 digits, got 'x'"
+test "Parse: natDigits, a range" :=
+  Parse.Tests.lineResult "123456" (() => Parse.natDigits 2 5)
+    == Err "column 1: expected a number of 2 to 5 digits, got '1'"
+test "Parse: natDigits, one digit" :=
+  Parse.Tests.lineResult "10" (() => Parse.natDigits 1 1) == Err "column 1: expected a 1-digit number, got '1'"
+test "Parse: repeat" :=
+  Parse.Tests.lineResult "aab" (() =>
+    let found := Parse.repeat (atLeast := 1) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))
+    Parse.char 'b'
+    found)
+    == Ok ['a', 'a']
+test "Parse: repeat, at most" :=
+  Parse.Tests.lineResult "aaaa" (() =>
+    let found := Parse.repeat (atLeast := 1) (atMost := 3) (() => Parse.satisfy "an a" (== 'a'))
+    Parse.char 'a'
+    found)
+    == Ok ['a', 'a', 'a']
+test "Parse: repeat, too few" :=
+  Parse.Tests.lineResult "ab" (() => Parse.repeat (atLeast := 2) (atMost := 3) (() => Parse.satisfy "an a" (== 'a')))
+    == Err "column 2: expected an a, got 'b'"
+test "Parse: exactly" :=
+  Parse.Tests.lineResult "123" (() => Parse.exactly 3 Parse.digit |> .map (digit => digit.toNat)) == Ok [1, 2, 3]
+test "Parse: exactly, too few" :=
+  Parse.Tests.lineResult "12" (() => Parse.exactly 3 Parse.digit)
+    == Err "column 3: expected a digit, got the end of the line"
 
 --| The values of `nat` among other characters.
-def Parse.Tests.numbers (line: Text): Result (List Nat) Text := Parse.Tests.lineResult line (() => Parse.findAll Parse.nat)
+def Parse.Tests.numbers (line: Text): Result (List Nat) Text :=
+  Parse.Tests.lineResult line (() => Parse.findAll Parse.nat)
 
 test "Parse: findAll" := Parse.Tests.numbers "a1b22c333" == Ok [1, 22, 333]
 test "Parse: findAll, none" := Parse.Tests.numbers "abc" == Ok []
 test "Parse: findAll, empty input" := Parse.Tests.numbers "" == Ok []
 --| A failed try reads nothing, so a match can start inside it.
-test "Parse: findAll, inside a failed try" := Parse.Tests.lineResult "aab" (() => Parse.findAll (() => Parse.text "ab")) == Ok [()]
-test "Parse: findAll, a match that reads nothing" := Parse.Tests.lineResult "ab" (() => Parse.findAll (() => Parse.mark().offset)) == Ok [0, 1, 2]
-test "Parse: findAllStarting" := Parse.Tests.lineResult "a1b22c333" (() => Parse.findAllStarting Parse.isDigit Parse.nat) == Ok [1, 22, 333]
+test "Parse: findAll, inside a failed try" :=
+  Parse.Tests.lineResult "aab" (() => Parse.findAll (() => Parse.text "ab")) == Ok [()]
+test "Parse: findAll, a match that reads nothing" :=
+  Parse.Tests.lineResult "ab" (() => Parse.findAll (() => Parse.mark().offset)) == Ok [0, 1, 2]
+test "Parse: findAllStarting" :=
+  Parse.Tests.lineResult "a1b22c333" (() => Parse.findAllStarting Parse.isDigit Parse.nat) == Ok [1, 22, 333]
 
 --| Two sections of different things: rules like "1|2", a blank line, then
 --| lists like "1,2".
@@ -1300,7 +1462,12 @@ test "Parse: section" := Parse.Tests.twoSections "1|2\n3|4\n\n1,2\n3\n" == Ok ([
 test "Parse: section, trailing blank lines" := Parse.Tests.twoSections "1|2\n\n1,2\n\n\n" == Ok ([(1, 2)], [[1, 2]])
 test "Parse: section, no blank line" :=
   Parse.Tests.twoSections "1|2\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got ','"
-test "Parse: section, a bad line" := Parse.Tests.twoSections "1|2\n3x4\n\n1,2\n" == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
-test "Parse: section, a bad first line" := Parse.Tests.twoSections "1x2\n\n1,2\n" == Err "line 1, column 2: expected '|', got 'x'"
+test "Parse: section, a bad line" :=
+  Parse.Tests.twoSections "1|2\n3x4\n\n1,2\n"
+    == Err "line 2, column 2: expected '|' or a blank line before this line, got 'x'"
+test "Parse: section, a bad first line" :=
+  Parse.Tests.twoSections "1x2\n\n1,2\n" == Err "line 1, column 2: expected '|', got 'x'"
 test "Parse: section, blank line of spaces" := Parse.Tests.twoSections "1|2\n  \n1,2\n" == Ok ([(1, 2)], [[1, 2]])
-test "Parse: section, nothing after" := Parse.Tests.twoSections "1|2\n3|4\n" == Err "line 3, column 1: expected a number or a blank line, got the end of the input"
+test "Parse: section, nothing after" :=
+  Parse.Tests.twoSections "1|2\n3|4\n"
+    == Err "line 3, column 1: expected a number or a blank line, got the end of the input"

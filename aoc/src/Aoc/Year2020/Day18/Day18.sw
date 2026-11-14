@@ -23,9 +23,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${parseHomework input samePrecedence |> .sum}"
   IO.print "Part 2: ${parseHomework input additionFirst |> .sum}"
 
-type Operator =
-  | Plus
-  | Times
+type Operator = | Plus | Times
 
 --| How the homework writes an operator, with the spaces around it.
 def Operator.spaced: Operator → Text
@@ -64,22 +62,23 @@ def Homework.sum (homework: Homework): Nat := homework.expressions.map .value |>
 -- The format
 
 --| A number, or a whole expression in parentheses.
-def operand (expression: () → {Parse} Expression): {Parse} Expression :=
-  Parse.oneOf [
-    () =>
-      let value := Parse.nat()
-      Number value,
-    () =>
-      Parse.char '('
-      let inner := expression()
-      Parse.char ')'
-      Parenthesised inner
-  ]
+def operand (expression: () → {Parse} Expression): {Parse} Expression := Parse.oneOf [
+  () =>
+    let value := Parse.nat()
+    Number value,
+  () =>
+    Parse.char '('
+    let inner := expression()
+    Parse.char ')'
+    Parenthesised inner
+]
 
-def operator (operators: List Operator): {Parse} Operator := Parse.pick (operators.map (operator => (operator.spaced, operator)))
+def operator (operators: List Operator): {Parse} Operator :=
+  Parse.pick (operators.map (operator => (operator.spaced, operator)))
 
 --| The expression node an operator builds from its two sides.
-def Operator.node (operator: Operator): Expression → Expression → Expression := left right => Operation operator left right
+def Operator.node (operator: Operator): Expression → Expression → Expression := left right =>
+  Operation operator left right
 
 --| `term`s joined by `operators`, grouped from the left.
 def chain (operators: List Operator) (term: () → {Parse} Expression): {Parse} Expression :=
@@ -91,7 +90,8 @@ def level (expression: () → {Parse} Expression): List (List Operator) → {Par
   | [] => operand expression
   | [operators, ..tighter] => chain operators (() => level expression tighter)
 
-def Precedence.expression (precedence: Precedence): {Parse} Expression := Parse.recursive (self => level self precedence.levels)
+def Precedence.expression (precedence: Precedence): {Parse} Expression :=
+  Parse.recursive (self => level self precedence.levels)
 
 --| An expression a line, read by `precedence`'s rules.
 def parseHomework (input: Text) (precedence: Precedence): {Fail} Homework :=

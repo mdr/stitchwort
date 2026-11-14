@@ -10,14 +10,15 @@ type Leaf = { value: Nat, depth: Nat }
 theorem memberOfTail ∀ (y: Nat) (ys: List Nat) (h: y ∈ [y, ..ys]): y ∈ ys := ?
 
 -- The order keys `Float.less` compares are `x < y` again.
-theorem keysLess ∀ (x: Float) (y: Float) (h: x < y): x = x :=
+theorem keysLess ∀ (x y: Float) (h: x < y): x = x :=
   let keys: Int.less (Float.orderKey x) (Float.orderKey y) = True := h
   ?
 
 -- A record given to a constructor is in brackets: `Cons { … } rest` would
 -- name `Cons`'s fields.
 theorem deeper ∀ (f: List Leaf → Nat) (leaf: Leaf) (rest: List Leaf):
-    f [{ value = leaf.value, depth = leaf.depth + 1 }, ..rest] = f rest := ?
+    f [{ value = leaf.value, depth = leaf.depth + 1 }, ..rest] = f rest :=
+  ?
 
 -- After a `rewrite … at h`, only the new `h` is listed.
 theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?

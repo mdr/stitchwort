@@ -5,12 +5,13 @@
 
 import Std (List)
 
-def plus (a: Nat) (b: Nat): Nat := a + b
+def plus (a b: Nat): Nat := a + b
 
 def f (n: Nat): Nat :=
-  let g := acc => match List.length [acc] with
-    | Zero => 0
-    | Succ k => plus acc k
+  let g := acc =>
+    match List.length [acc] with
+      | Zero => 0
+      | Succ k => plus acc k
   g 0
 
 test "the waiting match is resumed" := f 3 == 0

@@ -4,10 +4,7 @@ def isZero: Nat -> Bool
   | Succ _ => False
 
 def pred: Nat -> Nat
-  | Zero =>
-    Zero
+  | Zero => Zero
   | Succ n => n
 
-type Shape =
-  | Circle (radius: Nat)
-  | Square (side: Nat)
+type Shape = | Circle (radius: Nat) | Square (side: Nat)

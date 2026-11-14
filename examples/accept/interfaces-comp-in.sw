@@ -12,14 +12,11 @@
 -- empty row, D1123), never the resolver's.
 import Std (Effect, Fail)
 
-interface Label (a: Type) =
-  { label: Text }
+interface Label (a: Type) = { label: Text }
 
-instance Label.instNat: Label Nat :=
-  { label = "nat" }
+instance Label.instNat: Label Nat := { label = "nat" }
 
-instance Label.instComp: Label (Effect.Comp op res a) :=
-  { label = "comp" }
+instance Label.instComp: Label (Effect.Comp op res a) := { label = "comp" }
 
 def labelOf [a b: Type] [auto d: Label b] (f: a → b): Text := Label.label [a := b]
 

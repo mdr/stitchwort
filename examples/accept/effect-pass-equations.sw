@@ -19,21 +19,24 @@ theorem bindDoneHere ∀ [a: Type] (computation: Effect.Comp Effect.NoOp Effect.
     Effect.bind computation Done = computation :=
   Effect.bindDone computation
 
-theorem sameComputation ∀ [a: Type] (computation: Effect.Comp Effect.NoOp Effect.NoRes a): computation = computation := rfl
+theorem sameComputation ∀ [a: Type] (computation: Effect.Comp Effect.NoOp Effect.NoRes a): computation = computation :=
+  rfl
 
 -- Over a row with abilities: the two calls are computations, compared as
 -- they are (this was `E-ABILITY`, since each was run).
 theorem sameCall ∀ (thunk: () → {Abort} Nat): thunk () = thunk () := rfl
 
 -- Branches checked against a written computation type.
-def pick (choice: Bool) (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat :=
+def pick (choice: Bool) (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat):
+    Effect.Comp Effect.NoOp Effect.NoRes Nat :=
   if choice then first else second
 
 theorem pickTrue ∀ (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): pick True first second = first := rfl
 theorem pickFalse ∀ (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): pick False first second = second := rfl
 theorem pickDone ∀ (second: Effect.Comp Effect.NoOp Effect.NoRes Nat): IsDone (pick True (Done 3) second) := Trivial
 
-def choose (choice: Bool) (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat :=
+def choose (choice: Bool) (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat):
+    Effect.Comp Effect.NoOp Effect.NoRes Nat :=
   match choice with
     | True => first
     | False => second
@@ -41,7 +44,8 @@ def choose (choice: Bool) (first second: Effect.Comp Effect.NoOp Effect.NoRes Na
 theorem chooseTrue ∀ (first second: Effect.Comp Effect.NoOp Effect.NoRes Nat): choose True first second = first := rfl
 
 -- After a `let`, and with a plain value in one branch (`Done 0`).
-def pickOrZero (choice: Bool) (first: Effect.Comp Effect.NoOp Effect.NoRes Nat): Effect.Comp Effect.NoOp Effect.NoRes Nat :=
+def pickOrZero (choice: Bool) (first: Effect.Comp Effect.NoOp Effect.NoRes Nat):
+    Effect.Comp Effect.NoOp Effect.NoRes Nat :=
   let zero := 0
   if choice then first else zero
 

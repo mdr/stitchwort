@@ -53,11 +53,7 @@ import Std (List, Nat)
 -- A basket holds items; each item has a price in pence and a count. A
 -- coupon takes something off the total.
 
-type Item = {
-  name: Text,
-  pence: Nat,
-  count: Nat
-}
+type Item = { name: Text, pence: Nat, count: Nat }
 
 --| What the basket's line for this item costs, in pence.
 def Item.cost (item: Item): Nat := item.pence * item.count
@@ -74,14 +70,11 @@ def Basket.empty: Basket := { items = [] }
 def Basket.add (basket: Basket) (item: Item): Basket := { items = [item, ..basket.items] }
 
 --| Two baskets put together at the till.
-def Basket.merge (basket: Basket) (other: Basket): Basket := { items = basket.items ++ other.items }
+def Basket.merge (basket other: Basket): Basket := { items = basket.items ++ other.items }
 
 def Basket.total (basket: Basket): Nat := totalOf basket.items
 
-type Coupon =
-  | NoCoupon
-  | PenceOff (pence: Nat)
-  | PercentOff (percent: Nat)
+type Coupon = | NoCoupon | PenceOff (pence: Nat) | PercentOff (percent: Nat)
 
 --| What is left to pay of `total` pence. `-` on `Nat` stops at 0, so a
 --| coupon worth more than the basket makes it free.
@@ -230,13 +223,14 @@ theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total �
 --    `omega [totalAppend others rest]` proves it too: `omega` with an
 --    extra fact. Try it.
 
-theorem totalAppend ∀ (others: List Item): ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
+theorem totalAppend ∀ (others: List Item):
+    ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
   | [] => rfl
   | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc
 
 -- With the lemma proved, the fact about baskets needs no work of its own.
 
-theorem mergeTotal ∀ (basket: Basket) (other: Basket): (basket.merge other).total = basket.total + other.total :=
+theorem mergeTotal ∀ (basket other: Basket): (basket.merge other).total = basket.total + other.total :=
   totalAppend other.items basket.items
 
 -- `Basket.total` and `Basket.merge` compute straight to `totalOf` and

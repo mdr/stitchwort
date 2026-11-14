@@ -13,36 +13,48 @@ import Aoc.Common.Proofs (adjacentNeighbour, cellPositionsDistinct, neighbourAdj
 import Std (And, Bool, DecEq, Eq, Iff, List, Nat, Option, Void)
 
 --| Every position with a height is on the list.
-theorem positionsComplete ∀ (map: TopographicMap) (position: Position) (height: Nat) (has: map.heightAt position = Some height): position ∈ map.positions :=
+theorem positionsComplete ∀ (map: TopographicMap) (position: Position) (height: Nat)
+    (has: map.heightAt position = Some height):
+    position ∈ map.positions :=
   match found: cellAt map.grid.rows position with
-    | Some tile => List.memMap (cells map.grid.rows) (position, tile) (memCellsOfCellAt map.grid.rows position tile found) Pair.fst
+    | Some tile =>
+      List.memMap (cells map.grid.rows) (position, tile) (memCellsOfCellAt map.grid.rows position tile found) Pair.fst
 
 --| Each position is on the list once.
 theorem positionsDistinct ∀ (map: TopographicMap): List.Distinct map.positions := cellPositionsDistinct map.grid.rows
 
 --| A position one higher than another has a height, so it is on the map.
-theorem higherOnMap ∀ (map: TopographicMap) (from: Position) (to: Position) (higher: increasesByOne map from to = True): to ∈ map.positions :=
-  match known: map.heightAt from with
-    | Some height => positionsComplete map to (height + 1) higher.read
+theorem higherOnMap ∀ (map: TopographicMap) (from to: Position)
+    (higher: increasesByOne map from to = True):
+    to ∈ map.positions :=
+  match known: map.heightAt from with | Some height => positionsComplete map to (height + 1) higher.read
 
 --| `uphill` is the spec's steps from `from`.
-theorem memUphill ∀ (map: TopographicMap) (from: Position) (to: Position): to ∈ map.uphill from ↔ (to ∈ map.positions) ∧ (isStep map from to = True) := {
-  forward = member =>
-    let both := List.memFilter from.neighbours (map.isOneHigher from) member
-    Both (higherOnMap map from to (And.right both)) (Both (neighbourAdjacent from to (And.left both)) (And.right both)),
-  backward = has =>
-    let Both adjacentStep higher := And.right has
-    List.memFilterIntro from.neighbours (map.isOneHigher from) (adjacentNeighbour from to adjacentStep) higher
-}
+theorem memUphill ∀ (map: TopographicMap) (from to: Position):
+    to ∈ map.uphill from ↔ (to ∈ map.positions) ∧ (isStep map from to = True) :=
+  {
+    forward = member =>
+      let both := List.memFilter from.neighbours (map.isOneHigher from) member
+      Both
+        (higherOnMap map from to (And.right both))
+        (Both (neighbourAdjacent from to (And.left both)) (And.right both)),
+    backward = has =>
+      let Both adjacentStep higher := And.right has
+      List.memFilterIntro from.neighbours (map.isOneHigher from) (adjacentNeighbour from to adjacentStep) higher
+  }
 
 theorem uphillDistinct ∀ (map: TopographicMap) (from: Position): List.Distinct (map.uphill from) :=
   List.distinctFilter from.neighbours (map.isOneHigher from) (neighboursDistinct from)
 
 --| `uphill` is the spec's steps from `from` among the positions, in another
 --| order.
-theorem uphillPerm ∀ (map: TopographicMap) (from: Position): List.Perm (map.positions.filter (isStep map from)) (map.uphill from) :=
-  List.permOfSameMembers (map.positions.filter (isStep map from)) (map.uphill from)
-    (List.distinctFilter map.positions (isStep map from) (positionsDistinct map)) (uphillDistinct map from)
+theorem uphillPerm ∀ (map: TopographicMap) (from: Position):
+    List.Perm (map.positions.filter (isStep map from)) (map.uphill from) :=
+  List.permOfSameMembers
+    (map.positions.filter (isStep map from))
+    (map.uphill from)
+    (List.distinctFilter map.positions (isStep map from) (positionsDistinct map))
+    (uphillDistinct map from)
     (to member => (memUphill map from to).backward (List.memFilter map.positions (isStep map from) member))
     (to member =>
       let both := (memUphill map from to).forward member

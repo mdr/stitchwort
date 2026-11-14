@@ -3,28 +3,11 @@
 def afterLets (state: State): State :=
   let events := 1
   let hitPoints := 2
-  {
-    state |
-    monsters = events,
-    hitPoints,
-    turn = state.turn + 1
-  }
+  { state | monsters = events, hitPoints, turn = state.turn + 1 }
 
-def alone (state: State): State := {
-  state |
-  monsters = 1,
-  turn = 2
-}
+def alone (state: State): State := { state | monsters = 1, turn = 2 }
 
 def inBranch (state: State) (target: Position): State :=
-  if True then {
-    state |
-    player = target,
-    potions = []
-  }
-  else state
+  if True then { state | player = target, potions = [] } else state
 
-def sameLine (state: State): State := {
-  state | monsters = 1,
-  turn = 2
-}
+def sameLine (state: State): State := { state | monsters = 1, turn = 2 }

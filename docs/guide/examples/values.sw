@@ -8,13 +8,13 @@ def double (n: Nat): Nat := n + n
 
 def greeting (name: Text): Text := "Hello, " ++ name ++ "!"
 
-def area (width: Nat) (height: Nat): Nat := width * height
+def area (width height: Nat): Nat := width * height
 -- end definitions
 
 -- begin docs
 --| How many shelves `width` wide fit along a wall, rounded down. A width of 0
 --| fits none. For the floor see [`area`].
-def shelves (wall: Nat) (width: Nat): Nat := wall / width
+def shelves (wall width: Nat): Nat := wall / width
 
 test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
 -- end docs
@@ -27,18 +27,11 @@ def describe (n: Nat): Text :=
 -- end blocks
 
 -- begin if-chain
-def grade (score: Nat): Text :=
-  if score ≥ 90 then "A"
-  else if score ≥ 75 then "B"
-  else if score ≥ 50 then "C"
-  else "D"
+def grade (score: Nat): Text := if score ≥ 90 then "A" else if score ≥ 75 then "B" else if score ≥ 50 then "C" else "D"
 -- end if-chain
 
 -- begin leading-operator
-def validScore (score: Nat): Bool :=
-  0 <= score
-  && score <= 100
-  && score != 13
+def validScore (score: Nat): Bool := 0 <= score && score <= 100 && score != 13
 -- end leading-operator
 
 test "a line may start with an operator" := validScore 50 && !validScore 13
@@ -79,7 +72,7 @@ test "absolute value" := Int.natAbs balance == 2
 -- begin division-by-zero
 test "dividing by 0" := 7 / 0 == 0 ∧ 7 % 0 == 7
 
-def averageOf (total: Nat) (count: Nat): Nat := total / count
+def averageOf (total count: Nat): Nat := total / count
 
 test "the average of nothing" := averageOf 10 0 == 0
 -- end division-by-zero

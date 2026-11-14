@@ -9,9 +9,7 @@
 --| An integer: `OfNat n` is `n`, and `NegSucc n` is `-(n + 1)`, so each
 --| integer has exactly one form. The definitions compute through `Nat`'s, so
 --| they're as compact as `Nat` is, and the kernel needs nothing new.
-type Int: Type =
-  | OfNat (n: Nat)
-  | NegSucc (n: Nat)
+type Int: Type = | OfNat (n: Nat) | NegSucc (n: Nat)
 
 --| `-x`: the integer with the other sign.
 def Int.neg: (x: Int) → Int
@@ -22,12 +20,12 @@ def Int.neg: (x: Int) → Int
 --| `m - n` for naturals, as an integer.
 -- One subtraction decides which side is bigger: `n - m` is zero exactly
 -- when `n <= m`.
-def Int.subNatNatFrom (m: Nat) (n: Nat): (diff: Nat) → Int
+def Int.subNatNatFrom (m n: Nat): (diff: Nat) → Int
   | Zero => OfNat (m - n)
   | Succ k => NegSucc k
 
 --| `m - n` for naturals, as an integer: negative when `n` is bigger.
-def Int.subNatNat (m: Nat) (n: Nat): Int := Int.subNatNatFrom m n (n - m)
+def Int.subNatNat (m n: Nat): Int := Int.subNatNatFrom m n (n - m)
 
 --| `a + b`: addition of integers.
 def Int.add: (x: Int) → (y: Int) → Int
@@ -37,7 +35,7 @@ def Int.add: (x: Int) → (y: Int) → Int
   | NegSucc m, NegSucc n => NegSucc (Succ (m + n))
 
 --| `a - b`: subtraction of integers, which can go below zero.
-def Int.sub (a: Int) (b: Int): Int := Int.add a (Int.neg b)
+def Int.sub (a b: Int): Int := Int.add a (Int.neg b)
 
 --| `a * b`: multiplication of integers. By constructors first, so `OfNat m * OfNat n` is `OfNat (m * n)`.
 def Int.mul: (x: Int) → (y: Int) → Int
@@ -63,22 +61,22 @@ def Int.IsOfNat: (x: Int) → Prop
   | OfNat n => Unit
   | NegSucc n => Void
 
-theorem Int.ofNatNotNegSucc ∀ (m: Nat) (n: Nat): OfNat m ≠ NegSucc n
+theorem Int.ofNatNotNegSucc ∀ (m n: Nat): OfNat m ≠ NegSucc n
   | p => J (y q => Int.IsOfNat y) Trivial p
 
-theorem Int.negSuccNotOfNat ∀ (m: Nat) (n: Nat): NegSucc m ≠ OfNat n
+theorem Int.negSuccNotOfNat ∀ (m n: Nat): NegSucc m ≠ OfNat n
   | p => Int.ofNatNotNegSucc n m (Eq.sym p)
 
-theorem Int.ofNatInjective ∀ (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p
+theorem Int.ofNatInjective ∀ (m n: Nat) (p: OfNat m = OfNat n): m = n := Eq.cong Int.toNat p
 
-theorem Int.negSuccInjective ∀ [m: Nat] [n: Nat] (p: NegSucc m = NegSucc n): m = n := Nat.succInjective (Eq.cong Int.natAbs p)
+theorem Int.negSuccInjective ∀ [m n: Nat] (p: NegSucc m = NegSucc n): m = n := Nat.succInjective (Eq.cong Int.natAbs p)
 
 --| Decides whether two `OfNat`s are equal, from a decision about their numbers.
-def Int.decOfNat (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (OfNat m = OfNat n) :=
+def Int.decOfNat (m n: Nat) (dec: Decidable (m = n)): Decidable (OfNat m = OfNat n) :=
   Decidable.map dec (Eq.cong OfNat) (Int.ofNatInjective m n)
 
 --| Decides whether two `NegSucc`s are equal, from a decision about their numbers.
-def Int.decNegSucc (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (NegSucc m = NegSucc n) :=
+def Int.decNegSucc (m n: Nat) (dec: Decidable (m = n)): Decidable (NegSucc m = NegSucc n) :=
   Decidable.map dec (Eq.cong NegSucc) (p => Int.negSuccInjective p)
 
 --| Its test is [`Nat.equal`] on the numbers, for two of the same sign, so it
@@ -105,33 +103,35 @@ def Int.less: (x: Int) → (y: Int) → Bool
   | NegSucc m, NegSucc n => Nat.leq (Succ n) m
 
 --| `a <= b` as a proposition, defined by computation.
-def Int.LessEq (a: Int) (b: Int): Prop := Int.leq a b = True
+def Int.LessEq (a b: Int): Prop := Int.leq a b = True
 
 --| `a < b` as a proposition, defined by computation.
-def Int.LessThan (a: Int) (b: Int): Prop := Int.less a b = True
+def Int.LessThan (a b: Int): Prop := Int.less a b = True
 
 --| `Int.leq a b` (what `a <= b` is on `Int`) reads as `a ≤ b`.
 @[reading]
-theorem Int.leqReads ∀ (a: Int) (b: Int): Int.leq a b ↔ Int.LessEq a b := { forward = h => h, backward = h => h }
+theorem Int.leqReads ∀ (a b: Int): Int.leq a b ↔ Int.LessEq a b := { forward = h => h, backward = h => h }
 
 --| `Int.leq a b` is `False` exactly when `b` is below `a`.
 @[reading]
-theorem Int.leqReadsFalse ∀ (a: Int) (b: Int): Int.leq a b = False ↔ Int.LessThan b a := match a, b with
+theorem Int.leqReadsFalse ∀ (a b: Int): Int.leq a b = False ↔ Int.LessThan b a := match a, b with
   | OfNat m, OfNat n => Nat.leqReadsFalse m n
   | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
-  | NegSucc m, OfNat n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+  | NegSucc m, OfNat n =>
+    { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
   | NegSucc m, NegSucc n => Nat.leqReadsFalse n m
 
 --| `Int.less a b` (what `a < b` is on `Int`) reads as `a < b`.
 @[reading]
-theorem Int.lessReads ∀ (a: Int) (b: Int): Int.less a b ↔ Int.LessThan a b := { forward = h => h, backward = h => h }
+theorem Int.lessReads ∀ (a b: Int): Int.less a b ↔ Int.LessThan a b := { forward = h => h, backward = h => h }
 
 --| `Int.less a b` is `False` exactly when `b` is at most `a`.
 @[reading]
-theorem Int.lessReadsFalse ∀ (a: Int) (b: Int): Int.less a b = False ↔ Int.LessEq b a := match a, b with
+theorem Int.lessReadsFalse ∀ (a b: Int): Int.less a b = False ↔ Int.LessEq b a := match a, b with
   | OfNat m, OfNat n => Nat.leqReadsFalse (Succ m) n
   | OfNat m, NegSucc n => { forward = h => rfl, backward = h => rfl }
-  | NegSucc m, OfNat n => { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
+  | NegSucc m, OfNat n =>
+    { forward = h => Void.exfalso (Bool.trueNotFalse h), backward = h => Void.exfalso (Bool.falseNotTrue h) }
   | NegSucc m, NegSucc n => Nat.leqReadsFalse (Succ n) m
 
 instance Int.decLessEq (a: Int) (b: Int): Decidable (Int.LessEq a b) := Bool.decTrue (Int.leq a b)

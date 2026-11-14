@@ -19,6 +19,9 @@ theorem Bool.toNatOdd ∀ (b: Bool): (b.toNat % 2 == 1) = b := match b with
   | False => rfl
   | True => rfl
 
-test "Bool.toNatAnd" := Bool.toNat (True ∧ False) == Nat.keepIf (Bool.toNat False) True ∧ Bool.toNat (True ∧ True) == Nat.keepIf (Bool.toNat True) True ∧ Bool.toNat (False ∧ True) == Nat.keepIf (Bool.toNat True) False
+test "Bool.toNatAnd" :=
+  Bool.toNat (True ∧ False) == Nat.keepIf (Bool.toNat False) True
+    ∧ Bool.toNat (True ∧ True) == Nat.keepIf (Bool.toNat True) True
+    ∧ Bool.toNat (False ∧ True) == Nat.keepIf (Bool.toNat True) False
 test "Bool.toNatEqZero" := Bool.toNat False == 0 ∧ Bool.toNat True != 0
 test "Bool.toNatOdd" := (Bool.toNat True % 2 == 1) == True ∧ (Bool.toNat False % 2 == 1) == False

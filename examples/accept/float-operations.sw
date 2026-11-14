@@ -40,7 +40,8 @@ test "toInt of a whole number" := Float.toInt (-3.0) = Some (-3)
 test "toInt of a fraction" := Float.toInt 0.5 = None
 test "toInt of infinity" := Float.toInt Float.infinity = None
 test "toInt of 1e100, which isn't 10^100" :=
-  Float.toInt 1e100 = Some 10000000000000000159028911097599180468360808563945281389781327557747838772170381060813469985856815104
+  Float.toInt 1e100
+    = Some 10000000000000000159028911097599180468360808563945281389781327557747838772170381060813469985856815104
 test "toInt of the largest" := (Float.toInt 1.7976931348623157e308).isSome = True
 test "toSafeInt" := Float.toSafeInt 3.0 = SafeInt.ofInt 3
 test "toSafeNat of a negative" := Float.toSafeNat (-3.0) = None
@@ -58,8 +59,7 @@ test "ieeeLe zeros" := Float.ieeeLe 0.0 (-0.0) = True
 test "ieeeLt NaN" := Float.ieeeLt Float.nan 1.0 = False
 test "ieeeLe NaN" := Float.ieeeLe Float.nan Float.nan = False
 test "ieeeLt" := Float.ieeeLt (-1.0) 0.5 = True
-theorem jsLessIsLessEq ∀ (a: Float) (b: Float) (h: Float.ieeeLt a b = True): Float.ieeeLe a b = True :=
-  Float.ieeeLtLe a b h
+theorem jsLessIsLessEq ∀ (a b: Float) (h: Float.ieeeLt a b = True): Float.ieeeLe a b = True := Float.ieeeLtLe a b h
 
 -- `toSource` of the NaN, the infinities and minus zero computes in the
 -- checker; the rest go through `toText`, which only the runtimes compute.

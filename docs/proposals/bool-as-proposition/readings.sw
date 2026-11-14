@@ -5,11 +5,8 @@ import Std (Bool, Eq, List, Nat, Void)
 
 type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
 
-def andReading (a b: Bool): Dec (a = True ∧ b = True) := {
-  does = a && b,
-  sound = h => Both (Bool.andLeft h) (Bool.andRight h),
-  complete = h => Bool.andIntro h.left h.right
-}
+def andReading (a b: Bool): Dec (a = True ∧ b = True) :=
+  { does = a && b, sound = h => Both (Bool.andLeft h) (Bool.andRight h), complete = h => Bool.andIntro h.left h.right }
 
 def orReading (a b: Bool): Dec (a = True ∨ b = True) := {
   does = a || b,
@@ -34,9 +31,7 @@ def notAndReading (a b: Bool): Dec (a = False ∨ b = False) := {
 def anyReading (xs: List a) (f: a → Bool): Dec (∃ (x: a) => x ∈ xs ∧ f x = True) := {
   does = xs.any f,
   sound = h => List.anyTrueElim xs f _ h (x xIn fx => Witness x (Both xIn fx)),
-  complete = h =>
-    match h with
-      | Witness x (Both xIn fx) => List.anyOfMem xs f x fx xIn
+  complete = h => match h with | Witness x (Both xIn fx) => List.anyOfMem xs f x fx xIn
 }
 
 -- A reading that is a function: used by applying the fact, built by a lambda.

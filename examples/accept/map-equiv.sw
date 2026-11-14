@@ -34,8 +34,7 @@ theorem sizeIsLength ∀ (m: Map Text Nat): m.size = m.toList.length := Map.size
 
 -- Inserting two different keys in either order gives the same map, for any
 -- map, so anything said of one is said of the other.
-theorem insertSwap ∀ (m: Map Text Nat):
-    ((m.insert "a" 1).insert "b" 2) = ((m.insert "b" 2).insert "a" 1) :=
+theorem insertSwap ∀ (m: Map Text Nat): ((m.insert "a" 1).insert "b" 2) = ((m.insert "b" 2).insert "a" 1) :=
   Map.insertComm "a" 1 "b" 2 (e => Bool.trueNotFalse (Eq.cong (t => t == "a") e)) m
 
 theorem insertSwapSize ∀ (m: Map Text Nat):
@@ -44,8 +43,7 @@ theorem insertSwapSize ∀ (m: Map Text Nat):
 
 -- Maps that agree on every key are equal, even maps of functions, which
 -- have no `==`.
-theorem functionsExt ∀ (m: Map Nat (Nat → Nat)) (n: Map Nat (Nat → Nat)) (h: ∀ (key: Nat) => m.get key = n.get key): m = n :=
-  Map.ext m n h
+theorem functionsExt ∀ (m n: Map Nat (Nat → Nat)) (h: ∀ (key: Nat) => m.get key = n.get key): m = n := Map.ext m n h
 
 -- `filter` keeps the entries for which the test holds, in key order.
 theorem filterInOrder ∀ (m: Map Nat Nat):

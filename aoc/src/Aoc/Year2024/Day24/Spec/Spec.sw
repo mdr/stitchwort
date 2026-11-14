@@ -12,7 +12,7 @@ import Std (List, Nat)
 
 --| "AND gates output 1 if both inputs are 1 ... OR gates output 1 if one or
 --| both inputs is 1 ... XOR gates output 1 if the inputs are different".
-def gateOutput (operation: Operation) (left: Bool) (right: Bool): Bool := match operation with
+def gateOutput (operation: Operation) (left right: Bool): Bool := match operation with
   | And => left == True ∧ right == True
   | Or => left == True ∨ right == True
   | Xor => left != right
@@ -22,9 +22,17 @@ def gateOutput (operation: Operation) (left: Bool) (right: Bool): Bool := match 
 --| until both inputs are received before producing output".
 type Carries (device: Device): Wire → Bool → Prop =
   | Starts [wire: Wire] [value: Bool] (given: (wire, value) ∈ device.initial): Carries device wire value
-  | Fires [wire: Wire] [value: Bool] (gate: Gate) (wired: gate ∈ device.gates) (onto: gate.output = wire) (left: Bool) (right: Bool)
-    (leftCarries: Carries device gate.left left) (rightCarries: Carries device gate.right right) (output: value = gateOutput gate.operation left right):
-    Carries device wire value
+  | Fires
+      [wire: Wire]
+      [value: Bool]
+      (gate: Gate)
+      (wired: gate ∈ device.gates)
+      (onto: gate.output = wire)
+      (left: Bool)
+      (right: Bool)
+      (leftCarries: Carries device gate.left left)
+      (rightCarries: Carries device gate.right right)
+      (output: value = gateOutput gate.operation left right): Carries device wire value
 
 --| "the system is trying to produce a number by combining the bits on all
 --| wires starting with z. z00 is the least significant bit, then z01, then
@@ -37,8 +45,10 @@ def Outputs (device: Device) (number: Nat): Prop :=
 --| "treating the bits on wires starting with x as one binary number,
 --| treating the bits on wires starting with y as a second binary number":
 --| the wires starting with `x` and `y`, `bits` of each.
-def inputsFor (bits: Nat) (x: Nat) (y: Nat): List (Wire, Bool) :=
-  List.append (List.range 0 bits |> .map (bit => (X bit, x.testBit bit))) (List.range 0 bits |> .map (bit => (Y bit, y.testBit bit)))
+def inputsFor (bits x y: Nat): List (Wire, Bool) :=
+  List.append
+    (List.range 0 bits |> .map (bit => (X bit, x.testBit bit)))
+    (List.range 0 bits |> .map (bit => (Y bit, y.testBit bit)))
 
 --| "for any combination of bits on wires starting with x and wires starting
 --| with y, the sum of the two numbers those bits represent should be

@@ -23,7 +23,8 @@ import Std.Parse (nat, text)
 def main(): {IO, Fail} () :=
   let (size, fallen) := sizesFrom IO.args()
   let bytes := parseBytes IO.readAll()
-  IO.print "Part 1: ${solvePart1 size fallen bytes |> .orFail "no path to the exit once the first ${fallen} bytes have fallen"}"
+  IO.print
+    "Part 1: ${solvePart1 size fallen bytes |> .orFail "no path to the exit once the first ${fallen} bytes have fallen"}"
   let blocker := solvePart2 size bytes |> .orFail "no byte cuts the exit off"
   IO.print "Part 2: ${blocker.column},${blocker.row}"
 
@@ -49,24 +50,28 @@ def parseBytes (input: Text): {Fail} List Position := Parse.eachLine input byte
 type MemorySpace = { size: Nat, corrupted: Set Position }
 
 --| The memory space once the first `fallen` bytes have fallen.
-def MemorySpace.after (size: Nat) (bytes: List Position) (fallen: Nat): MemorySpace := { size, corrupted = bytes.take fallen |> .toSet }
+def MemorySpace.after (size: Nat) (bytes: List Position) (fallen: Nat): MemorySpace :=
+  { size, corrupted = bytes.take fallen |> .toSet }
 
 --| Inside the memory space and not corrupted.
 def MemorySpace.isSafe (memory: MemorySpace) (position: Position): Bool :=
   position.within memory.size memory.size && !memory.corrupted.contains position
 
 --| Entering a safe position takes one step; nothing else can be entered.
-def MemorySpace.enter (memory: MemorySpace) (position: Position): Option Nat := if memory.isSafe position then Some 1 else None
+def MemorySpace.enter (memory: MemorySpace) (position: Position): Option Nat :=
+  if memory.isSafe position then Some 1 else None
 
 --| A position that can be entered is inside the memory space.
-theorem MemorySpace.enterListed ∀ (memory: MemorySpace) (position: Position) (cost: Nat) (found: memory.enter position = Some cost):
-    position ∈ positions memory.size memory.size := match safe: memory.isSafe position with
-      | True => memPositionsOfWithin memory.size memory.size position safe.left
+theorem MemorySpace.enterListed ∀ (memory: MemorySpace) (position: Position) (cost: Nat)
+    (found: memory.enter position = Some cost):
+    position ∈ positions memory.size memory.size :=
+  match safe: memory.isSafe position with | True => memPositionsOfWithin memory.size memory.size position safe.left
 
 --| The memory space as a graph for std's search: a step from each position
 --| to each safe neighbour (up, right, down or left).
 def MemorySpace.graph (memory: MemorySpace): Graph Position :=
-  stepGraph memory.enter (positions memory.size memory.size) (position cost found => memory.enterListed position cost found)
+  stepGraph memory.enter (positions memory.size memory.size) (position cost found =>
+    memory.enterListed position cost found)
 
 --| The top left corner, where the search starts.
 def topLeft: Position := { row = 0, column = 0 }
@@ -76,15 +81,18 @@ def MemorySpace.exit (memory: MemorySpace): Position := { row = memory.size - 1,
 
 --| The fewest steps from the start to each position reachable from it, by
 --| breadth-first search; none if the start is corrupted.
-def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat := if memory.isSafe topLeft then memory.graph.breadthFirst [topLeft] else Map.empty
+def MemorySpace.fromStart (memory: MemorySpace): Map Position Nat :=
+  if memory.isSafe topLeft then memory.graph.breadthFirst [topLeft] else Map.empty
 
 def MemorySpace.fewestSteps (memory: MemorySpace): Option Nat := memory.fromStart.get memory.exit
 
 --| Whether the exit can be reached once the first `fallen` bytes have
 --| fallen.
-def reachable (size: Nat) (bytes: List Position) (fallen: Nat): Bool := (MemorySpace.after size bytes fallen).fewestSteps.isSome
+def reachable (size: Nat) (bytes: List Position) (fallen: Nat): Bool :=
+  (MemorySpace.after size bytes fallen).fewestSteps.isSome
 
-def solvePart1 (size: Nat) (fallen: Nat) (bytes: List Position): Option Nat := (MemorySpace.after size bytes fallen).fewestSteps
+def solvePart1 (size fallen: Nat) (bytes: List Position): Option Nat :=
+  (MemorySpace.after size bytes fallen).fewestSteps
 
 --| A binary search for the first number of bytes fallen that leaves no way
 --| through (the exit can't become reachable again once it isn't); none if

@@ -16,8 +16,9 @@ theorem halfBounds ∀ (n: Nat): (half n + half n ≤ n) ∧ (n ≤ half n + hal
     let (Both below above) := halfBounds n
     Both (omega [below]) (omega [above])
 
-def firstBlocked (blocked: Nat → Bool) (low: Nat) (high: Nat): Nat
-    decreasing high - low :=
+def firstBlocked (blocked: Nat → Bool) (low high: Nat): Nat
+    decreasing high - low
+:=
   if apart: Succ low < high then
     let middle := low + half (high - low)
     let (Both below above) := halfBounds (high - low)
@@ -25,10 +26,11 @@ def firstBlocked (blocked: Nat → Bool) (low: Nat) (high: Nat): Nat
     else firstBlocked blocked middle high [decreasing := omega [below, above, apart]]
   else high
 
-theorem firstBlockedSplit ∀ (blocked: Nat → Bool) (low: Nat) (high: Nat) (apart: Nat.leq (Succ (Succ low)) high = True):
+theorem firstBlockedSplit ∀ (blocked: Nat → Bool) (low high: Nat)
+    (apart: Nat.leq (Succ (Succ low)) high = True):
     firstBlocked blocked low high
       = (if blocked (low + half (high - low)) then firstBlocked blocked low (low + half (high - low))
-        else firstBlocked blocked (low + half (high - low)) high) :=
+         else firstBlocked blocked (low + half (high - low)) high) :=
   rewrite firstBlocked.unfold blocked low high in
     Decidable.elimEq _ _ _ _ (isApart => rfl) (notApart => Void.exfalso (notApart apart))
 
@@ -37,9 +39,14 @@ def lowerHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half
   let (Both _ above) := bounds
   half n
 
-def withBounds: (n: Nat) → (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1) → Nat :=
-  n => (Both below _) => half n
+def withBounds: (n: Nat) → (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1) → Nat := n => (Both below _) => half n
 
-theorem lowerHalfIsHalf ∀ (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): lowerHalf n bounds = half n := rfl
+theorem lowerHalfIsHalf ∀ (n: Nat)
+    (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)):
+    lowerHalf n bounds = half n :=
+  rfl
 
-theorem withBoundsIsHalf ∀ (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): withBounds n bounds = half n := rfl
+theorem withBoundsIsHalf ∀ (n: Nat)
+    (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)):
+    withBounds n bounds = half n :=
+  rfl

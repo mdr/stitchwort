@@ -6,8 +6,7 @@
 import Std (Eq, List, Nat, Option, Pair, Vec, Unit, And)
 
 -- A rose tree with labels of any type: `Rose a` inside `List`.
-type Rose (a: Type): Type =
-  | Bloom (label: a) (kids: List (Rose a))
+type Rose (a: Type): Type = | Bloom (label: a) (kids: List (Rose a))
 
 def Rose.count: Rose a → Nat
   | Bloom _ kids => Succ (Rose.countList kids)
@@ -19,10 +18,7 @@ def Rose.countList: List (Rose a) → Nat
 theorem roseCount: Rose.count (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) = 4 := rfl
 
 -- Nested twice, and in `Option` and a pair.
-type Nest: Type =
-  | Leaf
-  | Deep (rows: List (List Nest))
-  | Maybe (next: Option (Pair Nest Nat))
+type Nest: Type = | Leaf | Deep (rows: List (List Nest)) | Maybe (next: Option (Pair Nest Nat))
 
 def Nest.depth: Nest → Nat
   | Leaf => 0
@@ -41,9 +37,7 @@ def Nest.depthRow: List Nest → Nat
 theorem nestDepth: Nest.depth (Deep [[Leaf], [Maybe (Some (MkPair (Deep []) 3))]]) = 3 := rfl
 
 -- In `Vec`, at its parameter (its index, the length, is a number).
-type Wide: Type =
-  | Tip
-  | Fork (kids: Vec Wide 2)
+type Wide: Type = | Tip | Fork (kids: Vec Wide 2)
 
 def Wide.tips: Wide → Nat
   | Tip => 1
@@ -56,13 +50,9 @@ def Wide.tipsVec: Vec Wide n → Nat
 theorem wideTips: Wide.tips (Fork (VCons Tip (VCons (Fork (VCons Tip (VCons Tip VNil))) VNil))) = 3 := rfl
 
 -- Two types defined together, both inside a list.
-type Expr: Type =
-  | Lit (value: Nat)
-  | Block (body: List Stmt)
+type Expr: Type = | Lit (value: Nat) | Block (body: List Stmt)
 
-type Stmt: Type =
-  | Assign (to: Nat) (value: Expr)
-  | Seq (stmts: List Stmt)
+type Stmt: Type = | Assign (to: Nat) (value: Expr) | Seq (stmts: List Stmt)
 
 def Expr.size: Expr → Nat
   | Lit _ => 1
@@ -80,16 +70,11 @@ theorem exprSize: Expr.size (Block [Assign 0 (Lit 1), Seq [Assign 1 (Block [])]]
 
 -- Inside a member of an earlier group of two: `Tree` and `Forest` are
 -- defined together, and `Big` is inside `Tree`.
-type Tree (a: Type): Type =
-  | Node (label: a) (kids: Forest a)
+type Tree (a: Type): Type = | Node (label: a) (kids: Forest a)
 
-type Forest (a: Type): Type =
-  | FNil
-  | FCons (first: Tree a) (rest: Forest a)
+type Forest (a: Type): Type = | FNil | FCons (first: Tree a) (rest: Forest a)
 
-type Big: Type =
-  | Small
-  | Grown (tree: Tree Big)
+type Big: Type = | Small | Grown (tree: Tree Big)
 
 def Big.count: Big → Nat
   | Small => 1
@@ -106,9 +91,7 @@ theorem bigCount: Big.count (Grown (Node Small (FCons (Node (Grown (Node Small F
 
 -- An earlier field in the nested type's arguments: a tree whose index is
 -- its height bound, with children one lower.
-type Ranked: Nat → Type =
-  | RLeaf: Ranked 0
-  | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
+type Ranked: Nat → Type = | RLeaf: Ranked 0 | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
 
 def Ranked.count: Ranked n → Nat
   | RLeaf => 1
@@ -125,12 +108,9 @@ type All (a: Type) (p: a → Prop): List a → Prop =
   | AllNil: All a p []
   | AllCons (x: a) (xs: List a) (here: p x) (rest: All a p xs): All a p [x, ..xs]
 
-type Term: Type =
-  | Zero
-  | Switch (branches: List Term)
+type Term: Type = | Zero | Switch (branches: List Term)
 
-type Ty: Type =
-  | TNat
+type Ty: Type = | TNat
 
 type Typed: Term → Ty → Prop =
   | TZero: Typed Zero TNat
@@ -141,8 +121,7 @@ theorem typedSwitch: Typed (Switch [Zero, Zero]) TNat :=
 
 -- Stored in an `Option`, it's in the option's value. Taken as the input of
 -- a function on options, it would be negative: soundness/nested-input.sw.
-type Stored: Type =
-  | MkStored (next: Option Stored)
+type Stored: Type = | MkStored (next: Option Stored)
 
 def Stored.depth: Stored → Nat
   | MkStored None => 0
@@ -153,20 +132,17 @@ theorem storedDepth: Stored.depth (MkStored (Some (MkStored None))) = 1 := rfl
 -- An equation between fields that don't hold the type, beside one that
 -- does. An equation on fields that hold it is refused:
 -- soundness/nested-recursive-field.sw.
-type Checked: Type =
-  | Check (n: Nat) (m: Nat) (same: n = m) (kids: List Checked)
+type Checked: Type = | Check (n: Nat) (m: Nat) (same: n = m) (kids: List Checked)
 
 def Checked.leaf (n: Nat): Checked := Check n n rfl []
 
 -- `Option`'s parameter is nestable; `List.Member`'s isn't, since its other
 -- parameter's type mentions it: soundness/nested-member.sw.
-type Chain: Type =
-  | Link (next: Option Chain) (label: Nat)
+type Chain: Type = | Link (next: Option Chain) (label: Nat)
 
 -- A proposition nested in `And` may be matched to produce a proof, but not
 -- data: soundness/nested-prop-elim.sw.
-type P: Prop =
-  | MkP (h: P ∧ Unit)
+type P: Prop = | MkP (h: P ∧ Unit)
 
 theorem fromP: P → Unit
   | MkP (Both _ u) => u

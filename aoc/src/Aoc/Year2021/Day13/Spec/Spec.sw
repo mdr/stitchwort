@@ -14,13 +14,14 @@ import Std (List)
 --| is halfway between the two). A dot on the line, or further beyond it than
 --| the sheet reaches on the near side, lands nowhere: the puzzle promises
 --| there are none (`Promise`).
-def Lands (fold: Fold) (dot: Point) (spot: Point): Prop := match fold with
+def Lands (fold: Fold) (dot spot: Point): Prop := match fold with
   | AlongY line => spot.x = dot.x ∧ ((dot.y < line ∧ spot.y = dot.y) ∨ (line < dot.y ∧ spot.y + dot.y = 2 * line))
   | AlongX line => spot.y = dot.y ∧ ((dot.x < line ∧ spot.x = dot.x) ∨ (line < dot.x ∧ spot.x + dot.x = 2 * line))
 
 --| After a fold, a spot has a dot when some dot lands there: the dots after
 --| the fold are the image of the dots before it.
-def AfterFold (fold: Fold) (marked: Point → Prop) (spot: Point): Prop := ∃ (dot: Point) => marked dot ∧ Lands fold dot spot
+def AfterFold (fold: Fold) (marked: Point → Prop) (spot: Point): Prop :=
+  ∃ (dot: Point) => marked dot ∧ Lands fold dot spot
 
 --| The dots after the folds, one after another.
 def AfterFolds: List Fold → (Point → Prop) → Point → Prop

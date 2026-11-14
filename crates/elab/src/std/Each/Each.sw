@@ -65,16 +65,20 @@ theorem Each.collectPure ∀ (v: a): Each.collect (() => v) = [v] := rfl
 --| Choosing from `xs`, then running `k` on the choice, collects `k`'s
 --| results for each element in turn.
 theorem Each.collectEach ∀ (k: a → {Each} b) (xs: List a):
-    Each.collect (() => k (Each.each xs)) = List.flatMap xs (x => Each.collect (() => k x)) := match xs with
-      | [] => rfl
-      | [x, ..xs] => Eq.cong (List.append (Each.collect (u => k x))) (Each.collectEach k xs)
+    Each.collect (() => k (Each.each xs)) = List.flatMap xs (x => Each.collect (() => k x)) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => Eq.cong (List.append (Each.collect (u => k x))) (Each.collectEach k xs)
 
 --| `require ok` before `k`: `k`'s results if `ok`, else none.
-theorem Each.collectRequire ∀ (k: () → {Each} b) (ok: Bool): Each.collect (() =>
-    Each.require ok
-    k()) = (if ok then Each.collect k else []) := match ok with
-      | True => rfl
-      | False => rfl
+theorem Each.collectRequire ∀ (k: () → {Each} b) (ok: Bool):
+    Each.collect (() =>
+      Each.require ok
+      k())
+      = (if ok then Each.collect k else []) :=
+  match ok with
+    | True => rfl
+    | False => rfl
 
 --| `each` of a list collects to the list itself.
 theorem Each.collectEachSelf ∀ (xs: List a): Each.collect (() => Each.each xs) = xs := match xs with
@@ -87,40 +91,50 @@ test "each twice: the first choice varies slowest" :=
   Each.collect (() =>
     let a := Each.each [1, 2]
     let b := Each.each [10, 20]
-    a + b) == [11, 21, 12, 22]
+    a + b)
+    == [11, 21, 12, 22]
 test "require drops a choice" :=
   Each.collect (() =>
     let n := Each.each [1, 2, 3, 4, 5, 6]
     Each.require (n % 2 == 0)
-    n) == [2, 4, 6]
+    n)
+    == [2, 4, 6]
 test "a later choice depends on an earlier one" :=
   Each.collect (() =>
     let a := Each.each [1, 2, 3]
     let b := Each.each (List.range a 4)
-    (a, b)) == [(1, 1), (1, 2), (1, 3), (2, 2), (2, 3), (3, 3)]
+    (a, b))
+    == [(1, 1), (1, 2), (1, 3), (2, 2), (2, 3), (3, 3)]
 
 --| With another ability: the handler outside decides. `Abort` outside
 --| `Each` gives up on everything at the first `abort`; inside, only that
 --| choice gives up.
 test "abort outside each: one abort stops every choice" :=
-  Abort.toOption (() => Each.collectIn (() =>
-    let n := Each.each [2, 3, 4]
-    Abort.ensure (n % 2 == 0)
-    n / 2)) == None
+  Abort.toOption (() =>
+    Each.collectIn (() =>
+      let n := Each.each [2, 3, 4]
+      Abort.ensure (n % 2 == 0)
+      n / 2))
+    == None
 test "abort outside each: no abort" :=
-  Abort.toOption (() => Each.collectIn (() =>
-    let n := Each.each [2, 4]
-    Abort.ensure (n % 2 == 0)
-    n / 2)) == Some [1, 2]
+  Abort.toOption (() =>
+    Each.collectIn (() =>
+      let n := Each.each [2, 4]
+      Abort.ensure (n % 2 == 0)
+      n / 2))
+    == Some [1, 2]
 test "abort inside each: only that choice gives up" :=
-  Each.collect (() => Abort.toOption (() =>
-    let n := Each.each [2, 3, 4]
-    Abort.ensure (n % 2 == 0)
-    n / 2)) == [Some 1, None, Some 2]
+  Each.collect (() =>
+    Abort.toOption (() =>
+      let n := Each.each [2, 3, 4]
+      Abort.ensure (n % 2 == 0)
+      n / 2))
+    == [Some 1, None, Some 2]
 test "require inside abort inside each" :=
   Each.collect (() =>
     let n := Each.each [1, 2, 3, 4]
     Each.require (n ≠ 3)
     Abort.orElse 0 (() =>
       Abort.ensure (n % 2 == 0)
-      n)) == [0, 2, 4]
+      n))
+    == [0, 2, 4]

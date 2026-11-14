@@ -21,15 +21,23 @@ def Mod.size (n: Nat): Nat := Succ (n - 1)
 theorem Mod.sizeNeZero ∀ (n: Nat): Mod.size n ≠ 0 := Nat.equalFalse (Mod.size n) 0 rfl
 
 --| Two numbers with the same value are equal: their proofs are too.
-theorem Mod.mkExt ∀ (n: Nat) (a: Nat) (b: Nat) (p: a < Mod.size n) (e: a = b)
-    (q: b < Mod.size n): ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
-  let ext := J (b' e' => ∀ (q': b' < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
-    (q' => J (r e'' => ({ value = a, isLt = p }: Mod n) = { value = a, isLt = r }) rfl
-      (Bool.uniqueEq (Nat.leq (Succ a) (Mod.size n)) True p q'))
-    e
+theorem Mod.mkExt ∀ (n a b: Nat)
+    (p: a < Mod.size n)
+    (e: a = b)
+    (q: b < Mod.size n):
+    ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
+  let ext :=
+    J
+      (b' e' => ∀ (q': b' < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
+      (q' =>
+        J
+          (r e'' => ({ value = a, isLt = p }: Mod n) = { value = a, isLt = r })
+          rfl
+          (Bool.uniqueEq (Nat.leq (Succ a) (Mod.size n)) True p q'))
+      e
   ext q
 
-theorem Mod.ext ∀ (i: Mod n) (j: Mod n) (e: i.value = j.value): i = j := match i, j with
+theorem Mod.ext ∀ (i j: Mod n) (e: i.value = j.value): i = j := match i, j with
   | { value = a, isLt = p }, { value = b, isLt = q } => Mod.mkExt n a b p e q
 
 --| `x` wrapped into range: `(Mod.ofNat 150: Mod 100)` is 50.
@@ -47,9 +55,9 @@ theorem Mod.valueOfNat ∀ [n: Nat] (x: Nat): (Mod.ofNat x: Mod n).value = x % M
 def Mod.ofInt [n: Nat] (x: Int): Mod n := Mod.ofNat (Int.modNat x (Mod.size n))
 
 theorem Mod.valueOfInt ∀ [n: Nat] (x: Int): (Mod.ofInt x: Mod n).value = Int.modNat x (Mod.size n) :=
-  Eq.trans (Mod.valueOfNat (Int.modNat x (Mod.size n)))
-    (Nat.modSmall (Int.modNat x (Mod.size n)) (Mod.size n)
-      (Int.modNatLt x (Mod.size n) [ok := Mod.sizeNeZero n]))
+  Eq.trans
+    (Mod.valueOfNat (Int.modNat x (Mod.size n)))
+    (Nat.modSmall (Int.modNat x (Mod.size n)) (Mod.size n) (Int.modNatLt x (Mod.size n) [ok := Mod.sizeNeZero n]))
 
 --| The number as an `Int`.
 def Mod.toInt (i: Mod n): Int := Nat.toInt i.value
@@ -70,40 +78,47 @@ theorem Mod.subNatOfInt ∀ [n: Nat] (i: Mod n) (k: Nat): Mod.subNat i k = Mod.o
 theorem Mod.valueOfNatValue ∀ [n: Nat] (i: Mod n): (Mod.ofNat i.value: Mod n).value = i.value :=
   Eq.trans (Mod.valueOfNat i.value) (Nat.modSmall i.value (Mod.size n) i.isLt)
 
-theorem Mod.ofNatValue ∀ [n: Nat] (i: Mod n): Mod.ofNat i.value = i := Mod.ext (Mod.ofNat i.value) i (Mod.valueOfNatValue i)
+theorem Mod.ofNatValue ∀ [n: Nat] (i: Mod n): Mod.ofNat i.value = i :=
+  Mod.ext (Mod.ofNat i.value) i (Mod.valueOfNatValue i)
 
 --| `i + j`, wrapping around: in `Mod 100`, 60 + 50 is 10.
-def Mod.add (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value + j.value)
+def Mod.add (i j: Mod n): Mod n := Mod.ofNat (i.value + j.value)
 
 --| `i * j`, wrapping around: in `Mod 100`, 20 * 7 is 40.
-def Mod.mul (i: Mod n) (j: Mod n): Mod n := Mod.ofNat (i.value * j.value)
+def Mod.mul (i j: Mod n): Mod n := Mod.ofNat (i.value * j.value)
 
 --| `-i`, wrapping around: the number that adds to `i` to give 0 (in `Mod 100`, `-1` is 99).
 def Mod.neg (i: Mod n): Mod n := Mod.ofNat (Mod.size n - i.value)
 
 --| `i` minus `j`, wrapping: `Mod.sub 5 7` is 98 in `Mod 100`, where `Nat`'s `5 - 7` is 0.
 --| Written `i.sub j`.
-def Mod.sub (i: Mod n) (j: Mod n): Mod n := Mod.add i (Mod.neg j)
+def Mod.sub (i j: Mod n): Mod n := Mod.add i (Mod.neg j)
 
-theorem Mod.valueAdd ∀ [n: Nat] (i: Mod n) (j: Mod n): (Mod.add i j).value = (i.value + j.value) % Mod.size n :=
+theorem Mod.valueAdd ∀ [n: Nat] (i j: Mod n): (Mod.add i j).value = (i.value + j.value) % Mod.size n :=
   Mod.valueOfNat (i.value + j.value)
 
-theorem Mod.valueMul ∀ [n: Nat] (i: Mod n) (j: Mod n): (Mod.mul i j).value = (i.value * j.value) % Mod.size n :=
+theorem Mod.valueMul ∀ [n: Nat] (i j: Mod n): (Mod.mul i j).value = (i.value * j.value) % Mod.size n :=
   Mod.valueOfNat (i.value * j.value)
 
 theorem Mod.valueNeg ∀ [n: Nat] (i: Mod n): (Mod.neg i).value = (Mod.size n - i.value) % Mod.size n :=
   Mod.valueOfNat (Mod.size n - i.value)
 
-theorem Mod.valueSub ∀ [n: Nat] (i: Mod n) (j: Mod n): (Mod.sub i j).value = (i.value + (Mod.size n - j.value)) % Mod.size n :=
-  Eq.trans (Mod.valueAdd i (Mod.neg j))
-    (Eq.trans (Eq.cong (t => (i.value + t) % Mod.size n) (Mod.valueNeg j))
+theorem Mod.valueSub ∀ [n: Nat] (i j: Mod n): (Mod.sub i j).value = (i.value + (Mod.size n - j.value)) % Mod.size n :=
+  Eq.trans
+    (Mod.valueAdd i (Mod.neg j))
+    (Eq.trans
+      (Eq.cong (t => (i.value + t) % Mod.size n) (Mod.valueNeg j))
       (Nat.addModMod i.value (Mod.size n - j.value) (Mod.size n)))
 
 --| `i + neg i` is 0, and subtracting a number from itself too.
 theorem Mod.addNeg ∀ [n: Nat] (i: Mod n): Mod.add i (Mod.neg i) = Mod.zero :=
-  Mod.ext (Mod.add i (Mod.neg i)) Mod.zero
-    (Eq.trans (Mod.valueSub i i)
-      (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.addSubCancel i.value (Mod.size n) (Nat.lessLe i.value (Mod.size n) i.isLt)))
+  Mod.ext
+    (Mod.add i (Mod.neg i))
+    Mod.zero
+    (Eq.trans
+      (Mod.valueSub i i)
+      (Eq.trans
+        (Eq.cong (t => t % Mod.size n) (Nat.addSubCancel i.value (Mod.size n) (Nat.lessLe i.value (Mod.size n) i.isLt)))
         (Nat.modSelf (Mod.size n))))
 
 theorem Mod.subSelf ∀ [n: Nat] (i: Mod n): Mod.sub i i = Mod.zero := Mod.addNeg i
@@ -112,52 +127,77 @@ theorem Mod.subSelf ∀ [n: Nat] (i: Mod n): Mod.sub i i = Mod.zero := Mod.addNe
 def Mod.zero [n: Nat]: Mod n := { value = 0, isLt = rfl }
 
 theorem Mod.zeroAdd ∀ [n: Nat] (i: Mod n): Mod.add Mod.zero i = i :=
-  Mod.ext (Mod.add Mod.zero i) i
-    (Eq.trans (Mod.valueAdd Mod.zero i)
-      (Nat.modSmall i.value (Mod.size n) i.isLt))
+  Mod.ext (Mod.add Mod.zero i) i (Eq.trans (Mod.valueAdd Mod.zero i) (Nat.modSmall i.value (Mod.size n) i.isLt))
 
-theorem Mod.addComm ∀ [n: Nat] (i: Mod n) (j: Mod n): Mod.add i j = Mod.add j i :=
-  Mod.ext (Mod.add i j) (Mod.add j i)
-    (Eq.trans (Mod.valueAdd i j)
+theorem Mod.addComm ∀ [n: Nat] (i j: Mod n): Mod.add i j = Mod.add j i :=
+  Mod.ext
+    (Mod.add i j)
+    (Mod.add j i)
+    (Eq.trans
+      (Mod.valueAdd i j)
       (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.addComm i.value j.value)) (Eq.sym (Mod.valueAdd j i))))
 
-theorem Mod.addAssoc ∀ [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.add (Mod.add i j) k = Mod.add i (Mod.add j k) :=
-  Mod.ext (Mod.add (Mod.add i j) k) (Mod.add i (Mod.add j k))
-    (Eq.trans (Mod.valueAdd (Mod.add i j) k)
-      (Eq.trans (Eq.cong (t => (t + k.value) % Mod.size n) (Mod.valueAdd i j))
-        (Eq.trans (Nat.modAddMod (i.value + j.value) k.value (Mod.size n))
-          (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.addAssoc i.value j.value k.value))
-            (Eq.trans (Eq.sym (Nat.addModMod i.value (j.value + k.value) (Mod.size n)))
-              (Eq.trans (Eq.cong (t => (i.value + t) % Mod.size n) (Eq.sym (Mod.valueAdd j k)))
+theorem Mod.addAssoc ∀ [n: Nat] (i j k: Mod n): Mod.add (Mod.add i j) k = Mod.add i (Mod.add j k) :=
+  Mod.ext
+    (Mod.add (Mod.add i j) k)
+    (Mod.add i (Mod.add j k))
+    (Eq.trans
+      (Mod.valueAdd (Mod.add i j) k)
+      (Eq.trans
+        (Eq.cong (t => (t + k.value) % Mod.size n) (Mod.valueAdd i j))
+        (Eq.trans
+          (Nat.modAddMod (i.value + j.value) k.value (Mod.size n))
+          (Eq.trans
+            (Eq.cong (t => t % Mod.size n) (Nat.addAssoc i.value j.value k.value))
+            (Eq.trans
+              (Eq.sym (Nat.addModMod i.value (j.value + k.value) (Mod.size n)))
+              (Eq.trans
+                (Eq.cong (t => (i.value + t) % Mod.size n) (Eq.sym (Mod.valueAdd j k)))
                 (Eq.sym (Mod.valueAdd i (Mod.add j k)))))))))
 
 --| 1, which in `Mod 1` is 0.
 def Mod.one [n: Nat]: Mod n := Mod.ofNat 1
 
 theorem Mod.oneMul ∀ [n: Nat] (i: Mod n): Mod.mul Mod.one i = i :=
-  Mod.ext (Mod.mul Mod.one i) i
-    (Eq.trans (Mod.valueMul Mod.one i)
-      (Eq.trans (Eq.cong (t => (t * i.value) % Mod.size n) (Mod.valueOfNat 1))
-        (Eq.trans (Nat.modMulMod 1 i.value (Mod.size n))
-          (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.oneMul i.value))
-            (Nat.modSmall i.value (Mod.size n) i.isLt)))))
+  Mod.ext
+    (Mod.mul Mod.one i)
+    i
+    (Eq.trans
+      (Mod.valueMul Mod.one i)
+      (Eq.trans
+        (Eq.cong (t => (t * i.value) % Mod.size n) (Mod.valueOfNat 1))
+        (Eq.trans
+          (Nat.modMulMod 1 i.value (Mod.size n))
+          (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.oneMul i.value)) (Nat.modSmall i.value (Mod.size n) i.isLt)))))
 
 theorem Mod.mulOne ∀ [n: Nat] (i: Mod n): Mod.mul i Mod.one = i :=
-  Mod.ext (Mod.mul i Mod.one) i
-    (Eq.trans (Mod.valueMul i Mod.one)
-      (Eq.trans (Eq.cong (t => (i.value * t) % Mod.size n) (Mod.valueOfNat 1))
-        (Eq.trans (Nat.mulModMod i.value 1 (Mod.size n))
-          (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.mulOne i.value))
-            (Nat.modSmall i.value (Mod.size n) i.isLt)))))
+  Mod.ext
+    (Mod.mul i Mod.one)
+    i
+    (Eq.trans
+      (Mod.valueMul i Mod.one)
+      (Eq.trans
+        (Eq.cong (t => (i.value * t) % Mod.size n) (Mod.valueOfNat 1))
+        (Eq.trans
+          (Nat.mulModMod i.value 1 (Mod.size n))
+          (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.mulOne i.value)) (Nat.modSmall i.value (Mod.size n) i.isLt)))))
 
-theorem Mod.mulAssoc ∀ [n: Nat] (i: Mod n) (j: Mod n) (k: Mod n): Mod.mul (Mod.mul i j) k = Mod.mul i (Mod.mul j k) :=
-  Mod.ext (Mod.mul (Mod.mul i j) k) (Mod.mul i (Mod.mul j k))
-    (Eq.trans (Mod.valueMul (Mod.mul i j) k)
-      (Eq.trans (Eq.cong (t => (t * k.value) % Mod.size n) (Mod.valueMul i j))
-        (Eq.trans (Nat.modMulMod (i.value * j.value) k.value (Mod.size n))
-          (Eq.trans (Eq.cong (t => t % Mod.size n) (Nat.mulAssoc i.value j.value k.value))
-            (Eq.trans (Eq.sym (Nat.mulModMod i.value (j.value * k.value) (Mod.size n)))
-              (Eq.trans (Eq.cong (t => (i.value * t) % Mod.size n) (Eq.sym (Mod.valueMul j k)))
+theorem Mod.mulAssoc ∀ [n: Nat] (i j k: Mod n): Mod.mul (Mod.mul i j) k = Mod.mul i (Mod.mul j k) :=
+  Mod.ext
+    (Mod.mul (Mod.mul i j) k)
+    (Mod.mul i (Mod.mul j k))
+    (Eq.trans
+      (Mod.valueMul (Mod.mul i j) k)
+      (Eq.trans
+        (Eq.cong (t => (t * k.value) % Mod.size n) (Mod.valueMul i j))
+        (Eq.trans
+          (Nat.modMulMod (i.value * j.value) k.value (Mod.size n))
+          (Eq.trans
+            (Eq.cong (t => t % Mod.size n) (Nat.mulAssoc i.value j.value k.value))
+            (Eq.trans
+              (Eq.sym (Nat.mulModMod i.value (j.value * k.value) (Mod.size n)))
+              (Eq.trans
+                (Eq.cong (t => (i.value * t) % Mod.size n) (Eq.sym (Mod.valueMul j k)))
                 (Eq.sym (Mod.valueMul i (Mod.mul j k)))))))))
 
 --| `+` on numbers modulo n, wrapping around (`Mod.add`).
@@ -174,10 +214,10 @@ instance Mod.instShow: Show (Mod n) := Show.fromText (i => Nat.toText i.value)
 --| `==` on numbers: equal exactly when their values are.
 -- Written by hand: a derived `DecEq` is only for proofs of `<=` (as in `Dial`),
 -- not `<`.
-instance Mod.instDecEq [n: Nat]: DecEq (Mod n) :=
-  { decide = i j =>
-    if h: i.value = j.value then Decidable.yes (Mod.ext i j h)
-    else Decidable.no (e => h (Eq.cong (k => k.value) e)) }
+instance Mod.instDecEq [n: Nat]: DecEq (Mod n) := {
+  decide = i j =>
+    if h: i.value = j.value then Decidable.yes (Mod.ext i j h) else Decidable.no (e => h (Eq.cong (k => k.value) e))
+}
 
 --| Numbers in order of their values (not of their clock positions: 99 comes
 --| after 0 even though `99 + 1` is 0).
@@ -186,15 +226,13 @@ instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) 
 -- Conversions with `Fin`, the type of positions in a `Vec`.
 
 --| A number below n is below `Mod.size n`.
-theorem Mod.ltSize ∀ (n x: Nat) (h: x < n): x < Mod.size n := match n with
-  | Succ n => h
+theorem Mod.ltSize ∀ (n x: Nat) (h: x < n): x < Mod.size n := match n with | Succ n => h
 
 --| A position as a number modulo n (the same number).
 def Fin.toMod (i: Fin n): Mod n := { value = Fin.toNat i, isLt = Mod.ltSize n (Fin.toNat i) (Fin.toNatLt i) }
 
 --| A number modulo n as a position, when there is one (`n` isn't 0).
-def Mod.toFin [auto ok: n ≠ 0] (i: Mod n): Fin n :=
-  Fin.ofNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
+def Mod.toFin [auto ok: n ≠ 0] (i: Mod n): Fin n := Fin.ofNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
 
 theorem Mod.ltOfNeZero ∀ (n x: Nat) (ok: n ≠ 0) (h: x < Mod.size n): x < n := match n with
   | Zero => Void.exfalso (ok rfl)
@@ -218,35 +256,50 @@ theorem Mod.toModToFin ∀ [n: Nat] [auto ok: n ≠ 0] (i: Mod n): Fin.toMod (Mo
 --| `Mod.ofInt` after `Mod.toInt` changes nothing; wrapping before adding or
 --| negating changes nothing either.
 theorem Mod.ofIntToInt ∀ [n: Nat] (i: Mod n): Mod.ofInt i.toInt = i :=
-  Mod.ext (Mod.ofInt i.toInt) i
-    (Eq.trans (Mod.valueOfInt i.toInt) (Nat.modSmall i.value (Mod.size n) i.isLt))
+  Mod.ext (Mod.ofInt i.toInt) i (Eq.trans (Mod.valueOfInt i.toInt) (Nat.modSmall i.value (Mod.size n) i.isLt))
 
 theorem Mod.toIntOfInt ∀ [n: Nat] (x: Int): (Mod.ofInt x: Mod n).toInt = Nat.toInt (Int.modNat x (Mod.size n)) :=
   Eq.cong Nat.toInt (Mod.valueOfInt x)
 
-theorem Mod.ofIntAdd ∀ [n: Nat] (x: Int) (y: Int): (Mod.ofInt (Int.add (Mod.ofInt x: Mod n).toInt y): Mod n) = Mod.ofInt (Int.add x y) :=
-  Mod.ext (Mod.ofInt (Int.add (Mod.ofInt x: Mod n).toInt y)) (Mod.ofInt (Int.add x y))
-    (Eq.trans (Mod.valueOfInt (Int.add (Mod.ofInt x: Mod n).toInt y))
-      (Eq.trans (Eq.cong (t => Int.modNat (Int.add t y) (Mod.size n)) (Mod.toIntOfInt x))
-        (Eq.trans (Int.modNatModAdd x y (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.add x y))))))
+theorem Mod.ofIntAdd ∀ [n: Nat] (x y: Int):
+    (Mod.ofInt (Int.add (Mod.ofInt x: Mod n).toInt y): Mod n) = Mod.ofInt (Int.add x y) :=
+  Mod.ext
+    (Mod.ofInt (Int.add (Mod.ofInt x: Mod n).toInt y))
+    (Mod.ofInt (Int.add x y))
+    (Eq.trans
+      (Mod.valueOfInt (Int.add (Mod.ofInt x: Mod n).toInt y))
+      (Eq.trans
+        (Eq.cong (t => Int.modNat (Int.add t y) (Mod.size n)) (Mod.toIntOfInt x))
+        (Eq.trans
+          (Int.modNatModAdd x y (Mod.size n) [ok := Mod.sizeNeZero n])
+          (Eq.sym (Mod.valueOfInt (Int.add x y))))))
 
-theorem Mod.ofIntNeg ∀ [n: Nat] (x: Int): (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n).toInt): Mod n) = Mod.ofInt (Int.neg x) :=
-  Mod.ext (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n).toInt)) (Mod.ofInt (Int.neg x))
-    (Eq.trans (Mod.valueOfInt (Int.neg (Mod.ofInt x: Mod n).toInt))
-      (Eq.trans (Eq.cong (t => Int.modNat (Int.neg t) (Mod.size n)) (Mod.toIntOfInt x))
+theorem Mod.ofIntNeg ∀ [n: Nat] (x: Int):
+    (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n).toInt): Mod n) = Mod.ofInt (Int.neg x) :=
+  Mod.ext
+    (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n).toInt))
+    (Mod.ofInt (Int.neg x))
+    (Eq.trans
+      (Mod.valueOfInt (Int.neg (Mod.ofInt x: Mod n).toInt))
+      (Eq.trans
+        (Eq.cong (t => Int.modNat (Int.neg t) (Mod.size n)) (Mod.toIntOfInt x))
         (Eq.trans (Int.modNatModNeg x (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.neg x))))))
 
 --| `Mod.neg` is `-` on the `Int`, wrapped.
-theorem Mod.subModEq ∀ (m: Nat) (v: Nat) (h: v < Succ m):
-    (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m) := match v with
-      | Zero => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
-      | Succ w =>
-        Eq.trans (Nat.modSmall (m - w) (Succ m) (Nat.subLe m w))
-          (Eq.cong (t => m - t) (Eq.sym (Nat.modSmall w (Succ m) omega)))
+theorem Mod.subModEq ∀ (m v: Nat) (h: v < Succ m): (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m) :=
+  match v with
+    | Zero => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
+    | Succ w =>
+      Eq.trans
+        (Nat.modSmall (m - w) (Succ m) (Nat.subLe m w))
+        (Eq.cong (t => m - t) (Eq.sym (Nat.modSmall w (Succ m) omega)))
 
 theorem Mod.negOfInt ∀ [n: Nat] (i: Mod n): Mod.neg i = Mod.ofInt (Int.neg i.toInt) :=
-  Mod.ext (Mod.neg i) (Mod.ofInt (Int.neg i.toInt))
-    (Eq.trans (Mod.valueNeg i)
+  Mod.ext
+    (Mod.neg i)
+    (Mod.ofInt (Int.neg i.toInt))
+    (Eq.trans
+      (Mod.valueNeg i)
       (Eq.trans (Mod.subModEq (n - 1) i.value i.isLt) (Eq.sym (Mod.valueOfInt (Int.neg i.toInt)))))
 
 -- The laws of moving up and down.
@@ -258,53 +311,63 @@ theorem Mod.addNatZero ∀ [n: Nat] (i: Mod n): i.addNat 0 = i :=
 theorem Mod.subNatZero ∀ [n: Nat] (i: Mod n): i.subNat 0 = i :=
   Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addZero i.toInt)) (Mod.ofIntToInt i)
 
-theorem Mod.addNatAddNat ∀ [n: Nat] (i: Mod n) (j: Nat) (k: Nat): (i.addNat j).addNat k = i.addNat (j + k) :=
-  Eq.trans (Mod.ofIntAdd (Int.add i.toInt j.toInt) k.toInt)
+theorem Mod.addNatAddNat ∀ [n: Nat] (i: Mod n) (j k: Nat): (i.addNat j).addNat k = i.addNat (j + k) :=
+  Eq.trans
+    (Mod.ofIntAdd (Int.add i.toInt j.toInt) k.toInt)
     (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addAssoc i.toInt j.toInt k.toInt))
 
-theorem Mod.subNatSubNat ∀ [n: Nat] (i: Mod n) (j: Nat) (k: Nat): (i.subNat j).subNat k = i.subNat (j + k) :=
-  Eq.trans (Mod.ofIntAdd (Int.sub i.toInt j.toInt) (Int.neg k.toInt))
-    (Eq.cong (t => (Mod.ofInt t: Mod n))
-      (Eq.trans (Int.addAssoc i.toInt (Int.neg j.toInt) (Int.neg k.toInt))
+theorem Mod.subNatSubNat ∀ [n: Nat] (i: Mod n) (j k: Nat): (i.subNat j).subNat k = i.subNat (j + k) :=
+  Eq.trans
+    (Mod.ofIntAdd (Int.sub i.toInt j.toInt) (Int.neg k.toInt))
+    (Eq.cong
+      (t => (Mod.ofInt t: Mod n))
+      (Eq.trans
+        (Int.addAssoc i.toInt (Int.neg j.toInt) (Int.neg k.toInt))
         (Eq.cong (Int.add i.toInt) (Eq.sym (Int.negAdd j.toInt k.toInt)))))
 
 theorem Mod.addNatSubNat ∀ [n: Nat] (i: Mod n) (k: Nat): (i.addNat k).subNat k = i :=
-  Eq.trans (Mod.ofIntAdd (Int.add i.toInt k.toInt) (Int.neg k.toInt))
+  Eq.trans
+    (Mod.ofIntAdd (Int.add i.toInt k.toInt) (Int.neg k.toInt))
     (Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addAddNeg i.toInt k.toInt)) (Mod.ofIntToInt i))
 
 theorem Mod.subNatAddNat ∀ [n: Nat] (i: Mod n) (k: Nat): (i.subNat k).addNat k = i :=
-  Eq.trans (Mod.ofIntAdd (Int.sub i.toInt k.toInt) k.toInt)
+  Eq.trans
+    (Mod.ofIntAdd (Int.sub i.toInt k.toInt) k.toInt)
     (Eq.trans (Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.addNegAdd i.toInt k.toInt)) (Mod.ofIntToInt i))
 
 theorem Mod.negZero [n: Nat]: Mod.neg (Mod.zero: Mod n) = Mod.zero :=
-  Mod.ext (Mod.neg (Mod.zero: Mod n)) Mod.zero
-    (Eq.trans (Mod.valueNeg (Mod.zero: Mod n)) (Nat.modSelf (Mod.size n)))
+  Mod.ext (Mod.neg (Mod.zero: Mod n)) Mod.zero (Eq.trans (Mod.valueNeg (Mod.zero: Mod n)) (Nat.modSelf (Mod.size n)))
 
-theorem Mod.negNeg ∀ [n: Nat] (i: Mod n): Mod.neg (Mod.neg i) = i :=
-  calc Mod.neg (Mod.neg i)
-    _ = Mod.ofInt (Int.neg (Mod.neg i).toInt) := Mod.negOfInt (Mod.neg i)
-    _ = Mod.ofInt (Int.neg (Mod.ofInt (Int.neg i.toInt): Mod n).toInt) := Eq.cong (j => (Mod.ofInt (Int.neg (Mod.toInt j)): Mod n)) (Mod.negOfInt i)
-    _ = Mod.ofInt (Int.neg (Int.neg i.toInt)) := Mod.ofIntNeg (Int.neg i.toInt)
-    _ = Mod.ofInt i.toInt := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negNeg i.toInt)
-    _ = i := Mod.ofIntToInt i
+theorem Mod.negNeg ∀ [n: Nat] (i: Mod n): Mod.neg (Mod.neg i) = i := calc Mod.neg (Mod.neg i)
+  _ = Mod.ofInt (Int.neg (Mod.neg i).toInt) := Mod.negOfInt (Mod.neg i)
+  _ = Mod.ofInt (Int.neg (Mod.ofInt (Int.neg i.toInt): Mod n).toInt) :=
+    Eq.cong (j => (Mod.ofInt (Int.neg (Mod.toInt j)): Mod n)) (Mod.negOfInt i)
+  _ = Mod.ofInt (Int.neg (Int.neg i.toInt)) := Mod.ofIntNeg (Int.neg i.toInt)
+  _ = Mod.ofInt i.toInt := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negNeg i.toInt)
+  _ = i := Mod.ofIntToInt i
 
 --| Turning back is the mirror image of turning forward.
-theorem Mod.negSubNat ∀ [n: Nat] (i: Mod n) (k: Nat): Mod.neg (i.subNat k) = (Mod.neg i).addNat k :=
-  calc Mod.neg (i.subNat k)
-    _ = Mod.ofInt (Int.neg (i.subNat k).toInt) := Mod.negOfInt (i.subNat k)
-    _ = Mod.ofInt (Int.neg (Int.sub i.toInt k.toInt)) := Mod.ofIntNeg (Int.sub i.toInt k.toInt)
-    _ = Mod.ofInt (Int.add (Int.neg i.toInt) (Int.neg (Int.neg k.toInt))) := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negAdd i.toInt (Int.neg k.toInt))
-    _ = Mod.ofInt (Int.add (Int.neg i.toInt) k.toInt) := Eq.cong (t => (Mod.ofInt (Int.add (Int.neg i.toInt) t): Mod n)) (Int.negNeg k.toInt)
-    _ = Mod.ofInt (Int.add (Mod.ofInt (Int.neg i.toInt): Mod n).toInt k.toInt) := Eq.sym (Mod.ofIntAdd (Int.neg i.toInt) k.toInt)
-    _ = (Mod.neg i).addNat k := Eq.cong (j => Mod.addNat j k) (Eq.sym (Mod.negOfInt i))
+theorem Mod.negSubNat ∀ [n: Nat] (i: Mod n) (k: Nat): Mod.neg (i.subNat k) = (Mod.neg i).addNat k := calc Mod.neg
+  (i.subNat k)
+  _ = Mod.ofInt (Int.neg (i.subNat k).toInt) := Mod.negOfInt (i.subNat k)
+  _ = Mod.ofInt (Int.neg (Int.sub i.toInt k.toInt)) := Mod.ofIntNeg (Int.sub i.toInt k.toInt)
+  _ = Mod.ofInt (Int.add (Int.neg i.toInt) (Int.neg (Int.neg k.toInt))) :=
+    Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negAdd i.toInt (Int.neg k.toInt))
+  _ = Mod.ofInt (Int.add (Int.neg i.toInt) k.toInt) :=
+    Eq.cong (t => (Mod.ofInt (Int.add (Int.neg i.toInt) t): Mod n)) (Int.negNeg k.toInt)
+  _ = Mod.ofInt (Int.add (Mod.ofInt (Int.neg i.toInt): Mod n).toInt k.toInt) :=
+    Eq.sym (Mod.ofIntAdd (Int.neg i.toInt) k.toInt)
+  _ = (Mod.neg i).addNat k := Eq.cong (j => Mod.addNat j k) (Eq.sym (Mod.negOfInt i))
 
-theorem Mod.negAddNat ∀ [n: Nat] (i: Mod n) (k: Nat): Mod.neg (i.addNat k) = (Mod.neg i).subNat k :=
-  calc Mod.neg (i.addNat k)
-    _ = Mod.ofInt (Int.neg (i.addNat k).toInt) := Mod.negOfInt (i.addNat k)
-    _ = Mod.ofInt (Int.neg (Int.add i.toInt k.toInt)) := Mod.ofIntNeg (Int.add i.toInt k.toInt)
-    _ = Mod.ofInt (Int.add (Int.neg i.toInt) (Int.neg k.toInt)) := Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negAdd i.toInt k.toInt)
-    _ = Mod.ofInt (Int.add (Mod.ofInt (Int.neg i.toInt): Mod n).toInt (Int.neg k.toInt)) := Eq.sym (Mod.ofIntAdd (Int.neg i.toInt) (Int.neg k.toInt))
-    _ = (Mod.neg i).subNat k := Eq.cong (j => Mod.subNat j k) (Eq.sym (Mod.negOfInt i))
+theorem Mod.negAddNat ∀ [n: Nat] (i: Mod n) (k: Nat): Mod.neg (i.addNat k) = (Mod.neg i).subNat k := calc Mod.neg
+  (i.addNat k)
+  _ = Mod.ofInt (Int.neg (i.addNat k).toInt) := Mod.negOfInt (i.addNat k)
+  _ = Mod.ofInt (Int.neg (Int.add i.toInt k.toInt)) := Mod.ofIntNeg (Int.add i.toInt k.toInt)
+  _ = Mod.ofInt (Int.add (Int.neg i.toInt) (Int.neg k.toInt)) :=
+    Eq.cong (t => (Mod.ofInt t: Mod n)) (Int.negAdd i.toInt k.toInt)
+  _ = Mod.ofInt (Int.add (Mod.ofInt (Int.neg i.toInt): Mod n).toInt (Int.neg k.toInt)) :=
+    Eq.sym (Mod.ofIntAdd (Int.neg i.toInt) (Int.neg k.toInt))
+  _ = (Mod.neg i).subNat k := Eq.cong (j => Mod.subNat j k) (Eq.sym (Mod.negOfInt i))
 
 test "mod: ofNat wraps" := (Mod.ofNat 150: Mod 100).value == 50
 test "mod: ofInt wraps below zero" := (Mod.ofInt (-1): Mod 100).value == 99
@@ -329,5 +392,6 @@ test "mod: addNat wraps" := ((Mod.ofNat 99: Mod 100).addNat 1).value == 0 ∧ ((
 test "mod: isZero" := (Mod.ofNat 5: Mod 100).isZero == False
 test "mod: addNat twice" := ((Mod.ofNat 90: Mod 100).addNat 7).addNat 8 == (Mod.ofNat 90: Mod 100).addNat 15
 test "mod: subNat then addNat" := (((Mod.ofNat 3: Mod 100).subNat 250).addNat 250).value == 3
-test "mod: neg is a mirror" := Mod.neg ((Mod.ofNat 10: Mod 100).subNat 30) == (Mod.neg (Mod.ofNat 10: Mod 100)).addNat 30
+test "mod: neg is a mirror" :=
+  Mod.neg ((Mod.ofNat 10: Mod 100).subNat 30) == (Mod.neg (Mod.ofNat 10: Mod 100)).addNat 30
 test "mod: neg (neg i)" := Mod.neg (Mod.neg (Mod.ofNat 30: Mod 100)) == Mod.ofNat 30

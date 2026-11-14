@@ -33,8 +33,14 @@ theorem Within.weaken: (c: Bool) → (r: Nat) → (n: Nat) → Within c r n → 
   | True, r, n, h => Nat.lessLe r n h
   | False, r, n, h => h
 
-theorem Within.seq: (c1: Bool) → (c2: Bool) → (r2: Nat) → (r1: Nat) → (n: Nat) → Within c1 r1 n → Within c2 r2 r1 →
-    Within (eitherConsumes c1 c2) r2 n
+theorem Within.seq: (c1: Bool)
+      → (c2: Bool)
+      → (r2: Nat)
+      → (r1: Nat)
+      → (n: Nat)
+      → Within c1 r1 n
+      → Within c2 r2 r1
+      → Within (eitherConsumes c1 c2) r2 n
   | True, c2, r2, r1, n, h1, h2 => Nat.leTrans (Succ r2) (Succ r1) n (Within.weaken c2 r2 r1 h2) h1
   | False, True, r2, r1, n, h1, h2 => Nat.leTrans (Succ r2) r1 n h2 h1
   | False, False, r2, r1, n, h1, h2 => Nat.leTrans r2 r1 n h2 h1
@@ -54,54 +60,69 @@ def pure (value: a): Parser False a := { run = input => Got value input (Nat.leR
 
 def failWith (what: Text): Parser c a := { run = input => Missed what }
 
-def satisfy (what: Text) (passes: Char → Bool): Parser True Char := { run = input =>
-  match input with
-    | Cons char rest => if passes char then Got char rest (Nat.leRefl (Succ rest.length)) else Missed what
-    | Nil => Missed what }
+def satisfy (what: Text) (passes: Char → Bool): Parser True Char := {
+  run = input =>
+    match input with
+      | Cons char rest => if passes char then Got char rest (Nat.leRefl (Succ rest.length)) else Missed what
+      | Nil => Missed what
+}
 
 def char (expected: Char): Parser True Char := satisfy "'${Text.fromList [expected]}'" (== expected)
 
 -- Sequencing: `p`, then the parser its value chooses. Consumes if either
 -- does.
-def seq [c1 c2: Bool] (p: Parser c1 a) (next: a → Parser c2 b): Parser (eitherConsumes c1 c2) b := { run = input =>
-  match p.run input with
-    | Missed what => Missed what
-    | Got x rest h1 =>
-      match (next x).run rest with
-        | Missed what => Missed what
-        | Got y after h2 => Got y after (Within.seq c1 c2 after.length rest.length input.length h1 h2) }
+def seq [c1 c2: Bool] (p: Parser c1 a) (next: a → Parser c2 b): Parser (eitherConsumes c1 c2) b := {
+  run = input =>
+    match p.run input with
+      | Missed what => Missed what
+      | Got x rest h1 =>
+        match (next x).run rest with
+          | Missed what => Missed what
+          | Got y after h2 => Got y after (Within.seq c1 c2 after.length rest.length input.length h1 h2)
+}
 
-def map (p: Parser c a) (f: a → b): Parser c b := { run = input =>
-  match p.run input with
-    | Missed what => Missed what
-    | Got x rest h => Got (f x) rest h }
+def map (p: Parser c a) (f: a → b): Parser c b := {
+  run = input =>
+    match p.run input with
+      | Missed what => Missed what
+      | Got x rest h => Got (f x) rest h
+}
 
 -- Choice, backing up: consumes if both alternatives do.
-def alt [c1 c2: Bool] (p: Parser c1 a) (q: Parser c2 a): Parser (bothConsume c1 c2) a := { run = input =>
-  match p.run input with
-    | Got x rest h => Got x rest (Within.left c1 c2 rest.length input.length h)
-    | Missed first =>
-      match q.run input with
-        | Got y rest h => Got y rest (Within.right c1 c2 rest.length input.length h)
-        | Missed second => Missed "${first} or ${second}" }
+def alt [c1 c2: Bool] (p: Parser c1 a) (q: Parser c2 a): Parser (bothConsume c1 c2) a := {
+  run = input =>
+    match p.run input with
+      | Got x rest h => Got x rest (Within.left c1 c2 rest.length input.length h)
+      | Missed first =>
+        match q.run input with
+          | Got y rest h => Got y rest (Within.right c1 c2 rest.length input.length h)
+          | Missed second => Missed "${first} or ${second}"
+}
 
 -- Not `alt (map p Some) (pure None)`: its index, `bothConsume c False`,
 -- doesn't compute while `c` is a variable, so it isn't `False` (Idris 2
 -- writes `option` once for each value of `c` for the same reason).
-def optional (p: Parser c a): Parser False (Option a) := { run = input =>
-  match p.run input with
-    | Got x rest h => Got (Some x) rest (Within.weaken c rest.length input.length h)
-    | Missed what => Got None input (Nat.leRefl input.length) }
+def optional (p: Parser c a): Parser False (Option a) := {
+  run = input =>
+    match p.run input with
+      | Got x rest h => Got (Some x) rest (Within.weaken c rest.length input.length h)
+      | Missed what => Got None input (Nat.leRefl input.length)
+}
 
 -- `many` needs a parser that consumes: its proof is the measure.
 def manyFrom (p: Parser True a) (input: List Char): Reply False input (List a)
     decreasing input.length
-:= match p.run input with
-  | Missed what => Got [] input (Nat.leRefl input.length)
-  | Got x rest shorter =>
-    match manyFrom p rest with
-      | Got xs after noLonger => Got (Cons x xs) after (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
-      | Missed what => Missed what
+:=
+  match p.run input with
+    | Missed what => Got [] input (Nat.leRefl input.length)
+    | Got x rest shorter =>
+      match manyFrom p rest with
+        | Got xs after noLonger =>
+          Got
+            (Cons x xs)
+            after
+            (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
+        | Missed what => Missed what
 
 def many (p: Parser True a): Parser False (List a) := { run = input => manyFrom p input }
 
@@ -151,49 +172,69 @@ theorem Within.strict: (s: Bool) → (r: Nat) → (n: Nat) → r < n → Within 
 def lift (p: Parser c a): Bounded s n c a := { run = input => ok => p.run input }
 
 -- A parser for inputs within `n` also runs on inputs shorter than `n`.
-def below (p: Bounded s n c a): Bounded True n c a := { run = input => ok => p.run input (Within.strict s input.length n ok) }
+def below (p: Bounded s n c a): Bounded True n c a :=
+  { run = input => ok => p.run input (Within.strict s input.length n ok) }
 
 -- Sequencing under a bound: the rest is no longer than the input, so
 -- still within the bound.
-def bseq [c1 c2: Bool] (p: Bounded s n c1 a) (next: a → Bounded s n c2 b): Bounded s n (eitherConsumes c1 c2) b := { run = input => ok =>
-  match p.run input ok with
-    | Missed what => Missed what
-    | Got x rest h1 =>
-      match (next x).run rest (Within.shrink s rest.length input.length n (Within.weaken c1 rest.length input.length h1) ok) with
+def bseq [c1 c2: Bool] (p: Bounded s n c1 a) (next: a → Bounded s n c2 b): Bounded s n (eitherConsumes c1 c2) b := {
+  run = input =>
+    ok =>
+      match p.run input ok with
         | Missed what => Missed what
-        | Got y after h2 => Got y after (Within.seq c1 c2 after.length rest.length input.length h1 h2) }
+        | Got x rest h1 =>
+          match (next x).run rest
+            (Within.shrink s rest.length input.length n (Within.weaken c1 rest.length input.length h1) ok) with
+            | Missed what => Missed what
+            | Got y after h2 => Got y after (Within.seq c1 c2 after.length rest.length input.length h1 h2)
+}
 
 -- After a parser that consumes, what follows runs on a shorter input: it
 -- may use the grammar's own boxed self. This is Idris 2's `SeqEat`.
-def eat (p: Bounded s n True a) (next: a → Bounded True n c b): Bounded s n True b := { run = input => ok =>
-  match p.run input ok with
-    | Missed what => Missed what
-    | Got x rest h1 =>
-      match (next x).run rest (Within.after s rest.length input.length n h1 ok) with
+def eat (p: Bounded s n True a) (next: a → Bounded True n c b): Bounded s n True b := {
+  run = input =>
+    ok =>
+      match p.run input ok with
         | Missed what => Missed what
-        | Got y after h2 => Got y after (Within.seq True c after.length rest.length input.length h1 h2) }
+        | Got x rest h1 =>
+          match (next x).run rest (Within.after s rest.length input.length n h1 ok) with
+            | Missed what => Missed what
+            | Got y after h2 => Got y after (Within.seq True c after.length rest.length input.length h1 h2)
+}
 
-def balt [c1 c2: Bool] (p: Bounded s n c1 a) (q: Bounded s n c2 a): Bounded s n (bothConsume c1 c2) a := { run = input => ok =>
-  match p.run input ok with
-    | Got x rest h => Got x rest (Within.left c1 c2 rest.length input.length h)
-    | Missed first =>
-      match q.run input ok with
-        | Got y rest h => Got y rest (Within.right c1 c2 rest.length input.length h)
-        | Missed second => Missed "${first} or ${second}" }
+def balt [c1 c2: Bool] (p: Bounded s n c1 a) (q: Bounded s n c2 a): Bounded s n (bothConsume c1 c2) a := {
+  run = input =>
+    ok =>
+      match p.run input ok with
+        | Got x rest h => Got x rest (Within.left c1 c2 rest.length input.length h)
+        | Missed first =>
+          match q.run input ok with
+            | Got y rest h => Got y rest (Within.right c1 c2 rest.length input.length h)
+            | Missed second => Missed "${first} or ${second}"
+}
 
-def bmap (p: Bounded s n c a) (f: a → b): Bounded s n c b := { run = input => ok =>
-  match p.run input ok with
-    | Missed what => Missed what
-    | Got x rest h => Got (f x) rest h }
+def bmap (p: Bounded s n c a) (f: a → b): Bounded s n c b := {
+  run = input =>
+    ok =>
+      match p.run input ok with
+        | Missed what => Missed what
+        | Got x rest h => Got (f x) rest h
+}
 
 def bmanyFrom (p: Bounded s n True a) (input: List Char) (ok: Within s input.length n): Reply False input (List a)
     decreasing input.length
-:= match p.run input ok with
-  | Missed what => Got [] input (Nat.leRefl input.length)
-  | Got x rest shorter =>
-    match bmanyFrom p rest (Within.shrink s rest.length input.length n (Nat.lessLe rest.length input.length shorter) ok) with
-      | Got xs after noLonger => Got (Cons x xs) after (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
-      | Missed what => Missed what
+:=
+  match p.run input ok with
+    | Missed what => Got [] input (Nat.leRefl input.length)
+    | Got x rest shorter =>
+      match bmanyFrom p rest
+        (Within.shrink s rest.length input.length n (Nat.lessLe rest.length input.length shorter) ok) with
+        | Got xs after noLonger =>
+          Got
+            (Cons x xs)
+            after
+            (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
+        | Missed what => Missed what
 
 def bmany (p: Bounded s n True a): Bounded s n False (List a) := { run = input => ok => bmanyFrom p input ok }
 
@@ -207,22 +248,28 @@ def fixAt (body: (n: Nat) → Bounded True n True a → Bounded False n True a):
   | Zero => body Zero ({ run = input => impossible => Void.absurd (Bool.falseNotTrue impossible) })
   | Succ m => body (Succ m) ({ run = input => ok => (fixAt body m).run input ok })
 
-def fix (body: (n: Nat) → Bounded True n True a → Bounded False n True a): Parser True a := { run = input =>
-  (fixAt body input.length).run input (Nat.leRefl input.length) }
+def fix (body: (n: Nat) → Bounded True n True a → Bounded False n True a): Parser True a :=
+  { run = input => (fixAt body input.length).run input (Nat.leRefl input.length) }
 
 def bpure (value: a): Bounded s n False a := lift (pure value)
 
-def boptional (p: Bounded s n c a): Bounded s n False (Option a) := { run = input => ok =>
-  match p.run input ok with
-    | Got x rest h => Got (Some x) rest (Within.weaken c rest.length input.length h)
-    | Missed what => Got None input (Nat.leRefl input.length) }
+def boptional (p: Bounded s n c a): Bounded s n False (Option a) := {
+  run = input =>
+    ok =>
+      match p.run input ok with
+        | Got x rest h => Got (Some x) rest (Within.weaken c rest.length input.length h)
+        | Missed what => Got None input (Nat.leRefl input.length)
+}
 
 -- The numbers in nested lists like `[1,[2,[]],3]`, added up. The recursive
 -- call, `self`, can only be used after `[` has been read.
-def nested: Parser True Nat := fix (n => self =>
-  balt (lift nat) (eat (lift (char '[')) (open =>
-    bseq (boptional (bsepBy1 self (char ','))) (items =>
-      bmap (lift (char ']')) (close => (items.getOrElse []).sum)))))
+def nested: Parser True Nat := fix (n =>
+  self =>
+    balt
+      (lift nat)
+      (eat (lift (char '[')) (open =>
+        bseq (boptional (bsepBy1 self (char ','))) (items =>
+          bmap (lift (char ']')) (close => (items.getOrElse []).sum)))))
 
 test "nested" := parse nested "[1,[2,[]],3]" == Some 6
 
@@ -230,10 +277,13 @@ test "nested, unbalanced" := parse nested "[1,[2]" == None
 
 -- Arithmetic with `+`, `*` and brackets, the usual precedence. Only
 -- `factor` recurses, after `(`.
-def arithmetic: Parser True Nat := fix (n => self =>
-  let factor := balt (lift nat) (eat (lift (char '(')) (open => bseq self (value => bmap (lift (char ')')) (close => value))))
-  let term := bseq factor (first => bmap (bmany (eat (lift (char '*')) (times => below factor))) (more => (Cons first more).product))
-  bseq term (first => bmap (bmany (eat (lift (char '+')) (plus => below term))) (more => (Cons first more).sum)))
+def arithmetic: Parser True Nat := fix (n =>
+  self =>
+    let factor :=
+      balt (lift nat) (eat (lift (char '(')) (open => bseq self (value => bmap (lift (char ')')) (close => value))))
+    let term := bseq factor (first =>
+      bmap (bmany (eat (lift (char '*')) (times => below factor))) (more => (Cons first more).product))
+    bseq term (first => bmap (bmany (eat (lift (char '+')) (plus => below term))) (more => (Cons first more).sum)))
 
 test "arithmetic" := parse arithmetic "2*(3+4)+1" == Some 15
 
@@ -251,41 +301,43 @@ def textRest: List Char → Parser False ()
 
 -- A parser that consumes is also one that may not. There is no
 -- subtyping, so this is written where it's needed.
-def mayNotConsume (p: Parser c a): Parser False a := { run = input =>
-  match p.run input with
-    | Got x rest h => Got x rest (Within.weaken c rest.length input.length h)
-    | Missed what => Missed what }
+def mayNotConsume (p: Parser c a): Parser False a := {
+  run = input =>
+    match p.run input with
+      | Got x rest h => Got x rest (Within.weaken c rest.length input.length h)
+      | Missed what => Missed what
+}
 
 -- Every match of `p` in noise, as `Parse.findAll`: where `p` fails, skip a
 -- character. The measure is the input, so `p` must consume.
 def findAllFrom (p: Parser True a) (input: List Char): List a
     decreasing input.length
-:= match p.run input with
-  | Got x rest shorter => Cons x (findAllFrom p rest)
-  | Missed what =>
-    match input with
-      | Nil => []
-      | Cons skipped rest => findAllFrom p rest
+:=
+  match p.run input with
+    | Got x rest shorter => Cons x (findAllFrom p rest)
+    | Missed what =>
+      match input with
+        | Nil => []
+        | Cons skipped rest => findAllFrom p rest
 
-type Instruction =
-  | Mul (left: Nat) (right: Nat)
-  | Do
-  | Dont
+type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
 -- One to three digits.
-def shortNumber: Parser True Nat := seq (many1 digit) (digits => if digits.length ≤ 3 then pure (Nat.fromDigits digits) else failWith "a number of 1 to 3 digits")
+def shortNumber: Parser True Nat := seq (many1 digit) (digits =>
+  if digits.length ≤ 3 then pure (Nat.fromDigits digits) else failWith "a number of 1 to 3 digits")
 
 def instruction: Parser True Instruction :=
-  alt (seq (text "mul(") (u =>
-    seq shortNumber (left =>
-      seq (char ',') (comma =>
-        seq shortNumber (right =>
-          map (char ')') (close => Mul left right)))))) (alt (map (text "do()") (u => Do)) (map (text "don't()") (u => Dont)))
+  alt
+    (seq (text "mul(") (u =>
+      seq shortNumber (left =>
+        seq (char ',') (comma => seq shortNumber (right => map (char ')') (close => Mul left right))))))
+    (alt (map (text "do()") (u => Do)) (map (text "don't()") (u => Dont)))
 
 def instructions (memory: Text): List Instruction := findAllFrom instruction memory.toList
 
 test "day 3" :=
-  instructions "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))" == [Mul 2 4, Dont, Mul 5 5, Mul 11 8, Do, Mul 8 5]
+  instructions "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))"
+    == [Mul 2 4, Dont, Mul 5 5, Mul 11 8, Do, Mul 8 5]
 
 test "day 3, four digits" := instructions "mul(1234,5)" == []
 
@@ -303,20 +355,24 @@ def optionalResult (input: List Char): Option (a, List Char) → Option (Option 
   | None => Some (None, input)
 
 theorem optionalResultLemma ∀ (p: Parser c a) (input: List Char):
-    ((optional p).run input).result = optionalResult input (p.run input).result := match p.run input with
-      | Got y after h => rfl
-      | Missed what => rfl
+    ((optional p).run input).result = optionalResult input (p.run input).result :=
+  match p.run input with
+    | Got y after h => rfl
+    | Missed what => rfl
 
 def altResult (second: Option (a, List Char)): Option (a, List Char) → Option (a, List Char)
   | Some found => Some found
   | None => second
 
-theorem altResultLemma ∀ [c1 c2: Bool] (p: Parser c1 a) (q: Parser c2 a) (input: List Char):
-    ((alt p q).run input).result = altResult (q.run input).result (p.run input).result := match p.run input with
-      | Got x rest h => rfl
-      | Missed first =>
-        match q.run input with
-          | Got y rest h => rfl
-          | Missed second => rfl
+theorem altResultLemma ∀ [c1 c2: Bool]
+    (p: Parser c1 a)
+    (q: Parser c2 a) (input: List Char):
+    ((alt p q).run input).result = altResult (q.run input).result (p.run input).result :=
+  match p.run input with
+    | Got x rest h => rfl
+    | Missed first =>
+      match q.run input with
+        | Got y rest h => rfl
+        | Missed second => rfl
 
 theorem day3Example: instructions "mul(2,4)do()" = [Mul 2 4, Do] := rfl

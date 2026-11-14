@@ -7,6 +7,8 @@ def settle (grid: Marked w h): Marked w h
   if fewer: Marked.rolls next < Marked.rolls grid then settle next else next
 
 def sum (xs: List Nat) (acc: Nat): Nat
-    decreasing xs.length := match xs with
-      | Nil => acc
-      | Cons y ys => sum ys (acc + y)
+    decreasing xs.length
+:=
+  match xs with
+    | Nil => acc
+    | Cons y ys => sum ys (acc + y)

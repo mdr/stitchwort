@@ -11,14 +11,9 @@ import Sf.Lf.Nat (..)
 -- Consider these two data types. (The book's constructors are `a` to
 -- `e`; in Stitchwort a constructor's name starts with a capital.)
 
-type Mumble =
-  | A
-  | B (x: Mumble) (y: Nat)
-  | C
+type Mumble = | A | B (x: Mumble) (y: Nat) | C
 
-type Grumble (a: Type) =
-  | D (m: Mumble)
-  | E (x: a)
+type Grumble (a: Type) = | D (m: Mumble) | E (x: a)
 
 -- Which of these are well-typed elements of `Grumble a`, for some type
 -- `a`? Answer YES or NO for each.

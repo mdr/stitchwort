@@ -10,15 +10,14 @@ type Point = { x: Nat, y: Nat }
 
 def present (x: Nat) (xs: List Nat) [auto ok: x ∈ xs]: Nat := x
 
-def apart (p: Point) (q: Point) [auto ok: p ≠ q]: Nat := p.x + q.x
+def apart (p q: Point) [auto ok: p ≠ q]: Nat := p.x + q.x
 
 def none (o: Option Nat) [auto ok: o = None]: Nat := 0
 
 def small (x: Nat) [auto ok: x < 5]: Nat := x
 
 -- `(a && b) = True`: each side.
-def inBoth (x: Nat) (xs: List Nat) (ys: List Nat) (h: (xs.contains x && ys.contains x) = True): Nat :=
-  present x xs + present x ys
+def inBoth (x: Nat) (xs ys: List Nat) (h: (xs.contains x && ys.contains x) = True): Nat := present x xs + present x ys
 
 test "in both" := inBoth 2 [1, 2] [2, 3] (Both rfl rfl) == 4
 
@@ -30,7 +29,7 @@ def whenWanted (x: Nat) (xs: List Nat) (wanted: Bool): Nat := match ok: wanted &
 test "when wanted" := whenWanted 2 [1, 2] True == 2 ∧ whenWanted 2 [1, 2] False == 0
 
 -- `(a || b) = False`: each side is `False`, read again.
-def different (p: Point) (q: Point) (h: (p == q || p.x == 0) = False): Nat := apart p q
+def different (p q: Point) (h: (p == q || p.x == 0) = False): Nat := apart p q
 
 test "different" := different { x = 1, y = 2 } { x = 3, y = 4 } rfl == 4
 
@@ -61,9 +60,9 @@ def divisor (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: ∀ (x: Nat) => x ∈ xs �
 
 -- On a type known only to have `==`, a fact about it reads by its
 -- decision: `(a == b) = False` gives `a ≠ b` through `Decidable.refute`.
-def distinct [auto eq: DecEq k] (a: k) (b: k) [auto ok: a ≠ b]: Nat := 0
+def distinct [auto eq: DecEq k] (a b: k) [auto ok: a ≠ b]: Nat := 0
 
-def unequal [auto eq: DecEq k] (a: k) (b: k) (h: (a == b) = False): Nat := distinct a b
+def unequal [auto eq: DecEq k] (a b: k) (h: (a == b) = False): Nat := distinct a b
 
 -- A cons list's `all` reads as `∧` (`d < 5` and `more.all p`) and also as the
 -- `∀`, so `auto` still finds `small y` from a member, whether the list was
@@ -72,7 +71,6 @@ def afterMatch (xs: List Nat) (h: xs.all (x => x < 5)) (y: Nat) (m: y ∈ xs): N
   | [] => 0
   | [d, ..more] => small y
 
-def fromCons (d: Nat) (more: List Nat) (h: [d, ..more].all (x => x < 5)) (y: Nat) (m: y ∈ [d, ..more]): Nat :=
-  small y
+def fromCons (d: Nat) (more: List Nat) (h: [d, ..more].all (x => x < 5)) (y: Nat) (m: y ∈ [d, ..more]): Nat := small y
 
 test "after match" := afterMatch [1, 4] (Both rfl (Both rfl rfl)) 4 (Inr (Inl rfl)) == 4

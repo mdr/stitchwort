@@ -73,8 +73,8 @@ def parseManifold (lines: List Text): {Abort} Manifold :=
   { width, start, rows = (lines.drop (rowIndex + 1)).map (splitterRow width) }
 
 --| Row and column of the first S, reading top to bottom, left to right.
-def findStart (lines: List Text): Option (Nat, Nat) :=
-  lines.withIndex.findMap (((rowIndex, line)) => (line.toList.findIndex (== 'S')).map (columnIndex => (rowIndex, columnIndex)))
+def findStart (lines: List Text): Option (Nat, Nat) := lines.withIndex.findMap (((rowIndex, line)) =>
+  (line.toList.findIndex (== 'S')).map (columnIndex => (rowIndex, columnIndex)))
 
 --| The widest line's length.
 def gridWidth (lines: List Text): Nat := lines.foldLeft 0 widen
@@ -94,8 +94,7 @@ def isSplitter (ch: Char): Bool := ch == '^'
 
 --| Part 1: carry the beams down, a flag per column, adding up the splitters
 --| each row's beams reach.
-def solvePart1 (manifold: Manifold): Nat :=
-  splitsBelow (Vec.tabulate manifold.width (== manifold.start)) manifold.rows
+def solvePart1 (manifold: Manifold): Nat := splitsBelow (Vec.tabulate manifold.width (== manifold.start)) manifold.rows
 
 --| `beams` are the beams falling into the first of `rows`.
 def splitsBelow (beams: Vec Bool w): List (Vec Bool w) → Nat
@@ -103,14 +102,16 @@ def splitsBelow (beams: Vec Bool w): List (Vec Bool w) → Nat
   | [row, ..rest] => splitsIn row beams + splitsBelow (fall row beams) rest
 
 --| The splitters of a row that beams reach.
-def splitsIn (row: Vec Bool w) (beams: Vec Bool w): Nat := row.zipWith beams (∧) |> .count id
+def splitsIn (row beams: Vec Bool w): Nat := row.zipWith beams (∧) |> .count id
 
 --| The beams falling out of a row: a beam passes a column with no splitter,
 --| and a splitter with a beam on it sends one down each side.
-def fall (row: Vec Bool w) (beams: Vec Bool w): Vec Bool w :=
+def fall (row beams: Vec Bool w): Vec Bool w :=
   let hit := row.zipWith beams (∧)
   (row.zipWith beams (splitter beam => beam ∧ not splitter)).zipWith3
-    (hit.shiftRight (fill := False)) (hit.shiftLeft (fill := False)) (pass left right => pass ∨ (left ∨ right))
+    (hit.shiftRight (fill := False))
+    (hit.shiftLeft (fill := False))
+    (pass left right => pass ∨ (left ∨ right))
 
 --| Part 2: the timelines of a particle starting at S.
 def solvePart2 (manifold: Manifold): Nat := manifold.timelineCounts |> .get manifold.start

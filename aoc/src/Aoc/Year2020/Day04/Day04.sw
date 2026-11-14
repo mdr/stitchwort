@@ -19,15 +19,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 passports}"
   IO.print "Part 2: ${solvePart2 passports}"
 
-type Key =
-  | BirthYear
-  | IssueYear
-  | ExpirationYear
-  | Height
-  | HairColor
-  | EyeColor
-  | PassportId
-  | CountryId
+type Key = | BirthYear | IssueYear | ExpirationYear | Height | HairColor | EyeColor | PassportId | CountryId
 
 def Key.code: Key → Text
   | BirthYear => "byr"
@@ -67,11 +59,11 @@ def required: List Key := [BirthYear, IssueYear, ExpirationYear, Height, HairCol
 
 def Passport.hasRequired (passport: Passport): Bool := required.all passport.has
 
-def between (low: Nat) (high: Nat): Option Nat → Bool
+def between (low high: Nat): Option Nat → Bool
   | Some n => low <= n <= high
   | None => False
 
-def yearBetween (low: Nat) (high: Nat) (value: Text): Bool := value.length == 4 ∧ between low high value.toNat
+def yearBetween (low high: Nat) (value: Text): Bool := value.length == 4 ∧ between low high value.toNat
 
 def heightValid (value: Text): Bool := match value.stripSuffix "cm" with
   | Some number => between (low := 150) (high := 193) number.toNat
@@ -101,4 +93,5 @@ def Passport.valuesValid (passport: Passport): Bool := passport.fields.all (fiel
 
 def solvePart1 (passports: List Passport): Nat := passports.count Passport.hasRequired
 
-def solvePart2 (passports: List Passport): Nat := passports.count (passport => passport.hasRequired ∧ passport.valuesValid)
+def solvePart2 (passports: List Passport): Nat :=
+  passports.count (passport => passport.hasRequired ∧ passport.valuesValid)

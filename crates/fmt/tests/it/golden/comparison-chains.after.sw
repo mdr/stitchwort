@@ -1,17 +1,14 @@
 import Std (Bool, Nat, List, Parse)
 
-def atomMiddle (lo x hi: Nat): Bool :=
-  lo <= x <= hi
+def atomMiddle (lo x hi: Nat): Bool := lo <= x <= hi
 
-def callMiddle (lo hi: Nat) (xs: List Nat): Bool :=
-  lo < xs.length() <= hi
+def callMiddle (lo hi: Nat) (xs: List Nat): Bool := lo < xs.length() <= hi
 
 def threeLinks (a b c d: Nat): Bool := a < b <= c < d
 
 def descending (a b c: Nat): Bool := a > b >= c
 
-def inLogic (a b c: Nat): Bool :=
-  a < b < c && b <= c < a || a < b
+def inLogic (a b c: Nat): Bool := a < b < c && b <= c < a || a < b
 
 def effectful(): {Parse} Bool :=
   let a := 0 < Parse.nat() <= Parse.nat()

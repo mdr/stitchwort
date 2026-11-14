@@ -1,9 +1,13 @@
 # The formatter's style sheet
 
-**Status:** stage 0 of [formatter-architecture.md](formatter-architecture.md)
-§6, 13 November 2026 (SW-3158). Paper lane: nothing is built. It stops for
-Matt's sign-off on the samples and for four decisions,
-[D3564–D3567](#4-decisions-for-matt).
+**Status:** in use since stage 5 of [formatter-architecture.md](formatter-architecture.md)
+§6 (SW-3194, 14 November 2026): this is the style `stitchwort fmt` writes, the
+editor's Format and the playground's Format button. It was written as stage 0
+(13 November 2026, SW-3158) and signed off by Matt with decisions
+[D3564–D3572](#4-decisions-for-matt) and D3573 (the switch). The "before" and
+"after" samples below were hand-written under the rules; the rules are what the
+code implements (`crates/fmt/src/printer/`, one test a rule in `tests.rs`).
+It replaces the line-based formatter described in [formatter.md](formatter.md).
 
 **What is already decided** (Matt, 13 November 2026). The formatter chooses
 every line break from the code's structure, with a Wadler/Prettier document

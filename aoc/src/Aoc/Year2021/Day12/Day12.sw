@@ -80,20 +80,25 @@ def passage(): {Parse} Passage :=
 --| The passages, if none joins two big caves; otherwise fail, naming the
 --| first that does.
 def checkPassages (passages: List Passage): {Fail} List Passage := match firstBigPair passages with
-  | Some (index, passage) => Fail.fail "line ${index + 1}: ${passage.from.name}-${passage.to.name} joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
+  | Some (index, passage) =>
+    Fail.fail
+      "line ${index + 1}: ${passage.from.name}-${passage.to.name} joins two big caves, so a path could cross it back and forth forever and there would be infinitely many paths"
   | None => passages
 
 --| The first passage between two big caves, with its index.
-def firstBigPair (passages: List Passage): Option (Nat, Passage) := passages.withIndex.find (((_, passage)) => passage.joinsBig)
+def firstBigPair (passages: List Passage): Option (Nat, Passage) :=
+  passages.withIndex.find (((_, passage)) => passage.joinsBig)
 
 --| Every cave named in a passage, each once.
 def caves (passages: List Passage): List Cave := passages.flatMap (passage => [passage.from, passage.to]) |> .unique
 
 --| The caves a passage leads to from `cave`, each once.
-def neighboursOf (passages: List Passage) (cave: Cave): List Cave := passages.flatMap (passage => passage.leadsTo cave) |> .unique
+def neighboursOf (passages: List Passage) (cave: Cave): List Cave :=
+  passages.flatMap (passage => passage.leadsTo cave) |> .unique
 
 --| Each cave with its neighbours, worked out once.
-def neighbourTable (passages: List Passage): List (Cave, List Cave) := caves passages |> .map (cave => (cave, neighboursOf passages cave))
+def neighbourTable (passages: List Passage): List (Cave, List Cave) :=
+  caves passages |> .map (cave => (cave, neighboursOf passages cave))
 
 def lookupNeighbours (table: List (Cave, List Cave)) (cave: Cave): List Cave := table.lookup cave |> .getOrElse []
 
@@ -105,12 +110,9 @@ def smallCaves (passages: List Passage): List Cave :=
 --| visited (`start` and `end` aside) and whether one of the visited ones may
 --| still be visited again: it reaches the end, isn't allowed, or goes on
 --| with the caves then unvisited and the spare visit then left.
-type Step =
-  | Finish
-  | Blocked
-  | Continue (unvisited: List Cave) (spare: Bool)
+type Step = | Finish | Blocked | Continue (unvisited: List Cave) (spare: Bool)
 
-def step (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: Cave): Step :=
+def step (unvisited: List Cave) (spare: Bool) (cave other: Cave): Step :=
   if other.isEnd then Finish
   else if other.isStart then Blocked
   else if other.isBig then (if cave.isBig then Blocked else Continue unvisited spare)
@@ -123,14 +125,18 @@ def without (caves: List Cave) (cave: Cave): List Cave := caves.filter (c => not
 
 --| The ways on from `cave` to `end`, stepping along `next`, each as the
 --| caves after `cave`, in at most `steps` steps.
-def routesFrom (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave): (steps: Nat) → List (List Cave)
+def routesFrom (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave):
+    (steps: Nat) → List (List Cave)
   | Zero => []
   | Succ more =>
-    List.concat (next cave |> .map (other =>
-      routesVia other (match step unvisited spare cave other with
-        | Finish => [[]]
-        | Blocked => []
-        | Continue left stillSpare => routesFrom next left stillSpare other more)))
+    List.concat
+      (next cave
+        |> .map (other =>
+          routesVia other
+            (match step unvisited spare cave other with
+              | Finish => [[]]
+              | Blocked => []
+              | Continue left stillSpare => routesFrom next left stillSpare other more)))
 
 --| The routes on from `other`, with `other` in front.
 def routesVia (other: Cave) (after: List (List Cave)): List (List Cave) := after.map (Cons other)

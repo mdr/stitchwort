@@ -23,8 +23,7 @@ def mapPure: List a → (f: a → b) → List b
   | [], f => []
   | [x, ..xs], f => [f x, ..mapPure xs f]
 
-test "same results" :=
-  mapSpread [1, 2, 3] (x => x + 1) = mapCons [1, 2, 3] (x => x + 1)
+test "same results" := mapSpread [1, 2, 3] (x => x + 1) = mapCons [1, 2, 3] (x => x + 1)
 
 -- A comparison that performs, in a Bool field, is decided (SW-573).
 def orNone: Option Text → Text

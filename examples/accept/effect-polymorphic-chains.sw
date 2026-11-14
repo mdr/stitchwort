@@ -54,8 +54,8 @@ def firstLongBookLogged (shelf: List Book): {IO, Abort} Text :=
   shelf.find (book =>
     IO.print book.title
     isLong book)
-      |> .orAbort
-      |> .title
+    |> .orAbort
+    |> .title
 
 def novel: Book := { title = "Long Novel", pages = 420, borrowed = False }
 def guide: Book := { title = "Short Guide", pages = 90, borrowed = True }
@@ -82,6 +82,7 @@ test "filter and map, then orFail" := toResult (() => availableTitleOrFail [guid
 test "fold in a map, then orFail" := toResult (() => biggestShelfOrFail [[], [guide]]) == Ok 90
 test "every shelf empty" := toResult (() => biggestShelfOrFail [[], []]) == Err "every shelf is empty"
 test "callback runs first, in order" :=
-  IO.simulate [] (() => toOption (() => firstLongBookLogged shelf)) == (["Short Guide", "Long Novel"], Some "Long Novel")
+  IO.simulate [] (() => toOption (() => firstLongBookLogged shelf))
+    == (["Short Guide", "Long Novel"], Some "Long Novel")
 test "callback runs for every book when none is found" :=
   IO.simulate [] (() => toOption (() => firstLongBookLogged [guide])) == (["Short Guide"], None)

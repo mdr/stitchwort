@@ -8,8 +8,11 @@ import Std (List)
 def apply2 (f: a → c) (v: a): c := f v
 
 def fine (q: List.length [1] = 1) (n: Nat): Nat :=
-  apply2 (r => match List.length [n] with
-    | Zero => 0
-    | Succ k => k) n
+  apply2
+    (r =>
+      match List.length [n] with
+        | Zero => 0
+        | Succ k => k)
+    n
 
 test "the motive checked when lifted" := fine rfl 5 == 0

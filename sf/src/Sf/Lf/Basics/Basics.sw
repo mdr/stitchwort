@@ -79,14 +79,7 @@ import Sf.Lf.Basics.Library (multNO, multNSm)
 -- To see how a data type definition works, start with a very simple
 -- example. This declaration defines a set of data values, a *type*:
 
-type Day =
-  | Monday
-  | Tuesday
-  | Wednesday
-  | Thursday
-  | Friday
-  | Saturday
-  | Sunday
+type Day = | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday
 
 -- The new type is called `Day`, and its members are `Monday`, `Tuesday`,
 -- and so on. Having defined `Day`, we can write functions on days:
@@ -155,11 +148,11 @@ def negb (b: Bool): Bool := match b with
   | True => False
   | False => True
 
-def andb (b1: Bool) (b2: Bool): Bool := match b1 with
+def andb (b1 b2: Bool): Bool := match b1 with
   | True => b2
   | False => False
 
-def orb (b1: Bool) (b2: Bool): Bool := match b1 with
+def orb (b1 b2: Bool): Bool := match b1 with
   | True => True
   | False => b2
 
@@ -191,18 +184,16 @@ theorem testOrb5: (False || False || True) = True := rfl
 
 def negb' (b: Bool): Bool := if b then False else True
 
-def andb' (b1: Bool) (b2: Bool): Bool := if b1 then b2 else False
+def andb' (b1 b2: Bool): Bool := if b1 then b2 else False
 
-def orb' (b1: Bool) (b2: Bool): Bool := if b1 then True else b2
+def orb' (b1 b2: Bool): Bool := if b1 then True else b2
 
 -- Rocq's conditionals generalise in one small way: since `bool` isn't
 -- built in, an `if` works on *any* data type with exactly two
 -- constructors, the first counting as true. For example, a type `Bw` with
 -- black and white, and `invert`:
 
-type Bw =
-  | BwBlack
-  | BwWhite
+type Bw = | BwBlack | BwWhite
 
 -- Stitchwort's `if` takes a `Bool` (or a decidable proposition, such as
 -- `n ≤ 5`), not any two-constructor type, so `invert` is a `match`:
@@ -225,7 +216,7 @@ test "invert BwWhite" := invert BwWhite == BwBlack
 -- `True` and `False`: a definition by `match` on its arguments does.
 
 --| Exercise (nandb): replace the `?` with the definition.
-def nandb (b1: Bool) (b2: Bool): Bool := ?
+def nandb (b1 b2: Bool): Bool := ?
 
 theorem testNandb1: nandb True False = True := ?
 
@@ -241,7 +232,7 @@ theorem testNandb4: nandb True True = False := ?
 -- are `True`, and `False` otherwise.
 
 --| Exercise (andb3): replace the `?` with the definition.
-def andb3 (b1: Bool) (b2: Bool) (b3: Bool): Bool := ?
+def andb3 (b1 b2 b3: Bool): Bool := ?
 
 theorem testAndb31: andb3 True True True = True := ?
 
@@ -279,15 +270,9 @@ theorem testAndb34: andb3 True True False = False := ?
 -- finite set of elements, the *constructors*. Here is a more interesting
 -- definition, where one of the constructors takes an argument:
 
-type Rgb =
-  | Red
-  | Green
-  | Blue
+type Rgb = | Red | Green | Blue
 
-type Color =
-  | Black
-  | White
-  | Primary (p: Rgb)
+type Color = | Black | White | Primary (p: Rgb)
 
 -- A data type definition does two things:
 --
@@ -425,21 +410,24 @@ theorem testFactorial2: factorial (ofNat 5) = mult (ofNat 10) (ofNat 12) := ?
 -- `minus`, would do too.
 
 def eqb (n m: Nat): Bool := match n with
-  | O => match m with
-    | O => True
-    | S m' => False
-  | S n' => match m with
-    | O => False
-    | S m' => eqb n' m'
+  | O =>
+    match m with
+      | O => True
+      | S m' => False
+  | S n' =>
+    match m with
+      | O => False
+      | S m' => eqb n' m'
 
 -- Similarly, `leb` tests whether its first argument is less than or equal
 -- to its second, giving a boolean.
 
 def leb (n m: Nat): Bool := match n with
   | O => True
-  | S n' => match m with
-    | O => False
-    | S m' => leb n' m'
+  | S n' =>
+    match m with
+      | O => False
+      | S m' => leb n' m'
 
 theorem testLeb1: leb (ofNat 2) (ofNat 2) = True := rfl
 
@@ -638,32 +626,40 @@ theorem negbInvolutive ∀ (b: Bool): negb (negb b) = b := match b with
 -- levels with different bullets (`-`, then `+`), or with braces:
 
 theorem andbCommutative ∀ (b c: Bool): andb b c = andb c b := match b with
-  | True => match c with
-    | True => rfl
-    | False => rfl
-  | False => match c with
-    | True => rfl
-    | False => rfl
+  | True =>
+    match c with
+      | True => rfl
+      | False => rfl
+  | False =>
+    match c with
+      | True => rfl
+      | False => rfl
 
 -- The book's `andb_commutative'` is the same proof with braces instead of
 -- bullets; in Stitchwort it would be the proof above again, so it isn't
 -- repeated. Three levels:
 
 theorem andb3Exchange ∀ (b c d: Bool): andb (andb b c) d = andb (andb b d) c := match b with
-  | True => match c with
-    | True => match d with
-      | True => rfl
-      | False => rfl
-    | False => match d with
-      | True => rfl
-      | False => rfl
-  | False => match c with
-    | True => match d with
-      | True => rfl
-      | False => rfl
-    | False => match d with
-      | True => rfl
-      | False => rfl
+  | True =>
+    match c with
+      | True =>
+        match d with
+          | True => rfl
+          | False => rfl
+      | False =>
+        match d with
+          | True => rfl
+          | False => rfl
+  | False =>
+    match c with
+      | True =>
+        match d with
+          | True => rfl
+          | False => rfl
+      | False =>
+        match d with
+          | True => rfl
+          | False => rfl
 
 -- Splitting every variable and computing is mechanical, and Stitchwort
 -- has a word for it: `cases` finds what the goal is stuck on, splits it
@@ -790,10 +786,7 @@ theorem andbEqOrb ∀ (b c: Bool) (h: andb b c = orb b c): b = c := ?
 -- the opposite of the way binary numbers are usually written. That makes
 -- them easier to work with. (What number is `B0 Z`?)
 
-type Bin =
-  | Z
-  | B0 (n: Bin)
-  | B1 (n: Bin)
+type Bin = | Z | B0 (n: Bin) | B1 (n: Bin)
 
 -- Complete the definitions of an increment function `incr` for binary
 -- numbers, and of `binToNat`, which converts a binary number to unary.

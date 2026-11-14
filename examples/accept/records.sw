@@ -20,7 +20,7 @@ def nameOf: Person → Text
   | { name, .. } => name
 
 -- A field is read with `.`, which binds tighter than application.
-def older (p: Person) (q: Person): Bool := Nat.leq q.age p.age
+def older (p q: Person): Bool := Nat.leq q.age p.age
 
 -- Records nest, and patterns nest inside other patterns. A record pattern
 -- as a constructor's argument is in brackets: braces right after a

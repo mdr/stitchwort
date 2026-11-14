@@ -56,21 +56,15 @@ theorem refuted ∀ (a: Bool) (h: a = False): ¬a := h.read
 theorem field ∀ (a b: Bool) (h: (a && b) = True): b := h.right
 
 -- A program's own test, with its own reading.
-type InRange (lo x hi: Nat): Prop = {
-  low: lo ≤ x,
-  high: x ≤ hi
-}
+type InRange (lo x hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }
 
 def inRange (lo x hi: Nat): Bool := lo <= x && x <= hi
 
 @[reading]
-theorem inRangeReads ∀ (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {
-  forward = h => { low = h.left, high = h.right },
-  backward = r => Both r.low r.high
-}
+theorem inRangeReads ∀ (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi :=
+  { forward = h => { low = h.left, high = h.right }, backward = r => Both r.low r.high }
 
-theorem below ∀ (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi := match h with
-  | { low, high } => high
+theorem below ∀ (lo x hi: Nat) (h: inRange lo x hi): x ≤ hi := match h with | { low, high } => high
 
 theorem within ∀ (lo x hi: Nat) (low: lo ≤ x) (high: x ≤ hi): inRange lo x hi := { low, high }
 

@@ -20,7 +20,7 @@ import Aoc.Year2025.Day09.Spec (..)
 import Std (Bool, DecEq, Decidable, Eq, List, Nat, Void)
 
 --| The key tile at key column c and key row r.
-def keyTile (floor: Floor) (c: Nat) (r: Nat): Point := { x = List.getOr floor.columns c 0, y = List.getOr floor.rows r 0 }
+def keyTile (floor: Floor) (c r: Nat): Point := { x = List.getOr floor.columns c 0, y = List.getOr floor.rows r 0 }
 
 --| The floor's cells.
 def floorCells (tiles: List Point): List (List Nat) :=
@@ -28,7 +28,9 @@ def floorCells (tiles: List Point): List (List Nat) :=
 
 -- 1. Only lines that touch a tile's row matter ---------------------------------
 
-theorem halfOpenBetween ∀ (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
+theorem halfOpenBetween ∀ (one other value: Nat)
+    (h: isBetweenHalfOpen one other value = True):
+    isBetween one other value = True :=
   match h with
     | Inl l => Inl (omega)
     | Inr r => Inr (omega)
@@ -36,30 +38,36 @@ theorem halfOpenBetween ∀ (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHa
 theorem onLineTouches ∀ (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
   h.right
 
-theorem crossesTouches ∀ (tile: Point) (line: Line) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
+theorem crossesTouches ∀ (tile: Point) (line: Line)
+    (h: crossesRightOf tile line = True):
+    touchesRow tile.y line = True :=
   let Both _ (Both _ half) := h
   halfOpenBetween line.from.y line.to.y tile.y half
 
 theorem isRedOrGreenNear ∀ (tiles: List Point) (tile: Point):
     isRedOrGreen (List.filter (loopLines tiles) (touchesRow tile.y)) tile = redOrGreen tiles tile :=
   rewrite List.anyFilter (loopLines tiles) tile.isOnLine (touchesRow tile.y) (onLineTouches tile),
-    List.countFilter (loopLines tiles) (crossesRightOf tile) (touchesRow tile.y) (crossesTouches tile)
-    in rfl
+      List.countFilter (loopLines tiles) (crossesRightOf tile) (touchesRow tile.y) (crossesTouches tile) in
+    rfl
 
 -- 2. The cells -------------------------------------------------------------------
 
 --| 1 outside the loop, 0 for a red or green tile.
 def outsideFlag (redOrGreen: Bool): Nat := if redOrGreen then 0 else 1
 
-theorem cellAt ∀ (tiles: List Point) (r: Nat) (c: Nat) (hr: r < List.length (Floor.of tiles).rows) (hc: c < List.length (Floor.of tiles).columns):
+theorem cellAt ∀ (tiles: List Point) (r c: Nat)
+    (hr: r < List.length (Floor.of tiles).rows)
+    (hc: c < List.length (Floor.of tiles).columns):
     PrefixSums.cell (floorCells tiles) r c = outsideFlag (redOrGreen tiles (keyTile (Floor.of tiles) c r)) :=
   let floor := Floor.of tiles
   let lines := loopLines tiles
   let y := List.getOr floor.rows r 0
-  rewrite List.getOrMapLt floor.rows r 0 [] hr (y => Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y),
-    List.getOrMapLt floor.columns c 0 0 hc (x => if isRedOrGreen (List.filter lines (touchesRow y)) { x, y } then 0 else 1),
-    isRedOrGreenNear tiles (keyTile floor c r)
-    in rfl
+  rewrite List.getOrMapLt floor.rows r 0 [] hr (y =>
+        Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y),
+      List.getOrMapLt floor.columns c 0 0 hc (x =>
+        if isRedOrGreen (List.filter lines (touchesRow y)) { x, y } then 0 else 1),
+      isRedOrGreenNear tiles (keyTile floor c r) in
+    rfl
 
 --| A cell is 0 exactly when its tile is red or green.
 theorem outsideFlagZero ∀ (b: Bool) (h: outsideFlag b = 0): b = True := match b with
@@ -67,26 +75,30 @@ theorem outsideFlagZero ∀ (b: Bool) (h: outsideFlag b = 0): b = True := match 
   | False => Void.exfalso (Nat.succNotZero 0 h)
 
 --| Every row of the floor is as long as the key columns.
-theorem lengthCellRow ∀ (tiles: List Point) (r: Nat) (hr: r < List.length (Floor.of tiles).rows):
+theorem lengthCellRow ∀ (tiles: List Point) (r: Nat)
+    (hr: r < List.length (Floor.of tiles).rows):
     List.length (List.getOr (floorCells tiles) r []) = List.length (Floor.of tiles).columns :=
   let floor := Floor.of tiles
   let lines := loopLines tiles
-  rewrite List.getOrMapLt floor.rows r 0 [] hr (y => Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y)
-    in List.lengthMap floor.columns _
+  rewrite List.getOrMapLt floor.rows r 0 [] hr (y =>
+        Floor.outsideRow (List.filter lines (touchesRow y)) floor.columns y) in
+    List.lengthMap floor.columns _
 
 -- 3. The program's test of a rectangle -----------------------------------------
 
 --| Two corners whose key positions are inside the floor.
-def Inside (floor: Floor) (first: Corner) (second: Corner): Prop :=
-  ((first.column < List.length floor.columns) ∧ (second.column < List.length floor.columns)) ∧ ((first.row < List.length floor.rows) ∧ (second.row < List.length floor.rows))
+def Inside (floor: Floor) (first second: Corner): Prop :=
+  ((first.column < List.length floor.columns) ∧ (second.column < List.length floor.columns))
+    ∧ ((first.row < List.length floor.rows) ∧ (second.row < List.length floor.rows))
 
 --| Every key tile from one corner's key column and row to the other's.
-def allKeys (tiles: List Point) (first: Corner) (second: Corner): Bool :=
-  List.all
-    (List.range (Nat.min first.row second.row) (Nat.max first.row second.row + 1))
-    (r => List.all (List.range (Nat.min first.column second.column) (Nat.max first.column second.column + 1)) (c => redOrGreen tiles (keyTile (Floor.of tiles) c r)))
+def allKeys (tiles: List Point) (first second: Corner): Bool :=
+  List.all (List.range (Nat.min first.row second.row) (Nat.max first.row second.row + 1)) (r =>
+    List.all (List.range (Nat.min first.column second.column) (Nat.max first.column second.column + 1)) (c =>
+      redOrGreen tiles (keyTile (Floor.of tiles) c r)))
 
-theorem allRedOrGreenKeys ∀ (tiles: List Point) (first: Corner) (second: Corner) (inside: Inside (Floor.of tiles) first second):
+theorem allRedOrGreenKeys ∀ (tiles: List Point) (first second: Corner)
+    (inside: Inside (Floor.of tiles) first second):
     Floor.allRedOrGreen (Floor.of tiles) { corner = first, opposite = second } = allKeys tiles first second :=
   let floor := Floor.of tiles
   let cells := floorCells tiles
@@ -99,23 +111,37 @@ theorem allRedOrGreenKeys ∀ (tiles: List Point) (first: Corner) (second: Corne
       let rowsLength: List.length cells = List.length floor.rows := List.lengthMap floor.rows _
       let widthLe: List.length floor.columns ≤ List.maxLength cells :=
         rewrite <- lengthCellRow tiles 0 (omega) in List.lengthLeMaxLength cells 0
-      let blockIs: PrefixSums.block floor.outside top bottom left right = PrefixSums.blockSpec cells top bottom left right :=
+      let blockIs: PrefixSums.block floor.outside top bottom left right
+        = PrefixSums.blockSpec cells top bottom left right :=
         PrefixSums.blockSum cells top bottom left right (omega) (omega) (omega) (omega)
       let lastRow := Nat.max first.row second.row
       let lastColumn := Nat.max first.column second.column
       -- The sum of a row of the block.
       let rowSum: Nat → Nat := r => List.sumBy (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c)
-      Bool.eqOf (Floor.allRedOrGreen floor { corner = first, opposite = second }) (allKeys tiles first second)
+      Bool.eqOf
+        (Floor.allRedOrGreen floor { corner = first, opposite = second })
+        (allKeys tiles first second)
         (h =>
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in h.read
           List.allBetweenIntro (r rlo rhi =>
             let rowZero: rowSum r = 0 :=
-              List.sumByZeroElim (List.range top (lastRow + 1)) rowSum zero r (((List.memRange r top (lastRow + 1)).backward (Both rlo (Nat.leLessSucc r lastRow rhi))))
+              List.sumByZeroElim
+                (List.range top (lastRow + 1))
+                rowSum
+                zero
+                r
+                (((List.memRange r top (lastRow + 1)).backward (Both rlo (Nat.leLessSucc r lastRow rhi))))
             List.allBetweenIntro (c clo chi =>
               let cellZero: PrefixSums.cell cells r c = 0 :=
-                List.sumByZeroElim (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) rowZero c
+                List.sumByZeroElim
+                  (List.range left (lastColumn + 1))
+                  (c => PrefixSums.cell cells r c)
+                  rowZero
+                  c
                   (((List.memRange c left (lastColumn + 1)).backward (Both clo (Nat.leLessSucc c lastColumn chi))))
-              outsideFlagZero (redOrGreen tiles (keyTile floor c r)) (rewrite cellAt tiles r c (omega) (omega) at cellZero))))
+              outsideFlagZero
+                (redOrGreen tiles (keyTile floor c r))
+                (rewrite cellAt tiles r c (omega) (omega) at cellZero))))
         (h =>
           let zero: PrefixSums.blockSpec cells top bottom left right = 0 :=
             List.sumByZeroIntro (List.range top (lastRow + 1)) rowSum (r rm =>

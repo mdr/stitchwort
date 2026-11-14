@@ -23,7 +23,7 @@
 import Std (Float, List, Option)
 
 -- The times in `[start, end)`: `start <= t && t < end` in the TS.
-export def inWindow (start: Float) (end: Float) (times: List Float): List Float :=
+export def inWindow (start end: Float) (times: List Float): List Float :=
   List.filter times (t => Float.ieeeLe start t ∧ Float.ieeeLt t end)
 
 export def shiftAll (by: Float) (times: List Float): List Float := List.map times (t => t + by)
@@ -34,7 +34,7 @@ export def gaps: List Float → List Float
   | _ => Nil
 
 -- `Math.round(t / grid) * grid`.
-export def snap (grid: Float) (t: Float): Float := Float.round (t / grid) * grid
+export def snap (grid t: Float): Float := Float.round (t / grid) * grid
 
 -- `times.reduce((best, t) => (t > best ? t : best))`, `undefined` for none.
 export def latest: List Float → Option Float
@@ -51,5 +51,5 @@ export def wholeMs (t: Float): Option Int := Float.toInt t
 export def fromCount (n: Int): Float := Float.ofInt n
 
 -- `t < low ? low : t > high ? high : t`.
-export def clamped (low: Float) (high: Float) (t: Float): Float :=
+export def clamped (low high t: Float): Float :=
   if Float.ieeeLt t low then low else if Float.ieeeLt high t then high else t

@@ -92,9 +92,7 @@ def widths (xs: List Size): List Nat := xs.map ((MkSize { width, .. }) => width)
 test "let and lambda" := area (MkSize 2 3) == 6 ∧ widths [MkSize 4 1] == [4]
 
 -- Parameters: the fields' types are the constructor's, instantiated.
-type Box (a: Type) =
-  | Empty
-  | Full { content: a, count: Nat }
+type Box (a: Type) = | Empty | Full { content: a, count: Nat }
 
 def contentOr (d: a): Box a → a
   | Full { content, .. } => content
@@ -103,12 +101,9 @@ def contentOr (d: a): Box a → a
 test "parameters" := contentOr 0 (Full 7 2) == 7 ∧ contentOr 0 Empty == 0
 
 -- Implicit fields are skipped by braces, as by positional patterns.
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons [n: Nat] { head: a, tail: Vec a n }: Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] { head: a, tail: Vec a n }: Vec a (Succ n)
 
-def headOf (xs: Vec a (Succ n)): a := match xs with
-  | VCons { head, .. } => head
+def headOf (xs: Vec a (Succ n)): a := match xs with | VCons { head, .. } => head
 
 -- A field that is a record: a record pattern after `=`. A record pattern
 -- as the constructor's positional argument is in brackets.
@@ -122,5 +117,6 @@ def nameByField: Wrap → Text
 def nameByArgument: Wrap → Text
   | W ({ name, .. }) => name
 
-test "record fields" := nameByField (W { person = { name = "Ann", age = 3 } }) == "Ann"
-  ∧ nameByArgument (W ({ name = "Bo", age = 4 })) == "Bo"
+test "record fields" :=
+  nameByField (W { person = { name = "Ann", age = 3 } }) == "Ann"
+    ∧ nameByArgument (W ({ name = "Bo", age = 4 })) == "Bo"

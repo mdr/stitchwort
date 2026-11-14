@@ -7,18 +7,12 @@
 import Std (List)
 
 -- An enumeration: its constructors.
-type Direction =
-  | Up
-  | Down
-  | Left
-  | Right
+type Direction = | Up | Down | Left | Right
 
 theorem directions: Finite.all = [Up, Down, Left, Right] := rfl
 
 -- A constructor with a field: every arrow, then `Activate` (day 21's keys).
-type DirectionKey =
-  | Arrow (direction: Direction)
-  | Activate
+type DirectionKey = | Arrow (direction: Direction) | Activate
 
 theorem directionKeys: Finite.all = [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate] := rfl
 
@@ -35,7 +29,8 @@ type Signal =
 
 theorem signals: (Finite.all: List Signal).length = 1 + 3 * 2 + (1 + 4) + 5 * 2 := rfl
 
-theorem signalsStart: (Finite.all: List Signal).take 4 = [Off, Blink Less False, Blink Less True, Blink Equal False] := rfl
+theorem signalsStart: (Finite.all: List Signal).take 4 = [Off, Blink Less False, Blink Less True, Blink Equal False] :=
+  rfl
 
 theorem pointIn ∀ (aim: Option Direction): Point aim ∈ (Finite.all: List Signal) := Finite.complete (Point aim)
 
@@ -45,9 +40,7 @@ type Switches = { power: Bool, light: Bool, mode: Ordering }
 theorem switches: (Finite.all: List Switches).length = 12 := rfl
 
 -- A type parameter needs a `Finite` instance for it.
-type Slot (a: Type) =
-  | Filled (value: a)
-  | Empty
+type Slot (a: Type) = | Filled (value: a) | Empty
 
 theorem slots: Finite.all = [Filled False, Filled True, Empty] := rfl
 

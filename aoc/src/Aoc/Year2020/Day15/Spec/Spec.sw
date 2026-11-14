@@ -50,4 +50,4 @@ def numberSpoken (starting: List Nat) (turn: Nat): Nat := (spoken starting turn)
 --| "Given your starting numbers, what will be the 2020th number spoken?"
 --| (part 1), and the 30000000th (part 2): `answer` is the number spoken on
 --| `turn`.
-def Answer (starting: Starting) (turn: Nat) (answer: Nat): Prop := answer = numberSpoken starting.numbers.toList turn
+def Answer (starting: Starting) (turn answer: Nat): Prop := answer = numberSpoken starting.numbers.toList turn

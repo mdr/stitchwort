@@ -20,7 +20,7 @@ def countdown: Nat → Option (Pair Nat Nat)
 
 -- `shrinks` for it: whatever step `countdown` takes from `x`, the new seed
 -- is smaller. A step is `Some (MkPair v y)`, so `y` is the `k` it made.
-theorem countdownShrinks ∀ (x: Nat) (y: Nat) (v: Nat) (h: countdown x = Some (MkPair v y)): y < x := match x with
+theorem countdownShrinks ∀ (x y v: Nat) (h: countdown x = Some (MkPair v y)): y < x := match x with
   | Zero => Void.exfalso (Option.noneNotSome (MkPair v y) h)
   | Succ k =>
     let e := Pair.mkInjectiveSnd (Option.someInjective h)

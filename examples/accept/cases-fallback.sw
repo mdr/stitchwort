@@ -4,30 +4,14 @@
 -- to the latest bound, and goes on in each case.
 import Std (Bool, List)
 
-type Direction =
-  | Up
-  | Down
-  | Left
-  | Right
+type Direction = | Up | Down | Left | Right
 
-type DirectionKey =
-  | Arrow (direction: Direction)
-  | Activate
+type DirectionKey = | Arrow (direction: Direction) | Activate
 
-type NumericKey =
-  | Digit0
-  | Digit1
-  | Digit2
-  | Digit3
-  | Digit4
-  | Digit5
-  | Digit6
-  | Digit7
-  | Digit8
-  | Digit9
-  | Enter
+type NumericKey = | Digit0 | Digit1 | Digit2 | Digit3 | Digit4 | Digit5 | Digit6 | Digit7 | Digit8 | Digit9 | Enter
 
-def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
+def numericKeys: List NumericKey :=
+  [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
 
 def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate]
 
@@ -39,19 +23,7 @@ theorem everyNumericKey ∀ (key: NumericKey): key ∈ numericKeys := cases
 -- `key` (2 cases), then in the `Arrow d` case `d` (4): 5 cases.
 theorem everyDirectionKey ∀ (key: DirectionKey): key ∈ directionKeys := cases
 
-type Month =
-  | Jan
-  | Feb
-  | Mar
-  | Apr
-  | May
-  | Jun
-  | Jul
-  | Aug
-  | Sep
-  | Oct
-  | Nov
-  | Dec
+type Month = | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec
 
 -- The rule itself: decide/fallback.sw's two statements, written out by hand
 -- there. Only `flag` matters, and fewest cases first splits it (2 against
@@ -60,7 +32,8 @@ theorem flagFewest ∀ (flag: Bool) (month: Month): (flag = True) ∨ ((flag = F
 
 -- The same with two months: latest first would split `later`, then
 -- `earlier`, 144 cases, past the budget; fewest first makes 2.
-theorem flagFewestOfThree ∀ (flag: Bool) (earlier: Month) (later: Month): (flag = True) ∨ ((flag = False) ∨ (earlier = later)) := cases
+theorem flagFewestOfThree ∀ (flag: Bool) (earlier later: Month): (flag = True) ∨ ((flag = False) ∨ (earlier = later)) :=
+  cases
 
 -- Only `key` matters, but fewest first splits `flag` (2 against 11). The
 -- case `flag = True` is closed whole by `omega` (`… ∨ True = True`), so

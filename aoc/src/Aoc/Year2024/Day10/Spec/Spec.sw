@@ -8,14 +8,14 @@ import Aoc.Common (Position, adjacent)
 import Std (Bool, List, Nat, Option)
 
 --| "Always increases by a height of exactly 1 at each step".
-def increasesByOne (map: TopographicMap) (from: Position) (to: Position): Bool := match map.heightAt from with
+def increasesByOne (map: TopographicMap) (from to: Position): Bool := match map.heightAt from with
   | Some height => map.heightAt to == Some (height + 1)
   | None => False
 
 --| "Hiking trails never include diagonal steps - only up, down, left, or
 --| right": a step is to an `adjacent` position (one column apart in the
 --| same row, or one row apart in the same column; the shared grid code's).
-def isStep (map: TopographicMap) (from: Position) (to: Position): Bool := adjacent from to && increasesByOne map from to
+def isStep (map: TopographicMap) (from to: Position): Bool := adjacent from to && increasesByOne map from to
 
 --| "A hiking trail is any path that starts at height 0, ends at height 9, and
 --| always increases by a height of exactly 1 at each step."
@@ -37,7 +37,8 @@ def trailsFrom (map: TopographicMap) (start: Position): List (List Position) :=
   pathsOf map 9 |> .map (Cons start) |> .filter (isHikingTrail map)
 
 --| "A trailhead is any position that starts one or more hiking trails".
-def trailheads (map: TopographicMap): List Position := map.positions |> .filter (start => (trailsFrom map start).length >= 1)
+def trailheads (map: TopographicMap): List Position :=
+  map.positions |> .filter (start => (trailsFrom map start).length >= 1)
 
 --| "A trailhead's score is the number of 9-height positions reachable from
 --| that trailhead via a hiking trail."

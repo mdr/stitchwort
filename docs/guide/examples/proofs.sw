@@ -27,20 +27,18 @@ theorem lengthMapList ∀ (f: a → b) (xs: List a): (mapList f xs).length = xs.
 -- end lists
 
 -- begin rewrite
-theorem swapTimesOne ∀ (a: Nat) (b: Nat): (a + b) * 1 = b + a :=
-  rewrite Nat.mulOne (a + b), Nat.addComm a b
+theorem swapTimesOne ∀ (a b: Nat): (a + b) * 1 = b + a := rewrite Nat.mulOne (a + b), Nat.addComm a b
 -- end rewrite
 
 -- begin calc
-theorem chain ∀ (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 :=
-  calc a
-    _ = b := ab
-    _ ≤ c := bc
-    _ < 10 := small
+theorem chain ∀ (a b c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 := calc a
+  _ = b := ab
+  _ ≤ c := bc
+  _ < 10 := small
 -- end calc
 
 -- begin omega
-theorem roomForOne ∀ (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
+theorem roomForOne ∀ (x y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 
 theorem twiceIsDouble ∀ (n: Nat): double n = 2 * n := omega
 
@@ -48,41 +46,41 @@ theorem stepBack ∀ (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := 
 
 theorem thirdOfTriple ∀ (k: Int): (3 * k) / 3 = k := omega
 
-theorem sizeOfSum ∀ (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
+theorem sizeOfSum ∀ (x y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
 -- end omega
 
 -- begin omega-logic
-def isNeighbour (a: Nat) (b: Nat): Bool := a + 1 == b || b + 1 == a
+def isNeighbour (a b: Nat): Bool := a + 1 == b || b + 1 == a
 
-theorem neighboursDiffer ∀ (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
+theorem neighboursDiffer ∀ (a b: Nat) (near: isNeighbour a b = True): a != b := omega
 
 theorem nearZero ∀ (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := omega
 -- end omega-logic
 
 -- begin ring
-theorem squareOfSum ∀ (a: Nat) (b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
+theorem squareOfSum ∀ (a b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
 
-theorem areaGrows ∀ (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
+theorem areaGrows ∀ (w h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
 
-theorem pairCount ∀ (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
+theorem pairCount ∀ (n p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
 -- end ring
 
 -- begin ring-coefficients
-theorem scaledUp ∀ (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
+theorem scaledUp ∀ (a b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
 
-theorem bothScaled ∀ (x: Int) (y: Int) (k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
+theorem bothScaled ∀ (x y k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
 
-theorem turnedRound ∀ (a: Int) (b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
+theorem turnedRound ∀ (a b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
 -- end ring-coefficients
 
 -- begin cases
-theorem orComm ∀ (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
+theorem orComm ∀ (a b: Bool): (a ∨ b) = (b ∨ a) := cases
 
-theorem andLeft ∀ (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
+theorem andLeft ∀ (a b: Bool) (h: (a ∧ b) = True): a = True := cases
 
-def clamp (lo: Nat) (hi: Nat) (x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
+def clamp (lo hi x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
 
-theorem clampBelow ∀ (lo: Nat) (hi: Nat) (x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
+theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
 -- end cases
 
 -- begin spec
@@ -100,7 +98,7 @@ def sumFast (n: Nat): Nat :=
 
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
-theorem loopIsSum ∀ (n: Nat) (total: Nat): sumFast.loop n total = total + sumTo n := match n, total with
+theorem loopIsSum ∀ (n total: Nat): sumFast.loop n total = total + sumTo n := match n, total with
   | Zero, total => rfl
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 
@@ -117,7 +115,7 @@ theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length 
   | eq2IfTrue y ys h ih => ih
   | eq2IfFalse y ys h ih => omega
 
-theorem skipsSmall ∀ (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
+theorem skipsSmall ∀ (k x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
 -- end induct
 
@@ -126,9 +124,9 @@ def cap (limit: Nat): Nat → Nat
   | n if n <= limit => n
   | _ => limit
 
-theorem capKeeps ∀ (limit: Nat) (n: Nat) (fits: n ≤ limit): cap limit n = n := cap.eq1 limit n fits
+theorem capKeeps ∀ (limit n: Nat) (fits: n ≤ limit): cap limit n = n := cap.eq1 limit n fits
 
-theorem capCuts ∀ (limit: Nat) (n: Nat) (over: (n <= limit) = False): cap limit n = limit := cap.eq2 limit n over
+theorem capCuts ∀ (limit n: Nat) (over: (n <= limit) = False): cap limit n = limit := cap.eq2 limit n over
 
 def skipThree: Nat → Nat
   | n if n != 3 => n
@@ -160,58 +158,49 @@ test "checksum" := checksum [1, 2] == 33
 -- end opaque
 
 -- begin match-equation
-def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
+def clampTo (limit n: Nat): Nat := if n ≤ limit then n else limit
 
-theorem clampToAtMost ∀ (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
+theorem clampToAtMost ∀ (limit n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
   | True => fits
   | False => Nat.leRefl limit
 -- end match-equation
 
 -- begin match-lemma
-theorem clampToFits ∀ (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n :=
-  match fits: Nat.leq n limit with
-    | True => Both (clampToAtMost limit n) (Nat.leRefl n)
-    | False => Both (clampToAtMost limit n) omega
+theorem clampToFits ∀ (limit n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n := match fits: Nat.leq n limit with
+  | True => Both (clampToAtMost limit n) (Nat.leRefl n)
+  | False => Both (clampToAtMost limit n) omega
 -- end match-lemma
 
 -- begin decide
-def firstOr (fallback: Nat) (xs: List Nat): Nat :=
-  if nonempty: 0 < xs.length then xs.headOr fallback else fallback
+def firstOr (fallback: Nat) (xs: List Nat): Nat := if nonempty: 0 < xs.length then xs.headOr fallback else fallback
 
-def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
-  if inRange: i < 3 then Some (v.getLt i) else None
+def safeAt (v: Vec Nat 3) (i: Nat): Option Nat := if inRange: i < 3 then Some (v.getLt i) else None
 -- end decide
 
 -- begin bool-statement
 def isSmall (n: Nat): Bool := n <= 3
 
-theorem smallBoth ∀ (m: Nat) (n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h.right
+theorem smallBoth ∀ (m n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h.right
 
 theorem smallSame ∀ (n: Nat) (h: isSmall n): isSmall n = True := h
 -- end bool-statement
 
 -- begin readings
-type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = {
-  low: lo ≤ x,
-  high: x ≤ hi
-}
+type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }
 
-def within (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
+def within (lo x hi: Nat): Bool := lo <= x && x <= hi
 
 @[reading]
-theorem withinReads ∀ (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
-  forward = h => { low = h.left, high = h.right },
-  backward = r => Both r.low r.high
-}
+theorem withinReads ∀ (lo x hi: Nat): within lo x hi ↔ Within lo x hi :=
+  { forward = h => { low = h.left, high = h.right }, backward = r => Both r.low r.high }
 
-theorem withinHigh ∀ (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi := match h with
-  | { low, high } => high
+theorem withinHigh ∀ (lo x hi: Nat) (h: within lo x hi): x ≤ hi := match h with | { low, high } => high
 
-theorem withinLow ∀ (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
+theorem withinLow ∀ (lo x hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
 
 theorem withinSelf ∀ (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
 
-theorem eitherSide ∀ (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a := match h with
+theorem eitherSide ∀ (a b: Bool) (h: (a || b) = True): b ∨ a := match h with
   | Inl ha => Inr ha
   | Inr hb => Inl hb
 -- end readings
@@ -238,7 +227,8 @@ theorem pickTrio: pick (VCons 1 (VCons 2 (VCons 3 VNil))) = 3 := rfl
 -- end dependent
 
 -- begin reify
-theorem orElseIsGetOrElse ∀ (fallback: a) (t: () → {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
+theorem orElseIsGetOrElse ∀ (fallback: a) (t: () → {Fail} a):
+    Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
   match reify t with
     | return x => rfl
     | Fail.stop message, _ => rfl
@@ -261,14 +251,12 @@ theorem headIn ∀ (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl rfl
 
 theorem notInEmpty ∀ (x: Nat): x ∉ [] := none => none
 
-theorem bothWays ∀ (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
-  forward = h => Both (And.right h) (And.left h),
-  backward = h => Both (And.right h) (And.left h)
-}
+theorem bothWays ∀ (p q: Prop): p ∧ q ↔ q ∧ p :=
+  { forward = h => Both (And.right h) (And.left h), backward = h => Both (And.right h) (And.left h) }
 
 theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
 
-def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
+def unseen (seen xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 -- end logic
 
 -- begin forall

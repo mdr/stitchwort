@@ -20,7 +20,7 @@ theorem totalCons ∀ (x: Nat) (xs: List Nat): total [x, ..xs] = x + total xs :=
 theorem justSpread ∀ (xs: List Nat): [..xs] = xs := rfl
 
 -- A spread's tail is any expression up to the `]`.
-def joined (xs: List Nat) (ys: List Nat): List Nat := [0, ..xs ++ ys]
+def joined (xs ys: List Nat): List Nat := [0, ..xs ++ ys]
 
 test "joined" := joined [1] [2] == [0, 1, 2]
 
@@ -29,13 +29,13 @@ def snoc (xs: List Nat) (y: Nat): List Nat := [..xs, y]
 
 theorem snocIsAppend ∀ (xs: List Nat) (y: Nat): snoc xs y = xs ++ [y] := rfl
 
-def both (xs: List Nat) (ys: List Nat): List Nat := [..xs, ..ys]
+def both (xs ys: List Nat): List Nat := [..xs, ..ys]
 
-theorem bothIsAppend ∀ (xs: List Nat) (ys: List Nat): both xs ys = xs ++ ys := rfl
+theorem bothIsAppend ∀ (xs ys: List Nat): both xs ys = xs ++ ys := rfl
 
-def mixed (xs: List Nat) (ys: List Nat): List Nat := [1, ..xs, 2, ..ys]
+def mixed (xs ys: List Nat): List Nat := [1, ..xs, 2, ..ys]
 
-theorem mixedIsAppendCons ∀ (xs: List Nat) (ys: List Nat): mixed xs ys = [1, ..xs ++ [2, ..ys]] := rfl
+theorem mixedIsAppendCons ∀ (xs ys: List Nat): mixed xs ys = [1, ..xs ++ [2, ..ys]] := rfl
 
 test "mixed" := mixed [10, 11] [20] == [1, 10, 11, 2, 20]
 

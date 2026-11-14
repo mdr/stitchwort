@@ -11,14 +11,16 @@ import Aoc.Year2024.Day19.Spec (..)
 import Std (List, Nat)
 
 --| A design is possible exactly when there are ways to make it.
-theorem possibleWays ∀ (patterns: List Pattern) (design: Design): (ways patterns design > 0) = possible patterns design :=
+theorem possibleWays ∀ (patterns: List Pattern) (design: Design):
+    (ways patterns design > 0) = possible patterns design :=
   match arrangements patterns design with
     | [] => rfl
     | [first, ..rest] => rfl
 
 theorem part1Correct ∀ (onsen: Onsen): solvePart1 onsen = part1 onsen :=
-  List.countCongMem _ (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns)
-    (design member => rewrite waysCorrect onsen.patterns design in possibleWays onsen.patterns design)
+  List.countCongMem _ (design => waysToMake onsen.patterns design > 0) (possible onsen.patterns) (design member =>
+    rewrite waysCorrect onsen.patterns design in possibleWays onsen.patterns design)
 
 theorem part2Correct ∀ (onsen: Onsen): solvePart2 onsen = part2 onsen :=
-  List.sumByCongMem onsen.designs (waysToMake onsen.patterns) (ways onsen.patterns) (design member => waysCorrect onsen.patterns design)
+  List.sumByCongMem onsen.designs (waysToMake onsen.patterns) (ways onsen.patterns) (design member =>
+    waysCorrect onsen.patterns design)

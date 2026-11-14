@@ -6,11 +6,7 @@ namespace Rogue
 --| A cell of a level, counted from the top-left corner.
 type Position = { row: Nat, column: Nat }
 
-type Direction =
-  | North
-  | South
-  | West
-  | East
+type Direction = | North | South | West | East
 
 --| The neighbouring cell in a direction. Rows and columns stop at 0, but
 --| every level has rock all round, so nothing ever walks off its top or left.
@@ -20,18 +16,15 @@ def Position.toward (position: Position) (direction: Direction): Position := mat
   | West => { position | column = position.column - 1 }
   | East => { position | column = position.column + 1 }
 
-def distanceBetween (low: Nat) (high: Nat): Nat := (low - high) + (high - low)
+def distanceBetween (low high: Nat): Nat := (low - high) + (high - low)
 
 --| Steps between two cells, moving only up, down, left and right.
-def Position.distance (position: Position) (other: Position): Nat :=
+def Position.distance (position other: Position): Nat :=
   distanceBetween position.row other.row + distanceBetween position.column other.column
 
-def Position.isNextTo (position: Position) (other: Position): Bool := position.distance other == 1
+def Position.isNextTo (position other: Position): Bool := position.distance other == 1
 
-type Kind =
-  | Goblin
-  | Orc
-  | Troll
+type Kind = | Goblin | Orc | Troll
 
 def Kind.glyph: Kind → Char
   | Goblin => 'g'
@@ -59,10 +52,7 @@ type Monster = { kind: Kind, position: Position, hitPoints: Nat }
 --| What lies on the floor: a potion (carried, and drunk with `p`), a sword
 --| (wielded at once, so blows hit harder), or the amulet at the bottom of the
 --| dungeon, which wins the game.
-type Loot =
-  | Potion
-  | Sword
-  | Amulet
+type Loot = | Potion | Sword | Amulet
 
 def Loot.glyph: Loot → Char
   | Potion => '!'
@@ -71,18 +61,9 @@ def Loot.glyph: Loot → Char
 
 type Item = { loot: Loot, position: Position }
 
-type Command =
-  | Move (direction: Direction)
-  | Wait
-  | Descend
-  | Drink
-  | Quit
+type Command = | Move (direction: Direction) | Wait | Descend | Drink | Quit
 
-type Phase =
-  | Playing
-  | Won
-  | Died
-  | GaveUp
+type Phase = | Playing | Won | Died | GaveUp
 
 type State = {
   level: Level,

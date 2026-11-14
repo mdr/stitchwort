@@ -28,9 +28,7 @@ import Std (Eq, IO, List, Nat, Option, Pair, Unit, Vec, Void)
 import Std.IO (print)
 
 -- A packet is a number or a list of packets (Advent of Code 2022, day 13).
-type Packet: Type =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet: Type = | Number (value: Nat) | Packets (items: List Packet)
 
 def example: Packet := Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets [], Number 4]
 
@@ -44,16 +42,18 @@ theorem sizeOne: Packet.size (Packets [Number 1]) = 4 := rfl
 -- lemma, no `let` written here.
 def Packet.depth (p: Packet): Nat
     decreasing Packet.size p
-:= match p with
-  | Number n => 0
-  | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+:=
+  match p with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := Packet.depth example == 3
 
 -- The same lemma proves an `[auto]` argument that a member of a packet's
 -- items is smaller, from a membership in scope written `List.Mem q items`
 -- (or `q ∈ items`).
-theorem memberSmaller ∀ (q: Packet) (items: List Packet) [auto lt: Packet.size q < Packet.size (Packets items)]: Unit := ()
+theorem memberSmaller ∀ (q: Packet) (items: List Packet) [auto lt: Packet.size q < Packet.size (Packets items)]: Unit :=
+  ()
 
 theorem memberSmallerHere ∀ (q: Packet) (items: List Packet) (h: List.Mem q items): Unit := memberSmaller q items
 
@@ -70,12 +70,14 @@ def numbersIn: List Packet → Nat
 -- claim for its items, which a lemma over the list takes apart. Each step
 -- is closed by `omega`. `Packet.size (Packets items)` computes as far as the
 -- list is known, so the lemma can state its bound with it.
-theorem numbersInLe ∀ (items: List Packet) (all: List.All (q => numbers q ≤ Packet.size q) items):
-    numbersIn items ≤ Packet.size (Packets items) := match items, all with
-      | [], all => rfl
-      | [p, ..rest], Both here others =>
-        let ih := numbersInLe rest others
-        omega
+theorem numbersInLe ∀ (items: List Packet)
+    (all: List.All (q => numbers q ≤ Packet.size q) items):
+    numbersIn items ≤ Packet.size (Packets items) :=
+  match items, all with
+    | [], all => rfl
+    | [p, ..rest], Both here others =>
+      let ih := numbersInLe rest others
+      omega
 
 theorem numbersLe ∀ (p: Packet): numbers p ≤ Packet.size p :=
   Packet.induct (q => numbers q ≤ Packet.size q) (value => rfl) (items all => numbersInLe items all) p
@@ -86,18 +88,18 @@ theorem sizePositive ∀ (p: Packet): 0 < Packet.size p :=
   Packet.inductMem (q => 0 < Packet.size q) (value => rfl) (items each => rfl) p
 
 -- A rose tree with a parameter: `Rose.induct` takes the motive over `Rose a`.
-type Rose (a: Type): Type =
-  | Bloom (label: a) (kids: List (Rose a))
+type Rose (a: Type): Type = | Bloom (label: a) (kids: List (Rose a))
 
 def Rose.labels (t: Rose a): List a
     decreasing Rose.size t
-:= match t with
-  | Bloom x kids => [x, ..kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append]
+:=
+  match t with | Bloom x kids => [x, ..kids.attach.map (e => Rose.labels e.value) |> .foldLeft [] List.append]
 
 test "labels" := Rose.labels (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) == [1, 2, 3, 4]
 
 -- An `[auto]` argument from a membership, with the parameter.
-theorem kidSmaller ∀ (t: Rose a) (x: a) (kids: List (Rose a)) [auto lt: Rose.size t < Rose.size (Bloom x kids)]: Unit := ()
+theorem kidSmaller ∀ (t: Rose a) (x: a) (kids: List (Rose a)) [auto lt: Rose.size t < Rose.size (Bloom x kids)]: Unit :=
+  ()
 
 theorem kidSmallerHere ∀ (t: Rose a) (x: a) (kids: List (Rose a)) (h: t ∈ kids): Unit := kidSmaller t x kids
 
@@ -106,55 +108,46 @@ theorem labelsNonEmpty ∀ (t: Rose a): 0 < Rose.size t :=
   Rose.inductMem (s => 0 < Rose.size s) (label kids each => rfl) t
 
 -- Nested twice, and in an `Option` of a pair: the hypotheses compose.
-type Nest: Type =
-  | Leaf
-  | Deep (rows: List (List Nest))
-  | Maybe (next: Option (Pair Nest Nat))
+type Nest: Type = | Leaf | Deep (rows: List (List Nest)) | Maybe (next: Option (Pair Nest Nat))
 
 -- The statement of `Nest.induct`, written out.
 theorem nestInduct ∀ (motive: Nest → Prop) (leaf: motive Leaf)
     (deep: ∀ (rows: List (List Nest)) => List.All (List.All motive) rows → motive (Deep rows))
     (maybe: ∀ (next: Option (Pair Nest Nat)) => Option.All (Pair.All motive (x => Unit)) next → motive (Maybe next))
-    (t: Nest): motive t :=
+    (t: Nest):
+    motive t :=
   Nest.induct motive leaf deep maybe t
 
 -- `List (Option T)`: `List.All (Option.All motive)`.
-type Sparse: Type =
-  | Dense (n: Nat)
-  | Holes (slots: List (Option Sparse))
+type Sparse: Type = | Dense (n: Nat) | Holes (slots: List (Option Sparse))
 
 theorem sparseInduct ∀ (motive: Sparse → Prop) (dense: ∀ (n: Nat) => motive (Dense n))
-    (holes: ∀ (slots: List (Option Sparse)) => List.All (Option.All motive) slots → motive (Holes slots))
-    (t: Sparse): motive t :=
+    (holes: ∀ (slots: List (Option Sparse)) => List.All (Option.All motive) slots → motive (Holes slots)) (t: Sparse):
+    motive t :=
   Sparse.induct motive dense holes t
 
 -- A container of the program: `Bag a` gets `Bag.All`, one predicate for
 -- its parameter, true of every value in it.
-type Bag (a: Type): Type =
-  | Single (x: a)
-  | Many (first: a) (rest: List a)
+type Bag (a: Type): Type = | Single (x: a) | Many (first: a) (rest: List a)
 
-theorem bagAll ∀ (p: a → Prop) (x: a) (y: a) (px: p x) (py: p y): Bag.All p (Many x [y]) := Both px (Both py ())
+theorem bagAll ∀ (p: a → Prop) (x y: a) (px: p x) (py: p y): Bag.All p (Many x [y]) := Both px (Both py ())
 
-type Crate: Type =
-  | Empty
-  | Packed (bag: Bag Crate)
+type Crate: Type = | Empty | Packed (bag: Bag Crate)
 
 theorem crateInduct ∀ (motive: Crate → Prop) (empty: motive Empty)
-    (packed: ∀ (bag: Bag Crate) => Bag.All motive bag → motive (Packed bag))
-    (t: Crate): motive t :=
+    (packed: ∀ (bag: Bag Crate) => Bag.All motive bag → motive (Packed bag)) (t: Crate):
+    motive t :=
   Crate.induct motive empty packed t
 
 -- An indexed family: the motive takes the index too.
-type Ranked: Nat → Type =
-  | RLeaf: Ranked 0
-  | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
+type Ranked: Nat → Type = | RLeaf: Ranked 0 | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
 
 def Ranked.count (r: Ranked k): Nat
     decreasing Ranked.size r
-:= match r with
-  | RLeaf => 1
-  | RNode n kids => 1 + (kids.attach.map (e => Ranked.count e.value) |> .foldLeft 0 Nat.add)
+:=
+  match r with
+    | RLeaf => 1
+    | RNode n kids => 1 + (kids.attach.map (e => Ranked.count e.value) |> .foldLeft 0 Nat.add)
 
 theorem rankedPositive ∀ (r: Ranked k): 0 < Ranked.size r :=
   Ranked.induct (n s => 0 < Ranked.size s) rfl (n kids all => rfl) r
@@ -164,13 +157,18 @@ type Node = { weight: Nat, children: List Node }
 
 def Node.total (node: Node): Nat
     decreasing Node.size node
-:= match node with
-  | { weight, children } => weight + (children.attach.map (e => Node.total e.value) |> .foldLeft 0 Nat.add)
+:=
+  match node with
+    | { weight, children } => weight + (children.attach.map (e => Node.total e.value) |> .foldLeft 0 Nat.add)
 
-test "total" := Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] } == 7
+test "total" :=
+  Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] } == 7
 
 -- And for the record.
-theorem childSmaller ∀ (m: Node) (w: Nat) (cs: List Node) [auto lt: Node.size m < Node.size { weight = w, children = cs }]: Unit := ()
+theorem childSmaller ∀ (m: Node) (w: Nat) (cs: List Node)
+    [auto lt: Node.size m < Node.size { weight = w, children = cs }]:
+    Unit :=
+  ()
 
 theorem childSmallerHere ∀ (m: Node) (w: Nat) (cs: List Node) (h: List.Mem m cs): Unit := childSmaller m w cs
 
@@ -179,4 +177,5 @@ def main(): {IO} () :=
   print "numbers: ${numbers example}"
   print "labels: ${Rose.labels (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]])}"
   print "ranked: ${Ranked.count (RNode 1 [RNode 0 [], RNode 0 []])}"
-  print "weight: ${Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] }}"
+  print
+    "weight: ${Node.total { weight = 1, children = [{ weight = 2, children = [] }, { weight = 4, children = [] }] }}"

@@ -21,11 +21,11 @@ def comboValue (registers: Registers) (operand: Nat): Option Nat :=
       | _ => None
 
 --| Whether bit `i` of `n` is 1: the bit worth 2 to the power `i`.
-def bitSet (n: Nat) (i: Nat): Bool := n / Nat.pow 2 i % 2 == 1
+def bitSet (n i: Nat): Bool := n / Nat.pow 2 i % 2 == 1
 
 --| "The bitwise XOR of" `x` and `y` is `result`: each bit of it is 1 when
 --| exactly one of `x` and `y` has that bit 1.
-def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := ∀ (i: Nat) => bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
+def BitwiseXor (x y result: Nat): Prop := ∀ (i: Nat) => bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
 
 --| The machine at the next instruction, "the instruction pointer increases
 --| by 2 after each instruction", with `registers`.
@@ -40,7 +40,7 @@ def WithCombo (registers: Registers) (operand: Nat) (step: Step) (happens: Nat �
 
 --| What the instruction with `opcode` and `operand` does to `machine`, as
 --| the step it takes. Opcodes above 7 aren't instructions: a fault.
-def Executes (opcode: Nat) (operand: Nat) (machine: Machine) (step: Step): Prop :=
+def Executes (opcode operand: Nat) (machine: Machine) (step: Step): Prop :=
   let registers := machine.registers
   match opcode with
     -- "The adv instruction (opcode 0) performs division. The numerator is
@@ -48,11 +48,14 @@ def Executes (opcode: Nat) (operand: Nat) (machine: Machine) (step: Step): Prop 
     -- the power of the instruction's combo operand. ... The result of the
     -- division operation is truncated to an integer and then written to the
     -- A register."
-    | 0 => WithCombo registers operand step (value => step = Next (advanced machine { registers | a = registers.a / Nat.pow 2 value }) None)
+    | 0 => WithCombo registers operand step (value =>
+      step = Next (advanced machine { registers | a = registers.a / Nat.pow 2 value }) None)
     -- "The bxl instruction (opcode 1) calculates the bitwise XOR of register
     -- B and the instruction's literal operand, then stores the result in
     -- register B."
-    | 1 => ∃ (result: Nat) => BitwiseXor registers.b operand result ∧ step = Next (advanced machine { registers | b = result }) None
+    | 1 =>
+      ∃ (result: Nat) => BitwiseXor registers.b operand result
+        ∧ step = Next (advanced machine { registers | b = result }) None
     -- "The bst instruction (opcode 2) calculates the value of its combo
     -- operand modulo 8 (thereby keeping only its lowest 3 bits), then
     -- writes that value to the B register."
@@ -67,17 +70,21 @@ def Executes (opcode: Nat) (operand: Nat) (machine: Machine) (step: Step): Prop 
     -- "The bxc instruction (opcode 4) calculates the bitwise XOR of register
     -- B and register C, then stores the result in register B. (For legacy
     -- reasons, this instruction reads an operand but ignores it.)"
-    | 4 => ∃ (result: Nat) => BitwiseXor registers.b registers.c result ∧ step = Next (advanced machine { registers | b = result }) None
+    | 4 =>
+      ∃ (result: Nat) => BitwiseXor registers.b registers.c result
+        ∧ step = Next (advanced machine { registers | b = result }) None
     -- "The out instruction (opcode 5) calculates the value of its combo
     -- operand modulo 8, then outputs that value."
     | 5 => WithCombo registers operand step (value => step = Next (advanced machine registers) (Some (value % 8)))
     -- "The bdv instruction (opcode 6) works exactly like the adv
     -- instruction except that the result is stored in the B register. (The
     -- numerator is still read from the A register.)"
-    | 6 => WithCombo registers operand step (value => step = Next (advanced machine { registers | b = registers.a / Nat.pow 2 value }) None)
+    | 6 => WithCombo registers operand step (value =>
+      step = Next (advanced machine { registers | b = registers.a / Nat.pow 2 value }) None)
     -- "The cdv instruction (opcode 7) works exactly like the adv
     -- instruction except that the result is stored in the C register."
-    | 7 => WithCombo registers operand step (value => step = Next (advanced machine { registers | c = registers.a / Nat.pow 2 value }) None)
+    | 7 => WithCombo registers operand step (value =>
+      step = Next (advanced machine { registers | c = registers.a / Nat.pow 2 value }) None)
     | _ => step = Fault
 
 --| What the computer does at `machine`: "If the computer tries to read an
@@ -96,10 +103,19 @@ def StepMatches (program: List Nat) (machine: Machine) (step: Step): Prop := mat
 --| every step as the puzzle says.
 type Halts (program: List Nat): Machine → List Nat → Prop =
   | Stops (machine: Machine) (stop: StepMatches program machine Halt): Halts program machine []
-  | Quiet (machine: Machine) (after: Machine) (output: List Nat) (move: StepMatches program machine (Next after None)) (rest: Halts program after output):
-    Halts program machine output
-  | Prints (machine: Machine) (after: Machine) (value: Nat) (output: List Nat) (move: StepMatches program machine (Next after (Some value)))
-    (rest: Halts program after output): Halts program machine [value, ..output]
+  | Quiet
+      (machine: Machine)
+      (after: Machine)
+      (output: List Nat)
+      (move: StepMatches program machine (Next after None))
+      (rest: Halts program after output): Halts program machine output
+  | Prints
+      (machine: Machine)
+      (after: Machine)
+      (value: Nat)
+      (output: List Nat)
+      (move: StepMatches program machine (Next after (Some value)))
+      (rest: Halts program after output): Halts program machine [value, ..output]
 
 --| "Initialize the registers to the given values, then run the given
 --| program": the instruction pointer "starts at 0".
@@ -107,10 +123,12 @@ def start (registers: Registers): Machine := { registers, pointer = 0 }
 
 --| Part 2: with register A initialized to `a`, "the program outputs a copy
 --| of itself".
-def OutputsItself (debugger: Debugger) (a: Nat): Prop := Halts debugger.program (start { debugger.registers | a }) debugger.program
+def OutputsItself (debugger: Debugger) (a: Nat): Prop :=
+  Halts debugger.program (start { debugger.registers | a }) debugger.program
 
 --| The shape part 2's search relies on, which the puzzle doesn't state but
 --| the programs it gives have: each pass of a loop outputs one number, shifts
 --| A right by 3 bits and starts again unless A is 0, so what A outputs is a
 --| number, then what A / 8 outputs if A / 8 isn't 0. Assumed, not checked.
-def LoopShape (output: Nat → List Nat): Prop := ∀ (a: Nat) => ∃ (first: Nat) => output a = [first, ..(if a < 8 then [] else output (a / 8))]
+def LoopShape (output: Nat → List Nat): Prop :=
+  ∀ (a: Nat) => ∃ (first: Nat) => output a = [first, ..(if a < 8 then [] else output (a / 8))]

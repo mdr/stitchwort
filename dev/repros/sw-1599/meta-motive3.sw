@@ -12,8 +12,7 @@ theorem lem ∀ (slot: Slot) (k: isNone slot.field = True): Holds slot.field k :
   | None => { holds = rfl }
   | Some n => Void.exfalso (Bool.falseNotTrue k)
 
-theorem pfL ∀ (slot: Slot) [auto q: slot.field = None]: isNone slot.field = True :=
-  rewrite q in rfl
+theorem pfL ∀ (slot: Slot) [auto q: slot.field = None]: isNone slot.field = True := rewrite q in rfl
 
 theorem use ∀ (slot: Slot): slot.field = None → Holds None rfl := match field: slot.field with
   | None => _ => lem slot (pfL slot)

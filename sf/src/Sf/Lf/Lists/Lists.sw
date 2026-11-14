@@ -23,8 +23,7 @@ import Sf.Lf.Induction (..)
 --
 -- First, a type of identifiers, to be the keys of the maps:
 
-type Id =
-  | MkId (n: Nat)
+type Id = | MkId (n: Nat)
 
 -- Internally an `Id` is just a number. Wrapping each number in the tag
 -- `MkId` makes definitions more readable, and lets us change the
@@ -36,8 +35,7 @@ type Id =
 --
 -- An equality test for `Id`s:
 
-def eqbId (x1 x2: Id): Bool := match x1, x2 with
-  | MkId n1, MkId n2 => eqb n1 n2
+def eqbId (x1 x2: Id): Bool := match x1, x2 with | MkId n1, MkId n2 => eqb n1 n2
 
 -- Exercise: 1 star, standard (eqb_id_refl)
 

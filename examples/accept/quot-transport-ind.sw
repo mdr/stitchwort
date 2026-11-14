@@ -11,7 +11,7 @@
 --   0
 import Std (IO, Nat)
 
-def AllTrue (x: Bool) (y: Bool): Prop := Unit
+def AllTrue (x y: Bool): Prop := Unit
 def Q: Type := Quot Bool AllTrue
 
 def p: 0 = 0 := Quot.ind [p := q => 0 = 0] (b => rfl) (Quot.mk False: Q)

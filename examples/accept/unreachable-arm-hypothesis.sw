@@ -21,8 +21,7 @@ theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs 
 
 -- An arm that binds the impossible value itself is how a proof uses it, not
 -- a case ruled out beforehand: no warning.
-theorem rockBeatsRock ∀ (p: beats Rock Rock): 1 = 2 := match p with
-  | q => Void.exfalso (Bool.falseNotTrue q)
+theorem rockBeatsRock ∀ (p: beats Rock Rock): 1 = 2 := match p with | q => Void.exfalso (Bool.falseNotTrue q)
 
 -- `()` already says the case can't happen: no warning.
 theorem rockBeatsOnlyScissorsAbsurd ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with

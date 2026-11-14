@@ -47,8 +47,7 @@ def picks (counts: List Nat): {Pick} Nat :=
   List.sum (List.map (List.take counts 4) (count => Pick.pick (Nat.min count 3) * 10))
 
 -- At the empty row.
-export def resumed (counts: List Nat): List Nat :=
-  Pick.all (() => picks counts)
+export def resumed (counts: List Nat): List Nat := Pick.all (() => picks counts)
 
 -- With `Fail` outside the handler, so resumption is lazy.
 export def resumedChecked (counts: List Nat): Result (List Nat) Text :=
@@ -68,9 +67,7 @@ export def choicesChecked (numbers: List Nat): Result (List (List Nat)) Text :=
 ability Offer where
   offer: Nat → {Offer} Nat
 
-type Paused =
-  | Finished (total: Nat)
-  | Suspended (offered: Nat) (resume: Nat → Paused)
+type Paused = | Finished (total: Nat) | Suspended (offered: Nat) (resume: Nat → Paused)
 
 def Offer.pause (prog: () → {Offer} Nat): Paused :=
   handle prog() with
@@ -99,8 +96,7 @@ def explore (p: Paused): List Nat := match p with
     -- answers, one of them twice.
     [settle 5 1 (resume 1), settle 5 2 (resume 2), settle 5 1 (resume 1), settle 5 0 (resume 7)]
 
-export def branches (start: Nat): List Nat :=
-  explore (Offer.pause (() => threeOffers start))
+export def branches (start: Nat): List Nat := explore (Offer.pause (() => threeOffers start))
 
 -- Resumes the first stored resumption with each answer in turn, after the
 -- handler is long gone, settling each run differently.
@@ -136,10 +132,12 @@ def layered: Nat → (() → {Env, Tick} a) → {Env, Tick} a
   | Succ depth, prog => Tick.ignore (() => layered depth prog)
 
 -- Each element asks the outermost handler and ticks to the innermost.
-export def nested (depth: Nat) (numbers: List Nat): List Nat :=
-  Env.give 7 (() => Tick.ignore (() => layered (Nat.min depth 100) (() => List.map numbers (x =>
-    Tick.tick()
-    x + Env.ask()))))
+export def nested (depth: Nat) (numbers: List Nat): List Nat := Env.give 7 (() =>
+  Tick.ignore (() =>
+    layered (Nat.min depth 100) (() =>
+      List.map numbers (x =>
+        Tick.tick()
+        x + Env.ask()))))
 
 -- A computation moved between rows `depth` times (at most 100), so each of
 -- its operations is renamed by every `translate` on the way out and its
@@ -165,6 +163,10 @@ def Counter.number (prog: () → {Counter} a): Nat → a :=
     | Counter.next u, k => (s => k s (s + 1))
 
 export def stateThroughFail (limit: Nat) (numbers: List Nat): Result (List Nat) Text :=
-  Counter.number (() => Fail.toResult (() => List.map numbers (x =>
-    let n := Counter.next()
-    if n < limit then x + n else Fail.fail "limit"))) 0
+  Counter.number
+    (() =>
+      Fail.toResult (() =>
+        List.map numbers (x =>
+          let n := Counter.next()
+          if n < limit then x + n else Fail.fail "limit")))
+    0

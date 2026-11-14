@@ -9,7 +9,8 @@ def lineCells (x: Int): List Int := [x - 1, x + 1]
 def oneNeighbour (alive: Bool) (count: Nat): Bool := count == 1
 
 test "lifeStep on a line grows from one cell" := (lifeStep lineCells oneNeighbour [0].toSet).toList == [-1, 1]
-test "lifeStep on a line, two generations" := (lifeStep lineCells oneNeighbour (lifeStep lineCells oneNeighbour [0].toSet)).toList == [-2, 2]
+test "lifeStep on a line, two generations" :=
+  (lifeStep lineCells oneNeighbour (lifeStep lineCells oneNeighbour [0].toSet)).toList == [-2, 2]
 test "lifeStep of no cells is none" := (lifeStep lineCells oneNeighbour (Set.empty: Set Int)).toList == []
 test "lifeCounts counts every hit" := (lifeCounts lineCells [0, 2].toSet).toList == [(-1, 1), (1, 2), (3, 1)]
 

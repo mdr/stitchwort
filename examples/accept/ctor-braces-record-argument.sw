@@ -44,11 +44,9 @@ def describe (mode: Mode) (item: Item): Text := match mode with
   | Filling => "fill " ++ item.name
   | Draining => "drain " ++ item.name
 
-test "braces as the next argument after a constructor" :=
-  describe Filling { name = "tea", price = 3 } == "fill tea"
+test "braces as the next argument after a constructor" := describe Filling { name = "tea", price = 3 } == "fill tea"
 
 -- Inside a list, with the bracketed form still working.
-def items: List (Option Item) :=
-  [Some { name = "tea", price = 3 }, Some { name = "cake", price = 5 }, None]
+def items: List (Option Item) := [Some { name = "tea", price = 3 }, Some { name = "cake", price = 5 }, None]
 
 test "both spellings" := items.length == 3

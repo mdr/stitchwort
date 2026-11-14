@@ -3,20 +3,20 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `doubleTimesHalved`
-    ╭─[ goals/counterexample-big-numbers.sw:15:102 ]
+    ╭─[ goals/counterexample-big-numbers.sw:15:95 ]
     │
- 15 │ theorem doubleTimesHalved ∀ (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
-    │                                                                                                      ┬  
-    │                                                                                                      ╰── n: Nat
-    │                                                                                                          count: Nat
-    │                                                                                                          ⊢ (doubleTimes n count).shiftRight count = n
+ 15 │ theorem doubleTimesHalved ∀ (n count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
+    │                                                                                               ┬  
+    │                                                                                               ╰── n: Nat
+    │                                                                                                   count: Nat
+    │                                                                                                   ⊢ (doubleTimes n count).shiftRight count = n
 ────╯
 [GOAL] Goal: in `powTwoIsPow`
-    ╭─[ goals/counterexample-big-numbers.sw:26:76 ]
+    ╭─[ goals/counterexample-big-numbers.sw:26:69 ]
     │
- 26 │ theorem powTwoIsPow ∀ (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
-    │                                                                            ┬  
-    │                                                                            ╰── fuel: Nat
-    │                                                                                k: Nat
-    │                                                                                ⊢ powTwo fuel k = Nat.pow 2 k
+ 26 │ theorem powTwoIsPow ∀ (fuel k: Nat): powTwo fuel k = Nat.pow 2 k := ?
+    │                                                                     ┬  
+    │                                                                     ╰── fuel: Nat
+    │                                                                         k: Nat
+    │                                                                         ⊢ powTwo fuel k = Nat.pow 2 k
 ────╯

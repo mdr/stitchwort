@@ -12,15 +12,15 @@ def ex (depth: Nat): Num → Nat
   | Pr left right => ex (depth + 1) left + ex (depth + 1) right
 
 -- `ex.eq3`: the earlier arm's failure as a hypothesis (Lean's form).
-theorem exEq3 ∀ (depth: Nat) (left: Num) (right: Num) (h: (a: Nat) → (b: Nat) → left = Reg a → right = Reg b → Void):
-    ex depth (Pr left right) = ex (depth + 1) left + ex (depth + 1) right := match left, right with
-      | Reg a, Reg b => Void.exfalso (h a b rfl rfl)
-      | Reg a, Pr x y => rfl
-      | Pr x y, r => rfl
+theorem exEq3 ∀ (depth: Nat) (left right: Num) (h: (a: Nat) → (b: Nat) → left = Reg a → right = Reg b → Void):
+    ex depth (Pr left right) = ex (depth + 1) left + ex (depth + 1) right :=
+  match left, right with
+    | Reg a, Reg b => Void.exfalso (h a b rfl rfl)
+    | Reg a, Pr x y => rfl
+    | Pr x y, r => rfl
 
 -- Using it where the left part is known to be a pair: `cases` discharges the hypothesis.
-theorem exUse ∀ (depth: Nat) (x: Num) (y: Num) (r: Num):
-    ex depth (Pr (Pr x y) r) = ex (depth + 1) (Pr x y) + ex (depth + 1) r :=
+theorem exUse ∀ (depth: Nat) (x y r: Num): ex depth (Pr (Pr x y) r) = ex (depth + 1) (Pr x y) + ex (depth + 1) r :=
   exEq3 depth (Pr x y) r cases
 
 -- And where nothing is known but a hypothesis about the left part.
@@ -28,7 +28,8 @@ def isReg: Num → Bool
   | Reg _ => True
   | Pr _ _ => False
 
-theorem exUse2 ∀ (depth: Nat) (left: Num) (right: Num) (notReg: isReg left = False):
+theorem exUse2 ∀ (depth: Nat) (left right: Num)
+    (notReg: isReg left = False):
     ex depth (Pr left right) = ex (depth + 1) left + ex (depth + 1) right :=
   exEq3 depth left right (a b el er => Bool.trueNotFalse (rewrite el at notReg in notReg))
 

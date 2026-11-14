@@ -4,9 +4,7 @@
 -- a call.
 import Std (Bool, Eq, Nat, Set)
 
-type Tree =
-  | Leaf (n: Nat)
-  | Node (left: Tree) (right: Tree)
+type Tree = | Leaf (n: Nat) | Node (left: Tree) (right: Tree)
 
 def grow: Nat → Tree → Tree
   | Zero, tree => tree
@@ -17,7 +15,7 @@ def startsAt: Nat → Tree → Bool
   | Succ _, Leaf _ => True
   | Succ _, Node _ _ => False
 
-def keep (x: Nat) (k: Nat): Bool := startsAt k (grow 30 (Leaf x))
+def keep (x k: Nat): Bool := startsAt k (grow 30 (Leaf x))
 
 theorem applied ∀ (x: Nat) (s: Set Nat) (key: Nat):
     Set.contains (s.filter (keep x)) key = (Set.contains s key && keep x key) :=

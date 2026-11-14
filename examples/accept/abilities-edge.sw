@@ -78,8 +78,7 @@ test "list, annotation, named argument" :=
 -- A computation that isn't a function.
 def current: {State Nat} Nat := get()
 
-test "a computation used twice runs twice" :=
-  fstOf (runState 4 (u => current + current)) == 8
+test "a computation used twice runs twice" := fstOf (runState 4 (u => current + current)) == 8
 
 -- A value read first and captured by a pure function.
 def adder(): {State Nat} (Nat → Nat) :=
@@ -132,8 +131,7 @@ test "a smaller row inside a bigger one" :=
 -- A partially applied effectful function is a value (it doesn't run yet).
 def pickFrom (n: Nat) (): {Choose} Nat := if choose() then n else 0
 
-test "a partial application is passed, not run" :=
-  eqNats (allResults (pickFrom 3)) [3, 0]
+test "a partial application is passed, not run" := eqNats (allResults (pickFrom 3)) [3, 0]
 
 -- A pure `let` in a function whose row and result mention variables.
 def peek(): {State s | e} s :=
@@ -144,10 +142,9 @@ test "a pure let under a row variable" := fstOf (runState 9 (u => peek())) == 9
 
 -- A handler inside a function with other abilities: what it doesn't handle
 -- (`say`) goes out to the function's own row.
-def choicesLogged(): {Log} List Nat :=
-  allResults (v =>
-    say 1
-    if choose() then 10 else 20)
+def choicesLogged(): {Log} List Nat := allResults (v =>
+  say 1
+  if choose() then 10 else 20)
 
 -- `say 1` runs once, before the choice; both results come back.
 test "a handler forwards to a concrete row" :=
@@ -166,8 +163,7 @@ test "a row-polymorphic function, reordered" :=
 -- A function that performs fewer abilities than a parameter allows.
 def onlyChoice(): {Choose} Nat := if choose() then 1 else 2
 
-test "fewer abilities than allowed" :=
-  eqNats (allResults (u => fstOf (runState 5 (v => useBoth onlyChoice)))) [6, 7]
+test "fewer abilities than allowed" := eqNats (allResults (u => fstOf (runState 5 (v => useBoth onlyChoice)))) [6, 7]
 
 -- A `handle` written inside a function with a concrete row: `say` isn't
 -- handled here, so it's forwarded to the function's own `Log`.

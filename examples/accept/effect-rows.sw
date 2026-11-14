@@ -28,13 +28,11 @@ theorem mapIsPureMap ∀ [a b: Type] (f: a → b) (xs: List a): List.map xs f = 
   | [] => rfl
   | [x, ..xs] => Eq.cong (Cons (f x)) (mapIsPureMap f xs)
 
-theorem lengthMap ∀ [a b: Type] (f: a → b) (xs: List a): List.length (List.map xs f) = List.length xs :=
-  match xs with
-    | [] => rfl
-    | [x, ..xs] => Eq.cong Succ (lengthMap f xs)
+theorem lengthMap ∀ [a b: Type] (f: a → b) (xs: List a): List.length (List.map xs f) = List.length xs := match xs with
+  | [] => rfl
+  | [x, ..xs] => Eq.cong Succ (lengthMap f xs)
 
-theorem mapCons ∀ [a b: Type] (f: a → b) (x: a) (xs: List a):
-    List.map [x, ..xs] f = [f x, ..List.map xs f] := rfl
+theorem mapCons ∀ [a b: Type] (f: a → b) (x: a) (xs: List a): List.map [x, ..xs] f = [f x, ..List.map xs f] := rfl
 
 -- A data type: `Nat`.
 def lengths (words: List Text): List Nat := List.map words Text.length
@@ -85,8 +83,7 @@ def Answer: Bool → Type
   | False => Nat
 
 -- A number tagged with a flag, so that the flag is known from the list.
-type Tagged (flag: Bool): Type =
-  | Tag (n: Nat)
+type Tagged (flag: Bool): Type = | Tag (n: Nat)
 
 def answerOf: (flag: Bool) → Nat → Answer flag
   | True, n => sayAndDouble n
@@ -117,8 +114,7 @@ test "an eta-expanded callback whose type becomes a computation later" :=
 
 def notLoggedLambda (numbers: List (Tagged False)): List Nat := List.map numbers (tagged => answer tagged)
 
-test "an eta-expanded callback whose type computes to a plain type later" :=
-  notLoggedLambda [Tag 3, Tag 4] == [3, 4]
+test "an eta-expanded callback whose type computes to a plain type later" := notLoggedLambda [Tag 3, Tag 4] == [3, 4]
 
 -- A pure eta-expanded callback whose row is shared with another argument:
 -- its body doesn't decide the row, the program does (SW-434).
@@ -128,8 +124,7 @@ def sayNonZero (n: Nat): {Log, Fail} Nat :=
 
 def recovered (n: Nat): {Log} Nat := Fail.recover (message => Text.length message) (() => sayNonZero n)
 
-test "a pure handler for an effectful program" :=
-  Log.collect (() => (recovered 0, recovered 7)) == MkPair (4, 7) [0, 7]
+test "a pure handler for an effectful program" := Log.collect (() => (recovered 0, recovered 7)) == MkPair (4, 7) [0, 7]
 
 -- An effectful callback: the row is its row.
 def sayAll (numbers: List Nat): {Log} List Nat := List.map numbers sayAndDouble
@@ -161,10 +156,8 @@ def cellAt (flag: Bool): Cell flag := applyDep cellOf flag
 test "a type family stuck on a variable" := cellAt True == 1
 
 -- A callback that is itself effect-polymorphic: the rows are the same.
-def mapTwice (f: Nat → {e} Nat) (numbers: List Nat): {e} List Nat :=
-  List.map (List.map numbers f) f
+def mapTwice (f: Nat → {e} Nat) (numbers: List Nat): {e} List Nat := List.map (List.map numbers f) f
 
 test "a row-polymorphic callback, pure" := mapTwice (n => n + 1) [1] == [3]
 
-test "a row-polymorphic callback, effectful" :=
-  Log.collect (() => mapTwice sayAndDouble [1]) == MkPair [4] [1, 2]
+test "a row-polymorphic callback, effectful" := Log.collect (() => mapTwice sayAndDouble [1]) == MkPair [4] [1, 2]

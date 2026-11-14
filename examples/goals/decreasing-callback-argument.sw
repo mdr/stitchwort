@@ -7,10 +7,15 @@
 -- variable that hid what it was.
 import Std (List)
 
-def g (xs: List Nat) (k: Nat): Nat decreasing xs.length :=
+def g (xs: List Nat) (k: Nat): Nat
+    decreasing xs.length
+:=
   [1, 2] |> .sumBy (other => if k == 0 then 0 else g (xs.filter (c => c == other)) k [decreasing := ?])
 
-def withLet (xs: List Nat) (k: Nat): Nat decreasing xs.length :=
-  [1, 2] |> .sumBy (other =>
-    let left := xs.filter (c => c == other)
-    if k == 0 then 0 else withLet left k [decreasing := ?])
+def withLet (xs: List Nat) (k: Nat): Nat
+    decreasing xs.length
+:=
+  [1, 2]
+    |> .sumBy (other =>
+      let left := xs.filter (c => c == other)
+      if k == 0 then 0 else withLet left k [decreasing := ?])

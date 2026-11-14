@@ -28,8 +28,7 @@ def halveEach (numbers: List Nat): List (Option Nat) := numbers.map (x => Abort.
 
 test "a handler in map's callback" := halveEach [2, 3] == [Some 1, None]
 
-def halveEachResult (numbers: List Nat): List (Result Nat Text) :=
-  numbers.map (x => Fail.toResult (() => halfOrFail x))
+def halveEachResult (numbers: List Nat): List (Result Nat Text) := numbers.map (x => Fail.toResult (() => halfOrFail x))
 
 test "another handler in map's callback" := halveEachResult [2, 3] == [Ok 1, Err "odd"]
 
@@ -50,8 +49,8 @@ test "a handler matched on" := halvedCount [2, 4] == 2
 
 -- The reviewer's probe for the case stage 3 excluded handlers for.
 theorem thenLaw ∀ (first: () → {Abort} a) (rest: a → {Abort} b):
-    Abort.toOption (() => rest (first ())) =
-      Option.flatMap (Abort.toOption first) (x => Abort.toOption (() => rest x)) :=
+    Abort.toOption (() => rest (first ()))
+      = Option.flatMap (Abort.toOption first) (x => Abort.toOption (() => rest x)) :=
   match reify first with
     | return x => rfl
     | Abort.stop (), _ => rfl

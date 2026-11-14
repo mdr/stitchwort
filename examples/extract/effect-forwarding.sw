@@ -97,8 +97,7 @@ def Stop.relays: Nat → (() → {Stop} a) → {Stop} a
   | 0, prog => prog()
   | Succ depth, prog => Stop.relay (() => Stop.relays depth prog)
 
-def checked (x: Nat): {Stop} Nat :=
-  if x > 5 then Empty.absurd (Stop.stop "too big: ${x}") else x + 1
+def checked (x: Nat): {Stop} Nat := if x > 5 then Empty.absurd (Stop.stop "too big: ${x}") else x + 1
 
 export def stopped (depth: Nat) (numbers: List Nat): Result (List Nat) Text :=
   Stop.toResult (() => Stop.relays (Nat.min depth 20) (() => List.map numbers (x => checked x)))
@@ -130,9 +129,7 @@ def resumeEachResult (k: Nat → {e} List (Result Nat Text)): Nat → {e} List (
 ability Offer where
   offer: Nat → {Offer} Nat
 
-type Paused =
-  | Finished (total: Nat)
-  | Suspended (offered: Nat) (resume: Nat → Paused)
+type Paused = | Finished (total: Nat) | Suspended (offered: Nat) (resume: Nat → Paused)
 
 def Offer.pause (prog: () → {Offer} Nat): Paused :=
   handle prog() with
@@ -163,7 +160,7 @@ def explore (p: Paused): List Nat := match p with
   | Finished total => [total]
   | Suspended v resume => [settle 5 1 (resume 1), settle 5 2 (resume 2), settle 5 1 (resume 1)]
 
-export def branches (depth: Nat) (start: Nat): List Nat :=
+export def branches (depth start: Nat): List Nat :=
   explore (Offer.pause (() => Offer.relays (Nat.min depth 20) (() => threeOffers start)))
 
 -- A relay of one ability while the program also counts, at a closed row:
@@ -183,4 +180,8 @@ export def mixed (depth: Nat) (counts: List Nat): List Nat :=
 -- Only the counter's operations, each passing `depth` relays of `Pick` by
 -- their generated forwards.
 export def tallied (depth: Nat) (numbers: List Nat): List Nat :=
-  Counter.number (() => Pick.all (() => Pick.relaysCounting (Nat.min depth 20) (() => List.sum (List.map numbers (x => x * Counter.next()))))) 0
+  Counter.number
+    (() =>
+      Pick.all (() =>
+        Pick.relaysCounting (Nat.min depth 20) (() => List.sum (List.map numbers (x => x * Counter.next())))))
+    0

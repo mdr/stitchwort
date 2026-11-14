@@ -9,8 +9,7 @@
 import Std (Eq, List, Nat)
 
 -- Arguments left off a rule's end are unknowns, as if written `_`.
-theorem swapped ∀ (a: Nat) (b: Nat): a + b = b + a :=
-  rewrite Nat.addComm
+theorem swapped ∀ (a b: Nat): a + b = b + a := rewrite Nat.addComm
 
 -- `Nat.addSubCancel x n` needs `x <= n`: `omega` proves it from `x < n`.
 theorem cancelled ∀ (n: Nat): List.sumBy (List.range 0 n) (x => x + (n - x)) = List.sumBy (List.range 0 n) (x => n) :=
@@ -22,18 +21,22 @@ theorem small ∀ (n: Nat): List.sumBy (List.range 0 n) (x => x % Succ n) = List
   rewrite Nat.modSmall
 
 -- The premise is the fact itself: `List.mapCongMem` gives `List.Mem x xs`.
-theorem fixed ∀ (xs: List Nat) (f: Nat → Nat) (h: ∀ (x: Nat) => List.Mem x xs → f x = x): List.map xs (x => f x) = List.map xs (x => x) :=
+theorem fixed ∀ (xs: List Nat) (f: Nat → Nat)
+    (h: ∀ (x: Nat) => List.Mem x xs → f x = x):
+    List.map xs (x => f x) = List.map xs (x => x) :=
   rewrite h
 
 -- A `_` in an argument given explicitly is filled the same way: here by the
 -- fact `List.Mem x xs`.
-theorem bounded ∀ (n: Nat) (xs: List Nat) (h: ∀ (x: Nat) => List.Mem x xs → x ≤ n):
+theorem bounded ∀ (n: Nat) (xs: List Nat)
+    (h: ∀ (x: Nat) => List.Mem x xs → x ≤ n):
     List.map xs (x => x + (n - x)) = List.map xs (x => n) :=
   rewrite Nat.addSubCancel _ _ (h _ _)
 
 -- Inside a function where a premise isn't found, the rule isn't used, and a
 -- later rule can do it: the first rule does the run, the second the list.
-theorem both ∀ (n: Nat) (xs: List Nat) (h: ∀ (x: Nat) => List.Mem x xs → x ≤ n):
+theorem both ∀ (n: Nat) (xs: List Nat)
+    (h: ∀ (x: Nat) => List.Mem x xs → x ≤ n):
     (List.map (List.range 0 n) (x => x + (n - x)), List.map xs (x => x + (n - x)))
       = (List.map (List.range 0 n) (x => n), List.map xs (x => n)) :=
   rewrite Nat.addSubCancel, Nat.addSubCancel _ _ (h _ _)
@@ -44,12 +47,12 @@ def total (f: Nat → Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => f x + total f xs
 
-theorem totalCongRange ∀ (f1: Nat → Nat) (f2: Nat → Nat) (c: Nat) (s: Nat)
+theorem totalCongRange ∀ (f1 f2: Nat → Nat) (c s: Nat)
     (ef: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => f1 x = f2 x):
-    total f1 (List.rangeFrom c s) = total f2 (List.rangeFrom c s) := match c with
-      | Zero => rfl
-      | Succ c =>
-        rewrite ef s omega omega, totalCongRange f1 f2 c (Succ s) (x low high => ef x omega omega)
+    total f1 (List.rangeFrom c s) = total f2 (List.rangeFrom c s) :=
+  match c with
+    | Zero => rfl
+    | Succ c => rewrite ef s omega omega, totalCongRange f1 f2 c (Succ s) (x low high => ef x omega omega)
 
 theorem totalled ∀ (n: Nat): total (x => x + (n - x)) (List.range 0 n) = total (x => n) (List.range 0 n) :=
   rewrite Nat.addSubCancel

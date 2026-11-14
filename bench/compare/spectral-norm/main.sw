@@ -9,8 +9,7 @@
 import Std (Array, Fail, Float, IO, Int, List, Nat, Text)
 
 --| Entry `i`, `j` of the matrix.
-def entry (i: Nat) (j: Nat): Float :=
-  1.0 / Float.ofNat ((i + j) * (i + j + 1) / 2 + i + 1)
+def entry (i j: Nat): Float := 1.0 / Float.ofNat ((i + j) * (i + j + 1) / 2 + i + 1)
 
 --| Row `i` of A applied to `vector`, or of Aᵀ when `transposed`.
 def dot (size: Nat) (transposed: Bool) (vector: Array Float) (i: Nat): Float :=
@@ -23,8 +22,7 @@ def apply (size: Nat) (transposed: Bool) (vector: Array Float): Array Float :=
   Array.tabulate size (dot size transposed vector)
 
 --| AᵀA applied to `vector`.
-def normal (size: Nat) (vector: Array Float): Array Float :=
-  apply size True (apply size False vector)
+def normal (size: Nat) (vector: Array Float): Array Float := apply size True (apply size False vector)
 
 --| The power method's `u` and `v` after `rounds` rounds from `u`: `v = AᵀA u`,
 --| then `u = AᵀA v`.
@@ -34,12 +32,11 @@ def power (size: Nat): Nat → Array Float → Array Float → (Array Float, Arr
     let next := normal size u
     power size rest (normal size next) next
 
-def dotProduct (xs: Array Float) (ys: Array Float): Float :=
+def dotProduct (xs ys: Array Float): Float :=
   List.foldLeft (List.range 0 xs.size) 0.0 (sum i => sum + xs.getOr i 0.0 * ys.getOr i 0.0)
 
 --| The square root of a positive `x` by Newton's method, from 1.
-def sqrt (x: Float): Float :=
-  List.foldLeft (List.range 0 30) 1.0 (guess step => (guess + x / guess) / 2.0)
+def sqrt (x: Float): Float := List.foldLeft (List.range 0 30) 1.0 (guess step => (guess + x / guess) / 2.0)
 
 --| `x` to nine decimals, rounded half up like `%.9f` except for exact ties.
 def nineDecimals (x: Float): Text := match Float.toInt (Float.round (x * 1000000000.0)) with

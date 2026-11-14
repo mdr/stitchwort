@@ -24,18 +24,17 @@ def part1Blocks (ranges: List Range): Nat :=
 
 --| One range: the ids written exactly twice are the sum over block lengths
 --| of the blocks written twice.
-theorem rangeDoubled ∀ (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) :=
+theorem rangeDoubled ∀ (r: Range):
+    sumOfIdsWrittenTwice r = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) :=
   let size := Nat.digitCount r.to
   calc sumOfIdsWrittenTwice r
     -- (`List.range 1 (size + 1)` is `List.rangeFrom (size + 1 - 1) 1`)
-    _ = List.sumBy (List.rangeFrom size 1) (k => RepetitionTemplate.sumIn { blockLength = k, copies = 2 } r)
-      := rewrite (omega: size + 1 - 1 = size)
-    _ = List.sumBy (List.rangeFrom size 1) (k => repeatedSpec r k 2)
-      := rewrite repeatedCorrect r _ 2
+    _ = List.sumBy (List.rangeFrom size 1) (k => RepetitionTemplate.sumIn { blockLength = k, copies = 2 } r) :=
+      rewrite (omega: size + 1 - 1 = size)
+    _ = List.sumBy (List.rangeFrom size 1) (k => repeatedSpec r k 2) := rewrite repeatedCorrect r _ 2
 
 --| (b) Part 1 is the brute-force sum over blocks.
-theorem part1BlocksCorrect ∀ (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
-  rewrite rangeDoubled _
+theorem part1BlocksCorrect ∀ (ranges: List Range): solvePart1 ranges = part1Blocks ranges := rewrite rangeDoubled _
 
 -- Why part 1 is right (c): `part1Correct` says the printed part 1 is
 -- `part1Spec`, the puzzle's own method: walk every id of every range, keep
@@ -52,19 +51,19 @@ theorem rangeBlocksIds ∀ (r: Range):
     List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) = (r.ids.filter doubled).sum :=
   calc List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2)
     -- block length by block length, the ids whose digits are that block written twice...
-    _ = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x).toList k 2)))
-      := rewrite repeatedSpecIds r _ _ 2
+    _ = List.sumBy (List.rangeFrom r.to.digitCount 1) (k =>
+        List.sumBy r.ids (x => Nat.keepIf x (writtenAs (Nat.digits x).toList k 2))) := rewrite repeatedSpecIds r _ _ 2
     -- ...id by id, the block lengths that make it...
-    _ = List.sumBy r.ids (x => List.sumBy (List.rangeFrom r.to.digitCount 1) (k => Nat.keepIf x (writtenAs (Nat.digits x).toList k 2)))
-      := List.sumBySwap r.ids (List.rangeFrom r.to.digitCount 1) (k x => Nat.keepIf x (writtenAs (Nat.digits x).toList k 2))
+    _ = List.sumBy r.ids (x =>
+        List.sumBy (List.rangeFrom r.to.digitCount 1) (k => Nat.keepIf x (writtenAs (Nat.digits x).toList k 2))) :=
+      List.sumBySwap r.ids (List.rangeFrom r.to.digitCount 1) (k x =>
+        Nat.keepIf x (writtenAs (Nat.digits x).toList k 2))
     -- ...which is the id once if it is doubled, and not at all if not.
-    _ = List.sumBy r.ids (x => Nat.keepIf x (doubled x))
-      := rewrite collapse _ 2 rfl _ (idsBelow r _ _ _)
+    _ = List.sumBy r.ids (x => Nat.keepIf x (doubled x)) := rewrite collapse _ 2 rfl _ (idsBelow r _ _ _)
     _ = List.sum (List.filter r.ids doubled) := Eq.sym (List.sumFilter r.ids doubled)
 
 --| The block walk and the id walk agree on every input.
-theorem blocksAreIds ∀ (ranges: List Range): part1Blocks ranges = part1Spec ranges :=
-  rewrite rangeBlocksIds _
+theorem blocksAreIds ∀ (ranges: List Range): part1Blocks ranges = part1Spec ranges := rewrite rangeBlocksIds _
 
 --| (c) Part 1 is the sum of the ids, in all the ranges, whose digits are some
 --| block written twice.

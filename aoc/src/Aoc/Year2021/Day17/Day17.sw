@@ -96,13 +96,13 @@ def steps (target: Target): Nat := Int.toNat (-2 * target.bottom)
 --| the first step) and y from `bottom` (any less falls past on the first
 --| step) to `-bottom - 1` (any more comes down through y = 0 too fast).
 def candidates (target: Target): List Velocity :=
-  List.range 0 target.right.toNat
-    |> .flatMap (i => List.range 0 (steps target) |> .map (aimed target i))
+  List.range 0 target.right.toNat |> .flatMap (i => List.range 0 (steps target) |> .map (aimed target i))
 
 --| The `i`th x velocity from 1 and the `j`th y velocity from `bottom`.
-def aimed (target: Target) (i: Nat) (j: Nat): Velocity := { x = i.toInt + 1, y = target.bottom + j.toInt }
+def aimed (target: Target) (i j: Nat): Velocity := { x = i.toInt + 1, y = target.bottom + j.toInt }
 
-def hitting (target: Target): List Velocity := candidates target |> .filter (v => hitsWithin target (steps target) (launch v))
+def hitting (target: Target): List Velocity :=
+  candidates target |> .filter (v => hitsWithin target (steps target) (launch v))
 
 --| 1 + 2 + … + n.
 def triangle: Nat → Nat

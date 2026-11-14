@@ -20,29 +20,34 @@ def ColourWritten (read: List Char) (colour: Colour): Prop :=
 --| "1 bright white bag", "2 muted yellow bags": the count in decimal, the
 --| colour, and "bag" for one, "bags" otherwise.
 def ContentWritten (read: List Char) (content: Content): Prop :=
-  ∃ (digits: List Char) => ∃ (colour: List Char) =>
-    read = digits ++ [' ', ..colour] ++ (if content.count == 1 then " bag" else " bags").toList
-      ∧ digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ content.count = Parse.digitsValue digits
-      ∧ ColourWritten colour content.colour
+  ∃ (digits: List Char) => ∃ (colour: List Char) => read
+    = digits ++ [' ', ..colour] ++ (if content.count == 1 then " bag" else " bags").toList
+    ∧ digits ≠ []
+    ∧ digits.all Parse.isDigit = True
+    ∧ content.count = Parse.digitsValue digits
+    ∧ ColourWritten colour content.colour
 
 --| "no other bags", or the contents with ", " between.
 def ContentsWritten (read: List Char) (contents: List Content): Prop :=
   (read = "no other bags".toList ∧ contents = [])
-    ∨ (∃ (listed: NonEmptyList Content) => Parse.SepBy ContentWritten (read u => read = ", ".toList) read listed ∧ contents = listed.toList)
+    ∨ (∃ (listed: NonEmptyList Content) => Parse.SepBy ContentWritten (read u => read = ", ".toList) read listed
+      ∧ contents = listed.toList)
 
 --| "light red bags contain 1 bright white bag, 2 muted yellow bags."
 def RuleWritten (read: List Char) (rule: Rule): Prop :=
-  ∃ (colour: List Char) => ∃ (contents: List Char) =>
-    read = colour ++ " bags contain ".toList ++ contents ++ ['.'] ∧ ColourWritten colour rule.colour ∧ ContentsWritten contents rule.contents
+  ∃ (colour: List Char) => ∃ (contents: List Char) => read = colour ++ " bags contain ".toList ++ contents ++ ['.']
+    ∧ ColourWritten colour rule.colour
+    ∧ ContentsWritten contents rule.contents
 
 -- Part 1
 
 --| What the rules say a bag of `colour` must directly contain: the contents
 --| of each rule for it. (The puzzle has one rule for each colour.)
-def contentsOf (rules: List Rule) (colour: Colour): List Content := rules.filter (rule => rule.colour == colour) |> .flatMap .contents
+def contentsOf (rules: List Rule) (colour: Colour): List Content :=
+  rules.filter (rule => rule.colour == colour) |> .flatMap .contents
 
 --| A rule says `outer` bags must directly contain `inner` bags.
-def Directly (rules: List Rule) (outer: Colour) (inner: Colour): Prop :=
+def Directly (rules: List Rule) (outer inner: Colour): Prop :=
   ∃ (content: Content) => content ∈ contentsOf rules outer ∧ content.colour = inner
 
 --| Bags going outward from `inner`, each directly inside the next, ending
@@ -53,13 +58,15 @@ def Outward (rules: List Rule) (inner: Colour): (bags: List Colour) → (outer: 
 
 --| `outer` bags "can eventually contain" `inner` bags: `inner` goes
 --| directly inside some bag, which is `outer` or goes outward to it.
-def CanContain (rules: List Rule) (outer: Colour) (inner: Colour): Prop :=
+def CanContain (rules: List Rule) (outer inner: Colour): Prop :=
   ∃ (holder: Colour) => ∃ (bags: List Colour) => Directly rules holder inner ∧ Outward rules holder bags outer
 
 --| "How many bag colors can eventually contain at least one shiny gold
 --| bag?" There are `answer` of them, none counted twice.
 def Part1 (rules: List Rule) (answer: Nat): Prop :=
-  ∃ (colours: List Colour) => List.Distinct colours ∧ (∀ (colour: Colour) => colour ∈ colours ↔ CanContain rules colour shinyGold) ∧ answer = colours.length
+  ∃ (colours: List Colour) => List.Distinct colours
+    ∧ (∀ (colour: Colour) => colour ∈ colours ↔ CanContain rules colour shinyGold)
+    ∧ answer = colours.length
 
 -- Part 2
 

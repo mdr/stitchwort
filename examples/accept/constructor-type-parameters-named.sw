@@ -3,12 +3,9 @@
 -- `Nil [a := Nat]` is the empty `List Nat`. They are implicit, so they're
 -- given by name only, in any order, mixed with the constructor's fields.
 
-type Pair (a: Type) (b: Type) =
-  | MkPair (first: a) (second: b)
+type Pair (a: Type) (b: Type) = | MkPair (first: a) (second: b)
 
-type Vec (a: Type): Nat -> Type =
-  | VNil: Vec a 0
-  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat -> Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def noNumbers: List Nat := Nil [a := Nat]
 def oneNumber: List Nat := Cons [a := Nat] 1 Nil

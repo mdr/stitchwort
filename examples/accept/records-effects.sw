@@ -27,14 +27,10 @@ def eqTexts: List Text → List Text → Bool
   | [x, ..xs], [y, ..ys] => if x == y then eqTexts xs ys else False
   | _, _ => False
 
-test "fields run in the order written" :=
-  (Pair.snd (IO.simulate ["1", "2"] backwards)).b == "1"
+test "fields run in the order written" := (Pair.snd (IO.simulate ["1", "2"] backwards)).b == "1"
 
-test "and are put where they belong" :=
-  (Pair.snd (IO.simulate ["1", "2"] backwards)).a == "2"
+test "and are put where they belong" := (Pair.snd (IO.simulate ["1", "2"] backwards)).a == "2"
 
-test "an update's base runs once" :=
-  eqTexts (Pair.fst (IO.simulate ["1"] updated)) ["base"]
+test "an update's base runs once" := eqTexts (Pair.fst (IO.simulate ["1"] updated)) ["base"]
 
-test "an update keeps the base's other fields" :=
-  (Pair.snd (IO.simulate ["1"] updated)) == { a = "1", b = "y" }
+test "an update keeps the base's other fields" := (Pair.snd (IO.simulate ["1"] updated)) == { a = "1", b = "y" }

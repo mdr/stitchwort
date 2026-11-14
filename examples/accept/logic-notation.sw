@@ -21,7 +21,7 @@ theorem notInEmptyUnicode ∀ (x: Nat): x ∉ [] := none => none
 theorem notInIsNot ∀ (x: Nat) (xs: List Nat) (h: ¬(List.Mem x xs)): x ∉ xs := h
 
 -- Same precedence as `=`: `&&`, `||` and `->` need no brackets around it.
-theorem bothIn ∀ (x: Nat) (y: Nat) (xs: List Nat) (hx: x in xs) (hy: y ∈ xs): x in xs && y ∈ xs ∧ x = x :=
+theorem bothIn ∀ (x y: Nat) (xs: List Nat) (hx: x in xs) (hy: y ∈ xs): x in xs && y ∈ xs ∧ x = x :=
   Both hx (Both hy rfl)
 
 -- `<->` is `Iff`: looser than `&&` and `||`, tighter than `->`.
@@ -29,16 +29,11 @@ theorem iffSelf ∀ (p: Prop): p <-> p := { forward = h => h, backward = h => h 
 
 theorem iffSelfUnicode ∀ (p: Prop): p ↔ p := { forward = h => h, backward = h => h }
 
-theorem andComm ∀ (p: Prop) (q: Prop): p && q <-> q ∧ p := {
-  forward = h => Both (And.right h) (And.left h),
-  backward = h => Both (And.right h) (And.left h)
-}
+theorem andComm ∀ (p q: Prop): p && q <-> q ∧ p :=
+  { forward = h => Both (And.right h) (And.left h), backward = h => Both (And.right h) (And.left h) }
 
 -- `p -> q <-> r` would be `p -> (q <-> r)`, as in Rocq.
-theorem implies ∀ (p: Prop) (q: Prop) (hq: q): (p → q) ↔ q := {
-  forward = h => hq,
-  backward = h => _ => h
-}
+theorem implies ∀ (p q: Prop) (hq: q): (p → q) ↔ q := { forward = h => hq, backward = h => _ => h }
 
 -- `exists (x: T) => P` is `Exists T ((x: T) => P)`.
 theorem squareRoot: exists (n: Nat) => n * n = 49 := Witness 7 rfl
@@ -62,9 +57,9 @@ theorem distinct: 1 ≠ 2 := omega
 -- Where a `Bool` is expected, membership is decided, as `<=` is.
 def seenBefore (seen: List Nat) (x: Nat): Bool := if x ∈ seen then True else False
 
-def fresh (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x !in seen)
+def fresh (seen xs: List Nat): List Nat := xs.filter (x => x !in seen)
 
-def freshUnicode (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
+def freshUnicode (seen xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 
 test "seenBefore" := seenBefore [1, 2] 2 && !seenBefore [1, 2] 3
 

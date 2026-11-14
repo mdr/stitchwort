@@ -30,19 +30,19 @@ expression: output
     │       ⊢ x = x
 ────╯
 [GOAL] Goal: in `deeper`
-    ╭─[ goals/readable-forms.sw:20:76 ]
+    ╭─[ goals/readable-forms.sw:21:3 ]
     │
- 20 │     f [{ value = leaf.value, depth = leaf.depth + 1 }, ..rest] = f rest := ?
-    │                                                                            ┬  
-    │                                                                            ╰── f: List Leaf → Nat
-    │                                                                                leaf: Leaf
-    │                                                                                rest: List Leaf
-    │                                                                                ⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest
+ 21 │   ?
+    │   ┬  
+    │   ╰── f: List Leaf → Nat
+    │       leaf: Leaf
+    │       rest: List Leaf
+    │       ⊢ f [{ leaf | depth = leaf.depth + 1 }, ..rest] = f rest
 ────╯
 [GOAL] Goal: in `rewritten`
-    ╭─[ goals/readable-forms.sw:23:89 ]
+    ╭─[ goals/readable-forms.sw:24:89 ]
     │
- 23 │ theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?
+ 24 │ theorem rewritten ∀ (n: Nat) (h: n + 0 = 3): n = 3 := rewrite Std.Nat.addZero n at h in ?
     │                                                                                         ┬  
     │                                                                                         ╰── n: Nat
     │                                                                                             h: n = 3

@@ -18,9 +18,7 @@ import Std (IO, List, Map, Nat, Option, Ordering, Text)
 import Std.IO (print)
 
 -- A packet is a number or a list of packets (Advent of Code 2022, day 13).
-type Packet: Type =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet: Type = | Number (value: Nat) | Packets (items: List Packet)
 
 def example: Packet := Packets [Packets [Number 1], Packets [Number 2, Packets [Number 3]]]
 
@@ -36,8 +34,7 @@ test "element by element" := Packets [Number 1, Number 9] < Packets [Number 2]
 test "prefix first" := Packets [Number 1] < Packets [Number 1, Number 0]
 test "compare" := Ord.compare example (Packets [Packets [Number 1], Packets [Number 2]]) == Greater
 test "compare equal" := Ord.compare example example == Equal
-test "as lists do" :=
-  Ord.compare (Packets [Number 1, Number 9]) (Packets [Number 2]) == Ord.compare [1, 9] [2]
+test "as lists do" := Ord.compare (Packets [Number 1, Number 9]) (Packets [Number 2]) == Ord.compare [1, 9] [2]
 
 -- As a list of numbers would print, with the constructors.
 test "show" := "${example}" == "Packets [Packets [Number 1], Packets [Number 2, Packets [Number 3]]]"
@@ -46,15 +43,14 @@ test "show in a list" := "${[Number 1, Packets []]}" == "[Number 1, Packets []]"
 
 -- What `==` and `Ord` give the library: sorting, `contains`, maps.
 test "sort" :=
-  List.sort [Packets [Number 1], Number 3, Packets [], Number 0] ==
-    [Number 0, Number 3, Packets [], Packets [Number 1]]
+  List.sort [Packets [Number 1], Number 3, Packets [], Number 0] == [Number 0, Number 3, Packets [], Packets [Number 1]]
 test "contains" := [Number 1, example].contains example
 test "map keys" := [(example, 1), (Number 2, 2)].toMap.get example == Some 1
 
 -- `auto`, `if h:` and a proposition where a `Bool` is expected decide an
 -- equation between packets with the derived instance, which also computes
 -- in proofs.
-def needsSame (p: Packet) (q: Packet) [auto same: p = q]: Nat := 1
+def needsSame (p q: Packet) [auto same: p = q]: Nat := 1
 test "auto" := needsSame (Packets [Number 1]) (Packets [Number 1]) == 1
 test "if" := (if h: example = example then 1 else 0) == 1
 def isEmpty (p: Packet): Bool := p = Packets []
@@ -63,8 +59,7 @@ theorem computes: (Packets [Number 1, Packets []] == Packets [Number 1, Packets 
 theorem comparesInProofs: Ord.compare (Number 7) (Packets []) = Less := rfl
 
 -- A rose tree: a parameter, and the list of trees.
-type Rose (a: Type): Type =
-  | Node (label: a) (kids: List (Rose a))
+type Rose (a: Type): Type = | Node (label: a) (kids: List (Rose a))
 
 def rose: Rose Char := Node 'a' [Node 'b' [], Node 'c' [Node 'd' []]]
 
@@ -75,9 +70,7 @@ test "rose label first" := Node 1 [Node 9 []] < Node 2 []
 test "rose show" := "${rose}" == "Node 'a' [Node 'b' [], Node 'c' [Node 'd' []]]"
 
 -- A list of lists: a helper for each list type.
-type Table: Type =
-  | Cell (n: Nat)
-  | Rows (rows: List (List Table))
+type Table: Type = | Cell (n: Nat) | Rows (rows: List (List Table))
 
 test "table equal" := Rows [[Cell 1], [Cell 2, Rows []]] == Rows [[Cell 1], [Cell 2, Rows []]]
 test "table unequal" := Rows [[Cell 1], [Cell 2, Rows []]] != Rows [[Cell 1], [Cell 2, Rows [[]]]]
@@ -85,9 +78,7 @@ test "table order" := Rows [[Cell 1], []] < Rows [[Cell 1], [Cell 0]]
 test "table show" := "${Rows [[Cell 1], [], [Rows [[]]]]}" == "Rows [[Cell 1], [], [Rows [[]]]]"
 
 -- An option of a pair: `None` first, then the pair's parts in order.
-type Chain: Type =
-  | Stop
-  | Link (next: Option (Chain, Nat)) (name: Text)
+type Chain: Type = | Stop | Link (next: Option (Chain, Nat)) (name: Text)
 
 def chain: Chain := Link (Some (Link None "b", 3)) "a"
 

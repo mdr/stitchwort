@@ -75,7 +75,7 @@ def encodeAll: List Packet → List Bool
   | [packet, ..rest] => encode packet ++ encodeAll rest
 
 --| An operator's bits, given the bits of its count sub-packets.
-def operatorBits (version: Nat) (code: Nat) (lengthType: LengthType) (count: Nat) (subBits: List Bool): List Bool :=
+def operatorBits (version code: Nat) (lengthType: LengthType) (count: Nat) (subBits: List Bool): List Bool :=
   Nat.toBits 3 version ++ Nat.toBits 3 code ++ lengthField lengthType count subBits
 
 --| The length type id, then the length of the sub-packets' bits in 15 bits
@@ -90,7 +90,10 @@ def lengthField: LengthType → Nat → List Bool → List Bool
 def wellFormed: Packet → Bool
   | Literal version groups => version < 8 && groups.all (group => group < 16)
   | Operator version _ lengthType ({ head = first, tail = rest }) =>
-    version < 8 && fitsLength lengthType (Succ rest.length) (encode first ++ encodeAll rest) && wellFormed first && allWellFormed rest
+    version < 8
+      && fitsLength lengthType (Succ rest.length) (encode first ++ encodeAll rest)
+      && wellFormed first
+      && allWellFormed rest
   | Comparator version _ lengthType first second =>
     version < 8 && fitsLength lengthType 2 (encode first ++ encode second) && wellFormed first && wellFormed second
 
@@ -127,11 +130,20 @@ def versionTotal (packet: Packet): Nat := (packetsIn packet).sumBy versionOf
 --| Part 2: a packet's value. A literal's is its groups' bits read as one
 --| binary number; an operator's is computed from its sub-packets' values.
 type HasValue: Packet → Nat → Prop =
-  | LiteralValue (version: Nat) (groups: NonEmptyList Nat): HasValue (Literal version groups) (Nat.fromBits (groups.toList.flatMap (Nat.toBits 4)))
-  | OperationValue (each: Values operands.toList values) (computed: Computes operation values value):
-    HasValue (Operator version operation lengthType operands) value
-  | ComparisonValue (firstValue: HasValue first firstNumber) (secondValue: HasValue second secondNumber)
-    (compared: Compares comparison firstNumber secondNumber value): HasValue (Comparator version comparison lengthType first second) value
+  | LiteralValue
+      (version: Nat)
+      (groups: NonEmptyList Nat): HasValue
+    (Literal version groups)
+    (Nat.fromBits (groups.toList.flatMap (Nat.toBits 4)))
+  | OperationValue
+      (each: Values operands.toList values)
+      (computed: Computes operation values value): HasValue (Operator version operation lengthType operands) value
+  | ComparisonValue
+      (firstValue: HasValue first firstNumber)
+      (secondValue: HasValue second secondNumber)
+      (compared: Compares comparison firstNumber secondNumber value): HasValue
+    (Comparator version comparison lengthType first second)
+    value
 
 --| Each packet's value, in order.
 type Values: List Packet → List Nat → Prop =
@@ -144,8 +156,12 @@ type Values: List Packet → List Nat → Prop =
 type Computes: Operation → List Nat → Nat → Prop =
   | SumOf (values: List Nat): Computes Sum values values.sum
   | ProductOf (values: List Nat): Computes Product values values.product
-  | MinimumOf (member: value ∈ values) (least: ∀ (other: Nat) => other ∈ values → value ≤ other): Computes Minimum values value
-  | MaximumOf (member: value ∈ values) (most: ∀ (other: Nat) => other ∈ values → other ≤ value): Computes Maximum values value
+  | MinimumOf
+      (member: value ∈ values)
+      (least: ∀ (other: Nat) => other ∈ values → value ≤ other): Computes Minimum values value
+  | MaximumOf
+      (member: value ∈ values)
+      (most: ∀ (other: Nat) => other ∈ values → other ≤ value): Computes Maximum values value
 
 --| What each comparison makes of its two sub-packets' values: 1 if the
 --| first is greater than, less than, or equal to the second, and 0 if not.

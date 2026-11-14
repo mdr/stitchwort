@@ -3,31 +3,21 @@
 -- in, before its later fields are checked; a global instance's is checked
 -- against the instance found for that parent.
 
-interface Base (a: Type) =
-  { op: a → a }
+interface Base (a: Type) = { op: a → a }
 
 -- `law` mentions the superclass `base`.
-interface Child (a: Type) = {
-  base: Base a,
-  law: ∀ (x: a) => base.op (base.op x) = base.op x
-}
+interface Child (a: Type) = { base: Base a, law: ∀ (x: a) => base.op (base.op x) = base.op x }
 
-interface Named (a: Type) = {
-  base: Base a,
-  name: a → Text
-}
+interface Named (a: Type) = { base: Base a, name: a → Text }
 
-instance Base.instNat: Base Nat :=
-  { op = n => 0 }
+instance Base.instNat: Base Nat := { op = n => 0 }
 
 -- `base` is filled with `Base.instNat` at once, so `law`'s type computes,
 -- to `0 = 0`, and `rfl` proves it.
-instance Child.instNat: Child Nat :=
-  { law = x => rfl }
+instance Child.instNat: Child Nat := { law = x => rfl }
 
 -- Given explicitly, it must be the instance found: it is.
-instance Named.instNat: Named Nat :=
-  { base = Base.instNat, name = n => "nat" }
+instance Named.instNat: Named Nat := { base = Base.instNat, name = n => "nat" }
 
 -- A dictionary in scope gives its superclasses too: `Base a` here is
 -- `c.base`.

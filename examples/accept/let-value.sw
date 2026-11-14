@@ -88,10 +88,9 @@ def inBlock (n: Nat): {Ask} Nat :=
 -- is out of scope where the solution is used.
 def ident [p: Prop] (x: p): p := x
 
-theorem metaOutside ∀ (n: Nat): n + 1 = n + 1 :=
-  ident (
-    let m := n + 1
-    (rfl: m = m))
+theorem metaOutside ∀ (n: Nat): n + 1 = n + 1 := ident (
+  let m := n + 1
+  (rfl: m = m))
 
 -- An unknown made inside a `let` (`ident`'s type there), whose solution is
 -- the block's type, used after it.

@@ -5,7 +5,8 @@ namespace Aoc.Year2020.Day02.Tests
 import Aoc.Year2020.Day02 (..)
 import Std (Fail, List, Result, Text)
 
-def inputEntries: Result (List Entry) Text := Fail.toResult (() => parseEntries (include "../../../../../inputs/2020/day02.txt"))
+def inputEntries: Result (List Entry) Text :=
+  Fail.toResult (() => parseEntries (include "../../../../../inputs/2020/day02.txt"))
 
 test "real input, part 1" := inputEntries.map solvePart1 == Ok 603
 test "real input, part 2" := inputEntries.map solvePart2 == Ok 404

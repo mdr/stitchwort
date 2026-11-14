@@ -43,21 +43,24 @@ def Part1 (tiles: List Point) (answer: Nat): Prop := Largest (rectangles tiles |
 
 --| Each red tile with the next, and the last with the first: the straight
 --| lines of the loop run between them.
-def connections (tiles: List Point): List Line := tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
+def connections (tiles: List Point): List Line :=
+  tiles.zip (tiles.drop 1 |> .append (tiles.take 1)) |> .map (ends => { from = ends.fst, to = ends.snd })
 
 --| `value` is from `one` to `other` (either may be the larger).
-def from (one: Nat) (other: Nat) (value: Nat): Bool := (one ≤ value ≤ other) ∨ (other ≤ value ≤ one)
+def from (one other value: Nat): Bool := (one ≤ value ≤ other) ∨ (other ≤ value ≤ one)
 
 --| The tile is on the straight line between two red tiles, which share a
 --| column or a row: in the rectangle between them, a line one tile wide.
-def onStraightLine (tile: Point) (ends: Line): Bool := from ends.from.x ends.to.x tile.x ∧ from ends.from.y ends.to.y tile.y
+def onStraightLine (tile: Point) (ends: Line): Bool :=
+  from ends.from.x ends.to.x tile.x ∧ from ends.from.y ends.to.y tile.y
 
 def onLoop (tiles: List Point) (tile: Point): Bool := connections tiles |> .any (onStraightLine tile)
 
 --| The straight line runs down a column right of the tile, and spans the
 --| tile's row: its upper end is at or above the row, its lower end below.
 def crossesRay (tile: Point) (ends: Line): Bool :=
-  ends.from.x == ends.to.x ∧ tile.x < ends.from.x
+  ends.from.x == ends.to.x
+    ∧ tile.x < ends.from.x
     ∧ ((ends.from.y ≤ tile.y < ends.to.y) ∨ (ends.to.y ≤ tile.y < ends.from.y))
 
 def insideLoop (tiles: List Point) (tile: Point): Bool := List.count (connections tiles) (crossesRay tile) % 2 == 1
@@ -67,7 +70,9 @@ def redOrGreen (tiles: List Point) (tile: Point): Bool := onLoop tiles tile ∨ 
 --| Every tile of the rectangle is red or green.
 def allRedOrGreen (tiles: List Point) (rectangle: Rectangle): Bool :=
   List.range (Nat.min rectangle.corner.y rectangle.opposite.y) (Nat.max rectangle.corner.y rectangle.opposite.y + 1)
-    |> .all (y => List.range (Nat.min rectangle.corner.x rectangle.opposite.x) (Nat.max rectangle.corner.x rectangle.opposite.x + 1) |> .all (x => redOrGreen tiles { x, y }))
+    |> .all (y =>
+      List.range (Nat.min rectangle.corner.x rectangle.opposite.x) (Nat.max rectangle.corner.x rectangle.opposite.x + 1)
+        |> .all (x => redOrGreen tiles { x, y }))
 
 --| Part 2's answer is the largest area of the rectangles that are all red
 --| and green.

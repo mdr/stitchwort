@@ -30,5 +30,4 @@ def asks: Nat → Nat → {Env} Nat
   | 0, acc => acc
   | Succ n, acc => asks n (acc + Env.ask())
 
-def main(): {IO} () :=
-  IO.print "${Counter.from 0 (() => bumps 1000 0)} ${Env.give 3 (() => asks 1000 0)}"
+def main(): {IO} () := IO.print "${Counter.from 0 (() => bumps 1000 0)} ${Env.give 3 (() => asks 1000 0)}"

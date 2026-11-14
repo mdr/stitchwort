@@ -66,12 +66,22 @@ def shape (name: Text) (numbers: List Nat): {IO} Nat :=
   let big := 100000000
   if name == "io" then sumOf (Fail.toResult (() => List.map numbers echo))
   else if name == "ioRead" then List.sum (List.map numbers readOne)
-  else if name == "checked" then sumOf (Fail.toResult (() => List.map numbers (x => if x < big then x + 1 else Fail.fail "big")))
+  else if name == "checked" then
+    sumOf (Fail.toResult (() => List.map numbers (x => if x < big then x + 1 else Fail.fail "big")))
   else if name == "asked" then List.sum (Env.give 7 (() => List.map numbers (x => x + Env.ask())))
-  else if name == "askedChecked" then sumOf (Env.give 7 (() => Fail.toResult (() => List.map numbers (x => if x < big then x + Env.ask() else Fail.fail "big"))))
-  else if name == "askedIn" then sumOf (Fail.toResult (() => Env.giveIn 7 (() => List.map numbers (x => if x < big then x + Env.ask() else Fail.fail "big"))))
+  else if name == "askedChecked" then
+    sumOf
+      (Env.give 7 (() =>
+        Fail.toResult (() => List.map numbers (x => if x < big then x + Env.ask() else Fail.fail "big"))))
+  else if name == "askedIn" then
+    sumOf
+      (Fail.toResult (() =>
+        Env.giveIn 7 (() => List.map numbers (x => if x < big then x + Env.ask() else Fail.fail "big"))))
   else if name == "emitted" then List.sum (Emit.collect (() => List.map numbers (x => Emit.emit x)))
-  else if name == "emittedIn" then sumOf (Fail.toResult (() => Emit.collectIn (() => List.map numbers (x => if x < big then Emit.emit x else Fail.fail "big"))))
+  else if name == "emittedIn" then
+    sumOf
+      (Fail.toResult (() =>
+        Emit.collectIn (() => List.map numbers (x => if x < big then Emit.emit x else Fail.fail "big"))))
   else if name == "searched" then sumOfAll (Each.collect (() => List.map numbers (x => Each.each [x])))
   else if name == "counted" then List.sum (Counter.number (() => List.map numbers (x => x + Counter.next())) 0)
   else 0

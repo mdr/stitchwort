@@ -13,15 +13,18 @@ import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16 (Spec)
 import Std (Eq, Fail, List, Option, Result, Text, Void)
 
-theorem part1Correct ∀ (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
-    (∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Spec.NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
+theorem part1Correct ∀ (input: Text) (notes: Notes)
+    (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
+    (∃ (read: List Char) => ∃ (ending: List Char) => input.toList = read ++ ending
+      ∧ Spec.NotesWritten read notes
+      ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
       ∧ Spec.Part1 notes notes.errorRate :=
   Both (parseWritten input notes parsed) (errorRateSpec notes)
 
 --| Part 2's answer, when there is one, is the departure product under an
 --| order of the fields the puzzle allows, and no other number is.
-theorem part2Exactly ∀ (notes: Notes) (answer: Nat) (found: notes.departureProduct = Some answer) (other: Nat):
+theorem part2Exactly ∀ (notes: Notes) (answer: Nat)
+    (found: notes.departureProduct = Some answer) (other: Nat):
     Spec.Part2 notes other ↔ other = answer :=
   let valid := departureProductValid notes answer found
   match ordered: notes.fieldOrder with
@@ -29,13 +32,19 @@ theorem part2Exactly ∀ (notes: Notes) (answer: Nat) (found: notes.departurePro
       let product: answer = Spec.departureProduct order notes.yours.values :=
         Eq.trans (Eq.sym (Option.someInjective found)) (departureProductSpec order notes.yours.values)
       {
-        forward = (Witness fitting (Both fits same)) => rewrite same, fieldOrderOnly notes order ordered fitting fits, <- product in rfl,
+        forward = (Witness fitting (Both fits same)) =>
+          rewrite same, fieldOrderOnly notes order ordered fitting fits, <- product in rfl,
         backward = same => rewrite same in valid
       }
 
-theorem part2Correct ∀ (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes) (answer: Nat)
+theorem part2Correct ∀ (input: Text) (notes: Notes)
+    (parsed: Fail.toResult (() => parseNotes input) = Ok notes) (answer: Nat)
     (found: notes.departureProduct = Some answer):
-    (∃ (read: List Char) => ∃ (ending: List Char) =>
-      input.toList = read ++ ending ∧ Spec.NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
-      ∧ Spec.Part2 notes answer ∧ (∀ (other: Nat) => Spec.Part2 notes other → other = answer) :=
-  Both (parseWritten input notes parsed) (Both (departureProductValid notes answer found) (other => (part2Exactly notes answer found other).forward))
+    (∃ (read: List Char) => ∃ (ending: List Char) => input.toList = read ++ ending
+      ∧ Spec.NotesWritten read notes
+      ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
+      ∧ Spec.Part2 notes answer
+      ∧ (∀ (other: Nat) => Spec.Part2 notes other → other = answer) :=
+  Both
+    (parseWritten input notes parsed)
+    (Both (departureProductValid notes answer found) (other => (part2Exactly notes answer found other).forward))

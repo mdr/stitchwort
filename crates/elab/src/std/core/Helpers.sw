@@ -31,7 +31,8 @@ test "id" := id 3 == 3 ∧ id True == True
 --| `Bool.inspect b motive t f` proves `motive b` by cases on `b`, remembering
 --| which case it is. A proof about `if le x y then ... else ...` uses it with
 --| `b = le x y` to get the branch's evidence (`le x y = True` or `= False`).
-theorem Bool.inspect ∀ (b: Bool) (motive: Bool → Prop) (t: b = True → motive True) (f: b = False → motive False): motive b :=
+theorem Bool.inspect ∀ (b: Bool) (motive: Bool → Prop) (t: b = True → motive True) (f: b = False → motive False):
+    motive b :=
   match b, motive with
     | True, m => t rfl
     | False, m => f rfl

@@ -12,10 +12,13 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Nat, Option, Or, Set, Void)
 
-theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
-    (state: FillState garden plant start stack visited members): FillResult garden plant start stack members (Garden.fill garden plant stack visited members) :=
+theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position)
+    (visited: Set Position) (members: List Position)
+    (state: FillState garden plant start stack visited members):
+    FillResult garden plant start stack members (Garden.fill garden plant stack visited members) :=
   Garden.fill.induct garden plant
-    (stack visited members result => FillState garden plant start stack visited members → FillResult garden plant start stack members result)
+    (stack visited members result =>
+      FillState garden plant start stack visited members → FillResult garden plant start stack members result)
     (visited members state =>
       let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
       Both distinct
@@ -27,35 +30,40 @@ theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position)
                 | Inr none => Void.exfalso none)
             (Both (position member => member) (position none => Void.exfalso none)))))
     (visited members position rest fresh grows ih state =>
-      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := ih (takeKeeps garden plant start position rest visited members state fresh grows)
+      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) :=
+        ih (takeKeeps garden plant start position rest visited members state fresh grows)
       Both distinct
         (Both sound
           (Both closed
-            (Both (other member => kept other (Inr member))
-              (other onStack otherGrows =>
-                match onStack with
-                  | Inl here => kept other (Inl here)
-                  | Inr later =>
-                    fromStack other (List.memAppendRight other (garden.neighboursGrowing plant position) rest later) otherGrows)))))
+            (Both (other member => kept other (Inr member)) (other onStack otherGrows =>
+              match onStack with
+                | Inl here => kept other (Inl here)
+                | Inr later =>
+                  fromStack other
+                    (List.memAppendRight other (garden.neighboursGrowing plant position) rest later)
+                    otherGrows)))))
     (visited members position rest fresh other ih state =>
-      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := ih (popKeeps garden plant start position rest visited members state (Inr other))
+      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) :=
+        ih (popKeeps garden plant start position rest visited members state (Inr other))
       Both distinct
         (Both sound
           (Both closed
-            (Both kept
-              (candidate onStack grows =>
-                match onStack with
-                  | Inl here => Void.exfalso (other (rewrite here in grows))
-                  | Inr later => fromStack candidate later grows)))))
+            (Both kept (candidate onStack grows =>
+              match onStack with
+                | Inl here => Void.exfalso (other (rewrite here in grows))
+                | Inr later => fromStack candidate later grows)))))
     (visited members position rest notFresh ih state =>
       let isMember := (And.left state position).forward notFresh
-      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := ih (popKeeps garden plant start position rest visited members state (Inl isMember))
+      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) :=
+        ih (popKeeps garden plant start position rest visited members state (Inl isMember))
       Both distinct
         (Both sound
           (Both closed
-            (Both kept
-              (other onStack grows =>
-                match onStack with
-                  | Inl here => kept other (rewrite <- here in isMember)
-                  | Inr later => fromStack other later grows)))))
-    stack visited members state
+            (Both kept (other onStack grows =>
+              match onStack with
+                | Inl here => kept other (rewrite <- here in isMember)
+                | Inr later => fromStack other later grows)))))
+    stack
+    visited
+    members
+    state

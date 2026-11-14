@@ -1,4 +1,4 @@
-//! The formatter's hash oracle (docs/proposals/formatter.md §4.2): a file's
+//! The formatter's hash oracle (docs/proposals/formatter.md §4.2, formatter-style.md): a file's
 //! declarations must keep their `def_hash`/`data_hash` and export flag, in
 //! the same order, with the same tests, when the file is formatted. This
 //! goes through the elaborator, so it is independent of the formatter's own
@@ -29,9 +29,7 @@
 //! only formatted (reported).
 //!
 //! `FMT_HASHES=<text>` limits the run to the files and projects whose path
-//! contains it, and loads all of them. `FMT_HASHES_TREE=1` checks the tree
-//! printer (`stitchwort_fmt::printer`, formatter-architecture.md stage 2)
-//! instead of the default formatter. `FMT_HASHES_SKIP=<n>` and
+//! contains it, and loads all of them. `FMT_HASHES_SKIP=<n>` and
 //! `FMT_HASHES_LIMIT=<n>` run a slice of the standalone files (no projects),
 //! loaded in full, and the count check is off.
 
@@ -41,6 +39,7 @@ use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
+use stitchwort_fmt::format;
 
 #[path = "../../../fmt/tests/it/support/repo_files.rs"]
 mod repo_files;
@@ -48,16 +47,6 @@ mod repo_files;
 use crate::deformat::deformat;
 
 const STACK: usize = 16 * 1024 * 1024;
-
-/// The formatter under test: the default one, or with `FMT_HASHES_TREE` set
-/// the tree printer.
-fn format(text: &str) -> Result<String, stitchwort_fmt::Error> {
-    if std::env::var_os("FMT_HASHES_TREE").is_some() {
-        stitchwort_fmt::printer::format_tree(text).map(|f| f.text)
-    } else {
-        stitchwort_fmt::format(text)
-    }
-}
 
 const EXCLUDED: [&str; 4] = [
     "examples/reject/",

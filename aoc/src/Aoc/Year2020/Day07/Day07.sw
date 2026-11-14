@@ -68,7 +68,8 @@ def parseRules (input: Text): {Fail} Rules := { all = Parse.eachLine input rule 
 --| A rule lists `inside` among the contents of `holder`.
 type Holding = { inside: Colour, holder: Colour }
 
-def Rule.holdings (rule: Rule): List Holding := rule.contents.map (content => { inside = content.colour, holder = rule.colour })
+def Rule.holdings (rule: Rule): List Holding :=
+  rule.contents.map (content => { inside = content.colour, holder = rule.colour })
 
 type Holders = { byInside: Map Colour (NonEmptyList Holding) }
 

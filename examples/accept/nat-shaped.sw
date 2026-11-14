@@ -9,9 +9,7 @@
 import Std (IO, Fin, List, Nat, Vec)
 
 -- The successor comes first, and carries a proof as well as the rest.
-type Count (a: Type) =
-  | More (rest: Count a) (ok: 1 = 1)
-  | Stop
+type Count (a: Type) = | More (rest: Count a) (ok: 1 = 1) | Stop
 
 def Count.of: Nat → Count a
   | Zero => Stop
@@ -32,9 +30,7 @@ def Count.join: Count a → Count a → Count a
 
 -- An index of its own, a type (so erased): a field of the family at
 -- another index.
-type Depth: Type → Type 1 =
-  | Flat: Depth Nat
-  | Deeper (inner: Depth b): Depth (List b)
+type Depth: Type → Type 1 = | Flat: Depth Nat | Deeper (inner: Depth b): Depth (List b)
 
 def Depth.size: Depth t → Nat
   | Flat => 0
@@ -82,5 +78,4 @@ test "depth" := Depth.size (Depth.tower 6) == 6
 test "fin label" := label 3 == "three" ∧ label 4 == "other"
 test "fin drop" := dropTwo (5: Fin 6) == 3
 
-def main(): {IO} () :=
-  IO.print report
+def main(): {IO} () := IO.print report

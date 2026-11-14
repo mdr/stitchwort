@@ -1,4 +1,4 @@
-//! `stitchwort fmt` (docs/proposals/formatter.md §5.1), end to end with the
+//! `stitchwort fmt` (docs/proposals/formatter.md §5.1, still the interface), end to end with the
 //! built command.
 
 use std::io::Write;
@@ -157,10 +157,16 @@ fn the_repository_sources_are_formatted() {
         "crates/elab/src/std",
     ]);
     let output = stitchwort(&root, &args, None);
+    // `--check` lists what would change. `list-literal-layout.sw` exists to
+    // exercise layouts the formatter rewrites (fmt_repo leaves it out too).
+    let listed = text(&output);
+    let unformatted: Vec<&str> = listed
+        .lines()
+        .filter(|line| !line.ends_with("examples/accept/list-literal-layout.sw"))
+        .collect();
     assert!(
-        output.status.success(),
-        "unformatted (run `stitchwort fmt` on them):\n{}{}",
-        text(&output),
+        unformatted.is_empty() && output.status.code().is_some_and(|code| code <= 1),
+        "unformatted (run `stitchwort fmt` on them):\n{listed}{}",
         String::from_utf8_lossy(&output.stderr)
     );
 }

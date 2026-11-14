@@ -8,13 +8,15 @@ theorem allHead ∀ (d: Nat) (more: List Nat) (only: [d, ..more].all (x => x < 5
 
 theorem allTail ∀ (d: Nat) (more: List Nat) (only: [d, ..more].all (x => x < 5)): more.all (x => x < 5) := only.right
 
-theorem allBuilt ∀ (d: Nat) (more: List Nat) (hd: d < 5) (tl: more.all (x => x < 5)): [d, ..more].all (x => x < 5) := Both hd tl
+theorem allBuilt ∀ (d: Nat) (more: List Nat) (hd: d < 5) (tl: more.all (x => x < 5)): [d, ..more].all (x => x < 5) :=
+  Both hd tl
 
 theorem allCases ∀ (xs: List Nat) (only: xs.all (x => x < 5)): ∀ (x: Nat) => x ∈ xs → x < 5 := match xs with
   | [] => x m => Void.exfalso m
-  | [d, ..more] => x m => match m with
-    | Inl e => rewrite <- e in only.left
-    | Inr inMore => only.right.read x inMore
+  | [d, ..more] => x m =>
+    match m with
+      | Inl e => rewrite <- e in only.left
+      | Inr inMore => only.right.read x inMore
 
 -- Not a cons: still the quantifier.
 theorem allVar ∀ (xs: List Nat) (h: xs.all (x => x < 5)) (x: Nat) (m: x ∈ xs): x < 5 := h.read x m
@@ -34,10 +36,12 @@ theorem headsLeft ∀ (d: Nat) (more: List Nat) (h: Heads d more): d < 5 := h.le
 
 -- `= False` on a cons `all` reads as a `∨` of `= False`s, and on a cons `any`
 -- as a `∧`.
-theorem allFalse ∀ (d: Nat) (more: List Nat) (h: [d, ..more].all (x => x < 5) = False):
-    (d < 5) = False ∨ more.all (x => x < 5) = False := match h with
-      | Inl first => Inl first
-      | Inr rest => Inr rest
+theorem allFalse ∀ (d: Nat) (more: List Nat)
+    (h: [d, ..more].all (x => x < 5) = False):
+    (d < 5) = False ∨ more.all (x => x < 5) = False :=
+  match h with
+    | Inl first => Inl first
+    | Inr rest => Inr rest
 
 theorem anyFalse ∀ (d: Nat) (more: List Nat) (h: [d, ..more].any (x => x > 2) = False): (d > 2) = False := h.left
 

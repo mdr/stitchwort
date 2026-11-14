@@ -49,15 +49,16 @@ def clawMachine(): {Parse} Machine :=
 def parseMachines (input: Text): {Fail} List Machine := Parse.all input (() => sections clawMachine |> .toList)
 
 --| What pressing A `aPresses` times and B `bPresses` times costs.
-def tokens (aPresses: Nat) (bPresses: Nat): Nat := 3 * aPresses + bPresses
+def tokens (aPresses bPresses: Nat): Nat := 3 * aPresses + bPresses
 
 --| Whether those presses put the claw exactly over the prize.
-def Machine.wins (machine: Machine) (aPresses: Nat) (bPresses: Nat): Bool :=
+def Machine.wins (machine: Machine) (aPresses bPresses: Nat): Bool :=
   aPresses.toInt * machine.buttonA.x + bPresses.toInt * machine.buttonB.x == machine.prize.x
     && aPresses.toInt * machine.buttonA.y + bPresses.toInt * machine.buttonB.y == machine.prize.y
 
 --| 0 exactly when the buttons move the claw along the same line.
-def Machine.determinant (machine: Machine): Int := machine.buttonA.x * machine.buttonB.y - machine.buttonA.y * machine.buttonB.x
+def Machine.determinant (machine: Machine): Int :=
+  machine.buttonA.x * machine.buttonB.y - machine.buttonA.y * machine.buttonB.x
 
 --| Cramer's rule: with a nonzero determinant, the two equations have one
 --| solution, and these are its presses if they are whole and not negative.
@@ -70,8 +71,7 @@ def Machine.onlyPresses (machine: Machine) (nonzero: machine.determinant ≠ 0):
 --| The fewest tokens over every press count up to `limit` for each button.
 def Machine.searchTokens (machine: Machine) (limit: Nat): Option Nat :=
   List.range 0 (limit + 1)
-    |> .flatMap (aPresses =>
-      List.range 0 (limit + 1) |> .filter (machine.wins aPresses) |> .map (tokens aPresses))
+    |> .flatMap (aPresses => List.range 0 (limit + 1) |> .filter (machine.wins aPresses) |> .map (tokens aPresses))
     |> .minimum
 
 --| The fewest tokens that win with at most `limit` presses of each button.
@@ -85,7 +85,7 @@ def Machine.fewestTokensWithin (machine: Machine) (limit: Nat): Option Nat :=
 
 --| How many presses of a button that moves the claw `step` move it exactly
 --| `distance`, if some number does.
-def pressesToCover (step: Coords Unoriented) (distance: Coords Unoriented): Option Nat :=
+def pressesToCover (step distance: Coords Unoriented): Option Nat :=
   let count := if step.x ≠ 0 then distance.x / step.x else if step.y ≠ 0 then distance.y / step.y else 0
   if count * step.x == distance.x && count * step.y == distance.y then count.toNatChecked else None
 
@@ -111,14 +111,15 @@ def Machine.collinearTokens (machine: Machine): Option Nat :=
 
 --| The fewest tokens that win, with no limit on presses.
 def Machine.fewestTokens (machine: Machine): Option Nat :=
-  if nonzero: machine.determinant ≠ 0 then
-    machine.onlyPresses nonzero |> .map (uncurry tokens)
+  if nonzero: machine.determinant ≠ 0 then machine.onlyPresses nonzero |> .map (uncurry tokens)
   else machine.collinearTokens
 
 --| Part 2's prize, 10000000000000 further along both axes.
 def Machine.corrected (machine: Machine): Machine :=
   { machine | prize = machine.prize.plus { x = 10000000000000, y = 10000000000000 } }
 
-def solvePart1 (machines: List Machine): Nat := machines.sumBy (machine => machine.fewestTokensWithin 100 |> .getOrElse 0)
+def solvePart1 (machines: List Machine): Nat :=
+  machines.sumBy (machine => machine.fewestTokensWithin 100 |> .getOrElse 0)
 
-def solvePart2 (machines: List Machine): Nat := machines.sumBy (machine => machine.corrected |> .fewestTokens |> .getOrElse 0)
+def solvePart2 (machines: List Machine): Nat :=
+  machines.sumBy (machine => machine.corrected |> .fewestTokens |> .getOrElse 0)

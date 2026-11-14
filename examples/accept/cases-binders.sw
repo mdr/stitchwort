@@ -5,19 +5,20 @@
 -- variables may be bound after the colon as well as before it.
 import Std (Bool, Nat, Void)
 
-def convex (plot: Bool) (vertical: Bool) (horizontal: Bool): Bool := plot ∧ ¬vertical ∧ ¬horizontal
+def convex (plot vertical horizontal: Bool): Bool := plot ∧ ¬vertical ∧ ¬horizontal
 
-def concave (plot: Bool) (vertical: Bool) (horizontal: Bool) (diagonal: Bool): Bool := plot ∧ vertical ∧ horizontal ∧ ¬diagonal
+def concave (plot vertical horizontal diagonal: Bool): Bool := plot ∧ vertical ∧ horizontal ∧ ¬diagonal
 
 -- Day 12's truth table with its variables after the colon: the same proof
 -- as `plot out side sideOut => cases` (examples/accept/cases-pi-goals.sw).
-theorem rowEndsAfter: ∀ (plot out side sideOut: Bool) =>
-    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
+theorem rowEndsAfter: ∀ (plot out side sideOut: Bool) => Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
+      = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
 -- Two before the colon, two after.
-theorem rowEndsMixed ∀ (plot: Bool) (out: Bool): ∀ (side sideOut: Bool) =>
-    Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
+theorem rowEndsMixed ∀ (plot out: Bool):
+    ∀ (side sideOut: Bool) => Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
+      = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
 -- A hypothesis after the colon, which the contradiction closer uses in the

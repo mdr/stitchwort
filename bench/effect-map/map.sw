@@ -19,7 +19,7 @@ def viaMap (xs: List Nat): Nat := List.sum (List.map xs step)
 
 def isEven (n: Nat): Bool := n % 2 == 0
 
-def addTwice (total: Nat) (n: Nat): Nat := total + n + n
+def addTwice (total n: Nat): Nat := total + n + n
 
 def isHuge (n: Nat): Bool := n > 1000000000
 

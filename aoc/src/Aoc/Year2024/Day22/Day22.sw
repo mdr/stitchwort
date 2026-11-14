@@ -45,10 +45,10 @@ def solvePart1 (buyers: List Nat): Nat := buyers.sumBy (Nat.iterate (count := 20
 --| Four consecutive price changes.
 type Changes = { first: Int, second: Int, third: Int, fourth: Int }
 
-def change (before: Nat) (after: Nat): Int := after.toInt - before.toInt
+def change (before after: Nat): Int := after.toInt - before.toInt
 
 --| A buyer's prices: the last digit of each secret.
-def prices (count: Nat) (buyer: Nat): List Nat := secrets count buyer |> .map (% 10)
+def prices (count buyer: Nat): List Nat := secrets count buyer |> .map (% 10)
 
 --| The changes into the fifth of `prices` and that price, if there are five.
 def sale: List Nat → Option (Changes, Nat) := match some

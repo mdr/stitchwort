@@ -27,8 +27,7 @@ def interleave: List Nat → List Nat → List Nat
 def merge: List Nat → List Nat → List Nat
   | [], ys => ys
   | [x, ..xs], [] => [x, ..xs]
-  | [x, ..xs], [y, ..ys] =>
-    if Nat.leq x y then [x, ..merge xs [y, ..ys]] else [y, ..merge [x, ..xs] ys]
+  | [x, ..xs], [y, ..ys] => if Nat.leq x y then [x, ..merge xs [y, ..ys]] else [y, ..merge [x, ..xs] ys]
 
 -- A recursive call passed to another function must be given all its
 -- arguments: `x => sumWith n x`, not `sumWith n` (reject/partial-recursive-call.sw).

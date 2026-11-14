@@ -28,14 +28,17 @@ def energyIn (cavern: Cavern) (flashed: Position → Bool) (at: Position) (level
 --| octopus whose energy, counting the flashes of `flashed`, is above 9 is
 --| in `flashed`.
 def Closed (cavern: Cavern) (flashed: Position → Bool): Prop :=
-  ∀ (at: Position) (level: Nat) => (at, level) ∈ cavern.grid.cells → 9 < energyIn cavern flashed at level → flashed at = True
+  ∀ (at: Position) (level: Nat) => (at, level) ∈ cavern.grid.cells
+    → 9 < energyIn cavern flashed at level
+    → flashed at = True
 
 --| The octopuses that flash in a step: the least closed set. Least, since
 --| an octopus flashes only when the flashes before it push it above 9
 --| (two adjacent 8s would each be above 9 if both flashed, but neither
 --| starts the other off), and at most once.
 def Flashers (cavern: Cavern) (flashed: Position → Bool): Prop :=
-  Closed cavern flashed ∧ (∀ (other: Position → Bool) => Closed cavern other → ∀ (at: Position) => flashed at = True → other at = True)
+  Closed cavern flashed
+    ∧ (∀ (other: Position → Bool) => Closed cavern other → ∀ (at: Position) => flashed at = True → other at = True)
 
 --| The cavern after the step: "any octopus that flashed during this step
 --| has its energy level set to 0", the others are at their energy.
@@ -48,8 +51,13 @@ def flashCount (cavern: Cavern) (flashed: Position → Bool): Nat := cavern.grid
 --| `steps` steps take `cavern` to `final`, with `total` flashes in all.
 type Run: Cavern → Nat → Cavern → Nat → Prop =
   | Start (cavern: Cavern): Run cavern 0 cavern 0
-  | Step (flashed: Position → Bool) (flashers: Flashers cavern flashed) (rest: Run (after cavern flashed) steps final total):
-    Run cavern (Succ steps) final (flashCount cavern flashed + total)
+  | Step
+      (flashed: Position → Bool)
+      (flashers: Flashers cavern flashed)
+      (rest: Run (after cavern flashed) steps final total): Run cavern
+    (Succ steps)
+    final
+    (flashCount cavern flashed + total)
 
 --| Part 1: "how many total flashes are there after 100 steps?"
 def Part1Answer (cavern: Cavern) (answer: Nat): Prop := exists (final: Cavern) => Run cavern 100 final answer

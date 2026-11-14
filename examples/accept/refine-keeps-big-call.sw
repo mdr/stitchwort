@@ -9,7 +9,8 @@ import Std (List, Bool)
 def pick (b: Bool) (n: Nat): Nat :=
   let zeros: List Nat := List.replicate 160000 0
   match b with
-    | True => match n with
-      | Zero => zeros.length
-      | Succ m => m
+    | True =>
+      match n with
+        | Zero => zeros.length
+        | Succ m => m
     | False => 0

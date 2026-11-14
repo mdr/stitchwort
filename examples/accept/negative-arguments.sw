@@ -4,7 +4,7 @@
 import Std (Float, Int, List, Option)
 
 def shift (n: Int): Int := n + 10
-def clamp (x: Int) (lo: Int) (hi: Int): Int := if x < lo then lo else if hi < x then hi else x
+def clamp (x lo hi: Int): Int := if x < lo then lo else if hi < x then hi else x
 
 test "a literal argument" := shift -2 = 8
 test "a name" := (n => shift -n) 3 = 7

@@ -72,7 +72,7 @@ def walk: Nat → Nat
   | 0 => 0
   | Succ k => applyTo (x => stepBy k x) 1
 
-def stepBy (k: Nat) (x: Nat): Nat := x + walk k
+def stepBy (k x: Nat): Nat := x + walk k
 
 def applyTo (f: Nat → Nat) (x: Nat): Nat := f x
 

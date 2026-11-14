@@ -14,9 +14,8 @@ import Std (And, Eq, IO, Int, List, Nat, Text)
 
 -- A number in the run `2 .. n - 1` is below n (even when n < 2, where the
 -- run is empty).
-theorem belowOfRun ∀ (d: Nat) (n: Nat) (h: List.Mem d (List.rangeFrom (n - 2) 2)): d < n :=
-  match List.memRangeFrom d (n - 2) 2 h with
-    | Both lo hi => Nat.ltOfRunSub 2 d n lo hi
+theorem belowOfRun ∀ (d n: Nat) (h: List.Mem d (List.rangeFrom (n - 2) 2)): d < n :=
+  match List.memRangeFrom d (n - 2) 2 h with | Both lo hi => Nat.ltOfRunSub 2 d n lo hi
 
 -- The weight of a repeat count n (AoC 2025 day 2), as in
 -- decreasing-lambda.sw but with no guard: the proof that `d.value < n` comes
@@ -24,8 +23,10 @@ theorem belowOfRun ∀ (d: Nat) (n: Nat) (h: List.Mem d (List.rangeFrom (n - 2) 
 def weight (n: Nat): Int
     decreasing n
 :=
-  1 - (List.rangeFrom (n - 2) 2 |> .attach |> .sumBy (d =>
-    if Nat.divides d.value n then weight d.value [decreasing := belowOfRun d.value n d.isIn] else 0))
+  1
+    - (List.rangeFrom (n - 2) 2
+      |> .attach
+      |> .sumBy (d => if Nat.divides d.value n then weight d.value [decreasing := belowOfRun d.value n d.isIn] else 0))
 
 test "weights" := List.map (List.rangeFrom 11 2) weight == [1, 1, 0, 1, -1, 1, 0, 0, -1, 1, 0]
 
@@ -34,14 +35,18 @@ theorem weightTwelve: weight 12 = 0 := rfl
 -- The equation the compiler proves, on an open `n`: the congruence lemma
 -- `List.sumByCong` works on the attached list as on any other.
 theorem weightStep ∀ (n: Nat):
-    weight n = 1 - List.sumBy (List.attach (List.rangeFrom (n - 2) 2)) (d => if Nat.divides d.value n then weight d.value else 0) :=
+    weight n
+      = 1
+        - List.sumBy (List.attach (List.rangeFrom (n - 2) 2)) (d =>
+          if Nat.divides d.value n then weight d.value else 0) :=
   weight.unfold n
 
 -- Once the call is made, the proofs can go: a sum over the attached list
 -- that only looks at the values is the sum over the list.
 theorem weightPlain ∀ (n: Nat):
     weight n = 1 - List.sumBy (List.rangeFrom (n - 2) 2) (d => if Nat.divides d n then weight d else 0) :=
-  Eq.trans (weight.unfold n)
+  Eq.trans
+    (weight.unfold n)
     (Eq.cong (Int.sub 1) (List.sumByAttach (List.rangeFrom (n - 2) 2) (d => if Nat.divides d n then weight d else 0)))
 
 -- A record pattern in the lambda: the number of chains n, d1, d2, …, each a
@@ -50,8 +55,11 @@ theorem weightPlain ∀ (n: Nat):
 def chains (n: Nat): Nat
     decreasing n
 :=
-  1 + (List.range 0 n |> .attach |> .sumBy (({ value = d, isIn }) =>
-    if Nat.leq 1 d ∧ Nat.divides d n then chains d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0))
+  1
+    + (List.range 0 n
+      |> .attach
+      |> .sumBy (({ value = d, isIn }) =>
+        if Nat.leq 1 d ∧ Nat.divides d n then chains d [decreasing := And.right (List.memRangeFrom d n 0 isIn)] else 0))
 
 test "chains" := List.map [1, 2, 3, 4, 5, 6] chains == [1, 2, 2, 4, 2, 6]
 

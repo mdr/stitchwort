@@ -13,7 +13,7 @@ type Level = { cells: Nat, start: Nat }
 type State = { level: Level, turn: Nat }
 
 -- Rounds of arithmetic on a seed nothing is known about.
-def mix (rounds: Nat) (seed: Nat): Nat := match rounds with
+def mix (rounds seed: Nat): Nat := match rounds with
   | 0 => seed
   | Succ rest => mix rest (seed * seed + seed)
 

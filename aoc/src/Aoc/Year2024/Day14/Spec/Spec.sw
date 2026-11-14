@@ -17,9 +17,9 @@ import Std (List, Nat)
 --| teleport to the other side, effectively wrapping around the edges": one
 --| tile to the right (or down) on a line of `size` tiles, and one to the left
 --| (or up).
-def forward (size: Nat) (coordinate: Nat): Nat := if coordinate + 1 == size then 0 else coordinate + 1
+def forward (size coordinate: Nat): Nat := if coordinate + 1 == size then 0 else coordinate + 1
 
-def backward (size: Nat) (coordinate: Nat): Nat := if coordinate == 0 then size - 1 else coordinate - 1
+def backward (size coordinate: Nat): Nat := if coordinate == 0 then size - 1 else coordinate - 1
 
 --| Moving `tiles` tiles along the line, one at a time, backwards when
 --| negative.
@@ -29,13 +29,12 @@ def move (size: Nat) (tiles: Int) (coordinate: Nat): Nat := match tiles with
 
 --| "x and y are given in tiles per second": one second moves the robot
 --| `velocity.columns` tiles across and `velocity.rows` tiles down.
-def second (space: Space) (velocity: Offset) (position: Position): Position := {
-  row = move space.height velocity.rows position.row,
-  column = move space.width velocity.columns position.column
-}
+def second (space: Space) (velocity: Offset) (position: Position): Position :=
+  { row = move space.height velocity.rows position.row, column = move space.width velocity.columns position.column }
 
 --| Where a robot is after `seconds` seconds, one second at a time.
-def after (space: Space) (seconds: Nat) (robot: Robot): Position := seconds.iterate (second space robot.velocity) robot.position
+def after (space: Space) (seconds: Nat) (robot: Robot): Position :=
+  seconds.iterate (second space robot.velocity) robot.position
 
 --| "To determine the safest area, count the number of robots in each
 --| quadrant after 100 seconds. Robots that are exactly in the middle
@@ -52,7 +51,7 @@ def isTop (space: Space) (position: Position): Bool := position.row < space.heig
 def isBottom (space: Space) (position: Position): Bool := space.height - 1 - position.row < position.row
 
 --| How many of `positions` satisfy both.
-def countWhere (positions: List Position) (first: Position → Bool) (second: Position → Bool): Nat :=
+def countWhere (positions: List Position) (first second: Position → Bool): Nat :=
   (positions.filter (position => first position && second position)).length
 
 --| "Multiplying these together gives a total safety factor".
@@ -71,4 +70,5 @@ def part1 (space: Space) (robots: List Robot): Nat := safetyFactor space (robots
 --| say what the picture looks like. This solution takes the picture to be
 --| the robots all on different tiles, a common heuristic: it is a criterion
 --| chosen here, not something the puzzle states.
-def isPicture (space: Space) (robots: List Robot) (seconds: Nat): Prop := List.Distinct (robots.map (after space seconds))
+def isPicture (space: Space) (robots: List Robot) (seconds: Nat): Prop :=
+  List.Distinct (robots.map (after space seconds))

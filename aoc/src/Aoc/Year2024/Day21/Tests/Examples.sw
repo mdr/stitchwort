@@ -13,28 +13,26 @@ import Std (Fail, List, Nat, Option, Result, Set, Text)
 def parsed (input: Text): Result (List Code) Text := Fail.toResult (() => parseCodes input)
 
 --| A code from its characters, for writing tests.
-def codeOf (characters: Text): Code :=
-  characters.toList.map (match
-    | '0' => Digit0
-    | '1' => Digit1
-    | '2' => Digit2
-    | '3' => Digit3
-    | '4' => Digit4
-    | '5' => Digit5
-    | '6' => Digit6
-    | '7' => Digit7
-    | '8' => Digit8
-    | '9' => Digit9
-    | _ => Enter)
+def codeOf (characters: Text): Code := characters.toList.map (match
+  | '0' => Digit0
+  | '1' => Digit1
+  | '2' => Digit2
+  | '3' => Digit3
+  | '4' => Digit4
+  | '5' => Digit5
+  | '6' => Digit6
+  | '7' => Digit7
+  | '8' => Digit8
+  | '9' => Digit9
+  | _ => Enter)
 
 --| Directional key presses from the puzzle's characters.
-def pressesOf (characters: Text): List DirectionKey :=
-  characters.toList.map (match
-    | '^' => Arrow Up
-    | 'v' => Arrow Down
-    | '<' => Arrow Left
-    | '>' => Arrow Right
-    | _ => Activate)
+def pressesOf (characters: Text): List DirectionKey := characters.toList.map (match
+  | '^' => Arrow Up
+  | 'v' => Arrow Down
+  | '<' => Arrow Left
+  | '>' => Arrow Right
+  | _ => Activate)
 
 def exampleCodes: List Code := ["029A", "980A", "179A", "456A", "379A"].map codeOf
 
@@ -44,7 +42,8 @@ test "example, part 1" := solvePart1 exampleCodes == 126384
 test "example, part 2" := solvePart2 exampleCodes == 154115708116294
 
 --| "68 * 29, 60 * 980, 68 * 179, 64 * 456, and 64 * 379".
-test "example, the shortest lengths" := ["029A", "980A", "179A", "456A", "379A"].map (lengthFor 2) == [68, 60, 68, 64, 64]
+test "example, the shortest lengths" :=
+  ["029A", "980A", "179A", "456A", "379A"].map (lengthFor 2) == [68, 60, 68, 64, 64]
 test "example, the numeric parts" := exampleCodes.map .numericPart == [29, 980, 179, 456, 379]
 
 --| "three shortest possible sequences ... <A^A>^^AvvvA, <A^A^>^AvvvA, and
@@ -52,7 +51,8 @@ test "example, the numeric parts" := exampleCodes.map .numericPart == [29, 980, 
 test "example, the puzzle's sequences type 029A" :=
   ["<A^A>^^AvvvA", "<A^A^>^AvvvA", "<A^A^^>AvvvA"].all (presses => typed 0 (pressesOf presses) == Some (codeOf "029A"))
     && typed 1 (pressesOf "v<<A>>^A<A>AvA<^AA>A<vAAA>^A") == Some (codeOf "029A")
-    && typed 2 (pressesOf "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A") == Some (codeOf "029A")
+    && typed 2 (pressesOf "<vA<AA>>^AvAA<^A>A<v<A>>^AvA^A<vA>^A<v<A>^A>AAvA^A<v<A>A>^AAAvA<^A>A")
+      == Some (codeOf "029A")
 
 test "example, the puzzle's sequence for 379A" :=
   typed 2 (pressesOf "<v<A>>^AvA^A<vA<AA>>^AAvA<^A>AAvA^A<vA>^AA<A>A<v<A>A>^AAAvA<^A>A") == Some (codeOf "379A")
@@ -61,8 +61,8 @@ test "the spec panics at a gap" := typed 0 (pressesOf "<<A") == None && typed 1 
 test "the spec panics off the keypad" := typed 0 (pressesOf ">A") == None && typed 0 (pressesOf "vA") == None
 
 --| The program's own press sequence types each code and is as long as it says.
-test "example, the program's sequences type the codes" :=
-  exampleCodes.all (code => typed 2 (pressesFor 2 code) == Some code && (pressesFor 2 code).length == (robotCosts 2).shortestLength code)
+test "example, the program's sequences type the codes" := exampleCodes.all (code =>
+  typed 2 (pressesFor 2 code) == Some code && (pressesFor 2 code).length == (robotCosts 2).shortestLength code)
 
 test "more robots" := [0, 1, 3, 10].map (robots => lengthFor robots "029A") == [12, 28, 164, 94910]
 test "an empty code needs no presses" := lengthFor 2 "" == 0 && Code.numericPart [] == 0
@@ -86,41 +86,42 @@ def pushed (code: Code) (done: Nat): (aims: List Position) → (key: DirectionKe
   | [aim], Arrow direction =>
     moved aim direction |> .flatMap (next => keyAt numericRows next |> .map (found => { aims = [next], done }))
   | [aim], Activate =>
-    keyAt numericRows aim |> .flatMap (found => if code.get done == Some found then Some { aims = [aim], done = done + 1 } else None)
+    keyAt numericRows aim
+      |> .flatMap (found => if code.get done == Some found then Some { aims = [aim], done = done + 1 } else None)
   | [aim, below, ..others], Arrow direction =>
-    moved aim direction |> .flatMap (next => keyAt directionalRows next |> .map (found => { aims = [next, below, ..others], done }))
+    moved aim direction
+      |> .flatMap (next => keyAt directionalRows next |> .map (found => { aims = [next, below, ..others], done }))
   | [aim, below, ..others], Activate =>
-    keyAt directionalRows aim |> .flatMap (found =>
-      pushed code done [below, ..others] found |> .map (state => { state | aims = [aim, ..state.aims] }))
+    keyAt directionalRows aim
+      |> .flatMap (found =>
+        pushed code done [below, ..others] found |> .map (state => { state | aims = [aim, ..state.aims] }))
 
 def stateKey (state: State): List Nat := [state.done, ..state.aims.flatMap (aim => [aim.row, aim.column])]
 
 --| Breadth first: the number of presses after which some state has the
 --| whole code, giving up after `fuel` presses.
-def searchFrom (code: Code) (fuel: Nat) (presses: Nat) (frontier: List State) (seen: Set (List Nat)): Option Nat :=
+def searchFrom (code: Code) (fuel presses: Nat) (frontier: List State) (seen: Set (List Nat)): Option Nat :=
   match fuel with
     | Zero => None
     | Succ fuel =>
       let reached := frontier.flatMap (state => directionKeys.filterMap (pushed code state.done state.aims))
-      if reached.any (state => state.done == code.length) then
-        Some (presses + 1)
+      if reached.any (state => state.done == code.length) then Some (presses + 1)
       else
-        let (fresh, seenNow) :=
-          reached.foldLeft ([], seen) (((kept, seenSoFar)) state =>
-            if seenSoFar.contains (stateKey state) then (kept, seenSoFar) else ([state, ..kept], seenSoFar.insert (stateKey state)))
+        let (fresh, seenNow) := reached.foldLeft ([], seen) (((kept, seenSoFar)) state =>
+          if seenSoFar.contains (stateKey state) then (kept, seenSoFar)
+          else ([state, ..kept], seenSoFar.insert (stateKey state)))
         searchFrom code fuel (presses + 1) fresh seenNow
 
 def bruteForce (robots: Nat) (code: Code): Option Nat :=
   let start: State := { aims = List.append (List.replicate robots directionalStart) [numericStart], done = 0 }
   if code == [] then Some 0 else searchFrom code 200 0 [start] ([stateKey start].toSet)
 
-test "brute force agrees on the example codes, up to two robots" :=
-  [0, 1, 2].all (robots => exampleCodes.all (code => bruteForce robots code == Some ((robotCosts robots).shortestLength code)))
+test "brute force agrees on the example codes, up to two robots" := [0, 1, 2].all (robots =>
+  exampleCodes.all (code => bruteForce robots code == Some ((robotCosts robots).shortestLength code)))
 
-test "brute force agrees on short codes, up to three robots" :=
-  [0, 1, 2, 3].all (robots =>
-    ["A", "0A", "1A", "5A", "7A", "00A", "70A", "A7A"].all (code =>
-      bruteForce robots (codeOf code) == Some (lengthFor robots code)))
+test "brute force agrees on short codes, up to three robots" := [0, 1, 2, 3].all (robots =>
+  ["A", "0A", "1A", "5A", "7A", "00A", "70A", "A7A"].all (code =>
+    bruteForce robots (codeOf code) == Some (lengthFor robots code)))
 
 --| Every list of at most `count` moves.
 def moveLists: (count: Nat) → List (List Direction)
@@ -130,17 +131,18 @@ def moveLists: (count: Nat) → List (List Direction)
 --| The walk fact the optimality proof needs (`CheapestWalks`), for walks of
 --| at most `count` moves: each costs at least the program's cheapest route
 --| between the keys at its ends.
-def cheapestWalksUpTo (keys: List k) (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (count: Nat): Bool :=
+def cheapestWalksUpTo (keys: List k) (keypad: Keypad k) (rows: List (List (Option k))) (costs: Costs) (count: Nat):
+    Bool :=
   keys.all (from =>
-    moveLists count |> .all (route =>
-      walk rows (keypad.place from) route
-        |> .flatMap (keyAt rows)
-        |> .all (to => cheapestBetween keypad costs from to <= costs.routeCost route)))
+    moveLists count
+      |> .all (route =>
+        walk rows (keypad.place from) route
+          |> .flatMap (keyAt rows)
+          |> .all (to => cheapestBetween keypad costs from to <= costs.routeCost route)))
 
-test "the walk fact for walks of up to six moves, one to three robots" :=
-  [1, 2, 3].all (level =>
-    cheapestWalksUpTo Finite.all Keypad.numeric numericRows (robotCosts level) 6
-      && cheapestWalksUpTo directionKeys Keypad.directional directionalRows (robotCosts level) 6)
+test "the walk fact for walks of up to six moves, one to three robots" := [1, 2, 3].all (level =>
+  cheapestWalksUpTo Finite.all Keypad.numeric numericRows (robotCosts level) 6
+    && cheapestWalksUpTo directionKeys Keypad.directional directionalRows (robotCosts level) 6)
 
 test "parse" := parsed """
   029A
@@ -150,5 +152,6 @@ test "parse" := parsed """
   379A
   """ == Ok exampleCodes
 test "parse without a final line break" := parsed "029A\n1A" == Ok [codeOf "029A", codeOf "1A"]
-test "a bad key" := parsed "02B9A\n" == Err "line 1, column 3: expected a key (0 to 9 or A) or the end of the line, got 'B'"
+test "a bad key" :=
+  parsed "02B9A\n" == Err "line 1, column 3: expected a key (0 to 9 or A) or the end of the line, got 'B'"
 test "no codes" := parsed "" == Err "line 1, column 1: expected a key (0 to 9 or A), got the end of the input"

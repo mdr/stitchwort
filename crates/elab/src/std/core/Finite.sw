@@ -18,7 +18,10 @@ theorem List.memAppendRight ∀ (x: a) (xs ys: List a) (m: x ∈ ys): x ∈ List
   | [z, ..zs] => Inr (List.memAppendRight x zs ys m)
 
 --| What `f` makes from an element of `xs` is in `List.concatMap xs f`.
-theorem List.memConcatMap ∀ (f: a → List b) (x: a) (y: b) (xs: List a) (member: x ∈ xs) (made: y ∈ f x): y ∈ List.concatMap xs f :=
+theorem List.memConcatMap ∀ (f: a → List b) (x: a) (y: b) (xs: List a)
+    (member: x ∈ xs)
+    (made: y ∈ f x):
+    y ∈ List.concatMap xs f :=
   match xs, member with
     | [], member => Void.exfalso member
     | [z, ..zs], Inl same => List.memAppendLeft y (f z) (List.concatMap zs f) (J (w e => y ∈ f w) made (Eq.sym same))
@@ -36,24 +39,23 @@ theorem List.memConcatMap ∀ (f: a → List b) (x: a) (y: b) (xs: List a) (memb
 --| puts them in. A module's own `instance` replaces it. `Finite.check`
 --| (std/Finite/Finite.sw) checks a statement for every value by computing it.
 -- (docs/proposals/decide.md §6.2)
-interface Finite (a: Type) = {
-  all: List a,
-  complete: ∀ (x: a) => x ∈ all
-}
+interface Finite (a: Type) = { all: List a, complete: ∀ (x: a) => x ∈ all }
 
 instance Bool.instFinite: Finite Bool := {
   all = [False, True],
-  complete = x => match x with
-    | False => Inl rfl
-    | True => Inr (Inl rfl)
+  complete = x =>
+    match x with
+      | False => Inl rfl
+      | True => Inr (Inl rfl)
 }
 
 instance Ordering.instFinite: Finite Ordering := {
   all = [Less, Equal, Greater],
-  complete = x => match x with
-    | Less => Inl rfl
-    | Equal => Inr (Inl rfl)
-    | Greater => Inr (Inr (Inl rfl))
+  complete = x =>
+    match x with
+      | Less => Inl rfl
+      | Equal => Inr (Inl rfl)
+      | Greater => Inr (Inr (Inl rfl))
 }
 
 --| Every option: `None`, then `Some` of every value.
@@ -63,7 +65,8 @@ theorem Option.allFiniteComplete ∀ [auto fin: Finite a] (o: Option a): List.Me
   | None => Inl rfl
   | Some x => Inr (List.memConcatMap (y => [Some y]) x (Some x) Finite.all (Finite.complete x) (Inl rfl))
 
-instance Option.instFinite [auto fin: Finite a]: Finite (Option a) := { all = Option.allFinite, complete = Option.allFiniteComplete }
+instance Option.instFinite [auto fin: Finite a]: Finite (Option a) :=
+  { all = Option.allFinite, complete = Option.allFiniteComplete }
 
 --| Every pair, the first value varying slowest.
 def Pair.allFinite [auto finA: Finite a] [auto finB: Finite b]: List (Pair a b) :=
@@ -72,7 +75,13 @@ def Pair.allFinite [auto finA: Finite a] [auto finB: Finite b]: List (Pair a b) 
 theorem Pair.allFiniteComplete ∀ [auto finA: Finite a] [auto finB: Finite b] (p: Pair a b): List.Mem p Pair.allFinite :=
   match p with
     | MkPair x y =>
-      List.memConcatMap (u => List.concatMap Finite.all (v => [MkPair u v])) x (MkPair x y) Finite.all (Finite.complete x)
+      List.memConcatMap
+        (u => List.concatMap Finite.all (v => [MkPair u v]))
+        x
+        (MkPair x y)
+        Finite.all
+        (Finite.complete x)
         (List.memConcatMap (v => [MkPair x v]) y (MkPair x y) Finite.all (Finite.complete y) (Inl rfl))
 
-instance Pair.instFinite [auto finA: Finite a] [auto finB: Finite b]: Finite (Pair a b) := { all = Pair.allFinite, complete = Pair.allFiniteComplete }
+instance Pair.instFinite [auto finA: Finite a] [auto finB: Finite b]: Finite (Pair a b) :=
+  { all = Pair.allFinite, complete = Pair.allFiniteComplete }

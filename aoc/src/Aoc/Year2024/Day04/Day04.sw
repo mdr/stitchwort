@@ -31,20 +31,20 @@ def main(): {IO} () :=
 def parseGrid (lines: List Text): Grid := { rows = lines.map Text.toList }
 
 --| Four letters in a line spell XMAS, one way or the other.
-def spellsXmas (first: Char) (second: Char) (third: Char) (fourth: Char): Bool :=
-  (first == 'X' ∧ second == 'M' ∧ third == 'A' ∧ fourth == 'S') ∨ (first == 'S' ∧ second == 'A' ∧ third == 'M' ∧ fourth == 'X')
+def spellsXmas (first second third fourth: Char): Bool :=
+  (first == 'X' ∧ second == 'M' ∧ third == 'A' ∧ fourth == 'S')
+    ∨ (first == 'S' ∧ second == 'A' ∧ third == 'M' ∧ fourth == 'X')
 
 --| The lines of four that spell XMAS, taking one cell from each list at the
 --| same index.
-def countXmas (first: List Char) (second: List Char) (third: List Char) (fourth: List Char): Nat :=
-  first.zipWith4 second third fourth spellsXmas |> .count id
+def countXmas (first second third fourth: List Char): Nat := first.zipWith4 second third fourth spellsXmas |> .count id
 
 --| Across one row: four cells side by side.
 def countAcross (row: List Char): Nat := countXmas row (row.drop 1) (row.drop 2) (row.drop 3)
 
 --| Through four rows in a run: straight down, down to the right, and down to
 --| the left.
-def countThrough (first: List Char) (second: List Char) (third: List Char) (fourth: List Char): Nat :=
+def countThrough (first second third fourth: List Char): Nat :=
   countXmas first second third fourth
     + countXmas first (second.drop 1) (third.drop 2) (fourth.drop 3)
     + countXmas (first.drop 3) (second.drop 2) (third.drop 1) fourth
@@ -56,12 +56,12 @@ def solvePart1 (grid: Grid): Nat :=
   rows.sumBy countAcross + through
 
 --| Three letters in a line spell MAS, one way or the other.
-def spellsMas (first: Char) (second: Char) (third: Char): Bool :=
+def spellsMas (first second third: Char): Bool :=
   (first == 'M' ∧ second == 'A' ∧ third == 'S') ∨ (first == 'S' ∧ second == 'A' ∧ third == 'M')
 
 --| The crosses in three rows in a run, by their centres in the middle row:
 --| MAS down to the right through the centre, and MAS down to the left.
-def countCrosses (above: List Char) (middle: List Char) (below: List Char): Nat :=
+def countCrosses (above middle below: List Char): Nat :=
   let downRight := above.zipWith3 (middle.drop 1) (below.drop 2) spellsMas
   let downLeft := List.zipWith3 (above.drop 2) (middle.drop 1) below spellsMas
   downRight.zipWith downLeft (one other => one ∧ other) |> .count id

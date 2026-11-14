@@ -20,27 +20,19 @@
 import Std (Map)
 
 @[js.enum]
-type Label =
-  | @[js.name "IMPORTANT"] Important
-  | @[js.name "SLIDE_TEXT"] SlideText
+type Label = | @[js.name "IMPORTANT"] Important | @[js.name "SLIDE_TEXT"] SlideText
 
 -- `js.name` chooses the string (without it, the constructor's name).
 @[js.enum]
-type Priority =
-  | @[js.name "low"] Low
-  | @[js.name "high"] High
+type Priority = | @[js.name "low"] Low | @[js.name "high"] High
 
 -- No `js.name`: the strings are `"Red"` and `"Green"`.
 @[js.enum]
-type Colour =
-  | Red
-  | Green
+type Colour = | Red | Green
 
 -- A type parameter isn't a field, so it is allowed.
 @[js.enum]
-type Fixed (a: Type) =
-  | One
-  | Two
+type Fixed (a: Type) = | One | Two
 
 type Ticket = { label: Label, priority: Option Priority, tags: List Label }
 
@@ -54,8 +46,7 @@ export def toggle: Label → Label
   | Important => SlideText
   | SlideText => Important
 
-export def tickets: List Ticket :=
-  [{ label = Important, priority = Some High, tags = [SlideText] }]
+export def tickets: List Ticket := [{ label = Important, priority = Some High, tags = [SlideText] }]
 
 def priorityText: Option Priority → Text
   | None => "no priority"

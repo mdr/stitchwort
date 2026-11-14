@@ -25,8 +25,8 @@ def exampleLines: List Line := Fail.orElse [] (() => parseLines example)
 
 def parsed (input: Text): Result (List Line) Text := Fail.toResult (() => parseLines input)
 
-def line (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat): Line := { from = { x = x1, y = y1 }, to = { x = x2, y = y2 } }
-def point (x: Nat) (y: Nat): Point := { x, y }
+def line (x1 y1 x2 y2: Nat): Line := { from = { x = x1, y = y1 }, to = { x = x2, y = y2 } }
+def point (x y: Nat): Point := { x, y }
 
 test "parse the example" := exampleLines.length == 10 ∧ exampleLines.headOr (line 1 1 1 1) == line 0 9 5 9
 test "example, part 1" := solvePart1 exampleLines == 5
@@ -42,11 +42,13 @@ test "a line of one point" := (line 4 4 4 4).points == [point 4 4]
 --| The spec says the same of those lines, point by point, around them.
 def around: List Point := List.range 0 11 |> .flatMap (x => List.range 0 11 |> .map (y => point x y))
 def agrees (l: Line): Bool := around.all (p => covers l p == l.points.contains p)
-test "the spec's points" := [line 1 1 1 3, line 9 7 7 7, line 1 1 3 3, line 9 7 7 9, line 4 4 4 4, line 8 0 0 8, line 5 5 8 2].all agrees
+test "the spec's points" :=
+  [line 1 1 1 3, line 9 7 7 7, line 1 1 3 3, line 9 7 7 9, line 4 4 4 4, line 8 0 0 8, line 5 5 8 2].all agrees
 --| A line at another angle: the spec has its grid points, (0, 0), (2, 1)
 --| and (4, 2); the program, which steps one point at a time, wouldn't.
 test "a line at another angle" :=
-  around.filter (covers (line 0 0 4 2)) == [point 0 0, point 2 1, point 4 2] ∧ (line 0 0 4 2).points == [point 0 0, point 1 1, point 2 2, point 3 3, point 4 4]
+  around.filter (covers (line 0 0 4 2)) == [point 0 0, point 2 1, point 4 2]
+    ∧ (line 0 0 4 2).points == [point 0 0, point 1 1, point 2 2, point 3 3, point 4 4]
 
 --| The example's overlaps, as the spec counts them: part 1 has 5 points
 --| with two lines or more, part 2 has 12.

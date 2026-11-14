@@ -4,8 +4,7 @@
 -- A non-recursive proposition with one constructor still produces data.
 import Std (Nat, Void)
 
-type Loop: Prop =
-  | MkLoop (next: Loop)
+type Loop: Prop = | MkLoop (next: Loop)
 
 def Loop.inv: Loop → Loop
   | MkLoop n => n
@@ -13,10 +12,8 @@ def Loop.inv: Loop → Loop
 def Loop.empty: Loop → Void
   | MkLoop n => Loop.empty n
 
-type Tok: Prop =
-  | MkTok
+type Tok: Prop = | MkTok
 
-def tokNat (t: Tok) (k: Nat): Nat := match t with
-  | MkTok => k
+def tokNat (t: Tok) (k: Nat): Nat := match t with | MkTok => k
 
 theorem tokNatComputes ∀ (k: Nat): tokNat MkTok k = k := rfl

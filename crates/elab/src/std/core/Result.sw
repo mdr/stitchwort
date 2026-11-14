@@ -5,9 +5,7 @@
 -- compare results with `==` (docs/proposals/errors.md §3.2).
 
 --| A computation's value, or why it failed: `Std.Fail.toResult` gives one.
-type Result (a: Type) (e: Type): Type =
-  | Ok (value: a)
-  | Err (error: e)
+type Result (a: Type) (e: Type): Type = | Ok (value: a) | Err (error: e)
 
 --| The value, or `fallback` if there isn't one.
 def Result.getOrElse: (result: Result a e) → (fallback: a) → a
@@ -31,11 +29,11 @@ theorem Result.errNotOk [m: e] [x: a]: Err m ≠ Ok x
   | p => Result.okNotErr x m (Eq.sym p)
 
 --| Decides whether two `Ok`s are equal, from a decision about their values.
-def Result.decOk (x: a) (y: a) (dec: Decidable (x = y)): Decidable ((Ok x: Result a e) = Ok y) :=
+def Result.decOk (x y: a) (dec: Decidable (x = y)): Decidable ((Ok x: Result a e) = Ok y) :=
   Decidable.map dec (Eq.cong Ok) (Eq.cong (.getOrElse x))
 
 --| Decides whether two `Err`s are equal, from a decision about their errors.
-def Result.decErr (m: e) (n: e) (dec: Decidable (m = n)): Decidable ((Err m: Result a e) = Err n) :=
+def Result.decErr (m n: e) (dec: Decidable (m = n)): Decidable ((Err m: Result a e) = Err n) :=
   Decidable.map dec (Eq.cong Err) (Eq.cong (.errorOrElse m))
 
 --| Equality of results, from equality of the values and of the errors.

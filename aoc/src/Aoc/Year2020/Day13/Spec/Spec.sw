@@ -22,18 +22,21 @@ def SlotWritten (read: List Char) (slot: Slot): Prop := match slot with
 --| service": the timestamp in decimal, a line break, and the entries
 --| separated by commas.
 def NotesWritten (read: List Char) (notes: Notes): Prop :=
-  ∃ (digits: List Char) => ∃ (lineBreak: List Char) => ∃ (entries: List Char) => ∃ (slots: NonEmptyList Slot) =>
-    read = digits ++ lineBreak ++ entries
-      ∧ digits ≠ [] ∧ digits.all Parse.isDigit = True ∧ notes.earliest = Parse.digitsValue digits
-      ∧ Parse.LineBreak lineBreak
-      ∧ Parse.SepBy SlotWritten (read u => read = [',']) entries slots ∧ notes.schedule = slots.toList
+  ∃ (digits: List Char) => ∃ (lineBreak: List Char) => ∃ (entries: List Char) => ∃ (slots: NonEmptyList Slot) => read
+    = digits ++ lineBreak ++ entries
+    ∧ digits ≠ []
+    ∧ digits.all Parse.isDigit = True
+    ∧ notes.earliest = Parse.digitsValue digits
+    ∧ Parse.LineBreak lineBreak
+    ∧ Parse.SepBy SlotWritten (read u => read = [',']) entries slots
+    ∧ notes.schedule = slots.toList
 
 -- Departures
 
 --| "Each bus has an ID number that also indicates how often the bus leaves
 --| for the airport": "the bus with ID 5 departs from the sea port at
 --| timestamps 0, 5, 10, 15, and so on".
-def Departs (id: Nat) (time: Nat): Prop := ∃ (trips: Nat) => time = trips * id
+def Departs (id time: Nat): Prop := ∃ (trips: Nat) => time = trips * id
 
 -- Part 1
 
@@ -44,10 +47,14 @@ def Departs (id: Nat) (time: Nat): Prop := ∃ (trips: Nat) => time = trips * id
 --| that same minute the puzzle doesn't say which to take, and either's
 --| answer is one here.
 def Part1 (notes: Notes) (answer: Nat): Prop :=
-  ∃ (id: Nat) => ∃ (departure: Nat) =>
-    Listed id ∈ notes.schedule ∧ Departs id departure ∧ notes.earliest ≤ departure
-      ∧ (∀ (other time: Nat) => Listed other ∈ notes.schedule → Departs other time → notes.earliest ≤ time → departure ≤ time)
-      ∧ answer = id * (departure - notes.earliest)
+  ∃ (id: Nat) => ∃ (departure: Nat) => Listed id ∈ notes.schedule
+    ∧ Departs id departure
+    ∧ notes.earliest ≤ departure
+    ∧ (∀ (other time: Nat) => Listed other ∈ notes.schedule
+      → Departs other time
+      → notes.earliest ≤ time
+      → departure ≤ time)
+    ∧ answer = id * (departure - notes.earliest)
 
 -- Part 2
 

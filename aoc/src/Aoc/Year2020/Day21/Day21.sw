@@ -96,4 +96,5 @@ def FoodList.candidates (list: FoodList) (allergen: Allergen): List Ingredient :
 def FoodList.holders (list: FoodList): Option (List Ingredient) := assign (list.allergens.map list.candidates)
 
 --| Part 2: the canonical dangerous ingredient list.
-def FoodList.dangerousList (list: FoodList): Option Text := list.holders.map (holders => holders.map .name |> .joinWith ",")
+def FoodList.dangerousList (list: FoodList): Option Text :=
+  list.holders.map (holders => holders.map .name |> .joinWith ",")

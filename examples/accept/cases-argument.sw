@@ -2,12 +2,12 @@
 -- end of a line, before the next line of the block, too.
 import Std (Bool, Nat)
 
-theorem andRight ∀ (a: Bool) (b: Bool) (both: (a ∧ b) = True): b = True := cases
+theorem andRight ∀ (a b: Bool) (both: (a ∧ b) = True): b = True := cases
 
-theorem orOfAnd ∀ (a: Bool) (b: Bool) (both: (a ∧ b) = True): (b ∨ a) = True :=
+theorem orOfAnd ∀ (a b: Bool) (both: (a ∧ b) = True): (b ∨ a) = True :=
   let right := andRight a b cases
   cases
 
-theorem orOfAndMiddle ∀ (a: Bool) (b: Bool) (both: (a ∧ b) = True): (b ∨ a) = True :=
+theorem orOfAndMiddle ∀ (a b: Bool) (both: (a ∧ b) = True): (b ∨ a) = True :=
   let right := andRight a b cases |> (proof => proof)
   cases

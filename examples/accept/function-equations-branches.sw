@@ -9,11 +9,9 @@ def big: List Nat → Nat
   | [] => 0
   | [x, ..rest] => if 4 ≤ x then x else big rest
 
-theorem bigHit ∀ (x: Nat) (rest: List Nat) (h: 3 < x): big [x, ..rest] = x :=
-  big.eq2.ifTrue x rest h
+theorem bigHit ∀ (x: Nat) (rest: List Nat) (h: 3 < x): big [x, ..rest] = x := big.eq2.ifTrue x rest h
 
-theorem bigMiss ∀ (x: Nat) (rest: List Nat) (h: (3 < x) = False): big [x, ..rest] = big rest :=
-  big.eq2.ifFalse x rest h
+theorem bigMiss ∀ (x: Nat) (rest: List Nat) (h: (3 < x) = False): big [x, ..rest] = big rest := big.eq2.ifFalse x rest h
 
 -- The call is stuck on `x`, so `rewrite` finds it.
 theorem bigAtMostRest ∀ (x: Nat) (rest: List Nat) (h: (3 < x) = False): big [x, ..rest] ≤ big rest :=
@@ -27,20 +25,18 @@ def countFresh: List Bool → Nat
 theorem countFreshTrue ∀ (rest: List Bool): countFresh [True, ..rest] = countFresh rest :=
   countFresh.eq2.ifFalse True rest rfl
 
-theorem countFreshStep ∀ (b: Bool) (rest: List Bool) (fresh: b = False):
-    countFresh [b, ..rest] = 1 + countFresh rest :=
+theorem countFreshStep ∀ (b: Bool) (rest: List Bool) (fresh: b = False): countFresh [b, ..rest] = 1 + countFresh rest :=
   countFresh.eq2.ifTrue b rest fresh
 
 -- `if h: p` whose branch uses `h`: `h` is in the statement.
-def check (n: Nat) (i: Nat): Option (Fin n) := if h: i < n then Some (Fin.ofNatLt n i h) else None
+def check (n i: Nat): Option (Fin n) := if h: i < n then Some (Fin.ofNatLt n i h) else None
 
-theorem checkIn ∀ (n: Nat) (i: Nat) (h: i < n): check n i = Some (Fin.ofNatLt n i h) :=
-  check.eq.ifTrue n i h
+theorem checkIn ∀ (n i: Nat) (h: i < n): check n i = Some (Fin.ofNatLt n i h) := check.eq.ifTrue n i h
 
-theorem checkOut ∀ (n: Nat) (i: Nat) (h: ¬(i < n)): check n i = None := check.eq.ifFalse n i h
+theorem checkOut ∀ (n i: Nat) (h: ¬(i < n)): check n i = None := check.eq.ifFalse n i h
 
 -- `decreasing`: the equations are proved through `gcd.unfold`.
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if h: b = 0 then a else gcd b (a % b) [decreasing := Nat.modLess a b h]
@@ -66,19 +62,17 @@ def takeFirst [a: Type] (xs: List a): Nat → List a
       | [] => []
       | [x, ..rest] => [x, ..takeFirst rest k]
 
-theorem takeCons ∀ [a: Type] (k: Nat) (x: a) (rest: List a):
-    takeFirst [x, ..rest] (Succ k) = [x, ..takeFirst rest k] :=
+theorem takeCons ∀ [a: Type] (k: Nat) (x: a) (rest: List a): takeFirst [x, ..rest] (Succ k) = [x, ..takeFirst rest k] :=
   takeFirst.eq2.cons k x rest
 
 -- A catch-all after an overlapping alternative: `notAlt1`.
-def both (a: Option Nat) (b: Option Nat): Nat := match (a, b) with
+def both (a b: Option Nat): Nat := match (a, b) with
   | (Some x, Some y) => x + y
   | _ => 0
 
 theorem bothNone ∀ (b: Option Nat): both None b = 0 := both.eq.alt2 None b cases
 
-theorem bothSome ∀ (x: Nat) (y: Nat): both (Some x) (Some y) = x + y :=
-  both.eq.alt1 (Some x) (Some y) x y rfl
+theorem bothSome ∀ (x y: Nat): both (Some x) (Some y) = x + y := both.eq.alt1 (Some x) (Some y) x y rfl
 
 -- On several expressions, stated as on their tuple, `match (a, k + 1)`:
 -- `isAlt1: (a, k + 1) = (Some x, Succ y)` (SW-1074).
@@ -112,10 +106,10 @@ def firstBig: List Nat → Option Big
       | True => Some { value = x, isBig = big }
       | False => firstBig rest
 
-theorem firstBigHit ∀ (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
+theorem firstBigHit ∀ (x: Nat) (rest: List Nat)
+    (h: Nat.leq 10 x = True):
     firstBig [x, ..rest] = Some { value = x, isBig = h } :=
   firstBig.eq2.true x rest h
 
-theorem firstBigSkip ∀ (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = False):
-    firstBig [x, ..rest] = firstBig rest :=
+theorem firstBigSkip ∀ (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = False): firstBig [x, ..rest] = firstBig rest :=
   firstBig.eq2.false x rest h

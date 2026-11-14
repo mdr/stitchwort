@@ -8,9 +8,7 @@ def addRight (m: Nat): Nat → Nat
   | Zero => m
   | Succ n => Succ (addRight m n)
 
-type Tree: Type =
-  | Leaf
-  | Node (left: Tree) (right: Tree)
+type Tree: Type = | Leaf | Node (left: Tree) (right: Tree)
 
 def size: Tree → Nat
   | Leaf => 1

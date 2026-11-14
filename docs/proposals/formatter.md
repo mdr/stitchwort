@@ -1,5 +1,15 @@
 # A formatter for Stitchwort
 
+**Superseded** (SW-3194, 14 November 2026). This note describes the
+line-based formatter, which kept the author's line breaks (D1013). Stage 5
+of [formatter-architecture.md](formatter-architecture.md) replaced it with
+the tree printer, which chooses every line break itself; the style it
+implements is [formatter-style.md](formatter-style.md). Still in force from
+this note: the goals and non-goals of §1, the safety checks of §4 (the same
+program, the same comments, idempotence), the CLI and editor interface of
+§5, and the decisions of §8 that are not about line breaks (D1014 to D1022).
+What follows is kept for the reasoning, not as a description of the code.
+
 Ticket SW-366. Status: design accepted with the decisions in §8 (23 Oct 2026).
 
 Matt's brief: "Plan a Stitchwort formatter that we can use, including in the

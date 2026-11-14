@@ -22,22 +22,25 @@ def opposite: Direction → Direction
   | Right => Left
 
 --| A step back the opposite way returns to where it started.
-theorem stepBack ∀ (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
-    next.step (opposite direction) = Some position := match position, direction with
-      | { row, column }, Down => rewrite <- Option.someInjective stepped in rfl
-      | { row, column }, Right => rewrite <- Option.someInjective stepped in rfl
-      | { row, column }, Up =>
-        match row with
-          | Zero => Void.exfalso (Option.noneNotSome next stepped)
-          | Succ above => rewrite <- Option.someInjective stepped in rfl
-      | { row, column }, Left =>
-        match column with
-          | Zero => Void.exfalso (Option.noneNotSome next stepped)
-          | Succ before => rewrite <- Option.someInjective stepped in rfl
+theorem stepBack ∀ (position: Position) (direction: Direction) (next: Position)
+    (stepped: position.step direction = Some next):
+    next.step (opposite direction) = Some position :=
+  match position, direction with
+    | { row, column }, Down => rewrite <- Option.someInjective stepped in rfl
+    | { row, column }, Right => rewrite <- Option.someInjective stepped in rfl
+    | { row, column }, Up =>
+      match row with
+        | Zero => Void.exfalso (Option.noneNotSome next stepped)
+        | Succ above => rewrite <- Option.someInjective stepped in rfl
+    | { row, column }, Left =>
+      match column with
+        | Zero => Void.exfalso (Option.noneNotSome next stepped)
+        | Succ before => rewrite <- Option.someInjective stepped in rfl
 
 --| A move is a step onto track.
 theorem moveCases ∀ (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
-    (moved: moveTo racetrack position direction = Some next): (position.step direction = Some next) ∧ (onTrack racetrack next = True) :=
+    (moved: moveTo racetrack position direction = Some next):
+    (position.step direction = Some next) ∧ (onTrack racetrack next = True) :=
   match stepped: position.step direction with
     | Some found =>
       match onIt: onTrack racetrack found with
@@ -45,37 +48,64 @@ theorem moveCases ∀ (racetrack: Racetrack) (position: Position) (direction: Di
 
 --| A step onto track is a move.
 theorem moveIntro ∀ (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
-    (stepped: position.step direction = Some next) (onIt: onTrack racetrack next = True): moveTo racetrack position direction = Some next :=
+    (stepped: position.step direction = Some next)
+    (onIt: onTrack racetrack next = True):
+    moveTo racetrack position direction = Some next :=
   rewrite stepped, onIt in rfl
 
 --| A move from track can be taken back.
-theorem moveBack ∀ (racetrack: Racetrack) (position: Position) (onIt: onTrack racetrack position = True) (direction: Direction) (next: Position)
-    (moved: moveTo racetrack position direction = Some next): moveTo racetrack next (opposite direction) = Some position :=
-  moveIntro racetrack next (opposite direction) position (stepBack position direction next (And.left (moveCases racetrack position direction next moved)))
+theorem moveBack ∀ (racetrack: Racetrack) (position: Position)
+    (onIt: onTrack racetrack position = True)
+    (direction: Direction) (next: Position)
+    (moved: moveTo racetrack position direction = Some next):
+    moveTo racetrack next (opposite direction) = Some position :=
+  moveIntro racetrack next
+    (opposite direction)
+    position
+    (stepBack position direction next (And.left (moveCases racetrack position direction next moved)))
     onIt
 
 theorem directionsComplete ∀ (direction: Direction): direction ∈ directions := memDirections direction
 
 --| Each edge is a move, taking one picosecond.
-theorem edgesSound ∀ (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ racetrack.edges position):
+theorem edgesSound ∀ (racetrack: Racetrack) (position next: Position) (weight: Nat)
+    (edge: (next, weight) ∈ racetrack.edges position):
     (Exists Direction (direction => moveTo racetrack position direction = Some next)) ∧ (weight = 1) :=
-  let found := List.memFilterMapElim (direction => racetrack.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
-  Exists.elim (List.anyMember (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)
+  let found :=
+    List.memFilterMapElim
+      (direction => racetrack.move position direction |> .map (other => (other, 1)))
+      (next, weight)
+      directions
+      edge
+  Exists.elim
+    (List.anyMember
+      (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight))
+      directions
+      found)
     (direction both =>
       match moved: racetrack.move position direction with
         | None => Void.exfalso (Option.noneNotSome (next, weight) (And.right both))
         | Some other =>
           let same := Option.someInjective (And.right both)
-          Both (Witness direction (Eq.trans moved (Eq.cong Some (Eq.cong Pair.fst same)))) (Eq.sym (Eq.cong Pair.snd same)))
+          Both
+            (Witness direction (Eq.trans moved (Eq.cong Some (Eq.cong Pair.fst same))))
+            (Eq.sym (Eq.cong Pair.snd same)))
 
 --| Each move is an edge.
 theorem edgesComplete ∀ (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
-    (moved: moveTo racetrack position direction = Some next): (next, 1) ∈ racetrack.edges position :=
-  List.memFilterMapIntro (way => racetrack.move position way |> .map (other => (other, 1))) direction (next, 1) directions
-    (directionsComplete direction) (rewrite moveAgrees racetrack position direction, moved in rfl)
+    (moved: moveTo racetrack position direction = Some next):
+    (next, 1) ∈ racetrack.edges position :=
+  List.memFilterMapIntro
+    (way => racetrack.move position way |> .map (other => (other, 1)))
+    direction
+    (next, 1)
+    directions
+    (directionsComplete direction)
+    (rewrite moveAgrees racetrack position direction, moved in rfl)
 
 --| Edges lead onto track.
-theorem edgeOnTrack ∀ (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ racetrack.edges position):
+theorem edgeOnTrack ∀ (racetrack: Racetrack) (position next: Position) (weight: Nat)
+    (edge: (next, weight) ∈ racetrack.edges position):
     onTrack racetrack next = True :=
   Exists.elim (And.left (edgesSound racetrack position next weight edge)) (direction moved =>
     And.right (moveCases racetrack position direction next moved))
@@ -87,8 +117,10 @@ theorem raceCons ∀ (racetrack: Racetrack) (position: Position) (direction: Dir
   rewrite moved in rfl
 
 --| Moves then more moves: the more moves from where the first left off.
-theorem raceAppend ∀ (racetrack: Racetrack) (more: List Direction) (position: Position) (moves: List Direction) (middle: Position)
-    (ended: race racetrack position moves = Some middle): race racetrack position (moves ++ more) = race racetrack middle more :=
+theorem raceAppend ∀ (racetrack: Racetrack) (more: List Direction) (position: Position)
+    (moves: List Direction) (middle: Position)
+    (ended: race racetrack position moves = Some middle):
+    race racetrack position (moves ++ more) = race racetrack middle more :=
   match moves with
     | [] => rewrite Option.someInjective ended in rfl
     | [direction, ..rest] =>
@@ -97,6 +129,10 @@ theorem raceAppend ∀ (racetrack: Racetrack) (more: List Direction) (position: 
 
 --| Moves, then one more.
 theorem raceSnoc ∀ (racetrack: Racetrack) (position: Position) (moves: List Direction) (middle: Position)
-    (ended: race racetrack position moves = Some middle) (direction: Direction) (next: Position)
-    (moved: moveTo racetrack middle direction = Some next): race racetrack position (moves ++ [direction]) = Some next :=
-  Eq.trans (raceAppend racetrack [direction] position moves middle ended) (raceCons racetrack middle direction next moved [])
+    (ended: race racetrack position moves = Some middle)
+    (direction: Direction) (next: Position)
+    (moved: moveTo racetrack middle direction = Some next):
+    race racetrack position (moves ++ [direction]) = Some next :=
+  Eq.trans
+    (raceAppend racetrack [direction] position moves middle ended)
+    (raceCons racetrack middle direction next moved [])

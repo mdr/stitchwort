@@ -56,8 +56,7 @@ def part1 (diskMap: DiskMap): Nat :=
 def Disk.fileStart (disk: Disk) (id: Nat): Option Nat := disk.blocks.findIndex (block => block == FileBlock id)
 
 --| Whether the `length` blocks from `start` are all free.
-def Disk.freeAt (disk: Disk) (start: Nat) (length: Nat): Bool :=
-  disk.blocks.drop start |> .take length |> .all .isFree
+def Disk.freeAt (disk: Disk) (start length: Nat): Bool := disk.blocks.drop start |> .take length |> .all .isFree
 
 --| Part 2's one move: "attempt to move whole files to the leftmost span of
 --| free space blocks that could fit the file". "If there is no span of free
@@ -70,11 +69,10 @@ def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk := match disk.fileStart id w
     let fits := List.range 0 start |> .find (target => target + length <= start && disk.freeAt target length)
     match fits with
       | None => disk
-      | Some target =>
-        { blocks = disk.blocks.mapWithIndex (position block =>
-          if target <= position < target + length then FileBlock id
-          else if block == FileBlock id then Free
-          else block) }
+      | Some target => {
+        blocks = disk.blocks.mapWithIndex (position block =>
+          if target <= position < target + length then FileBlock id else if block == FileBlock id then Free else block)
+      }
 
 --| "Attempt to move each file exactly once in order of decreasing file ID
 --| number starting with the file with the highest file ID number."

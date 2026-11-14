@@ -6,7 +6,8 @@ import Aoc.Common (Grid)
 import Aoc.Year2020.Day03 (..)
 import Std (Fail, List, Result, Text)
 
-def inputMap: Result (Grid Square) Text := Fail.toResult (() => parseMap (include "../../../../../inputs/2020/day03.txt"))
+def inputMap: Result (Grid Square) Text :=
+  Fail.toResult (() => parseMap (include "../../../../../inputs/2020/day03.txt"))
 
 test "real input, part 1" := inputMap.map solvePart1 == Ok 276
 test "real input, part 2" := inputMap.map solvePart2 == Ok 7812180000

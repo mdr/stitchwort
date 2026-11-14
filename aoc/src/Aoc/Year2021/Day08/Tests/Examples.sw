@@ -29,12 +29,22 @@ def entriesOf (input: Text): List Entry := Fail.orElse [] (() => parseEntries in
 def p (letters: Text): Pattern := Pattern.ofLetters letters
 
 test "parse the single entry" :=
-  parsed single == Ok [{ patterns = ["acedgfb", "cdfbe", "gcdfa", "fbcad", "dab", "cefabd", "cdfgeb", "eafb", "cagedb", "ab"].map p, outputs = ["cdfeb", "fcadb", "cdfeb", "cdbaf"].map p }]
+  parsed single
+    == Ok [
+      {
+        patterns = ["acedgfb", "cdfbe", "gcdfa", "fbcad", "dab", "cefabd", "cdfgeb", "eafb", "cagedb", "ab"].map p,
+        outputs = ["cdfeb", "fcadb", "cdfeb", "cdbaf"].map p
+      }
+    ]
 test "the single entry reads 5353" := solvePart2 (entriesOf single) == 5353
 test "the single entry's digits" :=
-  (entriesOf single).headOr { patterns = [], outputs = [] } |> (entry => entry.patterns.map (decodeDigit entry.patterns)) |> (== [8, 5, 2, 3, 7, 9, 6, 4, 0, 1])
+  (entriesOf single).headOr { patterns = [], outputs = [] }
+    |> (entry => entry.patterns.map (decodeDigit entry.patterns))
+    |> (== [8, 5, 2, 3, 7, 9, 6, 4, 0, 1])
 test "the single entry's wiring, as the puzzle draws it" :=
-  (entriesOf single).headOr { patterns = [], outputs = [] } |> .wiring |> (== { a = C, b = F, c = G, d = A, e = B, f = D, g = E })
+  (entriesOf single).headOr { patterns = [], outputs = [] }
+    |> .wiring
+    |> (== { a = C, b = F, c = G, d = A, e = B, f = D, g = E })
 
 test "parse the example" := (entriesOf example).length == 10
 test "example, part 1" := solvePart1 (entriesOf example) == 26
@@ -45,19 +55,24 @@ test "example, each output value" :=
 test "the display's digit scores" := digitScores == [42, 17, 34, 39, 30, 37, 41, 25, 49, 45]
 test "the display reads as itself" := display.map (decodeDigit display) == List.range 0 10
 test "the spec's digits are the display's" :=
-  List.range 0 10 |> .all (digit => segments.all (segment => (digitPattern digit).has segment == (digitSegments digit).contains segment))
+  List.range 0 10
+    |> .all (digit =>
+      segments.all (segment => (digitPattern digit).has segment == (digitSegments digit).contains segment))
 
 --| The spec on the single entry: its wiring decodes it, and reads 5353.
 def singleWiring: Segment → Segment := ({ a = C, b = F, c = G, d = A, e = B, f = D, g = E }: Wiring).at
 test "the spec reads the single entry as 5353" :=
   (entriesOf single).map (decodedValue singleWiring) == [5353] ∧ (entriesOf single).map (easyDigits singleWiring) == [0]
 test "the spec: each of the single entry's patterns shows its digit" :=
-  (entriesOf single).headOr { patterns = [], outputs = [] } |> .patterns |> .map (shown singleWiring)
+  (entriesOf single).headOr { patterns = [], outputs = [] }
+    |> .patterns
+    |> .map (shown singleWiring)
     |> (== [Some 8, Some 5, Some 2, Some 3, Some 7, Some 9, Some 6, Some 4, Some 0, Some 1])
 test "the spec: the display as drawn shows its digits" := display.map (shown (s => s)) == (List.range 0 10).map Some
 
 test "a letter past g" :=
-  parsed "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ah | cdfeb fcadb cdfeb cdbaf" == Err "line 1, column 58: expected ' ', got 'h'"
+  parsed "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb ah | cdfeb fcadb cdfeb cdbaf"
+    == Err "line 1, column 58: expected ' ', got 'h'"
 test "nine patterns" :=
   Result.isOk (parsed "acedgfb cdfbe gcdfa fbcad dab cefabd cdfgeb eafb cagedb | cdfeb fcadb cdfeb cdbaf") == False
 test "two patterns the same" :=

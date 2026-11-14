@@ -50,7 +50,9 @@ test "halves" := sumHalves [0, 10, 7] 0 == 8
 
 -- A definition by `decreasing`.
 @[tailrec]
-def halfAcc (n: Nat) (acc: Nat): Nat decreasing n :=
+def halfAcc (n acc: Nat): Nat
+    decreasing n
+:=
   if h: n < 2 then acc else halfAcc (n - 2) (acc + 1)
 
 test "half" := halfAcc 9 0 == 4

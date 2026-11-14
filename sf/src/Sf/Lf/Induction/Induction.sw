@@ -180,7 +180,8 @@ theorem mult0Plus' ∀ (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewr
 -- The book uses `replace` to point at the right `+`. In Stitchwort, give
 -- the rule its arguments, and it rewrites `plus n m` and nothing else:
 
-theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) := rewrite addComm n m in rfl
+theorem plusRearrange ∀ (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) :=
+  rewrite addComm n m in rfl
 
 -- # Formal vs. Informal Proof
 --

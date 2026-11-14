@@ -27,9 +27,7 @@ def main(): {IO, Fail} () :=
   IO.print "Part 2: ${notes.earliestLineUp |> .orFail "the buses never line up"}"
 
 --| One entry of the schedule.
-type Slot =
-  | Listed (id: Nat)
-  | OutOfService
+type Slot = | Listed (id: Nat) | OutOfService
 
 type Notes = { earliest: Nat, schedule: List Slot }
 
@@ -81,9 +79,11 @@ def Alignment.start: Alignment := { time = 0, period = 1 }
 --| so both searches look no further.
 def Alignment.add (alignment: Alignment) (bus: Bus): Option Alignment :=
   let suits := (periods: Nat) => bus.departsAfter (alignment.time + periods * alignment.period)
-  0 ..< bus.id |> .find suits |> .map (first =>
-    let again := 0 ..< bus.id |> .find (more => suits (first + 1 + more)) |> .getOrElse 0
-    { time = alignment.time + first * alignment.period, period = (again + 1) * alignment.period })
+  0 ..< bus.id
+    |> .find suits
+    |> .map (first =>
+      let again := 0 ..< bus.id |> .find (more => suits (first + 1 + more)) |> .getOrElse 0
+      { time = alignment.time + first * alignment.period, period = (again + 1) * alignment.period })
 
 def Alignment.addAll (alignment: Alignment): (buses: List Bus) → Option Alignment
   | [] => Some alignment

@@ -44,8 +44,7 @@ def stepNumber (total: Nat) (l: Text): Option Nat → (Nat → {IO, Partial | e}
 -- recursive call is a request only `addLines`'s own definition can answer.
 def step (total: Nat): Option Text → (Nat → {IO, Partial | e} Nat) → {IO, Partial | e} Nat
   | None, more => total
-  | Some l, more =>
-    if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
+  | Some l, more => if l.isEmpty then total else stepNumber total l ((l.trim).toNat) more
 
 -- Adds up the numbers on the lines to come, until an empty line or the end
 -- of the input.

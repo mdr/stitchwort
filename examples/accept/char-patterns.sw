@@ -1,9 +1,7 @@
 -- Character patterns: `'L'` is `MkChar 76 _`, the code as a number pattern
 -- and the proof as `_`. They group and fall through like number patterns.
 
-type Turn: Type =
-  | Left (n: Nat)
-  | Right (n: Nat)
+type Turn: Type = | Left (n: Nat) | Right (n: Nat)
 
 def turnOf (c: Char) (n: Nat): Option Turn := match c with
   | 'L' => Some (Left n)

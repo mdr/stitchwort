@@ -5,9 +5,7 @@
 -- that follows an overlapping one (`Some n` after `Some 0`, with `n ≠ 0`).
 import Std (Eq, List, Nat, Option, Void)
 
-type Step =
-  | Halt
-  | Next (count: Nat) (printed: Option Nat)
+type Step = | Halt | Next (count: Nat) (printed: Option Nat)
 
 -- The values printed before a halt, newest first, within `fuel` steps.
 def collect (step: Nat → Step) (printed: List Nat): (fuel: Nat) → List Nat
@@ -26,7 +24,8 @@ theorem collectKeeps ∀ (step: Nat → Step) (printed: List Nat) (fuel: Nat):
     (printed fuel halted => omega)
     (printed fuel count none ih => ih)
     (printed fuel count value some ih => omega)
-    printed fuel
+    printed
+    fuel
 
 -- Twice the numbers that are 0 mod 3, plus the ones that are 1 mod 3.
 def score: List Nat → Nat

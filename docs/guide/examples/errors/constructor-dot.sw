@@ -1,6 +1,4 @@
-type Key =
-  | BirthYear
-  | IssueYear
+type Key = | BirthYear | IssueYear
 
 def Key.valid (key: Key) (text: Text): Bool := match key with
   | BirthYear => text.length == 4

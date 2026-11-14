@@ -9,10 +9,8 @@ theorem printed ∀ (a b: Bool) (fact: (a && b) = True) (prop: a = True ∧ b = 
 theorem closedTest: (True && True) = True := rfl
 theorem closedProp: True = True ∧ True = True := rfl
 
-theorem rewriteTest ∀ (a b: Bool) (h: (a && b) = True): (if a && b then 1 else 2) = 1 :=
-  rewrite h in rfl
-theorem rewriteProp ∀ (a b: Bool) (h: a = True ∧ b = True): (if a && b then 1 else 2) = 1 :=
-  rewrite h in rfl
+theorem rewriteTest ∀ (a b: Bool) (h: (a && b) = True): (if a && b then 1 else 2) = 1 := rewrite h in rfl
+theorem rewriteProp ∀ (a b: Bool) (h: a = True ∧ b = True): (if a && b then 1 else 2) = 1 := rewrite h in rfl
 
 theorem takeProp ∀ (a b: Bool) (h: a = True ∧ b = True): b = True := match h with | Both l r => r
 

@@ -4,10 +4,7 @@
 -- proof is `auto`'s, `d.sound rfl`, which the kernel runs again.
 import Std (Bool, List, Nat, Void)
 
-type Key =
-  | K0
-  | K1
-  | K2
+type Key = | K0 | K1 | K2
 
 def keys: List Key := [K0, K1, K2]
 

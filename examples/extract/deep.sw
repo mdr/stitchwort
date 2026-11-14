@@ -14,9 +14,7 @@
 -- run: steps 2
 
 -- A list of numbers, written out.
-type Chain: Type =
-  | End
-  | More (head: Nat) (tail: Chain)
+type Chain: Type = | End | More (head: Nat) (tail: Chain)
 
 export def echo (c: Chain): Chain := c
 
@@ -39,9 +37,7 @@ def buildOnto (acc: Chain): Nat → Chain
 
 export def build (n: Nat): Chain := buildOnto End n
 
-type Tree: Type =
-  | Leaf
-  | Node (left: Tree) (right: Tree)
+type Tree: Type = | Leaf | Node (left: Tree) (right: Tree)
 
 export def echoTree (t: Tree): Tree := t
 
@@ -53,9 +49,7 @@ def spineOnto (t: Tree): Nat → Tree
 export def spine (n: Nat): Tree := spineOnto Leaf n
 
 -- A list with a parameter.
-type Seq (a: Type): Type =
-  | Stop
-  | Step (item: a) (rest: Seq a)
+type Seq (a: Type): Type = | Stop | Step (item: a) (rest: Seq a)
 
 export def echoSeq (s: Seq Text): Seq Text := s
 

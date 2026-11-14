@@ -1,4 +1,4 @@
-//! Golden tests (docs/proposals/formatter.md §4.2): each
+//! Golden tests (docs/proposals/formatter-style.md): each
 //! `golden/NAME.before.sw` formats to `golden/NAME.after.sw`, and both
 //! format to the same text again (idempotence). Run with `BLESS=1` to write
 //! the `.after.sw` files from the formatter's output, then review the diff.
@@ -6,6 +6,12 @@
 use std::path::Path;
 
 use stitchwort_fmt::{format, format_with_stats};
+
+/// Files with declarations the formatter leaves as written because the
+/// comments in them sit where no rule places them (a comment before a
+/// leading comma, a comment that would move to the other side of one): the
+/// number of such declarations in each. Their `.after.sw` is the input.
+const LEFT_AS_WRITTEN: [(&str, usize); 2] = [("brackets-comments", 1), ("brackets-edge", 1)];
 
 #[test]
 fn golden_files_format_as_expected_and_idempotently() {
@@ -26,7 +32,13 @@ fn golden_files_format_as_expected_and_idempotently() {
             std::fs::read_to_string(dir.join(format!("{name}.before.sw"))).expect("readable");
         let after_path = dir.join(format!("{name}.after.sw"));
         let got = match format_with_stats(&before) {
-            Ok(result) if result.stats.verbatim_decls > 0 => {
+            Ok(result)
+                if result.stats.verbatim_decls
+                    != LEFT_AS_WRITTEN
+                        .iter()
+                        .find(|(file, _)| file == name)
+                        .map_or(0, |(_, n)| *n) =>
+            {
                 failures.push(format!("{name}: a declaration failed its checks"));
                 continue;
             }

@@ -23,14 +23,9 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${route.shipDistance}"
   IO.print "Part 2: ${route.waypointDistance}"
 
-type Side =
-  | Left
-  | Right
+type Side = | Left | Right
 
-type Action =
-  | Move (heading: Heading)
-  | Turn (side: Side)
-  | Forward
+type Action = | Move (heading: Heading) | Turn (side: Side) | Forward
 
 def Action.letter: Action → Text
   | Move North => "N"
@@ -96,4 +91,5 @@ def WaypointShip.follow (ship: WaypointShip) (instruction: Instruction): Waypoin
 def Route.shipDistance (route: Route): Nat := (route.instructions.foldLeft Ship.start Ship.follow).location.manhattan
 
 --| Part 2: how far the ship ends from its start, steered by the waypoint.
-def Route.waypointDistance (route: Route): Nat := (route.instructions.foldLeft WaypointShip.start WaypointShip.follow).location.manhattan
+def Route.waypointDistance (route: Route): Nat :=
+  (route.instructions.foldLeft WaypointShip.start WaypointShip.follow).location.manhattan

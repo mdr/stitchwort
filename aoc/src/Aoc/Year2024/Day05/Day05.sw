@@ -48,7 +48,7 @@ def parsePrintQueue (input: Text): {Fail} PrintQueue := Parse.all input printQue
 def ruleSet (rules: List Rule): Set (Nat, Nat) := rules.map (rule => (rule.before, rule.after)) |> .toSet
 
 --| Whether a rule says `earlier` must be printed before `later`.
-def mustPrecede (rules: Set (Nat, Nat)) (earlier: Nat) (later: Nat): Bool := rules.contains (earlier, later)
+def mustPrecede (rules: Set (Nat, Nat)) (earlier later: Nat): Bool := rules.contains (earlier, later)
 
 --| No page is followed by one that must be printed before it.
 def inOrder (precedes: Nat → Nat → Bool): List Nat → Bool
@@ -69,6 +69,4 @@ def solvePart1 (queue: PrintQueue): Nat :=
 
 def solvePart2 (queue: PrintQueue): Nat :=
   let precedes := mustPrecede (ruleSet queue.rules)
-  queue.updates.filter (update => !(inOrder precedes update.pages))
-    |> .map (.reorder precedes)
-    |> .sumBy .middlePage
+  queue.updates.filter (update => !(inOrder precedes update.pages)) |> .map (.reorder precedes) |> .sumBy .middlePage

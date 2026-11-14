@@ -6,7 +6,7 @@
 --     Note 2: the first case still open: a = True, b = False, c = False, d = False, e = False
 import Std (Bool)
 
-def xor (a: Bool) (b: Bool): Bool := if a then not b else b
+def xor (a b: Bool): Bool := if a then not b else b
 
-theorem xor6 ∀ (a: Bool) (b: Bool) (c: Bool) (d: Bool) (e: Bool) (f: Bool):
-    xor a (xor b (xor c (xor d (xor e f)))) = xor f (xor e (xor d (xor c (xor b a)))) := cases
+theorem xor6 ∀ (a b c d e f: Bool): xor a (xor b (xor c (xor d (xor e f)))) = xor f (xor e (xor d (xor c (xor b a)))) :=
+  cases

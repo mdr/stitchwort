@@ -16,13 +16,20 @@ test "rfl waits for the literal" := three == 3
 -- `0 < a` is built at an unknown type, and the `Bool` it is decided into
 -- waits for `<`'s dictionary, so it is `Nat.leq 1 a`, the form `0 < a` has
 -- on `Nat` from the start, which a proof of `0 < other` matches.
-theorem positiveKept ∀ (cands: List Nat) (output: Nat → List Nat) (target: List Nat) (other: Nat) (positive: 0 < other) (outputs: output other = target) (mem: other ∈ cands):
+theorem positiveKept ∀ (cands: List Nat) (output: Nat → List Nat) (target: List Nat) (other: Nat)
+    (positive: 0 < other)
+    (outputs: output other = target)
+    (mem: other ∈ cands):
     other ∈ List.filter cands (a => 0 < a ∧ output a == target) :=
-  List.memFilterIntro _ (a => 0 < a ∧ output a == target) mem
+  List.memFilterIntro _
+    (a => 0 < a ∧ output a == target)
+    mem
     (Bool.andIntro positive (rewrite outputs in DecEq.refl target))
 
 -- The same decision directly where a `Bool` is expected.
-theorem positiveAlone ∀ (cands: List Nat) (other: Nat) (positive: 0 < other) (mem: other ∈ cands):
+theorem positiveAlone ∀ (cands: List Nat) (other: Nat)
+    (positive: 0 < other)
+    (mem: other ∈ cands):
     other ∈ List.filter cands (a => 0 < a) :=
   List.memFilterIntro _ (a => 0 < a) mem positive
 
@@ -42,7 +49,8 @@ test "decided as on Nat" := positives [0, 3, 12, 9] == [3, 9]
 -- comparison with the statement, made after the lambda failed in place,
 -- meets it against the statement's `0`, a `Nat`, which also fixes the two
 -- `_`s (the shape of 2021 Day08's `valueCorrect`).
-theorem foldSeenThrough ∀ (xs: List Nat): List.foldLeft xs 0 (acc x => 10 * acc + x) = List.foldLeft xs 0 (acc x => 10 * acc + (x + 0)) :=
+theorem foldSeenThrough ∀ (xs: List Nat):
+    List.foldLeft xs 0 (acc x => 10 * acc + x) = List.foldLeft xs 0 (acc x => 10 * acc + (x + 0)) :=
   List.foldLeftCongMem xs 0 _ _ (acc x m =>
     match e: x with
       | Zero => rfl

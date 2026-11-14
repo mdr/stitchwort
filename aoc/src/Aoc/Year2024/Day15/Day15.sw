@@ -37,11 +37,7 @@ type Warehouse = { walls: Set Cell, boxes: Set Cell, robot: Cell }
 type Document = { warehouse: Warehouse, moves: List Direction }
 
 --| What one character of the map shows.
-type Tile =
-  | Wall
-  | Box
-  | Robot
-  | Floor
+type Tile = | Wall | Box | Robot | Floor
 
 def tile(): {Parse} Tile := pick [("#", Wall), ("O", Box), ("@", Robot), (".", Floor)]
 
@@ -60,11 +56,10 @@ def positionsOf (rows: List (List Tile)) (wanted: Tile): List Cell :=
 
 def parseDocument (input: Text): {Fail} Document :=
   let (rows, moves) := Parse.all input document
-  let robot :=
-    match positionsOf rows Robot with
-      | [start] => start
-      | [] => Fail.fail "expected a robot (@) on the map, found none"
-      | _ => Fail.fail "expected one robot (@) on the map, found several"
+  let robot := match positionsOf rows Robot with
+    | [start] => start
+    | [] => Fail.fail "expected a robot (@) on the map, found none"
+    | _ => Fail.fail "expected one robot (@) on the map, found several"
   let warehouse := { walls = (positionsOf rows Wall).toSet, boxes = (positionsOf rows Box).toSet, robot }
   { warehouse, moves }
 
@@ -72,7 +67,8 @@ def parseDocument (input: Text): {Fail} Document :=
 --| `None` if there are more than `fuel` boxes in a line.
 def firstFree (boxes: Set Cell) (direction: Direction) (position: Cell): (fuel: Nat) → Option Cell
   | Zero => None
-  | Succ fuel => if boxes.contains position then firstFree boxes direction (position.step direction) fuel else Some position
+  | Succ fuel =>
+    if boxes.contains position then firstFree boxes direction (position.step direction) fuel else Some position
 
 --| One attempted move. The line of boxes in front of the robot moves one
 --| step, which leaves the same boxes as moving the first box to the free
@@ -88,7 +84,8 @@ def Warehouse.move (warehouse: Warehouse) (direction: Direction): Warehouse :=
     | None => warehouse
 
 --| Every move in turn.
-def Warehouse.moveAll (warehouse: Warehouse) (moves: List Direction): Warehouse := moves.foldLeft warehouse Warehouse.move
+def Warehouse.moveAll (warehouse: Warehouse) (moves: List Direction): Warehouse :=
+  moves.foldLeft warehouse Warehouse.move
 
 --| 100 times the distance from the top edge plus the distance from the left.
 def Cell.gps (box: Cell): Int := 100 * box.rows + box.columns
@@ -122,14 +119,18 @@ def frontOf (box: Cell) (direction: Direction): List Cell :=
 
 --| The boxes that move with `group` when the cells in `pending` must be
 --| emptied: `None` if one of those cells is a wall, or after `fuel` cells.
-def Warehouse.gather (warehouse: Warehouse) (direction: Direction) (group: Set Cell): (pending: List Cell) → (fuel: Nat) → Option (Set Cell)
+def Warehouse.gather (warehouse: Warehouse) (direction: Direction) (group: Set Cell):
+    (pending: List Cell) → (fuel: Nat) → Option (Set Cell)
   | [], fuel => Some group
   | [cell, ..rest], Zero => None
   | [cell, ..rest], Succ fuel =>
     if warehouse.walls.contains cell then None
     else
       let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)
-      warehouse.gather direction (found.foldLeft group Set.insert) (found.flatMap (box => frontOf box direction) ++ rest) fuel
+      warehouse.gather direction
+        (found.foldLeft group Set.insert)
+        (found.flatMap (box => frontOf box direction) ++ rest)
+        fuel
 
 --| One attempted move in the wide warehouse: the boxes the robot pushes,
 --| and those they push in turn, move one step, unless one would hit a wall.
@@ -142,6 +143,7 @@ def Warehouse.moveWide (warehouse: Warehouse) (direction: Direction): Warehouse 
       { warehouse | boxes = warehouse.boxes.difference group |> .union moved, robot = next }
     | None => warehouse
 
-def Warehouse.moveAllWide (warehouse: Warehouse) (moves: List Direction): Warehouse := moves.foldLeft warehouse Warehouse.moveWide
+def Warehouse.moveAllWide (warehouse: Warehouse) (moves: List Direction): Warehouse :=
+  moves.foldLeft warehouse Warehouse.moveWide
 
 def solvePart2 (document: Document): Int := document.warehouse.widen.moveAllWide document.moves |> .gpsSum

@@ -5,9 +5,7 @@
 
 import Std (Eq, Nat, Option, Show)
 
-type Shape =
-  | Circle { id: Text, radius: Nat := 1 }
-  | Square (id: Text) (side: Nat := 1)
+type Shape = | Circle { id: Text, radius: Nat := 1 } | Square (id: Text) (side: Nat := 1)
 
 def circle: Shape := Circle { id = "c" }
 
@@ -34,4 +32,5 @@ test "the same order" := order == same ∧ bracketed == Order { item = { name = 
 -- `show` prints a braced constructor by field name, and a record in a bracket
 -- constructor without brackets, both as source.
 test "show by name" := Show.toSource order == "Order { item = { name = \"tea\", price = 3 }, note = \"\" }"
-test "show a record argument" := Show.toSource (Some { name = "tea", price = 3 }) == "Some { name = \"tea\", price = 3 }"
+test "show a record argument" :=
+  Show.toSource (Some { name = "tea", price = 3 }) == "Some { name = \"tea\", price = 3 }"

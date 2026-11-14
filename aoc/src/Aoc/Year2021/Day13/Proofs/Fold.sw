@@ -14,7 +14,7 @@ theorem landsFoldDot ∀ (fold: Fold) (dot: Point) (clear: Clear fold dot): Land
     | AlongX line => cases
 
 --| ...and nowhere else.
-theorem landsOnly ∀ (fold: Fold) (dot: Point) (spot: Point) (lands: Lands fold dot spot): spot = foldDot fold dot :=
+theorem landsOnly ∀ (fold: Fold) (dot spot: Point) (lands: Lands fold dot spot): spot = foldDot fold dot :=
   match fold with
     | AlongY line =>
       match lands with
@@ -30,15 +30,22 @@ def Holds (dots: List Point) (marked: Point → Prop): Prop := ∀ (spot: Point)
 
 --| If a list holds the dots before a fold, and every one of them is clear
 --| of it, `foldOnce` holds the dots after it.
-theorem foldOnceHolds ∀ (dots: List Point) (marked: Point → Prop) (fold: Fold) (holds: Holds dots marked) (clear: ∀ (dot: Point) => marked dot → Clear fold dot):
+theorem foldOnceHolds ∀ (dots: List Point) (marked: Point → Prop) (fold: Fold)
+    (holds: Holds dots marked)
+    (clear: ∀ (dot: Point) => marked dot → Clear fold dot):
     Holds (foldOnce dots fold) (AfterFold fold marked) :=
-  spot => {
-    forward = member =>
-      let mapped := (List.memUnique spot (dots.map (foldDot fold))).forward member
-      Exists.elim (List.memMapElim (foldDot fold) spot dots mapped) (dot moved =>
-        Witness dot (Both ((holds dot).forward moved.left) (rewrite <- moved.right in landsFoldDot fold dot (clear dot ((holds dot).forward moved.left))))),
-    backward = after =>
-      Exists.elim after (dot lands =>
-        let mapped := List.memMap dots dot ((holds dot).backward lands.left) (foldDot fold)
-        (List.memUnique spot (dots.map (foldDot fold))).backward (rewrite landsOnly fold dot spot lands.right in mapped))
-  }
+  spot =>
+    {
+      forward = member =>
+        let mapped := (List.memUnique spot (dots.map (foldDot fold))).forward member
+        Exists.elim (List.memMapElim (foldDot fold) spot dots mapped) (dot moved =>
+          Witness dot
+            (Both
+              ((holds dot).forward moved.left)
+              (rewrite <- moved.right in landsFoldDot fold dot (clear dot ((holds dot).forward moved.left))))),
+      backward = after =>
+        Exists.elim after (dot lands =>
+          let mapped := List.memMap dots dot ((holds dot).backward lands.left) (foldDot fold)
+          (List.memUnique spot (dots.map (foldDot fold))).backward
+            (rewrite landsOnly fold dot spot lands.right in mapped))
+    }

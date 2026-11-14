@@ -1,7 +1,6 @@
 namespace Zed
 
-type Token: Prop =
-  | MkToken
+type Token: Prop = | MkToken
 
 def needsToken: [auto t: Token] → Nat := 1
 

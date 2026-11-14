@@ -43,7 +43,8 @@ theorem allEitherCompareFirst ∀ (pages later: List Nat):
 def mixed (pages: List Nat) (page: Nat): Bool := pages.any (== page) && !(pages.all (== page)) || pages.length == page
 
 theorem anyMixed ∀ (pages later: List Nat):
-    later.any (page => pages.any (== page) && !(pages.all (== page)) || pages.length == page) = later.any (mixed pages) :=
+    later.any (page => pages.any (== page) && !(pages.all (== page)) || pages.length == page)
+      = later.any (mixed pages) :=
   rfl
 
 test "kept by" := [1, 2].all (rule => !(3 == rule) || !([3].any (== rule)))

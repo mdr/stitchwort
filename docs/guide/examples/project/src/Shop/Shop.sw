@@ -13,7 +13,8 @@ def catalogue: Map Text Product := Map.fromList [
 ]
 
 -- The price of an order, or `None` for a product the shop doesn't sell.
-def Order.price (order: Order): Option Nat := catalogue.get order.product |> .map (product => product.pence * order.quantity)
+def Order.price (order: Order): Option Nat :=
+  catalogue.get order.product |> .map (product => product.pence * order.quantity)
 
 -- Orders of the same product, added up, in the product's name order.
 def combine (orders: List Order): Map Text Nat :=

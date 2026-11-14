@@ -9,27 +9,25 @@
 import Std (Bool, Eq, List, Nat)
 
 -- A `Bool` test: `omega` reads `Nat.leq (i + 1) bound = True` as `i + 1 ≤ bound`.
-def countUp (bound: Nat) (i: Nat): Nat
+def countUp (bound i: Nat): Nat
     decreasing bound - i
 :=
   if Nat.leq (i + 1) bound then countUp bound (i + 1) else i
 
-theorem countUpUnfolds ∀ (bound: Nat) (i: Nat):
+theorem countUpUnfolds ∀ (bound i: Nat):
     countUp bound i = (if Nat.leq (i + 1) bound then countUp bound (i + 1) else i) :=
   countUp.unfold bound i
 
-theorem countUpDone ∀ (bound: Nat) (i: Nat) (done: Nat.leq (i + 1) bound = False): countUp bound i = i :=
-  rewrite countUp.unfold bound i in
-  rewrite done in rfl
+theorem countUpDone ∀ (bound i: Nat) (done: Nat.leq (i + 1) bound = False): countUp bound i = i :=
+  rewrite countUp.unfold bound i in rewrite done in rfl
 
 -- A proposition: `a % b < b` is the fact the call needs.
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if a % b < b then gcd b (a % b) else a
 
-theorem gcdUnfolds ∀ (a: Nat) (b: Nat): gcd a b = (if a % b < b then gcd b (a % b) else a) :=
-  gcd.unfold a b
+theorem gcdUnfolds ∀ (a b: Nat): gcd a b = (if a % b < b then gcd b (a % b) else a) := gcd.unfold a b
 
 -- A proposition decided other than by a comparison (`Nat.decEq`): `f.unfold`
 -- shows the plain `if`.
@@ -38,30 +36,31 @@ def countDown (n: Nat): Nat
 :=
   if n = 0 then 0 else 1 + countDown (n - 1)
 
-theorem countDownUnfolds ∀ (n: Nat): countDown n = (if n = 0 then 0 else 1 + countDown (n - 1)) :=
-  countDown.unfold n
+theorem countDownUnfolds ∀ (n: Nat): countDown n = (if n = 0 then 0 else 1 + countDown (n - 1)) := countDown.unfold n
 
 -- Under another `if`, in an argument, and after a `let`.
-def climb (bound: Nat) (i: Nat) (up: Bool): Nat
+def climb (bound i: Nat) (up: Bool): Nat
     decreasing bound - i
 :=
   let next := i + 1
   if up then 1 + (if next ≤ bound then climb bound next False else 0)
-  else if Nat.leq next bound then climb bound next True else 0
+  else if Nat.leq next bound then climb bound next True
+  else 0
 
-theorem climbUnfolds ∀ (bound: Nat) (i: Nat) (up: Bool):
+theorem climbUnfolds ∀ (bound i: Nat) (up: Bool):
     climb bound i up
       = (if up then 1 + (if i + 1 ≤ bound then climb bound (i + 1) False else 0)
-        else if Nat.leq (i + 1) bound then climb bound (i + 1) True else 0) :=
+         else if Nat.leq (i + 1) bound then climb bound (i + 1) True
+         else 0) :=
   climb.unfold bound i up
 
 -- In an arm of the definition's own `match`.
-def sumWhile (bound: Nat) (i: Nat): List Nat → Nat
+def sumWhile (bound i: Nat): List Nat → Nat
     decreasing bound - i
   | [] => 0
   | [x, ..xs] => if Nat.leq (i + 1) bound then x + sumWhile bound (i + 1) xs else x
 
-theorem sumWhileUnfolds ∀ (bound: Nat) (i: Nat) (x: Nat) (xs: List Nat):
+theorem sumWhileUnfolds ∀ (bound i x: Nat) (xs: List Nat):
     sumWhile bound i [x, ..xs] = (if Nat.leq (i + 1) bound then x + sumWhile bound (i + 1) xs else x) :=
   sumWhile.unfold bound i [x, ..xs]
 

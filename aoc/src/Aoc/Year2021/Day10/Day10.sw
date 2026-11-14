@@ -89,7 +89,8 @@ def completionPoints: Bracket → Nat
   | Angle => 4
 
 --| Closer by closer: times 5, plus the closer's points.
-def completionScore (closers: List Bracket): Nat := closers.foldLeft 0 (score bracket => score * 5 + completionPoints bracket)
+def completionScore (closers: List Bracket): Nat :=
+  closers.foldLeft 0 (score bracket => score * 5 + completionPoints bracket)
 
 --| An incomplete line's completion score; `None` for a corrupted line, or
 --| a complete one.

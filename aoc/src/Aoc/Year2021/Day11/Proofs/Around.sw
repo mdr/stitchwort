@@ -18,7 +18,10 @@ theorem countAround ∀ (cavern: Cavern) (flashed: Position → Bool)
   let positions := cavern.grid.cells.map Pair.fst
   let near := (q: Position) => touching at q && flashed q
   let same: List.Perm (at.around.filter flashed) (positions.filter near) :=
-    List.permOfSameMembers (at.around.filter flashed) (positions.filter near) (List.distinctFilter at.around flashed (aroundDistinct at))
+    List.permOfSameMembers
+      (at.around.filter flashed)
+      (positions.filter near)
+      (List.distinctFilter at.around flashed (aroundDistinct at))
       (List.distinctFilter positions near (cellPositionsDistinct cavern.grid.rows))
       (q member =>
         let (Both inAround flashes) := List.memFilter at.around flashed member

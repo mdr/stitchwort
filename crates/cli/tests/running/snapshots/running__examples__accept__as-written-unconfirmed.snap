@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-MATCH-UNCONFIRMED] Warning: this `match` refined the goal and hypotheses as they are written, without checking for copies of its expression hidden inside calls
-    ╭─[ accept/as-written-unconfirmed.sw:27:16 ]
+    ╭─[ accept/as-written-unconfirmed.sw:28:16 ]
     │
- 27 │   match found: settle x k limit with
+ 28 │   match found: settle x k limit with
     │                ────────┬───────  
     │                        ╰───────── this is refined where the goal and hypotheses show it
     │ 
@@ -16,9 +16,9 @@ expression: warnings
     │ Note 3: to let the full search run, make the large argument a variable: state a lemma for any `n`
 ────╯
 [W-REWRITE-UNCONFIRMED] Warning: `rewrite` rewrote where the rule's left side is shown, without checking for copies of it hidden inside calls
-    ╭─[ accept/as-written-unconfirmed.sw:33:11 ]
+    ╭─[ accept/as-written-unconfirmed.sw:36:11 ]
     │
- 33 │   rewrite settles in h
+ 36 │   rewrite settles in h
     │           ───┬───  
     │              ╰───── rewritten where it is shown
     │ 

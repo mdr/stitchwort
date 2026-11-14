@@ -15,7 +15,9 @@ theorem triangleDouble ∀ (k: Nat): 2 * (triangle k).toInt = k.toInt * (k.toInt
 theorem twiceBelowPeak ∀ (dy: Int) (n: Nat): n.toInt * (2 * dy + 1 - n.toInt) ≤ 2 * (triangle dy.toNat).toInt :=
   match dy with
     | OfNat k =>
-      let gap: k.toInt * (k.toInt + 1) - n.toInt * (2 * k.toInt + 1 - n.toInt) = (k.toInt - n.toInt) * (k.toInt - n.toInt + 1) := ring
+      let gap: k.toInt * (k.toInt + 1) - n.toInt * (2 * k.toInt + 1 - n.toInt)
+        = (k.toInt - n.toInt) * (k.toInt - n.toInt + 1) :=
+        ring
       omega [triangleDouble k, Int.mulNonnegSucc (k.toInt - n.toInt)]
     | NegSucc k =>
       let flipped: n.toInt * (2 * NegSucc k + 1 - n.toInt) = -(n.toInt * (n.toInt - 2 * NegSucc k - 1)) := ring

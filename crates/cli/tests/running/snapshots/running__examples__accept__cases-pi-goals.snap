@@ -30,9 +30,9 @@ expression: warnings
     │ Note: `theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` and has the same hash; a proof by arms becomes `:= match n with`. The quick fix "Move ∀ variables before the colon" does it, and `stitchwort sweep theorem-binders` does it for a folder
 ────╯
 [W-THEOREM-FORALL] Warning: the statement of `rowEndsLambda` starts with `∀`
-    ╭─[ accept/cases-pi-goals.sw:36:24 ]
+    ╭─[ accept/cases-pi-goals.sw:37:24 ]
     │
- 36 │ theorem rowEndsLambda: ∀ (plot out side sideOut: Bool) =>
+ 37 │ theorem rowEndsLambda: ∀ (plot out side sideOut: Bool) => Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
     │                        ┬  
     │                        ╰── write these variables before the colon
     │ 

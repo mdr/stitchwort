@@ -5,5 +5,4 @@
 -- than by a call, which wouldn't check.
 import Std (Bool, Eq, Nat)
 
-theorem ifEqualOne ∀ (m: Nat) (n: Nat) (h: Nat.equal m n = True): (if m = n then 1 else 0) = 1 :=
-  rewrite h in rfl
+theorem ifEqualOne ∀ (m n: Nat) (h: Nat.equal m n = True): (if m = n then 1 else 0) = 1 := rewrite h in rfl

@@ -4,14 +4,11 @@
 -- to write a `match` (and a `map`).
 import Std (List, Nat, Bool)
 
-type Scan =
-  | Corrupted (illegal: Nat)
-  | Incomplete (missing: Nat)
+type Scan = | Corrupted (illegal: Nat) | Incomplete (missing: Nat)
 
-def values (scans: List Scan): List Nat :=
-  scans.filterMap (match some
-    | Corrupted n => n
-    | Incomplete n => n)
+def values (scans: List Scan): List Nat := scans.filterMap (match some
+  | Corrupted n => n
+  | Incomplete n => n)
 
 def always: Nat → Bool := matches | _ => True
 

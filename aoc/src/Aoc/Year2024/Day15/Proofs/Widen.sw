@@ -9,29 +9,39 @@ import Aoc.Year2024.Day15.Spec (..)
 import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Not, Or, Set, Void)
 
 --| Each wall of the wide warehouse is half of a wall of the narrow one.
-theorem wideWall ∀ (warehouse: Warehouse) (cell: Cell) (held: warehouse.widen.walls.contains cell = True):
+theorem wideWall ∀ (warehouse: Warehouse) (cell: Cell)
+    (held: warehouse.widen.walls.contains cell = True):
     ∃ (wall: Cell) => warehouse.walls.contains wall = True ∧ cell ∈ cellsOf (Cell.widen wall) :=
   List.anyElim _ _ warehouse.walls.toList
-    (List.memFlatMapElim ((wall: Cell) => cellsOf (Cell.widen wall)) cell warehouse.walls.toList
-      ((Set.containsFromListIff (warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall))) cell).forward held))
+    (List.memFlatMapElim
+      ((wall: Cell) => cellsOf (Cell.widen wall))
+      cell
+      warehouse.walls.toList
+      ((Set.containsFromListIff (warehouse.walls.toList.flatMap (wall => cellsOf (Cell.widen wall))) cell).forward
+          held))
     (wall member half => Witness wall (Both (Iff.forward (Set.memToList warehouse.walls wall) member) half))
 
 --| Each box of the wide warehouse is a box of the narrow one, widened.
-theorem wideBox ∀ (warehouse: Warehouse) (box: Cell) (held: warehouse.widen.boxes.contains box = True):
+theorem wideBox ∀ (warehouse: Warehouse) (box: Cell)
+    (held: warehouse.widen.boxes.contains box = True):
     ∃ (narrow: Cell) => warehouse.boxes.contains narrow = True ∧ (Cell.widen narrow) = box :=
   Iff.forward (Set.containsMap warehouse.boxes Cell.widen box) held
 
 --| The two cells a tile becomes are in its row, at twice its column or one
 --| more.
-theorem cellOfWide ∀ (position: Cell) (cell: Cell) (half: cell ∈ cellsOf (Cell.widen position)):
+theorem cellOfWide ∀ (position cell: Cell)
+    (half: cell ∈ cellsOf (Cell.widen position)):
     (cell.rows = position.rows) ∧ ((cell.columns = 2 * position.columns) ∨ (cell.columns = 2 * position.columns + 1)) :=
   match half with
     | Inl same => Both (Eq.sym (Eq.cong (here => here.rows) same)) (Inl (Eq.sym (Eq.cong (here => here.columns) same)))
-    | Inr (Inl same) => Both (omega [Eq.cong (here => here.rows) same]) (Inr (omega [Eq.cong (here => here.columns) same]))
+    | Inr (Inl same) =>
+      Both (omega [Eq.cong (here => here.rows) same]) (Inr (omega [Eq.cong (here => here.columns) same]))
     | Inr (Inr none) => Void.exfalso none
 
 --| Two tiles whose wide cells meet are the same tile.
-theorem sameTile ∀ (position: Cell) (other: Cell) (cell: Cell) (half: cell ∈ cellsOf (Cell.widen position)) (otherHalf: cell ∈ cellsOf (Cell.widen other)):
+theorem sameTile ∀ (position other cell: Cell)
+    (half: cell ∈ cellsOf (Cell.widen position))
+    (otherHalf: cell ∈ cellsOf (Cell.widen other)):
     position = other :=
   let here := cellOfWide position cell half
   let there := cellOfWide other cell otherHalf
@@ -71,7 +81,9 @@ theorem widenSeparate ∀ (warehouse: Warehouse) (separate: Separate warehouse):
             match wideBox warehouse (Cell.widen robot) boxHeld with
               | Witness narrow (Both isBox same) =>
                 let atRobot :=
-                  offsetExt narrow robot (Eq.cong (here => here.rows) same) (omega [Eq.cong (here => here.columns) same])
+                  offsetExt narrow robot
+                    (Eq.cong (here => here.rows) same)
+                    (omega [Eq.cong (here => here.columns) same])
                 Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite atRobot at isBox)) robotNotBoxed)))
           (Bool.falseOfNotTrue _ (leftHeld =>
             match wideBox warehouse ((Cell.widen robot).step Left) leftHeld with
@@ -79,17 +91,21 @@ theorem widenSeparate ∀ (warehouse: Warehouse) (separate: Separate warehouse):
 
 --| Part 2 from a warehouse where nothing overlaps: after every move the
 --| robot is on no wall or box, and every box is whole.
-theorem part2Whole ∀ (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse):
+theorem part2Whole ∀ (warehouse: Warehouse) (moves: List Direction)
+    (separate: Separate warehouse):
     (WideSeparate (warehouse.widen.moveAllWide moves)) ∧ (Whole (warehouse.widen.moveAllWide moves)) :=
-  Both (moveAllWideSeparate warehouse.widen moves (widenSeparate warehouse separate))
+  Both
+    (moveAllWideSeparate warehouse.widen moves (widenSeparate warehouse separate))
     (moveAllWideWhole warehouse.widen moves (widenSeparate warehouse separate))
 
 --| Widening sends different positions to different places.
-theorem widenInjective ∀ (position: Cell) (other: Cell) (same: (Cell.widen position) = (Cell.widen other)): position = other :=
+theorem widenInjective ∀ (position other: Cell) (same: (Cell.widen position) = (Cell.widen other)): position = other :=
   offsetExt position other (Eq.cong (here => here.rows) same) (omega [Eq.cong (here => here.columns) same])
 
 --| Widening keeps the number of boxes, and so does every move after it.
-theorem part2Count ∀ (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse):
+theorem part2Count ∀ (warehouse: Warehouse) (moves: List Direction)
+    (separate: Separate warehouse):
     boxCount (warehouse.widen.moveAllWide moves) = boxCount warehouse :=
-  Eq.trans (moveAllWideCount warehouse.widen moves (widenSeparate warehouse separate))
+  Eq.trans
+    (moveAllWideCount warehouse.widen moves (widenSeparate warehouse separate))
     (Set.sizeMapInjective warehouse.boxes Cell.widen (x y inX inY same => widenInjective x y same))

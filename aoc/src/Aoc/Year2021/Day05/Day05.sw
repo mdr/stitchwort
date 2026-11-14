@@ -57,8 +57,7 @@ def firstBent (lines: List Line): Option (Nat, Line) :=
   lines.withIndex.find (((_, line)) => not (line.isStraight ∨ line.isDiagonal))
 
 --| The number of points covered by at least two of the lines.
-def overlaps (lines: List Line): Nat :=
-  lines.flatMap Line.points |> Map.counts |> .count (_ times => 2 ≤ times)
+def overlaps (lines: List Line): Nat := lines.flatMap Line.points |> Map.counts |> .count (_ times => 2 ≤ times)
 
 --| Part 1: the horizontal and vertical lines only.
 def solvePart1 (lines: List Line): Nat := overlaps (lines.filter Line.isStraight)

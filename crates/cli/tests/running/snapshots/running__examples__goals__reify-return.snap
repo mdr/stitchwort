@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/running/examples.rs
-assertion_line: 352
 expression: output
 ---
 [GOAL] Goal: in `toResultThen`
@@ -30,9 +29,9 @@ expression: output
     │                               ⊢ Err msg = Err msg
 ────╯
 [GOAL] Goal: in `toResultMap`
-    ╭─[ goals/reify-return.sw:22:25 ]
+    ╭─[ goals/reify-return.sw:23:25 ]
     │
- 22 │           | return y => ?
+ 23 │           | return y => ?
     │                         ┬  
     │                         ╰── a: Type
     │                             b: Type

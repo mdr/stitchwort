@@ -34,24 +34,19 @@ theorem everyPairTrueLifted ∀ (levels: List Nat): everyPair (x y => True) leve
     let kept := everyPairTrueLifted [y, z, ..more]
     cases
 
-type Tree: Type =
-  | Leaf
-  | Node (left: Tree) (value: Nat) (right: Tree)
+type Tree: Type = | Leaf | Node (left: Tree) (value: Nat) (right: Tree)
 
 -- The value at each node on the way down the left, each but the last.
 def leftValues: Tree → List Nat
   | Leaf => []
   | Node Leaf value right => []
-  | Node (Node (Node a b c) inner innerRight) value right =>
-    [value, ..leftValues (Node (Node a b c) inner innerRight)]
+  | Node (Node (Node a b c) inner innerRight) value right => [value, ..leftValues (Node (Node a b c) inner innerRight)]
   | Node (Node Leaf inner innerRight) value right => [value]
 
 -- The length is an implicit field of `VCons`. In the rebuilt
 -- `VCons y (VCons z rest)` it's filled in as one more than the inner
 -- length, not as the pattern's own `n`; the tail's type pins it.
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def sumFirsts: Vec Nat n → Nat
   | VNil => 0
@@ -61,9 +56,7 @@ def sumFirsts: Vec Nat n → Nat
 
 -- An implicit type field, filled in from the rebuilt list's type (paired with
 -- soundness/rebuilt-with-other-type.sw).
-type Box: Type 1 =
-  | Stop
-  | Mk [a: Type] (xs: List a) (rest: Box)
+type Box: Type 1 = | Stop | Mk [a: Type] (xs: List a) (rest: Box)
 
 def nonEmptyRun: Box → Nat
   | Mk [x, ..xs] (Mk [y, ..ys] rest) => Succ (nonEmptyRun (Mk [y, ..ys] rest))

@@ -4,16 +4,11 @@
 -- definition's whole body, which is the arms form with a last `_ => None`.
 import Std (List, Nat, Option)
 
-type Scan =
-  | Corrupted (illegal: Nat)
-  | Incomplete (missing: Nat)
-  | Fine
+type Scan = | Corrupted (illegal: Nat) | Incomplete (missing: Nat) | Fine
 
-def illegals (scans: List Scan): List Nat :=
-  scans.filterMap (match some | Corrupted illegal => illegal)
+def illegals (scans: List Scan): List Nat := scans.filterMap (match some | Corrupted illegal => illegal)
 
-def firstMissing (scans: List Scan): Option Nat :=
-  scans.findMap (match some | Incomplete missing => missing)
+def firstMissing (scans: List Scan): Option Nat := scans.findMap (match some | Incomplete missing => missing)
 
 -- A lookup table: the arms are the definition's, with `Some` added.
 def operationOf: Nat → Option Scan := match some
@@ -21,17 +16,21 @@ def operationOf: Nat → Option Scan := match some
   | 1 => Corrupted 1
 
 -- Two patterns in an arm: a `Map.filterMap` function, say.
-def both: Nat → Option Nat → Option Nat := match some
-  | 0, Some n => n
+def both: Nat → Option Nat → Option Nat := match some | 0, Some n => n
 
 -- The value matched can come from a pipeline.
-def firstDigit (text: Nat): Option Nat := text |> match some | 7 => 70 | 8 => 80
+def firstDigit (text: Nat): Option Nat :=
+  text
+    |> match some
+      | 7 => 70
+      | 8 => 80
 
 -- `some` is a name anywhere but between `match` and `|`.
 def some: Nat := 3
-def pick: Nat → Nat := n => match some with
-  | 3 => n
-  | _ => 0
+def pick: Nat → Nat := n =>
+  match some with
+    | 3 => n
+    | _ => 0
 
 theorem tableOfZero: operationOf 0 = Some Fine := operationOf.eq1
 theorem tableOfFive: operationOf 5 = None := rfl

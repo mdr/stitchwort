@@ -22,16 +22,9 @@ def main(): {IO, Fail} () :=
 
 --| A wire: bit `bit` of the first number (x), the second (y) or the result
 --| (z), or any other.
-type Wire =
-  | X (bit: Nat)
-  | Y (bit: Nat)
-  | Z (bit: Nat)
-  | Other (name: Text)
+type Wire = | X (bit: Nat) | Y (bit: Nat) | Z (bit: Nat) | Other (name: Text)
 
-type Operation =
-  | And
-  | Or
-  | Xor
+type Operation = | And | Or | Xor
 
 type Gate = { left: Wire, operation: Operation, right: Wire, output: Wire }
 
@@ -88,7 +81,7 @@ def deviceInput(): {Parse} Device :=
 def parseDevice (input: Text): {Fail} Device := Parse.all input deviceInput
 
 --| What a gate outputs for its two inputs.
-def Operation.apply (operation: Operation) (left: Bool) (right: Bool): Bool := match operation with
+def Operation.apply (operation: Operation) (left right: Bool): Bool := match operation with
   | And => left ∧ right
   | Or => left ∨ right
   | Xor => left.xor right
@@ -112,7 +105,8 @@ def settle (values: Values) (waiting: List Gate): Values
     decreasing waiting.length
 :=
   let stillWaiting := waiting.filter (gate => ¬(gate.ready values))
-  if fewer: stillWaiting.length < waiting.length then settle (fireAll values (waiting.filter (.ready values))) stillWaiting
+  if fewer: stillWaiting.length < waiting.length then
+    settle (fireAll values (waiting.filter (.ready values))) stillWaiting
   else values
 
 def Device.wires (device: Device): List Wire :=
@@ -138,7 +132,8 @@ def Device.settled (device: Device): Values := settle device.initial.toMap devic
 
 --| The number on the z wires once the gates settle, unless one of them
 --| gets no value.
-def solvePart1 (device: Device): Option Nat := device.zBits device.settled |> .map (bits => (Bits.fromLowFirst bits).value)
+def solvePart1 (device: Device): Option Nat :=
+  device.zBits device.settled |> .map (bits => (Bits.fromLowFirst bits).value)
 
 -- Part 2. The device should be a ripple-carry adder: bit 0 is a half
 -- adder, x00 XOR y00 -> z00 and x00 AND y00 -> the carry, and each later
@@ -151,8 +146,9 @@ def solvePart1 (device: Device): Option Nat := device.zBits device.settled |> .m
 -- and the last carry is the z wire above the top bit.
 
 --| The output of the gate doing `operation` on `a` and `b`, either way round.
-def outputOf (gates: List Gate) (operation: Operation) (a: Wire) (b: Wire): Option Wire :=
-  gates.find (gate => gate.operation == operation ∧ (gate.left == a ∧ gate.right == b ∨ gate.left == b ∧ gate.right == a))
+def outputOf (gates: List Gate) (operation: Operation) (a b: Wire): Option Wire :=
+  gates.find (gate =>
+    gate.operation == operation ∧ (gate.left == a ∧ gate.right == b ∨ gate.left == b ∧ gate.right == a))
     |> .map .output
 
 --| The other input of a gate doing `operation` with `input` as one input.
@@ -164,15 +160,13 @@ def partnerOf (gates: List Gate) (operation: Operation) (input: Wire): Option Wi
 --| What checking a bit found: it passes and carries on this wire, or it is
 --| faulty, with the swaps that might fix it, most likely first (none if no
 --| swap explains the fault).
-type BitCheck =
-  | Passes (carry: Wire)
-  | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
+type BitCheck = | Passes (carry: Wire) | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
 
 --| The two inputs of a gate doing `operation` should be `trusted` and
 --| `suspect`, and no gate has both. The gate with `trusted` names what
 --| `suspect` should be, or the gate with `suspect` names what `trusted`
 --| should be.
-def missingInput (gates: List Gate) (operation: Operation) (trusted: Wire) (suspect: Wire): BitCheck :=
+def missingInput (gates: List Gate) (operation: Operation) (trusted suspect: Wire): BitCheck :=
   let fromTrusted := partnerOf gates operation trusted |> .fold [] (other => [(suspect, other)])
   let fromSuspect := partnerOf gates operation suspect |> .fold [] (other => [(trusted, other)])
   Faulty (fromTrusted.append fromSuspect) []
@@ -200,7 +194,8 @@ def checkFullAdder (gates: List Gate) (bit: Nat) (carry: Wire): BitCheck :=
     | (Some partial, Some generated) =>
       match (outputOf gates Xor partial carry, outputOf gates And partial carry) with
         | (Some sum, Some passed) =>
-          if sum == Z bit then outputOf gates Or generated passed |> .fold (missingInput gates Or generated passed) Passes
+          if sum == Z bit then
+            outputOf gates Or generated passed |> .fold (missingInput gates Or generated passed) Passes
           else Faulty [(sum, Z bit)] []
         | (Some sum, None) => missingInput gates And carry partial
         | (None, _) => missingInput gates Xor carry partial
@@ -208,7 +203,7 @@ def checkFullAdder (gates: List Gate) (bit: Nat) (carry: Wire): BitCheck :=
 
 --| The verdict on the bits from `bit` up, `remaining` of them, with the carry
 --| into `bit` on `carry`: an adder, or the first fault found.
-def checkFrom (gates: List Gate) (remaining: Nat) (bit: Nat) (carry: Wire): BitCheck := match remaining with
+def checkFrom (gates: List Gate) (remaining bit: Nat) (carry: Wire): BitCheck := match remaining with
   | Zero => if carry == Z bit then Passes carry else Faulty [(carry, Z bit)] [carry, Z bit]
   | Succ fewer =>
     match checkFullAdder gates bit carry with
@@ -226,7 +221,8 @@ def checkAdder (gates: List Gate) (bits: Nat): BitCheck := match bits with
 --| The gates with the outputs `first` and `second` swapped.
 def swapOutputs (gates: List Gate) (swap: (Wire, Wire)): List Gate :=
   let (first, second) := swap
-  gates.map (gate => { gate | output = if gate.output == first then second else if gate.output == second then first else gate.output })
+  gates.map (gate =>
+    { gate | output = if gate.output == first then second else if gate.output == second then first else gate.output })
 
 def applySwaps (gates: List Gate) (swaps: List (Wire, Wire)): List Gate := swaps.foldLeft gates swapOutputs
 
@@ -251,12 +247,13 @@ def swapsToTry (fixes: List (Wire, Wire)) (suspects: List Wire): List (Wire, Wir
 
 --| Swaps after `swaps` that make the gates an adder, at most `budget` more:
 --| try each swap for the first fault in turn, and go on from there.
-def repair (budget: Nat) (bits: Nat) (gates: List Gate) (swaps: List (Wire, Wire)): Option (List (Wire, Wire)) :=
+def repair (budget bits: Nat) (gates: List Gate) (swaps: List (Wire, Wire)): Option (List (Wire, Wire)) :=
   match checkAdder gates bits with
     | Faulty fixes suspects =>
       match budget with
         | Zero => None
-        | Succ fewer => (swapsToTry fixes suspects).findMap (fix => repair fewer bits (swapOutputs gates fix) (swaps.append [fix]))
+        | Succ fewer =>
+          (swapsToTry fixes suspects).findMap (fix => repair fewer bits (swapOutputs gates fix) (swaps.append [fix]))
     | Passes carry => if isAdder gates bits then Some swaps else None
 
 --| The swaps' wires, sorted by name and joined with commas.
@@ -268,5 +265,4 @@ def Device.inputBits (device: Device): Nat := bitCount Wire.xBit device.wires
 
 --| Four swaps that make the device an adder, if there are, as the puzzle
 --| asks for them.
-def solvePart2 (device: Device): Option Text :=
-  repair 4 device.inputBits device.gates [] |> .map swapNames
+def solvePart2 (device: Device): Option Text := repair 4 device.inputBits device.gates [] |> .map swapNames

@@ -16,34 +16,51 @@ def NumberWritten (read: List Char) (number: Nat): Prop :=
 
 --| `1-3`: from 1 to 3.
 def RangeWritten (read: List Char) (range: Range): Prop :=
-  ∃ (lowRead: List Char) => ∃ (highRead: List Char) =>
-    read = lowRead ++ ['-'] ++ highRead ∧ NumberWritten lowRead range.low ∧ NumberWritten highRead range.high
+  ∃ (lowRead: List Char) => ∃ (highRead: List Char) => read = lowRead ++ ['-'] ++ highRead
+    ∧ NumberWritten lowRead range.low
+    ∧ NumberWritten highRead range.high
 
 --| "Rules for ticket fields specify a field's name and the valid ranges of
 --| values for that field": `class: 1-3 or 5-7`. The name is any text
 --| without a colon or a line break.
 def RuleWritten (read: List Char) (rule: Rule): Prop :=
-  ∃ (firstRead: List Char) => ∃ (secondRead: List Char) =>
-    read = rule.field.toList ++ ": ".toList ++ firstRead ++ " or ".toList ++ secondRead
-      ∧ rule.field.toList ≠ [] ∧ rule.field.toList.all (char => char != ':' && char != '\n') = True
-      ∧ RangeWritten firstRead rule.first ∧ RangeWritten secondRead rule.second
+  ∃ (firstRead: List Char) => ∃ (secondRead: List Char) => read
+    = rule.field.toList ++ ": ".toList ++ firstRead ++ " or ".toList ++ secondRead
+    ∧ rule.field.toList ≠ []
+    ∧ rule.field.toList.all (char => char != ':' && char != '\n') = True
+    ∧ RangeWritten firstRead rule.first
+    ∧ RangeWritten secondRead rule.second
 
 --| "Each ticket is represented by a single line of comma-separated values."
 def TicketWritten (read: List Char) (ticket: Ticket): Prop :=
-  ∃ (values: NonEmptyList Nat) => Parse.SepBy NumberWritten (read u => read = [',']) read values ∧ ticket.values = values.toList
+  ∃ (values: NonEmptyList Nat) => Parse.SepBy NumberWritten (read u => read = [',']) read values
+    ∧ ticket.values = values.toList
 
 def LineBreakWritten (read: List Char) (u: ()): Prop := Parse.LineBreak read
 
 --| The rules, one a line; a blank line, `your ticket:` and your ticket; a
 --| blank line, `nearby tickets:` and the nearby tickets, one a line.
 def NotesWritten (read: List Char) (notes: Notes): Prop :=
-  ∃ (rulesRead: List Char) => ∃ (yoursRead: List Char) => ∃ (nearbyRead: List Char) =>
-    ∃ (blank1: List Char) => ∃ (break1: List Char) => ∃ (blank2: List Char) => ∃ (break2: List Char) =>
-      read = rulesRead ++ blank1 ++ "your ticket:".toList ++ break1 ++ yoursRead ++ blank2 ++ "nearby tickets:".toList ++ break2 ++ nearbyRead
-        ∧ (∃ (rules: NonEmptyList Rule) => Parse.SepBy RuleWritten LineBreakWritten rulesRead rules ∧ notes.rules = rules.toList)
-        ∧ Parse.BlankLine blank1 ∧ Parse.LineBreak break1 ∧ TicketWritten yoursRead notes.yours
-        ∧ Parse.BlankLine blank2 ∧ Parse.LineBreak break2
-        ∧ (∃ (nearby: NonEmptyList Ticket) => Parse.SepBy TicketWritten LineBreakWritten nearbyRead nearby ∧ notes.nearby = nearby.toList)
+  ∃ (rulesRead: List Char) => ∃ (yoursRead: List Char) => ∃ (nearbyRead: List Char) => ∃ (blank1: List Char) =>
+    ∃ (break1: List Char) => ∃ (blank2: List Char) => ∃ (break2: List Char) => read
+      = rulesRead
+        ++ blank1
+        ++ "your ticket:".toList
+        ++ break1
+        ++ yoursRead
+        ++ blank2
+        ++ "nearby tickets:".toList
+        ++ break2
+        ++ nearbyRead
+      ∧ (∃ (rules: NonEmptyList Rule) => Parse.SepBy RuleWritten LineBreakWritten rulesRead rules
+        ∧ notes.rules = rules.toList)
+      ∧ Parse.BlankLine blank1
+      ∧ Parse.LineBreak break1
+      ∧ TicketWritten yoursRead notes.yours
+      ∧ Parse.BlankLine blank2
+      ∧ Parse.LineBreak break2
+      ∧ (∃ (nearby: NonEmptyList Ticket) => Parse.SepBy TicketWritten LineBreakWritten nearbyRead nearby
+        ∧ notes.nearby = nearby.toList)
 
 -- Part 1
 
@@ -80,16 +97,20 @@ def ValidTicket (rules: List Rule) (ticket: Ticket): Prop := ticket.values.all (
 --| one. On every valid nearby ticket, each value is valid for the field at
 --| its position.
 def FieldOrder (notes: Notes) (order: List Rule): Prop :=
-  order.length = notes.rules.length ∧ order.Distinct ∧ (∀ (rule: Rule) => rule ∈ order → rule ∈ notes.rules)
-    ∧ (∀ (ticket: Ticket) => ticket ∈ notes.nearby → ValidTicket notes.rules ticket →
-      List.All2 (rule value => validFor rule value = True) order ticket.values)
+  order.length = notes.rules.length
+    ∧ order.Distinct
+    ∧ (∀ (rule: Rule) => rule ∈ order → rule ∈ notes.rules)
+    ∧ (∀ (ticket: Ticket) => ticket ∈ notes.nearby
+      → ValidTicket notes.rules ticket
+      → List.All2 (rule value => validFor rule value = True) order ticket.values)
 
 --| "Look for the six fields on your ticket that start with the word
 --| departure. What do you get if you multiply those six values together?":
 --| the product of the values whose field, in `order`, starts with
 --| `departure`.
 def departureProduct: (order: List Rule) → (values: List Nat) → Nat
-  | [rule, ..order], [value, ..values] => (if rule.field.startsWith "departure" then value else 1) * departureProduct order values
+  | [rule, ..order], [value, ..values] =>
+    (if rule.field.startsWith "departure" then value else 1) * departureProduct order values
   | _, _ => 1
 
 --| The answer is the departure product under an order of the fields.

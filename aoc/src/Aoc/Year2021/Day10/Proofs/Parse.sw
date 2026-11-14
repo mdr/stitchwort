@@ -18,11 +18,16 @@ import Std (Eq, Fail, List, Parse, Text)
 
 --| What `parseLines` reads is the input, line by line and character by
 --| character.
-theorem parseReadsLines ∀ (input: Text) (lines: List (List Token)) (parsed: Fail.toResult (() => parseLines input) = Ok lines):
+theorem parseReadsLines ∀ (input: Text) (lines: List (List Token))
+    (parsed: Fail.toResult (() => parseLines input) = Ok lines):
     lines.map (tokens => tokens.map Token.char) = input.lines.map Text.toList :=
-  let readsToken := Parse.readsLabel "a bracket" bracket _ (Parse.readsPickBy allTokens (token => Text.fromList [token.char]))
+  let readsToken :=
+    Parse.readsLabel "a bracket" bracket _ (Parse.readsPickBy allTokens (token => Text.fromList [token.char]))
   let read := Parse.eachLineReads input (() => Parse.many token) _ lines parsed (Parse.readsMany token _ readsToken)
-  Eq.sym (List.all2Map _ _
-    (List.all2Weaken
-      (line tokens each => Parse.eachChars Token.char line tokens (Parse.eachWeaken (chars token both => And.right both) tokens each)) _ _
-      read))
+  Eq.sym
+    (List.all2Map _ _
+      (List.all2Weaken
+        (line tokens each =>
+          Parse.eachChars Token.char line tokens
+            (Parse.eachWeaken (chars token both => And.right both) tokens each)) _ _
+        read))

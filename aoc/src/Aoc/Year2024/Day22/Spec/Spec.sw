@@ -7,17 +7,17 @@ import Aoc.Year2024.Day22 (Changes)
 import Std (Bool, Int, List, Nat, Option)
 
 --| Whether bit `i` of `n` is 1: the bit worth 2 to the power `i`.
-def bitSet (n: Nat) (i: Nat): Bool := n / Nat.pow 2 i % 2 == 1
+def bitSet (n i: Nat): Bool := n / Nat.pow 2 i % 2 == 1
 
 --| "The bitwise XOR of" `x` and `y` is `result`: each bit of it is 1 when
 --| exactly one of `x` and `y` has that bit 1.
-def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := ∀ (i: Nat) => bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
+def BitwiseXor (x y result: Nat): Prop := ∀ (i: Nat) => bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
 
 --| "To mix a value into the secret number, calculate the bitwise XOR of the
 --| given value and the secret number. Then, the secret number becomes the
 --| result of that operation." `Nat.xor value secret` is that XOR, and the
 --| only number that is (`mixBitwise` and `bitwiseXorUnique` in Proofs/).
-def mix (value: Nat) (secret: Nat): Nat := value.xor secret
+def mix (value secret: Nat): Nat := value.xor secret
 
 --| "To prune the secret number, calculate the value of the secret number
 --| modulo 16777216."
@@ -53,7 +53,7 @@ def secretNumbers: (count: Nat) → (secret: Nat) → List Nat
 
 --| "the prices the buyer offers are just the ones digit of each of their
 --| secret numbers".
-def offeredPrices (count: Nat) (buyer: Nat): List Nat := secretNumbers count buyer |> .map (secret => secret % 10)
+def offeredPrices (count buyer: Nat): List Nat := secretNumbers count buyer |> .map (secret => secret % 10)
 
 --| Where the monkey is in a buyer's prices: `later` is the price it is at
 --| and those after it, following four earlier prices. It sells here when the
@@ -61,10 +61,14 @@ def offeredPrices (count: Nat) (buyer: Nat): List Nat := secretNumbers count buy
 --| no associated change").
 def sellsAt (sequence: Changes) (later: List Nat): Option Nat := match later with
   | [a, b, c, d, e, ..rest] =>
-    if
-      ({ first = b.toInt - a.toInt, second = c.toInt - b.toInt, third = d.toInt - c.toInt, fourth = e.toInt - d.toInt }: Changes) ==
-        sequence
-    then Some e
+    if ({
+      first = b.toInt - a.toInt,
+      second = c.toInt - b.toInt,
+      third = d.toInt - c.toInt,
+      fourth = e.toInt - d.toInt
+    }: Changes)
+      == sequence then
+      Some e
     else None
   | _ => None
 
@@ -82,9 +86,9 @@ def bananas (count: Nat) (buyers: List Nat) (sequence: Changes): Nat :=
 def possibleChanges: List Int := List.range 0 19 |> .map (offset => offset.toInt - 9)
 
 --| Every sequence of four of `changes`.
-def sequencesOf (changes: List Int): List Changes :=
-  changes.flatMap (first =>
-    changes.flatMap (second => changes.flatMap (third => changes.map (fourth => ({ first, second, third, fourth }: Changes)))))
+def sequencesOf (changes: List Int): List Changes := changes.flatMap (first =>
+  changes.flatMap (second =>
+    changes.flatMap (third => changes.map (fourth => ({ first, second, third, fourth }: Changes)))))
 
 --| Every "sequence of four price changes" the monkey could be told.
 def possibleSequences: List Changes := sequencesOf possibleChanges
@@ -98,4 +102,5 @@ def possibleSequences: List Changes := sequencesOf possibleChanges
 --
 -- It has no `part2` name: the checker would compute all 130,321
 -- sequences' bananas to see that the name stands for it.
-def mostBananas (sequences: List Changes) (count: Nat) (buyers: List Nat): Nat := sequences.map (bananas count buyers) |> .foldLeft 0 Nat.max
+def mostBananas (sequences: List Changes) (count: Nat) (buyers: List Nat): Nat :=
+  sequences.map (bananas count buyers) |> .foldLeft 0 Nat.max

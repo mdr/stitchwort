@@ -18,11 +18,9 @@ def Policy.strict (policy: Policy) (password: Text): Bool :=
 -- finds them for a call that needs one.
 def at (xs: List Nat) (i: Nat) [auto ok: i < xs.length]: Nat := (xs.get i).getOrElse 0
 
-def pick (xs: List Nat) (i: Nat): Nat :=
-  if h: 0 <= i < xs.length then at xs i [ok := h.right] else 0
+def pick (xs: List Nat) (i: Nat): Nat := if h: 0 <= i < xs.length then at xs i [ok := h.right] else 0
 
-def pickAuto (xs: List Nat) (i: Nat): Nat :=
-  if h: 0 <= i < xs.length then at xs i else 0
+def pickAuto (xs: List Nat) (i: Nat): Nat := if h: 0 <= i < xs.length then at xs i else 0
 
 theorem pickRight ∀ (xs: List Nat) (i: Nat) (h: 0 <= i < xs.length): i < xs.length := h.right
 

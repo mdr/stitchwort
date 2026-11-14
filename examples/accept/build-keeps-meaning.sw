@@ -15,5 +15,4 @@ def recheck (x: Nat) (xs: List Nat) (c: Checked (xs.contains x = True)) (m: x �
 -- A test fact used as the equation it is stays one between `Bool`s.
 theorem flipped ∀ (x y: Nat) (same: (x == y) = True): True = (x == y) := Eq.sym same
 
-theorem rewritten ∀ (x y: Nat) (same: (x == y) = True): (if x == y then 1 else 2) = 1 :=
-  rewrite same in rfl
+theorem rewritten ∀ (x y: Nat) (same: (x == y) = True): (if x == y then 1 else 2) = 1 := rewrite same in rfl

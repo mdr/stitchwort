@@ -123,7 +123,7 @@ pub fn check(source: &str) -> String {
     }
 }
 
-/// Formats a file (docs/proposals/formatter.md §5.3): `{"ok": true, "text": …}`,
+/// Formats a file (docs/proposals/formatter.md §5.3, still the interface): `{"ok": true, "text": …}`,
 /// or `{"ok": false, "errors": "…", "diagnostics": [{"severity", "code",
 /// "file", "line", "column", "text"}, …]}` when the file is refused (a lexical
 /// or syntax error) or the formatter's own check failed, which leaves the

@@ -11,6 +11,9 @@ def one (m: Nat) (p: m = 1): Bool → Nat
 def apply (f: a → Nat) (v: a): Nat := f v
 
 def later (b: Bool) (q: one 1 rfl b = 1) (p: P): Nat :=
-  apply (r => match List.length [r] with
-    | Zero => 0
-    | Succ k => k) p
+  apply
+    (r =>
+      match List.length [r] with
+        | Zero => 0
+        | Succ k => k)
+    p

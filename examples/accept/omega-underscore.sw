@@ -15,13 +15,11 @@ theorem tallyAtMostSize ∀ (label: Nat) (xs: List Nat): tally label xs ≤ size
   | [] => omega
   | [head, ..rest] => omega [tallyAtMostSize label rest]
 
-theorem listed ∀ (xs: List Nat): tally 3 xs ≤ size xs + 1 :=
-  omega [tallyAtMostSize _ xs]
+theorem listed ∀ (xs: List Nat): tally 3 xs ≤ size xs + 1 := omega [tallyAtMostSize _ xs]
 
 theorem viaLet ∀ (xs: List Nat) (extra: Nat): tally 3 xs ≤ size xs + extra :=
   let bound := tallyAtMostSize _ xs
   omega [bound]
 
 -- The unknown sits inside an argument: `1 + _` is the goal's `4`.
-theorem inside ∀ (xs: List Nat): tally 4 xs ≤ size xs + 1 :=
-  omega [tallyAtMostSize (1 + _) xs]
+theorem inside ∀ (xs: List Nat): tally 4 xs ≤ size xs + 1 := omega [tallyAtMostSize (1 + _) xs]

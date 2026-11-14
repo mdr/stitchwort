@@ -3,8 +3,7 @@ import Std (Decidable)
 -- A decision procedure passed explicitly is a dependency, so it's checked
 -- first, wherever it's written (compare reject/auto-below.sw and
 -- reject/auto-waiting.sw).
-type Token: Prop =
-  | MkToken
+type Token: Prop = | MkToken
 
 def needsToken: [auto t: Token] → Nat := 1
 

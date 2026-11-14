@@ -40,18 +40,21 @@ def Set.toList (set: Set k [ord := o]): List k := Map.keys set.items
 --| is this fact itself, so it can't be the reading; [`Set.memToList`] is the same statement
 --| turned round.)
 @[reading]
-theorem Set.containsReads ∀ [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = True) ↔ (key ∈ Set.toList set) :=
+theorem Set.containsReads ∀ [auto ord: Ord k] (set: Set k) (key: k):
+    (Set.contains set key = True) ↔ (key ∈ Set.toList set) :=
   { forward = (Map.memKeys set.items key).backward, backward = (Map.memKeys set.items key).forward }
 
 --| `set.contains key = False` reads as `key` not being one of the set's keys.
 @[reading]
-theorem Set.containsReadsFalse ∀ [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = False) ↔ key ∉ Set.toList set := {
-  forward = h m => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Map.memKeys set.items key).forward m)),
-  backward = no =>
-    match c: Set.contains set key with
-      | True => Void.exfalso (no ((Map.memKeys set.items key).backward c))
-      | False => rfl
-}
+theorem Set.containsReadsFalse ∀ [auto ord: Ord k] (set: Set k) (key: k):
+    (Set.contains set key = False) ↔ key ∉ Set.toList set :=
+  {
+    forward = h m => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Map.memKeys set.items key).forward m)),
+    backward = no =>
+      match c: Set.contains set key with
+        | True => Void.exfalso (no ((Map.memKeys set.items key).backward c))
+        | False => rfl
+  }
 
 --| The set of the list's elements, repeats merged ([`Set.containsFromListIff`]).
 def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft xs Set.empty (set key => Set.insert set key)
@@ -61,21 +64,24 @@ def Set.fromList [auto ord: Ord k] (xs: List k): Set k := List.foldLeft xs Set.e
 def List.toSet [auto ord: Ord k] (items: List k): Set k := Set.fromList items
 
 --| Left fold over the keys in order.
-def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b → k → b): b := set.items.foldLeft initial (acc key unit => f acc key)
+def Set.foldLeft (set: Set k [ord := o]) (initial: b) (f: b → k → b): b :=
+  set.items.foldLeft initial (acc key unit => f acc key)
 
 --| The keys for which `p` holds ([`Set.containsFilter`]).
-def Set.filter [auto ord: Ord k] (set: Set k) (p: k → Bool): Set k := { items = Map.filter set.items (key unit => p key) }
+def Set.filter [auto ord: Ord k] (set: Set k) (p: k → Bool): Set k :=
+  { items = Map.filter set.items (key unit => p key) }
 
 --| The keys of both ([`Set.containsUnion`]). O(n + m), or O(n log m) when one set, of n keys, is
 --| much smaller (likewise `difference`, and `intersect` when `a` is the
 --| smaller; see `Map.union`).
-def Set.union [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.union a.items b.items }
+def Set.union [auto ord: Ord k] (a b: Set k): Set k := { items = Map.union a.items b.items }
 
 --| The keys of `a` that are also in `b` ([`Set.containsIntersect`]).
-def Set.intersect [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.intersectWith a.items b.items (here there => ()) }
+def Set.intersect [auto ord: Ord k] (a b: Set k): Set k :=
+  { items = Map.intersectWith a.items b.items (here there => ()) }
 
 --| The keys of `a` that aren't in `b` ([`Set.containsDifference`]).
-def Set.difference [auto ord: Ord k] (a: Set k) (b: Set k): Set k := { items = Map.difference a.items b.items }
+def Set.difference [auto ord: Ord k] (a b: Set k): Set k := { items = Map.difference a.items b.items }
 
 --| The keys of every set in the list ([`Set.containsUnionAll`]).
 def Set.unionAll [auto ord: Ord k] (sets: List (Set k)): Set k := List.foldLeft sets Set.empty Set.union
@@ -105,13 +111,15 @@ def Set.above [auto ord: Ord k] (set: Set k) (key: k): Option k := set.items.abo
 def Set.all (set: Set k [ord := o]) (p: k → Bool): Bool := Set.foldLeft set True (acc key => acc ∧ p key)
 
 --| Whether no key is in both.
-def Set.disjoint [auto ord: Ord k] (a: Set k) (b: Set k): Bool := ¬(a.any (key => b.contains key))
+def Set.disjoint [auto ord: Ord k] (a b: Set k): Bool := ¬(a.any (key => b.contains key))
 
 --| The keys for which `p` holds, and those for which it doesn't.
-def Set.partition [auto ord: Ord k] (set: Set k) (p: k → Bool): (Set k, Set k) := (set.filter p, set.filter (key => ¬(p key)))
+def Set.partition [auto ord: Ord k] (set: Set k) (p: k → Bool): (Set k, Set k) :=
+  (set.filter p, set.filter (key => ¬(p key)))
 
 --| Right fold over the keys in order: `f k1 (f k2 initial)`.
-def Set.foldRight (set: Set k [ord := o]) (initial: b) (f: k → b → b): b := Map.foldRight set.items initial (key unit acc => f key acc)
+def Set.foldRight (set: Set k [ord := o]) (initial: b) (f: k → b → b): b :=
+  Map.foldRight set.items initial (key unit acc => f key acc)
 
 -- Maps and sets
 
@@ -150,8 +158,7 @@ theorem List.toSetFromList ∀ [auto ord: Ord k] (items: List k): items.toSet = 
 -- Equality: the same keys. A set's map is a quotient (std/Map/Map.sw), so
 -- sets with the same keys are equal, whatever order they were inserted in.
 
-theorem Set.unitEq ∀ (u w: ()): u = w := match u, w with
-  | (), () => rfl
+theorem Set.unitEq ∀ (u w: ()): u = w := match u, w with | (), () => rfl
 
 --| Entries whose values are all `()` are fixed by their keys.
 theorem Set.unitEntries ∀ (xs ys: List (k, ())) (h: List.map xs Pair.fst = List.map ys Pair.fst): xs = ys :=
@@ -163,11 +170,14 @@ theorem Set.unitEntries ∀ (xs ys: List (k, ())) (h: List.map xs Pair.fst = Lis
 --| Sets with the same keys in order are equal.
 theorem Set.toListInjective ∀ (s t: Set k [ord := o]) (same: Set.toList s = Set.toList t): s = t := match s, t with
   | { items = m }, { items = n } =>
-    Eq.cong (i => ({ items = i }: Set k [ord := o])) (Map.toListInjective m n (Set.unitEntries (Map.toList m) (Map.toList n) same))
+    Eq.cong
+      (i => ({ items = i }: Set k [ord := o]))
+      (Map.toListInjective m n (Set.unitEntries (Map.toList m) (Map.toList n) same))
 
 --| `==`: compare the keys in order, by the set's ordering.
-def Set.decEq (set: Set k [ord := o]) (other: Set k [ord := o]): Decidable (set = other) :=
-  Decidable.elim (List.decEq o.eq.decide (Set.toList set) (Set.toList other))
+def Set.decEq (set other: Set k [ord := o]): Decidable (set = other) :=
+  Decidable.elim
+    (List.decEq o.eq.decide (Set.toList set) (Set.toList other))
     (same => Decidable.yes (Set.toListInjective set other same))
     (differ => Decidable.no (same => differ (Eq.cong Set.toList same)))
 
@@ -175,11 +185,13 @@ def Set.decEq (set: Set k [ord := o]) (other: Set k [ord := o]): Decidable (set 
 instance Set.instDecEq: DecEq (Set k [ord := o]) := { decide = Set.decEq }
 
 --| `compare`: the keys in order, lexicographically, by the set's ordering.
-def Set.compare (set: Set k [ord := o]) (other: Set k [ord := o]): Ordering := List.compareLex o.compare set.toList other.toList
+def Set.compare (set other: Set k [ord := o]): Ordering := List.compareLex o.compare set.toList other.toList
 
 --| Sets in the order of their key lists, lexicographically (`Set.compare`).
 instance Set.instOrd: Ord (Set k [ord := o]) :=
-  Ord.fromCompare [decEq := Set.instDecEq] Set.compare
+  Ord.fromCompare
+    [decEq := Set.instDecEq]
+    Set.compare
     (s t same => Set.toListInjective s t (List.compareLexEqual o.compare o.equal (Set.toList s) (Set.toList t) same))
     (s t => List.compareLexFlip o.compare o.flip (Set.toList s) (Set.toList t))
     (s t u => List.compareLexTrans o.compare o.equal o.trans (Set.toList s) (Set.toList t) (Set.toList u))
@@ -202,18 +214,24 @@ test "set: union, intersect, difference" :=
     ∧ Set.toList (Set.intersect Set.example (Set.fromList [2, 3, 4])) == [2, 3]
     ∧ Set.toList (Set.difference Set.example (Set.fromList [2])) == [1, 3]
 test "set: union, intersect, difference, edge cases" :=
-  Set.toList (Set.union Set.empty Set.example) == [1, 2, 3] ∧ Set.toList (Set.union Set.example Set.empty) == [1, 2, 3]
-    ∧ Set.isEmpty (Set.intersect Set.example Set.empty) ∧ Set.isEmpty (Set.intersect Set.empty Set.example)
-    ∧ Set.toList (Set.difference Set.example Set.empty) == [1, 2, 3] ∧ Set.isEmpty (Set.difference Set.empty Set.example)
-    ∧ Set.toList (Set.intersect Set.example Set.example) == [1, 2, 3] ∧ Set.isEmpty (Set.difference Set.example Set.example)
-    ∧ Set.isEmpty (Set.intersect Set.example (Set.fromList [0, 9])) ∧ Set.toList (Set.difference Set.example (Set.fromList [0, 9])) == [1, 2, 3]
+  Set.toList (Set.union Set.empty Set.example) == [1, 2, 3]
+    ∧ Set.toList (Set.union Set.example Set.empty) == [1, 2, 3]
+    ∧ Set.isEmpty (Set.intersect Set.example Set.empty)
+    ∧ Set.isEmpty (Set.intersect Set.empty Set.example)
+    ∧ Set.toList (Set.difference Set.example Set.empty) == [1, 2, 3]
+    ∧ Set.isEmpty (Set.difference Set.empty Set.example)
+    ∧ Set.toList (Set.intersect Set.example Set.example) == [1, 2, 3]
+    ∧ Set.isEmpty (Set.difference Set.example Set.example)
+    ∧ Set.isEmpty (Set.intersect Set.example (Set.fromList [0, 9]))
+    ∧ Set.toList (Set.difference Set.example (Set.fromList [0, 9])) == [1, 2, 3]
 test "set: equal in any order" := Set.example == Set.fromList [2, 3, 1] ∧ Set.example ≠ Set.fromList [1, 2]
 test "set: ordered by keys" := Set.fromList [1, 2] < Set.example ≤ Set.fromList [3, 2, 1]
 test "set: show" := "${Set.fromList ["b", "a"]}" == "Set.fromList [\"a\", \"b\"]"
 
 --| The set of `f` applied to each key ([`Set.containsMap`]); keys that map to
 --| the same value merge, and the result is ordered by the new ordering.
-def Set.map [auto ord: Ord j] (set: Set k [ord := o]) (f: k → j): Set j := Set.foldLeft set Set.empty (acc key => Set.insert acc (f key))
+def Set.map [auto ord: Ord j] (set: Set k [ord := o]) (f: k → j): Set j :=
+  Set.foldLeft set Set.empty (acc key => Set.insert acc (f key))
 
 --| Whether some key satisfies `p`.
 def Set.any (set: Set k [ord := o]) (p: k → Bool): Bool := Set.foldLeft set False (acc key => acc ∨ p key)
@@ -222,31 +240,48 @@ def Set.any (set: Set k [ord := o]) (p: k → Bool): Bool := Set.foldLeft set Fa
 def Set.count (set: Set k [ord := o]) (p: k → Bool): Nat := Set.foldLeft set 0 (n key => Nat.succIf n (p key))
 
 test "set: map merges and reorders" := Set.toList (Set.map Set.example (x => 10 - x / 2)) == [9, 10]
-test "set: any" := Set.any Set.example (> 2) ∧ Bool.not (Set.any Set.example (> 3)) ∧ Bool.not (Set.any (Set.empty: Set Nat) (x => True))
+test "set: any" :=
+  Set.any Set.example (> 2) ∧ Bool.not (Set.any Set.example (> 3)) ∧ Bool.not (Set.any (Set.empty: Set Nat) (x => True))
 test "set: count" := Set.count Set.example (≠ 2) == 2
 
 test "set: unionAll" := Set.toList (Set.unionAll [Set.fromList [3, 1], Set.fromList [2], Set.empty]) == [1, 2, 3]
 test "set: List.unionAll" := Set.toList ([Set.fromList [3, 1], Set.fromList [2], Set.empty] |> .unionAll) == [1, 2, 3]
 test "set: List.toSet" := [3, 1, 3, 2].toSet == Set.example
 test "set: min, max, below, above" :=
-  Set.min Set.example == Some 1 ∧ Set.max Set.example == Some 3 ∧ Set.min (Set.empty: Set Nat) == None
-    ∧ Set.below Set.example 3 == Some 2 ∧ Set.below Set.example 1 == None ∧ Set.above Set.example 1 == Some 2 ∧ Set.above Set.example 3 == None
+  Set.min Set.example == Some 1
+    ∧ Set.max Set.example == Some 3
+    ∧ Set.min (Set.empty: Set Nat) == None
+    ∧ Set.below Set.example 3 == Some 2
+    ∧ Set.below Set.example 1 == None
+    ∧ Set.above Set.example 1 == Some 2
+    ∧ Set.above Set.example 3 == None
 test "set: popMin" :=
-  Set.popMin Set.example == Some (1, Set.fromList [2, 3]) ∧ Set.popMin (Set.empty: Set Nat) == None
-    ∧ (Set.fromList (List.range 0 40) |> .popMin |> .map (view => view.snd.toList)) == Some (List.range 0 40 |> List.tailOf)
-test "set: disjoint" :=
-  Set.disjoint Set.example (Set.fromList [4]) ∧ ¬(Set.disjoint Set.example (Set.fromList [2]))
+  Set.popMin Set.example == Some (1, Set.fromList [2, 3])
+    ∧ Set.popMin (Set.empty: Set Nat) == None
+    ∧ (Set.fromList (List.range 0 40) |> .popMin |> .map (view => view.snd.toList))
+      == Some (List.range 0 40 |> List.tailOf)
+test "set: disjoint" := Set.disjoint Set.example (Set.fromList [4]) ∧ ¬(Set.disjoint Set.example (Set.fromList [2]))
 test "set: partition, all, foldRight" :=
-  Set.toList (Set.partition Set.example (> 1)).fst == [2, 3] ∧ Set.toList (Set.partition Set.example (> 1)).snd == [1]
-    ∧ Set.all Set.example (> 0) ∧ ¬(Set.all Set.example (> 1)) ∧ Set.foldRight Set.example [] (n acc => [n, ..acc]) == [1, 2, 3]
+  Set.toList (Set.partition Set.example (> 1)).fst == [2, 3]
+    ∧ Set.toList (Set.partition Set.example (> 1)).snd == [1]
+    ∧ Set.all Set.example (> 0)
+    ∧ ¬(Set.all Set.example (> 1))
+    ∧ Set.foldRight Set.example [] (n acc => [n, ..acc]) == [1, 2, 3]
 test "map: keySet, fromKeys" :=
-  Set.toList (Map.keySet (Map.fromList [(2, "b"), (1, "a")])) == [1, 2] ∧ Map.toList (Map.fromKeys Set.example (* 10)) == [(1, 10), (2, 20), (3, 30)]
+  Set.toList (Map.keySet (Map.fromList [(2, "b"), (1, "a")])) == [1, 2]
+    ∧ Map.toList (Map.fromKeys Set.example (* 10)) == [(1, 10), (2, 20), (3, 30)]
 test "map: removeAll, keepOnly" :=
   Map.keys (Map.removeAll (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [2, 3]
     ∧ Map.keys (Map.keepOnly (Map.fromKeys Set.example (n => n)) (Set.fromList [1, 9])) == [1]
 test "map of sets: containsIn, insertIn, removeIn" :=
   let m: Map Nat (Set Nat) := Map.empty |> .insertIn 1 10 |> .insertIn 1 11 |> .insertIn 2 20
-  m.containsIn 1 10 ∧ m.containsIn 1 11 ∧ m.containsIn 2 20 ∧ ¬(m.containsIn 2 10) ∧ ¬(m.containsIn 3 10)
-    ∧ ¬((m.removeIn 1 10).containsIn 1 10) ∧ (m.removeIn 1 10).containsIn 1 11
-    ∧ Map.keys (m.removeIn 2 20) == [1] ∧ m.removeIn 3 30 == m
+  m.containsIn 1 10
+    ∧ m.containsIn 1 11
+    ∧ m.containsIn 2 20
+    ∧ ¬(m.containsIn 2 10)
+    ∧ ¬(m.containsIn 3 10)
+    ∧ ¬((m.removeIn 1 10).containsIn 1 10)
+    ∧ (m.removeIn 1 10).containsIn 1 11
+    ∧ Map.keys (m.removeIn 2 20) == [1]
+    ∧ m.removeIn 3 30 == m
     ∧ (m.removeIn 1 10 |> .removeIn 1 11 |> .removeIn 2 20) == Map.empty

@@ -26,8 +26,7 @@ import Std (Eq, Nat as StdNat)
 -- arguments: none (as with `True` and `O`), one (as with `S`), or more
 -- than one, as here:
 
-type NatProd =
-  | Pair (n1 n2: Nat)
+type NatProd = | Pair (n1 n2: Nat)
 
 -- "The one and only way to construct a pair of numbers is by applying the
 -- constructor `Pair` to two arguments of type `Nat`."
@@ -40,11 +39,9 @@ type NatProd =
 --
 -- Functions for taking a pair apart are defined by pattern matching:
 
-def fst (p: NatProd): Nat := match p with
-  | Pair x y => x
+def fst (p: NatProd): Nat := match p with | Pair x y => x
 
-def snd (p: NatProd): Nat := match p with
-  | Pair x y => y
+def snd (p: NatProd): Nat := match p with | Pair x y => y
 
 test "fst (pair 3 5)" := fst (Pair (ofNat 3) (ofNat 5)) == ofNat 3
 
@@ -56,8 +53,7 @@ test "fst (pair 3 5)" := fst (Pair (ofNat 3) (ofNat 5)) == ofNat 3
 -- pairs will correspond to. So this chapter writes its pairs as `Pair x
 -- y`, and `fst'` and `snd'` would be `fst` and `snd` again.
 
-def swapPair (p: NatProd): NatProd := match p with
-  | Pair x y => Pair y x
+def swapPair (p: NatProd): NatProd := match p with | Pair x y => Pair y x
 
 -- Matching on a pair, `| Pair x y`, is not the same as matching on two
 -- values at once, `match n, m with | O, _ => …`, as `minus` in Nat.sw
@@ -80,8 +76,7 @@ theorem surjectivePairing' ∀ (n m: Nat): Pair n m = Pair (fst (Pair n m)) (snd
 -- `fst p` can't compute until `p` is known to be a `Pair`. A `match`
 -- exposes that structure, as Rocq's `destruct` does:
 
-theorem surjectivePairing ∀ (p: NatProd): p = Pair (fst p) (snd p) := match p with
-  | Pair n m => rfl
+theorem surjectivePairing ∀ (p: NatProd): p = Pair (fst p) (snd p) := match p with | Pair n m => rfl
 
 -- Unlike the `match` on a `Nat`, which has two arms, this has only one,
 -- because a `NatProd` can be built in only one way.
@@ -104,9 +99,7 @@ theorem fstSwapIsSnd ∀ (p: NatProd): fst (swapPair p) = snd p := ?
 -- Generalising the definition of pairs, a list of numbers is "either the
 -- empty list or else a pair of a number and another list":
 
-type NatList =
-  | Nil
-  | Cons (n: Nat) (l: NatList)
+type NatList = | Nil | Cons (n: Nat) (l: NatList)
 
 -- (These `Nil` and `Cons` are this chapter's own and hide the library's
 -- in this file, as the book's `nil` and `cons` do.)
@@ -701,17 +694,16 @@ theorem revInjective ∀ (l1 l2: NatList) (h: rev l1 = rev l2): l1 = l2 := ?
 
 def nthBad (l: NatList) (n: Nat): Nat := match l with
   | Nil => ofNat 42
-  | Cons a l' => match n with
-    | O => a
-    | S n' => nthBad l' n'
+  | Cons a l' =>
+    match n with
+      | O => a
+      | S n' => nthBad l' n'
 
 -- That's not good: if `nthBad` gives 42, we don't know whether that
 -- value is in the list or the arguments were bad. Better to give the
 -- result a type with an error value among its outcomes: `NatOption`.
 
-type NatOption =
-  | Some (n: Nat)
-  | None
+type NatOption = | Some (n: Nat) | None
 
 -- (The constructors are capitalised following the library's `Option`,
 -- the general version of this type, whose `Some` and `None` these hide
@@ -722,9 +714,10 @@ type NatOption =
 
 def nthError (l: NatList) (n: Nat): NatOption := match l with
   | Nil => None
-  | Cons a l' => match n with
-    | O => Some a
-    | S n' => nthError l' n'
+  | Cons a l' =>
+    match n with
+      | O => Some a
+      | S n' => nthError l' n'
 
 theorem testNthError1: nthError (ofList [4, 5, 6, 7]) O = Some (ofNat 4) := rfl
 

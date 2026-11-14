@@ -12,62 +12,85 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Nat, Option, Or,
 --| the members, each listed once; every member grows `plant` and is joined
 --| to `start`, as is every position on the stack; and each neighbour a
 --| member pushed is a member or still on the stack.
-def FillState (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position): Prop :=
-  (∀ (position: Position) => (visited.contains position = True) ↔ (position ∈ members)) ∧ ((List.Distinct members) ∧ ((∀ (position: Position) => position ∈ members → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ ((∀ (position: Position) => position ∈ stack → Joined garden start position) ∧ (∀ (member: Position) => member ∈ members → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member →
-    (next ∈ members) ∨ (next ∈ stack)))))
+def FillState (garden: Garden) (plant: Char) (start: Position) (stack: List Position)
+    (visited: Set Position) (members: List Position):
+    Prop :=
+  (∀ (position: Position) => (visited.contains position = True) ↔ (position ∈ members))
+    ∧ ((List.Distinct members)
+      ∧ ((∀ (position: Position) => position ∈ members
+        → (garden.plantAt position = Some plant) ∧ (Joined garden start position))
+        ∧ ((∀ (position: Position) => position ∈ stack → Joined garden start position)
+          ∧ (∀ (member: Position) => member ∈ members
+            → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → (next ∈ members) ∨ (next ∈ stack)))))
 
 --| What a fill returns: plots listed once, each growing `plant` and joined
 --| to `start`, with every neighbour growing `plant`; the members it started
 --| with, and the plots growing `plant` on its stack.
-def FillResult (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (members: List Position) (result: List Position): Prop :=
-  (List.Distinct result) ∧ ((∀ (position: Position) => position ∈ result → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ ((∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result) ∧ ((∀ (position: Position) => position ∈ members → position ∈ result) ∧ (∀ (position: Position) => position ∈ stack → garden.plantAt position = Some plant → position ∈ result))))
+def FillResult (garden: Garden) (plant: Char) (start: Position) (stack members result: List Position): Prop :=
+  (List.Distinct result)
+    ∧ ((∀ (position: Position) => position ∈ result
+      → (garden.plantAt position = Some plant) ∧ (Joined garden start position))
+      ∧ ((∀ (member: Position) => member ∈ result
+        → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result)
+        ∧ ((∀ (position: Position) => position ∈ members → position ∈ result)
+          ∧ (∀ (position: Position) => position ∈ stack → garden.plantAt position = Some plant → position ∈ result))))
 
 --| Popping a position already visited, or not growing `plant`, keeps the
 --| state.
-theorem popKeeps ∀ (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
-    (members: List Position) (state: FillState garden plant start [position, ..rest] visited members)
-    (skipped: (position ∈ members) ∨ (garden.plantAt position ≠ Some plant)): FillState garden plant start rest visited members :=
+theorem popKeeps ∀ (garden: Garden) (plant: Char) (start position: Position) (rest: List Position)
+    (visited: Set Position) (members: List Position)
+    (state: FillState garden plant start [position, ..rest] visited members)
+    (skipped: (position ∈ members) ∨ (garden.plantAt position ≠ Some plant)):
+    FillState garden plant start rest visited members :=
   let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
   Both visitedMembers
     (Both distinct
       (Both sound
-        (Both (position inRest => stacked position (Inr inRest))
-          (member isMember next pushed =>
-            match closed member isMember next pushed with
-              | Inl inMembers => Inl inMembers
-              | Inr (Inr inRest) => Inr inRest
-              | Inr (Inl same) =>
-                match skipped with
-                  | Inl inMembers => Inl (rewrite <- same in inMembers)
-                  | Inr other =>
-                    Void.exfalso (other (rewrite same in And.right ((memNeighboursGrowing garden plant member next).forward pushed)))))))
+        (Both (position inRest => stacked position (Inr inRest)) (member isMember next pushed =>
+          match closed member isMember next pushed with
+            | Inl inMembers => Inl inMembers
+            | Inr (Inr inRest) => Inr inRest
+            | Inr (Inl same) =>
+              match skipped with
+                | Inl inMembers => Inl (rewrite <- same in inMembers)
+                | Inr other =>
+                  Void.exfalso
+                    (other
+                      (rewrite same in And.right ((memNeighboursGrowing garden plant member next).forward pushed)))))))
 
 --| Popping a position not yet visited that grows `plant`, and pushing its
 --| neighbours growing `plant`, keeps the state.
-theorem takeKeeps ∀ (garden: Garden) (plant: Char) (start: Position) (position: Position) (rest: List Position) (visited: Set Position)
-    (members: List Position) (state: FillState garden plant start [position, ..rest] visited members)
-    (fresh: visited.contains position = False) (grows: garden.plantAt position = Some plant):
-    FillState garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members] :=
+theorem takeKeeps ∀ (garden: Garden) (plant: Char) (start position: Position) (rest: List Position)
+    (visited: Set Position) (members: List Position)
+    (state: FillState garden plant start [position, ..rest] visited members)
+    (fresh: visited.contains position = False)
+    (grows: garden.plantAt position = Some plant):
+    FillState garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [
+      position,
+      ..members
+    ] :=
   let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
   let joinedHere := stacked position (Inl rfl)
   Both
     (other =>
       match same: other == position with
         | True =>
-          rewrite same.read in {
-            forward = contains => Inl rfl,
-            backward = member => Set.containsInsert position visited
-          }
+          rewrite same.read in
+            { forward = contains => Inl rfl, backward = member => Set.containsInsert position visited }
         | False =>
           let apart := same.read
-          rewrite Set.containsInsertOther visited position other apart in {
-            forward = contains => Inr ((visitedMembers other).forward contains),
-            backward = member =>
-              match member with
-                | Inl here => Void.exfalso (apart (Eq.sym here))
-                | Inr later => (visitedMembers other).backward later
-          })
-    (Both (Both (member => Bool.falseNotTrue (Eq.trans (Eq.sym fresh) ((visitedMembers position).backward member))) distinct)
+          rewrite Set.containsInsertOther visited position other apart in
+            {
+              forward = contains => Inr ((visitedMembers other).forward contains),
+              backward = member =>
+                match member with
+                  | Inl here => Void.exfalso (apart (Eq.sym here))
+                  | Inr later => (visitedMembers other).backward later
+            })
+    (Both
+      (Both
+        (member => Bool.falseNotTrue (Eq.trans (Eq.sym fresh) ((visitedMembers position).backward member)))
+        distinct)
       (Both
         (other member =>
           match member with
@@ -76,92 +99,111 @@ theorem takeKeeps ∀ (garden: Garden) (plant: Char) (start: Position) (position
         (Both
           (other onStack =>
             match List.memAppend other (garden.neighboursGrowing plant position) rest onStack with
-              | Inl pushed => joinedStep garden start position other joinedHere (growingTouches garden plant position other grows pushed)
+              | Inl pushed =>
+                joinedStep garden start position other joinedHere
+                  (growingTouches garden plant position other grows pushed)
               | Inr inRest => stacked other (Inr inRest))
           (member isMember next pushed =>
             match isMember with
-              | Inl here => Inr (List.memAppendLeft next (garden.neighboursGrowing plant position) rest (rewrite here in pushed))
+              | Inl here =>
+                Inr (List.memAppendLeft next (garden.neighboursGrowing plant position) rest (rewrite here in pushed))
               | Inr earlier =>
                 match closed member earlier next pushed with
                   | Inl inMembers => Inl (Inr inMembers)
                   | Inr (Inl same) => Inl (Inl same)
-                  | Inr (Inr inRest) => Inr (List.memAppendRight next (garden.neighboursGrowing plant position) rest inRest)))))
+                  | Inr (Inr inRest) =>
+                    Inr (List.memAppendRight next (garden.neighboursGrowing plant position) rest inRest)))))
 
 --| The fill returns what `FillResult` says, from any state.
-theorem fillCorrect ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
-    (state: FillState garden plant start stack visited members): FillResult garden plant start stack members (Garden.fill garden plant stack visited members)
+theorem fillCorrect ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position)
+    (visited: Set Position) (members: List Position)
+    (state: FillState garden plant start stack visited members):
+    FillResult garden plant start stack members (Garden.fill garden plant stack visited members)
     decreasing (garden.unvisited visited, stack.length)
-:= match stack with
-  | [] =>
-    rewrite Garden.fill.unfold garden plant [] visited members in
-      let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
-      Both distinct
-        (Both sound
-          (Both
-            (member isMember next pushed =>
-              match closed member isMember next pushed with
-                | Inl inMembers => inMembers
-                | Inr none => Void.exfalso none)
-            (Both (position member => member) (position none => Void.exfalso none))))
-  | [position, ..rest] =>
-    let visitedMembers := And.left state
-    match taken: visited.contains position with
-      | True =>
-      let isMember := (visitedMembers position).forward taken
-      let result := fillCorrect garden plant start rest visited members (popKeeps garden plant start position rest visited members state (Inl isMember))
-        [decreasing := Nat.LexLess.Second rfl (omega)]
-      let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
-      rewrite Garden.fill.eq2.ifFalse garden plant visited members position rest taken in
+:=
+  match stack with
+    | [] =>
+      rewrite Garden.fill.unfold garden plant [] visited members in
+        let (Both visitedMembers (Both distinct (Both sound (Both stacked closed)))) := state
         Both distinct
           (Both sound
-            (Both closed
-              (Both kept
-                (other onStack grows =>
-                  match onStack with
-                    | Inl here => kept other (rewrite <- here in isMember)
-                    | Inr later => fromStack other later grows))))
-      | False =>
-      let fresh := taken
-      match growing: garden.plantAt position == Some plant with
+            (Both
+              (member isMember next pushed =>
+                match closed member isMember next pushed with
+                  | Inl inMembers => inMembers
+                  | Inr none => Void.exfalso none)
+              (Both (position member => member) (position none => Void.exfalso none))))
+    | [position, ..rest] =>
+      let visitedMembers := And.left state
+      match taken: visited.contains position with
         | True =>
-        let grows: garden.plantAt position = Some plant := growing.read
-        let result :=
-          fillCorrect garden plant start (garden.neighboursGrowing plant position ++ rest) (visited.insert position) [position, ..members]
-            (takeKeeps garden plant start position rest visited members state fresh grows)
-            [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
-        let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
-        rewrite Garden.fill.eq2.ifTrue.ifTrue garden plant visited members position rest fresh grows in
-          Both distinct
-            (Both sound
-              (Both closed
-                (Both (other member => kept other (Inr member))
-                  (other onStack otherGrows =>
+          let isMember := (visitedMembers position).forward taken
+          let result :=
+            fillCorrect garden plant start rest visited members
+              (popKeeps garden plant start position rest visited members state (Inl isMember))
+              [decreasing := Nat.LexLess.Second rfl (omega)]
+          let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
+          rewrite Garden.fill.eq2.ifFalse garden plant visited members position rest taken in
+            Both distinct
+              (Both sound
+                (Both closed
+                  (Both kept (other onStack grows =>
                     match onStack with
-                      | Inl here => kept other (Inl here)
-                      | Inr later =>
-                        fromStack other (List.memAppendRight other (garden.neighboursGrowing plant position) rest later) otherGrows))))
+                      | Inl here => kept other (rewrite <- here in isMember)
+                      | Inr later => fromStack other later grows))))
         | False =>
-        let other: garden.plantAt position ≠ Some plant := same => Bool.falseNotTrue (Eq.trans (Eq.sym growing) (rewrite same in DecEq.refl (Some plant)))
-        let result := fillCorrect garden plant start rest visited members (popKeeps garden plant start position rest visited members state (Inr other))
-          [decreasing := Nat.LexLess.Second rfl (omega)]
-        let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
-        rewrite Garden.fill.eq2.ifTrue.ifFalse garden plant visited members position rest fresh other in
-          Both distinct
-            (Both sound
-              (Both closed
-                (Both kept
-                  (candidate onStack grows =>
-                    match onStack with
-                      | Inl here => Void.exfalso (other (rewrite here in grows))
-                      | Inr later => fromStack candidate later grows))))
+          let fresh := taken
+          match growing: garden.plantAt position == Some plant with
+            | True =>
+              let grows: garden.plantAt position = Some plant := growing.read
+              let result :=
+                fillCorrect garden plant start
+                  (garden.neighboursGrowing plant position ++ rest)
+                  (visited.insert position)
+                  [position, ..members]
+                  (takeKeeps garden plant start position rest visited members state fresh grows)
+                  [decreasing := Nat.LexLess.First (garden.unvisitedInsert visited position plant grows fresh)]
+              let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
+              rewrite Garden.fill.eq2.ifTrue.ifTrue garden plant visited members position rest fresh grows in
+                Both distinct
+                  (Both sound
+                    (Both closed
+                      (Both (other member => kept other (Inr member)) (other onStack otherGrows =>
+                        match onStack with
+                          | Inl here => kept other (Inl here)
+                          | Inr later =>
+                            fromStack other
+                              (List.memAppendRight other (garden.neighboursGrowing plant position) rest later)
+                              otherGrows))))
+            | False =>
+              let other: garden.plantAt position ≠ Some plant := same =>
+                Bool.falseNotTrue (Eq.trans (Eq.sym growing) (rewrite same in DecEq.refl (Some plant)))
+              let result :=
+                fillCorrect garden plant start rest visited members
+                  (popKeeps garden plant start position rest visited members state (Inr other))
+                  [decreasing := Nat.LexLess.Second rfl (omega)]
+              let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := result
+              rewrite Garden.fill.eq2.ifTrue.ifFalse garden plant visited members position rest fresh other in
+                Both distinct
+                  (Both sound
+                    (Both closed
+                      (Both kept (candidate onStack grows =>
+                        match onStack with
+                          | Inl here => Void.exfalso (other (rewrite here in grows))
+                          | Inr later => fromStack candidate later grows))))
 
 --| The fill from `start` alone, with nothing visited.
 theorem fillFromStart ∀ (garden: Garden) (plant: Char) (start: Position):
     FillResult garden plant start [start] [] (Garden.fill garden plant [start] Set.empty []) :=
-  fillCorrect garden plant start [start] Set.empty []
-    (Both (position => { forward = contains => cases, backward = none => Void.exfalso none })
+  fillCorrect garden plant start
+    [start]
+    Set.empty
+    []
+    (Both
+      (position => { forward = contains => cases, backward = none => Void.exfalso none })
       (Both Trivial
-        (Both (position none => Void.exfalso none)
+        (Both
+          (position none => Void.exfalso none)
           (Both
             (position onStack =>
               match onStack with
@@ -172,32 +214,46 @@ theorem fillFromStart ∀ (garden: Garden) (plant: Char) (start: Position):
 --| Every plot joined to a member of a closed list of plots is a member.
 theorem closedChain ∀ (garden: Garden) (plant: Char) (result: List Position)
     (sound: ∀ (position: Position) => position ∈ result → garden.plantAt position = Some plant)
-    (closed: ∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result)
-    (from: Position) (chain: List Position) (to: Position) (member: from ∈ result) (same: isChain garden from chain to = True): to ∈ result :=
+    (closed: ∀ (member: Position) => member ∈ result
+      → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result)
+    (from: Position) (chain: List Position) (to: Position)
+    (member: from ∈ result)
+    (same: isChain garden from chain to = True):
+    to ∈ result :=
   match chain, same with
     | [], same => rewrite <- same.read in member
     | [next, ..rest], Both step chained =>
       closedChain garden plant result sound closed next rest to
-        (closed from member next (touchingGrowing garden plant from next (sound from member) step)) chained
+        (closed from member next (touchingGrowing garden plant from next (sound from member) step))
+        chained
 
 --| From a plot growing `plant`, the region is a fill.
-theorem regionOfFill ∀ (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
+theorem regionOfFill ∀ (garden: Garden) (start: Position) (plant: Char)
+    (grows: garden.plantAt start = Some plant):
     (garden.regionOf start).plots = Garden.fill garden plant [start] Set.empty [] :=
   rewrite grows in rfl
 
 --| From a plot growing `plant`, the region the fill finds.
-theorem regionOfIsRegion ∀ (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):
+theorem regionOfIsRegion ∀ (garden: Garden) (start: Position) (plant: Char)
+    (grows: garden.plantAt start = Some plant):
     IsRegion garden start (garden.regionOf start) :=
   rewrite regionOfFill garden start plant grows in
     let (Both distinct (Both sound (Both closed (Both kept fromStack)))) := fillFromStart garden plant start
     let result := Garden.fill garden plant [start] Set.empty []
-    other => {
-      forward = member => And.right (sound other member),
-      backward = joined =>
-        Exists.elim joined (chain chained =>
-          closedChain garden plant result (position member => And.left (sound position member)) closed start chain other
-            (fromStack start (Inl rfl) grows) chained)
-    }
+    other =>
+      {
+        forward = member => And.right (sound other member),
+        backward = joined =>
+          Exists.elim joined (chain chained =>
+            closedChain garden plant result
+              (position member => And.left (sound position member))
+              closed
+              start
+              chain
+              other
+              (fromStack start (Inl rfl) grows)
+              chained)
+      }
 
 theorem regionOfDistinct ∀ (garden: Garden) (start: Position): List.Distinct (garden.regionOf start).plots :=
   match grows: garden.plantAt start with

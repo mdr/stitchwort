@@ -13,7 +13,7 @@ theorem iterTurn ∀ (count: Nat) (g: G): (Nat.iterate count G.step g).turn = g.
   | Zero => ring
   | Succ count => rewrite iterTurn count (G.step g) in ring
 
-theorem finalTurn ∀ (first: Nat) (later: Nat): (Nat.iterate later G.step (G.begin first)).turn = Succ later :=
+theorem finalTurn ∀ (first later: Nat): (Nat.iterate later G.step (G.begin first)).turn = Succ later :=
   let final := Nat.iterate later G.step (G.begin first)
   let turns: final.turn = Succ later := rewrite iterTurn later _ in ring
   turns

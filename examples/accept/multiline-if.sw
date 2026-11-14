@@ -1,43 +1,27 @@
 -- `then` and `else` can start a line, at the column of the `if`'s own line
 -- or further in, so `if` chains read top to bottom.
 
-def sign (n: Nat): Nat :=
-  if n == 0 then 0
-  else 1
+def sign (n: Nat): Nat := if n == 0 then 0 else 1
 
-def grade (n: Nat): Nat :=
-  if n == 0 then 10
-  else if n == 1 then 20
-  else if n == 2 then 30
-  else 40
+def grade (n: Nat): Nat := if n == 0 then 10 else if n == 1 then 20 else if n == 2 then 30 else 40
 
 -- `then` on its own line too, and branches that are blocks.
 def describe (n: Nat): Nat :=
-  if n == 0
-  then 100
+  if n == 0 then 100
   else
     let m := n + 1
     m * 2
 
 -- Nested: the inner chain's `else` belongs to the inner `if`.
-def nested (a: Nat) (b: Nat): Nat :=
-  if a == 0 then
-    if b == 0 then 1
-    else 2
-  else
-    if b == 0 then 3
-    else 4
+def nested (a b: Nat): Nat := if a == 0 then if b == 0 then 1 else 2 else if b == 0 then 3 else 4
 
 -- Inside `let`, with `else` lined up under the `let`.
 def inLet (n: Nat): Nat :=
-  let x := if n == 0 then 5
-  else 6
+  let x := if n == 0 then 5 else 6
   x + 1
 
 -- With a proof binder.
-def safeDiv (n: Nat) (d: Nat): Nat :=
-  if h: d ≠ 0 then n / d
-  else 0
+def safeDiv (n d: Nat): Nat := if h: d ≠ 0 then n / d else 0
 
 -- In handler clauses.
 ability Say where
@@ -45,16 +29,11 @@ ability Say where
 
 def withHandler (n: Nat): Nat :=
   handle say n with
-    | return x => if n == 0 then 7
-      else 8
-    | say m, k => if m == 0 then 9
-      else if m == 1 then 10
-      else 11
+    | return x => if n == 0 then 7 else 8
+    | say m, k => if m == 0 then 9 else if m == 1 then 10 else 11
 
 -- Indented `else` still works.
-def indented (n: Nat): Nat :=
-  if n == 0 then 1
-  else 2
+def indented (n: Nat): Nat := if n == 0 then 1 else 2
 
 test "sign" := sign 0 == 0
 test "sign of a positive" := sign 5 == 1

@@ -27,23 +27,27 @@ def countsBelow (w: Nat) (ls: List (Vec Bool w)): Vec Nat w := List.foldRight ls
 
 --| One row up: a column's count from the counts below, against the
 --| timelines from that column.
-theorem countStep ∀ (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (below: Vec Nat w)
+theorem countStep ∀ (l: Vec Bool w) (rest: List (Vec Bool w)) (r c: Nat) (below: Vec Nat w)
     (ih: ∀ (c: Nat) => below.getOr c 1 = List.length (timelinesFrom (r + 1) c rest)):
     (if splitterAt l c then (VCons 1 below).getOr c 1 + below.getOr (Succ c) 1 else below.getOr c 1)
-    = List.length (timelinesFrom r c [l, ..rest]) := match e: splitterAt l c with
-      | True =>
-        match c with
-          | Zero => rewrite List.lengthMap _ _ in Eq.cong Succ (ih 1)
-          | Succ b => rewrite List.lengthAppend _ _, List.lengthMap _ _, List.lengthMap _ _, Nat.addOne b, ih b, ih (Succ (Succ b))
-      | False => ih c
+      = List.length (timelinesFrom r c [l, ..rest]) :=
+  match e: splitterAt l c with
+    | True =>
+      match c with
+        | Zero => rewrite List.lengthMap _ _ in Eq.cong Succ (ih 1)
+        | Succ b =>
+          rewrite List.lengthAppend _ _, List.lengthMap _ _, List.lengthMap _ _, Nat.addOne b, ih b, ih (Succ (Succ b))
+    | False => ih c
 
 --| Every column's count is the number of timelines from it.
-theorem countsAre ∀ (w: Nat) (ls: List (Vec Bool w)) (r c: Nat):
-    Vec.getOr (countsBelow w ls) c 1 = List.length (timelinesFrom r c ls) := match ls with
-      | [] => Vec.getOrReplicate 1 w c
-      | [l, ..rest] =>
-        rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c in
-          countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
+theorem countsAre ∀ (w: Nat)
+    (ls: List (Vec Bool w)) (r c: Nat):
+    Vec.getOr (countsBelow w ls) c 1 = List.length (timelinesFrom r c ls) :=
+  match ls with
+    | [] => Vec.getOrReplicate 1 w c
+    | [l, ..rest] =>
+      rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c in
+        countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
 
 --| Part 2 is right: for every manifold, the printed answer is the number of
 --| timelines of the particle from S.

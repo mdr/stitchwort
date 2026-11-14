@@ -16,14 +16,11 @@ type Booking = { id: Text, start: Nat }
 def bookings: List Booking := [{ id = "a", start = 1 }, { id = "b", start = 5 }]
 
 -- A section that starts an expression takes the whole expression.
-def findBooking (id: Text) (bookings: List Booking): Option Booking :=
-  bookings.find (.id == id)
+def findBooking (id: Text) (bookings: List Booking): Option Booking := bookings.find (.id == id)
 
-test "a section to the end of the expression" :=
-  (findBooking "b" bookings).map .start == Some 5
+test "a section to the end of the expression" := (findBooking "b" bookings).map .start == Some 5
 
-test "the same as the lambda" :=
-  findBooking "a" bookings == bookings.find (booking => booking.id == "a")
+test "the same as the lambda" := findBooking "a" bookings == bookings.find (booking => booking.id == "a")
 
 def late (bookings: List Booking): List Booking := bookings.filter (.start + 1 > 3)
 

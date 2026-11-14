@@ -5,17 +5,17 @@
 
 import Std (Nat)
 
-def halveThenDivide (n: Nat) (k: Nat): Nat := n / Nat.pow 2 (Succ k)
+def halveThenDivide (n k: Nat): Nat := n / Nat.pow 2 (Succ k)
 
-def remainderBy (n: Nat) (k: Nat) [auto ok: Nat.pow 3 (Succ (Succ k)) ≠ 0]: Nat := n % Nat.pow 3 (Succ (Succ k))
+def remainderBy (n k: Nat) [auto ok: Nat.pow 3 (Succ (Succ k)) ≠ 0]: Nat := n % Nat.pow 3 (Succ (Succ k))
 
-def remainderOf (n: Nat) (k: Nat): Nat := remainderBy n k
+def remainderOf (n k: Nat): Nat := remainderBy n k
 
-def needsNonzero (n: Nat) (k: Nat) [auto whole: Nat.pow 2 (Succ k) ≠ 0]: Nat := n / Nat.pow 2 (Succ k)
+def needsNonzero (n k: Nat) [auto whole: Nat.pow 2 (Succ k) ≠ 0]: Nat := n / Nat.pow 2 (Succ k)
 
-def passesNonzero (n: Nat) (k: Nat): Nat := needsNonzero n k
+def passesNonzero (n k: Nat): Nat := needsNonzero n k
 
-theorem halfDivided ∀ (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (Succ k) := Nat.halfDivPow n k
+theorem halfDivided ∀ (n k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (Succ k) := Nat.halfDivPow n k
 
 test "halveThenDivide" := halveThenDivide 100 2 == 12
 

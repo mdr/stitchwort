@@ -7,7 +7,7 @@
 import Std (List)
 
 -- Bool operands, with a comparison as an operand.
-def between (x: Nat) (y: Nat) (z: Nat): Bool := x < y ∧ y < z
+def between (x y z: Nat): Bool := x < y ∧ y < z
 
 test "between" := between 1 2 3
 test "not between" := not (between 1 3 2)
@@ -24,13 +24,13 @@ test "not prop" := not (3 < 2)
 test "or prop" := 3 < 2 ∨ 2 < 3
 
 -- `if` on a conjunction, with and without a proof name.
-def pick (x: Nat) (y: Nat): Nat := if x < y ∧ y < 10 then 1 else 2
+def pick (x y: Nat): Nat := if x < y ∧ y < 10 then 1 else 2
 
 test "pick, both" := pick 1 2 == 1
 test "pick, second fails" := pick 3 20 == 2
 test "pick, first fails" := pick 3 2 == 2
 
-def withProof (x: Nat) (y: Nat): Nat := if h: x < y ∧ y < 10 then 1 else 2
+def withProof (x y: Nat): Nat := if h: x < y ∧ y < 10 then 1 else 2
 
 test "withProof" := withProof 1 2 == 1 ∧ withProof 5 2 == 2
 
@@ -66,17 +66,17 @@ test "chain" := chain 3 ∧ chain 100 ∧ not (chain 5) ∧ not (chain 0)
 -- `%` and `/` need a proof that `n != 0`, found from the left operand (the
 -- AoC 2025 day 2 guard). A `Bool` left side (`n == 0`) says nothing, just as
 -- `if n == 0` doesn't.
-def repeatsEvery (len: Nat) (n: Nat): Bool := n ≠ 0 ∧ len % n == 0
+def repeatsEvery (len n: Nat): Bool := n ≠ 0 ∧ len % n == 0
 
 test "repeatsEvery" := repeatsEvery 6 3 ∧ not (repeatsEvery 6 0) ∧ not (repeatsEvery 6 4)
 
 -- In `a || b`, `b` knows `Not a`.
-def bigShare (total: Nat) (n: Nat): Bool := n = 0 ∨ total / n > 2
+def bigShare (total n: Nat): Bool := n = 0 ∨ total / n > 2
 
 test "bigShare" := bigShare 10 0 ∧ bigShare 10 3 ∧ not (bigShare 10 5)
 
 -- In a chain `a && b && c`, `c` knows both `a` and `b`.
-def bothDivide (a: Nat) (b: Nat) (c: Nat): Bool := a ≠ 0 ∧ b ≠ 0 ∧ c % a + c % b == 0
+def bothDivide (a b c: Nat): Bool := a ≠ 0 ∧ b ≠ 0 ∧ c % a + c % b == 0
 
 test "bothDivide" := bothDivide 2 3 6 ∧ not (bothDivide 0 3 6) ∧ not (bothDivide 4 3 6)
 
@@ -87,10 +87,10 @@ test "not as a function" := flipped == [False, True]
 
 -- Proofs: in a type, `&&` is `And` (constructor `Both`) and `||` is `Or`
 -- (constructors `Inl`, `Inr`).
-theorem andComm ∀ (p: Prop) (q: Prop): p ∧ q → q ∧ p
+theorem andComm ∀ (p q: Prop): p ∧ q → q ∧ p
   | Both a b => Both b a
 
-theorem swapOr ∀ (p: Prop) (q: Prop): p ∧ q → q ∨ p
+theorem swapOr ∀ (p q: Prop): p ∧ q → q ∨ p
   | Both a b => Inl b
 
 theorem literal: 1 < 2 ∧ 2 < 3 := Both rfl rfl

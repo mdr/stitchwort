@@ -8,7 +8,7 @@ type Spigot = { numer: Int, accum: Int, denom: Int }
 
 --| The digits found so far, newest first, given `fuel` more terms of the
 --| series to try and `wanted` more digits to find; `k` terms are taken.
-def digitsFrom (fuel: Nat) (k: Nat) (wanted: Nat) (spigot: Spigot) (found: List Nat): List Nat := match fuel with
+def digitsFrom (fuel k wanted: Nat) (spigot: Spigot) (found: List Nat): List Nat := match fuel with
   | Zero => found
   | Succ rest =>
     if wanted == 0 then found
@@ -21,13 +21,17 @@ def digitsFrom (fuel: Nat) (k: Nat) (wanted: Nat) (spigot: Spigot) (found: List 
       if numer > accum then digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
       else
         let digit := (numer * 3 + accum) / denom
-        if digit != (numer * 4 + accum) / denom then digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
-        else digitsFrom rest next (wanted - 1) { numer = numer * 10, accum = (accum - denom * digit) * 10, denom = denom } [digit.toNat, ..found]
+        if digit != (numer * 4 + accum) / denom then
+          digitsFrom rest next wanted { numer = numer, accum = accum, denom = denom } found
+        else
+          digitsFrom rest next
+            (wanted - 1)
+            { numer = numer * 10, accum = (accum - denom * digit) * 10, denom = denom }
+            [digit.toNat, ..found]
 
 def Spigot.start: Spigot := { numer = 1, accum = 0, denom = 1 }
 
-def line (count: Nat) (row: List Nat): Text :=
-  "${Text.joinWith (row.map Nat.toText) ""}\t:${count}"
+def line (count: Nat) (row: List Nat): Text := "${Text.joinWith (row.map Nat.toText) ""}\t:${count}"
 
 def main(): {IO, Fail} () :=
   let count := match IO.args() with

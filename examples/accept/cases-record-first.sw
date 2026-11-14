@@ -4,10 +4,8 @@
 -- statement were false (SW-2840).
 import Std (Bool, Nat)
 
-type Tag =
-  | MkTag (n: Nat)
+type Tag = | MkTag (n: Nat)
 
-def same (a b: Tag): Bool := match a, b with
-  | MkTag n, MkTag m => n == m
+def same (a b: Tag): Bool := match a, b with | MkTag n, MkTag m => n == m
 
 theorem sameRefl ∀ (x: Tag): same x x = True := cases

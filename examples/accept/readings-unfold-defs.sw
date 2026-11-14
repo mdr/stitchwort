@@ -12,33 +12,38 @@ def Spot.within (spot: Spot) (field: Field): Bool := spot.row < field.height && 
 
 def Field.contains (field: Field) (spot: Spot): Bool := spot.within field
 
-def sameRow (a: Spot) (b: Spot): Bool := a.row == b.row
+def sameRow (a b: Spot): Bool := a.row == b.row
 
-def besideEachOther (a: Spot) (b: Spot): Bool := sameRow a b && (a.column + 1 == b.column || b.column + 1 == a.column)
+def besideEachOther (a b: Spot): Bool := sameRow a b && (a.column + 1 == b.column || b.column + 1 == a.column)
 
 -- the goal is an equation
-theorem equationGoal ∀ (a: Spot) (b: Spot) (h: besideEachOther a b): sameRow a b = True :=
+theorem equationGoal ∀ (a b: Spot) (h: besideEachOther a b): sameRow a b = True :=
   let Both same _ := h
   same
 
 -- the goal is a membership
-theorem membershipGoal ∀ (a: Spot) (b: Spot) (spots: List Spot) (h: besideEachOther a b) (member: b ∈ spots): b ∈ spots :=
+theorem membershipGoal ∀ (a b: Spot) (spots: List Spot) (h: besideEachOther a b) (member: b ∈ spots): b ∈ spots :=
   let Both same _ := h
   member
 
-theorem membershipFromPart ∀ (a: Spot) (b: Spot) (spots: List Spot) (h: (a ∈ spots) ∧ besideEachOther a b): a ∈ spots :=
+theorem membershipFromPart ∀ (a b: Spot) (spots: List Spot) (h: (a ∈ spots) ∧ besideEachOther a b): a ∈ spots :=
   let Both here (Both same _) := h
   here
 
 -- the goal is an existential
-theorem existsGoal ∀ (a: Spot) (b: Spot) (h: besideEachOther a b): Exists Nat (n => n = a.row) :=
+theorem existsGoal ∀ (a b: Spot) (h: besideEachOther a b): Exists Nat (n => n = a.row) :=
   let Both same _ := h
   Witness a.row rfl
 
 -- a method of a record, through another method
-theorem methodGoal ∀ (field: Field) (spot: Spot) (spots: List Spot) (h: field.contains spot) (member: spot ∈ spots): spot ∈ spots :=
+theorem methodGoal ∀ (field: Field) (spot: Spot) (spots: List Spot) (h: field.contains spot)
+    (member: spot ∈ spots):
+    spot ∈ spots :=
   let Both rowIn _ := h
   member
 
-theorem methodPartBuilt ∀ (field: Field) (spot: Spot) (rowIn: spot.row < field.height) (columnIn: spot.column < field.width): field.contains spot = True :=
+theorem methodPartBuilt ∀ (field: Field) (spot: Spot)
+    (rowIn: spot.row < field.height)
+    (columnIn: spot.column < field.width):
+    field.contains spot = True :=
   Both rowIn columnIn

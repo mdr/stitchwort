@@ -15,8 +15,7 @@ theorem useFound ∀ (x: Nat) (xs: List Nat) (found: xs.contains x): xs.contains
 
 theorem asArgument ∀ (x: Nat) (xs: List Nat) (m: x ∈ xs): xs.contains x := useFound x xs m
 
-theorem insideBoth ∀ (x: Nat) (xs: List Nat) (m: x ∈ xs) (small: x < 3): (xs.contains x && x < 3) = True :=
-  Both m small
+theorem insideBoth ∀ (x: Nat) (xs: List Nat) (m: x ∈ xs) (small: x < 3): (xs.contains x && x < 3) = True := Both m small
 
 theorem insideInl ∀ (x: Nat) (xs: List Nat) (m: x ∈ xs) (b: Bool): (xs.contains x || b) = True := Inl m
 
@@ -34,11 +33,10 @@ theorem fromFalse ∀ (b: Bool) (no: b = False): (not b) = True := no
 -- Two layers: `!=` reads as `(a == b) = False`, which reads as `a ≠ b`.
 theorem fromApartBang ∀ (a b: Nat) (ne: a ≠ b): ((a != b): Bool) = True := ne
 
-theorem fromApartLambda ∀ (a: Nat) (b: Nat) (lower: a < b): ((a != b): Bool) = True := same => omega
+theorem fromApartLambda ∀ (a b: Nat) (lower: a < b): ((a != b): Bool) = True := same => omega
 
 -- A lambda takes the binders of the reading it is checked against.
-theorem allSmall ∀ (xs: List Nat) (small: ∀ (x: Nat) => x ∈ xs → x < 10): xs.all (x => x < 10) :=
-  x inXs => small x inXs
+theorem allSmall ∀ (xs: List Nat) (small: ∀ (x: Nat) => x ∈ xs → x < 10): xs.all (x => x < 10) := x inXs => small x inXs
 
 theorem notZero ∀ (n: Nat) (big: n > 3): Nat.equal n 0 = False := isZero => omega
 
@@ -54,6 +52,11 @@ theorem notLeq ∀ (a b: Nat) (no: ¬(a ≤ b)): Nat.leq a b = False := no
 
 -- Five built in one theorem: each failure adds a place, and the theorem is
 -- checked again with every fact built so far.
-theorem fiveBuilt ∀ (x y: Nat) (xs: List Nat) (m: x ∈ xs) (same: x = y) (ne: x ≠ 4) (less: y < x + 1) (no: ¬(isWall x = True)):
+theorem fiveBuilt ∀ (x y: Nat) (xs: List Nat)
+    (m: x ∈ xs)
+    (same: x = y)
+    (ne: x ≠ 4)
+    (less: y < x + 1)
+    (no: ¬(isWall x = True)):
     xs.contains x ∧ (x == y) = True ∧ ((x != 4): Bool) = True ∧ (x + 1 <= y) = False ∧ isWall x = False :=
   Both m (Both same (Both ne (Both less no)))

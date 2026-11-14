@@ -16,7 +16,8 @@ theorem listTail ∀ (chars: List Char) (h: (chars.drop 2 == ['c', 'm']) = True)
 
 theorem conses ∀ (x y: Nat) (xs ys: List Nat) (h: ([x, ..xs] == [y, ..ys]) = True): [x, ..xs] = [y, ..ys] := h.read
 
-theorem consesApart ∀ (x y: Nat) (xs ys: List Nat) (h: ([x, ..xs] == [y, ..ys]) = False): [x, ..xs] ≠ [y, ..ys] := h.read
+theorem consesApart ∀ (x y: Nat) (xs ys: List Nat) (h: ([x, ..xs] == [y, ..ys]) = False): [x, ..xs] ≠ [y, ..ys] :=
+  h.read
 
 theorem consesSwap ∀ (x y: Nat) (xs ys: List Nat) (h: ([x, ..xs] == [y, ..ys]) = True): [y, ..ys] = [x, ..xs] :=
   Eq.sym h.read
@@ -25,7 +26,8 @@ theorem texts ∀ (p q: Text) (h: (p == q) = True): p = q := h.read
 
 theorem textsApart ∀ (p q: Text) (h: (p == q) = False): p ≠ q := h.read
 
-theorem textOfChars ∀ (chars: List Char) (q: Text) (h: (Text.fromList chars == q) = True): Text.fromList chars = q := h.read
+theorem textOfChars ∀ (chars: List Char) (q: Text) (h: (Text.fromList chars == q) = True): Text.fromList chars = q :=
+  h.read
 
 theorem pairs ∀ (x y: Nat) (p q: (Nat, Nat)) (h: ((x, p) == (y, q)) = True): (x, p) = (y, q) := h.read
 
@@ -37,7 +39,9 @@ type Pos = { row: Nat, col: Nat }
 -- what `Some a == Some b` computes to), and not a field at a time.
 theorem optionOfRecord ∀ (a b: Pos) (h: (Some a == Some b) = True): Some a = Some b := h.read
 
-theorem inALambda ∀ (xs: List Pos) (t: Pos) (found: xs.any (p => Some p == Some t) = True): ∃ (p: Pos) => Some p = Some t :=
+theorem inALambda ∀ (xs: List Pos) (t: Pos)
+    (found: xs.any (p => Some p == Some t) = True):
+    ∃ (p: Pos) => Some p = Some t :=
   let Witness p (Both _ same) := found
   Witness p same.read
 
@@ -79,7 +83,8 @@ theorem lightsApart ∀ (a b: Light) (h: (a == b) = False): a ≠ b := h.read
 type Code = { n: Nat }
 
 def Code.decEq (a b: Code): Decidable (a = b) :=
-  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e in rfl) (e => rewrite e in rfl)
+  Decidable.map (Nat.decEq a.n b.n) (e => match a, b with | { n }, { n = m } => rewrite e in rfl) (e =>
+    rewrite e in rfl)
 
 instance Code.instDecEq: DecEq Code := { decide = Code.decEq }
 

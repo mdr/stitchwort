@@ -6,8 +6,7 @@
 import Std.Effect (Comp, Plus, PlusRes, bind, foldComp)
 import Std (List)
 
-type Unit1: Type =
-  | MkUnit
+type Unit1: Type = | MkUnit
 
 type Empty: Type
 
@@ -17,24 +16,20 @@ def fromEmpty: Empty → a
 -- Signatures
 
 -- `State Nat`: `get` returns the state, `put` replaces it.
-type StateOp: Type =
-  | Get
-  | Put (n: Nat)
+type StateOp: Type = | Get | Put (n: Nat)
 
 def StateRes: StateOp → Type
   | Get => Nat
   | Put n => Unit1
 
 -- `Choose`: a yes/no choice.
-type ChooseOp: Type =
-  | Choose
+type ChooseOp: Type = | Choose
 
 def ChooseRes: ChooseOp → Type
   | Choose => Bool
 
 -- `Abort`: stop. It returns `Empty`, so nothing can continue.
-type AbortOp: Type =
-  | Abort
+type AbortOp: Type = | Abort
 
 def AbortRes: AbortOp → Type
   | Abort => Empty
@@ -44,9 +39,7 @@ def AbortRes: AbortOp → Type
 -- Computations with the row `{State Nat, Choose}`.
 def SC (a: Type): Type := Comp (Plus StateOp ChooseOp) (PlusRes StateRes ChooseRes) a
 
-type FnStateOp: Type =
-  | GetFn
-  | PutFn (f: Nat → Comp ChooseOp ChooseRes Nat)
+type FnStateOp: Type = | GetFn | PutFn (f: Nat → Comp ChooseOp ChooseRes Nat)
 
 def FnStateRes: FnStateOp → Type
   | GetFn => Nat → Comp ChooseOp ChooseRes Nat
@@ -64,8 +57,7 @@ def ResOf: (b: Bool) → OpsOf b → Type
 
 def eqPairs: List (Pair Nat Nat) → List (Pair Nat Nat) → Bool
   | [], [] => True
-  | [MkPair a b, ..xs], [MkPair c d, ..ys] =>
-    if a == c then (if b == d then eqPairs xs ys else False) else False
+  | [MkPair a b, ..xs], [MkPair c d, ..ys] => if a == c then (if b == d then eqPairs xs ys else False) else False
   | _, _ => False
 
 def eqNats: List Nat → List Nat → Bool
@@ -109,19 +101,21 @@ theorem handlersBehave: Unit :=
 
   -- Handlers for one ability in a row of two. Operations they don't handle are
   -- forwarded, with the handler wrapped round the rest (deep handlers).
-  def runStateL [e: Type] [eres: e → Type] [a: Type]
-      (s: Nat): Comp (Plus StateOp e) (PlusRes StateRes eres) a → Comp e eres (Pair a Nat)
+  def runStateL [e: Type] [eres: e → Type] [a: Type] (s: Nat):
+      Comp (Plus StateOp e) (PlusRes StateRes eres) a → Comp e eres (Pair a Nat)
     | Done x => Done (MkPair x s)
     | Call (L Get) rest => runStateL s (rest s)
     | Call (L (Put n)) rest => runStateL n (rest MkUnit)
     | Call (R o) rest => Call o (y => runStateL s (rest y))
 
-  def allResultsR: [e: Type] → [eres: e → Type] → [a: Type] →
-      Comp (Plus e ChooseOp) (PlusRes eres ChooseRes) a → Comp e eres (List a)
+  def allResultsR: [e: Type]
+        → [eres: e → Type]
+        → [a: Type]
+        → Comp (Plus e ChooseOp) (PlusRes eres ChooseRes) a
+        → Comp e eres (List a)
     | Done x => Done [x]
     | Call (R Choose) rest =>
-      bind (allResultsR (rest True)) (xs =>
-        bind (allResultsR (rest False)) (ys => Done (List.append xs ys)))
+      bind (allResultsR (rest True)) (xs => bind (allResultsR (rest False)) (ys => Done (List.append xs ys)))
     | Call (L o) rest => Call o (y => allResultsR (rest y))
 
   -- Handler order (from the review)
@@ -136,10 +130,7 @@ theorem handlersBehave: Unit :=
 
   def choose: SC Bool := Call (R Choose) (b => Done b)
 
-  def p: SC Nat :=
-    bind choose (b =>
-      bind (if b then put 1 else Done MkUnit) (u =>
-        get))
+  def p: SC Nat := bind choose (b => bind (if b then put 1 else Done MkUnit) (u => get))
 
   -- State inside, choice outside: each branch has its own state.
   let stateInside: List (Pair Nat Nat) := allResults (runStateL 0 p)
@@ -165,7 +156,7 @@ theorem handlersBehave: Unit :=
   -- followed by `fromEmpty`.
   def abort: Comp AbortOp AbortRes a := Call Abort (v => fromEmpty v)
 
-  def safeDiv (n: Nat) (d: Nat): Comp AbortOp AbortRes Nat := if h: d ≠ 0 then Done (n / d) else abort
+  def safeDiv (n d: Nat): Comp AbortOp AbortRes Nat := if h: d ≠ 0 then Done (n / d) else abort
 
   let abortStops: isNone (toOption (safeDiv 7 0)) = True := rfl
   let noAbort: fromSome0 (toOption (bind (safeDiv 7 2) (q => safeDiv 100 q))) = 33 := rfl
@@ -177,9 +168,8 @@ theorem handlersBehave: Unit :=
   def allResultsFold (c: Comp ChooseOp ChooseRes a): List a := foldComp (x => [x]) both c
 
   -- Three choices: eight outcomes.
-  def threeChoices: Comp ChooseOp ChooseRes Nat :=
-    Call Choose (a => Call Choose (b => Call Choose (c =>
-      Done ((if a then 4 else 0) + (if b then 2 else 0) + (if c then 1 else 0)))))
+  def threeChoices: Comp ChooseOp ChooseRes Nat := Call Choose (a =>
+    Call Choose (b => Call Choose (c => Done ((if a then 4 else 0) + (if b then 2 else 0) + (if c then 1 else 0)))))
 
   let foldOutcomes: eqNats (allResultsFold threeChoices) [7, 6, 5, 4, 3, 2, 1, 0] = True := rfl
   let foldAgrees: eqNats (allResultsFold threeChoices) (allResults threeChoices) = True := rfl

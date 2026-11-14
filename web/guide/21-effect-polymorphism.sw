@@ -9,8 +9,7 @@ def applyTwice (f: a → {e} a) (x: a): {e} a := f (f x)
 test "pure" := applyTwice (n => n + 3) 1 == 7
 
 -- With a callback that may fail, it may fail.
-def halve (n: Nat): {Fail} Nat :=
-  if n % 2 == 0 then n / 2 else fail "${n} is odd"
+def halve (n: Nat): {Fail} Nat := if n % 2 == 0 then n / 2 else fail "${n} is odd"
 
 test "failing" := toResult (() => applyTwice halve 6) == Err "3 is odd"
 test "fine" := toResult (() => applyTwice halve 8) == Ok 2

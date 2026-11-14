@@ -7,12 +7,11 @@
 
 import Std (Eq, Int)
 
-theorem congOverMod ∀ (c: Int) (x: Int) (z: Int) (h: Int.neg x = z): Int.neg x + c % 7 = z + c % 7 :=
+theorem congOverMod ∀ (c x z: Int) (h: Int.neg x = z): Int.neg x + c % 7 = z + c % 7 :=
   Eq.cong (t => Int.add t (c % 7)) h
 
 -- The shape SW-314 met: a divisor that's a variable's successor, and the
 -- lambda applied to a sum of products.
-theorem congOverModSucc ∀ (d: Nat) (c: Int) (q: Int) (s: Int):
-    (OfNat (Succ d) * q + OfNat (Succ d) * s) + c % OfNat (Succ d) =
-      OfNat (Succ d) * (q + s) + c % OfNat (Succ d) :=
+theorem congOverModSucc ∀ (d: Nat) (c q s: Int):
+    (OfNat (Succ d) * q + OfNat (Succ d) * s) + c % OfNat (Succ d) = OfNat (Succ d) * (q + s) + c % OfNat (Succ d) :=
   Eq.cong (t => Int.add t (c % OfNat (Succ d))) (Eq.sym (Int.mulDistribLeft (OfNat (Succ d)) q s))

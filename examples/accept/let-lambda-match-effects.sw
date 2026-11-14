@@ -19,38 +19,34 @@ def counting (prog: () → {Counter | e} a): {e} a :=
 
 -- On a variable from outside the lambda, a `Nat`.
 def outer (g: Nat → {e} Nat) (k: Nat): {e} Nat :=
-  let h :=
-    (x: Nat) =>
-      match k with
-        | 0 => g x
-        | n => g n
+  let h := (x: Nat) =>
+    match k with
+      | 0 => g x
+      | n => g n
   h 1
 
 -- On one that's an `Option`.
 def outerOption (g: Nat → {e} Nat) (k: Option Nat): {e} Nat :=
-  let h :=
-    (x: Nat) =>
-      match k with
-        | Some m => g (m + x)
-        | None => g x
+  let h := (x: Nat) =>
+    match k with
+      | Some m => g (m + x)
+      | None => g x
   h 1
 
 -- On the lambda's own parameter.
 def own (g: Nat → {e} Nat) (k: Nat): {e} Nat :=
-  let h :=
-    (x: Nat) =>
-      match x with
-        | 0 => g k
-        | n => g n
+  let h := (x: Nat) =>
+    match x with
+      | 0 => g k
+      | n => g n
   h 0
 
 -- With a concrete ability.
 def counted (k: Nat): {Counter} Nat :=
-  let h :=
-    (x: Nat) =>
-      match k with
-        | 0 => next() + x
-        | n => next() + n
+  let h := (x: Nat) =>
+    match k with
+      | 0 => next() + x
+      | n => next() + n
   h 10 + h 20
 
 test "pure callback" := outer (x => x * 2) 0 == 2 ∧ outer (x => x * 2) 5 == 10

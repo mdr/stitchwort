@@ -1,17 +1,19 @@
 //! Every tracked `.sw` file outside D1019's excluded folders either formats,
 //! passing the §4.1 checks and formatting to itself again, or is refused for
-//! a syntax error (docs/proposals/formatter.md §4.2).
+//! a syntax error (docs/proposals/formatter-style.md).
 
 use std::path::Path;
 use stitchwort_fmt::{Error, Stats, format_with_stats};
 
 use crate::support::repo_files;
 
-/// Folders whose layout may be what's tested (D1019).
-const EXCLUDED: [&str; 3] = [
+/// Folders whose layout may be what's tested (D1019), and the formatter's
+/// own test data, some of which it leaves as written.
+const EXCLUDED: [&str; 4] = [
     "examples/reject/",
     "examples/soundness/",
     "examples/projects/reject/",
+    "crates/fmt/tests/it/golden/",
 ];
 
 #[test]
@@ -30,9 +32,8 @@ fn every_repo_file_formats_idempotently_or_is_refused() {
         let text = std::fs::read_to_string(root.join(path)).expect("readable");
         match format_with_stats(&text) {
             Ok(result) => {
-                total.copied_lines += result.stats.copied_lines;
-                total.copied_gaps += result.stats.copied_gaps;
-                total.unconverted_decls += result.stats.unconverted_decls;
+                total.decls += result.stats.decls;
+                total.unruled_nodes += result.stats.unruled_nodes;
                 total.verbatim_decls += result.stats.verbatim_decls;
                 if result.text == text {
                     unchanged += 1;
@@ -50,20 +51,17 @@ fn every_repo_file_formats_idempotently_or_is_refused() {
         }
     }
     println!(
-        "{} files: {formatted} formatted, {unchanged} unchanged, {refused} refused; \
-         copy path: {} lines, {} gaps; {} declarations without bracket conversion, \
-         {} kept verbatim",
+        "{} files: {formatted} formatted, {unchanged} unchanged, {refused} refused; {} \
+         declarations, {} kept as written, {} nodes without a rule",
         files.len(),
-        total.copied_lines,
-        total.copied_gaps,
-        total.unconverted_decls,
+        total.decls,
         total.verbatim_decls,
+        total.unruled_nodes,
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     assert_eq!(
-        (total.copied_lines, total.copied_gaps),
-        (0, 0),
-        "constructs are left on the copy path"
+        total.unruled_nodes, 0,
+        "constructs are printed as written, with no rule"
     );
     assert_eq!(
         total.verbatim_decls, 0,

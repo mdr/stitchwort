@@ -81,9 +81,7 @@ theorem strictA: vowelWeight True 'a' = 2 := vowelWeight.eq1.or1 True rfl
 theorem lenientE: vowelWeight False 'e' = 1 := vowelWeight.eq2.or2 False rfl
 
 -- An indexed family below the guard.
-type Vec (a: Type): Nat → Type =
-  | VNil: Vec a 0
-  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def headOr (d: Nat): (n: Nat) → Vec Nat n → Nat
   | _, VCons x _ if x > 3 => x
@@ -102,11 +100,7 @@ def countBig: List Nat → Nat
   | [_, ..rest] => countBig rest
 
 theorem countBigAtMostLength ∀ (xs: List Nat): countBig xs ≤ xs.length :=
-  countBig.induct (xs result => result ≤ xs.length)
-    omega
-    (x rest big atMost => omega)
-    (rest x small atMost => omega)
-    xs
+  countBig.induct (xs result => result ≤ xs.length) omega (x rest big atMost => omega) (rest x small atMost => omega) xs
 
 theorem countBigCons ∀ (x: Nat) (rest: List Nat) (big: x > 3): countBig [x, ..rest] = countBig rest + 1 :=
   countBig.eq2 x rest big
@@ -122,10 +116,7 @@ theorem countDownStep ∀ (n: Nat) (flag: Bool) (positive: n > 0): countDown n f
   countDown.eq1 n flag positive
 
 theorem countDownIsN ∀ (n: Nat) (flag: Bool): countDown n flag = n :=
-  countDown.induct (n flag result => result = n)
-    (n flag positive below => omega)
-    (n flag notPositive => omega)
-    n flag
+  countDown.induct (n flag result => result = n) (n flag positive below => omega) (n flag notPositive => omega) n flag
 
 -- The arm below takes the failure in the same form, `(1 <= n) = False`,
 -- though this definition tests `n > 0` by `Decidable.elim` (its recursive
@@ -141,13 +132,18 @@ def countSome: List Nat → Nat
   | [_, ..rest] => countSome rest
 
 theorem countSomeAtMostLength ∀ (xs: List Nat): countSome xs ≤ xs.length :=
-  countSome.induct (xs result => result ≤ xs.length)
+  countSome.induct
+    (xs result => result ≤ xs.length)
     omega
     (x rest all atMost => omega)
     (head rest not atMost => omega)
     xs
 
-theorem countSomeStep ∀ (x: Nat) (rest: List Nat) (nonzero: x ≠ 0) (big: x > 1) (notSeven: x ≠ 7): countSome [x, ..rest] = 1 + countSome rest :=
+theorem countSomeStep ∀ (x: Nat) (rest: List Nat)
+    (nonzero: x ≠ 0)
+    (big: x > 1)
+    (notSeven: x ≠ 7):
+    countSome [x, ..rest] = 1 + countSome rest :=
   countSome.eq2 x rest (Both nonzero (Both big notSeven))
 
 -- A negated equation fails as the equation: `drop3.eq2` takes `head = 3`.
@@ -159,7 +155,8 @@ def drop3: List Nat → List Nat
 theorem drop3Three ∀ (rest: List Nat): drop3 [3, ..rest] = drop3 rest := drop3.eq3 3 rest rfl
 
 theorem drop3NoLonger ∀ (xs: List Nat): (drop3 xs).length ≤ xs.length :=
-  drop3.induct (xs result => result.length ≤ xs.length)
+  drop3.induct
+    (xs result => result.length ≤ xs.length)
     omega
     (x rest ne atMost => omega)
     (head rest eq atMost => omega)

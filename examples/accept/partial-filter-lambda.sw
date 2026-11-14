@@ -3,9 +3,7 @@
 import Std (List, Nat, Option)
 
 def collatzSteps (n: Nat): {Partial} Nat :=
-  if n ≤ 1 then 0
-  else if n % 2 == 0 then 1 + collatzSteps (n / 2)
-  else 1 + collatzSteps (3 * n + 1)
+  if n ≤ 1 then 0 else if n % 2 == 0 then 1 + collatzSteps (n / 2) else 1 + collatzSteps (3 * n + 1)
 
 def quickOnes (numbers: List Nat): {Partial} List Nat := numbers.filter (n => Nat.leq (collatzSteps n) 9)
 

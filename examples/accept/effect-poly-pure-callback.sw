@@ -31,5 +31,4 @@ test "map with a pure parameter" := mapPure (n => n * 10) [1, 2] == [10, 20]
 
 test "map with an empty-row parameter" := mapEmptyRow double [5] == [10]
 
-test "map with a pure callback in a failing computation" :=
-  Fail.toResult (() => doubledOrFail [1, 2]) == Ok [2, 4]
+test "map with a pure callback in a failing computation" := Fail.toResult (() => doubledOrFail [1, 2]) == Ok [2, 4]

@@ -82,11 +82,12 @@ def threeT: Text := """
 
 def city (input: Text): Result City Text := Fail.toResult (() => parseCity input)
 
-def at (row: Nat) (column: Nat): Position := { row, column }
+def at (row column: Nat): Position := { row, column }
 
 --| The program's part 1 antinodes on the map, as a sorted list.
 def antinodes (input: Text): Result (List Position) Text :=
-  city input |> .map (map => map.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> map.locations |> .toList)
+  city input
+    |> .map (map => map.antennaPairs |> .flatMap (((far, near)) => antinodesOf far near) |> map.locations |> .toList)
 
 test "example, part 1" := (city example).map solvePart1 == Ok 14
 test "example, part 2" := (city example).map solvePart2 == Ok 34
@@ -98,7 +99,8 @@ test "three T antennas, part 2" := (city threeT).map solvePart2 == Ok 9
 test "three T antennas, part 1" := (city threeT).map solvePart1 == Ok 3
 
 test "parsing the example" :=
-  (city example).map (map => (map.height, map.width, map.antennas.length, map.antennas.headOr { frequency = '?', position = at 0 0 }))
+  (city example).map (map =>
+    (map.height, map.width, map.antennas.length, map.antennas.headOr { frequency = '?', position = at 0 0 }))
     == Ok (12, 12, 7, { frequency = '0', position = at 1 8 })
 
 --| Antennas a third of the way apart have antinodes between them too.
@@ -107,15 +109,14 @@ test "antinodes between two antennas" := antinodes """
   ....
   ....
   ...a""" == Ok [at 1 1, at 2 2]
-test "antinodes between and past two antennas" :=
-  antinodes """
-    a......
-    .......
-    .......
-    ...a...
-    .......
-    .......
-    .......""" == Ok [at 1 1, at 2 2, at 6 6]
+test "antinodes between and past two antennas" := antinodes """
+  a......
+  .......
+  .......
+  ...a...
+  .......
+  .......
+  .......""" == Ok [at 1 1, at 2 2, at 6 6]
 
 --| Every grid point on the line, also between the antennas.
 test "part 2, a row" := (city "..b.b.").map solvePart2 == Ok 6
@@ -151,8 +152,10 @@ test "frequencies are case sensitive and include digits" := (city """
   ...""").map (map => map.antennas.map (antenna => antenna.frequency)) == Ok ['a', 'A', '0']
 test "a final line break is allowed" := (city "a.a\n").map solvePart2 == Ok 3
 
-test "parse error, a ragged row" := city "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
-test "parse error, a bad character" := city "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
+test "parse error, a ragged row" :=
+  city "...\n..\n..." == Err "line 2: expected 3 characters, as on the first line, got 2"
+test "parse error, a bad character" :=
+  city "..#\n..." == Err "line 1, column 3: expected '.', a letter or a digit or the end of the line, got '#'"
 
 --| The spec, worded like the puzzle, counts the same on the examples.
 test "example, the spec agrees" := (city example).map (map => (part1 map, part2 map)) == Ok (14, 34)
@@ -177,6 +180,10 @@ test "every location on the map" := (city """
 --| Why part 2 is proved only for antennas on the map: two antennas far
 --| below a map one cell big are in line with its cell, 100 steps away, more
 --| than `harmonics` takes. (The parser only makes antennas on the map.)
-def pastTheMap: City := { height = 1, width = 1, antennas = [{ frequency = 'a', position = at 100 0 }, { frequency = 'a', position = at 101 0 }] }
+def pastTheMap: City := {
+  height = 1,
+  width = 1,
+  antennas = [{ frequency = 'a', position = at 100 0 }, { frequency = 'a', position = at 101 0 }]
+}
 
 test "antennas past the map, part 2" := solvePart2 pastTheMap == 0 && part2 pastTheMap == 1

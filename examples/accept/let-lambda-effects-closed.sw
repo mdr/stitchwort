@@ -21,9 +21,10 @@ def oneSpan: {Fail} Nat :=
 
 -- Two lambdas, nested and flat, each called once.
 def twoLambdas: {Fail} Nat :=
-  let a := lo => hi =>
-    Fail.ensure (lo < hi) "out of order"
-    hi - lo
+  let a := lo =>
+    hi =>
+      Fail.ensure (lo < hi) "out of order"
+      hi - lo
   let b := lo hi =>
     Fail.ensure (lo < hi) "out of order"
     hi - lo

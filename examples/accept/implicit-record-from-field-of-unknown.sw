@@ -8,11 +8,13 @@ type Image = { rows: List Nat }
 
 def Image.rotate (image: Image): Image := { rows = image.rows.reverse }
 
-def Within (image: Image) (other: Image): Prop := ∀ (x: Nat) => x ∈ other.rows → x ∈ image.rows
+def Within (image other: Image): Prop := ∀ (x: Nat) => x ∈ other.rows → x ∈ image.rows
 
-theorem withinTrans ∀ [a: Image] [b: Image] [c: Image] (first: Within a b) (second: Within b c): Within a c :=
-  x on => first x (second x on)
+theorem withinTrans ∀ [a b c: Image] (first: Within a b) (second: Within b c): Within a c := x on =>
+  first x (second x on)
 
-theorem withinTwice ∀ (image: Image) (once: Within image image.rotate) (again: Within image.rotate image.rotate.rotate):
+theorem withinTwice ∀ (image: Image)
+    (once: Within image image.rotate)
+    (again: Within image.rotate image.rotate.rotate):
     Within image image.rotate.rotate :=
   withinTrans once again

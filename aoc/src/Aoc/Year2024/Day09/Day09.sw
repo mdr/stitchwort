@@ -26,9 +26,7 @@ def main(): {IO, Fail} () :=
 type DiskMap = { lengths: List Nat }
 
 --| One block of the disk: free space, or a block of file number `id`.
-type Block =
-  | Free
-  | FileBlock (id: Nat)
+type Block = | Free | FileBlock (id: Nat)
 
 --| The file number of a file block.
 def Block.id: Block → Option Nat
@@ -103,7 +101,7 @@ type File = { id: Nat, span: Span }
 
 --| The files and the free spans of the disk map, from file `id` at block
 --| `position` on.
-def layoutFrom (id: Nat) (position: Nat): List Nat → (List File, List Span)
+def layoutFrom (id position: Nat): List Nat → (List File, List Span)
   | [] => ([], [])
   | [fileLength] => ([{ id, span = { start = position, length = fileLength } }], [])
   | [fileLength, freeLength, ..rest] =>
@@ -114,13 +112,13 @@ def layoutFrom (id: Nat) (position: Nat): List Nat → (List File, List Span)
     )
 
 --| Free spans that touch, either side of a file of length 0, joined into one.
-def joinTouching (spans: List Span): List Span :=
-  spans.foldRight [] (earlier joined =>
-    match joined with
-      | [next, ..rest] =>
-        if earlier.start + earlier.length == next.start then [{ start = earlier.start, length = earlier.length + next.length }, ..rest]
-        else [earlier, ..joined]
-      | [] => [earlier])
+def joinTouching (spans: List Span): List Span := spans.foldRight [] (earlier joined =>
+  match joined with
+    | [next, ..rest] =>
+      if earlier.start + earlier.length == next.start then
+        [{ start = earlier.start, length = earlier.length + next.length }, ..rest]
+      else [earlier, ..joined]
+    | [] => [earlier])
 
 --| The free spans' starts, by length. Spans of length 0 are left out.
 def FreeSpace: Type := Map Nat (Set Nat)
@@ -133,9 +131,10 @@ def FreeSpace.remove (free: FreeSpace) (span: Span): FreeSpace := free.removeIn 
 def FreeSpace.of (spans: List Span): FreeSpace := spans.foldLeft Map.empty FreeSpace.add
 
 --| The leftmost free span at least `length` long that starts before `before`.
-def FreeSpace.leftmostFit (free: FreeSpace) (length: Nat) (before: Nat): Option Span :=
+def FreeSpace.leftmostFit (free: FreeSpace) (length before: Nat): Option Span :=
   free.toList
-    |> .filterMap (entry => if length <= entry.fst then entry.snd.min |> .map (start => ({ start, length = entry.fst }: Span)) else None)
+    |> .filterMap (entry =>
+      if length <= entry.fst then entry.snd.min |> .map (start => ({ start, length = entry.fst }: Span)) else None)
     |> .minBy .start
     |> .filter (.start < before)
 

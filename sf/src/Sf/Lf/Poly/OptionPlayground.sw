@@ -7,9 +7,7 @@ namespace Sf.Lf.Poly.OptionPlayground
 
 -- Polymorphic options generalise the last chapter's `NatOption`:
 
-type Option (a: Type) =
-  | Some (x: a)
-  | None
+type Option (a: Type) = | Some (x: a) | None
 
 -- The book then makes the constructors' type argument implicit
 -- (`Arguments Some {X}`); in Stitchwort it always is.

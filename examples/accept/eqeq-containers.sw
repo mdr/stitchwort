@@ -29,7 +29,7 @@ test "nested, different" := ¬([Some (1, ["a"]), None] == [Some (1, ["b"]), None
 test "zip" := [1, 2].zip ["a", "b"] == [(1, "a"), (2, "b")]
 
 -- In a definition, too, not just at compile time.
-def sameShape (xs: List (Option Nat)) (ys: List (Option Nat)): Bool := xs == ys
+def sameShape (xs ys: List (Option Nat)): Bool := xs == ys
 
 test "at run time" := sameShape [Some 1, None] [Some 1, None]
 test "at run time, different" := ¬(sameShape [Some 1] [Some 2])

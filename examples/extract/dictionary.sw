@@ -51,10 +51,10 @@ export def ages (people: Map Text Person): Map Text Nat := Map.map people (p => 
 -- A map of maps.
 export def nested (groups: Map Text (Map Text Nat)): Map Text Nat := Map.map groups total
 
-export def merge (a: Map Text Nat) (b: Map Text Nat): Map Text Nat := Map.union a b
+export def merge (a b: Map Text Nat): Map Text Nat := Map.union a b
 
 -- Maps have `==`: by entries, in any order the keys were given.
-export def same (a: Map Text Nat) (b: Map Text Nat): Bool := a == b
+export def same (a b: Map Text Nat): Bool := a == b
 
 -- An optional value: `number | undefined`.
 export def sparse (m: Map Text (Option Nat)): Map Text (Option Nat) := m

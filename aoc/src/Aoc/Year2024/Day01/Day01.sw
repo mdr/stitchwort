@@ -34,10 +34,7 @@ def idPair(): {Parse} (Nat, Nat) :=
   (left, right)
 
 --| Part 1: the lists in increasing order, paired up, and the distances added.
-def solvePart1 (lists: LocationLists): Nat :=
-  lists.left.sort
-    |> .zipWith lists.right.sort Nat.absDiff
-    |> .sum
+def solvePart1 (lists: LocationLists): Nat := lists.left.sort |> .zipWith lists.right.sort Nat.absDiff |> .sum
 
 --| Part 2: count each id of the right list once, then look each left id up.
 def solvePart2 (lists: LocationLists): Nat :=

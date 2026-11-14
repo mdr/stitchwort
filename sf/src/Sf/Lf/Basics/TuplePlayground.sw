@@ -14,12 +14,9 @@ namespace Sf.Lf.Basics.TuplePlayground
 -- and `B1` for the two bit values), then `Nybble`, which is essentially a
 -- tuple of four bits.
 
-type Bit =
-  | B1
-  | B0
+type Bit = | B1 | B0
 
-type Nybble =
-  | Bits (b0: Bit) (b1: Bit) (b2: Bit) (b3: Bit)
+type Nybble = | Bits (b0: Bit) (b1: Bit) (b2: Bit) (b3: Bit)
 
 -- Rocq's `Check (bits B1 B0 B1 B0) : nybble` asks for the type of an
 -- expression and checks it. Stitchwort has no command inside a file for

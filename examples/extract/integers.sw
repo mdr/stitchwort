@@ -18,7 +18,8 @@ import Std (Decidable, Int, List, Nat, Option, Text)
 export def dial (x: Int): Int := x % 100
 
 -- Each of the three conventions, and a precondition checked in JS.
-export def divide (a: Int) (d: Int): [auto ok: d ≠ 0] → List Int := [a / d, a % d, Int.tdiv a d, Int.tmod a d, Int.fdiv a d, Int.fmod a d]
+export def divide (a d: Int): [auto ok: d ≠ 0] → List Int :=
+  [a / d, a % d, Int.tdiv a d, Int.tmod a d, Int.fdiv a d, Int.fmod a d]
 
 export def describe: Int → Text
   | 0 => "zero"
@@ -30,35 +31,35 @@ export def negatives (ns: List Nat): List Int := List.map ns NegSucc
 -- Every natively implemented operation, one export each.
 export def neg (x: Int): Int := -x
 
-export def add (a: Int) (b: Int): Int := a + b
+export def add (a b: Int): Int := a + b
 
-export def sub (a: Int) (b: Int): Int := a - b
+export def sub (a b: Int): Int := a - b
 
-export def mul (a: Int) (b: Int): Int := a * b
+export def mul (a b: Int): Int := a * b
 
-export def eucDiv (a: Int) (d: Int): Int := a / d
+export def eucDiv (a d: Int): Int := a / d
 
-export def eucMod (a: Int) (d: Int): Int := a % d
+export def eucMod (a d: Int): Int := a % d
 
-export def tdiv (a: Int) (d: Int): Int := Int.tdiv a d
+export def tdiv (a d: Int): Int := Int.tdiv a d
 
-export def tmod (a: Int) (d: Int): Int := Int.tmod a d
+export def tmod (a d: Int): Int := Int.tmod a d
 
-export def fdiv (a: Int) (d: Int): Int := Int.fdiv a d
+export def fdiv (a d: Int): Int := Int.fdiv a d
 
-export def fmod (a: Int) (d: Int): Int := Int.fmod a d
+export def fmod (a d: Int): Int := Int.fmod a d
 
 export def modNat (a: Int) (d: Nat): Nat := Int.modNat a d
 
-export def natDivMod (n: Nat) (d: Nat): List Nat := [n / d, n % d]
+export def natDivMod (n d: Nat): List Nat := [n / d, n % d]
 
-export def decEq (a: Int) (b: Int): Bool := Decidable.holds (Int.decEq a b)
+export def decEq (a b: Int): Bool := Decidable.holds (Int.decEq a b)
 
-export def leq (a: Int) (b: Int): Bool := Int.leq a b
+export def leq (a b: Int): Bool := Int.leq a b
 
-export def less (a: Int) (b: Int): Bool := Int.less a b
+export def less (a b: Int): Bool := Int.less a b
 
-export def compare (a: Int) (b: Int): Ordering := Int.compare a b
+export def compare (a b: Int): Ordering := Int.compare a b
 
 export def natAbs (x: Int): Nat := Int.natAbs x
 
@@ -128,7 +129,7 @@ export def parse (t: Text): Option Int := Text.toInt t
 -- native results, and an `Int` pattern of each shape.
 export def ofNats (ns: List Nat): List Int := List.map ns OfNat
 
-export def residue (a: Int) (d: Int): [auto ok: d ≠ 0] → Text := residueName (a % d)
+export def residue (a d: Int): [auto ok: d ≠ 0] → Text := residueName (a % d)
 
 def residueName: Int → Text
   | 0 => "zero"

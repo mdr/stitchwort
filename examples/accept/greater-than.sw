@@ -23,29 +23,26 @@ def nonEmpty (t: Text): Bool := ¬t.isEmpty
 test "bang on a method call" := nonEmpty "a" ∧ ¬nonEmpty ""
 
 -- In a statement, `>` is `<` the other way round, so a lemma about `<` proves it.
-theorem greaterOfLess ∀ (a: Nat) (b: Nat) (h: a < b): b > a := h
+theorem greaterOfLess ∀ (a b: Nat) (h: a < b): b > a := h
 
-theorem greaterEqOfLessEq ∀ (a: Nat) (b: Nat) (h: a ≤ b): b ≥ a := h
+theorem greaterEqOfLessEq ∀ (a b: Nat) (h: a ≤ b): b ≥ a := h
 
 theorem succGreaterEq ∀ (n: Nat): Succ n ≥ n := Nat.leSucc n
 
 -- A chain of `>` and `>=` proves what the steps add up to: `a > b >= c` is
 -- `c < a`. The proofs are those of the flipped steps.
-theorem descending ∀ (a: Nat) (b: Nat) (c: Nat) (h1: b < a) (h2: c ≤ b): a > c :=
-  calc a
-    _ > b := h1
-    _ ≥ c := h2
+theorem descending ∀ (a b c: Nat) (h1: b < a) (h2: c ≤ b): a > c := calc a
+  _ > b := h1
+  _ ≥ c := h2
 
-theorem descendingLe ∀ (a: Nat) (b: Nat) (c: Nat) (h1: b ≤ a) (h2: c ≤ b): a ≥ c :=
-  calc a
-    _ ≥ b := h1
-    _ ≥ c := h2
+theorem descendingLe ∀ (a b c: Nat) (h1: b ≤ a) (h2: c ≤ b): a ≥ c := calc a
+  _ ≥ b := h1
+  _ ≥ c := h2
 
 -- `=` goes with either direction; its proof is used flipped.
-theorem descendingEq ∀ (a: Nat) (b: Nat) (c: Nat) (h1: a = b) (h2: c < b): a > c :=
-  calc a
-    _ = b := h1
-    _ > c := h2
+theorem descendingEq ∀ (a b c: Nat) (h1: a = b) (h2: c < b): a > c := calc a
+  _ = b := h1
+  _ > c := h2
 
 -- `!` is `not`: where a proposition is expected it's `Not`.
-theorem notGreater ∀ (a: Nat) (b: Nat) (h: ¬(a > b)): ¬(b < a) := h
+theorem notGreater ∀ (a b: Nat) (h: ¬(a > b)): ¬(b < a) := h

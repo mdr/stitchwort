@@ -20,10 +20,8 @@ test "different values" := three ≠ four
 test "int equal" := minusTwo == { value = -2, fits = rfl }
 test "int different" := minusTwo ≠ five
 
-test "record equality" :=
-  counter 3 (-2) == Some { name = "c", count = three, delta = minusTwo }
-test "record inequality" :=
-  counter 4 (-2) ≠ Some { name = "c", count = three, delta = minusTwo }
+test "record equality" := counter 3 (-2) == Some { name = "c", count = three, delta = minusTwo }
+test "record inequality" := counter 4 (-2) ≠ Some { name = "c", count = three, delta = minusTwo }
 test "out of range is none" := counter 9007199254740992 0 == None
 
 test "ordered" := Ord.compare three four == Less
@@ -34,7 +32,8 @@ test "max" := Ord.max minusTwo five == five
 test "show" := "${three} ${minusTwo}" == "3 -2"
 
 test "record ordering by count" :=
-  Ord.compare ({ name = "c", count = three, delta = five }: Counter) { name = "c", count = four, delta = minusTwo } == Less
+  Ord.compare ({ name = "c", count = three, delta = five }: Counter) { name = "c", count = four, delta = minusTwo }
+    == Less
 
 test "toNat" := SafeNat.toNat three == 3
 test "toInt" := SafeInt.toInt minusTwo == -2

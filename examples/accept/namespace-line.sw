@@ -7,9 +7,7 @@ import List (length)
 
 type Point = { x: Nat, y: Nat }
 
-type Shape: Type =
-  | Square (side: Nat)
-  | Rect (width: Nat) (height: Nat)
+type Shape: Type = | Square (side: Nat) | Rect (width: Nat) (height: Nat)
 
 -- A function on the type, used both ways.
 def Shape.area: Shape → Nat
@@ -24,8 +22,7 @@ def quadruple (n: Nat): Nat := Geometry.double (Demo.double2 n)
 def double2 (n: Nat): Nat := n + n
 
 -- A decision procedure, found by `auto`.
-type Token: Prop =
-  | MkToken
+type Token: Prop = | MkToken
 
 instance decToken: Decidable Token := Std.Decidable.yes MkToken
 

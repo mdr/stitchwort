@@ -2,10 +2,7 @@
 import Std (List, Nat, Text)
 
 -- begin variant
-type Shape =
-  | Circle (radius: Nat)
-  | Rect (width: Nat) (height: Nat)
-  | Dot
+type Shape = | Circle (radius: Nat) | Rect (width: Nat) (height: Nat) | Dot
 
 def Shape.area: Shape → Nat
   | Circle radius => 3 * radius * radius
@@ -16,11 +13,7 @@ test "area" := (Rect 3 4).area == 12
 -- end variant
 
 -- begin recursive
-type Expr =
-  | Num (value: Int)
-  | Add (left: Expr) (right: Expr)
-  | Mul (left: Expr) (right: Expr)
-  | Neg (inner: Expr)
+type Expr = | Num (value: Int) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr) | Neg (inner: Expr)
 
 def Expr.value: Expr → Int
   | Num n => n
@@ -32,10 +25,7 @@ test "evaluate" := (Add (Num 2) (Mul (Num 3) (Neg (Num 4)))).value == -10
 -- end recursive
 
 -- begin record
-type Person = {
-  name: Text,
-  age: Nat
-}
+type Person = { name: Text, age: Nat }
 
 def ada: Person := { name = "Ada", age = 36 }
 
@@ -60,11 +50,7 @@ test "label" := ada.label == "Ada (36)"
 -- end record-patterns
 
 -- begin defaults
-type Query = {
-  text: Text,
-  limit: Nat := 10,
-  caseSensitive: Bool := False
-}
+type Query = { text: Text, limit: Nat := 10, caseSensitive: Bool := False }
 
 def simple: Query := { text = "tea" }
 
@@ -73,9 +59,7 @@ test "or are given" := ({ text = "tea", limit = 3 }: Query).limit == 3
 -- end defaults
 
 -- begin named-construction
-type Event =
-  | Meeting { title: Text, minutes: Nat := 30, room: Text }
-  | Reminder (title: Text)
+type Event = | Meeting { title: Text, minutes: Nat := 30, room: Text } | Reminder (title: Text)
 
 def standup: Event := Meeting { title = "Standup", room = "Blue" }
 def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }
@@ -138,12 +122,12 @@ test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 
 -- end or-patterns
 
 -- begin match
-def compareAges (a: Person) (b: Person): Text := match Ord.compare a.age b.age with
+def compareAges (a b: Person): Text := match Ord.compare a.age b.age with
   | Less => "${a.name} is younger"
   | Equal => "the same age"
   | Greater => "${a.name} is older"
 
-def both (x: Option Nat) (y: Option Nat): Option Nat := match x, y with
+def both (x y: Option Nat): Option Nat := match x, y with
   | Some a, Some b => Some (a + b)
   | _, _ => None
 -- end match
@@ -179,7 +163,7 @@ def grade: Nat → Text
 
 test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" ∧ grade 10 == "fail"
 
-def share (total: Nat) (parts: Nat): Nat := match total, parts with
+def share (total parts: Nat): Nat := match total, parts with
   | amount, count if count != 0 => amount / count
   | amount, _ => amount
 

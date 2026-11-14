@@ -10,7 +10,8 @@ import Aoc.Year2020.Day14 (Spec)
 import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Pair, Void)
 
 --| A memory the map describes sums to the sum of the map's values.
-theorem sumOfMap ∀ (memory: Map Nat Nat) (spec: Spec.Memory) (same: ∀ (address: Nat) => spec address = memory.getOr address 0):
+theorem sumOfMap ∀ (memory: Map Nat Nat) (spec: Spec.Memory)
+    (same: ∀ (address: Nat) => spec address = memory.getOr address 0):
     Spec.SumOfMemory spec memory.values.sum :=
   let covered := (address: Nat) (nonzero: spec address ≠ 0) =>
     match found: memory.get address with

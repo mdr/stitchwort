@@ -1,7 +1,4 @@
 -- A type with constructors.
 namespace Turns
 
-type Move =
-  | Forward
-  | Clockwise
-  | Counterclockwise
+type Move = | Forward | Clockwise | Counterclockwise

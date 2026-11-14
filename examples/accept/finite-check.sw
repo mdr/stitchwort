@@ -27,7 +27,7 @@ def rowEnds: ((Bool, Bool), (Bool, Bool)) → Bool
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut))
       == Bool.toNat (plot ∧ ¬out ∧ ¬side) + Bool.toNat (side ∧ sideOut ∧ plot ∧ ¬out)
 
-theorem rowEndsAll ∀ (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool): rowEnds ((plot, out), (side, sideOut)) = True :=
+theorem rowEndsAll ∀ (plot out side sideOut: Bool): rowEnds ((plot, out), (side, sideOut)) = True :=
   Finite.check rowEnds rfl ((plot, out), (side, sideOut))
 
 -- `Fin n` has an instance written by hand.

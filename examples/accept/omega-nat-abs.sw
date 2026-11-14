@@ -10,13 +10,13 @@ theorem negLeAbs ∀ (x: Int): 0 - x ≤ Nat.toInt x.natAbs := omega
 
 theorem absNegate ∀ (x: Int): (0 - x).natAbs = x.natAbs := omega
 
-theorem absSubComm ∀ (x: Int) (y: Int): (x - y).natAbs = (y - x).natAbs := omega
+theorem absSubComm ∀ (x y: Int): (x - y).natAbs = (y - x).natAbs := omega
 
-theorem absAdd ∀ (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
+theorem absAdd ∀ (x y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
 
-theorem triangle ∀ (a: Int) (b: Int) (c: Int): (a - c).natAbs ≤ (a - b).natAbs + (b - c).natAbs := omega
+theorem triangle ∀ (a b c: Int): (a - c).natAbs ≤ (a - b).natAbs + (b - c).natAbs := omega
 
-theorem reverseTriangle ∀ (x: Int) (y: Int): x.natAbs - y.natAbs ≤ (x - y).natAbs := omega
+theorem reverseTriangle ∀ (x y: Int): x.natAbs - y.natAbs ≤ (x - y).natAbs := omega
 
 -- From a fact about a size.
 theorem belowOfAbs ∀ (x: Int) (h: x.natAbs ≤ 3): x ≤ 3 := omega

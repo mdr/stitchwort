@@ -24,10 +24,6 @@ def describe (b: Bool): Text := if b then "yes" else "no"
 test "bracketed comparison" := ((1 == 1) |> describe) == "yes"
 
 -- A multi-line pipeline whose last line is a comparison.
-test "multi-line" :=
-  [1, 2, 3, 4]
-    |> List.filter (n => n % 2 == 0)
-    |> List.map (* 10)
-    |> List.sum == 60
+test "multi-line" := [1, 2, 3, 4] |> List.filter (n => n % 2 == 0) |> List.map (* 10) |> List.sum == 60
 
 theorem lengthOfPipe ∀ (xs: List Nat): xs |> List.length = xs.length := rfl

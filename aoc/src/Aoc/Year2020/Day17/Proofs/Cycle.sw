@@ -8,14 +8,17 @@ import Aoc.Year2020.Day17 (Spec)
 import Aoc.Common.Proofs (stepActive)
 import Std (Bool, Eq, Nat)
 
-theorem activeNextRule ∀ (active: Bool) (count: Nat) (near: Nat) (same: count = near):
+theorem activeNextRule ∀ (active: Bool) (count near: Nat)
+    (same: count = near):
     (count == 3 || (count == 2 && active)) = (if active then near == 2 || near == 3 else near == 3) :=
   rewrite same in
     match active with
       | True => cases
       | False => cases
 
-theorem noneRule ∀ (active: Bool) (near: Nat) (none: 0 = near): False = (if active then near == 2 || near == 3 else near == 3) :=
+theorem noneRule ∀ (active: Bool) (near: Nat)
+    (none: 0 = near):
+    False = (if active then near == 2 || near == 3 else near == 3) :=
   rewrite <- none in
     match active with
       | True => rfl
@@ -25,7 +28,8 @@ theorem lifeRuleDies ∀ (active: Bool): lifeRule active 0 = False := match acti
   | True => rfl
   | False => rfl
 
-theorem cycleActive ∀ (pocket: Pocket) (cube: Cube): pocket.cycle.active.contains cube = Spec.activeAfter pocket.active cube :=
+theorem cycleActive ∀ (pocket: Pocket) (cube: Cube):
+    pocket.cycle.active.contains cube = Spec.activeAfter pocket.active cube :=
   calc pocket.cycle.active.contains cube
     _ = lifeRule (pocket.active.contains cube) (Spec.activeNeighbours pocket.active cube) :=
       stepActive Cube.neighbours Spec.neighbours countNeighbours lifeRule lifeRuleDies pocket.active cube

@@ -11,13 +11,12 @@ import Std (Fail, List, Nat, Result, Text)
 def parsed (input: Text): Result Onsen Text := Fail.toResult (() => parseOnsen input)
 
 --| Stripes from their letters, for writing tests.
-def stripes (letters: Text): List Stripe :=
-  letters.toList.map (match
-    | 'w' => White
-    | 'u' => Blue
-    | 'b' => Black
-    | 'r' => Red
-    | _ => Green)
+def stripes (letters: Text): List Stripe := letters.toList.map (match
+  | 'w' => White
+  | 'u' => Blue
+  | 'b' => Black
+  | 'r' => Red
+  | _ => Green)
 
 --| A pattern from its letters, which are never empty in these tests.
 def patternOf (letters: Text): Pattern := match stripes letters with
@@ -26,11 +25,13 @@ def patternOf (letters: Text): Pattern := match stripes letters with
 
 def designOf (letters: Text): Design := { stripes = stripes letters }
 
-def onsenOf (patterns: List Text) (designs: List Text): Onsen := { patterns = patterns.map patternOf, designs = designs.map designOf }
+def onsenOf (patterns designs: List Text): Onsen :=
+  { patterns = patterns.map patternOf, designs = designs.map designOf }
 
 def examplePatterns: List Pattern := ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"].map patternOf
 
-def example: Onsen := onsenOf ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"] ["brwrr", "bggr", "gbbr", "rrbgbr", "ubwu", "bwurrg", "brgr", "bbrgwb"]
+def example: Onsen := onsenOf ["r", "wr", "b", "g", "bwu", "rb", "gb", "br"] ["brwrr", "bggr", "gbbr", "rrbgbr", "ubwu",
+  "bwurrg", "brgr", "bbrgwb"]
 
 def exampleText: Text := """
   r, wr, b, g, bwu, rb, gb, br
@@ -56,13 +57,16 @@ test "example, the ways for each design" :=
 
 --| "brwrr can be made in two different ways: b, r, wr, r or br, wr, r."
 test "example, the spec's ways to make brwrr" :=
-  arrangements examplePatterns (designOf "brwrr") == [["b", "r", "wr", "r"].map patternOf, ["br", "wr", "r"].map patternOf]
+  arrangements examplePatterns (designOf "brwrr")
+    == [["b", "r", "wr", "r"].map patternOf, ["br", "wr", "r"].map patternOf]
 
 test "example, the spec agrees on the short designs" :=
   ["bggr", "gbbr", "ubwu", "brgr"].all (design => ways examplePatterns (designOf design) == waysOf design)
-test "example, the spec's impossible design" := !possible examplePatterns (designOf "ubwu") && possible examplePatterns (designOf "gbbr")
+test "example, the spec's impossible design" :=
+  !possible examplePatterns (designOf "ubwu") && possible examplePatterns (designOf "gbbr")
 
-test "an empty design is made one way, with no towels" := waysToMake examplePatterns (designOf "") == 1 && ways examplePatterns (designOf "") == 1
+test "an empty design is made one way, with no towels" :=
+  waysToMake examplePatterns (designOf "") == 1 && ways examplePatterns (designOf "") == 1
 test "no patterns make only the empty design" := waysToMake [] (designOf "r") == 0 && waysToMake [] (designOf "") == 1
 test "a pattern equal to the design" := waysToMake [patternOf "bwu"] (designOf "bwu") == 1
 test "a pattern longer than the design" := waysToMake [patternOf "bwur"] (designOf "bwu") == 0
@@ -79,4 +83,5 @@ test "parse" := parsed exampleText == Ok example
 test "parse without a final line break" := parsed "r, wr\n\nrwr" == Ok (onsenOf ["r", "wr"] ["rwr"])
 test "a bad stripe" := parsed "r, x\n\nr\n" == Err "line 1, column 4: expected 'w', 'u', 'b', 'r' or 'g', got 'x'"
 test "no blank line" := parsed "r, wr\nrwr\n" == Err "line 2, column 1: expected a blank line, got 'r'"
-test "no designs" := parsed "r, wr\n\n" == Err "line 3, column 1: expected 'w', 'u', 'b', 'r' or 'g', got the end of the input"
+test "no designs" :=
+  parsed "r, wr\n\n" == Err "line 3, column 1: expected 'w', 'u', 'b', 'r' or 'g', got the end of the input"

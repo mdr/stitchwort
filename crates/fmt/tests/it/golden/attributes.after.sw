@@ -2,12 +2,7 @@
 @[js.name "q"]
 def q: Nat := 1
 
-@[
-  js.tag "kind",
-  js.other "x"
-]
-type Message =
-  | Note (@[js.name "note_id"] id: Nat) (body: Text)
-  | Other (body: Text)
+@[js.tag "kind", js.other "x", ]
+type Message = | Note (@[js.name "note_id"] id: Nat) (body: Text) | Other (body: Text)
 
 type Pet = { @[js.name "n"] name: Text, age: Nat }

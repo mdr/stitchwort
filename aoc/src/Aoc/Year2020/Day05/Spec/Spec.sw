@@ -19,7 +19,7 @@ def Region.upperHalf (region: Region): Region := { first = region.first + region
 --| "Each letter tells you which half of a region the given seat is in":
 --| `lower` keeps the lower half, `upper` the upper; any other letter isn't
 --| a pass.
-def narrow (lower: Char) (upper: Char) (region: Region): List Char → Option Region
+def narrow (lower upper: Char) (region: Region): List Char → Option Region
   | [] => Some region
   | [letter, ..rest] =>
     if letter == lower then narrow lower upper region.lowerHalf rest

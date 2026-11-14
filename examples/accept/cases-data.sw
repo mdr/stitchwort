@@ -20,12 +20,12 @@ theorem posEta ∀ (p: Pos): p = { row = p.row, column = p.column } := cases
 -- A chain of `.orAbort`s: `h` says the run gave `Some v`, so `cases` follows
 -- each step it is stuck on; the aborting cases contradict `h`, and in the
 -- last one `v` is `a + b`, which `ensure` bounded.
-def parseSmall (s: Text) (t: Text): {Abort} Nat :=
+def parseSmall (s t: Text): {Abort} Nat :=
   let a := s.toNat.orAbort
   let b := t.toNat.orAbort
   ensure (a + b <= 10)
   a + b
 
-def parseSmallOption (s: Text) (t: Text): Option Nat := toOption (() => parseSmall s t)
+def parseSmallOption (s t: Text): Option Nat := toOption (() => parseSmall s t)
 
-theorem parseSmallSome ∀ (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
+theorem parseSmallSome ∀ (s t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
