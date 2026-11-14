@@ -176,7 +176,7 @@ fn untimed(mut session: Session) -> Session {
 }
 
 fn check(example: &Example) -> (SourceMap, Result<(), Vec<Diagnostic>>) {
-    let mut session = untimed(Session::new());
+    let mut session = untimed(Session::for_stack(STACK));
     let result = session.load(&example.name, &example.text).map(|_| ());
     (session.sources, result)
 }

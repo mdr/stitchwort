@@ -45,6 +45,15 @@ fn isolated(name: &str, body: impl FnOnce()) {
     );
 }
 
+/// A stack guard of `kib` KiB as measured with release frames. Debug frames
+/// are about 5 times bigger (measured: 4 times is too little for either
+/// test below, 5 just enough), so the same programs need a bigger guard to
+/// mean the same thing. 6 times 320 KiB still fits the 2 MiB test thread.
+fn guard(kib: usize) -> usize {
+    let debug_factor = if cfg!(debug_assertions) { 6 } else { 1 };
+    kib * 1024 * debug_factor
+}
+
 /// What loading a program gave: the first error's code, if any.
 fn first_error(session: &mut Session, name: &str, text: &str) -> Option<&'static str> {
     session.load(name, text).err().map(|ds| ds[0].code)
@@ -114,7 +123,7 @@ fn nested_applications_under_the_playground_guard() {
     isolated("nested_applications_under_the_playground_guard", || {
         let mut session = Session::new();
         session.elab.options.limits = Limits {
-            stack: 320 * 1024,
+            stack: guard(320),
             ..Limits::default()
         };
         let program = format!(
@@ -217,7 +226,7 @@ fn long_list_literals_with_a_small_guard() {
     isolated("long_list_literals_with_a_small_guard", || {
         let mut session = Session::new();
         session.elab.options.limits = Limits {
-            stack: 256 * 1024,
+            stack: guard(256),
             ..Limits::default()
         };
         if let Err(ds) = session.load("xs.sw", &list_program(100_000)) {
