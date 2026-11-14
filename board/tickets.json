@@ -1,5 +1,5 @@
 {
-  "next": 3260,
+  "next": 3262,
   "tickets": [
     {
       "id": 47,
@@ -17330,17 +17330,19 @@
     {
       "id": 1983,
       "title": "[Opus] Syntax error recovery S1 (docs/proposals/syntax-error-recovery.md §6): Expr::Missing, the parser's failed flag, error holes at a mismatch (strict unifier), quiet sites and the emission backstop; R1, R6; the one-line-break oracle (gate)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Expected: 11 h (Opus). Includes SW-3226 (the oracle tool, built first). Runs after the lowering (SW-3160) finished, so recovery's gaps are lowered here too (the note's S7, moved by the orchestrator on SW-3212).\n\nProgress (lane, 14 Nov 2026): built and committed on lane/SW-1983 (c717daf7e, 291eb964d).\n- `stitchwort dev breaks PATHS [--std] [--files] [--project] [--json]`: the one-line-break oracle (SW-3226).\n- Parser R1 (ran out at a line or the declaration's end) and R6 (rest of a def/theorem body skipped), lowered to `Expr::Missing`; error holes in the checker, the hole at a mismatch, the emission backstop; `syntax_error` replaces `body_error`; R1 errors point where the text ran out (§2.7). Library files parse with recovery.\n- Oracle, false errors per point (before → after):\n  - std Option (596 breaks): before 1.85% overall (kept signature 0%, whole 4.35%); after R1 0/32, R6 0/311, whole 11/253 (4.35%, all E-USES-FAILED, unchanged).\n  - examples/accept, first 800 breaks: before 3.12% (kept 0%, whole 6.20%); after R1 0/40, R6 0/357, whole 25/403 (6.20%: E-UNKNOWN-NAME 14, E-ABILITY 11 from types and abilities that fail whole; out of S1).\n- Not done: the editor goal at R1 gaps (needs an editor-only goal channel; proposed for S4).\n",
+      "body": "Recovery S1 (syntax-error-recovery.md). Expected: 11 h (Opus), ~1 h 50 min. R1 and R6 at 0% false errors (std Option 0/32, 0/311; examples/accept 0/40, 0/357). Orchestrator's calls: the editor goal at gaps moves to S4; 'no kernel term or hash' read as no body (a bodiless stand-in keeps its hash); R1 wording 'expected an expression, but the line ends here' kept (user-visible: mention to Matt). Filed SW-3260 SW-3261. Whole-repo oracle for Overmind: dev breaks --std crates/elab/src/std --json; --files examples/accept --json; aoc and games/rogue with --project src --json.",
       "created": "2026-11-07",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "07a74fc21c95cda67bd55274b583fa90d4addf03"
+      ]
     },
     {
       "id": 1984,
@@ -35309,7 +35311,9 @@
       "body": "Folded into S1 (SW-1983), whose row in syntax-error-recovery.md builds the one-line-break oracle as its gate (orchestrator's call).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "07a74fc21c95cda67bd55274b583fa90d4addf03"
+      ]
     },
     {
       "id": 3227,
@@ -35746,6 +35750,32 @@
     {
       "id": 3259,
       "title": "[Sonnet] A theorem's False is Bool False: '→ False' shows as 'False = True' in a Prop statement; add a hint or lint pointing to Void (SW-3243 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3260,
+      "title": "[Opus] Recovery: a failed type or ability makes every later use of its names a false E-UNKNOWN-NAME or E-ABILITY: the largest share of the remaining false errors (SW-1983 oracle: 25 of 800 breaks in examples/accept)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3261,
+      "title": "[Sonnet] Recovery: inside a std file, a theorem whose header fails gives E-USES-FAILED for its dependents; and --std mode reports a broken std theorem as E-INTERNAL 'library file doesn't check' via Option.sw's doc link (SW-1983 findings)",
       "status": "backlog",
       "agent": "",
       "where": "",
