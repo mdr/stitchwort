@@ -3,7 +3,9 @@
 //! checks) is a formatter bug. Every output must also be stable: formatting it
 //! again changes nothing. This feeds it thousands of mutated example programs
 //! and random token soup, from the same generator and seed as
-//! `crates/syntax/tests/it/fuzz.rs`, so failures are reproducible.
+//! `crates/syntax/tests/it/fuzz.rs`, so failures are reproducible. The seed
+//! defaults to a fixed one; `FUZZ_CASES` and `FUZZ_SEED` (decimal or `0x...`)
+//! change the count and the seed.
 
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -15,7 +17,7 @@ use stitchwort_fmt::{Error, format};
 /// well under ten seconds; set `FUZZ_CASES` for a longer run, and `FUZZ_ONLY`
 /// (a substring of a file name) to mutate only matching example programs,
 /// which digs deeper into one file than the whole corpus does.
-const CASES: usize = 50_000;
+const CASES: u64 = 50_000;
 const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
 /// A mutated example can grow a lot when ranges are duplicated; the parser
 /// doesn't need more than this to be exercised.
@@ -226,14 +228,24 @@ fn soup(rng: &mut Rng) -> String {
     text
 }
 
+/// An environment number, decimal or `0x...`; unset or empty is `None`, and an
+/// unparsable one fails the run rather than silently using the default.
+fn env_number(name: &str) -> Option<u64> {
+    let value = std::env::var(name).ok().filter(|v| !v.is_empty())?;
+    let parsed = match value.strip_prefix("0x") {
+        Some(hex) => u64::from_str_radix(hex, 16),
+        None => value.parse(),
+    };
+    Some(parsed.unwrap_or_else(|_| panic!("{name}={value:?} is not a number")))
+}
+
 #[test]
 fn the_formatter_never_panics_and_is_idempotent() {
-    let cases: usize = std::env::var("FUZZ_CASES")
-        .ok()
-        .and_then(|value| value.parse().ok())
-        .unwrap_or(CASES);
+    let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
+    let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
+    eprintln!("fuzz fmt: {cases} cases, seed {seed:#x}");
     let corpus = read_corpus();
-    let mut rng = Rng(SEED);
+    let mut rng = Rng(seed);
     let mut accepted = 0;
     for case in 0..cases {
         let state = rng.0;
@@ -245,7 +257,7 @@ fn the_formatter_never_panics_and_is_idempotent() {
         };
         let context = |what: &str| {
             format!(
-                "case {case} (seed {SEED:#x}, rng state {state:#x}): {what} on input:\n  {}",
+                "case {case} (seed {seed:#x}, rng state {state:#x}): {what} on input:\n  {}",
                 text.escape_debug()
             )
         };

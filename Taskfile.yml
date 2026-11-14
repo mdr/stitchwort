@@ -485,10 +485,11 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-syntax) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
   fuzz:fmt:
-    desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000)'
-    summary: Runs crates/fmt/tests/it/fuzz.rs.
+    desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000 SEED=0x1234)'
+    summary: Runs crates/fmt/tests/it/fuzz.rs, 50,000 cases from a fixed seed by default. SEED is decimal or 0x...; the run prints the seed and case count, and a failure names the seed and case.
     env:
       FUZZ_CASES: '{{.CASES}}'
+      FUZZ_SEED: '{{.SEED}}'
     cmds:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''package(stitchwort-fmt) & binary(it) & test(/^fuzz::/)'' {{.CLI_ARGS}}'
 
