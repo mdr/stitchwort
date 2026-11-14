@@ -395,7 +395,7 @@ characters at run time; proofs are untouched; the generic parser and the
 toy formatter go ahead now without waiting. **[rec: yes, and later, not
 now]**
 
-**D3598: is the parser's input one new std type, `Slice`, rather than an
+**D3599: is the parser's input one new std type, `Slice`, rather than an
 interface that any input type can implement?**
 *The problem:* characters want to be read from a text and tokens from
 something else, so the parser needs one idea of "input". An interface
