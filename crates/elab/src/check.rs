@@ -4782,10 +4782,52 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             Ok(None) => check_inner(cx, expr, expected),
             Err(e) => Err(e),
         }
-        .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
+        .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))
+        .map_err(|e| hidden_function_note(cx, expr, expected, e))?;
         cx.e.note_expr(cx, span, expected, true);
         Ok(Term::Loc(span, Rc::new(term)))
     })
+}
+
+/// SW-1498: a type mismatch at a local variable whose name is also that of a
+/// function in scope, where the function would have fit: say that the local
+/// variable hides the function, since the message would otherwise only show
+/// the two types.
+fn hidden_function_note(cx: &mut Ctx, expr: &Expr, expected: &Value, e: Diagnostic) -> Diagnostic {
+    if e.code != "E-TYPE-MISMATCH" {
+        return e;
+    }
+    let Expr::Var(name) = expr else {
+        return e;
+    };
+    if cx.lookup(&name.text).is_none() {
+        return e;
+    }
+    let Some((id, key, ty)) = (match cx.e.resolve(&name.text) {
+        scope::Resolved::Found {
+            key,
+            rest,
+            global: Global::Def(id),
+            ..
+        } if rest.is_empty() => Some((id, key.to_string(), cx.g().def(id).ty_value().clone())),
+        _ => None,
+    }) else {
+        return e;
+    };
+    // The function's implicit arguments are inserted as they would be at a
+    // use of it, and solving is undone: this only decides whether to say it.
+    let fits = crate::undo::attempt(cx, |cx| {
+        let (_, ty) = insert(cx, Term::Def(id), ty)?;
+        cx.unify(&ty, expected)
+    });
+    match fits {
+        Ok(Some(true)) => e.with_note(format!(
+            "`{}` here is a local variable, and it hides the function `{key}`, which would fit \
+             here: rename the local variable to use the function",
+            name.text
+        )),
+        _ => e,
+    }
 }
 
 /// Whether `d` is the library's `NonEmptyList`, which list literals and list
