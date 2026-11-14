@@ -34947,15 +34947,17 @@
     {
       "id": 3204,
       "title": "[DeepSeek] stitchwort fmt over a folder rewrites examples/reject, examples/soundness and examples/projects/reject (about 600 files that fmt_repo deliberately leaves as written, their positions are tested); skip them as fmt_repo does, or document the exclusion (SW-3187 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 40 min (DeepSeek).",
+      "body": "Expected: 40 min (DeepSeek).\nModel result: DeepSeek, worked, ~10 min (est. 40). Note: the list applies inside any git repository, not only Stitchwort's (paths are Stitchwort-specific, so harmless in practice).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "738f1a1e66125312e26fd2fbd96ce18ca22e85f5"
+      ]
     },
     {
       "id": 3205,
