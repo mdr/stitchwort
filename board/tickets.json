@@ -1,5 +1,5 @@
 {
-  "next": 3223,
+  "next": 3224,
   "tickets": [
     {
       "id": 47,
@@ -35207,15 +35207,17 @@
     {
       "id": 3221,
       "title": "[Sonnet] Bench: the seven check-closed-* benchmarks' steps and visits doubled since the 11 Nov baseline (check-closed-print 1,097,315 → 2,089,850 steps; allocations +112%, time 99 → 259 ms); the programs are three lines, so evaluation of the closed value roughly doubled, not parsing. Find the commit(s) since 0eac3e918 and say whether it is intended; separately list the parse-side changes that are L5's (SW-3212) double construction",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Expected: 60 min (Sonnet). Bench run on main after L5 + SW-3215: scratchpad/bench-main-1215.log.",
+      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~90 min (est. 60; bisect builds). Cause: SW-3067's List.inRangeReads proved by omega both ways cost ~860k steps at every import of List. Remaining +14% (1.10M → 1.25M) is std growth 11-13 Nov, unexplored. Orchestrator's call under D3447 (proof term changed, statement unchanged).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e8faf37b575739c7d7d0ab8865ee550a84e388f9"
+      ]
     },
     {
       "id": 3222,
@@ -35226,6 +35228,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Expected: 45 min (Sonnet).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3223,
+      "title": "[Sonnet] A merge-time guard on std's import cost: a step-count test (or bench row with a tight threshold) for a one-line 'import Std (List)' / '(Nat)' program, so an expensive std proof (like SW-3067's omega-proved List.inRangeReads, +860k steps for every importer) fails at merge; also measure each new @[reading] proof's cost once (SW-3221 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
