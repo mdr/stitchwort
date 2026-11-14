@@ -74,7 +74,9 @@ theorem generatedLaidOut ∀ (depth: Nat) (property: Level → Prop)
     (laidOut: LaidOut depth property):
     Effect.Always ((plan: Plan) => property plan.level) (generateLevel depth)
     unfolding generateLevel :=
-  down0 across0 row0 column0 down1 across1 row1 column1 down2 across2 row2 column2 down3 across3 row3 column3 down4 across4 row4 column4 down5 across5 row5 column5 entrance exit extra monster0Room monster0Kind monster0Row monster0Column monster1Room monster1Kind monster1Row monster1Column =>
+  down0 across0 row0 column0 down1 across1 row1 column1 down2 across2 row2 column2 down3 across3 row3 column3 down4
+      across4 row4 column4 down5 across5 row5 column5 entrance exit extra monster0Room monster0Kind monster0Row
+      monster0Column monster1Room monster1Kind monster1Row monster1Column =>
     Effect.alwaysBind (x => Unit) ((plan: Plan) => property plan.level) _ _ (Effect.alwaysUnit _) (monsters always =>
       potion0Room potion0Row potion0Column potion1Room potion1Row potion1Column =>
         Effect.alwaysBind

@@ -280,10 +280,11 @@ theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List
                                                             (operatorOfBits version operatorType TotalLength subPackets
                                                                 packet made)))
                                                     let formed :=
-                                                      operatorOfWellFormed version operatorType TotalLength subPackets packet made
-                                                        (omega [versionRead.right])
-                                                        (rewrite lengthEq in omega [lengthRead.right])
-                                                        insideRead.right.left
+                                                      operatorOfWellFormed version operatorType TotalLength subPackets
+                                                          packet made
+                                                          (omega [versionRead.right])
+                                                          (rewrite lengthEq in omega [lengthRead.right])
+                                                          insideRead.right.left
                                                     finishStep wanted later reader following left rest packet more
                                                         packets parts n here formed laterRead
                       | Some (True, afterBit) =>

@@ -74,8 +74,8 @@ theorem readsChain ∀ (strengthOf: Operator → Nat) (strength: Nat)
     (Parse.readsMap (() => operator operators) Operator.node _ (readsOperator operators))
     (read first (Both written (Both follows binds)) =>
       Both written (Both follows (bindsWeaken strengthOf strength first binds)))
-    (leftRead operatorRead rightRead left combine right (Both written (Both follows binds)) (Witness found
-      (Both (Both member spaced) same)) (Both rightWritten (Both rightFollows rightBinds)) =>
+    (leftRead operatorRead rightRead left combine right (Both written (Both follows binds))
+        (Witness found (Both (Both member spaced) same)) (Both rightWritten (Both rightFollows rightBinds)) =>
       let sameStrength: strengthOf found = strength := List.allMem _ found operators ranked member
       rewrite same, spaced in
         Both
