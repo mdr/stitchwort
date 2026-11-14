@@ -1,5 +1,5 @@
 {
-  "next": 3203,
+  "next": 3205,
   "tickets": [
     {
       "id": 47,
@@ -34911,6 +34911,32 @@
       "id": 3202,
       "title": "[Sonnet] Reformat ripples on main after SW-3194 (Overmind 051fe154a): snapshots nav-project (driver projects navigation::references_of_a_project), cli server search::what_closes_a_goal, cli tools doc::every_kind_of_declaration (std line numbers moved); proofs partial_kernel::a_constant_with_another_type_is_refused searches std for text the reformat changed",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3203,
+      "title": "[Sonnet] New formatter not idempotent (fuzz:fmt default seed, case 318589, Overmind 14 Nov): a constructor whose parameter list ends in a trailing comment before a ')' on the next line ('| Circle (kind: Text) (radius: Nat--eld' newline ')') formats to the constructor on its own line under 'type Shape =', and a second run joins it onto the header. A comment moved out of brackets must not change the fit decision; add the case as a unit test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3204,
+      "title": "[DeepSeek] stitchwort fmt over a folder rewrites examples/reject, examples/soundness and examples/projects/reject (about 600 files that fmt_repo deliberately leaves as written, their positions are tested); skip them as fmt_repo does, or document the exclusion (SW-3187 finding)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
