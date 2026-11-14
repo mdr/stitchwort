@@ -34908,15 +34908,17 @@
     {
       "id": 3201,
       "title": "[DeepSeek] js cons_cells calls hole_path again at every level, so it is quadratic in constructor depth; compute it once (SW-3190 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 30 min (DeepSeek), one run with SW-3215.",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-3215.\nModel result: DeepSeek, worked, ~12 min (est. 30). Hole path computed once (a Vec of fields) and passed down; semantics kept (two holes or an erased field: no cell).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "f27d3dbb79772d86248588386a94fa61d88dd1c6"
+      ]
     },
     {
       "id": 3202,
@@ -35116,15 +35118,17 @@
     {
       "id": 3215,
       "title": "[DeepSeek] Small cleanups: clippy::op_ref at crates/cli/src/sweep_cmd.rs:462 (&s.path == &path); tree_command in crates/cli/src/main.rs has its own copy of sw_files (the inner walk), use the shared one (SW-3207 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 30 min (DeepSeek), one run with SW-3201.",
+      "body": "Expected: 30 min (DeepSeek), one run with SW-3201.\nModel result: DeepSeek, worked, ~12 min (est. 30).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "f27d3dbb79772d86248588386a94fa61d88dd1c6"
+      ]
     },
     {
       "id": 3216,
