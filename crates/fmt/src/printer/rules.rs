@@ -1260,7 +1260,17 @@ impl<'a> Rules<'a> {
             self.hugs.insert(node.token_range().start, hug.clone());
             options.push(hug);
         }
-        let front = self.join_docs(&children[..keep], &docs[..keep]);
+        // D3569 for the leading plain arguments: when they alone pass the
+        // width they fill lines at 4, and the other arguments follow at 4
+        // too, so they don't sit left of the continuation.
+        let fill_front = keep > 2 && !self.comment_between(&children[..keep]);
+        let front_id = self.fresh_id();
+        let front = if fill_front {
+            let items = self.fill_items(&children[..keep], &docs[..keep]);
+            Doc::IdGroup(front_id, Box::new(Doc::nest(4, Doc::Fill(items))), false)
+        } else {
+            self.join_docs(&children[..keep], &docs[..keep])
+        };
         let mut rest = Vec::new();
         for k in keep..n {
             if self.section(children[k]) && !self.trails_comment(children[k - 1]) {
@@ -1270,7 +1280,17 @@ impl<'a> Rules<'a> {
             }
             rest.push(docs[k].clone());
         }
-        options.push(Doc::concat([front, Doc::nest(2, Doc::concat(rest))]));
+        let rest = Doc::concat(rest);
+        let rest = if fill_front {
+            Doc::IfBroken {
+                id: front_id,
+                broken: Box::new(Doc::nest(4, rest.clone())),
+                flat: Box::new(Doc::nest(2, rest)),
+            }
+        } else {
+            Doc::nest(2, rest)
+        };
+        options.push(Doc::concat([front, rest]));
         Doc::Choice(options)
     }
 
@@ -1278,13 +1298,18 @@ impl<'a> Rules<'a> {
     /// otherwise the arguments fill lines at 4 from the call's line, as many
     /// as fit. `None` where a comment inside makes the line breaks matter.
     fn fill_call(&self, children: &[Element<'_>], docs: &[Doc]) -> Option<Doc> {
-        let n = children.len();
-        if (1..n).any(|k| self.has_leading(children[k]) || self.trails_comment(children[k - 1])) {
+        if self.comment_between(children) {
             return None;
         }
-        // Pieces written with nothing between them (`f()`) are one item.
+        let items = self.fill_items(children, docs);
+        Some(Doc::nest(4, Doc::Fill(items)))
+    }
+
+    /// The elements as the items of a fill. Pieces written with nothing
+    /// between them (`f()`) are one item.
+    fn fill_items(&self, children: &[Element<'_>], docs: &[Doc]) -> Vec<Doc> {
         let mut items = vec![docs[0].clone()];
-        for k in 1..n {
+        for k in 1..children.len() {
             let space = self.space_el(children[k - 1], children[k]);
             if matches!(space, Doc::Nil) {
                 let last = items.pop().expect("an item");
@@ -1293,7 +1318,14 @@ impl<'a> Rules<'a> {
                 items.push(docs[k].clone());
             }
         }
-        Some(Doc::nest(4, Doc::Fill(items)))
+        items
+    }
+
+    /// Whether a comment sits between the elements, so that their line
+    /// breaks matter.
+    fn comment_between(&self, children: &[Element<'_>]) -> bool {
+        (1..children.len())
+            .any(|k| self.has_leading(children[k]) || self.trails_comment(children[k - 1]))
     }
 
     /// The operands and operators of a chain at one level, flattened from
@@ -1452,6 +1484,21 @@ impl<'a> Rules<'a> {
         self.lambda_both(node).0
     }
 
+    /// A lambda's parameters and `=>`: on the line if they fit, otherwise
+    /// filling lines at 4 like a header's parameters (S22), `=>` after the
+    /// last.
+    fn lambda_head(&mut self, children: &[Element<'_>]) -> Doc {
+        if children.len() < 3 || self.comment_between(children) {
+            return self.join(children);
+        }
+        let docs: Vec<Doc> = children
+            .iter()
+            .map(|&el| Doc::shared(self.el(el)))
+            .collect();
+        let items = self.fill_items(children, &docs);
+        Doc::nest(4, Doc::Fill(items))
+    }
+
     /// A lambda, and the same lambda opened downwards (a hug, S23).
     fn lambda_both(&mut self, node: Node<'_>) -> (Doc, Doc) {
         let children: Vec<Element> = node.children().collect();
@@ -1463,9 +1510,13 @@ impl<'a> Rules<'a> {
             return (doc.clone(), doc);
         };
         let head = Doc::shared(self.join(&children[..=arrow]));
+        // Only the lambda that may go below (not an opened one, whose line
+        // up to the body must fit, or the choice would take it) breaks its
+        // parameters.
+        let filled = Doc::shared(self.lambda_head(&children[..=arrow]));
         let body = Doc::shared(self.join(&children[arrow + 1..]));
         let flat = Doc::group(Doc::concat([
-            head.clone(),
+            filled,
             Doc::nest(2, Doc::concat([Doc::Line, body.clone()])),
         ]));
         let open = Doc::concat([head, Doc::nest(2, Doc::concat([Doc::HardLine, body]))]);
