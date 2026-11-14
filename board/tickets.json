@@ -1,5 +1,5 @@
 {
-  "next": 3287,
+  "next": 3288,
   "tickets": [
     {
       "id": 47,
@@ -36125,6 +36125,21 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3287,
+      "title": "[Fable] Someday: custom patterns in a language whose matches are checked for completeness and proved about: Scala extractors, F# active patterns, Haskell view patterns and pattern synonyms (COMPLETE), Idris/Agda views (the view from the left); whether text prefix patterns (D3592) become one instance",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "parked"
+      ],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
