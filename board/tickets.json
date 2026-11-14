@@ -34921,7 +34921,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 40 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -34929,12 +34929,12 @@
     {
       "id": 3203,
       "title": "[Sonnet] New formatter not idempotent (fuzz:fmt default seed, case 318589, Overmind 14 Nov): a constructor whose parameter list ends in a trailing comment before a ')' on the next line ('| Circle (kind: Text) (radius: Nat--eld' newline ')') formats to the constructor on its own line under 'type Shape =', and a second run joins it onto the header. A comment moved out of brackets must not change the fit decision; add the case as a unit test",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet). Repro: Overmind's saved input, fuzz:fmt default seed case 318589.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
