@@ -3514,27 +3514,36 @@ impl<'g> Gen<'g> {
     }
 
     /// Whether `term` is a call to the definition itself, or a variable
-    /// that stands for one, under `Succ`s and `Nat.add`s ([`Gen::tail_add`]).
-    /// (Nothing is generated.)
+    /// that stands for one, under `Succ`s and `Nat.add`s ([`Gen::tail_add`]):
+    /// exactly one of an addition's operands must hold it, so the answer is
+    /// whether an odd number of the leaves are such calls. A work list, not
+    /// recursion: `a + (b + (c + …))` can nest deeper than the stack
+    /// (docs/core.md). (Nothing is generated.)
     fn self_call_under_add(&self, term: &Term, env: &[bool], call: &SelfCall) -> bool {
-        let term = term.strip_loc();
-        if let Term::Ctor(d, 1, succ) = term
-            && Some(*d) == self.nat
-        {
-            return self.self_call_under_add(&succ[0], env, call);
-        }
-        if let Term::Var(ix) = term {
-            return self.hole_at(env.len() - 1 - ix).is_some();
-        }
-        let (head, args) = term.spine();
-        match head {
-            Term::Def(id) if self.is_self(call, *id, &args) => true,
-            Term::Def(id) if Some(*id) == self.nat_add && args.len() == 2 => {
-                self.self_call_under_add(args[0], env, call)
-                    != self.self_call_under_add(args[1], env, call)
+        let mut pending = vec![term];
+        let mut odd = false;
+        while let Some(term) = pending.pop() {
+            let term = term.strip_loc();
+            if let Term::Ctor(d, 1, succ) = term
+                && Some(*d) == self.nat
+            {
+                pending.push(&succ[0]);
+                continue;
             }
-            _ => false,
+            if let Term::Var(ix) = term {
+                odd ^= self.hole_at(env.len() - 1 - ix).is_some();
+                continue;
+            }
+            let (head, args) = term.spine();
+            match head {
+                Term::Def(id) if self.is_self(call, *id, &args) => odd = !odd,
+                Term::Def(id) if Some(*id) == self.nat_add && args.len() == 2 => {
+                    pending.extend([args[0], args[1]]);
+                }
+                _ => {}
+            }
         }
+        odd
     }
 
     /// If `term` is `List.append xs rest`, where `rest` is a call to the

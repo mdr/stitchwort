@@ -1114,41 +1114,58 @@ fn conclusion_of(ty: &Term) -> &Term {
 }
 
 /// How many times `term` names a definition (`List.count`, `Nat.leq`),
-/// outside implicit arguments.
+/// outside implicit arguments. A work list, not recursion: a lemma's type
+/// can nest applications deeper than the stack (docs/core.md).
 fn defs_named(term: &Term) -> usize {
-    match term {
-        Term::Loc(_, t) => defs_named(t),
-        Term::Def(_) => 1,
-        Term::App(f, a, icit) => {
-            defs_named(f)
-                + if *icit == Icit::Explicit {
-                    defs_named(a)
-                } else {
-                    0
+    let mut pending = vec![term];
+    let mut count = 0;
+    while let Some(term) = pending.pop() {
+        match term {
+            Term::Loc(_, t) | Term::Lam(_, _, t) => pending.push(t),
+            Term::Def(_) => count += 1,
+            Term::App(f, a, icit) => {
+                pending.push(f);
+                if *icit == Icit::Explicit {
+                    pending.push(a);
                 }
+            }
+            Term::Eq(_, a, b) => pending.extend([&**a, &**b]),
+            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+                pending.extend(args.iter().map(|a| &**a));
+            }
+            _ => {}
         }
-        Term::Eq(_, a, b) => defs_named(a) + defs_named(b),
-        Term::Data(_, args) | Term::Ctor(_, _, args) => args.iter().map(|a| defs_named(a)).sum(),
-        Term::Lam(_, _, b) => defs_named(b),
-        _ => 0,
     }
+    count
 }
 
 /// How many definitions, data types, constructors and literals `term`
 /// names outside implicit arguments and an equation's type: 0 for a
-/// conclusion such as `x = y` or `p x`, which fits nearly any goal.
+/// conclusion such as `x = y` or `p x`, which fits nearly any goal. A work
+/// list, as [`defs_named`] is.
 fn named(term: &Term) -> usize {
-    match term {
-        Term::Loc(_, t) => named(t),
-        Term::Eq(_, a, b) => named(a) + named(b),
-        Term::App(f, a, icit) => named(f) + if *icit == Icit::Explicit { named(a) } else { 0 },
-        Term::Def(_) | Term::Nat(_) => 1,
-        Term::Data(_, args) | Term::Ctor(_, _, args) => {
-            1 + args.iter().map(|a| named(a)).sum::<usize>()
+    let mut pending = vec![term];
+    let mut count = 0;
+    while let Some(term) = pending.pop() {
+        match term {
+            Term::Loc(_, t) => pending.push(t),
+            Term::Eq(_, a, b) => pending.extend([&**a, &**b]),
+            Term::App(f, a, icit) => {
+                pending.push(f);
+                if *icit == Icit::Explicit {
+                    pending.push(a);
+                }
+            }
+            Term::Def(_) | Term::Nat(_) => count += 1,
+            Term::Data(_, args) | Term::Ctor(_, _, args) => {
+                count += 1;
+                pending.extend(args.iter().map(|a| &**a));
+            }
+            Term::Var(_) | Term::Meta(_) => {}
+            _ => count += 1,
         }
-        Term::Var(_) | Term::Meta(_) => 0,
-        _ => 1,
     }
+    count
 }
 
 /// The premise search's state for one candidate.
@@ -1165,4 +1182,40 @@ struct Fill<'a> {
     chosen: Vec<Option<usize>>,
     plans: Vec<Plan>,
     nodes: usize,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use stitchwort_core::{DefId, Icit, Term};
+
+    use super::{defs_named, inner_defs, named};
+
+    /// A conclusion `f (f (… x)) = y`, `depth` deep, as a lemma's checked
+    /// type can be now that the kernel takes any depth of application
+    /// (SW-3174): the search's counts are work lists, so it doesn't
+    /// overflow the stack (SW-3190).
+    #[test]
+    fn deep_conclusions_are_counted() {
+        let depth = 1_000_000;
+        let mut deep = Term::Def(DefId(1));
+        for _ in 0..depth {
+            deep = Term::app(Term::Def(DefId(0)), deep);
+        }
+        let eq = Term::Eq(None, Rc::new(deep), Rc::new(Term::Var(0)));
+        assert_eq!(defs_named(&eq), depth + 1);
+        assert_eq!(named(&eq), depth + 1);
+        assert_eq!(inner_defs(&eq), depth + 1);
+    }
+
+    /// Implicit arguments aren't counted; explicit ones are.
+    #[test]
+    fn implicit_arguments_are_not_counted() {
+        let f = Rc::new(Term::Def(DefId(0)));
+        let implicit = Term::App(f, Rc::new(Term::Def(DefId(1))), Icit::Implicit);
+        let term = Term::app(implicit, Term::Def(DefId(2)));
+        assert_eq!(defs_named(&term), 2);
+        assert_eq!(named(&term), 2);
+    }
 }
