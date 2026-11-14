@@ -3783,6 +3783,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => {}
     }
 }
@@ -3965,7 +3966,8 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                     | Pattern::Nil(_)
                     | Pattern::Num(..)
                     | Pattern::NegNum(..)
-                    | Pattern::Char(..) => {}
+                    | Pattern::Char(..)
+                    | Pattern::Text(..) => {}
                 }
                 continue;
             }

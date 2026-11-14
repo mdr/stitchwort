@@ -525,6 +525,12 @@ fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Val
         }
         let name = shown_names[level].to_string();
         let ty = cx.types[level].clone();
+        // The proof that a known character is one, bound by the `_` a char
+        // or text pattern stands for, says nothing a proof needs.
+        if own && name.contains('✝') && known_char_proof(cx, &ty) {
+            hidden.push((level, ty));
+            continue;
+        }
         // A proof's value is its proof term: only its statement is shown.
         let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
         context.push(Entry {
@@ -535,6 +541,41 @@ fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Val
         });
     }
     (context, hidden)
+}
+
+/// Whether `ty` is the type of `MkChar`'s proof field for a known code,
+/// `Char.isScalar 100 = True`: what a char pattern's `_` binds.
+fn known_char_proof(cx: &Ctx, ty: &Value) -> bool {
+    let g = cx.g();
+    let Some((d, c)) = g
+        .env
+        .registry()
+        .ctor(stitchwort_core::registry::Builtin::MkChar)
+    else {
+        return false;
+    };
+    let Some((_, field)) = g.data(d).ctors()[c].fields.get(1) else {
+        return false;
+    };
+    let Term::Eq(_, test, holds) = field.strip_loc() else {
+        return false;
+    };
+    let (Term::Def(is_scalar), _) = test.spine() else {
+        return false;
+    };
+    let Ok(quoted) = quote_shown(&g, cx.level(), ty) else {
+        return false;
+    };
+    let Term::Eq(_, lhs, rhs) = quoted.strip_loc() else {
+        return false;
+    };
+    let (head, args) = lhs.spine();
+    matches!(head.strip_loc(), Term::Def(d) if d == is_scalar)
+        && matches!(args.as_slice(), [arg] if matches!(arg.strip_loc(), Term::Nat(_)))
+        && matches!(
+            (rhs.strip_loc(), holds.strip_loc()),
+            (Term::Ctor(d1, c1, _), Term::Ctor(d2, c2, _)) if d1 == d2 && c1 == c2
+        )
 }
 
 /// Takes out of `context` the hypotheses a later one of the same name

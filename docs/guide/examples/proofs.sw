@@ -268,3 +268,20 @@ theorem swapSum ∀ (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := co
 -- end forall
 
 test "unseen" := unseen [1, 2] [1, 2, 3] == [3]
+
+-- begin literal-arms
+type Keyword = | Def | Theorem
+
+def keyword (word: Text): Option Keyword := match word with
+  | "def" => Some Def
+  | "theorem" => Some Theorem
+  | _ => None
+
+theorem keywordOther ∀ (word: Text) (notDef: word ≠ "def") (notTheorem: word ≠ "theorem"): keyword word = None :=
+  keyword.eq3 word notDef notTheorem
+
+theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
+  if isDef: word = "def" then isDef
+  else if isTheorem: word = "theorem" then (rewrite isTheorem at h in match Option.someInjective h with | ())
+  else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
+-- end literal-arms

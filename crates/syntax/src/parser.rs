@@ -2159,9 +2159,10 @@ impl<'t> Parser<'t> {
             Some(Tok::Lower(_)) if !self.ctor_ahead() => {
                 self.lower("a pattern")?;
             }
-            Some(Tok::Underscore | Tok::Num(_) | Tok::Char(_)) => {
+            Some(Tok::Underscore | Tok::Num(_) | Tok::Char(_) | Tok::Str(_)) => {
                 self.bump();
             }
+            Some(Tok::StrStart(_)) => return Err(self.interpolated_pattern().into()),
             Some(Tok::Upper(_) | Tok::Lower(_)) => {
                 self.ctor_name()?;
             }
@@ -2258,6 +2259,27 @@ impl<'t> Parser<'t> {
             _ => return Err(self.unexpected_name("a pattern or `=`").into()),
         }
         Ok(())
+    }
+
+    /// `"${a}b"` where a pattern should be: a text pattern is one fixed text
+    /// (docs/proposals/text-patterns.md §4.1). The cursor is at its
+    /// `StrStart`; the error spans the whole literal when it parses.
+    fn interpolated_pattern(&mut self) -> Diagnostic {
+        let start = self.here();
+        let span = match self.interpolated_str() {
+            Ok(()) => Span {
+                end: self.tokens[self.pos - 1].span.end,
+                ..start
+            },
+            Err(_) => start,
+        };
+        Diagnostic::error("E-TEXT-PATTERN", "a text pattern can't interpolate")
+            .with_label(span, "a pattern matches one fixed text")
+            .with_note(
+                "to match a text that starts or ends a certain way, bind it to a variable and \
+                 test it in a guard: `| t if t.startsWith \"--\" => …`, or use \
+                 `Text.stripPrefix`",
+            )
     }
 
     /// The text of the name at token `i`.
@@ -6709,6 +6731,31 @@ mod tests {
             panic!("expected an or-pattern, got {p:?}");
         };
         alternatives
+    }
+
+    #[test]
+    fn parses_text_patterns() {
+        let e = rhs(
+            "def f (t : Text) : Nat :=\n  match t with\n    | \"def\" | \"\\n\" => 1\n    | Some \"on\" => 2\n    | _ => 3\n",
+        );
+        let (_, alts) = match_parts(&e);
+        assert!(matches!(
+            or_alternatives(&alts[0].patterns[0]),
+            [Pattern::Text(a, _), Pattern::Text(b, _)] if a == "def" && b == "\n"
+        ));
+        assert!(matches!(
+            &alts[1].patterns[0],
+            Pattern::Ctor(_, args, _) if matches!(args.as_slice(), [Pattern::Text(on, _)] if on == "on")
+        ));
+    }
+
+    #[test]
+    fn refuses_interpolated_text_patterns() {
+        let d = parse_error(
+            "def f (t : Text) : Nat := match t with\n  | \"a${t}b\" => 1\n  | _ => 2\n",
+        );
+        assert_eq!(d.code, "E-TEXT-PATTERN");
+        assert_eq!(d.message, "a text pattern can't interpolate");
     }
 
     #[test]

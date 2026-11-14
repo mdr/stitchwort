@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: a text pattern matches a `Text` or a `List Char`, but this is `Nat`
+   ╭─[ reject/text-patterns-wrong-type.sw:4:5 ]
+   │
+ 4 │   | "one" => 1
+   │     ──┬──  
+   │       ╰──── a text pattern matches a `Text` or a `List Char`, but this is `Nat`
+───╯

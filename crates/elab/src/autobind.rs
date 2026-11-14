@@ -643,6 +643,7 @@ fn pattern_vars(pattern: &stitchwort_syntax::ast::Pattern, out: &mut Vec<String>
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => {}
     }
 }
