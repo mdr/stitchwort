@@ -542,3 +542,25 @@ theorem isPathAppend ∀ (allowed: Position → Bool) (more: List Position) (to 
 ";
     check(before, after);
 }
+
+#[test]
+fn a_comment_before_a_closing_bracket_moves_to_the_line_end_without_changing_the_layout() {
+    // The comment trails the `)` after the first run, so the second must
+    // choose the same layout (SW-3203).
+    check(
+        "type Shape =\n  | Circle (kind: Text) (radius: Nat --eld\n)\n",
+        "type Shape = | Circle (kind: Text) (radius: Nat) --eld\n",
+    );
+    check(
+        "type Shape =\n  | Circle (radius: Nat) --eld\n  | Square (side: Nat)\n",
+        "type Shape =\n  | Circle (radius: Nat) --eld\n  | Square (side: Nat)\n",
+    );
+    check(
+        "def f: Nat := g (a, b --c\n)\n",
+        "def f: Nat := g (\n  a,\n  b --c\n)\n",
+    );
+    check(
+        "def f: List Nat := [1, 2 --c\n]\n",
+        "def f: List Nat := [\n  1,\n  2 --c\n]\n",
+    );
+}
