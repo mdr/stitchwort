@@ -124,6 +124,7 @@ status line now says the wrong thing; the details are in
 | [negative-arguments-review.md](negative-arguments-review.md) | Independent review of the note above | record | SW-853 |
 | [logic-notation.md](logic-notation.md) | `∈ ∉ → ↔ ∧ ∨ ¬ ≤ ≥ ≠ ∃` and their ASCII forms | built: `crates/elab/src/logic.rs`, `crates/elab/src/membership.rs` | SW-461 |
 | [number-patterns.md](number-patterns.md) | Number patterns without `Succ` chains | built: `crates/elab/src/numbers.rs` | SW-75 |
+| [text-patterns.md](text-patterns.md) | Text literals in patterns (`\| "def" => …`), on `Text` and `List Char`, and prefixes | proposed: D3591, D3592 | SW-3231 |
 | [fin-literals.md](fin-literals.md) | Checked `Fin` literals | built | SW-384 |
 | [brace-syntax-review.md](brace-syntax-review.md) | Braces after a constructor, and record syntax as a whole | built (stale): D2481-D2485 | SW-1613, SW-1632, SW-1633 |
 | [record-argument-braces.md](record-argument-braces.md) | A record literal as a constructor's argument (D1370) | superseded by brace-syntax-review.md | SW-606, SW-1322 |
@@ -246,11 +247,11 @@ status line now says the wrong thing; the details are in
 |---|---|
 | built | 102 |
 | in progress | 16 |
-| proposed | 19 |
+| proposed | 20 |
 | superseded | 4 |
 | parked | 4 |
 | record | 8 |
-| **total** | **153** |
+| **total** | **154** |
 
 "Built" includes notes where only the decided part is built and the rest
 was left as someday/maybe (partial.md, records.md, multi-file.md). Of the
