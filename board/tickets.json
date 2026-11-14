@@ -35206,15 +35206,17 @@
     {
       "id": 3220,
       "title": "[DeepSeek] A test or lint that every function the lowering's node_expr and node_pattern dispatch to is #[inline(never)]: two unmarked ones grew node_expr's frame from 96 to 816 bytes and broke deep nesting in release (SW-3212 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 30 min (DeepSeek).",
+      "body": "Expected: 30 min (DeepSeek).\nModel result: DeepSeek, worked, ~25 min (est. 30). Source-text contract test over lower/*.rs (a new lower/ file must be added to its SOURCES list).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "56890b16166e3d4608d55e1a10f21bda6bcb8ec5"
+      ]
     },
     {
       "id": 3221,
