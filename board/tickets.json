@@ -35041,7 +35041,7 @@
     {
       "id": 3210,
       "title": "[Opus] Lowering L3 (docs/proposals/syntax-tree-lowering.md): Binding, sections, blocks, lambdas, if, forall/exists",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35051,7 +35051,8 @@
       "updated": "2026-11-14",
       "commits": [
         "d2fa567a5",
-        "ab8cc8e8f"
+        "ab8cc8e8f",
+        "5e676cb940d4823587b4479e9847e7b4a4ceec3e"
       ]
     },
     {
