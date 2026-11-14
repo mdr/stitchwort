@@ -1823,7 +1823,7 @@ test("Format rewrites the text, undo restores it, and a syntax error leaves it a
   await page.click("#format");
   await page.until(`window.editor.value !== ${JSON.stringify(messy)}`, 10000, "the formatted text");
   const formatted = await value();
-  assert.equal(formatted, "def x: Nat := 5\n\ndef y: Nat :=\n  x\n");
+  assert.equal(formatted, "def x: Nat := 5\n\ndef y: Nat := x\n");
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.draft")`), formatted, "the draft is the formatted text");
   await assertAligned(page, "after Format");
   // The caret was at the end of the text, and is still there.
