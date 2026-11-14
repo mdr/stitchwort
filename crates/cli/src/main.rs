@@ -915,6 +915,7 @@ fn main() -> ExitCode {
         stitchwort_elab::timings::start();
         let code = run(cli);
         stitchwort_elab::timings::report();
+        stitchwort_syntax::stack::probe::report_deepest();
         code
     });
     ran.unwrap_or_else(|e| {
