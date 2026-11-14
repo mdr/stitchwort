@@ -4647,14 +4647,14 @@ fn changed_prelude(from: &str, to: &str) -> String {
 fn built_in_boundary_types_take_no_attributes() {
     for (from, to) in [
         (
-            "type Bool: Type =\n",
-            "@[js.tag \"kind\"]\ntype Bool: Type =\n",
+            "type Bool: Type =",
+            "@[js.tag \"kind\"]\ntype Bool: Type =",
         ),
-        ("type Bool: Type =\n", "@[js.enum]\ntype Bool: Type =\n"),
-        ("  | True\n", "  | @[js.name \"yes\"] True\n"),
+        ("type Bool: Type =", "@[js.enum]\ntype Bool: Type ="),
+        ("| True\n", "| @[js.name \"yes\"] True\n"),
         (
-            "  | Some (value: a)\n",
-            "  | Some (@[js.name \"it\"] value: a)\n",
+            "| Some (value: a)\n",
+            "| Some (@[js.name \"it\"] value: a)\n",
         ),
     ] {
         let prelude = changed_prelude(from, to);
