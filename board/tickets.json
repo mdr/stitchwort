@@ -1,5 +1,5 @@
 {
-  "next": 3248,
+  "next": 3259,
   "tickets": [
     {
       "id": 47,
@@ -35415,28 +35415,32 @@
     {
       "id": 3234,
       "title": "[Fable] Paper: IO and Text design (D3579, SW-3150): file read/write and folder listing in the IO ability with errors as values; Text with O(1) slice, indexed read and a builder; runtime, native backend and JS support; what a formatter in Stitchwort needs",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\nLane note (14 Nov 2026, 16:08): done in 20 min of 2 h. Note: docs/proposals/file-io-and-text.md, commit 384fef557 on lane/SW-3234. Recommends `Files` as a second ability the runners perform (Result-returning whole-file read/write/list/info, `Files.simulate`, narrowing handlers) and one `Text` type with a shared-buffer runtime representation (constant-time get/slice/length; `++` in place as the builder). Measured today's text costs (Text.get: 24 s for 20,000 reads). Questions D3585 (Files its own ability), D3586 (file access allowed by default when run), D3587 (build S0 + T1 + F1, then the toy formatter). Eleven findings listed in the note.\n",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~20 min. docs/proposals/file-io-and-text.md: a Files ability beside IO, Text as a shared buffer at run time. D3585 (Files its own ability [rec yes]), D3586 (run may touch files by default, flags narrow it [rec yes]), D3587 (build S0, T1, F1 next [rec yes]). The 'about 8-10 more' hours line in In plain words undercounts (about 14). SW-3149 also breaks plain build. Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (last five).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e046962806c2defb7779e16607365be3ce6c6ec0"
+      ]
     },
     {
       "id": 3235,
       "title": "[Fable] Paper: a generic Std.Parse (D3579): parse any token type, not only List Char, so a program can lex then parse a token list; keep every existing use and its proofs working; performance on large inputs",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]), D3590 (keep text parsers under Parse. [rec keep]). Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (first six).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "55370a67609e2e1b3c7cee78f063900fd5825947"
+      ]
     },
     {
       "id": 3236,
@@ -35589,6 +35593,149 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3248,
+      "title": "[Opus] The checker settles an ability's parameter late: a two-step readsThen proof against generic lemmas takes 498k steps vs 289k with [t := Char] written (SW-3235 finding; generic-parse.md stage 0)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3249,
+      "title": "[Opus] Std.Parse check cost: labelWhole's three handler lemmas are 31% (31.8M steps), the 22 handler lemmas 59%; one shared lemma for handlers that pass every operation on (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3250,
+      "title": "[Sonnet] Parse: oneOf costs ~3 operations per failed alternative; the handler walks span's result again to measure it (8% of lexer time) (SW-3235 findings; parked with speed work)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3251,
+      "title": "[Sonnet] Rename Parse.token ('with spaces around') to Parse.padded before the library gains real tokens; 10 AoC files (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3252,
+      "title": "[DeepSeek] std: add List.stripPrefixBy, with Text.stripPrefixChars and its lemmas as a special case (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3253,
+      "title": "[Sonnet] The import-cost guard and docs disagree on Std.Parse's step count (121M vs 103.6M summed over Std.Parse.*): say what is counted (SW-3235 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3254,
+      "title": "[Sonnet] Text.get has no native version (1.2 ms a read on 20,000 chars); Text.length recounts on every call on every runner (--js: 200k calls on 200k chars > 60 s); Text.uncons/drop copy the rest, so peeling is quadratic (SW-3234 findings; T1 fixes them)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3255,
+      "title": "[Sonnet] docs/guide/08-abilities.md is stale: says a handler can't go around partial code, but Fail.toResult round a {IO, Fail, Partial} loop recovers the failure (SW-3234 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3256,
+      "title": "[Opus] Ability operations take exactly one argument; an anonymous record as that argument gives E-PARSE with a misleading message about record updates; design multi-argument operations, better message meanwhile (SW-3234 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3257,
+      "title": "[Sonnet] Proving guide: induction over a program (∀ prog, match reify prog) isn't seen as terminating; document the Effect.AlwaysTree route (SW-3234 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3258,
+      "title": "[Sonnet] Text slices under --js are slower than native (8.6 s vs 3.1 s for 100,000); each host operation is matched by hand in four runners (randomSeed named in 15 files): consider a shared table (SW-3234 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
