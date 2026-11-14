@@ -1,5 +1,5 @@
 {
-  "next": 3238,
+  "next": 3243,
   "tickets": [
     {
       "id": 47,
@@ -35371,15 +35371,17 @@
     {
       "id": 3231,
       "title": "Text literals in patterns: '| \"def\" => …' is E-PARSE; matching on text needs if-chains (SW-3228 finding; language feature, needs a design note)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 (Matt, 14 Nov 2026): a foundation piece for a Stitchwort formatter. Expected: 1.5 h (Opus paper lane: design note).\n\n14 Nov 16:05 (lane): note written, docs/proposals/text-patterns.md (d9533f618), ~15 min. Recommendation: `\"def\"` as a pattern is the spelled-out `MkText ['d','e','f']` (already works today, compiles to a character tree; no kernel change), on `Text` and type-directed on `List Char`; missing case \"no arm matches texts other than …\"; prefixes `\"lit\" ++ rest` optional. Questions D3591 (text patterns on Text and List Char, rec yes) and D3592 (prefix patterns, rec yes). Stages: 1 Opus 6-9 h; 2 Opus 3-5 h; 3 Sonnet 2-3 h; 4 Opus 4-6 h (catch-all checked once per leaf: 4.34 s vs 1.11 s measured); 5 runtimes, measured first.\n",
+      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "5399f6795240e39cc5b780bdef814e1ade11fcc6"
+      ]
     },
     {
       "id": 3232,
@@ -35454,6 +35456,71 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3238,
+      "title": "[Opus] A match with many literal arms re-checks its catch-all at every point of the case tree: 200 keywords with a 12-match catch-all check in 4.34 s vs 1.11 s with the catch-all in a function (measured); affects Char and number tables today (SW-3231 finding; text-patterns.md stage 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3239,
+      "title": "[Sonnet] After a character-literal arm the goal lists one hidden proof per character (valid✝: Std.Char.isScalar 100), printed without its '= True'; hide or print them properly (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3240,
+      "title": "[Sonnet] Missing-case messages on character lists speak of one character ('characters other than d'), and with a second column print [MkChar _ _, .._], Zero where [_, .._], Zero is meant (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3241,
+      "title": "[Sonnet] A literal arm's equation (e.g. kc.eq1) prints as '1 = 1' in a type mismatch: find whether only the message reduces it or the statement itself is reduced, which would make it useless for rewriting (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3242,
+      "title": "[Sonnet] Both runtimes turn a whole Text into a list of characters as soon as a match looks inside it, even when it reads three characters (read in source, not measured; measure first) (SW-3231 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
