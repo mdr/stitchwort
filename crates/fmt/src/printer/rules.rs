@@ -13,7 +13,8 @@ use super::token_text_range;
 use stitchwort_syntax::tree::{Element, Leaf, Node, NodeKind, SyntaxFile};
 use stitchwort_syntax::{Tok, Token};
 
-use super::engine::Doc;
+use super::WIDTH;
+use super::engine::{self, Doc};
 use crate::spacing::{Gap, Pair, Role, gap};
 
 /// The kinds printed as written for now, deliberately or for want of a
@@ -64,6 +65,50 @@ pub(crate) struct Rules<'a> {
 }
 
 /// Whether a token closes a bracket.
+/// A run of a header's variables as a fill, except that the last line never
+/// holds one variable alone when the line above could give it a companion
+/// (SW-3193): that line's last variable moves down to it. `first` says the
+/// run starts with the head, on the declaration's line; the other lines
+/// start at the header's indentation, 4.
+fn balanced_fill(items: Vec<Doc>, first: bool) -> Doc {
+    let widths: Option<Vec<usize>> = items
+        .iter()
+        .map(|item| {
+            let flat = engine::print(&Doc::flat(item.clone()), usize::MAX / 2);
+            let simple =
+                !item.forces_break() && flat.forced_comment_lines == 0 && !flat.text.contains('\n');
+            simple.then(|| flat.text.chars().count())
+        })
+        .collect();
+    let Some(widths) = widths else {
+        return Doc::Fill(items);
+    };
+    // Where the greedy fill starts each line.
+    let mut starts = vec![0];
+    let mut column = if first { widths[0] } else { 4 + widths[0] };
+    for (k, &width) in widths.iter().enumerate().skip(1) {
+        if column + 1 + width > WIDTH {
+            starts.push(k);
+            column = 4 + width;
+        } else {
+            column += 1 + width;
+        }
+    }
+    let [.., above, last] = starts[..] else {
+        return Doc::Fill(items);
+    };
+    // The last line has one item; the line above, at least two, and the
+    // moved item and the lone one must fit side by side.
+    let lone = items.len() - 1;
+    let moved = lone - 1;
+    if last != lone || above + 1 >= last || 4 + widths[moved] + 1 + widths[lone] > WIDTH {
+        return Doc::Fill(items);
+    }
+    let mut head = items;
+    let tail = head.split_off(moved);
+    Doc::concat([Doc::Fill(head), Doc::Line, Doc::Fill(tail)])
+}
+
 fn closer(tok: &Tok) -> bool {
     matches!(tok, Tok::RParen | Tok::RBracket | Tok::RBrace)
 }
@@ -527,6 +572,7 @@ impl<'a> Rules<'a> {
         let premises = self.premises(params);
         let mut runs: Vec<Doc> = Vec::new();
         let mut run: Vec<Doc> = vec![head_doc];
+        let mut first_run = true;
         let last = params.len() - 1;
         let mut previous = head.last().copied();
         for (k, &param) in params.iter().enumerate() {
@@ -550,7 +596,8 @@ impl<'a> Rules<'a> {
             }
             if premises[k] {
                 if !run.is_empty() {
-                    runs.push(Doc::Fill(std::mem::take(&mut run)));
+                    runs.push(balanced_fill(std::mem::take(&mut run), first_run));
+                    first_run = false;
                 }
                 runs.push(doc);
             } else if run.is_empty()
@@ -567,7 +614,7 @@ impl<'a> Rules<'a> {
             }
         }
         if !run.is_empty() {
-            runs.push(Doc::Fill(run));
+            runs.push(balanced_fill(run, first_run));
         }
         let mut parts = Vec::new();
         for (k, run) in runs.into_iter().enumerate() {

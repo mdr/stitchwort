@@ -476,3 +476,20 @@ theorem shrinks ∀ (numbers: List Nat) (target start: Nat)
 ";
     check(before, after);
 }
+
+#[test]
+fn a_run_of_variables_does_not_leave_its_last_variable_alone_on_a_line() {
+    // SW-3193, D3564: greedy filling would put `(middle: Position)` by itself
+    // on line 2; the variable before it comes down to keep it company.
+    let before = "theorem isPathAppend ∀ (allowed: Position → Bool) (more: List Position) (to: Position) \
+                  (from: Position) (steps: List Position) (middle: Position) \
+                  (path: isPath allowed from steps middle = True): isPath allowed from steps to = True := same\n";
+    let after = "\
+theorem isPathAppend ∀ (allowed: Position → Bool) (more: List Position) (to from: Position)
+    (steps: List Position) (middle: Position)
+    (path: isPath allowed from steps middle = True):
+    isPath allowed from steps to = True :=
+  same
+";
+    check(before, after);
+}
