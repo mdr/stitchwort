@@ -35092,12 +35092,12 @@
     {
       "id": 3213,
       "title": "[Opus] Lowering L6 (docs/proposals/syntax-tree-lowering.md): Delete direct construction from the parser (step 4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 8 h (Opus).\nOrchestrator's call: the lane starts now; its merge waits for L5 (SW-3212, merged 14 Nov ~12:00) to pass several of Overmind's rolling cycles (the note asks a day; at least three clean cycles plus the lane's last oracle run over fuzz-generated programs).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
