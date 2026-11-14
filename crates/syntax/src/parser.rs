@@ -1326,18 +1326,7 @@ impl<'t> Parser<'t> {
 
     /// Whether the token at `i` ends the current statement of a block.
     fn is_stop(&self, i: usize) -> bool {
-        if self.modes.calc_depth > 0 && self.starts_calc_step(i) {
-            return true;
-        }
-        if let Some(start) = self.modes.rewrite_rule
-            && self.ends_rewrite_rule(i, start)
-        {
-            return true;
-        }
-        if let Some(start) = self.modes.guard_start
-            && self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
-            && self.bracket_depth(start, i) <= 0
-        {
+        if self.ends_construct(i) {
             return true;
         }
         let Some(limit) = self.modes.limit else {
@@ -1350,6 +1339,24 @@ impl<'t> Parser<'t> {
                 .is_some_and(|t| t.line_start && t.column <= limit)
             && !self.continues_bracket(i)
             && !self.continues_with_operator(i, limit)
+    }
+
+    /// Whether the token at `i` belongs to an enclosing construct, whatever
+    /// its column: the next `calc` step, the `in` or `at` ending a `rewrite`
+    /// rule, a guard's `=>`. No block starts there.
+    fn ends_construct(&self, i: usize) -> bool {
+        if self.modes.calc_depth > 0 && self.starts_calc_step(i) {
+            return true;
+        }
+        if let Some(start) = self.modes.rewrite_rule
+            && self.ends_rewrite_rule(i, start)
+        {
+            return true;
+        }
+        self.modes.guard_start.is_some_and(|start| {
+            self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
+                && self.bracket_depth(start, i) <= 0
+        })
     }
 
     /// Whether the token at `i`, starting a line at the block's own column
@@ -1594,7 +1601,17 @@ impl<'t> Parser<'t> {
                 .with_note(declarations::ATTRIBUTE_PLACES);
         }
         let found = match self.tokens.get(self.pos) {
-            Some(token) if self.is_stop(self.pos) => {
+            Some(_) if self.modes.calc_depth > 0 && self.starts_calc_step(self.pos) => {
+                return error(
+                    self.here(),
+                    format!("expected {expected}, but the next `calc` step starts here"),
+                )
+                .with_note(
+                    "inside a `calc`, a line starting with `_` is the next step, even inside \
+                     brackets: is a bracket on the step above left open?",
+                );
+            }
+            Some(token) if self.is_stop(self.pos) && !self.ends_construct(self.pos) => {
                 let diagnostic = error(
                     self.here(),
                     format!(
@@ -2736,6 +2753,7 @@ impl<'t> Parser<'t> {
             && token.line_start
             && self.pos > 0
             && self.modes.allow != Some(self.pos)
+            && !self.ends_construct(self.pos)
         {
             match self.modes.limit {
                 None => return self.block(token.column, true),
@@ -2784,6 +2802,7 @@ impl<'t> Parser<'t> {
         let mut lines = 0;
         let mut last = Line::Expr;
         let result = loop {
+            let before = self.pos;
             self.modes.allow = Some(self.pos);
             match self.statement() {
                 Ok(line) => {
@@ -2792,7 +2811,10 @@ impl<'t> Parser<'t> {
                 }
                 Err(e) => break Err(e),
             }
-            if !(many && self.starts_line_at(column)) || self.ends_blocks() {
+            // A statement that read nothing (R1 reporting a gap at a stop)
+            // leaves the same line at the block's column, and reading it
+            // again would report the same gap forever (SW-3285).
+            if self.pos == before || !(many && self.starts_line_at(column)) || self.ends_blocks() {
                 break Ok(());
             }
         };
@@ -7511,6 +7533,40 @@ mod tests {
             let (_, errors, points) = recovered(text);
             assert_eq!(errors.len(), 1, "{text}: {errors:?}");
             assert_eq!(points, [vec![]], "{text}");
+        }
+    }
+
+    /// R1 inside a bracket left open in a `calc` step: the next step's `_`
+    /// is a stop, so the bracket's contents run out there. That is one
+    /// error at the `_`, the steps after it still parse, and no block is
+    /// opened on the `_` (one used to read it forever, SW-3285).
+    #[test]
+    fn a_bracket_left_open_in_a_calc_step_runs_out_at_the_next_step() {
+        for text in [
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n(\n  _ ≤ m := h",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n[\n  _ ≤ m := h",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n {\n  _ ≤ m := h",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ f ((\n  _ ≤ m := h\n",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n := f (\n  _ ≤ m := h\n",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n := f (\n    _\n  _ ≤ m := h\n",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n := (calc 1\n    _ = 1 := (\n  _ ≤ m := h\n",
+            "theorem z: 0 ≤ m := calc 0\n  _ ≤ n := match x with\n    | a => (\n  _ ≤ m := h\n",
+        ] {
+            let (_, errors, points) = recovered(text);
+            assert_eq!(errors.len(), 1, "{text:?}: {errors:?}");
+            assert_eq!(points, [vec![RecoveryPoint::RanOut]], "{text:?}");
+            assert!(
+                errors[0]
+                    .message
+                    .contains("the next `calc` step starts here"),
+                "{text:?}: {errors:?}"
+            );
+            // At the first `_` after the line with the bracket left open.
+            let open = text.rfind(['(', '[', '{']).unwrap();
+            let after = open + text[open..].find('\n').unwrap();
+            let step = (after + text[after..].find('_').unwrap()) as u32;
+            let at = errors[0].primary_span().unwrap();
+            assert_eq!((at.start, at.end), (step, step + 1), "{text:?}");
         }
     }
 
