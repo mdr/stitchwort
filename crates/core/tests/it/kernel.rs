@@ -2220,6 +2220,15 @@ fn nested_applications_are_checked_in_a_loop() {
 /// about 2.3 KiB of stack a level natively, so about 140 levels fitted the
 /// playground's guard; now it takes about 1.3 KiB (SW-3174), and 180 levels
 /// compare under it.
+///
+/// This pins a native frame size: the playground (wasm) guard is a fixed
+/// stack budget, and the test fails if one level of the comparison grows
+/// past what 180 levels leave of it. It guards the playground against a
+/// stack overflow on deep terms, not the answer. When a toolchain or
+/// dependency change trips it, re-measure the frame first (a deeper
+/// level count, or the stack used per level) and find what grew; raise
+/// the bound, or lower the level count, only once the new frame size is
+/// explained, never just because the test failed.
 #[test]
 fn nested_stuck_calls_compare_under_the_playground_guard() {
     let mut g = Kernel::default();
@@ -2400,4 +2409,241 @@ fn checking_a_long_spine_against_the_wrong_type_is_rejected() {
         define(&mut p.g, "bad", bool_ty, term),
         Err("E-TYPE-MISMATCH")
     );
+}
+
+// Applications nested in arguments: `check_app` sets the spine waiting for
+// an argument that is itself an application on its `Waiting` list and takes
+// it up again once that argument is checked.
+
+fn call1(f: Term, a: Term) -> Term {
+    app(f, [a])
+}
+
+/// `s : Nat -> Nat`, `kb : Bool -> Bool`, `h : Nat -> Bool -> Nat`, with
+/// the Bool constructor `True`.
+struct Nested {
+    p: Prelude,
+    s: Term,
+    kb: Term,
+    h: Term,
+    tru: Term,
+}
+
+fn nested() -> Nested {
+    let mut p = Prelude::new();
+    let (_, bool_ty, tru) = with_bool(&mut p);
+    let nat = p.nat_ty();
+    let s = Term::Def(declare(&mut p.g, "s", arrow(nat.clone(), nat.clone())));
+    let kb = Term::Def(declare(
+        &mut p.g,
+        "kb",
+        arrow(bool_ty.clone(), bool_ty.clone()),
+    ));
+    let h = Term::Def(declare(
+        &mut p.g,
+        "h",
+        arrow(nat.clone(), arrow(bool_ty, nat)),
+    ));
+    Nested { p, s, kb, h, tru }
+}
+
+/// An inner application that finishes (the pop in `check_app`), then the
+/// outer spine resumes and checks its next argument.
+#[test]
+fn check_app_resumes_after_a_nested_argument_and_checks_the_next() {
+    let n = nested();
+    let (s, kb, h, tru) = (&n.s, &n.kb, &n.h, &n.tru);
+    let zero = n.p.num(0);
+    // h (s 0) True; h (s (s 0)) (kb True): both arguments nested.
+    let ok1 = app(h.clone(), [call1(s.clone(), zero.clone()), tru.clone()]);
+    let ok2 = app(
+        h.clone(),
+        [
+            call1(s.clone(), call1(s.clone(), zero.clone())),
+            call1(kb.clone(), tru.clone()),
+        ],
+    );
+    assert_eq!(infer_code(&n.p.g, &ok1), "ok");
+    assert_eq!(infer_code(&n.p.g, &ok2), "ok");
+    // After the pop the next argument is ill-typed: a constructor, a
+    // nested application, and a plain variable-free term of the wrong type.
+    let bad_ctor = app(h.clone(), [call1(s.clone(), zero.clone()), zero.clone()]);
+    let bad_nested = app(
+        h.clone(),
+        [
+            call1(s.clone(), zero.clone()),
+            call1(s.clone(), zero.clone()),
+        ],
+    );
+    assert_eq!(infer_code(&n.p.g, &bad_ctor), "E-TYPE-MISMATCH");
+    assert_eq!(infer_code(&n.p.g, &bad_nested), "E-TYPE-MISMATCH");
+    // The inner application itself has the wrong type at its pop: it's
+    // compared with the outer domain when it finishes.
+    let bad_inner = app(h.clone(), [call1(kb.clone(), tru.clone()), tru.clone()]);
+    assert_eq!(infer_code(&n.p.g, &bad_inner), "E-TYPE-MISMATCH");
+    // And the same one level down: the mismatch is in an argument of the
+    // inner application, which is itself waiting.
+    let bad_deep = app(
+        h.clone(),
+        [call1(s.clone(), call1(s.clone(), tru.clone())), tru.clone()],
+    );
+    assert_eq!(infer_code(&n.p.g, &bad_deep), "E-TYPE-MISMATCH");
+}
+
+/// `dep2 : (a b : Nat) -> a = b -> Nat`: the domain of the third argument
+/// depends on the first two, which, when they are applications, were
+/// checked while the spine waited; the codomain must be taken at their
+/// values.
+fn dependent(p: &mut Prelude) -> Term {
+    let nat = p.nat_ty();
+    let ty = pi(
+        "a",
+        nat.clone(),
+        pi("b", nat.clone(), arrow(eq(None, v(1), v(0)), nat)),
+    );
+    Term::Def(declare(&mut p.g, "dep2", ty))
+}
+
+#[test]
+fn check_app_substitutes_nested_arguments_into_later_domains() {
+    let mut p = Prelude::new();
+    let dep2 = dependent(&mut p);
+    // 1 + 1 = 0 + 2 by computation, each side a nested application.
+    let ok = app(
+        dep2.clone(),
+        [
+            p.plus(p.num(1), p.num(1)),
+            p.plus(p.num(0), p.num(2)),
+            Term::Refl,
+        ],
+    );
+    assert_eq!(infer_code(&p.g, &ok), "ok");
+    // 1 + 1 = 0 + 3 doesn't hold: the proof is checked against the
+    // instantiated domain, not the bound variables.
+    let bad_b = app(
+        dep2.clone(),
+        [
+            p.plus(p.num(1), p.num(1)),
+            p.plus(p.num(0), p.num(3)),
+            Term::Refl,
+        ],
+    );
+    assert_eq!(infer_code(&p.g, &bad_b), "E-REFL");
+    // The first argument alone decides it, too (the second is plain).
+    let bad_a = app(
+        dep2.clone(),
+        [p.plus(p.num(2), p.num(2)), p.num(2), Term::Refl],
+    );
+    assert_eq!(infer_code(&p.g, &bad_a), "E-REFL");
+    let ok_a = app(
+        dep2.clone(),
+        [p.plus(p.num(1), p.num(1)), p.num(2), Term::Refl],
+    );
+    assert_eq!(infer_code(&p.g, &ok_a), "ok");
+    // The type of the whole application is the codomain at those values.
+    let sym = app(
+        dep2,
+        [
+            p.plus(p.num(1), p.num(1)),
+            p.plus(p.num(0), p.num(2)),
+            Term::Refl,
+        ],
+    );
+    let (_, found) = infer_closed(&p.g.ev(), &sym, span()).expect("checks");
+    assert!(
+        matches!(found, Value::Data(d, _) if d == p.nat),
+        "{found:?}"
+    );
+}
+
+/// `ik : {a : Nat} -> (b : Nat) -> a = b -> Nat`, an implicit argument
+/// that is an application.
+#[test]
+fn check_app_waits_on_an_implicit_nested_argument() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let ty = ipi(
+        "a",
+        nat.clone(),
+        pi("b", nat.clone(), arrow(eq(None, v(1), v(0)), nat)),
+    );
+    let ik = Term::Def(declare(&mut p.g, "ik", ty));
+    let with = |a: Term, b: Term| {
+        let head = Term::App(Rc::new(ik.clone()), Rc::new(a), Icit::Implicit);
+        app(head, [b, Term::Refl])
+    };
+    let ok = with(p.plus(p.num(1), p.num(1)), p.plus(p.num(0), p.num(2)));
+    assert_eq!(infer_code(&p.g, &ok), "ok");
+    // The implicit argument's value reaches the later domain.
+    let bad = with(p.plus(p.num(1), p.num(1)), p.plus(p.num(0), p.num(3)));
+    assert_eq!(infer_code(&p.g, &bad), "E-REFL");
+    // An explicit argument where the parameter is implicit.
+    let wrong_icit = app(
+        ik.clone(),
+        [p.plus(p.num(1), p.num(1)), p.num(2), Term::Refl],
+    );
+    assert_eq!(infer_code(&p.g, &wrong_icit), "E-NOT-A-FUNCTION");
+    // A nested application of the wrong type as the implicit argument.
+    let (_, _, tru) = with_bool(&mut p);
+    let bad_ty = Term::App(
+        Rc::new(ik),
+        Rc::new(call1(Term::Def(p.add), tru)),
+        Icit::Implicit,
+    );
+    assert_eq!(
+        infer_code(&p.g, &app(bad_ty, [p.num(2), Term::Refl])),
+        "E-TYPE-MISMATCH"
+    );
+}
+
+/// With gluing on, a definition's call in a type is a `Value::Call`, so
+/// the expected type of an application is forced to a new value: the
+/// forced branch of `check_app`, for the outer spine and for an inner one
+/// whose domain is such a call.
+#[test]
+fn check_app_forces_a_glued_expected_type_and_domain() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let (_, bool_ty, tru) = with_bool(&mut p);
+    // idt A = A, so `idt Nat` is a call that unfolds to `Nat`.
+    let idt = define(&mut p.g, "idt", arrow(ty(), ty()), lam("A", v(0))).expect("idt");
+    let idt_nat = app(Term::Def(idt), [nat.clone()]);
+    let s = Term::Def(declare(&mut p.g, "s", arrow(nat.clone(), nat.clone())));
+    // g : Nat -> idt Nat -> idt Nat: the second domain is a call after
+    // the first argument's substitution.
+    let g_def = Term::Def(declare(
+        &mut p.g,
+        "g",
+        arrow(nat.clone(), arrow(idt_nat.clone(), idt_nat.clone())),
+    ));
+    let zero = p.num(0);
+    let ok = app(
+        g_def.clone(),
+        [
+            call1(s.clone(), zero.clone()),
+            call1(s.clone(), zero.clone()),
+        ],
+    );
+    let bad_arg = app(
+        g_def.clone(),
+        [
+            call1(s.clone(), zero.clone()),
+            call1(Term::Def(p.add), tru.clone()),
+        ],
+    );
+    // Annotated with the call: the expected type needs forcing.
+    let ann = |t: Term, ty: &Term| Term::Ann(Rc::new(t), Rc::new(ty.clone()));
+    let ok_ann = ann(ok.clone(), &idt_nat);
+    let bad_ann = ann(ok.clone(), &bool_ty);
+    p.g.machine.glue.set(true);
+    let results = [
+        infer_code(&p.g, &ok_ann),
+        infer_code(&p.g, &bad_ann),
+        infer_code(&p.g, &ann(bad_arg, &idt_nat)),
+    ];
+    p.g.machine.glue.set(false);
+    assert_eq!(results, ["ok", "E-TYPE-MISMATCH", "E-TYPE-MISMATCH"]);
+    // The same terms without gluing agree.
+    assert_eq!(infer_code(&p.g, &ok_ann), "ok");
+    assert_eq!(infer_code(&p.g, &bad_ann), "E-TYPE-MISMATCH");
 }
