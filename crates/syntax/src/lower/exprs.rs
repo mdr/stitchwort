@@ -194,7 +194,8 @@ impl<'f> Lower<'f> {
 
     /// `[a, b, ..xs]`. A list of one bracketed range, `[(0 ..< n)]`, keeps
     /// its brackets as [`Expr::Bracketed`], so `W-RANGE-IN-BRACKETS`, which
-    /// warns about `[0 ..< n]`, stays quiet.
+    /// warns about `[0 ..< n]`, stays quiet. A trailing comma changes nothing
+    /// (the formatter's tree check relies on it).
     #[inline(never)]
     pub(super) fn list(&self, node: Node<'f>) -> Lowering<Expr> {
         let mut items = items(node, &[Tok::LBracket, Tok::Comma, Tok::RBracket])
@@ -203,7 +204,7 @@ impl<'f> Lower<'f> {
             .collect::<Lowering<Vec<_>>>()?;
         let bracketed_range = match items.as_slice() {
             [(Element::Node(paren), Expr::Binary(BinOp::Range | BinOp::RangeThrough, ..))] => {
-                paren.kind() == NodeKind::Paren && node.leaf(&Tok::Comma).is_none()
+                paren.kind() == NodeKind::Paren
             }
             _ => false,
         };
