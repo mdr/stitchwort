@@ -34327,27 +34327,27 @@
     {
       "id": 3160,
       "title": "[Opus, design] Syntax tree A2 steps 2-3 (docs/proposals/syntax-tree-architecture.md): lower the compiler's tree from the lossless tree (all shorthand expansion in one place), checked against the direct-built tree over the repo; then delete direct construction. After the formatter switch-over",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
       "id": 3161,
       "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
