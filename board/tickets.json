@@ -35399,15 +35399,17 @@
     {
       "id": 3233,
       "title": "[Fable] Paper: the parser's end state now it has one job (D3579): marks (sorted after the parse) against in-order events with precede (rust-analyzer), leftovers from the two-route period (signature_kept, parked failed declarations, relabelling), stack frames, recovery's needs; recommend the cleanest end state with numbers; the tidy waits for recovery S1",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\n**Lane note (Fable, 14 Nov 2026):** note written, `docs/proposals/parser-end-state.md` (commit 992d66548 on `lane/SW-3233`). Recommendation: keep marks, made strict (starts kept by the function, one way to record, a builder that checks order and nesting in one pass and makes a misfit an internal error; meaning checks out of the parser); stages T0–T4, 21–30 lane hours, T1 between recovery's S1 and S2. One question for Matt: D3582 [rec: yes, strict marks].\n\n**Urgent finding:** on `main` since L5, `a ∧ b ∧ c → q` is checked as `a ∧ b ∧ c` (also `↔ q` and `; e` after a chain of three or more `∧`/`∨` operands): `mark_logic_chain` (`parser.rs:4143`) records the chain's inner node last, `operand_start` then gives the arrow the wrong start, and the builder drops the arrow's mark without an error. Repro: `theorem bad (a: Prop) (h: a ∧ a ∧ a): a ∧ a ∧ a → False := h` checks. Stage T0 of the note (Opus, 2–3 h) fixes it; it should not wait for S1.\n\nMeasured: the sort is 4.1% of parse-and-lower (the whole builder 8.4%); a nesting level costs the parser 1,377 bytes (18,264 brackets in 24 MiB). No code changed; no tests run (paper lane).\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "992d66548"
+      ]
     },
     {
       "id": 3234,
