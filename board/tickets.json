@@ -36002,7 +36002,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt's question on D3588. Expected: 1 h (Opus paper lane), ~5 min. docs/proposals/parser-input-naming.md. None of 14 libraries defaults the input type. Rec: write {Parse Char}, no std short name (set names would still print {Parse Char}); programs may name their own bundles once SW-3267 exists. D3603 (replaces D3588) [rec yes]. Filed SW-3279.",
+      "body": "Matt's question on D3588. Expected: 1 h (Opus paper lane), ~5 min. docs/proposals/parser-input-naming.md. None of 14 libraries defaults the input type. Rec: write {Parse Char}, no std short name (set names would still print {Parse Char}); programs may name their own bundles once SW-3267 exists. D3603 (replaces D3588) [rec yes]. Filed SW-3279.\n\nD3603 decided (Matt, 14 Nov 2026): \"Yes, happy with that.\" Character parsers write {Parse Char}; no std short name. Replaces D3588.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
