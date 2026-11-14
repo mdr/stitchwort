@@ -305,6 +305,42 @@ fn with_deep_definition(depth: usize) -> (Session, DefId) {
     (session, id)
 }
 
+/// [`with_deep_definition`], but the deep term is the definition's type
+/// `(n : Nat) → f (f (… n)) = n`, installed with its evaluation: the
+/// closing search, hashing and the printer all walk a lemma's type.
+fn with_deep_type(depth: usize) -> (Session, DefId) {
+    let (mut session, id) = with_deep_definition(1);
+    let g = &mut session.elab.kernel;
+    let f = DefId(
+        g.env
+            .defs()
+            .iter()
+            .position(|d| &**d.name() == "f")
+            .unwrap(),
+    );
+    let Term::Pi(_, _, nat, _) = g.env.defs()[id.0].ty().strip_loc() else {
+        panic!("a function type")
+    };
+    let nat = nat.clone();
+    let deep = deep_term(Term::Def(f), Term::Var(0), depth);
+    let eq = Term::Eq(Some(nat.clone()), Rc::new(deep), Rc::new(Term::Var(0)));
+    let ty = Term::Pi(
+        "n".into(),
+        stitchwort_core::Icit::Explicit,
+        nat,
+        Rc::new(eq),
+    );
+    let value = {
+        let ev = g.ev();
+        let _op = ev.machine.budget.operation(Limits::default());
+        stitchwort_core::value::eval(&ev, &[], &ty).expect("evaluates")
+    };
+    g.env
+        .def_mut_for_tests(id)
+        .set_type_unchecked_for_tests(ty, value);
+    (session, id)
+}
+
 /// Terms built directly, for the passes after the elaborator: each would
 /// otherwise only see what the passes before it could handle.
 #[test]
@@ -370,6 +406,57 @@ fn deep_terms_in_later_passes() {
             // Hashing walks a term with a work list, so any depth hashes.
             let _op = g.machine.budget.operation(Limits::default());
             assert!(def_hash(g, id).unwrap().is_some());
+        }
+        {
+            // The same depth in a lemma's type: hashing and the printer walk
+            // it, and the closing search counts what its conclusion names
+            // (SW-3190).
+            let (mut session, id) = with_deep_type(1_000_000);
+            {
+                let g = &session.elab.ev();
+                let _op = g.machine.budget.operation(Limits::default());
+                assert!(def_hash(g, id).unwrap().is_some());
+            }
+            {
+                let g = &session.elab.ev();
+                let _op = g.machine.budget.operation(Limits::default());
+                assert_eq!(
+                    pretty::term_in_full(g, &[], g.def(id).ty()),
+                    Err(ResourceError::Nesting("printer"))
+                );
+                assert!(pretty::term(g, &[], g.def(id).ty()).contains('…'));
+            }
+            // The session's default stack budget is more than a test
+            // thread has.
+            session.elab.options.limits.stack = 1 << 20;
+            let candidates = {
+                let _op = session
+                    .elab
+                    .ev()
+                    .machine
+                    .budget
+                    .operation(Limits::default());
+                session
+                    .elab
+                    .search_candidates(&|item, _| item == stitchwort_elab::search::Item::Def(id))
+            };
+            assert_eq!(candidates.len(), 1);
+            let expr = session
+                .parse_expression("<goal>", "f 0 = 0")
+                .expect("parses");
+            let goal = session.elab.open_goal(&expr, 0).expect("opens");
+            let _op = session
+                .elab
+                .ev()
+                .machine
+                .budget
+                .operation(Limits::default());
+            let plans = session.elab.closing_plans(&goal, &candidates, &|_| true, 5);
+            // The goal is too shallow to be an instance of the deep
+            // conclusion, so `defs_named` on it isn't reached here (its
+            // own test in `closing` covers that); the search still indexes
+            // and matches against the deep type.
+            assert!(plans.plans.is_empty());
         }
         let e = session.extract().err().expect("too deep to generate");
         assert_eq!(e.code, "E-RESOURCE");
