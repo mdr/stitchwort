@@ -43,6 +43,10 @@ pub struct Options {
     pub build: bool,
     /// For tests: the instance step budget, instead of the default.
     pub instance_budget: Option<usize>,
+    /// For tests: the evaluation steps after which a declaration still
+    /// checking is first reported (`progress.rs`), instead of
+    /// [`stitchwort_core::budget::PROGRESS_FIRST`].
+    pub progress_after: Option<u64>,
     /// For tests: `+ * < <=` on `Nat` and `Int` always find their
     /// dictionary and project its field, instead of building the term the
     /// projection would give directly when no dictionary of the interface is
@@ -147,6 +151,8 @@ impl Options {
             skip_theorems: _,
             // Caches only save work.
             clear_caches_per_declaration: _,
+            // Notes said while checking, not what is checked.
+            progress_after: _,
             // Counterexample searches only run when a theorem fails, and
             // a library file's don't.
             counterexample_runner: _,
