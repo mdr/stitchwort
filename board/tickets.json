@@ -34194,16 +34194,17 @@
     {
       "id": 3149,
       "title": "[Sonnet] build --native executables fail to start from the main checkout: 'its tables can't be read: written by a different build of the runtime' (libstitchwort_standalone.a dated 12 Nov, CLI 13 Nov). Make the build rebuild/check the runtime library with the CLI, or give a clear message naming task build (SW-3145 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Matt, 14 Nov 2026: tidy batch before the foundations ('built programs not starting is a pretty big bug'). SW-3234 found plain build fails too: 'this executable's program can't be read: written by a different build of the runtime'. Expected: 1.5 h (Sonnet).\n\nSonnet lane, 14 Nov 2026: root cause was that `cargo build -p stitchwort-cli` never rebuilds libstitchwort_standalone.a (a separate package; only `task build` or test builds made it), so after any core/syntax/rt change the CLI's build hash (rt/build.rs) differed from the library's, and every executable failed at start (plain and --native; --native on a no-native CLI is a separate clear error). Reproduced. Fix (d3d200a2f): the CLI depends on stitchwort-standalone (so every build makes a current library in deps/), the library embeds stitchwort_rt::BUILD_MARKER, and `build` picks a library holding the CLI's marker (env, beside exe, ../lib/stitchwort, deps/) and otherwise errors \"different build ... task build\". Test: a_stale_runtime_library_is_refused; existing build tests pass. Model result pending review.\n",
+      "body": "Tidy batch (Matt, 14 Nov 2026). Expected: 1.5 h (Sonnet), ~9 min. Cause: crates/standalone was its own package, so cargo build -p stitchwort-cli never rebuilt it; its runtime-source hash then disagreed with the CLI's. Fix: a normal dependency, BUILD_MARKER in the library, find_library picks the matching one and names stale ones. Leftovers: Taskfile's -p stitchwort-standalone now redundant; old deps/ copies (~29 MB each) not cleaned. Model result: Sonnet, worked, 9 min (est. 90).",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": [
-        "d3d200a2f"
+        "d3d200a2f",
+        "5e157777859ccab865034a3961fcbf11b9afd7f0"
       ]
     },
     {
