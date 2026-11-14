@@ -46,6 +46,28 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 14 Nov 2026
 
+### SW-3221: List.inRangeReads re-proved; every import of List checks ~840,000 fewer steps
+
+- **Status:** kept (Sonnet investigation, orchestrator's call under D3447).
+- **Problem.** stitchwort-bench on 14 Nov showed the seven `check-closed-*`
+  rows at 2.09M steps against the 11 Nov baseline's 1.10M (time 99 → 259 ms
+  under load). The programs are three lines; changing the list size from
+  200,000 to 20 left the steps identical, so the cost was checking std's
+  `List` declarations at `import Std (List, Nat)`, not evaluation.
+- **Evidence.** Bisect over first-parent commits: 1.23M before the SW-3067
+  merge (`c32a7f37c`), 2.07M after. Reverting SW-3067's std files one at a
+  time isolated `List.inRangeReads` in `std/List/Toolkit.sw`, proved
+  `{ forward = h => omega, backward = b => omega }`: about 860,000 steps.
+- **Change.** The proof is `Bool.andReads (from <= x) (x < until)`.
+- **Why results stay the same.** Same statement; only the proof term
+  changed (the prelude hash snapshot's lines for `inRangeReads`,
+  `inRangeReadsFalse` and its `%match1`).
+- **Measured.** `check-closed-*`: 2.09M → about 1.25M steps (baseline
+  1.10M). The remaining ~14% is std growth between 11 and 13 Nov, not
+  chased; the baseline is to be re-recorded after L6 (SW-3213).
+- **Follow-up.** SW-3223: a merge-time guard on std's import cost.
+- **Links.** SW-3221, SW-3067.
+
 ### SW-3212: parsing goes through the lowering, 1.57x slower until L6 (accepted regression)
 
 - **Status:** accepted, temporary regression (Opus). Step 3's switch, lane
