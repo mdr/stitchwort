@@ -17308,7 +17308,7 @@
     {
       "id": 1982,
       "title": "[Opus] Syntax error recovery S0 (docs/proposals/syntax-error-recovery.md §6): groundwork, no behaviour change (modes struct, error list, recover_to; strict entry points fail on a non-empty list); fold in SW-3185 (a declaration that doesn't lex is an Error root)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -17318,7 +17318,9 @@
       "body": "Expected: 4 h (Opus). Stage S0 of docs/proposals/syntax-error-recovery.md; includes SW-3185.\n\nLane notes (Opus, 14 Nov 2026, 09:26-09:40): commit 928041f7b on lane/SW-1982. Modes struct + Snapshot, snapshot()/recover_to(), Parser::errors with report() and strict() (every entry point fails on a non-empty list; nothing reports yet). SW-3185: parse_tree/parse_module_and_tree use lex_recovering_with_trivia and no longer return Result; a declaration that doesn't lex is an Error root with no tokens over its raw text (Node::raw_text_range); round trip, check_spans, dump, dev tree and the formatter handle it. Also: a declaration that doesn't parse keeps the nodes it finished before the error (e.g. its header) under its Error root. Gates: dev tree --spans examples: 0 not read back, 104 not parsed (5 not lexed, previously skipped), 0 marks dropped, 0 span misses; std/List the same, 0 errors. 13 E-PARSE reject examples (the 5 lexical ones among them) give byte-identical `check` output to main's binary. Named tests: 37 syntax + 2 fmt, all pass.\n",
       "created": "2026-11-07",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "4c0ebd343331baa17bfff7828bbcf267b96467bc"
+      ]
     },
     {
       "id": 1983,
