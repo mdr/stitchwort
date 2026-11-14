@@ -34340,12 +34340,12 @@
     {
       "id": 3161,
       "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
-      "status": "review",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.\nNote merged (docs/proposals/syntax-error-recovery.md). Waiting for Matt: D3580, D3581. Then stage tickets S0-S7; SW-1982..1986 to be rescoped or closed; SW-1873 to check against SW-3156.",
+      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.\nNote merged (docs/proposals/syntax-error-recovery.md). Waiting for Matt: D3580, D3581. Then stage tickets S0-S7; SW-1982..1986 to be rescoped or closed; SW-1873 to check against SW-3156.\nD3580 (Matt, 14 Nov): Fable's split (binding lines cost only the line; proof-step lines hole the rest of their block, read but not goal-checked), plus its safeguards (parser's failed flag, error hole at a mismatch with a gap instead of a gap unifying with anything, an emission backstop) and tests (one-line-break oracle over the repo as S1's gate, fuzz: syntax error never yields a kernel term, gap-in-type crash probe). Note to be revised before stages.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
