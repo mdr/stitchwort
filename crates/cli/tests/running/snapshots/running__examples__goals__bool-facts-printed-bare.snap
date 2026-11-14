@@ -3,20 +3,20 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `shown`
-    ╭─[ goals/bool-facts-printed-bare.sw:11:48 ]
+    ╭─[ goals/bool-facts-printed-bare.sw:17:3 ]
     │
- 11 │     (h7: (a = True) = (b = True)): b = True := ?
-    │                                                ┬  
-    │                                                ╰── a: Bool
-    │                                                    b: Bool
-    │                                                    n: Nat
-    │                                                    xs: List Nat
-    │                                                    h1: a
-    │                                                    h2: (a && b) = True
-    │                                                    h3: xs.any (x => x <= n)
-    │                                                    h4: a = False
-    │                                                    h5: ¬a
-    │                                                    h6: a ∧ b
-    │                                                    h7: (a = True) = (b = True)
-    │                                                    ⊢ b
+ 17 │   ?
+    │   ┬  
+    │   ╰── a: Bool
+    │       b: Bool
+    │       n: Nat
+    │       xs: List Nat
+    │       h1: a
+    │       h2: (a && b) = True
+    │       h3: xs.any (x => x <= n)
+    │       h4: a = False
+    │       h5: ¬a
+    │       h6: a ∧ b
+    │       h7: (a = True) = (b = True)
+    │       ⊢ b
 ────╯

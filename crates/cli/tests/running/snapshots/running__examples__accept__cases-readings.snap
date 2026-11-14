@@ -3,9 +3,9 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-THEOREM-FORALL] Warning: the statement of `noneBig` starts with `∀`
-    ╭─[ accept/cases-readings.sw:16:5 ]
+    ╭─[ accept/cases-readings.sw:17:5 ]
     │
- 16 │     ∀ (x: Nat) => x ∈ xs → (x > 2) = False :=
+ 17 │     ∀ (x: Nat) => x ∈ xs → (x > 2) = False :=
     │     ┬  
     │     ╰── write these variables before the colon
     │ 

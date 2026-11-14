@@ -3,62 +3,62 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ goals/forall-printed.sw:15:11 ]
+    ╭─[ goals/forall-printed.sw:12:40 ]
     │
- 15 │     (all: (n: Nat) -> p n)
-    │           ────┬───  
-    │               ╰───── write `∀ (…) =>` instead of `(…) ->`
+ 12 │ theorem shown ∀ (p: Nat -> Prop) (all: (n: Nat) -> p n)
+    │                                        ────┬───  
+    │                                            ╰───── write `∀ (…) =>` instead of `(…) ->`
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ goals/forall-printed.sw:16:24 ]
+    ╭─[ goals/forall-printed.sw:13:24 ]
     │
- 16 │     (comm: (a: Nat) -> (b: Nat) -> a + b = b + a)
+ 13 │     (comm: (a: Nat) -> (b: Nat) -> a + b = b + a) (positive: (n: Nat) -> n > 0 -> Positive n)
     │                        ────┬───  
     │                            ╰───── write `∀ (…) =>` instead of `(…) ->`
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ goals/forall-printed.sw:16:12 ]
+    ╭─[ goals/forall-printed.sw:13:12 ]
     │
- 16 │     (comm: (a: Nat) -> (b: Nat) -> a + b = b + a)
+ 13 │     (comm: (a: Nat) -> (b: Nat) -> a + b = b + a) (positive: (n: Nat) -> n > 0 -> Positive n)
     │            ────┬───  
     │                ╰───── write `∀ (…) =>` instead of `(…) ->`
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ goals/forall-printed.sw:17:16 ]
+    ╭─[ goals/forall-printed.sw:13:62 ]
     │
- 17 │     (positive: (n: Nat) -> n > 0 -> Positive n)
-    │                ────┬───  
-    │                    ╰───── write `∀ (…) =>` instead of `(…) ->`
+ 13 │     (comm: (a: Nat) -> (b: Nat) -> a + b = b + a) (positive: (n: Nat) -> n > 0 -> Positive n)
+    │                                                              ────┬───  
+    │                                                                  ╰───── write `∀ (…) =>` instead of `(…) ->`
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ goals/forall-printed.sw:22:7 ]
+    ╭─[ goals/forall-printed.sw:16:5 ]
     │
- 22 │     : (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length := ?
-    │       ────────┬────────  
-    │               ╰────────── write `∀ (…) =>` instead of `(…) ->`
+ 16 │     (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length :=
+    │     ────────┬────────  
+    │             ╰────────── write `∀ (…) =>` instead of `(…) ->`
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯
 [GOAL] Goal: in `shown`
-    ╭─[ goals/forall-printed.sw:22:73 ]
+    ╭─[ goals/forall-printed.sw:17:3 ]
     │
- 22 │     : (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length := ?
-    │                                                                         ┬  
-    │                                                                         ╰── p: Nat → Prop
-    │                                                                             all: ∀ (n: Nat) => p n
-    │                                                                             comm: ∀ (a b: Nat) => a + b = b + a
-    │                                                                             positive: ∀ (n: Nat) => 0 < n → Positive n
-    │                                                                             hidden: ∀ [n: Nat] => n = n
-    │                                                                             q: Nat → Type
-    │                                                                             bad: (n: Nat) → q n
-    │                                                                             f: (n: Nat) → Vec Nat n
-    │                                                                             ⊢ ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length
+ 17 │   ?
+    │   ┬  
+    │   ╰── p: Nat → Prop
+    │       all: ∀ (n: Nat) => p n
+    │       comm: ∀ (a b: Nat) => a + b = b + a
+    │       positive: ∀ (n: Nat) => 0 < n → Positive n
+    │       hidden: ∀ [n: Nat] => n = n
+    │       q: Nat → Type
+    │       bad: (n: Nat) → q n
+    │       f: (n: Nat) → Vec Nat n
+    │       ⊢ ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length
 ────╯

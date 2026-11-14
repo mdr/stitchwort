@@ -1,20 +1,20 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `renamedKeepsRef`
+   ╭─[ goals/record-update.sw:9:108 ]
+   │
+ 9 │ theorem renamedKeepsRef ∀ (shape: Shape) (newId: Text): ({ shape | id = newId ++ "!" }).ref = shape.ref := ?
+   │                                                                                                            ┬  
+   │                                                                                                            ╰── shape: Shape
+   │                                                                                                                newId: Text
+   │                                                                                                                ⊢ { shape | id = newId ++ "!" }.ref = shape.ref
+───╯
+[GOAL] Goal: in `renamedTwice`
     ╭─[ goals/record-update.sw:13:3 ]
     │
  13 │   ?
-    │   ┬  
-    │   ╰── shape: Shape
-    │       newId: Text
-    │       ⊢ { shape | id = newId ++ "!" }.ref = shape.ref
-────╯
-[GOAL] Goal: in `renamedTwice`
-    ╭─[ goals/record-update.sw:17:3 ]
-    │
- 17 │   ?
     │   ┬  
     │   ╰── shape: Shape
     │       other: Shape
@@ -23,9 +23,9 @@ expression: output
     │       ⊢ { pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }
 ────╯
 [GOAL] Goal: in `paid`
-    ╭─[ goals/record-update.sw:21:3 ]
+    ╭─[ goals/record-update.sw:18:3 ]
     │
- 21 │   ?
+ 18 │   ?
     │   ┬  
     │   ╰── player: Player
     │       amount: Nat

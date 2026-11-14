@@ -12,21 +12,21 @@ expression: output
     │                                                            ⊢ ∃ (x1: Nat) => x1 < x
 ────╯
 [GOAL] Goal: in `samePoint`
-    ╭─[ goals/distinct-names.sw:15:43 ]
+    ╭─[ goals/distinct-names.sw:14:115 ]
     │
- 15 │   | { x = _, y = _ }, { x = _, y = _ } => ?
-    │                                           ┬  
-    │                                           ╰── x✝¹: Nat
-    │                                               y✝¹: Nat
-    │                                               x✝: Nat
-    │                                               h: x✝¹ = x✝
-    │                                               y✝: Nat
-    │                                               ⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }
+ 14 │ theorem samePoint ∀ (p q: Point) (h: p.x = q.x): p = q := match p, q with | { x = _, y = _ }, { x = _, y = _ } => ?
+    │                                                                                                                   ┬  
+    │                                                                                                                   ╰── x✝¹: Nat
+    │                                                                                                                       y✝¹: Nat
+    │                                                                                                                       x✝: Nat
+    │                                                                                                                       h: x✝¹ = x✝
+    │                                                                                                                       y✝: Nat
+    │                                                                                                                       ⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }
 ────╯
 [GOAL] Goal: in `symmetric`
-    ╭─[ goals/distinct-names.sw:25:45 ]
+    ╭─[ goals/distinct-names.sw:22:45 ]
     │
- 25 │   | Pair left1 right1, Pair left2 right2 => ?
+ 22 │   | Pair left1 right1, Pair left2 right2 => ?
     │                                             ┬  
     │                                             ╰── left1: Tree
     │                                                 right1: Tree

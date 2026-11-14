@@ -1,20 +1,20 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-MATCH-TOTAL] Warning: every value matches an arm, so this never gives `None`
-    ╭─[ accept/match-some-covers-every-value.sw:12:20 ]
-    │
- 12 │   scans.filterMap (match some
-    │                    ─────┬────  
-    │                         ╰────── the arms cover every case
-    │ 
-    │ Note: write `match` and `map` instead
-────╯
+   ╭─[ accept/match-some-covers-every-value.sw:9:61 ]
+   │
+ 9 │ def values (scans: List Scan): List Nat := scans.filterMap (match some
+   │                                                             ─────┬────  
+   │                                                                  ╰────── the arms cover every case
+   │ 
+   │ Note: write `match` and `map` instead
+───╯
 [W-MATCH-TOTAL] Warning: every value matches an arm, so this never gives `False`
-    ╭─[ accept/match-some-covers-every-value.sw:16:27 ]
+    ╭─[ accept/match-some-covers-every-value.sw:13:27 ]
     │
- 16 │ def always: Nat → Bool := matches | _ => True
+ 13 │ def always: Nat → Bool := matches | _ => True
     │                           ───┬───  
     │                              ╰───── the arms cover every case
     │ 

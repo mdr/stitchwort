@@ -3,18 +3,18 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-UNREACHABLE] Warning: this case can't happen
-    ╭─[ accept/match-as-written.sw:47:3 ]
+    ╭─[ accept/match-as-written.sw:48:3 ]
     │
- 47 │   | False => rfl
+ 48 │   | False => rfl
     │   ───────┬──────  
     │          ╰──────── here `big` is `isBig 20 = False`, that is `True = False`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-    ╭─[ accept/match-as-written.sw:45:57 ]
+    ╭─[ accept/match-as-written.sw:46:57 ]
     │
- 45 │ theorem computedAway: pick (isBig 20) = 1 := match big: isBig 20 with
+ 46 │ theorem computedAway: pick (isBig 20) = 1 := match big: isBig 20 with
     │                                                         ────┬───  
     │                                                             ╰───── looked for `isBig 20`
     │ 
@@ -25,9 +25,9 @@ expression: warnings
     │ Note 3: the search compares what terms compute to: write the expression as the goal shows it (or `rewrite` the goal to the form you want, or bind it with a `let` before the `match`)
 ────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-    ╭─[ accept/match-as-written.sw:82:64 ]
+    ╭─[ accept/match-as-written.sw:86:64 ]
     │
- 82 │ theorem vanishing ∀ (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
+ 86 │ theorem vanishing ∀ (n: Nat): keep 3 (isBig n) = 3 := match e: isBig n with
     │                                                                ───┬───  
     │                                                                   ╰───── looked for `isBig n`
     │ 

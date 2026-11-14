@@ -11,14 +11,14 @@ expression: output
    │                                                      ⊢ b = (if b then True else False)
 ───╯
 [GOAL] Goal: in `allTwo`
-    ╭─[ goals/bool-constant-branches.sw:11:71 ]
+    ╭─[ goals/bool-constant-branches.sw:11:63 ]
     │
- 11 │ theorem allTwo ∀ (b: Bool) (c: Bool): List.all [b, c] (x => x) = b := ?
-    │                                                                       ┬  
-    │                                                                       ╰── b: Bool
-    │                                                                           c: Bool
-    │                                                                           ⊢ [b, c].all (x => x) = b
-    │                                                                             computes to (b && c && True) = b
+ 11 │ theorem allTwo ∀ (b c: Bool): List.all [b, c] (x => x) = b := ?
+    │                                                               ┬  
+    │                                                               ╰── b: Bool
+    │                                                                   c: Bool
+    │                                                                   ⊢ [b, c].all (x => x) = b
+    │                                                                     computes to (b && c && True) = b
     │ 
     │ Note: this statement is false; a counterexample:
     │         b = True
@@ -28,14 +28,14 @@ expression: output
     │         right: True
 ────╯
 [GOAL] Goal: in `anyTwo`
-    ╭─[ goals/bool-constant-branches.sw:13:71 ]
+    ╭─[ goals/bool-constant-branches.sw:13:63 ]
     │
- 13 │ theorem anyTwo ∀ (b: Bool) (c: Bool): List.any [b, c] (x => x) = b := ?
-    │                                                                       ┬  
-    │                                                                       ╰── b: Bool
-    │                                                                           c: Bool
-    │                                                                           ⊢ [b, c].any (x => x) = b
-    │                                                                             computes to (b || c || False) = b
+ 13 │ theorem anyTwo ∀ (b c: Bool): List.any [b, c] (x => x) = b := ?
+    │                                                               ┬  
+    │                                                               ╰── b: Bool
+    │                                                                   c: Bool
+    │                                                                   ⊢ [b, c].any (x => x) = b
+    │                                                                     computes to (b || c || False) = b
     │ 
     │ Note: this statement is false; a counterexample:
     │         b = False

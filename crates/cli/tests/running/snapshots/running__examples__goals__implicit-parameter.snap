@@ -12,13 +12,13 @@ expression: output
    │                                         ⊢ a
 ───╯
 [GOAL] Goal: in `symmetric`
-   ╭─[ goals/implicit-parameter.sw:4:66 ]
+   ╭─[ goals/implicit-parameter.sw:4:61 ]
    │
- 4 │ theorem symmetric ∀ [a: Type] (x: a) (y: a) (h: x = y): y = x := ?
-   │                                                                  ┬  
-   │                                                                  ╰── a: Type
-   │                                                                      x: a
-   │                                                                      y: a
-   │                                                                      h: x = y
-   │                                                                      ⊢ y = x
+ 4 │ theorem symmetric ∀ [a: Type] (x y: a) (h: x = y): y = x := ?
+   │                                                             ┬  
+   │                                                             ╰── a: Type
+   │                                                                 x: a
+   │                                                                 y: a
+   │                                                                 h: x = y
+   │                                                                 ⊢ y = x
 ───╯
