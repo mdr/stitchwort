@@ -1,5 +1,5 @@
 {
-  "next": 3228,
+  "next": 3229,
   "tickets": [
     {
       "id": 47,
@@ -35313,6 +35313,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Expected: 60 min (Sonnet).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3228,
+      "title": "[Fable] Paper, second analysis of the formatter written in Stitchwort (SW-3145, after D3561's wait is over: the Rust formatter now runs on the lossless tree and the compiler's tree is lowered from it, SW-3158 to SW-3160): a plan to build it in Stitchwort, formatting byte-identically to stitchwort fmt; how its parsing should be built now that the Rust parser builds only a lossless tree (marks) and the formatter prints from it; and how this tree and parser could be a first step towards a self-hosted Stitchwort parser. Paper: docs/proposals/self-hosted-fmt.md, revised",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Expected: 2 h (Fable paper lane). Matt, 14 Nov 2026: 'now that we have updated the Rust formatter, we should consider that original idea of can we actually implement the formatter in Stitchwort ... a second Fable paper lane analysis ... formatting things the same ... revisit the question of how it's built in terms of parsing ... if Stitchwort were to ever become self-hosting, maybe this full tree could be a first step in the parser.'",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
