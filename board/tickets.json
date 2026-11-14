@@ -35439,7 +35439,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]), D3590 (keep text parsers under Parse. [rec keep]). Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (first six).",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]) open. D3590 (keep text parsers under Parse.): kept, orchestrator's call (naming that changes nothing users write). Findings filed: SW-3248..SW-3253.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
