@@ -35176,12 +35176,12 @@
     {
       "id": 3219,
       "title": "[Sonnet] Debug-build-only failures (pass in release, predate the lowering): reject examples parser-count-differs-from-lemma (loses notes) and reads-nested-binds-unknown-field (E-RESOURCE); nesting tests long_list_literals_with_a_small_guard and nested_applications_under_the_playground_guard. Tune them for debug stack frames or mark them release-only (SW-3212 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Expected: 60 min (Sonnet).",
+      "body": "Expected: 60 min (Sonnet).\n\nNotes (lane): nesting guards scaled x6 in debug (measured: x4 too small, x5 just enough); reject examples `check` now uses Session::for_stack(STACK) instead of default (2 MiB-thread) limits on a 16 MiB thread, which fixed both reject examples in debug. Passing in debug and release. Commit 9f71b1a94.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
