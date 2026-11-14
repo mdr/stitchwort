@@ -2878,7 +2878,8 @@ fn comment_folds(text: &str) -> Vec<FoldingRange> {
             line += text[at..start].bytes().filter(|&b| b == b'\n').count() as u32;
             at = start;
             run = Some(match run {
-                Some((first, last)) if last + 1 == line => (first, line),
+                // Two comments on one line belong to the same run.
+                Some((first, last)) if line <= last + 1 => (first, line),
                 Some((first, last)) => {
                     push_run(&mut folds, (first, last));
                     (line, line)
