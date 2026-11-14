@@ -34696,15 +34696,17 @@
     {
       "id": 3187,
       "title": "[Sonnet] New formatter: the last long code lines: a call with a bracketed argument whose leading plain arguments already pass 120 (Day19 Parse.declinesLinesAtBlank, 2021 Day16 operatorOfWellFormed) should fill that prefix as D3569 does; lambda parameter lists can't break (one 292-character line in games/rogue's property proof) (SW-3186 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 75 min (Sonnet).\n\nLane notes (14 Nov): call prefix of 3+ plain items before a non-plain argument fills at 4 when it does not fit, later arguments then at 4 (D3569); lambda parameters fill at 4 when the lambda goes below (S22), not in hugs. Lines over 120: 19 -> 16, all text literals. Reformatted 4 files. Two unit tests.\n",
+      "body": "Expected: 75 min (Sonnet).\nModel result: Sonnet, worked, 23 min (est. 75)",
       "created": "2026-11-13",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "445b351a973ea05b9ab731e464f99de7b8c2531b"
+      ]
     },
     {
       "id": 3188,
@@ -34816,15 +34818,17 @@
     {
       "id": 3195,
       "title": "[DeepSeek] New formatter: a trailing comma in an attribute list prints as '@[js.tag \"kind\", js.other \"x\", ]' (crates/fmt goldens attributes.after.sw); drop the trailing comma or keep it attached (SW-3194 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 30 min (DeepSeek).",
+      "body": "Expected: 30 min (DeepSeek).\nModel result: DeepSeek, worked, ~8 min (est. 30)",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "445b351a973ea05b9ab731e464f99de7b8c2531b"
+      ]
     },
     {
       "id": 3196,
@@ -34858,15 +34862,17 @@
     {
       "id": 3198,
       "title": "[DeepSeek] Formatter fuzzer: read FUZZ_SEED (decimal or 0x…) like the kernel fuzzer, print the seed, and pass SEED through task fuzz:fmt; today SEED is a const in crates/fmt/tests/it/fuzz.rs, so compute runs can't vary it (Overmind, 14 Nov)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 20 min (DeepSeek).",
+      "body": "Expected: 20 min (DeepSeek).\nModel result: DeepSeek, worked, ~8 min (est. 20)",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "445b351a973ea05b9ab731e464f99de7b8c2531b"
+      ]
     },
     {
       "id": 3199,
