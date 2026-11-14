@@ -38,6 +38,7 @@ const PROBLEMS: u8 = 1;
 const REFUSED: u8 = 2;
 const APPLIED_WITH_PROBLEMS: u8 = 3;
 
+#[inline(never)]
 pub(super) fn rename(args: &Args) -> ExitCode {
     ExitCode::from(run(args))
 }
