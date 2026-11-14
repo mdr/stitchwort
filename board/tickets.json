@@ -36122,15 +36122,17 @@
     {
       "id": 3286,
       "title": "[DeepSeek] Fuzz tasks: task fuzz:syntax / fuzz:fmt ignore FUZZ_CASES from the environment (CASES unset sets the default); build only the package's tests (-p) not --workspace; add a way to dump one case's input (FUZZ_DUMP=N) (SW-3278 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Found in SW-3278. Done with SW-3290 in one DeepSeek run: env FUZZ_CASES/FUZZ_SEED count when CASES/SEED aren't given; fuzz tasks build -p only; FUZZ_DUMP=path (each case written before parsing) and FUZZ_CASE=index (one case, printed) in both fuzzers; fmt's FUZZ_ONLY file filter kept. Model result: DeepSeek, needed fixes (reused fmt's FUZZ_ONLY name, breaking the file filter; renamed FUZZ_CASE on review), ~30 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e2915c6a6a10b63629c879e3c75cbbc34aa57628"
+      ]
     },
     {
       "id": 3287,
@@ -36176,7 +36178,7 @@
     {
       "id": 3290,
       "title": "[DeepSeek] Syntax fuzzer: permanent FUZZ_DUMP option writing each case to a file before parsing, so a killed run leaves the culprit (with SW-3286)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36184,7 +36186,9 @@
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e2915c6a6a10b63629c879e3c75cbbc34aa57628"
+      ]
     },
     {
       "id": 3291,
