@@ -34382,15 +34382,17 @@
     {
       "id": 3164,
       "title": "[DeepSeek] fmt splits a multi-line record update '{ position |' across two lines; keep '{ r |' together (SW-3158 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 40 min (DeepSeek).",
+      "body": "Expected: 40 min (DeepSeek).\nModel result: DeepSeek, worked, ~25 min (est. 40). The plain split was already fixed by the tree printer; the remaining case was a trailing comment on the base.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "90cf0cf3996e5f114a5edcb6e8ec9568030dec18"
+      ]
     },
     {
       "id": 3165,
