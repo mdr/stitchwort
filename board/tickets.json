@@ -35041,15 +35041,18 @@
     {
       "id": 3210,
       "title": "[Opus] Lowering L3 (docs/proposals/syntax-tree-lowering.md): Binding, sections, blocks, lambdas, if, forall/exists",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).\n\nProgress (lane, 14 Nov 10:48, about 20 min of the 7 h): done, in review.\n- Lowered: Block (LocalDefs grouping, local def/theorem with attributes), Let, LetExpr, Seq, Lambda (plain, typed, implicit, auto, pattern and typed-pattern parameters), Forall, Exists, If, ClauseLambda (match / match some / matches, via L4's arm_parts), method sections (alone, head of an application including the in-place rewrite and the `C { … }` quirk, widened over the expression they start, piped), OperatorSection.\n- Moved into lower/ unchanged: Stmt, bind_let, exists_chain, library_var (lower/binding.rs); sections::operation, widen, fill_receiver, leads_with_section and helpers (lower/sections.rs). Pulled out of the parser and shared: lambda_of, clause_lambda_of, forall_of, lines (a block's fold), clause_some, clause_true.\n- Meter (dev tree --lower --spans std aoc/src games examples): before 15,079 of 27,583; after L3 alone 20,178, 0 differences; after merging L4, 27,581, 0 differences (2 left: Rewrite without its target, L4's). One-line expressions: 24,835 to 29,636 lowered, 0 unsupported.\n- Tests: new binding_and_sections_lower_as_parsed; deep_nesting test gains lambda, if, forall and section shapes; 24 parser tests over blocks/lambdas/sections/quantifiers and the L1/L2 lowering tests pass. Recovery gaps (R3, R1) not done, per SW-3160.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "d2fa567a5",
+        "ab8cc8e8f"
+      ]
     },
     {
       "id": 3211,
