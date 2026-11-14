@@ -5,7 +5,7 @@
 //! failures are reproducible. `FUZZ_CASES` and `FUZZ_SEED` (decimal or
 //! `0x...`) change the count and the seed.
 //!
-//! `FUZZ_ONLY=<index>` runs only the case with that 0-based index, generating
+//! `FUZZ_CASE=<index>` runs only the case with that 0-based index, generating
 //! the cases before it so that its input is the same as in a full run, and
 //! prints that input on standard output. `FUZZ_DUMP=<path>` writes each case's
 //! input to that file (overwriting it) before the case is parsed, so a run
@@ -247,7 +247,7 @@ fn dump_path() -> Option<PathBuf> {
 fn the_lexer_and_parser_never_panic() {
     let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
     let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
-    let only = env_number("FUZZ_ONLY");
+    let only = env_number("FUZZ_CASE");
     match only {
         Some(only) => eprintln!("fuzz syntax: case {only} (0-based), seed {seed:#x}"),
         None => eprintln!("fuzz syntax: {cases} cases, seed {seed:#x}"),

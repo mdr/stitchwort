@@ -444,8 +444,8 @@ tasks:
   # The fuzzers run in the release profile, with the tests' features and
   # memory guard, and show their output. They also run in the tiers at a
   # fixed small case count; these tasks run them at a count and seed of your
-  # choosing. In fuzz:syntax and fuzz:fmt, CASES, SEED, ONLY and DUMP are
-  # passed on only when given, so FUZZ_CASES, FUZZ_SEED, FUZZ_ONLY and
+  # choosing. In fuzz:syntax and fuzz:fmt, CASES, SEED, CASE and DUMP are
+  # passed on only when given, so FUZZ_CASES, FUZZ_SEED, FUZZ_CASE and
   # FUZZ_DUMP from the environment also apply (a given CASES or SEED wins
   # over the environment). The other fuzzers pass Task's CASES, SEED and
   # CORPUS on as FUZZ_CASES, FUZZ_SEED and FUZZ_CORPUS (unset: the test's
@@ -481,14 +481,14 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release --workspace --no-capture -E ''binary(soundness_fuzz)'' {{.CLI_ARGS}}'
 
   fuzz:syntax:
-    desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000 SEED=0x1234; FUZZ_ONLY=5 prints one case, FUZZ_DUMP=PATH saves each case before parsing)'
+    desc: 'Lexer and parser fuzzer, release (task fuzz:syntax CASES=100000 SEED=0x1234; FUZZ_CASE=5 prints one case, FUZZ_DUMP=PATH saves each case before parsing)'
     summary: |
       Runs crates/syntax/tests/it/fuzz.rs, 20,000 cases from a fixed seed by
       default. SEED is decimal or 0x...; the run prints the seed and case
       count, and a failure names the seed and case. CASES and SEED are passed
       on only when given, so `task fuzz:syntax CASES=2000` and
       `FUZZ_CASES=2000 task fuzz:syntax` both run 2,000 cases (CASES wins when
-      both are set). FUZZ_ONLY=<index> (or ONLY=<index>) runs only that
+      both are set). FUZZ_CASE=<index> (or CASE=<index>) runs only that
       0-based case, printing its input. FUZZ_DUMP=<path> (or DUMP=<path>)
       writes each case's input to that file before parsing it, overwriting it,
       so a run killed for memory or time leaves its last case behind.
@@ -497,28 +497,29 @@ tasks:
       - |
         if [ -n '{{.CASES}}' ]; then export FUZZ_CASES='{{.CASES}}'; fi
         if [ -n '{{.SEED}}' ]; then export FUZZ_SEED='{{.SEED}}'; fi
-        if [ -n '{{.ONLY}}' ]; then export FUZZ_ONLY='{{.ONLY}}'; fi
+        if [ -n '{{.CASE}}' ]; then export FUZZ_CASE='{{.CASE}}'; fi
         if [ -n '{{.DUMP}}' ]; then export FUZZ_DUMP='{{.DUMP}}'; fi
         {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release -p stitchwort-syntax --no-capture -E 'package(stitchwort-syntax) & binary(it) & test(/^fuzz::/)' {{.CLI_ARGS}}
 
   fuzz:fmt:
-    desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000 SEED=0x1234; FUZZ_ONLY=5 prints one case, FUZZ_DUMP=PATH saves each case before formatting)'
+    desc: 'Formatter fuzzer, release (task fuzz:fmt CASES=5000 SEED=0x1234; FUZZ_CASE=5 prints one case, FUZZ_ONLY=NAME mutates one example file, FUZZ_DUMP=PATH saves each case)'
     summary: |
       Runs crates/fmt/tests/it/fuzz.rs, 50,000 cases from a fixed seed by
       default. SEED is decimal or 0x...; the run prints the seed and case
       count, and a failure names the seed and case. CASES and SEED are passed
       on only when given, so `task fuzz:fmt CASES=200` and
       `FUZZ_CASES=200 task fuzz:fmt` both run 200 cases (CASES wins when both
-      are set). FUZZ_ONLY=<index> (or ONLY=<index>) runs only that 0-based
-      case, printing its input. FUZZ_DUMP=<path> (or DUMP=<path>) writes each
-      case's input to that file before formatting it, overwriting it, so a run
-      killed for memory or time leaves its last case behind. Builds only
-      stitchwort-fmt's tests.
+      are set). FUZZ_CASE=<index> (or CASE=<index>) runs only that 0-based
+      case, printing its input. FUZZ_ONLY=<substring> mutates only example
+      files whose names contain it, digging deeper into one file.
+      FUZZ_DUMP=<path> (or DUMP=<path>) writes each case's input to that file
+      before formatting it, overwriting it, so a run killed for memory or time
+      leaves its last case behind. Builds only stitchwort-fmt's tests.
     cmds:
       - |
         if [ -n '{{.CASES}}' ]; then export FUZZ_CASES='{{.CASES}}'; fi
         if [ -n '{{.SEED}}' ]; then export FUZZ_SEED='{{.SEED}}'; fi
-        if [ -n '{{.ONLY}}' ]; then export FUZZ_ONLY='{{.ONLY}}'; fi
+        if [ -n '{{.CASE}}' ]; then export FUZZ_CASE='{{.CASE}}'; fi
         if [ -n '{{.DUMP}}' ]; then export FUZZ_DUMP='{{.DUMP}}'; fi
         {{.GUARD}} --cap-gb {{.MEM_CAP_BROAD}} -- cargo nextest run --release -p stitchwort-fmt --no-capture -E 'package(stitchwort-fmt) & binary(it) & test(/^fuzz::/)' {{.CLI_ARGS}}
 

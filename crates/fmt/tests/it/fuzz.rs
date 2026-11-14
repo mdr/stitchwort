@@ -7,7 +7,9 @@
 //! defaults to a fixed one; `FUZZ_CASES` and `FUZZ_SEED` (decimal or `0x...`)
 //! change the count and the seed.
 //!
-//! `FUZZ_ONLY=<index>` runs only the case with that 0-based index, generating
+//! `FUZZ_ONLY` (a substring of a file name) mutates only matching example
+//! programs, which digs deeper into one file than the whole corpus does.
+//! `FUZZ_CASE=<index>` runs only the case with that 0-based index, generating
 //! the cases before it so that its input is the same as in a full run, and
 //! prints that input on standard output. `FUZZ_DUMP=<path>` writes each case's
 //! input to that file (overwriting it) before the case is formatted, so a run
@@ -21,7 +23,9 @@ use std::path::{Path, PathBuf};
 use stitchwort_fmt::{Error, format};
 
 /// Each case is one format and one re-format. 50,000 keeps the release run
-/// well under ten seconds; set `FUZZ_CASES` for a longer run.
+/// well under ten seconds; set `FUZZ_CASES` for a longer run, and `FUZZ_ONLY`
+/// (a substring of a file name) to mutate only matching example programs,
+/// which digs deeper into one file than the whole corpus does.
 const CASES: u64 = 50_000;
 const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
 /// A mutated example can grow a lot when ranges are duplicated; the parser
@@ -133,6 +137,11 @@ fn read_corpus() -> Vec<String> {
         // produces the same cases.
         files.sort();
         for file in files {
+            if let Ok(only) = std::env::var("FUZZ_ONLY")
+                && !file.to_string_lossy().contains(&only)
+            {
+                continue;
+            }
             texts.push(
                 std::fs::read_to_string(&file)
                     .unwrap_or_else(|e| panic!("can't read {}: {e}", file.display())),
@@ -250,7 +259,7 @@ fn dump_path() -> Option<PathBuf> {
 fn the_formatter_never_panics_and_is_idempotent() {
     let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
     let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
-    let only = env_number("FUZZ_ONLY");
+    let only = env_number("FUZZ_CASE");
     match only {
         Some(only) => eprintln!("fuzz fmt: case {only} (0-based), seed {seed:#x}"),
         None => eprintln!("fuzz fmt: {cases} cases, seed {seed:#x}"),
