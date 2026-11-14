@@ -1971,18 +1971,17 @@ impl PureFirst {
 }
 
 /// [`infer_inner`] once it's known that `expr` isn't run as a whole.
+///
+/// A nested application or lambda recurses through here at every level,
+/// so the arms with bodies of their own are out of line: this frame was
+/// 2.6 KiB, sized for every arm, on each level of 2021 day 6's proofs
+/// (SW-3180).
 pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
     if let Some(logic) = crate::logic::classify(cx, expr) {
         return crate::logic::infer(cx, logic);
     }
     match expr {
-        Expr::Unit(_) => {
-            let unit = builtin_data(cx, Builtin::UnitType)?;
-            Ok((
-                Term::Ctor(unit, 0, Vec::new()),
-                Value::Data(unit, Vec::new().into()),
-            ))
-        }
+        Expr::Unit(_) => infer_unit(cx),
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
         Expr::Match { .. } => crate::matching::infer_match(cx, expr),
         Expr::Reify { .. } => crate::reify::infer_reify(cx, expr),
@@ -1993,10 +1992,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Cases { .. } => Err(crate::cases::no_goal(cx, expr)),
         Expr::Ring { .. } => Err(crate::ring::no_goal(cx, expr)),
         Expr::LocalDefs { defs, body, .. } => crate::local::around(cx, defs, |cx| infer(cx, body)),
-        Expr::Effect(row, ty) => {
-            let (term, sort) = effects::effect_type(cx, row, ty)?;
-            Ok((term, Value::Sort(sort)))
-        }
+        Expr::Effect(row, ty) => infer_effect(cx, row, ty),
         Expr::Let {
             name,
             ty,
@@ -2007,14 +2003,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Seq(..) | Expr::Handle { .. } => {
             unreachable!("these may perform operations, so they're handled above")
         }
-        Expr::Var(_) | Expr::App(..) => {
-            if let Some((call, args)) = finished_call(cx, expr) {
-                let head = infer(cx, call)?;
-                return apply_args(cx, head, &args);
-            }
-            let (head, args) = spine(expr);
-            infer_app(cx, head, &args)
-        }
+        Expr::Var(_) | Expr::App(..) => infer_call(cx, expr),
         Expr::Bracketed(call, _) => infer(cx, call),
         Expr::Interpolated(text, _) => {
             let (term, ty) = infer_value(cx, text)?;
@@ -2022,243 +2011,33 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             Ok((term, ty))
         }
         Expr::Pipe(value, f) => crate::pipe::infer_pipe(cx, value, f),
-        Expr::NamedArg(_, _, _, Bracket::Square) => Err(cx.error(
-            "E-PARSE",
-            "a named implicit argument must follow a function",
-            "write `f [x := …]`",
-        )),
-        Expr::NamedArg(_, _, _, Bracket::Round) => Err(cx.error(
-            "E-PARSE",
-            "a named argument must follow a function",
-            "write `f (x := …)`",
-        )),
+        Expr::NamedArg(..) | Expr::Spread(..) => Err(out_of_place(cx, expr)),
         // `-k` with nothing expected is an `Int`.
         Expr::Neg(..) => crate::numbers::group(cx, expr, None),
-        // A number with nothing expected waits for its type as a checked
-        // one does (K4, D2126): its type is a new unknown, which a later use
-        // may say, and which is `Nat` by default. The unknown mentions no
-        // variable: a numeral's type is `Nat`, `Int`, `Float`, `SafeNat`,
-        // `SafeInt` or `Fin n`, and only `Fin n` could, which an inferred
-        // literal never was (it was `Nat` at once). Applied to the variables
-        // in scope, a `match` on one of them would substitute into it, and
-        // `?0 (Node x kids) = Nat` can't be solved.
-        Expr::Num(n, _) => {
-            let ty = Value::Neutral(Head::Meta(cx.metas().new_meta(cx.span)), Default::default());
-            let term = crate::numbers::check_literal(cx, n, false, &ty)?;
-            Ok((term, ty))
-        }
+        Expr::Num(n, _) => infer_number(cx, n),
         Expr::Float(text, _) => crate::numbers::infer_decimal(cx, text),
-        Expr::Char(c, _) => {
-            let char_data = builtin_data(cx, Builtin::Char)?;
-            Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new().into())))
-        }
-        // `"ab"` is `MkText ['a', 'b']`: its characters are one compact list
-        // when the prelude's `List` and `Char` are registered for it
-        // (`stitchwort_core::chars`), and otherwise cons cells.
-        Expr::Str(s, _) => {
-            let (text, mk_text) = builtin_ctor(cx, Builtin::MkText)?;
-            let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
-            let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
-            let chars = match cx.g().env.builtins().compact_literals() {
-                Some(text_rep) => {
-                    let buffer: std::rc::Rc<[char]> = s.chars().collect();
-                    compact::term(text_rep, &Chars::whole(buffer))
-                }
-                None => {
-                    let mut chars = Term::Ctor(list, nil, Vec::new());
-                    for c in s.chars().rev() {
-                        chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
-                    }
-                    chars
-                }
-            };
-            Ok((
-                Term::ctor(text, mk_text, vec![chars]),
-                Value::Data(text, Vec::new().into()),
-            ))
-        }
-        Expr::Include(path, span) => {
-            let text = cx.e.read_include(path, *span)?;
-            infer(cx, &Expr::Str(text, *span))
-        }
+        Expr::Char(c, _) => infer_char(cx, *c),
+        Expr::Str(s, _) => infer_text(cx, s),
+        Expr::Include(path, span) => infer_include(cx, path, *span),
         Expr::Binary(BinOp::Append, a, b) => append(cx, a, b),
         Expr::Binary(op @ (BinOp::Range | BinOp::RangeThrough), a, b) => range(cx, *op, a, b),
-        // `Type MAX_LEVEL` is the top universe: nothing for it to live in
-        // (SW-902).
-        Expr::Type(i, span) => match Sort::Type(*i).succ() {
-            Some(above) => Ok((Term::Sort(Sort::Type(*i)), Value::Sort(above))),
-            None => Err(Diagnostic::error("E-UNIVERSE", format!("`Type {i}` has no type"))
-                .with_label(
-                    *span,
-                    format!("`Type {MAX_LEVEL}` is the largest universe, and no universe holds it"),
-                )
-                .with_note(format!(
-                    "`Type n` can be used as a term for `n` up to {}: every term needs a type, and `Type n : Type n` would make the logic inconsistent",
-                    MAX_LEVEL - 1
-                ))),
-        },
+        Expr::Type(i, span) => infer_universe(*i, *span),
         Expr::Prop(_) => Ok((Term::Sort(Sort::Prop), Value::Sort(Sort::Type(0)))),
-        Expr::Hole(_) => {
-            let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty)?;
-            Ok((cx.fresh_meta_of(&ty), ty))
-        }
-        // A goal where nothing says its type: that's unknown too, and
-        // printed as such if nothing works it out.
-        Expr::Goal(_) => {
-            let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty)?;
-            Ok((crate::goals::hole(cx, &ty), ty))
-        }
+        Expr::Hole(_) | Expr::Goal(_) => infer_hole(cx, expr),
         Expr::Lam(..) if expr.section_name().is_some() => infer_section(cx, expr),
         // `x => y => b` is inferred as `x y => b` is (SW-910): one function
         // type for all its parameters, so the inner lambda is checked
         // against a function type, not an unknown.
-        Expr::Lam(..) => {
-            let (names, _) = curried_lambda(expr);
-            let names: Vec<Name> = names.iter().map(|name| name.text.as_str().into()).collect();
-            infer_lambda(cx, expr, &names)
-        }
-        // `(x: A) => body`, `[a: Type] => body`, `[auto h: P] => body`:
-        // the parameter's type is written, so the function's type follows
-        // from the body's, with the parameter's mode (§4.3 of
-        // docs/proposals/lambda-syntax.md).
-        Expr::TypedLam(name, mode, ann, body, _) => {
-            let icit = mode_icit(*mode);
-            let (dom, _) = check_type(cx, ann)?;
-            let dom = cx.eval(&dom)?;
-            let (row, row_value) = inferred_row(cx)?;
-            let mark = cx.mark();
-            cx.bind(&name.text, dom.clone());
-            // A body that may perform abilities is checked against a
-            // computation whose row it works out.
-            let inferred = effects::may_perform(cx, body).and_then(|performs| {
-                if performs {
-                    let result = cx.fresh_meta();
-                    let cod = cx.eval(&inferred_comp(cx, &row_value, result)?)?;
-                    let term = check(cx, body, &cod)?;
-                    Ok((term, cx.quote_folded(&cod)?, true))
-                } else {
-                    let (term, ty) = infer(cx, body)?;
-                    let (term, ty) = insert(cx, term, ty)?;
-                    Ok((term, cx.quote_folded(&ty)?, false))
-                }
-            });
-            cx.reset(mark);
-            let (body, cod, performs) = inferred?;
-            if performs {
-                settle_inferred_row(cx, &row, &row_value)?;
-            }
-            let x: Name = name.text.as_str().into();
-            let lam = Term::Lam(x.clone(), icit, Rc::new(body));
-            let cod = Closure {
-                env: cx.env.as_slice().into(),
-                body: Rc::new(cod),
-            };
-            let pi = Value::Pi(x, icit, Rc::new(dom).into(), cod);
-            // Annotated for the kernel, which doesn't infer a lambda's type.
-            // For an implicit or auto lambda, this shape (an annotation
-            // straight around the lambda) is what tells [`insert`] not to
-            // apply it to unknowns.
-            let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote_folded(&pi)?));
-            Ok((ann, pi))
-        }
-        Expr::Pi {
-            names,
-            implicit,
-            auto,
-            dom,
-            cod,
-            span,
-        } => {
-            let icit = match (implicit, auto) {
-                (_, true) => Icit::Auto,
-                (true, false) => Icit::Implicit,
-                (false, false) => Icit::Explicit,
-            };
-            let dom_end = dom.span().end;
-            let (dom, s1) = check_type(cx, dom)?;
-            let mark = cx.mark();
-            for (k, name) in names.iter().enumerate() {
-                let shifted = Rc::new(dom.shift(&cx.g(), k, 0)?);
-                let ty = cx.eval(&shifted)?;
-                cx.bind(&name.text, ty);
-                // The type as written, so dot notation on this variable
-                // starts from an alias (`bank: Bank`), as for a parameter.
-                cx.set_written(crate::dot::Written::Here(shifted));
-            }
-            let result = check_type(cx, cod);
-            cx.reset(mark);
-            let (mut term, s2) = result?;
-            crate::arrow_forall::note(cx, names, *implicit || *auto, dom_end, cod, s1, s2, *span);
-            for (k, name) in names.iter().enumerate().rev() {
-                term = Term::Pi(
-                    name.text.as_str().into(),
-                    icit,
-                    Rc::new(dom.shift(&cx.g(), k, 0)?),
-                    Rc::new(term),
-                );
-            }
-            Ok((term, Value::Sort(Sort::pi(s1, s2))))
-        }
-        Expr::Arrow(a, b) => {
-            let (a, s1) = check_type(cx, a)?;
-            let mark = cx.mark();
-            let a_value = cx.eval(&a)?;
-            cx.bind_hidden("_".into(), a_value);
-            let result = check_type(cx, b);
-            cx.reset(mark);
-            let (b, s2) = result?;
-            Ok((
-                Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b)),
-                Value::Sort(Sort::pi(s1, s2)),
-            ))
-        }
+        Expr::Lam(..) => infer_curried_lambda(cx, expr),
+        Expr::TypedLam(name, mode, ann, body, _) => infer_typed_lambda(cx, name, *mode, ann, body),
+        Expr::Pi { .. } => infer_pi(cx, expr),
+        Expr::Arrow(a, b) => infer_arrow(cx, a, b),
         // `x in c`: a proposition, by the type of `c`.
         Expr::Binary(BinOp::In(op), a, b) => crate::membership::infer_member(cx, *op, a, b),
         // Arithmetic and comparisons: typed a group at a time.
         Expr::Binary(..) => crate::numbers::group(cx, expr, None),
-        Expr::If {
-            binder,
-            cond,
-            then,
-            otherwise,
-            ..
-        } => {
-            // A fresh unknown for the type is right for data. For proofs the
-            // branches solve it with a proposition, where a `Type` is
-            // expected (an `E-UNIVERSE` raised later, by whoever uses the
-            // type), so that outcome is undone and retried with the
-            // branches' own proposition. Data takes the first path only.
-            let snapshot = crate::undo::Snapshot::take(cx);
-            let ty = cx.fresh_meta();
-            let ty = cx.eval(&ty)?;
-            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
-            if crate::omega::is_prop(cx, &ty)? != Some(true) {
-                return Ok((term, ty));
-            }
-            snapshot.restore(cx);
-            match proof_branch_type(cx, then, otherwise)? {
-                Some(ty) => {
-                    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
-                    Ok((term, ty))
-                }
-                // Not inferable on its own: left as it was.
-                None => {
-                    let ty = cx.fresh_meta();
-                    let ty = cx.eval(&ty)?;
-                    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
-                    Ok((term, ty))
-                }
-            }
-        }
-        Expr::Ann(e, ty, _) => {
-            let (ty, _) = check_type(cx, ty)?;
-            let ty_value = cx.eval(&ty)?;
-            let expected = crate::reading::here_as_written(cx, &ty, &ty_value)?;
-            let e = check(cx, e, &expected)?;
-            Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
-        }
+        Expr::If { .. } => infer_if(cx, expr),
+        Expr::Ann(e, ty, _) => infer_annotated(cx, e, ty),
         Expr::Record {
             base: None, fields, ..
         } => records::infer_literal(cx, fields),
@@ -2269,34 +2048,358 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         } => records::infer_update(cx, base, fields),
         Expr::CtorFields {
             ctor, fields, span, ..
-        } => {
-            match records::ctor_fields(cx, ctor, fields, *span, None)? {
-                records::Construction::Positional(positional) => infer_inner(cx, &positional),
-                records::Construction::Argument(positional, hint) => {
-                    infer_inner(cx, &positional).map_err(|e| match &hint {
-                        Some(hint) => hint.apply(e),
-                        None => e,
-                    })
-                }
-                records::Construction::Defaults(d, c) => {
-                    crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
-                }
-            }
-        }
+        } => infer_ctor_fields(cx, ctor, fields, *span),
         Expr::Field(e, field) => crate::dot::infer_call(cx, e, field, &[]),
-        Expr::Spread(..) => Err(cx.error(
+        Expr::List(items, _) => infer_list(cx, expr, items),
+    }
+}
+
+/// [`infer_value`] of a name or an application.
+fn infer_call(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    if let Some((call, args)) = finished_call(cx, expr) {
+        let head = infer(cx, call)?;
+        return apply_args(cx, head, &args);
+    }
+    let (head, args) = spine(expr);
+    infer_app(cx, head, &args)
+}
+
+/// [`infer_value`] of an effect type.
+#[inline(never)]
+fn infer_effect(
+    cx: &mut Ctx,
+    row: &stitchwort_syntax::ast::Row,
+    ty: &Expr,
+) -> Result<(Term, Value)> {
+    let (term, sort) = effects::effect_type(cx, row, ty)?;
+    Ok((term, Value::Sort(sort)))
+}
+
+/// [`infer_value`] of an included file: its text.
+#[inline(never)]
+fn infer_include(cx: &mut Ctx, path: &str, span: Span) -> Result<(Term, Value)> {
+    let text = cx.e.read_include(path, span)?;
+    infer(cx, &Expr::Str(text, span))
+}
+
+/// [`infer_value`] of `()`: the unit value.
+#[inline(never)]
+fn infer_unit(cx: &mut Ctx) -> Result<(Term, Value)> {
+    let unit = builtin_data(cx, Builtin::UnitType)?;
+    Ok((
+        Term::Ctor(unit, 0, Vec::new()),
+        Value::Data(unit, Vec::new().into()),
+    ))
+}
+
+/// The error for a named argument or a `..` spread where
+/// [`infer_value`] finds one: outside an application or a list.
+#[cold]
+#[inline(never)]
+fn out_of_place(cx: &Ctx, expr: &Expr) -> Diagnostic {
+    match expr {
+        Expr::NamedArg(_, _, _, Bracket::Square) => cx.error(
+            "E-PARSE",
+            "a named implicit argument must follow a function",
+            "write `f [x := …]`",
+        ),
+        Expr::NamedArg(_, _, _, Bracket::Round) => cx.error(
+            "E-PARSE",
+            "a named argument must follow a function",
+            "write `f (x := …)`",
+        ),
+        Expr::Spread(..) => cx.error(
             "E-PARSE",
             "a `..` spread outside a list",
             "`..xs` joins a list into a list literal: write `[x, ..xs]`",
-        )),
-        Expr::List(items, _) => {
-            warn_range_in_brackets(cx, items);
-            let list = builtin_data(cx, Builtin::List)?;
-            let ty = Value::Data(list, fresh_telescope(cx, cx.g().data(list).params())?.into());
-            let term = check(cx, expr, &ty)?;
-            Ok((annotate(cx, term, &ty)?, ty))
+        ),
+        _ => unreachable!("only named arguments and spreads are out of place"),
+    }
+}
+
+/// [`infer_value`] of a number. With nothing expected it waits for its
+/// type as a checked one does (K4, D2126): its type is a new unknown,
+/// which a later use may say, and which is `Nat` by default. The unknown
+/// mentions no variable: a numeral's type is `Nat`, `Int`, `Float`,
+/// `SafeNat`, `SafeInt` or `Fin n`, and only `Fin n` could, which an
+/// inferred literal never was (it was `Nat` at once). Applied to the
+/// variables in scope, a `match` on one of them would substitute into it,
+/// and `?0 (Node x kids) = Nat` can't be solved.
+#[inline(never)]
+fn infer_number(cx: &mut Ctx, n: &num_bigint::BigUint) -> Result<(Term, Value)> {
+    let ty = Value::Neutral(Head::Meta(cx.metas().new_meta(cx.span)), Default::default());
+    let term = crate::numbers::check_literal(cx, n, false, &ty)?;
+    Ok((term, ty))
+}
+
+/// [`infer_value`] of a character.
+#[inline(never)]
+fn infer_char(cx: &mut Ctx, c: char) -> Result<(Term, Value)> {
+    let char_data = builtin_data(cx, Builtin::Char)?;
+    Ok((char_term(cx, c)?, Value::Data(char_data, Vec::new().into())))
+}
+
+/// [`infer_value`] of a text: `"ab"` is `MkText ['a', 'b']`, its
+/// characters one compact list when the prelude's `List` and `Char` are
+/// registered for it (`stitchwort_core::chars`), and otherwise cons cells.
+#[inline(never)]
+fn infer_text(cx: &mut Ctx, s: &str) -> Result<(Term, Value)> {
+    let (text, mk_text) = builtin_ctor(cx, Builtin::MkText)?;
+    let (list, nil) = builtin_ctor(cx, Builtin::Nil)?;
+    let (_, cons) = builtin_ctor(cx, Builtin::Cons)?;
+    let chars = match cx.g().env.builtins().compact_literals() {
+        Some(text_rep) => {
+            let buffer: std::rc::Rc<[char]> = s.chars().collect();
+            compact::term(text_rep, &Chars::whole(buffer))
+        }
+        None => {
+            let mut chars = Term::Ctor(list, nil, Vec::new());
+            for c in s.chars().rev() {
+                chars = Term::ctor(list, cons, vec![char_term(cx, c)?, chars]);
+            }
+            chars
+        }
+    };
+    Ok((
+        Term::ctor(text, mk_text, vec![chars]),
+        Value::Data(text, Vec::new().into()),
+    ))
+}
+
+/// [`infer_value`] of `Type i`. `Type MAX_LEVEL` is the top universe:
+/// nothing for it to live in (SW-902).
+#[inline(never)]
+fn infer_universe(i: u32, span: Span) -> Result<(Term, Value)> {
+    match Sort::Type(i).succ() {
+        Some(above) => Ok((Term::Sort(Sort::Type(i)), Value::Sort(above))),
+        None => Err(Diagnostic::error("E-UNIVERSE", format!("`Type {i}` has no type"))
+            .with_label(
+                span,
+                format!("`Type {MAX_LEVEL}` is the largest universe, and no universe holds it"),
+            )
+            .with_note(format!(
+                "`Type n` can be used as a term for `n` up to {}: every term needs a type, and `Type n : Type n` would make the logic inconsistent",
+                MAX_LEVEL - 1
+            ))),
+    }
+}
+
+/// [`infer_value`] of a hole, or of a goal, where nothing says its type:
+/// that's unknown too, and printed as such if nothing works it out.
+#[inline(never)]
+fn infer_hole(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let ty = cx.fresh_meta();
+    let ty = cx.eval(&ty)?;
+    match expr {
+        Expr::Hole(_) => Ok((cx.fresh_meta_of(&ty), ty)),
+        _ => Ok((crate::goals::hole(cx, &ty), ty)),
+    }
+}
+
+/// [`infer_value`] of a lambda whose parameters' types aren't written.
+#[inline(never)]
+fn infer_curried_lambda(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let (names, _) = curried_lambda(expr);
+    let names: Vec<Name> = names.iter().map(|name| name.text.as_str().into()).collect();
+    infer_lambda(cx, expr, &names)
+}
+
+/// [`infer_value`] of `(x: A) => body`, `[a: Type] => body`, `[auto h: P]
+/// => body`: the parameter's type is written, so the function's type
+/// follows from the body's, with the parameter's mode (§4.3 of
+/// docs/proposals/lambda-syntax.md).
+#[inline(never)]
+fn infer_typed_lambda(
+    cx: &mut Ctx,
+    name: &AstName,
+    mode: Mode,
+    ann: &Expr,
+    body: &Expr,
+) -> Result<(Term, Value)> {
+    let icit = mode_icit(mode);
+    let (dom, _) = check_type(cx, ann)?;
+    let dom = cx.eval(&dom)?;
+    let (row, row_value) = inferred_row(cx)?;
+    let mark = cx.mark();
+    cx.bind(&name.text, dom.clone());
+    // A body that may perform abilities is checked against a
+    // computation whose row it works out.
+    let inferred = effects::may_perform(cx, body).and_then(|performs| {
+        if performs {
+            let result = cx.fresh_meta();
+            let cod = cx.eval(&inferred_comp(cx, &row_value, result)?)?;
+            let term = check(cx, body, &cod)?;
+            Ok((term, cx.quote_folded(&cod)?, true))
+        } else {
+            let (term, ty) = infer(cx, body)?;
+            let (term, ty) = insert(cx, term, ty)?;
+            Ok((term, cx.quote_folded(&ty)?, false))
+        }
+    });
+    cx.reset(mark);
+    let (body, cod, performs) = inferred?;
+    if performs {
+        settle_inferred_row(cx, &row, &row_value)?;
+    }
+    let x: Name = name.text.as_str().into();
+    let lam = Term::Lam(x.clone(), icit, Rc::new(body));
+    let cod = Closure {
+        env: cx.env.as_slice().into(),
+        body: Rc::new(cod),
+    };
+    let pi = Value::Pi(x, icit, Rc::new(dom).into(), cod);
+    // Annotated for the kernel, which doesn't infer a lambda's type.
+    // For an implicit or auto lambda, this shape (an annotation
+    // straight around the lambda) is what tells [`insert`] not to
+    // apply it to unknowns.
+    let ann = Term::Ann(Rc::new(lam), Rc::new(cx.quote_folded(&pi)?));
+    Ok((ann, pi))
+}
+
+/// [`infer_value`] of a function type with named parameters.
+#[inline(never)]
+fn infer_pi(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let Expr::Pi {
+        names,
+        implicit,
+        auto,
+        dom,
+        cod,
+        span,
+    } = expr
+    else {
+        unreachable!("called on a function type")
+    };
+    let icit = match (implicit, auto) {
+        (_, true) => Icit::Auto,
+        (true, false) => Icit::Implicit,
+        (false, false) => Icit::Explicit,
+    };
+    let dom_end = dom.span().end;
+    let (dom, s1) = check_type(cx, dom)?;
+    let mark = cx.mark();
+    for (k, name) in names.iter().enumerate() {
+        let shifted = Rc::new(dom.shift(&cx.g(), k, 0)?);
+        let ty = cx.eval(&shifted)?;
+        cx.bind(&name.text, ty);
+        // The type as written, so dot notation on this variable
+        // starts from an alias (`bank: Bank`), as for a parameter.
+        cx.set_written(crate::dot::Written::Here(shifted));
+    }
+    let result = check_type(cx, cod);
+    cx.reset(mark);
+    let (mut term, s2) = result?;
+    crate::arrow_forall::note(cx, names, *implicit || *auto, dom_end, cod, s1, s2, *span);
+    for (k, name) in names.iter().enumerate().rev() {
+        term = Term::Pi(
+            name.text.as_str().into(),
+            icit,
+            Rc::new(dom.shift(&cx.g(), k, 0)?),
+            Rc::new(term),
+        );
+    }
+    Ok((term, Value::Sort(Sort::pi(s1, s2))))
+}
+
+/// [`infer_value`] of `A -> B`.
+#[inline(never)]
+fn infer_arrow(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
+    let (a, s1) = check_type(cx, a)?;
+    let mark = cx.mark();
+    let a_value = cx.eval(&a)?;
+    cx.bind_hidden("_".into(), a_value);
+    let result = check_type(cx, b);
+    cx.reset(mark);
+    let (b, s2) = result?;
+    Ok((
+        Term::Pi("_".into(), Icit::Explicit, Rc::new(a), Rc::new(b)),
+        Value::Sort(Sort::pi(s1, s2)),
+    ))
+}
+
+/// [`infer_value`] of an `if`. A fresh unknown for the type is right for
+/// data. For proofs the branches solve it with a proposition, where a
+/// `Type` is expected (an `E-UNIVERSE` raised later, by whoever uses the
+/// type), so that outcome is undone and retried with the branches' own
+/// proposition. Data takes the first path only.
+#[inline(never)]
+fn infer_if(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
+    let Expr::If {
+        binder,
+        cond,
+        then,
+        otherwise,
+        ..
+    } = expr
+    else {
+        unreachable!("called on an `if`")
+    };
+    let snapshot = crate::undo::Snapshot::take(cx);
+    let ty = cx.fresh_meta();
+    let ty = cx.eval(&ty)?;
+    let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+    if crate::omega::is_prop(cx, &ty)? != Some(true) {
+        return Ok((term, ty));
+    }
+    snapshot.restore(cx);
+    match proof_branch_type(cx, then, otherwise)? {
+        Some(ty) => {
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            Ok((term, ty))
+        }
+        // Not inferable on its own: left as it was.
+        None => {
+            let ty = cx.fresh_meta();
+            let ty = cx.eval(&ty)?;
+            let term = check_if(cx, binder.as_ref(), cond, then, otherwise, &ty)?;
+            Ok((term, ty))
         }
     }
+}
+
+/// [`infer_value`] of `(e : T)`.
+#[inline(never)]
+fn infer_annotated(cx: &mut Ctx, e: &Expr, ty: &Expr) -> Result<(Term, Value)> {
+    let (ty, _) = check_type(cx, ty)?;
+    let ty_value = cx.eval(&ty)?;
+    let expected = crate::reading::here_as_written(cx, &ty, &ty_value)?;
+    let e = check(cx, e, &expected)?;
+    Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
+}
+
+/// [`infer_value`] of `C { … }`.
+#[inline(never)]
+fn infer_ctor_fields(
+    cx: &mut Ctx,
+    ctor: &AstName,
+    fields: &[(AstName, Expr)],
+    span: Span,
+) -> Result<(Term, Value)> {
+    match records::ctor_fields(cx, ctor, fields, span, None)? {
+        records::Construction::Positional(positional) => infer_inner(cx, &positional),
+        records::Construction::Argument(positional, hint) => {
+            infer_inner(cx, &positional).map_err(|e| match &hint {
+                Some(hint) => hint.apply(e),
+                None => e,
+            })
+        }
+        records::Construction::Defaults(d, c) => {
+            crate::defaults::ctor_with_defaults(cx, d, c, fields, None)
+        }
+    }
+}
+
+/// [`infer_value`] of a list literal.
+#[inline(never)]
+fn infer_list(cx: &mut Ctx, expr: &Expr, items: &[Expr]) -> Result<(Term, Value)> {
+    warn_range_in_brackets(cx, items);
+    let list = builtin_data(cx, Builtin::List)?;
+    let ty = Value::Data(
+        list,
+        fresh_telescope(cx, cx.g().data(list).params())?.into(),
+    );
+    let term = check(cx, expr, &ty)?;
+    Ok((annotate(cx, term, &ty)?, ty))
 }
 
 /// Infers a function on its own, ready to be applied (a name, without
@@ -2331,24 +2434,15 @@ fn apply_named_head(
     }
 }
 
+/// A nested application recurses through here at every level, on the way
+/// to [`apply_named_head`] or [`apply_args`]: the rarer heads and names are
+/// out of line, so that this frame stays small (SW-3180).
 fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result<(Term, Value)> {
-    let g = cx.g();
     if let Expr::Field(recv, field) = head {
         return crate::dot::infer_call(cx, recv, field, args);
     }
     let Expr::Var(name) = head else {
-        let head = match head {
-            // A numeral given arguments is never a function, whatever its
-            // type turns out to be: decided by its syntax, as a `Nat`, not
-            // by the literal waiting for its type while the arguments ask
-            // for a function (stage 7, D2126).
-            Expr::Num(n, _) => (
-                Term::Nat(Rc::new(n.clone())),
-                Value::Data(nat(cx)?, Vec::new().into()),
-            ),
-            _ => infer(cx, head)?,
-        };
-        return apply_args(cx, head, args);
+        return infer_unnamed_head_app(cx, head, args);
     };
     if let Some(head) = cx.local(&name.text)? {
         cx.note_local_use(name, &head.1);
@@ -2359,6 +2453,51 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         cx.e.note_local(cx, name, &head.1);
         return apply_args(cx, head, args);
     }
+    if let Some(done) = infer_unusual_name_app(cx, name, args, fill) {
+        return done;
+    }
+    cx.e.note_name(name);
+    match cx.e.named(&name.text) {
+        None => Err(cx.e.not_found(name)),
+        Some((Global::Def(id), _)) => {
+            let head = (Term::Def(*id), crate::kernel::def_ty(&cx.g(), *id)?);
+            apply_named_head(cx, head, args, fill, name.span)
+        }
+        // The parameters, then the indices: one telescope; `auto` parameters
+        // are found (docs/proposals/interfaces.md §7.5).
+        Some((Global::Data(d), _)) => crate::data_auto::data_app(cx, *d, args),
+        Some((global, _)) => infer_other_global_app(cx, name, global, args),
+    }
+}
+
+/// [`infer_app_with`] of a head that isn't a name.
+#[inline(never)]
+fn infer_unnamed_head_app(cx: &mut Ctx, head: &Expr, args: &[Arg]) -> Result<(Term, Value)> {
+    let head = match head {
+        // A numeral given arguments is never a function, whatever its
+        // type turns out to be: decided by its syntax, as a `Nat`, not
+        // by the literal waiting for its type while the arguments ask
+        // for a function (stage 7, D2126).
+        Expr::Num(n, _) => (
+            Term::Nat(Rc::new(n.clone())),
+            Value::Data(nat(cx)?, Vec::new().into()),
+        ),
+        _ => infer(cx, head)?,
+    };
+    apply_args(cx, head, args)
+}
+
+/// [`infer_app_with`] of a name that isn't a variable, before it's looked
+/// up as a global: the answer, if the name is a member probe, an equation
+/// that can't be used, a variable's fields, or a built-in form; otherwise
+/// `None`.
+#[inline(never)]
+fn infer_unusual_name_app(
+    cx: &mut Ctx,
+    name: &AstName,
+    args: &[Arg],
+    fill: bool,
+) -> Option<Result<(Term, Value)>> {
     if let Some((written, last)) = name.text.rsplit_once('.')
         && last == crate::dot::DUMMY
     {
@@ -2369,16 +2508,16 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         crate::dot::probe_members(cx, &recv, name);
     }
     if let Some(d) = crate::opaque::no_unfold_equation(cx.e, name) {
-        return Err(d);
+        return Some(Err(d));
     }
     if let Some(d) = crate::equations::no_equation(cx.e, name) {
-        return Err(d);
+        return Some(Err(d));
     }
     if let Some(d) = crate::equation_notes::unknown_equation(cx, name) {
-        return Err(d);
+        return Some(Err(d));
     }
     if let Some(fields) = as_fields(cx, name) {
-        return infer_app_with(cx, &fields, args, fill);
+        return Some(infer_app_with(cx, &fields, args, fill));
     }
     // The built-ins have no declaration but `Builtins.sw`'s, which
     // navigation is pointed to (SW-1146).
@@ -2387,16 +2526,14 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         cx.e.note_builtin(name);
     }
     if let Some(form) = crate::quot::head_form(cx, &name.text) {
-        return crate::quot::elaborate(cx, form, args, None);
+        return Some(crate::quot::elaborate(cx, form, args, None));
     }
     match name.text.as_str() {
-        "rfl" => {
-            return Err(cx.error(
-                "E-CANNOT-INFER",
-                "can't work out what `rfl` proves here",
-                "add a type annotation: `(rfl: a = b)`",
-            ));
-        }
+        "rfl" => Some(Err(cx.error(
+            "E-CANNOT-INFER",
+            "can't work out what `rfl` proves here",
+            "add a type annotation: `(rfl: a = b)`",
+        ))),
         "J" => {
             let [
                 Arg::Explicit(motive),
@@ -2404,40 +2541,42 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
                 Arg::Explicit(proof),
             ] = args[..]
             else {
-                return Err(cx.error(
+                return Some(Err(cx.error(
                     "E-ARITY",
                     "`J` takes 3 arguments: a motive, a base case and a proof",
                     "here",
-                ));
+                )));
             };
-            return infer_j(cx, motive, base, proof);
+            Some(infer_j(cx, motive, base, proof))
         }
-        _ => {}
+        _ => None,
     }
-    cx.e.note_name(name);
-    match cx.e.named(&name.text) {
-        None => Err(cx.e.not_found(name)),
-        Some((Global::Def(id), _)) => {
-            let head = (Term::Def(*id), crate::kernel::def_ty(&g, *id)?);
-            apply_named_head(cx, head, args, fill, name.span)
-        }
-        // The parameters, then the indices: one telescope; `auto` parameters
-        // are found (docs/proposals/interfaces.md §7.5).
-        Some((Global::Data(d), _)) => crate::data_auto::data_app(cx, *d, args),
-        Some((Global::Unchecked(item), _)) => Err(cx.e.unchecked(name, *item)),
-        Some((Global::Failed, _)) => Err(cx.e.failed_global(name)),
-        Some((Global::Pending(file, _), _)) => Err(cx.e.unloaded(name, *file)),
-        Some((Global::Ability(_), _)) => Err(cx.error(
+}
+
+/// [`infer_app_with`] of a global that isn't a definition or a data type.
+#[inline(never)]
+fn infer_other_global_app(
+    cx: &mut Ctx,
+    name: &AstName,
+    global: &Global,
+    args: &[Arg],
+) -> Result<(Term, Value)> {
+    match global {
+        Global::Def(_) | Global::Data(_) => unreachable!("applied by `infer_app_with`"),
+        Global::Unchecked(item) => Err(cx.e.unchecked(name, *item)),
+        Global::Failed => Err(cx.e.failed_global(name)),
+        Global::Pending(file, _) => Err(cx.e.unloaded(name, *file)),
+        Global::Ability(_) => Err(cx.error(
             "E-ABILITY",
             format!("`{}` is an ability, not a type or a value", name.text),
             "abilities go in a function type's row: `-> {State s} …`",
         )),
-        Some((Global::Op(a, i), _)) if args.is_empty() => {
+        Global::Op(a, i) if args.is_empty() => {
             let (term, ty) = effects::op_value(cx, *a, *i)?;
             let ty_term = cx.quote_folded(&ty)?;
             Ok((Term::Ann(Rc::new(term), Rc::new(ty_term)), ty))
         }
-        Some((Global::Op(a, _), _)) => {
+        Global::Op(a, _) => {
             let ability = cx.e.tables.abilities[*a].name.clone();
             Err(cx
                 .error(
@@ -2452,7 +2591,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
                     "add `{ability}` to the function's type: `-> {{{ability} …}} …`"
                 )))
         }
-        Some((Global::Ctor(d, c), _)) => {
+        Global::Ctor(d, c) => {
             let explicit = ctor_args(args);
             let missing = ctor_missing(cx, *d, *c, &explicit)?;
             if !missing.is_empty() {
@@ -6101,6 +6240,20 @@ fn fallback_pipe(
 #[inline(never)]
 fn fallback_inferred(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
     let (term, found) = infer_expecting(cx, expr, expected)?;
+    inferred_against(cx, expr, (term, found), expected, named)
+}
+
+/// [`fallback_inferred`] once `expr` is inferred as `term` of type `found`:
+/// compared with `expected`. Out of line, so that the frame an inferred
+/// application stands on doesn't hold the comparison's locals.
+#[inline(never)]
+fn inferred_against(
+    cx: &mut Ctx,
+    expr: &Expr,
+    (term, found): (Term, Value),
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
     let (term, found) = insert(cx, term, found)?;
     name_unknown(cx, &found, named)?;
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
@@ -7844,6 +7997,14 @@ fn results(expr: &Expr, out: &mut Vec<usize>) {
 /// `None` for any other expression.
 #[inline(never)]
 fn whole_test(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Term>> {
+    // Every check comes here: most expressions have no results to look for,
+    // and [`results`]' work list would be an allocation each time.
+    if !matches!(
+        expr,
+        Expr::Bracketed(..) | Expr::If { .. } | Expr::Let { .. } | Expr::Match { .. }
+    ) {
+        return Ok(None);
+    }
     let mut at = Vec::new();
     results(expr, &mut at);
     if at.is_empty() || !matches!(force(&cx.g(), expected.clone())?, Value::Sort(Sort::Prop)) {

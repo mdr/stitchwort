@@ -46,6 +46,52 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 14 Nov 2026
 
+### SW-3180: stack frames left after SW-3172 (CLI dispatch, inferring applications, renaming)
+
+- **Status:** kept (Opus lane). Robustness on deep input, not speed: the
+  same checks, steps and hashes, with less native stack per level.
+- **How measured.** Frame sizes from the release binary's arm64 prologues
+  (saved registers, `sub sp`, and the probe loop's `sub x9, sp` for
+  frames past a page). The deepest point of `check --no-cache
+  Aoc.Year2021.Day06.Proofs` from a build with `STITCHWORT_STACK_PROBE`
+  and a temporary patch that kept a backtrace at each new deepest
+  position; that backtrace times the frame sizes says which frames make
+  up the peak. All measured.
+- **Changes and frames** (bytes, before → after):
+  - The CLI's `run` 21,664 → 592: every command's function had been
+    inlined into it. `check`'s own frame is now 10,560. Not a crash risk
+    before: `Budget::start` takes the stack floor from where an operation
+    starts, with a quarter of the 64 MiB thread in reserve, so frames
+    above it never count against the guard.
+  - `infer_value` 2,592 → 400 (+ `infer_call` 464), `infer_app_with` 1,168
+    → 784, `fallback_inferred` 1,136 → 640: an inferred application's
+    level, 4,896 → 2,288. The rarer arms are out of line.
+  - `rename_other` 1,328 → 832 (binders through `rename_under`, 224);
+    `rename_in` unchanged at 912.
+  - `whole_test` returns before allocating its work list unless the
+    expression is an `if`, `let`, `match` or brackets.
+- **Day 6's peak** (whole thread, CLI frames included): 179,200 →
+  171,120 bytes. The elaborator's frames along it: 173.7 → 165.6 KiB.
+  The peak is checking with propagation (`check_value`, `Propagation::apply`,
+  `apply_args_postponing`, about 0.8 KiB each, 16-19 levels) over eight
+  levels of unification; renaming is 6 KiB of it.
+- **Nesting thresholds** (`nesting::*`, levels before E-RESOURCE under
+  the default guard), release before → after: long_appends 349 → 393,
+  nested_functions_and_function_types 367 → 477; unchanged:
+  nested_applications 296, nested_parentheses 404, long_sums 844,
+  long_blocks 477, long_pattern_blocks 337. Debug: long_appends 23 → 39,
+  nested_functions_and_function_types 31 → 67; the others unchanged (40,
+  55, 60, 59, 30).
+- **Tried and dropped.** `rename_call` out of line: `rename_in` 912 →
+  704, but a call's argument then costs 336 more, so the call path, the
+  one deep values take, got longer. `unify::run` out of line, to keep
+  `run_tasks` out of `unify_shapes`: 1,104 → 1,088, no gain.
+- **Not done.** `run_tasks` (848) and `unify_shapes` (1,104) are 22 KiB of
+  Day 6's peak over eight levels; their frames hold what the rules by
+  shape need, and shrinking them further would mean comparing spines in
+  a loop (the ticket's note).
+- **Links.** SW-3180, SW-3172, SW-3178, SW-3181.
+
 ### SW-3221: List.inRangeReads re-proved; every import of List checks ~840,000 fewer steps
 
 - **Status:** kept (Sonnet investigation, orchestrator's call under D3447).

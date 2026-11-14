@@ -2920,12 +2920,7 @@ fn rename_other(
     in_call: bool,
 ) -> Renamed<Term> {
     let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
-    let under = |closure: &Closure| -> Renamed<Term> {
-        let mut renaming = renaming.clone();
-        renaming.insert(cod, dom);
-        let body = closure.apply(g, Value::var(cod))?;
-        rename_in(g, size, m, &renaming, dom + 1, cod + 1, &body, in_call)
-    };
+    let under = |closure: &Closure| rename_under(g, size, m, renaming, dom, cod, closure, in_call);
     Ok(match value {
         Value::Sort(s) => Term::Sort(s),
         Value::Refl => Term::Refl,
@@ -2937,36 +2932,11 @@ fn rename_other(
         Value::NatAdd(k, base) => native::nat_add_term(g, &k, go(&base)?),
         Value::Eq(t, a, b) => Term::Eq(Some(Rc::new(go(&t)?)), Rc::new(go(&a)?), Rc::new(go(&b)?)),
         Value::Neutral(Head::Meta(m2), spine) if m2 != m => {
-            if !in_call && let Some((m3, kept)) = prune(g, m2, &spine, renaming)? {
-                let mut term = Term::Meta(m3);
-                for elim in kept {
-                    let Elim::App(v, i) = elim else {
-                        unreachable!("pruned spines only contain applications")
-                    };
-                    term = Term::app_icit(term, go(&v)?, i);
-                }
-                return Ok(term);
-            }
-            rename_spine(&go, Term::Meta(m2), &spine)?
+            rename_meta(g, size, m, renaming, dom, cod, (m2, &spine), in_call)?
         }
         Value::Neutral(Head::Meta(_), _) => return Err(Fail::No),
-        // The form's own arguments, then what applies its result.
         Value::Neutral(Head::Quot(form), spine) => {
-            let n = spine
-                .iter()
-                .take(form.arity())
-                .take_while(|e| matches!(e, Elim::App(..)))
-                .count();
-            let args = spine[..n]
-                .iter()
-                .map(|e| match e {
-                    Elim::App(v, _) => go(v).map(Rc::new),
-                    Elim::J { .. } | Elim::Proj(..) => {
-                        unreachable!("counted applications")
-                    }
-                })
-                .collect::<Renamed<_>>()?;
-            rename_spine(&go, Term::Quot(form, args, false), &spine[n..])?
+            rename_quot(g, size, m, renaming, dom, cod, (form, &spine), in_call)?
         }
         Value::Data(..) | Value::Ctor(..) | Value::Neutral(..) => {
             unreachable!("written by `rename_in`")
@@ -2975,6 +2945,88 @@ fn rename_other(
         Value::Call(..) => unreachable!("a forced value is never a call"),
         Value::Resumption(_) => unreachable!("a handler's resumption never reaches the checker"),
     })
+}
+
+/// [`rename_other`] of the body of a binder: its variable, `cod`, is
+/// written as `dom`. Out of line, like the other arms with bodies of their
+/// own, so that `rename_other`'s frame, on every level of a value under
+/// binders, holds only what it passes on.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+fn rename_under(
+    g: &Unifier<'_>,
+    size: &Sized,
+    m: usize,
+    renaming: &HashMap<usize, usize>,
+    dom: usize,
+    cod: usize,
+    closure: &Closure,
+    in_call: bool,
+) -> Renamed<Term> {
+    let mut renaming = renaming.clone();
+    renaming.insert(cod, dom);
+    let body = closure.apply(g, Value::var(cod))?;
+    rename_in(g, size, m, &renaming, dom + 1, cod + 1, &body, in_call)
+}
+
+/// [`rename_other`] of another unknown `m2` applied to `spine`, pruned of
+/// variables the renaming doesn't cover if it can be.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+fn rename_meta(
+    g: &Unifier<'_>,
+    size: &Sized,
+    m: usize,
+    renaming: &HashMap<usize, usize>,
+    dom: usize,
+    cod: usize,
+    (m2, spine): (usize, &[Elim]),
+    in_call: bool,
+) -> Renamed<Term> {
+    let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
+    if !in_call && let Some((m3, kept)) = prune(g, m2, spine, renaming)? {
+        let mut term = Term::Meta(m3);
+        for elim in kept {
+            let Elim::App(v, i) = elim else {
+                unreachable!("pruned spines only contain applications")
+            };
+            term = Term::app_icit(term, go(&v)?, i);
+        }
+        return Ok(term);
+    }
+    rename_spine(&go, Term::Meta(m2), spine)
+}
+
+/// [`rename_other`] of a quotient form applied to `spine`: the form's own
+/// arguments, then what applies its result.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+fn rename_quot(
+    g: &Unifier<'_>,
+    size: &Sized,
+    m: usize,
+    renaming: &HashMap<usize, usize>,
+    dom: usize,
+    cod: usize,
+    (form, spine): (stitchwort_core::QuotForm, &[Elim]),
+    in_call: bool,
+) -> Renamed<Term> {
+    let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
+    let n = spine
+        .iter()
+        .take(form.arity())
+        .take_while(|e| matches!(e, Elim::App(..)))
+        .count();
+    let args = spine[..n]
+        .iter()
+        .map(|e| match e {
+            Elim::App(v, _) => go(v).map(Rc::new),
+            Elim::J { .. } | Elim::Proj(..) => {
+                unreachable!("counted applications")
+            }
+        })
+        .collect::<Renamed<_>>()?;
+    rename_spine(&go, Term::Quot(form, args, false), &spine[n..])
 }
 
 /// `head` applied to `spine`, each part renamed by `go` ([`rename`]).

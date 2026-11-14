@@ -923,6 +923,9 @@ fn main() -> ExitCode {
     })
 }
 
+/// Runs `cli`'s command, each by a function of its own. Those that would be
+/// inlined here are `#[inline(never)]`: inlined, every command's locals
+/// shared one frame of 21 KiB, under whichever command ran (SW-3180).
 fn run(cli: Cli) -> ExitCode {
     let std_dir_given = cli.std_dir.is_some();
     match cli.command {
@@ -1327,6 +1330,7 @@ fn run(cli: Cli) -> ExitCode {
 }
 
 #[cfg(feature = "native")]
+#[inline(never)]
 fn native_spike(rounds: u64, memory: Option<&str>) -> ExitCode {
     let memory = match memory.map(str::parse).transpose() {
         Ok(memory) => memory.unwrap_or_default(),
@@ -1348,6 +1352,7 @@ fn native_spike(rounds: u64, memory: Option<&str>) -> ExitCode {
 }
 
 #[cfg(not(feature = "native"))]
+#[inline(never)]
 fn native_spike(_rounds: u64, _memory: Option<&str>) -> ExitCode {
     eprintln!("error: this `stitchwort` was built without native code; build it with `task build`");
     ExitCode::FAILURE
@@ -1763,6 +1768,7 @@ fn write_index(
 
 /// `check --std`: the library files and folders `targets` name, with what
 /// they need, checked in full.
+#[inline(never)]
 fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
     use_cache(&mut session, cache, Path::new("."));
@@ -1781,6 +1787,7 @@ fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
     }
 }
 
+#[inline(never)]
 fn check(
     targets: &[String],
     project: Option<&Path>,
@@ -2098,6 +2105,7 @@ impl TestOutput<'_> {
     }
 }
 
+#[inline(never)]
 fn test(
     target: Option<&str>,
     cache: &CacheArgs,
@@ -2551,6 +2559,7 @@ fn load_main(
 
 /// `run`: a file's `main`, or a function of the project by its full name.
 #[allow(clippy::too_many_arguments)] // one per `run` option
+#[inline(never)]
 fn run_target(
     target: &str,
     js: bool,
@@ -2769,6 +2778,7 @@ fn render_census(target: &str, census: &stitchwort_rt::census::Census, functions
 /// `axioms`: loads the file or project, finds the definitions and prints
 /// the axioms each depends on (`stitchwort_driver::axioms`). One name is
 /// reported plainly; several, each under its own heading.
+#[inline(never)]
 fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
     let keys: Vec<&str> = if is_file_target(target) {
@@ -3730,6 +3740,7 @@ fn is_under(path: &str, root: &str) -> bool {
 /// `audit` (SW-912, D2040): loads the files or the project's namespaces,
 /// audits the theorems the targets select (`stitchwort_driver::audit`) and
 /// prints the findings, as text or JSON.
+#[inline(never)]
 fn audit(
     targets: &[String],
     args: &AuditArgs,
@@ -4088,6 +4099,7 @@ fn print_audit(
 
 /// `fmt`: formats files or folders in place (`-` is standard input and
 /// output), or with no files the project's sources.
+#[inline(never)]
 fn fmt_command(files: &[PathBuf], check: bool, project: Option<&Path>) -> ExitCode {
     let mut paths = Vec::new();
     let mut stdin = false;
@@ -4589,6 +4601,7 @@ impl Drop for TempDir {
     }
 }
 
+#[inline(never)]
 fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
     use_cache(&mut session, cache, Path::new("."));
@@ -4675,6 +4688,7 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
     Ok(format!("{value}: {ty}"))
 }
 
+#[inline(never)]
 fn repl(path: Option<&Path>) -> ExitCode {
     let mut session = new_session(false);
     if let Some(path) = path
@@ -4730,6 +4744,7 @@ fn repl(path: Option<&Path>) -> ExitCode {
     }
 }
 
+#[inline(never)]
 fn build(
     target: &str,
     out: &Path,
