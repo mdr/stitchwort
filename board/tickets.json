@@ -1,5 +1,5 @@
 {
-  "next": 3222,
+  "next": 3223,
   "tickets": [
     {
       "id": 47,
@@ -34895,16 +34895,17 @@
     {
       "id": 3200,
       "title": "[Sonnet] Core test API: a setter for a definition's type (and its cached value), then a deep-type case in deep_terms_in_later_passes (crates/driver/tests/elaboration/nesting.rs) reaching the closing search, hashing and the printer (SW-3190 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 60 min (Sonnet).\n\nLane notes: added Def::set_type_unchecked_for_tests(ty, ty_value) (test-bypass feature, as set_body_unchecked_for_tests); deep-type case in deep_terms_in_later_passes covers hashing, printer and the closing search indexing; passes release and debug. defs_named on a deep conclusion is not reached there (no hit for a shallow goal); closing::tests covers it.\n",
+      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked (partly: defs_named/named not reached, needs SW-3222), ~20 min (est. 60).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
-        "2b55a1400"
+        "2b55a1400",
+        "69b8bff04d1dbe5a5ab15e3109e7d346d6cf7b72"
       ]
     },
     {
@@ -35212,6 +35213,19 @@
       "labels": [],
       "epic": "performance",
       "body": "Expected: 60 min (Sonnet). Bench run on main after L5 + SW-3215: scratchpad/bench-main-1215.log.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3222,
+      "title": "[Sonnet] A test constructor for GoalSnapshot (its fields are pub(crate)), so deep_terms_in_later_passes can open a deep goal and reach defs_named and named through closing_plans (SW-3200 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
