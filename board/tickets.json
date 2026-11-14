@@ -35307,15 +35307,17 @@
     {
       "id": 3227,
       "title": "[Sonnet] Make SW-3180's deepest-backtrace probe a proper STITCHWORT_STACK_PROBE option (it keeps a backtrace at each new deepest point; the patch is scratchpad/sw3180/hack-stack.patch, to be copied into the ticket's worktree), plus its frame-size scripts (frames.py, chain.py) as a task, so the next stack lane can see which frames make up a peak (SW-3180 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Expected: 60 min (Sonnet).\n\nProgress: probe mode deepest in crates/syntax/src/stack.rs (build-time STITCHWORT_STACK_PROBE=deepest, no feature needed); dev/stack-peak (python, merges frames.py/chain.py); task stack:peak; docs/testing.md Stack section. Shown on Aoc.Year2021.Day06.Proofs. No addresses: std Backtrace exposes names only.\n",
+      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~10 min (est. 60). Frames matched by name (std's Backtrace gives no addresses); arm64 only.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "ab854c0cdbd29a56b2de7a4cb7cf90199fcf5442"
+      ]
     },
     {
       "id": 3228,
