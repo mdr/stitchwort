@@ -1,5 +1,5 @@
 {
-  "next": 3284,
+  "next": 3285,
   "tickets": [
     {
       "id": 47,
@@ -24861,14 +24861,14 @@
     {
       "id": 2467,
       "title": "Memory runaway: a Fin literal pattern of 2^128 (fuzz case 12893, seed 0x2468) makes check use 11+ GB in 15 s; likely the exhaustiveness check or Fin-literal lowering unfolding the literal into nested FSucc/Succ",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "Repro: stitchwort check dev/fuzz-findings/2468-12893.sw (9 lines: the D1079 Fin non-exhaustive example with its 1 pattern mutated to 340282366920938463463374607431768211456). Expected: E-NONEXHAUSTIVE in milliseconds. Actual: >4 GB in seconds on Speedwell, killed at 11.6 GB on Overmind. Found by Overmind job 29 bisecting seed 0x2468's 11.45 GB peak (SW-2418). Check whether SW-2398/SW-2399 (Fin as numbers, 8 Nov) introduced it. Fix: literals must stay numbers through pattern compilation and exhaustiveness (compare against the bound arithmetically); add the repro as a reject example with a memory/time guard. 45 min.\n\nStarted 9 Nov 2026 02:27 UTC. Expected: 45 min.\n\n02:37, orchestrator's call: Sonnet's fix (branch lane/SW-2467, b309bc9d3, kept) is a special case (skip the FSucc branch when FZero has no rows and a literal is > 256), adds a bogus W-REDUNDANT, and leaves the class open: a valid `| _, 0 | _, 1000000 | _, _` on Fin (Succ (Succ n)) still passes 4 GB. Not merged (end state). The end state is a numeric lowering of Fin literals in match compilation (compare against the bound arithmetically, as compile_numbers does for Nat), which is core language: Opus (D2506). Cause: compile in crates/elab/src/lib.rs (~line 3700) lowers literal k to FSucc (k-1), building a k-deep tree before checking. Model result: Sonnet, needed rework (partial, special-cased), 10 min (est. 45).\n\nStarted on Opus 9 Nov 2026 03:03 UTC. Expected: 90 min. Sonnet's branch renamed keep/SW-2467-sonnet.\n\n03:45, Opus result (branch lane/SW-2467, 1d72a74e1; worktree kept): Fin number columns compiled like Nat (one subtree per written number), FZero/FSucc steps built lazily while checking; small-match kernel terms unchanged, all hashes stable; repro E-NONEXHAUSTIVE in 0.24 s / 110 MB. But a backstop MAX_FIN_PATTERN = 64 with E-MATCH-SIZE refuses e.g. a 256-arm Fin 256 table that checks today (~7 s): a user-visible regression, so NOT merged; held for Matt (morning D question). Decisions it raises: D-a end state for large Fin number patterns (non-refining Fin.toNat lowering vs kernel compact indices); D-b the 64 limit and its wording; D-c missing cases over several columns now print written Fin numbers as numbers (2, False). Root cost: families::enter substitutes through the whole context per FSucc step, ~k^3-k^4 (filed). Elab tests: fin 114, related filters 143, examples+hash 11, test:lane elab 159. Model result: Opus, worked partly (valid huge case refused by the limit), 41 min (est. 90).\n\nNote 9 Nov: SW-2481 merged; a Fin literal up to 256 now checks in under a second (~300 MB), 512 in 3 s / 1.5 GB, 1000 still OOM: the cap could rise from 64 to ~256; the end state for huge literals is still D-a (numeric lowering).\n\n\n14 Nov 2026 (tidy batch, Matt: \"the memory fix ... start that tidy batch\"). Orchestrator's call, no D needed: set the cap where main runs out of memory today rather than at 64, so no program that checks today is refused and only an out-of-memory becomes a clean E-MATCH-SIZE. The end state for huge literals (numeric lowering, D-a) stays a later design question. Opus lane: bring the branch up to date with main, set the cap from measurements, merge. Expected: 2 h (Opus).\n",
+      "body": "Repro: stitchwort check dev/fuzz-findings/2468-12893.sw (9 lines: the D1079 Fin non-exhaustive example with its 1 pattern mutated to 340282366920938463463374607431768211456). Expected: E-NONEXHAUSTIVE in milliseconds. Actual: >4 GB in seconds on Speedwell, killed at 11.6 GB on Overmind. Found by Overmind job 29 bisecting seed 0x2468's 11.45 GB peak (SW-2418). Check whether SW-2398/SW-2399 (Fin as numbers, 8 Nov) introduced it. Fix: literals must stay numbers through pattern compilation and exhaustiveness (compare against the bound arithmetically); add the repro as a reject example with a memory/time guard. 45 min.\n\nStarted 9 Nov 2026 02:27 UTC. Expected: 45 min.\n\n02:37, orchestrator's call: Sonnet's fix (branch lane/SW-2467, b309bc9d3, kept) is a special case (skip the FSucc branch when FZero has no rows and a literal is > 256), adds a bogus W-REDUNDANT, and leaves the class open: a valid `| _, 0 | _, 1000000 | _, _` on Fin (Succ (Succ n)) still passes 4 GB. Not merged (end state). The end state is a numeric lowering of Fin literals in match compilation (compare against the bound arithmetically, as compile_numbers does for Nat), which is core language: Opus (D2506). Cause: compile in crates/elab/src/lib.rs (~line 3700) lowers literal k to FSucc (k-1), building a k-deep tree before checking. Model result: Sonnet, needed rework (partial, special-cased), 10 min (est. 45).\n\nStarted on Opus 9 Nov 2026 03:03 UTC. Expected: 90 min. Sonnet's branch renamed keep/SW-2467-sonnet.\n\n03:45, Opus result (branch lane/SW-2467, 1d72a74e1; worktree kept): Fin number columns compiled like Nat (one subtree per written number), FZero/FSucc steps built lazily while checking; small-match kernel terms unchanged, all hashes stable; repro E-NONEXHAUSTIVE in 0.24 s / 110 MB. But a backstop MAX_FIN_PATTERN = 64 with E-MATCH-SIZE refuses e.g. a 256-arm Fin 256 table that checks today (~7 s): a user-visible regression, so NOT merged; held for Matt (morning D question). Decisions it raises: D-a end state for large Fin number patterns (non-refining Fin.toNat lowering vs kernel compact indices); D-b the 64 limit and its wording; D-c missing cases over several columns now print written Fin numbers as numbers (2, False). Root cost: families::enter substitutes through the whole context per FSucc step, ~k^3-k^4 (filed). Elab tests: fin 114, related filters 143, examples+hash 11, test:lane elab 159. Model result: Opus, worked partly (valid huge case refused by the limit), 41 min (est. 90).\n\nNote 9 Nov: SW-2481 merged; a Fin literal up to 256 now checks in under a second (~300 MB), 512 in 3 s / 1.5 GB, 1000 still OOM: the cap could rise from 64 to ~256; the end state for huge literals is still D-a (numeric lowering).\n\n\n14 Nov 2026 (tidy batch, Matt: \"the memory fix ... start that tidy batch\"). Orchestrator's call, no D needed: set the cap where main runs out of memory today rather than at 64, so no program that checks today is refused and only an out-of-memory becomes a clean E-MATCH-SIZE. The end state for huge literals (numeric lowering, D-a) stays a later design question. Opus lane: bring the branch up to date with main, set the cap from measurements, merge. Expected: 2 h (Opus).\n\n\n22:30, Opus lane result (lane/SW-2467: 0985b09cf merge of main, c88fc50d8 cap). Merge: no textual conflicts; semantic ones fixed in the merge commit (main's Leaf::later, Case::pattern, and its free shifted() folded into Tree::shifted; missing::definite looks inside FinNumbers). Measured (Speedwell, load ~10, release, memguard): main is limited by time here, not memory: full Fin K table 128 arms 3.5 s, 256 arms 23 s, 512 arms 174 s / 1.5 GB; one number K on Fin (Succ (Succ n)) 128 2.9 s, 256 19 s, 512 >60 s at 0.14 GB; `| _, 0 | _, 2^128 | _, _` killed at 3 GB in 2.6 s. Lane uncapped costs the same as main. Cap set to 256 (no memory cliff to align with): 257+ is now E-MATCH-SIZE in <1 s; a number 257-~512 that took 20 s-3 min on main is refused (needs orchestrator/Matt OK). Repro E-NONEXHAUSTIVE 0.65 s / 60 MB. Tests: hash_stability 10/10 (fin-pattern-numbers' hashes follow main's std; number vs FZero/FSucc forms hash identically), examples NAME=fin 7/7, elab fin/missing 5, driver elaboration|proofs fin/number_pattern/missing 33. No AoC day uses Fin number patterns.\n",
       "created": "2026-11-09",
       "updated": "2026-11-14",
       "commits": []
@@ -35386,7 +35386,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.",
+      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.\n\nD3591 decided (Matt, 14 Nov 2026): \"I'm very happy to have text literals as patterns, and I'm happy for them to work on both text and list of chars.\" Stage 1 filed as SW-3284. D3592 (prefix patterns) still open.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36082,6 +36082,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3284,
+      "title": "[Opus] Text patterns stage 1 (text-patterns.md §6, D3591): text literals as patterns on Text and List Char, the missing-case message, docs/guide, docs/syntax.md and a feature-tour page",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
