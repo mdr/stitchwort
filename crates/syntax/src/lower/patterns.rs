@@ -247,7 +247,6 @@ impl<'f> Lower<'f> {
 
     /// `((a, b): A)`, a lambda's parameter: the pattern and its type
     /// ([`NodeKind::PatternTyped`]).
-    #[allow(dead_code)] // For lane L3's lambdas.
     pub(crate) fn pattern_typed(&self, node: Node<'f>) -> Lowering<(Pattern, Expr)> {
         let kind = NodeKind::PatternTyped;
         let pattern = required(node.after(&Tok::LParen), kind, "its pattern")?;

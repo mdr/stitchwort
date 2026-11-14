@@ -20,9 +20,14 @@ use crate::lexer::{
     LexFailure, Tok, Token, Trivia, lex, lex_recovering, lex_recovering_with_trivia,
     lex_with_trivia,
 };
+use crate::lower::binding::{
+    ForallGroup, LamParam, Stmt, bind_let, clause_lambda_of, clause_some, clause_true,
+    exists_chain, forall_of, lambda_of, lines,
+};
 use crate::lower::exprs::{binary, chain, piped, prefix_op};
 use crate::lower::patterns::with_span;
 use crate::lower::proofs::reverse_calc;
+use crate::lower::sections::widen;
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -34,7 +39,6 @@ mod declarations;
 mod sections;
 use crate::lower::header::Param;
 use declarations::misplaced_attributes;
-pub(crate) use sections::{fill_receiver, leads_with_section};
 
 /// The parser's results box their error: with an unboxed `Diagnostic`,
 /// every `Result<Expr>` would be as large as a `Diagnostic`, and each level
@@ -813,16 +817,6 @@ fn split_decls(tokens: &[Token]) -> Result<Vec<&[Token]>> {
     Ok(groups)
 }
 
-/// A lambda parameter: a name (with the pattern it stands for, if it was
-/// written as one), or a name with a written type and its mode.
-enum LamParam {
-    Plain(Name, Option<Pattern>),
-    Typed(Name, Mode, Expr),
-    /// `(pattern: A)`: a pattern with a written type, an explicit parameter
-    /// of that type taken apart by the pattern.
-    TypedPattern(Name, Pattern, Expr),
-}
-
 /// The parser's modes: the state that says how the tokens ahead are read
 /// (which ones end the current construct), as opposed to where the parser
 /// is. Each construct that sets one saves the old value and puts it back
@@ -990,54 +984,6 @@ fn match_brackets(tokens: &[Token]) -> Vec<u32> {
     matching
 }
 
-/// One line of a block.
-enum Stmt {
-    Let(Name, Option<Expr>, Expr, Span),
-    /// `let (a, b) = e`: a pattern binding, desugared to a `match` in `block`.
-    LetPattern(Pattern, Option<Expr>, Expr, Span),
-    /// A local `def` or `theorem`; the span is where it starts.
-    Def(LocalDef, Span),
-    Expr(Expr),
-}
-
-/// `let p := e` followed by `rest`: the `Let` (or, for a pattern, the
-/// one-alternative `match`) that a block's `let` line and an expression
-/// `let` both make.
-fn bind_let(stmt: Stmt, rest: Expr) -> Expr {
-    match stmt {
-        Stmt::LetPattern(pattern, ty, value, span) => {
-            let expr = match ty {
-                Some(ty) => {
-                    let ann_span = value.span().to(ty.span());
-                    Expr::Ann(Box::new(value), Box::new(ty), ann_span)
-                }
-                None => value,
-            };
-            let alt_span = pattern.span().to(rest.span());
-            let span = span.to(rest.span());
-            Expr::Match {
-                scrutinees: vec![Scrutinee { name: None, expr }],
-                alts: vec![Alt {
-                    guard: None,
-                    patterns: vec![pattern],
-                    body: Some(rest),
-                    span: alt_span,
-                }],
-                span,
-                kind: MatchKind::Let,
-            }
-        }
-        Stmt::Let(name, ty, value, span) => Expr::Let {
-            span: span.to(rest.span()),
-            name,
-            ty: ty.map(Box::new),
-            value: Box::new(value),
-            body: Box::new(rest),
-        },
-        _ => unreachable!("bind_let takes a `let`"),
-    }
-}
-
 impl<'t> Parser<'t> {
     fn new(tokens: &'t [Token], file: FileId, text_len: usize, stack: StackLimit) -> Self {
         let eof = tokens.last().map_or(text_len as u32, |t| t.span.end);
@@ -1192,12 +1138,12 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// `sections::widen` on an expression that starts with a method
+    /// [`widen`] on an expression that starts with a method
     /// section, which then becomes the section's body: the `Section` node
     /// moves out from the section's head to the whole expression.
     #[inline(never)]
     fn widen_section(&mut self, expr: &mut Expr) {
-        if !sections::widen(expr) {
+        if !widen(expr) {
             return;
         }
         let start = self.operand_start();
@@ -2830,7 +2776,7 @@ impl<'t> Parser<'t> {
         if stmts.len() > 1 {
             self.node(start, NodeKind::Block);
         }
-        let mut rest = match stmts.pop() {
+        let rest = match stmts.pop() {
             Some(Stmt::Expr(e)) => e,
             Some(Stmt::Let(_, _, _, span) | Stmt::LetPattern(_, _, _, span)) => {
                 return Err(error(span, "a block must end with an expression, not `let`").into());
@@ -2844,35 +2790,7 @@ impl<'t> Parser<'t> {
             }
             None => return Err(self.unexpected("an expression").into()),
         };
-        // Whether `rest` is a `LocalDefs` made from the line after this one,
-        // which another local definition joins.
-        let mut grouping = false;
-        for stmt in stmts.into_iter().rev() {
-            let was_grouping = std::mem::replace(&mut grouping, false);
-            rest = match stmt {
-                Stmt::Def(def, span) => {
-                    grouping = true;
-                    if was_grouping
-                        && let Expr::LocalDefs {
-                            defs, span: end, ..
-                        } = &mut rest
-                    {
-                        defs.insert(0, def);
-                        *end = span.to(*end);
-                        rest
-                    } else {
-                        Expr::LocalDefs {
-                            defs: vec![def],
-                            span: span.to(rest.span()),
-                            body: Box::new(rest),
-                        }
-                    }
-                }
-                stmt @ (Stmt::LetPattern(..) | Stmt::Let(..)) => bind_let(stmt, rest),
-                Stmt::Expr(e) => Expr::Seq(Box::new(e), Box::new(rest)),
-            };
-        }
-        Ok(rest)
+        Ok(lines(stmts, rest))
     }
 
     /// Whether the next token can't start a line of a block, but ends it, and
@@ -3446,19 +3364,14 @@ impl<'t> Parser<'t> {
             }
             let guard = self.guard()?;
             let body = if kind == MatchKind::ClauseMatches && self.peek() != Some(&Tok::FatArrow) {
-                Some(library_var(
-                    "Std.Bool.True",
-                    Span::point(bar.file, bar.start),
-                ))
+                Some(clause_true(bar))
             } else if kind == MatchKind::Clause {
                 self.arm_body(&patterns, guard.as_ref(), "`=>`")?
             } else {
                 self.expect_fat_arrow("`=>`")?;
                 let body = self.expr()?;
                 if kind == MatchKind::ClauseSome {
-                    let some =
-                        library_var("Std.Option.Some", Span::point(bar.file, body.span().start));
-                    Some(Expr::App(Box::new(some), Box::new(body)))
+                    Some(clause_some(body, bar))
                 } else {
                     Some(body)
                 }
@@ -3476,41 +3389,7 @@ impl<'t> Parser<'t> {
         }
         self.node_at(start, NodeKind::ClauseLambda);
         let end = self.prev_span();
-        let arity = alts[0].patterns.len();
-        if kind != MatchKind::Clause {
-            let rest = if kind == MatchKind::ClauseSome {
-                "Std.Option.None"
-            } else {
-                "Std.Bool.False"
-            };
-            alts.push(Alt {
-                patterns: vec![Pattern::Wildcard(keyword); arity],
-                guard: None,
-                body: Some(library_var(rest, Span::point(keyword.file, keyword.start))),
-                span: Span::point(end.file, end.end),
-            });
-        }
-        let span = start.to(end);
-        let names: Vec<Name> = (0..arity)
-            .map(|i| Name {
-                text: format!("%arg{i}"),
-                span: keyword,
-            })
-            .collect();
-        let scrutinees = names
-            .iter()
-            .map(|name| Scrutinee {
-                name: None,
-                expr: Expr::Var(name.clone()),
-            })
-            .collect();
-        let matched = Expr::Match {
-            scrutinees,
-            alts,
-            span,
-            kind,
-        };
-        Ok(Expr::Lam(names, Box::new(matched), span))
+        Ok(clause_lambda_of(kind, alts, keyword, start, end))
     }
 
     /// A pattern of a `match` alternative: what may stand inside brackets in
@@ -3672,64 +3551,7 @@ impl<'t> Parser<'t> {
         self.expect_fat_arrow("`=>`")?;
         let body = self.expr()?;
         self.node_at(start, NodeKind::Lambda);
-        let span = start.to(body.span());
-        let mut scrutinees = Vec::new();
-        let mut patterns = Vec::new();
-        for param in &params {
-            if let LamParam::Plain(name, Some(pattern)) | LamParam::TypedPattern(name, pattern, _) =
-                param
-            {
-                scrutinees.push(Scrutinee {
-                    name: None,
-                    expr: Expr::Var(name.clone()),
-                });
-                patterns.push(pattern.clone());
-            }
-        }
-        let mut result = if patterns.is_empty() {
-            body
-        } else {
-            let alt_span = patterns[0].span().to(self.prev_span());
-            Expr::Match {
-                scrutinees,
-                alts: vec![Alt {
-                    guard: None,
-                    patterns,
-                    body: Some(body),
-                    span: alt_span,
-                }],
-                span,
-                kind: MatchKind::Lambda,
-            }
-        };
-        // Build from the last parameter outwards: a run of untyped ones is
-        // one `Lam`, and each typed one is a `TypedLam`.
-        let mut run: Vec<Name> = Vec::new();
-        for param in params.into_iter().rev() {
-            match param {
-                LamParam::Plain(name, _) => run.push(name),
-                LamParam::Typed(name, mode, ty) => {
-                    if !run.is_empty() {
-                        run.reverse();
-                        result = Expr::Lam(std::mem::take(&mut run), Box::new(result), span);
-                    }
-                    result = Expr::TypedLam(name, mode, Box::new(ty), Box::new(result), span);
-                }
-                LamParam::TypedPattern(name, _, ty) => {
-                    if !run.is_empty() {
-                        run.reverse();
-                        result = Expr::Lam(std::mem::take(&mut run), Box::new(result), span);
-                    }
-                    let ty = Box::new(ty);
-                    result = Expr::TypedLam(name, Mode::Explicit, ty, Box::new(result), span);
-                }
-            }
-        }
-        if !run.is_empty() {
-            run.reverse();
-            result = Expr::Lam(run, Box::new(result), span);
-        }
-        Ok(result)
+        Ok(lambda_of(params, body, start, self.prev_span()))
     }
 
     /// Whether a `(` here opens an annotated parameter, `(x: A)` or
@@ -4321,7 +4143,7 @@ impl<'t> Parser<'t> {
         let keyword = self.bump().span;
         // Each group's names, whether it's implicit, whether it's `auto`,
         // and its type.
-        let mut groups: Vec<(Vec<Name>, bool, bool, Expr)> = Vec::new();
+        let mut groups: Vec<ForallGroup> = Vec::new();
         loop {
             let first = self.mark();
             match self.peek() {
@@ -4388,20 +4210,9 @@ impl<'t> Parser<'t> {
             return Err(self.unexpected(&expected).with_note(note).into());
         }
         self.bump();
-        let mut body = self.expr()?;
+        let body = self.expr()?;
         self.node_at(keyword, NodeKind::Forall);
-        let span = keyword.to(body.span());
-        for (names, implicit, auto, dom) in groups.into_iter().rev() {
-            body = Expr::Pi {
-                names,
-                implicit,
-                auto,
-                dom: Box::new(dom),
-                cod: Box::new(body),
-                span,
-            };
-        }
-        Ok(body)
+        Ok(forall_of(groups, body, keyword))
     }
 
     /// `[ name+ :` starts an implicit binder, as does `[auto` followed by an
@@ -5886,49 +5697,6 @@ fn operand_text(expr: &Expr, fallback: &str) -> String {
         Expr::Num(n, _) => n.to_string(),
         _ => fallback.to_string(),
     }
-}
-
-/// `Exists _ (x => body)` for each parameter of `lambda`, the lambda after
-/// `exists` at `keyword`: its layers are those whose span is `outer` (a
-/// lambda in the body has a span of its own).
-fn exists_chain(keyword: Span, lambda: Expr, outer: Span) -> Expr {
-    let wrap = |param: Expr| {
-        let exists = Expr::Var(Name {
-            text: "Std.Exists".into(),
-            span: keyword,
-        });
-        let applied = Expr::App(Box::new(exists), Box::new(Expr::Hole(keyword)));
-        Expr::App(Box::new(applied), Box::new(param))
-    };
-    let mut lambda = lambda;
-    let take = |b: &mut Box<Expr>| std::mem::replace(&mut **b, Expr::Prop(Span::NOWHERE));
-    match &mut lambda {
-        Expr::TypedLam(_, _, _, body, span) if *span == outer => {
-            let inner = exists_chain(keyword, take(body), outer);
-            **body = inner;
-            wrap(lambda)
-        }
-        Expr::Lam(names, body, span) if *span == outer => {
-            let span = *span;
-            let mut inner = exists_chain(keyword, take(body), outer);
-            let mut names = std::mem::take(names);
-            while names.len() > 1 {
-                let last = names.pop().expect("more than one");
-                inner = wrap(Expr::Lam(vec![last], Box::new(inner), span));
-            }
-            wrap(Expr::Lam(names, Box::new(inner), span))
-        }
-        _ => lambda,
-    }
-}
-
-/// A reference to a library name the compiler writes into a desugaring. Its
-/// span is empty, which is how the elaborator tells it from one written.
-fn library_var(path: &str, span: Span) -> Expr {
-    Expr::Var(Name {
-        text: path.into(),
-        span,
-    })
 }
 
 fn describe(tok: &Tok) -> String {
