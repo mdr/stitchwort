@@ -35,11 +35,20 @@
 //!   declaration are dropped.
 //! - **`Error` nodes are not looked inside**: what finished before an error
 //!   keeps its nodes for the editor, but for the checker it is skipped text.
+//!   In a declaration the parser recovered in ([`crate::tree::Node::recoveries`]),
+//!   an `Error` node in an expression's place, and an operand or body the
+//!   text ran out before, lower to [`crate::ast::Expr::Missing`]: a gap the
+//!   checker fills with an error hole and reports nothing about.
 //!
 //! # Errors
 //!
-//! A declaration reports one error, the earliest. The parser stops a
-//! declaration at its first error; the lowering runs after the parse, so its
+//! A declaration reports one error, the earliest, unless the parser
+//! recovered in it (a `def` or `theorem` body,
+//! docs/proposals/syntax-error-recovery.md): then each recovery's error is
+//! reported, the declaration keeps its signature with
+//! `syntax_error` set, and its body lowers
+//! with the gaps missing. Otherwise the parser stops a declaration at its
+//! first error; the lowering runs after the parse, so its
 //! own error ([`Unsupported::Invalid`]) can come after one the parser found
 //! later in the same declaration's text. The lowering's error replaces the
 //! parser's later ones in that declaration (`lowered_module` in

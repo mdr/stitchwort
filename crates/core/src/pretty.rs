@@ -1155,6 +1155,9 @@ impl<'g> Printer<'g> {
     /// [`Printer::go_node`] of an application or an unknown.
     #[inline(never)]
     fn go_app(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        if let Term::Meta(m) = term {
+            self.g.shown.note_meta_shown(*m);
+        }
         match term {
             Term::Meta(crate::value::ELIDED) => ("…".into(), Prec::Atom),
             // An open goal's assumption, with the variables it was closed

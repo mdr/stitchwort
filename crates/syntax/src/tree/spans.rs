@@ -228,6 +228,11 @@ impl<'a> Walk<'a> {
             | Expr::Hole(span)
             | Expr::Goal(span)
             | Expr::Unit(span) => self.tagged(what, *span, why),
+            // Ran out (R1): a point where the expression should have been.
+            Expr::Missing(span) => {
+                let empty = (span.start == span.end).then_some(Synthetic::Empty);
+                self.tagged(what, *span, why.or(empty));
+            }
             Expr::App(a, b) => {
                 let exists = matches!(head(expr), Expr::Var(name) if name.text == "Std.Exists");
                 self.tagged(what, expr.span(), why);
@@ -782,6 +787,7 @@ fn expr_kind(expr: &Expr) -> &'static str {
         Expr::NamedArg(..) => "Expr::NamedArg",
         Expr::Hole(_) => "Expr::Hole",
         Expr::Goal(_) => "Expr::Goal",
+        Expr::Missing(_) => "Expr::Missing",
         Expr::Arrow(..) => "Expr::Arrow",
         Expr::Binary(..) => "Expr::Binary",
         Expr::Pipe(..) => "Expr::Pipe",

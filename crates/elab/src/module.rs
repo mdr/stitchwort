@@ -693,7 +693,7 @@ impl Elaborator {
         }
         // A body that didn't parse is reported by the parser, not here; it
         // stays until the two are merged, so that a counterexample found for
-        // its statement reaches that error (`merge_recovered`).
+        // its statement reaches that error (`with_syntax_errors`).
         diagnostics
     }
 
@@ -3017,12 +3017,52 @@ thread_local! {
 }
 
 /// The code of the error that fails a definition whose body didn't parse
-/// (`Decl::Signature`'s `body_error`): its own error, so it gets a stand-in
+/// (`Decl::Signature`'s `syntax_error`): its own error, so it gets a stand-in
 /// and is the declaration its users' messages name, but never reported,
 /// since the parser reported the syntax error at the same place. The caller
 /// that holds the parser's errors merges what was found about the statement
-/// into that one (`merge_recovered`).
+/// into that one (`with_syntax_errors`).
 pub const UNPARSED_BODY: &str = "E-UNPARSED-BODY";
+
+/// What a load that had syntax errors reports: those, then what checking
+/// the declarations that did parse found, in file order. Uses of
+/// declarations that failed to parse (`E-FAILED-DEPENDENCY`) go without
+/// saying: the syntax error is the cause.
+pub fn with_syntax_errors(
+    parse_errors: Vec<Diagnostic>,
+    checked: Vec<Diagnostic>,
+) -> Vec<Diagnostic> {
+    let mut all = parse_errors;
+    let mut recovered = Vec::new();
+    for d in checked {
+        if d.code == "E-FAILED-DEPENDENCY" {
+            continue;
+        }
+        // A body that didn't parse fails with its own error, which isn't
+        // reported: the parser's error at the same place is. What the check
+        // found about its statement, a counterexample, belongs on that one.
+        if d.code == UNPARSED_BODY {
+            if let Some(at) = d.primary_span()
+                && let Some(error) = all.iter_mut().find(|e| e.primary_span() == Some(at))
+            {
+                let counterexample = d.counterexample_data().cloned();
+                error.notes.extend(d.notes);
+                if let Some(counterexample) = counterexample {
+                    error.detail_mut().counterexample = Some(counterexample);
+                }
+            }
+            continue;
+        }
+        recovered.push(d);
+    }
+    all.extend(recovered);
+    all.sort_by_key(|d| {
+        d.labels.first().map_or((usize::MAX, u32::MAX), |l| {
+            (l.span.file.index(), l.span.start)
+        })
+    });
+    all
+}
 
 /// The error failing a definition whose body has a syntax error at `at`
 /// (`UNPARSED_BODY`).
@@ -3906,6 +3946,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Goal(_)
+            | Expr::Missing(_)
             | Expr::Unit(_) => {}
             Expr::Binary(BinOp::In(_), a, b) => {
                 out.extend(MEMBERSHIP.iter().map(Ref::Name));

@@ -508,6 +508,7 @@ fn walk_at(
         | Expr::Prop(_)
         | Expr::Hole(_)
         | Expr::Goal(_)
+        | Expr::Missing(_)
         | Expr::Unit(_) => {}
         // `{State s | e} b`: `e` is a row variable, bound like a type.
         Expr::Effect(row, ty) => {

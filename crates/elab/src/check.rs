@@ -2110,6 +2110,13 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let ty = cx.eval(&ty)?;
             Ok((crate::goals::hole(cx, &ty), ty))
         }
+        // Its type is unknown too, and flagged with it: a message that
+        // shows it isn't reported.
+        Expr::Missing(_) => {
+            let ty = cx.fresh_meta();
+            let ty = cx.eval(&ty)?;
+            Ok((crate::goals::error_hole(cx, &ty), ty))
+        }
         Expr::Lam(..) if expr.section_name().is_some() => infer_section(cx, expr),
         // `x => y => b` is inferred as `x y => b` is (SW-910): one function
         // type for all its parameters, so the inner lambda is checked
@@ -4787,7 +4794,7 @@ fn check_special(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Special>
         return compare(cx, term, &found, &expected).map(Special::Done);
     }
     // A computation in a row of abilities: computation mode.
-    if !matches!(expr, Expr::Hole(_) | Expr::Goal(_))
+    if !matches!(expr, Expr::Hole(_) | Expr::Goal(_) | Expr::Missing(_))
         && let Some((row, t)) = effects::comp_parts(cx, &expected)?
     {
         // While its results are unknown (`Comp NoOp ?r Nat`), a computation
@@ -5002,6 +5009,7 @@ pub(crate) fn check_value(
         }
         (Expr::Hole(_), _) => hole_against(cx, &expected),
         (Expr::Goal(_), _) => Ok(crate::goals::hole(cx, &expected)),
+        (Expr::Missing(_), _) => Ok(crate::goals::error_hole(cx, &expected)),
         (Expr::LocalDefs { defs, body, .. }, _) => {
             crate::local::around(cx, defs, |cx| check(cx, body, &expected))
         }
@@ -6538,6 +6546,16 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
 /// whose frame every nested comparison pays for.
 #[inline(never)]
 fn compare_failed(cx: &mut Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+    // Where a syntax error left a hole, a mismatch that involves it is no
+    // error of the program's: the term becomes another error hole, of the
+    // type expected, so what flows on stays well typed (the unifier never
+    // solves an error hole; docs/proposals/syntax-error-recovery.md §4.2).
+    if cx.e.has_error_holes()
+        && (crate::Elaborator::mentions_error_hole(cx, found)
+            || crate::Elaborator::mentions_error_hole(cx, expected))
+    {
+        return Ok(crate::goals::error_hole(cx, expected));
+    }
     if let Some(term) = crate::build::build(cx, &term, found, expected)? {
         return Ok(term);
     }

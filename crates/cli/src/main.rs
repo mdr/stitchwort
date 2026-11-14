@@ -16,6 +16,7 @@ use stitchwort_elab::project::FileModeContext;
 use stitchwort_fmt::Error as FmtError;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
+mod breaks_cmd;
 mod build;
 mod doc_cmd;
 mod oracle_cmd;
@@ -180,6 +181,44 @@ enum DevCommand {
         /// the lossless tree or a single token, and print each that isn't
         #[arg(long)]
         spans: bool,
+    },
+    /// The one-line-break oracle of syntax error recovery
+    /// (docs/proposals/syntax-error-recovery.md §6): break each line of
+    /// every file under the paths that checks, one at a time (its last
+    /// token dropped; a stray `)` before its middle token), check the
+    /// broken file, and count the errors other than the syntax error, which
+    /// are false ones, by the recovery point the parser used. Lists the
+    /// worst breaks. In a project by default; `--files` checks each file on
+    /// its own, `--std` library files
+    Breaks {
+        /// Files or folders
+        paths: Vec<PathBuf>,
+        /// The paths are standard library files or folders, each break
+        /// checked in a copy of the library by `check --std`
+        #[arg(long, conflicts_with_all = ["files", "project"])]
+        std: bool,
+        /// The paths are files each checked on its own, as `check FILE` does
+        #[arg(long, conflicts_with = "project")]
+        files: bool,
+        /// With --std, the library's source (default: the nearest
+        /// `crates/elab/src/std` above this folder)
+        #[arg(long, requires = "std")]
+        std_root: Option<PathBuf>,
+        /// Try at most this many breaks
+        #[arg(long)]
+        limit: Option<usize>,
+        /// How many of the worst breaks to list
+        #[arg(long, default_value_t = 20)]
+        worst: usize,
+        /// Print the results as one JSON object
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
     },
     /// The formatter's report over a tree of files: format every `.sw` file
     /// under the paths, without writing anything, and check each result: the same tokens up to the
@@ -1315,6 +1354,27 @@ fn run(cli: Cli) -> ExitCode {
             parse_only,
             spans,
         }) => tree_command(&paths, print, time, parse_only, spans),
+        Command::Dev(DevCommand::Breaks {
+            paths,
+            std,
+            files,
+            std_root,
+            limit,
+            worst,
+            json,
+            project,
+            cache,
+        }) => breaks_cmd::run(&breaks_cmd::Args {
+            paths: &paths,
+            std,
+            files,
+            std_root: std_root.as_deref(),
+            limit,
+            worst,
+            json,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
         Command::Dev(DevCommand::FmtTree {
             paths,
             print,

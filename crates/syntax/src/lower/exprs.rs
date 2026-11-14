@@ -85,7 +85,33 @@ impl<'f> Lower<'f> {
             Rewrite => self.rewrite(node),
             Omega | Ring => self.with_facts(node),
             Cases => self.cases(node),
+            // Tokens the parser skipped past a syntax error it recovered
+            // from: not looked inside.
+            Error if !node.root().recoveries().is_empty() => Ok(Expr::Missing(whole(node)?)),
             kind => Err(Unsupported::Kind(kind)),
+        }
+    }
+
+    /// The expression `part` of `parent`; if it isn't there because the
+    /// parser ran out where it should have been and recovered (R1), a
+    /// missing expression at the end of `parent`'s last token.
+    pub(super) fn part_or_missing(
+        &self,
+        part: Option<Element<'f>>,
+        parent: Node<'f>,
+        what: &'static str,
+    ) -> Lowering<Expr> {
+        match part {
+            Some(part) => self.expr(part),
+            None if !parent.root().recoveries().is_empty() => {
+                let end = super::definitions::last_token(parent)
+                    .ok_or(Unsupported::Missing(parent.kind(), what))?;
+                Ok(Expr::Missing(Span {
+                    start: end.end,
+                    ..end
+                }))
+            }
+            None => Err(Unsupported::Missing(parent.kind(), what)),
         }
     }
 
@@ -438,7 +464,8 @@ impl<'f> Lower<'f> {
             Tok::Ge => (BinOp::Le, true),
             _ => return Err(Unsupported::Missing(NodeKind::Binary, "its operator")),
         };
-        Ok(binary(op, flip, self.expr(lhs)?, self.expr(rhs)?))
+        let rhs = self.part_or_missing(rhs, node, "its right operand")?;
+        Ok(binary(op, flip, self.expr(lhs)?, rhs))
     }
 
     /// `a <= b < c …`: the links joined with `&&`, its middle operands
@@ -480,11 +507,8 @@ impl<'f> Lower<'f> {
             _ => return Err(Unsupported::Missing(NodeKind::Membership, "`in`")),
         };
         let at = op.span();
-        let member = Expr::Binary(
-            BinOp::In(at),
-            Box::new(self.expr(lhs)?),
-            Box::new(self.expr(rhs)?),
-        );
+        let rhs = self.part_or_missing(rhs, node, "its right operand")?;
+        let member = Expr::Binary(BinOp::In(at), Box::new(self.expr(lhs)?), Box::new(rhs));
         Ok(if negated {
             prefix_op(true, at, member)
         } else {
@@ -501,28 +525,24 @@ impl<'f> Lower<'f> {
             Tok::DotDotEq => BinOp::RangeThrough,
             _ => return Err(Unsupported::Missing(NodeKind::Range, "its operator")),
         };
-        Ok(Expr::Binary(
-            op,
-            Box::new(self.expr(lhs)?),
-            Box::new(self.expr(rhs)?),
-        ))
+        let rhs = self.part_or_missing(rhs, node, "its right operand")?;
+        Ok(Expr::Binary(op, Box::new(self.expr(lhs)?), Box::new(rhs)))
     }
 
     /// `x |> f` ([`piped`]).
     #[inline(never)]
     fn pipe(&self, node: Node<'f>) -> Lowering<Expr> {
         let (lhs, _, rhs) = operation(node)?;
-        Ok(piped(self.expr(lhs)?, self.expr(rhs)?))
+        let rhs = self.part_or_missing(rhs, node, "its right operand")?;
+        Ok(piped(self.expr(lhs)?, rhs))
     }
 
     /// `A -> B`
     #[inline(never)]
     fn arrow(&self, node: Node<'f>) -> Lowering<Expr> {
         let (lhs, _, rhs) = operation(node)?;
-        Ok(Expr::Arrow(
-            Box::new(self.expr(lhs)?),
-            Box::new(self.expr(rhs)?),
-        ))
+        let rhs = self.part_or_missing(rhs, node, "its right operand")?;
+        Ok(Expr::Arrow(Box::new(self.expr(lhs)?), Box::new(rhs)))
     }
 
     /// `p <-> q`: `Std.Iff p q`, the name at the operator.
@@ -533,9 +553,10 @@ impl<'f> Lower<'f> {
             text: "Std.Iff".into(),
             span: op.span(),
         });
+        let rhs = self.part_or_missing(rhs, node, "its right operand")?;
         Ok(Expr::App(
             Box::new(Expr::App(Box::new(iff), Box::new(self.expr(lhs)?))),
-            Box::new(self.expr(rhs)?),
+            Box::new(rhs),
         ))
     }
 
@@ -636,15 +657,16 @@ fn items<'f>(node: Node<'f>, punctuation: &[Tok]) -> Vec<Element<'f>> {
 }
 
 /// A binary operation's three parts: its left operand, its operator and
-/// its right operand.
-fn operation(node: Node<'_>) -> Lowering<(Element<'_>, Leaf<'_>, Element<'_>)> {
+/// its right operand, if it has one.
+fn operation(node: Node<'_>) -> Lowering<(Element<'_>, Leaf<'_>, Option<Element<'_>>)> {
     let mut parts = node.children();
     let lhs = required(parts.next(), node.kind(), "its left operand")?;
     let op = match parts.next() {
         Some(Element::Leaf(op)) => op,
         _ => return Err(Unsupported::Missing(node.kind(), "its operator")),
     };
-    let rhs = required(parts.next(), node.kind(), "its right operand")?;
+    // Absent where the parser ran out after the operator (R1).
+    let rhs = parts.next();
     if parts.next().is_some() {
         return Err(Unsupported::Missing(node.kind(), "one operator"));
     }

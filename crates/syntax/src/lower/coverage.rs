@@ -146,8 +146,8 @@ type T = | A
     }
 
     /// Declarations that don't parse, or don't lex, lower to their names
-    /// as failed, marked with their first error; a definition whose header
-    /// parsed, to its signature.
+    /// as failed, marked with their first error; a definition whose body
+    /// broke is recovered in, and lowers to its signature and an equation.
     #[test]
     fn failed_declarations_lower_to_their_names() {
         let text = "\
@@ -158,13 +158,14 @@ def f: Nat := (
 ";
         let report = report(text);
         assert_eq!(report.errors.len(), 4, "{:#?}", report.errors);
-        assert_eq!(report.lowered, [NodeKind::Error; 4]);
+        let error = NodeKind::Error;
+        assert_eq!(report.lowered, [error, error, error, NodeKind::Def]);
         assert!(report.unsupported.is_empty());
         let file = SourceMap::new().next_id();
         let (module, _, _) = crate::parse_module_and_tree(file, text, crate::DEFAULT_STACK);
         let failed: Vec<_> = module.failed.iter().map(|f| f.name.text.as_str()).collect();
         assert_eq!(failed, ["T", "A", "U", "B", "C"]);
-        assert_eq!(module.decls.len(), 1, "f's signature");
+        assert_eq!(module.decls.len(), 2, "f's signature and equation");
         // A file whose first declaration isn't at the start of a line is
         // one error and an empty module.
         let unsplit = super::report("  test \"x\" := 1\n--| [`x`]\n");

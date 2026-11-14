@@ -333,11 +333,32 @@ impl Parser<'_> {
         if self.peek() == Some(&Tok::KwDecreasing) && unfolding.is_some() {
             return Err(error(self.here(), "`decreasing` goes before `unfolding`").into());
         }
-        // From here, if the body doesn't parse, a top-level definition keeps
-        // its signature.
-        if keep && matches!(self.peek(), Some(Tok::ColonEq | Tok::Pipe)) {
+        // From here a top-level definition recovers from a syntax error in
+        // its body (R6), and keeps its signature.
+        let body = if keep && matches!(self.peek(), Some(Tok::ColonEq | Tok::Pipe)) {
             self.header_kept = true;
-        }
+            self.recovering_body(|p| p.definition_body(start, column, result, instance))?
+        } else {
+            self.definition_body(start, column, result, instance)?
+        };
+        Ok(DefinitionRead {
+            kind,
+            unfolding,
+            body,
+            result,
+        })
+    }
+
+    /// A definition's body, after its header: `:= e` or arms, and none for
+    /// a primitive; whether it has one. `column` is the definition's, and
+    /// `result` its result type's tokens.
+    fn definition_body(
+        &mut self,
+        start: Span,
+        column: u32,
+        result: (u32, u32),
+        instance: bool,
+    ) -> Result<bool> {
         let body = match self.peek() {
             Some(Tok::ColonEq) => {
                 let body = self.mark();
@@ -408,12 +429,7 @@ impl Parser<'_> {
             )
             .into());
         }
-        Ok(DefinitionRead {
-            kind,
-            unfolding,
-            body,
-            result,
-        })
+        Ok(body)
     }
 
     /// Whether the type in tokens `range` is an equation, `a = b`: a

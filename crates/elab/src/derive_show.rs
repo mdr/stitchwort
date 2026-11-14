@@ -335,7 +335,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
-            body_error: None,
+            syntax_error: None,
             span,
         };
         let text = |s: &str| Expr::Str(s.to_string(), span);

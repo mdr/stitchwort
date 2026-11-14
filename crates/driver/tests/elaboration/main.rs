@@ -31,6 +31,7 @@ mod prelude_errors;
 mod readings;
 mod records;
 mod signature_defaults;
+mod syntax_recovery;
 mod text_interpolation;
 
 use stitchwort_test_alloc as _;

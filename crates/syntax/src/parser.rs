@@ -29,7 +29,7 @@ use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
 use crate::stack::StackLimit;
-use crate::tree::{DeclMarks, Mark, NodeKind, SyntaxFile};
+use crate::tree::{DeclMarks, Mark, NodeKind, Recovery, RecoveryPoint, SyntaxFile};
 use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
@@ -87,7 +87,7 @@ pub fn parse_module_within(
 /// `Module::failed`, so the declarations after it that use them aren't
 /// reported as using unknown names. A `def` or `theorem` whose header
 /// parsed and whose body didn't is kept instead, as its signature with
-/// `body_error` set and no equations. Returns the declarations that did
+/// `syntax_error` set and no equations. Returns the declarations that did
 /// parse and every error, in file order. A lexical error is recovered from
 /// the same way: the declaration holding it (see [`crate::lexer::lex_recovering`]) is
 /// left out, its names are in `failed`, and the rest of the file parses. A
@@ -125,6 +125,7 @@ fn parse_lexed(
             marks: Vec::new(),
             raw: Some(failure.range.start as u32..failure.range.end as u32),
             signature_kept: false,
+            recovered: Vec::new(),
         });
     }
     errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
@@ -307,6 +308,7 @@ fn parse_tokens(
                 marks: Vec::new(),
                 raw: None,
                 signature_kept: false,
+                recovered: Vec::new(),
             });
             return (vec![*d], trees);
         }
@@ -321,6 +323,7 @@ fn parse_tokens(
             marks: Vec::new(),
             raw: None,
             signature_kept: false,
+            recovered: Vec::new(),
         });
     }
     for group in groups {
@@ -429,14 +432,17 @@ fn parse_tokens(
                 },
                 Err(diagnostic) => Err((*diagnostic, parser.header_kept)),
             };
-            match parser.strict(parsed.clone().map_err(|(d, _)| Box::new(d))) {
+            // A definition the parser recovered in is kept with its own
+            // kind: its errors are in `parser.errors`, and its recoveries
+            // make it failed (`Node::recoveries`).
+            match parsed {
                 Ok(kind) => {
                     root = kind;
                     decls = true;
                 }
-                Err(diagnostic) => {
-                    errors.push(*diagnostic);
-                    if let Err((_, true)) = parsed {
+                Err((diagnostic, kept)) => {
+                    errors.push(diagnostic);
+                    if kept {
                         decls = true;
                         signature_kept = true;
                     }
@@ -451,6 +457,7 @@ fn parse_tokens(
             marks: std::mem::take(&mut parser.marks),
             raw: None,
             signature_kept,
+            recovered: std::mem::take(&mut parser.recovered),
         });
         offset += group.len() as u32;
     }
@@ -564,6 +571,7 @@ fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
         marks: std::mem::take(&mut parser.marks),
         raw: None,
         signature_kept: false,
+        recovered: Vec::new(),
     };
     let tree = SyntaxFile::build(
         lexed.tokens,
@@ -604,6 +612,7 @@ pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<
                 marks: Vec::new(),
                 raw: Some(0..text.len() as u32),
                 signature_kept: false,
+                recovered: Vec::new(),
             };
             let tree = SyntaxFile::build(
                 Vec::new(),
@@ -628,6 +637,7 @@ pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<
         marks: std::mem::take(&mut parser.marks),
         raw: None,
         signature_kept: false,
+        recovered: Vec::new(),
     };
     let tree = SyntaxFile::build(
         lexed.tokens,
@@ -857,6 +867,11 @@ struct Modes {
     /// expression `let`'s body follows it), so it doesn't start a sequence
     /// `a; b` (SW-888). A block resets it.
     let_value: Option<usize>,
+    /// Whether the parser is in a top-level definition's body, where it
+    /// recovers from syntax errors (docs/proposals/syntax-error-recovery.md
+    /// §2.2): elsewhere, as in a header or a data type, an error still
+    /// fails the declaration whole.
+    recover: bool,
 }
 
 /// What a recovery point restores before it carries on past an error
@@ -903,6 +918,9 @@ struct Parser<'t> {
     /// so it stays empty; the entry points fail on any, as they do on an
     /// error that unwinds ([`Parser::strict`]).
     errors: Vec<Diagnostic>,
+    /// Where each error in [`Self::errors`] was recovered from, and how: a
+    /// declaration with any is failed ([`crate::tree::Node::recoveries`]).
+    recovered: Vec<Recovery>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -1007,6 +1025,7 @@ impl<'t> Parser<'t> {
             marks: Vec::new(),
             open: Vec::new(),
             errors: Vec::new(),
+            recovered: Vec::new(),
         }
     }
 
@@ -1184,6 +1203,7 @@ impl<'t> Parser<'t> {
             marks,
             raw: None,
             signature_kept: false,
+            recovered: Vec::new(),
         };
         let tree = SyntaxFile::build(tokens, trivia, Trivia::default(), Vec::new(), vec![root]);
         let lower = Lower::new(&tree, "", self.file, &[]);
@@ -1737,10 +1757,6 @@ impl<'t> Parser<'t> {
 
     /// What [`Self::recover_to`] goes back to, taken before a recovery point
     /// tries the construct it may recover from.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "recovery points come in stage S1")
-    )]
     fn snapshot(&self) -> Snapshot {
         Snapshot {
             modes: self.modes,
@@ -1752,22 +1768,113 @@ impl<'t> Parser<'t> {
     /// carries on past it: the modes it set and didn't put back, and the
     /// operators it opened whose right operand never came. The position
     /// stays where the error left it, for the recovery point to move on from.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "recovery points come in stage S1")
-    )]
     fn recover_to(&mut self, snapshot: Snapshot) {
         self.modes = snapshot.modes;
         self.open.truncate(snapshot.open);
     }
 
     /// Records a syntax error the parser carries on from.
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "recovery points come in stage S1")
-    )]
-    fn report(&mut self, error: Diagnostic) {
+    fn report(&mut self, point: RecoveryPoint, error: Diagnostic) {
+        let at = error.primary_span().unwrap_or(Span::NOWHERE);
+        self.recovered.push(Recovery { point, at });
         self.errors.push(error);
+    }
+
+    /// R1 (docs/proposals/syntax-error-recovery.md §2.2): `expected` was
+    /// wanted where the line or the declaration ended. Reported, and
+    /// nothing is read: the construct being parsed lacks that part, which
+    /// the lowering reads as a missing expression.
+    #[cold]
+    #[inline(never)]
+    fn ran_out(&mut self, expected: &str) -> Result<()> {
+        let error = match self.pos.checked_sub(1).map(|last| self.tokens[last].span) {
+            Some(last) => self.ran_out_after(Span::point(self.file, last.end), expected),
+            None => self.unexpected(expected),
+        };
+        self.report(RecoveryPoint::RanOut, error);
+        Ok(())
+    }
+
+    /// The error of R1 at `at`, the end of the last token read, which is
+    /// where the text ran out (usually where the cursor is). A line at the
+    /// block's column that ended it gets a second label, and a note says
+    /// why; another stop (a `calc` step, a guard's `=>`) is the error as
+    /// without recovery, at the token that stopped it.
+    fn ran_out_after(&self, at: Span, expected: &str) -> Diagnostic {
+        let Some(token) = self.tokens.get(self.pos) else {
+            return error(
+                at,
+                format!("expected {expected}, but reached the end of the declaration"),
+            );
+        };
+        let ends_line = self
+            .modes
+            .limit
+            .is_some_and(|l| token.line_start && token.column <= l);
+        if !ends_line {
+            return self.unexpected(expected);
+        }
+        let diagnostic = error(at, format!("expected {expected}, but the line ends here"))
+            .with_label(token.span, "this line starts a new statement")
+            .with_note(format!(
+                "the line starting with {} (in column {}) is at or left of the enclosing \
+                 block's column ({}), so it starts a new statement",
+                self.spelled(token),
+                token.column + 1,
+                self.modes.limit.map_or(0, |l| l + 1)
+            ));
+        if self.is_infix_only(&token.tok) {
+            diagnostic.with_note(
+                "to continue the expression on the line above, indent this line further than \
+                 the block's column",
+            )
+        } else {
+            diagnostic
+        }
+    }
+
+    /// R6: parses a top-level definition's body (from its `:=` or first
+    /// `|`) with `body`, recovering from any syntax error in it or after it
+    /// that nothing inside caught. The error is reported, and the rest of
+    /// the declaration is an `Error` node: inside the `Body` node after
+    /// `:=`, or in place of the arms. The definition is then a definition
+    /// whose body is missing, never a primitive (one with no body at all).
+    pub(super) fn recovering_body(
+        &mut self,
+        body: impl FnOnce(&mut Self) -> Result<bool>,
+    ) -> Result<bool> {
+        let snapshot = self.snapshot();
+        let (at, marks) = (self.pos, self.marks.len());
+        self.modes.recover = true;
+        let parsed = body(self).and_then(|read| self.finish().map(|()| read));
+        self.modes.recover = snapshot.modes.recover;
+        let error = match parsed {
+            Ok(read) => return Ok(read),
+            Err(error) if error.code == "E-RESOURCE" => return Err(error),
+            Err(error) => error,
+        };
+        self.recover_to(snapshot);
+        // One error a place: an `R1` gap may have left what came after it
+        // nothing to stand on.
+        if self.errors.last().and_then(Diagnostic::primary_span) != error.primary_span() {
+            self.report(RecoveryPoint::Body, *error);
+        }
+        // What finished inside the skipped tokens stays, nested in the
+        // `Error` node; the body's or the first arm's own nodes would cross
+        // it, so they go.
+        let mut kept = self.marks.split_off(marks);
+        kept.retain(|mark| mark.start != at as u32);
+        self.marks.extend(kept);
+        let colon = self.tokens[at].tok == Tok::ColonEq;
+        let from = at + usize::from(colon);
+        self.pos = self.tokens.len();
+        if from < self.pos {
+            self.node(from as u32, NodeKind::Error);
+        }
+        if colon {
+            self.node(at as u32, NodeKind::Body);
+        }
+        Ok(true)
     }
 
     /// `result`, the outcome of parsing a whole declaration or expression,
@@ -2619,6 +2726,17 @@ impl<'t> Parser<'t> {
             match self.modes.limit {
                 None => return self.block(token.column, true),
                 Some(limit) if token.column > limit => return self.block(token.column, true),
+                // R1: a statement line at the block's column after `:=` or
+                // an operator is the next statement, and the line above ran
+                // out, unless it is an expression `let` (`let x := e; body`).
+                Some(limit)
+                    if token.column == limit
+                        && self.modes.recover
+                        && matches!(token.tok, Tok::KwLet | Tok::KwDef | Tok::KwTheorem)
+                        && !self.line_has_semicolon(self.pos, limit) =>
+                {
+                    return self.ran_out("an expression");
+                }
                 // A line at the block's own column after a line ending in an
                 // operator: it continues that line.
                 Some(limit) if token.column == limit => return self.block(token.column, false),
@@ -2626,6 +2744,15 @@ impl<'t> Parser<'t> {
             }
         }
         self.expr_inline()
+    }
+
+    /// Whether the line starting at token `start` has a `;` before the next
+    /// line at or left of `limit`, in brackets or not.
+    fn line_has_semicolon(&self, start: usize, limit: u32) -> bool {
+        (self.tokens[start..].iter())
+            .enumerate()
+            .take_while(|(k, t)| *k == 0 || !(t.line_start && t.column <= limit))
+            .any(|(_, t)| t.tok == Tok::Semi)
     }
 
     /// Lines at `column`, each a statement, the last being the result. With
@@ -5166,6 +5293,7 @@ impl<'t> Parser<'t> {
             Some(Tok::LBrace) => return self.record_expr(),
             Some(Tok::Dot) => return self.section_start(),
             // A keyword as a lambda's parameter: `(test => …)`.
+            None if self.modes.recover => return self.ran_out("an expression"),
             _ if self.peek_at(1) == Some(&Tok::FatArrow) => {
                 return Err(self.unexpected_name("an expression").into());
             }
@@ -5373,6 +5501,7 @@ mod tests {
                 guard_start: Some(2),
                 rewrite_at: true,
                 let_value: Some(0),
+                recover: true,
             };
             parser.open.push((2, NodeKind::Binary));
             parser.open.push((4, NodeKind::Binary));
@@ -5390,14 +5519,14 @@ mod tests {
         });
     }
 
-    /// An error recovered from fails the entry points as if it had
-    /// unwound, ahead of one that did (stage S0: nothing recovers yet).
+    /// An error recovered from fails the entry points that give one error
+    /// as if it had unwound, ahead of one that did.
     #[test]
     fn strict_fails_on_an_error_recovered_from() {
         with_parser("a b", |parser| {
             assert!(parser.strict(Ok(())).is_ok());
-            parser.report(error(parser.here(), "first"));
-            parser.report(error(parser.here(), "second"));
+            parser.report(RecoveryPoint::Body, error(parser.here(), "first"));
+            parser.report(RecoveryPoint::Body, error(parser.here(), "second"));
             let unwound: Result<()> = Err(Box::new(error(parser.here(), "unwound")));
             let failed = parser.strict(unwound).unwrap_err();
             assert_eq!(failed.message, "first");
@@ -7225,6 +7354,108 @@ mod tests {
         assert!(parse_module_text(text).is_err());
     }
 
+    /// The parse of `text`'s declarations in recovery: the module, the
+    /// errors, and each declaration's recovery points.
+    fn recovered(text: &str) -> (Module, Vec<Diagnostic>, Vec<Vec<RecoveryPoint>>) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors, tree) = parse_module_and_tree(file, text, DEFAULT_STACK);
+        let points = tree
+            .decls()
+            .map(|root| root.recoveries().iter().map(|r| r.point).collect())
+            .collect();
+        (module, errors, points)
+    }
+
+    /// The right-hand side of the only equation of `name` in `module`.
+    fn equation_rhs<'m>(module: &'m Module, name: &str) -> &'m Expr {
+        let rhs = module.decls.iter().find_map(|d| match d {
+            Decl::Equation { name: n, rhs, .. } if n.text == name => rhs.as_ref(),
+            _ => None,
+        });
+        rhs.unwrap_or_else(|| panic!("no equation of {name}: {module:?}"))
+    }
+
+    /// R1: an operand that runs out at the end of its line is missing, at
+    /// the end of the operator, and the lines after it are parsed as usual.
+    #[test]
+    fn an_operand_that_runs_out_is_missing_and_the_block_goes_on() {
+        let text = "def f (n: Nat): Nat :=\n  let a := n +\n  let b := a * 2\n  b\n";
+        let (module, errors, points) = recovered(text);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(points, [vec![RecoveryPoint::RanOut]]);
+        assert!(module.decls.iter().any(|d| matches!(
+            d,
+            Decl::Signature { name, syntax_error: Some(_), .. } if name.text == "f"
+        )));
+        let Expr::Let { value, body, .. } = equation_rhs(&module, "f") else {
+            panic!("{module:?}")
+        };
+        let Expr::Binary(BinOp::Add, _, missing) = &**value else {
+            panic!("{value:?}")
+        };
+        let plus = text.find('+').unwrap() as u32;
+        assert!(
+            matches!(**missing, Expr::Missing(span) if span.start == plus + 1 && span.end == plus + 1),
+            "{missing:?}"
+        );
+        assert!(matches!(**body, Expr::Let { .. }), "{body:?}");
+    }
+
+    /// `def f: Nat :=` with nothing after it is a definition whose body is
+    /// missing, not a primitive (a header with no body).
+    #[test]
+    fn a_body_that_runs_out_is_missing_not_a_primitive() {
+        let (module, errors, points) = recovered("def f: Nat :=\n\ndef g: Nat := f\n");
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(points, [vec![RecoveryPoint::RanOut], vec![]]);
+        assert!(matches!(equation_rhs(&module, "f"), Expr::Missing(_)));
+    }
+
+    /// R6: an error nothing inside recovers from skips the rest of the body,
+    /// which is one missing expression over the skipped text; the
+    /// declarations after it are parsed as usual.
+    #[test]
+    fn a_body_that_breaks_is_skipped_to_the_end() {
+        let text = "def f (n: Nat): Nat :=\n  let a := n + ) 1\n  a\n\ndef g: Nat := 1\n";
+        let (module, errors, points) = recovered(text);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(points, [vec![RecoveryPoint::Body], vec![]]);
+        let Expr::Missing(span) = equation_rhs(&module, "f") else {
+            panic!("{module:?}")
+        };
+        let skipped = &text[text.find("let").unwrap()..text.find("\n\n").unwrap()];
+        assert_eq!(&text[span.start as usize..span.end as usize], skipped);
+        assert!(matches!(equation_rhs(&module, "g"), Expr::Num(..)));
+    }
+
+    /// Arms that break are one equation of the header's patterns whose body
+    /// is missing.
+    #[test]
+    fn arms_that_break_are_one_equation_with_a_missing_body() {
+        let text = "def f: Nat -> Nat\n  | 0 => 1\n  | n => ) n\n";
+        let (module, errors, points) = recovered(text);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert_eq!(points, [vec![RecoveryPoint::Body]]);
+        assert!(matches!(equation_rhs(&module, "f"), Expr::Missing(_)));
+    }
+
+    /// Outside a top-level definition's body nothing recovers: a header, a
+    /// data type, a test fail whole as before.
+    #[test]
+    fn headers_and_other_declarations_still_fail_whole() {
+        for text in [
+            "def f (n: Nat): Nat + := n\n",
+            "type T =\n  | A (n: Nat +)\n",
+            "test \"t\" := 1 +\n",
+            "instance i: Foo := 1 +\n",
+        ] {
+            let (_, errors, points) = recovered(text);
+            assert_eq!(errors.len(), 1, "{text}: {errors:?}");
+            assert_eq!(points, [vec![]], "{text}");
+        }
+    }
+
     #[test]
     fn a_half_typed_minus_is_still_binary_in_recovery() {
         let text = "def a: Nat := 1\n\ndef b (n: Nat): Nat := n -\n\ndef d: Nat := 2\n";
@@ -7234,7 +7465,7 @@ mod tests {
         assert_eq!(errors.len(), 1, "{errors:?}");
         assert!(module.decls.iter().any(|d| matches!(
             d,
-            Decl::Signature { name, body_error: Some(_), .. } if name.text == "b"
+            Decl::Signature { name, syntax_error: Some(_), .. } if name.text == "b"
         )));
     }
 
@@ -8970,8 +9201,9 @@ mod tests {
     }
 
     /// A `def` or `theorem` whose header parses and whose body doesn't is
-    /// kept as its signature, with no equations and the place of the
-    /// body's error, so it can stand in for its statement
+    /// kept, with the place of its first error and one equation whose body
+    /// is (or holds) a missing expression, so its signature can stand in
+    /// for its statement
     /// (docs/proposals/tests-with-errors.md §3.3). One whose header doesn't
     /// parse, and an instance, are left out as before.
     #[test]
@@ -8991,14 +9223,14 @@ mod tests {
         let kept: Vec<(&str, Option<Span>, usize)> = (module.decls.iter())
             .filter_map(|d| match d {
                 Decl::Signature {
-                    name, body_error, ..
+                    name, syntax_error, ..
                 } => {
                     let equations = (module.decls.iter())
                         .filter(
                             |e| matches!(e, Decl::Equation { name: n, .. } if n.text == name.text),
                         )
                         .count();
-                    Some((name.text.as_str(), *body_error, equations))
+                    Some((name.text.as_str(), *syntax_error, equations))
                 }
                 _ => None,
             })
@@ -9008,24 +9240,30 @@ mod tests {
             kept,
             [
                 ("double", None, 1),
-                ("doubleTwo", at(0), 0),
-                ("arms", at(1), 0),
-                ("trailing", at(2), 0),
-                ("local", at(3), 0),
+                ("doubleTwo", at(0), 1),
+                ("arms", at(1), 1),
+                ("trailing", at(2), 1),
+                ("local", at(3), 1),
                 ("last", None, 1),
             ]
         );
         // The error is where the parser reported it: the end of `(rfl`.
         let line = &text[..at(0).unwrap().start as usize];
         assert!(line.ends_with("(rfl"), "{line:?}");
-        let Some(Decl::Signature { attrs, export, .. }) = module.decls.get(2) else {
+        let signature = |name: &str| {
+            module
+                .decls
+                .iter()
+                .find(|d| matches!(d, Decl::Signature { name: n, .. } if n.text == name))
+        };
+        let Some(Decl::Signature { attrs, export, .. }) = signature("doubleTwo") else {
             panic!("{:?}", module.decls);
         };
         assert_eq!(attr_texts(attrs), ["simp"]);
         assert!(!export);
         assert!(matches!(
-            &module.decls[3],
-            Decl::Signature { export: true, .. }
+            signature("arms"),
+            Some(Decl::Signature { export: true, .. })
         ));
         let failed: Vec<&str> = module.failed.iter().map(|n| n.name.text.as_str()).collect();
         assert_eq!(failed, ["header", "inst"]);

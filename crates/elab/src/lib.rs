@@ -97,7 +97,7 @@ pub use library::LibraryIndex;
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::{ContextAt, GoalSnapshot, StepAt, StepForm};
-pub use module::UNPARSED_BODY;
+pub use module::{UNPARSED_BODY, with_syntax_errors};
 pub use rewind::Mark;
 pub use scope::edit_distance;
 pub use state::JournalStats;
@@ -443,6 +443,10 @@ impl stitchwort_core::Shown for Elaborator {
 
     fn wants_failed_mention(&self) -> bool {
         !self.decl.failed_mentioned.get()
+    }
+
+    fn note_meta_shown(&self, m: usize) {
+        Elaborator::note_meta_shown(self, m);
     }
 
     fn note_failed_mentioned(&self, def: DefId) {
@@ -1407,6 +1411,11 @@ impl Elaborator {
     ) -> Result<Term> {
         unify::zonk_in(&self.unifier(), level, term, keep, lets).map_err(|e| match e {
             unify::ZonkError::Resource(e) => e.into(),
+            // An unknown that a syntax error's gap left unsolved: no error
+            // of the program's (`goals::error_hole`).
+            unify::ZonkError::Unsolved(m) if self.is_error_hole(m) => {
+                goals::open_goal(self.attempt.store.metas.borrow()[m].span)
+            }
             unify::ZonkError::Unsolved(m) => self.unsolved_error(m),
         })
     }
@@ -1826,7 +1835,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
-            body_error: None,
+            syntax_error: None,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -1930,7 +1939,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
-            body_error: None,
+            syntax_error: None,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -2732,6 +2741,11 @@ impl Elaborator {
                 Ok(()) => continue,
                 Err(d) => d,
             };
+            // A body with a syntax error is never admitted, nor are its
+            // local definitions.
+            if self.has_error_holes() {
+                return Err(d);
+            }
             let before = self.decl.preadmitted.borrow().len();
             match self.preadmit(key) {
                 Ok((true, _)) if self.decl.preadmitted.borrow().len() > before => {}
@@ -2740,6 +2754,49 @@ impl Elaborator {
                 Err(_) => return Err(d),
             }
         }
+    }
+
+    /// The errors of the body of definition `id` (one of the group `ids`),
+    /// which has a syntax error: those of its other lines. Its terms are
+    /// thrown away. An error whose message shows an error hole, or that
+    /// stands for one being unfinished, is about the gap the syntax error
+    /// left, not the program, so it isn't reported (§4.2's backstop), and
+    /// neither are the body's warnings.
+    fn broken_body(
+        &mut self,
+        id: DefId,
+        ids: &[DefId],
+        name: &ast::Name,
+        equations: &[Decl],
+    ) -> Vec<Diagnostic> {
+        self.unit.module.phase = Phase::Body;
+        self.clear_metas();
+        self.attempt.branch_errors.take();
+        self.attempt.take_rigid_divergence();
+        self.take_error_hole_shown();
+        let checked = self.in_body_of(id, ids, |e| e.lifted_body(id, name, equations));
+        let shown = self.take_error_hole_shown();
+        self.attempt.lambda_warnings.take();
+        let branches = self.attempt.branch_errors.take();
+        let Err(d) = checked else {
+            return Vec::new();
+        };
+        if undo::fatal(&d) && d.code == "E-RESOURCE" {
+            return vec![d];
+        }
+        if shown || d.code == goals::UNFINISHED {
+            return Vec::new();
+        }
+        let mut out = vec![d];
+        for b in branches {
+            let at = b.labels.first().map(|l| l.span);
+            if b.code != goals::UNFINISHED
+                && !out.iter().any(|o| o.labels.first().map(|l| l.span) == at)
+            {
+                out.push(b);
+            }
+        }
+        out
     }
 
     /// A refusal of the group as a whole, attributed to the member whose
@@ -2794,7 +2851,7 @@ impl Elaborator {
         // didn't parse is failed without checking anything.
         let unparsed = |s: &Decl| match s {
             Decl::Signature {
-                body_error: Some(at),
+                syntax_error: Some(at),
                 ..
             } => Some(*at),
             _ => None,
@@ -2920,15 +2977,28 @@ impl Elaborator {
         if refused {
             return out;
         }
-        // A body that didn't parse: the statement is checked, and that's
-        // all (a stand-in can be made for it).
-        for &(item, signature, _) in members {
-            if let Some(at) = unparsed(signature) {
+        // A definition with a syntax error: its statement is checked (a
+        // stand-in can be made for it), and its body for the errors of its
+        // other lines, but it fails whatever that finds, so nothing in the
+        // group is admitted (docs/proposals/syntax-error-recovery.md §4.1).
+        if members.iter().any(|(_, s, _)| unparsed(s).is_some()) {
+            for (&(item, signature, equations), id) in members.iter().zip(&ids) {
+                let Some(at) = unparsed(signature) else {
+                    continue;
+                };
+                self.unit.module.item = Some(item);
+                if !equations.is_empty() {
+                    let Decl::Signature { name, .. } = signature else {
+                        unreachable!()
+                    };
+                    out.extend(
+                        self.broken_body(*id, &ids, name, equations)
+                            .into_iter()
+                            .map(|d| (item, d)),
+                    );
+                }
                 out.push((item, module::unparsed_body(at)));
-                refused = true;
             }
-        }
-        if refused {
             return out;
         }
         if recursive {
@@ -3102,7 +3172,7 @@ impl Elaborator {
             unfolding: _,
             defaults,
             attrs: _,
-            body_error: _,
+            syntax_error: _,
             span,
         } = signature
         else {

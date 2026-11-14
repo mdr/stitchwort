@@ -111,6 +111,15 @@ pub enum Expr {
     /// and the names in scope) and carries on; the declaration is
     /// unfinished, not wrong (docs/proposals/lsp-goal-holes.md).
     Goal(Span),
+    /// Where a syntax error left no expression: text the parser skipped, or
+    /// an expression that wasn't written before the line or the declaration
+    /// ended (then the span is empty, at the end of what came before). The
+    /// checker treats it as an *error hole*: like `?`, checked around and
+    /// never sent to the kernel, but with nothing reported about it or
+    /// about anything that depends on it (docs/proposals/
+    /// syntax-error-recovery.md §4). Only a declaration with a syntax error
+    /// has one ([`Decl::Signature`]'s `syntax_error`).
+    Missing(Span),
     /// `A -> B`
     Arrow(Box<Expr>, Box<Expr>),
     /// `a = b`, `a + b`, …
@@ -487,6 +496,7 @@ impl Expr {
             | Expr::If { span, .. }
             | Expr::Hole(span)
             | Expr::Goal(span)
+            | Expr::Missing(span)
             | Expr::Ann(_, _, span)
             | Expr::Bracketed(_, span)
             | Expr::Neg(_, span, _)
@@ -622,6 +632,7 @@ fn is_leaf(expr: &Expr) -> bool {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Goal(_)
+            | Expr::Missing(_)
             | Expr::Unit(_)
     )
 }
@@ -1071,13 +1082,17 @@ pub enum Decl {
         /// The attributes written before the declaration (before `export`,
         /// if it's there).
         attrs: Vec<Attribute>,
-        /// Where its body's syntax error is, when its header parsed and its
-        /// body didn't (only `parse_module_recovering` keeps such a
-        /// definition): it has no equations, and the elaborator checks its
-        /// statement, then fails it without a message of its own, the parser
-        /// having reported the error (docs/proposals/tests-with-errors.md
-        /// §3.3).
-        body_error: Option<Span>,
+        /// Where its first syntax error is, when the parser recovered from
+        /// one in it (docs/proposals/syntax-error-recovery.md §4.1): its
+        /// header parsed, and its equations are what the parser made of the
+        /// rest, with a missing expression ([`Expr::Missing`]) where text
+        /// was skipped or ran out. The elaborator checks it, for the errors
+        /// of its other lines, then fails it whatever it checks to, without
+        /// a message of its own (the parser reported the error), so it never
+        /// gets a kernel term; its signature stands in for it
+        /// (docs/proposals/tests-with-errors.md §3.3). With no equations, a
+        /// definition whose body the lowering refused.
+        syntax_error: Option<Span>,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.

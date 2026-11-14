@@ -9,7 +9,7 @@ use crate::tree::{Element, Leaf, Node, NodeKind};
 use super::access::required;
 use super::decls::name;
 use super::header::{Param, check_duplicates, clause_match, lower_header, take_defaults};
-use super::{Lower, Lowering};
+use super::{Lower, Lowering, Unsupported};
 
 /// Whether `element` is the token `tok`.
 pub(super) fn is_leaf(element: &Element<'_>, tok: &Tok) -> bool {
@@ -40,6 +40,15 @@ impl<'f> Lower<'f> {
             patterns: header,
         } = self.header(root)?;
         let mut decls = vec![signature];
+        // Recovered from a syntax error (R1, R6): it fails, and what parsed
+        // is checked for the errors of its other lines.
+        if let Some(first) = root.recoveries().first() {
+            if let Decl::Signature { syntax_error, .. } = &mut decls[0] {
+                *syntax_error = Some(first.at);
+            }
+            decls.extend(self.recovered_equations(root, &name, &header)?);
+            return Ok(decls);
+        }
         if let Some(body) = root.child(NodeKind::Body) {
             let rhs = required(body.after(&Tok::ColonEq), NodeKind::Body, "its expression")?;
             let rhs = self.expr(rhs)?;
@@ -80,6 +89,60 @@ impl<'f> Lower<'f> {
         Ok(decls)
     }
 
+    /// The equations of a definition the parser recovered in: as written,
+    /// with a missing expression for each part that ran out or was skipped.
+    /// If any part can't be lowered for being incomplete, the whole body is
+    /// missing: one equation of the header's patterns, never none, which
+    /// would make a primitive. An error the lowering raises itself
+    /// ([`Unsupported::Invalid`]) is raised as usual.
+    fn recovered_equations(
+        &self,
+        root: Node<'f>,
+        name: &Name,
+        header: &[Pattern],
+    ) -> Lowering<Vec<Decl>> {
+        let written = (|| -> Lowering<Vec<Decl>> {
+            if let Some(body) = root.child(NodeKind::Body) {
+                let rhs =
+                    self.part_or_missing(body.after(&Tok::ColonEq), body, "its expression")?;
+                return Ok(vec![Decl::Equation {
+                    span: name.span.to(rhs.span()),
+                    name: name.clone(),
+                    patterns: header.to_vec(),
+                    guard: None,
+                    rhs: Some(rhs),
+                    arm: None,
+                }]);
+            }
+            let Some(arms) = root.child(NodeKind::Arms) else {
+                return Err(Unsupported::Missing(root.kind(), "its body"));
+            };
+            arms.child_nodes()
+                .map(|arm| self.arm(arm, name, header))
+                .collect()
+        })();
+        match written {
+            Ok(equations) => Ok(equations),
+            Err(invalid @ (Unsupported::Invalid(_) | Unsupported::TooDeep(_))) => Err(invalid),
+            Err(_) => {
+                let rest = root
+                    .child(NodeKind::Body)
+                    .and_then(|body| body.span())
+                    .or_else(|| root.child(NodeKind::Error).and_then(|error| error.span()))
+                    .or_else(|| root.child(NodeKind::Arms).and_then(|arms| arms.span()))
+                    .unwrap_or(name.span);
+                Ok(vec![Decl::Equation {
+                    span: name.span.to(rest),
+                    name: name.clone(),
+                    patterns: header.to_vec(),
+                    guard: None,
+                    rhs: Some(Expr::Missing(rest)),
+                    arm: None,
+                }])
+            }
+        }
+    }
+
     /// A definition that didn't parse but whose header did: its signature,
     /// with no equations, marked with where its first error is.
     pub(super) fn kept_signature(&self, root: Node<'f>) -> Lowering<Decl> {
@@ -93,10 +156,10 @@ impl<'f> Lower<'f> {
     pub(super) fn signature_with_error(&self, root: Node<'f>, error_at: Span) -> Lowering<Decl> {
         let Header { mut signature, .. } = self.header(root)?;
         if let Decl::Signature {
-            body_error, span, ..
+            syntax_error, span, ..
         } = &mut signature
         {
-            *body_error = Some(if error_at == Span::NOWHERE {
+            *syntax_error = Some(if error_at == Span::NOWHERE {
                 *span
             } else {
                 error_at
@@ -178,7 +241,7 @@ impl<'f> Lower<'f> {
             unfolding,
             defaults,
             attrs,
-            body_error: None,
+            syntax_error: None,
             span,
         };
         Ok(Header {
@@ -464,12 +527,13 @@ def bad7 (x: Nat) Nat := x
         let kept: Vec<&str> = module
             .decls
             .iter()
-            .map(|d| match d {
+            .filter_map(|d| match d {
                 crate::ast::Decl::Signature {
                     name,
-                    body_error: Some(_),
+                    syntax_error: Some(_),
                     ..
-                } => name.text.as_str(),
+                } => Some(name.text.as_str()),
+                crate::ast::Decl::Equation { .. } => None,
                 other => panic!("{other:?}"),
             })
             .collect();

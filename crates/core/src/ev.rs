@@ -102,6 +102,11 @@ pub trait Shown {
     /// `def` (the first such, reading the term left to right).
     fn note_failed_mentioned(&self, _def: DefId) {}
 
+    /// Records that a message showed unknown `m` (a metavariable): the
+    /// elaborator holds back a message that shows a hole a syntax error
+    /// left.
+    fn note_meta_shown(&self, _m: usize) {}
+
     /// Whether a term that mentions final definition `id` may be stuck on
     /// an open goal's assumption: `id` is checked assuming the goal holds
     /// and computes (docs/core.md "Assumptions (open goals)"). The printer

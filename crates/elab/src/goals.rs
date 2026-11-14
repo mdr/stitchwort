@@ -42,6 +42,11 @@ pub(crate) struct Pending {
     pub(crate) span: Span,
     /// The frozen metavariable standing for the hole.
     pub(crate) meta: usize,
+    /// Whether it is an *error hole*: a missing expression where a syntax
+    /// error left none ([`stitchwort_syntax::ast::Expr::Missing`]), not a
+    /// `?`. It isn't printed as a goal, and nothing that mentions it is
+    /// reported (docs/proposals/syntax-error-recovery.md §4.2).
+    pub(crate) error: bool,
     expected: Value,
     /// The type checked against, as it is (`expected` may be a display
     /// form of it), for [`GoalSnapshot`].
@@ -108,6 +113,10 @@ struct Found {
 #[derive(Clone, Default)]
 pub(crate) struct Goals {
     pub(crate) pending: Vec<Pending>,
+    /// Whether a message has shown an error hole ([`Pending::error`]) since
+    /// [`Elaborator::take_error_hole_shown`] last asked: the printer notes
+    /// it through the elaborator's `Shown`.
+    error_hole_shown: std::cell::Cell<bool>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
     /// The context asked for at a position ([`Elaborator::probe_context`]).
@@ -418,6 +427,19 @@ fn display_goal(cx: &Ctx) -> Option<Value> {
 /// to the variables in scope (those a case split hasn't replaced), as a
 /// term. Notes the goal.
 pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
+    hole_of(cx, expected, false)
+}
+
+/// A missing expression ([`stitchwort_syntax::ast::Expr::Missing`]) checked
+/// against `expected`: a hole like `?`'s, flagged as an error hole
+/// ([`Pending::error`]). A term with one in it is never finished, so it
+/// never reaches the kernel; the declaration has failed already, for its
+/// syntax error.
+pub(crate) fn error_hole(cx: &Ctx, expected: &Value) -> Term {
+    hole_of(cx, expected, true)
+}
+
+fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
     let g = cx.g();
     let m = cx.metas().new_meta(cx.span);
     cx.metas().freeze_meta(m);
@@ -463,6 +485,7 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     cx.e.goals.borrow_mut().pending.push(Pending {
         span: cx.span,
         meta: m,
+        error,
         expected: shown.unwrap_or_else(|| expected.clone()),
         target: expected.clone(),
         names: shown_names,
@@ -716,6 +739,52 @@ impl Elaborator {
         self.goals.borrow().pending.iter().any(|p| p.meta == m)
     }
 
+    /// Whether metavariable `m` is an error hole's, or the unknown type of
+    /// one whose type nothing said ([`Pending::error`]).
+    pub(crate) fn is_error_hole(&self, m: usize) -> bool {
+        let Ok(goals) = self.goals.try_borrow() else {
+            return false;
+        };
+        goals.pending.iter().any(|p| {
+            p.error
+                && (p.meta == m
+                    || matches!(&p.target, Value::Neutral(Head::Meta(t), spine) if *t == m && spine.is_empty()))
+        })
+    }
+
+    /// Whether the declaration being checked has an error hole.
+    pub(crate) fn has_error_holes(&self) -> bool {
+        self.goals.borrow().pending.iter().any(|p| p.error)
+    }
+
+    /// Whether `value` mentions an error hole, its unknowns' solutions put
+    /// in.
+    pub(crate) fn mentions_error_hole(cx: &Ctx, value: &Value) -> bool {
+        let Ok(term) = crate::interfaces::scanned(cx, value) else {
+            return false;
+        };
+        let Ok(term) = cx.e.zonk_keeping(&term, cx.level(), &|_| true) else {
+            return false;
+        };
+        term.subterms()
+            .any(|(t, _)| matches!(t, Term::Meta(m) if cx.e.is_error_hole(*m)))
+    }
+
+    /// Notes that a message showed metavariable `m`: if it is an error
+    /// hole's, the message is about the hole, not the program.
+    pub(crate) fn note_meta_shown(&self, m: usize) {
+        if self.is_error_hole(m)
+            && let Ok(goals) = self.goals.try_borrow()
+        {
+            goals.error_hole_shown.set(true);
+        }
+    }
+
+    /// Whether a message showed an error hole since the last call.
+    pub(crate) fn take_error_hole_shown(&self) -> bool {
+        self.goals.borrow().error_hole_shown.replace(false)
+    }
+
     /// Whether a goal noted, not printed yet, is at `span`.
     pub(crate) fn has_goal_at(&self, span: Span) -> bool {
         self.goals.borrow().pending.iter().any(|p| p.span == span)
@@ -767,7 +836,9 @@ impl Elaborator {
     /// their solutions. A goal at a span already printed replaces it.
     pub(crate) fn flush_goals(&self) {
         self.flush_probe();
-        let pending = std::mem::take(&mut self.goals.borrow_mut().pending);
+        let mut pending = std::mem::take(&mut self.goals.borrow_mut().pending);
+        // An error hole is no goal of the program's.
+        pending.retain(|p| !p.error);
         if pending.is_empty() {
             return;
         }
