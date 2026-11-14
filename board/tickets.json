@@ -35041,12 +35041,12 @@
     {
       "id": 3210,
       "title": "[Opus] Lowering L3 (docs/proposals/syntax-tree-lowering.md): Binding, sections, blocks, lambdas, if, forall/exists",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35054,12 +35054,12 @@
     {
       "id": 3211,
       "title": "[Opus] Lowering L4 (docs/proposals/syntax-tree-lowering.md): Matching, handle, calc, rewrite, patterns",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
