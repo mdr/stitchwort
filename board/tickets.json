@@ -35202,15 +35202,17 @@
     {
       "id": 3221,
       "title": "[Sonnet] Bench: the seven check-closed-* benchmarks' steps and visits doubled since the 11 Nov baseline (check-closed-print 1,097,315 → 2,089,850 steps; allocations +112%, time 99 → 259 ms); the programs are three lines, so evaluation of the closed value roughly doubled, not parsing. Find the commit(s) since 0eac3e918 and say whether it is intended; separately list the parse-side changes that are L5's (SW-3212) double construction",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Expected: 60 min (Sonnet). Bench run on main after L5 + SW-3215: scratchpad/bench-main-1215.log.",
+      "body": "Expected: 60 min (Sonnet). Bench run on main after L5 + SW-3215: scratchpad/bench-main-1215.log.\n\nFindings (14 Nov, lane): the steps are not the closed value's evaluation (changing 200000 to 20 leaves them identical): they are the checking of std's List declarations when `import Std (List, Nat)` loads, which the bench counts. Bisected to Merge SW-3067 (c32a7f37c), std only: the new theorem List.inRangeReads (proved by omega in both directions) costs about 860,000 steps on its own. Fix: proved by `Bool.andReads (from <= x) (x < until)`; check-closed-* 2.09M -> 1.25M steps. The remaining +14% over the baseline (1.10M -> 1.25M) comes from std growth between 0eac3e918 and c32a7f37c's parent (1.11M at the 12 Nov midpoint 530fc52ed, 1.23M by 4b75fbde2), not looked into further. Commit a20d96fa6 on lane/SW-3221.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "a20d96fa6"
+      ]
     }
   ]
 }
