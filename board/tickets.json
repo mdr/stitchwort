@@ -34332,7 +34332,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Note merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.",
+      "body": "Note merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.\nTo add when its lanes start: lowering also handles SW-3161's Gap nodes (a proof-step gap scoping the lines below; Expr::Missing { span, rest }).",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
