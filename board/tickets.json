@@ -35989,12 +35989,12 @@
     {
       "id": 3277,
       "title": "[Opus] Paper: how generic-input parser libraries keep the common (character) case pleasant (D3588): Parsec/Megaparsec, attoparsec, nom, chumsky, combine, winnow, FParsec, Scala parser combinators, Lean's Parsec, Koka/Effekt parsers; aliases vs defaults vs explicit; whether an ability alias (D3596 set names) fits; holds D3588",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 14 Nov 2026, on D3588 ({Parse Char} vs keeping {Parse}): 'worth an Opus paper lane ... what other languages and libraries do ... If they are generic in input, how do they handle a nice common case? I think having a default generic parameter is probably not a good choice ... maybe an alias ability could be interesting ... a quick rummage around the state of the art.' Expected: 1 h (Opus paper lane).",
+      "body": "Matt, 14 Nov 2026, on D3588 ({Parse Char} vs keeping {Parse}): 'worth an Opus paper lane ... what other languages and libraries do ... If they are generic in input, how do they handle a nice common case? I think having a default generic parameter is probably not a good choice ... maybe an alias ability could be interesting ... a quick rummage around the state of the art.' Expected: 1 h (Opus paper lane).\n\nLane, 14 Nov 2026: survey in docs/proposals/parser-input-naming.md (14 libraries; 9 generic in input, none defaults the input; aliases are per-input modules, user conventions, or the input is the function's argument; Effekt uses a set name `effect Parser = { Nondet, Lexer }`). Rec: write `{Parse Char}`, no std set name; user-written set names (e.g. `ability Grammar = {Parse Token, Fail}`) once SW-3267 lands. D3603 asked (replaces D3588). Findings: E-ARITY message for a bare parameterised ability in a row; \"add `X` to the function's type\" note drops the argument.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
