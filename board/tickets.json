@@ -1,5 +1,5 @@
 {
-  "next": 3259,
+  "next": 3260,
   "tickets": [
     {
       "id": 47,
@@ -35536,15 +35536,17 @@
     {
       "id": 3243,
       "title": "[Opus] URGENT T0 (parser-end-state.md): since L5, 'a ∧ b ∧ c → q' is checked as 'a ∧ b ∧ c' (also ↔ q and ; e after a 3+ operand ∧/∨ chain, and a ∨ b ∧ c): mark_logic_chain records the inner node last, operand_start gives the arrow the wrong start, build_decl drops the crossing mark silently. Fix; a dropped mark becomes E-INTERNAL plus a debug assertion in SyntaxFile::build; the lowering rejects children it didn't read; tree-dump tests",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2.5 h (Opus). Started at once: main checks a different statement from the one written.\n\nLane notes (Opus, 14 Nov 2026, 16:06-16:42): commit 725acc7f3 on lane/SW-3243.\n- Fix: mark_logic_chain records its Binary marks in finishing order (whole chain last); record_range removed.\n- Probes: 900 one-line files (20 chain shapes x 45 contexts: -> <-> ; after chains, arrows before/inside, lambdas, forall/exists, if, match arms, records, named args, annotations, tuples, lists, ranges, pipes, sections). Before: 517 with dropped marks (85 also with span misses), every one a chain of 3+ operands or `a || b && c` followed by `->`, `<->` or `;`, in any context. After: 0 dropped, 0 misses, 0 internal errors.\n- Another shape found, silent (no dropped mark): a method section starting a 3+ chain, `(.big && a && b)`, wasn't widened (checked as `(x => x.big) && a && b`, a type error). Fixed by the same change.\n- Guards: per-declaration dropped count; Lower::decl/expression refuse it (E-INTERNAL, Unsupported::Crossed); debug_assert in SyntaxFile::build (build_allowing_crossed for tests); Unsupported::Unread for left-over parts in def/test Body, def ResultType, Seq, LetExpr, Paren, Annotation, FunctionType; dev tree prints/counts internal errors; fuzz:syntax fails on a dropped mark (it runs in release, so the debug_assert alone wouldn't).\n- Gate: dev tree --spans crates/elab/src/std aoc/src games examples: 2621 files, 0 dropped, 0 internal errors, 0 misses; also crates docs web bench dev: 447 files, the same.\n- Tests: 17+36 named syntax tests, 2 new guard tests, new tree test, fuzz (3000 cases); hash_stability (only the new example's snapshot added, no existing hash changed); examples accepted/rejected with EXAMPLES=logic-chain-arrow. All pass.\n",
+      "body": "T0 of parser-end-state.md. Expected: 2.5 h (Opus), ~35 min. 517 of 900 probe shapes dropped a mark before; 0 after; whole repo 0 dropped, 0 E-INTERNAL. Also fixed: a method section starting a 3+ chain wasn't widened. Filed SW-3259. Fuzzer now calls parse_module_and_tree (not compared with parse_module).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "b2cbb536d0c174e687021dbcdc1ca980a805b0d3"
+      ]
     },
     {
       "id": 3244,
@@ -35736,6 +35738,19 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3259,
+      "title": "[Sonnet] A theorem's False is Bool False: '→ False' shows as 'False = True' in a Prop statement; add a hint or lint pointing to Void (SW-3243 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
