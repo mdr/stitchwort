@@ -1906,6 +1906,69 @@ fn outline_ranges_keep_the_closing_parenthesis() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A declaration whose body has a broken line in the middle (SW-3199).
+const BROKEN_BODY_PROGRAM: &str =
+    "def broken (n: Nat): Nat :=\n  n +\n  )\n  n\n\ndef fine (n: Nat): Nat := n + 1\n";
+
+#[test]
+fn outline_range_of_a_declaration_whose_body_does_not_parse() {
+    let dir = temp_dir("outline-broken-body");
+    let file = dir.join("broken.sw");
+    std::fs::write(&file, BROKEN_BODY_PROGRAM).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, BROKEN_BODY_PROGRAM);
+    // Before the first check answers, the outline comes from the text alone:
+    // the broken declaration's range runs to its body there too.
+    let early = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    assert_eq!(
+        early.as_array().unwrap()[0]["range"]["end"]["line"],
+        3,
+        "{early}"
+    );
+    let errors = client.diagnostics(&uri, 1);
+    assert!(errors.iter().any(|d| d["code"] == "E-PARSE"), "{errors:?}");
+    let outline = client.request(
+        "textDocument/documentSymbol",
+        json!({"textDocument": {"uri": uri}}),
+    );
+    let lines: Vec<&str> = BROKEN_BODY_PROGRAM.lines().collect();
+    let symbols = outline.as_array().unwrap();
+    assert_eq!(symbols.len(), 2, "{outline}");
+    // The first declaration's range runs to its body's last line, not to
+    // its header.
+    let first = &symbols[0];
+    assert_eq!(first["name"], "broken", "{first}");
+    assert_eq!(
+        first["range"]["start"],
+        json!({"line": 0, "character": 0}),
+        "{first}"
+    );
+    assert_eq!(
+        first["range"]["end"],
+        json!({"line": 3, "character": lines[3].len()}),
+        "{first}"
+    );
+    // The next declaration is unaffected.
+    let second = &symbols[1];
+    assert_eq!(second["name"], "fine", "{second}");
+    assert_eq!(
+        second["range"]["start"],
+        json!({"line": 5, "character": 0}),
+        "{second}"
+    );
+    assert_eq!(
+        second["range"]["end"],
+        json!({"line": 5, "character": lines[5].len()}),
+        "{second}"
+    );
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 /// A call whose lambda argument is postponed (SW-300): the generic `acc + f x`
 /// can't be checked until `xs` fixes the element type.
 const POSTPONED_PROGRAM: &str = "import Std (List)\ndef gsum [auto add: Add b] (f: a -> b) (xs: List a): b := List.foldLeft xs Add.zero (acc x => acc + f x)\n";
