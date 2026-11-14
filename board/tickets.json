@@ -1,5 +1,5 @@
 {
-  "next": 3267,
+  "next": 3269,
   "tickets": [
     {
       "id": 47,
@@ -35794,7 +35794,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Matt's question on SW-3234's D3585. Expected: 1.5 h (Fable paper lane), ~35 min across the weekly-limit stop. docs/proposals/ability-granularity.md. D3595 (replaces D3585: one ability per part of the outside world [rec yes]), D3596 (names for ability sets; IO = {Console, Files} [rec yes]). Findings filed: SW-3263 SW-3264 SW-3265 SW-3266.",
+      "body": "D3595 yes (Matt, 14 Nov 2026: 'I'm interested to explore this. It might be a decision we change our minds on, but it feels kind of cool that we have fine-grade abilities'); replaces D3585. D3596 yes ('it'd be nice to support IO, meaning a set of abilities'): G1 SW-3267, G2 SW-3268, after F1. Check before G1: convert a few AoC days and a tool once Files exists and look at signature length (Roc's lesson).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35844,6 +35844,32 @@
     {
       "id": 3266,
       "title": "[Opus] Show main's row before a program runs ('may: print, read and write files'), so --files none is checkable up front (SW-3262 finding; after F1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3267,
+      "title": "[Opus] G1 (ability-granularity.md, D3596): names for sets of abilities, e.g. ability IO = {Console, Files}; expanded where a row is read, so kernel, hashes and proofs never see it; starts with a one-page syntax note. After F1",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3268,
+      "title": "[Opus+DeepSeek] G2 (ability-granularity.md, D3596): today's console ability becomes Console, IO becomes the set {Console, Files}; DeepSeek sweep, Opus for registry, prelude and review. After G1",
       "status": "backlog",
       "agent": "",
       "where": "",
