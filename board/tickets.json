@@ -35266,12 +35266,12 @@
     {
       "id": 3224,
       "title": "[Opus] Expand chains and pattern lets once, in the lowering: chain.rs and patlet.rs still undo expansions the lowering makes (the %chain let and ∧; a one-arm match for 'let p := e'), so the elaborator can get the form it wants directly. Changes trees and hashes (D2303: migration cost doesn't count) (SW-3214 finding, lowering note's Findings)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 4 h (Opus). Runs beside recovery S1 (SW-1983), which touches the parser's recovery points and lower/; this lane stays in chain/pattern-let expansion (lower/ and elab's chain.rs, patlet.rs).",
+      "body": "Expected: 4 h (Opus). Runs beside recovery S1 (SW-1983), which touches the parser's recovery points and lower/; this lane stays in chain/pattern-let expansion (lower/ and elab's chain.rs, patlet.rs).\n\nProgress (lane, 14 Nov 15:11–15:25): design pass found the premise doesn't hold. Neither module undoes an expansion: a chain's `%chain` let is elaborated as a plain let when read as a Bool, and chain.rs only substitutes the elaborated value back when it is read as a proposition (which needs the expected type); a pattern let's one-arm `match` (MatchKind::Let) is what the elaborator uses in proofs, for refutable patterns (E-LET-REFUTABLE), in the case tree and for tail splits, and patlet.rs binds projections instead only on type- and scope-dependent conditions. A dedicated ast node would add code for the same terms. Written up in docs/proposals/syntax-tree-lowering.md, Findings (8aae2c216). No code changed. Recommend closing as won't-do.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
