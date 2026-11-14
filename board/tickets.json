@@ -34615,15 +34615,17 @@
     {
       "id": 3181,
       "title": "[DeepSeek] nesting.rs's adaptive tests print their thresholds inside the isolated() child, whose stdout the parent discards unless it fails, so --no-capture can't show them: pass the child's threshold lines through to the parent's output (SW-3178 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 30 min (DeepSeek).",
+      "body": "Expected: 30 min (DeepSeek).\nModel result: DeepSeek, worked, ~10 min (est. 30).",
       "created": "2026-11-13",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "afcd815bbc0ea4725649d65a075e1a7563e5c72a"
+      ]
     },
     {
       "id": 3182,
