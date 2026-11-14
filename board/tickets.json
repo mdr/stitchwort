@@ -1,5 +1,5 @@
 {
-  "next": 3194,
+  "next": 3195,
   "tickets": [
     {
       "id": 47,
@@ -34784,14 +34784,27 @@
     {
       "id": 3193,
       "title": "[Sonnet] New formatter: a header's leading run of variables can leave its last variable alone on line 2 (isPathAppend in aoc/src/Aoc/Common/Proofs/GridGraph.sw:116: (middle: Position)); avoid the orphan, e.g. by wrapping the run so no line holds a single variable, keeping each premise on its own line (SW-3192 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3194,
+      "title": "[Sonnet] New formatter stage 5 (D3573): switch over. SW-3193 first, then make the tree printer what stitchwort fmt, the editor and the playground use, reformat the repo in one commit, delete the line-based layout, update the guide and style docs (docs/proposals/formatter-architecture.md §6)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Matt, 14 Nov 2026: D3573 yes (\"please proceed with D3573 (stage 5)\"). Includes SW-3193. Expected: 3 h. Gate: fmt_repo and hash snapshots unchanged (verifier), dev fmt-tree gate clean.",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
       "commits": []
     }
   ]
