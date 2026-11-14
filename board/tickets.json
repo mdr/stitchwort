@@ -34944,12 +34944,12 @@
     {
       "id": 3204,
       "title": "[DeepSeek] stitchwort fmt over a folder rewrites examples/reject, examples/soundness and examples/projects/reject (about 600 files that fmt_repo deliberately leaves as written, their positions are tested); skip them as fmt_repo does, or document the exclusion (SW-3187 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 40 min (DeepSeek).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
