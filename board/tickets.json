@@ -34327,14 +34327,14 @@
     {
       "id": 3160,
       "title": "[Opus, design] Syntax tree A2 steps 2-3 (docs/proposals/syntax-tree-architecture.md): lower the compiler's tree from the lossless tree (all shorthand expansion in one place), checked against the direct-built tree over the repo; then delete direct construction. After the formatter switch-over",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Progress (14 Nov 2026, paper lane, Opus, est. 2.5 h, took about 10 min (08:26-08:36)):\n- Wrote docs/proposals/syntax-tree-lowering.md (commit 397a4a558 on lane/SW-3160).\n- Inventory: 24 shorthand expansions in the parser with file:line refs and repo counts from dev tree --spans.\n- Design: lower/ module, a function per node kind; lowering reads kinds and tokens and never decides grouping; spans exactly as today; no node id in the compiler's tree (spans are the link); Expression root kind; marks kept under Error roots for recovered signatures; step 4 errors split into grammar (stay), decisions reading values (~12 sites, rewritten on marks), meaning checks (~6, move to lowering with today's order).\n- Oracle: dev tree --lower, Debug-with-spans per declaration plus Diagnostic equality, per-kind \"unsupported\" meter; fuzz:syntax agreement property.\n- Stages L0-L7, 40-53 h; measured parse: repo 6.88 MB 170 ms (196 ms with tree), std 55 ms (65 ms); end state est. 1.1-1.3x parse.\n- Questions for Matt: D3574 (error shown for two-error declarations may change), D3575 (lanes may run the whole-repo parse-only oracle).\n",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
