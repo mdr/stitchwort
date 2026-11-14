@@ -17326,14 +17326,14 @@
     {
       "id": 1983,
       "title": "[Opus] Syntax error recovery S1 (docs/proposals/syntax-error-recovery.md §6): Expr::Missing, the parser's failed flag, error holes at a mismatch (strict unifier), quiet sites and the emission backstop; R1, R6; the one-line-break oracle (gate)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Waits for SW-3160's L4 (order changed 14 Nov: Matt doesn't mind the editor improvement waiting, so the lowering goes first; recovery S1+ builds on it).",
+      "body": "Expected: 11 h (Opus). Includes SW-3226 (the oracle tool, built first). Runs after the lowering (SW-3160) finished, so recovery's gaps are lowered here too (the note's S7, moved by the orchestrator on SW-3212).",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": []
@@ -35288,12 +35288,12 @@
     {
       "id": 3226,
       "title": "[Opus] Error recovery needs its own corpus and gate now the lowering oracle is gone: the one-line-break corpus (--cuts) from syntax-error-recovery.md as S1's gate, built before S1 starts (SW-3214 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Folded into S1 (SW-1983), whose row in syntax-error-recovery.md builds the one-line-break oracle as its gate (orchestrator's call).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
