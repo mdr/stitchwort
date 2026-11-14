@@ -35922,7 +35922,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\n\nSW-3281 lane (14 Nov 23:45): same family, not fixed. `check_special` forces the expected type before the comparison, which loses the `Reads Input.text …` call, and the inferred call's final comparison doesn't compare by arguments. Two tries, both breaking std (`std/Parse/Reads.sw:2727`, `readsFindAllStarting`: `Parse.readsFindAllWith _ p spec …` no longer checks): (1) compare the inferred call's type with the unforced expected type by arguments, after a plain comparison; (2) the same only after `compare` has failed. (2) still breaks std, because an in-place attempt that is meant to fail and be retried later (a held argument) now succeeds with a guess. Probe gb3.sw passes with either (20.7k / 94k steps). Patch and accept example in the SW-3281 lane scratch: sw3281/sw3271-attempt.patch, sw3281/implicit-record-from-expected-call.sw. A fix needs the guess to be made only where no later retry exists, or the comparison by arguments limited to unknowns the unfolding can't reach.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -36051,12 +36051,12 @@
     {
       "id": 3281,
       "title": "[Opus] Generic Parse stage 0 (generic-parse.md §4): the checker settles an ability's parameter late in readsThen chains (498k steps vs ~300k with [t := Char] written); find why and fix; also SW-3271's implicit record not inferred through Reads. Before stage 1",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3589 (Matt, 14 Nov 2026). Expected: 2 h (Opus).",
+      "body": "D3589 (Matt, 14 Nov 2026). Expected: 2 h (Opus); then about 1.25 h after the orchestrator accepted the hash churn (D2303).\n\nDone (lane, 14 Nov 23:45), commit 3bbaaba00 on lane/SW-3281:\n- Cause: `propagation_plan` (check.rs) compared a lemma's written result with the goal by plain unification only (unless an argument was `_`). For `readsThen` against `Reads twoLetters Written` that fails (the unfolding is stuck on `?p`), so the call was inferred without its goal and `t` stayed unknown while the arguments were checked; the lambda was checked in place, failed, and was checked again.\n- Fix: fall back to `unify_solving_arguments`, as `finish_application`'s comparison already does.\n- readsTwo: generic 498k -> 61k, today's Parse 281k -> 47k. Std.Parse 103.6M -> 84.7M; 2020 day 2's proofs 8.07M -> 6.35M.\n- 38 declarations change hash (31 Std.Parse theorems with 7 of their lifted matches; 7 example theorems); statements unchanged (type terms compared before/after). Needs the Opus review of the term changes before merge.\n- New test `reads_chain_cost` (driver library binary): readsTwo against a miniature generic parser and its character-only twin, 38k and 32k steps (bounds, 25%).\n- SW-3271 not included: both tries broke std/Parse/Reads.sw:2727 (readsFindAllStarting). See SW-3271.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
