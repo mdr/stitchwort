@@ -924,8 +924,64 @@ tasks:
         set -eu
         name='{{.CLI_ARGS}}'
         [ -n "$name" ] || { echo 'usage: task worktree:rm -- NAME' >&2; exit 2; }
+        # A branch whose work isn't in main, or a worktree with uncommitted changes, is only deleted with
+        # FORCE=1 (dropping a lane): a failed merge, or a lane still at work, must never lose work (14 Nov 2026).
+        wt='{{.ROOT_DIR}}/.claude/worktrees/'"$name"
+        if [ -d "$wt" ] && [ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ] && [ '{{.FORCE}}' != 1 ]; then
+          echo "$wt has uncommitted changes (a lane may still be working); to drop them anyway: task worktree:rm FORCE=1 -- $name" >&2
+          exit 1
+        fi
+        if git -C '{{.ROOT_DIR}}' rev-parse -q --verify "lane/$name" >/dev/null \
+          && ! git -C '{{.ROOT_DIR}}' merge-base --is-ancestor "lane/$name" main \
+          && [ '{{.FORCE}}' != 1 ]; then
+          echo "lane/$name is not merged into main; to drop it anyway: task worktree:rm FORCE=1 -- $name" >&2
+          exit 1
+        fi
         git -C '{{.ROOT_DIR}}' worktree remove --force '{{.ROOT_DIR}}/.claude/worktrees/'"$name"
         git -C '{{.ROOT_DIR}}' branch -D "lane/$name"
+
+  lane:merge:
+    silent: true
+    desc: 'Merge a lane into main (task lane:merge MSG="Merge SW-1083: ..." -- SW-1083); fails unless the lane ends up in main'
+    summary: |
+      Refuses a main checkout with uncommitted changes. MSG is the merge commit's message; TRAILER, if set, is
+      appended after a blank line (the session's commit trailer). A conflict only in board/tickets.json keeps
+      main's side (the board steps that follow set the ticket again); any other conflict aborts the merge.
+      Exits non-zero unless the lane's tip is in main afterwards, so a chain joined with && stops there.
+    cmds:
+      - |
+        set -u
+        name='{{.CLI_ARGS}}'
+        [ -n "$name" ] && [ -n '{{.MSG}}' ] || { echo 'usage: task lane:merge MSG="..." [TRAILER="..."] -- SW-N' >&2; exit 2; }
+        cd '{{.ROOT_DIR}}'
+        [ "$(git branch --show-current)" = main ] || { echo 'not on main' >&2; exit 1; }
+        git diff --quiet && git diff --cached --quiet || { echo 'main checkout has uncommitted changes: commit them first' >&2; exit 1; }
+        tip=$(git rev-parse -q --verify "lane/$name") || { echo "no branch lane/$name" >&2; exit 1; }
+        msg='{{.MSG}}'
+        [ -z '{{.TRAILER}}' ] || msg="$msg
+
+        {{.TRAILER}}"
+        if ! git merge -q --no-ff "lane/$name" -m "$msg" >/dev/null 2>&1; then
+          if [ "$(git diff --name-only --diff-filter=U)" = board/tickets.json ]; then
+            git checkout -q --ours board/tickets.json && git add board/tickets.json && git commit -q --no-edit \
+              || { git merge --abort; echo "conflict merging $name" >&2; exit 1; }
+          else
+            git diff --name-only --diff-filter=U >&2
+            git merge --abort 2>/dev/null
+            echo "conflict merging $name (above); merge aborted" >&2
+            exit 1
+          fi
+        fi
+        git merge-base --is-ancestor "$tip" HEAD || { echo "lane/$name is not in main after the merge" >&2; exit 1; }
+        echo "merged $name"
+
+  load:
+    silent: true
+    desc: 'The 5-minute load and whether a new build lane may start (D3554: hold while it is above 12)'
+    cmds:
+      - |
+        l=$(uptime | awk -F'load averages?: ' '{split($2,a,/[, ]+/); print a[2]}')
+        if awk -v l="$l" 'BEGIN{exit !(l > 12)}'; then echo "5-min load $l: hold new lanes"; else echo "5-min load $l: lanes may start"; fi
 
   scratch:new:
     silent: true

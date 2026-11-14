@@ -102,11 +102,17 @@ conflict markers as the merge, the second merge never ran, and
 `task worktree:rm` deleted both lane branches. The same day a merge piped
 through `grep CONFLICT` hid its failure the same way. So:
 
-- Join a merge's steps with `&&`, or merge in one call and do the board and
-  worktree steps in the next, after `git status` shows it clean:
+- Merge with `task lane:merge`, joined to the steps after it with `&&`. It
+  refuses a main checkout with uncommitted changes (commit board edits
+  first), keeps main's side of a conflict that is only in
+  `board/tickets.json`, aborts any other conflict, and exits non-zero unless
+  the lane's tip is in `main` afterwards. `task worktree:rm` in turn refuses
+  a branch not merged into `main`, or a worktree with uncommitted changes
+  (a lane still at work), unless given `FORCE=1` (14 Nov 2026: a merge that
+  never started, and a test of the task itself, each cost a lane its work):
 
   ```
-  git merge --no-ff lane/SW-N -m "Merge SW-N: …" \
+  nix develop -c task lane:merge MSG="Merge SW-N: …" TRAILER="…" -- SW-N \
     && board/board commit N $(git rev-parse HEAD) && board/board move N done \
     && git commit -m "Board: SW-N done" board/tickets.json \
     && nix develop -c task worktree:rm -- SW-N
