@@ -35116,12 +35116,12 @@
     {
       "id": 3214,
       "title": "[Sonnet] Lowering L7 (docs/proposals/syntax-tree-lowering.md): Tidy: docs and dev tree modes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 2.5 h (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35202,12 +35202,12 @@
     {
       "id": 3220,
       "title": "[DeepSeek] A test or lint that every function the lowering's node_expr and node_pattern dispatch to is #[inline(never)]: two unmarked ones grew node_expr's frame from 96 to 816 bytes and broke deep nesting in release (SW-3212 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "L6 has merged; ready.",
+      "body": "Expected: 30 min (DeepSeek).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
