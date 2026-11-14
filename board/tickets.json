@@ -34895,12 +34895,12 @@
     {
       "id": 3200,
       "title": "[Sonnet] Core test API: a setter for a definition's type (and its cached value), then a deep-type case in deep_terms_in_later_passes (crates/driver/tests/elaboration/nesting.rs) reaching the closing search, hashing and the printer (SW-3190 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35097,7 +35097,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 8 h (Opus).\nOrchestrator's call: the lane starts now; its merge waits for L5 (SW-3212, merged 14 Nov ~12:00) to pass several of Overmind's rolling cycles (the note asks a day; at least three clean cycles plus the lane's last oracle run over fuzz-generated programs).",
+      "body": "Expected: 8 h (Opus).\nOrchestrator's calls (14 Nov): (1) the parser gets half the stack and the lowering all of it (parser_limit): everything that parses lowers, nesting limit ~18,000 brackets vs 12,740 in October; (2) accepted the two which-errors changes needing two errors in one file (an extra true 'imports go at the top' after a declaration the lowering refuses; a meaning error lost inside a declaration that fails to parse later), D3574's spirit, none in the repo. Merge waits for clean rolling cycles of L5.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35189,12 +35189,12 @@
     {
       "id": 3220,
       "title": "[DeepSeek] A test or lint that every function the lowering's node_expr and node_pattern dispatch to is #[inline(never)]: two unmarked ones grew node_expr's frame from 96 to 816 bytes and broke deep nesting in release (SW-3212 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
