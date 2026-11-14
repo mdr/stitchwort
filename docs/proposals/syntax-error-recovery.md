@@ -1,8 +1,8 @@
 # Syntax error recovery: working through a broken declaration
 
 **Status:** design note, 14 November 2026 (SW-3161, for D3563). Paper lane:
-nothing is built. D3580 decided (Fable's split, revised in here); waits for
-Matt on D3581 ([§8](#8-questions-for-matt)).
+nothing is built. D3580 decided (Fable's split, revised in here); D3581
+decided (Matt, 14 Nov 2026: yes): the extra errors show in `check` too.
 It builds on, and in part replaces, [parse-recovery.md](parse-recovery.md)
 (SW-1917, D2780–D2785, none of it built), and sits inside the end state of
 [syntax-tree-architecture.md](syntax-tree-architecture.md) (D3562: one
@@ -519,7 +519,7 @@ D2780 point 2 for binding lines and keeps it, with the rest still read, for
 proof-step lines.
 
 **D3581: the extra errors show everywhere, in `stitchwort check` as well as
-the editor.** *The problem:* D3563 is about the editor, but the checker
+the editor.** *Decided (Matt, 14 Nov 2026): "D3581, yes."* *The problem:* D3563 is about the editor, but the checker
 under VS Code, the playground and `check` is one checker. Showing the extra
 errors only in the editor would mean two behaviours to test, and the
 reject examples couldn't show them. *The change:* `check` reports every

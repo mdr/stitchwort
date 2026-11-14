@@ -1,5 +1,5 @@
 {
-  "next": 3205,
+  "next": 3207,
   "tickets": [
     {
       "id": 47,
@@ -17307,7 +17307,7 @@
     },
     {
       "id": 1982,
-      "title": "[Opus] Parse recovery lane 1: one struct for the parser's mode fields, an error list on the parser, strict entry points fail on any error; no behaviour change",
+      "title": "[Opus] Syntax error recovery S0 (docs/proposals/syntax-error-recovery.md §6): groundwork, no behaviour change (modes struct, error list, recover_to; strict entry points fail on a non-empty list); fold in SW-3185 (a declaration that doesn't lex is an Error root)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -17317,12 +17317,12 @@
       "epic": "syntax-language",
       "body": "From docs/proposals/parse-recovery.md. Can start now. task test:lane AREA=syntax. 45 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
       "id": 1983,
-      "title": "[Opus] Parse recovery lane 3: Expr::Missing (checked like a ? hole; a def header always gets a hole body, never none, declarations.rs:375), the expression-ran-out and body recovery points, the elaborator's handling",
+      "title": "[Opus] Syntax error recovery S1 (docs/proposals/syntax-error-recovery.md §6): Expr::Missing, the parser's failed flag, error holes at a mismatch (strict unifier), quiet sites and the emission backstop; R1, R6; the one-line-break oracle (gate)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -17332,12 +17332,12 @@
       "epic": "syntax-language",
       "body": "From docs/proposals/parse-recovery.md. After SW-1982. D2780, D2781. AREA=syntax, goals, lsp. 90 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
       "id": 1984,
-      "title": "[Opus] Parse recovery lane 4: recovery at block lines and match arms",
+      "title": "[Opus] Syntax error recovery S2 (docs/proposals/syntax-error-recovery.md §6): R3 with D3580's split (Gap nodes for proof steps), R5 calc, checking against an unknown goal, a broken let keeps its name",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -17347,12 +17347,12 @@
       "epic": "syntax-language",
       "body": "From docs/proposals/parse-recovery.md. After SW-1983. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
       "id": 1985,
-      "title": "[Sonnet] Parse recovery lane 5: a corpus of half-typed files; a test that types each declaration token by token and checks the other declarations don't change; new fuzz checks",
+      "title": "[Sonnet] Syntax error recovery S5 (docs/proposals/syntax-error-recovery.md §6): recovery corpus and typing simulation",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -17362,7 +17362,7 @@
       "epic": "syntax-language",
       "body": "From docs/proposals/parse-recovery.md. After SW-1984. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34340,7 +34340,7 @@
     {
       "id": 3161,
       "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34668,14 +34668,14 @@
     {
       "id": 3185,
       "title": "[Opus] The lossless tree on a file with a lexical error: parse_tree/parse_module_and_tree still need the whole file to lex (dev tree: 5 not lexed in examples). Add an Error node holding the failed declaration's raw text, so the tree reads back and the formatter leaves it as written; fold into SW-3161's error nodes (SW-3156 finding)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Folded into SW-1982 (recovery S0).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -34942,6 +34942,32 @@
     {
       "id": 3204,
       "title": "[DeepSeek] stitchwort fmt over a folder rewrites examples/reject, examples/soundness and examples/projects/reject (about 600 files that fmt_repo deliberately leaves as written, their positions are tested); skip them as fmt_repo does, or document the exclusion (SW-3187 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3205,
+      "title": "[Opus] Syntax error recovery S3 (docs/proposals/syntax-error-recovery.md §6): R4 arms (incomplete match), R2/R2b brackets and stray closers; the plain-words scenarios as reject examples",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3206,
+      "title": "[Sonnet] Syntax error recovery S4 (docs/proposals/syntax-error-recovery.md §6): the editor (locals from the current check, gap hover, the goal at proof-step gaps, goals_kept narrowed), LSP and playground tests",
       "status": "backlog",
       "agent": "",
       "where": "",
