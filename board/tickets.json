@@ -34741,7 +34741,7 @@
     {
       "id": 3190,
       "title": "[Opus] Guard the three walks that follow application arguments unguarded, now that the kernel accepts arbitrarily deep applications (SW-3174 Fable review): crates/rt/src/hoist.rs:85 runtime_closed (and :70), crates/js/src/lib.rs:3519 self_call_under_add, crates/elab/src/closing.rs:1118/:1140 defs_named/named (lemma search over a candidate's type: the exposed one); check lsp and web too; add a deep-application-in-a-type case to deep_terms_in_later_passes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34754,7 +34754,7 @@
     {
       "id": 3191,
       "title": "[Sonnet] Kernel tests through check_app's Waiting path (SW-3174 review): a mismatch after a pop, a dependent domain after resuming, the forced-domain branch, an implicit nested argument; and a doc note on nested_stuck_calls_compare_under_the_playground_guard (it pins a native frame size) saying what to do when a toolchain change trips it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34827,12 +34827,12 @@
     {
       "id": 3196,
       "title": "[Sonnet] New formatter: a comment before or after a leading comma in brackets makes the declaration fail the checks and stay as written (goldens brackets-comments, brackets-edge, allowlisted LEFT_AS_WRITTEN in golden.rs); print it (SW-3194 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
