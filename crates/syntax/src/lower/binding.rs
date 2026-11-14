@@ -446,15 +446,12 @@ impl<'f> Lower<'f> {
                 }
                 // `((a, b): A)`: a pattern with a written type.
                 Element::Node(typed) if typed.kind() == NodeKind::PatternTyped => {
-                    let pkind = NodeKind::PatternTyped;
-                    let pattern = required(typed.after(&Tok::LParen), pkind, "its pattern")?;
-                    let pattern = self.pattern(pattern)?;
-                    let ty = required(typed.after(&Tok::Colon), pkind, "its type")?;
+                    let (pattern, ty) = self.pattern_typed(typed)?;
                     let name = Name {
                         text: format!("%arg{}", params.len()),
                         span: pattern.span(),
                     };
-                    params.push(LamParam::TypedPattern(name, pattern, self.expr(ty)?));
+                    params.push(LamParam::TypedPattern(name, pattern, ty));
                 }
                 Element::Node(_) => match self.pattern(part)? {
                     Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
@@ -605,25 +602,11 @@ impl<'f> Lower<'f> {
                 "an alternative",
             ));
         }
-        let mut parts = arm.children();
-        let bar = match parts.next() {
+        let bar = match arm.children().next() {
             Some(Element::Leaf(leaf)) if *leaf.tok() == Tok::Pipe => leaf.span(),
             _ => return Err(Unsupported::Missing(akind, "`|`")),
         };
-        let (mut patterns, mut guard, mut body) = (Vec::new(), None, None);
-        while let Some(part) = parts.next() {
-            match part {
-                Element::Leaf(leaf) if *leaf.tok() == Tok::Comma => {}
-                Element::Leaf(leaf) if *leaf.tok() == Tok::FatArrow => {
-                    body = Some(self.expr(required(parts.next(), akind, "its body")?)?);
-                    break;
-                }
-                Element::Node(node) if node.kind() == NodeKind::Guard => {
-                    guard = Some(self.guard(node)?);
-                }
-                pattern => patterns.push(self.pattern(pattern)?),
-            }
-        }
+        let (patterns, guard, body) = self.arm_parts(arm)?;
         let body = match (kind, body) {
             (MatchKind::ClauseMatches, None) => Some(clause_true(bar)),
             (MatchKind::ClauseSome, Some(body)) => Some(clause_some(body, bar)),
@@ -672,8 +655,7 @@ mod tests {
 
     /// Each kind of lane L3, in the forms whose lowering depends on what
     /// surrounds it, comes out as the parser builds it, spans and hidden
-    /// names included. Patterns other than single tokens are lane L4's, so
-    /// the pattern forms here are those.
+    /// names included.
     #[test]
     fn binding_and_sections_lower_as_parsed() {
         let bodies = [
@@ -719,6 +701,12 @@ mod tests {
             "(let x : Nat := 1; x)",
             "(a; b; c)",
             "(a; let x := 1; x)",
+            "(a, b) x {c, d} => a",
+            "((a, b): P) (y: A) => a",
+            "(let (a, b) := p; a)",
+            "(let (a, b) : P := p; a)",
+            "(let MkPair a b := p; a)",
+            "match | (a, b), [c, ..d] => a",
         ];
         let mut text: String = bodies
             .iter()

@@ -44,8 +44,10 @@ mod decls;
 mod definitions;
 pub(crate) mod exprs;
 pub(crate) mod header;
+mod matching;
 pub mod oracle;
-mod patterns;
+pub(crate) mod patterns;
+pub(crate) mod proofs;
 pub(crate) mod sections;
 mod types;
 
