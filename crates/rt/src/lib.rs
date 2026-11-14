@@ -61,3 +61,4 @@ pub use run::{
     run_main_with, run_partial, run_partial_on,
 };
 pub use shared::Limits;
+pub use wire::BUILD_MARKER;

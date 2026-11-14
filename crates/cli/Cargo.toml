@@ -17,6 +17,11 @@ stitchwort-js.workspace = true
 stitchwort-rt.workspace = true
 stitchwort-driver.workspace = true
 stitchwort-host.workspace = true
+# Never used in code: depending on it makes every build of the CLI build the
+# runtime library, `libstitchwort_standalone.a`, which `build` links
+# executables against (`find_library` in src/build.rs finds the one with the
+# CLI's own runtime build hash among those in `deps/`).
+stitchwort-standalone.workspace = true
 stitchwort-fmt.workspace = true
 clap.workspace = true
 rustyline.workspace = true
@@ -61,10 +66,6 @@ stitchwort-bench.workspace = true
 # this dependency).
 cli-with-dev = { package = "stitchwort-cli", path = ".", features = ["dev"] }
 insta.workspace = true
-# Never used in code: depending on it builds the runtime library,
-# `libstitchwort_standalone.a`, beside the test binaries, where
-# `tests/build.rs` links the executables it builds against it.
-stitchwort-standalone.workspace = true
 # Reading back the `program.o` that `build` writes.
 object = { workspace = true, features = ["read_core", "macho", "elf"] }
 
