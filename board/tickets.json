@@ -34827,15 +34827,17 @@
     {
       "id": 3196,
       "title": "[Sonnet] New formatter: a comment before or after a leading comma in brackets makes the declaration fail the checks and stay as written (goldens brackets-comments, brackets-edge, allowlisted LEFT_AS_WRITTEN in golden.rs); print it (SW-3194 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 60 min (Sonnet).",
+      "body": "Expected: 60 min (Sonnet).\n\nProgress: comma-first comments are placed above the next item (rules.rs comma_first_comments); the comment checker reads a trailing comment after a line-start comma as belonging to the next token (mod.rs comment_anchors). LEFT_AS_WRITTEN is empty. fmt package 62 pass; fmt-tree gate: 0 fail a check, 0 not idempotent, 0 left as written. Commit 58fb67c50.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "58fb67c50"
+      ]
     },
     {
       "id": 3197,
