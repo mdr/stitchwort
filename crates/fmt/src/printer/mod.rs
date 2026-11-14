@@ -291,7 +291,14 @@ fn comment_anchors<'a>(text: &str, lexed: &'a Lexed) -> Vec<(&'a str, bool, usiz
                 out.push((comment.text.trim_end_matches(' '), false, index[i]));
                 continue;
             }
-            let mut j = i;
+            // A record update's `{ r |` keeps its base's comment on its
+            // line, after the bar (S31), so a comment after that bar
+            // belongs to the token before it, as the base's did.
+            let mut j = if tokens[i].tok == Tok::Pipe && rules::record_update_bar(tokens, i) {
+                i.saturating_sub(1)
+            } else {
+                i
+            };
             while j > 0
                 && matches!(
                     tokens[j].tok,
