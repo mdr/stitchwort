@@ -34895,15 +34895,17 @@
     {
       "id": 3200,
       "title": "[Sonnet] Core test API: a setter for a definition's type (and its cached value), then a deep-type case in deep_terms_in_later_passes (crates/driver/tests/elaboration/nesting.rs) reaching the closing search, hashing and the printer (SW-3190 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 60 min (Sonnet).",
+      "body": "Expected: 60 min (Sonnet).\n\nLane notes: added Def::set_type_unchecked_for_tests(ty, ty_value) (test-bypass feature, as set_body_unchecked_for_tests); deep-type case in deep_terms_in_later_passes covers hashing, printer and the closing search indexing; passes release and debug. defs_named on a deep conclusion is not reached there (no hit for a shallow goal); closing::tests covers it.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "2b55a1400"
+      ]
     },
     {
       "id": 3201,

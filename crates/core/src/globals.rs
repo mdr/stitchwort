@@ -343,6 +343,16 @@ impl Def {
         self.body = body;
     }
 
+    /// Installs a type without checking it: for tests that build
+    /// deliberately broken states only (a type too deep to build by
+    /// elaboration). `ty_value` is its evaluation, kept with it because
+    /// `ty` and `ty_value` must agree: the caller evaluates (`eval`).
+    #[cfg(feature = "test-bypass")]
+    pub fn set_type_unchecked_for_tests(&mut self, ty: Term, ty_value: Value) {
+        self.ty = ty;
+        self.ty_value = ty_value;
+    }
+
     /// Bypasses admission: for tests that build deliberately broken states only.
     #[cfg(feature = "test-bypass")]
     pub fn set_state_unchecked_for_tests(&mut self, state: State) {
