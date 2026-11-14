@@ -151,7 +151,7 @@ fn leftmost_child_mut(e: &mut Expr) -> Option<&mut Expr> {
 
 /// Whether `e` is, at its left edge, a field access on the section's
 /// parameter, as `x.id == id` is with `x` the parameter.
-pub(super) fn leads_with_section(e: &Expr) -> bool {
+pub(crate) fn leads_with_section(e: &Expr) -> bool {
     let mut cur = e;
     loop {
         if matches!(cur, Expr::Field(r, _) if is_section_var(r)) {
@@ -166,7 +166,7 @@ pub(super) fn leads_with_section(e: &Expr) -> bool {
 
 /// Puts `value` where the section's parameter is, in an expression that
 /// `leads_with_section`.
-pub(super) fn fill_receiver(e: &mut Expr, value: Expr) {
+pub(crate) fn fill_receiver(e: &mut Expr, value: Expr) {
     let mut cur = e;
     loop {
         if matches!(cur, Expr::Field(r, _) if is_section_var(r)) {

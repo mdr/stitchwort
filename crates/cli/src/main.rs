@@ -180,8 +180,8 @@ enum DevCommand {
         spans: bool,
         /// Also build the compiler's tree both ways, directly and lowered
         /// from the lossless tree, and compare them exactly, declaration by
-        /// declaration, with the diagnostics, and each one-line body parsed
-        /// as an expression. Prints each difference, and how many
+        /// declaration, with the diagnostics, and each one-line body, result
+        /// type and default parsed as an expression. Prints each difference, and how many
         /// declarations of each kind were lowered and couldn't be yet
         /// (docs/proposals/syntax-tree-lowering.md §4). Exit status 1 on any
         /// difference
@@ -846,6 +846,12 @@ struct CacheArgs {
 /// The compiler runs on a thread with this much stack, so that deep programs
 /// have room before they run into their resource limits.
 const STACK: usize = 64 * 1024 * 1024;
+
+/// How much of [`STACK`] `dev tree` lets the parser and the lowering use,
+/// as `check` does (`Limits::for_stack`): the rest is room for what runs
+/// below the point the limit is measured from, and for the oracle's
+/// `Debug` printing, which has no limit of its own.
+const TREE_STACK: usize = STACK - STACK / 4;
 
 /// Checking builds and frees terms and values by the million; with the
 /// system allocator (on macOS at least) allocating and freeing was about a
@@ -5099,10 +5105,10 @@ fn tree_command(
                 let start = std::time::Instant::now();
                 for text in &texts {
                     if tree {
-                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, STACK));
+                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, TREE_STACK));
                     } else {
                         std::hint::black_box(stitchwort_syntax::parse_module_recovering(
-                            id, text, STACK,
+                            id, text, TREE_STACK,
                         ));
                     }
                 }
@@ -5127,7 +5133,7 @@ fn tree_command(
     let (mut checked, mut misses, mut unparsed) = (0, 0, 0);
     let mut synthetic = std::collections::BTreeMap::new();
     for (file, text) in files.iter().zip(&texts) {
-        let (module, _, tree) = stitchwort_syntax::parse_module_and_tree(id, text, STACK);
+        let (module, _, tree) = stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
         if print {
             println!("{}:\n{}", file.display(), tree.dump(text));
         }
@@ -5224,7 +5230,7 @@ fn lower_report(files: &[PathBuf], texts: &[String], time: Option<u32>) -> usize
     let mut expressions: BTreeMap<String, usize> = BTreeMap::new();
     let (mut checked, mut expressions_lowered, mut differences) = (0, 0, 0);
     for (file, text) in files.iter().zip(texts) {
-        let report = oracle::compare(id, text, STACK, true);
+        let report = oracle::compare(id, text, TREE_STACK, true);
         for kind in &report.lowered {
             *lowered.entry(format!("{kind:?}")).or_default() += 1;
         }
@@ -5265,7 +5271,7 @@ fn lower_report(files: &[PathBuf], texts: &[String], time: Option<u32>) -> usize
         counts(&unsupported)
     );
     println!(
-        "one-line bodies as expressions: {checked} checked, {expressions_lowered} lowered; \
+        "one-line bodies and types as expressions: {checked} checked, {expressions_lowered} lowered; \
          not lowered yet: {} ({})",
         total(&expressions),
         counts(&expressions)
@@ -5276,7 +5282,7 @@ fn lower_report(files: &[PathBuf], texts: &[String], time: Option<u32>) -> usize
                 let start = std::time::Instant::now();
                 for text in texts {
                     let (_, errors, tree) =
-                        stitchwort_syntax::parse_module_and_tree(id, text, STACK);
+                        stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
                     std::hint::black_box(Lower::new(&tree, text, id, &errors).module());
                 }
                 start.elapsed()

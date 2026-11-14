@@ -4,9 +4,11 @@
 //! exactly, declaration by declaration (docs/proposals/syntax-tree-lowering.md
 //! §4). `stitchwort dev tree --lower` runs it over files.
 //!
-//! Trees are compared as their `{:#?}` text with spans: equal text means
+//! Trees are compared as their `{:?}` text with spans: equal text means
 //! equal trees, spans, hidden names and tags, with no `PartialEq` on the
-//! compiler's tree. `Debug` recurses, so a caller comparing deeply nested
+//! compiler's tree. Only trees that differ are printed with `{:#?}`, to show
+//! where: its indentation costs time in proportion to the depth for each
+//! line, which for deeply nested expressions is most of the run. `Debug` recurses, so a caller comparing deeply nested
 //! files runs this on a thread with a large stack.
 
 use super::{Lower, LoweredDecl, Unsupported};
@@ -25,11 +27,13 @@ pub struct Report {
     /// Why each declaration that wasn't lowered wasn't.
     pub unsupported: Vec<Unsupported>,
     pub differences: Vec<Difference>,
-    /// The single-line bodies parsed again as expressions on their own.
+    /// The single-line bodies, types and defaults parsed again as
+    /// expressions on their own.
     pub expressions: Expressions,
 }
 
-/// The single-line bodies of declarations, each parsed as an expression
+/// The single-line bodies, result types and parameter defaults of
+/// declarations, each parsed as an expression
 /// both ways (`parse_expression` and its tree, lowered).
 #[derive(Debug, Default)]
 pub struct Expressions {
@@ -53,7 +57,8 @@ pub struct Difference {
 }
 
 /// Parses `text` both ways and compares the results. With `expressions`,
-/// also every declaration body that fits on one line, parsed on its own.
+/// also every declaration body, result type and default that fits on one
+/// line, parsed on its own.
 pub fn compare(file: FileId, text: &str, stack: usize, expressions: bool) -> Report {
     let mut report = Report::default();
     let (direct, direct_errors) = crate::parse_module_recovering(file, text, stack);
@@ -61,7 +66,7 @@ pub fn compare(file: FileId, text: &str, stack: usize, expressions: bool) -> Rep
     if direct_errors != errors {
         report.differ(0, "diagnostics", &direct_errors, &errors);
     }
-    let lower = Lower::new(&tree, text, file, &errors);
+    let lower = Lower::new(&tree, text, file, &errors).with_stack(stack);
     for root in tree.decls() {
         let range = match (root.raw_text_range(), root.span()) {
             (Some(raw), _) => raw.start..=raw.end,
@@ -143,26 +148,25 @@ impl Parts {
 impl Report {
     /// Records a difference if `want` and `got` print differently.
     fn differ<T: Debug + ?Sized>(&mut self, at: usize, what: &'static str, want: &T, got: &T) {
-        let (want, got) = (format!("{want:#?}"), format!("{got:#?}"));
-        if want != got {
-            self.differences.push(Difference {
-                at,
-                what,
-                detail: first_difference(&want, &got),
-            });
+        if let Some(detail) = difference(want, got) {
+            self.differences.push(Difference { at, what, detail });
         }
     }
 
-    /// Every `Body` under `node` that fits on one line, parsed on its own
-    /// both ways.
+    /// Every `Body`, `ResultType` and `Default` under `node` that fits on
+    /// one line, parsed on its own both ways: the types are where most
+    /// arrows and annotations are.
     fn bodies(&mut self, node: Node<'_>, file: FileId, text: &str, stack: usize) {
         for child in node.child_nodes() {
             self.bodies(child, file, text, stack);
         }
-        if node.kind() != NodeKind::Body {
+        if !matches!(
+            node.kind(),
+            NodeKind::Body | NodeKind::ResultType | NodeKind::Default
+        ) {
             return;
         }
-        // Past the `:=` (or a synonym's `=`).
+        // Past the `:=` (or a synonym's `=`, a type's `:`).
         let mut parts = node.children().skip(1).filter_map(|child| match child {
             Element::Node(node) => node.span(),
             Element::Leaf(leaf) => Some(leaf.span()),
@@ -183,13 +187,16 @@ impl Report {
         self.expressions.checked += 1;
         let direct = crate::parse_expression_within(file, source, stack);
         let (parsed, tree) = crate::parse_expression_tree(file, source, stack);
-        let (want, got) = match (direct, parsed) {
+        let detail = match (direct, parsed) {
             (Ok(want), Ok(_)) => {
                 let root = tree.decls().next().expect("an expression's root");
-                match Lower::new(&tree, source, file, &[]).expression(root) {
+                match Lower::new(&tree, source, file, &[])
+                    .with_stack(stack)
+                    .expression(root)
+                {
                     Ok(got) => {
                         self.expressions.lowered += 1;
-                        (format!("{want:#?}"), format!("{got:#?}"))
+                        difference(&want, &got)
                     }
                     Err(what) => {
                         self.expressions.unsupported.push(what);
@@ -197,16 +204,27 @@ impl Report {
                     }
                 }
             }
-            (want, got) => (format!("{want:#?}"), format!("{:#?}", got.map(|_| ()))),
+            (want, got) => difference(&want, &got.map(|_| ())),
         };
-        if want != got {
+        if let Some(detail) = detail {
             self.differences.push(Difference {
                 at,
                 what: "expression",
-                detail: first_difference(&want, &got),
+                detail,
             });
         }
     }
+}
+
+/// Where `want` and `got` print differently, if they do.
+fn difference<A: Debug + ?Sized, B: Debug + ?Sized>(want: &A, got: &B) -> Option<String> {
+    if format!("{want:?}") == format!("{got:?}") {
+        return None;
+    }
+    Some(first_difference(
+        &format!("{want:#?}"),
+        &format!("{got:#?}"),
+    ))
 }
 
 /// The first line where `want` and `got` differ, with a few lines before
@@ -270,7 +288,7 @@ test \"name\" := x
 test \"hole\" := _
 test \"type\" := Type
 test \"text\" := \"t\"
-def g: Nat := f 1
+def g: Nat -> Nat := x => x
 type T = | A
 ";
         let report = report(text);
@@ -282,10 +300,11 @@ type T = | A
                 Namespace, Import, Import, Test, Test, Test, Test, Test, DataType
             ]
         );
-        assert_eq!(report.unsupported, [Unsupported::Kind(App)]);
-        // The bodies, on their own; `def g`'s too, not lowered yet.
-        assert_eq!(report.expressions.checked, 6);
-        assert_eq!(report.expressions.lowered, 5);
+        assert_eq!(report.unsupported, [Unsupported::Kind(Lambda)]);
+        // The bodies, on their own, and `def g`'s type; its body isn't
+        // lowered yet.
+        assert_eq!(report.expressions.checked, 7);
+        assert_eq!(report.expressions.lowered, 6);
     }
 
     /// A file the lowering lowers whole is compared as a whole module too,
