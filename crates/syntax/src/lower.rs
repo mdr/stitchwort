@@ -239,3 +239,187 @@ impl<'f> Lower<'f> {
         }
     }
 }
+
+#[cfg(test)]
+mod dispatch_inlining {
+    /// The lower/ sources, including the dispatchers and every file a
+    /// dispatched function may be defined in.
+    const SOURCES: [(&str, &str); 12] = [
+        ("access.rs", include_str!("lower/access.rs")),
+        ("binding.rs", include_str!("lower/binding.rs")),
+        ("coverage.rs", include_str!("lower/coverage.rs")),
+        ("decls.rs", include_str!("lower/decls.rs")),
+        ("definitions.rs", include_str!("lower/definitions.rs")),
+        ("exprs.rs", include_str!("lower/exprs.rs")),
+        ("header.rs", include_str!("lower/header.rs")),
+        ("matching.rs", include_str!("lower/matching.rs")),
+        ("patterns.rs", include_str!("lower/patterns.rs")),
+        ("proofs.rs", include_str!("lower/proofs.rs")),
+        ("sections.rs", include_str!("lower/sections.rs")),
+        ("types.rs", include_str!("lower/types.rs")),
+    ];
+
+    fn source(file: &str) -> &'static str {
+        SOURCES
+            .iter()
+            .find(|(name, _)| *name == file)
+            .map(|(_, text)| *text)
+            .expect("a lower/ source")
+    }
+
+    /// The names called directly in the arms of `function`'s
+    /// `match node.kind()` — as `self.NAME(`, `Self::NAME(` or a bare
+    /// function `NAME(` — and whether each is called as a method.
+    fn dispatched(function: &str, file: &str) -> Vec<(String, bool)> {
+        let lines: Vec<&str> = source(file).lines().collect();
+        let at = lines
+            .iter()
+            .position(|line| line.contains(&format!("fn {function}(")))
+            .unwrap_or_else(|| panic!("`fn {function}` is not in `{file}`"));
+        let matched = lines[at..]
+            .iter()
+            .position(|line| line.contains("match node.kind()"))
+            .map(|offset| at + offset)
+            .unwrap_or_else(|| panic!("`{function}` has no `match node.kind()`"));
+        let mut depth = 0i32;
+        let mut arms = String::new();
+        for line in &lines[matched..] {
+            arms.push_str(line);
+            arms.push('\n');
+            depth += line.matches('{').count() as i32;
+            depth -= line.matches('}').count() as i32;
+            if depth <= 0 {
+                break;
+            }
+        }
+        let mut names: Vec<(String, bool)> = Vec::new();
+        for (marker, method) in [("self.", true), ("Self::", false)] {
+            let mut rest = arms.as_str();
+            while let Some(found) = rest.find(marker) {
+                let after = &rest[found + marker.len()..];
+                let name: String = after
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
+                let called = !name.is_empty() && after[name.len()..].starts_with('(');
+                if called && !names.iter().any(|(seen, _)| *seen == name) {
+                    names.push((name, method));
+                }
+                rest = after;
+            }
+        }
+        // Bare calls of free functions, such as `unit(node)`. Names after a
+        // `.` or `::` are already handled, and an uppercase name is a
+        // constructor, such as `Err(...)`.
+        let bytes = arms.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            if !(bytes[i].is_ascii_alphabetic() || bytes[i] == b'_') {
+                i += 1;
+                continue;
+            }
+            let start = i;
+            while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
+                i += 1;
+            }
+            let name = &arms[start..i];
+            let plain = match arms[..start].chars().next_back() {
+                Some('.') | Some(':') => false,
+                Some(c) if c.is_alphanumeric() || c == '_' => false,
+                _ => true,
+            };
+            let free = name.starts_with(|c: char| c.is_ascii_lowercase());
+            if plain && free && arms[i..].starts_with('(') {
+                let name = name.to_string();
+                if !names.iter().any(|(seen, _)| *seen == name) {
+                    names.push((name, false));
+                }
+            }
+        }
+        names.sort();
+        names
+    }
+
+    /// Whether `name` is defined in `source` with `#[inline(never)]` just
+    /// above its `fn`; `None` if it isn't defined there. A `method` is one
+    /// taking `&self`, so a free function of the same name doesn't count. A
+    /// file's trailing test module is ignored.
+    fn definition(source: &str, name: &str, method: bool) -> Option<bool> {
+        let source = &source[..source.find("#[cfg(test)]").unwrap_or(source.len())];
+        let lines: Vec<&str> = source.lines().collect();
+        let mut marked = None;
+        for (i, line) in lines.iter().enumerate() {
+            let trimmed = line.trim_start();
+            let Some(found) = trimmed.find("fn ") else {
+                continue;
+            };
+            if found > 0 && !trimmed[..found].ends_with(' ') {
+                continue;
+            }
+            let after = &trimmed[found + "fn ".len()..];
+            if !after.starts_with(name) || !after[name.len()..].starts_with('(') {
+                continue;
+            }
+            if method && !after[name.len()..].starts_with("(&self") {
+                continue;
+            }
+            let mut inline_never = false;
+            for above in lines[..i].iter().rev() {
+                let above = above.trim();
+                if above.is_empty() || above.starts_with("//") {
+                    continue;
+                }
+                if above.starts_with("#[") {
+                    inline_never |= above.replace(' ', "") == "#[inline(never)]";
+                    continue;
+                }
+                break;
+            }
+            marked = Some(marked.unwrap_or(true) && inline_never);
+        }
+        marked
+    }
+
+    /// Every function `node_expr` and `node_pattern` dispatch to stays out
+    /// of line. When the compiler inlines one into a dispatcher, the
+    /// dispatcher's frame grows (once from 96 to 816 bytes for
+    /// `node_expr`), and deeply nested input exhausts the stack in release
+    /// builds (SW-3220).
+    #[test]
+    fn dispatched_functions_stay_out_of_line() {
+        let mut missing = Vec::new();
+        for (function, file) in [("node_expr", "exprs.rs"), ("node_pattern", "patterns.rs")] {
+            for (name, method) in dispatched(function, file) {
+                let definitions: Vec<_> = SOURCES
+                    .iter()
+                    .filter_map(|(path, text)| {
+                        definition(text, &name, method).map(|marked| (*path, marked))
+                    })
+                    .collect();
+                assert!(
+                    !definitions.is_empty(),
+                    "`{name}` is dispatched by `{function}` but is not defined in the lower/ files"
+                );
+                if definitions.iter().any(|(_, marked)| !marked) {
+                    missing.push((function, name));
+                }
+            }
+        }
+        let report = missing
+            .iter()
+            .map(|(function, name)| {
+                format!(
+                    "`{name}` is dispatched by `{function}` but is not marked `#[inline(never)]`"
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            missing.is_empty(),
+            "{report}\n\nEvery function a kind dispatcher calls must stay out of line so the \
+             dispatcher keeps a small stack frame at every level of nesting. Inlining one into \
+             `node_expr` once grew its frame from 96 to 816 bytes, and deeply nested input then \
+             exhausted the stack in release builds (SW-3220)."
+        );
+    }
+}

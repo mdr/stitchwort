@@ -294,11 +294,13 @@ fn leaf_pattern(leaf: Leaf<'_>) -> Lowering<Pattern> {
 }
 
 /// `()`: the pattern of an empty type.
+#[inline(never)]
 fn absurd(node: Node<'_>) -> Lowering<Pattern> {
     Ok(Pattern::Absurd(whole(node)?))
 }
 
 /// `-3`, in brackets, a tuple or a constructor's arguments.
+#[inline(never)]
 fn pattern_negative(node: Node<'_>) -> Lowering<Pattern> {
     let kind = NodeKind::PatternNegative;
     let n = match node.after(&Tok::Minus) {
