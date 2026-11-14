@@ -36221,12 +36221,12 @@
     {
       "id": 3293,
       "title": "[Sonnet] Text patterns follow-ups (docs/reviews/SW-3284-text-patterns.md should-fix 1 and nits): a proof's catch-all goal after text literals shows split leftovers (tail✝, code✝, valid✝); the isScalar-hiding rule must check n is a valid code (it hides a false MkChar 55296 hypothesis); guide arrowAhead example's redundant arm; the review's other nits",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
