@@ -1,5 +1,5 @@
 {
-  "next": 3229,
+  "next": 3233,
   "tickets": [
     {
       "id": 47,
@@ -34185,14 +34185,14 @@
     {
       "id": 3149,
       "title": "[Sonnet] build --native executables fail to start from the main checkout: 'its tables can't be read: written by a different build of the runtime' (libstitchwort_standalone.a dated 12 Nov, CLI 13 Nov). Make the build rebuild/check the runtime library with the CLI, or give a clear message naming task build (SW-3145 finding)",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -35322,17 +35322,70 @@
     {
       "id": 3228,
       "title": "[Fable] Paper, second analysis of the formatter written in Stitchwort (SW-3145, after D3561's wait is over: the Rust formatter now runs on the lossless tree and the compiler's tree is lowered from it, SW-3158 to SW-3160): a plan to build it in Stitchwort, formatting byte-identically to stitchwort fmt; how its parsing should be built now that the Rust parser builds only a lossless tree (marks) and the formatter prints from it; and how this tree and parser could be a first step towards a self-hosted Stitchwort parser. Paper: docs/proposals/self-hosted-fmt.md, revised",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2 h (Fable paper lane). Matt, 14 Nov 2026: 'now that we have updated the Rust formatter, we should consider that original idea of can we actually implement the formatter in Stitchwort ... a second Fable paper lane analysis ... formatting things the same ... revisit the question of how it's built in terms of parsing ... if Stitchwort were to ever become self-hosting, maybe this full tree could be a first step in the parser.'\n\nPlan written (Fable, 14 Nov, about 15 min): docs/proposals/self-hosted-fmt.md revised; the first plan kept as its Appendix B. Recommendation: a twin of the tree printer in tools/fmt/: lexer; a hand-written parser that builds the lossless tree directly (no marks, no recovery), gated on `dev tree --print` being identical on every file; engine and rules ported; rewrites as tree functions; the safety check compares lossless trees. 42-59 lane hours in stages 0-6 (0-2, harness to parser, 21-29); about 20 s for the repo estimated (Rust 8.3 s measured, 1.1 s without SW-3147's cost). Two theorems by construction: output parses back to the printed tree; idempotence without formatting twice. Self-hosting: door open, no plan. Probes re-measured: SW-3149 still reproduces; SW-3147, SW-3150 unchanged; SW-3148 milder. Awaiting Matt: D3576 (build it, stages 0-2 first), D3577 (no merge gate once identical), D3578 (self-hosting: door open, plan nothing yet). Findings for tickets are listed in the note.\n",
+      "body": "Expected: 2 h (Fable paper lane), ~15 min. Revised docs/proposals/self-hosted-fmt.md. D3576 (build stages 0-2 first [rec yes]), D3577 (no identity gate [rec no gate]), D3578 (self-hosting: door open, plan nothing [rec yes]). Findings filed: SW-3229 SW-3230 SW-3231 SW-3232; SW-3149 moved to next (still reproduces; first prerequisite).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
-        "50b962fa5"
+        "50b962fa5",
+        "60e110aec1e11786b88561fb82f9fe34b1243d1b"
       ]
+    },
+    {
+      "id": 3229,
+      "title": "[Sonnet] Bug: a declaration holding a list with a bracketed range and a trailing comma, [(0 ..< n),], is never formatted, silently with exit 0, because the lowering reads that trailing comma (lower/exprs.rs, list) (SW-3228 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3230,
+      "title": "[DeepSeek] stitchwort fmt is silent about declarations it leaves as written (only dev fmt-tree --verbose says): print a warning naming each one and why, and say so in fmt's summary (SW-3228 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3231,
+      "title": "Text literals in patterns: '| \"def\" => …' is E-PARSE; matching on text needs if-chains (SW-3228 finding; language feature, needs a design note)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3232,
+      "title": "[DeepSeek] std: Option.getOr is missing though List.getOr and Array.getOr exist; add it with its doc and a lemma or two (SW-3228 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
     }
   ]
 }
