@@ -35371,12 +35371,12 @@
     {
       "id": 3231,
       "title": "Text literals in patterns: '| \"def\" => …' is E-PARSE; matching on text needs if-chains (SW-3228 finding; language feature, needs a design note)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 (Matt, 14 Nov 2026): a foundation piece for a Stitchwort formatter. Expected: 1.5 h (Opus paper lane: design note).",
+      "body": "D3579 (Matt, 14 Nov 2026): a foundation piece for a Stitchwort formatter. Expected: 1.5 h (Opus paper lane: design note).\n\n14 Nov 16:05 (lane): note written, docs/proposals/text-patterns.md (d9533f618), ~15 min. Recommendation: `\"def\"` as a pattern is the spelled-out `MkText ['d','e','f']` (already works today, compiles to a character tree; no kernel change), on `Text` and type-directed on `List Char`; missing case \"no arm matches texts other than …\"; prefixes `\"lit\" ++ rest` optional. Questions D3591 (text patterns on Text and List Char, rec yes) and D3592 (prefix patterns, rec yes). Stages: 1 Opus 6-9 h; 2 Opus 3-5 h; 3 Sonnet 2-3 h; 4 Opus 4-6 h (catch-all checked once per leaf: 4.34 s vs 1.11 s measured); 5 runtimes, measured first.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
