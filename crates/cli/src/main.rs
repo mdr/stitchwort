@@ -159,9 +159,9 @@ enum DevCommand {
     /// Build the lossless syntax tree of every `.sw` file under the paths
     /// and check that each reads back as the file, byte for byte. Prints
     /// the files that don't, and totals: declarations, ones that didn't
-    /// parse, nodes, marks dropped and internal errors. Exit status 1 if any
-    /// file fails, a mark is dropped, a declaration is an internal error, or
-    /// (with --spans) a span is no node
+    /// parse, nodes, ones whose marks don't nest and internal errors. Exit
+    /// status 1 if any file fails, a declaration's marks don't nest or it is
+    /// an internal error, or (with --spans) a span is no node
     Tree {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -5206,7 +5206,7 @@ fn tree_command(
                 total.errors += stats.errors;
                 total.unlexed += stats.unlexed;
                 total.nodes += stats.nodes;
-                total.dropped += stats.dropped;
+                total.misnested += stats.misnested;
             }
             Err(problem) => {
                 failed += 1;
@@ -5242,13 +5242,13 @@ fn tree_command(
     }
     println!(
         "{} files ({failed} not read back): {} declarations ({} not parsed, {} of them not \
-         lexed), {} nodes, {} marks dropped, {internal} internal errors",
+         lexed), {} nodes, {} with marks that don't nest, {internal} internal errors",
         files.len(),
         total.decls,
         total.errors,
         total.unlexed,
         total.nodes,
-        total.dropped
+        total.misnested
     );
     if spans {
         let made_up: Vec<String> = synthetic
@@ -5270,7 +5270,7 @@ fn tree_command(
             time_parse(rounds, false).as_secs_f64() * 1000.0
         );
     }
-    if failed > 0 || total.dropped > 0 || misses > 0 || internal > 0 {
+    if failed > 0 || total.misnested > 0 || misses > 0 || internal > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS

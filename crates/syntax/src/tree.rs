@@ -12,8 +12,8 @@
 //!
 //! Every construct is marked, and the whole-repo gate over std, `aoc/src`,
 //! `games` and `examples` is one command, for a rolling check: every file
-//! reads back as written, no mark is dropped, and every span of the
-//! compiler's tree is a node ([`SyntaxFile::check_spans`]). A construct the
+//! reads back as written, every declaration's marks nest, and every span of
+//! the compiler's tree is a node ([`SyntaxFile::check_spans`]). A construct the
 //! parser forgets to mark fails it, since the lowering gives the compiler's
 //! tree a span that no node has.
 //!
@@ -21,8 +21,8 @@
 //! stitchwort dev tree --spans crates/elab/src/std aoc/src games examples
 //! ```
 //!
-//! which exits 1 if any file doesn't read back, a mark is dropped, or a span
-//! is no node, and prints each. (`examples` has files that don't lex or
+//! which exits 1 if any file doesn't read back, a declaration's marks don't
+//! nest, or a span is no node, and prints each. (`examples` has files that don't lex or
 //! parse on purpose; they are counted, not failures.) `--time N` times
 //! parsing as `check` does (the lossless tree, then the lowering) and the
 //! lossless tree alone, so the difference is the lowering; with
@@ -61,28 +61,34 @@
 //!
 //! The parser doesn't build this tree. It records *marks*: when a parsing
 //! function finishes a construct it notes the construct's kind and the
-//! token range it started and ended at (`Mark`). Its position only ever
-//! moves forward, so the ranges of the marks of one parse nest; the builder
-//! here sorts them (by start, then the longest first, then the one finished
-//! last first, since a construct finishes after everything inside it) and
-//! nests them with a stack. A function that only knows its construct's kind
-//! after the fact (an expression that turns out to be a binder, say)
-//! records it when it does know, at the end; the marks of its parts are
-//! already in the list, and could be relabelled from a saved list length
-//! the same way. A parse that fails partway leaves its unfinished
-//! constructs unmarked, which is why nothing has to be undone.
+//! token range from where it started to the last token read (`Mark`). The
+//! function keeps its start as a value (`let start = self.mark()`) and
+//! records one mark when it finishes; no mark is recorded any other way,
+//! changed afterwards, or read back to decide where another starts. So the
+//! marks come in the order the constructs finish: ends never go back, and
+//! of two with the same range the later is the outer. The builder
+//! (`Nester`) nests them in two linear passes, with no sort, and checks
+//! as it goes: marks out of that order, or two that cross, are a parser
+//! bug, and the declaration's tree is then its root alone
+//! ([`Node::misnested`]), which the lowering refuses as an internal error,
+//! rather than a tree that reads as a different program.
 //!
-//! An operator only learns it has a left operand once the operand is read:
-//! `a` in `a + b`. Rather than every function the operand passes through
-//! keeping its start (each such local grows the frames nested expressions
-//! pile up), the operator reads it from the marks: every operand of more
-//! than one token is marked, and is marked last, so the last mark ending at
-//! the operator is the whole operand; if none does, the operand is one
-//! token. The operator then holds that start on a small stack of open
-//! constructs, beside the marks, until its right operand is read. The
-//! span-containment check holds this up: an operand left unmarked would
-//! start its operator's node in the wrong place, and the compiler's span
-//! for the operator's expression would be no node.
+//! Why marks, rather than parsing functions that return the nodes they
+//! built (docs/proposals/parser-marks-or-nodes.md, D3600): the tree stores
+//! the tokens once and a node is a range of them, so a function has
+//! nothing to return but where it started, which its caller already knows;
+//! a function that fails has written nothing, and what finished before it
+//! stays, so recovery needs no undoing (a recovery point's `Error` node
+//! starts where the construct that failed started, and what finished
+//! inside nests in it); and frames that hold no nodes keep nesting deep.
+//!
+//! An operator only learns it has a left operand once the operand is read
+//! (`a` in `a + b`): the function that reads both keeps the start before
+//! reading the operand, and marks the operator's node from there. A
+//! construct whose kind is known late (`exists` reads a lambda) is marked
+//! by the function that knows it, given the kind or the start. A construct
+//! that read nothing (a part R1 found missing) gives an empty mark, which
+//! is no node.
 //!
 //! # Errors
 //!
@@ -415,9 +421,9 @@ struct DeclTree {
     signature_kept: bool,
     /// [`DeclMarks::recovered`].
     recovered: Vec<Recovery>,
-    /// Marks the builder left out because they crossed another's range: a
-    /// parser bug if not 0 ([`Node::crossed_marks`]).
-    dropped: u32,
+    /// Why the builder couldn't nest the parser's marks, which is a parser
+    /// bug: the tree is then the root alone ([`Node::misnested`]).
+    misnested: Option<&'static str>,
 }
 
 /// The lossless tree of a file: its tokens with their trivia, and a tree for
@@ -431,9 +437,8 @@ pub struct SyntaxFile {
     decls: Vec<DeclTree>,
     /// The spans of the `--|` comments, whose doc links the module lists.
     bars: Vec<Span>,
-    /// Marks that crossed another's range, which the builder left out: a
-    /// parser bug if not 0.
-    dropped: usize,
+    /// How many declarations' marks didn't nest: a parser bug if not 0.
+    misnested: usize,
 }
 
 /// A node of a [`SyntaxFile`].
@@ -467,8 +472,9 @@ pub struct TreeStats {
     /// Those of them that didn't lex: an `Error` root over raw text.
     pub unlexed: usize,
     pub nodes: usize,
-    /// Marks the builder left out because they crossed another's range.
-    pub dropped: usize,
+    /// Declarations whose marks didn't nest, a parser bug
+    /// ([`Node::misnested`]).
+    pub misnested: usize,
 }
 
 impl SyntaxFile {
@@ -479,32 +485,33 @@ impl SyntaxFile {
         bars: Vec<Span>,
         groups: Vec<DeclMarks>,
     ) -> SyntaxFile {
-        let file = SyntaxFile::build_allowing_crossed(tokens, trivia, eof, bars, groups);
+        let file = SyntaxFile::build_allowing_misnested(tokens, trivia, eof, bars, groups);
         debug_assert_eq!(
-            file.dropped, 0,
-            "the parser recorded a mark that crosses another (see `Node::crossed_marks`)"
+            file.misnested, 0,
+            "the parser recorded marks that don't nest (see `Node::misnested`)"
         );
         file
     }
 
-    /// [`Self::build`] without its debug check that no mark was dropped,
-    /// for the tests of what the compiler does with such a tree.
-    pub(crate) fn build_allowing_crossed(
+    /// [`Self::build`] without its debug check that every declaration's
+    /// marks nest, for the tests of what the compiler does when they don't.
+    pub(crate) fn build_allowing_misnested(
         tokens: Vec<Token>,
         trivia: Vec<Trivia>,
         eof: Trivia,
         bars: Vec<Span>,
         groups: Vec<DeclMarks>,
     ) -> SyntaxFile {
-        let decls: Vec<DeclTree> = groups.into_iter().map(build_decl).collect();
-        let dropped = decls.iter().map(|decl| decl.dropped as usize).sum();
+        let mut nester = Nester::default();
+        let decls: Vec<DeclTree> = groups.into_iter().map(|g| nester.build(g)).collect();
+        let misnested = decls.iter().filter(|decl| decl.misnested.is_some()).count();
         SyntaxFile {
             tokens,
             trivia,
             eof,
             decls,
             bars,
-            dropped,
+            misnested,
         }
     }
 
@@ -641,7 +648,7 @@ impl SyntaxFile {
     pub fn stats(&self) -> TreeStats {
         let mut stats = TreeStats {
             decls: self.decls.len(),
-            dropped: self.dropped,
+            misnested: self.misnested,
             ..TreeStats::default()
         };
         for decl in &self.decls {
@@ -752,64 +759,112 @@ fn check_gap<'c>(
     Ok(())
 }
 
-/// Nests one declaration's marks into its tree.
-fn build_decl(group: DeclMarks) -> DeclTree {
-    let mut dropped = 0;
-    let offset = group.tokens.start;
-    let mut marks: Vec<(usize, Mark)> = group
-        .marks
-        .into_iter()
-        .filter(|m| m.start < m.end)
-        .enumerate()
-        .collect();
-    // Outer first: by start, then the longest, then the one finished last.
-    marks.sort_by(|(i, a), (j, b)| a.start.cmp(&b.start).then(b.end.cmp(&a.end)).then(j.cmp(i)));
-    let root = NodeData {
-        kind: group.root,
-        start: group.tokens.start,
-        end: group.tokens.end,
-        subtree_end: 0,
-    };
-    let mut nodes = vec![root];
-    // The open nodes, as indices into `nodes`.
-    let mut stack: Vec<usize> = vec![0];
-    let len = group.tokens.end - group.tokens.start;
-    for &(_, mark) in &marks {
-        let (start, end) = (mark.start, mark.end.min(len));
-        // The whole declaration is the root already, except that a single
-        // expression's root is only where it starts.
-        if start == 0 && end == len && group.root != NodeKind::Expression {
-            continue;
+/// The builder's working space, kept across a file's declarations so that
+/// building allocates only the trees.
+#[derive(Default)]
+struct Nester {
+    /// For each mark, how many nodes its subtree has, itself included.
+    size: Vec<u32>,
+    /// The forward pass's marks that have no parent yet, as indices.
+    orphans: Vec<u32>,
+    /// The backward pass's open nodes: where each starts, and where the
+    /// next subtree placed under it ends.
+    open: Vec<(u32, u32)>,
+}
+
+impl Nester {
+    /// One declaration's tree, from its marks in finishing order
+    /// (docs/proposals/parser-end-state.md §3, A′): a construct's mark comes
+    /// after the marks of everything inside it, so ends never go back, and
+    /// of two marks with the same range the later is the outer. Two linear
+    /// passes, no sort: forward, each mark gathers the subtrees that start
+    /// inside it and counts their nodes; backward, parents now come before
+    /// their children and the last child first, so each subtree is placed
+    /// ending where the one after it begins. Marks that break the order or
+    /// cross give the root alone, and why ([`Node::misnested`]).
+    fn build(&mut self, group: DeclMarks) -> DeclTree {
+        let offset = group.tokens.start;
+        let len = group.tokens.end - group.tokens.start;
+        let mut marks = group.marks;
+        let root = |subtree_end| NodeData {
+            kind: group.root,
+            start: group.tokens.start,
+            end: group.tokens.end,
+            subtree_end,
+        };
+        let (nodes, misnested) = match self.sizes(&mut marks, len) {
+            Ok(()) => (self.place(&marks, offset, root), None),
+            Err(why) => (vec![root(1)], Some(why)),
+        };
+        DeclTree {
+            nodes,
+            raw: group.raw,
+            signature_kept: group.signature_kept,
+            recovered: group.recovered,
+            misnested,
         }
-        while let Some(&top) = stack.last()
-            && nodes[top].end <= offset + start
-        {
-            nodes[top].subtree_end = nodes.len() as u32;
-            stack.pop();
-        }
-        let parent = *stack.last().expect("the root covers every mark");
-        if offset + end > nodes[parent].end {
-            dropped += 1;
-            continue;
-        }
-        stack.push(nodes.len());
-        nodes.push(NodeData {
-            kind: mark.kind,
-            start: offset + start,
-            end: offset + end,
-            subtree_end: 0,
-        });
     }
-    let total = nodes.len() as u32;
-    for open in stack {
-        nodes[open].subtree_end = total;
+
+    /// The forward pass: checks the order and the nesting, and fills
+    /// `size`. Drops the empty marks, of constructs that read nothing (as
+    /// after R1), which are no node.
+    fn sizes(&mut self, marks: &mut Vec<Mark>, len: u32) -> Result<(), &'static str> {
+        let mut last_end = 0;
+        for mark in marks.iter() {
+            if mark.end < last_end || mark.start > mark.end || mark.end > len {
+                return Err("a mark out of order");
+            }
+            last_end = mark.end;
+        }
+        marks.retain(|m| m.start < m.end);
+        self.size.clear();
+        self.size.resize(marks.len(), 1);
+        self.orphans.clear();
+        for (i, mark) in marks.iter().enumerate() {
+            while let Some(&top) = self.orphans.last() {
+                let inner = marks[top as usize];
+                if inner.start >= mark.start {
+                    self.size[i] += self.size[top as usize];
+                    self.orphans.pop();
+                } else if inner.end > mark.start {
+                    return Err("two marks cross");
+                } else {
+                    break;
+                }
+            }
+            self.orphans.push(i as u32);
+        }
+        Ok(())
     }
-    DeclTree {
-        nodes,
-        raw: group.raw,
-        signature_kept: group.signature_kept,
-        recovered: group.recovered,
-        dropped,
+
+    /// The backward pass: the nodes in preorder, the root first.
+    fn place(
+        &mut self,
+        marks: &[Mark],
+        offset: u32,
+        root: impl Fn(u32) -> NodeData,
+    ) -> Vec<NodeData> {
+        let total = marks.len() as u32 + 1;
+        let mut nodes = vec![root(total); total as usize];
+        self.open.clear();
+        self.open.push((0, total));
+        for (i, mark) in marks.iter().enumerate().rev() {
+            while self.open.len() > 1 && self.open[self.open.len() - 1].0 > mark.start {
+                self.open.pop();
+            }
+            let parent = self.open.len() - 1;
+            let end = self.open[parent].1;
+            let at = end - self.size[i];
+            self.open[parent].1 = at;
+            nodes[at as usize] = NodeData {
+                kind: mark.kind,
+                start: offset + mark.start,
+                end: offset + mark.end,
+                subtree_end: end,
+            };
+            self.open.push((mark.start, end));
+        }
+        nodes
     }
 }
 
@@ -874,16 +929,16 @@ impl<'f> Node<'f> {
         &self.file.decls[self.decl as usize].recovered
     }
 
-    /// For a declaration's root: how many of the parser's marks for it the
-    /// builder left out because they crossed another's range. Not 0 only
-    /// through a parser bug, and then the tree isn't the parse (an operator
-    /// whose node was left out lies flat beside its operands), so the
-    /// lowering refuses the declaration. 0 for any other node.
-    pub fn crossed_marks(&self) -> usize {
+    /// For a declaration's root: why the builder couldn't nest the
+    /// parser's marks for it, if it couldn't (two cross, or one is out of
+    /// order). Only through a parser bug, and then the tree is the root
+    /// alone with every token flat under it, which isn't the parse, so the
+    /// lowering refuses the declaration. `None` for any other node.
+    pub fn misnested(&self) -> Option<&'static str> {
         if self.index == 0 {
-            self.file.decls[self.decl as usize].dropped as usize
+            self.file.decls[self.decl as usize].misnested
         } else {
-            0
+            None
         }
     }
 
@@ -993,7 +1048,7 @@ mod tests {
             let stats = tree(&text)
                 .check_round_trip(&text)
                 .unwrap_or_else(|e| panic!("{path}: {e}"));
-            assert_eq!((stats.errors, stats.dropped), (0, 0), "{path}: {stats:?}");
+            assert_eq!((stats.errors, stats.misnested), (0, 0), "{path}: {stats:?}");
         }
     }
 
@@ -1259,12 +1314,95 @@ def f (n: Nat): Nat :=
         let text = "def f (n: Nat): Nat := (n +\n";
         let tree = tree(text);
         let stats = tree.check_round_trip(text).unwrap();
-        assert_eq!((stats.errors, stats.dropped), (0, 0), "{stats:?}");
+        assert_eq!((stats.errors, stats.misnested), (0, 0), "{stats:?}");
         let root = tree.decls().next().unwrap();
         assert_eq!(
             compact(root, text),
             "Def[def f Param[( n : Nat )] ResultType[: Nat] Body[:= Error[( Binary[n +]]]]"
         );
+    }
+
+    /// An arm that breaks after one that parsed: the arms are an `Error`
+    /// node from the first `|`, and the arm that finished nests in it.
+    #[test]
+    fn a_broken_arm_keeps_the_arms_before_it() {
+        let text = "def f (n: Nat): Nat\n  | 0 => 1\n  | ) => 2\n";
+        let tree = tree(text);
+        let root = tree.decls().next().unwrap();
+        assert_eq!(
+            compact(root, text),
+            "Def[def f Param[( n : Nat )] ResultType[: Nat] Error[Arm[| 0 => 1] | ) => 2]]"
+        );
+    }
+
+    /// The tree of tokens `a b c d` from these marks, in the order given,
+    /// as [`compact`] writes it, and why they didn't nest if they didn't.
+    fn nested(marks: &[(NodeKind, u32, u32)]) -> (String, Option<&'static str>) {
+        let file = SourceMap::new().next_id();
+        let text = "a b c d\n";
+        let lexed = crate::lexer::lex_with_trivia(file, text).unwrap();
+        let marks = marks
+            .iter()
+            .map(|&(kind, start, end)| Mark { kind, start, end })
+            .collect();
+        let group = DeclMarks {
+            tokens: 0..lexed.tokens.len() as u32,
+            root: NodeKind::Expression,
+            marks,
+            raw: None,
+            signature_kept: false,
+            recovered: Vec::new(),
+        };
+        let tree = SyntaxFile::build_allowing_misnested(
+            lexed.tokens,
+            lexed.trivia,
+            lexed.eof,
+            lexed.bars,
+            vec![group],
+        );
+        let root = tree.decls().next().unwrap();
+        (compact(root, text), root.misnested())
+    }
+
+    /// The builder nests marks given in finishing order, the later of two
+    /// with the same range outside, and leaves out empty ones.
+    #[test]
+    fn marks_in_finishing_order_nest() {
+        use NodeKind::{App, Binary, Paren};
+        assert_eq!(
+            nested(&[
+                (Paren, 1, 2),
+                (App, 0, 2),
+                (Paren, 2, 2),
+                (Binary, 2, 4),
+                (App, 0, 4)
+            ]),
+            (
+                "Expression[App[App[a Paren[b]] Binary[c d]]]".to_string(),
+                None
+            )
+        );
+        assert_eq!(
+            nested(&[(Paren, 0, 4), (Binary, 0, 4)]),
+            ("Expression[Binary[Paren[a b c d]]]".to_string(), None)
+        );
+    }
+
+    /// Marks out of finishing order, or two that cross, are a parser bug:
+    /// the tree is the root alone, with why.
+    #[test]
+    fn marks_that_do_not_nest_are_refused() {
+        use NodeKind::{App, Binary};
+        let alone = "Expression[a b c d]".to_string();
+        assert_eq!(
+            nested(&[(App, 0, 3), (Binary, 1, 2)]),
+            (alone.clone(), Some("a mark out of order"))
+        );
+        assert_eq!(
+            nested(&[(App, 0, 2), (Binary, 1, 3)]),
+            (alone.clone(), Some("two marks cross"))
+        );
+        assert_eq!(nested(&[(App, 0, 5)]), (alone, Some("a mark out of order")));
     }
 
     /// A header that breaks fails the declaration whole, as before: its
@@ -1295,7 +1433,7 @@ def h: Nat := 2
         let tree = tree(text);
         let stats = tree.check_round_trip(text).unwrap();
         assert_eq!(
-            (stats.decls, stats.errors, stats.unlexed, stats.dropped),
+            (stats.decls, stats.errors, stats.unlexed, stats.misnested),
             (3, 1, 1, 0),
             "{stats:?}"
         );
@@ -1353,7 +1491,7 @@ def h: Nat := 2
     fn bodies(text: &str) -> Vec<String> {
         let tree = tree(text);
         let stats = tree.check_round_trip(text).unwrap();
-        assert_eq!((stats.errors, stats.dropped), (0, 0), "{stats:?}");
+        assert_eq!((stats.errors, stats.misnested), (0, 0), "{stats:?}");
         tree.decls()
             .map(|decl| {
                 let body = decl
@@ -1461,6 +1599,11 @@ def h: Nat := 2
                 "Arrow[Binary[a && Binary[b && Binary[c && d]]] -> q]",
             ),
             ("a ∧ b ∧ c → q", "Arrow[Binary[a ∧ Binary[b ∧ c]] → q]"),
+            // Operands with nodes of their own, finished before the chain's.
+            (
+                "f a && b || g c && h d",
+                "Binary[Binary[App[f a] && b] || Binary[App[g c] && App[h d]]]",
+            ),
             (
                 "a && b && c <-> q",
                 "Iff[Binary[a && Binary[b && c]] <-> q]",
@@ -1556,6 +1699,22 @@ def h: Nat := 2
                 "App[f OperatorSection[( + 1 )] OperatorSection[( k + )] OperatorSection[( && )]]",
             ),
             ("(|| a && b)", "OperatorSection[( || Binary[a && b] )]"),
+            (
+                "(|| a && b && c)",
+                "OperatorSection[( || Binary[a && Binary[b && c]] )]",
+            ),
+            // A section inside a section's argument is its own.
+            (
+                "xs |> .flatMap (i => i |> .map f)",
+                "Pipe[xs |> Section[App[FieldAccess[. flatMap] Paren[( Lambda[i => \
+                 Pipe[i |> Section[App[FieldAccess[. map] f]]]] )]]]]",
+            ),
+            // Up to a `->`, which a section doesn't take.
+            (
+                "(.f a + 1 -> T)",
+                "Paren[( Arrow[Section[Binary[App[FieldAccess[. f] a] + 1]] -> T] )]",
+            ),
+            ("(.f; b)", "Paren[( Seq[Section[FieldAccess[. f]] ; b] )]"),
         ]);
     }
 
