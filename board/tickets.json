@@ -35394,7 +35394,7 @@
     {
       "id": 3233,
       "title": "[Fable] Paper: the parser's end state now it has one job (D3579): marks (sorted after the parse) against in-order events with precede (rust-analyzer), leftovers from the two-route period (signature_kept, parked failed declarations, relabelling), stack frames, recovery's needs; recommend the cleanest end state with numbers; the tidy waits for recovery S1",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35402,7 +35402,9 @@
       "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "992d66548"
+      ]
     },
     {
       "id": 3234,
