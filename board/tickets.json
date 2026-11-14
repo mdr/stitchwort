@@ -1,5 +1,5 @@
 {
-  "next": 3198,
+  "next": 3199,
   "tickets": [
     {
       "id": 47,
@@ -34846,6 +34846,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "Not a bug: the snapshot was right on main. SW-3194's lane re-blessed it from a shorter run; restored after the merge (output matches pre-switch main apart from line numbers; passed 3 runs in a row).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3198,
+      "title": "[DeepSeek] Formatter fuzzer: read FUZZ_SEED (decimal or 0x…) like the kernel fuzzer, print the seed, and pass SEED through task fuzz:fmt; today SEED is a const in crates/fmt/tests/it/fuzz.rs, so compute runs can't vary it (Overmind, 14 Nov)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
