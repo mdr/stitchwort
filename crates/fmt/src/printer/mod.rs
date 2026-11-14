@@ -261,7 +261,7 @@ fn decl_source<'t>(tree: &SyntaxFile, text: &'t str, first: usize, end: usize) -
 /// the token after it, a trailing one to the token it follows, skipping
 /// commas and closing brackets, which move freely around a line's end.
 /// Tokens are counted without commas, which D1012 adds and drops.
-fn comment_anchors(lexed: &Lexed) -> Vec<(&str, bool, usize)> {
+fn comment_anchors<'a>(text: &str, lexed: &'a Lexed) -> Vec<(&'a str, bool, usize)> {
     let tokens = &lexed.tokens;
     let mut index = Vec::with_capacity(tokens.len());
     let mut n = 0;
@@ -277,6 +277,14 @@ fn comment_anchors(lexed: &Lexed) -> Vec<(&str, bool, usize)> {
             out.push((comment.text.trim_end_matches(' '), false, index[i]));
         }
         if let Some(comment) = &trivia.trailing {
+            // A comment after a comma that starts its line belongs to the
+            // token after it.
+            if tokens[i].tok == Tok::Comma
+                && rules::comma_first_on_line(text, token_text_range(&tokens[i]).start)
+            {
+                out.push((comment.text.trim_end_matches(' '), false, index[i]));
+                continue;
+            }
             let mut j = i;
             while j > 0
                 && matches!(
@@ -306,7 +314,7 @@ fn compare(
         return Err(("doesn't lex", String::new()));
     };
     check::same_tokens(before, &a, after, &b).map_err(|e| ("tokens", e))?;
-    let (x, y) = (comment_anchors(&a), comment_anchors(&b));
+    let (x, y) = (comment_anchors(before, &a), comment_anchors(after, &b));
     if x != y {
         let at = x
             .iter()

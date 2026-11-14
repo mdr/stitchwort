@@ -298,6 +298,41 @@ impl<'a> Rules<'a> {
         Doc::concat(parts)
     }
 
+    /// The comments of a comma that starts its line (D1012), as own-line
+    /// comments for the item after it: the comma moves to the end of the
+    /// previous item's line, and a comment on either side of it stays with
+    /// the next token, as `comment_anchors` reads them.
+    fn comma_first_comments(&mut self, i: usize) -> Vec<Doc> {
+        let trivia = &self.file.trivia()[i];
+        let has_leading = !trivia.leading.is_empty();
+        let trailing = trivia.trailing.clone();
+        let first_on_line = comma_first_on_line(self.src, token_text_range(&self.tokens[i]).start);
+        let mut parts = Vec::new();
+        if has_leading {
+            self.keep_blank[i] = true;
+            parts.extend(self.leading(i));
+        }
+        if let (true, Some(comment)) = (first_on_line, trailing) {
+            parts.extend([
+                Doc::BreakParent,
+                Doc::LineStart,
+                Doc::text(comment.text.trim_end_matches(' ')),
+                Doc::HardLine,
+            ]);
+        }
+        parts
+    }
+
+    /// A comma's text and its trailing comment, unless it starts its line
+    /// (then `comma_first_comments` placed the comment).
+    fn comma_end(&self, i: usize) -> Doc {
+        let mut parts = vec![self.token_text(i)];
+        if !comma_first_on_line(self.src, token_text_range(&self.tokens[i]).start) {
+            parts.extend(self.trailing(i));
+        }
+        Doc::concat(parts)
+    }
+
     /// A token's comments without its text: a comma the formatter drops.
     fn leaf_trivia_only(&self, i: usize) -> Doc {
         let mut parts = self.leading(i);
@@ -971,6 +1006,9 @@ impl<'a> Rules<'a> {
         let plain = node.kind() == NodeKind::List
             && inside.len() == items.len() * 2 - usize::from(dropped.is_none())
             && !self.holds_trailing_comment(node)
+            && items.iter().all(|(_, comma)| {
+                comma.is_none_or(|c| self.file.trivia()[Self::first(c)].leading.is_empty())
+            })
             && items.iter().all(|(item, _)| {
                 matches!(item.as_slice(), [el @ Element::Leaf(_)]
                 if !self.has_leading(*el)
@@ -1000,15 +1038,19 @@ impl<'a> Rules<'a> {
             return Doc::concat([prefix, Doc::nest(2, Doc::Fill(cells)), closer_doc]);
         }
         let mut body = Vec::new();
+        let mut pending = Vec::new();
         for (k, (item, comma)) in items.iter().enumerate() {
             if item.is_empty() {
                 return self.as_written(node);
             }
             self.mark_item(item[0]);
             body.push(if k == 0 { edge() } else { Doc::Line });
+            body.append(&mut pending);
             body.push(self.join(item));
             if let Some(comma) = comma {
-                body.push(self.el(*comma));
+                let i = Self::first(*comma);
+                pending = self.comma_first_comments(i);
+                body.push(self.comma_end(i));
             }
         }
         if let Some(comma) = dropped {
@@ -1665,4 +1707,10 @@ impl<'a> Rules<'a> {
             Doc::nest(2, Doc::concat([Doc::Line, body])),
         ]))
     }
+}
+
+/// Whether the comma at byte `start` is the first token on its line.
+pub(crate) fn comma_first_on_line(src: &str, start: usize) -> bool {
+    let line = src[..start].rfind('\n').map_or(0, |k| k + 1);
+    src[line..start].trim().is_empty()
 }
