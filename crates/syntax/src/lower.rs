@@ -34,12 +34,13 @@
 use crate::Diagnostic;
 use crate::ast::{Decl, Expr, FailedName, Import, Module, NamespaceDecl};
 use crate::source::FileId;
+use crate::stack::StackLimit;
 use crate::tree::{Node, NodeKind, SyntaxFile};
 use std::fmt;
 
 mod access;
 mod decls;
-mod exprs;
+pub(crate) mod exprs;
 pub mod oracle;
 
 /// What the lowering can't lower yet: the first such thing it met in a
@@ -59,6 +60,12 @@ pub enum Unsupported {
     /// always gives it: a bug if ever counted, until recovery leaves parts
     /// out.
     Missing(NodeKind, &'static str),
+    /// An expression nested more deeply than the stack the lowering was
+    /// given allows. The parser has the same limit and frames larger than
+    /// the lowering's, so a declaration that parsed shouldn't reach it;
+    /// when the lowering is the parser's route (lane L5), this is its
+    /// `E-RESOURCE`.
+    TooDeep,
 }
 
 impl fmt::Display for Unsupported {
@@ -68,6 +75,7 @@ impl fmt::Display for Unsupported {
             Unsupported::FailedDefinition => write!(f, "Error (a definition)"),
             Unsupported::Token => write!(f, "a token read as an expression"),
             Unsupported::Missing(kind, part) => write!(f, "{kind:?} without {part}"),
+            Unsupported::TooDeep => write!(f, "nested too deeply to lower"),
         }
     }
 }
@@ -95,6 +103,8 @@ pub struct Lower<'f> {
     /// The parser's errors for the file, in file order: a declaration that
     /// didn't parse gives its first error's position to its failed names.
     pub(crate) errors: &'f [Diagnostic],
+    /// How deep the lowering may recurse, as the parser's `StackLimit`.
+    pub(crate) stack: StackLimit,
 }
 
 impl<'f> Lower<'f> {
@@ -111,7 +121,15 @@ impl<'f> Lower<'f> {
             text,
             file,
             errors,
+            stack: StackLimit::from_here(crate::DEFAULT_STACK),
         }
+    }
+
+    /// Allows the lowering `bytes` of the stack from here, as the parser is
+    /// allowed: the `stack` given to [`crate::parse_module_and_tree`].
+    pub fn with_stack(mut self, bytes: usize) -> Self {
+        self.stack = StackLimit::from_here(bytes);
+        self
     }
 
     /// The whole module, and each declaration that couldn't be lowered yet

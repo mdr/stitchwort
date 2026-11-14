@@ -12,14 +12,15 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CHAIN, CalcStep, Clause, CtorDecl, Decl, Expr, FailedName, Guard,
-    Import, ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
+    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, FailedName, Guard, Import,
+    ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
     Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{
     LexFailure, Tok, Token, Trivia, lex, lex_recovering, lex_recovering_with_trivia,
     lex_with_trivia,
 };
+use crate::lower::exprs::{binary, chain, piped, prefix_op};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -30,6 +31,7 @@ use crate::{Diagnostic, FileId, Span};
 mod declarations;
 mod sections;
 use declarations::{Param, misplaced_attributes};
+pub(crate) use sections::{fill_receiver, leads_with_section};
 
 /// The parser's results box their error: with an unboxed `Diagnostic`,
 /// every `Result<Expr>` would be as large as a `Diagnostic`, and each level
@@ -5886,102 +5888,6 @@ fn operand_text(expr: &Expr, fallback: &str) -> String {
     }
 }
 
-/// Whether `expr` can be used twice with no cost and no effect: a name or
-/// a literal. Anything else (a call, a field, which may be a method) is
-/// computed once.
-fn is_atom(expr: &Expr) -> bool {
-    matches!(
-        expr,
-        Expr::Var(_) | Expr::Num(..) | Expr::Float(..) | Expr::Str(..) | Expr::Char(..)
-    )
-}
-
-/// `a <= b < c`: `a <= b && b < c`, where a middle operand `b` that is not
-/// an atom is bound once, `let %chain := b`, and `a` (if it isn't an atom
-/// either) is bound before it, so the operands run in the order written. A
-/// later operand is bound inside the `&&`'s right side, so it only runs when
-/// the earlier links hold. A `>` link is `<` turned round, as a single one
-/// is, with the links in the order written. The result is one operand of a
-/// longer `&&`.
-fn chain(operands: Vec<Expr>, links: &[(BinOp, bool)]) -> Expr {
-    struct Chain<'a> {
-        links: &'a [(BinOp, bool)],
-        spans: Vec<Span>,
-        last: usize,
-    }
-    impl Chain<'_> {
-        fn name(&self, i: usize) -> Name {
-            Name {
-                text: format!("{CHAIN}{}", self.spans[i].start),
-                span: self.spans[i],
-            }
-        }
-
-        /// The links from `i - 1` on, with `left` standing for operand
-        /// `i - 1`.
-        fn go(&self, i: usize, left: Expr, operands: &mut [Option<Expr>]) -> Expr {
-            let operand = operands[i].take().expect("each operand is used once");
-            let (op, flip) = self.links[i - 1];
-            if i == self.last {
-                return binary(op, flip, left, operand);
-            }
-            let (middle, bound) = if is_atom(&operand) {
-                (operand, None)
-            } else {
-                (Expr::Var(self.name(i)), Some(operand))
-            };
-            let rest = self.go(i + 1, middle.clone(), operands);
-            let body = Expr::Binary(
-                BinOp::And,
-                Box::new(binary(op, flip, left, middle)),
-                Box::new(rest),
-            );
-            match bound {
-                Some(value) => self.bind(i, value, body),
-                None => body,
-            }
-        }
-
-        fn bind(&self, i: usize, value: Expr, body: Expr) -> Expr {
-            Expr::Let {
-                name: self.name(i),
-                ty: None,
-                // The links it binds for, so a chain's outermost `let` spans
-                // the chain as written.
-                span: value.span().to(body.span()),
-                value: Box::new(value),
-                body: Box::new(body),
-            }
-        }
-    }
-    let chain = Chain {
-        links,
-        spans: operands.iter().map(Expr::span).collect(),
-        last: operands.len() - 1,
-    };
-    let mut operands: Vec<Option<Expr>> = operands.into_iter().map(Some).collect();
-    let first = operands[0].take().expect("a chain has operands");
-    // A chain has three operands at least, so the second is a middle.
-    if is_atom(&first) || operands[1].as_ref().is_some_and(is_atom) {
-        return chain.go(1, first, &mut operands);
-    }
-    // Both ends of the first link perform, `a` first.
-    let rest = chain.go(1, Expr::Var(chain.name(0)), &mut operands);
-    chain.bind(0, first, rest)
-}
-
-/// `lhs op rhs`, or with `flip` `rhs op lhs`. Out of line, so the recursive
-/// parsing functions keep small stack frames (nesting depth is bounded by
-/// stack use).
-#[inline(never)]
-fn binary(op: BinOp, flip: bool, lhs: Expr, rhs: Expr) -> Expr {
-    if flip {
-        Expr::Binary(op, Box::new(rhs), Box::new(lhs))
-    } else {
-        Expr::Binary(op, Box::new(lhs), Box::new(rhs))
-    }
-}
-
 /// `Exists _ (x => body)` for each parameter of `lambda`, the lambda after
 /// `exists` at `keyword`: its layers are those whose span is `outer` (a
 /// lambda in the body has a span of its own).
@@ -6016,8 +5922,6 @@ fn exists_chain(keyword: Span, lambda: Expr, outer: Span) -> Expr {
     }
 }
 
-/// `-operand`, or with `bang` `!operand`, which is `Std.Bool.not operand`.
-#[inline(never)]
 /// A reference to a library name the compiler writes into a desugaring. Its
 /// span is empty, which is how the elaborator tells it from one written.
 fn library_var(path: &str, span: Span) -> Expr {
@@ -6025,33 +5929,6 @@ fn library_var(path: &str, span: Span) -> Expr {
         text: path.into(),
         span,
     })
-}
-
-fn prefix_op(bang: bool, start: Span, operand: Expr) -> Expr {
-    if bang {
-        let not = Expr::Var(Name {
-            text: "Std.Bool.not".into(),
-            span: start,
-        });
-        return Expr::App(Box::new(not), Box::new(operand));
-    }
-    let span = start.to(operand.span());
-    Expr::Neg(Box::new(operand), span, NegForm::Operand)
-}
-
-/// `lhs |> rhs`; when `rhs` is a method section, the call it stands for on
-/// `lhs`: `xs |> .drop 1` is `xs.drop 1`, with no function in between.
-#[inline(never)]
-fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
-    let Expr::Lam(names, body, _) = &mut rhs else {
-        return Expr::Pipe(Box::new(lhs), Box::new(rhs));
-    };
-    if names.len() != 1 || names[0].text != SECTION || !sections::leads_with_section(body) {
-        return Expr::Pipe(Box::new(lhs), Box::new(rhs));
-    }
-    let mut body = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
-    sections::fill_receiver(&mut body, lhs);
-    body
 }
 
 /// A chain `a > b >= c` (its steps stored as `<`/`<=`, the proofs being of
