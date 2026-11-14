@@ -35022,7 +35022,7 @@
     {
       "id": 3209,
       "title": "[Opus] Lowering L2 (docs/proposals/syntax-tree-lowering.md): Declarations and headers",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35032,7 +35032,8 @@
       "updated": "2026-11-14",
       "commits": [
         "e86693406",
-        "4e454f899"
+        "4e454f899",
+        "ef0cc46f50b5e29a17fab587dd9c76b0478d5172"
       ]
     },
     {
