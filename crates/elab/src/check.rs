@@ -7090,17 +7090,18 @@ fn propagation_plan<'a>(
     // comparison at the end settles it.
     let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
     name_unknown(cx, &written, named)?;
-    // By `_`s, as the comparison after a lambda put off is
-    // (`apply_args_postponing`): if the plain comparison fails, the
-    // unknowns may be solved from the arguments of two calls of the same
-    // definition (`Reads (() => bind (?p ()) ?j) …` against `Reads (() =>
-    // j x) …`), which only their arguments can say.
-    let matched = if by_holes {
-        crate::undo::unify(cx, &written, expected)?
-            || crate::undo::unify_solving_arguments(cx, &written, expected)?
-    } else {
-        cx.unify(&written, expected)?
-    };
+    // As the comparison after a lambda put off is (`finish_application`):
+    // if the plain comparison fails, the unknowns may be solved from the
+    // arguments of two calls of the same definition (`Reads (() => bind
+    // (?p ()) ?j) …` against `Reads twoLetters …`), which only their
+    // arguments can say. Left to that later comparison, they stay unknown
+    // while the arguments are checked: a lemma's type parameters (an
+    // ability's `t` in `Parse.readsThen`) among them, so each argument is
+    // checked against a type that can't fail early, and a lambda is checked
+    // in place, fails, and is checked again (SW-3281: a two-step
+    // `readsThen` chain took 498k steps, 61k with this).
+    let matched = crate::undo::unify(cx, &written, expected)?
+        || crate::undo::unify_solving_arguments(cx, &written, expected)?;
     if !matched {
         snapshot.restore(cx);
         return Ok(None);
