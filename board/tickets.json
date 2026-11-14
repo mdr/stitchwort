@@ -1,5 +1,5 @@
 {
-  "next": 3221,
+  "next": 3222,
   "tickets": [
     {
       "id": 47,
@@ -35195,6 +35195,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3221,
+      "title": "[Sonnet] Bench: the seven check-closed-* benchmarks' steps and visits doubled since the 11 Nov baseline (check-closed-print 1,097,315 → 2,089,850 steps; allocations +112%, time 99 → 259 ms); the programs are three lines, so evaluation of the closed value roughly doubled, not parsing. Find the commit(s) since 0eac3e918 and say whether it is intended; separately list the parse-side changes that are L5's (SW-3212) double construction",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "Expected: 60 min (Sonnet). Bench run on main after L5 + SW-3215: scratchpad/bench-main-1215.log.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
