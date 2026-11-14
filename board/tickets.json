@@ -34382,14 +34382,14 @@
     {
       "id": 3164,
       "title": "[DeepSeek] fmt splits a multi-line record update '{ position |' across two lines; keep '{ r |' together (SW-3158 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 40 min (DeepSeek).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -35220,12 +35220,12 @@
     {
       "id": 3222,
       "title": "[Sonnet] A test constructor for GoalSnapshot (its fields are pub(crate)), so deep_terms_in_later_passes can open a deep goal and reach defs_named and named through closing_plans (SW-3200 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Expected: 45 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
