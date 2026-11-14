@@ -35424,7 +35424,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579. Expected: 2 h (Fable paper lane), ~20 min. docs/proposals/file-io-and-text.md: a Files ability beside IO, Text as a shared buffer at run time. D3585 (Files its own ability [rec yes]), D3586 (run may touch files by default, flags narrow it [rec yes]), D3587 (build S0, T1, F1 next [rec yes]). The 'about 8-10 more' hours line in In plain words undercounts (about 14). SW-3149 also breaks plain build. Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (last five).",
+      "body": "D3579. Expected: 2 h (Fable paper lane), ~20 min. docs/proposals/file-io-and-text.md: a Files ability beside IO, Text as a shared buffer at run time. D3585 (Files its own ability [rec yes]), D3586 (run may touch files by default, flags narrow it [rec yes]), D3587 (build S0, T1, F1 next [rec yes]). The 'about 8-10 more' hours line in In plain words undercounts (about 14). SW-3149 also breaks plain build. Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (last five).\n\nD3586 decided (Matt, 14 Nov 2026): no restrictions. \"If we are going to have file operations, you can do any file access you want at all, just like every other language.\" So run and built executables have full file access, and the --files none/under/read flags are dropped from the plan. Files.simulate stays as a test and proof tool a program chooses for itself.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
