@@ -34615,14 +34615,14 @@
     {
       "id": 3181,
       "title": "[DeepSeek] nesting.rs's adaptive tests print their thresholds inside the isolated() child, whose stdout the parent discards unless it fails, so --no-capture can't show them: pass the child's threshold lines through to the parent's output (SW-3178 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Expected: 30 min (DeepSeek).",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
@@ -35239,12 +35239,12 @@
     {
       "id": 3223,
       "title": "[Sonnet] A merge-time guard on std's import cost: a step-count test (or bench row with a tight threshold) for a one-line 'import Std (List)' / '(Nat)' program, so an expensive std proof (like SW-3067's omega-proved List.inRangeReads, +860k steps for every importer) fails at merge; also measure each new @[reading] proof's cost once (SW-3221 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
