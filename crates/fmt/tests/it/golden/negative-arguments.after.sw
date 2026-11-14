@@ -12,15 +12,11 @@ def d (n: Int): Int := n - 1
 
 def e (n: Int): Int := n - 1
 
-def g (n: Int): Int :=
-  f
-    -n
+def g (n: Int): Int := f -n
 
-def h (x: Int) (y: Int): Int :=
-  x
-    - y
+def h (x y: Int): Int := x - y
 
-def i (x: Int) (y: Int): Int :=
+def i (x y: Int): Int :=
   let z := x + y
   - z
 

@@ -20,7 +20,7 @@ def zip (xs: List a) (ys: List b): List (Pair a b) := match xs, ys with
   | _, Nil => Nil
   | Cons x xs, Cons y ys => Cons (MkPair x y) (zip xs ys)
 
-def nest (x: Nat) (y: Nat): Nat := match x with
+def nest (x y: Nat): Nat := match x with
   | Zero =>
     match y with
       | Zero => 0

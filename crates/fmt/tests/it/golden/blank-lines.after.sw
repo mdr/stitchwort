@@ -2,8 +2,7 @@
 -- one, and none at the start of a body.
 def a: Nat := 1
 
-def b: Nat :=
-  2
+def b: Nat := 2
 def c: Nat := 3
 
 -- R18: one newline at the end, no trailing spaces.

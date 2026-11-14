@@ -3,10 +3,5 @@
 def a: List Nat := [1, 2, 3]
 def b: List Nat := [1, 2]
 def c: Person := { name = "Bob", age = 3 }
-def d: Nat :=
-  Eq.trans (Eq.cong f (g a
-      b))
-    (h c)
-def e: Nat := f (g
-  (h x)
-  )
+def d: Nat := Eq.trans (Eq.cong f (g a b)) (h c)
+def e: Nat := f (g (h x))
