@@ -1505,6 +1505,20 @@ impl GoalSnapshot {
     pub fn owner(&self) -> Option<stitchwort_core::DefId> {
         self.owner
     }
+
+    /// A goal of `target` in an empty context, for tests that build terms
+    /// the elaborator can't (too deep to elaborate).
+    #[cfg(feature = "test-bypass")]
+    #[doc(hidden)]
+    pub fn target_for_tests(target: Term) -> GoalSnapshot {
+        GoalSnapshot {
+            vars: Vec::new(),
+            level: 0,
+            target,
+            owner: None,
+            owner_args: Vec::new(),
+        }
+    }
 }
 
 pub(crate) struct SnapVar {
