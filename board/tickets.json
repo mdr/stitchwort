@@ -34340,14 +34340,14 @@
     {
       "id": 3161,
       "title": "[Opus, design] Syntax error recovery (D3563, Matt 13 Nov: the editor should make a best effort through syntax errors, to help fix them): error nodes inside a declaration in the lossless tree, so hover, completion and checking of the rest keep working; design note first. After A2 step 1",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Paper lane (Opus), expected 2.5 h. Started 08:26, done 08:35 (10 min, est. 150).\n\nDone: docs/proposals/syntax-error-recovery.md. Recovery points R1-R6 inside a declaration (ran out at a layout stop, inside brackets, stray closer, block line, arm, calc step, body), Error nodes in the lossless tree (absent child for \"ran out\"), Expr::Missing checked like `?` but failing as E-UNPARSED-BODY, cascades stopped by \"an error hole equals anything\" in the elaborator's unifier plus a few silent sites. Recovery goes before SW-3160's lowering (orchestrator-level call, recorded in the note); lowering of Error nodes is +3-5 h inside SW-3160. Stages S0-S5 27-39 lane hours (S6 optional, S7 inside SW-3160). Supersedes parse-recovery.md in part; SW-1982-SW-1986 to rescope.\n\nD3580 (a broken line costs only that line) [rec: yes]; D3581 (extra errors in `check` too) [rec: yes].\n",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {

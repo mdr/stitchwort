@@ -215,7 +215,8 @@ status line now says the wrong thing; the details are in
 | [language-server.md](language-server.md) | A language server for `.sw` | built, stages 0-1: `crates/lsp/` | SW-31, SW-274, SW-275, SW-282; open SW-1141 |
 | [lsp-goal-holes.md](lsp-goal-holes.md) | Goal holes in the editor (server stage 2) | built, 2a-2d | SW-376 |
 | [lsp-failure-policy.md](lsp-failure-policy.md) | How the language server handles panics and failures | in progress: stage 1 built (SW-1820); D2741-D2744 open | SW-1955, SW-1820; open SW-1948, SW-1979-SW-1981, SW-2067 |
-| [parse-recovery.md](parse-recovery.md) | Recovering from syntax errors while someone types | proposed: D2780-D2785 | SW-1917, SW-1873, SW-1982-SW-1986 |
+| [parse-recovery.md](parse-recovery.md) | Recovering from syntax errors while someone types | superseded in part by syntax-error-recovery.md (D2780-D2785; nothing built) | SW-1917, SW-1873, SW-1982-SW-1986 |
+| [syntax-error-recovery.md](syntax-error-recovery.md) | Working through a broken declaration (D3563): recovery points, error nodes, gaps the checker skips without cascades | proposed: D3580, D3581 | SW-3161 |
 | [tests-with-errors.md](tests-with-errors.md) | Checking and running tests when a project has errors or open goals: status per declaration, importers of a broken namespace | proposed: decisions D-a to D-f open | SW-2938; builds on SW-2909, SW-2932 |
 | [editor-and-playground-roadmap.md](editor-and-playground-roadmap.md) | Roadmap for VS Code and the playground | built: every ticket done | SW-1111, SW-1116-SW-1121, SW-1489 |
 | [playground-editor.md](playground-editor.md) | CodeMirror 6 in the playground | built: `web/editor/src/editor-entry.js` | SW-1118, SW-1375-SW-1378 |
