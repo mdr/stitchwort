@@ -1984,6 +1984,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             | Expr::Prop(_)
             | Expr::Hole(_)
             | Expr::Goal(_)
+            | Expr::Missing(_)
             | Expr::Unit(_) => {}
             Expr::App(a, b)
             | Expr::Arrow(a, b)

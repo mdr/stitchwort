@@ -1,7 +1,9 @@
 # Syntax error recovery: working through a broken declaration
 
-**Status:** design note, 14 November 2026 (SW-3161, for D3563). Paper lane:
-nothing is built. D3580 decided (Fable's split, revised in here); D3581
+**Status:** design note, 14 November 2026 (SW-3161, for D3563). S0 built
+(SW-1982); S1 built (SW-1983: R1 and R6, `Expr::Missing`, error holes, the
+backstop, the oracle `stitchwort dev breaks`; the editor goal at R1 gaps
+moves to S4). D3580 decided (Fable's split, revised in here); D3581
 decided (Matt, 14 Nov 2026: yes): the extra errors show in `check` too.
 It builds on, and in part replaces, [parse-recovery.md](parse-recovery.md)
 (SW-1917, D2780–D2785, none of it built), and sits inside the end state of

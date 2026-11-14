@@ -1544,7 +1544,7 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                 theorem,
                 instance,
                 synonym,
-                body_error,
+                syntax_error,
                 span,
                 ..
             } => {
@@ -1563,7 +1563,7 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
                     .flatten();
                 let owner = item(&mut out, full, kind, name_range(name), None, ty);
                 // Its range is extended to the declaration's end below.
-                out[owner].body_error = body_error.is_some();
+                out[owner].body_error = syntax_error.is_some();
             }
             Decl::Ability { name, ops, .. } => {
                 let full = format!("{prefix}{}", name.text);

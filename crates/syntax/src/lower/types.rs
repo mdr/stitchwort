@@ -115,7 +115,7 @@ impl<'f> Lower<'f> {
                 unfolding: Vec::new(),
                 defaults: Vec::new(),
                 attrs,
-                body_error: None,
+                syntax_error: None,
                 span: keyword.span().to(name.span),
             },
             Decl::Equation {

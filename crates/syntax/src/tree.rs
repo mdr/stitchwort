@@ -357,6 +357,39 @@ pub(crate) struct DeclMarks {
     /// parser kept its signature, its header having parsed, rather than
     /// giving only its names as failed ([`Node::signature_kept`]).
     pub(crate) signature_kept: bool,
+    /// Where the parser recovered from a syntax error in it, in the order
+    /// met ([`Node::recoveries`]).
+    pub(crate) recovered: Vec<Recovery>,
+}
+
+/// A recovery point of the parser (docs/proposals/syntax-error-recovery.md
+/// §2.2): how it carried on past a syntax error in a declaration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum RecoveryPoint {
+    /// R1: an expression or a closing token was wanted where the line or
+    /// the declaration ended. Nothing is skipped; the part is absent.
+    RanOut,
+    /// R6: nothing inside caught the error, so the rest of a definition's
+    /// body is skipped, as an `Error` node.
+    Body,
+}
+
+impl RecoveryPoint {
+    /// The point's name in the design note: `R1`, `R6`.
+    pub fn label(self) -> &'static str {
+        match self {
+            RecoveryPoint::RanOut => "R1",
+            RecoveryPoint::Body => "R6",
+        }
+    }
+}
+
+/// A syntax error the parser recovered from: where it was reported, and
+/// which point recovered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Recovery {
+    pub point: RecoveryPoint,
+    pub at: Span,
 }
 
 /// One node, stored flat: see the module's notes.
@@ -380,6 +413,8 @@ struct DeclTree {
     raw: Option<Range<u32>>,
     /// [`DeclMarks::signature_kept`].
     signature_kept: bool,
+    /// [`DeclMarks::recovered`].
+    recovered: Vec<Recovery>,
     /// Marks the builder left out because they crossed another's range: a
     /// parser bug if not 0 ([`Node::crossed_marks`]).
     dropped: u32,
@@ -773,6 +808,7 @@ fn build_decl(group: DeclMarks) -> DeclTree {
         nodes,
         raw: group.raw,
         signature_kept: group.signature_kept,
+        recovered: group.recovered,
         dropped,
     }
 }
@@ -811,10 +847,31 @@ impl<'f> Node<'f> {
 
     /// For the root of a definition that didn't parse: whether the parser
     /// kept its signature, because its header parsed and only what came
-    /// after failed (`Decl::Signature::body_error`). Its `Error` root then
+    /// after failed (`Decl::Signature::syntax_error`). Its `Error` root then
     /// holds the header's nodes. False for any other node.
     pub fn signature_kept(&self) -> bool {
         self.index == 0 && self.file.decls[self.decl as usize].signature_kept
+    }
+
+    /// The root of the declaration it belongs to.
+    pub fn root(&self) -> Node<'f> {
+        Node {
+            file: self.file,
+            decl: self.decl,
+            index: 0,
+        }
+    }
+
+    /// For the root of a declaration: the syntax errors the parser
+    /// recovered from in it, in the order met. A declaration with any is
+    /// failed whatever it checks to, and never gets a kernel term
+    /// (docs/proposals/syntax-error-recovery.md §4.1). Empty for any other
+    /// node.
+    pub fn recoveries(&self) -> &'f [Recovery] {
+        if self.index != 0 {
+            return &[];
+        }
+        &self.file.decls[self.decl as usize].recovered
     }
 
     /// For a declaration's root: how many of the parser's marks for it the
@@ -1186,7 +1243,7 @@ def f (n: Nat): Nat :=
 
     #[test]
     fn a_declaration_that_does_not_parse_is_an_error_node() {
-        let text = "def f (n: Nat): Nat := (\n\n-- trailing\ndef g: Nat := 1\n";
+        let text = "def f (n Nat): Nat := 1\n\n-- trailing\ndef g: Nat := 1\n";
         let tree = tree(text);
         let stats = tree.check_round_trip(text).unwrap();
         assert_eq!((stats.decls, stats.errors), (2, 1));
@@ -1194,19 +1251,31 @@ def f (n: Nat): Nat :=
         assert_eq!(kinds, [NodeKind::Error, NodeKind::Def]);
     }
 
-    /// The constructs finished before the error keep their nodes, under the
-    /// `Error` root: here the header of a definition whose body broke.
+    /// A definition whose body broke keeps its kind and its header's nodes,
+    /// and the rest of its body is an `Error` node in its `Body` (R6 of
+    /// docs/proposals/syntax-error-recovery.md).
     #[test]
     fn a_broken_body_keeps_its_headers_nodes() {
         let text = "def f (n: Nat): Nat := (n +\n";
         let tree = tree(text);
         let stats = tree.check_round_trip(text).unwrap();
-        assert_eq!((stats.errors, stats.dropped), (1, 0), "{stats:?}");
+        assert_eq!((stats.errors, stats.dropped), (0, 0), "{stats:?}");
         let root = tree.decls().next().unwrap();
         assert_eq!(
             compact(root, text),
-            "Error[def f Param[( n : Nat )] ResultType[: Nat] := ( n +]"
+            "Def[def f Param[( n : Nat )] ResultType[: Nat] Body[:= Error[( Binary[n +]]]]"
         );
+    }
+
+    /// A header that breaks fails the declaration whole, as before: its
+    /// root is `Error`, holding what finished before the error.
+    #[test]
+    fn a_broken_header_is_an_error_root() {
+        let text = "def f (n: Nat): Nat + := n\n";
+        let tree = tree(text);
+        let root = tree.decls().next().unwrap();
+        assert_eq!(root.kind(), NodeKind::Error);
+        assert!(root.recoveries().is_empty());
     }
 
     /// A declaration that doesn't lex is an `Error` root over its raw

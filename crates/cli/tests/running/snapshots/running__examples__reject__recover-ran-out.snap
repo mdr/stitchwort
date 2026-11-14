@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected an expression, but the line ends here
+   ╭─[ reject/recover-ran-out.sw:7:15 ]
+   │
+ 7 │   let a := n +
+   │               │ 
+   │               ╰─ expected an expression, but the line ends here
+ 8 │   let bad: Nat := "text"
+   │   ─┬─  
+   │    ╰─── this line starts a new statement
+   │ 
+   │ Note: the line starting with `let` (in column 3) is at or left of the enclosing block's column (3), so it starts a new statement
+───╯
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/recover-ran-out.sw:8:19 ]
+   │
+ 8 │   let bad: Nat := "text"
+   │                   ───┬──  
+   │                      ╰──── expected `Nat`, but this has type `Text`
+───╯

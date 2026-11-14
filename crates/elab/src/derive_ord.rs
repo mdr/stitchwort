@@ -722,7 +722,7 @@ impl Src {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
-            body_error: None,
+            syntax_error: None,
             span: self.span,
         }
     }

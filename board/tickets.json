@@ -17330,14 +17330,14 @@
     {
       "id": 1983,
       "title": "[Opus] Syntax error recovery S1 (docs/proposals/syntax-error-recovery.md §6): Expr::Missing, the parser's failed flag, error holes at a mismatch (strict unifier), quiet sites and the emission backstop; R1, R6; the one-line-break oracle (gate)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Expected: 11 h (Opus). Includes SW-3226 (the oracle tool, built first). Runs after the lowering (SW-3160) finished, so recovery's gaps are lowered here too (the note's S7, moved by the orchestrator on SW-3212).",
+      "body": "Expected: 11 h (Opus). Includes SW-3226 (the oracle tool, built first). Runs after the lowering (SW-3160) finished, so recovery's gaps are lowered here too (the note's S7, moved by the orchestrator on SW-3212).\n\nProgress (lane, 14 Nov 2026): built and committed on lane/SW-1983 (c717daf7e, 291eb964d).\n- `stitchwort dev breaks PATHS [--std] [--files] [--project] [--json]`: the one-line-break oracle (SW-3226).\n- Parser R1 (ran out at a line or the declaration's end) and R6 (rest of a def/theorem body skipped), lowered to `Expr::Missing`; error holes in the checker, the hole at a mismatch, the emission backstop; `syntax_error` replaces `body_error`; R1 errors point where the text ran out (§2.7). Library files parse with recovery.\n- Oracle, false errors per point (before → after):\n  - std Option (596 breaks): before 1.85% overall (kept signature 0%, whole 4.35%); after R1 0/32, R6 0/311, whole 11/253 (4.35%, all E-USES-FAILED, unchanged).\n  - examples/accept, first 800 breaks: before 3.12% (kept 0%, whole 6.20%); after R1 0/40, R6 0/357, whole 25/403 (6.20%: E-UNKNOWN-NAME 14, E-ABILITY 11 from types and abilities that fail whole; out of S1).\n- Not done: the editor goal at R1 gaps (needs an editor-only goal channel; proposed for S4).\n",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": []

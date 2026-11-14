@@ -1635,7 +1635,7 @@ impl Walk<'_> {
                     instance,
                     decreasing,
                     defaults,
-                    body_error,
+                    syntax_error,
                     span,
                     ..
                 } => {
@@ -1657,7 +1657,7 @@ impl Walk<'_> {
                     };
                     let owner = self.item(&name.text, kind, name.span, range, None);
                     if self.outline {
-                        self.nav.outline[owner].body_error = body_error.is_some();
+                        self.nav.outline[owner].body_error = syntax_error.is_some();
                     }
                     self.params(name.span, ty);
                     self.signature(ty, defaults, decreasing.as_deref(), equations);
@@ -2094,6 +2094,7 @@ impl Walk<'_> {
                 | Expr::Prop(_)
                 | Expr::Hole(_)
                 | Expr::Goal(_)
+                | Expr::Missing(_)
                 | Expr::Unit(_) => {}
                 Expr::App(a, b) => {
                     if let Expr::NamedArg(name, ..) = &**b

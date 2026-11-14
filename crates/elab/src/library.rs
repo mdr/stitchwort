@@ -36,7 +36,9 @@ use std::sync::{Arc, OnceLock};
 
 use stitchwort_core::collections::HashMap;
 use stitchwort_syntax::ast::{Decl, Expr, Module};
-use stitchwort_syntax::{Diagnostic, FileId, Severity, SourceMap, Span, parse_module_within};
+use stitchwort_syntax::{
+    Diagnostic, FileId, Severity, SourceMap, Span, parse_module_recovering, parse_module_within,
+};
 
 use crate::module::{ModuleState, Ref, decl_refs, declared_names, expr_refs};
 use crate::project::{SourceUnit, grouped};
@@ -79,6 +81,12 @@ pub struct IndexedFile {
     pub id: FileId,
     pub text: String,
     pub module: Module,
+    /// Its syntax errors, for a library file being edited (`--std-dir`):
+    /// `module` is what parsed, as for a program's file
+    /// ([`stitchwort_syntax::parse_module_recovering`]), and loading the
+    /// file reports these with what checking it found. The core always
+    /// parses.
+    pub parse_errors: Vec<Diagnostic>,
     /// Every name it declares, generated ones included.
     pub names: Vec<IndexedName>,
     /// The files it needs, by index: every reference resolved to its owning
@@ -156,18 +164,24 @@ impl LibraryIndex {
         let mut parsed: Vec<IndexedFile> = Vec::new();
         for (path, text) in std::iter::once(("core", core)).chain(sorted) {
             let id = sources.add(path, text);
-            let module = parse_module_within(id, text, stack).map_err(|errors| {
-                let mut report = format!("the library file `{path}` doesn't parse:");
-                for d in errors {
-                    report.push_str(&format!("\n  {}: {}", d.code, d.message));
-                }
-                report
-            })?;
+            let (module, parse_errors) = if path == "core" {
+                let module = parse_module_within(id, text, stack).map_err(|errors| {
+                    let mut report = format!("the library file `{path}` doesn't parse:");
+                    for d in errors {
+                        report.push_str(&format!("\n  {}: {}", d.code, d.message));
+                    }
+                    report
+                })?;
+                (module, Vec::new())
+            } else {
+                parse_module_recovering(id, text, stack)
+            };
             parsed.push(IndexedFile {
                 path: path.to_string(),
                 id,
                 text: text.to_string(),
                 module,
+                parse_errors,
                 names: Vec::new(),
                 edges: Vec::new(),
                 equation_needs: BTreeSet::new(),
@@ -1399,6 +1413,9 @@ impl Elaborator {
             module: &file.module,
         };
         let mut diagnostics = self.elaborate_namespace(None, &[unit], None);
+        if !file.parse_errors.is_empty() {
+            diagnostics = crate::with_syntax_errors(file.parse_errors.clone(), diagnostics);
+        }
         crate::keep_written_arrows(&mut diagnostics, |id| {
             (id == file.id).then_some(file.text.as_str())
         });
@@ -1437,7 +1454,8 @@ impl Elaborator {
         if !ok {
             // Running out of resources isn't a bug in the file: it's the
             // answer for the program that needed it, as for the core.
-            if diagnostics.iter().any(|d| d.code == "E-RESOURCE") {
+            // Nor is a syntax error in a library file being edited.
+            if diagnostics.iter().any(|d| d.code == "E-RESOURCE") || !file.parse_errors.is_empty() {
                 return Err(diagnostics);
             }
             let mut all = vec![internal(format!("the library file `{name}` doesn't check"))];
