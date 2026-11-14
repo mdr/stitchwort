@@ -34754,14 +34754,14 @@
     {
       "id": 3191,
       "title": "[Sonnet] Kernel tests through check_app's Waiting path (SW-3174 review): a mismatch after a pop, a dependent domain after resuming, the forced-domain branch, an implicit nested argument; and a doc note on nested_stuck_calls_compare_under_the_playground_guard (it pins a native frame size) saying what to do when a toolchain change trips it",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\n\nLane notes (14 Nov): added 4 check_app Waiting-path tests and the doc note on nested_stuck_calls_compare_under_the_playground_guard in crates/core/tests/it/kernel.rs; all pass; clippy/fmt clean.\n",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-14",
       "commits": []
     },
     {
