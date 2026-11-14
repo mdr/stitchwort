@@ -179,9 +179,8 @@ enum DevCommand {
         #[arg(long)]
         spans: bool,
     },
-    /// The new formatter (formatter-architecture.md, stage 2): format every
-    /// `.sw` file under the paths with the tree printer, without writing
-    /// anything, and check each result: the same tokens up to the
+    /// The formatter's report over a tree of files: format every `.sw` file
+    /// under the paths, without writing anything, and check each result: the same tokens up to the
     /// deliberate rewrites, the same comments on the same tokens, the same
     /// syntax tree, and the same text when formatted again. Prints each
     /// file that fails a check, then totals: declarations left as written
@@ -4895,7 +4894,7 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
     }
 }
 
-/// `dev tree`: the lossless tree's round trip over files and folders.
+/// `dev fmt-tree`: the formatter's report over files and folders.
 fn fmt_tree_command(paths: &[PathBuf], print: bool, verbose: bool) -> ExitCode {
     let mut files = Vec::new();
     for path in paths {

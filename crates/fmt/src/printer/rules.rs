@@ -149,7 +149,7 @@ impl<'a> Rules<'a> {
             file,
             src,
             tokens,
-            roles: crate::layout::roles(tokens),
+            roles: crate::spacing::roles(tokens),
             keep_blank: vec![false; tokens.len()],
             file_comments,
             hoisted: vec![false; tokens.len()],

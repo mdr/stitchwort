@@ -1,8 +1,8 @@
 //! The checks run on every result before it is returned
-//! (docs/proposals/formatter.md §4.1): the same tokens, the same comments in
-//! the same order, and the same syntax tree.
+//! (docs/proposals/formatter-style.md; the comment and tree checks are in
+//! `printer`): the same tokens, in the same order.
 
-use stitchwort_syntax::{Comment, Lexed, Tok, Token};
+use stitchwort_syntax::{Lexed, Tok, Token};
 
 /// Line and column (from 1) of byte `at` in `text`, for messages.
 fn position(text: &str, at: usize) -> String {
@@ -53,33 +53,6 @@ pub(crate) fn same_tokens(
     Ok(())
 }
 
-/// Every comment, in order.
-fn comments(lexed: &Lexed) -> Vec<&Comment> {
-    let mut all = Vec::new();
-    for trivia in lexed.trivia.iter().chain([&lexed.eof]) {
-        all.extend(&trivia.leading);
-        all.extend(&trivia.trailing);
-    }
-    all
-}
-
-pub(crate) fn same_comments(lexed_before: &Lexed, lexed_after: &Lexed) -> Result<(), String> {
-    let (a, b) = (comments(lexed_before), comments(lexed_after));
-    for (x, y) in a.iter().zip(&b) {
-        if x.text.trim_end_matches(' ') != y.text.trim_end_matches(' ') {
-            return Err(format!("the comment `{}` became `{}`", x.text, y.text));
-        }
-    }
-    if a.len() != b.len() {
-        return Err(format!(
-            "the input has {} comments and the output {}",
-            a.len(),
-            b.len()
-        ));
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use stitchwort_syntax::{SourceMap, lex_with_trivia};
@@ -98,13 +71,5 @@ mod tests {
         assert!(error.contains("tokens"), "{error}");
         let (before, after) = ("def x := a.b", "def x := a .b");
         assert!(same_tokens(before, &lexed(before), after, &lexed(after)).is_ok());
-    }
-
-    #[test]
-    fn changed_or_lost_comments_are_caught() {
-        let before = lexed("-- one\ndef x := 1 -- two\n");
-        assert!(same_comments(&before, &lexed("-- one\ndef x := 1 -- two   \n")).is_ok());
-        assert!(same_comments(&before, &lexed("-- one\ndef x := 1\n")).is_err());
-        assert!(same_comments(&before, &lexed("-- one\ndef x := 1 --  two\n")).is_err());
     }
 }

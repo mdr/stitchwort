@@ -1,8 +1,8 @@
 //! The tree printer: the formatter that chooses every line break, from the
 //! lossless syntax tree (docs/proposals/formatter-architecture.md, stage 2;
-//! the house style is docs/proposals/formatter-style.md). Behind
-//! `stitchwort dev fmt-tree` until it replaces the line-based formatter
-//! ([`crate::format`]) at stage 5.
+//! the house style is docs/proposals/formatter-style.md). [`crate::format`]
+//! is this printer; `stitchwort dev fmt-tree` reports on it over a tree of
+//! files.
 //!
 //! Each declaration is turned into a layout document by the rule for each
 //! construct ([`rules`]) and printed in 120 columns ([`engine`]). The
@@ -16,6 +16,7 @@
 
 pub mod engine;
 mod merge;
+mod parens;
 mod rules;
 
 use std::collections::BTreeMap;
@@ -74,6 +75,11 @@ pub struct TreeFormatted {
 /// [`gate`] does; a result that fails is [`Error::Internal`].
 pub fn format_tree(text: &str) -> Result<TreeFormatted, Error> {
     let file = SourceMap::new().add("input.sw", text);
+    format_tree_in(file, text)
+}
+
+/// Like [`format_tree`], with `file` in the diagnostics of a refused file.
+pub fn format_tree_in(file: FileId, text: &str) -> Result<TreeFormatted, Error> {
     let printed = print_file(file, text)?;
     printed.merges.clone().map_err(Error::Internal)?;
     check_file(file, &printed.input, &printed.text).map_err(Error::Internal)?;
@@ -141,6 +147,11 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
         crate::insert_theorem_foralls(text, &lexed.tokens).unwrap_or_else(|| text.to_string());
     let mut merges = Ok(());
     let mut merged_groups = 0;
+    if let Some((dropped, _)) = parens::drop_parens(&input)
+        && merge::check(&input, &dropped).is_ok()
+    {
+        input = dropped;
+    }
     if let Some((merged, groups)) = merge::merge(&input) {
         merges = merge::check(&input, &merged);
         if merges.is_ok() {
