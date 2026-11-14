@@ -1,5 +1,5 @@
 {
-  "next": 3278,
+  "next": 3279,
   "tickets": [
     {
       "id": 47,
@@ -35898,7 +35898,7 @@
     {
       "id": 3270,
       "title": "[DeepSeek] Syntax fuzzer: read FUZZ_SEED as the formatter fuzzer does (SW-3198), print the seed and case count, and name the seed and case on a failure; task fuzz:syntax SEED=",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -35995,6 +35995,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "Matt, 14 Nov 2026, on D3588 ({Parse Char} vs keeping {Parse}): 'worth an Opus paper lane ... what other languages and libraries do ... If they are generic in input, how do they handle a nice common case? I think having a default generic parameter is probably not a good choice ... maybe an alias ability could be interesting ... a quick rummage around the state of the art.' Expected: 1 h (Opus paper lane).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3278,
+      "title": "[Opus] Parser panic (Overmind syntax fuzz, case 37606): 'theorem t: Unit :=\\n  def f (s: Nat):' at end of input panics at parser.rs:1245 tokens_span, index out of bounds (EOF); also in the 16:53 binary, so before S1. Fix, find the class, add FUZZ_SEED to the syntax fuzzer (SW-3270)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Found by D3598's fuzz run at 2ff2d32a9; Overmind's job 1 paused at this case (fixed seed). Started at once (a crash; D3575 common sense, a 4th build lane at load ~3). Includes SW-3270 (FUZZ_SEED). Expected: 1.5 h (Opus).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
