@@ -861,6 +861,11 @@ pub enum Pattern {
     NegNum(BigUint, Span),
     /// A character `'L'`: `MkChar 76 _`, the code as a number pattern.
     Char(char, Span),
+    /// A text literal `"def"`, without interpolations: on a `Text` it is
+    /// `MkText ['d', 'e', 'f']`, on a `List Char` the list `['d', 'e',
+    /// 'f']`, chosen by the type of what it matches
+    /// (docs/proposals/text-patterns.md §4).
+    Text(String, Span),
     Ctor(Name, Vec<Pattern>, Span),
     /// `(p, q)`: the library's pair constructor; three or more nest to the
     /// right.
@@ -963,6 +968,7 @@ impl Pattern {
             | Pattern::Num(_, span)
             | Pattern::NegNum(_, span)
             | Pattern::Char(_, span)
+            | Pattern::Text(_, span)
             | Pattern::Ctor(_, _, span)
             | Pattern::Tuple(_, _, span)
             | Pattern::Nil(span)

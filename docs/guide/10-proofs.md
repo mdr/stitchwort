@@ -498,6 +498,28 @@ theorem countBigAtMost ∀ (xs: List Nat): countBig xs ≤ xs.length := match in
 
 Not every arm gets an equation. Where the right side computes on the proof of a condition, the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. An arm that only passes the proof on, where nothing computes on it (as `Fin.ofNatLt n i h` takes `h: i < n`), gets its equation. The rules are in [syntax.md](../syntax.md), under "Guards".
 
+### Arms that match literals
+
+An arm below arms that match numbers, characters or texts gets an equation with a hypothesis for each of them: `keyword.eq3` takes `word ≠ "def"` and `word ≠ "theorem"`. For a known text, `byDecision` proves each. To prove something about every text, decide each literal with `if`, as below, and use the equation for the rest. Splitting the text yourself with a `match` works for the literals' own arms, but the catch-all's cases are then split character by character, where the program's arms may not compute:
+
+<!-- snippet: proofs.sw#literal-arms -->
+```stitchwort
+type Keyword = | Def | Theorem
+
+def keyword (word: Text): Option Keyword := match word with
+  | "def" => Some Def
+  | "theorem" => Some Theorem
+  | _ => None
+
+theorem keywordOther ∀ (word: Text) (notDef: word ≠ "def") (notTheorem: word ≠ "theorem"): keyword word = None :=
+  keyword.eq3 word notDef notTheorem
+
+theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
+  if isDef: word = "def" then isDef
+  else if isTheorem: word = "theorem" then (rewrite isTheorem at h in match Option.someInjective h with | ())
+  else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
+```
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:

@@ -264,7 +264,7 @@ Naming a bracket-declared constructor's fields works with named arguments instea
 
 ## Patterns
 
-Patterns nest, and lists have their own syntax: `[]` is the empty list, `[x]` a list of one, and `[x, y, ..rest]` a list of at least two, with the rest in `rest`. Numbers and characters are patterns too (text isn't: compare with `==`). The arms are tried from top to bottom, so a general arm goes after the specific ones:
+Patterns nest, and lists have their own syntax: `[]` is the empty list, `[x]` a list of one, and `[x, y, ..rest]` a list of at least two, with the rest in `rest`. Numbers, characters and texts are patterns too. The arms are tried from top to bottom, so a general arm goes after the specific ones:
 
 <!-- snippet: data.sw#nested-patterns -->
 ```stitchwort
@@ -300,6 +300,50 @@ def keyMove (key: Char): Option Text := match key with
   | _ => None
 
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
+```
+
+A text in quotes matches exactly that text, so a table of words reads as a table. On a `List Char` the same literal matches the list of its characters, which is what a hand-written lexer looks at; which one it means comes from the type of what is matched, as a number pattern's does. A text pattern is one fixed text: `"hello ${name}"` isn't one (`E-TEXT-PATTERN`); to test how a text starts, use a condition (`| t if t.startsWith "--" =>`, below):
+
+<!-- snippet: data.sw#text-patterns -->
+```stitchwort
+type Keyword = | Def | Theorem | Match
+
+def keyword (word: Text): Option Keyword := match word with
+  | "def" => Some Def
+  | "theorem" => Some Theorem
+  | "match" => Some Match
+  | _ => None
+
+def arrowAhead: List Char → Bool
+  | "->" => True
+  | ['-', '>', .._] => True
+  | _ => False
+
+test "text patterns" := keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ arrowAhead "->x".toList
+```
+
+`"def"` is the text made of `'d'`, `'e'` and `'f'`, so the match reads one character at a time, and words that start alike share the steps: `keyword` reads `"the"` three characters in before it knows it isn't `"theorem"`, and never compares whole texts. There are always other texts, so a match on texts needs a last arm with a variable or `_`, and says so if it hasn't one:
+
+<!-- snippet: errors/text-missing-case.sw -->
+```stitchwort
+def keyword: Text → Nat
+  | "def" => 1
+  | "theorem" => 2
+```
+
+<!-- output: check errors/text-missing-case.sw -->
+```text
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches texts other than "def" and "theorem"
+   ╭─[ errors/text-missing-case.sw:2:3 ]
+   │
+ 2 │ ╭─▶   | "def" => 1
+ 3 │ ├─▶   | "theorem" => 2
+   │ │
+   │ ╰──────────────────────── missing case: no arm matches texts other than "def" and "theorem"
+   │
+   │     Note: text patterns can't list every text: add an arm with a variable or `_` in that position, such as a last arm `| _ => …`
+───╯
+1 error: in `keyword`
 ```
 
 `match` takes values apart in the middle of an expression. It can match several values at once, separated by commas:

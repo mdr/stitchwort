@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TEXT-PATTERN] Error: a text pattern can't interpolate
+   ╭─[ reject/text-patterns-interpolation.sw:4:5 ]
+   │
+ 4 │   | "hello ${name}" => True
+   │     ───────┬───────  
+   │            ╰───────── a pattern matches one fixed text
+   │ 
+   │ Note: to match a text that starts or ends a certain way, bind it to a variable and test it in a guard: `| t if t.startsWith "--" => …`, or use `Text.stripPrefix`
+───╯

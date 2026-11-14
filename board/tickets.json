@@ -1,5 +1,5 @@
 {
-  "next": 3291,
+  "next": 3296,
   "tickets": [
     {
       "id": 47,
@@ -36094,15 +36094,17 @@
     {
       "id": 3284,
       "title": "[Opus] Text patterns stage 1 (text-patterns.md §6, D3591): text literals as patterns on Text and List Char, the missing-case message, docs/guide, docs/syntax.md and a feature-tour page",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3591 (Matt, 14 Nov 2026): text literals as patterns on Text and List Char. D3604 overnight chain C. Expected: 7.5 h (Opus), then an Opus review.",
+      "body": "D3591 (Matt, 14 Nov 2026). Expected: 7.5 h (Opus), took ~40 min. Opus review: merge as is; 6,154 hash lines identical between literal and spelled-out projects; review at docs/reviews/SW-3284-text-patterns.md. Follow-ups SW-3293, SW-3294, SW-3295.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "6f62657805728afc7fb7a2c868895bc5dfffceae"
+      ]
     },
     {
       "id": 3285,
@@ -36122,15 +36124,17 @@
     {
       "id": 3286,
       "title": "[DeepSeek] Fuzz tasks: task fuzz:syntax / fuzz:fmt ignore FUZZ_CASES from the environment (CASES unset sets the default); build only the package's tests (-p) not --workspace; add a way to dump one case's input (FUZZ_DUMP=N) (SW-3278 findings)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Found in SW-3278. Done with SW-3290 in one DeepSeek run: env FUZZ_CASES/FUZZ_SEED count when CASES/SEED aren't given; fuzz tasks build -p only; FUZZ_DUMP=path (each case written before parsing) and FUZZ_CASE=index (one case, printed) in both fuzzers; fmt's FUZZ_ONLY file filter kept. Model result: DeepSeek, needed fixes (reused fmt's FUZZ_ONLY name, breaking the file filter; renamed FUZZ_CASE on review), ~30 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "e2915c6a6a10b63629c879e3c75cbbc34aa57628"
+      ]
     },
     {
       "id": 3287,
@@ -36176,11 +36180,78 @@
     {
       "id": 3290,
       "title": "[DeepSeek] Syntax fuzzer: permanent FUZZ_DUMP option writing each case to a file before parsing, so a killed run leaves the culprit (with SW-3286)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": [
+        "e2915c6a6a10b63629c879e3c75cbbc34aa57628"
+      ]
+    },
+    {
+      "id": 3291,
+      "title": "[Opus] dev breaks is too slow on large projects: aoc (62k lines) >18 s a break against 0.3-3 s elsewhere (Overmind, 14 Nov 2026, cold cache in a pinned worktree); profile first, likely re-checking the whole project per break; also '--project src' is refused (needs PATHS)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3292,
+      "title": "[DeepSeek] Guide quotes out of date: guide::the_guide_quotes_its_examples_and_the_compiler fails with 87 stale blocks (example files reformatted without task guide:update); run it and check the diff; plus move list_numbers' doc comment in crates/elab/src/lib.rs off escape_char (SW-3284 findings)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3293,
+      "title": "[Sonnet] Text patterns follow-ups (docs/reviews/SW-3284-text-patterns.md should-fix 1 and nits): a proof's catch-all goal after text literals shows split leftovers (tail✝, code✝, valid✝); the isScalar-hiding rule must check n is a valid code (it hides a false MkChar 55296 hypothesis); guide arrowAhead example's redundant arm; the review's other nits",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md). Expected: 1.5 h (Sonnet).",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3294,
+      "title": "[Sonnet] Missing-case messages for texts and numbers don't name the other columns' values (arms True, \"a\" and False, _ say 'texts other than \"a\"' without 'when the first is True') (SW-3284 review should-fix 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3295,
+      "title": "[Sonnet] When a literal pattern's type falls back (text to Text, number to Nat) and the value is later used at another type, the error should point at the pattern that fixed the type (SW-3284 review should-fix 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",

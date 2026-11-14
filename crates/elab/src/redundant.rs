@@ -206,6 +206,7 @@ fn redundant_alternatives<'r>(
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => {}
     }
 }
@@ -220,6 +221,7 @@ fn subsumes(general: &Pattern, specific: &Pattern) -> bool {
         (Or(alternatives, _), _) => alternatives.iter().any(|p| subsumes(p, specific)),
         (Num(m, _), Num(n, _)) | (NegNum(m, _), NegNum(n, _)) => m == n,
         (Char(a, _), Char(b, _)) => a == b,
+        (Text(a, _), Text(b, _)) => a == b,
         (Nil(_), Nil(_)) => true,
         (Ctor(c, xs, _), Ctor(d, ys, _)) => {
             c.text == d.text

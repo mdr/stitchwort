@@ -61,6 +61,11 @@
   <pre data-src="11-clauses.sw"></pre>
 </section>
 
+<section data-slug="text-patterns" data-title="Matching words">
+  <p>A text in quotes is a pattern: <code>| "go" =&gt; …</code> matches exactly that word, so a table of commands or keywords reads as a table, and the compiler warns about a word listed twice. On a <code>List Char</code> the same literal matches its characters, which is what a hand-written lexer looks at. The match reads one character at a time, so a long table never compares whole texts. There are always more words, so the last case is <code>_</code>; without one, the compiler says which words it doesn't cover.</p>
+  <pre data-src="40-text-patterns.sw"></pre>
+</section>
+
 <section data-slug="option-and-list" data-title="Option and List">
   <p>There is no null: a value that may be missing has type <code>Option a</code>, which is <code>Some value</code> or <code>None</code>. Lists are written <code>[1, 2, 3]</code> and come with the usual <code>map</code>, <code>filter</code>, <code>find</code>, <code>sum</code> and many more, called with dot notation.</p>
   <pre data-src="12-option-list.sw"></pre>

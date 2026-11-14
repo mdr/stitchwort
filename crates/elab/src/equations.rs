@@ -659,6 +659,7 @@ fn expand_one(p: &Pattern) -> Vec<(Pattern, Vec<Span>)> {
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => vec![(p.clone(), Vec::new())],
     }
 }
