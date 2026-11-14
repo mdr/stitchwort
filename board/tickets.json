@@ -1,5 +1,5 @@
 {
-  "next": 3262,
+  "next": 3263,
   "tickets": [
     {
       "id": 47,
@@ -35782,6 +35782,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3262,
+      "title": "[Fable] Paper: ability granularity (Matt, after SW-3234): Files as its own ability or inside IO; what Koka (io as an alias for fsys, net, ui, ...), Unison, Haskell, OCaml 5, Eff, Effekt, Frank, Lean, Idris and Roc do; whether named ability sets (row synonyms) are worth adding so IO can mean the bundle",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "Matt, 14 Nov 2026: 'I was surprised by the recommendation for a separate Filesystem effect not integrated into IO ... another Fable paper lane to ponder this further - what do other languages do, what does Koka do and is that worth copying'. Holds D3585. Expected: 1.5 h (Fable paper lane).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
