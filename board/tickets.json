@@ -35073,12 +35073,12 @@
     {
       "id": 3212,
       "title": "[Opus] Lowering L5 (docs/proposals/syntax-tree-lowering.md): Switch the public parse functions to the lowering",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 4 h (Opus).\nOrchestrator's call (14 Nov): L5 follows L4 directly; the error-node lowering lane (S7 in the note) moves to the recovery lanes S1-S3, since recovery now comes after the lowering (Matt: editor delay doesn't matter) and there are no gaps to lower yet. The lane doesn't run stitchwort-bench; the orchestrator's verifier runs it and the lane writes the performance-log entry from those numbers.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
