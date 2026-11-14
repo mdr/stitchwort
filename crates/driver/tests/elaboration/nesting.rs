@@ -151,6 +151,36 @@ fn nested_applications_under_the_playground_guard() {
     });
 }
 
+/// Two calls of one opaque definition, each 88 levels deep, compared under
+/// the playground's guard (SW-3172, SW-3179). The calls are built by
+/// evaluation (`up k y` is `f (up k y')`), so checking the program takes no
+/// nesting of its own and the depth is all the unifier's: it compares the
+/// calls by their arguments, one nested comparison a level.
+///
+/// Measured in release: 100 levels pass, 105 run out; before SW-3172's
+/// smaller unifier frames 72 passed and 76 ran out. 88 is past the old
+/// limit and 12% under the new one.
+#[test]
+fn nested_calls_of_one_definition_unify_under_the_playground_guard() {
+    isolated(
+        "nested_calls_of_one_definition_unify_under_the_playground_guard",
+        || {
+            let mut session = Session::new();
+            session.elab.options.limits = Limits {
+                stack: guard(320),
+                ..Limits::default()
+            };
+            // `up2` differs from `up` only in a `+ 0` that conversion
+            // removes, so the two sides are never the same term.
+            let program = "opaque def f (n : Nat) : Nat := n\n\n\
+                 def up : Nat -> Nat -> Nat\n  | 0, y => y\n  | Succ k, y => f (up k y)\n\n\
+                 def up2 : Nat -> Nat -> Nat\n  | 0, y => y\n  | Succ k, y => f (up2 k (y + 0))\n\n\
+                 theorem t (y : Nat) : up 88 y = up2 88 y := rfl\n";
+            assert_eq!(first_error(&mut session, "x.sw", program), None);
+        },
+    );
+}
+
 #[test]
 fn nested_parentheses() {
     isolated("nested_parentheses", || {
