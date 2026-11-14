@@ -33,6 +33,14 @@ pub(crate) struct Arm {
     /// For the numbers no arm of a number case matches: the message that
     /// lists the ones that are matched, which says more than a pattern `_`.
     pub other_numbers: Option<String>,
+    /// For a case of texts no arm matches: what kind of values they are,
+    /// `"text"` or `"character list"`, which the note names.
+    pub texts: Option<&'static str>,
+    /// Where every arm still matching here has a part of a text pattern
+    /// (docs/proposals/text-patterns.md §4.4): those text patterns' spans. A
+    /// case missing among them is a text no arm lists, which
+    /// [`Elaborator::compile`] reports as one once it knows them all.
+    pub text_gap: Vec<Span>,
 }
 
 impl Arm {
@@ -46,9 +54,28 @@ impl Arm {
         }
     }
 
+    /// The case of the texts (or character lists) no arm matches, which
+    /// `message` describes.
+    pub(crate) fn other_texts(message: String, what: &'static str) -> Arm {
+        Arm {
+            definite: true,
+            other_numbers: Some(message),
+            texts: Some(what),
+            ..Arm::default()
+        }
+    }
+
     /// The error for this case alone, at the `match` at `span`.
     pub(crate) fn diagnostic(&self, span: Span) -> Diagnostic {
         match &self.other_numbers {
+            Some(message) if let Some(what) = self.texts => {
+                Diagnostic::error("E-NONEXHAUSTIVE", message.clone())
+                    .with_label(span, message.clone())
+                    .with_note(format!(
+                        "text patterns can't list every {what}: add an arm with a variable or \
+                         `_` in that position, such as a last arm `| _ => …`"
+                    ))
+            }
             Some(message) => number_diagnostic(span, message.clone()),
             None => diagnostic(span, vec![(self.order.clone(), self.pattern.clone())]),
         }
@@ -393,6 +420,15 @@ impl Elaborator {
         if reg.ctor(Builtin::Nil) == here {
             return "[]".to_string();
         }
+        // A text is shown as a literal when every character is known, and
+        // as `_` when not: a case a text pattern's characters leave out is
+        // still a text to the reader, not a list cell.
+        if reg.ctor(Builtin::MkText) == here && fields.len() == 1 {
+            return match self.known_text(fields[0], shapes) {
+                Some(text) => crate::quoted_text(&text),
+                None => "_".to_string(),
+            };
+        }
         // A `NonEmptyList` is matched with list patterns (`[x, ..rest]`), so
         // it's shown as one: its head, then its tail's elements.
         let non_empty = reg.loaded_data(Builtin::NonEmptyList) == Some(d);
@@ -471,6 +507,34 @@ impl Elaborator {
         }
         let text = format!("{written} {}", args.join(" "));
         if atom { format!("({text})") } else { text }
+    }
+
+    /// The characters of the list at `level`, if the splits above fixed
+    /// each of them and its end.
+    fn known_text(&self, mut level: usize, shapes: &HashMap<usize, Shape>) -> Option<String> {
+        let reg = self.ev().env.registry();
+        let mut text = String::new();
+        loop {
+            match shapes.get(&level)? {
+                Shape::Ctor { d, c, .. } if reg.ctor(Builtin::Nil) == Some((*d, *c)) => {
+                    return Some(text);
+                }
+                Shape::Ctor { d, c, base } if reg.ctor(Builtin::Cons) == Some((*d, *c)) => {
+                    let Shape::Ctor { d, c, base: code } = shapes.get(base)? else {
+                        return None;
+                    };
+                    if reg.ctor(Builtin::MkChar) != Some((*d, *c)) {
+                        return None;
+                    }
+                    let Shape::Num(n) = shapes.get(code)? else {
+                        return None;
+                    };
+                    text.push(char::from_u32(u32::try_from(n).ok()?)?);
+                    level = base + 1;
+                }
+                _ => return None,
+            }
+        }
     }
 }
 

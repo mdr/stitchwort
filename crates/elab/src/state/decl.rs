@@ -182,6 +182,12 @@ pub(crate) struct Decl {
     /// one pattern match is compiled. (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
+    /// The spans of the patterns a text pattern was expanded to (its list
+    /// cells and each of its characters), each to the text pattern's own
+    /// span, so that a case left out among them is reported as a text one
+    /// (docs/proposals/text-patterns.md §4.4). Written and read while one
+    /// pattern match is compiled, like [`Self::char_patterns`].
+    pub(crate) text_spans: RefCell<HashMap<Span, Span>>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
@@ -279,6 +285,7 @@ impl Decl {
             local_asts,
             tuple_matches,
             char_patterns,
+            text_spans,
             guard_nodes,
             errors_only,
             coverage_only,
@@ -317,6 +324,7 @@ impl Decl {
             ("local_asts", local_asts.borrow().is_empty()),
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
+            ("text_spans", text_spans.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),

@@ -2077,7 +2077,8 @@ impl Walk<'_> {
                         | Pattern::Nil(_)
                         | Pattern::Num(..)
                         | Pattern::NegNum(..)
-                        | Pattern::Char(..) => {}
+                        | Pattern::Char(..)
+                        | Pattern::Text(..) => {}
                     }
                     continue;
                 }
@@ -2345,6 +2346,7 @@ fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
         | Pattern::Num(..)
         | Pattern::NegNum(..)
         | Pattern::Char(..)
+        | Pattern::Text(..)
         | Pattern::Nil(_) => {}
     }
 }

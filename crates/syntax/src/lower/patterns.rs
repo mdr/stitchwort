@@ -276,7 +276,7 @@ pub(crate) fn with_span(p: Pattern, span: Span) -> Pattern {
     }
 }
 
-/// A pattern of one token: a variable, `_`, a number, a character, or a
+/// A pattern of one token: a variable, `_`, a number, a character, a text, or a
 /// constructor without arguments (`Quot.mk` among them: it isn't one, but
 /// is read as one so that the elaborator can say why).
 fn leaf_pattern(leaf: Leaf<'_>) -> Lowering<Pattern> {
@@ -289,6 +289,7 @@ fn leaf_pattern(leaf: Leaf<'_>) -> Lowering<Pattern> {
         Tok::Underscore => Pattern::Wildcard(span),
         Tok::Num(n) => Pattern::Num(n.clone(), span),
         Tok::Char(c) => Pattern::Char(*c, span),
+        Tok::Str(text) => Pattern::Text(text.clone(), span),
         _ => return Err(Unsupported::Token),
     })
 }

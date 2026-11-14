@@ -545,6 +545,7 @@ impl<'a> Walk<'a> {
             | Pattern::Num(_, span)
             | Pattern::NegNum(_, span)
             | Pattern::Char(_, span)
+            | Pattern::Text(_, span)
             | Pattern::Nil(span) => self.tagged(what, *span, why),
             Pattern::Ctor(name, args, span) => {
                 self.tagged(what, *span, why);
@@ -826,6 +827,7 @@ fn pattern_kind(pattern: &Pattern) -> &'static str {
         Pattern::Num(..) => "Pattern::Num",
         Pattern::NegNum(..) => "Pattern::NegNum",
         Pattern::Char(..) => "Pattern::Char",
+        Pattern::Text(..) => "Pattern::Text",
         Pattern::Ctor(..) => "Pattern::Ctor",
         Pattern::Tuple(..) => "Pattern::Tuple",
         Pattern::Nil(_) => "Pattern::Nil",

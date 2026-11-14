@@ -534,6 +534,7 @@ pub(crate) fn written_names(patterns: &[Pattern]) -> Vec<&str> {
             | Pattern::Num(..)
             | Pattern::NegNum(..)
             | Pattern::Char(..)
+            | Pattern::Text(..)
             | Pattern::Nil(_) => {}
         }
     }
@@ -699,6 +700,42 @@ enum NumberKind {
     Other,
 }
 
+/// Makes each case of `tree` left out among parts of the text patterns at
+/// `texts` (and no others) the case of the texts they don't list, which
+/// `message` describes; `what` is one of them (`"text"`).
+fn mark_text_gaps(tree: &mut Tree, texts: &[Span], message: &str, what: &'static str) {
+    match tree {
+        Tree::Leaf { .. } | Tree::Absurd { .. } => {}
+        Tree::Guard { otherwise, .. } => mark_text_gaps(otherwise, texts, message, what),
+        Tree::Missing { arm, .. } => {
+            if !arm.text_gap.is_empty() && arm.text_gap.iter().all(|at| texts.contains(at)) {
+                *arm = missing::Arm::other_texts(message.to_string(), what);
+            }
+        }
+        Tree::Case { branches, .. } => {
+            for (_, branch) in branches {
+                mark_text_gaps(branch, texts, message, what);
+            }
+        }
+        Tree::NumCase { arms, default, .. } => {
+            for (_, arm) in arms {
+                mark_text_gaps(arm, texts, message, what);
+            }
+            mark_text_gaps(default, texts, message, what);
+        }
+    }
+}
+
+/// What a text pattern is on a column's type ([`Elaborator::text_kind`]).
+enum TextKind {
+    /// `MkText` of the characters.
+    Text,
+    /// The list of the characters, on a `List Char`.
+    Chars,
+    /// Neither: the type, as a message names it.
+    Other(String),
+}
+
 /// The indefinite article for a type name: `an` before a vowel, `a` otherwise.
 pub(crate) fn article(name: &str) -> &'static str {
     match name.chars().next() {
@@ -727,6 +764,22 @@ fn escape_char(c: char) -> String {
         c if c.is_ascii_graphic() || c == ' ' || c.is_alphanumeric() => c.to_string(),
         c => format!("\\u{{{:X}}}", u32::from(c)),
     }
+}
+
+/// A text as a literal in source: `"def"`, escapes and all.
+pub(crate) fn quoted_text(text: &str) -> String {
+    let mut out = String::from('"');
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\'' => out.push('\''),
+            '$' if chars.peek() == Some(&'{') => out.push_str("\\$"),
+            c => out.push_str(&escape_char(c)),
+        }
+    }
+    out.push('"');
+    out
 }
 
 pub(crate) fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
@@ -3961,6 +4014,51 @@ impl Elaborator {
         {
             return self.compile(&expand_or_patterns(rows), depth, columns, types, span);
         }
+        // A column of text patterns alone leaves out every other text. Its
+        // characters are split as any others are, and the cases they leave
+        // out are then reported as texts.
+        let texts = (0..columns.len()).find_map(|j| {
+            let literals: Option<Vec<(&str, Span)>> = (rows.iter())
+                .map(|row| match &*row.pats[j] {
+                    Pattern::Text(text, at) => Some((text.as_str(), *at)),
+                    _ => None,
+                })
+                .collect();
+            literals.map(|l| (j, l))
+        });
+        let mut tree = self.compile_rows(rows, depth, columns, types, span)?;
+        if let Some((j, literals)) = texts {
+            let (what, one) = match self.text_kind(types[j].as_ref())? {
+                TextKind::Chars => ("character lists", "character list"),
+                _ => ("texts", "text"),
+            };
+            let mut shown: Vec<String> = Vec::new();
+            for (text, _) in &literals {
+                let text = quoted_text(text);
+                if !shown.contains(&text) {
+                    shown.push(text);
+                }
+            }
+            let count = shown.len();
+            let message = format!(
+                "missing case: no arm matches {what} other than {}",
+                list_numbers(shown.into_iter(), count)
+            );
+            let spans: Vec<Span> = literals.iter().map(|(_, at)| *at).collect();
+            mark_text_gaps(&mut tree, &spans, &message, one);
+        }
+        Ok(tree)
+    }
+
+    /// [`Self::compile`], once or-patterns are expanded.
+    fn compile_rows<'a>(
+        &self,
+        rows: &[Row<'a>],
+        depth: usize,
+        columns: &[usize],
+        types: &[Option<Value>],
+        span: Span,
+    ) -> Result<Tree<'a>> {
         let first = &rows[0];
         if let Some(j) = first
             .pats
@@ -4197,12 +4295,14 @@ impl Elaborator {
                 // Certainly missing; the others are found before it is
                 // reported (`compile_top`).
                 let names = (ctor.fields.iter()).map(|(x, _)| x.clone()).collect();
+                let mut arm = missing::Arm::definite();
+                arm.text_gap = self.text_gap(rows.iter().map(|row| row.pats[j].span()));
                 branches.push((
                     names,
                     Tree::Missing {
                         columns: branch_columns,
                         span,
-                        arm: missing::Arm::definite(),
+                        arm,
                     },
                 ));
                 continue;
@@ -4363,9 +4463,11 @@ impl Elaborator {
                     list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len()),
                 ),
             };
-            Some(missing::Arm::other_numbers(format!(
+            let mut arm = missing::Arm::other_numbers(format!(
                 "missing case: no arm matches {what} other than {listed}"
-            )))
+            ));
+            arm.text_gap = self.text_gap(rows.iter().map(|row| row.pats[j].span()));
+            Some(arm)
         } else {
             None
         };
@@ -4602,6 +4704,7 @@ impl Elaborator {
                     span: *span,
                 }))
             }
+            Pattern::Text(text, span) => self.text_pattern(text, *span, ty).map(Some),
             // `'L'` is `MkChar 76 _`.
             Pattern::Char(c, span) => {
                 let (data, ctor) = self.builtin_ctor(Builtin::MkChar, *span)?;
@@ -4653,6 +4756,117 @@ impl Elaborator {
                 }))
             }
         }
+    }
+
+    /// The text patterns that the patterns at `spans` are parts of, if each
+    /// is part of one ([`missing::Arm::text_gap`]).
+    fn text_gap(&self, spans: impl Iterator<Item = Span>) -> Vec<Span> {
+        let from_text = self.decl.text_spans.borrow();
+        let mut out = Vec::new();
+        for at in spans {
+            match from_text.get(&at) {
+                Some(text) => out.push(*text),
+                None => return Vec::new(),
+            }
+        }
+        out
+    }
+
+    /// The constructor pattern for the text pattern `text` at `span`, on a
+    /// column of type `ty`: `MkText` of its characters' list pattern on a
+    /// `Text`, or when the type isn't known (the literal's own type); that
+    /// list pattern itself on a `List Char` (docs/proposals/text-patterns.md
+    /// §4.3). Each character gets a span of its own inside the literal, so
+    /// that [`Self::text_gap`] and the character messages can tell them
+    /// apart.
+    fn text_pattern<'a>(
+        &self,
+        text: &str,
+        span: Span,
+        ty: Option<&Value>,
+    ) -> Result<CtorPattern<'a>> {
+        let on_list = match self.text_kind(ty)? {
+            TextKind::Text => false,
+            TextKind::Chars => true,
+            TextKind::Other(what) => {
+                return Err(error(
+                    "E-TYPE-MISMATCH",
+                    span,
+                    format!("a text pattern matches a `Text` or a `List Char`, but this is {what}"),
+                ));
+            }
+        };
+        let mut list = Pattern::Nil(span);
+        {
+            let mut from_text = self.decl.text_spans.borrow_mut();
+            from_text.insert(span, span);
+            for (at, c) in text.char_indices().rev() {
+                let start = span.start + 1 + at as u32;
+                let own = Span {
+                    start,
+                    end: start + c.len_utf8() as u32,
+                    ..span
+                };
+                from_text.insert(own, span);
+                list = Pattern::Cons(Box::new(Pattern::Char(c, own)), Box::new(list), span);
+            }
+        }
+        if !on_list {
+            let (data, ctor) = self.builtin_ctor(Builtin::MkText, span)?;
+            return Ok(CtorPattern {
+                data,
+                ctor,
+                args: vec![Cow::Owned(list)],
+                span,
+            });
+        }
+        let (builtin, args) = match list {
+            Pattern::Cons(head, tail, _) => {
+                (Builtin::Cons, vec![Cow::Owned(*head), Cow::Owned(*tail)])
+            }
+            _ => (Builtin::Nil, Vec::new()),
+        };
+        let (data, ctor) = self.builtin_ctor(builtin, span)?;
+        Ok(CtorPattern {
+            data,
+            ctor,
+            args,
+            span,
+        })
+    }
+
+    /// What a text pattern means on a column of type `ty` (§4.1 of
+    /// docs/proposals/text-patterns.md). A type not known yet is read as
+    /// `Text`, the type of the literal as an expression, as a number pattern
+    /// falls back to `Nat`.
+    fn text_kind(&self, ty: Option<&Value>) -> Result<TextKind> {
+        let g = &self.ev();
+        let reg = g.env.registry();
+        let Some(ty) = ty else {
+            return Ok(TextKind::Text);
+        };
+        Ok(match force(g, ty.clone())? {
+            Value::Data(d, _) if reg.is_data(Builtin::Text, d) => TextKind::Text,
+            Value::Data(d, params) if reg.is_data(Builtin::List, d) => {
+                match params.first().map(|p| force(g, p.clone())).transpose()? {
+                    Some(Value::Data(c, _)) if reg.is_data(Builtin::Char, c) => TextKind::Chars,
+                    Some(Value::Data(..)) => {
+                        TextKind::Other("a `List` of something other than characters".into())
+                    }
+                    // The characters' own patterns check the elements.
+                    _ => TextKind::Chars,
+                }
+            }
+            Value::Data(d, params) => {
+                let name = g.data(d).name();
+                TextKind::Other(if params.is_empty() {
+                    format!("`{name}`")
+                } else {
+                    format!("{} `{name}`", article(name))
+                })
+            }
+            _ => TextKind::Text,
+        })
     }
 
     /// Whether `ty`, the type of a column, is the built-in `Nat` or `Int`
