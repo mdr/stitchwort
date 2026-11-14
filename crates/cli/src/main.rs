@@ -178,6 +178,15 @@ enum DevCommand {
         /// the lossless tree or a single token, and print each that isn't
         #[arg(long)]
         spans: bool,
+        /// Also build the compiler's tree both ways, directly and lowered
+        /// from the lossless tree, and compare them exactly, declaration by
+        /// declaration, with the diagnostics, and each one-line body parsed
+        /// as an expression. Prints each difference, and how many
+        /// declarations of each kind were lowered and couldn't be yet
+        /// (docs/proposals/syntax-tree-lowering.md §4). Exit status 1 on any
+        /// difference
+        #[arg(long)]
+        lower: bool,
     },
     /// The formatter's report over a tree of files: format every `.sw` file
     /// under the paths, without writing anything, and check each result: the same tokens up to the
@@ -1307,7 +1316,8 @@ fn run(cli: Cli) -> ExitCode {
             time,
             parse_only,
             spans,
-        }) => tree_command(&paths, print, time, parse_only, spans),
+            lower,
+        }) => tree_command(&paths, print, time, parse_only, spans, lower),
         Command::Dev(DevCommand::FmtTree {
             paths,
             print,
@@ -5049,6 +5059,7 @@ fn tree_command(
     time: Option<u32>,
     parse_only: bool,
     spans: bool,
+    lower: bool,
 ) -> ExitCode {
     fn walk(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
         if path.is_dir() {
@@ -5189,9 +5200,94 @@ fn tree_command(
             time_parse(rounds, true).as_secs_f64() * 1000.0
         );
     }
-    if failed > 0 || total.dropped > 0 || misses > 0 {
+    let differences = if lower {
+        lower_report(&files, &texts, time)
+    } else {
+        0
+    };
+    if failed > 0 || total.dropped > 0 || misses > 0 || differences > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
     }
+}
+
+/// `dev tree --lower`: the oracle over `files`, printing each difference
+/// and the totals (with `time`, also how long parsing takes with the
+/// lowering). Returns the number of differences.
+fn lower_report(files: &[PathBuf], texts: &[String], time: Option<u32>) -> usize {
+    use std::collections::BTreeMap;
+    use stitchwort_syntax::lower::{Lower, oracle};
+    let id = SourceMap::new().next_id();
+    let mut lowered: BTreeMap<String, usize> = BTreeMap::new();
+    let mut unsupported: BTreeMap<String, usize> = BTreeMap::new();
+    let mut expressions: BTreeMap<String, usize> = BTreeMap::new();
+    let (mut checked, mut expressions_lowered, mut differences) = (0, 0, 0);
+    for (file, text) in files.iter().zip(texts) {
+        let report = oracle::compare(id, text, STACK, true);
+        for kind in &report.lowered {
+            *lowered.entry(format!("{kind:?}")).or_default() += 1;
+        }
+        for what in &report.unsupported {
+            *unsupported.entry(what.to_string()).or_default() += 1;
+        }
+        for what in &report.expressions.unsupported {
+            *expressions.entry(what.to_string()).or_default() += 1;
+        }
+        checked += report.expressions.checked;
+        expressions_lowered += report.expressions.lowered;
+        differences += report.differences.len();
+        for difference in &report.differences {
+            let line = text[..difference.at.min(text.len())].matches('\n').count() + 1;
+            println!(
+                "{}:{line}: the {} differs\n{}",
+                file.display(),
+                difference.what,
+                difference.detail
+            );
+        }
+    }
+    let counts = |counts: &BTreeMap<String, usize>| {
+        let mut counts: Vec<_> = counts.iter().collect();
+        counts.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
+        counts
+            .iter()
+            .map(|(what, n)| format!("{n} {what}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let total = |counts: &BTreeMap<String, usize>| counts.values().sum::<usize>();
+    println!(
+        "lowered: {} declarations ({}), {differences} differences; not lowered yet: {} ({})",
+        total(&lowered),
+        counts(&lowered),
+        total(&unsupported),
+        counts(&unsupported)
+    );
+    println!(
+        "one-line bodies as expressions: {checked} checked, {expressions_lowered} lowered; \
+         not lowered yet: {} ({})",
+        total(&expressions),
+        counts(&expressions)
+    );
+    if let Some(rounds) = time {
+        let best = (0..rounds.max(1))
+            .map(|_| {
+                let start = std::time::Instant::now();
+                for text in texts {
+                    let (_, errors, tree) =
+                        stitchwort_syntax::parse_module_and_tree(id, text, STACK);
+                    std::hint::black_box(Lower::new(&tree, text, id, &errors).module());
+                }
+                start.elapsed()
+            })
+            .min()
+            .unwrap_or_default();
+        println!(
+            "best of {rounds}: parse with the tree and the lowering {:.1} ms (the lowering is \
+             partial: what it can't lower yet costs nothing)",
+            best.as_secs_f64() * 1000.0
+        );
+    }
+    differences
 }

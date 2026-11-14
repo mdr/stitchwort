@@ -6,7 +6,8 @@
 //! It is step 1 of docs/proposals/syntax-tree-architecture.md (architecture
 //! A2, D3562), and stage 1 of docs/proposals/formatter-architecture.md: it
 //! is built *beside* the compiler's tree ([`crate::ast`]) by the same parse.
-//! Later the compiler's tree is lowered from it and the parser builds
+//! Later the compiler's tree is lowered from it ([`crate::lower`], being
+//! written kind by kind against the direct parse) and the parser builds
 //! nothing else (steps 3 and 4). The formatter, the editor's shape features
 //! (outline, folding, selection) and the quick fixes and sweeps are its
 //! readers (formatter-architecture.md §4).
@@ -103,6 +104,7 @@
 //! lowering turns each into a hole. Nothing here assumes an `Error` node is
 //! a root.
 
+use crate::Span;
 use crate::lexer::{Comment, Token, Trivia};
 use std::ops::Range;
 
@@ -139,6 +141,10 @@ pub enum NodeKind {
     Ability,
     /// `test "name" := e`
     Test,
+    /// A single expression parsed on its own ([`crate::parse_expression_tree`]),
+    /// as a search query or in the playground: the root of its tree, with
+    /// the expression its one child.
+    Expression,
 
     // Parts of declarations.
     /// One group `@[a, b "x"]`.
@@ -383,6 +389,8 @@ pub struct SyntaxFile {
     /// What follows the last token.
     eof: Trivia,
     decls: Vec<DeclTree>,
+    /// The spans of the `--|` comments, whose doc links the module lists.
+    bars: Vec<Span>,
     /// Marks that crossed another's range, which the builder left out: a
     /// parser bug if not 0.
     dropped: usize,
@@ -428,6 +436,7 @@ impl SyntaxFile {
         tokens: Vec<Token>,
         trivia: Vec<Trivia>,
         eof: Trivia,
+        bars: Vec<Span>,
         groups: Vec<DeclMarks>,
     ) -> SyntaxFile {
         let mut dropped = 0;
@@ -440,6 +449,7 @@ impl SyntaxFile {
             trivia,
             eof,
             decls,
+            bars,
             dropped,
         }
     }
@@ -455,6 +465,11 @@ impl SyntaxFile {
 
     pub fn tokens(&self) -> &[Token] {
         &self.tokens
+    }
+
+    /// The spans of the `--|` comments, as the lexer records them.
+    pub fn bars(&self) -> &[Span] {
+        &self.bars
     }
 
     /// Each token's comments and blank lines: `trivia()[i]` is
@@ -706,8 +721,9 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
     let len = group.tokens.end - group.tokens.start;
     for &(_, mark) in &marks {
         let (start, end) = (mark.start, mark.end.min(len));
-        // The whole declaration is the root already.
-        if start == 0 && end == len {
+        // The whole declaration is the root already, except that a single
+        // expression's root is only where it starts.
+        if start == 0 && end == len && group.root != NodeKind::Expression {
             continue;
         }
         while let Some(&top) = stack.last()
@@ -742,6 +758,11 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
 impl<'f> Node<'f> {
     fn data(&self) -> &'f NodeData {
         &self.file.decls[self.decl as usize].nodes[self.index as usize]
+    }
+
+    /// The tree it belongs to.
+    pub fn file(&self) -> &'f SyntaxFile {
+        self.file
     }
 
     pub fn kind(&self) -> NodeKind {

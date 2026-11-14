@@ -16,7 +16,10 @@ use crate::ast::{
     Import, ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
     Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
-use crate::lexer::{LexFailure, Tok, Token, lex, lex_recovering, lex_recovering_with_trivia};
+use crate::lexer::{
+    LexFailure, Tok, Token, Trivia, lex, lex_recovering, lex_recovering_with_trivia,
+    lex_with_trivia,
+};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -149,7 +152,7 @@ fn parse_lexed(
 /// The names of the declaration in `text[range]`, which has a lexical error,
 /// read from the part that lexes: the lines before the error's, or else the
 /// text before the error itself.
-fn failed_names_in(
+pub(crate) fn failed_names_in(
     file: FileId,
     text: &str,
     range: &std::ops::Range<usize>,
@@ -202,7 +205,7 @@ pub fn parse_module_and_tree(
         failures,
         true,
     );
-    let tree = SyntaxFile::build(lexed.tokens, lexed.trivia, lexed.eof, groups);
+    let tree = SyntaxFile::build(lexed.tokens, lexed.trivia, lexed.eof, lexed.bars, groups);
     (module, errors, tree)
 }
 
@@ -532,7 +535,7 @@ fn declared_names_of(group: &[Token]) -> Vec<Name> {
 
 /// The names `group` would declare, marked as failed at the first error of
 /// the declaration (`error_at`).
-fn failed_names_of(group: &[Token], error_at: Option<Span>) -> Vec<FailedName> {
+pub(crate) fn failed_names_of(group: &[Token], error_at: Option<Span>) -> Vec<FailedName> {
     declared_names_of(group)
         .into_iter()
         .map(|name| FailedName { name, error_at })
@@ -578,6 +581,56 @@ fn expression_within(file: FileId, text: &str, stack: usize) -> Result<Expr> {
         .expr()
         .and_then(|expr| parser.finish().map(|()| expr));
     parser.strict(expr)
+}
+
+/// [`parse_expression_within`]'s result, and the expression's lossless tree:
+/// one root, an [`NodeKind::Expression`] holding the expression if it
+/// parsed, an `Error` if it didn't, over its raw text if it didn't lex.
+pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<Expr>, SyntaxFile) {
+    let limit = StackLimit::from_here(stack);
+    let lexed = match lex_with_trivia(file, text) {
+        Ok(lexed) => lexed,
+        Err(error) => {
+            let root = DeclMarks {
+                tokens: 0..0,
+                root: NodeKind::Error,
+                marks: Vec::new(),
+                raw: Some(0..text.len() as u32),
+            };
+            let tree = SyntaxFile::build(
+                Vec::new(),
+                Vec::new(),
+                Trivia::default(),
+                Vec::new(),
+                vec![root],
+            );
+            return (Err(error), tree);
+        }
+    };
+    let mut parser = Parser::new(&lexed.tokens, file, text.len(), limit);
+    parser.marks = Some(Vec::new());
+    let expr = parser
+        .expr()
+        .and_then(|expr| parser.finish().map(|()| expr));
+    let expr = parser.strict(expr).map_err(|d| *d);
+    let root = DeclMarks {
+        tokens: 0..lexed.tokens.len() as u32,
+        root: if expr.is_ok() {
+            NodeKind::Expression
+        } else {
+            NodeKind::Error
+        },
+        marks: parser.marks.take().unwrap_or_default(),
+        raw: None,
+    };
+    let tree = SyntaxFile::build(
+        lexed.tokens,
+        lexed.trivia,
+        lexed.eof,
+        lexed.bars,
+        vec![root],
+    );
+    (expr, tree)
 }
 
 /// `name`, unless it's qualified: a binder, a field or a constructor being
