@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/local-hides-function.sw:7:34 ]
+   │
+ 7 │ def f (size: Nat): Nat -> Nat := size
+   │                                  ──┬─  
+   │                                    ╰─── expected `Nat → Nat`, but this has type `Nat`
+   │ 
+   │ Note: `size` here is a local variable, and it hides the function `size`, which would fit here: rename the local variable to use the function
+───╯

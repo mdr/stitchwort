@@ -1,0 +1,36 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `YUp` could mean `YUp` or `YUp.YUp`
+   ╭─[ reject/ambiguous-type-constructor.sw:8:18 ]
+   │
+ 5 │ type YUp: Type =
+   │      ─┬─  
+   │       ╰─── `YUp` is declared here
+ 6 │   | YUp
+   │     ─┬─  
+   │      ╰─── `YUp.YUp` is declared here
+   │ 
+ 8 │ def yUpCount (y: YUp): Nat := 0
+   │                  ─┬─  
+   │                   ╰─── `YUp` is both a type and its constructor
+   │ 
+   │ Note: `YUp` names both the type and its constructor `YUp.YUp`, so on its own it is ambiguous: rename the constructor, as in `| MkYUp`, or write the constructor as `YUp.YUp`; the type has no qualified name, so its uses need the rename
+───╯
+[E-AMBIGUOUS] Error: `YUp` could mean `YUp` or `YUp.YUp`
+    ╭─[ reject/ambiguous-type-constructor.sw:10:11 ]
+    │
+  5 │ type YUp: Type =
+    │      ─┬─  
+    │       ╰─── `YUp` is declared here
+  6 │   | YUp
+    │     ─┬─  
+    │      ╰─── `YUp.YUp` is declared here
+    │ 
+ 10 │ def make: YUp := YUp
+    │           ─┬─  
+    │            ╰─── `YUp` is both a type and its constructor
+    │ 
+    │ Note: `YUp` names both the type and its constructor `YUp.YUp`, so on its own it is ambiguous: rename the constructor, as in `| MkYUp`, or write the constructor as `YUp.YUp`; the type has no qualified name, so its uses need the rename
+────╯
