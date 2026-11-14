@@ -3379,11 +3379,11 @@ impl<'g> Gen<'g> {
         // and its result will be put in that field of this cell.
         if call.cons
             && let Term::Ctor(..) = term.strip_loc()
-            && self.hole_path(term, env, call).is_some()
+            && let Some(path) = self.hole_path(term, env, call)
         {
             let mut out = String::new();
             let (cell, last_cell, key, passed) =
-                self.cons_cells(term, env, &pad, call, &mut out)?;
+                self.cons_cells(term, env, &pad, call, &path, &mut out)?;
             call.cons_used.set(true);
             call.used.set(true);
             let _ = writeln!(
@@ -3714,10 +3714,25 @@ impl<'g> Gen<'g> {
 
     /// Whether `term` has a call to the definition itself (or a variable
     /// that stands for one) as a field, or in a constructor in a field:
-    /// which field, if only one has it. (Nothing is generated.)
-    fn hole_path(&self, term: &Term, env: &[bool], call: &SelfCall) -> Option<usize> {
-        let Term::Ctor(d, _, args) = term.strip_loc() else {
-            return None;
+    /// the fields leading to it, outermost first, if only one has it.
+    /// (Nothing is generated.)
+    fn hole_path(&self, term: &Term, env: &[bool], call: &SelfCall) -> Option<Vec<usize>> {
+        let mut path = Vec::new();
+        self.hole_path_into(term, env, call, &mut path)
+            .then_some(path)
+    }
+
+    /// [`Gen::hole_path`], appending the fields to `path`: true if there is
+    /// exactly one, and none of them is erased.
+    fn hole_path_into(
+        &self,
+        term: &Term,
+        env: &[bool],
+        call: &SelfCall,
+        path: &mut Vec<usize>,
+    ) -> bool {
+        let Term::Ctor(d, c, args) = term.strip_loc() else {
+            return false;
         };
         let data = self.g.data(*d);
         // A record stored as its field (D866) is no cell either.
@@ -3729,31 +3744,32 @@ impl<'g> Gen<'g> {
             || Some(*d) == self.array
             || self.unboxed(*d).is_some()
         {
-            return None;
+            return false;
         }
-        let mut found = None;
+        let before = path.len();
+        let mut found = false;
         for (i, arg) in args.iter().enumerate() {
+            path.push(i);
             let is_hole = match arg.strip_loc() {
                 Term::Var(ix) => self.hole_at(env.len() - 1 - ix).is_some(),
-                Term::Ctor(..) => self.hole_path(arg, env, call).is_some(),
+                Term::Ctor(..) => self.hole_path_into(arg, env, call, path),
                 other => {
                     let (head, args) = other.spine();
                     matches!(head, Term::Def(id) if self.is_self(call, *id, &args))
                 }
             };
-            if is_hole {
-                if found.is_some() {
-                    return None;
-                }
-                found = Some(i);
+            if !is_hole {
+                path.pop();
+            } else if found || data.ctors()[*c].field_erased[i] {
+                // Two holes, or the field is erased: there's no cell to put
+                // it in.
+                path.truncate(before);
+                return false;
+            } else {
+                found = true;
             }
         }
-        // The field mustn't be erased, or there's no cell to put it in.
-        let ctor_erased = |c: usize, i: usize| self.g.data(*d).ctors()[c].field_erased[i];
-        let Term::Ctor(_, c, _) = term.strip_loc() else {
-            return None;
-        };
-        found.filter(|i| !ctor_erased(*c, *i))
+        found
     }
 
     /// Statements that make the cells of `term` (a constructor with a call
@@ -3767,14 +3783,13 @@ impl<'g> Gen<'g> {
         env: &mut Vec<bool>,
         pad: &str,
         call: &SelfCall,
+        path: &[usize],
         out: &mut String,
     ) -> Fallible<Cells> {
         let Term::Ctor(d, c, args) = term.strip_loc() else {
             unreachable!("`hole_path` found a constructor");
         };
-        let hole = self
-            .hole_path(term, env, call)
-            .expect("`hole_path` found a hole");
+        let hole = *path.first().expect("`hole_path` found a hole");
         let data = self.g.data(*d);
         let ctor = &data.ctors()[*c];
         let mut fields = Vec::new();
@@ -3790,7 +3805,8 @@ impl<'g> Gen<'g> {
             let value = if f != hole {
                 self.expr(arg, env)?
             } else if let Term::Ctor(..) = arg.strip_loc() {
-                let (cell, last, last_key, passed) = self.cons_cells(arg, env, pad, call, out)?;
+                let (cell, last, last_key, passed) =
+                    self.cons_cells(arg, env, pad, call, &path[1..], out)?;
                 inner = Some((last, last_key, passed));
                 cell
             } else {

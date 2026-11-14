@@ -5071,23 +5071,9 @@ fn tree_command(
     spans: bool,
     lower: bool,
 ) -> ExitCode {
-    fn walk(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
-        if path.is_dir() {
-            let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
-                .map(|entry| entry.map(|e| e.path()))
-                .collect::<std::io::Result<_>>()?;
-            entries.sort();
-            for entry in entries {
-                walk(&entry, out)?;
-            }
-        } else if path.extension().is_some_and(|e| e == "sw") {
-            out.push(path.to_path_buf());
-        }
-        Ok(())
-    }
     let mut files = Vec::new();
     for path in paths {
-        if let Err(e) = walk(path, &mut files) {
+        if let Err(e) = sw_files(path, &mut files) {
             eprintln!("error: {}: {e}", path.display());
             return ExitCode::FAILURE;
         }
