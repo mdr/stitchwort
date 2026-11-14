@@ -34814,12 +34814,12 @@
     {
       "id": 3195,
       "title": "[DeepSeek] New formatter: a trailing comma in an attribute list prints as '@[js.tag \"kind\", js.other \"x\", ]' (crates/fmt goldens attributes.after.sw); drop the trailing comma or keep it attached (SW-3194 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 30 min (DeepSeek).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -34856,12 +34856,12 @@
     {
       "id": 3198,
       "title": "[DeepSeek] Formatter fuzzer: read FUZZ_SEED (decimal or 0x…) like the kernel fuzzer, print the seed, and pass SEED through task fuzz:fmt; today SEED is a const in crates/fmt/tests/it/fuzz.rs, so compute runs can't vary it (Overmind, 14 Nov)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 20 min (DeepSeek).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
