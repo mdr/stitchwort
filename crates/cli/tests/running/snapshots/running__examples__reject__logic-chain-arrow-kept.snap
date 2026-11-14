@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/logic-chain-arrow-kept.sw:4:61 ]
+   │
+ 4 │ theorem kept ∀ (a q: Prop) (h: a ∧ a ∧ a): a ∧ a ∧ a → q := h
+   │                                                             ┬  
+   │                                                             ╰── expected `a ∧ a ∧ a → q`, but this has type `a ∧ a ∧ a`
+───╯

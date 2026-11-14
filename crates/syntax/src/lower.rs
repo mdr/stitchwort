@@ -100,12 +100,21 @@ pub enum Unsupported {
     /// always gives it: a bug if ever counted, until recovery leaves parts
     /// out.
     Missing(NodeKind, &'static str),
+    /// A node of this kind with more parts than the parser gives it, which
+    /// the lowering would leave unread: a bug if ever counted, such as an
+    /// operator lying flat beside its operands because its node was lost.
+    Unread(NodeKind),
     /// An expression or pattern nested more deeply than the stack the
     /// lowering was given allows, at the first token of the node it was
     /// about to lower. The parser stops at half the stack the lowering gets,
     /// so a declaration that parsed shouldn't reach it; if one does, it is
     /// an `E-RESOURCE` error like the parser's.
     TooDeep(Span),
+    /// A declaration some of whose marks the tree's builder left out, this
+    /// many, because they crossed another's range ([`Node::crossed_marks`]):
+    /// a parser bug. Its tree isn't what was parsed, so lowering it could
+    /// check a different statement than the one written.
+    Crossed(usize),
 }
 
 impl fmt::Display for Unsupported {
@@ -115,7 +124,10 @@ impl fmt::Display for Unsupported {
             Unsupported::Kind(kind) => write!(f, "{kind:?}"),
             Unsupported::Token => write!(f, "a token read as an expression"),
             Unsupported::Missing(kind, part) => write!(f, "{kind:?} without {part}"),
+            Unsupported::Unread(kind) => write!(f, "{kind:?} with parts left unread"),
             Unsupported::TooDeep(_) => write!(f, "nested too deeply to lower"),
+            Unsupported::Crossed(1) => write!(f, "a node crossing another, left out of its tree"),
+            Unsupported::Crossed(n) => write!(f, "{n} nodes crossing others, left out of its tree"),
         }
     }
 }
@@ -215,6 +227,7 @@ impl<'f> Lower<'f> {
 
     /// One declaration.
     pub fn decl(&self, root: Node<'f>) -> Lowering<LoweredDecl> {
+        Self::whole(root)?;
         match root.kind() {
             NodeKind::Namespace => self.namespace(root).map(LoweredDecl::Namespace),
             NodeKind::Import => self.import(root).map(LoweredDecl::Import),
@@ -254,6 +267,7 @@ impl<'f> Lower<'f> {
     /// The root of a single expression's tree ([`NodeKind::Expression`],
     /// from [`crate::parse_expression_tree`]).
     pub fn expression(&self, root: Node<'f>) -> Lowering<Expr> {
+        Self::whole(root)?;
         match root.kind() {
             NodeKind::Expression => {
                 let mut elements = root.children();
@@ -263,6 +277,16 @@ impl<'f> Lower<'f> {
                 }
             }
             kind => Err(Unsupported::Kind(kind)),
+        }
+    }
+
+    /// Refuses a root whose tree lost marks that crossed others: what is
+    /// left reads as a different statement, such as `a ∧ b ∧ c` for
+    /// `a ∧ b ∧ c → q` with the arrow's node gone.
+    fn whole(root: Node<'f>) -> Lowering<()> {
+        match root.crossed_marks() {
+            0 => Ok(()),
+            n => Err(Unsupported::Crossed(n)),
         }
     }
 }

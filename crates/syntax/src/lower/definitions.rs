@@ -6,7 +6,7 @@ use crate::ast::{Attribute, Decl, Expr, Guard, Name, Pattern};
 use crate::lexer::Tok;
 use crate::tree::{Element, Leaf, Node, NodeKind};
 
-use super::access::required;
+use super::access::{at_most, required};
 use super::decls::name;
 use super::header::{Param, check_duplicates, clause_match, lower_header, take_defaults};
 use super::{Lower, Lowering};
@@ -41,6 +41,7 @@ impl<'f> Lower<'f> {
         } = self.header(root)?;
         let mut decls = vec![signature];
         if let Some(body) = root.child(NodeKind::Body) {
+            at_most(body, 2)?;
             let rhs = required(body.after(&Tok::ColonEq), NodeKind::Body, "its expression")?;
             let rhs = self.expr(rhs)?;
             match &rhs {
@@ -141,6 +142,7 @@ impl<'f> Lower<'f> {
                 Element::Node(node) if name.is_some() && result.is_none() => match node.kind() {
                     NodeKind::Param => params.push(self.param(node)?),
                     NodeKind::ResultType => {
+                        at_most(node, 2)?;
                         let ty = node.after(&Tok::Colon);
                         result =
                             Some(self.expr(required(ty, NodeKind::ResultType, "its type")?)?);

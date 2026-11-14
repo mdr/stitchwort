@@ -380,6 +380,9 @@ struct DeclTree {
     raw: Option<Range<u32>>,
     /// [`DeclMarks::signature_kept`].
     signature_kept: bool,
+    /// Marks the builder left out because they crossed another's range: a
+    /// parser bug if not 0 ([`Node::crossed_marks`]).
+    dropped: u32,
 }
 
 /// The lossless tree of a file: its tokens with their trivia, and a tree for
@@ -441,11 +444,25 @@ impl SyntaxFile {
         bars: Vec<Span>,
         groups: Vec<DeclMarks>,
     ) -> SyntaxFile {
-        let mut dropped = 0;
-        let decls = groups
-            .into_iter()
-            .map(|group| build_decl(group, &mut dropped))
-            .collect();
+        let file = SyntaxFile::build_allowing_crossed(tokens, trivia, eof, bars, groups);
+        debug_assert_eq!(
+            file.dropped, 0,
+            "the parser recorded a mark that crosses another (see `Node::crossed_marks`)"
+        );
+        file
+    }
+
+    /// [`Self::build`] without its debug check that no mark was dropped,
+    /// for the tests of what the compiler does with such a tree.
+    pub(crate) fn build_allowing_crossed(
+        tokens: Vec<Token>,
+        trivia: Vec<Trivia>,
+        eof: Trivia,
+        bars: Vec<Span>,
+        groups: Vec<DeclMarks>,
+    ) -> SyntaxFile {
+        let decls: Vec<DeclTree> = groups.into_iter().map(build_decl).collect();
+        let dropped = decls.iter().map(|decl| decl.dropped as usize).sum();
         SyntaxFile {
             tokens,
             trivia,
@@ -701,7 +718,8 @@ fn check_gap<'c>(
 }
 
 /// Nests one declaration's marks into its tree.
-fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
+fn build_decl(group: DeclMarks) -> DeclTree {
+    let mut dropped = 0;
     let offset = group.tokens.start;
     let mut marks: Vec<(usize, Mark)> = group
         .marks
@@ -736,7 +754,7 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
         }
         let parent = *stack.last().expect("the root covers every mark");
         if offset + end > nodes[parent].end {
-            *dropped += 1;
+            dropped += 1;
             continue;
         }
         stack.push(nodes.len());
@@ -755,6 +773,7 @@ fn build_decl(group: DeclMarks, dropped: &mut usize) -> DeclTree {
         nodes,
         raw: group.raw,
         signature_kept: group.signature_kept,
+        dropped,
     }
 }
 
@@ -796,6 +815,19 @@ impl<'f> Node<'f> {
     /// holds the header's nodes. False for any other node.
     pub fn signature_kept(&self) -> bool {
         self.index == 0 && self.file.decls[self.decl as usize].signature_kept
+    }
+
+    /// For a declaration's root: how many of the parser's marks for it the
+    /// builder left out because they crossed another's range. Not 0 only
+    /// through a parser bug, and then the tree isn't the parse (an operator
+    /// whose node was left out lies flat beside its operands), so the
+    /// lowering refuses the declaration. 0 for any other node.
+    pub fn crossed_marks(&self) -> usize {
+        if self.index == 0 {
+            self.file.decls[self.decl as usize].dropped as usize
+        } else {
+            0
+        }
     }
 
     /// Its child nodes and its own tokens, in source order.
@@ -1319,6 +1351,74 @@ def h: Nat := 2
             (
                 "(let x := 1; x + 1)",
                 "Paren[( LetExpr[Let[let x := 1] ; Binary[x + 1]] )]",
+            ),
+        ]);
+    }
+
+    /// An operator looser than `&&` and `||` takes the whole chain before
+    /// it as its left operand, however many operands the chain has and
+    /// however they group (SW-3243: with three or more, the `->` lost its
+    /// node and the chain was read without it).
+    #[test]
+    fn operators_after_logic_chains_take_the_whole_chain() {
+        check_expressions(&[
+            ("a && b -> q", "Arrow[Binary[a && b] -> q]"),
+            (
+                "a && b && c -> q",
+                "Arrow[Binary[a && Binary[b && c]] -> q]",
+            ),
+            (
+                "a || b || c -> q",
+                "Arrow[Binary[a || Binary[b || c]] -> q]",
+            ),
+            (
+                "a || b && c -> q",
+                "Arrow[Binary[a || Binary[b && c]] -> q]",
+            ),
+            (
+                "a && b || c -> q",
+                "Arrow[Binary[Binary[a && b] || c] -> q]",
+            ),
+            (
+                "a && b || c && d -> q",
+                "Arrow[Binary[Binary[a && b] || Binary[c && d]] -> q]",
+            ),
+            (
+                "a || b && c || d -> q",
+                "Arrow[Binary[a || Binary[Binary[b && c] || d]] -> q]",
+            ),
+            (
+                "a && b && c && d -> q",
+                "Arrow[Binary[a && Binary[b && Binary[c && d]]] -> q]",
+            ),
+            ("a ∧ b ∧ c → q", "Arrow[Binary[a ∧ Binary[b ∧ c]] → q]"),
+            (
+                "a && b && c <-> q",
+                "Iff[Binary[a && Binary[b && c]] <-> q]",
+            ),
+            (
+                "a || b && c <-> q -> r",
+                "Arrow[Iff[Binary[a || Binary[b && c]] <-> q] -> r]",
+            ),
+            (
+                "q -> a && b && c -> r",
+                "Arrow[q -> Arrow[Binary[a && Binary[b && c]] -> r]]",
+            ),
+            (
+                "(a && b && c; e)",
+                "Paren[( Seq[Binary[a && Binary[b && c]] ; e] )]",
+            ),
+            (
+                "(a || b || c <-> q; e)",
+                "Paren[( Seq[Iff[Binary[a || Binary[b || c]] <-> q] ; e] )]",
+            ),
+            (
+                "x => a && b && c -> q",
+                "Lambda[x => Arrow[Binary[a && Binary[b && c]] -> q]]",
+            ),
+            (
+                "(.f && b && c)",
+                "Paren[( Section[Binary[FieldAccess[. f] && Binary[b && c]]] )]",
             ),
         ]);
     }

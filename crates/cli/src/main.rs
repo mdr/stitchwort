@@ -158,8 +158,9 @@ enum DevCommand {
     /// Build the lossless syntax tree of every `.sw` file under the paths
     /// and check that each reads back as the file, byte for byte. Prints
     /// the files that don't, and totals: declarations, ones that didn't
-    /// parse, nodes, and marks dropped. Exit status 1 if any file fails, a
-    /// mark is dropped, or (with --spans) a span is no node
+    /// parse, nodes, marks dropped and internal errors. Exit status 1 if any
+    /// file fails, a mark is dropped, a declaration is an internal error, or
+    /// (with --spans) a span is no node
     Tree {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -5125,10 +5126,17 @@ fn tree_command(
     }
     let mut total = stitchwort_syntax::tree::TreeStats::default();
     let mut failed = 0;
-    let (mut checked, mut misses, mut unparsed) = (0, 0, 0);
+    let (mut checked, mut misses, mut unparsed, mut internal) = (0, 0, 0, 0);
     let mut synthetic = std::collections::BTreeMap::new();
     for (file, text) in files.iter().zip(&texts) {
-        let (module, _, tree) = stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
+        let (module, errors, tree) = stitchwort_syntax::parse_module_and_tree(id, text, TREE_STACK);
+        // The parser's own bugs, such as a tree that lost a node.
+        for error in errors.iter().filter(|e| e.code == "E-INTERNAL") {
+            internal += 1;
+            let at = error.primary_span().map_or(0, |span| span.start as usize);
+            let line = text[..at].matches('\n').count() + 1;
+            println!("{}:{line}: {}", file.display(), error.message);
+        }
         if print {
             println!("{}:\n{}", file.display(), tree.dump(text));
         }
@@ -5174,7 +5182,7 @@ fn tree_command(
     }
     println!(
         "{} files ({failed} not read back): {} declarations ({} not parsed, {} of them not \
-         lexed), {} nodes, {} marks dropped",
+         lexed), {} nodes, {} marks dropped, {internal} internal errors",
         files.len(),
         total.decls,
         total.errors,
@@ -5202,7 +5210,7 @@ fn tree_command(
             time_parse(rounds, false).as_secs_f64() * 1000.0
         );
     }
-    if failed > 0 || total.dropped > 0 || misses > 0 {
+    if failed > 0 || total.dropped > 0 || misses > 0 || internal > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
