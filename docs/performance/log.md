@@ -105,12 +105,18 @@ in [../proposals/README.md](../proposals/README.md).
   The design estimated 1.1-1.3x for the end state. Building the lossless
   tree now costs less than the old parser alone did (46.4 against
   53.2 ms); the lowering is the rest.
-- **Bench.** _The orchestrator adds stitchwort-bench's numbers from the
-  verifier's run on `main` here. L5 had raised check-nested-parens'
-  allocations from 136 to 225 (+65%) and its peak heap from 2.0 to 5.3 MB,
-  check-nested-apps' peak heap from 1.2 to 1.9 MB, and smaller rises on
-  check-number-huge, check-number-pattern, check-text-literal and
-  text-literal-walk; these should come back down._
+- **Bench** (stitchwort-bench on `main` after this merge, against the
+  11 Nov baseline). The deep-input rows did not come back down:
+  check-nested-parens (12,000 nested brackets) allocations 136 → 220
+  (L5: 225), peak heap 2.0 → 5.3 MB (L5: 5.3); check-nested-apps peak heap
+  1.2 → 1.9 MB; check-number-huge and check-number-pattern peak heap
+  5 → 6 kB, check-text-literal allocations 155 → 178, text-literal-walk
+  peak heap +30% of 3 kB. Holding both the lossless tree and the
+  compiler's tree is inherent to the design, and on these pathological
+  inputs it dominates. Accepted (orchestrator's call: speed work is paused,
+  D3465; parse time is within the estimate); the baseline is re-recorded
+  (counts only). check-long-sum and check-nested-apps steps fell 23%.
+  The check-closed-* rows' +14% steps is std growth (SW-3221's entry).
 - **Stack.** Without trees in its frames the parser nests about three
   times as deeply as before in the same stack, deeper than the lowering
   can follow for some shapes (at the parser's deepest, `(.f (.f …))` needed
@@ -148,10 +154,13 @@ in [../proposals/README.md](../proposals/README.md).
   The design estimated 1.3-1.5x; the lowering itself is about 21 ms of
   std's 85. A `check` that loads std parses it once (`library.rs`), so a
   trivial check is about 30 ms slower [estimated from the table].
-- **Bench.** _The orchestrator adds stitchwort-bench's numbers from the
-  verifier's run on `main` here: both nesting programs' times and
-  allocation counts, which change since the lowering allocates the
-  compiler's tree a second time._
+- **Bench** (on `main` after this merge, against the 11 Nov baseline):
+  check-nested-parens allocations 136 → 225 (+65%), peak heap 2.0 →
+  5.3 MB; check-nested-apps peak heap 1.2 → 1.9 MB; smaller rises on
+  check-number-huge, check-number-pattern, check-text-literal and
+  text-literal-walk. (The check-closed-* rows' doubled steps in the same
+  run were SW-3067's std proof, not this change: see SW-3221.) For what
+  L6 left, see its entry.
 - **Not optimised.** Speed work is paused (D3465) and most of the cost goes
   with L6, which deletes the parser's own construction (end state about
   1.1-1.3x, [estimated] in the design). If trivia proves a noticeable part
