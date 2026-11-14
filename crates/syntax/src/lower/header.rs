@@ -1,11 +1,11 @@
 //! A definition's header, `def f (x: A) [b: B] (): R`, as the compiler's
 //! tree has it: a signature whose type is a `Pi` per parameter in front of
 //! the result type, and the patterns every equation starts with
-//! (docs/proposals/declaration-syntax.md §2.3). The parser builds these too,
-//! until the lowering replaces it (docs/proposals/syntax-tree-lowering.md).
+//! (docs/proposals/declaration-syntax.md §2.3).
 
-use crate::Span;
-use crate::ast::{Expr, MatchKind, Name, Pattern};
+use super::{Lowering, Unsupported};
+use crate::ast::{Expr, MatchKind, NAMELESS, Name, Pattern};
+use crate::{Diagnostic, Span};
 
 /// A parameter written in a header, before the colon.
 pub(crate) enum Param {
@@ -112,4 +112,60 @@ pub(crate) fn clause_match(body: &Expr) -> bool {
             ..
         }
     )
+}
+
+/// `E-DUPLICATE-PARAMETER`: the header's parameters, and the implicit and
+/// auto parameters after the colon, all have different names (§2.5). The
+/// elaborator binds the implicit ones before the header's explicit ones,
+/// which are pattern variables, so a repeated name would refer to the
+/// header's parameter where the reader expects the later one. Explicit
+/// binders after the colon are local to the type, so they may repeat a
+/// header's name.
+pub(crate) fn check_duplicates(def: &Name, params: &[Param], result: &Expr) -> Lowering<()> {
+    let mut seen: Vec<&Name> = Vec::new();
+    let check = |seen: &[&Name], name: &Name| match seen.iter().find(|s| s.text == name.text) {
+        Some(first) => Err(Unsupported::Invalid(Box::new(
+            Diagnostic::error(
+                "E-DUPLICATE-PARAMETER",
+                format!("`{}` is already a parameter of `{}`", name.text, def.text),
+            )
+            .with_label(name.span, "named again here")
+            .with_label(first.span, "first named here")
+            .with_note(
+                "the header's parameters and the implicit ones after the colon need different \
+                 names",
+            ),
+        ))),
+        None => Ok(()),
+    };
+    for param in params {
+        if let Param::Named { names, .. } = param {
+            for name in names.iter().filter(|n| n.text != NAMELESS) {
+                check(&seen, name)?;
+                seen.push(name);
+            }
+        }
+    }
+    // The implicit and auto binders on the type's spine, up to its result
+    // (an ability row ends it, as it ends the arguments arms match).
+    let mut ty = result;
+    loop {
+        match ty {
+            Expr::Pi {
+                names,
+                implicit,
+                cod,
+                ..
+            } => {
+                if *implicit {
+                    for name in names.iter().filter(|n| n.text != NAMELESS) {
+                        check(&seen, name)?;
+                    }
+                }
+                ty = cod;
+            }
+            Expr::Arrow(_, cod) => ty = cod,
+            _ => return Ok(()),
+        }
+    }
 }

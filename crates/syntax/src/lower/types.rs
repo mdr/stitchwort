@@ -9,7 +9,7 @@ use crate::tree::{Element, Node, NodeKind};
 use super::access::required;
 use super::decls::name;
 use super::definitions::{as_leaf, is_leaf, last_token};
-use super::header::{Param, lower_header};
+use super::header::{Param, check_duplicates, lower_header};
 use super::{Lower, Lowering};
 
 /// A data type's index types, each with its name if written as a binder.
@@ -100,6 +100,7 @@ impl<'f> Lower<'f> {
         let body = required(body.after(&Tok::Equals), NodeKind::Body, "its type")?;
         let body = self.expr(body)?;
         let result = sort.unwrap_or(Expr::Type(0, name.span));
+        check_duplicates(&name, &params, &result)?;
         let (ty, header) = lower_header(params, result);
         Ok(vec![
             Decl::Signature {

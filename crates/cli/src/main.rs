@@ -168,9 +168,7 @@ enum DevCommand {
         print: bool,
         /// Also time parsing every file this many times, and print the best
         /// time of each: as `check` parses (the lossless tree, then the
-        /// compiler's tree lowered from it), the parser building the
-        /// compiler's tree alone (the old route), and the lossless tree
-        /// alone
+        /// compiler's tree lowered from it), and the lossless tree alone
         #[arg(long, value_name = "ROUNDS")]
         time: Option<u32>,
         /// With --time, time only parsing as `check` does, and skip the
@@ -181,16 +179,6 @@ enum DevCommand {
         /// the lossless tree or a single token, and print each that isn't
         #[arg(long)]
         spans: bool,
-        /// Also build the compiler's tree both ways, directly by the parser
-        /// (the old route) and as `check` does, lowered from the lossless
-        /// tree, and compare them exactly, declaration by
-        /// declaration, with the diagnostics, and each one-line body, result
-        /// type and default parsed as an expression. Prints each difference, and how many
-        /// declarations of each kind were lowered and couldn't be yet
-        /// (docs/proposals/syntax-tree-lowering.md §4). Exit status 1 on any
-        /// difference
-        #[arg(long)]
-        lower: bool,
     },
     /// The formatter's report over a tree of files: format every `.sw` file
     /// under the paths, without writing anything, and check each result: the same tokens up to the
@@ -853,8 +841,7 @@ const STACK: usize = 64 * 1024 * 1024;
 
 /// How much of [`STACK`] `dev tree` lets the parser and the lowering use,
 /// as `check` does (`Limits::for_stack`): the rest is room for what runs
-/// below the point the limit is measured from, and for the oracle's
-/// `Debug` printing, which has no limit of its own.
+/// below the point the limit is measured from.
 const TREE_STACK: usize = STACK - STACK / 4;
 
 /// Checking builds and frees terms and values by the million; with the
@@ -1326,8 +1313,7 @@ fn run(cli: Cli) -> ExitCode {
             time,
             parse_only,
             spans,
-            lower,
-        }) => tree_command(&paths, print, time, parse_only, spans, lower),
+        }) => tree_command(&paths, print, time, parse_only, spans),
         Command::Dev(DevCommand::FmtTree {
             paths,
             print,
@@ -5069,7 +5055,6 @@ fn tree_command(
     time: Option<u32>,
     parse_only: bool,
     spans: bool,
-    lower: bool,
 ) -> ExitCode {
     let mut files = Vec::new();
     for path in paths {
@@ -5089,32 +5074,19 @@ fn tree_command(
         }
     }
     let id = SourceMap::new().next_id();
-    // 0: the parser building the compiler's tree alone (the route the
-    // lowering replaced, kept for the oracle); 1: with the lossless tree; 2:
-    // the compiler's tree lowered from it, what `check` pays.
-    let time_parse = |rounds: u32, route: u8| {
+    // The lossless tree alone (`lowered` false), or the compiler's tree
+    // lowered from it, what `check` pays.
+    let time_parse = |rounds: u32, lowered: bool| {
         (0..rounds.max(1))
             .map(|_| {
                 let start = std::time::Instant::now();
                 for text in &texts {
-                    match route {
-                        0 => {
-                            std::hint::black_box(
-                                stitchwort_syntax::lower::oracle::parse_module_direct(
-                                    id, text, TREE_STACK,
-                                ),
-                            );
-                        }
-                        1 => {
-                            std::hint::black_box(stitchwort_syntax::parse_tree(
-                                id, text, TREE_STACK,
-                            ));
-                        }
-                        _ => {
-                            std::hint::black_box(stitchwort_syntax::parse_module_recovering(
-                                id, text, TREE_STACK,
-                            ));
-                        }
+                    if lowered {
+                        std::hint::black_box(stitchwort_syntax::parse_module_recovering(
+                            id, text, TREE_STACK,
+                        ));
+                    } else {
+                        std::hint::black_box(stitchwort_syntax::parse_tree(id, text, TREE_STACK));
                     }
                 }
                 start.elapsed()
@@ -5129,7 +5101,7 @@ fn tree_command(
         println!(
             "{} files, {bytes} bytes, best of {rounds}: parse {:.1} ms",
             files.len(),
-            time_parse(rounds, 2).as_secs_f64() * 1000.0
+            time_parse(rounds, true).as_secs_f64() * 1000.0
         );
         return ExitCode::SUCCESS;
     }
@@ -5206,81 +5178,15 @@ fn tree_command(
     }
     if let Some(rounds) = time {
         println!(
-            "{bytes} bytes, best of {rounds}: parse {:.1} ms (the tree lowered), the parser alone \
-             {:.1} ms, with the tree {:.1} ms",
-            time_parse(rounds, 2).as_secs_f64() * 1000.0,
-            time_parse(rounds, 0).as_secs_f64() * 1000.0,
-            time_parse(rounds, 1).as_secs_f64() * 1000.0
+            "{bytes} bytes, best of {rounds}: parse {:.1} ms (the tree lowered), the tree alone \
+             {:.1} ms",
+            time_parse(rounds, true).as_secs_f64() * 1000.0,
+            time_parse(rounds, false).as_secs_f64() * 1000.0
         );
     }
-    let differences = if lower {
-        lower_report(&files, &texts)
-    } else {
-        0
-    };
-    if failed > 0 || total.dropped > 0 || misses > 0 || differences > 0 {
+    if failed > 0 || total.dropped > 0 || misses > 0 {
         ExitCode::FAILURE
     } else {
         ExitCode::SUCCESS
     }
-}
-
-/// `dev tree --lower`: the oracle over `files`, printing each difference
-/// and the totals. Returns the number of differences.
-fn lower_report(files: &[PathBuf], texts: &[String]) -> usize {
-    use std::collections::BTreeMap;
-    use stitchwort_syntax::lower::oracle;
-    let id = SourceMap::new().next_id();
-    let mut lowered: BTreeMap<String, usize> = BTreeMap::new();
-    let mut unsupported: BTreeMap<String, usize> = BTreeMap::new();
-    let mut expressions: BTreeMap<String, usize> = BTreeMap::new();
-    let (mut checked, mut expressions_lowered, mut differences) = (0, 0, 0);
-    for (file, text) in files.iter().zip(texts) {
-        let report = oracle::compare(id, text, TREE_STACK, true);
-        for kind in &report.lowered {
-            *lowered.entry(format!("{kind:?}")).or_default() += 1;
-        }
-        for what in &report.unsupported {
-            *unsupported.entry(what.to_string()).or_default() += 1;
-        }
-        for what in &report.expressions.unsupported {
-            *expressions.entry(what.to_string()).or_default() += 1;
-        }
-        checked += report.expressions.checked;
-        expressions_lowered += report.expressions.lowered;
-        differences += report.differences.len();
-        for difference in &report.differences {
-            let line = text[..difference.at.min(text.len())].matches('\n').count() + 1;
-            println!(
-                "{}:{line}: the {} differs\n{}",
-                file.display(),
-                difference.what,
-                difference.detail
-            );
-        }
-    }
-    let counts = |counts: &BTreeMap<String, usize>| {
-        let mut counts: Vec<_> = counts.iter().collect();
-        counts.sort_by(|a, b| b.1.cmp(a.1).then(a.0.cmp(b.0)));
-        counts
-            .iter()
-            .map(|(what, n)| format!("{n} {what}"))
-            .collect::<Vec<_>>()
-            .join(", ")
-    };
-    let total = |counts: &BTreeMap<String, usize>| counts.values().sum::<usize>();
-    println!(
-        "lowered: {} declarations ({}), {differences} differences; not lowered yet: {} ({})",
-        total(&lowered),
-        counts(&lowered),
-        total(&unsupported),
-        counts(&unsupported)
-    );
-    println!(
-        "one-line bodies and types as expressions: {checked} checked, {expressions_lowered} lowered; \
-         not lowered yet: {} ({})",
-        total(&expressions),
-        counts(&expressions)
-    );
-    differences
 }

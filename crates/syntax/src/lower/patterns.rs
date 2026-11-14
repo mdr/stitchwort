@@ -3,10 +3,10 @@
 //! ending in `Nil` (or the `..` tail), and brackets round a constructor
 //! widen its span to them.
 
-use crate::Span;
 use crate::ast::{Expr, Name, Pattern};
 use crate::lexer::Tok;
 use crate::tree::{Element, Leaf, Node, NodeKind};
+use crate::{Diagnostic, Span};
 
 use super::access::required;
 use super::decls::name;
@@ -217,6 +217,16 @@ impl<'f> Lower<'f> {
                 ));
             }
         };
+        if let Some(name) = alternatives.iter().find_map(first_bound) {
+            return Err(Unsupported::Invalid(Box::new(
+                Diagnostic::error("E-OR-PATTERN-BINDS", "an or-pattern can't bind names")
+                    .with_label(name.span, format!("`{}` is bound here", name.text))
+                    .with_note(
+                        "write `_` for a part that isn't used, or match each alternative in an \
+                         arm of its own",
+                    ),
+            )));
+        }
         Ok(Pattern::Or(alternatives, first.to(last)))
     }
 
@@ -315,4 +325,22 @@ fn items<'f>(node: Node<'f>, punctuation: &[Tok]) -> Vec<Element<'f>> {
     node.children()
         .filter(|child| !matches!(child, Element::Leaf(leaf) if punctuation.contains(leaf.tok())))
         .collect()
+}
+
+/// The first variable a pattern binds, if any (a punned record field is
+/// one).
+fn first_bound(p: &Pattern) -> Option<&Name> {
+    match p {
+        Pattern::Var(name) => Some(name),
+        Pattern::Ctor(_, args, _) => args.iter().find_map(first_bound),
+        Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
+            first_bound(a).or_else(|| first_bound(b))
+        }
+        Pattern::Named(_, p, _) => first_bound(p),
+        Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
+            fields.iter().find_map(|(_, p)| first_bound(p))
+        }
+        Pattern::Or(alternatives, _) => alternatives.iter().find_map(first_bound),
+        _ => None,
+    }
 }

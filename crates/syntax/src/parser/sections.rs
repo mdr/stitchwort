@@ -1,18 +1,13 @@
 //! Parsing operator sections `(== 'S')` and `(k +)` (D1193) and a bare
 //! operator as a function, `(&&)` (D1195). What they mean, and the
-//! method sections' widening (D1192), is in `lower/sections.rs`, which both
-//! routes share.
+//! method sections' widening (D1192), is in `lower/sections.rs`.
 //!
 //! Like the declarations, each function here is `#[inline(never)]` or only
 //! called from one that is, so the expression parser's frames stay small.
 
 use super::{NO_PARTNER, Parser, Result};
-use crate::Span;
-use crate::ast::{BinOp, Expr, SECTION};
 use crate::lexer::Tok;
-use crate::lower::sections::{
-    LEFT, RIGHT, is_operator, is_section_operator, operation, param, var,
-};
+use crate::lower::sections::{is_operator, is_section_operator};
 use crate::tree::NodeKind;
 
 impl Parser<'_> {
@@ -43,28 +38,27 @@ impl Parser<'_> {
 
     /// `(&&)`, `(== 'S')` or `(k +)`, at the `(`.
     #[inline(never)]
-    pub(super) fn operator_section(&mut self) -> Result<Expr> {
+    pub(super) fn operator_section(&mut self) -> Result<()> {
         let right = self.right_operator();
-        let open = self.bump().span;
-        let section = self.operator_section_inner(right, open)?;
-        self.node_at(open, NodeKind::OperatorSection);
-        Ok(section)
+        let open = self.mark();
+        self.bump();
+        self.operator_section_inner(right)?;
+        self.node(open, NodeKind::OperatorSection);
+        Ok(())
     }
 
-    fn operator_section_inner(&mut self, right: Option<usize>, open: Span) -> Result<Expr> {
+    fn operator_section_inner(&mut self, right: Option<usize>) -> Result<()> {
         let first = self.peek().cloned().unwrap_or(Tok::RParen);
         // `(&&)`: the operator as a function of two arguments.
         if is_operator(&first) && self.peek_at(1) == Some(&Tok::RParen) {
-            let at = self.bump().span;
-            let end = self.bump().span;
-            let body = operation(&first, at, var(LEFT, at), var(RIGHT, at));
-            let names = vec![param(LEFT, at), param(RIGHT, at)];
-            return Ok(Expr::Lam(names, Box::new(body), open.to(end)));
+            self.bump();
+            self.bump();
+            return Ok(());
         }
         // `(== 'S')`: the left operand is the argument.
         if is_section_operator(&first) {
-            let at = self.bump().span;
-            let rhs = self.section_operand(&first)?;
+            self.bump();
+            self.section_operand(&first)?;
             if self.peek() != Some(&Tok::RParen) {
                 return Err(self
                     .unexpected("`)` after the operand of a section")
@@ -74,25 +68,18 @@ impl Parser<'_> {
                     )
                     .into());
             }
-            let end = self.bump().span;
-            let body = operation(&first, at, var(SECTION, at), rhs);
-            return Ok(Expr::Lam(
-                vec![param(SECTION, at)],
-                Box::new(body),
-                open.to(end),
-            ));
+            self.bump();
+            return Ok(());
         }
         // `(k +)`: the right operand is the argument.
         let operator = right.expect("checked by operator_section_ahead");
-        let tok = self.tokens[operator].tok.clone();
-        let lhs = match tok {
+        match self.tokens[operator].tok {
             Tok::Plus => self.mul_expr()?,
             Tok::Star | Tok::Slash | Tok::Percent => self.unary()?,
             Tok::PlusPlus => self.add_expr()?,
             Tok::AndAnd | Tok::OrOr | Tok::Iff => self.cmp_expr()?,
             _ => self.append_expr()?,
-        };
-        let at = self.tokens[operator].span;
+        }
         if self.pos != operator {
             return Err(self
                 .unexpected("`)` after the operator of a section")
@@ -103,18 +90,13 @@ impl Parser<'_> {
                 .into());
         }
         self.bump();
-        let end = self.expect(Tok::RParen, "`)`")?.span;
-        let body = operation(&tok, at, lhs, var(SECTION, at));
-        Ok(Expr::Lam(
-            vec![param(SECTION, at)],
-            Box::new(body),
-            open.to(end),
-        ))
+        self.expect(Tok::RParen, "`)`")?;
+        Ok(())
     }
 
     /// The right operand of a left section with operator `tok`: what binds
     /// tighter than the operator, so `(+ 1 + 2)` needs brackets.
-    fn section_operand(&mut self, tok: &Tok) -> Result<Expr> {
+    fn section_operand(&mut self, tok: &Tok) -> Result<()> {
         match tok {
             Tok::Plus => self.mul_expr(),
             Tok::Star | Tok::Slash | Tok::Percent => self.unary(),
@@ -122,27 +104,23 @@ impl Parser<'_> {
             Tok::OrOr => {
                 // `a && b && c`, grouping to the right.
                 let mut starts = vec![self.mark()];
-                let mut conjuncts = vec![self.cmp_expr()?];
+                self.cmp_expr()?;
                 while self.eat(&Tok::AndAnd) {
                     starts.push(self.mark());
-                    conjuncts.push(self.cmp_expr()?);
+                    self.cmp_expr()?;
                 }
                 starts.pop();
                 for start in starts {
                     self.node(start, NodeKind::Binary);
                 }
-                Ok(conjuncts
-                    .into_iter()
-                    .rev()
-                    .reduce(|rhs, lhs| Expr::Binary(BinOp::And, Box::new(lhs), Box::new(rhs)))
-                    .expect("never empty"))
+                Ok(())
             }
             Tok::Iff => {
-                let mut rhs = self.cmp_expr()?;
+                self.cmp_expr()?;
                 if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-                    self.logic_chain(&mut rhs)?;
+                    self.logic_chain()?;
                 }
-                Ok(rhs)
+                Ok(())
             }
             _ => self.append_expr(),
         }

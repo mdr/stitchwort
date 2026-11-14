@@ -1,5 +1,14 @@
 //! Recursive-descent parser for the surface syntax. See `docs/syntax.md`.
 //!
+//! It builds no trees: it records where each construct starts and ends
+//! ([`Mark`]s), from which the lossless tree is built ([`crate::tree`]), and
+//! the compiler's tree is lowered from that ([`crate::lower`]). It decides
+//! only how the tokens group, from the tokens and the marks so far; checks
+//! on what has been grouped, such as a parameter named twice, are the
+//! lowering's. The few messages that quote a construct's span as the
+//! compiler's tree has it lower that construct on the spot
+//! ([`Parser::lowered`]), only when the message is made.
+//!
 //! Layout rule: a declaration starts at column 0, and every following line
 //! that is indented belongs to it. Definitions are `def` and `theorem`
 //! headers with a `:=` body or arms (`parser/declarations.rs`).
@@ -11,23 +20,10 @@
 //! further continue the line above. A line at the block's column right after
 //! one ending in an operator (like `->`) continues it too.
 
-use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CalcStep, Clause, CtorDecl, Decl, Expr, FailedName, Guard, Import,
-    ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
-    Pattern, RewriteRule, Row, SECTION, Scrutinee,
-};
+use crate::ast::{Expr, FailedName, MatchKind, Module, Name, NamespaceDecl, Pattern};
 use crate::lexer::{
-    LexFailure, Tok, Token, Trivia, lex, lex_recovering, lex_recovering_with_trivia,
-    lex_with_trivia,
+    LexFailure, Tok, Token, Trivia, lex, lex_recovering_with_trivia, lex_with_trivia,
 };
-use crate::lower::binding::{
-    ForallGroup, LamParam, Stmt, bind_let, clause_lambda_of, clause_some, clause_true,
-    exists_chain, forall_of, lambda_of, lines,
-};
-use crate::lower::exprs::{binary, chain, piped, prefix_op};
-use crate::lower::patterns::with_span;
-use crate::lower::proofs::reverse_calc;
-use crate::lower::sections::widen;
 use crate::lower::{Lower, LoweredDecl, Unsupported};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
@@ -38,7 +34,6 @@ use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
 mod sections;
-use crate::lower::header::Param;
 use declarations::misplaced_attributes;
 
 /// The parser's results box their error: with an unboxed `Diagnostic`,
@@ -107,58 +102,30 @@ pub fn parse_module_recovering(
     (module, errors)
 }
 
-/// [`parse_module_recovering`] by the old route, the parser building the
-/// compiler's tree itself: the oracle's reference
-/// ([`crate::lower::oracle`]), and for timing, until step 4 of
-/// docs/proposals/syntax-tree-lowering.md removes it. Nothing else should
-/// call it.
-pub fn parse_module_direct(file: FileId, text: &str, stack: usize) -> (Module, Vec<Diagnostic>) {
-    let recovered = lex_recovering(file, text);
-    let (module, errors, _) = parse_lexed(
-        file,
-        text,
-        stack,
-        &recovered.tokens,
-        &recovered.bars,
-        recovered.failures,
-        false,
-    );
-    (module, errors)
-}
-
-/// [`parse_tokens`] on what [`lex_recovering`] (or its version with trivia)
-/// read, with the declarations that didn't lex (`failures`) recovered from:
-/// their names in `failed`, their errors among the others in file order,
-/// and with `record`, each an `Error` root over its raw text among the
-/// declarations' marks.
+/// [`parse_tokens`] on what [`lex_recovering_with_trivia`] read, with the
+/// declarations that didn't lex (`failures`) recovered from: their errors
+/// among the others in file order, and each an `Error` root over its raw
+/// text among the declarations' marks.
 fn parse_lexed(
     file: FileId,
     text: &str,
     stack: usize,
     tokens: &[Token],
-    bars: &[Span],
     failures: Vec<LexFailure>,
-    record: bool,
-) -> (Module, Vec<Diagnostic>, Vec<DeclMarks>) {
-    let (mut module, mut errors, mut trees) = parse_tokens(file, text, stack, tokens, bars, record);
+) -> (Vec<Diagnostic>, Vec<DeclMarks>) {
+    let (mut errors, mut trees) = parse_tokens(file, text, stack, tokens);
     let raw_at = trees.len();
     for failure in failures {
-        let error_at = failure.error.primary_span();
-        module
-            .failed
-            .extend(failed_names_in(file, text, &failure.range, error_at));
         errors.push(failure.error);
-        if record {
-            // At the first token after it, which the blanking left where it was.
-            let next = tokens.partition_point(|t| (t.span.start as usize) < failure.range.start);
-            trees.push(DeclMarks {
-                tokens: next as u32..next as u32,
-                root: NodeKind::Error,
-                marks: Vec::new(),
-                raw: Some(failure.range.start as u32..failure.range.end as u32),
-                signature_kept: false,
-            });
-        }
+        // At the first token after it, which the blanking left where it was.
+        let next = tokens.partition_point(|t| (t.span.start as usize) < failure.range.start);
+        trees.push(DeclMarks {
+            tokens: next as u32..next as u32,
+            root: NodeKind::Error,
+            marks: Vec::new(),
+            raw: Some(failure.range.start as u32..failure.range.end as u32),
+            signature_kept: false,
+        });
     }
     errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
     if trees.len() > raw_at {
@@ -167,7 +134,7 @@ fn parse_lexed(
         // ones keep their order among themselves.
         trees.sort_by_key(|tree| (tree.tokens.start, tree.raw.is_none()));
     }
-    (module, errors, trees)
+    (errors, trees)
 }
 
 /// The names of the declaration in `text[range]`, which has a lexical error,
@@ -221,9 +188,11 @@ pub fn parse_module_and_tree(
     (module, errors, tree)
 }
 
-/// The module `tree` lowers to, with `errors` (the parse's) given an error
-/// for each declaration the lowering couldn't lower, which the module
-/// then holds as failed, like one that didn't parse.
+/// The module `tree` lowers to, with `errors` (the parse's) given the
+/// lowering's own: a declaration the lowering refuses
+/// ([`Unsupported::Invalid`], a check on what was written, such as a
+/// repeated parameter) or can't lower is failed, like one that didn't parse,
+/// with that error in place of any the parser found in it later.
 fn lowered_module(
     tree: &SyntaxFile,
     text: &str,
@@ -231,20 +200,32 @@ fn lowered_module(
     stack: usize,
     errors: &mut Vec<Diagnostic>,
 ) -> Module {
-    let (mut module, unlowered) = Lower::new(tree, text, file, errors)
-        .with_stack(stack)
-        .module();
+    let lower = Lower::new(tree, text, file, errors).with_stack(stack);
+    let (mut module, unlowered) = lower.module();
     if unlowered.is_empty() {
         return module;
     }
     let roots: Vec<_> = tree.decls().collect();
-    for (i, what) in unlowered {
+    let kept: Vec<bool> = unlowered
+        .iter()
+        .map(|(i, what)| lower.signature_despite(roots[*i], what).is_some())
+        .collect();
+    for ((i, what), kept) in unlowered.into_iter().zip(kept) {
         let tokens = &tree.tokens()[roots[i].token_range()];
         let at = tokens.first().map_or(Span::NOWHERE, |token| token.span);
         let error = unlowered_error(what, at);
-        module
-            .failed
-            .extend(failed_names_of(tokens, error.primary_span()));
+        // Without recovery a declaration reports its first error only.
+        if let (Some(from), Some(range)) = (error.primary_span(), roots[i].span()) {
+            errors.retain(|e| {
+                e.primary_span()
+                    .is_none_or(|s| s.start < from.start || s.start >= range.end)
+            });
+        }
+        if !kept {
+            module
+                .failed
+                .extend(failed_names_of(tokens, error.primary_span()));
+        }
         errors.push(error);
     }
     module.failed.sort_by_key(|failed| failed.name.span.start);
@@ -253,10 +234,11 @@ fn lowered_module(
 }
 
 /// The error for a declaration or expression starting at `at` that parsed
-/// and that the lowering couldn't lower.
+/// and that the lowering refused or couldn't lower.
 fn unlowered_error(what: Unsupported, at: Span) -> Diagnostic {
     match what {
         Unsupported::TooDeep(span) => nested_too_deeply(span),
+        Unsupported::Invalid(error) => *error,
         what => Diagnostic::error(
             "E-INTERNAL",
             format!("internal error: the parser couldn't build this ({what})"),
@@ -277,71 +259,62 @@ fn nested_too_deeply(at: Span) -> Diagnostic {
     .with_note("this isn't a syntax error: there's a limit on how deeply expressions nest")
 }
 
-/// The parse's errors and the lossless tree, with the compiler's tree the
-/// parser builds directly thrown away.
-fn parse_with_tree(file: FileId, text: &str, stack: usize) -> (Vec<Diagnostic>, SyntaxFile) {
-    let (_, errors, tree) = parse_direct_with_tree(file, text, stack);
-    (errors, tree)
-}
-
-/// [`parse_module_direct`]'s module and errors, and the lossless tree.
-pub(crate) fn parse_direct_with_tree(
+/// The parse's errors and the lossless tree.
+pub(crate) fn parse_with_tree(
     file: FileId,
     text: &str,
     stack: usize,
-) -> (Module, Vec<Diagnostic>, SyntaxFile) {
+) -> (Vec<Diagnostic>, SyntaxFile) {
     let (lexed, failures) = lex_recovering_with_trivia(file, text);
-    let (module, errors, groups) = parse_lexed(
-        file,
-        text,
-        stack,
-        &lexed.tokens,
-        &lexed.bars,
-        failures,
-        true,
-    );
+    let (errors, groups) = parse_lexed(file, text, stack, &lexed.tokens, failures);
     let tree = SyntaxFile::build(lexed.tokens, lexed.trivia, lexed.eof, lexed.bars, groups);
-    (module, errors, tree)
+    (errors, tree)
+}
+
+/// How much of the `stack` a parse may use the parser lets it use: half.
+/// The lowering after it gets all of it, since for some shapes it takes
+/// more stack per level than the parser, whose frames hold no trees
+/// (`f (f (…))` and `(.f (.f …))` up to 1.55 times as much at the
+/// parser's deepest in debug builds, 1.2 in release ones, SW-3213), so
+/// what parses always lowers. Half still parses 18,000 nested brackets in
+/// release builds.
+fn parser_limit(stack: usize) -> StackLimit {
+    StackLimit::from_here(stack / 2)
 }
 
 /// Parses a file's tokens, declaration by declaration, recovering as
-/// [`parse_module_recovering`] says. With `record`, also the marks of each
-/// declaration, for the lossless tree.
+/// [`parse_module_recovering`] says, into each declaration's marks for the
+/// lossless tree.
 fn parse_tokens(
     file: FileId,
     text: &str,
     stack: usize,
     tokens: &[Token],
-    bars: &[Span],
-    record: bool,
-) -> (Module, Vec<Diagnostic>, Vec<DeclMarks>) {
-    let limit = StackLimit::from_here(stack);
-    let mut namespace = None;
-    let mut imports = Vec::new();
-    let mut decls = Vec::new();
+) -> (Vec<Diagnostic>, Vec<DeclMarks>) {
+    let limit = parser_limit(stack);
+    // What came before: a namespace line, an import, a declaration that
+    // parsed (or kept its signature).
+    let (mut namespace, mut imports, mut decls) = (false, false, false);
     let mut errors: Vec<Diagnostic> = Vec::new();
-    let mut failed = Vec::new();
     let mut trees = Vec::new();
     let all = 0..tokens.len() as u32;
     let groups = match split_decls(tokens) {
         Ok(groups) => groups,
         Err(d) => {
-            if record {
-                trees.push(DeclMarks {
-                    tokens: all,
-                    root: NodeKind::Error,
-                    marks: Vec::new(),
-                    raw: None,
-                    signature_kept: false,
-                });
-            }
-            return (Module::default(), vec![*d], trees);
+            trees.push(DeclMarks {
+                tokens: all,
+                root: NodeKind::Error,
+                marks: Vec::new(),
+                raw: None,
+                signature_kept: false,
+            });
+            return (vec![*d], trees);
         }
     };
     // The groups run to the end of `tokens`; any tokens before the first
     // start no declaration.
     let mut offset = (tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>()) as u32;
-    if record && offset > 0 {
+    if offset > 0 {
         trees.push(DeclMarks {
             tokens: 0..offset,
             root: NodeKind::Error,
@@ -352,24 +325,19 @@ fn parse_tokens(
     }
     for group in groups {
         let mut parser = Parser::new(group, file, text.len(), limit);
-        if record {
-            parser.marks = Some(Vec::new());
-        }
         // What the declaration turned out to be, once it has parsed.
         let mut root = NodeKind::Error;
         let mut signature_kept = false;
         'group: {
             // The attributes before the declaration, which belong to it.
-            let attrs = match parser.attributes() {
-                Ok(attrs) => attrs,
+            let first = match parser.attributes() {
+                Ok(first) => first,
                 Err(diagnostic) => {
-                    let error_at = diagnostic.primary_span();
                     errors.push(*diagnostic);
-                    failed.extend(failed_names_of(group, error_at));
                     break 'group;
                 }
             };
-            if let Some(first) = attrs.first() {
+            if let Some(first) = first {
                 let refused = match parser.peek() {
                     None => Some(
                         Diagnostic::error(
@@ -378,21 +346,21 @@ fn parse_tokens(
                         )
                         .with_label(first.span, "nothing follows these attributes"),
                     ),
-                    Some(Tok::KwNamespace) => Some(misplaced_attributes(first, "a namespace line")),
-                    Some(Tok::KwImport) => Some(misplaced_attributes(first, "an import")),
-                    Some(Tok::KwTest) => Some(misplaced_attributes(first, "a test")),
-                    Some(Tok::KwAbility) => Some(misplaced_attributes(first, "an ability")),
+                    Some(Tok::KwNamespace) => {
+                        Some(misplaced_attributes(&first, "a namespace line"))
+                    }
+                    Some(Tok::KwImport) => Some(misplaced_attributes(&first, "an import")),
+                    Some(Tok::KwTest) => Some(misplaced_attributes(&first, "a test")),
+                    Some(Tok::KwAbility) => Some(misplaced_attributes(&first, "an ability")),
                     _ => None,
                 };
                 if let Some(diagnostic) = refused {
-                    let error_at = diagnostic.primary_span();
                     errors.push(diagnostic);
-                    failed.extend(failed_names_of(group, error_at));
                     break 'group;
                 }
             }
             if parser.peek() == Some(&Tok::KwNamespace) {
-                if namespace.is_some() {
+                if namespace {
                     errors.push(
                     error(group[0].span, "a file has only one namespace line").with_note(
                         "everything in a file goes in the namespace on its first line; to use another namespace, import from it or write its name in full",
@@ -400,8 +368,8 @@ fn parse_tokens(
                 );
                     break 'group;
                 }
-                if !imports.is_empty() || !decls.is_empty() {
-                    let name = parser.namespace().ok().map(|decl| decl.path.text);
+                if imports || decls {
+                    let name = parser.namespace().ok();
                     let message =
                         "the namespace line must come first, before imports and declarations";
                     let mut diagnostic = Diagnostic::error("E-NAMESPACE-NOT-FIRST", message)
@@ -413,12 +381,10 @@ fn parse_tokens(
                     errors.push(diagnostic);
                     break 'group;
                 }
-                let decl = parser
-                    .namespace()
-                    .and_then(|decl| parser.finish().map(|()| decl));
-                match parser.strict(decl) {
-                    Ok(decl) => {
-                        namespace = Some(decl);
+                let parsed = parser.namespace().and_then(|_| parser.finish());
+                match parser.strict(parsed) {
+                    Ok(()) => {
+                        namespace = true;
                         root = NodeKind::Namespace;
                     }
                     Err(diagnostic) => errors.push(*diagnostic),
@@ -426,19 +392,17 @@ fn parse_tokens(
                 break 'group;
             }
             if parser.peek() == Some(&Tok::KwImport) {
-                if !decls.is_empty() {
+                if decls {
                     errors.push(
                         error(group[0].span, "imports go at the top of the file")
                             .with_note("move it before the first declaration"),
                     );
                     break 'group;
                 }
-                let import = parser
-                    .import()
-                    .and_then(|import| parser.finish().map(|()| import));
-                match parser.strict(import) {
-                    Ok(import) => {
-                        imports.push(import);
+                let parsed = parser.import().and_then(|()| parser.finish());
+                match parser.strict(parsed) {
+                    Ok(()) => {
+                        imports = true;
                         root = NodeKind::Import;
                     }
                     Err(diagnostic) => errors.push(*diagnostic),
@@ -447,122 +411,50 @@ fn parse_tokens(
             }
             // A `def` or `theorem` whose header parses is kept if its body
             // doesn't, so it can stand in for its statement
-            // (docs/proposals/tests-with-errors.md §3.3).
+            // (docs/proposals/tests-with-errors.md §3.3): the lowering makes
+            // its signature from the header's nodes.
             let keep = matches!(
                 parser.peek(),
                 Some(Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque)
             );
             parser.keep_header = keep;
-            // The signature of a definition that parsed whole, for when
-            // something after its body, or an error recovered from inside
-            // it, fails it.
-            let signature = |parsed: Vec<Decl>| {
-                parsed.into_iter().next().filter(|decl| {
-                    keep && matches!(
-                        decl,
-                        Decl::Signature {
-                            instance: false,
-                            ..
-                        }
-                    )
-                })
-            };
             let parsed = match parser.decl() {
-                Ok(parsed) => match parser.finish() {
-                    Ok(()) => Ok(parsed),
-                    Err(diagnostic) => Err((vec![*diagnostic], signature(parsed))),
+                Ok(kind) => match parser.finish() {
+                    Ok(()) => Ok(kind),
+                    // Something after a definition that parsed whole.
+                    Err(diagnostic) => Err((
+                        *diagnostic,
+                        keep && matches!(kind, NodeKind::Def | NodeKind::Theorem),
+                    )),
                 },
-                Err(diagnostic) => Err((vec![*diagnostic], parser.header.take())),
+                Err(diagnostic) => Err((*diagnostic, parser.header_kept)),
             };
-            // Strict for now: an error recovered from fails the declaration
-            // as if it had unwound, and comes before the one that did, if any.
-            let parsed = match parsed {
-                Ok(parsed) if parser.errors.is_empty() => Ok(parsed),
-                Ok(parsed) => Err((std::mem::take(&mut parser.errors), signature(parsed))),
-                Err((unwound, header)) => {
-                    let mut all = std::mem::take(&mut parser.errors);
-                    all.extend(unwound);
-                    Err((all, header))
+            match parser.strict(parsed.clone().map_err(|(d, _)| Box::new(d))) {
+                Ok(kind) => {
+                    root = kind;
+                    decls = true;
                 }
-            };
-            match parsed {
-                Ok(mut parsed) => {
-                    // A declaration with attributes is a data type or a
-                    // definition (the others are refused above): its first part.
-                    match parsed.first_mut() {
-                        Some(Decl::Data { attrs: a, .. } | Decl::Signature { attrs: a, .. }) => {
-                            *a = attrs;
-                        }
-                        _ => debug_assert!(attrs.is_empty()),
-                    }
-                    root = decl_kind(parsed.first());
-                    decls.extend(parsed)
-                }
-                Err((diagnostics, header)) => {
-                    let error_at = diagnostics.first().and_then(Diagnostic::primary_span);
-                    errors.extend(diagnostics);
-                    match header {
-                        Some(mut signature) => {
-                            if let Decl::Signature {
-                                attrs: a,
-                                body_error,
-                                span,
-                                ..
-                            } = &mut signature
-                            {
-                                *a = attrs;
-                                *body_error = Some(error_at.unwrap_or(*span));
-                            }
-                            decls.push(signature);
-                            signature_kept = true;
-                        }
-                        None => failed.extend(failed_names_of(group, error_at)),
+                Err(diagnostic) => {
+                    errors.push(*diagnostic);
+                    if let Err((_, true)) = parsed {
+                        decls = true;
+                        signature_kept = true;
                     }
                 }
             }
         }
         errors.append(&mut parser.errors);
-        if let Some(marks) = parser.marks.take() {
-            let end = offset + group.len() as u32;
-            trees.push(DeclMarks {
-                tokens: offset..end,
-                root,
-                marks,
-                raw: None,
-                signature_kept,
-            });
-        }
+        let end = offset + group.len() as u32;
+        trees.push(DeclMarks {
+            tokens: offset..end,
+            root,
+            marks: std::mem::take(&mut parser.marks),
+            raw: None,
+            signature_kept,
+        });
         offset += group.len() as u32;
     }
-    (
-        Module {
-            namespace,
-            imports,
-            decls,
-            failed,
-            doc_links: crate::docs::bar_links(text, bars),
-        },
-        errors,
-        trees,
-    )
-}
-
-/// What a declaration that parsed is, from its first part.
-fn decl_kind(decl: Option<&Decl>) -> NodeKind {
-    match decl {
-        Some(Decl::Data {
-            interface: true, ..
-        }) => NodeKind::Interface,
-        Some(Decl::Data { record: true, .. }) => NodeKind::RecordType,
-        Some(Decl::Data { .. }) => NodeKind::DataType,
-        Some(Decl::Signature { synonym: true, .. }) => NodeKind::TypeSynonym,
-        Some(Decl::Signature { theorem: true, .. }) => NodeKind::Theorem,
-        Some(Decl::Signature { instance: true, .. }) => NodeKind::Instance,
-        Some(Decl::Signature { .. }) => NodeKind::Def,
-        Some(Decl::Test { .. }) => NodeKind::Test,
-        Some(Decl::Ability { .. }) => NodeKind::Ability,
-        Some(Decl::Equation { .. }) | None => NodeKind::Error,
-    }
+    (errors, trees)
 }
 
 /// The names a declaration that didn't parse would have declared, read off
@@ -662,17 +554,14 @@ fn namespace_line(file: FileId, text: &str) -> Result<Option<NamespaceDecl>> {
     if parser.peek() != Some(&Tok::KwNamespace) {
         return Ok(None);
     }
-    parser.marks = Some(Vec::new());
-    let decl = parser
-        .namespace()
-        .and_then(|decl| parser.finish().map(|()| decl));
-    parser.strict(decl)?;
+    let parsed = parser.namespace().and_then(|_| parser.finish());
+    parser.strict(parsed)?;
     // The groups run to the end of the tokens.
     let start = lexed.tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>();
     let root = DeclMarks {
         tokens: start as u32..(start + group.len()) as u32,
         root: NodeKind::Namespace,
-        marks: parser.marks.take().unwrap_or_default(),
+        marks: std::mem::take(&mut parser.marks),
         raw: None,
         signature_kept: false,
     };
@@ -705,32 +594,7 @@ pub fn parse_expression_within(file: FileId, text: &str, stack: usize) -> Parsed
 /// one root, an [`NodeKind::Expression`] holding the expression if it
 /// parsed, an `Error` if it didn't, over its raw text if it didn't lex.
 pub fn parse_expression_tree(file: FileId, text: &str, stack: usize) -> (Parsed<Expr>, SyntaxFile) {
-    let (parsed, tree) = parse_expression_direct_with_tree(file, text, stack);
-    let Ok(_) = parsed else {
-        return (parsed, tree);
-    };
-    let root = tree.decls().next().expect("an expression's root");
-    let lowered = Lower::new(&tree, text, file, &[])
-        .with_stack(stack)
-        .expression(root)
-        .map_err(|what| {
-            let at = tree
-                .tokens()
-                .first()
-                .map_or(Span::NOWHERE, |token| token.span);
-            unlowered_error(what, at)
-        });
-    (lowered, tree)
-}
-
-/// [`parse_expression_tree`] by the old route, the parser building the
-/// compiler's tree itself, as [`parse_module_direct`].
-pub(crate) fn parse_expression_direct_with_tree(
-    file: FileId,
-    text: &str,
-    stack: usize,
-) -> (Parsed<Expr>, SyntaxFile) {
-    let limit = StackLimit::from_here(stack);
+    let limit = parser_limit(stack);
     let lexed = match lex_with_trivia(file, text) {
         Ok(lexed) => lexed,
         Err(error) => {
@@ -752,19 +616,16 @@ pub(crate) fn parse_expression_direct_with_tree(
         }
     };
     let mut parser = Parser::new(&lexed.tokens, file, text.len(), limit);
-    parser.marks = Some(Vec::new());
-    let expr = parser
-        .expr()
-        .and_then(|expr| parser.finish().map(|()| expr));
-    let expr = parser.strict(expr).map_err(|d| *d);
+    let parsed = parser.expr().and_then(|()| parser.finish());
+    let parsed = parser.strict(parsed).map_err(|d| *d);
     let root = DeclMarks {
         tokens: 0..lexed.tokens.len() as u32,
-        root: if expr.is_ok() {
+        root: if parsed.is_ok() {
             NodeKind::Expression
         } else {
             NodeKind::Error
         },
-        marks: parser.marks.take().unwrap_or_default(),
+        marks: std::mem::take(&mut parser.marks),
         raw: None,
         signature_kept: false,
     };
@@ -775,62 +636,79 @@ pub(crate) fn parse_expression_direct_with_tree(
         lexed.bars,
         vec![root],
     );
-    (expr, tree)
+    if let Err(error) = parsed {
+        return (Err(error), tree);
+    }
+    let root = tree.decls().next().expect("an expression's root");
+    let lowered = Lower::new(&tree, text, file, &[])
+        .with_stack(stack)
+        .expression(root)
+        .map_err(|what| {
+            let at = tree
+                .tokens()
+                .first()
+                .map_or(Span::NOWHERE, |token| token.span);
+            unlowered_error(what, at)
+        });
+    (lowered, tree)
 }
 
-/// `name`, unless it's qualified: a binder, a field or a constructor being
-/// declared has a short name.
-fn unqualified(name: Name) -> Result<Name> {
-    if name.text.contains('.') {
+/// The name a name token holds, or "" for any other token.
+fn name_text(token: &Token) -> &str {
+    match &token.tok {
+        Tok::Lower(text) | Tok::Upper(text) => text,
+        _ => "",
+    }
+}
+
+/// That the name `token` isn't qualified: a binder, a field or a
+/// constructor being declared has a short name.
+fn unqualified(token: &Token) -> Result<()> {
+    let text = name_text(token);
+    if text.contains('.') {
         return Err(error(
-            name.span,
-            format!(
-                "`{}` is a qualified name, which can't be used here",
-                name.text
-            ),
+            token.span,
+            format!("`{text}` is a qualified name, which can't be used here"),
         )
         .with_note("only declarations and references can be qualified; write a short name")
         .into());
     }
-    Ok(name)
+    Ok(())
 }
 
-/// Whether a pattern contains the absurd pattern `()`, so its equation or
-/// arm needs no right-hand side.
-fn has_absurd(p: &Pattern) -> bool {
-    match p {
-        Pattern::Absurd(_) => true,
-        Pattern::Ctor(_, args, _) => args.iter().any(has_absurd),
-        Pattern::Tuple(a, b, _) => has_absurd(a) || has_absurd(b),
-        Pattern::Cons(a, b, _) => has_absurd(a) || has_absurd(b),
-        Pattern::Record { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
-        Pattern::CtorFields { fields, .. } => fields.iter().any(|(_, p)| has_absurd(p)),
-        Pattern::Or(alternatives, _) => alternatives.iter().any(has_absurd),
-        _ => false,
-    }
+/// What a lowering in the parser gave ([`Parser::lowered`]).
+enum Lowered {
+    Expr(Expr),
+    Pattern(Pattern),
 }
 
-/// The first variable a pattern binds, if any (a punned record field is
-/// one).
-fn first_bound(p: &Pattern) -> Option<&Name> {
-    match p {
-        Pattern::Var(name) => Some(name),
-        Pattern::Ctor(_, args, _) => args.iter().find_map(first_bound),
-        Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
-            first_bound(a).or_else(|| first_bound(b))
-        }
-        Pattern::Named(_, p, _) => first_bound(p),
-        Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
-            fields.iter().find_map(|(_, p)| first_bound(p))
-        }
-        Pattern::Or(alternatives, _) => alternatives.iter().find_map(first_bound),
-        Pattern::Wildcard(_)
-        | Pattern::Absurd(_)
-        | Pattern::Num(..)
-        | Pattern::NegNum(..)
-        | Pattern::Char(..)
-        | Pattern::Nil(_) => None,
-    }
+/// A line of a block, as far as the block needs to know: the last line
+/// must be an expression.
+enum Line {
+    Expr,
+    /// A `let`, at this keyword.
+    Let(Span),
+    /// A local definition, at its keyword.
+    Def(Span),
+}
+
+/// The first attribute of a group, for messages about where attributes
+/// can't go ([`declarations::misplaced_attributes`]).
+pub(super) struct FirstAttribute {
+    pub(super) name: String,
+    pub(super) span: Span,
+}
+
+/// What the callers of the binder parsers check: the binder's first
+/// attribute, whether it is `auto` and has no name, where its first name
+/// is (past `auto`), and the tokens of its type and default value.
+struct BinderRead {
+    attribute: Option<FirstAttribute>,
+    auto: bool,
+    nameless: bool,
+    first_name: Span,
+    ty: (u32, u32),
+    default: Option<(u32, u32)>,
 }
 
 /// The token range of each top-level declaration, in order: the column-0 split
@@ -1006,16 +884,17 @@ struct Parser<'t> {
     /// How deep the recursion may go.
     stack: StackLimit,
     /// Set by recovery before a top-level `def` or `theorem`, which takes
-    /// it: that definition parks its signature in `header` while its body
-    /// is parsed.
+    /// it: that definition sets `header_kept` once its header has parsed
+    /// and its body starts.
     keep_header: bool,
-    /// The signature of the top-level definition whose body is being
-    /// parsed, if `keep_header` asked for it: still here after an error,
-    /// for recovery to keep (docs/proposals/tests-with-errors.md §3.3).
-    header: Option<Decl>,
-    /// The constructs finished so far, for the lossless tree, if it was
-    /// asked for (`crate::tree`, "Marks").
-    marks: Option<Vec<Mark>>,
+    /// Whether the top-level definition being parsed has a whole header
+    /// and a body after it, if `keep_header` asked: then if the body
+    /// doesn't parse, the declaration keeps its signature
+    /// (docs/proposals/tests-with-errors.md §3.3).
+    header_kept: bool,
+    /// The constructs finished so far, for the lossless tree (`crate::tree`,
+    /// "Marks").
+    marks: Vec<Mark>,
     /// The constructs [`Self::open`] started and [`Self::close`] hasn't
     /// finished, the latest last: where each starts, and its kind.
     open: Vec<(u32, NodeKind)>,
@@ -1124,8 +1003,8 @@ impl<'t> Parser<'t> {
             matching: match_brackets(tokens),
             stack,
             keep_header: false,
-            header: None,
-            marks: None,
+            header_kept: false,
+            marks: Vec::new(),
             open: Vec::new(),
             errors: Vec::new(),
         }
@@ -1139,12 +1018,10 @@ impl<'t> Parser<'t> {
     }
 
     /// Records the construct of kind `kind` from token `start` (a
-    /// [`Self::mark`]) to the last token read, if marks are being recorded.
+    /// [`Self::mark`]) to the last token read.
     #[inline(always)]
     fn node(&mut self, start: u32, kind: NodeKind) {
-        if self.marks.is_some() {
-            self.record(start, kind);
-        }
+        self.record(start, kind);
     }
 
     /// [`Self::node`] for a construct whose first token, already read,
@@ -1153,9 +1030,7 @@ impl<'t> Parser<'t> {
     /// them no stack.
     #[inline(always)]
     fn node_at(&mut self, start: Span, kind: NodeKind) {
-        if self.marks.is_some() {
-            self.record_at(start, kind);
-        }
+        self.record_at(start, kind);
     }
 
     #[inline(never)]
@@ -1167,9 +1042,7 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn record(&mut self, start: u32, kind: NodeKind) {
         let end = self.pos as u32;
-        if let Some(marks) = &mut self.marks {
-            marks.push(Mark { kind, start, end });
-        }
+        self.marks.push(Mark { kind, start, end });
     }
 
     /// Where the operand that ends at the current token starts: at the
@@ -1183,7 +1056,7 @@ impl<'t> Parser<'t> {
     /// functions nested expressions pile up (see [`Result`]).
     fn operand_start(&self) -> u32 {
         let end = self.pos as u32;
-        match self.marks.as_ref().and_then(|marks| marks.last()) {
+        match self.marks.last() {
             Some(mark) if mark.end == end => mark.start,
             _ => end.saturating_sub(1),
         }
@@ -1193,18 +1066,14 @@ impl<'t> Parser<'t> {
     /// one that only turns out to be one after the fact.
     #[inline(always)]
     fn node_around_operand(&mut self, kind: NodeKind) {
-        if self.marks.is_some() {
-            self.record(self.operand_start(), kind);
-        }
+        self.record(self.operand_start(), kind);
     }
 
     /// Starts a construct whose first part is the operand just read, at an
     /// operator: `a` in `a + b`. [`Self::close`] finishes it.
     #[inline(always)]
     fn open(&mut self, kind: NodeKind) {
-        if self.marks.is_some() {
-            self.record_open(kind);
-        }
+        self.record_open(kind);
     }
 
     #[inline(never)]
@@ -1218,9 +1087,7 @@ impl<'t> Parser<'t> {
     /// an error stopped the parse, which drops the declaration's marks.
     #[inline(always)]
     fn close(&mut self) {
-        if self.marks.is_some() {
-            self.record_close();
-        }
+        self.record_close();
     }
 
     #[inline(never)]
@@ -1235,9 +1102,7 @@ impl<'t> Parser<'t> {
     /// a pattern, which is its own node.
     #[inline(always)]
     fn mark_param(&mut self, first: u32) {
-        if self.marks.is_some() {
-            self.record_param(first);
-        }
+        self.record_param(first);
     }
 
     #[inline(never)]
@@ -1245,8 +1110,7 @@ impl<'t> Parser<'t> {
         let end = self.pos as u32;
         let marked = self
             .marks
-            .as_ref()
-            .and_then(|marks| marks.last())
+            .last()
             .is_some_and(|mark| mark.start == first && mark.end == end);
         if end - first > 1 && !marked {
             self.record(first, NodeKind::LambdaParam);
@@ -1260,33 +1124,140 @@ impl<'t> Parser<'t> {
     #[inline(never)]
     fn retag_last(&mut self, keyword: Span, kind: NodeKind) {
         let first = self.tokens[..self.pos].partition_point(|t| t.span.start < keyword.start);
-        if let Some(mark) = self.marks.as_mut().and_then(|marks| marks.last_mut()) {
+        if let Some(mark) = self.marks.last_mut() {
             mark.kind = kind;
             mark.start = first as u32;
         }
     }
 
-    /// [`widen`] on an expression that starts with a method
-    /// section, which then becomes the section's body: the `Section` node
-    /// moves out from the section's head to the whole expression.
+    /// An expression just read that starts with a method section, `.f.g x`,
+    /// becomes the section's body: the `Section` node moves out from the
+    /// section's head to the whole expression (the lowering's `widen`).
     #[inline(never)]
-    fn widen_section(&mut self, expr: &mut Expr) {
-        if !widen(expr) {
+    fn widen_section(&mut self) {
+        let start = self.operand_start();
+        let end = self.pos as u32;
+        // Unless the whole expression is the section.
+        if let Some(last) = self.marks.last()
+            && last.kind == NodeKind::Section
+            && (last.start, last.end) == (start, end)
+        {
             return;
         }
-        let start = self.operand_start();
-        let Some(marks) = &mut self.marks else {
-            return;
-        };
-        if let Some(head) = marks
+        let Some(head) = self
+            .marks
             .iter_mut()
             .rev()
             .find(|m| m.kind == NodeKind::Section && m.start == start)
-        {
-            // Empty, so the tree leaves it out.
-            head.end = head.start;
-        }
+        else {
+            return;
+        };
+        // Empty, so the tree leaves it out.
+        head.end = head.start;
         self.record(start, NodeKind::Section);
+    }
+
+    /// The compiler's tree for the expression (or with `pattern`, the
+    /// pattern) in tokens `start..end`, lowered from the marks finished so
+    /// far, if they hold one: for messages and the rare decisions that need
+    /// what the lowering derives, such as a span (`f (x)` spans `f x`, not
+    /// its bracket). Slow, since it builds a tree: only on paths that end in
+    /// an error, or for rare constructs.
+    #[cold]
+    #[inline(never)]
+    fn lowered(&self, (start, end): (u32, u32), pattern: bool) -> Option<Lowered> {
+        let marks = self
+            .marks
+            .iter()
+            .filter(|m| start <= m.start && m.end <= end && m.start < m.end)
+            .map(|m| Mark {
+                kind: m.kind,
+                start: m.start - start,
+                end: m.end - start,
+            })
+            .collect();
+        let tokens: Vec<Token> = self.tokens[start as usize..end as usize].to_vec();
+        let trivia = vec![Trivia::default(); tokens.len()];
+        let root = DeclMarks {
+            tokens: 0..tokens.len() as u32,
+            root: NodeKind::Expression,
+            marks,
+            raw: None,
+            signature_kept: false,
+        };
+        let tree = SyntaxFile::build(tokens, trivia, Trivia::default(), Vec::new(), vec![root]);
+        let lower = Lower::new(&tree, "", self.file, &[]);
+        let root = tree.decls().next()?;
+        let mut elements = root.children();
+        let (Some(only), None) = (elements.next(), elements.next()) else {
+            return None;
+        };
+        if pattern {
+            lower.pattern(only).ok().map(Lowered::Pattern)
+        } else {
+            lower.expr(only).ok().map(Lowered::Expr)
+        }
+    }
+
+    /// The span the compiler's tree gives the expression in tokens `range`
+    /// ([`Self::lowered`]), or the tokens' own if it can't be lowered.
+    #[cold]
+    #[inline(never)]
+    fn lowered_span(&self, range: (u32, u32)) -> Span {
+        match self.lowered(range, false) {
+            Some(Lowered::Expr(expr)) => expr.span(),
+            _ => self.tokens_span(range),
+        }
+    }
+
+    /// [`Self::lowered_span`] for a pattern.
+    #[cold]
+    #[inline(never)]
+    fn lowered_pattern_span(&self, range: (u32, u32)) -> Span {
+        match self.lowered(range, true) {
+            Some(Lowered::Pattern(pattern)) => pattern.span(),
+            _ => self.tokens_span(range),
+        }
+    }
+
+    /// From the first token of `start..end` to its last.
+    fn tokens_span(&self, (start, end): (u32, u32)) -> Span {
+        let first = self.tokens[start as usize].span;
+        first.to(self.tokens[(end as usize).max(start as usize + 1) - 1].span)
+    }
+
+    /// Whether a pattern read since token `from` holds the absurd pattern
+    /// `()`, not under a named implicit field (`[n := p]`): such an arm or
+    /// equation needs no right-hand side.
+    fn absurd_since(&self, from: u32) -> bool {
+        self.absurd_in(from, self.pos as u32)
+    }
+
+    /// [`Self::absurd_since`] for the tokens `from..to`. Marks finish inner
+    /// first, so a named field's mark comes after those inside it.
+    #[inline(never)]
+    fn absurd_in(&self, from: u32, to: u32) -> bool {
+        let mut named: Vec<(u32, u32)> = Vec::new();
+        for mark in self.marks.iter().rev() {
+            if mark.start < from {
+                break;
+            }
+            if mark.end > to {
+                continue;
+            }
+            match mark.kind {
+                NodeKind::PatternNamed => named.push((mark.start, mark.end)),
+                NodeKind::PatternAbsurd
+                    if !named
+                        .iter()
+                        .any(|&(start, end)| start <= mark.start && mark.end <= end) =>
+                {
+                    return true;
+                }
+                _ => {}
+            }
+        }
+        false
     }
 
     /// `=>` after a lambda's parameters or an alternative's patterns, with a
@@ -1388,56 +1359,38 @@ impl<'t> Parser<'t> {
     /// (docs/proposals/pattern-guards.md §2). The condition runs up to a
     /// `=>` outside brackets, or to the end of the arm.
     #[inline(never)]
-    pub(super) fn guard(&mut self) -> Result<Option<Guard>> {
+    pub(super) fn guard(&mut self) -> Result<()> {
         if self.peek() != Some(&Tok::KwIf) {
-            return Ok(None);
+            return Ok(());
         }
         let mark = self.mark();
-        let start = self.bump().span;
-        let binder =
-            if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
-                let name = self.lower("a name")?;
-                self.bump();
-                Some(name)
-            } else {
-                None
-            };
+        self.bump();
+        if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
+            self.lower("a name")?;
+            self.bump();
+        }
         let saved = self.modes.guard_start.replace(self.pos);
         let cond = self.expr();
         self.modes.guard_start = saved;
-        let cond = cond?;
+        cond?;
         self.node(mark, NodeKind::Guard);
-        Ok(Some(Guard {
-            binder,
-            span: start.to(cond.span()),
-            cond,
-        }))
+        Ok(())
     }
 
-    /// The right side of an arm or equation whose patterns `patterns` and
-    /// condition `guard` were just read: `=> body`, or nothing when a
-    /// pattern is the absurd `()` and no `=>` follows (`| Rock, ()`).
-    /// Equations and `match` alternatives share it, so the two forms mean
-    /// the same. `what` names the `=>` in the error when it is missing.
-    pub(super) fn arm_body(
-        &mut self,
-        patterns: &[Pattern],
-        guard: Option<&Guard>,
-        what: &str,
-    ) -> Result<Option<Expr>> {
-        if self.peek() != Some(&Tok::FatArrow) && patterns.iter().any(has_absurd) {
-            if let Some(guard) = guard {
-                return Err(error(
-                    guard.span,
-                    "an arm with `()` and no body can't have a condition",
-                )
-                .with_note("the condition would test nothing: the pattern can't match")
-                .into());
-            }
-            return Ok(None);
+    /// The right side of an arm or equation whose patterns (`absurd` if one
+    /// holds the absurd pattern) and condition, if any, were just read:
+    /// `=> body`, or nothing when a pattern is the absurd `()` and no `=>`
+    /// follows
+    /// (`| Rock, ()`). Equations and `match` alternatives share it, so the
+    /// two forms mean the same. `what` names the `=>` in the error when it
+    /// is missing. (An arm with no body and a condition is the lowering's
+    /// error.)
+    pub(super) fn arm_body(&mut self, absurd: bool, what: &str) -> Result<()> {
+        if self.peek() != Some(&Tok::FatArrow) && absurd {
+            return Ok(());
         }
         self.expect_fat_arrow(what)?;
-        Ok(Some(self.expr()?))
+        self.expr()
     }
 
     /// Whether the token at `i`, a `,` or a closing bracket, is inside an
@@ -1674,79 +1627,63 @@ impl<'t> Parser<'t> {
         diagnostic
     }
 
-    /// The rest of `(a, b, c)` after its first component, as nested pairs.
-    /// Its own function, so the stack frame of the parser's recursive
-    /// functions stays small (the nesting limit is measured in stack).
+    /// The rest of `(a, b, c)` after its first component, which starts at
+    /// `span`. Its own function, so the stack frame of the parser's
+    /// recursive functions stays small (the nesting limit is measured in
+    /// stack).
     #[inline(never)]
-    fn tuple_expr(&mut self, first: Expr, span: Span) -> Result<Expr> {
-        let mut items = vec![first];
+    fn tuple_expr(&mut self, span: Span) -> Result<()> {
+        let mut items = 1;
         while self.eat(&Tok::Comma) {
-            if self.peek() == Some(&Tok::RParen) && items.len() >= 2 {
+            if self.peek() == Some(&Tok::RParen) && items >= 2 {
                 break;
             }
-            items.push(self.expr()?);
+            self.expr()?;
+            items += 1;
         }
         if self.peek() == Some(&Tok::Colon) {
             return Err(self.tuple_annotation().into());
         }
-        let end = self.expect(Tok::RParen, "`)`")?.span;
+        self.expect(Tok::RParen, "`)`")?;
         self.node_at(span, NodeKind::Tuple);
-        let mut last = items.pop().expect("two components");
-        while let Some(first) = items.pop() {
-            // The outermost tuple covers the brackets too.
-            let s = if items.is_empty() {
-                span.to(end)
-            } else {
-                first.span().to(end)
-            };
-            last = Expr::Tuple(Box::new(first), Box::new(last), s);
-        }
-        Ok(last)
+        Ok(())
     }
 
     /// The same for patterns.
     #[inline(never)]
-    fn tuple_pattern(&mut self, first: Pattern, span: Span) -> Result<Pattern> {
-        let mut items = vec![first];
+    fn tuple_pattern(&mut self, span: Span) -> Result<()> {
+        let mut items = 1;
         while self.eat(&Tok::Comma) {
-            if self.peek() == Some(&Tok::RParen) && items.len() >= 2 {
+            if self.peek() == Some(&Tok::RParen) && items >= 2 {
                 break;
             }
-            items.push(self.tuple_item()?);
+            self.tuple_item()?;
+            items += 1;
         }
-        let end = self.expect(Tok::RParen, "`)`")?.span;
+        self.expect(Tok::RParen, "`)`")?;
         self.node_at(span, NodeKind::PatternTuple);
-        let mut last = items.pop().expect("two components");
-        while let Some(first) = items.pop() {
-            let s = if items.is_empty() {
-                span.to(end)
-            } else {
-                first.span().to(end)
-            };
-            last = Pattern::Tuple(Box::new(first), Box::new(last), s);
-        }
-        Ok(last)
+        Ok(())
     }
 
     /// A component of a tuple pattern, or several, `p | q`.
-    fn tuple_item(&mut self) -> Result<Pattern> {
-        let first = self.tuple_component()?;
-        self.alternatives(first, Self::tuple_component)
+    fn tuple_item(&mut self) -> Result<()> {
+        self.tuple_component()?;
+        self.alternatives(Self::tuple_component)
     }
 
     /// An element of a list pattern, or several, `p | q`.
-    fn list_item(&mut self) -> Result<Pattern> {
-        let first = self.list_component()?;
-        self.alternatives(first, Self::list_component)
+    fn list_item(&mut self) -> Result<()> {
+        self.list_component()?;
+        self.alternatives(Self::list_component)
     }
 
     /// A component of a list pattern: a constructor's arguments run to the
     /// next `,` or `]`; `-k` is allowed, as in a tuple.
-    fn list_component(&mut self) -> Result<Pattern> {
+    fn list_component(&mut self) -> Result<()> {
         if self.ctor_ahead() {
-            let start = self.here();
-            let name = self.ctor_name()?;
-            return self.ctor_args(name, start, |t| {
+            let start = self.mark();
+            self.ctor_name()?;
+            return self.ctor_args(start, |t| {
                 matches!(t, Some(Tok::Comma | Tok::RBracket | Tok::Pipe) | None)
             });
         }
@@ -1755,27 +1692,27 @@ impl<'t> Parser<'t> {
 
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
-    fn tuple_component(&mut self) -> Result<Pattern> {
+    fn tuple_component(&mut self) -> Result<()> {
         if self.ctor_ahead() {
             // A constructor's arguments run to the next `,` or `)`:
             // `(Some x, Some y)`.
-            let start = self.here();
-            let name = self.ctor_name()?;
-            return self.ctor_args(name, start, |t| {
+            let start = self.mark();
+            self.ctor_name()?;
+            return self.ctor_args(start, |t| {
                 matches!(t, Some(Tok::Comma | Tok::RParen | Tok::Pipe) | None)
             });
         }
         if self.peek() != Some(&Tok::Minus) {
             return self.pattern();
         }
-        let start = self.bump().span;
-        let Some(Tok::Num(n)) = self.peek() else {
+        let start = self.mark();
+        self.bump();
+        let Some(Tok::Num(_)) = self.peek() else {
             return Err(self.unexpected("a number").into());
         };
-        let n = n.clone();
-        let end = self.bump().span;
-        self.node_at(start, NodeKind::PatternNegative);
-        Ok(Pattern::NegNum(n, start.to(end)))
+        self.bump();
+        self.node(start, NodeKind::PatternNegative);
+        Ok(())
     }
 
     /// `(a, b : T)`, or `(a : T, b)`: an annotation inside a tuple.
@@ -1848,15 +1785,15 @@ impl<'t> Parser<'t> {
     }
 
     /// A lowercase name that's bound here, so it can't be qualified.
-    fn lower(&mut self, what: &str) -> Result<Name> {
+    fn lower(&mut self, what: &str) -> Result<&'t Token> {
         let name = self.lower_q(what)?;
-        unqualified(name)
+        unqualified(name)?;
+        Ok(name)
     }
 
     /// A parameter's name: like `lower`, but says why an uppercase name isn't one.
-    fn param_name(&mut self) -> Result<Name> {
+    fn param_name(&mut self) -> Result<&'t Token> {
         if let Some(Tok::Upper(text)) = self.peek() {
-            let text = text.clone();
             return Err(self
                 .unexpected("a parameter's name")
                 .with_note(format!(
@@ -1881,20 +1818,14 @@ impl<'t> Parser<'t> {
     }
 
     /// A lowercase name, possibly qualified: `length` or `List.length`.
-    fn lower_q(&mut self, what: &str) -> Result<Name> {
+    fn lower_q(&mut self, what: &str) -> Result<&'t Token> {
         match self.peek() {
-            Some(Tok::Lower(text)) => {
-                let span = self.bump().span;
-                Ok(Name {
-                    text: text.clone(),
-                    span,
-                })
-            }
+            Some(Tok::Lower(_)) => Ok(self.bump()),
             _ => Err(self.unexpected_name(what).into()),
         }
     }
 
-    fn def_name(&mut self) -> Result<Name> {
+    fn def_name(&mut self) -> Result<&'t Token> {
         match self.peek() {
             Some(Tok::Upper(_)) => self.upper_q("a name"),
             _ => self.lower_q("a name"),
@@ -1902,9 +1833,10 @@ impl<'t> Parser<'t> {
     }
 
     /// An uppercase name that's declared here, so it can't be qualified.
-    fn upper(&mut self, what: &str) -> Result<Name> {
+    fn upper(&mut self, what: &str) -> Result<&'t Token> {
         let name = self.upper_q(what)?;
-        unqualified(name)
+        unqualified(name)?;
+        Ok(name)
     }
 
     /// Whether a constructor pattern starts here: an uppercase name, or
@@ -1922,7 +1854,7 @@ impl<'t> Parser<'t> {
 
     /// The name of a constructor pattern, once [`Self::ctor_ahead`] has
     /// said one starts here.
-    fn ctor_name(&mut self) -> Result<Name> {
+    fn ctor_name(&mut self) -> Result<&'t Token> {
         match self.peek() {
             Some(Tok::Lower(_)) => self.lower_q("a constructor"),
             _ => self.upper_q("a constructor"),
@@ -1930,35 +1862,23 @@ impl<'t> Parser<'t> {
     }
 
     /// An uppercase name, possibly qualified: `Cons` or `List.Cons`.
-    fn upper_q(&mut self, what: &str) -> Result<Name> {
+    fn upper_q(&mut self, what: &str) -> Result<&'t Token> {
         match self.peek() {
-            Some(Tok::Upper(text)) => {
-                let span = self.bump().span;
-                Ok(Name {
-                    text: text.clone(),
-                    span,
-                })
-            }
+            Some(Tok::Upper(_)) => Ok(self.bump()),
             _ => Err(self.unexpected(what).into()),
         }
     }
 
     // Declarations
 
-    /// `namespace Day05`: the namespace a file's declarations go in.
-    fn namespace(&mut self) -> Result<NamespaceDecl> {
-        let start = self.expect(Tok::KwNamespace, "`namespace`")?.span;
+    /// `namespace Day05`: the namespace a file's declarations go in. Its
+    /// name, for messages.
+    fn namespace(&mut self) -> Result<&'t str> {
+        self.expect(Tok::KwNamespace, "`namespace`")?;
         match self.peek() {
             Some(Tok::Upper(text)) => {
-                let path = Name {
-                    text: text.clone(),
-                    span: self.here(),
-                };
                 self.bump();
-                Ok(NamespaceDecl {
-                    span: start.to(path.span),
-                    path,
-                })
+                Ok(text)
             }
             Some(Tok::Lower(_)) => Err(error(
                 self.here(),
@@ -1971,94 +1891,76 @@ impl<'t> Parser<'t> {
 
     /// `import List (map, filter)`: a namespace, then the names to use from
     /// it, at least one; or `import List (..)` for all of them.
-    fn import(&mut self) -> Result<Import> {
-        let start = self.expect(Tok::KwImport, "`import`")?.span;
+    fn import(&mut self) -> Result<()> {
+        self.expect(Tok::KwImport, "`import`")?;
         let path = match self.peek() {
             Some(Tok::Upper(text)) => {
-                let name = Name {
-                    text: text.clone(),
-                    span: self.here(),
-                };
                 self.bump();
-                name
+                text.as_str()
             }
             _ => return Err(self.unexpected("a namespace, such as `List`").into()),
         };
         if matches!(self.peek(), Some(Tok::Lower(word)) if word == "as") {
-            return Err(self.import_as(&path).into());
+            return Err(self.import_as(path).into());
         }
         self.expect(Tok::LParen, "`(` and the names to import")?;
-        let mixed = |dots: Span, path: &Name| {
+        let mixed = |dots: Span, path: &str| {
             error(
                 dots,
                 format!(
-                    "`..` imports everything from a namespace, so it goes on its own: `import {} (..)`",
-                    path.text
+                    "`..` imports everything from a namespace, so it goes on its own: `import {path} (..)`"
                 ),
             )
         };
-        let mut items = Vec::new();
-        let mut everything = None;
         if self.peek() == Some(&Tok::DotDot) {
             let dots = self.here();
             self.bump();
             if self.peek() != Some(&Tok::RParen) {
-                return Err(mixed(dots, &path).into());
+                return Err(mixed(dots, path).into());
             }
-            everything = Some(dots);
-        }
-        while everything.is_none() {
-            match self.peek() {
-                Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => {
-                    let name = Name {
-                        text: text.clone(),
-                        span: self.here(),
-                    };
-                    let item = self.mark();
-                    self.bump();
-                    let alias = self.import_alias(&name)?;
-                    self.node(item, NodeKind::ImportItem);
-                    items.push(ImportItem { name, alias });
+        } else {
+            let mut items = 0;
+            loop {
+                match self.peek() {
+                    Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => {
+                        let item = self.mark();
+                        self.bump();
+                        self.import_alias(text)?;
+                        self.node(item, NodeKind::ImportItem);
+                        items += 1;
+                    }
+                    Some(Tok::DotDot) if items > 0 => {
+                        return Err(mixed(self.here(), path).into());
+                    }
+                    _ => return Err(self.unexpected("a name to import").into()),
                 }
-                Some(Tok::DotDot) if !items.is_empty() => {
-                    return Err(mixed(self.here(), &path).into());
+                if !self.eat(&Tok::Comma) {
+                    break;
                 }
-                _ => return Err(self.unexpected("a name to import").into()),
-            }
-            if !self.eat(&Tok::Comma) {
-                break;
             }
         }
-        let end = self.expect(Tok::RParen, "`)`")?.span;
-        Ok(Import {
-            path,
-            items,
-            everything,
-            span: start.to(end),
-        })
+        self.expect(Tok::RParen, "`)`")?;
+        Ok(())
     }
 
     /// After an import's item `name`: `as y`, the name it has in this file.
     /// A name and its alias both start with a capital letter, or neither
     /// does, since that says what kind of name it is.
-    fn import_alias(&mut self, name: &Name) -> Result<Option<Name>> {
+    fn import_alias(&mut self, name: &str) -> Result<()> {
         if !matches!(self.peek(), Some(Tok::Lower(word)) if word == "as") {
-            return Ok(None);
+            return Ok(());
         }
         self.bump();
         let alias = match self.peek() {
-            Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => Name {
-                text: text.clone(),
-                span: self.here(),
-            },
+            Some(Tok::Lower(text) | Tok::Upper(text)) if !text.contains('.') => text,
             _ => {
                 return Err(self
                     .unexpected("the name to use instead, as in `x as y`")
                     .into());
             }
         };
-        let upper = |n: &Name| n.text.starts_with(|c: char| c.is_uppercase());
-        if upper(name) != upper(&alias) {
+        let upper = |n: &str| n.starts_with(|c: char| c.is_uppercase());
+        if upper(name) != upper(alias) {
             let (case, example) = if upper(name) {
                 ("a capital letter", "`Tree as T`")
             } else {
@@ -2066,14 +1968,11 @@ impl<'t> Parser<'t> {
             };
             return Err(Diagnostic::error(
                 "E-PARSE",
-                format!(
-                    "`{}` starts with {case}, so its new name must too",
-                    name.text
-                ),
+                format!("`{name}` starts with {case}, so its new name must too"),
             )
             .with_label(
-                alias.span,
-                format!("`{}` would change what kind of name it is", alias.text),
+                self.here(),
+                format!("`{alias}` would change what kind of name it is"),
             )
             .with_note(format!(
                 "a type, ability or namespace is written with a capital letter, and a function \
@@ -2082,12 +1981,12 @@ impl<'t> Parser<'t> {
             .into());
         }
         self.bump();
-        Ok(Some(alias))
+        Ok(())
     }
 
     /// `import M as A`, which isn't Stitchwort: what to write instead
     /// (docs/proposals/import-aliases.md, D2072). The cursor is at `as`.
-    fn import_as(&self, path: &Name) -> Diagnostic {
+    fn import_as(&self, path: &str) -> Diagnostic {
         let at = self.here();
         let alias = match self.tokens.get(self.pos + 1).map(|t| &t.tok) {
             Some(Tok::Upper(a) | Tok::Lower(a)) => Some(a.as_str()),
@@ -2099,71 +1998,56 @@ impl<'t> Parser<'t> {
              namespace above it",
         )
         .with_label(at, "`as` goes inside the brackets, after an item");
-        match (path.text.rsplit_once('.'), alias) {
+        match (path.rsplit_once('.'), alias) {
             (Some((parent, last)), Some(alias)) if alias != last => d.with_note(format!(
-                "to write `{alias}.x` for `{0}.x`: `import {parent} ({last} as {alias})`; \
-                 or `import {parent} ({last})` to write `{last}.x`",
-                path.text
+                "to write `{alias}.x` for `{path}.x`: `import {parent} ({last} as {alias})`; \
+                 or `import {parent} ({last})` to write `{last}.x`"
             )),
             (Some((parent, last)), _) => d.with_note(format!(
-                "to write `{last}.x` for `{}.x`: `import {parent} ({last})`",
-                path.text
+                "to write `{last}.x` for `{path}.x`: `import {parent} ({last})`"
             )),
             (None, _) => d.with_note(format!(
-                "`{0}` is a root namespace, which has no other name: write `{0}.x` (no import \
-                 needed in a project), or import names, `import {0} (x)`, `import {0} (x as y)` \
-                 or `import {0} (..)`",
-                path.text
+                "`{path}` is a root namespace, which has no other name: write `{path}.x` (no \
+                 import needed in a project), or import names, `import {path} (x)`, `import \
+                 {path} (x as y)` or `import {path} (..)`"
             )),
         }
     }
 
-    fn pattern(&mut self) -> Result<Pattern> {
+    fn pattern(&mut self) -> Result<()> {
         self.deeper()?;
         let span = self.here();
         match self.peek() {
-            Some(Tok::Lower(_)) if !self.ctor_ahead() => Ok(Pattern::Var(self.lower("a pattern")?)),
-            Some(Tok::Underscore) => {
-                self.bump();
-                Ok(Pattern::Wildcard(span))
+            Some(Tok::Lower(_)) if !self.ctor_ahead() => {
+                self.lower("a pattern")?;
             }
-            Some(Tok::Num(n)) => {
+            Some(Tok::Underscore | Tok::Num(_) | Tok::Char(_)) => {
                 self.bump();
-                Ok(Pattern::Num(n.clone(), span))
-            }
-            Some(Tok::Char(c)) => {
-                let c = *c;
-                self.bump();
-                Ok(Pattern::Char(c, span))
             }
             Some(Tok::Upper(_) | Tok::Lower(_)) => {
-                let name = self.ctor_name()?;
-                Ok(Pattern::Ctor(name, Vec::new(), span))
+                self.ctor_name()?;
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
-                let end = self.bump().span;
+                self.bump();
                 self.node_at(span, NodeKind::PatternAbsurd);
-                Ok(Pattern::Absurd(span.to(end)))
             }
-            Some(Tok::LBrace) => self.record_pattern(),
+            Some(Tok::LBrace) => self.record_pattern()?,
             // `[n := p]`: an implicit field of a constructor, by name.
             Some(Tok::LBracket)
                 if matches!(self.peek_at(1), Some(Tok::Lower(_)))
                     && self.peek_at(2) == Some(&Tok::ColonEq) =>
             {
                 self.bump();
-                let field = self.lower("a field name")?;
+                self.lower("a field name")?;
                 self.bump();
-                let inner = self.pattern()?;
-                let end = self.expect(Tok::RBracket, "`]`")?.span;
+                self.pattern()?;
+                self.expect(Tok::RBracket, "`]`")?;
                 self.node_at(span, NodeKind::PatternNamed);
-                Ok(Pattern::Named(field, Box::new(inner), span.to(end)))
             }
             Some(Tok::LBracket) => {
                 self.bump();
-                let mut items = Vec::new();
-                let mut tail = None;
+                let mut tail = false;
                 if self.peek() != Some(&Tok::RBracket) {
                     loop {
                         if self.peek() == Some(&Tok::RBracket) {
@@ -2171,16 +2055,17 @@ impl<'t> Parser<'t> {
                         }
                         if self.eat(&Tok::DotDot) {
                             // `..rest`: the tail pattern, which must be last.
-                            tail = Some(self.pattern()?);
+                            self.pattern()?;
+                            tail = true;
                             break;
                         }
-                        items.push(self.list_item()?);
+                        self.list_item()?;
                         if !self.eat(&Tok::Comma) {
                             break;
                         }
                     }
                 }
-                if tail.is_some() && self.peek() == Some(&Tok::Comma) {
+                if tail && self.peek() == Some(&Tok::Comma) {
                     return Err(error(
                         self.here(),
                         "a `..` tail must be the last item of a list pattern",
@@ -2192,116 +2077,87 @@ impl<'t> Parser<'t> {
                     )
                     .into());
                 }
-                let end = self
-                    .expect(
-                        Tok::RBracket,
-                        if tail.is_some() {
-                            "`]`: a `..` tail must be the last item"
-                        } else {
-                            "`,` or `]`"
-                        },
-                    )?
-                    .span;
-                // `[]` on its own spans both brackets; the `[]` ending
-                // `[x, y]` is its `]`.
-                self.node_at(span, NodeKind::PatternList);
-                let nil = if items.is_empty() { span.to(end) } else { end };
-                let mut list = tail.unwrap_or(Pattern::Nil(nil));
-                while let Some(item) = items.pop() {
-                    let s = if items.is_empty() {
-                        span.to(end)
+                self.expect(
+                    Tok::RBracket,
+                    if tail {
+                        "`]`: a `..` tail must be the last item"
                     } else {
-                        item.span().to(end)
-                    };
-                    list = Pattern::Cons(Box::new(item), Box::new(list), s);
-                }
-                Ok(list)
+                        "`,` or `]`"
+                    },
+                )?;
+                self.node_at(span, NodeKind::PatternList);
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::Minus) => {
                 // `(-k)`: a negative number pattern, only in brackets (a
                 // tuple's included: `(-k, p)`).
                 self.bump();
-                let inner = self.tuple_item()?;
+                self.tuple_item()?;
                 if self.peek() == Some(&Tok::Comma) {
-                    return self.tuple_pattern(inner, span);
+                    return self.tuple_pattern(span);
                 }
-                let end = self.expect(Tok::RParen, "`)`")?.span;
+                self.expect(Tok::RParen, "`)`")?;
                 self.node_at(span, NodeKind::PatternParen);
-                Ok(match inner {
-                    Pattern::NegNum(n, _) => Pattern::NegNum(n, span.to(end)),
-                    other => other,
-                })
             }
             Some(Tok::LParen) => {
                 self.bump();
-                let pattern = if self.ctor_ahead() {
-                    let name = self.ctor_name()?;
-                    let start = name.span;
-                    let first = self.ctor_args(name, start, |t| {
+                let first = self.mark();
+                if self.ctor_ahead() {
+                    self.ctor_name()?;
+                    self.ctor_args(first, |t| {
                         matches!(t, Some(Tok::RParen | Tok::Comma | Tok::Pipe) | None)
                     })?;
-                    let first = self.alternatives(first, Self::tuple_component)?;
-                    if self.peek() == Some(&Tok::Comma) {
-                        // `(Some a, b)`: a constructor as a tuple's first component.
-                        return self.tuple_pattern(first, span);
-                    }
-                    let end = self.expect(Tok::RParen, "`)`")?.span;
-                    self.node_at(span, NodeKind::PatternParen);
-                    with_span(first, span.to(end))
                 } else {
-                    let inner = self.pattern()?;
-                    let inner = self.alternatives(inner, Self::tuple_component)?;
-                    if self.peek() == Some(&Tok::Comma) {
-                        return self.tuple_pattern(inner, span);
-                    }
-                    self.expect(Tok::RParen, "`)`")?;
-                    self.node_at(span, NodeKind::PatternParen);
-                    inner
-                };
-                Ok(pattern)
+                    self.pattern()?;
+                }
+                self.alternatives(Self::tuple_component)?;
+                if self.peek() == Some(&Tok::Comma) {
+                    // `(Some a, b)`: a constructor as a tuple's first component.
+                    return self.tuple_pattern(span);
+                }
+                self.expect(Tok::RParen, "`)`")?;
+                self.node_at(span, NodeKind::PatternParen);
             }
-            _ => Err(self.unexpected_name("a pattern or `=`").into()),
+            _ => return Err(self.unexpected_name("a pattern or `=`").into()),
+        }
+        Ok(())
+    }
+
+    /// The text of the name at token `i`.
+    fn text_at(&self, i: u32) -> &'t str {
+        match &self.tokens[i as usize].tok {
+            Tok::Lower(text) | Tok::Upper(text) => text,
+            _ => "",
         }
     }
 
-    /// Constructor `name`'s arguments, from here to a token `stop` accepts:
-    /// positional patterns, or braces right after the name, `C { f = p, g,
-    /// .. }`. The braces name `C`'s fields if it is declared with its fields
-    /// in braces, and are a record pattern for its argument if it is declared
-    /// with brackets: the elaborator decides (`Pattern::CtorFields`). They
-    /// take no further arguments; a pattern with more is written `C ({ … })
-    /// …`.
-    fn ctor_args(
-        &mut self,
-        name: Name,
-        start: Span,
-        stop: fn(Option<&Tok>) -> bool,
-    ) -> Result<Pattern> {
+    /// The arguments of the constructor whose name is token `name`, from
+    /// here to a token `stop` accepts: positional patterns, or braces right
+    /// after the name, `C { f = p, g, .. }`. The braces name `C`'s fields if
+    /// it is declared with its fields in braces, and are a record pattern
+    /// for its argument if it is declared with brackets: the elaborator
+    /// decides (`Pattern::CtorFields`). They take no further arguments; a
+    /// pattern with more is written `C ({ … }) …`.
+    fn ctor_args(&mut self, name: u32, stop: fn(Option<&Tok>) -> bool) -> Result<()> {
         if self.peek() == Some(&Tok::LBrace) {
-            let Pattern::Record { fields, rest, .. } = self.record_pattern_braces()? else {
-                unreachable!("a record pattern");
-            };
-            let span = start.to(self.prev_span());
+            self.record_pattern_braces()?;
             if !stop(self.peek()) {
+                let name = self.text_at(name);
                 return Err(error(
                     self.here(),
-                    format!(
-                        "braces after `{}` in a pattern take no further arguments",
-                        name.text
-                    ),
+                    format!("braces after `{name}` in a pattern take no further arguments"),
                 )
                 .with_note(format!(
-                    "to match a record as `{0}`'s first argument and then more, write it \
-                     in brackets: `{0} ({{ … }}) …`",
-                    name.text
+                    "to match a record as `{name}`'s first argument and then more, write it \
+                     in brackets: `{name} ({{ … }}) …`"
                 ))
                 .into());
             }
-            self.node_at(name.span, NodeKind::PatternCtorFields);
-            return Ok(Pattern::ctor_fields(name, fields, rest, span));
+            self.node(name, NodeKind::PatternCtorFields);
+            return Ok(());
         }
-        let mut args = Vec::new();
+        let mut args = false;
         while !stop(self.peek()) {
+            args = true;
             if self.peek() == Some(&Tok::LBrace) {
                 // A record pattern after another argument is one more
                 // argument; after a constructor name it would be that
@@ -2311,115 +2167,102 @@ impl<'t> Parser<'t> {
                         self.here(),
                         format!(
                             "a record pattern after a constructor in an argument of `{}` is written in brackets: `({{ … }})`",
-                            name.text
+                            self.text_at(name)
                         ),
                     )
                     .with_note("braces after a constructor name are matched as its own: `C { f = p, .. }`")
                     .into());
                 }
-                args.push(self.record_pattern()?);
+                self.record_pattern()?;
                 continue;
             }
             if self.argument_minus_at(self.pos) {
                 // `Some -1`: a negative number, as `(-1)` is (D1470).
-                let start = self.bump().span;
-                let Some(Tok::Num(n)) = self.peek() else {
+                let start = self.mark();
+                self.bump();
+                let Some(Tok::Num(_)) = self.peek() else {
                     return Err(self.unexpected("a number").into());
                 };
-                let n = n.clone();
-                let end = self.bump().span;
-                self.node_at(start, NodeKind::PatternNegative);
-                args.push(Pattern::NegNum(n, start.to(end)));
+                self.bump();
+                self.node(start, NodeKind::PatternNegative);
                 continue;
             }
-            args.push(self.pattern()?);
+            self.pattern()?;
         }
-        if !args.is_empty() {
-            self.node_at(name.span, NodeKind::PatternCtor);
+        if args {
+            self.node(name, NodeKind::PatternCtor);
         }
-        Ok(Pattern::Ctor(name, args, start.to(self.prev_span())))
+        Ok(())
     }
 
     /// `{ name = p, age, .. }`: fields in any order, each a pattern or punned
     /// (a variable of the field's name), optionally ending with `..`.
-    fn record_pattern(&mut self) -> Result<Pattern> {
-        let start = self.here();
-        let record = self.record_pattern_braces()?;
-        self.node_at(start, NodeKind::PatternRecord);
-        Ok(record)
+    fn record_pattern(&mut self) -> Result<()> {
+        let start = self.mark();
+        self.record_pattern_braces()?;
+        self.node(start, NodeKind::PatternRecord);
+        Ok(())
     }
 
     /// [`Self::record_pattern`] without its mark: a constructor's braces,
     /// `C { f = p }`, are part of the constructor's own node.
-    fn record_pattern_braces(&mut self) -> Result<Pattern> {
-        let start = self.expect(Tok::LBrace, "`{`")?.span;
-        let mut fields = Vec::new();
-        let mut rest = false;
+    fn record_pattern_braces(&mut self) -> Result<()> {
+        self.expect(Tok::LBrace, "`{`")?;
         if self.peek() != Some(&Tok::RBrace) {
             loop {
                 if self.eat(&Tok::DotDot) {
-                    rest = true;
                     break;
                 }
                 if self.peek() == Some(&Tok::RBrace) {
                     break;
                 }
-                let name = self.lower("a field name, or `..`")?;
-                let pattern = if self.eat(&Tok::Equals) {
+                self.lower("a field name, or `..`")?;
+                if self.eat(&Tok::Equals) {
                     // A constructor's arguments run to the next `,` or `}`.
                     if self.ctor_ahead() {
-                        let start = self.here();
-                        let name = self.ctor_name()?;
-                        self.ctor_args(name, start, |t| {
+                        let start = self.mark();
+                        self.ctor_name()?;
+                        self.ctor_args(start, |t| {
                             matches!(t, Some(Tok::Comma | Tok::RBrace) | None)
-                        })?
+                        })?;
                     } else {
-                        self.pattern()?
+                        self.pattern()?;
                     }
-                } else {
-                    Pattern::Var(name.clone())
-                };
-                fields.push((name, pattern));
+                }
                 if !self.eat(&Tok::Comma) {
                     break;
                 }
             }
         }
-        let end = self.expect(Tok::RBrace, "`,` or `}`")?.span;
-        Ok(Pattern::Record {
-            fields,
-            rest,
-            span: start.to(end),
-        })
+        self.expect(Tok::RBrace, "`,` or `}`")?;
+        Ok(())
     }
 
-    fn data(&mut self) -> Result<Vec<Decl>> {
-        let start = self.bump().span;
+    /// `type T …` or `interface I …`: a data type, record, interface or type
+    /// synonym, which it says.
+    fn data(&mut self) -> Result<NodeKind> {
+        self.bump();
         let interface = self.tokens[self.pos - 1].tok == Tok::KwInterface;
         let name = if interface {
             self.upper_q("an interface name (starting with an uppercase letter)")?
         } else {
             self.upper_q("a data type name (starting with an uppercase letter)")?
         };
-        let mut params = Vec::new();
-        let mut auto_params = Vec::new();
         loop {
             if self.peek() == Some(&Tok::LParen) {
                 let binder = self.binder()?;
-                if let Some(first) = binder.attrs.first() {
-                    return Err(misplaced_attributes(first, "a data type's parameter").into());
+                if let Some(first) = binder.attribute {
+                    return Err(misplaced_attributes(&first, "a data type's parameter").into());
                 }
-                params.push(binder);
-                auto_params.push(false);
             } else if self.is_implicit_binder() {
                 // `[auto ord: Ord k]`, filled in by instance search wherever
                 // the type is written (docs/proposals/interfaces.md §7.5).
                 let start = self.here();
-                let (binder, auto) = self.implicit_binder()?;
-                if let Some(first) = binder.attrs.first() {
-                    return Err(misplaced_attributes(first, "a data type's parameter").into());
+                let binder = self.implicit_binder()?;
+                if let Some(first) = binder.attribute {
+                    return Err(misplaced_attributes(&first, "a data type's parameter").into());
                 }
-                if !auto {
+                if !binder.auto {
                     return Err(error(
                         start.to(self.prev_span()),
                         "a type's parameters in brackets must be `auto`, like `[auto ord: Ord k]`",
@@ -2430,7 +2273,7 @@ impl<'t> Parser<'t> {
                     )
                     .into());
                 }
-                if binder.names[0].text == crate::ast::NAMELESS {
+                if binder.nameless {
                     return Err(error(
                         start.to(self.prev_span()),
                         "a type's `auto` parameter needs a name, so it can be given by name: \
@@ -2438,266 +2281,180 @@ impl<'t> Parser<'t> {
                     )
                     .into());
                 }
-                params.push(binder);
-                auto_params.push(true);
             } else if let Some(Tok::Lower(param)) = self.peek()
                 && !param.contains('.')
             {
                 let keyword = if interface { "interface" } else { "type" };
-                let param = param.clone();
                 return Err(error(
                     self.here(),
                     format!("a {keyword}'s parameter `{param}` needs its type, in brackets"),
                 )
-                .with_note(format!("write `{keyword} {} ({param}: Type) …`", name.text))
+                .with_note(format!(
+                    "write `{keyword} {} ({param}: Type) …`",
+                    name_text(name)
+                ))
                 .into());
             } else {
                 break;
             }
         }
         // After the colon: index types, each followed by `->`, then the
-        // universe (docs/proposals/indexed-families.md §7.1).
-        let mut indices = Vec::new();
+        // universe (docs/proposals/indexed-families.md §7.1). The first
+        // index's type, for messages.
+        let mut first_index = None;
         let colon = self.mark();
-        let sort = if self.eat(&Tok::Colon) {
-            let sort = loop {
+        if self.eat(&Tok::Colon) {
+            loop {
                 if self.is_pi_binder() {
                     let binder = self.binder()?;
-                    if let Some(first) = binder.attrs.first() {
-                        return Err(misplaced_attributes(first, "a data type's index").into());
+                    if let Some(first) = binder.attribute {
+                        return Err(misplaced_attributes(&first, "a data type's index").into());
                     }
                     self.expect(Tok::Arrow, "`->`")?;
-                    for n in binder.names {
-                        indices.push((Some(n), binder.ty.clone()));
-                    }
+                    first_index.get_or_insert(binder.ty);
                     continue;
                 }
-                let ty = self.app()?;
+                let ty = self.mark();
+                self.app()?;
                 if self.eat(&Tok::Arrow) {
-                    indices.push((None, ty));
+                    first_index.get_or_insert((ty, self.mark() - 1));
                     continue;
                 }
-                break Some(ty);
-            };
+                break;
+            }
             self.node(colon, NodeKind::ResultType);
-            sort
-        } else {
-            None
-        };
-        let mut ctors = Vec::new();
-        let mut record = false;
+        }
         // An interface is a record (docs/proposals/interfaces.md §5.1).
         if interface {
-            if let Some((_, ty)) = indices.first() {
-                return Err(error(ty.span(), "an interface can't have indices").into());
+            if let Some(ty) = first_index {
+                return Err(error(self.lowered_span(ty), "an interface can't have indices").into());
             }
             self.expect(Tok::Equals, "`=` and the interface's fields, `{ … }`")?;
             if self.peek() != Some(&Tok::LBrace) {
                 return Err(self.unexpected("`{` and the interface's fields").into());
             }
-            let ctor = self.record_fields(&name)?;
-            return Ok(vec![Decl::Data {
-                span: start.to(self.prev_span()),
-                name,
-                params,
-                auto_params,
-                indices,
-                sort,
-                ctors: vec![ctor],
-                record: true,
-                interface: true,
-                attrs: Vec::new(),
-            }]);
+            self.braced_fields()?;
+            return Ok(NodeKind::Interface);
         }
-        if self.eat(&Tok::Equals) {
-            if !matches!(self.peek(), Some(Tok::LBrace | Tok::Pipe)) {
-                if let Some((_, ty)) = indices.first() {
-                    return Err(error(
-                        ty.span(),
-                        "a type synonym can't have indices: `->` after the colon is only for a \
-                         data type's indices",
-                    )
-                    .into());
-                }
-                return self.type_synonym(start, name, params, auto_params, sort);
+        if !self.eat(&Tok::Equals) {
+            return Ok(NodeKind::DataType);
+        }
+        if !matches!(self.peek(), Some(Tok::LBrace | Tok::Pipe)) {
+            if let Some(ty) = first_index {
+                return Err(error(
+                    self.lowered_span(ty),
+                    "a type synonym can't have indices: `->` after the colon is only for a \
+                     data type's indices",
+                )
+                .into());
             }
-            if self.peek() == Some(&Tok::LBrace) {
-                record = true;
-                ctors.push(self.record_fields(&name)?);
-            } else {
-                while self.peek() == Some(&Tok::Pipe) {
-                    let ctor = self.mark();
-                    self.bump();
-                    let attrs = self.attributes()?;
-                    let name =
-                        self.upper("a constructor name (starting with an uppercase letter)")?;
-                    let mut fields = Vec::new();
-                    let mut implicit: Vec<bool> = Vec::new();
-                    let mut defaults = Vec::new();
-                    let mut braced = false;
-                    loop {
-                        if self.peek() == Some(&Tok::LBrace) && !braced {
-                            // `| C { f: T, … }`: the explicit fields in
-                            // braces, instead of brackets.
-                            if fields.iter().zip(&implicit).any(|(_, i)| !*i) {
-                                return Err(error(
-                                    self.here(),
-                                    format!(
-                                        "`{}` has fields in brackets already; declare all of \
-                                         its explicit fields in brackets or all in braces",
-                                        name.text
-                                    ),
-                                )
-                                .into());
-                            }
-                            braced = true;
-                            let open = self.here();
-                            let written = self.braced_fields()?;
-                            if written.is_empty() {
-                                return Err(error(
-                                    open,
-                                    format!("`{}` declares no fields in its braces", name.text),
-                                )
-                                .with_note("a constructor without fields is just `| C`")
-                                .into());
-                            }
-                            for (binder, default) in written {
-                                fields.push(binder);
-                                implicit.push(false);
-                                defaults.push(default);
-                            }
-                        } else if self.peek() == Some(&Tok::LParen) {
-                            if braced {
-                                return Err(error(
-                                    self.here(),
-                                    format!(
-                                        "`{}` has its fields in braces already; declare all of \
-                                         its explicit fields in braces or all in brackets",
-                                        name.text
-                                    ),
-                                )
-                                .into());
-                            }
-                            let (binder, default) = self.binder_with_default()?;
-                            fields.push(binder);
-                            implicit.push(false);
-                            defaults.push(default);
-                        } else if self.is_implicit_binder() {
-                            let (binder, auto) = self.implicit_binder()?;
-                            if auto {
-                                return Err(error(
-                                    binder.names[0].span,
-                                    "a constructor's implicit fields can't be `auto`",
-                                )
-                                .into());
-                            }
-                            fields.push(binder);
-                            implicit.push(true);
-                            defaults.push(None);
-                        } else {
-                            break;
-                        }
-                    }
-                    // The result type, `: Vec a (Succ n)`.
-                    let colon = self.mark();
-                    let result = if self.eat(&Tok::Colon) {
-                        let ty = self.app()?;
-                        self.node(colon, NodeKind::ResultType);
-                        Some(ty)
-                    } else {
-                        None
-                    };
-                    if defaults.iter().all(Option::is_none) {
-                        defaults.clear();
-                    }
-                    ctors.push(CtorDecl {
-                        attrs,
-                        name,
-                        fields,
-                        implicit,
-                        defaults,
-                        result,
-                        braced,
-                    });
-                    self.node(ctor, NodeKind::Constructor);
-                }
-                if ctors.is_empty() {
-                    return Err(self
-                        .unexpected("`|` and a constructor, or `{` and a record's fields")
+            self.type_synonym(name)?;
+            return Ok(NodeKind::TypeSynonym);
+        }
+        if self.peek() == Some(&Tok::LBrace) {
+            self.braced_fields()?;
+            return Ok(NodeKind::RecordType);
+        }
+        let mut ctors = 0;
+        while self.peek() == Some(&Tok::Pipe) {
+            let ctor = self.mark();
+            self.bump();
+            self.attributes()?;
+            let name = self.upper("a constructor name (starting with an uppercase letter)")?;
+            let name = name_text(name);
+            // Whether an explicit field was declared in brackets or in braces.
+            let (mut bracketed, mut braced) = (false, false);
+            loop {
+                if self.peek() == Some(&Tok::LBrace) && !braced {
+                    // `| C { f: T, … }`: the explicit fields in
+                    // braces, instead of brackets.
+                    if bracketed {
+                        return Err(error(
+                            self.here(),
+                            format!(
+                                "`{name}` has fields in brackets already; declare all of \
+                                 its explicit fields in brackets or all in braces"
+                            ),
+                        )
                         .into());
+                    }
+                    braced = true;
+                    let open = self.here();
+                    if self.braced_fields()? == 0 {
+                        return Err(error(
+                            open,
+                            format!("`{name}` declares no fields in its braces"),
+                        )
+                        .with_note("a constructor without fields is just `| C`")
+                        .into());
+                    }
+                } else if self.peek() == Some(&Tok::LParen) {
+                    if braced {
+                        return Err(error(
+                            self.here(),
+                            format!(
+                                "`{name}` has its fields in braces already; declare all of \
+                                 its explicit fields in braces or all in brackets"
+                            ),
+                        )
+                        .into());
+                    }
+                    self.binder_with_default()?;
+                    bracketed = true;
+                } else if self.is_implicit_binder() {
+                    let binder = self.implicit_binder()?;
+                    if binder.auto {
+                        return Err(error(
+                            binder.first_name,
+                            "a constructor's implicit fields can't be `auto`",
+                        )
+                        .into());
+                    }
+                } else {
+                    break;
                 }
             }
+            // The result type, `: Vec a (Succ n)`.
+            let colon = self.mark();
+            if self.eat(&Tok::Colon) {
+                self.app()?;
+                self.node(colon, NodeKind::ResultType);
+            }
+            ctors += 1;
+            self.node(ctor, NodeKind::Constructor);
         }
-        Ok(vec![Decl::Data {
-            span: start.to(self.prev_span()),
-            name,
-            params,
-            auto_params,
-            indices,
-            sort,
-            ctors,
-            record,
-            interface: false,
-            attrs: Vec::new(),
-        }])
+        if ctors == 0 {
+            return Err(self
+                .unexpected("`|` and a constructor, or `{` and a record's fields")
+                .into());
+        }
+        Ok(NodeKind::DataType)
     }
 
-    /// A record's fields, `{ name : Text, age : Nat }`, as the one
-    /// constructor of the data type `data`, named `%mk`, which source can't
-    /// write (so `data.mk` is free for a function).
-    fn record_fields(&mut self, data: &Name) -> Result<CtorDecl> {
-        let (fields, mut defaults): (Vec<_>, Vec<_>) = self.braced_fields()?.into_iter().unzip();
-        if defaults.iter().all(Option::is_none) {
-            defaults.clear();
-        }
-        Ok(CtorDecl {
-            attrs: Vec::new(),
-            name: Name {
-                text: "%mk".into(),
-                span: data.span,
-            },
-            fields,
-            implicit: Vec::new(),
-            defaults,
-            result: None,
-            braced: false,
-        })
-    }
-
-    /// Fields in braces, `{ name : Text, step : Nat := 1 }`: one binder for
-    /// each, with its default. A record's, or a constructor's declared with
-    /// `| C { … }`.
-    fn braced_fields(&mut self) -> Result<Vec<(Binder, Option<Expr>)>> {
+    /// Fields in braces, `{ name : Text, step : Nat := 1 }`, each with its
+    /// default if it has one: a record's, or a constructor's declared with
+    /// `| C { … }`. How many there are.
+    fn braced_fields(&mut self) -> Result<usize> {
         let mark = self.mark();
         self.expect(Tok::LBrace, "`{`")?;
-        let mut out = Vec::new();
+        let mut fields = 0;
         if self.peek() != Some(&Tok::RBrace) {
             loop {
                 if self.peek() == Some(&Tok::RBrace) {
                     break;
                 }
                 let field_start = self.mark();
-                let attrs = self.attributes()?;
-                let field = self.lower("a field name")?;
+                self.attributes()?;
+                self.lower("a field name")?;
                 self.expect(Tok::Colon, "`:`")?;
-                let ty = self.expr()?;
+                self.expr()?;
                 let default_start = self.mark();
-                let default = if self.eat(&Tok::ColonEq) {
-                    let value = self.expr()?;
+                if self.eat(&Tok::ColonEq) {
+                    self.expr()?;
                     self.node(default_start, NodeKind::Default);
-                    Some(value)
-                } else {
-                    None
-                };
+                }
                 self.node(field_start, NodeKind::Field);
-                out.push((
-                    Binder {
-                        names: vec![field],
-                        ty,
-                        attrs,
-                    },
-                    default,
-                ));
+                fields += 1;
                 if !self.eat(&Tok::Comma) {
                     break;
                 }
@@ -2705,20 +2462,18 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::RBrace, "`,` or `}`")?;
         self.node(mark, NodeKind::Fields);
-        Ok(out)
+        Ok(fields)
     }
 
     /// `ability Name (params) where`, then one operation per line.
-    fn ability(&mut self) -> Result<Decl> {
-        let start = self.bump().span;
-        let name = self.upper_q("an ability name (starting with an uppercase letter)")?;
-        let mut params = Vec::new();
+    fn ability(&mut self) -> Result<()> {
+        self.bump();
+        self.upper_q("an ability name (starting with an uppercase letter)")?;
         while self.peek() == Some(&Tok::LParen) {
             let binder = self.binder()?;
-            if let Some(first) = binder.attrs.first() {
-                return Err(misplaced_attributes(first, "an ability's parameter").into());
+            if let Some(first) = binder.attribute {
+                return Err(misplaced_attributes(&first, "an ability's parameter").into());
             }
-            params.push(binder);
         }
         self.expect(Tok::KwWhere, "`where`")?;
         let Some(first) = self.tokens.get(self.pos).filter(|_| self.peek().is_some()) else {
@@ -2727,33 +2482,25 @@ impl<'t> Parser<'t> {
         let column = first.column;
         let saved = (self.modes.limit, self.modes.allow);
         self.modes.limit = Some(column);
-        let mut ops = Vec::new();
         let result = loop {
             self.modes.allow = Some(self.pos);
-            let op = (|| -> Result<_> {
+            let op = (|| -> Result<()> {
                 let start = self.mark();
-                let op = self.lower("an operation name")?;
+                self.lower("an operation name")?;
                 self.expect(Tok::Colon, "`:`")?;
-                let ty = self.expr_inline()?;
+                self.expr_inline()?;
                 self.node(start, NodeKind::AbilityOp);
-                Ok((op, ty))
+                Ok(())
             })();
-            match op {
-                Ok(op) => ops.push(op),
-                Err(e) => break Err(e),
+            if let Err(e) = op {
+                break Err(e);
             }
             if !self.starts_line_at(column) {
                 break Ok(());
             }
         };
         (self.modes.limit, self.modes.allow) = saved;
-        result?;
-        Ok(Decl::Ability {
-            span: start.to(self.prev_span()),
-            name,
-            params,
-            ops,
-        })
+        result
     }
 
     /// Whether the next token starts a line at exactly `column`.
@@ -2765,16 +2512,18 @@ impl<'t> Parser<'t> {
 
     /// `(x y : A)`, with any attributes before the names (which only a
     /// constructor's field may have: the callers refuse them elsewhere).
-    fn binder(&mut self) -> Result<Binder> {
-        let (binder, default) = self.binder_with_default()?;
-        if let Some(default) = default {
-            return Err(error(default.span(), declarations::DEFAULT_PLACES)
-                .with_note(
-                    "a definition's explicit parameters, `def range (step: Nat := 1)`, a \
+    fn binder(&mut self) -> Result<BinderRead> {
+        let binder = self.binder_with_default()?;
+        if let Some(default) = binder.default {
+            return Err(
+                error(self.lowered_span(default), declarations::DEFAULT_PLACES)
+                    .with_note(
+                        "a definition's explicit parameters, `def range (step: Nat := 1)`, a \
                      record's fields, `{ step: Nat := 1 }`, and a constructor's, \
                      `| Circle (id: Text := \"a\")`, can have one; a function type can't",
-                )
-                .into());
+                    )
+                    .into(),
+            );
         }
         Ok(binder)
     }
@@ -2782,27 +2531,37 @@ impl<'t> Parser<'t> {
     /// `(x y : A)`, or with a default value, `(x y : A := v)`, which only a
     /// constructor's field may have (docs/proposals/named-arguments.md
     /// §5.1).
-    fn binder_with_default(&mut self) -> Result<(Binder, Option<Expr>)> {
+    fn binder_with_default(&mut self) -> Result<BinderRead> {
         let mark = self.mark();
         self.expect(Tok::LParen, "`(`")?;
-        let attrs = self.attributes()?;
-        let mut names = vec![self.lower("a name")?];
+        let attribute = self.attributes()?;
+        let first_name = self.lower("a name")?.span;
         while let Some(Tok::Lower(_)) = self.peek() {
-            names.push(self.lower("a name")?);
+            self.lower("a name")?;
         }
         self.expect(Tok::Colon, "`:`")?;
-        let ty = self.binder_type()?;
+        let ty = self.mark();
+        self.binder_type()?;
+        let ty = (ty, self.mark());
         let default_start = self.mark();
         let default = if self.eat(&Tok::ColonEq) {
-            let value = self.expr()?;
+            let value = self.mark();
+            self.expr()?;
             self.node(default_start, NodeKind::Default);
-            Some(value)
+            Some((value, self.mark()))
         } else {
             None
         };
         self.expect(Tok::RParen, "`)`")?;
         self.node(mark, NodeKind::Binder);
-        Ok((Binder { names, ty, attrs }, default))
+        Ok(BinderRead {
+            attribute,
+            auto: false,
+            nameless: false,
+            first_name,
+            ty,
+            default,
+        })
     }
 
     /// A binder's type, after its `:`. An ability row is written only on a
@@ -2811,7 +2570,7 @@ impl<'t> Parser<'t> {
     /// literal applied to `T` (SW-908): `{} Nat` gave "can't tell which
     /// record type this literal is", `{IO} Nat` "expected `|` and the
     /// fields to update".
-    fn binder_type(&mut self) -> Result<Expr> {
+    fn binder_type(&mut self) -> Result<()> {
         if self.peek() == Some(&Tok::LBrace)
             && let close = self.matching[self.pos]
             && close != NO_PARTNER
@@ -2850,7 +2609,7 @@ impl<'t> Parser<'t> {
     // Expressions, loosest-binding first
 
     /// An expression, or a block if it starts on a new line.
-    fn expr(&mut self) -> Result<Expr> {
+    fn expr(&mut self) -> Result<()> {
         self.deeper()?;
         if let Some(token) = self.tokens.get(self.pos)
             && token.line_start
@@ -2871,7 +2630,7 @@ impl<'t> Parser<'t> {
 
     /// Lines at `column`, each a statement, the last being the result. With
     /// `many` false, just one line.
-    fn block(&mut self, column: u32, many: bool) -> Result<Expr> {
+    fn block(&mut self, column: u32, many: bool) -> Result<()> {
         let saved = (self.modes.limit, self.modes.allow);
         // A new block's lines may be sequences, even inside a `let`'s value;
         // a line continuing the one before (`many` false) stays in it.
@@ -2881,11 +2640,15 @@ impl<'t> Parser<'t> {
         }
         self.modes.limit = Some(column);
         let start = self.mark();
-        let mut stmts = Vec::new();
+        let mut lines = 0;
+        let mut last = Line::Expr;
         let result = loop {
             self.modes.allow = Some(self.pos);
             match self.statement() {
-                Ok(stmt) => stmts.push(stmt),
+                Ok(line) => {
+                    last = line;
+                    lines += 1;
+                }
                 Err(e) => break Err(e),
             }
             if !(many && self.starts_line_at(column)) || self.ends_blocks() {
@@ -2895,24 +2658,20 @@ impl<'t> Parser<'t> {
         (self.modes.limit, self.modes.allow) = saved;
         self.modes.let_value = let_value;
         result?;
-        if stmts.len() > 1 {
+        if lines > 1 {
             self.node(start, NodeKind::Block);
         }
-        let rest = match stmts.pop() {
-            Some(Stmt::Expr(e)) => e,
-            Some(Stmt::Let(_, _, _, span) | Stmt::LetPattern(_, _, _, span)) => {
-                return Err(error(span, "a block must end with an expression, not `let`").into());
+        match last {
+            Line::Expr => Ok(()),
+            Line::Let(span) => {
+                Err(error(span, "a block must end with an expression, not `let`").into())
             }
-            Some(Stmt::Def(_, span)) => {
-                return Err(error(
-                    span,
-                    "a block must end with an expression, not a local `def` or `theorem`",
-                )
-                .into());
-            }
-            None => return Err(self.unexpected("an expression").into()),
-        };
-        Ok(lines(stmts, rest))
+            Line::Def(span) => Err(error(
+                span,
+                "a block must end with an expression, not a local `def` or `theorem`",
+            )
+            .into()),
+        }
     }
 
     /// Whether the next token can't start a line of a block, but ends it, and
@@ -2928,25 +2687,25 @@ impl<'t> Parser<'t> {
         })
     }
 
-    fn statement(&mut self) -> Result<Stmt> {
+    fn statement(&mut self) -> Result<Line> {
         let start = self.mark();
         match self.peek() {
             Some(Tok::KwLet) => {
-                let stmt = self.let_statement()?;
+                let span = self.let_statement()?;
                 // `let x := e; body` on a line is the expression `let`.
                 if self.peek() == Some(&Tok::Semi) {
-                    let expr = self.let_body(stmt)?;
+                    self.let_body()?;
                     self.node(start, NodeKind::LetExpr);
-                    Ok(Stmt::Expr(expr))
+                    Ok(Line::Expr)
                 } else {
-                    Ok(stmt)
+                    Ok(Line::Let(span))
                 }
             }
             Some(Tok::KwDef | Tok::KwTheorem) => self.local_def(start),
             // `@[tailrec] def go …`: the `def` may be on the next line, at
             // the block's column.
             Some(Tok::At) => {
-                let attrs = self.attributes()?;
+                let first = self.attributes()?;
                 if self
                     .modes
                     .limit
@@ -2955,19 +2714,14 @@ impl<'t> Parser<'t> {
                     self.modes.allow = Some(self.pos);
                 }
                 if !matches!(self.peek(), Some(Tok::KwDef | Tok::KwTheorem)) {
+                    let first = first.expect("an attribute");
                     return Err(misplaced_attributes(
-                        &attrs[0],
+                        &first,
                         "a statement that isn't a local definition",
                     )
                     .into());
                 }
-                let Stmt::Def(mut def, span) = self.local_def(start)? else {
-                    unreachable!("a local definition")
-                };
-                if let Decl::Signature { attrs: a, .. } = &mut def.signature {
-                    *a = attrs;
-                }
-                Ok(Stmt::Def(def, span))
+                self.local_def(start)
             }
             Some(Tok::KwExport) => Err(error(
                 self.here(),
@@ -2979,54 +2733,43 @@ impl<'t> Parser<'t> {
                 "local definitions can't be `opaque`: only top-level ones can",
             )
             .into()),
-            _ => Ok(Stmt::Expr(self.expr_inline()?)),
+            _ => {
+                self.expr_inline()?;
+                Ok(Line::Expr)
+            }
         }
     }
 
     /// A local `def` or `theorem`, written as at top level, but with a body.
     /// `mark` is where it starts, at its attributes if it has any.
     #[inline(never)]
-    fn local_def(&mut self, mark: u32) -> Result<Stmt> {
+    fn local_def(&mut self, mark: u32) -> Result<Line> {
         let start = self.here();
-        let mut decls = self.definition(start, false, false)?.into_iter();
-        let signature = decls.next().expect("a definition has a signature");
-        let kind = match signature {
-            Decl::Signature { theorem: true, .. } => NodeKind::Theorem,
-            _ => NodeKind::Def,
-        };
-        self.node(mark, kind);
-        if let Decl::Signature { unfolding, .. } = &signature
-            && let Some(first) = unfolding.first()
-        {
+        let definition = self.definition(start, false, false)?;
+        self.node(mark, definition.kind);
+        if let Some(first) = definition.unfolding {
             return Err(error(
-                first.span,
+                first,
                 "a local definition can't have `unfolding`",
             )
             .with_note(
                 "it unfolds what the declaration it's in unfolds: write `unfolding` on that one",
             ).into());
         }
-        let equations: Vec<Decl> = decls.collect();
-        if equations.is_empty() {
+        if !definition.body {
             return Err(error(
-                signature.span(),
+                start.to(self.lowered_span(definition.result)),
                 "a local definition needs a body: `:=` and an expression, or arms starting with `|`",
             ).into());
         }
-        Ok(Stmt::Def(
-            LocalDef {
-                signature,
-                equations,
-            },
-            start,
-        ))
+        Ok(Line::Def(start))
     }
 
     /// After an expression `let`'s header and value (`let x := e`): the `;`
     /// and the body, which together with them make the same tree as a block
     /// `let` followed by its rest (D1425, D1453: `in` is membership).
     #[inline(never)]
-    fn let_body(&mut self, stmt: Stmt) -> Result<Expr> {
+    fn let_body(&mut self) -> Result<()> {
         if self.peek() != Some(&Tok::Semi) {
             return Err(self
                 .unexpected("`;` after the value of `let`")
@@ -3050,32 +2793,37 @@ impl<'t> Parser<'t> {
             )
             .into());
         }
-        let body = self.expr()?;
-        Ok(bind_let(stmt, body))
+        self.expr()
     }
 
-    /// `let p := e`, or `let p : T := e`; the type may contain `=`.
+    /// `let p := e`, or `let p : T := e`; the type may contain `=`. The
+    /// span of its `let`.
     #[inline(never)]
-    fn let_statement(&mut self) -> Result<Stmt> {
+    fn let_statement(&mut self) -> Result<Span> {
         let start_index = self.pos;
         let start = self.bump().span;
-        let pattern = self.let_pattern()?;
-        let ty = if self.eat(&Tok::Colon) {
-            Some(self.expr_inline()?)
-        } else {
-            None
-        };
+        self.let_pattern()?;
+        // A single lowercase name, which `let_pattern` reads as a variable.
+        let var = (self.pos == start_index + 2)
+            .then(|| &self.tokens[start_index + 1].tok)
+            .and_then(|tok| match tok {
+                Tok::Lower(name) => Some(name),
+                _ => None,
+            });
+        let typed = self.eat(&Tok::Colon);
+        if typed {
+            self.expr_inline()?;
+        }
         if self.peek() == Some(&Tok::Equals) {
             return Err(self.def_equals().into());
         }
         // `let f (y: Nat) …` is a local function, which a `let` can't bind:
         // point at the local `def` form (docs/syntax.md "Local definitions").
-        if ty.is_none()
-            && let Pattern::Var(name) = &pattern
+        if !typed
+            && let Some(name) = var
             && self.peek() == Some(&Tok::LParen)
             && !self.is_stop(self.pos)
         {
-            let name = &name.text;
             return Err(self
                 .unexpected("`:=`")
                 .with_note(format!(
@@ -3088,22 +2836,19 @@ impl<'t> Parser<'t> {
         let outer = self.modes.let_value.replace(start_index);
         let value = self.expr();
         self.modes.let_value = outer;
-        let value = value?;
+        value?;
         self.node(start_index as u32, NodeKind::Let);
-        Ok(match pattern {
-            Pattern::Var(name) => Stmt::Let(name, ty, value, start),
-            pattern => Stmt::LetPattern(pattern, ty, value, start),
-        })
+        Ok(start)
     }
 
     /// The pattern after `let`: a constructor may take arguments without
     /// brackets (`let MkPair a b := p`), running to the `:=` or `:` (or a
     /// mistaken `=`, reported by `let_statement`).
-    fn let_pattern(&mut self) -> Result<Pattern> {
+    fn let_pattern(&mut self) -> Result<()> {
         if self.ctor_ahead() {
-            let start = self.here();
-            let name = self.ctor_name()?;
-            return self.ctor_args(name, start, |t| {
+            let start = self.mark();
+            self.ctor_name()?;
+            return self.ctor_args(start, |t| {
                 matches!(t, Some(Tok::Equals | Tok::ColonEq | Tok::Colon) | None)
             });
         }
@@ -3114,20 +2859,20 @@ impl<'t> Parser<'t> {
     ///
     /// A theorem's statement is a result type too, and may start with a
     /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
-    fn result_type(&mut self) -> Result<Expr> {
+    fn result_type(&mut self) -> Result<()> {
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
             return self.expr();
         }
         let start = self.mark();
-        let row = self.row()?;
+        self.row()?;
         self.node(start, NodeKind::Row);
-        let ty = self.expr()?;
+        self.expr()?;
         self.node(start, NodeKind::Effect);
-        Ok(Expr::Effect(row, Box::new(ty)))
+        Ok(())
     }
 
     /// `{A, B args | e}`, `{e}` or `{}`.
-    fn row(&mut self) -> Result<Row> {
+    fn row(&mut self) -> Result<()> {
         let start = self.expect(Tok::LBrace, "`{`")?.span;
         if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
             return Err(Diagnostic::error(
@@ -3141,46 +2886,31 @@ impl<'t> Parser<'t> {
             )
             .into());
         }
-        let mut abilities = Vec::new();
-        let mut tail = None;
         if self.peek() != Some(&Tok::RBrace) && self.peek() != Some(&Tok::Pipe) {
-            abilities.push(self.app()?);
+            self.app()?;
             while self.eat(&Tok::Comma) {
-                abilities.push(self.app()?);
+                self.app()?;
             }
         }
         if self.eat(&Tok::Pipe) {
-            tail = Some(self.lower("a row variable")?);
-        } else if let Some(Expr::Var(name)) = abilities.last()
-            && name.text.starts_with(|c: char| c.is_ascii_lowercase())
-        {
-            tail = Some(name.clone());
-            abilities.pop();
+            self.lower("a row variable")?;
         }
-        let end = self.expect(Tok::RBrace, "`}`")?.span;
-        Ok(Row {
-            abilities,
-            tail,
-            span: start.to(end),
-        })
+        self.expect(Tok::RBrace, "`}`")?;
+        Ok(())
     }
 
     /// `handle e with | return x => … | op arg, k => …`
-    fn handle(&mut self, start: Span) -> Result<Expr> {
-        let body = self.expr_inline()?;
+    fn handle(&mut self, start: Span) -> Result<()> {
+        self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
-        let clauses = self.handler_clauses()?;
+        self.handler_clauses()?;
         self.node_at(start, NodeKind::Handle);
-        Ok(Expr::Handle {
-            span: start.to(self.prev_span()),
-            body: Box::new(body),
-            clauses,
-        })
+        Ok(())
     }
 
     /// A handler's clauses, each after a `|`; at least one.
-    fn handler_clauses(&mut self) -> Result<Vec<Clause>> {
-        let mut clauses = Vec::new();
+    fn handler_clauses(&mut self) -> Result<()> {
+        let mut clauses = 0;
         // Clauses on their own lines line up: a `|` at another column belongs
         // to an enclosing handler (or isn't a clause at all).
         let mut column = None;
@@ -3195,13 +2925,14 @@ impl<'t> Parser<'t> {
             }
             let clause = self.mark();
             self.bump();
-            clauses.push(self.handler_clause()?);
+            self.handler_clause()?;
             self.node(clause, NodeKind::HandlerClause);
+            clauses += 1;
         }
-        if clauses.is_empty() {
+        if clauses == 0 {
             return Err(self.unexpected("`|` and a handler clause").into());
         }
-        Ok(clauses)
+        Ok(())
     }
 
     /// Whether `reify` starts here as the keyword it is after `match`
@@ -3217,8 +2948,8 @@ impl<'t> Parser<'t> {
 
     /// `match reify t with | return x => … | op arg, k => …`, after `match`
     /// and `reify` (docs/proposals/proof-reification.md §3 (iii)).
-    fn reify_expr(&mut self, start: Span) -> Result<Expr> {
-        let thunk = self.expr_inline()?;
+    fn reify_expr(&mut self, start: Span) -> Result<()> {
+        self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
                 self.here(),
@@ -3227,13 +2958,9 @@ impl<'t> Parser<'t> {
             .into());
         }
         self.expect(Tok::KwWith, "`with`")?;
-        let clauses = self.handler_clauses()?;
+        self.handler_clauses()?;
         self.node_at(start, NodeKind::Reify);
-        Ok(Expr::Reify {
-            span: start.to(self.prev_span()),
-            thunk: Box::new(thunk),
-            clauses,
-        })
+        Ok(())
     }
 
     /// Whether `induct` starts here as the keyword it is after `match`: followed
@@ -3248,8 +2975,8 @@ impl<'t> Parser<'t> {
 
     /// `match induct (f args) with | eqK x y ih => … | …`, after `match` and
     /// `induct` (docs/proposals/function-equations.md §5.3).
-    fn induct_expr(&mut self, start: Span) -> Result<Expr> {
-        let call = self.expr_inline()?;
+    fn induct_expr(&mut self, start: Span) -> Result<()> {
+        self.expr_inline()?;
         if self.peek() == Some(&Tok::Comma) {
             return Err(error(
                 self.here(),
@@ -3258,7 +2985,7 @@ impl<'t> Parser<'t> {
             .into());
         }
         self.expect(Tok::KwWith, "`with`")?;
-        let mut alts = Vec::new();
+        let mut alts = 0;
         // Alternatives on their own lines line up, as a match's do.
         let mut column = None;
         while self.peek() == Some(&Tok::Pipe) {
@@ -3271,47 +2998,35 @@ impl<'t> Parser<'t> {
                 }
             }
             let arm = self.mark();
-            let bar = self.bump().span;
-            let case = self.lower("the name of a case of `f.induct`")?;
-            let mut binders = Vec::new();
+            self.bump();
+            self.lower("the name of a case of `f.induct`")?;
             loop {
                 match self.peek() {
-                    Some(Tok::Lower(_)) => binders.push(self.lower("a name")?),
+                    Some(Tok::Lower(_)) => {
+                        self.lower("a name")?;
+                    }
                     Some(Tok::Underscore) => {
-                        let span = self.bump().span;
-                        binders.push(Name {
-                            text: "_".to_string(),
-                            span,
-                        });
+                        self.bump();
                     }
                     _ => break,
                 }
             }
             self.expect_fat_arrow("`=>`")?;
-            let body = self.expr()?;
+            self.expr()?;
             self.node(arm, NodeKind::InductArm);
-            alts.push(InductAlt {
-                span: bar.to(self.prev_span()),
-                case,
-                binders,
-                body,
-            });
+            alts += 1;
         }
-        if alts.is_empty() {
+        if alts == 0 {
             return Err(self
                 .unexpected("`|` and an alternative named after a case")
                 .into());
         }
         self.node_at(start, NodeKind::Induct);
-        Ok(Expr::Induct {
-            span: start.to(self.prev_span()),
-            call: Box::new(call),
-            alts,
-        })
+        Ok(())
     }
 
     /// `match e, h : e2 with | p, q => body | …`
-    fn match_expr(&mut self, start: Span) -> Result<Expr> {
+    fn match_expr(&mut self, start: Span) -> Result<()> {
         if self.induct_ahead() {
             self.bump();
             return self.induct_expr(start);
@@ -3327,19 +3042,16 @@ impl<'t> Parser<'t> {
             self.bump();
             return self.clause_lambda(start, MatchKind::ClauseSome);
         }
-        let mut scrutinees = Vec::new();
+        let mut scrutinees = 0;
         loop {
             let scrutinee = self.mark();
-            let name = if matches!(self.peek(), Some(Tok::Lower(_)))
-                && self.peek_at(1) == Some(&Tok::Colon)
-            {
-                let name = self.lower("a name")?;
+            let named =
+                matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon);
+            if named {
+                self.lower("a name")?;
                 self.bump();
-                Some(name)
-            } else {
-                None
-            };
-            if name.is_some() && self.reify_ahead() {
+            }
+            if named && self.reify_ahead() {
                 return Err(
                     Diagnostic::error("E-PARSE", "`match reify` can't name an equation")
                         .with_label(start.to(self.here()), "`h:` names an equation here")
@@ -3350,15 +3062,15 @@ impl<'t> Parser<'t> {
                         .into(),
                 );
             }
-            let expr = self.expr_inline()?;
+            self.expr_inline()?;
             self.node(scrutinee, NodeKind::Scrutinee);
-            scrutinees.push(Scrutinee { name, expr });
+            scrutinees += 1;
             if !self.eat(&Tok::Comma) {
                 break;
             }
         }
         self.expect(Tok::KwWith, "`with`")?;
-        let mut alts = Vec::new();
+        let mut alts = 0;
         // Alternatives on their own lines line up, as a handler's clauses do.
         let mut column = None;
         while self.peek() == Some(&Tok::Pipe) {
@@ -3372,12 +3084,15 @@ impl<'t> Parser<'t> {
             }
             let arm = self.mark();
             let bar = self.bump().span;
-            let mut patterns = vec![self.alt_pattern()?];
+            let patterns = self.mark();
+            let mut n = 1;
+            self.alt_pattern()?;
             while self.eat(&Tok::Comma) {
-                patterns.push(self.alt_pattern()?);
+                self.alt_pattern()?;
+                n += 1;
             }
-            if patterns.len() != scrutinees.len() {
-                let (n, m) = (patterns.len(), scrutinees.len());
+            if n != scrutinees {
+                let m = scrutinees;
                 let mut e = error(
                     bar.to(self.prev_span()),
                     format!(
@@ -3388,34 +3103,41 @@ impl<'t> Parser<'t> {
                 );
                 // `| Rock, () | Paper, ()` on one line: the second `|` is
                 // read as an or-pattern's.
-                if patterns.iter().any(|p| {
-                    matches!(p, Pattern::Or(alternatives, _) if alternatives.iter().any(has_absurd))
-                }) {
+                if self.or_with_absurd(patterns) {
                     e = e.with_note(
                         "an absurd alternative ends at its `()`: start the next `|` on a new line",
                     );
                 }
                 return Err(e.into());
             }
-            let guard = self.guard()?;
-            let body = self.arm_body(&patterns, guard.as_ref(), "`=>`")?;
+            let absurd = self.absurd_since(patterns);
+            self.guard()?;
+            self.arm_body(absurd, "`=>`")?;
             self.node(arm, NodeKind::Arm);
-            alts.push(Alt {
-                span: bar.to(self.prev_span()),
-                patterns,
-                guard,
-                body,
-            });
+            alts += 1;
         }
-        if alts.is_empty() {
+        if alts == 0 {
             return Err(self.unexpected("`|` and an alternative").into());
         }
         self.node_at(start, NodeKind::Match);
-        Ok(Expr::Match {
-            span: start.to(self.prev_span()),
-            scrutinees,
-            alts,
-            kind: MatchKind::Match,
+        Ok(())
+    }
+
+    /// Whether one of the patterns read since token `from` is an
+    /// or-pattern with an absurd pattern among its alternatives: a pattern
+    /// of its own, one no other mark since `from` holds.
+    #[cold]
+    #[inline(never)]
+    fn or_with_absurd(&self, from: u32) -> bool {
+        let marks: Vec<&Mark> = self.marks.iter().filter(|m| m.start >= from).collect();
+        marks.iter().any(|or| {
+            or.kind == NodeKind::PatternOr
+                && !marks.iter().any(|outer| {
+                    outer.start <= or.start
+                        && or.end <= outer.end
+                        && (outer.start, outer.end) != (or.start, or.end)
+                })
+                && self.absurd_in(or.start, or.end)
         })
     }
 
@@ -3441,13 +3163,11 @@ impl<'t> Parser<'t> {
     /// alternatives' patterns are for (docs/proposals/partial-lambdas.md).
     /// For `ClauseSome` each result is wrapped in `Some` and for
     /// `ClauseMatches` an alternative may leave its result out, which is
-    /// `True`; both end with an alternative for every other value, `None` or
-    /// `False`, which has no place in the source: its span is empty, at the
-    /// end of the construct.
+    /// `True` (the lowering builds them).
     #[inline(never)]
-    fn clause_lambda(&mut self, start: Span, kind: MatchKind) -> Result<Expr> {
-        let keyword = start.to(self.prev_span());
-        let mut alts: Vec<Alt> = Vec::new();
+    fn clause_lambda(&mut self, start: Span, kind: MatchKind) -> Result<()> {
+        // The first alternative's pattern count and first pattern.
+        let mut first: Option<(usize, (u32, u32))> = None;
         let mut column = None;
         while self.peek() == Some(&Tok::Pipe) {
             let token = &self.tokens[self.pos];
@@ -3460,73 +3180,66 @@ impl<'t> Parser<'t> {
             }
             let arm = self.mark();
             let bar = self.bump().span;
-            let mut patterns = vec![self.alt_pattern()?];
+            let patterns = self.mark();
+            let mut n = 1;
+            self.alt_pattern()?;
+            let first_pattern = (patterns, self.mark());
             while self.eat(&Tok::Comma) {
-                patterns.push(self.alt_pattern()?);
+                self.alt_pattern()?;
+                n += 1;
             }
-            if let Some(first) = alts.first()
-                && first.patterns.len() != patterns.len()
-            {
-                let (n, m) = (patterns.len(), first.patterns.len());
-                return Err(error(
-                    bar.to(self.prev_span()),
-                    format!(
-                        "this alternative has {n} pattern{}, but the first has {m}",
-                        if n == 1 { "" } else { "s" },
-                    ),
-                )
-                .with_label(
-                    first.patterns[0].span(),
-                    format!("the first alternative has {m}"),
-                )
-                .with_note(
-                    "every alternative of a clause lambda has one pattern for each parameter",
-                )
-                .into());
+            match first {
+                Some((m, pattern)) if m != n => {
+                    return Err(error(
+                        bar.to(self.prev_span()),
+                        format!(
+                            "this alternative has {n} pattern{}, but the first has {m}",
+                            if n == 1 { "" } else { "s" },
+                        ),
+                    )
+                    .with_label(
+                        self.lowered_pattern_span(pattern),
+                        format!("the first alternative has {m}"),
+                    )
+                    .with_note(
+                        "every alternative of a clause lambda has one pattern for each parameter",
+                    )
+                    .into());
+                }
+                Some(_) => {}
+                None => first = Some((n, first_pattern)),
             }
-            let guard = self.guard()?;
-            let body = if kind == MatchKind::ClauseMatches && self.peek() != Some(&Tok::FatArrow) {
-                Some(clause_true(bar))
+            let absurd = self.absurd_since(patterns);
+            self.guard()?;
+            if kind == MatchKind::ClauseMatches && self.peek() != Some(&Tok::FatArrow) {
             } else if kind == MatchKind::Clause {
-                self.arm_body(&patterns, guard.as_ref(), "`=>`")?
+                self.arm_body(absurd, "`=>`")?;
             } else {
                 self.expect_fat_arrow("`=>`")?;
-                let body = self.expr()?;
-                if kind == MatchKind::ClauseSome {
-                    Some(clause_some(body, bar))
-                } else {
-                    Some(body)
-                }
-            };
+                self.expr()?;
+            }
             self.node(arm, NodeKind::Arm);
-            alts.push(Alt {
-                span: bar.to(self.prev_span()),
-                patterns,
-                guard,
-                body,
-            });
         }
-        if alts.is_empty() {
+        if first.is_none() {
             return Err(self.unexpected("`|` and an alternative").into());
         }
         self.node_at(start, NodeKind::ClauseLambda);
-        let end = self.prev_span();
-        Ok(clause_lambda_of(kind, alts, keyword, start, end))
+        Ok(())
     }
 
     /// A pattern of a `match` alternative: what may stand inside brackets in
     /// an equation, so a constructor's arguments need no parentheses
     /// (`Cons x Nil`); or several, `p | q`.
-    fn alt_pattern(&mut self) -> Result<Pattern> {
-        let first = self.alt_pattern_one()?;
-        self.alternatives(first, Self::alt_pattern_one)
+    fn alt_pattern(&mut self) -> Result<()> {
+        self.alt_pattern_one()?;
+        self.alternatives(Self::alt_pattern_one)
     }
 
-    fn alt_pattern_one(&mut self) -> Result<Pattern> {
+    fn alt_pattern_one(&mut self) -> Result<()> {
         if self.ctor_ahead() {
-            let start = self.here();
-            let name = self.ctor_name()?;
-            return self.ctor_args(name, start, |t| {
+            let start = self.mark();
+            self.ctor_name()?;
+            return self.ctor_args(start, |t| {
                 matches!(
                     t,
                     Some(
@@ -3552,37 +3265,20 @@ impl<'t> Parser<'t> {
         self.peek() == Some(&Tok::Pipe) && !self.tokens[self.pos].line_start
     }
 
-    /// `first | q | …`, each further alternative parsed by `next`; just
-    /// `first` if no `|` follows. No alternative may bind a variable.
-    fn alternatives(
-        &mut self,
-        first: Pattern,
-        next: fn(&mut Self) -> Result<Pattern>,
-    ) -> Result<Pattern> {
+    /// After a pattern, `| q | …`, each further
+    /// alternative parsed by `next`; nothing more if no `|` follows. (That
+    /// no alternative binds a variable is the lowering's check.)
+    fn alternatives(&mut self, next: fn(&mut Self) -> Result<()>) -> Result<()> {
         if !self.or_bar_ahead() {
-            return Ok(first);
+            return Ok(());
         }
         self.open(NodeKind::PatternOr);
-        let mut alternatives = vec![first];
         while self.or_bar_ahead() {
             self.bump();
-            alternatives.push(next(self)?);
+            next(self)?;
         }
         self.close();
-        if let Some(name) = alternatives.iter().find_map(first_bound) {
-            return Err(Diagnostic::error(
-                "E-OR-PATTERN-BINDS",
-                "an or-pattern can't bind names",
-            )
-            .with_label(name.span, format!("`{}` is bound here", name.text))
-            .with_note(
-                "write `_` for a part that isn't used, or match each alternative in an arm of its own",
-            ).into());
-        }
-        let span = alternatives[0]
-            .span()
-            .to(alternatives[alternatives.len() - 1].span());
-        Ok(Pattern::Or(alternatives, span))
+        Ok(())
     }
 
     /// `x (a, b) => body`, once `lambda_ahead` has said this is one. Out of
@@ -3590,36 +3286,22 @@ impl<'t> Parser<'t> {
     /// `expr_inline`, which every nested expression recurses through, keeps
     /// a small stack frame.
     #[inline(never)]
-    fn lambda(&mut self, start: Span) -> Result<Expr> {
-        // Each parameter is a name, with the pattern it stands for if it
-        // was written as one.
-        let mut params: Vec<LamParam> = Vec::new();
+    fn lambda(&mut self, start: Span) -> Result<()> {
+        let mut params = 0;
         loop {
             let first = self.mark();
             match self.peek() {
-                Some(Tok::Lower(_)) => params.push(LamParam::Plain(self.lower("a name")?, None)),
+                Some(Tok::Lower(_)) => {
+                    self.lower("a name")?;
+                }
                 Some(Tok::Underscore) => {
-                    let span = self.bump().span;
-                    let name = Name {
-                        text: "_".to_string(),
-                        span,
-                    };
-                    params.push(LamParam::Plain(name, None));
+                    self.bump();
                 }
                 // `(x: A)`, `(x y: A)`: parameters with a written type, as in
                 // a definition's header.
                 Some(Tok::LParen) if self.annotated_param_ahead() => {
-                    let Param::Named {
-                        names, ty, default, ..
-                    } = self.header_param_parts()?
-                    else {
-                        unreachable!("an annotated parameter is a named one")
-                    };
-                    if let Some(default) = default {
-                        return Err(lambda_default(&default).into());
-                    }
-                    for name in names {
-                        params.push(LamParam::Typed(name, Mode::Explicit, ty.clone()));
+                    if let Some(default) = self.header_param_parts()?.default {
+                        return Err(lambda_default(self.lowered_span(default)).into());
                     }
                 }
                 // `[a: Type]`, `[auto h: P]`, `[auto P]`: implicit and auto
@@ -3627,53 +3309,30 @@ impl<'t> Parser<'t> {
                 Some(Tok::LBracket)
                     if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
                 {
-                    let Param::Named {
-                        names, ty, auto, ..
-                    } = self.header_param_parts()?
-                    else {
-                        unreachable!("an implicit parameter is a named one")
-                    };
-                    let mode = if auto { Mode::Auto } else { Mode::Implicit };
-                    for name in names {
-                        params.push(LamParam::Typed(name, mode, ty.clone()));
-                    }
+                    self.header_param_parts()?;
                 }
                 // `((a, b): A)`: a pattern with a written type.
                 Some(Tok::LParen) if self.annotated_pattern_ahead() => {
                     self.bump();
-                    let pattern = self.pattern()?;
+                    self.pattern()?;
                     self.expect(Tok::Colon, "`:`")?;
-                    let ty = self.binder_type()?;
+                    self.binder_type()?;
                     self.expect(Tok::RParen, "`)`")?;
                     self.node(first, NodeKind::PatternTyped);
-                    let name = Name {
-                        text: format!("%arg{}", params.len()),
-                        span: pattern.span(),
-                    };
-                    params.push(LamParam::TypedPattern(name, pattern, ty));
                 }
-                Some(Tok::LParen | Tok::LBrace) => match self.pattern()? {
-                    Pattern::Var(name) => params.push(LamParam::Plain(name, None)),
-                    pattern => {
-                        let i = params.len();
-                        let name = Name {
-                            text: format!("%arg{i}"),
-                            span: pattern.span(),
-                        };
-                        params.push(LamParam::Plain(name, Some(pattern)));
-                    }
-                },
+                Some(Tok::LParen | Tok::LBrace) => self.pattern()?,
                 _ => break,
             }
+            params += 1;
             self.mark_param(first);
         }
-        if params.is_empty() {
+        if params == 0 {
             return Err(self.unexpected("a parameter name").into());
         }
         self.expect_fat_arrow("`=>`")?;
-        let body = self.expr()?;
+        self.expr()?;
         self.node_at(start, NodeKind::Lambda);
-        Ok(lambda_of(params, body, start, self.prev_span()))
+        Ok(())
     }
 
     /// Whether a `(` here opens an annotated parameter, `(x: A)` or
@@ -3712,52 +3371,43 @@ impl<'t> Parser<'t> {
     /// frame of the parser's recursive functions stays small (the nesting
     /// limit is measured in stack).
     #[inline(never)]
-    fn if_expr(&mut self, start: Span) -> Result<Expr> {
+    fn if_expr(&mut self, start: Span) -> Result<()> {
         // `if h : P then …` binds a proof; `if c then …` tests a `Bool`.
         let binder =
             if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
                 let name = self.lower("a name")?;
                 self.bump();
-                Some(name)
+                Some(name_text(name))
             } else {
                 None
             };
         // `then` and `else` may start a line, as long as it's indented at
         // least as far as the line `if` is on.
         let indent = self.line_indent(self.pos - 1);
-        let cond = self.expr()?;
+        self.expr()?;
         let bool_test = self.peek() == Some(&Tok::Equals);
         self.expect_keyword(Tok::KwThen, "`then`", indent)
-            .map_err(|e| {
-                match &binder {
-                Some(h) if bool_test => e.with_note(format!(
-                    "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
-                     for `a < b`, without `= True`",
-                    h.text, h.text
-                ))
-                .into(),
+            .map_err(|e| match binder {
+                Some(h) if bool_test => e
+                    .with_note(format!(
+                        "in `if {h}: …` the guard is already a proposition: write `if {h}: a < b \
+                         then` for `a < b`, without `= True`"
+                    ))
+                    .into(),
                 _ => e,
-            }
             })?;
-        let then = self.expr()?;
+        self.expr()?;
         self.expect_keyword(Tok::KwElse, "`else`", indent)?;
-        let otherwise = self.expr()?;
+        self.expr()?;
         self.node_at(start, NodeKind::If);
-        let span = start.to(otherwise.span());
-        Ok(Expr::If {
-            binder,
-            cond: Box::new(cond),
-            then: Box::new(then),
-            otherwise: Box::new(otherwise),
-            span,
-        })
+        Ok(())
     }
 
     /// `calc e0` and its steps, one per line: `_ = e1 := proof`, `_ <= e2`
     /// (no proof: closed by computation). The steps line up, and are
     /// indented past the line `calc` is on.
     #[inline(never)]
-    fn calc_expr(&mut self, start: Span) -> Result<Expr> {
+    fn calc_expr(&mut self, start: Span) -> Result<()> {
         let indent = self.line_indent(self.pos - 1);
         self.modes.calc_depth += 1;
         let result = self.calc_body(start, indent);
@@ -3767,20 +3417,20 @@ impl<'t> Parser<'t> {
 
     /// A `calc` expression: above the relations, so `a || b`, `a && b` and
     /// `xs |> f` need no parentheses.
-    fn calc_operand(&mut self) -> Result<Expr> {
-        let mut e = self.range_expr()?;
+    fn calc_operand(&mut self) -> Result<()> {
+        self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain(&mut e)?;
+            self.pipe_chain()?;
         }
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-            self.logic_chain(&mut e)?;
+            self.logic_chain()?;
         }
-        Ok(e)
+        Ok(())
     }
 
     #[inline(never)]
-    fn calc_body(&mut self, start: Span, indent: u32) -> Result<Expr> {
-        let first = self.calc_operand()?;
+    fn calc_body(&mut self, start: Span, indent: u32) -> Result<()> {
+        self.calc_operand()?;
         if matches!(
             self.peek(),
             Some(Tok::Equals | Tok::Le | Tok::Lt | Tok::Gt | Tok::Ge | Tok::NotEq | Tok::EqEq)
@@ -3792,7 +3442,7 @@ impl<'t> Parser<'t> {
             .with_note("write `calc a` and then, indented below it, `_ = b := proof`")
             .into());
         }
-        let mut steps: Vec<CalcStep> = Vec::new();
+        let mut last = None;
         let mut column = None;
         // Whether any step is `<`/`<=` (`ascending`) or `>`/`>=` (`descending`).
         let mut ascending = false;
@@ -3815,24 +3465,10 @@ impl<'t> Parser<'t> {
                 Some(_) => {}
             }
             let underscore = self.bump().span;
-            let (rel, rel_span) = match self.peek() {
-                Some(Tok::Equals) => (BinOp::Eq, self.bump().span),
-                Some(Tok::Le) => {
-                    ascending = true;
-                    (BinOp::Le, self.bump().span)
-                }
-                Some(Tok::Lt) => {
-                    ascending = true;
-                    (BinOp::Lt, self.bump().span)
-                }
-                Some(Tok::Ge) => {
-                    descending = true;
-                    (BinOp::Le, self.bump().span)
-                }
-                Some(Tok::Gt) => {
-                    descending = true;
-                    (BinOp::Lt, self.bump().span)
-                }
+            match self.peek() {
+                Some(Tok::Equals) => {}
+                Some(Tok::Le | Tok::Lt) => ascending = true,
+                Some(Tok::Ge | Tok::Gt) => descending = true,
                 Some(Tok::NotEq | Tok::EqEq) => {
                     return Err(error(
                         self.here(),
@@ -3846,54 +3482,34 @@ impl<'t> Parser<'t> {
                         .unexpected("`=`, `<=`, `<`, `>=` or `>` after `_`")
                         .into());
                 }
-            };
-            let rhs = self.calc_operand()?;
-            let proof = if self.eat(&Tok::ColonEq) {
-                Some(self.expr()?)
-            } else {
-                None
-            };
-            steps.push(CalcStep {
-                rel,
-                rel_span,
-                rhs,
-                proof,
-                span: underscore.to(self.prev_span()),
-            });
+            }
+            self.bump();
+            self.calc_operand()?;
+            if self.eat(&Tok::ColonEq) {
+                self.expr()?;
+            }
+            last = Some(self.prev_span());
             self.node_at(underscore, NodeKind::CalcStep);
         }
-        let Some(last) = steps.last() else {
+        let Some(last) = last else {
             return Err(self
                 .unexpected("a step `_ = e` on the next line, indented past `calc`")
                 .with_note("a `calc` needs at least one step")
                 .into());
         };
-        let span = start.to(last.span);
         self.node_at(start, NodeKind::Calc);
         if descending && ascending {
             return Err(Diagnostic::error(
                 "E-CALC-RELATION",
                 "a `calc` chain goes one way: `<` and `<=` can't be mixed with `>` and `>=`",
             )
-            .with_label(span, "this chain has steps in both directions")
+            .with_label(start.to(last), "this chain has steps in both directions")
             .with_note(
                 "write the steps all with `<`/`<=` or all with `>`/`>=` (`=` goes with either)",
             )
             .into());
         }
-        if descending {
-            let (first, steps) = reverse_calc(first, steps);
-            return Ok(Expr::Calc {
-                span,
-                first: Box::new(first),
-                steps,
-            });
-        }
-        Ok(Expr::Calc {
-            span,
-            first: Box::new(first),
-            steps,
-        })
+        Ok(())
     }
 
     /// `rewrite p, <- q at h in t`, after `rewrite`: rules separated by
@@ -3902,7 +3518,7 @@ impl<'t> Parser<'t> {
     /// where a rule could end: outside brackets, inside a rule (and `in`
     /// inside the target).
     #[inline(never)]
-    fn rewrite_expr(&mut self, start: Span) -> Result<Expr> {
+    fn rewrite_expr(&mut self, start: Span) -> Result<()> {
         let saved = (self.modes.rewrite_rule.take(), self.modes.rewrite_at);
         let result = self.rewrite_body(start);
         (self.modes.rewrite_rule, self.modes.rewrite_at) = saved;
@@ -3910,9 +3526,8 @@ impl<'t> Parser<'t> {
     }
 
     #[inline(never)]
-    fn rewrite_body(&mut self, start: Span) -> Result<Expr> {
+    fn rewrite_body(&mut self, start: Span) -> Result<()> {
         let column = self.tokens[self.pos - 1].column;
-        let mut rules: Vec<RewriteRule> = Vec::new();
         loop {
             let rule_start = self.here();
             let reverse = self.peek() == Some(&Tok::Lt)
@@ -3926,22 +3541,14 @@ impl<'t> Parser<'t> {
             self.modes.rewrite_at = true;
             let proof = self.append_expr();
             self.modes.rewrite_rule = None;
-            let proof = proof?;
-            rules.push(RewriteRule {
-                reverse,
-                span: rule_start.to(proof.span()),
-                proof,
-            });
+            proof?;
             self.node_at(rule_start, NodeKind::RewriteRule);
             if !self.eat(&Tok::Comma) {
                 break;
             }
         }
-        let word = |p: &Self, w: &str| matches!(p.peek(), Some(Tok::Lower(x)) if x == w);
-        let mut at_keyword = None;
-        let target = if word(self, "at") {
+        if matches!(self.peek(), Some(Tok::Lower(x)) if x == "at") {
             let at = self.bump().span;
-            at_keyword = Some(at);
             if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
                 return Err(rewrite_at_without_target(at).into());
             }
@@ -3949,10 +3556,8 @@ impl<'t> Parser<'t> {
             self.modes.rewrite_at = false;
             let target = self.append_expr();
             self.modes.rewrite_rule = None;
-            Some(Box::new(target?))
-        } else {
-            None
-        };
+            target?;
+        }
         // `in` may also start a line of its own, at the `rewrite`'s column or
         // right of it, where the enclosing block's column would end the
         // expression: no statement starts with `in`.
@@ -3960,77 +3565,64 @@ impl<'t> Parser<'t> {
             .tokens
             .get(self.pos)
             .is_some_and(|t| t.tok == Tok::KwIn && t.line_start && t.column >= column);
-        let mut in_keyword = None;
-        let body = if self.peek() == Some(&Tok::KwIn) || own_line {
+        if self.peek() == Some(&Tok::KwIn) || own_line {
             let first = self.bump().span;
-            in_keyword = Some(first);
-            let body_start = self.pos;
-            let body = self.expr()?;
-            self.rewrite_membership(&body, body_start, first)?;
-            Some(Box::new(body))
-        } else {
-            None
-        };
-        let end = body
-            .as_ref()
-            .or(target.as_ref())
-            .map_or_else(|| rules.last().expect("a rule").span, |b| b.span());
+            let body_start = self.mark();
+            self.expr()?;
+            self.rewrite_membership(body_start, first)?;
+        }
         self.node_at(start, NodeKind::Rewrite);
-        Ok(Expr::Rewrite {
-            rules,
-            target,
-            body,
-            keyword: start,
-            at: at_keyword,
-            in_: in_keyword,
-            span: start.to(end),
-        })
+        Ok(())
     }
 
     /// `cases` or `cases in t`, after the `cases` (docs/proposals/simp.md
     /// §5.1). As for `rewrite`, the body runs to the end of the expression.
-    fn cases_expr(&mut self, start: Span) -> Result<Expr> {
+    fn cases_expr(&mut self, start: Span) -> Result<()> {
         if self.peek() != Some(&Tok::KwIn) {
-            return Ok(Expr::Cases {
-                body: None,
-                span: start,
-            });
+            return Ok(());
         }
         self.bump();
-        let body = self.expr()?;
+        self.expr()?;
         self.node_at(start, NodeKind::Cases);
-        Ok(Expr::Cases {
-            span: start.to(body.span()),
-            body: Some(Box::new(body)),
-        })
+        Ok(())
     }
 
     /// A `rewrite` body that is a membership test, `x in xs`, its `in` not
     /// in brackets: `rewrite h x in xs in t` reads as the rule `h x` and the
     /// body `xs in t`, since a bare `in` ends a rule. Whichever was meant,
-    /// brackets say it (D1201).
+    /// brackets say it (D1201). The body starts at token `body_start` and
+    /// ends at the last token read.
     #[inline(never)]
-    fn rewrite_membership(&self, body: &Expr, body_start: usize, first: Span) -> Result<()> {
-        let Expr::Binary(BinOp::In(op), ..) = body else {
-            return Ok(());
-        };
-        let op_index = self.tokens.partition_point(|t| t.span.start < op.start);
-        let depth = self.tokens[body_start..op_index]
+    fn rewrite_membership(&self, body_start: u32, first: Span) -> Result<()> {
+        let end = self.pos as u32;
+        // The body is a membership test if the outermost construct it is,
+        // the last marked from its start to its end, is one.
+        let whole = self
+            .marks
             .iter()
-            .fold(0i64, |d, t| match t.tok {
-                Tok::LBracket | Tok::LParen | Tok::LBrace => d + 1,
-                Tok::RBracket | Tok::RParen | Tok::RBrace => d - 1,
-                _ => d,
-            });
-        if depth > 0 {
+            .rev()
+            .take_while(|m| m.end == end)
+            .find(|m| m.start == body_start);
+        if whole.is_none_or(|m| m.kind != NodeKind::Membership) {
             return Ok(());
         }
+        // Its operator follows its left operand: the longest construct
+        // marked from the body's start that ends before the body does, or
+        // else its first token.
+        let operand_end = self
+            .marks
+            .iter()
+            .filter(|m| m.start == body_start && m.end < end)
+            .map(|m| m.end)
+            .max()
+            .unwrap_or(body_start + 1);
+        let op = self.tokens[operand_end as usize].span;
         Err(Diagnostic::error(
             "E-PARSE",
             "a membership test in a `rewrite` needs brackets",
         )
         .with_label(first, "this `in` ends the rewrite rule")
-        .with_label(*op, "so this `in` is read as a membership test in the body")
+        .with_label(op, "so this `in` is read as a membership test in the body")
         .with_note(
             "a bare `in` ends a `rewrite` rule, so membership in a rule is written in brackets, \
              `rewrite h (x in xs) in …`; a membership test as the body is bracketed too, \
@@ -4040,42 +3632,32 @@ impl<'t> Parser<'t> {
 
     /// `(x : A) -> B` or `[x : A] -> B`. Out of line, as `if_expr` is.
     #[inline(never)]
-    fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<Expr> {
-        let (binder, auto) = if implicit {
+    fn pi_expr(&mut self, start: Span, implicit: bool) -> Result<()> {
+        let binder = if implicit {
             self.implicit_binder()?
         } else {
-            (self.binder()?, false)
+            self.binder()?
         };
-        if let Some(first) = binder.attrs.first() {
-            return Err(misplaced_attributes(first, "a function type's parameter").into());
+        if let Some(first) = binder.attribute {
+            return Err(misplaced_attributes(&first, "a function type's parameter").into());
         }
         self.expect(Tok::Arrow, "`->`")?;
-        let cod = self.result_type()?;
+        self.result_type()?;
         self.node_at(start, NodeKind::FunctionType);
-        let span = start.to(cod.span());
-        Ok(Expr::Pi {
-            names: binder.names,
-            implicit,
-            auto,
-            dom: Box::new(binder.ty),
-            cod: Box::new(cod),
-            span,
-        })
+        Ok(())
     }
 
-    /// `let x := e; body` as an expression. Out of line, so that the `let`'s
-    /// `Stmt` isn't in `expr_inline`'s frame, which every level of a nested
-    /// expression (`((…(0)…))`) holds on the stack.
+    /// `let x := e; body` as an expression. Out of line, as the others are.
     #[inline(never)]
-    fn expression_let(&mut self) -> Result<Expr> {
+    fn expression_let(&mut self) -> Result<()> {
         let start = self.mark();
-        let stmt = self.let_statement()?;
-        let expr = self.let_body(stmt)?;
+        self.let_statement()?;
+        self.let_body()?;
         self.node(start, NodeKind::LetExpr);
-        Ok(expr)
+        Ok(())
     }
 
-    fn expr_inline(&mut self) -> Result<Expr> {
+    fn expr_inline(&mut self) -> Result<()> {
         let start = self.here();
         if self.eat(&Tok::KwHandle) {
             return self.handle(start);
@@ -4112,27 +3694,27 @@ impl<'t> Parser<'t> {
             return self.pi_expr(start, implicit);
         }
         let section = self.peek() == Some(&Tok::Dot);
-        let mut lhs = self.cmp_expr()?;
+        self.cmp_expr()?;
         if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-            self.logic_chain(&mut lhs)?;
+            self.logic_chain()?;
         }
         if self.peek() == Some(&Tok::Iff) {
-            self.iff(&mut lhs)?;
+            self.iff()?;
         }
         if self.peek() == Some(&Tok::Arrow) {
             self.open(NodeKind::Arrow);
             self.bump();
-            let rhs = self.result_type()?;
+            self.result_type()?;
             self.close();
-            return Ok(Expr::Arrow(Box::new(lhs), Box::new(rhs)));
+            return Ok(());
         }
         if section {
-            self.widen_section(&mut lhs);
+            self.widen_section();
         }
         if self.peek() == Some(&Tok::Semi) && self.sequence_ahead() {
-            return self.sequence(lhs);
+            return self.sequence();
         }
-        Ok(lhs)
+        Ok(())
     }
 
     /// Whether the `;` at the current token continues a sequence `a; b`
@@ -4160,7 +3742,7 @@ impl<'t> Parser<'t> {
     /// rest runs as far as an expression can, as an expression `let`'s body
     /// does.
     #[inline(never)]
-    fn sequence(&mut self, first: Expr) -> Result<Expr> {
+    fn sequence(&mut self) -> Result<()> {
         let start = self.operand_start();
         let semi = self.bump().span;
         let at_end = self
@@ -4177,9 +3759,9 @@ impl<'t> Parser<'t> {
             };
             return Err(error(semi, message).with_note(note).into());
         }
-        let rest = self.expr()?;
+        self.expr()?;
         self.node(start, NodeKind::Seq);
-        Ok(Expr::Seq(Box::new(first), Box::new(rest)))
+        Ok(())
     }
 
     /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&` and `||`,
@@ -4187,18 +3769,17 @@ impl<'t> Parser<'t> {
     /// side may be an `exists` or a `forall`. Out of line, as `logic_chain`
     /// is.
     #[inline(never)]
-    fn iff(&mut self, operand: &mut Expr) -> Result<()> {
+    fn iff(&mut self) -> Result<()> {
         let start = self.operand_start();
-        let op = self.bump().span;
-        let rhs = if self.at_quantifier() {
-            self.quantifier()?
+        self.bump();
+        if self.at_quantifier() {
+            self.quantifier()?;
         } else {
-            let mut rhs = self.cmp_expr()?;
+            self.cmp_expr()?;
             if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
-                self.logic_chain(&mut rhs)?;
+                self.logic_chain()?;
             }
-            rhs
-        };
+        }
         if self.peek() == Some(&Tok::Iff) {
             return Err(Diagnostic::error("E-PARSE", "`<->` doesn't chain")
                 .with_label(self.here(), "a second `<->`")
@@ -4206,15 +3787,6 @@ impl<'t> Parser<'t> {
                 .into());
         }
         self.node(start, NodeKind::Iff);
-        let lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
-        let iff = Expr::Var(Name {
-            text: "Std.Iff".into(),
-            span: op,
-        });
-        *operand = Expr::App(
-            Box::new(Expr::App(Box::new(iff), Box::new(lhs))),
-            Box::new(rhs),
-        );
         Ok(())
     }
 
@@ -4223,7 +3795,7 @@ impl<'t> Parser<'t> {
     /// inferred (`exists k => P k`); several parameters nest, so
     /// `exists (a b: Nat) => P` is `exists (a: Nat) => exists (b: Nat) => P`.
     #[inline(never)]
-    fn exists_expr(&mut self) -> Result<Expr> {
+    fn exists_expr(&mut self) -> Result<()> {
         let keyword = self.bump().span;
         if !self.lambda_ahead()? {
             return Err(self
@@ -4232,10 +3804,9 @@ impl<'t> Parser<'t> {
                 .into());
         }
         let start = self.here();
-        let lambda = self.lambda(start)?;
+        self.lambda(start)?;
         self.retag_last(keyword, NodeKind::Exists);
-        let outer = lambda.span();
-        Ok(exists_chain(keyword, lambda, outer))
+        Ok(())
     }
 
     /// Whether an `exists` or a `forall` starts here.
@@ -4245,7 +3816,7 @@ impl<'t> Parser<'t> {
 
     /// `exists …` or `forall …`, at the keyword.
     #[inline(never)]
-    fn quantifier(&mut self) -> Result<Expr> {
+    fn quantifier(&mut self) -> Result<()> {
         if self.peek() == Some(&Tok::KwForall) {
             self.forall_expr()
         } else {
@@ -4260,38 +3831,23 @@ impl<'t> Parser<'t> {
     /// one function type, as `(x y: T) -> P` is. The body runs to the end of
     /// the expression, as an `exists`'s does.
     #[inline(never)]
-    fn forall_expr(&mut self) -> Result<Expr> {
+    fn forall_expr(&mut self) -> Result<()> {
         let written = self.spelled(&self.tokens[self.pos]);
         let keyword = self.bump().span;
-        // Each group's names, whether it's implicit, whether it's `auto`,
-        // and its type.
-        let mut groups: Vec<ForallGroup> = Vec::new();
+        let mut groups = 0;
         loop {
             let first = self.mark();
             match self.peek() {
                 Some(Tok::Lower(w)) if !w.contains('.') => {
-                    let name = self.lower("a name")?;
-                    let hole = Expr::Hole(name.span);
-                    groups.push((vec![name], false, false, hole));
+                    self.lower("a name")?;
                 }
                 Some(Tok::Underscore) => {
-                    let span = self.bump().span;
-                    let name = Name {
-                        text: "_".to_string(),
-                        span,
-                    };
-                    groups.push((vec![name], false, false, Expr::Hole(span)));
+                    self.bump();
                 }
                 Some(Tok::LParen) if self.annotated_param_ahead() => {
-                    let Param::Named {
-                        names, ty, default, ..
-                    } = self.header_param_parts()?
-                    else {
-                        unreachable!("an annotated parameter is a named one")
-                    };
-                    if let Some(default) = default {
+                    if let Some(default) = self.header_param_parts()?.default {
                         return Err(error(
-                            default.span(),
+                            self.lowered_span(default),
                             "a `forall` parameter can't have a default",
                         )
                         .with_note(
@@ -4299,25 +3855,19 @@ impl<'t> Parser<'t> {
                         )
                         .into());
                     }
-                    groups.push((names, false, false, ty));
                 }
                 Some(Tok::LBracket)
                     if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
                 {
-                    let Param::Named {
-                        names, ty, auto, ..
-                    } = self.header_param_parts()?
-                    else {
-                        unreachable!("an implicit parameter is a named one")
-                    };
-                    groups.push((names, true, auto, ty));
+                    self.header_param_parts()?;
                 }
                 _ => break,
             }
+            groups += 1;
             self.mark_param(first);
         }
-        if groups.is_empty() || self.peek() != Some(&Tok::FatArrow) {
-            let expected = if groups.is_empty() {
+        if groups == 0 || self.peek() != Some(&Tok::FatArrow) {
+            let expected = if groups == 0 {
                 format!("a parameter after {written}")
             } else {
                 format!("`=>` after the parameters of {written}")
@@ -4332,9 +3882,9 @@ impl<'t> Parser<'t> {
             return Err(self.unexpected(&expected).with_note(note).into());
         }
         self.bump();
-        let body = self.expr()?;
+        self.expr()?;
         self.node_at(keyword, NodeKind::Forall);
-        Ok(forall_of(groups, body, keyword))
+        Ok(())
     }
 
     /// `[ name+ :` starts an implicit binder, as does `[auto` followed by an
@@ -4372,49 +3922,60 @@ impl<'t> Parser<'t> {
             && matches!(self.tokens.get(i + 2).map(|t| &t.tok), Some(Tok::Upper(_)))
     }
 
-    /// `[x y : A]`, or `[auto x : P]`, or `[auto P]`. Returns whether it's
-    /// `auto`.
-    fn implicit_binder(&mut self) -> Result<(Binder, bool)> {
+    /// `[x y : A]`, or `[auto x : P]`, or `[auto P]`.
+    fn implicit_binder(&mut self) -> Result<BinderRead> {
         let mark = self.mark();
         let binder = self.implicit_binder_parts()?;
         self.node(mark, NodeKind::Binder);
         Ok(binder)
     }
 
-    fn implicit_binder_parts(&mut self) -> Result<(Binder, bool)> {
+    fn implicit_binder_parts(&mut self) -> Result<BinderRead> {
         if self.nameless_auto_at(self.pos) {
             self.bump();
             let auto = self.bump().span;
-            let ty = self.expr()?;
+            let ty = self.mark();
+            self.expr()?;
+            let ty = (ty, self.mark());
             self.expect(Tok::RBracket, "`]`")?;
-            let names = vec![Name {
-                text: crate::ast::NAMELESS.to_string(),
-                span: auto,
-            }];
-            return Ok((
-                Binder {
-                    names,
-                    ty,
-                    attrs: Vec::new(),
-                },
-                true,
-            ));
+            return Ok(BinderRead {
+                attribute: None,
+                auto: true,
+                nameless: true,
+                first_name: auto,
+                ty,
+                default: None,
+            });
         }
         self.expect(Tok::LBracket, "`[`")?;
-        let attrs = self.attributes()?;
-        let mut names = vec![self.lower("a name")?];
+        let attribute = self.attributes()?;
+        let first = self.lower("a name")?;
+        let mut names = 1;
+        let mut second = None;
         while let Some(Tok::Lower(_)) = self.peek() {
-            names.push(self.lower("a name")?);
+            let name = self.lower("a name")?;
+            second.get_or_insert(name.span);
+            names += 1;
         }
         // `auto` is only special as the first word of a binder with names after it.
-        let auto = names.len() > 1 && names[0].text == "auto";
-        if auto {
-            names.remove(0);
-        }
+        let auto = names > 1 && name_text(first) == "auto";
         self.expect(Tok::Colon, "`:`")?;
-        let ty = self.binder_type()?;
+        let ty = self.mark();
+        self.binder_type()?;
+        let ty = (ty, self.mark());
         self.expect(Tok::RBracket, "`]`")?;
-        Ok((Binder { names, ty, attrs }, auto))
+        Ok(BinderRead {
+            attribute,
+            auto,
+            nameless: false,
+            first_name: if auto {
+                second.unwrap_or(first.span)
+            } else {
+                first.span
+            },
+            ty,
+            default: None,
+        })
     }
 
     /// Whether a lambda starts here: a run of one or more parameters followed
@@ -4549,56 +4110,28 @@ impl<'t> Parser<'t> {
 
     /// `a && b` and `a || b`: binding more loosely than comparisons, `&&`
     /// tighter than `||`, both grouping to the right. The operands are
-    /// collected in a loop, so a chain costs one stack frame, not one per
-    /// operator. `operand` is the first operand, already parsed, and is
-    /// replaced by the whole chain. Every expression is parsed by the
-    /// caller, and this is only entered at a `&&` or `||`, out of line and
-    /// with nothing moved through the caller's frame, so the frames nested
-    /// expressions pile up (and so how deeply they can nest) stay as they
-    /// were: the `check-nested-parens` benchmark fails otherwise.
+    /// read in a loop, so a chain costs one stack frame, not one per
+    /// operator. The first operand has been read. Every expression is
+    /// parsed by the caller, and this is only entered at a `&&` or `||`, out
+    /// of line, so the frames nested expressions pile up (and so how deeply
+    /// they can nest) stay as they were: the `check-nested-parens` benchmark
+    /// fails otherwise.
     #[inline(never)]
-    fn logic_chain(&mut self, operand: &mut Expr) -> Result<()> {
-        let first = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
-        // `a || b && c || d` is gathered as `[[a], [b, c], [d]]`.
-        let mut disjuncts = vec![vec![first]];
-        // Where each operand starts, and whether it starts a disjunct, if
-        // marks are being recorded.
-        let mut starts = Vec::new();
-        if self.marks.is_some() {
-            starts.push((self.operand_start(), true));
-        }
-        loop {
-            match self.peek() {
-                Some(Tok::AndAnd) => {}
-                Some(Tok::OrOr) => disjuncts.push(Vec::new()),
-                _ => break,
-            }
+    fn logic_chain(&mut self) -> Result<()> {
+        // Where each operand starts, and whether it starts a disjunct.
+        let mut starts = vec![(self.operand_start(), true)];
+        while let Some(Tok::AndAnd | Tok::OrOr) = self.peek() {
             let or = self.bump().tok == Tok::OrOr;
-            if self.marks.is_some() {
-                starts.push((self.mark(), or));
-            }
+            starts.push((self.mark(), or));
             // `p && exists (x: T) => q`: the `exists` takes the rest, as
             // does a `forall`.
-            let operand = if self.at_quantifier() {
-                self.quantifier()?
+            if self.at_quantifier() {
+                self.quantifier()?;
             } else {
-                self.cmp_expr()?
-            };
-            disjuncts.last_mut().expect("never empty").push(operand);
+                self.cmp_expr()?;
+            }
         }
         self.mark_logic_chain(&starts);
-        let right = |op: BinOp, items: Vec<Expr>| {
-            items
-                .into_iter()
-                .rev()
-                .reduce(|rhs, lhs| Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
-                .expect("never empty")
-        };
-        let conjunctions = disjuncts
-            .into_iter()
-            .map(|items| right(BinOp::And, items))
-            .collect();
-        *operand = right(BinOp::Or, conjunctions);
         Ok(())
     }
 
@@ -4628,9 +4161,7 @@ impl<'t> Parser<'t> {
 
     /// Records a construct with both ends given.
     fn record_range(&mut self, start: u32, end: u32, kind: NodeKind) {
-        if let Some(marks) = &mut self.marks {
-            marks.push(Mark { kind, start, end });
-        }
+        self.marks.push(Mark { kind, start, end });
     }
 
     /// Whether a `|>` comes next: on this line, or starting a line (which a
@@ -4654,11 +4185,9 @@ impl<'t> Parser<'t> {
     /// `(x |> y => f y) |> g`. Out of line and in a loop, as `logic_chain`
     /// is.
     #[inline(never)]
-    fn pipe_chain(&mut self, operand: &mut Expr) -> Result<()> {
-        let mut lhs = std::mem::replace(operand, Expr::Prop(Span::NOWHERE));
+    fn pipe_chain(&mut self) -> Result<()> {
         let start = self.operand_start();
-        let first = lhs.span().start;
-        let indent = self.line_indent(self.tokens.partition_point(|t| t.span.start < first));
+        let indent = self.line_indent(self.written_start(start));
         loop {
             let continues = match self.tokens.get(self.pos) {
                 Some(t) if t.tok == Tok::PipeGt => {
@@ -4670,74 +4199,83 @@ impl<'t> Parser<'t> {
                 break;
             }
             self.bump();
-            let rhs = if self.lambda_ahead()? {
+            if self.lambda_ahead()? {
                 let start = self.here();
-                self.lambda(start)?
+                self.lambda(start)?;
             } else {
                 let section = self.peek() == Some(&Tok::Dot);
-                let mut rhs = self.append_expr()?;
+                self.append_expr()?;
                 if section {
-                    self.widen_section(&mut rhs);
+                    self.widen_section();
                 }
-                rhs
-            };
+            }
             self.node(start, NodeKind::Pipe);
-            lhs = piped(lhs, rhs);
         }
-        *operand = lhs;
         Ok(())
+    }
+
+    /// The token where the compiler's tree's span of the operand from token
+    /// `start` to the last token read starts: its first token, or inside
+    /// brackets it starts with (`(f x) |> g`'s operand is `f x`). Only which
+    /// line it is on matters: when the brackets before it don't start a
+    /// line, that of `start`.
+    fn written_start(&self, start: u32) -> usize {
+        let mut i = start as usize;
+        while self.tokens[i].tok == Tok::LParen && i + 1 < self.pos {
+            i += 1;
+            if self.tokens[i].line_start {
+                let span = self.lowered_span((start, self.pos as u32));
+                return self.tokens.partition_point(|t| t.span.start < span.start);
+            }
+        }
+        start as usize
     }
 
     /// A `match` starting an expression, then a pipeline it feeds: a `|>`
     /// line left of the last alternative's line (which would otherwise
     /// take it), but at least as far right as the `match`'s line.
     #[inline(never)]
-    fn match_piped(&mut self, start: Span) -> Result<Expr> {
-        let mut matched = self.match_expr(start)?;
+    fn match_piped(&mut self, start: Span) -> Result<()> {
+        self.match_expr(start)?;
         if self.at_pipe() {
-            self.pipe_chain(&mut matched)?;
+            self.pipe_chain()?;
         }
-        Ok(matched)
+        Ok(())
     }
 
     /// `a = b`, `a != b`, `a == b`, `a < b`, `a <= b`, `a > b`, `a >= b`: not
     /// associative, except that `<`/`<=` chain together, as do `>`/`>=`
-    /// (`lo <= x < hi`, see [`chain`]). Each operand may be a pipeline.
-    fn cmp_expr(&mut self) -> Result<Expr> {
+    /// (`lo <= x < hi`). Each operand may be a pipeline.
+    fn cmp_expr(&mut self) -> Result<()> {
         let lhs_start = self.pos;
-        let mut lhs = self.range_expr()?;
+        self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain(&mut lhs)?;
+            self.pipe_chain()?;
         }
         if matches!(self.peek(), Some(Tok::KwIn | Tok::NotIn)) {
-            return self.membership(lhs, lhs_start);
+            return self.membership(lhs_start);
         }
-        let (op, flip) = match self.peek() {
-            Some(Tok::Equals) => (BinOp::Eq, false),
-            Some(Tok::NotEq) => (BinOp::Ne, false),
-            Some(Tok::EqEq) => (BinOp::EqEq, false),
-            Some(Tok::Lt) => (BinOp::Lt, false),
-            Some(Tok::Le) => (BinOp::Le, false),
-            // `a > b` is `b < a`, `a >= b` is `b <= a`: the same terms, so
-            // goals and messages show `<` and `<=`.
-            Some(Tok::Gt) => (BinOp::Lt, true),
-            Some(Tok::Ge) => (BinOp::Le, true),
-            _ => return Ok(lhs),
+        let descending = match self.peek() {
+            Some(Tok::Equals | Tok::NotEq | Tok::EqEq | Tok::Lt | Tok::Le) => false,
+            Some(Tok::Gt | Tok::Ge) => true,
+            _ => return Ok(()),
         };
-        let first_symbol = written(self.peek());
-        let first_op = self.bump().span;
+        let first_tok = self.peek();
+        let first_op = self.mark();
+        self.bump();
         // `a = if c then x else y`: the `if` on the right runs to the end of
         // the expression, as it does anywhere else.
         if self.peek() == Some(&Tok::KwIf) {
             let start = self.here();
             self.bump();
-            let rhs = self.if_expr(start)?;
+            self.if_expr(start)?;
             self.node(lhs_start as u32, NodeKind::Binary);
-            return Ok(binary(op, flip, lhs, rhs));
+            return Ok(());
         }
-        let mut rhs = self.range_expr()?;
+        let second = self.mark();
+        self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain(&mut rhs)?;
+            self.pipe_chain()?;
         }
         if !matches!(
             self.peek(),
@@ -4754,28 +4292,34 @@ impl<'t> Parser<'t> {
             )
         ) {
             self.node(lhs_start as u32, NodeKind::Binary);
-            return Ok(binary(op, flip, lhs, rhs));
+            return Ok(());
         }
-        self.comparison_chain(lhs, lhs_start, (op, flip, first_op, first_symbol), rhs)
+        let equality = matches!(first_tok, Some(Tok::Equals | Tok::NotEq | Tok::EqEq));
+        self.comparison_chain(lhs_start as u32, first_op, second, equality, descending)
     }
 
     /// The rest of `a <= b < c …`, after `a <= b`, where `a` starts at
-    /// token `first_start` (SW-1339, D2386): the links are joined as `&&`
-    /// would join them, with a middle operand that is more than a name or a
-    /// literal bound by a `let` so it runs once (see [`chain`]).
+    /// token `first_start`, its operator is token `first_op` and `b` starts
+    /// at `second` (SW-1339, D2386); the lowering joins the links.
+    /// `equality` if the first operator is `=`, `!=` or `==`, which can't
+    /// start a chain; `descending` if it is `>` or `>=`.
     #[inline(never)]
     fn comparison_chain(
         &mut self,
-        first: Expr,
-        first_start: usize,
-        (op, flip, first_op, first_symbol): (BinOp, bool, Span, &'static str),
-        second: Expr,
-    ) -> Result<Expr> {
-        let starts = first.span();
-        if matches!(op, BinOp::Eq | BinOp::Ne | BinOp::EqEq) {
+        first_start: u32,
+        first_op: u32,
+        second: u32,
+        equality: bool,
+        descending: bool,
+    ) -> Result<()> {
+        let first_symbol = written(Some(&self.tokens[first_op as usize].tok));
+        if equality {
             let next = written(self.peek());
             return Err(chain_error(
-                (first_op, "this comparison can't start a chain"),
+                (
+                    self.tokens[first_op as usize].span,
+                    "this comparison can't start a chain",
+                ),
                 (self.here(), "so this one can't follow it"),
                 format!("`{first_symbol}` can't be part of a chain of comparisons"),
                 format!(
@@ -4784,22 +4328,22 @@ impl<'t> Parser<'t> {
                 ),
             ));
         }
-        let (a, b) = (operand_text(&first, "a"), operand_text(&second, "b"));
-        let mut operands = vec![first, second];
-        let mut links = vec![(op, flip)];
-        let descending = flip;
+        // Each operand's tokens, for messages.
+        let mut operands = vec![(first_start, first_op), (second, self.mark())];
         let mut last_symbol = first_symbol;
         loop {
             let symbol = written(self.peek());
-            let (op, flip) = match self.peek() {
-                Some(Tok::Lt) => (BinOp::Lt, false),
-                Some(Tok::Le) => (BinOp::Le, false),
-                Some(Tok::Gt) => (BinOp::Lt, true),
-                Some(Tok::Ge) => (BinOp::Le, true),
+            let flip = match self.peek() {
+                Some(Tok::Lt | Tok::Le) => false,
+                Some(Tok::Gt | Tok::Ge) => true,
                 Some(Tok::Equals | Tok::EqEq) if matches!(self.peek_at(1), Some(Tok::Upper(b)) if b == "True" || b == "False") =>
                 {
+                    let (a, b) = (
+                        self.operand_text(operands[0], "a"),
+                        self.operand_text(operands[1], "b"),
+                    );
                     return Err(chain_error(
-                        (starts, "this comparison"),
+                        (self.lowered_span(operands[0]), "this comparison"),
                         (self.here(), "isn't compared with a Bool"),
                         format!("`{symbol}` can't be part of a chain of comparisons"),
                         format!(
@@ -4811,7 +4355,7 @@ impl<'t> Parser<'t> {
                 }
                 Some(Tok::Equals | Tok::EqEq) => {
                     return Err(chain_error(
-                        (starts, "the chain starts here"),
+                        (self.lowered_span(operands[0]), "the chain starts here"),
                         (self.here(), "this operator can't continue it"),
                         format!("`{symbol}` can't be part of a chain of comparisons"),
                         format!(
@@ -4823,7 +4367,7 @@ impl<'t> Parser<'t> {
                 }
                 Some(Tok::NotEq) => {
                     return Err(chain_error(
-                        (starts, "the chain starts here"),
+                        (self.lowered_span(operands[0]), "the chain starts here"),
                         (self.here(), "this operator can't continue it"),
                         "`!=` can't be part of a chain of comparisons".into(),
                         "`a != b != c` would not mean that all three differ; write the \
@@ -4832,7 +4376,7 @@ impl<'t> Parser<'t> {
                 }
                 Some(Tok::KwIn | Tok::NotIn) => {
                     return Err(chain_error(
-                        (starts, "the chain starts here"),
+                        (self.lowered_span(operands[0]), "the chain starts here"),
                         (self.here(), "this operator can't continue it"),
                         "`in` can't be part of a chain of comparisons".into(),
                         "write the comparison and the membership test separately, joined \
@@ -4844,16 +4388,19 @@ impl<'t> Parser<'t> {
             if flip != descending {
                 let n = operands.len();
                 let (before, left) = if n == 2 {
-                    (a.clone(), b.clone())
+                    (
+                        self.operand_text(operands[0], "a"),
+                        self.operand_text(operands[1], "b"),
+                    )
                 } else {
                     (
-                        operand_text(&operands[n - 2], "a"),
-                        operand_text(&operands[n - 1], "b"),
+                        self.operand_text(operands[n - 2], "a"),
+                        self.operand_text(operands[n - 1], "b"),
                     )
                 };
                 let right = "c";
                 return Err(chain_error(
-                    (starts, "the chain starts here"),
+                    (self.lowered_span(operands[0]), "the chain starts here"),
                     (self.here(), "this operator can't continue it"),
                     "a chain of comparisons goes one way: `<` and `<=` can't be mixed with \
                      `>` and `>=`"
@@ -4867,23 +4414,37 @@ impl<'t> Parser<'t> {
             }
             last_symbol = symbol;
             self.bump();
-            let mut operand = self.range_expr()?;
+            let operand = self.mark();
+            self.range_expr()?;
             if self.at_pipe() {
-                self.pipe_chain(&mut operand)?;
+                self.pipe_chain()?;
             }
-            operands.push(operand);
-            links.push((op, flip));
+            operands.push((operand, self.mark()));
         }
-        self.node(first_start as u32, NodeKind::Chain);
-        Ok(chain(operands, &links))
+        self.node(first_start, NodeKind::Chain);
+        Ok(())
+    }
+
+    /// The operand in tokens `range` as a suggestion writes it: a name or a
+    /// number as written, otherwise the placeholder `fallback`.
+    #[cold]
+    #[inline(never)]
+    fn operand_text(&self, range: (u32, u32), fallback: &str) -> String {
+        match self.lowered(range, false) {
+            Some(Lowered::Expr(expr)) => match &expr {
+                Expr::Var(name) => name.text.clone(),
+                Expr::Num(n, _) => n.to_string(),
+                _ => fallback.to_string(),
+            },
+            _ => fallback.to_string(),
+        }
     }
 
     /// `x in c` or `x !in c`, after `x` (which starts at token `lhs_start`):
     /// at the level of `=`, not associative (D1201). `x !in c` is `!(x in c)`.
     #[inline(never)]
-    fn membership(&mut self, lhs: Expr, lhs_start: usize) -> Result<Expr> {
-        let token = self.bump();
-        let (op, negated) = (token.span, token.tok == Tok::NotIn);
+    fn membership(&mut self, lhs_start: usize) -> Result<()> {
+        let op = self.bump().span;
         // `!x in xs` is `(!x) in xs`, since `!` binds tighter: almost
         // certainly not what was meant.
         if self.tokens[lhs_start].tok == Tok::Bang {
@@ -4903,33 +4464,28 @@ impl<'t> Parser<'t> {
             )
             .into());
         }
-        let mut rhs = self.range_expr()?;
+        self.range_expr()?;
         if self.at_pipe() {
-            self.pipe_chain(&mut rhs)?;
+            self.pipe_chain()?;
         }
         self.node(lhs_start as u32, NodeKind::Membership);
-        let member = Expr::Binary(BinOp::In(op), Box::new(lhs), Box::new(rhs));
-        if !negated {
-            return Ok(member);
-        }
-        Ok(prefix_op(true, op, member))
+        Ok(())
     }
 
     /// `a ..< b`, `a ..= b`: a range, not associative, binding more loosely
     /// than `++` and more tightly than the comparisons and `|>`, so
     /// `0 ..< xs.length` and `x in 0 ..< n |> f` read as they look
     /// (docs/proposals/ranges.md §11).
-    fn range_expr(&mut self) -> Result<Expr> {
-        let lhs = self.append_expr()?;
-        let op = match self.peek() {
-            Some(Tok::DotDotLt) => BinOp::Range,
-            Some(Tok::DotDotEq) => BinOp::RangeThrough,
+    fn range_expr(&mut self) -> Result<()> {
+        self.append_expr()?;
+        match self.peek() {
+            Some(Tok::DotDotLt | Tok::DotDotEq) => {}
             Some(Tok::DotDot) => return Err(self.bare_range().into()),
-            _ => return Ok(lhs),
-        };
+            _ => return Ok(()),
+        }
         self.open(NodeKind::Range);
         let first = self.bump().span;
-        let rhs = self.append_expr()?;
+        self.append_expr()?;
         self.close();
         if let Some(Tok::DotDotLt | Tok::DotDotEq) = self.peek() {
             return Err(error(self.here(), "ranges don't chain")
@@ -4940,7 +4496,7 @@ impl<'t> Parser<'t> {
                 )
                 .into());
         }
-        Ok(Expr::Binary(op, Box::new(lhs), Box::new(rhs)))
+        Ok(())
     }
 
     /// `E-PARSE` for `a .. b` or `a..b`: the forms of a range are `..<` and
@@ -4962,58 +4518,47 @@ impl<'t> Parser<'t> {
 
     /// `++`: right-associative, binding more loosely than `+`, so
     /// `"n = " ++ natToText (n + 1)` and `a ++ b ++ c` mean what they look like.
-    fn append_expr(&mut self) -> Result<Expr> {
+    fn append_expr(&mut self) -> Result<()> {
         self.deeper()?;
-        let lhs = self.add_expr()?;
+        self.add_expr()?;
         if self.peek() != Some(&Tok::PlusPlus) {
-            return Ok(lhs);
+            return Ok(());
         }
         self.open(NodeKind::Binary);
         self.bump();
-        let rhs = self.append_expr()?;
+        self.append_expr()?;
         self.close();
-        Ok(Expr::Binary(BinOp::Append, Box::new(lhs), Box::new(rhs)))
+        Ok(())
     }
 
     /// `+`, `-`: left-associative.
-    fn add_expr(&mut self) -> Result<Expr> {
-        let mut lhs = self.mul_expr()?;
-        loop {
-            let op = match self.peek() {
-                Some(Tok::Plus) => BinOp::Add,
-                Some(Tok::Minus) => BinOp::Sub,
-                _ => return Ok(lhs),
-            };
+    fn add_expr(&mut self) -> Result<()> {
+        self.mul_expr()?;
+        while matches!(self.peek(), Some(Tok::Plus | Tok::Minus)) {
             self.open(NodeKind::Binary);
             self.bump();
-            let rhs = self.mul_expr()?;
+            self.mul_expr()?;
             self.close();
-            lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
         }
+        Ok(())
     }
 
     /// `*`, `/`, `%`: left-associative, binding tighter than `+`.
-    fn mul_expr(&mut self) -> Result<Expr> {
-        let mut lhs = self.unary()?;
-        loop {
-            let op = match self.peek() {
-                Some(Tok::Star) => BinOp::Mul,
-                Some(Tok::Slash) => BinOp::Div,
-                Some(Tok::Percent) => BinOp::Mod,
-                _ => return Ok(lhs),
-            };
+    fn mul_expr(&mut self) -> Result<()> {
+        self.unary()?;
+        while matches!(self.peek(), Some(Tok::Star | Tok::Slash | Tok::Percent)) {
             self.open(NodeKind::Binary);
             self.bump();
-            let rhs = self.unary()?;
+            self.unary()?;
             self.close();
-            lhs = Expr::Binary(op, Box::new(lhs), Box::new(rhs));
         }
+        Ok(())
     }
 
     /// A prefix minus or `!` (which may repeat), tighter than `*` and looser
     /// than application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`,
     /// `!xs.isEmpty` is `Bool.not (xs.isEmpty)`.
-    fn unary(&mut self) -> Result<Expr> {
+    fn unary(&mut self) -> Result<()> {
         // A `match` as an operand: `1 + match n with | …`. Its last
         // alternative's body takes whatever follows.
         if self.peek() == Some(&Tok::KwMatch) {
@@ -5028,26 +4573,20 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::Minus) && negative_numeral(self.tokens, self.pos) {
             return self.app();
         }
-        if let Some(prefix @ (Tok::Minus | Tok::Bang)) = self.peek() {
+        if let Some(Tok::Minus | Tok::Bang) = self.peek() {
             self.deeper()?;
             let start = self.bump().span;
-            let operand = self.unary()?;
+            self.unary()?;
             self.node_at(start, NodeKind::Prefix);
-            return Ok(prefix_op(prefix == &Tok::Bang, start, operand));
+            return Ok(());
         }
         self.app()
     }
 
-    fn app(&mut self) -> Result<Expr> {
+    fn app(&mut self) -> Result<()> {
         // A section's arguments are its own: `.drop 1` is `x => x.drop 1`.
         let section = self.peek() == Some(&Tok::Dot);
-        let start = self.here();
-        let bracketed = self.peek() == Some(&Tok::LParen);
-        let mut expr = self.atom(true)?;
-        if bracketed && matches!(expr, Expr::App(..)) && self.starts_atom() {
-            let end = self.tokens[self.pos - 1].span;
-            expr = Expr::Bracketed(Box::new(expr), start.to(end));
-        }
+        self.atom(true)?;
         // `f a b` is one `App` node, however many arguments.
         if self.starts_atom() {
             self.open(NodeKind::App);
@@ -5058,16 +4597,9 @@ impl<'t> Parser<'t> {
                 if matches!(self.peek(), Some(Tok::Upper(_)))
                     && self.peek_at(1) == Some(&Tok::LBrace)
                 {
-                    expr = self.brace_argument(expr)?;
+                    self.brace_argument()?;
                 } else {
-                    let arg = self.atom(false)?;
-                    if section && let Expr::Lam(_, body, span) = &mut expr {
-                        *span = span.to(arg.span());
-                        let f = std::mem::replace(&mut **body, Expr::Hole(Span::NOWHERE));
-                        **body = Expr::App(Box::new(f), Box::new(arg));
-                    } else {
-                        expr = Expr::App(Box::new(expr), Box::new(arg));
-                    }
+                    self.atom(false)?;
                 }
                 if !self.starts_atom() {
                     break;
@@ -5082,7 +4614,7 @@ impl<'t> Parser<'t> {
         if self.peek() == Some(&Tok::KwCases) && self.peek_at(1) == Some(&Tok::KwIn) {
             return Err(self.cases_in_argument().into());
         }
-        Ok(expr)
+        Ok(())
     }
 
     /// A line starting with `.name`, as an argument of the line before.
@@ -5195,21 +4727,26 @@ impl<'t> Parser<'t> {
     /// braces is `C { f = e, … }`: named construction or a record argument,
     /// as `C` is declared (`ctor_fields_expr`). As an argument (`f C { … }`)
     /// `app` takes it (`brace_argument`).
-    fn atom(&mut self, head: bool) -> Result<Expr> {
+    fn atom(&mut self, head: bool) -> Result<()> {
         let section = self.peek() == Some(&Tok::Dot);
         let start = self.here();
         let upper = matches!(self.peek(), Some(Tok::Upper(_)));
-        let mut expr = self.atom_base()?;
+        // Whether what has been read is a name or a field, which `()`
+        // written against it calls; in brackets, `(f)()`, it may be one.
+        let paren = self.peek() == Some(&Tok::LParen);
+        let mut callable = matches!(self.peek(), Some(Tok::Lower(_) | Tok::Upper(_) | Tok::Dot));
+        let first = self.mark();
+        self.atom_base()?;
         if upper && head && self.peek() == Some(&Tok::LBrace) {
-            expr = self.ctor_fields_expr(expr)?;
+            self.ctor_fields_expr()?;
+            callable = false;
         }
         loop {
-            if matches!(expr, Expr::Var(_) | Expr::Field(..)) && self.unit_call() {
+            if self.unit_call() && (callable || paren && self.callable_paren(first)) {
                 let open = self.bump().span;
-                let close = self.bump().span;
+                self.bump();
                 self.node_at(open, NodeKind::Unit);
                 self.node_at(start, NodeKind::App);
-                expr = Expr::App(Box::new(expr), Box::new(Expr::Unit(open.to(close))));
             }
             if !(self.peek() == Some(&Tok::Dot) && !self.section_at(self.pos)) {
                 break;
@@ -5220,310 +4757,235 @@ impl<'t> Parser<'t> {
                     tok: Tok::Lower(text) | Tok::Upper(text),
                     span,
                     ..
-                }) if !text.contains('.') && self.peek_at(1).is_some() => Name {
-                    text: text.clone(),
-                    span: *span,
-                },
+                }) if !text.contains('.') && self.peek_at(1).is_some() => (text, *span),
                 _ => {
                     return Err(error(dot, "expected a field name after `.`")
                         .with_note("`.` is for field access, as in `p.name`")
                         .into());
                 }
             };
-            if self.prev_span().end != dot.start || dot.end != field.span.start {
+            if self.prev_span().end != dot.start || dot.end != field.1.start {
                 return Err(
                     error(dot, "field access is written without spaces around the `.`")
-                        .with_note(format!("write `….{}`", field.text))
+                        .with_note(format!("write `….{}`", field.0))
                         .into(),
                 );
             }
             self.pos += 2;
             self.node_at(start, NodeKind::FieldAccess);
-            expr = Expr::Field(Box::new(expr), field);
+            callable = true;
         }
-        if section {
-            // At the head of an application, `app` marks it, around the
-            // arguments.
-            if !head {
-                self.node_at(start, NodeKind::Section);
+        // At the head of an application, `app` marks the section, around
+        // the arguments.
+        if section && !head {
+            self.node_at(start, NodeKind::Section);
+        }
+        Ok(())
+    }
+
+    /// Whether the bracketed atom from token `first` to here holds a name or
+    /// a field access, which `()` written against it calls: `(f)()`.
+    #[cold]
+    #[inline(never)]
+    fn callable_paren(&self, first: u32) -> bool {
+        let is_paren = |m: &&Mark| (m.start, m.end) == (first, self.pos as u32);
+        if !self
+            .marks
+            .last()
+            .is_some_and(|m| m.kind == NodeKind::Paren && is_paren(&m))
+        {
+            return false;
+        }
+        let (mut start, mut end) = (first + 1, self.pos as u32 - 1);
+        loop {
+            if end == start + 1 {
+                return matches!(
+                    self.tokens[start as usize].tok,
+                    Tok::Lower(_) | Tok::Upper(_)
+                );
             }
-            let span = start.to(expr.span());
-            let param = Name {
-                text: SECTION.into(),
-                span: start,
-            };
-            expr = Expr::Lam(vec![param], Box::new(expr), span);
+            let outer = self
+                .marks
+                .iter()
+                .rev()
+                .find(|m| (m.start, m.end) == (start, end))
+                .map(|m| m.kind);
+            match outer {
+                Some(NodeKind::FieldAccess) => return true,
+                Some(NodeKind::Paren) => (start, end) = (start + 1, end - 1),
+                _ => return false,
+            }
         }
-        Ok(expr)
     }
 
     /// `.name`, starting a method section: its body's start, `%section.name`.
     #[inline(never)]
-    fn section_start(&mut self) -> Result<Expr> {
+    fn section_start(&mut self) -> Result<()> {
         let dot = self.bump().span;
-        let field = match self.tokens.get(self.pos) {
+        match self.tokens.get(self.pos) {
             Some(Token {
                 tok: Tok::Lower(text),
                 span,
                 ..
-            }) if span.start == dot.end && !text.contains('.') && self.peek().is_some() => Name {
-                text: text.clone(),
-                span: *span,
-            },
+            }) if span.start == dot.end && !text.contains('.') && self.peek().is_some() => {}
             _ => {
                 return Err(error(dot, "expected a name right after `.`")
                     .with_note("`.name args` is a method section, the function `x => x.name args`")
                     .into());
             }
-        };
+        }
         self.pos += 1;
         self.node_at(dot, NodeKind::FieldAccess);
-        let recv = Expr::Var(Name {
-            text: SECTION.into(),
-            span: dot,
-        });
-        Ok(Expr::Field(Box::new(recv), field))
+        Ok(())
     }
 
     /// `C { f = e, g }` at the head of an application: braces right after an
-    /// uppercase name. Whether they name `C`'s fields or are a record passed
-    /// to it depends on how `C` is declared, which the elaborator knows
-    /// (docs/proposals/brace-syntax-review.md §5), so a literal is kept as
-    /// [`Expr::CtorFields`]. An update, `C { r | f = e }`, is never a
-    /// construction: it is `C` applied to the updated record.
+    /// uppercase name, already read. Whether they name `C`'s fields or are a
+    /// record passed to it depends on how `C` is declared, which the
+    /// elaborator knows (docs/proposals/brace-syntax-review.md §5).
     #[inline(never)]
-    fn ctor_fields_expr(&mut self, ctor: Expr) -> Result<Expr> {
-        let Expr::Var(ctor) = &ctor else {
-            unreachable!("an uppercase name is a variable")
-        };
-        let ctor = ctor.clone();
-        let mut record = self.record_expr()?;
-        self.node_at(ctor.span, NodeKind::CtorFields);
-        if matches!(&record, Expr::Record { base: Some(_), .. }) {
-            return Ok(Expr::App(Box::new(Expr::Var(ctor)), Box::new(record)));
-        }
-        let Expr::Record { fields, span, .. } = &mut record else {
-            unreachable!("record_expr makes a record")
-        };
-        let (fields, span) = (std::mem::take(fields), *span);
-        Ok(Expr::CtorFields {
-            span: ctor.span.to(span),
-            ctor,
-            fields,
-            argument: false,
-        })
+    fn ctor_fields_expr(&mut self) -> Result<()> {
+        let ctor = self.mark() - 1;
+        self.record_expr()?;
+        self.node(ctor, NodeKind::CtorFields);
+        Ok(())
     }
 
     /// `f C { … }`: braces right after an uppercase name that is an argument
-    /// of `f`, applied to `f`. As at the head of an application, an update
-    /// is `C` and a record passed on; a literal is kept for the elaborator,
-    /// which refuses it for a constructor declared with its fields in braces.
+    /// of `f`.
     #[inline(never)]
-    fn brace_argument(&mut self, f: Expr) -> Result<Expr> {
-        let ctor = match &self.atom_base()? {
-            Expr::Var(ctor) => ctor.clone(),
-            _ => unreachable!("an uppercase name is a variable"),
-        };
-        let mut record = self.record_expr()?;
-        self.node_at(ctor.span, NodeKind::CtorFields);
-        if matches!(&record, Expr::Record { base: Some(_), .. }) {
-            return Ok(Expr::App(
-                Box::new(Expr::App(Box::new(f), Box::new(Expr::Var(ctor)))),
-                Box::new(record),
-            ));
-        }
-        let Expr::Record { fields, span, .. } = &mut record else {
-            unreachable!("record_expr makes a record")
-        };
-        let (fields, span) = (std::mem::take(fields), *span);
-        Ok(Expr::App(
-            Box::new(f),
-            Box::new(Expr::CtorFields {
-                span: ctor.span.to(span),
-                ctor,
-                fields,
-                argument: true,
-            }),
-        ))
+    fn brace_argument(&mut self) -> Result<()> {
+        let ctor = self.mark();
+        self.atom_base()?;
+        self.record_expr()?;
+        self.node(ctor, NodeKind::CtorFields);
+        Ok(())
     }
 
     /// `{ name = e, age }` (a literal; `age` is punned) or `{ base | age = e }`
     /// (an update). A literal's fields are in the order written.
-    fn record_expr(&mut self) -> Result<Expr> {
+    fn record_expr(&mut self) -> Result<()> {
         let start = self.expect(Tok::LBrace, "`{`")?.span;
         self.record_body(start)
     }
 
-    fn record_body(&mut self, start: Span) -> Result<Expr> {
+    fn record_body(&mut self, start: Span) -> Result<()> {
         if self.peek() == Some(&Tok::RBrace) {
-            let end = self.bump().span;
+            self.bump();
             self.node_at(start, NodeKind::Record);
-            return Ok(Expr::Record {
-                base: None,
-                fields: Vec::new(),
-                span: start.to(end),
-            });
+            return Ok(());
         }
         let literal = matches!(self.peek(), Some(Tok::Lower(_)))
             && matches!(
                 self.peek_at(1),
                 Some(Tok::Equals | Tok::Comma | Tok::RBrace)
             );
-        let base = if literal {
-            None
-        } else {
-            let base = self.expr()?;
+        if !literal {
+            self.expr()?;
             self.expect(Tok::Pipe, "`|` and the fields to update")?;
-            Some(Box::new(base))
-        };
-        let mut fields = Vec::new();
+        }
+        let mut fields = 0;
         loop {
-            if self.peek() == Some(&Tok::RBrace) && !fields.is_empty() {
+            if self.peek() == Some(&Tok::RBrace) && fields > 0 {
                 break;
             }
-            let name = self.lower("a field name")?;
-            let value = if self.eat(&Tok::Equals) {
-                let value = self.expr()?;
-                self.node_at(name.span, NodeKind::RecordField);
-                value
-            } else {
-                Expr::Var(name.clone())
-            };
-            fields.push((name, value));
+            let name = self.lower("a field name")?.span;
+            if self.eat(&Tok::Equals) {
+                self.expr()?;
+                self.node_at(name, NodeKind::RecordField);
+            }
+            fields += 1;
             if !self.eat(&Tok::Comma) {
                 break;
             }
         }
-        let end = self.expect(Tok::RBrace, "`,` or `}`")?.span;
+        self.expect(Tok::RBrace, "`,` or `}`")?;
         self.node_at(start, NodeKind::Record);
-        Ok(Expr::Record {
-            base,
-            fields,
-            span: start.to(end),
-        })
+        Ok(())
     }
 
+    /// A list literal, at its `[`. The first `..` spread's tokens, if it
+    /// has one.
     #[inline(never)]
-    fn list_expr(&mut self, span: Span) -> Result<Expr> {
+    fn list_expr(&mut self, span: Span) -> Result<Option<(u32, u32)>> {
         self.bump();
-        let mut items = Vec::new();
+        let mut spread = None;
         if self.peek() != Some(&Tok::RBracket) {
-            let first = self.pos;
-            items.push(self.list_expr_item()?);
-            // `[(0 ..< n)]` is the list of one range on purpose: the brackets
-            // are kept, so `W-RANGE-IN-BRACKETS` stays quiet.
-            if self.peek() == Some(&Tok::RBracket)
-                && self.tokens[first].tok == Tok::LParen
-                && self
-                    .matching
-                    .get(first)
-                    .is_some_and(|&m| m as usize == self.pos - 1)
-                && let Some(Expr::Binary(BinOp::Range | BinOp::RangeThrough, ..)) = items.first()
-            {
-                let range = items.remove(0);
-                let span = range.span();
-                items.push(Expr::Bracketed(Box::new(range), span));
-            }
-            while self.eat(&Tok::Comma) {
-                if self.peek() == Some(&Tok::RBracket) {
+            loop {
+                let item = self.mark();
+                if self.list_expr_item()? {
+                    spread.get_or_insert((item, self.mark()));
+                }
+                if !self.eat(&Tok::Comma) || self.peek() == Some(&Tok::RBracket) {
                     break;
                 }
-                items.push(self.list_expr_item()?);
             }
         }
-        let end = self.expect(Tok::RBracket, "`,` or `]`")?.span;
+        self.expect(Tok::RBracket, "`,` or `]`")?;
         self.node_at(span, NodeKind::List);
-        Ok(Expr::List(items, span.to(end)))
+        Ok(spread)
     }
 
     /// An element, or a `..xs` spread (docs/proposals/list-spread.md): a
-    /// list joined in at that place.
-    fn list_expr_item(&mut self) -> Result<Expr> {
+    /// list joined in at that place. Whether it was a spread.
+    fn list_expr_item(&mut self) -> Result<bool> {
         let outer = std::mem::replace(&mut self.modes.in_list, true);
         let item = self.list_expr_item_inner();
         self.modes.in_list = outer;
         item
     }
 
-    fn list_expr_item_inner(&mut self) -> Result<Expr> {
+    fn list_expr_item_inner(&mut self) -> Result<bool> {
         if self.peek() != Some(&Tok::DotDot) {
-            return self.expr();
+            self.expr()?;
+            return Ok(false);
         }
         let dots = self.bump().span;
         if matches!(self.peek(), Some(Tok::Comma | Tok::RBracket)) {
             return Err(error(self.here(), "expected a list after `..`, as in `[x, ..xs]`").into());
         }
-        let list = self.expr()?;
+        self.expr()?;
         self.node_at(dots, NodeKind::Spread);
-        let span = dots.to(list.span());
-        Ok(Expr::Spread(Box::new(list), span))
+        Ok(true)
     }
 
     /// The facts of `omega [..]`, `ring [..]` and the like: a list of terms
     /// with no spread.
-    fn fact_list(&mut self) -> Result<(Vec<Expr>, Span)> {
-        let Expr::List(facts, span) = &mut self.list_expr(self.here())? else {
-            unreachable!("list_expr makes a list")
-        };
-        let (facts, span) = (std::mem::take(facts), *span);
-        if let Some(Expr::Spread(_, at)) = facts.iter().find(|f| matches!(f, Expr::Spread(..))) {
-            return Err(error(*at, "a list of facts can't have a `..` spread")
+    fn fact_list(&mut self) -> Result<()> {
+        if let Some((dots, end)) = self.list_expr(self.here())? {
+            let at = self.tokens[dots as usize]
+                .span
+                .to(self.lowered_span((dots + 1, end)));
+            return Err(error(at, "a list of facts can't have a `..` spread")
                 .with_note("this list is the facts to use, one term each; `..` builds a list value")
                 .into());
         }
-        Ok((facts, span))
+        Ok(())
     }
 
-    /// `"a${x}b${y}c"`: text pieces joined with `++`, each interpolation
-    /// becoming `Std.Show.toText e`. Empty pieces are left out; the whole
-    /// is wrapped so its span runs from the opening quote to the closing one.
-    fn interpolated_str(&mut self) -> Result<Expr> {
-        let token = self.bump();
-        let open = token.span;
-        let (mut text, mut text_span) = match &token.tok {
-            Tok::StrStart(text) => (text.clone(), token.span),
-            _ => unreachable!("called at a StrStart"),
-        };
-        let mut items = Vec::new();
-        let close;
+    /// `"a${x}b${y}c"`: text pieces and interpolations, which the lowering
+    /// joins.
+    fn interpolated_str(&mut self) -> Result<()> {
+        let open = self.bump().span;
         loop {
-            if !text.is_empty() {
-                items.push(Expr::Str(text, text_span));
-            }
             // The lexer ends every text piece but the last with a `${`.
             let interpolation = self.mark();
-            let dollar = match self.peek() {
-                Some(Tok::InterpOpen) => self.bump().span,
+            match self.peek() {
+                Some(Tok::InterpOpen) => self.bump(),
                 _ => return Err(self.unexpected("`${`").into()),
             };
-            let value = self.expr()?;
-            let brace = match self.peek() {
-                Some(Tok::InterpClose) => self.bump().span,
+            self.expr()?;
+            match self.peek() {
+                Some(Tok::InterpClose) => self.bump(),
                 _ => return Err(self.unexpected("`}`").into()),
             };
             self.node(interpolation, NodeKind::Interpolation);
-            items.push(Expr::App(
-                Box::new(Expr::Var(Name {
-                    text: "Std.Show.toText".into(),
-                    span: dollar.to(brace),
-                })),
-                Box::new(value),
-            ));
-            // The text after the `}` is left out when there is none.
-            (text, text_span) = match self.peek() {
-                Some(Tok::StrMid(piece)) => {
-                    let piece = piece.clone();
-                    (piece, self.bump().span)
-                }
-                _ => (String::new(), brace),
-            };
+            if let Some(Tok::StrMid(_)) = self.peek() {
+                self.bump();
+            }
             match self.peek() {
-                Some(Tok::StrEnd(piece)) => {
-                    let piece = piece.clone();
-                    close = self.bump().span;
-                    if !piece.is_empty() {
-                        items.push(Expr::Str(piece, close));
-                    }
+                Some(Tok::StrEnd(_)) => {
+                    self.bump();
                     break;
                 }
                 Some(Tok::InterpOpen) => {}
@@ -5531,56 +4993,41 @@ impl<'t> Parser<'t> {
             }
         }
         self.node_at(open, NodeKind::Interpolated);
-        let mut items = items.into_iter().rev();
-        let mut expr = items.next().expect("a string has at least one piece");
-        for lhs in items {
-            expr = Expr::Binary(BinOp::Append, Box::new(lhs), Box::new(expr));
-        }
-        Ok(Expr::Interpolated(Box::new(expr), open.to(close)))
+        Ok(())
     }
 
     /// `-` at the start of an atom: a negative numeral (`-1`, the base of
     /// `-1.abs`), or an argument minus (`f -x`), which negates one atom with
     /// its dots and `()` calls, as any argument takes them.
     #[inline(never)]
-    fn negative_atom(&mut self) -> Result<Expr> {
+    fn negative_atom(&mut self) -> Result<()> {
         let numeral = negative_numeral(self.tokens, self.pos);
-        let form = if argument_minus(self.tokens, self.pos) {
-            NegForm::Argument
-        } else if numeral {
-            NegForm::Operand
-        } else {
+        if !argument_minus(self.tokens, self.pos) && !numeral {
             return Err(self.unexpected_name("an expression").into());
-        };
+        }
         let start = self.bump().span;
-        let operand = if numeral {
+        if numeral {
             // The number `negative_numeral` saw, read here rather than by
             // `atom_base`, so that `atom` stays its only caller.
-            let token = self.bump();
-            match &token.tok {
-                Tok::Num(n) => Expr::Num(n.clone(), token.span),
-                Tok::Float(text) => Expr::Float(text.clone(), token.span),
-                _ => unreachable!("negative_numeral checks for a number"),
-            }
+            self.bump();
         } else {
-            self.atom(false)?
-        };
+            self.atom(false)?;
+        }
         self.node_at(start, NodeKind::Prefix);
-        let span = start.to(operand.span());
-        Ok(Expr::Neg(Box::new(operand), span, form))
+        Ok(())
     }
 
     /// An argument `!` (`f !x`): `Std.Bool.not` of one atom with its dots and
     /// `()` calls, as any argument takes them.
     #[inline(never)]
-    fn bang_atom(&mut self) -> Result<Expr> {
+    fn bang_atom(&mut self) -> Result<()> {
         if !argument_bang(self.tokens, self.pos) {
             return Err(self.unexpected_name("an expression").into());
         }
         let start = self.bump().span;
-        let operand = self.atom(false)?;
+        self.atom(false)?;
         self.node_at(start, NodeKind::Prefix);
-        Ok(prefix_op(true, start, operand))
+        Ok(())
     }
 
     /// An atom without its dots and `()` calls. Always inlined in `atom`, its
@@ -5589,119 +5036,80 @@ impl<'t> Parser<'t> {
     /// When 7a14ec83 gave it a second caller it stopped being inlined, and
     /// each level took about 780 bytes more of the stack (SW-875).
     #[inline(always)]
-    fn atom_base(&mut self) -> Result<Expr> {
+    fn atom_base(&mut self) -> Result<()> {
         let span = self.here();
         match self.peek() {
-            Some(Tok::Minus) => self.negative_atom(),
-            Some(Tok::Bang) => self.bang_atom(),
-            Some(Tok::Lower(_)) => Ok(Expr::Var(self.lower_q("an expression")?)),
-            Some(Tok::Upper(_)) => Ok(Expr::Var(self.upper_q("an expression")?)),
-            Some(Tok::Num(n)) => {
-                self.bump();
-                Ok(Expr::Num(n.clone(), span))
+            Some(Tok::Minus) => return self.negative_atom(),
+            Some(Tok::Bang) => return self.bang_atom(),
+            Some(Tok::Lower(_)) => {
+                self.lower_q("an expression")?;
             }
-            Some(Tok::Float(text)) => {
-                let text = text.clone();
-                self.bump();
-                Ok(Expr::Float(text, span))
+            Some(Tok::Upper(_)) => {
+                self.upper_q("an expression")?;
             }
-            Some(Tok::Str(s)) => {
-                let s = s.clone();
+            Some(
+                Tok::Num(_)
+                | Tok::Float(_)
+                | Tok::Str(_)
+                | Tok::Char(_)
+                | Tok::Underscore
+                | Tok::Question
+                | Tok::Prop,
+            ) => {
                 self.bump();
-                Ok(Expr::Str(s, span))
             }
-            Some(Tok::StrStart(_)) => self.interpolated_str(),
+            Some(Tok::StrStart(_)) => return self.interpolated_str(),
             Some(Tok::KwInclude) => {
                 self.bump();
                 match self.peek() {
-                    Some(Tok::Str(path)) => {
-                        let path = path.clone();
-                        let end = self.here();
+                    Some(Tok::Str(_)) => {
                         self.bump();
                         self.node_at(span, NodeKind::Include);
-                        Ok(Expr::Include(path, span.to(end)))
                     }
-                    _ => Err(self
-                        .unexpected("a path in quotes, as in `include \"inputs/day04.txt\"`")
-                        .into()),
+                    _ => {
+                        return Err(self
+                            .unexpected("a path in quotes, as in `include \"inputs/day04.txt\"`")
+                            .into());
+                    }
                 }
-            }
-            Some(Tok::Char(c)) => {
-                let c = *c;
-                self.bump();
-                Ok(Expr::Char(c, span))
             }
             Some(Tok::KwOmega) => {
                 self.bump();
                 // `omega [e1, e2]`: extra facts, by term.
-                if self.peek() != Some(&Tok::LBracket) {
-                    return Ok(Expr::Omega {
-                        facts: Vec::new(),
-                        span,
-                    });
+                if self.peek() == Some(&Tok::LBracket) {
+                    self.fact_list()?;
+                    self.node_at(span, NodeKind::Omega);
                 }
-                let (facts, list_span) = self.fact_list()?;
-                self.node_at(span, NodeKind::Omega);
-                Ok(Expr::Omega {
-                    facts,
-                    span: span.to(list_span),
-                })
             }
             Some(Tok::KwRing) => {
                 self.bump();
                 // `ring [h1, h2]`: hypotheses, by term.
-                if self.peek() != Some(&Tok::LBracket) {
-                    return Ok(Expr::Ring {
-                        facts: Vec::new(),
-                        span,
-                    });
+                if self.peek() == Some(&Tok::LBracket) {
+                    self.fact_list()?;
+                    self.node_at(span, NodeKind::Ring);
                 }
-                let (facts, list_span) = self.fact_list()?;
-                self.node_at(span, NodeKind::Ring);
-                Ok(Expr::Ring {
-                    facts,
-                    span: span.to(list_span),
-                })
             }
             Some(Tok::KwCases) if self.bare_cases() => {
                 self.bump();
-                Ok(Expr::Cases { body: None, span })
-            }
-            Some(Tok::Underscore) => {
-                self.bump();
-                Ok(Expr::Hole(span))
-            }
-            Some(Tok::Question) => {
-                self.bump();
-                Ok(Expr::Goal(span))
             }
             Some(Tok::TypeU) => {
                 self.bump();
                 if let Some(Tok::Num(n)) = self.peek() {
                     let end = self.bump().span;
-                    let too_large = || {
-                        error(end, "universe level is too large").with_note(format!(
-                            "the largest universe is `Type {MAX_UNIVERSE_LEVEL}`"
-                        ))
-                    };
-                    let level = u32::try_from(n)
-                        .ok()
-                        .filter(|&l| l <= MAX_UNIVERSE_LEVEL)
-                        .ok_or_else(too_large)?;
+                    if u32::try_from(n).ok().is_none_or(|l| l > MAX_UNIVERSE_LEVEL) {
+                        return Err(error(end, "universe level is too large")
+                            .with_note(format!(
+                                "the largest universe is `Type {MAX_UNIVERSE_LEVEL}`"
+                            ))
+                            .into());
+                    }
                     self.node_at(span, NodeKind::Universe);
-                    return Ok(Expr::Type(level, span.to(end)));
                 }
-                Ok(Expr::Type(0, span))
-            }
-            Some(Tok::Prop) => {
-                self.bump();
-                Ok(Expr::Prop(span))
             }
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
-                let end = self.bump().span;
+                self.bump();
                 self.node_at(span, NodeKind::Unit);
-                Ok(Expr::Unit(span.to(end)))
             }
             // `(x := e)`: an explicit argument by name
             // (docs/proposals/named-arguments.md §4.1).
@@ -5710,37 +5118,30 @@ impl<'t> Parser<'t> {
                     && self.peek_at(2) == Some(&Tok::ColonEq) =>
             {
                 self.bump();
-                let name = self.lower("a name")?;
+                self.lower("a name")?;
                 self.bump();
-                let value = self.expr()?;
-                let end = self.expect(Tok::RParen, "`)`")?.span;
+                self.expr()?;
+                self.expect(Tok::RParen, "`)`")?;
                 self.node_at(span, NodeKind::NamedArg);
-                Ok(Expr::NamedArg(
-                    name,
-                    Box::new(value),
-                    span.to(end),
-                    Bracket::Round,
-                ))
             }
-            Some(Tok::LParen) if self.operator_section_ahead() => self.operator_section(),
+            Some(Tok::LParen) if self.operator_section_ahead() => return self.operator_section(),
             Some(Tok::LParen) => {
                 self.bump();
-                let inner = self.expr()?;
+                self.expr()?;
                 if self.peek() == Some(&Tok::Comma) {
-                    return self.tuple_expr(inner, span);
+                    return self.tuple_expr(span);
                 }
                 if self.eat(&Tok::Colon) {
-                    let ty = self.expr()?;
+                    self.expr()?;
                     if self.peek() == Some(&Tok::Comma) {
                         return Err(self.tuple_annotation().into());
                     }
-                    let end = self.expect(Tok::RParen, "`)`")?.span;
+                    self.expect(Tok::RParen, "`)`")?;
                     self.node_at(span, NodeKind::Annotation);
-                    return Ok(Expr::Ann(Box::new(inner), Box::new(ty), span.to(end)));
+                    return Ok(());
                 }
                 self.expect(Tok::RParen, "`)`")?;
                 self.node_at(span, NodeKind::Paren);
-                Ok(inner)
             }
             Some(Tok::LBracket)
                 if matches!(self.peek_at(1), Some(Tok::Lower(_) | Tok::KwDecreasing))
@@ -5749,35 +5150,28 @@ impl<'t> Parser<'t> {
                 self.bump();
                 // `[decreasing := p]`: the proof a recursive call of a
                 // definition with `decreasing` needs.
-                let name = if self.peek() == Some(&Tok::KwDecreasing) {
-                    let span = self.bump().span;
-                    Name {
-                        text: "decreasing".to_string(),
-                        span,
-                    }
+                if self.peek() == Some(&Tok::KwDecreasing) {
+                    self.bump();
                 } else {
-                    self.lower("a name")?
-                };
+                    self.lower("a name")?;
+                }
                 self.bump();
-                let value = self.expr()?;
-                let end = self.expect(Tok::RBracket, "`]`")?.span;
+                self.expr()?;
+                self.expect(Tok::RBracket, "`]`")?;
                 self.node_at(span, NodeKind::NamedArg);
-                Ok(Expr::NamedArg(
-                    name,
-                    Box::new(value),
-                    span.to(end),
-                    Bracket::Square,
-                ))
             }
-            Some(Tok::LBracket) => self.list_expr(span),
-            Some(Tok::LBrace) => self.record_expr(),
-            Some(Tok::Dot) => self.section_start(),
+            Some(Tok::LBracket) => {
+                self.list_expr(span)?;
+            }
+            Some(Tok::LBrace) => return self.record_expr(),
+            Some(Tok::Dot) => return self.section_start(),
             // A keyword as a lambda's parameter: `(test => …)`.
             _ if self.peek_at(1) == Some(&Tok::FatArrow) => {
-                Err(self.unexpected_name("an expression").into())
+                return Err(self.unexpected_name("an expression").into());
             }
-            _ => Err(self.unexpected("an expression").into()),
+            _ => return Err(self.unexpected("an expression").into()),
         }
+        Ok(())
     }
 }
 
@@ -5808,16 +5202,6 @@ fn written(tok: Option<&Tok>) -> &'static str {
         Some(Tok::EqEq) => "==",
         Some(Tok::NotEq) => "!=",
         _ => "<",
-    }
-}
-
-/// An operand as a suggestion writes it: a name or a number as written,
-/// otherwise the placeholder `fallback`.
-fn operand_text(expr: &Expr, fallback: &str) -> String {
-    match expr {
-        Expr::Var(name) => name.text.clone(),
-        Expr::Num(n, _) => n.to_string(),
-        _ => fallback.to_string(),
     }
 }
 
@@ -5907,8 +5291,8 @@ fn describe(tok: &Tok) -> String {
 }
 
 /// `E-PARSE`: a lambda's parameter with a default value.
-fn lambda_default(default: &Expr) -> Diagnostic {
-    error(default.span(), declarations::DEFAULT_PLACES).with_note(
+fn lambda_default(default: Span) -> Diagnostic {
+    error(default, declarations::DEFAULT_PLACES).with_note(
         "a lambda has no declaration to keep a default with: define the function with `def` \
          to give its parameters defaults",
     )
@@ -5935,7 +5319,8 @@ fn rewrite_at_without_target(at: Span) -> Diagnostic {
     )
 }
 
-fn error(span: Span, message: impl Into<String>) -> Diagnostic {
+/// An `E-PARSE` error at `span`, labelled with its message.
+pub(crate) fn error(span: Span, message: impl Into<String>) -> Diagnostic {
     let message = message.into();
     Diagnostic::error("E-PARSE", message.clone()).with_label(span, message)
 }
@@ -5944,7 +5329,7 @@ fn error(span: Span, message: impl Into<String>) -> Diagnostic {
 mod tests {
     use super::*;
     use crate::SourceMap;
-    use crate::ast::Clause;
+    use crate::ast::*;
 
     fn parse(text: &str) -> Module {
         let mut sources = SourceMap::new();
@@ -5968,7 +5353,6 @@ mod tests {
             text.len(),
             StackLimit::from_here(DEFAULT_STACK),
         );
-        parser.marks = Some(Vec::new());
         run(&mut parser)
     }
 
@@ -6002,7 +5386,7 @@ mod tests {
             assert_eq!(parser.modes.limit, Some(2));
             assert_eq!(parser.open, [(0, NodeKind::Binary)]);
             assert_eq!(parser.pos, 3);
-            assert_eq!(parser.marks.as_ref().map(Vec::len), Some(1));
+            assert_eq!(parser.marks.len(), 1);
         });
     }
 

@@ -55,6 +55,7 @@ impl<'f> Lower<'f> {
     /// An alternative of a `match`, spanning its `|` to its end.
     fn alt(&self, arm: Node<'f>) -> Lowering<Alt> {
         let (patterns, guard, body) = self.arm_parts(arm)?;
+        no_guard_without_body(guard.as_ref(), body.as_ref())?;
         Ok(Alt {
             patterns,
             guard,
@@ -218,30 +219,33 @@ fn whole(node: Node<'_>) -> Lowering<Span> {
     required(node.span(), node.kind(), "tokens")
 }
 
+/// An arm with an absurd pattern and no body can't have a condition:
+/// `E-PARSE` at the condition, if it has one and no body.
+pub(super) fn no_guard_without_body(guard: Option<&Guard>, body: Option<&Expr>) -> Lowering<()> {
+    match (guard, body) {
+        (Some(guard), None) => Err(Unsupported::Invalid(Box::new(
+            crate::parser::error(
+                guard.span,
+                "an arm with `()` and no body can't have a condition",
+            )
+            .with_note("the condition would test nothing: the pattern can't match"),
+        ))),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::SourceMap;
-    use crate::lower::oracle::{Report, compare};
+    use crate::lower::coverage::report;
 
-    fn report(text: &str) -> Report {
-        compare(SourceMap::new().next_id(), text, crate::DEFAULT_STACK, true)
-    }
-
-    fn differences(report: &Report) -> Vec<String> {
-        let at =
-            |d: &crate::lower::oracle::Difference| format!("{} at {}:\n{}", d.what, d.at, d.detail);
-        report.differences.iter().map(at).collect()
-    }
-
-    /// Lane L4's kinds come out of the lowering as the parser builds them,
-    /// spans and tags included: every pattern kind in the places whose
+    /// Lane L4's kinds lower whole: every pattern kind in the places whose
     /// spans differ (brackets round a constructor or a negative number,
     /// the cells of lists and tuples), `match` with named scrutinees,
     /// guards and absurd arms, `handle`, `match reify`, `match induct`,
     /// `calc` in both directions, `rewrite` with each optional part,
     /// `omega`, `ring` and `cases`.
     #[test]
-    fn matching_and_proofs_lower_as_parsed() {
+    fn matching_and_proofs_lower() {
         let text = "\
 def p (x: T): Nat := match x, h: y with
   | Some (Pair a b), _ => a
@@ -286,7 +290,7 @@ theorem s: P := cases in (t)
 theorem s2: P := f cases
 ";
         let report = report(text);
-        assert_eq!(differences(&report), Vec::<String>::new());
+        assert_eq!(report.errors, []);
         assert!(report.unsupported.is_empty(), "{:?}", report.unsupported);
         assert_eq!(report.lowered.len(), 13);
         assert!(!report.lowered.contains(&crate::tree::NodeKind::Error));

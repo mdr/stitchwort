@@ -2,9 +2,10 @@
 //! take the whole expression they start (`.id == id` is `x => x.id == id`,
 //! D1192); operator sections `(== 'S')` and `(k +)` (D1193); and a bare
 //! operator as a function, `(&&)` (D1195) (docs/proposals/anonymous-lambdas.md).
-//! All of them are lambdas, the same tree as the hand-written lambda. The
-//! parser still builds them itself and shares the expansions here
-//! ([`operation`], [`widen`], [`fill_receiver`]).
+//! All of them are lambdas, the same tree as the hand-written lambda
+//! ([`operation`], [`widen`], [`fill_receiver`]). The parser reads only
+//! which operators may be sections ([`is_operator`],
+//! [`is_section_operator`]).
 
 use crate::Span;
 use crate::ast::{BinOp, Expr, Name, SECTION};

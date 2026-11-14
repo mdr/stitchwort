@@ -1,8 +1,6 @@
 //! Expressions: dispatch on the kind, one function per kind (or small
-//! family), and the expansions of the shorthand they hold. The parser
-//! still builds the compiler's tree itself and shares the expansions
-//! ([`chain`], [`binary`], [`prefix_op`], [`piped`]), so both routes expand
-//! the same way.
+//! family), and the expansions of the shorthand they hold ([`chain`],
+//! [`binary`], [`prefix_op`], [`piped`]).
 //!
 //! Some kinds lower differently by where they are, which the caller says:
 //! an application's argument `-x` is a [`NegForm::Argument`] and its
@@ -842,28 +840,14 @@ pub(crate) fn piped(lhs: Expr, mut rhs: Expr) -> Expr {
 #[cfg(test)]
 mod tests {
     use super::super::Lower;
-    use super::super::oracle::{Report, compare};
     use crate::SourceMap;
+    use crate::lower::coverage::report;
     use crate::tree::NodeKind;
 
-    fn report(text: &str) -> Report {
-        let file = SourceMap::new().next_id();
-        compare(file, text, crate::DEFAULT_STACK, true)
-    }
-
-    fn differences(report: &Report) -> Vec<String> {
-        report
-            .differences
-            .iter()
-            .map(|d| format!("{} at {}:\n{}", d.what, d.at, d.detail))
-            .collect()
-    }
-
     /// Each expression kind of lane L1, in the forms whose lowering depends
-    /// on where they are or on spacing, comes out as the parser builds it,
-    /// spans and hidden names included.
+    /// on where they are or on spacing, lowers whole.
     #[test]
-    fn expressions_lower_as_parsed() {
+    fn expressions_lower() {
         let bodies = [
             "(x)",
             "(f a) b",
@@ -918,7 +902,7 @@ mod tests {
             .map(|(i, body)| format!("test \"{i}\" := {body}\n"))
             .collect();
         let report = report(&text);
-        assert_eq!(differences(&report), Vec::<String>::new());
+        assert_eq!(report.errors, []);
         assert_eq!(report.unsupported, []);
         assert_eq!(report.lowered, vec![NodeKind::Test; bodies.len()]);
         assert_eq!(report.expressions.unsupported, []);
@@ -927,13 +911,13 @@ mod tests {
 
     /// An expression nested as deeply as the parser can parse it lowers
     /// within the same stack, so the lowering never reports `E-RESOURCE`
-    /// where the parser didn't: it takes fewer and smaller frames per
-    /// level, and lowers even with a third of the stack to spare, so that
-    /// an inlining choice that grows a frame is caught here (in release
-    /// builds, `node_expr` once grew from 96 to 816 bytes when the
-    /// compiler inlined a kind's function into it). One level deeper, the
-    /// parser's `E-RESOURCE` fails the declaration, which the lowering
-    /// gives as failed.
+    /// where the parser didn't: the parser may use half the stack, and the
+    /// lowering needs at most about 80% of it at the parser's deepest
+    /// (SW-3213), so an inlining choice that grows a frame much is caught
+    /// here (in release builds, `node_expr` once grew from 96 to 816 bytes
+    /// when the compiler inlined a kind's function into it). One level
+    /// deeper, the parser's `E-RESOURCE` fails the declaration, which the
+    /// lowering gives as failed.
     #[test]
     fn deep_nesting_lowers_within_the_parsers_stack() {
         let shapes: [(&str, &str); 8] = [
@@ -955,12 +939,12 @@ mod tests {
         };
         let parses = |text: &str| {
             let file = SourceMap::new().next_id();
-            crate::parser::parse_module_direct(file, text, crate::DEFAULT_STACK)
-                .1
+            crate::parser::parse_with_tree(file, text, crate::DEFAULT_STACK)
+                .0
                 .is_empty()
         };
-        // A thread of its own, with room for the oracle's `Debug` printing,
-        // which recurses without a limit.
+        // A thread of its own, with room for the trees' `Drop`, which
+        // recurses without a limit.
         std::thread::Builder::new()
             .stack_size(256 << 20)
             .spawn(move || {
@@ -979,7 +963,11 @@ mod tests {
                     }
                     for (depth, kind) in [(deep, NodeKind::Test), (too_deep, NodeKind::Error)] {
                         let report = report(&nested(shape, depth));
-                        assert_eq!(differences(&report), Vec::<String>::new());
+                        assert_eq!(
+                            report.errors.is_empty(),
+                            depth == deep,
+                            "{shape:?} at {depth}"
+                        );
                         assert_eq!(report.unsupported, [], "{shape:?} at {depth}");
                         assert_eq!(report.lowered, [kind], "{shape:?} at {depth}");
                     }
@@ -989,7 +977,7 @@ mod tests {
                         crate::parse_module_and_tree(file, &text, crate::DEFAULT_STACK);
                     let root = tree.decls().next().expect("a declaration");
                     let lowered = Lower::new(&tree, &text, file, &errors)
-                        .with_stack(crate::DEFAULT_STACK * 2 / 3)
+                        .with_stack(crate::DEFAULT_STACK)
                         .decl(root);
                     assert!(lowered.is_ok(), "{shape:?} at {deep}: {lowered:?}");
                 }

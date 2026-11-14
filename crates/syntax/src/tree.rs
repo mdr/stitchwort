@@ -5,10 +5,8 @@
 //!
 //! It is step 1 of docs/proposals/syntax-tree-architecture.md (architecture
 //! A2, D3562), and stage 1 of docs/proposals/formatter-architecture.md: it
-//! is built *beside* the compiler's tree ([`crate::ast`]) by the same parse.
-//! Later the compiler's tree is lowered from it ([`crate::lower`], being
-//! written kind by kind against the direct parse) and the parser builds
-//! nothing else (steps 3 and 4). The formatter, the editor's shape features
+//! is what the parser builds, and the compiler's tree ([`crate::ast`]) is
+//! lowered from it ([`crate::lower`], steps 3 and 4). The formatter, the editor's shape features
 //! (outline, folding, selection) and the quick fixes and sweeps are its
 //! readers (formatter-architecture.md §4).
 //!
@@ -913,24 +911,6 @@ mod tests {
     }
 
     #[test]
-    fn marks_leave_the_compilers_tree_unchanged() {
-        for path in SAMPLES {
-            let text = sample(path);
-            let file = SourceMap::new().next_id();
-            let (module, errors) =
-                crate::parser::parse_module_direct(file, &text, crate::DEFAULT_STACK);
-            let (marked, marked_errors, _) =
-                crate::parser::parse_direct_with_tree(file, &text, crate::DEFAULT_STACK);
-            assert_eq!(format!("{module:?}"), format!("{marked:?}"), "{path}");
-            assert_eq!(
-                format!("{errors:?}"),
-                format!("{marked_errors:?}"),
-                "{path}"
-            );
-        }
-    }
-
-    #[test]
     fn every_span_of_the_compilers_tree_is_a_node() {
         for path in SAMPLES {
             let text = sample(path);
@@ -1234,13 +1214,8 @@ def h: Nat := 2
             tree.dump(text)
                 .contains("Error\n  \"def g: Text := \\\"no end\\n  more\" (didn't lex)\n")
         );
-        // The module and errors are those of the parse without the tree.
         let file = SourceMap::new().next_id();
-        let (module, errors) = crate::parser::parse_module_direct(file, text, crate::DEFAULT_STACK);
-        let (marked, marked_errors, tree) =
-            crate::parser::parse_direct_with_tree(file, text, crate::DEFAULT_STACK);
-        assert_eq!(format!("{module:?}"), format!("{marked:?}"));
-        assert_eq!(format!("{errors:?}"), format!("{marked_errors:?}"));
+        let (module, errors, tree) = parse_module_and_tree(file, text, crate::DEFAULT_STACK);
         assert_eq!(errors.len(), 1);
         assert!(tree.check_spans(&module).misses.is_empty());
     }

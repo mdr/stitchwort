@@ -523,7 +523,7 @@ impl Expr {
 }
 
 /// Freeing an expression frees its sub-expressions without recursing: the
-/// parser builds chains like `f a b c …` in a loop, so they can nest more
+/// lowering builds chains like `f a b c …` in a loop, so they can nest more
 /// deeply than recursion could follow. Rust frees nested data recursively by
 /// default, which would overflow the stack.
 impl Drop for Expr {
