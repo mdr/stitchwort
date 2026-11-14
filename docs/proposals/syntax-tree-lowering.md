@@ -538,6 +538,12 @@ of parsing in release, a few seconds in debug [estimated], one at a time,
 instead of waiting for Overmind; the machine load is a fraction of one
 test binary. **[rec: yes, for this tool only]**
 
+*Decided (Matt, 14 Nov 2026): "yes, I'm happy for common sense exceptions
+to the rule. It feels like this piece of work running these checks is
+critical, so let's include them."* Lanes run `dev tree --lower` (and
+`--cuts` once it exists) over the whole repo as their gate; every other
+whole-repo check stays with the verifier and Overmind.
+
 ## Implementation choices made here
 
 Labelled as mine, for the orchestrator to overrule:
