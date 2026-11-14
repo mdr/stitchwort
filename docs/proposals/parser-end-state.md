@@ -2,6 +2,9 @@
 
 **Status:** design note, 14 November 2026 (SW-3233, for D3579). Paper lane:
 nothing is built. One question for Matt ([§9](#9-question-for-matt)).
+[parser-marks-or-nodes.md](parser-marks-or-nodes.md) (SW-3276) weighs strict
+marks against functions that return built nodes, which §3.2 here did only
+in passing; its D3600 replaces D3582, with the same recommendation.
 It follows [syntax-tree-lowering.md](syntax-tree-lowering.md) (SW-3160,
 done today: the parser records only marks) and sits beside
 [syntax-error-recovery.md](syntax-error-recovery.md) (SW-3161; S0 done, S1
