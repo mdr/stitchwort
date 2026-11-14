@@ -35266,12 +35266,12 @@
     {
       "id": 3224,
       "title": "[Opus] Expand chains and pattern lets once, in the lowering: chain.rs and patlet.rs still undo expansions the lowering makes (the %chain let and ∧; a one-arm match for 'let p := e'), so the elaborator can get the form it wants directly. Changes trees and hashes (D2303: migration cost doesn't count) (SW-3214 finding, lowering note's Findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 4 h (Opus). Runs beside recovery S1 (SW-1983), which touches the parser's recovery points and lower/; this lane stays in chain/pattern-let expansion (lower/ and elab's chain.rs, patlet.rs).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -35305,12 +35305,12 @@
     {
       "id": 3227,
       "title": "[Sonnet] Make SW-3180's deepest-backtrace probe a proper STITCHWORT_STACK_PROBE option (it keeps a backtrace at each new deepest point; the patch is scratchpad/sw3180/hack-stack.patch, to be copied into the ticket's worktree), plus its frame-size scripts (frames.py, chain.py) as a task, so the next stack lane can see which frames make up a peak (SW-3180 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Expected: 60 min (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
