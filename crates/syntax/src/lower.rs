@@ -39,7 +39,11 @@ use std::fmt;
 
 mod access;
 mod decls;
+mod definitions;
 mod exprs;
+pub(crate) mod header;
+mod patterns;
+mod types;
 pub mod oracle;
 
 /// What the lowering can't lower yet: the first such thing it met in a
@@ -48,10 +52,6 @@ pub mod oracle;
 pub enum Unsupported {
     /// A node of this kind.
     Kind(NodeKind),
-    /// A declaration that didn't parse and starts with `def`, `theorem`,
-    /// `export` or `opaque`: the parser keeps its signature when its header
-    /// parsed (lane L2's), or gives its names as failed when it didn't.
-    FailedDefinition,
     /// A token where an expression should be that the lowering doesn't
     /// read as one: a parser or lowering bug if ever counted.
     Token,
@@ -65,7 +65,6 @@ impl fmt::Display for Unsupported {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Unsupported::Kind(kind) => write!(f, "{kind:?}"),
-            Unsupported::FailedDefinition => write!(f, "Error (a definition)"),
             Unsupported::Token => write!(f, "a token read as an expression"),
             Unsupported::Missing(kind, part) => write!(f, "{kind:?} without {part}"),
         }
@@ -143,6 +142,17 @@ impl<'f> Lower<'f> {
             NodeKind::Namespace => self.namespace(root).map(LoweredDecl::Namespace),
             NodeKind::Import => self.import(root).map(LoweredDecl::Import),
             NodeKind::Test => Ok(LoweredDecl::Decls(vec![self.test(root)?])),
+            NodeKind::Def | NodeKind::Theorem | NodeKind::Instance => {
+                self.definition(root).map(LoweredDecl::Decls)
+            }
+            NodeKind::DataType | NodeKind::RecordType | NodeKind::Interface => {
+                Ok(LoweredDecl::Decls(vec![self.data(root)?]))
+            }
+            NodeKind::TypeSynonym => self.type_synonym(root).map(LoweredDecl::Decls),
+            NodeKind::Ability => Ok(LoweredDecl::Decls(vec![self.ability(root)?])),
+            NodeKind::Error if root.signature_kept() => {
+                Ok(LoweredDecl::Decls(vec![self.kept_signature(root)?]))
+            }
             NodeKind::Error => self.failed(root).map(LoweredDecl::Failed),
             kind => Err(Unsupported::Kind(kind)),
         }
