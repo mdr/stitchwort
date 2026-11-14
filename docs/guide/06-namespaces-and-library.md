@@ -67,7 +67,8 @@ def catalogue: Map Text Product := Map.fromList [
 ]
 
 -- The price of an order, or `None` for a product the shop doesn't sell.
-def Order.price (order: Order): Option Nat := catalogue.get order.product |> .map (product => product.pence * order.quantity)
+def Order.price (order: Order): Option Nat :=
+  catalogue.get order.product |> .map (product => product.pence * order.quantity)
 
 -- Orders of the same product, added up, in the product's name order.
 def combine (orders: List Order): Map Text Nat :=
@@ -137,7 +138,8 @@ test "reads an order" := read "tea 3" == Ok { product = "tea", quantity = 3 }
 test "refuses a bad quantity" := read "tea lots" == Err "expected a quantity, got 'lots'"
 test "prices an order" := ({ product = "milk", quantity = 2 }: Order).price == Some 180
 test "an unknown product has no price" := ({ product = "cake", quantity = 1 }: Order).price == None
-test "combines orders" := (combine [{ product = "tea", quantity = 1 }, { product = "tea", quantity = 2 }]).get "tea" == Some 3
+test "combines orders" :=
+  (combine [{ product = "tea", quantity = 1 }, { product = "tea", quantity = 2 }]).get "tea" == Some 3
 test "bills only what it sells" := bill [{ product = "tea", quantity = 2 }, { product = "cake", quantity = 9 }] == 500
 ```
 
@@ -219,8 +221,7 @@ In a proof, `omega` and `auto` read `x ∈ a ..< b` (and `..=`) as the two bound
 
 <!-- snippet: library.sw#option -->
 ```stitchwort
-def lookupAge (name: Text): Option Nat :=
-  if name == "Ada" then Some 36 else None
+def lookupAge (name: Text): Option Nat := if name == "Ada" then Some 36 else None
 
 test "map" := (lookupAge "Ada").map (age => age + 1) == Some 37
 test "getOrElse" := (lookupAge "Bob").getOrElse 0 == 0
@@ -269,7 +270,8 @@ def wordCounts (words: List Text): Map Text Nat :=
 test "counts" := (wordCounts ["a", "b", "a"]).get "a" == Some 2
 test "missing key" := (wordCounts ["a"]).get "z" == None
 test "in key order" := (wordCounts ["b", "a", "b"]).toList == [("a", 1), ("b", 2)]
-test "group by" := (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
+test "group by" :=
+  (["tea", "milk", "pot"].groupBy (word => word.length)).get 3 |> .map (group => group.toList) == Some ["tea", "pot"]
 test "from pairs" := [(2, "b"), (1, "a")].toMap == Map.fromList [(1, "a"), (2, "b")]
 test "equal however built" := Map.fromList [(1, "a"), (2, "b")] == Map.fromList [(2, "b"), (1, "a")]
 ```

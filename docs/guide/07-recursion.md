@@ -38,15 +38,12 @@ Trees work the same way: `left` and `right` are parts of the `Node`.
 
 <!-- snippet: recursion.sw#trees -->
 ```stitchwort
-type Tree =
-  | Leaf
-  | Node (left: Tree) (value: Nat) (right: Tree)
+type Tree = | Leaf | Node (left: Tree) (value: Nat) (right: Tree)
 
 def Tree.insert (tree: Tree) (value: Nat): Tree := match tree with
   | Leaf => Node Leaf value Leaf
   | Node left here right =>
-    if value < here then Node (left.insert value) here right
-    else Node left here (right.insert value)
+    if value < here then Node (left.insert value) here right else Node left here (right.insert value)
 
 def Tree.toList: Tree → List Nat
   | Leaf => []
@@ -63,18 +60,17 @@ Halving a number isn't recursion on a part of it, so the compiler can't see that
 
 <!-- snippet: errors/termination.sw -->
 ```stitchwort
-def halvings (n: Nat): Nat :=
-  if n ≤ 1 then 0 else 1 + halvings (n / 2)
+def halvings (n: Nat): Nat := if n ≤ 1 then 0 else 1 + halvings (n / 2)
 ```
 
 <!-- output: check errors/termination.sw -->
 ```text
 [E-TERMINATION] Error: can't show that `halvings` terminates
-   ╭─[ errors/termination.sw:2:28 ]
+   ╭─[ errors/termination.sw:1:56 ]
    │
- 2 │   if n ≤ 1 then 0 else 1 + halvings (n / 2)
-   │                            ───────┬───────
-   │                                   ╰───────── this recursive call might not terminate: no argument is known to be smaller
+ 1 │ def halvings (n: Nat): Nat := if n ≤ 1 then 0 else 1 + halvings (n / 2)
+   │                                                        ───────┬───────
+   │                                                               ╰───────── this recursive call might not terminate: no argument is known to be smaller
    │
    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
    │
@@ -99,7 +95,7 @@ When the compiler can't find a proof, it says which fact it needs. Here `n - ste
 
 <!-- snippet: errors/decreasing.sw -->
 ```stitchwort
-def countDown (n: Nat) (step: Nat): Nat
+def countDown (n step: Nat): Nat
     decreasing n
 :=
   if n ≤ 0 then 0 else 1 + countDown (n - step) step
@@ -123,7 +119,7 @@ The message shows the fact as you wrote it. The note gives the usual fix: test t
 
 <!-- snippet: recursion.sw#gcd -->
 ```stitchwort
-def gcd (a: Nat) (b: Nat): Nat
+def gcd (a b: Nat): Nat
     decreasing b
 :=
   if a % b < b then gcd b (a % b) else a
@@ -139,9 +135,10 @@ A `match` does the same for its arms: a recursive call in one has the `match`'s 
 ```stitchwort
 def total (set: Set Nat): Nat
     decreasing set.size
-:= match found: set.popMin with
-  | None => 0
-  | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
+:=
+  match found: set.popMin with
+    | None => 0
+    | Some (least, rest) => least + total rest [decreasing := Set.sizePopMin set least rest found]
 
 test "total" := total [3, 1, 2].toSet == 6
 ```
@@ -152,12 +149,13 @@ A proof can also be given directly, as `[decreasing := proof]` after the call. W
 
 <!-- snippet: recursion.sw#lexicographic -->
 ```stitchwort
-def ackermann (m: Nat) (n: Nat): Nat
+def ackermann (m n: Nat): Nat
     decreasing (m, n)
-:= match m, n with
-  | Zero, n => n + 1
-  | Succ k, Zero => ackermann k 1
-  | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
+:=
+  match m, n with
+    | Zero, n => n + 1
+    | Succ k, Zero => ackermann k 1
+    | Succ k, Succ j => ackermann k (ackermann (Succ k) j)
 
 test "ackermann" := ackermann 2 3 == 9
 ```
@@ -185,12 +183,9 @@ Types can refer to each other too. They are declared one after the other, and ch
 
 <!-- snippet: recursion.sw#mutual-types -->
 ```stitchwort
-type Rose =
-  | Branch (label: Nat) (kids: Roses)
+type Rose = | Branch (label: Nat) (kids: Roses)
 
-type Roses =
-  | RNil
-  | RCons (first: Rose) (rest: Roses)
+type Roses = | RNil | RCons (first: Rose) (rest: Roses)
 
 def Rose.total: Rose → Nat
   | Branch label kids => label + Roses.total kids
@@ -208,15 +203,14 @@ A type may also contain itself inside a container, such as a list: a packet is a
 
 <!-- snippet: recursion.sw#nested -->
 ```stitchwort
-type Packet =
-  | Number (value: Nat)
-  | Packets (items: List Packet)
+type Packet = | Number (value: Nat) | Packets (items: List Packet)
 
 def Packet.depth (packet: Packet): Nat
     decreasing Packet.size packet
-:= match packet with
-  | Number n => 0
-  | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
+:=
+  match packet with
+    | Number n => 0
+    | Packets items => 1 + (items.attach.map (e => Packet.depth e.value) |> .foldLeft 0 Nat.max)
 
 test "depth" := Packet.depth (Packets [Number 1, Packets [Number 2, Packets [Number 3]], Packets []]) == 3
 ```

@@ -8,10 +8,7 @@ A variant type is like a sealed trait with case classes in Scala, or a discrimin
 
 <!-- snippet: data.sw#variant -->
 ```stitchwort
-type Shape =
-  | Circle (radius: Nat)
-  | Rect (width: Nat) (height: Nat)
-  | Dot
+type Shape = | Circle (radius: Nat) | Rect (width: Nat) (height: Nat) | Dot
 
 def Shape.area: Shape → Nat
   | Circle radius => 3 * radius * radius
@@ -29,11 +26,7 @@ A constructor applied to its fields is a value: `Rect 3 4`. Constructors start w
 
 <!-- snippet: data.sw#recursive -->
 ```stitchwort
-type Expr =
-  | Num (value: Int)
-  | Add (left: Expr) (right: Expr)
-  | Mul (left: Expr) (right: Expr)
-  | Neg (inner: Expr)
+type Expr = | Num (value: Int) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr) | Neg (inner: Expr)
 
 def Expr.value: Expr → Int
   | Num n => n
@@ -50,10 +43,7 @@ The arms of a function, and the alternatives of a `match`, must cover every poss
 
 <!-- snippet: errors/missing-case.sw -->
 ```stitchwort
-type Shape =
-  | Circle (radius: Nat)
-  | Rect (width: Nat) (height: Nat)
-  | Dot
+type Shape = | Circle (radius: Nat) | Rect (width: Nat) (height: Nat) | Dot
 
 def Shape.area: Shape → Nat
   | Circle radius => 3 * radius * radius
@@ -64,10 +54,10 @@ def Shape.area: Shape → Nat
 ```text
 [E-NONEXHAUSTIVE] Error: missing case: no arm matches `Dot`
 | Dot => ?
-   ╭─[ errors/missing-case.sw:7:3 ]
+   ╭─[ errors/missing-case.sw:4:3 ]
    │
- 7 │ ╭─▶   | Circle radius => 3 * radius * radius
- 8 │ ├─▶   | Rect width height => width * height
+ 4 │ ╭─▶   | Circle radius => 3 * radius * radius
+ 5 │ ├─▶   | Rect width height => width * height
    │ │
    │ ╰───────────────────────────────────────────── missing case: no arm matches `Dot`
 ───╯
@@ -101,10 +91,7 @@ A record has named fields. Two record types with the same fields are still diffe
 
 <!-- snippet: data.sw#record -->
 ```stitchwort
-type Person = {
-  name: Text,
-  age: Nat
-}
+type Person = { name: Text, age: Nat }
 
 def ada: Person := { name = "Ada", age = 36 }
 
@@ -146,11 +133,7 @@ A field may have a default value, written after `:=` (so may a function's parame
 
 <!-- snippet: data.sw#defaults -->
 ```stitchwort
-type Query = {
-  text: Text,
-  limit: Nat := 10,
-  caseSensitive: Bool := False
-}
+type Query = { text: Text, limit: Nat := 10, caseSensitive: Bool := False }
 
 def simple: Query := { text = "tea" }
 
@@ -162,11 +145,7 @@ Defaults are for building values. They don't make a field optional: every `Query
 
 <!-- snippet: errors/missing-field.sw -->
 ```stitchwort
-type Query = {
-  text: Text,
-  limit: Nat := 10,
-  caseSensitive: Bool := False
-}
+type Query = { text: Text, limit: Nat := 10, caseSensitive: Bool := False }
 
 def everything: Query := { limit = 100 }
 ```
@@ -174,9 +153,9 @@ def everything: Query := { limit = 100 }
 <!-- output: check errors/missing-field.sw -->
 ```text
 [E-RECORD-FIELD] Error: this `Query` is missing `text`
-   ╭─[ errors/missing-field.sw:7:26 ]
+   ╭─[ errors/missing-field.sw:3:26 ]
    │
- 7 │ def everything: Query := { limit = 100 }
+ 3 │ def everything: Query := { limit = 100 }
    │                          ───────┬───────
    │                                 ╰───────── every field without a default value must be given
    │
@@ -193,9 +172,7 @@ A constructor can be declared with its fields in braces instead of brackets, and
 
 <!-- snippet: data.sw#named-construction -->
 ```stitchwort
-type Event =
-  | Meeting { title: Text, minutes: Nat := 30, room: Text }
-  | Reminder (title: Text)
+type Event = | Meeting { title: Text, minutes: Nat := 30, room: Text } | Reminder (title: Text)
 
 def standup: Event := Meeting { title = "Standup", room = "Blue" }
 def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }
@@ -350,12 +327,12 @@ def keyword: Text → Nat
 
 <!-- snippet: data.sw#match -->
 ```stitchwort
-def compareAges (a: Person) (b: Person): Text := match Ord.compare a.age b.age with
+def compareAges (a b: Person): Text := match Ord.compare a.age b.age with
   | Less => "${a.name} is younger"
   | Equal => "the same age"
   | Greater => "${a.name} is older"
 
-def both (x: Option Nat) (y: Option Nat): Option Nat := match x, y with
+def both (x y: Option Nat): Option Nat := match x, y with
   | Some a, Some b => Some (a + b)
   | _, _ => None
 ```
@@ -391,7 +368,7 @@ def grade: Nat → Text
 
 test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" ∧ grade 10 == "fail"
 
-def share (total: Nat) (parts: Nat): Nat := match total, parts with
+def share (total parts: Nat): Nat := match total, parts with
   | amount, count if count != 0 => amount / count
   | amount, _ => amount
 

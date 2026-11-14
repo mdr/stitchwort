@@ -12,7 +12,7 @@ def double (n: Nat): Nat := n + n
 
 def greeting (name: Text): Text := "Hello, " ++ name ++ "!"
 
-def area (width: Nat) (height: Nat): Nat := width * height
+def area (width height: Nat): Nat := width * height
 ```
 
 The house style is `name: Type`, with no space before the colon, as in Scala and TypeScript. A declaration starts in column 0, and every line that continues it is indented. `--` starts a comment that runs to the end of the line.
@@ -27,7 +27,7 @@ A comment line that starts `--|` documents the declaration below it. The compile
 ```stitchwort
 --| How many shelves `width` wide fit along a wall, rounded down. A width of 0
 --| fits none. For the floor see [`area`].
-def shelves (wall: Nat) (width: Nat): Nat := wall / width
+def shelves (wall width: Nat): Nat := wall / width
 
 test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
 ```
@@ -35,7 +35,7 @@ test "shelves" := shelves 250 60 == 4 ∧ shelves 250 0 == 0
 <!-- output: doc shelves values.sw --theorems 0 -->
 ```text
 Main.shelves  definition
-  def shelves (wall: Nat) (width: Nat): Nat
+  def shelves (wall width: Nat): Nat
   values.sw:17  (import Main (shelves))
 
   How many shelves `width` wide fit along a wall, rounded down. A width of 0
@@ -59,25 +59,18 @@ def describe (n: Nat): Text :=
   "${n} is ${parity}, and half of it is ${half}"
 ```
 
-`if` is an expression with both branches required, like Scala's `if` or TypeScript's `?:`. A chain of `else if`s can be laid out one per line:
+`if` is an expression with both branches required, like Scala's `if` or TypeScript's `?:`. A chain of `else if`s can be laid out one per line, or kept on one line:
 
 <!-- snippet: values.sw#if-chain -->
 ```stitchwort
-def grade (score: Nat): Text :=
-  if score ≥ 90 then "A"
-  else if score ≥ 75 then "B"
-  else if score ≥ 50 then "C"
-  else "D"
+def grade (score: Nat): Text := if score ≥ 90 then "A" else if score ≥ 75 then "B" else if score ≥ 50 then "C" else "D"
 ```
 
-A long condition can be split before an operator instead of after it: a line that starts with an infix operator (`&&` or `∧`, `||` or `∨`, `->`, `<->`, `=`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `++`, `*`, `/`, `%`, `!in`) continues the line above, whether it is indented further or lines up with the block. `-` and `!` can start an expression, so a line starting with either, at the block's column, is a new step:
+A long condition can be split before an operator instead of after it: a line that starts with an infix operator (`&&` or `∧`, `||` or `∨`, `->`, `<->`, `=`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `++`, `*`, `/`, `%`, `!in`) continues the line above, whether it is indented further or lines up with the block. `-` and `!` can start an expression, so a line starting with either, at the block's column, is a new step. A condition that fits stays on one line:
 
 <!-- snippet: values.sw#leading-operator -->
 ```stitchwort
-def validScore (score: Nat): Bool :=
-  0 <= score
-  && score <= 100
-  && score != 13
+def validScore (score: Nat): Bool := 0 <= score && score <= 100 && score != 13
 ```
 
 `if` takes a `Bool`, or a statement the compiler can decide, such as `score >= 90`. The difference matters for proofs and is explained in [chapter 10](10-proofs.md); in ordinary code you can use comparisons as conditions without thinking about it.
@@ -162,7 +155,7 @@ test "absolute value" := Int.natAbs balance == 2
 ```stitchwort
 test "dividing by 0" := 7 / 0 == 0 ∧ 7 % 0 == 7
 
-def averageOf (total: Nat) (count: Nat): Nat := total / count
+def averageOf (total count: Nat): Nat := total / count
 
 test "the average of nothing" := averageOf 10 0 == 0
 ```
