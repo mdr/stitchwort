@@ -38481,12 +38481,12 @@
     {
       "id": 3456,
       "title": "[Sonnet] Bug: stitchwort fmt not idempotent (Overmind fuzz:fmt seed 0x117 case 500938, on 0705b3789): 'def readVec [n: Nat] (): {IO}' then a line break before '(Vec Nat n) :=' — pass 1 keeps '{IO} (Vec Nat n)', pass 2 drops the brackets to '{IO} Vec Nat n'. Reproduce: task fuzz:fmt SEED=0x117 CASE=500938 (prints the case, ~110 s)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Cause: parens.rs kept a pair that starts a line, but the layout joins the type onto the row, so pass 2 saw the pair mid-line and dropped it. Fix: line-start pairs go too (comment-touching pairs still stay); drop is checked by parse_shape, so the tree is unchanged. Test: golden ability-row-parens-line-break (failed before). Commit 340569b10 on lane/SW-3456.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
