@@ -642,8 +642,8 @@ theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (wi
   rewrite nonEmpty, waiting, spaces in rfl
 
 --| An instance: a space after a waiting comment is dropped.
-theorem spacesAfterCommentExample:
-    ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1 = { Printer.start 80 | suffixes = ["-- c"] } :=
+theorem spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
+      = { Printer.start 80 | suffixes = ["-- c"] } :=
   spacesAfterComment { Printer.start 80 | suffixes = ["-- c"] } 0 " " 1 rfl rfl rfl
 
 --| A comment break is deeper than the line it breaks.
