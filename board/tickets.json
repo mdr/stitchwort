@@ -38351,12 +38351,12 @@
     {
       "id": 3446,
       "title": "[Opus paper] Every comment has a place (D3618, Matt, 15 Nov 2026): design comment placement so neither the toy formatter nor stitchwort fmt ever keeps a declaration as written; how many declarations the repo keeps today and why; the rule for a comment in each awkward position; layout cost; how it fits the toy's direct proof",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3618 (Matt, 15 Nov 2026): \"I think my initial inclination is actually maybe we should be doing D. Maybe every comment can be placed. Otherwise, we have a sort of kind of partial function for our formatter where we can format almost everything except if you happen to have a comment in a weird place, in which case it gives up for part of the file. So maybe both in Stitchwork and in our toy language, we should support this.\"",
+      "body": "D3618 (Matt, 15 Nov 2026): \"I think my initial inclination is actually maybe we should be doing D. Maybe every comment can be placed. Otherwise, we have a sort of kind of partial function for our formatter where we can format almost everything except if you happen to have a comment in a weird place, in which case it gives up for part of the file. So maybe both in Stitchwork and in our toy language, we should support this.\"\n\nProgress (Opus paper lane, 15 Nov 2026, 16:41-16:55): design note docs/proposals/every-comment-placed.md (uncommitted, in the main checkout). Measured: 0 of 43,404 declarations in the repo are left as written (by construction: S40's count test); probes of awkward positions: stitchwort fmt keeps 11 of 24 (7 \"comments\": a trailing comment drifts past code the rules put on its line; 4 \"comment no rule places\": LineStart breaks at the statement's column or 0), the toy keeps 17 of 20 (no tree slot for comments on =, then, operators, brackets...). Principle: a comment stays next to its token (own-line above the next token, trailing after the previous one), and the printer adds a \"comment break\" wherever the layout doesn't already break, indented as a continuation (floor: 2 deeper than the broken line); one special case (own-line comments before a closer indent like the items). Toy: Trivia on every token, AsWritten and the comment count go, format never re-parses. Plan: lane T (toy, Opus, est. 3 h, after SW-3418 part 3 merges), lane R (stitchwort fmt engine, Opus, est. 2 h, can start now). Question: D3619 (adopt the principle with its rare odd layouts) [rec: yes].\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
