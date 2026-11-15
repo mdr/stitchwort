@@ -2325,6 +2325,174 @@ the rest of D and the glue.
     `grep -v` doesn't filter it; errors were read with an `awk` filter
     on `[E-` blocks.
 
+### Part 13 (Fable, 15 Nov 2026): blank lines in the trace, tokens from events, events inside brackets, std's leftmost-operand lemma
+
+A 27-minute lane. Blank lines are counted in the engine's and the rules'
+halves, and tokens against events is done: for every parsed file at
+every width, the printed text lexes to tokens whose kinds, comments,
+line starts (with their columns) and blank lines are read off a trace
+that is the file's `FileEvents` (`parsedPrintViews`). `Events` is
+weakened for brackets. Of the three parser facts none is proved: two
+need "the expression's leftmost token is the first token read", which
+no value-only invariant says; the std lemma for it is proved
+(`Parse.readsOperatorsLeft`), the walk through the toy's parser isn't
+started. Spelling isn't started.
+
+**No program changed.** The probe `Fmt/Tests/Places.sw` (`reach`)
+follows the new `Lays`, with one more test; all 103 tests pass.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 1048 theorems, 0
+failed, the same 16 warnings; `audit:touched -- Std.Parse`: 389
+theorems, 0 failed, 5 warnings, none of them new):
+
+- `Doc/Places.sw`, blank lines in the engine's half.
+  - `eventsOf` gives `Event.blankLine` (the event whose word is
+    `"\n"`, which no word is) for a line break on a line with nothing
+    but spaces: exactly when `placePiece` adds a `BlankLine`.
+    `eventsGap`, `eventsBreak`, `eventsBlank`.
+  - `Place` has a fourth place, `Broken indent`: a line start right
+    after the line break that ended a line of words. `Lays` at `Blank`
+    appends the blank-line event there and goes on at `AtStart`; at
+    `AtStart` it refuses a `Blank` (the printer may or may not leave a
+    line there: it reads its own count of line breaks); after words a
+    `Blank` is nothing. A `HardLine` needs words on the line
+    (`place.midLine`) and hands the document the choice of `Broken`
+    or `AtStart`; `CommentEnd`, `OneLineBelow` and `SoftLine` need
+    words on the line too: at a line start each would leave a blank
+    line the tree doesn't have.
+  - `Agrees` holds the printer's `newlinesAtEnd` (0 after words, 1 at
+    `Broken`) and `started`. `newlineBroken`, `brokenStart`,
+    `blankAdds`, `blankSame`, `blankStays`, `writeBroken`, `sepMid`,
+    `softMid`, `startMid`; `stepLays` and `printLays` as before, of the
+    new `Lays`.
+- `Fmt/LaidProofs.sw`, `Fmt/EventProofs.sw`, the rules' half with blank
+  lines. `LineEvents` is the first statement then `LaterLines`, each
+  later line after `blankEvents blankBefore` (`[Event.blankLine]` or
+  nothing); `DeclarationsEvents` and `LaterDeclarations` likewise, so
+  `FileEvents` holds the file's kept blank lines. `laterStart`
+  (`lineStart (index + 1)` after a line of words), `linesLay` and
+  `laterLay`, `declarationsLay` and `laterDeclarationsLay`, `endedMid`,
+  `trailMid`. `softSeats`, `softRule`, `hardRule`, `hardUnder` are
+  stated after a token (`Ended`); `belowValue` and `blockLays` take
+  `place.midLine = True`. `fileLays`, `printedEvents` and
+  **`parsedPrintEvents`** read as before, of the new `FileEvents`.
+- `Fmt/TokenEventProofs.sw` (9 theorems, new file), tokens against
+  events.
+  - `TokenView`: a token without its offsets: `kind`, `start` (its
+    column if it starts its line, else `None`), `above`, `trailing`
+    (the comment, without where it is). `viewOf`, `Placed.views`.
+  - `viewsOf events`: the views a trace lexes to, an event at a time
+    (`viewEvent`): the blank-line event waits (`addBlank`); a comment
+    that starts its line waits, another goes on the newest token; any
+    other word is a token of the kind its text spells, starting as the
+    event says.
+  - **`placedViews`**: `(placed out).views = viewsOf (eventsOf out)`,
+    for every list of pieces. `pieceViews`, `breakViews`, `wordViews`,
+    `gapPlaced`, `trailingViews`, `viewsSnoc`. `viewsExample` computes
+    two tokens, a blank line and a trailing comment.
+  - **`parsedPrintViews`**: `parse source = Ok file` gives, at every
+    width, events with `FileEvents file events`, and tokens and end
+    trivia (stated the newest first) with `lex (file.print width).text
+    = Ok { lexemes, tokens = tokens.reverse, endTrivia =
+    endTrivia.reverse }`, `tokens.map viewOf = (viewsOf events).views`
+    and `endTrivia = (viewsOf events).pending`.
+- `Fmt/BracketEventProofs.sw` (8 theorems, new file), part 12's finding
+  2. **`eventsFree`**: `Events zone head expr events` and `head ⊆ wide`
+  give `Events (Anywhere 0) wide expr events`, for every zone
+  (`Anywhere 0` allows every start, and `else` anywhere). `itemsFree`,
+  `bodyEventsFree`; **`bodyFree`**: a body of one expression, laid on
+  its keyword's line or below it, is `Events (Anywhere 0) anyStart` of
+  the expression: what the parser reads inside brackets. `tokenWider`,
+  `thenWider`.
+- Std, `Parse/ReadsOperators.sw` (3 theorems).
+  **`Parse.readsOperatorsLeft`**: what `Parse.operators` read starts
+  with what its first operand read (`taken = firstRead ++ more`, `first
+  firstRead start`), and `kept start value` for any `kept` that holds
+  of a value and itself and that joining a right side keeps.
+  `readsOperandsFromLeft`, `readsOperatorsFromLeft`. The prelude's hash
+  snapshot has the six new entries and no other change.
+
+**What the statements don't say yet.** `TokenView` has no offsets, and
+the parser asks two things of them: whether a token is its statement's
+first (`Layout.allows`, `Layout.comments`: `token.offset == start`).
+Spelling needs the printed tokens' offsets to be distinct (they grow:
+`placed` gives each `charsLength earlier`); part 12's plan had that in
+this step and it isn't proved (about 5 lemmas in `PlaceProofs.sw`). A
+token's column is in its view only when it starts its line; the parser
+reads it only then (read from `Parser.sw`: every use is beside
+`startsLine`).
+
+**Findings.**
+
+1. **Parser facts (a) and (b) are not value-only.** That a statement's
+   expression has no comments above its first token holds because that
+   token is the statement's first (`Layout.comments` drops them at
+   `offset == start`), so the proof must say the tree's leftmost token
+   is the first token read. `Gives` (part 4) ignores what was read, and
+   `Parse.readsOperators` is an invariant of values alone. `Parse.Reads`
+   does give the tokens read, so the walk is possible: a spec `Heads
+   layout taken value` (`taken = [token, ..rest]`, `value.firstAbove =
+   (layout.comments token).above`) through `atomOf`, `atom`, the
+   suffixes, the negations, `operators` (by `readsOperatorsLeft`, `kept`
+   = same `firstAbove`), `expressionRule` and `readsRecursiveWith`; then
+   a tree-wide predicate over statements, blocks, bodies, declarations
+   and the file, as `ShapeProofs.sw` does for `Shaped`. Fact (c) (a
+   body inside brackets is one expression) is value-only given the
+   layout and can ride in the same walk. About 60-70 lemmas [estimated
+   from `ShapeProofs.sw`'s 67], a lane of its own.
+2. **Two ways to make (b) cheaper, both decisions.** (i) The parser
+   could drop the comments above a statement's first token from the
+   tree it built (a `withoutFirstAbove` on the statement) instead of by
+   offset in `Layout.comments`; (b) is then an induction on the tree
+   (10 arms), but `BlockProofs.sw`'s read-back changes with it, and the
+   same output rests on the leftmost-token fact until that is proved.
+   (ii) `formatDirect` could check the fact on the tree at run time, a
+   walk and not a re-parse. Neither is done.
+3. **Fact (a) is false inside brackets** (read from `Parser.sw`, not
+   run): `(if a then` / `-- c` / `b else c)` reads `b` as an inline
+   body with `c` above it, since inside brackets no body is a block.
+   `inlineHead` already allows it (it asks `start = None` only when
+   nothing is above), and spelling there goes by `bodyFree`. Outside
+   brackets (a) needs a lexer fact as well: a token that doesn't start
+   its line has nothing above it (about 5 lemmas, as `addBlankFine`).
+4. `softRule`, `hardRule` and `hardUnder` (`LaidProofs.sw`) are used by
+   nothing; they could go.
+
+**What is left**, part 12's table with this part's work taken off:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| E, rules to tokens | the printed tokens' offsets grow (5); spelling the tree from `viewsOf` and `FileEvents` (25-35) | 30-40 |
+| D, parser | the first-token and bracket facts (finding 1; 60-70, or less by finding 2); `if` with a block branch; the file from its spelling (30-40) | 90-110 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Three lanes at this pace [estimated; this lane proved 40 theorems and
+restated about 25 in 27 minutes of the clock]: (1) the parser-facts
+walk; (2) offsets and spelling; (3) the rest of D and the glue. The
+parser layer is larger than part 12 thought (20 lemmas for the three
+facts), because of finding 1.
+
+**Friction** (beyond parts 1 to 12):
+
+67. Good: a new constructor of `Place` went through four proof files in
+    three check runs. Every `match` that needed an arm was listed
+    (`E-NONEXHAUSTIVE`), and arms whose hypothesis computes to `False`
+    (`Seated zone (Broken at)`) needed none.
+68. Good: equations chained with `Eq.trans` and `Eq.cong` over named
+    terms checked first time where parts 10 to 12 fought `rewrite` over
+    terms the goal had computed past (frictions 55, 56, 64): conversion
+    does the unfolding (`pieceViews`, `breakViews`).
+69. **A number in a pattern needs a catch-all arm even when an equation
+    scrutinee rules the others out** (`match count: n, one with | 1, _
+    =>`, `E-NONEXHAUSTIVE`): `rewrite one in rfl` instead (`blankAdds`).
+70. **A std lemma costs a lane about four minutes of tests** for three
+    theorems: `audit:touched` 27 s, `the_library_has_no_unreachable_arms`
+    95 s, `hash_stability` 112 s, and the prelude snapshot is accepted
+    by hand (the `.snap.new`'s header differs by a line).
+71. `W-ARROW-FORALL` no longer floods (SW-3439): a check with one type
+    error and no parse error printed that error and nothing else.
+
 ## Every comment placed (SW-3450, D3618, D3619)
 
 Every token now holds its comments in the tree (`Comments = { above,
