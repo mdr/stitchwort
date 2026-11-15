@@ -1,5 +1,5 @@
 {
-  "next": 3405,
+  "next": 3406,
   "tickets": [
     {
       "id": 47,
@@ -37332,12 +37332,12 @@
     {
       "id": 3371,
       "title": "[Opus] Derived equality stage 3 (derived-equality.md): derive for types defined together and through any earlier non-indexed data type; < and ${…} refused with a note through a container with its own instance; syntax.md and guide. After stage 2",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Started 12:18; unblocks toy stage D (SW-3343). Expected: 4 h (Opus). Opus review before merge (generates kernel terms).",
+      "body": "Started 12:18; unblocks toy stage D (SW-3343). Expected: 4 h (Opus). Opus review before merge (generates kernel terms).\n\nLane notes (Opus, 15 Nov 2026, branch lane/SW-3371, commits 74bb96371, 23765100a):\n- Built: derived `==`, `<`, `${…}` for types defined together (derived once the group's last type is admitted; one plan with the group's types as roots) and through any earlier data type without indices (user types, earlier groups, std types). `<`/`${…}` go through a container only when it is List/Option/Pair or its own instance is derived (`C.%instOrd`/`%instShow`); otherwise refused with a note (NonEmptyList, a hand-written Box Ord). A group member with its own DecEq keeps it, the others derive; own Ord/Show (or own DecEq for Ord) stops that interface for the whole group. R.ext now also for records in a group. Termination checker unchanged.\n- Toy: Expr/Item/Statement/Body/Declaration/SourceFile get ==, <, Show; Parsing.sw compares trees with `==` (other dump tests kept). Toy.Syntax `check --no-cache` elab 2.27 s -> 2.43 s; the group's row 109 ms elab + 22 ms kernel, 1.9 M steps.\n- Tests: examples (derive,deceq,ord,eqeq,nested-data,mutual,show) pass after accepting the two reject snapshots; hash_stability snapshots: additions only (mutual-data, extract-mutual-data, let-patterns, nested-data-induction, nested-data-shapes, new mutual-data-derived); derive_cost passes; toyfmt `stitchwort test` 80/80.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37768,6 +37768,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3405,
+      "title": "[Sonnet] SW-3371 findings: < on a type with no Ord gives E-TYPE-MISMATCH without the 'why not derived' note Ord.compare shows; the Ord/Show refusal note can tell 'its module wrote one' from 'it has none'; derive_nested induction principles, Finite and decided records for mutual groups; a field default using == on its own group misses the derived instance",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
