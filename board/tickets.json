@@ -1,5 +1,5 @@
 {
-  "next": 3472,
+  "next": 3473,
   "tickets": [
     {
       "id": 47,
@@ -38689,6 +38689,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3472,
+      "title": "[Sonnet] Main red (Overmind rolling check, b36f71699): stitchwort-syntax::it trivia::trivia_rebuilds_every_file fails on SW-3462's golden crates/fmt/tests/it/golden/lambda-param-comment-before-closer.before.sw: '[a:-- c' rebuilds as '[a: -- c'; the lossless tree must rebuild every file byte for byte",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
