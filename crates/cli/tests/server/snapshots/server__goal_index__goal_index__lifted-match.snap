@@ -28,20 +28,20 @@ expression: json
         "file": 0,
         "message": "x: Nat\nrest: List Nat\nflag: Bool\n⊢ x ≤ 3 ∧ (match flag with …)",
         "range": [
-          12,
-          88,
-          12,
-          89
+          13,
+          90,
+          13,
+          91
         ]
       }
     ],
     "message": "in `followsCons`",
     "notes": [],
     "range": [
-      12,
-      88,
-      12,
-      89
+      13,
+      90,
+      13,
+      91
     ],
     "severity": "goal"
   },
@@ -66,20 +66,20 @@ expression: json
         "file": 0,
         "message": "flag: Bool\nn: Nat\n⊢ (match flag with …) ≤ n",
         "range": [
-          15,
-          96,
-          15,
-          97
+          21,
+          2,
+          21,
+          3
         ]
       }
     ],
     "message": "in `statementMatch`",
     "notes": [],
     "range": [
-      15,
-      96,
-      15,
-      97
+      21,
+      2,
+      21,
+      3
     ],
     "severity": "goal"
   },
@@ -104,20 +104,20 @@ expression: json
         "file": 0,
         "message": "a: Nat\nb: Nat\n⊢ (match a, b with …) ≤ 2",
         "range": [
-          18,
-          104,
-          18,
-          105
+          30,
+          2,
+          30,
+          3
         ]
       }
     ],
     "message": "in `pairMatch`",
     "notes": [],
     "range": [
-      18,
-      104,
-      18,
-      105
+      30,
+      2,
+      30,
+      3
     ],
     "severity": "goal"
   }

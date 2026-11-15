@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -26,9 +26,9 @@ expression: json
         "message": "n: Nat\ncount: Nat\n⊢ (doubleTimes n count).shiftRight count = n",
         "range": [
           14,
-          99,
+          94,
           14,
-          100
+          95
         ]
       }
     ],
@@ -36,9 +36,9 @@ expression: json
     "notes": [],
     "range": [
       14,
-      99,
+      94,
       14,
-      100
+      95
     ],
     "severity": "goal"
   },
@@ -65,9 +65,9 @@ expression: json
         "message": "fuel: Nat\nk: Nat\n⊢ powTwo fuel k = Nat.pow 2 k",
         "range": [
           25,
-          73,
+          68,
           25,
-          74
+          69
         ]
       }
     ],
@@ -75,9 +75,9 @@ expression: json
     "notes": [],
     "range": [
       25,
-      73,
+      68,
       25,
-      74
+      69
     ],
     "severity": "goal"
   }

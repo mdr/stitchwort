@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -33,20 +33,20 @@ expression: json
         "file": 0,
         "message": "xs: List Nat\nx: Nat\nrest: List Nat\nh: xs = [x, ..rest]\n⊢ Nat",
         "range": [
-          6,
-          21,
-          6,
-          22
+          5,
+          19,
+          5,
+          20
         ]
       }
     ],
     "message": "in `sumRestOrZero`",
     "notes": [],
     "range": [
-      6,
-      21,
-      6,
-      22
+      5,
+      19,
+      5,
+      20
     ],
     "severity": "goal"
   }

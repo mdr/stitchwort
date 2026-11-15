@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -22,9 +22,9 @@ expression: json
         "message": "b: Bool\n⊢ b = (if b then True else False)",
         "range": [
           8,
-          47,
+          49,
           8,
-          48
+          50
         ]
       }
     ],
@@ -32,9 +32,9 @@ expression: json
     "notes": [],
     "range": [
       8,
-      47,
+      49,
       8,
-      48
+      50
     ],
     "severity": "goal"
   },
@@ -76,9 +76,9 @@ expression: json
         "message": "b: Bool\nc: Bool\n⊢ [b, c].all (x => x) = b\n  computes to (b && c && True) = b",
         "range": [
           10,
-          68,
+          62,
           10,
-          69
+          63
         ]
       }
     ],
@@ -88,9 +88,9 @@ expression: json
     ],
     "range": [
       10,
-      68,
+      62,
       10,
-      69
+      63
     ],
     "severity": "goal"
   },
@@ -132,9 +132,9 @@ expression: json
         "message": "b: Bool\nc: Bool\n⊢ [b, c].any (x => x) = b\n  computes to (b || c || False) = b",
         "range": [
           12,
-          68,
+          62,
           12,
-          69
+          63
         ]
       }
     ],
@@ -144,9 +144,9 @@ expression: json
     ],
     "range": [
       12,
-      68,
+      62,
       12,
-      69
+      63
     ],
     "severity": "goal"
   },
@@ -187,9 +187,9 @@ expression: json
         "message": "k: Nat\nb: Bool\n⊢ (k <= 2) = (k <= 2 && b)",
         "range": [
           14,
-          65,
+          67,
           14,
-          66
+          68
         ]
       }
     ],
@@ -199,9 +199,9 @@ expression: json
     ],
     "range": [
       14,
-      65,
+      67,
       14,
-      66
+      68
     ],
     "severity": "goal"
   }

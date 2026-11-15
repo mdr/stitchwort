@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -22,9 +22,9 @@ expression: json
         "message": "x: Nat\n⊢ x + 1 = x + 1",
         "range": [
           4,
-          43,
+          45,
           4,
-          44
+          46
         ]
       }
     ],
@@ -32,9 +32,9 @@ expression: json
     "notes": [],
     "range": [
       4,
-      43,
+      45,
       4,
-      44
+      46
     ],
     "severity": "goal"
   },
@@ -75,9 +75,9 @@ expression: json
         "message": "x: Nat\ny: Nat\n⊢ x + 3 = y + x + 2",
         "range": [
           6,
-          53,
+          55,
           6,
-          54
+          56
         ]
       }
     ],
@@ -87,9 +87,9 @@ expression: json
     ],
     "range": [
       6,
-      53,
+      55,
       6,
-      54
+      56
     ],
     "severity": "goal"
   },
@@ -122,9 +122,9 @@ expression: json
         "message": "n: Nat\n⊢ Succ n = Succ (Succ n)",
         "range": [
           8,
-          52,
+          54,
           8,
-          53
+          55
         ]
       }
     ],
@@ -134,9 +134,9 @@ expression: json
     ],
     "range": [
       8,
-      52,
+      54,
       8,
-      53
+      55
     ],
     "severity": "goal"
   },

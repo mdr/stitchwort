@@ -26,9 +26,9 @@ expression: json
         "message": "xs: List Nat\nh: increasing xs\n⊢ xs.length ≤ 5",
         "range": [
           13,
-          83,
+          85,
           13,
-          84
+          86
         ]
       }
     ],
@@ -36,9 +36,9 @@ expression: json
     "notes": [],
     "range": [
       13,
-      83,
+      85,
       13,
-      84
+      86
     ],
     "severity": "goal"
   }

@@ -34,9 +34,9 @@ expression: json
         "message": "a: Type\nord: Ord a\nx: a\ny: a\n⊢ Ord.compare x y = Ord.compare x y",
         "range": [
           6,
-          90,
+          87,
           6,
-          91
+          88
         ]
       }
     ],
@@ -44,9 +44,9 @@ expression: json
     "notes": [],
     "range": [
       6,
-      90,
+      87,
       6,
-      91
+      88
     ],
     "severity": "goal"
   },
@@ -85,9 +85,9 @@ expression: json
         "message": "a: Type\neq: DecEq a\nx: a\ny: a\nh: x == y\n⊢ x = y",
         "range": [
           8,
-          83,
+          80,
           8,
-          84
+          81
         ]
       }
     ],
@@ -95,9 +95,9 @@ expression: json
     "notes": [],
     "range": [
       8,
-      83,
+      80,
       8,
-      84
+      81
     ],
     "severity": "goal"
   }

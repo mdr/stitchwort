@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -25,20 +25,20 @@ expression: json
         "file": 0,
         "message": "shape: Shape\nnewId: Text\n⊢ { shape | id = newId ++ \"!\" }.ref = shape.ref",
         "range": [
-          12,
-          2,
-          12,
-          3
+          8,
+          107,
+          8,
+          108
         ]
       }
     ],
     "message": "in `renamedKeepsRef`",
     "notes": [],
     "range": [
-      12,
-      2,
-      12,
-      3
+      8,
+      107,
+      8,
+      108
     ],
     "severity": "goal"
   },
@@ -72,9 +72,9 @@ expression: json
         "file": 0,
         "message": "shape: Shape\nother: Shape\nnewId: Text\nnewRef: Nat\n⊢ { pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }",
         "range": [
-          16,
+          12,
           2,
-          16,
+          12,
           3
         ]
       }
@@ -82,9 +82,9 @@ expression: json
     "message": "in `renamedTwice`",
     "notes": [],
     "range": [
-      16,
+      12,
       2,
-      16,
+      12,
       3
     ],
     "severity": "goal"
@@ -115,9 +115,9 @@ expression: json
         "file": 0,
         "message": "player: Player\namount: Nat\nsame: { player | gold = amount } = player\n⊢ { player | hitPoints = 3, gold = amount } = { player | hitPoints = 3 }",
         "range": [
-          20,
+          17,
           2,
-          20,
+          17,
           3
         ]
       }
@@ -125,9 +125,9 @@ expression: json
     "message": "in `paid`",
     "notes": [],
     "range": [
-      20,
+      17,
       2,
-      20,
+      17,
       3
     ],
     "severity": "goal"

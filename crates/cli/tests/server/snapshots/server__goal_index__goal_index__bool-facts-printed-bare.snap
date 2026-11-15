@@ -61,20 +61,20 @@ expression: json
         "file": 0,
         "message": "a: Bool\nb: Bool\nn: Nat\nxs: List Nat\nh1: a\nh2: (a && b) = True\nh3: xs.any (x => x <= n)\nh4: a = False\nh5: ¬a\nh6: a ∧ b\nh7: (a = True) = (b = True)\n⊢ b",
         "range": [
-          10,
-          47,
-          10,
-          48
+          16,
+          2,
+          16,
+          3
         ]
       }
     ],
     "message": "in `shown`",
     "notes": [],
     "range": [
-      10,
-      47,
-      10,
-      48
+      16,
+      2,
+      16,
+      3
     ],
     "severity": "goal"
   }

@@ -25,20 +25,20 @@ expression: json
         "file": 0,
         "message": "n: Nat\nsmall: n ≤ 1\n⊢ (pick n empty).items.length ≤ 100",
         "range": [
-          17,
-          14,
-          17,
-          15
+          16,
+          12,
+          16,
+          13
         ]
       }
     ],
     "message": "in `fits`",
     "notes": [],
     "range": [
-      17,
-      14,
-      17,
-      15
+      16,
+      12,
+      16,
+      13
     ],
     "severity": "goal"
   },
@@ -64,20 +64,20 @@ expression: json
         "file": 0,
         "message": "n: Nat\nsmall: (n <= 1) = False\n⊢ (pick n empty).items.length ≤ 100",
         "range": [
-          18,
-          15,
-          18,
-          16
+          17,
+          13,
+          17,
+          14
         ]
       }
     ],
     "message": "in `fits`",
     "notes": [],
     "range": [
-      18,
-      15,
-      18,
-      16
+      17,
+      13,
+      17,
+      14
     ],
     "severity": "goal"
   }

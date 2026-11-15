@@ -1,0 +1,36 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem holedGoal1: double 0 = 0 := ?",
+      "target": "double 0 = 0"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ double 0 = 0",
+        "range": [
+          19,
+          46,
+          19,
+          47
+        ]
+      }
+    ],
+    "message": "in `holed`",
+    "notes": [],
+    "range": [
+      19,
+      46,
+      19,
+      47
+    ],
+    "severity": "goal"
+  }
+]

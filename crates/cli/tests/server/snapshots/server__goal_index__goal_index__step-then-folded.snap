@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -26,20 +26,20 @@ expression: json
         "file": 0,
         "message": "a: Nat\nb: Nat\n⊢ (if True then concatenate a b else 0) = concatenate a b\n  computes to concatenate a b = concatenate a b",
         "range": [
-          8,
-          98,
-          8,
-          99
+          7,
+          93,
+          7,
+          94
         ]
       }
     ],
     "message": "in `stepsAtOnce`",
     "notes": [],
     "range": [
-      8,
-      98,
-      8,
-      99
+      7,
+      93,
+      7,
+      94
     ],
     "severity": "goal"
   }

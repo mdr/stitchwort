@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -73,9 +73,9 @@ expression: json
         "message": "a: Type\nx: a\ny: a\nh: x = y\n⊢ y = x",
         "range": [
           3,
-          63,
+          60,
           3,
-          64
+          61
         ]
       }
     ],
@@ -83,9 +83,9 @@ expression: json
     "notes": [],
     "range": [
       3,
-      63,
+      60,
       3,
-      64
+      61
     ],
     "severity": "goal"
   }

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -26,9 +26,9 @@ expression: json
         "message": "x: Nat\nxs: List Nat\n⊢ ∃ (x1: Nat) => x1 < x",
         "range": [
           10,
-          53,
+          55,
           10,
-          54
+          56
         ]
       }
     ],
@@ -36,9 +36,9 @@ expression: json
     "notes": [],
     "range": [
       10,
-      53,
+      55,
       10,
-      54
+      56
     ],
     "severity": "goal"
   },
@@ -75,20 +75,20 @@ expression: json
         "file": 0,
         "message": "x✝¹: Nat\ny✝¹: Nat\nx✝: Nat\nh: x✝¹ = x✝\ny✝: Nat\n⊢ { x = x✝¹, y = y✝¹ } = { x = x✝, y = y✝ }",
         "range": [
-          14,
-          42,
-          14,
-          43
+          13,
+          114,
+          13,
+          115
         ]
       }
     ],
     "message": "in `samePoint`",
     "notes": [],
     "range": [
-      14,
-      42,
-      14,
-      43
+      13,
+      114,
+      13,
+      115
     ],
     "severity": "goal"
   },
@@ -126,20 +126,20 @@ expression: json
         "file": 0,
         "message": "left1: Tree\nright1: Tree\nleft2: Tree\nright2: Tree\nsame: Pair left1 right1 = Pair left2 right2\n⊢ Pair left2 right2 = Pair left1 right1",
         "range": [
-          25,
-          50,
-          25,
-          51
+          21,
+          44,
+          21,
+          45
         ]
       }
     ],
     "message": "in `symmetric`",
     "notes": [],
     "range": [
-      25,
-      50,
-      25,
-      51
+      21,
+      44,
+      21,
+      45
     ],
     "severity": "goal"
   }
