@@ -257,13 +257,73 @@ fn known_container(g: &Ev, e: DataId) -> bool {
         .any(|b| g.env.registry().data(*b) == Some(e))
 }
 
+/// How a note names a field of a type of a group of `group_len`: `its field
+/// `x``, in a record alone; else the record or constructor it's in, with a
+/// sum's constructor qualified by its type, since a group's notes are read
+/// beside other types' (`Guard.When`).
+pub(crate) fn field_origin(
+    data: &stitchwort_core::globals::Data,
+    ctor: &stitchwort_core::globals::Ctor,
+    field: &str,
+    group_len: usize,
+) -> String {
+    match (data.record(), group_len) {
+        (true, 1) => format!("its field `{field}`"),
+        (true, _) => format!("the field `{field}` of `{}`", data.name()),
+        (false, 1) => format!("the field `{field}` of `{}`", ctor.name),
+        (false, _) => format!("the field `{field}` of `{}.{}`", data.name(), ctor.name),
+    }
+}
+
 /// Whether a term mentions one of the group's types.
-fn mentions_group(term: &Term, group: &[DataId]) -> bool {
+pub(crate) fn mentions_group(term: &Term, group: &[DataId]) -> bool {
     term.subterms()
         .any(|(t, _)| matches!(t, Term::Data(e, _) if group.contains(e)))
 }
 
+/// Which derived instance a refusal is about.
+#[derive(Clone, Copy)]
+pub(crate) enum Derivation {
+    Eq,
+    Ord,
+    Show,
+}
+
 impl Elaborator {
+    /// The types of `d`'s group, and for each whether its module declares
+    /// its own instance of `interface`, which the group's derivation leaves
+    /// alone.
+    pub(crate) fn group_and_own(&self, d: DataId, interface: DataId) -> (Vec<DataId>, Vec<bool>) {
+        let group: Vec<DataId> = self.kernel.data(d).group().to_vec();
+        let own = group
+            .iter()
+            .map(|&r| self.declares_instance_for(r, interface))
+            .collect();
+        (group, own)
+    }
+
+    /// Records `why` as the reason `which` isn't derived, for each type of
+    /// the group without its own instance.
+    pub(crate) fn refuse_group(
+        &mut self,
+        which: Derivation,
+        group: &[DataId],
+        own: &[bool],
+        why: &str,
+    ) {
+        let owners = &self.session.owners;
+        let table = match which {
+            Derivation::Eq => &mut self.tables.no_eq,
+            Derivation::Ord => &mut self.tables.no_ord,
+            Derivation::Show => &mut self.tables.no_show,
+        };
+        for (&r, own) in group.iter().zip(own) {
+            if !own {
+                table.insert(owners, r, why.to_string());
+            }
+        }
+    }
+
     /// After data type or record `d` is admitted: its `DecEq` instance, if
     /// one can be derived, or else why not. The types of a group are
     /// derived together, once the last of them is admitted, each getting
@@ -273,27 +333,17 @@ impl Elaborator {
         // source can't write: an ability's operations (`effects.rs`).
         let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
-        let group: Vec<DataId> = data.group().to_vec();
         let Some(dec_eq) = interfaces::dec_eq(self) else {
             return Ok(());
         };
-        if generated || group.last() != Some(&d) {
+        if generated || data.group().last() != Some(&d) {
             return Ok(());
         }
-        let own: Vec<bool> = group
-            .iter()
-            .map(|&r| self.declares_instance_for(r, dec_eq))
-            .collect();
+        let (group, own) = self.group_and_own(d, dec_eq);
         if own.iter().all(|x| *x) {
             return Ok(());
         }
-        let refuse = |e: &mut Self, why: String| {
-            for (&r, own) in group.iter().zip(&own) {
-                if !own {
-                    e.tables.no_eq.insert(&e.session.owners, r, why.clone());
-                }
-            }
-        };
+        let refuse = |e: &mut Self, why: String| e.refuse_group(Derivation::Eq, &group, &own, &why);
         let plan = match self.field_plan(d, dec_eq, "`==`")? {
             Ok(plan) => plan,
             Err(why) => {
@@ -412,22 +462,12 @@ impl Elaborator {
                     }
                     let what = if !root {
                         members[next].origin.clone()
-                    } else if root_data.record() {
-                        format!("the field `{field}` of `{}`", root_data.name())
                     } else {
-                        format!("the field `{field}` of `{}`", ctor.name)
-                    };
-                    let what = if root && group.len() == 1 && root_data.record() {
-                        format!("its field `{field}`")
-                    } else {
-                        what
+                        field_origin(root_data, ctor, field, group.len())
                     };
                     let inner = group
                         .iter()
-                        .find(|r| {
-                            term.subterms()
-                                .any(|(t, _)| matches!(t, Term::Data(e, _) if e == *r))
-                        })
+                        .find(|r| mentions_group(&term, std::slice::from_ref(*r)))
                         .map(|r| g.data(*r).name().to_string())
                         .unwrap_or_default();
                     let refused =
@@ -441,6 +481,10 @@ impl Elaborator {
                     };
                     let inside = g.data(*e);
                     let cname = inside.name().to_string();
+                    // The kernel refuses this first (`E-POSITIVITY`: a group's
+                    // type used inside another with different parameters), so
+                    // it isn't reached today; kept as a guard against the
+                    // member list growing without end.
                     if group.contains(e) {
                         return refused(format!(
                             "`{cname}` with other arguments, which {label} isn't derived for"
@@ -567,13 +611,7 @@ impl Elaborator {
             for ctor in data.ctors() {
                 let mut kinds: Vec<Field> = Vec::new();
                 for (i, (field, ty)) in ctor.fields.iter().enumerate() {
-                    let what = if !data.record() {
-                        format!("the field `{field}` of `{}`", ctor.name)
-                    } else if group.len() == 1 {
-                        format!("its field `{field}`")
-                    } else {
-                        format!("the field `{field}` of `{}`", data.name())
-                    };
+                    let what = field_origin(data, ctor, field, group.len());
                     // The parameters mentioned, at levels `0..np` of a term
                     // under `i` fields.
                     let mentioned = |t: &Term, under: usize| -> Vec<usize> {
@@ -602,11 +640,10 @@ impl Elaborator {
                             )));
                         };
                         let carrier_term = quote(g, np + i, &carrier)?;
-                        if let Some(&m) = group.iter().find(|m| {
-                            carrier_term
-                                .subterms()
-                                .any(|(t, _)| matches!(t, Term::Data(e, _) if e == *m))
-                        }) {
+                        if let Some(&m) = group
+                            .iter()
+                            .find(|m| mentions_group(&carrier_term, std::slice::from_ref(*m)))
+                        {
                             let name = g.data(m).name();
                             return Ok(Err(format!(
                                 "{what} is an equation in a type that mentions `{name}`, and \
@@ -692,19 +729,74 @@ impl Elaborator {
                         group
                             .iter()
                             .find(|r| {
-                                quote(g, np, &member.ty()).is_ok_and(|t| {
-                                    t.subterms()
-                                        .any(|(t, _)| matches!(t, Term::Data(e, _) if e == *r))
-                                })
+                                quote(g, np, &member.ty())
+                                    .is_ok_and(|t| mentions_group(&t, std::slice::from_ref(*r)))
                             })
                             .map(|r| g.data(*r).name().to_string())
                             .unwrap_or_default()
                     };
-                    if ctor.field_erased[i] || (0..i).any(|j| ty.mentions(i - 1 - j)) {
+                    let container_name = container.name();
+                    if ctor.field_erased[i] {
+                        // As a root's proof field: an equation in a type
+                        // with `DecEq` that doesn't depend on the other
+                        // fields is left out; two values equal in their
+                        // data can't differ there.
+                        let in_container = |why: &str| {
+                            Ok(Err(format!(
+                                "{what} has `{}` inside `{container_name}`, whose proof field                                  {why}",
+                                inner()
+                            )))
+                        };
+                        if ctor.field_sorts[i] != Sort::Prop {
+                            return in_container(&format!(
+                                "is a type, which {label} can't compare"
+                            ));
+                        }
+                        if (0..i).any(|j| kinds[j] == Field::Proof && ty.mentions(i - 1 - j)) {
+                            return in_container(&format!(
+                                "mentions an earlier proof field, which {label} isn't derived \
+                                 for yet"
+                            ));
+                        }
+                        let env: Vec<Value> = member
+                            .args
+                            .iter()
+                            .cloned()
+                            .chain((0..i).map(|j| Value::var(np + j)))
+                            .collect();
+                        let Value::Eq(carrier, _, _) = force(g, eval(g, &env, ty)?)? else {
+                            return in_container(&format!(
+                                "is a proof of something other than an equation, which {label} \
+                                 can't tell apart"
+                            ));
+                        };
+                        let carrier_term = quote(g, np + i, &carrier)?;
+                        if mentions_group(&carrier_term, &group) {
+                            return in_container(&format!(
+                                "is an equation in a type that mentions the group, and \
+                                 {label} isn't derived for that"
+                            ));
+                        }
+                        if (0..i).any(|j| carrier_term.mentions(j)) {
+                            return in_container(&format!(
+                                "is an equation in a type that depends on other fields, which \
+                                 {label} isn't derived for yet"
+                            ));
+                        }
+                        for j in 0..np {
+                            if carrier_term.mentions(np + i - 1 - j) {
+                                deciders[j] |= param_is_type[j];
+                            }
+                        }
+                        to_decide.push(((*carrier).clone(), what.clone(), true));
+                        kinds.push(Field::Proof);
+                        continue;
+                    }
+                    if (0..i).any(|j| ty.mentions(i - 1 - j)) {
                         return Ok(Err(format!(
-                            "{what} has `{}` inside `{}`, whose fields {label} can't compare",
+                            "{what} has `{}` inside `{container_name}`, whose fields {label} \
+                             can't compare",
                             inner(),
-                            container.name()
                         )));
                     }
                     let env: Vec<Value> = member
@@ -853,11 +945,15 @@ impl Elaborator {
         if fields {
             for (c, count) in ctors.iter().enumerate() {
                 for k in 0..*count {
-                    let name = format!(
-                        "{prefix}{}%{k}",
-                        self.kernel.data(member.data).ctors()[c].name
-                    );
-                    if !self.has_member(d, &name) {
+                    let ctor = &self.kernel.data(member.data).ctors()[c];
+                    let name = format!("{prefix}{}%{k}", ctor.name);
+                    if ctor.field_erased[k] {
+                        // A proof field has no accessor, only its type.
+                        let proof = format!("{prefix}{}%P%{k}", ctor.name);
+                        if !self.has_member(d, &proof) {
+                            self.derive_member_proof_type(member, c, k, &proof)?;
+                        }
+                    } else if !self.has_member(d, &name) {
                         self.derive_field_in(d, member.data, prefix, c, k)?;
                     }
                 }
@@ -1382,6 +1478,58 @@ impl Elaborator {
         )?;
         kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
         let key = Self::member_key(&self.data_key(d), &member);
+        self.scope.insert(&key, Global::Def(id), span, false);
+        Ok(())
+    }
+
+    /// Declares `T.%m1%C%P%k : (group params) -> (fields before k) -> Prop`,
+    /// the type of a container member's proof field `k` of constructor `c`,
+    /// named `proof`: the container's own fields, at the member's arguments.
+    fn derive_member_proof_type(
+        &mut self,
+        member: &Member,
+        c: usize,
+        k: usize,
+        proof: &str,
+    ) -> Result<()> {
+        let g = &self.ev();
+        let owner = g.data(member.owner);
+        let np = owner.params().len();
+        let ctor = &g.data(member.data).ctors()[c];
+        let at = |i: usize| -> Result<Term> {
+            let env: Vec<Value> = member
+                .args
+                .iter()
+                .cloned()
+                .chain((0..i).map(|j| Value::var(np + j)))
+                .collect();
+            Ok(quote(g, np + i, &eval(g, &env, &ctor.fields[i].1)?)?)
+        };
+        let mut binders: Vec<(Name, Term)> = owner.params().to_vec();
+        for i in 0..k {
+            binders.push((ctor.fields[i].0.clone(), at(i)?));
+        }
+        let mut ty = Term::Sort(Sort::Prop);
+        let mut body = at(k)?;
+        for (x, t) in binders.iter().rev() {
+            ty = Term::Pi(x.clone(), Icit::Explicit, Rc::new(t.clone()), Rc::new(ty));
+            body = Term::Lam(x.clone(), Icit::Explicit, Rc::new(body));
+        }
+        let name: Name = format!("{}.{proof}", owner.name()).into();
+        let span = owner.span();
+        let data_key = self.data_key(member.owner);
+        let id = kernel::declare_def(
+            &mut self.kernel,
+            &self.tables,
+            &self.unit,
+            &name,
+            &ty,
+            false,
+            false,
+            span,
+        )?;
+        kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
+        let key = Self::member_key(&data_key, proof);
         self.scope.insert(&key, Global::Def(id), span, false);
         Ok(())
     }

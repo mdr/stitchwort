@@ -2355,11 +2355,24 @@ impl Elaborator {
         // Each with its own item, so that what it derives is checked against
         // its own module's instances; the group's instances are derived with
         // the last.
+        let mut admitted = Vec::new();
         for (&(item, decl), d) in members.iter().zip(&ids) {
             if item.is_some() {
                 self.unit.module.item = item;
             }
-            if let Err(e) = self.after_data(decl, *d) {
+            match self.after_data(decl, *d) {
+                Ok(()) => admitted.push((item, decl, *d)),
+                Err(e) => out.push((item, e)),
+            }
+        }
+        // Fields' defaults (docs/proposals/named-arguments.md §5.1) may use
+        // what was derived for any type of the group, and any of its
+        // constructors, so they wait until every type is done.
+        for (item, decl, d) in admitted {
+            if item.is_some() {
+                self.unit.module.item = item;
+            }
+            if let Err(e) = self.field_defaults(decl, d) {
                 out.push((item, e));
             }
         }
@@ -2735,9 +2748,7 @@ impl Elaborator {
                 Ok::<(), Diagnostic>(())
             })?;
         }
-        // Its fields' defaults (docs/proposals/named-arguments.md §5.1),
-        // which may use what was derived for it.
-        self.field_defaults(decl, d)
+        Ok(())
     }
 
     /// A definition on its own (one an ability generates): its signature,
