@@ -36792,12 +36792,12 @@
     {
       "id": 3330,
       "title": "[Opus] unify_what_agrees: undo a failed nested comparison of two calls of the same definition inside the unifier's step, so a failed comparison's partial solutions never stay (SW-3306 review fix 2; today safe only because the final comparison compares those calls argument by argument)",
-      "status": "done",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From the SW-3306 review. Behaviour change: pick ?b ?k 1 vs pick c 5 2 now waits/fails instead of succeeding on the unforced guess ?k := 5; orchestrator's call: accept (implementation detail, nothing observed depends on it; rolling check will show). Day 2/18 steps within ~0.05%. Model result: Opus, worked, ~30 min (est. 90). Filed SW-3331.",
+      "body": "REVERTED 15 Nov (Overmind rolling check at c6be5e59f): broke 7 AoC proofs (2020 day 1, day 7, 2024 day 24: E-CANNOT-INFER on a lambda's argument, E-NO-READING). The kept partial solutions act as an inference hint for lambda domains. Revert confirmed: the three namespaces check again. Redo only with the hint kept (e.g. re-solve what all alternatives agree on) and those namespaces checked first.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36808,12 +36808,12 @@
     {
       "id": 3331,
       "title": "[Opus] same_heads' sealed-call branch (hidden opaque calls, calls of the group being checked) also leaves a failed nested comparison's solutions; apply SW-3330's mark/restore there",
-      "status": "done",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-3330. Steps identical on day 2/18 proofs. Model result: Opus, worked, ~14 min (est. 45). Filed SW-3333.",
+      "body": "REVERTED 15 Nov (Overmind rolling check at c6be5e59f): broke 7 AoC proofs (2020 day 1, day 7, 2024 day 24: E-CANNOT-INFER on a lambda's argument, E-NO-READING). The kept partial solutions act as an inference hint for lambda domains. Revert confirmed: the three namespaces check again. Redo only with the hint kept (e.g. re-solve what all alternatives agree on) and those namespaces checked first.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
