@@ -1,7 +1,8 @@
 # Proposal: recursion through `map`, and on a text's rest
 
-**Status:** draft 2, 15 November 2026 (SW-3359, SW-3365). Nothing built; D3611 to D3613 at the
-end. Draft 2 answers Fable's soundness review of draft 1
+**Status:** draft 2, 15 November 2026 (SW-3359, SW-3365). Rule 3 built (SW-3376, D3612, with
+guard G1 per D3613); rules 1 and 2 parked: D3611 deferred (Matt, 15 Nov 2026: "So we could just
+put the spec on the backlog for a while"). D3611 to D3613 at the end. Draft 2 answers Fable's soundness review of draft 1
 ([SW-3359-recursion-through-map-soundness.md](../reviews/SW-3359-recursion-through-map-soundness.md),
 findings F1-F3, R1-R7; §8 maps them). Related: [mutual-recursion.md](mutual-recursion.md) §6,
 [nested-data-types.md](nested-data-types.md) (draft 1's deferred option C; stage 3),
