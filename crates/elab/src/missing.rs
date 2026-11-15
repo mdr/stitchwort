@@ -36,6 +36,10 @@ pub(crate) struct Arm {
     /// For a case of texts no arm matches: what kind of values they are,
     /// `"text"` or `"character list"`, which the note names.
     pub texts: Option<&'static str>,
+    /// For a case of numbers or texts: the level of the column, shown as `_`
+    /// in the row (what a split looked at there is what the arms list, not
+    /// what is missing).
+    pub gap_level: Option<usize>,
     /// Where every arm still matching here has a part of a text pattern
     /// (docs/proposals/text-patterns.md §4.4): those text patterns' spans. A
     /// case missing among them is a text no arm lists, which
@@ -46,9 +50,10 @@ pub(crate) struct Arm {
 impl Arm {
     /// The case of the numbers a number case has no arm for, which `message`
     /// describes.
-    pub(crate) fn other_numbers(message: String) -> Arm {
+    pub(crate) fn other_numbers(message: String, level: usize) -> Arm {
         Arm {
             definite: true,
+            gap_level: Some(level),
             other_numbers: Some(message),
             ..Arm::default()
         }
@@ -56,18 +61,29 @@ impl Arm {
 
     /// The case of the texts (or character lists) no arm matches, which
     /// `message` describes.
-    pub(crate) fn other_texts(message: String, what: &'static str) -> Arm {
+    pub(crate) fn other_texts(message: String, what: &'static str, level: usize) -> Arm {
         Arm {
             definite: true,
             other_numbers: Some(message),
             texts: Some(what),
+            gap_level: Some(level),
             ..Arm::default()
         }
     }
 
     /// The error for this case alone, at the `match` at `span`.
     pub(crate) fn diagnostic(&self, span: Span) -> Diagnostic {
-        match &self.other_numbers {
+        let message = self.other_numbers.as_ref().map(|message| {
+            // In a row of several patterns (or inside a constructor) the
+            // gap is only in the case that row stands for.
+            let row = unmarked(&self.pattern);
+            if row == "_" || row.is_empty() {
+                message.clone()
+            } else {
+                format!("{message}, in the case `{row}`")
+            }
+        });
+        match &message {
             Some(message) if let Some(what) = self.texts => {
                 Diagnostic::error("E-NONEXHAUSTIVE", message.clone())
                     .with_label(span, message.clone())
@@ -351,11 +367,13 @@ impl Elaborator {
             Tree::Leaf { .. } | Tree::Absurd { .. } => {}
             Tree::Guard { otherwise, .. } => self.annotate_in(otherwise, root, shapes, path),
             Tree::Missing { arm, .. } => {
+                let hidden = self.hide_gap(arm.gap_level, shapes);
                 arm.pattern = (root.iter())
                     .map(|&level| self.show_column(level, shapes, false))
                     .collect::<Vec<_>>()
                     .join(", ");
                 arm.order = path.clone();
+                shapes.extend(hidden);
             }
             Tree::Case {
                 level,
@@ -396,6 +414,29 @@ impl Elaborator {
                 self.annotate_in(default, root, shapes, path);
             }
         }
+    }
+
+    /// Takes out of `shapes` what the column at `level` has been split into,
+    /// so that it shows as `_`: its own shape, and a `Char` around it (its
+    /// code is the column a character's numbers are in). Returns them.
+    fn hide_gap(
+        &self,
+        level: Option<usize>,
+        shapes: &mut HashMap<usize, Shape>,
+    ) -> Vec<(usize, Shape)> {
+        let Some(level) = level else {
+            return Vec::new();
+        };
+        let mk_char = self.ev().env.registry().ctor(Builtin::MkChar);
+        let wrapper = shapes.iter().find_map(|(l, shape)| match shape {
+            Shape::Ctor { d, c, base } if *base == level && mk_char == Some((*d, *c)) => Some(*l),
+            _ => None,
+        });
+        [Some(level), wrapper]
+            .into_iter()
+            .flatten()
+            .filter_map(|l| shapes.remove(&l).map(|shape| (l, shape)))
+            .collect()
     }
 
     /// The pattern for the value at `level`: `_` where no split looked at

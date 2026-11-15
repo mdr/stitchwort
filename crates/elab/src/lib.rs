@@ -703,25 +703,31 @@ enum NumberKind {
 /// Makes each case of `tree` left out among parts of the text patterns at
 /// `texts` (and no others) the case of the texts they don't list, which
 /// `message` describes; `what` is one of them (`"text"`).
-fn mark_text_gaps(tree: &mut Tree, texts: &[Span], message: &str, what: &'static str) {
+fn mark_text_gaps(
+    tree: &mut Tree,
+    texts: &[Span],
+    message: &str,
+    what: &'static str,
+    level: usize,
+) {
     match tree {
         Tree::Leaf { .. } | Tree::Absurd { .. } => {}
-        Tree::Guard { otherwise, .. } => mark_text_gaps(otherwise, texts, message, what),
+        Tree::Guard { otherwise, .. } => mark_text_gaps(otherwise, texts, message, what, level),
         Tree::Missing { arm, .. } => {
             if !arm.text_gap.is_empty() && arm.text_gap.iter().all(|at| texts.contains(at)) {
-                *arm = missing::Arm::other_texts(message.to_string(), what);
+                *arm = missing::Arm::other_texts(message.to_string(), what, level);
             }
         }
         Tree::Case { branches, .. } => {
             for (_, branch) in branches {
-                mark_text_gaps(branch, texts, message, what);
+                mark_text_gaps(branch, texts, message, what, level);
             }
         }
         Tree::NumCase { arms, default, .. } => {
             for (_, arm) in arms {
-                mark_text_gaps(arm, texts, message, what);
+                mark_text_gaps(arm, texts, message, what, level);
             }
-            mark_text_gaps(default, texts, message, what);
+            mark_text_gaps(default, texts, message, what, level);
         }
     }
 }
@@ -4045,7 +4051,7 @@ impl Elaborator {
                 list_numbers(shown.into_iter(), count)
             );
             let spans: Vec<Span> = literals.iter().map(|(_, at)| *at).collect();
-            mark_text_gaps(&mut tree, &spans, &message, one);
+            mark_text_gaps(&mut tree, &spans, &message, one, columns[j]);
         }
         Ok(tree)
     }
@@ -4463,9 +4469,10 @@ impl Elaborator {
                     list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len()),
                 ),
             };
-            let mut arm = missing::Arm::other_numbers(format!(
-                "missing case: no arm matches {what} other than {listed}"
-            ));
+            let mut arm = missing::Arm::other_numbers(
+                format!("missing case: no arm matches {what} other than {listed}"),
+                columns[j],
+            );
             arm.text_gap = self.text_gap(rows.iter().map(|row| row.pats[j].span()));
             Some(arm)
         } else {
