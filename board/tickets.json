@@ -36983,12 +36983,12 @@
     {
       "id": 3344,
       "title": "[Opus] cases derives x = y from Some x = Some y (or Stable x = Stable y) but can't then close f x = f y (SW-3339 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Started 14:46 (Opus, expected 1.5 h). Done 15:20 on lane/SW-3344 (14cf35382).\n\nBefore: `cases` took `h: Some x = Some y` apart into `%fact1: x = y` and stopped; `f x = f y`, `(a,b) = (c,d) → f a b = f c d` (it fell back to splitting the Bools), and `p x` from `p y` all ended in E-CASES.\nAfter: a fact taken apart with a variable side replaces that variable (the right one of two) in the goal and every hypothesis mentioning it, copied under their own names, then the case starts again; proof is `J` over the goal and the copies. Runs after the closers and `cases in t`, before guarded implications and splits. Facts with no variable side stay facts, now shown as \"fact N (added by `cases`)\". User-written `h: x = y` is not used (unchanged).\n\nTests: examples/accept/cases-constructor-equations.sw (7 of 8 theorems fail with substitution switched off; toLiteral passed before via omega), examples/reject/cases-constructor-equation-not-variable.sw; test:example cases,injective,constructor-eq pass; examples::soundness (tier all) pass; hash_stability pass after regenerating cases-data, function-induct, match-induct (their proofs now take the substitution); guide:: pass; toyfmt `stitchwort test` 90 passed; AoC check --no-cache 2024 Day02/04/06/09/24, 2021 Day05, 2025 Day04, Aoc.Common.Proofs clean.\n\nSW-3409: the injectivity part is covered: `stableInjective := cases` and the inline use in formatChecked (`Both cases (cases in DecEq.sound c)`) both check; printedOr can go. Not changed in toyfmt here (SW-3418 is in that file).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
