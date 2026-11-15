@@ -211,6 +211,11 @@ pub(crate) struct Decl {
     /// `Text`, so that a later mismatch of `Text` with something else can
     /// point at them (SW-3295). Cleared per declaration.
     pub(crate) text_fallbacks: RefCell<Vec<Span>>,
+    /// The variables (by level) such a pattern fixed to `Text`, each with
+    /// its pattern, and the uses of them noted so far (SW-3315): a mismatch
+    /// at a use gets the pattern's label whichever side is the `Text`.
+    pub(crate) text_fixed_vars: RefCell<Vec<(usize, Span)>>,
+    pub(crate) text_fixed_uses: RefCell<Vec<(Span, Span)>>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
@@ -329,6 +334,8 @@ impl Decl {
             char_patterns,
             text_spans,
             text_fallbacks,
+            text_fixed_vars,
+            text_fixed_uses,
             guard_nodes,
             errors_only,
             coverage_only,
@@ -375,6 +382,8 @@ impl Decl {
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("text_spans", text_spans.borrow().is_empty()),
             ("text_fallbacks", text_fallbacks.borrow().is_empty()),
+            ("text_fixed_vars", text_fixed_vars.borrow().is_empty()),
+            ("text_fixed_uses", text_fixed_uses.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),
