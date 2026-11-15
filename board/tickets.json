@@ -1,5 +1,5 @@
 {
-  "next": 3444,
+  "next": 3445,
   "tickets": [
     {
       "id": 47,
@@ -38317,6 +38317,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3444,
+      "title": "[Sonnet] Rust fmt engine: fits_in starts with suffix = false, ignoring a trailing comment already waiting when a group is measured (the toy's engine bug 3, found by SW-3418's proof): add an engine unit test building that shape (comment waiting, then a group with a line) and make fits start from the printer's waiting state; check whether any rule can build it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
