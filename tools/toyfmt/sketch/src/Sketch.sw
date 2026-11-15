@@ -68,63 +68,9 @@ theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
 -- Layer D, what the parser guarantees of its trees beyond `Shaped` and
 -- `Lexical`: the first-token facts.
 
---| A list of lines as `withoutFirstBlank` leaves it: no blank line is
---| kept above the first.
-def Unspaced (lines: List (Spaced a)): Prop := withoutFirstBlank lines = lines
-
---| A body that is one expression.
-def OneExpression: List (Spaced Statement) → Prop
-  | [{ line = Bare _, .. }] => True
-  | _ => False
-
---| What the parser guarantees of where comments and blocks are, in an
---| expression read inside brackets (`bracketed`) or in a statement:
---| outside brackets a statement's first token holds no comments above it
---| (they are the block's comment lines), nor does the first token of a
---| body on its keyword's line (it doesn't start a line); inside
---| brackets every body is one expression; and no body keeps a blank line
---| above its first line.
-def Headed (bracketed: Bool): Expr → Prop
-  | Var _ _ => True
-  | NumberLiteral _ _ => True
-  | StringLiteral _ _ => True
-  | Bracketed _ inner _ => Headed True inner
-  | ListLiteral _ items _ => HeadedItems items
-  | Call callee _ arguments _ => Headed bracketed callee ∧ HeadedItems arguments
-  | Field target _ _ _ => Headed bracketed target
-  | Negate _ operand => Headed bracketed operand
-  | Binary _ _ left right => Headed bracketed left ∧ Headed bracketed right
-  | If _ condition _ whenTrue _ whenFalse =>
-    Headed bracketed condition ∧ HeadedBody bracketed whenTrue ∧ HeadedBody bracketed whenFalse
-
-def HeadedItems: List Item → Prop
-  | [] => True
-  | [{ value, .. }, ..rest] => Headed True value ∧ HeadedItems rest
-
-def HeadedBody (bracketed: Bool): Body → Prop
-  | { statements } =>
-    HeadedLines bracketed statements ∧ Unspaced statements ∧ (bracketed = True → OneExpression statements)
-
-def HeadedLines (bracketed: Bool): List (Spaced Statement) → Prop
-  | [] => True
-  | [{ line, .. }, ..rest] => HeadedStatement bracketed line ∧ HeadedLines bracketed rest
-
-def HeadedStatement (bracketed: Bool): Statement → Prop
-  | Let letComments _ _ _ body => letComments.above = [] ∧ HeadedBody False body
-  | Bare value => (bracketed = False → value.firstAbove = []) ∧ Headed bracketed value
-  | StatementNote _ => True
-
-def HeadedDeclaration: Declaration → Prop
-  | Function fnComments _ _ _ _ _ _ body => fnComments.above = [] ∧ HeadedBody False body
-  | Value letComments _ _ _ body => letComments.above = [] ∧ HeadedBody False body
-  | DeclarationNote _ => True
-
-def HeadedDeclarations: List (Spaced Declaration) → Prop
-  | [] => True
-  | [{ line, .. }, ..rest] => HeadedDeclaration line ∧ HeadedDeclarations rest
-
-def HeadedFile: SourceFile → Prop
-  | { declarations } => HeadedDeclarations declarations ∧ Unspaced declarations
+-- `HeadedFile` and its family (`HeadedExpr`, `HeadedBody`, …) are in
+-- `Toy.Fmt.Proofs` (`SpellProofs.sw`), where the spelling of expressions
+-- uses them.
 
 --| OPEN (D1). Every parsed file is `HeadedFile`: part 13's parser facts
 --| (a), (b) and (c), and the blank-line fact (d) this sketch found.
@@ -244,6 +190,18 @@ theorem runsBodyNested ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
 
 --| OPEN (E2). Tokens whose views are those of a trace of the file's
 --| events, with distinct offsets, spell the file.
+--|
+--| Proved in `Toy.Fmt.Proofs` (`SpellProofs.sw`), so no longer part of
+--| what is open here: an expression's tokens from its events
+--| (`exprSpells`: every form inside brackets, every form but `if`
+--| outside them), a statement that is such an expression at its line
+--| start (`bareSpells`), a body on its keyword's line (`inlineSpells`),
+--| `else` (`reachesElse`), and the two ways a token fits its layout
+--| (`innerFits`, `firstLeads`). Left: `if` outside brackets (after
+--| `Spelled`'s arm for it asks `SpelledBody`), blocks and their lines
+--| with the notes and blank lines above them, `let`, declarations and
+--| parameters, `EndsExpression` after each expression, and this
+--| statement's newest-first lists against `Rising`.
 theorem spellsFile ∀ (file: SourceFile) (events: List Event)
     (tokens: List (Parse.Located Token)) (endTrivia: List Trivia)
     (shaped: ShapedFile file)

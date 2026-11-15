@@ -43,7 +43,7 @@ that must change first), unknown (not stated precisely).
 | D2 `runsFileSpelled` | D | the parser reads back what spells a file (`SpelledFile`, defined in the sketch as `SpelledLines` at column 0) | `runsValueSpelled`, `runsFunctionSpelled`, `runsSourceFile` | 12-15 (`linesRun` and its helpers were 6) | routine |
 | D3 `runsBodyNested` | D | `body`, read with the expression parser of the induction, reads back a block: an `if` with a block branch | `linesRun` and `runsBodySpelled` restated over `self` with `ReadsNested`; `Spelled`'s `If` arm changed (below) | 20-30 | uncertain |
 | D4 (statement change, below) | D | a block may be followed by `then` or `else` at its own column | `statementDeclines` for a keyword; `SpelledLines`' end condition; `linesRun`'s last case | 8-12 | uncertain |
-| E2 `spellsFile` | E | tokens whose views are those of a trace of `FileEvents file`, with distinct offsets, spell the file | all of the above as hypotheses; `viewsOf`, `Events`, `eventsFree`, `bodyFree` | 70-90 (below) | uncertain |
+| E2 `spellsFile` | E | tokens whose views are those of a trace of `FileEvents file`, with distinct offsets, spell the file | all of the above as hypotheses; `viewsOf`, `Events`, `eventsFree`, `bodyFree` | 70-90 (below); 56 proved in part 15, 40-45 left | uncertain for blocks, routine for the rest |
 | Glue | | move `formatDirect` and its five theorems into `Toy.Fmt`, the driver calls it, the file-loop theorems restated for it | proved in the sketch | 8-13 | routine |
 
 **Total: 200-250 lemmas** (155-195 with the program change).
@@ -99,6 +99,64 @@ file. The sketch's text stays as it is when they widen; D2 and
 - **The parameters (routine).** `SpelledDeclarations` asks for the
   parameter parser's `Runs` directly, so E2 has to build it from views
   (`runsParameters`, `runsNoParameters`); counted in E2's 8.
+
+## After lane 1 (part 15): expressions are spelled
+
+`src/Toy/Fmt/SpellProofs.sw` (56 theorems, in `Toy`'s audit) proves E2
+for expressions; `spellsFile` is still open for what is around them.
+
+| Part of E2 | Estimated | Proved | Theorems |
+|---|---|---|---|
+| a token's kind from its word | 10 | 10 | `codeEvent`, `nameEvent`, `digitsEvent`, `stringEvent`, `keywordEvent`, `signEvent`, `operatorEvent`, `ownLineEvent`, `trailingEvent`, `commentNoBreak` |
+| `viewsOf` over `Then` and `TokenAt` | 10 | 5 | `Seen` (the invariant: views in source order, nothing left waiting), `seenThen`, `tokenSeen`, `aboveViews`, `viewsAppend`, `waitingReverse` |
+| a token fits its layout (`allows`, `allowsElse`, `comments`, offsets) | 6 | 23 | `innerFits`, `firstLeads`, `reachesElse`, `risingApart`, `Leads`, `headFits`, `innerLeads` and helpers |
+| tokens taken apart as their views are | 0 | 5 | `viewsCons`, `viewsSplit`, `viewsOne`, `viewsNil`, `consViews` |
+| the induction, inline bodies, a statement that is an expression | 14 + part of 10 | 13 | `exprSpells`, `itemsSpell`, `bodySpells`, `inlineSpells`, `bareSpells`, `spellsBracketed` |
+| `EndsExpression` after each expression | part of 9 | 0 | not started |
+
+What `exprSpells` covers: every expression inside brackets (`if`
+included, its branches by `bodyFree`), and outside brackets every
+expression with no `if` (`Covered`), at the statement's first token
+(`bareSpells`) or after it. The suspected invariant ("inside E2,
+unknown") is `Seen pending events views` and was not awkward.
+
+Found inside E2, and handled there:
+
+- **The views can't depend on where the statement starts.** The layout
+  holds the offset of the statement's first token, which is one of the
+  tokens being spelled, so the induction gives the views first and
+  spells at every offset (`restart`).
+- **The induction has to say how the first view starts**, for
+  `blockAhead` at a body on its keyword's line (`inlineAhead`).
+- **`Shaped` is needed** (the last item's comma holds no comments,
+  `BareLastItem`); `spellsFile` already takes `ShapedFile`.
+
+Found, and outside E2 (read from the definitions; not proved):
+
+- **Statement change 1 is larger than "ask `SpelledBody`".**
+  `SpelledBody` takes the tokens after the body, and a block's end is a
+  fact about them (`lineAhead column rest = False`, and
+  `EndsExpression` at the last line's layout). `Spelled` has no `rest`,
+  and `runsIfSpelled` gets only `EndsExpression layout rest`, which
+  says nothing of the `else` block's column. So either `Spelled` takes
+  `rest` in all ten arms and every read-back lemma of
+  `ExpressionProofs.sw` carries it, or (smaller) the users of `Spelled`
+  take one more hypothesis, a predicate down the expression's right
+  spine (`Binary`'s right, `Negate`'s operand, `If`'s `else` branch)
+  saying what follows a block there. E2 then owes that predicate from
+  the events: what follows an `if` that ends in a block is the end, a
+  line no deeper than the statement, or an enclosing `then` or `else`
+  (D4's case again). D3 grows from 20-30 to 30-45, E2 by about 5.
+
+Re-estimate: E2 40-45 left (blocks, lines, notes and blank lines 17;
+`if` outside brackets, mutual with lines, 6; `EndsExpression` and the
+block ends 7-10; declarations and parameters 8; newest-first against
+`Rising` 5), E1 5, D1 75-85 (25-30 with the program change), D2 12-15,
+D3 30-45, D4 8-12, glue 8-13: **180-220 lemmas** (130-165 with the
+program change), 3 lanes at the measured pace, 4-5 planned. Next: the
+shape of statement change 1 (which of the two ways), then D3 and D4
+with it, since the rest of E2's induction is stated against the
+changed `Spelled`.
 
 ## Lanes
 
