@@ -1,5 +1,5 @@
 {
-  "next": 3385,
+  "next": 3386,
   "tickets": [
     {
       "id": 47,
@@ -37397,12 +37397,12 @@
     {
       "id": 3376,
       "title": "[Opus] Recursion through map stage 1a (recursion-through-map.md draft 2, D3612): the kernel treats a one-field constructor around a strict part as smaller (rank), exactly one field counting implicit/proof/erased, part reached through matched fields only; docs/core.md; the review's must-reject programs; a referee comparing with a List Char worker; Fable review before merge",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges. Fable review of this stage before merge.",
+      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges. Fable review of this stage before merge.\n\nProgress (lane, 15 Nov 2026, 10:48-11:12, est. 3 h): built on `lane/SW-3376`, commit 0c4dc20e3. Rule 3 as pinned: `Walker::wrapped` / `part_of` / `strictly_inside` in `crates/core/src/termination.rs`, with `Info::parent` set only by `case`. Accepted: `examples/accept/text-patterns-prefix-recursion.sw` (count, pairs, a lexer loop, a one-field record), each with a List twin as referee (tests agree); refused by main's binary, accepted now. Must-reject: ten `examples/reject/termination-wrapper-*.sw`. Mutation check: dropping the one-field test makes two-fields and proof-field accepted. Tests: test:example terminat,decreasing,text-pattern,recurs (7 pass), hash_stability (only the new example's snapshot added; no existing hash moved), core `termination::` (21 pass), clippy core/elab clean. Docs: core.md (rule, rank invariant, open-term invariant), syntax.md prefix patterns, guide ch. 7. Waiting for the Fable review before merge.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37506,6 +37506,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3385,
+      "title": "[Sonnet] Text prefix patterns have no 'any one character' form, so a lexer's skip-one-character arm writes MkText [_, ..cs] and shows the representation; design a pattern (e.g. [c] ++ rest on Text?) (SW-3376 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
