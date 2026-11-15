@@ -1,5 +1,5 @@
 {
-  "next": 3373,
+  "next": 3374,
   "tickets": [
     {
       "id": 47,
@@ -37181,7 +37181,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Paper lane 15 Nov, combined with SW-3365 (recursion on a Text prefix rest). Expected: 1.5 h (Opus).",
+      "body": "Fable soundness review docs/reviews/SW-3359-recursion-through-map-soundness.md: no proof of False found; D3612 safe with pinned wording; D3611 back for draft 2 (F1 accessors not Proj, F2 recursion with no case loops readback, F3 partial occurrences, lifted matches as cross-calls; end-state choice checker vs evaluator side). Filed SW-3373.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37351,6 +37351,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3373,
+      "title": "[Opus] State the invariant 'every recursive cycle has a case stuck on an unknown argument' in docs/core.md and termination.rs, which rely on it unstated (SW-3359 Fable review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
