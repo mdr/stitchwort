@@ -66,6 +66,19 @@ theorem Text.sliceAll ∀ (text: Text): text.slice 0 text.length = text :=
     (Eq.cong Text.fromList (List.takeAll text.toList text.length (Nat.leRefl text.length)))
     (Text.fromToList text)
 
+--| The slice that starts after `before` and is as long as `middle`, in a
+--| text made of `before`, `middle` and `after`, is `middle`: what a lexer
+--| cuts out for a lexeme is what the lexeme read.
+theorem Text.sliceMiddle ∀ (text: Text) (before middle after: List Char)
+    (made: text.toList = before ++ (middle ++ after)):
+    text.slice before.length (before.length + middle.length) = Text.fromList middle :=
+  let dropped: text.toList.drop before.length = middle ++ after :=
+    rewrite made in List.dropAppend before (middle ++ after)
+  let count: before.length + middle.length - before.length = middle.length := omega
+  let chars: (text.toList.drop before.length).take (before.length + middle.length - before.length) = middle :=
+    rewrite dropped, count in List.takeAppend middle after
+  Eq.cong Text.fromList chars
+
 --| Position `i` of a slice is position `from + i` of the text, within the
 --| slice.
 theorem Text.getSlice ∀ (text: Text) (from to i: Nat)

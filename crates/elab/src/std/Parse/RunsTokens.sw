@@ -59,6 +59,56 @@ def Parse.locatedSteps (offset: Nat): (steps: List (List Char, a)) → List (Par
   | [(read, value), ..steps] =>
     [{ value, offset, length = read.length }, ..Parse.locatedSteps (offset + read.length) steps]
 
+--| The characters of the slices of `source` at the steps' places, one after
+--| another, are what the steps read, when `source` is `before`, then what
+--| the steps read, then `after`, and the first step is placed after
+--| `before`.
+theorem Parse.locatedStepsSlices ∀ (source: Text) (before: List Char) (steps: List (List Char, a)) (after: List Char)
+    (made: source.toList = before ++ (Parse.joinReads steps ++ after)):
+    List.concat
+      ((Parse.locatedSteps before.length steps).map (located =>
+        (source.slice located.offset (located.offset + located.length)).toList))
+      = Parse.joinReads steps :=
+  match steps with
+    | [] => rfl
+    | [(read, value), ..later] =>
+      let split: source.toList = before ++ (read ++ (Parse.joinReads later ++ after)) :=
+        rewrite <- List.appendAssoc read (Parse.joinReads later) after in made
+      let regrouped: source.toList = (before ++ read) ++ (Parse.joinReads later ++ after) :=
+        rewrite List.appendAssoc before read (Parse.joinReads later ++ after) in split
+      let rest := Parse.locatedStepsSlices source (before ++ read) later after regrouped
+      let first := Eq.cong Text.toList (Text.sliceMiddle source before read (Parse.joinReads later ++ after) split)
+      rewrite first in rewrite <- List.lengthAppend before read in rewrite rest in rfl
+
+--| Lexemes cut from a source and joined give the source back: the slices
+--| of `source` at the places of the steps that read all of it, joined, are
+--| `source`. No character is lost, repeated or moved.
+theorem Parse.locatedStepsCover ∀ (source: Text) (steps: List (List Char, a))
+    (reads: source.toList = Parse.joinReads steps):
+    Text.concat
+      ((Parse.locatedSteps 0 steps).map (located => source.slice located.offset (located.offset + located.length)))
+      = source :=
+  let made: source.toList = [] ++ (Parse.joinReads steps ++ []) :=
+    rewrite List.appendNil (Parse.joinReads steps) in reads
+  let chars := Parse.locatedStepsSlices source [] steps [] made
+  let mapped := List.mapMap (Parse.locatedSteps 0 steps) Text.toList (located =>
+    source.slice located.offset (located.offset + located.length))
+  let listed: (Text.concat
+    ((Parse.locatedSteps 0 steps).map (located =>
+      source.slice located.offset (located.offset + located.length)))).toList
+    = source.toList :=
+    rewrite Text.concatToList
+          ((Parse.locatedSteps 0 steps).map (located =>
+            source.slice located.offset (located.offset + located.length))) in
+      rewrite mapped, chars in Eq.sym reads
+  Eq.trans
+    (Eq.sym
+      (Text.fromToList
+        (Text.concat
+          ((Parse.locatedSteps 0 steps).map (located =>
+            source.slice located.offset (located.offset + located.length))))))
+    (Eq.trans (Eq.cong Text.fromList listed) (Text.fromToList source))
+
 --| `locatedToEndFrom` from a state at its `start` mark, with enough fuel
 --| (more than the lexemes), after `found` (newest first): it gives them all.
 theorem Parse.runsLocatedToEndFrom ∀ (lexeme: List Char → {Parse Char} a) (steps: List (List Char, a)) (fuel: Nat)
