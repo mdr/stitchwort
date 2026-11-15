@@ -356,7 +356,9 @@ def BareLastItem: List Item → Prop
 --| the expression has there and standing where the layout allows it
 --| (anywhere, inside brackets), and each token's comments in the tree
 --| those the parser takes from it (`Layout.comments`). An `if`'s `else` may
---| also start a line at the statement's column. For the forms `Shaped`
+--| also start a line at the statement's column, and each of its branches
+--| is spelled as a body (`SpelledBody`: one expression or a block)
+--| whatever comes after it that may (`After`). For the forms `Shaped`
 --| covers.
 def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): Prop := match expr with
   | Var name comments =>
@@ -439,11 +441,63 @@ def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): 
           ∧ elseToken.value.kind = Reserved ElseKeyword
           ∧ layout.allowsElse elseToken = True
           ∧ Spelled layout condition conditionTokens
-          ∧ SpelledInline layout whenTrue trueTokens
-          ∧ SpelledInline layout whenFalse falseTokens
+          ∧ (∀ (rest: List (Parse.Located Token)) => After layout trueTokens rest
+            → SpelledBody layout whenTrue trueTokens rest)
+          ∧ (∀ (rest: List (Parse.Located Token)) => After layout falseTokens rest
+            → SpelledBody layout whenFalse falseTokens rest)
           ∧ ifComments = layout.comments ifToken
           ∧ thenComments = layout.comments thenToken
           ∧ elseComments = layout.comments elseToken
+
+--| None of `tokens` is at `offset`.
+def NotAt (offset: Nat): List (Parse.Located Token) → Prop
+  | [] => True
+  | [token, ..more] => (offset == token.offset) = False ∧ NotAt offset more
+
+--| What follows an expression that is a whole statement, body or
+--| condition (where an `if` may stand) ends every block inside it:
+--| nothing, `then` or `else`, or a token that starts a line no deeper than
+--| the statement and isn't one of the expression's own `tokens` (a
+--| statement's first token is known by its offset). Inside brackets there
+--| are no blocks.
+def Settled (layout: Layout) (tokens rest: List (Parse.Located Token)): Prop := match layout with
+  | InBrackets => True
+  | InStatement column _ =>
+    match rest with
+      | [] => True
+      | [next, .._] =>
+        closesBlock next.value.kind = True
+          ∨ ((next.value.startsLine && next.value.column <= column) = True ∧ NotAt next.offset tokens)
+
+--| What may follow an expression read as a whole (`expression`, not an
+--| operand): nothing that continues it, and nothing that would go on a
+--| block inside it.
+def After (layout: Layout) (tokens rest: List (Parse.Located Token)): Prop :=
+  EndsExpression layout rest ∧ Settled layout tokens rest
+
+theorem afterBrackets ∀ (tokens rest: List (Parse.Located Token))
+    (ends: EndsExpression InBrackets rest):
+    After InBrackets tokens rest :=
+  Both ends rfl
+
+theorem notAtBack ∀ (offset: Nat) (front back: List (Parse.Located Token))
+    (clear: NotAt offset (front ++ back)):
+    NotAt offset back :=
+  match front, clear with
+    | [], clear => clear
+    | [head, ..tail], Both _ rest => notAtBack offset tail back rest
+
+--| What settles some tokens settles the last of them.
+theorem settledBack ∀ (layout: Layout) (front back rest: List (Parse.Located Token))
+    (settled: Settled layout (front ++ back) rest):
+    Settled layout back rest :=
+  match layout, settled with
+    | InBrackets, settled => rfl
+    | InStatement column from, settled =>
+      match rest, settled with
+        | [], settled => rfl
+        | [next, ..more], Inl closes => Inl closes
+        | [next, ..more], Inr (Both low clear) => Inr (Both low (notAtBack next.offset front back clear))
 
 --| `tokens` spell a body that is one expression, at `layout`: the
 --| expression, not starting a line deeper than the statement (which would
@@ -474,11 +528,12 @@ def EndsExpression (layout: Layout) (rest: List (Parse.Located Token)): Prop :=
 
 --| What the expression parser is assumed to do for the nested expressions
 --| of one being read: it reads each well-shaped, well-spelled expression of
---| fewer than `bound` tokens, at any layout.
+--| fewer than `bound` tokens, at any layout, before anything that may
+--| follow it.
 def ReadsNested (self: Layout → {Parse (Parse.Located Token)} Expr) (bound: Nat): Prop :=
   ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.Located Token)) => Shaped expr
     → Spelled layout expr tokens
-    → EndsExpression layout rest
+    → After layout tokens rest
     → tokens.length < bound
     → Parse.Runs (() => self layout) tokens rest expr
 
@@ -686,7 +741,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                     [close, ..more ++ rest]
                     shaped
                     spelledInner
-                    (endsAtClose close (more ++ rest) closes)
+                    (afterBrackets innerTokens [close, ..more ++ rest] (endsAtClose close (more ++ rest) closes))
                     (omega [small, size, sizes])))
                 continues
     | Field target dotComments name nameComments =>
@@ -1262,24 +1317,49 @@ theorem runsChainRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
 --| a chain, given that `self` reads the expressions nested in it.
 theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
+    (declines: DeclinesNested self)
     (expr: Expr) (tokens rest: List (Parse.Located Token))
     (shaped: Shaped expr)
     (spelled: Spelled layout expr tokens)
-    (ends: EndsExpression layout rest)
+    (after: After layout tokens rest)
     (small: tokens.length <= bound):
     Parse.Runs (() => expressionRule self layout) tokens rest expr :=
   match expr, shaped, spelled with
     | If ifComments condition thenComments whenTrue elseComments whenFalse, shaped, spelled =>
-      runsIfSpelled self layout bound nested ifComments condition thenComments whenTrue elseComments whenFalse tokens
-          rest shaped spelled ends small
+      runsIfSpelled self layout bound nested declines ifComments condition thenComments whenTrue elseComments whenFalse
+          tokens rest shaped spelled after small
     | Var name comments, shaped, spelled =>
-      runsChainRule self layout bound nested (Var name comments) tokens rest rfl shaped spelled ends small
+      runsChainRule self layout bound nested (Var name comments) tokens rest rfl shaped spelled after.left small
     | NumberLiteral digits comments, shaped, spelled =>
-      runsChainRule self layout bound nested (NumberLiteral digits comments) tokens rest rfl shaped spelled ends small
+      runsChainRule self layout bound nested
+        (NumberLiteral digits comments)
+        tokens
+        rest
+        rfl
+        shaped
+        spelled
+        after.left
+        small
     | StringLiteral written comments, shaped, spelled =>
-      runsChainRule self layout bound nested (StringLiteral written comments) tokens rest rfl shaped spelled ends small
+      runsChainRule self layout bound nested
+        (StringLiteral written comments)
+        tokens
+        rest
+        rfl
+        shaped
+        spelled
+        after.left
+        small
     | Bracketed opened inner closed, shaped, spelled =>
-      runsChainRule self layout bound nested (Bracketed opened inner closed) tokens rest rfl shaped spelled ends small
+      runsChainRule self layout bound nested
+        (Bracketed opened inner closed)
+        tokens
+        rest
+        rfl
+        shaped
+        spelled
+        after.left
+        small
     | Field target dotComments name nameComments, shaped, spelled =>
       runsChainRule self layout bound nested
         (Field target dotComments name nameComments)
@@ -1288,10 +1368,18 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         rfl
         shaped
         spelled
-        ends
+        after.left
         small
     | Negate minusComments operand, shaped, spelled =>
-      runsChainRule self layout bound nested (Negate minusComments operand) tokens rest rfl shaped spelled ends small
+      runsChainRule self layout bound nested
+        (Negate minusComments operand)
+        tokens
+        rest
+        rfl
+        shaped
+        spelled
+        after.left
+        small
     | Binary operator signComments left right, shaped, spelled =>
       runsChainRule self layout bound nested
         (Binary operator signComments left right)
@@ -1300,7 +1388,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         rfl
         shaped
         spelled
-        ends
+        after.left
         small
     | ListLiteral opened listed closed, shaped, spelled =>
       runsChainRule self layout bound nested
@@ -1310,7 +1398,7 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         rfl
         shaped
         spelled
-        ends
+        after.left
         small
     | Call callee opened arguments closed, shaped, spelled =>
       runsChainRule self layout bound nested
@@ -1320,42 +1408,81 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
         rfl
         shaped
         spelled
-        ends
+        after.left
         small
 
---| What `expression` reads: an expression of the parser's shape, spelled at
---| the layout, with nothing after it that would continue it.
-def GoodExpression (layout: Layout) (tokens rest: List (Parse.Located Token)) (expr: Expr): Prop :=
-  Shaped expr ∧ Spelled layout expr tokens ∧ EndsExpression layout rest
+--| `expression` with its fuel: each level reads with the level below,
+--| which reads every shorter expression and, not being the innermost,
+--| declines at a keyword.
+theorem runsExpressionFuel ∀ (fuel: Nat) (layout: Layout) (expr: Expr) (tokens rest: List (Parse.Located Token))
+    (shaped: Shaped expr)
+    (spelled: Spelled layout expr tokens)
+    (after: After layout tokens rest)
+    (small: tokens.length < fuel):
+    Parse.Runs (() => Parse.recursiveWithFuel fuel expressionRule layout) tokens rest expr :=
+  match fuel, small with
+    | Succ Zero, small =>
+      match spelledStart layout expr tokens shaped spelled with
+        | Witness first (Witness others (Both split _)) =>
+          let size: tokens.length = Succ others.length := rewrite split in rfl
+          Void.exfalso (omega [size, small])
+    | Succ (Succ more), small => state starts honest =>
+      runsExpressionRule
+        (inner => Parse.recursiveWithFuel (Succ more) expressionRule inner)
+        layout
+        (Succ more)
+        (nestedLayout nestedExpr nestedTokens nestedRest nestedShaped nestedSpelled nestedAfter shorter =>
+          runsExpressionFuel
+            (Succ more)
+            nestedLayout
+            nestedExpr
+            nestedTokens
+            nestedRest
+            nestedShaped
+            nestedSpelled
+            nestedAfter
+            shorter)
+        (fuelDeclines more)
+        expr
+        tokens
+        rest
+        shaped
+        spelled
+        after
+        (omega [small])
+        state
+        starts
+        honest
 
 --| The parser reads back what spells an expression: on tokens that spell
 --| `expr` at `layout` (`Spelled`), for an `expr` of the parser's shape
---| (`Shaped`), followed by nothing that continues an expression,
---| `expression layout` reads exactly those tokens and gives `expr`.
+--| (`Shaped`), followed by what may follow it (`After`), `expression
+--| layout` reads exactly those tokens and gives `expr`.
 theorem runsExpression ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.Located Token))
     (shaped: Shaped expr)
     (spelled: Spelled layout expr tokens)
-    (ends: EndsExpression layout rest):
+    (after: After layout tokens rest):
     Parse.Runs (() => expression layout) tokens rest expr :=
-  Parse.runsRecursiveWith expressionRule GoodExpression
-    (self argument read after value good nestedRuns =>
-      runsExpressionRule self argument read.length
-        (nestedLayout nestedExpr nestedTokens nestedRest nestedShaped nestedSpelled nestedEnds shorter =>
-          nestedRuns nestedLayout nestedTokens nestedRest nestedExpr
-            (Both nestedShaped (Both nestedSpelled nestedEnds))
-            shorter)
-        value
-        read
+  state starts honest =>
+    let lengths: state.at.rest.length = tokens.length + rest.length := rewrite starts in List.lengthAppend tokens rest
+    Parse.runsFromMark state
+      (at => Parse.recursiveWithFuel (at.left + 1) expressionRule layout)
+      tokens
+      rest
+      expr
+      (runsExpressionFuel
+        (state.at.left + 1)
+        layout
+        expr
+        tokens
+        rest
+        shaped
+        spelled
         after
-        good.left
-        good.right.left
-        good.right.right
-        (omega []))
-    layout
-    tokens
-    rest
-    expr
-    (Both shaped (Both spelled ends))
+        (omega [lengths, honest])
+        state)
+      starts
+      honest
 
 --| The kinds of token an expression starts with.
 def startsExpression: Kind → Bool
@@ -1538,7 +1665,9 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                   [close, ..after]
                   shaped.left
                   spelledValue
-                  (endsAtSign close closer after closes (bracketQuiet closer bracket))
+                  (afterBrackets tokens
+                    [close, ..after]
+                    (endsAtSign close closer after closes (bracketQuiet closer bracket)))
                   small)
                 (noCommaAtBracket close closer after closes bracket))
               (rewrite <- List.reverseCons read found in Parse.runsPure _ [close, ..after])
@@ -1569,7 +1698,9 @@ theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
                   [commaToken, ..laterTokens ++ [close, ..after]]
                   shapedValue
                   spelledValue
-                  (endsAtSign commaToken Comma (laterTokens ++ [close, ..after]) isComma rfl)
+                  (afterBrackets valueTokens
+                    [commaToken, ..laterTokens ++ [close, ..after]]
+                    (endsAtSign commaToken Comma (laterTokens ++ [close, ..after]) isComma rfl))
                   (omega [small, sizes]))
                 isComma)
               (rewrite <- List.appendAssoc found.reverse [read] [next, ..more], <- List.reverseCons read found in
@@ -2027,4 +2158,4 @@ theorem runsExpressionExample: Parse.run exampleTokens (() => expression InBrack
             [b]
             (Both rfl
               (Both rfl (Both rfl (Both spelledCall (Both (Witness b (Both rfl (Both rfl (Both rfl rfl)))) rfl))))))))
-      (Both rfl rfl))
+      (Both (Both rfl rfl) rfl))

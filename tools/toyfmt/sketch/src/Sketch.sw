@@ -170,14 +170,13 @@ theorem runsFileSpelled ∀ (file: SourceFile) (tokens: List (Parse.Located Toke
     Parse.Runs (() => sourceFile endTrivia) tokens [] file :=
   ?
 
--- D3 as first stated, `runsBodyNested` (`body` read with the expression
--- parser of an induction reads back a block), is proved in
--- `Toy.Syntax.Proofs` (`BlockProofs.sw`), with D4: a block also ends at
--- `then` or `else` (`BlockEnds`, `statementDeclinesEnd`). What is left of
--- D3 is the statement change itself: `Spelled`'s arm for `If` asks
--- `SpelledInline` of both branches today, and must ask `SpelledBody`
--- before E2 is true of every file; `runsIfSpelled` then calls
--- `runsBodyNested`. See SKETCH.md, "After lane 2".
+-- D3 and D4 are proved in `Toy.Syntax.Proofs` (`BlockProofs.sw`), with
+-- the statement change they needed: `Spelled`'s arm for `If` asks
+-- `SpelledBody` of each branch, before whatever may follow it (`After`);
+-- `runsIfSpelled` reads a block branch back by `runsBodyNested`; and a
+-- block also ends at `then` or `else` (`BlockEnds`,
+-- `statementDeclinesEnd`). `runsIfBlockExample` is an instance. See
+-- SKETCH.md, "After lane 2".
 
 -- Layer E, spelling: from the trace to the tokens the parser asks for.
 
@@ -190,11 +189,13 @@ theorem runsFileSpelled ∀ (file: SourceFile) (tokens: List (Parse.Located Toke
 --| outside them), a statement that is such an expression at its line
 --| start (`bareSpells`), a body on its keyword's line (`inlineSpells`),
 --| `else` (`reachesElse`), and the two ways a token fits its layout
---| (`innerFits`, `firstLeads`). Left: `if` outside brackets (after
---| `Spelled`'s arm for it asks `SpelledBody`), blocks and their lines
+--| (`innerFits`, `firstLeads`). Left: `if` outside brackets (its
+--| branches as `SpelledBody` before anything `After` allows; what follows
+--| a block there is `afterDeeper`'s to settle), blocks and their lines
 --| with the notes and blank lines above them, `let`, declarations and
---| parameters, `EndsExpression` after each expression, and this
---| statement's newest-first lists against `Rising`.
+--| parameters, `After` (`EndsExpression` and `Settled`) after each
+--| statement and body, and this statement's newest-first lists against
+--| `Rising`.
 theorem spellsFile ∀ (file: SourceFile) (events: List Event)
     (tokens: List (Parse.Located Token)) (endTrivia: List Trivia)
     (shaped: ShapedFile file)

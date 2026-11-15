@@ -1643,9 +1643,18 @@ theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop)
                                                                                     condition.firstAbove
                                                                                     conditionTokens))
                                                                             (Both
-                                                                              (trueSpells trueTokens trueSame)
+                                                                              (rest after =>
+                                                                                inlineSpelledBody InBrackets whenTrue
+                                                                                    trueTokens rest shapedTrue
+                                                                                    (trueSpells trueTokens trueSame)
+                                                                                    after)
                                                                               (Both
-                                                                                (falseSpells falseTokens falseSame)
+                                                                                (rest after =>
+                                                                                  inlineSpelledBody InBrackets whenFalse
+                                                                                      falseTokens rest shapedFalse
+                                                                                      (falseSpells falseTokens
+                                                                                          falseSame)
+                                                                                      after)
                                                                                 (Both ifNotes
                                                                                   (Both thenNotes
                                                                                       elseNotes)))))))))))))))))))))))
