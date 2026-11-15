@@ -34,7 +34,8 @@ type Box = | MkBox (content: Effect.Comp Effect.NoOp Effect.NoRes Nat)
 def boxDone: Box → Prop
   | MkBox content => IsDone content
 
-type Labelled = | MkLabelled { label: Nat, inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
+type Labelled =
+  | MkLabelled { label: Nat, inner: Effect.Comp Effect.NoOp Effect.NoRes Nat }
 
 def labelledDone: Labelled → Prop
   | MkLabelled label inner => IsDone inner

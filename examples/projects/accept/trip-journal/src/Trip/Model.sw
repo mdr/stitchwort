@@ -13,7 +13,13 @@ type Point = { id: Nat, time: Float }
 type Note = { time: Float, text: Text }
 
 -- A GPS track. Moving a leg moves its points and notes with it.
-type Leg = { id: Nat, start: Float, duration: Float, points: List Point, notes: Option (List Note) }
+type Leg = {
+  id: Nat,
+  start: Float,
+  duration: Float,
+  points: List Point,
+  notes: Option (List Note)
+}
 
 def Leg.end (leg: Leg): Float := leg.start + leg.duration
 

@@ -5,7 +5,9 @@
 
 import Std (IO, List, Nat, Pair, Vec)
 
-type Shape = | Dot (ref: Nat) (id: Text) (start: Nat) | Circle (ref: Nat) (id: Text) (start: Nat) (text: Text)
+type Shape =
+  | Dot (ref: Nat) (id: Text) (start: Nat)
+  | Circle (ref: Nat) (id: Text) (start: Nat) (text: Text)
 
 def s: Shape := Circle 1 "a" 0 "t"
 
@@ -33,7 +35,9 @@ test "parameter" := { Two 3 "x" | label = "y" } == Two 3 "y"
 
 -- Dependent fields: `xs` has a type that mentions `n`, so `n` and `xs` are
 -- updated together, or `xs` alone when its new type is `Vec Nat (Sized.n a)`.
-type Sized = | A (n: Nat) (xs: Vec Nat n) | B (tag: Text) (n: Nat) (xs: Vec Nat n)
+type Sized =
+  | A (n: Nat) (xs: Vec Nat n)
+  | B (tag: Text) (n: Nat) (xs: Vec Nat n)
 
 def replaceXs (a: Sized) (ys: Vec Nat (Sized.n a)): Sized := { a | xs = ys }
 
@@ -48,7 +52,9 @@ test "same length" := (replaceXs (A 1 (VCons 1 VNil)) (VCons 2 VNil)).n == 1
 test "new length" := (resize (B "q" 0 VNil)).n == 1
 
 -- An implicit field that does not mention the updated field is kept.
-type Labelled2 = | LA (n: Nat) [h: n = 0] (label: Text) | LB (n: Nat) [h: n = 0] (label: Text)
+type Labelled2 =
+  | LA (n: Nat) [h: n = 0] (label: Text)
+  | LB (n: Nat) [h: n = 0] (label: Text)
 
 def relabel (a: Labelled2): Labelled2 := { a | label = "x" }
 

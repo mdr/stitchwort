@@ -1,6 +1,8 @@
 -- A record update in a goal is shown as written, `{ x | f = s }`: for a
 -- field shared by several constructors, and for a record.
-type Shape = | Dot (ref: Nat) (id: Text) | Circle (ref: Nat) (id: Text) (radius: Nat)
+type Shape =
+  | Dot (ref: Nat) (id: Text)
+  | Circle (ref: Nat) (id: Text) (radius: Nat)
 
 type Player = { name: Text, hitPoints: Nat, gold: Nat }
 

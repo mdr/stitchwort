@@ -129,7 +129,9 @@ def resumeEachResult (k: Nat → {e} List (Result Nat Text)): Nat → {e} List (
 ability Offer where
   offer: Nat → {Offer} Nat
 
-type Paused = | Finished (total: Nat) | Suspended (offered: Nat) (resume: Nat → Paused)
+type Paused =
+  | Finished (total: Nat)
+  | Suspended (offered: Nat) (resume: Nat → Paused)
 
 def Offer.pause (prog: () → {Offer} Nat): Paused :=
   handle prog() with

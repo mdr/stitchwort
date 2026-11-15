@@ -13,7 +13,11 @@ test "area" := (Rect 3 4).area == 12
 -- end variant
 
 -- begin recursive
-type Expr = | Num (value: Int) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr) | Neg (inner: Expr)
+type Expr =
+  | Num (value: Int)
+  | Add (left: Expr) (right: Expr)
+  | Mul (left: Expr) (right: Expr)
+  | Neg (inner: Expr)
 
 def Expr.value: Expr → Int
   | Num n => n
@@ -59,7 +63,9 @@ test "or are given" := ({ text = "tea", limit = 3 }: Query).limit == 3
 -- end defaults
 
 -- begin named-construction
-type Event = | Meeting { title: Text, minutes: Nat := 30, room: Text } | Reminder (title: Text)
+type Event =
+  | Meeting { title: Text, minutes: Nat := 30, room: Text }
+  | Reminder (title: Text)
 
 def standup: Event := Meeting { title = "Standup", room = "Blue" }
 def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }

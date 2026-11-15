@@ -78,7 +78,10 @@ theorem orComm ∀ (a b: Bool): (a ∨ b) = (b ∨ a) := cases
 
 theorem andLeft ∀ (a b: Bool) (h: (a ∧ b) = True): a = True := cases
 
-def clamp (lo hi x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
+def clamp (lo hi x: Nat): Nat :=
+  if x < lo then lo
+  else if hi < x then hi
+  else x
 
 theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
 -- end cases

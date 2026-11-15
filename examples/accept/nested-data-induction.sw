@@ -108,7 +108,10 @@ theorem labelsNonEmpty ∀ (t: Rose a): 0 < Rose.size t :=
   Rose.inductMem (s => 0 < Rose.size s) (label kids each => rfl) t
 
 -- Nested twice, and in an `Option` of a pair: the hypotheses compose.
-type Nest: Type = | Leaf | Deep (rows: List (List Nest)) | Maybe (next: Option (Pair Nest Nat))
+type Nest: Type =
+  | Leaf
+  | Deep (rows: List (List Nest))
+  | Maybe (next: Option (Pair Nest Nat))
 
 -- The statement of `Nest.induct`, written out.
 theorem nestInduct ∀ (motive: Nest → Prop) (leaf: motive Leaf)
@@ -140,7 +143,9 @@ theorem crateInduct ∀ (motive: Crate → Prop) (empty: motive Empty)
   Crate.induct motive empty packed t
 
 -- An indexed family: the motive takes the index too.
-type Ranked: Nat → Type = | RLeaf: Ranked 0 | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
+type Ranked: Nat → Type =
+  | RLeaf: Ranked 0
+  | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
 
 def Ranked.count (r: Ranked k): Nat
     decreasing Ranked.size r

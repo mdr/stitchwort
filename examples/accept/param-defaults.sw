@@ -7,7 +7,14 @@ import Std (Float, Vec)
 
 type Guest = { name: Text }
 
-type Booking = { id: Text, start: Float, duration: Float, room: Option Text, guests: List Guest, notes: Option Text }
+type Booking = {
+  id: Text,
+  start: Float,
+  duration: Float,
+  room: Option Text,
+  guests: List Guest,
+  notes: Option Text
+}
 
 def makeBooking (id: Text) (start: Float := 0.0) (duration: Float := 60.0) (room: Option Text := None)
     (guests: List Guest := []) (notes: Option Text := None):

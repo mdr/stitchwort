@@ -33,7 +33,8 @@ theorem Iff.trans ∀ [p q r: Prop] (h: p ↔ q) (k: q ↔ r): p ↔ r :=
 
 --| Some value of `a` satisfies `p`: a witness, and a proof that it does.
 --| `Exists (n => n * n = 49)` says there is a number whose square is 49.
-type Exists (a: Type) (p: a → Prop): Prop = | Witness (value: a) (proof: p value)
+type Exists (a: Type) (p: a → Prop): Prop =
+  | Witness (value: a) (proof: p value)
 
 --| To prove a proposition from `Exists a p`, take the witness apart: the goal
 --| must follow for every value and proof of `p` it might be.

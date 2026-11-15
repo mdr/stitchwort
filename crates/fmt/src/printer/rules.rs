@@ -7,15 +7,20 @@
 //! printed as written, moved with its line ([`Rules::as_written`]); the
 //! counts of those come from [`unruled`], not from here.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::token_text_range;
 use stitchwort_syntax::tree::{Element, Leaf, Node, NodeKind, SyntaxFile};
 use stitchwort_syntax::{Tok, Token};
 
 use super::WIDTH;
+
 use super::engine::{self, Doc};
 use crate::spacing::{Gap, Pair, Role, gap};
+
+/// The width within which a type declaration's constructors or fields stay
+/// on one line (S14, S15, D3605).
+const TYPE_WIDTH: usize = 80;
 
 /// The kinds printed as written for now, deliberately or for want of a
 /// rule: only a node the parser couldn't make sense of.
@@ -64,6 +69,9 @@ pub(crate) struct Rules<'a> {
     /// A `match`'s doc with its head flat, by the match's first token, for a
     /// body that hugs the `:=` line.
     match_hugs: BTreeMap<usize, Doc>,
+    /// Start tokens of the `{ … }` fields of record types and interfaces,
+    /// which join one line only within [`TYPE_WIDTH`].
+    narrow_fields: BTreeSet<usize>,
     next_id: u32,
 }
 
@@ -161,6 +169,7 @@ impl<'a> Rules<'a> {
             arm_depth: 0,
             hugs: BTreeMap::new(),
             match_hugs: BTreeMap::new(),
+            narrow_fields: BTreeSet::new(),
             next_id: 0,
         }
     }
@@ -866,8 +875,9 @@ impl<'a> Rules<'a> {
         (below, Doc::Choice(options))
     }
 
-    /// A data type (S14, D3566 (b)): its constructors on one line if the
-    /// whole declaration fits, otherwise one a line at 2.
+    /// A data type (S14, D3566 (b), D3605): its constructors on one line if
+    /// the whole declaration fits in [`TYPE_WIDTH`], otherwise one a line
+    /// at 2.
     fn data_type(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
         let split = children
@@ -890,7 +900,10 @@ impl<'a> Rules<'a> {
         }
         Doc::concat([
             attrs,
-            Doc::group(Doc::concat([head, Doc::nest(2, Doc::concat(lines))])),
+            Doc::narrow_group(
+                TYPE_WIDTH,
+                Doc::concat([head, Doc::nest(2, Doc::concat(lines))]),
+            ),
         ])
     }
 
@@ -943,6 +956,15 @@ impl<'a> Rules<'a> {
             let (_, choice) = self.body_after(&inner[1..]);
             return Doc::concat([attrs, head, Doc::text(" "), equals, choice]);
         }
+        if matches!(node.kind(), NodeKind::RecordType | NodeKind::Interface) {
+            for &el in &rest {
+                if let Element::Node(fields) = el
+                    && fields.kind() == NodeKind::Fields
+                {
+                    self.narrow_fields.insert(fields.token_range().start);
+                }
+            }
+        }
         let doc = self.join(&rest);
         Doc::concat([attrs, doc])
     }
@@ -976,7 +998,14 @@ impl<'a> Rules<'a> {
     /// before the opener (`import M`) stays in front of it; a record
     /// update's `{ r |` stays on the opening line.
     fn comma_bracket(&mut self, node: Node<'_>) -> Doc {
-        Doc::group(self.comma_bracket_content(node))
+        let narrow = node.kind() == NodeKind::Fields
+            && self.narrow_fields.contains(&node.token_range().start);
+        let content = self.comma_bracket_content(node);
+        if narrow {
+            Doc::narrow_group(TYPE_WIDTH, content)
+        } else {
+            Doc::group(content)
+        }
     }
 
     /// A comma bracket's parts, not yet grouped.
@@ -1606,6 +1635,10 @@ impl<'a> Rules<'a> {
             }
         }
         let mut parts = Vec::new();
+        // D3605: a chain with an `else if` is a table of cases, never one line.
+        if clauses.len() > 2 {
+            parts.push(Doc::BreakParent);
+        }
         for (k, clause) in clauses.into_iter().enumerate() {
             if k > 0 {
                 parts.push(Doc::Line);

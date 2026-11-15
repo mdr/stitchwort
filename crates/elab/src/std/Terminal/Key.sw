@@ -166,7 +166,9 @@ def Key.ofAscii (byte: Nat): Key :=
 def Key.afterEscape: (bytes: List Nat) → Key.Decoded
   | [] => Incomplete
   | [byte, ..rest] =>
-    if byte == 91 then Key.csi [] rest else if byte == 79 then Key.ss3 rest else Got Escape [byte, ..rest]
+    if byte == 91 then Key.csi [] rest
+    else if byte == 79 then Key.ss3 rest
+    else Got Escape [byte, ..rest]
 
 --| After `ESC [`: parameter and intermediate bytes (32 to 63), collected in
 --| reverse, then a final byte (64 to 126). Any other byte ends the sequence

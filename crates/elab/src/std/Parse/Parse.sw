@@ -42,12 +42,21 @@ type Parse.Literal (t: Type) = { items: List t, same: t → t → Bool }
 --| text that was expected there, several texts that were (`Literals ws` is
 --| noted and shown exactly as `Literal w` for each `w` of `ws`, in order, but
 --| costs one operation), or a message of the parser's own.
-type Parse.Problem = | Expected (what: Text) | Literal (text: Text) | Literals (texts: List Text) | Message (text: Text)
+type Parse.Problem =
+  | Expected (what: Text)
+  | Literal (text: Text)
+  | Literals (texts: List Text)
+  | Message (text: Text)
 
 --| A failed parse, `offset` items in: the parser's own messages and
 --| what was expected there. A runner makes one message of it with
 --| `Parse.Failure.describe`.
-type Parse.Failure = { offset: Nat, messages: List Text, expected: List Text, width: Nat }
+type Parse.Failure = {
+  offset: Nat,
+  messages: List Text,
+  expected: List Text,
+  width: Nat
+}
 
 --| Parsing a list of `t`, text when `t` is `Char`: the operations a parser
 --| performs on its input, run by a handler such as `Parse.run`. Each is a
@@ -77,7 +86,12 @@ ability Parse (t: Type) where
 --| there. `expected` holds the `Expected` and `Literal` problems, newest
 --| first and unformatted, so noting one is a cons; `Parse.State.failure`
 --| makes the texts, without repeats, only when the parse fails.
-type Parse.State (t: Type) = { at: Parse.Mark t, furthest: Nat, expected: List Parse.Problem, messages: List Text }
+type Parse.State (t: Type) = {
+  at: Parse.Mark t,
+  furthest: Nat,
+  expected: List Parse.Problem,
+  messages: List Text
+}
 
 --| The state with a problem noted at the current point.
 def Parse.State.add (state: Parse.State t): (problem: Parse.Problem) → Parse.State t

@@ -49,7 +49,10 @@ def grown: Sized Nat := { push 1 empty | items = [1, 2], size = 2, ok = rfl }
 theorem sizeIsLength ∀ (s: Sized a): s.items.length = s.size := s.ok
 
 -- A record of proofs.
-type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = { above: lo ≤ n, below: n ≤ hi }
+type Between (lo: Nat) (hi: Nat) (n: Nat): Prop = {
+  above: lo ≤ n,
+  below: n ≤ hi
+}
 
 theorem fiveBetween: Between 1 10 5 := { above = rfl, below = rfl }
 

@@ -5,7 +5,9 @@
 
 import Std (List, Nat, Vec)
 
-type Shape = | Dot { ref: Nat, id: Text, start: Nat } | Circle { ref: Nat, id: Text, start: Nat, text: Text }
+type Shape =
+  | Dot { ref: Nat, id: Text, start: Nat }
+  | Circle { ref: Nat, id: Text, start: Nat, text: Text }
 
 def s: Shape := Circle 1 "a" 0 "t"
 
@@ -33,7 +35,9 @@ type Labelled (a: Type) = | One (label: a) | Two (x: Nat) (label: a)
 test "parameter" := (Two 3 "x").label == "x"
 
 -- Dependent shared fields, declared in different orders in each constructor.
-type Sized = | A (n: Nat) (xs: Vec Nat n) (tag: Text) | B (tag: Text) (n: Nat) (xs: Vec Nat n)
+type Sized =
+  | A (n: Nat) (xs: Vec Nat n) (tag: Text)
+  | B (tag: Text) (n: Nat) (xs: Vec Nat n)
 
 def xsOf (t: Sized): Vec Nat t.n := t.xs
 
@@ -60,7 +64,9 @@ type Evidence (q: Prop): Prop = | EA (witness: q) | EB (witness: q)
 def ev (e: Evidence (1 = 1)): 1 = 1 := e.witness
 
 -- An indexed family gets accessors by the same rule.
-type Fam: Nat → Type = | FA (tag: Text): Fam 0 | FB [n: Nat] (tag: Text) (xs: Fam n): Fam (Succ n)
+type Fam: Nat → Type =
+  | FA (tag: Text): Fam 0
+  | FB [n: Nat] (tag: Text) (xs: Fam n): Fam (Succ n)
 
 def tagOf (f: Fam m): Text := f.tag
 

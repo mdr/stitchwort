@@ -14,7 +14,18 @@ def sameBothWays (bits: List Bool): Bool := xorAll bits == xorAll (List.reverse 
 
 -- The ten variables, as one value: a record of `Bool`s, whose `Finite`
 -- instance is derived.
-type Ten = { b0: Bool, b1: Bool, b2: Bool, b3: Bool, b4: Bool, b5: Bool, b6: Bool, b7: Bool, b8: Bool, b9: Bool }
+type Ten = {
+  b0: Bool,
+  b1: Bool,
+  b2: Bool,
+  b3: Bool,
+  b4: Bool,
+  b5: Bool,
+  b6: Bool,
+  b7: Bool,
+  b8: Bool,
+  b9: Bool
+}
 
 def Ten.bits (t: Ten): List Bool := [t.b0, t.b1, t.b2, t.b3, t.b4, t.b5, t.b6, t.b7, t.b8, t.b9]
 

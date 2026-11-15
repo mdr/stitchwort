@@ -33,7 +33,11 @@ type Operator = | Add | Multiply
 
 --| A problem's numbers as read by each part, and its operator (none if the
 --| block has no + or *).
-type Problem = { operator: Option Operator, rowNumbers: List Nat, columnNumbers: List Nat }
+type Problem = {
+  operator: Option Operator,
+  rowNumbers: List Nat,
+  columnNumbers: List Nat
+}
 
 def parseWorksheet (lines: List Text): List Problem := blocks lines |> .map (block => Problem.parse block.toList)
 

@@ -44,6 +44,10 @@ pub enum Doc {
     /// Printed flat if it fits, otherwise with every line in it broken. The
     /// flag says it holds a hard break, so it never prints flat.
     Group(Box<Doc>, bool),
+    /// A group that prints flat only if its line then ends within this many
+    /// columns, however wide the page is: a type declaration's
+    /// constructors or fields (S14, S15).
+    NarrowGroup(usize, Box<Doc>, bool),
     /// A group whose choice [`Doc::IfBroken`] can ask about.
     IdGroup(u32, Box<Doc>, bool),
     /// `broken` if the group with this id broke, otherwise `flat`: a body
@@ -118,6 +122,11 @@ impl Doc {
         Doc::Group(Box::new(doc), hard)
     }
 
+    pub fn narrow_group(max: usize, doc: Doc) -> Doc {
+        let hard = doc.forces_break();
+        Doc::NarrowGroup(max, Box::new(doc), hard)
+    }
+
     pub fn shared(doc: Doc) -> Doc {
         match doc {
             Doc::Shared(..) | Doc::Nil | Doc::Text(..) => doc,
@@ -158,6 +167,7 @@ impl Doc {
             | Doc::TextBlock { .. }
             | Doc::LineSuffix(_) => false,
             Doc::Group(_, hard) | Doc::IdGroup(_, _, hard) | Doc::Shared(_, hard) => *hard,
+            Doc::NarrowGroup(_, _, hard) => *hard,
             Doc::IfBroken { broken, flat, .. } => broken.forces_break() && flat.forces_break(),
             Doc::OneLineBelow(_) => true,
             Doc::Nest(_, doc) | Doc::Align(doc) | Doc::Flat(doc) => doc.forces_break(),
@@ -305,6 +315,20 @@ impl Printer {
                     if let Doc::IdGroup(id, ..) = doc {
                         self.modes.insert(*id, mode);
                     }
+                    stack.push(Cmd::Doc(indent, mode, inner));
+                }
+                Doc::NarrowGroup(max, inner, hard) => {
+                    let column = self.owed.unwrap_or(self.column);
+                    let flat = mode == Mode::Flat
+                        || (!hard
+                            && fits_in(
+                                &[Cmd::Doc(indent, Mode::Flat, inner)],
+                                &stack,
+                                self.left().min(max.saturating_sub(column)),
+                                &self.modes,
+                                self.width,
+                            ));
+                    let mode = if flat { Mode::Flat } else { Mode::Break };
                     stack.push(Cmd::Doc(indent, mode, inner));
                 }
                 Doc::IfBroken { id, broken, flat } => {
@@ -521,7 +545,9 @@ fn fits_in(
             Doc::Nest(_, inner) | Doc::Align(inner) => stack.push((mode, inner)),
             Doc::Shared(inner, _) => stack.push((mode, inner)),
             Doc::Flat(inner) => stack.push((Mode::Flat, inner)),
-            Doc::Group(inner, hard) | Doc::IdGroup(_, inner, hard) => {
+            Doc::Group(inner, hard)
+            | Doc::IdGroup(_, inner, hard)
+            | Doc::NarrowGroup(_, inner, hard) => {
                 if *hard && mode == Mode::Flat {
                     return false;
                 }

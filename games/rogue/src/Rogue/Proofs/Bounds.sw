@@ -13,7 +13,10 @@ import Rogue (..)
 import Std (Bool, Eq, List, Nat, Void)
 
 --| A cell on the screen.
-type OnScreen (position: Position): Prop = { low: position.row < levelRows, narrow: position.column < levelColumns }
+type OnScreen (position: Position): Prop = {
+  low: position.row < levelRows,
+  narrow: position.column < levelColumns
+}
 
 --| An area whose cells are all on the screen (on the map).
 type OnMap (area: Area): Prop = {
@@ -277,7 +280,10 @@ theorem stepFramed ∀ (seed: Nat) (state: State) (command: Command)
   resolveFramed { seed = lcg seed / 65536 } state command framed
 
 --| A state of a real game: valid, on a framed level.
-type Sound (state: State): Prop = { valid: Valid state, framed: Framed state.level }
+type Sound (state: State): Prop = {
+  valid: Valid state,
+  framed: Framed state.level
+}
 
 --| A new game on a framed level is sound, and so is every game after any
 --| number of turns.

@@ -38,7 +38,9 @@ def which (q: Q) (a: At q): Bool := match a with
 
 -- Likewise inside a pair (soundness/quot-index-in-pair.sw, -in-list.sw,
 -- -in-record.sw).
-type AtP: (Q, Nat) → Type = | PF: AtP (Quot.mk False, 0) | PT: AtP (Quot.mk True, 1)
+type AtP: (Q, Nat) → Type =
+  | PF: AtP (Quot.mk False, 0)
+  | PT: AtP (Quot.mk True, 1)
 
 def whichPair (q: Q) (a: AtP (q, 0)): Bool := match a with | PF => False
 

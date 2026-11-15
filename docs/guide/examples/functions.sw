@@ -40,7 +40,10 @@ test "a lambda with implicit parameters" :=
 -- end implicit-lambda
 
 -- begin named
-def clamp (low high value: Nat): Nat := if value < low then low else if value > high then high else value
+def clamp (low high value: Nat): Nat :=
+  if value < low then low
+  else if value > high then high
+  else value
 
 test "by position" := clamp 0 10 50 == 10
 test "by name, in any order" := clamp (value := 50) (high := 10) (low := 0) == 10

@@ -4,3 +4,5 @@
 feab72ffefca996805a60b336af98c1a4135d4f1
 # SW-3194, stage 5: the repo reformat with the tree printer.
 39de3aa7d5126b3c08a859425b99dd53478281a2
+# SW-3336, D3605: the repo reformat with the else-if and type-declaration rules.
+44532b15466b60415a5a8a8f498e71a59626f453

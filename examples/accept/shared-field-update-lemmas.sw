@@ -46,7 +46,9 @@ theorem retagged ∀ (t: Tagged Text): ({ t | tag = "x" }).tag = "x" := Tagged.t
 -- Dependent fields: `xs` mentions `n`, so `Sized.n.update.g` updates both,
 -- as `{ s | n = … }` has to. `xs` itself has no lemma: after an update its
 -- type is `Vec Nat ({ s | … }).n`, not `Vec Nat n`.
-type Sized = | Small (n: Nat) (xs: Vec Nat n) (name: Text) | Large (name: Text) (n: Nat) (xs: Vec Nat n)
+type Sized =
+  | Small (n: Nat) (xs: Vec Nat n) (name: Text)
+  | Large (name: Text) (n: Nat) (xs: Vec Nat n)
 
 theorem resizedName ∀ (s: Sized) (m: Nat) (ys: Vec Nat m): ({ s | n = m, xs = ys }).name = s.name :=
   rewrite Sized.n.update.name in rfl

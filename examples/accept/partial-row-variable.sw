@@ -23,7 +23,9 @@ test "no input, no output" := echoed [] == []
 
 -- Fails at 3, on its way down.
 def countdown (n: Nat): {Fail, Partial} Nat :=
-  if n == 3 then Fail.fail "three" else if n == 0 then 0 else countdown (n - 1)
+  if n == 3 then Fail.fail "three"
+  else if n == 0 then 0
+  else countdown (n - 1)
 
 -- `Fail.toResult` around a partial loop: partial.
 def caught (n: Nat): {Partial} Result Nat Text := Fail.toResult (() => countdown n)

@@ -24,7 +24,9 @@
 import Std (Decidable, Eq, Iff, IO, List, Map, Nat, Ord, Quot, Text)
 import Std.Map.Tree (Tip, Bin)
 
-type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
+type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = {
+  raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv
+}
 
 def ProtoMap.ofMap [auto ord: Ord k] (m: Map.Raw k v): ProtoMap k v := { raw = Quot.mk m }
 

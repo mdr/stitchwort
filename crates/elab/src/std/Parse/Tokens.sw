@@ -75,7 +75,10 @@ def Parse.tokens (input: Text)
 -- Tests. A small language of names, numbers and the symbols `(`, `)`, `,`
 -- and `;`: lexed with positions, then read as calls `name(arg, …)`.
 
-type Parse.Tests.Tok = | Word (text: Text) | Number (value: Nat) | Symbol (char: Char)
+type Parse.Tests.Tok =
+  | Word (text: Text)
+  | Number (value: Nat)
+  | Symbol (char: Char)
 
 def Parse.Tests.lexToken(): {Parse Char} Parse.Located Parse.Tests.Tok :=
   Parse.span (char => char == ' ' ∨ char == '\n')

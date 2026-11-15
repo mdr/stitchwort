@@ -2,7 +2,11 @@
 -- written test first, as `deriving (DecEq)` would write it. Checks.
 import Std (Bool, Nat, Void)
 
-type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
+type Dec (p: Prop) = {
+  does: Bool,
+  sound: does = True → p,
+  complete: p → does = True
+}
 
 type Colour = | Red | Green | Blue
 

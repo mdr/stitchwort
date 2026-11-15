@@ -5,7 +5,9 @@ import Std (Decidable, Nat)
 
 -- Vectors: a list whose length is in its type. `n` in `VCons` is an
 -- implicit field, bound automatically.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 -- No `VNil` arm: it can't happen.
 def head: Vec a (Succ n) → a
@@ -83,7 +85,9 @@ def depth: Ty c → Nat
   | TList t => Succ (depth t)
 
 -- `Le` as an inductive predicate.
-type Le: Nat → Nat → Prop = | LeZero: Le 0 n | LeSucc (h: Le m n): Le (Succ m) (Succ n)
+type Le: Nat → Nat → Prop =
+  | LeZero: Le 0 n
+  | LeSucc (h: Le m n): Le (Succ m) (Succ n)
 
 theorem leTrans: Le a b → Le b c → Le a c
   | LeZero, _ => LeZero
@@ -99,7 +103,9 @@ def absurdLe: Le (Succ n) 0 → Nat
 
 -- `Even`, an absurd case, and a decision procedure (paired with
 -- reject/index-absurd-not-empty.sw).
-type Even: Nat → Prop = | EvenZero: Even 0 | EvenTwo (h: Even n): Even (Succ (Succ n))
+type Even: Nat → Prop =
+  | EvenZero: Even 0
+  | EvenTwo (h: Even n): Even (Succ (Succ n))
 
 theorem notEvenOne: ¬(Even 1)
   | ()
@@ -114,7 +120,9 @@ instance decEven: (n: Nat) → Decidable (Even n)
     Decidable.elim (decEven k) (h => Decidable.yes (EvenTwo h)) (r => Decidable.no (h => r (evenInv h)))
 
 -- Defined together, each with its own indices.
-type EvenM: Nat → Prop = | EvenMZero: EvenM 0 | EvenMSucc (h: OddM n): EvenM (Succ n)
+type EvenM: Nat → Prop =
+  | EvenMZero: EvenM 0
+  | EvenMSucc (h: OddM n): EvenM (Succ n)
 
 type OddM: Nat → Prop = | OddMSucc (h: EvenM n): OddM (Succ n)
 

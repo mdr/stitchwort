@@ -3,18 +3,18 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `renamedKeepsRef`
-   ╭─[ goals/record-update.sw:9:108 ]
-   │
- 9 │ theorem renamedKeepsRef ∀ (shape: Shape) (newId: Text): ({ shape | id = newId ++ "!" }).ref = shape.ref := ?
-   │                                                                                                            ┬  
-   │                                                                                                            ╰── shape: Shape
-   │                                                                                                                newId: Text
-   │                                                                                                                ⊢ { shape | id = newId ++ "!" }.ref = shape.ref
-───╯
-[GOAL] Goal: in `renamedTwice`
-    ╭─[ goals/record-update.sw:13:3 ]
+    ╭─[ goals/record-update.sw:11:108 ]
     │
- 13 │   ?
+ 11 │ theorem renamedKeepsRef ∀ (shape: Shape) (newId: Text): ({ shape | id = newId ++ "!" }).ref = shape.ref := ?
+    │                                                                                                            ┬  
+    │                                                                                                            ╰── shape: Shape
+    │                                                                                                                newId: Text
+    │                                                                                                                ⊢ { shape | id = newId ++ "!" }.ref = shape.ref
+────╯
+[GOAL] Goal: in `renamedTwice`
+    ╭─[ goals/record-update.sw:15:3 ]
+    │
+ 15 │   ?
     │   ┬  
     │   ╰── shape: Shape
     │       other: Shape
@@ -23,9 +23,9 @@ expression: output
     │       ⊢ { pick shape other | id = newId, ref = newRef } = { other | ref = newRef, id = newId }
 ────╯
 [GOAL] Goal: in `paid`
-    ╭─[ goals/record-update.sw:18:3 ]
+    ╭─[ goals/record-update.sw:20:3 ]
     │
- 18 │   ?
+ 20 │   ?
     │   ┬  
     │   ╰── player: Player
     │       amount: Nat

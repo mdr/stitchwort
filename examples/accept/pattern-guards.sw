@@ -109,7 +109,9 @@ def sized: Nat → Nat
 test "numbers" := sized 5 == 3 ∧ sized 9 == 2
 
 -- A guard in a family whose index the match refines.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def headOr (d: Nat): (n: Nat) → Vec Nat n → Nat
   | _, VCons x _ if x > 3 => x

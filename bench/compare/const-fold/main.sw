@@ -13,7 +13,11 @@ import Std (Fail, IO, List, Nat, Text)
 
 --| A tiny arithmetic expression. `Var` evaluates to 0 and stands in for an
 --| unknown that folding must not touch.
-type Expr = | Var (name: Nat) | Val (value: Nat) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr)
+type Expr =
+  | Var (name: Nat)
+  | Val (value: Nat)
+  | Add (left: Expr) (right: Expr)
+  | Mul (left: Expr) (right: Expr)
 
 --| A complete tree of `depth` levels of additions whose leaves are numbers
 --| near `value` (counting down by one on the right, up on the left); a leaf

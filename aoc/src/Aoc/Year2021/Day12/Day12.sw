@@ -52,7 +52,9 @@ def Passage.joinsBig (passage: Passage): Bool := passage.from.isBig && passage.t
 
 --| Where the passage leads from `cave`: its other end, if `cave` is an end.
 def Passage.leadsTo (passage: Passage) (cave: Cave): List Cave :=
-  if passage.from == cave then [passage.to] else if passage.to == cave then [passage.from] else []
+  if passage.from == cave then [passage.to]
+  else if passage.to == cave then [passage.from]
+  else []
 
 --| A path through the caves, from the first to the last.
 type Path = { caves: List Cave }

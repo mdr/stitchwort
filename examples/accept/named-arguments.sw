@@ -6,7 +6,10 @@ import Std (Vec)
 
 def between (low high: Nat): Nat := high - low
 
-def clampTo (low high value: Nat): Nat := if value < low then low else if value > high then high else value
+def clampTo (low high value: Nat): Nat :=
+  if value < low then low
+  else if value > high then high
+  else value
 
 def place (x y: Nat): Nat := x * 10 + y
 

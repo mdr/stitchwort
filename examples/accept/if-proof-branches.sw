@@ -9,7 +9,9 @@ theorem split ∀ (m n: Nat): (m < n) ∨ (n <= m) := if h: m < n then Inl h els
 
 -- Nested, each branch with its own proof.
 theorem trichotomy ∀ (m n: Nat): (m < n) ∨ ((m = n) ∨ (n < m)) :=
-  if lt: m < n then Inl lt else if eq: m = n then Inr (Inl eq) else Inr (Inr omega)
+  if lt: m < n then Inl lt
+  else if eq: m = n then Inr (Inl eq)
+  else Inr (Inr omega)
 
 -- With no binder, on a `Bool` or a decided proposition: the branches don't
 -- see the condition's proof.

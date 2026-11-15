@@ -3,7 +3,11 @@
 -- Checks.
 import Std (Bool, Nat)
 
-type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
+type Dec (p: Prop) = {
+  does: Bool,
+  sound: does = True → p,
+  complete: p → does = True
+}
 
 def decLe (m n: Nat): Dec (m ≤ n) := { does = Nat.leq m n, sound = h => h, complete = h => h }
 

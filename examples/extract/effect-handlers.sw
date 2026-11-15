@@ -67,7 +67,9 @@ export def choicesChecked (numbers: List Nat): Result (List (List Nat)) Text :=
 ability Offer where
   offer: Nat → {Offer} Nat
 
-type Paused = | Finished (total: Nat) | Suspended (offered: Nat) (resume: Nat → Paused)
+type Paused =
+  | Finished (total: Nat)
+  | Suspended (offered: Nat) (resume: Nat → Paused)
 
 def Offer.pause (prog: () → {Offer} Nat): Paused :=
   handle prog() with

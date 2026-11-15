@@ -247,9 +247,19 @@ A grammar with operators and brackets is easier in two passes: a lexer reads the
 
 <!-- snippet: abilities.sw#lex-parse -->
 ```stitchwort
-type Token = | Num (value: Nat) | Name (text: Text) | Plus | Times | Open | Close
+type Token =
+  | Num (value: Nat)
+  | Name (text: Text)
+  | Plus
+  | Times
+  | Open
+  | Close
 
-type Expr = | Lit (value: Nat) | Var (name: Text) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr)
+type Expr =
+  | Lit (value: Nat)
+  | Var (name: Text)
+  | Add (left: Expr) (right: Expr)
+  | Mul (left: Expr) (right: Expr)
 
 def lexToken(): {Parse Char} Parse.Located Token :=
   Parse.spaces()
