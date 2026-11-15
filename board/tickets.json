@@ -1,5 +1,5 @@
 {
-  "next": 3334,
+  "next": 3335,
   "tickets": [
     {
       "id": 47,
@@ -36714,15 +36714,17 @@
     {
       "id": 3325,
       "title": "[Sonnet] Arm-as-written display gaps (SW-3317 review): holes under a lambda or inside an application show the arm's context against one case's goal with no note; indexed-family splits not recorded; or-pattern arms show only the first alternative",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From the SW-3317 review. Expected: 2 h (Sonnet).",
+      "body": "From the SW-3317 review. Display only; no existing snapshot or hash moved. Model result: Sonnet, worked, ~25 min (est. 120). Filed SW-3334.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "e63685534ce06a6c46879be6d0cc6976ab6897cd"
+      ]
     },
     {
       "id": 3326,
@@ -36837,6 +36839,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3334,
+      "title": "[Sonnet] is_proof_type is false for a goal headed by a local p: … → Prop, so notes depending on it vanish for such goals; check its other callers; and the or-pattern error note can't say which alternative failed (SW-3325 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
