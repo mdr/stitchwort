@@ -36501,15 +36501,17 @@
     {
       "id": 3312,
       "title": "[Sonnet] SW-3295's 'this text pattern made it a Text' label is per declaration: any Text-vs-other mismatch in a definition with a fallback pattern gets it, even an unrelated one; track it by the metavariable the pattern solved",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Follow-up to SW-3295. Expected: 1 h (Sonnet).",
+      "body": "Follow-up to SW-3295. Per-metavariable tracking impossible at mismatch (solved metas are gone by then). Orchestrator's call: option (c), the label only when Text is expected; precise version (b) filed as SW-3315. Model result: Sonnet, needed fixes (first approach failed; (c) on direction), ~75 min (est. 60).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "b037b5ef0436681052c782b840cebd31f6b14f96"
+      ]
     },
     {
       "id": 3313,
