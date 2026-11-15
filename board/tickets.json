@@ -35665,14 +35665,14 @@
     {
       "id": 3252,
       "title": "[DeepSeek] std: add List.stripPrefixBy, with Text.stripPrefixChars and its lemmas as a special case (SW-3235 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
       "body": "",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -38453,7 +38453,7 @@
     {
       "id": 3453,
       "title": "[DeepSeek] Two small findings from SW-3418 part 4: W-LAMBDA-SHADOW fires on specs written (read value => …) (hides Files.read), std's own spelling, noise; stitchwort audit NS reports 'audited 0 theorems' without saying the namespace matched nothing",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -38479,7 +38479,7 @@
     {
       "id": 3455,
       "title": "[DeepSeek] Proving the proposition True with Trivial reports E-NO-READING without suggesting rfl (SW-3418 part 5 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
