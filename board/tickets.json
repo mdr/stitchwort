@@ -36788,15 +36788,17 @@
     {
       "id": 3330,
       "title": "[Opus] unify_what_agrees: undo a failed nested comparison of two calls of the same definition inside the unifier's step, so a failed comparison's partial solutions never stay (SW-3306 review fix 2; today safe only because the final comparison compares those calls argument by argument)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From the SW-3306 review (fix 2). Expected: 1.5 h (Opus).",
+      "body": "From the SW-3306 review (fix 2). Expected: 1.5 h (Opus).\n\n15 Nov 2026, lane (Opus), 06:45-07:15: branch lane/SW-3330, commit 4e4286c49. `same_heads`' blocked branch (two calls of one definition stuck on an unknown) now runs its nested argument comparison inside `attempt.mark()`, and restores the mark when it fails (`note_lossy` only on success). That covers plain unify and unify_what_agrees, which share the step. Unit test `unify::tests::a_failed_comparison_of_stuck_calls_solves_nothing` (`pick ?b ?k 1` against `pick c 5 2`).\nBehaviour change found: before the fix, plain `unify` returned TRUE for that pair. The kept `?b := c` made the calls stale, and the afresh retry compared their case trees, which agree because `pick` ignores k and n, so the guess `?k := 5` stood. Now the pair waits and fails. Confirmed by running the test with the restore removed. Nothing in the tests below, the review's probes or the day 2/18 proofs changed (the elaborator's calls are probably glued `Value::Call` and go through `same_calls`; not checked).\nTests: new unit test (fails without the fix); elab/elaboration unify|propagat|implicit|settle 46/46; test:example reads,settle,parse,unify 7/7, and solved-from,stuck 7/7; driver hash_stability|reads_chain_cost 11/11. Probes p1-p4 give the same output before and after. Steps (check --no-cache): 2020 day 2 5,052,201 -> 5,051,359; day 18 2,632,737 -> 2,633,870.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "4e4286c49"
+      ]
     }
   ]
 }
