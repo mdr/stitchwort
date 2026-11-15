@@ -169,10 +169,8 @@ theorem scoreCorrect ∀ (map: TopographicMap) (start: Position)
         (List.distinctUnique ends)
         (List.distinctFilter map.positions reached (positionsDistinct map))
         (nine member =>
-          let Witness rest (Both restIn found) :=
+          let Witness rest (Both restIn (Both climbing last)) :=
             (memTrailEnds map 9 start nine).forward ((List.memUnique nine ends).forward member)
-          let climbing := found.left
-          let last := found.right
           let height := endHeight map start rest nine climbing last.read
           let hiking: isHikingTrail map [start, ..rest] = True := rewrite trailCons map start rest, zero in climbing
           let inTrails :=
@@ -186,23 +184,20 @@ theorem scoreCorrect ∀ (map: TopographicMap) (start: Position)
             (Both (rewrite height in DecEq.refl (Some 9)) (Witness [start, ..rest] (Both inTrails last))))
         (nine member =>
           let both := List.memFilter map.positions reached member
-          List.anyTrueElim
-            (trailsFrom map start)
-            (trail => trail.last == Some nine) _
-            (Bool.andRight (And.right both))
-            (trail trailIn last =>
-              let candidate := List.memFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map) trailIn
-              List.anyElim
-                (rest => [start, ..rest] = trail) _
-                (pathsOf map 9)
-                (List.memMapAny (pathsOf map 9) (Cons start) trail (And.left candidate))
-                (rest restIn built =>
-                  let trailHiking := And.right candidate
-                  let hiking: isHikingTrail map [start, ..rest] = True := rewrite <- built at trailHiking
-                  let climbing := Bool.andRight (rewrite trailCons map start rest at hiking)
-                  let ending: ([start, ..rest].last == Some nine) = True := rewrite <- built at last
-                  (List.memUnique nine ends).backward
-                    ((memTrailEnds map 9 start nine).backward (Witness rest (Both restIn (Both climbing ending))))))))
+          let Both _ anyTrail := And.right both
+          List.anyTrueElim (trailsFrom map start) (trail => trail.last == Some nine) _ anyTrail (trail trailIn last =>
+            let candidate := List.memFilter ((pathsOf map 9).map (Cons start)) (isHikingTrail map) trailIn
+            List.anyElim
+              (rest => [start, ..rest] = trail) _
+              (pathsOf map 9)
+              (List.memMapAny (pathsOf map 9) (Cons start) trail (And.left candidate))
+              (rest restIn built =>
+                let trailHiking := And.right candidate
+                let hiking: isHikingTrail map [start, ..rest] = True := rewrite <- built at trailHiking
+                let Both _ climbing := rewrite trailCons map start rest at hiking
+                let ending: ([start, ..rest].last == Some nine) = True := rewrite <- built at last
+                (List.memUnique nine ends).backward
+                  ((memTrailEnds map 9 start nine).backward (Witness rest (Both restIn (Both climbing ending))))))))
 
 --| The spec's trailhead check.
 def startsTrail (map: TopographicMap) (start: Position): Bool := (trailsFrom map start).length >= 1
