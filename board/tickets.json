@@ -36308,12 +36308,12 @@
     {
       "id": 3298,
       "title": "[Opus paper] Guide examples lost their teaching layouts in the 14 Nov whole-repo reformat (39de3aa7d): the tree printer joins an if-chain, a leading-operator split and multi-line sum types and records onto single lines up to ~117 chars (docs/guide/examples/values.sw 'if-chain', 'leading-operator'; types chapter), so the guide's prose about splitting lines now shows one-liners. Options: the printer keeps some author line breaks, a narrower width, or examples rewritten to exceed the width; for a decision of Matt's on formatter style",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Found in SW-3292. For a decision of Matt's on formatter style. Expected: 1 h (Opus paper lane).",
+      "body": "Found in SW-3292. For a decision of Matt's on formatter style. Expected: 1 h (Opus paper lane).\n\nProgress (paper lane, 15 Nov 2026, 03:53-04:10 GMT, est. 1 h): docs/proposals/fmt-author-breaks.md (uncommitted, in the main checkout). Measured over 39de3aa7d: 2,087 multi-line constructs joined onto one line in 747 files (827 bodies after :=, 392 data types, 233 calls, 211 arm bodies, 177 headers, 99 one-arm matches, 32 else-if chains, 29 record types, 26 pipelines, 16 operator chains); 72 in the guides. Recommendation: B1 (an if with an else if always one clause a line) + B2 (type declarations one line only within 80 chars), no author hints; leading-operator guide example rewritten long. About 130 files. D3605 for Matt.\n",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -36570,12 +36570,12 @@
     {
       "id": 3317,
       "title": "[Sonnet] Goals at a match arm show the arm as written (docs/proposals/catch-all-goals.md option A, display only): undo the splits the arm's own patterns didn't need, show the scrutinee by the arm's binder or variable; keep the leaf's 'computes to'; terms and hashes untouched; goal snapshots for the paper's probes; and 'this arm is checked in N cases' naming the failing case. Opus review after (match compiler)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From docs/proposals/catch-all-goals.md option A (orchestrator's call: display only). Expected: 4 h (Sonnet), then an Opus review.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
