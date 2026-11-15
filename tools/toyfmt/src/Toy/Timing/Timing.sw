@@ -55,7 +55,7 @@ def sample (index: Nat): List (Spaced Declaration) :=
         blankBefore = True,
         line = Bare
           (If
-            (Binary Less (Field (Var "rates") "threshold") (Var "base"))
+            (Binary LessThan (Field (Var "rates") "threshold") (Var "base"))
             {
               statements = [
                 plainLine

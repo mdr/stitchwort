@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-137 lemmas, 44 goals without one
+138 lemmas, 44 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -99,6 +99,7 @@ catch-all-facts goal 20: theorem columnsGoal2 (p: Nat → Nat → Prop) (x: Nat)
 catch-all-facts goal 21: theorem columnsGoal3 (p: Nat → Nat → Prop) (x: Nat) (y: Nat) (h: x ≠ 0) (h2: y ≠ 1): p x y := ?
 catch-all-facts goal 22: def holeyGoal1 (k: Nat) (hk: k ≠ 5): Nat := ?
 constant-by-name goal 1: theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?
+constructor-clash-qualified goal 1: theorem mkIsGoal1 (t: Text): mk t = Doc.Str t := ?
 counterexample-at-hole goal 1: theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?
 counterexample-big-numbers goal 1: theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): (doubleTimes n count).shiftRight count = n := ?
 counterexample-big-numbers goal 2: theorem powTwoIsPowGoal1 (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?

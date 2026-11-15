@@ -37862,12 +37862,12 @@
     {
       "id": 3411,
       "title": "[Sonnet] Bug: after SW-3397, toyfmt's Tree.sw Equal/Less hide Ordering's (W-CTOR-HIDES), breaking build::toyfmt_formats_a_folder_under_run_and_built (it reads stderr); and goal_index::lemmas_check_as_the_same_goal snapshot changed. Fix (rename the toy's operator constructors, per D3615's habit) and check the snapshot",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Notes (lane, Sonnet): renamed toyfmt operator constructors Equal/Less to EqualTo/LessThan (Tree, Token, Timing, Lex test, Goldens); toy has no other W-CTOR-HIDES; stitchwort test in tools/toyfmt 90/90; build::toyfmt_formats_a_folder_under_run_and_built passes. goal_index lemmas snapshot diff was only the new constructor-clash-qualified goal 1 lemma (137->138); accepted. Commits ef9ddb518, f674bb49d.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []

@@ -214,17 +214,17 @@ def conditionals: Golden :=
       fn pick(flag) = if flag then computeTheFirstAnswer(alpha, beta) else 0
       """,
     tree = sprig [
-      fn "sign" ["x"] (expr (If (op Less (v "x") (num "0")) (expr (Negate (num "1"))) (expr (num "1")))),
+      fn "sign" ["x"] (expr (If (op LessThan (v "x") (num "0")) (expr (Negate (num "1"))) (expr (num "1")))),
       fn "describe"
         ["count"]
-        (expr (If (op Equal (v "count") (num "0")) (expr (str "nothing at all")) (expr (str "some things")))),
+        (expr (If (op EqualTo (v "count") (num "0")) (expr (str "nothing at all")) (expr (str "some things")))),
       fn "classify"
         ["n"]
         (expr
           (If
-            (op Less (v "n") (num "10"))
+            (op LessThan (v "n") (num "10"))
             (expr (str "small"))
-            (expr (If (op Less (v "n") (num "100")) (expr (str "medium")) (expr (str "large")))))),
+            (expr (If (op LessThan (v "n") (num "100")) (expr (str "medium")) (expr (str "large")))))),
       fn "pick"
         ["flag"]
         (expr (If (v "flag") (expr (call "computeTheFirstAnswer" [v "alpha", v "beta"])) (expr (num "0"))))
@@ -391,7 +391,7 @@ def order: Golden :=
           afterBlank
             (Bare
               (If
-                (op Less (dots "rates" ["threshold"]) (v "base"))
+                (op LessThan (dots "rates" ["threshold"]) (v "base"))
                 {
                   statements = [
                     plain
