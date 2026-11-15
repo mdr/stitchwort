@@ -1,5 +1,5 @@
 {
-  "next": 3384,
+  "next": 3385,
   "tickets": [
     {
       "id": 47,
@@ -37494,6 +37494,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "Matt, 15 Nov 2026: \"I think it would be reasonable to do some speed profiling on the toy formatter ... we're trying to make this a useful real world program ... I wouldn't necessarily look to do a handwritten lexer or anything, but I think seeing if there's any obvious wins.\" Not a resumption of the paused speed epics (D3465): scoped to the toy formatter. Expected: 2 h (Opus). Next build slot, before SW-3381.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3384,
+      "title": "[Sonnet] Derived Finite for enumerations is quadratic (2.4 M of 3.0 M steps at 94 constructors); derive_nested superlinear; per-constructor equal proof ~10 ms (J inference, zonking lets) slows small multi-field types (SW-3370 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
