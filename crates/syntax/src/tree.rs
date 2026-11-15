@@ -92,8 +92,8 @@
 //!
 //! # Errors
 //!
-//! A declaration that doesn't parse is, for now, an [`NodeKind::Error`]
-//! root: the constructs finished before the error keep their nodes (a
+//! A declaration that doesn't parse, and isn't recovered in, is an
+//! [`NodeKind::Error`] root: the constructs finished before the error keep their nodes (a
 //! definition's header, say), and the rest of its tokens are flat under the
 //! root. A declaration that doesn't lex has no tokens: it is an `Error` root
 //! with no children over its raw text ([`Node::raw_text_range`]), which

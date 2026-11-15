@@ -3,11 +3,11 @@
 //! It builds no trees: it records where each construct starts and ends
 //! ([`Mark`]s), from which the lossless tree is built ([`crate::tree`]), and
 //! the compiler's tree is lowered from that ([`crate::lower`]). It decides
-//! only how the tokens group, from the tokens and the marks so far; checks
-//! on what has been grouped, such as a parameter named twice, are the
-//! lowering's. The few messages that quote a construct's span as the
-//! compiler's tree has it lower that construct on the spot
-//! ([`Parser::lowered`]), only when the message is made.
+//! only how the tokens group, from the tokens; checks on what has been
+//! grouped, such as a parameter named twice, are the lowering's. (A few
+//! still read the marks back to make a message or a choice, which breaks the
+//! rule in [`crate::tree`]'s "Marks" until docs/proposals/parser-end-state.md's
+//! T2 moves them to the lowering.)
 //!
 //! Layout rule: a declaration starts at column 0, and every following line
 //! that is indented belongs to it. Definitions are `def` and `theorem`
@@ -46,12 +46,12 @@ pub use entry::{
 pub(crate) use failed_names::{failed_names_in, failed_names_of};
 
 /// The parser's results box their error: with an unboxed `Diagnostic`,
-/// every `Result<Expr>` would be as large as a `Diagnostic`, and each level
+/// every `Result<()>` would be as large as a `Diagnostic`, and each level
 /// of a nested expression (`((…(0)…))`) holds several on the stack. When
 /// b0f1a3ea (SW-914) grew `Diagnostic` from 96 to 112 bytes, each level took
 /// about 350 bytes more and the bench's check-nested-parens (12,000
-/// brackets) stopped parsing. An error happens once per parse at most, so
-/// the box costs nothing that matters.
+/// brackets) stopped parsing. An error happens
+/// once per declaration at most, so the box costs nothing that matters.
 type Result<T> = std::result::Result<T, Box<Diagnostic>>;
 
 /// What the public functions return: the error unboxed.
@@ -333,10 +333,9 @@ struct Parser<'t> {
     /// The constructs finished so far, in the order they finished, for the
     /// lossless tree (`crate::tree`, "Marks").
     marks: Vec<Mark>,
-    /// The syntax errors recovered from so far, in the order met. Nothing
-    /// recovers yet (stage S0 of docs/proposals/syntax-error-recovery.md),
-    /// so it stays empty; the entry points fail on any, as they do on an
-    /// error that unwinds ([`Parser::strict`]).
+    /// The syntax errors recovered from so far, in the order met. The entry
+    /// points that give one error fail on any, as they do on an error that
+    /// unwinds ([`Parser::strict`]).
     errors: Vec<Diagnostic>,
     /// Where each error in [`Self::errors`] was recovered from, and how: a
     /// declaration with any is failed ([`crate::tree::Node::recoveries`]).
@@ -2719,7 +2718,7 @@ impl<'t> Parser<'t> {
     /// alternatives' patterns are for (docs/proposals/partial-lambdas.md).
     /// For `ClauseSome` each result is wrapped in `Some` and for
     /// `ClauseMatches` an alternative may leave its result out, which is
-    /// `True` (the lowering builds them).
+    /// `True`.
     #[inline(never)]
     fn clause_lambda(&mut self, start: u32, kind: MatchKind) -> Result<()> {
         // The first alternative's pattern count and first pattern.
@@ -3332,9 +3331,9 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `p <-> q`, after `p`, which starts at token `start`: `Iff p q`
-    /// (D1202). Looser than `&&` and `||`,
-    /// tighter than `->`, and not associative, as in Rocq. The right
+    /// `p <-> q`, after `p`, which starts at token `start` (D1202). Looser
+    /// than `&&` and `||`, tighter than `->`, and not associative, as in
+    /// Rocq. The right
     /// side may be an `exists` or a `forall`. Out of line, as `logic_chain`
     /// is.
     #[inline(never)]
@@ -3867,7 +3866,7 @@ impl<'t> Parser<'t> {
 
     /// The rest of `a <= b < c …`, after `a <= b`, where `a` starts at
     /// token `first_start`, its operator is token `first_op` and `b` starts
-    /// at `second` (SW-1339, D2386); the lowering joins the links.
+    /// at `second` (SW-1339, D2386).
     /// `equality` if the first operator is `=`, `!=` or `==`, which can't
     /// start a chain; `descending` if it is `>` or `>=`.
     #[inline(never)]
@@ -4125,7 +4124,7 @@ impl<'t> Parser<'t> {
 
     /// A prefix minus or `!` (which may repeat), tighter than `*` and looser
     /// than application and dots: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)`,
-    /// `!xs.isEmpty` is `Bool.not (xs.isEmpty)`.
+    /// `!xs.isEmpty` is `!(xs.isEmpty)`.
     fn unary(&mut self) -> Result<()> {
         // A `match` as an operand: `1 + match n with | …`. Its last
         // alternative's body takes whatever follows.
@@ -4390,7 +4389,7 @@ impl<'t> Parser<'t> {
         }
     }
 
-    /// `.name`, starting a method section: its body's start, `%section.name`.
+    /// `.name`, starting a method section: the start of its body.
     #[inline(never)]
     fn section_start(&mut self) -> Result<()> {
         let start = self.mark();
@@ -4544,8 +4543,7 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// `"a${x}b${y}c"`: text pieces and interpolations, which the lowering
-    /// joins.
+    /// `"a${x}b${y}c"`: text pieces and interpolations.
     fn interpolated_str(&mut self) -> Result<()> {
         let open = self.mark();
         self.bump();
@@ -4600,8 +4598,8 @@ impl<'t> Parser<'t> {
         Ok(())
     }
 
-    /// An argument `!` (`f !x`): `Std.Bool.not` of one atom with its dots and
-    /// `()` calls, as any argument takes them.
+    /// An argument `!` (`f !x`): the `!` and one atom with its dots and `()`
+    /// calls, as any argument takes them.
     #[inline(never)]
     fn bang_atom(&mut self) -> Result<()> {
         if !argument_bang(self.tokens, self.pos) {
@@ -4615,11 +4613,12 @@ impl<'t> Parser<'t> {
     }
 
     /// An atom without its dots and `()` calls, starting at token `start`,
-    /// the next. Always inlined in `atom`, its
-    /// only caller: every level of a nested expression (`((…(0)…))`) goes
-    /// through both, and as two functions their frames don't share slots.
-    /// When 7a14ec83 gave it a second caller it stopped being inlined, and
-    /// each level took about 780 bytes more of the stack (SW-875).
+    /// the next. Always inlined, into `atom` and `brace_argument`: every
+    /// level of a nested expression (`((…(0)…))`) goes through `atom` and
+    /// this, and as two functions their frames don't share slots. Without
+    /// the attribute, when 7a14ec83 gave it a second caller it stopped
+    /// being inlined, and each level took about 780 bytes more of the
+    /// stack (SW-875).
     #[inline(always)]
     fn atom_base(&mut self, start: u32) -> Result<()> {
         match self.peek() {

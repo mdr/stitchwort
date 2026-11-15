@@ -1,8 +1,7 @@
 //! The span-containment check: every span the compiler's tree
 //! ([`crate::ast`]) carries is the token range of a node of the lossless
-//! tree, or a single token. It is how stage 1 shows the lossless tree has a
-//! node for everything the compiler's tree talks about, which the lowering
-//! (docs/proposals/syntax-tree-architecture.md, step 3) needs.
+//! tree, or a single token. It shows that the lossless tree has a node
+//! for everything the compiler's tree talks about, which the lowering needs.
 //!
 //! Two things about the compiler's tree make room for leeway. It has no
 //! node for brackets, so a span it works out from its parts can stop inside

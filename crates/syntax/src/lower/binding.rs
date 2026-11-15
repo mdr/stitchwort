@@ -642,7 +642,7 @@ mod tests {
     use crate::lower::coverage::report;
     use crate::tree::NodeKind;
 
-    /// Each kind of lane L3, in the forms whose lowering depends on what
+    /// Each binding and section kind, in the forms whose lowering depends on what
     /// surrounds it, lowers whole.
     #[test]
     fn binding_and_sections_lower() {

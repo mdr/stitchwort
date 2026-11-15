@@ -887,7 +887,7 @@ mod tests {
     use crate::lower::coverage::report;
     use crate::tree::NodeKind;
 
-    /// Each expression kind of lane L1, in the forms whose lowering depends
+    /// Each expression kind, in the forms whose lowering depends
     /// on where they are or on spacing, lowers whole.
     #[test]
     fn expressions_lower() {
