@@ -1129,8 +1129,24 @@ impl<'e> Ctx<'e> {
         term
     }
 
+    /// [`Ctx::show`], except that the expected type of the declaration's body
+    /// is shown as it was written when it is a comparison: `3 < n` rather
+    /// than `4 ≤ n`, what `<` computes to (SW-3100).
+    fn show_expected(&self, expected: &Value) -> String {
+        if let Some((level, goal)) = &self.goal
+            && *level == self.level()
+            && written_comparison(&self.g(), goal)
+            && self.eval(goal).is_ok_and(|v| {
+                stitchwort_core::value::conv(&self.g(), *level, &v, expected).unwrap_or(false)
+            })
+        {
+            return pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), goal);
+        }
+        self.show(expected)
+    }
+
     pub(crate) fn mismatch(&self, expected: &Value, found: &Value) -> Diagnostic {
-        let expected_shown = self.show(expected);
+        let expected_shown = self.show_expected(expected);
         let found_shown = self.show(found);
         if let (Ok(Value::Sort(_)), Ok(Value::Sort(_))) = (
             force(&self.g(), expected.clone()),
@@ -1827,6 +1843,43 @@ fn bool_function_found_prop(expected: &str, found: &str) -> bool {
 /// `map (n => 9 < n)`.
 fn bool_found_prop(expected: &str, found: &str) -> bool {
     expected.contains("Bool") && found.contains("Prop") && expected.replace("Bool", "Prop") == found
+}
+
+/// Whether `term`, a statement as written, is a comparison `a < b` or
+/// `a <= b`: the `Bool` comparison being `True`, or the comparison itself
+/// (SW-3100).
+fn written_comparison(g: &Ev, term: &Term) -> bool {
+    let reg = &g.env.registry();
+    let is_comparison = |t: &Term| {
+        let (head, _) = t.strip_loc().spine();
+        let Term::Def(id) = head else {
+            return false;
+        };
+        matches!(
+            reg.def_builtin(*id),
+            Some(
+                Builtin::Leq
+                    | Builtin::LessEq
+                    | Builtin::LessThan
+                    | Builtin::IntLeq
+                    | Builtin::IntLess
+                    | Builtin::IntLessEq
+                    | Builtin::IntLessThan
+                    | Builtin::FloatLeq
+                    | Builtin::FloatLess
+                    | Builtin::FloatLessEq
+                    | Builtin::FloatLessThan
+            )
+        )
+    };
+    match term.strip_loc() {
+        Term::Eq(_, a, b) => {
+            matches!(b.strip_loc(), Term::Ctor(d, c, fields)
+                if fields.is_empty() && reg.ctor(Builtin::True) == Some((*d, *c)))
+                && is_comparison(a)
+        }
+        other => is_comparison(other),
+    }
 }
 
 pub(crate) const NE_AS_PROP_NOTE: &str =

@@ -1,0 +1,16 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/comparison-expected-as-written.sw:6:44 ]
+   │
+ 6 │ theorem bad ∀ (n: Nat) (h: True): 3 < n := h
+   │                                            ┬  
+   │                                            ╰── expected `3 < n`, but this has type `True = True`
+   │ 
+   │ Note: this statement is false; a counterexample:
+   │         n = 0
+   │       `True = True` holds
+   │       `3 < n` is false
+───╯
