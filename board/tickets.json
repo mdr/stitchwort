@@ -37581,12 +37581,12 @@
     {
       "id": 3390,
       "title": "[Sonnet] stitchwort test FILE for a file inside a project loads the project and runs only that file's tests (as goal --at / search --at already resolve via project_of_file); update docs/projects.md's 'a path argument is always file mode'; E-FILE-MODE note; test that fails before. Orchestrator's call, option (b) from SW-3377. Also: Text.splitOnce lemma (t = a ++ sep ++ b); toyfmt NOTES stage C items 4-5 stale",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "DeepSeek run in scratch clone sw-3390. Expected: 45 min.",
+      "body": "Model result: deepseek, worked, ~20 min (est. 45). Reviewed line by line.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
