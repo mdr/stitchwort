@@ -129,6 +129,68 @@ pub(crate) fn unify_waiting(
     })
 }
 
+/// [`unify`] that goes on past a pair that differs, keeping what the other
+/// pairs solved: for a caller that is about to report an error and wants
+/// the unknowns the parts that do agree fix known first (a spec given as
+/// `_` beside a parser that differs). Each solution makes its own pair
+/// equal, whatever the pairs around it do. Whether a pair differed where
+/// neither side is an unknown, or stuck on one: a clash that no solution
+/// of an unknown can mend; and whether such a pair was a type (a sort, a
+/// function type, a data type), where a solution beside it may have the
+/// wrong type.
+pub(crate) fn unify_what_agrees(
+    g: &Unifier<'_>,
+    level: usize,
+    a: &Value,
+    b: &Value,
+) -> Result<Clashes> {
+    nested(g, || {
+        let _memo = Scoped::set(&g.attempt.call_memo, Some(CallMemo::default()));
+        let mut work = vec![Task::Values(level, a.clone(), b.clone())];
+        let mut mode = Mode::Normal;
+        let mut clashes = Clashes::default();
+        while let Some(task) = work.pop() {
+            g.machine.budget.step()?;
+            match task {
+                Task::Open(..) => {}
+                Task::Mode(m) => mode = m,
+                Task::Values(level, a, b) => {
+                    let (x, y) = (a.clone(), b.clone());
+                    let same = unify_step(g, level, &a, &b, &mut work, mode)?
+                        || values_differ(g, level, a, b, &mut work, mode)?;
+                    if !same && !(flexible(g, &x)? || flexible(g, &y)?) {
+                        clashes.any = true;
+                        clashes.types |= is_type(g, &x)? || is_type(g, &y)?;
+                    }
+                }
+                task => {
+                    other_task(g, task, &mut work, mode)?;
+                }
+            }
+        }
+        Ok(clashes)
+    })
+}
+
+/// What [`unify_what_agrees`] found.
+#[derive(Default)]
+pub(crate) struct Clashes {
+    pub(crate) any: bool,
+    pub(crate) types: bool,
+}
+
+fn is_type(g: &Unifier<'_>, v: &Value) -> Result<bool> {
+    Ok(matches!(
+        force(g, v.clone())?,
+        Value::Sort(_) | Value::Pi(..) | Value::Data(..)
+    ))
+}
+
+/// Whether `v` is an unknown applied, or stuck on one.
+fn flexible(g: &Unifier<'_>, v: &Value) -> Result<bool> {
+    Ok(matches!(force(g, v.clone())?, Value::Neutral(Head::Meta(_), _)) || blocked(g, v)?)
+}
+
 /// Whether the failing pair `a`, `b` waits ([`unify_waiting`]); set aside
 /// if so.
 fn sets_aside(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<bool> {

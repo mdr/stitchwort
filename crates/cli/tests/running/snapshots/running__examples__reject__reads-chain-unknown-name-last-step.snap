@@ -1,11 +1,11 @@
 ---
-source: crates/cli/tests/running/examples.rs
+source: crates/cli/tests/examples.rs
 expression: output
 ---
 [E-UNKNOWN-NAME] Error: unknown name `xBad`
-    ╭─[ reject/reads-chain-unknown-name-last-step.sw:16:74 ]
+    ╭─[ reject/reads-chain-unknown-name-last-step.sw:17:74 ]
     │
- 16 │     Parse.readsThen Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, xBad] _ Trivial)))
+ 17 │     Parse.readsThen Parse.readsNat (r2 x2 h2 => Parse.readsDone [x0, x1, xBad] _ rfl)))
     │                                                                          ──┬─  
     │                                                                            ╰─── not in scope
 ────╯

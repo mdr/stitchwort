@@ -1209,11 +1209,22 @@ impl<'e> Ctx<'e> {
         )
     }
 
+    /// Whether `expected` and `found` differ somewhere that no solution of
+    /// an unknown could mend. Solves nothing: what the comparison solved is
+    /// taken back.
+    fn differ_beyond_unknowns(&self, expected: &Value, found: &Value) -> bool {
+        let mark = self.e.attempt.mark();
+        let clash = crate::unify::unify_what_agrees(&self.u(), self.level(), expected, found);
+        self.e.attempt.restore(mark);
+        clash.is_ok_and(|c| c.any)
+    }
+
     /// A note for each unknown printed as `?N` in `shown` whose origin is
     /// recorded ([`stitchwort_core::globals::Meta::origin`]): what it stands
     /// for, so that the message doesn't leave `?N` unexplained.
     fn unknown_notes(&self, mut d: Diagnostic, shown: &[&str], values: &[&Value]) -> Diagnostic {
         let mut seen = Vec::new();
+        let mut clashes = None;
         for value in values {
             let Ok(term) = crate::interfaces::scanned(self, value) else {
                 continue;
@@ -1234,6 +1245,20 @@ impl<'e> Ctx<'e> {
                 }
                 seen.push(*m);
                 if let Some(origin) = self.metas().meta_origin(*m) {
+                    // Where the types clash apart from it, giving it isn't
+                    // the fix, so the advice is left out.
+                    let origin: &str = &origin;
+                    let origin = match origin.split_once("; give it with") {
+                        Some((what, _))
+                            if *clashes.get_or_insert_with(|| {
+                                values.len() == 2
+                                    && self.differ_beyond_unknowns(values[0], values[1])
+                            }) =>
+                        {
+                            what
+                        }
+                        _ => origin,
+                    };
                     d = d.with_note(format!("`{name}` is {origin}"));
                 }
             }
@@ -3391,6 +3416,7 @@ fn note_settled(cx: &Ctx, args: &[Arg], x: &Name, given: &Value) {
         span: at,
         param: x.clone(),
         given: given.clone(),
+        given_shown: None,
         note: None,
     });
 }
@@ -3407,11 +3433,12 @@ fn settled_call_failed(cx: &Ctx, index: usize) {
         return;
     };
     if entry.note.is_none() {
+        let given = cx.show(&entry.given);
         entry.note = Some(format!(
-            "`{}` was taken as `{}` from the expected type",
+            "`{}` was taken as `{given}` from the expected type",
             entry.param,
-            cx.show(&entry.given),
         ));
+        entry.given_shown = Some(given);
     }
 }
 
@@ -3879,7 +3906,7 @@ fn finish_application(
     cx.e.resume_application(queued_from)?;
     if !searches.is_empty() {
         let from = (queued_from, metas_from);
-        check_searches_last(cx, &mut term, &mut ty, searches, expecting.as_ref(), from)?;
+        check_searches_last(cx, (&mut term, &mut ty), searches, expecting.as_ref(), from)?;
     }
     if let (false, Some(expected)) = (after_expected.is_empty(), &expecting) {
         // The type as `fallback` will compare it: with no implicit
@@ -4005,8 +4032,7 @@ fn hold_argument(
 /// (`examples/accept/scan-layout.sw`).
 fn check_searches_last(
     cx: &mut Ctx,
-    term: &mut Term,
-    ty: &mut Value,
+    (term, ty): (&mut Term, &mut Value),
     searches: Vec<(&Expr, Value, Value, usize)>,
     expecting: Option<&Value>,
     (queued_from, metas_from): (usize, usize),
@@ -4016,9 +4042,20 @@ fn check_searches_last(
             force(&cx.g(), ty.clone())?,
             Value::Pi(_, Icit::Implicit | Icit::Auto, ..)
         );
-        if !implicit_next {
-            let _ = crate::undo::unify(cx, ty, expected)?
-                || crate::undo::unify_solving_arguments(cx, ty, expected)?;
+        if !implicit_next
+            && !(crate::undo::unify(cx, ty, expected)?
+                || crate::undo::unify_solving_arguments(cx, ty, expected)?)
+        {
+            // A search's error names the spec, not an unknown, when only
+            // another part of the call is wrong. Not if a type clashes: a
+            // solution beside it may have the wrong type, and the search
+            // would report on terms that can't exist.
+            let mark = cx.e.attempt.mark();
+            let clashes = crate::unify::unify_what_agrees(&cx.u(), cx.level(), ty, expected);
+            if clashes.as_ref().map_or(true, |c| c.types) {
+                cx.e.attempt.restore(mark);
+            }
+            clashes?;
         }
     }
     let own: Vec<usize> = (cx.e.attempt.obligations.borrow().iter())
