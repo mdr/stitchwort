@@ -14,7 +14,7 @@ use crate::budget::Result;
 use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
-use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
+use crate::term::{DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 use crate::value::{
     Value, proof_field, proof_param, quote_as_written_shown, quote_shown, quote_unfolded_shown,
     same_term,
@@ -528,6 +528,10 @@ fn term_within(
 /// [`term_within`]: the text would be far longer than any limit.
 const FULL_PRINT_NODES: usize = 20_000;
 
+/// How many entries of a `Map` a goal or message shows before `…`; a map's
+/// raw tree is no way to read its contents anyway (SW-3432).
+const MAP_ENTRIES_SHOWN: usize = 8;
+
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
     Arrow,
@@ -965,22 +969,17 @@ impl<'g> Printer<'g> {
                 }
                 (format!("[{}]", shown.join(", ")), Prec::Atom)
             }
-            // A record, as a literal: `{ name = "A", age = 3 }`.
-            Term::Ctor(d, 0, args) if self.g.data(*d).record => {
-                if let Some(update) = self.record_update(names, *d, args) {
-                    return (update, Prec::Atom);
+            // A `Map`, as the `Map.fromList` it was built with: its
+            // representative is a raw search tree, and printing that out
+            // says nothing a reader wants (SW-3432).
+            Term::Ctor(d, 0, args) if &*self.g.data(*d).path == "Std.Map" => {
+                if let Some(shown) = self.map_from_list(names, args) {
+                    return shown;
                 }
-                let fields: Vec<String> = self.g.data(*d).ctors[0]
-                    .fields
-                    .iter()
-                    .zip(args)
-                    .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
-                    .collect();
-                if fields.is_empty() {
-                    return ("{}".into(), Prec::Atom);
-                }
-                (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
+                self.go_record(names, *d, args)
             }
+            // A record, as a literal: `{ name = "A", age = 3 }`.
+            Term::Ctor(d, 0, args) if self.g.data(*d).record => self.go_record(names, *d, args),
             // A pair, as a tuple: `(1, 2, 3)` is `MkPair 1 (MkPair 2 3)`.
             Term::Ctor(d, 0, args) if is(self.g, Builtin::Pair, *d) && args.len() == 2 => {
                 let mut items = vec![&*args[0]];
@@ -1103,6 +1102,122 @@ impl<'g> Printer<'g> {
                 (text, prec)
             }
             _ => unreachable!("`go_node` sends only ctor forms here"),
+        }
+    }
+
+    /// A record, as a literal: `{ name = "A", age = 3 }`.
+    fn go_record(&self, names: &mut Vec<Name>, d: DataId, args: &[Rc<Term>]) -> (String, Prec) {
+        if let Some(update) = self.record_update(names, d, args) {
+            return (update, Prec::Atom);
+        }
+        let fields: Vec<String> = self.g.data(d).ctors[0]
+            .fields
+            .iter()
+            .zip(args)
+            .map(|((f, _), a)| format!("{f} = {}", self.print(names, a, Prec::Arrow)))
+            .collect();
+        if fields.is_empty() {
+            return ("{}".into(), Prec::Atom);
+        }
+        (format!("{{ {} }}", fields.join(", ")), Prec::Atom)
+    }
+
+    /// A `Map` value, as the `Map.fromList` it was built with, rather than
+    /// the raw search tree its quotient holds (SW-3432). `None` if the value
+    /// wasn't built from a list or a raw tree, so the record is shown.
+    fn map_from_list(&self, names: &mut Vec<Name>, args: &[Rc<Term>]) -> Option<(String, Prec)> {
+        let [raw] = args else { return None };
+        let Term::Quot(QuotForm::Mk, quot_args, _) = raw.strip_loc() else {
+            return None;
+        };
+        let representative = quot_args.last()?.strip_loc();
+        // Built from a list: `Map.Raw.fromListFast xs` (or `fromList`,
+        // `fromListChecked`). Its first explicit argument is the list.
+        let (head, spine) = full_spine(representative);
+        if let Term::Def(id) = head {
+            let built_from = match &*self.g.def(*id).path {
+                "Std.Map.Raw.fromListFast"
+                | "Std.Map.Raw.fromList"
+                | "Std.Map.Raw.fromListChecked" => (spine.iter())
+                    .find(|(_, icit)| *icit == Icit::Explicit)
+                    .map(|(list, _)| *list),
+                _ => None,
+            };
+            if let Some(list) = built_from {
+                let list = match list_literal(self.g, list) {
+                    Some(items) if items.len() > MAP_ENTRIES_SHOWN => {
+                        let shown: Vec<String> = items
+                            .iter()
+                            .take(MAP_ENTRIES_SHOWN)
+                            .map(|item| self.print(names, item, Prec::Arrow))
+                            .collect();
+                        format!("[{}, …]", shown.join(", "))
+                    }
+                    _ => self.print(names, list, Prec::Atom),
+                };
+                return Some((format!("Map.fromList {list}"), Prec::App));
+            }
+        }
+        // Read back as a raw map's record: its tree, in key order.
+        let Term::Ctor(raw_data, 0, raw_args) = representative else {
+            return None;
+        };
+        if &*self.g.data(*raw_data).path != "Std.Map.Raw" {
+            return None;
+        }
+        let tree_at = (self.g.data(*raw_data).ctors().first()?.fields.iter())
+            .position(|(field, _)| &**field == "tree")?;
+        let mut entries = Vec::new();
+        let mut more = false;
+        self.map_tree_entries(names, raw_args.get(tree_at)?, &mut entries, &mut more)?;
+        let mut shown = entries.join(", ");
+        if more {
+            shown.push_str(", …");
+        }
+        Some((format!("Map.fromList [{shown}]"), Prec::Atom))
+    }
+
+    /// The entries of a `Map.Tree`, in key order, into `entries`; `more`
+    /// is set if there are more than [`MAP_ENTRIES_SHOWN`]. `None` if
+    /// `tree` isn't one.
+    fn map_tree_entries(
+        &self,
+        names: &mut Vec<Name>,
+        tree: &Term,
+        entries: &mut Vec<String>,
+        more: &mut bool,
+    ) -> Option<()> {
+        if *more {
+            return Some(());
+        }
+        let Term::Ctor(d, c, args) = tree.strip_loc() else {
+            return None;
+        };
+        if &*self.g.data(*d).path != "Std.Map.Tree" {
+            return None;
+        }
+        let ctors = self.g.data(*d).ctors();
+        match c {
+            0 if &*ctors.first()?.name == "Tip" => Some(()),
+            1 if &*ctors.get(1)?.name == "Bin" => {
+                let fields = &ctors[1].fields;
+                let at = |name: &str| fields.iter().position(|(field, _)| &**field == name);
+                let (left, key, value, right) =
+                    (at("left")?, at("key")?, at("value")?, at("right")?);
+                self.map_tree_entries(names, args.get(left)?, entries, more)?;
+                if *more {
+                    return Some(());
+                }
+                if entries.len() >= MAP_ENTRIES_SHOWN {
+                    *more = true;
+                    return Some(());
+                }
+                let key = self.print(names, args.get(key)?, Prec::Arrow);
+                let value = self.print(names, args.get(value)?, Prec::Arrow);
+                entries.push(format!("({key}, {value})"));
+                self.map_tree_entries(names, args.get(right)?, entries, more)
+            }
+            _ => None,
         }
     }
 
