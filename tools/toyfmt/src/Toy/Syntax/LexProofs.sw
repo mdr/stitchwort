@@ -4,7 +4,7 @@
 
 namespace Toy.Syntax.Proofs
 import Toy.Syntax (..)
-import Std (DecEq, Eq, List, Option, Parse, Text, Void)
+import Std (DecEq, Eq, Fail, List, Option, Parse, Text, Void)
 
 --| A character that starts a word is not one that doesn't: for the
 --| characters `lexemeStart` tries before a word.
@@ -383,3 +383,112 @@ theorem runsStringExample ∀ (rest: List Char):
         (Both
           (same => cases)
           (Both (runsEscapeSegment 'n' (['"'] ++ rest) rfl) (stringSegmentDeclines rest)))))
+
+-- The whole source, and the tokens made of its lexemes.
+
+--| `lex` on a source that `lexemeAt` reads lexeme by lexeme to its end
+--| (`steps`: what each lexeme reads, and which it is), and whose lexemes'
+--| slices add up to it: the lexemes with their offsets and lengths, and
+--| the tokens `assemble` makes of them.
+theorem lexReads ∀ (source: Text) (steps: List (List Char, Lexeme))
+    (reads: source.toList = Parse.joinReads steps)
+    (runs: Parse.LexemesRun lexemeAt steps)
+    (whole: covers source (Parse.locatedSteps 0 steps) = True):
+    lex source
+      = Ok {
+        lexemes = Parse.locatedSteps 0 steps,
+        tokens = (assemble source (Parse.locatedSteps 0 steps)).fst,
+        endTrivia = (assemble source (Parse.locatedSteps 0 steps)).snd
+      } :=
+  let lexed: Fail.toResult (() => Parse.all source lexemes) = Ok (Parse.locatedSteps 0 steps) :=
+    Parse.runsFromAll source lexemes
+      (Parse.joinReads steps)
+      []
+      (Parse.locatedSteps 0 steps)
+      (rewrite List.appendNil (Parse.joinReads steps) in reads)
+      rfl
+      (Parse.runsLocatedToEnd lexemeAt steps (Parse.State.start source.toList) runs)
+  rewrite lexed, whole in rfl
+
+--| The lexemes that become tokens: all but spaces, line breaks and
+--| comments.
+def isCode: Lexeme → Bool
+  | Spaces => False
+  | LineBreak => False
+  | CommentLexeme => False
+  | _ => True
+
+--| Spaces change nothing: columns are counted from offsets.
+theorem addSpaces ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
+    (isSpaces: lexeme.value = Spaces):
+    assembly.add source lexeme = assembly :=
+  rewrite isSpaces in rfl
+
+--| A line break starts a line after it, and after a line with nothing on
+--| it leaves a blank line waiting for the next token.
+theorem addLineBreak ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
+    (isBreak: lexeme.value = LineBreak):
+    assembly.add source lexeme
+      = {
+        assembly
+        | pending = if assembly.lineEmpty then addBlank assembly.pending else assembly.pending,
+        lineStart = lexeme.offset + 1,
+        lineEmpty = True
+      } :=
+  rewrite isBreak in rfl
+
+--| A comment on a line with nothing before it waits for the next token.
+theorem addOwnLineComment ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
+    (isComment: lexeme.value = CommentLexeme)
+    (alone: assembly.lineEmpty = True):
+    assembly.add source lexeme
+      = { assembly | pending = [OwnLine { text = cut source lexeme }, ..assembly.pending], lineEmpty = False } :=
+  rewrite isComment, alone in rfl
+
+--| A comment after code on its line goes on the newest token.
+theorem addTrailingComment ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
+    (isComment: lexeme.value = CommentLexeme)
+    (afterCode: assembly.lineEmpty = False):
+    assembly.add source lexeme
+      = {
+        assembly
+        | tokens = withTrailing assembly.tokens {
+          value = { text = cut source lexeme },
+          offset = lexeme.offset,
+          length = lexeme.length
+        }
+      } :=
+  rewrite isComment, afterCode in rfl
+
+--| Any other lexeme is a token: of the kind its text spells, starting its
+--| line if nothing but spaces came before it, at its column on the line,
+--| with the comments and blank lines that were waiting above it.
+theorem addCode ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
+    (code: isCode lexeme.value = True):
+    assembly.add source lexeme
+      = {
+        assembly
+        | tokens = [
+          {
+            value = {
+              kind = lexemeKind lexeme.value (cut source lexeme),
+              startsLine = assembly.lineEmpty,
+              column = lexeme.offset - assembly.lineStart,
+              above = assembly.pending.reverse,
+              trailing = None
+            },
+            offset = lexeme.offset,
+            length = lexeme.length
+          },
+          ..assembly.tokens
+        ],
+        pending = [],
+        lineEmpty = False
+      } :=
+  match lexeme, code with
+    | { value = WordLexeme, offset, length }, code => rfl
+    | { value = DigitsLexeme, offset, length }, code => rfl
+    | { value = StringLexeme, offset, length }, code => rfl
+    | { value = SignLexeme, offset, length }, code => rfl
+    | { value = SymbolsLexeme, offset, length }, code => rfl
+    | { value = StrayLexeme, offset, length }, code => rfl
