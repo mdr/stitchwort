@@ -139,6 +139,37 @@ that shape and build explicit applications (`Option.mapCong` stays
 `crates/elab/src/omega.rs` or `Decidable.elimEq`'s users build calls to
 changes only together with the code that builds them.
 
+### A statement that spells out a match
+
+A theorem statement that spells out a `match` is checked as any `match` is,
+with the theorem's parameters, including its hypotheses, in scope, so a
+hypothesis that rules out one of the arms makes that arm `W-UNREACHABLE`
+("this case can't happen: here `selected` is `None = Some value`"). It still
+checks, but the warning is right: the arm can never be reached, and std's
+`the_library_has_no_unreachable_arms` test fails on it. Hold the match in a
+small helper definition, where no hypothesis is in scope, and state the
+theorem about the helper (as `Parse.oneValue` does for `Parse.runsOneStep` in
+`crates/elab/src/std/Parse/Runs.sw`):
+
+```sw
+-- warns W-UNREACHABLE on `| None`: `selected` rules that arm out
+theorem selectedIsValue ∀ (chosen: Option Nat) (value: Nat) (selected: chosen = Some value):
+    (match chosen with
+      | Some value => value
+      | None => 0) = value :=
+  rewrite selected in rfl
+
+-- no warning: the match is in a definition, out of `selected`'s scope
+def oneValue (chosen: Option Nat): Nat :=
+  match chosen with
+    | Some value => value
+    | None => 0
+
+theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected: chosen = Some value):
+    oneValue chosen = value :=
+  rewrite selected in rfl
+```
+
 ## 2. Workflow
 
 1. **State it with `?` first, and read the goal.** Write the statement with
