@@ -5085,8 +5085,7 @@ impl Elaborator {
     /// (docs/proposals/text-patterns.md §4.2): on a `List Char`, the list
     /// `['-', '-', ..rest]`; on a `Text`, `MkText` of that list, where a
     /// variable `rest` is a [`Pattern::TextRest`], bound to the text of the
-    /// characters left. `None` for `"" ++ rest` on a `List Char`, which is
-    /// `rest`.
+    /// characters left. (The lowering makes `"" ++ p` just `p`.)
     fn prefix_pattern<'a>(
         &self,
         pattern: &Pat<'a>,
