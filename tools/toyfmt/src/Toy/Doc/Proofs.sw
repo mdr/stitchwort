@@ -501,7 +501,13 @@ theorem chooseEnough ∀ (printer: Printer) (total extra indent: Nat) (rest: Lis
           rewrite fitsFromEnough total extra [(Flat, inner)] [] (printer.width - indent - 2) False (omega) in
             rewrite later in rfl
         | _ =>
-          rewrite fitsFromEnough total extra [(Break, option)] rest printer.left False (omega) in rewrite later in rfl
+          rewrite fitsFromEnough total extra
+                [(Break, option)]
+                rest
+                printer.left
+                (not printer.suffixes.isEmpty)
+                (omega) in
+            rewrite later in rfl
 
 --| With `fits`'s budget covering the work list's weight, a step takes the
 --| same choices as with a larger budget.
@@ -514,7 +520,9 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
       rewrite fitsFromEnough total extra [(Flat, item)] rest (printer.left - 1) False (omega) in rfl
     | Print indent mode doc =>
       match doc with
-        | Group inner hard => rewrite fitsFromEnough total extra [(Flat, inner)] rest printer.left False (omega) in rfl
+        | Group inner hard =>
+          rewrite fitsFromEnough total extra [(Flat, inner)] rest printer.left (not printer.suffixes.isEmpty) (omega) in
+            rfl
         | Fill items =>
           match items with
             | [] => rfl
@@ -523,7 +531,13 @@ theorem stepEnough ∀ (printer: Printer) (total extra: Nat) (cmd: Cmd) (rest: L
               let laid := stackWeightAppend (others.map (FillSep indent)) rest
               let seps := weightFillSeps indent others
               let need := restNeedUnder stack
-              rewrite fitsFromEnough total extra [(Flat, first)] stack printer.left False (omega) in rfl
+              rewrite fitsFromEnough total extra
+                    [(Flat, first)]
+                    stack
+                    printer.left
+                    (not printer.suffixes.isEmpty)
+                    (omega) in
+                rfl
         | Choice options =>
           match mode with
             | Flat => rfl

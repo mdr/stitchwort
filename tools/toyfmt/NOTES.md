@@ -617,7 +617,7 @@ fill's size counted once).
 
 ### Bugs the proof work found
 
-Both were caught at run time by the re-parse (`format` answered
+The first two were caught at run time by the re-parse (`format` answered
 `Refused`), so no output was ever wrong; with the check gone they would
 have been.
 
@@ -626,6 +626,16 @@ have been.
 2. A comma or closing bracket after an `if` whose last branch ends in a
    trailing comment went on the comment's line, inside the comment. It now
    goes on the next line (`closeAfter`).
+
+3. In the engine: `fits` started every measurement with no comment
+   waiting, so a group that began with a line straight after a trailing
+   comment could stay flat and print code after the comment
+   (`f a -- c` then a group `[Line, b]` printed `f a b -- c`). Groups,
+   fill items and choices now measure with the waiting comment counted
+   (`Printer.fitsHere`). The rules never build that shape (the comment
+   proofs say what follows a comment is a break, and in the rules it is
+   always a hard line, a fill separator or a line in the same group), so
+   no output changes; the engine proof needs it.
 
 ### Estimate [estimated, low confidence]
 

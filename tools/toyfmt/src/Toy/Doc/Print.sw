@@ -73,7 +73,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
     | OneLineBelow inner => (printer, [Print (indent + 2) mode HardLine, Print (indent + 2) mode inner, ..rest])
     | Flatten inner => (printer, [Print indent Flat inner, ..rest])
     | Group inner hard =>
-      let flat := mode.isFlat || (not hard && fits total [(Flat, inner)] rest printer.left)
+      let flat := mode.isFlat || (not hard && printer.fitsHere total [(Flat, inner)] rest)
       (printer, [Print indent (if flat then Flat else Break) inner, ..rest])
     | Concat docs => (printer, docs.map (Print indent mode) ++ rest)
     | Fill items =>
@@ -83,7 +83,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
           if mode.isFlat then (printer, Doc.joinLines items |> .map (Print indent Flat) |> (cmds => cmds ++ rest))
           else
             let stack := others.map (FillSep indent) ++ rest
-            let firstMode := if fits total [(Flat, first)] stack printer.left then Flat else Break
+            let firstMode := if printer.fitsHere total [(Flat, first)] stack then Flat else Break
             (printer, [Print indent firstMode first, ..stack])
     | Choice options =>
       let chosen := if mode.isFlat then options.headOr Empty else printer.choose total indent rest options
@@ -97,8 +97,14 @@ def Printer.choose (printer: Printer) (total indent: Nat) (rest: List Cmd): (opt
   | [option, ..others] =>
     let fitting := match option with
       | OneLineBelow inner => printer.width >= indent + 2 && fitsFlat total inner (printer.width - indent - 2)
-      | _ => fits total [(Break, option)] rest printer.left
+      | _ => printer.fitsHere total [(Break, option)] rest
     if fitting then option else printer.choose total indent rest others
+
+--| Whether `next`, then the rest of the work list, fits on this line, as
+--| `fits` measures it, with any trailing comment already waiting counted:
+--| a line that would print as a space after it must break instead.
+def Printer.fitsHere (printer: Printer) (total: Nat) (next: List (Mode, Doc)) (rest: List Cmd): Bool :=
+  fitsFrom total next rest printer.left (not printer.suffixes.isEmpty)
 
 --| The items with a `Line` between each two.
 def Doc.joinLines: List Doc → List Doc
