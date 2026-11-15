@@ -275,20 +275,11 @@ def comments: Golden :=
           bare (op Plus (v "base") (call "tax" [v "base"]))
         ]),
       value "weights"
-        (ListLiteral
-          none
+        (ListLiteral none
           [item (NumberLiteral "1" (above ["-- light"])), { value = num "2", comma = after "-- two" }, item (num "3")]
           none),
       plain
-        (Function
-          none
-          "odd"
-          none
-          none
-          [parameter "x"]
-          none
-          (after "-- why")
-          (expr (op Remainder (v "x") (num "2"))))
+        (Function none "odd" none none [parameter "x"] none (after "-- why") (expr (op Remainder (v "x") (num "2"))))
     ],
     formatted = """
       -- Totals for one order.
@@ -402,7 +393,8 @@ def order: Golden :=
                 (expr (op Plus (v "base") (v "tax")))))
         ]),
       afterBlank
-        (valueBody "names" (expr (list (["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"].map str))))
+        (valueBody "names"
+          (expr (list (["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"].map str))))
     ],
     formatted = """
       -- Totals for one order.
@@ -455,9 +447,7 @@ def route: Golden :=
 test "mixed: nesting in a narrow width" := route.printed == route.formatted
 
 test "P8: a trailing comment on a list's last item puts the ] below" :=
-  let tree := sprig [
-    value "pair" (ListLiteral none [item (num "1"), item (NumberLiteral "2" (after "-- two"))] none)
-  ]
+  let tree := sprig [value "pair" (ListLiteral none [item (num "1"), item (NumberLiteral "2" (after "-- two"))] none)]
   (tree.print 40).text == "let pair = [1, 2 -- two\n]\n"
 
 test "a tree's dump shows its structure" :=
