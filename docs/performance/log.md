@@ -44,6 +44,72 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 15 Nov 2026
+
+### SW-3337: fast text (T1): a text is a piece of a shared buffer; reading by position 20,000 times went from 21 s to nothing measurable
+
+- **Status:** kept (Opus). Stage T1 of
+  [file-io-and-text.md](../proposals/file-io-and-text.md#6-staging) (D3587).
+- **Problem, from the design's probes and the source.** A text at run time
+  was one `Rc<str>`, positions counted in characters, so every read by
+  position walked from the start. `Text.get` had no native and ran its
+  definition (`text.toList.get i`, building the whole list); `take`, `drop`
+  and `uncons` walked and copied the rest; `length` counted. Each loop over
+  a text by position was quadratic (the design's table, §1.2).
+- **Change.** `Value::Text` holds `crate::text::Text`: an `Rc` of a buffer
+  at one fixed width (ASCII bytes, two-byte or four-byte units: PEP 393's
+  layout, the design's suggested start) plus a `u32` start and length, in
+  characters, so a value is still three words. `get`, `take`, `drop`,
+  `slice`, `uncons` and `length` are arithmetic on the two numbers. Every
+  buffer is made at its narrowest width; ASCII buffers are borrowed as
+  `str` for printing, `contains` and number parsing, and other texts are
+  encoded for those (they were O(n) already). New natives: `Text.get`, and
+  the new `Text.slice`, `getOr`, `getLt` and `concat`.
+- **Why results stay the same.** Positions in the buffer are the positions
+  of `Text.toList`, so each native is bounds arithmetic on its definition;
+  equality and order compare characters (same-width pieces as slices,
+  whose order is scalar order). `Text.repeat` is still charged a step per
+  UTF-8 byte. Checked by the three tiers of §4.4: unit tests of every text
+  of up to three awkward characters stored three ways (own buffer, piece of
+  a two-byte and of a four-byte buffer) at every pair of positions;
+  differential cases against the reference evaluator for the same texts
+  through every operation, every pair compared and joined across widths,
+  and random texts up to 1,600 characters cut by chains of slices (machine
+  and native code); and a million characters read four ways on the machine.
+  No proof, hash or existing definition changed (the pinned-hash and
+  hash-stability tests; the prelude snapshot gained only new names).
+- **Measured** (release CLI, one run each, load 4-9; `stitchwort run`
+  includes about 0.30 s to check and start; text `"abcdefghij"` repeated,
+  or with `→` for "wide"; the probe is the design's, Appendix A):
+
+  | Loop, on a text of n characters | before | after, machine | after, `--native` |
+  |---|---|---|---|
+  | `text.get i` for every i, n = 20,000 | 21.2 s | 0.30 s | 0.31 s |
+  | the same, n = 1,000,000 (ASCII / wide) | (quadratic) | 0.42 / 0.42 s | 0.35 / 0.36 s |
+  | `drop i`, `take 5` at every i, n = 100,000 | 4.0 s | 0.31 s | 0.32 s |
+  | the same, n = 1,000,000 | | 0.43 s | 0.38 s |
+  | `length`, n times, n = 100,000 / 1,000,000 | 0.73 s / | 0.35 s (10^6) | 0.32 s (10^6) |
+  | `uncons` until empty, n = 200,000 / 1,000,000 | 1.16 s / | 0.43 s (10^6) | 0.36 s (10^6) |
+
+  Built executables, n = 1,000,000 (no start-up check): `get` 0.06 s
+  native, 0.14 s machine; slices 0.06 s and 0.12 s.
+- **The copy threshold.** A piece of at most 32 characters of a buffer of
+  1,024 or more is copied, at its narrowest width, so a token doesn't keep
+  a large source alive and cutting stays O(1) (the copy is bounded).
+  Measured cost: 3,000,000 slices of 32 characters (copied) 0.60 s against
+  33 (shared) 0.44 s, native: about 50 ns more a slice.
+- **Rejected or not done.** UTF-8 with an ASCII flag and a lazily built
+  index: less memory but a walk of up to the index's stride per read and
+  more trusted code, on exactly the non-ASCII source a formatter reads.
+  Four bytes a character always: simplest, four times the memory for ASCII.
+  `Text.skipWhile`: not added; a lexer loop on `get` costs about 50-120 ns a
+  character on these numbers, so one native call per character is cheap
+  enough. In-place `++` is T2; JS natives T3 (`run --js` runs the new
+  definitions). The benchmark and `bench:aoc` were not run in the lane
+  (lane test budget): the step counts of programs that call `Text.get`
+  drop, as `get` is one native step now.
+- **Links.** SW-3337; [file-io-and-text.md](../proposals/file-io-and-text.md) §4.
+
 ## 14 Nov 2026
 
 ### SW-3280: strict marks and the checking builder (parser T1); the lossless tree 7-9% faster, 16 bytes more stack a level
