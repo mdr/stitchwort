@@ -1617,6 +1617,131 @@ D and the glue.
     document read left to right; 46 lemmas checked with three errors in
     all (a bracket, a duplicate name, a wrong post).
 
+### Part 8 (Fable, 15 Nov 2026): the lexer's half of the token texts
+
+A 45-minute lane on WF's token texts. The lexer's half is proved: from
+`lex source = Ok lexed` alone, every token and comment has the lexer's
+text (`lexTexts`), with a string's text as its quotes and pieces
+(`StringRead`), not yet part 7's `IsString`. The parser's half (the tree
+copies the tokens' texts) and the tree induction are not started, so
+`printedLexes` still has its `LexicalFile` hypothesis.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 720 theorems, 0
+failed, 14 warnings: part 7's 10 and four new ones, `operatorCharPaced`,
+`escapeSegmentPaced`, `stringLexemePaced` and `commentTaken`, whose
+hypothesis is a run that succeeded or a text that starts `--`, which the
+search's random inputs never are; they are narrow, not contradictory,
+and `lexTexts` uses all four):
+
+- Std, `Parse/Paced.sw` (19 theorems, new file; the prelude hash
+  snapshot gains these names only).
+  - `Parse.Paced parser`: run from an honest state, a success leaves an
+    honest state whose offset has moved on by what was read (offset plus
+    items left is unchanged). `Parse.Reads` says what was read and
+    nothing about offsets, and a parser may reset to any mark, so this
+    is a property of its own. Lemmas: `pacedPure`, `pacedThen`,
+    `pacedIf`, `pacedMark`, `pacedNote`, `pacedStop`, `pacedFatal`,
+    `pacedExpected`, `pacedFail`, `pacedSpan`, `pacedNext`,
+    `pacedSatisfy`, `pacedChar`, `pacedManyFrom`, `pacedMany`.
+  - `Parse.ReadsFrom state parser spec`: `Reads` of one state, so that a
+    spec can say what was read in terms of what was there;
+    `Parse.readsFromSpan`: `span` reads the longest start whose items
+    pass (`readsSpan` says only that they pass).
+  - `Parse.LexemesRead spec steps`: each step read something, and `spec`
+    holds of the characters that were left, what it read and its value.
+  - **`Parse.locatedToEndReads`** (and `locatedToEndFromReads`): for a
+    lexeme that reads as `spec` says from each state and keeps count,
+    `locatedToEnd lexeme` that succeeded from an honest state read all
+    that was left, as `steps`, and gave `Parse.locatedSteps offset
+    steps`. **`Parse.allLocatedToEnd`**: the same from `Parse.all input
+    (() => locatedToEnd lexeme) = Ok found`: `input.toList` is the steps
+    joined and `found = Parse.locatedSteps 0 steps`. The converse of
+    `runsLocatedToEnd`.
+- `Fmt/LexTextProofs.sw` (49 theorems, new file).
+  - The lexer keeps count: `operatorCharPaced`, `stringSegmentPaced`,
+    `stringLexemePaced`, `readLexemePaced`, `lexemePaced`.
+  - What each lexeme read: `stringSegmentReads`, `stringLexemeReads`
+    (`StringRead`: a quote, pieces that are escapes or plain runs, a
+    quote), `operatorCharReads`, `readLexemeReads`, **`lexemeReads`**:
+    from each state, `lexemeAt` given what is left read the lexeme it
+    starts with (`LexemeSpec`), a word, number or comment as the longest
+    run of its characters.
+  - From `lexemeStart`'s choice back to the first characters:
+    `guardedStart` (the later arms as one chain of tests, `charClass`),
+    `classOf`, **`wordStartOf`**, **`digitStartOf`**,
+    **`commentStartOf`**.
+  - **`lexemesRead`**, **`lexRead`**: a lex that succeeded is `steps`:
+    the source is their characters joined, the lexemes are the steps
+    with their places, tokens and end trivia are `assemble`'s. The
+    converse of `lexReads`.
+  - **`lexemeText`**, `stepTexts`: each step read its kind's text
+    (`IsWord`, `IsDigits`, `IsComment`, `StringRead`).
+  - `assemble`'s fold: `addFine`, `foldFine` (the lexer's texts are an
+    invariant of `Assembly.add`, each lexeme's slice of the source
+    being what its step read), with `wordKindFine`, `symbolsKindFine`,
+    `signKindFine`, `lexemeKindFine`, `withTrailingFine`.
+  - **`lexTexts`**: `lex source = Ok lexed → FineTokens lexed.tokens ∧
+    FineTrivia lexed.endTrivia`: every token's kind is `IsName`,
+    `IsDigits` or `StringRead` where it has a text, and every comment
+    above a token, after one, or at the end of the file `IsComment`.
+
+**Program change:** `symbolsKind` matches the table's answer as a sign or
+an operator and gives `Stray` otherwise, where it was `symbols run |>
+.getOrElse (Stray run)`. The table gives only those, so it computes the
+same (the 98 tests pass, 44 from the cache); the proof that a run of
+operator characters is no name then doesn't read the table.
+
+**Not checked against a broken program** this part: the new theorems are
+about the lexer as it is, and no mutation was run.
+
+**What is left of WF's token texts, and how.**
+
+1. *Strings*: `StringRead text → IsString text`. `IsString` wants
+   `Parse.ManyRuns stringSegment segments` (each piece read whole,
+   before whatever follows), and `Reads` of `many` gives pieces without
+   saying each plain run was the longest. Either merge neighbouring
+   plain pieces (a flat predicate on the characters between the quotes,
+   then the canonical pieces from it), or carry "the longest run"
+   through `many` with `ReadsFrom`. About 10 lemmas.
+2. *The parser copies them*: as part 7 planned, `value.texts ⊆` the read
+   tokens' texts through `readsThen`, now with `FineTokens` as what the
+   tokens satisfy. About 70 lemmas, then the tree induction (15).
+3. *The last item's comma*: not looked at.
+
+**Re-estimate** [estimated; this lane proved 68 theorems in about 20
+minutes of the clock]: WF's token texts now 95 lemmas (strings 10,
+parser 70, induction 15), a lane of its own; the other rows of part 7's
+table are unchanged.
+
+**Friction** (beyond parts 1 to 7):
+
+42. **`Parse.Reads` can't say where a parse is.** Offsets are in
+    `Parse.RunsFrom` (completeness) only, so soundness for anything that
+    records offsets needed a second property (`Paced`) with a lemma per
+    operation beside each `reads…` lemma. If `Reads` itself said the
+    offset moved by `read.length`, `Paced` would not be needed; that
+    changes every primitive's proof and no combinator's.
+43. **`cases` splits the goal, never a hypothesis.** `lexemeStart
+    [first, ..tail] = Some WordLexeme → isWordStart first = True` is
+    open after `cases` whether the equation is a parameter or the left
+    of an arrow. It took `charClass`, `guardedStart` and a `match` per
+    test. With the equation in the goal as a Bool test it ran out of
+    budget (24 splits).
+44. **`pacedThen`/`readsThen` pick the wrong `p` and `j`** when the
+    continuation ignores its argument (`let plain := Parse.span …; ()`)
+    or the first step is `Parse.mark()`: the mismatch is reported on the
+    first lemma. Giving `[p := …] [j := …]` fixes it, and a `match`
+    can't be written in `[j := …]` (`E-MATCH-MOTIVE`), so
+    `stringSegment` was done at the state level with `match e:`.
+45. **`match e:` rewrites hypotheses after computing them**, which made
+    the state-level proofs short, and makes arms unreachable that the
+    checker then asks to have deleted (14 times here): pleasant.
+46. **A one-line `match` in an arm takes the arms after it**
+    (`| [char] => match p: … with | Some … | None … ` then `| [first,
+    ..]`): the error is about a `List` pattern among `Option` ones.
+47. **`True` in a `Prop`-valued `def` is proved by `rfl`, not
+    `Trivial`** ("this test fact can't be built with `Trivial`").
+
 ## Every comment placed (SW-3450, D3618, D3619)
 
 Every token now holds its comments in the tree (`Comments = { above,
