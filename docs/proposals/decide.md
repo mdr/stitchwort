@@ -234,7 +234,7 @@ then trusted, with no axiom to show for it [inferred from R1, R2]. MathComp's `f
 "a duplicate-free sequence of all the elements", with `[forall x, P]` as a boolean and `forallP`
 reflecting it to `forall x, P x` [cited: R3, header]. MathComp locks `enum` (`HB.lock Definition
 enum`) [cited: R3, the line after the header]; that this is to keep conversion from computing it
-is [unverified].
+is [unverified] (15 Nov 2026: `fintype.v` has no comment on `enum`'s lock; the nearby comment at line 283 says only that `card` and `subset` are locked "to mitigate divergence of the Coq term comparison algorithm").
 
 **Agda.** `Dec` is a record of a `does : Bool` and a `proof : Reflects A does`, "so the boolean
 part of the decision procedure [can] compute independently from the proof"; `from-yes a?` has
@@ -659,7 +659,7 @@ compiler [cited: L2, L4]; Rocq's `native_compute` checks on OCaml-compiled code 
   says "`bv_decide` trusts the correctness of the code generator and adds a axioms asserting its
   result" [cited: L1]. So `bv_decide` takes the solver out of the trusted base but keeps the
   compiler in it. How it runs the check (the docstring doesn't say; `Lean.ofReduceBool` is
-  believed to be the mechanism) is [unverified].
+  believed to be the mechanism) is [unverified] (15 Nov 2026: a search for `ofReduceBool` in the `BVDecide` sources on `master` found nothing, so the mechanism is still unconfirmed).
 - A certificate checked by the kernel would keep the trusted base where it is, with the speed of
   the search outside it; that is the general principle the review states, and it holds by
   construction for any checker the kernel runs [inferred]. Which system does that at scale was

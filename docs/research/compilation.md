@@ -197,7 +197,7 @@ trust of backends.
 | 16 | Brady: Idris 2, QTT in Practice | ECOOP 2021, **classic** | E | drop (Stitchwort erases by sort, not quantity) |
 | 17 | Marshall, Vollmer, Orchard: Linearity and Uniqueness: An Entente Cordiale | ESOP 2022 | A | maybe; not carded (full text reached late, at kar.kent.ac.uk, and not read) |
 | 18 | Futhark uniqueness types and their limits with higher-order functions (blog, 2022) | blog | A | drop (static types; Stitchwort's reuse is dynamic) |
-| 19 | Roc: RC with in-place `List` update; compiler rewrite in Zig (2025) | secondary only | A/R | maybe, **[unverified]** |
+| 19 | Roc: RC with in-place `List` update; compiler rewrite in Zig (2025) | secondary only | A/R | maybe, **[unverified]** (15 Nov 2026: Roc's repo root has a `build.zig` and its README doesn't mention RC, Zig or in-place `List` updates) |
 | 20 | Brandon, Driscoll, Dai, Berkow, Milano: Better Defunctionalization through Lambda Set Specialization | PLDI 2023 | S | **keep** (C12; read at the audit) |
 | 21 | Lutze, Schuster, Brachthäuser: The Simple Essence of Monomorphization | OOPSLA 2025 | S | drop (types are erased; no unboxed type parameters) |
 | 22 | Xu, Kjolstad: Deegen, a JIT-capable VM generator (LuaJIT Remake) | arXiv 2024, OOPSLA 2026 | I | **keep** |
@@ -207,7 +207,7 @@ trust of backends.
 | 26 | Keeter: A tail-call interpreter in (nightly) Rust | blog, Apr 2026 | I/W | **keep** (deep read 5.4) |
 | 27 | CPython 3.14 tail-calling interpreter (Elhage; Jin "No longer sorry") | blogs 2025 | I | **keep** |
 | 28 | Rust explicit tail calls (`become`), nightly; stabilisation a 2026 project goal | Rust docs, blog | I | **keep** (with 26) |
-| 29 | Larose, Kaleba, Burchell, Marr: AST vs. Bytecode: Interpreters in the Age of Meta-Compilation | OOPSLA 2023 | I | maybe, **[unverified]** (search budget ran out) |
+| 29 | Larose, Kaleba, Burchell, Marr: AST vs. Bytecode: Interpreters in the Age of Meta-Compilation | OOPSLA 2023 | I | maybe; venue and authors confirmed 15 Nov 2026 from search summaries of [the author's page](https://stefan-marr.de/papers/oopsla-larose-et-al-ast-vs-bytecode-interpreters-in-the-age-of-meta-compilation/) and the SPLASH 2023 programme (PACMPL 7, OOPSLA2, art. 233, DOI 10.1145/3622808); finding not read in full |
 | 30 | Bhat, Grosser: Lambda the Ultimate SSA (MLIR backend for Lean) | CGO 2022 | — | drop (Cranelift chosen, D1251) |
 | 31 | Copy-and-patch compilation (CPython 3.13 JIT) | OOPSLA 2021, **classic** | I | drop (native code exists) |
 | 32 | Forster, Sozeau, Tabareau: Verified Extraction from Coq to OCaml | PLDI 2024 | T | maybe; not carded (full text not reachable, §9) |
@@ -215,7 +215,7 @@ trust of backends.
 | 34 | wasm_of_ocaml (Vouillon, ML 2024; first release Feb 2025) | talk, blogs | W | **keep** |
 | 35 | Guile Hoot on WasmGC and tail calls (Wingo, 2023–2024) | slides, manual | W | **keep** |
 | 36 | WasmGC and Wasm tail calls are Baseline (Dec 2024) | web.dev | W | **keep** (fact) |
-| 37 | JSPI and stack switching in browsers, 2025–2026 | intent threads | W | maybe, partly **[unverified]** |
+| 37 | JSPI and stack switching in browsers, 2025–2026 | intent threads | W | maybe, partly **[unverified]** (15 Nov 2026: a search summary of the [web-features explorer](https://web-platform-dx.github.io/web-features-explorer/features/wasm-jspi) gives JSPI as shipped in Chrome/Edge 137, 29 May 2025, other engines not; page not read) |
 | 38 | GHC JS backend: Haskell stacks run by a scheduler loop | IOG blog 2023 | J/W | maybe, NOT READ (C22; 404) |
 | 39 | GHC Wasm backend: tail calls opt-in | project page | W | drop |
 | 40 | V8: Adding BigInts; Scala.js `Long` as `BigInt` "really, really bad" | V8 blog; TC39 issue | J | **keep** (deep read 5.5) |
@@ -530,7 +530,7 @@ lever measured in one more interpreter (14%), which fits 5.4. Full text: read (a
 destructively update and return the array a if it is not shared"; array updates and
 reset/reuse "complement each other", so `map (Array.map inc) xs` on an unshared list of
 arrays updates everything in place (C1 §7.1) **[checked]**. That in Lean's logic `Array` is a
-structure around a `List` I know only second-hand **[unverified]**, but compact-text.md
+structure around a `List` ([`Init/Prelude.lean`](https://github.com/leanprover/lean4/blob/master/src/Init/Prelude.lean): "From the point of view of proofs, `Array α` is just a wrapper around `List α`", read 15 Nov 2026) **[cited]**, and compact-text.md
 records the same split for Lean's `String` **[checked]**. Allais (C9) gives the general
 method for a dependently typed language: a record of the efficient encoding plus an erased
 invariant, smart constructors, and a view so users match as if on the inductive family

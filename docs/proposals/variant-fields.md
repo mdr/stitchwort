@@ -269,7 +269,7 @@ to extract or modify fields or to build new constructor values" and "cannot
 escape the scope of the binding" [O1] **[checked]**. Update names the
 constructor, `Point { p with x = … }` [O1] **[checked]**. Field names belong to
 one constructor's inline record; there's no access across constructors
-**[unverified]**.
+(the manual says the record "cannot escape the scope of the binding and can only be used with the dot-notation to extract or modify fields or to build new constructor values", [OCaml manual, inline records](https://ocaml.org/manual/latest/inlinerecords.html), read 15 Nov 2026; it doesn't state the cross-constructor point in those words) **[cited]**.
 
 ### 3.3 Haskell
 
@@ -336,7 +336,7 @@ Idris 2 records are one-constructor, with `r.field` and `{ field := v } r`
 updates that may change a field's type when the result is well typed [I1]
 **[checked]**; its documentation describes generating record setters on demand
 during elaboration and translating them to case blocks [I1] [cited]. Agda's
-records are one-constructor too **[unverified]**.
+records are one-constructor too ("behave much like single constructor datatypes", [Agda, record types](https://agda.readthedocs.io/en/latest/language/record-types.html), read 15 Nov 2026) **[cited]**.
 
 **Koka** generates an accessor function for each named field of a datatype and
 treats dot selection as function application, illustrating a list-head
@@ -358,9 +358,9 @@ kept and a common field replaced.
 
 Elm's custom types have positional arguments only; named fields come from a
 record argument, `Circle { radius : Float }`, matched as `Circle { radius }`
-**[unverified]**. PureScript has Haskell-style record update `p { x = v }` on
+([Elm guide, custom types](https://guide.elm-lang.org/types/custom_types.html), read 15 Nov 2026: every variant example is positional, and a record appears only as one argument, "`ReceivedMessage` actually has a record as associated data"; it doesn't say "only") **[cited]**. PureScript has Haskell-style record update `p { x = v }` on
 records [P1] **[checked]**; whether its data constructors can declare record
-fields I didn't confirm **[unverified]**. In both, `Circle { radius }` is the
+fields I didn't confirm **[unverified]** (15 Nov 2026: the [PureScript Types page](https://github.com/purescript/documentation/blob/master/language/Types.md) says constructors "take zero or more arguments" and doesn't combine records with constructors). In both, `Circle { radius }` is the
 constructor applied to a record pattern, which is draft 1's reading of the
 braces and not D593 (b)'s.
 

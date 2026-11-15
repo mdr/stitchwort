@@ -144,7 +144,9 @@ and `plusSuccRightSucc` are proved by induction
 [Data/Nat.idr L454-465](https://github.com/idris-lang/Idris2/blob/v0.8.0/libs/base/Data/Nat.idr#L454-L465)).
 `%builtin Natural` makes `Nat` an integer at run time
 ([builtins](https://idris2.readthedocs.io/en/latest/reference/builtins.html));
-that it doesn't change type checking is **[unverified]**.
+that it doesn't change type checking is **[unverified]**: the page
+says only that the attribute makes the type an `Integer` at run time
+(read 15 Nov 2026).
 
 **Isabelle/HOL** defines `plus_nat` by `primrec` on the **first** argument,
 and has both `add_0_right` and `add_Suc_right` as `[simp]` lemmas
@@ -247,7 +249,9 @@ the recursive part on the left of `+`, which suits (a):
 - `List.sum` and `List.sumBy` are `foldLeft` from `0` with `acc + x`
   (`List/Toolkit.sw:80-85`) **[checked]**, so a sum starts `0 + a`. Under
   (a) that computes; under (b) it is stuck. Which side Lean's
-  `List.sum` puts the `0` on was not checked **[unverified]**.
+  `List.sum` puts the `0` on: the right. It is `foldr (· + ·) 0`
+  ([Init/Data/List/Basic.lean](https://github.com/leanprover/lean4/blob/master/src/Init/Data/List/Basic.lean),
+  `List.sum`, read on `master` 15 Nov 2026), so a sum ends `... + (z + 0)`.
 - `Vec` append with index `n + m`, in
   `examples/accept/indexed-families.sw`, typechecks only because `+`
   counts down `n`, the first vector's length **[checked]** (the comment
@@ -258,7 +262,10 @@ the recursive part on the left of `+`, which suits (a):
   (`Succ q * d`); under (b), with `*` also counting down its second
   argument, those goals stop computing **[checked]** (11 of the
   `Nat/Arith.sw` errors). Lean writes the divisor on the left,
-  `n % k + k * (n / k) = n` **[unverified]**, which suits its choice.
+  `n % k + k * (n / k) = n` (`Nat.mod_add_div`,
+  [Init/Data/Nat/Div/Basic.lean](https://github.com/leanprover/lean4/blob/master/src/Init/Data/Nat/Div/Basic.lean),
+  read 15 Nov 2026; it also has `Nat.div_add_mod`, `n * (m / n) + m % n = m`),
+  which suits its choice.
 
 So each choice favours a set of conventions. (b) favours counters and
 indices (`i + 1`); (a) favours structural recursion on lists and the
@@ -889,7 +896,11 @@ value of its left side **[checked]** by arithmetic:
 | R4 | `2m + 2n + 2` | `2m + 2n + 1` |
 
 So every rewrite sequence of R1 to R4 is finite (a polynomial
-interpretation, Lankford 1979, **[unverified]** as a citation). In words:
+interpretation, Lankford 1979, technical report MTP-3, Louisiana Tech University,
+"On Proving Term Rewriting Systems are Noetherian"; the report itself wasn't
+read: secondary sources credit it with introducing polynomial
+interpretations, e.g. [Contejean et al., J. Autom. Reasoning 2005](https://perso.liris.cnrs.fr/xavier.urbain/textes/contejean05jar.pdf),
+by search summary). In words:
 R2 and R4 replace a sum by a sum of proper subterms under a `Succ`, and R1
 and R3 remove the sum.
 
@@ -899,7 +910,12 @@ not proved**. It is expected because the rules are first-order,
 non-duplicating, type-preserving and terminating on their own, and results
 of that shape exist for simpler systems (Breazu-Tannen and Gallier,
 "Polymorphic rewriting conserves algebraic strong normalization", 1989/1991,
-for System F with algebraic rules **[unverified]**, from memory). The Taming
+for System F with algebraic rules: *Theoretical Computer Science* 83(1),
+pp. 3-28, June 1991, earlier version ICALP 1989; the technical report
+[MS-CIS-90-36](https://repository.upenn.edu/cis_reports/546) states that
+strong normalisation of a many-sorted algebraic system is preserved when
+β, η and type-η rewriting is added; checked against search summaries of the
+bibliographic record and report abstract, not the full text). The Taming
 of the Rew neither assumes nor proves it for confluence and subject
 reduction ("without relying on weak or strong normalization", §1, p. 0:2).
 For deciding conversion it says weak normalisation is "the most obvious

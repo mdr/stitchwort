@@ -212,10 +212,10 @@ and the hypotheses on lemmas are worth what they buy (§1.4).
 | **Idris 2** | `divNat`, `modNat` partial | erased proof `(0 _ : NonZero y)` on `divNatNZ`, `modNatNZ` | `Data/Nat.idr` **[cited]**; the `Integral Nat` instance uses the partial ones **[cited]** |
 | **F\*** | — | refinement: `val ( / ) : int -> nonzero -> Tot int`, `type nonzero = i:int{i <> 0}`, discharged by SMT | `ulib/Prims.fst` **[cited]** |
 | **Why3** | logic: unspecified | logic functions total but axioms need `y <> 0`; program `div` has `requires { y <> 0 }` | `stdlib/int.mlw` **[cited]** |
-| **Dafny** | — | verification condition | the reference manual defines `/`, `%` "for any integer `a` and non-zero integer `b`" **[cited]**; that a zero divisor is reported as "possible division by zero" is from a third-party mirror of a Stack Exchange question **[unverified]** |
-| **Liquid Haskell** | — | refinement `{v:Int \| v != 0}` on `div`'s divisor | 0.8.0.2 tutorial slides; current spec files not read **[unverified]** |
+| **Dafny** | — | verification condition | the reference manual defines `/`, `%` "for any integer `a` and non-zero integer `b`" **[cited]**; that a zero divisor is reported as "possible division by zero": [Dafny's `ProofObligationDescription.cs`](https://github.com/dafny-lang/dafny/blob/master/Source/DafnyCore/Verifier/ProofObligationDescription.cs), read 15 Nov 2026 **[cited]** |
+| **Liquid Haskell** | — | refinement `{v:Int \| v != 0}` on `div`'s divisor | 0.8.0.2 tutorial slides; the current [`GHC/Real_LHAssumptions.hs`](https://github.com/ucsd-progsys/liquidhaskell/blob/develop/src/GHC/Real_LHAssumptions.hs) has `div :: x:a -> y:{v:a | v /= 0} -> …`, likewise `mod`, `quot`, `rem`, read 15 Nov 2026 **[cited]** |
 | **Haskell** | exception | none | `base`: `div`/`mod` throw `DivideByZero` for every integer type in `base` (`GHC.Real` source comments) **[cited]** |
-| **Elm** | `//`: 0; `modBy 0`: crash | none | `Basics.elm` docs say nothing about 0 **[cited]**; the behaviour is from Elm Discourse threads **[unverified]** |
+| **Elm** | `//`: 0; `modBy 0`: crash | none | `Basics.elm` docs say nothing about 0 **[cited]**; the behaviour is from Elm Discourse threads, and confirmed in the source: [`Elm/Kernel/Basics.js`](https://github.com/elm/core/blob/master/src/Elm/Kernel/Basics.js) has `idiv` as `(a / b) | 0`, so `x // 0` is 0, and `modBy` crashes when `modulus === 0` (read 15 Nov 2026) **[cited]** |
 | **JS `BigInt`** | `RangeError` | none | MDN **[cited]** |
 
 Not covered: Roc (its docs page didn't load usefully; nothing is claimed about it).
