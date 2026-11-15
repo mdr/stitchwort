@@ -1288,17 +1288,20 @@ E's first half alone was 100, small ones.
 ### Part 6 (Fable, 15 Nov 2026): what the printer puts next to what (engine), lexing from pieces
 
 A 1-hour lane on layer E's adjacency half and layer B's lexing from the
-pieces. The engine's side of adjacency and the lexer's side of "pieces
-lex to themselves" are proved; the rules' side (which chunks the rules
-put next to which) and the glue between the two are designed below and
-not started, so "the printed text lexes to the file's tokens" is not yet
-a theorem and there is still no `formatDirect`.
+pieces. The engine's side of adjacency, the lexer's side of "pieces lex
+to themselves" and the glue between them are proved, ending in
+`joinedLex`: a document that joins, printed at any width, lexes to its
+pieces. The rules' side (that the document the rules build for a file
+does join, which chunks they put next to which) is designed below and
+not started, so "the printed text lexes to the file's tokens" still has
+that hypothesis, and there is no `formatDirect`.
 
-**Proved** (no open goals, no axioms; `audit Toy`: see the ticket):
+**Proved** (no open goals, no axioms; `audit Toy`: 533 theorems, 0
+failed, the 10 warnings all on theorems of earlier parts):
 
-- `Doc/Joins.sw` (62 theorems), layer E's adjacency, engine half.
+- `Doc/Joins.sw` (59 theorems), layer E's adjacency, engine half.
   **`printJoins`**: for a `Uniform` document that joins from a line
-  start (`Joins follows doc (Clear None) (after => True)`), at every
+  start (`Joins follows doc (Plain None) (after => True)`), at every
   width, `print` is pieces joined where no piece is empty, the pieces'
   words are the document's, and each piece that isn't layout is followed
   by nothing, by a line break, or by a piece `p` with `follows piece (gapOr
@@ -1322,6 +1325,23 @@ a theorem and there is still no `formatDirect`.
   text that starts with no operator character), `definesStands`,
   `keywordStands`, `signStands`; and `minusBeforeMinus`: a `-` straight
   before a `-` does not stand (bug 1 of part 1, as a theorem).
+- `Fmt/PieceProofs.sw` (27 theorems), the glue. `standsBefore word
+  next`: `word` is read whole, as the lexeme it starts with
+  (`lexemeOf`), when `next` comes straight after it, whatever comes
+  later; `Proper piece`: a piece that isn't layout is read whole at the
+  end of the text and before a line break. **`piecesStand`**: printed
+  pieces (the last first) with `Pairs standsBefore` and all `Proper`
+  are, as steps (`stepsOnto`: neighbouring pieces of spaces one `Spaces`
+  step, a line break a `LineBreak`, a word the lexeme it starts with),
+  `StepsStand`; **`piecesLex`**: so their text lexes to those steps.
+  **`joinedLex`**: for a `Uniform` document with `Joins standsBefore doc
+  (Plain None) (after => True)` whose words are all `Proper`, at every
+  width, `print doc width` is `pieces` joined, the pieces' words are the
+  document's, and `lex` of it is `Ok` with the pieces as lexemes and the
+  tokens `assemble` makes of them. `joinedLexExample` meets the
+  hypotheses for `f(`. On the way: `standsNoSpace` (only a `Spaces`
+  lexeme starts with a space), `gapConsStand`, `addStands`, `joinedChars`
+  (the characters of pieces joined, from std's `Text.concatToList`).
 
 **Checked against a broken program:** with `write` putting text after a
 waiting comment on its line, `writeHolds` fails (with part 5's
@@ -1331,9 +1351,9 @@ waiting comment on its line, `writeHolds` fails (with part 5's
 **The design as built** (it differs from part 5's sketch in three
 places).
 
-- The edge is `Clear touching` (no comment waits; `touching` is the last
+- The edge is `Plain touching` (no comment waits; `touching` is the last
   piece if it isn't layout) or `Waiting`. `Fresh` and "after spaces" are
-  both `Clear None`: nothing is asked of what follows layout.
+  both `Plain None`: nothing is asked of what follows layout.
 - One relation, not two. `follows word next` covers a chunk after a
   chunk and a space after a chunk (`follows word " "`), so "a comment
   ends its line" is just that nobody can prove `follows comment " "` or
@@ -1362,11 +1382,11 @@ places).
 **What is left of "the printed text lexes to the file's tokens".**
 
 1. **The rules' half of adjacency** (about 40 lemmas, as part 5
-   counted): `Joins standsBefore file.layout (Clear None) (after =>
+   counted): `Joins standsBefore file.layout (Plain None) (after =>
    True)`, with `standsBefore word next := ∀ later => Stands (lexemeOf
    word) word.toList (next.toList ++ later)` and `lexemeOf word` the
    lexeme `lexemeStart` finds. Per expression form: from which edges it
-   joins and which it leaves (`Clear (Some lastToken)` or `Waiting`). The
+   joins and which it leaves (`Plain (Some lastToken)` or `Waiting`). The
    pairs the rules make without a space are few: a last token before
    `(`, `)`, `,`, `.`, `]`; `(` and `[` before a first token or the
    closer; `.` before a name; `-` before an operand that doesn't start
@@ -1376,34 +1396,30 @@ places).
    no line break) to turn "a name" into `Stands WordLexeme`. A chunk
    whose text is a variable needs `text.isEmpty = False` to compute
    `WriteJoins`; a helper lemma per token class will do.
-2. **The glue** (about 20 lemmas): from `Pairs standsBefore
-   pieces.reverse` and each word standing before a line break and
-   before the end, `StepsStand` of the pieces as steps, adjacent pieces
-   of spaces merged into one `Spaces` step. Designed as a fold from the
-   last piece (`stepsOnto out steps`, `addPiece` merging a gap into a
-   `Spaces` step at the head), so `Pairs`' order (the last first) is the
-   induction's and no lemma reverses a list. Needs: a non-`Spaces` step
-   doesn't start with a space (by cases on `Stands`), `List.all` over an
-   append, and `(pieces.joinWith "").toList` as the pieces' characters
-   (not looked for in std).
-3. Then `standingLex` gives `lex (file.print width).text = Ok` of those
-   steps, and `assemble` over them is the positions half
-   (`readingTracks`).
+2. **`Proper` of the file's pieces**: each token's and comment's text
+   stands at the end of the text and before a line break. The same WF
+   token texts as item 1, a lemma per token class.
+3. Then `joinedLex` on `file.layout` (with `fileWrites` for `Uniform`
+   and the words) gives `lex (file.print width).text = Ok` of the
+   pieces as steps, and `assemble` over those steps is the positions
+   half (`readingTracks` for the columns; which steps are `LineBreak`s
+   needs the layout pieces, so the positioned trace of part 5's item 2).
 
-**Re-estimate** [estimated; this lane proved 77 theorems in about 20
-minutes of the clock, all but four on the first check]:
+**Re-estimate** [estimated; this lane proved 101 theorems in about 30
+minutes of the clock, all but eight on the first check]:
 
 | Layer | Left | Lemmas |
 |---|---|---|
 | A, engine | nothing | 0 |
-| B, lexing | the glue (20); `assemble` over the steps (15-20) | 35-40 |
-| E, rules to tokens | adjacency, rules half (40), positions (25), layer C read back (30), spelling the tree (40) | 130-140 |
+| B, lexing | `assemble` over the steps | 15-20 |
+| E, rules to tokens | adjacency, rules half (40) and `Proper` (10), positions (25), layer C read back (30), spelling the tree (40) | 140-150 |
 | WF | token texts, body structure, no two waiting comments | 40-50 |
 | D, parser | `if` with a block branch; the file from its spelling | 30-40 |
 | Glue | `formatDirect`, round trip, idempotence | 10 |
 
 Still three lanes at this pace: (1) the rules' half with WF's token
-texts and the glue, ending in "the printed text lexes to these steps";
+texts, ending in "the printed text lexes to these steps" with no
+hypothesis but WF;
 (2) positions, `assemble` and layer C's read-back; (3) spelling the
 tree, the rest of D and the glue.
 
@@ -1417,7 +1433,18 @@ tree, the rest of D and the glue.
     lemmas (`operatorNext.eq2`, `lexemeStart.eq8`) do the work, and a
     wrong argument's error prints their whole signature, which is how
     they were found.
-32. **Continuation-style predicates just work**: `Joins` recurses under
+32. **Two constructors named `Clear`** (the edge's, and layer C's
+    `Scan.Clear`) met in `Toy.Fmt.Proofs`: the error names both; the
+    edge's is now `Plain`.
+33. **A term written inside a `match` arm isn't refined, but every
+    hypothesis in scope is**, so a lemma that takes the unrefined
+    hypothesis can't be called there (friction 25 from the other side):
+    the lemma was restated to take only the parts the `match` doesn't
+    touch (`wordStands`).
+34. **A `let` with a stated type computes the type before `rewrite`
+    looks**: `lexemeStart ([' ', ..others] ++ rest) = …` had already
+    become `Some Spaces = …`; `Eq.cong` and `Eq.trans` instead.
+35. **Continuation-style predicates just work**: `Joins` recurses under
     a lambda (`after => JoinsAll follows rest after next`) through four
     mutual definitions, and the termination checker and `rfl` took all
     of it. `match e, hypothesis with` rewrites `e` inside the
