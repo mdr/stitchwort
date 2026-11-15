@@ -27,37 +27,56 @@ def isWordChar (char: Char): Bool := char.isAsciiAlphanumeric || char == '_'
 
 def isOperatorChar (char: Char): Bool := "=|&!<+-*/%".any (symbol => symbol == char)
 
---| The lexeme at the start of `rest`, the input left, chosen by its first
---| characters.
-def lexemeAt (rest: List Char): {Parse Char} Lexeme := match rest with
-  | [' ', .._] =>
+--| Which lexeme starts `rest`, the input left, by its first characters;
+--| `None` at the end.
+-- Apart from `lexemeAt` and without abilities, so that its arms have
+-- equations and a proof can say which lexeme a text starts with.
+def lexemeStart (rest: List Char): Option Lexeme := match rest with
+  | [' ', .._] => Some Spaces
+  | ['\n', .._] => Some LineBreak
+  | ['-', '-', .._] => Some CommentLexeme
+  | ['"', .._] => Some StringLexeme
+  | [char, .._] if isWordStart char => Some WordLexeme
+  | [char, .._] if char.isAsciiDigit => Some DigitsLexeme
+  | [char, .._] if (punctuation char).isSome => Some SignLexeme
+  | [char, .._] if isOperatorChar char => Some SymbolsLexeme
+  | [_, .._] => Some StrayLexeme
+  | [] => None
+
+--| The lexeme at the start of `rest`, the input left, read.
+def lexemeAt (rest: List Char): {Parse Char} Lexeme := match lexemeStart rest with
+  | Some lexeme => readLexeme lexeme
+  | None => Parse.expected "a token"
+
+--| Reads the lexeme that `lexemeStart` found next.
+def readLexeme (lexeme: Lexeme): {Parse Char} Lexeme := match lexeme with
+  | Spaces =>
     let spaces := Parse.span (char => char == ' ')
     Spaces
-  | ['\n', .._] =>
+  | LineBreak =>
     let lineBreak := Parse.next (char => True)
     LineBreak
-  | ['-', '-', .._] =>
+  | CommentLexeme =>
     let comment := Parse.span (char => char != '\n')
     CommentLexeme
-  | ['"', .._] =>
+  | StringLexeme =>
     stringLexeme()
     StringLexeme
-  | [char, .._] if isWordStart char =>
+  | WordLexeme =>
     let word := Parse.span isWordChar
     WordLexeme
-  | [char, .._] if char.isAsciiDigit =>
+  | DigitsLexeme =>
     let digits := Parse.span (char => char.isAsciiDigit)
     DigitsLexeme
-  | [char, .._] if (punctuation char).isSome =>
+  | SignLexeme =>
     let sign := Parse.next (char => True)
     SignLexeme
-  | [char, .._] if isOperatorChar char =>
+  | SymbolsLexeme =>
     let run := Parse.many operatorChar
     SymbolsLexeme
-  | [_, .._] =>
+  | StrayLexeme =>
     let stray := Parse.next (char => True)
     StrayLexeme
-  | [] => Parse.expected "a token"
 
 --| One character of an operator run; a run stops before a comment's `--`.
 def operatorChar(): {Parse Char} () := match Parse.mark().rest with

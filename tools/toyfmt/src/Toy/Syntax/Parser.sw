@@ -155,10 +155,13 @@ def negationsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Ex
     | Succ more, Some token if isMinus layout token =>
       skip()
       Negate (negationsFrom more self layout)
-    | _, _ =>
-      Parse.note (Parse.Problem.Expected "an expression")
-      let first := atom self layout
-      suffixesFrom (Parse.mark().left + 1) self layout first
+    | _, _ => postfix self layout
+
+--| An atom and its calls and fields.
+def postfix (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
+  Parse.note (Parse.Problem.Expected "an expression")
+  let first := atom self layout
+  suffixesFrom (Parse.mark().left + 1) self layout first
 
 --| `target`'s calls and fields, at most `fuel` of them. A call or field
 --| that doesn't parse is left unread.
@@ -172,20 +175,27 @@ def suffixesFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Exp
       let call := Parse.optional (() =>
         skip()
         Call target (items self CloseParen))
-      match call with
-        | Some call => suffixesFrom more self layout call
-        | None => target
+      suffixesAfter more self layout target call
     | Succ more, Sign Dot =>
       let field := Parse.optional (() =>
         skip()
         Field target (name layout))
-      match field with
-        | Some field => suffixesFrom more self layout field
-        | None => target
+      suffixesAfter more self layout target field
     | _, _ =>
       Parse.note (Parse.Problem.Expected "'('")
       Parse.note (Parse.Problem.Expected "'.'")
       target
+
+--| What `suffixesFrom` does with the call or field it tried after `target`:
+--| on from `longer`, the target with it, or `target` alone if it didn't
+--| parse.
+-- A function of its own so that proofs (ExpressionProofs.sw) can name it.
+def suffixesAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (target: Expr) (longer: Option Expr):
+    {Parse (Parse.Located Token)} Expr :=
+  match longer with
+    | Some longer => suffixesFrom more self layout longer
+    | None => target
 
 def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
   match peek() with
@@ -239,19 +249,28 @@ def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
     {Parse (Parse.Located Token)} List Item :=
   match fuel with
     | Zero => found.reverse
-    | Succ more =>
-      let (next, comma) := item self
-      if comma then itemsFrom more self [next, ..found] else [next, ..found].reverse
+    | Succ more => itemsAfter more self found (item self)
+
+--| What `itemsFrom` does with the item it read and whether a comma followed
+--| it: on to the next item after a comma, else the items found.
+-- A function of its own so that proofs (ExpressionProofs.sw) can name it.
+def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Item) (read: (Item, Bool)):
+    {Parse (Parse.Located Token)} List Item :=
+  if read.snd then itemsFrom more self [read.fst, ..found] else [read.fst, ..found].reverse
 
 --| An item, its comma if one follows, and whether one did. The comma is
 --| the item's last token, so a comment after it is the item's.
 def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Located Token)} (Item, Bool) :=
   let start := Parse.mark()
-  let comments := start.rest.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
+  let comments := commentsAbove start.rest
   let value := self InBrackets
   let comma := signInBrackets "','" Comma
   let trailing := if comma then lastTrailing start else trailingSince start value
   ({ comments, value, trailing }, comma)
+
+--| The own-line comments above the first of the tokens.
+def commentsAbove (tokens: List (Parse.Located Token)): List Comment :=
+  tokens.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
 
 def Punctuation.spelling: Punctuation → Text
   | OpenParen => "("

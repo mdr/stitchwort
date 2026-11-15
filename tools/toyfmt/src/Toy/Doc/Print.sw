@@ -65,8 +65,14 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
     | Empty => (printer, rest)
     | BreakParent => (printer, rest)
     | Chunk text width => (printer.write text width, rest)
-    | Line => if mode.isFlat then (printer.write " " 1, rest) else (printer.newline indent, rest)
-    | SoftLine => if mode.isFlat then (printer, rest) else (printer.newline indent, rest)
+    -- A trailing comment that is waiting ends its line at a `Line` or
+    -- `SoftLine` even in a flat group. `fits` already keeps such a group
+    -- from being flat; breaking here too makes "no code after a comment on
+    -- its line" hold of the printer by these two lines alone, without a
+    -- proof about `fits`.
+    | Line =>
+      if mode.isFlat && printer.suffixes.isEmpty then (printer.write " " 1, rest) else (printer.newline indent, rest)
+    | SoftLine => if mode.isFlat && printer.suffixes.isEmpty then (printer, rest) else (printer.newline indent, rest)
     | HardLine => (printer.newline indent, rest)
     | Blank => (printer.blank, rest)
     | Nest more inner => (printer, [Print (indent + more) mode inner, ..rest])

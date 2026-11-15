@@ -690,3 +690,144 @@ choice measures it.
 6. **`omega` can't see through `_` arguments**: a bound passed to a lemma
    with `_` for the bound gives "needs to know the goal"; writing the bound
    out fixes it.
+
+### Part 2 (Fable, 15 Nov 2026): the parser's operators, the engine's comment rule, the lexer's first lemma
+
+A second 3-hour lane, on the three places the plan called risky. Each was
+tried far enough to see what its proofs cost; none turned out to need a
+new idea, and two needed a small restructuring of the program first.
+
+**Proved** (no open goals, no axioms; each checked to fail when the
+program is broken: `Parse.nextLowest` for a left-associative level,
+`operatorOf`'s level test):
+
+- Std, `Parse/RunsOperators.sw`: `Parse.runsOperators`. A tree of operands
+  and operator items (`Parse.OperatorTree`) that is grouped as
+  `Parse.operators` groups (`Formed`: each operator is the item its level,
+  associativity and function come from; its left side would not have
+  taken it; its right side holds only operators its right operand may),
+  whose operands `operand` reads where they stand (`RunsEach`), and after
+  which no operator comes, is read back from its items, with the tree's
+  value. Any levels and both associativities. By induction on the tree
+  down its left side (`runsOperandsPrefix`): reading the left side leaves
+  the loop where this operator and its right side continue it. A worked
+  instance: `9-1-2*3` is `(9 - 1) - (2 * 3)`.
+- Std: `Parse.runsRecursiveWith` (the completeness of `recursiveWith`, as
+  `runsRecursive`), `Parse.runsNext`, and `Parse.runsLocatedToEnd`: on
+  input a lexeme parser reads lexeme by lexeme to its end,
+  `locatedToEnd` gives each lexeme with its offset and length.
+- `Syntax/ExpressionProofs.sw` and `Syntax/ItemProofs.sw`,
+  `runsExpression`: on tokens that spell an expression at a layout
+  (`Spelled`: its tokens in order, each of its kind and allowed by the
+  layout, and an item's comments where the parser takes them from: its
+  own-line comments above its first token, its trailing comment on its
+  comma, or on its last token for the last item) of the parser's shape
+  (`Shaped`: a field's target and a call's callee are postfix
+  expressions, `-` stands before an operand, operators grouped by
+  precedence and chaining from the left), followed by no call, field or
+  operator, `expression layout` reads exactly those tokens and gives the
+  expression. Covers every expression but `if`, nested to any depth:
+  names, numbers, strings, brackets, lists, calls, fields, negation and
+  operator chains. `Spelled` and `Shaped` are `False` for an `if`, so the
+  theorem says nothing there. `runsExpressionExample` is an instance, the
+  six tokens of `f(a) + b`. Std's `Parse.lastReadAfter` (what
+  `Parse.lastRead` gives after a read) was needed for the comments.
+- `Doc/Proofs.sw`: `lineAfterComment`, `softLineAfterComment`,
+  `fillSepAfterComment`: a `Line`, `SoftLine` or fill separator reached
+  while a trailing comment waits prints a line break, in a flat group too.
+- `Syntax/LexProofs.sw`, `runsWordLexeme`: `lexemeAt` reads a word (a
+  letter or `_`, then word characters, up to a character that isn't one)
+  as a `WordLexeme`.
+
+**Restructured, with the same behaviour** (the 93 tests pass, goldens and
+messages included; the lexer's and parser's speed was not measured here,
+each change adds a call per lexeme or operator):
+
+- The engine now tests for a waiting comment at `Line` and `SoftLine`
+  itself, as `FillSep` did. `fits` already kept such a group from printing
+  flat, so no output changes; but "no code after a comment on its line"
+  was a fact about how far `fits` looks ahead (the plan's layer A, the
+  half estimated at 2-4 days) and is now three one-line lemmas. What is
+  left of layer A is the plain simulation: `print` is one of the
+  width-free readings.
+- Std's `operandsFrom`, `operatorsFrom` and `locatedToEndFrom`, and the
+  toy's `suffixesFrom` and `negationsFrom`, call named functions
+  (`operandsAfter`, `operatorsAfter`, `nextLowest`, `locatedToEndRound`,
+  `suffixesAfter`, `postfix`, `itemsAfter`, `commentsAbove`) where they
+  had a `match` or `if` after an effect. A `match` written inside a recursive definition can't be named
+  by a lemma (std's `manyRound` exists for the same reason).
+- The lexer chooses its lexeme in a pure function (`lexemeStart`), then
+  reads it (`readLexeme`). A definition that performs abilities gets no
+  equations, and its patterns on character literals don't compute for an
+  unknown character; the pure function's generated equations
+  (`lexemeStart.eq5: char ∉ [' ', '\n', '"'] → … → isWordStart char →
+  lexemeStart [char, ..tail] = Some WordLexeme`) are exactly the facts the
+  lexing layer needs.
+
+**What this changes in the plan.** The layers, as they now stand:
+
+| Layer | Left | Lemmas [estimated] |
+|---|---|---|
+| A, engine | `print` is the text of one reading of the document (each `Line` a space or a break, each choice an option); the comment half is done | 20-30 |
+| B, lexing | `lexemeAt` for the other 8 lexemes (strings are the long one); `assemble`'s fold (line starts, columns, comments onto tokens); `Parse.all` from `runsLocatedToEnd`; texts joined and sliced | 50-70 |
+| E, rules to tokens (new; was hidden between B and C) | the tokens of any reading of a tree's document spell the tree (`Spelled`), with the columns from layer C and the comments from the comment proofs | 50-70 |
+| D, parser | `if` and bodies, blocks (`many1`, the notes above a statement, kept blank lines), statements, declarations, the file | 30-40 |
+| WF | the parser gives `Shaped` trees, and the lexer's tokens can be lexed again (a name is a word and no keyword, a string closes) | 50-70, or a run-time walk |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+About 220-290 lemmas. This lane proved 78 theorems (22 in std, 56 in the
+toy) in about 50 minutes on the clock, most first time; what took longer
+was finding each restructuring. Its length was set by the model's context,
+not the clock: a lane's worth is about 80 lemmas. At that rate the rest is
+3 to 4 more lanes like this one **[estimated, from this lane's measured pace; the
+string lexeme, `assemble` and layer E have not been tried]**: days, not
+weeks.
+
+**`AsWritten` is the piece that doesn't fit.** A declaration kept as
+written is printed as its source text, so the round trip needs: lexing
+and parsing that text again, at another offset, gives the same tokens and
+again a declaration with a comment out of place. That is a statement
+about the whole lexer and parser being unmoved by what surrounds a
+declaration, not a read-back from a tree, and is as large as layer D
+again. The cheap end state: `formatDirect` skips the re-parse only for a
+file with no `AsWritten` declaration, and re-parses the others (a file
+with a comment where no rule places one). The real formatter's
+left-as-written fallback has the same shape. A decision for Matt.
+
+**For the real formatter**, the expensive std pieces are done once
+(`runsOperators`, `runsRecursiveWith`, `runsLocatedToEnd`), layer A is
+one engine, and the per-node work is what `runsExpression` shows: about
+3 lemmas per node kind in D, and by the comment and layout proofs about
+as many again in E. With 94 node kinds against the toy's 17 that is
+1,000 to 1,500 lemmas, weeks of lane time at this pace **[estimated, very
+low confidence: nothing of the real formatter was tried]**, and its
+parser is Rust, so layers B, D and WF would be about a Stitchwort port of
+it, or stay a run-time check.
+
+**Friction** (beyond part 1's):
+
+7. **A `match` or `if` after an effect in a recursive definition can't be
+   named**, and a lambda in a proof can't hold a `match`
+   (`E-MATCH-MOTIVE`), so each such step needs a helper `def` in the
+   program. Eight were added here. The error's notes say so clearly.
+8. **No equations for a definition that performs abilities** ("stage
+   1a"), so a parser that chooses by patterns must keep the choice pure.
+9. **`rewrite starts` reaches only the reads a computation has got to.**
+   A parser that looks at the input twice (`expressionRule`, then
+   `negationsFrom`) is rewritten on one side of the goal and not the
+   other. Taking the state apart with a record pattern (`match state with
+   | { at = { rest = [token, ..later], … }, … }`) refines every read at
+   once (`chainRuleRun`).
+10. **`rewrite` with a rule about a call that appears only after an
+    earlier one computes** (`operatorOf layout 2 sign`, reached once level
+    1 says `None`) finds nothing; split the value first, then rewrite as
+    many levels as that case reads (`operatorFound`).
+11. **Constructor order of a nested `∃`**: `Spelled`'s arms are four or
+    five `∃`s and as many `∧`s deep, matched as `Witness a (Witness b
+    (Both … ))`; a record-shaped proposition would read better.
+12. `std_library::the_standard_library_passes_its_own_tests` fails on this
+    branch at "Args.run: a mistake fails with the complaint, and prints
+    nothing" (an `Args` test, from SW-3403's exit codes by the look of it;
+    nothing here touches `Args`), which hides whether the tests after it
+    pass.
+

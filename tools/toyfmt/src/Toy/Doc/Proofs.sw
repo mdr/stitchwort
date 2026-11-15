@@ -567,3 +567,29 @@ theorem printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat) (mode:
   let bound := stepsUnderSize doc
   rewrite printStepsEnough printer (3 * doc.size + 3 + extraTotal) extraFuel doc indent mode in
     runTotalEnough printer (3 * doc.size + 3) extraTotal (3 * doc.size + 3) [Print indent mode doc] (omega)
+
+--| A `Line` reached while a trailing comment waits is a line break, in a
+--| flat group too: no text follows the comment on its line. With
+--| `softLineAfterComment` and the `FillSep` step, this is the engine's half
+--| of "comments keep their owners"; the rules' half is
+--| `Toy.Fmt.Proofs.exprSuffix` and its neighbours.
+theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (mode: Mode) (rest: List Cmd)
+    (waiting: printer.suffixes.isEmpty = False):
+    printer.printDoc total indent mode Line rest = (printer.newline indent, rest) :=
+  match mode with
+    | Flat => rewrite waiting in rfl
+    | Break => rfl
+
+theorem softLineAfterComment ∀ (printer: Printer) (total indent: Nat) (mode: Mode) (rest: List Cmd)
+    (waiting: printer.suffixes.isEmpty = False):
+    printer.printDoc total indent mode SoftLine rest = (printer.newline indent, rest) :=
+  match mode with
+    | Flat => rewrite waiting in rfl
+    | Break => rfl
+
+--| The next item of a broken `Fill` starts a new line while a trailing
+--| comment waits.
+theorem fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Doc) (rest: List Cmd)
+    (waiting: printer.suffixes.isEmpty = False):
+    printer.step total (FillSep indent item) rest = (printer.newline indent, [Print indent Break item, ..rest]) :=
+  rewrite waiting in rfl

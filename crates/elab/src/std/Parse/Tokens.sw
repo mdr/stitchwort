@@ -27,17 +27,23 @@ def Parse.locatedToEndFrom (fuel: Nat) (lexeme: List Char → {Parse Char} a)
     (found: List (Parse.Located a)) (start: Parse.Mark Char):
     {Parse Char} List (Parse.Located a) :=
   match fuel, start.rest with
-    | Succ more, [_, .._] =>
-      let value := lexeme start.rest
-      let finish := Parse.mark()
-      if finish.offset > start.offset then
-        Parse.locatedToEndFrom more lexeme
-          [{ value, offset = start.offset, length = finish.offset - start.offset }, ..found]
-          finish
-      else Empty.absurd (Parse.fatal "`locatedToEnd`: the lexeme matched without reading anything")
+    | Succ more, [_, .._] => Parse.locatedToEndRound more lexeme found start (lexeme start.rest) Parse.mark()
     | _, _ =>
       Parse.note (Expected "a token")
       found.reverse
+
+--| What `locatedToEndFrom` does with the `value` of the lexeme read from
+--| `start` to `finish`, with `more` rounds left after it: on from `finish`
+--| with the lexeme and where it was read, if it read something.
+-- A function of its own so that proofs (Parse/RunsTokens.sw) can name it.
+def Parse.locatedToEndRound (more: Nat) (lexeme: List Char → {Parse Char} a) (found: List (Parse.Located a))
+    (start: Parse.Mark Char) (value: a) (finish: Parse.Mark Char):
+    {Parse Char} List (Parse.Located a) :=
+  if finish.offset > start.offset then
+    Parse.locatedToEndFrom more lexeme
+      [{ value, offset = start.offset, length = finish.offset - start.offset }, ..found]
+      finish
+  else Empty.absurd (Parse.fatal "`locatedToEnd`: the lexeme matched without reading anything")
 
 --| A lexer for `Parse.tokens` whose every character belongs to a lexeme:
 --| the whole input as the values of `lexeme`, each with where it was read.

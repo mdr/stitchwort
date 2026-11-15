@@ -43,6 +43,128 @@ theorem Parse.runsFromLocated ∀ (state: Parse.State Char) (p: () → {Parse Ch
           { value = v, offset = state.at.offset, length = read.length }
           (rewrite sameLength in Parse.runsPure _ rest middle)))
 
+--| `lexeme` reads the input lexeme by lexeme, to its end: each step's
+--| characters (never none) and value, read by `lexeme` given the characters
+--| left, as `Parse.locatedToEnd` calls it.
+def Parse.LexemesRun (lexeme: List Char → {Parse Char} a): (steps: List (List Char, a)) → Prop
+  | [] => True
+  | [(read, value), ..steps] =>
+    read ≠ []
+      ∧ Parse.Runs (() => lexeme (read ++ Parse.joinReads steps)) read (Parse.joinReads steps) value
+      ∧ Parse.LexemesRun lexeme steps
+
+--| The steps' values with where each is read, the first at `offset`.
+def Parse.locatedSteps (offset: Nat): (steps: List (List Char, a)) → List (Parse.Located a)
+  | [] => []
+  | [(read, value), ..steps] =>
+    [{ value, offset, length = read.length }, ..Parse.locatedSteps (offset + read.length) steps]
+
+--| `locatedToEndFrom` from a state at its `start` mark, with enough fuel
+--| (more than the lexemes), after `found` (newest first): it gives them all.
+theorem Parse.runsLocatedToEndFrom ∀ (lexeme: List Char → {Parse Char} a) (steps: List (List Char, a)) (fuel: Nat)
+    (found: List (Parse.Located a)) (state: Parse.State Char)
+    (runs: Parse.LexemesRun lexeme steps)
+    (enough: steps.length < fuel):
+    Parse.RunsFrom state
+      (() => Parse.locatedToEndFrom fuel lexeme found state.at)
+      (Parse.joinReads steps)
+      []
+      (found.reverse ++ Parse.locatedSteps state.at.offset steps) :=
+  match steps, runs with
+    | [], runs => starts honest =>
+      match fuel with
+        | Succ more =>
+          let same := Parse.noteAt state (Expected "a token")
+          Witness
+            (state.note (Expected "a token")).at
+            (Both
+              (rewrite List.appendNil found.reverse, starts in rfl)
+              (Both
+                (rewrite same in starts)
+                (Both (rewrite same in rewrite starts at honest in honest) (rewrite same in rfl))))
+    | [(read, value), ..later], Both nonEmpty (Both runsLexeme runsLater) => starts honest =>
+      match fuel, read with
+        | Succ more, [] => Void.exfalso (nonEmpty rfl)
+        | Succ more, [char, ..chars] =>
+          let whole: state.at.rest = [char, ..chars] ++ Parse.joinReads later :=
+            rewrite List.appendNil ([char, ..chars] ++ Parse.joinReads later) at starts in starts
+          let core :=
+            Parse.runsFromBind state
+              (() => lexeme state.at.rest)
+              (found1 => Parse.locatedToEndRound more lexeme found state.at found1 Parse.mark())
+              [char, ..chars]
+              (Parse.joinReads later)
+              ([char, ..chars] ++ Parse.joinReads later)
+              []
+              value
+              (found.reverse ++ Parse.locatedSteps state.at.offset [([char, ..chars], value), ..later])
+              rfl
+              (rewrite whole, List.appendNil (Parse.joinReads later) in runsLexeme)
+              (middle atRest honest1 offset =>
+                let moved: (middle.at.offset > state.at.offset) = True := omega [offset]
+                let sameLength: middle.at.offset - state.at.offset = Succ chars.length := omega [offset]
+                let offsetSame: middle.at.offset = state.at.offset + Succ chars.length := omega [offset]
+                let newest: Parse.Located a :=
+                  { value, offset = state.at.offset, length = middle.at.offset - state.at.offset }
+                let ih :=
+                  Parse.runsLocatedToEndFrom lexeme later more [newest, ..found] middle runsLater (omega [enough])
+                let step: Parse.locatedToEndRound more lexeme found state.at value middle.at
+                  = Parse.locatedToEndFrom more lexeme [newest, ..found] middle.at :=
+                  rewrite moved in rfl
+                let result: [newest, ..found].reverse ++ Parse.locatedSteps middle.at.offset later
+                  = found.reverse ++ Parse.locatedSteps state.at.offset [([char, ..chars], value), ..later] :=
+                  rewrite List.reverseCons newest found,
+                      List.appendAssoc found.reverse [newest] (Parse.locatedSteps middle.at.offset later),
+                      sameLength,
+                      offsetSame in
+                    rfl
+                Parse.runsFromMark middle
+                  (finish => Parse.locatedToEndRound more lexeme found state.at value finish)
+                  (Parse.joinReads later)
+                  []
+                  (found.reverse ++ Parse.locatedSteps state.at.offset [([char, ..chars], value), ..later])
+                  (rewrite step, <- result in ih))
+          match core starts honest with
+            | Witness m (Both ran others) => Witness m (Both (rewrite whole in ran) others)
+
+--| An input has at least a character per lexeme (fuel for `locatedToEnd`).
+theorem Parse.lexemeStepsShort ∀ (lexeme: List Char → {Parse Char} a) (steps: List (List Char, a))
+    (runs: Parse.LexemesRun lexeme steps):
+    steps.length ≤ (Parse.joinReads steps).length :=
+  match steps, runs with
+    | [], runs => rfl
+    | [(read, value), ..later], Both nonEmpty (Both runsLexeme runsLater) =>
+      match read with
+        | [] => Void.exfalso (nonEmpty rfl)
+        | [char, ..chars] =>
+          let shorter := Parse.lexemeStepsShort lexeme later runsLater
+          omega [shorter, List.lengthAppend chars (Parse.joinReads later)]
+
+--| `locatedToEnd lexeme` on input that `lexeme` reads lexeme by lexeme
+--| ([`Parse.LexemesRun`]): it reads all of it and gives each lexeme's value
+--| with its offset and length. About one state (`Parse.RunsFrom`), since the
+--| offsets count from where the parse is.
+theorem Parse.runsLocatedToEnd ∀ (lexeme: List Char → {Parse Char} a)
+    (steps: List (List Char, a)) (state: Parse.State Char)
+    (runs: Parse.LexemesRun lexeme steps):
+    Parse.RunsFrom state
+      (() => Parse.locatedToEnd lexeme)
+      (Parse.joinReads steps)
+      []
+      (Parse.locatedSteps state.at.offset steps) :=
+  starts honest =>
+    let short := Parse.lexemeStepsShort lexeme steps runs
+    let lengths: state.at.rest.length = (Parse.joinReads steps).length :=
+      rewrite starts, List.appendNil (Parse.joinReads steps) in rfl
+    Parse.runsFromMark state
+      (start => Parse.locatedToEndFrom (start.left + 1) lexeme [] start)
+      (Parse.joinReads steps)
+      []
+      (Parse.locatedSteps state.at.offset steps)
+      (Parse.runsLocatedToEndFrom lexeme steps (state.at.left + 1) [] state runs (omega [short, honest, lengths]))
+      starts
+      honest
+
 --| `Parse.tokens` where lexing all of the input gave `tokens` (as
 --| `Parse.all` does, [`Parse.runsAll`]) and the parser reads all of them: it
 --| gives the parser's value.

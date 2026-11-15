@@ -11,7 +11,8 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 -- every well-formed input, builds a `Runs` from the pieces' lemmas
 -- ([`Parse.runsNat`], [`Parse.runsChar`], …) and the combinators' ([`Parse.runsBind`],
 -- [`Parse.runsOneOfFirst`], [`Parse.runsMany`], [`Parse.runsSepBy1`],
--- [`Parse.runsRepeat`], [`Parse.runsChainLeft`], [`Parse.runsRecursive`], …),
+-- [`Parse.runsRepeat`], [`Parse.runsChainLeft`], [`Parse.runsRecursive`],
+-- [`Parse.runsOperators`] in Parse/RunsOperators.sw, …),
 -- and [`Parse.runsRun`] (or [`Parse.runsWhole`], [`Parse.runsAll`],
 -- [`Parse.runsLine`], [`Parse.runsEachLine`]) turns it into
 -- `Parse.run input p = Ok value`. For example,
@@ -1137,6 +1138,73 @@ theorem Parse.runsRecursive ∀ (body: (() → {Parse t} a) → {Parse t} a) (go
       (Parse.runsRecursiveFuel body good step (state.at.left + 1) read rest v holds small state)
       starts
       honest
+
+--| `recursiveWithFuel`, by induction on the fuel.
+theorem Parse.runsRecursiveWithFuel ∀ (body: (b → {Parse t} a) → b → {Parse t} a) (good: b → List t → List t → a → Prop)
+    (step: ∀ (self: b → {Parse t} a) (argument: b) (read rest: List t) (v: a) => good argument read rest v
+      → (∀ (nestedArgument: b) (nestedRead nestedRest: List t) (w: a) => good nestedArgument nestedRead nestedRest w
+        → nestedRead.length < read.length
+        → Parse.Runs (() => self nestedArgument) nestedRead nestedRest w)
+      → Parse.Runs (() => body self argument) read rest v)
+    (fuel: Nat) (argument: b) (read rest: List t) (v: a) (holds: good argument read rest v)
+    (small: read.length < fuel):
+    Parse.Runs (() => Parse.recursiveWithFuel fuel body argument) read rest v :=
+  match fuel with
+    | Succ more => state starts honest =>
+      step
+        (inner => Parse.recursiveWithFuel more body inner)
+        argument
+        read
+        rest
+        v
+        holds
+        (nestedArgument nestedRead nestedRest w nestedHolds shorter =>
+          Parse.runsRecursiveWithFuel body good step more nestedArgument nestedRead nestedRest w nestedHolds
+            (omega [small, shorter]))
+        state
+        starts
+        honest
+
+--| [`Parse.runsRecursive`] for `recursiveWith`: `good` says which reads of
+--| the nested parser are expected, and for which argument. If `body self`
+--| reads whatever is `good`, provided `self` reads each `good` read that is
+--| shorter, then `recursiveWith body` reads it.
+theorem Parse.runsRecursiveWith ∀ (body: (b → {Parse t} a) → b → {Parse t} a) (good: b → List t → List t → a → Prop)
+    (step: ∀ (self: b → {Parse t} a) (argument: b) (read rest: List t) (v: a) => good argument read rest v
+      → (∀ (nestedArgument: b) (nestedRead nestedRest: List t) (w: a) => good nestedArgument nestedRead nestedRest w
+        → nestedRead.length < read.length
+        → Parse.Runs (() => self nestedArgument) nestedRead nestedRest w)
+      → Parse.Runs (() => body self argument) read rest v)
+    (argument: b) (read rest: List t) (v: a) (holds: good argument read rest v):
+    Parse.Runs (() => Parse.recursiveWith body argument) read rest v :=
+  state starts honest =>
+    let lengths: state.at.rest.length = read.length + rest.length := rewrite starts in List.lengthAppend read rest
+    let small: read.length < state.at.left + 1 := omega [lengths, honest]
+    Parse.runsFromMark state
+      (at => Parse.recursiveWithFuel (at.left + 1) body argument)
+      read
+      rest
+      v
+      (Parse.runsRecursiveWithFuel body good step (state.at.left + 1) argument read rest v holds small state)
+      starts
+      honest
+
+--| The last of some items is the one before what follows them.
+theorem Parse.lastReadDrop ∀ (first: t) (others rest: List t):
+    (([first, ..others] ++ rest).drop others.length).head = [first, ..others].last :=
+  match others with
+    | [] => rfl
+    | [second, ..more] => Parse.lastReadDrop second more rest
+
+--| `Parse.lastRead` between a mark and the mark after reading some items
+--| from it is the last of those items.
+theorem Parse.lastReadAfter ∀ (start finish: Parse.Mark t) (first: t) (others rest: List t)
+    (from: start.rest = [first, ..others] ++ rest)
+    (moved: finish.offset = start.offset + others.length + 1):
+    Parse.lastRead start finish = [first, ..others].last :=
+  let later: (finish.offset > start.offset) = True := omega [moved]
+  let back: finish.offset - start.offset - 1 = others.length := omega [moved]
+  rewrite later, back, from in Parse.lastReadDrop first others rest
 
 --| `end` where nothing is left.
 theorem Parse.runsEnd: Parse.Runs Parse.end ([]: List t) [] () := state starts honest =>
