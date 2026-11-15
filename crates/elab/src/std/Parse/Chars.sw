@@ -690,6 +690,30 @@ test "Parse.recursiveWith: a bad nested part" :=
 test "Parse.recursiveWith: left recursion stops the parse" :=
   Parse.Tests.lineError "ab" (() => (Parse.recursiveWith (self depth => self depth) 0: Nat))
     == "column 1: `recursiveWith`: the parser called itself without reading anything"
+test "Parse.lastRead: the last character read since a mark" :=
+  Parse.Tests.lineResult "abc" (() =>
+    let start := Parse.mark()
+    Parse.text "ab"
+    let last := Parse.lastRead start Parse.mark()
+    Parse.char 'c'
+    last)
+    == Ok (Some 'b')
+test "Parse.lastRead: nothing read" :=
+  Parse.Tests.lineResult "abc" (() =>
+    let start := Parse.mark()
+    let last := Parse.lastRead start Parse.mark()
+    Parse.text "abc"
+    last)
+    == Ok None
+test "Parse.lastRead: after a span, from a later mark" :=
+  Parse.Tests.lineResult "abcd" (() =>
+    Parse.char 'a'
+    let start := Parse.mark()
+    let run := Parse.span (char => char != 'd')
+    let last := Parse.lastRead start Parse.mark()
+    Parse.char 'd'
+    last)
+    == Ok (Some 'c')
 test "Parse: sepBy" :=
   Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []

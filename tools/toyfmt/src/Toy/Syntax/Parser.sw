@@ -69,8 +69,7 @@ def keyword (layout: Layout) (wanted: Keyword): {Parse (Parse.Located Token)} ()
 
 --| The last token read since `start`, which was before at least one.
 def lastSince (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Token :=
-  let finish := Parse.mark()
-  start.rest.drop (finish.offset - start.offset - 1) |> .head |> .map (token => token.value)
+  Parse.lastRead start Parse.mark() |> .map (token => token.value)
 
 --| The comment after the last token read since `start`.
 def lastTrailing (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Comment :=

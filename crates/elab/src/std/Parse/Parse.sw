@@ -117,6 +117,16 @@ def Parse.State.note (state: Parse.State t) (problem: Parse.Problem): Parse.Stat
 def Parse.State.advance (state: Parse.State t) (rest: List t) (count: Nat): Parse.State t :=
   { state | at = { rest, offset = state.at.offset + count, left = state.at.left - count } }
 
+--| The last item read between two marks, `start` and the later `finish` (of
+--| the same parse), or `None` if nothing was. For what must be known about
+--| the item an element of the grammar ended on, such as a comment that
+--| follows a token: `let start := Parse.mark()`, read the element, then
+--| `Parse.lastRead start Parse.mark()`. It walks `start`'s items up to that
+--| one, so it costs what reading them did; a mark that carried the last item
+--| would make it free, but each read would then have to keep it.
+def Parse.lastRead (start finish: Parse.Mark t): Option t :=
+  if finish.offset > start.offset then start.rest.drop (finish.offset - start.offset - 1) |> .head else None
+
 --| What each reading operation gives, and the state after it, as one pair.
 -- `runFrom` doesn't call these: it resumes in each arm of its own `match`,
 -- which keeps the handler a loop. They state what it does, for the lemmas:
