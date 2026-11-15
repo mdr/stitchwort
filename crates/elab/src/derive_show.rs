@@ -587,6 +587,21 @@ impl Elaborator {
         item.is_some_and(|item| self.item_declares_instance(item, interface))
     }
 
+    /// Whether the module, or an earlier one, declares an instance of
+    /// `interface` for data type `d`, whichever type is being derived now.
+    pub(crate) fn has_written_instance(&self, d: DataId, interface: DataId) -> bool {
+        if self.tables.instances.get(&(interface, d)).is_some() {
+            return true;
+        }
+        let key = self.data_key(d);
+        self.unit
+            .module
+            .item_keys
+            .iter()
+            .find(|(_, k)| **k == key)
+            .is_some_and(|(i, _)| self.item_declares_instance(*i, interface))
+    }
+
     /// Whether the module declares an instance of `interface` for the data
     /// type that `item` declares.
     fn item_declares_instance(&self, item: usize, interface: DataId) -> bool {

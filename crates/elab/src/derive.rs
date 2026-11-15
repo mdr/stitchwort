@@ -157,6 +157,7 @@ use stitchwort_syntax::ast::{self, BinOp, Decl, Expr, Pattern};
 
 use crate::check::Ctx;
 use crate::{Elaborator, Global, Result, interfaces};
+use stitchwort_syntax::Diagnostic;
 
 /// How `==` (or a derived `Ord`) treats one field of a constructor.
 #[derive(Clone, Copy, PartialEq)]
@@ -503,10 +504,25 @@ impl Elaborator {
                         && !known_container(g, *e)
                         && !self.has_member(*e, instance)
                     {
+                        // Which of the two reasons it is: an instance that
+                        // exists although `%instOrd` doesn't was written, and
+                        // otherwise the deriver's own reason, if it kept one.
+                        let (interface, refusal) = if instance == "%instOrd" {
+                            (interfaces::ord(self), self.tables.no_ord.get(e))
+                        } else {
+                            (interfaces::show(self), self.tables.no_show.get(e))
+                        };
+                        let wrote = interface.is_some_and(|i| self.has_written_instance(*e, i));
+                        let why = if wrote {
+                            "its module wrote one".to_string()
+                        } else if let Some(reason) = refusal {
+                            format!("it has none, since {reason}")
+                        } else {
+                            "it has none".to_string()
+                        };
                         return refused(format!(
-                            "`{cname}`, whose {label} isn't derived (its module wrote one, or it \
-                             has none): {label} is derived through another type only when that \
-                             type's is, so that the two agree"
+                            "`{cname}`, whose {label} isn't derived ({why}): {label} is derived \
+                             through another type only when that type's is, so that the two agree"
                         ));
                     }
                     let owner_index = group.iter().position(|r| *r == owner).unwrap_or(0);
@@ -743,7 +759,8 @@ impl Elaborator {
                         // data can't differ there.
                         let in_container = |why: &str| {
                             Ok(Err(format!(
-                                "{what} has `{}` inside `{container_name}`, whose proof field                                  {why}",
+                                "{what} has `{}` inside `{container_name}`, whose proof field \
+                                 {why}",
                                 inner()
                             )))
                         };
@@ -1014,6 +1031,20 @@ impl Elaborator {
         let data = g.data(d);
         let np = data.params().len();
         let ctor = &data.ctors()[c];
+        // An erased (proof or type) field has no value to read: its type
+        // here would be a term over variables that aren't there, and the
+        // accessor would be malformed. Callers give those `%P%` types
+        // instead (`derive_proof_type`, `derive_member_proof_type`).
+        if ctor.field_erased[k] {
+            return Err(Diagnostic::error(
+                "E-INTERNAL",
+                format!(
+                    "internal error: no accessor for the erased field {k} of `{}`",
+                    ctor.name
+                ),
+            )
+            .with_note("this is a bug in the compiler, not in your program"));
+        }
         let env: Vec<Value> = (0..np)
             .map(Value::var)
             .chain((0..k).map(|_| unused()))

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: `<` works on `Nat` and `Int`
@@ -9,5 +9,7 @@ expression: output
    │                                                       ┬  
    │                                                       ╰── this is `Nat → Nat`
    │ 
-   │ Note: on other types `<` is `Ord.lessThan`, and there's no `Ord` instance for `Nat → Nat` here
+   │ Note 1: on other types `<` is `Ord.lessThan`, and there's no `Ord` instance for `Nat → Nat` here
+   │ 
+   │ Note 2: functions can't be ordered
 ───╯

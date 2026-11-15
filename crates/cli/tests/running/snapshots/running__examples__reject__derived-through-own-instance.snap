@@ -9,7 +9,7 @@ expression: output
     │                                   ────────────────┬───────────────  
     │                                                   ╰───────────────── this needs `Ord Boxed`
     │ 
-    │ Note 1: `Ord` isn't derived for `Boxed`: the field `next` of `More` contains `Boxed` inside `Box`, whose `Ord` isn't derived (its module wrote one, or it has none): `Ord` is derived through another type only when that type's is, so that the two agree
+    │ Note 1: `Ord` isn't derived for `Boxed`: the field `next` of `More` contains `Boxed` inside `Box`, whose `Ord` isn't derived (its module wrote one): `Ord` is derived through another type only when that type's is, so that the two agree
     │ 
     │ Note 2: an instance of `Ord` for `Boxed` can be declared in `Main`
 ────╯
