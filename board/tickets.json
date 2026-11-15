@@ -36955,12 +36955,12 @@
     {
       "id": 3342,
       "title": "[Sonnet] Toy formatter stage C (toy-formatter.md): file loop under Files, write-counting handler, Files.simulate tests, flags, native build, end-to-end test on a folder. After A, B, SW-3338",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 15 Nov: stages A, B and Files are on main. Expected: 2.5 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37371,12 +37371,12 @@
     {
       "id": 3374,
       "title": "[Sonnet] Bug since SW-3335: the server index's goal parts omit the catch-all fact lines (s ≠ \"ab\") that the goal's label shows, so goal_index::goal_examples_in_the_index and lemmas_check_as_the_same_goal fail on main (found by SW-3288)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Expected: 45 min (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
