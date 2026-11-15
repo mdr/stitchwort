@@ -36983,7 +36983,7 @@
     {
       "id": 3344,
       "title": "[Opus] cases derives x = y from Some x = Some y (or Stable x = Stable y) but can't then close f x = f y (SW-3339 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
