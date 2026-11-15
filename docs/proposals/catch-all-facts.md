@@ -1,7 +1,11 @@
 # What a catch-all arm can use of the literals above it
 
 **Status:** design note, 15 November 2026 (SW-3318; the finding is from
-catch-all-goals.md's probes). Nothing is built. The recommendation adds a
+catch-all-goals.md's probes). B and A are built (SW-3335, `literal_facts.rs`;
+the open question in §4 B is settled: an `auto` obligation solved after the
+declaration still sees the arm's marks, but its helper must be lifted, so
+`Elaborator::lift` solves a declaration's obligations before lifting even
+when it has no `match` helper of its own). The recommendation adds a
 step to `auto` and a line to goals, with no new syntax and no change to
 existing terms or hashes, so it is the orchestrator's call, not a question
 for Matt. The kernel option (C) would need Matt's review if it is ever
