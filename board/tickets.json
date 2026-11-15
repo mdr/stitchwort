@@ -36236,14 +36236,14 @@
     {
       "id": 3294,
       "title": "[Sonnet] Missing-case messages for texts and numbers don't name the other columns' values (arms True, \"a\" and False, _ say 'texts other than \"a\"' without 'when the first is True') (SW-3284 review should-fix 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md, should-fix 2). Expected: 1.5 h (Sonnet).",
+      "body": "\nFrom the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md, should-fix 2). Expected: 1.5 h (Sonnet).\n\nLane notes: message now ends \", in the case `ROW`\" (row = the missing case with the number/text column as `_`) when the row is not a bare `_`; bare single columns unchanged. Also adds the case for a column inside a constructor (ctor-fields-nonexhaustive: \"..., in the case `Circle _ _ _`\"). Examples: text/number other-column, text nested. hash_stability 10/10, rejected examples (missing, nonexhaustive, text, literal, fin, other-column) pass. Commit aa44e2547.\n",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
