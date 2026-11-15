@@ -36403,7 +36403,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).\n\n15 Nov 02:30 (lane, lane/SW-3305, c84283e65, took 35 min): fallback_inferred snapshots; a call that settled type arguments and then fails is redone with settling off inside (no_settling), giving the unsettled path's result or error. A plain per-call retry cost 6x on 2020 day 2 (6.89M -> 41.7M: speculative failures inside chains), so inside held-argument checks and propagation plans (settle_trial) the retry is passed over and noted; an argument whose failure is final is rechecked without settling. Steps identical to SW-3282: day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M. g5/g6 accepted (examples accept/settle-from-expected-by-unfolding.sw, -dependent.sw; reject/settle-from-expected-dependent-mismatch.sw). Errors return to the unsettled path's (review S2's better-placed settled errors are gone, as briefed); two reject snapshots renumber an unknown. Hashes unchanged.\n",
+      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).\n\n15 Nov 02:30 (lane, lane/SW-3305, c84283e65, took 35 min): fallback_inferred snapshots; a call that settled type arguments and then fails is redone with settling off inside (no_settling), giving the unsettled path's result or error. A plain per-call retry cost 6x on 2020 day 2 (6.89M -> 41.7M: speculative failures inside chains), so inside held-argument checks and propagation plans (settle_trial) the retry is passed over and noted; an argument whose failure is final is rechecked without settling. Steps identical to SW-3282: day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M. g5/g6 accepted (examples accept/settle-from-expected-by-unfolding.sw, -dependent.sw; reject/settle-from-expected-dependent-mismatch.sw). Errors return to the unsettled path's (review S2's better-placed settled errors are gone, as briefed); two reject snapshots renumber an unknown. Hashes unchanged.\n\n\n15 Nov 02:55 (lane, 0f5763e14, 25 min): orchestrator's call applied: when both attempts fail the settled error is given (g2/g8/r1 blame the parser argument again). settle_from_expected now settles only when the definition's parameter at that place has the type parameter's sort (parameter_type_is), so g6-style goals no longer produce rows like {Src (b => List b)}. Snapshots: the two renumbered-unknown snapshots from c84283e65 reverted to main's; reads-chain-* unchanged; new reject/settle-from-expected-wrong-row.sw. Stack (nesting thresholds, before ticket / c84283e65 / now): nested f(...) 268/260/269; nested settled call 214/196/209; under 320 KiB guard 54/52/54 and 42/38/41. Steps unchanged (+~300 for the sort check).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36437,15 +36437,17 @@
     {
       "id": 3308,
       "title": "[DeepSeek] Recovery follow-ups (SW-3289): use close_bracket for record {, named-argument (x := e) and annotation (e : T) closers too; a guard-specific message when a guard's bracket runs out at => ('the guard's => starts here', like calc's) instead of the lambda note; syntax-error-recovery.md R1 says a missing closer 'counts as present', now an Error node",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Found in SW-3289. close_bracket for record braces, named arguments and annotations; a guard's => that stops its condition says 'the guard's => starts here', with the open-bracket note only when a bracket in the guard has no partner; R1 in syntax-error-recovery.md updated. Model result: DeepSeek, needed fixes (bracket note shown with no open bracket; fixed on review), ~40 min (est. 50).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "b46d637087281f9d8950393af37ca4eac916661c"
+      ]
     },
     {
       "id": 3309,
