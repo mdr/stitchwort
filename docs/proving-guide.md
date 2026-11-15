@@ -177,7 +177,7 @@ theorem selectedIsValueViaHelper ∀ (chosen: Option Nat) (value: Nat) (selected
    `?` and prints what goes there:
 
    ```
-   theorem lengthAppend (xs: List Nat) (ys: List Nat): List.length (List.append xs ys) = List.length xs + List.length ys :=
+   theorem lengthAppend ∀ (xs: List Nat) (ys: List Nat): List.length (List.append xs ys) = List.length xs + List.length ys :=
      match xs with
        | Nil => rfl
        | Cons x rest => ?

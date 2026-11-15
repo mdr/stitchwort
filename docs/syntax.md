@@ -244,7 +244,7 @@ An equation of two different constructors has no values either, so `()` matches 
 The type is the one the argument has in that arm, after the arm's other patterns and computing: with `beats Rock Rock` computing to `False`, `h: beats Rock theirs` is `False = True` in an arm for `Rock`, so `| Rock, ()` needs no right-hand side. A row's constructor patterns are matched before its `()`, wherever it comes, unless the `()`'s type is empty as it stands (`Void`, an indexed family such as `Fin 0`, or an equation of different constructors), which is refuted at once. On one line, `| Rock, () | Paper, ()` reads `() | Paper` as an or-pattern, and the error says to start the next `|` on a new line. A `match` alternative takes `()` with no `=>` the same way, with one scrutinee or several (D3534, `examples/accept/absurd-match-arms.sw`):
 
 ```
-theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
   match theirs, h with
     | Rock, ()
     | Paper, ()
@@ -529,8 +529,8 @@ def nameOf: Person -> Text
 - **Update lemmas.** On an unknown value an update doesn't compute (it's a `match` on the value), so `({ c | id = x }).id = x` isn't `rfl`. Instead, each shared field `f` that an update can replace gets, for each shared field `g`, the theorem `T.f.update.g`, reading `g` after `f` is updated: with `type Shape = | Dot (ref: Nat) (id: Text) | Circle (ref: Nat) (id: Text) (text: Text)`,
 
   ```
-  theorem Shape.ref.update.ref (x: Shape) (ref: Nat): ({ x | ref = ref }).ref = ref
-  theorem Shape.ref.update.id (x: Shape) (ref: Nat): ({ x | ref = ref }).id = x.id
+  theorem Shape.ref.update.ref ∀ (x: Shape) (ref: Nat): ({ x | ref = ref }).ref = ref
+  theorem Shape.ref.update.id ∀ (x: Shape) (ref: Nat): ({ x | ref = ref }).id = x.id
   ```
 
   and likewise `Shape.id.update.ref` and `Shape.id.update.id`; a type's parameters are implicit (`[a: Type] → (x: Tagged a) → (tag: a) → …`). `rewrite Shape.ref.update.id in rfl` proves `({ s | ref = s.ref + 1 }).id = s.id`, finding any update of `ref` written anywhere (two updates of the same fields are equal, docs/proposals/variant-fields.md §6.5), and nested updates `{ { s | ref = 0 } | id = t }` take one lemma each. An update of several fields at once, `{ s | ref = 0, id = t }`, is a different term, which these don't match (`E-REWRITE-NOTHING`); split on the value (`cases`) there. When updating `f` forces other shared fields (`xs: Vec Nat n` for `n`), `T.n.update.g` updates them all, `({ x | n = n, xs = xs }).g`. Only a data field whose type mentions no field is read back: after `{ x | xs = ys }`, `xs` has type `Vec Nat ({ x | xs = ys }).n`, not `Vec Nat x.n`, so there's no `T.xs.update.xs`; a proof field, which isn't unfolded, isn't read either. There are none when updating `f` would need an implicit field or one constructor's own field replaced, nor for records (`({ p | x = 1 }).x = 1` is `rfl`), indexed families (which can't be updated) or propositions. They're generated with the type, checked by the kernel like any theorem, and hover shows them; the names can't be written as declarations (`theorem Shape.ref.update.id` is `E-PARSE`). Example: `examples/accept/shared-field-update-lemmas.sw`; docs/proposals/variant-fields.md §6.6.
@@ -956,7 +956,7 @@ def pickOrder (warehouse: Warehouse) (order: Order): Option Pick :=
     ensure (order.quantity <= onHand)
     { item = order.item, bin, quantity = order.quantity, left = onHand - order.quantity })
 
-theorem pickStock (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
+theorem pickStock ∀ (warehouse: Warehouse) (order: Order) (pick: Pick) (h: pickOrder warehouse order = Some pick):
     warehouse.stock.get order.item = Some (pick.quantity + pick.left) :=
   Abort.needEqSome h (onHand foundStock rest =>
     Abort.needEqSome rest (label foundLabel rest =>
@@ -1028,7 +1028,7 @@ def pairs (n: Nat): List (Nat, Nat) := Each.collect (() =>
 A handler applied to a computation whose shape is known computes, so a proof about `Fail.toResult (() => need o msg)` splits on `o` and is `rfl` in each case. A law about *any* computation `t: () -> {Fail} a` needs to split on what `t` does. `match reify t with` does that, with clauses written as a handler's ([proposals/proof-reification.md](proposals/proof-reification.md)):
 
 ```
-theorem Fail.toResultThen (t: () -> {Fail} a) (k: a -> {Fail} b):
+theorem Fail.toResultThen ∀ (t: () -> {Fail} a) (k: a -> {Fail} b):
     Fail.toResult (() => k (t ())) = Result.flatMap (Fail.toResult t) (x => Fail.toResult (() => k x)) :=
   match reify t with
     | return x => rfl          -- `t` finished with `x`
@@ -1122,7 +1122,7 @@ def halvings (n: Nat) (count: Nat): Nat
 
 -- A theorem recursing on the same measure; `evens.unfold n` is `evens n`'s
 -- own equation.
-theorem evensShort (n: Nat): List.length (evens n) <= n
+theorem evensShort ∀ (n: Nat): List.length (evens n) <= n
     decreasing n
 :=
   rewrite evens.unfold n in
@@ -1221,7 +1221,7 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   own functions can have them too:
 
   ```
-  theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a -> b) (f2: a -> b) (ef: (x: a) -> f1 x = f2 x):
+  theorem List.sumByCong ∀ [auto add: Add b] (xs: List a) (f1: a -> b) (f2: a -> b) (ef: (x: a) -> f1 x = f2 x):
       List.sumBy xs f1 = List.sumBy xs f2
   ```
 
@@ -1281,7 +1281,7 @@ opaque def generateLevel (depth: Nat): {Random} Plan :=
   …
 
 -- A declaration that needs the body says so after its type.
-theorem generateLevelDepth (depth: Nat) (seed: Nat):
+theorem generateLevelDepth ∀ (depth: Nat) (seed: Nat):
       (seeded seed (() => generateLevel depth)).level.depth = depth
     unfolding generateLevel
 :=
@@ -1459,7 +1459,7 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
+theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   countAbove.induct k (xs result => result ≤ List.length xs)
     omega                    -- eq1:        motive [] 0
     (x xs h ih => omega)     -- eq2IfTrue:  … → motive (Cons x xs) (Succ (countAbove k xs))
@@ -1511,7 +1511,7 @@ with the motive worked out from the goal. `induct` is a keyword only after
 `match`, followed by the call:
 
 ```
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
+theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   match induct (countAbove k xs) with
     | eq1 => omega
     | eq2IfTrue x xs h ih => omega
@@ -1708,7 +1708,7 @@ Examples: `examples/accept/named-arguments.sw`, `examples/accept/named-arguments
 `?` stands for a part of a proof or program you haven't written yet. The checker carries on past it and reports, at each `?`, the **goal**: what has to go there, after `⊢`, and the names in scope with their types (a `let`'s with its value too). A `?` can go anywhere an expression can.
 
 ```
-theorem timesOne (n: Nat): n * 1 = n :=
+theorem timesOne ∀ (n: Nat): n * 1 = n :=
   match n with
     | Zero => rfl
     | Succ k => ?
@@ -1825,7 +1825,7 @@ in `chain`, line 2 of 2 of `calc`, `_ = c`
 When a theorem's statement checks but its proof doesn't, or its whole proof is `?`, the compiler tries the statement on inputs: every small one first, then random larger ones. If some input makes every hypothesis true and the conclusion false, the statement itself is false, and the error (or the goal) says so in a note, with that input and, for an equation, both sides there:
 
 ```
-theorem subAdd (a: Nat) (b: Nat): (a - b) + b = a := rfl
+theorem subAdd ∀ (a: Nat) (b: Nat): (a - b) + b = a := rfl
 ```
 
 ```
@@ -2081,15 +2081,15 @@ type Within (lo x hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }
 def within (lo x hi: Nat): Bool := lo <= x && x <= hi
 
 @[reading]
-theorem withinReads (lo x hi: Nat): within lo x hi ↔ Within lo x hi := …
+theorem withinReads ∀ (lo x hi: Nat): within lo x hi ↔ Within lo x hi := …
 
-theorem high (lo x hi: Nat) (h: within lo x hi): x ≤ hi :=
+theorem high ∀ (lo x hi: Nat) (h: within lo x hi): x ≤ hi :=
   match h with
     | { low, high } => high
 
-theorem low (lo x hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
+theorem low ∀ (lo x hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
 
-theorem self (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
+theorem self ∀ (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
 ```
 
 - **Patterns.** A constructor or record pattern on a test fact matches the reading's `P`: `| { low, high }` above, `| Both ha hb` on `(a && b) = True`, `| Inl na` on `(a && b) = False`. Each pattern reads one layer: under it, a name binds the next test fact as it is (`Both _ rest` gives `rest: (b || c) = True`), and a nested pattern reads that in turn. In a `let` pattern too (`let Both ha _ := h`).
@@ -2367,7 +2367,7 @@ A missing case is the whole row of patterns, one for each scrutinee or argument,
 A case can be left out when it can't happen: when, in that case, some variable in scope has a type with no values. That is an equation of two different constructors once the case is known and the types compute (`h: beats Rock theirs` is `False = True` when `theirs` is `Rock` or `Paper`), or a data type with no constructors (`Void`), including a type that computes to one (with `IsSome: Option Nat -> Prop` defined as `Void` at `None`, `h: IsSome o` once `o` is `None`), as well as the indexed families above. Under an arm with a condition, the case left when the condition fails is filled in the same way. The checker fills in the arm `()` would be, the same term, so
 
 ```
-theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
   match theirs with
     | Scissors => rfl
 ```
@@ -2411,7 +2411,7 @@ The rules of `|` are those of `match … with`. On one line a `|` before `=>` co
 `calc` writes a proof as a chain of steps, one per line. Each step is `_ R e`, where `R` is `=`, `<=`, `<`, `>=` or `>`, followed by `:= proof`:
 
 ```
-theorem mixed (a: Nat) (b: Nat) (h1: a = b) (h2: b <= 3): a < 5 :=
+theorem mixed ∀ (a: Nat) (b: Nat) (h1: a = b) (h2: b <= 3): a < 5 :=
   calc a
     _ = b := h1
     _ <= 3 := h2
@@ -2443,7 +2443,7 @@ The steps line up, one column further right than the line `calc` is on, and each
 `rewrite p in t` proves the goal from `t` by replacing, in the goal, the left side of the equation `p: a = b` by its right side. It spares you the motive: where `Eq.cong (x => (x + n) / d) p` spells out the expression around the change, `rewrite p` looks for `a` in the goal and works the motive out itself.
 
 ```
-theorem stepZero (highest: Nat) (n: Nat):
+theorem stepZero ∀ (highest: Nat) (n: Nat):
     Bool.toNat (0 == 0) + ((Succ highest - 0) % Succ highest + n) / Succ highest
       = ((Succ highest - 1) % Succ highest + Succ n) / Succ highest :=
   rewrite Nat.modSelf (Succ highest), Nat.modSmall highest (Succ highest) (Nat.leRefl highest)
@@ -2522,7 +2522,7 @@ Examples: `examples/accept/let-patterns.sw`. Design: [syntax-conveniences.md](pr
 `omega` is a proof of a linear arithmetic fact about `Nat`s and `Int`s, found by the compiler from the facts in scope and checked by the kernel:
 
 ```
-theorem stacked (id: Nat) (lastTo: Nat) (rFrom: Nat) (h1: id <= lastTo) (h2: lastTo + 1 <= rFrom): id < rFrom :=
+theorem stacked ∀ (id: Nat) (lastTo: Nat) (rFrom: Nat) (h1: id <= lastTo) (h2: lastTo + 1 <= rFrom): id < rFrom :=
   omega
 
 theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft z (m r => Nat.max m r.to)
@@ -2556,11 +2556,11 @@ Examples: `examples/accept/omega-basics.sw`, `examples/accept/omega-stage2.sw`, 
 `ring` is a proof of an equation between `Nat`s or `Int`s whose two sides are equal as polynomials: equal once products are multiplied out and like terms collected. The compiler writes the proof and the kernel checks it:
 
 ```
-theorem square (x: Nat): (x + 1) * (x + 1) = x * x + 2 * x + 1 := ring
+theorem square ∀ (x: Nat): (x + 1) * (x + 1) = x * x + 2 * x + 1 := ring
 
-theorem pairsStep (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [h]
+theorem pairsStep ∀ (n: Nat) (p: Nat) (h: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [h]
 
-theorem writeTimesMul (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
+theorem writeTimesMul ∀ (k: Nat) (b: Nat): (n: Nat) -> writeTimes k b n = b * multiplier k n
   | Zero   => ring
   | Succ n => rewrite writeTimesMul k b n, multiplierSucc k n in ring
 ```
@@ -2586,13 +2586,13 @@ Examples: `examples/accept/ring-basics.sw`, `examples/accept/ring-coefficients.s
 `cases` is a proof by cases on whatever the goal is stuck on. The compiler finds the value a definition in the goal is waiting for (`a` in `a ∨ b`, `Float.isNaN x` inside `Float.ieeeLe x y`, `s` in `{ s | id = t }.ref`), splits on it as a `match` would, and goes on in each case until every case is closed:
 
 ```
-theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
+theorem orComm ∀ (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
 
-theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
+theorem andLeft ∀ (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
 
-theorem ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True := cases
+theorem ieeeLtLe ∀ (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True := cases
 
-theorem parseSmallSome (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
+theorem parseSmallSome ∀ (s: Text) (t: Text) (v: Nat) (h: parseSmallOption s t = Some v): v <= 10 := cases
 ```
 
 | form | meaning |
@@ -2635,7 +2635,7 @@ type DirectionKey =
   | Activate
 
 theorem keys: Finite.all = [Arrow Up, Arrow Down, Arrow Left, Arrow Right, Activate] := rfl
-theorem everyKey (key: DirectionKey): key ∈ (Finite.all: List DirectionKey) := Finite.complete key
+theorem everyKey ∀ (key: DirectionKey): key ∈ (Finite.all: List DirectionKey) := Finite.complete key
 ```
 
 A recursive type, a type with a field of a type without an instance (`Nat`, a function, a type), a proof field, or a field whose type depends on an earlier one gets none, and the `E-INSTANCE-NONE` where one is wanted says why (`` it's recursive (the field `left` of `Node` holds a `Tree`) ``, `` the field `n` of `Count` has type `Nat`, which has no `Finite` instance ``). A module's own `instance T.instFinite: Finite T` replaces the derived one. Deriving one costs about 0.5 ms for a four-constructor enumeration and 2 ms for eleven (decide.md, "As built (SW-807)").
@@ -2644,7 +2644,7 @@ A recursive type, a type with a field of a type without an instance (`Nat`, a fu
 
 ```
 type Ten = { b0: Bool, b1: Bool, …, b9: Bool }
-theorem tenBothWays (t: Ten): sameBothWays t.bits = True := Finite.check (u => sameBothWays u.bits) rfl t
+theorem tenBothWays ∀ (t: Ten): sameBothWays t.bits = True := Finite.check (u => sameBothWays u.bits) rfl t
 ```
 
 It is the way past `cases`' 64 cases: the proof stays one term however many values there are, and the kernel computes `p` for each. 2^10 values take about 0.1 s, 2^16 about 12 s (`examples/accept/finite-check.sw`, `examples/accept/finite-derive.sw`).
