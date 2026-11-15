@@ -322,9 +322,9 @@ in the same file.
   `Args.Error.Unknown`; a program may import it.
 - `Unknown`'s suggestion is only the one option the mistyped name is a prefix
   of (`--wid` gives `--width`); there is no edit distance (A3).
-- `Wrong` exits 1: `Args.run` fails with the whole complaint, three lines:
-  `NAME: message`, `usage: ...`, `Run 'NAME --help' for more.` The runner
-  prefixes `error: `.
+- `Wrong` exits 2 (SW-3403, D3616; it was a `Fail`, so 1): `Args.run` prints
+  the whole complaint to standard error, three lines: `NAME: message`,
+  `usage: ...`, `Run 'NAME --help' for more.`
 - `--help`/`-h` is recognised where an option would be (not as the value of
   an option, and not after `--`) and wins over a mistake that comes after
   it, as a mistake before it wins. The first mistake in the command line is

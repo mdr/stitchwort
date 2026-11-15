@@ -20,7 +20,10 @@ import Args.Scan (Scanned, HelpAsked)
 --|
 --|   def program: Args.Program := { name = "toyfmt", about = "Formats Sprig files in place." }
 --|
---|   def main (): {IO, Fail} () := Args.run program options (options => …)
+--|   def main (): {IO, Fail} ExitStatus := Args.run program options (options => …)
+--|
+--| A bad command line exits with status 2 (`Args.misuse`), `--help` with 0;
+--| a body that wants other statuses uses `Args.runStatus`.
 --|
 --| The lambda's parameters must be in the order of the `.and`s, and their
 --| types must be written: an unannotated lambda there isn't accepted yet
@@ -427,18 +430,47 @@ def Args.parse (program: Args.Program) (spec: Args.Spec a) (arguments: List Text
             | Ok options => Run options
             | Err error => Wrong error
 
---| Runs a program on the command line `arguments`: prints the help for
---| `--help` and returns, fails with the complaint (so exit status 1) for a
---| mistake, and otherwise calls `body` with the options.
-def Args.runOn (program: Args.Program) (spec: Args.Spec a) (arguments: List Text) (body: a → {IO, Fail | e} ()):
-    {IO, Fail | e} () :=
+--| The exit status of a command line that is wrong: 2, the convention for
+--| misuse of a command (Bash's builtins, Python's `argparse` and Go's `flag`
+--| all use it; docs/proposals/exit-status.md, D3616). It is told apart from 1,
+--| which a program's own failure (`Fail`, or `ExitStatus.failure`) uses, so
+--| a script can tell "you called it wrongly" from "it ran and failed".
+def Args.misuse: ExitStatus := ExitStatus.of 2
+
+--| Runs a program on the command line `arguments`, with a body that
+--| decides its own exit status. `--help` prints the help and gives status 0;
+--| a mistake prints the complaint (the message, usage and where to find the
+--| help) to standard error and gives status 2 (`Args.misuse`); otherwise
+--| `body` runs on the options and its status is the program's. A `Fail`
+--| left unhandled in `body` is status 1, as in any program.
+def Args.runStatusOn (program: Args.Program) (spec: Args.Spec a) (arguments: List Text) (body: a → {IO | e} ExitStatus):
+    {IO | e} ExitStatus :=
   match Args.parse program spec arguments with
     | Run options => body options
-    | Help text => IO.print text
-    | Wrong error => Fail.fail (Args.complaint program spec error)
+    | Help text =>
+      IO.print text
+      ExitStatus.success
+    | Wrong error =>
+      IO.printError (Args.complaint program spec error)
+      Args.misuse
 
---| `Args.runOn` the program's own command line (`IO.args`).
-def Args.run (program: Args.Program) (spec: Args.Spec a) (body: a → {IO, Fail | e} ()): {IO, Fail | e} () :=
+--| `Args.runStatusOn` the program's own command line (`IO.args`):
+--| `def main (): {IO} ExitStatus := Args.runStatus program options (options => …)`.
+def Args.runStatus (program: Args.Program) (spec: Args.Spec a) (body: a → {IO | e} ExitStatus): {IO | e} ExitStatus :=
+  Args.runStatusOn program spec IO.args() body
+
+--| Runs a program on the command line `arguments` whose body returns `()`:
+--| as `Args.runStatusOn`, with status 0 when the body finishes (and 1 if it
+--| fails).
+def Args.runOn (program: Args.Program) (spec: Args.Spec a) (arguments: List Text) (body: a → {IO | e} ()):
+    {IO | e} ExitStatus :=
+  Args.runStatusOn program spec arguments (options =>
+    body options
+    ExitStatus.success)
+
+--| `Args.runOn` the program's own command line (`IO.args`):
+--| `def main (): {IO, Fail} ExitStatus := Args.run program options (options => …)`.
+def Args.run (program: Args.Program) (spec: Args.Spec a) (body: a → {IO | e} ()): {IO | e} ExitStatus :=
   Args.runOn program spec IO.args() body
 
 --| A spec's items are those of the parts it was joined from, in order.
@@ -654,3 +686,18 @@ test "Args.Value: Text, Nat, Int, Path read and show" :=
     && (Args.Value.read "1.5": Result Nat Text) == Err "a whole number"
     && Args.Value.show (-3: Int) == "-3"
     && Args.Value.show "src/a.sw".toPath == "src/a.sw"
+
+def Args.Tests.runWith (arguments: List Text): (List Text, ExitStatus) :=
+  let pair :=
+    IO.simulate [] (() => Args.runOn Args.Tests.program Args.Tests.options arguments (options => IO.print "ran"))
+  (pair.fst, pair.snd)
+
+test "Args: a bad command line exits 2 and prints nothing to standard output" :=
+  Args.Tests.runWith ["--bogus"] == ([], Args.misuse) && Args.misuse == ExitStatus.of 2
+
+test "Args: --help exits 0, and a good command line runs the body" :=
+  (Args.Tests.runWith ["--help"]).snd == ExitStatus.success && Args.Tests.runWith ["a"] == (["ran"], ExitStatus.success)
+
+test "Args: runStatusOn takes the body's own status" :=
+  (IO.simulate [] (() => Args.runStatusOn Args.Tests.program Args.Tests.options ["a"] (options => ExitStatus.of 7))).snd
+    == ExitStatus.of 7

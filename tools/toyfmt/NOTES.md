@@ -251,10 +251,10 @@ included.
   by `locate`); the others are still done. A file is written only when its
   formatted text differs, and not at all with `--check`.
 - `toyfmt [--check] [--width N] PATH...` (`Toy.Fmt.run arguments:
-  {Files, IO, Fail}`; `main` is `run IO.args()`). Changed paths go to
+  {Files, IO} ExitStatus`; `main` is `run IO.args()`). Changed paths go to
   standard output (`IO.print`), problems and "N declarations left as
-  written" to standard error (`IO.printError`). It fails (exit 1) on a bad
-  command line, a problem, or with `--check` a file that would change. Run
+  written" to standard error (`IO.printError`). It exits 0, 1 (`--check` found
+  a file to change) or 2 (a bad command line, or a path it couldn't read or parse). Run
   it with `stitchwort run Toy.Fmt.main -- ARGS` in the project, or
   `stitchwort build --native Toy.Fmt.main -o toyfmt` (the target is
   named, because `Toy.Timing.main` is a second `main` in the project).
@@ -294,7 +294,7 @@ figure is about 4.6 s native; the real formatter's 6.5 MB would be about
 
 ### Friction
 
-1. **No exit status but 0 and 1** (SW-3345). A formatter wants 0 = clean,
+1. **No exit status but 0 and 1** (SW-3345; resolved by SW-3403: `main` returns an `ExitStatus`, the toy exits 0, 1 for `--check` finding a change, 2 for a problem or a bad command line, as `stitchwort fmt` does). Was: a formatter wants 0 = clean,
    1 = would change, 2 = could not parse or read; the loop knows which, but
    `Fail` is all there is, so both read 1, and `--check`'s message is the
    only way to tell them apart.

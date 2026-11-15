@@ -2,7 +2,7 @@
 --
 --   $ stitchwort run args.sw -- --shout --times 2 Ada Grace
 
-import Std (Args, Fail, IO, List, Nat, Text)
+import Std (Args, ExitStatus, Fail, IO, List, Nat, Text)
 import Std.Args.Error (BadValue, Missing)
 import Std.Args.Outcome (Help, Run, Wrong)
 
@@ -23,7 +23,7 @@ def greet (options: Options): {IO} () := options.names.forEach (name =>
   let line := if options.shout then "Hello, ${name}!!!" else "Hello, ${name}."
   List.replicate options.times line |> .forEach IO.print)
 
-def main(): {IO, Fail} () := Args.run program options greet
+def main(): {IO, Fail} ExitStatus := Args.run program options greet
 -- end main
 
 -- begin tests
