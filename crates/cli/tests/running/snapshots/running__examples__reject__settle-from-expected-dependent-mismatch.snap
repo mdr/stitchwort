@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/settle-from-expected-dependent-mismatch.sw:16:62 ]
+    │
+ 16 │ theorem useNat: Dep (Type → Type) ((b: Type) => List b) 0 := dep natSrc 1
+    │                                                              ──────┬─────  
+    │                                                                    ╰─────── expected `0 = 0`, but this has type `Dep Type Nat 1`
+    │ 
+    │ Note: `Dep Type Nat 1` is `1 = 1`
+────╯
