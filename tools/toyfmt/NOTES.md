@@ -328,3 +328,69 @@ write-counting test, as a lemma over `Files.simulate`'s laws, which are
 `rfl`), and that what is written is `format`'s output. The proofs the plan's
 §3 names are about `format` itself (round trip, idempotence), and need the
 erased tree and derived `==` for the tree (stage B friction 1).
+
+## Speed (SW-3383): profiled, and the toy's handlers taken out of the hot paths
+
+Profiled natively with samply and the `call-counts` runtime on
+`Toy.Timing.main -- PHASE 2600` (933 KB), Speedwell. Times are user
+seconds, median of 3 at load about 3.5; instructions (median of 5) are
+the steadier figure [measured]:
+
+| Phase | Before | After |
+|---|---|---|
+| Lexing | 1.15 s, 16.4 G instructions | 0.68 s, 9.3 G |
+| Parsing (beyond lexing) | 2.08 s, 29.0 G | 0.91 s, 12.2 G |
+| Printing | 0.29 s, 4.4 G | 0.32 s, 4.4 G |
+| Whole format | 3.52 s (3.8 s/MB), 49.8 G | 1.91 s (2.05 s/MB), 25.9 G |
+
+`stitchwort run`, one run each at load 25: whole format 9.4 s to 5.2 s.
+
+**Where the time was.** Not in any one function: three quarters of it was
+the effect runtime and the allocator, per `Parse` operation. Counted: a
+format did 5.4 M operations, each crossing 1.6 forwarding handlers on
+average (8.7 M crossings), and allocated about 60 M objects. A micro-probe
+puts one operation (`Parse.mark`) at about 4,300 instructions natively and
+a `Parse.optional` round at about 6,300 more. So the cost is the number of
+operations and handlers, and the toy's grammar made far more than it
+needed:
+
+- every operand went through six `Parse.chainLeft` levels, each trying its
+  operator under its own handler (`many`, then `optional`), plus a `many`
+  for negations and a `many` of a two-way `oneOf` for calls and fields:
+  nine handlers and about thirty operations per operand;
+- every lexeme was a `Parse.many` round (a handler) over `Parse.located`
+  (two marks) over a third mark to look at the next characters;
+- every list item's comma and every list's closer was a `Parse.optional`.
+
+**The changes** (all in the toy; messages unchanged, checked by running
+the old and new executables on 9,000 mutated goldens, bad strings and
+stray characters among them, with identical output):
+
+1. Operators by precedence climbing (`chain`, `chainFrom`), negations and
+   calls and fields by one look at the next token. A handler is installed
+   only where an operator, `(` or `.` was found, so that one without its
+   operand is still left unread. Wherever the old grammar noted "an
+   operator", "'('", "'.'" or "an expression" as expected, the new one
+   notes the same. Parsing: 2.08 s to 0.95 s.
+2. Lexemes in a loop of their own (`lexemesFrom`): a lexeme fails only on
+   a bad string, which fails the whole lex, so it needs no handler, and the
+   mark after one lexeme is the start of the next. Lexing: 1.20 s to
+   0.72 s.
+3. A comma or closing bracket by a look at the next token
+   (`signInBrackets`). Parsing: 0.99 s to 0.91 s.
+
+**Tried and dropped:** the runtime's freeing queue on the stack
+(`SmallVec`) instead of a heap `Vec` per freed cell with children (2.8% of
+the profile was that `Vec` growing): instructions rose 1%, cycles the
+same.
+
+**What is left**, by instructions: lexing and parsing are still about half
+`Parse` operations (2.4 M of them, at about 4,000 instructions each), and
+about a tenth the list of characters (`toList`, and `span` building,
+reversing and counting what it takes: about 1,200 instructions a character
+in a probe). Neither is the toy's to fix: the first is the effect runtime's
+cost per operation (operations in place, docs/proposals/operations-in-place.md,
+paused at stage B, D3430, D3465), the second `Parse` reading a list
+(D3597's slices). By this rate the real formatter's 6.5 MB would take about
+13 s natively, against the plan's 20 s, if its grammar costs per byte what
+Sprig's does; a bigger grammar will cost more.
