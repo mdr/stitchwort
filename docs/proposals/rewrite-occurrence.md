@@ -251,7 +251,7 @@ rewrite p within P at h in t           -- the pattern is matched in h's type
 `P` is an expression in which `_` matches anything. `within` is a contextual word, like `at`: not
 reserved (`Position.within` is a function in `aoc/src/Aoc/Common/Grid.sw:97` **[checked]**), and
 special only where a rule can end, by the same parser rule as `at` (`ends_rewrite_rule`,
-`crates/syntax/src/parser.rs:782–790`; `rewrite_body`, `:3266–3305` **[checked]**). A rule that
+`crates/syntax/src/parser.rs`; `rewrite_body` **[checked]**). A rule that
 applies a function to a variable named `within` puts it in brackets, as with `at`. The pattern
 ends at `,`, `at`, `in` or the end of the `rewrite`.
 

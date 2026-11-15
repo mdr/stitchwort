@@ -92,7 +92,7 @@ them. Each point, what changed, and what the code says where it bears on it.
   edit misses the edited unit and everything that depends on it **[checked]**. A warm-versus-cold
   test harness already exists (`crates/cli/tests/check_cache.rs`) **[checked]**.
 - **`split_decls` isn't bracket-aware.** It starts a group at *every* column-0 token except `:=`
-  (`crates/syntax/src/parser.rs:254`) **[checked]**, so a `]` at column 0 closing a multi-line
+  (`crates/syntax/src/parser.rs`) **[checked]**, so a `]` at column 0 closing a multi-line
   attribute group would start a group. Bracket depth is counted separately in several places
   (`parser.rs` around 186, 455, 474, and `parser/declarations.rs`), each matching
   `LParen | LBracket | LBrace` **[checked]**; `@[` must join every one.
@@ -232,7 +232,7 @@ The facts that matter here:
   (`crates/syntax/src/lexer.rs`, the `_ =>` arm of the operator match) **[checked]**, so `@[` is
   free. `%` is the remainder operator. Comments are `--`. Declarations start at column 0, and the
   parser first splits a file into one token group per column-0 token (`split_decls`,
-  `crates/syntax/src/parser.rs:254`) **[checked]**.
+  `crates/syntax/src/parser.rs`) **[checked]**.
 
 ## 2. The problem
 

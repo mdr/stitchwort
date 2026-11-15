@@ -531,7 +531,7 @@ order is what it is:
 
 The parser has half the stack, 24 MiB (`parser_limit`); the lowering,
 which does return nodes and takes more stack a level for some shapes, gets
-all of it [source, `parser.rs:275–284`]. So the one place in the pipeline
+all of it [source, `parser/entry.rs`, `parser_limit`]. So the one place in the pipeline
 where frames hold trees already takes up to 1.2 times the parser's stack a
 level in release builds, 1.55 in debug ones [source, the same comment,
 SW-3213].
@@ -740,7 +740,7 @@ parser field on the recursive path.
 - **`tree.rs`'s module doc should say why functions don't return nodes**,
   in the paragraph of [§11](#11-recommendation); it is the first thing a
   reader used to other parsers will ask. With T1 or T3's comment sweep.
-- **S1's `recovering_body` filters marks by hand** (`parser.rs:1862–1866`:
+- **S1's `recovering_body` filters marks by hand** (`recovering_body`, `parser.rs`:
   marks starting at the body's first token "would cross" the `Error` node,
   "so they go") [source]. The prototype's recovery point needed no filter
   because its `Error` node starts where the failed construct started.

@@ -183,7 +183,7 @@ panel are a separate stage after this one (D640).
 ## 4. What the elaborator must provide
 
 1. **Syntax.** A `?` token and `Expr::Goal(Span)` next to `Expr::Hole`
-   (`crates/syntax/src/ast.rs:56-57`, parser at `parser.rs:2692-2695`)
+   (`crates/syntax/src/ast.rs:56-57`, parser at `parser.rs`, `atom`)
    [checked]. Allowed anywhere an expression goes (D497).
 2. **Checking `?` against a type `T`.** Make a fresh **frozen**
    metavariable, record a goal `{span, expected T, the context's names,

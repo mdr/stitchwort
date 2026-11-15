@@ -224,7 +224,7 @@ def replaceXs (b: Bool) (a: Sized) (ys: Vec Nat (Sized.n (pick b a))): Sized :=
 `type Wrap = | W (person: Person)`, `| W { name, .. } => name` checks
 **[run]**. With a two-field constructor it's `E-ARITY`, "`W2` has 2 fields, but
 this pattern has 1" **[run]**. Brackets are dropped by the parser: `( p )`
-returns `p` (`parser.rs:946-950`) **[checked]**, so `W ({ name, .. })` is the
+returns `p` (`pattern`, `parser.rs`) **[checked]**, so `W ({ name, .. })` is the
 same tree **[run]**. In the repository's `.sw` files the form occurs in a
 pattern once: `| Cons { lead = { name, .. }, .. } rest => name`
 (`examples/accept/records.sw:32`) **[checked]** (by grep). The same form in an
@@ -437,7 +437,7 @@ becomes `| Cons ({ lead = { name, .. }, .. }) rest => name`. Expressions
 don't change (see the asymmetry below).
 
 **The parser must keep the brackets.** Today `( p )` returns `p`
-(`parser.rs:946-950`) **[checked]**, so `W ({ … })` and `W { … }` are one tree
+(`pattern`, `parser.rs`) **[checked]**, so `W ({ … })` and `W { … }` are one tree
 (**[run]**, §2). The parser gets a grouping node, `Pattern::Group(p, span)`
 (or keeps `( record )` distinct some other way), and the pattern compiler
 reads `Ctor(C, [Record …])` as named fields and `Ctor(C, [Group(Record …)])`

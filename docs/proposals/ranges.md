@@ -510,7 +510,7 @@ Some consequences of that level:
   bracketing the ranges, or `[..a ..< b, ..c ..< d]`.
 
 **In the parser** this is one function, `range_expr`, between `cmp_expr`
-and `append_expr` (crates/syntax/src/parser.rs:3778, :3987), called from
+and `append_expr` (crates/syntax/src/parser.rs), called from
 `cmp_expr` and `membership` where they call `append_expr` today.
 
 **The formatter** writes a range with one space on each side. A range in a

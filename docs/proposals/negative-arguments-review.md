@@ -43,9 +43,9 @@ code that asserts today's rule. Six things need fixing first:
 as a space. §8 says to add `|| self.argument_minus_at(self.pos)` to
 `starts_atom`. But a line at the block's column is a new statement, not a
 continuation. The parser knows this only through `peek()`, which returns
-`None` at a stop (`is_stop`, `parser.rs:654-672`; `peek`, `parser.rs:715-720`).
+`None` at a stop (`is_stop`, `parser.rs`; `peek`, `parser.rs`).
 `section_at` is safe because its caller first checks
-`self.peek() == Some(&Tok::Dot)` (`parser.rs:3300-3309`, `3333`). The new
+`self.peek() == Some(&Tok::Dot)` (`parser.rs`, `section_at`). The new
 predicate has no such guard.
 
 **Evidence.** This program checks and passes today:
@@ -170,7 +170,7 @@ These need to be written down:
 
 - **Where.** The numeral is an atom, so in `unary` a `-` glued to
   `Num`/`Float` has to produce `Neg(Num)` as the *base* of `atom`'s
-  field/`()` loop (`parser.rs:3380-3420`), and not
+  field/`()` loop (`parser.rs`, `atom`), and not
   `prefix_op(…, self.unary())`. The argument-minus path needs the same base
   when the next token is a numeral. `add_expr` already takes the tight `x-1`
   before `unary` sees it, so `x-1.abs` stays `x - (1.abs)` with no extra
@@ -190,7 +190,7 @@ These need to be written down:
   - In `- -1.abs`, the inner `-1` is a number: `-((-1).abs)`.
   - `x - -1.abs` is `x - ((-1).abs)`.
 - **Patterns.** No change: `(-k)` and `Some -1` take a numeral only
-  (`parser.rs:947-956`).
+  (`parser.rs`, `pattern`).
 - **Docs.** syntax.md:1114 (the `-e` row: "`-x.abs` is `-(x.abs)`" stays
   true, but the row needs "`-1.abs` is `(-1).abs`"), the numeric-literals row
   (`-5`), and docs/guide/04-functions.md.
@@ -297,7 +297,7 @@ small and go with stage 2 or later.
 - The note's closing tokens (§4) include `?` and leave out `cases`.
 - The formatter's `ends_operand` (`layout.rs:128-149`) includes `KwCases`
   and leaves out `Question`.
-- `starts_atom` (`parser.rs:3310-3334`) also starts an atom at `include`, at
+- `starts_atom` (`parser.rs`) also starts an atom at `include`, at
   a bare `cases` and at a method section `.name`.
 
 In the parser the closing-token test is redundant, since the predicate is
@@ -339,7 +339,7 @@ These are correct as stated:
   loose: 2.
 - **Outside `.sw` files.** No Stitchwort argument minus in fenced code
   blocks in `*.md`, `web/`, `editors/`, or Rust strings, apart from
-  `parser.rs:5253, 5262`.
+  `parser.rs`.
 - **§2.** Every row of the "What users see today" table I ran matches.
 - `Expr::Neg` has 28 uses in 10 files.
 - `-` arithmetic is only `Nat`/`Int`/`Float`. `numbers.rs` has three kinds,

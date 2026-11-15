@@ -231,7 +231,7 @@ constructor, `VCons [n := k] x xs` (`docs/syntax.md:254`, `:257`)
 (`docs/syntax.md:510`) **[checked]**.
 
 How it works: the parser makes `Expr::NamedArg` from `[name := expr]`
-(`crates/syntax/src/parser.rs:3018-3037`, `crates/syntax/src/ast.rs:55-57`)
+(`atom_base`, `crates/syntax/src/parser.rs`, `crates/syntax/src/ast.rs:55-57`)
 **[checked]**. The elaborator collects the application spine into
 `Arg::Explicit | Arg::Named | Arg::Piped` (`crates/elab/src/check.rs:541-546`)
 **[checked]**, and for a named one walks the function's type, inserting

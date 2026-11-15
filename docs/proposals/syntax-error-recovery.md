@@ -64,7 +64,7 @@ recovery made of it (§4.1).
 
 ## 1. What happens today
 
-**Parsing** [source]. `parse_tokens` (`crates/syntax/src/parser.rs:162`)
+**Parsing** [source]. `parse_tokens` (`crates/syntax/src/parser/entry.rs`)
 cuts the file into declarations at column 0 (`split_decls`, `:600`) and
 gives each one a fresh `Parser`. Each parsing function returns `Result`, and
 the first `Err` unwinds to the loop at `:300–355`. There a `def`, `theorem`,
@@ -161,7 +161,7 @@ against an unknown type for its hovers, and the declaration gives no stand-in.
 ### 2.3 Binding lines and proof-step lines (D3580)
 
 Proofs are terms, and some lines take the lines below them as their body:
-`rewrite h in` (`expr` and `block`, `parser.rs:2590–2660`), a `calc` head
+`rewrite h in` (`expr` and `block`, `parser.rs`), a `calc` head
 and its steps, and a line ending in an operator, which the next line at the
 block's column continues. Fable's probes [measured, files in
 `…/scratchpad/fable-d3580/`, `p5.sw`] on a correct three-line `rewrite`
@@ -212,7 +212,7 @@ skipped lines in a declaration that is already reported, so I'd leave it.
 
 The parser has eight mode fields (`in_list`, `limit`, `allow`,
 `calc_depth`, `rewrite_rule`, `guard_start`, `rewrite_at`, `let_value`;
-`parser.rs:703–732`). Each site saves and restores the ones it changes by
+`Modes`, `parser.rs`). Each site saves and restores the ones it changes by
 hand, and some don't restore them on the error path (parse-recovery.md
 §1.2; not rechecked), which is harmless only because an error throws the
 parser away today. On top of those there is
@@ -253,7 +253,7 @@ still explains *why* the line ended. My call; the 82 reject examples with
   `Block`'s child between two `Let`s, an `Arm`'s body, a `Paren`'s inside.
   The finished constructs inside the skipped range keep their nodes,
   nested in the `Error`. The declaration's root is its real kind (`Def`,
-  `Theorem`), not `Error`. `decl_kind` (`parser.rs:381`) is then given the
+  `Theorem`), not `Error`. `decl` (`parser/declarations.rs`) is then given the
   kept declaration.
 - **Missing parts** (R1) get no node: the parent lacks the child. A `Let`
   with no value node, an `Arm` with no body. Lowering (and, before it, the
@@ -292,7 +292,7 @@ where the construct that failed started. R2b's rule below is now only a
 choice.* As first written:
 
 An operator finds its left operand from the last mark that ends where it
-stands (`operand_start`, `parser.rs:965`). An `Error` mark that ended just
+stands (`operand_start`, `parser.rs`). An `Error` mark that ended just
 before an operator would be taken for its operand. R2b therefore skips
 only where an operand *starts* (before any atom), and the other points end
 at stops, closers or the end of the declaration, where no operator follows.

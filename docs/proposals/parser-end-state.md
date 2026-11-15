@@ -100,14 +100,14 @@ needs.
   | Call | Sites | What it does |
   |---|---|---|
   | `node(start, kind)` with `let start = self.mark()` | 99 | "from the token index I kept, to here" |
-  | `node_at(span, kind)` (`parser.rs:1032`) | 44 | the same, but the function kept a `Span`, so the token index is found again by binary search (`record_at`, `:1037`) |
+  | `node_at(span, kind)` (`parser.rs`; now `node`) | 44 | the same, but the function kept a `Span`, so the token index is found again by binary search (`record`) |
   | `open(kind)` … `close()` (`:1075`, `:1089`) | 7 | an operator: the start is read back from the marks (`operand_start`, `:1057`) and parked on a heap stack until the right operand is read |
   | `node_around_operand(kind)` (`:1068`) | 1 | read-back, recorded at once |
   | `operand_start()` used directly | 5 | `sequence`, `iff`, `logic_chain`, `pipe_chain`, `widen_section` |
   | `retag_last` (`:1125`) | 1 | changes the last mark's kind and start (`exists` reuses a lambda's mark) |
   | `widen_section` (`:1137`) | 2 | finds an earlier `Section` mark, empties it (`end = start`, which the builder then filters) and records a wider one |
   | `mark_param` (`:1104`) | — | records unless the last mark already covers the same range |
-  | `record_range(start, end, kind)` (`:4163`) | 2 | any range, any order (`mark_logic_chain`, `:4143`) |
+  | `record_range(start, end, kind)` (`:4163`) | 2 | any range, any order (`mark_logic_chain`) |
 
 - **Reading the marks back for decisions**: `absurd_in` (`:1239`),
   `or_with_absurd` (`:3131`), `rewrite_membership` (`:3596`),
@@ -123,8 +123,8 @@ needs.
 
 ## 2. The bug, and what it shows
 
-`logic_chain` (`parser.rs:4120`) reads `a ∧ b ∨ c …` in a loop and then
-records all its `Binary` nodes at once (`mark_logic_chain`, `:4143`). For
+`logic_chain` (`parser.rs`) reads `a ∧ b ∨ c …` in a loop and then
+records all its `Binary` nodes at once (`mark_right_nested`). For
 the last group of operands it records outer before inner, so the last mark
 written is the innermost (`b ∧ c`), not the whole chain. Whatever comes
 next and takes the chain as its left operand (`→` at `:3705`, `↔` at
@@ -285,7 +285,7 @@ and disorder is what [§2](#2-the-bug-and-what-it-shows) was.
 
 ### 4.2 Stack [measured, then estimated]
 
-The parser gets half the stack (`parser_limit`, `parser.rs:281`): 24 MiB
+The parser gets half the stack (`parser_limit`, `parser/entry.rs`): 24 MiB
 of `dev tree`'s and `check`'s 48. Deepest nesting accepted, by binary
 search: `(((…)))`, `f (f (…))` and `(1 + (1 + …))` 18,264 levels, so 1,377
 bytes a level; lists 15,518 (1,621 bytes); lambdas 15,701; `if` 14,542.
@@ -322,7 +322,7 @@ What S2–S5 need, against each design:
   ending just before an operator would be taken for its operand, so R2b
   may only skip where an operand starts, and S3 carries a test for it. In
   A′ the hazard doesn't exist and the rule is only a choice.
-- **`snapshot` / `recover_to`** (`parser.rs:868`, `:1744`, `:1759`):
+- **`snapshot` / `recover_to`** (`parser.rs`):
   restores the modes and truncates `open`. In A′ `open` is gone, so a
   snapshot is the modes.
 - **Marks that must not survive a recovery.** S1's `recovering_body`
@@ -335,7 +335,7 @@ What S2–S5 need, against each design:
   more recovery points; each would otherwise repeat the filtering.
 - **Checks on meaning that are still parser errors** stop the parse where
   recovery then skips text. "A block must end with an expression, not
-  `let`" (`parser.rs:2666`) is the state of every block while its last
+  `let`" (`parser.rs`, `block`) is the state of every block while its last
   line is being typed. In the lowering it is a missing result with the
   whole block still in the tree; in the parser it is an error for R3 or R6
   to skip around [source; how S2 will treat it I didn't check].
@@ -350,48 +350,48 @@ call sites. Not a full census of every error site: T2 should sweep.
 
 | What | Where |
 |---|---|
-| `operand_start` | `parser.rs:1057`; used at `:1081`, `:1069`, `:1138`, `:3746`, `:3773`, `:4122`, `:4189` |
+| `operand_start` | `parser.rs` |
 | `open` stack, `open`/`close`, `node_around_operand` | `:900`, `:1075–1098`, `:1068`; sites `:3275`, `:3705`, `:4486`, `:4527`, `:4538`, `:4550`, `:4592`, `:4612` |
 | `Snapshot::open` | `:868–871`, `:1747`, `:1761`, test `:5362` |
 | `node_at` / `record_at` (binary search for a token index the caller could have kept) | `:1032–1040`, 44 sites |
 | `retag_last` | `:1125`, used `:3808` |
 | `widen_section`, and the empty mark it leaves | `:1137–1158`, used `:3712`, `:4209`; the filter `tree.rs:709` |
 | `mark_param`'s test of the last mark | `:1104–1117` |
-| `record_range`, `mark_logic_chain` (the bug) | `:4163`, `:4143–4160` |
+| `record_range`, `mark_right_nested` (the bug) | `:4163`, `:4143–4160` |
 | The sort, the dropped count | `tree.rs:713`, `:739`, `:398`, `:433` |
-| The root passed twice: as `decl()`'s return value and as a mark the builder skips | `declarations.rs:124`, `parser.rs:2243`, `:2749`; `tree.rs:728` |
+| The root passed twice: as `decl()`'s return value and as a mark the builder skips | `declarations.rs:124`, `parser.rs`, `tree.rs:728` |
 
 **The parser asking its marks what it parsed** (T2):
 
 | What | Where | End state |
 |---|---|---|
-| `absurd_in`, `absurd_since` | `parser.rs:1231–1260` | the pattern functions return whether they read `()` (it decides whether `=>` is required: the parser's business) |
+| `absurd_in`, `absurd_since` | `parser.rs` | the pattern functions return whether they read `()` (it decides whether `=>` is required: the parser's business) |
 | `or_with_absurd` | `:3131` | a check on meaning: the lowering |
 | `rewrite_membership` | `:3596` | the lowering (the body's node is a `Membership`) |
 | `callable_paren` | `:4790` | `atom` knows what it just read; returns it |
 | `lowered`, `lowered_span`, `lowered_pattern_span`, `enum Lowered` | `:1168`, `:1206`, `:1216`, `:680` | deleted with their callers' moves |
-| …for a message's span | `declarations.rs:373`, `:393`, `:696`; `parser.rs:2330`, `:2345`, `:2519`, `:2761`, `:3201`, `:3304`, `:3850`, `:4346–4403`, `:4958` | the check moves to the lowering, which has the span |
-| …for a decision | `is_equation` `declarations.rs:422`; `type_synonym` `declarations.rs:462`; `written_start` `parser.rs:4222`; `operand_text` `:4432` | lowering, except `written_start`, which is layout and should read tokens |
-| `use crate::ast::{Expr, Pattern, BinOp, …}` and `crate::lower::…` in the parser | `parser.rs:23`, `:26`; `declarations.rs:11` | the parser imports neither |
+| …for a message's span | `declarations.rs:373`, `:393`, `:696`; `parser.rs` (several sites) | the check moves to the lowering, which has the span |
+| …for a decision | `is_equation` `declarations.rs:422`; `type_synonym` `declarations.rs:462`; `written_start` `parser.rs`; `operand_text` `parser.rs` | lowering, except `written_start`, which is layout and should read tokens |
+| `use crate::ast::{Expr, Pattern, BinOp, …}` and `crate::lower::…` in the parser | `parser.rs` (imports); `declarations.rs:11` | the parser imports neither |
 
 **Values returned only to feed checks on what was grouped** (T2; each check
-is the lowering's by `parser.rs:6–8`'s own rule):
+is the lowering's by `parser.rs`'s own rule):
 
 | What | Where | Feeds |
 |---|---|---|
-| `BinderRead` (6 fields) | `parser.rs:705`; built `:2557`, `:3941`, `:3967` | misplaced attributes (`:2254`, `:2262`, `:2310`, `:2474`, `:3641`), "must be `auto`" (`:2265`), "needs a name" (`:2276`), "an interface can't have indices" (`:2330`), defaults (`:2517`), "can't be `auto`" (`:2406`) |
-| `ParamRead` | `declarations.rs:47` | a lambda's or quantifier's default (`parser.rs:3303`, `:3848`) |
-| `DefinitionRead` (`unfolding`, `body`, `result`) | `declarations.rs:38` | a local definition's `unfolding` and missing body (`parser.rs:2750–2764`); `kind` stays |
-| `Line` | `parser.rs:687` | "a block must end with an expression" (`:2664–2673`) |
+| `BinderRead` (6 fields) | `parser.rs`; built in `binder_with_default`, `header_param_parts` | misplaced attributes (`:2254`, `:2262`, `:2310`, `:2474`, `:3641`), "must be `auto`" (`:2265`), "needs a name" (`:2276`), "an interface can't have indices" (`:2330`), defaults (`:2517`), "can't be `auto`" (`:2406`) |
+| `ParamRead` | `declarations.rs:47` | a lambda's or quantifier's default (`parser.rs`, `lambda`, `forall_expr`) |
+| `DefinitionRead` (`unfolding`, `body`, `result`) | `declarations.rs:38` | a local definition's `unfolding` and missing body (`parser.rs`, `local_def`); `kind` stays |
+| `Line` | `parser.rs` | "a block must end with an expression" (`block`) |
 | `braced_fields` → count | `:2437` | "declares no fields in its braces" (`:2383`) |
 | `list_expr` → the first spread | `:4910` | "a list of facts can't have a `..`" (`:4955`) |
 | `FirstAttribute` | `:697` | the messages above; half of its uses are grouping (attributes with nothing after them, `:347`) and stay |
 | Checks in `definition` that read nothing but kinds | `declarations.rs:286`, `:307`, `:391–398` | "an instance can't have `decreasing`" / `unfolding`, "an instance needs a body" |
 
 **The kept signature** (goes with S1's R6, or in T3 if S1 leaves any):
-`keep_header`, `header_kept` (`parser.rs:886–894`, `:420`, `:430`;
+`keep_header`, `header_kept` (`parser.rs`;
 `declarations.rs:250`, `:339`); `signature_kept` (`tree.rs:355–359`,
-`:381`, `:757`, `:793–799`; set `parser.rs:441`, and `false` at seven other
+`:381`, `:757`, `:793–799`; set in `parser/entry.rs` (`parse_tokens`), and `false` at seven other
 constructions of `DeclMarks`); the lowering's reading of it
 (`lower.rs:230`). S1's working tree still passes a `kept` flag [source,
 SW-1983's uncommitted diff].
@@ -409,7 +409,7 @@ SW-1983's uncommitted diff].
   as many spaces as the declaration's offset, to keep positions),
   `declared_names_of` (`:465`), `failed_names_of` (`:530`); the lowering
   calls back into them (`lower/decls.rs:95–110`). Their own small module.
-- The tests: `parser.rs:5,328–9,196`, 156 tests with 444 uses of the
+- The tests: `parser/tests.rs` and `lower/tests`, 156 tests with 444 uses of the
   compiler's tree's constructors and none of the lossless tree
   [measured, grep]. They test the parser and the lowering together through
   the old route's signature. No unit test pins the parser's own output,
@@ -424,12 +424,12 @@ SW-1983's uncommitted diff].
 | `tree.rs:72–73` | "nothing has to be undone" after a failed parse: untrue once S1's `recovering_body` filters marks |
 | `tree.rs:75–87` | the read-back, as the design |
 | `tree.rs:89` | "for now" an `Error` root (S1 changes it) |
-| `parser.rs:9–10`, `:1160–1166` | lowering "on the spot" |
-| `parser.rs:40–46` | the `Result` box, explained by `Result<Expr>` frames; no function returns an `Expr` now (the box is still right: an unboxed `Result<()>` would be 112 bytes) |
-| `parser.rs:1050–1056`, `:1072–1074` | read-back as the reason for small frames |
-| `parser.rs:1087` | an error "drops the declaration's marks": it doesn't, they stay under the `Error` root |
-| `parser.rs:902`, `:1742`, `:1757`, `:1767`, `:5394` | "stage S0", "come in stage S1" (S1 removes them) |
-| `parser.rs:2138`, `:2769`, `:3740`, `:3767`, `:3792`, `:3828`, `:4560`, `:4821` | what a construct lowers to (`Iff p q`, `%section.name`, `Bool.not`): the lowering's doc |
+| `parser.rs` module doc, `lowered` | lowering "on the spot" |
+| `parser.rs` (`Result`) | the `Result` box, explained by `Result<Expr>` frames; no function returns an `Expr` now (the box is still right: an unboxed `Result<()>` would be 112 bytes) |
+| `parser.rs` | read-back as the reason for small frames |
+| `parser.rs` (`record`) | an error "drops the declaration's marks": it doesn't, they stay under the `Error` root |
+| `parser.rs` (stage comments) | "stage S0", "come in stage S1" (S1 removes them) |
+| `parser.rs` (lowering notes) | what a construct lowers to (`Iff p q`, `%section.name`, `Bool.not`): the lowering's doc |
 | `lower.rs:9`, `:28`; `tree/spans.rs:5` | "(step 4)", "the ones the parser used to give", "step 3" |
 | `lower/coverage.rs:3–5` | the oracle's history: commit-message material |
 | `lower/exprs.rs:847`, `lower/binding.rs:643`, `lower/matching.rs:241` | tests named by lane ("lane L1", "L3", "L4") |
@@ -535,13 +535,13 @@ hides disorder, not for its 4%.
   construct; moving its body out of line, as `logic_chain` is, would buy
   more depth than the read-back ever saved [estimated: 15–20%]. Depth, not
   speed, so not covered by D3465's pause; still low priority.
-- **`failed_names_in` (`parser.rs:156`) allocates a copy of the text
+- **`failed_names_in` (`parser/failed_names.rs`) allocates a copy of the text
   padded with one space per byte of offset** to lex a failed declaration
   in place: for a lexical error near the end of a 100 KB file, 100 KB per
   attempt, twice. A lexer entry point that takes a starting offset would
   do.
 - **"A block must end with an expression, not `let`" is a parse error**
-  (`parser.rs:2666`), so under recovery the commonest half-typed block is
+  (`parser.rs`, `block`), so under recovery the commonest half-typed block is
   one R3 or R6 skips text for. Worth a look by the S2 lane before T2
   moves it.
 - **`a ∧ b ∨ c ↔ False` prints its goal as `a ∧ b ∨ c ↔ False = True`**

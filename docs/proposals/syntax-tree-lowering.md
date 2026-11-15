@@ -58,7 +58,7 @@ all of std, which every `stitchwort check` does once, takes 55 ms today
 ## 1. How the compiler's tree is built today
 
 The parser is recursive descent over one declaration's tokens at a time
-(`split_decls` cuts the file at column 0, `parser.rs:600`). Outside its
+(`split_decls` cuts the file at column 0, `parser.rs`). Outside its
 tests it is 7,296 lines in `parser.rs` (lines 1–6004),
 `parser/declarations.rs` and `parser/sections.rs`: 234 functions, 99 of
 which return a built value (`Result<Expr>`, `Result<Pattern>`,
@@ -72,7 +72,7 @@ counted]. The compiler's tree (`ast.rs`) has 43 `Expr` variants, 14
 
 The parse-time context the grammar needs is parser state: the block column
 and its one exception (`limit`, `allow`), `calc_depth`, `rewrite_rule`,
-`guard_start`, `rewrite_at`, `let_value`, `in_list` (`parser.rs:702–754`).
+`guard_start`, `rewrite_at`, `let_value`, `in_list` (`parser.rs`).
 That is grammar and stays in the parser: it decides where constructs end,
 which the marks then record. The lowering never needs it.
 
@@ -87,28 +87,28 @@ many spans of each kind the span check (`dev tree --spans`, `tree/spans.rs`
 |---|---|---|---|---|
 | 1 | `def f (x: A) (y: B): R := e` or arms | `Decl::Signature` with a `Pi` per parameter, then a `Decl::Equation` per arm with the header's names as patterns and `arm: Some(n)`; defaults moved to `defaults` | `declarations.rs:231` `definition`, `:825` `lower_header`, `:868` `take_defaults` | 66,135 Header |
 | 2 | `theorem t ∀ (x: A) …` | the `∀` dropped (D3472) | `declarations.rs:251` | – |
-| 3 | attributes before a declaration | moved onto its first `Decl` | `parser.rs:324` (`parse_tokens`) | 48 Attributes |
-| 4 | `type R = { x: A }` | a `Data` with one constructor named `%mk` | `parser.rs:2394` (`data`) | – |
-| 5 | `f a b` | `App(App(f, a), b)` | `parser.rs:4910` `app` | 100,817 PartialApp |
-| 6 | `(f a) b` | `Bracketed(App(f, a))` at the head; other brackets dropped | `parser.rs:4916` | – |
-| 7 | `f()`, `x.f()` | `App(f, Unit)` | `parser.rs:5076` (`atom`) | – |
-| 8 | `(a, b, c)`, pattern too | `Tuple(a, Tuple(b, c))` | `parser.rs:1468` `tuple_expr`, `:1496` `tuple_pattern` | 355 Nested (with #9) |
-| 9 | pattern `[a, b, ..r]` | `Cons(a, Cons(b, r))`, `Nil` | `parser.rs:1947` (`pattern`) | (in #8) |
-| 10 | a block's lines | nested `Let`, `Seq`, `LocalDefs`, each spanning to the block's end; consecutive local `def`s grouped into one `LocalDefs` | `parser.rs:2612` `block`, `:855` `bind_let` | 2,215 BlockRest |
-| 11 | `let (a, b) := e` (block or expression) | one-arm `Match` with `MatchKind::Let`, `Ann` if typed | `parser.rs:855` `bind_let`, `:2864` | 589 PatternMatch (with #12) |
-| 12 | lambda with pattern parameters `(a, b) => e` | `Lam(%arg0, Match(MatchKind::Lambda))` | `parser.rs:3394` `lambda` (`:3451–3504`) | (in #11) |
-| 13 | `match \| …`, `match some \| …`, `matches \| …` | `Lam(%arg…)` over a `Match` (`Clause`, `ClauseSome`, `ClauseMatches`); `Some` wrapped round bodies; an added last arm `_ => None` / `_ => False`; `True` for a bare `matches` arm | `parser.rs:3210` `clause_lambda` (`:3250–3298`) | 260 Empty, 41 Added, 44 Generated (with #15) |
-| 14 | `a ≤ b < c` | `let %chain<offset> := b; a ≤ %chain… ∧ …` (atoms not bound) | `parser.rs:4636` `comparison_chain`, `:5710` `chain` | 252 Chain |
-| 15 | `.f a`, `(.id == id)` | `Lam(%section, …)`, the section's arguments its own | `parser.rs:5067` `atom`, `:5131`, `:4929`; `sections.rs:241` | 976 Section |
+| 3 | attributes before a declaration | moved onto its first `Decl` | `parser/entry.rs` (`parse_tokens`) | 48 Attributes |
+| 4 | `type R = { x: A }` | a `Data` with one constructor named `%mk` | `parser.rs` (`data`) | – |
+| 5 | `f a b` | `App(App(f, a), b)` | `parser.rs` `app` | 100,817 PartialApp |
+| 6 | `(f a) b` | `Bracketed(App(f, a))` at the head; other brackets dropped | `parser.rs` `atom` | – |
+| 7 | `f()`, `x.f()` | `App(f, Unit)` | `parser.rs` (`atom`) | – |
+| 8 | `(a, b, c)`, pattern too | `Tuple(a, Tuple(b, c))` | `parser.rs` `tuple_expr`, `tuple_pattern` | 355 Nested (with #9) |
+| 9 | pattern `[a, b, ..r]` | `Cons(a, Cons(b, r))`, `Nil` | `parser.rs` (`pattern`) | (in #8) |
+| 10 | a block's lines | nested `Let`, `Seq`, `LocalDefs`, each spanning to the block's end; consecutive local `def`s grouped into one `LocalDefs` | `parser.rs` `block`, `lower/binding.rs` `bind_let` | 2,215 BlockRest |
+| 11 | `let (a, b) := e` (block or expression) | one-arm `Match` with `MatchKind::Let`, `Ann` if typed | `lower/binding.rs` `bind_let`, `parser.rs` `let_pattern` | 589 PatternMatch (with #12) |
+| 12 | lambda with pattern parameters `(a, b) => e` | `Lam(%arg0, Match(MatchKind::Lambda))` | `parser.rs` `lambda` | (in #11) |
+| 13 | `match \| …`, `match some \| …`, `matches \| …` | `Lam(%arg…)` over a `Match` (`Clause`, `ClauseSome`, `ClauseMatches`); `Some` wrapped round bodies; an added last arm `_ => None` / `_ => False`; `True` for a bare `matches` arm | `parser.rs` `clause_lambda` | 260 Empty, 41 Added, 44 Generated (with #15) |
+| 14 | `a ≤ b < c` | `let %chain<offset> := b; a ≤ %chain… ∧ …` (atoms not bound) | `parser.rs` `comparison_chain`, `lower/exprs.rs` `chain` | 252 Chain |
+| 15 | `.f a`, `(.id == id)` | `Lam(%section, …)`, the section's arguments its own | `parser.rs` `atom`, `section_at`; `sections.rs:241` | 976 Section |
 | 16 | `(+ 1)`, `(k +)`, `(&&)` | `Lam(%section, …)`, `Lam(%left %right, …)` | `sections.rs:216–312` | (in #15) |
-| 17 | `xs \|> .f a` | `xs.f a`, the section filled with the receiver | `parser.rs:5849` `piped` | – |
-| 18 | `∃ x y => P` | `Std.Exists _ (x => Std.Exists _ (y => P))` | `parser.rs:4084`, `:5792` `exists_chain` | 512 Exists |
-| 19 | `p ↔ q` | `App(App(Std.Iff, p), q)` | `parser.rs:4048` `iff` | – |
-| 20 | `!b`, `x ∉ xs` | `App(Std.Bool.not, …)` | `parser.rs:5834` `prefix_op`, `:4753`, `:5445` | – |
-| 21 | `a > b`, `a ≥ b` | `b < a`, `b ≤ a` (flipped) | `parser.rs:5781` `binary` | – |
-| 22 | a `calc` with `>`/`≥` steps | reversed; `=` steps' proofs wrapped in `Std.Eq.sym` | `parser.rs:5864` `reverse_calc` | – |
-| 23 | `"a${x}b"` | `Interpolated("a" ++ Std.Show.toText x ++ "b")` | `parser.rs:5349` `interpolated_str` | 509 Interpolation |
-| 24 | `-x` vs `f -x` | `Neg(…, NegForm::Operand / Argument)`, decided by spacing | `parser.rs:5415`, `negation.rs` | – |
+| 17 | `xs \|> .f a` | `xs.f a`, the section filled with the receiver | `lower/exprs.rs` `piped` | – |
+| 18 | `∃ x y => P` | `Std.Exists _ (x => Std.Exists _ (y => P))` | `parser.rs` `exists_expr`, `lower/binding.rs` `exists_chain` | 512 Exists |
+| 19 | `p ↔ q` | `App(App(Std.Iff, p), q)` | `parser.rs` `iff` | – |
+| 20 | `!b`, `x ∉ xs` | `App(Std.Bool.not, …)` | `lower/exprs.rs` `prefix_op`, `parser.rs` `bang_atom` | – |
+| 21 | `a > b`, `a ≥ b` | `b < a`, `b ≤ a` (flipped) | `lower/exprs.rs` `binary` | – |
+| 22 | a `calc` with `>`/`≥` steps | reversed; `=` steps' proofs wrapped in `Std.Eq.sym` | `lower/proofs.rs` `reverse_calc` | – |
+| 23 | `"a${x}b"` | `Interpolated("a" ++ Std.Show.toText x ++ "b")` | `parser.rs` `interpolated_str` | 509 Interpolation |
+| 24 | `-x` vs `f -x` | `Neg(…, NegForm::Operand / Argument)`, decided by spacing | `parser.rs` `negative_atom`, `negation.rs` | – |
 
 Tags that let later errors say what was written, which the lowering must
 reproduce exactly: `MatchKind` (5 elaborator files), the `%section` name
@@ -229,7 +229,7 @@ only its names in `Module::failed`, read off its tokens by
 `failed_names_of` as today.
 
 **If lowering lands first** (the other order): today's recovered signature
-(`body_error`, parked in `header`, `parser.rs:747`) has to be lowered, and
+(`body_error`, parked in `header`, `parser.rs`) has to be lowered, and
 the builder currently drops a failed declaration's marks (`tree.rs`
 `build_decl`). Then L0 keeps the marks of the constructs that finished
 before the error, under the `Error` root, and L2 makes the signature from
@@ -281,22 +281,22 @@ groups:
   a keyword in the wrong place): almost all of them. They stay in the
   parser, unchanged.
 - **B. Parse decisions that read a built value**, about a dozen sites
-  [source]: `arm_body`'s absurd-pattern test (`parser.rs:1215`), the
+  [source]: `arm_body`'s absurd-pattern test (`parser.rs`, `absurd_in`), the
   alternative-count note (`:3154`), `Bracketed` (`:4916`), a unit call
   after a name or field (`:5076`), `result_is_equation`
   (`declarations.rs:276`), `clause_match` (`declarations.rs:369`), the
   `Ann` test (`declarations.rs:487`), the constructor and record checks of
-  `ctor_fields_expr` and `brace_argument` (`parser.rs:5165–5204`), the fact
+  `ctor_fields_expr` and `brace_argument` (`parser.rs`), the fact
   list's spread (`:5338`), `rewrite_membership` (`:3872`). Each becomes a
   test of the last mark's kind ("the operand just read is an `App`") or of
   tokens. Where the value was only needed to build something (`piped`'s
   receiver, the record surgery), it moves to the lowering.
 - **C. Checks on meaning that read built values**: duplicate parameters
   (`check_duplicates`, `declarations.rs:903`), an or-pattern binding names
-  (`first_bound`, `parser.rs:3373`), an absurd arm with a guard (`:1215`),
-  a lambda parameter's default (`lambda_default`, `:3420`), the operand
-  text in a chain error's suggestion (`operand_text`, `:4656`, `:4719`), a
-  block ending in a `let` or `def` (`:2642`). They move to the lowering,
+  (`first_bound`, `lower/patterns.rs`), an absurd arm with a guard (`:1215`),
+  a lambda parameter's default (`lambda_default`), the operand
+  text in a chain error's suggestion (`operand_text`), a
+  block ending in a `let` or `def` (`block`). They move to the lowering,
   which becomes `Result`, keeping their text.
 
 **Which errors a declaration reports.** Without recovery, the first check

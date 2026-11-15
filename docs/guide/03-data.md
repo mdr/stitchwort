@@ -110,7 +110,7 @@ test "field punning" := (newborn "Grace").age == 0
 - `{ person | age = … }` is a copy with some fields replaced. Values are never changed in place, so the original is untouched.
 - A field name alone, as in `{ name, age = 0 }`, is short for `name = name`.
 
-The house style for a declaration over several lines puts a comma at the end of each line, no comma after the last field, and the closing brace in column 0, as above.
+The house style writes a short record on one line, with a comma after each field but the last, as above; one that spans lines puts a comma at the end of each line, no comma after the last field, and the closing brace in column 0.
 
 Give the nouns of a problem types of their own, records by default, with the operations they support as methods. A `Pass` with a `seatId` method says more than a `List Bool` and a function on it, and a `Pass` can't be passed where a row number is wanted. Write a synonym ([below](#type-synonyms)) only where a type of its own would add nothing.
 

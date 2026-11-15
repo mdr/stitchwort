@@ -85,10 +85,10 @@ to subtract, write `n - 1`" (§4.2.4).
 
 All **[checked]** at `82a79b30`.
 
-**The rule.** `starts_atom` (`crates/syntax/src/parser.rs:3310`) doesn't
+**The rule.** `starts_atom` (`crates/syntax/src/parser.rs`) doesn't
 include `Tok::Minus`, so an application never takes a `-` as an argument. The
-`-` is then binary in `add_expr` (`parser.rs:3182-3194`). A prefix minus is
-parsed by `unary` (`parser.rs:3215-3229`). It applies to `unary` again, then
+`-` is then binary in `add_expr` (`parser.rs`). A prefix minus is
+parsed by `unary` (`parser.rs`). It applies to `unary` again, then
 to `app`, so it binds looser than application and dots and tighter than
 `*`: `-x.abs` is `-(x.abs)`, `-f x` is `-(f x)` and `-18 % 100` is
 `(-18) % 100`. The tree is `Expr::Neg(Box<Expr>, Span)` (`ast.rs:101`). A
@@ -100,8 +100,8 @@ and docs/syntax.md:1114 and docs/guide/04-functions.md:128 say so.
 for every `-` that doesn't start `->` or `--`. It keeps no whitespace flag,
 but every token has its span and a `line_start` flag (`lexer.rs:193-202`),
 which is all the rule needs. The parser already reads spacing from spans for
-`f()` (`unit_call`, `parser.rs:3360-3370`), for method sections (`section_at`,
-`parser.rs:3300-3309`) and for `rewrite <- h` (`parser.rs:2539-2546`).
+`f()` (`unit_call`, `parser.rs`), for method sections (`section_at`,
+`parser.rs`) and for `rewrite <- h` (`parser.rs`, `rewrite_body`).
 
 **What users see today**:
 
@@ -427,7 +427,7 @@ argument_minus(i) :=
 ```
 
 In the parser the rule applies only where `peek()` returns the `-`, that is,
-not at a stop (`is_stop`, `parser.rs:654-672`): a line at the block's column,
+not at a stop (`is_stop`, `parser.rs`): a line at the block's column,
 a `calc` step or the end of a rewrite rule is a new statement, so a block
 line `-y` after `let y := x + 1` stays the block's result, as today
 (review finding 1). A line break counts as a space only on a *continuation*
@@ -723,7 +723,7 @@ leaves them as written (D1472).
   touching a name, digit or bracket finds only shell flags, JavaScript, test
   output and two Stitchwort strings: the parser tests
   `("f -x", "(Sub f x)")` and `("f -5", "(Sub f 5)")` in
-  `prefix_minus_precedence` (`crates/syntax/src/parser.rs:5253, 5262`). They
+  `prefix_minus_precedence` (`crates/syntax/src/lower/tests/operators.rs`). They
   test today's rule and would be updated.
 - Documentation that states today's rule: docs/syntax.md:1114 (and 1115 for
   patterns), docs/guide/04-functions.md:128 ("A negative literal as an
@@ -861,7 +861,7 @@ Parser (`crates/syntax/src/parser.rs`):
 - Negative numerals (D1474, D1490): in `unary`, a `-` glued to a `Num` or
   `Float` token, with no closing token touching it on the left, makes
   `Neg(Num)` the *base* of `atom`'s field and `()` loop
-  (`parser.rs:3380-3420`), not `prefix_op(…, self.unary())`. The
+  (`parser.rs`, `atom`), not `prefix_op(…, self.unary())`. The
   argument-minus path uses the same base when the next token is a numeral.
   `add_expr` already takes the tight `x-1`, so `x-1.abs` stays
   `x - (1.abs)`. Don't merge `-1` into one lexer token: the formatter's

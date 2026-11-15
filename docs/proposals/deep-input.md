@@ -55,10 +55,10 @@ Some examples, from the reviews:
   own depth check never fires, but the tree is 100,000 levels deep. Dropping
   it at the end recurses once per level and overflows (SW-1874,
   `ast.rs:800`, review F4).
-- A chain `a < b < c < …` of a few thousand comparisons: the parser's
+- A chain `a < b < c < …` of a few thousand comparisons: the lowering's
   `chain` helper recurses once per operand after parsing them in a loop
-  (`parser.rs:4980`, `go`); `exists` with many typed parameters likewise
-  (`parser.rs:5044`).
+  (`chain`, `crates/syntax/src/lower/exprs.rs`, `go`); `exists` with many typed parameters likewise
+  (`exists`, `crates/syntax/src/lower/binding.rs`).
 - A proof calls `omega` on a goal that has unfolded to `x + (x + (x + …))`,
   stuck on `x`. The reader that turns it into a linear form recurses once per
   `+` with no check (`omega.rs:1959`, `ring.rs:794`; SW-1936).
@@ -109,10 +109,10 @@ function is a fresh chance to hit one of them.
    pass called from a place that didn't start an operation, never fires. The
    runtime's `compile` runs outside lowering's operation (`run.rs:204`),
    and the formatter and the editor's outline have no operation at all; they
-   parse with a fixed `DEFAULT_STACK` of 1.5 MiB (`parser.rs:45`,
+   parse with a fixed `DEFAULT_STACK` of 1.5 MiB (`parser.rs`,
    `fmt/src/lib.rs:114`, `lsp/src/lens.rs:23`) rather than their thread's.
 4. **Trees built by loops are deeper than the parser's recursion.** The
-   parser's check (`parser.rs:716`, `deeper()`) measures the parser's own
+   parser's check (`parser.rs`, `deeper`) measures the parser's own
    recursion. Chains, blocks, list and tuple patterns are parsed in a loop,
    so the tree can be any depth while the parser stays shallow. Every pass
    after the parser then meets a depth the parser never checked.
@@ -481,7 +481,7 @@ a failing test, and is a few lines in `budget.rs`.
 `E-RESOURCE`, never a different result:
 
 - The parser's, as today: "ran out of resources: the program is nested too
-  deeply to parse", labelled at the place (`parser.rs:716-727`).
+  deeply to parse", labelled at the place (`parser.rs`, `deeper`).
 - The other passes', as today: "ran out of resources: the program is nested
   too deeply for the type checker", on the declaration, with the note
   "this isn't a type error or a failed test" (`budget.rs:63`, `:76`).

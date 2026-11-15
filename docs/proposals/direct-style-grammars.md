@@ -153,8 +153,8 @@ works, but it spends four lines on what Matt wants to write in one.
 
 The parser is close to accepting `(a; b)` already. A block's expression
 statement followed by the rest of the block becomes `Expr::Seq(e, rest)`
-(`crates/syntax/src/parser.rs:1793` **[checked]**). `let x := e; body` on one
-line is the expression `let`, which `let_body` (`parser.rs:1870-1894`) builds
+(`crates/syntax/src/parser.rs`, `block` **[checked]**). `let x := e; body` on one
+line is the expression `let`, which `let_body` (`parser.rs`) builds
 into the same tree as the block form. Nothing builds a `Seq` from `;`.
 
 ### 2.4 The formatter
@@ -284,8 +284,8 @@ exactly the block with those lines. It is allowed wherever an expression
 a block line. It mixes with `let`: `(let x := a; check x; f x)`.
 
 - **Cost:**
-  - *Parser:* small. Where `statement()` (`parser.rs:1812`) and
-    `expr_inline` (`parser.rs:2704`) now look for a `;` after a `let`, also
+  - *Parser:* small. Where `statement()` (`parser.rs`) and
+    `expr_inline` (`parser.rs`) now look for a `;` after a `let`, also
     look for one after an expression statement. Build `Expr::Seq`, which is
     what the two lines would give. Missing-body errors as for `let`. No
     program changes meaning, since `;` has no other use (docs/syntax.md:15

@@ -32,7 +32,7 @@ bare row `{e} b` is `CompIn e b`, which *is* `b` when `e` is the empty row
 ("As built (stage 1, first part)", `f111cbe4`) **[checked]**.
 
 Programs write `{…}` only after an arrow, as a function's result type
-(`parser.rs:1933-1941`, `result_type`) **[checked]**. In a body, a
+(`parser.rs`, `result_type`) **[checked]**. In a body, a
 computation used where a plain value is expected runs there (D1055), and since
 stage 0 one passed where a computation is expected is passed as it is
 (`docs/syntax.md:604`) **[checked]**.
@@ -342,7 +342,7 @@ result.
 | Idris 2 | value | `App es a` | anywhere | `run` | no (a function) | linear types |
 | F\* | computation type | `ST a wp`, `Dv t` | effectful terms are abstract | — | via `reify` (terminating, reifiable only) | WP types + extrinsic proofs by `reify` |
 | Rocq / Agda free monads | value (data) | `impure i α`, `itree E R`, `Free C R a` | anywhere | interpreter | **yes** | lemmas take a computation; cases / induction |
-| Stitchwort today | tree (data), or thunk | `{A} T` after `->`; thunks `() -> {A} T` | arrow only (`parser.rs:1933`) | implicitly where a value is expected (D1055) | yes for `Comp` written by hand | lemmas over thunks and handlers |
+| Stitchwort today | tree (data), or thunk | `{A} T` after `->`; thunks `() -> {A} T` | arrow only (`parser.rs`, `result_type`) | implicitly where a value is expected (D1055) | yes for `Comp` written by hand | lemmas over thunks and handlers |
 
 ## 6. What the survey shows
 
@@ -389,7 +389,7 @@ side.
 - Against: a parse ambiguity. Types are expressions, and a record literal
   can pun a field (`{ age = 0, name }`) and be a bare argument
   (`AtR { q = …, n = 0 }`) (`docs/syntax.md` "Records") **[checked]**. A row
-  with a lone lowercase name is a row variable (`parser.rs:1789-1795`)
+  with a lone lowercase name is a row variable (`parser.rs`, `row`)
   **[checked]**. So in expression position `f {e} b` reads either as `f`
   applied to the type `{e} b` or as `f` applied to the record `{ e }` and
   then `b`. Disambiguating needs a rule based on what follows the `}`, and
@@ -409,7 +409,7 @@ come for free in the parser is **[inferred]**, not checked.
   take a computation. No ambiguity: after `:` a `{` can't start a record
   literal in a type annotation today, and the parser already refuses a record
   type there ("a record type can't be written here: `{` in a type starts an
-  ability row", `parser.rs:1770-1780`) **[checked]**. One rule a reader can
+  ability row", `parser.rs`, `row`) **[checked]**. One rule a reader can
   learn: "a computation type can be written after a colon". Scala's by-name
   parameters show that an annotation-only delayed type works in practice.
 - Against: a type argument still can't be a computation type, so

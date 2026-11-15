@@ -118,7 +118,7 @@ status line now says the wrong thing; the details are in
 | [pattern-guards.md](pattern-guards.md) | Pattern guards, `\| p if c => e`, in every `match` | built | SW-1295, SW-1301 |
 | [syntax-conveniences.md](syntax-conveniences.md) | Local definitions, `match`, patterns in `let` and lambdas, tuples | built: `crates/elab/src/patlet.rs`, `crates/elab/src/local.rs` | SW-20, SW-874 |
 | [list-spread.md](list-spread.md) | Building lists with `[x, ..xs]` | built | SW-1214, SW-1220 |
-| [chained-comparisons.md](chained-comparisons.md) | `low <= x <= high` | built (stale): `comparison_chain`, `crates/syntax/src/parser.rs:3946` | SW-1339, SW-1341, SW-1352 |
+| [chained-comparisons.md](chained-comparisons.md) | `low <= x <= high` | built (stale): `comparison_chain`, `crates/syntax/src/parser.rs` | SW-1339, SW-1341, SW-1352 |
 | [ranges.md](ranges.md) | Ranges, `a ..< b` and `a ..= b` | in progress (stale): steps 1-3 built (`crates/syntax/src/lexer.rs`, `DotDotLt`); 4-5 open | SW-1356-SW-1359; open SW-1360, SW-1361 |
 | [negative-arguments.md](negative-arguments.md) | `f -2` means `f (-2)` | built | SW-840, SW-854, SW-855 |
 | [negative-arguments-review.md](negative-arguments-review.md) | Independent review of the note above | record | SW-853 |
@@ -272,7 +272,7 @@ most, since the status line is all a reader looks at.
 2. [non-empty-lists.md](non-empty-lists.md):5 "No implementation yet":
    `crates/elab/src/std/NonEmptyList/` (SW-1343-SW-1346).
 3. [chained-comparisons.md](chained-comparisons.md):3 "No implementation
-   yet": `crates/syntax/src/parser.rs:3946` (`comparison_chain`, SW-1341).
+   yet": `crates/syntax/src/parser.rs` (`comparison_chain`, SW-1341).
 4. [ranges.md](ranges.md):3 "No implementation yet": the `..<` token is
    `DotDotLt`, `crates/syntax/src/lexer.rs:148`; steps 1-3 done.
 5. [total-division.md](total-division.md):5 "Nothing is built": SW-1640

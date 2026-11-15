@@ -32,12 +32,12 @@ unless marked otherwise.
 
 ## 2. What happens today
 
-Comparisons are parsed by `cmp_expr` (crates/syntax/src/parser.rs:3772-3809)
+Comparisons are parsed by `cmp_expr` (crates/syntax/src/parser.rs)
 **[checked]**: one left operand, at most one of `=`, `!=`, `==`, `<`, `<=`,
 `>`, `>=`, one right operand, and then it returns. Its comment says "not
 associative". `>` and `>=` are stored flipped, as `<` and `<=` with the
-operands swapped (parser.rs:3790-3792), so goals show `<` and `<=`.
-`in`/`!in` are a separate path (`membership`, parser.rs:3813), also not
+operands swapped (`cmp_expr`, `parser.rs`), so goals show `<` and `<=`.
+`in`/`!in` are a separate path (`membership`, `parser.rs`), also not
 associative. The Unicode spellings `≤`, `≥`, `≠`, `∈` and `∧` are the same
 tokens as `<=`, `>=`, `!=`, `in` and `&&` (crates/syntax/src/lexer.rs:1035-1064)
 **[checked]**, so everything here applies to both spellings.
@@ -55,16 +55,17 @@ def t (a b c: Nat): Bool := (a <= b) <= c
 ```
 
 The parser's own tests pin this down: `a > b > c` is asserted to be an
-error (parser.rs:6579-6580), and so is `a in b in c` (parser.rs:7850-7851)
+error (`greater_than_is_less_than_flipped`, `lower/tests/operators.rs`), and so is `a in b in c`
+(`membership_sits_with_the_comparisons`, `lower/tests/operators.rs`)
 **[checked]**. No `.sw` file in aoc/, games/, the standard library or
 examples/ can contain a chain, since none would parse; the first test would
 be updated, the second kept.
 
 The one place chains already exist is `calc`: its steps `_ <= b`, `_ < c`
 chain, `=` goes with either direction, and mixing `<`/`<=` with `>`/`>=` is
-`E-CALC-RELATION`, "a `calc` chain goes one way" (parser.rs:3104-3128)
+`E-CALC-RELATION`, "a `calc` chain goes one way" (`calc_body`, `parser.rs`)
 **[checked]**. `!=` and `==` steps are refused there with "other relations
-can't be chained" (parser.rs:3079-3086). This note's rule for which chains
+can't be chained" (`calc_body`, `parser.rs`). This note's rule for which chains
 are allowed is the same one, minus `=` (§5).
 
 ## 3. What a chain means
@@ -94,7 +95,7 @@ A longer chain is right-nested like `&&`: `a < b < c < d` is `a < b ∧ (b < c
 - (a) **the chain as one conjunct**: `(lo ≤ x ∧ x ≤ hi) ∧ p`, as if
   bracketed; or
 - (b) **spliced in**: `lo ≤ x ∧ (x ≤ hi ∧ p)`, the tree today's hand-written
-  `lo ≤ x ∧ x ≤ hi ∧ p` gives (`logic_chain`, parser.rs:3673-3705, groups
+  `lo ≤ x ∧ x ≤ hi ∧ p` gives (`logic_chain`, `parser.rs`, groups
   `&&` to the right **[checked]**).
 
 (a) is what the text says: the chain is one fact, "x is in range", and
@@ -235,7 +236,7 @@ A descending chain is stored as an ascending one, as a single `>` is: `hi >=
 x > lo` is `x <= hi ∧ lo < x` (each link flipped, the links in the order
 written) **[estimate]** of what reads best in goals; the alternative is to
 reverse the whole chain to `lo < x <= hi`, as `calc` does (`reverse_calc`,
-parser.rs:4695), which changes the order of the conjuncts from the written
+`lower/proofs.rs`), which changes the order of the conjuncts from the written
 one. I recommend flipping each link and keeping the written order, so
 `h.left` is the first comparison written (C1).
 
@@ -249,7 +250,7 @@ parse errors until then.
 `cmp_expr` loops while the next token is `<`, `<=`, `>` or `>=`, collecting
 operands and relations, then checks the direction rule. Operands are parsed
 as today (each may be a pipeline; only the last may be an `if`, as the right
-operand of a single comparison may today, parser.rs:3795-3801).
+operand of a single comparison may today, `cmp_expr`, `parser.rs`).
 
 The tree: the parser builds the conjunction itself, with the middle's
 syntax copied (same spans), and a new `BinOp::Chain` in place of
@@ -343,7 +344,7 @@ messages of their own, Rust-style, labelled at the second operator:
   (docs/proposals/pattern-guards.md §2.2): a chain inside either is parsed
   by the same `cmp_expr` and ends at the same stops **[estimate]**.
 - `calc` steps take `calc_operand`, which is above the relations
-  (parser.rs:3010-3022) **[checked]**, so `_ <= a <= b` in a `calc` step is
+  (`calc_operand`, `parser.rs`) **[checked]**, so `_ <= a <= b` in a `calc` step is
   still an error, as it should be: a step is one relation.
 - `x in lo..hi`-style ranges (Kotlin, Rust) are another answer to the same
   problem; Stitchwort's `in` is list membership, and a range type is a

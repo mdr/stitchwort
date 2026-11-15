@@ -210,7 +210,7 @@ The places that assume "one program module" or "one file" are listed in
 §11.
 
 **`import` exists for library namespaces**: `import N (a, b)` at the top of
-a file, with at least one item (`crates/syntax/src/parser.rs:478-516`).
+a file, with at least one item (`import`, `crates/syntax/src/parser.rs`).
 `import N` without a list and `import N ()` are parse errors (checked for
 draft 1), which leaves both free.
 

@@ -312,7 +312,7 @@ disagree with none. Where the review offered a choice, the choice made is stated
 | §7 `toInt` over the full range, as a definition | §2.5: `Float.toInt` is an ordinary definition over the bits with a native, not a primitive |
 | §7 "partial" in a "Total?" column; `toInt (-0.0)` loses the sign | §2.5 |
 | §7 Defaulting examples (`-1 + 0.5`, `0.5 + -1`, `-0`), overflow, underflow, large whole literals | §2.3–2.4, with a table of examples |
-| §7 Chained numeric projections (`xs.0.1`) | §2.3: they don't exist today ([checked] `crates/syntax/src/parser.rs:2661-2673`); a lexer rule and regression test keep it so |
+| §7 Chained numeric projections (`xs.0.1`) | §2.3: they don't exist today ([checked] `crates/syntax/src/parser.rs`, `atom`); a lexer rule and regression test keep it so |
 | §7 `sqrt` is "correctly rounded", not "exact"; later `min`/`max` must specify JS's NaN/`-0` rules | §3.6 |
 | §8 `TimeLaws` comment must name the operations | §6.2: `TimeLaws Float Float ieeeTimeOps` |
 | §8 "Not provable" too absolute | §6.1: "no practical general reasoning framework for rounded arithmetic in stage 1" |
@@ -492,7 +492,7 @@ digit follows, so `1..n` and `[x, ..rest]` are untouched, and qualified names ne
 `.` ([checked] `lexer.rs:194-198`).
 
 **Numeric projections.** Stitchwort has no `xs.0` or `xs.0.1`: after `.`, the parser accepts only
-a name, otherwise "expected a field name after `.`" ([checked] `crates/syntax/src/parser.rs:2661-2673`);
+a name, otherwise "expected a field name after `.`" ([checked] `crates/syntax/src/parser.rs`, `atom`);
 pairs use `.fst`/`.snd` ([checked] `docs/syntax.md:984`). So `0.1` as a `Float` token can't break
 existing code. To keep the door open (Rust had exactly this problem with `t.0.1`), the rule is:
 **a number that starts immediately after a `.` (no space) is digits only, never a `Float`**. A
