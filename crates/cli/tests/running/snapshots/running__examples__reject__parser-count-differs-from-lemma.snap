@@ -9,17 +9,17 @@ expression: output
      │   ───────────────────────────────┬───────────────────────────────  
      │                                  ╰───────────────────────────────── expected `∀ (state: Parse.State Char) (value: List (Fin 10)) (after: Parse.Mark Char) => state.at.left = state.at.rest.length → Parse.runFrom state (arg => …) = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`, but this has type `Parse.Reads (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)`
      │
-     ├─[ std/Parse/Parse.sw:163:10 ]
+     ├─[ std/Parse/Parse.sw:177:10 ]
      │
- 164 │ ╭───▶         match state.at.rest with
+ 178 │ ╭───▶         match state.at.rest with
      ┆ ┆     
- 166 │ ├───▶           | [] => k None state
+ 180 │ ├───▶           | [] => k None state
      │ │                                      
      │ ╰────────────────────────────────────── this `match`
      │ 
- 227 │   ╭─▶ def Parse.satisfy (what: Text) (passes: t → Bool): {Parse t} t := match Parse.next passes with
+ 241 │   ╭─▶ def Parse.satisfy (what: Text) (passes: t → Bool): {Parse t} t := match Parse.next passes with
      ┆   ┆   
- 229 │   ├─▶   | None => Parse.expected what
+ 243 │   ├─▶   | None => Parse.expected what
      │   │                                     
      │   ╰───────────────────────────────────── this `match`
      │       
