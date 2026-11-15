@@ -176,7 +176,7 @@ struct Probe {
 }
 
 #[derive(Clone)]
-struct ProbePending {
+pub(crate) struct ProbePending {
     span: Span,
     ty: Value,
     checked: bool,
@@ -1342,6 +1342,19 @@ impl Elaborator {
 
     pub(crate) fn drop_probe_pending(&self) {
         self.goals.borrow_mut().probe.pending = None;
+    }
+
+    /// The probe's pending context, to put back with
+    /// [`Elaborator::restore_probe_pending`]. `None` unless a probe is
+    /// running and has found something, so cheap to take.
+    pub(crate) fn probe_pending(&self) -> Option<ProbePending> {
+        self.goals.borrow().probe.pending.clone()
+    }
+
+    /// Puts back the pending context an undone attempt may have replaced
+    /// with one whose metavariables no longer exist.
+    pub(crate) fn restore_probe_pending(&self, pending: Option<ProbePending>) {
+        self.goals.borrow_mut().probe.pending = pending;
     }
 
     /// The expression at `span`, of type `ty` (checked against it if

@@ -359,3 +359,33 @@ fn goal_at_failing_and_has_type() {
     assert_eq!(step["range"]["column"], 26);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// A body whose first attempt is undone (a local definition makes
+/// `local_retries` loop) used to leave the probe a context whose
+/// metavariables no longer existed, and the answer panicked (SW-3322).
+#[test]
+fn goal_at_after_an_undone_attempt() {
+    let dir = folder("undone");
+    std::fs::write(
+        dir.join("w.sw"),
+        r#"import Std (List, Nat, Char, Bool)
+
+ability Src (t: Type) where
+  next: () → {Src t} t
+
+def Ph (u: Type) (n: Nat): Prop := n = n
+theorem ph ∀ (p: () → {Src t} a) (n: Nat): Ph t n := rfl
+def natSrc(): {Src Nat} Nat := Src.next()
+def double (n: Nat): Nat := n + n
+theorem wrap2 ∀ [k: Nat] (f: Nat → Nat) (g: Nat → Nat → Nat) (y: double k <= 0) (x: Ph Char k): Ph Char k := x
+theorem w2: Ph Char 0 :=
+  def go (n: Nat): Nat := n + 1
+  wrap2 (x => go x) (double y => y) (Nat.leRefl 0) (ph natSrc 0)
+"#,
+    )
+    .unwrap();
+    let (code, out, err) = goal(&dir, &["--at", "w.sw:13:62"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(out, "w.sw:13:62\nin `w2`\n  expected () → {Src Nat} Nat\n");
+    let _ = std::fs::remove_dir_all(&dir);
+}
