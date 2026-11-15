@@ -36527,7 +36527,7 @@
     {
       "id": 3314,
       "title": "[Sonnet] Proving guide: a theorem statement that spells out a match gets W-UNREACHABLE when a hypothesis in scope rules out an arm; say how to avoid it (a helper definition holding the match, as Parse.oneValue) (SW-3310 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
