@@ -38325,12 +38325,12 @@
     {
       "id": 3444,
       "title": "[Sonnet] Rust fmt engine: fits_in starts with suffix = false, ignoring a trailing comment already waiting when a group is measured (the toy's engine bug 3, found by SW-3418's proof): add an engine unit test building that shape (comment waiting, then a group with a line) and make fits start from the printer's waiting state; check whether any rule can build it",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Fixed in SW-3447 (commit 72a5cc64f on lane/SW-3447): `fits_in` now starts from the printer's waiting state (`Measure.suffix`). Engine test `a_group_after_a_waiting_comment_is_measured_with_it` fails without the fix (`f a -- c\\n  b` instead of `f a -- c\\nb`) and passes with it. Whether a rule builds the shape: not investigated separately; with the comment break the old failure (comment moved) can no longer happen either way.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38364,12 +38364,12 @@
     {
       "id": 3447,
       "title": "[Opus] stitchwort fmt: every comment has a place (D3618, D3619; design docs/proposals/every-comment-placed.md, lane R): never keep a declaration as written; engine change so code after a trailing comment starts a new line; LineStart forced breaks; closer case; S40 reasons removed; the 24 probes as tests",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 17:00, expected 40 min; done 17:17 (lane/SW-3447, commit 72a5cc64f).\n\n- Engine: comment breaks. Code after a trailing comment on its line starts the next line (construct's indent, at least broken line + 2); a LineStart that must break does the same and holds that depth up to the next code; measures continue from the new line, so most awkward positions keep the author's layout. New `Doc::LineStartHere` for own-line comments before a closer (items' indent, closer on its own line).\n- S40's two keep-as-written reasons removed; per-declaration checks stay as the net. `STITCHWORT_FMT_REFUSE_FOR_TEST` keeps the CLI test of the kept-declaration report.\n- Golden `crates/fmt/tests/it/golden/comments-anywhere`: the 24 probes + text block + column-0 comments; 0 kept, idempotent.\n- Docs: formatter-style.md S40 rewritten; update notes in every-comment-placed.md and formatter-architecture.md. syntax.md/guide don't describe the old rule, unchanged.\n- Tests: package(stitchwort-fmt) 75/75; binary(tools) & test(/fmt::/) 8/8. `fmt --check` over crates, aoc, games, tools, examples, docs (and web, sf, bench, dev, book): no file would change.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
