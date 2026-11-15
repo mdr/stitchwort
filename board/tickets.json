@@ -37241,12 +37241,12 @@
     {
       "id": 3364,
       "title": "[Sonnet] Regression from SW-3335 (catch-all facts): search --at simplest-first now offers byDecision instead of cases for theorem ruledOut (a: Nat) (h: Some a = None): a = 5 (search_at::simplest_first_offers_cases_for_an_impossible_hypothesis, Overmind 75c24b9a2)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Expected: 45 min (Sonnet).",
+      "body": "Expected: 45 min (Sonnet).\n\nNotes (Sonnet lane): cause is not a wrong offer. Before SW-3335, `theorem ruledOut ... := byDecision` failed with E-MATCH-MOTIVE (auto's contradiction proof needs a match lifted, and obligations weren't solved while a lift was possible); SW-3335's lift.rs change fixed that, so byDecision now genuinely closes it (checks in a file). The ladder tries Decision before Cases, so it became the simplest offer. Fix: the Decision rung applies only when nothing is in scope (closed goal), in crates/driver/src/search_at.rs. Test: search_at::simplest_first_offers_cases_for_an_impossible_hypothesis failed on the unmodified branch (left byDecision, right cases), passes now; other search_at::simplest tests and example kinds catch-all,auto,decision pass. Commit d2b97cd95.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
