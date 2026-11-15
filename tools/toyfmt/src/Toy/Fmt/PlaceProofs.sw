@@ -33,12 +33,6 @@ def laid (source: Text) (out: List Text): Assembly := match out with
   | [piece, ..earlier] =>
     (laid source earlier).add source { value = pieceLexeme piece, offset = charsLength earlier, length = piece.length }
 
---| Whether the last line of the output (its pieces the last first) has
---| nothing but spaces on it.
-def lineBlank: List Text → Bool
-  | [] => True
-  | [piece, ..earlier] => if piece.all (char => char == ' ') then lineBlank earlier else piece == "\n"
-
 --| The tokens so far (newest first) and the trivia waiting for the next
 --| token (newest first).
 type Placed = { tokens: List (Parse.Located Token), pending: List Trivia }
@@ -144,14 +138,6 @@ theorem assembleLaid ∀ (source: Text) (out: List Text):
   rewrite folded in rfl
 
 -- A piece that is a lexeme of its own, as `assemble` and as `placePiece`.
-
-theorem gapNoBreak ∀ (piece: Text) (gap: piece.all (char => char == ' ') = True): (piece == "\n") = False :=
-  match isBreak: piece == "\n" with
-    | False => rfl
-    | True =>
-      let same: piece = "\n" := DecEq.sound isBreak
-      let never: "\n".all (char => char == ' ') = True := rewrite <- same in gap
-      Void.exfalso (Bool.falseNotTrue never)
 
 theorem spacesStandGap ∀ (piece: Text) (rest: List Char)
     (stands: Stands Spaces piece.toList rest):
