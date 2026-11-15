@@ -1,5 +1,5 @@
 {
-  "next": 3347,
+  "next": 3350,
   "tickets": [
     {
       "id": 47,
@@ -36869,7 +36869,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From catch-all-facts.md (SW-3318). Expected: 3 h (Sonnet), Opus review after.",
+      "body": "Opus review docs/reviews/SW-3335-catch-all-facts.md: merge after fixes 1-4 (assume_goals before solving in the new lift branch + goals example; facts from the final context, no hidden names; facts on the case-tree leaf not by address; tests for n + 2 ≠ 7, Some n ≠ Some 5, pairs). Filed SW-3347 SW-3348 SW-3349.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37012,6 +37012,45 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3347,
+      "title": "[Sonnet] Bug on main: in a declaration with a match helper, a ? as an [auto] argument (apartFromFive ?) gives E-AUTO-STUCK with a raw ?1 instead of showing the goal (SW-3335 review, probe p3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3348,
+      "title": "[Opus] One order for both lift paths (assume goals, solve obligations, lift) with a debug assertion that no helper is drafted after lifting (SW-3335 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3349,
+      "title": "[Sonnet] Catch-all facts in the LSP goal panel and goal --at JSON (SW-3335 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
