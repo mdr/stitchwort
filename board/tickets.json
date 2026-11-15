@@ -36862,15 +36862,17 @@
     {
       "id": 3335,
       "title": "[Sonnet] catch-all-facts.md B+A (orchestrator's call, no syntax): an auto step proves x ≠ lit in a literal catch-all (by the J/match term in the note), and the catch-all goal lists the facts (m ≠ 5) from the case tree; check obligations solved after the declaration still see the case's marks; guide and syntax.md; Opus review after. Also byDecision's stuck error names the scrutinee (n ≠ 5) where the goal shows the arm's binder (m)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From catch-all-facts.md (SW-3318). Expected: 3 h (Sonnet), Opus review after.",
+      "body": "From catch-all-facts.md (SW-3318). Expected: 3 h (Sonnet), Opus review after.\n\nLane notes (Sonnet, 15 Nov 2026, about 25 min):\n- Open question settled: an `auto` obligation solved after the declaration sees the arm's marks (the obligation keeps env/types). But its transport helper is a lifted `match`, and a declaration with no match helper of its own solved obligations after `lift`, so `Elaborator::lift` now solves them first (lift.rs). That is the one behaviour change outside the new step.\n- B: crates/elab/src/literal_facts.rs, called from auto.rs before by_contradiction. The motive's case tree is built from the literal value (Nat, Char/Text via MkChar/MkText, constructors, Int), and its result at the arm's value is simulated first (a case outside a definition can't be evaluated), so a goal the marks don't support gives no proof.\n- A: facts from the rows (guard-free earlier rows whose only literal column is this one; or-alternatives included), stored per arm (decl.arm_facts), shown as lines with a note. Existing arm-as-written goal snapshots gained `≠` lines (expected).\n- byDecision's stuck error: an Obligation now keeps its Ctx scope, so messages use the arm's names.\n- Tests: examples catch-all/goal/literal/auto/decision/arm-as-written, hash_stability, guide:: all pass.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "3c5b3af86"
+      ]
     }
   ]
 }
