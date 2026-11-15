@@ -35824,15 +35824,17 @@
     {
       "id": 3264,
       "title": "[Sonnet] 'type World = {IO, Fail}' gives a message about record fields; say rows can't be named (yet) (SW-3262 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Found in SW-3262. Message mine (orchestrator's call): 'an ability row like {IO, Fail} can't be given a name with type yet; write the row where it's used'. Naming rows is SW-3267 (G1). Model result: DeepSeek, worked, ~20 min (est. 30).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "e2a8b558d3eabc4184388c24374ec45d72ea5923"
+      ]
     },
     {
       "id": 3265,
