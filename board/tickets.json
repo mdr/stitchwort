@@ -37181,7 +37181,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Fable soundness review docs/reviews/SW-3359-recursion-through-map-soundness.md: no proof of False found; D3612 safe with pinned wording; D3611 back for draft 2 (F1 accessors not Proj, F2 recursion with no case loops readback, F3 partial occurrences, lifted matches as cross-calls; end-state choice checker vs evaluator side). Filed SW-3373.\n\nDraft 2 (15 Nov, uncommitted): answers F1-F3, R1-R7. Rule 1 is accessor recognition from checked bodies; G1 guard (root case on a non-eta type) plus a second stated invariant; unsupplied indices unknown; signatures only for definitions alone in their group with kernel-run bodies (std list checked: map, filter, foldLeft, any, all, find, filterMap, concatMap, forEach, sumBy, count); rule 3 per R7. Stage 6 gains P1/P2 and rule 1/3 referees; stage 2 the review's must-rejects; Fable review before merge. Re-estimated ~22-24 Opus h. New D3613 (G1 vs G2) [rec G1].\n",
+      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37402,7 +37402,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3612 (Matt, 15 Nov 2026): \"D3612 yes\". Expected: 3 h (Opus). Queued for the next build slot.",
+      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges. Fable review of this stage before merge.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
