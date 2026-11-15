@@ -1,5 +1,5 @@
 {
-  "next": 3314,
+  "next": 3315,
   "tickets": [
     {
       "id": 47,
@@ -36473,15 +36473,17 @@
     {
       "id": 3310,
       "title": "[Sonnet] Rolling check red at 63ef3f3ff: std_library::the_library_has_no_unreachable_arms flags std/Parse/Runs.sw:452 (Parse.runsOneStep's statement spells out one's match, whose None arm the checker proves impossible from 'selected'); restate without the impossible arm (SW-3283)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Found by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).\n\nLane notes: lane/SW-3310 efa358d70. Added Parse.oneValue (the match, as a def); runsOneStep now takes the Option as a variable and states Runs of oneValue (no unreachable arm; any hypothesis on the match scrutinee triggers W-UNREACHABLE); runsOne uses oneValue in its bind continuation, statement unchanged. Tests: no_unreachable_arms and hash_stability pass (prelude and parse-lex-then-parse snapshots blessed); check --std Parse ok.\n",
+      "body": "Found by Overmind's rolling check at 63ef3f3ff. Model result: Sonnet, worked, ~25 min (est. 40). New std helper Parse.oneValue (orchestrator's call). Filed SW-3314.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "c2994b5bf2e1437e140f3fa7dc491b6201df5c26"
+      ]
     },
     {
       "id": 3311,
@@ -36517,6 +36519,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3314,
+      "title": "[Sonnet] Proving guide: a theorem statement that spells out a match gets W-UNREACHABLE when a hypothesis in scope rules out an arm; say how to avoid it (a helper definition holding the match, as Parse.oneValue) (SW-3310 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
