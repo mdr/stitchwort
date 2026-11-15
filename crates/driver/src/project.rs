@@ -392,6 +392,13 @@ impl Session {
         // this one reads each file's text.
         if ns.parse_errors.is_empty() {
             self.statement_style(&mut found, &ns.files);
+        } else {
+            // No statement style for files that don't parse, but the
+            // recovered modules can still suggest `W-ARROW-FORALL` at a
+            // header's parameter, which isn't written as an arrow.
+            stitchwort_elab::keep_written_arrows(&mut found, |id| {
+                Some(self.sources.get(id).text.as_str())
+            });
         }
         self.check_exports(first_new_def, true, &mut found);
         // The declarations that parsed are checked even when others
