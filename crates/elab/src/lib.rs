@@ -1060,8 +1060,14 @@ impl Elaborator {
             || self.relies_on_goal(id)
     }
 
-    /// Whether the elaborator gave up on declaration `key` for an open
-    /// goal (`?`) rather than an error.
+    /// Whether the elaborator gave up on declaration `key` for an open goal
+    /// (`?`) rather than an error. It means "gave up for an open goal", not
+    /// "not finished": a declaration with an error also becomes a stand-in,
+    /// checked as a final assumption. Use [`Self::is_unfinished`] for "not
+    /// finished" (a body not checked, or checked with a stand-in or an open
+    /// goal it relies on). The driver's audit reads this one, to report a
+    /// declaration as unfinished rather than failed (`audit_one`,
+    /// `crates/driver/src/audit.rs`).
     pub fn marked_unfinished(&self, key: stitchwort_core::globals::HashKey) -> bool {
         self.tables.is_unfinished(key)
     }
