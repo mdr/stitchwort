@@ -63,7 +63,7 @@ use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
 use num_bigint::BigUint;
 
-use crate::derive::{Field, Plan, fields_equal, let_in};
+use crate::derive::{Derivation, Field, Plan, fields_equal, let_in};
 use crate::module::Status;
 use crate::{Elaborator, Global, Result, interfaces};
 
@@ -77,27 +77,18 @@ impl Elaborator {
     pub(crate) fn derive_data_ord(&mut self, d: DataId) -> Result<()> {
         let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
-        let group: Vec<DataId> = data.group().to_vec();
         let (Some(ord), Some(dec_eq)) = (interfaces::ord(self), interfaces::dec_eq(self)) else {
             return Ok(());
         };
-        if generated || group.last() != Some(&d) {
+        if generated || data.group().last() != Some(&d) {
             return Ok(());
         }
-        let own: Vec<bool> = group
-            .iter()
-            .map(|&r| self.declares_instance_for(r, ord))
-            .collect();
+        let (group, own) = self.group_and_own(d, ord);
         if own.iter().all(|x| *x) {
             return Ok(());
         }
-        let refuse = |e: &mut Self, why: String| {
-            for (&r, own) in group.iter().zip(&own) {
-                if !own {
-                    e.tables.no_ord.insert(&e.session.owners, r, why.clone());
-                }
-            }
-        };
+        let refuse =
+            |e: &mut Self, why: String| e.refuse_group(Derivation::Ord, &group, &own, &why);
         // `Ord`'s `eq` is `T`'s `DecEq` instance, found when the instance is
         // built.
         if let Some(why) = group.iter().find_map(|r| self.tables.no_eq.get(r)) {
@@ -105,21 +96,18 @@ impl Elaborator {
             refuse(self, why);
             return Ok(());
         }
+        // A type's own `DecEq` instance is checked after the types it uses,
+        // and `Ord`'s `eq` is that instance: only that type's `Ord`
+        // instance waits for it (`derive_pending_ord`), a single type's
+        // whole derivation too, since nothing else needs it.
+        let mut waiting = vec![false; group.len()];
         if group.len() > 1 {
-            // The derived order of each type calls the others', so one
-            // written by hand, or an `Ord` waiting for a `DecEq` written by
-            // hand, would leave the group's orders disagreeing with it.
+            // The derived orders of the group call each other's, so one
+            // written by hand would leave them disagreeing with it.
             for (&r, &own_ord) in group.iter().zip(&own) {
-                let what = if own_ord {
-                    Some("`Ord`")
-                } else if self.declares_instance_for(r, dec_eq) {
-                    Some("`DecEq`")
-                } else {
-                    None
-                };
-                if let Some(what) = what {
+                if own_ord {
                     let why = format!(
-                        "`{}`, defined together with it, has its module's own {what} instance, \
+                        "`{}`, defined together with it, has its module's own `Ord` instance, \
                          which the derived orders of the group can't use; declare `Ord` for \
                          the others too",
                         self.kernel.data(r).name()
@@ -127,6 +115,9 @@ impl Elaborator {
                     refuse(self, why);
                     return Ok(());
                 }
+            }
+            for (ri, &r) in group.iter().enumerate() {
+                waiting[ri] = self.declares_instance_for(r, dec_eq);
             }
         } else if self.declares_instance_of(dec_eq) {
             if let Some(item) = self.unit.module.item {
@@ -141,7 +132,19 @@ impl Elaborator {
             );
             return Ok(());
         }
-        self.derive_ord_with_eq(d)
+        for (&r, _) in group.iter().zip(&waiting).filter(|(_, w)| **w) {
+            if let Some(item) = self.item_of(r) {
+                self.unit.module.ord_after_dec_eq.insert(item, r);
+            }
+            self.tables.no_ord.insert(
+                &self.session.owners,
+                r,
+                "its module's own `DecEq` instance, which `Ord` needs, uses this, so it isn't \
+                 checked yet here; declare an `Ord` instance too"
+                    .into(),
+            );
+        }
+        self.derive_ord_with_eq(d, &waiting)
     }
 
     /// After the items of `component` are checked: `Ord` for each data type
@@ -175,9 +178,17 @@ impl Elaborator {
                 self.tables.no_ord.insert(&self.session.owners, d, why);
                 continue;
             }
+            // A group whose orders weren't derived keeps its reason.
+            if self.kernel.data(d).group().len() > 1 && !self.has_member(d, "%compare") {
+                continue;
+            }
             self.tables.no_ord.remove(&self.session.owners, &d);
             let item = self.unit.module.item.replace(data_item);
-            let result = self.unnoted(|e| e.derive_ord_with_eq(d));
+            let result = if self.kernel.data(d).group().len() > 1 {
+                self.unnoted(|e| e.derive_ord_instance(d))
+            } else {
+                self.unnoted(|e| e.derive_ord_with_eq(d, &[false]))
+            };
             self.unit.module.item = item;
             result?;
         }
@@ -185,8 +196,10 @@ impl Elaborator {
     }
 
     /// `Ord` for `d`'s group, using its `DecEq` instances, which are known
-    /// by now.
-    fn derive_ord_with_eq(&mut self, d: DataId) -> Result<()> {
+    /// by now, except for the types with `waiting` set (one per type of the
+    /// group), whose own are still to be checked: their `%instOrd` is left
+    /// for [`Self::derive_ord_instance`].
+    fn derive_ord_with_eq(&mut self, d: DataId, waiting: &[bool]) -> Result<()> {
         let Some(ord) = interfaces::ord(self) else {
             return Ok(());
         };
@@ -226,7 +239,7 @@ impl Elaborator {
             self.derive_member_helpers(member, true)?;
         }
         let mut result = self.derive_rebuild(&plan);
-        for definitions in self.ord_source(&plan) {
+        for definitions in self.ord_source(&plan, waiting) {
             self.clear_metas();
             result = result.and_then(|()| self.definitions(&definitions));
         }
@@ -247,6 +260,52 @@ impl Elaborator {
         Ok(())
     }
 
+    /// `T.%instOrd` for the type `d` of a group whose derived orders are
+    /// declared, once its own `DecEq` instance is checked.
+    fn derive_ord_instance(&mut self, d: DataId) -> Result<()> {
+        let Some(ord) = interfaces::ord(self) else {
+            return Ok(());
+        };
+        let group: Vec<DataId> = self.kernel.data(d).group().to_vec();
+        let Some(at) = group.iter().position(|r| *r == d) else {
+            return Ok(());
+        };
+        let plan = match self.field_plan(d, ord, "`Ord`")? {
+            Ok(plan) => plan,
+            Err(_) => return Ok(()),
+        };
+        let definition = self.ord_instance_source(&plan, at);
+        self.clear_metas();
+        let result = self.definitions(&[definition]);
+        self.clear_metas();
+        match result {
+            Ok(()) => Ok(()),
+            Err(e) if e.code == "E-RESOURCE" => Err(e),
+            Err(e) => {
+                self.tables.no_ord.insert(
+                    &self.session.owners,
+                    d,
+                    format!("deriving it failed: {}", e.message),
+                );
+                Ok(())
+            }
+        }
+    }
+
+    /// The module item that declares data type `d`, found by its key.
+    fn item_of(&self, d: DataId) -> Option<usize> {
+        if self.kernel.data(d).group().len() == 1 {
+            return self.unit.module.item;
+        }
+        let key = self.data_key(d);
+        self.unit
+            .module
+            .item_keys
+            .iter()
+            .find(|(_, k)| **k == key)
+            .map(|(i, _)| *i)
+    }
+
     /// Whether `T.member` is declared.
     pub(crate) fn has_member(&self, d: DataId, member: &str) -> bool {
         let key = Self::member_key(&self.data_key(d), member);
@@ -258,14 +317,14 @@ impl Elaborator {
     /// definitions admitted together, for each type `T` of the group. For a
     /// nested type, each container it's in gets its own `T.%m1%compare` and
     /// the rest, in the group of `T`'s.
-    fn ord_source(&self, plan: &Plan) -> Vec<Vec<Definition>> {
+    fn ord_source(&self, plan: &Plan, waiting: &[bool]) -> Vec<Vec<Definition>> {
         let mut groups: Vec<Vec<Definition>> = vec![Vec::new(); 4];
         for m in 0..plan.members.len() {
             for (kind, definition) in self.ord_member_source(plan, m) {
                 groups[kind].push(definition);
             }
         }
-        for m in 0..plan.roots {
+        for m in (0..plan.roots).filter(|m| !waiting.get(*m).copied().unwrap_or(false)) {
             groups.push(vec![self.ord_instance_source(plan, m)]);
         }
         groups

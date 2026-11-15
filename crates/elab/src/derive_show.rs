@@ -76,26 +76,18 @@ impl Elaborator {
     pub(crate) fn derive_data_show(&mut self, d: DataId) -> Result<()> {
         let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
-        let group: Vec<DataId> = data.group().to_vec();
         let Some(show) = interfaces::show(self) else {
             return Ok(());
         };
-        if generated || group.last() != Some(&d) {
+        if generated || data.group().last() != Some(&d) {
             return Ok(());
         }
-        let own: Vec<bool> = group
-            .iter()
-            .map(|&r| self.declares_instance_for(r, show))
-            .collect();
+        let (group, own) = self.group_and_own(d, show);
         if own.iter().all(|x| *x) {
             return Ok(());
         }
         let refuse = |e: &mut Self, why: String| {
-            for (&r, own) in group.iter().zip(&own) {
-                if !own {
-                    e.tables.no_show.insert(&e.session.owners, r, why.clone());
-                }
-            }
+            e.refuse_group(crate::derive::Derivation::Show, &group, &own, &why)
         };
         if let Some(r) = group
             .iter()
@@ -175,13 +167,7 @@ impl Elaborator {
             for ctor in data.ctors() {
                 let mut kinds = Vec::new();
                 for (i, (field, ty)) in ctor.fields.iter().enumerate() {
-                    let what = if !data.record() {
-                        format!("the field `{field}` of `{}`", ctor.name)
-                    } else if group.len() == 1 {
-                        format!("its field `{field}`")
-                    } else {
-                        format!("the field `{field}` of `{}`", data.name())
-                    };
+                    let what = crate::derive::field_origin(data, ctor, field, group.len());
                     if ctor.field_erased[i] {
                         if ctor.field_sorts[i] != Sort::Prop {
                             return Ok(Err(format!("{what} is a type, which `Show` can't show")));
@@ -205,10 +191,7 @@ impl Elaborator {
                             "{what} is a function, and functions can't be shown"
                         )));
                     }
-                    if ty
-                        .subterms()
-                        .any(|(t, _)| matches!(t, Term::Data(e, _) if group.contains(e)))
-                    {
+                    if crate::derive::mentions_group(ty, &group) {
                         match member_of(g, np, &members, &value)? {
                             Some(m) => kinds.push(Field::Recursive(m)),
                             None => {

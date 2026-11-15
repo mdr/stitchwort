@@ -31,7 +31,7 @@ expression: output
     │                 ────────┬───────  
     │                         ╰───────── this needs `DecEq Rule`
     │ 
-    │ Note 1: `==` isn't derived for `Rule`: the field `holds` of `When` is a function, and functions can't be compared
+    │ Note 1: `==` isn't derived for `Rule`: the field `holds` of `Guard.When` is a function, and functions can't be compared
     │ 
     │ Note 2: an instance of `DecEq` for `Rule` can be declared in `Main`
 ────╯

@@ -258,9 +258,16 @@ than `List`, `Option` and `Pair` must have the derived instance
 (`C.%instOrd`, `C.%instShow`); one its module wrote (`NonEmptyList`'s) is
 refused with a note, while `==` is still derived through it. In a group, a
 type whose module writes its own `DecEq` keeps it and the others are
-derived (its `%same` is still made for them to call); one with its own
-`Ord` or `Show` stops that interface for the whole group, with a note
-naming it. `R.ext` is generated for records in a group. Nothing in the
+derived (its `%same` is still made for them to call); its `Ord` instance,
+and only that, waits until its `DecEq` is checked, as a single type's does
+(the group's orders and their laws don't use it). One with its own `Ord` or
+`Show` stops that interface for the whole group, with a note naming it. A
+container's proof field (an equation in a type with `DecEq` that doesn't
+mention the group or the other fields) is left out of `==`, `<` and `${…}`
+through it, as a type's own is; the container member declares its type,
+`T.%m1%C%P%k`, as a root does. A record's field defaults are checked once
+every type of the group is derived, so they can use `==` and the later
+types' constructors. `R.ext` is generated for records in a group. Nothing in the
 termination checker changed: every call is still on a field matched out of
 an argument. The construction per member is stage 2's, so the size stays
 linear in the constructors. The toy formatter's four-type tree costs 109 ms
