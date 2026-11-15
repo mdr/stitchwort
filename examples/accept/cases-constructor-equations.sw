@@ -35,3 +35,15 @@ theorem dependentType ∀ (n m: Nat) (i: Fin m) (h: Some n = Some m): Fin.toNat 
 
 -- `omega` sees `f x` and `f y` as one number once `y` is replaced.
 theorem thenOmega ∀ (f: Nat → Nat) (x y: Nat) (k: f y = 7) (h: Some x = Some y): f x + 1 = 8 := cases
+
+-- The replaced variable's name stands for what replaced it, so a term after
+-- `in` that names `y` still checks after `y` became `x` (in the case `b =
+-- False`, where `lem … y hy` is checked against `p x`).
+def k (b: Bool) (n: Nat): Nat := if b then n else n
+
+theorem lem ∀ (p q: Nat → Prop) (step: ∀ (m: Nat) => q m → p m) (n: Nat) (hn: q n): p n := step n hn
+
+theorem namesReplaced ∀ (p q: Nat → Prop) (step: ∀ (m: Nat) => q m → p m) (b: Bool) (x y: Nat)
+    (h: Some x = Some y) (hy: q y):
+    p (k b y) :=
+  cases in lem p q step y hy
