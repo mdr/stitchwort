@@ -35368,12 +35368,12 @@
     {
       "id": 3230,
       "title": "[DeepSeek] stitchwort fmt is silent about declarations it leaves as written (only dev fmt-tree --verbose says): print a warning naming each one and why, and say so in fmt's summary (SW-3228 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 40 min (DeepSeek), one run with SW-3232.",
+      "body": "Expected: 40 min (DeepSeek), one run with SW-3232.\n\nModel result: deepseek, worked, ~45 min (est. 40). Reviewed line by line.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -35396,12 +35396,12 @@
     {
       "id": 3232,
       "title": "[DeepSeek] std: Option.getOr is missing though List.getOr and Array.getOr exist; add it with its doc and a lemma or two (SW-3228 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Expected: 40 min (DeepSeek), one run with SW-3230.",
+      "body": "Expected: 40 min (DeepSeek), one run with SW-3230.\n\nModel result: deepseek, worked, ~45 min (est. 40). Reviewed line by line.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -38299,12 +38299,12 @@
     {
       "id": 3442,
       "title": "[Sonnet] Bug: std self-test 'Args.run: a mistake fails with the complaint, and prints nothing' fails on main since SW-3403 (Args.run exits 2 via Args.misuse); fix the test or the code to match D3616's design, and check the other Args tests",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Model result: sonnet, worked, 9 min (est. 20). Caught by the std self-test; my SW-3403 verifier hadn't run std's own tests.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
