@@ -255,7 +255,7 @@ impl Elaborator {
         // source can't write: an ability's operations (`effects.rs`).
         let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
-        if self.unit.loading_prelude || generated || interfaces::dec_eq(self).is_none() {
+        if generated || interfaces::dec_eq(self).is_none() {
             return Ok(());
         }
         if self.declares_dec_eq() {

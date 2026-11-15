@@ -4,6 +4,11 @@
 decision: D3609 ([§7](#7-decision-for-matt)). Code read at `ae7a3b341`.
 Migration cost is not counted (D2303).
 
+**Stage 1 built (SW-3369, 15 November 2026):** the std skip is lifted for
+`DecEq`, `Ord`, `Show` and `Finite`; `R.ext` for std records stays skipped.
+`Files`' and `Key`'s hand-written instances and plumbing are gone, as are
+`Path`'s and `Disk`'s; `Std.Builtin.UnitType` also gained a derived `Finite`.
+
 How claims are marked: **[measured]** run today with the release CLI on the
 probes in the lane's scratchpad (reproduced in §3); **[checked]** read in the
 code at the place given; **[inferred]** my reasoning, not run; **[cited]**

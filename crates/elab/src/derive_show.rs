@@ -73,7 +73,7 @@ impl Elaborator {
         let Some(show) = interfaces::show(self) else {
             return Ok(());
         };
-        if self.unit.loading_prelude || generated || self.declares_instance_of(show) {
+        if generated || self.declares_instance_of(show) {
             return Ok(());
         }
         let plan = match self.show_plan(d, show)? {

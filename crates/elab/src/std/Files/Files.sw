@@ -23,6 +23,10 @@
 --| path as [`Path.normal`] gives it, so a part holding `/`, or one that is
 --| `""` or `.`, means what it would in text. A part may be `..`, which the
 --| host takes as the folder above; [`Files.simulate`]'s disk refuses it.
+--|
+--| Paths sort by their parts, as lists of texts, then relative before
+--| absolute. Since a list sorts just before the lists it starts, a folder
+--| sorts just before what is in it.
 type Path = { parts: List Text, absolute: Bool }
 
 --| The place a path names, as the operations read it: each part split again
@@ -53,26 +57,9 @@ def Path.show (path: Path): Text := match path.parts, path.absolute with
 --| `${path}` prints [`Path.show`]: `notes/today.txt`.
 instance Path.instShow: Show Path := Show.fromText Path.show
 
--- `==` and `<` on paths, written by hand (the library's types get no derived
--- ones): a path is its parts, then whether it's absolute.
-
+--| Two paths are equal when their parts and their absoluteness are.
 theorem Path.ext ∀ (p q: Path) (sameParts: p.parts = q.parts) (sameAbsolute: p.absolute = q.absolute): p = q :=
   match p, q with | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute in rfl
-
---| Paths are equal when their parts are, and both or neither is absolute.
-instance Path.instDecEq: DecEq Path := {
-  decide = p q =>
-    if sameParts: p.parts = q.parts then
-      if sameAbsolute: p.absolute = q.absolute then Decidable.yes (Path.ext p q sameParts sameAbsolute)
-      else Decidable.no (e => sameAbsolute (Eq.cong (r => r.absolute) e))
-    else Decidable.no (e => sameParts (Eq.cong (r => r.parts) e))
-}
-
---| In order of their parts, as lists of texts, then relative before
---| absolute. Since a list sorts just before the lists it starts, a folder
---| sorts just before what is in it.
-instance Path.instOrd: Ord Path :=
-  Ord.byKey (p => (p.parts, p.absolute)) (p q same => Path.ext p q (Eq.cong Pair.fst same) (Eq.cong Pair.snd same))
 
 --| `name` inside the folder `path`: `notes.child "today.txt"` is
 --| `notes/today.txt`. The name is added as one part, as written
@@ -175,99 +162,6 @@ def FileError.show: (error: FileError) → Text
 --| .orFail` turns a failed operation into `Fail`.
 instance FileError.instShow: Show FileError := Show.fromText FileError.show
 
--- `==` on what the operations give, written by hand: each value is taken
--- to a tuple of things with `==`, and back.
-
---| Internal, for `==` on kinds: the position of a kind's constructor.
-def FileKind.position: (kind: FileKind) → Nat
-  | File => 0
-  | Folder => 1
-  | Other => 2
-
---| Internal, for `==` on kinds: the kind at a position, undoing
---| [`FileKind.position`].
-def FileKind.ofPosition (position: Nat): FileKind := match position with
-  | 0 => File
-  | 1 => Folder
-  | _ => Other
-
---| Internal, for `==` on kinds: [`FileKind.ofPosition`] undoes
---| [`FileKind.position`].
-theorem FileKind.fromPosition ∀ (kind: FileKind): FileKind.ofPosition kind.position = kind := match kind with
-  | File => rfl
-  | Folder => rfl
-  | Other => rfl
-
-instance FileKind.instDecEq: DecEq FileKind := {
-  decide = a b =>
-    if same: a.position = b.position then
-      Decidable.yes
-        (Eq.trans
-          (Eq.sym (FileKind.fromPosition a))
-          (Eq.trans (Eq.cong FileKind.ofPosition same) (FileKind.fromPosition b)))
-    else Decidable.no (e => same (Eq.cong FileKind.position e))
-}
-
-theorem Entry.ext ∀ (a b: Entry) (sameName: a.name = b.name) (sameKind: a.kind = b.kind): a = b := match a, b with
-  | { name = n, kind = k }, { name = m, kind = j } => rewrite sameName, sameKind in rfl
-
-instance Entry.instDecEq: DecEq Entry := {
-  decide = a b =>
-    if sameName: a.name = b.name then
-      if sameKind: a.kind = b.kind then Decidable.yes (Entry.ext a b sameName sameKind)
-      else Decidable.no (e => sameKind (Eq.cong (r => r.kind) e))
-    else Decidable.no (e => sameName (Eq.cong (r => r.name) e))
-}
-
-theorem FileInfo.ext ∀ (a b: FileInfo) (sameKind: a.kind = b.kind) (sameSize: a.size = b.size): a = b := match a, b with
-  | { kind = k, size = n }, { kind = j, size = m } => rewrite sameKind, sameSize in rfl
-
-instance FileInfo.instDecEq: DecEq FileInfo := {
-  decide = a b =>
-    if sameKind: a.kind = b.kind then
-      if sameSize: a.size = b.size then Decidable.yes (FileInfo.ext a b sameKind sameSize)
-      else Decidable.no (e => sameSize (Eq.cong (r => r.size) e))
-    else Decidable.no (e => sameKind (Eq.cong (r => r.kind) e))
-}
-
---| Internal, for `==` on errors: the error as its constructor's position,
---| its path and its message ("" if it has none).
-def FileError.parts: (error: FileError) → (Nat, Path, Text)
-  | NotFound path => (0, path, "")
-  | NotPermitted path => (1, path, "")
-  | NotAFile path => (2, path, "")
-  | NotAFolder path => (3, path, "")
-  | NotText path => (4, path, "")
-  | OtherError path message => (5, path, message)
-
---| Internal, for `==` on errors: the error with these parts, undoing
---| [`FileError.parts`].
-def FileError.ofParts (parts: (Nat, Path, Text)): FileError := match parts.fst with
-  | 0 => NotFound parts.snd.fst
-  | 1 => NotPermitted parts.snd.fst
-  | 2 => NotAFile parts.snd.fst
-  | 3 => NotAFolder parts.snd.fst
-  | 4 => NotText parts.snd.fst
-  | _ => OtherError parts.snd.fst parts.snd.snd
-
---| Internal, for `==` on errors: [`FileError.ofParts`] undoes
---| [`FileError.parts`].
-theorem FileError.fromParts ∀ (error: FileError): FileError.ofParts error.parts = error := match error with
-  | NotFound path => rfl
-  | NotPermitted path => rfl
-  | NotAFile path => rfl
-  | NotAFolder path => rfl
-  | NotText path => rfl
-  | OtherError path message => rfl
-
-instance FileError.instDecEq: DecEq FileError := {
-  decide = a b =>
-    if same: a.parts = b.parts then
-      Decidable.yes
-        (Eq.trans (Eq.sym (FileError.fromParts a)) (Eq.trans (Eq.cong FileError.ofParts same) (FileError.fromParts b)))
-    else Decidable.no (e => same (Eq.cong FileError.parts e))
-}
-
 -- The ability
 
 --| Reading and writing files, and looking at folders, a whole file at a time.
@@ -288,22 +182,10 @@ ability Files where
 --| be listed. The operations read a path through [`Path.normal`], as the
 --| host does, and refuse one with a `..` part ([`Disk.noClimbing`]), where
 --| the host would go to the folder above. A path is taken as written
---| otherwise, so `a.txt` is not `/home/a.txt`.
+--| otherwise, so `a.txt` is not `/home/a.txt`. Disks are equal when they hold
+--| the same files with the same texts, and the same folders, so a test can
+--| compare a disk after a run with the one it expects.
 type Disk = { files: Map Path Text, folders: Set Path }
-
-theorem Disk.ext ∀ (a b: Disk) (sameFiles: a.files = b.files) (sameFolders: a.folders = b.folders): a = b :=
-  match a, b with | { files = f, folders = d }, { files = g, folders = e } => rewrite sameFiles, sameFolders in rfl
-
---| Disks are equal when they hold the same files with the same texts, and
---| the same folders, so a test can compare a disk after a run with the one
---| it expects.
-instance Disk.instDecEq: DecEq Disk := {
-  decide = a b =>
-    if sameFiles: a.files = b.files then
-      if sameFolders: a.folders = b.folders then Decidable.yes (Disk.ext a b sameFiles sameFolders)
-      else Decidable.no (e => sameFolders (Eq.cong (r => r.folders) e))
-    else Decidable.no (e => sameFiles (Eq.cong (r => r.files) e))
-}
 
 --| A disk with no files, and no folders but the starting folder and the root.
 def Disk.empty: Disk := { files = Map.empty, folders = Set.empty }
