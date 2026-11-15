@@ -516,3 +516,723 @@ theorem viewsSplit ∀ (goal: List (Parse.Located Token) → Prop) (tokens: List
           viewsSplit ((later: List (Parse.Located Token)) => goal [found, ..later]) rest views back restSame
             (first second firstSame secondSame =>
               step [found, ..first] second (consViews found first view views tokenSame firstSame) secondSame))
+
+-- What the parser guarantees of where comments and blocks are.
+
+--| A list of lines as `withoutFirstBlank` leaves it: no blank line is
+--| kept above the first.
+def Unspaced (lines: List (Spaced a)): Prop := withoutFirstBlank lines = lines
+
+--| A body that is one expression.
+def OneExpression: List (Spaced Statement) → Prop
+  | [{ line = Bare _, .. }] => True
+  | _ => False
+
+--| What the parser guarantees of where comments and blocks are, in an
+--| expression read inside brackets (`bracketed`) or in a statement:
+--| outside brackets a statement's first token holds no comments above it
+--| (they are the block's comment lines), nor does the first token of a
+--| body on its keyword's line (it doesn't start a line); inside
+--| brackets every body is one expression; and no body keeps a blank line
+--| above its first line.
+def HeadedExpr (bracketed: Bool): Expr → Prop
+  | Var _ _ => True
+  | NumberLiteral _ _ => True
+  | StringLiteral _ _ => True
+  | Bracketed _ inner _ => HeadedExpr True inner
+  | ListLiteral _ items _ => HeadedItems items
+  | Call callee _ arguments _ => HeadedExpr bracketed callee ∧ HeadedItems arguments
+  | Field target _ _ _ => HeadedExpr bracketed target
+  | Negate _ operand => HeadedExpr bracketed operand
+  | Binary _ _ left right => HeadedExpr bracketed left ∧ HeadedExpr bracketed right
+  | If _ condition _ whenTrue _ whenFalse =>
+    HeadedExpr bracketed condition ∧ HeadedBody bracketed whenTrue ∧ HeadedBody bracketed whenFalse
+
+def HeadedItems: List Item → Prop
+  | [] => True
+  | [{ value, .. }, ..rest] => HeadedExpr True value ∧ HeadedItems rest
+
+def HeadedBody (bracketed: Bool): Body → Prop
+  | { statements } =>
+    HeadedLines bracketed statements ∧ Unspaced statements ∧ (bracketed = True → OneExpression statements)
+
+def HeadedLines (bracketed: Bool): List (Spaced Statement) → Prop
+  | [] => True
+  | [{ line, .. }, ..rest] => HeadedStatement bracketed line ∧ HeadedLines bracketed rest
+
+def HeadedStatement (bracketed: Bool): Statement → Prop
+  | Let letComments _ _ _ body => letComments.above = [] ∧ HeadedBody False body
+  | Bare value => (bracketed = False → value.firstAbove = []) ∧ HeadedExpr bracketed value
+  | StatementNote _ => True
+
+def HeadedDeclaration: Declaration → Prop
+  | Function fnComments _ _ _ _ _ _ body => fnComments.above = [] ∧ HeadedBody False body
+  | Value letComments _ _ _ body => letComments.above = [] ∧ HeadedBody False body
+  | DeclarationNote _ => True
+
+def HeadedDeclarations: List (Spaced Declaration) → Prop
+  | [] => True
+  | [{ line, .. }, ..rest] => HeadedDeclaration line ∧ HeadedDeclarations rest
+
+def HeadedFile: SourceFile → Prop
+  | { declarations } => HeadedDeclarations declarations ∧ Unspaced declarations
+
+def bracketedOf: Layout → Bool
+  | InBrackets => True
+  | InStatement _ _ => False
+
+--| Whether the first line keeps a blank line above it.
+def firstBlankBefore (lines: List (Spaced Statement)): Bool := match lines with
+  | [first, .._] => first.blankBefore
+  | [] => False
+
+-- The induction over the tree.
+
+--| No `if` outside brackets.
+def NoIf: Expr → Prop
+  | Var _ _ => True
+  | NumberLiteral _ _ => True
+  | StringLiteral _ _ => True
+  | Bracketed _ _ _ => True
+  | ListLiteral _ _ _ => True
+  | Call callee _ _ _ => NoIf callee
+  | Field target _ _ _ => NoIf target
+  | Negate _ operand => NoIf operand
+  | Binary _ _ left right => NoIf left ∧ NoIf right
+  | If _ _ _ _ _ _ => False
+
+--| The expressions `exprSpells` covers at `layout`: all of them inside
+--| brackets, where an `if`'s branches are one expression each; outside
+--| brackets those with no `if`, whose branch may be a block.
+def Covered (layout: Layout) (expr: Expr): Prop := match layout with
+  | InBrackets => True
+  | InStatement _ _ => NoIf expr
+
+theorem coveredPart ∀ (layout: Layout) (whole part: Expr)
+    (narrow: NoIf whole → NoIf part)
+    (plain: Covered layout whole):
+    Covered layout part :=
+  match layout, plain with
+    | InBrackets, _ => rfl
+    | InStatement _ _, noIf => narrow noIf
+
+--| The events of `expr`, seen with `pending` waiting, are views (one at
+--| least) that leave nothing waiting, and tokens with those views that
+--| lead (`Leads`) spell the expression at `layout`; the first view
+--| starts as `head` says.
+def Spells (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop) (expr: Expr) (events: List Event): Prop :=
+  ∃ (first: TokenView) => ∃ (others: List TokenView) => Seen pending events [first, ..others]
+    ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = [first, ..others]
+      → Leads layout pending head expr.firstAbove tokens
+      → Spelled layout expr tokens)
+    ∧ head first.start
+
+--| One token with a leaf's view is the leaf's token.
+theorem leafSpells ∀ (layout: Layout) (pending: List Trivia) (head: Option Nat → Prop)
+    (above: List Comment) (after: Option Comment) (kind: Kind) (start: Option Nat)
+    (tokens: List (Parse.Located Token))
+    (same: tokens.map viewOf = [tokenView pending kind start { above, after }])
+    (allowed: head start)
+    (leads: Leads layout pending head above tokens):
+    ∃ (found: Parse.Located Token) => tokens = [found]
+      ∧ found.value.kind = kind
+      ∧ layout.allows found = True
+      ∧ ({ above, after }: Comments) = layout.comments found :=
+  viewsOne
+    (later =>
+      Leads layout pending head above later
+        → ∃ (found: Parse.Located Token) => later = [found]
+          ∧ found.value.kind = kind
+          ∧ layout.allows found = True
+          ∧ ({ above, after }: Comments) = layout.comments found)
+    tokens
+    (tokenView pending kind start { above, after })
+    same
+    (found foundSame held =>
+      match headFits layout pending head above found [] kind start after held allowed foundSame with
+        | Both kindSame (Both allows notes) => Witness found (Both rfl (Both kindSame (Both allows notes))))
+    leads
+
+theorem blockAheadBrackets ∀ (tokens: List (Parse.Located Token)): blockAhead InBrackets tokens = False :=
+  match tokens with
+    | [] => rfl
+    | [_, .._] => rfl
+
+--| Tokens with the views of an expression's events spell it.
+theorem exprSpells ∀ (zone: Zone) (layout: Layout) (head: Option Nat → Prop) (expr: Expr)
+    (events: List Event) (pending: List Trivia)
+    (suits: Suits zone layout)
+    (shaped: Shaped expr)
+    (lexical: Lexical expr)
+    (headed: HeadedExpr (bracketedOf layout) expr)
+    (plain: Covered layout expr)
+    (laid: Events zone head expr events):
+    Spells layout pending head expr events :=
+  match expr, shaped, lexical, headed, plain, laid with
+    | Var text { above, after }, _, Both isName fine, _, _, laid =>
+      match tokenSeen head { above, after } text (Name text) events pending fine
+        (seen start => nameEvent seen text start isName)
+        laid with
+        | Witness start (Both allowed seen) =>
+          Witness (tokenView pending (Name text) start { above, after })
+            (Witness []
+              (Both seen
+                (Both (tokens same leads =>
+                  leafSpells layout pending head above after (Name text) start tokens same allowed leads) allowed)))
+    | NumberLiteral text { above, after }, _, Both isDigits fine, _, _, laid =>
+      match tokenSeen head { above, after } text (Number text) events pending fine
+        (seen start => digitsEvent seen text start isDigits)
+        laid with
+        | Witness start (Both allowed seen) =>
+          Witness (tokenView pending (Number text) start { above, after })
+            (Witness []
+              (Both seen
+                (Both (tokens same leads =>
+                  leafSpells layout pending head above after (Number text) start tokens same allowed leads) allowed)))
+    | StringLiteral text { above, after }, _, Both isString fine, _, _, laid =>
+      match tokenSeen head { above, after } text (Str text) events pending fine
+        (seen start => stringEvent seen text start isString)
+        laid with
+        | Witness start (Both allowed seen) =>
+          Witness (tokenView pending (Str text) start { above, after })
+            (Witness []
+              (Both seen
+                (Both (tokens same leads =>
+                  leafSpells layout pending head above after (Str text) start tokens same allowed leads) allowed)))
+    | Bracketed ({ above, after }) inner close, shapedInner, Both fineOpen (Both innerLexical fineClose), headedInner, _,
+      Witness front
+        (Witness back
+          (Both split
+            (Both openLaid (Witness mid (Witness tail (Both backSplit (Both innerLaid closeLaid))))))) =>
+      match
+        tokenSeen head { above, after } "(" (Sign OpenParen) front pending fineOpen
+          (seen start => signEvent seen OpenParen start)
+          openLaid,
+        exprSpells zone.inside InBrackets anyStart inner mid [] rfl shapedInner innerLexical headedInner rfl innerLaid,
+        tokenSeen anyStart close ")" (Sign CloseParen) tail [] fineClose
+          (seen start => signEvent seen CloseParen start)
+          closeLaid with
+        | Witness openStart (Both openAllowed openSeen), Witness first (Witness others (Both innerSeen (Both innerSpells _))),
+          Witness closeStart (Both _ closeSeen) =>
+          Witness (tokenView pending (Sign OpenParen) openStart { above, after })
+            (Witness ([first, ..others] ++ [(tokenView [] (Sign CloseParen) closeStart close)])
+              (Both
+                (rewrite split, backSplit in
+                  seenThen pending front (mid ++ tail) [(tokenView pending (Sign OpenParen) openStart { above, after })] ([first, ..others] ++ [(tokenView [] (Sign CloseParen) closeStart close)]) openSeen
+                    (seenThen [] mid tail [first, ..others] [(tokenView [] (Sign CloseParen) closeStart close)] innerSeen closeSeen))
+                (Both (tokens same =>
+                  viewsCons (later => Leads layout pending head above later → Spelled layout (Bracketed ({ above, after }) inner close) later) tokens (tokenView pending (Sign OpenParen) openStart { above, after }) ([first, ..others] ++ [(tokenView [] (Sign CloseParen) closeStart close)]) same
+                    (opener rest openSame restSame =>
+                      viewsSplit (later => Leads layout pending head above [opener, ..later] → Spelled layout (Bracketed ({ above, after }) inner close) [opener, ..later]) rest [first, ..others] [(tokenView [] (Sign CloseParen) closeStart close)] restSame
+                        (innerTokens closing innerSame closingSame =>
+                          viewsOne (later => Leads layout pending head above [opener, ..innerTokens ++ later] → Spelled layout (Bracketed ({ above, after }) inner close) [opener, ..innerTokens ++ later]) closing (tokenView [] (Sign CloseParen) closeStart close) closingSame
+                            (shut closeSame leads =>
+                              match
+                                headFits layout pending head above opener (innerTokens ++ [shut]) (Sign OpenParen)
+                                  openStart after leads openAllowed openSame,
+                                bracketFits shut (Sign CloseParen) closeStart close closeSame with
+                                | Both openKind (Both openAllows openNotes), Both closeKind (Both _ closeNotes) =>
+                                  Witness opener
+                                    (Witness innerTokens
+                                      (Witness shut
+                                        (Both rfl
+                                          (Both openKind
+                                            (Both openAllows
+                                              (Both closeKind
+                                                (Both
+                                                  (innerSpells innerTokens innerSame
+                                                    (bracketLeads anyStart inner.firstAbove innerTokens))
+                                                  (Both openNotes closeNotes)))))))))))) openAllowed)))
+    | ListLiteral ({ above, after }) items close, Both shapedItems bare, Both fineOpen (Both itemsLexical fineClose), headedItems, _,
+      Witness front
+        (Witness back
+          (Both split
+            (Both openLaid (Witness mid (Witness tail (Both backSplit (Both itemsLaid closeLaid))))))) =>
+      match
+        tokenSeen head { above, after } "[" (Sign OpenSquare) front pending fineOpen
+          (seen start => signEvent seen OpenSquare start)
+          openLaid,
+        itemsSpell zone.inside items mid shapedItems bare itemsLexical headedItems itemsLaid,
+        tokenSeen anyStart close "]" (Sign CloseSquare) tail [] fineClose
+          (seen start => signEvent seen CloseSquare start)
+          closeLaid with
+        | Witness openStart (Both openAllowed openSeen), Witness found (Both itemsSeen itemsSpelled),
+          Witness closeStart (Both _ closeSeen) =>
+          Witness (tokenView pending (Sign OpenSquare) openStart { above, after })
+            (Witness (found ++ [(tokenView [] (Sign CloseSquare) closeStart close)])
+              (Both
+                (rewrite split, backSplit in
+                  seenThen pending front (mid ++ tail) [(tokenView pending (Sign OpenSquare) openStart { above, after })] (found ++ [(tokenView [] (Sign CloseSquare) closeStart close)]) openSeen
+                    (seenThen [] mid tail found [(tokenView [] (Sign CloseSquare) closeStart close)] itemsSeen closeSeen))
+                (Both (tokens same =>
+                  viewsCons (later => Leads layout pending head above later → Spelled layout (ListLiteral ({ above, after }) items close) later) tokens (tokenView pending (Sign OpenSquare) openStart { above, after }) (found ++ [(tokenView [] (Sign CloseSquare) closeStart close)]) same
+                    (opener rest openSame restSame =>
+                      viewsSplit (later => Leads layout pending head above [opener, ..later] → Spelled layout (ListLiteral ({ above, after }) items close) [opener, ..later]) rest found [(tokenView [] (Sign CloseSquare) closeStart close)] restSame
+                        (itemTokens closing itemsSame closingSame =>
+                          viewsOne (later => Leads layout pending head above [opener, ..itemTokens ++ later] → Spelled layout (ListLiteral ({ above, after }) items close) [opener, ..itemTokens ++ later]) closing (tokenView [] (Sign CloseSquare) closeStart close) closingSame
+                            (shut closeSame leads =>
+                              match
+                                headFits layout pending head above opener (itemTokens ++ [shut]) (Sign OpenSquare)
+                                  openStart after leads openAllowed openSame,
+                                bracketFits shut (Sign CloseSquare) closeStart close closeSame with
+                                | Both openKind (Both openAllows openNotes), Both closeKind (Both _ closeNotes) =>
+                                  Witness opener
+                                    (Witness itemTokens
+                                      (Witness shut
+                                        (Both rfl
+                                          (Both openKind
+                                            (Both openAllows
+                                              (Both closeKind
+                                                (Both (itemsSpelled itemTokens itemsSame) (Both openNotes closeNotes)))))))))))) openAllowed)))
+    | Call callee open arguments close, Both _ (Both shapedCallee (Both shapedArguments bare)),
+      Both calleeLexical (Both fineOpen (Both argumentsLexical fineClose)), Both headedCallee headedArguments, plain,
+      Witness front
+        (Witness back
+          (Both split
+            (Both calleeLaid
+              (Witness mid
+                (Witness afterOpen
+                  (Both backSplit
+                    (Both openLaid
+                      (Witness inner (Witness tail (Both innerSplit (Both argumentsLaid closeLaid))))))))))) =>
+      match
+        exprSpells zone layout head callee front pending suits shapedCallee calleeLexical headedCallee
+          (coveredPart layout (Call callee open arguments close) callee (noIf => noIf) plain)
+          calleeLaid,
+        tokenSeen zone.allows open "(" (Sign OpenParen) mid [] fineOpen
+          (seen start => signEvent seen OpenParen start)
+          openLaid,
+        itemsSpell zone.inside arguments inner shapedArguments bare argumentsLexical headedArguments argumentsLaid,
+        tokenSeen anyStart close ")" (Sign CloseParen) tail [] fineClose
+          (seen start => signEvent seen CloseParen start)
+          closeLaid with
+        | Witness calleeFirst (Witness calleeOthers (Both calleeSeen (Both calleeSpells calleeStarts))),
+          Witness openStart (Both openAllowed openSeen), Witness found (Both argumentsSeen argumentsSpelled),
+          Witness closeStart (Both _ closeSeen) =>
+          Witness calleeFirst
+            (Witness (calleeOthers ++ ([(tokenView [] (Sign OpenParen) openStart open)] ++ (found ++ [(tokenView [] (Sign CloseParen) closeStart close)])))
+              (Both
+                (rewrite split, backSplit, innerSplit in
+                  seenThen pending front (mid ++ (inner ++ tail)) [calleeFirst, ..calleeOthers] ([(tokenView [] (Sign OpenParen) openStart open)] ++ (found ++ [(tokenView [] (Sign CloseParen) closeStart close)])) calleeSeen
+                    (seenThen [] mid (inner ++ tail) [(tokenView [] (Sign OpenParen) openStart open)] (found ++ [(tokenView [] (Sign CloseParen) closeStart close)]) openSeen
+                      (seenThen [] inner tail found [(tokenView [] (Sign CloseParen) closeStart close)] argumentsSeen closeSeen)))
+                (Both (tokens same =>
+                  viewsCons (later => Leads layout pending head callee.firstAbove later → Spelled layout (Call callee open arguments close) later) tokens calleeFirst (calleeOthers ++ ([(tokenView [] (Sign OpenParen) openStart open)] ++ (found ++ [(tokenView [] (Sign CloseParen) closeStart close)]))) same
+                    (lead rest leadSame restSame =>
+                      viewsSplit (later => Leads layout pending head callee.firstAbove [lead, ..later] → Spelled layout (Call callee open arguments close) [lead, ..later]) rest calleeOthers ([(tokenView [] (Sign OpenParen) openStart open)] ++ (found ++ [(tokenView [] (Sign CloseParen) closeStart close)])) restSame
+                        (calleeRest afterCallee calleeRestSame afterCalleeSame =>
+                          viewsCons (later => Leads layout pending head callee.firstAbove [lead, ..calleeRest ++ later] → Spelled layout (Call callee open arguments close) [lead, ..calleeRest ++ later]) afterCallee (tokenView [] (Sign OpenParen) openStart open) (found ++ [(tokenView [] (Sign CloseParen) closeStart close)])
+                            afterCalleeSame
+                            (opener afterOpener openSame afterOpenerSame =>
+                              viewsSplit (later => Leads layout pending head callee.firstAbove [lead, ..calleeRest ++ [opener, ..later]] → Spelled layout (Call callee open arguments close) [lead, ..calleeRest ++ [opener, ..later]]) afterOpener found
+                                [(tokenView [] (Sign CloseParen) closeStart close)] afterOpenerSame
+                                (argumentTokens closing argumentsSame closingSame =>
+                                  viewsOne (later => Leads layout pending head callee.firstAbove [lead, ..calleeRest ++ [opener, ..argumentTokens ++ later]] → Spelled layout (Call callee open arguments close) [lead, ..calleeRest ++ [opener, ..argumentTokens ++ later]])
+                                    closing (tokenView [] (Sign CloseParen) closeStart close) closingSame
+                                    (shut closeSame leads =>
+                                      match leads with
+                                        | Both apart fit =>
+                                          match
+                                            apartBack layout calleeRest [opener, ..argumentTokens ++ [shut]] apart with
+                                            | Both openApart _ =>
+                                              match
+                                                innerFits zone layout opener (Sign OpenParen) openStart open suits
+                                                  openApart openAllowed openSame,
+                                                bracketFits shut (Sign CloseParen) closeStart close closeSame with
+                                                | Both openKind (Both openAllows openNotes),
+                                                  Both closeKind (Both _ closeNotes) =>
+                                                  Witness [lead, ..calleeRest]
+                                                    (Witness opener
+                                                      (Witness argumentTokens
+                                                        (Witness shut
+                                                          (Both rfl
+                                                            (Both openKind
+                                                              (Both openAllows
+                                                                (Both closeKind
+                                                                  (Both
+                                                                    (calleeSpells [lead, ..calleeRest]
+                                                                      (consViews lead calleeRest calleeFirst
+                                                                        calleeOthers leadSame calleeRestSame)
+                                                                      (Both
+                                                                        (apartFront layout calleeRest
+                                                                          [opener, ..argumentTokens ++ [shut]] apart)
+                                                                        fit))
+                                                                    (Both
+                                                                      (argumentsSpelled argumentTokens argumentsSame)
+                                                                      (Both openNotes closeNotes)))))))))))))))) calleeStarts)))
+    | Field target dot name nameComments, Both _ shapedTarget, Both targetLexical (Both fineDot (Both isName fineName)), headedTarget, plain,
+      Witness front
+        (Witness back
+          (Both split
+            (Both targetLaid (Witness mid (Witness tail (Both backSplit (Both dotLaid nameLaid))))))) =>
+      match
+        exprSpells zone layout head target front pending suits shapedTarget targetLexical headedTarget
+          (coveredPart layout (Field target dot name nameComments) target (noIf => noIf) plain)
+          targetLaid,
+        tokenSeen zone.allows dot "." (Sign Dot) mid [] fineDot (seen start => signEvent seen Dot start) dotLaid,
+        tokenSeen zone.allows nameComments name (Name name) tail [] fineName
+          (seen start => nameEvent seen name start isName)
+          nameLaid with
+        | Witness targetFirst (Witness targetOthers (Both targetSeen (Both targetSpells targetStarts))),
+          Witness dotStart (Both dotAllowed dotSeen), Witness nameStart (Both nameAllowed nameSeen) =>
+          Witness targetFirst
+            (Witness (targetOthers ++ ([(tokenView [] (Sign Dot) dotStart dot)] ++ [(tokenView [] (Name name) nameStart nameComments)]))
+              (Both
+                (rewrite split, backSplit in
+                  seenThen pending front (mid ++ tail) [targetFirst, ..targetOthers] ([(tokenView [] (Sign Dot) dotStart dot)] ++ [(tokenView [] (Name name) nameStart nameComments)]) targetSeen
+                    (seenThen [] mid tail [(tokenView [] (Sign Dot) dotStart dot)] [(tokenView [] (Name name) nameStart nameComments)] dotSeen nameSeen))
+                (Both (tokens same =>
+                  viewsCons (later => Leads layout pending head target.firstAbove later → Spelled layout (Field target dot name nameComments) later) tokens targetFirst (targetOthers ++ ([(tokenView [] (Sign Dot) dotStart dot)] ++ [(tokenView [] (Name name) nameStart nameComments)])) same
+                    (lead rest leadSame restSame =>
+                      viewsSplit (later => Leads layout pending head target.firstAbove [lead, ..later] → Spelled layout (Field target dot name nameComments) [lead, ..later]) rest targetOthers ([(tokenView [] (Sign Dot) dotStart dot)] ++ [(tokenView [] (Name name) nameStart nameComments)]) restSame
+                        (targetRest afterTarget targetRestSame afterTargetSame =>
+                          viewsCons (later => Leads layout pending head target.firstAbove [lead, ..targetRest ++ later] → Spelled layout (Field target dot name nameComments) [lead, ..targetRest ++ later]) afterTarget (tokenView [] (Sign Dot) dotStart dot) [(tokenView [] (Name name) nameStart nameComments)]
+                            afterTargetSame
+                            (dotToken afterDot dotSame afterDotSame =>
+                              viewsOne (later => Leads layout pending head target.firstAbove [lead, ..targetRest ++ [dotToken, ..later]] → Spelled layout (Field target dot name nameComments) [lead, ..targetRest ++ [dotToken, ..later]]) afterDot (tokenView [] (Name name) nameStart nameComments)
+                                afterDotSame
+                                (named nameSame leads =>
+                                  match leads with
+                                    | Both apart fit =>
+                                      match apartBack layout targetRest [dotToken, named] apart with
+                                        | Both dotApart (Both nameApart _) =>
+                                          match
+                                            innerFits zone layout dotToken (Sign Dot) dotStart dot suits dotApart
+                                              dotAllowed dotSame,
+                                            innerFits zone layout named (Name name) nameStart nameComments suits
+                                              nameApart nameAllowed nameSame with
+                                            | Both dotKind (Both dotAllows dotNotes),
+                                              Both nameKind (Both nameAllows nameNotes) =>
+                                              Witness [lead, ..targetRest]
+                                                (Witness dotToken
+                                                  (Witness named
+                                                    (Both rfl
+                                                      (Both dotKind
+                                                        (Both dotAllows
+                                                          (Both nameKind
+                                                            (Both nameAllows
+                                                              (Both
+                                                                (targetSpells [lead, ..targetRest]
+                                                                  (consViews lead targetRest targetFirst targetOthers
+                                                                    leadSame targetRestSame)
+                                                                  (Both
+                                                                    (apartFront layout targetRest [dotToken, named]
+                                                                      apart)
+                                                                    fit))
+                                                                (Both dotNotes nameNotes)))))))))))))) targetStarts)))
+    | Negate ({ above, after }) operand, Both _ shapedOperand, Both fineMinus operandLexical, headedOperand, plain,
+      Witness front (Witness back (Both split (Both minusLaid operandLaid))) =>
+      match
+        tokenSeen head { above, after } "-" (Op Minus) front pending fineMinus
+          (seen start => operatorEvent seen Minus start)
+          minusLaid,
+        exprSpells zone layout zone.allows operand back [] suits shapedOperand operandLexical headedOperand
+          (coveredPart layout (Negate ({ above, after }) operand) operand (noIf => noIf) plain)
+          operandLaid with
+        | Witness minusStart (Both minusAllowed minusSeen), Witness first (Witness others (Both operandSeen (Both operandSpells _))) =>
+          Witness (tokenView pending (Op Minus) minusStart { above, after })
+            (Witness [first, ..others]
+              (Both
+                (rewrite split in seenThen pending front back [(tokenView pending (Op Minus) minusStart { above, after })] [first, ..others] minusSeen operandSeen)
+                (Both (tokens same =>
+                  viewsCons (later => Leads layout pending head above later → Spelled layout (Negate ({ above, after }) operand) later) tokens (tokenView pending (Op Minus) minusStart { above, after }) [first, ..others] same
+                    (minus operandTokens minusSame operandSame leads =>
+                      match
+                        leads,
+                        headFits layout pending head above minus operandTokens (Op Minus) minusStart after leads
+                          minusAllowed minusSame with
+                        | Both apart _, Both minusKind (Both minusAllows minusNotes) =>
+                          Witness minus
+                            (Witness operandTokens
+                              (Both rfl
+                                (Both minusKind
+                                  (Both minusAllows
+                                    (Both
+                                      (operandSpells operandTokens operandSame
+                                        (innerLeads zone layout operand.firstAbove operandTokens suits apart))
+                                      minusNotes))))))) minusAllowed)))
+    | Binary operator sign left right, Both _ (Both _ (Both _ (Both _ (Both shapedLeft shapedRight)))),
+      Both fineSign (Both leftLexical rightLexical), Both headedLeft headedRight, plain,
+      Witness front
+        (Witness back
+          (Both split
+            (Both leftLaid (Witness mid (Witness tail (Both backSplit (Both signLaid rightLaid))))))) =>
+      match
+        exprSpells zone layout head left front pending suits shapedLeft leftLexical headedLeft
+          (coveredPart layout (Binary operator sign left right) left
+            (noIf => noIf.left)
+            plain)
+          leftLaid,
+        tokenSeen zone.allows sign operator.spelling (Op operator) mid [] fineSign
+          (seen start => operatorEvent seen operator start)
+          signLaid,
+        exprSpells zone layout zone.allows right tail [] suits shapedRight rightLexical headedRight
+          (coveredPart layout (Binary operator sign left right) right
+            (noIf => noIf.right)
+            plain)
+          rightLaid with
+        | Witness leftFirst (Witness leftOthers (Both leftSeen (Both leftSpells leftStarts))),
+          Witness signStart (Both signAllowed signSeen),
+          Witness rightFirst (Witness rightOthers (Both rightSeen (Both rightSpells _))) =>
+          Witness leftFirst
+            (Witness (leftOthers ++ ([(tokenView [] (Op operator) signStart sign)] ++ [rightFirst, ..rightOthers]))
+              (Both
+                (rewrite split, backSplit in
+                  seenThen pending front (mid ++ tail) [leftFirst, ..leftOthers] ([(tokenView [] (Op operator) signStart sign)] ++ [rightFirst, ..rightOthers]) leftSeen
+                    (seenThen [] mid tail [(tokenView [] (Op operator) signStart sign)] [rightFirst, ..rightOthers] signSeen rightSeen))
+                (Both (tokens same =>
+                  viewsCons (later => Leads layout pending head left.firstAbove later → Spelled layout (Binary operator sign left right) later) tokens leftFirst (leftOthers ++ ([(tokenView [] (Op operator) signStart sign)] ++ [rightFirst, ..rightOthers])) same
+                    (lead rest leadSame restSame =>
+                      viewsSplit (later => Leads layout pending head left.firstAbove [lead, ..later] → Spelled layout (Binary operator sign left right) [lead, ..later]) rest leftOthers ([(tokenView [] (Op operator) signStart sign)] ++ [rightFirst, ..rightOthers]) restSame
+                        (leftRest afterLeft leftRestSame afterLeftSame =>
+                          viewsCons (later => Leads layout pending head left.firstAbove [lead, ..leftRest ++ later] → Spelled layout (Binary operator sign left right) [lead, ..leftRest ++ later]) afterLeft (tokenView [] (Op operator) signStart sign)
+                            [rightFirst, ..rightOthers] afterLeftSame
+                            (signed rightTokens signSame rightSame leads =>
+                              match leads with
+                                | Both apart fit =>
+                                  match apartBack layout leftRest [signed, ..rightTokens] apart with
+                                    | Both signApart rightApart =>
+                                      match
+                                        innerFits zone layout signed (Op operator) signStart sign suits signApart
+                                          signAllowed signSame with
+                                        | Both signKind (Both signAllows signNotes) =>
+                                          Witness [lead, ..leftRest]
+                                            (Witness signed
+                                              (Witness rightTokens
+                                                (Both rfl
+                                                  (Both signKind
+                                                    (Both signAllows
+                                                      (Both
+                                                        (leftSpells [lead, ..leftRest]
+                                                          (consViews lead leftRest leftFirst leftOthers leadSame
+                                                            leftRestSame)
+                                                          (Both
+                                                            (apartFront layout leftRest [signed, ..rightTokens]
+                                                              apart)
+                                                            fit))
+                                                        (Both
+                                                          (rightSpells rightTokens rightSame
+                                                            (innerLeads zone layout right.firstAbove rightTokens suits
+                                                              rightApart))
+                                                          signNotes))))))))))) leftStarts)))
+    | If ({ above, after }) condition thenComments whenTrue elseComments whenFalse, Both shapedCondition (Both shapedTrue shapedFalse),
+      Both fineIf (Both conditionLexical (Both fineThen (Both trueLexical (Both fineElse falseLexical)))), headed, plain,
+      Witness ifEvents
+        (Witness afterIf
+          (Both ifSplit
+            (Both ifLaid
+              (Witness conditionEvents
+                (Witness afterCondition
+                  (Both conditionSplit
+                    (Both conditionLaid
+                      (Witness thenEvents
+                        (Witness afterThen
+                          (Both thenSplit
+                            (Both thenLaid
+                              (Witness trueEvents
+                                (Witness afterTrue
+                                  (Both trueSplit
+                                    (Both trueLaid
+                                      (Witness elseEvents
+                                        (Witness falseEvents (Both elseSplit (Both elseLaid falseLaid))))))))))))))))))) =>
+      match layout, suits, headed, plain with
+        | InStatement _ _, _, _, never => Void.exfalso (Bool.falseNotTrue never)
+        | InBrackets, _, Both headedCondition (Both headedTrue headedFalse), _ =>
+          match
+            tokenSeen head { above, after } "if" (Reserved IfKeyword) ifEvents pending fineIf
+              (seen start => keywordEvent seen IfKeyword start)
+              ifLaid,
+            exprSpells zone InBrackets zone.allows condition conditionEvents [] rfl shapedCondition conditionLexical
+              headedCondition rfl conditionLaid,
+            tokenSeen zone.allows thenComments "then" (Reserved ThenKeyword) thenEvents [] fineThen
+              (seen start => keywordEvent seen ThenKeyword start)
+              thenLaid,
+            bodySpells zone whenTrue trueEvents shapedTrue trueLexical headedTrue trueLaid,
+            tokenSeen zone.reaches elseComments "else" (Reserved ElseKeyword) elseEvents [] fineElse
+              (seen start => keywordEvent seen ElseKeyword start)
+              elseLaid,
+            bodySpells zone whenFalse falseEvents shapedFalse falseLexical headedFalse falseLaid with
+            | Witness ifStart (Both ifAllowed ifSeen),
+              Witness conditionFirst (Witness conditionOthers (Both conditionSeen (Both conditionSpells _))),
+              Witness thenStart (Both _ thenSeen), Witness trueFirst (Witness trueOthers (Both trueSeen trueSpells)),
+              Witness elseStart (Both _ elseSeen), Witness falseFirst (Witness falseOthers (Both falseSeen falseSpells)) =>
+              Witness (tokenView pending (Reserved IfKeyword) ifStart { above, after })
+                (Witness ([conditionFirst, ..conditionOthers] ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)] ++ ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers]))))
+                  (Both
+                    (rewrite ifSplit, conditionSplit, thenSplit, trueSplit, elseSplit in
+                      seenThen pending ifEvents
+                        (conditionEvents ++ (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents))))
+                        [(tokenView pending (Reserved IfKeyword) ifStart { above, after })] ([conditionFirst, ..conditionOthers] ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)] ++ ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])))) ifSeen
+                        (seenThen [] conditionEvents (thenEvents ++ (trueEvents ++ (elseEvents ++ falseEvents)))
+                          [conditionFirst, ..conditionOthers] ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)] ++ ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers]))) conditionSeen
+                          (seenThen [] thenEvents (trueEvents ++ (elseEvents ++ falseEvents)) [(tokenView [] (Reserved ThenKeyword) thenStart thenComments)] ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])) thenSeen
+                            (seenThen [] trueEvents (elseEvents ++ falseEvents) [trueFirst, ..trueOthers] ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])
+                              trueSeen
+                              (seenThen [] elseEvents falseEvents [(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] [falseFirst, ..falseOthers] elseSeen falseSeen)))))
+                    (Both (tokens same =>
+                      viewsCons (later => Leads InBrackets pending head above later → Spelled InBrackets (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse) later) tokens (tokenView pending (Reserved IfKeyword) ifStart { above, after }) ([conditionFirst, ..conditionOthers] ++ ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)] ++ ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])))) same
+                        (ifToken afterIfTokens ifSame afterIfSame =>
+                          viewsSplit (later => Leads InBrackets pending head above [ifToken, ..later] → Spelled InBrackets (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse) [ifToken, ..later]) afterIfTokens
+                            [conditionFirst, ..conditionOthers] ([(tokenView [] (Reserved ThenKeyword) thenStart thenComments)] ++ ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers]))) afterIfSame
+                            (conditionTokens afterConditionTokens conditionSame afterConditionSame =>
+                              viewsCons (later => Leads InBrackets pending head above [ifToken, ..conditionTokens ++ later] → Spelled InBrackets (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse) [ifToken, ..conditionTokens ++ later]) afterConditionTokens
+                                (tokenView [] (Reserved ThenKeyword) thenStart thenComments) ([trueFirst, ..trueOthers] ++ ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers])) afterConditionSame
+                                (thenToken afterThenTokens thenSame afterThenSame =>
+                                  viewsSplit (later => Leads InBrackets pending head above [ifToken, ..conditionTokens ++ [thenToken, ..later]] → Spelled InBrackets (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse) [ifToken, ..conditionTokens ++ [thenToken, ..later]])
+                                    afterThenTokens [trueFirst, ..trueOthers] ([(tokenView [] (Reserved ElseKeyword) elseStart elseComments)] ++ [falseFirst, ..falseOthers]) afterThenSame
+                                    (trueTokens afterTrueTokens trueSame afterTrueSame =>
+                                      viewsCons
+                                        (later => Leads InBrackets pending head above [ifToken, ..conditionTokens ++ [thenToken, ..trueTokens ++ later]] → Spelled InBrackets (If ({ above, after }) condition thenComments whenTrue elseComments whenFalse) [ifToken, ..conditionTokens ++ [thenToken, ..trueTokens ++ later]])
+                                        afterTrueTokens (tokenView [] (Reserved ElseKeyword) elseStart elseComments) [falseFirst, ..falseOthers] afterTrueSame
+                                        (elseToken falseTokens elseSame falseSame leads =>
+                                          match
+                                            headFits InBrackets pending head above ifToken
+                                              (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])
+                                              (Reserved IfKeyword) ifStart after leads ifAllowed ifSame,
+                                            bracketFits thenToken (Reserved ThenKeyword) thenStart thenComments thenSame,
+                                            bracketFits elseToken (Reserved ElseKeyword) elseStart elseComments elseSame with
+                                            | Both ifKind (Both ifAllows ifNotes),
+                                              Both thenKind (Both thenAllows thenNotes),
+                                              Both elseKind (Both _ elseNotes) =>
+                                              Witness ifToken
+                                                (Witness conditionTokens
+                                                  (Witness thenToken
+                                                    (Witness trueTokens
+                                                      (Witness elseToken
+                                                        (Witness falseTokens
+                                                          (Both rfl
+                                                            (Both ifKind
+                                                              (Both ifAllows
+                                                                (Both thenKind
+                                                                  (Both thenAllows
+                                                                    (Both elseKind
+                                                                      (Both rfl
+                                                                        (Both
+                                                                          (conditionSpells conditionTokens
+                                                                            conditionSame
+                                                                            (bracketLeads zone.allows
+                                                                              condition.firstAbove conditionTokens))
+                                                                          (Both
+                                                                            (trueSpells trueTokens trueSame)
+                                                                            (Both
+                                                                              (falseSpells falseTokens falseSame)
+                                                                              (Both ifNotes
+                                                                                (Both thenNotes
+                                                                                  elseNotes))))))))))))))))))))))) ifAllowed)))
+
+--| Tokens with the views of the events of items between brackets spell
+--| the items.
+theorem itemsSpell ∀ (zone: Zone) (items: List Item) (events: List Event)
+    (shaped: ShapedItems items)
+    (bare: BareLastItem items)
+    (lexical: LexicalItems items)
+    (headed: HeadedItems items)
+    (laid: ItemEvents zone items events):
+    ∃ (found: List TokenView) => Seen [] events found
+      ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = found → SpelledItems items tokens) :=
+  match items, shaped, bare, lexical, headed, laid with
+    | [], _, _, _, _, laid =>
+      Witness []
+        (Both
+          (rewrite laid in (earlier => rfl))
+          (tokens same => viewsNil (later => SpelledItems [] later) tokens same rfl))
+    | [{ value, comma }], Both shapedValue _, bare, Both valueLexical _, Both headedValue _, laid =>
+      match exprSpells zone InBrackets anyStart value events [] rfl shapedValue valueLexical headedValue rfl laid with
+        | Witness first (Witness others (Both seen (Both spells _))) =>
+          Witness [first, ..others]
+            (Both seen
+              (tokens same => Both (spells tokens same (bracketLeads anyStart value.firstAbove tokens)) bare))
+    | [{ value, comma }, second, ..rest], Both shapedValue shapedRest, bare,
+      Both valueLexical (Both fineComma restLexical), Both headedValue headedRest,
+      Witness front
+        (Witness back
+          (Both split
+            (Both valueLaid (Witness mid (Witness tail (Both backSplit (Both commaLaid restLaid))))))) =>
+      match
+        exprSpells zone InBrackets anyStart value front [] rfl shapedValue valueLexical headedValue rfl valueLaid,
+        tokenSeen anyStart comma "," (Sign Comma) mid [] fineComma (seen start => signEvent seen Comma start) commaLaid,
+        itemsSpell zone [second, ..rest] tail shapedRest bare restLexical headedRest restLaid with
+        | Witness first (Witness others (Both valueSeen (Both valueSpells _))), Witness commaStart (Both _ commaSeen),
+          Witness found (Both restSeen restSpelled) =>
+          Witness ([first, ..others] ++ ([tokenView [] (Sign Comma) commaStart comma] ++ found))
+            (Both
+              (rewrite split, backSplit in
+                seenThen [] front (mid ++ tail) [first, ..others]
+                  ([tokenView [] (Sign Comma) commaStart comma] ++ found) valueSeen
+                  (seenThen [] mid tail [tokenView [] (Sign Comma) commaStart comma] found commaSeen restSeen))
+              (tokens same =>
+                viewsSplit (later => SpelledItems [{ value, comma }, second, ..rest] later) tokens [first, ..others]
+                  ([tokenView [] (Sign Comma) commaStart comma] ++ found) same
+                  (valueTokens afterValue valueSame afterValueSame =>
+                    viewsCons (later => SpelledItems [{ value, comma }, second, ..rest] (valueTokens ++ later))
+                      afterValue (tokenView [] (Sign Comma) commaStart comma) found afterValueSame
+                      (commaToken laterTokens commaSame laterSame =>
+                        match bracketFits commaToken (Sign Comma) commaStart comma commaSame with
+                          | Both commaKind (Both _ commaNotes) =>
+                            Witness valueTokens
+                              (Witness commaToken
+                                (Witness laterTokens
+                                  (Both rfl
+                                    (Both commaKind
+                                      (Both
+                                        (valueSpells valueTokens valueSame
+                                          (bracketLeads anyStart value.firstAbove valueTokens))
+                                        (Both commaNotes (restSpelled laterTokens laterSame)))))))))))
+
+--| Inside brackets, tokens with the views of a body's events spell the
+--| body as one expression, laid on its keyword's line or below it.
+theorem bodySpells ∀ (zone: Zone) (body: Body) (events: List Event)
+    (shaped: ShapedBody body)
+    (lexical: LexicalBody body)
+    (headed: HeadedBody True body)
+    (laid: BodyEvents zone body events):
+    ∃ (first: TokenView) => ∃ (others: List TokenView) => Seen [] events [first, ..others]
+      ∧ (∀ (tokens: List (Parse.Located Token)) => tokens.map viewOf = [first, ..others]
+        → SpelledInline InBrackets body tokens) :=
+  match body, shaped, lexical, headed, laid with
+    | { statements = [{ blankBefore, line = Bare value }] }, Both (Both shapedValue _) _, Both (Both valueLexical _) _,
+      Both (Both (Both _ headedValue) _) (Both unspaced _), laid =>
+      match
+        exprSpells (Anywhere 0) InBrackets anyStart value events [] rfl shapedValue valueLexical headedValue rfl
+          (bodyFree zone blankBefore value events laid) with
+        | Witness first (Witness others (Both seen (Both spells _))) =>
+          Witness first
+            (Witness others
+              (Both seen
+                (tokens same =>
+                  Both
+                    (Eq.sym (Eq.cong firstBlankBefore unspaced))
+                    (Both
+                      (blockAheadBrackets tokens)
+                      (spells tokens same (bracketLeads anyStart value.firstAbove tokens))))))
+    | { statements = [] }, _, _, Both _ (Both _ one), _ => Void.exfalso (Bool.falseNotTrue (one rfl))
+    | { statements = [{ blankBefore, line = Let _ _ _ _ _ }] }, _, _, Both _ (Both _ one), _ =>
+      Void.exfalso (Bool.falseNotTrue (one rfl))
+    | { statements = [{ blankBefore, line = StatementNote _ }] }, _, _, Both _ (Both _ one), _ =>
+      Void.exfalso (Bool.falseNotTrue (one rfl))
+    | { statements = [_, _, .._] }, _, _, Both _ (Both _ one), _ => Void.exfalso (Bool.falseNotTrue (one rfl))
+
+--| Inside brackets, tokens (the newest first) whose views are those of
+--| a trace of an expression's events spell the expression.
+theorem spellsBracketed ∀ (zone: Zone) (expr: Expr) (events: List Event) (tokens: List (Parse.Located Token))
+    (shaped: Shaped expr)
+    (lexical: Lexical expr)
+    (headed: HeadedExpr True expr)
+    (laid: Events zone anyStart expr events)
+    (views: tokens.map viewOf = (viewsOf events).views):
+    Spelled InBrackets expr tokens.reverse :=
+  match exprSpells zone InBrackets anyStart expr events [] rfl shaped lexical headed rfl laid with
+    | Witness first (Witness others (Both seen (Both spells _))) =>
+      spells tokens.reverse
+        (Eq.trans
+          (List.mapReverse tokens viewOf)
+          (Eq.trans
+            (Eq.cong
+              ((found: List TokenView) => found.reverse)
+              (Eq.trans
+                views
+                (Eq.trans
+                  (Eq.cong ((all: Views) => all.views) (seen []))
+                  (List.appendNil [first, ..others].reverse))))
+            (List.reverseReverse [first, ..others])))
+        (bracketLeads anyStart expr.firstAbove tokens.reverse)
