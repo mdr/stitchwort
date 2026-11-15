@@ -2,8 +2,48 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-65 lemmas, 15 goals without one
+91 lemmas, 33 goals without one
 
+arm-as-written-computes goal 1: no lemma
+arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
+arm-as-written-computes goal 3: theorem stepsGoal3 (s: Text): 2 ≠ 0 ∨ s = "" := ?
+arm-as-written-computes goal 4: no lemma
+arm-as-written-computes goal 5: no lemma
+arm-as-written-computes goal 6: theorem paintedGoal1: Red = Blue := ?
+arm-as-written-computes goal 7: theorem paintedGoal2 (c: Color): Blue = Blue := ?
+arm-as-written-computes goal 8: theorem someTrueGoal1: True = True := ?
+arm-as-written-computes goal 9: theorem someTrueGoal2 (o: Option Bool): False = True := ?
+arm-as-written-error goal 1: no lemma
+arm-as-written-error goal 2: def oneCharacterGoal2 (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])): p "" := ?
+arm-as-written-nested goal 1: def someTrueGoal1 (p: Option Bool → Prop): p (Some True) := ?
+arm-as-written-nested goal 2: def someTrueGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?
+arm-as-written-nested goal 3: def someNumberGoal1 (p: Option Nat → Prop): p (Some 3) := ?
+arm-as-written-nested goal 4: def someNumberGoal2 (p: Option Nat → Prop) (o: Option Nat): p o := ?
+arm-as-written-nested goal 5: no lemma
+arm-as-written-nested goal 6: def someTextGoal2 (p: Option Text → Prop) (o: Option Text): p o := ?
+arm-as-written-nested goal 7: def singletonGoal1 (p: List Nat → Prop) (x: Nat): p [x] := ?
+arm-as-written-nested goal 8: def singletonGoal2 (p: List Nat → Prop) (l: List Nat): p l := ?
+arm-as-written-nested goal 9: def pairGoal1 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?
+arm-as-written-nested goal 10: def pairGoal2 (p: Nat → Char → Prop) (n: Nat) (c: Char): p n c := ?
+arm-as-written-nested goal 11: no lemma
+arm-as-written-nested goal 12: def expressionGoal2 (p: Text → Prop) (q: Nat → Text) (s: Nat): p (q s) := ?
+arm-as-written-nested goal 13: no lemma
+arm-as-written-nested goal 14: def writtenGoal2 (p: Text → Prop) (other: Text): p other := ?
+arm-as-written-text goal 1: no lemma
+arm-as-written-text goal 2: def plainGoal2 (p: Text → Prop): p "" := ?
+arm-as-written-text goal 3: def plainGoal3 (p: Text → Prop) (s: Text): p s := ?
+arm-as-written-text goal 4: no lemma
+arm-as-written-text goal 5: def withHypothesisGoal2 (p: Text → Prop) (s: Text) (h: p s): p s := ?
+arm-as-written-text goal 6: no lemma
+arm-as-written-text goal 7: def namedGoal2 (p: Text → Prop) (other: Text): p other := ?
+arm-as-written-text goal 8: no lemma
+arm-as-written-text goal 9: no lemma
+arm-as-written-text goal 10: no lemma
+arm-as-written-text goal 11: no lemma
+arm-as-written-text goal 12: no lemma
+arm-as-written-text goal 13: def characterGoal2 (p: Char → Prop) (c: Char): p c := ?
+arm-as-written-text goal 14: no lemma
+arm-as-written-text goal 15: def charactersGoal2 (p: List Char → Prop) (l: List Char): p l := ?
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
 bool-constant-branches goal 2: theorem allTwoGoal1 (b: Bool) (c: Bool): (b && c && True) = b := ?
@@ -75,12 +115,16 @@ reify-return goal 2: no lemma
 reify-return goal 3: no lemma
 sections goal 1: no lemma
 sections goal 2: theorem countBelowGoal1 (xs: List Nat) (n: Nat): xs.count (< n) ≤ xs.length := ?
+settle-from-expected-retried goal 1: theorem holedGoal1: double 0 = 0 := ?
 step-then-folded goal 1: theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): concatenate a b = concatenate a b := ?
 sums-as-written goal 1: theorem plusOneGoal1 (x: Nat): x + 1 = x + 1 := ?
 sums-as-written goal 2: theorem plusThreeGoal1 (x: Nat) (y: Nat): x + 3 = y + x + 2 := ?
 sums-as-written goal 3: theorem writtenGoal1 (n: Nat): Succ n = Succ (Succ n) := ?
 sums-as-written goal 4: theorem matchedGoal1 (m: Nat): Succ m = 0 := ?
 test-hole goal 1: no lemma
+text-pattern-catch-all goal 1: def sizeGoal1: Nat := ?
+text-pattern-catch-all goal 2: no lemma
+text-pattern-catch-all goal 3: no lemma
 two-holes goal 1: def pairGoal1 (n: Nat): Nat := ?
 two-holes goal 2: def pairGoal2 (n: Nat): Text := ?
 undone-attempt goal 1: def firstDoubledGoal1 (xs: List Nat) (x: Nat): Nat := ?
