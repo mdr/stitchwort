@@ -36368,7 +36368,7 @@
     {
       "id": 3303,
       "title": "[Sonnet] Effect rows printed by show_row (effects.rs) drop ability arguments ({Parse} for {Parse Char}); print them as written (SW-3282 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
