@@ -1829,6 +1829,149 @@ theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located
     match core state starts honest with
       | Witness m (Both ran others) => Witness m (Both (rewrite starts, allowed, opens in ran) others)
 
+-- Where no expression starts: at a keyword other than `if`. What ends a
+-- block whose next line starts with `then` or `else`.
+
+--| What the expression parser is assumed to do, for the nested
+--| expressions of one being read, where a keyword other than `if` comes
+--| next: fail, so that what tried it can go on without it.
+def DeclinesNested (self: Layout → {Parse (Parse.Located Token)} Expr): Prop :=
+  ∀ (layout: Layout) (token: Parse.Located Token) (later: List
+    (Parse.Located Token)) (keyword: Keyword) => token.value.kind = Reserved keyword
+    → keyword ≠ IfKeyword
+    → Parse.Declines (() => self layout) [token, ..later]
+
+theorem notMinusAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword):
+    isMinus layout token = False :=
+  match allowed: layout.allows token with
+    | True => rewrite reserved in rfl
+    | False => rfl
+
+theorem notIfAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword)
+    (notIf: keyword ≠ IfKeyword):
+    isIf layout token = False :=
+  match allowed: layout.allows token with
+    | False => rfl
+    | True =>
+      rewrite reserved in
+        match keyword, notIf with
+          | IfKeyword, notIf => Void.exfalso (notIf rfl)
+          | FnKeyword, notIf => rfl
+          | LetKeyword, notIf => rfl
+          | ThenKeyword, notIf => rfl
+          | ElseKeyword, notIf => rfl
+
+--| No atom starts with a keyword.
+theorem atomDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (token: Parse.Located Token)
+    (later: List (Parse.Located Token)) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword):
+    Parse.Declines (() => atom self layout) [token, ..later] :=
+  state starts honest =>
+    let step: Parse.runFrom state (() => (Parse.optional (() => atom self layout), Parse.mark()))
+      = Parse.runFrom state (() => (Parse.optional (() => (Parse.expected "an expression": Expr)), Parse.mark())) :=
+      rewrite starts in
+        match allowed: layout.allows token with
+          | True => rewrite reserved in rfl
+          | False => rfl
+    Eq.trans step (Parse.declinesExpected "an expression" [token, ..later] state starts honest)
+
+theorem postfixDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (token: Parse.Located Token) (later: List (Parse.Located Token)) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword):
+    Parse.Declines (() => postfix self layout) [token, ..later] :=
+  Parse.declinesAfter
+    (() => Parse.note (Parse.Problem.Expected "an expression"))
+    (noted =>
+      let first := atom self layout
+      suffixesFrom (Parse.mark().left + 1) self layout first)
+    []
+    [token, ..later]
+    ()
+    (Parse.runsNote (Parse.Problem.Expected "an expression") [token, ..later])
+    (Parse.declinesBind
+      (() => atom self layout)
+      (first => suffixesFrom (Parse.mark().left + 1) self layout first)
+      [token, ..later]
+      (atomDeclines self layout token later keyword reserved))
+
+theorem negationsDecline ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (token: Parse.Located Token) (later: List (Parse.Located Token)) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword):
+    Parse.Declines (() => negationsFrom fuel self layout) [token, ..later] :=
+  state starts honest =>
+    let step: Parse.runFrom state (() => (Parse.optional (() => negationsFrom fuel self layout), Parse.mark()))
+      = Parse.runFrom state (() => (Parse.optional (() => postfix self layout), Parse.mark())) :=
+      match fuel with
+        | Zero => rfl
+        | Succ more => rewrite starts, notMinusAtReserved layout token keyword reserved in rfl
+    Eq.trans step (postfixDeclines self layout token later keyword reserved state starts honest)
+
+--| `operators` declines where its first operand does.
+theorem operatorsDecline ∀ (levels: List (Parse.Level (Parse.Located Token) Expr))
+    (operand: () → {Parse (Parse.Located Token)} Expr) (input: List (Parse.Located Token))
+    (declines: Parse.Declines operand input):
+    Parse.Declines (() => Parse.operators "an operator" levels operand) input :=
+  state starts honest =>
+    Parse.declinesBind operand
+      (first => Parse.operandsAfter (state.at.left + 1) "an operator" levels levels.length operand 0 first)
+      input
+      declines
+      state
+      starts
+      honest
+
+theorem chainRuleStops ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (layout: Layout) (state: Parse.State (Parse.Located Token))
+    (noIf: ifAhead layout state.at.rest = False):
+    Parse.runFrom state (() => (Parse.optional (() => expressionRule self layout), Parse.mark()))
+      = Parse.runFrom state (() =>
+        (
+          Parse.optional (() => Parse.operators "an operator" (operatorLevels layout) (() => operand self layout)),
+          Parse.mark()
+        )) :=
+  match state with
+    | { at = { rest = [], offset, left }, furthest, expected, messages } => rfl
+    | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf in rfl
+
+--| No expression starts with a keyword other than `if`, whatever reads
+--| the expressions nested in it.
+theorem expressionRuleDeclines ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (token: Parse.Located Token) (later: List (Parse.Located Token)) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword)
+    (notIf: keyword ≠ IfKeyword):
+    Parse.Declines (() => expressionRule self layout) [token, ..later] :=
+  state starts honest =>
+    Eq.trans
+      (chainRuleStops self layout state (rewrite starts in notIfAtReserved layout token keyword reserved notIf))
+      (operatorsDecline
+        (operatorLevels layout)
+        (() => operand self layout)
+        [token, ..later]
+        (inner begins fair =>
+          negationsDecline (inner.at.left + 1) self layout token later keyword reserved inner begins fair)
+        state
+        starts
+        honest)
+
+--| The expression parser of each level of the recursion but the
+--| innermost, which reads nothing, declines at a keyword.
+theorem fuelDeclines ∀ (more: Nat):
+    DeclinesNested (inner => Parse.recursiveWithFuel (Succ more) expressionRule inner) :=
+  layout token later keyword reserved notIf =>
+    expressionRuleDeclines
+      (inner => Parse.recursiveWithFuel more expressionRule inner)
+      layout
+      token
+      later
+      keyword
+      reserved
+      notIf
+
+theorem expressionDeclines: DeclinesNested expression := layout token later keyword reserved notIf =>
+  state starts honest => fuelDeclines state.at.left layout token later keyword reserved notIf state starts honest
+
 -- An instance of `runsExpression`: the six tokens of `f(a) + b`.
 
 def exampleToken (kind: Kind) (offset: Nat): Parse.Located Token :=

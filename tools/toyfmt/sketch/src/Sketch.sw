@@ -170,21 +170,14 @@ theorem runsFileSpelled ∀ (file: SourceFile) (tokens: List (Parse.Located Toke
     Parse.Runs (() => sourceFile endTrivia) tokens [] file :=
   ?
 
---| OPEN (D3). `body` read with the expression parser of an induction
---| (`self`, under `ReadsNested`) reads back what spells a body, a block
---| too: what `runsIfSpelled` needs for an `if` whose branch is a block.
---| Not used by the theorems below as it stands: `Spelled`'s arm for `If`
---| asks `SpelledInline` of both branches today, and must ask
---| `SpelledBody` (the two become mutual) before E2 is true of every
---| file. See SKETCH.md, "Statements that must change".
-theorem runsBodyNested ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
-    (nested: ReadsNested self bound)
-    (found: Body) (tokens rest: List (Parse.Located Token))
-    (shaped: ShapedBody found)
-    (spelled: SpelledBody layout found tokens rest)
-    (short: tokens.length < bound):
-    Parse.Runs (() => body self layout) tokens rest found :=
-  ?
+-- D3 as first stated, `runsBodyNested` (`body` read with the expression
+-- parser of an induction reads back a block), is proved in
+-- `Toy.Syntax.Proofs` (`BlockProofs.sw`), with D4: a block also ends at
+-- `then` or `else` (`BlockEnds`, `statementDeclinesEnd`). What is left of
+-- D3 is the statement change itself: `Spelled`'s arm for `If` asks
+-- `SpelledInline` of both branches today, and must ask `SpelledBody`
+-- before E2 is true of every file; `runsIfSpelled` then calls
+-- `runsBodyNested`. See SKETCH.md, "After lane 2".
 
 -- Layer E, spelling: from the trace to the tokens the parser asks for.
 
