@@ -88,8 +88,8 @@ def SelfRuns (strengthOf: Operator → Nat) (self: () → {Parse Char} Expressio
     → Parse.Runs self nestedRead nestedRest w
 
 --| The parser for a level reads `expression`, written as `read`, up to `rest`.
-def Complete (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat) (levels: List (List Operator))
-    (strength: Nat) (expression: Expression):
+def Complete (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat)
+    (levels: List (List Operator)) (strength: Nat) (expression: Expression):
     Prop :=
   ∀ (read rest: List Char) => read.length ≤ limit
     → Spec.Written expression read

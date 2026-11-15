@@ -54,7 +54,8 @@ def content(): {Parse Char} Content :=
 
 def contentList(): {Parse Char} List Content := Parse.sepBy1 content (() => Parse.text ", ") |> .toList
 
-def contents(): {Parse Char} List Content := Parse.oneOf [() => Parse.before ([]: List Content) "no other bags", contentList]
+def contents(): {Parse Char} List Content :=
+  Parse.oneOf [() => Parse.before ([]: List Content) "no other bags", contentList]
 
 def rule(): {Parse Char} Rule :=
   let colour := colour()

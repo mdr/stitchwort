@@ -36398,12 +36398,12 @@
     {
       "id": 3305,
       "title": "[Opus] settle_from_expected doesn't retry when its early guess fails: a program whose expected type matches the lemma's result only after unfolding is rejected where main accepts it (probes g5.sw, g6.sw in docs/reviews/SW-3282-settle-from-expected.md S1); snapshot, restore and redo without settling on failure, with a counter like stage 0's",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).",
+      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).\n\n15 Nov 02:30 (lane, lane/SW-3305, c84283e65, took 35 min): fallback_inferred snapshots; a call that settled type arguments and then fails is redone with settling off inside (no_settling), giving the unsettled path's result or error. A plain per-call retry cost 6x on 2020 day 2 (6.89M -> 41.7M: speculative failures inside chains), so inside held-argument checks and propagation plans (settle_trial) the retry is passed over and noted; an argument whose failure is final is rechecked without settling. Steps identical to SW-3282: day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M. g5/g6 accepted (examples accept/settle-from-expected-by-unfolding.sw, -dependent.sw; reject/settle-from-expected-dependent-mismatch.sw). Errors return to the unsettled path's (review S2's better-placed settled errors are gone, as briefed); two reject snapshots renumber an unknown. Hashes unchanged.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
