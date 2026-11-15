@@ -1,5 +1,5 @@
 {
-  "next": 3364,
+  "next": 3365,
   "tickets": [
     {
       "id": 47,
@@ -37234,6 +37234,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3364,
+      "title": "[Sonnet] Regression from SW-3335 (catch-all facts): search --at simplest-first now offers byDecision instead of cases for theorem ruledOut (a: Nat) (h: Some a = None): a = 5 (search_at::simplest_first_offers_cases_for_an_impossible_hypothesis, Overmind 75c24b9a2)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Expected: 45 min (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
