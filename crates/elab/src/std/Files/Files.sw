@@ -295,6 +295,32 @@ def Files.simulate (disk: Disk) (prog: () → {Files | e} a): {e} (Disk, a) :=
       | Files.info path, k => now => k (now.info path) now
   run disk
 
+-- Watching a program
+
+--| One call a program made to [`Files`], without its reply: the path it was
+--| about, which every constructor has as `path`. [`Files.tracing`] lists them in the order they happened.
+type FileOp =
+  | Reads (path: Path)
+  | Writes (path: Path)
+  | Lists (path: Path)
+  | Infos (path: Path)
+
+--| Runs `prog` with every `Files` operation passed on unchanged, and gives
+--| the operations it made, oldest first, with its result. The operations are
+--| performed by whatever handler is outside, so `Files.simulate disk (()
+--| => Files.tracing prog)` watches a program on a pretend disk. A test uses
+--| it to show what a program didn't do: no reads of a file, or a count of
+--| writes (`ops.filter (match | Writes _ => True | _ => False)`).
+def Files.tracing (prog: () → {Files | e} a): {Files | e} (List FileOp, a) :=
+  let run: List FileOp → {Files | e} (List FileOp, a) :=
+    handle prog() with
+      | return x => seen => (seen, x)
+      | Files.read path, k => seen => k (Files.read path) (seen ++ [Reads path])
+      | Files.write request, k => seen => k (Files.write request) (seen ++ [Writes request.fst])
+      | Files.list path, k => seen => k (Files.list path) (seen ++ [Lists path])
+      | Files.info path, k => seen => k (Files.info path) (seen ++ [Infos path])
+  run []
+
 -- Laws. A handled computation computes, so each holds by `rfl` or after one
 -- rewrite: they are what a proof about a file loop is built from.
 
@@ -328,3 +354,22 @@ theorem Files.simulateWriteErr ∀ (disk: Disk) (path: Path) (text: Text) (error
 theorem Files.simulateReadThen ∀ (disk: Disk) (path: Path) (rest: Result Text FileError → {Files} a):
     Files.simulate disk (() => rest (Files.read path)) = Files.simulate disk (() => rest (disk.read path)) :=
   rfl
+
+--| A program that makes no operation leaves an empty trace.
+theorem Files.tracingPure ∀ (disk: Disk) (x: a):
+    Files.simulate disk (() => Files.tracing (() => x)) = (disk, ([], x)) :=
+  rfl
+
+test "tracing lists each operation in order and changes nothing" :=
+  let disk := Disk.fromList [("a.txt".toPath, "x")]
+  let prog := () =>
+    Files.tracing (() =>
+      let first := Files.read "a.txt".toPath
+      let second := Files.write ("b.txt".toPath, "y")
+      let third := Files.list ".".toPath
+      (first, second, third))
+  let (after, (ops, (first, second, third))) := Files.simulate disk prog
+  ops == [Reads "a.txt".toPath, Writes "b.txt".toPath, Lists ".".toPath]
+    && first == Ok "x"
+    && second == Ok ()
+    && after.read "b.txt".toPath == Ok "y"

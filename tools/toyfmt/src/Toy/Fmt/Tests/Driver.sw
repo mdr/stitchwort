@@ -3,7 +3,7 @@
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)
-import Std (Disk, Fail, Files, IO, List, Nat, Option, Path, Result, Text)
+import Std (Disk, Fail, FileOp, Files, IO, List, Nat, Option, Path, Result, Text, Writes)
 
 def tidy: Text := "fn add(a, b) = a + b\n"
 
@@ -23,22 +23,19 @@ def project: Disk := Disk.fromList [
 
 def options (check: Bool) (paths: List Text): Options := { check, width = 80, paths = paths.map Text.toPath }
 
---| Runs `prog` letting every `Files` operation through, and counts the
---| writes. The count is how a test shows a file was left alone, not just
---| rewritten with the same text.
-def countingWrites (prog: () → {Files | e} a): {Files | e} (Nat, a) :=
-  let run: Nat → {Files | e} (Nat, a) :=
-    handle prog() with
-      | return x => count => (count, x)
-      | Files.read path, k => count => k (Files.read path) count
-      | Files.write request, k => count => k (Files.write request) (count + 1)
-      | Files.list path, k => count => k (Files.list path) count
-      | Files.info path, k => count => k (Files.info path) count
-  run 0
+--| How many of the operations were writes: how a test shows a file was left
+--| alone, not just rewritten with the same text.
+def writeCount (ops: List FileOp): Nat :=
+  ops.filter (match
+    | Writes _ => True
+    | _ => False)
+    |> .length
 
 --| The disk, the number of writes and the outcomes of formatting `paths`.
 def runOn (disk: Disk) (check: Bool) (paths: List Text): (Disk, (Nat, List Outcome)) :=
-  Files.simulate disk (() => countingWrites (() => formatPaths (options check paths) (options check paths).paths))
+  let (after, (ops, outcomes)) :=
+    Files.simulate disk (() => Files.tracing (() => formatPaths (options check paths) (options check paths).paths))
+  (after, (writeCount ops, outcomes))
 
 def formatted (path: Text) (change: Change): Outcome := Formatted path.toPath change 0
 
