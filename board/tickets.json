@@ -36877,12 +36877,12 @@
     {
       "id": 3336,
       "title": "[Sonnet] D3605: formatter rules B1 + B2 (fmt-author-breaks.md): an if with an else if goes one clause a line; a type declaration's constructors or fields on one line only within 80 characters, else one per line; style sheet S14/S15/S19; reformat (~130 files, in .git-blame-ignore-revs); guide examples and prose, including the leading-operator example made long enough to split",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3605 (Matt, 15 Nov 2026, on the two rules as shown in the D3605 page): \"Yeah, let's try your suggested 2 new formatter rules.\" Expected: 2.5 h (Sonnet).",
+      "body": "D3605 (Matt, 15 Nov 2026, on the two rules as shown in the D3605 page): \"Yeah, let's try your suggested 2 new formatter rules.\" Expected: 2.5 h (Sonnet).\n\nLane notes (Sonnet, 15 Nov 2026): B1 + B2 built (new Doc::NarrowGroup, 80 columns, in crates/fmt printer; if with else if always one clause a line); S14/S15/S19 updated; 131 files reformatted in one commit (blame-ignore added); guide examples/prose and the leading-operator example (validBooking, split before each &&) updated; two goal snapshots re-blessed (positions only). Tests: fmt crate, tools fmt::/guide::, examples accept/goal for the reformatted names, hash_stability for them: all pass, hashes unchanged. Branch lane/SW-3336.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
