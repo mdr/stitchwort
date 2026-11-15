@@ -1,5 +1,5 @@
 {
-  "next": 3411,
+  "next": 3413,
   "tickets": [
     {
       "id": 47,
@@ -37852,6 +37852,32 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3411,
+      "title": "[Sonnet] Bug: after SW-3397, toyfmt's Tree.sw Equal/Less hide Ordering's (W-CTOR-HIDES), breaking build::toyfmt_formats_a_folder_under_run_and_built (it reads stderr); and goal_index::lemmas_check_as_the_same_goal snapshot changed. Fix (rename the toy's operator constructors, per D3615's habit) and check the snapshot",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3412,
+      "title": "[Opus] Re-land the text-rest rule (SW-3376, reverted in e3e119a17): refuse a wrapper whose one field is a proof (Prop-typed); soundness/proof-irrelevance-07 must stay refused; run the whole soundness set; then a second Fable review",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
