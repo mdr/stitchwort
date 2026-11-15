@@ -814,6 +814,28 @@ theorem List.sumDropTakeLe ∀ (xs: List Nat) (d n: Nat):
           List.sumByCons (List.take xs (d + n)) x (y => y) in
         omega [ih]
 
+--| A prefix strips off a list that starts with it, when `same` holds of each
+--| item and itself.
+theorem List.stripPrefixByAppend ∀ (same: a → a → Bool)
+    (reflexive: ∀ (x: a) => same x x = True) (prefix rest: List a):
+    List.stripPrefixBy (List.append prefix rest) prefix same = Some rest :=
+  match prefix with
+    | [] => rfl
+    | [p, ..ps] => rewrite reflexive p, List.stripPrefixByAppend same reflexive ps rest in rfl
+
+--| When `same` holds only of equal items, stripping `prefix` from `xs` leaves
+--| `rest` only if `xs` is `prefix` followed by `rest`.
+theorem List.stripPrefixByForward ∀ (same: a → a → Bool)
+    (exact: ∀ (x y: a) => same x y = True → x = y)
+    (xs prefix: List a) [rest: List a]
+    (h: List.stripPrefixBy xs prefix same = Some rest):
+    xs = List.append prefix rest :=
+  match xs, prefix with
+    | xs, [] => Option.someInjective h
+    | [x, ..more], [p, ..ps] =>
+      match holds: same p x with
+        | True => rewrite exact p x holds in Eq.cong (Cons x) (List.stripPrefixByForward same exact more ps h)
+
 --| A list starts with what was appended to.
 theorem List.startsWithAppend ∀ [auto eq: DecEq a] (prefix rest: List a):
     List.startsWith (List.append prefix rest) prefix = True :=
