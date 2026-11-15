@@ -619,7 +619,10 @@ enum Rung {
     Rfl,
     /// A hypothesis is exactly the goal.
     Hypothesis,
-    /// A closed goal with a decision procedure, run (`byDecision`).
+    /// A closed goal with a decision procedure, run (`byDecision`). Only
+    /// where nothing is in scope: with variables or hypotheses `byDecision`
+    /// can still close the goal, from a contradictory hypothesis (as
+    /// `auto` does), but then `cases` says so more plainly.
     Decision,
     Omega,
     Ring,
@@ -666,7 +669,10 @@ impl Rung {
                 .filter(|h| is_name(&h.name))
                 .map(|h| h.name.clone())
                 .collect(),
-            Rung::Decision => by_decision.map(str::to_string).into_iter().collect(),
+            Rung::Decision if hypotheses.is_empty() => {
+                by_decision.map(str::to_string).into_iter().collect()
+            }
+            Rung::Decision => Vec::new(),
             Rung::Omega => vec!["omega".to_string()],
             Rung::Ring => vec!["ring".to_string()],
             Rung::Cases => {
