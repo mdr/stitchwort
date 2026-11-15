@@ -61,6 +61,11 @@ pub(crate) struct Pending {
     /// How many hypotheses a later one of the same name replaced, and
     /// nothing shown mentions, aren't listed ([`drop_superseded`]).
     superseded: usize,
+    /// The goal as the arm it is in is written, if that differs from what
+    /// the leaf checked ([`crate::arm_display`]); [`Pending::context`] and
+    /// the rest stay as the leaf has them, for the snapshot and the
+    /// assumption.
+    arm: Option<Box<ArmGoal>>,
     /// What the hole is in: "`addZero`".
     owner: String,
     /// What a lemma of the goal is named after: the declaration's name less
@@ -84,6 +89,22 @@ pub(crate) struct Pending {
     /// each one's level and type, and whether the compiler made it (`%…`).
     /// Its assumption takes them as parameters ([`Elaborator::assume_goals`]).
     pub(crate) applied: Vec<(usize, Value, bool)>,
+}
+
+/// A goal at an arm, as the arm is written ([`Pending::arm`]).
+#[derive(Clone)]
+struct ArmGoal {
+    expected: Value,
+    /// What it computes to, if the leaf's value for a variable the arm
+    /// left alone was folded back into the variable.
+    computed: Option<Value>,
+    context: Vec<Entry>,
+    hidden: Vec<(usize, Value)>,
+    superseded: usize,
+    /// The note on a goal at an arm checked several times, and the case.
+    cases: Option<(usize, Option<String>)>,
+    /// Whether the goal is the arm's as written, not one case's.
+    as_written: bool,
 }
 
 #[derive(Clone)]
@@ -121,6 +142,14 @@ pub(crate) struct Goals {
     found: Vec<Found>,
     /// The context asked for at a position ([`Elaborator::probe_context`]).
     probe: Probe,
+    /// The splits of the case tree on the way to the leaf being checked.
+    pub(crate) split_path: Option<std::rc::Rc<crate::arm_display::Split>>,
+    /// The arm being checked, if its goals need showing as written
+    /// (`arm_display.rs`).
+    pub(crate) arm: Option<std::rc::Rc<crate::arm_display::Arm>>,
+    /// The expressions the `match`es being checked match on
+    /// ([`crate::arm_display::note_scrutinees`]).
+    pub(crate) scrutinees: Vec<crate::arm_display::Scrutinee>,
 }
 
 /// The context at a position, asked for before checking: the smallest
@@ -460,15 +489,20 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
             ));
         }
     }
-    let (mut context, mut hidden) = scope_entries(cx, &shown_names);
+    let (mut context, mut hidden) = scope_entries(cx, &shown_names, &cx.env, &cx.types);
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
-    drop_split_leftovers(cx, expected, &mut context, &mut hidden);
+    drop_split_leftovers(cx, expected, None, &mut context, &mut hidden);
     let context = dependency_order(&g, cx.level(), context);
     let prop = match force(&g, expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
         Ok(_) => crate::rewrite::is_proof_type(cx, expected).ok(),
     };
     let shown = display_goal(cx);
+    let arm = match shown {
+        Some(_) => None,
+        None if error => None,
+        None => arm_goal(cx, expected, &shown_names),
+    };
     let (owner, lemma_base) = cx.e.goal_owner();
     let owner_def = cx.e.owner_def();
     let owner_args = match owner_def {
@@ -493,6 +527,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
         context,
         hidden,
         superseded,
+        arm,
         owner,
         lemma_base,
         prop,
@@ -504,13 +539,55 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
     term
 }
 
+/// The goal at `cx` as its arm is written, if it differs from the leaf's or
+/// the arm is checked at several leaves ([`crate::arm_display`]).
+fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmGoal>> {
+    let view = crate::arm_display::view(cx, expected)?;
+    // The count matters where the goal depends on the case: a proof, or a
+    // goal the arm's patterns changed.
+    let says_cases = view.cases > 1
+        && (view.goal.is_some() || crate::rewrite::is_proof_type(cx, expected).unwrap_or(false));
+    let cases = says_cases
+        .then(|| crate::arm_display::case_note(cx))
+        .flatten()
+        .or_else(|| says_cases.then_some((view.cases, None)));
+    if !view.changed && cases.is_none() {
+        return None;
+    }
+    let shown = view.goal.clone().unwrap_or_else(|| expected.clone());
+    let (mut context, mut hidden) = scope_entries(cx, shown_names, &view.env, &view.types);
+    let superseded = drop_superseded(cx, &shown, &mut context, &mut hidden);
+    drop_split_leftovers(
+        cx,
+        &shown,
+        view.computed.as_ref(),
+        &mut context,
+        &mut hidden,
+    );
+    let context = dependency_order(&cx.g(), cx.level(), context);
+    Some(Box::new(ArmGoal {
+        expected: shown,
+        computed: view.computed,
+        context,
+        hidden,
+        superseded,
+        cases,
+        as_written: view.goal.is_some(),
+    }))
+}
+
 /// The variables in scope at `cx` as a goal lists them (not yet in
 /// dependency order), and the context's own variables it leaves out:
 /// each one's level and type.
-fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Value)>) {
+fn scope_entries(
+    cx: &Ctx,
+    shown_names: &[Name],
+    env: &[Value],
+    types: &[Value],
+) -> (Vec<Entry>, Vec<(usize, Value)>) {
     let mut context = Vec::new();
     let mut hidden = Vec::new();
-    for (level, value) in cx.env.iter().enumerate() {
+    for (level, value) in env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
         let is_let = cx.lets[level].is_some();
@@ -520,12 +597,12 @@ fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Val
         // reader.
         if !(own || is_let) || name.starts_with('%') || &**name == "_" {
             if own {
-                hidden.push((level, cx.types[level].clone()));
+                hidden.push((level, types[level].clone()));
             }
             continue;
         }
         let name = shown_names[level].to_string();
-        let ty = cx.types[level].clone();
+        let ty = types[level].clone();
         // The proof that a known character is one, bound by the `_` a char
         // or text pattern stands for, says nothing a proof needs.
         if own && name.contains('✝') && known_char_proof(cx, &ty) {
@@ -636,9 +713,12 @@ fn drop_superseded(
 /// `valid✝`), which a proof can't refer to, and which neither the target
 /// nor any hypothesis that stays depends on, as in the catch-all arm after
 /// text literals, other than a proof that says more than the split did. They stay in `hidden`, as for [`drop_superseded`].
+/// `also` is a second value shown with the goal (what it computes to), which
+/// keeps the cells it mentions.
 fn drop_split_leftovers(
     cx: &Ctx,
     expected: &Value,
+    also: Option<&Value>,
     context: &mut Vec<Entry>,
     hidden: &mut Vec<(usize, Value)>,
 ) {
@@ -662,6 +742,13 @@ fn drop_split_leftovers(
         Some(l) => l,
         None => return,
     };
+    // What the goal computes to is shown too, so the cells it mentions stay.
+    if let Some(also) = also {
+        match read(also) {
+            Some(l) => mentioned.extend(l),
+            None => return,
+        }
+    }
     for e in context.iter().filter(|e| !leftover(e)) {
         for v in std::iter::once(&e.ty).chain(e.value.as_ref()) {
             match read(v) {
@@ -1221,7 +1308,7 @@ impl Elaborator {
     /// [`Elaborator::records_steps`] says so.
     pub(crate) fn note_step(&self, cx: &Ctx, note: StepNote) {
         let names = cx.shown_names(true);
-        let (mut context, mut hidden) = scope_entries(cx, &names);
+        let (mut context, mut hidden) = scope_entries(cx, &names, &cx.env, &cx.types);
         drop_superseded(cx, &note.after, &mut context, &mut hidden);
         let context = dependency_order(&cx.g(), cx.level(), context);
         let proof = crate::rewrite::is_proof_type(cx, &note.after).unwrap_or(false);
@@ -1281,6 +1368,8 @@ impl Elaborator {
         if (self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0) {
             return;
         }
+        // At an arm, the goal as the arm is written (`crate::arm_display`).
+        let view = crate::arm_display::view(cx, ty).filter(|v| v.changed);
         let mut goals = self.goals.borrow_mut();
         let mut found = None;
         if let Some(p) = &mut goals.probe.pending {
@@ -1303,8 +1392,16 @@ impl Elaborator {
             }
         }
         let names = cx.shown_names(true);
-        let (mut context, mut hidden) = scope_entries(cx, &names);
+        let (env, types) = match &view {
+            Some(v) => (&v.env, &v.types),
+            None => (&cx.env, &cx.types),
+        };
+        let ty = view.as_ref().and_then(|v| v.goal.as_ref()).unwrap_or(ty);
+        let (mut context, mut hidden) = scope_entries(cx, &names, env, types);
         drop_superseded(cx, ty, &mut context, &mut hidden);
+        if let Some(v) = &view {
+            drop_split_leftovers(cx, ty, v.computed.as_ref(), &mut context, &mut hidden);
+        }
         let context = dependency_order(&cx.g(), cx.level(), context);
         goals.probe.pending = Some(ProbePending {
             span,
@@ -1406,7 +1503,26 @@ impl Elaborator {
         probe.declaration = Some(owner);
     }
 
-    fn print_goal(&self, p: &Pending) -> Found {
+    fn print_goal(&self, leaf: &Pending) -> Found {
+        // A goal at an arm shows the arm as written: its context and goal in
+        // place of the leaf's.
+        let arm = leaf.arm.as_deref();
+        let viewed;
+        let p = match arm {
+            Some(a) => {
+                viewed = Pending {
+                    expected: a.expected.clone(),
+                    context: a.context.clone(),
+                    hidden: a.hidden.clone(),
+                    superseded: a.superseded,
+                    arm: None,
+                    ..leaf.clone()
+                };
+                &viewed
+            }
+            None => leaf,
+        };
+        let computed = arm.and_then(|a| a.computed.as_ref());
         let g = &self.ev();
         let scope = GoalScope {
             e: self,
@@ -1428,7 +1544,7 @@ impl Elaborator {
             Ok(Value::Neutral(Head::Meta(_), _))
         );
         let target = if known {
-            show(&p.expected)
+            show(computed.unwrap_or(&p.expected))
         } else {
             "(the type here isn't known yet)".to_string()
         };
@@ -1456,6 +1572,18 @@ impl Elaborator {
             diagnostic = diagnostic.with_note(format!(
                 "{n} hidden by a later one of the same name (as a `match` or `rewrite … \
                  at` binds) {are} listed, as nothing shown mentions {them}"
+            ));
+        }
+        if let Some(a) = arm
+            && let Some((n, _)) = &a.cases
+        {
+            let which = if a.as_written {
+                "the arm as written, not any one case"
+            } else {
+                "the last of them"
+            };
+            diagnostic = diagnostic.with_note(format!(
+                "this arm is checked in {n} cases; the goal shown is {which}"
             ));
         }
         diagnostic.detail_mut().goal = Some(GoalData {

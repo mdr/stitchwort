@@ -9,6 +9,7 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
+mod arm_display;
 mod assume;
 mod attributes;
 mod auto;
@@ -627,6 +628,11 @@ struct Row<'a> {
     /// `if c` after the arm's patterns: the arm applies only when it holds,
     /// and otherwise the rows below it are tried.
     guard: Option<&'a ast::Guard>,
+    /// The levels of the variables the compiler split (or compared with
+    /// numbers) while this row was still in the running, and whose pattern
+    /// in this row was a variable or `_`: the splits the arm's own patterns
+    /// didn't need. A goal at the arm undoes them (`arm_display.rs`).
+    unsplit: Vec<usize>,
 }
 
 /// A compiled pattern match, before its right-hand sides are checked.
@@ -644,6 +650,11 @@ enum Tree<'a> {
         /// `W-UNREACHABLE` can promise the arm can be deleted only along
         /// with all of them.
         later: Vec<Span>,
+        /// [`Row::unsplit`], for the row that chose the arm.
+        unsplit: Vec<usize>,
+        /// How many leaves of the whole tree take this arm: how many times
+        /// its right-hand side is checked.
+        cases: usize,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -3989,6 +4000,8 @@ impl Elaborator {
                 span: first_span,
                 alternatives: Vec::new(),
                 later: Vec::new(),
+                unsplit: Vec::new(),
+                cases: 1,
             }
         } else {
             rows = equations
@@ -4002,6 +4015,7 @@ impl Elaborator {
                     span,
                     alternatives: Vec::new(),
                     guard,
+                    unsplit: Vec::new(),
                 })
                 .collect();
             let tree = self.compile_top(
@@ -4076,6 +4090,7 @@ impl Elaborator {
         self.decl.guard_nodes.set(0);
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
+        arm_display::count_cases(&mut tree);
         match missing::definite(&tree, span) {
             // The checker reports the cases that are possible after all.
             Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
@@ -4267,6 +4282,8 @@ impl Elaborator {
                 span: first.span,
                 alternatives: first.alternatives.clone(),
                 later: rows[1..].iter().map(|row| row.span).collect(),
+                unsplit: first.unsplit.clone(),
+                cases: 1,
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -4301,6 +4318,7 @@ impl Elaborator {
             for row in rows {
                 let pattern = &row.pats[j];
                 let mut aliases = row.aliases.clone();
+                let mut unsplit = row.unsplit.clone();
                 let fields: Vec<Pat> = match self.pattern_ctor(pattern, types[j].as_ref())? {
                     Some(CtorPattern {
                         data: d2,
@@ -4335,6 +4353,7 @@ impl Elaborator {
                         if let Some(x) = pattern_var(pattern) {
                             aliases.push((&x.text, level));
                         }
+                        unsplit.push(level);
                         let wildcard = Pattern::Wildcard(pattern.span());
                         vec![Cow::Owned(wildcard); k]
                     }
@@ -4353,6 +4372,7 @@ impl Elaborator {
                     span: row.span,
                     alternatives: row.alternatives.clone(),
                     guard: row.guard,
+                    unsplit,
                 });
             }
             let other_family = || -> Result<bool> {
@@ -4576,6 +4596,8 @@ impl Elaborator {
                     let mut row = rows[i].clone();
                     if let Pattern::Num(_, s) = &*row.pats[j] {
                         row.pats[j] = Cow::Owned(Pattern::Wildcard(*s));
+                    } else {
+                        row.unsplit.push(columns[j]);
                     }
                     row
                 })
@@ -4590,7 +4612,13 @@ impl Elaborator {
                 arm,
             },
             None => {
-                let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
+                let default_rows: Vec<Row> = (others.iter())
+                    .map(|&i| {
+                        let mut row = rows[i].clone();
+                        row.unsplit.push(columns[j]);
+                        row
+                    })
+                    .collect();
                 self.compile(&default_rows, depth, columns, types, span)?
             }
         };
@@ -5310,6 +5338,8 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         span,
         alternatives,
         later,
+        unsplit,
+        cases,
     } = tree
     else {
         unreachable!("a leaf")
@@ -5374,6 +5404,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
+    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases);
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
@@ -5381,6 +5412,8 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         };
         in_tree.unwrap_or_else(|| check(cx, rhs, goal))
     };
+    let result = result.map_err(|e| arm_display::in_case(cx, e));
+    arm_display::leave_arm(cx, shown_arm);
     cx.reset(mark);
     cx.names = saved_names;
     cx.order = saved_order;
@@ -5860,6 +5893,8 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             span,
             alternatives,
             later,
+            unsplit,
+            cases,
         } => Tree::Leaf {
             aliases: aliases.iter().map(|&(x, l)| (x, up(l))).collect(),
             written: written.clone(),
@@ -5867,6 +5902,8 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             span: *span,
             alternatives: alternatives.clone(),
             later: later.clone(),
+            unsplit: unsplit.iter().map(|&l| up(l)).collect(),
+            cases: *cases,
         },
         Tree::Guard {
             guard,
@@ -6023,6 +6060,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }
             let goal_term = cx.quote_folded(goal)?;
+            let split_start = arm_display::root_of(cx, goal);
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
@@ -6058,6 +6096,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     cx.bind_hidden(name.clone(), ty);
                 }
                 cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
+                let saved_split = arm_display::enter_split(cx, &split_start, *x, &value, base);
                 let result = match subtree {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
@@ -6079,6 +6118,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
+                drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.reset(mark);
                 cx.env = saved_env;
@@ -6138,6 +6178,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             effects::unpin_goal(cx, goal, *x)?;
             check::unpin_parameter_types(cx, *x)?;
             let goal_term = cx.quote_folded(goal)?;
+            let split_start = arm_display::root_of(cx, goal);
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (arm_index, (key, subtree)) in arms.iter().enumerate() {
@@ -6160,7 +6201,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let saved_env = std::mem::replace(&mut cx.env, env);
                 let saved_types = std::mem::replace(&mut cx.types, refined);
                 cx.e.decl.leaf_log.borrow_mut().path.push(arm_index as u32);
+                let saved_split =
+                    arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                 let result = check_tree(cx, subtree, &arm_goal);
+                drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.env = saved_env;
                 cx.types = saved_types;
@@ -6211,7 +6255,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     .expect("one value in, one out");
                     let saved_env = std::mem::replace(&mut cx.env, env);
                     let saved_types = std::mem::replace(&mut cx.types, refined);
+                    let saved_split =
+                        arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                     let result = check_tree(cx, default, &default_goal);
+                    drop(saved_split);
                     cx.env = saved_env;
                     cx.types = saved_types;
                     result

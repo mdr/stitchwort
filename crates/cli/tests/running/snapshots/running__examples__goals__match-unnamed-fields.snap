@@ -17,10 +17,13 @@ expression: output
     │
  15 │   | other => ?
     │              ┬  
-    │              ╰── next✝: Bool
+    │              ╰── other: List Bool
+    │                  all: allTrue [True, ..other]
+    │                  next✝: Bool
     │                  head✝: Bool
     │                  tail✝: List Bool
-    │                  all: (next✝ && allTrue [head✝, ..tail✝]) = True
-    │                  ⊢ allTrue [next✝, head✝, ..tail✝]
+    │                  ⊢ allTrue other
     │                    computes to (next✝ && allTrue [head✝, ..tail✝]) = True
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
 ────╯

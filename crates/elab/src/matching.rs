@@ -181,6 +181,7 @@ fn compile<'a>(
         span,
         alternatives: Vec::new(),
         guard: None,
+        unsplit: Vec::new(),
     });
     let rows: Vec<Row> = alts
         .iter()
@@ -192,6 +193,7 @@ fn compile<'a>(
             span: alt.span,
             alternatives: Vec::new(),
             guard: alt.guard.as_ref(),
+            unsplit: Vec::new(),
         })
         .chain(absurd_rows)
         .collect();
@@ -1357,6 +1359,8 @@ fn in_arms(
                     .then(|| (base, normal.clone(), s.span, base + i, equation))
             }),
     );
+    let shown =
+        crate::arm_display::note_scrutinees(cx, exprs.iter().map(|s| &s.term), base, &equations);
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
         let recheck = compiled.recheck(&levels, span, cx.level(), &motive);
         let body = crate::families::warn_unreachable_unless(cx, as_written, &recheck, |cx| {
@@ -1365,6 +1369,7 @@ fn in_arms(
         cx.scrutinees.truncate(known);
         body
     });
+    crate::arm_display::forget_scrutinees(cx, shown);
     if !not_found.is_empty() {
         // If the alternatives failed, whether they use an equation isn't
         // known; the failure is then likely to be this (SW-1485).
