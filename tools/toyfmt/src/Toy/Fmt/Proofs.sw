@@ -66,7 +66,7 @@ theorem formatFileUnchanged ∀ (options: Options) (path: Path) (disk: Disk) (so
     (readable: disk.read path = Ok source)
     (formatted: format source options.width = Stable printed)
     (same: printed.text = source):
-    Files.simulate disk (() => formatFile options path) = (disk, Formatted path Unchanged printed.asWritten) :=
+    Files.simulate disk (() => formatFile options path) = (disk, Formatted path Unchanged) :=
   rewrite readable, formatted in
     match c: printed.text == source with
       | True => rfl
@@ -79,7 +79,7 @@ theorem formatFileWouldChange ∀ (options: Options) (path: Path) (disk: Disk) (
     (formatted: format source options.width = Stable printed)
     (differs: printed.text ≠ source)
     (checking: options.check = True):
-    Files.simulate disk (() => formatFile options path) = (disk, Formatted path WouldChange printed.asWritten) :=
+    Files.simulate disk (() => formatFile options path) = (disk, Formatted path WouldChange) :=
   rewrite readable, formatted in
     match c: printed.text == source with
       | True => Void.exfalso (differs (DecEq.sound c))
@@ -94,7 +94,7 @@ theorem formatFileRewrites ∀ (options: Options) (path: Path) (disk after: Disk
     (differs: printed.text ≠ source)
     (writing: options.check = False)
     (allowed: disk.write path printed.text = Ok after):
-    Files.simulate disk (() => formatFile options path) = (after, Formatted path Rewritten printed.asWritten) :=
+    Files.simulate disk (() => formatFile options path) = (after, Formatted path Rewritten) :=
   rewrite readable, formatted in
     match c: printed.text == source with
       | True => Void.exfalso (differs (DecEq.sound c))
@@ -147,7 +147,7 @@ theorem readAfterWrite ∀ (disk after: Disk) (path: Path) (text: Text)
 theorem formatFileSettles ∀ (options: Options) (path: Path) (disk after: Disk) (source: Text) (printed: Printed)
     (formatted: format source options.width = Stable printed)
     (allowed: disk.write path printed.text = Ok after):
-    Files.simulate after (() => formatFile options path) = (after, Formatted path Unchanged printed.asWritten) :=
+    Files.simulate after (() => formatFile options path) = (after, Formatted path Unchanged) :=
   formatFileUnchanged options path after printed.text printed
     (readAfterWrite disk after path printed.text allowed)
     (formatIdempotent source options.width printed formatted)

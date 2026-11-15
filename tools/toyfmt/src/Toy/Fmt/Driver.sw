@@ -12,11 +12,10 @@ type Options = { check: Bool, width: Nat, paths: List Path }
 --| What formatting a file did to it, or would do with `--check`.
 type Change = | Unchanged | Rewritten | WouldChange
 
---| What happened to one path: a file formatted, with how many of its
---| declarations were left as written (P8), or something that went wrong, as
---| a sentence that names the path.
+--| What happened to one path: a file formatted, or something that went
+--| wrong, as a sentence that names the path.
 type Outcome =
-  | Formatted (path: Path) (change: Change) (asWritten: Nat)
+  | Formatted (path: Path) (change: Change)
   | Problem (message: Text)
 
 --| The extension of the files a folder walk picks.
@@ -92,12 +91,12 @@ def formatFile (options: Options) (path: Path): {Files} Outcome := match Files.r
     match format source options.width with
       | Refused message => Problem (locate path message)
       | Stable printed =>
-        if printed.text == source then Formatted path Unchanged printed.asWritten
-        else if options.check then Formatted path WouldChange printed.asWritten
+        if printed.text == source then Formatted path Unchanged
+        else if options.check then Formatted path WouldChange
         else
           match Files.write (path, printed.text) with
             | Err error => Problem "${error}"
-            | Ok written => Formatted path Rewritten printed.asWritten
+            | Ok written => Formatted path Rewritten
 
 --| Formats the files the paths name, folders walked: the problems with the
 --| paths come first, then one outcome per file in path order. A problem with

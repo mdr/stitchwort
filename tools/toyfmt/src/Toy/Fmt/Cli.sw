@@ -14,20 +14,18 @@ def options: Args.Spec Options :=
     |> .and (Args.arguments "PATH" (atLeast := 1) (help := "Files or folders to format."))
 
 --| What a run says: on standard output, the paths it changed (or, with
---| `--check`, would); on standard error, every problem and each file with
---| declarations left as written.
+--| `--check`, would); on standard error, every problem.
 type Report = { changed: List Text, problems: List Text }
 
 --| What the outcomes say.
 def report (outcomes: List Outcome): Report := {
   changed = outcomes.filterMap (match
-    | Formatted path Rewritten _ => Some "${path}"
-    | Formatted path WouldChange _ => Some "${path}"
+    | Formatted path Rewritten => Some "${path}"
+    | Formatted path WouldChange => Some "${path}"
     | _ => None),
   problems = outcomes.filterMap (match
     | Problem message => Some message
-    | Formatted path _ asWritten =>
-      if asWritten == 0 then None else Some "${path}: ${asWritten} declarations left as written")
+    | _ => None)
 }
 
 --| Whether any path couldn't be formatted.
@@ -53,7 +51,7 @@ def status (options: Options) (outcomes: List Outcome): ExitStatus :=
   if hasProblem outcomes then couldNotFormat
   else if options.check
     && outcomes.any (match
-      | Formatted _ WouldChange _ => True
+      | Formatted _ WouldChange => True
       | _ => False) then
     wouldChange
   else clean

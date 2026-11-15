@@ -9,7 +9,7 @@ theorem runsAtomName ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
     (text: Text) (rest: List (Parse.Located Token))
     (named: token.value.kind = Name text)
     (allowed: layout.allows token = True):
-    Parse.Runs (() => atom self layout) [token] rest (Var text) :=
+    Parse.Runs (() => atom self layout) [token] rest (Var text (layout.comments token)) :=
   state starts honest =>
     let lengths: state.at.rest.length = rest.length + 1 := rewrite starts in rfl
     Witness

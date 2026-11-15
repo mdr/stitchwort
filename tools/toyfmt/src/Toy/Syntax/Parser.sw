@@ -8,11 +8,9 @@
 --| statement ends where the next line isn't deeper. Inside brackets line
 --| starts don't matter.
 --|
---| Comments are placed as they are read: own-line comments at the start of
---| a declaration, statement, list item or argument, from its first token;
---| a trailing comment at the end of a list item, argument or bare
---| statement, from its last. A declaration in which some comment wasn't
---| placed that way is kept as written.
+--| Comments are carried, not placed: each token's comments go into the
+--| tree beside it (`Layout.comments`) as the token is read, so no source
+--| that parses is left without a tree.
 
 namespace Toy.Syntax
 import Std.Parse.Associativity (LeftAssociative)
@@ -33,13 +31,30 @@ def Layout.allowsElse (layout: Layout) (token: Parse.Located Token): Bool := mat
   | InBrackets => True
   | InStatement column _ => not token.value.startsLine || token.value.column >= column
 
+--| The comments `token` holds, as the tree keeps them. The own-line
+--| comments above a statement's first token (at the layout's `start`) are
+--| the block's note lines instead, and its blank lines count only there.
+def Layout.comments (layout: Layout) (token: Parse.Located Token): Comments :=
+  let above := match layout with
+    | InStatement _ start if token.offset == start => []
+    | _ => ownLineComments token.value.above
+  { above, after = token.value.trailing.map (comment => comment.value) }
+
 def selectAllowed (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option a :=
   if layout.allows token then select token.value.kind else None
 
---| The next token's value from `select`, if the layout allows it there,
---| else "expected `what`".
-def take (layout: Layout) (what: Text) (select: Kind → Option a): {Parse (Parse.Located Token)} a :=
-  Parse.one what (selectAllowed layout select)
+--| `select`'s value for `token`, and its comments, if the layout allows it.
+def selectWithComments (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option (a, Comments) :=
+  selectAllowed layout select token |> .map (value => (value, layout.comments token))
+
+--| The comments of `token`, if the layout allows it and `select` takes it.
+def selectComments (layout: Layout) (select: Kind → Option a) (token: Parse.Located Token): Option Comments :=
+  selectAllowed layout select token |> .map (found => layout.comments token)
+
+--| The next token's value from `select` and its comments, if the layout
+--| allows it there, else "expected `what`".
+def take (layout: Layout) (what: Text) (select: Kind → Option a): {Parse (Parse.Located Token)} (a, Comments) :=
+  Parse.one what (selectWithComments layout select)
 
 def peek(): {Parse (Parse.Located Token)} Option (Parse.Located Token) := Parse.mark().rest.head
 
@@ -51,38 +66,23 @@ def nameOf: Kind → Option Text
   | Name text => Some text
   | _ => None
 
-def name (layout: Layout): {Parse (Parse.Located Token)} Text := take layout "a name" nameOf
+def name (layout: Layout): {Parse (Parse.Located Token)} (Text, Comments) := take layout "a name" nameOf
 
 def signIs (wanted: Punctuation): Kind → Option ()
   | Sign found => if found == wanted then Some () else None
   | _ => None
 
-def sign (layout: Layout) (what: Text) (wanted: Punctuation): {Parse (Parse.Located Token)} () :=
-  take layout what (signIs wanted)
+--| The sign `wanted`'s comments, if it comes next and the layout allows it
+--| there, else "expected `what`".
+def sign (layout: Layout) (what: Text) (wanted: Punctuation): {Parse (Parse.Located Token)} Comments :=
+  Parse.one what (selectComments layout (signIs wanted))
 
 def keywordIs (wanted: Keyword): Kind → Option ()
   | Reserved found => if found == wanted then Some () else None
   | _ => None
 
-def keyword (layout: Layout) (wanted: Keyword): {Parse (Parse.Located Token)} () :=
-  take layout "'${wanted.spelling}'" (keywordIs wanted)
-
---| The last token read since `start`, which was before at least one.
-def lastSince (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Token :=
-  Parse.lastRead start Parse.mark() |> .map (token => token.value)
-
---| The comment after the last token read since `start`.
-def lastTrailing (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Comment :=
-  lastSince start |> .flatMap (token => token.trailing) |> .map (comment => comment.value)
-
---| The trailing comment of the item or bare statement `value`, read since
---| `start`. One ending in an `if` ends in the `if`'s last branch, whose own
---| bare statement has already taken it.
-def trailingSince (start: Parse.Mark (Parse.Located Token)) (value: Expr):
-    {Parse (Parse.Located Token)} Option Comment :=
-  match value with
-    | If _ _ _ => None
-    | _ => lastTrailing start
+def keyword (layout: Layout) (wanted: Keyword): {Parse (Parse.Located Token)} Comments :=
+  Parse.one "'${wanted.spelling}'" (selectComments layout (keywordIs wanted))
 
 --| The own-line comments in `trivia` as lines of a list, each knowing if a
 --| blank line was above it, and whether one is above what follows them.
@@ -116,16 +116,18 @@ def expressionRule (self: Layout → {Parse (Parse.Located Token)} Expr) (layout
     | Some token if isIf layout token =>
       skip()
       let condition := self layout
-      keyword layout ThenKeyword
+      let thenComments := keyword layout ThenKeyword
       let whenTrue := body self layout
-      elseKeyword layout
+      let elseComments := elseKeyword layout
       let whenFalse := body self layout
-      If condition whenTrue whenFalse
+      If (layout.comments token) condition thenComments whenTrue elseComments whenFalse
     | _ => Parse.operators "an operator" (operatorLevels layout) (() => operand self layout)
 
-def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek() with
+def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} Comments := match peek() with
   | Some token if (keywordIs ElseKeyword token.value.kind).isSome =>
-    if layout.allowsElse token then skip()
+    if layout.allowsElse token then
+      skip()
+      layout.comments token
     else Parse.fail "'else' must not start a line to the left of its 'if' statement"
   | _ => keyword layout ElseKeyword
 
@@ -137,7 +139,7 @@ def operatorLevels (layout: Layout): List (Parse.Level (Parse.Located Token) Exp
 
 def operatorOf (layout: Layout) (level: Nat) (token: Parse.Located Token): Option (Expr → Expr → Expr) :=
   match token.value.kind with
-    | Op operator if operator.level == level && layout.allows token => Some (Binary operator)
+    | Op operator if operator.level == level && layout.allows token => Some (Binary operator (layout.comments token))
     | _ => None
 
 def isMinus (layout: Layout) (token: Parse.Located Token): Bool :=
@@ -154,7 +156,7 @@ def negationsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Ex
   match fuel, peek() with
     | Succ more, Some token if isMinus layout token =>
       skip()
-      Negate (negationsFrom more self layout)
+      Negate (layout.comments token) (negationsFrom more self layout)
     | _, _ => postfix self layout
 
 --| An atom and its calls and fields.
@@ -168,18 +170,20 @@ def postfix (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layou
 def suffixesFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (target: Expr):
     {Parse (Parse.Located Token)} Expr :=
   let next := match peek() with
-    | Some token if layout.allows token => token.value.kind
-    | _ => Stray ""
+    | Some token if layout.allows token => (token.value.kind, layout.comments token)
+    | _ => (Stray "", Comments.none)
   match fuel, next with
-    | Succ more, Sign OpenParen =>
+    | Succ more, (Sign OpenParen, open) =>
       let call := Parse.optional (() =>
         skip()
-        Call target (items self CloseParen))
+        let (arguments, close) := items self CloseParen
+        Call target open arguments close)
       suffixesAfter more self layout target call
-    | Succ more, Sign Dot =>
+    | Succ more, (Sign Dot, dot) =>
       let field := Parse.optional (() =>
         skip()
-        Field target (name layout))
+        let (named, nameComments) := name layout
+        Field target dot named nameComments)
       suffixesAfter more self layout target field
     | _, _ =>
       Parse.note (Parse.Problem.Expected "'('")
@@ -200,48 +204,53 @@ def suffixesAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Ex
 def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
   match peek() with
     | Some token if layout.allows token =>
+      let comments := layout.comments token
       match token.value.kind with
         | Name text =>
           skip()
-          Var text
+          Var text comments
         | Number digits =>
           skip()
-          NumberLiteral digits
+          NumberLiteral digits comments
         | Str written =>
           skip()
-          StringLiteral written
+          StringLiteral written comments
         | Sign OpenParen =>
           skip()
           let inner := self InBrackets
-          sign InBrackets "')'" CloseParen
-          Bracketed inner
+          let close := sign InBrackets "')'" CloseParen
+          Bracketed comments inner close
         | Sign OpenSquare =>
           skip()
-          ListLiteral (items self CloseSquare)
+          let (found, close) := items self CloseSquare
+          ListLiteral comments found close
         | _ => Parse.expected "an expression"
     | _ => Parse.expected "an expression"
 
---| A list's items or a call's arguments, then `closer`; the opening bracket
---| has been read.
+--| A list's items or a call's arguments, then `closer` and its comments;
+--| the opening bracket has been read.
 def items (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation):
-    {Parse (Parse.Located Token)} List Item :=
+    {Parse (Parse.Located Token)} (List Item, Comments) :=
   let closing := "'${closer.spelling}'"
-  if signInBrackets closing closer then []
-  else
-    let found := itemsFrom (Parse.mark().left) self []
-    sign InBrackets closing closer
-    found
+  match signInBrackets closing closer with
+    | Some close => ([], close)
+    | None =>
+      let found := itemsFrom (Parse.mark().left) self []
+      let close := sign InBrackets closing closer
+      (found, close)
 
---| Whether the sign `wanted` comes next, read if it does, else noted as
---| expected: `Parse.optional (() => sign InBrackets what wanted)` without
---| the handler, since reading one token can't fail halfway.
-def signInBrackets (what: Text) (wanted: Punctuation): {Parse (Parse.Located Token)} Bool := match peek() with
-  | Some token if (signIs wanted token.value.kind).isSome =>
-    skip()
-    True
-  | _ =>
-    Parse.note (Parse.Problem.Expected what)
-    False
+--| The comments of the sign `wanted` if it comes next, read if it does,
+--| else noted as expected: `Parse.optional (() => sign InBrackets what
+--| wanted)` without the handler, since reading one token can't fail
+--| halfway.
+def signInBrackets (what: Text) (wanted: Punctuation): {Parse (Parse.Located Token)} Option Comments :=
+  match peek() with
+    | Some token if (signIs wanted token.value.kind).isSome =>
+      skip()
+      Some (Layout.comments InBrackets token)
+    | _ =>
+      Parse.note (Parse.Problem.Expected what)
+      None
 
 --| Items while each is followed by a comma, at most `fuel` more. `found`
 --| is newest first.
@@ -258,19 +267,11 @@ def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr)
     {Parse (Parse.Located Token)} List Item :=
   if read.snd then itemsFrom more self [read.fst, ..found] else [read.fst, ..found].reverse
 
---| An item, its comma if one follows, and whether one did. The comma is
---| the item's last token, so a comment after it is the item's.
+--| An item, its comma if one follows, and whether one did.
 def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Located Token)} (Item, Bool) :=
-  let start := Parse.mark()
-  let comments := commentsAbove start.rest
   let value := self InBrackets
   let comma := signInBrackets "','" Comma
-  let trailing := if comma then lastTrailing start else trailingSince start value
-  ({ comments, value, trailing }, comma)
-
---| The own-line comments above the first of the tokens.
-def commentsAbove (tokens: List (Parse.Located Token)): List Comment :=
-  tokens.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
+  ({ value, comma = comma.getOrElse Comments.none }, comma.isSome)
 
 def Punctuation.spelling: Punctuation → Text
   | OpenParen => "("
@@ -303,17 +304,14 @@ def bodyFuel (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (
 -- are `bareStatement`, `statementLine` and `notedStatement`.
 def inlineBody (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
     {Parse (Parse.Located Token)} Body :=
-  let start := Parse.mark()
-  let line := bareStatement self layout start
+  let line := bareStatement self layout
   { statements = [{ blankBefore = False, line }] }
 
---| An expression as a statement, with the trailing comment it ends in;
---| `start` is where it starts.
-def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr)
-    (layout: Layout) (start: Parse.Mark (Parse.Located Token)):
+--| An expression as a statement.
+def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
     {Parse (Parse.Located Token)} Statement :=
   let value := self layout
-  Bare value (trailingSince start value)
+  Bare value
 
 --| Statements starting lines at `column`, with the comments above them.
 def block (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column: Nat):
@@ -329,22 +327,22 @@ def statement (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
   let start := Parse.mark()
   match start.rest with
     | [first, .._] if first.value.startsLine && first.value.column == column =>
-      let line := statementLine fuel self (InStatement column first.offset) start first.value.kind
+      let line := statementLine fuel self (InStatement column first.offset) first first.value.kind
       notedStatement first.value.above line
     | _ => Empty.absurd Parse.stop()
 
---| The statement whose first token, at `start`, is of `kind`: a `let`, or
+--| The statement whose first token, `first`, is of `kind`: a `let`, or
 --| else an expression.
 def statementLine (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
-    (start: Parse.Mark (Parse.Located Token)) (kind: Kind):
+    (first: Parse.Located Token) (kind: Kind):
     {Parse (Parse.Located Token)} Statement :=
   match kind with
     | Reserved LetKeyword =>
       skip()
-      let bound := name layout
-      sign layout "'='" Defines
-      Let bound (bodyFuel fuel self layout)
-    | _ => bareStatement self layout start
+      let (bound, nameComments) := name layout
+      let equals := sign layout "'='" Defines
+      Let (layout.comments first) bound nameComments equals (bodyFuel fuel self layout)
+    | _ => bareStatement self layout
 
 --| A statement's lines: the own-line comments in `above`, the trivia on
 --| its first token, then the statement.
@@ -355,67 +353,70 @@ def notedStatement (above: List Trivia) (line: Statement): List (Spaced Statemen
 -- Declarations and the file.
 
 --| A declaration starting a line at column 0, after the own-line comments
---| above it; kept as written if a comment in it wasn't placed.
-def declaration (source: Text): {Parse (Parse.Located Token)} List (Spaced Declaration) :=
-  let start := Parse.mark()
-  match start.rest with
-    | [first, .._] if first.value.startsLine && first.value.column == 0 =>
-      let parsed := declarationLine (InStatement 0 first.offset) first.value.kind
-      let finish := Parse.mark()
-      notedDeclaration source first.value.above (start.rest.take (finish.offset - start.offset)) parsed
-    | _ => Empty.absurd Parse.stop()
+--| above it.
+def declaration(): {Parse (Parse.Located Token)} List (Spaced Declaration) := match Parse.mark().rest with
+  | [first, .._] if first.value.startsLine && first.value.column == 0 =>
+    let parsed := declarationLine (InStatement 0 first.offset) first
+    notedDeclaration first.value.above parsed
+  | _ => Empty.absurd Parse.stop()
 
---| The declaration whose first token is of `kind`: `fn` or `let`.
+--| The declaration whose first token is `first`: `fn` or `let`.
 -- A function of its own so that proofs (BlockProofs.sw) can name it; so
 -- are `notedDeclaration` and `fileEnd`.
-def declarationLine (layout: Layout) (kind: Kind): {Parse (Parse.Located Token)} Declaration := match kind with
-  | Reserved FnKeyword =>
-    skip()
-    let declared := name layout
-    sign layout "'('" OpenParen
-    let parameters := Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma)
-    sign InBrackets "')'" CloseParen
-    sign layout "'='" Defines
-    Function declared parameters (body expression layout)
-  | Reserved LetKeyword =>
-    skip()
-    let declared := name layout
-    sign layout "'='" Defines
-    Value declared (body expression layout)
-  | _ =>
-    Parse.note (Parse.Problem.Literal "fn")
-    Parse.note (Parse.Problem.Literal "let")
-    Empty.absurd Parse.stop()
+def declarationLine (layout: Layout) (first: Parse.Located Token): {Parse (Parse.Located Token)} Declaration :=
+  match first.value.kind with
+    | Reserved FnKeyword =>
+      skip()
+      let (declared, nameComments) := name layout
+      let open := sign layout "'('" OpenParen
+      let parameters := parametersOf (Parse.optional parameterList)
+      let close := sign InBrackets "')'" CloseParen
+      let equals := sign layout "'='" Defines
+      Function (layout.comments first) declared nameComments open parameters close equals (body expression layout)
+    | Reserved LetKeyword =>
+      skip()
+      let (declared, nameComments) := name layout
+      let equals := sign layout "'='" Defines
+      Value (layout.comments first) declared nameComments equals (body expression layout)
+    | _ =>
+      Parse.note (Parse.Problem.Literal "fn")
+      Parse.note (Parse.Problem.Literal "let")
+      Empty.absurd Parse.stop()
+
+--| A header's parameters: a name, then a comma and a name as long as both
+--| come, as `Parse.sepBy1` reads them but keeping each comma's comments.
+def parameterList(): {Parse (Parse.Located Token)} ((Text, Comments), List (Comments, (Text, Comments))) :=
+  let first := name InBrackets
+  let others := Parse.many parameterStep
+  (first, others)
+
+--| A comma and the parameter after it.
+def parameterStep(): {Parse (Parse.Located Token)} (Comments, (Text, Comments)) :=
+  let comma := sign InBrackets "','" Comma
+  let named := name InBrackets
+  (comma, named)
+
+def parametersOf (found: Option ((Text, Comments), List (Comments, (Text, Comments)))): List Parameter :=
+  match found with
+    | None => []
+    | Some (first, others) => withCommas first others
+
+--| Each parameter with the comments of the comma after it.
+def withCommas (first: (Text, Comments)) (others: List (Comments, (Text, Comments))): List Parameter :=
+  match others with
+    | [] => [{ name = first.fst, comments = first.snd, comma = Comments.none }]
+    | [(comma, next), ..rest] => [{ name = first.fst, comments = first.snd, comma }, ..withCommas next rest]
 
 --| A declaration's lines: the own-line comments in `above`, the trivia on
---| its first token, then `parsed`, or its `tokens` as written if one of
---| their comments has no place in it.
-def notedDeclaration (source: Text) (above: List Trivia) (tokens: List (Parse.Located Token)) (parsed: Declaration):
-    List (Spaced Declaration) :=
+--| its first token, then `parsed`.
+def notedDeclaration (above: List Trivia) (parsed: Declaration): List (Spaced Declaration) :=
   let (notes, blankBefore) := spacedNotes DeclarationNote above
-  let line := if parsed.comments < commentsAmong tokens then AsWritten (asWritten source tokens) else parsed
-  notes ++ [{ blankBefore, line }]
-
---| The comments among a declaration's tokens, not counting those above
---| its first token, which are the file's.
-def commentsAmong (tokens: List (Parse.Located Token)): Nat := tokens.withIndex.foldLeft 0 (count (index, token) =>
-  let above := if index == 0 then 0 else (ownLineComments token.value.above).length
-  count + above + (if token.value.trailing.isSome then 1 else 0))
-
---| A declaration's text as written: from its first token to the end of its
---| last, or of the comment after it.
-def asWritten (source: Text) (tokens: List (Parse.Located Token)): Text := match tokens.head, tokens.last with
-  | Some first, Some last =>
-    let finish := match last.value.trailing with
-      | Some comment => comment.offset + comment.length
-      | None => last.offset + last.length
-    source.slice first.offset finish
-  | _, _ => ""
+  notes ++ [{ blankBefore, line = parsed }]
 
 --| The file, given the comments after its last token (or all of them, with
 --| no tokens).
-def sourceFile (source: Text) (endTrivia: List Trivia): {Parse (Parse.Located Token)} SourceFile :=
-  let found := Parse.many (() => declaration source)
+def sourceFile (endTrivia: List Trivia): {Parse (Parse.Located Token)} SourceFile :=
+  let found := Parse.many declaration
   fileEnd found.concat endTrivia
 
 --| The file of `declarations`, read to where no more starts, and the
@@ -437,6 +438,6 @@ def fileOf (declarations: List (Spaced Declaration)) (endTrivia: List Trivia): S
 def parse (source: Text): Result SourceFile Text := match lex source with
   | Err message => Err message
   | Ok lexed =>
-    match Parse.whole lexed.tokens (() => sourceFile source lexed.endTrivia) with
+    match Parse.whole lexed.tokens (() => sourceFile lexed.endTrivia) with
       | Ok file => Ok file
       | Err failure => Err (Parse.tokensMessage source.toList lexed.tokens failure)

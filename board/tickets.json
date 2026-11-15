@@ -38403,12 +38403,12 @@
     {
       "id": 3450,
       "title": "[Opus] Toy formatter: every comment has a place (D3618, D3619; lane T of docs/proposals/every-comment-placed.md): a comment slot on every token, the parser carries comments, the engine's comment break as in SW-3447, AsWritten removed, the SW-3418 proofs repaired",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane started 17:18 (est. 1 h). Finished 17:57, branch lane/SW-3450, commits 9048783ba, 7ec9e7c44, 5db932c86 (the first two leave proofs broken; the last repairs them).\n\nDone: Comments slot on every token, parser carries comments without deciding from them, AsWritten removed everywhere (Tree, Parser, Rules, Dump, Comments.sw deleted, Driver/Cli, tests, disturber). Engine: text after a waiting comment starts a new line at max(indent, lineIndent+2); own-line comments inside expressions via LineStart/CommentEnd; closers with comments above via LineStartHere. 20 Sprig probes added as goldens (Fmt/Tests/Probes.sw), each idempotent and disturbance-stable. Only forced golden change: `comments` golden's `fn odd` is now formatted (`x % 2`) instead of kept as written.\n\nProofs: whole toyfmt checks; audit Toy 233 theorems, 0 failed (9 vacuity warnings: parser-state hypotheses, and new tokenOpens/closerOpens on random text). Restated lemmas listed in tools/toyfmt/NOTES.md, \"Every comment placed\". CommentProofs.sw replaced by engine lemmas in Doc/Proofs.sw.\n\nTests: toyfmt `stitchwort test` 98/98; nextest toyfmt_formats_a_folder_under_run_and_built passed.\n\nFinding: fits is conservative after a trailing comment (any chunk = doesn't fit), unlike SW-3447's measure-from-new-line; headers and groups with a trailing comment break oddly (probes s05, s06, s08, s19). Follow-up: fitsFrom with indent and width.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []

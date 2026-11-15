@@ -12,12 +12,7 @@ def goldens: List Golden :=
 
 def seeds: List Nat := List.range 0 50
 
---| The declarations the parser keeps as written, which the disturber must
---| leave alone.
-def Golden.asWrittenIndices (golden: Golden): List Nat :=
-  golden.tree.declarations.withIndex.filterMap (match some | (index, { line = AsWritten _, .. }) => index)
-
-def Golden.disturbed (golden: Golden) (seed: Nat): Text := disturb golden.formatted seed golden.asWrittenIndices
+def Golden.disturbed (golden: Golden) (seed: Nat): Text := disturb golden.formatted seed
 
 --| Whether every disturbed text formats back to the golden: idempotence and
 --| independence from the author's layout, on real shapes.
@@ -34,6 +29,3 @@ test "most seeds change the layout" :=
   goldens.all (golden => seeds.count (seed => golden.disturbed seed != golden.formatted) >= 40)
 
 test "the same seed disturbs the same way" := goldens.all (golden => golden.disturbed 7 == golden.disturbed 7)
-
-test "a declaration left as written isn't disturbed" :=
-  seeds.all (seed => comments.disturbed seed |> .contains "\nfn odd(x) = -- why\n  x  %  2\n")

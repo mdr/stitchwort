@@ -9,7 +9,7 @@
 
 namespace Toy.Doc.Proofs
 import Toy.Doc (..)
-import Std (List, Nat, Option, Text, Void)
+import Std (Bool, List, Nat, Option, Text, Void)
 
 --| The steps the printer can still take on `doc`, at most: a step on a
 --| node replaces it by its parts, which weigh less.
@@ -105,7 +105,7 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
   match cmd with
     | FillSep indent item =>
       ifPairBound _
-        (printer.write " " 1, [Print indent Flat item, ..rest])
+        (printer.write indent " " 1, [Print indent Flat item, ..rest])
         (printer.newline indent, [Print indent Break item, ..rest])
         (item.steps + 1 + stackCost rest)
         (omega)
@@ -116,9 +116,18 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
         | BreakParent => omega
         | Chunk text width => omega
         | Line =>
-          ifPairBound _ (printer.write " " 1, rest) (printer.newline indent, rest) (1 + stackCost rest) (omega) (omega)
+          ifPairBound _ (printer.write indent " " 1, rest) (printer.newline indent, rest) (1 + stackCost rest) (omega) (omega)
         | SoftLine => ifPairBound _ (printer, rest) (printer.newline indent, rest) (1 + stackCost rest) (omega) (omega)
         | HardLine => omega
+        | LineStart => omega
+        | CommentEnd => omega
+        | LineStartHere => 
+          ifPairBound _
+            ({ printer | owed = Some indent, lineIndent = indent }, rest)
+            (printer.newline indent, rest)
+            (1 + stackCost rest)
+            (omega)
+            (omega)
         | Blank => omega
         | LineSuffix comment => omega
         | Nest more inner => omega
@@ -218,6 +227,9 @@ theorem stepsUnderSize ∀ (doc: Doc): doc.steps ≤ 2 * doc.size := match doc w
   | Line => omega
   | SoftLine => omega
   | HardLine => omega
+  | LineStart => omega
+  | CommentEnd => omega
+  | LineStartHere => omega
   | Blank => omega
   | LineSuffix comment => omega
 
@@ -308,6 +320,9 @@ theorem fitsFromEnough ∀ (fuel extra: Nat) (stack: List (Mode, Doc)) (rest: Li
             | Line => rewrite fitsFromEnough more extra stack rest (left - 1) suffix (omega) in rfl
             | SoftLine => rewrite fitsFromEnough more extra stack rest left suffix (omega) in rfl
             | HardLine => rfl
+            | LineStart => rfl
+            | CommentEnd => rfl
+            | LineStartHere => rfl
             | Nest indent inner =>
               rewrite fitsFromEnough more extra [(mode, inner), ..stack] rest left suffix (omega) in rfl
             | Flatten inner =>
@@ -426,7 +441,7 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
   match cmd with
     | FillSep indent item =>
       ifPairWeight _
-        (printer.write " " 1, [Print indent Flat item, ..rest])
+        (printer.write indent " " 1, [Print indent Flat item, ..rest])
         (printer.newline indent, [Print indent Break item, ..rest])
         (item.steps + 1 + item.size + stackWeight rest)
         (omega)
@@ -438,7 +453,7 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
         | Chunk text width => omega
         | Line =>
           ifPairWeight _
-            (printer.write " " 1, rest)
+            (printer.write indent " " 1, rest)
             (printer.newline indent, rest)
             (2 + stackWeight rest)
             (omega)
@@ -446,6 +461,15 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
         | SoftLine =>
           ifPairWeight _ (printer, rest) (printer.newline indent, rest) (2 + stackWeight rest) (omega) (omega)
         | HardLine => omega
+        | LineStart => omega
+        | CommentEnd => omega
+        | LineStartHere => 
+          ifPairWeight _
+            ({ printer | owed = Some indent, lineIndent = indent }, rest)
+            (printer.newline indent, rest)
+            (2 + stackWeight rest)
+            (omega)
+            (omega)
         | Blank => omega
         | LineSuffix comment => omega
         | Nest more inner => omega
@@ -570,9 +594,9 @@ theorem printBudgetEnough ∀ (printer: Printer) (doc: Doc) (indent: Nat) (mode:
 
 --| A `Line` reached while a trailing comment waits is a line break, in a
 --| flat group too: no text follows the comment on its line. With
---| `softLineAfterComment` and the `FillSep` step, this is the engine's half
---| of "comments keep their owners"; the rules' half is
---| `Toy.Fmt.Proofs.exprSuffix` and its neighbours.
+--| `softLineAfterComment`, the `FillSep` step and `textAfterComment`, this
+--| is why every trailing comment ends its line, whatever document the
+--| engine prints.
 theorem lineAfterComment ∀ (printer: Printer) (total indent: Nat) (mode: Mode) (rest: List Cmd)
     (waiting: printer.suffixes.isEmpty = False):
     printer.printDoc total indent mode Line rest = (printer.newline indent, rest) :=
@@ -593,3 +617,31 @@ theorem fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Do
     (waiting: printer.suffixes.isEmpty = False):
     printer.step total (FillSep indent item) rest = (printer.newline indent, [Print indent Break item, ..rest]) :=
   rewrite waiting in rfl
+
+--| Text reached while a trailing comment waits on its line, after code,
+--| starts a new line first (a comment break), at least 2 deeper than the
+--| line it breaks; spaces there are dropped. So no text ever follows a
+--| trailing comment on its line, in any document.
+theorem textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
+    (nonEmpty: text.isEmpty = False)
+    (waiting: printer.suffixes.isEmpty = False)
+    (afterCode: printer.atLineStart = False)
+    (notSpaces: text.all (char => char == ' ') = False):
+    printer.write indent text width = (printer.newline (printer.continuation indent)).put text width :=
+  match e: printer.suffixes.isEmpty || printer.atLineStart with
+    | False => rewrite nonEmpty, notSpaces in rfl
+    | True => Void.exfalso (Bool.falseNotTrue (rewrite waiting, afterCode at e in e))
+
+theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
+    (nonEmpty: text.isEmpty = False)
+    (waiting: printer.suffixes.isEmpty = False)
+    (afterCode: printer.atLineStart = False)
+    (spaces: text.all (char => char == ' ') = True):
+    printer.write indent text width = printer :=
+  match e: printer.suffixes.isEmpty || printer.atLineStart with
+    | False => rewrite nonEmpty, spaces in rfl
+    | True => Void.exfalso (Bool.falseNotTrue (rewrite waiting, afterCode at e in e))
+
+--| A comment break is deeper than the line it breaks.
+theorem continuationDeeper ∀ (printer: Printer) (indent: Nat): printer.lineIndent + 2 ≤ printer.continuation indent :=
+  Nat.leMaxRight indent (printer.lineIndent + 2)

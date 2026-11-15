@@ -147,22 +147,19 @@ def chunks (text: Text): List Chunk :=
     | None => done
   all.reverse
 
---| `text` with its layout disturbed by `seed`, leaving alone the
---| declarations whose indices `keep` lists (those the parser keeps as
---| written, which formatting doesn't re-lay out).
-def disturb (text: Text) (seed: Nat) (keep: List Nat): Text :=
+--| `text` with its layout disturbed by `seed`.
+def disturb (text: Text) (seed: Nat): Text :=
   let start: Dice := { state = seed * 7919 + 17 }
   let (pieces, _) :=
     chunks text
-      |> .withIndex
       |> .foldLeft
         ([], start)
-        (((out, dice) (index, chunk) =>
+        (((out, dice) chunk =>
           let (blanks, rolled) :=
             if chunk.blanksBefore == 0 then (0, dice)
             else dice.roll 3 |> (((extra, next)) => (chunk.blanksBefore + extra, next))
           let body := chunk.lines.joinWith "\n"
-          let (disturbed, after) := if keep.contains index then (body, rolled) else disturbChunk body rolled
+          let (disturbed, after) := disturbChunk body rolled
           (out ++ [List.replicate blanks "\n" |> .joinWith "", disturbed, "\n"], after)))
   pieces.joinWith ""
 

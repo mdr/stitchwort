@@ -972,3 +972,73 @@ against it.
 17. `test` is a keyword and can't be a parameter name.
 18. The audit's search reports "no input made the hypotheses true" for
     any theorem whose hypothesis is about a parser state.
+
+## Every comment placed (SW-3450, D3618, D3619)
+
+Every token now holds its comments in the tree (`Comments = { above,
+after }` on each name, literal, keyword, sign and operator; an item's and
+a parameter's comma carry their own), and `AsWritten` is gone: the
+parser never decides anything from comments, and the rules print each
+token's comments beside it. The one exception is the own-line comments
+above a statement's or declaration's first token, which stay note lines
+(`Layout.comments` leaves `above` out for that token), so blocks read as
+before.
+
+**The engine's comment break.** Text after a waiting trailing comment
+starts a new line at `max indent (lineIndent + 2)`, so code after a
+comment is at least two deeper than the comment's line; all-space text
+there is dropped. Own-line comments inside an expression are
+`LineStart` (a break unless at a line start), the text, `CommentEnd` (a
+new line at the comment line's indent). A closer with comments above it
+uses `LineStartHere` so the comments sit one level in and the closer
+back at the bracket's line. `fits` is conservative: any chunk after a
+waiting comment doesn't fit, so a group holding a trailing comment
+breaks. SW-3447's printer measures from the new line instead; that would
+need `fits` to know the indent and width, a change to the budget proofs.
+The cost is layouts like `fn f(\n    x\n) -- c\n  = x` (a header with a
+comment after `)` breaks its parameter list): odd but stable.
+
+**Goldens.** The 20 Sprig probes of the proposal are goldens
+(`Fmt/Tests/Probes.sw`): each parses to its dump, formats to its text,
+formats again unchanged, and survives 50 disturbances. Of the existing
+goldens, only `comments` changed, and only where forced: its
+`fn odd(x) = -- why` declaration was kept as written (`x  %  2`) and is
+now formatted (`x % 2`); the `-- loyal` comment now hangs on the call's
+`)`, the token it follows.
+
+**Proofs.** Everything checks and `audit Toy` is clean (233 theorems,
+0 failed; the 9 warnings are the audit finding no input for
+hypotheses about parser states or a text that opens a line, as before).
+
+- Restated against the new tree (comment slots): `runsSign`, `runsName`,
+  `runsKeyword`, `runsElse` (they give the token's comments);
+  `runsAtomName`/`Number`/`String`/`Bracketed`/`List`, `runsNegation`,
+  `runsSuffixesField`, `runsSuffixesCall`, `operatorAt`,
+  `operatorFound`, `runsIf`, `runsIfSpelled` (each constructor's comment
+  fields from `Layout.comments`); `Spelled`, `SpelledInline`,
+  `SpelledItems`, `SpelledLines` (each adds the equalities of the
+  comment fields); `runsItemLast`, `runsItemComma`, `runsItemsFrom`,
+  `itemsStart`, `runsItems` (the comma's and the closer's comments);
+  `runsBareStatement`, `runsInlineBody`, `runsBodyInline`, `bodyOf`
+  (no `trailingFor`, no start mark); `runsLineLet`, `runsLineOther`,
+  `runsLineBare`, `runsStatement` (the first token instead of a mark);
+  `runsDeclaration`, `runsDeclarationValue`, `runsDeclarationFunction`,
+  `runsValueSpelled`, `runsFunctionSpelled`, `runsSourceFile`,
+  `parseReads`, `declarationStops`, `declarationDeclines` (no source
+  text: nothing is cut from it); the parameters (`ParameterSteps`,
+  `parameterRounds`, `runsParameters`, `runsNoParameters`, now over
+  `Parse.optional parameterList`, which keeps each comma's comments).
+- Gone with what they were about: `lastComment`, `runsLastTrailing`,
+  `trailingFor`, `runsTrailingSince`, and `CommentProofs.sw` (the rules'
+  suffix lemmas: the engine now breaks after a comment itself, proved in
+  `Doc/Proofs.sw` as `textAfterComment`, `spacesAfterComment`,
+  `continuationDeeper`).
+- Layer C (`LayoutProofs.sw`): the scan's state is `Scan = Clear |
+  Waiting | Started (opens: Bool)`, so a line that ends in `CommentEnd`
+  counts as an own-line comment whatever its text; `statementScan` and
+  `declarationScan` now say the scan ends settled, and
+  `declarationScan` lost its `AsWritten` hypothesis. The per-construct
+  lemmas became `…Keeps` (from a settled scan, the document leaves it
+  settled).
+- `formatFile*` in `Fmt/Proofs.sw` lost `printed.asWritten` (forced).
+- The non-comment lemmas keep their statements.
