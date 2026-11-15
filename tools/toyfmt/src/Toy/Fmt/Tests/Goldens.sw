@@ -466,3 +466,8 @@ test "P8: a trailing comment on a list's last item puts the ] below" :=
 test "a tree's dump shows its structure" :=
   headers.tree.dump
     == "(fn add (a b) (body (bare (+ (var a) (var b)))))\n(fn distance (fromRow fromColumn toRow toColumn) (body (bare (+ (call (var abs) (item (- (var fromRow) (var toRow)))) (call (var abs) (item (- (var fromColumn) (var toColumn))))))))\n"
+
+--| The printer writes indentation only before text, so no line it prints
+--| ends with a space, at any width.
+test "no printed line ends with a space" := goldens.all (golden =>
+  List.range 1 13 |> .all (step => (golden.tree.print (step * 8)).text.lines.all (line => not (line.endsWith " "))))
