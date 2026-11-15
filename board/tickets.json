@@ -37488,12 +37488,12 @@
     {
       "id": 3383,
       "title": "[Opus] Profile the toy formatter (tools/toyfmt) natively: where the 4.2 s/MB goes (lex 1.3, parse 2.4, print 0.3); find obvious wins in Stitchwort itself (std Parse, runtime, compiler, native code) and the toy's own code; no hand-written lexer; change only measured hotspots, recheck, performance-log entries",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 15 Nov 2026: \"I think it would be reasonable to do some speed profiling on the toy formatter ... we're trying to make this a useful real world program ... I wouldn't necessarily look to do a handwritten lexer or anything, but I think seeing if there's any obvious wins.\" Not a resumption of the paused speed epics (D3465): scoped to the toy formatter. Expected: 2 h (Opus). Next build slot, before SW-3381.",
+      "body": "Started 11:16.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
