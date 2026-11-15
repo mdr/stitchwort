@@ -36724,15 +36724,17 @@
     {
       "id": 3327,
       "title": "[Sonnet] The native-code backend calls prims::eval without charging steps, so a huge Text.repeat or Array.replicate count can hit a Rust capacity-overflow panic there (the machine charges first) (SW-3273 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Lane notes: native code (crates/rt native_abi.rs sw_prim and sw_apply_prepare, crates/native n1.rs prim) now charges text_repeat_cost / replicate_cost against Context.steps before building (compiled code writes steps out and reads them back around those two ops only), and sets OUT_OF_STEPS. Test native n1::a_huge_repeat_or_replicate_runs_out_of_steps_natively (direct and function-value calls agree with the machine); pinned tests and clippy pass. Only Text.repeat and Array.replicate have argument-sized results. Native has no number_words cost at all (separate gap).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "710bb4878c52a6459de045bf5f8a850dfef476fa"
+      ]
     }
   ]
 }
