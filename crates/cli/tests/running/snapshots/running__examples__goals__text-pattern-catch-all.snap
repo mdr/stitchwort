@@ -17,3 +17,13 @@ expression: output
     │                       ╰── valid✝: Char.isScalar 55296
     │                           ⊢ Nat
 ────╯
+[GOAL] Goal: in `pick`
+    ╭─[ goals/text-pattern-catch-all.sw:22:10 ]
+    │
+ 22 │   | _ => ?
+    │          ┬  
+    │          ╰── k: Nat
+    │              n✝: Nat
+    │              h✝: n✝ < k
+    │              ⊢ Nat
+────╯

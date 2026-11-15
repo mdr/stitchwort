@@ -635,7 +635,7 @@ fn drop_superseded(
 /// left behind that nothing shown mentions: unnamed (`tail✝`, `code✝`,
 /// `valid✝`), which a proof can't refer to, and which neither the target
 /// nor any hypothesis that stays depends on, as in the catch-all arm after
-/// text literals, other than a proof of a statement about no variable. They stay in `hidden`, as for [`drop_superseded`].
+/// text literals, other than a proof that says more than the split did. They stay in `hidden`, as for [`drop_superseded`].
 fn drop_split_leftovers(
     cx: &Ctx,
     expected: &Value,
@@ -670,29 +670,33 @@ fn drop_split_leftovers(
             }
         }
     }
-    // A leftover that stays brings its type's variables with it.
+    // A leftover stays if something shown mentions it, or if it is a proof
+    // that says something beyond the split: about no variable (`Char.isScalar
+    // 55296`, from a spelled-out `MkChar 55296 _`) or about one that stays
+    // (`h✝: n ≠ 5`). Only data, and proofs about dropped cells
+    // (`valid✝: Char.isScalar code✝`), are cells of the split. One that stays
+    // brings its type's variables with it.
+    let cells: Vec<usize> = (context.iter().filter(|e| leftover(e)))
+        .map(|e| e.level)
+        .collect();
     let mut kept: Vec<usize> = Vec::new();
     loop {
         let before = kept.len();
         for e in context.iter().filter(|e| leftover(e)) {
-            if mentioned.contains(&e.level) && !kept.contains(&e.level) {
+            if kept.contains(&e.level) {
+                continue;
+            }
+            let Some(about) = read(&e.ty) else { return };
+            let says_more = crate::rewrite::is_proof_type(cx, &e.ty).unwrap_or(false)
+                && (about.is_empty()
+                    || about.iter().any(|l| !cells.contains(l) || kept.contains(l)));
+            if mentioned.contains(&e.level) || says_more {
                 kept.push(e.level);
-                match read(&e.ty) {
-                    Some(l) => mentioned.extend(l),
-                    None => return,
-                }
+                mentioned.extend(about);
             }
         }
         if kept.len() == before {
             break;
-        }
-    }
-    // A statement about no variable (`Char.isScalar 55296`, from a spelled-out
-    // `MkChar 55296 _`) is a fact about the case, not a cell of the split.
-    for e in context.iter().filter(|e| leftover(e)) {
-        let closed = read(&e.ty).is_some_and(|l| l.is_empty());
-        if closed && crate::rewrite::is_proof_type(cx, &e.ty).unwrap_or(false) {
-            kept.push(e.level);
         }
     }
     context.retain(|e| {

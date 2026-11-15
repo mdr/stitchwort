@@ -12,3 +12,11 @@ def size: Text → Nat
 def code (c: Char): Nat := match c with
   | MkChar 55296 _ => ?
   | _ => 0
+
+-- A proof about a variable that stays shown is a fact the arm may need, so it
+-- stays, with the variable it is about (`h✝: n✝ < k`).
+type Below (k: Nat) = | MkBelow (n: Nat) (h: n < k)
+
+def pick (k: Nat): Below k → Nat
+  | MkBelow 0 _ => 0
+  | _ => ?
