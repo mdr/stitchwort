@@ -4,7 +4,7 @@
 -- that start with `"ab"` and carry on, and so on.
 import Std (Char, Nat, Text, Bool, List)
 
-theorem oneCharacter (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])) (s: Text): p s := match s with
+theorem oneCharacter ∀ (p: Text → Prop) (hp: ∀ (c: Char) => p (MkText [c])) (s: Text): p s := match s with
   | "ab" => ?
   | "" => ?
   | _ => hp _

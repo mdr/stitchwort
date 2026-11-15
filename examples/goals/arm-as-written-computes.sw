@@ -9,14 +9,14 @@ def f: Text → Nat
   | "" => 0
   | _ => 2
 
-theorem steps (s: Text): f s ≠ 0 ∨ s = "" := match s with
+theorem steps ∀ (s: Text): f s ≠ 0 ∨ s = "" := match s with
   | "ab" => ?
   | "" => ?
   | _ => ?
 
 -- Where the leaf's computation takes the text apart, the cells it mentions
 -- are listed.
-theorem length (p: Text → Prop) (s: Text): p s ∧ s.length = s.length := match s with
+theorem length ∀ (p: Text → Prop) (s: Text): p s ∧ s.length = s.length := match s with
   | "ab" => ?
   | _ => ?
 
@@ -28,7 +28,7 @@ def paint: Color → Color
   | Red => Red
   | _ => Blue
 
-theorem painted (c: Color): paint c = Blue := match c with
+theorem painted ∀ (c: Color): paint c = Blue := match c with
   | Red => ?
   | _ => ?
 
@@ -38,6 +38,6 @@ def isSomeTrue: Option Bool → Bool
   | Some True => True
   | _ => False
 
-theorem someTrue (o: Option Bool): isSomeTrue o = True := match o with
+theorem someTrue ∀ (o: Option Bool): isSomeTrue o = True := match o with
   | Some True => ?
   | _ => ?

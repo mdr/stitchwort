@@ -378,9 +378,9 @@ expression: json
         "message": "write `∀ (…) =>` instead of `(…) ->`",
         "range": [
           29,
-          34,
+          36,
           29,
-          43
+          45
         ]
       }
     ],
@@ -390,9 +390,9 @@ expression: json
     ],
     "range": [
       29,
-      34,
+      36,
       29,
-      43
+      45
     ],
     "severity": "warning"
   },

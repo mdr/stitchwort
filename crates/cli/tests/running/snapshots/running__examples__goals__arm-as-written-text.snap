@@ -95,11 +95,11 @@ expression: output
     │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
 ────╯
 [W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
-    ╭─[ goals/arm-as-written-text.sw:30:35 ]
+    ╭─[ goals/arm-as-written-text.sw:30:37 ]
     │
- 30 │ theorem clauses (p: Text → Prop): (s: Text) → p s
-    │                                   ────┬────  
-    │                                       ╰────── write `∀ (…) =>` instead of `(…) ->`
+ 30 │ theorem clauses ∀ (p: Text → Prop): (s: Text) → p s
+    │                                     ────┬────  
+    │                                         ╰────── write `∀ (…) =>` instead of `(…) ->`
     │ 
     │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
 ────╯

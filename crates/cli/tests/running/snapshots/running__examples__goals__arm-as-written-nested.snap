@@ -132,7 +132,7 @@ expression: output
 [GOAL] Goal: in `written`
     ╭─[ goals/arm-as-written-nested.sw:38:15 ]
     │
- 38 │   | other => (? : p other)
+ 38 │   | other => (?: p other)
     │               ┬  
     │               ╰── p: Text → Prop
     │                   other: Text
