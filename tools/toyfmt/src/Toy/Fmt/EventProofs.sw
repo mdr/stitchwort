@@ -102,10 +102,22 @@ def InlineEvents (zone: Zone) (statements: List (Spaced Statement)): List Event 
   | [{ line = Bare value, .. }] => Events zone (inlineHead zone value) value
   | _ => events => False
 
---| The lines of a block at `column`, one statement after another.
+--| The lines of a block at `column`, one statement after another, with
+--| the blank lines kept between them (none before the first).
 def LineEvents (column: Nat) (statements: List (Spaced Statement)): List Event → Prop := match statements with
   | [] => Done
-  | [{ line, .. }, ..rest] => Then (StatementEvents column line) (LineEvents column rest)
+  | [{ line, .. }, ..rest] => Then (StatementEvents column line) (LaterLines column rest)
+
+--| The blank line kept before a line that isn't its list's first.
+def blankEvents (blankBefore: Bool): List Event := if blankBefore then [Event.blankLine] else []
+
+--| The lines of a block after its first: each after a blank line if it
+--| has one before it.
+def LaterLines (column: Nat) (statements: List (Spaced Statement)): List Event → Prop := match statements with
+  | [] => Done
+  | [{ blankBefore, line }, ..rest] => events =>
+    ∃ (later: List Event) => events = blankEvents blankBefore ++ later
+      ∧ Then (StatementEvents column line) (LaterLines column rest) later
 
 --| A statement of a block at `column`: its first token starts a line at
 --| the column, the others stand in the statement; a comment line is one
@@ -363,10 +375,9 @@ theorem sepSeats ∀ (zone: Zone) (indent: Nat) (place: Place) (trace: List Even
 
 theorem softSeats ∀ (zone: Zone) (indent: Nat) (place: Place) (trace: List Event)
     (next: Place → List Event → Prop) (inside: zone.holds indent)
-    (seated: Seated zone place) (reached: ∀ (middle: Place) => Seated zone middle → next middle trace):
+    (seated: Ended zone place) (reached: ∀ (middle: Place) => Seated zone middle → next middle trace):
     SoftLays indent place trace next :=
   match place, seated with
-    | AtStart at, seated => Both (reached (AtStart at) seated) (reached (AtStart indent) inside)
     | Mid at, seated => Both (reached (Mid at) seated) (reached (AtStart indent) inside)
     | Held at, seated => reached (AtStart indent) inside
 
@@ -408,7 +419,16 @@ theorem closeAfterRule ∀ (zone: Zone) (expr: Expr) (doc: Doc) (spec: List Even
           place
           trace
           next
-          (rule indent (AtStart indent) trace (after later => LaysAll [] indent after later next) inside inside onward)
+          (Both
+            (endedMid zone place ended)
+            (Inr
+              (rule indent
+                (AtStart indent)
+                trace
+                (after later => LaysAll [] indent after later next)
+                inside
+                inside
+                onward)))
       | False => rule indent place trace next inside (endedSeated zone place ended) onward
 
 -- A fill and a list joined by `Line` lay alike.
@@ -519,7 +539,7 @@ theorem nestJoined ∀ (zone: Zone) (more: Nat) (docs: List Doc) (spec: List Eve
         trace
         (after later => LaysAll [joined docs Line] (indent + more) after later next)
         (holdsMore zone indent more inside)
-        (endedSeated zone place ended)
+        ended
         (middle seated =>
           concatLays
             (Doc.joinedWith Line docs)
@@ -550,7 +570,7 @@ theorem softCloser ∀ (zone: Zone) (comments: Comments) (text: Text)
     softSeats zone indent place trace
       (after later => LaysAll [closer comments text] indent after later next)
       inside
-      (endedSeated zone place ended)
+      ended
       (middle seated =>
         closerRule zone comments text fine solid indent middle trace
           (after later => LaysAll [] indent after later next)
@@ -828,7 +848,9 @@ theorem belowCore ∀ (zone: Zone) (blankBefore: Bool) (value: Expr)
 
 theorem belowValue ∀ (zone: Zone) (blankBefore: Bool) (value: Expr)
     (rules: ∀ (inner: Zone) => HeadRule inner value.layout value.firstAbove (head => Events inner head value))
-    (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop) (inside: zone.holds indent)
+    (indent: Nat) (place: Place)
+    (mid: place.midLine = True)
+    (trace: List Event) (next: Place → List Event → Prop) (inside: zone.holds indent)
     (onward: ∀ (reached: Place) (events: List Event) => BodyEvents zone
       { statements = [{ blankBefore, line = Bare value }] }
       events
@@ -841,10 +863,12 @@ theorem belowValue ∀ (zone: Zone) (blankBefore: Bool) (value: Expr)
     place
     trace
     next
-    (belowCore zone blankBefore value rules indent trace
-      (after later => LaysAll [] (indent + 2) after later next)
-      inside
-      onward)
+    (Both mid
+      (Inr
+        (belowCore zone blankBefore value rules indent trace
+          (after later => LaysAll [] (indent + 2) after later next)
+          inside
+          onward)))
 
 --| `let name = body`, a statement or a declaration: the keyword starts
 --| as `head` says, the name and `=` stand in the statement.
@@ -962,18 +986,15 @@ theorem elseBare ∀ (zone: Zone) (elseComments: Comments) (blankBefore: Bool) (
         | { above = elseAbove, after = Some trailing }, ifComments, rule, viaBranch => viaBranch
     | _, rule, viaBranch => viaBranch
 
---| What starts a line of a block: nothing for the first, which starts
---| where the block does; a line break for the others.
-theorem lineStartLays ∀ (index: Nat) (blankBefore: Bool) (column: Nat) (place: Place)
+--| What starts a line of a vertical list that isn't its first: a line
+--| break after the line before, and the blank line kept.
+theorem laterStart ∀ (index: Nat) (blankBefore: Bool) (column: Nat) (place: Place)
     (trace: List Event) (next: Place → List Event → Prop)
-    (fresh: (index == 0) = True → place = AtStart column) (reached: next (AtStart column) trace):
-    Lays (lineStart index blankBefore) column place trace next :=
-  match zero: index == 0 with
-    | True => rewrite fresh zero in reached
-    | False =>
-      match blankBefore with
-        | True => reached
-        | False => reached
+    (mid: place.midLine = True) (reached: next (AtStart column) (trace ++ blankEvents blankBefore)):
+    Lays (lineStart (index + 1) blankBefore) column place trace next :=
+  match blankBefore, reached with
+    | True, reached => Both mid (Inl reached)
+    | False, reached => Both mid (Inr (rewrite <- List.appendNil trace in reached))
 
 --| An item and its comma.
 theorem itemRule ∀ (zone: Zone) (value: Expr) (comma: Comments)
@@ -1680,6 +1701,7 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
               (inner => exprLays value lexValue inner)
               indent
               (Mid line)
+              rfl
               trace
               next
               inside
@@ -1689,6 +1711,7 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
             (inner => exprLays value lexValue inner)
             indent
             (Held line)
+            rfl
             trace
             next
             inside
@@ -1701,6 +1724,7 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
           lexLines
           indent
           (trailEnd line keyword.after)
+          (trailMid line keyword.after)
           trace
           next
           inside
@@ -1713,12 +1737,22 @@ theorem branchLays ∀ (zone: Zone) (keyword: Comments) (body: Body)
           lexLines
           indent
           (trailEnd line keyword.after)
+          (trailMid line keyword.after)
           trace
           next
           inside
           onward
     | { statements = [first, second, ..rest] }, Both lexLines closed => indent line trace next inside onLine onward =>
-      blockLays zone first [second, ..rest] lexLines indent (trailEnd line keyword.after) trace next inside onward
+      blockLays zone first
+        [second, ..rest]
+        lexLines
+        indent
+        (trailEnd line keyword.after)
+        (trailMid line keyword.after)
+        trace
+        next
+        inside
+        onward
 
 theorem elseBranchLays ∀ (zone: Zone) (elseComments: Comments) (body: Body)
     (lexical: LexicalBody body):
@@ -1794,11 +1828,19 @@ theorem afterEqualsLays ∀ (zone: Zone) (equals: Comments) (body: Body)
                 inside
                 onLine
                 (reached events isValue ended => onward reached events (Inl isValue) ended)))
-            (belowCore zone blankBefore value (inner => exprLays value lexValue inner) indent trace next inside onward)
+            (Both rfl
+              (belowCore zone blankBefore value
+                (inner => exprLays value lexValue inner)
+                indent
+                trace
+                next
+                inside
+                onward))
             (belowValue zone blankBefore value
               (inner => exprLays value lexValue inner)
               indent
               (Mid line)
+              rfl
               trace
               next
               inside
@@ -1808,6 +1850,7 @@ theorem afterEqualsLays ∀ (zone: Zone) (equals: Comments) (body: Body)
             (inner => exprLays value lexValue inner)
             indent
             (Held line)
+            rfl
             trace
             next
             inside
@@ -1820,6 +1863,7 @@ theorem afterEqualsLays ∀ (zone: Zone) (equals: Comments) (body: Body)
         lexLines
         indent
         (trailEnd line equals.after)
+        (trailMid line equals.after)
         trace
         next
         inside
@@ -1832,18 +1876,30 @@ theorem afterEqualsLays ∀ (zone: Zone) (equals: Comments) (body: Body)
           lexLines
           indent
           (trailEnd line equals.after)
+          (trailMid line equals.after)
           trace
           next
           inside
           onward
     | { statements = [first, second, ..rest] }, Both lexLines closed => indent line trace next inside onLine onward =>
-      blockLays zone first [second, ..rest] lexLines indent (trailEnd line equals.after) trace next inside onward
+      blockLays zone first
+        [second, ..rest]
+        lexLines
+        indent
+        (trailEnd line equals.after)
+        (trailMid line equals.after)
+        trace
+        next
+        inside
+        onward
 
 --| A block below its keyword: its statements as lines two deeper, a
 --| column a line of the zone may start at.
 theorem blockLays ∀ (zone: Zone) (first: Spaced Statement) (rest: List (Spaced Statement))
     (lexical: LexicalLines [first, ..rest])
-    (indent: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop) (inside: zone.holds indent)
+    (indent: Nat) (place: Place)
+    (mid: place.midLine = True)
+    (trace: List Event) (next: Place → List Event → Prop) (inside: zone.holds indent)
     (onward: ∀ (reached: Place) (events: List Event) => BodyEvents zone { statements = [first, ..rest] } events
       → Ended zone reached
       → next reached (trace ++ events)):
@@ -1854,65 +1910,80 @@ theorem blockLays ∀ (zone: Zone) (first: Spaced Statement) (rest: List (Spaced
     place
     trace
     next
-    (concatLays
-      (statementLines 0 [first, ..rest])
-      (indent + 2)
-      (AtStart (indent + 2))
-      trace
-      (after later => LaysAll [] (indent + 2) after later next)
-      (linesLay 0 first rest lexical
-        (indent + 2)
-        (AtStart (indent + 2))
-        trace
-        (after later => LaysAll [] (indent + 2) after later next)
-        (zero => rfl)
-        (reached events areLines ended =>
-          onward reached events
-            (Inr (Witness (indent + 2) (Both (holdsDeeper zone indent 1 inside) areLines)))
-            (endedUp zone (indent + 2) reached (holdsDeeper zone indent 1 inside) ended))))
+    (Both mid
+      (Inr
+        (concatLays
+          (statementLines 0 [first, ..rest])
+          (indent + 2)
+          (AtStart (indent + 2))
+          trace
+          (after later => LaysAll [] (indent + 2) after later next)
+          (linesLay first rest lexical
+            (indent + 2)
+            trace
+            (after later => LaysAll [] (indent + 2) after later next)
+            (reached events areLines ended =>
+              onward reached events
+                (Inr (Witness (indent + 2) (Both (holdsDeeper zone indent 1 inside) areLines)))
+                (endedUp zone (indent + 2) reached (holdsDeeper zone indent 1 inside) ended))))))
 
---| The lines of a block at `column`, the first of them the `index`th:
+--| The lines of a block at `column`, from the start of its first line:
 --| each statement starts its line at the column.
-theorem linesLay ∀ (index: Nat) (first: Spaced Statement) (rest: List (Spaced Statement))
+theorem linesLay ∀ (first: Spaced Statement) (rest: List (Spaced Statement))
     (lexical: LexicalLines [first, ..rest])
-    (column: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
-    (fresh: (index == 0) = True → place = AtStart column)
+    (column: Nat) (trace: List Event) (next: Place → List Event → Prop)
     (onward: ∀ (reached: Place) (events: List Event) => LineEvents column [first, ..rest] events
       → Ended (Deeper column) reached
       → next reached (trace ++ events)):
-    LaysAll (statementLines index [first, ..rest]) column place trace next :=
-  match first, rest, lexical, onward with
-    | { blankBefore, line }, [], Both lexLine _, onward =>
-      lineStartLays index blankBefore column place trace
-        (after later => LaysAll [line.layout] column after later next)
-        fresh
-        (statementLays line lexLine column trace
-          (after later => LaysAll [] column after later next)
-          (reached events isLine ended =>
-            onward reached events (thenDone (StatementEvents column line) events isLine) ended))
-    | { blankBefore, line }, [second, ..more], Both lexLine others, onward =>
-      lineStartLays index blankBefore column place trace
-        (after later => LaysAll [line.layout, ..statementLines (index + 1) [second, ..more]] column after later next)
-        fresh
-        (statementLays line lexLine column trace
-          (after later => LaysAll (statementLines (index + 1) [second, ..more]) column after later next)
-          (reached events isLine ended =>
-            linesLay
+    LaysAll (statementLines 0 [first, ..rest]) column (AtStart column) trace next :=
+  match first, lexical, onward with
+    | { blankBefore, line }, Both lexLine others, onward =>
+      statementLays line lexLine column trace
+        (after later => LaysAll (statementLines (0 + 1) rest) column after later next)
+        (reached events isLine ended =>
+          laterLay 0 rest others column reached (trace ++ events) next ended (last later areLines met =>
+            rewrite List.appendAssoc trace events later in
+              onward last (events ++ later) (Witness events (Witness later (Both rfl (Both isLine areLines)))) met))
+
+--| The lines of a block after its first, the first of these the
+--| `index + 1`th: each on a new line at the column, after a blank line
+--| if it has one before it.
+theorem laterLay ∀ (index: Nat) (lines: List (Spaced Statement))
+    (lexical: LexicalLines lines)
+    (column: Nat) (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+    (ended: Ended (Deeper column) place)
+    (onward: ∀ (reached: Place) (events: List Event) => LaterLines column lines events
+      → Ended (Deeper column) reached
+      → next reached (trace ++ events)):
+    LaysAll (statementLines (index + 1) lines) column place trace next :=
+  match lines, lexical, onward with
+    | [], _, onward => rewrite <- List.appendNil trace in onward place [] rfl ended
+    | [{ blankBefore, line }, ..more], Both lexLine others, onward =>
+      laterStart index blankBefore column place trace
+        (after later => LaysAll [line.layout, ..statementLines (index + 1 + 1) more] column after later next)
+        (endedMid (Deeper column) place ended)
+        (statementLays line lexLine column
+          (trace ++ blankEvents blankBefore)
+          (after later => LaysAll (statementLines (index + 1 + 1) more) column after later next)
+          (reached events isLine met =>
+            laterLay
               (index + 1)
-              second
               more
               others
               column
               reached
-              (trace ++ events)
+              ((trace ++ blankEvents blankBefore) ++ events)
               next
-              (zero => Void.exfalso (succNotZero index zero))
-              (last later areLines met =>
-                rewrite List.appendAssoc trace events later in
+              met
+              (last later areLines done =>
+                rewrite List.appendAssoc (trace ++ blankEvents blankBefore) events later,
+                    List.appendAssoc trace (blankEvents blankBefore) (events ++ later) in
                   onward last
-                    (events ++ later)
-                    (Witness events (Witness later (Both rfl (Both isLine areLines))))
-                    met)))
+                    (blankEvents blankBefore ++ (events ++ later))
+                    (Witness
+                      (events ++ later)
+                      (Both rfl (Witness events (Witness later (Both rfl (Both isLine areLines))))))
+                    done)))
 
 --| A statement of a block at `column`, from the start of its line.
 theorem statementLays ∀ (statement: Statement)
@@ -1996,10 +2067,19 @@ def DeclarationEvents (declaration: Declaration): List Event → Prop := match d
         (Then (TokenAt (Deeper 0).allows equals "=") (BodyEvents (Deeper 0) body)))
   | DeclarationNote comment => events => events = [{ word = comment.text, start = Some 0 }]
 
---| A file's declarations, one after another.
+--| A file's declarations, one after another, with the blank lines kept
+--| between them (none before the first).
 def DeclarationsEvents (declarations: List (Spaced Declaration)): List Event → Prop := match declarations with
   | [] => Done
-  | [{ line, .. }, ..rest] => Then (DeclarationEvents line) (DeclarationsEvents rest)
+  | [{ line, .. }, ..rest] => Then (DeclarationEvents line) (LaterDeclarations rest)
+
+--| A file's declarations after its first: each after a blank line if it
+--| has one before it.
+def LaterDeclarations (declarations: List (Spaced Declaration)): List Event → Prop := match declarations with
+  | [] => Done
+  | [{ blankBefore, line }, ..rest] => events =>
+    ∃ (later: List Event) => events = blankEvents blankBefore ++ later
+      ∧ Then (DeclarationEvents line) (LaterDeclarations rest) later
 
 --| The events of a file: what the rules lay for it, whichever way its
 --| groups, fills and choices go.
@@ -2418,7 +2498,7 @@ theorem functionLays ∀ (fnComments: Comments) (name: Text) (nameComments open:
                           LaysAll [closing] 0 middle between (reached written =>
                             LaysAll [body.afterEquals equals] 0 reached written next))
                         (ownHolds 0)
-                        (endedSeated (Deeper 0) listEnd listEnded)
+                        listEnded
                         (middle seated =>
                           closingLays
                             (Deeper 0)
@@ -2491,63 +2571,80 @@ theorem declarationLays ∀ (declaration: Declaration)
         (commentSolid comment.text fine)
         (onward (Mid 0) [{ word = comment.text, start = Some 0 }] rfl (ownHolds 0))
 
---| A file's declarations (P9), the first of them the `index`th: each
---| starts its line at column 0.
-theorem declarationsLay ∀ (index: Nat) (first: Spaced Declaration) (rest: List (Spaced Declaration))
+--| A file's declarations (P9), from the start of the first: each starts
+--| its line at column 0.
+theorem declarationsLay ∀ (first: Spaced Declaration) (rest: List (Spaced Declaration))
     (lexical: LexicalDeclarations [first, ..rest])
-    (place: Place) (trace: List Event) (next: Place → List Event → Prop)
-    (fresh: (index == 0) = True → place = AtStart 0)
+    (trace: List Event) (next: Place → List Event → Prop)
     (onward: ∀ (reached: Place) (events: List Event) => DeclarationsEvents [first, ..rest] events
       → Ended (Deeper 0) reached
       → next reached (trace ++ events)):
-    LaysAll (declarationLines index [first, ..rest]) 0 place trace next :=
-  match first, rest, lexical, onward with
-    | { blankBefore, line }, [], Both lexLine _, onward =>
+    LaysAll (declarationLines 0 [first, ..rest]) 0 (AtStart 0) trace next :=
+  match first, lexical, onward with
+    | { blankBefore, line }, Both lexLine others, onward =>
       concatLays
-        [lineStart index blankBefore, line.layout]
+        [lineStart 0 blankBefore, line.layout]
+        0
+        (AtStart 0)
+        trace
+        (after later => LaysAll (declarationLines (0 + 1) rest) 0 after later next)
+        (declarationLays line lexLine trace
+          (after later =>
+            LaysAll [] 0 after later (reached written =>
+              LaysAll (declarationLines (0 + 1) rest) 0 reached written next))
+          (reached events isLine ended =>
+            laterDeclarationsLay 0 rest others reached (trace ++ events) next ended (last later areLines met =>
+              rewrite List.appendAssoc trace events later in
+                onward last (events ++ later) (Witness events (Witness later (Both rfl (Both isLine areLines)))) met)))
+
+--| A file's declarations after its first, the first of these the
+--| `index + 1`th: each on a new line at column 0, after a blank line if
+--| it has one before it.
+theorem laterDeclarationsLay ∀ (index: Nat) (lines: List (Spaced Declaration))
+    (lexical: LexicalDeclarations lines)
+    (place: Place) (trace: List Event) (next: Place → List Event → Prop)
+    (ended: Ended (Deeper 0) place)
+    (onward: ∀ (reached: Place) (events: List Event) => LaterDeclarations lines events
+      → Ended (Deeper 0) reached
+      → next reached (trace ++ events)):
+    LaysAll (declarationLines (index + 1) lines) 0 place trace next :=
+  match lines, lexical, onward with
+    | [], _, onward => rewrite <- List.appendNil trace in onward place [] rfl ended
+    | [{ blankBefore, line }, ..more], Both lexLine others, onward =>
+      concatLays
+        [lineStart (index + 1) blankBefore, line.layout]
         0
         place
         trace
-        (after later => LaysAll [] 0 after later next)
-        (lineStartLays index blankBefore 0 place trace
-          (after later => LaysAll [line.layout] 0 after later (reached written => LaysAll [] 0 reached written next))
-          fresh
-          (declarationLays line lexLine trace
-            (after later => LaysAll [] 0 after later (reached written => LaysAll [] 0 reached written next))
-            (reached events isLine ended =>
-              onward reached events (thenDone (DeclarationEvents line) events isLine) ended)))
-    | { blankBefore, line }, [second, ..more], Both lexLine others, onward =>
-      concatLays
-        [lineStart index blankBefore, line.layout]
-        0
-        place
-        trace
-        (after later => LaysAll (declarationLines (index + 1) [second, ..more]) 0 after later next)
-        (lineStartLays index blankBefore 0 place trace
+        (after later => LaysAll (declarationLines (index + 1 + 1) more) 0 after later next)
+        (laterStart index blankBefore 0 place trace
           (after later =>
             LaysAll [line.layout] 0 after later (reached written =>
-              LaysAll (declarationLines (index + 1) [second, ..more]) 0 reached written next))
-          fresh
-          (declarationLays line lexLine trace
+              LaysAll (declarationLines (index + 1 + 1) more) 0 reached written next))
+          (endedMid (Deeper 0) place ended)
+          (declarationLays line lexLine
+            (trace ++ blankEvents blankBefore)
             (after later =>
               LaysAll [] 0 after later (reached written =>
-                LaysAll (declarationLines (index + 1) [second, ..more]) 0 reached written next))
-            (reached events isLine ended =>
-              declarationsLay
+                LaysAll (declarationLines (index + 1 + 1) more) 0 reached written next))
+            (reached events isLine met =>
+              laterDeclarationsLay
                 (index + 1)
-                second
                 more
                 others
                 reached
-                (trace ++ events)
+                ((trace ++ blankEvents blankBefore) ++ events)
                 next
-                (zero => Void.exfalso (succNotZero index zero))
-                (last later areLines met =>
-                  rewrite List.appendAssoc trace events later in
+                met
+                (last later areLines done =>
+                  rewrite List.appendAssoc (trace ++ blankEvents blankBefore) events later,
+                      List.appendAssoc trace (blankEvents blankBefore) (events ++ later) in
                     onward last
-                      (events ++ later)
-                      (Witness events (Witness later (Both rfl (Both isLine areLines))))
-                      met))))
+                      (blankEvents blankBefore ++ (events ++ later))
+                      (Witness
+                        (events ++ later)
+                        (Both rfl (Witness events (Witness later (Both rfl (Both isLine areLines))))))
+                      done))))
 
 --| Every way a file's layout may print lays the file's events.
 theorem fileLays ∀ (file: SourceFile)
@@ -2570,12 +2667,10 @@ theorem fileLays ∀ (file: SourceFile)
           (AtStart 0)
           []
           (after later => LaysAll [HardLine] 0 after later next)
-          (declarationsLay 0 first rest lexical
-            (AtStart 0)
-            []
+          (declarationsLay first rest lexical []
             (after later => LaysAll [HardLine] 0 after later next)
-            (zero => rfl)
-            (reached events areLines ended => onward (AtStart 0) events areLines)))
+            (reached events areLines ended =>
+              Both (endedMid (Deeper 0) reached ended) (Inr (onward (AtStart 0) events areLines)))))
 
 --| Where the rules put every word of a file that satisfies what the
 --| parser guarantees: at every width, the words of the printed pieces

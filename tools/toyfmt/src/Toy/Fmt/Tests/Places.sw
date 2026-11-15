@@ -1,9 +1,11 @@
 --| A probe of `Toy.Doc.Proofs.Lays` over the goldens and the comment
 --| probes: the places a document may leave the printer at (`reach`), as
 --| `Lays` lists them but as a set and without the trace, so that it runs.
---| `None` is where `Lays` is `False`: a space or a separator at a line
---| start, a trailing comment at a line start or while another waits. It
---| holds at every width, since neither `Lays` nor `reach` has one.
+--| `None` is where `Lays` is `False`: a space, a separator or a line
+--| break at a line start, a `Blank` at a line start other than right
+--| after a `HardLine`, a trailing comment at a line start or while
+--| another waits. It holds at every width, since neither `Lays` nor
+--| `reach` has one.
 
 namespace Toy.Fmt.Tests
 import Toy.Doc (..)
@@ -14,6 +16,7 @@ import Std (List, Nat, Option, Result, Text)
 
 def samePlace: Place → Place → Bool
   | AtStart one, AtStart other => one == other
+  | Broken one, Broken other => one == other
   | Mid one, Mid other => one == other
   | Held one, Held other => one == other
   | _, _ => False
@@ -34,25 +37,41 @@ def chunkStep (indent: Nat) (text: Text) (place: Place): Option (List Place) :=
   else if text.all (char => char == ' ') then
     match place with
       | AtStart _ => None
+      | Broken _ => None
       | _ => Some [place]
   else if text == "\n" then None
   else
     match place with
       | AtStart at => Some [Mid at]
+      | Broken at => Some [Mid at]
       | Mid at => Some [Mid at]
       | Held at => Some [Mid (Nat.max indent (at + 2))]
 
 def sepStep (indent: Nat) (place: Place): Option (List Place) := match place with
   | AtStart _ => None
+  | Broken _ => None
   | Mid at => Some [Mid at, AtStart indent]
   | Held _ => Some [AtStart indent]
 
 def softStep (indent: Nat) (place: Place): Option (List Place) := match place with
+  | AtStart _ => None
+  | Broken _ => None
+  | Mid at => Some [Mid at, AtStart indent]
   | Held _ => Some [AtStart indent]
-  | other => Some [other, AtStart indent]
+
+--| A line break that must come after words. Of the two places `Lays`
+--| lets the document take after a `HardLine`, `Broken` allows all that
+--| `AtStart` does, and a `Blank`.
+def breakStep (after place: Place): Option (List Place) := if place.midLine then Some [after] else None
+
+def blankStep (place: Place): Option (List Place) := match place with
+  | AtStart _ => None
+  | Broken at => Some [AtStart at]
+  | other => Some [other]
 
 def startStep (indent: Nat) (place: Place): Option (List Place) := match place with
   | AtStart at => Some [AtStart at]
+  | Broken at => Some [AtStart at]
   | Mid at => Some [AtStart (Nat.max indent (at + 2))]
   | Held at => Some [AtStart (Nat.max indent (at + 2))]
 
@@ -66,14 +85,18 @@ def reach: Doc → Nat → List Place → Option (List Place)
   | Doc.Chunk text _, indent, places => eachPlace (chunkStep indent text) places
   | Line, indent, places => eachPlace (sepStep indent) places
   | SoftLine, indent, places => eachPlace (softStep indent) places
-  | HardLine, indent, places => eachPlace (place => Some [AtStart indent]) places
-  | CommentEnd, _, places => eachPlace (place => Some [AtStart place.indent]) places
+  | HardLine, indent, places => eachPlace (breakStep (Broken indent)) places
+  | CommentEnd, _, places => eachPlace (place => breakStep (AtStart place.indent) place) places
+  | Blank, _, places => eachPlace blankStep places
   | LineStart, indent, places => eachPlace (startStep indent) places
   | LineStartHere, indent, places => eachPlace (place => Some [AtStart indent]) places
   | Nest more inner, indent, places => reach inner (indent + more) places
   | Group inner _, indent, places => reach inner indent places
   | Flatten inner, indent, places => reach inner indent places
-  | OneLineBelow inner, indent, places => reach inner (indent + 2) [AtStart (indent + 2)]
+  | OneLineBelow inner, indent, places =>
+    match eachPlace (breakStep (AtStart (indent + 2))) places with
+      | Some after => reach inner (indent + 2) after
+      | None => None
   | Concat docs, indent, places => reachAll docs indent places
   | Fill [], _, places => Some places
   | Fill [first, ..others], indent, places =>
@@ -116,7 +139,14 @@ test "reach follows a line break into a nest" :=
     | Some [Mid 2] => True
     | _ => False
 
-test "reach refuses a space at a line start" := (reach (Concat [HardLine, Doc.Chunk " " 1]) 0 [AtStart 0]).isNone
+test "reach refuses a space at a line start" := (reach (Concat [HardLine, Doc.Chunk " " 1]) 0 [Mid 0]).isNone
+
+test "reach refuses a line break at a line start, and a blank line anywhere but after one" :=
+  (reach HardLine 0 [AtStart 0]).isNone
+    && (reach Blank 0 [AtStart 0]).isNone
+    && (match reach (Concat [HardLine, Blank]) 0 [Mid 0] with
+      | Some [AtStart 0] => True
+      | _ => False)
 
 test "every golden's layout lays, whichever way its groups, fills and choices go" :=
   goldens.all (golden => lays golden.tree)
