@@ -216,6 +216,12 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   regardless. A DeepSeek run can't be talked to while it runs, so the
   orchestrator also watches its elapsed time (`ps -o etime=`) and stops it at 2× if its log
   shows it going in circles.
+  Estimate agent time, not human time (Matt, 15 Nov 2026: "your
+  estimates ... are often wildly inflated ... you estimate how long it'll
+  take a human"). Over 1,034 closed tasks the median actual was 0.33 of
+  the estimate (Opus and Sonnet 0.28, DeepSeek 0.63), and the toy
+  formatter's plan ran 8× high; so base an estimate on similar past tasks'
+  actual times, and read a lane's day-or-week estimate the same way.
 - **Briefs** carry the standard lines for the work they hand out (new
   examples' hash snapshots, std core's native pins, which comment rules
   apply): see "Writing a brief" in `docs/workflow.md`.
