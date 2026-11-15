@@ -3,11 +3,10 @@
 //! characters only (`reads_chain/`). Each lemma's result type is compared
 //! with the goal before its arguments are checked, solving the lemma's
 //! unknowns from the arguments of the two `Reads` calls where the plain
-//! comparison can't; before that (SW-3281) the comparison failed, the
-//! ability's parameter `t` stayed unknown while the arguments were checked,
-//! and the proof took 349k steps generic and 208k over characters, against
-//! 46k and 40k now (as `STITCHWORT_TIMINGS` counts them; this test's own
-//! count, the bounds below, is a little lower).
+//! comparison can't. Without that, the comparison fails, the ability's
+//! parameter `t` stays unknown while the arguments are checked, and the
+//! proof takes about seven times its bound generic and five times over
+//! characters (SW-3281).
 //!
 //! Only the proof's own steps are counted: the program without it is loaded
 //! first and its steps taken away, in a session that has loaded the library

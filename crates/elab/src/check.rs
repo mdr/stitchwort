@@ -6864,6 +6864,11 @@ fn propagate(
     match plan.apply(cx, expr.span(), expected) {
         Ok(term) => Ok(Some(Ok(term))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) if plan.by_arguments => {
+            let Propagation { snapshot, .. } = *plan;
+            snapshot.restore(cx);
+            Ok(Some(after_arguments_failed(cx, expr, expected, named)))
+        }
         Err(propagated) => {
             let Propagation {
                 args,
@@ -6902,6 +6907,27 @@ fn propagated(
         ));
     }
     compare(cx, term, &found, expected)
+}
+
+/// After [`propagate`] failed for the application `expr`, whose result type
+/// matched `expected` only by the arguments of the two calls: put back as it
+/// was, `expr` elaborated as it would have been had that comparison failed,
+/// inferred and then compared ([`fallback_inferred`]), so its error is the
+/// one it would have given. Inside, applications still use their expected
+/// types first, all but by arguments.
+#[inline(never)]
+fn after_arguments_failed(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let off = &cx.e.decl.no_argument_propagation;
+    off.set(off.get() + 1);
+    let result = fallback_inferred(cx, expr, expected, named);
+    let off = &cx.e.decl.no_argument_propagation;
+    off.set(off.get() - 1);
+    result
 }
 
 /// After [`propagate`] failed with `propagated` for the application `expr`
@@ -6963,6 +6989,9 @@ struct Propagation<'a> {
     supply: Supply,
     snapshot: crate::undo::Snapshot,
     by_holes: bool,
+    /// Matched not by `_`s but by the arguments of the two calls, the plain
+    /// comparison having failed.
+    by_arguments: bool,
 }
 
 /// `args` with those at the positions in `pipes` (written `_`, and checked
@@ -7098,10 +7127,12 @@ fn propagation_plan<'a>(
     // while the arguments are checked: a lemma's type parameters (an
     // ability's `t` in `Parse.readsThen`) among them, so each argument is
     // checked against a type that can't fail early, and a lambda is checked
-    // in place, fails, and is checked again (SW-3281: a two-step
-    // `readsThen` chain took 498k steps, 61k with this).
-    let matched = crate::undo::unify(cx, &written, expected)?
-        || crate::undo::unify_solving_arguments(cx, &written, expected)?;
+    // in place, fails, and is checked again (SW-3281).
+    let plain = crate::undo::unify(cx, &written, expected)?;
+    let by_arguments = !plain
+        && (by_holes || cx.e.decl.no_argument_propagation.get() == 0)
+        && crate::undo::unify_solving_arguments(cx, &written, expected)?;
+    let matched = plain || by_arguments;
     if !matched {
         snapshot.restore(cx);
         return Ok(None);
@@ -7125,6 +7156,7 @@ fn propagation_plan<'a>(
         supply,
         snapshot,
         by_holes,
+        by_arguments: by_arguments && !by_holes,
     })))
 }
 
