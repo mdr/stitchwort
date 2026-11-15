@@ -381,6 +381,34 @@ fn a_project_audits_namespaces_and_names_with_its_own_allowlist() {
     );
 }
 
+/// A namespace with no theorems, or one the project doesn't have, must not
+/// look like an empty clean audit (SW-3453).
+#[test]
+fn a_namespace_that_matches_no_theorem_says_so() {
+    let dir = folder("empty-namespace");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "").unwrap();
+    std::fs::write(dir.join("src/a.sw"), "namespace Bare\n\ndef x: Nat := 1\n").unwrap();
+    let empty = stitchwort(&dir, &["audit", "--no-search", "Bare"]);
+    let unknown = stitchwort(&dir, &["audit", "--no-search", "Nope"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(
+        empty.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&empty.stdout)
+    );
+    assert!(
+        String::from_utf8_lossy(&empty.stderr).contains("no theorems matched 'Bare'"),
+        "{}",
+        String::from_utf8_lossy(&empty.stderr)
+    );
+    assert_eq!(unknown.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&unknown.stderr);
+    assert!(stderr.contains("E-NAMESPACE-UNKNOWN"), "{stderr}");
+    assert!(stderr.contains("there's no namespace `Nope`"), "{stderr}");
+}
+
 #[test]
 fn an_unknown_theorem_is_an_error() {
     let dir = folder("unknown-theorem");

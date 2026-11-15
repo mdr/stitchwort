@@ -8,7 +8,7 @@ use rustyline::error::ReadlineError;
 use stitchwort_cli::driver::{Cache, Outcome, Session, TestResult};
 use stitchwort_cli::project::{
     DiskFiles, Load, Target, TheoremCount, analyse, find_project, namespace_of, project_sources,
-    run_unknown_namespace,
+    run_unknown_namespace, unknown_namespace,
 };
 use stitchwort_cli::render::render;
 use stitchwort_cli::run::Main;
@@ -3995,7 +3995,10 @@ fn audit(
                 namespaces.push(namespace.to_string());
                 named.push(target.clone());
             } else {
-                let d = run_unknown_namespace(&project.name, target, &analysis);
+                let known: BTreeSet<String> = (analysis.namespaces.iter())
+                    .map(|n| n.name.clone())
+                    .collect();
+                let d = unknown_namespace(&project.name, target, &known);
                 report(&session.sources, &[d]);
                 return ExitCode::FAILURE;
             }
@@ -4093,6 +4096,15 @@ fn audit_loaded(
     for failed in session.audit_failed(&keep) {
         if !audits.iter().any(|a| a.name == failed.name) {
             audits.push(failed);
+        }
+    }
+    // A namespace (or a namespace prefix) with no theorem must never look
+    // like an empty pass, as `check`'s unknown namespace and `test`'s target
+    // that matches no test don't.
+    for root in roots {
+        if !audits.iter().any(|a| is_under(&a.name, root)) {
+            eprintln!("warning: no theorems matched '{root}'");
+            return Err(ExitCode::FAILURE);
         }
     }
     Ok(audits)
