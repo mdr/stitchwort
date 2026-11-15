@@ -1,5 +1,5 @@
 {
-  "next": 3352,
+  "next": 3355,
   "tickets": [
     {
       "id": 47,
@@ -36908,7 +36908,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Starts when a build slot frees (three running). Expected: 4.5 h (Opus).",
+      "body": "Opus review docs/reviews/SW-3338-files.md: merge after fixes H1-H3, M1, M2, M4, M5 (+ orchestrator's naming calls: utf8Size to Text.utf8Length, Disk.missing to missingError, plumbing helpers documented internal). Path join is Matt's (to bring). Filed SW-3352 SW-3353 SW-3354.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36942,12 +36942,12 @@
     {
       "id": 3341,
       "title": "[Opus] Toy formatter stage B (toy-formatter.md): layout engine port with ported tests, rules P1-P10, goldens, disturber; can start beside A",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 15 Nov (orchestrator's sequencing): the layout engine needs neither T1 nor F1. Expected: 4.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37077,6 +37077,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3352,
+      "title": "[Sonnet] F2 additions from SW-3338 review M3: the playground shows IO.printError output and refuses Files clearly; JS keys filesWrite etc. distinct from IO's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3353,
+      "title": "[Sonnet] Files.simulate: a write-then-read law (SW-3338 review L10)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3354,
+      "title": "[Opus] Design: derived == and compare for std types (opt-in), so Files' ~60 lines of hand-written instances and similar go (SW-3338 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
