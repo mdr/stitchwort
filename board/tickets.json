@@ -36711,12 +36711,12 @@
     {
       "id": 3326,
       "title": "[Sonnet] examples/goals/reify-return goal 1 (toResultThenGoal2): the printed lemma doesn't check when pasted back, so lemmas_check_as_the_same_goal fails on main (SW-3317 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From the SW-3317 review. Expected: 45 min (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
