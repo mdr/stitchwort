@@ -24,6 +24,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Fmt.Proofs` | `Fmt/TextProofs.sw`, `Fmt/JoinProofs.sw`, `Fmt/RuleJoinProofs.sw` | SW-3418 part 7: the lexer's texts as predicates; every rule joins; a file with the lexer's texts, printed at any width, lexes to its pieces (`printedLexes`) |
 | `Toy.Fmt.Proofs` | `Fmt/LexTextProofs.sw`, `Fmt/StringProofs.sw`, `Fmt/ParsedProofs.sw` | SW-3418 parts 8 and 9: the lexer's tokens have the lexer's texts; the parser copies them into the tree (`parseLexical`); a parsed file, printed at any width, lexes to its pieces (`parsedPrintLexes`) |
 | `Toy.Doc.Proofs`, `Toy.Fmt.Proofs`, `Toy.Fmt.Tests` | `Doc/Places.sw`, `Fmt/PlaceProofs.sw`, `Fmt/Tests/Places.sw` | SW-3418 part 10: the printed tokens from the pieces alone, each with its line start and column (`placed`, `parsedPrintTokens`); every word of a print is where its document lays it (`Lays`, `printLays`); a runnable probe of `Lays` over the goldens |
+| `Toy.Fmt.Proofs` | `Fmt/LaidProofs.sw` | SW-3418 part 11: a token and a closing bracket with their comments lay exactly their events (`tokenLays`, `closerRule`); zones and rule triples for the rules' half of positions (`Zone`, `Rule`, `tokenRule`) |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -2032,6 +2033,147 @@ events; (2) spelling, the rest of D and the glue.
 58. **A constructor is shadowed by a type of the same name in the
     importing namespace**: `Chunk` in `Toy.Fmt.Tests` is the disturber's
     type, so the pattern needed `Doc.Chunk`.
+
+### Part 11 (Fable, 15 Nov 2026): the rules' half of positions, begun: tokens, closing brackets, rule triples
+
+A 15-minute lane. The leaves of the rules' half are proved (a token and
+a closing bracket with their comments, the breaks, the triples that put
+rules one after another). The induction over the tree isn't started: it
+is designed below, and it met a case that can't be proved of the rules
+as they are (finding 1). Nothing yet says a printed file's tokens are
+where the parser wants them; tokens against events, spelling and
+`formatDirect` aren't started.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 927 theorems, 0
+failed, the same 16 warnings as part 10), all in `Fmt/LaidProofs.sw`
+(36 theorems, new file):
+
+- `concatLays` (with `filterLays`, `emptyLays`): `Doc.concat docs` lays
+  as the documents one after another (`LaysAll`).
+- `wordLays`: a `Solid` text at any place is one event, `start =
+  wordStart indent place` (`Some at` at a line start, `None` after
+  words, `Some (max indent (at + 2))` after a waiting comment), and the
+  line then has words on it.
+- **`tokenLays`**: `token comments text`, with `Fine comments` and
+  `Solid text`, from any place and trace, hands `next` exactly
+  `tokenEnd indent place comments` and `trace ++ tokenEvents indent
+  place comments text`: the comments above each at `breakColumn indent
+  place` (where a `LineStart` there starts a line), the token (after
+  them it starts their line; with none, where the place says), the
+  trailing comment at `None`, left waiting. On the way `notesLay`,
+  `aboveLays`, `trailingLays`.
+- `Zone` (`Anywhere column`: in brackets in a statement at `column`;
+  `Deeper column`: in the statement outside brackets), `Zone.allows`
+  (`Layout.allows` of an event's start, for a token that isn't the
+  statement's first), `Zone.holds` (an indentation no shallower than the
+  statement), `Zone.under` (an indentation a line of the zone may start
+  at), and of places `Inner` (a token that isn't the first may come),
+  `Ended` (after a token), `Seated` (the line no shallower than the
+  statement).
+- `Rule within doc pre spec post`: in a construct whose indentation
+  `within` holds of, from any place of `pre`, every way `doc` prints
+  puts down events of `spec` and leaves a place of `post`. `RuleAll` of
+  a list; `ruleNil`, `ruleCons` (the events are `Then first second`),
+  `ruleLast`, `ruleConcat`, `ruleGroup`, `ruleNest` (inside a `Nest` of
+  one or more, lines are deeper than the statement: `zone.under`),
+  `ruleUnder`, `ruleWeaker`.
+- **`tokenRule`**: `Rule zone.holds (token comments text) (Inner zone)
+  (TokenAt zone.allows comments text) (Ended zone)`: a token that isn't
+  its statement's first, wherever comments above it or a waiting comment
+  start its line, starts only where the zone allows (`innerStart`,
+  `innerLine`: a comment break is at `max indent (at + 2)`, deeper than
+  the statement since its line isn't shallower).
+- **`closerRule`**: `closer comments text` from any `Seated` place: the
+  own-line comments at `indent + 2`, the bracket then at `Some indent`;
+  `TokenAt anyStart`, since a closing bracket may start any line.
+  `closerNotes` is its comment lines.
+- `spaceRule`, `nothingRule`, `lineRule` (a `Line` in a nest: a space,
+  or a line where the next token may start), `lineSeats` (a `Line` at
+  the statement's own indentation: before `else` or a closing bracket),
+  `softRule`, `hardRule`, `hardUnder`.
+- `spacedTokens`: two tokens with a space between, by the triples
+  alone: the shape of `let name` and of an operator and its operand.
+
+No program changed.
+
+**The induction, as designed (not proved).** `Events zone head expr
+events`, a predicate by recursion on the tree as `Spelled`, in `Then`s:
+`head` is asked of the leftmost token's start and `zone.allows` of the
+others'; brackets' contents and items are `Events (Anywhere column)
+anyStart`; a closing bracket is `TokenAt anyStart`; `else` is `TokenAt`
+of "none, or at the statement's column or deeper". A body (a branch, or
+after `=`) is either its one expression with `head := value.firstAbove
+= [] → start = None` (inline: it doesn't start a line), or its lines at
+one `column` with `zone.under column`, each statement `Events (Deeper
+column) (start => start = Some column)`. The lemma per expression:
+
+    Lexical expr → zone.holds indent → Seated zone place
+      → head (wordStart indent (aboveEnd indent place expr.firstAbove))
+      → (∀ after events => Events zone head expr events → Ended zone after → next after (trace ++ events))
+      → Lays expr.layout indent place trace next
+
+The leftmost token of every rule is printed at the rule's own
+indentation, so its start is that function of the place
+(`Expr.firstAbove`: the comments above the leftmost token). The pieces
+are `tokenLays` for the head and the triples above for the rest (a
+helper is wanted that runs a `RuleAll` after a lemma in this form).
+
+**Findings.**
+
+1. **A branch after a trailing comment on `then` or `else` can't be
+   proved of `Lays`.** `branch` offers `Choice [" " value flat, below
+   value]` whatever the keyword's comments. After `then -- note`, `Lays`
+   (which doesn't follow `fits`) lets the first option print: the
+   value's first token on a comment break at `max indent (at + 2)`,
+   which the parser reads as a block at that column, and a later line of
+   the value at `indent + 2`, which may be that same column: a new
+   statement, `+ b`. Read from `Print.sw`, not proved: the engine
+   doesn't do it in a broken group (`fitsFrom` refuses a chunk after a
+   waiting comment, so `choose` takes `below`), and a group around a
+   waiting comment and a chunk isn't flat for the same reason. Either
+   way it is a fact about `fits`, which the proof has kept out of. `afterEquals`
+   says it in the rule (`if equals.after.isNone`); `branch` should too:
+   `branch keyword body`, inline only if `keyword.after.isNone`. The
+   output is unchanged if the argument above is right (goldens to
+   confirm). It touches `branchKeeps`, `branchPasses`, `branchWrites`
+   and the three `if` lemmas that take them. Not done here.
+2. **An inline body's first token has no comments above** in a parsed
+   tree (above a token that starts a line deeper they are the block's
+   notes), and the rules lean on `fits` for it too (`Flatten` refuses
+   `LineStart`). `Events` above states the inline case under
+   `value.firstAbove = []`, so the rules' half needs no hypothesis; step
+   3 needs the fact from the parser, a new WF item (about 15 lemmas in
+   `ParsedProofs.sw`'s style), or the same guard in the rules.
+3. **Inside brackets the statement's column still matters**: the zone
+   there is `Anywhere column`, not a zone without one, since the closing
+   bracket's line must be shown no shallower than the statement for the
+   tokens after it.
+
+**What is left**, part 10's table with this part's work taken off:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| E, rules to tokens | `branch` by its keyword (finding 1; 10); `Events` and the induction (35-40, the leaves done); tokens against events (15); spelling the tree with blank lines (25-35) | 85-100 |
+| D, parser | `if` with a block branch; the file from its spelling; an inline body's first token has no comments above (finding 2; 15) | 45-55 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Two to three lanes at this pace [estimated; this lane proved 36
+theorems in about 15 minutes of the clock, and stopped for context,
+not time]: (1) `branch`, `Events` and the induction; (2) tokens against
+events and spelling; (3) the rest of D and the glue.
+
+**Friction** (beyond parts 1 to 10):
+
+59. **A constructor named as an existing `def` of the namespace makes
+    every use of that name ambiguous, in other files too**: `type Zone =
+    | Loose | …` broke `JoinProofs.sw`'s `Loose` (`E-AMBIGUOUS` at each
+    use, none in the new file). The zones are `Anywhere` and `Deeper`.
+60. **`_` for a continuation argument isn't worked out** from the
+    expected type (`wordLays … _ …`: "wasn't worked out from the other
+    arguments"); each continuation is written out, which is most of
+    `closerRule`'s length.
+61. `omega` knows `Nat.max` (`innerStart`, `innerLine`), which the
+    notes didn't say.
 
 ## Every comment placed (SW-3450, D3618, D3619)
 
