@@ -1,5 +1,5 @@
 {
-  "next": 3467,
+  "next": 3468,
   "tickets": [
     {
       "id": 47,
@@ -38563,12 +38563,12 @@
     {
       "id": 3462,
       "title": "[Sonnet] Bug: stitchwort fmt not idempotent with comments in a lambda's parameter list (Overmind fuzz:fmt seed 0x12b COMMENTS=0.3 case 413554, on 3d65b641f): def f: Nat → Nat := [a:-- c / Type-- c / ] (x:-- c / a) => x — pass 1 puts the body x on its own line, pass 2 pulls it up to 'a) => x'. Repro: task fuzz:fmt SEED=0x12b COMMENTS=0.3 CASE=413554",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Lane (Sonnet): cause: lambda_head used the filled layout when the comment sat before a parameter closing bracket (pass 1), but joined when it trailed the bracket (pass 2, comment_between); the fill's Line met the waiting comment so the body broke. Fix: comment_ends_at_closers treats both the same (commit e79bb0650). Golden lambda-param-comment-before-closer. No other golden changed.\n",
+      "body": "Lane (Sonnet): cause: lambda_head used the filled layout when the comment sat before a parameter closing bracket (pass 1), but joined when it trailed the bracket (pass 2, comment_between); the fill's Line met the waiting comment so the body broke. Fix: comment_ends_at_closers treats both the same (commit e79bb0650). Golden lambda-param-comment-before-closer. No other golden changed.\n\nModel result: sonnet, worked, 4 min (est. 25). SW-3467 filed.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38622,6 +38622,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3467,
+      "title": "[Sonnet] fmt: other rules that test comment_between alone (crates/fmt/src/printer/rules.rs ~1345, ~1380) may lay a comment before a closer differently from the same comment after it (the SW-3462 split); check each, add goldens for both sides, fix with comment_ends_at_closers where they differ",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
