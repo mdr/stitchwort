@@ -1,5 +1,5 @@
 {
-  "next": 3311,
+  "next": 3312,
   "tickets": [
     {
       "id": 47,
@@ -36398,15 +36398,17 @@
     {
       "id": 3305,
       "title": "[Opus] settle_from_expected doesn't retry when its early guess fails: a program whose expected type matches the lemma's result only after unfolding is rejected where main accepts it (probes g5.sw, g6.sw in docs/reviews/SW-3282-settle-from-expected.md S1); snapshot, restore and redo without settling on failure, with a counter like stage 0's",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).\n\n15 Nov 02:30 (lane, lane/SW-3305, c84283e65, took 35 min): fallback_inferred snapshots; a call that settled type arguments and then fails is redone with settling off inside (no_settling), giving the unsettled path's result or error. A plain per-call retry cost 6x on 2020 day 2 (6.89M -> 41.7M: speculative failures inside chains), so inside held-argument checks and propagation plans (settle_trial) the retry is passed over and noted; an argument whose failure is final is rechecked without settling. Steps identical to SW-3282: day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M. g5/g6 accepted (examples accept/settle-from-expected-by-unfolding.sw, -dependent.sw; reject/settle-from-expected-dependent-mismatch.sw). Errors return to the unsettled path's (review S2's better-placed settled errors are gone, as briefed); two reject snapshots renumber an unknown. Hashes unchanged.\n\n\n15 Nov 02:55 (lane, 0f5763e14, 25 min): orchestrator's call applied: when both attempts fail the settled error is given (g2/g8/r1 blame the parser argument again). settle_from_expected now settles only when the definition's parameter at that place has the type parameter's sort (parameter_type_is), so g6-style goals no longer produce rows like {Src (b => List b)}. Snapshots: the two renumbered-unknown snapshots from c84283e65 reverted to main's; reads-chain-* unchanged; new reject/settle-from-expected-wrong-row.sw. Stack (nesting thresholds, before ticket / c84283e65 / now): nested f(...) 268/260/269; nested settled call 214/196/209; under 320 KiB guard 54/52/54 and 42/38/41. Steps unchanged (+~300 for the sort check).\n",
+      "body": "From SW-3282's review S1. Expected 1.5 h (Opus), ~1 h. Steps unchanged (day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M); nesting -2% at most for nested settled calls. Error choice (orchestrator's call): the settled attempt's error when both fail. Opus review docs/reviews/SW-3305-settle-retry.md: merge (strict improvement on main); follow-up SW-3311.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "c813d20267b9aafdcaa9557c8a86ac56247b9c98"
+      ]
     },
     {
       "id": 3306,
@@ -36471,6 +36473,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "Found by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3311,
+      "title": "[Opus] Simplify settle_from_expected's retry to one retry per declaration with settling off (docs/reviews/SW-3305-settle-retry.md 'simpler design'): closes the two remaining gaps where a skipped speculative failure is final (S1, probes p1b.sw, p2.sw), removes the super-linear cost of failing nested chains (S2: depth 200 2.9 s vs 0.36 s on main; matters for mistyped proofs in the editor) and three of four new Decl fields; add a note saying where t came from when the settled error blames a correct argument (S3, e1.sw). Re-measure 2020 day 2/7/18 and Std.Parse",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
