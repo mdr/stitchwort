@@ -510,10 +510,7 @@ page it opened, it's marked **[unverified]**.
 - **Mathlib `ring` is proof-producing, not reflective**: "normalisation is guided by building
   a value in the type `ExSum` at the meta level, together with a proof … that the original
   value is equal to the normalised version"; commutativity is "by sorting the subterms"; it
-  allows variable `ℕ` exponents [S13][S14]. It cites Grégoire and Mahboubi's paper [S15]
-  (the identification is from course notes, **[unverified]** against the paper itself;
-  checked 15 Nov 2026: the docstrings of the current `Mathlib/Tactic/Ring/Common.lean`,
-  `Ring/Basic.lean` and `Ring.lean` don't name Grégoire and Mahboubi, so the link isn't confirmed by the source either).
+  allows variable `ℕ` exponents [S13][S14]. Its module docstring says "Based on" a PDF URL (`www.cs.ru.nl/~freek/courses/tt-2014/read/10.1.1.61.3041.pdf`, `Mathlib/Tactic/Ring/Basic.lean`, Mathlib master at f78acaf), and that PDF is Grégoire and Mahboubi's paper [S15] (opened 15 Nov 2026; title and authors on its first page). So the source names the paper by link, not by author, and "based on" says nothing about which parts: their tactic is reflexive, Mathlib's is proof-producing **[corrected 15 Nov 2026: an earlier note said the source doesn't mention them]**.
 - **Lean core's `grind`** has a commutative ring solver that "uses proof-by-reflection": each
   step is a small theorem about a certificate, checked with `eagerReflBoolTrue` [S16][S17].
   So Lean now ships both ways.

@@ -582,10 +582,12 @@ campaign") **[checked: curl]**. *Steal:* two must-reject tests (§5.4). *Cost:* 
 text:* read (both advisories).
 
 **C27. Liesnikov, Cockx, Building a Correct-by-Construction Type Checker for a Dependently
-Typed Core Language** (APLAS 2024, LNCS 15194, doi 10.1007/978-981-97-8943-6_4). From the
-search summary only: Agda Core, a checker in Agda that returns typing derivations, so
-positive soundness holds by construction **[unverified]**. C6 §5 says the same of Agda-Core
-**[checked: C6]**. **NOT READ** (§9).
+Typed Core Language** (APLAS 2024, LNCS 15194, doi 10.1007/978-981-97-8943-6_4). Abstract and
+opening sections read in the TU Delft open-access PDF, 15 Nov 2026: a type checker for a subset of
+Agda's internal language, written in Agda and intrinsically verified against a formal specification
+of the typing rules, outputting typing derivations (so positive soundness holds by construction)
+**[checked: the paper's abstract and introduction]**. C6 §5 says the same of Agda-Core
+**[checked: C6]**. Rest of the paper **NOT READ** (§9).
 
 ## 5. Deep reads
 

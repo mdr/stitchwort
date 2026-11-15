@@ -344,7 +344,7 @@ Three layers, at the source first:
    playground. Instead, where a term is checked against an expected type
    and the two don't unify, and either side mentions an error hole, the
    term is silently replaced by a new error hole of the expected type. Lean
-   does this with its synthetic `sorry` [from memory]. What flows on is
+   does this with its synthetic `sorry`: `logAt` drops an error message whose text `hasSyntheticSorry` (`src/Lean/Log.lean`, lean4 918003258c) [checked in source, 15 Nov 2026]. What flows on is
    always well typed. (Fable's safeguard 2.)
 2. **Error sites that inspect a type's head without unifying** return an
    error hole, silently, when that head is flagged: a field or method after
@@ -396,15 +396,15 @@ check now costs what a good one's does, where today it costs nothing past
 the header. That is per keystroke in the declaration being typed, and
 under the time of checking the rest of the file [estimated].
 
-### 4.5 What other tools do [from memory, Fable's review]
+### 4.5 What other tools do [from memory, Fable's review; TypeScript and Lean spot-checked 15 Nov 2026, below]
 
 Lean 4 is closest to this design: it elaborates the partial syntax up to
 the error, puts a synthetic `sorry` in the gap, and suppresses errors that
 mention one when they are emitted. Agda and Idris stop at the file's first
 syntax error. rust-analyzer, rustc and TypeScript recover per statement
-and give the gap an error type. TypeScript's `tsc` may print only the
-syntax errors when there are any [medium confidence], while its editor
-server shows both (D3581).
+and give the gap an error type. TypeScript's `tsc` prints only the
+syntax errors when there are any: `emitFilesAndReportErrors` gets semantic diagnostics only "if we didn't have any syntactic errors" (`src/compiler/watch.ts` at TypeScript v5.9.2) [checked in source, 15 Nov 2026], while its editor
+server shows both (D3581; not checked). Lean's elaboration up to the error with a synthetic `sorry` and suppressed follow-on errors is the `logAt` behaviour above; Agda, Idris, rust-analyzer and rustc remain from memory.
 
 ## 5. The editor, the playground, the formatter
 

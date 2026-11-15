@@ -194,7 +194,7 @@ reading papers, documentation and release notes; numbers are the authors'.
   - "Recursive tail calls are implemented using gotos". Lean doesn't
     eliminate tail calls to a *different* function
     ([FP in Lean](https://lean-lang.org/functional_programming_in_lean/Programming___-Proving___-and-Performance/Tail-Recursion/)).
-  - Big numbers used GMP in 2019. Whether they still do is **[unverified]**.
+  - Big numbers used GMP in 2019, and still do: the reference says `Nat` is implemented by "a fast arbitrary-precision arithmetic library (usually GMP)" in both kernel and compiler ([Lean reference, Natural Numbers](https://lean-lang.org/doc/reference/latest/Basic-Types/Natural-Numbers/)) **[cited, 15 Nov 2026; page summarised by WebFetch]**.
 - **What it won:** on `const_fold`, "Lean is 5x as fast as OCaml". On the
   red-black map benchmark it beats everything except OCaml (same paper).
 - **What it cost:** a whole new compiler. In v4.22 (August 2025), "the old
@@ -404,7 +404,7 @@ that, at the cost of allocating a cell per pending `bind`.
   tail-convention function to aarch64 machine code in about 16 ms, from a
   4.2 MB `.wasm` (unstripped) **[ran by the research agent]**. So it *runs*
   in a browser, but a page can't execute the machine code it produces.
-- **Inlining:** whether it inlines, and how much, is **[unverified]**. The
+- **Inlining:** Cranelift has no inlining policy of its own: it offers "inlining as a library" (since Wasmtime 36, Aug 2025, off by default in Wasmtime), and "this module does not attempt to define heuristics"; the embedder decides each call ([cranelift_codegen::inline source](https://docs.wasmtime.dev/api/src/cranelift_codegen/inline.rs.html); [fitzgen.com, 19 Nov 2025](https://fitzgen.com/2025/11/19/inliner.html)) **[cited, 15 Nov 2026; both read through WebFetch summaries]**. So a Cranelift JIT here would inline only what we write a policy for. The
   experiment's no-inlining row stands in for "less inlining than LLVM".
 
 **LLVM from Rust**
@@ -453,7 +453,7 @@ that, at the cost of allocating a cell per pending `bind`.
 - **Speed:** wasm ran 45–55% slower than native in browsers in 2019
   ([Jangda et al.](https://www.usenix.org/conference/atc19/presentation/jangda)).
   Newer measurements of about 1.3× slower were seen only in search excerpts
-  **[unverified]**.
+  **[unverified]** (a 15 Nov 2026 search found no 2023–2025 study giving that figure; the 2019 paper's 1.3× is wasm against JavaScript, per a search summary).
 
 **Chez Scheme**
 - **Licence and packaging:** Apache-2.0, runs on AArch64 macOS
@@ -521,7 +521,7 @@ versions (Appendix A):
    - Recursion is on the Rust stack, with no frame or step counting.
 2. **uniform, no inlining**: the same code with every helper marked
    `#[inline(never)]`. This stands in for a code generator that inlines
-   less than LLVM. How much Cranelift inlines is **[unverified]** (§2.10).
+   less than LLVM. Cranelift inlines only through a policy the embedder writes (§2.10).
 3. **typed**: a node is a struct with `u64` size and key and the unit value
    erased. This is what a compiler that also chose representations by type
    would emit.

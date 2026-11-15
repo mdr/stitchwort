@@ -208,7 +208,9 @@ existing code (`f ~ a ~ b`, `x !y`, `(!3)`), which is fixed by changing
 whitespace, and an open corner (`f !C{x=a}` against `f !C {x=a}`) **[cited]**.
 I couldn't read GHC's issue tracker: gitlab.haskell.org answered with a
 bot-protection page. So known bugs in `LexicalNegation` after release are
-**[unverified]**.
+**[partly checked, 15 Nov 2026, from search summaries, not the tracker pages: GHC issue #19838 (`a % -b`
+under `LexicalNegation` gives a precedence parsing error) and #24062 (`-0` desugars differently with
+`NegativeLiterals`/`LexicalNegation`); no consolidated list found]**.
 
 **OCaml.** The lexer's integer literal has no sign: `int_literal = decimal_literal
 | …`, `decimal_literal = ['0'-'9'] ['0'-'9' '_']*` (`parsing/lexer.mll`).
@@ -646,7 +648,8 @@ highlighters don't change.
 - **(f) A separate negation symbol.** OCaml's `~-` lets you write
   `f ~-2` with no spacing rule, since a prefix symbol binds tighter than
   application **[inferred]**. Koka's grammar has only `!` and `~` as prefix
-  operators **[cited]**; that `~` is its negation is **[unverified]**.
+  operators **[cited]**; `~` is integer negation: `pub inline fip extern (~)(i:int) : int` and
+  `negate(i) = ~i` (koka `lib/std/core/int.kk`, master at facb793) **[checked in source, 15 Nov 2026]**.
   But `-2` is how everyone writes a negative number, and Stitchwort already
   has `-` as a prefix operator.
 - **(g) Make tight binary minus an error** (`a-b`), and give whitespace a

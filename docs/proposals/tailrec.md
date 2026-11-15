@@ -384,7 +384,7 @@ The labels, by what holds the call:
 Also an error:
 
 - **`@[tailrec]` on a definition with no recursive call.** "`f` is marked
-  @[tailrec] but never calls itself." Scala does the same **[unverified]**.
+  @[tailrec] but never calls itself." Scala does the same: Scala 3's `@tailrec` error text is "`f` contains no recursive calls" (compiler messages source, [scala3 at 2a2bd93](https://github.com/scala/scala3/blob/2a2bd93b54e06c9c8036fcdf1e0e79e1d08739ce/compiler/src/dotty/tools/dotc/reporting/messages.scala), `TailrecNotApplicable`) **[checked in source, 15 Nov 2026]**.
   It catches an attribute left behind when the recursion moved into a helper.
 - **On a theorem, instance, synonym, test or `{Partial}` definition** in the
   first version: `E-ATTRIBUTE`, the existing error for a misplaced attribute.
@@ -417,21 +417,20 @@ on the command line. D2315.
   an error if the method cannot be optimized into a loop" (Scala API docs,
   `scala.annotation.tailrec`) **[cited]**. Only self-calls. Scala optimises
   self tail calls with or without the annotation, so the annotation is purely
-  a check **[unverified]**. This is the model for this proposal.
+  a check: Scala 3's `TailRec` phase transforms every candidate method and only the `mandatory` flag (set by the annotation) turns failures into errors ([TailRec.scala at 2a2bd93](https://github.com/scala/scala3/blob/2a2bd93b54e06c9c8036fcdf1e0e79e1d08739ce/compiler/src/dotty/tools/dotc/transform/TailRec.scala), `transformDefDef`) **[checked in source, 15 Nov 2026; Scala 3 only, Scala 2 not checked]**. This is the model for this proposal.
 - **Kotlin `tailrec`** is a modifier that *enables* the transformation: "When
   a function is marked with the `tailrec` modifier and meets the required
   formal conditions, the compiler optimizes out the recursion, leaving behind
   a fast and efficient loop". It applies "only when it calls itself as its
   final operation", and not inside `try`/`catch`/`finally` or on `open`
   functions (kotlinlang.org, Functions, "Tail recursive functions")
-  **[cited]**. A non-tail call under `tailrec` is a warning, not an error
-  **[unverified]**. Without the modifier, nothing is optimised.
+  **[cited]**. A non-tail call under `tailrec` is a warning, not an error: the compiler's diagnostics `NON_TAIL_RECURSIVE_CALL` and `NO_TAIL_CALLS_FOUND` are declared `warning` ([FirDiagnosticsList.kt at e12dc36](https://github.com/JetBrains/kotlin/blob/e12dc36e784c4c65886009eb622504b3db65b699/compiler/fir/checkers/checkers-component-generator/src/org/jetbrains/kotlin/fir/checkers/generator/diagnostics/FirDiagnosticsList.kt)) **[checked in source, 15 Nov 2026]**. Without the modifier, nothing is optimised.
 - **Clojure `recur`** is a special form, not a check on ordinary calls:
   "`recur` in other than a tail position is an error", "its use in
   tail-position is verified by the compiler", and "There is no tail-call
   optimization and the use of self-calls for looping of unknown bounds is
   discouraged" (clojure.org, Special Forms) **[cited]**. Mutual recursion
-  uses `trampoline` **[unverified]**.
+  uses `trampoline`: its docstring says "trampoline can be used to convert algorithms requiring mutual recursion without stack consumption" (clojure.core/trampoline, via clojuredocs.org's copy of the docstring) **[cited, 15 Nov 2026]**.
 - **OCaml `[@tailcall]`** goes on a *call*, not a function. It "can be
   applied to function application in order to check that the call is
   tailcall optimized". A violation is warning 51, `wrong-tailcall-expectation`

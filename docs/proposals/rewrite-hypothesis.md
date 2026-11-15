@@ -235,7 +235,7 @@ example (d : Nat) (h : 1 ≤ d) (e : d = 0) : False := by
 
 What happens to the old `h` is stated for `simp at`: "If the target or another hypothesis
 depends on `hᵢ`, a new simplified hypothesis `hᵢ` is introduced, but the old one remains in the
-local context" **[checked: [L1]]**; `rw … at` behaves the same way **[unverified]**. In terms,
+local context" **[checked: [L1]]**; `rw … at` differs a little **[corrected 15 Nov 2026]**: `Lean.MVarId.replaceLocalDecl` (`src/Lean/Meta/Tactic/Replace.lean`, lean4 918003258c) "actually adds a new declaration and (tries to) clear the old one. If the old one cannot be cleared, then at least its user-facing name becomes inaccessible", so the old hypothesis disappears unless something depends on it **[checked in source]**. In terms,
 `h ▸ e` "has type `p b`" given `e : p a`, and "If the context provides an expected type, it
 rewrites the expected type, else it rewrites the type of e" **[checked: [L2], quoted in
 calc-rewrite.md §4.2]**. `subst h` "substitutes each hypothesis `x` with a definition found in the
