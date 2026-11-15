@@ -36697,15 +36697,17 @@
     {
       "id": 3324,
       "title": "[Opus] Nested matches in proofs: an inner arm inside an outer catch-all keeps the outer case's shape and counts only its own cases (5 where there are 10); combine the arm-as-written display across nesting (SW-3317 review)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From the SW-3317 review. Expected: 2 h (Opus).",
+      "body": "From the SW-3317 review. Display only; no existing snapshot or hash moved. Count is a product along the path (correct for lifted inner matches). Model result: Opus, worked, ~17 min (est. 120).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "784a69f7cd18e4b10065d19a823b02497fdbda6d"
+      ]
     },
     {
       "id": 3325,
