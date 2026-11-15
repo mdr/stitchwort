@@ -66,20 +66,33 @@
 //! Why that's sound, assuming that every data type's values are well
 //! founded, that is, contain no infinite chain of constructor subvalues, so
 //! that every value has a rank: a decrease in every way of repeating the
-//! calls would then be an infinite descent of ordinals.
+//! calls would then be an infinite descent of ordinals. For a type that is
+//! strictly positive and not nested this is standard. For a nested type it
+//! rests on the type being isomorphic to its mutual encoding (the type with
+//! a private copy of each container), whose values are well founded; that
+//! isomorphism is the usual constructor-for-constructor relabelling,
+//! believed but not proved for Stitchwort (nested-data-types.md §6.3, C1).
 //!
-//! **On open terms** (the unfolding policy, docs/core.md): every accepted
-//! cycle crosses a `case` on a type without eta whose scrutinee is the
-//! evidence's variable, which is stuck on an unknown value. A one-field
-//! constructor around a strict part keeps this because it needs the matches
-//! from `v` down to `u` as well as the one on `C`; that is why the steps
-//! must be matched fields, and a lambda's variable or an accessor's result
-//! doesn't count (the review of SW-3359, R7.3). For a type that is strictly positive and not
-//! nested this is standard. For a nested type it rests on the type being
-//! isomorphic to its mutual encoding (the type with a private copy of each
-//! container), whose values are well founded; that isomorphism is the usual
-//! constructor-for-constructor relabelling, believed but not proved for
-//! Stitchwort (nested-data-types.md §6.3, C1).
+//! **On open terms** (the unfolding policy, docs/core.md), an accepted cycle
+//! can't unfold for ever, but not because some `case` on the way is always
+//! stuck: with eta records on the whole chain, and the type changing from
+//! call to call, none is (`examples/accept/termination-wrapper-changing-instance.sw`,
+//! where only a `case` on a type equation outside the chain stops it). The
+//! reason (docs/reviews/SW-3376-wrapper-rule-soundness.md §3.1) is a size
+//! of open values: a constructor is one more than the sum of its fields'
+//! sizes, and an unknown of type `A` counts as `A`'s eta depth (1 plus the
+//! sum over its fields' types if `A` is an eta record, else 0). A `case`
+//! that fires lowers it: it takes away a constructor, or one eta layer of an
+//! unknown. Every `<` comes from cases that fired (a `≤` keeps the value),
+//! and `C u` has size 1 + size(`u`), below 1 + size(`v`), whether `s` was a
+//! constructor or an unknown of an eta type. So each turn of an accepted
+//! cycle lowers the size of the value on its thread, or is stuck. Eta depth is finite because eta
+//! records aren't recursive, index unification solves with an occurs check
+//! and never takes a type former apart, and a type computed from a proof
+//! needs a proposition that doesn't mention itself (D1980). That is also
+//! why the steps from `v` to `u` must be matched fields: a lambda's variable
+//! or an accessor's result has no `case` behind it (the review of SW-3359,
+//! R7.3).
 //!
 //! **Every occurrence of a member is a call**, wherever it is: under lambdas,
 //! inside types and inside the arguments of other calls. Each application
@@ -657,7 +670,8 @@ impl Walker<'_> {
     /// docs/proposals/recursion-through-map.md §3, D3612): `C u` is smaller
     /// than whatever `s` is at most, if an enclosing match took `s` apart as
     /// `C v`, `C` has exactly one field (implicit, proof and erased fields
-    /// count, so `MkChar code valid` has two), and `u` is strictly inside
+    /// count, so `MkChar code valid` has two) which isn't a recursive
+    /// function field, and `u` is strictly inside
     /// `v` ([`Walker::part_of`], [`Walker::strictly_inside`]). Read as rank,
     /// the height of a value's constructor tree: rank(`C u`) = rank(`u`) + 1
     /// < rank(`v`) + 1 = rank(`s`). So `MkText r` with `r` a tail of the
@@ -669,7 +683,11 @@ impl Walker<'_> {
         let [u] = &args[..] else {
             return None;
         };
-        if self.g.data(*d).ctors[*c].fields.len() != 1 {
+        // A recursive function field as the one field would break rank(`C
+        // v`) = rank(`v`) + 1: `Sup kids`'s rank is above every result of
+        // `kids`, not above `kids`.
+        let ctor = &self.g.data(*d).ctors[*c];
+        if ctor.fields.len() != 1 || is_recursive_fn(self.g, &ctor.fields[0].1, *d) {
             return None;
         }
         let inner = self.part_of(u)?;

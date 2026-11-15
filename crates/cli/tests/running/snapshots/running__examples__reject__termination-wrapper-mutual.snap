@@ -1,0 +1,21 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TERMINATION] Error: can't show that `wrapped` and `unwrap` terminate
+    ╭─[ reject/termination-wrapper-mutual.sw:8:21 ]
+    │
+  8 │   | MkW [_, ..r] => unwrap r
+    │                     ────┬───  
+    │                         ╰───── this call to `unwrap` might not terminate: `unwrap`'s 1st argument is smaller than `wrapped`'s 1st argument
+    │ 
+ 12 │   | r => wrapped (MkW [0, 0, ..r])
+    │          ────────────┬───────────  
+    │                      ╰───────────── then this call to `wrapped`: `wrapped`'s 1st argument, `MkW [0, 0, ..r]`, isn't seen as smaller than any of `unwrap`'s arguments
+    │ 
+    │ Note 1: going round `wrapped` → `unwrap` → `wrapped`, over and over, no argument is known to get smaller
+    │ 
+    │ Note 2: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 3: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+────╯
