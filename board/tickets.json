@@ -38116,7 +38116,7 @@
     {
       "id": 3429,
       "title": "[Sonnet] Re-run the repros the friction bundles left (SW-954 to SW-999) and record which still fail (SW-2015)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
