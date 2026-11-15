@@ -26,7 +26,11 @@ A constructor applied to its fields is a value: `Rect 3 4`. Constructors start w
 
 <!-- snippet: data.sw#recursive -->
 ```stitchwort
-type Expr = | Num (value: Int) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr) | Neg (inner: Expr)
+type Expr =
+  | Num (value: Int)
+  | Add (left: Expr) (right: Expr)
+  | Mul (left: Expr) (right: Expr)
+  | Neg (inner: Expr)
 
 def Expr.value: Expr → Int
   | Num n => n
@@ -110,7 +114,7 @@ test "field punning" := (newborn "Grace").age == 0
 - `{ person | age = … }` is a copy with some fields replaced. Values are never changed in place, so the original is untouched.
 - A field name alone, as in `{ name, age = 0 }`, is short for `name = name`.
 
-The house style writes a short record on one line, with a comma after each field but the last, as above; one that spans lines puts a comma at the end of each line, no comma after the last field, and the closing brace in column 0.
+The house style writes a record type on one line, with a comma after each field but the last, as above, when the whole declaration fits in 80 characters; a longer one goes one field a line, with a comma at the end of each line, no comma after the last field, and the closing brace in column 0. A data type's constructors follow the same 80-character rule, one `|` line each when they do not fit.
 
 Give the nouns of a problem types of their own, records by default, with the operations they support as methods. A `Pass` with a `seatId` method says more than a `List Bool` and a function on it, and a `Pass` can't be passed where a row number is wanted. Write a synonym ([below](#type-synonyms)) only where a type of its own would add nothing.
 
@@ -172,7 +176,9 @@ A constructor can be declared with its fields in braces instead of brackets, and
 
 <!-- snippet: data.sw#named-construction -->
 ```stitchwort
-type Event = | Meeting { title: Text, minutes: Nat := 30, room: Text } | Reminder (title: Text)
+type Event =
+  | Meeting { title: Text, minutes: Nat := 30, room: Text }
+  | Reminder (title: Text)
 
 def standup: Event := Meeting { title = "Standup", room = "Blue" }
 def review: Event := Meeting { title = "Review", minutes = 60, room = "Red" }

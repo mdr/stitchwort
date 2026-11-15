@@ -95,7 +95,10 @@ Any parameter can be passed by name, `(name := value)`, in any order. A call tha
 
 <!-- snippet: functions.sw#named -->
 ```stitchwort
-def clamp (low high value: Nat): Nat := if value < low then low else if value > high then high else value
+def clamp (low high value: Nat): Nat :=
+  if value < low then low
+  else if value > high then high
+  else value
 
 test "by position" := clamp 0 10 50 == 10
 test "by name, in any order" := clamp (value := 50) (high := 10) (low := 0) == 10
