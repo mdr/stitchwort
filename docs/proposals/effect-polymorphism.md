@@ -250,7 +250,7 @@ What differs from Stitchwort: Unison has no proofs, so it never needs
 `map f xs` to *reduce* to anything in a type. Its runtime implements
 abilities with delimited continuations rather than trees, and it was moving
 to a JIT through a Scheme backend ([JIT announcement](https://www.unison-lang.org/blog/jit-announce/);
-the Chez Scheme detail is **[unverified]**). So Unison shows the convention
+the JIT post says "we decided that a Chez Scheme backend was a promising direction", checked 15 Nov 2026). So Unison shows the convention
 is pleasant to use, but not how to keep proofs and speed with a tree
 encoding.
 
@@ -263,7 +263,7 @@ Each entry ends with what it would mean for Stitchwort.
 **Koka: row-polymorphic effect types** (Leijen, "Koka: Programming with
 row-polymorphic effect types", 2014,
 [PDF](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/paper-20.pdf);
-the venue, MSFP 2014, is **[unverified]**). Read in the PDF: `map` has the
+venue: MSFP 2014, EPTCS 153, pp. 100-126, [arXiv:1406.2061](https://arxiv.org/abs/1406.2061), checked 15 Nov 2026). Read in the PDF: `map` has the
 type `map : ∀αβµ. (list⟨α⟩, α → µ β) → µ list⟨β⟩`, "where the effect of the
 map function itself is completely determined by the effect of its
 argument". Koka's effect row tracks effects in types; a computation keeps an
@@ -281,8 +281,7 @@ Koka used effect types to decide which functions need continuation-passing
 style (CPS: every function takes "the rest of the program" as an extra
 argument). Total functions stay direct. Effect-polymorphic functions were
 compiled twice, once direct and once in CPS, and the direct copy is used
-when the row is known to be total **[unverified]** for the "compiled twice"
-detail. *For Stitchwort:* the type of a call site tells the backend the
+when the row is known to be total. Checked 15 Nov 2026 in the tech report's §5.3.2 ("polymorphic duplication"): both a CPS and a plain version are generated, with a wrapper that picks one at run time by testing whether a continuation was passed, and the plain version inlines at call sites; the "known to be total" selection is **[unverified]** as stated, since §5.3.2 describes the run-time choice. *For Stitchwort:* the type of a call site tells the backend the
 row; generating a pure copy per row-polymorphic definition is an
 established technique (design E).
 
@@ -379,7 +378,7 @@ descends from it. *For Stitchwort:* a surface convenience only; it says
 nothing about proofs or compilation.
 
 **Helium** (Biernacki, Piróg, Polesiuk, Sieczkowski, "Abstracting algebraic
-effects", POPL 2019) **[unverified]**, no URL opened. Lexically scoped
+effects", POPL 2019, [PDF](https://maciejpirog.github.io/papers/biernacki-al-popl19.pdf); venue and authors checked 15 Nov 2026 from the PACMPL listing and POPL 2019 programme; the description below was not re-read). Lexically scoped
 effect instances and abstraction over effects. Not directly relevant.
 
 **OCaml 5** (Sivaramakrishnan et al., "Retrofitting effect handlers onto
@@ -401,15 +400,15 @@ Kiselyov and Ishii, "Freer monads, more extensible effects", Haskell 2015
 (DOI [10.1145/2887747.2804319](https://doi.org/10.1145/2887747.2804319)):
 the continuation in a `Call` node is kept as an efficient queue
 ("type-aligned sequence", from van der Ploeg and Kiselyov, "Reflection
-without remorse", Haskell 2014 **[unverified]**). *For Stitchwort:* exactly
+without remorse", Haskell 2014, doi:10.1145/2633357.2633360, checked 15 Nov 2026). *For Stitchwort:* exactly
 the quadratic behaviour measured in probe 7. Either fix works in a
 backend without changing the kernel's `Comp`.
 
 **Specialisation, worker/wrapper, defunctionalisation.** GHC's
 `SPECIALISE` pragmas and user rewrite `RULES` (Peyton Jones, Tolmach,
-Hoare, "Playing by the rules", 2001 **[unverified]**) are the unproved
-ancestor of Lean's `csimp`. MLton and Rust monomorphise every polymorphic
-function at its uses **[unverified]**. *For Stitchwort:* specialising on a
+Hoare, "Playing by the rules", Haskell Workshop 2001, per the MSR listing, checked 15 Nov 2026) are the unproved
+ancestor of Lean's `csimp`. Rust monomorphises generic code at compile time
+([Rust book ch. 10.1](https://doc.rust-lang.org/book/ch10-01-syntax.html), checked 15 Nov 2026); MLton is a whole-program compiler with a monomorphisation step (a search summary of Weeks's 2006 talk; MLton's own page for it wasn't readable), and "every" polymorphic function is [unverified]. *For Stitchwort:* specialising on a
 *row value* is the same move as specialising on a type, and the row is
 known at nearly every call site.
 
@@ -433,7 +432,7 @@ predicate transformer semantics for effects", ICFP 2019
 ([PDF](https://webspace.science.uu.nl/~swier004/publications/2019-icfp-anne.pdf)):
 free monads in Agda, with weakest-precondition reasoning for exceptions,
 state, nondeterminism and general recursion. McBride, "Turing-completeness
-totally free", MPC 2015 **[unverified]**: general recursion as a free monad
+totally free", MPC 2015, LNCS 9129 pp. 257-275, doi:10.1007/978-3-319-19797-5_13 (checked 15 Nov 2026): general recursion as a free monad
 in a total language, the idea behind Stitchwort's `Rec`. *For Stitchwort:*
 these libraries reason about effectful programs by induction on the tree
 and by monad laws. None of them gets pure behaviour definitionally: a pure
@@ -452,7 +451,7 @@ use `g` wherever `f` appears. The library proves
 tail-recursive `map`
 ([`Init/Data/List/Basic.lean`](https://raw.githubusercontent.com/leanprover/lean4/master/src/Init/Data/List/Basic.lean)).
 `@[implemented_by g]` does the same without a proof, trusting the user
-**[unverified]**, no doc page opened. *For Stitchwort:* two lessons. First,
+([API docs](https://lean-lang.org/doc/api/Lean/Compiler/ImplementedByAttr.html): "not checked to be equivalent to the original definition"; checked 15 Nov 2026). *For Stitchwort:* two lessons. First,
 Lean, the most used prover with a compiler, does *not* unify `map` and
 `mapM`; it accepts two names and a lemma. Second, `csimp` is a clean way to
 separate "definition for proofs" from "code that runs" at the cost of one
@@ -515,7 +514,7 @@ as data sidesteps the fire triangle (effects are values; only handlers
 interpret them). The price is that effectful terms in types are trees, not
 values, which is exactly the `runPure (bind …)` problem.
 
-**Monadic reflection** (Filinski, 1994 **[unverified]**). Turning a monadic
+**Monadic reflection** (Filinski, "Representing monads", POPL 1994, pp. 446-457, checked 15 Nov 2026 from a citation listing). Turning a monadic
 value into direct-style code and back. *For Stitchwort:* D1055's run in
 place is a form of reflection for the empty row; design C makes reflection
 at the empty row the identity.
@@ -846,7 +845,7 @@ rules when `c` is `Done` or `Call`.
     absurd contexts, where any equation is provable, so it is a loss of
     completeness of conversion, not of soundness **[inferred]**. Lean lives
     with similar non-transitivity of definitional equality from proof
-    irrelevance and structure eta **[unverified]**.
+    irrelevance and eta **[Lean Zulip, "Is defeq transitive?" and "subject reduction" threads, checked 15 Nov 2026 via search summaries: proof irrelevance with singleton elimination, and missing eta expansions (lean4#3213, #2258)]**.
   - *Termination.* The rule removes a `bind`, so it can't loop with
     `bind`'s rules **[inferred]**.
   - *Trust.* It is a new kernel rule keyed on two prelude definitions

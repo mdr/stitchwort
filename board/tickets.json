@@ -1,5 +1,5 @@
 {
-  "next": 3410,
+  "next": 3411,
   "tickets": [
     {
       "id": 47,
@@ -37575,7 +37575,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "15 Nov 2026, batch 1 (Sonnet paper lane): checked the memory/unverified claims about other systems in documentation, compact-values, bool-and-prop, bool-as-proposition, compiled-handler-dispatch, syntax-tree-architecture, effect-polymorphism, float, indexed-families and well-founded-recursion (edits uncommitted in the main checkout). Corrections: GHC -funbox-small-strict-fields is on under -O, not by default (compact-values); Dafny master docs now have fp32/fp64, so \"no float type\" holds for releases only (float.md); Agda's cubical/K incompatibility is under --safe only (indexed-families). Many claims stay [unverified]: see the lane report.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37837,6 +37837,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3410,
+      "title": "[Sonnet] float.md: Dafny now documents IEEE fp32/fp64 on master (unreleased as of v4.11.0); revisit the comparison (SW-3389 finding). Later sweep batches: use curl + pdftotext (nix poppler-utils) for sources WebFetch can't read (Rocq SSReflect pages, F* prims.fst, ACL2, MLton)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",

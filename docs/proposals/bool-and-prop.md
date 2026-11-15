@@ -208,14 +208,14 @@ All **[checked, `docs/core.md`]**:
 
 `le` is inductive (`le_n`, `le_S`); `Nat.leb` is a separate test, joined by
 `Nat.leb_le: (n <=? m) = true <-> n <= m`; `lia` decides arithmetic
-**[memory]**. Software Foundations compares the two worlds in a table:
+**[cited: rocq-prover.org/doc/V9.0.0/stdlib/Stdlib.Arith.PeanoNat.html for `leb_le`; refman micromega page: `lia` is "a decision procedure for linear integer arithmetic", `nat` via `zify`]**. Software Foundations compares the two worlds in a table:
 `bool` is decidable and usable with `match`, `Prop` is neither, and "The
 crucial difference between the two worlds is decidability"; "In general,
 both can be useful" **[cited: SF]**. "rewrite and
 reflexivity can be used with iff statements, not just equalities" **[cited:
 SF]**: this is generalized (setoid) rewriting, where each connective is
 registered as respecting `iff` and the tactic builds the proof, with no
-axiom **[cited: S1, abstract; the mechanism from memory]**.
+axiom **[cited: S1, abstract; the mechanism: Rocq refman, generalized rewriting, where `iff` on `Prop` is a default `RewriteRelation` and `Proper` instances are user-supplied (rocq-prover.org/doc/V9.0.0/refman/addendum/generalized-rewriting.html); that no axiom is needed isn't stated there, so that part is [unverified]]**.
 
 ### 3.3 Lean 4: propositions first, with coercions both ways
 
@@ -258,7 +258,7 @@ axiom **[cited: S1, abstract; the mechanism from memory]**.
   matching" **[cited: A2]**. The v1.3 changelog: "All definitions branching
   on a `Dec` value have been rewritten, wherever possible, to branch only
   on the boolean `does` field" **[cited: A3]**.
-- `T : Bool → Set` turns a test into a type, as `is_true` does **[memory]**.
+- `T : Bool → Set` turns a test into a type, as `is_true` does **[cited: agda-stdlib `Data.Bool.Base`: `T true = ⊤`, `T false = ⊥`; Rocq `Corelib.Init.Datatypes`: `Definition is_true b := b = true`]**.
 
 ### 3.5 Idris 2
 
@@ -266,20 +266,21 @@ axiom **[cited: S1, abstract; the mechanism from memory]**.
 and `lteReflectsLTE` joins them **[cited: I1]**. `So : Bool -> Type` wraps a
 test as a type; the community finds proofs about it hard to use, the
 "boolean blindness" argument (Harper): a `Bool` says that something holds
-but not why **[cited: search summary; Harper's post from memory]**.
+but not why **[cited: search summary; Harper, "Boolean Blindness", existentialtype.wordpress.com/2011/03/15/boolean-blindness/: "There is no information carried by a Boolean beyond its value"]**.
 
 ### 3.6 Systems with one world
 
 - **Isabelle/HOL.** `bool` is the type of propositions. `=` on `bool` is
   `↔`, so the simplifier rewrites with any equivalence, and the code
   generator runs the executable ones. This works because HOL is classical
-  and has no proof terms to compute with **[memory]**.
+  and has no proof terms to compute with **[cited in part: `=` on formulas "means if and only if", and `⟷` abbreviates `=` at `bool` in HOL.thy (isabelle.in.tum.de, src/HOL/HOL.thy); the classical and no-proof-terms reasons are [unverified]]**.
 - **Dafny, F\*, Liquid Haskell.** A predicate is a `bool`-valued function
   that an SMT solver reasons about. Dafny adds ghost predicates for
-  quantified specs and least/greatest predicates for inductive ones; F\*
+  quantified specs and least/greatest predicates for inductive ones
+  [cited: Dafny reference manual, §6.4.2 predicates, §6.4.5 and §12.4 extreme predicates]; F\*
   coerces `bool` to a proposition (`b2t`); Liquid Haskell reflects a
   function's code into its type and proves by evaluation ("Proof by Logical
-  Evaluation") **[memory; LH abstract cited: V1]**. These are the tools
+  Evaluation") **[cited: V1 abstract, "reflect the code implementing a user-defined function into the function's (output) refinement type"; F*'s `b2t` and the claim that an SMT solver reasons about Dafny and F* predicates are [unverified]]**. These are the tools
   programmers meet first, and all of them start from the test.
 - **ACL2.** Everything is an executable function; there is no separate
   proposition type **[memory]**.
@@ -609,7 +610,7 @@ found from a `Bool`, what happens when two fit, and how errors read.
   as `b`, as SSReflect does. Lean 4 prints `b = true`, since its coercion is
   to that equation and is unfolded when elaborated; Lean 3 printed `↑b`
   **[cited: L2, for the coercion to `b = true`; the display inferred; Lean
-  3's from memory]**. The recommendation to print `b` also rested on Lean's
+  3's: Mario Carneiro, Lean Zulip, "Prop -> Bool regression", leanprover-community.github.io/archive/stream/287929-mathlib4/topic/Prop.20-.3E.20Bool.20regression.html: "coercions are not unfolded you would get ↑b instead of b = true"]**. The recommendation to print `b` also rested on Lean's
   example; only that part of its support was wrong, and the recommendation
   is unchanged. The precedent for the bare form is SSReflect's alone.
 - `(a <= b) = False` prints with `≤`, like its positive form.
@@ -691,7 +692,7 @@ No change. `docs/core.md` changes only if the three natives go.
   with SMT", POPL 2018. <https://arxiv.org/abs/1711.03842>
 - **[P1]** L. Pujet, N. Tabareau, "Observational Equality: Now for Good",
   POPL 2022. <https://hal.science/hal-03367052>
-- From memory, not re-read: R. Harper, "Boolean Blindness" (2011); the
+- Checked 15 Nov 2026 as cited above: Harper's post, `leb_le`, `lia`, `is_true`, Agda's `T`. From memory, not re-read: the
   Isabelle/HOL, Dafny, F\* and ACL2 manuals; M. Carneiro, "The Type Theory
   of Lean" (2019).
 

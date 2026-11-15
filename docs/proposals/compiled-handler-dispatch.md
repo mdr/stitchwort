@@ -515,7 +515,7 @@ a perform is then a field load and a direct call **[read: `src/Core/Simplify.hs`
 `hnd.kk` 666-667]**. Reference counting (Perceus) dups a field when a match binds it and the
 body uses it, and nothing else, so selecting one clause out of n costs a constant few
 reference-count operations, independent of n **[lit: Reinking, Xie, de Moura, Leijen, PLDI
-2021, §2, from memory; inferred for this code, generated C not read]**. A clause closure with no
+2021, §2, checked 15 Nov 2026 in the tech report's §2.1-2.3 walkthrough, where the bound head and tail are dupped in the branch; inferred for this code, generated C not read]**. A clause closure with no
 free variables is a static object whose dup and drop do nothing **[read: `kklib/include/kklib.h`
 1390-1397]**. Per handler start: the handler struct, one closure per clause that captures
 something, the `Ev`, and a new evidence vector **[inferred]**. **What carries over:** the
@@ -588,7 +588,7 @@ delimited-continuation primops of GHC proposal #313 **[lit: eff README]**. Its R
 point that matters for us: libraries that rely on specialisation degrade in real programs,
 where "GHC compiles most effect-polymorphic code via dictionary passing, not specialization"
 **[lit: eff README, line 9]**. *Freer monads* (Kiselyov and Ishii 2015) use the same
-open-union index **[from memory]**. **What carries over:** our `Plus`/`L`/`R` encoding is
+open-union index **[lit: Kiselyov and Ishii, "Freer Monads, More Extensible Effects", doi:10.1145/2887747.2804319, abstract: "built using an open union", per a search summary]**. **What carries over:** our `Plus`/`L`/`R` encoding is
 fused-effects' and polysemy's. Their compiled best case is our dispatch, produced by GHC's
 general inliner; we get it with a rule at the one place it applies. `eff`'s caution matches §2's
 choice to rewrite at the handler (always possible) rather than to depend on specialising
@@ -601,11 +601,10 @@ operation label at run time in interpreters; neither is a performance design
 state-passing function, inlined, so an "operation" is a call **[from memory]**: fusion.rs's end
 state, not a dispatch technique. *Defunctionalisation* (Reynolds 1972) and MLton's
 flow-directed closure conversion (Cejtin, Jagannathan, Weeks, ESOP 2000) replace a call of an
-unknown function by a switch on a tag over known code **[from memory]**. Our dispatch is
+unknown function by a switch on a tag over known code **[lit: Reynolds 1972 reprint, HOSC 11 (1998): "a given program contains only finitely many function abstractions", each replaced by an identifier (per a search summary); Cejtin, Jagannathan, Weeks, ESOP 2000, LNCS 1782 pp. 56-71, doi:10.1007/3-540-46425-5_4, abstract: a closure conversion for simply-typed languages implemented in MLton, with dispatches inserted; that the dispatch is a switch on a tag is [unverified]]**. Our dispatch is
 already that form: the operation's constructor is the tag, and the clauses are the known
 code. *Closure sharing* (Keep, Hearn, Dybvig, "Optimizing Closures in O(0) Time", Scheme
-Workshop 2012) merges closures that live equally long into one shared closure **[from
-memory]**. Our n clause closures and the forward, all owned by the handler, are exactly that
+Workshop 2012) merges closures that live equally long into one shared closure **[lit: the paper, schemeworkshop.org/2012/papers/keep-hearn-dybvig-paper-sfp12.pdf, §2.3: share when "same lifetime", or when the free-variable sets agree, checked 15 Nov 2026]**. Our n clause closures and the forward, all owned by the handler, are exactly that
 case.
 
 ### At a glance
@@ -702,8 +701,9 @@ it.
   system was benchmarked here; the comparison is of structure, not instruction counts.
 - Eff's and Effekt's papers were checked through their abstracts and the authors' pages and
   code, not read in full; claims about their optimisations rest on the code cited.
-- Multicore OCaml's pre-5.0 representation, Links, Frank, Lean, MLton, Reynolds, Keep et al. and
-  Kiselyov and Ishii are from memory.
+- Multicore OCaml's pre-5.0 representation, Links, Frank and Lean are from memory. Reynolds,
+  Cejtin et al. (the tag-switch detail aside), Keep et al. and Kiselyov and Ishii were checked on
+  15 Nov 2026, against abstracts, the reprint note and Keep et al.'s text; see each claim.
 - (b)'s 60-100 instructions per route is a rule of thumb from §1.3's measured width, not a
   count of the reference-count operations left in the dispatch.
 
@@ -726,12 +726,11 @@ Papers (also see effect-runtime-allocation.md "Sources" and operations-in-place.
 - Georgios Karachalias, Filip Koprivec, Matija Pretnar, Tom Schrijvers, "Efficient Compilation
   of Algebraic Effect Handlers", OOPSLA 2021, doi:10.1145/3485479
   ([SPLASH page](https://2021.splashcon.org/details/splash-2021-oopsla/6/Efficient-Compilation-of-Algebraic-Effect-Handlers)).
-- Oleg Kiselyov, Hiromi Ishii, "Freer Monads, More Extensible Effects", Haskell 2015 [from
-  memory].
+- Oleg Kiselyov, Hiromi Ishii, "Freer Monads, More Extensible Effects", Haskell 2015, doi:10.1145/2887747.2804319 [venue and title confirmed 15 Nov 2026 by search summary only].
 - John C. Reynolds, "Definitional Interpreters for Higher-Order Programming Languages", 1972;
   Henry Cejtin, Suresh Jagannathan, Stephen Weeks, "Flow-Directed Closure Conversion for Typed
   Languages", ESOP 2000; Andrew W. Keep, Alex Hearn, R. Kent Dybvig, "Optimizing Closures in O(0)
-  Time", Scheme Workshop 2012 [all from memory].
+  Time", Scheme Workshop 2012 [Reynolds, Cejtin et al. and Keep et al. checked 15 Nov 2026: titles, authors, venues and years as given].
 - GHC proposal #313, delimited continuation primops
   ([PR](https://github.com/ghc-proposals/ghc-proposals/pull/313)).
 

@@ -97,21 +97,20 @@ from it. Two variants, differing in what the compiler reads:
   syntax-to-syntax rewrites that keep the source positions. *TypeScript* is
   a near relation: one tree for the compiler, the editor and the formatter,
   with a node for every bracket; comments are not stored but re-read from
-  the text between tokens when wanted. [all from memory]
+  the text between tokens when wanted [TypeScript's comment handling checked 15 Nov 2026: comments are not AST nodes but scanned from source text on demand with `getLeadingCommentRanges`, per ts-morph's docs, ts-morph.com/details/comments, and the TypeScript Deep Dive "AST trivia" page; Roslyn's bound tree, Lean 4's `Syntax` and TypeScript's one-tree and bracket-node details: [unverified]].
 - **A2: a lowering step turns the lossless tree into a separate compiler's
   tree.** *rust-analyzer*: the parser emits marks, a tree builder makes the
   lossless tree (rowan), typed accessors sit on top, and a lowering step
   makes the tree the type checker uses, keeping a table from each lowered
   node back to its syntax node. *Swift* is moving here: its new parser
   builds only the lossless SwiftSyntax tree, and a step called ASTGen
-  builds the compiler's tree from it. [from memory]
+  builds the compiler's tree from it. [rust-analyzer checked 15 Nov 2026: the parser "produces a sequence of events like start node X, finish node Y" (not marks), rowan builds the trees, `ast` is "a type safe API on top of the raw rowan tree", and `hir` goes "from syntax to the corresponding hir" with a one-to-many mapping, per rust-analyzer's docs/book architecture page; the lowered-node-to-syntax table is the `Semantics`/`source_to_def` lookup rather than a stored table, so "keeping a table" is loose. Swift checked 15 Nov 2026: the new Swift parser is meant to replace the C++ parser, with a component that "walks the SwiftSyntax tree ... and creates the corresponding C++ AST nodes" (forums.swift.org/t/a-new-swift-parser-for-swiftsyntax/59813); the ASTGen module depends on SwiftParser and SwiftSyntax (swiftlang/swift lib/ASTGen/Package.swift). "Is moving here" and "builds only the lossless tree" are [unverified] as to the present state.]
 
 **B. Two trees built side by side in one parse.** Each parsing function
 builds the compiler's node and also records the lossless structure. Neither
 tree comes from the other; they agree because the same code made both.
 *Swift's first attempt (libSyntax)* was this, inside the old C++ parser; it
-was later removed in favour of A2 [from memory: I recall the cost of
-keeping both in every parsing function, and the slowdown, as the reasons].
+was later removed in favour of A2 [checked 15 Nov 2026: libSyntax was "an optionally produced additional tree that the Swift parser can generate while also producing the existing (semantic) AST", with "two sets of parser functions" during migration and a reverted attempt that caused "serious performance regression" (forums.swift.org/t/integrating-libsyntax-into-the-compiler-pipeline/26605); the C++ libSyntax was removed in swiftlang/swift#62145, succeeded by swift-syntax (bugs.swift.org/browse/SR-7061, per a search summary); the removal date wasn't confirmed].
 D3559's recommended answer is this architecture.
 
 **C. One typed tree, made faithful, with comments attached.** Keep a tree
@@ -122,10 +121,10 @@ groups, printed by `go/printer`), *Zig* (nodes index into the token list;
 `zig fmt` and the compiler both read it), *Gleam* and *OCaml with
 ocamlformat* (the compiler's tree plus comments placed by position).
 *rustfmt* is the weak form: rustc's tree, with comments fished out of the
-source text between nodes. [from memory] The known trouble is Go's: once a
+source text between nodes. [Go's comment handling checked 15 Nov 2026: `dst`'s README says "Comments are stored by their byte offset instead of attached to nodes, so re-arranging nodes breaks the output", github.com/dave/dst; Zig's nodes holding a `main_token` index into the token list is from std.zig.Ast sources via a search summary; Gleam, ocamlformat and rustfmt: [unverified]] The known trouble is Go's: once a
 tool edits the tree, comments placed by position drift to the wrong node; a
 whole library (`dst`) exists to work round it. And Go's compiler doesn't
-use `go/ast` at all: it has its own parser. [from memory]
+use `go/ast` at all: it has its own parser. [unverified]
 
 **D. Today's tree, plus token-level tools.** What Stitchwort has: the
 formatter works on tokens and lines with the parser as referee; each tool
@@ -135,7 +134,7 @@ C++.
 **E. Two parsers.** One for the compiler, one for tools. *rustc and
 rust-analyzer* (two parsers and two trees for one language, kept in step by
 effort), *tree-sitter* grammars in editors, *elm-format*, Go as above.
-[from memory] The earlier note already rejected this; so do I. One case of
+[unverified] The earlier note already rejected this; so do I. One case of
 it is wanted on purpose: the Stitchwort formatter's parser, which is the
 point of that project.
 
@@ -207,7 +206,7 @@ Why A2 and not B, judged as end states (D2303):
    available from the node it came from.
 4. **It is where the others ended up.** Swift tried B and moved to A2;
    rust-analyzer, Roslyn, TypeScript and Lean all have a single parse
-   output [from memory]. I know of no tool that chose B as its resting
+   output [unverified; Swift's part is checked above]. I know of no tool that chose B as its resting
    place.
 
 Why A2 and not A1: the elaborator is 87 files written against a small,
@@ -255,10 +254,9 @@ whole repo until they agree exactly, before anything is deleted.
 
 ## 5. What I did not check
 
-- How other tools work is from memory throughout, as marked. The Swift
+- How other tools work is from memory throughout, as marked, except where a 15 Nov 2026 check is noted. The Swift
   history (libSyntax removed, ASTGen replacing the old route) is the claim
-  the recommendation leans on most; worth a ten-minute check before it is
-  quoted elsewhere.
+  the recommendation leans on most; it was checked on 15 Nov 2026 (see §A2 and B above), apart from the date and the current state of the switch-over.
 - I searched the parser for places it moves backwards and found none; I did
   not read all 5,470 lines. A function that parses something as an
   expression and then re-reads it as a binder or pattern would need its
