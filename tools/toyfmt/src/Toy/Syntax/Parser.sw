@@ -296,10 +296,24 @@ def bodyFuel (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (
     | Zero, _, _ => Empty.absurd (Parse.fatal "nested too deeply")
     | Succ more, InStatement column _, Some token if token.value.startsLine && token.value.column > column =>
       block more self token.value.column
-    | _, _, _ =>
-      let start := Parse.mark()
-      let value := self layout
-      { statements = [{ blankBefore = False, line = Bare value (trailingSince start value) }] }
+    | _, _, _ => inlineBody self layout
+
+--| A body that is one expression, on the line of what it follows.
+-- A function of its own so that proofs (BlockProofs.sw) can name it; so
+-- are `bareStatement`, `statementLine` and `notedStatement`.
+def inlineBody (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
+    {Parse (Parse.Located Token)} Body :=
+  let start := Parse.mark()
+  let line := bareStatement self layout start
+  { statements = [{ blankBefore = False, line }] }
+
+--| An expression as a statement, with the trailing comment it ends in;
+--| `start` is where it starts.
+def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (layout: Layout) (start: Parse.Mark (Parse.Located Token)):
+    {Parse (Parse.Located Token)} Statement :=
+  let value := self layout
+  Bare value (trailingSince start value)
 
 --| Statements starting lines at `column`, with the comments above them.
 def block (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column: Nat):
@@ -315,19 +329,28 @@ def statement (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
   let start := Parse.mark()
   match start.rest with
     | [first, .._] if first.value.startsLine && first.value.column == column =>
-      let layout := InStatement column first.offset
-      let (notes, blankBefore) := spacedNotes StatementNote first.value.above
-      let line := match first.value.kind with
-        | Reserved LetKeyword =>
-          skip()
-          let bound := name layout
-          sign layout "'='" Defines
-          Let bound (bodyFuel fuel self layout)
-        | _ =>
-          let value := self layout
-          Bare value (trailingSince start value)
-      notes ++ [{ blankBefore, line }]
+      let line := statementLine fuel self (InStatement column first.offset) start first.value.kind
+      notedStatement first.value.above line
     | _ => Empty.absurd Parse.stop()
+
+--| The statement whose first token, at `start`, is of `kind`: a `let`, or
+--| else an expression.
+def statementLine (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (start: Parse.Mark (Parse.Located Token)) (kind: Kind):
+    {Parse (Parse.Located Token)} Statement :=
+  match kind with
+    | Reserved LetKeyword =>
+      skip()
+      let bound := name layout
+      sign layout "'='" Defines
+      Let bound (bodyFuel fuel self layout)
+    | _ => bareStatement self layout start
+
+--| A statement's lines: the own-line comments in `above`, the trivia on
+--| its first token, then the statement.
+def notedStatement (above: List Trivia) (line: Statement): List (Spaced Statement) :=
+  let (notes, blankBefore) := spacedNotes StatementNote above
+  notes ++ [{ blankBefore, line }]
 
 -- Declarations and the file.
 
@@ -337,31 +360,41 @@ def declaration (source: Text): {Parse (Parse.Located Token)} List (Spaced Decla
   let start := Parse.mark()
   match start.rest with
     | [first, .._] if first.value.startsLine && first.value.column == 0 =>
-      let layout := InStatement 0 first.offset
-      let (notes, blankBefore) := spacedNotes DeclarationNote first.value.above
-      let parsed := match first.value.kind with
-        | Reserved FnKeyword =>
-          skip()
-          let declared := name layout
-          sign layout "'('" OpenParen
-          let parameters := Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma)
-          sign InBrackets "')'" CloseParen
-          sign layout "'='" Defines
-          Function declared parameters (body expression layout)
-        | Reserved LetKeyword =>
-          skip()
-          let declared := name layout
-          sign layout "'='" Defines
-          Value declared (body expression layout)
-        | _ =>
-          Parse.note (Parse.Problem.Literal "fn")
-          Parse.note (Parse.Problem.Literal "let")
-          Empty.absurd Parse.stop()
+      let parsed := declarationLine (InStatement 0 first.offset) first.value.kind
       let finish := Parse.mark()
-      let tokens := start.rest.take (finish.offset - start.offset)
-      let line := if parsed.comments < commentsAmong tokens then AsWritten (asWritten source tokens) else parsed
-      notes ++ [{ blankBefore, line }]
+      notedDeclaration source first.value.above (start.rest.take (finish.offset - start.offset)) parsed
     | _ => Empty.absurd Parse.stop()
+
+--| The declaration whose first token is of `kind`: `fn` or `let`.
+-- A function of its own so that proofs (BlockProofs.sw) can name it; so
+-- are `notedDeclaration` and `fileEnd`.
+def declarationLine (layout: Layout) (kind: Kind): {Parse (Parse.Located Token)} Declaration := match kind with
+  | Reserved FnKeyword =>
+    skip()
+    let declared := name layout
+    sign layout "'('" OpenParen
+    let parameters := Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma)
+    sign InBrackets "')'" CloseParen
+    sign layout "'='" Defines
+    Function declared parameters (body expression layout)
+  | Reserved LetKeyword =>
+    skip()
+    let declared := name layout
+    sign layout "'='" Defines
+    Value declared (body expression layout)
+  | _ =>
+    Parse.note (Parse.Problem.Literal "fn")
+    Parse.note (Parse.Problem.Literal "let")
+    Empty.absurd Parse.stop()
+
+--| A declaration's lines: the own-line comments in `above`, the trivia on
+--| its first token, then `parsed`, or its `tokens` as written if one of
+--| their comments has no place in it.
+def notedDeclaration (source: Text) (above: List Trivia) (tokens: List (Parse.Located Token)) (parsed: Declaration):
+    List (Spaced Declaration) :=
+  let (notes, blankBefore) := spacedNotes DeclarationNote above
+  let line := if parsed.comments < commentsAmong tokens then AsWritten (asWritten source tokens) else parsed
+  notes ++ [{ blankBefore, line }]
 
 --| The comments among a declaration's tokens, not counting those above
 --| its first token, which are the file's.
@@ -382,13 +415,21 @@ def asWritten (source: Text) (tokens: List (Parse.Located Token)): Text := match
 --| The file, given the comments after its last token (or all of them, with
 --| no tokens).
 def sourceFile (source: Text) (endTrivia: List Trivia): {Parse (Parse.Located Token)} SourceFile :=
-  let declarations := Parse.many (() => declaration source) |> .concat
+  let found := Parse.many (() => declaration source)
+  fileEnd found.concat endTrivia
+
+--| The file of `declarations`, read to where no more starts, and the
+--| comments after them; an indented line there belongs to nothing.
+def fileEnd (declarations: List (Spaced Declaration)) (endTrivia: List Trivia):
+    {Parse (Parse.Located Token)} SourceFile :=
   match peek() with
     | Some token if token.value.startsLine && token.value.column > 0 =>
       Parse.fail "this line's indentation matches no block it could belong to"
-    | _ =>
-      let (endNotes, _) := spacedNotes DeclarationNote endTrivia
-      { declarations = declarations ++ endNotes |> withoutFirstBlank }
+    | _ => fileOf declarations endTrivia
+
+def fileOf (declarations: List (Spaced Declaration)) (endTrivia: List Trivia): SourceFile :=
+  let (endNotes, _) := spacedNotes DeclarationNote endTrivia
+  { declarations = declarations ++ endNotes |> withoutFirstBlank }
 
 --| The tree of a Sprig source, or the first error as "line 3, column 9:
 --| expected ',' or ')', got 'b'". The source is lexed and checked first

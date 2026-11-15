@@ -800,13 +800,86 @@ theorem Parse.runsFinalLineBreakCheck ∀ (start: Parse.Mark Char) (finalLineBre
             (isCrlf => Parse.runsPure () [])
             (notCrlf => rewrite holds in Parse.runsPure () [])))
 
---| `withFinalLineBreaks p` where only line breaks (`\n` and `\r`, any number)
---| follow what `p` reads: it reads those too. `p` sees them after it.
-theorem Parse.runsWithFinalLineBreaks ∀ (p: () → {Parse Char} a) (read breaks: List Char) (v: a)
+--| What `withFinalLineBreaks` does after its parser gave `v`, where only
+--| line breaks are left: it reads them and gives `v`.
+theorem Parse.runsFinalLineBreaksAfter ∀ (breaks: List Char) (v: a)
+    (allBreaks: breaks.all (char => char == '\n' ∨ char == '\r') = True):
+    Parse.Runs
+      (() =>
+        let start := Parse.mark()
+        let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
+        if finalLineBreaks == [] then Parse.note (Expected "a line break")
+        else if finalLineBreaks == ['\n'] then ()
+        else if finalLineBreaks == ['\r', '\n'] then ()
+        else if start.left == finalLineBreaks.length then ()
+        else Parse.extraBlankLine start
+        v)
+      breaks
+      []
+      v :=
+  state starts honest =>
+    let starts2: state.at.rest = breaks := rewrite List.appendNil breaks at starts in starts
+    let counted: state.at.left = breaks.length := rewrite starts2 at honest in honest
+    Parse.runsFromMark state
+      (start =>
+        let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
+        if finalLineBreaks == [] then Parse.note (Expected "a line break")
+        else if finalLineBreaks == ['\n'] then ()
+        else if finalLineBreaks == ['\r', '\n'] then ()
+        else if start.left == finalLineBreaks.length then ()
+        else Parse.extraBlankLine start
+        v)
+      breaks
+      []
+      v
+      (Parse.runsFromBind state
+        (() => Parse.span (char => char == '\n' ∨ char == '\r'))
+        (finalLineBreaks =>
+          if finalLineBreaks == [] then Parse.note (Expected "a line break")
+          else if finalLineBreaks == ['\n'] then ()
+          else if finalLineBreaks == ['\r', '\n'] then ()
+          else if state.at.left == finalLineBreaks.length then ()
+          else Parse.extraBlankLine state.at
+          v)
+        breaks
+        []
+        breaks
+        []
+        breaks
+        v
+        (Eq.sym (List.appendNil breaks))
+        (Parse.runsSpan (char => char == '\n' ∨ char == '\r') breaks [] allBreaks rfl)
+        (middle atRest honest2 offset =>
+          Parse.runsBind
+            (() =>
+              if breaks == [] then Parse.note (Expected "a line break")
+              else if breaks == ['\n'] then ()
+              else if breaks == ['\r', '\n'] then ()
+              else if state.at.left == breaks.length then ()
+              else Parse.extraBlankLine state.at)
+            (u => v)
+            []
+            []
+            []
+            []
+            ()
+            v
+            rfl
+            (Parse.runsFinalLineBreakCheck state.at breaks counted)
+            (Parse.runsPure v [])
+            middle))
+      starts
+      honest
+
+--| As [`Parse.runsWithFinalLineBreaks`], from one state: for a `p` whose
+--| value depends on where it starts, such as `Parse.locatedToEnd`'s
+--| offsets.
+theorem Parse.runsFromWithFinalLineBreaks ∀ (state: Parse.State Char) (p: () → {Parse Char} a)
+    (read breaks: List Char) (v: a)
     (allBreaks: breaks.all (char => char == '\n' ∨ char == '\r') = True)
-    (runs: Parse.Runs p read breaks v):
-    Parse.Runs (() => Parse.withFinalLineBreaks p) (read ++ breaks) [] v :=
-  Parse.runsBind p
+    (runs: Parse.RunsFrom state p read breaks v):
+    Parse.RunsFrom state (() => Parse.withFinalLineBreaks p) (read ++ breaks) [] v :=
+  Parse.runsFromBindAt state p
     (value =>
       let start := Parse.mark()
       let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
@@ -824,59 +897,15 @@ theorem Parse.runsWithFinalLineBreaks ∀ (p: () → {Parse Char} a) (read break
     v
     rfl
     (rewrite List.appendNil breaks in runs)
-    (state starts honest =>
-      let starts2: state.at.rest = breaks := rewrite List.appendNil breaks at starts in starts
-      let counted: state.at.left = breaks.length := rewrite starts2 at honest in honest
-      Parse.runsFromMark state
-        (start =>
-          let finalLineBreaks := Parse.span (char => char == '\n' ∨ char == '\r')
-          if finalLineBreaks == [] then Parse.note (Expected "a line break")
-          else if finalLineBreaks == ['\n'] then ()
-          else if finalLineBreaks == ['\r', '\n'] then ()
-          else if start.left == finalLineBreaks.length then ()
-          else Parse.extraBlankLine start
-          v)
-        breaks
-        []
-        v
-        (Parse.runsFromBind state
-          (() => Parse.span (char => char == '\n' ∨ char == '\r'))
-          (finalLineBreaks =>
-            if finalLineBreaks == [] then Parse.note (Expected "a line break")
-            else if finalLineBreaks == ['\n'] then ()
-            else if finalLineBreaks == ['\r', '\n'] then ()
-            else if state.at.left == finalLineBreaks.length then ()
-            else Parse.extraBlankLine state.at
-            v)
-          breaks
-          []
-          breaks
-          []
-          breaks
-          v
-          (Eq.sym (List.appendNil breaks))
-          (Parse.runsSpan (char => char == '\n' ∨ char == '\r') breaks [] allBreaks rfl)
-          (middle atRest honest2 offset =>
-            Parse.runsBind
-              (() =>
-                if breaks == [] then Parse.note (Expected "a line break")
-                else if breaks == ['\n'] then ()
-                else if breaks == ['\r', '\n'] then ()
-                else if state.at.left == breaks.length then ()
-                else Parse.extraBlankLine state.at)
-              (u => v)
-              []
-              []
-              []
-              []
-              ()
-              v
-              rfl
-              (Parse.runsFinalLineBreakCheck state.at breaks counted)
-              (Parse.runsPure v [])
-              middle))
-        starts
-        honest)
+    (middle atRest honest offset => Parse.runsFinalLineBreaksAfter breaks v allBreaks middle)
+
+--| `withFinalLineBreaks p` where only line breaks (`\n` and `\r`, any number)
+--| follow what `p` reads: it reads those too. `p` sees them after it.
+theorem Parse.runsWithFinalLineBreaks ∀ (p: () → {Parse Char} a) (read breaks: List Char) (v: a)
+    (allBreaks: breaks.all (char => char == '\n' ∨ char == '\r') = True)
+    (runs: Parse.Runs p read breaks v):
+    Parse.Runs (() => Parse.withFinalLineBreaks p) (read ++ breaks) [] v :=
+  state => Parse.runsFromWithFinalLineBreaks state p read breaks v allBreaks (runs state)
 
 --| `Parse.all` on input that is what `p` reads followed by line breaks only:
 --| it gives the value. The converse of the `all` runner's soundness half
@@ -890,6 +919,21 @@ theorem Parse.runsAll ∀ (input: Text) (p: () → {Parse Char} a) (read breaks:
         (() => Parse.withFinalLineBreaks p)
         v
         (rewrite split in Parse.runsWithFinalLineBreaks p read breaks v allBreaks runs) in
+    rfl
+
+--| As [`Parse.runsAll`], for a `p` whose value depends on where it starts
+--| (the start of the input here): `Parse.locatedToEnd`'s offsets, say.
+theorem Parse.runsFromAll ∀ (input: Text) (p: () → {Parse Char} a) (read breaks: List Char) (v: a)
+    (split: input.toList = read ++ breaks)
+    (allBreaks: breaks.all (char => char == '\n' ∨ char == '\r') = True)
+    (runs: Parse.RunsFrom (Parse.State.start input.toList) p read breaks v):
+    Fail.toResult (() => Parse.all input p) = Ok v :=
+  let moved := rewrite split at runs in runs
+  rewrite Parse.runsFromWhole input.toList
+        (() => Parse.withFinalLineBreaks p)
+        v
+        (rewrite split in
+          Parse.runsFromWithFinalLineBreaks (Parse.State.start (read ++ breaks)) p read breaks v allBreaks moved) in
     rfl
 
 --| `newline` on a line break, "\n" or "\r\n".

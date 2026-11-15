@@ -79,30 +79,56 @@ def readLexeme (lexeme: Lexeme): {Parse Char} Lexeme := match lexeme with
     StrayLexeme
 
 --| One character of an operator run; a run stops before a comment's `--`.
-def operatorChar(): {Parse Char} () := match Parse.mark().rest with
-  | ['-', '-', .._] => Empty.absurd Parse.stop()
-  | [char, .._] if isOperatorChar char =>
+def operatorChar(): {Parse Char} () :=
+  if operatorNext Parse.mark().rest then
     let read := Parse.next (char => True)
     ()
-  | _ => Empty.absurd Parse.stop()
+  else Empty.absurd Parse.stop()
+
+--| Whether an operator run goes on into `rest`: an operator character
+--| comes next, and no comment starts there.
+-- Apart from `operatorChar` and without abilities, as `lexemeStart` is.
+def operatorNext (rest: List Char): Bool := match rest with
+  | ['-', '-', .._] => False
+  | [char, .._] if isOperatorChar char => True
+  | _ => False
 
 --| A string, which must close on the line it starts on: plain runs and
 --| the escapes `\"`, `\\` and `\n` between quotes.
 def stringLexeme(): {Parse Char} () :=
   Parse.char '"'
-  let segments := Parse.many (() =>
-    match Parse.mark().rest with
-      | ['\\', .._] =>
-        Parse.char '\\'
-        let escaped := Parse.satisfy "'\"', '\\' or 'n' after '\\'" (char => char == '"' || char == '\\' || char == 'n')
-        ()
-      | [char, .._] if char != '"' && char != '\n' =>
-        let plain := Parse.span (char => char != '"' && char != '\\' && char != '\n')
-        ()
-      | _ => Empty.absurd Parse.stop())
-  match Parse.next (char => char == '"') with
-    | Some _ => ()
-    | None => Parse.expected "'\"' to close the string"
+  let segments := Parse.many stringSegment
+  stringClosed (Parse.next (char => char == '"'))
+
+--| A piece of a string between its quotes.
+type Segment = | EscapeSegment | PlainSegment
+
+--| Which piece of a string starts `rest`; `None` at its closing quote, the
+--| end of the line or the end of the input.
+-- Apart from `stringSegment` and without abilities, as `lexemeStart` is.
+def segmentStart (rest: List Char): Option Segment := match rest with
+  | ['\\', .._] => Some EscapeSegment
+  | [char, .._] if char != '"' && char != '\n' => Some PlainSegment
+  | _ => None
+
+def isPlainChar (char: Char): Bool := char != '"' && char != '\\' && char != '\n'
+
+def isEscaped (char: Char): Bool := char == '"' || char == '\\' || char == 'n'
+
+def stringSegment(): {Parse Char} () := match segmentStart Parse.mark().rest with
+  | Some EscapeSegment =>
+    Parse.char '\\'
+    let escaped := Parse.satisfy "'\"', '\\' or 'n' after '\\'" isEscaped
+    ()
+  | Some PlainSegment =>
+    let plain := Parse.span isPlainChar
+    ()
+  | None => Empty.absurd Parse.stop()
+
+--| The closing quote, `found` if it was there.
+def stringClosed (found: Option Char): {Parse Char} () := match found with
+  | Some _ => ()
+  | None => Parse.expected "'\"' to close the string"
 
 --| The source as lexemes, every character in one. A lexeme fails only on a
 --| bad string, which fails the lex anyway, so `Parse.locatedToEnd` needs no

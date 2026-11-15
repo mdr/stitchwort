@@ -257,11 +257,12 @@ def Expr.chainLevel: Expr → Nat
   | Binary operator _ _ => operator.level
   | _ => 7
 
---| The shape of the expressions the parser gives, for every expression
---| but `if` (which is not covered yet, and so is not `Shaped`): a
---| field's target is a postfix expression, `-` stands before an operand,
---| and an operator's sides are grouped by precedence, the same level
---| chaining from the left.
+--| The shape of the expressions the parser gives: a field's target is a
+--| postfix expression, `-` stands before an operand, and an operator's
+--| sides are grouped by precedence, the same level chaining from the left.
+--| An `if` is covered where each branch is one expression on its
+--| keyword's line (`ShapedInline`); one with a block for a branch is not
+--| `Shaped` yet.
 def Shaped: Expr → Prop
   | Var _ => True
   | NumberLiteral _ => True
@@ -278,7 +279,12 @@ def Shaped: Expr → Prop
       ∧ Shaped right
   | ListLiteral items => ShapedItems items
   | Call callee arguments => callee.isPostfix = True ∧ Shaped callee ∧ ShapedItems arguments
-  | If _ _ _ => False
+  | If condition whenTrue whenFalse => Shaped condition ∧ ShapedInline whenTrue ∧ ShapedInline whenFalse
+
+--| A body that is one expression of the parser's shape.
+def ShapedInline: Body → Prop
+  | { statements = [{ line = Bare value _, .. }] } => Shaped value
+  | _ => False
 
 --| Each item's value is of the parser's shape.
 def ShapedItems: List Item → Prop
@@ -287,7 +293,8 @@ def ShapedItems: List Item → Prop
 
 --| `tokens` spell `expr` at `layout`: its tokens in order, each of the kind
 --| the expression has there and standing where the layout allows it
---| (anywhere, inside brackets). For the forms `Shaped` covers.
+--| (anywhere, inside brackets). An `if`'s `else` may also start a line at
+--| the statement's column. For the forms `Shaped` covers.
 def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): Prop := match expr with
   | Var name =>
     ∃ (token: Parse.Located Token) => tokens = [token] ∧ token.value.kind = Name name ∧ layout.allows token = True
@@ -338,7 +345,32 @@ def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): 
         ∧ close.value.kind = Sign CloseParen
         ∧ Spelled layout callee calleeTokens
         ∧ SpelledItems arguments argumentTokens
-  | If _ _ _ => False
+  | If condition whenTrue whenFalse =>
+    ∃ (ifToken: Parse.Located Token) => ∃ (conditionTokens: List (Parse.Located Token)) =>
+      ∃ (thenToken: Parse.Located Token) => ∃ (trueTokens: List (Parse.Located Token)) =>
+        ∃ (elseToken: Parse.Located Token) => ∃ (falseTokens: List (Parse.Located Token)) => tokens
+          = [ifToken, ..conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]]
+          ∧ ifToken.value.kind = Reserved IfKeyword
+          ∧ layout.allows ifToken = True
+          ∧ thenToken.value.kind = Reserved ThenKeyword
+          ∧ layout.allows thenToken = True
+          ∧ elseToken.value.kind = Reserved ElseKeyword
+          ∧ layout.allowsElse elseToken = True
+          ∧ Spelled layout condition conditionTokens
+          ∧ SpelledInline layout whenTrue trueTokens
+          ∧ SpelledInline layout whenFalse falseTokens
+
+--| `tokens` spell a body that is one expression, at `layout`: the
+--| expression, not starting a line deeper than the statement (which would
+--| start a block), with its trailing comment where the parser takes a bare
+--| statement's from.
+def SpelledInline (layout: Layout) (found: Body) (tokens: List (Parse.Located Token)): Prop := match found with
+  | { statements = [{ blankBefore, line = Bare value trailing }] } =>
+    blankBefore = False
+      ∧ trailing = trailingFor value tokens
+      ∧ blockAhead layout tokens = False
+      ∧ Spelled layout value tokens
+  | _ => False
 
 --| `tokens` spell the items of a list or the arguments of a call, between
 --| the brackets: each value, a comma after each but the last, and the
@@ -970,29 +1002,18 @@ theorem chainRuleRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     | { at = { rest = [], offset, left }, furthest, expected, messages } => rfl
     | { at = { rest = [token, ..later], offset, left }, furthest, expected, messages } => rewrite noIf in rfl
 
---| Every expression of the forms covered so far is a chain.
-theorem shapedIsChain ∀ (expr: Expr) (shaped: Shaped expr): expr.isChain = True := match expr with
-  | Var name => rfl
-  | NumberLiteral digits => rfl
-  | StringLiteral written => rfl
-  | Bracketed inner => rfl
-  | Field target name => rfl
-  | Negate operand => rfl
-  | Binary operator left right => rfl
-  | ListLiteral listed => rfl
-  | Call callee arguments => rfl
-
---| One level of the expression parser: `expressionRule` reads a chain,
---| given that `self` reads the expressions nested in it.
-theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
+--| One level of the expression parser on anything but an `if`:
+--| `expressionRule` reads a chain, given that `self` reads the expressions
+--| nested in it.
+theorem runsChainRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
     (expr: Expr) (tokens rest: List (Parse.Located Token))
+    (chain: expr.isChain = True)
     (shaped: Shaped expr)
     (spelled: Spelled layout expr tokens)
     (ends: EndsExpression layout rest)
     (small: tokens.length <= bound):
     Parse.Runs (() => expressionRule self layout) tokens rest expr :=
-  let chain := shapedIsChain expr shaped
   match chainTree self layout bound nested expr tokens rest chain shaped spelled ends.left small with
     | Witness tree (Both reads (Both value (Both formed (Both runsEach others)))) =>
       let runs: Parse.Runs
@@ -1019,6 +1040,38 @@ theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} E
                     (rewrite starts in chainStart layout expr tokens rest chain shaped spelled))
                   ran)
                 after)
+
+--| One level of the expression parser: `expressionRule` reads an `if` or
+--| a chain, given that `self` reads the expressions nested in it.
+theorem runsExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
+    (nested: ReadsNested self bound)
+    (expr: Expr) (tokens rest: List (Parse.Located Token))
+    (shaped: Shaped expr)
+    (spelled: Spelled layout expr tokens)
+    (ends: EndsExpression layout rest)
+    (small: tokens.length <= bound):
+    Parse.Runs (() => expressionRule self layout) tokens rest expr :=
+  match expr, shaped, spelled with
+    | If condition whenTrue whenFalse, shaped, spelled =>
+      runsIfSpelled self layout bound nested condition whenTrue whenFalse tokens rest shaped spelled ends small
+    | Var name, shaped, spelled =>
+      runsChainRule self layout bound nested (Var name) tokens rest rfl shaped spelled ends small
+    | NumberLiteral digits, shaped, spelled =>
+      runsChainRule self layout bound nested (NumberLiteral digits) tokens rest rfl shaped spelled ends small
+    | StringLiteral written, shaped, spelled =>
+      runsChainRule self layout bound nested (StringLiteral written) tokens rest rfl shaped spelled ends small
+    | Bracketed inner, shaped, spelled =>
+      runsChainRule self layout bound nested (Bracketed inner) tokens rest rfl shaped spelled ends small
+    | Field target name, shaped, spelled =>
+      runsChainRule self layout bound nested (Field target name) tokens rest rfl shaped spelled ends small
+    | Negate operand, shaped, spelled =>
+      runsChainRule self layout bound nested (Negate operand) tokens rest rfl shaped spelled ends small
+    | Binary operator left right, shaped, spelled =>
+      runsChainRule self layout bound nested (Binary operator left right) tokens rest rfl shaped spelled ends small
+    | ListLiteral listed, shaped, spelled =>
+      runsChainRule self layout bound nested (ListLiteral listed) tokens rest rfl shaped spelled ends small
+    | Call callee arguments, shaped, spelled =>
+      runsChainRule self layout bound nested (Call callee arguments) tokens rest rfl shaped spelled ends small
 
 --| What `expression` reads: an expression of the parser's shape, spelled at
 --| the layout, with nothing after it that would continue it.
@@ -1062,6 +1115,7 @@ def startsExpression: Kind → Bool
   | Sign OpenParen => True
   | Sign OpenSquare => True
   | Op Minus => True
+  | Reserved IfKeyword => True
   | _ => False
 
 --| A spelled expression has a first token, of a kind that starts one.
@@ -1071,6 +1125,16 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
     ∃ (first: Parse.Located Token) => ∃ (others: List (Parse.Located Token)) => tokens = [first, ..others]
       ∧ startsExpression first.value.kind = True :=
   match expr with
+    | If condition whenTrue whenFalse =>
+      match spelled with
+        | Witness ifToken
+            (Witness conditionTokens
+              (Witness thenToken
+                (Witness trueTokens (Witness elseToken (Witness falseTokens (Both split (Both isIfToken others))))))) =>
+          Witness ifToken
+            (Witness
+              (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])
+              (Both split (rewrite isIfToken in rfl)))
     | Var name =>
       match spelled with
         | Witness token (Both split (Both kind allowed)) =>
@@ -1143,6 +1207,7 @@ theorem startNoBracket ∀ (kind: Kind) (wanted: Punctuation)
     | Number digits => rfl
     | Str written => rfl
     | Op operator => rfl
+    | Reserved keyword => rfl
     | Sign punctuation =>
       match punctuation, wanted with
         | OpenParen, CloseParen => rfl

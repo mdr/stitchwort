@@ -886,13 +886,13 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse t} a)
     | Parse.stop u, q => Void.exfalso (Result.errNotOk h)
     | Parse.fatal message, q => Void.exfalso (Result.errNotOk h)
 
---| `p` reads all of `input`: `Parse.run` gives the value (for `Parse.all` and
---| `eachLine`, which add line breaks and a check for the end, state `Runs`
---| for the text with them).
-theorem Parse.runsRun ∀ (p: () → {Parse t} a) (input: List t) (v: a)
-    (runs: Parse.Runs p input [] v):
+--| `p` from the start of `input` reads all of it: `Parse.run` gives the
+--| value. The form of [`Parse.runsRun`] for a `p` whose value depends on
+--| where it starts.
+theorem Parse.runsFromRun ∀ (p: () → {Parse t} a) (input: List t) (v: a)
+    (runs: Parse.RunsFrom (Parse.State.start input) p input [] v):
     Parse.run input p = Ok v :=
-  match runs (Parse.State.start input) (Eq.sym (List.appendNil input)) rfl with
+  match runs (Eq.sym (List.appendNil input)) rfl with
     | Witness m (Both ran others) =>
       Parse.runFromForgetMark p
         (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ())))
@@ -900,6 +900,14 @@ theorem Parse.runsRun ∀ (p: () → {Parse t} a) (input: List t) (v: a)
         v
         m
         ran
+
+--| `p` reads all of `input`: `Parse.run` gives the value (for `Parse.all` and
+--| `eachLine`, which add line breaks and a check for the end, state `Runs`
+--| for the text with them).
+theorem Parse.runsRun ∀ (p: () → {Parse t} a) (input: List t) (v: a)
+    (runs: Parse.Runs p input [] v):
+    Parse.run input p = Ok v :=
+  Parse.runsFromRun p input v (runs (Parse.State.start input))
 
 --| `literal` where the input starts with the items: it gives `True`.
 theorem Parse.runsLiteral ∀ (literal: Parse.Literal t)
@@ -1237,6 +1245,35 @@ theorem Parse.runsWhole ∀ (chars: List t) (p: () → {Parse t} a) (v: a)
       (Eq.sym (List.appendNil chars))
       runs
       (Parse.runsBind Parse.end (u => v) [] [] [] [] () v rfl Parse.runsEnd (Parse.runsPure v [])))
+
+--| As [`Parse.runsWhole`], for a `p` whose value depends on where it
+--| starts: `p` from the start of `chars` reads all of them.
+theorem Parse.runsFromWhole ∀ (chars: List t) (p: () → {Parse t} a) (v: a)
+    (runs: Parse.RunsFrom (Parse.State.start chars) p chars [] v):
+    Parse.whole chars p = Ok v :=
+  Parse.runsFromRun
+    (() =>
+      let value := p()
+      Parse.end()
+      value)
+    chars
+    v
+    (Parse.runsFromBindAt
+      (Parse.State.start chars)
+      p
+      (value =>
+        Parse.end()
+        value)
+      chars
+      []
+      chars
+      []
+      v
+      v
+      (Eq.sym (List.appendNil chars))
+      runs
+      (middle atRest honest offset =>
+        Parse.runsBind Parse.end (u => v) [] [] [] [] () v rfl Parse.runsEnd (Parse.runsPure v []) middle))
 
 -- Completeness for the rest of the combinators (SW-1584).
 
