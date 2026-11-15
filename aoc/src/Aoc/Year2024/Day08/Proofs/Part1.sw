@@ -189,7 +189,9 @@ theorem antinodesOfCorrect ∀ (far near point: Position):
   rewrite antinodesOfUnfold far near in
     antinodesIff far near point _ {
       forward = c => Both c.left.read c.right.read,
-      backward = m => Both (rewrite And.left m in rfl) (rewrite And.right m in rfl)
+      backward = m =>
+        let Both inLineHere twiceHere := m
+        Both (rewrite inLineHere in rfl) (rewrite twiceHere in rfl)
     }
 
 --| Part 1 counts the puzzle's antinodes, for every city.
