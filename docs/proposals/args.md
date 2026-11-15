@@ -1,6 +1,6 @@
 # `Std.Args`: a command-line library (SW-3378)
 
-**Status:** draft 1, 15 November 2026. Design only; nothing built. Open
+**Status:** draft 1, 15 November 2026. Stage A1 built (§11); A2 dropped (D3614). Open
 decisions: D3614, D3615 ([§9](#9-questions-for-matt)). Claims are marked
 **[ran]** (probed with the release CLI, scratchpad `sw3378/`), **[read]**
 (in this repo's code or docs), **[cited]** (another library's docs, linked).
@@ -288,3 +288,65 @@ that print it. **[rec: yes]**
   against `?0`, where a record literal in the same place waits
   (postponement.md stage 2) [ran]. Worth a ticket: lambdas could wait too.
 - SW-3263 (`IO.args` to its own ability) changes only `Args.run`'s row.
+
+## 11. As built, stage A1 (SW-3381, 15 November 2026)
+
+D3614 (Matt): the combinators only, as pure library code; the record form
+(A2), D3615 and attributes are dropped for now (the general mechanism is
+SW-3382). `crates/elab/src/std/Args/Args.sw` is `Std.Args`; its tests are
+in the same file.
+
+**Differences from §3 and §4:**
+
+- `Args.start` is `Args.Spec.start`, so that `.and` finds `Args.Spec.and`.
+  `Args.Spec` holds `items: List Args.Info` (not `options`; positionals are
+  items too) and `read`. The lambda given to `Spec.start` needs its
+  parameter types written (SW-3379), as the design said; the guide and the
+  doc comment say so.
+- The combinators: `flag`, `option` (needs a `default`), `required`,
+  `optional`, `many`, `arguments metavar (atLeast := n)`. `option`'s
+  `metavar` defaults to the type's own (`N`, `TEXT`, `PATH`, `CHOICE`).
+- `Args.parse` takes a `Args.Program` (`{ name, about := "" }`), because the
+  help it returns names the program: `Args.parse program spec arguments`.
+  There is no `Args.parseWith`/`[auto Args.Command]` (that was the derived
+  form). `Args.runOn program spec arguments body` is `Args.run`'s core with
+  the list given, so a program's `run` can be tested; `Args.run` passes
+  `IO.args()`.
+- `Args.Value` has instances for `Text`, `Nat`, `Int` and `Path`;
+  `Args.choice` builds one for a `Finite` and `Show` type (the error lists
+  the choices: `--colour wants one of Red, Green, Blue, got 'Pink'`). There
+  is no `Float` instance yet.
+- Constructors of `Args.Error`, `Args.Outcome` and the rest are written in
+  full or imported (`import Std.Args.Outcome (Run, Help, Wrong)`). `Unknown`
+  clashes with `Terminal.Key`'s constructor inside std, so std itself writes
+  `Args.Error.Unknown`; a program may import it.
+- `Unknown`'s suggestion is only the one option the mistyped name is a prefix
+  of (`--wid` gives `--width`); there is no edit distance (A3).
+- `Wrong` exits 1: `Args.run` fails with the whole complaint, three lines:
+  `NAME: message`, `usage: ...`, `Run 'NAME --help' for more.` The runner
+  prefixes `error: `.
+- `--help`/`-h` is recognised where an option would be (not as the value of
+  an option, and not after `--`) and wins over a mistake that comes after
+  it, as a mistake before it wins. The first mistake in the command line is
+  reported; then missing or bad values, in the order of the spec.
+- Help wraps descriptions at 80 columns under the description column, so a
+  long help line is two lines (the §4 sample had one 85 characters long).
+  A help text is written with its full stop; `(default: X)` follows it.
+- A spec may have one positional item (`arguments`); a second is reported by
+  `Args.problems`, not refused when it is built. `problems` also reports an
+  option name used twice and `help`/`h`. It isn't checked by `parse`: a
+  program's tests assert `Args.problems spec == []`.
+- Proofs: `Args.scanAfterDashes` (everything after `--` reaches the
+  positionals unchanged, in order) and `Args.Spec.andItems`, both by `rfl`.
+  "Help lists every option" is not proved: it needs lemmas about
+  `Text.contains` over `joinWith` and the wrapping that std doesn't have yet;
+  the tests check it on the example specs.
+
+**toyfmt** (`tools/toyfmt/src/Toy/Fmt/Cli.sw`) is now one spec of 4 lines
+and `Args.runOn`; `Options` stays in `Driver.sw`. It gains `--width=N`, `--`
+and `--help`. What changed in its messages: "no paths given" is
+`missing PATH`, "unknown flag --wide" is `unknown option --wide`, "--width
+needs a number" is `--width needs a value (N)`, and each is followed by the
+usage line and the `Run 'toyfmt --help' for more.` line instead of being
+prefixed by the usage line. Its unit tests and the end-to-end test (which
+checks that stderr has `usage: toyfmt`) hold.

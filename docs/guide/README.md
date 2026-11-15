@@ -23,7 +23,7 @@ To learn proving about programs hands-on in VS Code first, open the tutorial [tu
 8. [Abilities](08-abilities.md): declaring and handling effects, effect polymorphism, `Fail`, `Abort`, `Each` and `IO`.
 9. [Testing](09-testing.md): tests, what a failing test tells you, testing effectful code.
 10. [Proofs](10-proofs.md): `theorem`, `rfl`, induction, `rewrite`, `calc`, `omega`, goals, induction that follows a function, cases with conditions, tests and the statements they stand for (`.read`, patterns on a test fact), `opaque`, dependent types, proofs about effectful code, `audit`, and a worked example.
-11. [Running and shipping](11-running-and-shipping.md): the runtimes, standalone executables, exporting to JavaScript and TypeScript, performance.
+11. [Running and shipping](11-running-and-shipping.md): the runtimes, standalone executables, a command line (`Args`), exporting to JavaScript and TypeScript, performance.
 
 ## The examples are checked
 
