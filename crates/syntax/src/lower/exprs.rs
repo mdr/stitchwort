@@ -355,6 +355,17 @@ impl<'f> Lower<'f> {
         {
             return self.apply_ctor_fields(f, node);
         }
+        // An argument that is a bracket left open (`g (`) makes the whole
+        // call missing: checking `n` as a function applied to nothing would
+        // be a second error for the one the parser reported.
+        if let Element::Node(node) = arg
+            && node.kind() == NodeKind::Error
+            && !node.root().recoveries().is_empty()
+        {
+            let span = f.span().to(whole(node)?);
+            *f = Expr::Missing(span);
+            return Ok(());
+        }
         let arg = self.argument(arg)?;
         let head = Box::new(std::mem::replace(f, Expr::Hole(Span::NOWHERE)));
         *f = Expr::App(head, Box::new(arg));
