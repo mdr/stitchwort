@@ -35665,12 +35665,12 @@
     {
       "id": 3252,
       "title": "[DeepSeek] std: add List.stripPrefixBy, with Text.stripPrefixChars and its lemmas as a special case (SW-3235 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~35 min (est. 40). List.stripPrefixBy already existed (SW-3282); added Some/None lemmas, Text.stripPrefixChars now an alias; Text and Parse hashes moved (accepted). Orchestrator ran the six AoC 2020 proof namespaces using stripPrefix and toyfmt check: clean.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
