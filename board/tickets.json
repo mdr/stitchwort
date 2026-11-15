@@ -1,5 +1,5 @@
 {
-  "next": 3388,
+  "next": 3389,
   "tickets": [
     {
       "id": 47,
@@ -37546,6 +37546,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "Matt, 15 Nov 2026: \"you shouldn't do details from memory ... So please verify.\" Expected: 1.5 h.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3388,
+      "title": "[Opus] Termination checker records a false < at proof positions (rebuilt lets a field pinned through a proof parameter be any term); harmless only because of two positivity rules (no field depends on one holding D; nestable condition 5). State the dependency in termination.rs and docs/core.md and pin it with tests p09/p10/p11 (docs/reviews/SW-3376-wrapper-rule-soundness.md F2). Pre-existing on main",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
