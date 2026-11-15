@@ -37111,12 +37111,12 @@
     {
       "id": 3354,
       "title": "[Opus] Design: derived == and compare for std types (opt-in), so Files' ~60 lines of hand-written instances and similar go (SW-3338 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Paper lane 15 Nov, combined with SW-3358 (derived == for mutually recursive types, the toy formatter's tree). Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37176,12 +37176,12 @@
     {
       "id": 3359,
       "title": "[Opus] Termination: recursion through List.map (and friends) on a field of the matched value counts as smaller, so tree code needs no per-list helpers (SW-3341 friction 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Paper lane 15 Nov, combined with SW-3365 (recursion on a Text prefix rest). Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
