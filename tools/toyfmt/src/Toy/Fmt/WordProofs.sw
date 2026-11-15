@@ -405,7 +405,7 @@ theorem writesLineStart ∀ (index: Nat) (blankBefore: Bool): Writes (lineStart 
 theorem ifWrites ∀ (ifComments: Comments) (condition: Expr) (thenComments: Comments) (whenTrue: Body)
     (elseComments: Comments) (whenFalse: Body)
     (conditionWrites: Writes condition.layout condition.pieces)
-    (trueWrites: Writes (branch whenTrue) whenTrue.pieces)
+    (trueWrites: Writes (branch thenComments whenTrue) whenTrue.pieces)
     (falseWrites: Writes (elseBranch elseComments whenFalse) whenFalse.pieces):
     Writes
       (ifLayout ifComments condition thenComments whenTrue elseComments whenFalse)
@@ -512,7 +512,7 @@ theorem exprWrites ∀ (expr: Expr): Writes expr.layout expr.pieces := match exp
   | If ifComments condition thenComments whenTrue elseComments whenFalse =>
     ifWrites ifComments condition thenComments whenTrue elseComments whenFalse
       (exprWrites condition)
-      (branchWrites whenTrue)
+      (branchWrites thenComments whenTrue)
       (elseBranchWrites elseComments whenFalse)
 
 theorem itemDocsWrite ∀ (items: List Item): WritesAll (itemDocs items) (itemPieces items) := match items with
@@ -597,9 +597,12 @@ theorem branchBareWrites ∀ (value: Expr)
     Writes (Choice [Doc.concat [Doc.text " ", Flatten value.layout], below value.layout]) value.pieces :=
   writesChoiceTwo _ _ _ (writesTwo _ _ [] value.pieces writesSpace (writesFlatten _ _ writes)) (writesBelow _ _ writes)
 
-theorem branchWrites ∀ (body: Body): Writes (branch body) body.pieces := match body with
+theorem branchWrites ∀ (keyword: Comments) (body: Body): Writes (branch keyword body) body.pieces := match body with
   | { statements = [] } => blockWrites []
-  | { statements = [{ blankBefore, line = Bare value }] } => branchBareWrites value (exprWrites value)
+  | { statements = [{ blankBefore, line = Bare value }] } =>
+    match g: keyword.after.isNone with
+      | True => branchBareWrites value (exprWrites value)
+      | False => writesBelow _ _ (exprWrites value)
   | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] } =>
     blockWrites [{ blankBefore, line = Let letComments name nameComments equals inner }]
   | { statements = [{ blankBefore, line = StatementNote comment }] } =>
@@ -621,26 +624,28 @@ theorem elseBranchWrites ∀ (elseComments: Comments) (body: Body): Writes (else
                 writesSpace
                 (ifWrites ifComments condition thenComments whenTrue innerElse whenFalse
                   (exprWrites condition)
-                  (branchWrites whenTrue)
+                  (branchWrites thenComments whenTrue)
                   (elseBranchWrites innerElse whenFalse))
-            | False => branchWrites { statements = [{ blankBefore, line = Bare value }] }
-        | _ => branchWrites { statements = [{ blankBefore, line = Bare value }] }
-    | { statements = [] } => branchWrites { statements = [] }
+            | False => branchWrites elseComments { statements = [{ blankBefore, line = Bare value }] }
+        | _ => branchWrites elseComments { statements = [{ blankBefore, line = Bare value }] }
+    | { statements = [] } => branchWrites elseComments { statements = [] }
     | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] } =>
-      branchWrites { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }
+      branchWrites elseComments {
+        statements = [{ blankBefore, line = Let letComments name nameComments equals inner }]
+      }
     | { statements = [{ blankBefore, line = StatementNote comment }] } =>
-      branchWrites { statements = [{ blankBefore, line = StatementNote comment }] }
+      branchWrites elseComments { statements = [{ blankBefore, line = StatementNote comment }] }
     | { statements = [{ blankBefore, line = Bare value }, second, ..rest] } =>
       match value with
         | If ifComments condition thenComments whenTrue innerElse whenFalse =>
-          branchWrites { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
-        | _ => branchWrites { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
+          branchWrites elseComments { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
+        | _ => branchWrites elseComments { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
     | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }, second, ..rest] } =>
-      branchWrites {
+      branchWrites elseComments {
         statements = [{ blankBefore, line = Let letComments name nameComments equals inner }, second, ..rest]
       }
     | { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] } =>
-      branchWrites { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] }
+      branchWrites elseComments { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] }
 
 theorem afterEqualsWrites ∀ (body: Body) (equals: Comments): Writes (body.afterEquals equals) body.pieces :=
   match body with

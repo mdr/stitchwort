@@ -437,7 +437,7 @@ theorem chainHeadKeeps ∀ (level: Nat) (expr: Expr)
 theorem ifKeeps ∀ (ifComments: Comments) (condition: Expr) (thenComments: Comments) (whenTrue: Body)
     (elseComments: Comments) (whenFalse: Body)
     (conditionOk: Keeps condition.layout)
-    (trueOk: Keeps (branch whenTrue))
+    (trueOk: Keeps (branch thenComments whenTrue))
     (falseOk: Keeps (elseBranch elseComments whenFalse)):
     Keeps (ifLayout ifComments condition thenComments whenTrue elseComments whenFalse) :=
   keepsConcat
@@ -447,7 +447,7 @@ theorem ifKeeps ∀ (ifComments: Comments) (condition: Expr) (thenComments: Comm
       condition.layout,
       Doc.text " ",
       token thenComments "then",
-      branch whenTrue,
+      branch thenComments whenTrue,
       Line,
       token elseComments "else",
       elseBranch elseComments whenFalse
@@ -501,7 +501,7 @@ theorem exprKeeps ∀ (expr: Expr): Keeps expr.layout := match expr with
   | If ifComments condition thenComments whenTrue elseComments whenFalse =>
     ifKeeps ifComments condition thenComments whenTrue elseComments whenFalse
       (exprKeeps condition)
-      (branchKeeps whenTrue)
+      (branchKeeps thenComments whenTrue)
       (elseBranchKeeps elseComments whenFalse)
 
 theorem listKeeps ∀ (open: Comments) (items: List Item) (close: Comments): Keeps (listLayout open items close) :=
@@ -527,9 +527,12 @@ theorem argumentsKeeps ∀ (open: Comments) (arguments: List Item) (close: Comme
               (keepsNest 1 (Doc.concat [SoftLine, itemDocs [first, ..rest] |> joined Line]))
               (keepsSeqBreak SoftLine (closer close ")") [] softLineBreaks (closerOpens close ")" rfl) keepsSeqNil))))
 
-theorem branchKeeps ∀ (body: Body): Keeps (branch body) := match body with
+theorem branchKeeps ∀ (keyword: Comments) (body: Body): Keeps (branch keyword body) := match body with
   | { statements = [] } => keepsBelow _
-  | { statements = [{ blankBefore, line = Bare value }] } => branchBare value (exprKeeps value)
+  | { statements = [{ blankBefore, line = Bare value }] } =>
+    match g: keyword.after.isNone with
+      | True => branchBare value (exprKeeps value)
+      | False => keepsBelow _
   | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] } => keepsBelow _
   | { statements = [{ blankBefore, line = StatementNote comment }] } => keepsBelow _
   | { statements = [first, second, ..rest] } => keepsBelow _
@@ -546,26 +549,26 @@ theorem elseBranchKeeps ∀ (elseComments: Comments) (body: Body): Keeps (elseBr
               (keepsText " ")
               (ifKeeps ifComments condition thenComments whenTrue innerElse whenFalse
                 (exprKeeps condition)
-                (branchKeeps whenTrue)
+                (branchKeeps thenComments whenTrue)
                 (elseBranchKeeps innerElse whenFalse))
-          | False => branchKeeps { statements = [{ blankBefore, line = Bare value }] }
-      | _ => branchKeeps { statements = [{ blankBefore, line = Bare value }] }
-  | { statements = [] } => branchKeeps { statements = [] }
+          | False => branchKeeps elseComments { statements = [{ blankBefore, line = Bare value }] }
+      | _ => branchKeeps elseComments { statements = [{ blankBefore, line = Bare value }] }
+  | { statements = [] } => branchKeeps elseComments { statements = [] }
   | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] } =>
-    branchKeeps { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }
+    branchKeeps elseComments { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }
   | { statements = [{ blankBefore, line = StatementNote comment }] } =>
-    branchKeeps { statements = [{ blankBefore, line = StatementNote comment }] }
+    branchKeeps elseComments { statements = [{ blankBefore, line = StatementNote comment }] }
   | { statements = [{ blankBefore, line = Bare value }, second, ..rest] } =>
     match value with
       | If ifComments condition thenComments whenTrue innerElse whenFalse =>
-        branchKeeps { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
-      | _ => branchKeeps { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
+        branchKeeps elseComments { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
+      | _ => branchKeeps elseComments { statements = [{ blankBefore, line = Bare value }, second, ..rest] }
   | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }, second, ..rest] } =>
-    branchKeeps {
+    branchKeeps elseComments {
       statements = [{ blankBefore, line = Let letComments name nameComments equals inner }, second, ..rest]
     }
   | { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] } =>
-    branchKeeps { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] }
+    branchKeeps elseComments { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] }
 
 theorem afterEqualsKeeps ∀ (body: Body) (equals: Comments): Keeps (body.afterEquals equals) := match body with
   | { statements = [{ blankBefore, line = Bare value }] } =>
