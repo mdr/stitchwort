@@ -3220,17 +3220,20 @@ fn apply_args_postponing<'a>(
 
 /// The application `term` of type `ty` to `args`, whose expected type
 /// `expected` (unforced) is known, with its leading implicit arguments given
-/// before its arguments are checked. Where the result its type promises is a
-/// call of the same definition as `expected`, and one of the call's
-/// arguments is one of those implicit parameters itself, a type, that
-/// parameter is given `expected`'s argument there, as `[t := Char]` would
-/// give it; the
-/// rest get unknowns, as the first argument would give them. A lemma's type
-/// parameter, such as an ability's `t` in `Parse.runsBind`, is then a known
-/// type in everything checked after, not an unknown solved later, which
-/// every use reads through its solution (SW-3282: a nested chain of such
-/// lemmas took 60% more steps). The comparison at the end still checks the
-/// whole type.
+/// before its arguments are checked, where one is an ability's argument.
+/// Where the result its type promises is a call of the same definition as
+/// `expected`, an implicit type parameter that is an argument of that call
+/// on its own, and the argument of an ability in a row of a later
+/// parameter's type (`t` in `Parse.runsBind`'s `p: () → {Parse t} a`), is
+/// given `expected`'s argument there, as `[t := Char]` would give it; the
+/// other leading implicits get unknowns, as the first argument would give
+/// them. Rows mentioning such a `t` are then known rows in everything
+/// checked after, rather than rows with an unknown solved later, which every
+/// comparison reads through its solution: a nested chain of such lemmas
+/// took 60% more steps (SW-3282). Other type parameters are left to be
+/// solved: knowing them early changes which arguments wait for the expected
+/// type, and a `readsThen` chain relies on its `rest` waiting. The
+/// comparison at the end still checks the whole type.
 #[inline(never)]
 fn settle_from_expected(
     cx: &mut Ctx,
@@ -3252,13 +3255,12 @@ fn settle_from_expected(
     };
     let g = cx.g();
     let base = cx.level();
-    // The parameters as variables, and the result past every parameter the
-    // type spells out, without unfolding a call (the result itself may
-    // unfold to a function type).
-    // Which of the leading implicit parameters are types: only those are
-    // given, so what is given has the parameter's type whenever the call's
-    // type matches `expected` at all.
+    // The leading implicit parameters, whether each is a type, the levels
+    // that are an ability's argument in a later parameter's row, and the
+    // result past every parameter the type spells out, without unfolding a
+    // call (the result itself may unfold to a function type).
     let mut types: Vec<bool> = Vec::new();
+    let mut in_rows: Vec<usize> = Vec::new();
     let mut leading = true;
     let mut result = force(&g, ty.clone())?;
     let mut level = base;
@@ -3269,13 +3271,13 @@ fn settle_from_expected(
                 icit == Icit::Implicit && matches!(force(&g, (*dom).clone())?, Value::Sort(_));
             types.push(is_type);
         }
+        if !types.is_empty() {
+            row_arguments(cx, level, &dom, &mut in_rows)?;
+        }
         result = cod.apply(&g, Value::var(level))?;
         level += 1;
     }
     let implicit = types.len();
-    if !types.contains(&true) {
-        return Ok((term, ty));
-    }
     let Some((found, found_spine)) = call_parts(&result) else {
         return Ok((term, ty));
     };
@@ -3295,6 +3297,7 @@ fn settle_from_expected(
             && spine.is_empty()
             && (base..base + implicit).contains(&l)
             && types[l - base]
+            && in_rows.contains(&l)
             && given[l - base].is_none()
         {
             given[l - base] = Some(quote(&g, base, b)?);
@@ -3320,6 +3323,31 @@ fn settle_from_expected(
         ty = cod.apply(&g, value)?;
     }
     Ok((term, ty))
+}
+
+/// Adds to `out` the variables that are, on their own, an ability's
+/// argument in a row of `ty` (with `level` variables in scope): in its
+/// result, or in a parameter's type, at any depth of function types.
+fn row_arguments(cx: &Ctx, level: usize, ty: &Value, out: &mut Vec<usize>) -> Result<()> {
+    let g = cx.g();
+    match force(&g, ty.clone())? {
+        Value::Pi(_, _, dom, cod) => {
+            row_arguments(cx, level, &dom, out)?;
+            row_arguments(cx, level + 1, &cod.apply(&g, Value::var(level))?, out)
+        }
+        other => {
+            if let Some((row, _)) = effects::comp_parts_at(cx, level, &other)? {
+                for arg in row.labels.iter().flat_map(|l| &l.args) {
+                    if let Value::Neutral(Head::Var(l, _), spine) = force(&g, arg.clone())?
+                        && spine.is_empty()
+                    {
+                        out.push(l);
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
 }
 
 /// The definition `value` calls and the call's spine, if it is a call of a
