@@ -441,18 +441,18 @@ theorem Parse.runsSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest:
         (rewrite Parse.runFromNextThere state passes char rest _ starts holds in rfl)
         (Both rfl (Both (omega [honest, lengths]) rfl)))
 
---| What `one` does after reading `item`, where `select item` is `Some value`:
---| it gives `value`.
-theorem Parse.runsOneStep ∀ (what: Text) (select: t → Option a) (item: t) (value: a) (rest: List t)
-    (selected: select item = Some value):
-    Parse.Runs
-      (() =>
-        match select item with
-          | Some value => value
-          | None => Parse.expected what)
-      []
-      rest
-      value :=
+--| What `one` does with what `select` gave for the item it read: the value
+--| if there is one, else "expected `what`". Stated apart from `one` so that
+--| `runsOneStep`'s hypothesis isn't in scope of the `None` arm, which it
+--| would prove impossible.
+def Parse.oneValue (what: Text) (chosen: Option a): {Parse t} a := match chosen with
+  | Some value => value
+  | None => Parse.expected what
+
+--| `oneValue` of a `Some` gives its value.
+theorem Parse.runsOneStep ∀ (what: Text) (chosen: Option a) (value: a) (rest: List t)
+    (selected: chosen = Some value):
+    Parse.Runs (() => Parse.oneValue what chosen) [] rest value :=
   rewrite selected in Parse.runsPure value rest
 
 --| `one` where the next item is one `select` gives a value for: it reads it
@@ -462,10 +462,7 @@ theorem Parse.runsOne ∀ (what: Text) (select: t → Option a) (item: t) (value
     Parse.Runs (() => Parse.one what select) [item] rest value :=
   Parse.runsBind
     (() => Parse.satisfy what (item => (select item).isSome))
-    (found =>
-      match select found with
-        | Some value => value
-        | None => Parse.expected what)
+    (found => Parse.oneValue what (select found))
     [item]
     []
     [item]
@@ -474,7 +471,7 @@ theorem Parse.runsOne ∀ (what: Text) (select: t → Option a) (item: t) (value
     value
     (Eq.sym (List.appendNil [item]))
     (Parse.runsSatisfy what (item => (select item).isSome) item rest (rewrite selected in rfl))
-    (Parse.runsOneStep what select item value rest selected)
+    (Parse.runsOneStep what (select item) value rest selected)
 
 --| `span1` on a non-empty run of items that pass, with `rest` not starting
 --| with another: it reads the run and gives it.
