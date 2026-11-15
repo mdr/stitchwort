@@ -437,6 +437,10 @@ Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,
 "Test budget"). Some kinds of work also need standard lines, each added after a
 lane missed it and a batch failed:
 
+- **Fixes a bug:** "add the smallest test that fails before the fix and
+  passes after (a unit test, an example file, a snapshot), and show it
+  failing without the fix; if an existing test caught the bug, name it
+  instead" (D3608). The orchestrator checks it in review.
 - **May add examples:** "new examples get a hash snapshot: `nix develop -c
   task snap:hashes NAME=<the example's file stem>` (comma-separated for
   several), and run `task test:one -- -E 'binary(library) & test(/hash_stability/)'`". `NAME`
