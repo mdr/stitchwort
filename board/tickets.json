@@ -1,5 +1,5 @@
 {
-  "next": 3365,
+  "next": 3367,
   "tickets": [
     {
       "id": 47,
@@ -36175,7 +36175,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 15 Nov (orchestrator's sequencing, after SW-3336 freed a slot). Expected: 4 h (Opus).",
+      "body": "Opus review docs/reviews/SW-3288-text-prefix.md: merge after fixes 1-4 (chained rest on Text, guarded-arm equations, rest display name from binder, doc comment). Arm equations over x1 stay until stage 3. Filed SW-3365 SW-3366.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -37247,6 +37247,32 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "Expected: 45 min (Sonnet).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3365,
+      "title": "[Opus paper] Recursion on a Text prefix rest (count rest) fails termination while the List Char version passes; first thing a lexer author writes (SW-3288 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3366,
+      "title": "[Sonnet] Text prefix rest as a slice in the runtimes: MkText of a tail becomes Text.drop k t (rt lower.rs, js), with differential tests; pair with text-patterns stage 5 (SW-3288 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
