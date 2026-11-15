@@ -52,12 +52,14 @@ test "code after a trailing comment starts a continuation line, without the spac
   print (Doc.concat [t "x", LineSuffix "-- c", t ")", HardLine, t "y"]) 120 == "x -- c\n  )\ny"
     && print (Nest 6 (Doc.concat [t "x", LineSuffix "-- c", t " ", t "y"])) 120 == "x -- c\n      y"
 
+--| What follows the comment goes on a line indented as the comment's.
 test "an own-line comment no layout broke for starts a continuation line" :=
-  let comment := Doc.concat [t "f", LineStart, t "-- c", HardLine, t "x"]
+  let comment := Doc.concat [t "f", LineStart, t "-- c", CommentEnd, t "x"]
   print comment 120 == "f\n  -- c\n  x"
     && print (Doc.concat [comment, HardLine, t "y"]) 120 == "f\n  -- c\n  x\ny"
-    && print (Doc.concat [t "f", HardLine, LineStart, t "-- c", HardLine, t "x"]) 120 == "f\n-- c\nx"
-    && print (Doc.concat [t "f + ", LineStart, t "-- c", HardLine, t "x"]) 120 == "f +\n  -- c\n  x"
+    && print (Doc.concat [t "f", HardLine, LineStart, t "-- c", CommentEnd, t "x"]) 120 == "f\n-- c\nx"
+    && print (Doc.concat [t "f + ", LineStart, t "-- c", CommentEnd, t "x"]) 120 == "f +\n  -- c\n  x"
+    && print (Nest 4 (Doc.concat [t "f", HardLine, LineStart, t "-- c", CommentEnd, t "x"])) 120 == "f\n    -- c\n    x"
 
 test "comments before a closer go at the indentation in force" :=
   let comments := Nest 2 (Doc.concat [LineStartHere, t "-- c"])

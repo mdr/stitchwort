@@ -34,9 +34,6 @@ type Printer = {
   suffixes: List Text,
   --| The indentation of the line being printed.
   lineIndent: Nat,
-  --| After an own-line comment that had to start its line: the least
-  --| indentation of the lines up to the next code.
-  commentFloor: Option Nat,
   --| How many line breaks `out` ends with, for `Blank`.
   newlinesAtEnd: Nat,
   started: Bool
@@ -52,7 +49,6 @@ def print (doc: Doc) (width: Nat): Text :=
     atLineStart = True,
     suffixes = [],
     lineIndent = 0,
-    commentFloor = None,
     newlinesAtEnd = 0,
     started = False
   }
@@ -91,6 +87,7 @@ def Printer.printDoc (printer: Printer) (total indent: Nat) (mode: Mode) (doc: D
     | SoftLine => if mode.isFlat && printer.suffixes.isEmpty then (printer, rest) else (printer.newline indent, rest)
     | HardLine => (printer.newline indent, rest)
     | LineStart => (printer.lineStart indent, rest)
+    | CommentEnd => (printer.newline printer.lineIndent, rest)
     | LineStartHere =>
       if printer.atLineStart then ({ printer | owed = Some indent, lineIndent = indent }, rest)
       else (printer.newline indent, rest)
@@ -162,7 +159,6 @@ def Printer.put (printer: Printer) (text: Text) (width: Nat): Printer :=
     out = [text, ..paid.out],
     column = paid.column + width,
     atLineStart = False,
-    commentFloor = if text.startsWith "--" then paid.commentFloor else None,
     newlinesAtEnd = 0,
     started = True
   }
@@ -173,10 +169,7 @@ def Printer.continuation (printer: Printer) (indent: Nat): Nat := Nat.max indent
 
 --| A comment break before an own-line comment, unless a line starts here.
 def Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
-  if printer.atLineStart then printer
-  else
-    let floor := printer.continuation indent
-    { printer.newline floor | commentFloor = Some floor }
+  if printer.atLineStart then printer else printer.newline (printer.continuation indent)
 
 def Printer.flushSuffixes (printer: Printer): Printer :=
   printer.suffixes.foldLeft { printer | suffixes = [] } (at comment =>
@@ -184,14 +177,13 @@ def Printer.flushSuffixes (printer: Printer): Printer :=
     { spaced | out = [comment, ..spaced.out], atLineStart = False, newlinesAtEnd = 0, started = True })
 
 def Printer.newline (printer: Printer) (indent: Nat): Printer :=
-  let at := printer.commentFloor.map (floor => Nat.max indent floor) |> .getOrElse indent
   let flushed := { printer | out = trimSpaces printer.out }.flushSuffixes
   { flushed |
     out = ["\n", ..flushed.out],
     column = 0,
-    owed = Some at,
+    owed = Some indent,
     atLineStart = True,
-    lineIndent = at,
+    lineIndent = indent,
     newlinesAtEnd = flushed.newlinesAtEnd + 1,
     started = True
   }
@@ -241,6 +233,7 @@ def fitsFrom (fuel: Nat) (stack: List (Mode, Doc)) (rest: List Cmd) (left: Nat) 
           | SoftLine => not mode.isFlat || (not suffix && fitsFrom more stack rest left suffix)
           | HardLine => not mode.isFlat
           | LineStart => not mode.isFlat
+          | CommentEnd => not mode.isFlat
           | LineStartHere => not mode.isFlat
           | Nest _ inner => fitsFrom more [(mode, inner), ..stack] rest left suffix
           | Flatten inner => fitsFrom more [(Flat, inner), ..stack] rest left suffix

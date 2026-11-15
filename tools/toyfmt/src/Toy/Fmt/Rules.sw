@@ -50,7 +50,7 @@ def token (comments: Comments) (text: Text): Doc :=
 
 def commentsAbove (comments: List Comment): Doc := match comments with
   | [] => Empty
-  | _ => Doc.concat [LineStart, ..comments.map (comment => Doc.concat [Doc.text comment.text, HardLine])]
+  | _ => Doc.concat [LineStart, ..comments.map (comment => Doc.concat [Doc.text comment.text, CommentEnd])]
 
 --| A trailing comment stays at the end of its line after one space, so
 --| the group around it breaks if anything would follow it there.

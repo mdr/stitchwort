@@ -49,10 +49,12 @@ type Doc =
   --| break), indented as a continuation line.
   | LineSuffix (comment: Text)
   --| A line break here unless at the start of a line: before an own-line
-  --| comment. A line started this way is a comment break, and the lines up
-  --| to the next code, that code's included, are indented as continuation
-  --| lines.
+  --| comment. A line started this way is a comment break, indented as a
+  --| continuation line.
   | LineStart
+  --| A line break after an own-line comment, to a line indented as the
+  --| comment's: what follows stays where the comment is.
+  | CommentEnd
   --| A line break at the indentation in force, or at the start of a line,
   --| that line moved there: own-line comments before a closing bracket, at
   --| its items' indentation.
@@ -85,6 +87,7 @@ def Doc.isEmpty: Doc → Bool := matches | Empty
 def Doc.forcesBreak: Doc → Bool
   | HardLine => True
   | LineStart => True
+  | CommentEnd => True
   | LineStartHere => True
   | BreakParent => True
   | OneLineBelow _ => True
