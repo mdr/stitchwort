@@ -234,13 +234,18 @@ def f (n: Nat): Nat :=
 }
 
 #[test]
-fn a_comment_no_rule_places_leaves_its_declaration_as_written() {
-    // S40: between a function and its first argument, joined to the line.
-    let text = "def x: Nat := f\n  -- why\n  a\n";
-    let gate = gate(text).unwrap();
-    assert_eq!(gate.check, Ok(()));
-    assert_eq!(gate.text, text);
-    assert_eq!(gate.stats.verbatim_decls(), 1);
+fn a_comment_where_no_layout_breaks_gets_a_line_break() {
+    // S40: between a function and its first argument, the comment starts
+    // a line deeper than the call's, and so does the argument after it.
+    check(
+        "def x: Nat := f\n  -- why\n  a\n",
+        "def x: Nat :=\n  f\n    -- why\n    a\n",
+    );
+    // After an operator, the operand goes below.
+    check(
+        "def x: Nat :=\n  a + -- why\n    b\n",
+        "def x: Nat := a + -- why\n  b\n",
+    );
 }
 
 #[test]

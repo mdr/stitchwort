@@ -29,6 +29,11 @@ use stitchwort_syntax::{
 
 use crate::{Error, check};
 
+/// An environment variable naming a declaration to treat as failing its
+/// checks: no input fails them (every comment has a place, S40), so the
+/// tests of how a declaration left as written is reported use this.
+pub const REFUSE_FOR_TEST: &str = "STITCHWORT_FMT_REFUSE_FOR_TEST";
+
 /// The width lines are fitted to (D1014).
 pub const WIDTH: usize = 120;
 
@@ -214,13 +219,17 @@ fn print_file(file: FileId, text: &str) -> Result<PrintedFile, Error> {
             } else {
                 let doc = printer.node(decl);
                 let printed = engine::print(&doc, WIDTH);
-                let verdict = if printed.forced_comment_lines > 0 {
-                    Err("comment no rule places")
-                } else if printed.stranded_comments > 0 {
-                    Err("comment before a text block")
-                } else {
-                    same_decl(before, &printed.text)
+                let refused = || {
+                    std::env::var(REFUSE_FOR_TEST)
+                        .is_ok_and(|name| name == decl_name(&tree, &input, range.clone()))
                 };
+                let verdict = same_decl(before, &printed.text).and_then(|()| {
+                    if refused() {
+                        Err("refused for a test")
+                    } else {
+                        Ok(())
+                    }
+                });
                 match verdict {
                     Ok(()) => {
                         rules::unruled(decl, &mut stats.unruled);

@@ -6,6 +6,15 @@ run with the main checkout's release binary (built 16:30 today) and, for the
 toy, `stitchwort run Toy.Fmt.main`. One question for Matt,
 [D3619](#d3619-the-principle-and-its-layout-cost).
 
+**Update, SW-3447 (lane R, `stitchwort fmt`): built**, D3619 adopted. One
+difference from §2 and §3: when code would follow a trailing comment, the
+engine measures the rest of the construct from the line that code goes on,
+instead of breaking the construct. So most awkward positions keep the
+author's layout rather than the shapes worked by hand in §3 (`x + -- c`
+then `x` below, not `+` alone on its line). The 24 probes and their
+outputs are the golden `crates/fmt/tests/it/golden/comments-anywhere`;
+formatter-style.md S40 states the rule as built.
+
 Claims are marked **[measured]** (a run today, one each), **[source]** (read
 in the code named) or **[estimated]**. Outputs marked *proposed* are what
 the rules below give, worked by hand; nothing prints them yet.
