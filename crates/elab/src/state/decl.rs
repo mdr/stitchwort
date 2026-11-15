@@ -201,10 +201,6 @@ pub(crate) struct Decl {
     /// the declaration's state ([`Decl::reset`]). (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
-    /// What each arm of a compiled `match` is known not to be, from the
-    /// literal arms above it: by the arm's right-hand side
-    /// (`arm_display::arm_key`), cleared per declaration.
-    pub(crate) arm_facts: RefCell<HashMap<usize, Rc<[crate::arm_display::ArmFact]>>>,
     /// The spans of the patterns a text pattern was expanded to (its list
     /// cells and each of its characters), each to the text pattern's own
     /// span, so that a case left out among them is reported as a text one
@@ -336,7 +332,6 @@ impl Decl {
             local_asts,
             tuple_matches,
             char_patterns,
-            arm_facts,
             text_spans,
             text_fallbacks,
             text_fixed_vars,
@@ -385,7 +380,6 @@ impl Decl {
             ("local_asts", local_asts.borrow().is_empty()),
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
-            ("arm_facts", arm_facts.borrow().is_empty()),
             ("text_spans", text_spans.borrow().is_empty()),
             ("text_fallbacks", text_fallbacks.borrow().is_empty()),
             ("text_fixed_vars", text_fixed_vars.borrow().is_empty()),

@@ -3,7 +3,7 @@
 -- of those literals, so `x ≠ lit` is a goal `byDecision` or an `[auto]`
 -- parameter solves there, though the fact is only a mark on the value, not
 -- a hypothesis.
-import Std (Bool, Int, Nat, Text, byDecision)
+import Std (Bool, Int, Nat, Option, Text, byDecision)
 
 -- A lemma that wants `k ≠ 5` as a value.
 theorem notFiveIsZero ∀ (f: Nat → Nat) (hf: ∀ (k: Nat) (ne: k ≠ 5) => f k = 0) (n: Nat): (n = 5) ∨ (f n = 0) :=
@@ -61,4 +61,18 @@ theorem texts ∀ (s: Text): (s ≠ "ab" ∧ s ≠ "ac") ∨ s = "ab" ∨ s = "a
 theorem afterGuard ∀ (n: Nat) (b: Bool): n ≠ 6 ∨ n = 6 := match n with
   | 5 if b => Inl byDecision
   | 6 => Inr rfl
+  | m => Inl byDecision
+
+-- The fact reaches goals that only contain the variable: `n + 2`, `Some n`,
+-- `(n, c)`.
+theorem sum ∀ (n: Nat): n + 2 ≠ 7 ∨ n = 5 := match n with
+  | 5 => Inr rfl
+  | m => Inl byDecision
+
+theorem wrapped ∀ (n: Nat): Some n ≠ Some 5 ∨ n = 5 := match n with
+  | 5 => Inr rfl
+  | m => Inl byDecision
+
+theorem pair ∀ (n: Nat) (c: Char): (n, c) ≠ (5, 'x') ∨ n = 5 := match n with
+  | 5 => Inr rfl
   | m => Inl byDecision

@@ -43,3 +43,8 @@ theorem columns ∀ (p: Nat → Nat → Prop) (a b: Nat): p a b := match a, b wi
   | 0, y => ?
   | x, 1 => ?
   | x, y => ?
+
+-- A hole as an `[auto]` argument is a goal, not a failed search for it.
+def apartFromFive (n: Nat) [auto ok: n ≠ 5]: Nat := n
+
+def holey (k: Nat) (hk: k ≠ 5): Nat := apartFromFive ?

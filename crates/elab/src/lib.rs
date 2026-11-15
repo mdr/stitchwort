@@ -656,6 +656,8 @@ enum Tree<'a> {
         /// How many leaves of the whole tree take this arm: how many times
         /// its right-hand side is checked.
         cases: usize,
+        /// What the arm is known not to be, from the literal arms above it.
+        facts: Rc<[arm_display::ArmFact]>,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -4003,6 +4005,7 @@ impl Elaborator {
                 later: Vec::new(),
                 unsplit: Vec::new(),
                 cases: 1,
+                facts: Rc::from([]),
             }
         } else {
             rows = equations
@@ -4092,7 +4095,8 @@ impl Elaborator {
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
         arm_display::count_cases(&mut tree);
-        self.note_arm_facts(rows, columns, types, skip)?;
+        let facts = self.arm_facts(rows, columns, types, skip);
+        arm_display::set_facts(&mut tree, &facts);
         match missing::definite(&tree, span) {
             // The checker reports the cases that are possible after all.
             Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
@@ -4101,17 +4105,19 @@ impl Elaborator {
         }
     }
 
-    /// Records, for each arm of a match, what its catch-all columns are
-    /// known not to be (`arm_display::ArmFact`): the numbers, characters
+    /// For each arm of a match (by the address of its right-hand side,
+    /// used only to put them on the compiled leaves), what its catch-all
+    /// columns are known not to be (`arm_display::ArmFact`): the numbers, characters
     /// and texts that earlier arms without a condition match in that
     /// column alone, every other column of theirs being a variable or `_`.
-    fn note_arm_facts(
+    fn arm_facts(
         &self,
         rows: &[Row],
         columns: &[usize],
         types: &[Option<Value>],
         skip: usize,
-    ) -> Result<()> {
+    ) -> stitchwort_core::collections::HashMap<usize, Rc<[arm_display::ArmFact]>> {
+        let mut found = stitchwort_core::collections::HashMap::default();
         let literal = |pattern: &Pattern, kind: &Result<NumberKind>, text: bool| match pattern {
             Pattern::Num(n, _) if matches!(kind, Ok(NumberKind::Nat | NumberKind::Int)) => {
                 Some(n.to_string())
@@ -4170,10 +4176,10 @@ impl Elaborator {
             }
             if !facts.is_empty() {
                 let key = std::ptr::from_ref(rhs) as usize;
-                self.decl.arm_facts.borrow_mut().insert(key, facts.into());
+                found.insert(key, facts.into());
             }
         }
-        Ok(())
+        found
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
@@ -4361,6 +4367,7 @@ impl Elaborator {
                 later: rows[1..].iter().map(|row| row.span).collect(),
                 unsplit: first.unsplit.clone(),
                 cases: 1,
+                facts: Rc::from([]),
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -5403,13 +5410,6 @@ fn hide_unnamed_variables(cx: &mut Ctx) {
     }
 }
 
-/// What the arm with right-hand side `rhs` is known not to be
-/// ([`Elaborator::note_arm_facts`]).
-fn rhs_facts(cx: &Ctx, rhs: &Expr) -> Rc<[arm_display::ArmFact]> {
-    let key = std::ptr::from_ref(rhs) as usize;
-    (cx.e.decl.arm_facts.borrow().get(&key)).map_or_else(|| Rc::from([]), Rc::clone)
-}
-
 /// A leaf of the case tree: its arm's right-hand side, checked with the
 /// arm's pattern variables in scope. `guarded` if the arm has a condition,
 /// which puts it inside the `if` that tests it, where a `match` that is the
@@ -5424,6 +5424,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         later,
         unsplit,
         cases,
+        facts,
     } = tree
     else {
         unreachable!("a leaf")
@@ -5488,8 +5489,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
-    let facts = rhs_facts(cx, rhs);
-    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases, &facts);
+    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases, facts);
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
@@ -5980,6 +5980,7 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             later,
             unsplit,
             cases,
+            facts,
         } => Tree::Leaf {
             aliases: aliases.iter().map(|&(x, l)| (x, up(l))).collect(),
             written: written.clone(),
@@ -5989,6 +5990,13 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             later: later.clone(),
             unsplit: unsplit.iter().map(|&l| up(l)).collect(),
             cases: *cases,
+            facts: facts
+                .iter()
+                .map(|f| arm_display::ArmFact {
+                    level: up(f.level),
+                    literal: f.literal.clone(),
+                })
+                .collect(),
         },
         Tree::Guard {
             guard,

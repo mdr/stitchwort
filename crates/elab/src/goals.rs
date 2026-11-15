@@ -557,10 +557,6 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         .or_else(|| says_cases.then_some((view.cases, None)));
     let shown = view.goal.clone().unwrap_or_else(|| expected.clone());
     let (mut context, mut hidden) = scope_entries(cx, shown_names, &view.env, &view.types);
-    let facts = shown_facts(&view, &context);
-    if !view.changed && cases.is_none() && facts.is_empty() {
-        return None;
-    }
     let superseded = drop_superseded(cx, &shown, &mut context, &mut hidden);
     drop_split_leftovers(
         cx,
@@ -570,6 +566,12 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         &mut hidden,
     );
     let context = dependency_order(&cx.g(), cx.level(), context);
+    // From the context as listed: a fact about a variable the goal doesn't
+    // show can't be used by name.
+    let facts = shown_facts(&view, &context);
+    if !view.changed && cases.is_none() && facts.is_empty() {
+        return None;
+    }
     Some(Box::new(ArmGoal {
         expected: shown,
         computed: view.computed,

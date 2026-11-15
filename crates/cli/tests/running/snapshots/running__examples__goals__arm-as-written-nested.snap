@@ -117,12 +117,9 @@ expression: output
     │          ╰── p: Text → Prop
     │              q: Nat → Text
     │              s: Nat
-    │              s✝ ≠ "ab"
     │              ⊢ p (q s)
     │ 
-    │ Note 1: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
-    │ 
-    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
 ────╯
 [GOAL] Goal: in `written`
     ╭─[ goals/arm-as-written-nested.sw:37:13 ]

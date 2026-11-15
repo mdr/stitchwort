@@ -222,3 +222,12 @@ expression: output
     │ 
     │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
+[GOAL] Goal: in `holey`
+    ╭─[ goals/catch-all-facts.sw:50:54 ]
+    │
+ 50 │ def holey (k: Nat) (hk: k ≠ 5): Nat := apartFromFive ?
+    │                                                      ┬  
+    │                                                      ╰── k: Nat
+    │                                                          hk: k ≠ 5
+    │                                                          ⊢ Nat
+────╯

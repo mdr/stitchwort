@@ -209,6 +209,32 @@ pub(crate) fn count_cases(tree: &mut Tree) {
     set(tree, &counts);
 }
 
+/// Puts on each leaf the facts of its arm, from `facts` (by the address of
+/// the arm's right-hand side).
+pub(crate) fn set_facts(tree: &mut Tree, facts: &HashMap<usize, Rc<[ArmFact]>>) {
+    match tree {
+        Tree::Leaf {
+            rhs, facts: own, ..
+        } => {
+            if let Some(found) = rhs.and_then(|r| facts.get(&(std::ptr::from_ref(r) as usize))) {
+                *own = found.clone();
+            }
+        }
+        Tree::Guard {
+            leaf, otherwise, ..
+        } => {
+            set_facts(leaf, facts);
+            set_facts(otherwise, facts);
+        }
+        Tree::Absurd { .. } | Tree::Missing { .. } => {}
+        Tree::Case { branches, .. } => branches.iter_mut().for_each(|(_, t)| set_facts(t, facts)),
+        Tree::NumCase { arms, default, .. } => {
+            arms.iter_mut().for_each(|(_, t)| set_facts(t, facts));
+            set_facts(default, facts);
+        }
+    }
+}
+
 /// The shared start of the splits a case makes now: the state before them,
 /// unless a case above already made it.
 pub(crate) fn root_of(cx: &Ctx, goal: &Value) -> (Option<Rc<Split>>, Rc<Root>) {
