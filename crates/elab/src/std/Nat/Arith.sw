@@ -775,10 +775,6 @@ theorem Nat.addEqZero ∀ (a b: Nat) (h: a + b = 0): (a = 0) ∧ (b = 0) := matc
 
 theorem Nat.eqIsEqualExample: (Succ 4 == Succ 2) = (4 == 2) := Eq.trans (Nat.eqIsEqual 5 3) (Eq.sym (Nat.eqIsEqual 4 2))
 
-theorem Nat.compareSelf ∀ (n: Nat): Nat.compare n n = Equal := match n with
-  | Zero => rfl
-  | Succ n => Nat.compareSelf n
-
 --| `x < u` is "not u <= x".
 theorem Nat.lessNotLe ∀ (x u: Nat): Nat.leq (Succ x) u = Bool.not (Nat.leq u x) := match x, u with
   | x, Zero => rfl

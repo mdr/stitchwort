@@ -1,6 +1,5 @@
 ---
 source: crates/driver/tests/library/hash_stability.rs
-assertion_line: 121
 expression: "lines(session, d, f)"
 ---
 data Main.Callback 55c3661484b6f84a0e28833cf7dc01c594eefc5ed0e646d6b7e4444dc875a460
