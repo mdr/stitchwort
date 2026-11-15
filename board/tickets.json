@@ -36670,7 +36670,7 @@
     {
       "id": 3323,
       "title": "[DeepSeek] ~30 server__goal_index snapshots are stale on main (line ranges shifted in the SW-2657 reformat; their source: header path out of date), so goal_examples_in_the_index fails on the first: regenerate them and check each diff is only line numbers and the path (SW-3317 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
