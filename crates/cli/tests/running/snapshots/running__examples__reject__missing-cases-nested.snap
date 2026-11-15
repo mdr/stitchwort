@@ -2,6 +2,24 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
+[W-CTOR-HIDES] Warning: the constructor `None` hides `Option.None` in this file
+   ╭─[ reject/missing-cases-nested.sw:5:5 ]
+   │
+ 5 │   | None
+   │     ──┬─  
+   │       ╰─── `None` here means `Opt.None`, not `Option.None`
+   │ 
+   │ Note: a constructor name means one thing in a file: write `Option.None` for the hidden one. Better, rename `Opt.None`, or keep this type in a file that doesn't need the other
+───╯
+[W-CTOR-HIDES] Warning: the constructor `Some` hides `Option.Some` in this file
+   ╭─[ reject/missing-cases-nested.sw:6:5 ]
+   │
+ 6 │   | Some (x: a)
+   │     ──┬─  
+   │       ╰─── `Some` here means `Opt.Some`, not `Option.Some`
+   │ 
+   │ Note: a constructor name means one thing in a file: write `Option.Some` for the hidden one. Better, rename `Opt.Some`, or keep this type in a file that doesn't need the other
+───╯
 [E-NONEXHAUSTIVE] Error: missing cases: no arm matches 2 patterns
 | (None, False) => ?
 | (Some _, True) => ?

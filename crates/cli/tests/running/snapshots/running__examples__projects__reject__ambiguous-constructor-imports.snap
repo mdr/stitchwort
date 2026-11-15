@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/examples.rs
+expression: output
+---
+[E-AMBIGUOUS] Error: `Str` could mean `Lexer.Token.Str` or `Printer.Doc.Str`
+   ╭─[ ambiguous-constructor-imports/src/both.sw:8:15 ]
+   │
+ 8 │ test "str" := Str "a" == Str "a"
+   │               ─┬─  
+   │                ╰─── write `Lexer.Token.Str` or `Printer.Doc.Str`
+   │ 
+   │ Note 1: a constructor name means one thing in a file: qualify it with its type. Only code that really uses both types should import both; keep types that share constructor names in separate files
+   │ 
+   │ Note 2: both come in through `(..)` imports; to choose one, import it by name, e.g. `import Lexer (Token)`
+───╯

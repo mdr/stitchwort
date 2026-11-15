@@ -437,6 +437,61 @@ test "with helpers" := (findAdult []).map .name |> .getOrElse "nobody" == "nobod
 
 `Result a e` is the same idea for operations that can fail with a reason: `Ok value` or `Err error`. [Chapter 6](06-namespaces-and-library.md) has more of both, and [chapter 8](08-abilities.md) shows `Fail`, which is often more convenient than returning a `Result` by hand.
 
+## Two types with one constructor name
+
+A constructor name means one thing in a file. If two types in the same file both have a constructor `Str`, a bare `Str` doesn't say which, even in a `match` on a `Doc` where you can see the type. It's an error, and the message offers the two spellings:
+
+<!-- snippet: errors/constructor-clash.sw -->
+```stitchwort
+type Token = | Str (text: Text) | Name (text: Text)
+type Doc = | Str (text: Text) | Line
+
+def Doc.width: Doc → Nat
+  | Str text => text.length
+  | Line => 0
+```
+
+<!-- output: check errors/constructor-clash.sw -->
+```text
+[E-AMBIGUOUS] Error: `Str` could mean `Doc.Str` or `Token.Str`
+   ╭─[ errors/constructor-clash.sw:5:5 ]
+   │
+ 1 │ type Token = | Str (text: Text) | Name (text: Text)
+   │                ─┬─
+   │                 ╰─── `Token.Str` is declared here
+ 2 │ type Doc = | Str (text: Text) | Line
+   │              ─┬─
+   │               ╰─── `Doc.Str` is declared here
+   │
+ 5 │   | Str text => text.length
+   │     ─┬─
+   │      ╰─── write `Doc.Str` or `Token.Str`
+   │
+   │ Note: a constructor name means one thing in a file: qualify it with its type, or rename one of them. Types that share constructor names are best kept in separate files, so that only code that uses both has to import both
+───╯
+1 error: in `Doc.width`
+```
+
+Write the type in front of the constructor. Names that aren't shared, `Name` and `Line`, stay short:
+
+<!-- snippet: clash.sw#qualified -->
+```stitchwort
+type Token = | Str (text: Text) | Name (text: Text)
+type Doc = | Str (text: Text) | Line
+
+def Token.label: Token → Text
+  | Token.Str text => text
+  | Name text => text
+
+def Doc.width: Doc → Nat
+  | Doc.Str text => text.length
+  | Line => 0
+```
+
+The same goes for a constructor that is named like one the prelude gives you. A file's own `type Cell = | Wall | None` hides `Option`'s `None` in that file, and the declaration warns (`W-CTOR-HIDES`); `Option.None` is still the library's. Goals and error messages write a clashing constructor in this qualified form too, so a goal you copy into your code checks.
+
+The habit that avoids all this: keep types that share constructor names in separate files, a lexer's tokens in one and a printer's documents in another. Only code that really uses both, such as a function from tokens to documents, imports both, and writes `Token.Str` and `Doc.Str`. Or rename one of the constructors.
+
 ## Type synonyms
 
 `type Name = SomeType` gives an existing type another name. Unlike a record, a synonym is interchangeable with what it stands for. It has a namespace of its own, so it can have dot-callable functions:

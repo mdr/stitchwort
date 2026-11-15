@@ -15,5 +15,7 @@ expression: output
     │ 
  10 │ def unit: Shape := Square 1
     │                    ───┬──  
-    │                       ╰──── write `Shape.Square` or `Tile.Square` in full
+    │                       ╰──── write `Shape.Square` or `Tile.Square`
+    │ 
+    │ Note: a constructor name means one thing in a file: qualify it with its type, or rename one of them. Types that share constructor names are best kept in separate files, so that only code that uses both has to import both
 ────╯

@@ -7,7 +7,9 @@ expression: output
    │
  7 │ test "r" := R == R
    │             ┬  
-   │             ╰── write `Lib.Range.R` or `Twin.Range.R` in full
+   │             ╰── write `Lib.Range.R` or `Twin.Range.R`
    │ 
-   │ Note: both come in through `(..)` imports; to choose one, import it by name, e.g. `import Lib (Range)`
+   │ Note 1: a constructor name means one thing in a file: qualify it with its type. Only code that really uses both types should import both; keep types that share constructor names in separate files
+   │ 
+   │ Note 2: both come in through `(..)` imports; to choose one, import it by name, e.g. `import Lib (Range)`
 ───╯

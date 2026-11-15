@@ -63,6 +63,14 @@ pub trait NameScope {
     fn method(&self, _projection: DefId) -> Option<(DefId, String)> {
         None
     }
+
+    /// How constructor `c` of `d` is written here when its short name
+    /// doesn't mean it (another constructor of the same name is in scope,
+    /// or the file's own hides it): `Token.Str`, so that a printed term
+    /// checks when pasted back. `None` where the short name does.
+    fn ctor_name(&self, _d: DataId, _c: usize) -> Option<String> {
+        None
+    }
 }
 
 /// How the match compiler names the characters left after a text prefix
@@ -1065,7 +1073,9 @@ impl<'g> Printer<'g> {
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
-                let mut text = ctor.name.to_string();
+                let mut text = (self.scope)
+                    .and_then(|scope| scope.ctor_name(*d, *c))
+                    .unwrap_or_else(|| ctor.name.to_string());
                 // A constructor declared with its fields in braces is shown
                 // by field name, as it can be written. (With implicit fields
                 // it is shown positionally, which braces can't say.)

@@ -389,3 +389,25 @@ theorem w2: Ph Char 0 :=
     assert_eq!(out, "w.sw:13:62\nin `w2`\n  expected () → {Src Nat} Nat\n");
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Two types of a file share a constructor name, so the goal at a point
+/// writes it with its type, which pastes back (D3615, SW-3397).
+#[test]
+fn goal_at_writes_a_clashing_constructor_with_its_type() {
+    let dir = folder("clash");
+    let file = "\
+type Token =
+  | Str (text: Text)
+  | Name (text: Text)
+
+type Doc =
+  | Str (text: Text)
+  | Line
+
+theorem same (t: Text): Doc.Str t = Doc.Str t := ?
+";
+    std::fs::write(dir.join("t.sw"), file).unwrap();
+    let (code, out, err) = goal(&dir, &["--at", "t.sw:9:50"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert!(out.contains("⊢ Doc.Str t = Doc.Str t"), "{out}");
+}
