@@ -1,5 +1,5 @@
 {
-  "next": 3407,
+  "next": 3408,
   "tickets": [
     {
       "id": 47,
@@ -37794,6 +37794,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3407,
+      "title": "[Sonnet] Counterexample 'first difference' line (shown::first_difference) qualifies clashing constructors like goals do (SW-3397 finding); check the case-split code action too",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
