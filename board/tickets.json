@@ -36175,12 +36175,12 @@
     {
       "id": 3289,
       "title": "[DeepSeek] Recovery: two shapes give two errors where one is better: 'g (' then a let at the block's column; a guard with an unclosed [ then => on its own line (SW-3285 findings)",
-      "status": "next",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Found in SW-3285. First attempt (DeepSeek) reverted: expect_closer counted a bracket whose contents ran out as closed, so the tree got a Paren node instead of an Error node, and the checker reported a follow-on E-NOT-A-FUNCTION (examples/reject/recover-calc-open-bracket.sw) and tree::tests::a_broken_body_keeps_its_headers_nodes failed. A fix must keep the unclosed bracket an Error node (one error, no follow-on), and run the syntax crate's tree and recovery tests plus the reject examples. Model result: DeepSeek, failed (ran only its named tests; broke two others), ~25 min (est. 45). Retry on Sonnet.",
+      "body": "Found in SW-3285. First attempt (DeepSeek) reverted: expect_closer counted a bracket whose contents ran out as closed, so the tree got a Paren node instead of an Error node, and the checker reported a follow-on E-NOT-A-FUNCTION (examples/reject/recover-calc-open-bracket.sw) and tree::tests::a_broken_body_keeps_its_headers_nodes failed. A fix must keep the unclosed bracket an Error node (one error, no follow-on), and run the syntax crate's tree and recovery tests plus the reject examples. Model result: DeepSeek, failed (ran only its named tests; broke two others), ~25 min (est. 45). Retry on Sonnet.\n\n\nSonnet retry, lane/SW-3289 95a794cb0 (about 35 min): the parser keeps the unclosed bracket an Error node (close_bracket in parser.rs, for paren, list, tuple), an App with an Error argument lowers whole to Missing, and a guard ends at => when its bracket has no partner. Tests: syntax unit tests 287 pass, both new tests, reject examples (EXAMPLES=recover,calc,guard,paren,bracket) pass with the calc snapshot unchanged, fuzz:syntax 200000 ok, clippy clean. New examples recover-open-call-paren and recover-guard-open-bracket.\n",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
