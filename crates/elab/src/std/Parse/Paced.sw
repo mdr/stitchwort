@@ -195,7 +195,6 @@ theorem Parse.locatedToEndFromReads ∀ (lexeme: List Char → {Parse Char} a) (
       ∧ value = found.reverse ++ Parse.locatedSteps state.at.offset steps
       ∧ Parse.LexemesRead spec steps :=
   match fuel with
-    | Zero => Void.exfalso (omega [enough])
     | Succ more =>
       match e: state.at.rest with
         | [] =>
