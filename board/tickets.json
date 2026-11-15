@@ -1,5 +1,5 @@
 {
-  "next": 3309,
+  "next": 3310,
   "tickets": [
     {
       "id": 47,
@@ -36089,15 +36089,17 @@
     {
       "id": 3283,
       "title": "[Sonnet] Generic Parse stage 2 (generic-parse.md §4): tokens: Parse.Located, located, one, span1, Parse.tokens and messages, lemmas; guide section 'Lex, then parse' and a feature-tour page. After stage 1",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3589 (Matt, 14 Nov 2026): build stages 0-2. D3604 chain B. Expected: 2.5 h (Sonnet).",
+      "body": "D3589. Expected 2.5 h (Sonnet), ~20 min. New theorem statements checked by the orchestrator one by one (readsOne, readsSpan1, readsLiteralSame, readsLocated, runsFromLocated, tokensOk, tokensReads, runsTokens, runsOne, runsSpan1, declinesOne/OneEnd/Span1, List.stripPrefixByRelated): each says what its name claims. Names beyond the paper (orchestrator's call, std helpers): Parse.tokensMessage, tokenFound, tokenPosition, tokensOk, runsOneStep. Filed SW-3309. Model result: Sonnet, worked, ~20 min (est. 150).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "e4a9fa9013d3838334cd3b34dd28356ca0b1969f"
+      ]
     },
     {
       "id": 3284,
@@ -36438,6 +36440,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3309,
+      "title": "[Opus] A clause lambda with a record pattern passed to Parse.one fails with E-CANNOT-INFER: the ability argument t is known only from the enclosing row after the call (Parse.one \"a number\" (match some | { value = Num n, .. } => n)); settle t from the enclosing function's row earlier (with SW-3305/SW-3307) (SW-3283 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
