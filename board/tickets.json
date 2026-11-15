@@ -37953,7 +37953,7 @@
     {
       "id": 3418,
       "title": "[Opus] Toy formatter: prove the printer correct directly (Matt, 15 Nov 2026: the ambition is no run-time check because the behaviour is proved), so format can drop its re-parse: parse (print t) gives t back for every tree the parser produces, at any width; experiment with a 3 h stop; report what it takes and an estimate for the real formatter",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
