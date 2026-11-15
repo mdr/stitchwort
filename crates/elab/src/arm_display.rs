@@ -33,6 +33,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::value::{eval, quote, quote_folded};
 use stitchwort_core::{Term, Value};
 use stitchwort_syntax::Span;
+use stitchwort_syntax::ast::Expr;
 
 use crate::Tree;
 use crate::check::Ctx;
@@ -59,6 +60,12 @@ pub(crate) struct Split {
     base: usize,
     /// The fields' types, as they were bound.
     fields: Vec<Value>,
+    /// What an indexed family's split also decided: variables made another
+    /// value (an index `n` made `Succ n✝`), after the split's own `x`.
+    solved: Vec<(usize, Value)>,
+    /// The fields' values, where the split solved some of them; otherwise
+    /// they are the variables themselves.
+    field_values: Option<Vec<Value>>,
 }
 
 /// A leaf's arm, while its right-hand side is checked.
@@ -85,6 +92,9 @@ pub(crate) struct View {
     pub(crate) cases: usize,
     /// Whether anything above differs from what the leaf has.
     pub(crate) changed: bool,
+    /// Whether the goal the arm's cases give depends on which case it is:
+    /// the case tree's splits changed the match's goal.
+    pub(crate) depends: bool,
 }
 
 /// An expression a `match` on it generalises: the variable standing for it
@@ -128,11 +138,27 @@ pub(crate) fn forget_scrutinees(cx: &Ctx, before: usize) {
     cx.e.goals.borrow_mut().scrutinees.truncate(before);
 }
 
+/// Which arm a leaf takes: its right-hand side (the alternatives of an
+/// or-pattern are leaves of their own spans, but one arm), or its span for an
+/// arm with none.
+#[derive(PartialEq, Eq, Hash)]
+enum ArmKey {
+    Rhs(usize),
+    Span(Span),
+}
+
+fn arm_key(rhs: &Option<&Expr>, span: Span) -> ArmKey {
+    match rhs {
+        Some(rhs) => ArmKey::Rhs(std::ptr::from_ref(*rhs) as usize),
+        None => ArmKey::Span(span),
+    }
+}
+
 /// Sets how many leaves check each arm in `tree`.
 pub(crate) fn count_cases(tree: &mut Tree) {
-    fn tally(tree: &Tree, counts: &mut HashMap<Span, usize>) {
+    fn tally(tree: &Tree, counts: &mut HashMap<ArmKey, usize>) {
         match tree {
-            Tree::Leaf { span, .. } => *counts.entry(*span).or_default() += 1,
+            Tree::Leaf { span, rhs, .. } => *counts.entry(arm_key(rhs, *span)).or_default() += 1,
             Tree::Guard {
                 leaf, otherwise, ..
             } => {
@@ -147,9 +173,11 @@ pub(crate) fn count_cases(tree: &mut Tree) {
             }
         }
     }
-    fn set(tree: &mut Tree, counts: &HashMap<Span, usize>) {
+    fn set(tree: &mut Tree, counts: &HashMap<ArmKey, usize>) {
         match tree {
-            Tree::Leaf { span, cases, .. } => *cases = counts[span],
+            Tree::Leaf {
+                span, rhs, cases, ..
+            } => *cases = counts[&arm_key(rhs, *span)],
             Tree::Guard {
                 leaf, otherwise, ..
             } => {
@@ -209,6 +237,36 @@ pub(crate) fn enter_split<'e>(
     value: &Value,
     base: usize,
 ) -> SplitGuard<'e> {
+    push_split(cx, start, x, value, base, Vec::new(), None)
+}
+
+/// [`enter_split`] for the split of `x` on an indexed family, after the
+/// unifier ran: `before` is the context's values as it left them, so what
+/// else the split decided shows as the variables that differ.
+pub(crate) fn enter_family_split<'e>(
+    cx: &Ctx<'e>,
+    start: &(Option<Rc<Split>>, Rc<Root>),
+    x: usize,
+    before: &[Value],
+) -> SplitGuard<'e> {
+    let base = before.len();
+    let solved = (0..base.min(cx.env.len()))
+        .filter(|&l| l != x && !same(cx, &cx.env[l], &before[l]))
+        .map(|l| (l, cx.env[l].clone()))
+        .collect();
+    let fields = cx.env.get(base..).map(<[Value]>::to_vec);
+    push_split(cx, start, x, &cx.env[x], base, solved, fields)
+}
+
+fn push_split<'e>(
+    cx: &Ctx<'e>,
+    start: &(Option<Rc<Split>>, Rc<Root>),
+    x: usize,
+    value: &Value,
+    base: usize,
+    solved: Vec<(usize, Value)>,
+    field_values: Option<Vec<Value>>,
+) -> SplitGuard<'e> {
     let (parent, root) = start;
     let node = Rc::new(Split {
         parent: parent.clone(),
@@ -217,6 +275,8 @@ pub(crate) fn enter_split<'e>(
         value: value.clone(),
         base,
         fields: cx.types[base.min(cx.types.len())..].to_vec(),
+        solved,
+        field_values,
     });
     let saved = cx.e.goals.borrow_mut().split_path.replace(node);
     SplitGuard { e: cx.e, saved }
@@ -289,21 +349,28 @@ fn replay(cx: &Ctx, path: &Split, skip: &[usize], start: State) -> Option<State>
             return None;
         }
         if !skip.contains(&node.x) {
-            let goal_term = quote_folded(&g, env.len(), &goal).ok()?;
-            let goal_value = eval(&g, &env, &goal_term).ok()?;
-            let mut next_env =
-                kernel::substitute_folded(&g, &env, node.x, &node.value, &env).ok()?;
-            next_env[node.x] = node.value.clone();
-            let next_types =
-                kernel::substitute_folded(&g, &env, node.x, &node.value, &types).ok()?;
-            goal = kernel::substitute_folded(&g, &env, node.x, &node.value, &[goal_value])
-                .ok()?
-                .pop()?;
-            env = next_env;
-            types = next_types;
+            // What the split decided can mention its fields, so they are
+            // in scope for each substitution.
+            let mut scope = env.clone();
+            scope.extend((0..node.fields.len()).map(|i| Value::var(node.base + i)));
+            let split = std::iter::once((node.x, &node.value))
+                .chain(node.solved.iter().map(|(l, v)| (*l, v)));
+            for (x, value) in split {
+                let goal_term = quote_folded(&g, scope.len(), &goal).ok()?;
+                let goal_value = eval(&g, &scope, &goal_term).ok()?;
+                let mut next_env = kernel::substitute_folded(&g, &scope, x, value, &env).ok()?;
+                next_env[x] = value.clone();
+                types = kernel::substitute_folded(&g, &scope, x, value, &types).ok()?;
+                goal = kernel::substitute_folded(&g, &scope, x, value, &[goal_value])
+                    .ok()?
+                    .pop()?;
+                scope[x] = value.clone();
+                env = next_env;
+            }
         }
         for (i, ty) in node.fields.iter().enumerate() {
-            env.push(Value::var(node.base + i));
+            let value = (node.field_values.as_ref()).and_then(|values| values.get(i));
+            env.push(value.cloned().unwrap_or_else(|| Value::var(node.base + i)));
             types.push(ty.clone());
         }
     }
@@ -380,6 +447,7 @@ pub(crate) fn view(cx: &Ctx, expected: &Value) -> Option<View> {
         computed: None,
         cases: arms.iter().map(|a| a.cases).product(),
         changed: false,
+        depends: false,
     };
     if arms.iter().any(|a| !a.unsplit.is_empty()) {
         undo(cx, &arms, &mut view, expected);
@@ -387,11 +455,23 @@ pub(crate) fn view(cx: &Ctx, expected: &Value) -> Option<View> {
     if view.changed {
         scrutinee_expressions(cx, &mut view);
     }
+    if view.cases > 1
+        && let Some((_, _, leaf_goal)) =
+            replay(cx, &innermost.path, &[], root_state(&innermost.path))
+    {
+        view.depends = !same(cx, &leaf_goal, &innermost.path.root.goal);
+    }
     Some(view)
 }
 
 /// `view` with the unneeded splits of `arms` (innermost first) undone,
 /// where the state is still the leaf's.
+///
+/// A hole whose goal isn't the arm's (an argument's, a lambda's body's
+/// goal that the arm's goal is a function type of) leaves the context as
+/// the leaf has it when the goal mentions a variable the display would
+/// change, so that the two agree; the note then says the goal is the last
+/// case's ([`View::goal`] is `None`).
 fn undo(cx: &Ctx, arms: &[Rc<Arm>], view: &mut View, goal: &Value) {
     let equations = equations(cx);
     let Some(((all_env, all_types, all_goal), (env, types, shown_goal))) =
@@ -399,6 +479,11 @@ fn undo(cx: &Ctx, arms: &[Rc<Arm>], view: &mut View, goal: &Value) {
     else {
         return;
     };
+    let peeled = peeled(cx, &all_goal, &shown_goal, all_env.len(), goal);
+    let hole_goal = peeled.as_ref().map(|p| (p.0.clone(), p.1.clone()));
+    if hole_goal.is_none() && mentions_changed(cx, goal, &all_env, &env) {
+        return;
+    }
     for l in 0..all_env.len().min(view.env.len()).min(env.len()) {
         if same(cx, &view.env[l], &all_env[l]) {
             view.changed |= !same(cx, &env[l], &all_env[l]);
@@ -409,11 +494,61 @@ fn undo(cx: &Ctx, arms: &[Rc<Arm>], view: &mut View, goal: &Value) {
             view.types[l] = types[l].clone();
         }
     }
-    if same(cx, goal, &all_goal) && !same(cx, &shown_goal, &all_goal) {
+    // What the hole's own arguments are, as the arm as written gives them.
+    for (l, leaf_type, shown_type) in peeled.iter().flat_map(|p| p.2.iter()) {
+        if view.types.get(*l).is_some_and(|t| same(cx, t, leaf_type)) {
+            view.changed |= !same(cx, shown_type, leaf_type);
+            view.types[*l] = shown_type.clone();
+        }
+    }
+    if let Some((leaf_goal, shown_goal)) = hole_goal
+        && !same(cx, &shown_goal, &leaf_goal)
+    {
         view.computed = computed_back(cx, arms, view, &all_env, goal, &shown_goal);
         view.changed = true;
         view.goal = Some(shown_goal);
     }
+}
+
+/// The arm's goal, `leaf` as the leaf has it and `shown` as the arm is
+/// written, in the form `hole` has: the arm's goal itself, or what it is
+/// after the function arguments `hole`'s lambdas bound (the variables from
+/// `bound` on). `None` if `hole` is neither.
+fn peeled(cx: &Ctx, leaf: &Value, shown: &Value, bound: usize, hole: &Value) -> Option<Peeled> {
+    let g = cx.g();
+    let (mut leaf, mut shown) = (leaf.clone(), shown.clone());
+    let mut domains = Vec::new();
+    for l in bound..=cx.level() {
+        if same(cx, hole, &leaf) {
+            return Some((leaf, shown, domains));
+        }
+        let (Value::Pi(_, _, a, ac), Value::Pi(_, _, b, bc)) = (&leaf, &shown) else {
+            return None;
+        };
+        domains.push((l, (**a).clone(), (**b).clone()));
+        let arg = Value::var(l);
+        let (next_leaf, next_shown) = (ac.apply(&g, arg.clone()).ok()?, bc.apply(&g, arg).ok()?);
+        (leaf, shown) = (next_leaf, next_shown);
+    }
+    None
+}
+
+/// The arm's goal as the leaf has it and as the arm is written, after the
+/// arguments a hole's lambdas bound: each one's level and type in the two.
+type Peeled = (Value, Value, Vec<(usize, Value, Value)>);
+
+/// Whether `goal` mentions a variable whose value the arm as written has
+/// different from the leaf's.
+fn mentions_changed(cx: &Ctx, goal: &Value, leaf: &[Value], shown: &[Value]) -> bool {
+    let level = cx.level();
+    let Some(levels) =
+        (cx.quote_folded(goal).ok()).and_then(|term| crate::goals::levels_in(&term, level))
+    else {
+        return true;
+    };
+    levels
+        .into_iter()
+        .any(|l| matches!((leaf.get(l), shown.get(l)), (Some(a), Some(b)) if !same(cx, a, b)))
 }
 
 /// The levels the arms' paths bind as fields of a split.
@@ -447,11 +582,21 @@ fn fields_of_unsplit(arm: &Arm) -> Vec<usize> {
     fields
 }
 
-/// The levels the arms' patterns left alone.
+/// The levels the arms' patterns left alone, and those an indexed family's
+/// split they didn't need decided with them.
 fn unsplit(arms: &[Rc<Arm>]) -> Vec<usize> {
-    arms.iter()
-        .flat_map(|a| a.unsplit.iter().copied())
-        .collect()
+    let mut levels = Vec::new();
+    for arm in arms {
+        levels.extend(arm.unsplit.iter().copied());
+        let mut node = Some(&arm.path);
+        while let Some(n) = node {
+            if arm.unsplit.contains(&n.x) {
+                levels.extend(n.solved.iter().map(|&(l, _)| l));
+            }
+            node = n.parent.as_ref();
+        }
+    }
+    levels
 }
 
 /// What `leaf_goal` computes to, with each value the leaf gave a variable the
