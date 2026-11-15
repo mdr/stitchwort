@@ -1,5 +1,5 @@
 {
-  "next": 3319,
+  "next": 3320,
   "tickets": [
     {
       "id": 47,
@@ -36313,7 +36313,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Found in SW-3292. For a decision of Matt's on formatter style. Expected: 1 h (Opus paper lane).\n\nProgress (paper lane, 15 Nov 2026, 03:53-04:10 GMT, est. 1 h): docs/proposals/fmt-author-breaks.md (uncommitted, in the main checkout). Measured over 39de3aa7d: 2,087 multi-line constructs joined onto one line in 747 files (827 bodies after :=, 392 data types, 233 calls, 211 arm bodies, 177 headers, 99 one-arm matches, 32 else-if chains, 29 record types, 26 pipelines, 16 operator chains); 72 in the guides. Recommendation: B1 (an if with an else if always one clause a line) + B2 (type declarations one line only within 80 chars), no author hints; leading-operator guide example rewritten long. About 130 files. D3605 for Matt.\n",
+      "body": "Found in SW-3292. Paper docs/proposals/fmt-author-breaks.md (Opus, ~25 min): 2,087 multi-line constructs joined in the 14 Nov reformat, most fine; else-if chains, data types with fielded constructors and 4-5 field records read worse. Rec: two structural rules (else-if chains one clause a line; type declarations one line only within 80 chars), ~130 files. D3605 open, for Matt in the morning. Filed SW-3319.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -36588,6 +36588,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3319,
+      "title": "[DeepSeek] Guide 03-data.md:113 says 'as above' under a record now on one line (after the 14 Nov reformat); reword (SW-3298 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
