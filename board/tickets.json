@@ -38268,7 +38268,7 @@
     {
       "id": 3439,
       "title": "[Sonnet] Spurious W-ARROW-FORALL on every theorem name ∀ (x: T) … (68 on Toy.Fmt.Proofs) (SW-3418 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
