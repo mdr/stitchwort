@@ -309,8 +309,9 @@ def Shaped: Expr → Prop
       ∧ right.isChain = True
       ∧ Shaped left
       ∧ Shaped right
-  | ListLiteral _ items _ => ShapedItems items
-  | Call callee _ arguments _ => callee.isPostfix = True ∧ Shaped callee ∧ ShapedItems arguments
+  | ListLiteral _ items _ => ShapedItems items ∧ BareLastItem items
+  | Call callee _ arguments _ =>
+    callee.isPostfix = True ∧ Shaped callee ∧ ShapedItems arguments ∧ BareLastItem arguments
   | If _ condition _ whenTrue _ whenFalse => Shaped condition ∧ ShapedBody whenTrue ∧ ShapedBody whenFalse
 
 --| Each expression in the body is of the parser's shape.
@@ -343,6 +344,13 @@ def ShapedStatement: Statement → Prop
 def ShapedItems: List Item → Prop
   | [] => True
   | [{ value, .. }, ..rest] => Shaped value ∧ ShapedItems rest
+
+--| The last item has no comma, so no comma's comments: the printer writes
+--| none there.
+def BareLastItem: List Item → Prop
+  | [] => True
+  | [last] => last.comma = Comments.none
+  | [_, ..rest] => BareLastItem rest
 
 --| `tokens` spell `expr` at `layout`: its tokens in order, each of the kind
 --| the expression has there and standing where the layout allows it
@@ -738,7 +746,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                     CloseSquare
                     closes
                     rfl
-                    shaped
+                    shaped.left
                     spelledItems
                     (omega [small, size, sizes])))
                 continues
@@ -778,7 +786,7 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                             CloseParen
                             closes
                             rfl
-                            shaped.right.right
+                            shaped.right.right.left
                             spelledArguments
                             (omega [small, size, sizes]))
                           (continues less (omega [enough, List.lengthAppend (argumentTokens ++ [close]) more])))
@@ -1866,7 +1874,9 @@ theorem runsExpressionExample: Parse.run exampleTokens (() => expression InBrack
     exampleTokens
     exampleExpr
     (runsExpression InBrackets exampleExpr exampleTokens []
-      (Both (omega []) (Both (omega []) (Both rfl (Both rfl (Both (Both rfl (Both rfl (Both rfl rfl))) rfl)))))
+      (Both
+        (omega [])
+        (Both (omega []) (Both rfl (Both rfl (Both (Both rfl (Both rfl (Both (Both rfl rfl) rfl))) rfl)))))
       (Witness
         [f, open, a, close]
         (Witness plus

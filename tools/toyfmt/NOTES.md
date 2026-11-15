@@ -22,6 +22,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Syntax.Proofs`, `Toy.Fmt.Proofs` | `Syntax/Proofs.sw`, `Fmt/Proofs.sw` | Stage D's theorems: `lexCovers`, `formatRoundTrip`, `formatIdempotent`, and the file loop's under `Files.simulate` |
 | `Toy.Doc.Proofs`, `Toy.Fmt.Proofs` | `Doc/Words.sw`, `Doc/Columns.sw`, `Fmt/WordProofs.sw` | SW-3418 part 5: every reading writes the document's words in order; the rules' document has the file's tokens and comments; the printer's column is the text's |
 | `Toy.Fmt.Proofs` | `Fmt/TextProofs.sw`, `Fmt/JoinProofs.sw`, `Fmt/RuleJoinProofs.sw` | SW-3418 part 7: the lexer's texts as predicates; every rule joins; a file with the lexer's texts, printed at any width, lexes to its pieces (`printedLexes`) |
+| `Toy.Fmt.Proofs` | `Fmt/LexTextProofs.sw`, `Fmt/StringProofs.sw`, `Fmt/ParsedProofs.sw` | SW-3418 parts 8 and 9: the lexer's tokens have the lexer's texts; the parser copies them into the tree (`parseLexical`); a parsed file, printed at any width, lexes to its pieces (`parsedPrintLexes`) |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -1741,6 +1742,143 @@ table are unchanged.
     ..]`): the error is about a `List` pattern among `Option` ones.
 47. **`True` in a `Prop`-valued `def` is proved by `rfl`, not
     `Trivial`** ("this test fact can't be built with `Trivial`").
+
+### Part 9 (Fable, 15 Nov 2026): the parser copies the lexer's texts; `printedLexes` from `parse` alone
+
+A 25-minute lane on the rest of WF's token texts. All three items of
+part 8's list are proved, so "the printed text lexes to the file's
+pieces" now has no hypothesis but `parse source = Ok file`
+(`parsedPrintLexes`). Positions (`assemble` with `readingTracks`) are
+not started, and there is still no `formatDirect`.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 801 theorems, 0
+failed, the same 14 warnings as part 8; `audit Std.Parse`: 386
+theorems, 0 failed, the 5 warnings of before):
+
+- Std, `Parse/Among.sw` (18 theorems, new file; the prelude hash
+  snapshot gains these names).
+  - `Parse.ReadsAmong fine parser spec`: `Parse.Reads` with one more
+    hypothesis on the run, that every item left is `fine`. What is left
+    after a success is an end of what was left before, so the
+    hypothesis carries through `then`. A parser's lemma may then use
+    `fine` of any item it sees, read or only looked at.
+  - `amongOf` (every `Reads` lemma is a `ReadsAmong` one), `amongDone`,
+    `amongWeaken`, `amongThen`, `amongThenOf`, `amongOne` (the item
+    `one` read is `fine`), `amongOptional`, `amongManyFrom`,
+    `amongMany`, `amongMany1`, `amongRecursiveWithFuel`,
+    `amongRecursiveWith`, `operatorsFromOkNext`, `amongOperatorsFrom`,
+    `amongOperandsFrom`, **`amongOperators`** (as `readsOperators`, with
+    `step` given that the operator's item is `fine`), `allHead`,
+    **`wholeAmong`** (`whole items p = Ok value` on items all `fine`
+    gives `spec items value`).
+- `Fmt/ParsedProofs.sw` (72 theorems, new file). `Good token`: its
+  kind's text is `IsName`, `IsDigits` or `IsString`, its comments
+  `IsComment`. `Fair parser holds`: from tokens all `Good`, a success
+  of `parser` gives a value that `holds`. One lemma per parser function,
+  beside `ShapeProofs.sw`'s `gives…`: `fairSign`, `fairKeyword`,
+  `fairName`, `fairSignInBrackets`, `fairItem`, `fairItemsFrom`,
+  `fairItems`, `fairAtomOf`, `fairAtom`, `fairCallAfter`,
+  `fairFieldAfter`, `fairSuffixes`, `fairPostfix`, `fairNegations`,
+  `fairOperand`, `fairChain` (with `lexicalStep`: an operator's
+  comments are its token's), `fairBare`, `fairInline`,
+  `fairStatementLine`, `fairStatement`, `fairBlock`, `fairBodyFuel`,
+  `fairBody`, `fairElse`, `fairExpressionRule`, **`fairExpression`**,
+  `fairParameterStep`, `fairParameterList`, `fairParameters`,
+  `fairFunctionLine`, `fairValueLine`, `fairDeclarationLine`,
+  `fairDeclaration`, `fairFileEnd`, **`fairSourceFile`**; with
+  `fineComments` (the comments the tree keeps of a good token are
+  comments) and the list lemmas for notes, blocks and declarations.
+  - **`parseLexical`**: `parse source = Ok file → LexicalFile file`.
+  - **`parsedPrintLexes`**: `printedLexes` with `parse source = Ok file`
+    in place of `LexicalFile file`.
+- `Fmt/StringProofs.sw` (7 theorems, new file). **`stringReadClosed`**:
+  `StringRead text.toList → IsString text`. The lexer's pieces are
+  taken apart into characters and escapes (`eachPieces`), and those
+  joined again into the runs `many stringSegment` reads before a
+  closing quote, whatever follows it (`piecesRun`, with `plainFirst`
+  for a plain character before each of the three ways the rest can
+  start).
+- `Syntax/ShapeProofs.sw`: `Shaped` now also says a list's last item and
+  a call's last argument have no comma's comments (`BareLastItem`), so
+  **`parseShaped`** gives it of every parsed tree (`givesItem`,
+  `givesItemsFrom`, `givesItems`, `bareLastAppend`, `bareLastReverse`).
+  Two read-back proofs and the example in `ExpressionProofs.sw` take
+  the stronger `Shaped` apart.
+
+**Program change:** `itemsFrom`'s out-of-fuel arm gives no items where
+it gave the ones found (`found.reverse`). The arm is reached only with
+no tokens left, so with nothing found: each round reads a token and
+`fuel` starts as the tokens left. That is argued in a comment, not
+proved; with it, "the last item has no comma's comments" needs no count
+of tokens. Trees, goldens and messages are unchanged (the 98 tests
+pass). The other way is a count through `Parse.Reads`' honest marks
+(about 10 lemmas at the state level), keeping `found.reverse`.
+
+**The plan changed: no `texts ⊆` form.** Parts 7 and 8 planned a flat
+positive spec, `value.texts ⊆ taken.flatMap tokenTexts`, then a tree
+induction. Two things rule it out: a token the parser only looks at
+(`peek`, then `layout.comments token` in the tree) isn't in what a
+`Reads` spec can speak of until it is read, and for a statement's notes
+it is read by another parser altogether; and `Parse.readsOperators`
+takes specs of the value only, while the operator's comments come from
+its token. With "every item left is fine" as a hypothesis of the run
+(`ReadsAmong`) the spec is of the value alone, `Lexical` itself, and
+there is no tree induction: each `fair…` lemma is its `gives…` lemma
+with the predicate changed and `among.left` where a token's texts go
+into the tree.
+
+**Checked against a broken program:** with `itemsFrom`'s arm put back
+to `found.reverse`, `givesItemsFrom` fails. With `atomOf` giving `Var
+"let"`, or `operatorOf` a made-up comment, the read-back proofs of
+parts 2 and 3 (`ParserProofs.sw`, `operatorOfOp`) fail first, so the
+check never reaches the `fair…` lemmas: not shown for them on their
+own.
+
+**What is left**, part 7's table with WF done:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| B, lexing | `assemble` over the steps | 15-20 |
+| E, rules to tokens | positions (25), layer C read back (30), spelling the tree (40) | 95 |
+| WF | nothing | 0 |
+| D, parser | `if` with a block branch; the file from its spelling | 30-40 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Two lanes at this pace [estimated; this lane proved about 100 theorems in
+about 25 minutes of the clock]: (1) positions, `assemble` and layer C's
+read-back; (2) spelling the tree, the rest of D and the glue.
+
+**Friction** (beyond parts 1 to 8):
+
+48. **A `match` on a token's kind rewrites every hypothesis that
+    mentions the token**, so `among: List.All Good state.at.rest`
+    became `(IsName text ∧ …) ∧ List.All Good later` and no longer fits
+    the lemma it has to be passed to (`E-TYPE-MISMATCH`, 26 times in
+    one proof). Applying the lemma to everything but `h` in a `let`
+    before the `match` fixed it. Friction 45's pleasant side has this
+    cost.
+49. **A `def` whose first arm takes a record apart is stuck on a
+    variable**: `BareLastItem [first, next, ..]` didn't compute with
+    the arm `[{ comma, .. }]`; `[last] => last.comma = …` does.
+50. **A literal-character match is opened by its equation lemma, not
+    by `match` on comparisons**: `segmentStart [char, ..rest]` stayed
+    stuck after three `match … : char == '…'`; `segmentStart.eq2` with
+    `char ∉ ['\\']` and the guard did it. Asking for the lemma's type
+    with a wrong annotation (`let probe: Nat := segmentStart.eq2`) was
+    the quickest way to see it.
+51. **`rewrite <- equation in term` looks in the goal after computing
+    it**, and a goal that is a `def` applied to a cons has computed
+    away the cons; `rewrite equation at hypothesis` works there.
+52. **Std's proofs can't be reused with one more hypothesis on the
+    state**: `ReadsAmong`'s combinators are `Reads`' proofs again with
+    `among` passed along (about 300 lines). If `Reads` took an
+    invariant of the items left (any property kept by taking a start
+    away), `Reads` would be the case `True` and friction 42's `Paced`
+    might be another.
+53. **The release binary reads std from the checkout**, so `task build`
+    did nothing after a new std file and the checks saw it anyway;
+    worth a line in the workflow notes.
 
 ## Every comment placed (SW-3450, D3618, D3619)
 

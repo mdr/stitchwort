@@ -119,55 +119,82 @@ theorem shapedItemsReverse ∀ (found: List Item) (shaped: ShapedItems found): S
       rewrite List.reverseCons ({ value, comma }: Item) rest in
         shapedItemsAppend rest.reverse { value, comma } (shapedItemsReverse rest restShaped) valueShaped
 
+theorem bareLastAppend ∀ (front: List Item) (last: Item)
+    (bare: last.comma = Comments.none):
+    BareLastItem (front ++ [last]) :=
+  match front, last, bare with
+    | [], { value, comma }, bare => bare
+    | [first], { value, comma }, bare => bare
+    | [first, second, ..rest], last, bare => bareLastAppend [second, ..rest] last bare
+
+--| The items found, newest first, in order: the last is the newest.
+theorem bareLastReverse ∀ (found: List Item) (newest: Item)
+    (bare: newest.comma = Comments.none):
+    BareLastItem [newest, ..found].reverse :=
+  rewrite List.reverseCons newest found in bareLastAppend found.reverse newest bare
+
+--| An item of the parser's shape, with no comma's comments unless a comma
+--| followed it.
+def ShapedItem (read: (Item, Bool)): Prop := Shaped read.fst.value ∧ (read.snd = False → read.fst.comma = Comments.none)
+
 theorem givesItem ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
-    Gives (() => item self) (read => Shaped read.fst.value) :=
+    Gives (() => item self) ShapedItem :=
   givesThen
     (() => self InBrackets)
     (value =>
       let comma := signInBrackets "','" Comma
       ({ value, comma = comma.getOrElse Comments.none }, comma.isSome))
     Shaped
-    (read => Shaped read.fst.value)
+    ShapedItem
     (nested InBrackets)
     (value shaped =>
       givesThen
         (() => signInBrackets "','" Comma)
         (comma => ({ value, comma = comma.getOrElse Comments.none }, comma.isSome))
         (comma => True)
-        (read => Shaped read.fst.value)
+        ShapedItem
         (givesSignInBrackets "','" Comma)
-        (comma found => givesDone _ _ shaped))
+        (comma found =>
+          match comma with
+            | Some comments => givesDone _ ShapedItem (Both shaped (never => Void.exfalso (Bool.trueNotFalse never)))
+            | None => givesDone _ ShapedItem (Both shaped (none => rfl))))
+
+--| Items of the parser's shape, the last with no comma's comments.
+def ShapedList (items: List Item): Prop := ShapedItems items ∧ BareLastItem items
 
 theorem givesItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped)
     (fuel: Nat) (found: List Item)
     (shaped: ShapedItems found):
-    Gives (() => itemsFrom fuel self found) ShapedItems :=
+    Gives (() => itemsFrom fuel self found) ShapedList :=
   match fuel with
-    | Zero => givesDone found.reverse ShapedItems (shapedItemsReverse found shaped)
+    | Zero => givesDone [] ShapedList (Both rfl rfl)
     | Succ more =>
       givesThen
         (() => item self)
         (itemsAfter more self found)
-        (read => Shaped read.fst.value)
-        ShapedItems
+        ShapedItem
+        ShapedList
         (givesItem self nested)
-        (read valueShaped =>
-          match read, valueShaped with
-            | ({ value, comma }, True), valueShaped =>
+        (read itemShaped =>
+          match read, itemShaped with
+            | ({ value, comma }, True), Both valueShaped bare =>
               givesItemsFrom self nested more [{ value, comma }, ..found] (Both valueShaped shaped)
-            | ({ value, comma }, False), valueShaped =>
-              givesDone _ ShapedItems (shapedItemsReverse [{ value, comma }, ..found] (Both valueShaped shaped)))
+            | ({ value, comma }, False), Both valueShaped bare =>
+              givesDone _ ShapedList
+                (Both
+                  (shapedItemsReverse [{ value, comma }, ..found] (Both valueShaped shaped))
+                  (bareLastReverse found { value, comma } (bare rfl))))
 
---| `items` gives items whose values are of the parser's shape, when the
---| nested parser does.
+--| `items` gives items whose values are of the parser's shape, the last
+--| with no comma's comments, when the nested parser does.
 theorem givesItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (closer: Punctuation)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
-    Gives (() => items self closer) (found => ShapedItems found.fst) :=
+    Gives (() => items self closer) (found => ShapedList found.fst) :=
   Parse.readsThen (givesSignInBrackets "'${closer.spelling}'" closer) (firstRead closed facts =>
     match closed with
-      | Some close => Parse.readsDone ([], close) _ rfl
+      | Some close => Parse.readsDone ([], close) _ (Both rfl rfl)
       | None =>
         givesThen
           (() => Parse.mark())
@@ -176,7 +203,7 @@ theorem givesItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (cl
             let close := sign InBrackets "'${closer.spelling}'" closer
             (found, close))
           (at => True)
-          (found => ShapedItems found.fst)
+          (found => ShapedList found.fst)
           givesMark
           (at marked =>
             givesThen
@@ -184,15 +211,15 @@ theorem givesItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (cl
               (found =>
                 let close := sign InBrackets "'${closer.spelling}'" closer
                 (found, close))
-              ShapedItems
-              (found => ShapedItems found.fst)
+              ShapedList
+              (found => ShapedList found.fst)
               (givesItemsFrom self nested at.left [] rfl)
               (found shaped =>
                 givesThen
                   (() => sign InBrackets "'${closer.spelling}'" closer)
                   (close => (found, close))
                   (close => True)
-                  (found => ShapedItems found.fst)
+                  (found => ShapedList found.fst)
                   (givesSign InBrackets "'${closer.spelling}'" closer)
                   (close signed => givesDone _ _ shaped))))
 
@@ -1294,7 +1321,9 @@ theorem givesSourceFile ∀ (endTrivia: List Trivia): Gives (() => sourceFile en
 --| a call's callee and a field's target postfix, `-` before an operand),
 --| in every declaration, block and branch; every body (after `=`, `then`
 --| and `else`) ends in a statement, not a comment line (`ClosedLines`);
---| and a function's last parameter has no comma's comments (`BareLast`).
+--| a function's last parameter has no comma's comments (`BareLast`), and
+--| neither has the last item of a list or the last argument of a call
+--| (`BareLastItem`).
 --| So the read-back theorems' `Shaped` hypotheses hold of every parsed
 --| tree, with no check at run time.
 theorem parseShaped ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): ShapedFile file :=
