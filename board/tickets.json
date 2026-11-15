@@ -37488,12 +37488,12 @@
     {
       "id": 3383,
       "title": "[Opus] Profile the toy formatter (tools/toyfmt) natively: where the 4.2 s/MB goes (lex 1.3, parse 2.4, print 0.3); find obvious wins in Stitchwort itself (std Parse, runtime, compiler, native code) and the toy's own code; no hand-written lexer; change only measured hotspots, recheck, performance-log entries",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 11:16.",
+      "body": "Started 11:16.\n\nLane notes (Opus, 11:17-11:55, est. 2 h):\n- Profiled natively (samply + call-counts runtime) on Toy.Timing 2600 copies (933 KB). No hot function: ~3/4 effect runtime + allocator, per Parse operation (5.4 M ops, 8.7 M forwarding crossings, ~60 M objects). Probe: a Parse.mark ~4,300 instructions native, a Parse.optional round ~6,300 more.\n- Three toy-only changes (commits 9edbf8e80, 4ad47620b, b17bd0ec5): precedence climbing + one look at the next token for operators/negations/calls/fields/commas/closers (handler only where something was found); lexemes in a loop of their own. Messages unchanged: 78 toy tests, toyfmt_formats e2e test, old vs new toyfmt on 9,000 mutated goldens identical.\n- Whole format 3.52 s -> 1.91 s (3.8 -> 2.05 s/MB), 49.8 G -> 25.9 G instructions; lex 1.15 -> 0.68 s, parse 2.08 -> 0.91 s, print unchanged 0.3 s. `run`: 9.4 -> 5.2 s.\n- Dropped: SmallVec for the runtime's freeing queue (instructions +1%, cycles same); reverted.\n- Left: ~half of lex+parse is Parse ops' runtime cost (operations in place, paused D3430) and ~1/10 the List Char (D3597). Projection for 6.5 MB at Sprig's cost per byte: ~13 s vs the 20 s target.\n- Perf log entry + tools/toyfmt/NOTES.md \"Speed (SW-3383)\" (commit 77ba31136).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
