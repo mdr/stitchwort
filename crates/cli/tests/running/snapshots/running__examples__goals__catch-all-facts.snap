@@ -162,7 +162,9 @@ expression: output
     │              m ≠ 6
     │              ⊢ p m
     │ 
-    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
+    │ Note 1: this arm is checked in 2 cases; the goal shown is the last of them
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `alternatives`
     ╭─[ goals/catch-all-facts.sw:38:14 ]
