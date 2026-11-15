@@ -102,21 +102,11 @@ def withoutFirstBlank (lines: List (Spaced a)): List (Spaced a) := match lines w
   | [first, ..rest] => [{ first | blankBefore = False }, ..rest]
   | [] => []
 
--- Expressions. They nest, so they are read by `nested` with `self`, the
+-- Expressions. They nest, so they are read by `Parse.recursiveWith` with `self`, the
 -- expression parser at a layout; the rest of the grammar gets `self` as an
 -- argument and doesn't call itself.
 
---| `body` with `self` for its nested parser, at most `fuel` levels deep.
-def nestedFuel (fuel: Nat) (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a := match fuel with
-  | Zero => Empty.absurd (Parse.fatal "nested too deeply")
-  | Succ more => body (inner => nestedFuel more body inner) argument
-
---| `Parse.recursive` for a parser that takes an argument. Each level reads
---| a token before it nests, so the tokens left are enough fuel.
-def nested (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a :=
-  nestedFuel (Parse.mark().left + 1) body argument
-
-def expression (layout: Layout): {Parse (Parse.Located Token)} Expr := nested expressionRule layout
+def expression (layout: Layout): {Parse (Parse.Located Token)} Expr := Parse.recursiveWith expressionRule layout
 
 def isIf (layout: Layout) (token: Parse.Located Token): Bool :=
   layout.allows token && token.value.kind |> matches | Reserved IfKeyword

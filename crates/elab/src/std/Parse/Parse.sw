@@ -665,6 +665,24 @@ def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse t} a) → {Parse t} a)
 def Parse.recursive (body: (() → {Parse t} a) → {Parse t} a): {Parse t} a :=
   Parse.recursiveFuel (Parse.mark().left + 1) body
 
+--| `Parse.recursiveFuel` for a parser that takes an argument.
+def Parse.recursiveWithFuel (fuel: Nat) (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a :=
+  match fuel with
+    | Zero => Empty.absurd (Parse.fatal "`recursiveWith`: the parser called itself without reading anything")
+    | Succ more => body (inner => Parse.recursiveWithFuel more body inner) argument
+
+--| `Parse.recursive` for a parser that takes an argument, such as the
+--| layout a nested part is read at: `body` gets the parser being defined,
+--| `b → {Parse t} a`, to call for the nested parts with the argument they
+--| need, and the parser starts with `argument`. Fails only as `body` does,
+--| or if it nests without reading anything between levels, which stops the
+--| whole parse.
+--|
+--|   Parse.recursiveWith (nested depth => … nested (depth + 1) …) 0
+-- Every other level reads an item, so the items left are enough fuel.
+def Parse.recursiveWith (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a :=
+  Parse.recursiveWithFuel (Parse.mark().left + 1) body argument
+
 -- Runners. The parser must read all of its input; errors give the line and
 -- column, counted from 1.
 

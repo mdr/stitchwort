@@ -668,6 +668,28 @@ test "Parse.manyToEnd: a failing round fails the parse" :=
 test "Parse.manyToEnd: a round that reads nothing" :=
   Parse.Tests.lineError "ab" (() => Parse.manyToEnd "a thing" (start => ()))
     == "column 1: `manyToEnd`: the parser matched without reading anything"
+--| Nested lists of numbers, each number times its depth, the outer list's
+--| items being at depth 2: "[1,[2,[]],3]" is 1 * 2 + 2 * 3 + 3 * 2 = 14.
+def Parse.Tests.depthSum(): {Parse Char} Nat :=
+  Parse.recursiveWith
+    (nested depth =>
+      Parse.oneOf [
+        () => depth * Parse.nat(),
+        () =>
+          Parse.char '['
+          let items := Parse.sepBy (() => nested (depth + 1)) (() => Parse.char ',')
+          Parse.char ']'
+          items.sum
+      ])
+    1
+
+test "Parse.recursiveWith: the argument changes with the nesting" :=
+  Parse.Tests.lineResult "[1,[2,[]],3]" Parse.Tests.depthSum == Ok 14
+test "Parse.recursiveWith: a bad nested part" :=
+  Parse.Tests.lineResult "[1,[x]]" Parse.Tests.depthSum == Err "column 5: expected a number, '[' or ']', got 'x'"
+test "Parse.recursiveWith: left recursion stops the parse" :=
+  Parse.Tests.lineError "ab" (() => (Parse.recursiveWith (self depth => self depth) 0: Nat))
+    == "column 1: `recursiveWith`: the parser called itself without reading anything"
 test "Parse: sepBy" :=
   Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []
