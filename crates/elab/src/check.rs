@@ -5593,6 +5593,17 @@ pub(crate) fn check_value(
         {
             pair_literal(cx, a, b, params)
         }
+        // `(p, q)` where a proof of `p ∧ q` is wanted: a pair is not the
+        // conjunction's proof, whose constructor is `Both` (SW-3419). The
+        // usual error is kept, with the constructor named.
+        (Expr::Tuple(..), Value::Data(d, _)) if g.env.registry().is_data(Builtin::And, *d) => {
+            fallback_named(cx, expr, &expected, named).map_err(|d| {
+                d.with_note(
+                    "a proof of `p ∧ q` is built with its constructor `Both`, not a pair: \
+                     write `Both <left> <right>`",
+                )
+            })
+        }
         // `[a: Type] => body` and `[auto h: P] => body` take the parameter
         // of the function type they're checked against, rather than having
         // it introduced for them (§4.3 of docs/proposals/lambda-syntax.md).
