@@ -73,6 +73,14 @@ def Option.orElse: (option: Option a) → (other: Option a) → Option a
   | Some x, y => Some x
   | None, y => y
 
+--| The value, or `fallback` if there isn't one: `(Some 3).getOr 0` is `3`,
+--| and `(None: Option Nat).getOr 0` is `0`. A result equal to `fallback`
+--| doesn't say there was no value; use [`Option.isSome`] when that matters.
+--| [`Option.getOrSome`] and [`Option.getOrNone`] say what it computes.
+def Option.getOr: (option: Option a) → (fallback: a) → a
+  | None, fallback => fallback
+  | Some x, fallback => x
+
 --| Combines two options of one type: a lone value stays, two values go through
 --| `both`. `x.merge y (a b => a + b)` adds the values that are there, and is
 --| `None` only when both are.
@@ -166,6 +174,7 @@ test "Option.orElse" :=
     ∧ (None: Option Nat).orElse (Some 2) == Some 2
     ∧ (None: Option Nat).orElse None == None
 test "Option.orElse chain" := ((None: Option Nat).orElse None |> .orElse (Some 3)) == Some 3
+test "Option.getOr" := (Some 1).getOr 0 == 1 ∧ (None: Option Nat).getOr 0 == 0
 test "Option.merge" := (Some 1).merge (Some 2) (+) == Some 3
 test "Option.merge lone" := (Some 1).merge None (+) == Some 1 ∧ (None: Option Nat).merge (Some 2) (+) == Some 2
 test "Option.merge none" := (None: Option Nat).merge None (+) == None
