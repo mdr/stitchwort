@@ -23,12 +23,6 @@ def Parse.ReadsAmong (fine: t → Prop) (parser: () → {Parse t} a) (spec: List
     → Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
     → ∃ (read: List t) => state.at.rest = read ++ after.rest ∧ after.left = after.rest.length ∧ spec read value
 
---| The items after a start of a list of `fine` items are `fine`.
-theorem Parse.allAfter ∀ (fine: t → Prop) (read rest: List t) (all: List.All fine (read ++ rest)): List.All fine rest :=
-  match read, all with
-    | [], all => all
-    | [first, ..others], Both head tail => Parse.allAfter fine others rest tail
-
 --| The first of a list of `fine` items is `fine`.
 theorem Parse.allHead ∀ (fine: t → Prop) (items: List t) (item: t) (later: List t)
     (starts: items = [item, ..later])
@@ -72,7 +66,7 @@ theorem Parse.amongThen ∀ [fine: t → Prop] [p: () → {Parse t} a] [j: a →
         match readsFirst state v middle.at honest among ran with
           | Witness firstRead (Both starts1 (Both honest1 holds1)) =>
             let amongRest: List.All fine middle.at.rest :=
-              Parse.allAfter fine firstRead middle.at.rest (rewrite <- starts1 in among)
+              List.allAppendRight fine firstRead middle.at.rest (rewrite <- starts1 in among)
             match rest firstRead v holds1 middle value after honest1 amongRest restRun with
               | Witness nextRead (Both starts2 (Both honest2 holds2)) =>
                 Witness
@@ -162,7 +156,7 @@ theorem Parse.amongManyFrom ∀ (fine: t → Prop) (p: () → {Parse t} a) (spec
                 rest with
                 | Inl (Both isTrue yesRun) =>
                   let amongRest: List.All fine middle.at.rest :=
-                    Parse.allAfter fine read1 middle.at.rest (rewrite <- starts1 in among)
+                    List.allAppendRight fine read1 middle.at.rest (rewrite <- starts1 in among)
                   match Parse.amongManyFrom fine p spec reads more
                     [v, ..found]
                     middle
