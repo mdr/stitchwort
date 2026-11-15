@@ -1,5 +1,5 @@
 {
-  "next": 3308,
+  "next": 3309,
   "tickets": [
     {
       "id": 47,
@@ -36175,7 +36175,7 @@
     {
       "id": 3289,
       "title": "[DeepSeek] Recovery: two shapes give two errors where one is better: 'g (' then a let at the block's column; a guard with an unclosed [ then => on its own line (SW-3285 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36184,7 +36184,8 @@
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
-        "4de2de982e34344b459c9505cbb9cbd253be69f8"
+        "4de2de982e34344b459c9505cbb9cbd253be69f8",
+        "96d5000e763c293a3d5c75dfada2a98e54b61aa2"
       ]
     },
     {
@@ -36424,6 +36425,19 @@
       "where": "",
       "labels": [],
       "epic": "performance",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3308,
+      "title": "[DeepSeek] Recovery follow-ups (SW-3289): use close_bracket for record {, named-argument (x := e) and annotation (e : T) closers too; a guard-specific message when a guard's bracket runs out at => ('the guard's => starts here', like calc's) instead of the lambda note; syntax-error-recovery.md R1 says a missing closer 'counts as present', now an Error node",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
