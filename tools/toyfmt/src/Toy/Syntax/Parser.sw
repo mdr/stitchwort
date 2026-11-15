@@ -174,16 +174,10 @@ def suffixesFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Exp
     | _ => (Stray "", Comments.none)
   match fuel, next with
     | Succ more, (Sign OpenParen, open) =>
-      let call := Parse.optional (() =>
-        skip()
-        let (arguments, close) := items self CloseParen
-        Call target open arguments close)
+      let call := Parse.optional (() => callAfter self target open)
       suffixesAfter more self layout target call
     | Succ more, (Sign Dot, dot) =>
-      let field := Parse.optional (() =>
-        skip()
-        let (named, nameComments) := name layout
-        Field target dot named nameComments)
+      let field := Parse.optional (() => fieldAfter layout target dot)
       suffixesAfter more self layout target field
     | _, _ =>
       Parse.note (Parse.Problem.Expected "'('")
@@ -203,29 +197,47 @@ def suffixesAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Ex
 
 def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
   match peek() with
-    | Some token if layout.allows token =>
-      let comments := layout.comments token
-      match token.value.kind with
-        | Name text =>
-          skip()
-          Var text comments
-        | Number digits =>
-          skip()
-          NumberLiteral digits comments
-        | Str written =>
-          skip()
-          StringLiteral written comments
-        | Sign OpenParen =>
-          skip()
-          let inner := self InBrackets
-          let close := sign InBrackets "')'" CloseParen
-          Bracketed comments inner close
-        | Sign OpenSquare =>
-          skip()
-          let (found, close) := items self CloseSquare
-          ListLiteral comments found close
-        | _ => Parse.expected "an expression"
+    | Some token if layout.allows token => atomOf self (layout.comments token) token.value.kind
     | _ => Parse.expected "an expression"
+
+--| The atom whose first token is of `kind` and holds `comments`.
+-- A function of its own so that proofs (ShapeProofs.sw) can name it; so
+-- are `callAfter` and `fieldAfter`.
+def atomOf (self: Layout → {Parse (Parse.Located Token)} Expr) (comments: Comments) (kind: Kind):
+    {Parse (Parse.Located Token)} Expr :=
+  match kind with
+    | Name text =>
+      skip()
+      Var text comments
+    | Number digits =>
+      skip()
+      NumberLiteral digits comments
+    | Str written =>
+      skip()
+      StringLiteral written comments
+    | Sign OpenParen =>
+      skip()
+      let inner := self InBrackets
+      let close := sign InBrackets "')'" CloseParen
+      Bracketed comments inner close
+    | Sign OpenSquare =>
+      skip()
+      let (found, close) := items self CloseSquare
+      ListLiteral comments found close
+    | _ => Parse.expected "an expression"
+
+--| A call of `target`, from its `(`, whose comments are `open`.
+def callAfter (self: Layout → {Parse (Parse.Located Token)} Expr) (target: Expr) (open: Comments):
+    {Parse (Parse.Located Token)} Expr :=
+  skip()
+  let (arguments, close) := items self CloseParen
+  Call target open arguments close
+
+--| A field of `target`, from its `.`, whose comments are `dot`.
+def fieldAfter (layout: Layout) (target: Expr) (dot: Comments): {Parse (Parse.Located Token)} Expr :=
+  skip()
+  let (named, nameComments) := name layout
+  Field target dot named nameComments
 
 --| A list's items or a call's arguments, then `closer` and its comments;
 --| the opening bracket has been read.

@@ -293,9 +293,8 @@ def Expr.chainLevel: Expr → Nat
 --| The shape of the expressions the parser gives: a field's target is a
 --| postfix expression, `-` stands before an operand, and an operator's
 --| sides are grouped by precedence, the same level chaining from the left.
---| An `if` is covered where each branch is one expression on its
---| keyword's line (`ShapedInline`); one with a block for a branch is not
---| `Shaped` yet.
+--| An `if`'s branches, blocks included, hold expressions of that shape
+--| (`ShapedBody`).
 def Shaped: Expr → Prop
   | Var _ _ => True
   | NumberLiteral _ _ => True
@@ -312,12 +311,20 @@ def Shaped: Expr → Prop
       ∧ Shaped right
   | ListLiteral _ items _ => ShapedItems items
   | Call callee _ arguments _ => callee.isPostfix = True ∧ Shaped callee ∧ ShapedItems arguments
-  | If _ condition _ whenTrue _ whenFalse => Shaped condition ∧ ShapedInline whenTrue ∧ ShapedInline whenFalse
+  | If _ condition _ whenTrue _ whenFalse => Shaped condition ∧ ShapedBody whenTrue ∧ ShapedBody whenFalse
 
---| A body that is one expression of the parser's shape.
-def ShapedInline: Body → Prop
-  | { statements = [{ line = Bare value, .. }] } => Shaped value
-  | _ => False
+--| Each expression in the body is of the parser's shape.
+def ShapedBody: Body → Prop
+  | { statements } => ShapedLines statements
+
+def ShapedLines: List (Spaced Statement) → Prop
+  | [] => True
+  | [{ line, .. }, ..rest] => ShapedStatement line ∧ ShapedLines rest
+
+def ShapedStatement: Statement → Prop
+  | Let _ _ _ _ inner => ShapedBody inner
+  | Bare value => Shaped value
+  | StatementNote _ => True
 
 --| Each item's value is of the parser's shape.
 def ShapedItems: List Item → Prop
