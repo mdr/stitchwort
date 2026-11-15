@@ -1584,11 +1584,21 @@ impl Session {
     /// the tests of its namespace, in source order.
     pub fn with_broken_tests(
         &self,
-        mut results: Vec<TestResult>,
+        results: Vec<TestResult>,
         keep: impl Fn(&str) -> bool,
     ) -> Vec<TestResult> {
+        self.with_broken_tests_where(results, |test| keep(&test.name))
+    }
+
+    /// [`Session::with_broken_tests`], keeping the tests `keep` keeps, for a
+    /// caller that tells them apart by more than their name.
+    pub fn with_broken_tests_where(
+        &self,
+        mut results: Vec<TestResult>,
+        keep: impl Fn(&stitchwort_elab::BrokenTest) -> bool,
+    ) -> Vec<TestResult> {
         let order = |s: stitchwort_syntax::Span| (s.file.index(), s.start);
-        for test in self.elab.broken_tests().iter().filter(|t| keep(&t.name)) {
+        for test in self.elab.broken_tests().iter().filter(|t| keep(t)) {
             let place = |span: stitchwort_syntax::Span| {
                 let file = self.sources.get(span.file);
                 let end = (span.start as usize).min(file.text.len());
