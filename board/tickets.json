@@ -36836,12 +36836,12 @@
     {
       "id": 3333,
       "title": "[Opus] Should a successful sealed-call comparison in same_heads record its solutions with note_lossy, as the stuck-call branch does? Check what readers of solved_lossily expect (SW-3331 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "From SW-3331. Expected: 45 min (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
