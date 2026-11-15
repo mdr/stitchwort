@@ -1,5 +1,5 @@
 {
-  "next": 3350,
+  "next": 3352,
   "tickets": [
     {
       "id": 47,
@@ -37051,6 +37051,32 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3350,
+      "title": "[Sonnet] T2 of file-io-and-text.md: ++ grows a text in place when unshared, with the copy counter (after SW-3337)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3351,
+      "title": "[DeepSeek] text_repeat_with_a_huge_count_runs_out_of_steps takes 212 s in debug: its nine programs each check in a fresh ~20 s session; share one (SW-3337 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
