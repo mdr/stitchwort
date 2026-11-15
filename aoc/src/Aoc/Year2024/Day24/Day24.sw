@@ -53,17 +53,17 @@ def Wire.name (wire: Wire): Text := match wire with
   | Z bit => "z${twoDigits bit}"
   | Other name => name
 
-def wireName(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
+def wireName(): {Parse Char} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
 
 --| `x00: 1`.
-def initialValue(): {Parse} (Wire, Bool) :=
+def initialValue(): {Parse Char} (Wire, Bool) :=
   let name := wireName()
   text ": "
   let value := label "0 or 1" (() => pick [("0", False), ("1", True)])
   (name, value)
 
 --| `x00 AND y00 -> z00`.
-def gateLine(): {Parse} Gate :=
+def gateLine(): {Parse Char} Gate :=
   let left := wireName()
   text " "
   let operation := label "AND, OR or XOR" (() => pick [("AND", And), ("OR", Or), ("XOR", Xor)])
@@ -73,7 +73,7 @@ def gateLine(): {Parse} Gate :=
   let output := wireName()
   { left, operation, right, output }
 
-def deviceInput(): {Parse} Device :=
+def deviceInput(): {Parse Char} Device :=
   let initial := section initialValue |> .toList
   let gates := lines gateLine |> .toList
   { initial, gates }

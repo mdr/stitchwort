@@ -9,7 +9,7 @@ import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Resu
 
 theorem fieldEta ∀ (f: Field): { key = f.key, value = f.value } = f := match f with | { key, value } => rfl
 
-theorem runsAsValue ∀ (p: () → {Parse} a) (read rest: List Char) (v w: a)
+theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=

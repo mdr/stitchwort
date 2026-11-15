@@ -37,7 +37,7 @@ def sizesFrom (args: List Text): {Fail} (Nat, Nat) :=
 
 --| One byte's position: "5,4" is X = 5 from the left edge, its column, and
 --| Y = 4 from the top, its row.
-def byte(): {Parse} Position :=
+def byte(): {Parse Char} Position :=
   let x := nat()
   text ","
   let y := nat()

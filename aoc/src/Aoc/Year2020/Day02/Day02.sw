@@ -26,7 +26,7 @@ type Entry = { low: Nat, high: Nat, letter: Char, password: Text }
 
 --| `1-3 a: abcde`: two numbers with a dash between them, a space, a
 --| lowercase letter, a colon and a space, and a password of lowercase letters.
-def line(): {Parse} Entry :=
+def line(): {Parse Char} Entry :=
   let low := nat()
   char '-'
   let high := nat()

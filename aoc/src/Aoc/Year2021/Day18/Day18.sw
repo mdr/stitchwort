@@ -135,7 +135,7 @@ def readNumbers (input: Text): {Fail} List Number :=
 
 --| A regular number or a pair; `room` bounds the nesting, and
 --| a line of `n` characters can't nest deeper than `n`.
-def number: Nat → {Parse} Number
+def number: Nat → {Parse Char} Number
   | 0 => Regular (nat())
   | Succ room => Parse.oneOf [
     () => Regular (nat()),

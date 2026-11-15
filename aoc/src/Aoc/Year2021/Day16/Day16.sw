@@ -103,7 +103,7 @@ def readBits (input: Text): {Fail} List Bool := bitsOfDigits (readDigits input)
 def readDigits (input: Text): {Fail} List Nat := Parse.line input.trim (() => Parse.many hexDigit)
 
 --| One hexadecimal digit's value.
-def hexDigit(): {Parse} Nat :=
+def hexDigit(): {Parse Char} Nat :=
   let char := Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome)
   Parse.need (hexValue char) "expected a hexadecimal digit"
 

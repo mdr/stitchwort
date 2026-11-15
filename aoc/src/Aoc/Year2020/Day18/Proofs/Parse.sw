@@ -38,7 +38,7 @@ theorem readsOperator ∀ (operators: List Operator):
   Parse.readsWeaken (Parse.readsPickBy operators Operator.spaced) (read found (Both member same) =>
     Both member (rewrite same in spacedWritten found))
 
-theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: () → {Parse} Expression)
+theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: () → {Parse Char} Expression)
     (readsExpression: Parse.Reads expression (Level strengthOf 0)):
     Parse.Reads (() => operand expression) (Level strengthOf strength) :=
   Parse.readsOneOf _ _
@@ -60,7 +60,7 @@ theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (express
         Trivial))
 
 theorem readsChain ∀ (strengthOf: Operator → Nat) (strength: Nat)
-    (operators: List Operator) (term: () → {Parse} Expression)
+    (operators: List Operator) (term: () → {Parse Char} Expression)
     (ranked: List.All (operator => strengthOf operator = strength) operators)
     (readsTerm: Parse.Reads term (Level strengthOf (strength + 1))):
     Parse.Reads (() => chain operators term) (Level strengthOf strength) :=
@@ -86,7 +86,7 @@ theorem readsChain ∀ (strengthOf: Operator → Nat) (strength: Nat)
               (Both (rewrite sameStrength in rightBinds) (Both follows rightFollows)))
             (omega [sameStrength])))
 
-theorem readsLevel ∀ (strengthOf: Operator → Nat) (expression: () → {Parse} Expression)
+theorem readsLevel ∀ (strengthOf: Operator → Nat) (expression: () → {Parse Char} Expression)
     (readsExpression: Parse.Reads expression (Level strengthOf 0))
     (levels: List (List Operator)) (strength: Nat)
     (ranked: Ranked strengthOf strength levels):

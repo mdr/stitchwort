@@ -62,7 +62,7 @@ def Homework.sum (homework: Homework): Nat := homework.expressions.map .value |>
 -- The format
 
 --| A number, or a whole expression in parentheses.
-def operand (expression: () → {Parse} Expression): {Parse} Expression := Parse.oneOf [
+def operand (expression: () → {Parse Char} Expression): {Parse Char} Expression := Parse.oneOf [
   () =>
     let value := Parse.nat()
     Number value,
@@ -73,7 +73,7 @@ def operand (expression: () → {Parse} Expression): {Parse} Expression := Parse
     Parenthesised inner
 ]
 
-def operator (operators: List Operator): {Parse} Operator :=
+def operator (operators: List Operator): {Parse Char} Operator :=
   Parse.pick (operators.map (operator => (operator.spaced, operator)))
 
 --| The expression node an operator builds from its two sides.
@@ -81,16 +81,16 @@ def Operator.node (operator: Operator): Expression → Expression → Expression
   Operation operator left right
 
 --| `term`s joined by `operators`, grouped from the left.
-def chain (operators: List Operator) (term: () → {Parse} Expression): {Parse} Expression :=
+def chain (operators: List Operator) (term: () → {Parse Char} Expression): {Parse Char} Expression :=
   Parse.chainLeft term (() => Operator.node (operator operators))
 
 --| An expression whose loosest operators are the first of `levels`;
 --| `expression` reads a whole one, for inside parentheses.
-def level (expression: () → {Parse} Expression): List (List Operator) → {Parse} Expression
+def level (expression: () → {Parse Char} Expression): List (List Operator) → {Parse Char} Expression
   | [] => operand expression
   | [operators, ..tighter] => chain operators (() => level expression tighter)
 
-def Precedence.expression (precedence: Precedence): {Parse} Expression :=
+def Precedence.expression (precedence: Precedence): {Parse Char} Expression :=
   Parse.recursive (self => level self precedence.levels)
 
 --| An expression a line, read by `precedence`'s rules.

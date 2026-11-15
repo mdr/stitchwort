@@ -9,7 +9,7 @@ import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16.Spec (LineBreakWritten, NotesWritten, NumberWritten, RangeWritten, RuleWritten, TicketWritten)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsAsValue ∀ (p: () → {Parse} a) (read rest: List Char) (v w: a)
+theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=

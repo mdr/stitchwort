@@ -47,13 +47,13 @@ def Party.password (party: Party): Text := party.members.toList |> .map .name |>
 --| in either order, and may list one twice.
 type Network = { connections: List Connection }
 
-def computer(): {Parse} Computer :=
+def computer(): {Parse Char} Computer :=
   let first := satisfy "a lowercase letter" Char.isAsciiLowercase
   let second := satisfy "a lowercase letter" Char.isAsciiLowercase
   { name = Text.fromList [first, second] }
 
 --| One connection: "kh-tc".
-def connection(): {Parse} Connection :=
+def connection(): {Parse Char} Connection :=
   let one := computer()
   text "-"
   let other := computer()

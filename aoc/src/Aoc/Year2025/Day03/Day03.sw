@@ -51,7 +51,7 @@ def Bank: Type := List Battery
 --| program only runs on banks the headline theorem covers (`enough` in
 --| Proofs/Best.sw). A shorter one is an input error, once the whole line is
 --| known to be digits.
-def bank(): {Parse} Bank :=
+def bank(): {Parse Char} Bank :=
   spaces()
   let batteries := many1 digit |> .toList
   spaces()

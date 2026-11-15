@@ -7,7 +7,7 @@ namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Set, Text, Void)
 
-theorem runsAsValue ∀ (p: () → {Parse} a) (read rest: List Char) (v w: a)
+theorem runsAsValue ∀ (p: () → {Parse Char} a) (read rest: List Char) (v w: a)
     (same: v = w)
     (runs: Parse.Runs p read rest v):
     Parse.Runs p read rest w :=

@@ -47,18 +47,18 @@ type Step = | Halt | Fault | Next (machine: Machine) (printed: Option Nat)
 type Outcome = | Finished (output: List Nat) | Faulted | OutOfFuel
 
 --| A digit from 0 to 7.
-def threeBit(): {Parse} Nat :=
+def threeBit(): {Parse Char} Nat :=
   let start := Parse.mark()
   let value := natDigits (atLeast := 1) (atMost := 1)
   Parse.ensureAt start (value < 8) "expected a 3-bit number (0 to 7)"
   value
 
 --| "Register A: 729", without the line break.
-def register (name: Text): {Parse} Nat :=
+def register (name: Text): {Parse Char} Nat :=
   text "Register ${name}: "
   nat()
 
-def debugger(): {Parse} Debugger :=
+def debugger(): {Parse Char} Debugger :=
   let a := register "A"
   newline()
   let b := register "B"

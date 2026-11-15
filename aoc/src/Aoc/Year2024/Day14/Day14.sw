@@ -49,7 +49,7 @@ def Space.of (width height: Nat) [auto widthPositive: width ≠ 0] [auto heightP
   { width, height, widthPositive, heightPositive }
 
 --| One robot: "p=0,4 v=3,-3", `x` then `y` (a column, then a row).
-def robotLine(): {Parse} Robot :=
+def robotLine(): {Parse Char} Robot :=
   text "p="
   let column := nat()
   text ","

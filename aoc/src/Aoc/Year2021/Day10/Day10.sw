@@ -50,10 +50,10 @@ def allTokens: List Token :=
 --| the input (`parseReadsLines` in Proofs/Parse.sw).
 def parseLines (input: Text): {Fail} List (List Token) := Parse.eachLine input (() => Parse.many token)
 
-def token(): {Parse} Token := Parse.label "a bracket" bracket
+def token(): {Parse Char} Token := Parse.label "a bracket" bracket
 
 --| A token, read as its own character.
-def bracket(): {Parse} Token := Parse.pick (allTokens.map (token => (Text.fromList [token.char], token)))
+def bracket(): {Parse Char} Token := Parse.pick (allTokens.map (token => (Text.fromList [token.char], token)))
 
 --| Where a scan ends: at the first closer that doesn't match the bracket
 --| open innermost (or that nothing is open for), or at the end of the line

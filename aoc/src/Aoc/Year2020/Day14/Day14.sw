@@ -79,9 +79,9 @@ type Program = { instructions: List Instruction }
 
 def maskBits: List MaskBit := [Off, On, X]
 
-def maskBit(): {Parse} MaskBit := Parse.pick (maskBits.map (bit => (bit.symbol, bit)))
+def maskBit(): {Parse Char} MaskBit := Parse.pick (maskBits.map (bit => (bit.symbol, bit)))
 
-def instruction(): {Parse} Instruction := match Parse.optional (() => Parse.text "mask = ") with
+def instruction(): {Parse Char} Instruction := match Parse.optional (() => Parse.text "mask = ") with
   | Some _ =>
     let bits := Parse.exactly 36 maskBit
     SetMask { bits }

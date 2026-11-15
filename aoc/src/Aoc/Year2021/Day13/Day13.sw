@@ -42,18 +42,18 @@ type Paper = { dots: List Point, folds: List Fold }
 --| than the sheet reaches on the near side.
 def parsePaper (input: Text): {Fail} Paper := checkPaper (Parse.all input readPaper)
 
-def readPaper(): {Parse} Paper :=
+def readPaper(): {Parse Char} Paper :=
   let dots := section readDot |> .toList
   let folds := lines readFold |> .toList
   { dots, folds }
 
-def readDot(): {Parse} Point :=
+def readDot(): {Parse Char} Point :=
   let x := nat()
   char ','
   let y := nat()
   { x, y }
 
-def readFold(): {Parse} Fold :=
+def readFold(): {Parse Char} Fold :=
   text "fold along "
   let along := pick [("x=", AlongX), ("y=", AlongY)]
   along nat()

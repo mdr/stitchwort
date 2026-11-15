@@ -80,7 +80,7 @@ theorem sizePositive ∀ (expression: Expression) (small: size expression ≤ 0)
 --| What `self`, the parser for inside parentheses, reads: whatever is written
 --| as an expression, with nothing after it that continues it, if it is
 --| shorter than `limit`.
-def SelfRuns (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat): Prop :=
+def SelfRuns (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat): Prop :=
   ∀ (nestedRead nestedRest: List Char) (w: Expression) => Spec.Written w nestedRead
     → Spec.Follows strengthOf w
     → Stop strengthOf 0 nestedRest
@@ -88,7 +88,7 @@ def SelfRuns (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (l
     → Parse.Runs self nestedRead nestedRest w
 
 --| The parser for a level reads `expression`, written as `read`, up to `rest`.
-def Complete (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (levels: List (List Operator))
+def Complete (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat) (levels: List (List Operator))
     (strength: Nat) (expression: Expression):
     Prop :=
   ∀ (read rest: List Char) => read.length ≤ limit
@@ -99,7 +99,7 @@ def Complete (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (l
     → Stop strengthOf strength rest
     → Parse.Runs (() => level self levels) read rest expression
 
-theorem runsOperandNumber ∀ (self: () → {Parse} Expression) (read rest: List Char) (value: Nat)
+theorem runsOperandNumber ∀ (self: () → {Parse Char} Expression) (read rest: List Char) (value: Nat)
     (written: Spec.NumberWritten read value)
     (noDigit: rest.takeWhile Parse.isDigit = []):
     Parse.Runs (() => operand self) read rest (Number value) :=
@@ -131,7 +131,7 @@ theorem runsOperandNumber ∀ (self: () → {Parse} Expression) (read rest: List
         digitsRun
         (Parse.runsPure (Number (Parse.digitsValue read)) rest))
 
-theorem runsOperandParen ∀ (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat)
+theorem runsOperandParen ∀ (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat)
     (selfRuns: SelfRuns strengthOf self limit)
     (innerRead rest: List Char) (inner: Expression)
     (written: Spec.Written inner innerRead)
@@ -493,7 +493,7 @@ theorem afterSteps ∀ (strengthOf: Operator → Nat) (strength bound: Nat) (res
 
 --| The parser's chain steps run, for the steps of a chain, then decline.
 theorem runsSteps ∀ (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator)
-    (term: () → {Parse} Expression) (limit bound: Nat)
+    (term: () → {Parse Char} Expression) (limit bound: Nat)
     (exactHere: ∀ (other: Operator) => (other ∈ operators ↔ strengthOf other = strength))
     (termRuns: ∀ (right: Expression) => size right < bound
       → ∀ (rightRead rest: List Char) => rightRead.length ≤ limit
@@ -565,7 +565,7 @@ theorem runsSteps ∀ (strengthOf: Operator → Nat) (strength: Nat) (operators:
 
 --| Completeness one size up, given it for smaller expressions: by the
 --| levels, and at the last level by the operand.
-theorem levelInner ∀ (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat)
+theorem levelInner ∀ (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat)
     (selfRuns: SelfRuns strengthOf self limit) (bound: Nat)
     (smaller: ∀ (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound
       → Complete strengthOf self limit levels strength expression)
@@ -643,7 +643,7 @@ theorem levelInner ∀ (strengthOf: Operator → Nat) (self: () → {Parse} Expr
               runsFirst
               manyRuns
 
-theorem levelComplete ∀ (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat)
+theorem levelComplete ∀ (strengthOf: Operator → Nat) (self: () → {Parse Char} Expression) (limit: Nat)
     (selfRuns: SelfRuns strengthOf self limit)
     (bound: Nat) (levels: List (List Operator)) (strength: Nat) (expression: Expression)
     (small: size expression ≤ bound):

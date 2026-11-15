@@ -21,10 +21,10 @@ def main(): {IO, Fail} () :=
 type Instruction = | Mul (left: Nat) (right: Nat) | Do | Dont
 
 --| A number of one to three digits.
-def shortNumber(): {Parse} Nat := natDigits (atLeast := 1) (atMost := 3)
+def shortNumber(): {Parse Char} Nat := natDigits (atLeast := 1) (atMost := 3)
 
 --| "mul(44,46)", "do()" or "don't()", exactly: no spaces, no other brackets.
-def instruction(): {Parse} Instruction := oneOf [
+def instruction(): {Parse Char} Instruction := oneOf [
   () => Mul (text "mul("; shortNumber()) (char ','; shortNumber()) |> before ")",
   () => pick [("do()", Do), ("don't()", Dont)]
 ]

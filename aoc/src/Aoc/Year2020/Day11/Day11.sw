@@ -37,7 +37,7 @@ def Seat.symbol: Seat → Text
   | Empty => "L"
   | Occupied => "#"
 
-def seat(): {Parse} Seat := Parse.pick ([Floor, Empty, Occupied].map (seat => (seat.symbol, seat)))
+def seat(): {Parse Char} Seat := Parse.pick ([Floor, Empty, Occupied].map (seat => (seat.symbol, seat)))
 
 type Layout = { grid: Grid Seat }
 

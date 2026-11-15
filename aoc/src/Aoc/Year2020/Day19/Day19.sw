@@ -45,11 +45,11 @@ type Received = { rules: Rules, messages: List Message }
 
 -- The format
 
-def letter(): {Parse} Char := Parse.satisfy "a letter" Char.isAsciiLowercase
+def letter(): {Parse Char} Char := Parse.satisfy "a letter" Char.isAsciiLowercase
 
-def sequence(): {Parse} List Nat := Parse.sepBy1 Parse.nat (() => Parse.char ' ') |> .toList
+def sequence(): {Parse Char} List Nat := Parse.sepBy1 Parse.nat (() => Parse.char ' ') |> .toList
 
-def ruleBody(): {Parse} Rule := Parse.oneOf [
+def ruleBody(): {Parse Char} Rule := Parse.oneOf [
   () =>
     Parse.char '"'
     let found := letter()
@@ -60,17 +60,17 @@ def ruleBody(): {Parse} Rule := Parse.oneOf [
     Alternatives sequences.toList
 ]
 
-def numberedRule(): {Parse} (Nat, Rule) :=
+def numberedRule(): {Parse Char} (Nat, Rule) :=
   let number := Parse.nat()
   Parse.text ": "
   let rule := ruleBody()
   (number, rule)
 
-def message(): {Parse} Message :=
+def message(): {Parse Char} Message :=
   let letters := Parse.many1 letter
   { letters = letters.toList }
 
-def received(): {Parse} Received :=
+def received(): {Parse Char} Received :=
   let rules := Parse.lines numberedRule
   Parse.blankLine()
   let messages := Parse.lines message

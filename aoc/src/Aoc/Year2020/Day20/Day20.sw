@@ -32,7 +32,7 @@ def Pixel.symbol: Pixel → Text
   | Rough => "#"
   | Calm => "."
 
-def pixel(): {Parse} Pixel := Parse.pick ([Rough, Calm].map (pixel => (pixel.symbol, pixel)))
+def pixel(): {Parse Char} Pixel := Parse.pick ([Rough, Calm].map (pixel => (pixel.symbol, pixel)))
 
 --| Rows of pixels, top to bottom, each left to right.
 type Image = { rows: List (List Pixel) }
@@ -87,7 +87,7 @@ def Jigsaw.rectangular (jigsaw: Jigsaw): Bool := jigsaw.tiles.all (tile => tile.
 
 -- The format
 
-def tile(): {Parse} Tile :=
+def tile(): {Parse Char} Tile :=
   Parse.text "Tile "
   let id := Parse.nat()
   Parse.char ':'
@@ -95,11 +95,11 @@ def tile(): {Parse} Tile :=
   let rows := Parse.lines pixelRow
   { id, image = { rows = rows.toList } }
 
-def pixelRow(): {Parse} List Pixel :=
+def pixelRow(): {Parse Char} List Pixel :=
   let pixels := Parse.many1 pixel
   pixels.toList
 
-def jigsaw(): {Parse} Jigsaw :=
+def jigsaw(): {Parse Char} Jigsaw :=
   let tiles := Parse.sections tile
   { tiles = tiles.toList }
 

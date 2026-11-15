@@ -34,10 +34,10 @@ import Effect.AlwaysTreeOf (AlwaysCall)
 --| `rest` left and the offset moved on by `read`'s length. `Parse.Runs`
 --| quantifies it over states; a few lemmas about `many` need one state's
 --| offset.
-def Parse.RunsFrom (state: Parse.State) (parser: () → {Parse} a) (read rest: List Char) (value: a): Prop :=
+def Parse.RunsFrom (state: Parse.State Char) (parser: () → {Parse Char} a) (read rest: List Char) (value: a): Prop :=
   state.at.rest = read ++ rest
     → state.at.left = state.at.rest.length
-    → ∃ (after: Parse.Mark) => Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
+    → ∃ (after: Parse.Mark Char) => Parse.runFrom state (() => (parser(), Parse.mark())) = Ok (value, after)
       ∧ after.rest = rest
       ∧ after.left = rest.length
       ∧ after.offset = state.at.offset + read.length
@@ -48,17 +48,17 @@ def Parse.RunsFrom (state: Parse.State) (parser: () → {Parse} a) (read rest: L
 --| input, `Runs` that it succeeds and says where it stops. Success depends
 --| on `rest` where the parser looks ahead (see [`Parse.runsNat`]), and not on
 --| anything before the input.
-def Parse.Runs (parser: () → {Parse} a) (read rest: List Char) (value: a): Prop :=
-  ∀ (state: Parse.State) => Parse.RunsFrom state parser read rest value
+def Parse.Runs (parser: () → {Parse Char} a) (read rest: List Char) (value: a): Prop :=
+  ∀ (state: Parse.State Char) => Parse.RunsFrom state parser read rest value
 
 --| `p` ran from `s` to a point `after` (`runFrom s (p(), mark())` gave
 --| `after.at`), and `k (j v)` goes on from there to an `Ok`: so `k (j (p()))`
 --| does from `s`. The converse of [`Parse.runFromThenOk2`], by the same induction
 --| on `p`'s computation; the state's other fields (what a failure would report)
 --| don't matter to success, by [`Parse.runFromAt`].
-theorem Parse.runFromThenBack2 ∀ (p: () → {Parse} a)
+theorem Parse.runFromThenBack2 ∀ (p: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (p ()))
-    (s: Parse.State) (j: a → {Parse} c) (k: c → {Parse} b) (v: a) (after: Parse.State) (w: b)
+    (s: Parse.State Char) (j: a → {Parse Char} c) (k: c → {Parse Char} b) (v: a) (after: Parse.State Char) (w: b)
     (ran: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at))
     (rest: Parse.runFrom after (() => k (j v)) = Ok w):
     Parse.runFrom s (() => k (j (p()))) = Ok w :=
@@ -131,9 +131,9 @@ theorem Parse.runFromThenBack2 ∀ (p: () → {Parse} a)
 
 --| The same for `optionalFrom start q` where `q` succeeds: `k (j (Some v))`
 --| follows. The converse of [`Parse.runFromOptionalFromOk2`] for the `Some` case.
-theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse} a)
+theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start: Parse.Mark) (s: Parse.State) (j: Option a → {Parse} c) (k: c → {Parse} b) (v: a) (after: Parse.State) (w: b)
+    (start: Parse.Mark Char) (s: Parse.State Char) (j: Option a → {Parse Char} c) (k: c → {Parse Char} b) (v: a) (after: Parse.State Char) (w: b)
     (ran: Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at))
     (rest: Parse.runFrom after (() => k (j (Some v))) = Ok w):
     Parse.runFrom s (() => k (j (Parse.optionalFrom start q))) = Ok w :=
@@ -210,9 +210,9 @@ theorem Parse.runFromOptionalFromBack2 ∀ (q: () → {Parse} a)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
 
 --| [`Parse.runFromOptionalFromBack2`] with no function in between.
-theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse} a)
+theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start: Parse.Mark) (s: Parse.State) (k: Option a → {Parse} b) (v: a) (after: Parse.State) (w: b)
+    (start: Parse.Mark Char) (s: Parse.State Char) (k: Option a → {Parse Char} b) (v: a) (after: Parse.State Char) (w: b)
     (ran: Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at))
     (rest: Parse.runFrom after (() => k (Some v)) = Ok w):
     Parse.runFrom s (() => k (Parse.optionalFrom start q)) = Ok w :=
@@ -287,9 +287,9 @@ theorem Parse.runFromOptionalFromBack ∀ (q: () → {Parse} a)
 
 --| If `optionalFrom start q` backs up (gives `None`), so does the optional of
 --| `q` followed by anything: a parser that stops partway stops the longer one.
-theorem Parse.optionalFromNoneBind ∀ (q: () → {Parse} a)
+theorem Parse.optionalFromNoneBind ∀ (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start: Parse.Mark) (s: Parse.State) (j: a → {Parse} c) (m: Parse.Mark)
+    (start: Parse.Mark Char) (s: Parse.State Char) (j: a → {Parse Char} c) (m: Parse.Mark Char)
     (h: Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, m)):
     Parse.runFrom s (() => (Parse.optionalFrom start (() => j (q())), Parse.mark())) = Ok (None, m) :=
   match reify q with
@@ -355,11 +355,11 @@ theorem Parse.runsPure ∀ (x: a) (rest: List Char): Parse.Runs (() => x) [] res
 
 --| As [`Parse.runsFromBind`], but `p` need only read `first` from this state:
 --| for a `p` that depends on where it starts, such as `optionalFrom state.at`.
-theorem Parse.runsFromBindAt ∀ (state: Parse.State) (p: () → {Parse} a) (j: a → {Parse} b)
+theorem Parse.runsFromBindAt ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (j: a → {Parse Char} b)
     (first next read rest: List Char) (v: a) (value: b)
     (joined: read = first ++ next)
     (runsFirst: Parse.RunsFrom state p first (next ++ rest) v)
-    (runsNext: ∀ (middle: Parse.State) => middle.at.rest = next ++ rest
+    (runsNext: ∀ (middle: Parse.State Char) => middle.at.rest = next ++ rest
       → middle.at.left = middle.at.rest.length
       → middle.at.offset = state.at.offset + first.length
       → Parse.RunsFrom middle (() => j v) next rest value):
@@ -369,7 +369,7 @@ theorem Parse.runsFromBindAt ∀ (state: Parse.State) (p: () → {Parse} a) (j: 
       rewrite joined at starts in Eq.trans starts (List.appendAssoc first next rest)
     match runsFirst split honest with
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
-        let middle: Parse.State := { state | at = m }
+        let middle: Parse.State Char := { state | at = m }
         let honest1: middle.at.left = middle.at.rest.length := rewrite mrest in mleft
         match runsNext middle mrest honest1 moff mrest honest1 with
           | Witness m2 (Both ran2 (Both m2rest (Both m2left m2off))) =>
@@ -383,11 +383,11 @@ theorem Parse.runsFromBindAt ∀ (state: Parse.State) (p: () → {Parse} a) (j: 
 --| wherever it is run, and `j v` reads `next` from where `p` stopped (given the
 --| offset it must have reached). The state-level form of [`Parse.runsBind`], for
 --| a rest that depends on the state (`many`'s check that it moved).
-theorem Parse.runsFromBind ∀ (state: Parse.State) (p: () → {Parse} a) (j: a → {Parse} b)
+theorem Parse.runsFromBind ∀ (state: Parse.State Char) (p: () → {Parse Char} a) (j: a → {Parse Char} b)
     (first next read rest: List Char) (v: a) (value: b)
     (joined: read = first ++ next)
     (runsFirst: Parse.Runs p first (next ++ rest) v)
-    (runsNext: ∀ (middle: Parse.State) => middle.at.rest = next ++ rest
+    (runsNext: ∀ (middle: Parse.State Char) => middle.at.rest = next ++ rest
       → middle.at.left = middle.at.rest.length
       → middle.at.offset = state.at.offset + first.length
       → Parse.RunsFrom middle (() => j v) next rest value):
@@ -398,7 +398,7 @@ theorem Parse.runsFromBind ∀ (state: Parse.State) (p: () → {Parse} a) (j: a 
 --| the whole reads `read = first ++ next`. `p` sees `next ++ rest` after
 --| it, so a look-ahead condition of `p` is about what `j v` reads and what
 --| follows.
-theorem Parse.runsBind ∀ (p: () → {Parse} a) (j: a → {Parse} b) (first next read rest: List Char) (v: a) (value: b)
+theorem Parse.runsBind ∀ (p: () → {Parse Char} a) (j: a → {Parse Char} b) (first next read rest: List Char) (v: a) (value: b)
     (joined: read = first ++ next)
     (runsFirst: Parse.Runs p first (next ++ rest) v)
     (runsNext: Parse.Runs (() => j v) next rest value):
@@ -408,7 +408,7 @@ theorem Parse.runsBind ∀ (p: () → {Parse} a) (j: a → {Parse} b) (first nex
       runsNext middle)
 
 --| A pure function of a value: it reads what `p` read.
-theorem Parse.runsMap ∀ (p: () → {Parse} a) (f: a → b) (read rest: List Char) (v: a)
+theorem Parse.runsMap ∀ (p: () → {Parse Char} a) (f: a → b) (read rest: List Char) (v: a)
     (runsP: Parse.Runs p read rest v):
     Parse.Runs (() => f (p())) read rest (f v) :=
   Parse.runsBind p (x => f x) read [] read rest v (f v) (Eq.sym (List.appendNil read)) runsP (Parse.runsPure (f v) rest)
@@ -496,7 +496,7 @@ theorem Parse.runsSpaces ∀ (blanks rest: List Char)
 --| input must not have a space where `p`'s part starts (`startsAtToken`: the
 --| leading spaces are all of them) and `rest` doesn't start with one (the
 --| trailing ones are).
-theorem Parse.runsToken ∀ (p: () → {Parse} a) (before inside after rest: List Char) (v: a)
+theorem Parse.runsToken ∀ (p: () → {Parse Char} a) (before inside after rest: List Char) (v: a)
     (spacesBefore: before.all Parse.isSpace = True)
     (startsAtToken: (inside ++ (after ++ rest)).takeWhile Parse.isSpace = [])
     (spacesAfter: after.all Parse.isSpace = True)
@@ -542,7 +542,7 @@ theorem Parse.runsToken ∀ (p: () → {Parse} a) (before inside after rest: Lis
         (Parse.runsPure v rest)))
 
 --| `optional p` where `p` succeeds: it reads what `p` read and gives `Some`.
-theorem Parse.runsOptional ∀ (p: () → {Parse} a) (read rest: List Char) (v: a)
+theorem Parse.runsOptional ∀ (p: () → {Parse Char} a) (read rest: List Char) (v: a)
     (runsP: Parse.Runs p read rest v):
     Parse.Runs (() => Parse.optional p) read rest (Some v) :=
   state starts honest =>
@@ -564,13 +564,13 @@ theorem Parse.runsOptional ∀ (p: () → {Parse} a) (read rest: List Char) (v: 
 --| that read nothing (see the header), so an alternative is skipped when the
 --| one before it declines, whether or not it got partway. `p` run alone from
 --| there would stop with a failure (not a fatal one, which nothing backs up).
-def Parse.Declines (p: () → {Parse} a) (input: List Char): Prop :=
-  ∀ (state: Parse.State) => state.at.rest = input
+def Parse.Declines (p: () → {Parse Char} a) (input: List Char): Prop :=
+  ∀ (state: Parse.State Char) => state.at.rest = input
     → state.at.left = state.at.rest.length
     → Parse.runFrom state (() => (Parse.optional p, Parse.mark())) = Ok (None, state.at)
 
 --| `optional p` where `p` declines: it reads nothing and gives `None`.
-theorem Parse.declinesRuns ∀ (p: () → {Parse} a) (input: List Char)
+theorem Parse.declinesRuns ∀ (p: () → {Parse Char} a) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Runs (() => Parse.optional p) [] input None :=
   state starts honest =>
@@ -578,7 +578,7 @@ theorem Parse.declinesRuns ∀ (p: () → {Parse} a) (input: List Char)
 
 --| If `p` declines, so does `p` followed by anything. (If `p` succeeds and
 --| the rest declines, see [`Parse.declinesAfter`].)
-theorem Parse.declinesBind ∀ (p: () → {Parse} a) (j: a → {Parse} b) (input: List Char)
+theorem Parse.declinesBind ∀ (p: () → {Parse Char} a) (j: a → {Parse Char} b) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Declines (() => j (p())) input :=
   state starts honest =>
@@ -615,7 +615,7 @@ theorem Parse.declinesNat ∀ (input: List Char)
 
 --| `oneOf [first, ..others]` where `first` succeeds: it gives `first`'s
 --| value, whatever the others would do.
-theorem Parse.runsOneOfFirst ∀ (first: () → {Parse} a) (others: List (() → {Parse} a)) (read rest: List Char) (v: a)
+theorem Parse.runsOneOfFirst ∀ (first: () → {Parse Char} a) (others: List (() → {Parse Char} a)) (read rest: List Char) (v: a)
     (runsFirst: Parse.Runs first read rest v):
     Parse.Runs (() => Parse.oneOf [first, ..others]) read rest v :=
   match others with
@@ -638,7 +638,7 @@ theorem Parse.runsOneOfFirst ∀ (first: () → {Parse} a) (others: List (() →
 --| `oneOf [next, ..more]` succeeds there: it gives that value. Not Parsec's
 --| rule, which also needs `first` to have read nothing: the alternative that
 --| fails is backed up wherever it stopped.
-theorem Parse.runsOneOfNext ∀ (first next: () → {Parse} a) (more: List (() → {Parse} a)) (read rest: List Char) (v: a)
+theorem Parse.runsOneOfNext ∀ (first next: () → {Parse Char} a) (more: List (() → {Parse Char} a)) (read rest: List Char) (v: a)
     (declines: Parse.Declines first (read ++ rest))
     (runsNext: Parse.Runs (() => Parse.oneOf [next, ..more]) read rest v):
     Parse.Runs (() => Parse.oneOf [first, next, ..more]) read rest v :=
@@ -657,8 +657,8 @@ theorem Parse.runsOneOfNext ∀ (first next: () → {Parse} a) (more: List (() �
 
 --| A round of `manyFrom` whose parser gave `v` and moved on: the rest of
 --| `manyFrom` is what goes on from the state it stopped in.
-theorem Parse.runsFromManyRound ∀ (before: Parse.Mark) (more: Nat) (p: () → {Parse} a) (found: List a) (v: a)
-    (middle: Parse.State) (read rest: List Char) (value: List a)
+theorem Parse.runsFromManyRound ∀ (before: Parse.Mark Char) (more: Nat) (p: () → {Parse Char} a) (found: List a) (v: a)
+    (middle: Parse.State Char) (read rest: List Char) (value: List a)
     (advanced: before.offset < middle.at.offset)
     (runsNext: Parse.RunsFrom middle (() => Parse.manyFrom more p [v, ..found] middle.at) read rest value):
     Parse.RunsFrom middle (() => Parse.manyRound more p found before (Some v)) read rest value :=
@@ -666,7 +666,7 @@ theorem Parse.runsFromManyRound ∀ (before: Parse.Mark) (more: Nat) (p: () → 
   rewrite holds in runsNext
 
 --| `mark()` gives the state's own mark, which `k` may use.
-theorem Parse.runsFromMark ∀ (state: Parse.State) (k: Parse.Mark → {Parse} a) (read rest: List Char) (v: a)
+theorem Parse.runsFromMark ∀ (state: Parse.State Char) (k: Parse.Mark Char → {Parse Char} a) (read rest: List Char) (v: a)
     (h: Parse.RunsFrom state (() => k state.at) read rest v):
     Parse.RunsFrom state (() => k (Parse.mark())) read rest v :=
   starts honest =>
@@ -689,13 +689,13 @@ def Parse.stepValues: (steps: List (List Char, a)) → List a
 --| `rest`; and after the last, `p` declines on `rest`, which is what stops
 --| the repetition. (Why each must read: `many` stops the whole parse if a round
 --| reads nothing, since it would repeat forever.)
-def Parse.ManyRuns (p: () → {Parse} a): (steps: List (List Char, a)) → (rest: List Char) → Prop
+def Parse.ManyRuns (p: () → {Parse Char} a): (steps: List (List Char, a)) → (rest: List Char) → Prop
   | [], rest => Parse.Declines p rest
   | [(read, v), ..steps], rest =>
     read ≠ [] ∧ Parse.Runs p read (Parse.joinReads steps ++ rest) v ∧ Parse.ManyRuns p steps rest
 
 --| A repetition's text has at least a character per round (fuel for `many`).
-theorem Parse.manyStepsShort ∀ (p: () → {Parse} a) (steps: List (List Char, a)) (rest: List Char)
+theorem Parse.manyStepsShort ∀ (p: () → {Parse Char} a) (steps: List (List Char, a)) (rest: List Char)
     (runs: Parse.ManyRuns p steps rest):
     steps.length ≤ (Parse.joinReads steps).length :=
   match steps, runs with
@@ -709,10 +709,10 @@ theorem Parse.manyStepsShort ∀ (p: () → {Parse} a) (steps: List (List Char, 
 
 --| `manyFrom` from a state that is at its `before` mark, with enough fuel
 --| (more than the rounds), after `found` (newest first): it gives them all.
-theorem Parse.runsManyFrom ∀ (p: () → {Parse} a):
+theorem Parse.runsManyFrom ∀ (p: () → {Parse Char} a):
     ∀ (steps: List (List Char, a)) (rest: List Char) (fuel: Nat) (found: List a) => steps.length < fuel
       → Parse.ManyRuns p steps rest
-      → ∀ (state: Parse.State) => Parse.RunsFrom state
+      → ∀ (state: Parse.State Char) => Parse.RunsFrom state
         (() => Parse.manyFrom fuel p found state.at)
         (Parse.joinReads steps)
         rest
@@ -763,7 +763,7 @@ theorem Parse.runsManyFrom ∀ (p: () → {Parse} a):
 --| the rounds' text and gives their values, in order. Note that `rest` is where
 --| `p` declines, so a parser that would carry on (`many nat` before another
 --| digit) is outside the lemma.
-theorem Parse.runsMany ∀ (p: () → {Parse} a) (steps: List (List Char, a)) (rest: List Char)
+theorem Parse.runsMany ∀ (p: () → {Parse Char} a) (steps: List (List Char, a)) (rest: List Char)
     (manyRuns: Parse.ManyRuns p steps rest):
     Parse.Runs (() => Parse.many p) (Parse.joinReads steps) rest (Parse.stepValues steps) :=
   state starts honest =>
@@ -782,13 +782,13 @@ theorem Parse.runsMany ∀ (p: () → {Parse} a) (steps: List (List Char, a)) (r
 
 --| One step of `chainLeft` (an operator and an operand), as the lemmas
 --| name it.
-def Parse.chainStep (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a)): {Parse} (a → a → a, a) :=
+def Parse.chainStep (operand: () → {Parse Char} a) (operator: () → {Parse Char} (a → a → a)): {Parse Char} (a → a → a, a) :=
   let combine := operator()
   let right := operand()
   (combine, right)
 
 --| A step of `chainLeft` reads the operator, then the operand.
-theorem Parse.runsChainStep ∀ (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a))
+theorem Parse.runsChainStep ∀ (operand: () → {Parse Char} a) (operator: () → {Parse Char} (a → a → a))
     (operatorRead operandRead rest: List Char) (combine: a → a → a) (right: a)
     (runsOperator: Parse.Runs operator operatorRead (operandRead ++ rest) combine)
     (runsOperand: Parse.Runs operand operandRead rest right):
@@ -810,7 +810,7 @@ theorem Parse.runsChainStep ∀ (operand: () → {Parse} a) (operator: () → {P
 --| A step of `chainLeft` declines where the operator does: the usual way a
 --| chain ends. (A step whose operator is there but whose operand isn't
 --| declines too, by [`Parse.declinesAfter`].)
-theorem Parse.declinesChainStep ∀ (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a)) (input: List Char)
+theorem Parse.declinesChainStep ∀ (operand: () → {Parse Char} a) (operator: () → {Parse Char} (a → a → a)) (input: List Char)
     (declines: Parse.Declines operator input):
     Parse.Declines (() => Parse.chainStep operand operator) input :=
   Parse.declinesBind operator
@@ -826,7 +826,7 @@ theorem Parse.declinesChainStep ∀ (operand: () → {Parse} a) (operator: () �
 --| the steps folded in from the left. Each step's parts see what follows them
 --| (the later steps, then `rest`) as in [`Parse.runsMany`]; build the steps
 --| with [`Parse.runsChainStep`] and end them with [`Parse.declinesChainStep`].
-theorem Parse.runsChainLeft ∀ (operand: () → {Parse} a) (operator: () → {Parse} (a → a → a)) (firstRead: List Char)
+theorem Parse.runsChainLeft ∀ (operand: () → {Parse Char} a) (operator: () → {Parse Char} (a → a → a)) (firstRead: List Char)
     (first: a) (steps: List (List Char, (a → a → a, a))) (rest: List Char)
     (runsFirst: Parse.Runs operand firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns (() => Parse.chainStep operand operator) steps rest):
@@ -856,9 +856,9 @@ theorem Parse.runsChainLeft ∀ (operand: () → {Parse} a) (operator: () → {P
       (Parse.runsMany (() => Parse.chainStep operand operator) steps rest manyRuns))
 
 --| A run of `p` that gave a value with a mark after it is a run of `p`.
-theorem Parse.runFromForgetMark ∀ (p: () → {Parse} a)
+theorem Parse.runFromForgetMark ∀ (p: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (p ()))
-    (s: Parse.State) (v: a) (m: Parse.Mark)
+    (s: Parse.State Char) (v: a) (m: Parse.Mark Char)
     (h: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, m)):
     Parse.runFrom s p = Ok v :=
   match reify p with
@@ -906,7 +906,7 @@ theorem Parse.runFromForgetMark ∀ (p: () → {Parse} a)
 --| `p` reads all of `input`: `Parse.run` gives the value (for `Parse.all` and
 --| `eachLine`, which add line breaks and a check for the end, state `Runs`
 --| for the text with them).
-theorem Parse.runsRun ∀ (p: () → {Parse} a) (input: List Char) (v: a)
+theorem Parse.runsRun ∀ (p: () → {Parse Char} a) (input: List Char) (v: a)
     (runs: Parse.Runs p input [] v):
     Parse.run input p = Ok v :=
   match runs (Parse.State.start input) (Eq.sym (List.appendNil input)) rfl with
@@ -938,11 +938,11 @@ theorem Parse.declinesChar ∀ (expected char: Char) (rest: List Char)
 
 def Parse.RunsExamples.add (x y: Nat): Nat := x + y
 
-def Parse.RunsExamples.plus(): {Parse} (Nat → Nat → Nat) :=
+def Parse.RunsExamples.plus(): {Parse Char} (Nat → Nat → Nat) :=
   Parse.char '+'
   Parse.RunsExamples.add
 
-def Parse.RunsExamples.sum(): {Parse} Nat := Parse.chainLeft Parse.nat Parse.RunsExamples.plus
+def Parse.RunsExamples.sum(): {Parse Char} Nat := Parse.chainLeft Parse.nat Parse.RunsExamples.plus
 
 --| "1+2" parses as a sum with `chainLeft` to 3, by `Runs` lemmas alone.
 theorem Parse.runsSumExample: Parse.run ['1', '+', '2'] Parse.RunsExamples.sum = Ok 3 :=
@@ -1052,9 +1052,9 @@ theorem Parse.runsPick ∀ (before: List (Text, a)) (word: Text) (value: a) (lat
 
 --| If `optionalFrom s0 q` backs up from `s`, so does `optionalFrom start q`,
 --| to `start`: `q` stops on its own, wherever the optional took its mark.
-theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse} a)
+theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (s0 start: Parse.Mark) (s: Parse.State)
+    (s0 start: Parse.Mark Char) (s: Parse.State Char)
     (h: Parse.runFrom s (() => (Parse.optionalFrom s0 q, Parse.mark())) = Ok (None, s0)):
     Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start) :=
   match reify q with
@@ -1111,9 +1111,9 @@ theorem Parse.optionalFromNoneStart ∀ (q: () → {Parse} a)
 
 --| `p` succeeded from `s` to `after`, and from there `j` of its value backs up
 --| to `start`: so `optionalFrom start` of `p` then `j` does, from `s`.
-theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse} a)
+theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (p ()))
-    (start: Parse.Mark) (s: Parse.State) (j: a → {Parse} c) (v: a) (after: Parse.State)
+    (start: Parse.Mark Char) (s: Parse.State Char) (j: a → {Parse Char} c) (v: a) (after: Parse.State Char)
     (ran: Parse.runFrom s (() => (p(), Parse.mark())) = Ok (v, after.at))
     (stops: Parse.runFrom after (() => (Parse.optionalFrom start (() => j v), Parse.mark())) = Ok (None, start)):
     Parse.runFrom s (() => (Parse.optionalFrom start (() => j (p())), Parse.mark())) = Ok (None, start) :=
@@ -1185,14 +1185,14 @@ theorem Parse.optionalFromNoneAfter ∀ (p: () → {Parse} a)
 
 --| `p` followed by something that declines declines too, where `p` succeeds:
 --| "an operator is there but no operand".
-theorem Parse.declinesAfter ∀ (p: () → {Parse} a) (j: a → {Parse} b) (read rest: List Char) (v: a)
+theorem Parse.declinesAfter ∀ (p: () → {Parse Char} a) (j: a → {Parse Char} b) (read rest: List Char) (v: a)
     (runsP: Parse.Runs p read rest v)
     (declines: Parse.Declines (() => j v) rest):
     Parse.Declines (() => j (p())) (read ++ rest) :=
   state starts honest =>
     match runsP state starts honest with
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
-        let middle: Parse.State := { state | at = m }
+        let middle: Parse.State Char := { state | at = m }
         let honest1: middle.at.left = middle.at.rest.length := rewrite mrest in mleft
         Parse.optionalFromNoneAfter p
           (Effect.Always.tree (x => Unit) (p ()) (Effect.alwaysUnit (p ())))
@@ -1270,8 +1270,8 @@ theorem Parse.declinesPick ∀ (choices: List (Text, a)) (input: List Char)
       (Parse.declinesStop input))
 
 --| `recursiveFuel`, by induction on the fuel.
-theorem Parse.runsRecursiveFuel ∀ (body: (() → {Parse} a) → {Parse} a) (good: List Char → List Char → a → Prop)
-    (step: ∀ (self: () → {Parse} a) (read rest: List Char) (v: a) => good read rest v
+theorem Parse.runsRecursiveFuel ∀ (body: (() → {Parse Char} a) → {Parse Char} a) (good: List Char → List Char → a → Prop)
+    (step: ∀ (self: () → {Parse Char} a) (read rest: List Char) (v: a) => good read rest v
       → (∀ (nestedRead nestedRest: List Char) (w: a) => good nestedRead nestedRest w
         → nestedRead.length < read.length
         → Parse.Runs self nestedRead nestedRest w)
@@ -1298,8 +1298,8 @@ theorem Parse.runsRecursiveFuel ∀ (body: (() → {Parse} a) → {Parse} a) (go
 --| each `good` read that is shorter than it, then `recursive body` reads it.
 --| (Each nesting of a parenthesised expression reads at least the
 --| parentheses, so the nested call reads less than the call around it.)
-theorem Parse.runsRecursive ∀ (body: (() → {Parse} a) → {Parse} a) (good: List Char → List Char → a → Prop)
-    (step: ∀ (self: () → {Parse} a) (read rest: List Char) (v: a) => good read rest v
+theorem Parse.runsRecursive ∀ (body: (() → {Parse Char} a) → {Parse Char} a) (good: List Char → List Char → a → Prop)
+    (step: ∀ (self: () → {Parse Char} a) (read rest: List Char) (v: a) => good read rest v
       → (∀ (nestedRead nestedRest: List Char) (w: a) => good nestedRead nestedRest w
         → nestedRead.length < read.length
         → Parse.Runs self nestedRead nestedRest w)
@@ -1326,7 +1326,7 @@ theorem Parse.runsEnd: Parse.Runs Parse.end [] [] () := state starts honest =>
 --| `whole chars p` where `p` reads all of `chars`.
 --| `p` reads all of `chars`, so `Parse.whole chars p` (the runner under `all`,
 --| `line` and `eachLine`) gives its value.
-theorem Parse.runsWhole ∀ (chars: List Char) (p: () → {Parse} a) (v: a)
+theorem Parse.runsWhole ∀ (chars: List Char) (p: () → {Parse Char} a) (v: a)
     (runs: Parse.Runs p chars [] v):
     Parse.whole chars p = Ok v :=
   Parse.runsRun
@@ -1357,7 +1357,7 @@ theorem Parse.runsPickExample: Parse.Runs (() => Parse.pick [("+", 1), ("*", 2)]
 --| Each line of `input` runs `p` to its value (`Runs` the line's characters
 --| with nothing left over): `Parse.eachLine input p` gives those values. The
 --| converse of [`Parse.eachLineReads`].
-theorem Parse.runsEachLine ∀ (input: Text) (p: () → {Parse} a) (values: List a)
+theorem Parse.runsEachLine ∀ (input: Text) (p: () → {Parse Char} a) (values: List a)
     (runs: List.All2 (line v => Parse.Runs p line [] v) (input.lines.map Text.toList) values):
     Fail.toResult (() => Parse.eachLine input p) = Ok values :=
   rewrite Fail.toResultMap _ input.lines.withIndex in
@@ -1377,7 +1377,7 @@ theorem Parse.runsEachLine ∀ (input: Text) (p: () → {Parse} a) (values: List
 
 --| One round of `sepBy`, `sepBy1` and `lines`: a separator, then a value. The
 --| lemmas name it so that a repetition's rounds are [`Parse.ManyRuns`] of it.
-def Parse.sepStep (p: () → {Parse} a) (separator: () → {Parse} ()): {Parse} a :=
+def Parse.sepStep (p: () → {Parse Char} a) (separator: () → {Parse Char} ()): {Parse Char} a :=
   separator()
   p()
 
@@ -1386,7 +1386,7 @@ def Parse.sepStep (p: () → {Parse} a) (separator: () → {Parse} ()): {Parse} 
 --| `NonEmptyList`. The first value sees what follows it (the rounds, then
 --| `rest`), and `rest` is where `p` declines, so a parser that would carry on
 --| is outside the lemma.
-theorem Parse.runsMany1 ∀ (p: () → {Parse} a) (firstRead: List Char) (first: a)
+theorem Parse.runsMany1 ∀ (p: () → {Parse Char} a) (firstRead: List Char) (first: a)
     (steps: List (List Char, a)) (rest: List Char)
     (runsFirst: Parse.Runs p firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns p steps rest):
@@ -1414,13 +1414,13 @@ theorem Parse.runsMany1 ∀ (p: () → {Parse} a) (firstRead: List Char) (first:
       (Parse.runsMany p steps rest manyRuns))
 
 --| `many1 p` declines where `p` does: it needs a first value.
-theorem Parse.declinesMany1 ∀ (p: () → {Parse} a) (input: List Char)
+theorem Parse.declinesMany1 ∀ (p: () → {Parse Char} a) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Declines (() => Parse.many1 p) input :=
   Parse.declinesBind p (x => NonEmptyList.cons x (Parse.many p)) input declines
 
 --| `oneOf [first, next]` declines where both alternatives do.
-theorem Parse.declinesOneOfTwo ∀ (first next: () → {Parse} a) (input: List Char)
+theorem Parse.declinesOneOfTwo ∀ (first next: () → {Parse Char} a) (input: List Char)
     (declinesFirst: Parse.Declines first input)
     (declinesNext: Parse.Declines next input):
     Parse.Declines (() => Parse.oneOf [first, next]) input :=
@@ -1435,7 +1435,7 @@ theorem Parse.declinesOneOfTwo ∀ (first next: () → {Parse} a) (input: List C
 
 --| A round of `sepBy`: the separator reads `separatorRead` (and sees the value
 --| and `rest` after it), then `p` reads `valueRead`.
-theorem Parse.runsSepStep ∀ (p: () → {Parse} a) (separator: () → {Parse} ())
+theorem Parse.runsSepStep ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ())
     (separatorRead valueRead rest: List Char) (v: a)
     (runsSeparator: Parse.Runs separator separatorRead (valueRead ++ rest) ())
     (runsValue: Parse.Runs p valueRead rest v):
@@ -1455,7 +1455,7 @@ theorem Parse.runsSepStep ∀ (p: () → {Parse} a) (separator: () → {Parse} (
 --| A round of `sepBy` declines where the separator does: the usual way a list
 --| ends. (A separator that is there with no value after it declines too, by
 --| [`Parse.declinesAfter`].)
-theorem Parse.declinesSepStep ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (input: List Char)
+theorem Parse.declinesSepStep ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (input: List Char)
     (declines: Parse.Declines separator input):
     Parse.Declines (() => Parse.sepStep p separator) input :=
   Parse.declinesBind separator (u => p()) input declines
@@ -1465,7 +1465,7 @@ theorem Parse.declinesSepStep ∀ (p: () → {Parse} a) (separator: () → {Pars
 --| rounds are [`Parse.ManyRuns`] of the round, so each reads something and the
 --| list ends where a round declines (the separator does, say, at the end of the
 --| input, [`Parse.declinesSepStep`]). Each part sees what follows it.
-theorem Parse.runsSepBy1 ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (firstRead: List Char) (first: a)
+theorem Parse.runsSepBy1 ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (firstRead: List Char) (first: a)
     (steps: List (List Char, a)) (rest: List Char)
     (runsFirst: Parse.Runs p firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns (() => Parse.sepStep p separator) steps rest):
@@ -1493,7 +1493,7 @@ theorem Parse.runsSepBy1 ∀ (p: () → {Parse} a) (separator: () → {Parse} ()
       (Parse.runsMany (() => Parse.sepStep p separator) steps rest manyRuns))
 
 --| `sepBy1 p separator` declines where `p` does.
-theorem Parse.declinesSepBy1 ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (input: List Char)
+theorem Parse.declinesSepBy1 ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Declines (() => Parse.sepBy1 p separator) input :=
   Parse.declinesBind p (x => NonEmptyList.cons x (Parse.many (() => Parse.sepStep p separator))) input declines
@@ -1501,7 +1501,7 @@ theorem Parse.declinesSepBy1 ∀ (p: () → {Parse} a) (separator: () → {Parse
 --| `sepBy p separator` on at least one value: the same as
 --| [`Parse.runsSepBy1`], with the values as a list. For no values, see
 --| [`Parse.runsSepByNone`].
-theorem Parse.runsSepBy ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (firstRead: List Char) (first: a)
+theorem Parse.runsSepBy ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (firstRead: List Char) (first: a)
     (steps: List (List Char, a)) (rest: List Char)
     (runsFirst: Parse.Runs p firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns (() => Parse.sepStep p separator) steps rest):
@@ -1524,7 +1524,7 @@ theorem Parse.runsSepBy ∀ (p: () → {Parse} a) (separator: () → {Parse} ())
 
 --| `sepBy p separator` where `p` declines on `rest`: it reads nothing and gives
 --| no values.
-theorem Parse.runsSepByNone ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (rest: List Char)
+theorem Parse.runsSepByNone ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (rest: List Char)
     (declines: Parse.Declines p rest):
     Parse.Runs (() => Parse.sepBy p separator) [] rest [] :=
   Parse.runsMap
@@ -1883,7 +1883,7 @@ theorem Parse.runsIntRead ∀ (read: List Char) (n: Int)
 --| The rounds of a repetition that must all succeed (as `exactly`'s): each
 --| `Runs` `p` for its text, seeing what follows it (the later rounds' text,
 --| then `rest`).
-def Parse.StepsRun (p: () → {Parse} a): (steps: List (List Char, a)) → (rest: List Char) → Prop
+def Parse.StepsRun (p: () → {Parse Char} a): (steps: List (List Char, a)) → (rest: List Char) → Prop
   | [], rest => True = True
   | [(read, v), ..steps], rest => Parse.Runs p read (Parse.joinReads steps ++ rest) v ∧ Parse.StepsRun p steps rest
 
@@ -1891,7 +1891,7 @@ def Parse.StepsRun (p: () → {Parse} a): (steps: List (List Char, a)) → (rest
 --| each `Runs` `p`, and after the last `p` declines on `rest`, unless `extra`
 --| rounds were read (then it stops without trying again). Unlike
 --| [`Parse.ManyRuns`], a round may read nothing: `repeat` does not check.
-def Parse.RepeatRuns (p: () → {Parse} a): (extra: Nat) → (steps: List (List Char, a)) → (rest: List Char) → Prop
+def Parse.RepeatRuns (p: () → {Parse Char} a): (extra: Nat) → (steps: List (List Char, a)) → (rest: List Char) → Prop
   | Zero, [], rest => True = True
   | Zero, [step, ..steps], rest => False = True
   | Succ more, [], rest => Parse.Declines p rest
@@ -1900,7 +1900,7 @@ def Parse.RepeatRuns (p: () → {Parse} a): (extra: Nat) → (steps: List (List 
 
 --| `repeatOptional extra p found`, after `found` (newest first): it reads the
 --| rounds and gives them after `found`.
-theorem Parse.runsRepeatOptional ∀ (p: () → {Parse} a) (rest: List Char) (extra: Nat)
+theorem Parse.runsRepeatOptional ∀ (p: () → {Parse Char} a) (rest: List Char) (extra: Nat)
     (steps: List (List Char, a)) (found: List a)
     (runs: Parse.RepeatRuns p extra steps rest):
     Parse.Runs
@@ -1947,7 +1947,7 @@ theorem Parse.runsRepeatOptional ∀ (p: () → {Parse} a) (rest: List Char) (ex
 
 --| `repeatFrom count extra p found` on `count` required rounds and then the
 --| optional ones of [`Parse.RepeatRuns`].
-theorem Parse.runsRepeatFrom ∀ (p: () → {Parse} a) (extra: Nat) (rest: List Char) (optional: List (List Char, a))
+theorem Parse.runsRepeatFrom ∀ (p: () → {Parse Char} a) (extra: Nat) (rest: List Char) (optional: List (List Char, a))
     (optionalRuns: Parse.RepeatRuns p extra optional rest)
     (count: Nat) (required: List (List Char, a)) (found: List a)
     (counted: required.length = count)
@@ -1987,7 +1987,7 @@ theorem Parse.runsRepeatFrom ∀ (p: () → {Parse} a) (extra: Nat) (rest: List 
 --| all and gives their values. After the required rounds the optional ones see
 --| what follows them, and the repetition stops where `p` declines or at
 --| `atMost`.
-theorem Parse.runsRepeat ∀ (atLeast atMost: Nat) (p: () → {Parse} a)
+theorem Parse.runsRepeat ∀ (atLeast atMost: Nat) (p: () → {Parse Char} a)
     (required optional: List (List Char, a)) (rest: List Char)
     (counted: required.length = atLeast)
     (requiredRuns: Parse.StepsRun p required (Parse.joinReads optional ++ rest))
@@ -2002,7 +2002,7 @@ theorem Parse.runsRepeat ∀ (atLeast atMost: Nat) (p: () → {Parse} a)
 --| `exactly count p` on `count` rounds that succeed: it reads them and gives
 --| their values. Nothing is needed of what follows, since it stops after
 --| `count`.
-theorem Parse.runsExactly ∀ (count: Nat) (p: () → {Parse} a) (steps: List (List Char, a)) (rest: List Char)
+theorem Parse.runsExactly ∀ (count: Nat) (p: () → {Parse Char} a) (steps: List (List Char, a)) (rest: List Char)
     (counted: steps.length = count)
     (runs: Parse.StepsRun p steps rest):
     Parse.Runs (() => Parse.exactly count p) (Parse.joinReads steps) rest (Parse.stepValues steps) :=
@@ -2012,7 +2012,7 @@ theorem Parse.runsExactly ∀ (count: Nat) (p: () → {Parse} a) (steps: List (L
 
 --| An `if` reads what the branch it takes reads: the lemma for each branch may
 --| use that the condition holds (or fails).
-theorem Parse.runsIf ∀ (c: Bool) (yes no: () → {Parse} a) (read rest: List Char) (v: a)
+theorem Parse.runsIf ∀ (c: Bool) (yes no: () → {Parse Char} a) (read rest: List Char) (v: a)
     (runsYes: c = True → Parse.Runs yes read rest v)
     (runsNo: c = False → Parse.Runs no read rest v):
     Parse.Runs (() => if c then yes() else no()) read rest v :=
@@ -2022,7 +2022,7 @@ theorem Parse.runsIf ∀ (c: Bool) (yes no: () → {Parse} a) (read rest: List C
 
 --| `withFinalLineBreak p` where there is no line break after what `p` reads (the
 --| end of the line): it reads what `p` read.
-theorem Parse.runsWithFinalLineBreakNone ∀ (p: () → {Parse} a) (read: List Char) (v: a)
+theorem Parse.runsWithFinalLineBreakNone ∀ (p: () → {Parse Char} a) (read: List Char) (v: a)
     (runs: Parse.Runs p read [] v):
     Parse.Runs (() => Parse.withFinalLineBreak p) read [] v :=
   Parse.runsBind p
@@ -2052,7 +2052,7 @@ theorem Parse.runsWithFinalLineBreakNone ∀ (p: () → {Parse} a) (read: List C
 
 --| `withFinalLineBreak p` where a line break follows what `p` reads: it reads
 --| that too. `p` sees the line break after it.
-theorem Parse.runsWithFinalLineBreakSome ∀ (p: () → {Parse} a) (read lineBreak: List Char) (v: a)
+theorem Parse.runsWithFinalLineBreakSome ∀ (p: () → {Parse Char} a) (read lineBreak: List Char) (v: a)
     (isBreak: Parse.Runs Parse.newline lineBreak [] ())
     (runs: Parse.Runs p read lineBreak v):
     Parse.Runs (() => Parse.withFinalLineBreak p) (read ++ lineBreak) [] v :=
@@ -2085,7 +2085,7 @@ theorem Parse.runsWithFinalLineBreakSome ∀ (p: () → {Parse} a) (read lineBre
 --| value. Use [`Parse.runsWithFinalLineBreakNone`] or
 --| [`Parse.runsWithFinalLineBreakSome`] for the `Runs`. As [`Parse.runsEachLine`]
 --| is the converse of [`Parse.eachLineReads`] for `eachLine`.
-theorem Parse.runsLine ∀ (line: Text) (p: () → {Parse} a) (v: a)
+theorem Parse.runsLine ∀ (line: Text) (p: () → {Parse Char} a) (v: a)
     (runs: Parse.Runs (() => Parse.withFinalLineBreak p) line.toList [] v):
     Fail.toResult (() => Parse.line line p) = Ok v :=
   rewrite Parse.runsWhole line.toList (() => Parse.withFinalLineBreak p) v runs in rfl
@@ -2093,7 +2093,7 @@ theorem Parse.runsLine ∀ (line: Text) (p: () → {Parse} a) (v: a)
 --| The check `withFinalLineBreaks` makes of the line breaks at the end succeeds
 --| (reading nothing) when `start` is where they begin and they are all that is
 --| left, whatever they are: the last test is "no more input", which holds.
-theorem Parse.runsFinalLineBreakCheck ∀ (start: Parse.Mark) (finalLineBreaks: List Char)
+theorem Parse.runsFinalLineBreakCheck ∀ (start: Parse.Mark Char) (finalLineBreaks: List Char)
     (counted: start.left = finalLineBreaks.length):
     Parse.Runs
       (() =>
@@ -2143,7 +2143,7 @@ theorem Parse.runsFinalLineBreakCheck ∀ (start: Parse.Mark) (finalLineBreaks: 
 
 --| `withFinalLineBreaks p` where only line breaks (`\n` and `\r`, any number)
 --| follow what `p` reads: it reads those too. `p` sees them after it.
-theorem Parse.runsWithFinalLineBreaks ∀ (p: () → {Parse} a) (read breaks: List Char) (v: a)
+theorem Parse.runsWithFinalLineBreaks ∀ (p: () → {Parse Char} a) (read breaks: List Char) (v: a)
     (allBreaks: breaks.all (char => char == '\n' ∨ char == '\r') = True)
     (runs: Parse.Runs p read breaks v):
     Parse.Runs (() => Parse.withFinalLineBreaks p) (read ++ breaks) [] v :=
@@ -2222,7 +2222,7 @@ theorem Parse.runsWithFinalLineBreaks ∀ (p: () → {Parse} a) (read breaks: Li
 --| `Parse.all` on input that is what `p` reads followed by line breaks only:
 --| it gives the value. The converse of the `all` runner's soundness half
 --| (a successful `all` gives a value `p` could give on a start of the input).
-theorem Parse.runsAll ∀ (input: Text) (p: () → {Parse} a) (read breaks: List Char) (v: a)
+theorem Parse.runsAll ∀ (input: Text) (p: () → {Parse Char} a) (read breaks: List Char) (v: a)
     (split: input.toList = read ++ breaks)
     (allBreaks: breaks.all (char => char == '\n' ∨ char == '\r') = True)
     (runs: Parse.Runs p read breaks v):
@@ -2237,9 +2237,9 @@ theorem Parse.runsAll ∀ (input: Text) (p: () → {Parse} a) (read breaks: List
 --| moved goes on to an `Ok`: so `k (attemptFrom start q)` does from `s`. The
 --| converse of [`Parse.runFromAttemptFromOkTree`], by induction on `q`'s
 --| computation.
-theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse} a)
+theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start: Parse.Mark) (s: Parse.State) (k: Option (a, Bool) → {Parse} b) (v: a) (after: Parse.State) (w: b)
+    (start: Parse.Mark Char) (s: Parse.State Char) (k: Option (a, Bool) → {Parse Char} b) (v: a) (after: Parse.State Char) (w: b)
     (ran: Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at))
     (rest: Parse.runFrom after (() => k (Some (v, after.at.offset > start.offset))) = Ok w):
     Parse.runFrom s (() => k (Parse.attemptFrom start q)) = Ok w :=
@@ -2313,7 +2313,7 @@ theorem Parse.runFromAttemptFromBack ∀ (q: () → {Parse} a)
 
 --| `attempt p` where `p` succeeds: it reads what `p` read and gives its value
 --| with whether it read anything.
-theorem Parse.runsAttempt ∀ (p: () → {Parse} a) (read rest: List Char) (v: a)
+theorem Parse.runsAttempt ∀ (p: () → {Parse Char} a) (read rest: List Char) (v: a)
     (runsP: Parse.Runs p read rest v):
     Parse.Runs (() => Parse.attempt p) read rest (Some (v, 0 < read.length)) :=
   state starts honest =>
@@ -2337,9 +2337,9 @@ theorem Parse.runsAttempt ∀ (p: () → {Parse} a) (read rest: List Char) (v: a
 
 --| If `optionalFrom start q` backs up to `start` (gives `None`), so does
 --| `attemptFrom start q`: they back up on the same failures.
-theorem Parse.runFromAttemptNone ∀ (q: () → {Parse} a)
+theorem Parse.runFromAttemptNone ∀ (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start: Parse.Mark) (s: Parse.State)
+    (start: Parse.Mark Char) (s: Parse.State Char)
     (h: Parse.runFrom s (() => (Parse.optionalFrom start q, Parse.mark())) = Ok (None, start)):
     Parse.runFrom s (() => (Parse.attemptFrom start q, Parse.mark())) = Ok (None, start) :=
   match reify q with
@@ -2387,7 +2387,7 @@ theorem Parse.runFromAttemptNone ∀ (q: () → {Parse} a)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
 
 --| `attempt p` where `p` declines: it reads nothing and gives `None`.
-theorem Parse.runsAttemptNone ∀ (p: () → {Parse} a) (input: List Char)
+theorem Parse.runsAttemptNone ∀ (p: () → {Parse Char} a) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Runs (() => Parse.attempt p) [] input None :=
   state starts honest =>
@@ -2404,9 +2404,9 @@ theorem Parse.runsAttemptNone ∀ (p: () → {Parse} a) (input: List Char)
 --| `Ok`: so `k (labelFrom what start q)` does from `s`. The label passes
 --| `q`'s reading on and only drops notes or adds one at the start, which change
 --| what an error says ([`Parse.runFromAt`]).
-theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse} a)
+theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start: Parse.Mark) (s: Parse.State) (k: a → {Parse} b) (v: a) (after: Parse.State) (w: b)
+    (start: Parse.Mark Char) (s: Parse.State Char) (k: a → {Parse Char} b) (v: a) (after: Parse.State Char) (w: b)
     (ran: Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at))
     (rest: Parse.runFrom after (() => k v) = Ok w):
     Parse.runFrom s (() => k (Parse.labelFrom what start q)) = Ok w :=
@@ -2507,7 +2507,7 @@ theorem Parse.runFromLabelFromBack ∀ (what: Text) (q: () → {Parse} a)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk ran)
 
 --| `label what p` where `p` succeeds: it reads what `p` read.
-theorem Parse.runsLabel ∀ (what: Text) (p: () → {Parse} a) (read rest: List Char) (v: a)
+theorem Parse.runsLabel ∀ (what: Text) (p: () → {Parse Char} a) (read rest: List Char) (v: a)
     (runsP: Parse.Runs p read rest v):
     Parse.Runs (() => Parse.label what p) read rest v :=
   state starts honest =>
@@ -2526,9 +2526,9 @@ theorem Parse.runsLabel ∀ (what: Text) (p: () → {Parse} a) (read rest: List 
 
 --| If `optionalFrom s0 q` backs up, so does the optional of `labelFrom what start q`:
 --| a failure inside the label is still a failure.
-theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse} a)
+theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (s0 start: Parse.Mark) (s: Parse.State)
+    (s0 start: Parse.Mark Char) (s: Parse.State Char)
     (h: Parse.runFrom s (() => (Parse.optionalFrom s0 q, Parse.mark())) = Ok (None, s0)):
     Parse.runFrom s (() => (Parse.optionalFrom s0 (() => Parse.labelFrom what start q), Parse.mark()))
       = Ok (None, s0) :=
@@ -2595,7 +2595,7 @@ theorem Parse.runFromOptionalLabelNone ∀ (what: Text) (q: () → {Parse} a)
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
 
 --| `label what p` declines where `p` does.
-theorem Parse.declinesLabel ∀ (what: Text) (p: () → {Parse} a) (input: List Char)
+theorem Parse.declinesLabel ∀ (what: Text) (p: () → {Parse Char} a) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Declines (() => Parse.label what p) input :=
   state starts honest =>
@@ -2609,9 +2609,9 @@ theorem Parse.declinesLabel ∀ (what: Text) (p: () → {Parse} a) (input: List 
 --| `q` ran from `s` to `after`, and from there `k` of its value goes on to an
 --| `Ok`: so `k (labelWholeFrom what start q furthest)` does from `s`, for any
 --| furthest point. The converse of [`Parse.runFromLabelWholeFromOkTree`].
-theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse} a)
+theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (start furthest: Parse.Mark) (s: Parse.State) (k: a → {Parse} b) (v: a) (after: Parse.State) (w: b)
+    (start furthest: Parse.Mark Char) (s: Parse.State Char) (k: a → {Parse Char} b) (v: a) (after: Parse.State Char) (w: b)
     (ran: Parse.runFrom s (() => (q(), Parse.mark())) = Ok (v, after.at))
     (rest: Parse.runFrom after (() => k v) = Ok w):
     Parse.runFrom s (() => k (Parse.labelWholeFrom what start q furthest)) = Ok w :=
@@ -2827,7 +2827,7 @@ theorem Parse.runFromLabelWholeFromBack ∀ (what: Text) (q: () → {Parse} a)
               rest
 
 --| `labelWhole what p` where `p` succeeds: it reads what `p` read.
-theorem Parse.runsLabelWhole ∀ (what: Text) (p: () → {Parse} a) (read rest: List Char) (v: a)
+theorem Parse.runsLabelWhole ∀ (what: Text) (p: () → {Parse Char} a) (read rest: List Char) (v: a)
     (runsP: Parse.Runs p read rest v):
     Parse.Runs (() => Parse.labelWhole what p) read rest v :=
   state starts honest =>
@@ -2857,9 +2857,9 @@ theorem Parse.runsLabelWhole ∀ (what: Text) (p: () → {Parse} a) (read rest: 
 
 --| If `optionalFrom s0 q` backs up, so does the optional of
 --| `labelWholeFrom what start q furthest`.
-theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse} a)
+theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse Char} a)
     (tree: Effect.AlwaysTree (x => Unit) (q ()))
-    (s0 start furthest: Parse.Mark) (s: Parse.State)
+    (s0 start furthest: Parse.Mark Char) (s: Parse.State Char)
     (h: Parse.runFrom s (() => (Parse.optionalFrom s0 q, Parse.mark())) = Ok (None, s0)):
     Parse.runFrom s (() => (Parse.optionalFrom s0 (() => Parse.labelWholeFrom what start q furthest), Parse.mark()))
       = Ok (None, s0) :=
@@ -2996,7 +2996,7 @@ theorem Parse.runFromOptionalLabelWholeNone ∀ (what: Text) (q: () → {Parse} 
     | Parse.fatal message, r => Void.exfalso (Result.errNotOk h)
 
 --| `labelWhole what p` declines where `p` does.
-theorem Parse.declinesLabelWhole ∀ (what: Text) (p: () → {Parse} a) (input: List Char)
+theorem Parse.declinesLabelWhole ∀ (what: Text) (p: () → {Parse Char} a) (input: List Char)
     (declines: Parse.Declines p input):
     Parse.Declines (() => Parse.labelWhole what p) input :=
   state starts honest =>
@@ -3113,7 +3113,7 @@ theorem Parse.declinesBlankLineAfter ∀ (first blanks rest: List Char)
 --| `lines p` on a first value and then rounds of a line break and a value, as
 --| [`Parse.runsSepBy1`]. Build the line break with [`Parse.runsNewline`] and end
 --| the list with [`Parse.declinesNewline`] (the end of the input, say).
-theorem Parse.runsLines ∀ (p: () → {Parse} a) (firstRead: List Char) (first: a)
+theorem Parse.runsLines ∀ (p: () → {Parse Char} a) (firstRead: List Char) (first: a)
     (steps: List (List Char, a)) (rest: List Char)
     (runsFirst: Parse.Runs p firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns (() => Parse.sepStep p Parse.newline) steps rest):
@@ -3127,7 +3127,7 @@ theorem Parse.runsLines ∀ (p: () → {Parse} a) (firstRead: List Char) (first:
 --| `sections p` on a first section and then rounds of a blank line and a
 --| section, as [`Parse.runsSepBy1`]. Build the blank lines with
 --| [`Parse.runsBlankLine`] and end the list with [`Parse.declinesBlankLine`].
-theorem Parse.runsSections ∀ (p: () → {Parse} a) (firstRead: List Char) (first: a)
+theorem Parse.runsSections ∀ (p: () → {Parse Char} a) (firstRead: List Char) (first: a)
     (steps: List (List Char, a)) (rest: List Char)
     (runsFirst: Parse.Runs p firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns (() => Parse.sepStep p Parse.blankLine) steps rest):
@@ -3155,7 +3155,7 @@ theorem Parse.runsSections ∀ (p: () → {Parse} a) (firstRead: List Char) (fir
 --| too (what follows `afterFirst` is `rest`, where `declinesEnd` says a round
 --| declines). Use it through [`Parse.runsSepBy1Of`], [`Parse.runsLinesOf`] or
 --| [`Parse.runsSectionsOf`].
-theorem Parse.manyRunsOfEach ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop)
+theorem Parse.manyRunsOfEach ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (spec: List Char → a → Prop)
     (sepSpec: List Char → () → Prop) (valueEnd: List Char → Prop) (rest: List Char)
     (runsValue: ∀ (read: List Char) (v: a) (after: List Char) => spec read v
       → valueEnd after
@@ -3222,7 +3222,7 @@ theorem Parse.manyRunsOfEach ∀ (p: () → {Parse} a) (separator: () → {Parse
 --| `rest` (`declinesEnd`, the end of the list; for line breaks see
 --| [`Parse.declinesLinesAtBreaks`]). [`Parse.runsLinesOf`] and
 --| [`Parse.runsSectionsOf`] are the cases of `lines` and `sections`.
-theorem Parse.runsSepBy1Of ∀ (p: () → {Parse} a) (separator: () → {Parse} ()) (spec: List Char → a → Prop)
+theorem Parse.runsSepBy1Of ∀ (p: () → {Parse Char} a) (separator: () → {Parse Char} ()) (spec: List Char → a → Prop)
     (sepSpec: List Char → () → Prop) (valueEnd: List Char → Prop) (rest: List Char)
     (runsValue: ∀ (read: List Char) (v: a) (after: List Char) => spec read v
       → valueEnd after
@@ -3275,7 +3275,7 @@ theorem Parse.runsBlankLineOf ∀ (read rest: List Char)
 --| [`Parse.runsSepBy1Of`] with `newline` as the separator (so `runsSeparator`,
 --| `separatorNotEmpty` and the look-ahead before the separator are given:
 --| `afterBreak` says `valueEnd` holds after a line break).
-theorem Parse.runsLinesOf ∀ (p: () → {Parse} a) (spec: List Char → a → Prop)
+theorem Parse.runsLinesOf ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
     (valueEnd: List Char → Prop) (rest: List Char)
     (runsValue: ∀ (read: List Char) (v: a) (after: List Char) => spec read v
       → valueEnd after
@@ -3303,7 +3303,7 @@ theorem Parse.runsLinesOf ∀ (p: () → {Parse} a) (spec: List Char → a → P
 --| `sections p` reads what [`Parse.SepBy`] with blank lines says was written, as
 --| [`Parse.runsSepBy1Of`] with `blankLine` as the separator (`afterBlank` says
 --| `valueEnd` holds after a blank line).
-theorem Parse.runsSectionsOf ∀ (p: () → {Parse} a) (spec: List Char → a → Prop)
+theorem Parse.runsSectionsOf ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop)
     (valueEnd: List Char → Prop) (rest: List Char)
     (runsValue: ∀ (read: List Char) (v: a) (after: List Char) => spec read v
       → valueEnd after
@@ -3439,7 +3439,7 @@ theorem Parse.allSpacesThen ∀ (q: Char → Bool)
 --| return if the line break is "\r\n". For a parser that `CannotStart`
 --| can't help with, because its first character can be a space (a field name
 --| that a colon doesn't follow, say).
-theorem Parse.declinesAfterSpacesBreak ∀ (p: () → {Parse} a) (q: Char → Bool)
+theorem Parse.declinesAfterSpacesBreak ∀ (p: () → {Parse Char} a) (q: Char → Bool)
     (spaces: ∀ (char: Char) => Parse.isSpace char = True → q char = True)
     (carriageReturn: q '\r' = True)
     (declinesRun: ∀ (run more: List Char) => run.all q = True → Parse.Declines p (run ++ ['\n', ..more]))
@@ -3489,7 +3489,7 @@ theorem Parse.cannotStartAtLinesEnd ∀ (canStart: Char → Bool)
 --| given that `p` declines wherever its first character can't be one `canStart`
 --| allows: either the line break isn't there, or `p` finds only line breaks
 --| after it.
-theorem Parse.declinesLinesAtBreaks ∀ (p: () → {Parse} a) (canStart: Char → Bool)
+theorem Parse.declinesLinesAtBreaks ∀ (p: () → {Parse Char} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False)
     (cr: canStart '\r' = False) (input: List Char)
@@ -3533,7 +3533,7 @@ theorem Parse.declinesLinesAtBreaks ∀ (p: () → {Parse} a) (canStart: Char �
 
 --| A round of `lines p` declines at a blank line (then anything): the line break
 --| is there, and `p` would start at the blank line's spaces or line break.
-theorem Parse.declinesLinesAtBlank ∀ (p: () → {Parse} a) (canStart: Char → Bool)
+theorem Parse.declinesLinesAtBlank ∀ (p: () → {Parse Char} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False)
     (cr: canStart '\r' = False)
@@ -3558,7 +3558,7 @@ theorem Parse.declinesLinesAtBlank ∀ (p: () → {Parse} a) (canStart: Char →
 
 --| A round of `lines p` declines at a [`Parse.LinesEnd`]: line breaks only, or a
 --| blank line. This is the end of lines inside sections.
-theorem Parse.declinesLinesAtLinesEnd ∀ (p: () → {Parse} a) (canStart: Char → Bool)
+theorem Parse.declinesLinesAtLinesEnd ∀ (p: () → {Parse Char} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False)
     (cr: canStart '\r' = False)
@@ -3573,7 +3573,7 @@ theorem Parse.declinesLinesAtLinesEnd ∀ (p: () → {Parse} a) (canStart: Char 
 --| A round of `sections p` (a blank line then `p`) after a first line break
 --| `first` and only line breaks `more`: either the blank line isn't there, or
 --| it is and `p` finds only line breaks after it.
-theorem Parse.declinesSectionsAfterBreak ∀ (p: () → {Parse} a) (canStart: Char → Bool)
+theorem Parse.declinesSectionsAfterBreak ∀ (p: () → {Parse Char} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False)
     (cr: canStart '\r' = False) (first: List Char)
@@ -3632,7 +3632,7 @@ theorem Parse.declinesSectionsAfterBreak ∀ (p: () → {Parse} a) (canStart: Ch
 --| A round of `sections p` declines on only line breaks (the end of the input
 --| that `Parse.all` allows after the last section), given that `p` declines
 --| wherever its first character can't be one `canStart` allows.
-theorem Parse.declinesSectionsAtBreaks ∀ (p: () → {Parse} a) (canStart: Char → Bool)
+theorem Parse.declinesSectionsAtBreaks ∀ (p: () → {Parse Char} a) (canStart: Char → Bool)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (lf: canStart '\n' = False)
     (cr: canStart '\r' = False) (input: List Char)
@@ -3687,7 +3687,7 @@ theorem Parse.stepValuesSymbols ∀ (symbol: a → Char) (items: List a):
 --| The rounds of `many p` over items that `p` reads one character each
 --| (`symbol v`, passing `canStart`), then `rest`, where `p` declines when
 --| `rest` can't start with a character that passes.
-theorem Parse.manyRunsSymbols ∀ (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
+theorem Parse.manyRunsSymbols ∀ (p: () → {Parse Char} a) (symbol: a → Char) (canStart: Char → Bool)
     (runsItem: ∀ (v: a) (after: List Char) => canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input) (rest: List Char)
     (stops: Parse.CannotStart canStart rest) (items: List a)
@@ -3704,7 +3704,7 @@ theorem Parse.manyRunsSymbols ∀ (p: () → {Parse} a) (symbol: a → Char) (ca
 
 --| The rounds of `exactly` over items that `p` reads a character each
 --| (`symbol`), see [`Parse.manyRunsSymbols`]; nothing is asked of what follows.
-theorem Parse.stepsRunSymbols ∀ (p: () → {Parse} a) (symbol: a → Char)
+theorem Parse.stepsRunSymbols ∀ (p: () → {Parse Char} a) (symbol: a → Char)
     (runsItem: ∀ (v: a) (after: List Char) => Parse.Runs p [symbol v] after v)
     (rest: List Char) (items: List a):
     Parse.StepsRun p (items.map (v => ([symbol v], v))) rest :=
@@ -3714,7 +3714,7 @@ theorem Parse.stepsRunSymbols ∀ (p: () → {Parse} a) (symbol: a → Char)
 
 --| `exactly count p` over `count` items that `p` reads a character each: it
 --| gives the items. For a fixed-width code written one character per item.
-theorem Parse.runsExactlySymbols ∀ (count: Nat) (p: () → {Parse} a) (symbol: a → Char)
+theorem Parse.runsExactlySymbols ∀ (count: Nat) (p: () → {Parse Char} a) (symbol: a → Char)
     (runsItem: ∀ (v: a) (after: List Char) => Parse.Runs p [symbol v] after v)
     (items: List a) (rest: List Char)
     (counted: items.length = count):
@@ -3730,7 +3730,7 @@ theorem Parse.runsExactlySymbols ∀ (count: Nat) (p: () → {Parse} a) (symbol:
 --| `many1 p` over a non-empty list of items that `p` reads a character each
 --| (`symbol`, see [`Parse.manyRunsSymbols`]): it gives the items. For a row of
 --| cells drawn as single characters.
-theorem Parse.runsMany1Symbols ∀ (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
+theorem Parse.runsMany1Symbols ∀ (p: () → {Parse Char} a) (symbol: a → Char) (canStart: Char → Bool)
     (runsItem: ∀ (v: a) (after: List Char) => canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
     (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input)
     (first: a) (more: List a) (rest: List Char)
@@ -3755,7 +3755,7 @@ theorem Parse.runsMany1Symbols ∀ (p: () → {Parse} a) (symbol: a → Char) (c
 --| the part, and whatever follows), the parts are the steps
 --| [`Parse.runsExactly`] wants: they join to the text, give the values, one per
 --| value, and each runs.
-theorem Parse.eachSteps ∀ (p: () → {Parse} a) (spec: List Char → a → Prop) (rest: List Char)
+theorem Parse.eachSteps ∀ (p: () → {Parse Char} a) (spec: List Char → a → Prop) (rest: List Char)
     (runs: ∀ (read: List Char) (v: a) (after: List Char) => spec read v → Parse.Runs p read after v)
     (values: List a) (read: List Char)
     (h: Parse.Each spec read values):
@@ -3776,7 +3776,7 @@ theorem Parse.eachSteps ∀ (p: () → {Parse} a) (spec: List Char → a → Pro
                 (rewrite valued in rfl)
                 (Both (rewrite counted in rfl) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
 
-def Parse.RunsExamples.numbers(): {Parse} NonEmptyList Nat := Parse.lines Parse.nat
+def Parse.RunsExamples.numbers(): {Parse Char} NonEmptyList Nat := Parse.lines Parse.nat
 
 --| "1", a line break and "22" are `lines nat`: [1, 22].
 theorem Parse.runsLinesExample: Parse.run ['1', '\n', '2', '2'] Parse.RunsExamples.numbers
@@ -3802,7 +3802,7 @@ theorem Parse.runsLinesExample: Parse.run ['1', '\n', '2', '2'] Parse.RunsExampl
             (Parse.runsNat ['2', '2'] [] (List.consNotNil '2' ['2']) rfl rfl))
           (Parse.declinesSepStep Parse.nat Parse.newline [] (Parse.declinesNewline [] rfl rfl)))))
 
-def Parse.RunsExamples.commas(): {Parse} List Nat := Parse.sepBy Parse.nat (() => Parse.char ',')
+def Parse.RunsExamples.commas(): {Parse Char} List Nat := Parse.sepBy Parse.nat (() => Parse.char ',')
 
 --| "4,5" is `sepBy nat (char ',')`: [4, 5].
 theorem Parse.runsSepByExample: Parse.run ['4', ',', '5'] Parse.RunsExamples.commas = Ok [4, 5] :=

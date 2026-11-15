@@ -46,7 +46,7 @@ type Probe = { position: Coords YUp, velocity: Velocity }
 --| are: the search box depends on it.
 def parseTarget (input: Text): {Fail} Target := checkTarget (Parse.line input readTarget)
 
-def readTarget(): {Parse} Target :=
+def readTarget(): {Parse Char} Target :=
   text "target area: x="
   let left := int()
   text ".."

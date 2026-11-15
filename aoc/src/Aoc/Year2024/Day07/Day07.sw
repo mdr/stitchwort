@@ -24,7 +24,7 @@ type Equation = { testValue: Nat, numbers: NonEmptyList Nat }
 type Operator = | Add | Multiply | Concatenate
 
 --| "3267: 81 40 27".
-def equationLine(): {Parse} Equation :=
+def equationLine(): {Parse Char} Equation :=
   let testValue := nat()
   char ':'
   let numbers := many1 (() => token nat)

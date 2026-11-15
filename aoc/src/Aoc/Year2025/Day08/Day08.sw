@@ -49,7 +49,7 @@ def Boxes.of (points: List Point): Boxes := { points, pairs = closestFirst point
 def parsePoints (input: Text): {Fail} List Point := Parse.eachLine input point
 
 --| "162,817,812" is `{ x = 162, y = 817, z = 812 }`.
-def point(): {Parse} Point :=
+def point(): {Parse Char} Point :=
   let x := token nat
   char ','
   let y := token nat
