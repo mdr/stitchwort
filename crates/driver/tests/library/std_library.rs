@@ -155,7 +155,14 @@ fn the_index_holds_exactly_the_names_an_eager_load_makes() {
             .filter(|k| !candidates.contains(k.as_str()))
             .collect();
         assert!(missing.is_empty(), "promised but not declared: {missing:?}");
-        let unpromised: Vec<&String> = keys.difference(&promised).collect();
+        let unpromised: Vec<&String> = keys
+            .difference(&promised)
+            .filter(|k| {
+                !k.rsplit('.')
+                    .next()
+                    .is_some_and(|last| last.starts_with('%'))
+            })
+            .collect();
         assert!(
             unpromised.is_empty(),
             "declared but not in the index: {unpromised:?}"
@@ -825,8 +832,20 @@ fn no_library_file_declares_a_decision_procedure() {
         // `List.LeHead`, declared beside them in std/List/Sort.sw. And
         // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
         // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
+        // The compiler's own `%` names (a derived equality's `T.%decide`) are
+        // no file's declaration, and `auto` takes them only as instances.
+        let procedures: Vec<String> = session
+            .elab
+            .library_decision_procedures()
+            .into_iter()
+            .filter(|p| {
+                !p.rsplit('.')
+                    .next()
+                    .is_some_and(|last| last.starts_with('%'))
+            })
+            .collect();
         assert_eq!(
-            session.elab.library_decision_procedures(),
+            procedures,
             [
                 "Std.Nat.decPowSuccNotZero",
                 "Std.List.decMem",
