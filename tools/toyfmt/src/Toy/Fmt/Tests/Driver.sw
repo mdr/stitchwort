@@ -3,7 +3,9 @@
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)
-import Std (Disk, Fail, Files, IO, List, Nat, Option, Path, Result, Text)
+import Std (Args, Disk, Fail, Files, IO, List, Nat, Option, Path, Result, Text)
+import Std.Args.Outcome (Run, Help, Wrong)
+import Std.Args.Error (Missing, NeedsValue, BadValue)
 
 def tidy: Text := "fn add(a, b) = a + b\n"
 
@@ -93,15 +95,27 @@ test "a folder nested past the bound is reported, not entered" :=
   let (after, outcomes) := runOn disk False ["d"]
   after == disk && outcomes.length == 1
 
-test "the arguments: flags, a width, paths" :=
-  parseArguments ["--check", "--width", "40", "a", "b/c"] Options.start
-    == Ok { check = True, width = 40, paths = ["a".toPath, "b/c".toPath] }
+def parseOptions (arguments: List Text): Args.Outcome Options := Args.parse program Toy.Fmt.options arguments
 
-test "bad arguments are refused with the usage line" :=
-  parseArguments [] Options.start == Err "${usage}: no paths given"
-    && parseArguments ["--wide", "a"] Options.start == Err "${usage}: unknown flag --wide"
-    && parseArguments ["--width"] Options.start == Err "${usage}: --width needs a number"
-    && parseArguments ["--width", "x", "a"] Options.start == Err "${usage}: --width wants a whole number, got 'x'"
+test "the arguments: flags, a width, paths" :=
+  parseOptions ["--check", "--width", "40", "a", "b/c"]
+    == Run { check = True, width = 40, paths = ["a".toPath, "b/c".toPath] }
+    && parseOptions ["--width=40", "a"] == Run { check = False, width = 40, paths = ["a".toPath] }
+
+test "after -- everything is a path, so a file can be called -x" :=
+  parseOptions ["--", "-x", "--check"] == Run { check = False, width = 80, paths = ["-x".toPath, "--check".toPath] }
+
+test "bad arguments are refused" :=
+  parseOptions [] == Wrong (Missing "PATH")
+    && parseOptions ["--wide", "a"] == Wrong (Args.Error.Unknown "--wide" None)
+    && parseOptions ["--width"] == Wrong (NeedsValue "--width" "N")
+    && parseOptions ["--width", "x", "a"] == Wrong (BadValue "--width" "x" "a whole number")
+
+test "--help prints the usage and the options" := match parseOptions ["--help"] with
+  | Help text =>
+    text.startsWith "usage: toyfmt [--check] [--width N] PATH...\nFormats Sprig files in place."
+      && text.contains "--width N   The widest a line may be. (default: 80)"
+  | _ => False
 
 test "a parse error's line and column lead the message" :=
   locate "a.sprig".toPath "line 3, column 9: expected ',' or ')', got 'b'"

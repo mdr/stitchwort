@@ -1,26 +1,17 @@
---| The `toyfmt` command line: `toyfmt [--check] [--width N] PATH…`.
+--| The `toyfmt` command line: `toyfmt [--check] [--width N] PATH...`.
 
 namespace Toy.Fmt
-import Std (Fail, Files, IO, List, Nat, Path, Result, Text)
+import Std (Args, Fail, Files, IO, List, Nat, Path, Result, Text)
 
---| The usage line, which every bad command line is answered with.
-def usage: Text := "usage: toyfmt [--check] [--width N] PATH..."
+--| What the command line asks for, and what `--help` says about it.
+def program: Args.Program := { name = "toyfmt", about = "Formats Sprig files in place." }
 
---| The options the arguments give, or what is wrong with them.
-def parseArguments: (arguments: List Text) → (options: Options) → Result Options Text
-  | [], options => if options.paths.isEmpty then Err "${usage}: no paths given" else Ok options
-  | ["--check", ..rest], options => parseArguments rest { options | check = True }
-  | ["--width"], options => Err "${usage}: --width needs a number"
-  | ["--width", number, ..rest], options =>
-    match number.toNat with
-      | Some width => parseArguments rest { options | width }
-      | None => Err "${usage}: --width wants a whole number, got '${number}'"
-  | [flag, ..rest], options =>
-    if flag.startsWith "-" then Err "${usage}: unknown flag ${flag}"
-    else parseArguments rest { options | paths = options.paths ++ [flag.toPath] }
-
---| The options for a command line, before any path is given.
-def Options.start: Options := { check = False, width = defaultWidth, paths = [] }
+--| The options: `--check`, `--width N`, and the paths to format.
+def options: Args.Spec Options :=
+  Args.Spec.start ((check: Bool) (width: Nat) (paths: List Path) => ({ check, width, paths }: Options))
+    |> .and (Args.flag "check" (help := "Write nothing; list the files that would change, and fail if any would."))
+    |> .and (Args.option "width" (default := defaultWidth) (metavar := "N") (help := "The widest a line may be."))
+    |> .and (Args.arguments "PATH" (atLeast := 1) (help := "Files or folders to format."))
 
 --| What a run says: on standard output, the paths it changed (or, with
 --| `--check`, would); on standard error, every problem and each file with
@@ -51,16 +42,18 @@ def failed (options: Options) (outcomes: List Outcome): Bool := outcomes.any (ma
   | Formatted _ WouldChange _ => options.check
   | _ => False)
 
---| Runs `toyfmt` on a command line: prints the report, and fails (exit
---| status 1) for a bad command line, a problem, or a file `--check` would
---| change.
-def run (arguments: List Text): {Files, IO, Fail} () := match parseArguments arguments Options.start with
-  | Err message => Fail.fail message
-  | Ok options =>
-    let outcomes := formatPaths options options.paths
-    let said := report outcomes
-    said.changed.forEach IO.print
-    said.problems.forEach IO.printError
-    Fail.ensure (!failed options outcomes) (if hasProblem outcomes then "toyfmt: problems" else "toyfmt: not formatted")
+--| Formats the paths the options name: prints the report, and fails (exit
+--| status 1) for a problem or a file `--check` would change.
+def formatAll (options: Options): {Files, IO, Fail} () :=
+  let outcomes := formatPaths options options.paths
+  let said := report outcomes
+  said.changed.forEach IO.print
+  said.problems.forEach IO.printError
+  Fail.ensure (!failed options outcomes) (if hasProblem outcomes then "toyfmt: problems" else "toyfmt: not formatted")
 
-def main(): {Files, IO, Fail} () := run IO.args()
+--| Runs `toyfmt` on a command line: prints the help for `--help`, fails
+--| (exit status 1) with the usage for a bad command line, and otherwise
+--| formats.
+def run (arguments: List Text): {Files, IO, Fail} () := Args.runOn program options arguments formatAll
+
+def main(): {Files, IO, Fail} () := Args.run program options formatAll

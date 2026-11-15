@@ -37462,15 +37462,17 @@
     {
       "id": 3381,
       "title": "[Sonnet] Args stage A1 (args.md §3.2, D3614): the combinator layer as pure library code: Args.Spec, flag/option/arguments, value readers, --x=v, --, --help, exact errors, usage and help text, Args.parse (pure) and Args.run; tests, guide, syntax.md; move toyfmt's Cli.sw onto it. No compiler changes",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\" Expected: 3.5 h (Sonnet). Next build slot.",
+      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\" Expected: 3.5 h (Sonnet). Next build slot.\n\nProgress (lane, Sonnet, 15 Nov 2026): Std.Args built in crates/elab/src/std/Args/Args.sw (Spec, flag/option/required/optional/many/arguments, Value for Text/Nat/Int/Path + choice, parse/run/runOn, usage/help/complaint, problems), 27 tests in the file plus 2 rfl theorems; toyfmt's Cli.sw moved onto it; guide section in chapter 11 with docs/guide/examples/args.sw; syntax.md; args.md section 11 \"as built\". Prelude hash snapshot: additions only (473 Std.Args lines); the derived-std-instances and text-patterns-prefix snapshots already drift at base (SW-3370's derived ==), left for the orchestrator.\nTests run: Std.Args tests (27, as a scratch program), audit:touched Std.Args (2 theorems), toyfmt Toy.Fmt (40), toyfmt_formats e2e, guide:: (4), hash_stability (prelude additions only). Model result: Sonnet, worked, ~70 min (est. 210). Commit 6bfb51c4b.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "6bfb51c4b"
+      ]
     },
     {
       "id": 3382,

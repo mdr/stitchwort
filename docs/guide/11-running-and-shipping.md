@@ -47,6 +47,78 @@ A run that's too slow to wait for can be stopped: Ctrl-C, or `timeout 30 stitchw
 
 `stitchwort build FILE` (or a project folder, or a function's full name) writes an executable that runs `main` and needs neither `stitchwort` nor the source. It links with the system's C compiler (`$CC`, or `cc`). `-o` names the executable; `--native` compiles `main` and everything it reaches to native code, and fails if any of it can't be.
 
+## A command line
+
+A program that takes options describes them once with `Args` (a standard library namespace), instead of matching on `IO.args()` by hand. From the description come the parser, the usage line, `--help` and the error messages. Each option is one combinator, and `.and` joins them: the function at the start takes the options' values in the same order and builds the program's own record. Write the function's parameter types; an unannotated lambda there isn't accepted yet.
+
+<!-- snippet: args.sw#spec -->
+```stitchwort
+type Options = { shout: Bool, times: Nat, names: List Text }
+
+def program: Args.Program := { name = "greet", about = "Greets each person." }
+
+def options: Args.Spec Options :=
+  Args.Spec.start ((shout: Bool) (times: Nat) (names: List Text) => ({ shout, times, names }: Options))
+    |> .and (Args.flag "shout" (help := "Greet with three exclamation marks."))
+    |> .and (Args.option "times" (default := 1) (help := "How often to greet each person."))
+    |> .and (Args.arguments "NAME" (atLeast := 1) (help := "Who to greet."))
+```
+
+`Args.flag` is a switch, `Args.option` takes a value (`--times 2` or `--times=2`) and falls back to its `default`, `Args.required` and `Args.optional` take one that must or may be left out, `Args.many` one that can be repeated, and `Args.arguments` the plain arguments. Values are read by the `Args.Value` interface, which `Text`, `Nat`, `Int` and `Path` have; `Args.choice` makes one for a type with a finite list of values, read as each shows itself. `--` ends the options, so everything after it is an argument (a file called `-x` is still reachable), and a lone `-` is an argument. `--help` and `-h` print the help. An option that doesn't repeat is an error the second time, never "last one wins".
+
+`Args.run` reads `IO.args()`, calls the program with its options, prints the help for `--help` (exit status 0) and fails for a mistake (exit status 1, with the message, the usage line and where the help is):
+
+<!-- snippet: args.sw#main -->
+```stitchwort
+def greet (options: Options): {IO} () := options.names.forEach (name =>
+  let line := if options.shout then "Hello, ${name}!!!" else "Hello, ${name}."
+  List.replicate options.times line |> .forEach IO.print)
+
+def main(): {IO, Fail} () := Args.run program options greet
+```
+
+<!-- output: run args.sw -- --shout --times 2 Ada Grace -->
+```text
+Hello, Ada!!!
+Hello, Ada!!!
+Hello, Grace!!!
+Hello, Grace!!!
+```
+
+<!-- output: run args.sw -- --help -->
+```text
+usage: greet [--shout] [--times N] NAME...
+Greets each person.
+
+arguments:
+  NAME...     Who to greet.
+options:
+  --shout     Greet with three exclamation marks.
+  --times N   How often to greet each person. (default: 1)
+  -h, --help  Show this help.
+```
+
+Parsing itself is a pure function of a list of text, `Args.parse program options arguments`, whose result is `Run options`, `Help text` or `Wrong error`, so a command line is tested with plain tests and no `IO`. Each `Args.Error` is a value (`BadValue "--times" "twice" "a whole number"`) and `error.describe` is its message; `Args.problems options` lists a spec's own mistakes, such as a name used twice.
+
+<!-- snippet: args.sw#tests -->
+```stitchwort
+def parse (arguments: List Text): Args.Outcome Options := Args.parse program options arguments
+
+test "options, in any order, and the defaults" :=
+  parse ["Ada", "--times=2", "--shout"] == Run { shout = True, times = 2, names = ["Ada"] }
+    && parse ["Ada"] == Run { shout = False, times = 1, names = ["Ada"] }
+
+test "after -- everything is a name" := parse ["--", "--shout"] == Run { shout = False, times = 1, names = ["--shout"] }
+
+test "what is wrong" :=
+  parse [] == Wrong (Missing "NAME")
+    && parse ["--times", "twice", "Ada"] == Wrong (BadValue "--times" "twice" "a whole number")
+
+test "--help is an outcome, not an effect" := match parse ["--help"] with
+  | Help text => text.startsWith "usage: greet [--shout] [--times N] NAME..."
+  | _ => False
+```
+
 ## Exporting to JavaScript and TypeScript
 
 `export` on a definition makes it part of the ES module that `stitchwort build --js` generates, with TypeScript declarations beside it. The rest of the program is compiled too, but only exports are visible:
