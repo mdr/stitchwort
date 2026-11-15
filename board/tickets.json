@@ -1,5 +1,5 @@
 {
-  "next": 3396,
+  "next": 3397,
   "tickets": [
     {
       "id": 47,
@@ -37651,6 +37651,19 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3396,
+      "title": "[Sonnet] Bug: rolling check red at d67f1c72f: extraction extract::generated_code_is_stable (derive-ord.js snapshot, likely SW-3370's linear derived compare) and server search::what_closes_a_goal_in_a_project. Last pass 48135f42a",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
