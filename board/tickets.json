@@ -36713,12 +36713,12 @@
     {
       "id": 3326,
       "title": "[Sonnet] examples/goals/reify-return goal 1 (toResultThenGoal2): the printed lemma doesn't check when pasted back, so lemmas_check_as_the_same_goal fails on main (SW-3317 review)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From the SW-3317 review. Expected: 45 min (Sonnet).",
+      "body": "From the SW-3317 review. Expected: 45 min (Sonnet).\n\nCause: the lemma `Err msg = Err msg` has an equation type inferred from a side, and neither side names the data type's other parameter, so pasted back it is E-UNSOLVED (not a closed goal). Fix in the lemma printer (goals.rs `loose_ctor`): no lemma when both sides of an equation are constructor terms that fix no parameter. The lemma snapshot was stale on main (the test never reached it) and is regenerated; the reify-return snapshot loses its lemma line. Tests: the three server tests pass; test:example reify passes. Commit 660a100f0.\nModel result: Sonnet, worked, 35 min (est. 45)\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []

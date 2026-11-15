@@ -1671,6 +1671,10 @@ impl Elaborator {
                         || (i - binders < level && shown.contains(&(level - 1 - (i - binders))))
                 }
                 Term::Meta(_) => false,
+                // An equation's type isn't written, but inferred from a
+                // side: two constructor terms that name no type's parameters
+                // leave it open (`Err msg = Err msg`, `[] = []`).
+                Term::Eq(_, a, b) => !(loose_ctor(g, a) && loose_ctor(g, b)),
                 Term::Def(id) if id.0 < g.env.defs().len() => {
                     declarations.push(Declaration::Def(*id));
                     true
@@ -2066,5 +2070,39 @@ fn number_arms(steps: &mut [StepAt]) {
                 }
             }
         }
+    }
+}
+
+/// Whether `term` is a constructor application whose type can't be worked
+/// out from the term itself: a parameter of its data type that none of the
+/// constructor's fields mentions (`Err msg`'s success type, `[]`'s element
+/// type), or a field typed by a parameter that is such a term. Written alone, it needs the type
+/// from where it is used.
+fn loose_ctor(g: &Ev, term: &Term) -> bool {
+    match term {
+        Term::Loc(_, t) => loose_ctor(g, t),
+        Term::Ctor(d, c, args) => {
+            let params = g.data(*d).params().len();
+            let fields = &g.data(*d).ctors()[*c].fields;
+            let mentioned = |j: usize| {
+                fields.iter().enumerate().any(|(k, (_, ty))| {
+                    ty.subterms().any(|(t, binders)| {
+                        matches!(t, Term::Var(i)
+                            if *i >= binders && i - binders == k + params - 1 - j)
+                    })
+                })
+            };
+            // A field of a fixed type (`MkText`'s `List Char`) gets its type
+            // from the constructor; one typed by a parameter gives it.
+            let typed_by_parameter = |k: usize| {
+                fields[k]
+                    .1
+                    .subterms()
+                    .any(|(t, binders)| matches!(t, Term::Var(i) if *i >= binders + k))
+            };
+            (0..params).any(|j| !mentioned(j))
+                || (args.iter().enumerate()).any(|(k, a)| typed_by_parameter(k) && loose_ctor(g, a))
+        }
+        _ => false,
     }
 }
