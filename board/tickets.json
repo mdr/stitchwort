@@ -36308,14 +36308,14 @@
     {
       "id": 3298,
       "title": "[Opus paper] Guide examples lost their teaching layouts in the 14 Nov whole-repo reformat (39de3aa7d): the tree printer joins an if-chain, a leading-operator split and multi-line sum types and records onto single lines up to ~117 chars (docs/guide/examples/values.sw 'if-chain', 'leading-operator'; types chapter), so the guide's prose about splitting lines now shows one-liners. Options: the printer keeps some author line breaks, a narrower width, or examples rewritten to exceed the width; for a decision of Matt's on formatter style",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Found in SW-3292. For a decision of Matt's on formatter style. Expected: 1 h (Opus paper lane).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36347,12 +36347,12 @@
     {
       "id": 3301,
       "title": "[Opus paper] Goals for a theorem about a match's scrutinee, in a catch-all after literal patterns, still show the split's cells (f (MkText [MkChar code✝ valid✝, ..tail✝])); showing the scrutinee as itself needs the arm's equation or a display-only substitution: options and a recommendation (SW-3293 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Found in SW-3293. Expected: 1 h (Opus paper lane).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36360,12 +36360,12 @@
     {
       "id": 3302,
       "title": "[Sonnet] Std.Parse internals write the character literal record inline 62 times ({ items = X, same = Text.sameChar }); a std-internal helper would tidy it (if it would be public, its name is Matt's) (SW-3282 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Found in SW-3282. Expected: 1 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
