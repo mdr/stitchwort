@@ -242,10 +242,11 @@ theorem runsBodyInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (runsValue: Parse.Runs (() => self layout) [first, ..others] rest value):
     Parse.Runs (() => body self layout) [first, ..others] rest (bodyOf value [first, ..others]) :=
   state starts honest =>
-    let ahead: blockAhead layout state.at.rest = False := rewrite starts in
-      match layout with
-        | InBrackets => rfl
-        | InStatement column from => inline
+    let ahead: blockAhead layout state.at.rest = False :=
+      rewrite starts in
+        match layout with
+          | InBrackets => rfl
+          | InStatement column from => inline
     match runsInlineBody self layout value first others rest runsValue state starts honest with
       | Witness m (Both ran after) =>
         Witness m
@@ -260,8 +261,8 @@ def firstColumn (input: List (Parse.Located Token)): Nat := match input with
   | [token, .._] => token.value.column
   | [] => 0
 
-theorem blockBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column from: Nat)
-    (state: Parse.State (Parse.Located Token))
+theorem blockBodyRun ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (column from: Nat) (state: Parse.State (Parse.Located Token))
     (ahead: blockAhead (InStatement column from) state.at.rest = True):
     Parse.runFrom state (() => (bodyFuel (Succ more) self (InStatement column from), Parse.mark()))
       = Parse.runFrom state (() => (block more self (firstColumn state.at.rest), Parse.mark())) :=
@@ -295,9 +296,8 @@ theorem runsBodyBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
 
 --| A statement's line that starts with `let`: a name, `=` and a body.
 theorem runsLineLet ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
-    (start: Parse.Mark (Parse.Located Token))
-    (first named equals: Parse.Located Token) (bodyTokens rest: List (Parse.Located Token))
-    (bound: Text) (found: Body)
+    (start: Parse.Mark (Parse.Located Token)) (first named equals: Parse.Located Token)
+    (bodyTokens rest: List (Parse.Located Token)) (bound: Text) (found: Body)
     (isLet: first.value.kind = Reserved LetKeyword)
     (isName: named.value.kind = Name bound)
     (nameAllowed: layout.allows named = True)
@@ -348,13 +348,7 @@ theorem runsLineLet ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Toke
           (Let bound found)
           rfl
           (runsSign layout "'='" Defines equals (bodyTokens ++ rest) isEquals equalsAllowed)
-          (Parse.runsMap
-            (() => bodyFuel fuel self layout)
-            (inner => Let bound inner)
-            bodyTokens
-            rest
-            found
-            runsBody)))
+          (Parse.runsMap (() => bodyFuel fuel self layout) (inner => Let bound inner) bodyTokens rest found runsBody)))
 
 --| A statement's line that doesn't start with `let` is an expression.
 theorem runsLineOther ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
@@ -405,11 +399,7 @@ theorem runsStatement ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located To
       [first, ..others]
       rest
       line):
-    Parse.Runs
-      (() => statement fuel self column)
-      [first, ..others]
-      rest
-      (notedStatement first.value.above line) :=
+    Parse.Runs (() => statement fuel self column) [first, ..others] rest (notedStatement first.value.above line) :=
   state starts honest =>
     let core :=
       Parse.runsFromBindAt state
@@ -433,8 +423,8 @@ def lineAhead (column: Nat) (input: List (Parse.Located Token)): Bool := match i
   | [token, .._] => token.value.startsLine && token.value.column == column
   | [] => False
 
-theorem statementStops ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column: Nat)
-    (state: Parse.State (Parse.Located Token))
+theorem statementStops ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (column: Nat) (state: Parse.State (Parse.Located Token))
     (none: lineAhead column state.at.rest = False):
     Parse.runFrom state (() => (Parse.optional (() => statement fuel self column), Parse.mark()))
       = Ok (None, state.at) :=
@@ -444,8 +434,8 @@ theorem statementStops ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located T
 
 --| A block ends at a token that doesn't start a line at its column, or at
 --| the end: `statement` declines there.
-theorem statementDeclines ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column: Nat)
-    (input: List (Parse.Located Token))
+theorem statementDeclines ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (column: Nat) (input: List (Parse.Located Token))
     (none: lineAhead column input = False):
     Parse.Declines (() => statement fuel self column) input :=
   state starts honest => statementStops fuel self column state (rewrite starts in none)
@@ -458,11 +448,9 @@ theorem runsBlock ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)
     (steps: List (List (Parse.Located Token), List (Spaced Statement))) (rest: List (Parse.Located Token))
     (runsFirst: Parse.Runs (() => statement fuel self column) firstRead (Parse.joinReads steps ++ rest) first)
     (manyRuns: Parse.ManyRuns (() => statement fuel self column) steps rest):
-    Parse.Runs
-      (() => block fuel self column)
-      (firstRead ++ Parse.joinReads steps)
-      rest
-      { statements = withoutFirstBlank ([first, ..Parse.stepValues steps].concat) } :=
+    Parse.Runs (() => block fuel self column) (firstRead ++ Parse.joinReads steps) rest {
+      statements = withoutFirstBlank ([first, ..Parse.stepValues steps].concat)
+    } :=
   Parse.runsMap
     (() => Parse.many1 (() => statement fuel self column))
     (lines => { statements = lines.toList.concat |> withoutFirstBlank })
@@ -474,9 +462,8 @@ theorem runsBlock ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)
 -- Declarations and the file.
 
 --| A `let` declaration: a name, `=` and a body.
-theorem runsDeclarationValue ∀ (layout: Layout)
-    (first named equals: Parse.Located Token) (bodyTokens rest: List (Parse.Located Token))
-    (declared: Text) (found: Body)
+theorem runsDeclarationValue ∀ (layout: Layout) (first named equals: Parse.Located Token)
+    (bodyTokens rest: List (Parse.Located Token)) (declared: Text) (found: Body)
     (isLet: first.value.kind = Reserved LetKeyword)
     (isName: named.value.kind = Name declared)
     (nameAllowed: layout.allows named = True)
@@ -536,10 +523,8 @@ theorem runsDeclarationValue ∀ (layout: Layout)
             runsBody)))
 
 --| A `fn` declaration: a name, the parameters in brackets, `=` and a body.
-theorem runsDeclarationFunction ∀ (layout: Layout)
-    (first named open close equals: Parse.Located Token)
-    (parameterTokens bodyTokens rest: List (Parse.Located Token))
-    (declared: Text) (parameters: List Text) (found: Body)
+theorem runsDeclarationFunction ∀ (layout: Layout) (first named open close equals: Parse.Located Token)
+    (parameterTokens bodyTokens rest: List (Parse.Located Token)) (declared: Text) (parameters: List Text) (found: Body)
     (isFn: first.value.kind = Reserved FnKeyword)
     (isName: named.value.kind = Name declared)
     (nameAllowed: layout.allows named = True)
@@ -663,8 +648,8 @@ theorem runsDeclarationFunction ∀ (layout: Layout)
 --| A declaration: on tokens whose first starts a line at column 0, the
 --| own-line comments above that token, then the declaration read from
 --| them (or its tokens as written, `notedDeclaration`).
-theorem runsDeclaration ∀ (source: Text)
-    (first: Parse.Located Token) (others rest: List (Parse.Located Token)) (parsed: Declaration)
+theorem runsDeclaration ∀ (source: Text) (first: Parse.Located Token)
+    (others rest: List (Parse.Located Token)) (parsed: Declaration)
     (atMargin: (first.value.startsLine && first.value.column == 0) = True)
     (runsLine: Parse.Runs
       (() => declarationLine (InStatement 0 first.offset) first.value.kind)
@@ -725,8 +710,8 @@ theorem declarationDeclines ∀ (source: Text) (input: List (Parse.Located Token
 
 --| The file: its declarations one after another to the end of the tokens,
 --| then the comments after the last.
-theorem runsSourceFile ∀ (source: Text) (endTrivia: List Trivia)
-    (steps: List (List (Parse.Located Token), List (Spaced Declaration)))
+theorem runsSourceFile ∀ (source: Text)
+    (endTrivia: List Trivia) (steps: List (List (Parse.Located Token), List (Spaced Declaration)))
     (manyRuns: Parse.ManyRuns (() => declaration source) steps []):
     Parse.Runs
       (() => sourceFile source endTrivia)
@@ -764,8 +749,8 @@ theorem operatorOfReserved ∀ (layout: Layout) (level: Nat) (token: Parse.Locat
   rewrite reserved in rfl
 
 --| A keyword ends an expression: it is no call, field or operator.
-theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keyword: Keyword)
-    (rest: List (Parse.Located Token))
+theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token)
+    (keyword: Keyword) (rest: List (Parse.Located Token))
     (reserved: token.value.kind = Reserved keyword):
     EndsExpression layout [token, ..rest] :=
   Both
@@ -791,7 +776,8 @@ theorem runsInlineSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     (small: tokens.length < bound):
     Parse.Runs (() => body self layout) tokens rest found :=
   match found, shaped, spelled with
-    | { statements = [{ blankBefore, line = Bare value trailing }] }, shaped, Both noBlank (Both trails (Both inline valueSpelled)) =>
+    | { statements = [{ blankBefore, line = Bare value trailing }] }, shaped, Both noBlank
+        (Both trails (Both inline valueSpelled)) =>
       match spelledStart layout value tokens shaped valueSpelled with
         | Witness first (Witness others (Both split startKind)) =>
           let runsValue := nested layout value tokens rest shaped valueSpelled ends small
@@ -810,34 +796,40 @@ theorem runsIfSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
     (small: tokens.length <= bound):
     Parse.Runs (() => expressionRule self layout) tokens rest (If condition whenTrue whenFalse) :=
   match shaped, spelled with
-    | Both conditionShaped (Both trueShaped falseShaped), Witness ifToken (Witness conditionTokens (Witness thenToken (Witness trueTokens (Witness elseToken (Witness falseTokens (Both split (Both isIfToken (Both ifAllowed (Both isThen (Both thenAllowed (Both isElse (Both elseAllowed (Both conditionSpelled (Both trueSpelled falseSpelled)))))))))))))) =>
+    | Both conditionShaped (Both trueShaped falseShaped), Witness ifToken
+        (Witness conditionTokens
+          (Witness thenToken
+            (Witness trueTokens
+              (Witness elseToken
+                (Witness falseTokens
+                  (Both split
+                    (Both isIfToken
+                      (Both ifAllowed
+                        (Both isThen
+                          (Both thenAllowed
+                            (Both isElse
+                              (Both elseAllowed (Both conditionSpelled (Both trueSpelled falseSpelled)))))))))))))) =>
       let inner := List.lengthAppend trueTokens [elseToken, ..falseTokens]
       let outer := List.lengthAppend conditionTokens [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
       let size: tokens.length = Succ (conditionTokens.length + Succ (trueTokens.length + Succ falseTokens.length)) :=
         rewrite split, outer, inner in rfl
       rewrite split in
         runsIf self layout ifToken thenToken elseToken conditionTokens trueTokens falseTokens rest condition whenTrue
-          whenFalse
-          isIfToken
-          ifAllowed
-          isThen
-          thenAllowed
-          isElse
-          elseAllowed
-          (nested layout condition conditionTokens
-            ([thenToken, ..trueTokens ++ [elseToken, ..falseTokens]] ++ rest)
-            conditionShaped
-            conditionSpelled
-            (endsAtReserved layout thenToken ThenKeyword ((trueTokens ++ [elseToken, ..falseTokens]) ++ rest) isThen)
-            (omega [size, small]))
-          (runsInlineSpelled self layout bound nested whenTrue trueTokens
-            ([elseToken, ..falseTokens] ++ rest)
-            trueShaped
-            trueSpelled
-            (endsAtReserved layout elseToken ElseKeyword (falseTokens ++ rest) isElse)
-            (omega [size, small]))
-          (runsInlineSpelled self layout bound nested whenFalse falseTokens rest falseShaped falseSpelled ends
-            (omega [size, small]))
+            whenFalse isIfToken ifAllowed isThen thenAllowed isElse elseAllowed
+            (nested layout condition conditionTokens
+              ([thenToken, ..trueTokens ++ [elseToken, ..falseTokens]] ++ rest)
+              conditionShaped
+              conditionSpelled
+              (endsAtReserved layout thenToken ThenKeyword ((trueTokens ++ [elseToken, ..falseTokens]) ++ rest) isThen)
+              (omega [size, small]))
+            (runsInlineSpelled self layout bound nested whenTrue trueTokens
+              ([elseToken, ..falseTokens] ++ rest)
+              trueShaped
+              trueSpelled
+              (endsAtReserved layout elseToken ElseKeyword (falseTokens ++ rest) isElse)
+              (omega [size, small]))
+            (runsInlineSpelled self layout bound nested whenFalse falseTokens rest falseShaped falseSpelled ends
+              (omega [size, small]))
 
 -- A function's parameters.
 
@@ -872,11 +864,7 @@ theorem parameterRounds ∀ (steps: List (List (Parse.Located Token), Text)) (re
     Parse.ManyRuns (() => Parse.sepStep (() => name InBrackets) (() => sign InBrackets "','" Comma)) steps rest :=
   match steps, spelled with
     | [], spelled =>
-      Parse.declinesSepStep
-        (() => name InBrackets)
-        (() => sign InBrackets "','" Comma)
-        rest
-        (commaDeclines rest ends)
+      Parse.declinesSepStep (() => name InBrackets) (() => sign InBrackets "','" Comma) rest (commaDeclines rest ends)
     | [(read, parameter), ..more], Both (Witness comma (Witness named (Both split (Both isComma isName)))) later =>
       Both
         (rewrite split in (same => cases))
@@ -928,22 +916,21 @@ theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Loc
 -- An instance of `runsExpression` with an `if`: the six tokens of
 -- `if a then b else c`.
 
-def exampleIf: Expr :=
-  If (Var "a")
-    { statements = [{ blankBefore = False, line = Bare (Var "b") None }] }
-    { statements = [{ blankBefore = False, line = Bare (Var "c") None }] }
+def exampleIf: Expr := If (Var "a") { statements = [{ blankBefore = False, line = Bare (Var "b") None }] } {
+  statements = [{ blankBefore = False, line = Bare (Var "c") None }]
+}
 
 theorem runsIfExample: Parse.run
-  [
-    exampleToken (Reserved IfKeyword) 0,
-    exampleToken (Name "a") 3,
-    exampleToken (Reserved ThenKeyword) 5,
-    exampleToken (Name "b") 10,
-    exampleToken (Reserved ElseKeyword) 12,
-    exampleToken (Name "c") 17
-  ]
-  (() => expression InBrackets)
-  = Ok exampleIf :=
+      [
+        exampleToken (Reserved IfKeyword) 0,
+        exampleToken (Name "a") 3,
+        exampleToken (Reserved ThenKeyword) 5,
+        exampleToken (Name "b") 10,
+        exampleToken (Reserved ElseKeyword) 12,
+        exampleToken (Name "c") 17
+      ]
+      (() => expression InBrackets)
+      = Ok exampleIf :=
   let a := exampleToken (Name "a") 3
   let b := exampleToken (Name "b") 10
   let c := exampleToken (Name "c") 17
@@ -959,8 +946,478 @@ theorem runsIfExample: Parse.run
     ]
     exampleIf
     (runsExpression InBrackets exampleIf
-      [exampleToken (Reserved IfKeyword) 0, a, exampleToken (Reserved ThenKeyword) 5, b, exampleToken (Reserved ElseKeyword) 12, c]
+      [
+        exampleToken (Reserved IfKeyword) 0,
+        a,
+        exampleToken (Reserved ThenKeyword) 5,
+        b,
+        exampleToken (Reserved ElseKeyword) 12,
+        c
+      ]
       []
       (Both rfl (Both rfl rfl))
-      (Witness (exampleToken (Reserved IfKeyword) 0) (Witness [a] (Witness (exampleToken (Reserved ThenKeyword) 5) (Witness [b] (Witness (exampleToken (Reserved ElseKeyword) 12) (Witness [c] (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both (Witness a (Both rfl (Both rfl rfl))) (Both (Both rfl (Both rfl (Both rfl (Witness b (Both rfl (Both rfl rfl)))))) (Both rfl (Both rfl (Both rfl (Witness c (Both rfl (Both rfl rfl)))))))))))))))))))))
+      (Witness
+        (exampleToken (Reserved IfKeyword) 0)
+        (Witness
+          [a]
+          (Witness
+            (exampleToken (Reserved ThenKeyword) 5)
+            (Witness
+              [b]
+              (Witness
+                (exampleToken (Reserved ElseKeyword) 12)
+                (Witness
+                  [c]
+                  (Both rfl
+                    (Both rfl
+                      (Both rfl
+                        (Both rfl
+                          (Both rfl
+                            (Both rfl
+                              (Both rfl
+                                (Both
+                                  (Witness a (Both rfl (Both rfl rfl)))
+                                  (Both
+                                    (Both rfl (Both rfl (Both rfl (Witness b (Both rfl (Both rfl rfl))))))
+                                    (Both rfl
+                                      (Both rfl (Both rfl (Witness c (Both rfl (Both rfl rfl)))))))))))))))))))))
       (Both rfl rfl))
+
+-- Bodies and blocks from their spelling. The `if` inside an expression is
+-- read back by `runsExpression` where its branches are each one
+-- expression; a block is covered here as the body of a `let` or of a
+-- declaration, to any depth.
+
+--| The lines of a block's first statement lose the blank line above them.
+def firstBlank (isFirst: Bool) (lines: List (Spaced Statement)): List (Spaced Statement) := match isFirst with
+  | True => withoutFirstBlank lines
+  | False => lines
+
+--| Each expression in the body is of the parser's shape.
+def ShapedBody: Body → Prop
+  | { statements } => ShapedLines statements
+
+def ShapedLines: List (Spaced Statement) → Prop
+  | [] => True
+  | [{ line, .. }, ..rest] => ShapedStatement line ∧ ShapedLines rest
+
+def ShapedStatement: Statement → Prop
+  | Let _ inner => ShapedBody inner
+  | Bare value _ => Shaped value
+  | StatementNote _ => True
+
+--| `tokens`, followed by `rest`, spell the body `found` after `=` at
+--| `layout`: one expression that doesn't start a line deeper than the
+--| statement, with nothing after it that continues it; or a block, whose
+--| first token starts a line deeper, of statements at that token's column.
+def SpelledBody (layout: Layout) (found: Body) (tokens rest: List (Parse.Located Token)): Prop := match found with
+  | { statements } =>
+    (∃ (value: Expr) => ∃ (first: Parse.Located Token) => ∃ (others: List (Parse.Located Token)) => statements
+      = (bodyOf value [first, ..others]).statements
+      ∧ tokens = [first, ..others]
+      ∧ blockAhead layout [first, ..others] = False
+      ∧ Shaped value
+      ∧ Spelled layout value [first, ..others]
+      ∧ EndsExpression layout rest)
+      ∨ (blockAhead layout tokens = True ∧ SpelledLines (firstColumn tokens) True [] statements tokens rest)
+
+--| `tokens`, followed by `rest`, spell the lines of a block at `column`
+--| that come after the notes in `pending` (the block's first lines if
+--| `isFirst`): each statement's first token starts a line at the column
+--| and carries the notes above the statement and its blank line; a `let`
+--| is its keyword, a name, `=` and a body; any other statement is an
+--| expression, with nothing after it that continues it; and after the last
+--| no token starts a line at the column.
+def SpelledLines (column: Nat) (isFirst: Bool)
+    (pending lines: List (Spaced Statement)) (tokens rest: List (Parse.Located Token)):
+    Prop :=
+  match lines with
+    | [] => tokens = [] ∧ pending = [] ∧ lineAhead column rest = False
+    | [{ blankBefore, line = StatementNote comment }, ..more] =>
+      SpelledLines column isFirst (pending ++ [{ blankBefore, line = StatementNote comment }]) more tokens rest
+    | [{ blankBefore, line = Let name inner }, ..more] =>
+      ∃ (first: Parse.Located Token) => ∃ (named: Parse.Located Token) => ∃ (equals: Parse.Located Token) =>
+        ∃ (bodyTokens: List (Parse.Located Token)) => ∃ (later: List (Parse.Located Token)) => tokens
+          = [first, named, equals, ..bodyTokens ++ later]
+          ∧ (first.value.startsLine && first.value.column == column) = True
+          ∧ first.value.kind = Reserved LetKeyword
+          ∧ named.value.kind = Name name
+          ∧ (InStatement column first.offset).allows named = True
+          ∧ equals.value.kind = Sign Defines
+          ∧ (InStatement column first.offset).allows equals = True
+          ∧ firstBlank isFirst (notedStatement first.value.above (Let name inner))
+            = pending ++ [{ blankBefore, line = Let name inner }]
+          ∧ SpelledBody (InStatement column first.offset) inner bodyTokens (later ++ rest)
+          ∧ SpelledLines column False [] more later rest
+    | [{ blankBefore, line = Bare value trailing }, ..more] =>
+      ∃ (first: Parse.Located Token) => ∃ (others: List (Parse.Located Token)) =>
+        ∃ (later: List (Parse.Located Token)) => tokens = [first, ..others ++ later]
+          ∧ (first.value.startsLine && first.value.column == column) = True
+          ∧ first.value.kind ≠ Reserved LetKeyword
+          ∧ trailing = trailingFor value [first, ..others]
+          ∧ firstBlank isFirst (notedStatement first.value.above (Bare value trailing))
+            = pending ++ [{ blankBefore, line = Bare value trailing }]
+          ∧ Spelled (InStatement column first.offset) value [first, ..others]
+          ∧ EndsExpression (InStatement column first.offset) (later ++ rest)
+          ∧ SpelledLines column False [] more later rest
+
+theorem firstBlankAppend ∀ (isFirst: Bool) (group later: List (Spaced Statement))
+    (some: group ≠ []):
+    firstBlank isFirst (group ++ later) = firstBlank isFirst group ++ later :=
+  match isFirst with
+    | False => rfl
+    | True =>
+      match group, some with
+        | [], some => Void.exfalso (some rfl)
+        | [head, ..tail], some => rfl
+
+--| A statement's lines are never none: they end with the statement.
+theorem groupSome ∀ (isFirst: Bool) (group pending: List (Spaced Statement)) (last: Spaced Statement)
+    (noted: firstBlank isFirst group = pending ++ [last]):
+    group ≠ [] :=
+  same =>
+    let empty := rewrite same at noted in noted
+    match isFirst, pending, empty with
+      | True, [], empty => cases
+      | False, [head, ..tail], empty => cases
+
+theorem runsBodyFuelInline ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (value: Expr) (first: Parse.Located Token) (others rest: List (Parse.Located Token))
+    (inline: blockAhead layout [first, ..others] = False)
+    (runsValue: Parse.Runs (() => self layout) [first, ..others] rest value):
+    Parse.Runs (() => bodyFuel (Succ more) self layout) [first, ..others] rest (bodyOf value [first, ..others]) :=
+  state starts honest =>
+    let ahead: blockAhead layout state.at.rest = False :=
+      rewrite starts in
+        match layout with
+          | InBrackets => rfl
+          | InStatement column from => inline
+    match runsInlineBody self layout value first others rest runsValue state starts honest with
+      | Witness m (Both ran after) => Witness m (Both (Eq.trans (inlineBodyRun more self layout state ahead) ran) after)
+
+theorem runsBodyFuelBlock ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column from: Nat)
+    (found: Body) (first: Parse.Located Token) (others rest: List (Parse.Located Token))
+    (deeper: (first.value.startsLine && first.value.column > column) = True)
+    (runsBlock: Parse.Runs (() => block more self first.value.column) [first, ..others] rest found):
+    Parse.Runs (() => bodyFuel (Succ more) self (InStatement column from)) [first, ..others] rest found :=
+  state starts honest =>
+    let same: firstColumn state.at.rest = first.value.column := rewrite starts in rfl
+    let step0 := blockBodyRun more self column from state (rewrite starts in deeper)
+    let step := rewrite same at step0 in step0
+    match runsBlock state starts honest with | Witness m (Both ran after) => Witness m (Both (Eq.trans step ran) after)
+
+--| The statements of a block read back, as the rounds of the block's
+--| repetition: each round reads a statement's tokens and gives its lines,
+--| and the lines together are the block's.
+theorem linesRun ∀ (column: Nat) (isFirst: Bool) (pending lines: List (Spaced Statement))
+    (tokens rest: List (Parse.Located Token)) (fuel: Nat)
+    (shaped: ShapedLines lines)
+    (spelled: SpelledLines column isFirst pending lines tokens rest)
+    (enough: tokens.length <= fuel):
+    ∃ (steps: List (List (Parse.Located Token), List (Spaced Statement))) => Parse.joinReads steps = tokens
+      ∧ Parse.ManyRuns (() => statement fuel expression column) steps rest
+      ∧ firstBlank isFirst (Parse.stepValues steps).concat = pending ++ lines :=
+  match lines, shaped, spelled with
+    | [], shaped, Both noTokens (Both noPending ends) =>
+      Witness []
+        (Both
+          (Eq.sym noTokens)
+          (Both
+            (statementDeclines fuel expression column rest ends)
+            (rewrite noPending in
+              match isFirst with
+                | True => rfl
+                | False => rfl)))
+    | [{ blankBefore, line = StatementNote comment }, ..more], Both lineShaped moreShaped, spelled =>
+      match linesRun column isFirst
+        (pending ++ [{ blankBefore, line = StatementNote comment }])
+        more
+        tokens
+        rest
+        fuel
+        moreShaped
+        spelled
+        enough with
+        | Witness steps (Both joined (Both runs values)) =>
+          Witness steps
+            (Both joined
+              (Both runs
+                (Eq.trans values (List.appendAssoc pending [{ blankBefore, line = StatementNote comment }] more))))
+    | [{ blankBefore, line = Bare value trailing }, ..more], Both valueShaped moreShaped, Witness first
+        (Witness others
+          (Witness later
+            (Both split
+              (Both atColumn
+                (Both notLet (Both trails (Both noted (Both valueSpelled (Both ends laterSpelled))))))))) =>
+      let sizes := List.lengthAppend others later
+      let whole: tokens.length = Succ (others.length + later.length) := rewrite split, sizes in rfl
+      match linesRun column False [] more later rest fuel moreShaped laterSpelled (omega [whole, enough]) with
+        | Witness steps (Both joined (Both runs values)) =>
+          let values2: (Parse.stepValues steps).concat = more := values
+          Witness
+            [([first, ..others], notedStatement first.value.above (Bare value trailing)), ..steps]
+            (Both
+              (rewrite split, joined in rfl)
+              (Both
+                (Both
+                  (same => cases)
+                  (Both
+                    (rewrite joined, trails in
+                      runsStatement fuel expression column first others
+                        (later ++ rest)
+                        (Bare value (trailingFor value [first, ..others]))
+                        atColumn
+                        (state =>
+                          runsLineBare fuel expression
+                            (InStatement column first.offset)
+                            state
+                            value
+                            first
+                            others
+                            (later ++ rest)
+                            notLet
+                            (runsExpression
+                              (InStatement column first.offset)
+                              value
+                              [first, ..others]
+                              (later ++ rest)
+                              valueShaped
+                              valueSpelled
+                              ends)))
+                    runs))
+                (Eq.trans
+                  (firstBlankAppend isFirst
+                    (notedStatement first.value.above (Bare value trailing))
+                    (Parse.stepValues steps).concat
+                    (groupSome isFirst
+                      (notedStatement first.value.above (Bare value trailing))
+                      pending
+                      { blankBefore, line = Bare value trailing }
+                      noted))
+                  (rewrite noted, values2 in
+                    List.appendAssoc pending [{ blankBefore, line = Bare value trailing }] more))))
+    | [{ blankBefore, line = Let name inner }, ..more], Both innerShaped moreShaped, Witness first
+        (Witness named
+          (Witness equals
+            (Witness bodyTokens
+              (Witness later
+                (Both split
+                  (Both atColumn
+                    (Both isLet
+                      (Both isName
+                        (Both nameAllowed
+                          (Both isEquals (Both equalsAllowed (Both noted (Both innerSpelled laterSpelled))))))))))))) =>
+      let sizes := List.lengthAppend bodyTokens later
+      let whole: tokens.length = Succ (Succ (Succ (bodyTokens.length + later.length))) := rewrite split, sizes in rfl
+      match linesRun column False [] more later rest fuel moreShaped laterSpelled (omega [whole, enough]) with
+        | Witness steps (Both joined (Both runs values)) =>
+          let values2: (Parse.stepValues steps).concat = more := values
+          Witness
+            [([first, named, equals, ..bodyTokens], notedStatement first.value.above (Let name inner)), ..steps]
+            (Both
+              (rewrite split, joined in rfl)
+              (Both
+                (Both
+                  (same => cases)
+                  (Both
+                    (rewrite joined in
+                      runsStatement fuel expression column first
+                        [named, equals, ..bodyTokens]
+                        (later ++ rest)
+                        (Let name inner)
+                        atColumn
+                        (state =>
+                          runsLineLet fuel expression
+                            (InStatement column first.offset)
+                            state.at
+                            first
+                            named
+                            equals
+                            bodyTokens
+                            (later ++ rest)
+                            name
+                            inner
+                            isLet
+                            isName
+                            nameAllowed
+                            isEquals
+                            equalsAllowed
+                            (runsBodySpelled
+                              (InStatement column first.offset)
+                              inner
+                              bodyTokens
+                              (later ++ rest)
+                              fuel
+                              innerShaped
+                              innerSpelled
+                              (omega [whole, enough]))
+                            state))
+                    runs))
+                (Eq.trans
+                  (firstBlankAppend isFirst
+                    (notedStatement first.value.above (Let name inner))
+                    (Parse.stepValues steps).concat
+                    (groupSome isFirst
+                      (notedStatement first.value.above (Let name inner))
+                      pending
+                      { blankBefore, line = Let name inner }
+                      noted))
+                  (rewrite noted, values2 in List.appendAssoc pending [{ blankBefore, line = Let name inner }] more))))
+
+--| The parser reads back what spells a body: `bodyFuel`, with fuel above
+--| the body's tokens, reads exactly them and gives the body.
+theorem runsBodySpelled ∀ (layout: Layout) (found: Body) (tokens rest: List (Parse.Located Token)) (fuel: Nat)
+    (shaped: ShapedBody found)
+    (spelled: SpelledBody layout found tokens rest)
+    (enough: tokens.length < fuel):
+    Parse.Runs (() => bodyFuel fuel expression layout) tokens rest found :=
+  match fuel with
+    | Succ more =>
+      match found, shaped, spelled with
+        | { statements }, shaped, Inl
+            (Witness value
+              (Witness first
+                (Witness others
+                  (Both isValue (Both split (Both inline (Both valueShaped (Both valueSpelled ends)))))))) =>
+          rewrite isValue, split in
+            runsBodyFuelInline more expression layout value first others rest inline
+              (runsExpression layout value [first, ..others] rest valueShaped valueSpelled ends)
+        | { statements }, shaped, Inr (Both ahead lines) =>
+          match linesRun (firstColumn tokens) True [] statements tokens rest more shaped lines (omega [enough]) with
+            | Witness steps (Both joined (Both runs values)) =>
+              match layout, tokens, steps, ahead, joined, runs, values with
+                | InStatement column from, [first, ..others], [(read, group), ..later], ahead, joined, Both some
+                    (Both runsFirst runsLater), values =>
+                  let values2: withoutFirstBlank ([group, ..Parse.stepValues later].concat) = statements := values
+                  rewrite <- values2 in
+                    runsBodyFuelBlock more expression column from
+                      { statements = withoutFirstBlank ([group, ..Parse.stepValues later].concat) }
+                      first
+                      others
+                      rest
+                      ahead
+                      (rewrite <- joined in
+                        runsBlock more expression first.value.column read group later rest runsFirst runsLater)
+
+--| `body` reads back what spells a body.
+theorem runsBody ∀ (layout: Layout) (found: Body) (tokens rest: List (Parse.Located Token))
+    (shaped: ShapedBody found)
+    (spelled: SpelledBody layout found tokens rest):
+    Parse.Runs (() => body expression layout) tokens rest found :=
+  state starts honest =>
+    let lengths: state.at.rest.length = tokens.length + rest.length := rewrite starts in List.lengthAppend tokens rest
+    match runsBodySpelled layout found tokens rest
+      (state.at.left + 1)
+      shaped
+      spelled
+      (omega [honest, lengths])
+      state
+      starts
+      honest with
+      | Witness m (Both ran after) =>
+        Witness m
+          (Both
+            (Eq.trans
+              (Parse.runFromMark state (before => (bodyFuel (before.left + 1) expression layout, Parse.mark())))
+              ran)
+            after)
+
+-- Declarations from their spelling.
+
+--| The parser reads back a `let` declaration: on its keyword starting a
+--| line at column 0, a name, `=` and tokens that spell its body,
+--| `declaration` gives it after the notes above it (as `notedDeclaration`
+--| has it: kept as written if a comment among the tokens has no place).
+theorem runsValueSpelled ∀ (source: Text) (first named equals: Parse.Located Token)
+    (bodyTokens rest: List (Parse.Located Token)) (declared: Text) (found: Body)
+    (atMargin: (first.value.startsLine && first.value.column == 0) = True)
+    (isLet: first.value.kind = Reserved LetKeyword)
+    (isName: named.value.kind = Name declared)
+    (nameAllowed: (InStatement 0 first.offset).allows named = True)
+    (isEquals: equals.value.kind = Sign Defines)
+    (equalsAllowed: (InStatement 0 first.offset).allows equals = True)
+    (shaped: ShapedBody found)
+    (spelled: SpelledBody (InStatement 0 first.offset) found bodyTokens rest):
+    Parse.Runs
+      (() => declaration source)
+      [first, named, equals, ..bodyTokens]
+      rest
+      (notedDeclaration source first.value.above [first, named, equals, ..bodyTokens] (Value declared found)) :=
+  runsDeclaration source first
+    [named, equals, ..bodyTokens]
+    rest
+    (Value declared found)
+    atMargin
+    (runsDeclarationValue
+      (InStatement 0 first.offset)
+      first
+      named
+      equals
+      bodyTokens
+      rest
+      declared
+      found
+      isLet
+      isName
+      nameAllowed
+      isEquals
+      equalsAllowed
+      (runsBody (InStatement 0 first.offset) found bodyTokens rest shaped spelled))
+
+--| The parser reads back a `fn` declaration: its keyword starting a line
+--| at column 0, a name, the parameters in brackets (as the parameter
+--| parser reads them, `runsParameters`), `=` and tokens that spell its
+--| body.
+theorem runsFunctionSpelled ∀ (source: Text) (first named open close equals: Parse.Located Token)
+    (parameterTokens bodyTokens rest: List (Parse.Located Token)) (declared: Text) (parameters: List Text) (found: Body)
+    (atMargin: (first.value.startsLine && first.value.column == 0) = True)
+    (isFn: first.value.kind = Reserved FnKeyword)
+    (isName: named.value.kind = Name declared)
+    (nameAllowed: (InStatement 0 first.offset).allows named = True)
+    (opens: open.value.kind = Sign OpenParen)
+    (openAllowed: (InStatement 0 first.offset).allows open = True)
+    (closes: close.value.kind = Sign CloseParen)
+    (isEquals: equals.value.kind = Sign Defines)
+    (equalsAllowed: (InStatement 0 first.offset).allows equals = True)
+    (runsNames: Parse.Runs
+      (() => Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma))
+      parameterTokens
+      ([close, equals, ..bodyTokens] ++ rest)
+      parameters)
+    (shaped: ShapedBody found)
+    (spelled: SpelledBody (InStatement 0 first.offset) found bodyTokens rest):
+    Parse.Runs
+      (() => declaration source)
+      [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+      rest
+      (notedDeclaration source first.value.above
+        [first, named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+        (Function declared parameters found)) :=
+  runsDeclaration source first
+    [named, open, ..parameterTokens ++ [close, equals, ..bodyTokens]]
+    rest
+    (Function declared parameters found)
+    atMargin
+    (runsDeclarationFunction
+      (InStatement 0 first.offset)
+      first
+      named
+      open
+      close
+      equals
+      parameterTokens
+      bodyTokens
+      rest
+      declared
+      parameters
+      found
+      isFn
+      isName
+      nameAllowed
+      opens
+      openAllowed
+      closes
+      isEquals
+      equalsAllowed
+      runsNames
+      (runsBody (InStatement 0 first.offset) found bodyTokens rest shaped spelled))

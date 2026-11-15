@@ -301,15 +301,16 @@ def bodyFuel (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (
 --| A body that is one expression, on the line of what it follows.
 -- A function of its own so that proofs (BlockProofs.sw) can name it; so
 -- are `bareStatement`, `statementLine` and `notedStatement`.
-def inlineBody (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Body :=
+def inlineBody (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
+    {Parse (Parse.Located Token)} Body :=
   let start := Parse.mark()
   let line := bareStatement self layout start
   { statements = [{ blankBefore = False, line }] }
 
 --| An expression as a statement, with the trailing comment it ends in;
 --| `start` is where it starts.
-def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
-    (start: Parse.Mark (Parse.Located Token)):
+def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (layout: Layout) (start: Parse.Mark (Parse.Located Token)):
     {Parse (Parse.Located Token)} Statement :=
   let value := self layout
   Bare value (trailingSince start value)

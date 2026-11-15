@@ -100,8 +100,7 @@ theorem runsSpacesLexeme ∀ (others rest: List Char)
     (Parse.runsSpan (char => char == ' ') [' ', ..others] rest spaces ends)
 
 --| `lexemeAt` reads a line break, one character.
-theorem runsLineBreakLexeme ∀ (rest: List Char):
-    Parse.Runs (() => lexemeAt (['\n'] ++ rest)) ['\n'] rest LineBreak :=
+theorem runsLineBreakLexeme ∀ (rest: List Char): Parse.Runs (() => lexemeAt (['\n'] ++ rest)) ['\n'] rest LineBreak :=
   Parse.runsMap
     (() => Parse.next (char => True))
     (read => LineBreak)
@@ -197,7 +196,12 @@ theorem runsOperatorChar ∀ (char: Char) (rest: List Char)
     Parse.Runs operatorChar [char] rest () :=
   state starts honest =>
     let core :=
-      Parse.runsMap (() => Parse.next (char => True)) (read => ()) [char] rest (Some char)
+      Parse.runsMap
+        (() => Parse.next (char => True))
+        (read => ())
+        [char]
+        rest
+        (Some char)
         (Parse.runsNext (char => True) char rest rfl)
     match core state starts honest with
       | Witness m (Both ran after) => Witness m (Both (rewrite starts, next in ran) after)
@@ -285,8 +289,7 @@ theorem runsEscapeSegment ∀ (escaped: Char) (rest: List Char)
           rest
           escaped
           (Parse.runsSatisfy "'\"', '\\' or 'n' after '\\'" isEscaped escaped rest allowed))
-    match core state starts honest with
-      | Witness m (Both ran after) => Witness m (Both (rewrite starts in ran) after)
+    match core state starts honest with | Witness m (Both ran after) => Witness m (Both (rewrite starts in ran) after)
 
 --| A string's plain run: characters up to a quote, a backslash or the end
 --| of the line.
@@ -370,19 +373,15 @@ theorem runsStringLexeme ∀ (steps: List (List Char, ())) (rest: List Char)
 
 --| An instance: the string `"a\n"`, a plain run and an escape.
 theorem runsStringExample ∀ (rest: List Char):
-    Parse.Runs
-      (() => lexemeAt (['"', 'a', '\\', 'n', '"'] ++ rest))
-      ['"', 'a', '\\', 'n', '"']
-      rest
-      StringLexeme :=
-  runsStringLexeme [(['a'], ()), (['\\', 'n'], ())] rest
+    Parse.Runs (() => lexemeAt (['"', 'a', '\\', 'n', '"'] ++ rest)) ['"', 'a', '\\', 'n', '"'] rest StringLexeme :=
+  runsStringLexeme
+    [(['a'], ()), (['\\', 'n'], ())]
+    rest
     (Both
       (same => cases)
       (Both
         (runsPlainSegment 'a' [] (['\\', 'n', '"'] ++ rest) rfl rfl rfl)
-        (Both
-          (same => cases)
-          (Both (runsEscapeSegment 'n' (['"'] ++ rest) rfl) (stringSegmentDeclines rest)))))
+        (Both (same => cases) (Both (runsEscapeSegment 'n' (['"'] ++ rest) rfl) (stringSegmentDeclines rest)))))
 
 -- The whole source, and the tokens made of its lexemes.
 
@@ -429,9 +428,8 @@ theorem addSpaces ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located
 theorem addLineBreak ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
     (isBreak: lexeme.value = LineBreak):
     assembly.add source lexeme
-      = {
-        assembly
-        | pending = if assembly.lineEmpty then addBlank assembly.pending else assembly.pending,
+      = { assembly |
+        pending = if assembly.lineEmpty then addBlank assembly.pending else assembly.pending,
         lineStart = lexeme.offset + 1,
         lineEmpty = True
       } :=
@@ -450,9 +448,8 @@ theorem addTrailingComment ∀ (assembly: Assembly) (source: Text) (lexeme: Pars
     (isComment: lexeme.value = CommentLexeme)
     (afterCode: assembly.lineEmpty = False):
     assembly.add source lexeme
-      = {
-        assembly
-        | tokens = withTrailing assembly.tokens {
+      = { assembly |
+        tokens = withTrailing assembly.tokens {
           value = { text = cut source lexeme },
           offset = lexeme.offset,
           length = lexeme.length
@@ -466,9 +463,8 @@ theorem addTrailingComment ∀ (assembly: Assembly) (source: Text) (lexeme: Pars
 theorem addCode ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme)
     (code: isCode lexeme.value = True):
     assembly.add source lexeme
-      = {
-        assembly
-        | tokens = [
+      = { assembly |
+        tokens = [
           {
             value = {
               kind = lexemeKind lexeme.value (cut source lexeme),

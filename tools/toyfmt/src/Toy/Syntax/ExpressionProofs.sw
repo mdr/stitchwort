@@ -1127,7 +1127,10 @@ theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Loca
   match expr with
     | If condition whenTrue whenFalse =>
       match spelled with
-        | Witness ifToken (Witness conditionTokens (Witness thenToken (Witness trueTokens (Witness elseToken (Witness falseTokens (Both split (Both isIfToken others))))))) =>
+        | Witness ifToken
+            (Witness conditionTokens
+              (Witness thenToken
+                (Witness trueTokens (Witness elseToken (Witness falseTokens (Both split (Both isIfToken others))))))) =>
           Witness ifToken
             (Witness
               (conditionTokens ++ [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]])

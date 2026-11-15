@@ -1258,7 +1258,9 @@ theorem Parse.runsFromWhole ∀ (chars: List t) (p: () → {Parse t} a) (v: a)
       value)
     chars
     v
-    (Parse.runsFromBindAt (Parse.State.start chars) p
+    (Parse.runsFromBindAt
+      (Parse.State.start chars)
+      p
       (value =>
         Parse.end()
         value)
