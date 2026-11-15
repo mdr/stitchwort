@@ -1,5 +1,5 @@
 {
-  "next": 3381,
+  "next": 3383,
   "tickets": [
     {
       "id": 47,
@@ -37423,12 +37423,12 @@
     {
       "id": 3378,
       "title": "[Opus paper] Std Args: a command-line library (options as a record with names, defaults, help; parse, usage text and errors generated; maybe on generic Parse over argument tokens); first users toyfmt and the self-hosted formatter (stitchwort fmt's options)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt, 15 Nov 2026: \"Yeah, I think an Args library might be quite nice.\" Paper lane. Expected: 1.5 h (Opus).\n\nProgress (lane, 15 Nov): draft 1 in docs/proposals/args.md (uncommitted, in the main checkout). Record-driven options (derived `Args.Command` from an `@[args.command]` record) over applicative combinators (`Args.Spec`, prototype checked in scratchpad); pure `Args.parse`, errors as values, generated usage/--help, exit 1 until SW-3345 then 2. Stages A1 combinators (Sonnet 3-4 h), A2 derive (Opus 4-6 h), A3 subcommands/short/did-you-mean (Sonnet 3 h), A4 proofs (2-4 h). Open: D3614 (record form, rec yes), D3615 (help from --| docs, rec yes). Finding: unannotated lambda into a generic param fixed only by a later pipe is E-TYPE-MISMATCH against ?0.\n",
+      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\". Record form (A2) and D3615 dropped for now; A1 is SW-3381; the general mechanism is SW-3382 (backlog).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37455,6 +37455,32 @@
       "labels": [],
       "epic": "std-library",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3381,
+      "title": "[Sonnet] Args stage A1 (args.md §3.2, D3614): the combinator layer as pure library code: Args.Spec, flag/option/arguments, value readers, --x=v, --, --help, exact errors, usage and help text, Args.parse (pure) and Args.run; tests, guide, syntax.md; move toyfmt's Cli.sw onto it. No compiler changes",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\" Expected: 3.5 h (Sonnet). Next build slot.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3382,
+      "title": "[Opus paper] A general way for libraries to derive code from a type's shape (macros? a derived description of a record's fields?), so things like Args' record form, JSON encoders or config readers are ordinary library code, not compiler special cases. Backlog per D3614",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\"",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
