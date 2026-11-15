@@ -214,6 +214,10 @@ pub(crate) struct Decl {
     /// (docs/proposals/text-patterns.md §4.4). Cleared per declaration, like
     /// [`Self::char_patterns`].
     pub(crate) text_spans: RefCell<HashMap<Span, Span>>,
+    /// The text patterns that fixed a column of a type not yet known to
+    /// `Text`, so that a later mismatch of `Text` with something else can
+    /// point at them (SW-3295). Cleared per declaration.
+    pub(crate) text_fallbacks: RefCell<Vec<Span>>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
@@ -317,6 +321,7 @@ impl Decl {
             tuple_matches,
             char_patterns,
             text_spans,
+            text_fallbacks,
             guard_nodes,
             errors_only,
             coverage_only,
@@ -364,6 +369,7 @@ impl Decl {
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("text_spans", text_spans.borrow().is_empty()),
+            ("text_fallbacks", text_fallbacks.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),

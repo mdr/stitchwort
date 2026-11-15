@@ -5897,6 +5897,11 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let known = Value::Data(*d, params.into());
                 if cx.unify(&ty, &known)? {
                     ty = known;
+                    if Some(*d) == g.env.registry().data(Builtin::Text)
+                        && cx.e.decl.text_spans.borrow().get(pattern) == Some(pattern)
+                    {
+                        cx.e.decl.text_fallbacks.borrow_mut().push(*pattern);
+                    }
                 }
             }
             let params = match ty {
@@ -6020,16 +6025,29 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             match force(&g, cx.types[*x].clone())? {
                 Value::Data(d, params) if Some(d) == nat && params.is_empty() => {}
                 other => {
+                    let unknown = matches!(other, Value::Neutral(Head::Meta(_), _));
                     let mut e = error(
                         "E-TYPE-MISMATCH",
                         *span,
-                        format!(
-                            "these patterns match a `Nat`, but the argument has type `{}`",
-                            cx.show(&other)
-                        ),
+                        if unknown {
+                            "these patterns match a `Nat`, but the argument's type isn't known here"
+                                .to_string()
+                        } else {
+                            format!(
+                                "these patterns match a `Nat`, but the argument has type `{}`",
+                                cx.show(&other)
+                            )
+                        },
                     );
                     if let Some(note) = quot::match_note(&other) {
                         e = e.with_note(note);
+                    }
+                    if unknown {
+                        e = e.with_note(
+                            "the type isn't known where the match is checked, so a number \
+                             pattern is read as a `Nat`: annotate the matched value's type \
+                             (`(x : Int)`) if it should be another",
+                        );
                     }
                     return Err(e);
                 }

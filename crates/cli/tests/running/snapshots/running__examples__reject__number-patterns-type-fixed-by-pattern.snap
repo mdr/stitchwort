@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: these patterns match a `Nat`, but the argument's type isn't known here
+   ╭─[ reject/number-patterns-type-fixed-by-pattern.sw:5:12 ]
+   │
+ 5 │   let f := match | 1 => 1 | _ => 0
+   │            ───────────┬───────────  
+   │                       ╰───────────── these patterns match a `Nat`, but the argument's type isn't known here
+   │ 
+   │ Note: the type isn't known where the match is checked, so a number pattern is read as a `Nat`: annotate the matched value's type (`(x : Int)`) if it should be another
+───╯
