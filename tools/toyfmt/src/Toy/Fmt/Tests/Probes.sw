@@ -101,20 +101,15 @@ def probes: List Probe :=
             x
         ) = x
         """ },
-    {
-      name = "a trailing comment after a header's )",
-      source = """
-        fn f(x) -- after the header
-          = x
-        """,
-      dump = "(fn f (x){ after -- after the header } (body (bare (var x))))\n",
-      formatted = """
+    { name = "a trailing comment after a header's )", source = """
+      fn f(x) -- after the header
+        = x
+      """, dump = "(fn f (x){ after -- after the header } (body (bare (var x))))\n", formatted = """
         fn f(
             x
         ) -- after the header
           = x
-        """
-    },
+        """ },
     {
       name = "an own-line comment before ]",
       source = """
@@ -146,21 +141,16 @@ def probes: List Probe :=
           y
         """
     },
-    {
-      name = "an own-line comment before an operator",
-      source = """
-        let y = a
-          -- own-line before +
-          + b
-        """,
-      dump = "(let y (body (bare (+{ above -- own-line before + } (var a) (var b)))))\n",
-      formatted = """
+    { name = "an own-line comment before an operator", source = """
+      let y = a
+        -- own-line before +
+        + b
+      """, dump = "(let y (body (bare (+{ above -- own-line before + } (var a) (var b)))))\n", formatted = """
         let y =
           a
             -- own-line before +
             + b
-        """
-    },
+        """ },
     {
       name = "own-line comments before then and else",
       source = """
@@ -180,45 +170,30 @@ def probes: List Probe :=
           else c
         """
     },
-    {
-      name = "a trailing comment before )",
-      source = """
-        let y = (a -- before )
-          )
-        """,
-      dump = "(let y (body (bare (bracketed (var a{ after -- before ) })))))\n",
-      formatted = """
+    { name = "a trailing comment before )", source = """
+      let y = (a -- before )
+        )
+      """, dump = "(let y (body (bare (bracketed (var a{ after -- before ) })))))\n", formatted = """
         let y =
           (a -- before )
           )
-        """
-    },
-    {
-      name = "a trailing comment after .",
-      source = """
-        let y = order. -- after .
-          items
-        """,
-      dump = "(let y (body (bare (field (var order){ after -- after . } items))))\n",
-      formatted = """
+        """ },
+    { name = "a trailing comment after .", source = """
+      let y = order. -- after .
+        items
+      """, dump = "(let y (body (bare (field (var order){ after -- after . } items))))\n", formatted = """
         let y =
           order. -- after .
             items
-        """
-    },
-    {
-      name = "a trailing comment after a unary -",
-      source = """
-        let y = - -- after unary minus
-          x
-        """,
-      dump = "(let y (body (bare (negate{ after -- after unary minus } (var x)))))\n",
-      formatted = """
+        """ },
+    { name = "a trailing comment after a unary -", source = """
+      let y = - -- after unary minus
+        x
+      """, dump = "(let y (body (bare (negate{ after -- after unary minus } (var x)))))\n", formatted = """
         let y =
           - -- after unary minus
             x
-        """
-    },
+        """ },
     {
       name = "a trailing comment after a comma",
       source = """
@@ -251,34 +226,24 @@ def probes: List Probe :=
           )
         """
     },
-    {
-      name = "an own-line comment above a body",
-      source = """
+    { name = "an own-line comment above a body", source = """
+      let y =
+        -- above the body
+        x + 1
+      """, dump = "(let y (body (note -- above the body) (bare (+ (var x) (number 1)))))\n", formatted = """
         let y =
           -- above the body
           x + 1
-        """,
-      dump = "(let y (body (note -- above the body) (bare (+ (var x) (number 1)))))\n",
-      formatted = """
-        let y =
-          -- above the body
-          x + 1
-        """
-    },
-    {
-      name = "a trailing comment after fn",
-      source = """
-        fn -- after fn
-          f(x) = x
-        """,
-      dump = "(fn{ after -- after fn } f (x) (body (bare (var x))))\n",
-      formatted = """
+        """ },
+    { name = "a trailing comment after fn", source = """
+      fn -- after fn
+        f(x) = x
+      """, dump = "(fn{ after -- after fn } f (x) (body (bare (var x))))\n", formatted = """
         fn -- after fn
           f(
             x
         ) = x
-        """
-    },
+        """ },
     {
       name = "an if's trailing comment before )",
       source = """
