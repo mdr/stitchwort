@@ -1,5 +1,5 @@
 {
-  "next": 3324,
+  "next": 3327,
   "tickets": [
     {
       "id": 47,
@@ -36661,6 +36661,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3324,
+      "title": "[Opus] Nested matches in proofs: an inner arm inside an outer catch-all keeps the outer case's shape and counts only its own cases (5 where there are 10); combine the arm-as-written display across nesting (SW-3317 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3325,
+      "title": "[Sonnet] Arm-as-written display gaps (SW-3317 review): holes under a lambda or inside an application show the arm's context against one case's goal with no note; indexed-family splits not recorded; or-pattern arms show only the first alternative",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3326,
+      "title": "[Sonnet] examples/goals/reify-return goal 1 (toResultThenGoal2): the printed lemma doesn't check when pasted back, so lemmas_check_as_the_same_goal fails on main (SW-3317 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
