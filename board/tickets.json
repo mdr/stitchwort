@@ -1,5 +1,5 @@
 {
-  "next": 3439,
+  "next": 3442,
   "tickets": [
     {
       "id": 47,
@@ -37953,12 +37953,12 @@
     {
       "id": 3418,
       "title": "[Opus] Toy formatter: prove the printer correct directly (Matt, 15 Nov 2026: the ambition is no run-time check because the behaviour is proved), so format can drop its re-parse: parse (print t) gives t back for every tree the parser produces, at any width; experiment with a 3 h stop; report what it takes and an estimate for the real formatter",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 15 Nov 2026, on the goal: \"proving the toy printer's correctness directly is a good ambition ... if a program can be parsed, so it's a valid program, then it should be the same program before and after. Formatting for some concept of sameness ... presumably it's going to be the same AST ... idempotence is another key property which I think we want a formatter.\" So the target theorems: (1) for every program the parser accepts, format's output parses to the same program (the erased tree in the toy); (2) idempotence; no run-time re-parse.\n\nEscalation (Matt, 15 Nov 2026): if Opus gets stuck, rerun on Fable from the lane's branch (\"if it gets stuck, we might want to sort of throw Fable at it\").",
+      "body": "Matt, 15 Nov 2026, on the goal: \"proving the toy printer's correctness directly is a good ambition ... if a program can be parsed, so it's a valid program, then it should be the same program before and after. Formatting for some concept of sameness ... presumably it's going to be the same AST ... idempotence is another key property which I think we want a formatter.\" So the target theorems: (1) for every program the parser accepts, format's output parses to the same program (the erased tree in the toy); (2) idempotence; no run-time re-parse.\n\nEscalation (Matt, 15 Nov 2026): if Opus gets stuck, rerun on Fable from the lane's branch (\"if it gets stuck, we might want to sort of throw Fable at it\").\n\nLane (Opus, 15 Nov 2026, 14:36-15:30, estimate 3 h): branch lane/SW-3418, 8 commits c1b978762..5f8006bb0. Plan and full write-up in tools/toyfmt/NOTES.md, \"Proving the printer directly (SW-3418)\".\n\nProved (no goals, no axioms; `stitchwort audit Toy`: 96 theorems, 0 failed, 6 pre-existing warnings; each checked to fail when its rule is broken):\n- LayoutProofs.sw: statements and laid-out declarations break at their own column only before else, ) or ] (statementScan, declarationScan).\n- CommentProofs.sw: in the rules' documents every trailing comment is followed by a line break before any text, whichever way groups/choices/fills go; a doc ends with a comment waiting exactly when its tree does (exprSuffix, statementSuffix, declarationSuffix).\n- ParserProofs.sw: a name token reads back as Var; suffixes stop at a token that isn't ( or . (runsAtomName, runsSuffixesEnd).\n- Doc/Proofs.sw: print's 3*size+3 is enough for the printer's steps and for every fits it asks (printBudgetEnough).\n\nBugs found and fixed, each with a test that fails without the fix: `- -x` printed `--x` (a comment); a comma or bracket after an if's trailing comment went inside the comment; the engine's fits ignored a comment already waiting. The first two were Refused at run time by the re-parse; the third is unreachable from the rules.\n\nNot done: the round-trip theorem itself, so format keeps its re-parse and there's no formatDirect. lexCovers stays as is (proving it is part of the lexing layer, about a day). Left: engine suffix simulation 2-4 d, lexing 2-4 d, reading the layout back 0.5-1 d, parser read-back 4-8 d (gated on a std Parse.operators Runs lemma, 3-6 h), parser-tree WF 2-4 d (or a 0.5 d run-time walk), glue 0.5 d: about 2-4 weeks for the toy; real formatter roughly 2-4 months [estimated, very low confidence].\n\nPart 1 merged (orchestrator, 15:40): proofs of block layout, comment placement (rules' side), engine budget, name read-back; three printer bugs fixed with tests. Main theorem not proved; Opus estimate 2-4 weeks for the toy (low confidence; the toy's estimates ran ~8x high). Findings: SW-3439, SW-3440, SW-3441. Next: Fable continues from main (Matt: 'if it gets stuck, we might want to sort of throw Fable at it').",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38253,6 +38253,45 @@
       ],
       "epic": "proof-automation",
       "body": "From the SW-3429 retest (main binary, 15 Nov 2026). Both halves of SW-954 item 1 still fail; day 6's `oneTimer` still uses `Succ (Succ (… above))` (aoc/src/Aoc/Year2021/Day06/Proofs/Proofs.sw:97-117). SW-1550 and SW-3335 fixed neighbouring things (Int comparisons as atoms; catch-all facts for `byDecision`/`auto`).\n\nRepro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3429/item4.sw\n\n```stitchwort\nimport Std (Bool, Nat)\n\ntheorem oneTimerCases ∀ (x: Nat) (bounded: x ≤ 8):\n    Bool.toNat (x == 0) + Bool.toNat (x == 1) + Bool.toNat (x == 2) + Bool.toNat (x == 3)\n      + Bool.toNat (x == 4) + Bool.toNat (x == 5) + Bool.toNat (x == 6) + Bool.toNat (x == 7)\n      + Bool.toNat (x == 8) = 1 :=\n  cases\n\ntheorem oneTimerWild ∀ (x: Nat) (bounded: x ≤ 8):\n    Bool.toNat (x == 0) + Bool.toNat (x == 1) + Bool.toNat (x == 2) + Bool.toNat (x == 3)\n      + Bool.toNat (x == 4) + Bool.toNat (x == 5) + Bool.toNat (x == 6) + Bool.toNat (x == 7)\n      + Bool.toNat (x == 8) = 1 :=\n  match x with\n    | 0 => rfl\n    | 1 => rfl\n    | 2 => rfl\n    | 3 => rfl\n    | 4 => rfl\n    | 5 => rfl\n    | 6 => rfl\n    | 7 => rfl\n    | 8 => rfl\n    | _ => omega\n```\n\n- `oneTimerCases`: `E-CASES-BUDGET`, \"it split on 9: `(x.decEq 0).holds`, `x.equal 1`, …\"; the first open case has `x.equal 3 = True, x.equal 4 = True, …` together (two `Yes` splits that exclude each other). Fix: after a `Yes` split of `x.decEq k` substitute `x = k`, so the later splits compute (or give `cases` the congruence step of SW-904).\n- `oneTimerWild`: `E-OMEGA`, \"facts: `x ≤ 8` (bounded)\", model `x = 0`. The `_` arm's `x ≠ 0 … x ≠ 8` marks (SW-3335) aren't visible to `omega`, as docs/syntax.md says (\"the facts aren't hypotheses with names\"). A smaller repro: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/sw3429/item4c.sw (`wildOmega` fails; `wildLet`, which adds `let n0: x ≠ 0 := byDecision` per literal, checks). Fix: have `omega` read the arm's catch-all marks as facts (`x ≠ k`), so the wildcard needs no `Succ`×9 pattern or `byDecision` lets.\n",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3439,
+      "title": "[Sonnet] Spurious W-ARROW-FORALL on every theorem name ∀ (x: T) … (68 on Toy.Fmt.Proofs) (SW-3418 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3440,
+      "title": "[Opus] Std completeness lemmas for Parse.operators, recursiveWith, lastRead, locatedToEnd: what each accepts it reads back (gates SW-3418's parser read-back) (SW-3418 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3441,
+      "title": "[Sonnet] SW-3418 friction: inner match over list patterns with record fields gets stuck; rewrite … at needs a local name (bind a proof term with let first); omega 'needs to know the goal' when a lemma's bound argument is passed as _",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
