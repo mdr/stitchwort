@@ -35837,14 +35837,14 @@
     {
       "id": 3265,
       "title": "[Sonnet] 'return _' isn't accepted in 'match reify' (E-PARSE) (SW-3262 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
