@@ -1,5 +1,5 @@
 {
-  "next": 3320,
+  "next": 3321,
   "tickets": [
     {
       "id": 47,
@@ -36282,14 +36282,14 @@
     {
       "id": 3296,
       "title": "[Sonnet] T2 prep (SW-3280 findings): the remaining mark read-backs absurd_in, or_with_absurd, rewrite_membership, callable_paren, lowered() move to strict marks in T2; parser.rs module doc still says the parser decides 'from the tokens and the marks so far'; atom_base's comment says atom is its only caller but brace_argument calls it too (T3 comment sweep)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36557,15 +36557,17 @@
     {
       "id": 3316,
       "title": "[Sonnet] T3 of parser-end-state.md: housekeeping after strict marks: entry points and module assembly out of parser.rs; failed-name scanning in its own module; grammar tests rewritten as tree dumps, the rest moved to lower/ (with SW-3244); the comments in §6; signature_kept and its flags if S1 left them; plus SW-3296's comment fixes (parser.rs module doc 'from the tokens and the marks so far'; atom_base's 'only caller')",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "parser-end-state.md T3: any time after T1 (SW-3280, merged). Sonnet, reviewed by the orchestrator. Expected: 3.5 h.\n\nLane notes (branch lane/SW-3316, three commits):\n- Entry points, module assembly and the which-error-wins rule moved to crates/syntax/src/parser/entry.rs; failed-name scanning to parser/failed_names.rs. Public paths unchanged (parser re-exports).\n- The 170 grammar-and-lowering tests left parser.rs: 168 to lower/tests/ (blocks, declarations, exprs, lambdas, matching, operators, patterns, proofs, recovery, with shared helpers in lower/tests.rs), 2 parser internals to parser/tests.rs, 2 marks/assembly tests to parser/entry/tests.rs. Plus 24 new tree-dump tests in parser/tests.rs (SW-3244's dumps for the key constructs). Syntax crate: 311 pass (287 before).\n- Comments in section 6 and SW-3296's two fixes (module doc, atom_base's callers) done; lane/stage/step history removed.\n- signature_kept, keep_header and header_kept are NOT removed: the lowering still reads signature_kept for a definition whose header parsed and body didn't (lower.rs). Not unused.\n- Dump check: dev tree --print over std, aoc/src, games, examples identical before and after (27,797,251 bytes). reject examples (recover, parse, syntax), fuzz:syntax 200000, fmt tests, clippy: pass.\n- Not done: rewriting each of the 168 moved tests as a dump (they assert on the compiler's tree, so they belong with the lowering; the dumps cover the grammar), T2.\n",
+      "body": "parser-end-state.md T3. Expected 3.5 h (Sonnet), ~40 min. Gate: dev tree --print over std, aoc, games, examples byte-identical (27.8 MB); syntax tests 287 -> 311 (none lost, 24 dump tests added). SW-3244 partly covered (moved tests not rewritten as dumps). signature_kept still used. SW-3296's comment items done; its read-backs are T2's. Model result: Sonnet, worked, ~40 min (est. 210). Filed SW-3320.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "f5f328c9732a97bb42f55b7a112483a0d5806e9c"
+      ]
     },
     {
       "id": 3317,
@@ -36596,6 +36598,19 @@
     {
       "id": 3319,
       "title": "[DeepSeek] Guide 03-data.md:113 says 'as above' under a record now on one line (after the 14 Nov reformat); reword (SW-3298 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3320,
+      "title": "[DeepSeek] Docs citing parser.rs line ranges are stale after T3 (SW-3316): parser-end-state.md §6 table and others; point them at functions or the new modules",
       "status": "backlog",
       "agent": "",
       "where": "",
