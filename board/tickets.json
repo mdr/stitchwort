@@ -1,5 +1,5 @@
 {
-  "next": 3322,
+  "next": 3323,
   "tickets": [
     {
       "id": 47,
@@ -36633,6 +36633,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3322,
+      "title": "[Sonnet] Goal-at-point panics (MetaStore::solution out of bounds) after an undone speculative attempt: undo::Snapshot doesn't restore the probe's pending context (SW-3311 review S1 part 2, probe w2.sw in scratchpad/sw3311-review); the language server catches it but shows no answer",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
