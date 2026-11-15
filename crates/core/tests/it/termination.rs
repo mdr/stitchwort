@@ -974,3 +974,106 @@ fn a_one_field_wrapper_around_a_part_of_data_is_smaller() {
     });
     assert_eq!(code(r), "ok");
 }
+
+/// `f (b: W) = case b of MkW x -> case x of Zero -> MkW Zero; Succ n -> f
+/// (MkW n)`, with `W` (one field, a number) in `sort` and `f : W → W`.
+fn squash_descent(sort: Sort) -> &'static str {
+    let mut p = Prelude::new();
+    let (nat, z) = (p.nat, zero(&p));
+    let nat_ty = p.nat_ty();
+    let w = data(&mut p.g, "W", vec![], sort);
+    check::define_ctors(&mut p.g, w, vec![ctor("MkW", vec![("x", nat_ty)])]).unwrap();
+    let w_ty = Term::Data(w, vec![]);
+    let r = define_rec(&mut p, "f", arrow(w_ty.clone(), w_ty), |f| {
+        lam(
+            "b",
+            case(
+                0,
+                w,
+                vec![(
+                    vec!["x"],
+                    case(
+                        0,
+                        nat,
+                        vec![
+                            (vec![], Term::ctor(w, 0, vec![z])),
+                            (vec!["n"], app(f, [Term::ctor(w, 0, vec![v(0)])])),
+                        ],
+                    ),
+                )],
+            ),
+        )
+    });
+    code(r)
+}
+
+#[test]
+fn a_one_field_wrapper_whose_type_is_a_proposition_is_not_smaller() {
+    // A squash (reject/termination-wrapper-squash.sw): `MkW`'s field is
+    // data, but `W` is a proposition, so every `MkW x` is the same proof to
+    // the kernel. The same definition with `W` in `Type` is accepted.
+    assert_eq!(squash_descent(Sort::Prop), "E-TERMINATION");
+    assert_eq!(squash_descent(Sort::Type(0)), "ok");
+}
+
+/// `Box (a: Type) = MkBox (x: a)` in `sort`, `R = MkR (tag: Nat) (pf: Box
+/// R)`, `W = MkW (r: R)` and `Loop: Prop = MkLoop (next: Loop)`, then `g (b:
+/// W): Loop = case b of MkW r -> case r of MkR tag pf -> case pf of MkBox x
+/// -> g (MkW x)`.
+fn chain_through_field(sort: Sort) -> &'static str {
+    let mut p = Prelude::new();
+    let bx = data(&mut p.g, "Box", vec![("a", ty())], sort);
+    check::define_ctors(&mut p.g, bx, vec![ctor("MkBox", vec![("x", v(0))])]).unwrap();
+    let r = data(&mut p.g, "R", vec![], Sort::Type(0));
+    let r_ty = Term::Data(r, vec![]);
+    let nat_ty = p.nat_ty();
+    check::define_ctors(
+        &mut p.g,
+        r,
+        vec![ctor(
+            "MkR",
+            vec![
+                ("tag", nat_ty),
+                ("pf", Term::Data(bx, vec![Rc::new(r_ty.clone())])),
+            ],
+        )],
+    )
+    .unwrap();
+    let (lp, w) = loop_and_wrapper(&mut p, |_| r_ty);
+    let ty = arrow(Term::Data(w, vec![]), Term::Data(lp, vec![]));
+    let res = define_rec(&mut p, "g", ty, |g| {
+        lam(
+            "b",
+            case(
+                0,
+                w,
+                vec![(
+                    vec!["r"],
+                    case(
+                        0,
+                        r,
+                        vec![(
+                            vec!["tag", "pf"],
+                            case(
+                                0,
+                                bx,
+                                vec![(vec!["x"], app(g, [Term::ctor(w, 0, vec![v(0)])]))],
+                            ),
+                        )],
+                    ),
+                )],
+            ),
+        )
+    });
+    code(res)
+}
+
+#[test]
+fn a_one_field_wrapper_around_a_part_reached_through_a_proof_field_is_not_smaller() {
+    // reject/termination-wrapper-through-proof.sw: `x` is reached from
+    // `MkW`'s field through `pf`, a proof, so it's a part of a proof and not
+    // a strict part for the wrapper rule. The same chain with `Box` in
+    // `Type` is accepted.
+    assert_eq!(chain_through_field(Sort::Prop), "E-TERMINATION");
+    assert_eq!(chain_through_field(Sort::Type(0)), "ok");
+}

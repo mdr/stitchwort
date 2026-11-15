@@ -36,7 +36,8 @@
 //!   field is relevant data (not a proof or a type), and `u` is reached from
 //!   `v` by one or more matched fields of relevant data, never through a
 //!   proof, a lambda's variable, a `let` or another function's result (after
-//!   `MkText [c, ..r]`, `MkText r`; see "Relevant data only").
+//!   `MkText [c, ..r]`, `MkText r`; see "Relevant data only"). `s` itself
+//!   may have been reached through a proof, by the first rule.
 //! - **`≤`**: parameter `i` itself, or the constructor of a match on parameter
 //!   `i` itself, rebuilt exactly as above. Both are equal to the parameter.
 //! - **unknown**: anything else, including lambda-bound variables, other
@@ -55,7 +56,8 @@
 //! field, a field of a field and so on, and a recursive function field
 //! applied are below; a rebuilt constructor is equal; a one-field `C u` is
 //! rank(`u`) + 1, below rank(`v`) + 1 = rank(`s`) when `u` is strictly
-//! inside `v`. Evidence comes from the terms of one particular value, never
+//! inside `v`. The last two hold only up to proof positions: see "Two
+//! orders". Evidence comes from the terms of one particular value, never
 //! from a relation computed from the data types. So for
 //! a nested type (`Packets (items: List Packet)`), that `Packet`, `List
 //! Packet` and `Packet` again repeat in the *types* doesn't matter: for
@@ -74,6 +76,40 @@
 //! a private copy of each container), whose values are well founded; that
 //! isomorphism is the usual constructor-for-constructor relabelling,
 //! believed but not proved for Stitchwort (nested-data-types.md §6.3, C1).
+//!
+//! **Two orders** (docs/reviews/SW-3412-text-rest-relanded.md §3, F1;
+//! docs/reviews/SW-3376-wrapper-rule-soundness.md F2). Rank as above is read
+//! on the terms the kernel evaluates, proofs included: *term rank*.
+//! *Relevant rank* is the same height with every proof position counted as
+//! nothing: what conversion can see, and what a run sees after erasure. The
+//! plain field rule keeps term rank. A rebuilt constructor, and with it the
+//! one-field rule, keep only relevant rank: a field pinned by a later
+//! field's type may be any term ([`Walker::rebuilt`]), and where the pinning
+//! type takes it at a proof position, which comparison skips, the rebuilt
+//! value can hold anything there. In
+//! `examples/accept/termination-pinned-proof-replaced.sw`, `f (MkW (Mk
+//! (MkAny (MkW (In (In (Mk p x))))) x))` from `f (MkW (In (Mk p x)))` is
+//! recorded `<`: its relevant rank is lower, but its term rank is higher,
+//! since the proof holds a value bigger than the argument. The two orders
+//! can be mixed only because a value put into a pinned proof never comes
+//! back onto the thread: taking it out would need the proof's type to be
+//! able to hold the type being matched, and a pinned field's type can't
+//! mention that type or its group, directly (`E-POSITIVITY`: no field
+//! depends on an earlier one that holds a member) or through nesting
+//! (nestable parameters, conditions 2 and 5); a proposition that hides the
+//! type (`MkAny [a: Type] (x: a)`) gives back a value of an unknown type,
+//! and types are never taken apart. So **termination depends on those
+//! positivity rules**: without them a looping definition passes, every call
+//! recorded smaller (`examples/soundness/termination-relies-on-positivity-*.sw`;
+//! with the direct rule and condition 2 both removed by hand, 01 and 04 are
+//! accepted and `rfl` on 04 never finishes; `reject/termination-rebuilt-pinned-proof.sw`
+//! is a refused loop whose error names such a false `<`). Which order
+//! counts: a function that returns data takes apart only proofs whose
+//! fields are all proofs (`E-PROP-ELIM`, D1980), so every data argument it
+//! passes was reached through data, and relevant rank decides; a function
+//! that returns a proof never runs, and the kernel's evaluation of it ends
+//! by term rank on closed proofs (it never swaps one proof for another) and
+//! at a stuck `case` on open ones.
 //!
 //! **On open terms** (the unfolding policy, docs/core.md), an accepted cycle
 //! can't unfold for ever, but not because some `case` on the way is always
@@ -110,9 +146,16 @@
 //! must agree with conversion). The same goes for a part reached through a
 //! proof anywhere on the way from `v` to `u`: it's a part of a proof. So
 //! the one field and every step from `v` to `u` must be a field of relevant
-//! data ([`Binder::relevant`]). The other condition stays as it was, every
+//! data ([`Binder::relevant`]): the wrapper's own shrinking must be visible
+//! in data. Where `s` sits needn't be: it may be inside a proof, reached
+//! from the parameter by the plain field rule
+//! (`examples/accept/termination-wrapper-inside-proof.sw`). That's harmless,
+//! since a match on a proof's data field can only produce a proof
+//! (`E-PROP-ELIM`), so the function returns a proof and never runs, and the
+//! kernel evaluates it only on a proof it holds, where `s` really is a
+//! part. The other condition stays as it was, every
 //! field counting towards "one field", proofs included: the rank argument
-//! needs rank(`C u`) = rank(`u`) + 1 on the terms, and a field of a proof is
+//! needs rank(`C u`) = rank(`u`) + 1 in both orders, and a field of a proof is
 //! a part of its value for the plain rule, so a proof beside `u` can carry a
 //! bigger value back (`examples/reject/termination-wrapper-proof-beside.sw`
 //! loops if `MkD xs q` counts as one field). Recursion on a proof itself
