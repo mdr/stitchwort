@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNIVERSE] Error: universe mismatch
+    ╭─[ reject/termination-wrapper-type-parameter-prop.sw:12:13 ]
+    │
+ 12 │ def f (b: W Loop): Void := match b with
+    │             ──┬─  
+    │               ╰─── expected something of type `Type`, but this has type `Prop`
+    │ 
+    │ Note: `Type n` lives in `Type (n+1)`; allowing `Type: Type` would make the logic inconsistent
+────╯

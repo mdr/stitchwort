@@ -96,14 +96,6 @@ def toEmpty: W (List Nat) → Nat
 
 test "toEmpty" := toEmpty (MkW [7]) == 1
 
--- A theorem through a proof field as the one field.
-type Big: Prop = | Stop | More (b: Big)
-type WP: Type = | MkWP (b: Big)
-
-theorem down: WP → Big
-  | MkWP (More q) => down (MkWP q)
-  | MkWP Stop => Stop
-
 -- Text: a second prefix match on the rest, and the rest used under a lambda.
 def abs: Text → Nat
   | "a" ++ rest =>
