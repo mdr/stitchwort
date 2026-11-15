@@ -17,7 +17,7 @@ does not do significant work itself:
   towards the three), writes each lane's
   brief, and starts a background agent for it in its own git worktree and
   branch, using the model that fits the work (below). Lanes use the agent
-  types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not
+  types `sonnet-lane`, `opus-lane` and `fable-lane` (`.claude/agents/`), not
   `general-purpose`, so the agent list says what each one is.
 - It reviews every lane's diff before merging. Reviewed lanes are merged
   as a batch: everything waiting goes into `main` together, then one
@@ -146,8 +146,8 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 - **Fable:** paper lanes on the hardest and most critical questions, where
   a mistake is silent or costly to undo: soundness audits of the kernel,
   reviews of kernel changes, and end-state designs that are hard to reverse
-  (D3473, Matt, 10 Nov 2026). Started as `opus-lane` with the model set to
-  Fable.
+  (D3473, Matt, 10 Nov 2026). Started as `fable-lane`, so the agent list
+  says Fable (Matt, 15 Nov 2026).
 - **Opus:** the hardest, deepest thinking: design decisions and design
   notes, the kernel and soundness, the tricky implementation parts of the
   code base, tricky bugs, specs for other models, and a proof only when it
