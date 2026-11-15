@@ -1,5 +1,5 @@
 {
-  "next": 3369,
+  "next": 3373,
   "tickets": [
     {
       "id": 47,
@@ -37111,12 +37111,12 @@
     {
       "id": 3354,
       "title": "[Opus] Design: derived == and compare for std types (opt-in), so Files' ~60 lines of hand-written instances and similar go (SW-3338 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Paper lane 15 Nov, combined with SW-3358 (derived == for mutually recursive types, the toy formatter's tree). Expected: 1.5 h (Opus).\n\nProgress (lane, 15 Nov 09:53): draft 1 of docs/proposals/derived-equality.md (uncommitted, main checkout). Findings [measured]: three limits are single tests in the derivers (group().len() > 1; known_container = List/Option/Pair, so the toy tree's List (Spaced Statement) also fails; loading_prelude skips std, so Terminal.Size has no ==). Derived Ord is quadratic in constructors: 94 constructors with one field take 13 s / 158 M steps, ~95% Ord (DecEq+Show alone 0.65 s). Rec: keep automatic (D3609), std outside core derives (stage 1, Sonnet 2 h), linear tag+rebuild construction (stage 2, Opus 4 h), mutual groups + any earlier-group container (stage 3, Opus 6 h), toyfmt tests use == (stage 4, Sonnet 30 min). In review.\n",
+      "body": "Paper done; D3609 yes; built as SW-3369-SW-3372.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37299,6 +37299,58 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3369,
+      "title": "[Sonnet] Derived equality stage 1 (derived-equality.md): std types outside the core derive ==, <, ${…}; delete Files' and Key's hand-written instances and their public plumbing; confirm the lazy-loading index and check cache find derived std instances",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Expected: 2 h (Sonnet).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3370,
+      "title": "[Opus] Derived equality stage 2 (derived-equality.md §5.6): derived Ord and DecEq linear in the constructor count (positions first, then fields); profile first; 94 constructors from 13 s to under 1 s",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "Expected: 4 h (Opus).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3371,
+      "title": "[Opus] Derived equality stage 3 (derived-equality.md): derive for types defined together and through any earlier non-indexed data type; < and ${…} refused with a note through a container with its own instance; syntax.md and guide. After stage 2",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3372,
+      "title": "[Sonnet] Derived equality stage 4: toy formatter tests compare trees with == instead of dumps. After stage 3",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
