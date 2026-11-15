@@ -37462,7 +37462,7 @@
     {
       "id": 3381,
       "title": "[Sonnet] Args stage A1 (args.md §3.2, D3614): the combinator layer as pure library code: Args.Spec, flag/option/arguments, value readers, --x=v, --, --help, exact errors, usage and help text, Args.parse (pure) and Args.run; tests, guide, syntax.md; move toyfmt's Cli.sw onto it. No compiler changes",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
