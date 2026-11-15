@@ -4824,7 +4824,13 @@ fn is_interface_type(cx: &Ctx, ty: &Value) -> bool {
 /// (a call, or a name applied to arguments so far), for messages that
 /// print it as `?N` ([`stitchwort_core::globals::Meta::origin`]). The first
 /// recorded origin stays.
-fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term, implicit_ty: Option<(Icit, &Value)>) {
+fn note_origin(
+    cx: &Ctx,
+    meta: &Term,
+    param: &Name,
+    callee: &Term,
+    implicit_ty: Option<(Icit, &Value)>,
+) {
     let Term::Meta(m) = meta.spine().0 else {
         return;
     };
