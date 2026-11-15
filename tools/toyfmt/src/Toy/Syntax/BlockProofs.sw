@@ -755,3 +755,172 @@ theorem parseReads ∀ (source: Text) (lexed: Lexed) (file: SourceFile)
     parse source = Ok file :=
   let whole := Parse.runsWhole lexed.tokens (() => sourceFile source lexed.endTrivia) file runs
   rewrite lexes, whole in rfl
+
+-- An `if` whose branches are each one expression, from its spelling.
+
+theorem operatorOfReserved ∀ (layout: Layout) (level: Nat) (token: Parse.Located Token) (keyword: Keyword)
+    (reserved: token.value.kind = Reserved keyword):
+    operatorOf layout level token = None :=
+  rewrite reserved in rfl
+
+--| A keyword ends an expression: it is no call, field or operator.
+theorem endsAtReserved ∀ (layout: Layout) (token: Parse.Located Token) (keyword: Keyword)
+    (rest: List (Parse.Located Token))
+    (reserved: token.value.kind = Reserved keyword):
+    EndsExpression layout [token, ..rest] :=
+  Both
+    (match allowed: layout.allows token with
+      | True => rewrite reserved in rfl
+      | False => rfl)
+    (rewrite operatorOfReserved layout 1 token keyword reserved,
+        operatorOfReserved layout 2 token keyword reserved,
+        operatorOfReserved layout 3 token keyword reserved,
+        operatorOfReserved layout 4 token keyword reserved,
+        operatorOfReserved layout 5 token keyword reserved,
+        operatorOfReserved layout 6 token keyword reserved in
+      rfl)
+
+--| `body` reads back a body that is one expression, given that `self`
+--| reads the expression.
+theorem runsInlineSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
+    (nested: ReadsNested self bound)
+    (found: Body) (tokens rest: List (Parse.Located Token))
+    (shaped: ShapedInline found)
+    (spelled: SpelledInline layout found tokens)
+    (ends: EndsExpression layout rest)
+    (small: tokens.length < bound):
+    Parse.Runs (() => body self layout) tokens rest found :=
+  match found, shaped, spelled with
+    | { statements = [{ blankBefore, line = Bare value trailing }] }, shaped, Both noBlank (Both trails (Both inline valueSpelled)) =>
+      match spelledStart layout value tokens shaped valueSpelled with
+        | Witness first (Witness others (Both split startKind)) =>
+          let runsValue := nested layout value tokens rest shaped valueSpelled ends small
+          let inline2 := rewrite split at inline in inline
+          let runsValue2 := rewrite split at runsValue in runsValue
+          rewrite noBlank, trails, split in runsBodyInline self layout value first others rest inline2 runsValue2
+
+--| `expressionRule` reads back an `if` whose branches are each one
+--| expression, given that `self` reads the expressions nested in it.
+theorem runsIfSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
+    (nested: ReadsNested self bound)
+    (condition: Expr) (whenTrue whenFalse: Body) (tokens rest: List (Parse.Located Token))
+    (shaped: Shaped (If condition whenTrue whenFalse))
+    (spelled: Spelled layout (If condition whenTrue whenFalse) tokens)
+    (ends: EndsExpression layout rest)
+    (small: tokens.length <= bound):
+    Parse.Runs (() => expressionRule self layout) tokens rest (If condition whenTrue whenFalse) :=
+  match shaped, spelled with
+    | Both conditionShaped (Both trueShaped falseShaped), Witness ifToken (Witness conditionTokens (Witness thenToken (Witness trueTokens (Witness elseToken (Witness falseTokens (Both split (Both isIfToken (Both ifAllowed (Both isThen (Both thenAllowed (Both isElse (Both elseAllowed (Both conditionSpelled (Both trueSpelled falseSpelled)))))))))))))) =>
+      let inner := List.lengthAppend trueTokens [elseToken, ..falseTokens]
+      let outer := List.lengthAppend conditionTokens [thenToken, ..trueTokens ++ [elseToken, ..falseTokens]]
+      let size: tokens.length = Succ (conditionTokens.length + Succ (trueTokens.length + Succ falseTokens.length)) :=
+        rewrite split, outer, inner in rfl
+      rewrite split in
+        runsIf self layout ifToken thenToken elseToken conditionTokens trueTokens falseTokens rest condition whenTrue
+          whenFalse
+          isIfToken
+          ifAllowed
+          isThen
+          thenAllowed
+          isElse
+          elseAllowed
+          (nested layout condition conditionTokens
+            ([thenToken, ..trueTokens ++ [elseToken, ..falseTokens]] ++ rest)
+            conditionShaped
+            conditionSpelled
+            (endsAtReserved layout thenToken ThenKeyword ((trueTokens ++ [elseToken, ..falseTokens]) ++ rest) isThen)
+            (omega [size, small]))
+          (runsInlineSpelled self layout bound nested whenTrue trueTokens
+            ([elseToken, ..falseTokens] ++ rest)
+            trueShaped
+            trueSpelled
+            (endsAtReserved layout elseToken ElseKeyword (falseTokens ++ rest) isElse)
+            (omega [size, small]))
+          (runsInlineSpelled self layout bound nested whenFalse falseTokens rest falseShaped falseSpelled ends
+            (omega [size, small]))
+
+-- A function's parameters.
+
+theorem noneOfNotSome ∀ (found: Option ()) (none: found.isSome = False): found = None := match found, none with
+  | None, none => rfl
+
+theorem commaDeclines ∀ (input: List (Parse.Located Token))
+    (absent: signAhead Comma input = False):
+    Parse.Declines (() => sign InBrackets "','" Comma) input :=
+  match input, absent with
+    | [], absent => Parse.declinesOneEnd "','" (selectAllowed InBrackets (signIs Comma))
+    | [token, ..later], absent =>
+      Parse.declinesOne "','"
+        (selectAllowed InBrackets (signIs Comma))
+        token
+        later
+        (noneOfNotSome (signIs Comma token.value.kind) absent)
+
+--| The rounds of a parameter list after its first name: each a comma and
+--| a name, giving the name.
+def ParameterSteps: (steps: List (List (Parse.Located Token), Text)) → Prop
+  | [] => True
+  | [(read, parameter), ..more] =>
+    (∃ (comma: Parse.Located Token) => ∃ (named: Parse.Located Token) => read = [comma, named]
+      ∧ comma.value.kind = Sign Comma
+      ∧ named.value.kind = Name parameter)
+      ∧ ParameterSteps more
+
+theorem parameterRounds ∀ (steps: List (List (Parse.Located Token), Text)) (rest: List (Parse.Located Token))
+    (spelled: ParameterSteps steps)
+    (ends: signAhead Comma rest = False):
+    Parse.ManyRuns (() => Parse.sepStep (() => name InBrackets) (() => sign InBrackets "','" Comma)) steps rest :=
+  match steps, spelled with
+    | [], spelled =>
+      Parse.declinesSepStep
+        (() => name InBrackets)
+        (() => sign InBrackets "','" Comma)
+        rest
+        (commaDeclines rest ends)
+    | [(read, parameter), ..more], Both (Witness comma (Witness named (Both split (Both isComma isName)))) later =>
+      Both
+        (rewrite split in (same => cases))
+        (Both
+          (rewrite split in
+            Parse.runsSepStep
+              (() => name InBrackets)
+              (() => sign InBrackets "','" Comma)
+              [comma]
+              [named]
+              (Parse.joinReads more ++ rest)
+              parameter
+              (runsSign InBrackets "','" Comma comma ([named] ++ (Parse.joinReads more ++ rest)) isComma rfl)
+              (runsName InBrackets named parameter (Parse.joinReads more ++ rest) isName rfl))
+          (parameterRounds more rest later ends))
+
+--| A function's parameters: a name, then a comma and a name any number
+--| of times, up to a token that is no comma.
+theorem runsParameters ∀ (first: Parse.Located Token) (parameter: Text)
+    (steps: List (List (Parse.Located Token), Text)) (rest: List (Parse.Located Token))
+    (isName: first.value.kind = Name parameter)
+    (spelled: ParameterSteps steps)
+    (ends: signAhead Comma rest = False):
+    Parse.Runs
+      (() => Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma))
+      ([first] ++ Parse.joinReads steps)
+      rest
+      [parameter, ..Parse.stepValues steps] :=
+  Parse.runsSepBy
+    (() => name InBrackets)
+    (() => sign InBrackets "','" Comma)
+    [first]
+    parameter
+    steps
+    rest
+    (runsName InBrackets first parameter (Parse.joinReads steps ++ rest) isName rfl)
+    (parameterRounds steps rest spelled ends)
+
+--| No parameters: the next token is not a name.
+theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Located Token))
+    (notName: nameOf token.value.kind = None):
+    Parse.Runs (() => Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma)) [] [token, ..rest] [] :=
+  Parse.runsSepByNone
+    (() => name InBrackets)
+    (() => sign InBrackets "','" Comma)
+    [token, ..rest]
+    (Parse.declinesOne "a name" (selectAllowed InBrackets nameOf) token rest (rewrite notName in rfl))
