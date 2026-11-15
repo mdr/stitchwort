@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: unknown name `bits`
+   ╭─[ reject/unknown-name-record-field.sw:4:15 ]
+   │
+ 4 │ def x: Nat := bits
+   │               ──┬─  
+   │                 ╰─── not in scope
+───╯

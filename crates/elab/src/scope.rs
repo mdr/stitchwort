@@ -2232,6 +2232,7 @@ impl Elaborator {
                     k.starts_with("Std.")
                         && short(k) == name.text
                         && parent(k).is_some_and(|p| p.contains('.'))
+                        && self.suggests_bare(k)
                 })
                 .collect();
             keys.sort_by_key(|k| self.written_in_full(k));
@@ -2268,6 +2269,35 @@ impl Elaborator {
             }
         }
         d
+    }
+
+    /// Whether a bare unknown name is worth suggesting the library name
+    /// `key` for (SW-3445). A generated field accessor `T.f` is reached
+    /// through a value (`a.f`) or written in full (`T.f`), so it is noise
+    /// where a bare name was meant; likewise a definition living in the
+    /// namespace of a type that isn't at the library's root, such as
+    /// `Parse.OperatorTree.highest`. Constructors and types are always
+    /// worth naming.
+    fn suggests_bare(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((
+                Global::Ctor(..)
+                | Global::Data(..)
+                | Global::Pending(_, crate::library::PendingKind::Ctor)
+                | Global::Pending(_, crate::library::PendingKind::Data),
+                _,
+            )) => return true,
+            Some((Global::Def(_), _)) if self.scope.is_member(key) => return false,
+            _ => {}
+        }
+        if self
+            .library_index()
+            .is_some_and(|index| index.is_accessor(key))
+        {
+            return false;
+        }
+        parent(key)
+            .is_none_or(|p| !self.is_data_key(p) || !p.trim_start_matches("Std.").contains('.'))
     }
 
     /// Whether `key` names a data type (including one this module declares
