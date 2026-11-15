@@ -3,9 +3,10 @@
 //! pair around the whole type of a header binder (`(h: (∀ …))` becomes
 //! `(h: ∀ …)`), when removing it leaves the declaration parsing to the same
 //! tree. Pairs around a function type after a row stay: `{e} (A -> B)` reads
-//! better than `{e} A -> B`, which is easy to misread. A pair that starts a
-//! line or touches a comment stays too, so no line break moves and no
-//! comment changes places.
+//! better than `{e} A -> B`, which is easy to misread. A pair that touches a
+//! comment stays too, so no comment changes places. A pair at a line start
+//! goes like any other: the layout joins the type to the row whatever the
+//! input's breaks, so keeping it would make a second pass drop it.
 //!
 //! Like [`super::merge`], it rewrites the text before printing, and the
 //! rewrite is checked on its own.
@@ -178,9 +179,7 @@ pub(crate) fn drop_parens(text: &str) -> Option<(String, usize)> {
                 let Some(close) = matching(tokens, k, range.end) else {
                     continue;
                 };
-                let plain = !tokens[k].line_start
-                    && !tokens[close].line_start
-                    && trivia[k].leading.is_empty()
+                let plain = trivia[k].leading.is_empty()
                     && trivia[k].trailing.is_none()
                     && trivia[close].leading.is_empty()
                     && trivia[close].trailing.is_none();
