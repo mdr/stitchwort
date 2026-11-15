@@ -296,10 +296,23 @@ def bodyFuel (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (
     | Zero, _, _ => Empty.absurd (Parse.fatal "nested too deeply")
     | Succ more, InStatement column _, Some token if token.value.startsLine && token.value.column > column =>
       block more self token.value.column
-    | _, _, _ =>
-      let start := Parse.mark()
-      let value := self layout
-      { statements = [{ blankBefore = False, line = Bare value (trailingSince start value) }] }
+    | _, _, _ => inlineBody self layout
+
+--| A body that is one expression, on the line of what it follows.
+-- A function of its own so that proofs (BlockProofs.sw) can name it; so
+-- are `bareStatement`, `statementLine` and `notedStatement`.
+def inlineBody (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Body :=
+  let start := Parse.mark()
+  let line := bareStatement self layout start
+  { statements = [{ blankBefore = False, line }] }
+
+--| An expression as a statement, with the trailing comment it ends in;
+--| `start` is where it starts.
+def bareStatement (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (start: Parse.Mark (Parse.Located Token)):
+    {Parse (Parse.Located Token)} Statement :=
+  let value := self layout
+  Bare value (trailingSince start value)
 
 --| Statements starting lines at `column`, with the comments above them.
 def block (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (column: Nat):
@@ -315,19 +328,28 @@ def statement (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
   let start := Parse.mark()
   match start.rest with
     | [first, .._] if first.value.startsLine && first.value.column == column =>
-      let layout := InStatement column first.offset
-      let (notes, blankBefore) := spacedNotes StatementNote first.value.above
-      let line := match first.value.kind with
-        | Reserved LetKeyword =>
-          skip()
-          let bound := name layout
-          sign layout "'='" Defines
-          Let bound (bodyFuel fuel self layout)
-        | _ =>
-          let value := self layout
-          Bare value (trailingSince start value)
-      notes ++ [{ blankBefore, line }]
+      let line := statementLine fuel self (InStatement column first.offset) start first.value.kind
+      notedStatement first.value.above line
     | _ => Empty.absurd Parse.stop()
+
+--| The statement whose first token, at `start`, is of `kind`: a `let`, or
+--| else an expression.
+def statementLine (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (start: Parse.Mark (Parse.Located Token)) (kind: Kind):
+    {Parse (Parse.Located Token)} Statement :=
+  match kind with
+    | Reserved LetKeyword =>
+      skip()
+      let bound := name layout
+      sign layout "'='" Defines
+      Let bound (bodyFuel fuel self layout)
+    | _ => bareStatement self layout start
+
+--| A statement's lines: the own-line comments in `above`, the trivia on
+--| its first token, then the statement.
+def notedStatement (above: List Trivia) (line: Statement): List (Spaced Statement) :=
+  let (notes, blankBefore) := spacedNotes StatementNote above
+  notes ++ [{ blankBefore, line }]
 
 -- Declarations and the file.
 
