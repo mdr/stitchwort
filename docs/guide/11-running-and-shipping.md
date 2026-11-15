@@ -93,7 +93,7 @@ def options: Args.Spec Options :=
 
 `Args.flag` is a switch, `Args.option` takes a value (`--times 2` or `--times=2`) and falls back to its `default`, `Args.required` and `Args.optional` take one that must or may be left out, `Args.many` one that can be repeated, and `Args.arguments` the plain arguments. Values are read by the `Args.Value` interface, which `Text`, `Nat`, `Int` and `Path` have; `Args.choice` makes one for a type with a finite list of values, read as each shows itself. `--` ends the options, so everything after it is an argument (a file called `-x` is still reachable), and a lone `-` is an argument. `--help` and `-h` print the help. An option that doesn't repeat is an error the second time, never "last one wins".
 
-`Args.run` reads `IO.args()`, calls the program with its options, prints the help for `--help` (exit status 0) and fails for a mistake (exit status 1, with the message, the usage line and where the help is):
+`Args.run` reads `IO.args()`, calls the program with its options, prints the help for `--help` (exit status 0) and, for a mistake, prints the message, the usage line and where the help is to standard error and exits with status 2 (`Args.misuse`: 2 is the usual code for a command used wrongly, in Bash's builtins, `argparse` and Go's `flag`, and it keeps that apart from 1, a program's own failure). Its program returns `()`, so `main` returns an `ExitStatus`; a program that picks its own statuses uses `Args.runStatus`, whose body returns an `ExitStatus`. Here is the first:
 
 <!-- snippet: args.sw#main -->
 ```stitchwort
@@ -101,7 +101,7 @@ def greet (options: Options): {IO} () := options.names.forEach (name =>
   let line := if options.shout then "Hello, ${name}!!!" else "Hello, ${name}."
   List.replicate options.times line |> .forEach IO.print)
 
-def main(): {IO, Fail} () := Args.run program options greet
+def main(): {IO, Fail} ExitStatus := Args.run program options greet
 ```
 
 <!-- output: run args.sw -- --shout --times 2 Ada Grace -->

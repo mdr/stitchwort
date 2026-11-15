@@ -1467,12 +1467,13 @@ fn toyfmt_fixture(work: &Path) {
 }
 
 /// The toy formatter on a folder, as `stitchwort run` and as a built
-/// executable do it: `--check` writes nothing and exits 1 naming the files;
-/// a real run rewrites what changes, leaves a formatted file alone (its
+/// executable do it, with `stitchwort fmt`'s exit statuses: `--check` writes
+/// nothing and names the files, exiting 1 when it finds one to change and 2
+/// when a path couldn't be read or parsed (a problem outranks a change); a
+/// real run rewrites what changes, leaves a formatted file alone (its
 /// modification time too: it isn't written), reports the file that doesn't
-/// parse with its line and column, and exits 1; with that file gone, `--check`
-/// exits 0; a bad flag exits 1 with the usage line. (A program can only exit
-/// 0 or 1: SW-3345.)
+/// parse with its line and column, and exits 2; with that file gone, `--check`
+/// exits 0; a bad flag exits 2 with the usage line, and `--help` 0.
 #[test]
 fn toyfmt_formats_a_folder_under_run_and_built() {
     if !have_cc() {
@@ -1541,8 +1542,8 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
         let (out, err, code) = toyfmt(&["--check", "src"]);
         assert_eq!(
             (out.as_str(), code),
-            (changed, Some(1)),
-            "{runner}: --check"
+            (changed, Some(2)),
+            "{runner}: --check with a problem"
         );
         assert!(err.starts_with(problem), "{runner}: --check says {err}");
         assert_eq!(
@@ -1551,8 +1552,26 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
             "{runner}: --check writes nothing"
         );
 
+        let (out, _, code) = toyfmt(&["--check", "src/a.sprig", "src/deep"]);
+        assert_eq!(
+            (out.as_str(), code),
+            (changed, Some(1)),
+            "{runner}: --check would change"
+        );
+        let (out, _, code) = toyfmt(&["--check", "src/missing.sprig"]);
+        assert_eq!(
+            (out.as_str(), code),
+            ("", Some(2)),
+            "{runner}: --check, unreadable"
+        );
+        assert_eq!(
+            folder_contents(&folder),
+            before,
+            "{runner}: still nothing written"
+        );
+
         let (out, err, code) = toyfmt(&["src"]);
-        assert_eq!((out.as_str(), code), (changed, Some(1)), "{runner}: format");
+        assert_eq!((out.as_str(), code), (changed, Some(2)), "{runner}: format");
         assert!(err.starts_with(problem), "{runner}: format says {err}");
         let mut expected = before.clone();
         expected.insert("src/a.sprig".into(), TIDY.into());
@@ -1587,7 +1606,13 @@ fn toyfmt_formats_a_folder_under_run_and_built() {
         );
 
         let (out, err, code) = toyfmt(&["--wide", "src"]);
-        assert_eq!((out.as_str(), code), ("", Some(1)), "{runner}: bad flag");
+        assert_eq!((out.as_str(), code), ("", Some(2)), "{runner}: bad flag");
         assert!(err.contains("usage: toyfmt"), "{runner}: usage, got {err}");
+        let (out, _, code) = toyfmt(&["--help"]);
+        assert_eq!(code, Some(0), "{runner}: --help");
+        assert!(
+            out.starts_with("usage: toyfmt"),
+            "{runner}: help, got {out}"
+        );
     }
 }

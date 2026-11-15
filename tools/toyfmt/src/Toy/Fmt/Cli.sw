@@ -1,7 +1,7 @@
 --| The `toyfmt` command line: `toyfmt [--check] [--width N] PATH...`.
 
 namespace Toy.Fmt
-import Std (Args, Fail, Files, IO, List, Nat, Path, Result, Text)
+import Std (Args, ExitStatus, Files, IO, List, Nat, Path, Result, Text)
 
 --| What the command line asks for, and what `--help` says about it.
 def program: Args.Program := { name = "toyfmt", about = "Formats Sprig files in place." }
@@ -35,25 +35,40 @@ def hasProblem (outcomes: List Outcome): Bool := outcomes.any (match
   | Problem _ => True
   | _ => False)
 
---| Whether the exit status should say so: something went wrong, or
---| `--check` found a file to change. (A program can exit with 0 or 1 only.)
-def failed (options: Options) (outcomes: List Outcome): Bool := outcomes.any (match
-  | Problem _ => True
-  | Formatted _ WouldChange _ => options.check
-  | _ => False)
+--| The exit status of a run that wrote what it should and found nothing
+--| wrong: 0.
+def clean: ExitStatus := ExitStatus.success
 
---| Formats the paths the options name: prints the report, and fails (exit
---| status 1) for a problem or a file `--check` would change.
-def formatAll (options: Options): {Files, IO, Fail} () :=
+--| The exit status of `--check` finding a file that would change: 1, as
+--| `stitchwort fmt --check` does.
+def wouldChange: ExitStatus := ExitStatus.failure
+
+--| The exit status of a run where a path couldn't be read or parsed: 2, as
+--| `stitchwort fmt` does (and as `Args.misuse` does for a bad command line).
+def couldNotFormat: ExitStatus := ExitStatus.of 2
+
+--| What the run exits with: a problem is 2, whatever else was found; else
+--| `--check` finding a file to change is 1; else 0.
+def status (options: Options) (outcomes: List Outcome): ExitStatus :=
+  if hasProblem outcomes then couldNotFormat
+  else if options.check
+    && outcomes.any (match
+      | Formatted _ WouldChange _ => True
+      | _ => False) then
+    wouldChange
+  else clean
+
+--| Formats the paths the options name: prints the report, and gives the
+--| exit status `status` says.
+def formatAll (options: Options): {Files, IO} ExitStatus :=
   let outcomes := formatPaths options options.paths
   let said := report outcomes
   said.changed.forEach IO.print
   said.problems.forEach IO.printError
-  Fail.ensure (!failed options outcomes) (if hasProblem outcomes then "toyfmt: problems" else "toyfmt: not formatted")
+  status options outcomes
 
---| Runs `toyfmt` on a command line: prints the help for `--help`, fails
---| (exit status 1) with the usage for a bad command line, and otherwise
---| formats.
-def run (arguments: List Text): {Files, IO, Fail} () := Args.runOn program options arguments formatAll
+--| Runs `toyfmt` on a command line: prints the help for `--help` (status 0),
+--| exits 2 with the usage for a bad command line, and otherwise formats.
+def run (arguments: List Text): {Files, IO} ExitStatus := Args.runStatusOn program options arguments formatAll
 
-def main(): {Files, IO, Fail} () := Args.run program options formatAll
+def main(): {Files, IO} ExitStatus := Args.runStatus program options formatAll

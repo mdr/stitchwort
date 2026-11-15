@@ -260,5 +260,22 @@ Programs name their own codes; `Args.run` documents its 2. Stages: SW-3402, SW-3
   the run/reference/JS comparisons), a CLI test per runner (machine and
   reference, `--js`, built executable, `--native` executable and
   `run --native`), the web playground's, and the reject example.
-- **Not done:** the better note for a status over 255; `Args.run` and the
-  toy formatter (SW-3403).
+- **Not done:** the better note for a status over 255.
+
+## As built, stage 2 (SW-3403)
+
+- **`Args`:** `Args.misuse` is `ExitStatus.of 2`, documented as the
+  convention of Bash builtins, argparse and Go `flag` (see the Decision).
+  `Args.runStatusOn` / `Args.runStatus` take a body that returns an
+  `ExitStatus`; `--help` prints and is 0, a mistake prints the complaint
+  to standard error (not a `Fail` message) and is 2. `Args.runOn` /
+  `Args.run` keep a `()` body (still free to `Fail`, which is 1) and
+  return `ExitStatus`, so their programs' `main` is now
+  `{IO, Fail} ExitStatus`. The rows lost their fixed `Fail`: the body's
+  own row carries it.
+- **toyfmt:** `Toy.Fmt.clean` (0), `wouldChange` (1) and `couldNotFormat`
+  (2) are named in the toy, with `status` choosing: any problem is 2,
+  else `--check` finding a file to change is 1, else 0, as
+  `stitchwort fmt` does. `Fail` is gone from the toy's rows. Tests: its own
+  `Driver.sw` through `IO.simulate`/`Files.simulate` (status per case), the
+  std `Args` tests, and the CLI test under `run` and as a built executable.

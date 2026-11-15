@@ -3,7 +3,7 @@
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)
-import Std (Args, Disk, Fail, Files, IO, List, Nat, Option, Path, Result, Text)
+import Std (Args, Disk, ExitStatus, Files, IO, List, Nat, Option, Path, Result, Text)
 import Std.Args.Outcome (Run, Help, Wrong)
 import Std.Args.Error (Missing, NeedsValue, BadValue)
 
@@ -122,23 +122,37 @@ test "a parse error's line and column lead the message" :=
     == "a.sprig:3:9: expected ',' or ')', got 'b'"
     && locate "a.sprig".toPath "something else" == "a.sprig: something else"
 
---| The lines `run` printed, the disk afterwards and whether it failed.
-def runCli (disk: Disk) (arguments: List Text): (List Text, (Disk, Result () Text)) :=
-  let pair := IO.simulate [] (() => Files.simulate disk (() => Fail.toResult (() => run arguments)))
+--| The lines `run` printed, the disk afterwards and the exit status.
+def runCli (disk: Disk) (arguments: List Text): (List Text, (Disk, ExitStatus)) :=
+  let pair := IO.simulate [] (() => Files.simulate disk (() => run arguments))
   (pair.fst, pair.snd)
 
-test "run rewrites the disk, prints the changed paths, and fails when a problem was found" :=
-  let (printed, (after, result)) := runCli project ["src"]
+test "run rewrites the disk, prints the changed paths, and exits 2 when a problem was found" :=
+  let (printed, (after, status)) := runCli project ["src"]
   after.read "src/a.sprig".toPath == Ok tidy
     && printed == ["src/a.sprig", "src/deep/c.sprig"]
-    && result == Err "toyfmt: problems"
+    && status == couldNotFormat
 
-test "run --check fails on a file it would change and succeeds on a formatted folder" :=
+test "run exits 0 after rewriting files that all parse" :=
+  let (printed, (after, status)) := runCli project ["src/a.sprig", "src/b.sprig"]
+  after.read "src/a.sprig".toPath == Ok tidy && printed == ["src/a.sprig"] && status == clean
+
+test "run --check exits 1 on a file it would change and 0 on a formatted folder, writing nothing" :=
   let (printed, (unchanged, checked)) := runCli project ["--check", "src/b.sprig", "src/a.sprig"]
-  let (nothing, (also, clean)) := runCli project ["--check", "src/b.sprig"]
+  let (nothing, (also, formatted)) := runCli project ["--check", "src/b.sprig"]
   unchanged == project
     && printed == ["src/a.sprig"]
-    && checked == Err "toyfmt: not formatted"
+    && checked == wouldChange
     && also == project
     && nothing == []
-    && clean == Ok ()
+    && formatted == clean
+
+test "run exits 2 for an unreadable or unparsable file, even under --check with a file to change" :=
+  let (_, (_, missing)) := runCli project ["--check", "src/missing.sprig"]
+  let (_, (_, broken)) := runCli project ["--check", "src/a.sprig", "src/bad.sprig"]
+  missing == couldNotFormat && broken == couldNotFormat
+
+test "run exits 2 with nothing printed for a bad command line, and 0 for --help" :=
+  let (printed, (disk, wrong)) := runCli project ["--wide", "src"]
+  let (_, (_, help)) := runCli project ["--help"]
+  printed == [] && disk == project && wrong == Args.misuse && help == clean
