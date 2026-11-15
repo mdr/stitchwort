@@ -359,31 +359,41 @@ def declaration (source: Text): {Parse (Parse.Located Token)} List (Spaced Decla
   let start := Parse.mark()
   match start.rest with
     | [first, .._] if first.value.startsLine && first.value.column == 0 =>
-      let layout := InStatement 0 first.offset
-      let (notes, blankBefore) := spacedNotes DeclarationNote first.value.above
-      let parsed := match first.value.kind with
-        | Reserved FnKeyword =>
-          skip()
-          let declared := name layout
-          sign layout "'('" OpenParen
-          let parameters := Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma)
-          sign InBrackets "')'" CloseParen
-          sign layout "'='" Defines
-          Function declared parameters (body expression layout)
-        | Reserved LetKeyword =>
-          skip()
-          let declared := name layout
-          sign layout "'='" Defines
-          Value declared (body expression layout)
-        | _ =>
-          Parse.note (Parse.Problem.Literal "fn")
-          Parse.note (Parse.Problem.Literal "let")
-          Empty.absurd Parse.stop()
+      let parsed := declarationLine (InStatement 0 first.offset) first.value.kind
       let finish := Parse.mark()
-      let tokens := start.rest.take (finish.offset - start.offset)
-      let line := if parsed.comments < commentsAmong tokens then AsWritten (asWritten source tokens) else parsed
-      notes ++ [{ blankBefore, line }]
+      notedDeclaration source first.value.above (start.rest.take (finish.offset - start.offset)) parsed
     | _ => Empty.absurd Parse.stop()
+
+--| The declaration whose first token is of `kind`: `fn` or `let`.
+-- A function of its own so that proofs (BlockProofs.sw) can name it; so
+-- are `notedDeclaration` and `fileEnd`.
+def declarationLine (layout: Layout) (kind: Kind): {Parse (Parse.Located Token)} Declaration := match kind with
+  | Reserved FnKeyword =>
+    skip()
+    let declared := name layout
+    sign layout "'('" OpenParen
+    let parameters := Parse.sepBy (() => name InBrackets) (() => sign InBrackets "','" Comma)
+    sign InBrackets "')'" CloseParen
+    sign layout "'='" Defines
+    Function declared parameters (body expression layout)
+  | Reserved LetKeyword =>
+    skip()
+    let declared := name layout
+    sign layout "'='" Defines
+    Value declared (body expression layout)
+  | _ =>
+    Parse.note (Parse.Problem.Literal "fn")
+    Parse.note (Parse.Problem.Literal "let")
+    Empty.absurd Parse.stop()
+
+--| A declaration's lines: the own-line comments in `above`, the trivia on
+--| its first token, then `parsed`, or its `tokens` as written if one of
+--| their comments has no place in it.
+def notedDeclaration (source: Text) (above: List Trivia) (tokens: List (Parse.Located Token)) (parsed: Declaration):
+    List (Spaced Declaration) :=
+  let (notes, blankBefore) := spacedNotes DeclarationNote above
+  let line := if parsed.comments < commentsAmong tokens then AsWritten (asWritten source tokens) else parsed
+  notes ++ [{ blankBefore, line }]
 
 --| The comments among a declaration's tokens, not counting those above
 --| its first token, which are the file's.
@@ -404,13 +414,21 @@ def asWritten (source: Text) (tokens: List (Parse.Located Token)): Text := match
 --| The file, given the comments after its last token (or all of them, with
 --| no tokens).
 def sourceFile (source: Text) (endTrivia: List Trivia): {Parse (Parse.Located Token)} SourceFile :=
-  let declarations := Parse.many (() => declaration source) |> .concat
+  let found := Parse.many (() => declaration source)
+  fileEnd found.concat endTrivia
+
+--| The file of `declarations`, read to where no more starts, and the
+--| comments after them; an indented line there belongs to nothing.
+def fileEnd (declarations: List (Spaced Declaration)) (endTrivia: List Trivia):
+    {Parse (Parse.Located Token)} SourceFile :=
   match peek() with
     | Some token if token.value.startsLine && token.value.column > 0 =>
       Parse.fail "this line's indentation matches no block it could belong to"
-    | _ =>
-      let (endNotes, _) := spacedNotes DeclarationNote endTrivia
-      { declarations = declarations ++ endNotes |> withoutFirstBlank }
+    | _ => fileOf declarations endTrivia
+
+def fileOf (declarations: List (Spaced Declaration)) (endTrivia: List Trivia): SourceFile :=
+  let (endNotes, _) := spacedNotes DeclarationNote endTrivia
+  { declarations = declarations ++ endNotes |> withoutFirstBlank }
 
 --| The tree of a Sprig source, or the first error as "line 3, column 9:
 --| expected ',' or ')', got 'b'". The source is lexed and checked first
