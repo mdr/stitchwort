@@ -21,6 +21,38 @@ def Parse.located (parser: () → {Parse Char} a): {Parse Char} Parse.Located a 
   let finish := Parse.mark()
   { value, offset = start.offset, length = finish.offset - start.offset }
 
+--| `lexeme`'s values with where each was read, from where each round starts
+--| for as long as characters are left; `found` is newest first.
+def Parse.locatedToEndFrom (fuel: Nat) (lexeme: List Char → {Parse Char} a)
+    (found: List (Parse.Located a)) (start: Parse.Mark Char):
+    {Parse Char} List (Parse.Located a) :=
+  match fuel, start.rest with
+    | Succ more, [_, .._] =>
+      let value := lexeme start.rest
+      let finish := Parse.mark()
+      if finish.offset > start.offset then
+        Parse.locatedToEndFrom more lexeme
+          [{ value, offset = start.offset, length = finish.offset - start.offset }, ..found]
+          finish
+      else Empty.absurd (Parse.fatal "`locatedToEnd`: the lexeme matched without reading anything")
+    | _, _ =>
+      Parse.note (Expected "a token")
+      found.reverse
+
+--| A lexer for `Parse.tokens` whose every character belongs to a lexeme:
+--| the whole input as the values of `lexeme`, each with where it was read.
+--| `lexeme` is given the characters left, to choose by what comes next. It is
+--| `Parse.many (() => Parse.located …)` for a lexeme that doesn't fail
+--| part-way (one that does fails the whole lex, not just ends the list): with no
+--| handler per lexeme and one mark, not three, it costs about a third less
+--| (the toy formatter's lexer, 930 KB: 1.5 s with `many`, 0.97 s with this, native). At the end it
+--| notes "expected a token", as `many` does when its last try finds nothing.
+--|
+--|   Parse.locatedToEnd lexemeAt
+def Parse.locatedToEnd (lexeme: List Char → {Parse Char} a): {Parse Char} List (Parse.Located a) :=
+  let start := Parse.mark()
+  Parse.locatedToEndFrom (start.left + 1) lexeme [] start
+
 --| Where a failure at token `index` is, in the source: the start of that
 --| token, or the end of the last one when `index` is past them all.
 def Parse.tokenPosition (tokens: List (Parse.Located token)) (index: Nat): Nat := match tokens.drop index with
@@ -167,3 +199,44 @@ test "Parse.tokens: the line is the token's, not the end's" :=
 
 test "Parse.tokens: a lexing failure keeps Parse.all's message" :=
   Parse.Tests.parseCalls "f(1) $" == Err "line 1, column 6: expected a name, a number or a symbol, got '$'"
+
+-- `locatedToEnd`: a lexer of runs of spaces and runs of other characters.
+
+def Parse.Tests.runAt (rest: List Char): {Parse Char} Text := match rest with
+  | [' ', .._] => Text.fromList (Parse.span (char => char == ' '))
+  | [_, .._] => Text.fromList (Parse.span (char => char != ' '))
+  | [] => Parse.expected "a token"
+
+test "Parse.locatedToEnd: every lexeme with where it was read" :=
+  match Parse.run "ab  c".toList (() => Parse.locatedToEnd Parse.Tests.runAt) with
+    | Ok found =>
+      found
+        == [
+          { value = "ab", offset = 0, length = 2 },
+          { value = "  ", offset = 2, length = 2 },
+          { value = "c", offset = 4, length = 1 }
+        ]
+    | Err failure => False
+
+test "Parse.locatedToEnd: no input" := match Parse.run ([]: List Char) (() => Parse.locatedToEnd Parse.Tests.runAt) with
+  | Ok found => found == []
+  | Err failure => False
+
+test "Parse.locatedToEnd: what Parse.many of Parse.located gives" :=
+  Parse.run "ab  c d".toList (() => Parse.locatedToEnd Parse.Tests.runAt)
+    == Parse.run "ab  c d".toList (() => Parse.many (() => Parse.located (() => Parse.Tests.runAt Parse.mark().rest)))
+
+test "Parse.locatedToEnd: the same message as many at the end" :=
+  Parse.run "ab c".toList (() =>
+    let found := Parse.locatedToEnd Parse.Tests.runAt
+    Parse.satisfy "a closer" (char => char == ')')
+    found)
+    == Parse.run "ab c".toList (() =>
+      let found := Parse.many (() => Parse.located (() => Parse.Tests.runAt Parse.mark().rest))
+      Parse.satisfy "a closer" (char => char == ')')
+      found)
+
+test "Parse.locatedToEnd: a lexeme that reads nothing" :=
+  match Parse.run "ab".toList (() => Parse.locatedToEnd (rest => "")) with
+    | Ok found => False
+    | Err failure => failure.messages == ["`locatedToEnd`: the lexeme matched without reading anything"]

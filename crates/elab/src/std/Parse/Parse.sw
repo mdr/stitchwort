@@ -335,6 +335,38 @@ def Parse.many (parser: () → {Parse t} a): {Parse t} List a :=
   let start := Parse.mark()
   Parse.manyFrom (start.left + 1) parser [] start
 
+--| `parser`'s values, read from where each round starts for as long as items
+--| are left; `found` is newest first, and `start` is the mark where this round
+--| begins.
+def Parse.manyToEndFrom (fuel: Nat) (what: Text) (parser: Parse.Mark t → {Parse t} a)
+    (found: List a) (start: Parse.Mark t):
+    {Parse t} List a :=
+  match fuel, start.rest with
+    | Succ more, [_, .._] =>
+      let value := parser start
+      let after := Parse.mark()
+      if after.offset > start.offset then Parse.manyToEndFrom more what parser [value, ..found] after
+      else Empty.absurd (Parse.fatal "`manyToEnd`: the parser matched without reading anything")
+    | _, _ =>
+      Parse.note (Expected what)
+      found.reverse
+
+--| `parser`'s values from one end of the input to the other, for a parser
+--| that doesn't fail part-way, such as a lexer whose every character belongs
+--| to some token: `parser` is given the mark where it starts, to choose by
+--| what comes next, and the loop goes on while items are left. Unlike
+--| `many` it installs no handler to back up from a failed round, so a round
+--| costs one operation (the mark after it, which is the next round's start)
+--| instead of three, and a failure of `parser` is a failure of the whole
+--| parse here rather than the end of the repetition. At the end it notes
+--| "expected `what`", as `many` does when its last try finds nothing. Fails
+--| the whole parse, as `many` does, if a round reads nothing.
+--|
+--|   Parse.manyToEnd "a token" (start => lexeme start.rest)
+def Parse.manyToEnd (what: Text) (parser: Parse.Mark t → {Parse t} a): {Parse t} List a :=
+  let start := Parse.mark()
+  Parse.manyToEndFrom (start.left + 1) what parser [] start
+
 --| `parser`'s values while it succeeds, at least one: a `NonEmptyList`.
 def Parse.many1 (parser: () → {Parse t} a): {Parse t} NonEmptyList a :=
   let first := parser()

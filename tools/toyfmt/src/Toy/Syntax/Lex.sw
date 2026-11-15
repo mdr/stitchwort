@@ -85,27 +85,10 @@ def stringLexeme(): {Parse Char} () :=
     | Some _ => ()
     | None => Parse.expected "'\"' to close the string"
 
---| The source as lexemes, every character in one.
--- A loop of its own, not `Parse.many`: a lexeme fails only on a bad string,
--- which fails the lex anyway, so no lexeme needs a handler to back up from,
--- and the mark after one lexeme is the start of the next. The notes are
--- `Parse.many (() => Parse.located lexeme)`'s, so messages are the same.
-def lexemes(): {Parse Char} List (Parse.Located Lexeme) :=
-  let start := Parse.mark()
-  lexemesFrom (start.left + 1) [] start
-
---| The lexemes from `start`, at most `fuel` more; `found` is newest first.
-def lexemesFrom (fuel: Nat) (found: List (Parse.Located Lexeme)) (start: Parse.Mark Char):
-    {Parse Char} List (Parse.Located Lexeme) :=
-  match fuel, start.rest with
-    | Succ more, [_, .._] =>
-      let value := lexemeAt start.rest
-      let finish := Parse.mark()
-      let lexeme := { value, offset = start.offset, length = finish.offset - start.offset }
-      lexemesFrom more [lexeme, ..found] finish
-    | _, _ =>
-      Parse.note (Parse.Problem.Expected "a token")
-      found.reverse
+--| The source as lexemes, every character in one. A lexeme fails only on a
+--| bad string, which fails the lex anyway, so `Parse.locatedToEnd` needs no
+--| handler to back up from one.
+def lexemes(): {Parse Char} List (Parse.Located Lexeme) := Parse.locatedToEnd lexemeAt
 
 --| The tokens so far (newest first), the trivia waiting for the next token
 --| (newest first), where the current line starts, and whether it has had

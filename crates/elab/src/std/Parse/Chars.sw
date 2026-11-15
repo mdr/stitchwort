@@ -638,6 +638,36 @@ test "Parse.operators: right associative" :=
 test "Parse.operators: right associative level binds tighter than the one before" :=
   Parse.Tests.lineResult "1+2^3^2-1" (() => Parse.operators "an operator" Parse.Tests.powerLevels Parse.nat) == Ok 512
 
+--| A number and the spaces after it.
+def Parse.Tests.spacedNumber(): {Parse Char} Nat :=
+  let number := Parse.nat()
+  Parse.spaces()
+  number
+
+test "Parse.manyToEnd: to the end of the input" :=
+  Parse.Tests.lineResult "12 3 45" (() => Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber()))
+    == Ok [12, 3, 45]
+test "Parse.manyToEnd: no input" :=
+  Parse.Tests.lineResult "" (() => Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber())) == Ok []
+test "Parse.manyToEnd: the parser is given where it starts" :=
+  Parse.Tests.lineResult "12 3" (() => Parse.manyToEnd "a number" (start => (start.offset, Parse.Tests.spacedNumber())))
+    == Ok [(0, 12), (3, 3)]
+--| What is noted at the end is `many`'s, so a parser that goes on there reads the same message.
+test "Parse.manyToEnd: the same message as many at the end" :=
+  Parse.Tests.lineResult "1 2" (() =>
+    let found := Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber())
+    Parse.char 'x'
+    found)
+    == Parse.Tests.lineResult "1 2" (() =>
+      let found := Parse.many Parse.Tests.spacedNumber
+      Parse.char 'x'
+      found)
+test "Parse.manyToEnd: a failing round fails the parse" :=
+  Parse.Tests.lineResult "12 x" (() => Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber()))
+    == Err "column 4: expected a number, got 'x'"
+test "Parse.manyToEnd: a round that reads nothing" :=
+  Parse.Tests.lineError "ab" (() => Parse.manyToEnd "a thing" (start => ()))
+    == "column 1: `manyToEnd`: the parser matched without reading anything"
 test "Parse: sepBy" :=
   Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []
