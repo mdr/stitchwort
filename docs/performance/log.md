@@ -46,6 +46,26 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 15 Nov 2026
 
+### SW-3391: `Parse.operators` and `Parse.locatedToEnd`, the toy's hand-written loops moved into std
+
+- **Status:** kept (Sonnet). Std (`Parse/Parse.sw`, `Parse/Tokens.sw`) and
+  the toy.
+- **Problem.** SW-3383's two speed-ups lived in the toy: precedence
+  climbing for operators, and a handler-free loop for lexemes. Every
+  grammar written on `Parse` pays what the toy paid before them.
+- **Change.** `Parse.operators what levels operand` (levels with an
+  associativity; the notes are `chainLeft`'s, tested against a `chainLeft`
+  tower on 15 samples, messages included); `Parse.manyToEnd` and
+  `Parse.locatedToEnd` for parsers that don't fail part-way. The toy uses
+  both.
+- **Measured** (native, 933 KB, user seconds, median of 3, load 3 to 5):
+  lexing with `Parse.many (() => Parse.located …)` 1.49 s, with
+  `Parse.locatedToEnd` 0.97 s (same as the toy's loop). The whole parse
+  (lex and parse, print included) 1.84 s with the toy's hand-written
+  climbing, 1.97 s with `Parse.operators`: the table scan and a table built
+  per expression cost 7%. Format 2.18 s to 2.30 s. Messages unchanged (the
+  toy's 82 tests).
+
 ### SW-3383: the toy formatter, profiled; its handlers out of the hot paths (3.8 to 2.05 s/MB native)
 
 - **Status:** kept (Opus). Toy code only (`tools/toyfmt`); one runtime

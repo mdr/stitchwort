@@ -21,6 +21,38 @@ def Parse.located (parser: () → {Parse Char} a): {Parse Char} Parse.Located a 
   let finish := Parse.mark()
   { value, offset = start.offset, length = finish.offset - start.offset }
 
+--| `lexeme`'s values with where each was read, from where each round starts
+--| for as long as characters are left; `found` is newest first.
+def Parse.locatedToEndFrom (fuel: Nat) (lexeme: List Char → {Parse Char} a)
+    (found: List (Parse.Located a)) (start: Parse.Mark Char):
+    {Parse Char} List (Parse.Located a) :=
+  match fuel, start.rest with
+    | Succ more, [_, .._] =>
+      let value := lexeme start.rest
+      let finish := Parse.mark()
+      if finish.offset > start.offset then
+        Parse.locatedToEndFrom more lexeme
+          [{ value, offset = start.offset, length = finish.offset - start.offset }, ..found]
+          finish
+      else Empty.absurd (Parse.fatal "`locatedToEnd`: the lexeme matched without reading anything")
+    | _, _ =>
+      Parse.note (Expected "a token")
+      found.reverse
+
+--| A lexer for `Parse.tokens` whose every character belongs to a lexeme:
+--| the whole input as the values of `lexeme`, each with where it was read.
+--| `lexeme` is given the characters left, to choose by what comes next. It is
+--| `Parse.many (() => Parse.located …)` for a lexeme that doesn't fail
+--| part-way (one that does fails the whole lex, not just ends the list): with no
+--| handler per lexeme and one mark, not three, it costs about a third less
+--| (the toy formatter's lexer, 930 KB: 1.5 s with `many`, 0.97 s with this, native). At the end it
+--| notes "expected a token", as `many` does when its last try finds nothing.
+--|
+--|   Parse.locatedToEnd lexemeAt
+def Parse.locatedToEnd (lexeme: List Char → {Parse Char} a): {Parse Char} List (Parse.Located a) :=
+  let start := Parse.mark()
+  Parse.locatedToEndFrom (start.left + 1) lexeme [] start
+
 --| Where a failure at token `index` is, in the source: the start of that
 --| token, or the end of the last one when `index` is past them all.
 def Parse.tokenPosition (tokens: List (Parse.Located token)) (index: Nat): Nat := match tokens.drop index with
@@ -56,12 +88,30 @@ def Parse.tokensMessage (chars: List Char) (tokens: List (Parse.Located token)) 
     | parts => Text.joinWith parts "; "
   "line ${line}, column ${column}: ${described}"
 
+--| `Parse.tokens` for a lexer that hands back something besides its tokens,
+--| and a parser that takes it: the comments after the last token, which no
+--| token follows to carry them, or all the input's comments when there are no
+--| tokens at all. The lexer's value is the tokens and that `extra`; the
+--| parser is given `extra` and reads the tokens. Failures read as
+--| `Parse.tokens`'s.
+--|
+--|   def parse (input: Text): {Fail} File :=
+--|     Parse.tokensWith input (() => lexWithTrailer input) (trailer => file trailer)
+def Parse.tokensWith (input: Text)
+    (lexer: () → {Parse Char} (List (Parse.Located token), extra)) (parser: extra → {Parse (Parse.Located token)} a):
+    {Fail} a :=
+  let (tokens, extra) := Parse.all input lexer
+  match Parse.whole tokens (() => parser extra) with
+    | Ok value => value
+    | Err failure => Fail.fail (Parse.tokensMessage input.toList tokens failure)
+
 --| Lexes all of `input` with `lexer` (line breaks at the end are allowed, as
 --| for `Parse.all`), then parses all of the tokens with `parser`. A lexing
 --| failure reads as `Parse.all`'s. A parsing failure names the line and
 --| column of the failing token, what was expected, and the token as it was
 --| written: "line 3, column 9: expected ',' or ')', got ';'", or "got the
---| end of the input" past the last token.
+--| end of the input" past the last token. For a lexer that has more to give
+--| than tokens, [`Parse.tokensWith`].
 --|
 --|   def parse (input: Text): {Fail} Program := Parse.tokens input (() => Parse.many token) program
 def Parse.tokens (input: Text)
@@ -167,3 +217,74 @@ test "Parse.tokens: the line is the token's, not the end's" :=
 
 test "Parse.tokens: a lexing failure keeps Parse.all's message" :=
   Parse.Tests.parseCalls "f(1) $" == Err "line 1, column 6: expected a name, a number or a symbol, got '$'"
+
+-- `locatedToEnd`: a lexer of runs of spaces and runs of other characters.
+
+def Parse.Tests.runAt (rest: List Char): {Parse Char} Text := match rest with
+  | [' ', .._] => Text.fromList (Parse.span (char => char == ' '))
+  | [_, .._] => Text.fromList (Parse.span (char => char != ' '))
+  | [] => Parse.expected "a token"
+
+test "Parse.locatedToEnd: every lexeme with where it was read" :=
+  match Parse.run "ab  c".toList (() => Parse.locatedToEnd Parse.Tests.runAt) with
+    | Ok found =>
+      found
+        == [
+          { value = "ab", offset = 0, length = 2 },
+          { value = "  ", offset = 2, length = 2 },
+          { value = "c", offset = 4, length = 1 }
+        ]
+    | Err failure => False
+
+test "Parse.locatedToEnd: no input" := match Parse.run ([]: List Char) (() => Parse.locatedToEnd Parse.Tests.runAt) with
+  | Ok found => found == []
+  | Err failure => False
+
+test "Parse.locatedToEnd: what Parse.many of Parse.located gives" :=
+  Parse.run "ab  c d".toList (() => Parse.locatedToEnd Parse.Tests.runAt)
+    == Parse.run "ab  c d".toList (() => Parse.many (() => Parse.located (() => Parse.Tests.runAt Parse.mark().rest)))
+
+test "Parse.locatedToEnd: the same message as many at the end" :=
+  Parse.run "ab c".toList (() =>
+    let found := Parse.locatedToEnd Parse.Tests.runAt
+    Parse.satisfy "a closer" (char => char == ')')
+    found)
+    == Parse.run "ab c".toList (() =>
+      let found := Parse.many (() => Parse.located (() => Parse.Tests.runAt Parse.mark().rest))
+      Parse.satisfy "a closer" (char => char == ')')
+      found)
+
+test "Parse.locatedToEnd: a lexeme that reads nothing" :=
+  match Parse.run "ab".toList (() => Parse.locatedToEnd (rest => "")) with
+    | Ok found => False
+    | Err failure => failure.messages == ["`locatedToEnd`: the lexeme matched without reading anything"]
+
+-- `tokensWith`: the same lexer, then a `#` comment to the end of the input
+-- that no token carries, handed to the parser.
+
+def Parse.Tests.lexWithComment(): {Parse Char} (List (Parse.Located Parse.Tests.Tok), Option Text) :=
+  let tokens := Parse.Tests.lex()
+  Parse.span (char => char == ' ')
+  let comment := Parse.optional (() =>
+    Parse.char '#'
+    Parse.span (char => char != '\n'))
+  (tokens, comment.map (chars => Text.fromList chars |> .trim))
+
+def Parse.Tests.parseWithComment (input: Text): Result (List (Text, Nat), Option Text) Text := Fail.toResult (() =>
+  Parse.tokensWith input Parse.Tests.lexWithComment (comment =>
+    let found := Parse.Tests.calls()
+    (found, comment)))
+
+test "Parse.tokensWith: the lexer's extra value reaches the parser" :=
+  Parse.Tests.parseWithComment "f(1, 2); # done" == Ok ([("f", 3)], Some "done")
+
+test "Parse.tokensWith: no extra value" := Parse.Tests.parseWithComment "f(1);" == Ok ([("f", 1)], None)
+
+test "Parse.tokensWith: only the extra value, no tokens" :=
+  Parse.Tests.parseWithComment "# alone" == Ok ([], Some "alone")
+
+test "Parse.tokensWith: parsing failures read as Parse.tokens's" :=
+  Parse.Tests.parseWithComment "f(1; 2) # x" == Err "line 1, column 4: expected ',' or ')', got ';'"
+
+test "Parse.tokensWith: past the last token" :=
+  Parse.Tests.parseWithComment "f(1, 2 # x" == Err "line 1, column 7: expected ',' or ')', got the end of the input"

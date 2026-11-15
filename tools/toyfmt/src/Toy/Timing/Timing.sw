@@ -21,7 +21,7 @@ def main(): {IO} () :=
 def measure (phase source: Text): Text := match phase with
   | "lex" =>
     match Fail.toResult (() => Parse.all source (() => lex source)) with
-      | Ok tokens => "${tokens.length} tokens"
+      | Ok found => "${found.fst.length} tokens"
       | Err message => message
   | "parse" =>
     match parse source with

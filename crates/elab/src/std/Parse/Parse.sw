@@ -1,3 +1,4 @@
+import Parse.Associativity (LeftAssociative, RightAssociative)
 import Parse.Problem (Expected, Literal, Literals, Message)
 
 --| `Parse`: read text into the program's own types. A parser is ordinary
@@ -115,6 +116,16 @@ def Parse.State.note (state: Parse.State t) (problem: Parse.Problem): Parse.Stat
 --| The state moved on past `count` items, with `rest` left to read.
 def Parse.State.advance (state: Parse.State t) (rest: List t) (count: Nat): Parse.State t :=
   { state | at = { rest, offset = state.at.offset + count, left = state.at.left - count } }
+
+--| The last item read between two marks, `start` and the later `finish` (of
+--| the same parse), or `None` if nothing was. For what must be known about
+--| the item an element of the grammar ended on, such as a comment that
+--| follows a token: `let start := Parse.mark()`, read the element, then
+--| `Parse.lastRead start Parse.mark()`. It walks `start`'s items up to that
+--| one, so it costs what reading them did; a mark that carried the last item
+--| would make it free, but each read would then have to keep it.
+def Parse.lastRead (start finish: Parse.Mark t): Option t :=
+  if finish.offset > start.offset then start.rest.drop (finish.offset - start.offset - 1) |> .head else None
 
 --| What each reading operation gives, and the state after it, as one pair.
 -- `runFrom` doesn't call these: it resumes in each arm of its own `match`,
@@ -334,6 +345,38 @@ def Parse.many (parser: () → {Parse t} a): {Parse t} List a :=
   let start := Parse.mark()
   Parse.manyFrom (start.left + 1) parser [] start
 
+--| `parser`'s values, read from where each round starts for as long as items
+--| are left; `found` is newest first, and `start` is the mark where this round
+--| begins.
+def Parse.manyToEndFrom (fuel: Nat) (what: Text) (parser: Parse.Mark t → {Parse t} a)
+    (found: List a) (start: Parse.Mark t):
+    {Parse t} List a :=
+  match fuel, start.rest with
+    | Succ more, [_, .._] =>
+      let value := parser start
+      let after := Parse.mark()
+      if after.offset > start.offset then Parse.manyToEndFrom more what parser [value, ..found] after
+      else Empty.absurd (Parse.fatal "`manyToEnd`: the parser matched without reading anything")
+    | _, _ =>
+      Parse.note (Expected what)
+      found.reverse
+
+--| `parser`'s values from one end of the input to the other, for a parser
+--| that doesn't fail part-way, such as a lexer whose every character belongs
+--| to some token: `parser` is given the mark where it starts, to choose by
+--| what comes next, and the loop goes on while items are left. Unlike
+--| `many` it installs no handler to back up from a failed round, so a round
+--| costs one operation (the mark after it, which is the next round's start)
+--| instead of three, and a failure of `parser` is a failure of the whole
+--| parse here rather than the end of the repetition. At the end it notes
+--| "expected `what`", as `many` does when its last try finds nothing. Fails
+--| the whole parse, as `many` does, if a round reads nothing.
+--|
+--|   Parse.manyToEnd "a token" (start => lexeme start.rest)
+def Parse.manyToEnd (what: Text) (parser: Parse.Mark t → {Parse t} a): {Parse t} List a :=
+  let start := Parse.mark()
+  Parse.manyToEndFrom (start.left + 1) what parser [] start
+
 --| `parser`'s values while it succeeds, at least one: a `NonEmptyList`.
 def Parse.many1 (parser: () → {Parse t} a): {Parse t} NonEmptyList a :=
   let first := parser()
@@ -409,6 +452,89 @@ def Parse.chainLeft (operand: () → {Parse t} a) (operator: () → {Parse t} (a
     let right := operand()
     (combine, right))
   Parse.chainFold first rest
+
+--| How the operators of one level group: `a - b - c` is `(a - b) - c` for
+--| `LeftAssociative`, `a ^ b ^ c` is `a ^ (b ^ c)` for `RightAssociative`.
+type Parse.Associativity = | LeftAssociative | RightAssociative
+
+--| One level of binary operators for `Parse.operators`: `operator` says, for
+--| an item, whether it is an operator of this level and what it combines
+--| its two sides into.
+type Parse.Level (t: Type) (a: Type) = {
+  associativity: Parse.Associativity,
+  operator: t → Option (a → a → a)
+}
+
+--| The first level of the list, counting from `index`, that has an operator for `item`: its index,
+--| associativity and combining function.
+def Parse.operatorFrom (item: t) (index: Nat):
+    (levels: List (Parse.Level t a)) → Option (Nat, Parse.Associativity, a → a → a)
+  | [] => None
+  | [level, ..rest] =>
+    match level.operator item with
+      | Some combine => Some (index, level.associativity, combine)
+      | None => Parse.operatorFrom item (index + 1) rest
+
+--| `operand` with the operators of `levels` between operands, grouped by
+--| precedence: the first level binds loosest, so with levels `+` then `*`,
+--| `1+2*3` is `1 + (2 * 3)`. Each operator is one item that a level's
+--| `operator` accepts; a level chains as its associativity says. At least
+--| one operand. An operator without an operand after it is left unread
+--| (the parse backs up to before the operator), as `chainLeft` does.
+--|
+--| It is `Parse.chainLeft` once per level, each level's operand being the
+--| next level's, with operators that read one item and expect `what`: the
+--| same results and the same messages, "expected `what`" wherever no
+--| operator was read, but a look at the next item per operand instead of
+--| every level trying its operator under its own handler. A handler is
+--| installed only where an operator is found.
+--|
+--|   Parse.operators "an operator" [
+--|     { associativity = LeftAssociative, operator = plusOrMinus },
+--|     { associativity = LeftAssociative, operator = times }
+--|   ] term
+def Parse.operators (what: Text) (levels: List (Parse.Level t a)) (operand: () → {Parse t} a): {Parse t} a :=
+  Parse.operandsFrom (Parse.mark().left + 1) what levels levels.length operand 0
+
+--| `Parse.operators` for operators of level `lowest` or tighter, with the
+--| operand nested at most `depth` deep. Each nesting reads an operator, so
+--| the items left are enough depth.
+def Parse.operandsFrom (depth: Nat) (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
+    (operand: () → {Parse t} a) (lowest: Nat):
+    {Parse t} a :=
+  let first := operand()
+  match depth with
+    | Succ inner if lowest < count =>
+      Parse.operatorsFrom (Parse.mark().left + 1) inner what levels count operand lowest (count - 1) first
+    -- Past the tightest level the operator after an operand is the caller's to try.
+    | _ => first
+
+--| `left` followed by operators of level `lowest` to `highest` and their
+--| operands, at most `fuel` of them. `highest` falls to the level of each
+--| operator read: a tighter one after it would have been read by its right
+--| operand. No operator there notes "expected `what`".
+def Parse.operatorsFrom (fuel depth: Nat) (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
+    (operand: () → {Parse t} a) (lowest highest: Nat) (left: a):
+    {Parse t} a :=
+  match fuel, Parse.mark().rest with
+    | Succ more, [item, .._] =>
+      match Parse.operatorFrom item 0 levels with
+        | Some (level, associativity, combine) if lowest <= level && level <= highest =>
+          let right := Parse.optional (() =>
+            let operator := Parse.next (item => True)
+            Parse.operandsFrom depth what levels count operand
+              (match associativity with
+                | LeftAssociative => level + 1
+                | RightAssociative => level))
+          match right with
+            | Some right => Parse.operatorsFrom more depth what levels count operand lowest level (combine left right)
+            | None => left
+        | _ =>
+          Parse.note (Expected what)
+          left
+    | _, _ =>
+      Parse.note (Expected what)
+      left
 
 --| `parser`'s value and whether it read anything, or `None` with the input
 --| as it was if it fails: `optional` with the progress check built in.
@@ -548,6 +674,24 @@ def Parse.recursiveFuel (fuel: Nat) (body: (() → {Parse t} a) → {Parse t} a)
 -- Every other level reads an item, so the items left are enough fuel.
 def Parse.recursive (body: (() → {Parse t} a) → {Parse t} a): {Parse t} a :=
   Parse.recursiveFuel (Parse.mark().left + 1) body
+
+--| `Parse.recursiveFuel` for a parser that takes an argument.
+def Parse.recursiveWithFuel (fuel: Nat) (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a :=
+  match fuel with
+    | Zero => Empty.absurd (Parse.fatal "`recursiveWith`: the parser called itself without reading anything")
+    | Succ more => body (inner => Parse.recursiveWithFuel more body inner) argument
+
+--| `Parse.recursive` for a parser that takes an argument, such as the
+--| layout a nested part is read at: `body` gets the parser being defined,
+--| `b → {Parse t} a`, to call for the nested parts with the argument they
+--| need, and the parser starts with `argument`. Fails only as `body` does,
+--| or if it nests without reading anything between levels, which stops the
+--| whole parse.
+--|
+--|   Parse.recursiveWith (nested depth => … nested (depth + 1) …) 0
+-- Every other level reads an item, so the items left are enough fuel.
+def Parse.recursiveWith (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a :=
+  Parse.recursiveWithFuel (Parse.mark().left + 1) body argument
 
 -- Runners. The parser must read all of its input; errors give the line and
 -- column, counted from 1.

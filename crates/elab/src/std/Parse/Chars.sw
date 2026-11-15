@@ -1,3 +1,4 @@
+import Parse.Associativity (LeftAssociative, RightAssociative)
 import Parse.Problem (Expected, Literal, Literals, Message)
 
 -- The pieces that read text, `{Parse Char}`: characters, digits, numbers,
@@ -585,6 +586,134 @@ test "Parse: chainLeft, one operand" :=
 test "Parse: chainLeft, error" :=
   Parse.Tests.lineResult "" (() => Parse.chainLeft Parse.nat Parse.Tests.minus)
     == Err "column 1: expected a number, got the end of the line"
+def Parse.Tests.sumOperator (char: Char): Option (Nat → Nat → Nat) :=
+  if char == '+' then Some (left right => left + right)
+  else if char == '-' then Some (left right => left - right)
+  else None
+
+def Parse.Tests.productOperator (char: Char): Option (Nat → Nat → Nat) :=
+  if char == '*' then Some (left right => left * right) else None
+
+def Parse.Tests.powerOperator (char: Char): Option (Nat → Nat → Nat) :=
+  if char == '^' then Some (left right => Nat.pow left right) else None
+
+--| `+ -` then `*`, each level its own `chainLeft`.
+def Parse.Tests.chainTower(): {Parse Char} Nat :=
+  Parse.chainLeft (() => Parse.chainLeft Parse.nat (() => Parse.one "an operator" Parse.Tests.productOperator)) (() =>
+    Parse.one "an operator" Parse.Tests.sumOperator)
+
+def Parse.Tests.operatorLevels: List (Parse.Level Char Nat) := [
+  { associativity = LeftAssociative, operator = Parse.Tests.sumOperator },
+  { associativity = LeftAssociative, operator = Parse.Tests.productOperator }
+]
+
+--| The same grammar by `Parse.operators`.
+def Parse.Tests.climbing(): {Parse Char} Nat := Parse.operators "an operator" Parse.Tests.operatorLevels Parse.nat
+
+--| Samples from clean to broken: a dangling operator, a tighter operator
+--| after a looser one, a doubled operator, a space, nothing.
+def Parse.Tests.operatorSamples: List Text := ["7", "8-3-2", "1+2*3", "2*3+4", "2*3*4-1+1", "1+", "1+2*", "1*+2",
+  "1++2", "1 +2", "", "+1", "2*3-", "4-1*2*", "1+2x"]
+
+test "Parse.operators: same results and messages as a chainLeft tower" := Parse.Tests.operatorSamples.all (sample =>
+  Parse.Tests.lineResult sample Parse.Tests.chainTower == Parse.Tests.lineResult sample Parse.Tests.climbing)
+
+test "Parse.operators: precedence" := Parse.Tests.lineResult "1+2*3+4" Parse.Tests.climbing == Ok 11
+test "Parse.operators: from the left" := Parse.Tests.lineResult "9-3-2" Parse.Tests.climbing == Ok 4
+test "Parse.operators: dangling operator is left unread" :=
+  Parse.Tests.lineResult "1+" Parse.Tests.climbing == Err "column 3: expected a number, got the end of the line"
+test "Parse.operators: unread operator expected where none follows" :=
+  Parse.Tests.lineResult "1x" Parse.Tests.climbing
+    == Err "column 2: expected an operator or the end of the line, got 'x'"
+
+def Parse.Tests.powerLevels: List (Parse.Level Char Nat) := [
+  { associativity = LeftAssociative, operator = Parse.Tests.sumOperator },
+  { associativity = RightAssociative, operator = Parse.Tests.powerOperator }
+]
+
+--| `2^3^2` is `2^(3^2)` = 512, where from the left it would be 64.
+test "Parse.operators: right associative" :=
+  Parse.Tests.lineResult "2^3^2" (() => Parse.operators "an operator" Parse.Tests.powerLevels Parse.nat) == Ok 512
+
+test "Parse.operators: right associative level binds tighter than the one before" :=
+  Parse.Tests.lineResult "1+2^3^2-1" (() => Parse.operators "an operator" Parse.Tests.powerLevels Parse.nat) == Ok 512
+
+--| A number and the spaces after it.
+def Parse.Tests.spacedNumber(): {Parse Char} Nat :=
+  let number := Parse.nat()
+  Parse.spaces()
+  number
+
+test "Parse.manyToEnd: to the end of the input" :=
+  Parse.Tests.lineResult "12 3 45" (() => Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber()))
+    == Ok [12, 3, 45]
+test "Parse.manyToEnd: no input" :=
+  Parse.Tests.lineResult "" (() => Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber())) == Ok []
+test "Parse.manyToEnd: the parser is given where it starts" :=
+  Parse.Tests.lineResult "12 3" (() => Parse.manyToEnd "a number" (start => (start.offset, Parse.Tests.spacedNumber())))
+    == Ok [(0, 12), (3, 3)]
+--| What is noted at the end is `many`'s, so a parser that goes on there reads the same message.
+test "Parse.manyToEnd: the same message as many at the end" :=
+  Parse.Tests.lineResult "1 2" (() =>
+    let found := Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber())
+    Parse.char 'x'
+    found)
+    == Parse.Tests.lineResult "1 2" (() =>
+      let found := Parse.many Parse.Tests.spacedNumber
+      Parse.char 'x'
+      found)
+test "Parse.manyToEnd: a failing round fails the parse" :=
+  Parse.Tests.lineResult "12 x" (() => Parse.manyToEnd "a number" (start => Parse.Tests.spacedNumber()))
+    == Err "column 4: expected a number, got 'x'"
+test "Parse.manyToEnd: a round that reads nothing" :=
+  Parse.Tests.lineError "ab" (() => Parse.manyToEnd "a thing" (start => ()))
+    == "column 1: `manyToEnd`: the parser matched without reading anything"
+--| Nested lists of numbers, each number times its depth, the outer list's
+--| items being at depth 2: "[1,[2,[]],3]" is 1 * 2 + 2 * 3 + 3 * 2 = 14.
+def Parse.Tests.depthSum(): {Parse Char} Nat :=
+  Parse.recursiveWith
+    (nested depth =>
+      Parse.oneOf [
+        () => depth * Parse.nat(),
+        () =>
+          Parse.char '['
+          let items := Parse.sepBy (() => nested (depth + 1)) (() => Parse.char ',')
+          Parse.char ']'
+          items.sum
+      ])
+    1
+
+test "Parse.recursiveWith: the argument changes with the nesting" :=
+  Parse.Tests.lineResult "[1,[2,[]],3]" Parse.Tests.depthSum == Ok 14
+test "Parse.recursiveWith: a bad nested part" :=
+  Parse.Tests.lineResult "[1,[x]]" Parse.Tests.depthSum == Err "column 5: expected a number, '[' or ']', got 'x'"
+test "Parse.recursiveWith: left recursion stops the parse" :=
+  Parse.Tests.lineError "ab" (() => (Parse.recursiveWith (self depth => self depth) 0: Nat))
+    == "column 1: `recursiveWith`: the parser called itself without reading anything"
+test "Parse.lastRead: the last character read since a mark" :=
+  Parse.Tests.lineResult "abc" (() =>
+    let start := Parse.mark()
+    Parse.text "ab"
+    let last := Parse.lastRead start Parse.mark()
+    Parse.char 'c'
+    last)
+    == Ok (Some 'b')
+test "Parse.lastRead: nothing read" :=
+  Parse.Tests.lineResult "abc" (() =>
+    let start := Parse.mark()
+    let last := Parse.lastRead start Parse.mark()
+    Parse.text "abc"
+    last)
+    == Ok None
+test "Parse.lastRead: after a span, from a later mark" :=
+  Parse.Tests.lineResult "abcd" (() =>
+    Parse.char 'a'
+    let start := Parse.mark()
+    let run := Parse.span (char => char != 'd')
+    let last := Parse.lastRead start Parse.mark()
+    Parse.char 'd'
+    last)
+    == Ok (Some 'c')
 test "Parse: sepBy" :=
   Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []

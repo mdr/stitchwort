@@ -15,6 +15,7 @@
 --| placed that way is kept as written.
 
 namespace Toy.Syntax
+import Std.Parse.Associativity (LeftAssociative)
 import Std (Empty, Fail, List, NonEmptyList, Option, Parse, Result, Text)
 
 --| How a token may stand: anywhere inside brackets; in a statement that
@@ -68,8 +69,7 @@ def keyword (layout: Layout) (wanted: Keyword): {Parse (Parse.Located Token)} ()
 
 --| The last token read since `start`, which was before at least one.
 def lastSince (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Token :=
-  let finish := Parse.mark()
-  start.rest.drop (finish.offset - start.offset - 1) |> .head |> .map (token => token.value)
+  Parse.lastRead start Parse.mark() |> .map (token => token.value)
 
 --| The comment after the last token read since `start`.
 def lastTrailing (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Comment :=
@@ -101,21 +101,11 @@ def withoutFirstBlank (lines: List (Spaced a)): List (Spaced a) := match lines w
   | [first, ..rest] => [{ first | blankBefore = False }, ..rest]
   | [] => []
 
--- Expressions. They nest, so they are read by `nested` with `self`, the
+-- Expressions. They nest, so they are read by `Parse.recursiveWith` with `self`, the
 -- expression parser at a layout; the rest of the grammar gets `self` as an
 -- argument and doesn't call itself.
 
---| `body` with `self` for its nested parser, at most `fuel` levels deep.
-def nestedFuel (fuel: Nat) (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a := match fuel with
-  | Zero => Empty.absurd (Parse.fatal "nested too deeply")
-  | Succ more => body (inner => nestedFuel more body inner) argument
-
---| `Parse.recursive` for a parser that takes an argument. Each level reads
---| a token before it nests, so the tokens left are enough fuel.
-def nested (body: (b → {Parse t} a) → b → {Parse t} a) (argument: b): {Parse t} a :=
-  nestedFuel (Parse.mark().left + 1) body argument
-
-def expression (layout: Layout): {Parse (Parse.Located Token)} Expr := nested expressionRule layout
+def expression (layout: Layout): {Parse (Parse.Located Token)} Expr := Parse.recursiveWith expressionRule layout
 
 def isIf (layout: Layout) (token: Parse.Located Token): Bool :=
   layout.allows token && token.value.kind |> matches | Reserved IfKeyword
@@ -131,7 +121,7 @@ def expressionRule (self: Layout → {Parse (Parse.Located Token)} Expr) (layout
       elseKeyword layout
       let whenFalse := body self layout
       If condition whenTrue whenFalse
-    | _ => chain (() => operand self layout) layout 1
+    | _ => Parse.operators "an operator" (operatorLevels layout) (() => operand self layout)
 
 def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek() with
   | Some token if (keywordIs ElseKeyword token.value.kind).isSome =>
@@ -139,54 +129,16 @@ def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek
     else Parse.fail "'else' must not start a line to the left of its 'if' statement"
   | _ => keyword layout ElseKeyword
 
---| An operand, then operators of `lowest` up to `highest` and their
---| operands, combined by precedence: tighter levels bind first, and one
---| level chains from the left, `a - b + c` being `(a - b) + c`.
--- Precedence climbing: one look at the next token per operand, where a
--- `Parse.chainLeft` per level tried each level's operator under its own
--- handler. The notes are the same as that grammar's (an operator was
--- expected wherever none was read), so messages don't change.
-def chain (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout) (lowest: Nat):
-    {Parse (Parse.Located Token)} Expr :=
-  chainNested 6 operand layout lowest
+--| The operators of each level (1 for `||` to 6 for `* / %`, see
+--| `Operator.level`) that a token may be at `layout`, each level chaining
+--| from the left: `a - b + c` is `(a - b) + c`.
+def operatorLevels (layout: Layout): List (Parse.Level (Parse.Located Token) Expr) :=
+  [1, 2, 3, 4, 5, 6].map (level => { associativity = LeftAssociative, operator = operatorOf layout level })
 
---| `chain`, with right operands nested at most `depth` deep: each is of a
---| tighter level than the operator before it, so six levels are enough.
-def chainNested (depth: Nat) (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout) (lowest: Nat):
-    {Parse (Parse.Located Token)} Expr :=
-  let first := operand()
-  match depth with
-    | Succ inner if lowest <= 6 => chainFrom (Parse.mark().left + 1) inner operand layout lowest 6 first
-    -- Past the tightest level the operator after an operand is the caller's to try.
-    | _ => first
-
---| `left` followed by operators of `lowest` up to `highest` and their
---| operands, at most `fuel` of them. `highest` falls to the level of each
---| operator read: a tighter one after it would have been read by its right
---| operand.
-def chainFrom (fuel depth: Nat) (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout)
-    (lowest highest: Nat) (left: Expr):
-    {Parse (Parse.Located Token)} Expr :=
-  match fuel, peek() with
-    | Zero, _ => left
-    | Succ more, Some token if layout.allows token && operatorWithin lowest highest token.value.kind =>
-      match token.value.kind with
-        | Op operator =>
-          -- An operator without an operand after it is left unread.
-          let right := Parse.optional (() =>
-            skip()
-            chainNested depth operand layout (operator.level + 1))
-          match right with
-            | Some right => chainFrom more depth operand layout lowest operator.level (Binary operator left right)
-            | None => left
-        | _ => left
-    | _, _ =>
-      Parse.note (Parse.Problem.Expected "an operator")
-      left
-
-def operatorWithin (lowest highest: Nat): Kind → Bool
-  | Op operator => lowest <= operator.level && operator.level <= highest
-  | _ => False
+def operatorOf (layout: Layout) (level: Nat) (token: Parse.Located Token): Option (Expr → Expr → Expr) :=
+  match token.value.kind with
+    | Op operator if operator.level == level && layout.allows token => Some (Binary operator)
+    | _ => None
 
 def isMinus (layout: Layout) (token: Parse.Located Token): Bool :=
   layout.allows token && token.value.kind |> matches | Op Minus
@@ -408,27 +360,18 @@ def asWritten (source: Text) (tokens: List (Parse.Located Token)): Text := match
     source.slice first.offset finish
   | _, _ => ""
 
-def sourceFile (source: Text): {Parse (Parse.Located Token)} SourceFile :=
-  let all := Parse.mark().rest
+--| The file, given the comments after its last token (or all of them, with
+--| no tokens).
+def sourceFile (source: Text) (endTrivia: List Trivia): {Parse (Parse.Located Token)} SourceFile :=
   let declarations := Parse.many (() => declaration source) |> .concat
   match peek() with
     | Some token if token.value.startsLine && token.value.column > 0 =>
       Parse.fail "this line's indentation matches no block it could belong to"
     | _ =>
-      let (endNotes, _) :=
-        all.last |> .map (token => spacedNotes DeclarationNote token.value.below) |> .getOrElse ([], False)
+      let (endNotes, _) := spacedNotes DeclarationNote endTrivia
       { declarations = declarations ++ endNotes |> withoutFirstBlank }
-
---| A file with no tokens: its comments, as notes.
-def commentsOnly (source: Text): SourceFile :=
-  let trivia := source.lines.foldLeft ([]: List Trivia) (found line =>
-    let trimmed := line.trim
-    if trimmed.isEmpty then addBlank found else [OwnLine { text = trimmed }, ..found])
-  let (notes, _) := spacedNotes DeclarationNote trivia.reverse
-  { declarations = withoutFirstBlank notes }
 
 --| The tree of a Sprig source, or the first error as "line 3, column 9:
 --| expected ',' or ')', got 'b'".
 def parse (source: Text): Result SourceFile Text :=
-  Fail.toResult (() => Parse.tokens source (() => lex source) (() => sourceFile source))
-    |> .map (file => if file.declarations.isEmpty then commentsOnly source else file)
+  Fail.toResult (() => Parse.tokensWith source (() => lex source) (endTrivia => sourceFile source endTrivia))

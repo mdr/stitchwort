@@ -394,3 +394,48 @@ paused at stage B, D3430, D3465), the second `Parse` reading a list
 (D3597's slices). By this rate the real formatter's 6.5 MB would take about
 13 s natively, against the plan's 20 s, if its grammar costs per byte what
 Sprig's does; a bigger grammar will cost more.
+
+## Std Parse from the toy (SW-3367, SW-3391)
+
+What stage A's friction asked of std, now there, and the toy moved onto it:
+
+| Friction | Std | In the toy |
+|---|---|---|
+| 1 `recursive` takes no argument | `Parse.recursiveWith body argument` | `nested`, `nestedFuel` removed |
+| (speed) precedence climbing | `Parse.operators what levels operand`, levels with a `Parse.Associativity` | `chain`, `chainNested`, `chainFrom` removed; `operatorLevels layout` |
+| (speed) a handler per lexeme | `Parse.locatedToEnd lexeme` (and `Parse.manyToEnd`, for any item) | `lexemes()` |
+| 3 comments after the last token | `Parse.tokensWith input lexer parser`: the lexer returns `(tokens, extra)`, the parser takes `extra` | `lex` returns the tokens and the trailing trivia; `Token.below` and `commentsOnly` removed |
+| 4 the last item read | `Parse.lastRead start finish` (a function of two marks) | `lastSince` |
+| 6 `(..)` and a dotted helper | not a bug, see below | |
+
+Native, `Toy.Timing.main -- PHASE 2600` (933 KB), user seconds, median of 3,
+load 3 to 5 [measured]; the print phase (0.29 s) is inside each:
+
+| Phase | Hand-written in the toy (SW-3383) | `Parse.operators` + `Parse.locatedToEnd` | `Parse.many` for lexemes |
+|---|---|---|---|
+| lex | 0.97 s | 0.97 s | 1.49 s |
+| lex and parse | 1.84 s | 1.97 s | |
+| format | 2.18 s | 2.30 s | |
+
+`Parse.locatedToEnd` matches the toy's own loop and beats `many` by a third
+of the lexing time. `Parse.operators` is 0.13 s (7%) slower than the toy's
+own climbing: it scans the level table for each operator token (up to six
+closure calls) and the toy builds the table per expression, since the
+layout is in it. A std function that took one classifier,
+`item → Option (level, associativity, combine)`, would skip the scan.
+
+**Friction 6 was not a bug.** `import N (..)` brings the names declared
+directly in `N`, and a type with its namespace (`Foo.bar` and `foo.bar`
+work after `import A (..)`), but not a namespace that holds only helpers
+(`def Helper.double` in `A` isn't reached as `Helper.double` after
+`import A (..)`; `import A (Helper)` reaches it). `def Located.slice` made
+such a namespace, `Located` not being a type of `Toy.Syntax` (`Parse.Located`
+is the library's, which a program can't add to). docs/syntax.md says so;
+the error says nothing about it. Constructors aren't brought by `(..)`
+either (`Mk` of `A.Foo`: `A.Foo.Mk`).
+
+**No `Parse.previous()`.** A mark that held the last item read would make
+every read keep it: `Parse.State.advance` runs per operation, a `span` would
+have to find its last item, and `Parse.Mark` is built and matched in dozens of places
+(the handlers, `Parse/Reads.sw` and `Runs.sw`). `Parse.lastRead` does the
+walk the toy did, once, in std.

@@ -37280,12 +37280,12 @@
     {
       "id": 3367,
       "title": "[Sonnet] Std Parse from the toy formatter (SW-3340): Parse.recursiveWith (recursion with an argument); a way for a Parse.tokens lexer to return trailing comments / an end token named 'the end of the input'; Parse.previous() or a mark remembering the last item read; check whether (..) imports bring in dotted helpers",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Combined with SW-3391 (Parse.operators, cheaper loop) since both edit std Parse. Expected: 3 h (Sonnet).",
+      "body": "\nCombined with SW-3391 (Parse.operators, cheaper loop) since both edit std Parse. Expected: 3 h (Sonnet).\n\nLane notes (Sonnet), branch lane/SW-3367, commits be38eb2c6..1e33a7a47: Parse.recursiveWith (item 3), Parse.tokensWith (item 4: the lexer returns (tokens, extra), the parser takes extra; the toy lost Token.below and commentsOnly), Parse.lastRead start finish (item 5: a pure function of two marks; a mark holding the last item would touch every read and dozens of proof sites, so not done), item 6 checked: not a bug, (..) brings names declared directly in N and types with their namespaces, not helper-only namespaces (import A (Helper) does); the error gives no hint. Details in tools/toyfmt/NOTES.md, \"Std Parse from the toy\". Moved to review.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37594,12 +37594,12 @@
     {
       "id": 3391,
       "title": "[Sonnet] SW-3381 findings: stitchwort test --std NAMESPACE (std tests per namespace, for lanes); Text.upper; a match as the last statement of a let block needing deeper indentation (better message or accept); Std.Args 'help lists every option' theorem once Text.contains/joinWith lemmas exist",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet), branch lane/SW-3367 (combined with SW-3367): done here: Parse.operators (levels with associativity, tested against a chainLeft tower: same results and messages), Parse.manyToEnd + Parse.locatedToEnd (lexer loop without a handler per round: 1.49 s to 0.97 s native on 930 KB; same as the toy's hand loop). Toy parse (lex and parse) 1.84 s with hand-written climbing vs 1.97 s with Parse.operators (+7%). NOT done from this ticket: stitchwort test --std NAMESPACE, Text.upper, the match-in-let indentation message, Std.Args theorem (the brief covered only the Parse items). Moved to review.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
