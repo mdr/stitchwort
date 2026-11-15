@@ -36849,15 +36849,17 @@
     {
       "id": 3334,
       "title": "[Sonnet] is_proof_type is false for a goal headed by a local p: … → Prop, so notes depending on it vanish for such goals; check its other callers; and the or-pattern error note can't say which alternative failed (SW-3325 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-3325. Expected: 45 min (Sonnet).",
+      "body": "From SW-3325. 11 callers listed, all display or rewrite premise search; none erasure. A let of a proof now shows only its statement (orchestrator's call: the code's rule; doc line updated). Model result: Sonnet, worked, ~8 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "9cb49953affe20626a15f04370e71a4999b21f9a"
+      ]
     },
     {
       "id": 3335,
