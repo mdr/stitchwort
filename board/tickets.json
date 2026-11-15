@@ -1,5 +1,5 @@
 {
-  "next": 3418,
+  "next": 3419,
   "tickets": [
     {
       "id": 47,
@@ -37941,6 +37941,19 @@
       "id": 3417,
       "title": "[Opus paper] Refresh docs/proposals/self-hosted-fmt.md before stage 0: §3.2 option C (Parse now reads tokens; keep the hand-written parser per SW-3414), SW-3149/SW-3150 status, theorem estimates from the toy (SW-3414 report)",
       "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3418,
+      "title": "[Opus] Toy formatter: prove the printer correct directly (Matt, 15 Nov 2026: the ambition is no run-time check because the behaviour is proved), so format can drop its re-parse: parse (print t) gives t back for every tree the parser produces, at any width; experiment with a 3 h stop; report what it takes and an estimate for the real formatter",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
