@@ -36767,12 +36767,12 @@
     {
       "id": 3329,
       "title": "[Sonnet] Print a type ascription in a goal's lemma when both sides of an equation leave the type open ((Err msg: Result b Text) = Err msg), instead of printing no lemma (SW-3326 drops it); also the lemmas_check_as_the_same_goal test takes 5-6 min: cut its per-example writes or sample",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Done on lane/SW-3329 (352a5e587). lemma_of prints (Err msg: Result b Text) = Err msg for a top-level equation whose two sides are loose constructor terms (falls back to no lemma if the shown target isn't 'a = b' or the type is unwritable); nested ones still drop. lemmas_check_as_the_same_goal now writes one file per example holding all its lemmas and indexes it once: 5-6 min -> ~28 s (20-28 s measured). Snapshots: lemmas (92 lemmas), reify-return gains the lemma. Tests: the three server tests pass; task test:example NAME=reify passes.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
