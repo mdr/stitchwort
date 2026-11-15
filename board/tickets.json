@@ -37702,12 +37702,12 @@
     {
       "id": 3399,
       "title": "[DeepSeek] search::what_closes_a_goal_in_a_project snapshot records budget.matched/tried, which change with every std lemma added; blank them like candidates and checks (SW-3396 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Combined with SW-3404 in one DeepSeek run (scratch clone sw-3399). Expected: 45 min.",
+      "body": "Combined with SW-3404 in one DeepSeek run (scratch clone sw-3399). Expected: 45 min.\n\nModel result: deepseek, worked, ~40 min (est. 45). Reviewed line by line.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37769,12 +37769,12 @@
     {
       "id": 3404,
       "title": "[Sonnet] A failed [auto] proof (E-AUTO-FALSE) names the proposition and the call: ExitStatus.of 300 says '300 < 256 is false', not '`False = True` is false' (SW-3402 and SW-3345 findings; supersedes the earlier duplicate)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~40 min (est. 45). Reviewed line by line.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
