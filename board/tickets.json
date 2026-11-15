@@ -37659,15 +37659,17 @@
     {
       "id": 3396,
       "title": "[Sonnet] Bug: rolling check red at d67f1c72f: extraction extract::generated_code_is_stable (derive-ord.js snapshot, likely SW-3370's linear derived compare) and server search::what_closes_a_goal_in_a_project. Last pass 48135f42a",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane notes: both failures reproduced on main. derive-ord.js: SW-3370's tags-first compare (a `fields` helper, `compare` checks tags then calls it); old and new JS print identical results under node for the example's run lines. search snapshot: only \"matched\"/\"tried\" 44 -> 46 (two more library lemmas, from the newly merged std work), so the expectation moved; the asserted suggestions still pass. Snapshots accepted.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "7ef4fcf09"
+      ]
     }
   ]
 }
