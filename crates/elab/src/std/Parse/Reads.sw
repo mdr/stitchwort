@@ -458,6 +458,34 @@ theorem Parse.readsLiteral ∀ (literal: Parse.Literal t)
         let atSame: state.at = after := Pair.mkInjectiveSnd same
         Witness [] (rewrite <- valueSame, <- atSame in Both rfl (Both honest rfl))
 
+--| `literal` reads items related to its own by `r` if it gives `True`, nothing
+--| if `False`, when `same` implies `r`. For items that aren't compared by
+--| equality, such as tokens that record where they were read: `same` ignores
+--| the position, and `r` says what it keeps. [`Parse.readsLiteral`] is the case
+--| of equality.
+theorem Parse.readsLiteralSame ∀ (literal: Parse.Literal t)
+    (r: t → t → Prop) (sound: ∀ (x y: t) => literal.same x y = True → r x y):
+    Parse.Reads (() => Parse.literal literal) (read found =>
+      if found then List.All2 r literal.items read else read = []) :=
+  state value after honest h =>
+    match e: List.stripPrefixBy state.at.rest literal.items literal.same with
+      | Some rest =>
+        let same := Result.okInjective h
+        let valueSame: True = value := Pair.mkInjectiveFst same
+        let atSame: (state.advance rest literal.items.length).at = after := Pair.mkInjectiveSnd same
+        match List.stripPrefixByRelated literal.same r sound state.at.rest literal.items e with
+          | Witness taken (Both starts related) =>
+            let lengths: state.at.rest.length = taken.length + rest.length :=
+              rewrite starts in List.lengthAppend taken rest
+            let sameLength: literal.items.length = taken.length := List.all2Length r literal.items taken related
+            Witness taken
+              (rewrite <- valueSame, <- atSame in Both starts (Both (omega [honest, lengths, sameLength]) related))
+      | None =>
+        let same := Result.okInjective h
+        let valueSame: False = value := Pair.mkInjectiveFst same
+        let atSame: state.at = after := Pair.mkInjectiveSnd same
+        Witness [] (rewrite <- valueSame, <- atSame in Both rfl (Both honest rfl))
+
 -- Failing: none of these succeeds.
 
 theorem Parse.readsExpected ∀ (what: Text) [spec: List t → a → Prop]: Parse.Reads (() => Parse.expected what) spec :=
@@ -528,6 +556,14 @@ theorem Parse.readsThen ∀ [p: () → {Parse t} a] [j: a → {Parse t} b]
 theorem Parse.readsDone ∀ (x: a) (spec: List t → a → Prop) (holds: spec [] x): Parse.Reads (() => x) spec :=
   Parse.readsWeaken (Parse.readsPure x) (read v h => match h with | Both none same => rewrite none, same in holds)
 
+--| `one` reads the item `select` gives its value for.
+theorem Parse.readsOne ∀ (what: Text) (select: t → Option a):
+    Parse.Reads (() => Parse.one what select) (read value => ∃ (item: t) => read = [item] ∧ select item = Some value) :=
+  Parse.readsThen Parse.readsSatisfy (firstRead item facts =>
+    match e: select item with
+      | Some value => Parse.readsDone value _ (Witness item (Both (rewrite And.left facts in rfl) e))
+      | None => Parse.readsExpected what)
+
 --| A pure function of what `first` gave: what `first` read.
 theorem Parse.readsMap ∀ (p: () → {Parse t} a) (f: a → b) (spec: List t → a → Prop)
     (reads: Parse.Reads p spec):
@@ -563,6 +599,11 @@ theorem Parse.readsSpanNonEmpty ∀ (passes: t → Bool) (what: Text) (f: List t
         | Witness firstRead
             (Witness nextRead (Witness taken (Both split (Both (Both same all) (Both none (Both some made)))))) =>
           rewrite split, none, List.appendNil firstRead, same in Both some (Both all made))
+
+--| `span1` reads a run that isn't empty, all of whose items pass, and gives it.
+theorem Parse.readsSpan1 ∀ (what: Text) (passes: t → Bool):
+    Parse.Reads (() => Parse.span1 what passes) (read items => read ≠ [] ∧ read.all passes = True ∧ items = read) :=
+  Parse.readsSpanNonEmpty passes what (items => items)
 
 theorem Parse.readsNeed ∀ (found: Option a) (message: Text):
     Parse.Reads (() => Parse.need found message) ((read: List t) value => read = [] ∧ found = Some value) :=

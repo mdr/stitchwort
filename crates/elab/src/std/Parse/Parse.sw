@@ -228,6 +228,22 @@ def Parse.satisfy (what: Text) (passes: t → Bool): {Parse t} t := match Parse.
   | Some char => char
   | None => Parse.expected what
 
+--| The next item's value if `select` gives one for it, else "expected `what`": a
+--| token of a kind, read for what it carries.
+--|
+--|   Parse.one "a number" (match some | Num n => n)
+def Parse.one (what: Text) (select: t → Option a): {Parse t} a :=
+  let item := Parse.satisfy what (item => (select item).isSome)
+  match select item with
+    | Some value => value
+    | None => Parse.expected what
+
+--| The longest run of items that pass `passes`, at least one, else
+--| "expected `what`": `takeWhile1` for any items.
+def Parse.span1 (what: Text) (passes: t → Bool): {Parse t} List t := match Parse.span passes with
+  | [] => Parse.expected what
+  | items => items
+
 --| The end of the input, else "expected the end".
 def Parse.end(): {Parse t} () := if Parse.mark().left == 0 then () else Parse.expected "the end"
 

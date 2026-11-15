@@ -121,6 +121,11 @@
   <pre data-src="20-parse.sw"></pre>
 </section>
 
+<section data-slug="lex-then-parse" data-title="Lex, then parse">
+  <p>A grammar with operators or brackets is easier in two passes. A lexer is a <code>Parse</code> parser of characters whose tokens are wrapped in <code>Parse.located</code>, which keeps where each was read. A token parser reads a list of those tokens with the same <code>many</code>, <code>oneOf</code>, <code>sepBy</code> and <code>chainLeft</code>; <code>Parse.one</code> takes the next token if a function gives a value for it. <code>Parse.tokens</code> runs both, and when the second fails the message names the line and column of the token, what was expected, and the token as it was written.</p>
+  <pre data-src="41-lex-then-parse.sw"></pre>
+</section>
+
 <section data-slug="effect-polymorphism" data-title="One function for pure and effectful callbacks">
   <p>A function type can say <code>{e}</code> for "whatever effects the callback has". Pass it a pure function and the call is pure; pass it one that can fail and the call can fail, with the same definition. The library does this for <code>List.map</code>, whose callback may perform effects or none.</p>
   <pre data-src="21-effect-polymorphism.sw"></pre>
