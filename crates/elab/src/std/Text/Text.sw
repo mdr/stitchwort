@@ -379,12 +379,10 @@ def Text.drop (text: Text) (count: Nat): Text := text.toList.drop count |> Text.
 --| Whether two characters are the same.
 def Text.sameChar (a b: Char): Bool := Nat.equal (Char.toNat a) (Char.toNat b)
 
---| The rest of the characters after the prefix `p`, if they start with it.
-@[tailrec]
-def Text.stripPrefixChars: (prefix: List Char) → (chars: List Char) → Option (List Char)
-  | [], ys => Some ys
-  | [p, ..ps], [] => None
-  | [p, ..ps], [y, ..ys] => if Text.sameChar p y then Text.stripPrefixChars ps ys else None
+--| The rest of the characters after the prefix `p`, if they start with it:
+--| [`List.stripPrefixBy`] comparing characters with [`Text.sameChar`].
+--| The empty prefix gives `Some ys`.
+def Text.stripPrefixChars (prefix chars: List Char): Option (List Char) := List.stripPrefixBy chars prefix Text.sameChar
 
 --| Whether the second list of characters starts with the first.
 @[tailrec]
@@ -470,12 +468,7 @@ def Text.splitOnce (text sep: Text): Option (Pair Text Text) := match sep.toList
 theorem Text.sameCharRefl ∀ (c: Char): Text.sameChar c c = True := Nat.equalRefl (Char.toNat c)
 
 theorem Text.stripPrefixCharsAppend ∀ (t p: List Char): Text.stripPrefixChars p (List.append p t) = Some t :=
-  match p with
-    | [] => rfl
-    | [c, ..ps] =>
-      Eq.trans
-        (Eq.cong (b => if b then Text.stripPrefixChars ps (List.append ps t) else None) (Text.sameCharRefl c))
-        (Text.stripPrefixCharsAppend t ps)
+  List.stripPrefixByAppend Text.sameChar Text.sameCharRefl p t
 
 theorem Text.stripPrefixAppend ∀ (p t: Text): Text.stripPrefix (Text.append p t) p = Some t :=
   Eq.trans
@@ -496,11 +489,7 @@ theorem Text.sameCharEq ∀ (c d: Char): Text.sameChar c d = (c == d) := match s
 theorem Text.stripPrefixCharsForward ∀ (p ys: List Char) [rest: List Char]
     (h: Text.stripPrefixChars p ys = Some rest):
     ys = List.append p rest :=
-  match p, ys with
-    | [], ys => Option.someInjective h
-    | [c, ..ps], [y, ..ys] =>
-      match same: Text.sameChar c y with
-        | True => rewrite Eq.sym (Char.ext c y same.read) in Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
+  List.stripPrefixByForward Text.sameChar (x y same => Char.ext x y same.read) ys p h
 
 --| The characters after the prefix `p` are `rest` exactly when the list is
 --| `p` followed by `rest`: `Text.stripPrefixChars p ys = Some rest ↔ ys = p ++ rest`.

@@ -844,6 +844,32 @@ theorem List.stripPrefixByForward ∀ (same: a → a → Bool)
       match holds: same p x with
         | True => rewrite exact p x holds in Eq.cong (Cons x) (List.stripPrefixByForward same exact more ps h)
 
+--| Stripping `prefix` from `xs` leaves `rest` exactly when `xs` is `prefix`
+--| followed by `rest`, for a `same` that holds of every item and itself and
+--| only of equal items: `List.stripPrefixBy xs prefix same = Some rest ↔
+--| xs = prefix ++ rest`. [`List.stripPrefixByForward`] is its forward
+--| direction, and [`List.stripPrefixByAppend`] its backward direction.
+theorem List.stripPrefixBySome ∀ (same: a → a → Bool)
+    (reflexive: ∀ (x: a) => same x x = True)
+    (exact: ∀ (x y: a) => same x y = True → x = y) (xs prefix rest: List a):
+    List.stripPrefixBy xs prefix same = Some rest ↔ xs = List.append prefix rest :=
+  {
+    forward = List.stripPrefixByForward same exact xs prefix,
+    backward = e => rewrite e in List.stripPrefixByAppend same reflexive prefix rest
+  }
+
+--| Stripping `prefix` from `xs` gives `None` when `xs` is not `prefix`
+--| followed by any list, for a `same` that holds only of equal items. Use it
+--| to show that a text or list does not start with a prefix;
+--| [`List.stripPrefixBySome`] is the same fact with the result in hand.
+theorem List.stripPrefixByNone ∀ (same: a → a → Bool)
+    (exact: ∀ (x y: a) => same x y = True → x = y) (xs prefix: List a)
+    (absent: ∀ (rest: List a) => xs ≠ List.append prefix rest):
+    List.stripPrefixBy xs prefix same = None :=
+  match found: List.stripPrefixBy xs prefix same with
+    | None => rfl
+    | Some rest => Void.exfalso (absent rest (List.stripPrefixByForward same exact xs prefix found))
+
 --| Where `same` implies `r`, stripping `prefix` from `xs` leaves `rest` only if
 --| `xs` is some `taken` followed by `rest`, with `r` holding of each item of
 --| `prefix` and the one it was compared with. [`List.stripPrefixByForward`]
