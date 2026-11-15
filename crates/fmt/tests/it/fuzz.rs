@@ -2,8 +2,9 @@
 //! text or refuses it, and an `Internal` error (the output failed the §4.1
 //! checks) is a formatter bug. Every output must also be stable: formatting it
 //! again changes nothing. This feeds it thousands of mutated example programs
-//! and random token soup, from the same generator and seed as
-//! `crates/syntax/tests/it/fuzz.rs`, so failures are reproducible. The seed
+//! and random token soup, in the style of `crates/syntax/tests/it/fuzz.rs`
+//! but retrying a mutation that doesn't parse with fewer edits (see
+//! `generate`), so most cases are formatted. The seed
 //! defaults to a fixed one; `FUZZ_CASES` and `FUZZ_SEED` (decimal or `0x...`)
 //! change the count and the seed.
 //!
@@ -193,11 +194,12 @@ fn swap_ranges(chars: &mut Vec<char>, rng: &mut Rng) {
     *chars = swapped;
 }
 
-fn mutate(rng: &mut Rng, base: &str) -> String {
+/// `edits` is how many mutations to apply.
+fn mutate(rng: &mut Rng, base: &str, edits: usize) -> String {
     // Working on chars keeps every intermediate string valid UTF-8, even when
     // an edit lands in the middle of a multi-byte character.
     let mut chars: Vec<char> = base.chars().collect();
-    for _ in 0..=rng.below(4) {
+    for _ in 0..edits {
         match rng.below(5) {
             0 => {
                 chars.drain(rng.range(chars.len()));
@@ -446,6 +448,40 @@ fn comment_rate() -> Option<f64> {
     Some(rate)
 }
 
+/// How many times a case is regenerated, with fewer edits each time, when the
+/// text doesn't parse. Most mutations of a program break it; a case that
+/// does parse exercises the formatter, which is the point.
+const ATTEMPTS: usize = 8;
+
+/// One case: usually a mutated example, sometimes token soup (which seldom
+/// parses, but reaches odd corners of the lexer). A mutated example that
+/// doesn't parse is retried from the same stream with fewer edits (4, 4, 3,
+/// 3, 2, 2, 1, 1 at most, and the comment rate halved each time), and the last try is kept if none parses. The
+/// retries come from the one seeded stream, so a case is a function of the
+/// seed and its index alone.
+fn generate(rng: &mut Rng, corpus: &[String], comments: Option<f64>) -> String {
+    if rng.below(8) == 0 {
+        let text = soup(rng);
+        return match comments {
+            Some(rate) => add_comments(rng, &text, rate),
+            None => text,
+        };
+    }
+    let base = &corpus[rng.below(corpus.len())];
+    let mut text = String::new();
+    for attempt in 0..ATTEMPTS {
+        let edits = 1 + rng.below(4 - attempt / 2);
+        text = mutate(rng, base, edits);
+        if let Some(rate) = comments {
+            text = add_comments(rng, &text, rate / f64::from(1u32 << attempt));
+        }
+        if parses(&text) {
+            break;
+        }
+    }
+    text
+}
+
 /// Whether `text` lexes and parses, as the formatter's refusal check does
 /// (D1021). A case the formatter refuses is skipped unless this says it
 /// parsed: then the formatter refused a parseable file, counted apart.
@@ -537,15 +573,7 @@ fn the_formatter_never_panics_and_is_idempotent() {
     let last = only.map_or(cases, |only| only.saturating_add(1));
     for case in 0..last {
         let state = rng.0;
-        let mut text = if rng.below(2) == 0 {
-            let base = rng.below(corpus.len());
-            mutate(&mut rng, &corpus[base])
-        } else {
-            soup(&mut rng)
-        };
-        if let Some(rate) = comments {
-            text = add_comments(&mut rng, &text, rate);
-        }
+        let text = generate(&mut rng, &corpus, comments);
         if only.is_some_and(|only| case != only) {
             continue;
         }
