@@ -1,5 +1,5 @@
 {
-  "next": 3414,
+  "next": 3415,
   "tickets": [
     {
       "id": 47,
@@ -37782,12 +37782,12 @@
     {
       "id": 3405,
       "title": "[Sonnet] SW-3371 findings: < on a type with no Ord gives E-TYPE-MISMATCH without the 'why not derived' note Ord.compare shows; the Ord/Show refusal note can tell 'its module wrote one' from 'it has none'; derive_nested induction principles, Finite and decided records for mutual groups; a field default using == on its own group misses the derived instance",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Combined with SW-3413 (same area). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37888,11 +37888,24 @@
     {
       "id": 3413,
       "title": "[Sonnet] SW-3406 findings: guard derive_field_in on erased/proof fields of containers (E-MALFORMED if called, latent); a std DecEq built from a key function (hand-written group DecEq takes ~8 lines per type); test a container proof field whose equation is over a group type parameter with a DecEq dictionary",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3414,
+      "title": "[Opus paper] Toy formatter final report (toy-formatter.md, after stage D): what each part cost (lane hours, model), timings (lex/parse/print, validation +80%), every friction ticket and its status, what it says about D3576 (start the real formatter's stages 0-2) and §3.2's hand-written parser; options for validation cost (validate always / on demand / prove the printer)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
