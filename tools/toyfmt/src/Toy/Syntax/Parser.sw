@@ -249,19 +249,28 @@ def itemsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) 
     {Parse (Parse.Located Token)} List Item :=
   match fuel with
     | Zero => found.reverse
-    | Succ more =>
-      let (next, comma) := item self
-      if comma then itemsFrom more self [next, ..found] else [next, ..found].reverse
+    | Succ more => itemsAfter more self found (item self)
+
+--| What `itemsFrom` does with the item it read and whether a comma followed
+--| it: on to the next item after a comma, else the items found.
+-- A function of its own so that proofs (ExpressionProofs.sw) can name it.
+def itemsAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (found: List Item) (read: (Item, Bool)):
+    {Parse (Parse.Located Token)} List Item :=
+  if read.snd then itemsFrom more self [read.fst, ..found] else [read.fst, ..found].reverse
 
 --| An item, its comma if one follows, and whether one did. The comma is
 --| the item's last token, so a comment after it is the item's.
 def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Located Token)} (Item, Bool) :=
   let start := Parse.mark()
-  let comments := start.rest.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
+  let comments := commentsAbove start.rest
   let value := self InBrackets
   let comma := signInBrackets "','" Comma
   let trailing := if comma then lastTrailing start else trailingSince start value
   ({ comments, value, trailing }, comma)
+
+--| The own-line comments above the first of the tokens.
+def commentsAbove (tokens: List (Parse.Located Token)): List Comment :=
+  tokens.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
 
 def Punctuation.spelling: Punctuation → Text
   | OpenParen => "("

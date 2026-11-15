@@ -257,9 +257,8 @@ def Expr.chainLevel: Expr → Nat
   | Binary operator _ _ => operator.level
   | _ => 7
 
---| The shape of the expressions the parser gives, for the forms covered so
---| far (names, numbers, strings, brackets, fields, negation and operators;
---| lists, calls and `if` are not covered yet, so they are not `Shaped`): a
+--| The shape of the expressions the parser gives, for every expression
+--| but `if` (which is not covered yet, and so is not `Shaped`): a
 --| field's target is a postfix expression, `-` stands before an operand,
 --| and an operator's sides are grouped by precedence, the same level
 --| chaining from the left.
@@ -277,7 +276,14 @@ def Shaped: Expr → Prop
       ∧ right.isChain = True
       ∧ Shaped left
       ∧ Shaped right
-  | _ => False
+  | ListLiteral items => ShapedItems items
+  | Call callee arguments => callee.isPostfix = True ∧ Shaped callee ∧ ShapedItems arguments
+  | If _ _ _ => False
+
+--| Each item's value is of the parser's shape.
+def ShapedItems: List Item → Prop
+  | [] => True
+  | [{ value, .. }, ..rest] => Shaped value ∧ ShapedItems rest
 
 --| `tokens` spell `expr` at `layout`: its tokens in order, each of the kind
 --| the expression has there and standing where the layout allows it
@@ -316,7 +322,41 @@ def Spelled (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token)): 
         ∧ layout.allows sign = True
         ∧ Spelled layout left leftTokens
         ∧ Spelled layout right rightTokens
-  | _ => False
+  | ListLiteral items =>
+    ∃ (open: Parse.Located Token) => ∃ (itemTokens: List (Parse.Located Token)) => ∃ (close: Parse.Located Token) =>
+      tokens = [open, ..itemTokens ++ [close]]
+        ∧ open.value.kind = Sign OpenSquare
+        ∧ layout.allows open = True
+        ∧ close.value.kind = Sign CloseSquare
+        ∧ SpelledItems items itemTokens
+  | Call callee arguments =>
+    ∃ (calleeTokens: List (Parse.Located Token)) => ∃ (open: Parse.Located Token) =>
+      ∃ (argumentTokens: List (Parse.Located Token)) => ∃ (close: Parse.Located Token) => tokens
+        = calleeTokens ++ [open, ..argumentTokens ++ [close]]
+        ∧ open.value.kind = Sign OpenParen
+        ∧ layout.allows open = True
+        ∧ close.value.kind = Sign CloseParen
+        ∧ Spelled layout callee calleeTokens
+        ∧ SpelledItems arguments argumentTokens
+  | If _ _ _ => False
+
+--| `tokens` spell the items of a list or the arguments of a call, between
+--| the brackets: each value, a comma after each but the last, and the
+--| comments where the parser takes an item's from: its own-line comments
+--| above its first token, its trailing comment on its comma, or on its last
+--| token if it is the last item.
+def SpelledItems (items: List Item) (tokens: List (Parse.Located Token)): Prop := match items with
+  | [] => tokens = []
+  | [{ comments, value, trailing }] =>
+    Spelled InBrackets value tokens ∧ comments = commentsAbove tokens ∧ trailing = trailingFor value tokens
+  | [{ comments, value, trailing }, next, ..more] =>
+    ∃ (valueTokens: List (Parse.Located Token)) => ∃ (comma: Parse.Located Token) =>
+      ∃ (laterTokens: List (Parse.Located Token)) => tokens = valueTokens ++ [comma, ..laterTokens]
+        ∧ comma.value.kind = Sign Comma
+        ∧ Spelled InBrackets value valueTokens
+        ∧ comments = commentsAbove valueTokens
+        ∧ trailing = lastComment [comma]
+        ∧ SpelledItems [next, ..more] laterTokens
 
 --| What may follow an expression at `layout`: no call or field of its last
 --| operand, and no operator.
@@ -372,6 +412,23 @@ theorem postfixStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse
                 (Both split (Both dotted (Both dotAllowed (Both isName (Both nameAllowed spelledTarget))))))) =>
           rewrite split, List.appendAssoc targetTokens [dot, named] rest in
             postfixStart layout target targetTokens [dot, named, ..rest] shaped.left shaped.right spelledTarget
+    | ListLiteral listed =>
+      match spelled with
+        | Witness open (Witness itemTokens (Witness close (Both split (Both opens (Both allowed others))))) =>
+          rewrite split, opens, allowed in Both rfl rfl
+    | Call callee arguments =>
+      match spelled with
+        | Witness calleeTokens
+            (Witness open
+              (Witness argumentTokens
+                (Witness close
+                  (Both split (Both opens (Both allowed (Both closes (Both spelledCallee spelledArguments)))))))) =>
+          rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] rest in
+            postfixStart layout callee calleeTokens
+              ([open, ..argumentTokens ++ [close]] ++ rest)
+              shaped.left
+              shaped.right.left
+              spelledCallee
 
 theorem negationsEndRun ∀ (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr)
     (layout: Layout) (input: List (Parse.Located Token))
@@ -528,6 +585,70 @@ theorem runsPostfixPrefix ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
                     runsSuffixesField less self layout target dot named name more rest value dotted dotAllowed isName
                         nameAllowed
                         (continues less (omega [enough])))
+    | ListLiteral listed =>
+      match spelled with
+        | Witness open
+            (Witness itemTokens (Witness close (Both split (Both opens (Both allowed (Both closes spelledItems)))))) =>
+          let size: tokens.length = (itemTokens ++ [close]).length + 1 := rewrite split in rfl
+          let sizes: (itemTokens ++ [close]).length = itemTokens.length + 1 := List.lengthAppend itemTokens [close]
+          rewrite split in
+            runsAtomThenSuffixes self layout
+              [open, ..itemTokens ++ [close]]
+              more
+              rest
+              (ListLiteral listed)
+              value
+              (runsAtomList self layout open itemTokens
+                (more ++ rest)
+                close
+                listed
+                opens
+                allowed
+                (runsItems self bound nested listed itemTokens
+                  (more ++ rest)
+                  close
+                  CloseSquare
+                  closes
+                  rfl
+                  shaped
+                  spelledItems
+                  (omega [small, size, sizes])))
+              continues
+    | Call callee arguments =>
+      match spelled with
+        | Witness calleeTokens
+            (Witness open
+              (Witness argumentTokens
+                (Witness close
+                  (Both split (Both opens (Both allowed (Both closes (Both spelledCallee spelledArguments)))))))) =>
+          let size: tokens.length = calleeTokens.length + ((argumentTokens ++ [close]).length + 1) :=
+            rewrite split in List.lengthAppend calleeTokens [open, ..argumentTokens ++ [close]]
+          let sizes: (argumentTokens ++ [close]).length = argumentTokens.length + 1 :=
+            List.lengthAppend argumentTokens [close]
+          rewrite split, List.appendAssoc calleeTokens [open, ..argumentTokens ++ [close]] more in
+            runsPostfixPrefix self layout bound nested callee calleeTokens
+              ([open, ..argumentTokens ++ [close]] ++ more)
+              rest
+              value
+              shaped.left
+              shaped.right.left
+              spelledCallee
+              (omega [small, size])
+              (fuel enough =>
+                match fuel with
+                  | Succ less =>
+                    runsSuffixesCall less self layout callee open argumentTokens close more rest arguments value opens
+                        allowed
+                        (runsItems self bound nested arguments argumentTokens
+                          (more ++ rest)
+                          close
+                          CloseParen
+                          closes
+                          rfl
+                          shaped.right.right
+                          spelledArguments
+                          (omega [small, size, sizes]))
+                        (continues less (omega [enough, List.lengthAppend (argumentTokens ++ [close]) more])))
 
 theorem runsNegationsPostfix ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (bound: Nat)
     (nested: ReadsNested self bound)
@@ -608,6 +729,19 @@ theorem runsNegations ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) 
       runsNegationsPostfix self layout bound nested (Bracketed inner) fuel tokens rest rfl shaped spelled ends small
     | Field target name =>
       runsNegationsPostfix self layout bound nested (Field target name) fuel tokens rest rfl shaped spelled ends small
+    | ListLiteral listed =>
+      runsNegationsPostfix self layout bound nested (ListLiteral listed) fuel tokens rest rfl shaped spelled ends small
+    | Call callee arguments =>
+      runsNegationsPostfix self layout bound nested
+        (Call callee arguments)
+        fuel
+        tokens
+        rest
+        rfl
+        shaped
+        spelled
+        ends
+        small
 
 --| `operand` reads an operand that is spelled and shaped as one, where no
 --| call or field follows it.
@@ -794,6 +928,10 @@ theorem chainTree ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (lay
       chainTreeOperand self layout bound nested (Bracketed inner) tokens rest rfl rfl shaped spelled ends small
     | Field target name =>
       chainTreeOperand self layout bound nested (Field target name) tokens rest rfl rfl shaped spelled ends small
+    | ListLiteral listed =>
+      chainTreeOperand self layout bound nested (ListLiteral listed) tokens rest rfl rfl shaped spelled ends small
+    | Call callee arguments =>
+      chainTreeOperand self layout bound nested (Call callee arguments) tokens rest rfl rfl shaped spelled ends small
 
 --| A chain starts with no `if`.
 theorem chainStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.Located Token))
@@ -819,6 +957,8 @@ theorem chainStart ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Parse.L
     | StringLiteral written => (postfixStart layout (StringLiteral written) tokens rest rfl shaped spelled).right
     | Bracketed inner => (postfixStart layout (Bracketed inner) tokens rest rfl shaped spelled).right
     | Field target name => (postfixStart layout (Field target name) tokens rest rfl shaped spelled).right
+    | ListLiteral listed => (postfixStart layout (ListLiteral listed) tokens rest rfl shaped spelled).right
+    | Call callee arguments => (postfixStart layout (Call callee arguments) tokens rest rfl shaped spelled).right
 
 theorem chainRuleRun ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (layout: Layout) (state: Parse.State (Parse.Located Token))
@@ -839,6 +979,8 @@ theorem shapedIsChain ∀ (expr: Expr) (shaped: Shaped expr): expr.isChain = Tru
   | Field target name => rfl
   | Negate operand => rfl
   | Binary operator left right => rfl
+  | ListLiteral listed => rfl
+  | Call callee arguments => rfl
 
 --| One level of the expression parser: `expressionRule` reads a chain,
 --| given that `self` reads the expressions nested in it.
@@ -911,3 +1053,436 @@ theorem runsExpression ∀ (layout: Layout) (expr: Expr) (tokens rest: List (Par
     rest
     expr
     (Both shaped (Both spelled ends))
+
+--| The kinds of token an expression starts with.
+def startsExpression: Kind → Bool
+  | Name _ => True
+  | Number _ => True
+  | Str _ => True
+  | Sign OpenParen => True
+  | Sign OpenSquare => True
+  | Op Minus => True
+  | _ => False
+
+--| A spelled expression has a first token, of a kind that starts one.
+theorem spelledStart ∀ (layout: Layout) (expr: Expr) (tokens: List (Parse.Located Token))
+    (shaped: Shaped expr)
+    (spelled: Spelled layout expr tokens):
+    ∃ (first: Parse.Located Token) => ∃ (others: List (Parse.Located Token)) => tokens = [first, ..others]
+      ∧ startsExpression first.value.kind = True :=
+  match expr with
+    | Var name =>
+      match spelled with
+        | Witness token (Both split (Both kind allowed)) =>
+          Witness token (Witness [] (Both split (rewrite kind in rfl)))
+    | NumberLiteral digits =>
+      match spelled with
+        | Witness token (Both split (Both kind allowed)) =>
+          Witness token (Witness [] (Both split (rewrite kind in rfl)))
+    | StringLiteral written =>
+      match spelled with
+        | Witness token (Both split (Both kind allowed)) =>
+          Witness token (Witness [] (Both split (rewrite kind in rfl)))
+    | Bracketed inner =>
+      match spelled with
+        | Witness open (Witness innerTokens (Witness close (Both split (Both opens others)))) =>
+          Witness open (Witness (innerTokens ++ [close]) (Both split (rewrite opens in rfl)))
+    | ListLiteral listed =>
+      match spelled with
+        | Witness open (Witness itemTokens (Witness close (Both split (Both opens others)))) =>
+          Witness open (Witness (itemTokens ++ [close]) (Both split (rewrite opens in rfl)))
+    | Negate operand =>
+      match spelled with
+        | Witness minus (Witness operandTokens (Both split (Both kind others))) =>
+          Witness minus (Witness operandTokens (Both split (rewrite kind in rfl)))
+    | Field target name =>
+      match spelled with
+        | Witness targetTokens
+            (Witness dot
+              (Witness named
+                (Both split (Both dotted (Both dotAllowed (Both isName (Both nameAllowed spelledTarget))))))) =>
+          match spelledStart layout target targetTokens shaped.right spelledTarget with
+            | Witness first (Witness others (Both targetSplit startKind)) =>
+              Witness first (Witness (others ++ [dot, named]) (Both (rewrite split, targetSplit in rfl) startKind))
+    | Call callee arguments =>
+      match spelled with
+        | Witness calleeTokens
+            (Witness open
+              (Witness argumentTokens
+                (Witness close
+                  (Both split (Both opens (Both allowed (Both closes (Both spelledCallee spelledArguments)))))))) =>
+          match spelledStart layout callee calleeTokens shaped.right.left spelledCallee with
+            | Witness first (Witness others (Both calleeSplit startKind)) =>
+              Witness first
+                (Witness
+                  (others ++ [open, ..argumentTokens ++ [close]])
+                  (Both (rewrite split, calleeSplit in rfl) startKind))
+    | Binary operator left right =>
+      match shaped, spelled with
+        | Both leftLevel
+            (Both rightLevel (Both leftChain (Both rightChain (Both shapedLeft shapedRight)))), Witness leftTokens
+            (Witness sign
+              (Witness rightTokens (Both split (Both kind (Both allowed (Both spelledLeft spelledRight)))))) =>
+          match spelledStart layout left leftTokens shapedLeft spelledLeft with
+            | Witness first (Witness others (Both leftSplit startKind)) =>
+              Witness first
+                (Witness (others ++ [sign, ..rightTokens]) (Both (rewrite split, leftSplit in rfl) startKind))
+
+--| The signs that close a list or a call's arguments.
+def bracketSign: Punctuation → Bool
+  | CloseParen => True
+  | CloseSquare => True
+  | _ => False
+
+theorem startNoBracket ∀ (kind: Kind) (wanted: Punctuation)
+    (starts: startsExpression kind = True)
+    (bracket: bracketSign wanted = True):
+    (signIs wanted kind).isSome = False :=
+  match kind with
+    | Name text => rfl
+    | Number digits => rfl
+    | Str written => rfl
+    | Op operator => rfl
+    | Sign punctuation =>
+      match punctuation, wanted with
+        | OpenParen, CloseParen => rfl
+        | OpenParen, CloseSquare => rfl
+        | OpenSquare, CloseParen => rfl
+        | OpenSquare, CloseSquare => rfl
+
+theorem endsAtSign ∀ (token: Parse.Located Token) (punctuation: Punctuation) (rest: List (Parse.Located Token))
+    (signed: token.value.kind = Sign punctuation)
+    (quiet: endsSuffixes (Sign punctuation) = True):
+    EndsExpression InBrackets [token, ..rest] :=
+  Both (rewrite signed in quiet) (noOperatorAtSign InBrackets 0 token punctuation rest signed)
+
+theorem bracketQuiet ∀ (closer: Punctuation) (bracket: bracketSign closer = True): endsSuffixes (Sign closer) = True :=
+  match closer with
+    | CloseParen => rfl
+    | CloseSquare => rfl
+
+theorem noCommaAtBracket ∀ (close: Parse.Located Token) (closer: Punctuation) (after: List (Parse.Located Token))
+    (closes: close.value.kind = Sign closer)
+    (bracket: bracketSign closer = True):
+    signAhead Comma [close, ..after] = False :=
+  rewrite closes in
+    match closer with
+      | CloseParen => rfl
+      | CloseSquare => rfl
+
+theorem bracketThere ∀ (close: Parse.Located Token) (closer: Punctuation)
+    (closes: close.value.kind = Sign closer)
+    (bracket: bracketSign closer = True):
+    (signIs closer close.value.kind).isSome = True :=
+  rewrite closes in
+    match closer with
+      | CloseParen => rfl
+      | CloseSquare => rfl
+
+--| `itemsFrom` reads the items of a list or call up to its closing
+--| bracket: each item with its comma, the last without, given that `self`
+--| reads each value.
+theorem runsItemsFrom ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bound: Nat)
+    (nested: ReadsNested self bound)
+    (head: Item) (tail found: List Item) (fuel: Nat) (tokens after: List (Parse.Located Token))
+    (close: Parse.Located Token) (closer: Punctuation)
+    (closes: close.value.kind = Sign closer)
+    (bracket: bracketSign closer = True)
+    (shaped: ShapedItems [head, ..tail])
+    (spelled: SpelledItems [head, ..tail] tokens)
+    (small: tokens.length < bound)
+    (enough: tail.length < fuel):
+    Parse.Runs (() => itemsFrom fuel self found) tokens [close, ..after] (found.reverse ++ [head, ..tail]) :=
+  match head, tail with
+    | { comments, value, trailing }, [] =>
+      match spelled, fuel with
+        | Both spelledValue (Both sameComments sameTrailing), Succ more =>
+          match spelledStart InBrackets value tokens shaped.left spelledValue with
+            | Witness first (Witness others (Both split startKind)) =>
+              let read: Item :=
+                { comments = commentsAbove [first, ..others], value, trailing = trailingFor value [first, ..others] }
+              let spelledFirst: Spelled InBrackets value [first, ..others] := rewrite <- split in spelledValue
+              let size: tokens.length = Succ others.length := rewrite split in rfl
+              let smallFirst: [first, ..others].length < bound := omega [small, size]
+              rewrite sameComments, sameTrailing, split in
+                Parse.runsBind
+                  (() => item self)
+                  (itemsAfter more self found)
+                  [first, ..others]
+                  []
+                  [first, ..others]
+                  [close, ..after]
+                  (read, False)
+                  (found.reverse ++ [read])
+                  (Eq.sym (List.appendNil [first, ..others]))
+                  (runsItemLast self value first others
+                    [close, ..after]
+                    (nested InBrackets value
+                      [first, ..others]
+                      [close, ..after]
+                      shaped.left
+                      spelledFirst
+                      (endsAtSign close closer after closes (bracketQuiet closer bracket))
+                      smallFirst)
+                    (noCommaAtBracket close closer after closes bracket))
+                  (rewrite <- List.reverseCons read found in Parse.runsPure _ [close, ..after])
+    | { comments, value, trailing }, [next, ..more] =>
+      match spelled, shaped, fuel with
+        | Witness valueTokens
+            (Witness comma
+              (Witness laterTokens
+                (Both split
+                  (Both isComma (Both spelledValue (Both sameComments (Both sameTrailing spelledLater))))))), Both
+              shapedValue shapedLater, Succ less =>
+          match spelledStart InBrackets value valueTokens shapedValue spelledValue with
+            | Witness first (Witness others (Both valueSplit startKind)) =>
+              let read: Item := { comments = commentsAbove [first, ..others], value, trailing = lastComment [comma] }
+              let spelledFirst: Spelled InBrackets value [first, ..others] := rewrite <- valueSplit in spelledValue
+              let sizes: tokens.length = [first, ..others].length + (laterTokens.length + 1) :=
+                rewrite split, valueSplit in List.lengthAppend [first, ..others] [comma, ..laterTokens]
+              rewrite sameComments, sameTrailing, split, valueSplit in
+                Parse.runsBind
+                  (() => item self)
+                  (itemsAfter less self found)
+                  ([first, ..others] ++ [comma])
+                  laterTokens
+                  ([first, ..others] ++ [comma, ..laterTokens])
+                  [close, ..after]
+                  (read, True)
+                  (found.reverse ++ [read, next, ..more])
+                  (Eq.sym (List.appendAssoc [first, ..others] [comma] laterTokens))
+                  (runsItemComma self value first comma others
+                    (laterTokens ++ [close, ..after])
+                    (nested InBrackets value
+                      [first, ..others]
+                      [comma, ..laterTokens ++ [close, ..after]]
+                      shapedValue
+                      spelledFirst
+                      (endsAtSign comma Comma (laterTokens ++ [close, ..after]) isComma rfl)
+                      (omega [small, sizes]))
+                    isComma)
+                  (rewrite <- List.appendAssoc found.reverse [read] [next, ..more], <- List.reverseCons read found in
+                    runsItemsFrom self bound nested next more
+                      [read, ..found]
+                      less
+                      laterTokens
+                      after
+                      close
+                      closer
+                      closes
+                      bracket
+                      shapedLater
+                      spelledLater
+                      (omega [small, sizes])
+                      (omega [enough]))
+
+--| The tokens of one or more items start with a token that starts an
+--| expression, and there are at least as many as items.
+theorem itemsStart ∀ (head: Item) (tail: List Item) (tokens: List (Parse.Located Token))
+    (shaped: ShapedItems [head, ..tail])
+    (spelled: SpelledItems [head, ..tail] tokens):
+    ∃ (first: Parse.Located Token) => ∃ (others: List (Parse.Located Token)) => tokens = [first, ..others]
+      ∧ startsExpression first.value.kind = True
+      ∧ tail.length <= others.length :=
+  match head, tail with
+    | { comments, value, trailing }, [] =>
+      match spelledStart InBrackets value tokens shaped.left spelled.left with
+        | Witness first (Witness others (Both split startKind)) =>
+          Witness first (Witness others (Both split (Both startKind (omega []))))
+    | { comments, value, trailing }, [next, ..more] =>
+      match spelled, shaped with
+        | Witness valueTokens
+            (Witness comma
+              (Witness laterTokens
+                (Both split
+                  (Both isComma (Both spelledValue (Both sameComments (Both sameTrailing spelledLater))))))), Both
+              shapedValue shapedLater =>
+          let valueStart := spelledStart InBrackets value valueTokens shapedValue spelledValue
+          let laterStart := itemsStart next more laterTokens shapedLater spelledLater
+          match valueStart, laterStart with
+            | Witness first (Witness others (Both valueSplit startKind)), Witness second
+                (Witness rest (Both laterSplit (Both laterKind short))) =>
+              Witness first
+                (Witness
+                  (others ++ [comma, ..laterTokens])
+                  (Both
+                    (rewrite split, valueSplit in rfl)
+                    (Both startKind
+                      (rewrite laterSplit in omega [short, List.lengthAppend others [comma, second, ..rest]]))))
+
+--| `items` reads the items between brackets and the closing bracket.
+theorem runsItems ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (bound: Nat)
+    (nested: ReadsNested self bound)
+    (listed: List Item) (tokens after: List (Parse.Located Token)) (close: Parse.Located Token) (closer: Punctuation)
+    (closes: close.value.kind = Sign closer)
+    (bracket: bracketSign closer = True)
+    (shaped: ShapedItems listed)
+    (spelled: SpelledItems listed tokens)
+    (small: tokens.length < bound):
+    Parse.Runs (() => items self closer) (tokens ++ [close]) after listed :=
+  match listed with
+    | [] =>
+      rewrite spelled in
+        Parse.runsBind
+          (() => signInBrackets "'${closer.spelling}'" closer)
+          (closed =>
+            if closed then []
+            else
+              let found := itemsFrom (Parse.mark().left) self []
+              sign InBrackets "'${closer.spelling}'" closer
+              found)
+          [close]
+          []
+          [close]
+          after
+          True
+          []
+          rfl
+          (runsSignThere "'${closer.spelling}'" closer close after (bracketThere close closer closes bracket))
+          (Parse.runsPure [] after)
+    | [head, ..tail] =>
+      match itemsStart head tail tokens shaped spelled with
+        | Witness first (Witness others (Both split (Both startKind short))) =>
+          let absent: signAhead closer ((tokens ++ [close]) ++ after) = False :=
+            rewrite split in startNoBracket first.value.kind closer startKind bracket
+          let size: tokens.length = Succ others.length := rewrite split in rfl
+          Parse.runsBind
+            (() => signInBrackets "'${closer.spelling}'" closer)
+            (closed =>
+              if closed then []
+              else
+                let found := itemsFrom (Parse.mark().left) self []
+                sign InBrackets "'${closer.spelling}'" closer
+                found)
+            []
+            (tokens ++ [close])
+            (tokens ++ [close])
+            after
+            False
+            [head, ..tail]
+            rfl
+            (runsSignAbsent "'${closer.spelling}'" closer ((tokens ++ [close]) ++ after) absent)
+            (state starts honest =>
+              let lengths: state.at.rest.length = (tokens ++ [close]).length + after.length :=
+                rewrite starts in List.lengthAppend (tokens ++ [close]) after
+              Parse.runsFromMark state
+                (at =>
+                  let found := itemsFrom at.left self []
+                  sign InBrackets "'${closer.spelling}'" closer
+                  found)
+                (tokens ++ [close])
+                after
+                [head, ..tail]
+                (Parse.runsFromBind state
+                  (() => itemsFrom state.at.left self [])
+                  (found =>
+                    sign InBrackets "'${closer.spelling}'" closer
+                    found)
+                  tokens
+                  [close]
+                  (tokens ++ [close])
+                  after
+                  [head, ..tail]
+                  [head, ..tail]
+                  rfl
+                  (runsItemsFrom self bound nested head tail [] state.at.left tokens after close closer closes bracket
+                      shaped spelled small
+                      (omega [short, size, honest, lengths, List.lengthAppend tokens [close]]))
+                  (middle atRest honest1 offset =>
+                    Parse.runsMap
+                      (() => sign InBrackets "'${closer.spelling}'" closer)
+                      (closed => [head, ..tail])
+                      [close]
+                      after
+                      ()
+                      (runsSign InBrackets "'${closer.spelling}'" closer close after closes rfl)
+                      middle))
+                starts
+                honest)
+
+theorem runsAtomList ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (open: Parse.Located Token)
+    (itemTokens rest: List (Parse.Located Token)) (close: Parse.Located Token) (listed: List Item)
+    (opens: open.value.kind = Sign OpenSquare)
+    (allowed: layout.allows open = True)
+    (runsInside: Parse.Runs (() => items self CloseSquare) (itemTokens ++ [close]) rest listed):
+    Parse.Runs (() => atom self layout) [open, ..itemTokens ++ [close]] rest (ListLiteral listed) :=
+  state starts honest =>
+    let core :=
+      Parse.runsBind
+        (() => skip())
+        (skipped => ListLiteral (items self CloseSquare))
+        [open]
+        (itemTokens ++ [close])
+        [open, ..itemTokens ++ [close]]
+        rest
+        ()
+        (ListLiteral listed)
+        rfl
+        (runsSkip open ((itemTokens ++ [close]) ++ rest))
+        (Parse.runsMap
+          (() => items self CloseSquare)
+          (found => ListLiteral found)
+          (itemTokens ++ [close])
+          rest
+          listed
+          runsInside)
+    match core state starts honest with
+      | Witness m (Both ran after) => Witness m (Both (rewrite starts, allowed, opens in ran) after)
+
+--| A round of `suffixesFrom` that reads a call: `(`, the arguments, `)`,
+--| and on from the target with the call.
+theorem runsSuffixesCall ∀ (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (target: Expr) (open: Parse.Located Token) (argumentTokens: List (Parse.Located Token)) (close: Parse.Located Token)
+    (after rest: List (Parse.Located Token)) (arguments: List Item) (value: Expr)
+    (opens: open.value.kind = Sign OpenParen)
+    (allowed: layout.allows open = True)
+    (runsInside: Parse.Runs (() => items self CloseParen) (argumentTokens ++ [close]) (after ++ rest) arguments)
+    (runsMore: Parse.Runs (() => suffixesFrom more self layout (Call target arguments)) after rest value):
+    Parse.Runs
+      (() => suffixesFrom (Succ more) self layout target)
+      ([open, ..argumentTokens ++ [close]] ++ after)
+      rest
+      value :=
+  state starts honest =>
+    let core :=
+      Parse.runsBind
+        (() =>
+          Parse.optional (() =>
+            skip()
+            Call target (items self CloseParen)))
+        (suffixesAfter more self layout target)
+        [open, ..argumentTokens ++ [close]]
+        after
+        ([open, ..argumentTokens ++ [close]] ++ after)
+        rest
+        (Some (Call target arguments))
+        value
+        rfl
+        (Parse.runsOptional
+          (() =>
+            skip()
+            Call target (items self CloseParen))
+          [open, ..argumentTokens ++ [close]]
+          (after ++ rest)
+          (Call target arguments)
+          (Parse.runsBind
+            (() => skip())
+            (skipped => Call target (items self CloseParen))
+            [open]
+            (argumentTokens ++ [close])
+            [open, ..argumentTokens ++ [close]]
+            (after ++ rest)
+            ()
+            (Call target arguments)
+            rfl
+            (runsSkip open ((argumentTokens ++ [close]) ++ (after ++ rest)))
+            (Parse.runsMap
+              (() => items self CloseParen)
+              (found => Call target found)
+              (argumentTokens ++ [close])
+              (after ++ rest)
+              arguments
+              runsInside)))
+        runsMore
+    match core state starts honest with
+      | Witness m (Both ran others) => Witness m (Both (rewrite starts, allowed, opens in ran) others)

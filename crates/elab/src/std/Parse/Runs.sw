@@ -1189,6 +1189,23 @@ theorem Parse.runsRecursiveWith ∀ (body: (b → {Parse t} a) → b → {Parse 
       starts
       honest
 
+--| The last of some items is the one before what follows them.
+theorem Parse.lastReadDrop ∀ (first: t) (others rest: List t):
+    (([first, ..others] ++ rest).drop others.length).head = [first, ..others].last :=
+  match others with
+    | [] => rfl
+    | [second, ..more] => Parse.lastReadDrop second more rest
+
+--| `Parse.lastRead` between a mark and the mark after reading some items
+--| from it is the last of those items.
+theorem Parse.lastReadAfter ∀ (start finish: Parse.Mark t) (first: t) (others rest: List t)
+    (from: start.rest = [first, ..others] ++ rest)
+    (moved: finish.offset = start.offset + others.length + 1):
+    Parse.lastRead start finish = [first, ..others].last :=
+  let later: (finish.offset > start.offset) = True := omega [moved]
+  let back: finish.offset - start.offset - 1 = others.length := omega [moved]
+  rewrite later, back, from in Parse.lastReadDrop first others rest
+
 --| `end` where nothing is left.
 theorem Parse.runsEnd: Parse.Runs Parse.end ([]: List t) [] () := state starts honest =>
   let atEnd: state.at.left = 0 := rewrite starts at honest in honest
