@@ -32422,12 +32422,12 @@
     {
       "id": 3015,
       "title": "[DeepSeek] Reword the size-limit note 'the value being shown was a call of …' (too_large_notes, crates/elab/src/module.rs) to 'written out', matching D3536's message (3 snapshots) (SW-3010 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked (with SW-3018), ~30 min (est. 30). One snapshot affected, not three. SW-3018: kept pub (driver audit uses it), doc added.",
       "created": "2026-11-12",
       "updated": "2026-11-15",
       "commits": []
@@ -32465,7 +32465,7 @@
     {
       "id": 3018,
       "title": "[DeepSeek] Elaborator::marked_unfinished (crates/elab/src/lib.rs ~952) no longer means 'unfinished' since stand-ins: make it pub(crate) or doc it as 'gave up for an open goal; use is_unfinished for finished' (SW-3017 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33323,12 +33323,12 @@
     {
       "id": 3082,
       "title": "[DeepSeek] The proof-search closer list is written four times (closers in search_at.rs, CLOSERS in soundness_fuzz.rs and search_at_aoc.rs, LADDER); share one definition (SW-2912 finding)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "DeepSeek stopped as briefed: the four closer lists differ in contents, order, spelling and type (and fn closers doesn't exist under that name), so sharing one needs a judgement which list is right. Re-scope for Sonnet: compare the four, decide which differences are deliberate.",
       "created": "2026-11-13",
       "updated": "2026-11-15",
       "commits": []
@@ -33778,12 +33778,12 @@
     {
       "id": 3117,
       "title": "[DeepSeek] Sweep the remaining Bool.andLeft/andRight/andIntro in aoc 2024 Day10 Proofs/Proofs.sw (~lines 134, 150, 153, 187) and Day08 Part1.sw:153 antinodesOfCorrect now that let-patterns read test facts (SW-3096 findings); check each day and its Proofs namespace with --no-cache",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~30 min (est. 30).",
       "created": "2026-11-13",
       "updated": "2026-11-15",
       "commits": []
@@ -34409,12 +34409,12 @@
     {
       "id": 3165,
       "title": "[DeepSeek] Two files put ':=' at the end of the 'decreasing' line against 77 that follow the documented shape: crates/elab/src/std/Nat/PartitionPoint.sw:14, examples/accept/let-proof-pattern-unfold.sw:20; make them match (SW-3158 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Already done on main (39de3aa7d); closed with no change (DeepSeek check).",
       "created": "2026-11-13",
       "updated": "2026-11-15",
       "commits": []
