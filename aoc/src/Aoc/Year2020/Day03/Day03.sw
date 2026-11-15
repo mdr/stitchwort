@@ -27,7 +27,7 @@ def isSquare (char: Char): Bool := char == '.' || char == '#'
 --| `#` is a tree, `.` an open square.
 def Square.ofChar (char: Char): Square := if char == '#' then Tree else Open
 
-def square(): {Parse} Square := Square.ofChar (Parse.satisfy "'.' or '#'" isSquare)
+def square(): {Parse Char} Square := Square.ofChar (Parse.satisfy "'.' or '#'" isSquare)
 
 --| One row of the map per line, every row as long as the first.
 def parseMap (input: Text): {Fail} Grid Square := parseGrid input square

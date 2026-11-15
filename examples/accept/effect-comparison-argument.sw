@@ -5,7 +5,7 @@ import Std (Bool, Fail, Nat, Parse, Result, Text)
 import Std.Fail (toResult)
 
 -- `Parse.mark()` runs, then `≤` is decided on its offset.
-def shortNumber(): {Parse} Nat :=
+def shortNumber(): {Parse Char} Nat :=
   let number := Parse.nat()
   Parse.ensure (Parse.mark().offset ≤ 3) "expected at most three digits"
   number
@@ -16,8 +16,8 @@ test "four digits" := toResult (() => Parse.line "1234" shortNumber) == Err "col
 def check (ok: Bool): Bool := ok
 
 -- `<`, `>` and `=` too, with the operation on either side.
-def before(): {Parse} Bool := check (Parse.mark().offset < 3)
-def after(): {Parse} Bool := check (3 < Parse.mark().offset)
-def atStart(): {Parse} Bool := check (Parse.mark().offset = 0)
+def before(): {Parse Char} Bool := check (Parse.mark().offset < 3)
+def after(): {Parse Char} Bool := check (3 < Parse.mark().offset)
+def atStart(): {Parse Char} Bool := check (Parse.mark().offset = 0)
 
 test "at the start" := toResult (() => Parse.line "" (() => (before(), after(), atStart()))) == Ok (True, False, True)

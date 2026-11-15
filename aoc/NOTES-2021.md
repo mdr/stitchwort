@@ -4446,7 +4446,7 @@ than `budget` steps (`steps`, 1000 per sum); so `add`, `solvePart1` and
 `orderedPairs` lists every ordered pair of lines at different indices
 (`withIndex`, `flatMap`, `filterMap`); `sumMagnitudes` adds each. The
 parser reads each line with a recursive `Parse` function bounded by the
-line's length (`number room`: a `{Parse}` function needs a structural
+line's length (`number room`: a `{Parse Char}` function needs a structural
 argument to recurse), and `checkNumbers` fails unless every number is
 reduced (`reduced`, `firstUnreduced`, the D2108 pattern). Both answers and
 every example were right on the first run.

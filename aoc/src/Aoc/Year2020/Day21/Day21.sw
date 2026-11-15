@@ -41,26 +41,26 @@ type FoodList = { foods: List Food }
 
 -- The format
 
-def word(): {Parse} Text := Parse.takeWhile1 "a word" Char.isAsciiLowercase
+def word(): {Parse Char} Text := Parse.takeWhile1 "a word" Char.isAsciiLowercase
 
 --| An ingredient, and the space after it.
-def ingredient(): {Parse} Ingredient :=
+def ingredient(): {Parse Char} Ingredient :=
   let name := word()
   Parse.char ' '
   { name }
 
-def allergen(): {Parse} Allergen :=
+def allergen(): {Parse Char} Allergen :=
   let name := word()
   { name }
 
-def food(): {Parse} Food :=
+def food(): {Parse Char} Food :=
   let ingredients := Parse.many1 ingredient
   Parse.text "(contains "
   let allergens := Parse.sepBy1 allergen (() => Parse.text ", ")
   Parse.char ')'
   { ingredients = ingredients.toList, allergens = allergens.toList }
 
-def foodList(): {Parse} FoodList :=
+def foodList(): {Parse Char} FoodList :=
   let foods := Parse.lines food
   { foods = foods.toList }
 

@@ -36,7 +36,7 @@ def main(): {IO, Fail} () :=
 def parseTiles (input: Text): {Fail} List Point := Parse.eachLine input redTile
 
 --| "7,1" is `{ x = 7, y = 1 }`.
-def redTile(): {Parse} Point :=
+def redTile(): {Parse Char} Point :=
   let x := token nat
   char ','
   let y := token nat

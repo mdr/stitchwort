@@ -28,7 +28,7 @@ def parseLocationLists (input: Text): {Fail} LocationLists :=
 
 --| "3   4" is (3, 4). Two numbers next to each other must have spaces
 --| between them, or they would be one number.
-def idPair(): {Parse} (Nat, Nat) :=
+def idPair(): {Parse Char} (Nat, Nat) :=
   let left := token nat
   let right := token nat
   (left, right)

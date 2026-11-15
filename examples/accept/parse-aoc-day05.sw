@@ -18,7 +18,7 @@ type Database = { fresh: List Range, available: List Nat }
 
 -- "11-22", or " 11 - 22 ". A range that ends before it starts fails where
 -- the range starts.
-def range(): {Parse} Range :=
+def range(): {Parse Char} Range :=
   let start := Parse.mark()
   let from := token nat
   char '-'
@@ -26,7 +26,7 @@ def range(): {Parse} Range :=
   Parse.ensureAt start (from ≤ to) "the range ends before it starts"
   { from, to }
 
-def database(): {Parse} Database :=
+def database(): {Parse Char} Database :=
   let fresh := section range |> .toList
   let available := lines (() => token nat) |> .toList
   { fresh, available }

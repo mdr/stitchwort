@@ -26,7 +26,7 @@ type Machine = { buttonA: Coords Unoriented, buttonB: Coords Unoriented, prize: 
 
 --| "X+94, Y+34" for a button, "X=8400, Y=5400" for the prize: `sign` is the
 --| "+" or the "=".
-def offset (sign: Text): {Parse} Coords Unoriented :=
+def offset (sign: Text): {Parse Char} Coords Unoriented :=
   text "X${sign}"
   let x := nat()
   text ", Y${sign}"
@@ -34,7 +34,7 @@ def offset (sign: Text): {Parse} Coords Unoriented :=
   { x = x.toInt, y = y.toInt }
 
 --| Three lines: button A, button B and the prize.
-def clawMachine(): {Parse} Machine :=
+def clawMachine(): {Parse Char} Machine :=
   text "Button A: "
   let buttonA := offset "+"
   newline()

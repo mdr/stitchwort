@@ -60,9 +60,9 @@ fn check(g: &Ev, name: &str, state: bool, forward: ForwardShape, kinds: &[Kind])
 
 /// Uses the handlers, so that the library loads them.
 const USES: &str = "import Std (Parse, Fail, Each, Option, Result, Text, List, Nat)
-def p1(): {Parse} Option Nat := Parse.optional (() => Parse.label \"x\" (() => Parse.nat()))
-def p2(): {Parse} Nat := Parse.sectionLine (() => Parse.labelWhole \"y\" (() => Parse.nat()))
-def p3(): {Parse} Option (Nat, Bool) := Parse.attempt (() => Parse.nat())
+def p1(): {Parse Char} Option Nat := Parse.optional (() => Parse.label \"x\" (() => Parse.nat()))
+def p2(): {Parse Char} Nat := Parse.sectionLine (() => Parse.labelWhole \"y\" (() => Parse.nat()))
+def p3(): {Parse Char} Option (Nat, Bool) := Parse.attempt (() => Parse.nat())
 def p4: Result Nat Parse.Failure := Parse.run ['1'] (() => Parse.nat())
 def p5: Result (Option Nat) Text := Fail.toResult (() => Fail.toOption (() => Fail.orElse 0 (() => 1)))
 def p6: List Nat := Each.collect (() => Each.each [1, 2])
@@ -110,7 +110,7 @@ fn std_handler_clauses() {
             &[Tail, Tail, Tail, Tail, Tail, Tail, Abort, Abort],
         );
         assert_eq!(at, Position::Consuming);
-        // A state handler at `{Parse}`, not fused: each resumption is
+        // A state handler at `{Parse Char}`, not fused: each resumption is
         // under the state's lambda.
         check(
             g,

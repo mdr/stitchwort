@@ -11,26 +11,26 @@ def pureChain (x y z: Nat): Bool :=
   let b := x < y < z
   b
 
-def andInferred(): {Parse} Bool :=
+def andInferred(): {Parse Char} Bool :=
   let a :=
     let c := Parse.nat()
     0 < c && c <= Parse.nat()
   a
 
-def orInferred(): {Parse} Bool :=
+def orInferred(): {Parse Char} Bool :=
   let a :=
     let c := Parse.nat()
     c < 1 || c <= Parse.nat()
   a
 
-def chainInferred(): {Parse} Bool :=
+def chainInferred(): {Parse Char} Bool :=
   let a := (0 < Parse.nat() <= Parse.nat())
   a
 
-def chainBare(): {Parse} Bool :=
+def chainBare(): {Parse Char} Bool :=
   let a := 0 < Parse.nat() <= Parse.nat()
   a
 
-def annotated(): {Parse} Bool :=
+def annotated(): {Parse Char} Bool :=
   let a: Bool := 0 < Parse.nat() <= Parse.nat()
   a

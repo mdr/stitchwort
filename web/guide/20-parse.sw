@@ -1,13 +1,14 @@
 -- `Parse` is an ability for reading structured text. A parser is ordinary
 -- code: `nat()` reads a number, `char ','` a given character, and a failure
--- says where and what was expected.
+-- says where and what was expected. The ability says what it reads:
+-- `{Parse Char}` reads text.
 import Std (Fail, List, Parse, Result, Text)
 import Std.Fail (toResult)
 import Std.Parse (char, nat)
 
 type Rect = { width: Nat, height: Nat }
 
-def rect(): {Parse} Rect :=
+def rect(): {Parse Char} Rect :=
   let width := nat()
   char 'x'
   let height := nat()

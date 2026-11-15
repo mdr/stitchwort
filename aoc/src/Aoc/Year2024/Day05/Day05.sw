@@ -27,17 +27,17 @@ type Update = { pages: List Nat }
 type PrintQueue = { rules: List Rule, updates: List Update }
 
 --| "47|53".
-def rule(): {Parse} Rule :=
+def rule(): {Parse Char} Rule :=
   let before := nat()
   char '|'
   let after := nat()
   { before, after }
 
 --| "75,47,61,53,29".
-def update(): {Parse} Update := { pages = sepBy1 nat (() => char ',') |> .toList }
+def update(): {Parse Char} Update := { pages = sepBy1 nat (() => char ',') |> .toList }
 
 --| The rules, one per line, a blank line, then the updates, one per line.
-def printQueue(): {Parse} PrintQueue :=
+def printQueue(): {Parse Char} PrintQueue :=
   let rules := section rule |> .toList
   let updates := lines update |> .toList
   { rules, updates }

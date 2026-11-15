@@ -7,7 +7,7 @@ use stitchwort_syntax::{Diagnostic, Severity};
 
 const PARSERS: &str = "import Std (Nat, List, Parse)\n\
                        import Std.Parse (char, natDigits)\n\n\
-                       def shortNumber(): {Parse} Nat := natDigits 1 3\n\n";
+                       def shortNumber(): {Parse Char} Nat := natDigits 1 3\n\n";
 
 /// The `W-NO-EFFECT` warnings of `text` (after [`PARSERS`]), which must check.
 fn warnings(text: &str) -> Vec<Diagnostic> {
@@ -34,13 +34,14 @@ fn one(text: &str) -> Diagnostic {
 
 #[test]
 fn a_parser_named_and_not_called_warns_with_its_call() {
-    let w = one("def forgotten(): {Parse} Nat :=\n  char ','\n  shortNumber\n  shortNumber()\n");
+    let w =
+        one("def forgotten(): {Parse Char} Nat :=\n  char ','\n  shortNumber\n  shortNumber()\n");
     assert_eq!(w.notes, ["call it: `shortNumber()`"], "{w:?}");
 }
 
 #[test]
 fn a_function_missing_its_argument_warns() {
-    let w = one("def f(): {Parse} Nat :=\n  char\n  shortNumber()\n");
+    let w = one("def f(): {Parse Char} Nat :=\n  char\n  shortNumber()\n");
     assert!(
         w.notes[0].contains("`char` is a function missing its arguments"),
         "{w:?}"
@@ -49,19 +50,19 @@ fn a_function_missing_its_argument_warns() {
 
 #[test]
 fn the_first_part_of_a_sequence_warns_too() {
-    let w = one("def f(): {Parse} Nat := (char; shortNumber())\n");
+    let w = one("def f(): {Parse Char} Nat := (char; shortNumber())\n");
     assert!(w.notes[0].contains("`char`"), "{w:?}");
 }
 
 #[test]
 fn arithmetic_on_its_own_line_warns() {
-    let w = one("def f (x: Nat): {Parse} Nat :=\n  x + 1\n  shortNumber()\n");
+    let w = one("def f (x: Nat): {Parse Char} Nat :=\n  x + 1\n  shortNumber()\n");
     assert!(w.notes[0].contains("bind its value with `let`"), "{w:?}");
 }
 
 #[test]
 fn a_map_with_a_pure_callback_warns_in_an_effectful_function() {
-    one("def f (list: List Nat): {Parse} List Nat :=\n  list.map (x => x + 1)\n  list\n");
+    one("def f (list: List Nat): {Parse Char} List Nat :=\n  list.map (x => x + 1)\n  list\n");
 }
 
 #[test]
@@ -73,7 +74,7 @@ fn a_map_with_a_pure_callback_warns_in_a_pure_function() {
 fn an_effectful_call_whose_result_is_dropped_does_not_warn() {
     // Reading a number only to skip it is fine (D1713 is another question).
     assert!(
-        warnings("def f(): {Parse} Nat :=\n  shortNumber()\n  char ','\n  shortNumber()\n")
+        warnings("def f(): {Parse Char} Nat :=\n  shortNumber()\n  char ','\n  shortNumber()\n")
             .is_empty()
     );
 }
@@ -82,7 +83,7 @@ fn an_effectful_call_whose_result_is_dropped_does_not_warn() {
 fn a_map_with_an_effectful_callback_does_not_warn() {
     assert!(
         warnings(
-            "def f (list: List Nat): {Parse} List Nat :=\n  list.map (x => shortNumber())\n  list\n"
+            "def f (list: List Nat): {Parse Char} List Nat :=\n  list.map (x => shortNumber())\n  list\n"
         )
         .is_empty()
     );
@@ -90,7 +91,7 @@ fn a_map_with_an_effectful_callback_does_not_warn() {
 
 #[test]
 fn a_unit_line_does_not_warn() {
-    assert!(warnings("def f(): {Parse} Nat :=\n  ()\n  shortNumber()\n").is_empty());
+    assert!(warnings("def f(): {Parse Char} Nat :=\n  ()\n  shortNumber()\n").is_empty());
 }
 
 #[test]
@@ -123,7 +124,7 @@ fn a_map_whose_callback_has_statement_lines_is_not_tried() {
     // is missed instead.
     assert!(
         warnings(
-            "def f (list: List Nat): {Parse} List Nat :=\n  \
+            "def f (list: List Nat): {Parse Char} List Nat :=\n  \
              list.map (x => (let y := x; y + 1))\n  list\n"
         )
         .is_empty()

@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-ARITY] Error: `Parse` takes an argument, `t`
+   ╭─[ reject/parse-row-without-argument.sw:7:15 ]
+   │
+ 7 │ def number(): {Parse} Nat := nat()
+   │               ─────┬─────  
+   │                    ╰─────── given none here
+   │ 
+   │ Note: write it with its arguments: `{Parse t}`, such as `{Parse Char}` for a parser of text
+───╯

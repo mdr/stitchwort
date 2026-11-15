@@ -8,7 +8,7 @@ import Aoc.Common (..)
 import Std (Bool, DecEq, Decidable, Eq, Fail, List, Nat, Option, Parse, Result, Void)
 
 --| A grid `parseGrid` reads is a rectangle, with a row and a column.
-theorem parseGridRectangle ∀ (input: Text) (cell: () → {Parse} a) (grid: Grid a)
+theorem parseGridRectangle ∀ (input: Text) (cell: () → {Parse Char} a) (grid: Grid a)
     (parsed: Fail.toResult (() => parseGrid input cell) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
   checkedGrid _ grid parsed
@@ -87,7 +87,7 @@ theorem checkGridComplete ∀ (grid: Grid a) (rectangle: grid.Rectangle):
 
 --| The converse of `parseGridRectangle`: a rectangular grid
 --| whose rows `Parse.eachLine` reads off the lines is what `parseGrid` reads.
-theorem parseGridComplete ∀ (input: Text) (cell: () → {Parse} a) (grid: Grid a) (rectangle: grid.Rectangle)
+theorem parseGridComplete ∀ (input: Text) (cell: () → {Parse Char} a) (grid: Grid a) (rectangle: grid.Rectangle)
     (rowsRead: Fail.toResult (() => Parse.eachLine input (() => Parse.many1 cell |> .toList)) = Ok grid.rows):
     Fail.toResult (() => parseGrid input cell) = Ok grid :=
   rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 cell |> .toList)) checkGrid, rowsRead in

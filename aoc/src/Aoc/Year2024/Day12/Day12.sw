@@ -21,7 +21,7 @@ def main(): {IO, Fail} () :=
 type Garden = { plots: Map Position Char }
 
 --| One plot: its plant, a letter.
-def plantLetter(): {Parse} Char := Parse.satisfy "a letter" .isAsciiLetter
+def plantLetter(): {Parse Char} Char := Parse.satisfy "a letter" .isAsciiLetter
 
 --| One row per line, all as long as the first.
 def parseGarden (input: Text): {Fail} Garden :=

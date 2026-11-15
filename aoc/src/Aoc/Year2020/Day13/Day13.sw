@@ -31,13 +31,13 @@ type Slot = | Listed (id: Nat) | OutOfService
 
 type Notes = { earliest: Nat, schedule: List Slot }
 
-def slot(): {Parse} Slot := match Parse.optional (() => Parse.char 'x') with
+def slot(): {Parse Char} Slot := match Parse.optional (() => Parse.char 'x') with
   | Some _ => OutOfService
   | None =>
     let id := Parse.nat()
     if id == 0 then Parse.fail "a bus ID is at least 1" else Listed id
 
-def notes(): {Parse} Notes :=
+def notes(): {Parse Char} Notes :=
   let earliest := Parse.nat()
   Parse.newline()
   let schedule := Parse.sepBy1 slot (() => Parse.char ',')

@@ -47,9 +47,9 @@ type Route = { instructions: List Instruction }
 
 def actions: List Action := [Move North, Move South, Move East, Move West, Turn Left, Turn Right, Forward]
 
-def action(): {Parse} Action := Parse.pick (actions.map (action => (action.letter, action)))
+def action(): {Parse Char} Action := Parse.pick (actions.map (action => (action.letter, action)))
 
-def instruction(): {Parse} Instruction :=
+def instruction(): {Parse Char} Instruction :=
   let action := action()
   let value := Parse.nat()
   if action.isTurn && value % 90 != 0 then Parse.fail "a turn has to be a multiple of 90 degrees" else { action, value }

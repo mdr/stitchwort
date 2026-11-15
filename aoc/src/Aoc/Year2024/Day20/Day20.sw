@@ -34,7 +34,7 @@ type Racetrack = { track: Set Position, start: Position, end: Position }
 
 type Tile = | Wall | Track | Start | End
 
-def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
+def tile(): {Parse Char} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
 
 --| One row of tiles per line, with one S and one E. A short row is walled
 --| beyond its end.

@@ -853,7 +853,8 @@ The library has six interfaces so far. `Ord` is a total order: `compare`, the re
 
 ```
 -- An ability and its operations. Each operation takes one argument and
--- performs only its own ability.
+-- performs only its own ability. Its parameters are written in rows:
+-- `{State Nat}`, and `{Parse Char}` for `Std.Parse`'s parsers of text.
 ability State (s: Type) where
   get: () -> {State s} s
   put: s -> {State s} ()

@@ -9,7 +9,7 @@ import Std (Char, List, Parse)
 
 type Range = { low: Nat, high: Nat }
 
-def range(): {Parse} Range :=
+def range(): {Parse Char} Range :=
   let low := Parse.nat()
   Parse.char '-'
   let high := Parse.nat()
@@ -17,10 +17,10 @@ def range(): {Parse} Range :=
 
 --| A parser that is another named parser: it takes two steps of unfolding
 --| to reach the `Effect.bind`.
-def bounds(): {Parse} Range := range()
+def bounds(): {Parse Char} Range := range()
 
 --| A parser whose first step is a named parser of the file's own.
-def labelled(): {Parse} Range :=
+def labelled(): {Parse Char} Range :=
   Parse.char '#'
   range()
 

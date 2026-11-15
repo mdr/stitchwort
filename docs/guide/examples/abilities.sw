@@ -113,7 +113,7 @@ test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 -- begin parse
 type Box = { x: Nat, y: Nat, z: Nat }
 
-def box(): {Parse} Box :=
+def box(): {Parse Char} Box :=
   let x := nat()
   char ','
   let y := nat()

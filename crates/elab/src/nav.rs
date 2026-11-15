@@ -1444,7 +1444,7 @@ impl Elaborator {
     }
 
     /// A definition's header after its name, as its declaration writes it
-    /// (`(what: Text) (passes: Char → Bool): {Parse} Char`): the leading
+    /// (`[t: Type] (what: Text) (passes: t → Bool): {Parse t} t`): the leading
     /// parameters that have names, then the rest of the type, which starts
     /// at the first parameter the declaration left unnamed (a type written
     /// `Nat → Nat`). None if no parameter is named.

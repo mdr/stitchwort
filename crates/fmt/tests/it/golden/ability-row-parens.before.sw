@@ -1,7 +1,7 @@
 -- D2307: parentheses around the type after an ability row are redundant.
 def applied: {Fail} (List Nat) := []
 def named: {Fail} (Nat) := 0
-def tupleArg: {Parse} (Option (Nat, Nat)) := None
+def tupleArg: {Parse Char} (Option (Nat, Nat)) := None
 def tupleNested: {Fail} ((Nat, Nat)) := (0, 0)
 -- Kept: a function type reads better with them; these change the parse, or
 -- hold a tuple or unit.

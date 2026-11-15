@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-ABILITY] Error: this may perform `Parse`, which isn't allowed here
@@ -9,5 +9,5 @@ expression: output
    │                      ─────┬─────  
    │                           ╰─────── `Parse` isn't in the abilities of the enclosing function or handler
    │ 
-   │ Note: add `Parse` to the function's type (`-> {Parse …} …`), or handle it
+   │ Note: add `Parse` to the function's type (`-> {Parse Char} …`), or handle it
 ───╯

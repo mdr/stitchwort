@@ -6,4 +6,4 @@ import Std (Bool, Nat, Parse)
 
 def same (x: a): a := x
 
-def short(): {Parse} () := Parse.ensure (same (Parse.mark().offset ≤ 3)) "too long"
+def short(): {Parse Char} () := Parse.ensure (same (Parse.mark().offset ≤ 3)) "too long"

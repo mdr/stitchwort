@@ -32,14 +32,14 @@ def main(): {IO, Fail} () :=
 def parseLines (input: Text): {Fail} List Line := checkShapes (Parse.eachLine input Line.parse)
 
 --| A grid point, `x,y`.
-def Point.parse(): {Parse} Point :=
+def Point.parse(): {Parse Char} Point :=
   let x := nat()
   char ','
   let y := nat()
   { x, y }
 
 --| One line of vents, `x1,y1 -> x2,y2`.
-def Line.parse(): {Parse} Line :=
+def Line.parse(): {Parse Char} Line :=
   let from := Point.parse()
   text " -> "
   let to := Point.parse()

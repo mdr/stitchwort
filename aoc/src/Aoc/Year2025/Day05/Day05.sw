@@ -36,7 +36,7 @@ def Database.empty: Database := { fresh = [], available = [] }
 --| number are allowed. Anything else fails, naming the line and column.
 def parseDatabase (input: Text): {Fail} Database := Parse.all input database
 
-def database(): {Parse} Database :=
+def database(): {Parse Char} Database :=
   let fresh := section range |> .toList
   let available := lines (() => token nat) |> .toList
   { fresh, available }

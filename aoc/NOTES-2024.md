@@ -452,7 +452,7 @@ The first program to use `Std.Parse`. Parsing produces a list of
 `Mul left right | Do | Dont`, and both parts work from it:
 
 ```stitchwort
-def findAll (parser: () → {Parse} a): {Parse} (List a) :=
+def findAll (parser: () → {Parse Char} a): {Parse Char} (List a) :=
   many (() =>
     oneOf [
       () => Some (parser()),
@@ -462,14 +462,14 @@ def findAll (parser: () → {Parse} a): {Parse} (List a) :=
     ])
     |> .filterMap (found => found)
 
-def shortNumber(): {Parse} Nat :=
+def shortNumber(): {Parse Char} Nat :=
   let start := Parse.mark()
   let number := nat()
   let finish := Parse.mark()
   Parse.ensure (finish.offset - start.offset ≤ 3) "expected at most three digits"
   number
 
-def instruction(): {Parse} Instruction :=
+def instruction(): {Parse Char} Instruction :=
   oneOf [
     () =>
       text "mul("
@@ -617,7 +617,7 @@ Parse.ensure (Parse.mark().offset - start.offset ≤ 3) "expected at most three 
 ```
 
 `Parse.ensure (Parse.mark().offset ≤ 3) "x"` fails the same way. But
-`def b(): {Parse} Bool := Parse.mark().offset ≤ 3` checks, and so does the
+`def b(): {Parse Char} Bool := Parse.mark().offset ≤ 3` checks, and so does the
 comparison once `Parse.mark()` is bound by `let`. So an ability call inside
 a comparison passed as an argument loses its operand's type. The message
 names a metavariable (`%3`) and talks about propositions, and the code
@@ -1000,15 +1000,15 @@ The first parser with `Std.Parse` read the input, and the program printed
 the right answers on the first run:
 
 ```stitchwort
-def rule(): {Parse} Rule :=
+def rule(): {Parse Char} Rule :=
   let before := nat()
   char '|'
   let after := nat()
   { before, after }
 
-def update(): {Parse} Update := { pages = sepBy1 nat (() => char ',') }
+def update(): {Parse Char} Update := { pages = sepBy1 nat (() => char ',') }
 
-def printQueue(): {Parse} PrintQueue :=
+def printQueue(): {Parse Char} PrintQueue :=
   let rules := lines rule
   blankLine()
   let updates := lines update
@@ -1691,7 +1691,7 @@ checks this), and test values of up to 15 digits.
 The parser and the solver:
 
 ```stitchwort
-def equationLine(): {Parse} Equation :=
+def equationLine(): {Parse Char} Equation :=
   let testValue := nat()
   char ':'
   let numbers := many1 spacedNat
@@ -1993,7 +1993,7 @@ readings give 344 there.
 The parser and the solver:
 
 ```stitchwort
-def cell(): {Parse} (Option Char) :=
+def cell(): {Parse Char} (Option Char) :=
   let char := Parse.satisfy "'.', a letter or a digit" (char => char == '.' || char.isAsciiAlphanumeric)
   if char == '.' then None else Some char
 
@@ -2347,7 +2347,7 @@ free spans of length 0; no file has length 0 (tests check both).
 ### The program
 
 ```stitchwort
-def diskMapLine(): {Parse} (List Nat) := many1 (() => digit().toNat)
+def diskMapLine(): {Parse Char} (List Nat) := many1 (() => digit().toNat)
 
 def parseDiskMap (input: Text): {Fail} (List Nat) := Parse.all input diskMapLine
 
@@ -2495,7 +2495,7 @@ lambda `(span joined => …)` in a `foldRight` got
   Note: if you meant to pass a lambda to `span`, put it in brackets: `span (joined => …)`; otherwise rename the parameter
 ```
 
-The `span` is `Parse`'s operation (`(Char → Bool) → {Parse} (List Char)`):
+The `span` is `Parse`'s operation (`(Char → Bool) → {Parse Char} (List Char)`):
 importing the ability brings its operations in unqualified, while
 `takeWhile`, a function, wasn't in scope. With a type `Span` and a field
 `span` in the file it was puzzling until a probe (`def probe: Nat := span`)
@@ -2677,7 +2677,7 @@ b3ceb57e, 28 October 2026.
 ### The program
 
 ```stitchwort
-def tile(): {Parse} (Option Nat) :=
+def tile(): {Parse Char} (Option Nat) :=
   Parse.oneOf [
     () => Some digit().toNat,
     () =>
@@ -3318,7 +3318,7 @@ program and Python agree on it (859142 and 554456). Compiler built from
 ### The program
 
 ```stitchwort
-def plantLetter(): {Parse} Char := Parse.satisfy "a letter" (char => char.isAsciiLetter)
+def plantLetter(): {Parse Char} Char := Parse.satisfy "a letter" (char => char.isAsciiLetter)
 
 def parseGarden (input: Text): {Fail} Garden :=
   let rows := Parse.all input (() => Parse.grid plantLetter)
@@ -3678,14 +3678,14 @@ type Offset = { x: Int, y: Int }
 
 type Machine = { buttonA: Offset, buttonB: Offset, prize: Offset }
 
-def offset (sign: Text): {Parse} Offset :=
+def offset (sign: Text): {Parse Char} Offset :=
   text "X${sign}"
   let x := nat()
   text ", Y${sign}"
   let y := nat()
   { x = x.toInt, y = y.toInt }
 
-def clawMachine(): {Parse} Machine :=
+def clawMachine(): {Parse Char} Machine :=
   text "Button A: "
   let buttonA := offset "+"
   newline()
@@ -4069,7 +4069,7 @@ type Velocity = { x: Int, y: Int }
 type Robot = { position: Position, velocity: Velocity }
 type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositive: height ≠ 0 }
 
-def robotLine(): {Parse} Robot :=
+def robotLine(): {Parse Char} Robot :=
   text "p="
   let x := nat()
   text ","
@@ -4397,11 +4397,11 @@ type Warehouse = { walls: Set Position, boxes: Set Position, robot: Position }
 
 type Document = { warehouse: Warehouse, moves: List Direction }
 
-def tile(): {Parse} Tile := pick [("#", Wall), ("O", Box), ("@", Robot), (".", Floor)]
+def tile(): {Parse Char} Tile := pick [("#", Wall), ("O", Box), ("@", Robot), (".", Floor)]
 
-def move(): {Parse} Direction := pick [("^", Up), ("v", Down), ("<", Left), (">", Right)]
+def move(): {Parse Char} Direction := pick [("^", Up), ("v", Down), ("<", Left), (">", Right)]
 
-def document(): {Parse} (List (List Tile), List Direction) :=
+def document(): {Parse Char} (List (List Tile), List Direction) :=
   let rows := section (() => many1 tile)
   let moves := lines (() => many1 move) |> .concat
   (rows, moves)
@@ -4820,7 +4820,7 @@ Compiler built from `main` at f06e8931, 28 October 2026.
 ### The program
 
 ```stitchwort
-def tile(): {Parse} Tile :=
+def tile(): {Parse Char} Tile :=
   Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
 
 def parseMaze (input: Text): {Fail} Maze :=
@@ -5259,17 +5259,17 @@ type Instruction =
   ...
   | Cdv (operand: Combo)
 
-def threeBit(): {Parse} Nat :=
+def threeBit(): {Parse Char} Nat :=
   let start := Parse.mark()
   let value := natDigits 1 1
   Parse.ensureAt start (value < 8) "expected a 3-bit number (0 to 7)"
   value
 
-def register (name: Text): {Parse} Nat :=
+def register (name: Text): {Parse Char} Nat :=
   text "Register ${name}: "
   nat()
 
-def debugger(): {Parse} Debugger :=
+def debugger(): {Parse Char} Debugger :=
   let a := register "A"
   newline()
   let b := register "B"
@@ -5614,7 +5614,7 @@ def main(): {IO, Fail} () := solveIn 71 1024
 
 def mainExample(): {IO, Fail} () := solveIn 7 12
 
-def byte(): {Parse} Position :=
+def byte(): {Parse Char} Position :=
   let x := nat()
   text ","
   let y := nat()
@@ -5982,9 +5982,9 @@ the first dynamic-programming day. Compiler built from `main` at a34721f9,
 ### The program
 
 ```stitchwort
-def stripe(): {Parse} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
+def stripe(): {Parse Char} Stripe := pick [("w", White), ("u", Blue), ("b", Black), ("r", Red), ("g", Green)]
 
-def onsen(): {Parse} Onsen :=
+def onsen(): {Parse Char} Onsen :=
   let patterns := sepBy1 (() => many1 stripe) (() => text ", ")
   blankLine()
   let designs := lines (() => many1 stripe)
@@ -6257,7 +6257,7 @@ it: 1953 and 1084640. Compiler built from `main` at 5f463d1a, 28 October
 ### The program
 
 ```stitchwort
-def tile(): {Parse} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
+def tile(): {Parse Char} Tile := pick [("#", Wall), (".", Track), ("S", Start), ("E", End)]
 
 def parseRacetrack (input: Text): {Fail} Racetrack :=
   let tiles :=
@@ -6657,7 +6657,7 @@ type NumericKey =
 
 type Code = List NumericKey
 
-def numericKey(): {Parse} NumericKey :=
+def numericKey(): {Parse Char} NumericKey :=
   label "a key (0 to 9 or A)" (() =>
     pick [
       ("0", Digit0),
@@ -6665,7 +6665,7 @@ def numericKey(): {Parse} NumericKey :=
       ("A", Enter)
     ])
 
-def codes(): {Parse} (List Code) := lines (() => many1 numericKey)
+def codes(): {Parse Char} (List Code) := lines (() => many1 numericKey)
 
 def parseCodes (input: Text): {Fail} (List Code) := Parse.all input codes
 
@@ -7394,12 +7394,12 @@ built from `main` at 4a675500, 28 October 2026.
 ### The program
 
 ```stitchwort
-def computer(): {Parse} Computer :=
+def computer(): {Parse Char} Computer :=
   let first := satisfy "a lowercase letter" isLowercase
   let second := satisfy "a lowercase letter" isLowercase
   Text.fromList [first, second]
 
-def connection(): {Parse} (Computer, Computer) :=
+def connection(): {Parse Char} (Computer, Computer) :=
   let one := computer()
   text "-"
   let other := computer()
@@ -7787,9 +7787,9 @@ type Gate = { left: Wire, operation: Operation, right: Wire, output: Wire }
 
 type Device = { initial: List (Wire, Bool), gates: List Gate }
 
-def wireName(): {Parse} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
+def wireName(): {Parse Char} Wire := takeWhile1 "a wire name" Char.isAsciiAlphanumeric |> Wire.ofName
 
-def gateLine(): {Parse} Gate :=
+def gateLine(): {Parse Char} Gate :=
   let left := wireName()
   text " "
   let operation := label "AND, OR or XOR" (() => pick [("AND", And), ("OR", Or), ("XOR", Xor)])
@@ -7799,7 +7799,7 @@ def gateLine(): {Parse} Gate :=
   let output := wireName()
   { left, operation, right, output }
 
-def deviceInput(): {Parse} Device :=
+def deviceInput(): {Parse Char} Device :=
   let initial := section initialValue
   let gates := lines gateLine
   { initial, gates }

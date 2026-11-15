@@ -100,8 +100,10 @@ pub(crate) struct Decl {
     /// (`check::fallback`): the address of its last written argument and
     /// that type, so a lambda argument that fails where its type still has
     /// unknowns is checked again once the application's type has been
-    /// compared with it (`check::apply_args_postponing`).
-    pub(crate) app_expected: RefCell<Option<(usize, Value)>>,
+    /// compared with it (`check::apply_args_postponing`). The second type is
+    /// the first before it was forced (a call such as `Parse.Runs p …`, not
+    /// its unfolding), for `check::settle_from_expected`.
+    pub(crate) app_expected: RefCell<Option<(usize, Value, Value)>>,
     /// While the body of a definition with `decreasing` is elaborated: what
     /// its recursive calls stand for (`decreasing.rs`).
     pub(crate) decreasing: RefCell<Option<decreasing::Active>>,

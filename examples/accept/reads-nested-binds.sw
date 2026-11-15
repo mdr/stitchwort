@@ -11,8 +11,8 @@
 -- for each step's parser (proofs-about-definitions.md §2.3).
 import Std (Char, Parse)
 
-opaque def nat(): {Parse} Nat := Parse.nat()
-opaque def char (c: Char): {Parse} () := Parse.char c
+opaque def nat(): {Parse Char} Nat := Parse.nat()
+opaque def char (c: Char): {Parse Char} () := Parse.char c
 theorem readsNat: Parse.Reads nat (read n =>
       Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read)
     unfolding nat :=
@@ -21,7 +21,7 @@ theorem readsChar ∀ (c: Char): Parse.Reads (() => char c) (read u => read = [c
 
 type R = { fx0: Nat, fx2: Nat, fx4: Nat, fx6: Nat, fx8: Nat, fx10: Nat }
 
-def p12(): {Parse} R :=
+def p12(): {Parse Char} R :=
   let x0 := nat()
   char '-'
   let x2 := nat()

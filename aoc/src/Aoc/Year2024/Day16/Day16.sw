@@ -26,7 +26,7 @@ type Maze = { openTiles: Set Position, start: Position, end: Position }
 
 type Tile = | Wall | Floor | Start | End
 
-def tile(): {Parse} Tile := Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
+def tile(): {Parse Char} Tile := Parse.pick [("#", Wall), (".", Floor), ("S", Start), ("E", End)]
 
 --| One row of tiles per line, every row as long as the first (`parseGrid`
 --| checks it), with one S and one E.

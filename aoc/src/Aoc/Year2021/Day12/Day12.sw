@@ -69,9 +69,9 @@ def main(): {IO, Fail} () :=
 --| passage joins two big caves.
 def parsePassages (input: Text): {Fail} List Passage := checkPassages (Parse.eachLine input passage)
 
-def cave(): {Parse} Cave := { name = takeWhile1 "a cave name" Char.isAsciiLetter }
+def cave(): {Parse Char} Cave := { name = takeWhile1 "a cave name" Char.isAsciiLetter }
 
-def passage(): {Parse} Passage :=
+def passage(): {Parse Char} Passage :=
   let from := cave()
   char '-'
   let to := cave()

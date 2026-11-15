@@ -31,7 +31,7 @@ def isQuestion (char: Char): Bool := questions.contains char
 type Person = { answers: Set Char }
 
 --| One person's line: the letters of their "yes" answers.
-def person(): {Parse} Person :=
+def person(): {Parse Char} Person :=
   let letters := Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)
   { answers = letters.toList.toSet }
 
@@ -39,7 +39,7 @@ def person(): {Parse} Person :=
 type Group = { people: NonEmptyList Person }
 
 --| A group's lines, one person to a line.
-def group(): {Parse} Group :=
+def group(): {Parse Char} Group :=
   let people := Parse.lines person
   { people }
 

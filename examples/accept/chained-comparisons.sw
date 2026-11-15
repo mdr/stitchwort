@@ -49,14 +49,14 @@ def inLambda (xs: List Nat): List Nat := xs.filter (x => 2 <= twice x <= 8)
 test "in a lambda" := inLambda [0, 1, 2, 3, 4, 5] == [1, 2, 3, 4]
 
 -- The middle reads the input once.
-def digit(): {Parse} Bool := 0 < Parse.nat() <= 9
+def digit(): {Parse Char} Bool := 0 < Parse.nat() <= 9
 
 test "once" := toResult (() => Parse.line "5" digit) == Ok True
 test "too big" := toResult (() => Parse.line "15" digit) == Ok False
 
 -- The second `Parse.nat()` is not run when the first link fails, so there is
 -- no second number to read.
-def skipped(): {Parse} Bool := 5 < Parse.nat() <= Parse.nat()
+def skipped(): {Parse Char} Bool := 5 < Parse.nat() <= Parse.nat()
 
 test "short-circuits" := toResult (() => Parse.line "3" skipped) == Ok False
 
@@ -71,6 +71,6 @@ def nestedEither (n: Nat): Bool := if h: n = 0 || 3 <= twice n <= 9 then True el
 test "nested or" := nestedEither 0 ∧ nestedEither 3 ∧ !nestedEither 1
 
 -- The input is read once, whichever side of the `&&` the chain is on.
-def guardedDigit (ok: Bool): {Parse} Bool := ok && 0 < Parse.nat() <= 9
+def guardedDigit (ok: Bool): {Parse Char} Bool := ok && 0 < Parse.nat() <= 9
 
 test "once, after &&" := toResult (() => Parse.line "5" (() => guardedDigit True)) == Ok True
