@@ -91,6 +91,7 @@ expression: output
     │              valid✝: Char.isScalar code✝
     │              e: s = MkText [MkChar code✝ valid✝, ..tail✝]
     │              ⊢ p s
+    │                computes to p (MkText [MkChar code✝ valid✝, ..tail✝])
     │ 
     │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
 ────╯
@@ -118,7 +119,11 @@ expression: output
     │          ┬  
     │          ╰── p: Text → Prop
     │              s✝: Text
+    │              tail✝: List Char
+    │              code✝: Nat
+    │              valid✝: Char.isScalar code✝
     │              ⊢ p s✝
+    │                computes to p (MkText [MkChar code✝ valid✝, ..tail✝])
     │ 
     │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
 ────╯

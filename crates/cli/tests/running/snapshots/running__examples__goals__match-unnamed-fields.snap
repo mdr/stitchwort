@@ -20,9 +20,10 @@ expression: output
     │              ╰── other: List Bool
     │                  all: allTrue [True, ..other]
     │                  next✝: Bool
-    │                  tail✝¹: List Bool
+    │                  head✝: Bool
+    │                  tail✝: List Bool
     │                  ⊢ allTrue other
-    │                    computes to (next✝ && allTrue tail✝¹) = True
+    │                    computes to (next✝ && allTrue [head✝, ..tail✝]) = True
     │ 
     │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
 ────╯

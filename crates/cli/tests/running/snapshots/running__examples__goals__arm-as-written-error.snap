@@ -9,7 +9,7 @@ expression: output
     │          ──┬─  
     │            ╰─── expected `p (MkText ['a', 'b', head✝, ..tail✝])`, but this has type `p "a"`
     │ 
-    │ Note: this arm is checked in 4 cases, and this error is in the case where `s` is `MkText ['a', 'b', head✝, ..tail✝]`
+    │ Note: this arm is checked in 4 cases, and this error is in the case where `s` is `"ab" ++ …`
 ────╯
 [GOAL] Goal: in `oneCharacter`
    ╭─[ goals/arm-as-written-error.sw:8:13 ]

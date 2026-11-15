@@ -103,6 +103,8 @@ struct ArmGoal {
     superseded: usize,
     /// The note on a goal at an arm checked several times, and the case.
     cases: Option<(usize, Option<String>)>,
+    /// Whether the goal is the arm's as written, not one case's.
+    as_written: bool,
 }
 
 #[derive(Clone)]
@@ -570,6 +572,7 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         hidden,
         superseded,
         cases,
+        as_written: view.goal.is_some(),
     }))
 }
 
@@ -1567,10 +1570,16 @@ impl Elaborator {
                  at` binds) {are} listed, as nothing shown mentions {them}"
             ));
         }
-        if let Some((n, _)) = arm.and_then(|a| a.cases.as_ref()) {
+        if let Some(a) = arm
+            && let Some((n, _)) = &a.cases
+        {
+            let which = if a.as_written {
+                "the arm as written, not any one case"
+            } else {
+                "the last of them"
+            };
             diagnostic = diagnostic.with_note(format!(
-                "this arm is checked in {n} cases; the goal shown is the arm as written, not \
-                 any one case"
+                "this arm is checked in {n} cases; the goal shown is {which}"
             ));
         }
         diagnostic.detail_mut().goal = Some(GoalData {

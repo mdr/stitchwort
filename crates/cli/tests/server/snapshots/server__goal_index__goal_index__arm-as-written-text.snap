@@ -343,12 +343,13 @@ expression: json
           "type": "s = MkText [MkChar code✝ valid✝, ..tail✝]"
         }
       ],
-      "target": "p s"
+      "target": "p s",
+      "targetComputed": "p (MkText [MkChar code✝ valid✝, ..tail✝])"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\ncode✝: Nat\nvalid✝: Char.isScalar code✝\ne: s = MkText [MkChar code✝ valid✝, ..tail✝]\n⊢ p s",
+        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\ncode✝: Nat\nvalid✝: Char.isScalar code✝\ne: s = MkText [MkChar code✝ valid✝, ..tail✝]\n⊢ p s\n  computes to p (MkText [MkChar code✝ valid✝, ..tail✝])",
         "range": [
           26,
           9,
@@ -442,14 +443,27 @@ expression: json
         {
           "name": "s✝",
           "type": "Text"
+        },
+        {
+          "name": "tail✝",
+          "type": "List Char"
+        },
+        {
+          "name": "code✝",
+          "type": "Nat"
+        },
+        {
+          "name": "valid✝",
+          "type": "Char.isScalar code✝"
         }
       ],
-      "target": "p s✝"
+      "target": "p s✝",
+      "targetComputed": "p (MkText [MkChar code✝ valid✝, ..tail✝])"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\ns✝: Text\n⊢ p s✝",
+        "message": "p: Text → Prop\ns✝: Text\ntail✝: List Char\ncode✝: Nat\nvalid✝: Char.isScalar code✝\n⊢ p s✝\n  computes to p (MkText [MkChar code✝ valid✝, ..tail✝])",
         "range": [
           31,
           9,

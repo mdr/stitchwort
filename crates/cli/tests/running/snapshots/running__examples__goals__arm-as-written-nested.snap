@@ -18,6 +18,7 @@ expression: output
    │          ╰── p: Option Bool → Prop
    │              o: Option Bool
    │              ⊢ p o
+   │                computes to p (Some False)
    │ 
    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
 ───╯
@@ -117,7 +118,11 @@ expression: output
     │          ╰── p: Text → Prop
     │              q: Nat → Text
     │              s: Nat
+    │              tail✝: List Char
+    │              code✝: Nat
+    │              valid✝: Char.isScalar code✝
     │              ⊢ p (q s)
+    │                computes to p (MkText [MkChar code✝ valid✝, ..tail✝])
     │ 
     │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
 ────╯

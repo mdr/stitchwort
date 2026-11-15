@@ -6035,7 +6035,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
-                arm_display::leave_split(cx, saved_split);
+                drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.reset(mark);
                 cx.env = saved_env;
@@ -6121,7 +6121,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let saved_split =
                     arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                 let result = check_tree(cx, subtree, &arm_goal);
-                arm_display::leave_split(cx, saved_split);
+                drop(saved_split);
                 cx.e.decl.leaf_log.borrow_mut().path.pop();
                 cx.env = saved_env;
                 cx.types = saved_types;
@@ -6175,7 +6175,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     let saved_split =
                         arm_display::enter_split(cx, &split_start, *x, &value, cx.level());
                     let result = check_tree(cx, default, &default_goal);
-                    arm_display::leave_split(cx, saved_split);
+                    drop(saved_split);
                     cx.env = saved_env;
                     cx.types = saved_types;
                     result

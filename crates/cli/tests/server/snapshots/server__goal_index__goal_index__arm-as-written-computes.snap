@@ -180,5 +180,143 @@ expression: json
       10
     ],
     "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem paintedGoal1: Red = Blue := ?",
+      "target": "paint Red = Blue",
+      "targetComputed": "Red = Blue"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ paint Red = Blue\n  computes to Red = Blue",
+        "range": [
+          31,
+          11,
+          31,
+          12
+        ]
+      }
+    ],
+    "message": "in `painted`",
+    "notes": [],
+    "range": [
+      31,
+      11,
+      31,
+      12
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "c",
+          "type": "Color"
+        }
+      ],
+      "lemma": "theorem paintedGoal2 (c: Color): Blue = Blue := ?",
+      "target": "paint c = Blue",
+      "targetComputed": "Blue = Blue"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "c: Color\n⊢ paint c = Blue\n  computes to Blue = Blue",
+        "range": [
+          32,
+          9,
+          32,
+          10
+        ]
+      }
+    ],
+    "message": "in `painted`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      32,
+      9,
+      32,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem someTrueGoal1: True = True := ?",
+      "target": "isSomeTrue (Some True)",
+      "targetComputed": "True = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ isSomeTrue (Some True)\n  computes to True = True",
+        "range": [
+          41,
+          17,
+          41,
+          18
+        ]
+      }
+    ],
+    "message": "in `someTrue`",
+    "notes": [],
+    "range": [
+      41,
+      17,
+      41,
+      18
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "o",
+          "type": "Option Bool"
+        }
+      ],
+      "lemma": "theorem someTrueGoal2 (o: Option Bool): False = True := ?",
+      "target": "isSomeTrue o",
+      "targetComputed": "False = True"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "o: Option Bool\n⊢ isSomeTrue o\n  computes to False = True",
+        "range": [
+          42,
+          9,
+          42,
+          10
+        ]
+      }
+    ],
+    "message": "in `someTrue`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      42,
+      9,
+      42,
+      10
+    ],
+    "severity": "goal"
   }
 ]

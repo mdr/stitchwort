@@ -61,17 +61,21 @@ expression: json
           "type": "Bool"
         },
         {
-          "name": "tail✝¹",
+          "name": "head✝",
+          "type": "Bool"
+        },
+        {
+          "name": "tail✝",
           "type": "List Bool"
         }
       ],
       "target": "allTrue other",
-      "targetComputed": "(next✝ && allTrue tail✝¹) = True"
+      "targetComputed": "(next✝ && allTrue [head✝, ..tail✝]) = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "other: List Bool\nall: allTrue [True, ..other]\nnext✝: Bool\ntail✝¹: List Bool\n⊢ allTrue other\n  computes to (next✝ && allTrue tail✝¹) = True",
+        "message": "other: List Bool\nall: allTrue [True, ..other]\nnext✝: Bool\nhead✝: Bool\ntail✝: List Bool\n⊢ allTrue other\n  computes to (next✝ && allTrue [head✝, ..tail✝]) = True",
         "range": [
           14,
           13,

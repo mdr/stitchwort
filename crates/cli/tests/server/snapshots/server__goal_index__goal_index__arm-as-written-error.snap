@@ -20,7 +20,7 @@ expression: json
     ],
     "message": "type mismatch",
     "notes": [
-      "this arm is checked in 4 cases, and this error is in the case where `s` is `MkText ['a', 'b', head✝, ..tail✝]`"
+      "this arm is checked in 4 cases, and this error is in the case where `s` is `\"ab\" ++ …`"
     ],
     "range": [
       9,

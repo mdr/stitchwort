@@ -50,3 +50,41 @@ expression: output
     │ 
     │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
 ────╯
+[GOAL] Goal: in `painted`
+    ╭─[ goals/arm-as-written-computes.sw:32:12 ]
+    │
+ 32 │   | Red => ?
+    │            ┬  
+    │            ╰── ⊢ paint Red = Blue
+    │                  computes to Red = Blue
+────╯
+[GOAL] Goal: in `painted`
+    ╭─[ goals/arm-as-written-computes.sw:33:10 ]
+    │
+ 33 │   | _ => ?
+    │          ┬  
+    │          ╰── c: Color
+    │              ⊢ paint c = Blue
+    │                computes to Blue = Blue
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `someTrue`
+    ╭─[ goals/arm-as-written-computes.sw:42:18 ]
+    │
+ 42 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── ⊢ isSomeTrue (Some True)
+    │                        computes to True = True
+────╯
+[GOAL] Goal: in `someTrue`
+    ╭─[ goals/arm-as-written-computes.sw:43:10 ]
+    │
+ 43 │   | _ => ?
+    │          ┬  
+    │          ╰── o: Option Bool
+    │              ⊢ isSomeTrue o
+    │                computes to False = True
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯

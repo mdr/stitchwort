@@ -181,15 +181,28 @@ pub(crate) fn root_of(cx: &Ctx, goal: &Value) -> (Option<Rc<Split>>, Rc<Root>) {
     }
 }
 
-/// Records the split of `x` into `value` whose `base..` fields are now bound,
-/// and returns the path it replaced, for [`leave_split`].
-pub(crate) fn enter_split(
-    cx: &Ctx,
+/// Puts back the path a split replaced when dropped, so an early return
+/// from the branch's check can't leave a stale one.
+pub(crate) struct SplitGuard<'e> {
+    e: &'e crate::Elaborator,
+    saved: Option<Rc<Split>>,
+}
+
+impl Drop for SplitGuard<'_> {
+    fn drop(&mut self) {
+        self.e.goals.borrow_mut().split_path = self.saved.take();
+    }
+}
+
+/// Records the split of `x` into `value` whose `base..` fields are now
+/// bound, until the guard is dropped.
+pub(crate) fn enter_split<'e>(
+    cx: &Ctx<'e>,
     start: &(Option<Rc<Split>>, Rc<Root>),
     x: usize,
     value: &Value,
     base: usize,
-) -> Option<Rc<Split>> {
+) -> SplitGuard<'e> {
     let (parent, root) = start;
     let node = Rc::new(Split {
         parent: parent.clone(),
@@ -199,12 +212,8 @@ pub(crate) fn enter_split(
         base,
         fields: cx.types[base.min(cx.types.len())..].to_vec(),
     });
-    cx.e.goals.borrow_mut().split_path.replace(node)
-}
-
-/// Puts back the path [`enter_split`] returned.
-pub(crate) fn leave_split(cx: &Ctx, saved: Option<Rc<Split>>) {
-    cx.e.goals.borrow_mut().split_path = saved;
+    let saved = cx.e.goals.borrow_mut().split_path.replace(node);
+    SplitGuard { e: cx.e, saved }
 }
 
 /// A leaf's arm is about to be checked: what [`view`] needs of it. Returns
@@ -349,6 +358,17 @@ fn undo(cx: &Ctx, arm: &Arm, view: &mut View, goal: &mut Value) {
     }
 }
 
+/// The levels the arm's path binds as fields of a split.
+fn skipped_fields(arm: &Arm) -> Vec<usize> {
+    let mut fields = Vec::new();
+    let mut node = Some(&arm.path);
+    while let Some(n) = node {
+        fields.extend(n.base..n.base + n.fields.len());
+        node = n.parent.as_ref();
+    }
+    fields
+}
+
 /// What `leaf_goal` computes to, with each value the leaf gave a variable the
 /// arm left alone written as that variable.
 fn computed_back(
@@ -361,9 +381,23 @@ fn computed_back(
     let g = cx.g();
     let level = cx.level();
     let mut term = quote(&g, level, leaf_goal).ok()?;
+    let fields = skipped_fields(arm);
     for &x in &arm.unsplit {
+        // Only where the user can write the variable, and for a value that
+        // has cells of its own (`MkText [MkChar code✝ valid✝, ..tail✝]`),
+        // which nothing else could be mistaken for: a closed value like
+        // `Blue` also occurs where it has nothing to do with the variable.
+        if fields.contains(&x) || cx.name_of_level(x).is_none() {
+            continue;
+        }
         let value = quote(&g, level, leaf_env.get(x)?).ok()?;
         if matches!(value.strip_loc(), Term::Var(i) if level - 1 - *i == x) {
+            continue;
+        }
+        if !crate::goals::levels_in(&value, level)?
+            .iter()
+            .any(|l| fields.contains(l))
+        {
             continue;
         }
         let hook = |t: &Term, under: usize| {
@@ -440,12 +474,7 @@ pub(crate) fn case_note(cx: &Ctx) -> Option<(usize, Option<String>)> {
     let (env, _, _) = replay(cx, &arm.path, &[])?;
     // The fields of a split say nothing the variable they are part of
     // doesn't.
-    let mut fields = Vec::new();
-    let mut node = Some(&arm.path);
-    while let Some(n) = node {
-        fields.extend(n.base..n.base + n.fields.len());
-        node = n.parent.as_ref();
-    }
+    let fields = skipped_fields(&arm);
     let names = cx.shown_names(false);
     let noted: Vec<(usize, usize, Term)> = (cx.e.goals.borrow().scrutinees.iter())
         .map(|s| (s.x, s.vars, s.term.clone()))
@@ -471,8 +500,8 @@ pub(crate) fn case_note(cx: &Ctx) -> Option<(usize, Option<String>)> {
             },
         };
         parts.push(match name {
-            Some(name) => format!("`{name}` is `{}`", cx.show(value)),
-            None => format!("the matched value is `{}`", cx.show(value)),
+            Some(name) => format!("`{name}` is `{}`", case_text(&cx.show(value))),
+            None => format!("the matched value is `{}`", case_text(&cx.show(value))),
         });
     }
     let case = (!parts.is_empty()).then(|| format!("where {}", parts.join(" and ")));
@@ -489,10 +518,45 @@ pub(crate) fn in_case(
     if error.code == crate::goals::UNFINISHED || error.code == "E-RESOURCE" {
         return error;
     }
+    if error
+        .notes
+        .iter()
+        .any(|n| n.starts_with("this arm is checked in"))
+    {
+        return error;
+    }
     match case_note(cx) {
         Some((n, Some(case))) => error.with_note(format!(
             "this arm is checked in {n} cases, and this error is in the case {case}"
         )),
         _ => error,
+    }
+}
+
+/// A text's cases as `"ab" ++ …`, not `MkText ['a', 'b', head✝, ..tail✝]`;
+/// anything else as it is.
+fn case_text(shown: &str) -> String {
+    let Some(inner) = shown
+        .strip_prefix("MkText [")
+        .and_then(|rest| rest.strip_suffix(']'))
+    else {
+        return shown.to_string();
+    };
+    let mut text = String::new();
+    let mut rest = false;
+    for item in inner.split(", ") {
+        let literal = item
+            .strip_prefix('\'')
+            .and_then(|i| i.strip_suffix('\''))
+            .filter(|c| c.chars().count() == 1);
+        match (literal, rest) {
+            (Some(c), false) => text.push_str(c),
+            _ => rest = true,
+        }
+    }
+    match (text.is_empty(), rest) {
+        (_, false) => crate::quoted_text(&text),
+        (true, true) => "…".to_string(),
+        (false, true) => format!("{} ++ …", crate::quoted_text(&text)),
     }
 }
