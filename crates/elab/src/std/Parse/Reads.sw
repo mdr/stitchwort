@@ -95,17 +95,17 @@ theorem Parse.runFromThenOkTree ∀ (p: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, q =>
+    | Parse.literal literal, q =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (q y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (q y, Parse.mark())) in
             Parse.runFromThenOkTree
-              (() => q (s.literal chars).fst)
-              (later (s.literal chars).fst)
-              (s.literal chars).snd
+              (() => q (s.literal literal).fst)
+              (later (s.literal literal).fst)
+              (s.literal literal).snd
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall later => Parse.runFromThenOkTree (() => q s.at) (later s.at) s k w h
@@ -152,18 +152,18 @@ theorem Parse.runFromThenOk2Tree ∀ (p: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, q =>
+    | Parse.literal literal, q =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (q y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (q y, Parse.mark())) in
             Parse.runFromThenOk2Tree
-              (() => q (s.literal chars).fst)
-              (later (s.literal chars).fst)
-              (s.literal chars).snd
+              (() => q (s.literal literal).fst)
+              (later (s.literal literal).fst)
+              (s.literal literal).snd
               j
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, q =>
       match tree with
         | AlwaysCall later => Parse.runFromThenOk2Tree (() => q s.at) (later s.at) s j k w h
@@ -217,18 +217,18 @@ theorem Parse.runFromOptionalFromOkTree ∀ (q: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (r y, Parse.mark())) in
             Parse.runFromOptionalFromOkTree
-              (() => r (s.literal chars).fst)
-              (later (s.literal chars).fst)
+              (() => r (s.literal literal).fst)
+              (later (s.literal literal).fst)
               start
-              (s.literal chars).snd
+              (s.literal literal).snd
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later => Parse.runFromOptionalFromOkTree (() => r s.at) (later s.at) start s k w h
@@ -283,19 +283,19 @@ theorem Parse.runFromOptionalFromOk2Tree ∀ (q: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (r y, Parse.mark())) in
             Parse.runFromOptionalFromOk2Tree
-              (() => r (s.literal chars).fst)
-              (later (s.literal chars).fst)
+              (() => r (s.literal literal).fst)
+              (later (s.literal literal).fst)
               start
-              (s.literal chars).snd
+              (s.literal literal).snd
               j
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later => Parse.runFromOptionalFromOk2Tree (() => r s.at) (later s.at) start s j k w h
@@ -435,18 +435,20 @@ theorem Parse.readsNext ∀ (passes: Char → Bool):
             let atSame: state.at = after := Pair.mkInjectiveSnd same
             Witness [] (rewrite <- valueSame, <- atSame, e in Both rfl (Both honest rfl))
 
---| `literal` reads its characters if it gives `True`, nothing if `False`.
-theorem Parse.readsLiteral ∀ (chars: List Char):
-    Parse.Reads (() => Parse.literal chars) (read found => read = (if found then chars else [])) :=
+--| `literal` reads its items if it gives `True`, nothing if `False`, when
+--| `same` holds only of equal items.
+theorem Parse.readsLiteral ∀ (literal: Parse.Literal Char) (exact: ∀ (x y: Char) => literal.same x y = True → x = y):
+    Parse.Reads (() => Parse.literal literal) (read found => read = (if found then literal.items else [])) :=
   state value after honest h =>
-    match e: Text.stripPrefixChars chars state.at.rest with
+    match e: List.stripPrefixBy state.at.rest literal.items literal.same with
       | Some rest =>
         let same := Result.okInjective h
         let valueSame: True = value := Pair.mkInjectiveFst same
-        let atSame: (state.advance rest chars.length).at = after := Pair.mkInjectiveSnd same
-        let starts := Text.stripPrefixCharsForward chars state.at.rest e
-        let lengths: state.at.rest.length = chars.length + rest.length := rewrite starts in List.lengthAppend chars rest
-        Witness chars (rewrite <- valueSame, <- atSame in Both starts (Both (omega [honest, lengths]) rfl))
+        let atSame: (state.advance rest literal.items.length).at = after := Pair.mkInjectiveSnd same
+        let starts := List.stripPrefixByForward literal.same exact state.at.rest literal.items e
+        let lengths: state.at.rest.length = literal.items.length + rest.length :=
+          rewrite starts in List.lengthAppend literal.items rest
+        Witness literal.items (rewrite <- valueSame, <- atSame in Both starts (Both (omega [honest, lengths]) rfl))
       | None =>
         let same := Result.okInjective h
         let valueSame: False = value := Pair.mkInjectiveFst same
@@ -540,14 +542,14 @@ theorem Parse.readsText ∀ (expected: Text):
     Parse.Reads (() => Parse.text expected) (read u => read = expected.toList) :=
   Parse.readsWeaken
     (Parse.readsBind
-      (() => Parse.literal expected.toList)
+      (() => Parse.literal { items = expected.toList, same = Text.sameChar })
       (found =>
         if found then ()
         else
           Parse.note (Literal expected)
           Empty.absurd Parse.stop()) _
       (found read u => found = True ∧ read = [])
-      (Parse.readsLiteral expected.toList)
+      (Parse.readsLiteral { items = expected.toList, same = Text.sameChar } Parse.sameCharExact)
       (found =>
         match found with
           | True => Parse.readsWeaken (Parse.readsPure ()) (read u both => Both rfl (And.left both))
@@ -689,24 +691,24 @@ def Parse.LineBreak (read: List Char): Prop := read = ['\n'] ∨ read = ['\r', '
 --| "\n", else "\r\n", else fail: `newline`, and `lineEnd` away from the end.
 theorem Parse.readsLineBreak ∀ (what: Text):
     Parse.Reads
-      (() => if Parse.literal ['\n'] then () else if Parse.literal ['\r', '\n'] then () else Parse.expected what)
+      (() => if Parse.literal { items = ['\n'], same = Text.sameChar } then () else if Parse.literal { items = ['\r', '\n'], same = Text.sameChar } then () else Parse.expected what)
       (read u => Parse.LineBreak read) :=
   Parse.readsWeaken
     (Parse.readsBind
-      (() => Parse.literal ['\n'])
-      (found => if found then () else if Parse.literal ['\r', '\n'] then () else Parse.expected what) _
+      (() => Parse.literal { items = ['\n'], same = Text.sameChar })
+      (found => if found then () else if Parse.literal { items = ['\r', '\n'], same = Text.sameChar } then () else Parse.expected what) _
       (found read u => (found = True ∧ read = []) ∨ (found = False ∧ Parse.LineBreak read))
-      (Parse.readsLiteral ['\n'])
+      (Parse.readsLiteral { items = ['\n'], same = Text.sameChar } Parse.sameCharExact)
       (found =>
         match found with
           | True => Parse.readsWeaken (Parse.readsPure ()) (read u both => Inl (Both rfl (And.left both)))
           | False =>
             Parse.readsWeaken
               (Parse.readsBind
-                (() => Parse.literal ['\r', '\n'])
+                (() => Parse.literal { items = ['\r', '\n'], same = Text.sameChar })
                 (found => if found then () else Parse.expected what) _
                 (found read u => found = True ∧ read = [])
-                (Parse.readsLiteral ['\r', '\n'])
+                (Parse.readsLiteral { items = ['\r', '\n'], same = Text.sameChar } Parse.sameCharExact)
                 (found =>
                   match found with
                     | True => Parse.readsWeaken (Parse.readsPure ()) (read u both => Both rfl (And.left both))
@@ -734,8 +736,8 @@ theorem Parse.readsLineEnd: Parse.Reads Parse.lineEnd (read u => read = [] ∨ P
       (() => Parse.mark())
       (at =>
         if at.left == 0 then ()
-        else if Parse.literal ['\n'] then ()
-        else if Parse.literal ['\r', '\n'] then ()
+        else if Parse.literal { items = ['\n'], same = Text.sameChar } then ()
+        else if Parse.literal { items = ['\r', '\n'], same = Text.sameChar } then ()
         else Parse.expected "the end of the line") _
       (at read u => read = [] ∨ Parse.LineBreak read)
       Parse.readsMark
@@ -777,18 +779,18 @@ def Parse.Picked (choices: List (Text, a)) (read: List Char) (choice: (Text, a))
   choice ∈ choices ∧ read = choice.fst.toList
 
 theorem Parse.readsFindWord ∀ (choices: List (Text, a)):
-    Parse.Reads (() => choices.find (choice => Parse.literal choice.fst.toList)) (Parse.Maybe (Parse.Picked choices)) :=
+    Parse.Reads (() => choices.find (choice => Parse.literal { items = choice.fst.toList, same = Text.sameChar })) (Parse.Maybe (Parse.Picked choices)) :=
   match choices with
     | [] => Parse.readsWeaken (Parse.readsPure None) (read found both => rewrite And.right both in And.left both)
     | [choice, ..rest] =>
       Parse.readsWeaken
         (Parse.readsBind
-          (() => Parse.literal choice.fst.toList)
-          (found => if found then Some choice else rest.find (choice => Parse.literal choice.fst.toList)) _
+          (() => Parse.literal { items = choice.fst.toList, same = Text.sameChar })
+          (found => if found then Some choice else rest.find (choice => Parse.literal { items = choice.fst.toList, same = Text.sameChar })) _
           (found read result =>
             (found = True ∧ read = [] ∧ result = Some choice)
               ∨ (found = False ∧ Parse.Maybe (Parse.Picked rest) read result))
-          (Parse.readsLiteral choice.fst.toList)
+          (Parse.readsLiteral { items = choice.fst.toList, same = Text.sameChar } Parse.sameCharExact)
           (found =>
             match found with
               | True => Parse.readsWeaken (Parse.readsPure (Some choice)) (read result both => Inl (Both rfl both))
@@ -821,7 +823,7 @@ theorem Parse.readsPick ∀ (choices: List (Text, a)):
   Parse.readsWeaken
     [weaker := (read value => ∃ (word: Text) => (word, value) ∈ choices ∧ read = word.toList)]
     (Parse.readsBind
-      (() => choices.find (choice => Parse.literal choice.fst.toList))
+      (() => choices.find (choice => Parse.literal { items = choice.fst.toList, same = Text.sameChar }))
       (found =>
         match found with
           | Some (word, value) => value
@@ -1499,11 +1501,11 @@ theorem Parse.runFromAtTree ∀ (c: () → {Parse Char} b)
               match p: passes char with
                 | True => Parse.runFromAtTree (() => r (Some char)) (later (Some char)) (s.advance more 1) t w h
                 | False => Parse.runFromAtTree (() => r None) (later None) s t w h
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          match e: Text.stripPrefixChars chars s.at.rest with
-            | Some rest => Parse.runFromAtTree (() => r True) (later True) (s.advance rest chars.length) t w h
+          match e: List.stripPrefixBy s.at.rest literal.items literal.same with
+            | Some rest => Parse.runFromAtTree (() => r True) (later True) (s.advance rest literal.items.length) t w h
             | None => Parse.runFromAtTree (() => r False) (later False) s t w h
     | Parse.mark u, r =>
       match tree with
@@ -1564,18 +1566,18 @@ theorem Parse.runFromLabelFromOkTree ∀ (what: Text) (q: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (r y, Parse.mark())) in
             Parse.runFromLabelFromOkTree what
-              (() => r (s.literal chars).fst)
-              (later (s.literal chars).fst)
+              (() => r (s.literal literal).fst)
+              (later (s.literal literal).fst)
               start
-              (s.literal chars).snd
+              (s.literal literal).snd
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later => Parse.runFromLabelFromOkTree what (() => r s.at) (later s.at) start s k w h
@@ -1630,10 +1632,10 @@ def Parse.IntRead (read: List Char) (n: Int): Prop :=
 theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
   Parse.readsWeaken
     (Parse.readsBind
-      (() => Parse.literal ['-'])
+      (() => Parse.literal { items = ['-'], same = Text.sameChar })
       (negative =>
         if negative then -(Parse.nat().toInt)
-        else if Parse.literal ['+'] then Parse.nat().toInt
+        else if Parse.literal { items = ['+'], same = Text.sameChar } then Parse.nat().toInt
         else Parse.nat().toInt) _
       (negative read n =>
         ∃ (digits: List Char) => digits ≠ []
@@ -1642,7 +1644,7 @@ theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
             ∨ (negative = False
               ∧ ((read = ['+', ..digits] ∧ n = (Parse.digitsValue digits).toInt)
                 ∨ (read = digits ∧ n = (Parse.digitsValue digits).toInt)))))
-      (Parse.readsLiteral ['-'])
+      (Parse.readsLiteral { items = ['-'], same = Text.sameChar } Parse.sameCharExact)
       (negative =>
         match negative with
           | True =>
@@ -1659,14 +1661,14 @@ theorem Parse.readsInt: Parse.Reads Parse.int Parse.IntRead :=
           | False =>
             Parse.readsWeaken
               (Parse.readsBind
-                (() => Parse.literal ['+'])
+                (() => Parse.literal { items = ['+'], same = Text.sameChar })
                 (plus => if plus then Parse.nat().toInt else Parse.nat().toInt) _
                 (plus read n =>
                   ∃ (digits: List Char) => digits ≠ []
                     ∧ digits.all Parse.isDigit = True
                     ∧ read = digits
                     ∧ n = (Parse.digitsValue digits).toInt)
-                (Parse.readsLiteral ['+'])
+                (Parse.readsLiteral { items = ['+'], same = Text.sameChar } Parse.sameCharExact)
                 (plus =>
                   match plus with
                     | True => Parse.readsWeaken (Parse.readsMap Parse.nat (m => m.toInt) _ Parse.readsNat) (read n h =>
@@ -1802,18 +1804,18 @@ theorem Parse.runFromSectionLineFromOkTree ∀ (q: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (r y, Parse.mark())) in
             Parse.runFromSectionLineFromOkTree
-              (() => r (s.literal chars).fst)
-              (later (s.literal chars).fst)
+              (() => r (s.literal literal).fst)
+              (later (s.literal literal).fst)
               start
-              (s.literal chars).snd
+              (s.literal literal).snd
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later => Parse.runFromSectionLineFromOkTree (() => r s.at) (later s.at) start s k w h
@@ -1949,10 +1951,10 @@ theorem Parse.runFromLabelWholeFromOkTree ∀ (what: Text) (q: () → {Parse Cha
                         k
                         w
                         (rewrite Effect.translateNoOp _ at h in h)
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          match Text.stripPrefixChars chars s.at.rest with
+          match List.stripPrefixBy s.at.rest literal.items literal.same with
             | None =>
               match c: s.at.offset > furthest.offset with
                 | True =>
@@ -1976,14 +1978,14 @@ theorem Parse.runFromLabelWholeFromOkTree ∀ (what: Text) (q: () → {Parse Cha
                     w
                     (rewrite Effect.translateNoOp _ at h in h)
             | Some after =>
-              match c: (s.advance after chars.length).at.offset > furthest.offset with
+              match c: (s.advance after literal.items.length).at.offset > furthest.offset with
                 | True =>
                   Parse.runFromLabelWholeFromOkTree what
                     (() => r True)
                     (later True)
                     start
-                    (s.advance after chars.length).at
-                    (s.advance after chars.length)
+                    (s.advance after literal.items.length).at
+                    (s.advance after literal.items.length)
                     k
                     w
                     (rewrite Effect.translateNoOp _ at h in h)
@@ -1993,7 +1995,7 @@ theorem Parse.runFromLabelWholeFromOkTree ∀ (what: Text) (q: () → {Parse Cha
                     (later True)
                     start
                     furthest
-                    (s.advance after chars.length)
+                    (s.advance after literal.items.length)
                     k
                     w
                     (rewrite Effect.translateNoOp _ at h in h)
@@ -2523,18 +2525,18 @@ theorem Parse.runFromAttemptFromOkTree ∀ (q: () → {Parse Char} a)
               k
               w
               (Eq.trans (Eq.sym (Parse.runFromNext s passes _)) h)
-    | Parse.literal chars, r =>
+    | Parse.literal literal, r =>
       match tree with
         | AlwaysCall later =>
-          rewrite Parse.runFromLiteral s chars (y => (r y, Parse.mark())) in
+          rewrite Parse.runFromLiteral s literal (y => (r y, Parse.mark())) in
             Parse.runFromAttemptFromOkTree
-              (() => r (s.literal chars).fst)
-              (later (s.literal chars).fst)
+              (() => r (s.literal literal).fst)
+              (later (s.literal literal).fst)
               start
-              (s.literal chars).snd
+              (s.literal literal).snd
               k
               w
-              (Eq.trans (Eq.sym (Parse.runFromLiteral s chars _)) h)
+              (Eq.trans (Eq.sym (Parse.runFromLiteral s literal _)) h)
     | Parse.mark u, r =>
       match tree with
         | AlwaysCall later => Parse.runFromAttemptFromOkTree (() => r s.at) (later s.at) start s k w h

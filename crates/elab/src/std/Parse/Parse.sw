@@ -30,6 +30,11 @@ import Parse.Problem (Expected, Literal, Literals, Message)
 --| and how many there are.
 type Parse.Mark (t: Type) = { rest: List t, offset: Nat, left: Nat }
 
+--| What `Parse.literal` looks for: `items` in a row, each compared with
+--| what comes next by `same`. Characters compare with `Text.sameChar`; a
+--| token that records where it was read compares by everything but that.
+type Parse.Literal (t: Type) = { items: List t, same: t → t → Bool }
+
 --| Why a parse failed at some point: something that was expected there, a
 --| text that was expected there, several texts that were (`Literals ws` is
 --| noted and shown exactly as `Literal w` for each `w` of `ws`, in order, but
@@ -49,8 +54,8 @@ ability Parse (t: Type) where
   span: (t → Bool) → {Parse t} List t
   --| The next character, read if it passes the test.
   next: (t → Bool) → {Parse t} Option t
-  --| Reads the characters if they come next; whether they did.
-  literal: List t → {Parse t} Bool
+  --| Reads the literal's items if they come next; whether they did.
+  literal: Parse.Literal t → {Parse t} Bool
   --| Where the parse is.
   mark: () → {Parse t} Parse.Mark t
   --| Goes back to a mark.
@@ -108,10 +113,10 @@ def Parse.State.next (state: Parse.State Char) (passes: Char → Bool): (Option 
   | [char, ..after] => if passes char then (Some char, state.advance after 1) else (None, state)
   | [] => (None, state)
 
---| Whether the characters come next, and the state after reading them if they do.
-def Parse.State.literal (state: Parse.State Char) (chars: List Char): (Bool, Parse.State Char) :=
-  match Text.stripPrefixChars chars state.at.rest with
-    | Some after => (True, state.advance after chars.length)
+--| Whether the literal's items come next, and the state after reading them if they do.
+def Parse.State.literal (state: Parse.State Char) (literal: Parse.Literal Char): (Bool, Parse.State Char) :=
+  match List.stripPrefixBy state.at.rest literal.items literal.same with
+    | Some after => (True, state.advance after literal.items.length)
     | None => (False, state)
 
 --| How a problem reads in a failure's `expected`.
@@ -155,9 +160,9 @@ def Parse.runFrom (initial: Parse.State Char) (parser: () → {Parse Char} a): R
         match state.at.rest with
           | [char, ..after] => if passes char then k (Some char) (state.advance after 1) else k None state
           | [] => k None state
-      | Parse.literal chars, k => state =>
-        match Text.stripPrefixChars chars state.at.rest with
-          | Some after => k True (state.advance after chars.length)
+      | Parse.literal literal, k => state =>
+        match List.stripPrefixBy state.at.rest literal.items literal.same with
+          | Some after => k True (state.advance after literal.items.length)
           | None => k False state
       | Parse.mark u, k => state => k state.at state
       | Parse.reset at, k => state => k () { state | at }
@@ -226,7 +231,7 @@ def Parse.char (expected: Char): {Parse Char} () :=
 
 --| The text `expected`, else "expected 'text'".
 def Parse.text (expected: Text): {Parse Char} () :=
-  if Parse.literal expected.toList then ()
+  if Parse.literal { items = expected.toList, same = Text.sameChar } then ()
   else
     Parse.note (Literal expected)
     Empty.absurd Parse.stop()
@@ -271,8 +276,8 @@ def Parse.natDigits (atLeast atMost: Nat): {Parse Char} Nat :=
 --| number is read as its sign: an expression parser reading "1 + +2" sees the
 --| second '+' as the start of 2, not as another operator.
 def Parse.int(): {Parse Char} Int :=
-  if Parse.literal ['-'] then -(Parse.nat().toInt)
-  else if Parse.literal ['+'] then Parse.nat().toInt
+  if Parse.literal { items = ['-'], same = Text.sameChar } then -(Parse.nat().toInt)
+  else if Parse.literal { items = ['+'], same = Text.sameChar } then Parse.nat().toInt
   else Parse.nat().toInt
 
 --| One decimal digit, else "expected a digit".
@@ -308,13 +313,13 @@ def Parse.before (value: a) (suffix: Text): {Parse Char} a :=
 
 --| A line break, "\n" or "\r\n", else "expected a line break".
 def Parse.newline(): {Parse Char} () :=
-  if Parse.literal ['\n'] then () else if Parse.literal ['\r', '\n'] then () else Parse.expected "a line break"
+  if Parse.literal { items = ['\n'], same = Text.sameChar } then () else if Parse.literal { items = ['\r', '\n'], same = Text.sameChar } then () else Parse.expected "a line break"
 
 --| A line break or the end of the input, else "expected the end of the line".
 def Parse.lineEnd(): {Parse Char} () :=
   if Parse.mark().left == 0 then ()
-  else if Parse.literal ['\n'] then ()
-  else if Parse.literal ['\r', '\n'] then ()
+  else if Parse.literal { items = ['\n'], same = Text.sameChar } then ()
+  else if Parse.literal { items = ['\r', '\n'], same = Text.sameChar } then ()
   else Parse.expected "the end of the line"
 
 --| A line break, a line of nothing but spaces and tabs, and its line break;
@@ -331,7 +336,7 @@ def Parse.end(): {Parse Char} () := if Parse.mark().left == 0 then () else Parse
 --| `{ "L" => …, "R" => … }`; else "expected 'L' or 'R'". Words are tried in
 --| order, so put a word before any that start it.
 def Parse.pick (choices: List (Text, a)): {Parse Char} a :=
-  match choices.find (choice => Parse.literal choice.fst.toList) with
+  match choices.find (choice => Parse.literal { items = choice.fst.toList, same = Text.sameChar }) with
     | Some (word, value) => value
     | None =>
       Parse.noteWords choices
@@ -354,7 +359,7 @@ def Parse.optionalFrom (start: Parse.Mark Char) (parser: () → {Parse Char} a):
     | return value => Some value
     | Parse.span passes, k => k (Parse.span passes)
     | Parse.next passes, k => k (Parse.next passes)
-    | Parse.literal chars, k => k (Parse.literal chars)
+    | Parse.literal literal, k => k (Parse.literal literal)
     | Parse.mark u, k => k Parse.mark()
     | Parse.reset at, k => k (Parse.reset at)
     | Parse.note problem, k => k (Parse.note problem)
@@ -510,7 +515,7 @@ def Parse.sectionLineFrom (start: Parse.Mark Char) (parser: () → {Parse Char} 
     | return value => value
     | Parse.span passes, k => k (Parse.span passes)
     | Parse.next passes, k => k (Parse.next passes)
-    | Parse.literal chars, k => k (Parse.literal chars)
+    | Parse.literal literal, k => k (Parse.literal literal)
     | Parse.mark u, k => k Parse.mark()
     | Parse.reset at, k => k (Parse.reset at)
     | Parse.note problem, k => k (Parse.note problem)
@@ -564,7 +569,7 @@ def Parse.attemptFrom (start: Parse.Mark Char) (parser: () → {Parse Char} a): 
       Some (value, progressed)
     | Parse.span passes, k => k (Parse.span passes)
     | Parse.next passes, k => k (Parse.next passes)
-    | Parse.literal chars, k => k (Parse.literal chars)
+    | Parse.literal literal, k => k (Parse.literal literal)
     | Parse.mark u, k => k Parse.mark()
     | Parse.reset at, k => k (Parse.reset at)
     | Parse.note problem, k => k (Parse.note problem)
@@ -626,7 +631,7 @@ def Parse.labelFrom (what: Text) (start: Parse.Mark Char) (parser: () → {Parse
       value
     | Parse.span passes, k => k (Parse.span passes)
     | Parse.next passes, k => k (Parse.next passes)
-    | Parse.literal chars, k => k (Parse.literal chars)
+    | Parse.literal literal, k => k (Parse.literal literal)
     | Parse.mark u, k => k Parse.mark()
     | Parse.reset at, k => k (Parse.reset at)
     | Parse.note problem, k => if Parse.mark().offset == start.offset then k () else k (Parse.note problem)
@@ -662,8 +667,8 @@ def Parse.labelWholeFrom (what: Text) (start: Parse.Mark Char) (parser: () → {
     | Parse.next passes, k => furthest =>
       let read := Parse.next passes
       k read (Parse.further furthest)
-    | Parse.literal chars, k => furthest =>
-      let read := Parse.literal chars
+    | Parse.literal literal, k => furthest =>
+      let read := Parse.literal literal
       k read (Parse.further furthest)
     | Parse.mark u, k => furthest => k Parse.mark() furthest
     | Parse.reset at, k => furthest =>
@@ -870,10 +875,10 @@ theorem Parse.runFromNext ∀ (state: Parse.State Char) (passes: Char → Bool) 
         | False => rfl
 
 --| `literal`: the handler's step, as `Parse.State.literal` gives it.
-theorem Parse.runFromLiteral ∀ (state: Parse.State Char) (chars: List Char) (k: Bool → {Parse Char} a):
-    Parse.runFrom state (() => k (Parse.literal chars))
-      = Parse.runFrom (state.literal chars).snd (() => k (state.literal chars).fst) :=
-  match stripped: Text.stripPrefixChars chars state.at.rest with
+theorem Parse.runFromLiteral ∀ (state: Parse.State Char) (literal: Parse.Literal Char) (k: Bool → {Parse Char} a):
+    Parse.runFrom state (() => k (Parse.literal literal))
+      = Parse.runFrom (state.literal literal).snd (() => k (state.literal literal).fst) :=
+  match stripped: List.stripPrefixBy state.at.rest literal.items literal.same with
     | None => rfl
     | Some after => rfl
 
@@ -883,12 +888,15 @@ theorem Parse.runFromSpan ∀ (state: Parse.State Char) (passes: Char → Bool) 
         k (state.at.rest.span passes).fst) :=
   rfl
 
---| `literal` where the input starts with the characters: it reads them.
-theorem Parse.runFromLiteralThere ∀ (state: Parse.State Char) (chars rest: List Char) (k: Bool → {Parse Char} a)
-    (starts: state.at.rest = List.append chars rest):
-    Parse.runFrom state (() => k (Parse.literal chars))
-      = Parse.runFrom (state.advance rest chars.length) (() => k True) :=
-  rewrite starts, Text.stripPrefixCharsAppend rest chars
+--| `literal` where the input starts with its items: it reads them, when `same`
+--| holds of each item and itself.
+theorem Parse.runFromLiteralThere ∀ (state: Parse.State Char) (literal: Parse.Literal Char) (rest: List Char)
+    (k: Bool → {Parse Char} a)
+    (reflexive: ∀ (x: Char) => literal.same x x = True)
+    (starts: state.at.rest = List.append literal.items rest):
+    Parse.runFrom state (() => k (Parse.literal literal))
+      = Parse.runFrom (state.advance rest literal.items.length) (() => k True) :=
+  rewrite starts, List.stripPrefixByAppend literal.same reflexive literal.items rest
 
 --| `span` where the input starts with `taken`, all passing, and the character
 --| after them (if any) doesn't: it reads `taken`.
@@ -916,9 +924,26 @@ theorem Parse.runFromTextThere ∀ (state: Parse.State Char) (expected: Text) (r
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.text expected))
       = Parse.runFrom (state.advance rest expected.toList.length) (() => k ()) :=
-  rewrite starts, Text.stripPrefixCharsAppend rest expected.toList in rfl
+  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest in rfl
 
 theorem Parse.sameChar ∀ (char: Char): (char == char) = True := DecEq.refl char
+
+--| `Text.sameChar` holds only of equal characters.
+theorem Parse.sameCharExact ∀ (x y: Char) (same: Text.sameChar x y = True): x = y := Char.ext x y same.read
+
+--| `Parse.literal` on characters strips its items as `Text.stripPrefixChars` does.
+theorem Parse.stripPrefixBySameChar ∀ (input prefix: List Char):
+    List.stripPrefixBy input prefix Text.sameChar = Text.stripPrefixChars prefix input :=
+  match input, prefix with
+    | input, [] => rfl
+    | [], [p, ..ps] => rfl
+    | [x, ..more], [p, ..ps] =>
+      let byIf := (b: Bool) => if b then List.stripPrefixBy more ps Text.sameChar else None
+      let charsIf := (b: Bool) => if b then Text.stripPrefixChars ps more else None
+      match same: Text.sameChar p x with
+        | True =>
+          Eq.trans (Eq.cong byIf same) (Eq.trans (Parse.stripPrefixBySameChar more ps) (Eq.sym (Eq.cong charsIf same)))
+        | False => Eq.trans (Eq.cong byIf same) (Eq.sym (Eq.cong charsIf same))
 
 theorem Parse.runFromCharThere ∀ (state: Parse.State Char) (expected: Char) (rest: List Char) (k: () → {Parse Char} a)
     (starts: state.at.rest = [expected, ..rest]):
@@ -969,11 +994,11 @@ theorem Parse.runFromOptionalFromNext ∀ (state: Parse.State Char) (start: Pars
         k (Parse.optionalFrom start (() => rest found))) :=
   rfl
 
-theorem Parse.runFromOptionalFromLiteral ∀ (state: Parse.State Char) (start: Parse.Mark Char) (chars: List Char)
+theorem Parse.runFromOptionalFromLiteral ∀ (state: Parse.State Char) (start: Parse.Mark Char) (literal: Parse.Literal Char)
     (rest: Bool → {Parse Char} a) (k: Option a → {Parse Char} b):
-    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.literal chars))))
+    Parse.runFrom state (() => k (Parse.optionalFrom start (() => rest (Parse.literal literal))))
       = Parse.runFrom state (() =>
-        let found := Parse.literal chars
+        let found := Parse.literal literal
         k (Parse.optionalFrom start (() => rest found))) :=
   rfl
 
@@ -996,13 +1021,13 @@ theorem Parse.runFromOptionalTextThere ∀ (state: Parse.State Char) (expected: 
     (starts: state.at.rest = List.append expected.toList rest):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
       = Parse.runFrom (state.advance rest expected.toList.length) (() => k (Some ())) :=
-  rewrite starts, Text.stripPrefixCharsAppend rest expected.toList in rfl
+  rewrite starts, List.stripPrefixByAppend Text.sameChar Text.sameCharRefl expected.toList rest in rfl
 
 theorem Parse.runFromOptionalTextNotThere ∀ (state: Parse.State Char) (expected: Text) (k: Option () → {Parse Char} a)
     (absent: Text.stripPrefixChars expected.toList state.at.rest = None):
     Parse.runFrom state (() => k (Parse.optional (() => Parse.text expected)))
       = Parse.runFrom { state.note (Literal expected) | at = state.at } (() => k None) :=
-  rewrite absent in rfl
+  rewrite Parse.stripPrefixBySameChar state.at.rest expected.toList, absent in rfl
 
 --| `oneOf` with an alternative after `first`: if `optional first` succeeds,
 --| whatever follows it, `first`'s value; if it backs up, the rest.

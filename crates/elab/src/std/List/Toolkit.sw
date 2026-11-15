@@ -452,6 +452,36 @@ def List.stripPrefix [auto eq: DecEq a]: (xs: List a) → (prefix: List a) → O
   | [], [p, ..ps] => None
   | [x, ..xs], [p, ..ps] => if x == p then List.stripPrefix xs ps else None
 
+--| The rest of `xs` after `prefix`, or `None` if `xs` doesn't start with it,
+--| comparing each item of `prefix` with the one in `xs` by `same`:
+--| `List.stripPrefix` for items whose equality isn't `==`, such as
+--| tokens that also record where they were read. The empty prefix gives
+--| `Some xs`.
+@[tailrec]
+def List.stripPrefixBy (xs prefix: List a) (same: a → a → Bool): Option (List a) := match xs, prefix with
+  | xs, [] => Some xs
+  | [], [p, ..ps] => None
+  | [x, ..rest], [p, ..ps] => if same p x then List.stripPrefixBy rest ps same else None
+
+--| A prefix strips off a list that starts with it, when `same` holds of each
+--| item and itself.
+theorem List.stripPrefixByAppend ∀ (same: a → a → Bool) (reflexive: ∀ (x: a) => same x x = True) (prefix rest: List a):
+    List.stripPrefixBy (List.append prefix rest) prefix same = Some rest :=
+  match prefix with
+    | [] => rfl
+    | [p, ..ps] => rewrite reflexive p, List.stripPrefixByAppend same reflexive ps rest in rfl
+
+--| When `same` holds only of equal items, stripping `prefix` from `xs` leaves
+--| `rest` only if `xs` is `prefix` followed by `rest`.
+theorem List.stripPrefixByForward ∀ (same: a → a → Bool) (exact: ∀ (x y: a) => same x y = True → x = y)
+    (xs prefix: List a) [rest: List a] (h: List.stripPrefixBy xs prefix same = Some rest):
+    xs = List.append prefix rest :=
+  match xs, prefix with
+    | xs, [] => Option.someInjective h
+    | [x, ..more], [p, ..ps] =>
+      match holds: same p x with
+        | True => rewrite exact p x holds in Eq.cong (Cons x) (List.stripPrefixByForward same exact more ps h)
+
 test "List.isEmpty" := List.isEmpty ([]: List Nat) ∧ ¬(List.isEmpty [3])
 test "List.startsWith" :=
   List.startsWith [1, 2, 3] [1, 2]
@@ -463,6 +493,11 @@ test "List.stripPrefix" :=
     ∧ List.stripPrefix [1, 2] [] == Some [1, 2]
     ∧ List.stripPrefix [1, 2] [2] == None
     ∧ List.stripPrefix [1] [1, 2] == None
+test "List.stripPrefixBy" :=
+  List.stripPrefixBy [1, 2, 3] [1, 2] (==) == Some [3]
+    ∧ List.stripPrefixBy [1, 2] [] (==) == Some [1, 2]
+    ∧ List.stripPrefixBy [4, 5] [1] (x y => x + 3 == y) == Some [5]
+    ∧ List.stripPrefixBy [1] [1, 2] (==) == None
 
 --| One step of `List.partition`: `x` onto the kept or the dropped side of
 --| `sides` (each reversed).
