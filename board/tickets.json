@@ -35945,14 +35945,14 @@
     {
       "id": 3273,
       "title": "[Sonnet] Text.repeat runs through lists at run time: a 1 MB text peaks at 242 MB; give it a native (SW-3269 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Found in SW-3269. Expected: 1 h (Sonnet).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
