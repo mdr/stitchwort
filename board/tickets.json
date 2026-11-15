@@ -36171,15 +36171,17 @@
     {
       "id": 3289,
       "title": "[DeepSeek] Recovery: two shapes give two errors where one is better: 'g (' then a let at the block's column; a guard with an unclosed [ then => on its own line (SW-3285 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Found in SW-3285. A bracket's contents running out at an R1 gap count as closed (no second missing-closer error); a guard's => ends the guard when a bracket in the condition has no partner, so the arms still parse. Model result: DeepSeek, worked, ~25 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "4de2de982e34344b459c9505cbb9cbd253be69f8"
+      ]
     },
     {
       "id": 3290,
