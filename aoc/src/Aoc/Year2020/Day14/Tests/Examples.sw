@@ -26,8 +26,12 @@ def example2: Text := """
   mem[26] = 1
   """
 
-def mask (symbols: Text): Mask :=
-  { bits = symbols.toList.map (symbol => if symbol == '1' then On else if symbol == 'X' then X else Off) }
+def mask (symbols: Text): Mask := {
+  bits = symbols.toList.map (symbol =>
+    if symbol == '1' then On
+    else if symbol == 'X' then X
+    else Off)
+}
 
 test "the example, part 1" := part1 example == Ok 165
 test "the example 2, part 1" := part1 example2 == Ok 51

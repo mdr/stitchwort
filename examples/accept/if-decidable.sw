@@ -14,7 +14,10 @@ test "clamp, below" := clampTo 10 4 == 4
 test "clamp, above" := clampTo 10 12 == 10
 
 -- On integers: the comparison's operands decide its type, as for any group.
-def sign (n: Int): Int := if n < 0 then -1 else if 0 < n then 1 else 0
+def sign (n: Int): Int :=
+  if n < 0 then -1
+  else if 0 < n then 1
+  else 0
 
 test "sign, negative" := sign (-7) == -1
 test "sign, zero" := sign 0 == 0

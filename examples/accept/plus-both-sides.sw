@@ -19,7 +19,9 @@ theorem bothSides ∀ (x y: Nat): (2 + x) + (y + 3) = 5 + (x + y) := rfl
 
 -- An index written `n + 1` is `Succ n`, so it can be declared and matched
 -- like one.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (n + 1)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (n + 1)
 
 -- No `VNil` arm: `0` can't be `n + 1`.
 def head: Vec a (n + 1) → a

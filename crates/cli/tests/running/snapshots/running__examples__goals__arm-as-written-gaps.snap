@@ -82,9 +82,9 @@ expression: output
     │              ⊢ p o
 ────╯
 [GOAL] Goal: in `family`
-    ╭─[ goals/arm-as-written-gaps.sw:31:21 ]
+    ╭─[ goals/arm-as-written-gaps.sw:33:21 ]
     │
- 31 │   | VCons True _ => ?
+ 33 │   | VCons True _ => ?
     │                     ┬  
     │                     ╰── p: (n: Nat) → Vec Bool n → Prop
     │                         n✝: Nat
@@ -92,9 +92,9 @@ expression: output
     │                         ⊢ p (Succ n✝) (VCons n✝ True xs✝)
 ────╯
 [GOAL] Goal: in `family`
-    ╭─[ goals/arm-as-written-gaps.sw:32:10 ]
+    ╭─[ goals/arm-as-written-gaps.sw:34:10 ]
     │
- 32 │   | _ => ?
+ 34 │   | _ => ?
     │          ┬  
     │          ╰── p: (n: Nat) → Vec Bool n → Prop
     │              n: Nat
@@ -104,17 +104,17 @@ expression: output
     │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
 ────╯
 [GOAL] Goal: in `familyElement`
-    ╭─[ goals/arm-as-written-gaps.sw:38:15 ]
+    ╭─[ goals/arm-as-written-gaps.sw:40:15 ]
     │
- 38 │     | VNil => ?
+ 40 │     | VNil => ?
     │               ┬  
     │               ╰── p: (n: Nat) → Vec (Option Bool) n → Prop
     │                   ⊢ p 0 VNil
 ────╯
 [GOAL] Goal: in `familyElement`
-    ╭─[ goals/arm-as-written-gaps.sw:39:30 ]
+    ╭─[ goals/arm-as-written-gaps.sw:41:30 ]
     │
- 39 │     | VCons (Some True) _ => ?
+ 41 │     | VCons (Some True) _ => ?
     │                              ┬  
     │                              ╰── p: (n: Nat) → Vec (Option Bool) n → Prop
     │                                  n✝: Nat
@@ -122,9 +122,9 @@ expression: output
     │                                  ⊢ p (Succ n✝) (VCons n✝ (Some True) xs✝)
 ────╯
 [GOAL] Goal: in `familyElement`
-    ╭─[ goals/arm-as-written-gaps.sw:40:20 ]
+    ╭─[ goals/arm-as-written-gaps.sw:42:20 ]
     │
- 40 │     | VCons _ _ => ?
+ 42 │     | VCons _ _ => ?
     │                    ┬  
     │                    ╰── p: (n: Nat) → Vec (Option Bool) n → Prop
     │                        n✝: Nat

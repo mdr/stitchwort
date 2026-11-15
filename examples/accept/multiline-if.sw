@@ -3,7 +3,11 @@
 
 def sign (n: Nat): Nat := if n == 0 then 0 else 1
 
-def grade (n: Nat): Nat := if n == 0 then 10 else if n == 1 then 20 else if n == 2 then 30 else 40
+def grade (n: Nat): Nat :=
+  if n == 0 then 10
+  else if n == 1 then 20
+  else if n == 2 then 30
+  else 40
 
 -- `then` on its own line too, and branches that are blocks.
 def describe (n: Nat): Nat :=
@@ -13,7 +17,10 @@ def describe (n: Nat): Nat :=
     m * 2
 
 -- Nested: the inner chain's `else` belongs to the inner `if`.
-def nested (a b: Nat): Nat := if a == 0 then if b == 0 then 1 else 2 else if b == 0 then 3 else 4
+def nested (a b: Nat): Nat :=
+  if a == 0 then if b == 0 then 1 else 2
+  else if b == 0 then 3
+  else 4
 
 -- Inside `let`, with `else` lined up under the `let`.
 def inLet (n: Nat): Nat :=
@@ -30,7 +37,10 @@ ability Say where
 def withHandler (n: Nat): Nat :=
   handle say n with
     | return x => if n == 0 then 7 else 8
-    | say m, k => if m == 0 then 9 else if m == 1 then 10 else 11
+    | say m, k =>
+      if m == 0 then 9
+      else if m == 1 then 10
+      else 11
 
 -- Indented `else` still works.
 def indented (n: Nat): Nat := if n == 0 then 1 else 2

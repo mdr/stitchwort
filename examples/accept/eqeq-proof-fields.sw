@@ -26,7 +26,11 @@ test "small, label differs" := MkSmall 3 rfl "x" ≠ MkSmall 3 rfl "y"
 test "small and big" := MkSmall 3 rfl "x" ≠ Big
 
 -- A record with a parameter and an equation in `Nat`.
-type Short (a: Type) = { items: List a, size: Nat, ok: List.length items = size }
+type Short (a: Type) = {
+  items: List a,
+  size: Nat,
+  ok: List.length items = size
+}
 
 def short: Short Text := { items = ["a"], size = 1, ok = rfl }
 

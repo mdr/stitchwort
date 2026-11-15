@@ -262,7 +262,7 @@ fn every_shape_runs_at_a_million_elements() {
         let p = &export.program;
         let (result, _) = export.call(limits, vec![Value::Nat(n), list(p, n)]);
         match result.expect("failsLast") {
-            Value::Data(1, f) => assert!(matches!(&f[0], Value::Text(t) if &**t == "last")),
+            Value::Data(1, f) => assert!(matches!(&f[0], Value::Text(t) if t.to_str() == "last")),
             other => panic!("failsLast: {other:?}"),
         }
     });

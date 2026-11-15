@@ -78,7 +78,7 @@ pub struct Ctx<'e> {
     /// a nickname like `Price = Nat`.
     pub written: Vec<Option<crate::dot::Written>>,
     /// Names that can be referred to, and the level each refers to.
-    scope: Vec<(String, usize)>,
+    pub(crate) scope: Vec<(String, usize)>,
     /// How each variable was bound: an implicit or `auto` parameter keeps
     /// its kind when a local definition captures it
     /// (docs/proposals/syntax-conveniences.md §2.1).
@@ -4876,6 +4876,7 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
                 types: cx.types.clone(),
                 names: cx.names.clone(),
                 written: cx.written.clone(),
+                scope: cx.scope.clone(),
                 goal: ty.clone(),
                 meta: meta.clone(),
                 span: cx.span,

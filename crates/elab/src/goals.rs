@@ -105,6 +105,8 @@ struct ArmGoal {
     cases: Option<(usize, Option<String>)>,
     /// Whether the goal is the arm's as written, not one case's.
     as_written: bool,
+    /// What the arm's variables are known not to be, as `m ≠ 5`.
+    facts: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -553,9 +555,6 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         .then(|| crate::arm_display::case_note(cx))
         .flatten()
         .or_else(|| says_cases.then_some((view.cases, None)));
-    if !view.changed && cases.is_none() {
-        return None;
-    }
     let shown = view.goal.clone().unwrap_or_else(|| expected.clone());
     let (mut context, mut hidden) = scope_entries(cx, shown_names, &view.env, &view.types);
     let superseded = drop_superseded(cx, &shown, &mut context, &mut hidden);
@@ -567,6 +566,12 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         &mut hidden,
     );
     let context = dependency_order(&cx.g(), cx.level(), context);
+    // From the context as listed: a fact about a variable the goal doesn't
+    // show can't be used by name.
+    let facts = shown_facts(&view, &context);
+    if !view.changed && cases.is_none() && facts.is_empty() {
+        return None;
+    }
     Some(Box::new(ArmGoal {
         expected: shown,
         computed: view.computed,
@@ -575,7 +580,24 @@ fn arm_goal(cx: &Ctx, expected: &Value, shown_names: &[Name]) -> Option<Box<ArmG
         superseded,
         cases,
         as_written: view.goal.is_some(),
+        facts,
     }))
+}
+
+/// The arm's facts as lines (`m ≠ 5`), for the variables the goal lists
+/// under the name the arm gives them.
+fn shown_facts(view: &crate::arm_display::View, context: &[Entry]) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for fact in &view.facts {
+        let Some(entry) = context.iter().find(|e| e.level == fact.level) else {
+            continue;
+        };
+        let line = format!("{} ≠ {}", entry.name, fact.literal);
+        if !lines.contains(&line) {
+            lines.push(line);
+        }
+    }
+    lines
 }
 
 /// The variables in scope at `cx` as a goal lists them (not yet in
@@ -1568,6 +1590,9 @@ impl Elaborator {
         } else {
             None
         };
+        if let Some(a) = arm {
+            lines.extend(a.facts.iter().cloned());
+        }
         lines.push(format!("⊢ {}", written.as_deref().unwrap_or(&target)));
         if written.is_some() {
             lines.push(format!("  computes to {}", cut_computed(&target)));
@@ -1600,6 +1625,14 @@ impl Elaborator {
             diagnostic = diagnostic.with_note(format!(
                 "this arm is checked in {n} cases; the goal shown is {which}"
             ));
+        }
+        if let Some(a) = arm
+            && !a.facts.is_empty()
+        {
+            diagnostic = diagnostic.with_note(
+                "the `≠` lines are known from the arms above; `auto` and `byDecision` \
+                 prove them",
+            );
         }
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,

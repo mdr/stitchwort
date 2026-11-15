@@ -8,7 +8,9 @@
 -- docs/proposals/vec.md.
 
 --| A list of exactly n elements, the length in its type: `VCons 1 (VCons 2 VNil)` is a `Vec Nat 2`.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 --| The length, which the type already says.
 def Vec.length (v: Vec a n): Nat := n

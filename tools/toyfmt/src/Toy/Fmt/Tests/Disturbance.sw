@@ -1,0 +1,40 @@
+--| The disturber over the goldens' formatted texts, 50 seeds each. The test
+--| that matters, that each disturbed text formats back to the golden, needs
+--| the parser: stage A runs `Golden.survivesDisturbance` with `format`.
+--| Until then these test the disturber itself: that it changes layout and
+--| nothing else.
+
+namespace Toy.Fmt.Tests
+import Toy.Syntax (..)
+import Std (List, Option, Text)
+
+def goldens: List Golden :=
+  [groups, headers, bodies, calls, lists, operators, conditionals, comments, blankLines, longText, order, route]
+
+def seeds: List Nat := List.range 0 50
+
+--| The declarations the parser keeps as written, which the disturber must
+--| leave alone.
+def Golden.asWrittenIndices (golden: Golden): List Nat :=
+  golden.tree.declarations.withIndex.filterMap (match some | (index, { line = AsWritten _, .. }) => index)
+
+def Golden.disturbed (golden: Golden) (seed: Nat): Text := disturb golden.formatted seed golden.asWrittenIndices
+
+--| Whether every disturbed text formats back to the golden: idempotence and
+--| independence from the author's layout, on real shapes.
+def Golden.survivesDisturbance (golden: Golden) (format: Text → Option Text): Bool :=
+  seeds.all (seed => format (golden.disturbed seed) == Some golden.formatted)
+
+test "the disturber keeps every token" :=
+  goldens.all (golden => seeds.all (seed => significant (golden.disturbed seed) == significant golden.formatted))
+
+test "the disturber changes every golden's layout" :=
+  goldens.all (golden => seeds.any (seed => golden.disturbed seed != golden.formatted))
+
+test "most seeds change the layout" :=
+  goldens.all (golden => seeds.count (seed => golden.disturbed seed != golden.formatted) >= 40)
+
+test "the same seed disturbs the same way" := goldens.all (golden => golden.disturbed 7 == golden.disturbed 7)
+
+test "a declaration left as written isn't disturbed" :=
+  seeds.all (seed => comments.disturbed seed |> .contains "\nfn odd(x) = -- why\n  x  %  2\n")

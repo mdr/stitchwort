@@ -20,7 +20,9 @@
 import Std (Map)
 
 @[js.enum]
-type Label = | @[js.name "IMPORTANT"] Important | @[js.name "SLIDE_TEXT"] SlideText
+type Label =
+  | @[js.name "IMPORTANT"] Important
+  | @[js.name "SLIDE_TEXT"] SlideText
 
 -- `js.name` chooses the string (without it, the constructor's name).
 @[js.enum]

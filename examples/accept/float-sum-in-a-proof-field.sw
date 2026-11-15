@@ -9,7 +9,10 @@ type Span = { start: Float, length: Float }
 
 def Span.end (span: Span): Float := span.start + span.length
 
-type Timeline = { spans: List Span, forward: List.All (span => Float.leq span.start span.end = True) spans }
+type Timeline = {
+  spans: List Span,
+  forward: List.All (span => Float.leq span.start span.end = True) spans
+}
 
 def Timeline.empty: Timeline := { spans = [], forward = Trivial }
 

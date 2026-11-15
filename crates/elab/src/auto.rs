@@ -85,6 +85,9 @@ pub struct Obligation {
     /// a test fact's type has its calls unfolded, and the reader starts
     /// from the type as written to read it by its function (`reading.rs`).
     pub written: Vec<Option<crate::dot::Written>>,
+    /// The names in scope there (`Ctx::scope`), so a message names the
+    /// variables as the arm that asked for the proof does.
+    pub scope: Vec<(String, usize)>,
     pub goal: Value,
     pub meta: Term,
     pub span: Span,
@@ -170,6 +173,7 @@ impl Elaborator {
                 }
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
                 cx.written = ob.written;
+                cx.scope = ob.scope;
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
                     force(&cx.g(), placeholder.clone())?,
@@ -235,6 +239,7 @@ impl Elaborator {
                     types: ob.types.clone(),
                     names: ob.names.clone(),
                     written: ob.written.clone(),
+                    scope: ob.scope.clone(),
                     goal: ob.goal.clone(),
                     meta: ob.meta.clone(),
                     span: ob.span,
@@ -250,6 +255,7 @@ impl Elaborator {
                 span,
             );
             cx.written = ob.written.clone();
+            cx.scope = ob.scope.clone();
             let placeholder = cx.eval(&meta)?;
             if !matches!(
                 force(&cx.g(), placeholder.clone())?,
@@ -322,6 +328,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
             let latest_first: Vec<usize> = (0..cx.level()).rev().collect();
             let parts = hypothesis_parts(cx, &latest_first)?;
             if let Some(proof) = from_hypothesis_parts(cx, &goal, &parts)? {
+                return Ok(proof);
+            }
+            if let Some(proof) = crate::literal_facts::prove(cx, &goal)? {
                 return Ok(proof);
             }
             let levels: Vec<usize> = (0..cx.level()).collect();

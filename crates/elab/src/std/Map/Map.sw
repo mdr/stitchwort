@@ -20,7 +20,9 @@ import Std (Eq)
 --| A finite map from keys to values, ordered by the keys: `Map Text Nat` maps texts to numbers.
 --| It is a record around the quotient, so that dot notation on a map finds `Map`'s
 --| functions (`m.insert 3 "c"`).
-type Map (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
+type Map (k: Type) (v: Type) [auto ord: Ord k] = {
+  raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv
+}
 
 --| The map whose entries are the raw map's.
 def Map.ofRaw (rawMap: Map.Raw k v [ord := o]): Map k v [ord := o] := { raw = Quot.mk rawMap }

@@ -39,7 +39,17 @@ def checkTimers (timers: List Nat): {Fail} List Nat := match firstAbove8 timers 
 def firstAbove8 (timers: List Nat): Option (Nat, Nat) := timers.withIndex.find (((_, timer)) => 8 < timer)
 
 --| How many fish have each timer, `t0` the fish at 0 to `t8` those at 8.
-type Counts = { t0: Nat, t1: Nat, t2: Nat, t3: Nat, t4: Nat, t5: Nat, t6: Nat, t7: Nat, t8: Nat }
+type Counts = {
+  t0: Nat,
+  t1: Nat,
+  t2: Nat,
+  t3: Nat,
+  t4: Nat,
+  t5: Nat,
+  t6: Nat,
+  t7: Nat,
+  t8: Nat
+}
 
 def Counts.ofTimers (timers: List Nat): Counts := {
   t0 = timers.count (== 0),

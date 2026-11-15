@@ -153,7 +153,10 @@ def firstWidth (rows: List (List a)): Nat := rows.headOr [] |> .length
 --| `parseGrid`'s grids are. The proof is an equation, so that grids have
 --| `==` and the counterexample search can make them. A grid written out as
 --| a literal needs it, `{ rows, nonEmpty = … }`; `Grid.of` finds it.
-type Grid (a: Type) = { rows: List (List a), nonEmpty: (firstWidth rows == 0) = False }
+type Grid (a: Type) = {
+  rows: List (List a),
+  nonEmpty: (firstWidth rows == 0) = False
+}
 
 --| A grid of `rows`, whose first row has a cell.
 def Grid.of (rows: List (List a)) [auto nonEmpty: (firstWidth rows == 0) = False]: Grid a := { rows, nonEmpty }

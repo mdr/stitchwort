@@ -81,7 +81,9 @@ theorem strictA: vowelWeight True 'a' = 2 := vowelWeight.eq1.or1 True rfl
 theorem lenientE: vowelWeight False 'e' = 1 := vowelWeight.eq2.or2 False rfl
 
 -- An indexed family below the guard.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def headOr (d: Nat): (n: Nat) → Vec Nat n → Nat
   | _, VCons x _ if x > 3 => x

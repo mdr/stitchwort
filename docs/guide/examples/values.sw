@@ -27,14 +27,27 @@ def describe (n: Nat): Text :=
 -- end blocks
 
 -- begin if-chain
-def grade (score: Nat): Text := if score ≥ 90 then "A" else if score ≥ 75 then "B" else if score ≥ 50 then "C" else "D"
+def grade (score: Nat): Text :=
+  if score ≥ 90 then "A"
+  else if score ≥ 75 then "B"
+  else if score ≥ 50 then "C"
+  else "D"
 -- end if-chain
 
 -- begin leading-operator
-def validScore (score: Nat): Bool := 0 <= score && score <= 100 && score != 13
+def validBooking (age seat row: Nat) (name: Text): Bool :=
+  18 <= age
+    && age <= 120
+    && 1 <= seat
+    && seat <= 60
+    && 1 <= row
+    && row <= 40
+    && name.length >= 1
+    && name.length <= 50
+    && name != "Admin"
 -- end leading-operator
 
-test "a line may start with an operator" := validScore 50 && !validScore 13
+test "a line may start with an operator" := validBooking 30 12 3 "Ada" && !validBooking 30 12 3 ""
 
 -- begin interpolation
 def summary (name: Text) (items: List Nat): Text :=

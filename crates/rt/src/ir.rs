@@ -533,8 +533,11 @@ impl PrimOp {
                 | TextNative::TextUncons
                 | TextNative::TextTrim
                 | TextNative::NatToText
-                | TextNative::TextToNat => 1,
-                TextNative::TextFold => 3,
+                | TextNative::TextToNat
+                | TextNative::TextConcat => 1,
+                // `getLt`'s proof is erased.
+                TextNative::TextGet | TextNative::TextGetLt => 2,
+                TextNative::TextFold | TextNative::TextGetOr | TextNative::TextSlice => 3,
                 _ => 2,
             },
             PrimOp::Delay(prim) => match prim {

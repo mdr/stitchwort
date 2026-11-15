@@ -13,7 +13,9 @@ instance Ordered.instNat: Ordered Nat := { compare = Nat.compare }
 
 def descending: Ordered Nat := { compare = m n => Nat.compare n m }
 
-type Tree (k: Type) [auto ord: Ordered k] = | Leaf | Node (left: Tree k) (key: k) (right: Tree k)
+type Tree (k: Type) [auto ord: Ordered k] =
+  | Leaf
+  | Node (left: Tree k) (key: k) (right: Tree k)
 
 def Tree.insert [auto ord: Ordered k]: Tree k → k → Tree k
   | Leaf, x => Node Leaf x Leaf

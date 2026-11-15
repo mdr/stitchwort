@@ -68,7 +68,10 @@ def legOf (legs: List Leg) (pos: Position): Option Leg := match pos.leg with
 def placeIn (leg: Leg) (pos: Position): Float := if leg.start == pos.legStart then pos.time else leg.start + pos.offset
 
 -- `t`, or the nearer end of `lo` .. `hi` if it's outside.
-def clamp (lo hi t: Float): Float := if Float.less t lo then lo else if Float.less hi t then hi else t
+def clamp (lo hi t: Float): Float :=
+  if Float.less t lo then lo
+  else if Float.less hi t then hi
+  else t
 
 -- Where a stop or an album goes: in its leg, clamped to it; with no leg,
 -- clamped to the whole trip.
@@ -183,7 +186,9 @@ def mergeItinerary: Option Itinerary → Option Itinerary → Option Itinerary
 
 -- A summary is kept only with the legs it was made from.
 def mergeSummary (local remote: Trip) (legs: List Leg): Option Summary :=
-  if remote.legs == legs then remote.summary else if local.legs == legs then local.summary else None
+  if remote.legs == legs then remote.summary
+  else if local.legs == legs then local.summary
+  else None
 
 def isBlank (text: Text): Bool := Text.isEmpty (Text.trim text)
 

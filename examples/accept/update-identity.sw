@@ -4,7 +4,9 @@
 
 import Std (List, Nat, Option, Vec)
 
-type Shape = | Dot (ref: Nat) (id: Nat) (start: Nat) | Circle (ref: Nat) (id: Nat) (start: Nat) (radius: Nat)
+type Shape =
+  | Dot (ref: Nat) (id: Nat) (start: Nat)
+  | Circle (ref: Nat) (id: Nat) (start: Nat) (radius: Nat)
 
 -- 1. The same update written in two definitions.
 def setId (c: Shape) (x: Nat): Shape := { c | id = x }
@@ -38,7 +40,9 @@ def setIdExtra (c: Shape) (x unused: Nat): Shape := { c | id = x }
 theorem extraSame ∀ (c: Shape) (x u: Nat): setId c x = setIdExtra c x u := rfl
 
 -- 4. Several dependent fields, two constructors.
-type Two = | A (n: Nat) (xs: Vec Nat n) (m: Nat) (ys: Vec Nat m) | B (n: Nat) (xs: Vec Nat n) (m: Nat) (ys: Vec Nat m)
+type Two =
+  | A (n: Nat) (xs: Vec Nat n) (m: Nat) (ys: Vec Nat m)
+  | B (n: Nat) (xs: Vec Nat n) (m: Nat) (ys: Vec Nat m)
 
 def replaceBoth (v: Two) (a: Vec Nat (Two.n v)) (b: Vec Nat (Two.m v)): Two := { v | xs = a, ys = b }
 

@@ -24,6 +24,7 @@ use stitchwort_core::partial::Primitive;
 
 use crate::ir::{HoleOp, PrimOp, Shapes};
 use crate::natives::{ArrayNative, FloatPrim, IntNative, TextNative};
+use crate::text::Text;
 use crate::value::{Delay, Fields, Value};
 
 fn bad(op: PrimOp, v: &Value) -> ! {
@@ -80,9 +81,18 @@ pub fn char_value(s: &Shapes, c: char) -> Value {
 }
 
 /// A text's characters, as a `List Char`.
-pub fn chars(s: &Shapes, text: &str) -> Value {
+pub fn chars(s: &Shapes, text: &Text) -> Value {
+    chars_of(s, text.chars())
+}
+
+/// A literal's characters, as a `List Char`.
+pub fn str_chars(s: &Shapes, text: &str) -> Value {
+    chars_of(s, text.chars())
+}
+
+fn chars_of(s: &Shapes, chars: impl DoubleEndedIterator<Item = char>) -> Value {
     let mut list = Value::Tag(s.nil);
-    for c in text.chars().rev() {
+    for c in chars.rev() {
         list = Value::data(s.cons, [char_value(s, c), list]);
     }
     list
@@ -120,7 +130,7 @@ pub(crate) fn items<'v>(s: &Shapes, mut l: &'v Value) -> impl Iterator<Item = &'
     })
 }
 
-pub fn text_of(v: &Value) -> &Rc<str> {
+pub fn text_of(v: &Value) -> &Text {
     match v {
         Value::Text(t) => t,
         other => panic!("internal error: expected a `Text`, got {other:?}"),
@@ -390,6 +400,15 @@ fn digits(t: &str) -> Option<&str> {
     (!t.is_empty() && t.bytes().all(|b| b.is_ascii_digit())).then_some(t)
 }
 
+/// A position or count, as a machine word: a `Nat` beyond one is more than
+/// any text's length.
+fn position(n: &Value) -> usize {
+    match n {
+        Value::Nat(n) => usize::try_from(*n).unwrap_or(usize::MAX),
+        _ => usize::MAX,
+    }
+}
+
 fn parse_nat(d: &str) -> Value {
     match d.parse::<u64>() {
         Ok(n) => Value::Nat(n),
@@ -397,26 +416,11 @@ fn parse_nat(d: &str) -> Value {
     }
 }
 
-/// The byte offset in `t` after its first `n` characters (scalar values),
-/// or `None` if `t` has `n` characters or fewer. A `Nat` beyond a machine
-/// word is more than any text's length.
-fn char_boundary(t: &str, n: &Value) -> Option<usize> {
-    let n = match n {
-        Value::Nat(n) => usize::try_from(*n).unwrap_or(usize::MAX),
-        _ => usize::MAX,
-    };
-    // A character is at least one byte.
-    if n >= t.len() {
-        return None;
-    }
-    t.char_indices().nth(n).map(|(i, _)| i)
-}
-
 fn nat_to_text(n: &Value) -> Value {
-    Value::text(match n {
-        Value::Nat(n) => n.to_string().into(),
-        other => other.to_biguint().to_string().into(),
-    })
+    Value::text(Text::from(match n {
+        Value::Nat(n) => n.to_string(),
+        other => other.to_biguint().to_string(),
+    }))
 }
 
 /// Computes native operation `op` (not `Text.fold`) on `args`.
@@ -550,7 +554,7 @@ fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
             other => bad(PrimOp::Float(f), other),
         }),
         FloatPrim::OfNat => Value::float(nat_to_f64(&args[0].to_biguint())),
-        FloatPrim::ToText => Value::text(js_to_string(x(0)).into()),
+        FloatPrim::ToText => Value::text(Text::from(js_to_string(x(0)))),
         FloatPrim::IsFinite => boolean(s, x(0).is_finite()),
         FloatPrim::IeeeLt => boolean(s, x(0) < x(1)),
         FloatPrim::IeeeLe => boolean(s, x(0) <= x(1)),
@@ -649,13 +653,13 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
             Ordering::Equal => 0,
             Ordering::Greater => 1,
         }),
-        IntToText => Value::text(match a {
-            Value::Int(x) => x.to_string().into(),
-            Value::BigInt(x) => x.to_string().into(),
+        IntToText => Value::text(Text::from(match a {
+            Value::Int(x) => x.to_string(),
+            Value::BigInt(x) => x.to_string(),
             other => bad(op, other),
-        }),
+        })),
         TextToInt => {
-            let t = text_of(a);
+            let t = text_of(a).to_str();
             let (negative, rest) = match t.strip_prefix('-') {
                 Some(rest) => (true, rest),
                 None => (false, &t[..]),
@@ -684,8 +688,8 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
     match t {
         TextToList => chars(s, text_of(args[0])),
         TextFromList => {
-            let out: String = items(s, args[0]).map(char_of).collect();
-            Value::text(out.into())
+            let out: Vec<char> = items(s, args[0]).map(char_of).collect();
+            Value::text(Text::from_chars(&out))
         }
         TextAppend => {
             let (a, b) = (text_of(args[0]), text_of(args[1]));
@@ -695,105 +699,135 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             if b.is_empty() {
                 return args[0].clone();
             }
-            let mut out = String::with_capacity(a.len() + b.len());
-            out.push_str(a);
-            out.push_str(b);
-            Value::text(out.into())
+            Value::text(Text::join([a, b].into_iter(), None))
         }
-        TextLength => Value::Nat(text_of(args[0]).chars().count() as u64),
+        TextLength => Value::Nat(text_of(args[0]).len() as u64),
         TextIsEmpty => boolean(s, text_of(args[0]).is_empty()),
         DecEqText => decision(s, text_of(args[0]) == text_of(args[1])),
-        // UTF-8 orders bytes as the characters they encode.
-        TextCompare => ordering(text_of(args[0]).as_bytes().cmp(text_of(args[1]).as_bytes())),
+        TextCompare => ordering(text_of(args[0]).cmp(text_of(args[1]))),
         TextUncons => {
             let t = text_of(args[0]);
-            let mut it = t.chars();
-            match it.next() {
+            match t.get(0) {
                 None => Value::Tag(s.none),
                 Some(c) => some(
                     s,
-                    Value::data(s.pair, [char_value(s, c), Value::text(it.as_str().into())]),
+                    Value::data(s.pair, [char_value(s, c), Value::text(t.skip(1))]),
                 ),
             }
         }
         TextTrim => {
-            let space = char::is_whitespace;
             let t = text_of(args[0]);
-            let trimmed = t.trim_matches(space);
-            if trimmed.len() == t.len() {
+            let space = |c: char| c.is_whitespace();
+            let start = t.chars().position(|c| !space(c)).unwrap_or(t.len());
+            let end = t.len() - t.chars().rev().position(|c| !space(c)).unwrap_or(0);
+            let end = end.max(start);
+            if start == 0 && end == t.len() {
                 args[0].clone()
             } else {
-                Value::text(trimmed.into())
+                Value::text(t.slice(start, end))
             }
         }
         // The first `n` characters (scalar values), or the whole text.
         // `Text.take text n`.
         TextTake => {
             let t = text_of(args[0]);
-            match char_boundary(t, args[1]) {
-                Some(end) => Value::text(t[..end].into()),
-                None => args[0].clone(),
+            let n = position(args[1]);
+            if n >= t.len() {
+                args[0].clone()
+            } else {
+                Value::text(t.prefix(n))
             }
         }
         // `Text.repeat text n`: one allocation of the final size. An empty
         // text, or a count of 0, gives the empty text without allocating.
         TextRepeat => {
             let t = text_of(args[0]);
-            let n = match args[1] {
-                Value::Nat(n) => usize::try_from(*n).unwrap_or(usize::MAX),
-                _ => usize::MAX,
-            };
-            if t.is_empty() || n == 0 {
-                Value::text("".into())
-            } else if n == 1 {
+            let n = position(args[1]);
+            if n == 1 {
                 args[0].clone()
             } else {
-                // The machine has charged for the size already; a caller
-                // that hasn't gets the largest text that fits.
-                let n = n.min(isize::MAX as usize / t.len());
-                Value::text(t.repeat(n).into())
+                Value::text(t.repeat(n))
             }
         }
         // The text after its first `n` characters, or the empty text.
         TextDrop => {
             let t = text_of(args[0]);
-            match char_boundary(t, args[1]) {
-                Some(0) => args[0].clone(),
-                Some(start) => Value::text(t[start..].into()),
-                None => Value::text("".into()),
+            match position(args[1]) {
+                0 => args[0].clone(),
+                n => Value::text(t.skip(n)),
             }
         }
         // `Text.contains text needle`. UTF-8 is self-synchronising: a match
         // of a needle's bytes starts and ends between characters, so byte
         // search finds exactly the character matches. The empty needle
         // occurs in every text.
-        TextContains => boolean(s, text_of(args[0]).contains(&**text_of(args[1]))),
-        // `Text.split text separator`.
+        TextContains => {
+            let (t, needle) = (text_of(args[0]), text_of(args[1]));
+            let found = if needle.len() > t.len() {
+                false
+            } else {
+                t.to_str().contains(&*needle.to_str())
+            };
+            boolean(s, found)
+        }
+        // `Text.split text separator`: the pieces between separators, each a
+        // piece of the text's buffer.
         TextSplit => {
             let sep = char_of(args[1]);
-            let parts = text_of(args[0])
-                .split(sep)
-                .map(|p| Value::text(p.into()))
-                .collect();
+            let t = text_of(args[0]);
+            let mut parts = Vec::new();
+            let mut start = 0;
+            for (i, c) in t.chars().enumerate() {
+                if c == sep {
+                    parts.push(Value::text(t.slice(start, i)));
+                    start = i + 1;
+                }
+            }
+            parts.push(Value::text(t.slice(start, t.len())));
             list(s, parts)
         }
         // `Text.join texts separator`.
         TextJoin => {
             let sep = char_of(args[1]);
-            let mut out = String::new();
-            for (i, part) in items(s, args[0]).enumerate() {
-                if i > 0 {
-                    out.push(sep);
-                }
-                out.push_str(text_of(part));
-            }
-            Value::text(out.into())
+            let parts: smallvec::SmallVec<[&Text; 8]> = items(s, args[0]).map(text_of).collect();
+            Value::text(Text::join(parts.iter().copied(), Some(sep)))
         }
         NatToText => nat_to_text(args[0]),
-        TextToNat => match digits(text_of(args[0])) {
+        TextToNat => match digits(&text_of(args[0]).to_str()) {
             None => Value::Tag(s.none),
             Some(d) => some(s, parse_nat(d)),
         },
+        // `Text.get text index`.
+        TextGet => match text_of(args[0]).get(position(args[1])) {
+            Some(c) => some(s, char_value(s, c)),
+            None => Value::Tag(s.none),
+        },
+        // `Text.getOr text index fallback`.
+        TextGetOr => match text_of(args[0]).get(position(args[1])) {
+            Some(c) => char_value(s, c),
+            None => args[2].clone(),
+        },
+        // `Text.getLt text index`: the erased proof says the index is in
+        // range.
+        TextGetLt => match text_of(args[0]).get(position(args[1])) {
+            Some(c) => char_value(s, c),
+            None => panic!("internal error: `Text.getLt` out of range, against its proof"),
+        },
+        // `Text.slice text from to`, which is `(text.drop from).take (to -
+        // from)`: the start stops at the end, and the length at what is
+        // left.
+        TextSlice => {
+            let t = text_of(args[0]);
+            let (from, to) = (position(args[1]), position(args[2]));
+            let start = from.min(t.len());
+            let end = start + to.saturating_sub(from).min(t.len() - start);
+            Value::text(t.slice(start, end))
+        }
+        // `Text.concat texts`, which is `Text.joinWith texts ""`.
+        TextConcat => {
+            let parts: smallvec::SmallVec<[&Text; 8]> = items(s, args[0]).map(text_of).collect();
+            Value::text(Text::join(parts.iter().copied(), None))
+        }
         TextFold => bad(op, args[0]),
     }
 }
@@ -889,12 +923,16 @@ fn unshared(items: &mut Rc<Vec<Value>>) -> &mut Vec<Value> {
 
 /// The steps `Text.repeat text count` is charged: a step per byte made (an
 /// empty text, whose definition still counts to `count`, a step per copy),
-/// and a count too big for a `u64`, or a product that overflows, more than
-/// any limit. Charged before the text is built, so a huge result runs out
-/// of steps rather than asking for the memory.
+/// and more than any limit for a count too big for a `u64`, or a result
+/// longer than a text can hold (`u32::MAX` characters). Charged before the
+/// text is built, so a huge result runs out of steps rather than asking for
+/// the memory, and is never cut short.
 pub fn text_repeat_cost(text: &Value, count: &Value) -> u64 {
+    let text = text_of(text);
     match count {
-        Value::Nat(n) => n.saturating_mul((text_of(text).len() as u64).max(1)),
+        Value::Nat(n) if n.saturating_mul(text.len() as u64) <= u64::from(u32::MAX) => {
+            n.saturating_mul((text.utf8_len() as u64).max(1))
+        }
         _ => u64::MAX,
     }
 }

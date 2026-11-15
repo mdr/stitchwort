@@ -1,7 +1,9 @@
 import Std (Empty, Fail, List, Nat, Text)
 
 def countdown (n: Nat): {Fail, Partial} Nat :=
-  if n == 3 then Empty.absurd (Fail.stop "three") else if n == 0 then 0 else countdown (n - 1)
+  if n == 3 then Empty.absurd (Fail.stop "three")
+  else if n == 0 then 0
+  else countdown (n - 1)
 
 def spin (n: Nat): {Partial} Nat := spin n
 

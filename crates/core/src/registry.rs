@@ -85,6 +85,11 @@ const LIBRARY: &[Builtin] = &[
     Builtin::TextTrim,
     Builtin::TextTake,
     Builtin::TextDrop,
+    Builtin::TextGet,
+    Builtin::TextGetOr,
+    Builtin::TextGetLt,
+    Builtin::TextSlice,
+    Builtin::TextConcat,
     Builtin::TextContains,
     Builtin::TextSplit,
     Builtin::TextJoin,
@@ -468,6 +473,11 @@ builtins! {
     NatToText = "Nat.toText": Def,
     TextToNat = "Text.toNat": Def,
     TextRepeat = "Text.repeat": Def,
+    TextGet = "Text.get": Def,
+    TextGetOr = "Text.getOr": Def,
+    TextGetLt = "Text.getLt": Def,
+    TextSlice = "Text.slice": Def,
+    TextConcat = "Text.concat": Def,
     // `Array` (std/Array/Array.sw): one buffer at run time, its operations
     // natives bound by content hash (crates/rt/src/natives.rs)
     Array = "Array": Data,

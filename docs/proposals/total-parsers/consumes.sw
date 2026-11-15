@@ -26,7 +26,9 @@ type Reply (consumes: Bool) (input: List Char) (a: Type) =
   | Got (value: a) (rest: List Char) (within: Within consumes rest.length input.length)
   | Missed (expected: Text)
 
-type Parser (consumes: Bool) (a: Type) = { run: (input: List Char) → Reply consumes input a }
+type Parser (consumes: Bool) (a: Type) = {
+  run: (input: List Char) → Reply consumes input a
+}
 
 -- The lemmas the combinators need. Users never see them.
 theorem Within.weaken: (c: Bool) → (r: Nat) → (n: Nat) → Within c r n → r ≤ n

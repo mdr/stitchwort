@@ -7,7 +7,9 @@
 import Std (Fin, List, Nat, Text, Vec)
 
 -- `n` is determined: `Floor`'s index is `Succ n`.
-type Tower: Nat → Type = | Ground: Tower 0 | Floor (label: Nat) (below: Tower n): Tower (Succ n)
+type Tower: Nat → Type =
+  | Ground: Tower 0
+  | Floor (label: Nat) (below: Tower n): Tower (Succ n)
 
 -- Read at run time: `k` is rebuilt as the height less one.
 def Tower.height: Tower n → Nat
@@ -38,7 +40,8 @@ def countOf (xs: List Nat): Count (List.length xs) → Nat
 
 -- An index computed by a definition: `size` stays stored (`Padded.size`
 -- is generated, as a shared field).
-type Padded: Nat → Type = | MkPadded (size: Nat) (items: List Nat): Padded (Nat.add size 2)
+type Padded: Nat → Type =
+  | MkPadded (size: Nat) (items: List Nat): Padded (Nat.add size 2)
 
 -- The same field in two indices.
 type Pair2: Nat → Nat → Type = | Twice (n: Nat): Pair2 n n
@@ -47,7 +50,8 @@ def Pair2.value: Pair2 a b → Nat
   | Twice n => n
 
 -- `i` depends on `n`, and `n` is determined by both of them.
-type Slot: (n: Nat) → Fin n → Type = | MkSlot (n: Nat) (i: Fin n): Slot (Succ n) (FSucc i)
+type Slot: (n: Nat) → Fin n → Type =
+  | MkSlot (n: Nat) (i: Fin n): Slot (Succ n) (FSucc i)
 
 def Slot.width: Slot n i → Nat
   | MkSlot n i => n + Fin.toNat i

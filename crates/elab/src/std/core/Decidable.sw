@@ -18,7 +18,11 @@
 --| Decidable.yes … else Decidable.no …` gives the same answers, but its
 --| `holds` is stuck on the `if`.
 -- (docs/proposals/decidable-record.md)
-type Decidable (p: Prop) = { holds: Bool, sound: holds = True → p, complete: p → holds = True }
+type Decidable (p: Prop) = {
+  holds: Bool,
+  sound: holds = True → p,
+  complete: p → holds = True
+}
 
 --| What a decision's `Bool` says when it is `False`: `p` is refuted. Splitting
 --| on the test (`match h: x < y with | True => … | False => …`) and then

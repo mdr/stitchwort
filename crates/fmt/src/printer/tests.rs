@@ -581,3 +581,84 @@ fn a_comment_before_a_closing_bracket_moves_to_the_line_end_without_changing_the
         "def f: List Nat := [\n  1,\n  2 --c\n]\n",
     );
 }
+
+/// `type T = | A (x: Nat) | …` padded so the whole declaration line is `width` characters.
+fn data_of_width(width: usize) -> String {
+    let base = "type T = | A (x: Nat) | B (".len() + ": Nat)".len();
+    format!(
+        "type T = | A (x: Nat) | B ({}: Nat)\n",
+        "n".repeat(width - base)
+    )
+}
+
+#[test]
+fn a_data_type_stays_on_one_line_up_to_80_characters_and_then_goes_one_constructor_a_line() {
+    // S14, D3605: measured over the whole declaration line.
+    for width in [79, 80] {
+        let line = data_of_width(width);
+        assert_eq!(line.trim_end().chars().count(), width);
+        check(&line, &line);
+    }
+    let long = data_of_width(81);
+    let name = &long["type T = | A (x: Nat) | B (".len()..long.len() - ": Nat)\n".len()];
+    check(
+        &long,
+        &format!("type T =\n  | A (x: Nat)\n  | B ({name}: Nat)\n"),
+    );
+    // The same code written over several lines gets the same layout.
+    check(
+        &format!("type T =\n  | A (x: Nat)\n  | B ({name}: Nat)\n"),
+        &format!("type T =\n  | A (x: Nat)\n  | B ({name}: Nat)\n"),
+    );
+}
+
+#[test]
+fn short_type_declarations_stay_on_one_line() {
+    // S14, S15, D3605.
+    for line in [
+        "type Direction = | Up | Right | Down | Left\n",
+        "type Person = { name: Text, age: Nat }\n",
+        "type Result (a: Type) (e: Type): Type = | Ok (value: a) | Err (error: e)\n",
+    ] {
+        check(line, line);
+    }
+    check(
+        "type Person = {\n  name: Text,\n  age: Nat\n}\n",
+        "type Person = { name: Text, age: Nat }\n",
+    );
+}
+
+#[test]
+fn a_record_type_stays_on_one_line_up_to_80_characters_and_then_goes_one_field_a_line() {
+    // S15, D3605.
+    let record = |width: usize| {
+        let base = "type R = { a: Nat, b: ".len() + " }".len();
+        format!("type R = {{ a: Nat, b: {} }}\n", "T".repeat(width - base))
+    };
+    for width in [79, 80] {
+        let line = record(width);
+        assert_eq!(line.trim_end().chars().count(), width);
+        check(&line, &line);
+    }
+    let long = record(81);
+    let ty = &long["type R = { a: Nat, b: ".len()..long.len() - " }\n".len()];
+    check(&long, &format!("type R = {{\n  a: Nat,\n  b: {ty}\n}}\n"));
+    let interface = format!("interface I (f: Type) = {{ a: Nat, b: {ty} }}\n");
+    check(
+        &interface,
+        &format!("interface I (f: Type) = {{\n  a: Nat,\n  b: {ty}\n}}\n"),
+    );
+}
+
+#[test]
+fn an_if_with_an_else_if_goes_one_clause_a_line_and_a_plain_if_still_fits() {
+    // S19, D3605.
+    check(
+        "def f (n: Nat): Nat := if n = 0 then 1 else if n = 1 then 2 else 3\n",
+        "def f (n: Nat): Nat :=\n  if n = 0 then 1\n  else if n = 1 then 2\n  else 3\n",
+    );
+    check(
+        "def f (n: Nat): Nat :=\n  if n = 0 then 1\n  else 2\n",
+        "def f (n: Nat): Nat := if n = 0 then 1 else 2\n",
+    );
+}

@@ -5,7 +5,9 @@
 
 type Pair (a: Type) (b: Type) = | MkPair (first: a) (second: b)
 
-type Vec (a: Type): Nat -> Type = | VNil: Vec a 0 | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat -> Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def noNumbers: List Nat := Nil [a := Nat]
 def oneNumber: List Nat := Cons [a := Nat] 1 Nil

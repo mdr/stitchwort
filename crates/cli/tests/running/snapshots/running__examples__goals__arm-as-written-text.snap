@@ -25,9 +25,13 @@ expression: output
     │          ┬  
     │          ╰── p: Text → Prop
     │              s: Text
+    │              s ≠ "ab"
+    │              s ≠ ""
     │              ⊢ p s
     │ 
-    │ Note: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `withHypothesis`
     ╭─[ goals/arm-as-written-text.sw:15:13 ]
@@ -46,9 +50,12 @@ expression: output
     │          ╰── p: Text → Prop
     │              s: Text
     │              h: p s
+    │              s ≠ "ab"
     │              ⊢ p s
     │ 
-    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `named`
     ╭─[ goals/arm-as-written-text.sw:20:13 ]
@@ -65,9 +72,12 @@ expression: output
     │              ┬  
     │              ╰── p: Text → Prop
     │                  other: Text
+    │                  other ≠ "ab"
     │                  ⊢ p other
     │ 
-    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `equation`
     ╭─[ goals/arm-as-written-text.sw:26:13 ]
@@ -118,9 +128,12 @@ expression: output
     │          ┬  
     │          ╰── p: Text → Prop
     │              s✝: Text
+    │              s✝ ≠ "ab"
     │              ⊢ p s✝
     │ 
-    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `character`
     ╭─[ goals/arm-as-written-text.sw:36:12 ]
@@ -137,7 +150,10 @@ expression: output
     │          ┬  
     │          ╰── p: Char → Prop
     │              c: Char
+    │              c ≠ 'a'
     │              ⊢ p c
+    │ 
+    │ Note: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `characters`
     ╭─[ goals/arm-as-written-text.sw:40:14 ]

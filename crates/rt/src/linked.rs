@@ -242,7 +242,7 @@ impl Writer {
                 }
                 Work::Visit(Value::Text(t)) => {
                     self.u8(TEXT);
-                    self.str(t);
+                    self.str(&t.to_str());
                 }
                 Work::Visit(Value::Float(x)) => {
                     self.u8(FLOAT);
@@ -374,7 +374,7 @@ impl Reader<'_> {
                 BIG_NAT => Value::BigNat(Rc::new(self.big()?)),
                 INT => Value::Int(self.signed()?),
                 BIG_INT => Value::BigInt(Rc::new(self.big_int()?)),
-                TEXT => Value::Text(self.str()?),
+                TEXT => Value::Text(crate::text::Text::from(&*self.str()?)),
                 FLOAT => Value::float(f64::from_bits(self.uint()?)),
                 TAG => Value::Tag(self.u32()?),
                 DATA => {

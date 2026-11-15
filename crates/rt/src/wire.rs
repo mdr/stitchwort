@@ -205,7 +205,12 @@ tags!(
         TextNative::TextJoin,
         TextNative::NatToText,
         TextNative::TextToNat,
-        TextNative::TextRepeat
+        TextNative::TextRepeat,
+        TextNative::TextGet,
+        TextNative::TextGetOr,
+        TextNative::TextGetLt,
+        TextNative::TextSlice,
+        TextNative::TextConcat
     ]
 );
 

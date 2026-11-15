@@ -52,7 +52,11 @@ def Frame.plain (lines: List Text): List Text := lines.map Ansi.strip |> .append
 
 --| What `Terminal.nextKey` gives: the key (None at end of input), the bytes
 --| read but not decoded yet, and where reading goes on from.
-type Terminal.Read (source: Type) = { key: Option Key, pending: List Nat, source: source }
+type Terminal.Read (source: Type) = {
+  key: Option Key,
+  pending: List Nat,
+  source: source
+}
 
 --| How many more reads may complete a key cut off by the end of a read: as
 --| many as the longest sequence `Key.next` waits for, so reading is bounded.

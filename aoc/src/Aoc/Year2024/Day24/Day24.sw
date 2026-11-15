@@ -160,7 +160,9 @@ def partnerOf (gates: List Gate) (operation: Operation) (input: Wire): Option Wi
 --| What checking a bit found: it passes and carries on this wire, or it is
 --| faulty, with the swaps that might fix it, most likely first (none if no
 --| swap explains the fault).
-type BitCheck = | Passes (carry: Wire) | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
+type BitCheck =
+  | Passes (carry: Wire)
+  | Faulty (fixes: List (Wire, Wire)) (suspects: List Wire)
 
 --| The two inputs of a gate doing `operation` should be `trusted` and
 --| `suspect`, and no gate has both. The gate with `trusted` names what
@@ -222,7 +224,11 @@ def checkAdder (gates: List Gate) (bits: Nat): BitCheck := match bits with
 def swapOutputs (gates: List Gate) (swap: (Wire, Wire)): List Gate :=
   let (first, second) := swap
   gates.map (gate =>
-    { gate | output = if gate.output == first then second else if gate.output == second then first else gate.output })
+    { gate |
+      output = if gate.output == first then second
+      else if gate.output == second then first
+      else gate.output
+    })
 
 def applySwaps (gates: List Gate) (swaps: List (Wire, Wire)): List Gate := swaps.foldLeft gates swapOutputs
 

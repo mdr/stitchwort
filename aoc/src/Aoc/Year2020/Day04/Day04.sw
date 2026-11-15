@@ -19,7 +19,15 @@ def main(): {IO, Fail} () :=
   IO.print "Part 1: ${solvePart1 passports}"
   IO.print "Part 2: ${solvePart2 passports}"
 
-type Key = | BirthYear | IssueYear | ExpirationYear | Height | HairColor | EyeColor | PassportId | CountryId
+type Key =
+  | BirthYear
+  | IssueYear
+  | ExpirationYear
+  | Height
+  | HairColor
+  | EyeColor
+  | PassportId
+  | CountryId
 
 def Key.code: Key → Text
   | BirthYear => "byr"

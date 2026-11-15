@@ -23,7 +23,9 @@ test "two parameters" :=
   List.sort entries == [{ key = "a", value = 1 }, { key = "a", value = 2 }, { key = "b", value = 1 }]
 
 -- A parameter used only by a proof field, and a value parameter.
-type Bounded (limit: Nat) = | Within (n: Nat) (ok: Nat.leq n limit = True) | Over
+type Bounded (limit: Nat) =
+  | Within (n: Nat) (ok: Nat.leq n limit = True)
+  | Over
 
 test "value parameter" := Ord.compare (Within 2 rfl: Bounded 5) (Within 4 rfl) == Less
 

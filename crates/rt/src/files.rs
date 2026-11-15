@@ -75,10 +75,9 @@ fn kind_of(metadata: &fs::Metadata) -> Kind {
     }
 }
 
-/// `Files.read`: the whole file, as UTF-8.
-// When text values become a shared buffer (T1 of file-io-and-text.md), the
-// validated bytes should become that buffer without the copy `String` makes
-// into the runner's text value.
+/// `Files.read`: the whole file, as UTF-8. The checked bytes are returned
+/// as they were read: a runner's `Text::from` takes an ASCII file's `String`
+/// as its buffer with no copy.
 pub fn read(path: &Path) -> Result<String, Failure> {
     let bytes = fs::read(path).map_err(|e| match failure(&e) {
         // Opening a folder succeeds on some hosts and reading it fails.

@@ -53,6 +53,7 @@ mod library;
 #[cfg(test)]
 mod library_tests;
 mod lift;
+mod literal_facts;
 mod local;
 mod logic;
 mod matching;
@@ -655,6 +656,8 @@ enum Tree<'a> {
         /// How many leaves of the whole tree take this arm: how many times
         /// its right-hand side is checked.
         cases: usize,
+        /// What the arm is known not to be, from the literal arms above it.
+        facts: Rc<[arm_display::ArmFact]>,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -4002,6 +4005,7 @@ impl Elaborator {
                 later: Vec::new(),
                 unsplit: Vec::new(),
                 cases: 1,
+                facts: Rc::from([]),
             }
         } else {
             rows = equations
@@ -4091,12 +4095,91 @@ impl Elaborator {
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
         arm_display::count_cases(&mut tree);
+        let facts = self.arm_facts(rows, columns, types, skip);
+        arm_display::set_facts(&mut tree, &facts);
         match missing::definite(&tree, span) {
             // The checker reports the cases that are possible after all.
             Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
             Some(d) => Err(d),
             None => Ok(tree),
         }
+    }
+
+    /// For each arm of a match (by the address of its right-hand side,
+    /// used only to put them on the compiled leaves), what its catch-all
+    /// columns are known not to be (`arm_display::ArmFact`): the numbers, characters
+    /// and texts that earlier arms without a condition match in that
+    /// column alone, every other column of theirs being a variable or `_`.
+    fn arm_facts(
+        &self,
+        rows: &[Row],
+        columns: &[usize],
+        types: &[Option<Value>],
+        skip: usize,
+    ) -> stitchwort_core::collections::HashMap<usize, Rc<[arm_display::ArmFact]>> {
+        let mut found = stitchwort_core::collections::HashMap::default();
+        let literal = |pattern: &Pattern, kind: &Result<NumberKind>, text: bool| match pattern {
+            Pattern::Num(n, _) if matches!(kind, Ok(NumberKind::Nat | NumberKind::Int)) => {
+                Some(n.to_string())
+            }
+            Pattern::NegNum(n, _) if matches!(kind, Ok(NumberKind::Int)) => Some(format!("-{n}")),
+            Pattern::Char(c, _) => Some(format!("'{}'", escape_char(*c))),
+            Pattern::Text(t, _) if text => Some(quoted_text(t)),
+            _ => None,
+        };
+        let catch_all =
+            |pattern: &Pattern| matches!(pattern, Pattern::Var(_) | Pattern::Wildcard(_));
+        let mut kinds = Vec::new();
+        for j in 0..columns.len() {
+            let ty = types.get(j).and_then(|t| t.as_ref());
+            kinds.push((
+                self.number_kind(ty),
+                matches!(self.text_kind(ty), Ok(TextKind::Text)) && ty.is_some(),
+            ));
+        }
+        for (i, row) in rows.iter().enumerate() {
+            let Some(rhs) = row.rhs else { continue };
+            let mut facts = Vec::new();
+            for j in skip..columns.len().min(row.pats.len()) {
+                if !catch_all(&row.pats[j]) {
+                    continue;
+                }
+                let mut seen: Vec<String> = Vec::new();
+                for earlier in &rows[..i] {
+                    if earlier.guard.is_some() || earlier.pats.len() != row.pats.len() {
+                        continue;
+                    }
+                    let others_open = (skip..columns.len().min(earlier.pats.len()))
+                        .filter(|&k| k != j)
+                        .all(|k| catch_all(&earlier.pats[k]));
+                    if !others_open {
+                        continue;
+                    }
+                    let alternatives: Vec<&Pattern> = match &*earlier.pats[j] {
+                        Pattern::Or(alts, _) => alts.iter().collect(),
+                        other => vec![other],
+                    };
+                    let shown: Option<Vec<String>> = alternatives
+                        .iter()
+                        .map(|p| literal(p, &kinds[j].0, kinds[j].1))
+                        .collect();
+                    for text in shown.into_iter().flatten() {
+                        if !seen.contains(&text) {
+                            seen.push(text);
+                        }
+                    }
+                }
+                facts.extend(seen.into_iter().map(|literal| arm_display::ArmFact {
+                    level: columns[j],
+                    literal,
+                }));
+            }
+            if !facts.is_empty() {
+                let key = std::ptr::from_ref(rhs) as usize;
+                found.insert(key, facts.into());
+            }
+        }
+        found
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
@@ -4284,6 +4367,7 @@ impl Elaborator {
                 later: rows[1..].iter().map(|row| row.span).collect(),
                 unsplit: first.unsplit.clone(),
                 cases: 1,
+                facts: Rc::from([]),
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -5340,6 +5424,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         later,
         unsplit,
         cases,
+        facts,
     } = tree
     else {
         unreachable!("a leaf")
@@ -5404,7 +5489,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
-    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases);
+    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases, facts);
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),
@@ -5906,6 +5991,7 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             later,
             unsplit,
             cases,
+            facts,
         } => Tree::Leaf {
             aliases: aliases.iter().map(|&(x, l)| (x, up(l))).collect(),
             written: written.clone(),
@@ -5915,6 +6001,13 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             later: later.clone(),
             unsplit: unsplit.iter().map(|&l| up(l)).collect(),
             cases: *cases,
+            facts: facts
+                .iter()
+                .map(|f| arm_display::ArmFact {
+                    level: up(f.level),
+                    literal: f.literal.clone(),
+                })
+                .collect(),
         },
         Tree::Guard {
             guard,

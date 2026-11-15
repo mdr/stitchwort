@@ -3,7 +3,11 @@
 -- `Dec` stands in for D3480's `Decidable` record. Checks.
 import Std (Bool, Eq, List, Nat, Void)
 
-type Dec (p: Prop) = { does: Bool, sound: does = True → p, complete: p → does = True }
+type Dec (p: Prop) = {
+  does: Bool,
+  sound: does = True → p,
+  complete: p → does = True
+}
 
 def andReading (a b: Bool): Dec (a = True ∧ b = True) :=
   { does = a && b, sound = h => Both (Bool.andLeft h) (Bool.andRight h), complete = h => Bool.andIntro h.left h.right }

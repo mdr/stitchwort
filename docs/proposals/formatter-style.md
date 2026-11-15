@@ -362,10 +362,13 @@ instance List.instDecEq [auto decEq: DecEq a]: DecEq (List a) := { decide = List
 
 ### 2.5 Data types, records, interfaces, abilities
 
-**S14. Constructors: D3566 (b), Matt, 13 Nov 2026.** A data type's
-constructors fit or break like a record's fields: on one line if the whole
-declaration fits (`type Direction = | Up | Right | Down | Left`), otherwise
-one per line at 2, each with its `|`. Fields of a constructor stay on its
+**S14. Constructors: D3566 (b), Matt, 13 Nov 2026; width 80 by D3605, Matt,
+15 Nov 2026.** A data type's constructors go on one line only if the whole
+declaration line is at most 80 characters (`type Direction = | Up | Right |
+Down | Left`), otherwise one per line at 2, each with its `|`. The 80 is
+narrower than the page's 120 on purpose: a column of constructors is a table
+the eye scans (D3605, as rustfmt and elm-format do), and the 14 Nov reformat
+had joined 84 data types of over 80 characters. Fields of a constructor stay on its
 line, breaking like a header's parameters (at 4) if one is too long. Arms
 are different: two or more always go one per line (S16 onwards, D3566).
 
@@ -386,7 +389,8 @@ type Direction = | Up | Right | Down | Left
 ```
 
 **S15. Record types and interfaces** (`{ name: T, … }`) are comma brackets:
-one line if they fit, otherwise one field per line (D1012). A doc comment
+one line if the whole declaration line is at most 80 characters (D3605;
+other comma brackets still use 120), otherwise one field per line (D1012). A doc comment
 on a field is a hard break, so a documented record stays open. Settled,
 against "records always open": 558 record types are already written on one
 line and 42 open [measured], so fit-or-break keeps nearly all of them as
@@ -457,7 +461,10 @@ is the only shape available.
 
 ### 2.7 `if`
 
-**S19. `if`.** One line if it fits. Otherwise one clause a line, all at the
+**S19. `if`.** A plain `if c then a else b` is one line if it fits. An `if`
+with at least one `else if` always goes one clause a line (D3605, Matt,
+15 Nov 2026: a table of cases is not one line, however short). Otherwise,
+when a plain `if` does not fit, one clause a line, all at the
 `if`'s column: `if c then a`, then `else if d then b` for each further
 condition, then `else e`. A clause whose branch doesn't fit after its
 keyword ends with `then` or `else` and puts the branch below at 2. Settled:

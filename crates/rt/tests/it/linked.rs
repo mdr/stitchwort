@@ -99,7 +99,7 @@ fn the_tables_round_trip() {
             Value::BigNat(Default::default()),
             Value::Int(0),
             Value::BigInt(Default::default()),
-            Value::Text("".into()),
+            Value::Text(stitchwort_rt::text::Text::from("")),
             Value::Float(0.0),
             Value::Tag(0),
         ] {

@@ -740,6 +740,37 @@ impl<'p> Interp<'p> {
                             some(V::Nat(t.parse().expect("digits")))
                         }
                     }
+                    TextGet | TextGetOr | TextGetLt => {
+                        let i = usize::try_from(&nat(&args[1])?).unwrap_or(usize::MAX);
+                        match (text(&args[0])?.chars().nth(i), t) {
+                            (Some(c), TextGet) => some(char_value(c)),
+                            (Some(c), _) => char_value(c),
+                            (None, TextGet) => none(),
+                            (None, TextGetOr) => args[2].clone(),
+                            (None, _) => return Err("`Text.getLt` out of range".into()),
+                        }
+                    }
+                    TextSlice => {
+                        let n = |v: &V| {
+                            Ok::<_, String>(usize::try_from(&nat(v)?).unwrap_or(usize::MAX))
+                        };
+                        let (from, to) = (n(&args[1])?, n(&args[2])?);
+                        let piece: String = text(&args[0])?
+                            .chars()
+                            .skip(from)
+                            .take(to.saturating_sub(from))
+                            .collect();
+                        V::Text(piece.into())
+                    }
+                    TextConcat => {
+                        let mut out = String::new();
+                        let mut l = args[0].clone();
+                        while let V::Ctor(1, cell) = l {
+                            out.push_str(&text(&cell[0])?);
+                            l = cell[1].clone();
+                        }
+                        V::Text(out.into())
+                    }
                 }
             }
             PrimOp::Delay(_) => return Err("unsupported: a partial computation".into()),

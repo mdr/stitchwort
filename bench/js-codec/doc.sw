@@ -10,14 +10,24 @@ type Word = { text: Text, start: SafeInt, length: SafeNat }
 type Segment = { id: Text, start: SafeInt, length: SafeNat }
 
 @[js.enum]
-type Kind = | @[js.name "plain"] Plain | @[js.name "todo"] Todo | @[js.name "quote"] Quote
+type Kind =
+  | @[js.name "plain"] Plain
+  | @[js.name "todo"] Todo
+  | @[js.name "quote"] Quote
 
 type Note = { id: Text, kind: Kind, body: Text, at: Option SafeInt }
 
 @[js.tag "type"]
-type Status = | @[js.name "draft"] Draft | @[js.name "final"] Final (reviewer: Text) (revision: SafeNat)
+type Status =
+  | @[js.name "draft"] Draft
+  | @[js.name "final"] Final (reviewer: Text) (revision: SafeNat)
 
-type Meta = { speaker: Text, language: Text, revision: SafeNat, summary: Option Text }
+type Meta = {
+  speaker: Text,
+  language: Text,
+  revision: SafeNat,
+  summary: Option Text
+}
 
 type Doc = {
   title: Text,

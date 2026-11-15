@@ -9,7 +9,11 @@ type Order = { item: Text, quantity: Nat }
 type Bin = { label: Text, aisle: Nat }
 type Pick = { item: Text, bin: Bin, quantity: Nat, left: Nat }
 
-type Warehouse = { stock: Map Text Nat, locations: Map Text Text, bins: Map Text Bin }
+type Warehouse = {
+  stock: Map Text Nat,
+  locations: Map Text Text,
+  bins: Map Text Bin
+}
 
 def pickOrder (warehouse: Warehouse) (order: Order): Option Pick := toOption (() =>
   let onHand := warehouse.stock.get order.item |> .orAbort

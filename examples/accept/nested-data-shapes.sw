@@ -18,7 +18,10 @@ def Rose.countList: List (Rose a) → Nat
 theorem roseCount: Rose.count (Bloom 1 [Bloom 2 [], Bloom 3 [Bloom 4 []]]) = 4 := rfl
 
 -- Nested twice, and in `Option` and a pair.
-type Nest: Type = | Leaf | Deep (rows: List (List Nest)) | Maybe (next: Option (Pair Nest Nat))
+type Nest: Type =
+  | Leaf
+  | Deep (rows: List (List Nest))
+  | Maybe (next: Option (Pair Nest Nat))
 
 def Nest.depth: Nest → Nat
   | Leaf => 0
@@ -91,7 +94,9 @@ theorem bigCount: Big.count (Grown (Node Small (FCons (Node (Grown (Node Small F
 
 -- An earlier field in the nested type's arguments: a tree whose index is
 -- its height bound, with children one lower.
-type Ranked: Nat → Type = | RLeaf: Ranked 0 | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
+type Ranked: Nat → Type =
+  | RLeaf: Ranked 0
+  | RNode (n: Nat) (kids: List (Ranked n)): Ranked (Succ n)
 
 def Ranked.count: Ranked n → Nat
   | RLeaf => 1
@@ -132,7 +137,8 @@ theorem storedDepth: Stored.depth (MkStored (Some (MkStored None))) = 1 := rfl
 -- An equation between fields that don't hold the type, beside one that
 -- does. An equation on fields that hold it is refused:
 -- soundness/nested-recursive-field.sw.
-type Checked: Type = | Check (n: Nat) (m: Nat) (same: n = m) (kids: List Checked)
+type Checked: Type =
+  | Check (n: Nat) (m: Nat) (same: n = m) (kids: List Checked)
 
 def Checked.leaf (n: Nat): Checked := Check n n rfl []
 

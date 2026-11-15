@@ -329,7 +329,10 @@ theorem orComm ∀ (a b: Bool): (a ∨ b) = (b ∨ a) := cases
 
 theorem andLeft ∀ (a b: Bool) (h: (a ∧ b) = True): a = True := cases
 
-def clamp (lo hi x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
+def clamp (lo hi x: Nat): Nat :=
+  if x < lo then lo
+  else if hi < x then hi
+  else x
 
 theorem clampBelow ∀ (lo hi x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
 ```
@@ -517,6 +520,18 @@ theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
   else if isTheorem: word = "theorem" then (rewrite isTheorem at h in match Option.someInjective h with | ())
   else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
 ```
+
+The same facts are there when you `match` yourself. In a catch-all arm after literal arms, the goal lists what the arm knows, one `≠` line for each literal above it that has no condition (`other ≠ "def"`, `other ≠ "theorem"`), under the arm's own name for the value, and `auto` and `byDecision` prove them, whether the value is a number, a character or a text. So the catch-all can pass them to the equation:
+
+<!-- snippet: proofs.sw#catch-all-facts -->
+```stitchwort
+theorem otherWord ∀ (word: Text): keyword word = None ∨ word = "def" ∨ word = "theorem" := match word with
+  | "def" => Inr (Inl rfl)
+  | "theorem" => Inr (Inr rfl)
+  | other => Inl (keyword.eq3 other byDecision byDecision)
+```
+
+An arm above with a condition (`| "def" if loud =>`) gives no line, since the catch-all is reached when the condition fails; and the facts are not hypotheses you can name, so a proof that needs one as a value asks for it with `byDecision` or an `[auto]` parameter, where it is wanted.
 
 ## Decisions and facts
 

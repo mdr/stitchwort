@@ -5,11 +5,15 @@
 
 import Std (Eq, Int, IO, List, Nat, Option, Pair)
 
-type Shape = | Dot { ref: Nat, id: Text } | Circle { ref: Nat, id: Text, text: Text }
+type Shape =
+  | Dot { ref: Nat, id: Text }
+  | Circle { ref: Nat, id: Text, text: Text }
 
 type Item = { name: Text, price: Nat }
 
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons [n: Nat] { x: a, xs: Vec a n }: Vec a (Succ n)
 
 type Pos = | MkPos { n: Nat, ok: 0 < n }
 
