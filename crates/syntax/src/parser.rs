@@ -1237,6 +1237,13 @@ impl<'t> Parser<'t> {
         {
             return true;
         }
+        self.ends_guard(i)
+    }
+
+    /// Whether the token at `i` is the `=>` that ends the guard being parsed:
+    /// its condition runs up to the next `=>` outside brackets, or after a
+    /// bracket with no partner.
+    fn ends_guard(&self, i: usize) -> bool {
         self.modes.guard_start.is_some_and(|start| {
             self.tokens.get(i).is_some_and(|t| t.tok == Tok::FatArrow)
                 && (self.bracket_depth(start, i) <= 0 || self.left_open_between(start, i))
@@ -1507,6 +1514,16 @@ impl<'t> Parser<'t> {
                      brackets: is a bracket on the step above left open?",
                 );
             }
+            Some(_) if self.ends_guard(self.pos) => {
+                return error(
+                    self.here(),
+                    format!("expected {expected}, but the guard's `=>` starts here"),
+                )
+                .with_note(
+                    "a guard's condition runs up to its arm's `=>`, even inside brackets: was a \
+                     bracket in the guard left open?",
+                );
+            }
             Some(token) if self.is_stop(self.pos) && !self.ends_construct(self.pos) => {
                 let diagnostic = error(
                     self.here(),
@@ -1727,13 +1744,20 @@ impl<'t> Parser<'t> {
     /// is failed and nothing is checked against a bracket that was never
     /// closed (SW-3289).
     fn close_bracket(&mut self, start: u32, tok: Tok, what: &str, kind: NodeKind) -> Result<()> {
-        if self.peek() != Some(&tok) && self.modes.recover && self.ran_out_at == Some(self.pos) {
+        if self.peek() != Some(&tok) && self.bracket_ran_out() {
             self.node(start, NodeKind::Error);
             return Ok(());
         }
         self.expect(tok, what)?;
         self.node(start, kind);
         Ok(())
+    }
+
+    /// Whether the bracket being parsed was left open by an R1 gap at the
+    /// current position, with nothing read since: the one error is the gap,
+    /// so the bracket needs no second error for a closer that isn't there.
+    fn bracket_ran_out(&self) -> bool {
+        self.modes.recover && self.ran_out_at == Some(self.pos)
     }
 
     /// The error of R1 at `at`, the end of the last token read, which is
@@ -5005,6 +5029,13 @@ impl<'t> Parser<'t> {
             );
         if !literal {
             self.expr()?;
+            // The `{` at the end of a line: the contents ran out before the
+            // `|` that starts an update's fields, so the brace is left open
+            // ([`Self::close_bracket`]).
+            if self.peek() != Some(&Tok::Pipe) && self.bracket_ran_out() {
+                self.node(start, NodeKind::Error);
+                return Ok(());
+            }
             self.expect(Tok::Pipe, "`|` and the fields to update")?;
         }
         let mut fields = 0;
@@ -5023,8 +5054,7 @@ impl<'t> Parser<'t> {
                 break;
             }
         }
-        self.expect(Tok::RBrace, "`,` or `}`")?;
-        self.node(start, NodeKind::Record);
+        self.close_bracket(start, Tok::RBrace, "`,` or `}`", NodeKind::Record)?;
         Ok(())
     }
 
@@ -5248,8 +5278,7 @@ impl<'t> Parser<'t> {
                 self.lower("a name")?;
                 self.bump();
                 self.expr()?;
-                self.expect(Tok::RParen, "`)`")?;
-                self.node(start, NodeKind::NamedArg);
+                self.close_bracket(start, Tok::RParen, "`)`", NodeKind::NamedArg)?;
             }
             Some(Tok::LParen) if self.operator_section_ahead() => return self.operator_section(),
             Some(Tok::LParen) => {
@@ -5263,8 +5292,7 @@ impl<'t> Parser<'t> {
                     if self.peek() == Some(&Tok::Comma) {
                         return Err(self.tuple_annotation().into());
                     }
-                    self.expect(Tok::RParen, "`)`")?;
-                    self.node(start, NodeKind::Annotation);
+                    self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Annotation)?;
                     return Ok(());
                 }
                 self.close_bracket(start, Tok::RParen, "`)`", NodeKind::Paren)?;
@@ -7561,6 +7589,51 @@ mod tests {
                 (at.0 as u32, at.1 as u32),
                 "{text:?}"
             );
+            if text == guard {
+                // The guard's own `=>`, not a lambda inside the guard: the
+                // note asks about the unclosed bracket (SW-3308).
+                assert!(
+                    errors[0].message.contains("the guard's `=>` starts here"),
+                    "{errors:?}"
+                );
+                assert!(
+                    errors[0]
+                        .notes
+                        .iter()
+                        .any(|n| n.contains("bracket in the guard left open")),
+                    "{errors:?}"
+                );
+            }
+        }
+    }
+
+    /// The other brackets closed by [`Parser::close_bracket`]: a record's
+    /// braces, a named argument's `(x := e)` and an annotation's `(e : T)`.
+    /// Each left open at a line end is one error at the gap, not a second one
+    /// for the closer that isn't there (SW-3308).
+    #[test]
+    fn the_other_brackets_left_open_at_a_line_end_are_one_error() {
+        let record = "def f (n: Nat): Nat :=\n  let r := {\n  let y := 1\n  y\n";
+        let record_field = "def f (n: Nat): Nat :=\n  let r := { x =\n  let y := 1\n  y\n";
+        let named = "def f (g: Nat -> Nat): Nat :=\n  g (x :=\n  let y := 1\n  y\n";
+        let annotation = "def f (n: Nat): Nat :=\n  let m := (n :\n  let y := 1\n  y\n";
+        for (text, gap) in [
+            (record, record.find("{\n").unwrap() + 1),
+            (
+                record_field,
+                record_field.find("x =\n").unwrap() + "x =".len(),
+            ),
+            (named, named.find("x :=\n").unwrap() + "x :=".len()),
+            (
+                annotation,
+                annotation.find("(n :\n").unwrap() + "(n :".len(),
+            ),
+        ] {
+            let (_, errors, points) = recovered(text);
+            assert_eq!(errors.len(), 1, "{text:?}: {errors:?}");
+            assert_eq!(points, [vec![RecoveryPoint::RanOut]], "{text:?}");
+            let span = errors[0].primary_span().unwrap();
+            assert_eq!((span.start, span.end), (gap as u32, gap as u32), "{text:?}");
         }
     }
 
