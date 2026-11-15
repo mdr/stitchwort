@@ -128,6 +128,19 @@ fn parse_bundle(mut rest: &[u8]) -> Result<Vec<(String, String)>, String> {
     Ok(files)
 }
 
+/// The directory [`STD_DIR_VAR`] names, if it names one. A variable set to
+/// nothing (`STITCHWORT_STD_DIR=`) is unset, not a request to read the
+/// current directory (SW-3091).
+fn env_dir() -> Option<PathBuf> {
+    std_dir_from(std::env::var_os(STD_DIR_VAR))
+}
+
+/// [`env_dir`]'s rule for one variable value, so it can be tested without
+/// changing the test process's environment.
+fn std_dir_from(value: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    value.filter(|v| !v.is_empty()).map(PathBuf::from)
+}
+
 /// The directory to read, by the rules in the module's documentation.
 fn locate() -> Result<PathBuf, String> {
     if cfg!(target_arch = "wasm32") {
@@ -137,8 +150,8 @@ fn locate() -> Result<PathBuf, String> {
                 .into(),
         );
     }
-    if let Some(dir) = std::env::var_os(STD_DIR_VAR).filter(|v| !v.is_empty()) {
-        return Ok(PathBuf::from(dir));
+    if let Some(dir) = env_dir() {
+        return Ok(dir);
     }
     let exe = std::env::current_exe().and_then(std::fs::canonicalize).ok();
     let mut tried = Vec::new();
@@ -257,4 +270,21 @@ fn collect(root: &Path, dir: &Path, out: &mut Vec<String>) -> Result<(), String>
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SW-3091: a shell may export the variable with no value; that is not
+    /// a directory to read.
+    #[test]
+    fn an_empty_std_dir_variable_is_unset() {
+        assert_eq!(std_dir_from(None), None);
+        assert_eq!(std_dir_from(Some(std::ffi::OsString::new())), None);
+        assert_eq!(
+            std_dir_from(Some("/somewhere/std".into())),
+            Some(PathBuf::from("/somewhere/std"))
+        );
+    }
 }
