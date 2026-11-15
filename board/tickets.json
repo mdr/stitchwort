@@ -1,5 +1,5 @@
 {
-  "next": 3317,
+  "next": 3319,
   "tickets": [
     {
       "id": 47,
@@ -36347,12 +36347,12 @@
     {
       "id": 3301,
       "title": "[Opus paper] Goals for a theorem about a match's scrutinee, in a catch-all after literal patterns, still show the split's cells (f (MkText [MkChar code✝ valid✝, ..tail✝])); showing the scrutinee as itself needs the arm's equation or a display-only substitution: options and a recommendation (SW-3293 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Found in SW-3293. Expected: 1 h (Opus paper lane).",
+      "body": "Found in SW-3293. Paper docs/proposals/catch-all-goals.md (Opus, ~20 min): wider than literals: an arm checked at several leaves shows only the last leaf's goal, and the user's binder isn't shown. Recommended option A (display only; orchestrator's call, no Matt decision): filed SW-3317. Also SW-3318.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36563,6 +36563,32 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "parser-end-state.md T3: any time after T1 (SW-3280, merged). Sonnet, reviewed by the orchestrator. Expected: 3.5 h.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3317,
+      "title": "[Sonnet] Goals at a match arm show the arm as written (docs/proposals/catch-all-goals.md option A, display only): undo the splits the arm's own patterns didn't need, show the scrutinee by the arm's binder or variable; keep the leaf's 'computes to'; terms and hashes untouched; goal snapshots for the paper's probes; and 'this arm is checked in N cases' naming the failing case. Opus review after (match compiler)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3318,
+      "title": "[Opus] A proof's catch-all after number literals shows no n ≠ 5 fact (catch-all-goals.md finding); look at what the arm knows and whether to show it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
