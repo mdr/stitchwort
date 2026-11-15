@@ -35368,14 +35368,14 @@
     {
       "id": 3230,
       "title": "[DeepSeek] stitchwort fmt is silent about declarations it leaves as written (only dev fmt-tree --verbose says): print a warning naming each one and why, and say so in fmt's summary (SW-3228 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
       "body": "Expected: 40 min (DeepSeek), one run with SW-3232.",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -35396,14 +35396,14 @@
     {
       "id": 3232,
       "title": "[DeepSeek] std: Option.getOr is missing though List.getOr and Array.getOr exist; add it with its doc and a lemma or two (SW-3228 finding)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
       "body": "Expected: 40 min (DeepSeek), one run with SW-3230.",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
