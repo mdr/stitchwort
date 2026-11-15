@@ -37737,7 +37737,7 @@
     {
       "id": 3402,
       "title": "[Sonnet] Exit status stage 1 (exit-status.md, D3616): type ExitStatus = { code: Fin 256 } with ExitStatus.success/failure and ExitStatus.of via Fin.ofNat; main may return () or ExitStatus; every runner honours it (run, --reference, --native, --js via the worker's error file, build, build --native, playground); Fail stays 1; IO/Files.simulate expose the status; docs/syntax.md, guide ch. 11",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
