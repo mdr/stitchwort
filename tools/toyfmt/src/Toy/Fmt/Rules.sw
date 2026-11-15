@@ -98,12 +98,21 @@ def Expr.layout: Expr → Doc
   | ListLiteral items => listLayout items
   | Call callee arguments => Doc.concat [callee.layout, argumentsLayout arguments]
   | Field target name => Doc.concat [target.layout, Doc.text ".${name}"]
-  | Negate operand => Doc.concat [Doc.text "-", operand.layout]
+  | Negate operand => Doc.concat [Doc.text (if operand.startsWithMinus then "- " else "-"), operand.layout]
   | Binary operator left right =>
     match chainParts operator.level left ++ [link operator right.layout] with
       | [first, ..links] => Doc.group (Doc.concat [first, Nest 2 (Doc.concat links)])
       | [] => Empty
   | If condition whenTrue whenFalse => ifLayout condition whenTrue whenFalse
+
+--| Whether the expression's text starts with `-`. A `-` right before it
+--| would make `--`, which starts a comment, so `Negate` spaces them apart.
+def Expr.startsWithMinus: Expr → Bool
+  | Negate _ => True
+  | Binary _ left _ => left.startsWithMinus
+  | Call callee _ => callee.startsWithMinus
+  | Field target _ => target.startsWithMinus
+  | _ => False
 
 --| P6: an operator chain of one level, from its left-nested tree: `a - b +
 --| c` is `a`, then `- b` and `+ c` each after a line break. Operands of

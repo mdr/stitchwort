@@ -24,3 +24,7 @@ test "the lexemes of an awkward source cover it" :=
 
 test "an empty source lexes to no lexemes, which cover it" :=
   lex "" |> .map (lexed => (lexed.lexemes.length, covers "" lexed.lexemes)) == Ok (0, True)
+
+test "a minus before a minus is spaced, so the two don't print as a comment" :=
+  ["let y = - -x\n", "let y = - - -f(x)\n", "let y = -(-x) - -x\n"].all (source =>
+    format source 80 |> .toOption |> .map (printed => printed.text) == Some source)
