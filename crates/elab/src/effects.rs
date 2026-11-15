@@ -932,12 +932,12 @@ fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
 }
 
 /// A label as a row writes it, with the arguments it is known to have:
-/// `Parse Char`. An argument still unknown is written `…`, as is the rest
-/// of a label without arguments (`Fail …`, whatever else the row has).
-fn label_written(cx: &Ctx, label: &Label) -> String {
+/// `Parse Char`, `Parse (Parse.Located Token)`. An argument still unknown is
+/// written `…`.
+fn label_shown(cx: &Ctx, label: &Label) -> String {
     let name = ability_name(cx, label);
     if label.args.is_empty() {
-        return format!("{name} …");
+        return name;
     }
     let args: Vec<String> = label
         .args
@@ -955,6 +955,14 @@ fn label_written(cx: &Ctx, label: &Label) -> String {
         })
         .collect();
     format!("{name} {}", args.join(" "))
+}
+
+/// A label as a row writes it, and `…` for whatever else the row has: `Fail …`.
+fn label_written(cx: &Ctx, label: &Label) -> String {
+    if label.args.is_empty() {
+        return format!("{} …", ability_name(cx, label));
+    }
+    label_shown(cx, label)
 }
 
 /// [`not_allowed`]'s error `e` for an argument of a call in `row` that is
@@ -1035,9 +1043,10 @@ fn passed_not_allowed(
     )))
 }
 
-/// A row as written: `{A, B}`, `{A | e}`, `{e}`, `{}`.
+/// A row as written: `{A, B}`, `{A | e}`, `{e}`, `{}`, with each ability's
+/// arguments: `{Parse Char, Console}`.
 fn show_row(cx: &Ctx, row: &Row) -> String {
-    let parts: Vec<String> = row.labels.iter().map(|l| ability_name(cx, l)).collect();
+    let parts: Vec<String> = row.labels.iter().map(|l| label_shown(cx, l)).collect();
     match &row.tail {
         Some(tail) if parts.is_empty() => format!("{{{}}}", cx.show(tail)),
         Some(tail) => format!("{{{} | {}}}", parts.join(", "), cx.show(tail)),
