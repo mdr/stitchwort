@@ -37958,7 +37958,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 15 Nov 2026, on the goal: \"proving the toy printer's correctness directly is a good ambition ... if a program can be parsed, so it's a valid program, then it should be the same program before and after. Formatting for some concept of sameness ... presumably it's going to be the same AST ... idempotence is another key property which I think we want a formatter.\" So the target theorems: (1) for every program the parser accepts, format's output parses to the same program (the erased tree in the toy); (2) idempotence; no run-time re-parse.",
+      "body": "Matt, 15 Nov 2026, on the goal: \"proving the toy printer's correctness directly is a good ambition ... if a program can be parsed, so it's a valid program, then it should be the same program before and after. Formatting for some concept of sameness ... presumably it's going to be the same AST ... idempotence is another key property which I think we want a formatter.\" So the target theorems: (1) for every program the parser accepts, format's output parses to the same program (the erased tree in the toy); (2) idempotence; no run-time re-parse.\n\nEscalation (Matt, 15 Nov 2026): if Opus gets stuck, rerun on Fable from the lane's branch (\"if it gets stuck, we might want to sort of throw Fable at it\").",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
