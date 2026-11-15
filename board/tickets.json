@@ -1,5 +1,5 @@
 {
-  "next": 3358,
+  "next": 3362,
   "tickets": [
     {
       "id": 47,
@@ -36942,12 +36942,12 @@
     {
       "id": 3341,
       "title": "[Opus] Toy formatter stage B (toy-formatter.md): layout engine port with ported tests, rules P1-P10, goldens, disturber; can start beside A",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 15 Nov (orchestrator's sequencing): the layout engine needs neither T1 nor F1. Expected: 4.5 h (Opus).",
+      "body": "Model result: opus, worked, 25 min (est. 270). Open: disturber format test and whole-format timing wait for stage A (SW-3340). Friction: tools/toyfmt/NOTES.md; filed SW-3358 SW-3359 SW-3360 SW-3361.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37150,6 +37150,58 @@
     {
       "id": 3357,
       "title": "[Sonnet] After fast text: check bench:aoc allocation counts (two allocations per text now), consider one allocation after T2; contains without converting to UTF-8; trim spare capacity of read text (SW-3337 review 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3358,
+      "title": "[Opus] Derived == for mutually recursive data types (a syntax tree's types refer to each other); needed by the toy formatter's tree checks and the self-hosted formatter's 94 kinds (SW-3341 friction 1; see SW-3354)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3359,
+      "title": "[Opus] Termination: recursion through List.map (and friends) on a field of the matched value counts as smaller, so tree code needs no per-list helpers (SW-3341 friction 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3360,
+      "title": "[Sonnet] Small toy-formatter findings (SW-3341): a constructor may share a name with a type its fields use; List.intersperse; a tuple accumulator in foldLeft needs its type written; stitchwort fmt moves a record literal with text blocks below := and re-indents it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3361,
+      "title": "[Opus paper] A clock (monotonic time) for programs: its own ability per D3595, for timings in tools (SW-3341 friction 8)",
       "status": "backlog",
       "agent": "",
       "where": "",
