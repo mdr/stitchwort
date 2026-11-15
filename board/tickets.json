@@ -36266,14 +36266,14 @@
     {
       "id": 3295,
       "title": "[Sonnet] When a literal pattern's type falls back (text to Text, number to Nat) and the value is later used at another type, the error should point at the pattern that fixed the type (SW-3284 review should-fix 3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md should-fix 3). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
