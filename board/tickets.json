@@ -37410,7 +37410,7 @@
     {
       "id": 3377,
       "title": "[Sonnet] Std from toy stage C (SW-3342): a forwarding/tracing Files handler and a Disk that records writes; Text split-once; docs say Path is Ord; stitchwort test FILE resolves the project's namespaces; a project with two mains builds by folder",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
