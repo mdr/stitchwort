@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+    ╭─[ reject/termination-wrapper-index-refines-proof.sw:10:12 ]
+    │
+ 10 │ theorem f: (s: Sq) → T s → Unit
+    │            ───┬───  
+    │               ╰───── write `∀ (…) =>` instead of `(…) ->`
+    │ 
+    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+────╯
+[E-TERMINATION] Error: can't show that `f` terminates
+    ╭─[ reject/termination-wrapper-index-refines-proof.sw:11:30 ]
+    │
+ 11 │   | MkSq b, Step [q := q] => f (MkSq q) (Step [q := q])
+    │                              ────────────┬────────────  
+    │                                          ╰────────────── this recursive call might not terminate: the 1st argument, `MkSq q`, isn't seen as smaller than `s`; the 2nd argument, `Step q`, stays the same
+    │ 
+    │ Note 1: however the recursive calls are repeated, some argument must get smaller (a part of a pattern-matched constructor); an argument passed on unchanged, or rebuilt from its own pattern, is no smaller
+    │ 
+    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
+────╯

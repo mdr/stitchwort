@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-POSITIVITY] Error: `T` is used inside `Q`, and `Q`'s field `x` depends on the earlier field `p`, whose type has its parameter `a` in it
+    ╭─[ soundness/termination-relies-on-positivity-05-nested-proposition-parameter.sw:14:27 ]
+    │
+ 14 │ type T: Type = | Node (q: Q T) | In (t: T)
+    │                           ─┬─  
+    │                            ╰─── field `q` has `T` inside `Q`, as its parameter `a`
+    │ 
+    │ Note: a data type's fields can hold the type itself directly, as a function field's result, or inside another data type at a parameter that the other type only stores, as `List` stores its elements: no field takes it as a function's input, has it inside something that isn't a data type (a definition, an equality) or in an index, or depends on an earlier field that has it, and no other parameter's type mentions it. `Q`'s `a` isn't like that, so `T` inside it isn't known to be safe
+────╯

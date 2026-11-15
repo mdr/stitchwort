@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-POSITIVITY] Error: field `x` depends on `p`, whose type contains `T`
+    ╭─[ soundness/termination-relies-on-positivity-04-proposition-parameter.sw:18:43 ]
+    │
+ 18 │ type T: Type = | Leaf | Mk (p: Big T) (x: PBox T p) | In (t: T)
+    │                                           ────┬───  
+    │                                               ╰───── `x`'s type mentions `p`
+    │ 
+    │ Note 1: a field's type can't mention an earlier field that holds a `T` (or holds one inside another type): `T` would then have to be defined together with what that field's type says about it, which isn't supported
+    │ 
+    │ Note 2: state it as a separate proposition about the value, or keep what it needs in an index
+────╯

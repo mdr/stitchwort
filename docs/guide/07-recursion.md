@@ -65,7 +65,7 @@ def leadingDashes: Text → Nat
 test "text rest" := leadingDashes "--verbose" == 2
 ```
 
-Behind the scenes a text is a constructor with a single field, its list of characters, and such a constructor counts as smaller when what's inside it is a part of what it held in the pattern. One-field records work the same way.
+Behind the scenes a text is a constructor with a single field, its list of characters, and such a constructor counts as smaller when what's inside it is a part of what it held in the pattern. One-field records work the same way. The one field must be data, not a proof, and the part must be reached through fields of data: a proof is the same value whatever is inside it, so shrinking what's in one doesn't make anything smaller.
 
 ## When the argument isn't a part: `decreasing`
 
