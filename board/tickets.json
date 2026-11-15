@@ -36714,12 +36714,12 @@
     {
       "id": 3325,
       "title": "[Sonnet] Arm-as-written display gaps (SW-3317 review): holes under a lambda or inside an application show the arm's context against one case's goal with no note; indexed-family splits not recorded; or-pattern arms show only the first alternative",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From the SW-3317 review. Expected: 2 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36804,12 +36804,12 @@
     {
       "id": 3331,
       "title": "[Opus] same_heads' sealed-call branch (hidden opaque calls, calls of the group being checked) also leaves a failed nested comparison's solutions; apply SW-3330's mark/restore there",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "From SW-3330. Expected: 45 min (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
