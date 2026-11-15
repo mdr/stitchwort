@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/reads-chain-swapped-pair.sw:16:69 ]
+    │
+ 16 │     Parse.readsDone (second, first) _ (rewrite firstIs, secondIs in rfl)))
+    │                                                                     ─┬─  
+    │                                                                      ╰─── `rfl` proves an equation, but the expected type is `?21 [first] first firstIs letter1 [second] second secondIs letter2 [] (second, first)`
+────╯

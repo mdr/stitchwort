@@ -6,6 +6,7 @@ mod fmt_hashes;
 mod hash_stability;
 mod import_cost;
 mod pinned_hashes;
+mod reads_chain_cost;
 mod search_at;
 mod search_at_bench;
 mod search_bench;

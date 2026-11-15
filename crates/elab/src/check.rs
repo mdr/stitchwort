@@ -6864,6 +6864,11 @@ fn propagate(
     match plan.apply(cx, expr.span(), expected) {
         Ok(term) => Ok(Some(Ok(term))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
+        Err(_) if plan.by_arguments => {
+            let Propagation { snapshot, .. } = *plan;
+            snapshot.restore(cx);
+            Ok(Some(after_arguments_failed(cx, expr, expected, named)))
+        }
         Err(propagated) => {
             let Propagation {
                 args,
@@ -6902,6 +6907,27 @@ fn propagated(
         ));
     }
     compare(cx, term, &found, expected)
+}
+
+/// After [`propagate`] failed for the application `expr`, whose result type
+/// matched `expected` only by the arguments of the two calls: put back as it
+/// was, `expr` elaborated as it would have been had that comparison failed,
+/// inferred and then compared ([`fallback_inferred`]), so its error is the
+/// one it would have given. Inside, applications still use their expected
+/// types first, all but by arguments.
+#[inline(never)]
+fn after_arguments_failed(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<Term> {
+    let off = &cx.e.decl.no_argument_propagation;
+    off.set(off.get() + 1);
+    let result = fallback_inferred(cx, expr, expected, named);
+    let off = &cx.e.decl.no_argument_propagation;
+    off.set(off.get() - 1);
+    result
 }
 
 /// After [`propagate`] failed with `propagated` for the application `expr`
@@ -6963,6 +6989,9 @@ struct Propagation<'a> {
     supply: Supply,
     snapshot: crate::undo::Snapshot,
     by_holes: bool,
+    /// Matched not by `_`s but by the arguments of the two calls, the plain
+    /// comparison having failed.
+    by_arguments: bool,
 }
 
 /// `args` with those at the positions in `pipes` (written `_`, and checked
@@ -7090,17 +7119,20 @@ fn propagation_plan<'a>(
     // comparison at the end settles it.
     let written = effects::unknown_bare_value(cx, &written)?.unwrap_or(written);
     name_unknown(cx, &written, named)?;
-    // By `_`s, as the comparison after a lambda put off is
-    // (`apply_args_postponing`): if the plain comparison fails, the
-    // unknowns may be solved from the arguments of two calls of the same
-    // definition (`Reads (() => bind (?p ()) ?j) …` against `Reads (() =>
-    // j x) …`), which only their arguments can say.
-    let matched = if by_holes {
-        crate::undo::unify(cx, &written, expected)?
-            || crate::undo::unify_solving_arguments(cx, &written, expected)?
-    } else {
-        cx.unify(&written, expected)?
-    };
+    // As the comparison after a lambda put off is (`finish_application`):
+    // if the plain comparison fails, the unknowns may be solved from the
+    // arguments of two calls of the same definition (`Reads (() => bind
+    // (?p ()) ?j) …` against `Reads twoLetters …`), which only their
+    // arguments can say. Left to that later comparison, they stay unknown
+    // while the arguments are checked: a lemma's type parameters (an
+    // ability's `t` in `Parse.readsThen`) among them, so each argument is
+    // checked against a type that can't fail early, and a lambda is checked
+    // in place, fails, and is checked again (SW-3281).
+    let plain = crate::undo::unify(cx, &written, expected)?;
+    let by_arguments = !plain
+        && (by_holes || cx.e.decl.no_argument_propagation.get() == 0)
+        && crate::undo::unify_solving_arguments(cx, &written, expected)?;
+    let matched = plain || by_arguments;
     if !matched {
         snapshot.restore(cx);
         return Ok(None);
@@ -7124,6 +7156,7 @@ fn propagation_plan<'a>(
         supply,
         snapshot,
         by_holes,
+        by_arguments: by_arguments && !by_holes,
     })))
 }
 

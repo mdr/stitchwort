@@ -56,6 +56,13 @@ pub(crate) struct Decl {
     /// with its expected type first failed: no application inside is
     /// compared that way (`check::propagate`, D2342).
     pub(crate) no_hole_propagation: Cell<usize>,
+    /// Above zero while an application is elaborated again after its
+    /// result type, compared with its expected type by the arguments of the
+    /// two calls (the plain comparison having failed), was used first and
+    /// the application then failed: no application inside is compared by
+    /// arguments that way, so a failing chain of lemmas isn't tried twice at
+    /// every level (`check::propagate`, SW-3281).
+    pub(crate) no_argument_propagation: Cell<usize>,
     /// Above zero while a lambda is checked in place in an application
     /// elaborated again after a propagation by `_`s failed
     /// (`check::apply_args_postponing`): a lambda inside is not tried in
@@ -259,6 +266,7 @@ impl Decl {
             arm_reach,
             no_propagation,
             no_hole_propagation,
+            no_argument_propagation,
             in_place_trial,
             bare_rows_pure,
             late_literals,
@@ -298,6 +306,10 @@ impl Decl {
             ("arm_reach", arm_reach.borrow().is_empty()),
             ("no_propagation", no_propagation.get() == 0),
             ("no_hole_propagation", no_hole_propagation.get() == 0),
+            (
+                "no_argument_propagation",
+                no_argument_propagation.get() == 0,
+            ),
             ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
