@@ -831,3 +831,144 @@ it, or stay a run-time check.
     nothing here touches `Args`), which hides whether the tests after it
     pass.
 
+
+### Part 3 (Fable, 15 Nov 2026): the rest of the parser's read-back, the lexemes, `lex`
+
+A 1-hour lane, used for about 35 minutes of the clock: 67 theorems (4 in
+std, 63 in the toy), almost all first time. D3618 came in at the start
+(no `AsWritten`) and its design during the lane (a comment slot on every
+token), so nothing here proves where comments sit beyond what the
+parser's own functions say (`notedStatement`, `notedDeclaration`,
+`trailingFor`), and the `AsWritten` case is not proved.
+
+**Proved** (no open goals, no axioms; `stitchwort audit Toy` and `audit
+Std.Parse` clean but for the search's "no input made the hypotheses
+true" on state-shaped hypotheses):
+
+- `Syntax/BlockProofs.sw`, each construct given its parts: `runsIf`
+  (keyword, condition, `then`, body, `else`, body), `runsElse`,
+  `runsKeyword`, `runsBodyInline` and `runsBodyBlock` (which of the two
+  `body` reads is decided by the next token starting a line deeper),
+  `runsLineLet`, `runsLineBare`, `runsStatement`, `statementDeclines`
+  (a block ends at a token that doesn't start a line at its column),
+  `runsBlock`, `runsDeclarationValue`, `runsDeclarationFunction`,
+  `runsParameters`, `runsNoParameters`, `runsDeclaration`,
+  `declarationDeclines`, `runsSourceFile`, and `parseReads`: a source that
+  lexes, whose tokens `sourceFile` reads to the end as a file, parses to
+  that file.
+- Tied together from a spelling:
+  - `runsExpression` now covers an `if` whose branches are each one
+    expression (`Shaped` and `Spelled` have an `if` arm, `ShapedInline`
+    and `SpelledInline`), nested anywhere, in brackets too.
+    `runsIfExample`: the six tokens of `if a then b else c`.
+  - `runsBody` and `runsBodySpelled`: tokens that spell a body after `=`
+    (`SpelledBody`: one expression, or a block of `let` and expression
+    statements at the column of its first token, to any depth, each
+    statement's first token carrying the notes above it) read back
+    through `body` and `bodyFuel`; the block's fuel is shown to be enough.
+  - `runsValueSpelled`, `runsFunctionSpelled`: a whole declaration.
+- `Syntax/LexProofs.sw`: `lexemeAt` reads each of the other eight
+  lexemes (`runsSpacesLexeme`, `runsLineBreakLexeme`, `runsCommentLexeme`,
+  `runsDigitsLexeme`, `runsPunctuationLexeme`, `runsStrayLexeme`,
+  `runsSymbolsLexeme`, `runsStringLexeme` with an instance); `lexReads`:
+  a source `lexemeAt` reads lexeme by lexeme to its end, whose slices add
+  up to it, lexes to those lexemes located and the tokens `assemble`
+  makes of them; and what each lexeme does to the tokens being assembled
+  (`addSpaces`, `addLineBreak`, `addOwnLineComment`,
+  `addTrailingComment`, `addCode`).
+- Std: `Parse.runsFromRun`, `runsFromWhole`,
+  `runsFromWithFinalLineBreaks`, `runsFromAll`: the runners' completeness
+  from the start state, for a parser whose value depends on where it
+  starts (`locatedToEnd`'s offsets). `lexReads` needed them.
+
+Checked to fail on a broken program: a statement accepted at a deeper
+column fails `runsStatement` and `statementStops`. The lexeme lemmas take
+the lexer's pure choices (`lexemeStart`, `operatorNext`, `segmentStart`)
+as hypotheses, so breaking those functions does not fail them; the
+lemmas that discharge the hypotheses (`wordLexemeStart`,
+`digitsLexemeStart`) would.
+
+**Restructured, same behaviour** (93 tests pass): the parser's inline
+body, bare statement, a statement's line and its notes, a declaration's
+line and its notes, and the file's end are functions of their own
+(`inlineBody`, `bareStatement`, `statementLine`, `notedStatement`,
+`declarationLine`, `notedDeclaration`, `fileEnd`, `fileOf`); the lexer's
+operator run and string piece choose in pure functions (`operatorNext`,
+`segmentStart`) and the string's closing quote is `stringClosed`.
+
+**Not done, and what it needs:**
+
+1. **An `if` with a block for a branch.** The block's last statement is
+   followed by tokens outside the `if` (`else`, or whatever follows the
+   whole expression), and its layout is `InStatement column start` with
+   `start` the offset of the statement's first token: `Layout.allows` lets
+   a token through if its offset is `start`. So "the next token is not
+   part of this statement" needs the tokens' offsets to differ, which
+   `Spelled` does not say (it has no `rest`). Either `Spelled` gets the
+   tokens that follow, as `SpelledBody` has, or a predicate that the
+   following token starts a line at or left of the statement with an
+   offset none of the expression's tokens has. About 20-30 lemmas, mostly
+   lists of offsets. `SpelledBody`'s block arm already states the
+   condition per statement (`EndsExpression (InStatement column
+   first.offset) (later ++ rest)`), for layer E to supply.
+2. **The file from its spelling**: `runsSourceFile` takes the rounds; a
+   `SpelledFile` like `SpelledLines` (declarations at column 0, the notes
+   above each, the end notes) is the same induction again, about 10
+   lemmas. Left because the notes are what D3618 changes.
+3. **`covers`** in `lexReads` is a hypothesis: the lexemes' slices joined
+   are the source. It needs std lemmas about `Text.slice` and
+   `Text.concat` (none found).
+4. **A digit is no word start**, a hypothesis of `runsDigitsLexeme`: a
+   fact about `Char.isAsciiDigit` and `isAsciiLetter` for an unknown
+   character.
+5. **Layer E** was not started.
+
+**Under D3618's design** (a comment slot on every token, no `AsWritten`,
+no note lines): the structural lemmas keep their statements (`runsIf`,
+`runsElse`, `runsKeyword`, `runsBodyBlock`, `runsLineLet`, `runsBlock`,
+`statementDeclines`, `declarationDeclines`, the parameters, the
+declarations' lines, every lexeme lemma, `lexReads`, the std lemmas).
+These change with the tree: `runsBareStatement`, `runsInlineBody`,
+`runsBodyInline`, `bodyOf` and `SpelledInline` (a bare statement's
+`trailingFor`); `runsStatement`, `SpelledLines`, `linesRun`,
+`firstBlank` and `groupSome` (the notes above a statement, kept in
+`pending`; with comments on tokens the block's lines are just its
+statements and `linesRun` loses its hardest third); `runsDeclaration`,
+`runsValueSpelled`, `runsFunctionSpelled` (`notedDeclaration`, which
+holds the `AsWritten` test); `runsSourceFile` (`fileOf`'s end notes);
+`addOwnLineComment`, `addTrailingComment`, `addCode` (the token's
+`above` and `trailing`).
+
+**Re-estimate** [estimated, from this lane's measured pace of about 2
+theorems a minute where the technique is known]:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| D, parser | `if` with a block branch; the file from its spelling; redo of the comment-bearing lemmas after lane T | 40-60 |
+| B, lexing | `covers` (std `Text`), `assemble` over a whole line and file (columns, line starts), texts to lexemes | 40-60 |
+| A, engine | unchanged from part 2 | 20-30 |
+| E, rules to tokens | untried | 50-70 |
+| WF | unchanged | 50-70, or a run-time walk |
+| Glue | unchanged | 10 |
+
+Two to three more lanes of this size, best run after lane T has changed
+the tree, since D's comment-bearing lemmas, E and WF are all stated
+against it.
+
+**Friction** (beyond parts 1 and 2):
+
+13. **A `let (a, b) := f x` after which the pair doesn't compute** (a
+    fold over an unknown list) blocks `rfl`; the lines were moved into
+    functions (`notedStatement`, `fileOf`) so a theorem can name the
+    result.
+14. **A helper's call nested in a record literal elaborates with one
+    more bind** than `let line := helper …` then the record; the
+    program was written the second way.
+15. **`rewrite starts` reaches the first read only** (as friction 9):
+    in `runsDeclaration` the second use of `start.rest` is not rewritten,
+    which is what the proof needs there, but only by luck.
+16. **`match h: e with` already replaces `e` in the goal**; a `rewrite h`
+    after it finds nothing (the error says so, well).
+17. `test` is a keyword and can't be a parameter name.
+18. The audit's search reports "no input made the hypotheses true" for
+    any theorem whose hypothesis is about a parser state.
