@@ -53,7 +53,9 @@ pub struct TypeId(pub u32);
 /// be read off the operation itself.
 ///
 /// It is `IO`, with `Fail` and `Files` if `main` may use them. A row lists
-/// the library's abilities first, by name, then the core's, so the row is
+/// the library's abilities first, by name, then the core's (the elaborator
+/// sorts a row by each ability's `order`, in `effect_type` of
+/// `crates/elab/src/effects.rs`), so the row is
 /// `Plus Fail (Plus Files (Plus IO NoOp))` with whichever of the first two
 /// are missing left out: an operation is `L` of the first ability's, or `R`
 /// of an operation of the rest of the row.

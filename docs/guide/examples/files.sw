@@ -24,7 +24,7 @@ def tidy (path: Path): {Files} Result Bool FileError := match Files.read path wi
     let tidied := text.lines.map (line => line.trim) |> .joinWith "\n"
     if tidied == text then Ok False else Files.write (path, tidied) |> .map (done => True)
 
-def notes: Path := "notes.txt".toPath
+def notes: Path := "docs".toPath.child "notes.txt"
 
 test "tidy rewrites an untidy file" :=
   let (disk, changed) := Files.simulate (Disk.fromList [(notes, " a \nb")]) (() => tidy notes)

@@ -35,10 +35,18 @@ pub enum Failure {
     Other(String),
 }
 
-/// A `Path` value's parts, joined with `/`, after `/` if it is absolute;
-/// the starting folder (`.`) if it has none.
+/// A `Path` value as a host path: its parts as `Path.normal` takes them
+/// (each split again at `/`, with empty parts and `.` dropped, `..` kept),
+/// joined with `/`, after `/` if it is absolute; the starting folder (`.`)
+/// if none is left. `Files.simulate`'s disk reads a path through the same
+/// `Path.normal`, so a path built by hand means the same to both.
 pub fn host_path(parts: &[String], absolute: bool) -> PathBuf {
-    let joined = parts.join("/");
+    let joined = parts
+        .iter()
+        .flat_map(|part| part.split('/'))
+        .filter(|part| !part.is_empty() && *part != ".")
+        .collect::<Vec<_>>()
+        .join("/");
     match (absolute, joined.is_empty()) {
         (true, _) => PathBuf::from(format!("/{joined}")),
         (false, true) => PathBuf::from("."),
@@ -87,16 +95,33 @@ static TEMPORARY: AtomicU64 = AtomicU64::new(0);
 /// `Files.write`: replaces the file whole, or creates it. The text goes to a
 /// temporary file beside the target, which is then renamed over it, so the
 /// target is never left half written: it has its old contents or the new
-/// ones. An existing file keeps its permissions; a link is written through
-/// to the file it points at.
+/// ones. An existing file must be writable, and keeps its permissions (not
+/// its other hard links or its owner); the temporary file is never readable
+/// more widely than the file will be. A link is written through to the file
+/// it points at, even one that doesn't exist yet. Something that isn't a
+/// regular file (a device or a pipe) is written in place: replacing it
+/// whole means nothing.
 pub fn write(path: &Path, text: &str) -> Result<(), Failure> {
-    let target = match fs::symlink_metadata(path) {
-        Ok(m) if m.file_type().is_symlink() => fs::canonicalize(path).unwrap_or(path.into()),
-        _ => path.to_path_buf(),
-    };
+    let target = resolve_link(path);
     let existing = match fs::metadata(&target) {
         Ok(m) if m.is_dir() => return Err(Failure::NotAFile),
-        Ok(m) => Some(m.permissions()),
+        Ok(m) if !m.is_file() => {
+            return fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&target)
+                .and_then(|mut file| file.write_all(text.as_bytes()))
+                .map_err(|e| failure(&e));
+        }
+        Ok(m) => {
+            // Renaming needs only the folder's permission: ask the system
+            // whether the file itself may be written, as `>` would.
+            fs::OpenOptions::new()
+                .write(true)
+                .open(&target)
+                .map_err(|e| failure(&e))?;
+            Some(m.permissions())
+        }
         Err(e) if e.kind() == io::ErrorKind::NotFound => None,
         Err(e) => return Err(failure(&e)),
     };
@@ -104,21 +129,27 @@ pub fn write(path: &Path, text: &str) -> Result<(), Failure> {
         // `..` or the root: a folder.
         return Err(Failure::NotAFile);
     };
-    let temporary = target.with_file_name(format!(
-        ".{}.{}-{}.tmp",
-        name.to_string_lossy(),
-        std::process::id(),
-        TEMPORARY.fetch_add(1, Ordering::Relaxed)
-    ));
+    let number = TEMPORARY.fetch_add(1, Ordering::Relaxed);
+    let name = name.to_string_lossy();
+    // A long name would make the temporary one too long for the system.
+    let temporary = target.with_file_name(if name.len() > 200 {
+        format!(".sw-{}-{number}.tmp", std::process::id())
+    } else {
+        format!(".{name}.{}-{number}.tmp", std::process::id())
+    });
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    if existing.is_some() {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(&temporary).map_err(|e| failure(&e))?;
     let written = (|| {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
-        file.write_all(text.as_bytes())?;
         if let Some(permissions) = existing {
             file.set_permissions(permissions)?;
         }
+        file.write_all(text.as_bytes())?;
         file.sync_all()?;
         fs::rename(&temporary, &target)
     })();
@@ -126,6 +157,21 @@ pub fn write(path: &Path, text: &str) -> Result<(), Failure> {
         let _ = fs::remove_file(&temporary);
         failure(&e)
     })
+}
+
+/// Where a write to `path` goes: the file a link points at, or `path`
+/// itself. A link to a file that doesn't exist yet resolves to that file's
+/// path, beside the link, so the write creates it and the link survives.
+fn resolve_link(path: &Path) -> PathBuf {
+    match fs::symlink_metadata(path) {
+        Ok(m) if m.file_type().is_symlink() => {
+            fs::canonicalize(path).unwrap_or_else(|_| match fs::read_link(path) {
+                Ok(to) => path.parent().unwrap_or(Path::new(".")).join(to),
+                Err(_) => path.to_path_buf(),
+            })
+        }
+        _ => path.to_path_buf(),
+    }
 }
 
 /// `Files.list`: the folder's entries, sorted by name. A name that isn't
@@ -232,6 +278,13 @@ mod tests {
         write(&file, "y").unwrap();
         let mode = fs::metadata(&file).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o640);
+        // A file that may not be written isn't replaced, whatever its folder
+        // allows.
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o444)).unwrap();
+        if fs::OpenOptions::new().write(true).open(&file).is_err() {
+            assert_eq!(write(&file, "z"), Err(Failure::NotPermitted));
+            assert_eq!(read(&file).as_deref(), Ok("y"));
+        }
         // Running as root, nothing is refused: there's nothing to test.
         fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).unwrap();
         if fs::read(&file).is_err() {
@@ -243,6 +296,61 @@ mod tests {
             fs::set_permissions(&locked, fs::Permissions::from_mode(0o700)).unwrap();
         }
         fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A pipe is written in place, not replaced; a link to a missing file
+    /// creates the file and stays a link.
+    #[cfg(unix)]
+    #[test]
+    fn host_files_pipes_and_dangling_links_survive_a_write() {
+        let dir = scratch("special");
+        let pipe = dir.join("pipe");
+        assert!(
+            std::process::Command::new("mkfifo")
+                .arg(&pipe)
+                .status()
+                .unwrap()
+                .success()
+        );
+        let reader = {
+            let pipe = pipe.clone();
+            std::thread::spawn(move || fs::read_to_string(pipe).unwrap())
+        };
+        write(&pipe, "through").unwrap();
+        assert_eq!(reader.join().unwrap(), "through");
+        assert!(!fs::symlink_metadata(&pipe).unwrap().is_file());
+        let link = dir.join("link");
+        std::os::unix::fs::symlink("target.txt", &link).unwrap();
+        write(&link, "made").unwrap();
+        assert!(
+            fs::symlink_metadata(&link)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(read(&dir.join("target.txt")).as_deref(), Ok("made"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A private file stays private across a write, and a name too long to
+    /// lengthen still writes (through a short temporary name).
+    #[cfg(unix)]
+    #[test]
+    fn host_files_private_and_long_names() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch("private");
+        let file = dir.join("token");
+        write(&file, "old").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        write(&file, "new").unwrap();
+        assert_eq!(
+            fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+        let long = dir.join("n".repeat(250));
+        write(&long, "long").unwrap();
+        assert_eq!(read(&long).as_deref(), Ok("long"));
         fs::remove_dir_all(&dir).unwrap();
     }
 

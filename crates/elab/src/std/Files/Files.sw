@@ -19,16 +19,25 @@
 
 --| Where a file or folder is: its parts in order, and whether it starts at
 --| the root (`/srv/notes.txt`) or at the folder the program was started in
---| (`notes.txt`). The separator is `/` on every host. A part may be `..`,
---| which the host takes as the folder above; [`Files.simulate`]'s disk takes
---| it as a name.
+--| (`notes.txt`). The separator is `/` on every host. The operations read a
+--| path as [`Path.normal`] gives it, so a part holding `/`, or one that is
+--| `""` or `.`, means what it would in text. A part may be `..`, which the
+--| host takes as the folder above; [`Files.simulate`]'s disk refuses it.
 type Path = { parts: List Text, absolute: Bool }
+
+--| The place a path names, as the operations read it: each part split again
+--| at `/`, then empty parts and `.` dropped, so `{ parts = ["a/b", "", "."],
+--| absolute = False }` is `a/b`. `..` is kept. A path from [`Path.parse`] is
+--| already normal.
+def Path.normal (path: Path): Path := {
+  parts = path.parts.concatMap (part => part.split '/') |> .filter (part => part != "" && part != "."),
+  absolute = path.absolute
+}
 
 --| The path a text names: split at each `/`, with empty parts and `.`
 --| dropped, so `"a//b/./c"` is `a/b/c`. A leading `/` makes it absolute;
 --| `""` and `"."` are the starting folder itself.
-def Path.parse (text: Text): Path :=
-  { parts = text.split '/' |> .filter (part => part != "" && part != "."), absolute = text.startsWith "/" }
+def Path.parse (text: Text): Path := Path.normal { parts = [text], absolute = text.startsWith "/" }
 
 --| [`Path.parse`] for dot notation: `"notes/today.txt".toPath`.
 def Text.toPath (text: Text): Path := Path.parse text
@@ -60,9 +69,39 @@ instance Path.instDecEq: DecEq Path := {
 }
 
 --| In order of their parts, as lists of texts, then relative before
---| absolute: a folder sorts just before what is in it.
+--| absolute. Since a list sorts just before the lists it starts, a folder
+--| sorts just before what is in it.
 instance Path.instOrd: Ord Path :=
   Ord.byKey (p => (p.parts, p.absolute)) (p q same => Path.ext p q (Eq.cong Pair.fst same) (Eq.cong Pair.snd same))
+
+--| `name` inside the folder `path`: `notes.child "today.txt"` is
+--| `notes/today.txt`. The name is added as one part, as written
+--| ([`Path.childParts`]); the operations read it through [`Path.normal`], so
+--| a name holding `/` names a place further in (`"a/b"`), `""` and `.` name
+--| `path` itself, and `..` the folder above (which [`Files.simulate`]'s disk
+--| refuses). Compare paths built so with `.normal` if they may differ that
+--| way.
+def Path.child (path: Path) (name: Text): Path := { parts = path.parts ++ [name], absolute = path.absolute }
+
+--| A child's parts are the folder's with the name after them.
+theorem Path.childParts ∀ (path: Path) (name: Text): (path.child name).parts = path.parts ++ [name] := rfl
+
+--| `other` inside the folder `path`, if `other` is relative: `src.childPath
+--| "Day05/Main.sw".toPath` is `src/Day05/Main.sw`. An absolute `other`
+--| names its own place, so it is the result, as in most languages' path
+--| joins.
+def Path.childPath (path other: Path): Path :=
+  if other.absolute then other else { parts = path.parts ++ other.parts, absolute = path.absolute }
+
+--| Under a relative path, the parts are appended.
+theorem Path.childPathParts ∀ (path other: Path)
+    (relative: other.absolute = False):
+    (path.childPath other).parts = path.parts ++ other.parts :=
+  rewrite relative in rfl
+
+--| An absolute path is its own place, whatever folder it is put under.
+theorem Path.childPathAbsolute ∀ (path other: Path) (absolute: other.absolute = True): path.childPath other = other :=
+  rewrite absolute in rfl
 
 --| The last part, if there is one: `today.txt` for `notes/today.txt`.
 def Path.name (path: Path): Option Text := path.parts.last
@@ -75,8 +114,8 @@ def Path.parent (path: Path): Option Path := match path.parts with
   | parts => Some { parts = parts.init, absolute = path.absolute }
 
 --| What follows the last `.` of the name, if the name has one that isn't its
---| first character: `txt` for `today.txt` and for `a.b.txt`, `None` for
---| `README` and `.profile`.
+--| first character and something follows it: `txt` for `today.txt` and for
+--| `a.b.txt`, `None` for `README`, `.profile`, `notes.` and `..`.
 def Path.extension (path: Path): Option Text := match path.name with
   | None => None
   | Some name =>
@@ -84,7 +123,10 @@ def Path.extension (path: Path): Option Text := match path.name with
       | [] => None
       | [whole] => None
       | ["", rest] => None
-      | pieces => pieces.last
+      | pieces =>
+        match pieces.last with
+          | Some "" => None
+          | last => last
 
 -- What the operations give
 
@@ -136,18 +178,21 @@ instance FileError.instShow: Show FileError := Show.fromText FileError.show
 -- `==` on what the operations give, written by hand: each value is taken
 -- to a tuple of things with `==`, and back.
 
---| The position of a kind's constructor.
+--| Internal, for `==` on kinds: the position of a kind's constructor.
 def FileKind.position: (kind: FileKind) → Nat
   | File => 0
   | Folder => 1
   | Other => 2
 
---| The kind at a position: undoes [`FileKind.position`].
+--| Internal, for `==` on kinds: the kind at a position, undoing
+--| [`FileKind.position`].
 def FileKind.ofPosition (position: Nat): FileKind := match position with
   | 0 => File
   | 1 => Folder
   | _ => Other
 
+--| Internal, for `==` on kinds: [`FileKind.ofPosition`] undoes
+--| [`FileKind.position`].
 theorem FileKind.fromPosition ∀ (kind: FileKind): FileKind.ofPosition kind.position = kind := match kind with
   | File => rfl
   | Folder => rfl
@@ -185,8 +230,8 @@ instance FileInfo.instDecEq: DecEq FileInfo := {
     else Decidable.no (e => sameKind (Eq.cong (r => r.kind) e))
 }
 
---| The error as its constructor's position, its path and its message ("" if
---| it has none).
+--| Internal, for `==` on errors: the error as its constructor's position,
+--| its path and its message ("" if it has none).
 def FileError.parts: (error: FileError) → (Nat, Path, Text)
   | NotFound path => (0, path, "")
   | NotPermitted path => (1, path, "")
@@ -195,7 +240,8 @@ def FileError.parts: (error: FileError) → (Nat, Path, Text)
   | NotText path => (4, path, "")
   | OtherError path message => (5, path, message)
 
---| The error with these parts: undoes [`FileError.parts`].
+--| Internal, for `==` on errors: the error with these parts, undoing
+--| [`FileError.parts`].
 def FileError.ofParts (parts: (Nat, Path, Text)): FileError := match parts.fst with
   | 0 => NotFound parts.snd.fst
   | 1 => NotPermitted parts.snd.fst
@@ -204,6 +250,8 @@ def FileError.ofParts (parts: (Nat, Path, Text)): FileError := match parts.fst w
   | 4 => NotText parts.snd.fst
   | _ => OtherError parts.snd.fst parts.snd.snd
 
+--| Internal, for `==` on errors: [`FileError.ofParts`] undoes
+--| [`FileError.parts`].
 theorem FileError.fromParts ∀ (error: FileError): FileError.ofParts error.parts = error := match error with
   | NotFound path => rfl
   | NotPermitted path => rfl
@@ -235,9 +283,12 @@ ability Files where
 -- The pretend disk
 
 --| A disk held in memory, for [`Files.simulate`]: each file's text by path,
---| and the folders. The starting folder and the root (the paths with no
---| parts) are always folders, and need not be listed. A path is taken as its
---| parts, so `a/../b` is not `b` here, and `a.txt` is not `/home/a.txt`.
+--| and the folders, each path normal ([`Path.normal`]). The starting folder
+--| and the root (the paths with no parts) are always folders, and need not
+--| be listed. The operations read a path through [`Path.normal`], as the
+--| host does, and refuse one with a `..` part ([`Disk.noClimbing`]), where
+--| the host would go to the folder above. A path is taken as written
+--| otherwise, so `a.txt` is not `/home/a.txt`.
 type Disk = { files: Map Path Text, folders: Set Path }
 
 theorem Disk.ext ∀ (a b: Disk) (sameFiles: a.files = b.files) (sameFolders: a.folders = b.folders): a = b :=
@@ -265,37 +316,60 @@ def Disk.foldersAbove (path: Path): List Path := match path.parts with
     let above := parts.init
     List.range 1 (above.length + 1) |> .map (n => { parts = above.take n, absolute = path.absolute })
 
---| The disk with these files, and every folder they are in.
+--| The disk with these files, and every folder they are in, each path
+--| normal. A path given as a file stays a file even if another file is
+--| given under it, which then can't be reached.
 def Disk.fromList (files: List (Path, Text)): Disk :=
-  { files = Map.fromList files, folders = files.concatMap (entry => Disk.foldersAbove entry.fst) |> Set.fromList }
+  let normal := files.map (entry => (entry.fst.normal, entry.snd))
+  let fileMap := Map.fromList normal
+  {
+    files = fileMap,
+    folders = normal.concatMap (entry => Disk.foldersAbove entry.fst)
+      |> .filter (folder => !fileMap.contains folder)
+      |> Set.fromList
+  }
 
---| Whether `path` is a folder on the disk.
-def Disk.isFolder (disk: Disk) (path: Path): Bool := path.parts.isEmpty || disk.folders.contains path
+--| Whether the normal path `place` is a folder on the disk.
+def Disk.isFolder (disk: Disk) (place: Path): Bool := place.parts.isEmpty || disk.folders.contains place
 
---| Whether `path` is a file on the disk.
-def Disk.isFile (disk: Disk) (path: Path): Bool := disk.files.contains path
+--| Whether the normal path `place` is a file on the disk.
+def Disk.isFile (disk: Disk) (place: Path): Bool := disk.files.contains place
 
---| Whether a file stands where one of the folders `path` is in should be.
-def Disk.blocked (disk: Disk) (path: Path): Bool := Disk.foldersAbove path |> .any (folder => disk.isFile folder)
+--| Whether a file stands where one of the folders the normal path `place`
+--| is in should be.
+def Disk.blocked (disk: Disk) (place: Path): Bool := Disk.foldersAbove place |> .any (folder => disk.isFile folder)
 
---| Why `path` is neither a file nor a folder: [`NotAFolder`] if a file stands
---| in the way, [`NotFound`] otherwise.
-def Disk.missing (disk: Disk) (path: Path): FileError := if disk.blocked path then NotAFolder path else NotFound path
+--| Whether `path` goes up a folder somewhere: the pretend disk refuses it.
+def Disk.climbs (path: Path): Bool := path.normal.parts.contains ".."
+
+--| The error for a path with `..`, which the pretend disk has no folder above
+--| for.
+def Disk.noClimbing (path: Path): FileError := OtherError path "the pretend disk has no `..`"
+
+--| The error for `path`, which is neither a file nor a folder:
+--| [`NotAFolder`] if a file stands in the way, [`NotFound`] otherwise.
+def Disk.missingError (disk: Disk) (path: Path): FileError :=
+  if disk.blocked path.normal then NotAFolder path else NotFound path
 
 --| What [`Files.read`] gives on this disk.
-def Disk.read (disk: Disk) (path: Path): Result Text FileError := match disk.files.get path with
-  | Some text => Ok text
-  | None => Err (if disk.isFolder path then NotAFile path else disk.missing path)
+def Disk.read (disk: Disk) (path: Path): Result Text FileError :=
+  if Disk.climbs path then Err (Disk.noClimbing path)
+  else
+    match disk.files.get path.normal with
+      | Some text => Ok text
+      | None => Err (if disk.isFolder path.normal then NotAFile path else disk.missingError path)
 
 --| The disk after [`Files.write`], or why the write fails: there's a folder
 --| at the path, a file in the way, or the folder it would go in is missing.
 def Disk.write (disk: Disk) (path: Path) (text: Text): Result Disk FileError :=
-  if disk.isFolder path then Err (NotAFile path)
-  else if disk.blocked path then Err (NotAFolder path)
+  let place := path.normal
+  if Disk.climbs path then Err (Disk.noClimbing path)
+  else if disk.isFolder place then Err (NotAFile path)
+  else if disk.blocked place then Err (NotAFolder path)
   else
-    match path.parent with
+    match place.parent with
       | Some folder =>
-        if disk.isFolder folder then Ok { disk | files = disk.files.insert path text } else Err (NotFound path)
+        if disk.isFolder folder then Ok { disk | files = disk.files.insert place text } else Err (NotFound path)
       | None => Err (NotFound path)
 
 --| Whether `child` is directly in the folder `folder`.
@@ -304,22 +378,24 @@ def Disk.isChild (folder child: Path): Bool := child.parent == Some folder
 --| What [`Files.list`] gives on this disk: the files and folders directly in
 --| the folder, sorted by name.
 def Disk.list (disk: Disk) (path: Path): Result (List Entry) FileError :=
-  if disk.isFolder path then
+  let place := path.normal
+  if Disk.climbs path then Err (Disk.noClimbing path)
+  else if disk.isFolder place then
     let named := (kind: FileKind) => (child: Path) => { name = child.name.getOrElse "", kind = kind }
-    let files := disk.files.keys.filter (Disk.isChild path) |> .map (named File)
-    let folders := disk.folders.toList.filter (Disk.isChild path) |> .map (named Folder)
+    let files := disk.files.keys.filter (Disk.isChild place) |> .map (named File)
+    let folders := disk.folders.toList.filter (Disk.isChild place) |> .map (named Folder)
     Ok (files ++ folders |> .sortBy (a b => Text.compare a.name b.name))
-  else if disk.isFile path then Err (NotAFolder path)
-  else Err (disk.missing path)
+  else if disk.isFile place then Err (NotAFolder path)
+  else Err (disk.missingError path)
 
---| The size of a text in bytes, as UTF-8.
-def Disk.utf8Size (text: Text): Nat := text.toList.map (c => (Char.utf8 c).length) |> .sum
-
---| What [`Files.info`] gives on this disk: a file's size is its text's size
---| in UTF-8.
-def Disk.info (disk: Disk) (path: Path): Result FileInfo FileError := match disk.files.get path with
-  | Some text => Ok { kind = File, size = Disk.utf8Size text }
-  | None => if disk.isFolder path then Ok { kind = Folder, size = 0 } else Err (disk.missing path)
+--| What [`Files.info`] gives on this disk: a file's size is its text's
+--| length in UTF-8 ([`Text.utf8Length`]).
+def Disk.info (disk: Disk) (path: Path): Result FileInfo FileError :=
+  if Disk.climbs path then Err (Disk.noClimbing path)
+  else
+    match disk.files.get path.normal with
+      | Some text => Ok { kind = File, size = text.utf8Length }
+      | None => if disk.isFolder path.normal then Ok { kind = Folder, size = 0 } else Err (disk.missingError path)
 
 --| Runs a program against a disk held in memory: what it reads comes from
 --| `disk`, and what it writes changes it. Gives the disk at the end with the

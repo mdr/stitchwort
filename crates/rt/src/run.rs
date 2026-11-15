@@ -1111,6 +1111,9 @@ impl<'t, E: Executor> Runner<'t, E> {
             }
             list
         } else if tag == s.print_error {
+            // As `print` does: a bare line ending in keys mode would draw
+            // over the screen.
+            self.terminal.keys_mode(false, output)?;
             crate::host::print_error(output, crate::prims::text_of(&field()))?;
             Value::Tag(s.unit)
         } else {

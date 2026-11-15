@@ -294,7 +294,7 @@ impl Session {
             )
             .with_label(span, "defined here")
             .with_note(
-                "a function to run takes `()` and returns `()`, with abilities among IO, Fail, Files and Partial: `() -> {IO} ()`, `() -> {IO, Fail} ()`, `() -> {Files, IO, Fail, Partial} ()` or `() -> ()`, say",
+                "a function to run takes `()` and returns `()`, with abilities among IO, Fail, Files and Partial: for example `() -> {IO} ()`, `() -> {IO, Fail} ()`, `() -> {Files, IO, Fail, Partial} ()` or `() -> ()`",
             )),
         }
     }
@@ -640,6 +640,7 @@ impl Session {
             }
             Value::Ctor(d, c, payload) if d == s.io && c == s.print_error => {
                 let text = s.text_to_string(self, &payload[0])?;
+                terminal.keys_mode(false, output)?;
                 print_error(output, &text)?;
                 trace(Event::PrintError(text));
                 s.unit()

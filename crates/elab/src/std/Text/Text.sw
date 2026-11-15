@@ -647,3 +647,10 @@ test "Char.isAsciiDigit" :=
     ∧ ¬(Char.isAsciiDigit '٣')
 test "Char.isAsciiAlphanumeric" :=
   Char.isAsciiAlphanumeric 'q' ∧ Char.isAsciiAlphanumeric '7' ∧ ¬(Char.isAsciiAlphanumeric '#')
+
+--| The number of bytes the text takes as UTF-8: one for each character
+--| below U+0080, up to four for the rest ([`Char.utf8`]). `"é→"` is 5
+--| bytes, where its [`Text.length`] is 2. A file's size is this.
+def Text.utf8Length (text: Text): Nat := text.toList.map (c => (Char.utf8 c).length) |> .sum
+
+test "utf8Length counts bytes" := "aé→😀".utf8Length == 10 ∧ "".utf8Length == 0

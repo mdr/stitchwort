@@ -62,9 +62,35 @@ impl Seeded {
     }
 }
 
-/// The paths a script touches: missing ones, a folder, a file in it, a path
-/// through a file, the starting folder.
-const PATHS: &[&str] = &["a.txt", "b", "d", "d/x.txt", "d/y", "a.txt/z", "e/f", "."];
+/// The paths a script touches, as Stitchwort expressions, each with whether
+/// a script may write to it: missing ones, a folder, a file in it, a path
+/// through a file, the starting folder; paths built by hand with parts that
+/// hold `/` or are `""` or `.`, which both sides read through
+/// `Path.normal`; and paths with `..`, which the host follows and the
+/// pretend disk refuses, so they are only read, and their replies aren't
+/// compared.
+const PATHS: &[(&str, bool)] = &[
+    ("\"a.txt\".toPath", true),
+    ("\"b\".toPath", true),
+    ("\"d\".toPath", true),
+    ("\"d/x.txt\".toPath", true),
+    ("\"d/y\".toPath", true),
+    ("\"a.txt/z\".toPath", true),
+    ("\"e/f\".toPath", true),
+    ("\".\".toPath", true),
+    ("{ parts = [\"d/y\"], absolute = False }", true),
+    (
+        "{ parts = [\"d\", \"\", \".\", \"z\"], absolute = False }",
+        true,
+    ),
+    ("{ parts = [\".\"], absolute = False }", true),
+    ("{ parts = [\"\", \"b\"], absolute = False }", true),
+    ("\"..\".toPath", false),
+    ("\"d/../d/x.txt\".toPath", false),
+];
+
+/// What the pretend disk says of a path with `..`.
+const NO_CLIMBING: &str = "the pretend disk has no `..`";
 
 /// What the folder holds before a script, as `Disk.fromList` and as files.
 const START: &[(&str, &str)] = &[("d/x.txt", "x"), ("d/k/n", "")];
@@ -76,17 +102,18 @@ fn script(seed: u64, length: usize) -> String {
     let texts = ["", "one", "é → ∀", "two\nlines\n"];
     let mut lines = Vec::new();
     for i in 0..length {
-        let path = PATHS[random.below(PATHS.len())];
+        let path = random.below(PATHS.len());
+        let writable = PATHS[path].1;
         let call = match random.below(4) {
-            0 => format!("describe (Files.read \"{path}\".toPath) (t => t)"),
-            1 => {
+            0 => format!("describe (Files.read p{path}) (t => t)"),
+            1 if writable => {
                 let t = texts[random.below(texts.len())].replace('\n', "\\n");
-                format!("describe (Files.write (\"{path}\".toPath, \"{t}\")) (u => \"\")")
+                format!("describe (Files.write (p{path}, \"{t}\")) (u => \"\")")
             }
-            2 => format!("describe (Files.list \"{path}\".toPath) entries"),
-            _ => format!("describe (Files.info \"{path}\".toPath) info"),
+            1 | 2 => format!("describe (Files.list p{path}) entries"),
+            _ => format!("describe (Files.info p{path}) info"),
         };
-        lines.push(format!("  let r{i} := \"{path}: \" ++ {call}"));
+        lines.push(format!("  let r{i} := \"${{p{path}}}: \" ++ {call}"));
     }
     let names: Vec<String> = (0..length).map(|i| format!("r{i}")).collect();
     lines.push(format!("  [{}]", names.join(", ")));
@@ -117,6 +144,8 @@ def describe (result: Result a FileError) (show: a → Text): Text := match resu
   | Ok x => "ok ${{show x}}"
   | Err error => "error ${{error}}"
 
+{}
+
 def script(): {{Files}} (List Text) :=
 {}
 
@@ -126,6 +155,12 @@ def main(): {{Files, IO}} () :=
   let lines := if IO.args() == ["model"] then (Files.simulate start script).snd else script()
   lines.forEach IO.print
 "#,
+        PATHS
+            .iter()
+            .enumerate()
+            .map(|(i, (path, _))| format!("def p{i}: Path := {path}"))
+            .collect::<Vec<_>>()
+            .join("\n"),
         script(seed, length),
         start.join(", ")
     )
@@ -175,11 +210,19 @@ fn files_scripts_agree_with_the_model_on_each_runner() {
                 "{flags:?} failed: {}",
                 text(&real.stderr)
             );
-            assert_eq!(
-                text(&real.stdout),
-                text(&model.stdout),
-                "seed {seed}, {flags:?}: the real disk and the model differ"
-            );
+            // A path with `..` is followed by the host and refused by the
+            // model: those replies aren't compared.
+            let compared = |out: &str| -> Vec<String> { out.lines().map(str::to_string).collect() };
+            let (real, model) = (compared(&text(&real.stdout)), compared(&replies));
+            assert_eq!(real.len(), model.len(), "seed {seed}, {flags:?}");
+            for (real, model) in real.iter().zip(&model) {
+                if !model.contains(NO_CLIMBING) {
+                    assert_eq!(
+                        real, model,
+                        "seed {seed}, {flags:?}: the real disk and the model differ"
+                    );
+                }
+            }
         }
     }
 }
@@ -293,4 +336,54 @@ fn files_under_js_is_refused() {
         text(&ran.stderr)
     );
     assert_eq!(std::fs::read_to_string(&source).expect("read"), VANDAL);
+}
+
+/// A `main` with every ability the runner performs: `Files` and `IO`, then
+/// `Fail` from inside a `Partial` loop. Each operation must reach its own
+/// ability through the row's layout (`MainRow::layout`).
+pub const EVERY_ABILITY: &str = r#"import Std (Fail, FileError, Files, IO, Nat, Path, Result, Text)
+import Std.Fail (fail)
+
+def countdown (n: Nat): {Files, IO, Fail, Partial} () :=
+  if n == 0 then fail "lift-off failed"
+  else
+    Files.write ("count.txt".toPath, "${n}")
+    countdown (n - 1)
+
+def main(): {Files, IO, Fail, Partial} () :=
+  Files.write ("start.txt".toPath, "go")
+  IO.print (Files.read "start.txt".toPath |> .getOrElse "?")
+  IO.printError "counting"
+  countdown 3
+"#;
+
+#[test]
+fn a_main_with_files_io_fail_and_partial_runs_on_each_runner() {
+    let source = work_dir("every-source").join("every.sw");
+    std::fs::write(&source, EVERY_ABILITY).expect("write the program");
+    let mut runners: Vec<&[&str]> = vec![&[], &["--reference"]];
+    if cfg!(feature = "native") {
+        runners.push(&["--native"]);
+    }
+    for flags in runners {
+        let dir = work_dir("every");
+        let ran = run(&dir, flags, &source, &[]);
+        assert_eq!(
+            ran.status.code(),
+            Some(1),
+            "{flags:?}: {}",
+            text(&ran.stderr)
+        );
+        assert_eq!(text(&ran.stdout), "go\n", "{flags:?}");
+        assert_eq!(
+            text(&ran.stderr),
+            "counting\nerror: lift-off failed\n",
+            "{flags:?}"
+        );
+        assert_eq!(
+            std::fs::read_to_string(dir.join("count.txt")).expect("written"),
+            "1",
+            "{flags:?}"
+        );
+    }
 }

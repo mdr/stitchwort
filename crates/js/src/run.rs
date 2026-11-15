@@ -717,6 +717,7 @@ import { execFileSync as __execFileSync } from "node:child_process";
       // Standard error, after what is pending on standard output; a
       // standard error that can't be written to is ignored.
       case SHAPE.printError: {
+        leaveKeys();
         flush();
         const bytes = Buffer.from(op[SHAPE.printErrorText] + "\n", "utf8");
         let offset = 0;

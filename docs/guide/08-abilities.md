@@ -363,7 +363,7 @@ To test code that performs `IO`, handle it: `IO.simulate` runs a computation aga
 - `Files.list path` gives a folder's entries (`Entry`: a `name` and a `kind`, `File`, `Folder` or `Other`), sorted by name;
 - `Files.info path` gives a `FileInfo`: the `kind` and the `size` in bytes.
 
-A `Path` is a small record of its parts, not a bare `Text`: `"notes/today.txt".toPath` (or `Path.parse`) makes one, and `path.name`, `path.parent`, `path.extension` and `path.show` take it apart. `/` separates parts on every system, and a path that doesn't start with `/` is relative to the folder the program was started in. A failure is a `FileError`: `NotFound`, `NotPermitted`, `NotAFile` (a folder where a file was wanted), `NotAFolder` (a file where a folder was wanted), `NotText`, or `OtherError` with the system's own message. Each holds its path, and `${error}` says what went wrong for people.
+A `Path` is a small record of its parts, not a bare `Text`: `"notes/today.txt".toPath` (or `Path.parse`) makes one, `folder.child "today.txt"` puts a name inside a folder (and `folder.childPath other` a relative path), and `path.name`, `path.parent`, `path.extension` and `path.show` take it apart. `/` separates parts on every system, and a path that doesn't start with `/` is relative to the folder the program was started in. A failure is a `FileError`: `NotFound`, `NotPermitted`, `NotAFile` (a folder where a file was wanted), `NotAFolder` (a file where a folder was wanted), `NotText`, or `OtherError` with the system's own message. Each holds its path, and `${error}` says what went wrong for people.
 
 `main` may have `Files` in its row beside `IO` (and `Fail` and `Partial`), and then `stitchwort run` and a built executable perform it on the real disk, with your permissions, as a program in any other language would. Under `--js` it isn't supported yet. This one counts the lines of the files it's given:
 
@@ -395,7 +395,7 @@ def tidy (path: Path): {Files} Result Bool FileError := match Files.read path wi
     let tidied := text.lines.map (line => line.trim) |> .joinWith "\n"
     if tidied == text then Ok False else Files.write (path, tidied) |> .map (done => True)
 
-def notes: Path := "notes.txt".toPath
+def notes: Path := "docs".toPath.child "notes.txt"
 
 test "tidy rewrites an untidy file" :=
   let (disk, changed) := Files.simulate (Disk.fromList [(notes, " a \nb")]) (() => tidy notes)
