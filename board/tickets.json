@@ -37397,7 +37397,7 @@
     {
       "id": 3376,
       "title": "[Opus] Recursion through map stage 1a (recursion-through-map.md draft 2, D3612): the kernel treats a one-field constructor around a strict part as smaller (rank), exactly one field counting implicit/proof/erased, part reached through matched fields only; docs/core.md; the review's must-reject programs; a referee comparing with a List Char worker; Fable review before merge",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
