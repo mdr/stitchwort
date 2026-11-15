@@ -711,6 +711,10 @@ impl<'p> Interp<'p> {
                         };
                         V::Text(if t == TextTake { taken } else { dropped }.into())
                     }
+                    TextRepeat => {
+                        let n = usize::try_from(&nat(&args[1])?).unwrap_or(usize::MAX);
+                        V::Text(text(&args[0])?.repeat(n).into())
+                    }
                     TextContains => boolean(text(&args[0])?.contains(&*text(&args[1])?)),
                     TextSplit => {
                         let s = chr(&args[1])?;

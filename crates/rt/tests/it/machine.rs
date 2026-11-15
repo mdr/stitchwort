@@ -339,6 +339,43 @@ def main(): {IO} () :=
     assert_eq!(out, "250000\n500000\nfound\nmissing\n");
 }
 
+/// `Text.repeat` with a count that would need more memory than exists is
+/// charged before the text is built, so it runs out of steps like the
+/// definition's loop instead of panicking or asking for the memory.
+#[test]
+fn text_repeat_with_a_huge_count_runs_out_of_steps() {
+    for count in [
+        "18446744073709551616",
+        "18446744073709551615",
+        "4611686018427387904",
+    ] {
+        for text in ["a", "h\\u{E9}\\u{1F600}", ""] {
+            let (out, result) = on_the_machine_with(
+                &format!(
+                    r#"
+import Std (Nat, Text, IO)
+
+def main(): {{IO}} () := IO.print (Nat.toText (Text.length (Text.repeat "{text}" {count})))
+"#
+                ),
+                Limits {
+                    steps: 1_000_000,
+                    frames: 100,
+                    native_frames: 100,
+                    number_words: false,
+                },
+                b"",
+            );
+            assert_eq!(out, "", "{text:?} {count}");
+            let error = result.expect_err("runs out of steps");
+            assert!(
+                error.contains("evaluation steps"),
+                "{text:?} {count}: {error}"
+            );
+        }
+    }
+}
+
 /// `Parse.many` is linear in what it reads: 20,000 digits (AoC 2024 day
 /// 9's input) take a few steps each. Its end value was once computed every
 /// round, quadratic: about 2×10⁸ steps here (SW-1055; 0.6 s to 12 s on the

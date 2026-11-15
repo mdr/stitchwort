@@ -35947,12 +35947,12 @@
     {
       "id": 3273,
       "title": "[Sonnet] Text.repeat runs through lists at run time: a 1 MB text peaks at 242 MB; give it a native (SW-3269 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Found in SW-3269. Expected: 1 h (Sonnet).",
+      "body": "Found in SW-3269. Expected: 1 h (Sonnet).\n\nLane notes (15 Nov 2026): lane/SW-3273 commit 6b1afa7ee. Text.repeat is now a native (registry, TEXT_NATIVES pin c0cd3a04..., prims, wire tag, JS, interp test); the .sw definition is unchanged, so no std hash moved. Agreement test: differential text_repeat_agrees (counts 0/1/2/3/5, empty text, multi-byte and astral). Measured (release binary, repeat a 12-character text to 1.05 MB, then Text.length): peak RSS 206 MB -> 123 MB (a bare run is 110 MB, so extra 97 -> 13 MB); user time 0.45 s -> 0.30 s; instructions 5.11e9 -> 2.95e9. Tests passed: text_natives_are_bound_to_the_prelude, compact_text_is_bound_to_the_prelude, text_repeat_agrees, text_take_drop_and_contains_*. Model result: Sonnet, worked, ~50 min (est. 60).\n",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []

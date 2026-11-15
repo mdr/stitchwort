@@ -637,6 +637,13 @@ impl State {
                         self.regs.truncate(at);
                         return Err(e);
                     }
+                    if let PrimOp::Text(TextNative::TextRepeat) = op
+                        && let Err(e) =
+                            self.charge(prims::text_repeat_cost(&self.regs[at], &self.regs[at + 1]))
+                    {
+                        self.regs.truncate(at);
+                        return Err(e);
+                    }
                     if self.limits.number_words {
                         let refs: SmallVec<[&Value; 4]> = self.regs[at..].iter().collect();
                         let cost = self.number_cost(*op, &refs);
@@ -1292,6 +1299,10 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     if let PrimOp::Array(ArrayNative::Replicate) = op {
                         save!();
                         st.charge(prims::replicate_cost(&reg!(o[0])))?;
+                    }
+                    if let PrimOp::Text(TextNative::TextRepeat) = op {
+                        save!();
+                        st.charge(prims::text_repeat_cost(&reg!(o[0]), &reg!(o[1])))?;
                     }
                     if st.limits.number_words {
                         let refs: SmallVec<[&Value; 4]> =
