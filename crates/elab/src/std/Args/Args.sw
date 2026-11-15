@@ -672,11 +672,10 @@ test "Args.run: with no command line, the spec reads nothing" :=
     Fail.toResult (() => Args.run Args.Tests.program (Args.Spec.start 7) (number => IO.print "got ${number}")))).fst
     == ["got 7"]
 
-test "Args.run: a mistake fails with the complaint, and prints nothing" :=
-  let (printed, result) := IO.simulate [] (() =>
-    Fail.toResult (() => Args.run Args.Tests.program Args.Tests.options (options => IO.print "ran")))
-  printed == []
-    && result == Err "toyfmt: missing PATH\nusage: toyfmt [--check] [--width N] PATH...\nRun 'toyfmt --help' for more."
+test "Args.run: a mistake exits 2 and prints nothing to standard output" :=
+  let (printed, status) :=
+    IO.simulate [] (() => Args.run Args.Tests.program Args.Tests.options (options => IO.print "ran"))
+  printed == [] && status == Args.misuse
 
 test "Args.Value: Text, Nat, Int, Path read and show" :=
   (Args.Value.read "a b": Result Text Text) == Ok "a b"
