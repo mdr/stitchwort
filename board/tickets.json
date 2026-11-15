@@ -36955,12 +36955,12 @@
     {
       "id": 3342,
       "title": "[Sonnet] Toy formatter stage C (toy-formatter.md): file loop under Files, write-counting handler, Files.simulate tests, flags, native build, end-to-end test on a folder. After A, B, SW-3338",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 15 Nov: stages A, B and Files are on main. Expected: 2.5 h (Sonnet).",
+      "body": "Started 15 Nov: stages A, B and Files are on main. Expected: 2.5 h (Sonnet).\n\nProgress, 15 Nov (lane): stage C built on lane/SW-3342 (194b0296d): Toy.Fmt.Driver/Cli, 13 simulate tests, end-to-end test toyfmt_formats_a_folder_under_run_and_built in crates/cli/tests/running/build.rs (passes: run, built, native). 770 KB native 3.6 s. NOTES.md has the friction and timings. Moved to review.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
