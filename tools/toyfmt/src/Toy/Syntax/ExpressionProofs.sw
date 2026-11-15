@@ -294,7 +294,7 @@ def Expr.chainLevel: Expr → Nat
 --| postfix expression, `-` stands before an operand, and an operator's
 --| sides are grouped by precedence, the same level chaining from the left.
 --| An `if`'s branches, blocks included, hold expressions of that shape
---| (`ShapedBody`).
+--| and end in a statement, not a comment line (`ShapedBody`).
 def Shaped: Expr → Prop
   | Var _ _ => True
   | NumberLiteral _ _ => True
@@ -315,7 +315,20 @@ def Shaped: Expr → Prop
 
 --| Each expression in the body is of the parser's shape.
 def ShapedBody: Body → Prop
-  | { statements } => ShapedLines statements
+  | { statements } => ShapedLines statements ∧ ClosedLines statements
+
+--| A statement that isn't a comment line.
+def Coded: Statement → Prop
+  | StatementNote _ => False
+  | _ => True
+
+--| There is a last line, and it is a statement: a body never ends in a
+--| comment line (a comment below the last statement belongs to what
+--| comes after the body).
+def ClosedLines: List (Spaced Statement) → Prop
+  | [] => False
+  | [{ line, .. }] => Coded line
+  | [_, ..rest] => ClosedLines rest
 
 def ShapedLines: List (Spaced Statement) → Prop
   | [] => True
