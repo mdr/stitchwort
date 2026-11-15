@@ -1216,7 +1216,7 @@ impl<'e> Ctx<'e> {
         let mark = self.e.attempt.mark();
         let clash = crate::unify::unify_what_agrees(&self.u(), self.level(), expected, found);
         self.e.attempt.restore(mark);
-        clash.unwrap_or(false)
+        clash.is_ok_and(|c| c.any)
     }
 
     /// A note for each unknown printed as `?N` in `shown` whose origin is
@@ -4047,8 +4047,15 @@ fn check_searches_last(
                 || crate::undo::unify_solving_arguments(cx, ty, expected)?)
         {
             // A search's error names the spec, not an unknown, when only
-            // another part of the call is wrong.
-            crate::unify::unify_what_agrees(&cx.u(), cx.level(), ty, expected)?;
+            // another part of the call is wrong. Not if a type clashes: a
+            // solution beside it may have the wrong type, and the search
+            // would report on terms that can't exist.
+            let mark = cx.e.attempt.mark();
+            let clashes = crate::unify::unify_what_agrees(&cx.u(), cx.level(), ty, expected);
+            if clashes.as_ref().map_or(true, |c| c.types) {
+                cx.e.attempt.restore(mark);
+            }
+            clashes?;
         }
     }
     let own: Vec<usize> = (cx.e.attempt.obligations.borrow().iter())
