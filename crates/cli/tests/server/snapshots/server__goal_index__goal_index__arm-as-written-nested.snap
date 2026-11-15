@@ -52,14 +52,13 @@ expression: json
           "type": "Option Bool"
         }
       ],
-      "lemma": "def someTrueGoal2 (p: Option Bool → Prop) (o: Option Bool): p (Some False) := ?",
-      "target": "p o",
-      "targetComputed": "p (Some False)"
+      "lemma": "def someTrueGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
+      "target": "p o"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Option Bool → Prop\no: Option Bool\n⊢ p o\n  computes to p (Some False)",
+        "message": "p: Option Bool → Prop\no: Option Bool\n⊢ p o",
         "range": [
           8,
           9,
@@ -455,27 +454,15 @@ expression: json
         {
           "name": "s",
           "type": "Nat"
-        },
-        {
-          "name": "tail✝",
-          "type": "List Char"
-        },
-        {
-          "name": "code✝",
-          "type": "Nat"
-        },
-        {
-          "name": "valid✝",
-          "type": "Char.isScalar code✝"
         }
       ],
-      "target": "p (q s)",
-      "targetComputed": "p (MkText [MkChar code✝ valid✝, ..tail✝])"
+      "lemma": "def expressionGoal2 (p: Text → Prop) (q: Nat → Text) (s: Nat): p (q s) := ?",
+      "target": "p (q s)"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Text → Prop\nq: Nat → Text\ns: Nat\ntail✝: List Char\ncode✝: Nat\nvalid✝: Char.isScalar code✝\n⊢ p (q s)\n  computes to p (MkText [MkChar code✝ valid✝, ..tail✝])",
+        "message": "p: Text → Prop\nq: Nat → Text\ns: Nat\n⊢ p (q s)",
         "range": [
           32,
           9,

@@ -351,7 +351,7 @@ fn undo(cx: &Ctx, arm: &Arm, view: &mut View, goal: &mut Value) {
         }
     }
     if same(cx, goal, &all_goal) && !same(cx, &shown_goal, &all_goal) {
-        view.computed = computed_back(cx, arm, view, &all_env, goal);
+        view.computed = computed_back(cx, arm, view, &all_env, goal, &shown_goal);
         view.changed = true;
         *goal = shown_goal.clone();
         view.goal = Some(shown_goal);
@@ -377,10 +377,33 @@ fn computed_back(
     view: &View,
     leaf_env: &[Value],
     leaf_goal: &Value,
+    shown_goal: &Value,
 ) -> Option<Value> {
     let g = cx.g();
     let level = cx.level();
     let mut term = quote(&g, level, leaf_goal).ok()?;
+    // Nothing computed: the leaf's goal is the shown one with the case's
+    // values put in, which the shown goal already says.
+    let values: Vec<(usize, Term)> = arm
+        .unsplit
+        .iter()
+        .filter_map(|&x| Some((x, quote(&g, level, leaf_env.get(x)?).ok()?)))
+        .collect();
+    let shown = quote_folded(&g, level, shown_goal).ok()?;
+    let instance = crate::lift::replace_with(
+        &g,
+        &shown,
+        level,
+        &|l| match values.iter().find(|(x, _)| *x == l) {
+            Some((_, v)) => Ok(v.clone()),
+            None => Ok(Term::Var(level - 1 - l)),
+        },
+        &|_, _| None,
+    )
+    .ok()?;
+    if crate::matching::same(&term, &instance) {
+        return None;
+    }
     let fields = skipped_fields(arm);
     for &x in &arm.unsplit {
         // Only where the user can write the variable, and for a value that
