@@ -1,5 +1,5 @@
 {
-  "next": 3337,
+  "next": 3340,
   "tickets": [
     {
       "id": 47,
@@ -35859,9 +35859,9 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Reworded after D3586 (full file access, no sandbox flags): show main's row before a program runs ('may: print, read and write files') so a reader knows what it can touch; no --files flags.",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36883,6 +36883,45 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "D3605 (Matt, 15 Nov 2026, on the two rules as shown in the D3605 page): \"Yeah, let's try your suggested 2 new formatter rules.\" Expected: 2.5 h (Sonnet).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3337,
+      "title": "[Opus] T1 of file-io-and-text.md: the run-time text value becomes a shared buffer with a start and length; get, take, drop, uncons, length constant-time; Text.slice, getOr, getLt, concat in std with lemmas; native code's view of a text; the three test tiers; a performance-log entry",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Expected: 5.5 h (Opus).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3338,
+      "title": "[Opus] F1 of file-io-and-text.md, under D3595/D3596/D3586: a Files ability of its own (read, write, list, info; Path, FileError; every operation a Result), main may use it beside IO; the machine, native, built executables and the reference runner; Files.simulate and its laws; IO.printError; guide chapter 8 and syntax.md; full access, no sandbox flags",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Starts when a build slot frees (three running). Expected: 4.5 h (Opus).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3339,
+      "title": "[Opus paper] The toy formatter (D3579's 'then a toy language's formatter'): a small toy language and its formatter written in Stitchwort that proves every moving part the self-hosted formatter needs (Files, fast Text slicing, generic Parse over tokens, text patterns, a layout engine, tests under Files.simulate, a built executable on real files); scope, grammar, acceptance tests, stages; ready to start when T1 and F1 land",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Matt, 15 Nov 2026: \"we also had the idea of first building a toy formatter for a toy language that proved we had all the moving parts we needed to scale up.\" Paper lane. Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
