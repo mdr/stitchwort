@@ -1,5 +1,5 @@
 {
-  "next": 3316,
+  "next": 3317,
   "tickets": [
     {
       "id": 47,
@@ -36550,6 +36550,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3316,
+      "title": "[Sonnet] T3 of parser-end-state.md: housekeeping after strict marks: entry points and module assembly out of parser.rs; failed-name scanning in its own module; grammar tests rewritten as tree dumps, the rest moved to lower/ (with SW-3244); the comments in §6; signature_kept and its flags if S1 left them; plus SW-3296's comment fixes (parser.rs module doc 'from the tokens and the marks so far'; atom_base's 'only caller')",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "parser-end-state.md T3: any time after T1 (SW-3280, merged). Sonnet, reviewed by the orchestrator. Expected: 3.5 h.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
