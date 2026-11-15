@@ -36370,15 +36370,17 @@
     {
       "id": 3303,
       "title": "[Sonnet] Effect rows printed by show_row (effects.rs) drop ability arguments ({Parse} for {Parse Char}); print them as written (SW-3282 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Found in SW-3282. show_row prints each ability with its arguments ({Parse Char}). Model result: DeepSeek, worked, ~30 min (est. 40).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "37b8f18afeb25327a4a6b9912f5000fe45f3c7b3"
+      ]
     },
     {
       "id": 3304,
