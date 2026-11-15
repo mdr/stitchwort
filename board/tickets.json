@@ -37817,12 +37817,12 @@
     {
       "id": 3408,
       "title": "[Sonnet] Bug: SW-3397's verifier: listed_missing_arms_paste_in_and_check_as_holes counts the new W-CTOR-HIDES warnings in reject/missing-cases-nested.sw as errors; goal_index snapshot for constructor-clash-qualified missing/changed; projects reject import-namespace-item-alone snapshot changed. Fix (test should ignore warnings, or the example renamed) and accept legitimate snapshots",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\n\nLane note (Sonnet, 15 Nov): (1) listed_missing_arms test now counts only Error diagnostics and ignores W-CTOR-HIDES on success (the example's Opt hides Option's constructors; intent unchanged). (2) goal snapshot constructor-clash-qualified accepted: shows Doc.Str qualified. (3) import-namespace-item-alone snapshot accepted: Note 2 now lists Std.Args.Spec or Std.Map.Spec (Std.Args is new from SW-3381, so the old snapshot was stale). Commit 416edffb6. Three tests pass.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
