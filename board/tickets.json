@@ -1,5 +1,5 @@
 {
-  "next": 3450,
+  "next": 3451,
   "tickets": [
     {
       "id": 47,
@@ -38395,6 +38395,19 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3450,
+      "title": "[Opus] Toy formatter: every comment has a place (D3618, D3619; lane T of docs/proposals/every-comment-placed.md): a comment slot on every token, the parser carries comments, the engine's comment break as in SW-3447, AsWritten removed, the SW-3418 proofs repaired",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
