@@ -2562,3 +2562,14 @@ hypotheses about parser states or a text that opens a line, as before).
   settled).
 - `formatFile*` in `Fmt/Proofs.sw` lost `printed.asWritten` (forced).
 - The non-comment lemmas keep their statements.
+
+### Part 14 (Fable, 15 Nov 2026): the rest, top-down (D3620)
+
+No proof in this part. `sketch/src/Sketch.sw` (a project of its own,
+`check: open-goals: warn`) defines `formatDirect` and proves
+`printParses`, the round trip, idempotence and `formatAgrees` from five
+open lemmas and what is proved here, so the remaining path is those
+five statements and two definitions that must widen. [SKETCH.md](SKETCH.md)
+has the table (200-250 lemmas, 5-6 lanes planned), two new findings (no
+body keeps a blank line above its first line; a `then` or `else` may
+stand at the column of the block before it) and the recommendation.
