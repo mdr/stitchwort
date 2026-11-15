@@ -24,7 +24,8 @@
 --| `""` or `.`, means what it would in text. A part may be `..`, which the
 --| host takes as the folder above; [`Files.simulate`]'s disk refuses it.
 --|
---| Paths sort by their parts, as lists of texts, then relative before
+--| `Path` has `==` and is `Ord`, so `<`, `.sort`, `Set Path` and `Map Path` work on
+--| it. Paths compare by their parts, as lists of texts, then relative before
 --| absolute. Since a list sorts just before the lists it starts, a folder
 --| sorts just before what is in it.
 type Path = { parts: List Text, absolute: Bool }
