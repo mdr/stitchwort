@@ -1154,7 +1154,7 @@ failed; `audit:touched -- Std.Parse` and `-- Std.Text` clean):
   `declarationWrites` and one lemma per rule, by the combinators
   `writesCons`, `writesConcat`, `writesChoiceTwo`/`Three`, `writesJoined`,
   `writesChain`.
-- `Doc/Columns.sw` (24 theorems). **`readingTracks`**: through every
+- `Doc/Columns.sw` (23 theorems). **`readingTracks`**: through every
   reading of documents whose chunks have their texts' widths and are no
   line breaks (`Measured`), the printer's `column` is the number of
   characters on the last line of `out`, a line with indentation owed is
@@ -1217,9 +1217,15 @@ each an invariant of the same shape, then the lexing glue:
    The invariant: the predicate holds of the printer's edge and work
    list, every adjacent pair in `out` satisfies `follows`, a line marked
    as started has a `Fresh` edge, and a waiting comment fits the edge it
-   will be flushed at. No join of abstract states and no monotonicity
-   lemma is needed, because the predicate quantifies over the outcomes
-   instead of approximating them. About 25 lemmas for the engine, 40 for
+   will be flushed at (with "indentation owed means the line is only
+   started", which `Tracks` has). No join of abstract states is needed,
+   because the predicate quantifies over the outcomes instead of
+   approximating them; it does need "a weaker continuation still holds"
+   (one induction over the document), since the work list's predicate
+   and a `Concat`'s or `Fill`'s agree only up to their continuations.
+   Two engine facts make it exact: text after a waiting comment always
+   breaks first (change 1 above), and a line break flushes the comments
+   and writes `"\n"` in one step. About 35 lemmas for the engine, 40 for
    the rules (each expression form: which edges it may start at, which it
    ends with), and then `LexemesRun` from `follows` with the lexeme
    lemmas of part 3 (adjacent pieces of spaces are one `Spaces` lexeme).
@@ -1240,7 +1246,7 @@ Then the tokens spell the tree (`Spelled`, `SpelledBody`, `SpelledLines`
 from the three facts and `printPieces`), which is where WF's token texts
 come in.
 
-**Re-estimate** [estimated; this lane proved 131 theorems (3 in std) in
+**Re-estimate** [estimated; this lane proved 129 theorems (3 in std) in
 about 30 minutes of checking and writing, nearly all on the first or
 second check]:
 
@@ -1248,7 +1254,7 @@ second check]:
 |---|---|---|
 | A, engine | nothing | 0 |
 | B, lexing | `LexemesRun` from the pieces; `assemble` over them | 30-40 |
-| E, rules to tokens | adjacency (65), positions (25), layer C read back (30), spelling the tree (40) | 150-170 |
+| E, rules to tokens | adjacency (75), positions (25), layer C read back (30), spelling the tree (40) | 160-180 |
 | WF | token texts, body structure | 40-50 |
 | D, parser | `if` with a block branch; the file from its spelling | 30-40 |
 | Glue | `formatDirect`, round trip, idempotence | 10 |
