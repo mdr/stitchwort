@@ -369,11 +369,10 @@ A `Path` is a small record of its parts, not a bare `Text`: `"notes/today.txt".t
 
 <!-- snippet: files.sw#count -->
 ```stitchwort
-def lineCount (path: Path): {Files} (Result Nat FileError) :=
-  Files.read path |> .map (text => text.lines.length)
+def lineCount (path: Path): {Files} Result Nat FileError := Files.read path |> .map (text => text.lines.length)
 
-def main(): {Files, IO} () :=
-  IO.args().forEach (name => match lineCount name.toPath with
+def main(): {Files, IO} () := IO.args().forEach (name =>
+  match lineCount name.toPath with
     | Ok count => IO.print "${name}: ${count} lines"
     | Err error => IO.printError "${error}")
 ```
@@ -390,12 +389,11 @@ Checking, testing and the editor never touch the disk: they treat `Files` as dat
 ```stitchwort
 -- Each line without the spaces at its ends; written back only if that
 -- changes anything. `Ok True` if it did.
-def tidy (path: Path): {Files} (Result Bool FileError) := match Files.read path with
+def tidy (path: Path): {Files} Result Bool FileError := match Files.read path with
   | Err error => Err error
   | Ok text =>
     let tidied := text.lines.map (line => line.trim) |> .joinWith "\n"
-    if tidied == text then Ok False
-    else Files.write (path, tidied) |> .map (done => True)
+    if tidied == text then Ok False else Files.write (path, tidied) |> .map (done => True)
 
 def notes: Path := "notes.txt".toPath
 

@@ -47,10 +47,13 @@ const CACHED: [&str; 5] = ["check", "test", "run", "axioms", "build"];
 /// succeeded, and standard output followed by standard error.
 fn stitchwort(args: &[&str], stdin: Option<&str>) -> (bool, String) {
     let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.args(args);
+    // `--no-cache` goes before a `--`: what follows is the program's.
+    let program = args.iter().position(|a| *a == "--").unwrap_or(args.len());
+    command.args(&args[..program]);
     if args.first().is_some_and(|c| CACHED.contains(c)) {
         command.arg("--no-cache");
     }
+    command.args(&args[program..]);
     command.current_dir(examples());
     match stdin {
         Some(file) => {

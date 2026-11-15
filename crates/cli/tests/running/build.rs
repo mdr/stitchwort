@@ -201,6 +201,34 @@ fn an_io_program_runs_as_it_does_under_run() {
     assert_eq!(first.status.code(), Some(0));
 }
 
+/// A `main` with `Files` performs it in a built executable as under `run`,
+/// on the folder it is started in; `IO.printError` writes to standard error.
+#[test]
+fn a_files_program_runs_as_it_does_under_run() {
+    if !have_cc() {
+        return;
+    }
+    let dir = work_dir("files");
+    let source = r#"import Std (FileError, Files, IO, Path, Result, Text)
+
+def say (result: Result Text FileError): {IO} () := match result with
+  | Ok text => IO.print text
+  | Err error => IO.printError "${error}"
+
+def main(): {Files, IO} () :=
+  Files.write ("out.txt".toPath, "written é")
+  say (Files.read "out.txt".toPath)
+  say (Files.read "missing.txt".toPath)
+"#;
+    let (_, first) = same_as_run(&dir, "files.sw", source, &[b""]);
+    assert_eq!(text(&first.stdout), "written é\n");
+    assert_eq!(text(&first.stderr), "missing.txt: no such file or folder\n");
+    assert_eq!(
+        std::fs::read_to_string(dir.join("out.txt")).expect("the program wrote it"),
+        "written é"
+    );
+}
+
 /// `IO.args` gives an executable's arguments after its name, as `run` gives
 /// those after `--`.
 #[test]

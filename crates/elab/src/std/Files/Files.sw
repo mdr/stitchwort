@@ -27,10 +27,8 @@ type Path = { parts: List Text, absolute: Bool }
 --| The path a text names: split at each `/`, with empty parts and `.`
 --| dropped, so `"a//b/./c"` is `a/b/c`. A leading `/` makes it absolute;
 --| `""` and `"."` are the starting folder itself.
-def Path.parse (text: Text): Path := {
-  parts = text.split '/' |> .filter (part => part != "" && part != "."),
-  absolute = text.startsWith "/",
-}
+def Path.parse (text: Text): Path :=
+  { parts = text.split '/' |> .filter (part => part != "" && part != "."), absolute = text.startsWith "/" }
 
 --| [`Path.parse`] for dot notation: `"notes/today.txt".toPath`.
 def Text.toPath (text: Text): Path := Path.parse text
@@ -50,8 +48,7 @@ instance Path.instShow: Show Path := Show.fromText Path.show
 -- ones): a path is its parts, then whether it's absolute.
 
 theorem Path.ext ∀ (p q: Path) (sameParts: p.parts = q.parts) (sameAbsolute: p.absolute = q.absolute): p = q :=
-  match p, q with
-    | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute in rfl
+  match p, q with | { parts = a, absolute = x }, { parts = b, absolute = y } => rewrite sameParts, sameAbsolute in rfl
 
 --| Paths are equal when their parts are, and both or neither is absolute.
 instance Path.instDecEq: DecEq Path := {
@@ -82,11 +79,12 @@ def Path.parent (path: Path): Option Path := match path.parts with
 --| `README` and `.profile`.
 def Path.extension (path: Path): Option Text := match path.name with
   | None => None
-  | Some name => match name.split '.' with
-    | [] => None
-    | [whole] => None
-    | ["", rest] => None
-    | pieces => pieces.last
+  | Some name =>
+    match name.split '.' with
+      | [] => None
+      | [whole] => None
+      | ["", rest] => None
+      | pieces => pieces.last
 
 -- What the operations give
 
@@ -158,13 +156,15 @@ theorem FileKind.fromPosition ∀ (kind: FileKind): FileKind.ofPosition kind.pos
 instance FileKind.instDecEq: DecEq FileKind := {
   decide = a b =>
     if same: a.position = b.position then
-      Decidable.yes (Eq.trans (Eq.sym (FileKind.fromPosition a)) (Eq.trans (Eq.cong FileKind.ofPosition same) (FileKind.fromPosition b)))
+      Decidable.yes
+        (Eq.trans
+          (Eq.sym (FileKind.fromPosition a))
+          (Eq.trans (Eq.cong FileKind.ofPosition same) (FileKind.fromPosition b)))
     else Decidable.no (e => same (Eq.cong FileKind.position e))
 }
 
-theorem Entry.ext ∀ (a b: Entry) (sameName: a.name = b.name) (sameKind: a.kind = b.kind): a = b :=
-  match a, b with
-    | { name = n, kind = k }, { name = m, kind = j } => rewrite sameName, sameKind in rfl
+theorem Entry.ext ∀ (a b: Entry) (sameName: a.name = b.name) (sameKind: a.kind = b.kind): a = b := match a, b with
+  | { name = n, kind = k }, { name = m, kind = j } => rewrite sameName, sameKind in rfl
 
 instance Entry.instDecEq: DecEq Entry := {
   decide = a b =>
@@ -174,9 +174,8 @@ instance Entry.instDecEq: DecEq Entry := {
     else Decidable.no (e => sameName (Eq.cong (r => r.name) e))
 }
 
-theorem FileInfo.ext ∀ (a b: FileInfo) (sameKind: a.kind = b.kind) (sameSize: a.size = b.size): a = b :=
-  match a, b with
-    | { kind = k, size = n }, { kind = j, size = m } => rewrite sameKind, sameSize in rfl
+theorem FileInfo.ext ∀ (a b: FileInfo) (sameKind: a.kind = b.kind) (sameSize: a.size = b.size): a = b := match a, b with
+  | { kind = k, size = n }, { kind = j, size = m } => rewrite sameKind, sameSize in rfl
 
 instance FileInfo.instDecEq: DecEq FileInfo := {
   decide = a b =>
@@ -216,7 +215,8 @@ theorem FileError.fromParts ∀ (error: FileError): FileError.ofParts error.part
 instance FileError.instDecEq: DecEq FileError := {
   decide = a b =>
     if same: a.parts = b.parts then
-      Decidable.yes (Eq.trans (Eq.sym (FileError.fromParts a)) (Eq.trans (Eq.cong FileError.ofParts same) (FileError.fromParts b)))
+      Decidable.yes
+        (Eq.trans (Eq.sym (FileError.fromParts a)) (Eq.trans (Eq.cong FileError.ofParts same) (FileError.fromParts b)))
     else Decidable.no (e => same (Eq.cong FileError.parts e))
 }
 
@@ -241,8 +241,7 @@ ability Files where
 type Disk = { files: Map Path Text, folders: Set Path }
 
 theorem Disk.ext ∀ (a b: Disk) (sameFiles: a.files = b.files) (sameFolders: a.folders = b.folders): a = b :=
-  match a, b with
-    | { files = f, folders = d }, { files = g, folders = e } => rewrite sameFiles, sameFolders in rfl
+  match a, b with | { files = f, folders = d }, { files = g, folders = e } => rewrite sameFiles, sameFolders in rfl
 
 --| Disks are equal when they hold the same files with the same texts, and
 --| the same folders, so a test can compare a disk after a run with the one
@@ -267,10 +266,8 @@ def Disk.foldersAbove (path: Path): List Path := match path.parts with
     List.range 1 (above.length + 1) |> .map (n => { parts = above.take n, absolute = path.absolute })
 
 --| The disk with these files, and every folder they are in.
-def Disk.fromList (files: List (Path, Text)): Disk := {
-  files = Map.fromList files,
-  folders = files.concatMap (entry => Disk.foldersAbove entry.fst) |> Set.fromList,
-}
+def Disk.fromList (files: List (Path, Text)): Disk :=
+  { files = Map.fromList files, folders = files.concatMap (entry => Disk.foldersAbove entry.fst) |> Set.fromList }
 
 --| Whether `path` is a folder on the disk.
 def Disk.isFolder (disk: Disk) (path: Path): Bool := path.parts.isEmpty || disk.folders.contains path
@@ -295,9 +292,11 @@ def Disk.read (disk: Disk) (path: Path): Result Text FileError := match disk.fil
 def Disk.write (disk: Disk) (path: Path) (text: Text): Result Disk FileError :=
   if disk.isFolder path then Err (NotAFile path)
   else if disk.blocked path then Err (NotAFolder path)
-  else match path.parent with
-    | Some folder => if disk.isFolder folder then Ok { disk | files = disk.files.insert path text } else Err (NotFound path)
-    | None => Err (NotFound path)
+  else
+    match path.parent with
+      | Some folder =>
+        if disk.isFolder folder then Ok { disk | files = disk.files.insert path text } else Err (NotFound path)
+      | None => Err (NotFound path)
 
 --| Whether `child` is directly in the folder `folder`.
 def Disk.isChild (folder child: Path): Bool := child.parent == Some folder
@@ -330,9 +329,10 @@ def Files.simulate (disk: Disk) (prog: () → {Files | e} a): {e} (Disk, a) :=
     handle prog() with
       | return x => now => (now, x)
       | Files.read path, k => now => k (now.read path) now
-      | Files.write request, k => now => match now.write request.fst request.snd with
-        | Ok after => k (Ok ()) after
-        | Err error => k (Err error) now
+      | Files.write request, k => now =>
+        match now.write request.fst request.snd with
+          | Ok after => k (Ok ()) after
+          | Err error => k (Err error) now
       | Files.list path, k => now => k (now.list path) now
       | Files.info path, k => now => k (now.info path) now
   run disk
@@ -343,24 +343,30 @@ def Files.simulate (disk: Disk) (prog: () → {Files | e} a): {e} (Disk, a) :=
 theorem Files.simulatePure ∀ (disk: Disk) (x: a): Files.simulate disk (() => x) = (disk, x) := rfl
 
 theorem Files.simulateRead ∀ (disk: Disk) (path: Path):
-    Files.simulate disk (() => Files.read path) = (disk, disk.read path) := rfl
+    Files.simulate disk (() => Files.read path) = (disk, disk.read path) :=
+  rfl
 
 theorem Files.simulateList ∀ (disk: Disk) (path: Path):
-    Files.simulate disk (() => Files.list path) = (disk, disk.list path) := rfl
+    Files.simulate disk (() => Files.list path) = (disk, disk.list path) :=
+  rfl
 
 theorem Files.simulateInfo ∀ (disk: Disk) (path: Path):
-    Files.simulate disk (() => Files.info path) = (disk, disk.info path) := rfl
+    Files.simulate disk (() => Files.info path) = (disk, disk.info path) :=
+  rfl
 
 --| A write the disk allows changes it, and gives `Ok ()`.
-theorem Files.simulateWriteOk ∀ (disk after: Disk) (path: Path) (text: Text) (allowed: disk.write path text = Ok after):
+theorem Files.simulateWriteOk ∀ (disk after: Disk) (path: Path) (text: Text)
+    (allowed: disk.write path text = Ok after):
     Files.simulate disk (() => Files.write (path, text)) = (after, Ok ()) :=
   rewrite allowed in rfl
 
 --| A write the disk refuses leaves it as it was, and gives the error.
-theorem Files.simulateWriteErr ∀ (disk: Disk) (path: Path) (text: Text) (error: FileError) (refused: disk.write path text = Err error):
+theorem Files.simulateWriteErr ∀ (disk: Disk) (path: Path) (text: Text) (error: FileError)
+    (refused: disk.write path text = Err error):
     Files.simulate disk (() => Files.write (path, text)) = (disk, Err error) :=
   rewrite refused in rfl
 
 --| A read, then the rest of the program: the rest runs on the read's reply.
 theorem Files.simulateReadThen ∀ (disk: Disk) (path: Path) (rest: Result Text FileError → {Files} a):
-    Files.simulate disk (() => rest (Files.read path)) = Files.simulate disk (() => rest (disk.read path)) := rfl
+    Files.simulate disk (() => rest (Files.read path)) = Files.simulate disk (() => rest (disk.read path)) :=
+  rfl

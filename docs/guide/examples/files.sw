@@ -7,11 +7,10 @@ import Std (Disk, FileError, Files, IO, List, Nat, Pair, Path, Result, Text)
 import Std.FileError (NotFound)
 
 -- begin count
-def lineCount (path: Path): {Files} (Result Nat FileError) :=
-  Files.read path |> .map (text => text.lines.length)
+def lineCount (path: Path): {Files} Result Nat FileError := Files.read path |> .map (text => text.lines.length)
 
-def main(): {Files, IO} () :=
-  IO.args().forEach (name => match lineCount name.toPath with
+def main(): {Files, IO} () := IO.args().forEach (name =>
+  match lineCount name.toPath with
     | Ok count => IO.print "${name}: ${count} lines"
     | Err error => IO.printError "${error}")
 -- end count
@@ -19,12 +18,11 @@ def main(): {Files, IO} () :=
 -- begin tidy
 -- Each line without the spaces at its ends; written back only if that
 -- changes anything. `Ok True` if it did.
-def tidy (path: Path): {Files} (Result Bool FileError) := match Files.read path with
+def tidy (path: Path): {Files} Result Bool FileError := match Files.read path with
   | Err error => Err error
   | Ok text =>
     let tidied := text.lines.map (line => line.trim) |> .joinWith "\n"
-    if tidied == text then Ok False
-    else Files.write (path, tidied) |> .map (done => True)
+    if tidied == text then Ok False else Files.write (path, tidied) |> .map (done => True)
 
 def notes: Path := "notes.txt".toPath
 
