@@ -1938,14 +1938,23 @@ fn same_heads(
             // whose spine mentions an unknown, frozen or not and however
             // deep, may unfold once it's solved, so its arguments are
             // unified in shortcut mode (U3); only one stuck on an unknown
-            // `blocked` sees is put aside.
+            // `blocked` sees is put aside. Spines that differ don't make
+            // the calls different, so the arguments that did unify say
+            // nothing about the unknowns: what the failed comparison
+            // solved is taken back (`f ?b ?k 1` against `f c 5 2` leaves
+            // `?b` and `?k` unsolved), and the calls are compared whole
+            // later, if at all.
             match spine_pairs(g, level, def, s1, s2) {
                 Some(pairs) if matches!(h1, Head::Def(_)) && (blocked(g, a)? || blocked(g, b)?) => {
-                    let trail = g.store.meta_trail.borrow().len();
+                    let mark = g.attempt.mark();
                     let same = nested(g, || {
                         run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
                     })?;
-                    note_lossy(g, trail);
+                    if same {
+                        note_lossy(g, mark.trail());
+                    } else {
+                        g.attempt.restore(mark);
+                    }
                     same
                 }
                 Some(pairs)
@@ -5432,6 +5441,18 @@ mod tests {
     /// The core loaded, and `two`, a `decreasing` definition whose call
     /// stays folded: `test` runs on a thread with room for it.
     fn with_core_and_two(test: impl FnOnce(&Elaborator, DefId) + Send + 'static) {
+        let text = "import Std (Nat)\n\ndef two (x: Nat): Nat\n    decreasing x\n:=\n  match x with\n    \
+            | Zero => 2\n    | Succ m => two m [decreasing := Nat.leRefl (Succ m)]\n";
+        with_core_and(text, "two", test);
+    }
+
+    /// The core loaded, and the module `text`, whose definition `name`
+    /// `test` gets: on a thread with room for it.
+    fn with_core_and(
+        text: &'static str,
+        name: &'static str,
+        test: impl FnOnce(&Elaborator, DefId) + Send + 'static,
+    ) {
         std::thread::Builder::new()
             .stack_size(256 << 20)
             .spawn(move || {
@@ -5452,14 +5473,12 @@ mod tests {
                 );
                 e.finish_core().expect("a complete core");
                 e.unit.loading_prelude = false;
-                let text = "import Std (Nat)\n\ndef two (x: Nat): Nat\n    decreasing x\n:=\n  match x with\n    \
-                    | Zero => 2\n    | Succ m => two m [decreasing := Nat.leRefl (Succ m)]\n";
-                let file = sources.add("two", text);
+                let file = sources.add(name, text);
                 let module = stitchwort_syntax::parse_module(file, text).expect("parses");
                 let found = errors(e.elaborate_module(&module));
                 assert!(found.is_empty(), "{found:#?}");
-                let two = e.lookup_def("two").expect("two");
-                test(&e, two);
+                let def = e.lookup_def(name).expect("the definition");
+                test(&e, def);
             })
             .expect("a thread")
             .join()
@@ -5493,6 +5512,39 @@ mod tests {
             assert!(stitchwort_core::value::conv(g, 2, &base.expect("x + y"), &expected).unwrap());
             undo_since(g, trail);
             assert!(reread_sum(g, &sum).unwrap().is_none());
+        });
+    }
+
+    /// Two calls of one definition stuck on an unknown whose arguments
+    /// differ: the arguments that did unify are taken back with the
+    /// rest, so `pick ?b ?k 1` against `pick c 5 2` leaves `?b` and `?k`
+    /// unsolved, in `unify` and in `unify_what_agrees` (SW-3330). Kept,
+    /// `?k := 5` would be a guess: `pick` ignores `k`, so the calls'
+    /// case trees then agree whatever `k` is.
+    #[test]
+    fn a_failed_comparison_of_stuck_calls_solves_nothing() {
+        let text = "import Std (Bool, Nat)\n\ndef pick (b: Bool) (k: Nat) (n: Nat): Nat := match b with\n  \
+            | True => 0\n  | False => 1\n";
+        with_core_and(text, "pick", |e, pick| {
+            let g = &e.unifier();
+            // Each unknown may mention `c`, the variable at level 0.
+            let (b, unknown_b) = meta(g, &[0]);
+            let (k, unknown_k) = meta(g, &[0]);
+            let nat = |n: u32| Value::Nat(Rc::new(BigUint::from(n)));
+            let call = |args: [Value; 3]| {
+                let spine = args
+                    .into_iter()
+                    .map(|x| Elim::App(x, Icit::Explicit))
+                    .collect();
+                Value::Neutral(Head::Def(pick), spine)
+            };
+            let stuck = call([unknown_b, unknown_k, nat(1)]);
+            let known = call([Value::var(0), nat(5), nat(2)]);
+            assert!(blocked(g, &stuck).unwrap());
+            assert!(!unify(g, 1, &stuck, &known).unwrap());
+            assert!(g.meta_solution(b).is_none() && g.meta_solution(k).is_none());
+            assert!(!unify_what_agrees(g, 1, &stuck, &known).unwrap().any);
+            assert!(g.meta_solution(b).is_none() && g.meta_solution(k).is_none());
         });
     }
 }
