@@ -343,6 +343,12 @@ impl Shapes {
             &["randomSeedUnit"],
         )?;
         ctor("args", io, ctor_of(Builtin::Args)?.1, &["argsUnit"])?;
+        ctor(
+            "printError",
+            io,
+            ctor_of(Builtin::PrintError)?.1,
+            &["printErrorText"],
+        )?;
         // `Fail`'s one operation, once its library file has loaded: a `main`
         // that may fail loads it.
         if let Some(fail) = g.env.registry().loaded_data(Builtin::Fail) {
@@ -707,6 +713,25 @@ import { execFileSync as __execFileSync } from "node:child_process";
         let seed = 0n;
         for (const byte of bytes) seed = (seed << 8n) | BigInt(byte);
         return seed;
+      }
+      // Standard error, after what is pending on standard output; a
+      // standard error that can't be written to is ignored.
+      case SHAPE.printError: {
+        flush();
+        const bytes = Buffer.from(op[SHAPE.printErrorText] + "\n", "utf8");
+        let offset = 0;
+        while (offset < bytes.length) {
+          try {
+            offset += __fs.writeSync(2, bytes, offset, bytes.length - offset);
+          } catch (e) {
+            if (e.code === "EAGAIN") {
+              pause();
+              continue;
+            }
+            break;
+          }
+        }
+        return { tag: SHAPE.unit };
       }
       case SHAPE.args: {
         let list = { tag: SHAPE.nil };

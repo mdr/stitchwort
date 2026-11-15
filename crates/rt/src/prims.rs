@@ -88,7 +88,7 @@ pub fn chars(s: &Shapes, text: &str) -> Value {
     list
 }
 
-fn list(s: &Shapes, items: Vec<Value>) -> Value {
+pub(crate) fn list(s: &Shapes, items: Vec<Value>) -> Value {
     let mut list = Value::Tag(s.nil);
     for item in items.into_iter().rev() {
         list = Value::data(s.cons, [item, list]);
@@ -108,7 +108,7 @@ pub fn char_of(v: &Value) -> char {
 }
 
 /// The items of a `List`, in order.
-fn items<'v>(s: &Shapes, mut l: &'v Value) -> impl Iterator<Item = &'v Value> {
+pub(crate) fn items<'v>(s: &Shapes, mut l: &'v Value) -> impl Iterator<Item = &'v Value> {
     let cons = s.cons;
     std::iter::from_fn(move || match l {
         Value::Data(t, cell) if *t == cons => {

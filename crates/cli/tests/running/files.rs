@@ -1,0 +1,296 @@
+//! `Files` end to end (docs/proposals/file-io-and-text.md §2, §3, §6):
+//! programs whose `main` uses the disk, run by the built command in a
+//! temporary folder on each runner and compared with `Files.simulate`'s
+//! disk; and the invariant that checking and testing a program never
+//! performs its file operations, whatever it says.
+
+use std::path::{Path, PathBuf};
+use std::process::{Command, Output, Stdio};
+
+use crate::common;
+
+/// The check cache the runs here share, outside the folders the programs
+/// see, so that a listing shows only what the test put there.
+const CACHE: &str = concat!(env!("CARGO_TARGET_TMPDIR"), "/files-tests-cache");
+
+/// A fresh, empty folder for one test.
+fn work_dir(name: &str) -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
+        .join("files-tests")
+        .join(name);
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("make the test's folder");
+    dir
+}
+
+fn text(bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
+}
+
+/// `command`, in `dir`, with nothing on standard input.
+fn output(mut command: Command, dir: &Path) -> Output {
+    command
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .expect("start stitchwort")
+}
+
+/// `stitchwort run FLAGS source ARGS` in `dir`.
+fn run(dir: &Path, flags: &[&str], source: &Path, args: &[&str]) -> Output {
+    let mut command = common::cli_with("run", flags);
+    command
+        .args(["--cache-dir", CACHE])
+        .arg(source)
+        .arg("--")
+        .args(args);
+    output(command, dir)
+}
+
+/// A small generator of pseudo-random numbers (xorshift), so each script is
+/// the same on every run.
+struct Seeded(u64);
+
+impl Seeded {
+    fn below(&mut self, n: usize) -> usize {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        (self.0 % n as u64) as usize
+    }
+}
+
+/// The paths a script touches: missing ones, a folder, a file in it, a path
+/// through a file, the starting folder.
+const PATHS: &[&str] = &["a.txt", "b", "d", "d/x.txt", "d/y", "a.txt/z", "e/f", "."];
+
+/// What the folder holds before a script, as `Disk.fromList` and as files.
+const START: &[(&str, &str)] = &[("d/x.txt", "x"), ("d/k/n", "")];
+
+/// A script of `length` operations from `seed`: the lines of a `{Files}`
+/// function that performs them and describes each reply as text.
+fn script(seed: u64, length: usize) -> String {
+    let mut random = Seeded(seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1);
+    let texts = ["", "one", "é → ∀", "two\nlines\n"];
+    let mut lines = Vec::new();
+    for i in 0..length {
+        let path = PATHS[random.below(PATHS.len())];
+        let call = match random.below(4) {
+            0 => format!("describe (Files.read \"{path}\".toPath) (t => t)"),
+            1 => {
+                let t = texts[random.below(texts.len())].replace('\n', "\\n");
+                format!("describe (Files.write (\"{path}\".toPath, \"{t}\")) (u => \"\")")
+            }
+            2 => format!("describe (Files.list \"{path}\".toPath) entries"),
+            _ => format!("describe (Files.info \"{path}\".toPath) info"),
+        };
+        lines.push(format!("  let r{i} := \"{path}: \" ++ {call}"));
+    }
+    let names: Vec<String> = (0..length).map(|i| format!("r{i}")).collect();
+    lines.push(format!("  [{}]", names.join(", ")));
+    lines.join("\n")
+}
+
+/// A program that runs [`script`] on the real disk, or, with the argument
+/// `model`, on `Files.simulate`'s disk holding [`START`].
+fn conformance_program(seed: u64, length: usize) -> String {
+    let start: Vec<String> = START
+        .iter()
+        .map(|(path, contents)| format!("(\"{path}\".toPath, \"{contents}\")"))
+        .collect();
+    format!(
+        r#"import Std (Disk, Entry, FileError, FileInfo, FileKind, Files, IO, List, Nat, Pair, Path, Result, Text)
+import Std.FileKind (File, Folder, Other)
+
+def kindName: (kind: FileKind) → Text
+  | File => "file"
+  | Folder => "folder"
+  | Other => "other"
+
+def entries (es: List Entry): Text := es.map (e => "${{e.name}} ${{kindName e.kind}}") |> .joinWith ", "
+
+def info (i: FileInfo): Text := "${{kindName i.kind}} ${{i.size}}"
+
+def describe (result: Result a FileError) (show: a → Text): Text := match result with
+  | Ok x => "ok ${{show x}}"
+  | Err error => "error ${{error}}"
+
+def script(): {{Files}} (List Text) :=
+{}
+
+def start: Disk := Disk.fromList [{}]
+
+def main(): {{Files, IO}} () :=
+  let lines := if IO.args() == ["model"] then (Files.simulate start script).snd else script()
+  lines.forEach IO.print
+"#,
+        script(seed, length),
+        start.join(", ")
+    )
+}
+
+/// A folder holding [`START`].
+fn start_folder(name: &str) -> PathBuf {
+    let dir = work_dir(name);
+    for (path, contents) in START {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().expect("in a folder")).expect("make the folder");
+        std::fs::write(file, contents).expect("write the file");
+    }
+    dir
+}
+
+/// Random scripts of operations give the same replies on the real disk, on
+/// each runner, as on `Files.simulate`'s: the test that ties the proofs
+/// about the model to the host (§3).
+#[test]
+fn files_scripts_agree_with_the_model_on_each_runner() {
+    let sources = work_dir("conformance-sources");
+    let mut runners: Vec<&[&str]> = vec![&[], &["--reference"]];
+    if cfg!(feature = "native") {
+        runners.push(&["--native"]);
+    }
+    for seed in 1..=4 {
+        let source = sources.join(format!("script{seed}.sw"));
+        std::fs::write(&source, conformance_program(seed, 24)).expect("write the program");
+        let model = run(&work_dir("conformance-model"), &[], &source, &["model"]);
+        assert!(
+            model.status.success(),
+            "the model's run failed: {}",
+            text(&model.stderr)
+        );
+        let replies = text(&model.stdout);
+        assert_eq!(replies.lines().count(), 24, "{replies}");
+        assert!(
+            replies.contains(": ok ") && replies.contains(": error "),
+            "a script with successes and failures: {replies}"
+        );
+        for flags in &runners {
+            let dir = start_folder(&format!("conformance-{seed}"));
+            let real = run(&dir, flags, &source, &[]);
+            assert!(
+                real.status.success(),
+                "{flags:?} failed: {}",
+                text(&real.stderr)
+            );
+            assert_eq!(
+                text(&real.stdout),
+                text(&model.stdout),
+                "seed {seed}, {flags:?}: the real disk and the model differ"
+            );
+        }
+    }
+}
+
+/// Each kind of error on the real disk, from a program, with the message
+/// `FileError.show` gives; and `IO.printError` writes to standard error.
+#[test]
+fn files_errors_are_values_and_print_error_writes_to_standard_error() {
+    let dir = work_dir("errors");
+    std::fs::write(dir.join("bytes.bin"), [0x66, 0xff]).expect("write");
+    std::fs::create_dir(dir.join("folder")).expect("make the folder");
+    std::fs::write(dir.join("plain.txt"), "plain").expect("write");
+    let source = work_dir("errors-source").join("errors.sw");
+    std::fs::write(
+        &source,
+        r#"import Std (FileError, Files, IO, Path, Result, Text)
+
+def say (result: Result a FileError): {IO} () := match result with
+  | Ok x => IO.print "ok"
+  | Err error => IO.printError "${error}"
+
+def main(): {Files, IO} () :=
+  say (Files.read "missing.txt".toPath)
+  say (Files.read "folder".toPath)
+  say (Files.list "plain.txt".toPath)
+  say (Files.read "plain.txt/inside".toPath)
+  say (Files.read "bytes.bin".toPath)
+  say (Files.write ("plain.txt".toPath, "replaced"))
+"#,
+    )
+    .expect("write the program");
+    let ran = run(&dir, &[], &source, &[]);
+    assert!(ran.status.success(), "{}", text(&ran.stderr));
+    assert_eq!(text(&ran.stdout), "ok\n");
+    assert_eq!(
+        text(&ran.stderr),
+        "missing.txt: no such file or folder\n\
+         folder: is a folder, not a file\n\
+         plain.txt: is a file, not a folder\n\
+         plain.txt/inside: is a file, not a folder\n\
+         bytes.bin: isn't UTF-8 text\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.join("plain.txt")).expect("read"),
+        "replaced"
+    );
+}
+
+/// The program the invariant test checks: `main` overwrites its own source
+/// and writes a marker file, and a test runs the same code, handled by
+/// `Files.simulate`.
+const VANDAL: &str = r#"import Std (Disk, Files, IO, Pair, Path, Result, Text)
+
+def vandalise(): {Files} () :=
+  Files.write ("vandal.sw".toPath, "gone")
+  Files.write ("marker.txt".toPath, "here")
+  ()
+
+def main(): {Files, IO} () := vandalise()
+
+test "vandalise writes the marker on a pretend disk" :=
+  (Files.simulate Disk.empty vandalise).fst.read "marker.txt".toPath == Ok "here"
+"#;
+
+/// Checking and testing a program never perform its file operations
+/// (§2.4): after `check` and `test` of a `main` that overwrites its own
+/// source, the source is as it was and there's no marker. Running it does
+/// both, which shows the program would have.
+#[test]
+fn checking_and_testing_never_touch_files() {
+    let dir = work_dir("invariant");
+    let source = dir.join("vandal.sw");
+    std::fs::write(&source, VANDAL).expect("write the program");
+    for subcommand in ["check", "test"] {
+        let mut command = common::cli_plain(subcommand);
+        command.args(["--cache-dir", CACHE]).arg("vandal.sw");
+        let done = output(command, &dir);
+        assert!(
+            done.status.success(),
+            "{subcommand}: {}{}",
+            text(&done.stdout),
+            text(&done.stderr)
+        );
+        assert_eq!(
+            std::fs::read_to_string(&source).expect("read"),
+            VANDAL,
+            "{subcommand} changed the source"
+        );
+        assert!(
+            !dir.join("marker.txt").exists(),
+            "{subcommand} wrote the marker"
+        );
+    }
+    let ran = run(&dir, &[], &source, &[]);
+    assert!(ran.status.success(), "{}", text(&ran.stderr));
+    assert_eq!(std::fs::read_to_string(&source).expect("read"), "gone");
+    assert!(dir.join("marker.txt").exists());
+}
+
+/// `--js` can't perform `Files` yet: refused before anything runs.
+#[test]
+fn files_under_js_is_refused() {
+    let dir = work_dir("js");
+    let source = dir.join("vandal.sw");
+    std::fs::write(&source, VANDAL).expect("write the program");
+    let ran = run(&dir, &["--js"], &source, &[]);
+    assert!(!ran.status.success());
+    assert!(
+        text(&ran.stderr).contains("E-JS-FILES"),
+        "{}",
+        text(&ran.stderr)
+    );
+    assert_eq!(std::fs::read_to_string(&source).expect("read"), VANDAL);
+}

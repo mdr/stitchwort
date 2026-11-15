@@ -51,15 +51,95 @@ pub struct TypeId(pub u32);
 /// operation that reaches it (`stitchwort_driver`'s `main_calls`). A
 /// constructor is just its index at run time, so the shape of the row can't
 /// be read off the operation itself.
+///
+/// It is `IO`, with `Fail` and `Files` if `main` may use them. A row lists
+/// the library's abilities first, by name, then the core's, so the row is
+/// `Plus Fail (Plus Files (Plus IO NoOp))` with whichever of the first two
+/// are missing left out: an operation is `L` of the first ability's, or `R`
+/// of an operation of the rest of the row.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub struct MainRow {
+    /// `main` may fail: `Fail.stop msg` reaches the runner.
+    pub fail: bool,
+    /// `main` may use the disk: `Files`' operations reach the runner.
+    pub files: bool,
+}
+
+impl MainRow {
+    /// `{IO}`.
+    pub const IO: MainRow = MainRow {
+        fail: false,
+        files: false,
+    };
+    /// `{Fail, IO}`.
+    pub const FAIL_IO: MainRow = MainRow {
+        fail: true,
+        files: false,
+    };
+
+    /// Every row a `main` may have, in the order the driver tries them: the
+    /// smallest first, so a `main` runs in the smallest row it fits.
+    pub const ALL: [MainRow; 4] = [
+        MainRow::IO,
+        MainRow::FAIL_IO,
+        MainRow {
+            fail: false,
+            files: true,
+        },
+        MainRow {
+            fail: true,
+            files: true,
+        },
+    ];
+
+    /// The row as a byte, for the program's encodings: bit 0 for `Fail`,
+    /// bit 1 for `Files`.
+    pub fn tag(self) -> u8 {
+        u8::from(self.fail) | (u8::from(self.files) << 1)
+    }
+
+    /// The row a [`MainRow::tag`] is of.
+    pub fn from_tag(tag: u8) -> Option<MainRow> {
+        (tag < 4).then_some(MainRow {
+            fail: tag & 1 != 0,
+            files: tag & 2 != 0,
+        })
+    }
+
+    /// Its abilities, in the row's order, as `main`'s type names them.
+    pub fn abilities(self) -> Vec<&'static str> {
+        let mut names = Vec::new();
+        if self.fail {
+            names.push("Fail");
+        }
+        if self.files {
+            names.push("Files");
+        }
+        names.push("IO");
+        names
+    }
+}
+
+/// Which ability of a [`MainRow`] an operation belongs to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MainRow {
-    /// `{IO}`, which is `Plus IO NoOp`: every operation is `L` of an `IO`
-    /// operation.
+pub enum Ability {
+    Fail,
+    Files,
     Io,
-    /// `{Fail, IO}`, which is `Plus Fail (Plus IO NoOp)`, for a `main` that
-    /// may fail: `L (stop msg)`, or `R (L …)` of an `IO` operation
-    /// (docs/proposals/partial-stage-2.md).
-    FailIo,
+}
+
+impl MainRow {
+    /// The abilities of the row in its order: the operations of the `n`th
+    /// (from 0) are `n` `R`s round an `L`.
+    pub fn layout(self) -> impl Iterator<Item = Ability> {
+        [
+            self.fail.then_some(Ability::Fail),
+            self.files.then_some(Ability::Files),
+            Some(Ability::Io),
+        ]
+        .into_iter()
+        .flatten()
+    }
 }
 
 /// A lowered program: the globals and lambdas it uses, and what it runs.
@@ -119,7 +199,7 @@ pub struct Shapes {
     pub sig_map: u32,
     /// `IO`'s `%print text`, `%readLine u`, `%readAll u`, `%console u`,
     /// `%keysMode on`, `%readBytes u`, `%write text`, `%randomSeed u`,
-    /// `%args u`.
+    /// `%args u`, `%printError text`.
     pub print: u32,
     pub read_line: u32,
     pub read_all: u32,
@@ -129,11 +209,66 @@ pub struct Shapes {
     pub write: u32,
     pub random_seed: u32,
     pub args: u32,
+    pub print_error: u32,
     /// `Console`'s one constructor, `IO.console`'s reply: four fields.
     pub console_record: u32,
     /// `Fail`'s `%stop msg`, if `Fail`'s library file has loaded;
     /// `u32::MAX` if not.
     pub stop: u32,
+    /// `Files`' `%read path`, `%write (path, text)`, `%list path`,
+    /// `%info path`, and what their replies are built from, if `Files`'
+    /// library file has loaded; `u32::MAX` each if not.
+    pub files: FileShapes,
+}
+
+/// The constructors of `Files`' operations and replies
+/// (std/Files/Files.sw), as tags.
+#[derive(Clone, Copy, Debug)]
+pub struct FileShapes {
+    pub read: u32,
+    pub write: u32,
+    pub list: u32,
+    pub info: u32,
+    /// `Result`'s `Ok x` and `Err e`.
+    pub ok: u32,
+    pub err: u32,
+    /// `FileKind`'s `File`, `Folder`, `Other`: no fields.
+    pub file: u32,
+    pub folder: u32,
+    pub other: u32,
+    /// `Entry`'s and `FileInfo`'s one constructor: two fields each.
+    pub entry: u32,
+    pub info_record: u32,
+    /// `FileError`'s constructors: `path` each, and `OtherError`'s message.
+    pub not_found: u32,
+    pub not_permitted: u32,
+    pub not_a_file: u32,
+    pub not_a_folder: u32,
+    pub not_text: u32,
+    pub other_error: u32,
+}
+
+impl FileShapes {
+    /// For a program without `Files`.
+    pub const NONE: FileShapes = FileShapes {
+        read: u32::MAX,
+        write: u32::MAX,
+        list: u32::MAX,
+        info: u32::MAX,
+        ok: u32::MAX,
+        err: u32::MAX,
+        file: u32::MAX,
+        folder: u32::MAX,
+        other: u32::MAX,
+        entry: u32::MAX,
+        info_record: u32::MAX,
+        not_found: u32::MAX,
+        not_permitted: u32::MAX,
+        not_a_file: u32::MAX,
+        not_a_folder: u32::MAX,
+        not_text: u32::MAX,
+        other_error: u32::MAX,
+    };
 }
 
 /// A body of code with its own frame.

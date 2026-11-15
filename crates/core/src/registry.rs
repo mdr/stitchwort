@@ -142,6 +142,25 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FinToNat,
     Builtin::Fail,
     Builtin::FailStop,
+    Builtin::Files,
+    Builtin::FilesRead,
+    Builtin::FilesWrite,
+    Builtin::FilesList,
+    Builtin::FilesInfo,
+    Builtin::FilePath,
+    Builtin::FileKind,
+    Builtin::FileKindFile,
+    Builtin::FileKindFolder,
+    Builtin::FileKindOther,
+    Builtin::FileEntry,
+    Builtin::FileInfo,
+    Builtin::FileError,
+    Builtin::FileNotFound,
+    Builtin::FileNotPermitted,
+    Builtin::FileNotAFile,
+    Builtin::FileNotAFolder,
+    Builtin::FileNotText,
+    Builtin::FileOtherError,
     Builtin::NonEmptyList,
     Builtin::NonEmptyListPrependList,
     Builtin::ListAllReads,
@@ -408,6 +427,10 @@ builtins! {
     Option = "Option": Data,
     None = "None": Ctor(Builtin::Option),
     Some = "Some": Ctor(Builtin::Option),
+    // `Files`' replies (std/core/Result.sw)
+    ResultData = "Result": Data,
+    ResultOk = "Ok": Ctor(Builtin::ResultData),
+    ResultErr = "Err": Ctor(Builtin::ResultData),
     // `NonEmptyList a` (std/NonEmptyList/NonEmptyList.sw): list literals and
     // list patterns build and match it where it is the expected type, and a
     // literal with spreads before its first item puts them in front with
@@ -529,12 +552,35 @@ builtins! {
     Console = "Console": Data,
     RandomSeed = "%randomSeed": Ctor(Builtin::Io),
     Args = "%args": Ctor(Builtin::Io),
+    PrintError = "%printError": Ctor(Builtin::Io),
     Simulate = "IO.simulate": Def => "[e] [%div.e] [a] input prog",
     // `Fail` (std/Fail/Fail.sw): a `main` may leave it unhandled, and the
     // runners perform `stop` themselves, as they perform `print`
     // (docs/proposals/partial-stage-2.md)
     Fail = "Fail": Data,
     FailStop = "%stop": Ctor(Builtin::Fail),
+    // `Files` (std/Files/Files.sw): a `main` may leave it unhandled, and the
+    // runners perform its operations on the real disk, building the replies
+    // from these (docs/proposals/file-io-and-text.md §2)
+    Files = "Files": Data,
+    FilesRead = "%read": Ctor(Builtin::Files),
+    FilesWrite = "%write": Ctor(Builtin::Files),
+    FilesList = "%list": Ctor(Builtin::Files),
+    FilesInfo = "%info": Ctor(Builtin::Files),
+    FilePath = "Path": Data,
+    FileKind = "FileKind": Data,
+    FileKindFile = "File": Ctor(Builtin::FileKind),
+    FileKindFolder = "Folder": Ctor(Builtin::FileKind),
+    FileKindOther = "Other": Ctor(Builtin::FileKind),
+    FileEntry = "Entry": Data,
+    FileInfo = "FileInfo": Data,
+    FileError = "FileError": Data,
+    FileNotFound = "NotFound": Ctor(Builtin::FileError),
+    FileNotPermitted = "NotPermitted": Ctor(Builtin::FileError),
+    FileNotAFile = "NotAFile": Ctor(Builtin::FileError),
+    FileNotAFolder = "NotAFolder": Ctor(Builtin::FileError),
+    FileNotText = "NotText": Ctor(Builtin::FileError),
+    FileOtherError = "OtherError": Ctor(Builtin::FileError),
 }
 
 /// The built-in data types with a JavaScript boundary form of their own

@@ -185,6 +185,20 @@ pub fn write_text(output: &mut impl Write, text: &str) -> Result<(), RunError> {
         .map_err(RunError::Write)
 }
 
+/// `IO.printError`: the text and a line ending on standard error, after
+/// flushing `output`, so the two streams interleave as the program wrote
+/// them where both go to one terminal. A standard error that can't be
+/// written to is ignored: it is where the program would say so.
+pub fn print_error(output: &mut impl Write, text: &str) -> Result<(), RunError> {
+    output.flush().map_err(RunError::Write)?;
+    let mut errors = io::stderr().lock();
+    let _ = errors
+        .write_all(text.as_bytes())
+        .and_then(|()| errors.write_all(b"\n"))
+        .and_then(|()| errors.flush());
+    Ok(())
+}
+
 /// Everything that remains of the input. `lines` counts the lines read so
 /// far, a last line without a line ending included.
 pub fn read_all(input: &mut impl BufRead, lines: &mut usize) -> Result<String, RunError> {
