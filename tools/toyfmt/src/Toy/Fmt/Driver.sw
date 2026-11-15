@@ -76,15 +76,13 @@ def expand (path: Path): {Files} Found := match Files.info path with
 
 --| "line 3, column 9: expected ..." as "path:3:9: expected ...", the form
 --| editors and `grep -n` make clickable; any other message follows the path.
-def locate (path: Path) (message: Text): Text := match message.stripPrefix "line " with
-  | None => "${path}: ${message}"
-  | Some rest =>
-    match rest.splitOn ", column " with
-      | [line, tail] =>
-        match tail.splitOn ": " with
-          | [column, ..words] => "${path}:${line}:${column}: ${words.joinWith ": "}"
-          | _ => "${path}: ${message}"
-      | _ => "${path}: ${message}"
+def locate (path: Path) (message: Text): Text :=
+  match message.stripPrefix "line " |> .flatMap (rest => rest.splitOnce ", column ") with
+    | Some (line, tail) =>
+      match tail.splitOnce ": " with
+        | Some (column, words) => "${path}:${line}:${column}: ${words}"
+        | None => "${path}: ${message}"
+    | None => "${path}: ${message}"
 
 --| Formats one file. Writes it only if the formatted text differs and
 --| `--check` wasn't given.

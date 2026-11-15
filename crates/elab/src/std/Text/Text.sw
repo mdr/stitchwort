@@ -447,6 +447,24 @@ def Text.splitOnChars: (sep: List Char) → (chars: List Char) → List Text
 --| doesn't split: the result is `[text]`, as in Lean's `String.splitOn`.
 def Text.splitOn (text sep: Text): List Text := Text.splitOnChars sep.toList text.toList
 
+--| The loop of `Text.splitOnce`, reading the characters. `before` is what was
+--| passed over, newest first.
+@[tailrec]
+def Text.splitOnceLoop (sep before: List Char): (chars: List Char) → Option (Pair Text Text)
+  | [] => None
+  | [char, ..chars] =>
+    match Text.stripPrefixChars sep [char, ..chars] with
+      | Some rest => Some (MkText (List.reverseOnto before []), MkText rest)
+      | None => Text.splitOnceLoop sep [char, ..before] chars
+
+--| The text before the first occurrence of `sep` and the text after it, or
+--| `None` if `sep` doesn't occur: `"line 3, column 9: x".splitOnce ", column "`
+--| is `Some ("line 3", "9: x")`, and `"ab".splitOnce "-"` is `None`. Like
+--| [`Text.splitOn`], an empty separator doesn't split: the result is `None`.
+def Text.splitOnce (text sep: Text): Option (Pair Text Text) := match sep.toList with
+  | [] => None
+  | chars => Text.splitOnceLoop chars [] text.toList
+
 -- Lemmas
 
 theorem Text.sameCharRefl ∀ (c: Char): Text.sameChar c c = True := Nat.equalRefl (Char.toNat c)
@@ -678,3 +696,14 @@ test "Char.isAsciiAlphanumeric" :=
 def Text.utf8Length (text: Text): Nat := text.toList.map (c => (Char.utf8 c).length) |> .sum
 
 test "utf8Length counts bytes" := "aé→😀".utf8Length == 10 ∧ "".utf8Length == 0
+
+test "splitOnce" :=
+  "line 3, column 9: x".splitOnce ", column " == Some ("line 3", "9: x")
+    ∧ "a-b-c".splitOnce "-" == Some ("a", "b-c")
+    ∧ "-b".splitOnce "-" == Some ("", "b")
+    ∧ "a-".splitOnce "-" == Some ("a", "")
+    ∧ "ab".splitOnce "-" == None
+    ∧ "".splitOnce "-" == None
+    ∧ "ab".splitOnce "" == None
+    ∧ "aab".splitOnce "ab" == Some ("a", "")
+    ∧ "aaa".splitOnce "aa" == Some ("", "a")
