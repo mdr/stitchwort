@@ -456,6 +456,27 @@ impl<'a> Rules<'a> {
         self.file.trivia()[Self::last(el)].trailing.is_some()
     }
 
+    /// Whether a comment ends a line at the element's end, or before only
+    /// the closers and commas that end it: it is printed after them either
+    /// way (a comment before a closing bracket moves to the line end), so
+    /// the layout must not depend on which side of them it was written.
+    fn comment_ends_at_closers(&self, el: Element<'_>) -> bool {
+        let (first, mut i) = (Self::first(el), Self::last(el));
+        loop {
+            if self.file.trivia()[i].trailing.is_some() {
+                return true;
+            }
+            let closer = matches!(
+                self.tokens[i].tok,
+                Tok::RParen | Tok::RBracket | Tok::RBrace | Tok::Comma
+            );
+            if !closer || i == first {
+                return false;
+            }
+            i -= 1;
+        }
+    }
+
     /// A construct with no rule yet: as written, moved with its line, its
     /// first token's comments and its last token's trailing comment placed
     /// as for any token.
@@ -1567,7 +1588,12 @@ impl<'a> Rules<'a> {
     /// filling lines at 4 like a header's parameters (S22), `=>` after the
     /// last.
     fn lambda_head(&mut self, children: &[Element<'_>]) -> Doc {
-        if children.len() < 3 || self.comment_between(children) {
+        if children.len() < 3
+            || self.comment_between(children)
+            || children[..children.len() - 1]
+                .iter()
+                .any(|&el| self.comment_ends_at_closers(el))
+        {
             return self.join(children);
         }
         let docs: Vec<Doc> = children
