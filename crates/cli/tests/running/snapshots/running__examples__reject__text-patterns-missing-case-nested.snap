@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no arm matches texts other than "a" and "b", in the case `Some _`
+   ╭─[ reject/text-patterns-missing-case-nested.sw:4:3 ]
+   │
+ 4 │ ╭─▶   | Some "a" => 1
+   ┆ ┆   
+ 6 │ ├─▶   | None => 3
+   │ │                   
+   │ ╰─────────────────── missing case: no arm matches texts other than "a" and "b", in the case `Some _`
+   │     
+   │     Note: text patterns can't list every text: add an arm with a variable or `_` in that position, such as a last arm `| _ => …`
+───╯
