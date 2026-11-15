@@ -36301,14 +36301,14 @@
     {
       "id": 3297,
       "title": "[Sonnet] A theorem with an [add: Add a] implicit used against an Int goal leaves add unsolved (pre-existing; probe q2.sw in docs/reviews/SW-3281-propagation.md S2); decide whether plain implicits of class type should be found by instance search",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Notes (lane, 15 Nov): the language already separates the two: only `[auto h: I a]` parameters are searched for instances (docs/syntax.md, Interfaces); a plain implicit is solved by unification only. So q2's `[add: Add a]` is expected behaviour, as in Lean's `{inst : Add a}` versus `[Add a]`. Fix: the E-TYPE-MISMATCH note on an unsolved plain implicit whose type is an interface now says it is never searched and suggests `[auto add: …]` (check.rs `note_origin`). Example `examples/reject/implicit-interface-not-searched.sw` (+ snapshot, PRINTS_UNKNOWNS entry), one sentence in docs/syntax.md. The `[auto add: Add a]` form of q2 checks.\n",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {

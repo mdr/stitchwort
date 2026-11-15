@@ -3423,7 +3423,7 @@ fn settle_from_expected(
             Some(arg) => arg,
             None => {
                 let meta = supplied_arg(cx, icit, &dom, supply);
-                note_origin(cx, &meta, &x, &term, false);
+                note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
                 meta
             }
         };
@@ -3788,7 +3788,7 @@ fn explicit_arg_checked<'a>(
         ..
     } = *ready;
     if let Some(x) = &hole_of {
-        note_origin(cx, &value, x, &term, true);
+        note_origin(cx, &value, x, &term, None);
     }
     let mut function_name = None;
     if let Expr::Var(name) = written
@@ -4807,7 +4807,7 @@ fn insert_with(
         && icit.is_implicit()
     {
         let meta = supplied_arg(cx, icit, &dom, supply);
-        note_origin(cx, &meta, &x, &term, false);
+        note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&cx.g(), value)?;
@@ -4815,11 +4815,16 @@ fn insert_with(
     Ok((term, ty))
 }
 
+/// Whether `ty` is an interface applied to its type.
+fn is_interface_type(cx: &Ctx, ty: &Value) -> bool {
+    matches!(force(&cx.g(), ty.clone()), Ok(Value::Data(i, _)) if cx.e.is_interface(i))
+}
+
 /// Records that unknown `meta` is parameter `param` of the call `callee`
 /// (a call, or a name applied to arguments so far), for messages that
 /// print it as `?N` ([`stitchwort_core::globals::Meta::origin`]). The first
 /// recorded origin stays.
-fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term, hole: bool) {
+fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term, implicit_ty: Option<(Icit, &Value)>) {
     let Term::Meta(m) = meta.spine().0 else {
         return;
     };
@@ -4830,14 +4835,18 @@ fn note_origin(cx: &Ctx, meta: &Term, param: &Name, callee: &Term, hole: bool) {
         Term::Def(id) => format!(" of `{}`", cx.g().def(*id).name()),
         _ => String::new(),
     };
-    let origin = if hole {
-        format!(
+    let origin = match implicit_ty {
+        None => format!(
             "the `_` for the argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type"
-        )
-    } else {
-        format!(
+        ),
+        // A plain implicit is solved only by unification; a dictionary
+        // that nothing in the call fixes needs `auto` to be searched for.
+        Some((Icit::Implicit, dom)) if is_interface_type(cx, dom) => format!(
+            "the implicit argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type. Its type is an interface, but a plain implicit parameter is never searched for an instance: declare it `[auto {param}: …]` to have the instance found, or give it with `[{param} := …]`"
+        ),
+        Some(_) => format!(
             "the implicit argument `{param}`{of}, which wasn't worked out from the other arguments or the expected type; give it with `[{param} := …]`"
-        )
+        ),
     };
     cx.metas().set_meta_origin(*m, origin.into());
 }
@@ -4946,7 +4955,7 @@ fn insert_until(
             }
             Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
                 let meta = supplied_arg(cx, icit, &dom, supply);
-                note_origin(cx, &meta, &x, &term, false);
+                note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
                 ty = cod.apply(&cx.g(), value)?;
