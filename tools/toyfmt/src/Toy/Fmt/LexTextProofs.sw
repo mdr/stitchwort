@@ -495,3 +495,36 @@ theorem lexemeText ∀ (read later: List Char) (lexeme: Lexeme)
         | SignLexeme, _, _ => rfl
         | SymbolsLexeme, _, _ => rfl
         | StrayLexeme, _, _ => rfl
+
+--| A lex that succeeded: the source is its lexemes one after another
+--| (`steps`), each read as [`LexemeSpec`] says and never empty; the
+--| lexemes found are the steps with their places, and the tokens and end
+--| trivia are what `assemble` makes of them. The converse of `lexReads`.
+theorem lexRead ∀ (source: Text) (lexed: Lexed)
+    (h: lex source = Ok lexed):
+    ∃ (steps: List (List Char, Lexeme)) => source.toList = Parse.joinReads steps
+      ∧ lexed.lexemes = Parse.locatedSteps 0 steps
+      ∧ lexed.tokens = (assemble source lexed.lexemes).fst
+      ∧ lexed.endTrivia = (assemble source lexed.lexemes).snd
+      ∧ Parse.LexemesRead LexemeSpec steps :=
+  match e: Fail.toResult (() => Parse.all source lexemes) with
+    | Ok found =>
+      match c: covers source found with
+        | True =>
+          match lexemesRead source found e with
+            | Witness steps (Both joined (Both same lexemes)) =>
+              let made := Result.okInjective h
+              Witness steps (rewrite <- made in Both joined (Both same (Both rfl (Both rfl lexemes))))
+
+--| Every step of a lex that succeeded read its kind's text
+--| ([`LexemeText`]): a word lexeme a word, a number digits, a comment `--`
+--| and the rest of its line, a string its quotes and pieces.
+def StepTexts: (steps: List (List Char, Lexeme)) → Prop
+  | [] => True
+  | [(read, lexeme), ..steps] => LexemeText lexeme read ∧ StepTexts steps
+
+theorem stepTexts ∀ (steps: List (List Char, Lexeme)) (lexemes: Parse.LexemesRead LexemeSpec steps): StepTexts steps :=
+  match steps, lexemes with
+    | [], _ => rfl
+    | [(read, lexeme), ..later], Both nonEmpty (Both spec others) =>
+      Both (lexemeText read (Parse.joinReads later) lexeme nonEmpty spec) (stepTexts later others)
