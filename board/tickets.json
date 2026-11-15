@@ -36563,12 +36563,12 @@
     {
       "id": 3315,
       "title": "[Sonnet] After SW-3311: make the 'this text pattern made it a Text' label precise by recording the fixed type where an argument is checked against a domain mentioning the pattern's metavariable (SW-3312 option b); today it shows only when Text is the expected side (option c), missing cases like x + 1 with x fixed to Text",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "After SW-3311 (merged). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36695,12 +36695,12 @@
     {
       "id": 3324,
       "title": "[Opus] Nested matches in proofs: an inner arm inside an outer catch-all keeps the outer case's shape and counts only its own cases (5 where there are 10); combine the arm-as-written display across nesting (SW-3317 review)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From the SW-3317 review. Expected: 2 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36767,12 +36767,12 @@
     {
       "id": 3329,
       "title": "[Sonnet] Print a type ascription in a goal's lemma when both sides of an equation leave the type open ((Err msg: Result b Text) = Err msg), instead of printing no lemma (SW-3326 drops it); also the lemmas_check_as_the_same_goal test takes 5-6 min: cut its per-example writes or sample",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "From SW-3326. Expected: 1 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
