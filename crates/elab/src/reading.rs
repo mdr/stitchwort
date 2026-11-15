@@ -1403,6 +1403,17 @@ pub(crate) fn no_reading(
                     g.def(*f).name()
                 ));
             }
+            // `True` as a proposition is the test fact `True = True`, which
+            // `rfl` proves by computation (SW-3455).
+            if polarity
+                && matches!(
+                    force(&g, test.clone()),
+                    Ok(Value::Ctor(d, c, _))
+                        if Some((d, c)) == g.env.registry().ctor(Builtin::True)
+                )
+            {
+                d = d.with_note("`rfl` proves this: the fact computes to `True = True`");
+            }
             d.with_note("a test fact can always be matched by a name")
         }
     };

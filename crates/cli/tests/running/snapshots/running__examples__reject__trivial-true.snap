@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be built with `Trivial`
+   ╭─[ reject/trivial-true.sw:6:20 ]
+   │
+ 6 │ theorem t: True := Trivial
+   │                    ───┬───  
+   │                       ╰───── `True` has no reading, so it has no parts
+   │ 
+   │ Note 1: `rfl` proves this: the fact computes to `True = True`
+   │ 
+   │ Note 2: a test fact can always be matched by a name
+───╯
