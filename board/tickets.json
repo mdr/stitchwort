@@ -17354,9 +17354,9 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. After SW-1983. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
+      "body": "Parked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.",
       "created": "2026-11-07",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -17369,9 +17369,9 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "From docs/proposals/parse-recovery.md. After SW-1984. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
+      "body": "Parked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.",
       "created": "2026-11-07",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36219,9 +36219,9 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Parked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
