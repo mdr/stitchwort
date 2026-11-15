@@ -3293,6 +3293,25 @@ pub(crate) fn is_function_type(ty: &Expr) -> bool {
     }
 }
 
+/// Whether a written type is a function whose first explicit argument is
+/// itself a function, so an unbracketed lambda could have been meant for it:
+/// `span: (t -> Bool) -> …` yes, `read: Path -> …` no (SW-3453).
+pub(crate) fn takes_function_argument(ty: &Expr) -> bool {
+    let mut ty = ty;
+    loop {
+        match ty {
+            Expr::Arrow(dom, _)
+            | Expr::Pi {
+                dom,
+                implicit: false,
+                ..
+            } => return matches!(**dom, Expr::Arrow(..) | Expr::Pi { .. }),
+            Expr::Pi { cod, .. } => ty = cod,
+            _ => return false,
+        }
+    }
+}
+
 impl Elaborator {
     /// Whether the module's item `item`, not checked yet, is declared with a
     /// function type.

@@ -568,12 +568,16 @@ was meant to be the function being called). Proposed:
   1. the lambda has two or more parameters, the first a plain name (not `_`, not a group);
   2. that name, resolved in the scope **around** the lambda (before the lambda's own binder
      shadows it, using the same resolution as any name), refers to a function: a top-level
-     definition, an import, an ability operation, or a local variable whose **resolved type**
-     is a function type (after unfolding definitions, as for any type that's compared).
+     definition, an import, an ability operation whose first argument is a function, or a local
+     variable whose **resolved type** is a function type (after unfolding definitions, as for any
+     type that's compared).
 
   Message: "this lambda's first parameter `map` hides the function `map`"; note: "if you meant
   to pass a lambda to `map`, put it in brackets: `map (x => …)`; otherwise rename the
   parameter".
+  An ability operation counts only when its first argument is itself a function: `span total =>
+  …` could mean `span (total => …)`, but a spec's `read value => …` can't mean `read (value =>
+  …)` when `read` takes a path (SW-3453).
 - **A note on errors.** When the same two conditions hold and an error is reported inside the
   lambda or at it (for example "this is a function, but the expected type is `List Nat`", or
   the body's `x + 1 xs` failing), the error gets the same note.

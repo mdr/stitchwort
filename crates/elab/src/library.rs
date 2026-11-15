@@ -64,8 +64,9 @@ pub struct IndexedName {
     pub kind: PendingKind,
     /// A constructor or operation: visible wherever its type or ability is.
     pub follower: bool,
-    /// A definition declared with a function type (`W-LAMBDA-SHADOW` asks
-    /// before the file is loaded).
+    /// A definition declared with a function type, or an operation whose
+    /// first argument is a function type (`W-LAMBDA-SHADOW` asks before the
+    /// file is loaded).
     pub function: bool,
     pub span: Span,
     /// A data type's field every constructor has: a shared-field accessor
@@ -696,11 +697,23 @@ pub(crate) fn file_names(
             if interface && !follower {
                 continue;
             }
+            // An operation is a function, but `W-LAMBDA-SHADOW` asks only
+            // when its first argument is a function too: `read value => …`
+            // can't mean `read (value => …)` for `Files.read` (SW-3453).
+            let function = match decl {
+                Decl::Ability { ops, .. } => ops
+                    .iter()
+                    .find(|(op, _)| op.text == name.text)
+                    .map_or(follower, |(_, ty)| {
+                        crate::module::takes_function_argument(ty)
+                    }),
+                _ => follower,
+            };
             out.push(IndexedName {
                 key: Elaborator::member_key(&key, &name.text),
                 kind: if follower { member } else { PendingKind::Other },
                 follower,
-                function: follower,
+                function,
                 span: name.span,
                 candidate: false,
                 accessor: false,
