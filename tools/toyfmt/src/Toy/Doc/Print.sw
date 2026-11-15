@@ -41,20 +41,22 @@ type Printer = {
 
 --| `doc` printed in `width` columns.
 def print (doc: Doc) (width: Nat): Text :=
-  let start: Printer := {
-    width,
-    out = [],
-    column = 0,
-    owed = None,
-    atLineStart = True,
-    suffixes = [],
-    lineIndent = 0,
-    newlinesAtEnd = 0,
-    started = False
-  }
   let fuel := 3 * doc.size + 3
-  let done := start.run fuel fuel [Print 0 Break doc] |> .flushSuffixes
+  let done := (Printer.start width).run fuel fuel [Print 0 Break doc] |> .flushSuffixes
   done.out.reverse.joinWith ""
+
+--| The printer before anything is printed.
+def Printer.start (width: Nat): Printer := {
+  width,
+  out = [],
+  column = 0,
+  owed = None,
+  atLineStart = True,
+  suffixes = [],
+  lineIndent = 0,
+  newlinesAtEnd = 0,
+  started = False
+}
 
 def Printer.run (printer: Printer) (total fuel: Nat) (stack: List Cmd): Printer := match fuel, stack with
   | 0, _ => printer
