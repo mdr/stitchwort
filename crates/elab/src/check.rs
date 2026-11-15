@@ -3185,6 +3185,9 @@ fn apply_args_postponing<'a>(
 ) -> Result<(Term, Value)> {
     let mut applied = head;
     let mut held = Held::start(cx, args);
+    if let Some(expected) = held.expecting_named.clone() {
+        applied = settle_from_expected(cx, applied, args, &expected, supply)?;
+    }
     // The argument just passed, when it was a name given as a function.
     let mut function_name: Option<&AstName> = None;
     for (i, arg) in args.iter().enumerate() {
@@ -3213,6 +3216,119 @@ fn apply_args_postponing<'a>(
     }
     let (term, ty) = applied;
     finish_application(cx, term, ty, held, first_error)
+}
+
+/// The application `term` of type `ty` to `args`, whose expected type
+/// `expected` (unforced) is known, with its leading implicit arguments given
+/// before its arguments are checked. Where the result its type promises is a
+/// call of the same definition as `expected`, and one of the call's
+/// arguments is one of those implicit parameters itself, a type, that
+/// parameter is given `expected`'s argument there, as `[t := Char]` would
+/// give it; the
+/// rest get unknowns, as the first argument would give them. A lemma's type
+/// parameter, such as an ability's `t` in `Parse.runsBind`, is then a known
+/// type in everything checked after, not an unknown solved later, which
+/// every use reads through its solution (SW-3282: a nested chain of such
+/// lemmas took 60% more steps). The comparison at the end still checks the
+/// whole type.
+#[inline(never)]
+fn settle_from_expected(
+    cx: &mut Ctx,
+    (mut term, mut ty): (Term, Value),
+    args: &[Arg],
+    expected: &Value,
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    if !supply.is_empty()
+        || !matches!(args.first(), Some(Arg::Explicit(_)))
+        || args
+            .iter()
+            .any(|a| matches!(a, Arg::Named(..) | Arg::NamedExplicit(..)))
+    {
+        return Ok((term, ty));
+    }
+    let Some((want, want_spine)) = call_parts(expected) else {
+        return Ok((term, ty));
+    };
+    let g = cx.g();
+    let base = cx.level();
+    // The parameters as variables, and the result past every parameter the
+    // type spells out, without unfolding a call (the result itself may
+    // unfold to a function type).
+    // Which of the leading implicit parameters are types: only those are
+    // given, so what is given has the parameter's type whenever the call's
+    // type matches `expected` at all.
+    let mut types: Vec<bool> = Vec::new();
+    let mut leading = true;
+    let mut result = force(&g, ty.clone())?;
+    let mut level = base;
+    while let Value::Pi(_, icit, dom, cod) = result {
+        leading = leading && icit.is_implicit();
+        if leading {
+            let is_type =
+                icit == Icit::Implicit && matches!(force(&g, (*dom).clone())?, Value::Sort(_));
+            types.push(is_type);
+        }
+        result = cod.apply(&g, Value::var(level))?;
+        level += 1;
+    }
+    let implicit = types.len();
+    if !types.contains(&true) {
+        return Ok((term, ty));
+    }
+    let Some((found, found_spine)) = call_parts(&result) else {
+        return Ok((term, ty));
+    };
+    if found != want || found_spine.len() != want_spine.len() {
+        return Ok((term, ty));
+    }
+    // For each leading implicit parameter, `expected`'s argument where the
+    // result has that parameter alone.
+    let mut given: Vec<Option<Term>> = vec![None; implicit];
+    for (a, b) in found_spine.iter().zip(want_spine.iter()) {
+        let (stitchwort_core::value::Elim::App(a, _), stitchwort_core::value::Elim::App(b, _)) =
+            (a, b)
+        else {
+            continue;
+        };
+        if let Value::Neutral(Head::Var(l, _), spine) = force(&g, a.clone())?
+            && spine.is_empty()
+            && (base..base + implicit).contains(&l)
+            && types[l - base]
+            && given[l - base].is_none()
+        {
+            given[l - base] = Some(quote(&g, base, b)?);
+        }
+    }
+    if given.iter().all(Option::is_none) {
+        return Ok((term, ty));
+    }
+    for value in given {
+        let Value::Pi(x, icit, dom, cod) = force(&g, ty.clone())? else {
+            unreachable!("the leading implicit parameters were counted above");
+        };
+        let arg = match value {
+            Some(arg) => arg,
+            None => {
+                let meta = supplied_arg(cx, icit, &dom, supply);
+                note_origin(cx, &meta, &x, &term, false);
+                meta
+            }
+        };
+        let value = cx.eval(&arg)?;
+        term = Term::app_icit(term, arg, icit);
+        ty = cod.apply(&g, value)?;
+    }
+    Ok((term, ty))
+}
+
+/// The definition `value` calls and the call's spine, if it is a call of a
+/// definition, folded or not.
+fn call_parts(value: &Value) -> Option<(stitchwort_core::DefId, &stitchwort_core::value::Spine)> {
+    match value {
+        Value::Call(id, spine, _) | Value::Neutral(Head::Def(id), spine) => Some((*id, spine)),
+        _ => None,
+    }
 }
 
 /// A lambda argument `value` of the application `term` of type `ty`:
@@ -3545,6 +3661,8 @@ struct Held<'a> {
     searches: Vec<(&'a Expr, Value, Value, usize)>,
     after_expected: Vec<(&'a Expr, Value, Value, usize)>,
     expecting: Option<Value>,
+    /// `expecting` before it was forced.
+    expecting_named: Option<Value>,
     queued_from: usize,
     metas_from: usize,
 }
@@ -3559,15 +3677,15 @@ impl<'a> Held<'a> {
         let metas_from = cx.metas().metas.borrow().len();
         // Lambdas to check after the application's type is compared with
         // the type expected of it, if `infer_expecting` says what that is.
-        let expecting = match &*cx.e.decl.app_expected.borrow() {
-            Some((key, expected))
+        let (expecting, expecting_named) = match &*cx.e.decl.app_expected.borrow() {
+            Some((key, expected, named))
                 if args.iter().any(
                     |a| matches!(a, Arg::Explicit(e) if std::ptr::from_ref(*e) as usize == *key),
                 ) =>
             {
-                Some(expected.clone())
+                (Some(expected.clone()), Some(named.clone()))
             }
-            _ => None,
+            _ => (None, None),
         };
         Held {
             postponed: Vec::new(),
@@ -3576,6 +3694,7 @@ impl<'a> Held<'a> {
             searches: Vec::new(),
             after_expected: Vec::new(),
             expecting,
+            expecting_named,
             queued_from,
             metas_from,
         }
@@ -3601,6 +3720,7 @@ fn finish_application(
         expecting,
         queued_from,
         metas_from,
+        ..
     } = held;
     for (value, dom, placeholder, id) in postponed {
         let checked = match check(cx, value, &dom) {
@@ -6285,7 +6405,7 @@ fn fallback_pipe(
 /// propagated application's arguments stand on doesn't hold its locals.
 #[inline(never)]
 fn fallback_inferred(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
-    let (term, found) = infer_expecting(cx, expr, expected)?;
+    let (term, found) = infer_expecting(cx, expr, expected, named)?;
     inferred_against(cx, expr, (term, found), expected, named)
 }
 
@@ -6378,7 +6498,12 @@ fn extra_negative_argument_note(
 /// (`apply_args_postponing`). Its result type may depend on the arguments, so it
 /// couldn't be compared first (`propagate`): `List.mapCong _ _ xs (x => …)`
 /// against `List.map f xs = List.map g xs`.
-fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term, Value)> {
+fn infer_expecting(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+) -> Result<(Term, Value)> {
     let key = match spine(expr).1.last() {
         Some(Arg::Explicit(last) | Arg::NamedExplicit(_, last)) => {
             std::ptr::from_ref(*last) as usize
@@ -6394,7 +6519,7 @@ fn infer_expecting(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<(Term,
     let outer =
         cx.e.decl
             .app_expected
-            .replace(Some((key, expected.clone())));
+            .replace(Some((key, expected.clone(), named.clone())));
     let result = infer(cx, expr);
     *cx.e.decl.app_expected.borrow_mut() = outer;
     result
