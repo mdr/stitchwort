@@ -37875,12 +37875,12 @@
     {
       "id": 3412,
       "title": "[Opus] Re-land the text-rest rule (SW-3376, reverted in e3e119a17): refuse a wrapper whose one field is a proof (Prop-typed); soundness/proof-irrelevance-07 must stay refused; run the whole soundness set; then a second Fable review",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus), 15 Nov 2026, 14:04-14:40, est. 1.5 h. Branch lane/SW-3412: edf572f86 (revert of the revert e3e119a17), 0a2c8e8cc (fix).\n\nCondition as built (crates/core/src/termination.rs): `C`'s type isn't a proposition, its one field (all fields still count) is relevant data, i.e. not `field_erased` (proof or type), and every step from v to u is a relevant field of a non-proposition: a `case` records `Info::parent` only for those (l.583, l.890), `wrapped` refuses an erased field or a Prop type (l.758). Reason in the header's \"Relevant data only\" (l.99), docs/core.md, proposal rule 3 condition 4: conversion skips proofs and runs erase them, so every `MkBox x` is one value to the kernel; a part of a proof isn't smaller (Agda #8699). \"Count every field\" kept on purpose: reject/termination-wrapper-proof-beside.sw loops under a relevant-only count, because the plain rule already takes a proof's data field as a part.\n\nAttacks added (examples/reject/termination-wrapper-*): proof-irrelevance-07 (the soundness example, named), proof-only (former honest `down`, moved out of accept/termination-wrapper-honest.sw), implicit-proof, changing-proposition, through-proof (record's proof field), squash, proof-beside, type-parameter-prop (E-UNIVERSE). The first six were accepted by the reverted rule (checked with a binary built from it) and are refused now. Kernel tests: termination::a_one_field_wrapper_around_a_part_of_a_proof_is_not_smaller / ..._of_data_is_smaller.\n\nTests: whole examples::soundness passed (all files, broad tier = every one); test:example termination-wrapper,text-pattern,terminat,recurs,proof-irrelevance 7/7; core termination:: 23/23; hash_stability 10/10 (honest snapshot loses `down`, `Big`, `WP`); toyfmt stitchwort test 90/90; clippy, fmt clean.\n\nFor Fable's second review: SW-3376 review §2 said a proof field as the one field \"changes nothing\" by rank; that is true of rank on terms but wrong against conversion, the missed point. Look at whether the walker's plain-field rule taking parts of proofs (accept a8b-style `MkD [] (MkPBox d) => t d`) needs the same restriction for data-returning functions.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37958,7 +37958,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Matt, 15 Nov 2026, on the goal: \"proving the toy printer's correctness directly is a good ambition ... if a program can be parsed, so it's a valid program, then it should be the same program before and after. Formatting for some concept of sameness ... presumably it's going to be the same AST ... idempotence is another key property which I think we want a formatter.\" So the target theorems: (1) for every program the parser accepts, format's output parses to the same program (the erased tree in the toy); (2) idempotence; no run-time re-parse.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
