@@ -46,6 +46,7 @@ use crate::ir::{MainRow, Program, Shapes};
 use crate::machine::Machine;
 use crate::native_abi::{NativeExecutor, NativeIslands};
 use crate::shared::Limits;
+use crate::text::Text;
 use crate::value::{Delay, Fun, Value};
 
 pub use live::{Advanced, LimitScope, LiveLimits, LiveRun};
@@ -1070,19 +1071,19 @@ impl<'t, E: Executor> Runner<'t, E> {
             self.terminal.keys_mode(false, output)?;
             let text = crate::prims::text_of(&field()).clone();
             output
-                .write_all(text.as_bytes())
+                .write_all(text.to_str().as_bytes())
                 .and_then(|()| output.write_all(b"\n"))
                 .map_err(RunError::Write)?;
             Value::Tag(s.unit)
         } else if tag == s.read_line {
             self.before_read(ReadNeed::Line, output)?;
             match read_line(input, &mut self.lines)? {
-                Some(line) => Value::data(s.some, [Value::text(line.into())]),
+                Some(line) => Value::data(s.some, [Value::text(Text::from(line))]),
                 None => Value::Tag(s.none),
             }
         } else if tag == s.read_all {
             self.before_read(ReadNeed::All, output)?;
-            Value::text(read_all(input, &mut self.lines)?.into())
+            Value::text(Text::from(read_all(input, &mut self.lines)?))
         } else if tag == s.console {
             let console = self.terminal.console();
             let flag = |b: bool| Value::Tag(if b { s.true_ } else { s.false_ });
@@ -1112,14 +1113,14 @@ impl<'t, E: Executor> Runner<'t, E> {
                 None => Value::Tag(s.none),
             }
         } else if tag == s.write {
-            write_text(output, crate::prims::text_of(&field()))?;
+            write_text(output, &crate::prims::text_of(&field()).to_str())?;
             Value::Tag(s.unit)
         } else if tag == s.random_seed {
             Value::Nat(crate::host::random_seed())
         } else if tag == s.args {
             let mut list = Value::Tag(s.nil);
             for arg in crate::host::args().iter().rev() {
-                list = Value::data(s.cons, [Value::text(arg.clone().into()), list]);
+                list = Value::data(s.cons, [Value::text(Text::from(arg.as_str())), list]);
             }
             list
         } else {

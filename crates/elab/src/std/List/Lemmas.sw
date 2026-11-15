@@ -729,6 +729,14 @@ theorem List.dropAdd ∀ (n m: Nat) (xs: List a): List.drop xs (n + m) = List.dr
   | Succ n, [] => Eq.sym (List.dropNil m)
   | Succ n, [x, ..xs] => List.dropAdd n m xs
 
+--| Taking `n + m` is taking `n`, then `m` of what is after them.
+theorem List.takeAdd ∀ (xs: List a) (n m: Nat):
+    List.take xs (n + m) = List.append (List.take xs n) (List.take (List.drop xs n) m) :=
+  match xs, n with
+    | xs, Zero => rfl
+    | [], Succ n => Eq.sym (List.takeNil m)
+    | [x, ..xs], Succ n => Eq.cong (Cons x) (List.takeAdd xs n m)
+
 --| Dropping the whole length leaves nothing.
 theorem List.dropLength ∀ (xs: List a): List.drop xs (List.length xs) = [] := match xs with
   | [] => rfl

@@ -70,6 +70,7 @@ use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
 use crate::ir::{MainRow, PrimOp, Program, Shapes};
 use crate::linked::{Kind, Outline};
 use crate::shared::{Limits, NumTable};
+use crate::text::Text;
 use crate::value::{Fields, Fun, Value};
 
 // ------------------------------------------------------------ the layout
@@ -250,7 +251,7 @@ fn probe() -> Result<(), String> {
             Value::int(num_bigint::BigInt::from(i64::MIN) - 1),
             TAG_BIG_INT,
         ),
-        (Value::Text("abc".into()), TAG_TEXT),
+        (Value::Text(Text::from("abc")), TAG_TEXT),
         (Value::float(1.5), TAG_FLOAT),
         (Value::Tag(3), TAG_TAG),
         (Value::data(5, [Value::Nat(1), Value::Nat(2)]), TAG_DATA),
@@ -296,12 +297,12 @@ fn probe() -> Result<(), String> {
         counts_at(allocation(&data)) == (1, 1),
         "a cell's counts after a drop",
     )?;
-    let text: Rc<str> = "hello".into();
-    let tv = Value::Text(text.clone());
+    let text = Text::from("hello");
+    let tv = Value::Text(text.clone().slice(1, 4));
     let tw = words(&tv);
     check(
-        tw[1] + RC_VALUE_AT as u64 == Rc::as_ptr(&text).cast::<u8>() as u64 && tw[2] == 5,
-        "a text's address and length",
+        tw[1] + RC_VALUE_AT as u64 == text.units_address() as u64 && tw[2] == 1 | 3 << 32,
+        "a text's buffer address, start and length",
     )?;
     check(counts_at(allocation(&tv)).0 == 2, "a text's count")?;
     // A spare capacity, so the capacity word can't be mistaken for the length.
@@ -2904,11 +2905,11 @@ pub unsafe extern "C" fn sw_eff_state(
 }
 
 /// For the compiled `Text.fold` (stage NO1 of docs/proposals/native-only.md),
-/// a leaf: the last character of the text at `t` (borrowed) before byte
+/// a leaf: the last character of the text at `t` (borrowed) before position
 /// `end` (`u64::MAX` for the whole text), as the machine's `fold_step`
 /// takes it, written to `out` as a `Char` (`prims::char_value`); returns
-/// where it starts, the next call's `end`. `u64::MAX`, with nothing
-/// written, if there is none left.
+/// its position, the next call's `end`. `u64::MAX`, with nothing written,
+/// if there is none left.
 ///
 /// # Safety
 /// `context` is the running context; `t` points at a `Text`; `out` at space
@@ -2933,12 +2934,12 @@ pub unsafe extern "C" fn sw_text_last(
     } else {
         end as usize
     };
-    match text[..end].chars().next_back() {
+    match end.checked_sub(1).and_then(|i| Some((i, text.get(i)?))) {
         None => u64::MAX,
-        Some(c) => {
+        Some((i, c)) => {
             // SAFETY: the caller's contract.
             unsafe { out.write(crate::prims::char_value(shapes, c)) };
-            (end - c.len_utf8()) as u64
+            i as u64
         }
     }
 }

@@ -90,6 +90,28 @@ theorem Text.joinSplitTexts ∀ (s: Char) (p: Pair (List Char) (List (List Char)
 theorem Text.joinSplit ∀ (t: Text) (s: Char): Text.join (Text.split t s) s = t := match t with
   | MkText cs => Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
 
+--| Fields joined with no separator are their characters one after another.
+theorem Text.joinTextCharsEmpty ∀ (field: List Char) (fields: List (List Char)):
+    Text.joinTextChars [] field fields = List.append field (List.concat fields) :=
+  match fields with
+    | [] => Eq.sym (List.appendNil field)
+    | [next, ..later] => Eq.cong (List.append field) (Text.joinTextCharsEmpty next later)
+
+theorem Text.charListsOfMap ∀ (texts: List Text): Text.charListsOf texts = texts.map Text.toList := match texts with
+  | [] => rfl
+  | [text, ..texts] => Eq.cong (Cons text.toList) (Text.charListsOfMap texts)
+
+--| The characters of a concatenation are the texts' characters, one after
+--| another.
+theorem Text.concatToList ∀ (texts: List Text): (Text.concat texts).toList = List.concat (texts.map Text.toList) :=
+  match texts with
+    | [] => rfl
+    | [text, ..texts] =>
+      rewrite <- Text.charListsOfMap texts in Text.joinTextCharsEmpty text.toList (Text.charListsOf texts)
+
+test "Text.concat" :=
+  Text.concat ["ab", "", "c"] == "abc" ∧ Text.concat [] == "" ∧ Text.concat ["\u{2192}", "x"] == "\u{2192}x"
+
 -- Lines
 
 --| Whether a code is the line feed, 10.

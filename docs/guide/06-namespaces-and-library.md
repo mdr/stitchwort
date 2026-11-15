@@ -254,7 +254,11 @@ test "toNat does not trim" := " 42 ".toNat == None ∧ " 42 ".trim.toNat == Some
 test "trim and slices" := "  tea ".trim == "tea" ∧ "teapot".take 3 == "tea"
 test "prefixes" := "L68".stripPrefix "L" == Some "68"
 test "length counts characters" := "héllo".length == 5
+test "by position" := "teapot".get 3 == Some 'p' ∧ "teapot".slice 3 6 == "pot" ∧ "teapot".getOr 9 '.' == '.'
+test "concat" := Text.concat ["tea", "", "pot"] == "teapot"
 ```
+
+When a program runs, reading a text by position is cheap: `get`, `getOr`, `slice`, `take`, `drop`, `uncons` and `length` each take one step whatever the text's length, and a slice shares the text's characters rather than copying them. So a lexer can walk a source with `source.get pos` and cut each token out with `source.slice start pos`. Building a text piece by piece with `++` copies what came before each time; collect the pieces and join them once with `Text.concat` (or `joinWith`).
 
 Note that `Text.toNat` and `Text.toInt` don't trim spaces, while `Text.toNatOrFail` and `Text.toIntOrFail` do ([chapter 8](08-abilities.md)).
 

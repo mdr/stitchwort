@@ -60,6 +60,8 @@ test "toNat does not trim" := " 42 ".toNat == None ∧ " 42 ".trim.toNat == Some
 test "trim and slices" := "  tea ".trim == "tea" ∧ "teapot".take 3 == "tea"
 test "prefixes" := "L68".stripPrefix "L" == Some "68"
 test "length counts characters" := "héllo".length == 5
+test "by position" := "teapot".get 3 == Some 'p' ∧ "teapot".slice 3 6 == "pot" ∧ "teapot".getOr 9 '.' == '.'
+test "concat" := Text.concat ["tea", "", "pot"] == "teapot"
 -- end text
 
 -- begin map
