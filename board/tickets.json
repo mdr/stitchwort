@@ -37280,12 +37280,12 @@
     {
       "id": 3367,
       "title": "[Sonnet] Std Parse from the toy formatter (SW-3340): Parse.recursiveWith (recursion with an argument); a way for a Parse.tokens lexer to return trailing comments / an end token named 'the end of the input'; Parse.previous() or a mark remembering the last item read; check whether (..) imports bring in dotted helpers",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Combined with SW-3391 (Parse.operators, cheaper loop) since both edit std Parse. Expected: 3 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37594,7 +37594,7 @@
     {
       "id": 3391,
       "title": "[Sonnet] SW-3381 findings: stitchwort test --std NAMESPACE (std tests per namespace, for lanes); Text.upper; a match as the last statement of a let block needing deeper indentation (better message or accept); Std.Args 'help lists every option' theorem once Text.contains/joinWith lemmas exist",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
