@@ -1,5 +1,5 @@
 {
-  "next": 3315,
+  "next": 3316,
   "tickets": [
     {
       "id": 47,
@@ -36538,6 +36538,19 @@
       "commits": [
         "9f8c64212b14e5a5ae6d091bd82caafc5111cfd7"
       ]
+    },
+    {
+      "id": 3315,
+      "title": "[Sonnet] After SW-3311: make the 'this text pattern made it a Text' label precise by recording the fixed type where an argument is checked against a domain mentioning the pattern's metavariable (SW-3312 option b); today it shows only when Text is the expected side (option c), missing cases like x + 1 with x fixed to Text",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
     }
   ]
 }
