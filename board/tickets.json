@@ -36221,14 +36221,14 @@
     {
       "id": 3293,
       "title": "[Sonnet] Text patterns follow-ups (docs/reviews/SW-3284-text-patterns.md should-fix 1 and nits): a proof's catch-all goal after text literals shows split leftovers (tail✝, code✝, valid✝); the isScalar-hiding rule must check n is a valid code (it hides a false MkChar 55296 hypothesis); guide arrowAhead example's redundant arm; the review's other nits",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md). Expected: 1.5 h (Sonnet).",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md). Expected: 1.5 h (Sonnet).\n\nProgress (lane, commit 890546d12): hid unmentioned unnamed split leftovers in hole goals (drop_split_leftovers, goals.rs; terms and hashes unchanged); known_char_proof checks the code is a scalar; guide arrowAhead became afterArrow (Some [] vs Some more); nits 1, 4, 5, 7 done; nits 2, 3, 6 skipped (message/witness design, not small); should-fix 2 and 3 are separate tickets. New goals example text-pattern-catch-all. Where the target mentions the leftovers (a theorem about the scrutinee) they still show: needs display of the scrutinee with its known shape, a design call.\n",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
