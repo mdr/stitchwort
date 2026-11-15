@@ -1,6 +1,6 @@
 --| The printer: it walks a document with a work list, deciding each group's
---| line breaks as it reaches it, and never leaves spaces at the end of a
---| line (indentation is written only before text).
+--| line breaks as it reaches it, and never leaves a chunk of spaces at the
+--| end of a line (indentation is written only before text).
 --|
 --| It is total by fuel: every node of the document is pushed on the work
 --| list at most twice, so three times the document's size is more steps
@@ -151,7 +151,7 @@ def Printer.payIndent (printer: Printer): Printer := match printer.owed with
 --| on its line.
 def Printer.write (printer: Printer) (indent: Nat) (text: Text) (width: Nat): Printer :=
   if text.isEmpty then printer
-  else if printer.suffixes.isEmpty || printer.atLineStart then printer.put text width
+  else if printer.suffixes.isEmpty then printer.put text width
   else if text.all (char => char == ' ') then printer
   else (printer.newline (printer.continuation indent)).put text width
 
@@ -174,9 +174,13 @@ def Printer.lineStart (printer: Printer) (indent: Nat): Printer :=
   if printer.atLineStart then printer else printer.newline (printer.continuation indent)
 
 def Printer.flushSuffixes (printer: Printer): Printer :=
-  printer.suffixes.foldLeft { printer | suffixes = [] } (at comment =>
-    let spaced := if at.atLineStart then at.payIndent else { at | out = [" ", ..at.out] }
-    { spaced | out = [comment, ..spaced.out], atLineStart = False, newlinesAtEnd = 0, started = True })
+  printer.suffixes.foldLeft { printer | suffixes = [] } Printer.flushOne
+
+--| A waiting trailing comment written: after one space, or at the line's
+--| indentation if nothing else is on the line.
+def Printer.flushOne (printer: Printer) (comment: Text): Printer :=
+  let spaced := if printer.atLineStart then printer.payIndent else { printer | out = [" ", ..printer.out] }
+  { spaced | out = [comment, ..spaced.out], atLineStart = False, newlinesAtEnd = 0, started = True }
 
 def Printer.newline (printer: Printer) (indent: Nat): Printer :=
   let flushed := { printer | out = trimSpaces printer.out }.flushSuffixes
@@ -190,13 +194,11 @@ def Printer.newline (printer: Printer) (indent: Nat): Printer :=
     started = True
   }
 
---| The pieces printed (the last first) without the spaces they end in: a
---| space the layout put before a break it didn't plan, a comment break,
---| would end its line.
+--| The pieces printed (the last first) without the pieces of spaces at
+--| their end: a space the layout put before a break it didn't plan, a
+--| comment break, would end its line.
 def trimSpaces (out: List Text): List Text := match out with
-  | [last, ..earlier] if last.endsWith " " && not (last.startsWith "--") =>
-    let kept := Text.fromList (last.toList.reverse.dropWhile (char => char == ' ') |> .reverse)
-    if kept.isEmpty then trimSpaces earlier else [kept, ..earlier]
+  | [last, ..earlier] if last.all (char => char == ' ') => trimSpaces earlier
   | _ => out
 
 def Printer.blank (printer: Printer): Printer :=
