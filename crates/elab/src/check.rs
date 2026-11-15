@@ -312,6 +312,10 @@ pub struct Mark {
 /// more than this many nodes is not read back whole for one (SW-2569).
 const UNFOLD_NODES: u64 = 200_000;
 
+/// The label on a text pattern that fixed a value's type to `Text`.
+const TEXT_FALLBACK_LABEL: &str = "the type of the matched value wasn't known yet, so this \
+     text pattern made it a `Text`; annotate the value's type if it is a `List Char`";
+
 impl<'e> Ctx<'e> {
     pub fn new(e: &'e Elaborator, span: Span) -> Self {
         Ctx {
@@ -447,6 +451,7 @@ impl<'e> Ctx<'e> {
 
     /// Binds a variable that can't be referred to by name.
     pub fn bind_hidden(&mut self, name: Name, ty: Value) {
+        self.forget_text_fixed_from(self.level());
         self.env.push(Value::var(self.level()));
         self.types.push(ty);
         self.names.push(name);
@@ -490,6 +495,7 @@ impl<'e> Ctx<'e> {
             Some(v) => v,
             None => self.deferred(&value)?,
         };
+        self.forget_text_fixed_from(self.level());
         if let Some(name) = name {
             self.scope.push((name.to_string(), self.level()));
         }
@@ -557,6 +563,29 @@ impl<'e> Ctx<'e> {
             self.e.note_local(self, name, ty);
         } else {
             self.e.note_name(name);
+        }
+    }
+
+    /// A new binder at `level` ends the variables fixed by text patterns
+    /// at that level or deeper: their scopes are over, and the level is
+    /// reused by an unrelated variable (SW-3315).
+    fn forget_text_fixed_from(&self, level: usize) {
+        let mut fixed = self.e.decl.text_fixed_vars.borrow_mut();
+        if !fixed.is_empty() {
+            fixed.retain(|(l, _)| *l < level);
+        }
+    }
+
+    /// A use of the variable at `level`: remembered when a text pattern
+    /// fixed its type to `Text`, so that an error at the use points at the
+    /// pattern (SW-3315).
+    pub(crate) fn note_text_fixed_use(&self, level: usize, at: Span) {
+        let fixed = self.e.decl.text_fixed_vars.borrow();
+        if fixed.is_empty() {
+            return;
+        }
+        if let Some(&(_, pattern)) = fixed.iter().find(|(l, _)| *l == level) {
+            self.e.decl.text_fixed_uses.borrow_mut().push((at, pattern));
         }
     }
 
@@ -1178,35 +1207,50 @@ impl<'e> Ctx<'e> {
         self.unrefined_hint(d, expected, found)
     }
 
-    /// When `Text` is expected and the found type isn't, points at the text
-    /// pattern that made a value of a not yet known type a `Text`, if the
-    /// declaration has one (SW-3295). Only the expected side: the pattern
-    /// fixes a type that later uses are checked against, while a found
+    /// Points at the text pattern that made a value of a not yet known type
+    /// a `Text` (SW-3295), if the declaration has one: when the error is at
+    /// a use of a variable the pattern fixed, whichever side is the `Text`
+    /// (SW-3315); otherwise only when `Text` is expected, since a found
     /// `Text` is as likely a string literal unrelated to the pattern, and
-    /// by then the solved unknown can't be told from any other `Text`
-    /// (SW-3312).
+    /// the solved unknown can't be told from any other `Text` (SW-3312).
     fn with_text_fallback_label(
         &self,
         d: Diagnostic,
         expected: &Value,
         found: &Value,
     ) -> Diagnostic {
-        let Some(&at) = self.e.decl.text_fallbacks.borrow().first() else {
+        let Some(&first) = self.e.decl.text_fallbacks.borrow().first() else {
             return d;
         };
+        let at_use = self
+            .e
+            .decl
+            .text_fixed_uses
+            .borrow()
+            .iter()
+            .find(|(used, _)| *used == self.span)
+            .map(|&(_, pattern)| pattern);
         let g = self.g();
         let is_text = |v: &Value| {
             matches!(force(&g, v.clone()), Ok(Value::Data(t, _))
                 if g.env.registry().data(Builtin::Text) == Some(t))
         };
-        if !is_text(expected) || is_text(found) {
-            return d;
+        let at = match at_use {
+            Some(pattern) if is_text(expected) != is_text(found) => pattern,
+            _ if is_text(expected) && !is_text(found) => first,
+            _ => return d,
+        };
+        d.with_label(at, TEXT_FALLBACK_LABEL)
+    }
+
+    /// [`Self::with_text_fallback_label`] for an error made at `at`, a use
+    /// of a variable, without a mismatch of two types to look at.
+    pub(crate) fn with_text_fixed_use_label(&self, d: Diagnostic, at: Span) -> Diagnostic {
+        let uses = self.e.decl.text_fixed_uses.borrow();
+        match uses.iter().find(|(used, _)| *used == at) {
+            Some(&(_, pattern)) => d.with_label(pattern, TEXT_FALLBACK_LABEL),
+            None => d,
         }
-        d.with_label(
-            at,
-            "the type of the matched value wasn't known yet, so this text pattern made it a \
-             `Text`; annotate the value's type if it is a `List Char`",
-        )
     }
 
     /// Whether `expected` and `found` differ somewhere that no solution of
@@ -2511,6 +2555,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
     if let Some(level) = cx.lookup(&name.text) {
         let head = (Term::Var(cx.level() - 1 - level), cx.types[level].clone());
         cx.e.note_local(cx, name, &head.1);
+        cx.note_text_fixed_use(level, name.span);
         return apply_args(cx, head, args);
     }
     if let Some(done) = infer_unusual_name_app(cx, name, args, fill) {

@@ -6021,6 +6021,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         && cx.e.decl.text_spans.borrow().get(pattern) == Some(pattern)
                     {
                         cx.e.decl.text_fallbacks.borrow_mut().push(*pattern);
+                        cx.e.decl.text_fixed_vars.borrow_mut().push((*x, *pattern));
                     }
                 }
             }

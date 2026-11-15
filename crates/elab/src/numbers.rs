@@ -1552,6 +1552,7 @@ fn infer_leaf(
                     format!("`{op}` works on `Nat` and `Int`"),
                 )
                 .with_label(expr.span(), format!("this is `{}`", cx.show(&ty)));
+                let error = cx.with_text_fixed_use_label(error, expr.span());
                 return Err(if note.is_empty() {
                     error
                 } else {
