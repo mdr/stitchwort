@@ -1,9 +1,8 @@
 --| The golden pairs: one for each printing rule, P1 to P10, and two mixed.
 --| Each has a source as an author might write it, the tree the parser must
---| make of it, and the formatted text. Until the parser exists (stage A),
---| the tests print the tree; stage A adds that the source parses to the
---| tree and formats to the formatted text, and that the formatted text
---| formats to itself.
+--| make of it, and the formatted text. The tests here print the tree;
+--| `Parsing.sw` checks that the source parses to it and that both texts
+--| format to the formatted one.
 
 namespace Toy.Fmt.Tests
 import Toy.Fmt (..)

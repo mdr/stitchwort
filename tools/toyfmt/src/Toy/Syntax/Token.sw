@@ -109,3 +109,6 @@ def wordKind (word: Text): Kind := match Keyword.fromWord word with
   | None => Name word
 
 def symbolsKind (run: Text): Kind := symbols run |> .getOrElse (Stray run)
+
+--| A word that lexes as a name spells no keyword.
+theorem nameIsNoKeyword ∀ (word text: Text) (named: wordKind word = Name text): Keyword.fromWord word = None := cases

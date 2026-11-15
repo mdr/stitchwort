@@ -1,18 +1,37 @@
---| Prints a generated Sprig file to time the printer: `stitchwort run
---| Toy.Timing.main -- COPIES` lays out COPIES copies of a sample of every
---| construct and says how many characters it printed. Time it from outside
---| (the toy has no clock).
+--| Times the toy's phases on a generated Sprig file: `stitchwort run
+--| Toy.Timing.main -- PHASE COPIES` lays out COPIES copies of a sample of
+--| every construct (about 400 characters each), then, by PHASE, stops
+--| (`print`), lexes the printed text (`lex`), parses it (`parse`) or formats
+--| it again (`format`), and says how much it made. The toy has no clock, so
+--| time it from outside and subtract `print`'s time from the others.
 
 namespace Toy.Timing
 import Toy.Fmt (..)
 import Toy.Syntax (..)
-import Std (List, Option, Text)
+import Std (Fail, List, Option, Parse, Result, Text)
 
 def main(): {IO} () :=
-  let copies := IO.args().head |> .flatMap Text.toNat |> .getOrElse 100
+  let args := IO.args()
+  let phase := args.head |> .getOrElse "print"
+  let copies := args.drop 1 |> .head |> .flatMap Text.toNat |> .getOrElse 100
   let file: SourceFile := { declarations = List.range 0 copies |> .concatMap sample }
-  let printed := file.print defaultWidth
-  IO.print "${copies} copies: ${printed.text.length} characters"
+  let source := (file.print defaultWidth).text
+  IO.print "${copies} copies: ${source.length} characters; ${phase}: ${measure phase source}"
+
+def measure (phase source: Text): Text := match phase with
+  | "lex" =>
+    match Fail.toResult (() => Parse.all source (() => lex source)) with
+      | Ok tokens => "${tokens.length} tokens"
+      | Err message => message
+  | "parse" =>
+    match parse source with
+      | Ok parsed => "${parsed.declarations.length} declarations"
+      | Err message => message
+  | "format" =>
+    match format source defaultWidth with
+      | Ok printed => if printed.text == source then "unchanged" else "changed"
+      | Err message => message
+  | _ => "nothing more"
 
 def name (text: Text): Item := { comments = [], value = Var text, trailing = None }
 

@@ -71,14 +71,18 @@ def lastSince (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located T
   let finish := Parse.mark()
   start.rest.drop (finish.offset - start.offset - 1) |> .head |> .map (token => token.value)
 
---| The trailing comment of the item or bare statement read since `start`.
---| An item ending in an `if` ends in the `if`'s last branch, whose own bare
---| statement has already taken it.
+--| The comment after the last token read since `start`.
+def lastTrailing (start: Parse.Mark (Parse.Located Token)): {Parse (Parse.Located Token)} Option Comment :=
+  lastSince start |> .flatMap (token => token.trailing) |> .map (comment => comment.value)
+
+--| The trailing comment of the item or bare statement `value`, read since
+--| `start`. One ending in an `if` ends in the `if`'s last branch, whose own
+--| bare statement has already taken it.
 def trailingSince (start: Parse.Mark (Parse.Located Token)) (value: Expr):
     {Parse (Parse.Located Token)} Option Comment :=
   match value with
     | If _ _ _ => None
-    | _ => lastSince start |> .flatMap (token => token.trailing) |> .map (comment => comment.value)
+    | _ => lastTrailing start
 
 --| The own-line comments in `trivia` as lines of a list, each knowing if a
 --| blank line was above it, and whether one is above what follows them.
@@ -127,13 +131,16 @@ def expressionRule (self: Layout → {Parse (Parse.Located Token)} Expr) (layout
       elseKeyword layout
       let whenFalse := body self layout
       If condition whenTrue whenFalse
-    | _ => chain (() => operand self layout) layout (List.range 1 7)
+    | _ => chain (() => operand self layout) layout levels
 
 def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek() with
   | Some token if (keywordIs ElseKeyword token.value.kind).isSome =>
     if layout.allowsElse token then skip()
     else Parse.fail "'else' must not start a line to the left of its 'if' statement"
   | _ => keyword layout ElseKeyword
+
+--| `Operator.level`'s values, loosest first.
+def levels: List Nat := List.range 1 7
 
 --| Operator chains, loosest level first: each level's operands are chains
 --| of the tighter levels.
@@ -225,9 +232,7 @@ def item (self: Layout → {Parse (Parse.Located Token)} Expr): {Parse (Parse.Lo
   let comments := start.rest.head |> .map (token => ownLineComments token.value.above) |> .getOrElse []
   let value := self InBrackets
   let comma := Parse.optional (() => sign InBrackets "','" Comma) |> .isSome
-  let trailing :=
-    if comma then lastSince start |> .flatMap (token => token.trailing) |> .map (comment => comment.value)
-    else trailingSince start value
+  let trailing := if comma then lastTrailing start else trailingSince start value
   ({ comments, value, trailing }, comma)
 
 def Punctuation.spelling: Punctuation → Text

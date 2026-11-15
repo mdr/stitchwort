@@ -107,8 +107,7 @@ def assemble (source: Text) (lexemes: List (Parse.Located Lexeme)): List (Parse.
     | [] => []
     | [last, ..earlier] => [{ last | value = { last.value | below = done.pending.reverse } }, ..earlier].reverse
 
-def Located.slice (located: Parse.Located a) (source: Text): Text :=
-  source.slice located.offset (located.offset + located.length)
+def cut (source: Text) (located: Parse.Located a): Text := source.slice located.offset (located.offset + located.length)
 
 def Assembly.add (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexeme): Assembly := match lexeme.value with
   | Spaces => assembly
@@ -116,7 +115,7 @@ def Assembly.add (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexe
     let pending := if assembly.lineEmpty then addBlank assembly.pending else assembly.pending
     { assembly | pending, lineStart = lexeme.offset + 1, lineEmpty = True }
   | CommentLexeme =>
-    let comment: Comment := { text = Located.slice lexeme source }
+    let comment: Comment := { text = cut source lexeme }
     if assembly.lineEmpty then { assembly | pending = [OwnLine comment, ..assembly.pending], lineEmpty = False }
     else
       let located := { value = comment, offset = lexeme.offset, length = lexeme.length }
@@ -124,7 +123,7 @@ def Assembly.add (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexe
   | kind =>
     let token := {
       value = {
-        kind = lexemeKind kind (Located.slice lexeme source),
+        kind = lexemeKind kind (cut source lexeme),
         startsLine = assembly.lineEmpty,
         column = lexeme.offset - assembly.lineStart,
         above = assembly.pending.reverse,

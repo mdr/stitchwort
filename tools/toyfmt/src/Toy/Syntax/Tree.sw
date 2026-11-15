@@ -7,7 +7,7 @@
 --| erased tree of the plan's proofs, and two sources with the same tree
 --| print the same.
 --|
---| What the parser (stage A) must make of the source:
+--| What the parser (`Parser.sw`) makes of the source:
 --|
 --| - A body that is one expression with no comment above it, on the `=`
 --|   line or below it, is a `Body` of one `Bare` statement; a block is a
