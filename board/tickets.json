@@ -36473,12 +36473,12 @@
     {
       "id": 3310,
       "title": "[Sonnet] Rolling check red at 63ef3f3ff: std_library::the_library_has_no_unreachable_arms flags std/Parse/Runs.sw:452 (Parse.runsOneStep's statement spells out one's match, whose None arm the checker proves impossible from 'selected'); restate without the impossible arm (SW-3283)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Found by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).",
+      "body": "Found by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).\n\nLane notes: lane/SW-3310 efa358d70. Added Parse.oneValue (the match, as a def); runsOneStep now takes the Option as a variable and states Runs of oneValue (no unreachable arm; any hypothesis on the match scrutinee triggers W-UNREACHABLE); runsOne uses oneValue in its bind continuation, statement unchanged. Tests: no_unreachable_arms and hash_stability pass (prelude and parse-lex-then-parse snapshots blessed); check --std Parse ok.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
