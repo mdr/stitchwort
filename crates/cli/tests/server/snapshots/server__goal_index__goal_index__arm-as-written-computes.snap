@@ -1,0 +1,184 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "target": "f \"ab\" ≠ 0 ∨ \"ab\" = \"\"",
+      "targetComputed": "1 ≠ 0 ∨ \"ab\" = \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ f \"ab\" ≠ 0 ∨ \"ab\" = \"\"\n  computes to 1 ≠ 0 ∨ \"ab\" = \"\"",
+        "range": [
+          12,
+          12,
+          12,
+          13
+        ]
+      }
+    ],
+    "message": "in `steps`",
+    "notes": [],
+    "range": [
+      12,
+      12,
+      12,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [],
+      "lemma": "theorem stepsGoal2: 0 ≠ 0 ∨ \"\" = \"\" := ?",
+      "target": "f \"\" ≠ 0 ∨ \"\" = \"\"",
+      "targetComputed": "0 ≠ 0 ∨ \"\" = \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "⊢ f \"\" ≠ 0 ∨ \"\" = \"\"\n  computes to 0 ≠ 0 ∨ \"\" = \"\"",
+        "range": [
+          13,
+          10,
+          13,
+          11
+        ]
+      }
+    ],
+    "message": "in `steps`",
+    "notes": [],
+    "range": [
+      13,
+      10,
+      13,
+      11
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "s",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem stepsGoal3 (s: Text): 2 ≠ 0 ∨ s = \"\" := ?",
+      "target": "f s ≠ 0 ∨ s = \"\"",
+      "targetComputed": "2 ≠ 0 ∨ s = \"\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "s: Text\n⊢ f s ≠ 0 ∨ s = \"\"\n  computes to 2 ≠ 0 ∨ s = \"\"",
+        "range": [
+          14,
+          9,
+          14,
+          10
+        ]
+      }
+    ],
+    "message": "in `steps`",
+    "notes": [
+      "this arm is checked in 4 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      14,
+      9,
+      14,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\" ∧ Text.length \"ab\" = Text.length \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\" ∧ Text.length \"ab\" = Text.length \"ab\"",
+        "range": [
+          19,
+          12,
+          19,
+          13
+        ]
+      }
+    ],
+    "message": "in `length`",
+    "notes": [],
+    "range": [
+      19,
+      12,
+      19,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "s",
+          "type": "Text"
+        },
+        {
+          "name": "tail✝",
+          "type": "List Char"
+        }
+      ],
+      "target": "p s ∧ s.length = s.length",
+      "targetComputed": "p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\ns: Text\ntail✝: List Char\n⊢ p s ∧ s.length = s.length\n  computes to p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)",
+        "range": [
+          20,
+          9,
+          20,
+          10
+        ]
+      }
+    ],
+    "message": "in `length`",
+    "notes": [
+      "this arm is checked in 5 cases; the goal shown is the arm as written, not any one case"
+    ],
+    "range": [
+      20,
+      9,
+      20,
+      10
+    ],
+    "severity": "goal"
+  }
+]

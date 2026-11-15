@@ -1,0 +1,160 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `plain`
+   ╭─[ goals/arm-as-written-text.sw:9:13 ]
+   │
+ 9 │   | "ab" => ?
+   │             ┬  
+   │             ╰── p: Text → Prop
+   │                 ⊢ p "ab"
+───╯
+[GOAL] Goal: in `plain`
+    ╭─[ goals/arm-as-written-text.sw:10:11 ]
+    │
+ 10 │   | "" => ?
+    │           ┬  
+    │           ╰── p: Text → Prop
+    │               ⊢ p ""
+────╯
+[GOAL] Goal: in `plain`
+    ╭─[ goals/arm-as-written-text.sw:11:10 ]
+    │
+ 11 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              s: Text
+    │              ⊢ p s
+    │ 
+    │ Note: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `withHypothesis`
+    ╭─[ goals/arm-as-written-text.sw:15:13 ]
+    │
+ 15 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 h: p "ab"
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `withHypothesis`
+    ╭─[ goals/arm-as-written-text.sw:16:10 ]
+    │
+ 16 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              s: Text
+    │              h: p s
+    │              ⊢ p s
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `named`
+    ╭─[ goals/arm-as-written-text.sw:20:13 ]
+    │
+ 20 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `named`
+    ╭─[ goals/arm-as-written-text.sw:21:14 ]
+    │
+ 21 │   | other => ?
+    │              ┬  
+    │              ╰── p: Text → Prop
+    │                  other: Text
+    │                  ⊢ p other
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `equation`
+    ╭─[ goals/arm-as-written-text.sw:26:13 ]
+    │
+ 26 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 s: Text
+    │                 e: s = "ab"
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `equation`
+    ╭─[ goals/arm-as-written-text.sw:27:10 ]
+    │
+ 27 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              s: Text
+    │              tail✝: List Char
+    │              code✝: Nat
+    │              valid✝: Char.isScalar code✝
+    │              e: s = MkText [MkChar code✝ valid✝, ..tail✝]
+    │              ⊢ p s
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯
+[W-ARROW-FORALL] Warning: this statement is written as a function type: `∀` is for a statement
+    ╭─[ goals/arm-as-written-text.sw:30:35 ]
+    │
+ 30 │ theorem clauses (p: Text → Prop): (s: Text) → p s
+    │                                   ────┬────  
+    │                                       ╰────── write `∀ (…) =>` instead of `(…) ->`
+    │ 
+    │ Note: a statement quantified over a variable is `∀ (x: T) => P`; `(x: T) -> V` is for a function type whose result is a type, and `A -> B` for an implication whose hypothesis is unnamed. The quick fix "Write ∀ instead of ->" does it
+────╯
+[GOAL] Goal: in `clauses`
+    ╭─[ goals/arm-as-written-text.sw:31:13 ]
+    │
+ 31 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 ⊢ p "ab"
+────╯
+[GOAL] Goal: in `clauses`
+    ╭─[ goals/arm-as-written-text.sw:32:10 ]
+    │
+ 32 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              s✝: Text
+    │              ⊢ p s✝
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `character`
+    ╭─[ goals/arm-as-written-text.sw:36:12 ]
+    │
+ 36 │   | 'a' => ?
+    │            ┬  
+    │            ╰── p: Char → Prop
+    │                ⊢ p 'a'
+────╯
+[GOAL] Goal: in `character`
+    ╭─[ goals/arm-as-written-text.sw:37:10 ]
+    │
+ 37 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Char → Prop
+    │              c: Char
+    │              ⊢ p c
+────╯
+[GOAL] Goal: in `characters`
+    ╭─[ goals/arm-as-written-text.sw:40:14 ]
+    │
+ 40 │   | ['a'] => ?
+    │              ┬  
+    │              ╰── p: List Char → Prop
+    │                  ⊢ p ['a']
+────╯
+[GOAL] Goal: in `characters`
+    ╭─[ goals/arm-as-written-text.sw:41:10 ]
+    │
+ 41 │   | _ => ?
+    │          ┬  
+    │          ╰── p: List Char → Prop
+    │              l: List Char
+    │              ⊢ p l
+    │ 
+    │ Note: this arm is checked in 3 cases; the goal shown is the arm as written, not any one case
+────╯

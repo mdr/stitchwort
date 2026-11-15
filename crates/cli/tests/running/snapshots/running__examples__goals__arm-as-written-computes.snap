@@ -1,0 +1,52 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `steps`
+    ╭─[ goals/arm-as-written-computes.sw:13:13 ]
+    │
+ 13 │   | "ab" => ?
+    │             ┬  
+    │             ╰── ⊢ f "ab" ≠ 0 ∨ "ab" = ""
+    │                   computes to 1 ≠ 0 ∨ "ab" = ""
+────╯
+[GOAL] Goal: in `steps`
+    ╭─[ goals/arm-as-written-computes.sw:14:11 ]
+    │
+ 14 │   | "" => ?
+    │           ┬  
+    │           ╰── ⊢ f "" ≠ 0 ∨ "" = ""
+    │                 computes to 0 ≠ 0 ∨ "" = ""
+────╯
+[GOAL] Goal: in `steps`
+    ╭─[ goals/arm-as-written-computes.sw:15:10 ]
+    │
+ 15 │   | _ => ?
+    │          ┬  
+    │          ╰── s: Text
+    │              ⊢ f s ≠ 0 ∨ s = ""
+    │                computes to 2 ≠ 0 ∨ s = ""
+    │ 
+    │ Note: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `length`
+    ╭─[ goals/arm-as-written-computes.sw:20:13 ]
+    │
+ 20 │   | "ab" => ?
+    │             ┬  
+    │             ╰── p: Text → Prop
+    │                 ⊢ p "ab" ∧ Text.length "ab" = Text.length "ab"
+────╯
+[GOAL] Goal: in `length`
+    ╭─[ goals/arm-as-written-computes.sw:21:10 ]
+    │
+ 21 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Text → Prop
+    │              s: Text
+    │              tail✝: List Char
+    │              ⊢ p s ∧ s.length = s.length
+    │                computes to p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯
