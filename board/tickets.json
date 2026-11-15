@@ -1,5 +1,5 @@
 {
-  "next": 3378,
+  "next": 3379,
   "tickets": [
     {
       "id": 47,
@@ -37416,6 +37416,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3378,
+      "title": "[Opus paper] Std Args: a command-line library (options as a record with names, defaults, help; parse, usage text and errors generated; maybe on generic Parse over argument tokens); first users toyfmt and the self-hosted formatter (stitchwort fmt's options)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "Matt, 15 Nov 2026: \"Yeah, I think an Args library might be quite nice.\" Paper lane. Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
