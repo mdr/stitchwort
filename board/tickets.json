@@ -1,5 +1,5 @@
 {
-  "next": 3387,
+  "next": 3388,
   "tickets": [
     {
       "id": 47,
@@ -37533,6 +37533,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3387,
+      "title": "[Sonnet paper] Verify from-memory claims about other languages/tools in the live design notes (fmt-author-breaks.md, derived-equality.md, recursion-through-map.md, args.md): check each against a primary source, cite it, correct or remove what's wrong; list the older notes' [memory]/[unverified] markers for a later sweep",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "Matt, 15 Nov 2026: \"you shouldn't do details from memory ... So please verify.\" Expected: 1.5 h.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
