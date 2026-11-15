@@ -1,5 +1,5 @@
 {
-  "next": 3362,
+  "next": 3364,
   "tickets": [
     {
       "id": 47,
@@ -36929,12 +36929,12 @@
     {
       "id": 3340,
       "title": "[Opus] Toy formatter stage A (toy-formatter.md): Sprig lexer with Text.slice, keyword tables by text patterns, tree, Parse.tokens parser with blocks by indentation, message tests, 1 MB timing. After SW-3337 and SW-3338",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 15 Nov after fast text merged (stage A needs Text.slice, not Files). Expected: 3.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37207,6 +37207,32 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3362,
+      "title": "[Sonnet] A catch-all clause in a function defined by clauses (def f: Text → Nat | … | other => ?) doesn't list other: Text in its goal; a match arm does (SW-3288 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3363,
+      "title": "[Sonnet] A goal in a Text prefix arm gets no lemma in the index; offer theorem …Goal1 (rest: Text): \"--\" ++ rest = … (SW-3288 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
