@@ -402,6 +402,31 @@ theorem wordPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offs
         | True, never => Void.exfalso (Bool.falseNotTrue (Eq.sym never))
         | False, _ => rfl
 
+--| A document printed, at every width, lexes to the tokens `placed`
+--| gives of the pieces `print` joins (`printedPieces`): `joinedLex` with
+--| the pieces named and the tokens placed.
+theorem joinedPlaced ∀ (doc: Doc) (width: Nat)
+    (uniform: Uniform doc)
+    (joins: Joins standsBefore doc (Plain None) (after => True))
+    (proper: AllProper doc.words):
+    print doc width = (printedPieces doc width).joinWith ""
+      ∧ wordsOf (printedPieces doc width) = doc.words
+      ∧ lex (print doc width)
+        = Ok {
+          lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces doc width).reverse []),
+          tokens = (placed (printedPieces doc width).reverse).tokens.reverse,
+          endTrivia = (placed (printedPieces doc width).reverse).pending.reverse
+        } :=
+  match printedJoins standsBefore doc width uniform joins with
+    | Both printed (Both words pairs) =>
+      let reads: (print doc width).toList = charsOnto (printedPieces doc width).reverse [] :=
+        rewrite printed in joinedChars (printedPieces doc width)
+      let properWords: AllProper (wordsOf (printedPieces doc width)) := rewrite words in proper
+      let properPieces := properReverse (printedPieces doc width) (properOfWords (printedPieces doc width) properWords)
+      let lexed := piecesLex (print doc width) (printedPieces doc width).reverse reads pairs properPieces
+      let tokens := piecesTokens (print doc width) (printedPieces doc width).reverse reads properPieces
+      Both printed (Both words (rewrite tokens at lexed in lexed))
+
 --| A file with the lexer's texts, printed at any width, lexes to the
 --| tokens `placed` gives of its printed pieces: the pieces between whose
 --| layout are the file's tokens and comments in order, each token of the
@@ -409,43 +434,43 @@ theorem wordPlaced ∀ (piece: Text) (placed: Placed) (blank: Bool) (column offs
 --| it there, at the column the line was wide before it.
 theorem printedTokens ∀ (file: SourceFile) (width: Nat)
     (lexical: LexicalFile file):
-    ∃ (pieces: List Text) => (file.print width).text = pieces.joinWith ""
-      ∧ wordsOf pieces = wordsOf file.pieces
+    (file.print width).text = (printedPieces file.layout width).joinWith ""
+      ∧ wordsOf (printedPieces file.layout width) = wordsOf file.pieces
       ∧ lex (file.print width).text
         = Ok {
-          lexemes = Parse.locatedSteps 0 (stepsOnto pieces.reverse []),
-          tokens = (placed pieces.reverse).tokens.reverse,
-          endTrivia = (placed pieces.reverse).pending.reverse
+          lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []),
+          tokens = (placed (printedPieces file.layout width).reverse).tokens.reverse,
+          endTrivia = (placed (printedPieces file.layout width).reverse).pending.reverse
         } :=
   match fileJoins file lexical, fileWrites file with
     | Both proper joins, Both uniform words =>
-      match joinedLex file.layout width uniform
+      match joinedPlaced file.layout width uniform
         (joins (Plain None) (after => True) rfl (after reached => rfl))
         proper with
-        | Witness pieces (Both printed (Both same lexed)) =>
-          let reads: (file.print width).text.toList = charsOnto pieces.reverse [] :=
-            rewrite printed in joinedChars pieces
-          let properWords: AllProper (wordsOf pieces) := rewrite same in proper
-          let tokens :=
-            piecesTokens
-              (file.print width).text
-              pieces.reverse
-              reads
-              (properReverse pieces (properOfWords pieces properWords))
-          Witness pieces (Both printed (Both (Eq.trans same words) (rewrite tokens at lexed in lexed)))
+        | Both printed (Both same lexed) => Both printed (Both (Eq.trans same words) lexed)
 
 --| `printedTokens` of every parsed file.
 theorem parsedPrintTokens ∀ (source: Text) (file: SourceFile) (width: Nat)
     (parsed: parse source = Ok file):
-    ∃ (pieces: List Text) => (file.print width).text = pieces.joinWith ""
-      ∧ wordsOf pieces = wordsOf file.pieces
+    (file.print width).text = (printedPieces file.layout width).joinWith ""
+      ∧ wordsOf (printedPieces file.layout width) = wordsOf file.pieces
       ∧ lex (file.print width).text
         = Ok {
-          lexemes = Parse.locatedSteps 0 (stepsOnto pieces.reverse []),
-          tokens = (placed pieces.reverse).tokens.reverse,
-          endTrivia = (placed pieces.reverse).pending.reverse
+          lexemes = Parse.locatedSteps 0 (stepsOnto (printedPieces file.layout width).reverse []),
+          tokens = (placed (printedPieces file.layout width).reverse).tokens.reverse,
+          endTrivia = (placed (printedPieces file.layout width).reverse).pending.reverse
         } :=
   printedTokens file width (parseLexical source file parsed)
+
+--| Where the words of a printed file are: whatever a file's layout
+--| lays (`Lays`, from the start of an unindented line) holds of the
+--| words of the same pieces `parsedPrintTokens` speaks of, each with the
+--| column it starts its line at, if it does: the `startsLine` and
+--| `column` that `placed` gives its token.
+theorem printedPlaces ∀ (file: SourceFile) (width: Nat) (spec: Place → List Event → Prop)
+    (lays: Lays file.layout 0 (AtStart 0) [] spec):
+    ∃ (place: Place) => spec place (eventsOf (printedPieces file.layout width).reverse) :=
+  printLays spec file.layout width lays
 
 --| `placed` computes: `f x`, a line break, two spaces and `y` are three
 --| tokens, the last starting its line at column 2.

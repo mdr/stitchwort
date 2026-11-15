@@ -988,3 +988,40 @@ theorem printJoins ∀ (follows: Text → Text → Prop) (doc: Doc) (width: Nat)
           (Both
             (Eq.trans written (Eq.trans read (List.appendNil doc.words)))
             (rewrite List.reverseReverse ran.flushSuffixes.out in finalPairs follows ran sound)))
+
+--| `printJoins` of the pieces `print` joins themselves
+--| (`printedPieces`), so that it can be said of the same pieces as
+--| `printLays`.
+theorem printedJoins ∀ (follows: Text → Text → Prop) (doc: Doc) (width: Nat)
+    (uniform: Uniform doc)
+    (joins: Joins follows doc (Plain None) (after => True)):
+    print doc width = (printedPieces doc width).joinWith ""
+      ∧ wordsOf (printedPieces doc width) = doc.words
+      ∧ Pairs follows (printedPieces doc width).reverse :=
+  let fuel := 3 * doc.size + 3
+  let ran := (Printer.start width).run fuel fuel [Print 0 Break doc]
+  let bound := stepsUnderSize doc
+  let read: ran.words = (Printer.start width).words ++ stackWords [Print 0 Break doc] :=
+    readingWords
+      (Printer.start width)
+      fuel
+      [Print 0 Break doc]
+      ran
+      (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
+      (Both uniform rfl)
+      (omega)
+  let sound: Sound follows ran :=
+    readingJoins follows
+      (Printer.start width)
+      fuel
+      [Print 0 Break doc]
+      ran
+      (runIsReading (Printer.start width) fuel fuel [Print 0 Break doc])
+      (startSound follows width)
+      joins
+  match flushWritten ran with
+    | Both written _ =>
+      Both rfl
+        (Both
+          (Eq.trans written (Eq.trans read (List.appendNil doc.words)))
+          (rewrite List.reverseReverse ran.flushSuffixes.out in finalPairs follows ran sound))
