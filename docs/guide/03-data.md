@@ -314,12 +314,13 @@ def keyword (word: Text): Option Keyword := match word with
   | "match" => Some Match
   | _ => None
 
-def arrowAhead: List Char → Bool
-  | "->" => True
-  | ['-', '>', .._] => True
-  | _ => False
+def afterArrow: List Char → Option (List Char)
+  | "->" => Some []
+  | ['-', '>', ..more] => Some more
+  | _ => None
 
-test "text patterns" := keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ arrowAhead "->x".toList
+test "text patterns" :=
+  keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ afterArrow "->x".toList == Some ['x']
 ```
 
 `"def"` is the text made of `'d'`, `'e'` and `'f'`, so the match reads one character at a time, and words that start alike share the steps: `keyword` reads `"the"` three characters in before it knows it isn't `"theorem"`, and never compares whole texts. There are always other texts, so a match on texts needs a last arm with a variable or `_`, and says so if it hasn't one:

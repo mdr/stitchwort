@@ -130,12 +130,13 @@ def keyword (word: Text): Option Keyword := match word with
   | "match" => Some Match
   | _ => None
 
-def arrowAhead: List Char → Bool
-  | "->" => True
-  | ['-', '>', .._] => True
-  | _ => False
+def afterArrow: List Char → Option (List Char)
+  | "->" => Some []
+  | ['-', '>', ..more] => Some more
+  | _ => None
 
-test "text patterns" := keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ arrowAhead "->x".toList
+test "text patterns" :=
+  keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ afterArrow "->x".toList == Some ['x']
 -- end text-patterns
 
 -- begin match

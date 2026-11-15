@@ -4018,6 +4018,9 @@ impl Elaborator {
         // characters are split as any others are, and the cases they leave
         // out are then reported as texts.
         let texts = (0..columns.len()).find_map(|j| {
+            if rows.is_empty() {
+                return None;
+            }
             let literals: Option<Vec<(&str, Span)>> = (rows.iter())
                 .map(|row| match &*row.pats[j] {
                     Pattern::Text(text, at) => Some((text.as_str(), *at)),
