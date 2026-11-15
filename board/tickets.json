@@ -1,5 +1,5 @@
 {
-  "next": 3402,
+  "next": 3404,
   "tickets": [
     {
       "id": 47,
@@ -36994,12 +36994,12 @@
     {
       "id": 3345,
       "title": "[Opus] Design: a program can only exit 0 or 1 (Fail gives 1); tools need other codes, e.g. 2 for broken input as stitchwort fmt --check does (SW-3339 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Matt, 15 Nov 2026: \"do a quick design for how we might signal an exit code from a main function. Yeah, I could see us returning a Nat or an appropriate numeric type. Or maybe some other way to signal it.\" Opus paper, expected 1 h.\n\n15 Nov 2026 (Opus paper lane): docs/proposals/exit-status.md written, uncommitted in the main checkout. Recommends (d): main may return () or a checked std ExitStatus { code: Nat, fits: code < 256 } (ExitStatus.of 2 with an auto proof; 300 refused at check time; probed); Fail stays 1, runtime errors stay 2; an Exit ability only as a later library helper. Stages: S1 type + all runners (Sonnet ~2.5 h), S2 Args.run usage = 2 + toyfmt 0/1/2 (~1 h), S3 optional Exit helper. Question D3616 at the end. Probes in the lane scratchpad (p1-p4.sw). 23 min.\n",
+      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. Built as SW-3402, SW-3403.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37730,6 +37730,32 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3402,
+      "title": "[Sonnet] Exit status stage 1 (exit-status.md, D3616): type ExitStatus = { code: Fin 256 } with ExitStatus.success/failure and ExitStatus.of via Fin.ofNat; main may return () or ExitStatus; every runner honours it (run, --reference, --native, --js via the worker's error file, build, build --native, playground); Fail stays 1; IO/Files.simulate expose the status; docs/syntax.md, guide ch. 11",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. Expected: 2.5 h.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3403,
+      "title": "[Sonnet] Exit status stage 2 (D3616): Args.run exits 2 for a bad command line (documented as its convention); toyfmt exits 0 / 1 (--check would change) / 2 (couldn't read or parse), as stitchwort fmt does; tests",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. After SW-3402. Expected: 1 h.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []

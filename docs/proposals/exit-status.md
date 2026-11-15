@@ -211,3 +211,17 @@ returning `()` or `ExitStatus`".
   `(…simulate… (run ["missing.sw"])).snd == ExitStatus.of 2`, with no new
   test machinery. Estimated 3.5 h in two Sonnet lanes; no existing program
   changes.
+
+## Decision (D3616, Matt, 15 Nov 2026)
+
+"Yes, with Fin and just success and failure." `ExitStatus` wraps std's
+`Fin 256` instead of a hand-rolled bound: `type ExitStatus = { code: Fin 256 }`,
+with `ExitStatus.of` through `Fin.ofNat`'s automatic proof (`Fin` runs as a
+machine number, nat-shaped-types.md stages 1-2). std names only
+`ExitStatus.success` (0) and `ExitStatus.failure` (1): 0 is the one rule
+([POSIX exit](https://pubs.opengroup.org/onlinepubs/9799919799/functions/exit.html)
+gives other values no meaning), while 2 for misuse is a convention
+([Bash](https://www.gnu.org/software/bash/manual/html_node/Exit-Status.html),
+argparse, Go `flag`) with a deprecated rival, `EX_USAGE` 64
+([sysexits(3)](https://man.freebsd.org/cgi/man.cgi?query=sysexits&sektion=3)).
+Programs name their own codes; `Args.run` documents its 2. Stages: SW-3402, SW-3403.
