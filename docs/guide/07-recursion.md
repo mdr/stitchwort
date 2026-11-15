@@ -54,6 +54,19 @@ def treeSort (values: List Nat): List Nat := values.foldLeft Leaf Tree.insert |>
 test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
 ```
 
+A text works the same way. In a prefix pattern, `rest` is the text of the characters after the start, so recursion on it is structural as written:
+
+<!-- snippet: recursion.sw#text-rest -->
+```stitchwort
+def leadingDashes: Text → Nat
+  | "-" ++ rest => 1 + leadingDashes rest
+  | _ => 0
+
+test "text rest" := leadingDashes "--verbose" == 2
+```
+
+Behind the scenes a text is a constructor with a single field, its list of characters, and such a constructor counts as smaller when what's inside it is a part of what it held in the pattern. One-field records work the same way.
+
 ## When the argument isn't a part: `decreasing`
 
 Halving a number isn't recursion on a part of it, so the compiler can't see that it finishes:
