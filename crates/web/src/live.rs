@@ -167,6 +167,7 @@ impl LiveSession {
                 let errors = match error {
                     // Unhandled `Fail` (D1048): shown like the CLI prints it.
                     RunError::Failed(msg) => format!("error: {msg}\n"),
+                    RunError::Exit(code) => format!("exit status {code}\n"),
                     error => rendered(&self.session, &[error.diagnostic(self.main.span)]),
                 };
                 format!(r#"{{"state":"failed","errors":{}}}"#, json_string(&errors))

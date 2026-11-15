@@ -69,6 +69,17 @@ pub struct Policy {
     pub max_ticks: Option<u64>,
 }
 
+/// What a finished `main` asks for: the driver's `main ()` is `()`, or, for a
+/// `main` returning an `ExitStatus`, the status as a number
+/// (`Std.ExitStatus.toNat`), which is [`RunError::Exit`] unless it is 0.
+pub(crate) fn exit_of(result: &Value) -> Result<(), RunError> {
+    match result {
+        Value::Nat(0) => Ok(()),
+        Value::Nat(n) => Err(RunError::Exit(u8::try_from(*n).unwrap_or(u8::MAX))),
+        _ => Ok(()),
+    }
+}
+
 /// Runs `program` (lowered by [`crate::lower_main`]), reading lines from
 /// `input` and printing to `output`, and flushes `output` at the end, as
 /// `Session::run_main` does: the same reading contract, and output flushed
@@ -659,7 +670,7 @@ impl<'t, E: Executor> Runner<'t, E> {
         output: &mut impl Write,
     ) -> Result<Outcome, RunError> {
         match self.drive(Focus::Eval(delay), input, output)? {
-            Driven::Finished(_) => Ok(Outcome::Finished),
+            Driven::Finished(v) => exit_of(&v).map(|()| Outcome::Finished),
             Driven::OutOfTicks => Ok(Outcome::OutOfTicks),
             Driven::Waiting => unreachable!("an input that waits in a run that can't"),
         }

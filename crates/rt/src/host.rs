@@ -38,6 +38,10 @@ pub enum RunError {
     /// (`Fail`, docs/proposals/errors.md §3.5). The runner reports it as
     /// `error: <msg>` and exits with 1; it is not a runtime error.
     Failed(String),
+    /// `main` returned this nonzero `ExitStatus`
+    /// (docs/proposals/exit-status.md). Not a fault: the runner exits with
+    /// the code and says nothing. A status of 0 is `Ok(())`.
+    Exit(u8),
 }
 
 impl fmt::Display for RunError {
@@ -56,6 +60,7 @@ impl fmt::Display for RunError {
                 write!(f, "the program printed more than {max} bytes, its limit")
             }
             RunError::Failed(msg) => write!(f, "{msg}"),
+            RunError::Exit(code) => write!(f, "exit status {code}"),
         }
     }
 }
