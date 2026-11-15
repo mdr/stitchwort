@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-REFL] Error: `rfl` can't prove this
+    ╭─[ reject/termination-wrapper-changing-instance-open.sw:22:118 ]
+    │
+ 22 │ theorem z ∀ (t: Nat → Type) (es: (n: Nat) → TEq (t n) (P (t (Succ n)) Nat)) (n: Nat) (w: R (t n)): f t es n w = 0 := rfl
+    │                                                                                                                      ─┬─  
+    │                                                                                                                       ╰─── `f t es n w` and `0` aren't equal
+    │ 
+    │ Note 1: computing the left side gives `m t es n (t n) (t (Succ n)) (es n) TRefl w`
+    │ 
+    │ Note 2: the left side is stuck on `es`: it can't compute further until `es` is known; a `match` on `es` (or `cases es`) splits it
+    │ 
+    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+────╯
