@@ -38,7 +38,12 @@ def oldestFrom (p: Person): List Person → Person
 -- A field called `tag` keeps the key `tag`, and a prime is `$`. The key
 -- `__proto__` would set an object's prototype, so that field needs a
 -- `js.name` to cross to JavaScript.
-type Weird = { tag: Text, @[js.name "$__proto__"] __proto__: Nat, constructor: Nat, x': Nat }
+type Weird = {
+  tag: Text,
+  @[js.name "$__proto__"] __proto__: Nat,
+  constructor: Nat,
+  x': Nat
+}
 
 export def weird (w: Weird): Weird := { w | tag = w.tag ++ "!", x' = w.x' + w.constructor + w.__proto__ }
 

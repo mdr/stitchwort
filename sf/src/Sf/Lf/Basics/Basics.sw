@@ -79,7 +79,14 @@ import Sf.Lf.Basics.Library (multNO, multNSm)
 -- To see how a data type definition works, start with a very simple
 -- example. This declaration defines a set of data values, a *type*:
 
-type Day = | Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday
+type Day =
+  | Monday
+  | Tuesday
+  | Wednesday
+  | Thursday
+  | Friday
+  | Saturday
+  | Sunday
 
 -- The new type is called `Day`, and its members are `Monday`, `Tuesday`,
 -- and so on. Having defined `Day`, we can write functions on days:

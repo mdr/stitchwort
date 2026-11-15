@@ -9,7 +9,12 @@
 --| terminals, and the terminal's size, 0 by 0 when it isn't known.
 -- (docs/proposals/terminal-io.md §4.2)
 -- A registry built-in, so the runners can build it.
-type Console = { inputIsTerminal: Bool, outputIsTerminal: Bool, columns: Nat, rows: Nat }
+type Console = {
+  inputIsTerminal: Bool,
+  outputIsTerminal: Bool,
+  columns: Nat,
+  rows: Nat
+}
 
 --| Input and output on the console: printing, reading lines and bytes, and the terminal. Only a host interpreter performs these for real; in Stitchwort
 --| code, [`IO.simulate`] interprets them as data. `console`, `keysMode`,

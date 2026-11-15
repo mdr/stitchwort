@@ -131,9 +131,19 @@ test "a bad box" :=
 -- end parse
 
 -- begin lex-parse
-type Token = | Num (value: Nat) | Name (text: Text) | Plus | Times | Open | Close
+type Token =
+  | Num (value: Nat)
+  | Name (text: Text)
+  | Plus
+  | Times
+  | Open
+  | Close
 
-type Expr = | Lit (value: Nat) | Var (name: Text) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr)
+type Expr =
+  | Lit (value: Nat)
+  | Var (name: Text)
+  | Add (left: Expr) (right: Expr)
+  | Mul (left: Expr) (right: Expr)
 
 def lexToken(): {Parse Char} Parse.Located Token :=
   Parse.spaces()

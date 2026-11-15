@@ -46,7 +46,9 @@ def leftValues: Tree → List Nat
 -- The length is an implicit field of `VCons`. In the rebuilt
 -- `VCons y (VCons z rest)` it's filled in as one more than the inner
 -- length, not as the pattern's own `n`; the tail's type pins it.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def sumFirsts: Vec Nat n → Nat
   | VNil => 0

@@ -71,7 +71,9 @@ def Disk.moveWholeFile (disk: Disk) (id: Nat): Disk := match disk.fileStart id w
       | None => disk
       | Some target => {
         blocks = disk.blocks.mapWithIndex (position block =>
-          if target <= position < target + length then FileBlock id else if block == FileBlock id then Free else block)
+          if target <= position < target + length then FileBlock id
+          else if block == FileBlock id then Free
+          else block)
       }
 
 --| "Attempt to move each file exactly once in order of decreasing file ID

@@ -108,7 +108,9 @@ theorem oddTrivial: OddP → Unit
 -- order, which the fields use exactly as given.
 type Rose (a: Type): Type = | Bloom (value: a) (kids: Roses a)
 
-type Roses (a: Type): Type = | NoRoses | MoreRoses (first: Rose a) (rest: Roses a)
+type Roses (a: Type): Type =
+  | NoRoses
+  | MoreRoses (first: Rose a) (rest: Roses a)
 
 def flatten: Rose a → List a
   | Bloom x kids => [x, ..flattenAll kids]

@@ -43,7 +43,12 @@ def solveIn (space: Space): {IO, Fail} () :=
 type Robot = { position: Position, velocity: Offset }
 
 --| The space the robots are in, `width` tiles wide and `height` tall.
-type Space = { width: Nat, height: Nat, widthPositive: width ≠ 0, heightPositive: height ≠ 0 }
+type Space = {
+  width: Nat,
+  height: Nat,
+  widthPositive: width ≠ 0,
+  heightPositive: height ≠ 0
+}
 
 def Space.of (width height: Nat) [auto widthPositive: width ≠ 0] [auto heightPositive: height ≠ 0]: Space :=
   { width, height, widthPositive, heightPositive }

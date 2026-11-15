@@ -28,7 +28,12 @@ def main(): {IO, Fail} () :=
 
 type Guard = { position: Position, facing: Direction }
 
-type Lab = { height: Nat, width: Nat, obstructions: Set Position, start: Position }
+type Lab = {
+  height: Nat,
+  width: Nat,
+  obstructions: Set Position,
+  start: Position
+}
 
 type Cell = | Floor | Obstruction | GuardStart
 

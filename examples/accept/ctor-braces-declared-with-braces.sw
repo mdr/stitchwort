@@ -5,7 +5,9 @@
 
 import Std (Eq, Nat, Option, Show)
 
-type Shape = | Circle { id: Text, radius: Nat := 1 } | Square (id: Text) (side: Nat := 1)
+type Shape =
+  | Circle { id: Text, radius: Nat := 1 }
+  | Square (id: Text) (side: Nat := 1)
 
 def circle: Shape := Circle { id = "c" }
 

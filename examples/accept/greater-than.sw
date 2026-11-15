@@ -14,7 +14,10 @@ test "not" := ¬False ∧ ¬(¬True)
 test "precedence" := ¬False ∧ True
 test "a decision" := (if 5 > 0 then 1 else 2) == 1
 
-def sign (x: Int): Nat := if x > 0 then 1 else if x < 0 then 2 else 0
+def sign (x: Int): Nat :=
+  if x > 0 then 1
+  else if x < 0 then 2
+  else 0
 
 test "if on >" := sign 4 == 1 ∧ sign (-4) == 2 ∧ sign 0 == 0
 

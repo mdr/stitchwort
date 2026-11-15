@@ -40,7 +40,10 @@ export def shapes (xs: List Shape): List Shape := xs.reverse
 export def describe (s: Shape): Text := "${s}"
 
 -- A record's field keys too.
-type Drawing = { @[js.name "type"] kind: Text, @[js.name "items"] shapes: List Shape }
+type Drawing = {
+  @[js.name "type"] kind: Text,
+  @[js.name "items"] shapes: List Shape
+}
 
 export def render (d: Drawing): Nat := d.shapes.length + d.kind.length
 

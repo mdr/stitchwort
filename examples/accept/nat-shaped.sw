@@ -30,7 +30,9 @@ def Count.join: Count a → Count a → Count a
 
 -- An index of its own, a type (so erased): a field of the family at
 -- another index.
-type Depth: Type → Type 1 = | Flat: Depth Nat | Deeper (inner: Depth b): Depth (List b)
+type Depth: Type → Type 1 =
+  | Flat: Depth Nat
+  | Deeper (inner: Depth b): Depth (List b)
 
 def Depth.size: Depth t → Nat
   | Flat => 0

@@ -182,8 +182,12 @@ theorem noAndAnything ∀ (b: Answer): both No b = No := rfl
 -- each `_ = ...` line says what the previous value equals):
 
 theorem beatsMeansWinSteps ∀ (mine theirs: Move) (h: beats mine theirs): play mine theirs = Win := calc play mine theirs
-  _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)
-  _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl
+  _ = (if beats mine theirs then Win
+       else if beats theirs mine then Lose
+       else Draw)
+  _ = (if True then Win
+       else if beats theirs mine then Lose
+       else Draw) := rewrite h in rfl
   _ = Win
 
 -- `_` stands for the value on the line above, so each line is one equation:

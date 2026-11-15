@@ -39,7 +39,9 @@ type Operation = | Sum | Product | Minimum | Maximum
 type Comparison = | GreaterThan | LessThan | EqualTo
 
 --| The operator types, by type id: 0, 1, 2, 3, then 5, 6 and 7.
-type OperatorType = | Calculation (operation: Operation) | Comparing (comparison: Comparison)
+type OperatorType =
+  | Calculation (operation: Operation)
+  | Comparing (comparison: Comparison)
 
 --| How an operator says where its sub-packets end: length type id 0 gives
 --| their total length in bits, 1 their number.

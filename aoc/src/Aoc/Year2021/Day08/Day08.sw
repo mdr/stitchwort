@@ -97,7 +97,15 @@ def solvePart1 (entries: List Entry): Nat :=
 def solvePart2 (entries: List Entry): Nat := entries.sumBy Entry.value
 
 --| A wiring, as the segment each wire drives.
-type Wiring = { a: Segment, b: Segment, c: Segment, d: Segment, e: Segment, f: Segment, g: Segment }
+type Wiring = {
+  a: Segment,
+  b: Segment,
+  c: Segment,
+  d: Segment,
+  e: Segment,
+  f: Segment,
+  g: Segment
+}
 
 def Wiring.at (wiring: Wiring): Segment → Segment
   | A => wiring.a

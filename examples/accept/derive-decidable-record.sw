@@ -14,7 +14,10 @@ test "3 is small, 12 and 0 aren't" := isSmall 3 && !isSmall 12 && !isSmall 0
 
 -- Each field is decided by what `if h:` finds: here `List.Distinct`'s and
 -- `List.Mem`'s decisions.
-type Roster (ids: List Nat) (captain: Nat): Prop = { distinct: List.Distinct ids, hasCaptain: captain ∈ ids }
+type Roster (ids: List Nat) (captain: Nat): Prop = {
+  distinct: List.Distinct ids,
+  hasCaptain: captain ∈ ids
+}
 
 theorem roster: Roster [1, 2, 3] 2 := byDecision
 

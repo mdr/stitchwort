@@ -30,7 +30,8 @@ def lambdaFirst (xs: List Nat) (x y: Nat) (h: next x = Some y): Nat :=
 -- (with the goal evaluated afresh it checks).
 def firstOf (xs: List Nat): Option Nat := List.head xs
 
-type Starts: List Nat → Nat → Prop = | Here (n: Nat) (rest: List Nat): Starts (Cons n rest) n
+type Starts: List Nat → Nat → Prop =
+  | Here (n: Nat) (rest: List Nat): Starts (Cons n rest) n
 
 theorem startsOf: (xs: List Nat) → (n: Nat) → firstOf xs = Some n → Starts xs n
   | Nil, n, h => Void.exfalso (Option.noneNotSome n h)

@@ -49,7 +49,10 @@ def Layout.occupied (layout: Layout): Nat := layout.grid.cells.count (((_, here)
 --| How a passenger decides: the seats they look at from `at` (given what
 --| is at each position, `None` off the layout), and how many of those
 --| occupied make them leave.
-type Rule = { inView: (Position → Option Seat) → Position → List Position, tolerance: Nat }
+type Rule = {
+  inView: (Position → Option Seat) → Position → List Position,
+  tolerance: Nat
+}
 
 --| The eight directions, as one step each: up, down, across and diagonal.
 def compass: List Offset := [

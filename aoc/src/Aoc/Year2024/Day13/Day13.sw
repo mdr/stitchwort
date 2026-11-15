@@ -22,7 +22,11 @@ def main(): {IO, Fail} () :=
 
 --| How far a button moves the claw, or how far the prize is from where the
 --| claw starts: `Unoriented`, as the puzzle has no up.
-type Machine = { buttonA: Coords Unoriented, buttonB: Coords Unoriented, prize: Coords Unoriented }
+type Machine = {
+  buttonA: Coords Unoriented,
+  buttonB: Coords Unoriented,
+  prize: Coords Unoriented
+}
 
 --| "X+94, Y+34" for a button, "X=8400, Y=5400" for the prize: `sign` is the
 --| "+" or the "=".
@@ -86,7 +90,10 @@ def Machine.fewestTokensWithin (machine: Machine) (limit: Nat): Option Nat :=
 --| How many presses of a button that moves the claw `step` move it exactly
 --| `distance`, if some number does.
 def pressesToCover (step distance: Coords Unoriented): Option Nat :=
-  let count := if step.x ≠ 0 then distance.x / step.x else if step.y ≠ 0 then distance.y / step.y else 0
+  let count :=
+    if step.x ≠ 0 then distance.x / step.x
+    else if step.y ≠ 0 then distance.y / step.y
+    else 0
   if count * step.x == distance.x && count * step.y == distance.y then count.toNatChecked else None
 
 --| The prize's offset after `presses` of a button that moves the claw `step`.

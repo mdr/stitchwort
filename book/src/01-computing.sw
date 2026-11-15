@@ -89,7 +89,10 @@ test "nobody wins a draw" := not (beats Rock Rock)
 type Outcome = | Win | Lose | Draw
 
 --| How a round ends for the player who chose `mine`.
-def play (mine theirs: Move): Outcome := if beats mine theirs then Win else if beats theirs mine then Lose else Draw
+def play (mine theirs: Move): Outcome :=
+  if beats mine theirs then Win
+  else if beats theirs mine then Lose
+  else Draw
 
 test "rock against paper loses" := play Rock Paper == Lose
 test "paper against paper is a draw" := play Paper Paper == Draw

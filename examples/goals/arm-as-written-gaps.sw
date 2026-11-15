@@ -25,7 +25,9 @@ theorem alternatives ∀ (p: Option Bool → Prop) (o: Option Bool): p o := matc
   | _ => ?
 
 -- A family's split is undone like any other: the catch-all covers `VNil` too.
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 theorem family ∀ (p: (n: Nat) → Vec Bool n → Prop) (n: Nat) (v: Vec Bool n): p n v := match v with
   | VCons True _ => ?

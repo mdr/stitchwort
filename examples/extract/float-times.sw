@@ -52,4 +52,6 @@ export def fromCount (n: Int): Float := Float.ofInt n
 
 -- `t < low ? low : t > high ? high : t`.
 export def clamped (low high t: Float): Float :=
-  if Float.ieeeLt t low then low else if Float.ieeeLt high t then high else t
+  if Float.ieeeLt t low then low
+  else if Float.ieeeLt high t then high
+  else t

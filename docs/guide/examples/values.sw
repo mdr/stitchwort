@@ -27,7 +27,11 @@ def describe (n: Nat): Text :=
 -- end blocks
 
 -- begin if-chain
-def grade (score: Nat): Text := if score ≥ 90 then "A" else if score ≥ 75 then "B" else if score ≥ 50 then "C" else "D"
+def grade (score: Nat): Text :=
+  if score ≥ 90 then "A"
+  else if score ≥ 75 then "B"
+  else if score ≥ 50 then "C"
+  else "D"
 -- end if-chain
 
 -- begin leading-operator

@@ -2,7 +2,9 @@
 -- index, so `v = VNil` relates two different types.
 import Std (Nat, Void, Eq)
 
-type Vec (a: Type): Nat → Type = | VNil: Vec a 0 | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
 
 def short: Vec Nat n → Nat
   | VNil => 0

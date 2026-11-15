@@ -95,7 +95,9 @@ export def talliedChecked (codes: List Nat): Result (List Nat) Text :=
 ability Offer where
   offer: Nat → {Offer} Nat
 
-type Paused = | Finished (total: Nat) | Suspended (count: Nat) (resume: Nat → Paused)
+type Paused =
+  | Finished (total: Nat)
+  | Suspended (count: Nat) (resume: Nat → Paused)
 
 def Offer.counted (prog: () → {Offer} Nat): Nat → Paused :=
   handle prog() with
