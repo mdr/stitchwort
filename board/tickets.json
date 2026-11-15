@@ -33960,14 +33960,14 @@
     {
       "id": 3131,
       "title": "[DeepSeek] Markdown code blocks in docs/syntax.md, the guide prose and the proving guide still write theorem headers without ∀ (D3472); update the hand-written (not snippet-quoted) blocks; and fmt_repo should exclude docs/reviews/repros/ (tracked fuzz repros that don't parse), like docs/repros/ (SW-2657 findings)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -37009,7 +37009,7 @@
     {
       "id": 3346,
       "title": "[DeepSeek] The missing Int.ofNat error suggests OfNat, modNat, toNat but not Nat.toInt (SW-3339 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -37966,7 +37966,7 @@
     {
       "id": 3419,
       "title": "[DeepSeek] Message: (rfl, rest) for an And goal says 'add a type annotation'; the note should mention Both (SW-954 item 3, 2021 day 6)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -38338,7 +38338,7 @@
     {
       "id": 3445,
       "title": "[DeepSeek] Unknown-name suggestions offer a std record field of a proof-only type (E-UNKNOWN-NAME on 'highest' suggests Std.Parse.OperatorTree.highest, in reject/autobind-value-misspelt): don't suggest field accessors for a bare name, or rank them below",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
