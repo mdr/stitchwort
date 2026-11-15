@@ -1,5 +1,5 @@
 {
-  "next": 3305,
+  "next": 3308,
   "tickets": [
     {
       "id": 47,
@@ -36029,15 +36029,17 @@
     {
       "id": 3279,
       "title": "[Sonnet] With generic Parse: a bare {Parse} gives '[E-ARITY] Parse takes 1 argument(s)'; name the parameter and suggest {Parse Char}, and say 'argument' not 'argument(s)'; the ability-not-allowed note drops the argument it knows ({Reads …}) (SW-3277 findings; with generic-parse stage 1)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
-      "commits": []
+      "updated": "2026-11-15",
+      "commits": [
+        "fdf11ccefeea2c6295908789f54b3f4ce69b71c3"
+      ]
     },
     {
       "id": 3280,
@@ -36072,15 +36074,17 @@
     {
       "id": 3282,
       "title": "[Opus+DeepSeek] Generic Parse stage 1 (generic-parse.md §4): ability Parse (t: Type), generic and character layers, file split; {Parse} to {Parse Char} in aoc/, examples, tests, guide (D3603); with SW-3279's better E-ARITY note. Gates: Std.Parse < 130M steps, AoC proof days within 15%, statements checked one by one. After stage 0",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3603 (Matt, 14 Nov 2026): 'D3603. Yes, happy with that.' ({Parse Char} for character parsers). D3604 overnight chain B. Expected: 4.5 h (Opus std; the sweep outside std may go to DeepSeek).\n**Progress (lane, Opus, 15 Nov 2026, 00:15-01:50):** done on lane/SW-3282, 7 commits.\n- `ability Parse (t: Type)`, `Parse.Mark t`, `Parse.State t`, `Parse.Literal t = { items, same }` (the literal carries its comparison); Parse.sw, Reads.sw, Runs.sw generic; the character pieces and their lemmas in Parse/Chars.sw, ReadsChars.sw, RunsChars.sw. `List.stripPrefixBy` (Toolkit) with two lemmas (List/Lemmas.sw).\n- Elaborator (needs Opus review, D2364-style): a lemma's implicit type parameter that is an ability's argument in a row of a later parameter (`t` in `p: () → {Parse t} a`) is given from the expected type before the arguments are checked (`check.rs`, `settle_from_expected`). Without it the generic lemmas cost 60% more steps in AoC proof chains (day 2 +66%). Giving *every* type parameter that way broke readsThen chains (also broken today when `[t := Char] [b := …]` are written by hand: finding).\n- SW-3279 folded in: E-ARITY for an ability names its parameters and shows the row (`{Parse t}`, such as `{Parse Char}`), new reject example; the add-it-to-the-type note writes known arguments (`-> {Parse Char} …`).\n- Sweep by script: 139 rows in aoc/src (step A), 162 rows in 39 files elsewhere; guide ch. 8, web/guide/20-parse.sw, syntax.md.\n- Gates (empty cache): Std.Parse 98.65M steps (< 130M); 2020 day 2 proofs 6.89M (base 6.06M, +13.7%), day 7 6.61M (6.17M, +7.1%), day 18 2.24M (2.05M, +9.3%). AoC theorem statements: 2869, identical apart from the row. Std statements: 416 same modulo the parameter, 21 changed with reasons, 2 added (lane scratch statements-diff.txt; summary in the report).\n- Hash snapshots: 16 files (prelude: Std.Parse + List.stripPrefixBy only; 15 Parse examples). Example snapshots: 10.\n- Tests run (each targeted, one at a time): hash_stability + reads_chain_cost (pass after bless); std_library file-order/cycle/index/load tests (small_programs_load_only… caught Option/Lemmas being loaded by the toolkit: fixed by moving the lemmas); examples EXAMPLES=parse,reads,+14 names of swept/affected examples (accepted and rejected pass); LSP hover_shows_the_parameters_by_name; tools no_effect::*; rt clause_kinds::*; fmt golden; guide abilities.sw and web/guide/20-parse.sw tests; `check --no-cache` of the 22 AoC Proofs namespaces with Parse lemmas (all pass). Not run: the_standard_library_passes_its_own_tests (all std tests), guide:: suite, whole-AoC: for the verifier/Overmind.\n",
+      "body": "D3603 (Matt). Expected 4.5 h (Opus), took 1.5 h. Gates: Std.Parse 98.65M (<130M); 2020 day 2 +13.7%, day 7 +7.1%, day 18 +9.3% (limit 15%). Statements: 416 same modulo the parameter, 21 changed (checked one by one by the orchestrator: literal record, exact/reflexive hypotheses where false without, annotations, a renamed bound variable; all keep their meaning), 2 added; AoC 2869 identical apart from the row. Opus review docs/reviews/SW-3282-settle-from-expected.md: merge; filed SW-3305, SW-3306, SW-3307, plus SW-3302-3304.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "fdf11ccefeea2c6295908789f54b3f4ce69b71c3"
+      ]
     },
     {
       "id": 3283,
@@ -36381,6 +36385,45 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3305,
+      "title": "[Opus] settle_from_expected doesn't retry when its early guess fails: a program whose expected type matches the lemma's result only after unfolding is rejected where main accepts it (probes g5.sw, g6.sw in docs/reviews/SW-3282-settle-from-expected.md S1); snapshot, restore and redo without settling on failure, with a counter like stage 0's",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3306,
+      "title": "[Sonnet] When a parser's t differs from the goal's, the error's note tells the reader to give [a := …], which misleads (docs/reviews/SW-3282-settle-from-expected.md S2); also stage 0's reject example reads-chain-unknown-name-last-step hides a second error (its True is the Bool, so Trivial fails)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3307,
+      "title": "[Opus] Then fill every type parameter early: a correct 3-step readsThen chain with [b := …] by hand fails (c3tb.sw); fix that, then settle b too, which would put 2020 day 2 ~18% under its pre-generic steps instead of 13.7% over (docs/reviews/SW-3282-settle-from-expected.md S3; with SW-3304)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
