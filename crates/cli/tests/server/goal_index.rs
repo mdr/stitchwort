@@ -128,6 +128,13 @@ fn goal_examples_in_the_index() {
                     ),
                 })
                 .collect();
+            lines.extend(
+                goal["facts"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|f| f.as_str().unwrap().to_string()),
+            );
             lines.push(format!("⊢ {}", goal["target"].as_str().unwrap()));
             if let Some(computed) = goal["targetComputed"].as_str() {
                 lines.push(format!("  computes to {computed}"));
@@ -200,12 +207,35 @@ fn lemmas_check_as_the_same_goal() {
                 }
                 .clone()
             };
+            // The goal's facts (`m ≠ 5`) are the lemma's hypotheses.
+            let mut hypotheses = goal["hypotheses"].as_array().unwrap().clone();
+            let facts: Vec<&Value> = goal["facts"].as_array().into_iter().flatten().collect();
+            // Named `h`, `h2`, …, skipping a name the goal already has.
+            let taken: Vec<String> = (hypotheses.iter())
+                .map(|h| h["name"].as_str().unwrap().to_string())
+                .collect();
+            let mut n = 0;
+            for fact in &facts {
+                let name = loop {
+                    n += 1;
+                    let name = if n == 1 {
+                        "h".to_string()
+                    } else {
+                        format!("h{n}")
+                    };
+                    if !taken.contains(&name) {
+                        break name;
+                    }
+                };
+                hypotheses.push(serde_json::json!({"name": name, "type": fact}));
+            }
             assert_eq!(
                 (&found["goal"]["hypotheses"], computed(&found["goal"])),
-                (&goal["hypotheses"], computed(goal)),
+                (&Value::Array(hypotheses), computed(goal)),
                 "{name}: `{lemma}` is another goal"
             );
-            if goal["targetComputed"].is_null() {
+            assert!(found["goal"]["facts"].is_null());
+            if goal["targetComputed"].is_null() && facts.is_empty() {
                 assert_eq!(found["labels"][0]["message"], d["labels"][0]["message"]);
             }
             // Its own lemma is itself, renamed.

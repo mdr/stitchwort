@@ -1,0 +1,888 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        }
+      ],
+      "lemma": "theorem numbersGoal1 (p: Nat → Prop): p 5 := ?",
+      "target": "p 5"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\n⊢ p 5",
+        "range": [
+          8,
+          9,
+          8,
+          10
+        ]
+      }
+    ],
+    "message": "in `numbers`",
+    "notes": [],
+    "range": [
+      8,
+      9,
+      8,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        }
+      ],
+      "lemma": "theorem numbersGoal2 (p: Nat → Prop): p 7 := ?",
+      "target": "p 7"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\n⊢ p 7",
+        "range": [
+          9,
+          9,
+          9,
+          10
+        ]
+      }
+    ],
+    "message": "in `numbers`",
+    "notes": [],
+    "range": [
+      9,
+      9,
+      9,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "m ≠ 5",
+        "m ≠ 7"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "m",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem numbersGoal3 (p: Nat → Prop) (m: Nat) (h: m ≠ 5) (h2: m ≠ 7): p m := ?",
+      "target": "p m"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nm: Nat\nm ≠ 5\nm ≠ 7\n⊢ p m",
+        "range": [
+          10,
+          9,
+          10,
+          10
+        ]
+      }
+    ],
+    "message": "in `numbers`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      10,
+      9,
+      10,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        }
+      ],
+      "target": "p 'k'"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\n⊢ p 'k'",
+        "range": [
+          13,
+          11,
+          13,
+          12
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [],
+    "range": [
+      13,
+      11,
+      13,
+      12
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "d ≠ 'k'"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Char → Prop"
+        },
+        {
+          "name": "d",
+          "type": "Char"
+        }
+      ],
+      "lemma": "theorem charactersGoal2 (p: Char → Prop) (d: Char) (h: d ≠ 'k'): p d := ?",
+      "target": "p d"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Char → Prop\nd: Char\nd ≠ 'k'\n⊢ p d",
+        "range": [
+          14,
+          9,
+          14,
+          10
+        ]
+      }
+    ],
+    "message": "in `characters`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      14,
+      9,
+      14,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"ab\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"ab\"",
+        "range": [
+          17,
+          12,
+          17,
+          13
+        ]
+      }
+    ],
+    "message": "in `texts`",
+    "notes": [],
+    "range": [
+      17,
+      12,
+      17,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        }
+      ],
+      "target": "p \"cd\""
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\n⊢ p \"cd\"",
+        "range": [
+          18,
+          12,
+          18,
+          13
+        ]
+      }
+    ],
+    "message": "in `texts`",
+    "notes": [],
+    "range": [
+      18,
+      12,
+      18,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "t ≠ \"ab\"",
+        "t ≠ \"cd\""
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Text → Prop"
+        },
+        {
+          "name": "t",
+          "type": "Text"
+        }
+      ],
+      "lemma": "theorem textsGoal3 (p: Text → Prop) (t: Text) (h: t ≠ \"ab\") (h2: t ≠ \"cd\"): p t := ?",
+      "target": "p t"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Text → Prop\nt: Text\nt ≠ \"ab\"\nt ≠ \"cd\"\n⊢ p t",
+        "range": [
+          19,
+          9,
+          19,
+          10
+        ]
+      }
+    ],
+    "message": "in `texts`",
+    "notes": [
+      "this arm is checked in 8 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      19,
+      9,
+      19,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Int → Prop"
+        }
+      ],
+      "lemma": "theorem integersGoal1 (p: Int → Prop): p (-1) := ?",
+      "target": "p (-1)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Int → Prop\n⊢ p (-1)",
+        "range": [
+          22,
+          12,
+          22,
+          13
+        ]
+      }
+    ],
+    "message": "in `integers`",
+    "notes": [],
+    "range": [
+      22,
+      12,
+      22,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Int → Prop"
+        }
+      ],
+      "lemma": "theorem integersGoal2 (p: Int → Prop): p 3 := ?",
+      "target": "p 3"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Int → Prop\n⊢ p 3",
+        "range": [
+          23,
+          9,
+          23,
+          10
+        ]
+      }
+    ],
+    "message": "in `integers`",
+    "notes": [],
+    "range": [
+      23,
+      9,
+      23,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "m ≠ -1",
+        "m ≠ 3"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Int → Prop"
+        },
+        {
+          "name": "m",
+          "type": "Int"
+        }
+      ],
+      "lemma": "theorem integersGoal3 (p: Int → Prop) (m: Int) (h: m ≠ -1) (h2: m ≠ 3): p m := ?",
+      "target": "p m"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Int → Prop\nm: Int\nm ≠ -1\nm ≠ 3\n⊢ p m",
+        "range": [
+          24,
+          9,
+          24,
+          10
+        ]
+      }
+    ],
+    "message": "in `integers`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      24,
+      9,
+      24,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        }
+      ],
+      "lemma": "theorem blankGoal1 (p: Nat → Prop): p 5 := ?",
+      "target": "p 5"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\n⊢ p 5",
+        "range": [
+          28,
+          9,
+          28,
+          10
+        ]
+      }
+    ],
+    "message": "in `blank`",
+    "notes": [],
+    "range": [
+      28,
+      9,
+      28,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "n ≠ 5"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem blankGoal2 (p: Nat → Prop) (n: Nat) (h: n ≠ 5): p n := ?",
+      "target": "p n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nn: Nat\nn ≠ 5\n⊢ p n",
+        "range": [
+          29,
+          9,
+          29,
+          10
+        ]
+      }
+    ],
+    "message": "in `blank`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      29,
+      9,
+      29,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "b",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem guardedGoal1 (p: Nat → Prop) (b: Bool): p 5 := ?",
+      "target": "p 5"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nb: Bool\n⊢ p 5",
+        "range": [
+          32,
+          14,
+          32,
+          15
+        ]
+      }
+    ],
+    "message": "in `guarded`",
+    "notes": [],
+    "range": [
+      32,
+      14,
+      32,
+      15
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "b",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem guardedGoal2 (p: Nat → Prop) (b: Bool): p 6 := ?",
+      "target": "p 6"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nb: Bool\n⊢ p 6",
+        "range": [
+          33,
+          9,
+          33,
+          10
+        ]
+      }
+    ],
+    "message": "in `guarded`",
+    "notes": [],
+    "range": [
+      33,
+      9,
+      33,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "m ≠ 6"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "m",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Bool"
+        }
+      ],
+      "lemma": "theorem guardedGoal3 (p: Nat → Prop) (m: Nat) (b: Bool) (h: m ≠ 6): p m := ?",
+      "target": "p m"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nm: Nat\nb: Bool\nm ≠ 6\n⊢ p m",
+        "range": [
+          34,
+          9,
+          34,
+          10
+        ]
+      }
+    ],
+    "message": "in `guarded`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the last of them",
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      34,
+      9,
+      34,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        }
+      ],
+      "lemma": "theorem alternativesGoal1 (p: Nat → Prop): p 2 := ?",
+      "target": "p 2"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\n⊢ p 2",
+        "range": [
+          37,
+          13,
+          37,
+          14
+        ]
+      }
+    ],
+    "message": "in `alternatives`",
+    "notes": [
+      "this arm is checked in 2 cases; the goal shown is the last of them"
+    ],
+    "range": [
+      37,
+      13,
+      37,
+      14
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "m ≠ 1",
+        "m ≠ 2"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Prop"
+        },
+        {
+          "name": "m",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem alternativesGoal2 (p: Nat → Prop) (m: Nat) (h: m ≠ 1) (h2: m ≠ 2): p m := ?",
+      "target": "p m"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Prop\nm: Nat\nm ≠ 1\nm ≠ 2\n⊢ p m",
+        "range": [
+          38,
+          9,
+          38,
+          10
+        ]
+      }
+    ],
+    "message": "in `alternatives`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      38,
+      9,
+      38,
+      10
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Nat → Prop"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem columnsGoal1 (p: Nat → Nat → Prop) (y: Nat): p 0 y := ?",
+      "target": "p 0 y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Nat → Prop\ny: Nat\n⊢ p 0 y",
+        "range": [
+          42,
+          12,
+          42,
+          13
+        ]
+      }
+    ],
+    "message": "in `columns`",
+    "notes": [],
+    "range": [
+      42,
+      12,
+      42,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "x ≠ 0"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Nat → Prop"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem columnsGoal2 (p: Nat → Nat → Prop) (x: Nat) (h: x ≠ 0): p x 1 := ?",
+      "target": "p x 1"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Nat → Prop\nx: Nat\nx ≠ 0\n⊢ p x 1",
+        "range": [
+          43,
+          12,
+          43,
+          13
+        ]
+      }
+    ],
+    "message": "in `columns`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      43,
+      12,
+      43,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "facts": [
+        "x ≠ 0",
+        "y ≠ 1"
+      ],
+      "hypotheses": [
+        {
+          "name": "p",
+          "type": "Nat → Nat → Prop"
+        },
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "y",
+          "type": "Nat"
+        }
+      ],
+      "lemma": "theorem columnsGoal3 (p: Nat → Nat → Prop) (x: Nat) (y: Nat) (h: x ≠ 0) (h2: y ≠ 1): p x y := ?",
+      "target": "p x y"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "p: Nat → Nat → Prop\nx: Nat\ny: Nat\nx ≠ 0\ny ≠ 1\n⊢ p x y",
+        "range": [
+          44,
+          12,
+          44,
+          13
+        ]
+      }
+    ],
+    "message": "in `columns`",
+    "notes": [
+      "the `≠` lines are known from the arms above; `auto` and `byDecision` prove them"
+    ],
+    "range": [
+      44,
+      12,
+      44,
+      13
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "k",
+          "type": "Nat"
+        },
+        {
+          "name": "hk",
+          "type": "k ≠ 5"
+        }
+      ],
+      "lemma": "def holeyGoal1 (k: Nat) (hk: k ≠ 5): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "k: Nat\nhk: k ≠ 5\n⊢ Nat",
+        "range": [
+          49,
+          53,
+          49,
+          54
+        ]
+      }
+    ],
+    "message": "in `holey`",
+    "notes": [],
+    "range": [
+      49,
+      53,
+      49,
+      54
+    ],
+    "severity": "goal"
+  }
+]

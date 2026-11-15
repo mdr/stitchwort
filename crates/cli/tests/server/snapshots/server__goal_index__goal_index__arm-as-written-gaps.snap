@@ -343,9 +343,9 @@ expression: json
         "file": 0,
         "message": "p: (n: Nat) → Vec Bool n → Prop\nn✝: Nat\nxs✝: Vec Bool n✝\n⊢ p (Succ n✝) (VCons n✝ True xs✝)",
         "range": [
-          30,
+          32,
           20,
-          30,
+          32,
           21
         ]
       }
@@ -353,9 +353,9 @@ expression: json
     "message": "in `family`",
     "notes": [],
     "range": [
-      30,
+      32,
       20,
-      30,
+      32,
       21
     ],
     "severity": "goal"
@@ -386,9 +386,9 @@ expression: json
         "file": 0,
         "message": "p: (n: Nat) → Vec Bool n → Prop\nn: Nat\nv: Vec Bool n\n⊢ p n v",
         "range": [
-          31,
+          33,
           9,
-          31,
+          33,
           10
         ]
       }
@@ -398,9 +398,9 @@ expression: json
       "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
     ],
     "range": [
-      31,
+      33,
       9,
-      31,
+      33,
       10
     ],
     "severity": "goal"
@@ -423,9 +423,9 @@ expression: json
         "file": 0,
         "message": "p: (n: Nat) → Vec (Option Bool) n → Prop\n⊢ p 0 VNil",
         "range": [
-          37,
+          39,
           14,
-          37,
+          39,
           15
         ]
       }
@@ -433,9 +433,9 @@ expression: json
     "message": "in `familyElement`",
     "notes": [],
     "range": [
-      37,
+      39,
       14,
-      37,
+      39,
       15
     ],
     "severity": "goal"
@@ -465,9 +465,9 @@ expression: json
         "file": 0,
         "message": "p: (n: Nat) → Vec (Option Bool) n → Prop\nn✝: Nat\nxs✝: Vec (Option Bool) n✝\n⊢ p (Succ n✝) (VCons n✝ (Some True) xs✝)",
         "range": [
-          38,
+          40,
           29,
-          38,
+          40,
           30
         ]
       }
@@ -475,9 +475,9 @@ expression: json
     "message": "in `familyElement`",
     "notes": [],
     "range": [
-      38,
+      40,
       29,
-      38,
+      40,
       30
     ],
     "severity": "goal"
@@ -511,9 +511,9 @@ expression: json
         "file": 0,
         "message": "p: (n: Nat) → Vec (Option Bool) n → Prop\nn✝: Nat\nx✝: Option Bool\nxs✝: Vec (Option Bool) n✝\n⊢ p (Succ n✝) (VCons n✝ x✝ xs✝)",
         "range": [
-          39,
+          41,
           19,
-          39,
+          41,
           20
         ]
       }
@@ -523,9 +523,9 @@ expression: json
       "this arm is checked in 2 cases; the goal shown is the arm as written, not any one case"
     ],
     "range": [
-      39,
+      41,
       19,
-      39,
+      41,
       20
     ],
     "severity": "goal"
