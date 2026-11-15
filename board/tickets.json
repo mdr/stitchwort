@@ -36170,12 +36170,12 @@
     {
       "id": 3288,
       "title": "[Opus] Text patterns stage 2 (text-patterns.md §4.2, D3592): prefix patterns \"lit\" ++ rest on Text and List Char, only a text literal on the left, only a fixed start (suffix/middle refused with E-TEXT-PATTERN pointing to endsWith/splitOn); on Text, rest as a slice once fast Text lands (stage 5 folded in). After SW-3284",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 15 Nov (orchestrator's sequencing, after SW-3336 freed a slot). Expected: 4 h (Opus).",
+      "body": "Started 15 Nov (orchestrator's sequencing, after SW-3336 freed a slot). Expected: 4 h (Opus).\n\n15 Nov, 08:50-09:40 (Opus lane): built on lane/SW-3288. `\"lit\" ++ p` on Text and List Char (parser node PatternAppend; Pattern::Prefix with lazily made expansions, Pattern::TextRest for a Text's computed rest). On Text, a variable rest is `let rest := MkText r` around the arm, and around a guard's `if` (guards can use it; the arms below are shifted). Suffix/middle/`Some \"a\" ++ rest` refused with E-TEXT-PATTERN (endsWith/stripSuffix/splitOn note; brackets note for a constructor). Missing case lists `\"--\" ++ _`; W-REDUNDANT for a prefix or exact text after a covering prefix (tree check, plus or-alternatives). Goal printer: `\"--\" ++ rest`, `rest: Text` listed, the hidden list not. `t = \"--\" ++ rest` by rfl in the arm (examples/accept/text-patterns-prefix.sw). `\"\" ++ p` is `p`. Docs: guide 03/10, syntax.md, tour page; examples accept/reject/goals with snapshots (goal_index snapshot and lemma summary written by hand from `check --index`, same method reproduces the existing one). Tests: new syntax tests, task test:example NAME=text-pattern, hash_stability, guide:: — all pass. Rest as a slice (SW-3337) not done: note at bind_text_rests. Moved to review.\n",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
