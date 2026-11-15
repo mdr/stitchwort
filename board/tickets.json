@@ -36743,12 +36743,12 @@
     {
       "id": 3328,
       "title": "[Sonnet] Native code applies no number_words charge (the machine's number_cost for big-number ops), so with number_words on native and machine step counts differ (SW-3327 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Found in SW-3327. Expected: 1 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
