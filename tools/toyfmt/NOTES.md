@@ -17,6 +17,8 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Syntax.Tests` | `Syntax/Tests/*.sw` | The lexer, the tables, the exact messages |
 | `Toy.Fmt` | `Fmt/Rules.sw`, `Fmt/Format.sw` | The printing rules P1 to P10; `format`, parse then print |
 | `Toy.Fmt.Tests` | `Fmt/Tests/*.sw` | Twelve goldens, the disturber and its tests; the goldens through the parser |
+| `Toy.Fmt` | `Fmt/Driver.sw`, `Fmt/Cli.sw` | The `{Files}` loop (walk, format, write only what changes) and the command line, `Toy.Fmt.main` |
+| `Toy.Fmt.Tests` | `Fmt/Tests/Driver.sw` | The loop and the command line under `Files.simulate`, with a write-counting handler |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -234,3 +236,95 @@ ten lines and read naturally; validation by counting comments made P8's
 fallback free; `cases` proved the keyword theorem unaided; and once it
 checked, everything passed on the first run, the 600 disturbed texts
 included.
+
+## Stage C (SW-3342): the file loop, the command line, the executable
+
+### How it works
+
+- `Toy.Fmt.formatPaths options paths: {Files} List Outcome`. Each path is
+  `Files.info`-ed: a file is formatted whatever its extension, a folder is
+  walked a level at a time (`walkLevels`, at most 32 deep; `Files.walk`
+  isn't in std, so this is F3's starting point) for `.sprig` files. An
+  unreadable folder, a missing path and a file that doesn't parse are
+  `Problem` values with the path in the sentence (`src/bad.sprig:1:8:
+  expected an expression, ...`, made from the parser's "line 1, column 8:"
+  by `locate`); the others are still done. A file is written only when its
+  formatted text differs, and not at all with `--check`.
+- `toyfmt [--check] [--width N] PATH...` (`Toy.Fmt.run arguments:
+  {Files, IO, Fail}`; `main` is `run IO.args()`). Changed paths go to
+  standard output (`IO.print`), problems and "N declarations left as
+  written" to standard error (`IO.printError`). It fails (exit 1) on a bad
+  command line, a problem, or with `--check` a file that would change. Run
+  it with `stitchwort run Toy.Fmt.main -- ARGS` in the project, or
+  `stitchwort build --native Toy.Fmt.main -o toyfmt` (the target is
+  named, because `Toy.Timing.main` is a second `main` in the project).
+- Tests (`Fmt/Tests/Driver.sw`, 13): under `Files.simulate`, with
+  `countingWrites`, a handler over `Files` that lets every operation
+  through and counts the writes: a formatted file and a second run write
+  nothing, `--check` writes nothing, a missing path or a file in the way
+  is a value and the rest are done, a broken file leaves the disk as it
+  was. `run` itself is tested under `IO.simulate` inside `Files.simulate`.
+  The end-to-end test is `toyfmt_formats_a_folder_under_run_and_built` in
+  `crates/cli/tests/running/build.rs` (it needs that file's helpers, the
+  runtime library and a C compiler): a temporary folder with a file to
+  rewrite, a formatted one, a broken one, a nested folder and a `.txt`,
+  run under `stitchwort run`, the plain built executable and the native
+  one; it compares the folder after each run, the formatted file's
+  modification time, the exit codes, and the usage line for a bad flag.
+
+### Timings
+
+100 files in 10 folders, 771 KB in all (95 declarations a file, long `fn`
+and `let` lines), `toyfmt DIR`, one run each, Speedwell at load 27 to 50 from
+other lanes, so rough [measured]:
+
+| | native | `stitchwort run` |
+|---|---|---|
+| Every file rewritten | 3.6 s (4.7 s/MB) | 8.4 s (10.9 s/MB) |
+| Second run, nothing to write | 3.5 s (4.5 s/MB) | not run |
+| `--check` | 4.0 s (5.2 s/MB), at load 49 | not run |
+| Peak memory, native | 10 MB (files are done one at a time) | |
+
+So the loop adds nothing measurable to stage A's 4.2 s/MB whole format
+(reading, walking 110 folders and entries, and writing 100 files are
+noise): the cost is the lexer and parser, and the executable's start is
+well under 0.1 s. Writing costs about 0.1 s for all 100 files. The 1 MB
+figure is about 4.6 s native; the real formatter's 6.5 MB would be about
+30 s by this.
+
+### Friction
+
+1. **No exit status but 0 and 1** (SW-3345). A formatter wants 0 = clean,
+   1 = would change, 2 = could not parse or read; the loop knows which, but
+   `Fail` is all there is, so both read 1, and `--check`'s message is the
+   only way to tell them apart.
+2. **A handler over `Files` is state-passing by hand.** `countingWrites`
+   is the same eleven lines as `Files.simulate` with the disk replaced by a
+   count, and it has to name each of the four operations to pass it on. A
+   std `Files.tracing` or a general "handle every operation by forwarding"
+   would make a counting or logging wrapper one line (and let a test count
+   reads too).
+3. **`Files.simulate` can't see a modification time.** The end-to-end test
+   uses the real file's mtime to show a file wasn't written; under
+   simulation the write counter is the only evidence. A `Disk` that
+   recorded its writes (`writes: List Path`) would make "left alone" a plain
+   equality on the result.
+4. **A test file can't import its own project from outside it.**
+   `stitchwort test src/Toy/Fmt/Tests/Driver.sw` says there's no namespace
+   `Toy.Fmt`; a file target runs outside the project, so tests are run by
+   namespace or `--only NAME`. (`--only` with a name as long as a sentence is
+   the way to run one test.)
+5. **A project with two `main`s can't be built by its folder:** `build`
+   wants the one namespace with a `main`, and the toy has the timing one
+   too. Naming the function (`Toy.Fmt.main`) works.
+6. **Small:** no `Text.after`/`splitOnce`, so `locate` splits at ", column "
+   and then at ": " and joins the rest back.
+
+### What stage D (the proofs) needs from here
+
+`formatFile` is the one place text goes from disk to disk, so a theorem about
+it is the loop's: that the file is written only if its text differs (the
+write-counting test, as a lemma over `Files.simulate`'s laws, which are
+`rfl`), and that what is written is `format`'s output. The proofs the plan's
+§3 names are about `format` itself (round trip, idempotence), and need the
+erased tree and derived `==` for the tree (stage B friction 1).
