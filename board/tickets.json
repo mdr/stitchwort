@@ -37529,12 +37529,12 @@
     {
       "id": 3386,
       "title": "[Sonnet] SW-3370 review follow-ups (docs/reviews/SW-3370-linear-derived-order.md): check derive_rebuild's builtins once at the top instead of Ok(()) then expect-panic (derive.rs 915-1052); derived-equality.md header (D3609 answered); drop stale T.%differ mentions (SW-3002 body, research/inductives.md:726); make Ordering.tagsTransBy not restate Nat.compare; step guard prints counts; derive.rs:114 module doc; derive_ord.rs:170 hoist",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 1 h (Sonnet).\n\nDone 15 Nov: all seven items; tagsTransBy now uses Nat.compareSelf (moved from Std/Nat/Arith.sw to core/Compare.sw; hash unchanged); hashes moved only downstream of tagsTransBy (derived %trans/%instOrd and their dependents); tests passed.\n",
+      "body": "Model result: sonnet, worked, 12 min (est. 60). Orchestrator note: the prelude's derived %compare/%equal/%flip and instArgsValue hashes also moved though they don't use tagsTransBy; unexplained, worth a look if hashes are meant to be local (statements unchanged).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
