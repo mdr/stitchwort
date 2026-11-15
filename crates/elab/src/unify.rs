@@ -1923,11 +1923,21 @@ fn same_heads(
             // A hidden opaque call, or a call of a member of the group
             // being checked: it unfolds where it's transparent, or once
             // the group is admitted, so its arguments are unified in
-            // shortcut mode, as the kernel compares them (U5).
+            // shortcut mode, as the kernel compares them (U5). Arguments
+            // that differ don't make the calls different, so what the
+            // arguments that did unify solved isn't forced, and is taken
+            // back when the comparison fails.
             match spine_pairs(g, level, def, s1, s2) {
-                Some(pairs) => nested(g, || {
-                    run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
-                })?,
+                Some(pairs) => {
+                    let mark = g.attempt.mark();
+                    let same = nested(g, || {
+                        run(g, pairs.into_iter().rev().collect(), Mode::Shortcut)
+                    })?;
+                    if !same {
+                        g.attempt.restore(mark);
+                    }
+                    same
+                }
                 None => false,
             }
         } else if underapplied(g, a).is_none() && underapplied(g, b).is_none() {
@@ -5544,6 +5554,38 @@ mod tests {
             assert!(!unify(g, 1, &stuck, &known).unwrap());
             assert!(g.meta_solution(b).is_none() && g.meta_solution(k).is_none());
             assert!(!unify_what_agrees(g, 1, &stuck, &known).unwrap().any);
+            assert!(g.meta_solution(b).is_none() && g.meta_solution(k).is_none());
+        });
+    }
+
+    /// Two calls of a hidden opaque definition whose arguments differ:
+    /// the call can't unfold, but it may where `pick` is transparent, so
+    /// different arguments don't make the calls different, and what the
+    /// arguments that did unify solved is taken back: `pick ?b ?k 1`
+    /// against `pick c 5 2` leaves `?b` and `?k` unsolved (SW-3331).
+    #[test]
+    fn a_failed_comparison_of_sealed_calls_solves_nothing() {
+        let text =
+            "import Std (Bool, Nat)\n\nopaque def pick (b: Bool) (k: Nat) (n: Nat): Nat := 0\n";
+        with_core_and(text, "pick", |e, pick| {
+            let g = &e.unifier();
+            assert!(sealed(g, pick));
+            // Each unknown may mention `c`, the variable at level 0.
+            let (b, unknown_b) = meta(g, &[0]);
+            let (k, unknown_k) = meta(g, &[0]);
+            let nat = |n: u32| Value::Nat(Rc::new(BigUint::from(n)));
+            let call = |args: [Value; 3]| {
+                let spine = args
+                    .into_iter()
+                    .map(|x| Elim::App(x, Icit::Explicit))
+                    .collect();
+                Value::Neutral(Head::Def(pick), spine)
+            };
+            let open = call([unknown_b, unknown_k, nat(1)]);
+            let known = call([Value::var(0), nat(5), nat(2)]);
+            assert!(!unify(g, 1, &open, &known).unwrap());
+            assert!(g.meta_solution(b).is_none() && g.meta_solution(k).is_none());
+            assert!(!unify_what_agrees(g, 1, &open, &known).unwrap().any);
             assert!(g.meta_solution(b).is_none() && g.meta_solution(k).is_none());
         });
     }
