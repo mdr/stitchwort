@@ -1,5 +1,5 @@
 {
-  "next": 3336,
+  "next": 3337,
   "tickets": [
     {
       "id": 47,
@@ -36316,12 +36316,12 @@
     {
       "id": 3298,
       "title": "[Opus paper] Guide examples lost their teaching layouts in the 14 Nov whole-repo reformat (39de3aa7d): the tree printer joins an if-chain, a leading-operator split and multi-line sum types and records onto single lines up to ~117 chars (docs/guide/examples/values.sw 'if-chain', 'leading-operator'; types chapter), so the guide's prose about splitting lines now shows one-liners. Options: the printer keeps some author line breaks, a narrower width, or examples rewritten to exceed the width; for a decision of Matt's on formatter style",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Found in SW-3292. Paper docs/proposals/fmt-author-breaks.md (Opus, ~25 min): 2,087 multi-line constructs joined in the 14 Nov reformat, most fine; else-if chains, data types with fielded constructors and 4-5 field records read worse. Rec: two structural rules (else-if chains one clause a line; type declarations one line only within 80 chars), ~130 files. D3605 open, for Matt in the morning. Filed SW-3319.",
+      "body": "Paper docs/proposals/fmt-author-breaks.md. D3605 answered yes (Matt, 15 Nov): built as SW-3336.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -36836,12 +36836,12 @@
     {
       "id": 3333,
       "title": "[Opus] Should a successful sealed-call comparison in same_heads record its solutions with note_lossy, as the stuck-call branch does? Check what readers of solved_lossily expect (SW-3331 finding)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-3331. Expected: 45 min (Opus).",
+      "body": "Stopped: built on SW-3331, reverted with SW-3330 (broke 7 AoC proofs). Branch lane/SW-3333 d560456ff kept: correct but only affects the lossy counter.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36870,6 +36870,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From catch-all-facts.md (SW-3318). Expected: 3 h (Sonnet), Opus review after.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3336,
+      "title": "[Sonnet] D3605: formatter rules B1 + B2 (fmt-author-breaks.md): an if with an else if goes one clause a line; a type declaration's constructors or fields on one line only within 80 characters, else one per line; style sheet S14/S15/S19; reformat (~130 files, in .git-blame-ignore-revs); guide examples and prose, including the leading-operator example made long enough to split",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3605 (Matt, 15 Nov 2026, on the two rules as shown in the D3605 page): \"Yeah, let's try your suggested 2 new formatter rules.\" Expected: 2.5 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
