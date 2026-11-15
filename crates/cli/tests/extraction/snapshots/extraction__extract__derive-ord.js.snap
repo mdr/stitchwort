@@ -1314,72 +1314,16 @@ const $Main$dSuit$d$gtag = (v0) => {
 const $Main$dSuit$d$gsame = (v0, v1) => {
   switch (v0.tag) {
     case "Clubs": {
-      switch (v1.tag) {
-        case "Clubs": {
-          return { tag: "True" };
-        }
-        case "Diamonds": {
-          return { tag: "False" };
-        }
-        case "Hearts": {
-          return { tag: "False" };
-        }
-        case "Spades": {
-          return { tag: "False" };
-        }
-      }
-      throw new Error("unreachable");
+      return $Std$dNat$dequal(0n, $Main$dSuit$d$gtag(v1));
     }
     case "Diamonds": {
-      switch (v1.tag) {
-        case "Clubs": {
-          return { tag: "False" };
-        }
-        case "Diamonds": {
-          return { tag: "True" };
-        }
-        case "Hearts": {
-          return { tag: "False" };
-        }
-        case "Spades": {
-          return { tag: "False" };
-        }
-      }
-      throw new Error("unreachable");
+      return $Std$dNat$dequal(1n, $Main$dSuit$d$gtag(v1));
     }
     case "Hearts": {
-      switch (v1.tag) {
-        case "Clubs": {
-          return { tag: "False" };
-        }
-        case "Diamonds": {
-          return { tag: "False" };
-        }
-        case "Hearts": {
-          return { tag: "True" };
-        }
-        case "Spades": {
-          return { tag: "False" };
-        }
-      }
-      throw new Error("unreachable");
+      return $Std$dNat$dequal(2n, $Main$dSuit$d$gtag(v1));
     }
     case "Spades": {
-      switch (v1.tag) {
-        case "Clubs": {
-          return { tag: "False" };
-        }
-        case "Diamonds": {
-          return { tag: "False" };
-        }
-        case "Hearts": {
-          return { tag: "False" };
-        }
-        case "Spades": {
-          return { tag: "True" };
-        }
-      }
-      throw new Error("unreachable");
+      return $Std$dNat$dequal(3n, $Main$dSuit$d$gtag(v1));
     }
   }
   throw new Error("unreachable");
@@ -1446,70 +1390,87 @@ const $Main$dShape$d$gtag = (v0) => {
   }
   throw new Error("unreachable");
 };
+const $Main$dShape$d$gCircle$g0 = (v0, v1) => {
+  switch (v1.tag) {
+    case "Dot": {
+      return v0;
+    }
+    case "Circle": {
+      const v2 = v1.radius;
+      return v2;
+    }
+    case "Group": {
+      const v2 = v1.first;
+      const v3 = v1.rest;
+      return v0;
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Main$dShape$d$gGroup$g0 = (v0, v1) => {
+  switch (v1.tag) {
+    case "Dot": {
+      return v0;
+    }
+    case "Circle": {
+      const v2 = v1.radius;
+      return v0;
+    }
+    case "Group": {
+      const v2 = v1.first;
+      const v3 = v1.rest;
+      return v2;
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Main$dShape$d$gGroup$g1 = (v0, v1) => {
+  switch (v1.tag) {
+    case "Dot": {
+      return v0;
+    }
+    case "Circle": {
+      const v2 = v1.radius;
+      return v0;
+    }
+    case "Group": {
+      const v2 = v1.first;
+      const v3 = v1.rest;
+      return v3;
+    }
+  }
+  throw new Error("unreachable");
+};
 const $Main$dShape$d$gsame = (v0, v1) => {
   let s0 = v0, s1 = v1;
   for (;;) {
     const v0 = s0, v1 = s1;
     switch (v0.tag) {
       case "Dot": {
-        switch (v1.tag) {
-          case "Dot": {
-            return { tag: "True" };
-          }
-          case "Circle": {
-            const v2 = v1.radius;
-            return { tag: "False" };
-          }
-          case "Group": {
-            const v2 = v1.first;
-            const v3 = v1.rest;
-            return { tag: "False" };
-          }
-        }
-        throw new Error("unreachable");
+        return $Std$dNat$dequal(0n, $Main$dShape$d$gtag(v1));
       }
       case "Circle": {
         const v2 = v0.radius;
-        switch (v1.tag) {
-          case "Dot": {
-            return { tag: "False" };
-          }
-          case "Circle": {
-            const v3 = v1.radius;
-            return $Std$dNat$dequal(v2, v3);
-          }
-          case "Group": {
-            const v3 = v1.first;
-            const v4 = v1.rest;
-            return { tag: "False" };
-          }
+        if ($Std$dNat$dequal(1n, $Main$dShape$d$gtag(v1)).tag === "True") {
+          return $Std$dNat$dequal(v2, $Main$dShape$d$gCircle$g0(v2, v1));
+        } else {
+          return { tag: "False" };
         }
-        throw new Error("unreachable");
       }
       case "Group": {
         const v2 = v0.first;
         const v3 = v0.rest;
-        switch (v1.tag) {
-          case "Dot": {
+        if ($Std$dNat$dequal(2n, $Main$dShape$d$gtag(v1)).tag === "True") {
+          if ($Main$dShape$d$gsame(v2, $Main$dShape$d$gGroup$g0(v2, v1)).tag === "True") {
+            s0 = v3;
+            s1 = $Main$dShape$d$gGroup$g1(v3, v1);
+            continue;
+          } else {
             return { tag: "False" };
           }
-          case "Circle": {
-            const v4 = v1.radius;
-            return { tag: "False" };
-          }
-          case "Group": {
-            const v4 = v1.first;
-            const v5 = v1.rest;
-            if ($Main$dShape$d$gsame(v2, v4).tag === "True") {
-              s0 = v3;
-              s1 = v5;
-              continue;
-            } else {
-              return { tag: "False" };
-            }
-          }
+        } else {
+          return { tag: "False" };
         }
-        throw new Error("unreachable");
       }
     }
     throw new Error("unreachable");
@@ -1535,65 +1496,24 @@ const $Main$dShape$d$gshow = (v0) => {
   throw new Error("unreachable");
 };
 const $Main$dShape$d$ginstShow = { toText: $Main$dShape$d$gshow, toSource: $Main$dShape$d$gshow };
-const $Main$dShape$d$gcompare = (v0, v1) => {
+const $Main$dShape$d$gfields = (v0, v1) => {
   switch (v0.tag) {
     case "Dot": {
-      switch (v1.tag) {
-        case "Dot": {
-          return { tag: "Equal" };
-        }
-        case "Circle": {
-          const v2 = v1.radius;
-          return $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1));
-        }
-        case "Group": {
-          const v2 = v1.first;
-          const v3 = v1.rest;
-          return $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1));
-        }
-      }
-      throw new Error("unreachable");
+      return { tag: "Equal" };
     }
     case "Circle": {
       const v2 = v0.radius;
-      switch (v1.tag) {
-        case "Dot": {
-          return $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1));
-        }
-        case "Circle": {
-          const v3 = v1.radius;
-          return $Std$dNat$dcompare(v2, v3);
-        }
-        case "Group": {
-          const v3 = v1.first;
-          const v4 = v1.rest;
-          return $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1));
-        }
-      }
-      throw new Error("unreachable");
+      return $Std$dNat$dcompare(v2, $Main$dShape$d$gCircle$g0(v2, v1));
     }
     case "Group": {
       const v2 = v0.first;
       const v3 = v0.rest;
-      switch (v1.tag) {
-        case "Dot": {
-          return $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1));
-        }
-        case "Circle": {
-          const v4 = v1.radius;
-          return $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1));
-        }
-        case "Group": {
-          const v4 = v1.first;
-          const v5 = v1.rest;
-          return $Std$dOrdering$dandThen($Main$dShape$d$gcompare(v2, v4), $Main$dShape$d$gcompare(v3, v5));
-        }
-      }
-      throw new Error("unreachable");
+      return $Std$dOrdering$dandThen($Main$dShape$d$gcompare(v2, $Main$dShape$d$gGroup$g0(v2, v1)), $Main$dShape$d$gcompare(v3, $Main$dShape$d$gGroup$g1(v3, v1)));
     }
   }
   throw new Error("unreachable");
 };
+const $Main$dShape$d$gcompare = (v0, v1) => ($Std$dNat$dequal($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1)).tag === "True" ? $Main$dShape$d$gfields(v0, v1) : $Std$dNat$dcompare($Main$dShape$d$gtag(v0), $Main$dShape$d$gtag(v1)));
 const $Main$dShape$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dShape$d$ginstDecEq, ($Main$dShape$d$gcompare$c ??= ($p0) => ($p1) => $Main$dShape$d$gcompare($p0, $p1)));
 const $Main$dsuits = (v0) => $Std$dShow$d$gtoText($Std$dList$dinstShow($Main$dSuit$d$ginstShow))($Std$dList$dsort($Main$dSuit$d$ginstOrd, ($Std$dNat$dequal(v0, 0n).tag === "True" ? { tag: "Cons", head: { tag: "Hearts" }, tail: { tag: "Nil" } } : { tag: "Cons", head: { tag: "Spades" }, tail: { tag: "Cons", head: { tag: "Clubs" }, tail: { tag: "Cons", head: { tag: "Hearts" }, tail: { tag: "Cons", head: { tag: "Diamonds" }, tail: { tag: "Cons", head: { tag: "Clubs" }, tail: { tag: "Nil" } } } } } })));
 const $Main$ditems = (v0) => $Std$dShow$d$gtoText($Std$dList$dinstShow($Main$dItem$d$ginstShow))($Std$dList$dsort($Main$dItem$d$ginstOrd, { tag: "Cons", head: { name: "tea", price: v0 }, tail: { tag: "Cons", head: { name: "jam", price: 4n }, tail: { tag: "Cons", head: { name: "jam", price: v0 }, tail: { tag: "Nil" } } } }));
