@@ -38325,7 +38325,7 @@
     {
       "id": 3444,
       "title": "[Sonnet] Rust fmt engine: fits_in starts with suffix = false, ignoring a trailing comment already waiting when a group is measured (the toy's engine bug 3, found by SW-3418's proof): add an engine unit test building that shape (comment waiting, then a group with a line) and make fits start from the printer's waiting state; check whether any rule can build it",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -38364,12 +38364,12 @@
     {
       "id": 3447,
       "title": "[Opus] stitchwort fmt: every comment has a place (D3618, D3619; design docs/proposals/every-comment-placed.md, lane R): never keep a declaration as written; engine change so code after a trailing comment starts a new line; LineStart forced breaks; closer case; S40 reasons removed; the 24 probes as tests",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 17:00, expected 40 min; done 17:17 (lane/SW-3447, commit 72a5cc64f).\n\n- Engine: comment breaks. Code after a trailing comment on its line starts the next line (construct's indent, at least broken line + 2); a LineStart that must break does the same and holds that depth up to the next code; measures continue from the new line, so most awkward positions keep the author's layout. New `Doc::LineStartHere` for own-line comments before a closer (items' indent, closer on its own line).\n- S40's two keep-as-written reasons removed; per-declaration checks stay as the net. `STITCHWORT_FMT_REFUSE_FOR_TEST` keeps the CLI test of the kept-declaration report.\n- Golden `crates/fmt/tests/it/golden/comments-anywhere`: the 24 probes + text block + column-0 comments; 0 kept, idempotent.\n- Docs: formatter-style.md S40 rewritten; update notes in every-comment-placed.md and formatter-architecture.md. syntax.md/guide don't describe the old rule, unchanged.\n- Tests: package(stitchwort-fmt) 75/75; binary(tools) & test(/fmt::/) 8/8. `fmt --check` over crates, aoc, games, tools, examples, docs (and web, sf, bench, dev, book): no file would change.\n",
+      "body": "Started 17:00, expected 40 min; done 17:17 (lane/SW-3447, commit 72a5cc64f).\n\n- Engine: comment breaks. Code after a trailing comment on its line starts the next line (construct's indent, at least broken line + 2); a LineStart that must break does the same and holds that depth up to the next code; measures continue from the new line, so most awkward positions keep the author's layout. New `Doc::LineStartHere` for own-line comments before a closer (items' indent, closer on its own line).\n- S40's two keep-as-written reasons removed; per-declaration checks stay as the net. `STITCHWORT_FMT_REFUSE_FOR_TEST` keeps the CLI test of the kept-declaration report.\n- Golden `crates/fmt/tests/it/golden/comments-anywhere`: the 24 probes + text block + column-0 comments; 0 kept, idempotent.\n- Docs: formatter-style.md S40 rewritten; update notes in every-comment-placed.md and formatter-architecture.md. syntax.md/guide don't describe the old rule, unchanged.\n- Tests: package(stitchwort-fmt) 75/75; binary(tools) & test(/fmt::/) 8/8. `fmt --check` over crates, aoc, games, tools, examples, docs (and web, sf, bench, dev, book): no file would change.\n\nModel result: opus, worked, 17 min (est. 40). Orchestrator's call: keep the test-only switch STITCHWORT_FMT_REFUSE_FOR_TEST so the CLI's kept-declaration report stays tested. Follow-ups (p17 then/body column, staircase in tactics) left until someone writes such code, per D3619.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
