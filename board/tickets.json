@@ -1,5 +1,5 @@
 {
-  "next": 3409,
+  "next": 3410,
   "tickets": [
     {
       "id": 47,
@@ -37822,6 +37822,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3409,
+      "title": "[Sonnet] Std from toy stage D (SW-3343): Disk read-after-write lemma (from Map.getInsert); constructor injectivity for user constructors (derived, replacing hand-written projections like printedOr); a lemma that contiguous lexemes from Parse.locatedToEnd cover the input; a Parse.tokensWith variant returning Result or taking a check between lexer and parser",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
