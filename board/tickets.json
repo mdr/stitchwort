@@ -36437,7 +36437,7 @@
     {
       "id": 3308,
       "title": "[DeepSeek] Recovery follow-ups (SW-3289): use close_bracket for record {, named-argument (x := e) and annotation (e : T) closers too; a guard-specific message when a guard's bracket runs out at => ('the guard's => starts here', like calc's) instead of the lambda note; syntax-error-recovery.md R1 says a missing closer 'counts as present', now an Error node",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
