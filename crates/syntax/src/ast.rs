@@ -327,7 +327,7 @@ pub struct Row {
 /// A handler clause.
 #[derive(Clone, Debug)]
 pub enum Clause {
-    /// `return x -> body`
+    /// `return x -> body`, or `return _ -> body` when the result isn't used
     Return { var: Name, body: Expr },
     /// `op arg => k -> body`, where `arg` is a variable, `_` or `()`.
     Op {

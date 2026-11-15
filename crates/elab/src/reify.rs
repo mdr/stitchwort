@@ -85,7 +85,7 @@ fn return_display(
         Clause::Return {
             var,
             body: Expr::Goal(span),
-        } => Some((var, *span)),
+        } if var.text != "_" => Some((var, *span)),
         _ => None,
     })?;
     let base = cx.level();
@@ -265,8 +265,12 @@ fn alternatives(
                         .with_label(var.span, "the second"));
                 }
                 returned = true;
-                let pattern =
-                    internal_ctor_pattern(comp, done, vec![Pattern::Var(var.clone())], var.span);
+                let binder = if var.text == "_" {
+                    Pattern::Wildcard(var.span)
+                } else {
+                    Pattern::Var(var.clone())
+                };
+                let pattern = internal_ctor_pattern(comp, done, vec![binder], var.span);
                 alts.push(Alt {
                     guard: None,
                     patterns: vec![pattern],

@@ -686,11 +686,16 @@ impl Parser<'_> {
 
     /// A handler's clause in the new syntax, after its `|`:
     /// `return x => body`, or `op p, k => body`. The argument is one atomic
-    /// pattern, so a comma inside its brackets belongs to it.
+    /// pattern, so a comma inside its brackets belongs to it. A `return`
+    /// clause may write `_` for the result when it doesn't use it.
     #[inline(never)]
     pub(super) fn handler_clause(&mut self) -> Result<()> {
         if self.eat(&Tok::KwReturn) {
-            self.lower("a name for the result")?;
+            if self.peek() == Some(&Tok::Underscore) {
+                self.bump();
+            } else {
+                self.lower("a name for the result")?;
+            }
             self.expect(Tok::FatArrow, "`=>`")?;
             return self.expr();
         }

@@ -123,12 +123,12 @@ impl<'f> Lower<'f> {
             .collect()
     }
 
-    /// `| return x => body` or `| op p, k => body`.
+    /// `| return x => body`, `| return _ => body` or `| op p, k => body`.
     fn clause(&self, node: Node<'f>) -> Lowering<Clause> {
         let kind = NodeKind::HandlerClause;
         let body = required(node.after(&Tok::FatArrow), kind, "its body")?;
         if node.leaf(&Tok::KwReturn).is_some() {
-            let var = as_leaf(node.after(&Tok::KwReturn)).and_then(name);
+            let var = as_leaf(node.after(&Tok::KwReturn)).and_then(binder_name);
             return Ok(Clause::Return {
                 var: required(var, kind, "a name for the result")?,
                 body: self.expr(body)?,

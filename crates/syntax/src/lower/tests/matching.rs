@@ -26,6 +26,31 @@ fn match_induct_names_a_case_and_its_binders() {
 }
 
 #[test]
+fn handler_and_reify_return_clauses_accept_a_wildcard() {
+    let e = rhs(
+        "def f (t : () -> {Fail} a) : P := match reify t with\n  | return _ => rfl\n  | Fail.stop msg, k => k\n",
+    );
+    let Expr::Reify { clauses, .. } = &e else {
+        panic!("expected a `match reify`, got {e:?}")
+    };
+    assert!(
+        matches!(&clauses[0], Clause::Return { var, .. } if var.text == "_"),
+        "{clauses:?}"
+    );
+
+    let e = rhs(
+        "def f (p : Nat) : Nat :=\n  handle p () with\n    | return _ => 0\n    | get (), k => k 0\n",
+    );
+    let Expr::Handle { clauses, .. } = &e else {
+        panic!("expected a `handle`, got {e:?}")
+    };
+    assert!(
+        matches!(&clauses[0], Clause::Return { var, .. } if var.text == "_"),
+        "{clauses:?}"
+    );
+}
+
+#[test]
 fn induct_is_a_name_except_after_match() {
     let e = expression("match induct with\n  | x => x\n").unwrap();
     assert!(matches!(e, Expr::Match { .. }));
