@@ -14,6 +14,11 @@
 //! prints that input on standard output. `FUZZ_DUMP=<path>` writes each case's
 //! input to that file (overwriting it) before the case is formatted, so a run
 //! killed for memory or time leaves the case it was on behind.
+//!
+//! `FUZZ_COMMENTS=<rate>` (a number from 0 to 1) also inserts a `-- c` comment
+//! at each token boundary with that chance, half trailing (ending at a line
+//! end, which is added if needed) and half on a line of their own. Without it,
+//! the generator is unchanged.
 
 use std::io::Write;
 use std::ops::Range;
@@ -237,6 +242,97 @@ fn soup(rng: &mut Rng) -> String {
     text
 }
 
+/// Whether `ch` can be part of an identifier, keyword or number. A boundary
+/// between two such characters would split a token, so it is not a token
+/// boundary.
+fn is_word(ch: char) -> bool {
+    ch.is_alphanumeric() || ch == '_' || ch == '\''
+}
+
+/// The positions in `chars` where one token can end and another begin: not
+/// inside a string, character literal or `--` comment, and not inside a word.
+/// The scanner is only a heuristic, but it keeps inserted comments from
+/// cutting literals and existing comments apart.
+fn token_boundaries(chars: &[char]) -> Vec<bool> {
+    let mut boundaries = vec![false; chars.len() + 1];
+    let mut in_string = false;
+    let mut in_char = false;
+    let mut in_comment = false;
+    let mut escaped = false;
+    for i in 0..=chars.len() {
+        if !in_string && !in_char && !in_comment {
+            let left_word = i > 0 && is_word(chars[i - 1]);
+            let right_word = i < chars.len() && is_word(chars[i]);
+            let splits_comment = i > 0 && i < chars.len() && chars[i - 1] == '-' && chars[i] == '-';
+            boundaries[i] = !(left_word && right_word) && !splits_comment;
+        }
+        let Some(&ch) = chars.get(i) else {
+            break;
+        };
+        if in_comment {
+            if ch == '\n' {
+                in_comment = false;
+            }
+        } else if escaped {
+            escaped = false;
+        } else if in_string {
+            if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+        } else if in_char {
+            if ch == '\\' {
+                escaped = true;
+            } else if ch == '\'' {
+                in_char = false;
+            }
+        } else if ch == '"' {
+            in_string = true;
+        } else if ch == '\'' && !(i > 0 && is_word(chars[i - 1])) {
+            // `x'` is an identifier, not the start of a character literal.
+            in_char = true;
+        } else if ch == '-' && chars.get(i + 1) == Some(&'-') {
+            in_comment = true;
+        }
+    }
+    boundaries
+}
+
+/// True with probability `rate`, consuming one draw from `rng`.
+fn chance(rng: &mut Rng, rate: f64) -> bool {
+    rate > 0.0 && (rng.below(10_000) as f64) < rate * 10_000.0
+}
+
+/// Insert `-- c` comments at random token boundaries, each with probability
+/// `rate`. Half are trailing comments, followed by a line break when the text
+/// does not already have one there; the other half sit on a line of their own,
+/// with a line break on either side.
+fn add_comments(rng: &mut Rng, text: &str, rate: f64) -> String {
+    let chars: Vec<char> = text.chars().collect();
+    let boundaries = token_boundaries(&chars);
+    let mut out = Vec::with_capacity(chars.len());
+    for (i, &boundary) in boundaries.iter().enumerate() {
+        if boundary && chance(rng, rate) {
+            if rng.below(2) == 0 {
+                out.extend("-- c".chars());
+                if chars.get(i) != Some(&'\n') {
+                    out.push('\n');
+                }
+            } else {
+                out.extend("\n-- c\n".chars());
+            }
+        }
+        if let Some(&ch) = chars.get(i) {
+            out.push(ch);
+        }
+    }
+    if out.len() > MAX_LEN {
+        out.truncate(MAX_LEN);
+    }
+    out.into_iter().collect()
+}
+
 /// An environment number, decimal or `0x...`; unset or empty is `None`, and an
 /// unparsable one fails the run rather than silently using the default.
 fn env_number(name: &str) -> Option<u64> {
@@ -255,11 +351,28 @@ fn dump_path() -> Option<PathBuf> {
     Some(PathBuf::from(path))
 }
 
+/// `FUZZ_COMMENTS`: the chance of a comment at each token boundary, a number
+/// from 0 to 1.
+fn comment_rate() -> Option<f64> {
+    let value = std::env::var("FUZZ_COMMENTS")
+        .ok()
+        .filter(|value| !value.is_empty())?;
+    let rate: f64 = value
+        .parse()
+        .unwrap_or_else(|_| panic!("FUZZ_COMMENTS={value:?} is not a number"));
+    assert!(
+        (0.0..=1.0).contains(&rate),
+        "FUZZ_COMMENTS={value:?} is not between 0 and 1"
+    );
+    Some(rate)
+}
+
 #[test]
 fn the_formatter_never_panics_and_is_idempotent() {
     let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
     let seed = env_number("FUZZ_SEED").unwrap_or(SEED);
     let only = env_number("FUZZ_CASE");
+    let comments = comment_rate();
     match only {
         Some(only) => eprintln!("fuzz fmt: case {only} (0-based), seed {seed:#x}"),
         None => eprintln!("fuzz fmt: {cases} cases, seed {seed:#x}"),
@@ -273,12 +386,15 @@ fn the_formatter_never_panics_and_is_idempotent() {
     let last = only.map_or(cases, |only| only.saturating_add(1));
     for case in 0..last {
         let state = rng.0;
-        let text = if rng.below(2) == 0 {
+        let mut text = if rng.below(2) == 0 {
             let base = rng.below(corpus.len());
             mutate(&mut rng, &corpus[base])
         } else {
             soup(&mut rng)
         };
+        if let Some(rate) = comments {
+            text = add_comments(&mut rng, &text, rate);
+        }
         if only.is_some_and(|only| case != only) {
             continue;
         }
