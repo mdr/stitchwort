@@ -1,0 +1,13 @@
+---
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
+---
+data Main.Src a1a2901e2332c7d617e1def621c5cb57f2651daf0b759729eef98cdd529ec41f
+Main.Src.%res 11f02b61757fad3cbcb299b90eb097c12db34638f5e229a95b5c9dbee5bb18e2
+Main.Src.%elim b34471c7bfeb74e865b5496c114eaac8a243b20a78e61c1626f769847958e04d
+Main.Ph cb43a8b53e6e1c3585d76eb239d3f7486e6b1ffc7e719ce3cb24816c1a102bce
+Main.ph 7502bf9e4419ee66f4d6ebad9b7fd14a8bfc8757c3bd5664e794eb125d292e0f
+Main.natSrc 86240ada368a65d34f0615772ae8676b778b1dff7be74fe3743e8cb49cbf4a6d
+Main.Wrap 519c33a8677e8eeee4d9fa8baf51ec1d1520815720b970897db5b662bc4112de
+Main.wrapped 454e1679ba71fb95057807312646738a7ec599cb6c8866e099887817d4588c3d
+Main.withWrap f681ba83297d60a147a784cd823eb3c930ae57b7b49d82887350e2cfb601abbf

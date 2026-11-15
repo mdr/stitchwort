@@ -2763,9 +2763,92 @@ impl Elaborator {
         mut attempt: impl FnMut(&mut Self) -> Result<T>,
     ) -> Result<T> {
         let outer = std::mem::take(&mut *self.decl.builds.borrow_mut());
-        let result = self.local_retries(key, owner, &mut attempt);
+        let result = self.settle_retried(|e| e.local_retries(key, owner, &mut attempt));
         *self.decl.builds.borrow_mut() = outer;
         result
+    }
+
+    /// Runs `attempt`, the elaboration of a body; if it fails after
+    /// `check::settle_from_expected` gave some call type arguments from its
+    /// expected type, runs it once more with none given. The guess is
+    /// right whenever a call's type matches its expected type argument by
+    /// argument, but a match may need unfolding (`Ph Nat 0` against `Ph Char
+    /// 0`, where `Ph` doesn't use its type parameter), so a body is
+    /// accepted whenever it is without settling. One retry for the whole
+    /// body, not one per call: inside a chain of lemmas most failures are
+    /// speculative (an argument held for after the expected type, a plan
+    /// redone from the start), and a retry at each would make a failing
+    /// nested chain cost more than linear time.
+    ///
+    /// `attempt` starts by forgetting every metavariable, and makes its own
+    /// local definitions and helpers again (`Self::local_retries`); what is
+    /// left of the first attempt is put back here: its goals, the types and
+    /// steps noted for presentation, its warnings, the other bad branches'
+    /// errors and the flags its messages set.
+    ///
+    /// If both fail, the first error is mostly given ([`settled_error_first`]):
+    /// it blames the argument whose row clashes with the goal's, where the
+    /// second blames the whole call with the goal unfolded, or an unrelated
+    /// argument; with a note saying where the type argument came from
+    /// ([`settle_note`]). The goals, navigation types and probe are then
+    /// the second attempt's, so the editor's goal at a settled argument may
+    /// show the type it has without settling.
+    ///
+    /// Settling is on only in the first attempt here: nowhere else
+    /// (signatures, expressions typed in) is there a retry.
+    fn settle_retried<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
+        let outer = self.decl.settled.take();
+        let outer_settling = self.decl.settling.replace(true);
+        let warnings = self.unit.warnings.len();
+        let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
+        let branch_errors = self.attempt.branch_errors.borrow().len();
+        let flags = (
+            self.decl.failed_mentioned.get(),
+            self.decl.stuck_on_goal.borrow().clone(),
+        );
+        let first = attempt(self);
+        let settled = self.decl.settled.replace(outer);
+        let e = match first {
+            Err(e) if !settled.is_empty() && !undo::fatal(&e) && e.code != goals::UNFINISHED => e,
+            first => {
+                self.decl.settling.set(outer_settling);
+                return first;
+            }
+        };
+        // Pending since `attempt`'s first `clear_metas`, so all its own.
+        self.drop_goals_since(0);
+        self.drop_local_types_since(0);
+        self.drop_steps_since(0);
+        self.drop_probe_pending();
+        self.unit.warnings.truncate(warnings);
+        self.attempt
+            .lambda_warnings
+            .borrow_mut()
+            .truncate(lambda_warnings);
+        let first_branches = self
+            .attempt
+            .branch_errors
+            .borrow_mut()
+            .split_off(branch_errors);
+        let first_flags = (
+            self.decl.failed_mentioned.replace(flags.0),
+            self.decl.stuck_on_goal.replace(flags.1),
+        );
+        self.decl.settling.set(false);
+        let again = attempt(self);
+        self.decl.settling.set(outer_settling);
+        match again {
+            Err(again) if !undo::fatal(&again) && settled_error_first(&e, &again) => {
+                let mut branches = self.attempt.branch_errors.borrow_mut();
+                branches.truncate(branch_errors);
+                branches.extend(first_branches);
+                drop(branches);
+                self.decl.failed_mentioned.set(first_flags.0);
+                *self.decl.stuck_on_goal.borrow_mut() = first_flags.1;
+                Err(settle_note(e, &settled))
+            }
+            again => again,
+        }
     }
 
     /// [`Self::with_local_retries`]'s loop. A body that fails where a
@@ -6170,6 +6253,53 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 )),
             ))
         }
+    }
+}
+
+/// Whether a body's error `e`, elaborated with type arguments taken from
+/// calls' expected types, is given rather than `again`, its error without
+/// them ([`Elaborator::settle_retried`]). Not when `again` stands for open
+/// goals: without settling, the body is only unfinished. Otherwise
+/// whichever comes first in the source, `e` on a tie or when one is
+/// around the other: elaboration runs mostly left to right, so the later
+/// error is more often a consequence of a wrong guess earlier (a wrong
+/// parser, then a field its lambda reads) than a slip of its own, and an
+/// error around the other (the whole call, with the goal unfolded) says
+/// less.
+fn settled_error_first(e: &Diagnostic, again: &Diagnostic) -> bool {
+    if again.code == goals::UNFINISHED {
+        return false;
+    }
+    match (e.primary_span(), again.primary_span()) {
+        (Some(at), Some(there))
+            if at.file == there.file && !lift::within(at, there) && !lift::within(there, at) =>
+        {
+            at.start <= there.start
+        }
+        _ => true,
+    }
+}
+
+/// `e`, the error of a body elaborated with type arguments taken from
+/// calls' expected types, with a note saying where the type argument came
+/// from, at the innermost failed call around `e` that was given one
+/// (`Decl::settled`): the guess may have been the mistake (`Ph Char 0 :=
+/// ph natSrc True`, where `Ph` doesn't use its type parameter, so
+/// `natSrc`'s `Nat` would have done), and the note invites unfolding the
+/// goal. Only on a type mismatch: an unknown name or a failed `rfl` isn't
+/// explained by it.
+fn settle_note(e: Diagnostic, settled: &[state::Settled]) -> Diagnostic {
+    let Some(at) = e.primary_span().filter(|_| e.code == "E-TYPE-MISMATCH") else {
+        return e;
+    };
+    let note = settled
+        .iter()
+        .filter(|s| s.note.is_some() && lift::within(s.span, at))
+        .min_by_key(|s| s.span.end - s.span.start)
+        .and_then(|s| s.note.clone());
+    match note {
+        Some(note) => e.with_note(note),
+        None => e,
     }
 }
 

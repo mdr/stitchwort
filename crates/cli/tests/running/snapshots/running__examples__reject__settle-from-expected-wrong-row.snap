@@ -3,9 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
-    ╭─[ reject/settle-from-expected-wrong-row.sw:26:49 ]
+    ╭─[ reject/settle-from-expected-wrong-row.sw:27:49 ]
     │
- 26 │ theorem wrongRow: Good counting ['c'] 5 := good flagging ['c'] 5
+ 27 │ theorem wrongRow: Good counting ['c'] 5 := good flagging ['c'] 5
     │                                                 ────┬───  
     │                                                     ╰───── expected `() → {Src Char, St Nat} Char`, but this has type `() → {Src Char, St Bool} Char`
+    │ 
+    │ Note: `t` was taken as `Char` from the expected type
 ────╯

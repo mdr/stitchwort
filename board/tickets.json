@@ -36432,15 +36432,17 @@
     {
       "id": 3307,
       "title": "[Opus] Then fill every type parameter early: a correct 3-step readsThen chain with [b := …] by hand fails (c3tb.sw); fix that, then settle b too, which would put 2020 day 2 ~18% under its pre-generic steps instead of 13.7% over (docs/reviews/SW-3282-settle-from-expected.md S3; with SW-3304)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "SW-3304 measured settling every type parameter: day 2 proofs 6.90M -> 4.83M (-30%, runsPieces 24% under pre-generic), day 7 -9.1%, day 18 -0.9%, Std.Parse -1.4%; all checks pass; node counts move slightly (hashes would move); reads-nested-binds-unknown-field loses its clear error (needs a fallback when settling fails). Do after SW-3311 (per-declaration retry gives that fallback). Orchestrator's call, not Matt's: speed against one error message, resolved by the fallback.",
+      "body": "SW-3304 measured settling every type parameter: day 2 proofs 6.90M -> 4.83M (-30%, runsPieces 24% under pre-generic), day 7 -9.1%, day 18 -0.9%, Std.Parse -1.4%; all checks pass; node counts move slightly (hashes would move); reads-nested-binds-unknown-field loses its clear error (needs a fallback when settling fails). Do after SW-3311 (per-declaration retry gives that fallback). Orchestrator's call, not Matt's: speed against one error message, resolved by the fallback.\n\nDone in lane SW-3311 on top of the per-body retry: commit 149fa067d (drops the row condition; every leading implicit type parameter alone in the result call is settled). Steps: day 2 6.90M -> 4.81M (-30.3%), day 7 -9.3%, day 18 -1.1%, Std.Parse -1.5%. reads-nested-binds-unknown-field keeps `R` has no field `first` via `settled_error_first` (a mismatch from the settled attempt yields to a more particular unsettled error). reads-weaken-over-map-implicits now blames the real spec mismatch at the map's proof (what HEAD shows once [p := starting] is written) instead of the unsolved `p`; reads-chain-swapped-pair renumbers ?25 -> ?24. Hashes move: 13 std decls and 21 example/project snapshots (listed in the commit).\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "149fa067d"
+      ]
     },
     {
       "id": 3308,
@@ -36488,15 +36490,18 @@
     {
       "id": 3311,
       "title": "[Opus] Simplify settle_from_expected's retry to one retry per declaration with settling off (docs/reviews/SW-3305-settle-retry.md 'simpler design'): closes the two remaining gaps where a skipped speculative failure is final (S1, probes p1b.sw, p2.sw), removes the super-linear cost of failing nested chains (S2: depth 200 2.9 s vs 0.36 s on main; matters for mistyped proofs in the editor) and three of four new Decl fields; add a note saying where t came from when the settled error blames a correct argument (S3, e1.sw). Re-measure 2020 day 2/7/18 and Std.Parse",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-3305-settle-retry.md. Unblocks SW-3307 (settle every type parameter: day 2 -30%). Expected: 2.5 h (Opus).",
+      "body": "From docs/reviews/SW-3305-settle-retry.md. Unblocks SW-3307 (settle every type parameter: day 2 -30%). Expected: 2.5 h (Opus).\n\nLane (Opus, 03:20-04:20, ~1 h): commit 9d9c98ee3. One retry per body in `with_local_retries` (`Elaborator::settle_retried`): a failing body that settled anything is elaborated again with settling off; settle_trial/settle_skipped/per-call settled/settled_failed/held recheck removed; Decl keeps `no_settling` (flag) and `settled` (list of settled calls, for the note). Snapshot check: `undo::Snapshot` is Ctx-level; the body attempt is already a restartable unit (local_retries and the rigid-divergence retry rerun it after `clear_metas`); what it leaves outside is put back by hand (pending goals/nav types/probe steps, unit and lambda warnings, branch errors, failed_mentioned/stuck_on_goal); lifted helpers and preadmitted locals are kept, as the existing retries keep them. Signatures not retried. p1b, p2, g5, g6 accepted; e1 gets labels (S3) pointing at `True`; an unsettled failure that is only open goals is given as goals. Failing chain depth 100/200/400: 0.88/2.33/15.1 s -> 0.25/0.30/0.45 s. Steps identical (day 2 6,896,355; day 7 6,646,340; day 18 2,236,156; Std.Parse 99,492,550); hashes unchanged. Snapshots: settle-from-expected-wrong-row gains the two labels; new examples settle-from-expected-in-a-plan, -held-argument (accept), -other-error (reject), goals/settle-from-expected-retried. Tests: library hash_stability|reads_chain_cost (11 pass), elab+elaboration unify|propagat|implicit|settle (45 pass), examples settle,reads,parse (7 pass), check --no-cache 2020 day 2/7/18 Proofs.\n\n\nReview fixes (04:35-05:05): commit 83de8955f. M1 settling only in a body's first attempt (signatures not settled; accept example in-a-signature); S1 probe pending dropped in settle_retried (p1b/w1/w3 goal --at answer; w2 still panics via undo::Snapshot, separate); S2 errors by source order, settled on tie/containment, open-goals exception kept (reject example lambda-after blames the parser); S3 one note on a settled type mismatch, \"`t` was taken as `Char` from the expected type\" (expected type not printed: +0.4% day 2 steps); N1 doc restored. SW-1528's note still pinned by unify-last-arguments-types-differ. Steps: day 2 4,805,748, day 7 6,027,298, day 18 2,211,346, Std.Parse 97,987,510. Tests: examples settle,reads,parse (7 pass), library hash_stability|reads_chain_cost|pinned (16 pass, one new snapshot), elab unify|propagat|implicit|settle (45 pass), check --no-cache 2020 day 2/7/18.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "9d9c98ee3",
+        "83de8955f"
+      ]
     },
     {
       "id": 3312,

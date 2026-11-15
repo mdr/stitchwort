@@ -104,23 +104,16 @@ pub(crate) struct Decl {
     /// the first before it was forced (a call such as `Parse.Runs p …`, not
     /// its unfolding), for `check::settle_from_expected`.
     pub(crate) app_expected: RefCell<Option<(usize, Value, Value)>>,
-    /// Set when `check::settle_from_expected` gave the application that
-    /// `app_expected` names type arguments from its expected type; read by
-    /// `check::fallback_inferred`, which retries without them if the
-    /// application then fails.
-    pub(crate) settled: Cell<bool>,
-    /// Above zero while an application is elaborated again after its type
-    /// arguments, given from its expected type, failed: no application
-    /// inside is given them, so a failing chain of lemmas isn't tried twice
-    /// at every level (`check::fallback_inferred`, SW-3305).
-    pub(crate) no_settling: Cell<usize>,
-    /// Above zero during an attempt whose failure is passed over and the
-    /// work done again (`check::settle_trial`): `check::fallback_inferred`
-    /// doesn't retry inside, and says it didn't in `settle_skipped`.
-    pub(crate) settle_trial: Cell<usize>,
-    /// Set when `check::fallback_inferred` didn't retry an application
-    /// inside the innermost `settle_trial`.
-    pub(crate) settle_skipped: Cell<bool>,
+    /// The calls `check::settle_from_expected` gave type arguments from
+    /// their expected type, in the body attempt being elaborated, also in
+    /// parts of it later undone (which can only cost a retry not needed).
+    /// If the attempt fails, it is made once more with nothing settled
+    /// (`Elaborator::settle_retried`), which reads them.
+    pub(crate) settled: RefCell<Vec<Settled>>,
+    /// Set while `check::settle_from_expected` may give type arguments: in
+    /// a body's first attempt (`Elaborator::settle_retried`), which is
+    /// retried without if it fails.
+    pub(crate) settling: Cell<bool>,
     /// While the body of a definition with `decreasing` is elaborated: what
     /// its recursive calls stand for (`decreasing.rs`).
     pub(crate) decreasing: RefCell<Option<decreasing::Active>>,
@@ -247,6 +240,20 @@ pub(crate) struct Decl {
 }
 
 /// [`Decl::conjunction`].
+/// A call `check::settle_from_expected` gave a type argument from its
+/// expected type (`Decl::settled`).
+pub(crate) struct Settled {
+    /// The call, or its arguments.
+    pub(crate) span: Span,
+    /// The first parameter given and the type it was given, for the note
+    /// made if the call fails.
+    pub(crate) param: stitchwort_core::Name,
+    pub(crate) given: Value,
+    /// What an error from the call is given if the body fails with it,
+    /// made when the call fails, while its unknowns are still solved.
+    pub(crate) note: Option<String>,
+}
+
 pub(crate) struct Conjunction {
     /// The address of the condition's left operand.
     pub(crate) lhs: usize,
@@ -298,9 +305,7 @@ impl Decl {
             conjunction,
             app_expected,
             settled,
-            no_settling,
-            settle_trial,
-            settle_skipped,
+            settling,
             decreasing,
             recursion,
             arounds,
@@ -345,10 +350,8 @@ impl Decl {
             ("not_coerced", not_coerced.borrow().is_empty()),
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
-            ("settled", !settled.get()),
-            ("no_settling", no_settling.get() == 0),
-            ("settle_trial", settle_trial.get() == 0),
-            ("settle_skipped", !settle_skipped.get()),
+            ("settled", settled.borrow().is_empty()),
+            ("settling", !settling.get()),
             ("decreasing", decreasing.borrow().is_none()),
             ("recursion", recursion.is_none()),
             ("arounds", arounds.borrow().is_empty()),

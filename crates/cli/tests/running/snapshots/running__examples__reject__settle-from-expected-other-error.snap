@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/settle-from-expected-other-error.sw:17:38 ]
+    │
+ 17 │ theorem wrongNumber: Ph Char 0 := ph natSrc True
+    │                                      ───┬──  
+    │                                         ╰──── expected `() → {Src Char} Char`, but this has type `() → {Src Nat} Nat`
+    │ 
+    │ Note: `t` was taken as `Char` from the expected type
+────╯

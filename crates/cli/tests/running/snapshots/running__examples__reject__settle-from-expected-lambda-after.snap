@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/settle-from-expected-lambda-after.sw:20:34 ]
+    │
+ 20 │ theorem counted: Pt Rec 0 := lam natSrc (r => r.count) 0
+    │                                  ───┬──  
+    │                                     ╰──── expected `() → {Src Rec} Rec`, but this has type `() → {Src Nat} Nat`
+    │ 
+    │ Note: `t` was taken as `Rec` from the expected type
+────╯
