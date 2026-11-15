@@ -13,11 +13,16 @@
 --|   line or below it, is a `Body` of one `Bare` statement; a block is a
 --|   `Body` of its statements in order. Its first statement has no blank
 --|   line before it, and its last isn't a comment.
---| - A trailing comment (after code on its line) belongs to the `Bare`
---|   statement it ends, or to the list item or argument whose line it ends
---|   (after its comma, if it has one). An own-line comment belongs to the
---|   item below it: a declaration or statement (as its own `Note` line in
---|   the list) or a list item or argument (in its `comments`).
+--| - A trailing comment (after code on its line) belongs to the innermost
+--|   list item, argument or `Bare` statement whose last token is the last
+--|   token before the comment; an item's comma is its last token. So in
+--|   `let x = f(a) -- c` it is the statement's, and in `[1, 2, -- c` the
+--|   item `2`'s. The printer keeps it right after that token, so the owner
+--|   is the same when the output is parsed again. If no item or statement
+--|   ends there (after `=`, `then` or `[`), it is a comment anywhere else.
+--| - An own-line comment belongs to the item below it: a declaration or
+--|   statement (as its own `Note` line in the list) or a list item or
+--|   argument (in its `comments`).
 --| - A comment anywhere else makes the whole declaration `AsWritten`, its
 --|   text cut from the source from its first character to the end of its
 --|   last line, without the line break.

@@ -32,7 +32,8 @@ def SourceFile.print (file: SourceFile) (width: Nat): Printed := {
 def SourceFile.layout (file: SourceFile): Doc := match file.declarations with
   | [] => Empty
   | declarations =>
-    let lines := declarations.withIndex.map (((index, spaced)) => Doc.concat [lineStart index spaced.blankBefore, spaced.line.layout])
+    let lines := declarations.withIndex.map (((index, spaced)) =>
+      Doc.concat [lineStart index spaced.blankBefore, spaced.line.layout])
     Doc.concat [Doc.concat lines, HardLine]
 
 --| What starts a line of a vertical list: nothing for the first, which
@@ -116,7 +117,16 @@ def link (operator: Operator) (operand: Doc): Doc := Doc.concat [Line, Doc.text 
 --| P7: `if c then a else b` on one line if it fits, else `else` starts a
 --| line at the `if`'s indentation.
 def ifLayout (condition: Expr) (whenTrue whenFalse: Body): Doc :=
-  Doc.group (Doc.concat [Doc.text "if ", condition.layout, Doc.text " then", branch whenTrue, Line, Doc.text "else", elseBranch whenFalse])
+  Doc.group
+    (Doc.concat [
+      Doc.text "if ",
+      condition.layout,
+      Doc.text " then",
+      branch whenTrue,
+      Line,
+      Doc.text "else",
+      elseBranch whenFalse
+    ])
 
 --| A branch of an `if` goes after its keyword if it fits there, else below
 --| at +2; a block always goes below.
@@ -137,17 +147,29 @@ def elseBranch: Body → Doc
 --| the call's line.
 def argumentsLayout: List Item → Doc
   | [] => Doc.text "()"
-  | arguments => Doc.group (Doc.concat [Doc.text "(", Nest 2 (Doc.concat [SoftLine, itemDocs arguments |> joined Line]), SoftLine, Doc.text ")"])
+  | arguments =>
+    Doc.group
+      (Doc.concat [
+        Doc.text "(",
+        Nest 2 (Doc.concat [SoftLine, itemDocs arguments |> joined Line]),
+        SoftLine,
+        Doc.text ")"
+      ])
 
 --| P5: list items fill their lines, the `]` after the last. An own-line
---| comment above the first item needs a line of its own.
+--| comment above the first item needs a line of its own, and a trailing
+--| comment on the last puts the `]` on the line below, at the list's
+--| indentation: after the `]`, the comment would belong to what ends there.
 def listLayout: List Item → Doc
   | [] => Doc.text "[]"
   | items =>
     let opening := match items with
       | [{ comments = [_, .._], .. }, .._] => HardLine
       | _ => Empty
-    Doc.group (Doc.concat [Doc.text "[", Nest 2 (Fill (itemDocs items |> withFirst opening)), Doc.text "]"])
+    let closing := match items.last with
+      | Some { trailing = Some _, .. } => Doc.concat [HardLine, Doc.text "]"]
+      | _ => Doc.text "]"
+    Doc.group (Doc.concat [Doc.text "[", Nest 2 (Fill (itemDocs items |> withFirst opening)), closing])
 
 def withFirst (docs: List Doc) (opening: Doc): List Doc := match docs with
   | [] => []
