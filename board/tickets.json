@@ -33557,14 +33557,14 @@
     {
       "id": 3100,
       "title": "[DeepSeek] E-TYPE-MISMATCH shows expected 4 ≤ n where the statement says 3 < n (< computes); print the expected type as written when it is a comparison (SW-3098 finding 3)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -33882,14 +33882,14 @@
     {
       "id": 3125,
       "title": "[DeepSeek] Misleading note: on ((a != b): Bool) = True used through .read, the mismatch says 'for the Bool test write ((a != b): Bool)' though the user wrote that; ne_read_as_prop matches on printed text (probe in docs/proposals/bool-as-proposition-building.md; SW-3087 finding 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
-      "updated": "2026-11-13",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -38080,7 +38080,7 @@
     {
       "id": 3426,
       "title": "[DeepSeek] Float printing: failing-test output prints Floats inside lists as { bits = …, valid = ?1 } (use toSource), and type-mismatch notes on Float order show the unfolded Int-key form, not t <= hi (SW-999 items 4 and 5)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
