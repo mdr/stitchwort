@@ -1253,6 +1253,10 @@ impl Elaborator {
         self.goals.borrow_mut().probe.steps.truncate(len);
     }
 
+    pub(crate) fn drop_probe_pending(&self) {
+        self.goals.borrow_mut().probe.pending = None;
+    }
+
     /// The expression at `span`, of type `ty` (checked against it if
     /// `checked`), in `cx`: kept if it is the smallest so far to contain
     /// the probed position. Also called on entry to a check, so that an

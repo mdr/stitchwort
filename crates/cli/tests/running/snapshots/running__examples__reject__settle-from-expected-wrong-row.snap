@@ -6,10 +6,8 @@ expression: output
     ╭─[ reject/settle-from-expected-wrong-row.sw:27:49 ]
     │
  27 │ theorem wrongRow: Good counting ['c'] 5 := good flagging ['c'] 5
-    │                                            ─────────┬┬─────────┬  
-    │                                                     ╰───────────── expected `() → {Src Char, St Nat} Char`, but this has type `() → {Src Char, St Bool} Char`
-    │                                                      │         │  
-    │                                                      ╰──────────── `t` was taken from this call's expected type
-    │                                                                │  
-    │                                                                ╰── without type arguments taken from expected types, the error is here instead: expected `Bool`, but this has type `Nat`
+    │                                                 ────┬───  
+    │                                                     ╰───── expected `() → {Src Char, St Nat} Char`, but this has type `() → {Src Char, St Bool} Char`
+    │ 
+    │ Note: `t` was taken as `Char` from the expected type
 ────╯

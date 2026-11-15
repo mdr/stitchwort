@@ -3136,8 +3136,14 @@ fn apply_args_once(
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
     let mut first_error = None;
+    let settled = cx.e.decl.settled.borrow().len();
     match apply_args_postponing(cx, head, args, supply, &mut first_error) {
-        Err(e) if !crate::undo::fatal(&e) => Err(first_error.map_or(e, |first| *first)),
+        Err(e) if !crate::undo::fatal(&e) => {
+            if cx.e.decl.settled.borrow().len() > settled {
+                settled_call_failed(cx, settled);
+            }
+            Err(first_error.map_or(e, |first| *first))
+        }
         result => result,
     }
 }
@@ -3273,7 +3279,7 @@ fn settle_from_expected(
     expected: &Value,
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    if cx.e.decl.no_settling.get()
+    if !cx.e.decl.settling.get()
         || !supply.is_empty()
         || !matches!(args.first(), Some(Arg::Explicit(_)))
         || args
@@ -3338,13 +3344,9 @@ fn settle_from_expected(
         let Value::Pi(x, icit, dom, cod) = force(&g, ty.clone())? else {
             unreachable!("the leading implicit parameters were counted above");
         };
+        let settled = value.is_some();
         let arg = match value {
-            Some(arg) => {
-                if !std::mem::replace(&mut noted, true) {
-                    note_settled(cx, args, &x);
-                }
-                arg
-            }
+            Some(arg) => arg,
             None => {
                 let meta = supplied_arg(cx, icit, &dom, supply);
                 note_origin(cx, &meta, &x, &term, false);
@@ -3352,6 +3354,9 @@ fn settle_from_expected(
             }
         };
         let value = cx.eval(&arg)?;
+        if settled && !std::mem::replace(&mut noted, true) {
+            note_settled(cx, args, &x, &value);
+        }
         term = Term::app_icit(term, arg, icit);
         ty = cod.apply(&g, value)?;
     }
@@ -3359,9 +3364,10 @@ fn settle_from_expected(
 }
 
 /// Notes that the call with `args` was given its type parameter `x` (and
-/// perhaps others) from its expected type (`Decl::settled`), at the whole
-/// call if that is where elaboration is, or else at its arguments.
-fn note_settled(cx: &Ctx, args: &[Arg], x: &Name) {
+/// perhaps others) the type `given` from its expected type
+/// (`Decl::settled`), at the whole call if that is where elaboration is,
+/// or else at its arguments.
+fn note_settled(cx: &Ctx, args: &[Arg], x: &Name, given: &Value) {
     let Some(at) = args
         .iter()
         .filter_map(|a| match a {
@@ -3377,7 +3383,32 @@ fn note_settled(cx: &Ctx, args: &[Arg], x: &Name) {
     } else {
         at
     };
-    cx.e.decl.settled.borrow_mut().push((at, x.clone()));
+    cx.e.decl.settled.borrow_mut().push(crate::state::Settled {
+        span: at,
+        param: x.clone(),
+        given: given.clone(),
+        note: None,
+    });
+}
+
+/// After an application given type arguments from its expected type failed
+/// (its entry the `index`th of `Decl::settled`): the note its error gets if
+/// the body fails with it, printed now, while the unknowns in it are solved.
+/// Only the type given: printing the expected type at every failed call,
+/// most of them speculative, cost 2020 day 2's proofs 0.4% more steps.
+#[inline(never)]
+fn settled_call_failed(cx: &Ctx, index: usize) {
+    let mut settled = cx.e.decl.settled.borrow_mut();
+    let Some(entry) = settled.get_mut(index) else {
+        return;
+    };
+    if entry.note.is_none() {
+        entry.note = Some(format!(
+            "`{}` was taken as `{}` from the expected type",
+            entry.param,
+            cx.show(&entry.given),
+        ));
+    }
 }
 
 /// Whether the parameter at `position` of the definition `id`, applied to

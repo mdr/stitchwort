@@ -13,4 +13,6 @@ expression: output
     │     Note 1: they first differ at `value = { numbers = numbers }` against `(∃ (firstRead: List …) => ∃ (nextRead: …) => …) ∧ value = { numbers = numbers }`
     │     
     │     Note 2: `Parse.Reads (arg => Std.Effect.bind (Parse.sepBy1 Parse.nat (arg1 => Parse.char ',')) (x => Done { numbers = x })) (read value => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => … ∧ …) (x x1 => x = …) read v ∧ value = { numbers = v })` is `∀ (state: Parse.State Char) (value: Starting) (after: Parse.Mark Char) => state.at.left = ….rest.length → Std.Effect.runPure … … = Ok … → ∃ (read: List …) => … ∧ …`
+    │     
+    │     Note 3: `t` was taken as `Char` from the expected type
 ────╯

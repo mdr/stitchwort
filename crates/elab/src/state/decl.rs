@@ -105,14 +105,15 @@ pub(crate) struct Decl {
     /// its unfolding), for `check::settle_from_expected`.
     pub(crate) app_expected: RefCell<Option<(usize, Value, Value)>>,
     /// The calls `check::settle_from_expected` gave type arguments from
-    /// their expected type, in the body attempt being elaborated: where
-    /// their arguments are, and the first parameter given. If the attempt
-    /// fails, it is made once more with nothing settled
+    /// their expected type, in the body attempt being elaborated, also in
+    /// parts of it later undone (which can only cost a retry not needed).
+    /// If the attempt fails, it is made once more with nothing settled
     /// (`Elaborator::settle_retried`), which reads them.
-    pub(crate) settled: RefCell<Vec<(Span, stitchwort_core::Name)>>,
-    /// Set while a body is elaborated again after an attempt with type
-    /// arguments settled from expected types failed: nothing is settled.
-    pub(crate) no_settling: Cell<bool>,
+    pub(crate) settled: RefCell<Vec<Settled>>,
+    /// Set while `check::settle_from_expected` may give type arguments: in
+    /// a body's first attempt (`Elaborator::settle_retried`), which is
+    /// retried without if it fails.
+    pub(crate) settling: Cell<bool>,
     /// While the body of a definition with `decreasing` is elaborated: what
     /// its recursive calls stand for (`decreasing.rs`).
     pub(crate) decreasing: RefCell<Option<decreasing::Active>>,
@@ -239,6 +240,20 @@ pub(crate) struct Decl {
 }
 
 /// [`Decl::conjunction`].
+/// A call `check::settle_from_expected` gave a type argument from its
+/// expected type (`Decl::settled`).
+pub(crate) struct Settled {
+    /// The call, or its arguments.
+    pub(crate) span: Span,
+    /// The first parameter given and the type it was given, for the note
+    /// made if the call fails.
+    pub(crate) param: stitchwort_core::Name,
+    pub(crate) given: Value,
+    /// What an error from the call is given if the body fails with it,
+    /// made when the call fails, while its unknowns are still solved.
+    pub(crate) note: Option<String>,
+}
+
 pub(crate) struct Conjunction {
     /// The address of the condition's left operand.
     pub(crate) lhs: usize,
@@ -290,7 +305,7 @@ impl Decl {
             conjunction,
             app_expected,
             settled,
-            no_settling,
+            settling,
             decreasing,
             recursion,
             arounds,
@@ -336,7 +351,7 @@ impl Decl {
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
             ("settled", settled.borrow().is_empty()),
-            ("no_settling", !no_settling.get()),
+            ("settling", !settling.get()),
             ("decreasing", decreasing.borrow().is_none()),
             ("recursion", recursion.is_none()),
             ("arounds", arounds.borrow().is_empty()),

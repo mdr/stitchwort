@@ -6,10 +6,8 @@ expression: output
     ╭─[ reject/settle-from-expected-other-error.sw:17:38 ]
     │
  17 │ theorem wrongNumber: Ph Char 0 := ph natSrc True
-    │                                   ──────┬┬────┬─  
-    │                                         ╰───────── expected `() → {Src Char} Char`, but this has type `() → {Src Nat} Nat`
-    │                                          │    │   
-    │                                          ╰──────── `t` was taken from this call's expected type
-    │                                               │   
-    │                                               ╰─── without type arguments taken from expected types, the error is here instead: expected `Nat`, but this has type `Bool`
+    │                                      ───┬──  
+    │                                         ╰──── expected `() → {Src Char} Char`, but this has type `() → {Src Nat} Nat`
+    │ 
+    │ Note: `t` was taken as `Char` from the expected type
 ────╯

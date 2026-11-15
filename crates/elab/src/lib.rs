@@ -2789,13 +2789,16 @@ impl Elaborator {
     /// If both fail, the first error is mostly given ([`settled_error_first`]):
     /// it blames the argument whose row clashes with the goal's, where the
     /// second blames the whole call with the goal unfolded, or an unrelated
-    /// argument. Where the second failed somewhere else, the error also says
-    /// so ([`settle_note`]).
+    /// argument; with a note saying where the type argument came from
+    /// ([`settle_note`]). The goals, navigation types and probe are then
+    /// the second attempt's, so the editor's goal at a settled argument may
+    /// show the type it has without settling.
+    ///
+    /// Settling is on only in the first attempt here: nowhere else
+    /// (signatures, expressions typed in) is there a retry.
     fn settle_retried<T>(&mut self, mut attempt: impl FnMut(&mut Self) -> Result<T>) -> Result<T> {
-        if self.decl.no_settling.get() {
-            return attempt(self);
-        }
         let outer = self.decl.settled.take();
+        let outer_settling = self.decl.settling.replace(true);
         let warnings = self.unit.warnings.len();
         let lambda_warnings = self.attempt.lambda_warnings.borrow().len();
         let branch_errors = self.attempt.branch_errors.borrow().len();
@@ -2807,12 +2810,16 @@ impl Elaborator {
         let settled = self.decl.settled.replace(outer);
         let e = match first {
             Err(e) if !settled.is_empty() && !undo::fatal(&e) && e.code != goals::UNFINISHED => e,
-            first => return first,
+            first => {
+                self.decl.settling.set(outer_settling);
+                return first;
+            }
         };
         // Pending since `attempt`'s first `clear_metas`, so all its own.
         self.drop_goals_since(0);
         self.drop_local_types_since(0);
         self.drop_steps_since(0);
+        self.drop_probe_pending();
         self.unit.warnings.truncate(warnings);
         self.attempt
             .lambda_warnings
@@ -2827,9 +2834,9 @@ impl Elaborator {
             self.decl.failed_mentioned.replace(flags.0),
             self.decl.stuck_on_goal.replace(flags.1),
         );
-        self.decl.no_settling.set(true);
+        self.decl.settling.set(false);
         let again = attempt(self);
-        self.decl.no_settling.set(false);
+        self.decl.settling.set(outer_settling);
         match again {
             Err(again) if !undo::fatal(&again) && settled_error_first(&e, &again) => {
                 let mut branches = self.attempt.branch_errors.borrow_mut();
@@ -2838,7 +2845,7 @@ impl Elaborator {
                 drop(branches);
                 self.decl.failed_mentioned.set(first_flags.0);
                 *self.decl.stuck_on_goal.borrow_mut() = first_flags.1;
-                Err(settle_note(e, &again, &settled))
+                Err(settle_note(e, &settled))
             }
             again => again,
         }
@@ -6249,57 +6256,55 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     }
 }
 
-/// Whether a row in `expr` mentions ability `name`. Uses a work list: the
-/// expression can nest more deeply than recursion could follow.
 /// Whether a body's error `e`, elaborated with type arguments taken from
 /// calls' expected types, is given rather than `again`, its error without
 /// them ([`Elaborator::settle_retried`]). Not when `again` stands for open
-/// goals: without settling, the body is only unfinished. Nor when `e` is a
-/// type mismatch and `again` something more particular (a misnamed field):
-/// the guess may have moved the failure off the slip, which the first
-/// attempt then meets only as a type that doesn't fit, as in
-/// `reads-nested-binds-unknown-field.sw`.
+/// goals: without settling, the body is only unfinished. Otherwise
+/// whichever comes first in the source, `e` on a tie or when one is
+/// around the other: elaboration runs mostly left to right, so the later
+/// error is more often a consequence of a wrong guess earlier (a wrong
+/// parser, then a field its lambda reads) than a slip of its own, and an
+/// error around the other (the whole call, with the goal unfolded) says
+/// less.
 fn settled_error_first(e: &Diagnostic, again: &Diagnostic) -> bool {
-    again.code != goals::UNFINISHED
-        && !(e.code == "E-TYPE-MISMATCH" && again.code != "E-TYPE-MISMATCH")
+    if again.code == goals::UNFINISHED {
+        return false;
+    }
+    match (e.primary_span(), again.primary_span()) {
+        (Some(at), Some(there))
+            if at.file == there.file && !lift::within(at, there) && !lift::within(there, at) =>
+        {
+            at.start <= there.start
+        }
+        _ => true,
+    }
 }
 
 /// `e`, the error of a body elaborated with type arguments taken from
-/// calls' expected types, when elaborating it without them failed too,
-/// with `again`: if that failed somewhere else, labels saying where the
-/// type argument was taken (the innermost of the `settled` calls around
-/// `e`), and where and how the body fails without it. The settling may
-/// have been the mistake, and the other error then the real one
-/// (`Ph Char 0 := ph natSrc True`, with `True` given for a `Nat`). Not
-/// when the other error is around the first (the whole call), which says
-/// nothing more.
-fn settle_note(e: Diagnostic, again: &Diagnostic, settled: &[(Span, Name)]) -> Diagnostic {
-    let (Some(at), Some(there)) = (e.primary_span(), again.primary_span()) else {
+/// calls' expected types, with a note saying where the type argument came
+/// from, at the innermost failed call around `e` that was given one
+/// (`Decl::settled`): the guess may have been the mistake (`Ph Char 0 :=
+/// ph natSrc True`, where `Ph` doesn't use its type parameter, so
+/// `natSrc`'s `Nat` would have done), and the note invites unfolding the
+/// goal. Only on a type mismatch: an unknown name or a failed `rfl` isn't
+/// explained by it.
+fn settle_note(e: Diagnostic, settled: &[state::Settled]) -> Diagnostic {
+    let Some(at) = e.primary_span().filter(|_| e.code == "E-TYPE-MISMATCH") else {
         return e;
     };
-    if lift::within(there, at) {
-        return e;
-    }
-    let call = settled
+    let note = settled
         .iter()
-        .filter(|(call, _)| lift::within(*call, at))
-        .min_by_key(|(call, _)| call.end - call.start);
-    let e = match call {
-        Some((call, name)) => e.with_label(
-            *call,
-            format!("`{name}` was taken from this call's expected type"),
-        ),
+        .filter(|s| s.note.is_some() && lift::within(s.span, at))
+        .min_by_key(|s| s.span.end - s.span.start)
+        .and_then(|s| s.note.clone());
+    match note {
+        Some(note) => e.with_note(note),
         None => e,
-    };
-    e.with_label(
-        there,
-        format!(
-            "without type arguments taken from expected types, the error is here instead: {}",
-            again.labels[0].message
-        ),
-    )
+    }
 }
 
+/// Whether a row in `expr` mentions ability `name`. Uses a work list: the
+/// expression can nest more deeply than recursion could follow.
 pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
     use ast::Expr;
     let mut pending = vec![expr];

@@ -8,4 +8,6 @@ expression: output
  16 │     Parse.readsDone (second, first) _ (rewrite firstIs, secondIs in rfl)))
     │                                                                     ─┬─  
     │                                                                      ╰─── `rfl` proves an equation, but the expected type is `?24 [first] first firstIs letter1 [second] second secondIs letter2 [] (second, first)`
+    │ 
+    │ Note: `t` was taken as `Char` from the expected type
 ────╯
