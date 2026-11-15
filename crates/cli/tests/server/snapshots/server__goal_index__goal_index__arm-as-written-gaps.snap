@@ -56,7 +56,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "def underLambdaGoal2 (p: Option Bool → Nat → Prop) (o: Option Bool) (n: Nat): p o n := ?",
+      "lemma": "theorem underLambdaGoal2 (p: Option Bool → Nat → Prop) (o: Option Bool) (n: Nat): p o n := ?",
       "target": "p o n"
     },
     "labels": [
@@ -144,7 +144,7 @@ expression: json
           "type": "q o"
         }
       ],
-      "lemma": "def underLambdaHypothesisGoal2 (p: Option Bool → Prop) (q: Option Bool → Prop) (o: Option Bool) (h: q o): p o := ?",
+      "lemma": "theorem underLambdaHypothesisGoal2 (p: Option Bool → Prop) (q: Option Bool → Prop) (o: Option Bool) (h: q o): p o := ?",
       "target": "p o"
     },
     "labels": [
@@ -181,7 +181,7 @@ expression: json
           "type": "Option Bool → Prop"
         }
       ],
-      "lemma": "def inApplicationGoal1 (p: Option Bool → Prop): p (Some True) := ?",
+      "lemma": "theorem inApplicationGoal1 (p: Option Bool → Prop): p (Some True) := ?",
       "target": "p (Some True)"
     },
     "labels": [
@@ -252,7 +252,7 @@ expression: json
           "type": "Option Bool → Prop"
         }
       ],
-      "lemma": "def alternativesGoal1 (p: Option Bool → Prop): p (Some True) := ?",
+      "lemma": "theorem alternativesGoal1 (p: Option Bool → Prop): p (Some True) := ?",
       "target": "p (Some True)"
     },
     "labels": [
@@ -293,7 +293,7 @@ expression: json
           "type": "Option Bool"
         }
       ],
-      "lemma": "def alternativesGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
+      "lemma": "theorem alternativesGoal2 (p: Option Bool → Prop) (o: Option Bool): p o := ?",
       "target": "p o"
     },
     "labels": [
@@ -378,7 +378,7 @@ expression: json
           "type": "Vec Bool n"
         }
       ],
-      "lemma": "def familyGoal2 (p: (n: Nat) → Vec Bool n → Prop) (n: Nat) (v: Vec Bool n): p n v := ?",
+      "lemma": "theorem familyGoal2 (p: (n: Nat) → Vec Bool n → Prop) (n: Nat) (v: Vec Bool n): p n v := ?",
       "target": "p n v"
     },
     "labels": [
@@ -415,7 +415,7 @@ expression: json
           "type": "(n: Nat) → Vec (Option Bool) n → Prop"
         }
       ],
-      "lemma": "def familyElementGoal1 (p: (n: Nat) → Vec (Option Bool) n → Prop): p 0 VNil := ?",
+      "lemma": "theorem familyElementGoal1 (p: (n: Nat) → Vec (Option Bool) n → Prop): p 0 VNil := ?",
       "target": "p 0 VNil"
     },
     "labels": [

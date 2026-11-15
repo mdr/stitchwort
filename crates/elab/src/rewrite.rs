@@ -55,7 +55,7 @@ use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Head, apply, eval, force};
+use stitchwort_core::value::{Elim, Head, apply, eval, force};
 use stitchwort_core::{DataId, DefId, Icit, Term, Value};
 use stitchwort_syntax::ast::{Expr, Name as AstName, RewriteRule};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -685,7 +685,9 @@ fn discharge(
 }
 
 /// Whether `ty` is the type of proofs: an equation, a proposition, or a
-/// call of a definition whose result is one (`List.Mem x xs`).
+/// call of a definition whose result is one (`List.Mem x xs`), or of a
+/// local variable (a hypothesis or a lambda's parameter) whose type ends in
+/// `Prop` (`p x` for `p: Nat → Prop`).
 pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     if crate::patlet::proposition(cx, ty)? {
         return Ok(true);
@@ -696,6 +698,22 @@ pub(crate) fn is_proof_type(cx: &Ctx, ty: &Value) -> Result<bool> {
             let (params, result) = crate::decreasing::split_pis(g.def(d).ty(), None);
             params.len() == spine.len()
                 && matches!(result.strip_loc(), Term::Sort(stitchwort_core::Sort::Prop))
+        }
+        Value::Neutral(Head::Var(level, _), spine) => {
+            // A variable's own type, applied to the spine's arguments.
+            let Some(mut var_ty) = cx.types.get(level).cloned() else {
+                return Ok(false);
+            };
+            for elim in spine.iter() {
+                let Elim::App(arg, _) = elim else {
+                    return Ok(false);
+                };
+                let Value::Pi(_, _, _, cod) = force(&g, var_ty)? else {
+                    return Ok(false);
+                };
+                var_ty = cod.apply(&g, arg.clone())?;
+            }
+            matches!(force(&g, var_ty)?, Value::Sort(stitchwort_core::Sort::Prop))
         }
         _ => false,
     })

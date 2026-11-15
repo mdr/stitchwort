@@ -1,0 +1,37 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ goals/or-pattern-error-alternative.sw:9:32 ]
+   │
+ 9 │     | _, (None | Some True) => hn s
+   │                  ────┬────     ──┬─  
+   │                      ╰─────────────── the error is in the case this alternative matches
+   │                                  │   
+   │                                  ╰─── expected `p "" (Some True)`, but this has type `p "" None`
+   │ 
+   │ Note: this arm is checked in 12 cases, and this error is in the case where `s` is `""`
+───╯
+[GOAL] Goal: in `alternatives`
+   ╭─[ goals/or-pattern-error-alternative.sw:8:27 ]
+   │
+ 8 │     | "ab", Some False => ?
+   │                           ┬  
+   │                           ╰── p: Text → Option Bool → Prop
+   │                               hn: ∀ (s: Text) => p s None
+   │                               ⊢ p "ab" (Some False)
+───╯
+[GOAL] Goal: in `alternatives`
+    ╭─[ goals/or-pattern-error-alternative.sw:10:15 ]
+    │
+ 10 │     | _, _ => ?
+    │               ┬  
+    │               ╰── p: Text → Option Bool → Prop
+    │                   hn: ∀ (s: Text) => p s None
+    │                   s: Text
+    │                   o: Option Bool
+    │                   ⊢ p s o
+    │ 
+    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+────╯

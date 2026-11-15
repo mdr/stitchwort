@@ -1,0 +1,43 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `hole`
+   ╭─[ goals/local-predicate-goal.sw:6:58 ]
+   │
+ 6 │ theorem hole ∀ (p: Nat → Prop) (n: Nat) (h: p n): p n := ?
+   │                                                          ┬  
+   │                                                          ╰── p: Nat → Prop
+   │                                                              n: Nat
+   │                                                              h: p n
+   │                                                              ⊢ p n
+───╯
+[GOAL] Goal: in `lambdaBound`
+   ╭─[ goals/local-predicate-goal.sw:8:76 ]
+   │
+ 8 │ theorem lambdaBound ∀ (n: Nat): (∀ (p: Nat → Prop) => p n → p n) := p h => ?
+   │                                                                            ┬  
+   │                                                                            ╰── n: Nat
+   │                                                                                p: Nat → Prop
+   │                                                                                h: p n
+   │                                                                                ⊢ p n
+───╯
+[GOAL] Goal: in `inArms`
+    ╭─[ goals/local-predicate-goal.sw:11:18 ]
+    │
+ 11 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Prop
+    │                      ⊢ p (Some True)
+────╯
+[GOAL] Goal: in `inArms`
+    ╭─[ goals/local-predicate-goal.sw:12:10 ]
+    │
+ 12 │   | _ => ?
+    │          ┬  
+    │          ╰── p: Option Bool → Prop
+    │              o: Option Bool
+    │              ⊢ p o
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯

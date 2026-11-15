@@ -5412,7 +5412,18 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         };
         in_tree.unwrap_or_else(|| check(cx, rhs, goal))
     };
-    let result = result.map_err(|e| arm_display::in_case(cx, e));
+    let result = result.map_err(|e| {
+        let had_note = e.notes.len();
+        let mut e = arm_display::in_case(cx, e);
+        // The case note can't say which alternative of an or-pattern the
+        // error is in, so the alternatives that chose this leaf are marked.
+        if e.notes.len() > had_note {
+            for span in alternatives {
+                e = e.with_label(*span, "the error is in the case this alternative matches");
+            }
+        }
+        e
+    });
     arm_display::leave_arm(cx, shown_arm);
     cx.reset(mark);
     cx.names = saved_names;

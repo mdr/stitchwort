@@ -17,7 +17,7 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "def textInOptionGoal1 (p: Option Bool → Text → Prop) (s: Text): p (Some True) s := ?",
+      "lemma": "theorem textInOptionGoal1 (p: Option Bool → Text → Prop) (s: Text): p (Some True) s := ?",
       "target": "p (Some True) s"
     },
     "labels": [
@@ -100,7 +100,7 @@ expression: json
           "type": "Text"
         }
       ],
-      "lemma": "def textInOptionGoal3 (p: Option Bool → Text → Prop) (o: Option Bool) (s: Text): p o s := ?",
+      "lemma": "theorem textInOptionGoal3 (p: Option Bool → Text → Prop) (o: Option Bool) (s: Text): p o s := ?",
       "target": "p o s"
     },
     "labels": [
@@ -145,7 +145,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "def threeDeepGoal1 (p: Option Bool → Option Bool → Nat → Prop) (r: Option Bool) (n: Nat): p (Some True) r n := ?",
+      "lemma": "theorem threeDeepGoal1 (p: Option Bool → Option Bool → Nat → Prop) (r: Option Bool) (n: Nat): p (Some True) r n := ?",
       "target": "p (Some True) r n"
     },
     "labels": [
@@ -188,7 +188,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "def threeDeepGoal2 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (n: Nat): p o None n := ?",
+      "lemma": "theorem threeDeepGoal2 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (n: Nat): p o None n := ?",
       "target": "p o None n"
     },
     "labels": [
@@ -233,7 +233,7 @@ expression: json
           "type": "Option Bool"
         }
       ],
-      "lemma": "def threeDeepGoal3 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (r: Option Bool): p o r 0 := ?",
+      "lemma": "theorem threeDeepGoal3 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (r: Option Bool): p o r 0 := ?",
       "target": "p o r 0"
     },
     "labels": [
@@ -282,7 +282,7 @@ expression: json
           "type": "Nat"
         }
       ],
-      "lemma": "def threeDeepGoal4 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (r: Option Bool) (n: Nat): p o r n := ?",
+      "lemma": "theorem threeDeepGoal4 (p: Option Bool → Option Bool → Nat → Prop) (o: Option Bool) (r: Option Bool) (n: Nat): p o r n := ?",
       "target": "p o r n"
     },
     "labels": [
@@ -504,7 +504,7 @@ expression: json
           "type": "Option Bool"
         }
       ],
-      "lemma": "def errorInBothGoal1 (p: Option Bool → Option Bool → Prop) (k: p None None) (r: Option Bool): p (Some True) r := ?",
+      "lemma": "theorem errorInBothGoal1 (p: Option Bool → Option Bool → Prop) (k: p None None) (r: Option Bool): p (Some True) r := ?",
       "target": "p (Some True) r"
     },
     "labels": [
@@ -547,7 +547,7 @@ expression: json
           "type": "Option Bool"
         }
       ],
-      "lemma": "def errorInBothGoal2 (p: Option Bool → Option Bool → Prop) (k: p None None) (o: Option Bool): p o (Some True) := ?",
+      "lemma": "theorem errorInBothGoal2 (p: Option Bool → Option Bool → Prop) (k: p None None) (o: Option Bool): p o (Some True) := ?",
       "target": "p o (Some True)"
     },
     "labels": [
