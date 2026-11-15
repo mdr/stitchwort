@@ -36890,12 +36890,12 @@
     {
       "id": 3337,
       "title": "[Opus] T1 of file-io-and-text.md: the run-time text value becomes a shared buffer with a start and length; get, take, drop, uncons, length constant-time; Text.slice, getOr, getLt, concat in std with lemmas; native code's view of a text; the three test tiers; a performance-log entry",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Opus review docs/reviews/SW-3337-fast-text.md: merge after fixes 2 (Text.repeat never truncates), 4 (native_abi offsets), 5 (docs/lemma). Fix 1 (text_of in SW-3338's lines) done by SW-3338 when it merges main after this. Filed SW-3356 SW-3357.",
+      "body": "Model result: opus, needed fixes (review: repeat truncation, ABI comments, docs), 64 min (est. 330).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
