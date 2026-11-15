@@ -1,5 +1,5 @@
 {
-  "next": 3408,
+  "next": 3409,
   "tickets": [
     {
       "id": 47,
@@ -37809,6 +37809,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3408,
+      "title": "[Sonnet] Bug: SW-3397's verifier: listed_missing_arms_paste_in_and_check_as_holes counts the new W-CTOR-HIDES warnings in reject/missing-cases-nested.sw as errors; goal_index snapshot for constructor-clash-qualified missing/changed; projects reject import-namespace-item-alone snapshot changed. Fix (test should ignore warnings, or the example renamed) and accept legitimate snapshots",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
