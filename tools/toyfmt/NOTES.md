@@ -2175,6 +2175,156 @@ events and spelling; (3) the rest of D and the glue.
 61. `omega` knows `Nat.max` (`innerStart`, `innerLine`), which the
     notes didn't say.
 
+### Part 12 (Fable, 15 Nov 2026): the rules' half of positions, done: `Events`, the induction, `printedEvents`
+
+A 25-minute lane. The rules' half of positions is proved for the whole
+tree: at every width, the words of a parsed file's printed pieces, each
+with where it starts its line, are the file's `FileEvents`
+(`parsedPrintEvents`). Tokens against events, spelling and
+`formatDirect` aren't started; the design for the first is below, and
+it needs blank lines counted in the engine's half first.
+
+**The program changed** (part 11's finding 1, the orchestrator's
+decision): `branch keyword body` offers the inline option only when
+`keyword.after.isNone`, and a one-expression branch after a trailing
+comment on `then` or `else` goes below, as `afterEquals` does for `=`.
+The output is unchanged: all 102 tests pass (goldens, probes, the
+disturber). `branchKeeps`, `branchPasses`, `branchWrites` take the
+keyword's comments; the `if` and `else` lemmas pass them.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 1016 theorems, 0
+failed, the same 16 warnings as part 11), all in `Fmt/EventProofs.sw`
+(89 theorems, new file):
+
+- `Events zone head expr events`, by recursion on the tree in `Then`s:
+  the expression's tokens in order as `TokenAt`s, the leftmost starting
+  as `head` says, every other where `zone.allows`; inside brackets
+  `Events zone.inside anyStart` and `ItemEvents` (`zone.inside` is
+  `Anywhere` at the statement's column); a closing bracket `TokenAt
+  anyStart`; `else` `TokenAt zone.reaches` (not at a line start, or no
+  shallower than the statement). `BodyEvents zone body`: the body's one
+  expression on its keyword's line (`InlineEvents`: `Events zone
+  (inlineHead zone value)`, where `inlineHead` says the first token
+  starts where the zone allows, and not at a line start if it has no
+  comments above), or `∃ column`, `zone.under column`, with `LineEvents
+  column`: each statement's first token `atColumn column`, the rest
+  `Events (Deeper column)`; a comment line is one event at the column.
+  `DeclarationEvents` (column 0; a function is `fn name (` as one
+  group, `ParameterEvents`, then `) =` and the body), `FileEvents`.
+- `HeadRule zone doc above spec`: as `Rule`, for a document whose
+  leftmost token is printed at the construct's own indentation: from any
+  `Seated` place, whatever `head` holds of where that token starts
+  (`wordStart indent (aboveEnd indent place above)`), `spec head` holds
+  of the events. `tokenHead`, `headCons` (a `HeadRule` then a
+  `RuleAll`), `headInner` (not the statement's first: `zone.allows`, by
+  `innerStart`), `headInside` (inside brackets: `anyStart`).
+- **`exprLays`**: `Lexical expr` gives `HeadRule zone expr.layout
+  expr.firstAbove (head => Events zone head expr)`, for every zone. One
+  arm per construct; with it, mutually, `chainLays` (P6: a chain's parts
+  from its left-nested tree, as `chainPasses`), `sepsItems` and
+  `fillItems` (items as a fill lays them; `joinedFill` turns a fill
+  into the `Line`-joined list of a call's arguments), `branchLays`,
+  `elseBranchLays`, `afterEqualsLays` (each a `BodyRule`: from right
+  after the keyword, with its trailing comment waiting or not,
+  `trailEnd line keyword.after`), `blockLays`, **`linesLay`** and
+  **`statementLays`** (a block's lines at `column`).
+- The pieces: `linkRule` (P6), `closeAfterRule`, `nestFill` (P5),
+  `nestJoined` (P4, P2), `softCloser`, `emptyCloser`, `itemRule`,
+  `keyCons` and `keyLast` (a keyword, its body, what follows),
+  `inlineLays`, `belowCore`, `belowValue`, `bareAfterEquals` (P3's
+  three choices), `elseBare` (`else if` on one line), `bindingRule`
+  (`let`, a statement or a declaration), `lineStartLays`; the silent
+  ones without a `Done` in the events (`spaceAll`, `gapAll`, `lineAll`,
+  `lineSeatsAll`, `sepSeats`, `softSeats`); `seatedHead`, `seatedReach`,
+  `inlineStart`, `startAt`, `endedUp`.
+- Declarations and the file: `fillParameters`, `openingRule`,
+  `closingLays`, `functionLays` (P2), `declarationLays`,
+  `declarationsLay` (P9), **`fileLays`** (`LexicalFile file` gives
+  `Lays file.layout 0 (AtStart 0) [] next` whenever `next` takes every
+  trace of `FileEvents file`).
+- **`printedEvents`**, **`parsedPrintEvents`**: `parse source = Ok
+  file` gives, at every width, `FileEvents file (eventsOf (printedPieces
+  file.layout width).reverse)`: the pieces `parsedPrintTokens` lexes.
+
+**What the statement doesn't say yet.** `FileEvents` is about words
+and line starts, not tokens: nothing here says the lexer's tokens of
+the printed text have these `startsLine` and `column` (that is tokens
+against events), and kept blank lines aren't in the events.
+
+**Tokens against events, as designed (not proved).** `placed out` reads
+the `"\n"` pieces for `BlankLine` trivia and `eventsOf out` drops them,
+so the tokens aren't a function of the events as they are. Two steps:
+
+1. Count blank lines in the engine's half: `eventsOf` gives an event
+   for a `"\n"` on a blank line (exactly when `placePiece` adds a
+   `BlankLine`), `Lays` appends it at `Blank`, and refuses a line break
+   at a line start anywhere else. `stepLays`' arms for `Blank` and the
+   breaks change (`Doc/Places.sw`); `lineStartLays` here then says where
+   the rules put blank lines (`blankBefore`, P9). About 10 lemmas.
+2. `placed out` from `eventsOf out` alone, by induction over the pieces
+   (`wordPlaced`, `namePlaced` and the others, `ownLinePlaced`,
+   `trailingPlaced`): a code word is a token with `startsLine` iff
+   `start` is `Some`, and then that column; a comment at a line start
+   waits for the next token, another goes on the newest; offsets only
+   grow. About 15.
+
+**Findings.**
+
+1. **Three parser facts the spelling step needs** (WF items, in
+   `ParsedProofs.sw`'s style; none proved): (a) part 11's finding 2, an
+   inline body's first token has no comments above (`inlineHead` is
+   stated under `value.firstAbove = []`); (b) the same of every
+   statement's and declaration's first token (the tree's rule that
+   those comments are note lines; printed with them, the lexer gives
+   them to the token and the parser makes notes of them, a different
+   tree); (c) inside brackets a body is one expression (`blockAhead
+   InBrackets` is `False`), so a block there never comes from the
+   parser, though `BodyEvents` describes what the rules would print.
+2. **Inside brackets `BodyEvents` is stronger than the parser needs**:
+   a branch printed below is `LineEvents column` with `Deeper column`
+   starts, where the parser asks nothing of starts. Spelling needs
+   `Events (Deeper column) head` weakened to `Events (Anywhere column)
+   anyStart` (monotone in the zone and the head: about 8 lemmas).
+3. **`DeclarationEvents` of a function nests `fn name (` as one
+   `Then`**, as the header's document does. Reassociating is
+   `thenAssoc`.
+
+**What is left**, part 11's table with this part's work taken off:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | blank lines counted in `Lays` and `eventsOf` | 10 |
+| E, rules to tokens | tokens against events (15); `Events` weaker in the zone (8); spelling the tree with blank lines (25-35) | 50-60 |
+| D, parser | `if` with a block branch; the file from its spelling; the three first-token and bracket facts (finding 1; 20) | 50-60 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Two lanes at this pace [estimated; this lane proved 89 theorems in
+about 22 minutes of the clock, and stopped for context, not time]: (1)
+blank lines and tokens against events, then the WF facts; (2) spelling,
+the rest of D and the glue.
+
+**Friction** (beyond parts 1 to 11):
+
+62. **A `def` by arms needs a pattern for every argument after the
+    colon** (`E-ARITY`), so a predicate that returns a function is
+    `def Events (zone …) (expr: Expr): List Event → Prop := match expr
+    with …`. Recursive calls left partly applied (`Then (Events zone
+    head left) …`) pass the termination check, and compare without eta.
+63. **A mutual call with an argument rebuilt from the caller's pattern
+    isn't smaller** (`joinedFill [second, ..more]` from `joinedSeps
+    second more`): the step lemma takes the recursive fact as a
+    hypothesis (`joinedStep`), as `ifPasses` does.
+64. **`rewrite <- found in lays` finds nothing once the goal has
+    computed past the term** (`ChainLays [first, ..links] …` is already
+    its `Lays`): a cast lemma over a variable does it (`chainCast`).
+65. Good: an arm whose hypothesis computes to `False = True` is
+    reported unreachable (`W-UNREACHABLE`) and can be left out
+    (`chainParts … ++ [link]` as `[]`).
+66. `W-ARROW-FORALL` is reported for every binder of every theorem in
+    the `theorem name ∀ (x: T) (h: P): Q` form, several lines each, so
+    `grep -v` doesn't filter it; errors were read with an `awk` filter
+    on `[E-` blocks.
+
 ## Every comment placed (SW-3450, D3618, D3619)
 
 Every token now holds its comments in the tree (`Comments = { above,

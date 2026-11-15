@@ -8,8 +8,8 @@
 --| bracket's own-line comments go at its items' column (`closerRule`).
 --| Rules are triples (`Rule`: the places before, the events, the places
 --| after) that go one after another (`ruleCons`, `ruleConcat`,
---| `ruleNest`). The tree's rules (an expression, a body, a file) aren't
---| here yet.
+--| `ruleNest`). The tree's rules (an expression, a body, a file) are in
+--| `EventProofs.sw`.
 
 namespace Toy.Fmt.Proofs
 import Toy.Doc (..)

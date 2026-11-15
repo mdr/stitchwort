@@ -215,19 +215,22 @@ def ifLayout (ifComments: Comments) (condition: Expr) (thenComments: Comments) (
       condition.layout,
       Doc.text " ",
       token thenComments "then",
-      branch whenTrue,
+      branch thenComments whenTrue,
       Line,
       token elseComments "else",
       elseBranch elseComments whenFalse
     ])
 
---| A branch of an `if` goes after its keyword if it fits there, else below
---| at +2; a block always goes below.
-def branch: Body → Doc
-  | { statements = [{ line = Bare value, .. }] } =>
+--| A branch of an `if` goes after its keyword (`then` or `else`, whose
+--| comments are `keyword`) if it fits there, else below at +2. A block
+--| always goes below, and so does any branch after a trailing comment on
+--| the keyword.
+def branch (keyword: Comments) (body: Body): Doc := match body with
+  | { statements = [{ line = Bare value, .. }] } if keyword.after.isNone =>
     let doc := value.layout
     Choice [Doc.concat [Doc.text " ", Flatten doc], below doc]
-  | body => below body.block
+  | { statements = [{ line = Bare value, .. }] } => below value.layout
+  | _ => below body.block
 
 --| An `else` whose branch is another `if` keeps it on its line, so a chain
 --| of `else if`s lines up at the first `if`'s column; not after a comment
@@ -238,7 +241,7 @@ def elseBranch (elseComments: Comments) (body: Body): Doc := match body with
       statements = [{ line = Bare (If ifComments condition thenComments whenTrue innerElse whenFalse), .. }]
     } if elseComments.after.isNone && ifComments.above.isEmpty =>
     Doc.concat [Doc.text " ", ifLayout ifComments condition thenComments whenTrue innerElse whenFalse]
-  | _ => branch body
+  | _ => branch elseComments body
 
 --| P4: the arguments on the call's line, else one a line at +2 with `)` at
 --| the call's line.

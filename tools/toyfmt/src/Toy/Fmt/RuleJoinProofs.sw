@@ -270,7 +270,7 @@ theorem ifPasses ∀ (ifComments: Comments) (condition: Expr) (thenComments: Com
     (fineThen: Fine thenComments)
     (fineElse: Fine elseComments)
     (conditionPasses: Passes condition.layout (Enters condition) Meets)
-    (truePasses: Passes (branch whenTrue) Meets Meets)
+    (truePasses: Passes (branch thenComments whenTrue) Meets Meets)
     (falsePasses: Passes (elseBranch elseComments whenFalse) Meets Meets):
     Passes (ifLayout ifComments condition thenComments whenTrue elseComments whenFalse) (Admits "if") Meets :=
   passesGroup _
@@ -306,7 +306,7 @@ theorem ifPasses ∀ (ifComments: Comments) (condition: Expr) (thenComments: Com
                 Meets
                 (looseKeyword thenComments ThenKeyword fineThen)
                 (passesCons
-                  (branch whenTrue) _
+                  (branch thenComments whenTrue) _
                   Meets
                   Meets
                   Meets
@@ -512,7 +512,7 @@ theorem exprPasses ∀ (expr: Expr) (lexical: Lexical expr): Passes expr.layout 
         Meets
         (ifPasses ifComments condition thenComments whenTrue elseComments whenFalse fineIf fineThen fineElse
           (exprPasses condition lexCondition)
-          (branchPasses whenTrue lexTrue)
+          (branchPasses thenComments whenTrue lexTrue)
           (elseBranchPasses elseComments whenFalse lexFalse))
         (entersAdmits (If ifComments condition thenComments whenTrue elseComments whenFalse) "if" (later => rfl))
 
@@ -651,11 +651,16 @@ theorem statementPasses ∀ (statement: Statement)
     | Bare value, lexValue => passesFrom _ _ Loose _ (exprPasses value lexValue) (looseEnters value)
     | StatementNote comment, fine => passesComment comment fine
 
-theorem branchPasses ∀ (body: Body) (lexical: LexicalBody body): Passes (branch body) Meets Meets :=
+theorem branchPasses ∀ (keyword: Comments) (body: Body)
+    (lexical: LexicalBody body):
+    Passes (branch keyword body) Meets Meets :=
   match body, lexical with
     | { statements = [] }, Both _ never => Void.exfalso (Bool.falseNotTrue never)
     | { statements = [{ blankBefore, line = Bare value }] }, Both (Both lexValue _) _ =>
-      bareBranchPasses value (passesFrom _ _ Loose _ (exprPasses value lexValue) (looseEnters value))
+      let whole := passesFrom value.layout (Enters value) Loose Meets (exprPasses value lexValue) (looseEnters value)
+      match g: keyword.after.isNone with
+        | True => bareBranchPasses value whole
+        | False => passesBelow _ Meets Meets whole
     | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }, Both lexLines closed =>
       blockPasses [{ blankBefore, line = Let letComments name nameComments equals inner }] Meets lexLines closed
     | { statements = [{ blankBefore, line = StatementNote comment }] }, Both lexLines closed =>
@@ -689,29 +694,32 @@ theorem elseBranchPasses ∀ (elseComments: Comments) (body: Body)
                       Meets
                       (ifPasses ifComments condition thenComments whenTrue innerElse whenFalse fineIf fineThen fineElse
                         (exprPasses condition lexCondition)
-                        (branchPasses whenTrue lexTrue)
+                        (branchPasses thenComments whenTrue lexTrue)
                         (elseBranchPasses innerElse whenFalse lexFalse))
                       (looseAdmits "if"))
-            | False => branchPasses { statements = [{ blankBefore, line = Bare value }] } lexical
-        | _, lexical => branchPasses { statements = [{ blankBefore, line = Bare value }] } lexical
-    | { statements = [] }, lexical => branchPasses { statements = [] } lexical
+            | False => branchPasses elseComments { statements = [{ blankBefore, line = Bare value }] } lexical
+        | _, lexical => branchPasses elseComments { statements = [{ blankBefore, line = Bare value }] } lexical
+    | { statements = [] }, lexical => branchPasses elseComments { statements = [] } lexical
     | { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }, lexical =>
-      branchPasses { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] } lexical
+      branchPasses elseComments
+        { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }] }
+        lexical
     | { statements = [{ blankBefore, line = StatementNote comment }] }, lexical =>
-      branchPasses { statements = [{ blankBefore, line = StatementNote comment }] } lexical
+      branchPasses elseComments { statements = [{ blankBefore, line = StatementNote comment }] } lexical
     | { statements = [{ blankBefore, line = Bare value }, second, ..rest] }, lexical =>
       match value, lexical with
         | If ifComments condition thenComments whenTrue innerElse whenFalse, lexical =>
-          branchPasses { statements = [{ blankBefore, line = Bare value }, second, ..rest] } lexical
-        | _, lexical => branchPasses { statements = [{ blankBefore, line = Bare value }, second, ..rest] } lexical
+          branchPasses elseComments { statements = [{ blankBefore, line = Bare value }, second, ..rest] } lexical
+        | _, lexical =>
+          branchPasses elseComments { statements = [{ blankBefore, line = Bare value }, second, ..rest] } lexical
     | {
         statements = [{ blankBefore, line = Let letComments name nameComments equals inner }, second, ..rest]
       }, lexical =>
-      branchPasses
+      branchPasses elseComments
         { statements = [{ blankBefore, line = Let letComments name nameComments equals inner }, second, ..rest] }
         lexical
     | { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] }, lexical =>
-      branchPasses { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] } lexical
+      branchPasses elseComments { statements = [{ blankBefore, line = StatementNote comment }, second, ..rest] } lexical
 
 theorem afterEqualsPasses ∀ (body: Body) (equals: Comments)
     (lexical: LexicalBody body):
