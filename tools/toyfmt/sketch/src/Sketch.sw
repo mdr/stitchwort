@@ -23,19 +23,10 @@ def formatDirect (source: Text) (width: Nat): FormatResult := match parse source
   | Err message => Refused message
   | Ok tree => Stable (tree.print width)
 
--- Layer E, the last of the printed tokens: their offsets.
-
---| Each number below the one before it: the offsets of tokens listed
---| the newest first.
-def Descending: List Nat → Prop
-  | [] => True
-  | [only] => True
-  | [newer, older, ..rest] => older < newer ∧ Descending [older, ..rest]
-
---| OPEN (E1). The tokens of printed pieces have growing offsets, so no
---| two share one: the parser tells a statement's first token from the
---| others by its offset (`Layout.allows`, `Layout.comments`).
-theorem placedOffsets ∀ (out: List Text): Descending ((placed out).tokens.map (token => token.offset)) := ?
+-- Layer E, the last of the printed tokens: their offsets. E1 is proved:
+-- `placedOffsets` (`Toy.Fmt.Proofs`, `PlaceProofs.sw`) says the tokens of
+-- printed pieces have falling offsets (`Descending`), so no two share
+-- one.
 
 --| `parsedPrintViews` with the offsets: the same witnesses.
 theorem parsedPrintPlaced ∀ (source: Text) (file: SourceFile) (width: Nat)
