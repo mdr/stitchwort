@@ -36486,12 +36486,12 @@
     {
       "id": 3311,
       "title": "[Opus] Simplify settle_from_expected's retry to one retry per declaration with settling off (docs/reviews/SW-3305-settle-retry.md 'simpler design'): closes the two remaining gaps where a skipped speculative failure is final (S1, probes p1b.sw, p2.sw), removes the super-linear cost of failing nested chains (S2: depth 200 2.9 s vs 0.36 s on main; matters for mistyped proofs in the editor) and three of four new Decl fields; add a note saying where t came from when the settled error blames a correct argument (S3, e1.sw). Re-measure 2020 day 2/7/18 and Std.Parse",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "From docs/reviews/SW-3305-settle-retry.md. Unblocks SW-3307 (settle every type parameter: day 2 -30%). Expected: 2.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
