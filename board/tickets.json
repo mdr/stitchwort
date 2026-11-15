@@ -36968,12 +36968,12 @@
     {
       "id": 3343,
       "title": "[Sonnet] Toy formatter stage D (toy-formatter.md): lexCovers, formatRoundTrip, formatIdempotent by validation; then Opus report feeding D3576. After C",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 13:08 after SW-3371. Expected: 3.5 h (Sonnet); at 2 h stuck on idempotence → stop and report for Opus.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
