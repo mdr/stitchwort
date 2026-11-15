@@ -1,5 +1,5 @@
 {
-  "next": 3386,
+  "next": 3387,
   "tickets": [
     {
       "id": 47,
@@ -37519,6 +37519,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3386,
+      "title": "[Sonnet] SW-3370 review follow-ups (docs/reviews/SW-3370-linear-derived-order.md): check derive_rebuild's builtins once at the top instead of Ok(()) then expect-panic (derive.rs 915-1052); derived-equality.md header (D3609 answered); drop stale T.%differ mentions (SW-3002 body, research/inductives.md:726); make Ordering.tagsTransBy not restate Nat.compare; step guard prints counts; derive.rs:114 module doc; derive_ord.rs:170 hoist",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
