@@ -1887,9 +1887,48 @@ pub unsafe extern "C" fn sw_prim(
         let (shapes, op) = shapes_and_op(context, op);
         crate::call_counts::hit_op(number, op, false);
         let refs: Vec<&Value> = (0..n as usize).map(|i| &**args.add(i)).collect();
+        if !charge_prim(&mut *context.cast_mut(), op, &refs) {
+            return;
+        }
         let v = crate::prims::eval(shapes, op, &refs);
         *dst = v;
     }
+}
+
+/// Charges the steps of a native whose result's size depends on an argument
+/// (`Text.repeat`, `Array.replicate`: [`crate::prims::text_repeat_cost`],
+/// [`crate::prims::replicate_cost`]), as the machine does, before the result
+/// is built, so a huge count runs out of steps rather than asking for the
+/// memory. False if that is over the limit: the context then has
+/// [`OUT_OF_STEPS`], with all the steps used.
+///
+/// The steps in the context must be current: compiled code writes them out
+/// before a call that can charge (and reads them back after).
+fn charge_prim(context: &mut Context, op: PrimOp, args: &[&Value]) -> bool {
+    use crate::natives::{ArrayNative, TextNative};
+    let cost = match op {
+        PrimOp::Array(ArrayNative::Replicate) => crate::prims::replicate_cost(args[0]),
+        PrimOp::Text(TextNative::TextRepeat) => crate::prims::text_repeat_cost(args[0], args[1]),
+        _ => return true,
+    };
+    let steps = context.steps.saturating_add(cost);
+    if steps > context.step_limit {
+        context.steps = context.step_limit;
+        context.error = OUT_OF_STEPS;
+        return false;
+    }
+    context.steps = steps;
+    true
+}
+
+/// Whether compiled code must write its steps out around a call of the
+/// helper for `op` ([`charge_prim`]).
+pub fn charges_steps(op: PrimOp) -> bool {
+    use crate::natives::{ArrayNative, TextNative};
+    matches!(
+        op,
+        PrimOp::Array(ArrayNative::Replicate) | PrimOp::Text(TextNative::TextRepeat)
+    )
 }
 
 /// A native operation that [consumes](PrimOp::consumes) its first operand,
@@ -2483,6 +2522,13 @@ pub unsafe extern "C" fn sw_apply_prepare(
                 Kind::Native(op) if applicable_native(op) => {
                     let v = {
                         let refs: Vec<&Value> = all.iter().collect();
+                        // SAFETY: the caller's contract; `run` is a
+                        // separate object from the context.
+                        if !charge_prim(unsafe { &mut *context }, op, &refs) {
+                            // The error is in the context; the values this
+                            // call owns are dropped as it returns.
+                            return;
+                        }
                         crate::prims::eval(&program.shapes, op, &refs)
                     };
                     drop(std::mem::take(&mut all));
