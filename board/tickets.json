@@ -1,5 +1,5 @@
 {
-  "next": 3415,
+  "next": 3418,
   "tickets": [
     {
       "id": 47,
@@ -37165,12 +37165,12 @@
     {
       "id": 3358,
       "title": "[Opus] Derived == for mutually recursive data types (a syntax tree's types refer to each other); needed by the toy formatter's tree checks and the self-hosted formatter's 94 kinds (SW-3341 friction 1; see SW-3354)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Done by SW-3371 (derived equality stage 3).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37352,7 +37352,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).",
+      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).\n\nPartly done: the golden parsing test compares trees with == (SW-3371); layout tests still compare dumps.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37596,12 +37596,12 @@
     {
       "id": 3391,
       "title": "[Sonnet] SW-3381 findings: stitchwort test --std NAMESPACE (std tests per namespace, for lanes); Text.upper; a match as the last statement of a let block needing deeper indentation (better message or accept); Std.Args 'help lists every option' theorem once Text.contains/joinWith lemmas exist",
-      "status": "done",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "\n\nLane notes (Sonnet), branch lane/SW-3367 (combined with SW-3367): done here: Parse.operators (levels with associativity, tested against a chainLeft tower: same results and messages), Parse.manyToEnd + Parse.locatedToEnd (lexer loop without a handler per round: 1.49 s to 0.97 s native on 930 KB; same as the toy's hand loop). Toy parse (lex and parse) 1.84 s with hand-written climbing vs 1.97 s with Parse.operators (+7%). NOT done from this ticket: stitchwort test --std NAMESPACE, Text.upper, the match-in-let indentation message, Std.Args theorem (the brief covered only the Parse items). Moved to review.\n",
+      "body": "\n\nLane notes (Sonnet), branch lane/SW-3367 (combined with SW-3367): done here: Parse.operators (levels with associativity, tested against a chainLeft tower: same results and messages), Parse.manyToEnd + Parse.locatedToEnd (lexer loop without a handler per round: 1.49 s to 0.97 s native on 930 KB; same as the toy's hand loop). Toy parse (lex and parse) 1.84 s with hand-written climbing vs 1.97 s with Parse.operators (+7%). NOT done from this ticket: stitchwort test --std NAMESPACE, Text.upper, the match-in-let indentation message, Std.Args theorem (the brief covered only the Parse items). Moved to review.\n\nNot built: wrongly closed with SW-3367 on 15 Nov (the Parse work was SW-3392). Reopened (SW-3414 finding).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37609,12 +37609,12 @@
     {
       "id": 3392,
       "title": "[Sonnet] Std Parse.operators: precedence climbing over a level table (recording expectations as chainLeft does), so every grammar with precedence levels gets the toy's 2x parse win; and a cheaper loop than Parse.many for parsers that never fail part-way (lexers). Measured in SW-3383 (docs/performance/log.md). Hashes move",
-      "status": "next",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Built in SW-3367's lane (merged 15 Nov as 'SW-3367/SW-3391', a misnumbering by the orchestrator: it was this ticket).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37901,7 +37901,46 @@
     {
       "id": 3414,
       "title": "[Opus paper] Toy formatter final report (toy-formatter.md, after stage D): what each part cost (lane hours, model), timings (lex/parse/print, validation +80%), every friction ticket and its status, what it says about D3576 (start the real formatter's stages 0-2) and §3.2's hand-written parser; options for validation cost (validate always / on demand / prove the printer)",
-      "status": "doing",
+      "status": "done",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Lane notes (Opus paper, 15 Nov 2026, 14:19-14:26, est. 1 h): docs/reviews/SW-3414-toy-formatter-report.md (uncommitted). Toy A-D ~1.9 h actual vs 15.5 h est (plus ~6 h of friction fixes); native 2.2 s/MB, 4.3 s/MB with the check (+91% of format); 6.5 MB ~15 s / ~28 s [est]. D3576: ready, nothing must land first (refresh self-hosted-fmt.md). §3.2: keep the hand-written parser (Parse 7-10x slower than hand-written probes; twin needs no messages). Validation: always on, skip the re-parse when output text = input (theorems unchanged, ~free on formatted files); D3617 [rec yes]. Findings: SW-3358 and SW-3392 stale (done by SW-3371/SW-3391); SW-3391's own four items never done; SW-3372 partly done; no ticket for Files.walk (F3); toy Doc.group recomputes forcesBreak (quadratic), no ticket.\n",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3415,
+      "title": "[Sonnet] Std Files.walk (F3): walk a folder tree, starting from the toy's walkLevels/expand (SW-3414 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3416,
+      "title": "[Sonnet] Toy Doc.group recomputes forcesBreak over the whole inner document (quadratic in nesting); cache it in the node; matters for the real formatter's engine (SW-3414 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3417,
+      "title": "[Opus paper] Refresh docs/proposals/self-hosted-fmt.md before stage 0: §3.2 option C (Parse now reads tokens; keep the hand-written parser per SW-3414), SW-3149/SW-3150 status, theorem estimates from the toy (SW-3414 report)",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
