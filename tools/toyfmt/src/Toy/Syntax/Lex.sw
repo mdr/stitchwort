@@ -7,7 +7,7 @@
 --| `Stray` token, which the parser then reports where it stands.
 
 namespace Toy.Syntax
-import Std (Empty, List, Option, Parse, Text)
+import Std (Empty, Fail, List, Option, Parse, Result, Text)
 
 --| A run of the source, before it is a token.
 type Lexeme =
@@ -159,5 +159,28 @@ def lexemeKind (lexeme: Lexeme) (text: Text): Kind := match lexeme with
   | SymbolsLexeme => symbolsKind text
   | _ => Stray text
 
---| The lexer `Parse.tokensWith` runs: the tokens, and the comments after them.
-def lex (source: Text): {Parse Char} (List (Parse.Located Token), List Trivia) := assemble source lexemes()
+--| What lexing a source gave: its lexemes, every character in one, the
+--| tokens made from them, and the own-line comments and blank lines after
+--| the last token (all of the file's, if it has none).
+type Lexed = {
+  lexemes: List (Parse.Located Lexeme),
+  tokens: List (Parse.Located Token),
+  endTrivia: List Trivia
+}
+
+--| Whether the lexemes' slices of `source`, joined, are `source`: no
+--| character lost, repeated or moved.
+def covers (source: Text) (found: List (Parse.Located Lexeme)): Bool :=
+  Text.concat (found.map (lexeme => cut source lexeme)) == source
+
+--| The source lexed, then checked before it is answered: the lexemes'
+--| slices joined must be the source (`covers`), so `lexCovers` is a
+--| theorem about this definition and not about the lexer's loop. A source
+--| that doesn't lex (an unclosed string, say) is the lexer's message.
+def lex (source: Text): Result Lexed Text := match Fail.toResult (() => Parse.all source lexemes) with
+  | Err message => Err message
+  | Ok found =>
+    if covers source found then
+      let (tokens, endTrivia) := assemble source found
+      Ok { lexemes = found, tokens, endTrivia }
+    else Err "internal error: the lexemes don't add up to the source"

@@ -10,7 +10,7 @@ def pieces (source: Text): Result (List Text) Text :=
   Fail.toResult (() => Parse.all source lexemes) |> .map (found => found.map (lexeme => cut source lexeme))
 
 def lexed (source: Text): Result (List (Parse.Located Token), List Trivia) Text :=
-  Fail.toResult (() => Parse.all source (() => lex source))
+  lex source |> .map (found => (found.tokens, found.endTrivia))
 
 def tokens (source: Text): Result (List Token) Text :=
   lexed source |> .map (found => found.fst.map (token => token.value))

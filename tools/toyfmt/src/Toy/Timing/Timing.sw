@@ -20,8 +20,8 @@ def main(): {IO} () :=
 
 def measure (phase source: Text): Text := match phase with
   | "lex" =>
-    match Fail.toResult (() => Parse.all source (() => lex source)) with
-      | Ok found => "${found.fst.length} tokens"
+    match lex source with
+      | Ok found => "${found.tokens.length} tokens"
       | Err message => message
   | "parse" =>
     match parse source with
@@ -29,8 +29,8 @@ def measure (phase source: Text): Text := match phase with
       | Err message => message
   | "format" =>
     match format source defaultWidth with
-      | Ok printed => if printed.text == source then "unchanged" else "changed"
-      | Err message => message
+      | Stable printed => if printed.text == source then "unchanged" else "changed"
+      | Refused message => message
   | _ => "nothing more"
 
 def name (text: Text): Item := { comments = [], value = Var text, trailing = None }
