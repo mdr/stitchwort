@@ -125,12 +125,11 @@ theorem runsCommentLexeme ∀ (others rest: List Char)
 --| `lexemeAt` reads a number: digits up to a character that isn't one.
 theorem runsDigitsLexeme ∀ (first: Char) (others rest: List Char)
     (digit: first.isAsciiDigit = True)
-    (notWord: isWordStart first = False)
     (digits: others.all (char => char.isAsciiDigit) = True)
     (ends: rest.takeWhile (char => char.isAsciiDigit) = []):
     Parse.Runs (() => lexemeAt ([first, ..others] ++ rest)) [first, ..others] rest DigitsLexeme :=
   let all: [first, ..others].all (char => char.isAsciiDigit) = True := rewrite digit in digits
-  rewrite digitsLexemeStart first (others ++ rest) digit notWord in
+  rewrite digitsLexemeStart first (others ++ rest) digit (digitIsNoWordStart first digit) in
     Parse.runsMap
       (() => Parse.span (char => char.isAsciiDigit))
       (read => DigitsLexeme)
@@ -488,3 +487,9 @@ theorem addCode ∀ (assembly: Assembly) (source: Text) (lexeme: Parse.Located L
     | { value = SignLexeme, offset, length }, code => rfl
     | { value = SymbolsLexeme, offset, length }, code => rfl
     | { value = StrayLexeme, offset, length }, code => rfl
+
+--| A digit starts no word: it is no letter and not `_`.
+theorem digitIsNoWordStart ∀ (char: Char) (digit: char.isAsciiDigit = True): isWordStart char = False :=
+  let letter: char.isAsciiLetter = False := omega [digit]
+  let underscore: (char == '_') = False := omega [digit]
+  rewrite letter, underscore in rfl

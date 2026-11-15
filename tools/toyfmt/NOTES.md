@@ -1044,6 +1044,9 @@ fail (`Parse.expected`, `stop`) are left out: the checker sees their
 hypothesis is `Err … = Ok …`. 67 theorems in `ShapeProofs.sw`, a few
 check runs.
 
+- `Syntax/LexProofs.sw`, `digitIsNoWordStart`: a digit is no letter and
+  not `_` (two `omega`s), so `runsDigitsLexeme` lost that hypothesis.
+
 **WF, what is left** (the texts, not the shape):
 
 1. A `Name`'s text is a word and no keyword, a `Number`'s digits, a
@@ -1071,7 +1074,7 @@ not about characters. The comment lemmas (`textAfterComment`,
 facts the invariant uses. Untried, so still the estimate with the least
 behind it: 50-70 lemmas.
 
-**Re-estimate** [estimated; this lane proved 79 theorems (7 in std, 72
+**Re-estimate** [estimated; this lane proved 80 theorems (7 in std, 73
 in the toy), almost all on the first or second check]:
 
 | Layer | Left | Lemmas |
@@ -1079,7 +1082,7 @@ in the toy), almost all on the first or second check]:
 | A, engine | nothing | 0 |
 | WF | token texts, body structure | 40-50 |
 | D, parser | `if` with a block branch; the file from its spelling | 30-40 |
-| B, lexing | `covers`, a digit is no word start, `assemble` over pieces | 40-60 |
+| B, lexing | `covers`, `assemble` over pieces | 40-60 |
 | E, rules to tokens | all of it | 50-70 |
 | Glue | `formatDirect`, round trip, idempotence | 10 |
 
