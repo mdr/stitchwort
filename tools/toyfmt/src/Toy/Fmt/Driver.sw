@@ -90,8 +90,8 @@ def formatFile (options: Options) (path: Path): {Files} Outcome := match Files.r
   | Err error => Problem "${error}"
   | Ok source =>
     match format source options.width with
-      | Err message => Problem (locate path message)
-      | Ok printed =>
+      | Refused message => Problem (locate path message)
+      | Stable printed =>
         if printed.text == source then Formatted path Unchanged printed.asWritten
         else if options.check then Formatted path WouldChange printed.asWritten
         else

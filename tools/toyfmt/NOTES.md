@@ -19,6 +19,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Fmt.Tests` | `Fmt/Tests/*.sw` | Twelve goldens, the disturber and its tests; the goldens through the parser |
 | `Toy.Fmt` | `Fmt/Driver.sw`, `Fmt/Cli.sw` | The `{Files}` loop (walk, format, write only what changes) and the command line, `Toy.Fmt.main` |
 | `Toy.Fmt.Tests` | `Fmt/Tests/Driver.sw` | The loop and the command line under `Files.simulate`, with a write-counting handler |
+| `Toy.Syntax.Proofs`, `Toy.Fmt.Proofs` | `Syntax/Proofs.sw`, `Fmt/Proofs.sw` | Stage D's theorems: `lexCovers`, `formatRoundTrip`, `formatIdempotent`, and the file loop's under `Files.simulate` |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -445,3 +446,113 @@ every read keep it: `Parse.State.advance` runs per operation, a `span` would
 have to find its last item, and `Parse.Mark` is built and matched in dozens of places
 (the handlers, `Parse/Reads.sw` and `Runs.sw`). `Parse.lastRead` does the
 walk the toy did, once, in std.
+
+## Stage D (SW-3343): the proofs
+
+### What changed in the program
+
+- `lex source` is now pure and checked: `Result Lexed Text`, where `Lexed`
+  has the lexemes, the tokens made from them and the trivia after the last
+  token. It runs `Parse.all source lexemes`, then answers only if `covers`
+  (the lexemes' slices joined `==` the source). `parse` runs `lex`, then
+  `Parse.whole` and `Parse.tokensMessage`, the three steps of
+  `Parse.tokensWith`, taken apart so the check sits between the first two.
+  Messages are unchanged (the tests, which compare them, pass).
+- `format source width` is now a `FormatResult`: `Stable printed` or
+  `Refused message`. It parses, prints the tree, parses the output and
+  answers `Stable` only if `parse printed.text == Ok tree`. The rules are
+  unchanged: the tree was already the erased tree (no layout in it), so
+  "the printer reads only the tree" needed no new type.
+- `Driver.sw` matches `Stable`/`Refused`; `Timing.sw` and the lexer tests
+  use `lex`'s `Lexed`.
+
+### The theorems
+
+All proved, none with an extra hypothesis; `stitchwort audit` on both proof
+namespaces: no failures (the warnings are the theorems whose hypotheses are
+about a `Disk` and a successful `format`, which the audit's random inputs
+never satisfy: the tests in `Fmt/Tests/Validation.sw` and `Driver.sw` run
+the same shapes).
+
+| Theorem | Says | How |
+|---|---|---|
+| `lexCovers` | `lex source = Ok lexed` gives `Text.concat (lexed.lexemes.map (cut source)) = source` | unfold `lex`, `match` on the run's result and on `covers`; `DecEq.sound` on the check; 6 lines |
+| `formatChecked` (lemma) | `format source width = Stable output` gives a `tree` with `parse source = Ok tree`, `output = tree.print width`, `parse output.text = Ok tree` | `match` on `parse source` and on the check; constructor injectivity of `Stable` by `Eq.cong` with a projection |
+| `formatRoundTrip` | the same without the middle part | from `formatChecked` |
+| `formatIdempotent` | `format output.text width = Stable output` | from `formatChecked`: rewrite the reparse, the check on the same tree is true again |
+| `formatFileUnchanged`, `formatFileWouldChange`, `formatFileRewrites`, `formatFileRefusedWrite`, `formatFileRefused` | what `formatFile` does under `Files.simulate`: no write when the text is the same, with `--check`, or on a parse error; one write of `format`'s text at its path otherwise | `rewrite` the read and the answer, one `match` on `printed.text == source`; each is a few lines |
+| `readAfterWrite` | a write the disk allows reads back as the text written | five `match`es on the conditions of `Disk.write`, `Map.getInsert` |
+| `formatFileSettles` | after the disk took `format`'s text, the next `formatFile` there is `Unchanged` and writes nothing | `readAfterWrite`, `formatIdempotent`, `formatFileUnchanged` |
+
+Idempotence took minutes, not the day the plan allowed: with the check in
+`format` and the tree as the rules' only input, the proof never meets a
+printing rule or the engine. The stage's proof effort was about
+15 minutes of lane time on the clock (13:08 to 13:22), including the file-loop
+theorems and `readAfterWrite`.
+
+Breaking the program makes the proofs fail, checked both ways: `if True`
+for `format`'s check (`E-NONEXHAUSTIVE` in `formatChecked`), and for
+`lex`'s (the same in `lexCovers`).
+
+### Timings of the validation
+
+Native `Toy.Timing.main -- PHASE 2600` (933 KB), user seconds, median of 3
+(the three runs agreed within 0.02 s), Speedwell at load 50 [measured].
+"Before" is the code at `main` (40708fe3d), "after" this branch, both built
+by the same compiler; the print phase (0.30 s) is inside each.
+
+| Phase | Before | After | Why |
+|---|---|---|---|
+| print | 0.30 s | 0.30 s | unchanged |
+| lex | 1.02 s | 1.07 s | `covers`: joining 187,000 slices and comparing 933 KB, +5% |
+| lex and parse | 2.08 s | 2.13 s | the same check |
+| whole format | 2.39 s | 4.29 s | the output is lexed (checked) and parsed a second time and compared with the tree: +1.9 s, +80% |
+
+So validation costs one more parse of the output: 2.0 s/MB native for the
+format of an already formatted file (a file that changes costs the same,
+the output's size). The plan expects this ("it doubles the run time" for
+the by-validation idempotence of its first design); for the real
+formatter's 6.5 MB at the toy's rate that is about +13 s, which the
+validation could save by comparing the output's tokens first, or by
+parsing the output only in a debug build, at the price of the theorems
+then being about the checked build. The lexemes' coverage check alone is
+about 5% of lexing (0.05 s per MB), cheap enough to keep always.
+
+### Friction
+
+1. **The tokens don't keep the spaces, so `lexCovers` is about the
+   lexemes.** The plan said "the tokens' trivia and text slices, joined,
+   are the source", but a `Token` carries blank lines as a flag and drops
+   spaces and line breaks; the lexemes (every character in one) are the
+   covering list, and the tokens are made from them. Not a loss for the
+   formatter, which doesn't need the spaces; the real lexer's trivia keep
+   them, so there the statement is about the tokens.
+2. **An effectful lexer can't be reasoned about, so the check has to run
+   outside it.** `Parse.tokensWith` runs the lexer, then the parser, inside
+   one `{Fail}`; a check made between them would be inside the effect, and
+   the theorem would have to reason about the handler. Taking the three
+   steps apart (`Parse.all`, `Parse.whole`, `Parse.tokensMessage`: all
+   public) put the check in plain code. A std
+   `Parse.tokensWith` that took a check (`(extra, tokens) → Option Text`),
+   or a `Parse.tokensResult` returning a `Result`, would save the
+   copy.
+3. **Constructor injectivity is a hand-written projection.**
+   `Stable a = Stable b` to `a = b` is `Eq.cong (printedOr a) h`, with a
+   projection function written for the purpose (`Result.okInjective` does it
+   for `Ok`). Every user-defined constructor with fields needs one; derived
+   `Foo.injective` lemmas would remove it (the plan's gap 1, `cases` not
+   using the equation it derives, is the other way).
+4. **`match` without the impossible arms works.** `lexCovers` and
+   `readAfterWrite` leave out the arms `h` rules out (`W-UNREACHABLE` says
+   to delete them), which is what keeps them short.
+5. **`==` on trees and `Result`s is all the validation needs.** `parse text
+   == Ok tree` is derived (SW-3371) and `DecEq.sound` / `DecEq.soundFalse`
+   take it to `=` and `≠`; nothing was missing.
+6. **For the real formatter:** its rewrites change the tree, so its
+   `Stable` check compares the output's tree with the *rewritten* source
+   tree, and `formatChecked` keeps the same shape with `rewrite tree` in
+   place of `tree` on the left; the printing function must still take
+   only the (rewritten) erased tree, so the idempotence proof also needs
+   "rewriting the rewritten tree changes nothing" to be part of what the
+   check tests, as the plan's theorem 2 says.
+

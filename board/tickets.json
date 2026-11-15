@@ -36968,15 +36968,17 @@
     {
       "id": 3343,
       "title": "[Sonnet] Toy formatter stage D (toy-formatter.md): lexCovers, formatRoundTrip, formatIdempotent by validation; then Opus report feeding D3576. After C",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 13:08 after SW-3371. Expected: 3.5 h (Sonnet); at 2 h stuck on idempotence → stop and report for Opus.",
+      "body": "Started 13:08 after SW-3371. Expected: 3.5 h (Sonnet); at 2 h stuck on idempotence → stop and report for Opus.\n\n13:25 Stage D done on lane/SW-3343 (f8dd1665f), ~15 min on the clock. lexCovers, formatRoundTrip, formatIdempotent proved with no extra hypotheses, plus the file loop's theorems (formatFileUnchanged/WouldChange/Rewrites/RefusedWrite/Refused, readAfterWrite, formatFileSettles). `lex` is now pure and checked, `format` returns Stable/Refused. Audit clean (warnings only for Disk/format hypotheses the random search can't meet). `stitchwort test` in tools/toyfmt: 87 passed. Validation cost: native format of 933 KB 2.39 s to 4.29 s (one more parse of the output). Notes in tools/toyfmt/NOTES.md. E2E test run pending at time of writing.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
-      "commits": []
+      "commits": [
+        "f8dd1665f"
+      ]
     },
     {
       "id": 3344,

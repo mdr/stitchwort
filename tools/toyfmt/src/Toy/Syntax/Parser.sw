@@ -16,7 +16,7 @@
 
 namespace Toy.Syntax
 import Std.Parse.Associativity (LeftAssociative)
-import Std (Empty, Fail, List, NonEmptyList, Option, Parse, Result, Text)
+import Std (Empty, List, NonEmptyList, Option, Parse, Result, Text)
 
 --| How a token may stand: anywhere inside brackets; in a statement that
 --| starts at `start` (an offset in the source) at `column`, on that line
@@ -372,6 +372,11 @@ def sourceFile (source: Text) (endTrivia: List Trivia): {Parse (Parse.Located To
       { declarations = declarations ++ endNotes |> withoutFirstBlank }
 
 --| The tree of a Sprig source, or the first error as "line 3, column 9:
---| expected ',' or ')', got 'b'".
-def parse (source: Text): Result SourceFile Text :=
-  Fail.toResult (() => Parse.tokensWith source (() => lex source) (endTrivia => sourceFile source endTrivia))
+--| expected ',' or ')', got 'b'". The source is lexed and checked first
+--| (`lex`), so every tree comes from tokens that cover the source.
+def parse (source: Text): Result SourceFile Text := match lex source with
+  | Err message => Err message
+  | Ok lexed =>
+    match Parse.whole lexed.tokens (() => sourceFile source lexed.endTrivia) with
+      | Ok file => Ok file
+      | Err failure => Err (Parse.tokensMessage source.toList lexed.tokens failure)
