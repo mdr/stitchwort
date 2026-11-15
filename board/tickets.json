@@ -36301,14 +36301,14 @@
     {
       "id": 3297,
       "title": "[Sonnet] A theorem with an [add: Add a] implicit used against an Int goal leaves add unsolved (pre-existing; probe q2.sw in docs/reviews/SW-3281-propagation.md S2); decide whether plain implicits of class type should be found by instance search",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 1 h (Sonnet).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36784,12 +36784,12 @@
     {
       "id": 3330,
       "title": "[Opus] unify_what_agrees: undo a failed nested comparison of two calls of the same definition inside the unifier's step, so a failed comparison's partial solutions never stay (SW-3306 review fix 2; today safe only because the final comparison compares those calls argument by argument)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "From the SW-3306 review (fix 2). Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
