@@ -1,5 +1,5 @@
 {
-  "next": 3401,
+  "next": 3402,
   "tickets": [
     {
       "id": 47,
@@ -36994,12 +36994,12 @@
     {
       "id": 3345,
       "title": "[Opus] Design: a program can only exit 0 or 1 (Fail gives 1); tools need other codes, e.g. 2 for broken input as stitchwort fmt --check does (SW-3339 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Matt, 15 Nov 2026: \"do a quick design for how we might signal an exit code from a main function. Yeah, I could see us returning a Nat or an appropriate numeric type. Or maybe some other way to signal it.\" Opus paper, expected 1 h.",
+      "body": "Matt, 15 Nov 2026: \"do a quick design for how we might signal an exit code from a main function. Yeah, I could see us returning a Nat or an appropriate numeric type. Or maybe some other way to signal it.\" Opus paper, expected 1 h.\n\n15 Nov 2026 (Opus paper lane): docs/proposals/exit-status.md written, uncommitted in the main checkout. Recommends (d): main may return () or a checked std ExitStatus { code: Nat, fits: code < 256 } (ExitStatus.of 2 with an auto proof; 300 refused at check time; probed); Fail stays 1, runtime errors stay 2; an Exit ability only as a later library helper. Stages: S1 type + all runners (Sonnet ~2.5 h), S2 Args.run usage = 2 + toyfmt 0/1/2 (~1 h), S3 optional Exit helper. Question D3616 at the end. Probes in the lane scratchpad (p1-p4.sw). 23 min.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37716,6 +37716,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3401,
+      "title": "[Sonnet] E-AUTO-FALSE for a missing automatic proof ([auto …]) says only '`False = True` is false'; name the proposition (e.g. 300 < 256) (SW-3345 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
