@@ -1,0 +1,156 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `textInOption`
+    ╭─[ goals/arm-as-written-nested-match.sw:11:18 ]
+    │
+ 11 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Text → Prop
+    │                      s: Text
+    │                      ⊢ p (Some True) s
+────╯
+[GOAL] Goal: in `textInOption`
+    ╭─[ goals/arm-as-written-nested-match.sw:14:17 ]
+    │
+ 14 │       | "ab" => ?
+    │                 ┬  
+    │                 ╰── p: Option Bool → Text → Prop
+    │                     o: Option Bool
+    │                     ⊢ p o "ab"
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `textInOption`
+    ╭─[ goals/arm-as-written-nested-match.sw:15:14 ]
+    │
+ 15 │       | _ => ?
+    │              ┬  
+    │              ╰── p: Option Bool → Text → Prop
+    │                  o: Option Bool
+    │                  s: Text
+    │                  ⊢ p o s
+    │ 
+    │ Note: this arm is checked in 10 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `threeDeep`
+    ╭─[ goals/arm-as-written-nested-match.sw:19:18 ]
+    │
+ 19 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Option Bool → Nat → Prop
+    │                      r: Option Bool
+    │                      n: Nat
+    │                      ⊢ p (Some True) r n
+────╯
+[GOAL] Goal: in `threeDeep`
+    ╭─[ goals/arm-as-written-nested-match.sw:22:17 ]
+    │
+ 22 │       | None => ?
+    │                 ┬  
+    │                 ╰── p: Option Bool → Option Bool → Nat → Prop
+    │                     o: Option Bool
+    │                     n: Nat
+    │                     ⊢ p o None n
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `threeDeep`
+    ╭─[ goals/arm-as-written-nested-match.sw:25:18 ]
+    │
+ 25 │           | 0 => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Option Bool → Nat → Prop
+    │                      o: Option Bool
+    │                      r: Option Bool
+    │                      ⊢ p o r 0
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `threeDeep`
+    ╭─[ goals/arm-as-written-nested-match.sw:26:18 ]
+    │
+ 26 │           | _ => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Option Bool → Nat → Prop
+    │                      o: Option Bool
+    │                      r: Option Bool
+    │                      n: Nat
+    │                      ⊢ p o r n
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `rewrittenFirst`
+    ╭─[ goals/arm-as-written-nested-match.sw:34:20 ]
+    │
+ 34 │     | Some True => ?
+    │                    ┬  
+    │                    ╰── p: Option Bool → Text → Prop
+    │                        s: Text
+    │                        n: Nat
+    │                        h: n = 3
+    │                        ⊢ p (Some True) s ∧ n = 3
+────╯
+[GOAL] Goal: in `rewrittenFirst`
+    ╭─[ goals/arm-as-written-nested-match.sw:38:21 ]
+    │
+ 38 │           | "ab" => ?
+    │                     ┬  
+    │                     ╰── p: Option Bool → Text → Prop
+    │                         o: Option Bool
+    │                         n: Nat
+    │                         h: n = 3
+    │                         ⊢ p o "ab" ∧ n = 3
+    │ 
+    │ Note 1: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+    │ 
+    │ Note 2: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
+[GOAL] Goal: in `rewrittenFirst`
+    ╭─[ goals/arm-as-written-nested-match.sw:39:18 ]
+    │
+ 39 │           | _ => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Text → Prop
+    │                      o: Option Bool
+    │                      s: Text
+    │                      n: Nat
+    │                      h: n = 3
+    │                      ⊢ p o s ∧ n = 3
+    │ 
+    │ Note 1: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+    │ 
+    │ Note 2: this arm is checked in 10 cases; the goal shown is the arm as written, not any one case
+────╯
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ goals/arm-as-written-nested-match.sw:47:14 ]
+    │
+ 47 │       | _ => k
+    │              ┬  
+    │              ╰── expected `p None (Some False)`, but this has type `p None None`
+    │ 
+    │ Note: this arm is checked in 4 cases, and this error is in the case where `o` is `None` and `r` is `Some False`
+────╯
+[GOAL] Goal: in `errorInBoth`
+    ╭─[ goals/arm-as-written-nested-match.sw:43:18 ]
+    │
+ 43 │   | Some True => ?
+    │                  ┬  
+    │                  ╰── p: Option Bool → Option Bool → Prop
+    │                      k: p None None
+    │                      r: Option Bool
+    │                      ⊢ p (Some True) r
+────╯
+[GOAL] Goal: in `errorInBoth`
+    ╭─[ goals/arm-as-written-nested-match.sw:46:22 ]
+    │
+ 46 │       | Some True => ?
+    │                      ┬  
+    │                      ╰── p: Option Bool → Option Bool → Prop
+    │                          k: p None None
+    │                          o: Option Bool
+    │                          ⊢ p o (Some True)
+    │ 
+    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+────╯
