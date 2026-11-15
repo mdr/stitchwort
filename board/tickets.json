@@ -1,5 +1,5 @@
 {
-  "next": 3413,
+  "next": 3414,
   "tickets": [
     {
       "id": 47,
@@ -37874,6 +37874,19 @@
       "id": 3412,
       "title": "[Opus] Re-land the text-rest rule (SW-3376, reverted in e3e119a17): refuse a wrapper whose one field is a proof (Prop-typed); soundness/proof-irrelevance-07 must stay refused; run the whole soundness set; then a second Fable review",
       "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3413,
+      "title": "[Sonnet] SW-3406 findings: guard derive_field_in on erased/proof fields of containers (E-MALFORMED if called, latent); a std DecEq built from a key function (hand-written group DecEq takes ~8 lines per type); test a container proof field whose equation is over a group type parameter with a DecEq dictionary",
+      "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
