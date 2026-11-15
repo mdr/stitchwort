@@ -868,6 +868,49 @@ fn same_shape(cx: &Ctx, a: &Row, b: &Row) -> Result<bool> {
         })
 }
 
+/// The ability `ability`, written `name` in a row with `given` arguments,
+/// where its parameters are `params`: names them, and shows the row written with them.
+fn ability_arity(
+    cx: &Ctx,
+    ability: usize,
+    name: &str,
+    params: &[(Name, Term)],
+    given: usize,
+) -> Diagnostic {
+    let names: Vec<String> = params.iter().map(|(x, _)| x.to_string()).collect();
+    let takes = match names.as_slice() {
+        [] => "takes no arguments".to_string(),
+        [one] => format!("takes an argument, `{one}`"),
+        many => format!(
+            "takes {} arguments, {}",
+            many.len(),
+            many.iter()
+                .map(|n| format!("`{n}`"))
+                .collect::<Vec<_>>()
+                .join(" and ")
+        ),
+    };
+    let label = match given {
+        0 => "given none here".to_string(),
+        1 => "given one here".to_string(),
+        n => format!("given {n} here"),
+    };
+    let d = cx.error("E-ARITY", format!("`{name}` {takes}"), label);
+    if names.is_empty() {
+        return d.with_note(format!("write it alone: `{{{name}}}`"));
+    }
+    let mut note = format!(
+        "write it with its arguments: `{{{name} {}}}`",
+        names.join(" ")
+    );
+    // The library's parsers of text read characters; its other abilities'
+    // arguments have no such usual choice.
+    if cx.e.tables.abilities[ability].order.1 == "Std.Parse" {
+        note.push_str(", such as `{Parse Char}` for a parser of text");
+    }
+    d.with_note(note)
+}
+
 /// How [`not_allowed`]'s message reads around the ability's name, so
 /// [`passed_not_allowed`] can tell which ability it was.
 const NOT_ALLOWED: (&str, &str) = ("this may perform `", "`, which isn't allowed here");
@@ -883,8 +926,35 @@ fn not_allowed(cx: &Ctx, label: &Label) -> Diagnostic {
         format!("`{name}` isn't in the abilities of the enclosing function or handler"),
     )
     .with_note(format!(
-        "add `{name}` to the function's type (`-> {{{name} …}} …`), or handle it"
+        "add `{name}` to the function's type (`-> {{{}}} …`), or handle it",
+        label_written(cx, label)
     ))
+}
+
+/// A label as a row writes it, with the arguments it is known to have:
+/// `Parse Char`. An argument still unknown is written `…`, as is the rest
+/// of a label without arguments (`Fail …`, whatever else the row has).
+fn label_written(cx: &Ctx, label: &Label) -> String {
+    let name = ability_name(cx, label);
+    if label.args.is_empty() {
+        return format!("{name} …");
+    }
+    let args: Vec<String> = label
+        .args
+        .iter()
+        .map(|a| match force(&cx.g(), a.clone()) {
+            Ok(Value::Neutral(Head::Meta(_), _)) => "…".to_string(),
+            _ => {
+                let shown = cx.show(a);
+                if shown.contains(' ') {
+                    format!("({shown})")
+                } else {
+                    shown
+                }
+            }
+        })
+        .collect();
+    format!("{name} {}", args.join(" "))
 }
 
 /// [`not_allowed`]'s error `e` for an argument of a call in `row` that is
@@ -1889,11 +1959,7 @@ fn ability_label(cx: &mut Ctx, expr: &Expr) -> Result<Label> {
     let op_data = cx.e.tables.abilities[a].op_data;
     let params = cx.g().data(op_data).params().to_vec();
     if args.len() != params.len() {
-        return Err(cx.error(
-            "E-ARITY",
-            format!("`{}` takes {} argument(s)", name.text, params.len()),
-            "here",
-        ));
+        return Err(ability_arity(cx, a, &name.text, &params, args.len()));
     }
     let mut values = Vec::new();
     for ((_, param_ty), arg) in params.iter().zip(args) {
