@@ -3262,7 +3262,7 @@ fn settle_from_expected(
     // that are an ability's argument in a later parameter's row, and the
     // result past every parameter the type spells out, without unfolding a
     // call (the result itself may unfold to a function type).
-    let mut types: Vec<bool> = Vec::new();
+    let mut types: Vec<Option<Value>> = Vec::new();
     let mut in_rows: Vec<usize> = Vec::new();
     let mut leading = true;
     let mut result = force(&g, ty.clone())?;
@@ -3270,9 +3270,9 @@ fn settle_from_expected(
     while let Value::Pi(_, icit, dom, cod) = result {
         leading = leading && icit.is_implicit();
         if leading {
-            let is_type =
-                icit == Icit::Implicit && matches!(force(&g, (*dom).clone())?, Value::Sort(_));
-            types.push(is_type);
+            let sort = force(&g, (*dom).clone())?;
+            let is_type = icit == Icit::Implicit && matches!(sort, Value::Sort(_));
+            types.push(is_type.then_some(sort));
         }
         if !types.is_empty() {
             row_arguments(cx, level, &dom, &mut in_rows)?;
@@ -3290,7 +3290,7 @@ fn settle_from_expected(
     // For each leading implicit parameter, `expected`'s argument where the
     // result has that parameter alone.
     let mut given: Vec<Option<Term>> = vec![None; implicit];
-    for (a, b) in found_spine.iter().zip(want_spine.iter()) {
+    for (position, (a, b)) in found_spine.iter().zip(want_spine.iter()).enumerate() {
         let (stitchwort_core::value::Elim::App(a, _), stitchwort_core::value::Elim::App(b, _)) =
             (a, b)
         else {
@@ -3299,9 +3299,10 @@ fn settle_from_expected(
         if let Value::Neutral(Head::Var(l, _), spine) = force(&g, a.clone())?
             && spine.is_empty()
             && (base..base + implicit).contains(&l)
-            && types[l - base]
+            && let Some(sort) = &types[l - base]
             && in_rows.contains(&l)
             && given[l - base].is_none()
+            && parameter_type_is(cx, want, want_spine, position, sort)?
         {
             given[l - base] = Some(quote(&g, base, b)?);
         }
@@ -3327,6 +3328,33 @@ fn settle_from_expected(
         ty = cod.apply(&g, value)?;
     }
     Ok((term, ty))
+}
+
+/// Whether the parameter at `position` of the definition `id`, applied to
+/// `spine`, has type `sort`: a goal's argument given to a type parameter
+/// must be a type of that sort, not merely in the same place (`Dep (Type →
+/// Type) (b => List b) 0` against a result `Dep Type t n`).
+fn parameter_type_is(
+    cx: &Ctx,
+    id: stitchwort_core::DefId,
+    spine: &stitchwort_core::value::Spine,
+    position: usize,
+    sort: &Value,
+) -> Result<bool> {
+    let g = cx.g();
+    let mut ty = crate::kernel::def_ty(&g, id)?;
+    for (i, elim) in spine.iter().enumerate() {
+        let (Value::Pi(_, _, dom, cod), stitchwort_core::value::Elim::App(arg, _)) =
+            (force(&g, ty)?, elim)
+        else {
+            return Ok(false);
+        };
+        if i == position {
+            return cx.conv_now(&dom, sort);
+        }
+        ty = cod.apply(&g, arg.clone())?;
+    }
+    Ok(false)
 }
 
 /// Adds to `out` the variables that are, on their own, an ability's
@@ -3505,8 +3533,19 @@ fn explicit_arg<'a>(
         Ready::Held(applied) => return Ok((applied, None)),
         Ready::Check(ready) => ready,
     };
-    let (checked, skipped) = settle_trial(cx, ready.snapshot.is_some(), |cx| {
-        check_arg(cx, &ready.term, value, &ready.dom)
+    // Inline rather than through `settle_trial`: every nested argument's
+    // check stands on this frame.
+    let trial = ready.snapshot.is_some();
+    let decl = &cx.e.decl;
+    let outer = trial.then(|| {
+        decl.settle_trial.set(decl.settle_trial.get() + 1);
+        decl.settle_skipped.replace(false)
+    });
+    let checked = check_arg(cx, &ready.term, value, &ready.dom);
+    let decl = &cx.e.decl;
+    let skipped = outer.is_some_and(|outer| {
+        decl.settle_trial.set(decl.settle_trial.get() - 1);
+        decl.settle_skipped.replace(outer)
     });
     match checked {
         Ok(checked) => explicit_arg_checked(cx, ready, value, checked),
@@ -3672,7 +3711,7 @@ fn explicit_arg_checked<'a>(
 ///
 /// When the failure is final and passed over a retry without settled type
 /// arguments inside ([`settle_trial`]), the argument is checked once more
-/// without any, and that check's result or error is the one given.
+/// without any; if that fails too, the first error is given.
 #[inline(never)]
 fn explicit_arg_failed<'a>(
     cx: &mut Ctx,
@@ -3702,7 +3741,9 @@ fn explicit_arg_failed<'a>(
             off.set(off.get() - 1);
             match again {
                 Ok(checked) => return explicit_arg_checked(cx, ready, value, checked),
-                Err(e) => e,
+                Err(again) if crate::undo::fatal(&again) => again,
+                // As in `fallback_inferred`, the first error is the clearer.
+                Err(_) => e,
             }
         } else {
             e
@@ -6489,39 +6530,60 @@ fn fallback_pipe(
 ///
 /// Where the application was given type arguments from `expected`
 /// ([`settle_from_expected`]) and then failed, it is put back and
-/// elaborated again without them, and that attempt's result or error is
-/// the one given: the guess is right whenever the application's type
-/// matches `expected` argument by argument, but it may match only once
-/// unfolded (`Ph Nat 0` against `Ph Char 0`, where `Ph`'s type parameter
-/// isn't used), and a program the guess rejects must still be accepted.
+/// elaborated again without them: the guess is right whenever the
+/// application's type matches `expected` argument by argument, but it may
+/// match only once unfolded (`Ph Nat 0` against `Ph Char 0`, where `Ph`'s
+/// type parameter isn't used), and a program the guess rejects must still
+/// be accepted. If that fails too, the first error is given: it blames the
+/// argument whose row clashes with the goal's, where the second blames the
+/// whole call with the goal unfolded, or an unrelated argument.
 #[inline(never)]
 fn fallback_inferred(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
-    let snapshot = (cx.e.decl.no_settling.get() == 0).then(|| crate::undo::Snapshot::take(cx));
+    // Only a call expected to be a call of a definition is settled. Boxed:
+    // every nested application checked against a type stands on this frame.
+    let snapshot = (cx.e.decl.no_settling.get() == 0 && call_parts(named).is_some())
+        .then(|| Box::new(crate::undo::Snapshot::take(cx)));
     let (inferred, settled) = infer_expecting(cx, expr, expected, named);
     let result = inferred.and_then(|found| inferred_against(cx, expr, found, expected, named));
     match (result, snapshot) {
-        (Err(e), Some(_)) if settled && cx.e.decl.settle_trial.get() > 0 => {
-            cx.e.decl.settle_skipped.set(true);
-            Err(e)
-        }
-        (Err(e), Some(snapshot)) if settled && !crate::undo::fatal(&e) => {
-            snapshot.restore(cx);
-            unsettled(cx, expr, expected, named)
+        (Err(e), Some(snapshot)) if settled => {
+            settled_failed(cx, expr, expected, named, e, *snapshot)
         }
         (result, _) => result,
     }
 }
 
-/// [`fallback_inferred`] again, with no type arguments given from an
-/// expected type in `expr` or inside it.
+/// [`fallback_inferred`] after the application `expr`, given type arguments
+/// from `expected`, failed with `e`: elaborated again from `snapshot` with
+/// none given in it or inside it, unless that would be wasted
+/// ([`settle_trial`]). Out of line, so that the frame nested applications
+/// stand on doesn't hold its locals.
 #[inline(never)]
-fn unsettled(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) -> Result<Term> {
+fn settled_failed(
+    cx: &mut Ctx,
+    expr: &Expr,
+    expected: &Value,
+    named: &Value,
+    e: Diagnostic,
+    snapshot: crate::undo::Snapshot,
+) -> Result<Term> {
+    if cx.e.decl.settle_trial.get() > 0 {
+        cx.e.decl.settle_skipped.set(true);
+        return Err(e);
+    }
+    if crate::undo::fatal(&e) {
+        return Err(e);
+    }
+    snapshot.restore(cx);
     let off = &cx.e.decl.no_settling;
     off.set(off.get() + 1);
-    let result = fallback_inferred(cx, expr, expected, named);
+    let again = fallback_inferred(cx, expr, expected, named);
     let off = &cx.e.decl.no_settling;
     off.set(off.get() - 1);
-    result
+    match again {
+        Err(again) if !crate::undo::fatal(&again) => Err(e),
+        again => again,
+    }
 }
 
 /// [`fallback_inferred`] once `expr` is inferred as `term` of type `found`:

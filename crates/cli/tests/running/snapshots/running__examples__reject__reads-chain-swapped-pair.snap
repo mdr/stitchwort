@@ -7,5 +7,5 @@ expression: output
     │
  16 │     Parse.readsDone (second, first) _ (rewrite firstIs, secondIs in rfl)))
     │                                                                     ─┬─  
-    │                                                                      ╰─── `rfl` proves an equation, but the expected type is `?26 [first] first firstIs letter1 [second] second secondIs letter2 [] (second, first)`
+    │                                                                      ╰─── `rfl` proves an equation, but the expected type is `?25 [first] first firstIs letter1 [second] second secondIs letter2 [] (second, first)`
 ────╯
