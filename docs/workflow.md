@@ -437,6 +437,10 @@ Every brief states the worktree, the estimate and the targeted tests (CLAUDE.md,
 "Test budget"). Some kinds of work also need standard lines, each added after a
 lane missed it and a batch failed:
 
+- **Compares other languages or tools:** "verify every claim about another
+  system against a primary source (its docs, source, PR or issue page) and
+  cite it; leave out what you can't verify, and never mark a claim 'from
+  memory'" (Matt, 15 Nov 2026: "you shouldn't do details from memory").
 - **Fixes a bug:** "add the smallest test that fails before the fix and
   passes after (a unit test, an example file, a snapshot), and show it
   failing without the fix; if an existing test caught the bug, name it
