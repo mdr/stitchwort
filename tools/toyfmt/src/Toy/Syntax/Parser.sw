@@ -131,7 +131,7 @@ def expressionRule (self: Layout → {Parse (Parse.Located Token)} Expr) (layout
       elseKeyword layout
       let whenFalse := body self layout
       If condition whenTrue whenFalse
-    | _ => chain (() => operand self layout) layout levels
+    | _ => chain (() => operand self layout) layout 1
 
 def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek() with
   | Some token if (keywordIs ElseKeyword token.value.kind).isSome =>
@@ -139,45 +139,101 @@ def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek
     else Parse.fail "'else' must not start a line to the left of its 'if' statement"
   | _ => keyword layout ElseKeyword
 
---| `Operator.level`'s values, loosest first.
-def levels: List Nat := List.range 1 7
+--| An operand, then operators of `lowest` up to `highest` and their
+--| operands, combined by precedence: tighter levels bind first, and one
+--| level chains from the left, `a - b + c` being `(a - b) + c`.
+-- Precedence climbing: one look at the next token per operand, where a
+-- `Parse.chainLeft` per level tried each level's operator under its own
+-- handler. The notes are the same as that grammar's (an operator was
+-- expected wherever none was read), so messages don't change.
+def chain (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout) (lowest: Nat):
+    {Parse (Parse.Located Token)} Expr :=
+  chainNested 6 operand layout lowest
 
---| Operator chains, loosest level first: each level's operands are chains
---| of the tighter levels.
-def chain (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout):
-    (levels: List Nat) → {Parse (Parse.Located Token)} Expr
-  | [] => operand()
-  | [level, ..tighter] =>
-    Parse.chainLeft (() => chain operand layout tighter) (() => take layout "an operator" (binaryAt level))
+--| `chain`, with right operands nested at most `depth` deep: each is of a
+--| tighter level than the operator before it, so six levels are enough.
+def chainNested (depth: Nat) (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout) (lowest: Nat):
+    {Parse (Parse.Located Token)} Expr :=
+  let first := operand()
+  match depth with
+    | Succ inner if lowest <= 6 => chainFrom (Parse.mark().left + 1) inner operand layout lowest 6 first
+    -- Past the tightest level the operator after an operand is the caller's to try.
+    | _ => first
 
-def binaryAt (level: Nat): Kind → Option (Expr → Expr → Expr)
-  | Op operator if operator.level == level => Some (left right => Binary operator left right)
-  | _ => None
+--| `left` followed by operators of `lowest` up to `highest` and their
+--| operands, at most `fuel` of them. `highest` falls to the level of each
+--| operator read: a tighter one after it would have been read by its right
+--| operand.
+def chainFrom (fuel depth: Nat) (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (lowest highest: Nat) (left: Expr):
+    {Parse (Parse.Located Token)} Expr :=
+  match fuel, peek() with
+    | Zero, _ => left
+    | Succ more, Some token if layout.allows token && operatorWithin lowest highest token.value.kind =>
+      match token.value.kind with
+        | Op operator =>
+          -- An operator without an operand after it is left unread.
+          let right := Parse.optional (() =>
+            skip()
+            chainNested depth operand layout (operator.level + 1))
+          match right with
+            | Some right => chainFrom more depth operand layout lowest operator.level (Binary operator left right)
+            | None => left
+        | _ => left
+    | _, _ =>
+      Parse.note (Parse.Problem.Expected "an operator")
+      left
 
-def isMinus: Kind → Option ()
-  | Op Minus => Some ()
-  | _ => None
+def operatorWithin (lowest highest: Nat): Kind → Bool
+  | Op operator => lowest <= operator.level && operator.level <= highest
+  | _ => False
+
+def isMinus (layout: Layout) (token: Parse.Located Token): Bool :=
+  layout.allows token && token.value.kind |> matches | Op Minus
 
 --| `-` any number of times, then an atom and its calls and fields.
 def operand (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
-  let negations := Parse.many (() => take layout "an expression" isMinus)
-  let first := atom self layout
-  let suffixes := Parse.many (() => suffix self layout)
-  let value := suffixes.foldLeft first (target apply => apply target)
-  negations.foldLeft value (inner _ => Negate inner)
+  negationsFrom (Parse.mark().left + 1) self layout
 
-def suffix (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
-    {Parse (Parse.Located Token)} (Expr → Expr) :=
-  Parse.oneOf [
-    () =>
-      sign layout "'('" OpenParen
-      let arguments := items self CloseParen
-      (callee => Call callee arguments),
-    () =>
-      sign layout "'.'" Dot
-      let field := name layout
-      (target => Field target field)
-  ]
+--| The `-`s before an atom, at most `fuel` of them, each a `Negate`
+--| around the rest.
+def negationsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout):
+    {Parse (Parse.Located Token)} Expr :=
+  match fuel, peek() with
+    | Succ more, Some token if isMinus layout token =>
+      skip()
+      Negate (negationsFrom more self layout)
+    | _, _ =>
+      Parse.note (Parse.Problem.Expected "an expression")
+      let first := atom self layout
+      suffixesFrom (Parse.mark().left + 1) self layout first
+
+--| `target`'s calls and fields, at most `fuel` of them. A call or field
+--| that doesn't parse is left unread.
+def suffixesFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout) (target: Expr):
+    {Parse (Parse.Located Token)} Expr :=
+  let next := match peek() with
+    | Some token if layout.allows token => token.value.kind
+    | _ => Stray ""
+  match fuel, next with
+    | Succ more, Sign OpenParen =>
+      let call := Parse.optional (() =>
+        skip()
+        Call target (items self CloseParen))
+      match call with
+        | Some call => suffixesFrom more self layout call
+        | None => target
+    | Succ more, Sign Dot =>
+      let field := Parse.optional (() =>
+        skip()
+        Field target (name layout))
+      match field with
+        | Some field => suffixesFrom more self layout field
+        | None => target
+    | _, _ =>
+      Parse.note (Parse.Problem.Expected "'('")
+      Parse.note (Parse.Problem.Expected "'.'")
+      target
 
 def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
   match peek() with
