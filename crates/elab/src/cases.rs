@@ -25,6 +25,10 @@
 //! 5. **`t`**, for `cases in t`, elaborated in the case;
 //! 6. **`omega`**, only where nothing is left to split (D1319).
 //!
+//! Between 5 and the splits, an equation 3 added with a variable side, `x =
+//! t`, puts `t` in place of `x` in the goal and the hypotheses, and the node
+//! starts again ([`substitute`], SW-3344).
+//!
 //! If none closes it, a hypothesis `h: P → Q` whose premise holds in the
 //! case (an equation whose sides compute to the same thing, such as `b =
 //! True → fact` once `b` is split, or a hypothesis of type `P`) adds `Q`,
@@ -150,6 +154,14 @@ pub(crate) struct Run {
     open_at: RefCell<Option<String>>,
     /// Facts added by taking equations apart, for their names.
     facts: Cell<usize>,
+    /// The names of the facts [`take_apart`] added (and of their copies,
+    /// which keep the name): those [`substitute`] may eliminate a variable
+    /// by.
+    injected: RefCell<Vec<Name>>,
+    /// The facts [`substitute`] has used on the way to this case (used
+    /// again, the variable left would be replaced back), each with how
+    /// `E-CASES` shows it ("`y` is replaced by `x`: …").
+    substituted: RefCell<Vec<(Name, String)>>,
     /// Whether each data type is splittable, and its constructor count.
     splittable: RefCell<HashMap<DataId, Option<usize>>>,
 }
@@ -235,6 +247,8 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         over_finite: RefCell::new(None),
         open_at: RefCell::new(None),
         facts: Cell::new(0),
+        injected: RefCell::new(Vec::new()),
+        substituted: RefCell::new(Vec::new()),
         splittable: RefCell::new(HashMap::default()),
     });
     let saved = cx.cases.replace(run.clone());
@@ -367,6 +381,12 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
                 failed_body = Some(e);
             }
         }
+    }
+    // After the closers and `t`: a case they close at this node keeps its
+    // proof. One closed deeper (after a split, an implication or `omega`)
+    // now goes through the substitution first, so its term changes.
+    if let Some(term) = substitute(cx, run, goal)? {
+        return Ok(term);
     }
     if let Some(term) = apply_guarded(cx, run, goal)? {
         return Ok(term);
@@ -527,14 +547,25 @@ fn introduce(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> 
     Ok(Some(body))
 }
 
-/// How the hypothesis at `level` is shown: its name, or for one introduced
-/// from an unnamed binder, `hypothesis N (unnamed)`.
+/// How the hypothesis at `level` is shown: its name, for one introduced
+/// from an unnamed binder `hypothesis N (unnamed)`, and for a fact `cases`
+/// added (`%factN`, which can't be written) `fact N (added by cases)`.
 fn hypothesis_name(cx: &Ctx, level: usize, name: &str) -> String {
-    match name.strip_prefix(UNNAMED) {
-        Some(n) if &*cx.names[level] == name => format!("hypothesis {n} (unnamed)"),
-        _ => name.to_string(),
+    if &*cx.names[level] != name {
+        return name.to_string();
+    }
+    if let Some(n) = name.strip_prefix(UNNAMED) {
+        return format!("hypothesis {n} (unnamed)");
+    }
+    match name.strip_prefix(FACT) {
+        Some(n) => format!("fact {n} (added by `cases`)"),
+        None => name.to_string(),
     }
 }
+
+/// The prefix of the names of the facts `cases` adds: not one a program can
+/// write.
+const FACT: &str = "%fact";
 
 /// The equations of the splits made on the way to this case, oldest first,
 /// as shown: the latest copy of each.
@@ -621,13 +652,24 @@ fn open_case(
         let Some(name) = cx.name_of_level(level) else {
             continue;
         };
-        if is_fact(cx, &cx.types[level]) {
+        if run
+            .substituted
+            .borrow()
+            .iter()
+            .any(|(n, _)| *n == cx.names[level])
+        {
+            continue;
+        }
+        if is_fact(cx, &cx.types[level]) && !trivial(cx, &cx.types[level]) {
             d = d.with_note(format!(
                 "{}: {}",
                 hypothesis_name(cx, level, name),
                 cx.show(&cx.types[level])
             ));
         }
+    }
+    for (_, shown) in run.substituted.borrow().iter() {
+        d = d.with_note(shown.clone());
     }
     d = d.with_note(format!("goal: {}", cx.show(goal)));
     // The case's own equations hold the atoms split on, where an unused
@@ -671,6 +713,16 @@ fn open_case(
         fallbacks.join(", "),
         if fallbacks.len() == 1 { "it" } else { "them" }
     ))
+}
+
+/// Whether `ty` is an equation whose sides compute to the same thing, such
+/// as the copy `Some x = Some x` a substitution leaves of `Some x = Some y`:
+/// it says nothing, so `E-CASES` doesn't show it.
+fn trivial(cx: &Ctx, ty: &Value) -> bool {
+    match force(&cx.g(), ty.clone()) {
+        Ok(Value::Eq(_, l, r)) => cx.conv_now(&l, &r).unwrap_or(false),
+        _ => false,
+    }
 }
 
 /// Whether a hypothesis of type `ty` is worth showing: a proposition, as
@@ -1196,7 +1248,8 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         );
         let fact_term = cx.quote(&fact)?;
         run.facts.set(run.facts.get() + 1);
-        let name = format!("%fact{}", run.facts.get());
+        let name = format!("{FACT}{}", run.facts.get());
+        run.injected.borrow_mut().push(Name::from(name.as_str()));
         lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
         cx.define(Some(&name), name.as_str().into(), fact, fact_term, proof)?;
     }
@@ -1207,6 +1260,245 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
         body = Term::let_(name, ty, value, body);
     }
     Ok(Some(body))
+}
+
+/// A fact [`take_apart`] added, `x = t` or `t = x` with `x` a variable that
+/// something else in scope mentions, eliminates `x` (SW-3344): `t` is put in
+/// its place in the goal and in every hypothesis that mentions it, and the
+/// case starts again. So `h: Some x = Some y` proves `f x = f y`. When both
+/// sides are variables, the right one is replaced.
+///
+/// The hypotheses that mention `x` (and those that mention them) are
+/// copied with `t` in its place, under their own names, so the originals
+/// can no longer be referred to (as a split's copies replace them). The
+/// proof is `J (z q => (d…: D… [z/x]) → G [z/x]) (d… => cases) e d…`,
+/// where `e: t = x` is the fact, or the fact turned round by `J`. `None`
+/// if no fact fits: `t` mentions `x`, or a hypothesis `t` mentions would
+/// have to be copied, or nothing but the fact mentions `x`.
+fn substitute(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
+    let g = cx.g();
+    let n = cx.level();
+    let injected = run.injected.borrow().clone();
+    if injected.is_empty() {
+        return Ok(None);
+    }
+    let substituted: Vec<Name> = run
+        .substituted
+        .borrow()
+        .iter()
+        .map(|(n, _)| n.clone())
+        .collect();
+    let visible = visible(cx);
+    let facts: Vec<usize> = visible
+        .iter()
+        .copied()
+        .filter(|&l| injected.contains(&cx.names[l]) && !substituted.contains(&cx.names[l]))
+        .collect();
+    if facts.is_empty() {
+        return Ok(None);
+    }
+    // The facts with a variable side, before anything is read back: most
+    // nodes have none.
+    let mut candidates = Vec::new();
+    for fact in facts {
+        let Value::Eq(a, l, r) = force(&g, cx.types[fact].clone())? else {
+            continue;
+        };
+        let (l, r) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+        for (var_on_right, side, other) in [(true, &r, &l), (false, &l, &r)] {
+            let Value::Neutral(Head::Var(x, _), spine) = side else {
+                continue;
+            };
+            let x = *x;
+            if spine.is_empty() && crate::matching::is_var(&cx.env[x], x) && cx.lets[x].is_none() {
+                candidates.push((fact, x, var_on_right, (*a).clone(), other.clone()));
+            }
+        }
+    }
+    if candidates.is_empty() {
+        return Ok(None);
+    }
+    let goal_term = cx.quote_folded(goal)?;
+    let goal_free = crate::matching::free_levels(&goal_term, n);
+    let first = candidates.iter().map(|c| c.1).min().unwrap_or(n);
+    let mut types: Vec<Option<Vec<usize>>> = vec![None; n];
+    for (l, free) in types.iter_mut().enumerate().skip(first + 1) {
+        *free = Some(crate::matching::free_levels(
+            &cx.quote_folded(&cx.types[l])?,
+            n,
+        ));
+    }
+    let free_of = |l: usize| types[l].as_deref().unwrap_or(&[]);
+    let mut found = None;
+    for (fact, x, var_on_right, a, other) in candidates {
+        // The hypotheses `x` reaches: those after it (but the fact) whose
+        // type mentions it, or one reached already.
+        let mut reached: Vec<usize> = Vec::new();
+        for l in x + 1..n {
+            if l != fact && free_of(l).iter().any(|&f| f == x || reached.contains(&f)) {
+                reached.push(l);
+            }
+        }
+        let other_free = crate::matching::free_levels(&cx.quote_folded(&other)?, n);
+        let a_free = crate::matching::free_levels(&cx.quote_folded(&a)?, n);
+        if other_free
+            .iter()
+            .chain(&a_free)
+            .any(|&f| f == x || reached.contains(&f))
+        {
+            continue;
+        }
+        // Of those, what must be copied: the visible ones, and what the goal
+        // or a copy mentions. A hidden one nothing copied mentions (an old
+        // copy) is left as it is, as nothing can name it: copying those too
+        // doubled the copies at each substitution (SW-3344 review, F2).
+        let mut needed: Vec<usize> = reached
+            .iter()
+            .copied()
+            .filter(|l| visible.contains(l) || goal_free.contains(l))
+            .collect();
+        let mut i = 0;
+        while i < needed.len() {
+            for &f in free_of(needed[i]) {
+                if reached.contains(&f) && !needed.contains(&f) {
+                    needed.push(f);
+                }
+            }
+            i += 1;
+        }
+        needed.sort_unstable();
+        if needed.is_empty() && !goal_free.contains(&x) {
+            continue;
+        }
+        found = Some((fact, x, var_on_right, a, other, needed));
+        break;
+    }
+    let Some((fact, x, var_on_right, a, t, deps)) = found else {
+        return Ok(None);
+    };
+    let dep_types: Vec<Term> = deps
+        .iter()
+        .map(|&d| cx.quote_folded(&cx.types[d]))
+        .collect::<Result<_>>()?;
+    // `value` (a type or the goal, in the first `n` variables) with `x`
+    // as `with`, and each copied hypothesis as its copy, from `copies` on.
+    let replaced = |cx: &Ctx, value: &Term, with: Value, copies: usize| -> Result<Value> {
+        let mut env = cx.env[..n].to_vec();
+        env[x] = with;
+        for (i, &d) in deps.iter().enumerate() {
+            env[d] = Value::var(copies + i);
+        }
+        Ok(eval(&g, &env, value)?)
+    };
+    let copy_name =
+        |cx: &Ctx, d: usize| (cx.name_of_level(d).map(str::to_string), cx.names[d].clone());
+
+    // The motive, `z q => (d…: D… [z/x]) → G [z/x]`.
+    let mark = cx.mark();
+    let motive = (|| -> Result<Term> {
+        let z = Value::var(n);
+        cx.bind_hidden("z".into(), a.clone());
+        let q_ty = Value::Eq(
+            Rc::new(a.clone()).into(),
+            Rc::new(t.clone()).into(),
+            Rc::new(z.clone()).into(),
+        );
+        cx.bind_hidden("q".into(), q_ty);
+        let mut pis = Vec::new();
+        for (&d, d_ty) in deps.iter().zip(&dep_types) {
+            let ty = replaced(cx, d_ty, z.clone(), n + 2)?;
+            pis.push((cx.names[d].clone(), cx.quote_folded(&ty)?));
+            cx.bind_hidden(cx.names[d].clone(), ty);
+        }
+        let goal = replaced(cx, &goal_term, z.clone(), n + 2)?;
+        let mut body = cx.quote_folded(&goal)?;
+        for (name, ty) in pis.into_iter().rev() {
+            body = Term::Pi(name, Icit::Explicit, Rc::new(ty), Rc::new(body));
+        }
+        Ok(Term::Lam(
+            "z".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+        ))
+    })();
+    cx.reset(mark);
+    let motive = motive?;
+
+    let shown = format!(
+        "`{}` is replaced by `{}`: an equation `cases` took apart says they are equal",
+        cx.show(&Value::var(x)),
+        cx.show(&t),
+    );
+    // The base, `d… => cases`, with the copies in scope.
+    let base = (|| -> Result<Term> {
+        let mut names = Vec::new();
+        for (&d, d_ty) in deps.iter().zip(&dep_types) {
+            let ty = replaced(cx, d_ty, t.clone(), n)?;
+            let (visible_name, name) = copy_name(cx, d);
+            match visible_name {
+                Some(shown) => cx.bind(&shown, ty),
+                None => cx.bind_hidden(name.clone(), ty),
+            }
+            names.push(name);
+        }
+        // `x`'s name now stands for `t`, so a term after `in` that names it
+        // still checks against the goal, which says `t` (review F1).
+        let alias = match cx.name_of_level(x) {
+            Some(name) => {
+                let name = name.to_string();
+                let (a_term, t_term) = (cx.quote_folded(&a)?, cx.quote_folded(&t)?);
+                cx.define(
+                    Some(&name),
+                    name.as_str().into(),
+                    a.clone(),
+                    a_term.clone(),
+                    t_term.clone(),
+                )?;
+                Some((Name::from(name.as_str()), a_term, t_term))
+            }
+            None => None,
+        };
+        let goal = replaced(cx, &goal_term, t.clone(), n)?;
+        run.substituted
+            .borrow_mut()
+            .push((cx.names[fact].clone(), shown.clone()));
+        let body = node(cx, run, &goal);
+        run.substituted.borrow_mut().pop();
+        let mut body = body?;
+        if let Some((name, ty, value)) = alias {
+            body = Term::let_(name, ty, value, body);
+        }
+        for name in names.into_iter().rev() {
+            body = Term::Lam(name, Icit::Explicit, Rc::new(body));
+        }
+        Ok(body)
+    })();
+    cx.reset(mark);
+    let base = base?;
+
+    let at = |l: usize| Term::Var(n - 1 - l);
+    let equation = if var_on_right {
+        at(fact)
+    } else {
+        // `J (z q => z = x) rfl fact : t = x`.
+        let a_term = cx.quote_folded(&a)?.shift(&g, 2, 0)?;
+        let turn = Term::Eq(
+            Some(Rc::new(a_term)),
+            Rc::new(Term::Var(1)),
+            Rc::new(Term::Var(n + 1 - x)),
+        );
+        let turn = Term::Lam(
+            "z".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(turn))),
+        );
+        Term::J(Rc::new(turn), Rc::new(Term::Refl), Rc::new(at(fact)))
+    };
+    let mut proof = Term::J(Rc::new(motive), Rc::new(base), Rc::new(equation));
+    for &d in &deps {
+        proof = Term::app(proof, at(d));
+    }
+    Ok(Some(proof))
 }
 
 /// A hypothesis `h: P → Q` (`Q` not mentioning the proof of `P`, `P` an
@@ -1276,7 +1568,7 @@ fn apply_guarded(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Ter
         let proof = Term::app(at(level), premise);
         let fact_term = cx.quote(&fact)?;
         run.facts.set(run.facts.get() + 1);
-        let name = format!("%fact{}", run.facts.get());
+        let name = format!("{FACT}{}", run.facts.get());
         lets.push((Name::from(name.as_str()), fact_term.clone(), proof.clone()));
         cx.define(Some(&name), name.as_str().into(), fact, fact_term, proof)?;
     }
