@@ -1,5 +1,5 @@
 {
-  "next": 3395,
+  "next": 3396,
   "tickets": [
     {
       "id": 47,
@@ -221,14 +221,14 @@
     {
       "id": 510,
       "title": "Constructor names: should they live inside their type (Quit vs GaveUp ambiguity), or be resolved by expected type?",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "decision"
       ],
       "epic": "syntax-language",
-      "body": "Opus paper started 12:00, expected 1.5 h: design note docs/proposals/constructor-names.md ahead of the full formatter.",
+      "body": "Opus paper started 12:00, expected 1.5 h: design note docs/proposals/constructor-names.md ahead of the full formatter.\n\n12:10 review: docs/proposals/constructor-names.md written (not committed). Probed today: bare clashing constructors are E-AMBIGUOUS in patterns, values, arguments, lists, record updates and comparisons even with the type known; a file's own `None` breaks `| None` on an Option. Options (a) expected type first, (a') type as tie-break, (b) `.Ctor` only, (c) both, (d) status quo. Recommends (a): the known type's constructor wins, ambiguous names wait on the queue when the type isn't known yet; terms and hashes unchanged. Four stages, ~8-9 h (Sonnet 1.5 h, Opus 2 h, Opus 2-3 h, Sonnet 1.5 h). Question: D3615 (adopt (a)? rec yes).\n",
       "created": "2026-10-25",
       "updated": "2026-11-15",
       "commits": []
@@ -37639,6 +37639,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "Facts checked 15 Nov: native code is Cranelift objects linked against crates/rt with a C main calling sw_native_manifest (crates/native/src/lib.rs, aot.rs; crates/rt/src/native_aot.rs); run --native JITs in-process.",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3395,
+      "title": "[Sonnet] Doc fixes from SW-510: games/rogue/NOTES.md §8's claim that Rust resolves variants by expected type (the Rust Reference doesn't support it); namespaces.md §4.9 example uses Decidable's Yes, which no longer exists (record since SW-2746)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
