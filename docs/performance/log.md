@@ -46,6 +46,80 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 15 Nov 2026
 
+### SW-3370: derived `==` and `<` linear in the constructor count; 94 constructors from 12.3 s to 0.17 s
+
+- **Status:** kept (Opus). Stage 2 of
+  [derived-equality.md](../proposals/derived-equality.md#56-linear-cost-compare-tags-then-rebuild)
+  (D3609).
+- **Problem, profiled first.** The note's probes (§3), one `check --no-cache`
+  each with `STITCHWORT_TIMINGS=1`, timing each derived group: for 47
+  constructors `K0 (m: Nat) | K1 | …`, `T.%trans` took 2.4 s of 3.0 s,
+  `T.%equal` 0.20 s, `T.%flip` 0.14 s and `DecEq`'s two proofs 0.14 s. Each
+  matched both values, with a catch-all for every pair of different
+  constructors, so its case tree had n² leaves (n³ for `trans`'s third
+  value), each elaborated; `T.%differ` only saved `DecEq` from proving each
+  leaf. An enumeration's `T.%equal` and `DecEq` proofs had the same n²
+  leaves (0.79 s and 0.53 s of 2.0 s at 94).
+- **Change.** With two constructors or more, the derived test and order
+  match only the first value, compare the tags first and read the second
+  value's fields by projection: `T.%same (C a…) s = Nat.equal c (T.%tag s)
+  && …`, `T.%compare r s = if Nat.equal (T.%tag r) (T.%tag s) then
+  T.%fields r s else Nat.compare …`. The proofs get the tags' equation from
+  new core lemmas (`DecEq.tagsSame`, `Ordering.tagsEqual`, `tagsFlip`,
+  `tagsTrans`) and turn the second value into the same constructor by
+  `T.%etaAt`, a `J` over `T.%view`, which is built in the kernel from
+  projections `T.%C%k%at` that take the tag's equation (their other
+  branches refute it). Each law has n equations; `T.%differ` and
+  `T.%unfold` are gone, and with them the core's `Ordering.byTagTrans`,
+  `andThenTransWhen`, `notBothEqual` and `bothEqual`. One-constructor types
+  (records) are unchanged. `if`, not `Ordering.andThen` of the tags'
+  comparison, so a run compares fields only when the tags are equal.
+- **Why results stay the same.** The order is the same (positions, then
+  fields left to right) and so is the test; the instances' laws are the
+  same theorems (`Ord.fromCompare` of `compare`, `equal`, `flip`, `trans`;
+  `DecEq.sound`, `complete`, the readings), checked by the kernel. The
+  derive, ord, deceq, compare, sort, eqeq, nested-data, show and finite
+  examples pass, and a new one (`derive-many-constructors.sw`) uses the
+  laws on a type with recursive, nested, proof and parameter fields. Every
+  derived declaration's hash changed (101 example snapshots); the prelude
+  snapshot only gained and lost the lemmas named above.
+- **Measured** (release CLI, the type's row of `STITCHWORT_TIMINGS=1`,
+  elab + kernel, one run each, load 5-8):
+
+  | Type | before | steps | after | steps |
+  |---|---|---|---|---|
+  | 24 constructors, `K0 (m: Nat) \| K1 \| …` | 0.78 s | 10.2 M | 0.04 s | 0.48 M |
+  | 47 constructors | 3.0 s | 39.4 M | 0.08 s | 0.90 M |
+  | 94 constructors | 12.3 s | 158 M | 0.17 s | 1.76 M |
+  | 94, an enumeration | 1.78 s | 18.5 M | 0.46 s | 3.0 M |
+  | 20, each `(a: Nat) (b: Text) (c: List Node)` | 0.93 s | 13.2 M | 0.43 s | 7.1 M |
+  | 94, each as above | 19.7 s | 260 M | 2.65 s | 38.5 M |
+
+  What's left of the enumeration is its derived `Finite` (2.4 M of 3.0 M
+  steps), still quadratic; of 94 three-field constructors, the per-
+  constructor proofs (about 10 ms each for `equal`) and the `%at`
+  projections, n branches each. Small types: `type Dir = | Up | Down |
+  Left | Right` 4.9 → 4.1 ms, `| Wall | Open (n: Nat) | Door (key: Char)`
+  14.5 → 11.4 ms, a five-constructor token type 32 → 13 ms; but two or
+  three constructors that each have three fields, one a nested list, got
+  slower, 24 → 41 ms and 37 → 64 ms (the new per-constructor proof costs
+  more than the few pairs it saves; break-even near six constructors).
+  Running: sorting 60,000 values of a five-constructor type and filtering
+  with `==`, 0.79 s before and 0.81 s after (one run each, check included).
+- **Guard.** `derived_instances_grow_linearly_with_constructors` (driver
+  library tests) checks that 94 constructors take under 2.6 times 47's
+  steps, and under 5 M steps for the one-field type.
+- **Rejected or not done.** `Ordering.andThen (Nat.compare tags) (fields r
+  s)`, as the note wrote it: a run is strict, so it would compare the
+  fields of values of different constructors (a value with itself, by the
+  default projections, for a recursive field). A `T.%rebuild` with default
+  field values, as the note sketched: a field's type needn't be inhabited,
+  so the projections that rebuild take the tag's equation instead. The
+  enumeration's `Finite` and the small-type regression are left (findings).
+  The benchmark and `bench:aoc` were not run in the lane (lane test
+  budget); their step counts move with every derived instance.
+- **Links.** SW-3370; [derived-equality.md](../proposals/derived-equality.md) §3, §5.6.
+
 ### SW-3337: fast text (T1): a text is a piece of a shared buffer; reading by position 20,000 times went from 21 s to nothing measurable
 
 - **Status:** kept (Opus). Stage T1 of

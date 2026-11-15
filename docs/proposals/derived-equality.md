@@ -1,6 +1,6 @@
 # Derived `==`, `<` and `${…}` for every data type (SW-3354, SW-3358)
 
-**Status:** draft 1, 15 November 2026. Design only; nothing built. Open
+**Status:** draft 1, 15 November 2026. Stage 2 built (SW-3370, §5.6). Open
 decision: D3609 ([§7](#7-decision-for-matt)). Code read at `ae7a3b341`.
 Migration cost is not counted (D2303).
 
@@ -220,6 +220,18 @@ size and checking time become linear [inferred]: the 94-constructor probe
 should land near the enumeration's path or below, under 1 s [estimated].
 Lean's deriving code imports a `CtorIdx` construction, which suggests the
 same route [cited, API docs; not read].
+
+**As built (stage 2, SW-3370).** Two changes from the sketch above. The
+comparison is `if Nat.equal (T.%tag r) (T.%tag s) then T.%fields r s else
+Nat.compare (T.%tag r) (T.%tag s)`, not `Ordering.andThen`: a run is
+strict, so `andThen` would compare the fields of values of different
+constructors. And the rebuild can't use default field values (a field's
+type needn't be inhabited): `T.%view s t h` takes `h: T.%tag s = t`, and
+for `t` a constructor's position builds it from projections `T.%C%k%at s
+h`, whose other branches refute `h`; `T.%etaAt s t h : T.%view s t h = s`
+is a `J` over `T.%eta`, n cases of `rfl`. The tags' cases are core lemmas
+(`Ordering.tagsEqual`, `tagsFlip`, `tagsTrans`, `DecEq.tagsSame`). 94
+constructors went from 12.3 s to 0.17 s [measured; docs/performance/log.md].
 
 ### 5.7 Hashes and checking time
 

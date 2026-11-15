@@ -2,6 +2,7 @@
 
 mod builtins;
 mod deformat;
+mod derive_cost;
 mod fmt_hashes;
 mod hash_stability;
 mod import_cost;
