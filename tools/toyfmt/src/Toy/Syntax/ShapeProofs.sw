@@ -497,3 +497,730 @@ theorem givesOperand ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (
     OperandShaped
     givesMark
     (at marked => givesNegations self layout nested (at.left + 1))
+
+-- Operator chains.
+
+--| What `Parse.operators` gives for operators of level `lowest` (counted
+--| from 0) or tighter: a chain of the parser's shape whose outermost
+--| operator, if it has one, is of such a level.
+def Grouped (lowest: Nat) (expr: Expr): Prop :=
+  Shaped expr ∧ expr.isChain = True ∧ (expr.isOperand = True ∨ lowest < expr.chainLevel)
+
+--| What `Parse.operators` holds on its left while it reads operators of
+--| levels `lowest` to `highest`: a chain whose outermost operator, if it
+--| has one, is no looser than either.
+def Chained (lowest highest: Nat) (expr: Expr): Prop :=
+  Shaped expr ∧ expr.isChain = True ∧ (expr.isOperand = True ∨ (lowest < expr.chainLevel ∧ highest < expr.chainLevel))
+
+--| What `operatorLevels` finds for a token, if anything: an operator's
+--| `Binary`, at the place of its level, chaining from the left.
+def OperatorShape: Option (Nat, Parse.Associativity, Expr → Expr → Expr) → Prop
+  | None => True
+  | Some (level, associativity, combine) =>
+    ∃ (operator: Operator) => ∃ (comments: Comments) => combine = Binary operator comments
+      ∧ operator.level = level + 1
+      ∧ associativity = LeftAssociative
+
+--| A token is an operator the layout allows, or no level takes it.
+theorem operatorOfKinds ∀ (layout: Layout) (token: Parse.Located Token):
+    (∀ (level: Nat) => operatorOf layout level token = None)
+      ∨ (∃ (operator: Operator) => token.value.kind = Op operator ∧ layout.allows token = True) :=
+  match kind: token.value.kind with
+    | Op operator =>
+      match allowed: layout.allows token with
+        | True => Inr (Witness operator (Both rfl rfl))
+        | False => Inl (level =>
+          match same: operator.level == level with
+            | True => rfl
+            | False => rfl)
+    | Name text => Inl (level => rfl)
+    | Number digits => Inl (level => rfl)
+    | Str written => Inl (level => rfl)
+    | Reserved keyword => Inl (level => rfl)
+    | Sign punctuation => Inl (level => rfl)
+    | Stray text => Inl (level => rfl)
+
+theorem operatorShape ∀ (layout: Layout) (token: Parse.Located Token):
+    OperatorShape (Parse.operatorFrom token 0 (operatorLevels layout)) :=
+  match operatorOfKinds layout token with
+    | Inl none => rewrite none 1, none 2, none 3, none 4, none 5, none 6 in rfl
+    | Inr (Witness operator (Both kind allowed)) =>
+      rewrite operatorFound layout token operator kind allowed in
+        Witness operator (Witness (layout.comments token) (Both rfl (Both (omega [(levelRange operator).left]) rfl)))
+
+--| An operator read after a chain, with its right side grouped tighter,
+--| makes a chain of the parser's shape.
+theorem chainStep ∀ (layout: Layout) (lowest highest level: Nat) (associativity: Parse.Associativity)
+    (combine: Expr → Expr → Expr) (item: Parse.Located Token) (left right: Expr)
+    (found: Parse.operatorFrom item 0 (operatorLevels layout) = Some (level, associativity, combine))
+    (above: lowest ≤ level)
+    (below: level ≤ highest)
+    (chained: Chained lowest highest left)
+    (grouped: Grouped (Parse.nextLowest associativity level) right):
+    Chained lowest level (combine left right) :=
+  let shape := operatorShape layout item
+  let known := rewrite found at shape in shape
+  match known with
+    | Witness operator (Witness comments (Both isBinary (Both level1 isLeft))) =>
+      let groupedLeft: Grouped (level + 1) right := rewrite isLeft at grouped in grouped
+      let leftBound: operator.level ≤ left.chainLevel := match chained.right.right with
+        | Inl isOperand => omega [operandLevel left isOperand, (levelRange operator).right]
+        | Inr both => omega [both.right, below, level1]
+      let rightBound: operator.level < right.chainLevel := match groupedLeft.right.right with
+        | Inl isOperand => omega [operandLevel right isOperand, (levelRange operator).right]
+        | Inr low => omega [low, level1]
+      rewrite isBinary in
+        Both
+          (Both leftBound
+            (Both rightBound
+              (Both chained.right.left (Both groupedLeft.right.left (Both chained.left groupedLeft.left)))))
+          (Both rfl (Inr (Both (omega [above, level1]) (omega [level1]))))
+
+--| An operator chain is of the parser's shape: grouped by precedence, each
+--| level chaining from the left.
+theorem givesChain ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
+    Gives (() => Parse.operators "an operator" (operatorLevels layout) (() => operand self layout)) Shaped :=
+  Parse.readsWeaken
+    (Parse.readsOperators "an operator"
+      (operatorLevels layout)
+      (() => operand self layout)
+      OperandShaped
+      Grouped
+      Chained
+      (givesOperand self layout nested)
+      (lowest highest value isOperand =>
+        Both isOperand.right (Both (operandIsChain value isOperand.left) (Inl isOperand.left)))
+      (lowest highest value chained =>
+        Both chained.left
+          (Both chained.right.left
+            (match chained.right.right with
+              | Inl isOperand => Inl isOperand
+              | Inr both => Inr both.left)))
+      (chainStep layout))
+    (taken value grouped => grouped.left)
+
+-- Bodies and blocks.
+
+theorem givesBare ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
+    Gives (() => bareStatement self layout) ShapedStatement :=
+  givesThen (() => self layout) (value => Bare value) Shaped ShapedStatement (nested layout) (value shaped =>
+    givesDone _ ShapedStatement shaped)
+
+theorem givesInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
+    Gives (() => inlineBody self layout) ShapedBody :=
+  givesThen
+    (() => bareStatement self layout)
+    (line => { statements = [{ blankBefore = False, line }] })
+    ShapedStatement
+    ShapedBody
+    (givesBare self layout nested)
+    (line shaped => givesDone _ ShapedBody (Both shaped rfl))
+
+theorem shapedLinesAppend ∀ (front back: List (Spaced Statement))
+    (frontShaped: ShapedLines front)
+    (backShaped: ShapedLines back):
+    ShapedLines (front ++ back) :=
+  match front, frontShaped with
+    | [], frontShaped => backShaped
+    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped =>
+      Both lineShaped (shapedLinesAppend rest back restShaped backShaped)
+
+theorem shapedNotes ∀ (trivia: List Trivia) (found: (List (Spaced Statement), Bool))
+    (shaped: ShapedLines found.fst):
+    ShapedLines (trivia.foldLeft found (noteStep StatementNote)).fst :=
+  match trivia with
+    | [] => shaped
+    | [BlankLine, ..rest] => shapedNotes rest (noteStep StatementNote found BlankLine) shaped
+    | [OwnLine comment, ..rest] =>
+      shapedNotes rest
+        (noteStep StatementNote found (OwnLine comment))
+        (shapedLinesAppend found.fst [{ blankBefore = found.snd, line = StatementNote comment }] shaped (Both rfl rfl))
+
+--| A statement's lines, the notes above it and itself, are of the
+--| parser's shape when it is.
+theorem shapedNoted ∀ (above: List Trivia) (line: Statement)
+    (shaped: ShapedStatement line):
+    ShapedLines (notedStatement above line) :=
+  let notesShaped: ShapedLines (spacedNotes StatementNote above).fst := shapedNotes above ([], False) rfl
+  match found: spacedNotes StatementNote above with
+    | (notes, blankBefore) => shapedLinesAppend notes [{ blankBefore, line }] notesShaped (Both shaped rfl)
+
+theorem shapedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
+    (shaped: ShapedLines lines):
+    ShapedLines (withoutFirstBlank lines) :=
+  match lines, shaped with
+    | [], shaped => rfl
+    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => Both lineShaped restShaped
+
+--| Each group of lines is of the parser's shape.
+def AllShaped: List (List (Spaced Statement)) → Prop
+  | [] => True
+  | [first, ..rest] => ShapedLines first ∧ AllShaped rest
+
+theorem eachShaped ∀ (values: List (List (Spaced Statement))) (taken: List (Parse.Located Token))
+    (each: Parse.Each (read lines => ShapedLines lines) taken values):
+    AllShaped values :=
+  match values, each with
+    | [], each => rfl
+    | [first, ..rest], Witness firstRead (Witness restRead (Both split (Both holds more))) =>
+      Both holds (eachShaped rest restRead more)
+
+theorem shapedConcat ∀ (groups: List (List (Spaced Statement))) (all: AllShaped groups): ShapedLines groups.concat :=
+  match groups, all with
+    | [], all => rfl
+    | [first, ..rest], Both firstShaped restShaped =>
+      shapedLinesAppend first rest.concat firstShaped (shapedConcat rest restShaped)
+
+theorem givesStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
+    (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) ShapedBody)
+    (layout: Layout) (first: Parse.Located Token) (kind: Kind):
+    Gives (() => statementLine fuel self layout first kind) ShapedStatement :=
+  match kind with
+    | Reserved LetKeyword => Parse.readsThen givesSkip (skipRead skipped done =>
+      Parse.readsThen (givesName layout) (nameRead pair named =>
+        match pair with
+          | (bound, nameComments) =>
+            givesThen
+              (() => sign layout "'='" Defines)
+              (equals => Let (layout.comments first) bound nameComments equals (bodyFuel fuel self layout))
+              (equals => True)
+              ShapedStatement
+              (givesSign layout "'='" Defines)
+              (equals signed =>
+                givesThen
+                  (() => bodyFuel fuel self layout)
+                  (inner => Let (layout.comments first) bound nameComments equals inner)
+                  ShapedBody
+                  ShapedStatement
+                  (givesBody layout)
+                  (inner shaped => givesDone _ ShapedStatement shaped))))
+    | Reserved FnKeyword => givesBare self layout nested
+    | Reserved IfKeyword => givesBare self layout nested
+    | Reserved ThenKeyword => givesBare self layout nested
+    | Reserved ElseKeyword => givesBare self layout nested
+    | Name text => givesBare self layout nested
+    | Number digits => givesBare self layout nested
+    | Str written => givesBare self layout nested
+    | Sign punctuation => givesBare self layout nested
+    | Op operator => givesBare self layout nested
+    | Stray text => givesBare self layout nested
+
+theorem givesStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
+    (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) ShapedBody) (column: Nat):
+    Gives (() => statement fuel self column) ShapedLines :=
+  state value after honest h =>
+    match e: state.at.rest with
+      | [first, ..later] =>
+        match starts: first.value.startsLine && first.value.column == column with
+          | True =>
+            givesThen
+              (() => statementLine fuel self (InStatement column first.offset) first first.value.kind)
+              (line => notedStatement first.value.above line)
+              ShapedStatement
+              ShapedLines
+              (givesStatementLine self nested fuel givesBody (InStatement column first.offset) first first.value.kind)
+              (line shaped => givesDone _ ShapedLines (shapedNoted first.value.above line shaped))
+              state
+              value
+              after
+              honest
+              h
+
+theorem givesBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
+    (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) ShapedBody) (column: Nat):
+    Gives (() => block fuel self column) ShapedBody :=
+  givesThen
+    (() => Parse.many1 (() => statement fuel self column))
+    (lines => { statements = lines.toList.concat |> withoutFirstBlank })
+    (lines => AllShaped lines.toList)
+    ShapedBody
+    (Parse.readsWeaken
+      (Parse.readsMany1
+        (() => statement fuel self column)
+        (read lines => ShapedLines lines)
+        (givesStatement self nested fuel givesBody column))
+      (taken lines each => eachShaped lines.toList taken each))
+    (lines all => givesDone _ ShapedBody (shapedWithoutFirstBlank lines.toList.concat (shapedConcat lines.toList all)))
+
+--| A body, a block or one expression, holds expressions of the parser's
+--| shape.
+theorem givesBodyFuel ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped)
+    (fuel: Nat) (layout: Layout):
+    Gives (() => bodyFuel fuel self layout) ShapedBody :=
+  match fuel with
+    | Zero => state value after honest h => Void.exfalso (Result.errNotOk h)
+    | Succ more => state value after honest h =>
+      match layout with
+        | InBrackets => givesInline self InBrackets nested state value after honest h
+        | InStatement column start =>
+          match e: state.at.rest with
+            | [] => givesInline self (InStatement column start) nested state value after honest h
+            | [token, ..later] =>
+              match deeper: token.value.startsLine && token.value.column > column with
+                | False => givesInline self (InStatement column start) nested state value after honest h
+                | True =>
+                  givesBlock self nested more
+                    (inner => givesBodyFuel self nested more inner)
+                    token.value.column
+                    state
+                    value
+                    after
+                    honest
+                    h
+
+theorem givesBody ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
+    Gives (() => body self layout) ShapedBody :=
+  givesThen
+    (() => Parse.mark())
+    (at => bodyFuel (at.left + 1) self layout)
+    (at => True)
+    ShapedBody
+    givesMark
+    (at marked => givesBodyFuel self nested (at.left + 1) layout)
+
+-- `if`, and the expression parser.
+
+theorem givesElse ∀ (layout: Layout): Gives (() => elseKeyword layout) (comments => True) :=
+  state value after honest h =>
+    match e: state.at.rest with
+      | [] => givesKeyword layout ElseKeyword state value after honest h
+      | [token, ..later] =>
+        match isElse: (keywordIs ElseKeyword token.value.kind).isSome with
+          | False => givesKeyword layout ElseKeyword state value after honest h
+          | True =>
+            match allowed: layout.allowsElse token with
+              | True =>
+                givesThen
+                  (() => skip())
+                  (skipped => layout.comments token)
+                  (skipped => True)
+                  (comments => True)
+                  givesSkip
+                  (skipped done => givesDone _ _ rfl)
+                  state
+                  value
+                  after
+                  honest
+                  h
+
+--| One level of the expression parser gives an expression of the
+--| parser's shape, given that `self` does for the expressions nested in it.
+theorem givesExpressionRule ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
+    Gives (() => expressionRule self layout) Shaped :=
+  state value after honest h =>
+    match e: state.at.rest with
+      | [] => givesChain self layout nested state value after honest h
+      | [token, ..later] =>
+        match found: isIf layout token with
+          | False => givesChain self layout nested state value after honest h
+          | True =>
+            givesThen
+              (() => skip())
+              (skipped =>
+                let condition := self layout
+                let thenComments := keyword layout ThenKeyword
+                let whenTrue := body self layout
+                let elseComments := elseKeyword layout
+                let whenFalse := body self layout
+                If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+              (skipped => True)
+              Shaped
+              givesSkip
+              (skipped done =>
+                givesThen
+                  (() => self layout)
+                  (condition =>
+                    let thenComments := keyword layout ThenKeyword
+                    let whenTrue := body self layout
+                    let elseComments := elseKeyword layout
+                    let whenFalse := body self layout
+                    If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+                  Shaped
+                  Shaped
+                  (nested layout)
+                  (condition conditionShaped =>
+                    givesThen
+                      (() => keyword layout ThenKeyword)
+                      (thenComments =>
+                        let whenTrue := body self layout
+                        let elseComments := elseKeyword layout
+                        let whenFalse := body self layout
+                        If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+                      (thenComments => True)
+                      Shaped
+                      (givesKeyword layout ThenKeyword)
+                      (thenComments thenRead =>
+                        givesThen
+                          (() => body self layout)
+                          (whenTrue =>
+                            let elseComments := elseKeyword layout
+                            let whenFalse := body self layout
+                            If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+                          ShapedBody
+                          Shaped
+                          (givesBody self layout nested)
+                          (whenTrue trueShaped =>
+                            givesThen
+                              (() => elseKeyword layout)
+                              (elseComments =>
+                                let whenFalse := body self layout
+                                If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+                              (elseComments => True)
+                              Shaped
+                              (givesElse layout)
+                              (elseComments elseRead =>
+                                givesThen
+                                  (() => body self layout)
+                                  (whenFalse =>
+                                    If (layout.comments token) condition thenComments whenTrue elseComments whenFalse)
+                                  ShapedBody
+                                  Shaped
+                                  (givesBody self layout nested)
+                                  (whenFalse falseShaped =>
+                                    givesDone _ Shaped (Both conditionShaped (Both trueShaped falseShaped))))))))
+              state
+              value
+              after
+              honest
+              h
+
+--| Every expression the parser gives is of the parser's shape (`Shaped`):
+--| whatever the tokens, if `expression` succeeds, its operators are
+--| grouped by precedence and chain from the left, a call's callee and a
+--| field's target are postfix expressions, and `-` stands before an
+--| operand, in every nested expression and every block of an `if`.
+theorem givesExpression ∀ (layout: Layout): Gives (() => expression layout) Shaped :=
+  Parse.readsRecursiveWith expressionRule
+    (inner taken expr => Shaped expr)
+    (self nested argument => givesExpressionRule self argument nested)
+    layout
+
+-- Declarations and the file.
+
+--| Each expression in the declaration is of the parser's shape.
+def ShapedDeclaration: Declaration → Prop
+  | Function _ _ _ _ _ _ _ found => ShapedBody found
+  | Value _ _ _ _ found => ShapedBody found
+  | DeclarationNote _ => True
+
+def ShapedDeclarations: List (Spaced Declaration) → Prop
+  | [] => True
+  | [{ line, .. }, ..rest] => ShapedDeclaration line ∧ ShapedDeclarations rest
+
+--| Each expression in the file is of the parser's shape.
+def ShapedFile: SourceFile → Prop
+  | { declarations } => ShapedDeclarations declarations
+
+theorem givesParameterStep: Gives parameterStep (step => True) :=
+  givesThen
+    (() => sign InBrackets "','" Comma)
+    (comma =>
+      let named := name InBrackets
+      (comma, named))
+    (comma => True)
+    (step => True)
+    (givesSign InBrackets "','" Comma)
+    (comma signed =>
+      givesThen
+        (() => name InBrackets)
+        (named => (comma, named))
+        (named => True)
+        (step => True)
+        (givesName InBrackets)
+        (named done => givesDone _ _ rfl))
+
+theorem givesParameterList: Gives parameterList (found => True) :=
+  givesThen
+    (() => name InBrackets)
+    (first =>
+      let others := Parse.many parameterStep
+      (first, others))
+    (first => True)
+    (found => True)
+    (givesName InBrackets)
+    (first named =>
+      givesThen
+        (() => Parse.many parameterStep)
+        (others => (first, others))
+        (others => True)
+        (found => True)
+        (Parse.readsWeaken (Parse.readsMany parameterStep (read step => True) givesParameterStep) (taken others each =>
+          rfl))
+        (others done => givesDone _ _ rfl))
+
+theorem givesParameters: Gives (() => parametersOf (Parse.optional parameterList)) (parameters => True) :=
+  givesThen
+    (() => Parse.optional parameterList)
+    (found => parametersOf found)
+    (found => True)
+    (parameters => True)
+    (Parse.readsWeaken (Parse.readsOptional givesParameterList) (taken found maybe => rfl))
+    (found listed => givesDone _ _ rfl)
+
+theorem givesFunctionLine ∀ (layout: Layout) (first: Parse.Located Token):
+    Gives (() => functionLine layout first) ShapedDeclaration :=
+  Parse.readsThen givesSkip (skipRead skipped done =>
+    Parse.readsThen (givesName layout) (nameRead pair named =>
+      match pair with
+        | (declared, nameComments) =>
+          givesThen
+            (() => sign layout "'('" OpenParen)
+            (open =>
+              let parameters := parametersOf (Parse.optional parameterList)
+              let close := sign InBrackets "')'" CloseParen
+              let equals := sign layout "'='" Defines
+              Function
+                (layout.comments first)
+                declared
+                nameComments
+                open
+                parameters
+                close
+                equals
+                (body expression layout))
+            (open => True)
+            ShapedDeclaration
+            (givesSign layout "'('" OpenParen)
+            (open opened =>
+              givesThen
+                (() => parametersOf (Parse.optional parameterList))
+                (parameters =>
+                  let close := sign InBrackets "')'" CloseParen
+                  let equals := sign layout "'='" Defines
+                  Function
+                    (layout.comments first)
+                    declared
+                    nameComments
+                    open
+                    parameters
+                    close
+                    equals
+                    (body expression layout))
+                (parameters => True)
+                ShapedDeclaration
+                givesParameters
+                (parameters listed =>
+                  givesThen
+                    (() => sign InBrackets "')'" CloseParen)
+                    (close =>
+                      let equals := sign layout "'='" Defines
+                      Function
+                        (layout.comments first)
+                        declared
+                        nameComments
+                        open
+                        parameters
+                        close
+                        equals
+                        (body expression layout))
+                    (close => True)
+                    ShapedDeclaration
+                    (givesSign InBrackets "')'" CloseParen)
+                    (close closed =>
+                      givesThen
+                        (() => sign layout "'='" Defines)
+                        (equals =>
+                          Function
+                            (layout.comments first)
+                            declared
+                            nameComments
+                            open
+                            parameters
+                            close
+                            equals
+                            (body expression layout))
+                        (equals => True)
+                        ShapedDeclaration
+                        (givesSign layout "'='" Defines)
+                        (equals signed =>
+                          givesThen
+                            (() => body expression layout)
+                            (inner =>
+                              Function (layout.comments first) declared nameComments open parameters close equals inner)
+                            ShapedBody
+                            ShapedDeclaration
+                            (givesBody expression layout givesExpression)
+                            (inner shaped => givesDone _ ShapedDeclaration shaped)))))))
+
+theorem givesValueLine ∀ (layout: Layout) (first: Parse.Located Token):
+    Gives (() => valueLine layout first) ShapedDeclaration :=
+  Parse.readsThen givesSkip (skipRead skipped done =>
+    Parse.readsThen (givesName layout) (nameRead pair named =>
+      match pair with
+        | (declared, nameComments) =>
+          givesThen
+            (() => sign layout "'='" Defines)
+            (equals => Value (layout.comments first) declared nameComments equals (body expression layout))
+            (equals => True)
+            ShapedDeclaration
+            (givesSign layout "'='" Defines)
+            (equals signed =>
+              givesThen
+                (() => body expression layout)
+                (inner => Value (layout.comments first) declared nameComments equals inner)
+                ShapedBody
+                ShapedDeclaration
+                (givesBody expression layout givesExpression)
+                (inner shaped => givesDone _ ShapedDeclaration shaped))))
+
+theorem givesDeclarationLine ∀ (layout: Layout) (first: Parse.Located Token):
+    Gives (() => declarationLine layout first) ShapedDeclaration :=
+  state value after honest h =>
+    match kind: first.value.kind with
+      | Reserved FnKeyword => givesFunctionLine layout first state value after honest h
+      | Reserved LetKeyword => givesValueLine layout first state value after honest h
+
+theorem declarationsAppend ∀ (front back: List (Spaced Declaration))
+    (frontShaped: ShapedDeclarations front)
+    (backShaped: ShapedDeclarations back):
+    ShapedDeclarations (front ++ back) :=
+  match front, frontShaped with
+    | [], frontShaped => backShaped
+    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped =>
+      Both lineShaped (declarationsAppend rest back restShaped backShaped)
+
+theorem declarationNotes ∀ (trivia: List Trivia) (found: (List (Spaced Declaration), Bool))
+    (shaped: ShapedDeclarations found.fst):
+    ShapedDeclarations (trivia.foldLeft found (noteStep DeclarationNote)).fst :=
+  match trivia with
+    | [] => shaped
+    | [BlankLine, ..rest] => declarationNotes rest (noteStep DeclarationNote found BlankLine) shaped
+    | [OwnLine comment, ..rest] =>
+      declarationNotes rest
+        (noteStep DeclarationNote found (OwnLine comment))
+        (declarationsAppend found.fst
+          [{ blankBefore = found.snd, line = DeclarationNote comment }]
+          shaped
+          (Both rfl rfl))
+
+theorem shapedNotedDeclaration ∀ (above: List Trivia) (line: Declaration)
+    (shaped: ShapedDeclaration line):
+    ShapedDeclarations (notedDeclaration above line) :=
+  let notesShaped: ShapedDeclarations (spacedNotes DeclarationNote above).fst := declarationNotes above ([], False) rfl
+  match found: spacedNotes DeclarationNote above with
+    | (notes, blankBefore) => declarationsAppend notes [{ blankBefore, line }] notesShaped (Both shaped rfl)
+
+theorem declarationsWithoutFirstBlank ∀ (lines: List (Spaced Declaration))
+    (shaped: ShapedDeclarations lines):
+    ShapedDeclarations (withoutFirstBlank lines) :=
+  match lines, shaped with
+    | [], shaped => rfl
+    | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => Both lineShaped restShaped
+
+def AllDeclarations: List (List (Spaced Declaration)) → Prop
+  | [] => True
+  | [first, ..rest] => ShapedDeclarations first ∧ AllDeclarations rest
+
+theorem eachDeclarations ∀ (values: List (List (Spaced Declaration))) (taken: List (Parse.Located Token))
+    (each: Parse.Each (read lines => ShapedDeclarations lines) taken values):
+    AllDeclarations values :=
+  match values, each with
+    | [], each => rfl
+    | [first, ..rest], Witness firstRead (Witness restRead (Both split (Both holds more))) =>
+      Both holds (eachDeclarations rest restRead more)
+
+theorem declarationsConcat ∀ (groups: List (List (Spaced Declaration)))
+    (all: AllDeclarations groups):
+    ShapedDeclarations groups.concat :=
+  match groups, all with
+    | [], all => rfl
+    | [first, ..rest], Both firstShaped restShaped =>
+      declarationsAppend first rest.concat firstShaped (declarationsConcat rest restShaped)
+
+theorem givesDeclaration: Gives declaration ShapedDeclarations := state value after honest h =>
+  match e: state.at.rest with
+    | [first, ..later] =>
+      match starts: first.value.startsLine && first.value.column == 0 with
+        | True =>
+          givesThen
+            (() => declarationLine (InStatement 0 first.offset) first)
+            (parsed => notedDeclaration first.value.above parsed)
+            ShapedDeclaration
+            ShapedDeclarations
+            (givesDeclarationLine (InStatement 0 first.offset) first)
+            (parsed shaped => givesDone _ ShapedDeclarations (shapedNotedDeclaration first.value.above parsed shaped))
+            state
+            value
+            after
+            honest
+            h
+
+theorem shapedFileOf ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
+    (shaped: ShapedDeclarations declarations):
+    ShapedFile (fileOf declarations endTrivia) :=
+  let notesShaped: ShapedDeclarations (spacedNotes DeclarationNote endTrivia).fst :=
+    declarationNotes endTrivia ([], False) rfl
+  match found: spacedNotes DeclarationNote endTrivia with
+    | (endNotes, blank) =>
+      declarationsWithoutFirstBlank
+        (declarations ++ endNotes)
+        (declarationsAppend declarations endNotes shaped notesShaped)
+
+theorem givesFileEnd ∀ (declarations: List (Spaced Declaration)) (endTrivia: List Trivia)
+    (shaped: ShapedDeclarations declarations):
+    Gives (() => fileEnd declarations endTrivia) ShapedFile :=
+  state value after honest h =>
+    match e: state.at.rest with
+      | [] =>
+        givesDone
+          (fileOf declarations endTrivia)
+          ShapedFile
+          (shapedFileOf declarations endTrivia shaped)
+          state
+          value
+          after
+          honest
+          h
+      | [token, ..later] =>
+        match indented: token.value.startsLine && token.value.column > 0 with
+          | False =>
+            givesDone
+              (fileOf declarations endTrivia)
+              ShapedFile
+              (shapedFileOf declarations endTrivia shaped)
+              state
+              value
+              after
+              honest
+              h
+
+theorem givesSourceFile ∀ (endTrivia: List Trivia): Gives (() => sourceFile endTrivia) ShapedFile :=
+  givesThen
+    (() => Parse.many declaration)
+    (found => fileEnd found.concat endTrivia)
+    AllDeclarations
+    ShapedFile
+    (Parse.readsWeaken
+      (Parse.readsMany declaration (read lines => ShapedDeclarations lines) givesDeclaration)
+      (taken found each => eachDeclarations found taken each))
+    (found all => givesFileEnd found.concat endTrivia (declarationsConcat found all))
+
+--| What the parser guarantees about its trees: in every file `parse`
+--| gives, whatever the source, every expression is of the parser's shape
+--| (`Shaped`: operators grouped by precedence and chaining from the left,
+--| a call's callee and a field's target postfix, `-` before an operand),
+--| in every declaration, block and branch. So the read-back theorems'
+--| `Shaped` hypotheses hold of every parsed tree, with no check at run
+--| time.
+theorem parseShaped ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): ShapedFile file :=
+  match lexed: lex source with
+    | Ok tokens =>
+      match whole: Parse.whole tokens.tokens (() => sourceFile tokens.endTrivia) with
+        | Ok found =>
+          let same: found = file := Result.okInjective parsed
+          rewrite <- same in
+            Parse.wholeReads tokens.tokens
+              (() => sourceFile tokens.endTrivia)
+              (taken value => ShapedFile value)
+              found
+              (givesSourceFile tokens.endTrivia)
+              whole
