@@ -441,6 +441,12 @@ lane missed it and a batch failed:
   system against a primary source (its docs, source, PR or issue page) and
   cite it; leave out what you can't verify, and never mark a claim 'from
   memory'" (Matt, 15 Nov 2026: "you shouldn't do details from memory").
+- **Touches the kernel, termination or anything generating kernel terms**
+  (the lane, its review, and the orchestrator's verifier): "run the whole
+  soundness set, `binary(running) & test(/examples::soundness/)` (seconds),
+  against the branch's binary; a review starts there before attacking"
+  (15 Nov 2026: SW-3376's wrapper rule was merged, after a Fable review,
+  accepting `soundness/proof-irrelevance-07`, and was reverted).
 - **Fixes a bug:** "add the smallest test that fails before the fix and
   passes after (a unit test, an example file, a snapshot), and show it
   failing without the fix; if an existing test caught the bug, name it
