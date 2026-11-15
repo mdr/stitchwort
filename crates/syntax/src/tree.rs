@@ -337,6 +337,8 @@ pub enum NodeKind {
     PatternNegative,
     /// `()`: the pattern of an empty type.
     PatternAbsurd,
+    /// `"--" ++ rest`: a text pattern's fixed start and the rest.
+    PatternAppend,
 }
 
 /// A finished construct, as the parser records it: its kind and the tokens
@@ -1827,6 +1829,33 @@ def h: Nat := 2
                 "PatternParen[( PatternOr[None | PatternCtor[Some _]] )]",
             ),
             ("()", "PatternAbsurd[( )]"),
+        ]);
+    }
+
+    #[test]
+    fn text_prefix_patterns_are_marked_as_written() {
+        check_patterns(&[
+            ("\"--\" ++ rest", "PatternAppend[\"--\" ++ rest]"),
+            (
+                "\"a\" ++ \"b\" ++ _",
+                "PatternAppend[\"a\" ++ PatternAppend[\"b\" ++ _]]",
+            ),
+            (
+                "(\"set \" ++ x, n)",
+                "PatternTuple[( PatternAppend[\"set \" ++ x] , n )]",
+            ),
+            (
+                "Some (\"a\" ++ r)",
+                "PatternCtor[Some PatternParen[( PatternAppend[\"a\" ++ r] )]]",
+            ),
+            (
+                "\"a\" ++ _ | \"b\" ++ _",
+                "PatternOr[PatternAppend[\"a\" ++ _] | PatternAppend[\"b\" ++ _]]",
+            ),
+            (
+                "\"->\" ++ [c, ..cs]",
+                "PatternAppend[\"->\" ++ PatternList[[ c , .. cs ]]]",
+            ),
         ]);
     }
 

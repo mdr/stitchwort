@@ -1,0 +1,149 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "rest",
+          "type": "Text"
+        }
+      ],
+      "target": "\"--\" ++ rest = \"--\" ++ rest"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "rest: Text\n⊢ \"--\" ++ rest = \"--\" ++ rest",
+        "range": [
+          6,
+          20,
+          6,
+          21
+        ]
+      }
+    ],
+    "message": "in `startAndRest`",
+    "notes": [],
+    "range": [
+      6,
+      20,
+      6,
+      21
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "rest✝",
+          "type": "Text"
+        },
+        {
+          "name": "rest",
+          "type": "Nat",
+          "value": "1"
+        }
+      ],
+      "target": "\"ab\" ++ rest✝ = \"ab\" ++ rest✝"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "rest✝: Text\nrest: Nat := 1\n⊢ \"ab\" ++ rest✝ = \"ab\" ++ rest✝",
+        "range": [
+          11,
+          36,
+          11,
+          37
+        ]
+      }
+    ],
+    "message": "in `shadowed`",
+    "notes": [],
+    "range": [
+      11,
+      36,
+      11,
+      37
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "letters",
+          "type": "Text"
+        }
+      ],
+      "lemma": "def sizeGoal1 (letters: Text): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "letters: Text\n⊢ Nat",
+        "range": [
+          15,
+          44,
+          15,
+          45
+        ]
+      }
+    ],
+    "message": "in `size`",
+    "notes": [],
+    "range": [
+      15,
+      44,
+      15,
+      45
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "rest",
+          "type": "List Char"
+        }
+      ],
+      "lemma": "def lookaheadGoal1 (rest: List Char): Nat := ?",
+      "target": "Nat"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "rest: List Char\n⊢ Nat",
+        "range": [
+          19,
+          20,
+          19,
+          21
+        ]
+      }
+    ],
+    "message": "in `lookahead`",
+    "notes": [],
+    "range": [
+      19,
+      20,
+      19,
+      21
+    ],
+    "severity": "goal"
+  }
+]

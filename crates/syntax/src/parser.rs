@@ -1070,12 +1070,16 @@ impl<'t> Parser<'t> {
     /// A component of a list pattern: a constructor's arguments run to the
     /// next `,` or `]`; `-k` is allowed, as in a tuple.
     fn list_component(&mut self) -> Result<()> {
+        let start = self.mark();
         if self.ctor_ahead() {
-            let start = self.mark();
             self.ctor_name()?;
-            return self.ctor_args(start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::RBracket | Tok::Pipe) | None)
-            });
+            self.ctor_args(start, |t| {
+                matches!(
+                    t,
+                    Some(Tok::Comma | Tok::RBracket | Tok::Pipe | Tok::PlusPlus) | None
+                )
+            })?;
+            return self.pattern_append(start, Self::list_component);
         }
         self.tuple_component()
     }
@@ -1083,19 +1087,23 @@ impl<'t> Parser<'t> {
     /// A component of a tuple pattern: a pattern, or `-k`, which the
     /// tuple's brackets already delimit (`(-1, 0)`, `(0, -1)`).
     fn tuple_component(&mut self) -> Result<()> {
+        let start = self.mark();
         if self.ctor_ahead() {
             // A constructor's arguments run to the next `,` or `)`:
             // `(Some x, Some y)`.
-            let start = self.mark();
             self.ctor_name()?;
-            return self.ctor_args(start, |t| {
-                matches!(t, Some(Tok::Comma | Tok::RParen | Tok::Pipe) | None)
-            });
+            self.ctor_args(start, |t| {
+                matches!(
+                    t,
+                    Some(Tok::Comma | Tok::RParen | Tok::Pipe | Tok::PlusPlus) | None
+                )
+            })?;
+            return self.pattern_append(start, Self::tuple_component);
         }
         if self.peek() != Some(&Tok::Minus) {
-            return self.pattern();
+            self.pattern()?;
+            return self.pattern_append(start, Self::tuple_component);
         }
-        let start = self.mark();
         self.bump();
         let Some(Tok::Num(_)) = self.peek() else {
             return Err(self.unexpected("a number").into());
@@ -1602,11 +1610,15 @@ impl<'t> Parser<'t> {
                 if self.ctor_ahead() {
                     self.ctor_name()?;
                     self.ctor_args(first, |t| {
-                        matches!(t, Some(Tok::RParen | Tok::Comma | Tok::Pipe) | None)
+                        matches!(
+                            t,
+                            Some(Tok::RParen | Tok::Comma | Tok::Pipe | Tok::PlusPlus) | None
+                        )
                     })?;
                 } else {
                     self.pattern()?;
                 }
+                self.pattern_append(first, Self::tuple_component)?;
                 self.alternatives(first, Self::tuple_component)?;
                 if self.peek() == Some(&Tok::Comma) {
                     // `(Some a, b)`: a constructor as a tuple's first component.
@@ -1635,9 +1647,9 @@ impl<'t> Parser<'t> {
         Diagnostic::error("E-TEXT-PATTERN", "a text pattern can't interpolate")
             .with_label(span, "a pattern matches one fixed text")
             .with_note(
-                "to match a text that starts or ends a certain way, bind it to a variable and \
-                 test it in a guard: `| t if t.startsWith \"--\" => …`, or use \
-                 `Text.stripPrefix`",
+                "to match a text that starts a certain way, write its start and a pattern for \
+                 the rest: `\"--\" ++ rest`; to match one that ends a certain way, bind it to \
+                 a variable and test it in a guard: `| t if t.endsWith \".sw\" => …`",
             )
     }
 
@@ -2845,7 +2857,7 @@ impl<'t> Parser<'t> {
         if self.ctor_ahead() {
             let start = self.mark();
             self.ctor_name()?;
-            return self.ctor_args(start, |t| {
+            self.ctor_args(start, |t| {
                 matches!(
                     t,
                     Some(
@@ -2854,15 +2866,72 @@ impl<'t> Parser<'t> {
                             | Tok::FatArrow
                             | Tok::Pipe
                             | Tok::KwIf
+                            | Tok::PlusPlus
                             // After the last pattern of a `matches | A` in brackets.
                             | Tok::RParen
                             | Tok::RBracket
                             | Tok::RBrace
                     ) | None
                 )
-            });
+            })?;
+            return self.pattern_append(start, Self::alt_pattern_one);
         }
         self.tuple_component()
+    }
+
+    /// After a pattern from token `start`, `++ q`: a text pattern's fixed
+    /// start and the pattern for the rest (docs/proposals/text-patterns.md
+    /// §4.2), with `q` parsed by `next`, so that `"a" ++ "b" ++ rest` nests
+    /// to the right as the expression does. Only a text literal can be the
+    /// start: a suffix or a middle part would need a search.
+    fn pattern_append(&mut self, start: u32, next: fn(&mut Self) -> Result<()>) -> Result<()> {
+        if self.peek() != Some(&Tok::PlusPlus) {
+            return Ok(());
+        }
+        let literal = self.pos == start as usize + 1
+            && matches!(self.tokens[start as usize].tok, Tok::Str(_));
+        if !literal {
+            let left = self.tokens[start as usize]
+                .span
+                .to(self.tokens[self.pos - 1].span);
+            let d = Diagnostic::error(
+                "E-TEXT-PATTERN",
+                "a text pattern can only take a fixed start",
+            )
+            .with_label(
+                left,
+                "only a text literal can stand before `++` in a pattern",
+            );
+            // `Some "a" ++ rest` groups as `(Some "a") ++ rest`, as the
+            // expression does.
+            if matches!(self.tokens[self.pos - 1].tok, Tok::Str(_))
+                && matches!(
+                    self.tokens[start as usize].tok,
+                    Tok::Upper(_) | Tok::Lower(_)
+                )
+            {
+                let ctor = self.text_at(start);
+                return Err(d
+                    .with_note(format!(
+                        "a constructor's arguments end before `++`, as in an expression; to match \
+                         an argument of `{ctor}` that starts with a text, write it in brackets: \
+                         `{ctor} (\"…\" ++ rest)`"
+                    ))
+                    .into());
+            }
+            return Err(d
+                .with_note(
+                    "a pattern can match a text that starts a certain way, `\"--\" ++ rest`; to \
+                     match one that ends a certain way or has a part in the middle, bind it to a \
+                     variable and test it in a guard: `| t if t.endsWith \".sw\" => …`, or \
+                     take it apart with `Text.stripSuffix` or `Text.splitOn`",
+                )
+                .into());
+        }
+        self.bump();
+        next(self)?;
+        self.node(start, NodeKind::PatternAppend);
+        Ok(())
     }
 
     /// Whether a `|` between alternatives of an or-pattern is next: one on

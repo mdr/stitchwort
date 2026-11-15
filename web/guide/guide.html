@@ -62,7 +62,7 @@
 </section>
 
 <section data-slug="text-patterns" data-title="Matching words">
-  <p>A text in quotes is a pattern: <code>| "go" =&gt; …</code> matches exactly that word, so a table of commands or keywords reads as a table, and the compiler warns about a word listed twice. On a <code>List Char</code> the same literal matches its characters, which is what a hand-written lexer looks at. The match reads one character at a time, so a long table never compares whole texts. There are always more words, so the last case is <code>_</code>; without one, the compiler says which words it doesn't cover.</p>
+  <p>A text in quotes is a pattern: <code>| "go" =&gt; …</code> matches exactly that word, so a table of commands or keywords reads as a table, and the compiler warns about a word listed twice. On a <code>List Char</code> the same literal matches its characters, which is what a hand-written lexer looks at. The match reads one character at a time, so a long table never compares whole texts. There are always more words, so the last case is <code>_</code>; without one, the compiler says which words it doesn't cover. A pattern can also fix just the start: <code>"--" ++ name</code> matches any text beginning with <code>--</code> and names the rest.</p>
   <pre data-src="40-text-patterns.sw"></pre>
 </section>
 

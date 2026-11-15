@@ -176,6 +176,7 @@ fn compile<'a>(
     let absurd_rows = absurd.iter().map(|pats| Row {
         pats: pats.iter().map(std::borrow::Cow::Borrowed).collect(),
         aliases: Vec::new(),
+        texts: Vec::new(),
         written: crate::written_names(pats),
         rhs: None,
         span,
@@ -188,6 +189,7 @@ fn compile<'a>(
         .map(|alt| Row {
             pats: crate::row_patterns(&alt.patterns, alt.body.is_some()),
             aliases: Vec::new(),
+            texts: Vec::new(),
             written: crate::written_names(&alt.patterns),
             rhs: alt.body.as_ref(),
             span: alt.span,

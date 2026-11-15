@@ -536,7 +536,17 @@ impl<'a> Walk<'a> {
         let what = pattern_kind(pattern);
         let sub = |walk: &mut Self, p: &'a Pattern| walk.pattern(p);
         match pattern {
-            Pattern::Var(name) => self.tagged(what, name.span, why),
+            Pattern::Var(name) | Pattern::TextRest(name) => self.tagged(what, name.span, why),
+            Pattern::Prefix {
+                text_span,
+                rest,
+                span,
+                ..
+            } => {
+                self.tagged(what, *span, why);
+                self.tagged("Pattern::Prefix text", *text_span, None);
+                sub(self, rest);
+            }
             Pattern::Wildcard(span)
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)
@@ -825,6 +835,8 @@ fn pattern_kind(pattern: &Pattern) -> &'static str {
         Pattern::NegNum(..) => "Pattern::NegNum",
         Pattern::Char(..) => "Pattern::Char",
         Pattern::Text(..) => "Pattern::Text",
+        Pattern::Prefix { .. } => "Pattern::Prefix",
+        Pattern::TextRest(_) => "Pattern::TextRest",
         Pattern::Ctor(..) => "Pattern::Ctor",
         Pattern::Tuple(..) => "Pattern::Tuple",
         Pattern::Nil(_) => "Pattern::Nil",

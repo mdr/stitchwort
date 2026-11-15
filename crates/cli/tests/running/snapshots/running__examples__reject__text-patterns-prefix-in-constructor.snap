@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TEXT-PATTERN] Error: a text pattern can only take a fixed start
+   ╭─[ reject/text-patterns-prefix-in-constructor.sw:5:5 ]
+   │
+ 5 │   | Some "a" ++ rest => True
+   │     ────┬───  
+   │         ╰───── only a text literal can stand before `++` in a pattern
+   │ 
+   │ Note: a constructor's arguments end before `++`, as in an expression; to match an argument of `Some` that starts with a text, write it in brackets: `Some ("…" ++ rest)`
+───╯

@@ -521,6 +521,8 @@ theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
   else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
 ```
 
+In an arm with a prefix pattern, `| "--" ++ rest =>`, the text matched is the start and `rest`: a goal there shows it as `"--" ++ rest`, and `rfl` proves `t = "--" ++ rest`, since `"--" ++ rest` computes to the same characters (`examples/accept/text-patterns-prefix.sw`, `startAndRest`).
+
 The same facts are there when you `match` yourself. In a catch-all arm after literal arms, the goal lists what the arm knows, one `≠` line for each literal above it that has no condition (`other ≠ "def"`, `other ≠ "theorem"`), under the arm's own name for the value, and `auto` and `byDecision` prove them, whether the value is a number, a character or a text. So the catch-all can pass them to the equation:
 
 <!-- snippet: proofs.sw#catch-all-facts -->

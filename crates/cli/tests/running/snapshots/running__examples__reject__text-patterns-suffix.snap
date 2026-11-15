@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TEXT-PATTERN] Error: a text pattern can only take a fixed start
+   ╭─[ reject/text-patterns-suffix.sw:5:5 ]
+   │
+ 5 │   | name ++ ".sw" => True
+   │     ──┬─  
+   │       ╰─── only a text literal can stand before `++` in a pattern
+   │ 
+   │ Note: a pattern can match a text that starts a certain way, `"--" ++ rest`; to match one that ends a certain way or has a part in the middle, bind it to a variable and test it in a guard: `| t if t.endsWith ".sw" => …`, or take it apart with `Text.stripSuffix` or `Text.splitOn`
+───╯

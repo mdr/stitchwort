@@ -40,8 +40,33 @@ impl<'f> Lower<'f> {
             PatternOr => self.pattern_or(node),
             PatternParen => self.pattern_paren(node),
             PatternNegative => pattern_negative(node),
+            PatternAppend => self.pattern_append(node),
             kind => Err(Unsupported::Kind(kind)),
         }
+    }
+
+    /// `"--" ++ rest`: the parser has checked that the left is a text
+    /// literal.
+    #[inline(never)]
+    fn pattern_append(&self, node: Node<'f>) -> Lowering<Pattern> {
+        let kind = NodeKind::PatternAppend;
+        let mut parts = node.children();
+        let (text, text_span) = match parts.next() {
+            Some(Element::Leaf(leaf)) => match leaf.tok() {
+                Tok::Str(text) => (text.clone(), leaf.span()),
+                _ => return Err(Unsupported::Missing(kind, "a text literal")),
+            },
+            _ => return Err(Unsupported::Missing(kind, "a text literal")),
+        };
+        if !parts.next().is_some_and(|p| is(&p, &Tok::PlusPlus)) {
+            return Err(Unsupported::Missing(kind, "`++`"));
+        }
+        let rest = self.pattern(required(parts.next(), kind, "the rest")?)?;
+        // `"" ++ p` fixes nothing: it is `p`, which binds what it names.
+        if text.is_empty() {
+            return Ok(rest);
+        }
+        Ok(Pattern::prefix(text, text_span, rest, whole(node)?))
     }
 
     /// `C p q`: a constructor with arguments, spanning them.
@@ -340,6 +365,7 @@ fn first_bound(p: &Pattern) -> Option<&Name> {
             first_bound(a).or_else(|| first_bound(b))
         }
         Pattern::Named(_, p, _) => first_bound(p),
+        Pattern::Prefix { rest, .. } => first_bound(rest),
         Pattern::Record { fields, .. } | Pattern::CtorFields { fields, .. } => {
             fields.iter().find_map(|(_, p)| first_bound(p))
         }

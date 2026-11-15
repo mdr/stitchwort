@@ -137,12 +137,18 @@ def keyword (word: Text): Option Keyword := match word with
   | _ => None
 
 def afterArrow: List Char → Option (List Char)
-  | "->" => Some []
-  | ['-', '>', ..more] => Some more
+  | "->" ++ more => Some more
+  | _ => None
+
+def flagName: Text → Option Text
+  | "--" => None
+  | "--" ++ name => Some name
   | _ => None
 
 test "text patterns" :=
   keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ afterArrow "->x".toList == Some ['x']
+
+test "prefix patterns" := flagName "--all" == Some "all" ∧ flagName "--" == None ∧ flagName "-a" == None
 -- end text-patterns
 
 -- begin match

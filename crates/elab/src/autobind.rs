@@ -623,7 +623,8 @@ fn walk_at(
 fn pattern_vars(pattern: &stitchwort_syntax::ast::Pattern, out: &mut Vec<String>) {
     use stitchwort_syntax::ast::Pattern;
     match pattern {
-        Pattern::Var(x) => out.push(x.text.clone()),
+        Pattern::Var(x) | Pattern::TextRest(x) => out.push(x.text.clone()),
+        Pattern::Prefix { rest, .. } => pattern_vars(rest, out),
         Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_vars(p, out)),
         Pattern::Tuple(a, b, _) => {
             pattern_vars(a, out);

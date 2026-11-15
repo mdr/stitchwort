@@ -2043,10 +2043,11 @@ impl Walk<'_> {
                 }
                 Work::Pattern(p) => {
                     match p {
-                        Pattern::Var(x) => {
+                        Pattern::Var(x) | Pattern::TextRest(x) => {
                             self.nav.note_binder(&x.text, x.span);
                             bound.entry(&x.text).or_default().push(x.span);
                         }
+                        Pattern::Prefix { rest, .. } => then(&mut stack, vec![Work::Pattern(rest)]),
                         Pattern::Ctor(ctor, args, _) => {
                             for arg in args {
                                 if let Pattern::Named(name, ..) = arg {
@@ -2330,7 +2331,8 @@ fn head_spans(mut head: &Expr) -> Option<[Span; 2]> {
 /// The variables a pattern binds.
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
-        Pattern::Var(x) => out.push(&x.text),
+        Pattern::Var(x) | Pattern::TextRest(x) => out.push(&x.text),
+        Pattern::Prefix { rest, .. } => pattern_binders(rest, out),
         Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_binders(p, out)),
         Pattern::Tuple(a, b, _) | Pattern::Cons(a, b, _) => {
             pattern_binders(a, out);
