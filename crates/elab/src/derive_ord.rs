@@ -167,11 +167,13 @@ impl Elaborator {
                 }
             }
         }
-        for c in 0..ctors {
-            for (k, field) in plan.fields[c].iter().enumerate() {
-                let member = format!("%{}%{k}", self.kernel.data(d).ctors()[c].name);
-                if ctors > 1 && *field != Field::Proof && !self.has_member(d, &member) {
-                    self.derive_field(d, c, k)?;
+        if ctors > 1 {
+            for c in 0..ctors {
+                for (k, field) in plan.fields[c].iter().enumerate() {
+                    let member = format!("%{}%{k}", self.kernel.data(d).ctors()[c].name);
+                    if *field != Field::Proof && !self.has_member(d, &member) {
+                        self.derive_field(d, c, k)?;
+                    }
                 }
             }
         }

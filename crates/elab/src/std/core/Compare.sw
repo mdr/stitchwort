@@ -76,6 +76,10 @@ theorem Nat.compareEqual ∀ (m n: Nat) (h: Nat.compare m n = Equal): m = n := m
   | Zero, Zero => rfl
   | Succ m, Succ n => Eq.cong Succ (Nat.compareEqual m n h)
 
+theorem Nat.compareSelf ∀ (n: Nat): Nat.compare n n = Equal := match n with
+  | Zero => rfl
+  | Succ n => Nat.compareSelf n
+
 theorem Nat.compareFlip ∀ (m n: Nat): Nat.compare n m = Ordering.flip (Nat.compare m n) := match m, n with
   | Zero, Zero => rfl
   | Zero, Succ n => rfl

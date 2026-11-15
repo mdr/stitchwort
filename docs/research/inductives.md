@@ -722,8 +722,8 @@ Record in well-founded-recursion.md that option D stays closed, citing both.
 **Stitchwort today** [checked: `crates/elab/src/derive.rs:1-60`, `derive_ord.rs:1-50`].
 Derived `DecEq`, `Ord`, `Show` and `T.ext` are generated as source and elaborated, so the
 kernel checks them; a nested type's `T.size`, `T.induct`, `T.inductMem` and `D.All` are made
-as kernel terms (`derive_induct.rs`). `T.%tag` numbers the constructors. `T.%decEq` has one equation per
-constructor plus a default that refutes by tags (`T.%differ`), so its size is linear in the
+as kernel terms (`derive_induct.rs`). `T.%tag` numbers the constructors. `T.%same` compares tags first and matches
+only the first value (`DecEq.tagsSame`), so its size is linear in the
 number of constructors, as Lean's 2025 construction is (C8).
 
 **SW-807: enumerating values.** Mathlib's handler (C9) shows the cheap, linear version for

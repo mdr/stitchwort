@@ -32406,7 +32406,7 @@
     },
     {
       "id": 3014,
-      "title": "[DeepSeek] SW-3002 review lows: a test with one theorem per ordered pair of Ordering constructors (6) leaving the case out, so a wrong row in cases.rs ordering_distinct (~994) fails at std-edit time; registry.rs invariant 6 doc (~24-31): say shape \"\" means the lemma takes the hypothesis directly and its statement isn't checked; (idea, Sonnet) types with derived DecEq could refute constructor equations with T.%differ instead of a helper",
+      "title": "[DeepSeek] SW-3002 review lows: a test with one theorem per ordered pair of Ordering constructors (6) leaving the case out, so a wrong row in cases.rs ordering_distinct (~994) fails at std-edit time; registry.rs invariant 6 doc (~24-31): say shape \"\" means the lemma takes the hypothesis directly and its statement isn't checked; (idea, Sonnet) types with derived DecEq could refute constructor equations with Nat.equalFalse on the tags (or DecEq.tagsSame) instead of a helper",
       "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-3014",
@@ -32414,7 +32414,7 @@
       "epic": "elaborator-kernel",
       "body": "\nModel result: DeepSeek, worked, ~15 min (est. 25)",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-15",
       "commits": [
         "7822b971a"
       ]
@@ -37529,12 +37529,12 @@
     {
       "id": 3386,
       "title": "[Sonnet] SW-3370 review follow-ups (docs/reviews/SW-3370-linear-derived-order.md): check derive_rebuild's builtins once at the top instead of Ok(()) then expect-panic (derive.rs 915-1052); derived-equality.md header (D3609 answered); drop stale T.%differ mentions (SW-3002 body, research/inductives.md:726); make Ordering.tagsTransBy not restate Nat.compare; step guard prints counts; derive.rs:114 module doc; derive_ord.rs:170 hoist",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 1 h (Sonnet).",
+      "body": "Expected: 1 h (Sonnet).\n\nDone 15 Nov: all seven items; tagsTransBy now uses Nat.compareSelf (moved from Std/Nat/Arith.sw to core/Compare.sw; hash unchanged); hashes moved only downstream of tagsTransBy (derived %trans/%instOrd and their dependents); tests passed.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []

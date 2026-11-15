@@ -1,7 +1,7 @@
 # Derived `==`, `<` and `${…}` for every data type (SW-3354, SW-3358)
 
-**Status:** draft 1, 15 November 2026. Stage 2 built (SW-3370, §5.6). Open
-decision: D3609 ([§7](#7-decision-for-matt)). Code read at `ae7a3b341`.
+**Status:** draft 1, 15 November 2026. Stage 2 built (SW-3370, §5.6). D3609
+answered: yes (Matt, 15 Nov 2026: "Yes, agree with this recommendation for now, let's see how it goes"; [§7](#7-decision-for-matt)). Code read at `ae7a3b341`.
 Migration cost is not counted (D2303).
 
 **Stage 1 built (SW-3369, 15 November 2026):** the std skip is lifted for

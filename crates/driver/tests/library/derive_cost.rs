@@ -63,6 +63,7 @@ fn derived_instances_grow_linearly_with_constructors() {
         let ((name, ..), [half, full]) = (&pair.0[0], pair.1) else {
             unreachable!()
         };
+        println!("{name}: 47 constructors {half} steps, 94 constructors {full}");
         // Linear doubles; quadratic quadruples. Allow some way between, for
         // the parts that are linear in the fields of every constructor.
         if *full * 10 > *half * 26 {

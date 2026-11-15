@@ -102,7 +102,7 @@ theorem Ordering.tagsTransBy ∀ (i j k: Nat) (b c d: Bool) (f g h: Ordering)
     | False, False, True =>
       let less: Nat.compare i k = Less := Nat.compareTrans i j k h1 h2
       let equal: Nat.compare i k = Equal :=
-        Eq.cong (b => if b then Equal else (if Nat.leq i k then Less else Greater)) hd
+        Eq.trans (Eq.cong (x => Nat.compare i x) (Eq.sym (Nat.equalSound i k hd))) (Nat.compareSelf i)
       Void.exfalso (Ordering.equalNotLess (Eq.trans (Eq.sym equal) less))
     | False, False, False => Nat.compareTrans i j k h1 h2
 

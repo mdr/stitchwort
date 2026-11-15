@@ -111,7 +111,8 @@
 //! T)` both lists; for `Option (T, Nat)` the option and the pair), is a
 //! *member*, numbered from 1, with the same generated functions under
 //! `T.%m1%`: `T.%m1%type` (its type, so source can name it),
-//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%view`, `T.%m1%same` and its two
+//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%Cons%0%at`, `T.%m1%view`,
+//! `T.%m1%eta`, `T.%m1%etaAt`, `T.%m1%same` and its two
 //! proofs, made as
 //! for a data type whose fields are its constructors' with the container's
 //! arguments: `T.%m1%same (Cons a0 a1) (Cons b0 b1)` tests `a0` by
@@ -1085,6 +1086,17 @@ impl Elaborator {
     /// `k` turns any `s` whose tag is `k` into a constructor, so a proof
     /// about `C %a…` and `s` needs to match only the first.
     pub(crate) fn derive_rebuild(&mut self, d: DataId, plan: &Plan) -> Result<()> {
+        // Everything `at` and `view` are built from, checked once: a missing
+        // one skips the whole rebuild, since each generator below expects
+        // the earlier pieces to be declared.
+        let reg = self.kernel.env.registry();
+        if reg.data(Builtin::Nat).is_none()
+            || reg.def(Builtin::VoidAbsurd).is_none()
+            || reg.def(Builtin::VoidExfalso).is_none()
+            || reg.def(Builtin::NatNeq).is_none()
+        {
+            return Ok(());
+        }
         for m in 0..=plan.nested.len() {
             let (matched, prefix) = if m == 0 {
                 (d, "%".to_string())
@@ -1098,7 +1110,7 @@ impl Elaborator {
                 .iter()
                 .map(|c| (c.name.to_string(), c.fields.len()))
                 .collect();
-            if shapes.len() < 2 {
+            if shapes.len() < 2 || self.member_def(d, &format!("{prefix}tag")).is_none() {
                 continue;
             }
             for (c, (name, count)) in shapes.iter().enumerate() {
