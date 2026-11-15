@@ -546,6 +546,7 @@ const PRINTS_UNKNOWNS: &[&str] = &[
     "reject/case-tree-chains-meta.sw",
     "reject/eqeq-nil-nil.sw",
     "reject/fin-literal-unknown-bound.sw",
+    "reject/implicit-interface-not-searched.sw",
     "reject/instance-stuck.sw",
     "reject/instance-unknown-type.sw",
     "reject/lambda-after-expected-instance-nested.sw",
