@@ -924,3 +924,43 @@ theorem runsNoParameters ∀ (token: Parse.Located Token) (rest: List (Parse.Loc
     (() => sign InBrackets "','" Comma)
     [token, ..rest]
     (Parse.declinesOne "a name" (selectAllowed InBrackets nameOf) token rest (rewrite notName in rfl))
+
+-- An instance of `runsExpression` with an `if`: the six tokens of
+-- `if a then b else c`.
+
+def exampleIf: Expr :=
+  If (Var "a")
+    { statements = [{ blankBefore = False, line = Bare (Var "b") None }] }
+    { statements = [{ blankBefore = False, line = Bare (Var "c") None }] }
+
+theorem runsIfExample: Parse.run
+  [
+    exampleToken (Reserved IfKeyword) 0,
+    exampleToken (Name "a") 3,
+    exampleToken (Reserved ThenKeyword) 5,
+    exampleToken (Name "b") 10,
+    exampleToken (Reserved ElseKeyword) 12,
+    exampleToken (Name "c") 17
+  ]
+  (() => expression InBrackets)
+  = Ok exampleIf :=
+  let a := exampleToken (Name "a") 3
+  let b := exampleToken (Name "b") 10
+  let c := exampleToken (Name "c") 17
+  Parse.runsRun
+    (() => expression InBrackets)
+    [
+      exampleToken (Reserved IfKeyword) 0,
+      a,
+      exampleToken (Reserved ThenKeyword) 5,
+      b,
+      exampleToken (Reserved ElseKeyword) 12,
+      c
+    ]
+    exampleIf
+    (runsExpression InBrackets exampleIf
+      [exampleToken (Reserved IfKeyword) 0, a, exampleToken (Reserved ThenKeyword) 5, b, exampleToken (Reserved ElseKeyword) 12, c]
+      []
+      (Both rfl (Both rfl rfl))
+      (Witness (exampleToken (Reserved IfKeyword) 0) (Witness [a] (Witness (exampleToken (Reserved ThenKeyword) 5) (Witness [b] (Witness (exampleToken (Reserved ElseKeyword) 12) (Witness [c] (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both rfl (Both (Witness a (Both rfl (Both rfl rfl))) (Both (Both rfl (Both rfl (Both rfl (Witness b (Both rfl (Both rfl rfl)))))) (Both rfl (Both rfl (Both rfl (Witness c (Both rfl (Both rfl rfl)))))))))))))))))))))
+      (Both rfl rfl))
