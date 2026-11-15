@@ -1,5 +1,5 @@
 {
-  "next": 3355,
+  "next": 3356,
   "tickets": [
     {
       "id": 47,
@@ -36908,7 +36908,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Opus review docs/reviews/SW-3338-files.md: merge after fixes H1-H3, M1, M2, M4, M5 (+ orchestrator's naming calls: utf8Size to Text.utf8Length, Disk.missing to missingError, plumbing helpers documented internal). Path join is Matt's (to bring). Filed SW-3352 SW-3353 SW-3354.",
+      "body": "D3607 (Matt, 15 Nov 2026): \"yes, agree with the name method for now\": path.child name and path.childPath other added in this lane's fixes. Operators on other types: SW-3355 (backlog).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37116,6 +37116,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3355,
+      "title": "[Opus paper] Operators on more types than numbers (e.g. path / \"x\"): design note. Backlog per D3607 (Matt, 15 Nov 2026: \"It would be cool to support operators on different types of numbers, but that's a change for the backlog.\")",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
