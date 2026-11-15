@@ -36089,14 +36089,14 @@
     {
       "id": 3283,
       "title": "[Sonnet] Generic Parse stage 2 (generic-parse.md §4): tokens: Parse.Located, located, one, span1, Parse.tokens and messages, lemmas; guide section 'Lex, then parse' and a feature-tour page. After stage 1",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "D3589 (Matt, 14 Nov 2026): build stages 0-2. D3604 chain B. Expected: 2.5 h (Sonnet).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36175,7 +36175,7 @@
     {
       "id": 3289,
       "title": "[DeepSeek] Recovery: two shapes give two errors where one is better: 'g (' then a let at the block's column; a guard with an unclosed [ then => on its own line (SW-3285 findings)",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36393,12 +36393,12 @@
     {
       "id": 3305,
       "title": "[Opus] settle_from_expected doesn't retry when its early guess fails: a program whose expected type matches the lemma's result only after unfolding is rejected where main accepts it (probes g5.sw, g6.sw in docs/reviews/SW-3282-settle-from-expected.md S1); snapshot, restore and redo without settling on failure, with a counter like stage 0's",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
