@@ -21,6 +21,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Fmt.Tests` | `Fmt/Tests/Driver.sw` | The loop and the command line under `Files.simulate`, with a write-counting handler |
 | `Toy.Syntax.Proofs`, `Toy.Fmt.Proofs` | `Syntax/Proofs.sw`, `Fmt/Proofs.sw` | Stage D's theorems: `lexCovers`, `formatRoundTrip`, `formatIdempotent`, and the file loop's under `Files.simulate` |
 | `Toy.Doc.Proofs`, `Toy.Fmt.Proofs` | `Doc/Words.sw`, `Doc/Columns.sw`, `Fmt/WordProofs.sw` | SW-3418 part 5: every reading writes the document's words in order; the rules' document has the file's tokens and comments; the printer's column is the text's |
+| `Toy.Fmt.Proofs` | `Fmt/TextProofs.sw`, `Fmt/JoinProofs.sw`, `Fmt/RuleJoinProofs.sw` | SW-3418 part 7: the lexer's texts as predicates; every rule joins; a file with the lexer's texts, printed at any width, lexes to its pieces (`printedLexes`) |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -1449,6 +1450,172 @@ tree, the rest of D and the glue.
     mutual definitions, and the termination checker and `rfl` took all
     of it. `match e, hypothesis with` rewrites `e` inside the
     hypothesis also through an unfolded definition (`printer.edge`).
+
+### Part 7 (Fable, 15 Nov 2026): every rule joins; a parsed body ends in a statement
+
+A 45-minute lane on the rules' half of adjacency, `Proper`, and what of
+WF could be had without new std lemmas. The rules' half and `Proper`
+are proved, so "the printed text lexes to the file's pieces" now has one
+hypothesis, `LexicalFile file`, which says what the parser guarantees.
+Of that hypothesis, the structure part (a body ends in a statement) is
+now proved of every parsed tree; the token-text part (a name is a word,
+and so on) is not, so the theorem is not yet stated from `parse source =
+Ok file` alone, and there is no `formatDirect`.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 671 theorems, 0
+failed, the 10 warnings all on theorems of earlier parts):
+
+- `Fmt/TextProofs.sw` (23 theorems). What the lexer's texts are, as
+  predicates on a text: `IsWord` (a letter or `_`, then word
+  characters), `IsName` (a word that spells no keyword), `IsDigits`,
+  `IsString` (plain runs and escapes between quotes, closed whatever
+  follows), `IsComment` (`--`, then no line break). `Ends word`: `word`
+  is read whole, as the lexeme it starts with, before anything that
+  starts with no word character, digit or operator character (`Shut`).
+  **`wordToken`, `digitsToken`, `stringToken`, `keywordToken`,
+  `signToken`, `definesToken`, `operatorToken`**: each such text is
+  `Solid` (not empty, not spaces, not a line break) and `Ends`.
+  `endsProper`: what `Ends` is `Proper`. `commentSolid`, `commentProper`
+  for comments. `wordOpens`, `digitsOpen`, `stringOpens`: these start
+  with no operator character, so `-` straight before them is read whole
+  (`minusBefore`). `signFree`: a bracket, comma or dot is read whole
+  before anything.
+- `Fmt/JoinProofs.sw` (60 theorems). `Passes doc pre post`: from every
+  edge that satisfies `pre`, `doc` joins (`Joins standsBefore`) and
+  leaves an edge that satisfies `post`, and its words are `Proper`. The
+  edges: `Loose` (after layout, or a comment waits), `Free` (anything
+  may come next: after a bracket or dot), `Meets` (a space, a closing
+  sign, a comma, a dot or `(` may come next: after any token), `Admits
+  text`, `Left text`, `Enters expr` (the expression's first token may
+  come next: it is `-` or starts with no operator character).
+  Combinators (`passesCons`, `passesConcat` through `Doc.concat`'s
+  filter, `passesFrom`, `passesTo`, choices, `below`, `OneLineBelow`),
+  the leaves (`passesText`, `passesSpace`, `passesLine`, `passesSoft`,
+  ...), and **`tokenPasses`, `closerPasses`**: a token or closing
+  bracket with its comments joins from any edge its text may follow and
+  leaves the line at its text or with its trailing comment waiting.
+- `Fmt/RuleJoinProofs.sw` (47 theorems). `LexicalFile` (with `Lexical`,
+  `LexicalBody`, `LexicalStatement`, `LexicalDeclaration`, ...): every
+  name in the tree `IsName`, every number `IsDigits`, every string
+  `IsString`, every comment `IsComment`, and every body's last line a
+  statement (`ClosedLines`). One lemma per rule: **`exprPasses`** (an
+  expression's document passes from `Enters expr` to `Meets`),
+  `chainPasses`, `linkPasses`, `ifPasses`, `listPasses`,
+  `argumentsPass`, `itemDocsPass`, `fillPasses`, `branchPasses`,
+  `elseBranchPasses`, `afterEqualsPasses`, `bindingPasses`,
+  `statementPasses`, `linesPass`, `headerPasses`, `declarationPasses`.
+  **`fileJoins`**: for a `LexicalFile`, `file.layout` passes from
+  `Loose` (so it joins from a line start) and its words are proper.
+  **`printedLexes`**: for a `LexicalFile`, at every width, `(file.print
+  width).text` is `pieces` joined, the pieces that aren't layout are the
+  file's tokens and comments in order, and `lex` of the text is `Ok`
+  with the pieces as lexemes (neighbouring spaces as one) and the tokens
+  `assemble` makes of them. `lexicalExample` meets the hypothesis for
+  the tree of `let x = 1`.
+- `Syntax/ShapeProofs.sw`, WF's structure half, proved of the parser.
+  `ShapedBody` now also says the body's lines end in a statement
+  (`ClosedLines`, with `Coded`: not a comment line), and
+  `ShapedDeclaration` that a function's last parameter has no comma's
+  comments (`BareLast`). So **`parseShaped`** (`parse source = Ok file →
+  ShapedFile file`) now gives both of every parsed tree. On the way:
+  `closedNoted`, `closedConcat`, `closedAppend`,
+  `closedWithoutFirstBlank`, `withCommasBare`, `parametersBare`;
+  `givesBare`, `givesStatementLine`, `givesStatement`, `givesBlock`,
+  `givesInline`, `givesParameters` and `givesFunctionLine` carry the
+  stronger predicates. Three read-back proofs in `BlockProofs.sw` take
+  the stronger `ShapedBody` apart (statements unchanged).
+
+**Checked against a broken program:** with `notedStatement` putting the
+statement before its notes, `closedNoted` (and `shapedNoted`) fail; with
+`withCommas` giving the last parameter a comma's comments,
+`withCommasBare` fails. With `Negate` writing no space before an operand
+that starts with `-`, `exprPasses` fails, but at the statement of
+`operandPasses` (the document no longer matches), not at a proof step.
+
+**What the rules' half found about the tree.**
+
+- No rule needed `closeAfter`'s exactness: text after a waiting comment
+  starts a new line in the engine, so `Joins` holds either way. The rule
+  is about where the closer goes, not about lexing.
+- Two waiting trailing comments (part 6's open point) never arise: a
+  token's text is written between any two `LineSuffix`es, so no WF
+  condition was needed for it.
+- A body that ended in a comment line would break lexing inside an `if`:
+  ` else` would follow the comment on its line. That is why `ClosedLines`
+  is in `LexicalBody`; the parser guarantees it (`parseShaped`).
+- The last item's comma comments don't matter to lexing (`itemDocs`
+  never prints them); they matter to the round trip only.
+
+**WF's token texts: what is left, and how.** `LexicalFile file` for
+every parsed file needs three things, none started:
+
+1. *The lexer's tokens have the lexer's texts*: for `lex source = Ok
+   lexed`, each token's kind text is `IsName`/`IsDigits`/`IsString` and
+   each comment `IsComment`. Std has no soundness lemma for
+   `Parse.locatedToEnd` (only the completeness one, `LexemesRun`); it
+   needs one whose hypothesis knows the lexeme parser is given the input
+   left (`lexeme start.rest`), then the converse of each
+   `runs…Lexeme` (what `lexemeAt` read is shaped as its lexeme), `cut`
+   as the read characters, and an invariant of `assemble`'s fold. About
+   30 lemmas, 5 of them in std.
+2. *The parser copies them*: every text in the tree is some read
+   token's. `Parse.Reads` gives each parser the tokens it read
+   (`taken`), but a spec of the form "if the tokens read are fine, the
+   value is" doesn't compose through `readsThen` (the continuation's
+   lemma needs the first part's conclusion before its hypothesis is
+   known). The form that composes is flat and positive: `value.texts ⊆
+   taken.flatMap tokenTexts`, with texts tagged by class (name, number,
+   string, comment); then one tree induction turns "all of the tokens'
+   texts are fine" into `LexicalFile`. The 67 `gives…` lemmas of
+   `ShapeProofs.sw` again with that predicate (about 70), the induction
+   (about 15). The `closed…` lemmas above are reusable as they are.
+3. *The last item's comma*: `itemsFrom` returns `found.reverse` when its
+   fuel runs out, where the newest item had a comma, so "the last item's
+   comma comments are none" needs either a count showing the fuel never
+   runs out with an item found, or the tree changed so the last item has
+   no comma field (a wide change: `Spelled`, `runsItems…`, the dump, the
+   rules). Only the round trip needs it.
+
+**Re-estimate** [estimated; this lane proved 138 theorems in about 25
+minutes of the clock, all but about ten on the first check]:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| B, lexing | `assemble` over the steps | 15-20 |
+| E, rules to tokens | positions (25), layer C read back (30), spelling the tree (40) | 95 |
+| WF | token texts: lexer (30, 5 in std), parser (70), tree induction (15); last item's comma (10 or a tree change) | 115-125 |
+| D, parser | `if` with a block branch; the file from its spelling | 30-40 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Three lanes at this pace: (1) WF's token texts, ending in
+`printedLexes` from `parse source = Ok file` alone; (2) positions,
+`assemble` and layer C's read-back; (3) spelling the tree, the rest of
+D and the glue.
+
+**Friction** (beyond parts 1 to 6):
+
+36. **A hypothesis named as a function hides it in the statement**:
+    `(token: TokenText text)` made `token comments text` in the result
+    type "not a function". The error says its type; renaming fixed it.
+37. **`cases` runs out on ten character comparisons**
+    (`E-CASES-BUDGET` on `isWordStart first → isOperatorChar first =
+    False`); ten rewrites with `(symbol == first) = False` did it. The
+    digit version went through `cases`.
+38. **Two constructors named `Waiting` again** (the edge's and layer
+    C's `Scan.Waiting`): every pattern in `Toy.Fmt.Proofs` has to say
+    `Edge.Waiting`. One of the two should be renamed.
+39. **`W-ARROW-FORALL` now prints 1,609 times** on a check of
+    `Toy.Fmt.Proofs` once anything fails, burying the error (friction 1,
+    worse); the lane filtered the output with `awk`.
+40. **`passesCons _ _` with holes for the documents failed once** where
+    the expected type came from `List.map` over a lambda that builds a
+    `Doc.concat` (the checker had half-computed the `filter`); writing
+    the two documents out fixed it. Elsewhere the holes were fine.
+41. **Triples made the rules cheap**: with pre and post as predicates
+    on the edge and five combinators, each rule's lemma is the rule's
+    document read left to right; 46 lemmas checked with three errors in
+    all (a bracket, a duplicate name, a wrong post).
 
 ## Every comment placed (SW-3450, D3618, D3619)
 

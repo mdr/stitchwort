@@ -2,7 +2,8 @@
 --| is of the shape `Shaped` describes (operators grouped by precedence, a
 --| call's callee and a field's target postfix, `-` before an operand), so
 --| the read-back theorems' `Shaped` hypothesis holds of every parsed tree
---| and needn't be checked. Built from std's soundness lemmas
+--| and needn't be checked; and every body ends in a statement, every
+--| function's last parameter has no comma. Built from std's soundness lemmas
 --| (`Parse.Reads`), `Parse.readsOperators` for the operator chains.
 
 namespace Toy.Syntax.Proofs
@@ -602,11 +603,14 @@ theorem givesChain ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (la
 
 -- Bodies and blocks.
 
+--| A statement of the parser's shape that isn't a comment line.
+def CodedShaped (line: Statement): Prop := ShapedStatement line ∧ Coded line
+
 theorem givesBare ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
-    Gives (() => bareStatement self layout) ShapedStatement :=
-  givesThen (() => self layout) (value => Bare value) Shaped ShapedStatement (nested layout) (value shaped =>
-    givesDone _ ShapedStatement shaped)
+    Gives (() => bareStatement self layout) CodedShaped :=
+  givesThen (() => self layout) (value => Bare value) Shaped CodedShaped (nested layout) (value shaped =>
+    givesDone _ CodedShaped (Both shaped rfl))
 
 theorem givesInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped):
@@ -614,10 +618,10 @@ theorem givesInline ∀ (self: Layout → {Parse (Parse.Located Token)} Expr) (l
   givesThen
     (() => bareStatement self layout)
     (line => { statements = [{ blankBefore = False, line }] })
-    ShapedStatement
+    CodedShaped
     ShapedBody
     (givesBare self layout nested)
-    (line shaped => givesDone _ ShapedBody (Both shaped rfl))
+    (line found => match found with | Both shaped coded => givesDone _ ShapedBody (Both (Both shaped rfl) coded))
 
 theorem shapedLinesAppend ∀ (front back: List (Spaced Statement))
     (frontShaped: ShapedLines front)
@@ -648,6 +652,35 @@ theorem shapedNoted ∀ (above: List Trivia) (line: Statement)
   match found: spacedNotes StatementNote above with
     | (notes, blankBefore) => shapedLinesAppend notes [{ blankBefore, line }] notesShaped (Both shaped rfl)
 
+theorem closedCons ∀ (first: Spaced Statement) (lines: List (Spaced Statement))
+    (closed: ClosedLines lines):
+    ClosedLines [first, ..lines] :=
+  match lines, closed with
+    | [], never => Void.exfalso (Bool.falseNotTrue never)
+    | [next, ..more], closed => closed
+
+--| Lines before lines that end in a statement end in it too.
+theorem closedAppend ∀ (front back: List (Spaced Statement)) (closed: ClosedLines back): ClosedLines (front ++ back) :=
+  match front with
+    | [] => closed
+    | [first, ..rest] => closedCons first (rest ++ back) (closedAppend rest back closed)
+
+--| A statement's lines end in the statement, whatever notes are above
+--| it.
+theorem closedNoted ∀ (above: List Trivia) (line: Statement)
+    (coded: Coded line):
+    ClosedLines (notedStatement above line) :=
+  match found: spacedNotes StatementNote above with
+    | (notes, blankBefore) => closedAppend notes [{ blankBefore, line }] coded
+
+theorem closedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
+    (closed: ClosedLines lines):
+    ClosedLines (withoutFirstBlank lines) :=
+  match lines, closed with
+    | [], never => Void.exfalso (Bool.falseNotTrue never)
+    | [{ blankBefore, line }], coded => coded
+    | [{ blankBefore, line }, next, ..rest], closed => closed
+
 theorem shapedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     (shaped: ShapedLines lines):
     ShapedLines (withoutFirstBlank lines) :=
@@ -655,13 +688,16 @@ theorem shapedWithoutFirstBlank ∀ (lines: List (Spaced Statement))
     | [], shaped => rfl
     | [{ blankBefore, line }, ..rest], Both lineShaped restShaped => Both lineShaped restShaped
 
---| Each group of lines is of the parser's shape.
+--| Lines of the parser's shape that end in a statement.
+def ClosedShaped (lines: List (Spaced Statement)): Prop := ShapedLines lines ∧ ClosedLines lines
+
+--| Each group of lines is of the parser's shape and ends in a statement.
 def AllShaped: List (List (Spaced Statement)) → Prop
   | [] => True
-  | [first, ..rest] => ShapedLines first ∧ AllShaped rest
+  | [first, ..rest] => ClosedShaped first ∧ AllShaped rest
 
 theorem eachShaped ∀ (values: List (List (Spaced Statement))) (taken: List (Parse.Located Token))
-    (each: Parse.Each (read lines => ShapedLines lines) taken values):
+    (each: Parse.Each (read lines => ClosedShaped lines) taken values):
     AllShaped values :=
   match values, each with
     | [], each => rfl
@@ -671,14 +707,23 @@ theorem eachShaped ∀ (values: List (List (Spaced Statement))) (taken: List (Pa
 theorem shapedConcat ∀ (groups: List (List (Spaced Statement))) (all: AllShaped groups): ShapedLines groups.concat :=
   match groups, all with
     | [], all => rfl
-    | [first, ..rest], Both firstShaped restShaped =>
+    | [first, ..rest], Both (Both firstShaped _) restShaped =>
       shapedLinesAppend first rest.concat firstShaped (shapedConcat rest restShaped)
+
+--| Groups of lines that each end in a statement, one after another, end
+--| in a statement.
+theorem closedConcat ∀ (first: List (Spaced Statement)) (rest: List (List (Spaced Statement)))
+    (all: AllShaped [first, ..rest]):
+    ClosedLines [first, ..rest].concat :=
+  match rest, all with
+    | [], Both (Both _ closed) _ => rewrite List.appendNil first in closed
+    | [second, ..more], Both _ others => closedAppend first [second, ..more].concat (closedConcat second more others)
 
 theorem givesStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
     (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) ShapedBody)
     (layout: Layout) (first: Parse.Located Token) (kind: Kind):
-    Gives (() => statementLine fuel self layout first kind) ShapedStatement :=
+    Gives (() => statementLine fuel self layout first kind) CodedShaped :=
   match kind with
     | Reserved LetKeyword => Parse.readsThen givesSkip (skipRead skipped done =>
       Parse.readsThen (givesName layout) (nameRead pair named =>
@@ -688,16 +733,16 @@ theorem givesStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} E
               (() => sign layout "'='" Defines)
               (equals => Let (layout.comments first) bound nameComments equals (bodyFuel fuel self layout))
               (equals => True)
-              ShapedStatement
+              CodedShaped
               (givesSign layout "'='" Defines)
               (equals signed =>
                 givesThen
                   (() => bodyFuel fuel self layout)
                   (inner => Let (layout.comments first) bound nameComments equals inner)
                   ShapedBody
-                  ShapedStatement
+                  CodedShaped
                   (givesBody layout)
-                  (inner shaped => givesDone _ ShapedStatement shaped))))
+                  (inner shaped => givesDone _ CodedShaped (Both shaped rfl)))))
     | Reserved FnKeyword => givesBare self layout nested
     | Reserved IfKeyword => givesBare self layout nested
     | Reserved ThenKeyword => givesBare self layout nested
@@ -712,7 +757,7 @@ theorem givesStatementLine ∀ (self: Layout → {Parse (Parse.Located Token)} E
 theorem givesStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (nested: ∀ (inner: Layout) => Gives (() => self inner) Shaped) (fuel: Nat)
     (givesBody: ∀ (inner: Layout) => Gives (() => bodyFuel fuel self inner) ShapedBody) (column: Nat):
-    Gives (() => statement fuel self column) ShapedLines :=
+    Gives (() => statement fuel self column) ClosedShaped :=
   state value after honest h =>
     match e: state.at.rest with
       | [first, ..later] =>
@@ -721,10 +766,14 @@ theorem givesStatement ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
             givesThen
               (() => statementLine fuel self (InStatement column first.offset) first first.value.kind)
               (line => notedStatement first.value.above line)
-              ShapedStatement
-              ShapedLines
+              CodedShaped
+              ClosedShaped
               (givesStatementLine self nested fuel givesBody (InStatement column first.offset) first first.value.kind)
-              (line shaped => givesDone _ ShapedLines (shapedNoted first.value.above line shaped))
+              (line found =>
+                match found with
+                  | Both shaped coded =>
+                    givesDone _ ClosedShaped
+                      (Both (shapedNoted first.value.above line shaped) (closedNoted first.value.above line coded)))
               state
               value
               after
@@ -743,10 +792,14 @@ theorem givesBlock ∀ (self: Layout → {Parse (Parse.Located Token)} Expr)
     (Parse.readsWeaken
       (Parse.readsMany1
         (() => statement fuel self column)
-        (read lines => ShapedLines lines)
+        (read lines => ClosedShaped lines)
         (givesStatement self nested fuel givesBody column))
       (taken lines each => eachShaped lines.toList taken each))
-    (lines all => givesDone _ ShapedBody (shapedWithoutFirstBlank lines.toList.concat (shapedConcat lines.toList all)))
+    (lines all =>
+      givesDone _ ShapedBody
+        (Both
+          (shapedWithoutFirstBlank lines.toList.concat (shapedConcat lines.toList all))
+          (closedWithoutFirstBlank lines.toList.concat (closedConcat lines.head lines.tail all))))
 
 --| A body, a block or one expression, holds expressions of the parser's
 --| shape.
@@ -906,9 +959,39 @@ theorem givesExpression ∀ (layout: Layout): Gives (() => expression layout) Sh
 
 -- Declarations and the file.
 
---| Each expression in the declaration is of the parser's shape.
+--| The last parameter has no comma after it, so its comma's comments are
+--| none.
+def BareLast: List Parameter → Prop
+  | [] => True
+  | [{ comma, .. }] => comma = Comments.none
+  | [_, ..rest] => BareLast rest
+
+theorem withCommasCons ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
+    ∃ (head: Parameter) => ∃ (tail: List Parameter) => withCommas first others = [head, ..tail] :=
+  match others with
+    | [] => Witness _ (Witness [] rfl)
+    | [(comma, next), ..rest] => Witness _ (Witness (withCommas next rest) rfl)
+
+theorem withCommasBare ∀ (first: (Text, Comments)) (others: List (Comments, (Text, Comments))):
+    BareLast (withCommas first others) :=
+  match others with
+    | [] => rfl
+    | [(comma, next), ..rest] =>
+      let bare := withCommasBare next rest
+      match withCommasCons next rest with
+        | Witness head (Witness tail same) => rewrite same in (rewrite same at bare in bare)
+
+--| The parameters the parser builds end in one with no comma.
+theorem parametersBare ∀ (found: Option ((Text, Comments), List (Comments, (Text, Comments)))):
+    BareLast (parametersOf found) :=
+  match found with
+    | None => rfl
+    | Some (first, others) => withCommasBare first others
+
+--| Each expression in the declaration is of the parser's shape, and a
+--| function's last parameter has no comma.
 def ShapedDeclaration: Declaration → Prop
-  | Function _ _ _ _ _ _ _ found => ShapedBody found
+  | Function _ _ _ _ parameters _ _ found => BareLast parameters ∧ ShapedBody found
   | Value _ _ _ _ found => ShapedBody found
   | DeclarationNote _ => True
 
@@ -916,7 +999,8 @@ def ShapedDeclarations: List (Spaced Declaration) → Prop
   | [] => True
   | [{ line, .. }, ..rest] => ShapedDeclaration line ∧ ShapedDeclarations rest
 
---| Each expression in the file is of the parser's shape.
+--| Each expression in the file is of the parser's shape, each body ends
+--| in a statement, and each function's last parameter has no comma.
 def ShapedFile: SourceFile → Prop
   | { declarations } => ShapedDeclarations declarations
 
@@ -957,14 +1041,14 @@ theorem givesParameterList: Gives parameterList (found => True) :=
           rfl))
         (others done => givesDone _ _ rfl))
 
-theorem givesParameters: Gives (() => parametersOf (Parse.optional parameterList)) (parameters => True) :=
+theorem givesParameters: Gives (() => parametersOf (Parse.optional parameterList)) BareLast :=
   givesThen
     (() => Parse.optional parameterList)
     (found => parametersOf found)
     (found => True)
-    (parameters => True)
+    BareLast
     (Parse.readsWeaken (Parse.readsOptional givesParameterList) (taken found maybe => rfl))
-    (found listed => givesDone _ _ rfl)
+    (found listed => givesDone _ BareLast (parametersBare found))
 
 theorem givesFunctionLine ∀ (layout: Layout) (first: Parse.Located Token):
     Gives (() => functionLine layout first) ShapedDeclaration :=
@@ -1005,7 +1089,7 @@ theorem givesFunctionLine ∀ (layout: Layout) (first: Parse.Located Token):
                     close
                     equals
                     (body expression layout))
-                (parameters => True)
+                BareLast
                 ShapedDeclaration
                 givesParameters
                 (parameters listed =>
@@ -1049,7 +1133,7 @@ theorem givesFunctionLine ∀ (layout: Layout) (first: Parse.Located Token):
                             ShapedBody
                             ShapedDeclaration
                             (givesBody expression layout givesExpression)
-                            (inner shaped => givesDone _ ShapedDeclaration shaped)))))))
+                            (inner shaped => givesDone _ ShapedDeclaration (Both listed shaped))))))))
 
 theorem givesValueLine ∀ (layout: Layout) (first: Parse.Located Token):
     Gives (() => valueLine layout first) ShapedDeclaration :=
@@ -1208,9 +1292,11 @@ theorem givesSourceFile ∀ (endTrivia: List Trivia): Gives (() => sourceFile en
 --| gives, whatever the source, every expression is of the parser's shape
 --| (`Shaped`: operators grouped by precedence and chaining from the left,
 --| a call's callee and a field's target postfix, `-` before an operand),
---| in every declaration, block and branch. So the read-back theorems'
---| `Shaped` hypotheses hold of every parsed tree, with no check at run
---| time.
+--| in every declaration, block and branch; every body (after `=`, `then`
+--| and `else`) ends in a statement, not a comment line (`ClosedLines`);
+--| and a function's last parameter has no comma's comments (`BareLast`).
+--| So the read-back theorems' `Shaped` hypotheses hold of every parsed
+--| tree, with no check at run time.
 theorem parseShaped ∀ (source: Text) (file: SourceFile) (parsed: parse source = Ok file): ShapedFile file :=
   match lexed: lex source with
     | Ok tokens =>

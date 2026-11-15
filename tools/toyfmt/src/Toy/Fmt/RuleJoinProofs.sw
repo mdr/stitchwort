@@ -53,17 +53,6 @@ def LexicalStatement: Statement → Prop
   | Bare value => Lexical value
   | StatementNote comment => IsComment comment.text
 
---| A statement that isn't a comment line.
-def Coded: Statement → Prop
-  | StatementNote _ => False
-  | _ => True
-
---| There is a last line, and it is a statement.
-def ClosedLines: List (Spaced Statement) → Prop
-  | [] => False
-  | [{ line, .. }] => Coded line
-  | [_, ..rest] => ClosedLines rest
-
 def LexicalParameters: List Parameter → Prop
   | [] => True
   | [{ name, comments, comma }, ..rest] => IsName name ∧ Fine comments ∧ Fine comma ∧ LexicalParameters rest
@@ -975,3 +964,26 @@ theorem printedLexes ∀ (file: SourceFile) (width: Nat)
         proper with
         | Witness pieces (Both printed (Both same lexed)) =>
           Witness pieces (Both printed (Both (Eq.trans same words) lexed))
+
+--| `LexicalFile` can be met: the tree of `let x = 1`.
+theorem lexicalExample: LexicalFile {
+      declarations = [
+        {
+          blankBefore = False,
+          line = Value Comments.none "x" Comments.none Comments.none {
+            statements = [{ blankBefore = False, line = Bare (NumberLiteral "1" Comments.none) }]
+          }
+        }
+      ]
+    } :=
+  Both
+    (Both
+      (Both rfl rfl)
+      (Both
+        (Both (Witness 'x' (Witness [] (Both rfl (Both rfl rfl)))) rfl)
+        (Both
+          (Both rfl rfl)
+          (Both
+            (Both rfl rfl)
+            (Both (Both (Both (Witness '1' (Witness [] (Both rfl (Both rfl rfl)))) (Both rfl rfl)) rfl) rfl)))))
+    rfl

@@ -763,7 +763,7 @@ theorem runsInlineSpelled ∀ (self: Layout → {Parse (Parse.Located Token)} Ex
     (small: tokens.length < bound):
     Parse.Runs (() => body self layout) tokens rest found :=
   match found, shaped, spelled with
-    | { statements = [{ blankBefore, line = Bare value }] }, Both shaped none, Both noBlank
+    | { statements = [{ blankBefore, line = Bare value }] }, Both (Both shaped none) closed, Both noBlank
         (Both inline valueSpelled) =>
       match spelledStart layout value tokens shaped valueSpelled with
         | Witness first (Witness others (Both split startKind)) =>
@@ -997,7 +997,7 @@ theorem runsIfExample: Parse.run
         c
       ]
       []
-      (Both rfl (Both (Both rfl rfl) (Both rfl rfl)))
+      (Both rfl (Both (Both (Both rfl rfl) rfl) (Both (Both rfl rfl) rfl)))
       (Witness
         (exampleToken (Reserved IfKeyword) 0)
         (Witness
@@ -1314,7 +1314,7 @@ theorem runsBodySpelled ∀ (layout: Layout) (found: Body) (tokens rest: List (P
           rewrite isValue, split in
             runsBodyFuelInline more expression layout value first others rest inline
               (runsExpression layout value [first, ..others] rest valueShaped valueSpelled ends)
-        | { statements }, shaped, Inr (Both ahead lines) =>
+        | { statements }, Both shaped closed, Inr (Both ahead lines) =>
           match linesRun (firstColumn tokens) True [] statements tokens rest more shaped lines (omega [enough]) with
             | Witness steps (Both joined (Both runs values)) =>
               match layout, tokens, steps, ahead, joined, runs, values with
