@@ -86,8 +86,7 @@ fn balanced_fill(items: Vec<Doc>, first: bool) -> Doc {
         .iter()
         .map(|item| {
             let flat = engine::print(&Doc::flat(item.clone()), usize::MAX / 2);
-            let simple =
-                !item.forces_break() && flat.forced_comment_lines == 0 && !flat.text.contains('\n');
+            let simple = !item.forces_break() && !flat.text.contains('\n');
             simple.then(|| flat.text.chars().count())
         })
         .collect();
@@ -259,7 +258,25 @@ impl<'a> Rules<'a> {
         if self.hoisted[i] {
             return parts;
         }
-        if !self.file_comments[i] && !trivia.leading.is_empty() {
+        if !self.file_comments[i] && !trivia.leading.is_empty() && closer(&self.tokens[i].tok) {
+            // Comments before a closing bracket are about its items: at their
+            // indentation, with the bracket on a line of its own (S40).
+            let mut comments = vec![Doc::LineStartHere];
+            for (k, comment) in trivia.leading.iter().enumerate() {
+                if k > 0 {
+                    comments.push(Doc::HardLine);
+                    if comment.blank_lines_before > 0 {
+                        comments.push(Doc::Blank);
+                    }
+                }
+                comments.push(Doc::text(comment.text.trim_end_matches(' ')));
+            }
+            parts.extend([
+                Doc::BreakParent,
+                Doc::nest(2, Doc::concat(comments)),
+                Doc::HardLine,
+            ]);
+        } else if !self.file_comments[i] && !trivia.leading.is_empty() {
             parts.push(Doc::BreakParent);
             parts.push(Doc::LineStart);
             for (k, comment) in trivia.leading.iter().enumerate() {

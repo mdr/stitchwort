@@ -198,7 +198,9 @@ def h: List Nat := [1, 2, -- two        def h: List Nat := [
 A comment between arms stays between them. The difference is what happens
 in a place no rule expects (after a function's name and before its
 arguments, say): A keeps the line as it is; B must have a rule, or leave
-that declaration as written ([§3](#3-the-comparison), risks).
+that declaration as written ([§3](#3-the-comparison), risks). (Since SW-3447, B
+breaks the line there instead, formatter-style.md S40: every comment has a
+place.)
 
 **Text blocks and long strings.** The same in both: a `"""` block moves as
 one piece and is never re-flowed, and a string is never split. A long

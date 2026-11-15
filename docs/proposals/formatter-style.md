@@ -856,10 +856,42 @@ documented constructor `| Printable (char: Char) -- a printable character,
 space included`, both unchanged. In a list, the comment ends the item's
 line after its comma (the architecture note's `[1, 2, -- two` sample).
 
-**S40. A comment no rule places** (between a function and its first
-argument, say) makes the formatter leave that declaration as written,
-re-indented only, and count it; the repo-wide count is tested to be 0, as
-today. Stage 2 reports where such comments are.
+**S40. A comment where the layout doesn't break** (after `:=`, an
+operator or `(`, between a function and its argument, before `then` or
+`:=`) gets a line break of its own, a *comment break*: every comment has a
+place, so no declaration is left as written because of one (D3618, D3619;
+the design is [every-comment-placed.md](every-comment-placed.md)). An
+own-line comment that no layout put at the start of a line starts one;
+code that would follow a trailing comment on its line starts the next one.
+A comment break is indented like a continuation line: at the construct's
+indentation, and at least 2 more than the line it breaks, so what follows
+continues that line and never starts a new statement. The lines up to the
+code after an own-line comment, that code included, keep that depth.
+Own-line comments before a closing bracket are about its items: they go at
+the items' indentation, with the bracket on a line of its own. A layout
+that puts code after a trailing comment is measured from the line the code
+goes on, so the rest of the construct keeps its usual shape, often the
+author's (SW-3447):
+
+```text
+def f (x: Nat): Nat := x + -- after +       def f (x: Nat): Nat :=
+  x                                           Nat.add
+                                                -- before the argument
+def f (x: Nat) -- after a parameter             x x
+    : Nat := x
+                                            def f (x: Nat): List Nat := [x, x
+                                              -- before ]
+                                            ]
+```
+
+Odd positions can give odd layouts (an operator or `then` alone on its
+line, say); the rule is that the comment stays beside the code it was
+written next to and formatting twice changes nothing, not that the layout
+is pretty there (D3619: "if you put comments in weird places, then weird
+things will happen"). The per-declaration checks stay as the net for a bug
+in a rule: a declaration that fails them is left as written, re-indented
+only, and counted, and the repo-wide count is tested to be 0. Probes:
+`crates/fmt/tests/it/golden/comments-anywhere.before.sw`.
 
 ## 3. What changes most
 

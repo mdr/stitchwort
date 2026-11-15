@@ -7,9 +7,10 @@ use std::path::Path;
 
 use stitchwort_fmt::{format, format_with_stats};
 
-/// Files with declarations the formatter leaves as written because the
-/// comments in them sit where no rule places them: the number of such
-/// declarations in each. Their `.after.sw` is the input.
+/// Files with declarations the formatter leaves as written because a rule
+/// has a bug that fails the checks: the number of such declarations in
+/// each. Their `.after.sw` is the input. No comment position puts one here
+/// (S40, `comments-anywhere`).
 const LEFT_AS_WRITTEN: [(&str, usize); 0] = [];
 
 #[test]

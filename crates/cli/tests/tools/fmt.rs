@@ -176,7 +176,8 @@ fn a_folder_walk_skips_deliberately_unformatted_files() {
 }
 
 /// A declaration the formatter leaves as written is reported: its file, line,
-/// name and the check it failed, then the count.
+/// name and the check it failed, then the count. No input fails the checks
+/// (S40), so the test names the declaration to refuse.
 #[test]
 fn warns_about_a_declaration_left_as_written() {
     let dir = temp("verbatim");
@@ -185,13 +186,18 @@ fn warns_about_a_declaration_left_as_written() {
     let kept = "def x: Nat := f\n  -- why\n  a\n";
     std::fs::write(&file, kept).unwrap();
 
-    let output = stitchwort(&dir, &["fmt", "--check", &path], None);
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["fmt", "--check", &path])
+        .current_dir(&dir)
+        .env("STITCHWORT_FMT_REFUSE_FOR_TEST", "x")
+        .output()
+        .expect("run stitchwort");
     assert_eq!(output.status.code(), Some(0), "{output:?}");
     assert_eq!(text(&output), "", "nothing would change");
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains(&format!(
-            "{path}:1: declaration `x` left as written (comment no rule places)"
+            "{path}:1: declaration `x` left as written (refused for a test)"
         )),
         "{stderr}"
     );
