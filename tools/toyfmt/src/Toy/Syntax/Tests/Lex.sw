@@ -9,8 +9,11 @@ import Std (Fail, List, Option, Parse, Result, Text)
 def pieces (source: Text): Result (List Text) Text :=
   Fail.toResult (() => Parse.all source lexemes) |> .map (found => found.map (lexeme => cut source lexeme))
 
+def lexed (source: Text): Result (List (Parse.Located Token), List Trivia) Text :=
+  Fail.toResult (() => Parse.all source (() => lex source))
+
 def tokens (source: Text): Result (List Token) Text :=
-  Fail.toResult (() => Parse.all source (() => lex source)) |> .map (found => found.map (token => token.value))
+  lexed source |> .map (found => found.fst.map (token => token.value))
 
 def kinds (source: Text): Result (List Kind) Text := tokens source |> .map (found => found.map (token => token.kind))
 
@@ -57,11 +60,16 @@ test "line starts and columns" :=
 
 test "comments and blank lines go on the tokens beside them" :=
   match tokens "let a = 1 -- one\n\n\n-- above\nlet b = 2\n-- last\n" with
-    | Ok [_, _, _, one, second, _, _, two] =>
-      one.trailing.map (comment => comment.value.text) == Some "-- one"
-        && second.above.length == 2
-        && two.below.length == 1
+    | Ok [_, _, _, one, second, _, _, _] =>
+      one.trailing.map (comment => comment.value.text) == Some "-- one" && second.above.length == 2
     | _ => False
+
+test "comments after the last token are handed back beside the tokens" :=
+  lexed "let b = 2\n-- last\n" |> .map (found => (found.fst.length, found.snd))
+    == Ok (4, [OwnLine { text = "-- last" }])
+
+test "a file of comments has no tokens, only the comments" :=
+  lexed "-- one\n\n-- two\n" |> .map (found => (found.fst.length, found.snd.length)) == Ok (0, 3)
 
 test "the keyword table" :=
   ["fn", "let", "if", "then", "else"].map Keyword.fromWord

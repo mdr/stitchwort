@@ -59,10 +59,7 @@ type Token = {
   --| The own-line comments and blank lines since the token before.
   above: List Trivia,
   --| A comment after it on its line, with where it is.
-  trailing: Option (Parse.Located Comment),
-  --| Only on the last token: the own-line comments and blank lines after it
-  --| to the end of the file.
-  below: List Trivia
+  trailing: Option (Parse.Located Comment)
 }
 
 -- The tables, by text patterns.

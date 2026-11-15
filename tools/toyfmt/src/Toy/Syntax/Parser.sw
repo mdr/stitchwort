@@ -361,27 +361,18 @@ def asWritten (source: Text) (tokens: List (Parse.Located Token)): Text := match
     source.slice first.offset finish
   | _, _ => ""
 
-def sourceFile (source: Text): {Parse (Parse.Located Token)} SourceFile :=
-  let all := Parse.mark().rest
+--| The file, given the comments after its last token (or all of them, with
+--| no tokens).
+def sourceFile (source: Text) (endTrivia: List Trivia): {Parse (Parse.Located Token)} SourceFile :=
   let declarations := Parse.many (() => declaration source) |> .concat
   match peek() with
     | Some token if token.value.startsLine && token.value.column > 0 =>
       Parse.fail "this line's indentation matches no block it could belong to"
     | _ =>
-      let (endNotes, _) :=
-        all.last |> .map (token => spacedNotes DeclarationNote token.value.below) |> .getOrElse ([], False)
+      let (endNotes, _) := spacedNotes DeclarationNote endTrivia
       { declarations = declarations ++ endNotes |> withoutFirstBlank }
-
---| A file with no tokens: its comments, as notes.
-def commentsOnly (source: Text): SourceFile :=
-  let trivia := source.lines.foldLeft ([]: List Trivia) (found line =>
-    let trimmed := line.trim
-    if trimmed.isEmpty then addBlank found else [OwnLine { text = trimmed }, ..found])
-  let (notes, _) := spacedNotes DeclarationNote trivia.reverse
-  { declarations = withoutFirstBlank notes }
 
 --| The tree of a Sprig source, or the first error as "line 3, column 9:
 --| expected ',' or ')', got 'b'".
 def parse (source: Text): Result SourceFile Text :=
-  Fail.toResult (() => Parse.tokens source (() => lex source) (() => sourceFile source))
-    |> .map (file => if file.declarations.isEmpty then commentsOnly source else file)
+  Fail.toResult (() => Parse.tokensWith source (() => lex source) (endTrivia => sourceFile source endTrivia))

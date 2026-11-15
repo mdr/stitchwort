@@ -102,12 +102,12 @@ type Assembly = {
 
 def Assembly.start: Assembly := { tokens = [], pending = [], lineStart = 0, lineEmpty = True }
 
---| The source's lexemes as tokens, each with its layout and comments.
-def assemble (source: Text) (lexemes: List (Parse.Located Lexeme)): List (Parse.Located Token) :=
+--| The source's lexemes as tokens, each with its layout and comments, and
+--| the own-line comments and blank lines after the last token, to the end of
+--| the file (all of the file's, if it has no tokens).
+def assemble (source: Text) (lexemes: List (Parse.Located Lexeme)): (List (Parse.Located Token), List Trivia) :=
   let done := lexemes.foldLeft Assembly.start (assembly lexeme => assembly.add source lexeme)
-  match done.tokens with
-    | [] => []
-    | [last, ..earlier] => [{ last | value = { last.value | below = done.pending.reverse } }, ..earlier].reverse
+  (done.tokens.reverse, done.pending.reverse)
 
 def cut (source: Text) (located: Parse.Located a): Text := source.slice located.offset (located.offset + located.length)
 
@@ -129,8 +129,7 @@ def Assembly.add (assembly: Assembly) (source: Text) (lexeme: Parse.Located Lexe
         startsLine = assembly.lineEmpty,
         column = lexeme.offset - assembly.lineStart,
         above = assembly.pending.reverse,
-        trailing = None,
-        below = []
+        trailing = None
       },
       offset = lexeme.offset,
       length = lexeme.length
@@ -160,5 +159,5 @@ def lexemeKind (lexeme: Lexeme) (text: Text): Kind := match lexeme with
   | SymbolsLexeme => symbolsKind text
   | _ => Stray text
 
---| The lexer `Parse.tokens` runs.
-def lex (source: Text): {Parse Char} List (Parse.Located Token) := assemble source lexemes()
+--| The lexer `Parse.tokensWith` runs: the tokens, and the comments after them.
+def lex (source: Text): {Parse Char} (List (Parse.Located Token), List Trivia) := assemble source lexemes()

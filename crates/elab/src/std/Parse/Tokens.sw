@@ -88,12 +88,30 @@ def Parse.tokensMessage (chars: List Char) (tokens: List (Parse.Located token)) 
     | parts => Text.joinWith parts "; "
   "line ${line}, column ${column}: ${described}"
 
+--| `Parse.tokens` for a lexer that hands back something besides its tokens,
+--| and a parser that takes it: the comments after the last token, which no
+--| token follows to carry them, or all the input's comments when there are no
+--| tokens at all. The lexer's value is the tokens and that `extra`; the
+--| parser is given `extra` and reads the tokens. Failures read as
+--| `Parse.tokens`'s.
+--|
+--|   def parse (input: Text): {Fail} File :=
+--|     Parse.tokensWith input (() => lexWithTrailer input) (trailer => file trailer)
+def Parse.tokensWith (input: Text)
+    (lexer: () → {Parse Char} (List (Parse.Located token), extra)) (parser: extra → {Parse (Parse.Located token)} a):
+    {Fail} a :=
+  let (tokens, extra) := Parse.all input lexer
+  match Parse.whole tokens (() => parser extra) with
+    | Ok value => value
+    | Err failure => Fail.fail (Parse.tokensMessage input.toList tokens failure)
+
 --| Lexes all of `input` with `lexer` (line breaks at the end are allowed, as
 --| for `Parse.all`), then parses all of the tokens with `parser`. A lexing
 --| failure reads as `Parse.all`'s. A parsing failure names the line and
 --| column of the failing token, what was expected, and the token as it was
 --| written: "line 3, column 9: expected ',' or ')', got ';'", or "got the
---| end of the input" past the last token.
+--| end of the input" past the last token. For a lexer that has more to give
+--| than tokens, [`Parse.tokensWith`].
 --|
 --|   def parse (input: Text): {Fail} Program := Parse.tokens input (() => Parse.many token) program
 def Parse.tokens (input: Text)
@@ -240,3 +258,33 @@ test "Parse.locatedToEnd: a lexeme that reads nothing" :=
   match Parse.run "ab".toList (() => Parse.locatedToEnd (rest => "")) with
     | Ok found => False
     | Err failure => failure.messages == ["`locatedToEnd`: the lexeme matched without reading anything"]
+
+-- `tokensWith`: the same lexer, then a `#` comment to the end of the input
+-- that no token carries, handed to the parser.
+
+def Parse.Tests.lexWithComment(): {Parse Char} (List (Parse.Located Parse.Tests.Tok), Option Text) :=
+  let tokens := Parse.Tests.lex()
+  Parse.span (char => char == ' ')
+  let comment := Parse.optional (() =>
+    Parse.char '#'
+    Parse.span (char => char != '\n'))
+  (tokens, comment.map (chars => Text.fromList chars |> .trim))
+
+def Parse.Tests.parseWithComment (input: Text): Result (List (Text, Nat), Option Text) Text := Fail.toResult (() =>
+  Parse.tokensWith input Parse.Tests.lexWithComment (comment =>
+    let found := Parse.Tests.calls()
+    (found, comment)))
+
+test "Parse.tokensWith: the lexer's extra value reaches the parser" :=
+  Parse.Tests.parseWithComment "f(1, 2); # done" == Ok ([("f", 3)], Some "done")
+
+test "Parse.tokensWith: no extra value" := Parse.Tests.parseWithComment "f(1);" == Ok ([("f", 1)], None)
+
+test "Parse.tokensWith: only the extra value, no tokens" :=
+  Parse.Tests.parseWithComment "# alone" == Ok ([], Some "alone")
+
+test "Parse.tokensWith: parsing failures read as Parse.tokens's" :=
+  Parse.Tests.parseWithComment "f(1; 2) # x" == Err "line 1, column 4: expected ',' or ')', got ';'"
+
+test "Parse.tokensWith: past the last token" :=
+  Parse.Tests.parseWithComment "f(1, 2 # x" == Err "line 1, column 7: expected ',' or ')', got the end of the input"
