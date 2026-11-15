@@ -2,7 +2,7 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-AUTO-FALSE] Error: `False = True` is false
+[E-AUTO-FALSE] Error: `300 < 256` is false, so `ExitStatus.of` can't be called
    ╭─[ reject/exit-status-over-255.sw:6:32 ]
    │
  6 │ def main(): {IO} ExitStatus := ExitStatus.of 300

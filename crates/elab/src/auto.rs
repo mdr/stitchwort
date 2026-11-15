@@ -95,6 +95,8 @@ pub struct Obligation {
     /// prerequisites finding its instance created), whose step budget it
     /// spends: the first one's metavariable.
     pub tree: usize,
+    /// The call the argument is for, named in a message if the proof fails.
+    pub call: Option<String>,
 }
 
 impl Elaborator {
@@ -160,6 +162,7 @@ impl Elaborator {
                         ob.names.clone(),
                         ob.span,
                     );
+                    cx.auto_call = ob.call.clone();
                     match interfaces::attempt(&mut cx, &ob, interface, &arg)? {
                         Attempt::Solved => progress = true,
                         Attempt::Wait(why) => {
@@ -174,6 +177,7 @@ impl Elaborator {
                 let mut cx = Ctx::from_parts(self, ob.env, ob.types, ob.names, ob.span);
                 cx.written = ob.written;
                 cx.scope = ob.scope;
+                cx.auto_call = ob.call.clone();
                 let placeholder = cx.eval(&ob.meta)?;
                 if !matches!(
                     force(&cx.g(), placeholder.clone())?,
@@ -244,6 +248,7 @@ impl Elaborator {
                     meta: ob.meta.clone(),
                     span: ob.span,
                     tree: ob.tree,
+                    call: ob.call.clone(),
                 }
             };
             let (goal, span) = (ob.goal.clone(), ob.span);
@@ -256,6 +261,7 @@ impl Elaborator {
             );
             cx.written = ob.written.clone();
             cx.scope = ob.scope.clone();
+            cx.auto_call = ob.call.clone();
             let placeholder = cx.eval(&meta)?;
             if !matches!(
                 force(&cx.g(), placeholder.clone())?,
@@ -290,6 +296,7 @@ impl Elaborator {
 /// A proof of `goal`. (For an instance, an obligation to find it, solved
 /// with the declaration's others.)
 pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
+    let written = goal.clone();
     let goal = force(&cx.g(), goal.clone())?;
     if interfaces::interface_goal(cx.e, &goal)?.is_some() {
         return Ok(crate::check::implicit_arg(cx, Icit::Auto, &goal));
@@ -310,7 +317,11 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
         Some(false) => {
             let message = match not_in_list(cx, &goal)? {
                 Some(message) => message,
-                None => format!("`{shown}` is false"),
+                None => format!("`{}` is false", cx.show_as_written(&written)),
+            };
+            let message = match &cx.auto_call {
+                Some(call) => format!("{message}, so `{call}` can't be called"),
+                None => message,
             };
             Err(cx.error(
                 "E-AUTO-FALSE",

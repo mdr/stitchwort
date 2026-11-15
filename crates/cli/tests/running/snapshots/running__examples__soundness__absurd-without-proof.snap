@@ -11,7 +11,7 @@ expression: output
     │ 
     │ Note: the arm can be deleted
 ────╯
-[E-AUTO-FALSE] Error: `False = True` is false
+[E-AUTO-FALSE] Error: `0 < [].length` is false, so `get` can't be called
     ╭─[ soundness/absurd-without-proof.sw:12:21 ]
     │
  12 │ def nothing: Nat := get [a := Nat] Nil 0

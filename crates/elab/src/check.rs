@@ -123,6 +123,9 @@ pub struct Ctx<'e> {
     /// The `cases` whose cases are being checked (`cases.rs`): its
     /// alternatives' bodies go on splitting.
     pub(crate) cases: Option<Rc<crate::cases::Run>>,
+    /// The call whose automatic argument is being proved, named in an
+    /// `E-AUTO-FALSE` message (`auto.rs`).
+    pub(crate) auto_call: Option<String>,
     pub span: Span,
 }
 
@@ -214,6 +217,7 @@ impl Saved {
             scrutinees: c.scrutinees.clone(),
             reify_display: c.reify_display.clone(),
             cases: c.cases.clone(),
+            auto_call: None,
             span: self.span,
         }
     }
@@ -335,6 +339,7 @@ impl<'e> Ctx<'e> {
             scrutinees: Vec::new(),
             reify_display: None,
             cases: None,
+            auto_call: None,
             span,
         }
     }
@@ -367,6 +372,7 @@ impl<'e> Ctx<'e> {
             scrutinees: Vec::new(),
             reify_display: None,
             cases: None,
+            auto_call: None,
             span,
         }
     }
@@ -827,6 +833,17 @@ impl<'e> Ctx<'e> {
 
     pub fn show(&self, value: &Value) -> String {
         pretty::value_for_message_in(&self.g(), self.e, &self.shown_names(false), value)
+    }
+
+    /// [`Ctx::show`], but every call stays a call: the value as written,
+    /// after filling in the arguments, rather than what it computes to.
+    pub fn show_as_written(&self, value: &Value) -> String {
+        match stitchwort_core::value::quote_as_written_shown(&self.g(), self.level(), value) {
+            Ok(term) => {
+                pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
+            }
+            Err(_) => "…".into(),
+        }
     }
 
     /// [`Ctx::show`] for one side of an equation written `a = b`.
@@ -3422,7 +3439,8 @@ fn settle_from_expected(
         let arg = match value {
             Some(arg) => arg,
             None => {
-                let meta = supplied_arg(cx, icit, &dom, supply);
+                let call = call_name(cx, &term);
+                let meta = supplied_arg(cx, icit, &dom, supply, call);
                 note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
                 meta
             }
@@ -4806,7 +4824,8 @@ fn insert_with(
     while let Value::Pi(x, icit, dom, cod) = force(&cx.g(), ty.clone())?
         && icit.is_implicit()
     {
-        let meta = supplied_arg(cx, icit, &dom, supply);
+        let call = call_name(cx, &term);
+        let meta = supplied_arg(cx, icit, &dom, supply, call);
         note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
@@ -4858,6 +4877,17 @@ fn note_origin(
 }
 
 pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
+    implicit_arg_for_call(cx, icit, ty, None)
+}
+
+/// [`implicit_arg`] for an argument of the call `call`, named in a message
+/// if its automatic proof fails.
+pub(crate) fn implicit_arg_for_call(
+    cx: &mut Ctx,
+    icit: Icit,
+    ty: &Value,
+    call: Option<String>,
+) -> Term {
     let meta = cx.fresh_meta_of(ty);
     crate::rows::note_row_meta(cx, ty, &meta);
     if icit == Icit::Auto {
@@ -4881,6 +4911,7 @@ pub(crate) fn implicit_arg(cx: &mut Ctx, icit: Icit, ty: &Value) -> Term {
                 meta: meta.clone(),
                 span: cx.span,
                 tree,
+                call,
             });
     }
     meta
@@ -4937,13 +4968,28 @@ fn ignorable_arguments(cx: &Ctx, goal: &Value) -> Option<std::rc::Rc<[bool]>> {
     )
 }
 
+/// The name of the definition the application `term` calls, for a message
+/// about one of its automatic arguments.
+fn call_name(cx: &Ctx, term: &Term) -> Option<String> {
+    match term.spine().0 {
+        Term::Def(id) => Some(cx.g().def(*id).name().to_string()),
+        _ => None,
+    }
+}
+
 /// An implicit argument from `supply`, or a new one. ([`written_result`] records
 /// its auto arguments as obligations itself, as `pipe.rs` does with
 /// [`implicit_arg`].)
-fn supplied_arg(cx: &mut Ctx, icit: Icit, ty: &Value, supply: &mut Supply) -> Term {
+fn supplied_arg(
+    cx: &mut Ctx,
+    icit: Icit,
+    ty: &Value,
+    supply: &mut Supply,
+    call: Option<String>,
+) -> Term {
     match supply.pop_front() {
         Some(arg) => arg,
-        None => implicit_arg(cx, icit, ty),
+        None => implicit_arg_for_call(cx, icit, ty, call),
     }
 }
 
@@ -4961,7 +5007,8 @@ fn insert_until(
                 return Ok((term, ty));
             }
             Value::Pi(x, icit, dom, cod) if icit.is_implicit() => {
-                let meta = supplied_arg(cx, icit, &dom, supply);
+                let call = call_name(cx, &term);
+                let meta = supplied_arg(cx, icit, &dom, supply, call);
                 note_origin(cx, &meta, &x, &term, Some((icit, &dom)));
                 let value = cx.eval(&meta)?;
                 term = Term::app_icit(term, meta, icit);
