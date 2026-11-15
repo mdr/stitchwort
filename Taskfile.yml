@@ -513,8 +513,10 @@ tasks:
       case, printing its input. FUZZ_ONLY=<substring> mutates only example
       files whose names contain it, digging deeper into one file.
       COMMENTS=<rate> (or FUZZ_COMMENTS=<rate>) also inserts `-- c` comments
-      at random token boundaries, each with that chance (a number from 0 to
-      1); half are trailing comments and half sit on a line of their own.
+      at random line breaks, each with that chance (a number from 0 to 1); half
+      are trailing comments and half sit on a line of their own. (A comment
+      can't have code after it on the same line, so these are where one can go
+      without moving a token and changing the layout.)
       FUZZ_DUMP=<path> (or DUMP=<path>) writes each case's input to that file
       before formatting it, overwriting it, so a run killed for memory or time
       leaves its last case behind. Builds only stitchwort-fmt's tests.

@@ -16,9 +16,13 @@
 //! killed for memory or time leaves the case it was on behind.
 //!
 //! `FUZZ_COMMENTS=<rate>` (a number from 0 to 1) also inserts a `-- c` comment
-//! at each token boundary with that chance, half trailing (ending at a line
-//! end, which is added if needed) and half on a line of their own. Without it,
-//! the generator is unchanged.
+//! at each line break with that chance (where a comment can go without moving
+//! a token to another line), half trailing (ending at a line end, which is
+//! added if needed) and half on a line of their own. Without it, the generator
+//! is unchanged.
+//!
+//! The run ends with the counts of cases skipped because they didn't parse,
+//! refused although they parsed, and formatted (and checked for idempotence).
 
 use std::io::Write;
 use std::ops::Range;
@@ -26,6 +30,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 
 use stitchwort_fmt::{Error, format};
+use stitchwort_syntax::{SourceMap, parse_module};
 
 /// Each case is one format and one re-format. 50,000 keeps the release run
 /// well under ten seconds; set `FUZZ_CASES` for a longer run, and `FUZZ_ONLY`
@@ -249,22 +254,27 @@ fn is_word(ch: char) -> bool {
     ch.is_alphanumeric() || ch == '_' || ch == '\''
 }
 
-/// The positions in `chars` where one token can end and another begin: not
-/// inside a string, character literal or `--` comment, and not inside a word.
-/// The scanner is only a heuristic, but it keeps inserted comments from
-/// cutting literals and existing comments apart.
+/// The positions in `chars` where a comment can go without moving a token to
+/// another line: at a line break (or the ends), and not inside a string,
+/// character literal, text block or `--` comment. A `--` comment runs to the
+/// end of its line, so one inserted anywhere else would split the line and can
+/// turn layout-sensitive syntax (a continuation line starting with `.map`, say)
+/// into a parse error.
 fn token_boundaries(chars: &[char]) -> Vec<bool> {
     let mut boundaries = vec![false; chars.len() + 1];
+    // `"""` text blocks span lines and may hold `"` and `--`, so the scanner
+    // has to know them apart from strings and comments.
     let mut in_string = false;
+    let mut in_text = false;
     let mut in_char = false;
     let mut in_comment = false;
     let mut escaped = false;
-    for i in 0..=chars.len() {
-        if !in_string && !in_char && !in_comment {
-            let left_word = i > 0 && is_word(chars[i - 1]);
-            let right_word = i < chars.len() && is_word(chars[i]);
-            let splits_comment = i > 0 && i < chars.len() && chars[i - 1] == '-' && chars[i] == '-';
-            boundaries[i] = !(left_word && right_word) && !splits_comment;
+    let mut i = 0;
+    while i <= chars.len() {
+        let at_line_break =
+            i == 0 || i == chars.len() || chars[i] == '\n' || (i > 0 && chars[i - 1] == '\n');
+        if !in_string && !in_text && !in_char && !in_comment {
+            boundaries[i] = at_line_break;
         }
         let Some(&ch) = chars.get(i) else {
             break;
@@ -273,13 +283,26 @@ fn token_boundaries(chars: &[char]) -> Vec<bool> {
             if ch == '\n' {
                 in_comment = false;
             }
+            i += 1;
         } else if escaped {
             escaped = false;
+            i += 1;
         } else if in_string {
             if ch == '\\' {
                 escaped = true;
             } else if ch == '"' {
                 in_string = false;
+            }
+            i += 1;
+        } else if in_text {
+            if ch == '\\' {
+                escaped = true;
+                i += 1;
+            } else if chars[i..].starts_with(&['"', '"', '"']) {
+                in_text = false;
+                i += 3;
+            } else {
+                i += 1;
             }
         } else if in_char {
             if ch == '\\' {
@@ -287,13 +310,22 @@ fn token_boundaries(chars: &[char]) -> Vec<bool> {
             } else if ch == '\'' {
                 in_char = false;
             }
+            i += 1;
+        } else if chars[i..].starts_with(&['"', '"', '"']) {
+            in_text = true;
+            i += 3;
         } else if ch == '"' {
             in_string = true;
+            i += 1;
         } else if ch == '\'' && !(i > 0 && is_word(chars[i - 1])) {
             // `x'` is an identifier, not the start of a character literal.
             in_char = true;
+            i += 1;
         } else if ch == '-' && chars.get(i + 1) == Some(&'-') {
             in_comment = true;
+            i += 1;
+        } else {
+            i += 1;
         }
     }
     boundaries
@@ -304,10 +336,12 @@ fn chance(rng: &mut Rng, rate: f64) -> bool {
     rate > 0.0 && (rng.below(10_000) as f64) < rate * 10_000.0
 }
 
-/// Insert `-- c` comments at random token boundaries, each with probability
+/// Insert `-- c` comments at random line breaks, each with probability
 /// `rate`. Half are trailing comments, followed by a line break when the text
 /// does not already have one there; the other half sit on a line of their own,
-/// with a line break on either side.
+/// with a line break on either side. (A comment can't share a line with code
+/// after it, so these are the positions that don't move a token to another
+/// line and change the layout.)
 fn add_comments(rng: &mut Rng, text: &str, rate: f64) -> String {
     let chars: Vec<char> = text.chars().collect();
     let boundaries = token_boundaries(&chars);
@@ -367,6 +401,38 @@ fn comment_rate() -> Option<f64> {
     Some(rate)
 }
 
+/// Whether `text` lexes and parses, as the formatter's refusal check does
+/// (D1021). A case the formatter refuses is skipped unless this says it
+/// parsed: then the formatter refused a parseable file, counted apart.
+fn parses(text: &str) -> bool {
+    let file = SourceMap::new().add("input.sw", text);
+    parse_module(file, text).is_ok()
+}
+
+#[test]
+fn comments_keep_a_valid_file_parseable() {
+    // A leading operator can't start a continuation line (docs/syntax.md,
+    // "Layout"), so a comment inserted mid-line would move `+` to the start of
+    // a line and make this a parse error.
+    let program = "def f (x: Nat): Nat :=\n  x +\n    x\n";
+    // A text block holds its own lines (and `"` and `--`), so a comment in it
+    // would change the text, and one inside `"""` would break the delimiter.
+    let block = "def text: Text := \"\"\"\n  a -- not a comment\n  b\n  \"\"\"\n";
+    for text in [program, block] {
+        let mut rng = Rng(SEED);
+        let commented = add_comments(&mut rng, text, 1.0);
+        let once = format(&commented)
+            .unwrap_or_else(|e| panic!("{e} on input:\n{}", commented.escape_debug()));
+        let twice = format(&once).expect("its own output parses");
+        assert_eq!(
+            twice,
+            once,
+            "not idempotent on input:\n{}",
+            commented.escape_debug()
+        );
+    }
+}
+
 #[test]
 fn the_formatter_never_panics_and_is_idempotent() {
     let cases = env_number("FUZZ_CASES").unwrap_or(CASES);
@@ -380,7 +446,9 @@ fn the_formatter_never_panics_and_is_idempotent() {
     let dump = dump_path();
     let corpus = read_corpus();
     let mut rng = Rng(seed);
-    let mut accepted = 0;
+    let mut skipped = 0;
+    let mut refused = 0;
+    let mut formatted = 0;
     // Reaching case n from the fixed seed means generating every case before
     // it; only the selected one is formatted.
     let last = only.map_or(cases, |only| only.saturating_add(1));
@@ -422,12 +490,13 @@ fn the_formatter_never_panics_and_is_idempotent() {
             panic!("{}", context("the formatter panicked"));
         };
         match outcome {
-            Err(Error::Refused(_)) => {}
+            Err(Error::Refused(_)) if parses(&text) => refused += 1,
+            Err(Error::Refused(_)) => skipped += 1,
             Err(Error::Internal(message)) => {
                 panic!("{}", context(&format!("internal error ({message})")))
             }
             Ok(once) => {
-                accepted += 1;
+                formatted += 1;
                 let Ok(again) = catch_unwind(AssertUnwindSafe(|| format(&once))) else {
                     panic!("{}", context("the formatter panicked on its own output"));
                 };
@@ -448,9 +517,13 @@ fn the_formatter_never_panics_and_is_idempotent() {
             }
         }
     }
+    eprintln!(
+        "fuzz fmt: {cases} cases, seed {seed:#x}: {skipped} skipped (failed to parse), \
+         {refused} refused (parsed, formatter refused), {formatted} formatted (idempotence checked)"
+    );
     // Sanity check that the generator isn't only producing nonsense. A single
     // selected case may legitimately be one the formatter refuses.
     if only.is_none() {
-        assert!(accepted > 0, "no random input was formatted");
+        assert!(formatted > 0, "no random input was formatted");
     }
 }
