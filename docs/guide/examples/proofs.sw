@@ -1,5 +1,5 @@
 -- Chapter 10: proofs.
-import Std (Eq, Exists, Fail, Fin, Iff, Int, List, Nat, Option, Quot, Vec)
+import Std (Eq, Exists, Fail, Fin, Iff, Int, List, Nat, Option, Quot, Vec, byDecision)
 import Std.Exists (Witness)
 
 -- begin rfl
@@ -285,3 +285,10 @@ theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
   else if isTheorem: word = "theorem" then (rewrite isTheorem at h in match Option.someInjective h with | ())
   else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
 -- end literal-arms
+
+-- begin catch-all-facts
+theorem otherWord ∀ (word: Text): keyword word = None ∨ word = "def" ∨ word = "theorem" := match word with
+  | "def" => Inr (Inl rfl)
+  | "theorem" => Inr (Inr rfl)
+  | other => Inl (keyword.eq3 other byDecision byDecision)
+-- end catch-all-facts

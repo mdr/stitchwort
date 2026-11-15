@@ -76,6 +76,16 @@ pub(crate) struct Arm {
     unsplit: Vec<usize>,
     /// How many leaves check the arm.
     cases: usize,
+    /// What the arm is known not to be, from the literal arms above it.
+    facts: Rc<[ArmFact]>,
+}
+
+/// A fact about an arm's catch-all column: the variable at `level` is not
+/// the literal, written as in the arm above (`5`, `'k'`, `"ab"`).
+#[derive(Clone, Debug)]
+pub(crate) struct ArmFact {
+    pub(crate) level: usize,
+    pub(crate) literal: String,
 }
 
 /// What a goal at an arm shows, besides the arm's own state.
@@ -95,6 +105,8 @@ pub(crate) struct View {
     /// Whether the goal the arm's cases give depends on which case it is:
     /// the case tree's splits changed the match's goal.
     pub(crate) depends: bool,
+    /// What the arms around the hole are known not to be.
+    pub(crate) facts: Vec<ArmFact>,
 }
 
 /// An expression a `match` on it generalises: the variable standing for it
@@ -290,15 +302,19 @@ pub(crate) fn enter_arm(
     cx: &Ctx,
     unsplit: &[usize],
     cases: usize,
+    facts: &Rc<[ArmFact]>,
 ) -> (Option<Rc<Split>>, Option<Rc<Arm>>) {
     let mut goals = cx.e.goals.borrow_mut();
     let path = goals.split_path.take();
     let arm = match &path {
-        Some(path) if !unsplit.is_empty() || cases > 1 || goals.arm.is_some() => {
+        Some(path)
+            if !unsplit.is_empty() || cases > 1 || goals.arm.is_some() || !facts.is_empty() =>
+        {
             Some(Rc::new(Arm {
                 path: path.clone(),
                 unsplit: unsplit.to_vec(),
                 cases,
+                facts: facts.clone(),
             }))
         }
         _ => None,
@@ -448,6 +464,7 @@ pub(crate) fn view(cx: &Ctx, expected: &Value) -> Option<View> {
         cases: arms.iter().map(|a| a.cases).product(),
         changed: false,
         depends: false,
+        facts: arms.iter().flat_map(|a| a.facts.iter().cloned()).collect(),
     };
     if arms.iter().any(|a| !a.unsplit.is_empty()) {
         undo(cx, &arms, &mut view, expected);

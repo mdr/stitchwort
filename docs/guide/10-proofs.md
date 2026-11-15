@@ -518,6 +518,18 @@ theorem onlyDef ∀ (word: Text) (h: keyword word = Some Def): word = "def" :=
   else (rewrite keywordOther word isDef isTheorem at h in match h with | ())
 ```
 
+The same facts are there when you `match` yourself. In a catch-all arm after literal arms, the goal lists what the arm knows, one `≠` line for each literal above it that has no condition (`other ≠ "def"`, `other ≠ "theorem"`), under the arm's own name for the value, and `auto` and `byDecision` prove them, whether the value is a number, a character or a text. So the catch-all can pass them to the equation:
+
+<!-- snippet: proofs.sw#catch-all-facts -->
+```stitchwort
+theorem otherWord ∀ (word: Text): keyword word = None ∨ word = "def" ∨ word = "theorem" := match word with
+  | "def" => Inr (Inl rfl)
+  | "theorem" => Inr (Inr rfl)
+  | other => Inl (keyword.eq3 other byDecision byDecision)
+```
+
+An arm above with a condition (`| "def" if loud =>`) gives no line, since the catch-all is reached when the condition fails; and the facts are not hypotheses you can name, so a proof that needs one as a value asks for it with `byDecision` or an `[auto]` parameter, where it is wanted.
+
 ## Decisions and facts
 
 `Bool` and statements are different things. `n == 0` is a `Bool`, a value computed at run time. `n = 0` is a statement, a type whose values are proofs. A statement that can be **decided** (equations on types with `==`, comparisons on numbers) can be used as a condition, and then the branches know which way it went:

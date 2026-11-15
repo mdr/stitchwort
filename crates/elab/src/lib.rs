@@ -53,6 +53,7 @@ mod library;
 #[cfg(test)]
 mod library_tests;
 mod lift;
+mod literal_facts;
 mod local;
 mod logic;
 mod matching;
@@ -4091,12 +4092,88 @@ impl Elaborator {
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
         arm_display::count_cases(&mut tree);
+        self.note_arm_facts(rows, columns, types, skip)?;
         match missing::definite(&tree, span) {
             // The checker reports the cases that are possible after all.
             Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
             Some(d) => Err(d),
             None => Ok(tree),
         }
+    }
+
+    /// Records, for each arm of a match, what its catch-all columns are
+    /// known not to be (`arm_display::ArmFact`): the numbers, characters
+    /// and texts that earlier arms without a condition match in that
+    /// column alone, every other column of theirs being a variable or `_`.
+    fn note_arm_facts(
+        &self,
+        rows: &[Row],
+        columns: &[usize],
+        types: &[Option<Value>],
+        skip: usize,
+    ) -> Result<()> {
+        let literal = |pattern: &Pattern, kind: &Result<NumberKind>, text: bool| match pattern {
+            Pattern::Num(n, _) if matches!(kind, Ok(NumberKind::Nat | NumberKind::Int)) => {
+                Some(n.to_string())
+            }
+            Pattern::NegNum(n, _) if matches!(kind, Ok(NumberKind::Int)) => Some(format!("-{n}")),
+            Pattern::Char(c, _) => Some(format!("'{}'", escape_char(*c))),
+            Pattern::Text(t, _) if text => Some(quoted_text(t)),
+            _ => None,
+        };
+        let catch_all =
+            |pattern: &Pattern| matches!(pattern, Pattern::Var(_) | Pattern::Wildcard(_));
+        let mut kinds = Vec::new();
+        for j in 0..columns.len() {
+            let ty = types.get(j).and_then(|t| t.as_ref());
+            kinds.push((
+                self.number_kind(ty),
+                matches!(self.text_kind(ty), Ok(TextKind::Text)) && ty.is_some(),
+            ));
+        }
+        for (i, row) in rows.iter().enumerate() {
+            let Some(rhs) = row.rhs else { continue };
+            let mut facts = Vec::new();
+            for j in skip..columns.len().min(row.pats.len()) {
+                if !catch_all(&row.pats[j]) {
+                    continue;
+                }
+                let mut seen: Vec<String> = Vec::new();
+                for earlier in &rows[..i] {
+                    if earlier.guard.is_some() || earlier.pats.len() != row.pats.len() {
+                        continue;
+                    }
+                    let others_open = (skip..columns.len().min(earlier.pats.len()))
+                        .filter(|&k| k != j)
+                        .all(|k| catch_all(&earlier.pats[k]));
+                    if !others_open {
+                        continue;
+                    }
+                    let alternatives: Vec<&Pattern> = match &*earlier.pats[j] {
+                        Pattern::Or(alts, _) => alts.iter().collect(),
+                        other => vec![other],
+                    };
+                    let shown: Option<Vec<String>> = alternatives
+                        .iter()
+                        .map(|p| literal(p, &kinds[j].0, kinds[j].1))
+                        .collect();
+                    for text in shown.into_iter().flatten() {
+                        if !seen.contains(&text) {
+                            seen.push(text);
+                        }
+                    }
+                }
+                facts.extend(seen.into_iter().map(|literal| arm_display::ArmFact {
+                    level: columns[j],
+                    literal,
+                }));
+            }
+            if !facts.is_empty() {
+                let key = std::ptr::from_ref(rhs) as usize;
+                self.decl.arm_facts.borrow_mut().insert(key, facts.into());
+            }
+        }
+        Ok(())
     }
 
     /// Compiles equations into a case tree. `columns[j]` is the de Bruijn level
@@ -5326,6 +5403,13 @@ fn hide_unnamed_variables(cx: &mut Ctx) {
     }
 }
 
+/// What the arm with right-hand side `rhs` is known not to be
+/// ([`Elaborator::note_arm_facts`]).
+fn rhs_facts(cx: &Ctx, rhs: &Expr) -> Rc<[arm_display::ArmFact]> {
+    let key = std::ptr::from_ref(rhs) as usize;
+    (cx.e.decl.arm_facts.borrow().get(&key)).map_or_else(|| Rc::from([]), Rc::clone)
+}
+
 /// A leaf of the case tree: its arm's right-hand side, checked with the
 /// arm's pattern variables in scope. `guarded` if the arm has a condition,
 /// which puts it inside the `if` that tests it, where a `match` that is the
@@ -5404,7 +5488,8 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).
-    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases);
+    let facts = rhs_facts(cx, rhs);
+    let shown_arm = arm_display::enter_arm(cx, unsplit, *cases, &facts);
     let result = {
         let in_tree = match rhs {
             Expr::Match { .. } if !guarded => matching::in_tree(cx, rhs, goal),

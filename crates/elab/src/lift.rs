@@ -726,6 +726,14 @@ impl Elaborator {
         // A queued check may hold a `match`, drafted when it is resumed
         // (`queue.rs`, W2).
         self.resume_before_lifting()?;
+        // A proof `auto` finds for an obligation may be a helper's call
+        // (`literal_facts.rs`), so a declaration with no `match` of its own
+        // to lift has its obligations solved here too, while it still can
+        // be lifted.
+        if self.attempt.drafts.borrow().is_empty() && !self.attempt.obligations.borrow().is_empty()
+        {
+            self.solve_obligations_until_stuck()?;
+        }
         if self.attempt.drafts.borrow().is_empty() {
             self.assume_goals();
             return Ok(Vec::new());

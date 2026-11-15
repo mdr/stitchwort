@@ -24,10 +24,14 @@ expression: output
  15 │   | _ => ?
     │          ┬  
     │          ╰── s: Text
+    │              s ≠ "ab"
+    │              s ≠ ""
     │              ⊢ f s ≠ 0 ∨ s = ""
     │                computes to 2 ≠ 0 ∨ s = ""
     │ 
-    │ Note: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 4 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `length`
     ╭─[ goals/arm-as-written-computes.sw:20:13 ]
@@ -45,10 +49,13 @@ expression: output
     │          ╰── p: Text → Prop
     │              s: Text
     │              tail✝: List Char
+    │              s ≠ "ab"
     │              ⊢ p s ∧ s.length = s.length
     │                computes to p s ∧ Succ (List.length tail✝) = Succ (List.length tail✝)
     │ 
-    │ Note: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 5 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `painted`
     ╭─[ goals/arm-as-written-computes.sw:32:12 ]

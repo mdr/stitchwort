@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-AUTO-FALSE] Error: `5 ≠ 5` is false
+    ╭─[ reject/catch-all-facts-guard.sw:11:10 ]
+    │
+ 11 │   | m => apartFromFive m
+    │          ───────┬───────  
+    │                 ╰───────── this needs a proof that can't exist
+────╯

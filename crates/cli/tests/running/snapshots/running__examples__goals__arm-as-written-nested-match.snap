@@ -30,9 +30,12 @@ expression: output
     │              ╰── p: Option Bool → Text → Prop
     │                  o: Option Bool
     │                  s: Text
+    │                  s ≠ "ab"
     │                  ⊢ p o s
     │ 
-    │ Note: this arm is checked in 10 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 10 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `threeDeep`
     ╭─[ goals/arm-as-written-nested-match.sw:19:18 ]
@@ -77,9 +80,12 @@ expression: output
     │                      o: Option Bool
     │                      r: Option Bool
     │                      n: Nat
+    │                      n ≠ 0
     │                      ⊢ p o r n
     │ 
-    │ Note: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+    │ Note 1: this arm is checked in 2 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 2: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [GOAL] Goal: in `rewrittenFirst`
     ╭─[ goals/arm-as-written-nested-match.sw:34:20 ]
@@ -117,11 +123,14 @@ expression: output
     │                      s: Text
     │                      n: Nat
     │                      h: n = 3
+    │                      s ≠ "ab"
     │                      ⊢ p o s ∧ n = 3
     │ 
     │ Note 1: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
     │ 
     │ Note 2: this arm is checked in 10 cases; the goal shown is the arm as written, not any one case
+    │ 
+    │ Note 3: the `≠` lines are known from the arms above; `auto` and `byDecision` prove them
 ────╯
 [E-TYPE-MISMATCH] Error: type mismatch
     ╭─[ goals/arm-as-written-nested-match.sw:47:14 ]
