@@ -488,6 +488,9 @@ pub struct Context {
     /// count on from frame to frame.
     pub frames: u64,
     pub frame_limit: u64,
+    /// 1 if [`Limits::number_words`] is on: a big number's operations are
+    /// then charged by size ([`charge_prim`]), as the machine's are.
+    pub number_words: u64,
     /// [`OK`], or why the run stopped. Once set, every native frame drops
     /// its registers and returns.
     pub error: u64,
@@ -1049,6 +1052,7 @@ impl Crossing {
             step_limit: run.limits.steps,
             frames: run.frames,
             frame_limit: run.limits.frames as u64,
+            number_words: u64::from(run.limits.number_words),
             error: OK,
             stack_limit: run.stack_floor,
             functions: self.functions.as_ptr(),
@@ -1897,9 +1901,10 @@ pub unsafe extern "C" fn sw_prim(
 
 /// Charges the steps of a native whose result's size depends on an argument
 /// (`Text.repeat`, `Array.replicate`: [`crate::prims::text_repeat_cost`],
-/// [`crate::prims::replicate_cost`]), as the machine does, before the result
-/// is built, so a huge count runs out of steps rather than asking for the
-/// memory. False if that is over the limit: the context then has
+/// [`crate::prims::replicate_cost`]), and of an operation on big numbers when
+/// the context counts their words ([`crate::prims::number_cost`]), as the
+/// machine does, before the result is built, so a huge count runs out of
+/// steps rather than asking for the memory. False if that is over the limit: the context then has
 /// [`OUT_OF_STEPS`], with all the steps used.
 ///
 /// The steps in the context must be current: compiled code writes them out
@@ -1909,8 +1914,12 @@ fn charge_prim(context: &mut Context, op: PrimOp, args: &[&Value]) -> bool {
     let cost = match op {
         PrimOp::Array(ArrayNative::Replicate) => crate::prims::replicate_cost(args[0]),
         PrimOp::Text(TextNative::TextRepeat) => crate::prims::text_repeat_cost(args[0], args[1]),
+        _ if context.number_words != 0 => crate::prims::number_cost(op, args),
         _ => return true,
     };
+    if cost == 0 {
+        return true;
+    }
     let steps = context.steps.saturating_add(cost);
     if steps > context.step_limit {
         context.steps = context.step_limit;
@@ -1927,7 +1936,12 @@ pub fn charges_steps(op: PrimOp) -> bool {
     use crate::natives::{ArrayNative, TextNative};
     matches!(
         op,
-        PrimOp::Array(ArrayNative::Replicate) | PrimOp::Text(TextNative::TextRepeat)
+        PrimOp::Array(ArrayNative::Replicate)
+            | PrimOp::Text(TextNative::TextRepeat)
+            | PrimOp::Nat(_)
+            | PrimOp::Int(_)
+            | PrimOp::NegSucc
+            | PrimOp::IntEqual
     )
 }
 
