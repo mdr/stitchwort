@@ -1,5 +1,5 @@
 {
-  "next": 3340,
+  "next": 3347,
   "tickets": [
     {
       "id": 47,
@@ -228,9 +228,9 @@
         "decision"
       ],
       "epic": "syntax-language",
-      "body": "The problem: constructors of different union types share one namespace, so two types cannot both have a constructor `Quit`. The roguelike renamed its `Quit` to `GaveUp` for this reason (D2, NOTES stage 1 #8; unchecked wording).\n\nThe change: a design discussion with Matt first. Options: constructors nested in their type (`Outcome.Quit`), or resolving a bare name by the expected type, or leaving as is and documenting the rename trick.\n\nWhat it should do: Matt picks one; if the answer is not \"leave as is\", a design note in docs/proposals/ follows. Label it `decision` so it shows up.",
+      "body": "Raised by SW-3339: a lexer and a printer in one program (token Str vs layout Str) make | Str t => ambiguous even where the match's type is known; the toy formatter will hit it.",
       "created": "2026-10-25",
-      "updated": "2026-11-04",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
@@ -36903,7 +36903,7 @@
     {
       "id": 3338,
       "title": "[Opus] F1 of file-io-and-text.md, under D3595/D3596/D3586: a Files ability of its own (read, write, list, info; Path, FileError; every operation a Result), main may use it beside IO; the machine, native, built executables and the reference runner; Files.simulate and its laws; IO.printError; guide chapter 8 and syntax.md; full access, no sandbox flags",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36916,12 +36916,103 @@
     {
       "id": 3339,
       "title": "[Opus paper] The toy formatter (D3579's 'then a toy language's formatter'): a small toy language and its formatter written in Stitchwort that proves every moving part the self-hosted formatter needs (Files, fast Text slicing, generic Parse over tokens, text patterns, a layout engine, tests under Files.simulate, a built executable on real files); scope, grammar, acceptance tests, stages; ready to start when T1 and F1 land",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt, 15 Nov 2026: \"we also had the idea of first building a toy formatter for a toy language that proved we had all the moving parts we needed to scale up.\" Paper lane. Expected: 1.5 h (Opus).",
+      "body": "Paper docs/proposals/toy-formatter.md: Sprig, stages SW-3340 SW-3341 SW-3342 SW-3343 (13-17 lane h). D3606 (indentation vs braces) decided as the orchestrator's call: indentation, since the toy exists to rehearse the real formatter, which is layout-sensitive. Findings: SW-3344 SW-3345 SW-3346, SW-510 raised. Model result: Opus, worked, 10 min (est. 90).",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3340,
+      "title": "[Opus] Toy formatter stage A (toy-formatter.md): Sprig lexer with Text.slice, keyword tables by text patterns, tree, Parse.tokens parser with blocks by indentation, message tests, 1 MB timing. After SW-3337 and SW-3338",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3341,
+      "title": "[Opus] Toy formatter stage B (toy-formatter.md): layout engine port with ported tests, rules P1-P10, goldens, disturber; can start beside A",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3342,
+      "title": "[Sonnet] Toy formatter stage C (toy-formatter.md): file loop under Files, write-counting handler, Files.simulate tests, flags, native build, end-to-end test on a folder. After A, B, SW-3338",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3343,
+      "title": "[Sonnet] Toy formatter stage D (toy-formatter.md): lexCovers, formatRoundTrip, formatIdempotent by validation; then Opus report feeding D3576. After C",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3344,
+      "title": "[Opus] cases derives x = y from Some x = Some y (or Stable x = Stable y) but can't then close f x = f y (SW-3339 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3345,
+      "title": "[Opus] Design: a program can only exit 0 or 1 (Fail gives 1); tools need other codes, e.g. 2 for broken input as stitchwort fmt --check does (SW-3339 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3346,
+      "title": "[DeepSeek] The missing Int.ofNat error suggests OfNat, modNat, toNat but not Nat.toInt (SW-3339 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
