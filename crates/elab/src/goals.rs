@@ -372,6 +372,10 @@ impl NameScope for GoalScope<'_> {
         self.e.method_of(projection)
     }
 
+    fn ctor_name(&self, d: stitchwort_core::DataId, c: usize) -> Option<String> {
+        self.e.ctor_qualified(d, c)
+    }
+
     /// What `a == b` decides `a = b` by, for a `ty` that mentions no
     /// variable: `decide_eq_of`, as `a == b` finds it
     /// (`numbers::equation`, `bind::decide_written`), on placeholder

@@ -1153,7 +1153,7 @@ impl Elaborator {
 
     /// A short name, at the first level that has it. Constructors and
     /// operations are found only with `followers`.
-    fn resolve_short(&self, x: &str, followers: bool) -> Resolved<'_> {
+    pub(crate) fn resolve_short(&self, x: &str, followers: bool) -> Resolved<'_> {
         self.resolve_short_in(x, followers, true)
     }
 
@@ -1215,6 +1215,32 @@ impl Elaborator {
             }
         }
         Resolved::Missing
+    }
+
+    /// The constructors of the short name `x` that this file's imports or
+    /// the prelude bring, at the first of those levels that has any: what
+    /// a constructor of this file named `x` hides.
+    pub(crate) fn imported_constructors(&self, x: &str) -> Vec<String> {
+        for level in [Level::Import, Level::Wildcard, Level::Default] {
+            let mut keys: Vec<String> = Vec::new();
+            self.candidates(level, x, true, &mut |key| {
+                let is_ctor = matches!(
+                    self.scope.get(key),
+                    Some((
+                        Global::Ctor(..) | Global::Pending(_, crate::library::PendingKind::Ctor),
+                        _
+                    ))
+                );
+                if is_ctor && !keys.iter().any(|k| k == key) {
+                    keys.push(key.to_string());
+                }
+            });
+            if !keys.is_empty() {
+                keys.sort();
+                return keys;
+            }
+        }
+        Vec::new()
     }
 
     /// Calls `found` with the key of each candidate for short name `x` at
@@ -1836,6 +1862,19 @@ impl Elaborator {
         }
     }
 
+    /// Whether every one of `keys` is a constructor.
+    fn all_constructors(&self, keys: &[String]) -> bool {
+        keys.iter()
+            .all(|k| matches!(self.scope.get(k), Some((Global::Ctor(..), _))))
+    }
+
+    /// Whether the key's declaration is in the file being checked.
+    fn declared_in_file(&self, key: &str, file: stitchwort_syntax::FileId) -> bool {
+        self.scope
+            .get(key)
+            .is_some_and(|(_, span)| span.file == file)
+    }
+
     /// `E-AMBIGUOUS`, where an ambiguous name is used.
     pub(crate) fn ambiguous(&self, name: &ast::Name, keys: &[String], level: Level) -> Diagnostic {
         let shown: Vec<String> = keys
@@ -1868,6 +1907,21 @@ impl Elaborator {
                      {type_alternative}",
                     ctor_short = short(ctor_key),
                 ))
+            }
+            None if self.all_constructors(keys) => {
+                let own = keys
+                    .iter()
+                    .any(|k| self.declared_in_file(k, name.span.file));
+                d.with_label(name.span, format!("write {}", or_list(&shown)))
+                    .with_note(if own {
+                        "a constructor name means one thing in a file: qualify it with its type, \
+                         or rename one of them. Types that share constructor names are best kept \
+                         in separate files, so that only code that uses both has to import both"
+                    } else {
+                        "a constructor name means one thing in a file: qualify it with its type. \
+                         Only code that really uses both types should import both; keep types \
+                         that share constructor names in separate files"
+                    })
             }
             None => d.with_label(name.span, format!("write {} in full", or_list(&shown))),
         };
@@ -2934,6 +2988,10 @@ impl NameScope for Elaborator {
 
     fn method(&self, projection: DefId) -> Option<(DefId, String)> {
         Elaborator::method_of(self, projection)
+    }
+
+    fn ctor_name(&self, d: stitchwort_core::DataId, c: usize) -> Option<String> {
+        self.ctor_qualified(d, c)
     }
 }
 

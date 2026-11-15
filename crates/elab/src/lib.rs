@@ -2632,6 +2632,49 @@ impl Elaborator {
         Ok(core_ctors)
     }
 
+    /// `W-CTOR-HIDES`: the constructor `name` (declared as `key`) is called
+    /// what a constructor this file imports, or the prelude's, is called, so
+    /// from here the short name means the new one (D3615: a constructor name
+    /// has one meaning in a file).
+    fn warn_if_hides_constructor(&mut self, name: &ast::Name, key: &str) {
+        if self.unit.loading_prelude || key.starts_with("Std.") {
+            return;
+        }
+        let hidden = self.imported_constructors(&name.text);
+        if hidden.is_empty() {
+            return;
+        }
+        let shown: Vec<String> = hidden
+            .iter()
+            .map(|k| format!("`{}`", scope::display(k)))
+            .collect();
+        let qualified = scope::display(key);
+        self.unit.warnings.push(
+            Diagnostic::warning(
+                "W-CTOR-HIDES",
+                format!(
+                    "the constructor `{0}` hides {1} in this file",
+                    name.text,
+                    shown.join(" and ")
+                ),
+            )
+            .with_label(
+                name.span,
+                format!(
+                    "`{0}` here means `{qualified}`, not {1}",
+                    name.text,
+                    shown.join(" or ")
+                ),
+            )
+            .with_note(format!(
+                "a constructor name means one thing in a file: write {} for the hidden one. \
+                 Better, rename `{qualified}`, or keep this type in a file that doesn't need \
+                 the other",
+                shown.join(" or "),
+            )),
+        );
+    }
+
     /// After a data type is admitted: registering builtins (in the prelude),
     /// and making its constructors' names refer to them.
     fn after_data(&mut self, decl: &Decl, d: DataId) -> Result<()> {
@@ -2646,6 +2689,7 @@ impl Elaborator {
         let data_key = self.declaration_key(data_name)?;
         for (c, ctor) in ctors.iter().enumerate() {
             let key = Self::member_key(&data_key, &ctor.name.text);
+            self.warn_if_hides_constructor(&ctor.name, &key);
             self.scope
                 .insert(&key, Global::Ctor(d, c), ctor.name.span, true);
         }
@@ -4453,7 +4497,11 @@ impl Elaborator {
                         span: pattern_span,
                     }) => {
                         if d2 != d {
-                            return Err(error(
+                            let written = self.kernel.data(d2).ctors()[c2].name.clone();
+                            // The other type has a constructor of this name
+                            // too: this one hides it (`W-CTOR-HIDES`).
+                            let hidden = data.ctors().iter().position(|k| k.name == written);
+                            let mismatch = error(
                                 "E-TYPE-MISMATCH",
                                 pattern_span,
                                 format!(
@@ -4462,7 +4510,18 @@ impl Elaborator {
                                     self.kernel.data(d2).name(),
                                     data.name()
                                 ),
-                            ));
+                            );
+                            return Err(match hidden {
+                                Some(k) => mismatch.with_note(format!(
+                                    "`{written}` here means `{}`, which hides the `{}` of `{}`: \
+                                     write `{}` for that one",
+                                    self.kernel.data(d2).name().to_string() + "." + &written,
+                                    written,
+                                    data.name(),
+                                    self.ctor_written(d, k),
+                                )),
+                                None => mismatch,
+                            });
                         }
                         if c2 != c {
                             continue;

@@ -318,6 +318,24 @@ impl Elaborator {
         Some(out)
     }
 
+    /// Constructor `c` of `d` written with its type, if its short name
+    /// resolves here to something else (a second constructor of that name,
+    /// or one of this file's own hiding it): the spelling that means it.
+    /// `None` where the short name means it, or means nothing yet (a type
+    /// not in scope is printed as before).
+    pub(crate) fn ctor_qualified(&self, d: DataId, c: usize) -> Option<String> {
+        let short = self.ev().data(d).ctors()[c].name.to_string();
+        match self.resolve_any(&short) {
+            crate::scope::Resolved::Missing => None,
+            crate::scope::Resolved::Found {
+                global: crate::Global::Ctor(d2, c2),
+                rest,
+                ..
+            } if (d2, c2) == (d, c) && rest.is_empty() => None,
+            _ => Some(self.ctor_written(d, c)).filter(|w| *w != short),
+        }
+    }
+
     /// Constructor `c` of `d` as a pattern here can write it: its short
     /// name when that means it (`S` after `import Sf.Nat (Nat, S)`, or the
     /// prelude's own), else qualified by its type (`Nat.Succ`, or the type's
