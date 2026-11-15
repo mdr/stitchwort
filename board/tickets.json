@@ -36903,12 +36903,12 @@
     {
       "id": 3338,
       "title": "[Opus] F1 of file-io-and-text.md, under D3595/D3596/D3586: a Files ability of its own (read, write, list, info; Path, FileError; every operation a Result), main may use it beside IO; the machine, native, built executables and the reference runner; Files.simulate and its laws; IO.printError; guide chapter 8 and syntax.md; full access, no sandbox flags",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3338",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Starts when a build slot frees (three running). Expected: 4.5 h (Opus).",
+      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Starts when a build slot frees (three running). Expected: 4.5 h (Opus).\n\nLane notes (Opus, 15 Nov 2026, branch lane/SW-3338):\n- Built: std/Files/Files.sw (Path, FileKind, Entry, FileInfo, FileError, the Files ability with read/write/list/info, each a Result; Disk, Files.simulate and its laws by rfl/one rewrite; hand-written == since std derives none). main's row is a set (MainRow struct: IO plus any of Fail, Files); machine, native, built executables and the reference runner perform Files through crates/rt/src/files.rs (atomic write via temp file + rename, sorted listing, errors mapped to FileError). IO.printError on every runner (incl. --js); IO.simulate and Terminal.scriptedHost drop it. run --js refuses a Files main (E-JS-FILES) until F2. Guide ch. 8 \"Files\", syntax.md \"Files\", tour page web/guide/42-files.sw.\n- Wire formats bumped: codec 3 -> 4, linked 2 -> 3 (T1/SW-3337 may bump too).\n- Not done: Path `/` (the paper's `path / \"Main.sw\"`): `/` is hard-wired to numbers, so it needs a decision (name or operator overloading); no join function was added. Playground's in-memory disk and --js are F2.\n- T1 join point: crates/rt/src/files.rs `read` (comment there): the validated bytes should become T1's text buffer without the String copy; crates/rt/src/run.rs perform_files builds the text value.\n- Tests run (all pass): rt files::tests::host_files_* (4); running files::* (4: conformance vs model on machine and reference, error kinds + printError to stderr, check/test never touch files, --js refused); build::a_files_program_runs_as_it_does_under_run; server lsp::a_program_that_writes_files_never_touches_them_in_the_editor; driver library pinned|hash_stability (snapshots regenerated, IO changed); tools guide::* (4); test:example NAME=io,files; bound_to_the_prelude; registry tests (builtins, shapes, homes, core alone); codec/linked round trips; main-type tests (snapshot updated); web the_guide_examples_check.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
