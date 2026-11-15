@@ -36325,7 +36325,7 @@
     {
       "id": 3299,
       "title": "[Sonnet] Message quality: a readsThen proof with its pair built the wrong way round prints an unknown (?21 … [] (second, first)) as the expected type instead of the spec (examples/reject/reads-chain-swapped-pair.sw, on PRINTS_UNKNOWNS) (SW-3281 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -36423,12 +36423,12 @@
     {
       "id": 3306,
       "title": "[Sonnet] When a parser's t differs from the goal's, the error's note tells the reader to give [a := …], which misleads (docs/reviews/SW-3282-settle-from-expected.md S2); also stage 0's reject example reads-chain-unknown-name-last-step hides a second error (its True is the Bool, so Trivial fails)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "With SW-3299 in one lane (lane/SW-3306). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
