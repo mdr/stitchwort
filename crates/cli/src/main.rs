@@ -190,7 +190,8 @@ enum DevCommand {
     /// broken file, and count the errors other than the syntax error, which
     /// are false ones, by the recovery point the parser used. Lists the
     /// worst breaks. In a project by default; `--files` checks each file on
-    /// its own, `--std` library files
+    /// its own, `--std` library files. Prints progress on stderr after each
+    /// file
     Breaks {
         /// Files or folders
         paths: Vec<PathBuf>,
@@ -214,6 +215,11 @@ enum DevCommand {
         /// Print the results as one JSON object
         #[arg(long)]
         json: bool,
+        /// Append one JSON object per finished file to PATH as soon as that
+        /// file is done, flushed, so a killed run keeps every finished
+        /// file's results
+        #[arg(long, value_name = "PATH")]
+        jsonl: Option<PathBuf>,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -1368,6 +1374,7 @@ fn run(cli: Cli) -> ExitCode {
             limit,
             worst,
             json,
+            jsonl,
             project,
             cache,
         }) => breaks_cmd::run(&breaks_cmd::Args {
@@ -1378,6 +1385,7 @@ fn run(cli: Cli) -> ExitCode {
             limit,
             worst,
             json,
+            jsonl: jsonl.as_deref(),
             project: project.as_deref(),
             cache: &cache,
         }),

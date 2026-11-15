@@ -10,6 +10,10 @@
 //! *false* error: the declaration was correct, so the syntax error is the
 //! only thing wrong with it.
 //!
+//! Progress goes to stderr after each file. With `--jsonl PATH`, each
+//! finished file's figures are appended to PATH as one JSON line at once,
+//! flushed, so a run that is killed keeps every finished file.
+//!
 //! Each break is counted under the recovery point the parser used for the
 //! broken declaration (its first, [`RecoveryPoint`]), or, when it didn't
 //! recover, under `kept signature` (a definition whose header parsed) or
@@ -24,9 +28,10 @@
 //! Exit status: 0 the run finished; 2 refused.
 
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
 use stitchwort_cli::project::DiskFiles;
@@ -51,6 +56,8 @@ pub(super) struct Args<'a> {
     /// How many of the worst breaks to list.
     pub worst: usize,
     pub json: bool,
+    /// Append one JSON object per finished file here, as soon as it is done.
+    pub jsonl: Option<&'a Path>,
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -361,6 +368,132 @@ fn refused(json: bool, message: String) -> ExitCode {
     ExitCode::from(REFUSED)
 }
 
+/// `12s`, `4m12s` or `1h2m3s`.
+fn duration_words(seconds: u64) -> String {
+    let (hours, rest) = (seconds / 3600, seconds % 3600);
+    let (minutes, seconds) = (rest / 60, rest % 60);
+    if hours > 0 {
+        format!("{hours}h{minutes}m{seconds}s")
+    } else if minutes > 0 {
+        format!("{minutes}m{seconds}s")
+    } else {
+        format!("{seconds}s")
+    }
+}
+
+/// After a file, one line of progress on stderr, flushed.
+fn print_progress(done: usize, total: usize, breaks: usize, elapsed: Duration) {
+    eprintln!(
+        "breaks: {done}/{total} files, {breaks} breaks, {}",
+        duration_words(elapsed.as_secs())
+    );
+    let _ = std::io::stderr().flush();
+}
+
+/// Per recovery point: breaks, and those with a false error.
+fn tally_points(outcomes: &[Outcome]) -> BTreeMap<&'static str, (usize, usize)> {
+    let mut by_point: BTreeMap<&'static str, (usize, usize)> = BTreeMap::new();
+    for o in outcomes {
+        let row = by_point.entry(o.point).or_default();
+        row.0 += 1;
+        row.1 += usize::from(!o.false_errors.is_empty());
+    }
+    by_point
+}
+
+/// Per code of a false error: how many breaks gave one.
+fn tally_codes(outcomes: &[Outcome]) -> BTreeMap<&str, usize> {
+    let mut by_code: BTreeMap<&str, usize> = BTreeMap::new();
+    for o in outcomes {
+        let mut codes: Vec<&str> = o.false_errors.iter().map(|e| e.code.as_str()).collect();
+        codes.dedup();
+        for code in codes {
+            *by_code.entry(code).or_default() += 1;
+        }
+    }
+    by_code
+}
+
+/// One outcome, as the final summary and the `--jsonl` lines write it.
+fn outcome_json(o: &Outcome) -> Value {
+    json!({
+        "file": o.path,
+        "line": o.line,
+        "how": o.how.word(),
+        "point": o.point,
+        "falseErrors": o.false_errors.iter().map(|e| json!({
+            "code": e.code, "line": e.line, "message": e.message,
+        })).collect::<Vec<_>>(),
+    })
+}
+
+/// The recovery points and their rates, as both the summary and a file's line
+/// write them.
+fn points_json(
+    by_point: &BTreeMap<&'static str, (usize, usize)>,
+) -> serde_json::Map<String, Value> {
+    let rate = |(breaks, bad): (usize, usize)| {
+        if breaks == 0 {
+            0.0
+        } else {
+            100.0 * bad as f64 / breaks as f64
+        }
+    };
+    by_point
+        .iter()
+        .map(|(point, row)| {
+            (
+                point.to_string(),
+                json!({
+                    "breaks": row.0,
+                    "withFalseErrors": row.1,
+                    "percent": (rate(*row) * 100.0).round() / 100.0,
+                }),
+            )
+        })
+        .collect()
+}
+
+/// One file's results, as a `--jsonl` line: the final summary's figures for
+/// that file, and its path.
+fn file_json(
+    path: &str,
+    outcomes: &[Outcome],
+    (still_parse, unseen): (usize, usize),
+    skipped: Option<&str>,
+) -> Value {
+    let total = outcomes.len();
+    let bad = outcomes
+        .iter()
+        .filter(|o| !o.false_errors.is_empty())
+        .count();
+    json!({
+        "version": 1,
+        "file": path,
+        "status": if skipped.is_some() { "skipped" } else { "done" },
+        "breaks": total,
+        "withFalseErrors": bad,
+        "stillParse": still_parse,
+        "unseen": unseen,
+        "byPoint": points_json(&tally_points(outcomes)),
+        "byCode": tally_codes(outcomes),
+        "skipped": skipped,
+        "withFalse": outcomes.iter().filter(|o| !o.false_errors.is_empty())
+            .map(outcome_json).collect::<Vec<_>>(),
+    })
+}
+
+/// Appends one JSON object as a line and flushes it at once.
+fn append_jsonl(file: &mut std::fs::File, value: &Value, path: &Path) {
+    let written = writeln!(file, "{value}").and_then(|()| file.flush());
+    if let Err(err) = written {
+        eprintln!(
+            "warning: can't write the JSON lines to {}: {err}",
+            path.display()
+        );
+    }
+}
+
 pub(super) fn run(args: &Args) -> ExitCode {
     if args.paths.is_empty() {
         return refused(args.json, "give the files or folders to break".to_string());
@@ -446,6 +579,23 @@ pub(super) fn run(args: &Args) -> ExitCode {
         Box::new(ProjectChecker { live })
     };
 
+    let jsonl_file = match args.jsonl {
+        Some(path) => match std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+        {
+            Ok(file) => Some(file),
+            Err(e) => {
+                return refused(
+                    args.json,
+                    format!("can't open {} for the JSON lines: {e}", path.display()),
+                );
+            }
+        },
+        None => None,
+    };
+
     let started = Instant::now();
     let mut outcomes: Vec<Outcome> = Vec::new();
     // Breaks that left text that still parses, which aren't syntax errors.
@@ -455,73 +605,102 @@ pub(super) fn run(args: &Args) -> ExitCode {
     let mut unseen = 0usize;
     // Files that can't be broken as they are, each with the reason.
     let mut skipped: Vec<String> = Vec::new();
-    'files: for (path, text) in &targets {
+    let mut jsonl = jsonl_file;
+    let total_files = targets.len();
+    let mut done_files = 0usize;
+    let mut stop = false;
+    for (path, text) in &targets {
+        if args.limit.is_some_and(|n| outcomes.len() >= n) {
+            break;
+        }
+        // This file's figures alone, for its progress line and JSON line.
+        let first_outcome = outcomes.len();
+        let mut file_still_parse = 0usize;
+        let mut file_unseen = 0usize;
+        let mut file_skipped: Option<String> = None;
         match checker.errors(path, text) {
-            Err(why) => {
-                skipped.push(format!("{path}: {why}"));
-                continue;
-            }
+            Err(why) => file_skipped = Some(format!("{path}: {why}")),
             Ok(errors) if !errors.is_empty() => {
                 let e = &errors[0];
-                skipped.push(format!(
+                file_skipped = Some(format!(
                     "{path}: it doesn't check as it is: {} (line {}): {}",
                     e.code, e.line, e.message
                 ));
-                continue;
             }
             Ok(_) => {}
         }
-        for b in breaks(text) {
-            if args.limit.is_some_and(|n| outcomes.len() >= n) {
-                break 'files;
-            }
-            let (syntax, point) = parsed(&b.edited, b.line);
-            if syntax.is_empty() {
-                still_parse += 1;
-                continue;
-            }
-            let reported = match checker.errors(path, &b.edited) {
-                Ok(reported) => reported,
-                Err(why) => vec![Reported {
-                    code: "CHECK-FAILED".to_string(),
-                    line: b.line,
-                    message: why,
-                }],
-            };
-            checker.restore(path, text);
-            if !reported.iter().any(|r| r.code.starts_with("E-")) {
-                unseen += 1;
-                if !args.json {
-                    println!("{path}:{}: {}: no error reported", b.line, b.how.word());
+        if let Some(reason) = &file_skipped {
+            skipped.push(reason.clone());
+        } else {
+            for b in breaks(text) {
+                if args.limit.is_some_and(|n| outcomes.len() >= n) {
+                    stop = true;
+                    break;
                 }
+                let (syntax, point) = parsed(&b.edited, b.line);
+                if syntax.is_empty() {
+                    still_parse += 1;
+                    file_still_parse += 1;
+                    continue;
+                }
+                let reported = match checker.errors(path, &b.edited) {
+                    Ok(reported) => reported,
+                    Err(why) => vec![Reported {
+                        code: "CHECK-FAILED".to_string(),
+                        line: b.line,
+                        message: why,
+                    }],
+                };
+                checker.restore(path, text);
+                if !reported.iter().any(|r| r.code.starts_with("E-")) {
+                    unseen += 1;
+                    file_unseen += 1;
+                    if !args.json {
+                        println!("{path}:{}: {}: no error reported", b.line, b.how.word());
+                    }
+                }
+                let false_errors: Vec<Reported> = reported
+                    .into_iter()
+                    .filter(|r| {
+                        !syntax
+                            .iter()
+                            .any(|(code, line)| *code == r.code && *line == r.line)
+                    })
+                    .collect();
+                if !args.json && !false_errors.is_empty() {
+                    let e = &false_errors[0];
+                    println!(
+                        "{path}:{}: {} ({point}): {} false: {} (line {}): {}",
+                        b.line,
+                        b.how.word(),
+                        false_errors.len(),
+                        e.code,
+                        e.line,
+                        e.message
+                    );
+                }
+                outcomes.push(Outcome {
+                    path: path.clone(),
+                    line: b.line,
+                    how: b.how,
+                    point,
+                    false_errors,
+                });
             }
-            let false_errors: Vec<Reported> = reported
-                .into_iter()
-                .filter(|r| {
-                    !syntax
-                        .iter()
-                        .any(|(code, line)| *code == r.code && *line == r.line)
-                })
-                .collect();
-            if !args.json && !false_errors.is_empty() {
-                let e = &false_errors[0];
-                println!(
-                    "{path}:{}: {} ({point}): {} false: {} (line {}): {}",
-                    b.line,
-                    b.how.word(),
-                    false_errors.len(),
-                    e.code,
-                    e.line,
-                    e.message
-                );
-            }
-            outcomes.push(Outcome {
-                path: path.clone(),
-                line: b.line,
-                how: b.how,
-                point,
-                false_errors,
-            });
+        }
+        done_files += 1;
+        if let (Some(file), Some(jsonl_path)) = (&mut jsonl, args.jsonl) {
+            let value = file_json(
+                path,
+                &outcomes[first_outcome..],
+                (file_still_parse, file_unseen),
+                file_skipped.as_deref(),
+            );
+            append_jsonl(file, &value, jsonl_path);
+        }
+        print_progress(done_files, total_files, outcomes.len(), started.elapsed());
+        if stop {
+            break;
         }
     }
     drop(checker);
@@ -541,20 +720,8 @@ fn report(
     skipped: &[String],
     seconds: f64,
 ) -> ExitCode {
-    // Per point: breaks, and those with a false error.
-    let mut by_point: BTreeMap<&str, (usize, usize)> = BTreeMap::new();
-    // Per code of a false error: how many breaks gave one.
-    let mut by_code: BTreeMap<&str, usize> = BTreeMap::new();
-    for o in outcomes {
-        let row = by_point.entry(o.point).or_default();
-        row.0 += 1;
-        row.1 += usize::from(!o.false_errors.is_empty());
-        let mut codes: Vec<&str> = o.false_errors.iter().map(|e| e.code.as_str()).collect();
-        codes.dedup();
-        for code in codes {
-            *by_code.entry(code).or_default() += 1;
-        }
-    }
+    let by_point = tally_points(outcomes);
+    let by_code = tally_codes(outcomes);
     let mut worst: Vec<&Outcome> = outcomes
         .iter()
         .filter(|o| !o.false_errors.is_empty())
@@ -574,17 +741,6 @@ fn report(
         .filter(|o| !o.false_errors.is_empty())
         .count();
     if args.json {
-        let outcome_json = |o: &Outcome| {
-            json!({
-                "file": o.path,
-                "line": o.line,
-                "how": o.how.word(),
-                "point": o.point,
-                "falseErrors": o.false_errors.iter().map(|e| json!({
-                    "code": e.code, "line": e.line, "message": e.message,
-                })).collect::<Vec<_>>(),
-            })
-        };
         print_json(json!({
             "version": 1,
             "status": "done",
@@ -593,11 +749,7 @@ fn report(
             "withFalseErrors": bad,
             "stillParse": still_parse,
             "unseen": unseen,
-            "byPoint": by_point.iter().map(|(p, r)| (p.to_string(), json!({
-                "breaks": r.0,
-                "withFalseErrors": r.1,
-                "percent": (rate(*r) * 100.0).round() / 100.0,
-            }))).collect::<serde_json::Map<_, _>>(),
+            "byPoint": points_json(&by_point),
             "byCode": by_code,
             "skippedFiles": skipped,
             "worst": worst.iter().map(|o| outcome_json(o)).collect::<Vec<_>>(),
@@ -703,5 +855,62 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![("E-PARSE", 3), ("E-TYPE-MISMATCH", 4)]
         );
+    }
+
+    #[test]
+    fn a_files_json_line_has_the_summarys_figures_for_that_file_and_its_path() {
+        let outcomes = vec![
+            Outcome {
+                path: "a.sw".to_string(),
+                line: 3,
+                how: How::DropLast,
+                point: "kept signature",
+                false_errors: Vec::new(),
+            },
+            Outcome {
+                path: "a.sw".to_string(),
+                line: 4,
+                how: How::StrayParen,
+                point: "whole",
+                false_errors: vec![Reported {
+                    code: "E-TYPE-MISMATCH".to_string(),
+                    line: 4,
+                    message: "type mismatch".to_string(),
+                }],
+            },
+        ];
+        let line = file_json("a.sw", &outcomes, (2, 1), None);
+        assert_eq!(line["version"], 1);
+        assert_eq!(line["file"], "a.sw");
+        assert_eq!(line["status"], "done");
+        assert_eq!(line["breaks"], 2);
+        assert_eq!(line["withFalseErrors"], 1);
+        assert_eq!(line["stillParse"], 2);
+        assert_eq!(line["unseen"], 1);
+        assert_eq!(line["byPoint"]["kept signature"]["breaks"], 1);
+        assert_eq!(line["byPoint"]["kept signature"]["withFalseErrors"], 0);
+        assert_eq!(line["byPoint"]["whole"]["withFalseErrors"], 1);
+        assert_eq!(line["byCode"]["E-TYPE-MISMATCH"], 1);
+        assert_eq!(line["withFalse"][0]["file"], "a.sw");
+        assert_eq!(line["withFalse"][0]["line"], 4);
+        assert_eq!(
+            line["withFalse"][0]["falseErrors"][0]["code"],
+            "E-TYPE-MISMATCH"
+        );
+        assert!(line["skipped"].is_null());
+
+        let skipped = file_json("b.sw", &[], (0, 0), Some("b.sw: can't read it"));
+        assert_eq!(skipped["status"], "skipped");
+        assert_eq!(skipped["file"], "b.sw");
+        assert_eq!(skipped["breaks"], 0);
+        assert_eq!(skipped["skipped"], "b.sw: can't read it");
+    }
+
+    #[test]
+    fn progress_reads_in_hours_minutes_and_seconds() {
+        assert_eq!(duration_words(0), "0s");
+        assert_eq!(duration_words(12), "12s");
+        assert_eq!(duration_words(252), "4m12s");
+        assert_eq!(duration_words(3723), "1h2m3s");
     }
 }
