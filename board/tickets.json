@@ -36072,14 +36072,14 @@
     {
       "id": 3282,
       "title": "[Opus+DeepSeek] Generic Parse stage 1 (generic-parse.md §4): ability Parse (t: Type), generic and character layers, file split; {Parse} to {Parse Char} in aoc/, examples, tests, guide (D3603); with SW-3279's better E-ARITY note. Gates: Std.Parse < 130M steps, AoC proof days within 15%, statements checked one by one. After stage 0",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "D3603 (Matt, 14 Nov 2026): 'D3603. Yes, happy with that.' ({Parse Char} for character parsers). D3604 overnight chain B. Expected: 4.5 h (Opus std; the sweep outside std may go to DeepSeek).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
