@@ -79,11 +79,11 @@ test "words that aren't keywords" := ["fns", "Let", "", "iff", "_if"].all (word 
 
 test "the operator table" :=
   ["||", "&&", "==", "!=", "<", "<=", "++", "+", "-", "*", "/", "%"].map symbols
-    == [Or, And, Equal, NotEqual, Less, LessEqual, Append, Plus, Minus, Times, Divide, Remainder].map (operator =>
+    == [Or, And, EqualTo, NotEqual, LessThan, LessEqual, Append, Plus, Minus, Times, Divide, Remainder].map (operator =>
       Some (Op operator))
 
 test "the operator table spells each operator as the printer does" :=
-  [Or, And, Equal, NotEqual, Less, LessEqual, Append, Plus, Minus, Times, Divide, Remainder].all (operator =>
+  [Or, And, EqualTo, NotEqual, LessThan, LessEqual, Append, Plus, Minus, Times, Divide, Remainder].all (operator =>
     symbols operator.spelling == Some (Op operator))
 
 test "runs that aren't operators" := ["=-", "===", ">", "!", "&"].all (run => symbols run == None)

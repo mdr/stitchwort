@@ -40,9 +40,9 @@ type Comment = { text: Text }
 type Operator =
   | Or
   | And
-  | Equal
+  | EqualTo
   | NotEqual
-  | Less
+  | LessThan
   | LessEqual
   | Append
   | Plus
@@ -54,9 +54,9 @@ type Operator =
 def Operator.spelling: Operator → Text
   | Or => "||"
   | And => "&&"
-  | Equal => "=="
+  | EqualTo => "=="
   | NotEqual => "!="
-  | Less => "<"
+  | LessThan => "<"
   | LessEqual => "<="
   | Append => "++"
   | Plus => "+"
@@ -69,7 +69,7 @@ def Operator.spelling: Operator → Text
 def Operator.level: Operator → Nat
   | Or => 1
   | And => 2
-  | Equal | NotEqual | Less | LessEqual => 3
+  | EqualTo | NotEqual | LessThan | LessEqual => 3
   | Append => 4
   | Plus | Minus => 5
   | Times | Divide | Remainder => 6
