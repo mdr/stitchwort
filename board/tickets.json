@@ -1,5 +1,5 @@
 {
-  "next": 3445,
+  "next": 3446,
   "tickets": [
     {
       "id": 47,
@@ -38330,6 +38330,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3445,
+      "title": "[DeepSeek] Unknown-name suggestions offer a std record field of a proof-only type (E-UNKNOWN-NAME on 'highest' suggests Std.Parse.OperatorTree.highest, in reject/autobind-value-misspelt): don't suggest field accessors for a bare name, or rank them below",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
