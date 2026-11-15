@@ -38576,12 +38576,12 @@
     {
       "id": 3463,
       "title": "[DeepSeek] fmt fuzzer COMMENTS mode: 1M cases take 18-40 s vs 144 s without, so many cases may be refused or fail to parse early; count and print how many cases parsed and were formatted, per mode, and if most don't parse, make comment insertion keep more inputs parseable (SW-3451 follow-up, Overmind)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Model result: deepseek, needed fixes (first restricted comments to line breaks; reverted on review), ~45 min (est. 30).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38669,7 +38669,7 @@
     {
       "id": 3470,
       "title": "[Sonnet] fmt fuzzer: about 83% of mutated cases don't parse and are skipped (seed 0x300: 16,616 of 20,000 skipped, no comments), so 1M cases is ~170k formatted; make the mutator keep more inputs parseable (mutate at token boundaries, prefer swaps of same-class tokens, or re-draw a case that doesn't parse) and report the formatted count (SW-3463 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
