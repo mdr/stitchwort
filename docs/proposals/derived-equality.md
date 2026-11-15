@@ -12,7 +12,8 @@ Migration cost is not counted (D2303).
 How claims are marked: **[measured]** run today with the release CLI on the
 probes in the lane's scratchpad (reproduced in §3); **[checked]** read in the
 code at the place given; **[inferred]** my reasoning, not run; **[cited]**
-from outside sources, as noted.
+from outside sources, with the link given (checked 15 November 2026,
+SW-3387).
 
 ## 1. In plain words
 
@@ -126,13 +127,13 @@ hides this only when nothing in it changed.
 
 | Language | How | Mutual / nested types |
 |---|---|---|
-| Haskell | Opt-in `deriving (Eq, Ord, Show)`, or standalone deriving | Free: no termination check |
-| Rust | Opt-in `#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]`, bounds on type parameters | Free: no termination check |
-| Lean 4 | Opt-in `deriving DecidableEq, BEq, Ord, Repr` | Mutual since lean4#2591, by well-founded recursion, reported slow; nested reported unsupported in 2025 [cited, Zulip] |
-| Idris 2 | No built-in deriving; elaborator-reflection libraries | Library-dependent |
-| Koka | Written by hand [from memory] | – |
-| Roc | Automatic `Eq`, `Hash`, `Inspect` for structural types; opaque types opt in [from memory] | Automatic |
-| F#, Elm, Gleam | Automatic structural equality (F# also comparison), F# opt-out by attribute | Automatic |
+| Haskell | Opt-in `deriving (Eq, Ord, Show)`, or standalone deriving ([GHC user guide](https://downloads.haskell.org/ghc/latest/docs/users_guide/exts/deriving_extra.html)) | Free: no termination check |
+| Rust | Opt-in `#[derive(PartialEq, Eq, PartialOrd, Ord, Debug)]`; the derived impl bounds each type parameter, `impl<T: PartialEq> PartialEq for Foo<T>` ([Rust reference, derive](https://doc.rust-lang.org/reference/attributes/derive.html)) | Free: no termination check |
+| Lean 4 | Opt-in `deriving DecidableEq, BEq, Ord, Repr` ([reference manual](https://lean-lang.org/doc/reference/latest/Type-Classes/Deriving-Instances/)) | Mutual since lean4#2591 (merged 3 Oct 2023, [PR](https://github.com/leanprover/lean4/pull/2591)); a July 2024 reply said it "uses wellfounded recursion and is, thus, quite slow" ([Zulip](https://leanprover-community.github.io/archive/stream/270676-lean4/topic/DecidableEq.20and.20List.20in.20inductive.20type.html)), but the current handler uses `termination_by structural` for recursive types and a linear-size construction from 10 constructors up. Nested types: `mkDecEq` returns false, "nested inductive types are not supported yet" ([`DecEq.lean`](https://github.com/leanprover/lean4/blob/3770b3dcb8b1b3340e0252760dc68e8e61daef06/src/Lean/Elab/Deriving/DecEq.lean)); still reported in October 2025 ([Zulip](https://leanprover-community.github.io/archive/stream/113488-general/topic/DecidableEq.20for.20Tree.html)) |
+| Idris 2 | No `deriving` clause; elaborator reflection with `%runElab derive`: `Show`, `Functor`, `Foldable` and `Traversable` are in `base` ([`libs/base/Deriving`](https://github.com/idris-lang/Idris2/tree/main/libs/base/Deriving)); `Eq` and `Ord` come from libraries (elab-util's `Derive.Eq`; idris2-sop's `derive "T" [Generic, Eq, Ord, DecEq]`) | Library-dependent [unverified: not tested on mutual or nested types] |
+| Koka | Written by hand: the standard library defines `(==)` and `show` for `maybe`, `either` and `list` as ordinary functions taking the element's as implicit parameters ([`lib/std/core/maybe.kk`](https://github.com/koka-lang/koka/blob/ca5ccd373fb64da49fe5a765c14ac0bbe047a07c/lib/std/core/maybe.kk)); the compiler's `Syntax`, `Kind` and `Type` sources have no deriving (grep at the same commit) | – |
+| Roc | `Eq` and `Hash` derived automatically for types that aren't opaque; an opaque type opts in with `implements [Eq, Hash]` ([Zulip, "Auto-Derived Abilities"](https://roc-lang.github.io/zulip-export/stream/231634-beginners/topic/.E2.9C.94.20Auto-Derived.20Abilities.html)); `Eq` is not derived for types holding functions or floats ([roc#4290](https://github.com/roc-lang/roc/pull/4290)). `Inspect` [unverified] | Automatic |
+| F#, Elm, Gleam | Automatic structural equality: F# records and unions ([records](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/records): "Like union and structure types, records have structural equality semantics"), with `[<ReferenceEquality>]`, `[<NoEquality>]` and `[<NoComparison>]` to opt out ([records](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/records), [unions](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions)); Elm "uses structural equality on tuples, records, and user-defined union types" ([`Basics.elm`](https://github.com/elm/core/blob/1.0.5/src/Basics.elm)); Gleam "Equality is checked structurally" ([tour](https://tour.gleam.run/everything/)). F# also derives comparison [unverified: the pages fetched state it only through `comparison` constraints and the F# spec] | Automatic (F#: mutually recursive unions with `and`, [unions](https://learn.microsoft.com/en-us/dotnet/fsharp/language-reference/discriminated-unions)) |
 
 Opt-in languages make the cost and the choice of a structural order
 visible; automatic ones treat structural equality as what data means.
@@ -223,8 +224,11 @@ each law is proved by matching on `r` alone: n cases, not n² (`trans`
 likewise). `T.%same` is rebuilt the same way, and `T.%differ` goes. Term
 size and checking time become linear [inferred]: the 94-constructor probe
 should land near the enumeration's path or below, under 1 s [estimated].
-Lean's deriving code imports a `CtorIdx` construction, which suggests the
-same route [cited, API docs; not read].
+Lean's `DecEq.lean` and `Ord.lean` handlers import `Lean.Meta.Constructions.CtorIdx` and
+`CasesOnSameCtor`, and `mkMatchNew` compares constructor indices and then
+matches the fields of two values of the same constructor; it is used from 10
+constructors up (option `deriving.decEq.linear_construction_threshold`,
+"avoids the quadratic code size") [cited, [`DecEq.lean`](https://github.com/leanprover/lean4/blob/3770b3dcb8b1b3340e0252760dc68e8e61daef06/src/Lean/Elab/Deriving/DecEq.lean), read].
 
 **As built (stage 2, SW-3370).** Two changes from the sketch above. The
 comparison is `if Nat.equal (T.%tag r) (T.%tag s) then T.%fields r s else

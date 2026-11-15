@@ -1,5 +1,5 @@
 {
-  "next": 3389,
+  "next": 3390,
   "tickets": [
     {
       "id": 47,
@@ -37181,7 +37181,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "D3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges.",
+      "body": "SW-3387: Rocq #17986 was later partly reverted and #21686 proposes a reimplementation; read both before rule 2 (callback signatures) is built. Lean's derive handler is a cross-check for derived-equality §5.6.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37540,12 +37540,12 @@
     {
       "id": 3387,
       "title": "[Sonnet paper] Verify from-memory claims about other languages/tools in the live design notes (fmt-author-breaks.md, derived-equality.md, recursion-through-map.md, args.md): check each against a primary source, cite it, correct or remove what's wrong; list the older notes' [memory]/[unverified] markers for a later sweep",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Matt, 15 Nov 2026: \"you shouldn't do details from memory ... So please verify.\" Expected: 1.5 h.",
+      "body": "Matt, 15 Nov 2026: \"you shouldn't do details from memory ... So please verify.\" Expected: 1.5 h.\n\nProgress, 15 Nov 2026: checked every claim about other tools in the four notes against primary sources (docs, source, PR/issue pages) and added links; corrections: Prettier/Dart/Lean/Rocq wording, Lean's derive handler is now structural (not well-founded), Agda #6654 is the forcing-analysis issue. Left [unverified]: Roc Inspect, F# comparison, Idris 2 mutual/nested, Agda #6654's relation to the rule. Edits uncommitted in the main checkout (docs/proposals/{fmt-author-breaks,derived-equality,recursion-through-map,args}.md). Older notes' markers listed in the lane report.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37558,6 +37558,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3389,
+      "title": "[Sonnet paper] Sweep the older design notes' [memory]/[from memory]/[unverified] claims about other systems (list in SW-3387's report, ~60 files): verify against primary sources and cite, correct, or remove; in batches, most-used notes first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",

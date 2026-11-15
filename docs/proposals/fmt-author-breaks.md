@@ -7,8 +7,9 @@ use since SW-3194) and [formatter-architecture.md](formatter-architecture.md).
 Claims are marked **[measured]** (a script over the reformat commit
 `39de3aa7d` or the tracked `.sw` files at `397c2da84`; pattern-based, so
 the counts are approximate), **[source]** (read in the printer, or in a
-tool's own docs), **[from memory]** (how another tool behaves; not
-rechecked here) or **[estimated]**.
+tool's own docs or source: the links in section 2) or **[estimated]**.
+Section 2's claims about other formatters were checked against those
+sources on 15 November 2026 (SW-3387).
 
 ## In plain words
 
@@ -100,22 +101,24 @@ headers that read fine.
 
 | Tool | Width | Keeps the author's breaks? | Alternatives and fields |
 |---|---|---|---|
-| gofmt | none | yes, nearly all; it only re-indents and aligns [from memory] | struct fields as written; blocks (`if`, `switch`) always open |
-| rustfmt | 100, plus narrower widths per construct ("small heuristics") | no | enum variants and struct fields in a definition always one per line [from memory]; a struct literal on one line only up to 18 characters of body, a struct variant 35, call arguments 60, `if … else` 50 [source: rustfmt Configurations.md]; `else if` chains always break [from memory] |
-| Prettier | 80 | one hint: an object written with a newline after `{` stays open ("short multi-line objects are never collapsed"); since 3.5 `objectWrap: "collapse"` turns it off [source: prettier.io rationale] | everything else fit-or-break |
-| Black | 88 | one hint: a "magic trailing comma" keeps a bracket open [from memory] | fit-or-break |
-| Dart (tall style, 3.7) | 80 | none at first; the formatter added and removed trailing commas itself. Users pushed back, and 3.8 added `trailing_commas: preserve`, where a trailing comma forces the split [source: dart_style changelog] | |
-| zig fmt | none | the trailing comma is the switch: with it, one item per line; without, one line [from memory] | |
-| Ormolu / Fourmolu | none | yes: each construct is one line or several, as the author had it [from memory] | |
-| elm-format | none | for lists, records and calls, a newline anywhere opens the whole construct [from memory] | a custom type's constructors always one per line; `if … then … else` always open [from memory] |
-| scalafmt | 80 | `newlines.source`: `classic` (default) keeps some breaks, `keep` keeps them, `fold` ignores them, `unfold` breaks all [from memory] | |
-| gleam format | 80 | none [from memory] | a custom type's variants always one per line [from memory] |
+| gofmt | none ([Effective Go](https://go.dev/doc/effective_go#formatting): "Go has no line length limit") | yes where it can: "If the list spans multiple source lines, the original line breaks are respected between expressions" ([go/printer `nodes.go`](https://github.com/golang/go/blob/master/src/go/printer/nodes.go)); it re-indents and aligns | a block (`if`, `switch`) "always spans at least two lines" (same file, `block`); a function body may stay on one line if small |
+| rustfmt | 100 (`max_width`), plus narrower widths per construct ("small heuristics") | no | enum variants one per line, and a small struct variant on one line; struct fields one per line ([Rust style guide, items](https://doc.rust-lang.org/nightly/style-guide/items.html)); a struct literal on one line only up to 18 characters of body, a struct variant 35, call arguments 60, `if … else` 50 ([rustfmt Configurations.md](https://github.com/rust-lang/rustfmt/blob/master/Configurations.md)); a single-line `if else` only with a single `else` clause, so an `else if` chain breaks ([style guide, expressions](https://doc.rust-lang.org/nightly/style-guide/expressions.html)) |
+| Prettier | 80 ([options](https://prettier.io/docs/options#print-width)) | one hint: an object with a newline between `{` and the first key stays open, so "short multi-line objects are never collapsed" ([rationale](https://prettier.io/docs/rationale#multi-line-objects)); since 3.5 `objectWrap: "collapse"` turns it off ([options](https://prettier.io/docs/options#object-wrap)) | everything else fit-or-break |
+| Black | 88 ([code style](https://black.readthedocs.io/en/stable/the_black_code_style/current_style.html)) | one hint: a trailing comma in a collection (the "magic trailing comma") makes Black "always explode your collection into one item per line" (same page) | fit-or-break |
+| Dart (tall style, 3.7) | 80 ([dart format](https://dart.dev/tools/dart-format)) | none at first: "`dart format` adds or removes trailing commas based on whether the construct splits across multiple lines" (same page). dart_style 3.1.0, "in response to feedback we got from shipping the new tall style formatter", added `trailing_commas: preserve`, where a trailing comma forces the split; it needs language version 3.8 ([changelog](https://github.com/dart-lang/dart_style/blob/main/CHANGELOG.md), [dart format](https://dart.dev/tools/dart-format)) | |
+| zig fmt | none | the trailing comma is the switch: "Depending on the trailing comma, function call is formatted on a single line, or with one argument per line" ([matklad, Steering Zig Fmt](https://matklad.github.io/2026/05/08/steering-zig-fmt.html); array literals also look at the first line break) | |
+| Ormolu / Fourmolu | none | yes: "The layout of the input influences the layout choices in the output ... the choice between single-line and multi-line layouts is made by the user rather than by an algorithm" ([Ormolu README](https://github.com/tweag/ormolu/blob/master/README.md)) | |
+| elm-format | none | for lists, records and calls, a newline anywhere opens the whole construct: the parser records whether the construct spanned a newline (`checkMultiline`, `ForceMultiline` in [`Parse/Common.hs`](https://github.com/avh4/elm-format/blob/e7e5da37716acbfb4954a88128b5cc72b2c911d9/elm-format-lib/src/Parse/Common.hs), used for lists and records in [`Parse/Expression.hs`](https://github.com/avh4/elm-format/blob/e7e5da37716acbfb4954a88128b5cc72b2c911d9/elm-format-lib/src/Parse/Expression.hs)); the [style guide](https://github.com/avh4/elm-format/blob/e7e5da37716acbfb4954a88128b5cc72b2c911d9/Style%20Guide/Lists.md) says only that "small lists are kept on a single line" | a custom type's constructors always one per line, and `if … else if … else` always one clause a line: both built with `stack1`, the vertical layout, in [`Render/Box.hs`](https://github.com/avh4/elm-format/blob/e7e5da37716acbfb4954a88128b5cc72b2c911d9/elm-format-lib/src/ElmFormat/Render/Box.hs) (`Datatype`, `formatIf`) |
+| scalafmt | 80 ([configuration](https://scalameta.org/scalafmt/docs/configuration.html)) | `newlines.source`: `classic` is the default; `keep` "attempts to preserve line breaks in the input whenever possible"; `fold` and `unfold` "completely ignore existing line breaks", `fold` for a more horizontal look and `unfold` a more vertical one (same page; it does not say what `classic` does with them) | |
+| gleam format | 80 | none for variants: each constructor goes on its own line, whatever the author wrote | a custom type's variants always one per line: `custom_type` in the formatter emits a hard line (`LINE_DOCUMENT`) before each constructor; width 80 is `pretty_print(80, …)` ([gleam `format/src/lib.rs`](https://github.com/gleam-lang/gleam/blob/ec952b9138dbc3ba282237d588946a2b0b5b4f3d/format/src/lib.rs)) |
 
 Two patterns. **Hint formatters** (Prettier, Black, zig, Dart 3.8,
 Ormolu, gofmt) let the author choose open or closed, so the same code has
-two layouts; the more width-driven ones (Prettier, Dart) added the hint
-after users complained that short open constructs collapsed. **No-hint
-formatters** (rustfmt, elm-format, gleam) instead make the constructs
+two layouts; the more width-driven ones keep a hint because, as
+Prettier's rationale puts it, "sometimes it really helps readability if
+[objects] stay multiline", and Dart added one after feedback on the tall
+style. **No-hint formatters** (rustfmt, gleam, and elm-format for custom
+types and `if`) instead make the constructs
 people want vertical *always* vertical, or give them a narrower width:
 none of them puts an enum with fields or an `else if` chain on one line
 just because it fits the page.

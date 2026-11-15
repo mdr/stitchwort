@@ -38,8 +38,8 @@ GNU-style long options, the convention `stitchwort` itself follows (clap):
   uses it).
 - `--help` (and `-h`) prints the help on standard output and runs nothing.
 - Short names (`-w 80`, `-w80`, bundled `-cq`) only where an option asks for
-  one (stage 3). No prefix abbreviations (argparse allows unambiguous ones
-  [cited: `allow_abbrev`]): adding an option could break a script.
+  one (stage 3). No prefix abbreviations (argparse allows unambiguous ones by default,
+  [cited: `allow_abbrev`](https://docs.python.org/3/library/argparse.html)): adding an option could break a script.
 - A non-repeating option given twice is an error, not "last wins": nothing
   is dropped silently. `--check=yes` is an error too.
 
@@ -148,7 +148,7 @@ returns (exit 0); for `Wrong` it prints to standard error and fails; for
 
 Printed as three lines: the message, the usage line, `Run 'toyfmt --help'
 for more.` **Exit codes:** clap, argparse and Go's `flag` all exit 2 for a
-bad command line and 0 for help [cited: §7]; cmdliner uses 124 [cited].
+bad command line and 0 for help [cited: §7]; cmdliner uses 124 for command-line errors ([Cmd.Exit](https://erratique.ch/software/cmdliner/doc/Cmdliner/Cmd/Exit/index.html): "cli_error is 124").
 Stitchwort programs can exit only 0 or 1 today (SW-3345), so `Wrong` exits
 1 until SW-3345 lands, then 2. Nothing else in `Args` waits on it.
 
@@ -225,7 +225,7 @@ All of `stitchwort`'s shape fits once subcommands exist: a data type
 `Command = | Check CheckOptions | Fmt FmtOptions | …` marked
 `args.subcommand` in a top record holding the global options (`--std-dir`).
 `check --only A,B` wants a separator on a list (`args.separator ","`);
-clap's `conflicts_with`/`requires` have no equivalent here: a program
+clap's `conflicts_with`/`requires` ([`Arg`](https://docs.rs/clap/latest/clap/struct.Arg.html)) have no equivalent here: a program
 checks those itself after parsing, or models them as a data type field.
 
 ## 7. Other libraries [cited]
@@ -233,8 +233,8 @@ checks those itself after parsing, or models them as a data type field.
 | Library | Declared by | Notes |
 |---|---|---|
 | Rust clap, derive | struct fields; `bool` is a flag, `Option<T>` optional, `Vec<T>` repeated; doc comments are help; `default_value_t` | [docs.rs/clap/latest/clap/_derive](https://docs.rs/clap/latest/clap/_derive/index.html). Usage errors exit 2, help 0 ([Error::exit](https://docs.rs/clap/latest/clap/error/struct.Error.html)) |
-| Rust clap, builder | values built in code; the derive generates them | same crate |
-| Python argparse | `add_argument` calls | `--foo=bar` and `--foo bar`; `--` ends options; unambiguous prefixes by default; errors exit 2 ([docs](https://docs.python.org/3/library/argparse.html)) |
+| Rust clap, builder | values built in code; the derive generates them | same crate: the derive API sits on the builder, and raw attributes are forwarded to builder methods ([derive docs](https://docs.rs/clap/latest/clap/_derive/index.html)) |
+| Python argparse | `add_argument` calls | `--foo=bar` and `--foo bar`; `--` ends options; unambiguous prefixes by default; invalid arguments exit 2 ([docs](https://docs.python.org/3/library/argparse.html)); `-h` exits 0 (`_HelpAction` calls `parser.exit()`, whose status defaults to 0: [`Lib/argparse.py`](https://github.com/python/cpython/blob/main/Lib/argparse.py)) |
 | Haskell optparse-applicative | applicative `<$>`/`<*>`; `help`, `value`, `showDefault` | options "parsed in whatever order they appear" ([README](https://github.com/pcapriotti/optparse-applicative)) |
 | Go flag | one call per flag | `-flag`/`--flag`, `-flag=x`, `-flag x` except booleans; parsing stops at the first non-flag; exit 2, help 0 ([pkg.go.dev/flag](https://pkg.go.dev/flag)) |
 | Swift ArgumentParser | a type's properties with `@Option`/`@Flag`/`@Argument(help:)`; defaults are initial values; `subcommands: [...]` | [README](https://github.com/apple/swift-argument-parser), [math example](https://github.com/apple/swift-argument-parser/blob/main/Examples/math/Math.swift) |

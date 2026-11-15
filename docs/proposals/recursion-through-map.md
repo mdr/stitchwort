@@ -98,7 +98,9 @@ changes `infer_proj` and the eta rules. **Recommended: (a).** It is a small deri
 the body (never from a flag the elaborator sets), cached like the eta flag, and sound because in a
 closed run the call returns that field **[argued]**. A function field read by accessor and applied
 (`x.rest y`) is a part only when the field's *declared* type returns a member of the matched
-type's group, as `is_recursive_fn` already demands (Agda #6654). Accessor evidence is subject to
+type's group, as `is_recursive_fn` already demands (compare [Agda #6654](https://github.com/agda/agda/issues/6654):
+a proof of `⊥` by recursion through a large function-typed constructor field, via the forcing analysis;
+the rule itself is Stitchwort's, not claimed to be Agda's). Accessor evidence is subject to
 G1 (§2.3): `type R = { child: R, n: Nat }` with `def f (x: R) := f x.child` has no `case` and
 would unfold for ever on an unknown `x` (review R6). About 80 lines plus the spec.
 
@@ -114,8 +116,11 @@ def List.map: (xs: List a) → (f: a → {e} b) → {e} List b
 
 Every use of `f` is either applied to a part of `xs`, or passed on unchanged to a recursive call
 whose list is a part of `xs`. So in any run, `f` is only called on parts of the list `map` was
-given. Rocq's guard checker does this since 8.20 (PR #17986) by checking the unfolded callee at
-each use; Stitchwort's check works on summaries, so it summarises each definition once.
+given. Rocq's guard checker handles this since 8.20 ([PR #17986](https://github.com/coq/coq/pull/17986), "Extrude
+uniform parameters of inner fixpoints in guard condition check", milestone 8.20+rc1): it finds the
+parameters of an inner fixpoint that stay the same across its recursive calls and carries their
+recursive specification into the fixpoint's body. Stitchwort's check works on summaries, so it
+summarises each definition once.
 
 **The signature.** For a final definition `G`, a *callback position* is a parameter `j` of
 function type with a *carrier* parameter `k`, and for each argument index `a` of the callback a
@@ -138,7 +143,8 @@ including `j` passed bare to a signed `H` (`map (map xs f) f`) (R2). Further res
 - **Alone in its group** (R3): no signature for a definition whose group has more than one
   member, inlined lifted matches included. An inner `match` holding the recursive call makes a
   group of two, and checking rule 2 only on calls written in `G`'s own body is the mistake behind
-  Rocq issue #21682 (a proof of `False` in 8.20-9.1); `termination.rs` already cites that lesson.
+  [Rocq issue #21682](https://github.com/rocq-prover/rocq/issues/21682) ("cross-calls in nested mutual
+fixpoints": a proof of `False`, introduced by #17986 in 8.20, still present in 9.1.0); `termination.rs` already cites that lesson.
 - **Only bodies the kernel checked and runs** (R4): none for a definition with a native, an axiom,
   a primitive (`Effect.pfix`), a body without termination checking, or from a run body; a
   `decreasing` definition gets none anyway (its callback goes to `f.%go`).
@@ -288,7 +294,8 @@ beside 1b and 2 and passes before 2 merges; R before 1b and 2 merge; 4 and 5 fol
   helper that returns parts** (friction 2's `Body.single`): a result summary, which rule 1's
   accessor recognition is the smallest case of. Both wait for a program that needs them.
 - **Mutual library functions**: no signatures (R3); revisit only with every member walked by
-  rules 1-3, as Rocq's fix (#21684) does.
+  rules 1-3, as Rocq's fix ([#21684](https://github.com/rocq-prover/rocq/pull/21684), "Detect cross-calls in computation for
+  uniform arguments of nested mutual fixpoints") looks at calls between the members.
 - **G2**, if G1 proves too strict in practice.
 
 ## 7. Options weighed (unchanged from draft 1, short)
@@ -297,8 +304,10 @@ beside 1b and 2 and passes before 2 merges; R before 1b and 2 merge; 4 and 5 fol
 restrictions above, the referees and the review. **B** (the elaborator copies `G` per call site
 into the group) trusts nothing new but shows `%layout.%map1` in every unfolding and needs a bridge
 lemma for each `map` fact; it is stage 6's oracle. **C** (`decreasing` with `attach` inserted, Lean
-4's route since 4.18) compiles structural recursion to fuel and needs `T.size` for groups first.
-**D** (per-list helpers) is today, and Lean's answer for structural nested recursion too.
+4's route since 4.18: [v4.18.0 notes](https://lean-lang.org/doc/reference/latest/releases/v4.18.0/), PR #6744, the `wf.preprocess`
+option, [reference](https://lean-lang.org/doc/reference/latest/Definitions/Recursive-Definitions/)) compiles structural recursion to fuel and needs `T.size` for groups first.
+**D** (per-list helpers) is today, and Lean's answer for structural nested recursion too (its [v4.12.0 notes](https://raw.githubusercontent.com/leanprover/lean4/v4.12.0/RELEASES.md)
+define `Tree.size` together with a helper `Tree.list_size : List Tree → Nat`).
 
 ## 8. Changes from draft 1
 
