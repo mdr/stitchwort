@@ -228,7 +228,7 @@
         "decision"
       ],
       "epic": "syntax-language",
-      "body": "D3615 (Matt, 15 Nov 2026): \"option one plus a discipline to avoid files that need to import multiple clashing names unless it's code that genuinely must use both. The code organization habit. We can maybe think about going back to this dot shorthand as Lean does in three in the future, potentially. But yeah, for now, let's proceed with your suggestion.\" Not type-directed resolution (Matt: one name, one meaning per file, readable at a glance). Built as SW-3397; .C shorthand parked as SW-3398.",
+      "body": "The problem: constructors of different union types share one namespace, so two types cannot both have a constructor `Quit`. The roguelike renamed its `Quit` to `GaveUp` for this reason (D2, NOTES stage 1 #8; unchecked wording).\n\nThe change: a design discussion with Matt first. Options: constructors nested in their type (`Outcome.Quit`), or resolving a bare name by the expected type, or leaving as is and documenting the rename trick.\n\nWhat it should do: Matt picks one; if the answer is not \"leave as is\", a design note in docs/proposals/ follows. Label it `decision` so it shows up.\n\nRaised by SW-3339: a lexer and a printer in one program (token Str vs layout Str) make | Str t => ambiguous even where the match's type is known; the toy formatter will hit it.\n\nOpus paper started 12:00, expected 1.5 h: design note docs/proposals/constructor-names.md ahead of the full formatter.\n\n12:10 review: docs/proposals/constructor-names.md written (not committed). Probed today: bare clashing constructors are E-AMBIGUOUS in patterns, values, arguments, lists, record updates and comparisons even with the type known; a file's own `None` breaks `| None` on an Option. Options (a) expected type first, (a') type as tie-break, (b) `.Ctor` only, (c) both, (d) status quo. Recommends (a): the known type's constructor wins, ambiguous names wait on the queue when the type isn't known yet; terms and hashes unchanged. Four stages, ~8-9 h (Sonnet 1.5 h, Opus 2 h, Opus 2-3 h, Sonnet 1.5 h). Question: D3615 (adopt (a)? rec yes).\n\n\nD3615 (Matt, 15 Nov 2026): \"option one plus a discipline to avoid files that need to import multiple clashing names unless it's code that genuinely must use both. The code organization habit. We can maybe think about going back to this dot shorthand as Lean does in three in the future, potentially. But yeah, for now, let's proceed with your suggestion.\" Not type-directed resolution (Matt: one name, one meaning per file, readable at a glance). Built as SW-3397; .C shorthand parked as SW-3398.",
       "created": "2026-10-25",
       "updated": "2026-11-15",
       "commits": []
@@ -9706,7 +9706,7 @@
         "messages"
       ],
       "epic": "diagnostics",
-      "body": "Done by SW-2009.",
+      "body": "From 2020 day 11 (SW-1470), 5 Nov 2026.\n\nDone by SW-2009.",
       "created": "2026-11-05",
       "updated": "2026-11-14",
       "commits": []
@@ -10021,7 +10021,7 @@
         "diagnostics"
       ],
       "epic": "diagnostics",
-      "body": "Expected: 30 min (DeepSeek), one run with SW-1619.\nModel result: DeepSeek, worked, ~35 min (est. 30); ran the whole reject-examples test once (153 s) against the brief. Note only when the hidden function would fit; E-NOT-A-FUNCTION when the local is applied is untouched.",
+      "body": "Filed overnight 6 Nov 2026 from SW-1492 (day 13) or SW-1119.\n\nExpected: 30 min (DeepSeek), one run with SW-1619.\nModel result: DeepSeek, worked, ~35 min (est. 30); ran the whole reject-examples test once (153 s) against the brief. Note only when the hidden function would fit; E-NOT-A-FUNCTION when the local is applied is untouched.",
       "created": "2026-11-06",
       "updated": "2026-11-14",
       "commits": [
@@ -10609,7 +10609,7 @@
         "parked"
       ],
       "epic": "performance",
-      "body": "Done by SW-2009.",
+      "body": "From SW-1534, 6 Nov 2026.\n\nDone by SW-2009.",
       "created": "2026-11-06",
       "updated": "2026-11-14",
       "commits": []
@@ -11842,7 +11842,7 @@
         "diagnostics"
       ],
       "epic": "elaborator-kernel",
-      "body": "Expected: 30 min (DeepSeek), one run with SW-1498.\nModel result: DeepSeek, needed fixes (the note claimed a type and constructor can't share a name; reworded by the orchestrator), ~35 min (est. 30).",
+      "body": "From SW-1617, 6 Nov 2026.\n\nExpected: 30 min (DeepSeek), one run with SW-1498.\nModel result: DeepSeek, needed fixes (the note claimed a type and constructor can't share a name; reworded by the orchestrator), ~35 min (est. 30).",
       "created": "2026-11-06",
       "updated": "2026-11-14",
       "commits": [
@@ -17319,7 +17319,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Expected: 4 h (Opus). Stage S0 of docs/proposals/syntax-error-recovery.md; includes SW-3185.\n\nLane notes (Opus, 14 Nov 2026, 09:26-09:40): commit 928041f7b on lane/SW-1982. Modes struct + Snapshot, snapshot()/recover_to(), Parser::errors with report() and strict() (every entry point fails on a non-empty list; nothing reports yet). SW-3185: parse_tree/parse_module_and_tree use lex_recovering_with_trivia and no longer return Result; a declaration that doesn't lex is an Error root with no tokens over its raw text (Node::raw_text_range); round trip, check_spans, dump, dev tree and the formatter handle it. Also: a declaration that doesn't parse keeps the nodes it finished before the error (e.g. its header) under its Error root. Gates: dev tree --spans examples: 0 not read back, 104 not parsed (5 not lexed, previously skipped), 0 marks dropped, 0 span misses; std/List the same, 0 errors. 13 E-PARSE reject examples (the 5 lexical ones among them) give byte-identical `check` output to main's binary. Named tests: 37 syntax + 2 fmt, all pass.\n",
+      "body": "From docs/proposals/parse-recovery.md. Can start now. task test:lane AREA=syntax. 45 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nExpected: 4 h (Opus). Stage S0 of docs/proposals/syntax-error-recovery.md; includes SW-3185.\n\nLane notes (Opus, 14 Nov 2026, 09:26-09:40): commit 928041f7b on lane/SW-1982. Modes struct + Snapshot, snapshot()/recover_to(), Parser::errors with report() and strict() (every entry point fails on a non-empty list; nothing reports yet). SW-3185: parse_tree/parse_module_and_tree use lex_recovering_with_trivia and no longer return Result; a declaration that doesn't lex is an Error root with no tokens over its raw text (Node::raw_text_range); round trip, check_spans, dump, dev tree and the formatter handle it. Also: a declaration that doesn't parse keeps the nodes it finished before the error (e.g. its header) under its Error root. Gates: dev tree --spans examples: 0 not read back, 104 not parsed (5 not lexed, previously skipped), 0 marks dropped, 0 span misses; std/List the same, 0 errors. 13 E-PARSE reject examples (the 5 lexical ones among them) give byte-identical `check` output to main's binary. Named tests: 37 syntax + 2 fmt, all pass.\n",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": [
@@ -17337,7 +17337,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Recovery S1 (syntax-error-recovery.md). Expected: 11 h (Opus), ~1 h 50 min. R1 and R6 at 0% false errors (std Option 0/32, 0/311; examples/accept 0/40, 0/357). Orchestrator's calls: the editor goal at gaps moves to S4; 'no kernel term or hash' read as no body (a bodiless stand-in keeps its hash); R1 wording 'expected an expression, but the line ends here' kept (user-visible: mention to Matt). Filed SW-3260 SW-3261. Whole-repo oracle for Overmind: dev breaks --std crates/elab/src/std --json; --files examples/accept --json; aoc and games/rogue with --project src --json.",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1982. D2780, D2781. AREA=syntax, goals, lsp. 90 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nWaits for SW-3160's L4 (order changed 14 Nov: Matt doesn't mind the editor improvement waiting, so the lowering goes first; recovery S1+ builds on it).\n\nExpected: 11 h (Opus). Includes SW-3226 (the oracle tool, built first). Runs after the lowering (SW-3160) finished, so recovery's gaps are lowered here too (the note's S7, moved by the orchestrator on SW-3212).\n\nProgress (lane, 14 Nov 2026): built and committed on lane/SW-1983 (c717daf7e, 291eb964d).\n- `stitchwort dev breaks PATHS [--std] [--files] [--project] [--json]`: the one-line-break oracle (SW-3226).\n- Parser R1 (ran out at a line or the declaration's end) and R6 (rest of a def/theorem body skipped), lowered to `Expr::Missing`; error holes in the checker, the hole at a mismatch, the emission backstop; `syntax_error` replaces `body_error`; R1 errors point where the text ran out (§2.7). Library files parse with recovery.\n- Oracle, false errors per point (before → after):\n  - std Option (596 breaks): before 1.85% overall (kept signature 0%, whole 4.35%); after R1 0/32, R6 0/311, whole 11/253 (4.35%, all E-USES-FAILED, unchanged).\n  - examples/accept, first 800 breaks: before 3.12% (kept 0%, whole 6.20%); after R1 0/40, R6 0/357, whole 25/403 (6.20%: E-UNKNOWN-NAME 14, E-ABILITY 11 from types and abilities that fail whole; out of S1).\n- Not done: the editor goal at R1 gaps (needs an editor-only goal channel; proposed for S4).\n\n\nRecovery S1 (syntax-error-recovery.md). Expected: 11 h (Opus), ~1 h 50 min. R1 and R6 at 0% false errors (std Option 0/32, 0/311; examples/accept 0/40, 0/357). Orchestrator's calls: the editor goal at gaps moves to S4; 'no kernel term or hash' read as no body (a bodiless stand-in keeps its hash); R1 wording 'expected an expression, but the line ends here' kept (user-visible: mention to Matt). Filed SW-3260 SW-3261. Whole-repo oracle for Overmind: dev breaks --std crates/elab/src/std --json; --files examples/accept --json; aoc and games/rogue with --project src --json.",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": [
@@ -17354,7 +17354,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Baseline for when error robustness resumes (Overmind job 2a, 15 Nov, 57 of 515 examples/accept files in random order, 2,508 one-line breaks, build 29a45c479): 4.7% of breaks give false errors (R1 3.9%, R6 4.3%, whole-declaration 5.2%). Top codes: E-UNKNOWN-NAME 68, E-INSTANCE-NONE 24, E-ABILITY 13, E-TYPE-MISMATCH 7, E-CANNOT-INFER 4. Worst files: pattern-guard-equations.sw, interfaces-heads.sw, abilities.sw. Data on Overmind: chain/job2a/*.json. The earlier 11-16% came from two ability-heavy files.",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1983. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nParked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.\n\nBaseline for when error robustness resumes (Overmind job 2a, 15 Nov, 57 of 515 examples/accept files in random order, 2,508 one-line breaks, build 29a45c479): 4.7% of breaks give false errors (R1 3.9%, R6 4.3%, whole-declaration 5.2%). Top codes: E-UNKNOWN-NAME 68, E-INSTANCE-NONE 24, E-ABILITY 13, E-TYPE-MISMATCH 7, E-CANNOT-INFER 4. Worst files: pattern-guard-equations.sw, interfaces-heads.sw, abilities.sw. Data on Overmind: chain/job2a/*.json. The earlier 11-16% came from two ability-heavy files.",
       "created": "2026-11-07",
       "updated": "2026-11-15",
       "commits": []
@@ -17369,7 +17369,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Parked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.",
+      "body": "From docs/proposals/parse-recovery.md. After SW-1984. 60 min.\n\nD2670, D2691, D2780-D2785: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).\n\nParked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.",
       "created": "2026-11-07",
       "updated": "2026-11-15",
       "commits": []
@@ -17728,7 +17728,7 @@
       "labels": [
         "diagnostics"
       ],
-      "body": "Expected: 2 h (Opus), ~40 min. Covers SW-1537 and SW-1477; SW-1534's cause confirmed in the kernel's push_def (fix designed as SW-1788). D3594 (wording and 250M-step threshold of the progress note and the SW-1477 note): kept as written. Matt, 14 Nov 2026: minor error wording is the orchestrator's call, not his. Filed SW-3236, SW-3237.",
+      "body": "From docs/research/aoc-friction-synthesis.md. 17+ days. D2832 [rec: yes]. 90 min.\nStarted 14 Nov (orchestrator): within Matt's error-robustness direction (D3563); covers SW-1537, SW-1477 and SW-1534. Expected: 2 h (Opus).\n\nLane (Opus, 14 Nov, ~45 min, commit bfd3dc745): (b) a step-count progress note, not a lower limit: `stitchwort check` prints `note: still checking `Main.t`: over 250,000,000 evaluation steps so far, unfolding `countdown` (it stops at 10,000,000,000)` at 250M steps (~7 s) and each doubling, through the budget's existing POLL slow path (Budget::set_progress); no threads or timers, step counts and results unchanged. (a) E-RESOURCE for a too-large value now names the definition being unfolded (not std's); a `match` that runs out on a call given a number names it and suggests a lemma for any `n` (SW-1477); the where-notes come right after the first note. (c) SW-1534: confirmed all the time is the kernel's push_def evaluating a closed statement (30M countdown: elab 0.1 ms, kernel 1.3 s/44M steps per 1M); fix is SW-1788 (kernel, waits on D2568/D2569), not done here. Not done: a call's source span for running out of steps/depth; LSP progress. New reject example resource-steps-unfolding; 2 snapshots gain a note.\n\n\nExpected: 2 h (Opus), ~40 min. Covers SW-1537 and SW-1477; SW-1534's cause confirmed in the kernel's push_def (fix designed as SW-1788, waits on D2568/D2569). Wording of the progress note and the SW-1477 note: the lane's, kept pending Matt (D3594). Filed SW-3236, SW-3237.\n\nFrom docs/research/aoc-friction-synthesis.md. 17+ days. D2832 [rec: yes]. 90 min.\n\nExpected: 2 h (Opus), ~40 min. Covers SW-1537 and SW-1477; SW-1534's cause confirmed in the kernel's push_def (fix designed as SW-1788). D3594 (wording and 250M-step threshold of the progress note and the SW-1477 note): kept as written. Matt, 14 Nov 2026: minor error wording is the orchestrator's call, not his. Filed SW-3236, SW-3237.",
       "created": "2026-11-07",
       "updated": "2026-11-14",
       "commits": [
@@ -34199,7 +34199,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Tidy batch (Matt, 14 Nov 2026). Expected: 1.5 h (Sonnet), ~9 min. Cause: crates/standalone was its own package, so cargo build -p stitchwort-cli never rebuilt it; its runtime-source hash then disagreed with the CLI's. Fix: a normal dependency, BUILD_MARKER in the library, find_library picks the matching one and names stale ones. Leftovers: Taskfile's -p stitchwort-standalone now redundant; old deps/ copies (~29 MB each) not cleaned. Model result: Sonnet, worked, 9 min (est. 90).",
+      "body": "Matt, 14 Nov 2026: tidy batch before the foundations ('built programs not starting is a pretty big bug'). SW-3234 found plain build fails too: 'this executable's program can't be read: written by a different build of the runtime'. Expected: 1.5 h (Sonnet).\n\nSonnet lane, 14 Nov 2026: root cause was that `cargo build -p stitchwort-cli` never rebuilds libstitchwort_standalone.a (a separate package; only `task build` or test builds made it), so after any core/syntax/rt change the CLI's build hash (rt/build.rs) differed from the library's, and every executable failed at start (plain and --native; --native on a no-native CLI is a separate clear error). Reproduced. Fix (d3d200a2f): the CLI depends on stitchwort-standalone (so every build makes a current library in deps/), the library embeds stitchwort_rt::BUILD_MARKER, and `build` picks a library holding the CLI's marker (env, beside exe, ../lib/stitchwort, deps/) and otherwise errors \"different build ... task build\". Test: a_stale_runtime_library_is_refused; existing build tests pass. Model result pending review.\n\n\nTidy batch (Matt, 14 Nov 2026). Expected: 1.5 h (Sonnet), ~9 min. Cause: crates/standalone was its own package, so cargo build -p stitchwort-cli never rebuilt it; its runtime-source hash then disagreed with the CLI's. Fix: a normal dependency, BUILD_MARKER in the library, find_library picks the matching one and names stale ones. Leftovers: Taskfile's -p stitchwort-standalone now redundant; old deps/ copies (~29 MB each) not cleaned. Model result: Sonnet, worked, 9 min (est. 90).",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": [
@@ -34347,7 +34347,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Note merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.\nTo add when its lanes start: lowering also handles SW-3161's Gap nodes (a proof-step gap scoping the lines below; Expr::Missing { span, rest }).\nOrder changed 14 Nov (orchestrator's call after Matt: 'I don't care about delay in editor improvement'): lowering L0-L7 first; recovery S0 (SW-1982) continues as groundwork; recovery S1+ after L4; error-node lowering becomes a 3-5 h lane between L4 and L5 (syntax-tree-lowering.md's fallback plan). L0 waits for D3574, D3575.",
+      "body": "Design note first (paper lane, Opus), 14 Nov. Expected: 2.5 h.\n\nNote merged (docs/proposals/syntax-tree-lowering.md). Waiting for Matt: D3574, D3575. Order (orchestrator's call): recovery S0-S3 + S5 first; L0 may run beside it; L1-L4 after S3.\nTo add when its lanes start: lowering also handles SW-3161's Gap nodes (a proof-step gap scoping the lines below; Expr::Missing { span, rest }).\nOrder changed 14 Nov (orchestrator's call after Matt: 'I don't care about delay in editor improvement'): lowering L0-L7 first; recovery S0 (SW-1982) continues as groundwork; recovery S1+ after L4; error-node lowering becomes a 3-5 h lane between L4 and L5 (syntax-tree-lowering.md's fallback plan). L0 waits for D3574, D3575.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": []
@@ -34606,7 +34606,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 45 min (Sonnet).\nModel result: Sonnet, worked, ~11 min (est. 45). Release: 100 pass/105 out on main, 72/76 with the pre-SW-3172 unifier; asserts 88.",
+      "body": "Expected: 45 min (Sonnet).\n\nLane note: test nested_calls_of_one_definition_unify_under_the_playground_guard in crates/driver/tests/elaboration/nesting.rs: opaque f, up/up2 build the calls by evaluation (no elaboration nesting), asserted depth 88 under guard(320). Release: new unifier passes 100, fails 105; with a84724692's unify.rs reverted it passes 72, fails 76, and the test fails in release and debug. Plain nested f (f (... 0)) written in source can't show it: elaboration runs out at about 55 levels first.\n\nExpected: 45 min (Sonnet).\nModel result: Sonnet, worked, ~11 min (est. 45). Release: 100 pass/105 out on main, 72/76 with the pre-SW-3172 unifier; asserts 88.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": [
@@ -34621,7 +34621,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 3 h (Opus). Done in ~47 min. The 21 KiB run frame was never a crash risk (Budget::start measures from each operation's start). Next hotspot: checking with propagation (check_value, Propagation::apply, apply_args_postponing ~0.8 KiB each at 16-19 levels). Filed SW-3227.",
+      "body": "Expected: 3 h (Opus).\n\nLane done (14:18-15:05, 47 min). Measured (arm64 prologue frame sizes; Day06 peak from a STITCHWORT_STACK_PROBE build that kept the deepest backtrace): CLI run 21,664 -> 592 B (commands out of line; check's frame 10,560). It was never a crash risk: the budget's stack floor is measured from the operation's start with 16 MiB in reserve. infer_value 2,592 -> 400 (+infer_call 464), infer_app_with 1,168 -> 784, fallback_inferred 1,136 -> 640 (an inferred application level 4.8 -> 2.3 KiB). rename_other 1,328 -> 832; rename_in unchanged (rename_call out of line was tried and dropped: the call path got longer). whole_test no longer allocates per check. run_tasks/unify_shapes not done: unify::run out of line gave nothing; further cuts need loops over spines. 2021 Day06.Proofs peak 179,200 -> 171,120 B (whole thread). Release nesting thresholds: long_appends 349 -> 393, nested_functions_and_function_types 367 -> 477, others unchanged; debug 23 -> 39 and 31 -> 67, others unchanged. Hashes unchanged (hash_stability 10/10). Entry in docs/performance/log.md.\n\n\nExpected: 3 h (Opus). Done in ~47 min. The 21 KiB run frame was never a crash risk (Budget::start measures from each operation's start). Next hotspot: checking with propagation (check_value, Propagation::apply, apply_args_postponing ~0.8 KiB each at 16-19 levels). Filed SW-3227.",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": [
@@ -34724,7 +34724,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 75 min (Sonnet).\nModel result: Sonnet, worked, 23 min (est. 75)",
+      "body": "Expected: 75 min (Sonnet).\n\nLane notes (14 Nov): call prefix of 3+ plain items before a non-plain argument fills at 4 when it does not fit, later arguments then at 4 (D3569); lambda parameters fill at 4 when the lambda goes below (S22), not in hugs. Lines over 120: 19 -> 16, all text literals. Reformatted 4 files. Two unit tests.\n\n\nExpected: 75 min (Sonnet).\nModel result: Sonnet, worked, 23 min (est. 75)",
       "created": "2026-11-13",
       "updated": "2026-11-14",
       "commits": [
@@ -34920,7 +34920,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked (partly: defs_named/named not reached, needs SW-3222), ~20 min (est. 60).",
+      "body": "Expected: 60 min (Sonnet).\n\nLane notes: added Def::set_type_unchecked_for_tests(ty, ty_value) (test-bypass feature, as set_body_unchecked_for_tests); deep-type case in deep_terms_in_later_passes covers hashing, printer and the closing search indexing; passes release and debug. defs_named on a deep conclusion is not reached there (no hit for a shallow goal); closing::tests covers it.\n\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, worked (partly: defs_named/named not reached, needs SW-3222), ~20 min (est. 60).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -34951,7 +34951,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 40 min (Sonnet).\nModel result: Sonnet, worked, 7 min (est. 40)",
+      "body": "Expected: 40 min (Sonnet).\n\nLane note: partial_kernel cases re-laid to current std; nav-project and what_closes_a_goal snapshots accepted (positions only); doc test now checks Effect.Comp.Call (a ctor alone on its line), since List.Cons shares a line with its type and shows only its name by design. Branch lane/SW-3202.\n\n\nExpected: 40 min (Sonnet).\nModel result: Sonnet, worked, 7 min (est. 40)",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -34966,7 +34966,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, 9 min (est. 60)",
+      "body": "Expected: 60 min (Sonnet). Repro: Overmind's saved input, fuzz:fmt default seed case 318589.\n\n\nLane note: cause was holds_trailing_comment (excludes the last token) forcing the break in data_type; fixed with holds_comment_before_code. Fuzz 330000 cases pass; fmt-tree gate 0/0/0.\n\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, worked, 9 min (est. 60)",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35088,7 +35088,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).\n\nProgress (lane, 14 Nov 10:33-10:44): done in about 11 min (est. 7 h), commit a0d0243c6.\n- Lowered: Match/Scrutinee/Arm (guards, absurd arms), Handle/HandlerClause, Reify, Induct/InductArm, Calc/CalcStep (descending reversed), Rewrite/RewriteRule, Omega, Ring, Cases; patterns PatternCtor, PatternTuple, PatternList, PatternNamed, PatternRecord, PatternCtorFields, PatternOr, PatternParen, PatternNegative, PatternAbsurd. PatternTyped (lambda parameters only) has a helper, `Lower::pattern_typed`, for L3.\n- New files lower/matching.rs, lower/proofs.rs; lower/patterns.rs extended. `reverse_calc` and `with_span` moved from parser.rs unchanged.\n- Gate (`dev tree --lower --spans crates/elab/src/std aoc/src games examples`): 18,728 declarations lowered (was 15,079), 0 differences; not lowered 8,855, all L3 kinds (4584 Lambda, 1634 Block, 850 Forall, 699 Section, 649 If, 228 Exists, 105 OperatorSection, 68 ClauseLambda, 23 LetExpr, 15 Seq). One-line expressions: 25,560 of 30,463 lowered (was 24,835).\n- One difference found and fixed: a rewrite rule's span runs from its first token to the proof's span (which excludes closing brackets), not the node's last token.\n- For L3: `Lower::arm_parts` (patterns, guard, body of an Arm) for clause lambdas; `Lower::pattern` for let and lambda patterns.\n",
+      "body": "Expected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).\n\nProgress (lane, 14 Nov 10:33-10:50): done in about 20 min, commit a0d0243c6.\n- Lowered: Match/Scrutinee/Arm (guards, absurd arms), Handle/HandlerClause, Reify, Induct/InductArm, Calc/CalcStep (descending reversed), Rewrite/RewriteRule, Omega, Ring, Cases; patterns PatternCtor, PatternTuple, PatternList, PatternNamed, PatternRecord, PatternCtorFields, PatternOr, PatternParen, PatternNegative, PatternAbsurd. PatternTyped (lambda parameters only) has a helper, `Lower::pattern_typed`, for L3.\n- New files lower/matching.rs, lower/proofs.rs; lower/patterns.rs extended. `reverse_calc` and `with_span` moved from parser.rs unchanged.\n- Gate (`dev tree --lower --spans crates/elab/src/std aoc/src games examples`): 18,728 declarations lowered (was 15,079), 0 differences; not lowered 8,855, all L3 kinds (4584 Lambda, 1634 Block, 850 Forall, 699 Section, 649 If, 228 Exists, 105 OperatorSection, 68 ClauseLambda, 23 LetExpr, 15 Seq). One-line expressions: 25,560 of 30,463 lowered (was 24,835).\n- One difference found and fixed: a rewrite rule's span runs from its first token to the proof's span (which excludes closing brackets), not the node's last token.\n- For L3: `Lower::arm_parts` (patterns, guard, body of an Arm) for clause lambdas; `Lower::pattern` for let and lambda patterns.\n\n\nExpected: 7 h (Opus). Runs beside the other (L3 binding/blocks/lambdas, L4 matching/proofs/patterns).\n\nProgress (lane, 14 Nov 10:33-10:44): done in about 11 min (est. 7 h), commit a0d0243c6.\n- Lowered: Match/Scrutinee/Arm (guards, absurd arms), Handle/HandlerClause, Reify, Induct/InductArm, Calc/CalcStep (descending reversed), Rewrite/RewriteRule, Omega, Ring, Cases; patterns PatternCtor, PatternTuple, PatternList, PatternNamed, PatternRecord, PatternCtorFields, PatternOr, PatternParen, PatternNegative, PatternAbsurd. PatternTyped (lambda parameters only) has a helper, `Lower::pattern_typed`, for L3.\n- New files lower/matching.rs, lower/proofs.rs; lower/patterns.rs extended. `reverse_calc` and `with_span` moved from parser.rs unchanged.\n- Gate (`dev tree --lower --spans crates/elab/src/std aoc/src games examples`): 18,728 declarations lowered (was 15,079), 0 differences; not lowered 8,855, all L3 kinds (4584 Lambda, 1634 Block, 850 Forall, 699 Section, 649 If, 228 Exists, 105 OperatorSection, 68 ClauseLambda, 23 LetExpr, 15 Seq). One-line expressions: 25,560 of 30,463 lowered (was 24,835).\n- One difference found and fixed: a rewrite rule's span runs from its first token to the proof's span (which excludes closing brackets), not the node's last token.\n- For L3: `Lower::arm_parts` (patterns, guard, body of an Arm) for clause lambdas; `Lower::pattern` for let and lambda patterns.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35120,7 +35120,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 8 h (Opus).\nOrchestrator's calls (14 Nov): (1) the parser gets half the stack and the lowering all of it (parser_limit): everything that parses lowers, nesting limit ~18,000 brackets vs 12,740 in October; (2) accepted the two which-errors changes needing two errors in one file (an extra true 'imports go at the top' after a declaration the lowering refuses; a meaning error lost inside a declaration that fails to parse later), D3574's spirit, none in the repo. Merge waits for clean rolling cycles of L5.",
+      "body": "Expected: 8 h (Opus).\nOrchestrator's call: the lane starts now; its merge waits for L5 (SW-3212, merged 14 Nov ~12:00) to pass several of Overmind's rolling cycles (the note asks a day; at least three clean cycles plus the lane's last oracle run over fuzz-generated programs).\n\nExpected: 8 h (Opus).\nOrchestrator's calls (14 Nov): (1) the parser gets half the stack and the lowering all of it (parser_limit): everything that parses lowers, nesting limit ~18,000 brackets vs 12,740 in October; (2) accepted the two which-errors changes needing two errors in one file (an extra true 'imports go at the top' after a declaration the lowering refuses; a meaning error lost inside a declaration that fails to parse later), D3574's spirit, none in the repo. Merge waits for clean rolling cycles of L5.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35135,7 +35135,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2.5 h (Sonnet).\nModel result: Sonnet, worked, ~7 min (est. 2.5 h). Filed SW-3224, SW-3225, SW-3226.",
+      "body": "Expected: 2.5 h (Sonnet).\n\nProgress (lane, 14 Nov): commit 1d3e5d766 on lane/SW-3214. Docs: lowering note (status, section 4 retired, stage table with tickets, what differed, 1.30x measured, decisions applied), architecture steps 3-4 done, tree.rs/ast.rs/spans.rs headers, lower.rs error rule and stack split, syntax.md contributor pointer, perf-log note on SW-3212. dev tree --time labels now say parse and lower / lossless alone. No dead Synthetic reasons (all 13 counted in the spans gate). 3 cargo doc link warnings fixed. Gates: dev tree --spans 0 misses; syntax package 269/269; fmt, clippy clean.\n\n\nExpected: 2.5 h (Sonnet).\nModel result: Sonnet, worked, ~7 min (est. 2.5 h). Filed SW-3224, SW-3225, SW-3226.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35180,7 +35180,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~14 min (est. 60). Cause: SW-3199's whole-body outline range made completion pick the newest check's body-less entry; fixed by skipping body_error items there.",
+      "body": "Expected: 60 min (Sonnet).\n\nProgress (Sonnet lane): regression cause: SW-3199 gave a body-failed declaration an outline range covering its body, so completion's locals_in (crates/lsp/src/complete.rs) found it \"around the cursor\" in the newest check, which has only its header params, instead of falling back to the older check with the body's binders. Fix: skip body_error items there. Faults tests: TEXT is now a theorem (a proof goal; a def's ? has no search), searches are picked via workspace/executeCommand stitchwort.searchProof. All 24 faults + completion test + SW-3199 server tests pass.\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~14 min (est. 60). Cause: SW-3199's whole-body outline range made completion pick the newest check's body-less entry; fixed by skipping body_error items there.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35208,7 +35208,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~8 min (est. 60). Follow-up idea (not filed): Session::new()'s 2 MiB-thread limits invite this mismatch on STACK threads.",
+      "body": "Expected: 60 min (Sonnet).\n\nNotes (lane): nesting guards scaled x6 in debug (measured: x4 too small, x5 just enough); reject examples `check` now uses Session::for_stack(STACK) instead of default (2 MiB-thread) limits on a 16 MiB thread, which fixed both reject examples in debug. Passing in debug and release. Commit 9f71b1a94.\n\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~8 min (est. 60). Follow-up idea (not filed): Session::new()'s 2 MiB-thread limits invite this mismatch on STACK threads.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35223,7 +35223,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 30 min (DeepSeek).\nModel result: DeepSeek, worked, ~25 min (est. 30). Source-text contract test over lower/*.rs (a new lower/ file must be added to its SOURCES list).",
+      "body": "Expected: 60 min (Sonnet).\n\nWaits for L6 (SW-3213), which rewrites lower/.\n\nL6 has merged; ready.\n\nExpected: 30 min (DeepSeek).\nModel result: DeepSeek, worked, ~25 min (est. 30). Source-text contract test over lower/*.rs (a new lower/ file must be added to its SOURCES list).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35238,7 +35238,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~90 min (est. 60; bisect builds). Cause: SW-3067's List.inRangeReads proved by omega both ways cost ~860k steps at every import of List. Remaining +14% (1.10M → 1.25M) is std growth 11-13 Nov, unexplored. Orchestrator's call under D3447 (proof term changed, statement unchanged).",
+      "body": "Expected: 60 min (Sonnet). Bench run on main after L5 + SW-3215: scratchpad/bench-main-1215.log.\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~90 min (est. 60; bisect builds). Cause: SW-3067's List.inRangeReads proved by omega both ways cost ~860k steps at every import of List. Remaining +14% (1.10M → 1.25M) is std growth 11-13 Nov, unexplored. Orchestrator's call under D3447 (proof term changed, statement unchanged).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35268,7 +35268,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, needed fixes (first version guarded whole namespaces, too coarse to catch SW-3221; redone with tiny programs and a revert check), ~25 min (est. 60). Top reading-theorem cost: List.noRepeatsIff 24k steps; none above 50k.",
+      "body": "\nExpected: 60 min (Sonnet).\n\nProgress (Sonnet lane): added crates/driver/tests/library/import_cost.rs, test importing_std_namespaces_stays_within_recorded_step_counts: checks 10 namespaces (Bool Int List Map Nat Option Result Set Text Vec) with check_library_targets, bounds +-10%, about 10 s. Reading theorems: none above 25k steps (top: List.noRepeatsIff 24,424).\n\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, needed fixes (first version guarded whole namespaces, too coarse to catch SW-3221; redone with tiny programs and a revert check), ~25 min (est. 60). Top reading-theorem cost: List.noRepeatsIff 24k steps; none above 50k.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35283,7 +35283,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 4 h (Opus). Closed won't-do (orchestrator's call): the premise was wrong; chain.rs and patlet.rs choose between readings by expected type and scope, which the lowering doesn't have, so there is no expansion to move. Findings recorded in syntax-tree-lowering.md.",
+      "body": "Expected: 4 h (Opus). Runs beside recovery S1 (SW-1983), which touches the parser's recovery points and lower/; this lane stays in chain/pattern-let expansion (lower/ and elab's chain.rs, patlet.rs).\n\nProgress (lane, 14 Nov 15:11–15:25): design pass found the premise doesn't hold. Neither module undoes an expansion: a chain's `%chain` let is elaborated as a plain let when read as a Bool, and chain.rs only substitutes the elaborated value back when it is read as a proposition (which needs the expected type); a pattern let's one-arm `match` (MatchKind::Let) is what the elaborator uses in proofs, for refutable patterns (E-LET-REFUTABLE), in the case tree and for tail splits, and patlet.rs binds projections instead only on type- and scope-dependent conditions. A dedicated ast node would add code for the same terms. Written up in docs/proposals/syntax-tree-lowering.md, Findings (8aae2c216). No code changed. Recommend closing as won't-do.\n\n\nExpected: 4 h (Opus). Runs beside recovery S1 (SW-1983), which touches the parser's recovery points and lower/; this lane stays in chain/pattern-let expansion (lower/ and elab's chain.rs, patlet.rs).\n\nExpected: 4 h (Opus). Closed won't-do (orchestrator's call): the premise was wrong; chain.rs and patlet.rs choose between readings by expected type and scope, which the lowering doesn't have, so there is no expansion to move. Findings recorded in syntax-tree-lowering.md.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35326,7 +35326,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Expected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~10 min (est. 60). Frames matched by name (std's Backtrace gives no addresses); arm64 only.",
+      "body": "Expected: 60 min (Sonnet).\n\nProgress: probe mode deepest in crates/syntax/src/stack.rs (build-time STITCHWORT_STACK_PROBE=deepest, no feature needed); dev/stack-peak (python, merges frames.py/chain.py); task stack:peak; docs/testing.md Stack section. Shown on Aoc.Year2021.Day06.Proofs. No addresses: std Backtrace exposes names only.\n\n\nExpected: 60 min (Sonnet).\nModel result: Sonnet, worked, ~10 min (est. 60). Frames matched by name (std's Backtrace gives no addresses); arm64 only.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35341,7 +35341,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Expected: 2 h (Fable paper lane), ~15 min. Revised docs/proposals/self-hosted-fmt.md. D3576 (build stages 0-2 first [rec yes]), D3577 (no identity gate [rec no gate]), D3578 (self-hosting: door open, plan nothing [rec yes]). Findings filed: SW-3229 SW-3230 SW-3231 SW-3232; SW-3149 moved to next (still reproduces; first prerequisite).",
+      "body": "Expected: 2 h (Fable paper lane). Matt, 14 Nov 2026: 'now that we have updated the Rust formatter, we should consider that original idea of can we actually implement the formatter in Stitchwort ... a second Fable paper lane analysis ... formatting things the same ... revisit the question of how it's built in terms of parsing ... if Stitchwort were to ever become self-hosting, maybe this full tree could be a first step in the parser.'\n\nPlan written (Fable, 14 Nov, about 15 min): docs/proposals/self-hosted-fmt.md revised; the first plan kept as its Appendix B. Recommendation: a twin of the tree printer in tools/fmt/: lexer; a hand-written parser that builds the lossless tree directly (no marks, no recovery), gated on `dev tree --print` being identical on every file; engine and rules ported; rewrites as tree functions; the safety check compares lossless trees. 42-59 lane hours in stages 0-6 (0-2, harness to parser, 21-29); about 20 s for the repo estimated (Rust 8.3 s measured, 1.1 s without SW-3147's cost). Two theorems by construction: output parses back to the printed tree; idempotence without formatting twice. Self-hosting: door open, no plan. Probes re-measured: SW-3149 still reproduces; SW-3147, SW-3150 unchanged; SW-3148 milder. Awaiting Matt: D3576 (build it, stages 0-2 first), D3577 (no merge gate once identical), D3578 (self-hosting: door open, plan nothing yet). Findings for tickets are listed in the note.\n\n\nExpected: 2 h (Fable paper lane). Matt, 14 Nov 2026: 'now that we have updated the Rust formatter, we should consider that original idea of can we actually implement the formatter in Stitchwort ... a second Fable paper lane analysis ... formatting things the same ... revisit the question of how it's built in terms of parsing ... if Stitchwort were to ever become self-hosting, maybe this full tree could be a first step in the parser.'\n\nExpected: 2 h (Fable paper lane), ~15 min. Revised docs/proposals/self-hosted-fmt.md. D3576 (build stages 0-2 first [rec yes]), D3577 (no identity gate [rec no gate]), D3578 (self-hosting: door open, plan nothing [rec yes]). Findings filed: SW-3229 SW-3230 SW-3231 SW-3232; SW-3149 moved to next (still reproduces; first prerequisite).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35357,7 +35357,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Tidy batch (Matt, 14 Nov 2026). Expected: 45 min (Sonnet), ~14 min. Cause: lower/exprs.rs list kept the Bracketed wrapper of a lone bracketed range only without a comma. Only [(0 ..< n),] and [(0 ..= n),] differed; 8 other shapes checked equal. Model result: Sonnet, worked, 14 min (est. 45).",
+      "body": "Matt, 14 Nov 2026: tidy batch. Expected: 45 min (Sonnet).\n\n\nLane, 14 Nov 2026: cause was `lower/exprs.rs` `list`: the bracketed-range special case (keep `Expr::Bracketed` so W-RANGE-IN-BRACKETS stays quiet) required no trailing comma, so `[(0 ..< n),]` lowered to a bare range and differed from `[(0 ..< n)]`. Dropped that condition. Only `..<` and `..=` bracketed ranges differed; `[0 ..< n,]`, `[(a, b),]`, `[(x),]`, call args, records all already matched. Test: fmt api `a_trailing_comma_does_not_change_the_tree`.\n\n\nTidy batch (Matt, 14 Nov 2026). Expected: 45 min (Sonnet), ~14 min. Cause: lower/exprs.rs list kept the Bracketed wrapper of a lone bracketed range only without a comma. Only [(0 ..< n),] and [(0 ..= n),] differed; 8 other shapes checked equal. Model result: Sonnet, worked, 14 min (est. 45).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35386,7 +35386,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.\n\nD3591 decided (Matt, 14 Nov 2026): \"I'm very happy to have text literals as patterns, and I'm happy for them to work on both text and list of chars.\" Stage 1 filed as SW-3284. D3592 (prefix patterns) still open.\n\n\nD3592 decided (Matt, 14 Nov 2026): \"D3592 yes, text literals only on the left.\" Prefix patterns on Text and List Char; other lists keep [a, b, ..rest]. Stage 2 filed as SW-3288.\n",
+      "body": "D3579 (Matt, 14 Nov 2026): a foundation piece for a Stitchwort formatter. Expected: 1.5 h (Opus paper lane: design note).\n\n14 Nov 16:05 (lane): note written, docs/proposals/text-patterns.md (d9533f618), ~15 min. Recommendation: `\"def\"` as a pattern is the spelled-out `MkText ['d','e','f']` (already works today, compiles to a character tree; no kernel change), on `Text` and type-directed on `List Char`; missing case \"no arm matches texts other than …\"; prefixes `\"lit\" ++ rest` optional. Questions D3591 (text patterns on Text and List Char, rec yes) and D3592 (prefix patterns, rec yes). Stages: 1 Opus 6-9 h; 2 Opus 3-5 h; 3 Sonnet 2-3 h; 4 Opus 4-6 h (catch-all checked once per leaf: 4.34 s vs 1.11 s measured); 5 runtimes, measured first.\n\n\nD3579 foundation piece. Expected: 1.5 h (Opus paper lane), ~15 min. docs/proposals/text-patterns.md. D3591 (text literals as patterns on Text and List Char [rec yes]), D3592 (prefix patterns [rec yes]) asked. Findings filed: SW-3238 SW-3239 SW-3240 SW-3241 SW-3242.\n\nD3591 decided (Matt, 14 Nov 2026): \"I'm very happy to have text literals as patterns, and I'm happy for them to work on both text and list of chars.\" Stage 1 filed as SW-3284. D3592 (prefix patterns) still open.\n\n\nD3592 decided (Matt, 14 Nov 2026): \"D3592 yes, text literals only on the left.\" Prefix patterns on Text and List Char; other lists keep [a, b, ..rest]. Stage 2 filed as SW-3288.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35414,7 +35414,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3579. Expected: 2 h (Fable paper lane), ~14 min. docs/proposals/parser-end-state.md: keep marks, made strict (T0-T4, 21-30 h; T1 between S1 and S2). D3582 asked [rec yes]. T0 filed as SW-3243 and started at once (orchestrator's call: a wrong statement is checked). Findings: SW-3244 SW-3245 SW-3246 SW-3247; 'a block must end with an expression, not let' noted for the S2 lane; proposals README fix goes in T3.",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\n**Lane note (Fable, 14 Nov 2026):** note written, `docs/proposals/parser-end-state.md` (commit 992d66548 on `lane/SW-3233`). Recommendation: keep marks, made strict (starts kept by the function, one way to record, a builder that checks order and nesting in one pass and makes a misfit an internal error; meaning checks out of the parser); stages T0–T4, 21–30 lane hours, T1 between recovery's S1 and S2. One question for Matt: D3582 [rec: yes, strict marks].\n\n**Urgent finding:** on `main` since L5, `a ∧ b ∧ c → q` is checked as `a ∧ b ∧ c` (also `↔ q` and `; e` after a chain of three or more `∧`/`∨` operands): `mark_logic_chain` (`parser.rs:4143`) records the chain's inner node last, `operand_start` then gives the arrow the wrong start, and the builder drops the arrow's mark without an error. Repro: `theorem bad (a: Prop) (h: a ∧ a ∧ a): a ∧ a ∧ a → False := h` checks. Stage T0 of the note (Opus, 2–3 h) fixes it; it should not wait for S1.\n\nMeasured: the sort is 4.1% of parse-and-lower (the whole builder 8.4%); a nesting level costs the parser 1,377 bytes (18,264 brackets in 24 MiB). No code changed; no tests run (paper lane).\n\n\nD3579. Expected: 2 h (Fable paper lane), ~14 min. docs/proposals/parser-end-state.md: keep marks, made strict (T0-T4, 21-30 h; T1 between S1 and S2). D3582 asked [rec yes]. T0 filed as SW-3243 and started at once (orchestrator's call: a wrong statement is checked). Findings: SW-3244 SW-3245 SW-3246 SW-3247; 'a block must end with an expression, not let' noted for the S2 lane; proposals README fix goes in T3.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35430,7 +35430,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579. Expected: 2 h (Fable paper lane), ~20 min. docs/proposals/file-io-and-text.md: a Files ability beside IO, Text as a shared buffer at run time. D3585 (Files its own ability [rec yes]), D3586 (run may touch files by default, flags narrow it [rec yes]), D3587 (build S0, T1, F1 next [rec yes]). The 'about 8-10 more' hours line in In plain words undercounts (about 14). SW-3149 also breaks plain build. Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (last five).\n\nD3586 decided (Matt, 14 Nov 2026): no restrictions. \"If we are going to have file operations, you can do any file access you want at all, just like every other language.\" So run and built executables have full file access, and the --files none/under/read flags are dropped from the plan. Files.simulate stays as a test and proof tool a program chooses for itself.\n",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\nLane note (14 Nov 2026, 16:08): done in 20 min of 2 h. Note: docs/proposals/file-io-and-text.md, commit 384fef557 on lane/SW-3234. Recommends `Files` as a second ability the runners perform (Result-returning whole-file read/write/list/info, `Files.simulate`, narrowing handlers) and one `Text` type with a shared-buffer runtime representation (constant-time get/slice/length; `++` in place as the builder). Measured today's text costs (Text.get: 24 s for 20,000 reads). Questions D3585 (Files its own ability), D3586 (file access allowed by default when run), D3587 (build S0 + T1 + F1, then the toy formatter). Eleven findings listed in the note.\n\n\nD3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\nD3579. Expected: 2 h (Fable paper lane), ~20 min. docs/proposals/file-io-and-text.md: a Files ability beside IO, Text as a shared buffer at run time. D3585 (Files its own ability [rec yes]), D3586 (run may touch files by default, flags narrow it [rec yes]), D3587 (build S0, T1, F1 next [rec yes]). The 'about 8-10 more' hours line in In plain words undercounts (about 14). SW-3149 also breaks plain build. Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (last five).\n\nD3586 decided (Matt, 14 Nov 2026): no restrictions. \"If we are going to have file operations, you can do any file access you want at all, just like every other language.\" So run and built executables have full file access, and the --files none/under/read flags are dropped from the plan. Files.simulate stays as a test and proof tool a program chooses for itself.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35445,7 +35445,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3579. docs/proposals/generic-parse.md. D3603 (replaces D3588): write {Parse Char}, no std short name. D3589 decided (Matt, 14 Nov 2026): 'we should build this generic parser first, and then the toy parser will be a first or early use case.' Stages: SW-3281, SW-3282, SW-3283. D3590 kept (orchestrator's call). Findings: SW-3248..SW-3253.",
+      "body": "D3579 (Matt, 14 Nov 2026): 'broadly, yes ... the parser end state review, please run it on Fable ... IO and text design ... generic parse design ... all of those three pieces might benefit from Fable level intelligence. And then ... how we build the bits.' Replaces D3576's direct start; next: build the approved pieces, then a toy language's formatter in Stitchwort, then decide on the full twin (SW-3145). Expected: 2 h (Fable paper lane).\n\nD3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]), D3590 (keep text parsers under Parse. [rec keep]). Findings filed: SW-3248 SW-3249 SW-3250 SW-3251 SW-3252 SW-3253 SW-3254 SW-3255 SW-3256 SW-3257 SW-3258 (first six).\n\nD3579. Expected: 2 h (Fable paper lane), ~16 min. docs/proposals/generic-parse.md: ability Parse (t: Type), 7-10 lane hours. D3588 (write {Parse Char} [rec yes]), D3589 (build stages 0-2; toy formatter uses it [rec yes]) open. D3590 (keep text parsers under Parse.): kept, orchestrator's call (naming that changes nothing users write). Findings filed: SW-3248..SW-3253.\n\nD3579. docs/proposals/generic-parse.md. D3603 (replaces D3588): write {Parse Char}, no std short name. D3589 decided (Matt, 14 Nov 2026): 'we should build this generic parser first, and then the toy parser will be a first or early use case.' Stages: SW-3281, SW-3282, SW-3283. D3590 kept (orchestrator's call). Findings: SW-3248..SW-3253.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35551,7 +35551,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "T0 of parser-end-state.md. Expected: 2.5 h (Opus), ~35 min. 517 of 900 probe shapes dropped a mark before; 0 after; whole repo 0 dropped, 0 E-INTERNAL. Also fixed: a method section starting a 3+ chain wasn't widened. Filed SW-3259. Fuzzer now calls parse_module_and_tree (not compared with parse_module).",
+      "body": "Expected: 2.5 h (Opus). Started at once: main checks a different statement from the one written.\n\nLane notes (Opus, 14 Nov 2026, 16:06-16:42): commit 725acc7f3 on lane/SW-3243.\n- Fix: mark_logic_chain records its Binary marks in finishing order (whole chain last); record_range removed.\n- Probes: 900 one-line files (20 chain shapes x 45 contexts: -> <-> ; after chains, arrows before/inside, lambdas, forall/exists, if, match arms, records, named args, annotations, tuples, lists, ranges, pipes, sections). Before: 517 with dropped marks (85 also with span misses), every one a chain of 3+ operands or `a || b && c` followed by `->`, `<->` or `;`, in any context. After: 0 dropped, 0 misses, 0 internal errors.\n- Another shape found, silent (no dropped mark): a method section starting a 3+ chain, `(.big && a && b)`, wasn't widened (checked as `(x => x.big) && a && b`, a type error). Fixed by the same change.\n- Guards: per-declaration dropped count; Lower::decl/expression refuse it (E-INTERNAL, Unsupported::Crossed); debug_assert in SyntaxFile::build (build_allowing_crossed for tests); Unsupported::Unread for left-over parts in def/test Body, def ResultType, Seq, LetExpr, Paren, Annotation, FunctionType; dev tree prints/counts internal errors; fuzz:syntax fails on a dropped mark (it runs in release, so the debug_assert alone wouldn't).\n- Gate: dev tree --spans crates/elab/src/std aoc/src games examples: 2621 files, 0 dropped, 0 internal errors, 0 misses; also crates docs web bench dev: 447 files, the same.\n- Tests: 17+36 named syntax tests, 2 new guard tests, new tree test, fuzz (3000 cases); hash_stability (only the new example's snapshot added, no existing hash changed); examples accepted/rejected with EXAMPLES=logic-chain-arrow. All pass.\n\n\nT0 of parser-end-state.md. Expected: 2.5 h (Opus), ~35 min. 517 of 900 probe shapes dropped a mark before; 0 after; whole repo 0 dropped, 0 E-INTERNAL. Also fixed: a method section starting a 3+ chain wasn't widened. Filed SW-3259. Fuzzer now calls parse_module_and_tree (not compared with parse_module).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35800,7 +35800,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3595 yes (Matt, 14 Nov 2026: 'I'm interested to explore this. It might be a decision we change our minds on, but it feels kind of cool that we have fine-grade abilities'); replaces D3585. D3596 yes ('it'd be nice to support IO, meaning a set of abilities'): G1 SW-3267, G2 SW-3268, after F1. Check before G1: convert a few AoC days and a tool once Files exists and look at signature length (Roc's lesson).",
+      "body": "Matt, 14 Nov 2026: 'I was surprised by the recommendation for a separate Filesystem effect not integrated into IO ... another Fable paper lane to ponder this further - what do other languages do, what does Koka do and is that worth copying'. Holds D3585. Expected: 1.5 h (Fable paper lane).\n\nLane notes (14 Nov): note written, docs/proposals/ability-granularity.md (403a8b181). Recommends: Files stays its own ability (D3595, replaces D3585, same answer plus a rule: one ability per part of the outside world with its own pretend version; read-only and folder limits are handlers); names for ability sets with IO as the bundle and the console ability renamed Console (D3596; about 8-10 lane hours after F1, not blocking the formatter). Survey read from sources: Koka's fsys/net/console are labels that can't be handled, io is an alias; Flix, Unison Cloud, effectful, Idris App split files out over a raw IO; Roc tried granular and went back over growing signatures. Probes ran: a handler and match reify need a clause for every operation of an ability. Interrupted once by the weekly limit; about 35 min of work in all.\n\n\nMatt's question on SW-3234's D3585. Expected: 1.5 h (Fable paper lane), ~35 min across the weekly-limit stop. docs/proposals/ability-granularity.md. D3595 (replaces D3585: one ability per part of the outside world [rec yes]), D3596 (names for ability sets; IO = {Console, Files} [rec yes]). Findings filed: SW-3263 SW-3264 SW-3265 SW-3266.\n\nD3595 yes (Matt, 14 Nov 2026: 'I'm interested to explore this. It might be a decision we change our minds on, but it feels kind of cool that we have fine-grade abilities'); replaces D3585. D3596 yes ('it'd be nice to support IO, meaning a set of abilities'): G1 SW-3267, G2 SW-3268, after F1. Check before G1: convert a few AoC days and a tool once Files exists and look at signature length (Roc's lesson).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35898,7 +35898,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt's question. Expected: 1.5 h (Fable paper lane), ~16 min. docs/proposals/parse-on-text.md: yes in the end state, later, via a Slice t type; proofs stay on List Char. D3597 [rec yes, later], D3599 (renumbered from D3598, taken) Slice not an interface [rec yes]. D3588-D3592 stand. For T1's brief: keep the buffer width extensible to whole values. Findings: SW-3271 SW-3272 SW-3273 SW-3274 SW-3275.\n\nD3597 decided (Matt, 14 Nov 2026): \"yes, as the direction for later.\" Std.Parse reads characters from the text itself in the end state, List Char stays the language of proofs; built after fast Text and generic Parse stages 0-2, with the parked speed work. D3599 (Slice vs an interface) open, low priority.\n",
+      "body": "Matt, 14 Nov 2026: asked whether we anticipate moving to Text for all our parsing rather than List Char; nothing had decided it (generic-parse.md keeps List t, file-io-and-text.md makes Text fast but doesn't propose parsing on it). 'yes, do the follow-up paper on Fable'. Expected: 1.5 h (Fable paper lane).\n\nMatt's question. Expected: 1.5 h (Fable paper lane), ~16 min. docs/proposals/parse-on-text.md: yes in the end state, later, via a Slice t type; proofs stay on List Char. D3597 [rec yes, later], D3599 (renumbered from D3598, taken) Slice not an interface [rec yes]. D3588-D3592 stand. For T1's brief: keep the buffer width extensible to whole values. Findings: SW-3271 SW-3272 SW-3273 SW-3274 SW-3275.\n\nD3597 decided (Matt, 14 Nov 2026): \"yes, as the direction for later.\" Std.Parse reads characters from the text itself in the end state, List Char stays the language of proofs; built after fast Text and generic Parse stages 0-2, with the parked speed work. D3599 (Slice vs an interface) open, low priority.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -35954,7 +35954,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Found in SW-3269. Native in rt/js/interp, pinned; definition unchanged (no hash moves). 1 MB repeat: peak 206 -> 123 MB (bare main 110), 0.45 -> 0.30 s. Huge count charged as steps (ResourceError::Work). Model result: Sonnet, needed fixes (overflow guard), ~45 min (est. 60). Filed SW-3327.",
+      "body": "Found in SW-3269. Expected: 1 h (Sonnet).\n\nLane notes (15 Nov 2026): lane/SW-3273 commit 6b1afa7ee. Text.repeat is now a native (registry, TEXT_NATIVES pin c0cd3a04..., prims, wire tag, JS, interp test); the .sw definition is unchanged, so no std hash moved. Agreement test: differential text_repeat_agrees (counts 0/1/2/3/5, empty text, multi-byte and astral). Measured (release binary, repeat a 12-character text to 1.05 MB, then Text.length): peak RSS 206 MB -> 123 MB (a bare run is 110 MB, so extra 97 -> 13 MB); user time 0.45 s -> 0.30 s; instructions 5.11e9 -> 2.95e9. Tests passed: text_natives_are_bound_to_the_prelude, compact_text_is_bound_to_the_prelude, text_repeat_agrees, text_take_drop_and_contains_*. Model result: Sonnet, worked, ~50 min (est. 60).\n\n\nFound in SW-3269. Native in rt/js/interp, pinned; definition unchanged (no hash moves). 1 MB repeat: peak 206 -> 123 MB (bare main 110), 0.45 -> 0.30 s. Huge count charged as steps (ResourceError::Work). Model result: Sonnet, needed fixes (overflow guard), ~45 min (est. 60). Filed SW-3327.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -35995,7 +35995,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Matt's question on D3582. Expected: 2 h (Fable paper lane), ~15 min. docs/proposals/parser-marks-or-nodes.md: prototype of 4 designs over one grammar slice, identical trees on 10,052 declarations. Strict marks 11.7 ms, 272 B/level; arena handles 11.4 ms, 464 B; pointer tree 34 ms, 928 B, 87x allocations; marks keep the most nodes in broken declarations. D3600 (replaces D3582) keep strict marks [rec yes]. D3601 (return starts the textbook way) [rec no]: orchestrator's call, implementation style; kept as rec unless Matt prefers. T1 filed as SW-3280 with the findings for T1/T2; the survey of 12 parsers (8 return nodes, 10 never unwind) noted for after S5.",
+      "body": "Matt, 14 Nov 2026: 'get Fable to compare marks with returning the tree, I think I'm just more familiar with returning built nodes as a sort of standard way of doing recursive descent parsers ... what are the pros and cons?' parser-end-state.md weighed events and top-down building but not plain return-the-node. Expected: 2 h (Fable paper lane).\n\nMatt's question on D3582. Expected: 2 h (Fable paper lane), ~15 min. docs/proposals/parser-marks-or-nodes.md: prototype of 4 designs over one grammar slice, identical trees on 10,052 declarations. Strict marks 11.7 ms, 272 B/level; arena handles 11.4 ms, 464 B; pointer tree 34 ms, 928 B, 87x allocations; marks keep the most nodes in broken declarations. D3600 (replaces D3582) keep strict marks [rec yes]. D3601 (return starts the textbook way) [rec no]: orchestrator's call, implementation style; kept as rec unless Matt prefers. T1 filed as SW-3280 with the findings for T1/T2; the survey of 12 parsers (8 return nodes, 10 never unwind) noted for after S5.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36010,7 +36010,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Matt's question on D3588. Expected: 1 h (Opus paper lane), ~5 min. docs/proposals/parser-input-naming.md. None of 14 libraries defaults the input type. Rec: write {Parse Char}, no std short name (set names would still print {Parse Char}); programs may name their own bundles once SW-3267 exists. D3603 (replaces D3588) [rec yes]. Filed SW-3279.\n\nD3603 decided (Matt, 14 Nov 2026): \"Yes, happy with that.\" Character parsers write {Parse Char}; no std short name. Replaces D3588.\n",
+      "body": "Matt, 14 Nov 2026, on D3588 ({Parse Char} vs keeping {Parse}): 'worth an Opus paper lane ... what other languages and libraries do ... If they are generic in input, how do they handle a nice common case? I think having a default generic parameter is probably not a good choice ... maybe an alias ability could be interesting ... a quick rummage around the state of the art.' Expected: 1 h (Opus paper lane).\n\nLane, 14 Nov 2026: survey in docs/proposals/parser-input-naming.md (14 libraries; 9 generic in input, none defaults the input; aliases are per-input modules, user conventions, or the input is the function's argument; Effekt uses a set name `effect Parser = { Nondet, Lexer }`). Rec: write `{Parse Char}`, no std set name; user-written set names (e.g. `ability Grammar = {Parse Token, Fail}`) once SW-3267 lands. D3603 asked (replaces D3588). Findings: E-ARITY message for a bare parameterised ability in a row; \"add `X` to the function's type\" note drops the argument.\n\n\nMatt, 14 Nov 2026, on D3588 ({Parse Char} vs keeping {Parse}): 'worth an Opus paper lane ... what other languages and libraries do ... If they are generic in input, how do they handle a nice common case? I think having a default generic parameter is probably not a good choice ... maybe an alias ability could be interesting ... a quick rummage around the state of the art.' Expected: 1 h (Opus paper lane).\n\nMatt's question on D3588. Expected: 1 h (Opus paper lane), ~5 min. docs/proposals/parser-input-naming.md. None of 14 libraries defaults the input type. Rec: write {Parse Char}, no std short name (set names would still print {Parse Char}); programs may name their own bundles once SW-3267 exists. D3603 (replaces D3588) [rec yes]. Filed SW-3279.\n\nD3603 decided (Matt, 14 Nov 2026): \"Yes, happy with that.\" Character parsers write {Parse Char}; no std short name. Replaces D3588.\n",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36025,7 +36025,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Found by D3598's fuzz run. Expected: 1.5 h (Opus), ~30 min. Cause: R1 recovery lets a local definition's result type be empty; local_def reported over it via tokens_span, which read one past the last token at end of input. Fixed for def f (s: Nat):, def f:, def f [x: Nat]:, local theorem; ~40 end-of-input shapes checked. Fixed seed passes 200,000 cases. Filed SW-3285 (memory blow-up, seed 0x1234), SW-3286.",
+      "body": "Found by D3598's fuzz run at 2ff2d32a9; Overmind's job 1 paused at this case (fixed seed). Started at once (a crash; D3575 common sense, a 4th build lane at load ~3). Includes SW-3270 (FUZZ_SEED). Expected: 1.5 h (Opus).\n\nProgress (lane, 14 Nov 22:25): root cause: in recovery mode R1 (`ran_out`) lets an expression slot read no tokens, so a local `def`'s result type after `:` can be an empty token range; `local_def`'s \"needs a body\" error spanned it with `tokens_span`, which indexed `tokens[start]`, one past the last token at the end of the input (and the next line's token before a block-ending line, a wrong span). Fix: `tokens_span` gives an empty range the point after the token before it; `local_def` puts its error at that gap, so R6 keeps the one R1 error. Variants: `def f:`, `def f [x: Nat]:`, local `theorem h (n: Nat):`, with/without trailing newline, before a column-0 line; `let x:`, `match … with |`, top-level `def f (s: Nat):` were already fine. Swept ~40 more end-of-input shapes: no panic. Unit test + reject example `local-def-type-runs-out`. Fuzzer 60k cases at the fixed seed passes. Separate finding: seed 0x1234 case 3192 is a parser memory blow-up (see report).\n\n\nFound by D3598's fuzz run at 2ff2d32a9; Overmind's job 1 paused at this case (fixed seed). Started at once (a crash; D3575 common sense, a 4th build lane at load ~3). Includes SW-3270 (FUZZ_SEED). Expected: 1.5 h (Opus).\n\nFound by D3598's fuzz run. Expected: 1.5 h (Opus), ~30 min. Cause: R1 recovery lets a local definition's result type be empty; local_def reported over it via tokens_span, which read one past the last token at end of input. Fixed for def f (s: Nat):, def f:, def f [x: Nat]:, local theorem; ~40 end-of-input shapes checked. Fixed seed passes 200,000 cases. Filed SW-3285 (memory blow-up, seed 0x1234), SW-3286.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36055,7 +36055,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3600 (Matt, 14 Nov 2026): 'Okay, cool, fine. I think we can proceed with that happily now.' Expected 8 h (Opus), took ~50 min. Gate: 3,002 .sw files identical trees except 3 where the old tree dropped a finished node (Arm in an Error node, Attributes in an Error root); 11,976 broken copies: same two kinds plus one guessed Pipe start; fuzz 1M at two seeds under 2 GB; nesting depth -1.2% (design allowed 8%); std lossless tree 50.8 -> ~47 ms. Orchestrator's call: a method section at the start of an expression before -> now covers up to the arrow (same rule as ;), no repo file affected. Benchmark not run by the lane (allocation counts may move). Filed SW-3296.",
+      "body": "\n\n\nD3600 decided (Matt, 14 Nov 2026), replacing D3582, after walking through the tree's storage and how marks fill it: \"Okay, cool, fine. I think we can proceed with that happily now.\" He is happy with the generic lossless tree style (\"I think I'm happy with this general style\"). Starts after SW-3278 (parser panic fix) merges, since both change the parser's mark recording. Expected: 7-9.5 h (Opus).\n\n\nStarted 23:02 (lane, estimate 8 h); review at 23:50.\n\nDone (lane/SW-3280: 20b192f95 strict marks, then the performance log, then a merge of main):\n- Each parsing function keeps its start as a token index and records one mark when it finishes. Gone: open/close and the open stack, operand_start, node_around_operand, node_at/record_at, retag_last (exists passes its kind to lambda), widen_section (a section starting an expression or a pipe operand is marked by that parser; `Modes::section_head` tells the head application not to), mark_param's read-back, mark_logic_chain (logic_chain marks as nodes finish), Snapshot's open count, recovering_body's filter (its Error starts where the body's expression or arms start; definition_body leaves the Body after := to it).\n- Builder: the prototype's two passes, no sort; marks out of finishing order or crossing give the root alone plus a reason (`Node::misnested`), lowered as E-INTERNAL. TreeStats.dropped became misnested (declarations). tree.rs module doc says why marks, not returned nodes.\n- Gate: `dev tree --print` on all 3,002 tracked .sw files, old binary against new: identical except 3 files where the old tree lost a finished node (docs/repros/sw-2098/ask-before-checked.sw and examples/reject/ctor-fields-further-argument.sw: a recovered definition's first arm is now an Arm inside the Error; examples/reject/attribute-at-end.sw: Attributes now a node in the Error root), plus the 10 text-pattern files main added after the branch point, which the old binary can't parse. 11,976 broken copies: the same kinds only (374 Arm, 4 Attributes), and one Pipe whose old start was a guess for an absent operand (`let ys :` then `|> f`). 0 misnested, 0 internal errors.\n- One deliberate change of shape, in no repo file: a section at the start of an expression with `->` after it is now widened up to the arrow (`.f a + 1 -> T` is Arrow[Section[…] -> T]); before, it stayed at the head. Both mean a lambda as a function type's domain.\n- Fuzz 1M cases each at the default seed and 0x1234 under a 2 GB memguard: pass (before and after the merge). Tests: syntax lib (277), fmt lib (57), fmt golden+api, elaboration syntax_recovery (3), the affected reject examples, hash_stability (10): all pass.\n- Measured: std's lossless tree 50.8 → 46.4-47.7 ms; nesting 19,414 → 19,175 brackets (1,296 → 1,312 B a level). Performance log entry added.\n- Not run: the benchmark (deep-input allocation counts may move) — the verifier's.\n\n\n\n\nD3600 decided (Matt, 14 Nov 2026), replacing D3582, after walking through the tree's storage and how marks fill it: \"Okay, cool, fine. I think we can proceed with that happily now.\" He is happy with the generic lossless tree style (\"I think I'm happy with this general style\"). Starts after SW-3278 (parser panic fix) merges, since both change the parser's mark recording. Expected: 7-9.5 h (Opus).\n\n\nD3600 (Matt, 14 Nov 2026): 'Okay, cool, fine. I think we can proceed with that happily now.' Expected 8 h (Opus), took ~50 min. Gate: 3,002 .sw files identical trees except 3 where the old tree dropped a finished node (Arm in an Error node, Attributes in an Error root); 11,976 broken copies: same two kinds plus one guessed Pipe start; fuzz 1M at two seeds under 2 GB; nesting depth -1.2% (design allowed 8%); std lossless tree 50.8 -> ~47 ms. Orchestrator's call: a method section at the start of an expression before -> now covers up to the arrow (same rule as ;), no repo file affected. Benchmark not run by the lane (allocation counts may move). Filed SW-3296.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36070,7 +36070,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Generic Parse stage 0. Expected 1.5 h (Opus); ~2 h with the review fix. Orchestrator's call: accept 38 proof-hash changes (statements unchanged, D2303). Opus review docs/reviews/SW-3281-propagation.md: M1 (errors in failing chains moved) fixed by finishing through fallback_inferred on failure. SW-3271 part dropped (both attempts broke readsFindAllStarting; notes on SW-3271). Filed SW-3299, SW-3300, SW-3297.",
+      "body": "D3589 (Matt, 14 Nov 2026). Expected: 2 h (Opus).\n\n\nD3589 (Matt, 14 Nov 2026). Expected: 2 h (Opus); then about 1.25 h after the orchestrator accepted the hash churn (D2303).\n\nDone (lane, 14 Nov 23:45), commit 3bbaaba00 on lane/SW-3281:\n- Cause: `propagation_plan` (check.rs) compared a lemma's written result with the goal by plain unification only (unless an argument was `_`). For `readsThen` against `Reads twoLetters Written` that fails (the unfolding is stuck on `?p`), so the call was inferred without its goal and `t` stayed unknown while the arguments were checked; the lambda was checked in place, failed, and was checked again.\n- Fix: fall back to `unify_solving_arguments`, as `finish_application`'s comparison already does.\n- readsTwo: generic 498k -> 61k, today's Parse 281k -> 47k. Std.Parse 103.6M -> 84.7M; 2020 day 2's proofs 8.07M -> 6.35M.\n- 38 declarations change hash (31 Std.Parse theorems with 7 of their lifted matches; 7 example theorems); statements unchanged (type terms compared before/after). Needs the Opus review of the term changes before merge.\n- New test `reads_chain_cost` (driver library binary): readsTwo against a miniature generic parser and its character-only twin, 38k and 32k steps (bounds, 25%).\n- SW-3271 not included: both tries broke std/Parse/Reads.sw:2727 (readsFindAllStarting). See SW-3271.\n\n\nReview M1 fixed (15 Nov 00:20), commit 0d9237a76: a call matched by arguments that then fails goes through `fallback_inferred` as before, with only the by-arguments comparison off inside. Review probes d3bad/d8bad/d14bad/c3bad/c6bad/e1/e2/q1/q2/p5 print exactly what main prints; d3ok/d8ok/s1/s2 check. New reject examples reads-chain-unknown-name-last-step, reads-chain-swapped-pair. Nits done. Steps: readsTwo 61k/47k unchanged; Std.Parse 85.1M; day 2 6.35M; hashes unchanged from 3bbaaba00.\n\n\nGeneric Parse stage 0. Expected 1.5 h (Opus); ~2 h with the review fix. Orchestrator's call: accept 38 proof-hash changes (statements unchanged, D2303). Opus review docs/reviews/SW-3281-propagation.md: M1 (errors in failing chains moved) fixed by finishing through fallback_inferred on failure. SW-3271 part dropped (both attempts broke readsFindAllStarting; notes on SW-3271). Filed SW-3299, SW-3300, SW-3297.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36085,7 +36085,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3603 (Matt). Expected 4.5 h (Opus), took 1.5 h. Gates: Std.Parse 98.65M (<130M); 2020 day 2 +13.7%, day 7 +7.1%, day 18 +9.3% (limit 15%). Statements: 416 same modulo the parameter, 21 changed (checked one by one by the orchestrator: literal record, exact/reflexive hypotheses where false without, annotations, a renamed bound variable; all keep their meaning), 2 added; AoC 2869 identical apart from the row. Opus review docs/reviews/SW-3282-settle-from-expected.md: merge; filed SW-3305, SW-3306, SW-3307, plus SW-3302-3304.",
+      "body": "D3603 (Matt, 14 Nov 2026): 'D3603. Yes, happy with that.' ({Parse Char} for character parsers). D3604 overnight chain B. Expected: 4.5 h (Opus std; the sweep outside std may go to DeepSeek).\n**Progress (lane, Opus, 15 Nov 2026, 00:15-01:50):** done on lane/SW-3282, 7 commits.\n- `ability Parse (t: Type)`, `Parse.Mark t`, `Parse.State t`, `Parse.Literal t = { items, same }` (the literal carries its comparison); Parse.sw, Reads.sw, Runs.sw generic; the character pieces and their lemmas in Parse/Chars.sw, ReadsChars.sw, RunsChars.sw. `List.stripPrefixBy` (Toolkit) with two lemmas (List/Lemmas.sw).\n- Elaborator (needs Opus review, D2364-style): a lemma's implicit type parameter that is an ability's argument in a row of a later parameter (`t` in `p: () → {Parse t} a`) is given from the expected type before the arguments are checked (`check.rs`, `settle_from_expected`). Without it the generic lemmas cost 60% more steps in AoC proof chains (day 2 +66%). Giving *every* type parameter that way broke readsThen chains (also broken today when `[t := Char] [b := …]` are written by hand: finding).\n- SW-3279 folded in: E-ARITY for an ability names its parameters and shows the row (`{Parse t}`, such as `{Parse Char}`), new reject example; the add-it-to-the-type note writes known arguments (`-> {Parse Char} …`).\n- Sweep by script: 139 rows in aoc/src (step A), 162 rows in 39 files elsewhere; guide ch. 8, web/guide/20-parse.sw, syntax.md.\n- Gates (empty cache): Std.Parse 98.65M steps (< 130M); 2020 day 2 proofs 6.89M (base 6.06M, +13.7%), day 7 6.61M (6.17M, +7.1%), day 18 2.24M (2.05M, +9.3%). AoC theorem statements: 2869, identical apart from the row. Std statements: 416 same modulo the parameter, 21 changed with reasons, 2 added (lane scratch statements-diff.txt; summary in the report).\n- Hash snapshots: 16 files (prelude: Std.Parse + List.stripPrefixBy only; 15 Parse examples). Example snapshots: 10.\n- Tests run (each targeted, one at a time): hash_stability + reads_chain_cost (pass after bless); std_library file-order/cycle/index/load tests (small_programs_load_only… caught Option/Lemmas being loaded by the toolkit: fixed by moving the lemmas); examples EXAMPLES=parse,reads,+14 names of swept/affected examples (accepted and rejected pass); LSP hover_shows_the_parameters_by_name; tools no_effect::*; rt clause_kinds::*; fmt golden; guide abilities.sw and web/guide/20-parse.sw tests; `check --no-cache` of the 22 AoC Proofs namespaces with Parse lemmas (all pass). Not run: the_standard_library_passes_its_own_tests (all std tests), guide:: suite, whole-AoC: for the verifier/Overmind.\n\n\nD3603 (Matt). Expected 4.5 h (Opus), took 1.5 h. Gates: Std.Parse 98.65M (<130M); 2020 day 2 +13.7%, day 7 +7.1%, day 18 +9.3% (limit 15%). Statements: 416 same modulo the parameter, 21 changed (checked one by one by the orchestrator: literal record, exact/reflexive hypotheses where false without, annotations, a renamed bound variable; all keep their meaning), 2 added; AoC 2869 identical apart from the row. Opus review docs/reviews/SW-3282-settle-from-expected.md: merge; filed SW-3305, SW-3306, SW-3307, plus SW-3302-3304.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36100,7 +36100,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3589. Expected 2.5 h (Sonnet), ~20 min. New theorem statements checked by the orchestrator one by one (readsOne, readsSpan1, readsLiteralSame, readsLocated, runsFromLocated, tokensOk, tokensReads, runsTokens, runsOne, runsSpan1, declinesOne/OneEnd/Span1, List.stripPrefixByRelated): each says what its name claims. Names beyond the paper (orchestrator's call, std helpers): Parse.tokensMessage, tokenFound, tokenPosition, tokensOk, runsOneStep. Filed SW-3309. Model result: Sonnet, worked, ~20 min (est. 150).",
+      "body": "D3589 (Matt, 14 Nov 2026): build stages 0-2. D3604 chain B. Expected: 2.5 h (Sonnet).\n\nD3589. Expected 2.5 h (Sonnet), ~20 min. New theorem statements checked by the orchestrator one by one (readsOne, readsSpan1, readsLiteralSame, readsLocated, runsFromLocated, tokensOk, tokensReads, runsTokens, runsOne, runsSpan1, declinesOne/OneEnd/Span1, List.stripPrefixByRelated): each says what its name claims. Names beyond the paper (orchestrator's call, std helpers): Parse.tokensMessage, tokenFound, tokenPosition, tokensOk, runsOneStep. Filed SW-3309. Model result: Sonnet, worked, ~20 min (est. 150).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36115,7 +36115,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3591 (Matt, 14 Nov 2026). Expected: 7.5 h (Opus), took ~40 min. Opus review: merge as is; 6,154 hash lines identical between literal and spelled-out projects; review at docs/reviews/SW-3284-text-patterns.md. Follow-ups SW-3293, SW-3294, SW-3295.",
+      "body": "D3591 (Matt, 14 Nov 2026): text literals as patterns on Text and List Char. D3604 overnight chain C. Expected: 7.5 h (Opus), then an Opus review.\n\n**Lane notes (Opus, 14 Nov 2026, 22:40–23:25, lane/SW-3284, commits df5ec23b9, bffb452b0, 78d073dbd):**\n- Built: `Pattern::Text` (parser bumps a `Tok::Str` as a pattern atom, like `'c'`; `StrStart` is `E-TEXT-PATTERN` \"a text pattern can't interpolate\"). `pattern_ctor` expands by the column's type: `MkText` of a list of `Pattern::Char` on `Text` (and when the type isn't known), the list itself on `List Char`, `E-TYPE-MISMATCH` otherwise. Each character gets its own sub-span inside the literal (`decl.text_spans` maps them back), so char messages don't collide.\n- Missing case: a column of text patterns alone marks the gaps its characters leave (`Arm::text_gap`) and reports them as \"no arm matches texts other than \"def\", \"do\" and \"else\"\" (\"character lists\" on `List Char`), with a note asking for `| _ => …`. Witnesses print a `MkText` column as its literal when fully known, else `_`.\n- Goals leave out `valid✝: Std.Char.isScalar 100` (inaccessible proofs that a known code is a scalar), for char patterns too.\n- Hashes: a throwaway example written with `\"def\"` and the same written as `MkText ['d', …]`/`['d', …]` gave identical hash snapshots for all 21 declarations, equation lemmas included. hash_stability (lane sample + prelude) passes; char-patterns and every missing-case example unchanged.\n- `\"lit\" ++ rest` still gives today's E-PARSE (stage 2, SW-3288).\n- Docs: guide ch. 3 (text patterns, missing-case output) and ch. 10 (\"Arms that match literals\"), docs/syntax.md (patterns, generated equations), tour page web/guide/40-text-patterns.sw (\"Matching words\").\n- Finding: `guide::the_guide_quotes_its_examples_and_the_compiler` fails with 87 stale blocks unrelated to this lane (e.g. `area (width height: Nat)` vs the quoted `(width: Nat) (height: Nat)`): the guide examples were reformatted without `task guide:update`.\n\n\nD3591 (Matt, 14 Nov 2026). Expected: 7.5 h (Opus), took ~40 min. Opus review: merge as is; 6,154 hash lines identical between literal and spelled-out projects; review at docs/reviews/SW-3284-text-patterns.md. Follow-ups SW-3293, SW-3294, SW-3295.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": [
@@ -36175,7 +36175,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Model result: opus, needed fixes (review: chained rest type, guarded equations, rest name, doc), 85 min (est. 240). Filed SW-3374 SW-3375.",
+      "body": "Started 15 Nov (orchestrator's sequencing, after SW-3336 freed a slot). Expected: 4 h (Opus).\n\n15 Nov, 08:50-09:40 (Opus lane): built on lane/SW-3288. `\"lit\" ++ p` on Text and List Char (parser node PatternAppend; Pattern::Prefix with lazily made expansions, Pattern::TextRest for a Text's computed rest). On Text, a variable rest is `let rest := MkText r` around the arm, and around a guard's `if` (guards can use it; the arms below are shifted). Suffix/middle/`Some \"a\" ++ rest` refused with E-TEXT-PATTERN (endsWith/stripSuffix/splitOn note; brackets note for a constructor). Missing case lists `\"--\" ++ _`; W-REDUNDANT for a prefix or exact text after a covering prefix (tree check, plus or-alternatives). Goal printer: `\"--\" ++ rest`, `rest: Text` listed, the hidden list not. `t = \"--\" ++ rest` by rfl in the arm (examples/accept/text-patterns-prefix.sw). `\"\" ++ p` is `p`. Docs: guide 03/10, syntax.md, tour page; examples accept/reject/goals with snapshots (goal_index snapshot and lemma summary written by hand from `check --index`, same method reproduces the existing one). Tests: new syntax tests, task test:example NAME=text-pattern, hash_stability, guide:: — all pass. Rest as a slice (SW-3337) not done: note at bind_text_rests. Moved to review.\n\nOpus review docs/reviews/SW-3288-text-prefix.md: merge after fixes 1-4 (chained rest on Text, guarded-arm equations, rest display name from binder, doc comment). Arm equations over x1 stay until stage 3. Filed SW-3365 SW-3366.\n\n\n15 Nov, 09:42-10:20 (Opus, review fixes, d7dd52f46, after merging main): fixes 1-4 done. 1: chains flattened (prefix_start/prefix_chars), a non-text rest on Text is E-TEXT-PATTERN, messages and redundancy read the whole chain. 2: equations.rs peels the arm's leading lets at a guard node and substitutes lets in the recorded condition: Arg.read.eq3/eq4 back; also fixed Walk::guard's inert check, which evaluated a tree term at the statement's depth (panicked once these arms were read). 3: rest's display name from its let binder (rest✝ when shadowed). 4: doc placement. D3608 tests, each failing before: accept chained (E-TYPE-MISMATCH before), reject text-patterns-prefix-rest-not-text (checked before), missing-case chain (\"a\" ++ _ before), goals shadowed (\"ab\" ++ rest before), hash snapshot (eq1-2 only before). Tests: task test:example NAME=text-pattern 7/7, hash_stability 10/10, guide:: 4/4, syntax prefix tests 5/5. goal_index 4/6: the 2 failures are arm-as-written-* catch-all fact lines (`s ≠ \"ab\"`) in the label but not the index's parts, pre-existing since SW-3335 (same index from main's binary); text-patterns-prefix and lemmas snapshots regenerated by hand. Moved to review.\n\n\nModel result: opus, needed fixes (review: chained rest type, guarded equations, rest name, doc), 85 min (est. 240). Filed SW-3374 SW-3375.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -36188,7 +36188,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Found in SW-3285. First attempt (DeepSeek) reverted: expect_closer counted a bracket whose contents ran out as closed, so the tree got a Paren node instead of an Error node, and the checker reported a follow-on E-NOT-A-FUNCTION (examples/reject/recover-calc-open-bracket.sw) and tree::tests::a_broken_body_keeps_its_headers_nodes failed. A fix must keep the unclosed bracket an Error node (one error, no follow-on), and run the syntax crate's tree and recovery tests plus the reject examples. Model result: DeepSeek, failed (ran only its named tests; broke two others), ~25 min (est. 45). Retry on Sonnet.",
+      "body": "Found in SW-3285. A bracket's contents running out at an R1 gap count as closed (no second missing-closer error); a guard's => ends the guard when a bracket in the condition has no partner, so the arms still parse. Model result: DeepSeek, worked, ~25 min (est. 45).\n\nFound in SW-3285. First attempt (DeepSeek) reverted: expect_closer counted a bracket whose contents ran out as closed, so the tree got a Paren node instead of an Error node, and the checker reported a follow-on E-NOT-A-FUNCTION (examples/reject/recover-calc-open-bracket.sw) and tree::tests::a_broken_body_keeps_its_headers_nodes failed. A fix must keep the unclosed bracket an Error node (one error, no follow-on), and run the syntax crate's tree and recovery tests plus the reject examples. Model result: DeepSeek, failed (ran only its named tests; broke two others), ~25 min (est. 45). Retry on Sonnet.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36247,7 +36247,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From the SW-3284 Opus review. Model result: Sonnet, needed fixes (first rule also hid unnamed proofs about shown variables; narrowed on review), ~40 min (est. 90). Filed SW-3301.",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md). Expected: 1.5 h (Sonnet).\n\nProgress (lane, commit 890546d12): hid unmentioned unnamed split leftovers in hole goals (drop_split_leftovers, goals.rs; terms and hashes unchanged); known_char_proof checks the code is a scalar; guide arrowAhead became afterArrow (Some [] vs Some more); nits 1, 4, 5, 7 done; nits 2, 3, 6 skipped (message/witness design, not small); should-fix 2 and 3 are separate tickets. New goals example text-pattern-catch-all. Where the target mentions the leftovers (a theorem about the scrutinee) they still show: needs display of the scrutinee with its known shape, a design call.\n\n\nFrom the SW-3284 Opus review. Model result: Sonnet, needed fixes (first rule also hid unnamed proofs about shown variables; narrowed on review), ~40 min (est. 90). Filed SW-3301.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36262,7 +36262,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From the SW-3284 Opus review, should-fix 2. Model result: Sonnet, worked, ~15 min (est. 90). Wording ', in the case `ROW`' (orchestrator's call).",
+      "body": "\nFrom the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md, should-fix 2). Expected: 1.5 h (Sonnet).\n\nLane notes: message now ends \", in the case `ROW`\" (row = the missing case with the number/text column as `_`) when the row is not a bare `_`; bare single columns unchanged. Also adds the case for a column inside a constructor (ctor-fields-nonexhaustive: \"..., in the case `Circle _ _ _`\"). Examples: text/number other-column, text nested. hash_stability 10/10, rejected examples (missing, nonexhaustive, text, literal, fin, other-column) pass. Commit aa44e2547.\n\n\nFrom the SW-3284 Opus review, should-fix 2. Model result: Sonnet, worked, ~15 min (est. 90). Wording ', in the case `ROW`' (orchestrator's call).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36277,7 +36277,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From the SW-3284 Opus review should-fix 3. Model result: Sonnet, worked, ~15 min (est. 90). Follow-up SW-3312.",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md should-fix 3). Expected: 1.5 h (Sonnet).\n\n\nProgress (lane): text fallback recorded in Decl.text_fallbacks when a text pattern fixes a bare-meta column to Text; Ctx::mismatch labels that pattern when one side is Text and the other is not. Number case already errored at the match (not at a later use): message now says the type is not known (no more printed ?N) with a note to annotate. Examples reject/text-patterns-type-fixed-by-pattern.sw and number-patterns-type-fixed-by-pattern.sw. Commit 11de8881f on lane/SW-3295.\n\n\nFrom the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md should-fix 3). Expected: 1.5 h (Sonnet).\n\nFrom the SW-3284 Opus review should-fix 3. Model result: Sonnet, worked, ~15 min (est. 90). Follow-up SW-3312.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36306,7 +36306,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From the SW-3281 review. Design answer (as Lean): only auto parameters are searched; message improved, no change to meaning. Model result: Sonnet, worked, ~20 min (est. 60).",
+      "body": "Expected: 1 h (Sonnet).\n\nFrom the SW-3281 review. Design answer (as Lean): only auto parameters are searched; message improved, no change to meaning. Model result: Sonnet, worked, ~20 min (est. 60).",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
@@ -36321,7 +36321,7 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Paper docs/proposals/fmt-author-breaks.md. D3605 answered yes (Matt, 15 Nov): built as SW-3336.",
+      "body": "Found in SW-3292. For a decision of Matt's on formatter style. Expected: 1 h (Opus paper lane).\n\nProgress (paper lane, 15 Nov 2026, 03:53-04:10 GMT, est. 1 h): docs/proposals/fmt-author-breaks.md (uncommitted, in the main checkout). Measured over 39de3aa7d: 2,087 multi-line constructs joined onto one line in 747 files (827 bodies after :=, 392 data types, 233 calls, 211 arm bodies, 177 headers, 99 one-arm matches, 32 else-if chains, 29 record types, 26 pipelines, 16 operator chains); 72 in the guides. Recommendation: B1 (an if with an else if always one clause a line) + B2 (type declarations one line only within 80 chars), no author hints; leading-operator guide example rewritten long. About 130 files. D3605 for Matt.\n\n\nFound in SW-3292. Paper docs/proposals/fmt-author-breaks.md (Opus, ~25 min): 2,087 multi-line constructs joined in the 14 Nov reformat, most fine; else-if chains, data types with fielded constructors and 4-5 field records read worse. Rec: two structural rules (else-if chains one clause a line; type declarations one line only within 80 chars), ~130 files. D3605 open, for Matt in the morning. Filed SW-3319.\n\nFound in SW-3292. For a decision of Matt's on formatter style. Expected: 1 h (Opus paper lane).\n\nPaper docs/proposals/fmt-author-breaks.md. D3605 answered yes (Matt, 15 Nov): built as SW-3336.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": []
@@ -36350,7 +36350,7 @@
       "where": "",
       "labels": [],
       "epic": "performance",
-      "body": "Quiet wall-time A/B, whole AoC check --no-cache, 3 alternating reps: parent 147.9 s, new 147.6 s (-0.2%, spread <1%). Rolling loop's 142 -> 156-160 s was load. Conclusion: no slowdown >5% anywhere except Day16 steps +6.2% (SW-3332).",
+      "body": "Overmind job 3 (15 Nov), bench part: parent of SW-3281's merge (db0538f5f) vs e41f08839. Checker steps +0.9% (~+11.2k on ~1.25M) on the 7 check-closed-* rows, all others identical; run-machine instructions within ±0.1%; peak heap equal. Under the 5% bar; likely the extra std (Parse) each closed check loads. Wall-time part pending (~07:00).\n\nOvermind job 3 (15 Nov). Bench: checker steps +0.9% on 7 check-closed rows, rest identical, run-machine within noise. Quiet A/B steps over whole AoC (11,770 common declarations): -1.17% total (parent 1.221G -> 1.206G); 2,230 up, 93 down; Std.Parse -4.8%, Day07/19/21 down (sources changed); rises Day16 +6.2% (runsNotes +9.5M), 2020 Day03 +3.8%, 2021 Day10 +3.3%, Day03 +3.2%. Filed SW-3332. Wall-time A/B: pending.\n\nQuiet wall-time A/B, whole AoC check --no-cache, 3 alternating reps: parent 147.9 s, new 147.6 s (-0.2%, spread <1%). Rolling loop's 142 -> 156-160 s was load. Conclusion: no slowdown >5% anywhere except Day16 steps +6.2% (SW-3332).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36363,7 +36363,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Found in SW-3293. Paper docs/proposals/catch-all-goals.md (Opus, ~20 min): wider than literals: an arm checked at several leaves shows only the last leaf's goal, and the user's binder isn't shown. Recommended option A (display only; orchestrator's call, no Matt decision): filed SW-3317. Also SW-3318.",
+      "body": "Found in SW-3293. Expected: 1 h (Opus paper lane).\n\nFound in SW-3293. Paper docs/proposals/catch-all-goals.md (Opus, ~20 min): wider than literals: an arm checked at several leaves shows only the last leaf's goal, and the user's binder isn't shown. Recommended option A (display only; orchestrator's call, no Matt decision): filed SW-3317. Also SW-3318.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36376,7 +36376,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Found in SW-3282. Stopped (Sonnet, 5 min): std has no private marker ('There is no private', guide 06), so a helper would be a public std name (Parse.charLiteral?), Matt's call. Low value; parked until there's a reason to bring it, or a private marker.",
+      "body": "Found in SW-3282. Expected: 1 h (Sonnet).\n\nFound in SW-3282. Stopped (Sonnet, 5 min): std has no private marker ('There is no private', guide 06), so a helper would be a public std name (Parse.charLiteral?), Matt's call. Low value; parked until there's a reason to bring it, or a private marker.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36404,7 +36404,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Found in SW-3282. Cause traced: same_calls handled only two plain calls; a solved unknown whose solution is a call of the same definition was unfolded on both sides until ?p met Parse.nat's inner match. Fix in unify.rs, limited to solving from arguments (unlimited cost day 2 +2.2%). Steps: day 2 +0.08%, day 7 -0.04%, day 18 0, Std.Parse +0.004%; node counts and hashes unchanged; all 18 review probes identical except c3tb now checks. Filed SW-3313.",
+      "body": "Found in SW-3282; repro c3tb.sw in docs/reviews/SW-3282-settle-from-expected.md S3 (probes in the scratch sw3282-review folder). Fixing it unblocks SW-3307 (settle every type parameter). Expected: 2 h (Opus).\n\n**Progress (lane, 15 Nov 2026, 02:16-03:15).** Done; commit 1b949c461 on `lane/SW-3304`.\n\n- **Cause (traced):** not the review's guess. Written implicits keep a call off `propagation_plan` altogether (the written result mentions them), so with `[t := …]` or `[b := …]` every step goes through `fallback_inferred`: `readsNat` fails in place, the `rest` lambda is held, and `finish_application` compares the step's `Reads (() => bind (?p ()) ?j) ?spec` with the goal by `unify_solving_arguments`. The goal's parser is the outer step's `?j x0`, solved as `bind (nat ()) (x1 => …)`. `same_calls` only fires for two unforced `Value::Call`s, so a call against a *solved unknown* standing for a call of the same definition was unfolded on both sides, through `runFrom`'s handlers, until `?p ()` met `Parse.nat`'s `match` over the state: no solution. With `b` unknown it passed by accident: `?b`, solved at the `value` binder, made the `bind` call stale, `values_differ` re-read both sides, and the re-read put the solution back as a call.\n- **Fix:** `unify_step` looks through a solved unknown at either head; two calls of one definition go to `same_calls`. Only while solving from arguments (without that limit day 2 +2.2%, Std.Parse +0.4%). Which arguments wait is unchanged.\n- **Numbers** (`STITCHWORT_TIMINGS=decls check --no-cache`, summed per namespace, before -> after; nodes identical everywhere): day 2 proofs 6,890,500 -> 6,896,050 (+0.08%); day 7 6,609,827 -> 6,607,194 (-0.04%); day 18 2,236,096 unchanged; Std.Parse 99,478,662 -> 99,482,727 (+0.004%).\n- **Tests:** new accept example `reads-chain-written-type-arguments` (all eight combinations of `t`/`a`/`b` written; two fail before) + hash snapshot; `binary(library) & test(/hash_stability|reads_chain_cost/)` 11/11, no other snapshot changed; elab `unify|propagat|implicit|settle` 43/43; examples `reads-chain,parse-row` and `unknown-solved,dictionary,from-expected,reads-` accept+reject pass; all 18 SW-3282 review probes and the reject examples give byte-identical output to the binary before the fix (c3tb now checks); `check --no-cache` of 2020 days 2, 7, 18 pass.\n- **SW-3307 measurement (not committed):** dropping `settle_from_expected`'s row condition (so `b` is given too): day 2 proofs 6.90M -> 4.83M (-30%; `runsPieces` 6.17M -> 4.10M, about 24% under its pre-generic 5.41M), day 7 -9.1%, day 18 -0.9%, Std.Parse -1.4%. All three days check; all eight combos check. But nodes change (Std.Parse 702,774 -> 702,751; day 7 +12), so hashes move, and one reject example regresses: `reads-nested-binds-unknown-field` gives E-TYPE-MISMATCH at the final `rfl` (`?3 read value`) instead of E-UNKNOWN-FIELD at `first`. Errors also change in review probes g1, g2, g8, r1, t2 (unreviewed). `reads-chain-swapped-pair` differs only in a meta number.\n\n\nFound in SW-3282; repro c3tb.sw in docs/reviews/SW-3282-settle-from-expected.md S3 (probes in the scratch sw3282-review folder). Fixing it unblocks SW-3307 (settle every type parameter). Expected: 2 h (Opus).\n\nFound in SW-3282. Cause traced: same_calls handled only two plain calls; a solved unknown whose solution is a call of the same definition was unfolded on both sides until ?p met Parse.nat's inner match. Fix in unify.rs, limited to solving from arguments (unlimited cost day 2 +2.2%). Steps: day 2 +0.08%, day 7 -0.04%, day 18 0, Std.Parse +0.004%; node counts and hashes unchanged; all 18 review probes identical except c3tb now checks. Filed SW-3313.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36420,7 +36420,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-3282's review S1. Expected 1.5 h (Opus), ~1 h. Steps unchanged (day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M); nesting -2% at most for nested settled calls. Error choice (orchestrator's call): the settled attempt's error when both fail. Opus review docs/reviews/SW-3305-settle-retry.md: merge (strict improvement on main); follow-up SW-3311.",
+      "body": "From docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).\n\n15 Nov 02:30 (lane, lane/SW-3305, c84283e65, took 35 min): fallback_inferred snapshots; a call that settled type arguments and then fails is redone with settling off inside (no_settling), giving the unsettled path's result or error. A plain per-call retry cost 6x on 2020 day 2 (6.89M -> 41.7M: speculative failures inside chains), so inside held-argument checks and propagation plans (settle_trial) the retry is passed over and noted; an argument whose failure is final is rechecked without settling. Steps identical to SW-3282: day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M. g5/g6 accepted (examples accept/settle-from-expected-by-unfolding.sw, -dependent.sw; reject/settle-from-expected-dependent-mismatch.sw). Errors return to the unsettled path's (review S2's better-placed settled errors are gone, as briefed); two reject snapshots renumber an unknown. Hashes unchanged.\n\n\n15 Nov 02:55 (lane, 0f5763e14, 25 min): orchestrator's call applied: when both attempts fail the settled error is given (g2/g8/r1 blame the parser argument again). settle_from_expected now settles only when the definition's parameter at that place has the type parameter's sort (parameter_type_is), so g6-style goals no longer produce rows like {Src (b => List b)}. Snapshots: the two renumbered-unknown snapshots from c84283e65 reverted to main's; reads-chain-* unchanged; new reject/settle-from-expected-wrong-row.sw. Stack (nesting thresholds, before ticket / c84283e65 / now): nested f(...) 268/260/269; nested settled call 214/196/209; under 320 KiB guard 54/52/54 and 42/38/41. Steps unchanged (+~300 for the sort check).\n\n\nFrom docs/reviews/SW-3282-settle-from-expected.md S1. Expected: 1.5 h (Opus).\n\nFrom SW-3282's review S1. Expected 1.5 h (Opus), ~1 h. Steps unchanged (day 2 6.89M, day 7 6.61M, day 18 2.24M, Std.Parse 98.65M); nesting -2% at most for nested settled calls. Error choice (orchestrator's call): the settled attempt's error when both fail. Opus review docs/reviews/SW-3305-settle-retry.md: merge (strict improvement on main); follow-up SW-3311.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36435,7 +36435,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "With SW-3299. Opus review docs/reviews/SW-3306-error-notes.md: no correct program fails; type clashes gave worse errors -> fixed (undo on a type clash). Day 2: readsLine -14% steps (term changed, migration cost), runsPieces +0.12%. Model result: Sonnet, needed fixes (type-clash undo), ~45 min (est. 90). Filed SW-3330.",
+      "body": "With SW-3299 in one lane (lane/SW-3306). Expected: 1.5 h (Sonnet).\n\nLane notes (15 Nov, acdeffbef): both problems were still present on the current code. The `[a := …]` advice: dropped from an unknown's origin note when the two types clash somewhere no unknown could mend (`Tok` against `Char`). The \"`t` was taken as `X` from the expected type\" note: shown only when the mismatch is about X (X is on the expected side and not the found side, or in the message's \"first differ\" note). reads-chain-unknown-name-last-step: fixed to test only the unknown name (Spec is now `made.length = 3`, proof `rfl`). Snapshots changed: wrong-row and weaken-over-map-implicits lose the t note; match-equation-leaves-solution loses the advice.\n\n\nWith SW-3299 in one lane (lane/SW-3306). Expected: 1.5 h (Sonnet).\n\nWith SW-3299. Opus review docs/reviews/SW-3306-error-notes.md: no correct program fails; type clashes gave worse errors -> fixed (undo on a type clash). Day 2: readsLine -14% steps (term changed, migration cost), runsPieces +0.12%. Model result: Sonnet, needed fixes (type-clash undo), ~45 min (est. 90). Filed SW-3330.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36495,7 +36495,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Found by Overmind's rolling check at 63ef3f3ff. Model result: Sonnet, worked, ~25 min (est. 40). New std helper Parse.oneValue (orchestrator's call). Filed SW-3314.",
+      "body": "Found by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).\n\nLane notes: lane/SW-3310 efa358d70. Added Parse.oneValue (the match, as a def); runsOneStep now takes the Option as a variable and states Runs of oneValue (no unreachable arm; any hypothesis on the match scrutinee triggers W-UNREACHABLE); runsOne uses oneValue in its bind continuation, statement unchanged. Tests: no_unreachable_arms and hash_stability pass (prelude and parse-lex-then-parse snapshots blessed); check --std Parse ok.\n\n\nFound by Overmind's rolling check at 63ef3f3ff. Expected: 40 min (Sonnet).\n\nFound by Overmind's rolling check at 63ef3f3ff. Model result: Sonnet, worked, ~25 min (est. 40). New std helper Parse.oneValue (orchestrator's call). Filed SW-3314.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36510,7 +36510,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Opus lane ~1 h + 25 min review fixes (est. 2.5 h). Review docs/reviews/SW-3311-body-retry.md: M1 signatures (fixed: settling off), S1 goal-at panic (fixed; undo part SW-3322), S2 error choice -> first in source (orchestrator's call), S3 labels dropped for a plain note (orchestrator's call). Steps: day 2 6.90M -> 4.81M, day 7 6.65M -> 6.03M, day 18 2.24M -> 2.21M, Std.Parse 99.49M -> 97.99M. 13 std hashes and ~21 example snapshots moved (migration cost, my call).",
+      "body": "From docs/reviews/SW-3305-settle-retry.md. Unblocks SW-3307 (settle every type parameter: day 2 -30%). Expected: 2.5 h (Opus).\n\nLane (Opus, 03:20-04:20, ~1 h): commit 9d9c98ee3. One retry per body in `with_local_retries` (`Elaborator::settle_retried`): a failing body that settled anything is elaborated again with settling off; settle_trial/settle_skipped/per-call settled/settled_failed/held recheck removed; Decl keeps `no_settling` (flag) and `settled` (list of settled calls, for the note). Snapshot check: `undo::Snapshot` is Ctx-level; the body attempt is already a restartable unit (local_retries and the rigid-divergence retry rerun it after `clear_metas`); what it leaves outside is put back by hand (pending goals/nav types/probe steps, unit and lambda warnings, branch errors, failed_mentioned/stuck_on_goal); lifted helpers and preadmitted locals are kept, as the existing retries keep them. Signatures not retried. p1b, p2, g5, g6 accepted; e1 gets labels (S3) pointing at `True`; an unsettled failure that is only open goals is given as goals. Failing chain depth 100/200/400: 0.88/2.33/15.1 s -> 0.25/0.30/0.45 s. Steps identical (day 2 6,896,355; day 7 6,646,340; day 18 2,236,156; Std.Parse 99,492,550); hashes unchanged. Snapshots: settle-from-expected-wrong-row gains the two labels; new examples settle-from-expected-in-a-plan, -held-argument (accept), -other-error (reject), goals/settle-from-expected-retried. Tests: library hash_stability|reads_chain_cost (11 pass), elab+elaboration unify|propagat|implicit|settle (45 pass), examples settle,reads,parse (7 pass), check --no-cache 2020 day 2/7/18 Proofs.\n\n\nReview fixes (04:35-05:05): commit 83de8955f. M1 settling only in a body's first attempt (signatures not settled; accept example in-a-signature); S1 probe pending dropped in settle_retried (p1b/w1/w3 goal --at answer; w2 still panics via undo::Snapshot, separate); S2 errors by source order, settled on tie/containment, open-goals exception kept (reject example lambda-after blames the parser); S3 one note on a settled type mismatch, \"`t` was taken as `Char` from the expected type\" (expected type not printed: +0.4% day 2 steps); N1 doc restored. SW-1528's note still pinned by unify-last-arguments-types-differ. Steps: day 2 4,805,748, day 7 6,027,298, day 18 2,211,346, Std.Parse 97,987,510. Tests: examples settle,reads,parse (7 pass), library hash_stability|reads_chain_cost|pinned (16 pass, one new snapshot), elab unify|propagat|implicit|settle (45 pass), check --no-cache 2020 day 2/7/18.\n\n\nFrom docs/reviews/SW-3305-settle-retry.md. Unblocks SW-3307 (settle every type parameter: day 2 -30%). Expected: 2.5 h (Opus).\n\nOpus lane ~1 h + 25 min review fixes (est. 2.5 h). Review docs/reviews/SW-3311-body-retry.md: M1 signatures (fixed: settling off), S1 goal-at panic (fixed; undo part SW-3322), S2 error choice -> first in source (orchestrator's call), S3 labels dropped for a plain note (orchestrator's call). Steps: day 2 6.90M -> 4.81M, day 7 6.65M -> 6.03M, day 18 2.24M -> 2.21M, Std.Parse 99.49M -> 97.99M. 13 std hashes and ~21 example snapshots moved (migration cost, my call).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36527,7 +36527,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Follow-up to SW-3295. Per-metavariable tracking impossible at mismatch (solved metas are gone by then). Orchestrator's call: option (c), the label only when Text is expected; precise version (b) filed as SW-3315. Model result: Sonnet, needed fixes (first approach failed; (c) on direction), ~75 min (est. 60).",
+      "body": "Follow-up to SW-3295. Expected: 1 h (Sonnet).\n\nFollow-up to SW-3295. Per-metavariable tracking impossible at mismatch (solved metas are gone by then). Orchestrator's call: option (c), the label only when Text is expected; precise version (b) filed as SW-3315. Model result: Sonnet, needed fixes (first approach failed; (c) on direction), ~75 min (est. 60).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36570,7 +36570,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "After SW-3311. Tracks the fixed variable (level + pattern span) and its uses; level reuse closed by forgetting at new binders (example proves it). Let-bound fixed variables not tracked. Model result: Sonnet, needed fixes (level reuse), ~45 min (est. 90).",
+      "body": "After SW-3311 (merged). Expected: 1.5 h (Sonnet).\n\nAfter SW-3311. Tracks the fixed variable (level + pattern span) and its uses; level reuse closed by forgetting at new binders (example proves it). Let-bound fixed variables not tracked. Model result: Sonnet, needed fixes (level reuse), ~45 min (est. 90).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36585,7 +36585,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "parser-end-state.md T3. Expected 3.5 h (Sonnet), ~40 min. Gate: dev tree --print over std, aoc, games, examples byte-identical (27.8 MB); syntax tests 287 -> 311 (none lost, 24 dump tests added). SW-3244 partly covered (moved tests not rewritten as dumps). signature_kept still used. SW-3296's comment items done; its read-backs are T2's. Model result: Sonnet, worked, ~40 min (est. 210). Filed SW-3320.",
+      "body": "parser-end-state.md T3: any time after T1 (SW-3280, merged). Sonnet, reviewed by the orchestrator. Expected: 3.5 h.\n\nLane notes (branch lane/SW-3316, three commits):\n- Entry points, module assembly and the which-error-wins rule moved to crates/syntax/src/parser/entry.rs; failed-name scanning to parser/failed_names.rs. Public paths unchanged (parser re-exports).\n- The 170 grammar-and-lowering tests left parser.rs: 168 to lower/tests/ (blocks, declarations, exprs, lambdas, matching, operators, patterns, proofs, recovery, with shared helpers in lower/tests.rs), 2 parser internals to parser/tests.rs, 2 marks/assembly tests to parser/entry/tests.rs. Plus 24 new tree-dump tests in parser/tests.rs (SW-3244's dumps for the key constructs). Syntax crate: 311 pass (287 before).\n- Comments in section 6 and SW-3296's two fixes (module doc, atom_base's callers) done; lane/stage/step history removed.\n- signature_kept, keep_header and header_kept are NOT removed: the lowering still reads signature_kept for a definition whose header parsed and body didn't (lower.rs). Not unused.\n- Dump check: dev tree --print over std, aoc/src, games, examples identical before and after (27,797,251 bytes). reject examples (recover, parse, syntax), fuzz:syntax 200000, fmt tests, clippy: pass.\n- Not done: rewriting each of the 168 moved tests as a dump (they assert on the compiler's tree, so they belong with the lowering; the dumps cover the grammar), T2.\n\n\nparser-end-state.md T3: any time after T1 (SW-3280, merged). Sonnet, reviewed by the orchestrator. Expected: 3.5 h.\n\nparser-end-state.md T3. Expected 3.5 h (Sonnet), ~40 min. Gate: dev tree --print over std, aoc, games, examples byte-identical (27.8 MB); syntax tests 287 -> 311 (none lost, 24 dump tests added). SW-3244 partly covered (moved tests not rewritten as dumps). signature_kept still used. SW-3296's comment items done; its read-backs are T2's. Model result: Sonnet, worked, ~40 min (est. 210). Filed SW-3320.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36600,7 +36600,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From catch-all-goals.md option A (orchestrator's call). Sonnet ~40 min + 2 fix rounds (~35 min); Opus review docs/reviews/SW-3317-arm-as-written.md (2 must-fix, fixed: computes-to search, false 'as written' note). Steps identical on day 7/18 proofs. Follow-ups SW-3324, SW-3325, SW-3326. Model result: Sonnet, needed fixes (computes-to line, note), ~75 min (est. 240).",
+      "body": "From docs/proposals/catch-all-goals.md option A (orchestrator's call: display only). Expected: 4 h (Sonnet), then an Opus review.\n\nLane notes (Sonnet, 15 Nov): done on lane/SW-3317 (commit 2cbb78e74), about 40 min. New crates/elab/src/arm_display.rs: the compiler records per row which splits its patterns left alone (Row::unsplit, Tree::Leaf::unsplit) and how many leaves check each arm (Leaf::cases); check_tree keeps the splits on the path (Goals::split_path) and check_leaf the arm (Goals::arm); hole_of / note_probed replay the splits with only the needed ones, and print_goal shows that view (context, goal, computes-to with the leaf's value folded back, expression scrutinee by its expression, `match e:` equation as at the leaf). Notes: 'this arm is checked in N cases' on proof goals; an error in the arm gets 'checked in N cases, and this error is in the case where s is ...'. Examples goals/arm-as-written-{text,nested,computes,error}.sw. Tests: goal/match/pattern/text/char/catch examples, hash_stability, goal_at; hashes unchanged. Not done: server goal_index snapshots were already stale on main (line ranges), only the new/changed ones updated.\nModel result: Sonnet, worked, 40 min (est. 240 min).\n\n\nFrom catch-all-goals.md option A (orchestrator's call). Sonnet ~40 min + 2 fix rounds (~35 min); Opus review docs/reviews/SW-3317-arm-as-written.md (2 must-fix, fixed: computes-to search, false 'as written' note). Steps identical on day 7/18 proofs. Follow-ups SW-3324, SW-3325, SW-3326. Model result: Sonnet, needed fixes (computes-to line, note), ~75 min (est. 240).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36616,7 +36616,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Paper docs/proposals/catch-all-facts.md (Opus, ~5 min): numbers use NumCase with a mark, no proof term; rec B (auto proves x ≠ lit) + A (show the facts), no syntax/kernel/hash change; orchestrator's call: accepted, filed SW-3335.",
+      "body": "From catch-all-goals.md. Expected: 1.5 h (Opus).\n\nPaper docs/proposals/catch-all-facts.md (Opus, ~5 min): numbers use NumCase with a mark, no proof term; rec B (auto proves x ≠ lit) + A (show the facts), no syntax/kernel/hash change; orchestrator's call: accepted, filed SW-3335.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36676,7 +36676,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "From the SW-3311 review (S1 part 2). Model result: Sonnet, worked, ~18 min (est. 45).",
+      "body": "From the SW-3311 review (S1 part 2). Expected: 45 min (Sonnet).\n\nFrom the SW-3311 review (S1 part 2). Model result: Sonnet, worked, ~18 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36706,7 +36706,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From the SW-3317 review. Display only; no existing snapshot or hash moved. Count is a product along the path (correct for lifted inner matches). Model result: Opus, worked, ~17 min (est. 120).",
+      "body": "From the SW-3317 review. Expected: 2 h (Opus).\n\nFrom the SW-3317 review. Display only; no existing snapshot or hash moved. Count is a product along the path (correct for lifted inner matches). Model result: Opus, worked, ~17 min (est. 120).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36721,7 +36721,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From the SW-3317 review. Display only; no existing snapshot or hash moved. Model result: Sonnet, worked, ~25 min (est. 120). Filed SW-3334.",
+      "body": "From the SW-3317 review. Expected: 2 h (Sonnet).\n\nFrom the SW-3317 review. Display only; no existing snapshot or hash moved. Model result: Sonnet, worked, ~25 min (est. 120). Filed SW-3334.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36736,7 +36736,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From the SW-3317 review. Cause: Err msg = Err msg can't infer its type (E-UNSOLVED), not SW-3293. Orchestrator's call: drop the lemma for now; ascription filed as SW-3329. Model result: Sonnet, worked, ~20 min (est. 45).",
+      "body": "From the SW-3317 review. Expected: 45 min (Sonnet).\n\nCause: the lemma `Err msg = Err msg` has an equation type inferred from a side, and neither side names the data type's other parameter, so pasted back it is E-UNSOLVED (not a closed goal). Fix in the lemma printer (goals.rs `loose_ctor`): no lemma when both sides of an equation are constructor terms that fix no parameter. The lemma snapshot was stale on main (the test never reached it) and is regenerated; the reify-return snapshot loses its lemma line. Tests: the three server tests pass; test:example reify passes. Commit 660a100f0.\nModel result: Sonnet, worked, 35 min (est. 45)\n\n\nFrom the SW-3317 review. Cause: Err msg = Err msg can't infer its type (E-UNSOLVED), not SW-3293. Orchestrator's call: drop the lemma for now; ascription filed as SW-3329. Model result: Sonnet, worked, ~20 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36751,7 +36751,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Found in SW-3273. charge_prim in native_abi.rs (sw_prim and the apply path); n1.rs spills steps only around those two ops. Model result: Sonnet, worked, ~10 min (est. 60). Filed SW-3328.",
+      "body": "Found in SW-3273. Expected: 1 h (Sonnet).\n\nFound in SW-3273. charge_prim in native_abi.rs (sw_prim and the apply path); n1.rs spills steps only around those two ops. Model result: Sonnet, worked, ~10 min (est. 60). Filed SW-3328.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36766,7 +36766,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Found in SW-3327. number_words is the counterexample search's; native must stop at the machine's step (D1253). Instructions with it off within noise. Model result: Sonnet, worked, ~15 min (est. 60).",
+      "body": "Found in SW-3327. Expected: 1 h (Sonnet).\n\nNotes (lane): number_words is turned on only by the counterexample search (SW-907); native step counts are meant to match the machine exactly (n1 tests sweep every limit), so native now charges number_cost: Context.number_words, charge_prim adds prims::number_cost, charges_steps covers numeric ops. Test n1::big_number_operations_cost_their_words_natively (failed before, passes after). n1:: 20 pass, pinned 5 pass. Instructions off: pidigits +0.05%, mapops +0.16%. Commit 1b93ca94d.\n\n\nFound in SW-3327. number_words is the counterexample search's; native must stop at the machine's step (D1253). Instructions with it off within noise. Model result: Sonnet, worked, ~15 min (est. 60).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36782,7 +36782,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-3326. Model result: Sonnet, worked, ~10 min (est. 60).",
+      "body": "From SW-3326. Expected: 1 h (Sonnet).\n\nFrom SW-3326. Model result: Sonnet, worked, ~10 min (est. 60).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36797,7 +36797,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "REVERTED 15 Nov (Overmind rolling check at c6be5e59f): broke 7 AoC proofs (2020 day 1, day 7, 2024 day 24: E-CANNOT-INFER on a lambda's argument, E-NO-READING). The kept partial solutions act as an inference hint for lambda domains. Revert confirmed: the three namespaces check again. Redo only with the hint kept (e.g. re-solve what all alternatives agree on) and those namespaces checked first.",
+      "body": "From the SW-3306 review (fix 2). Expected: 1.5 h (Opus).\n\n15 Nov 2026, lane (Opus), 06:45-07:15: branch lane/SW-3330, commit 4e4286c49. `same_heads`' blocked branch (two calls of one definition stuck on an unknown) now runs its nested argument comparison inside `attempt.mark()`, and restores the mark when it fails (`note_lossy` only on success). That covers plain unify and unify_what_agrees, which share the step. Unit test `unify::tests::a_failed_comparison_of_stuck_calls_solves_nothing` (`pick ?b ?k 1` against `pick c 5 2`).\nBehaviour change found: before the fix, plain `unify` returned TRUE for that pair. The kept `?b := c` made the calls stale, and the afresh retry compared their case trees, which agree because `pick` ignores k and n, so the guess `?k := 5` stood. Now the pair waits and fails. Confirmed by running the test with the restore removed. Nothing in the tests below, the review's probes or the day 2/18 proofs changed (the elaborator's calls are probably glued `Value::Call` and go through `same_calls`; not checked).\nTests: new unit test (fails without the fix); elab/elaboration unify|propagat|implicit|settle 46/46; test:example reads,settle,parse,unify 7/7, and solved-from,stuck 7/7; driver hash_stability|reads_chain_cost 11/11. Probes p1-p4 give the same output before and after. Steps (check --no-cache): 2020 day 2 5,052,201 -> 5,051,359; day 18 2,632,737 -> 2,633,870.\n\n\nFrom the SW-3306 review. Behaviour change: pick ?b ?k 1 vs pick c 5 2 now waits/fails instead of succeeding on the unforced guess ?k := 5; orchestrator's call: accept (implementation detail, nothing observed depends on it; rolling check will show). Day 2/18 steps within ~0.05%. Model result: Opus, worked, ~30 min (est. 90). Filed SW-3331.\n\nREVERTED 15 Nov (Overmind rolling check at c6be5e59f): broke 7 AoC proofs (2020 day 1, day 7, 2024 day 24: E-CANNOT-INFER on a lambda's argument, E-NO-READING). The kept partial solutions act as an inference hint for lambda domains. Revert confirmed: the three namespaces check again. Redo only with the hint kept (e.g. re-solve what all alternatives agree on) and those namespaces checked first.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36813,7 +36813,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "REVERTED 15 Nov (Overmind rolling check at c6be5e59f): broke 7 AoC proofs (2020 day 1, day 7, 2024 day 24: E-CANNOT-INFER on a lambda's argument, E-NO-READING). The kept partial solutions act as an inference hint for lambda domains. Revert confirmed: the three namespaces check again. Redo only with the hint kept (e.g. re-solve what all alternatives agree on) and those namespaces checked first.",
+      "body": "From SW-3330. Expected: 45 min (Opus).\n\nFrom SW-3330. Steps identical on day 2/18 proofs. Model result: Opus, worked, ~14 min (est. 45). Filed SW-3333.\n\nREVERTED 15 Nov (Overmind rolling check at c6be5e59f): broke 7 AoC proofs (2020 day 1, day 7, 2024 day 24: E-CANNOT-INFER on a lambda's argument, E-NO-READING). The kept partial solutions act as an inference hint for lambda domains. Revert confirmed: the three namespaces check again. Redo only with the hint kept (e.g. re-solve what all alternatives agree on) and those namespaces checked first.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36828,7 +36828,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-3300. No regression on current main: Day16.Proofs -32.5% vs db0538f5f (runsNotes 68.1M -> 44.6M), Day03/2021 Day03 within ±0.3%, 2021 Day10.Proofs +2.3% (generic Parse cost, too small to chase). The A/B rise came from SW-3282's source sweep, recovered by SW-3307. Model result: Sonnet, worked, ~10 min (est. 90).",
+      "body": "From Overmind's A/B (SW-3300). Expected: 1.5 h (Sonnet).\n\nFrom SW-3300. No regression on current main: Day16.Proofs -32.5% vs db0538f5f (runsNotes 68.1M -> 44.6M), Day03/2021 Day03 within ±0.3%, 2021 Day10.Proofs +2.3% (generic Parse cost, too small to chase). The A/B rise came from SW-3282's source sweep, recovered by SW-3307. Model result: Sonnet, worked, ~10 min (est. 90).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36841,7 +36841,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Stopped: built on SW-3331, reverted with SW-3330 (broke 7 AoC proofs). Branch lane/SW-3333 d560456ff kept: correct but only affects the lossy counter.",
+      "body": "From SW-3331. Expected: 45 min (Opus).\n\nStopped: built on SW-3331, reverted with SW-3330 (broke 7 AoC proofs). Branch lane/SW-3333 d560456ff kept: correct but only affects the lossy counter.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36854,7 +36854,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From SW-3325. 11 callers listed, all display or rewrite premise search; none erasure. A let of a proof now shows only its statement (orchestrator's call: the code's rule; doc line updated). Model result: Sonnet, worked, ~8 min (est. 45).",
+      "body": "From SW-3325. Expected: 45 min (Sonnet).\n\nFrom SW-3325. 11 callers listed, all display or rewrite premise search; none erasure. A let of a proof now shows only its statement (orchestrator's call: the code's rule; doc line updated). Model result: Sonnet, worked, ~8 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -36869,7 +36869,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Model result: sonnet, needed fixes (review: lift order, hidden names in facts, facts by address, tests), 46 min (est. 120).",
+      "body": "From catch-all-facts.md (SW-3318). Expected: 3 h (Sonnet), Opus review after.\n\nOpus review docs/reviews/SW-3335-catch-all-facts.md: merge after fixes 1-4 (assume_goals before solving in the new lift branch + goals example; facts from the final context, no hidden names; facts on the case-tree leaf not by address; tests for n + 2 ≠ 7, Some n ≠ Some 5, pairs). Filed SW-3347 SW-3348 SW-3349.\n\nModel result: sonnet, needed fixes (review: lift order, hidden names in facts, facts by address, tests), 46 min (est. 120).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36882,7 +36882,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Model result: sonnet, worked, 21 min (est. 150).",
+      "body": "D3605 (Matt, 15 Nov 2026, on the two rules as shown in the D3605 page): \"Yeah, let's try your suggested 2 new formatter rules.\" Expected: 2.5 h (Sonnet).\n\nLane notes (Sonnet, 15 Nov 2026): B1 + B2 built (new Doc::NarrowGroup, 80 columns, in crates/fmt printer; if with else if always one clause a line); S14/S15/S19 updated; 131 files reformatted in one commit (blame-ignore added); guide examples/prose and the leading-operator example (validBooking, split before each &&) updated; two goal snapshots re-blessed (positions only). Tests: fmt crate, tools fmt::/guide::, examples accept/goal for the reformatted names, hash_stability for them: all pass, hashes unchanged. Branch lane/SW-3336.\n\n\nD3605 (Matt, 15 Nov 2026, on the two rules as shown in the D3605 page): \"Yeah, let's try your suggested 2 new formatter rules.\" Expected: 2.5 h (Sonnet).\n\nModel result: sonnet, worked, 21 min (est. 150).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36895,7 +36895,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "Model result: opus, needed fixes (review: repeat truncation, ABI comments, docs), 64 min (est. 330).",
+      "body": "D3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Expected: 5.5 h (Opus).\n\nOpus review docs/reviews/SW-3337-fast-text.md: merge after fixes 2 (Text.repeat never truncates), 4 (native_abi offsets), 5 (docs/lemma). Fix 1 (text_of in SW-3338's lines) done by SW-3338 when it merges main after this. Filed SW-3356 SW-3357.\n\nModel result: opus, needed fixes (review: repeat truncation, ABI comments, docs), 64 min (est. 330).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36908,7 +36908,7 @@
       "where": ".claude/worktrees/SW-3338",
       "labels": [],
       "epic": "effects-native",
-      "body": "Model result: opus, needed fixes (review: read-only/special files, test litter, temp mode, tour pattern, path model), 67 min (est. 270).",
+      "body": "Opus review docs/reviews/SW-3338-files.md: merge after fixes H1-H3, M1, M2, M4, M5 (+ orchestrator's naming calls: utf8Size to Text.utf8Length, Disk.missing to missingError, plumbing helpers documented internal). Path join is Matt's (to bring). Filed SW-3352 SW-3353 SW-3354.\n\nD3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Starts when a build slot frees (three running). Expected: 4.5 h (Opus).\n\nLane notes (Opus, 15 Nov 2026, branch lane/SW-3338):\n- Built: std/Files/Files.sw (Path, FileKind, Entry, FileInfo, FileError, the Files ability with read/write/list/info, each a Result; Disk, Files.simulate and its laws by rfl/one rewrite; hand-written == since std derives none). main's row is a set (MainRow struct: IO plus any of Fail, Files); machine, native, built executables and the reference runner perform Files through crates/rt/src/files.rs (atomic write via temp file + rename, sorted listing, errors mapped to FileError). IO.printError on every runner (incl. --js); IO.simulate and Terminal.scriptedHost drop it. run --js refuses a Files main (E-JS-FILES) until F2. Guide ch. 8 \"Files\", syntax.md \"Files\", tour page web/guide/42-files.sw.\n- Wire formats bumped: codec 3 -> 4, linked 2 -> 3 (T1/SW-3337 may bump too).\n- Not done: Path `/` (the paper's `path / \"Main.sw\"`): `/` is hard-wired to numbers, so it needs a decision (name or operator overloading); no join function was added. Playground's in-memory disk and --js are F2.\n- T1 join point: crates/rt/src/files.rs `read` (comment there): the validated bytes should become T1's text buffer without the String copy; crates/rt/src/run.rs perform_files builds the text value.\n- Tests run (all pass): rt files::tests::host_files_* (4); running files::* (4: conformance vs model on machine and reference, error kinds + printError to stderr, check/test never touch files, --js refused); build::a_files_program_runs_as_it_does_under_run; server lsp::a_program_that_writes_files_never_touches_them_in_the_editor; driver library pinned|hash_stability (snapshots regenerated, IO changed); tools guide::* (4); test:example NAME=io,files; bound_to_the_prelude; registry tests (builtins, shapes, homes, core alone); codec/linked round trips; main-type tests (snapshot updated); web the_guide_examples_check.\n\n\nReview fixes (Opus, 15 Nov 2026, docs/reviews/SW-3338-files.md; commit 64e7fe1c0): H1 read-only file gives NotPermitted; H2 devices/pipes written in place, dangling links written through; H3 built executable runs in its own folder, crates/cli/out.txt removed; M1 temp file 0600 with old mode set before writing; M2 Path.normal shared by host and pretend disk, which refuses `..` (conformance test adds hand-built and `..` paths); M4 tour page only treats NotFound as empty; M5 four-ability main tested on machine/reference (native checked by hand) and as an executable. Names: Text.utf8Length, Disk.missingError, == plumbing documented internal. L1, L2, L3, L5, L6, L7, L8, L9 fixed. D3607: path.child, path.childPath with lemmas, in guide, tour, syntax.md. Left: M3 (playground printError sink, refuse Files main there until F2), L4 (non-UTF-8 names lossy, F4), L10 (write-then-read Disk lemma, F3), review's single ORDER const for MainRow. Still to do: merge main after SW-3337, adapt text_of calls, hand read's bytes to the new Text, regenerate prelude snapshot.\n\n\nD3587 yes (Matt, 15 Nov 2026): \"Yes, we should start fast text and Files.\" Starts when a build slot frees (three running). Expected: 4.5 h (Opus).\n\nLane notes (Opus, 15 Nov 2026, branch lane/SW-3338):\n- Built: std/Files/Files.sw (Path, FileKind, Entry, FileInfo, FileError, the Files ability with read/write/list/info, each a Result; Disk, Files.simulate and its laws by rfl/one rewrite; hand-written == since std derives none). main's row is a set (MainRow struct: IO plus any of Fail, Files); machine, native, built executables and the reference runner perform Files through crates/rt/src/files.rs (atomic write via temp file + rename, sorted listing, errors mapped to FileError). IO.printError on every runner (incl. --js); IO.simulate and Terminal.scriptedHost drop it. run --js refuses a Files main (E-JS-FILES) until F2. Guide ch. 8 \"Files\", syntax.md \"Files\", tour page web/guide/42-files.sw.\n- Wire formats bumped: codec 3 -> 4, linked 2 -> 3 (T1/SW-3337 may bump too).\n- Not done: Path `/` (the paper's `path / \"Main.sw\"`): `/` is hard-wired to numbers, so it needs a decision (name or operator overloading); no join function was added. Playground's in-memory disk and --js are F2.\n- T1 join point: crates/rt/src/files.rs `read` (comment there): the validated bytes should become T1's text buffer without the String copy; crates/rt/src/run.rs perform_files builds the text value.\n- Tests run (all pass): rt files::tests::host_files_* (4); running files::* (4: conformance vs model on machine and reference, error kinds + printError to stderr, check/test never touch files, --js refused); build::a_files_program_runs_as_it_does_under_run; server lsp::a_program_that_writes_files_never_touches_them_in_the_editor; driver library pinned|hash_stability (snapshots regenerated, IO changed); tools guide::* (4); test:example NAME=io,files; bound_to_the_prelude; registry tests (builtins, shapes, homes, core alone); codec/linked round trips; main-type tests (snapshot updated); web the_guide_examples_check.\n\n\nReview fixes (Opus, 15 Nov 2026, docs/reviews/SW-3338-files.md; commit 64e7fe1c0): H1 read-only file gives NotPermitted; H2 devices/pipes written in place, dangling links written through; H3 built executable runs in its own folder, crates/cli/out.txt removed; M1 temp file 0600 with old mode set before writing; M2 Path.normal shared by host and pretend disk, which refuses `..` (conformance test adds hand-built and `..` paths); M4 tour page only treats NotFound as empty; M5 four-ability main tested on machine/reference (native checked by hand) and as an executable. Names: Text.utf8Length, Disk.missingError, == plumbing documented internal. L1, L2, L3, L5, L6, L7, L8, L9 fixed. D3607: path.child, path.childPath with lemmas, in guide, tour, syntax.md. Left: M3 (playground printError sink, refuse Files main there until F2), L4 (non-UTF-8 names lossy, F4), L10 (write-then-read Disk lemma, F3), review's single ORDER const for MainRow. \n\nAfter SW-3337 (Opus, 15 Nov 2026): merged main; run.rs passes text_of(..).to_str() to print_error and files::write; Files.read already hands its checked String to Text::from, which takes an ASCII file's buffer with no copy (comment updated, no code change needed). Prelude snapshot passes as merged (snap:hashes changed nothing). Tests: rt files::tests (6), running files::* (5) + build Files/every-ability (2), hash_stability::prelude: all pass.\n\nD3607 (Matt, 15 Nov 2026): \"yes, agree with the name method for now\": path.child name and path.childPath other added in this lane's fixes. Operators on other types: SW-3355 (backlog).\n\n\nModel result: opus, needed fixes (review: read-only/special files, test litter, temp mode, tour pattern, path model), 67 min (est. 270).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36921,7 +36921,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Paper docs/proposals/toy-formatter.md: Sprig, stages SW-3340 SW-3341 SW-3342 SW-3343 (13-17 lane h). D3606 (indentation vs braces) decided as the orchestrator's call: indentation, since the toy exists to rehearse the real formatter, which is layout-sensitive. Findings: SW-3344 SW-3345 SW-3346, SW-510 raised. Model result: Opus, worked, 10 min (est. 90).",
+      "body": "Matt, 15 Nov 2026: \"we also had the idea of first building a toy formatter for a toy language that proved we had all the moving parts we needed to scale up.\" Paper lane. Expected: 1.5 h (Opus).\n\nPaper docs/proposals/toy-formatter.md: Sprig, stages SW-3340 SW-3341 SW-3342 SW-3343 (13-17 lane h). D3606 (indentation vs braces) decided as the orchestrator's call: indentation, since the toy exists to rehearse the real formatter, which is layout-sensitive. Findings: SW-3344 SW-3345 SW-3346, SW-510 raised. Model result: Opus, worked, 10 min (est. 90).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36934,7 +36934,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Model result: opus, worked, 19 min (est. 210). Timings 1 MB native: lex 1.3 s, lex+parse 3.7 s, format 4.2 s (run: 9.7 s). Filed SW-3367 SW-3368.",
+      "body": "Started 15 Nov after fast text merged (stage A needs Text.slice, not Files). Expected: 3.5 h (Opus).\n\nModel result: opus, worked, 19 min (est. 210). Timings 1 MB native: lex 1.3 s, lex+parse 3.7 s, format 4.2 s (run: 9.7 s). Filed SW-3367 SW-3368.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36960,7 +36960,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Model result: sonnet, worked, 30 min (est. 150). 771 KB in 100 files formats in 3.6 s native. Filed SW-3377.",
+      "body": "Started 15 Nov: stages A, B and Files are on main. Expected: 2.5 h (Sonnet).\n\nProgress, 15 Nov (lane): stage C built on lane/SW-3342 (194b0296d): Toy.Fmt.Driver/Cli, 13 simulate tests, end-to-end test toyfmt_formats_a_folder_under_run_and_built in crates/cli/tests/running/build.rs (passes: run, built, native). 770 KB native 3.6 s. NOTES.md has the friction and timings. Moved to review.\n\n\nStarted 15 Nov: stages A, B and Files are on main. Expected: 2.5 h (Sonnet).\n\nModel result: sonnet, worked, 30 min (est. 150). 771 KB in 100 files formats in 3.6 s native. Filed SW-3377.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -36999,7 +36999,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. Built as SW-3402, SW-3403.",
+      "body": "Matt, 15 Nov 2026: \"do a quick design for how we might signal an exit code from a main function. Yeah, I could see us returning a Nat or an appropriate numeric type. Or maybe some other way to signal it.\" Opus paper, expected 1 h.\n\n15 Nov 2026 (Opus paper lane): docs/proposals/exit-status.md written, uncommitted in the main checkout. Recommends (d): main may return () or a checked std ExitStatus { code: Nat, fits: code < 256 } (ExitStatus.of 2 with an auto proof; 300 refused at check time; probed); Fail stays 1, runtime errors stay 2; an Exit ability only as a later library helper. Stages: S1 type + all runners (Sonnet ~2.5 h), S2 Args.run usage = 2 + toyfmt 0/1/2 (~1 h), S3 optional Exit helper. Question D3616 at the end. Probes in the lane scratchpad (p1-p4.sw). 23 min.\n\n\nD3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. Built as SW-3402, SW-3403.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37116,7 +37116,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Paper done; D3609 yes; built as SW-3369-SW-3372.",
+      "body": "Paper lane 15 Nov, combined with SW-3358 (derived == for mutually recursive types, the toy formatter's tree). Expected: 1.5 h (Opus).\n\nProgress (lane, 15 Nov 09:53): draft 1 of docs/proposals/derived-equality.md (uncommitted, main checkout). Findings [measured]: three limits are single tests in the derivers (group().len() > 1; known_container = List/Option/Pair, so the toy tree's List (Spaced Statement) also fails; loading_prelude skips std, so Terminal.Size has no ==). Derived Ord is quadratic in constructors: 94 constructors with one field take 13 s / 158 M steps, ~95% Ord (DecEq+Show alone 0.65 s). Rec: keep automatic (D3609), std outside core derives (stage 1, Sonnet 2 h), linear tag+rebuild construction (stage 2, Opus 4 h), mutual groups + any earlier-group container (stage 3, Opus 6 h), toyfmt tests use == (stage 4, Sonnet 30 min). In review.\n\n\nPaper done; D3609 yes; built as SW-3369-SW-3372.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37181,7 +37181,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "SW-3387: Rocq #17986 was later partly reverted and #21686 proposes a reimplementation; read both before rule 2 (callback signatures) is built. Lean's derive handler is a cross-check for derived-equality §5.6.",
+      "body": "Paper lane 15 Nov, combined with SW-3365 (recursion on a Text prefix rest). Expected: 1.5 h (Opus).\n\nFable soundness review docs/reviews/SW-3359-recursion-through-map-soundness.md: no proof of False found; D3612 safe with pinned wording; D3611 back for draft 2 (F1 accessors not Proj, F2 recursion with no case loops readback, F3 partial occurrences, lifted matches as cross-calls; end-state choice checker vs evaluator side). Filed SW-3373.\n\nDraft 2 (15 Nov, uncommitted): answers F1-F3, R1-R7. Rule 1 is accessor recognition from checked bodies; G1 guard (root case on a non-eta type) plus a second stated invariant; unsupplied indices unknown; signatures only for definitions alone in their group with kernel-run bodies (std list checked: map, filter, foldLeft, any, all, find, filterMap, concatMap, forEach, sumBy, count); rule 3 per R7. Stage 6 gains P1/P2 and rule 1/3 referees; stage 2 the review's must-rejects; Fable review before merge. Re-estimated ~22-24 Opus h. New D3613 (G1 vs G2) [rec G1].\n\n\nD3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges.\n\nSW-3387: Rocq #17986 was later partly reverted and #21686 proposes a reimplementation; read both before rule 2 (callback signatures) is built. Lean's derive handler is a cross-check for derived-equality §5.6.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37246,7 +37246,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Model result: sonnet, worked, 17 min (est. 45).",
+      "body": "Expected: 45 min (Sonnet).\n\nNotes (Sonnet lane): cause is not a wrong offer. Before SW-3335, `theorem ruledOut ... := byDecision` failed with E-MATCH-MOTIVE (auto's contradiction proof needs a match lifted, and obligations weren't solved while a lift was possible); SW-3335's lift.rs change fixed that, so byDecision now genuinely closes it (checks in a file). The ladder tries Decision before Cases, so it became the simplest offer. Fix: the Decision rung applies only when nothing is in scope (closed goal), in crates/driver/src/search_at.rs. Test: search_at::simplest_first_offers_cases_for_an_impossible_hypothesis failed on the unmodified branch (left byDecision, right cases), passes now; other search_at::simplest tests and example kinds catch-all,auto,decision pass. Commit d2b97cd95.\n\n\nExpected: 45 min (Sonnet).\n\nModel result: sonnet, worked, 17 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37285,7 +37285,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Model result: sonnet, worked, ~45 min (est. 180). Follow-ups SW-3400. SW-3391's other parts (test --std, Text.upper, match-in-let message, Args theorem) were never in this brief: still open.",
+      "body": "\nCombined with SW-3391 (Parse.operators, cheaper loop) since both edit std Parse. Expected: 3 h (Sonnet).\n\nLane notes (Sonnet), branch lane/SW-3367, commits be38eb2c6..1e33a7a47: Parse.recursiveWith (item 3), Parse.tokensWith (item 4: the lexer returns (tokens, extra), the parser takes extra; the toy lost Token.below and commentsOnly), Parse.lastRead start finish (item 5: a pure function of two marks; a mark holding the last item would touch every read and dozens of proof sites, so not done), item 6 checked: not a bug, (..) brings names declared directly in N and types with their namespaces, not helper-only namespaces (import A (Helper) does); the error gives no hint. Details in tools/toyfmt/NOTES.md, \"Std Parse from the toy\". Moved to review.\n\n\nCombined with SW-3391 (Parse.operators, cheaper loop) since both edit std Parse. Expected: 3 h (Sonnet).\n\nModel result: sonnet, worked, ~45 min (est. 180). Follow-ups SW-3400. SW-3391's other parts (test --std, Text.upper, match-in-let message, Args theorem) were never in this brief: still open.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37311,7 +37311,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Model result: sonnet, worked, 20 min (est. 120). Std check 15.5 s → about 16-18 s (noisy).",
+      "body": "Expected: 2 h (Sonnet).\n\nNotes (Sonnet lane, 15 Nov 2026): lifted the loading_prelude skip in derive.rs, derive_ord.rs, derive_show.rs, derive_finite.rs (derive_ext.rs keeps it: the lazy index lists names from source, so a generated `T.ext` would be an unpromised name). Deleted Files' and Key's hand DecEq plus plumbing (FileKind.position/ofPosition/fromPosition, FileError.parts/ofParts/fromParts, Key.position/charOrSpace/ofParts/..., Entry.ext, FileInfo.ext, Disk.ext), and Path.instDecEq/instOrd, Disk.instDecEq; Path.ext stays. Docs moved into the types' doc comments. New example examples/accept/derived-std-instances.sw (Terminal.Size ==, <, ${}, Key, FileError, Path order, Disk). Prelude snapshot: 24 hand-written names removed, 26 rehashed (Disk, Files.simulate*, ...), ~750 added. Std check (--no-cache, 81 files): 15.5 s before, 16-18 s after (load 9, noisy). Tests: hash_stability|pinned, examples files/key/io/derived-std, running files::, guide:: all pass.\n\n\nExpected: 2 h (Sonnet).\n\nModel result: sonnet, worked, 20 min (est. 120). Std check 15.5 s → about 16-18 s (noisy).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37324,7 +37324,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Opus review: merge (docs/reviews/SW-3370-linear-derived-order.md); low findings in SW-3386. AoC days to watch in Overmind's rolling check: 2020 Day02/03/04, 2021 Day03/04/05/12, 2024 Day04/10/12/14, 2025 Day02, rogue.",
+      "body": "Expected: 4 h (Opus).\n\nProgress (lane, 15 Nov 2026, 10:07 → ~11:10):\n- Profiled first (STITCHWORT_TIMINGS + per-group timing): at 47 constructors `T.%trans` was 2.4 s of 3.0 s; every law and DecEq proof matched both values with an n² catch-all.\n- Built §5.6 for DecEq and Ord, two constructors or more: match the first value only, tags first (`if Nat.equal (tag r) (tag s) then T.%fields r s else Nat.compare …`; `same (C a…) s = Nat.equal c (tag s) && …`), second value's fields by projection. Proofs: core lemmas `Ordering.tagsEqual/tagsFlip/tagsTrans`, `DecEq.tagsSame`; per type `T.%C%k%at` (kernel-built, tag-equation projections), `T.%view` (kernel-built NumCase), `T.%eta`/`T.%etaAt` (source, n × rfl + one J). `T.%differ`, `T.%unfold` and core `byTagTrans`/`andThenTransWhen`/`notBothEqual`/`bothEqual` gone. Records unchanged.\n- Measured: 94 constructors 12.3 s → 0.17 s (158 M → 1.76 M steps); enumeration 94: 1.78 → 0.46 s (rest is derived Finite, still n²); 94 × three fields 19.7 → 2.65 s. Small typical types faster; 2-3 constructors with three fields incl. a nested list ~1.7× slower (24 → 41 ms). Runtime sort/== micro-bench unchanged. Performance-log entry added.\n- Commit 4c057ad07 on lane/SW-3370.\n- Tests: new example derive-many-constructors.sw (laws, readings, rfl); driver library test `derived_instances_grow_linearly_with_constructors`; examples derive,ord,deceq,compare,sort + eqeq,nested-data,show,finite,… pass; hash_stability passes after regenerating (101 example snapshots moved, prelude only gained/lost the lemmas); guide:: run once.\n- AoC risk for the verifier: every derived instance's hash changed; proofs that unfold a derived `==`/`compare` on a partly known pair now see `Nat.equal c (tag s) && …` / an `if` instead of a stuck two-sided match.\n\n\nOpus review: merge (docs/reviews/SW-3370-linear-derived-order.md); low findings in SW-3386. AoC days to watch in Overmind's rolling check: 2020 Day02/03/04, 2021 Day03/04/05/12, 2024 Day04/10/12/14, 2025 Day02, rogue.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37337,7 +37337,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Model result: opus, worked, 40 min (est. 240). Opus review: merge; F1-F4 in SW-3406. Unblocks toy stage D (SW-3343).",
+      "body": "D3609 (Matt, 15 Nov 2026): \"Yes, agree with this recommendation for now, let's see how it goes\" (keep derived ==, <, ${…} automatic for every data type, std included).\n\nStarted 12:18; unblocks toy stage D (SW-3343). Expected: 4 h (Opus). Opus review before merge (generates kernel terms).\n\nLane notes (Opus, 15 Nov 2026, branch lane/SW-3371, commits 74bb96371, 23765100a):\n- Built: derived `==`, `<`, `${…}` for types defined together (derived once the group's last type is admitted; one plan with the group's types as roots) and through any earlier data type without indices (user types, earlier groups, std types). `<`/`${…}` go through a container only when it is List/Option/Pair or its own instance is derived (`C.%instOrd`/`%instShow`); otherwise refused with a note (NonEmptyList, a hand-written Box Ord). A group member with its own DecEq keeps it, the others derive; own Ord/Show (or own DecEq for Ord) stops that interface for the whole group. R.ext now also for records in a group. Termination checker unchanged.\n- Toy: Expr/Item/Statement/Body/Declaration/SourceFile get ==, <, Show; Parsing.sw compares trees with `==` (other dump tests kept). Toy.Syntax `check --no-cache` elab 2.27 s -> 2.43 s; the group's row 109 ms elab + 22 ms kernel, 1.9 M steps.\n- Tests: examples (derive,deceq,ord,eqeq,nested-data,mutual,show) pass after accepting the two reject snapshots; hash_stability snapshots: additions only (mutual-data, extract-mutual-data, let-patterns, nested-data-induction, nested-data-shapes, new mutual-data-derived); derive_cost passes; toyfmt `stitchwort test` 80/80.\n\n\nModel result: opus, worked, 40 min (est. 240). Opus review: merge; F1-F4 in SW-3406. Unblocks toy stage D (SW-3343).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37376,7 +37376,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Model result: sonnet, worked, 60 min (est. 45).",
+      "body": "Expected: 45 min (Sonnet).\n\nNotes (Sonnet lane, commit 5342e3190 on lane/SW-3374): GoalData gains `facts`; the index writes a \"facts\" member (omitted when empty); lemmas take each fact as a hypothesis (`(h: s ≠ \"ab\")`, `h2`, … clear of the goal's names). The two goal_index tests failed on main, pass now. Left for SW-3349: the LSP panel, `goal --at` JSON (cli main.rs) and search_at/at.rs ignore facts.\n\n\nModel result: sonnet, worked, 60 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37402,7 +37402,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Fable review: sound (docs/reviews/SW-3376-wrapper-rule-soundness.md); F1, F3 folded in; F2 is SW-3388.",
+      "body": "D3612 (Matt, 15 Nov 2026): \"D3612 yes\". Expected: 3 h (Opus). Queued for the next build slot.\n\nD3613 (Matt, 15 Nov 2026): \"happy to go with your suggestion [G1: recursion relying on another function must start with a match]. It feels like we're maybe treading uncharted territory a little bit here, so I think it would be good to be carefully reviewing these changes.\" So every kernel stage of recursion-through-map gets a Fable soundness review before merge, plus the oracle/P1/P2 tests before stage 2 merges. Fable review of this stage before merge.\n\nProgress (lane, 15 Nov 2026, 10:48-11:12, est. 3 h): built on `lane/SW-3376`, commit 0c4dc20e3. Rule 3 as pinned: `Walker::wrapped` / `part_of` / `strictly_inside` in `crates/core/src/termination.rs`, with `Info::parent` set only by `case`. Accepted: `examples/accept/text-patterns-prefix-recursion.sw` (count, pairs, a lexer loop, a one-field record), each with a List twin as referee (tests agree); refused by main's binary, accepted now. Must-reject: ten `examples/reject/termination-wrapper-*.sw`. Mutation check: dropping the one-field test makes two-fields and proof-field accepted. Tests: test:example terminat,decreasing,text-pattern,recurs (7 pass), hash_stability (only the new example's snapshot added; no existing hash moved), core `termination::` (21 pass), clippy core/elab clean. Docs: core.md (rule, rank invariant, open-term invariant), syntax.md prefix patterns, guide ch. 7. Waiting for the Fable review before merge.\n\nReview folded in (lane, 11:35-11:44, est. 40 min): commit 8382920b9 on `lane/SW-3376`. Fable's review (docs/reviews/SW-3376-wrapper-rule-soundness.md) committed. F1: open-term argument replaced by the size/eta-depth argument in termination.rs and core.md (termination invariant + Unfolding policy); p07 as accept/termination-wrapper-changing-instance.sw plus reject/...-open.sw (E-REFL, stuck on `es`). F3: guard in `wrapped` (unreachable today, so no fail-before test; reject/termination-wrapper-function-field.sw covers the programs). §5 probes added (accept/termination-wrapper-honest.sw, six grouped reject files); F2's p09-p11 left to SW-3388. Tests: test:example termination-wrapper,text-pattern,terminat,recurs 7/7; hash_stability::examples (two new snapshots); core termination:: 21/21; clippy clean.\n\n\nFable review: sound (docs/reviews/SW-3376-wrapper-rule-soundness.md); F1, F3 folded in; F2 is SW-3388.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37415,7 +37415,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Model result: sonnet, worked, ~15 min (est. 150). Item 5 decided by the orchestrator: option (b), SW-3390.",
+      "body": "Orchestrator's call: started before SW-3367 because the profiling lane (SW-3383) may touch std Parse. Expected: 2.5 h (Sonnet).\n\nModel result: sonnet, worked, ~15 min (est. 150). Item 5 decided by the orchestrator: option (b), SW-3390.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37428,7 +37428,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\". Record form (A2) and D3615 dropped for now; A1 is SW-3381; the general mechanism is SW-3382 (backlog).",
+      "body": "Matt, 15 Nov 2026: \"Yeah, I think an Args library might be quite nice.\" Paper lane. Expected: 1.5 h (Opus).\n\nProgress (lane, 15 Nov): draft 1 in docs/proposals/args.md (uncommitted, in the main checkout). Record-driven options (derived `Args.Command` from an `@[args.command]` record) over applicative combinators (`Args.Spec`, prototype checked in scratchpad); pure `Args.parse`, errors as values, generated usage/--help, exit 1 until SW-3345 then 2. Stages A1 combinators (Sonnet 3-4 h), A2 derive (Opus 4-6 h), A3 subcommands/short/did-you-mean (Sonnet 3 h), A4 proofs (2-4 h). Open: D3614 (record form, rec yes), D3615 (help from --| docs, rec yes). Finding: unannotated lambda into a generic param fixed only by a later pipe is E-TYPE-MISMATCH against ?0.\n\n\nD3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\". Record form (A2) and D3615 dropped for now; A1 is SW-3381; the general mechanism is SW-3382 (backlog).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37467,7 +37467,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Model result: sonnet, worked, 75 min (est. 210). Findings: SW-3391.",
+      "body": "D3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\" Expected: 3.5 h (Sonnet). Next build slot.\n\nProgress (lane, Sonnet, 15 Nov 2026): Std.Args built in crates/elab/src/std/Args/Args.sw (Spec, flag/option/required/optional/many/arguments, Value for Text/Nat/Int/Path + choice, parse/run/runOn, usage/help/complaint, problems), 27 tests in the file plus 2 rfl theorems; toyfmt's Cli.sw moved onto it; guide section in chapter 11 with docs/guide/examples/args.sw; syntax.md; args.md section 11 \"as built\". Prelude hash snapshot: additions only (473 Std.Args lines); the derived-std-instances and text-patterns-prefix snapshots already drift at base (SW-3370's derived ==), left for the orchestrator.\nTests run: Std.Args tests (27, as a scratch program), audit:touched Std.Args (2 theorems), toyfmt Toy.Fmt (40), toyfmt_formats e2e, guide:: (4), hash_stability (prelude additions only). Model result: Sonnet, worked, ~70 min (est. 210). Commit 6bfb51c4b.\n\n\nD3614 (Matt, 15 Nov 2026): \"yes, to combine is only pure library code. And then let's just put on the backlog the idea that we could do a more general mechanism. Maybe it's macros\" Expected: 3.5 h (Sonnet). Next build slot.\n\nModel result: sonnet, worked, 75 min (est. 210). Findings: SW-3391.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -37495,7 +37495,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Model result: opus, worked, 30 min (est. 120). Filed SW-3392, SW-3393. Main remaining cost: ~4,300 instructions per Parse operation in the effect runtime (operations in place, paused under D3465) and List Char (D3597 slices). Toy printer: Doc.group recomputes forcesBreak (quadratic in nesting; not measurable yet).",
+      "body": "Matt, 15 Nov 2026: \"I think it would be reasonable to do some speed profiling on the toy formatter ... we're trying to make this a useful real world program ... I wouldn't necessarily look to do a handwritten lexer or anything, but I think seeing if there's any obvious wins.\" Not a resumption of the paused speed epics (D3465): scoped to the toy formatter. Expected: 2 h (Opus). Next build slot, before SW-3381.\n\nStarted 11:16.\n\nLane notes (Opus, 11:17-11:55, est. 2 h):\n- Profiled natively (samply + call-counts runtime) on Toy.Timing 2600 copies (933 KB). No hot function: ~3/4 effect runtime + allocator, per Parse operation (5.4 M ops, 8.7 M forwarding crossings, ~60 M objects). Probe: a Parse.mark ~4,300 instructions native, a Parse.optional round ~6,300 more.\n- Three toy-only changes (commits 9edbf8e80, 4ad47620b, b17bd0ec5): precedence climbing + one look at the next token for operators/negations/calls/fields/commas/closers (handler only where something was found); lexemes in a loop of their own. Messages unchanged: 78 toy tests, toyfmt_formats e2e test, old vs new toyfmt on 9,000 mutated goldens identical.\n- Whole format 3.52 s -> 1.91 s (3.8 -> 2.05 s/MB), 49.8 G -> 25.9 G instructions; lex 1.15 -> 0.68 s, parse 2.08 -> 0.91 s, print unchanged 0.3 s. `run`: 9.4 -> 5.2 s.\n- Dropped: SmallVec for the runtime's freeing queue (instructions +1%, cycles same); reverted.\n- Left: ~half of lex+parse is Parse ops' runtime cost (operations in place, paused D3430) and ~1/10 the List Char (D3597). Projection for 6.5 MB at Sprig's cost per byte: ~13 s vs the 20 s target.\n- Perf log entry + tools/toyfmt/NOTES.md \"Speed (SW-3383)\" (commit 77ba31136).\n\n\nStarted 11:16.\n\nModel result: opus, worked, 30 min (est. 120). Filed SW-3392, SW-3393. Main remaining cost: ~4,300 instructions per Parse operation in the effect runtime (operations in place, paused under D3465) and List Char (D3597 slices). Toy printer: Doc.group recomputes forcesBreak (quadratic in nesting; not measurable yet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37534,7 +37534,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "Model result: sonnet, worked, 12 min (est. 60). Orchestrator note: the prelude's derived %compare/%equal/%flip and instArgsValue hashes also moved though they don't use tagsTransBy; unexplained, worth a look if hashes are meant to be local (statements unchanged).",
+      "body": "Expected: 1 h (Sonnet).\n\nDone 15 Nov: all seven items; tagsTransBy now uses Nat.compareSelf (moved from Std/Nat/Arith.sw to core/Compare.sw; hash unchanged); hashes moved only downstream of tagsTransBy (derived %trans/%instOrd and their dependents); tests passed.\n\n\nModel result: sonnet, worked, 12 min (est. 60). Orchestrator note: the prelude's derived %compare/%equal/%flip and instArgsValue hashes also moved though they don't use tagsTransBy; unexplained, worth a look if hashes are meant to be local (statements unchanged).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37586,7 +37586,7 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "Model result: deepseek, worked, ~20 min (est. 45). Reviewed line by line.",
+      "body": "DeepSeek run in scratch clone sw-3390. Expected: 45 min.\n\nModel result: deepseek, worked, ~20 min (est. 45). Reviewed line by line.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37677,7 +37677,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Model result: sonnet, worked, 60 min (est. 150).",
+      "body": "D3615 (Matt, 15 Nov 2026): \"option one plus a discipline to avoid files that need to import multiple clashing names unless it's code that genuinely must use both. The code organization habit. We can maybe think about going back to this dot shorthand as Lean does in three in the future, potentially. But yeah, for now, let's proceed with your suggestion.\" Not type-directed resolution (Matt: one name, one meaning per file, readable at a glance). Expected: 2.5 h.\n\nLane notes (Sonnet, 15 Nov 2026): E-AMBIGUOUS for constructors now says \"write `Doc.Str` or `Token.Str`\" with a note (imports vs own declarations); new W-CTOR-HIDES where a file's constructor hides an imported or prelude one (naming both), and the later pattern mismatch says which name hid which; the goal printer (NameScope::ctor_name, used by goals, hover, messages, counterexample values) writes a constructor qualified when its short name means something else; docs/syntax.md and guide chapter 3 (\"Two types with one constructor name\") updated. Branch lane/SW-3397.\n\n\nModel result: sonnet, worked, 60 min (est. 150).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
@@ -37744,7 +37744,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Model result: sonnet, worked, 20 min (est. 150).",
+      "body": "D3616 (Matt, 15 Nov 2026): \"yes, with Fin and just success and failure\". ExitStatus = { code: Fin 256 } (std's Fin, a machine number at run time; Fin.ofNat's auto proof), named values ExitStatus.success (0) and ExitStatus.failure (1) only; other codes are named by each program (2 for usage is a convention, not a rule: Bash builtins, argparse, Go flag; sysexits' EX_USAGE 64 is deprecated). Args.run documents that it uses 2. Expected: 2.5 h.\n\nLane notes (Sonnet, 15 Nov 2026): built std/ExitStatus/ExitStatus.sw (type ExitStatus = { code: Fin 256 }, of, ofNatCheck, toNat, success, failure, Show, ==); main_calls tries `Std.ExitStatus.toNat (main ())` as a Nat after the () forms; RunError::Exit(u8) carries a nonzero status to run (machine, reference, native, profile), standalone report (build, build --native), --js (worker exit 73, number in the error file), and the playground (one-shot and live: `exit status N`). E-MAIN-TYPE message, docs/syntax.md, guide ch. 11 and the design note updated. Tests: std tests, accept/main-exit-status.sw, reject/exit-status-over-255.sw, CLI tests per runner, web test. Not done: a better note than E-AUTO-FALSE for a status over 255.\n\n\nModel result: sonnet, worked, 20 min (est. 150).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
