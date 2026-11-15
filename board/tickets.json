@@ -1,5 +1,5 @@
 {
-  "next": 3456,
+  "next": 3457,
   "tickets": [
     {
       "id": 47,
@@ -38473,6 +38473,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3456,
+      "title": "[Sonnet] Bug: stitchwort fmt not idempotent (Overmind fuzz:fmt seed 0x117 case 500938, on 0705b3789): 'def readVec [n: Nat] (): {IO}' then a line break before '(Vec Nat n) :=' — pass 1 keeps '{IO} (Vec Nat n)', pass 2 drops the brackets to '{IO} Vec Nat n'. Reproduce: task fuzz:fmt SEED=0x117 CASE=500938 (prints the case, ~110 s)",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
