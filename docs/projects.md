@@ -349,7 +349,8 @@ a namespace can have several programs; a type that can't be run is
 namespace name alone (`run Day05`) names no function and is `E-RUN-UNKNOWN`
 ([syntax.md](syntax.md#entry-points)).
 
-A path argument is always **file mode**:
+A path argument to `run` or `check` is always **file mode**, and so is a path
+to `test` that isn't a project's source file:
 
 ```
 stitchwort run path/file.sw
@@ -361,7 +362,12 @@ from anything but `Std`, or a qualified name reaching outside the file and
 `Std`, is `E-FILE-MODE`. File mode is a reading of the file on its own, so
 its meaning can differ from the project's when the file has sibling files.
 
-The same path rule applies to the other commands:
+`stitchwort test path/file.sw` is the exception: when the path is a source
+file of a project (found from the file's folder up, or with `--project`), the
+file is tested in the project. Its namespace and what it uses are loaded, and
+only the tests declared in that file run.
+
+Each command's path argument:
 
 ```
 stitchwort check                  -- the whole project
@@ -372,14 +378,16 @@ stitchwort check path/file.sw     -- file mode
 
 stitchwort test                   -- every test in the project
 stitchwort test Day05             -- Day05's tests, its children's, and its dependencies'
-stitchwort test path/file.sw      -- file mode
+stitchwort test path/file.sw      -- the file's tests, in its project
+                                  -- (file mode outside one)
 ```
 
-One command reads a path in the project rather than in file mode:
+Two commands read a path in the project rather than in file mode:
 `stitchwort search --at path/file.sw:LINE`, what closes the goal `?` there,
 reads the file in its project (found from the file's folder up), with its
 namespace and imports, and searches the project's lemmas as well as the
-library's ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at)).
+library's ([syntax.md](syntax.md#what-closes-this--stitchwort-search---at));
+and `stitchwort test path/file.sw` tests the file in its project, as above.
 
 `check` accepts several names at once. `test` and `run` take a single target.
 A namespace target may be dotted, as in `check Aoc.Year2025.Day05`. On success `check` prints one line to standard error, `checked 43 namespaces of aoc` (a file: `checked path/file.sw`); errors print as before and the exit status is unchanged.
@@ -403,7 +411,7 @@ the working directory. `--cache-dir` overrides both.
 | `E-PROJECT-CONFIG` | `stitchwort.yaml` is invalid: unknown key, bad value, missing or outside source folder, or a nested project. |
 | `E-NO-NAMESPACE` | A file in a project has no namespace line. |
 | `E-NAMESPACE-NOT-FIRST` | A namespace line comes after an import or a declaration. |
-| `E-FILE-MODE` | A file run, checked or tested on its own uses something outside `Std`. |
+| `E-FILE-MODE` | A file run, checked or tested on its own uses something outside `Std`; `test` reads a project's source file in the project. |
 | `E-NAMESPACE-CYCLE` | Namespaces depend on each other in a cycle. |
 | `E-NAMESPACE-RESERVED` | A namespace's first component is a library namespace or `Main`. |
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |

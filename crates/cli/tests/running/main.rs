@@ -17,5 +17,6 @@ mod partial_handlers;
 mod run;
 mod run_js;
 mod run_reference;
+mod test_files;
 
 use stitchwort_test_alloc as _;

@@ -2204,8 +2204,13 @@ fn test(
     };
     // Whatever checks runs, also when a declaration has errors: a test that
     // uses one fails, saying so (D3523).
-    let run_tests = |session: &Session, cache: &Cache| {
-        let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
+    let run_tests = |session: &Session, cache: &Cache, file: Option<&str>| {
+        let in_file = |span: stitchwort_syntax::Span| {
+            file.is_none_or(|name| session.sources.get(span.file).name.as_str() == name)
+        };
+        let keep = |test: &stitchwort_elab::TestDecl| {
+            output.only.is_none_or(|n| n == test.name) && in_file(test.span)
+        };
         let results = if reference {
             session.run_tests_where(cache, keep)
         } else {
@@ -2221,10 +2226,35 @@ fn test(
             let results = session.run_tests_fast_where(cache, keep);
             results
         };
-        session.with_broken_tests(results, |name| output.only.is_none_or(|n| n == name))
+        session.with_broken_tests_where(results, |test| {
+            output.only.is_none_or(|n| n == test.name) && in_file(test.span)
+        })
     };
+    // A file target that is a source file of a project is tested in the
+    // project (SW-3390); a file on its own stays file mode.
+    let mut project_file = None;
+    if let Some(file) = target.filter(|t| is_file_target(t)) {
+        match project_of_file(Path::new(file), project) {
+            Ok(Some((dir, relative, namespace))) => {
+                project_file = Some((
+                    Project {
+                        name: project_name(&dir),
+                        files: DiskFiles { root: dir.clone() },
+                        dir,
+                    },
+                    relative,
+                    namespace,
+                ));
+            }
+            Ok(None) => {}
+            Err(message) => {
+                eprintln!("error: {message}");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
     match target {
-        Some(file) if is_file_target(file) => {
+        Some(file) if project_file.is_none() && is_file_target(file) => {
             use_cache(&mut session, cache, Path::new("."));
             let mut reported = Vec::new();
             let loaded =
@@ -2233,7 +2263,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            let results = run_tests(&session, &cache);
+            let results = run_tests(&session, &cache, None);
             let errors = session.errors().has.len().max(usize::from(!loaded));
             let code = output.print(&session, &results, false, output.only.is_some(), errors);
             let code = if verified(&cache) {
@@ -2260,16 +2290,29 @@ fn test(
             }
         }
         _ => {
-            let Some(project) = locate_project(project, "test", "test hello.sw") else {
-                return ExitCode::FAILURE;
+            let (project, target, target_name, file) = match project_file {
+                Some((project, relative, namespace)) => {
+                    let target = match namespace {
+                        Some(namespace) => Target::Namespaces(vec![namespace]),
+                        None => Target::Everything,
+                    };
+                    let display = format!("{}/{}", project.name, relative);
+                    (project, target, None, Some(display))
+                }
+                None => {
+                    let Some(project) = locate_project(project, "test", "test hello.sw") else {
+                        return ExitCode::FAILURE;
+                    };
+                    let target_name = target.map(str::to_string);
+                    let target = match target {
+                        Some(name) => Target::Subtrees(vec![name.to_string()]),
+                        None => Target::Everything,
+                    };
+                    (project, target, target_name, None)
+                }
             };
             let Some(config) = read_project_config(&project) else {
                 return ExitCode::FAILURE;
-            };
-            let target_name = target;
-            let target = match target {
-                Some(name) => Target::Subtrees(vec![name.to_string()]),
-                None => Target::Everything,
             };
             use_cache(&mut session, cache, &project.dir);
             let mut reported = Vec::new();
@@ -2286,7 +2329,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            let results = run_tests(&session, &cache);
+            let results = run_tests(&session, &cache, file.as_deref());
             let errors = session.errors().has.len().max(usize::from(!loaded));
             let code = output.print(
                 &session,
@@ -2305,7 +2348,7 @@ fn test(
             discard(session);
             // A target that matched no tests (a typo, a namespace without
             // any) must never look like a pass.
-            let none = match (target_name, output.only) {
+            let none = match (target_name.as_deref(), output.only) {
                 (_, Some(name)) if results.is_empty() => {
                     eprintln!("warning: no test is called '{name}'");
                     true
@@ -3002,7 +3045,7 @@ fn search_at(
     // A file of a project (found from the file's folder, or --project) is
     // searched in the project: its namespace, imports and declarations.
     match project_of_file(path, project) {
-        Ok(Some((dir, relative))) => {
+        Ok(Some((dir, relative, _))) => {
             let mut session = new_session(false);
             let cache_dir = cache_dir(cache, &dir);
             let files = DiskFiles { root: dir.clone() };
@@ -3193,7 +3236,7 @@ fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> E
     let name = path.display().to_string();
     let mut session = new_session(false);
     let found = match project_of_file(path, project) {
-        Ok(Some((dir, relative))) => {
+        Ok(Some((dir, relative, _))) => {
             let cache_dir = cache_dir(cache, &dir);
             let files = DiskFiles { root: dir.clone() };
             session.context_at_project(
@@ -3488,10 +3531,13 @@ fn no_goal(path: &Path, line: usize, column: usize, json: bool) -> ExitCode {
 }
 
 /// The project that file `path` is a source file of: `--project`'s, or the
-/// one found from the file's folder up; its folder and the file's path in
-/// it. `None` for a file on its own (no project, or not one of its source
-/// files when found by looking).
-fn project_of_file(path: &Path, flag: Option<&Path>) -> Result<Option<(PathBuf, String)>, String> {
+/// one found from the file's folder up; its folder, the file's path in it,
+/// and its namespace line if it has one. `None` for a file on its own (no
+/// project, or not one of its source files when found by looking).
+fn project_of_file(
+    path: &Path,
+    flag: Option<&Path>,
+) -> Result<Option<(PathBuf, String, Option<String>)>, String> {
     let absolute = std::fs::canonicalize(path)
         .map_err(|err| format!("can't read {}: {err}", path.display()))?;
     let dir = match flag {
@@ -3525,8 +3571,18 @@ fn project_of_file(path: &Path, flag: Option<&Path>) -> Result<Option<(PathBuf, 
     let mut sources = stitchwort_syntax::SourceMap::new();
     let files = DiskFiles { root: dir.clone() };
     match project_sources(&files, &project_name(&dir), &mut sources) {
-        Ok(found) if found.iter().any(|(p, _)| *p == relative) => Ok(Some((dir, relative))),
-        Ok(_) => not_source("it isn't under its source folders"),
+        Ok(found) => {
+            let Some((_, text)) = found.iter().find(|(p, _)| *p == relative) else {
+                return not_source("it isn't under its source folders");
+            };
+            let mut scratch = SourceMap::new();
+            let id = scratch.add(relative.clone(), text.as_str());
+            let namespace = parse_namespace_line(id, text)
+                .ok()
+                .flatten()
+                .map(|line| line.path.text);
+            Ok(Some((dir, relative, namespace)))
+        }
         Err(errors) if flag.is_some() => Err(errors
             .first()
             .map_or("the project can't be read".into(), |d| d.message.clone())),
@@ -4697,7 +4753,7 @@ fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
 /// the namespace's names are imported for the expressions typed. Any other
 /// file is loaded on its own.
 fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
-    let Ok(Some((dir, _))) = project_of_file(path, None) else {
+    let Ok(Some((dir, _, _))) = project_of_file(path, None) else {
         return load(session, path);
     };
     let Ok(text) = std::fs::read_to_string(path) else {
