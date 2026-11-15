@@ -1,5 +1,5 @@
 {
-  "next": 3376,
+  "next": 3377,
   "tickets": [
     {
       "id": 47,
@@ -37390,6 +37390,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3376,
+      "title": "[Opus] Recursion through map stage 1a (recursion-through-map.md draft 2, D3612): the kernel treats a one-field constructor around a strict part as smaller (rank), exactly one field counting implicit/proof/erased, part reached through matched fields only; docs/core.md; the review's must-reject programs; a referee comparing with a List Char worker; Fable review before merge",
+      "status": "next",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "D3612 (Matt, 15 Nov 2026): \"D3612 yes\". Expected: 3 h (Opus). Queued for the next build slot.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
