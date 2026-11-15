@@ -38630,12 +38630,12 @@
     {
       "id": 3467,
       "title": "[Sonnet] fmt: other rules that test comment_between alone (crates/fmt/src/printer/rules.rs ~1345, ~1380) may lay a comment before a closer differently from the same comment after it (the SW-3462 split); check each, add goldens for both sides, fix with comment_ends_at_closers where they differ",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 15 Nov 2026): checked every `comment_between` use in crates/fmt/src/printer/rules.rs. There are only two besides lambda_head's: `fill_call` (the plain-argument call fill) and `fill_front` in the call rule. Wrote calls with a comment before vs after the closer of an argument (`)`, `]`, `{}` records, tuples, parens; short and over-width; last argument and middle) and header/lambda parameter lists, formatted each twice with the release binary: pass 1 = pass 2 in every case. A comment before a list/record/tuple closer stays inside the bracket (attached to the last element), unlike a lambda parameter's, so before/after layouts legitimately differ but each is stable. `task fuzz:fmt CASES=20000 SEED=0x400 COMMENTS=0.5` passes. No code change, no golden added.\n",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
