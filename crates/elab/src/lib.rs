@@ -2352,10 +2352,19 @@ impl Elaborator {
             self.fail_data_names(members);
             return vec![(members[0].0, d)];
         }
+        // Each with its own item, so that what it derives is checked against
+        // its own module's instances; the group's instances are derived with
+        // the last.
         for (&(item, decl), d) in members.iter().zip(&ids) {
+            if item.is_some() {
+                self.unit.module.item = item;
+            }
             if let Err(e) = self.after_data(decl, *d) {
                 out.push((item, e));
             }
+        }
+        if members[0].0.is_some() {
+            self.unit.module.item = members[0].0;
         }
         out
     }

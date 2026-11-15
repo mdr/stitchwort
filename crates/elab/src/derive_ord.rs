@@ -52,7 +52,10 @@
 //! in, as `DecEq` does (`derive.rs`), each kind defined together with `T`'s:
 //! `List`'s constructors in order (`Nil` first) then its fields is
 //! `List.compareLex`, and likewise `Option.compareWith` and
-//! `Pair.compareWith`, so a nested list compares as a list.
+//! `Pair.compareWith`, so a nested list compares as a list. Through another
+//! container it's derived only when the container's `Ord` is derived too,
+//! which is the same order. Types defined together are derived together,
+//! unless one of them has its own `Ord` or `DecEq`.
 
 use stitchwort_core::DataId;
 use stitchwort_syntax::Span;
@@ -60,7 +63,7 @@ use stitchwort_syntax::ast::{self, BinOp, Bracket, Decl, Expr, Pattern};
 
 use num_bigint::BigUint;
 
-use crate::derive::{Field, Plan, fields_equal, let_in, member_prefix};
+use crate::derive::{Field, Plan, fields_equal, let_in};
 use crate::module::Status;
 use crate::{Elaborator, Global, Result, interfaces};
 
@@ -68,24 +71,64 @@ type Definition = (Decl, Vec<Decl>);
 
 impl Elaborator {
     /// After data type or record `d` is admitted, and its `DecEq` derived:
-    /// its `Ord` instance, if one can be derived, or else why not.
+    /// its `Ord` instance, if one can be derived, or else why not. The
+    /// types of a group are derived together, once the last of them is
+    /// admitted.
     pub(crate) fn derive_data_ord(&mut self, d: DataId) -> Result<()> {
         let data = self.kernel.data(d);
         let generated = !data.record() && data.ctors().iter().any(|c| c.name.starts_with('%'));
+        let group: Vec<DataId> = data.group().to_vec();
         let (Some(ord), Some(dec_eq)) = (interfaces::ord(self), interfaces::dec_eq(self)) else {
             return Ok(());
         };
-        if generated || self.declares_instance_of(ord) {
+        if generated || group.last() != Some(&d) {
             return Ok(());
         }
+        let own: Vec<bool> = group
+            .iter()
+            .map(|&r| self.declares_instance_for(r, ord))
+            .collect();
+        if own.iter().all(|x| *x) {
+            return Ok(());
+        }
+        let refuse = |e: &mut Self, why: String| {
+            for (&r, own) in group.iter().zip(&own) {
+                if !own {
+                    e.tables.no_ord.insert(&e.session.owners, r, why.clone());
+                }
+            }
+        };
         // `Ord`'s `eq` is `T`'s `DecEq` instance, found when the instance is
         // built.
-        if let Some(why) = self.tables.no_eq.get(&d) {
+        if let Some(why) = group.iter().find_map(|r| self.tables.no_eq.get(r)) {
             let why = format!("`Ord` needs `==`, which isn't derived for it: {why}");
-            self.tables.no_ord.insert(&self.session.owners, d, why);
+            refuse(self, why);
             return Ok(());
         }
-        if self.declares_instance_of(dec_eq) {
+        if group.len() > 1 {
+            // The derived order of each type calls the others', so one
+            // written by hand, or an `Ord` waiting for a `DecEq` written by
+            // hand, would leave the group's orders disagreeing with it.
+            for (&r, &own_ord) in group.iter().zip(&own) {
+                let what = if own_ord {
+                    Some("`Ord`")
+                } else if self.declares_instance_for(r, dec_eq) {
+                    Some("`DecEq`")
+                } else {
+                    None
+                };
+                if let Some(what) = what {
+                    let why = format!(
+                        "`{}`, defined together with it, has its module's own {what} instance, \
+                         which the derived orders of the group can't use; declare `Ord` for \
+                         the others too",
+                        self.kernel.data(r).name()
+                    );
+                    refuse(self, why);
+                    return Ok(());
+                }
+            }
+        } else if self.declares_instance_of(dec_eq) {
             if let Some(item) = self.unit.module.item {
                 self.unit.module.ord_after_dec_eq.insert(item, d);
             }
@@ -141,60 +184,64 @@ impl Elaborator {
         Ok(())
     }
 
-    /// `Ord` for `d`, using its `DecEq` instance, which is known by now.
+    /// `Ord` for `d`'s group, using its `DecEq` instances, which are known
+    /// by now.
     fn derive_ord_with_eq(&mut self, d: DataId) -> Result<()> {
         let Some(ord) = interfaces::ord(self) else {
             return Ok(());
         };
+        let group: Vec<DataId> = self.kernel.data(d).group().to_vec();
         let plan = match self.field_plan(d, ord, "`Ord`")? {
             Ok(plan) => plan,
             Err(why) => {
-                self.tables.no_ord.insert(&self.session.owners, d, why);
+                for &r in &group {
+                    self.tables
+                        .no_ord
+                        .insert(&self.session.owners, r, why.clone());
+                }
                 return Ok(());
             }
         };
         // The helpers `DecEq` declares, in case it didn't (its module wrote
         // its own instance).
-        let ctors = self.kernel.data(d).ctors().len();
-        if ctors > 1 && !self.has_member(d, "%tag") {
-            self.derive_tag(d)?;
-        }
-        for c in 0..ctors {
-            for (k, field) in plan.fields[c].iter().enumerate() {
-                let member = format!("%{}%P%{k}", self.kernel.data(d).ctors()[c].name);
-                if *field == Field::Proof && !self.has_member(d, &member) {
-                    self.derive_proof_type(d, c, k)?;
-                }
+        for (ri, &r) in group.iter().enumerate() {
+            let ctors = self.kernel.data(r).ctors().len();
+            if ctors > 1 && !self.has_member(r, "%tag") {
+                self.derive_tag(r)?;
             }
-        }
-        if ctors > 1 {
             for c in 0..ctors {
-                for (k, field) in plan.fields[c].iter().enumerate() {
-                    let member = format!("%{}%{k}", self.kernel.data(d).ctors()[c].name);
-                    if *field != Field::Proof && !self.has_member(d, &member) {
-                        self.derive_field(d, c, k)?;
+                for (k, field) in plan.fields[ri][c].iter().enumerate() {
+                    let name = format!("%{}%", self.kernel.data(r).ctors()[c].name);
+                    if *field == Field::Proof {
+                        if !self.has_member(r, &format!("{name}P%{k}")) {
+                            self.derive_proof_type(r, c, k)?;
+                        }
+                    } else if ctors > 1 && !self.has_member(r, &format!("{name}{k}")) {
+                        self.derive_field(r, c, k)?;
                     }
                 }
             }
         }
-        for (m, nested) in plan.nested.iter().enumerate() {
-            self.derive_member_helpers(d, m + 1, &nested.member, true)?;
+        for member in &plan.members[plan.roots..] {
+            self.derive_member_helpers(member, true)?;
         }
-        let mut result = self.derive_rebuild(d, &plan);
-        for group in self.ord_source(d, &plan) {
+        let mut result = self.derive_rebuild(&plan);
+        for definitions in self.ord_source(&plan) {
             self.clear_metas();
-            result = result.and_then(|()| self.definitions(&group));
+            result = result.and_then(|()| self.definitions(&definitions));
         }
         self.clear_metas();
         match result {
             Ok(()) => {}
             Err(e) if e.code == "E-RESOURCE" => return Err(e),
             Err(e) => {
-                self.tables.no_ord.insert(
-                    &self.session.owners,
-                    d,
-                    format!("deriving it failed: {}", e.message),
-                );
+                for &r in &group {
+                    self.tables.no_ord.insert(
+                        &self.session.owners,
+                        r,
+                        format!("deriving it failed: {}", e.message),
+                    );
+                }
             }
         }
         Ok(())
@@ -208,29 +255,29 @@ impl Elaborator {
 
     /// The source of `T.%compare` (with `T.%fields`), `T.%equal`,
     /// `T.%flip`, `T.%trans` and `T.%instOrd`, in that order, as groups of
-    /// definitions admitted together. For a nested type, each container it's
-    /// in (member `m`) gets its own `T.%m{m}%compare` and the rest, in the
-    /// group of `T`'s.
-    fn ord_source(&self, d: DataId, plan: &Plan) -> Vec<Vec<Definition>> {
-        let members = 1 + plan.nested.len();
+    /// definitions admitted together, for each type `T` of the group. For a
+    /// nested type, each container it's in gets its own `T.%m1%compare` and
+    /// the rest, in the group of `T`'s.
+    fn ord_source(&self, plan: &Plan) -> Vec<Vec<Definition>> {
         let mut groups: Vec<Vec<Definition>> = vec![Vec::new(); 4];
-        for m in 0..members {
-            for (kind, definition) in self.ord_member_source(d, plan, m) {
+        for m in 0..plan.members.len() {
+            for (kind, definition) in self.ord_member_source(plan, m) {
                 groups[kind].push(definition);
             }
         }
-        groups.push(vec![self.ord_instance_source(d, plan)]);
+        for m in 0..plan.roots {
+            groups.push(vec![self.ord_instance_source(plan, m)]);
+        }
         groups
     }
 
-    /// `T.%instOrd`.
-    fn ord_instance_source(&self, d: DataId, plan: &Plan) -> Definition {
-        let data = self.kernel.data(d);
-        let ty_name = self.relative_to_root(data.name());
+    /// `T.%instOrd`, for root `m` of the plan.
+    fn ord_instance_source(&self, plan: &Plan, m: usize) -> Definition {
+        let data = self.kernel.data(plan.members[0].data);
         let s = Src { span: data.span() };
+        let (_, ty_name, this) = self.member_shape(&s, &plan.members[m]);
         let member = |m: &str| format!("{ty_name}.%{m}");
         let with_params = ord_params(&s, data, plan);
-        let this = s.this(&ty_name, data);
         // instance T.%instOrd : … -> Std.Ord (T %p0 …) :=
         //   Std.Ord.fromCompare T.%compare T.%equal T.%flip T.%trans
         let instance = format!("{ty_name}.%instOrd");
@@ -251,28 +298,15 @@ impl Elaborator {
     /// Member `m`'s `compare` (with `fields`, for two constructors or more,
     /// not all without fields) (0), `equal` (1), `flip` (2) and `trans` (3),
     /// each with its kind.
-    fn ord_member_source(&self, d: DataId, plan: &Plan, m: usize) -> Vec<(usize, Definition)> {
-        let data = self.kernel.data(d);
-        let ty_name = self.relative_to_root(data.name());
+    fn ord_member_source(&self, plan: &Plan, m: usize) -> Vec<(usize, Definition)> {
+        let data = self.kernel.data(plan.members[0].data);
         let s = Src { span: data.span() };
         let np = data.params().len();
-        let prefix = member_prefix(&ty_name, m);
-        let param = |j: usize| format!("%p{j}");
+        let names: Vec<String> = plan.members.iter().map(|m| self.member_names(m)).collect();
+        let prefix = names[m].clone();
         // The type matched on, how source names its constructors, and the
         // member's type: `T %p0 …`, or `T.%m1%type %p0 …`.
-        let (matched, ctor_prefix, this) = if m == 0 {
-            (d, ty_name.clone(), s.this(&ty_name, data))
-        } else {
-            let container = plan.nested[m - 1].member.data;
-            (
-                container,
-                self.kernel.data(container).path().to_string(),
-                s.app(
-                    s.var(&format!("{prefix}type")),
-                    (0..np).map(|j| s.var(&param(j))).collect(),
-                ),
-            )
-        };
+        let (matched, ctor_prefix, this) = self.member_shape(&s, &plan.members[m]);
         let ctor_list = self.kernel.data(matched).ctors();
         let member_fields = plan.member_fields(m);
         let ctors = ctor_list.len();
@@ -281,7 +315,7 @@ impl Elaborator {
         let a = |k: usize| format!("%a{k}");
         let b = |k: usize| format!("%b{k}");
         let c = |k: usize| format!("%c{k}");
-        let of = |t: usize, f: &str| format!("{}{f}", member_prefix(&ty_name, t));
+        let of = |t: usize, f: &str| format!("{}{f}", names[t]);
         let (compare, fields_of, equal, flip, trans) = (
             of(m, "compare"),
             of(m, "fields"),

@@ -1,0 +1,37 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Ord` instance for `Boxed`
+    ╭─[ reject/derived-through-own-instance.sw:24:35 ]
+    │
+ 24 │ test "ordered through the box" := Ord.compare End (More (MkBox End)) == Less
+    │                                   ────────────────┬───────────────  
+    │                                                   ╰───────────────── this needs `Ord Boxed`
+    │ 
+    │ Note 1: `Ord` isn't derived for `Boxed`: the field `next` of `More` contains `Boxed` inside `Box`, whose `Ord` isn't derived (its module wrote one, or it has none): `Ord` is derived through another type only when that type's is, so that the two agree
+    │ 
+    │ Note 2: an instance of `Ord` for `Boxed` can be declared in `Main`
+────╯
+[E-INSTANCE-NONE] Error: no `Show` instance for `Expr`
+    ╭─[ reject/derived-through-own-instance.sw:34:33 ]
+    │
+ 34 │ def describe (e: Expr): Text := "${e}"
+    │                                 ───┬──  
+    │                                    ╰──── this needs `Show Expr`
+    │ 
+    │ Note 1: `Show` isn't derived for `Expr`: `Body`, defined together with it, has its module's own `Show` instance, which the derived ones of the group can't use; declare `Show` for the others too
+    │ 
+    │ Note 2: an instance of `Show` for `Expr` can be declared in `Main`
+────╯
+[E-INSTANCE-NONE] Error: no `DecEq` instance for `Rule`
+    ╭─[ reject/derived-through-own-instance.sw:41:17 ]
+    │
+ 41 │ test "rules" := Accept == Accept
+    │                 ────────┬───────  
+    │                         ╰───────── this needs `DecEq Rule`
+    │ 
+    │ Note 1: `==` isn't derived for `Rule`: the field `holds` of `When` is a function, and functions can't be compared
+    │ 
+    │ Note 2: an instance of `DecEq` for `Rule` can be declared in `Main`
+────╯
