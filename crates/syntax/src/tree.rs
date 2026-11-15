@@ -1833,6 +1833,33 @@ def h: Nat := 2
     }
 
     #[test]
+    fn text_prefix_patterns_are_marked_as_written() {
+        check_patterns(&[
+            ("\"--\" ++ rest", "PatternAppend[\"--\" ++ rest]"),
+            (
+                "\"a\" ++ \"b\" ++ _",
+                "PatternAppend[\"a\" ++ PatternAppend[\"b\" ++ _]]",
+            ),
+            (
+                "(\"set \" ++ x, n)",
+                "PatternTuple[( PatternAppend[\"set \" ++ x] , n )]",
+            ),
+            (
+                "Some (\"a\" ++ r)",
+                "PatternCtor[Some PatternParen[( PatternAppend[\"a\" ++ r] )]]",
+            ),
+            (
+                "\"a\" ++ _ | \"b\" ++ _",
+                "PatternOr[PatternAppend[\"a\" ++ _] | PatternAppend[\"b\" ++ _]]",
+            ),
+            (
+                "\"->\" ++ [c, ..cs]",
+                "PatternAppend[\"->\" ++ PatternList[[ c , .. cs ]]]",
+            ),
+        ]);
+    }
+
+    #[test]
     fn let_and_lambda_patterns_are_marked_as_written() {
         check_expressions(&[
             (

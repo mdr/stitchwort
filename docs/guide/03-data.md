@@ -285,7 +285,7 @@ def keyMove (key: Char): Option Text := match key with
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
 ```
 
-A text in quotes matches exactly that text, so a table of words reads as a table. On a `List Char` the same literal matches the list of its characters, which is what a hand-written lexer looks at; which one it means comes from the type of what is matched, as a number pattern's does. A text pattern is one fixed text: `"hello ${name}"` isn't one (`E-TEXT-PATTERN`); to test how a text starts, use a condition (`| t if t.startsWith "--" =>`, below):
+A text in quotes matches exactly that text, so a table of words reads as a table. On a `List Char` the same literal matches the list of its characters, which is what a hand-written lexer looks at; which one it means comes from the type of what is matched, as a number pattern's does. `"--" ++ rest` matches a text that starts with `--` and names the rest: `rest` is a `Text` when a text is matched, and the list of the remaining characters on a `List Char`. Only the start can be fixed: `name ++ ".sw"` and `"hello ${name}"` aren't patterns (`E-TEXT-PATTERN`), so to test how a text ends, use a condition (`| t if t.endsWith ".sw" =>`, below):
 
 <!-- snippet: data.sw#text-patterns -->
 ```stitchwort
@@ -298,12 +298,18 @@ def keyword (word: Text): Option Keyword := match word with
   | _ => None
 
 def afterArrow: List Char → Option (List Char)
-  | "->" => Some []
-  | ['-', '>', ..more] => Some more
+  | "->" ++ more => Some more
+  | _ => None
+
+def flagName: Text → Option Text
+  | "--" => None
+  | "--" ++ name => Some name
   | _ => None
 
 test "text patterns" :=
   keyword "theorem" == Some Theorem ∧ keyword "the" == None ∧ afterArrow "->x".toList == Some ['x']
+
+test "prefix patterns" := flagName "--all" == Some "all" ∧ flagName "--" == None ∧ flagName "-a" == None
 ```
 
 `"def"` is the text made of `'d'`, `'e'` and `'f'`, so the match reads one character at a time, and words that start alike share the steps: `keyword` reads `"the"` three characters in before it knows it isn't `"theorem"`, and never compares whole texts. There are always other texts, so a match on texts needs a last arm with a variable or `_`, and says so if it hasn't one:

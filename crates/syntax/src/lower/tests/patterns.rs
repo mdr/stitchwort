@@ -95,6 +95,51 @@ fn refuses_interpolated_text_patterns() {
 }
 
 #[test]
+fn parses_text_prefix_patterns() {
+    let e = rhs(
+        "def f (t : Text) : Nat :=\n  match t with\n    | \"--\" ++ rest => 1\n    | \"a\" ++ \"b\" ++ _ => 2\n    | _ => 3\n",
+    );
+    let (_, alts) = match_parts(&e);
+    assert!(matches!(
+        &alts[0].patterns[0],
+        Pattern::Prefix { text, rest, .. } if text == "--" && matches!(&**rest, Pattern::Var(x) if x.text == "rest")
+    ));
+    assert!(matches!(
+        &alts[1].patterns[0],
+        Pattern::Prefix { text, rest, .. } if text == "a"
+            && matches!(&**rest, Pattern::Prefix { text, rest, .. } if text == "b" && matches!(**rest, Pattern::Wildcard(_)))
+    ));
+    // On a `Text`, a variable rest is the text of the characters left.
+    let chars = alts[0].patterns[0].prefix_chars(true).expect("a prefix");
+    assert!(matches!(
+        chars,
+        Pattern::Cons(dash, tail, _) if matches!(**dash, Pattern::Char('-', _))
+            && matches!(&**tail, Pattern::Cons(_, rest, _) if matches!(**rest, Pattern::TextRest(_)))
+    ));
+}
+
+#[test]
+fn refuses_text_patterns_that_fix_more_than_the_start() {
+    for (source, label) in [
+        ("rest ++ \".sw\"", "only a text literal"),
+        ("a ++ \"-\" ++ b", "only a text literal"),
+    ] {
+        let d = parse_error(&format!(
+            "def f (t : Text) : Nat := match t with\n  | {source} => 1\n  | _ => 2\n"
+        ));
+        assert_eq!(d.code, "E-TEXT-PATTERN", "{source}");
+        assert_eq!(d.message, "a text pattern can only take a fixed start");
+        assert!(d.labels[0].message.contains(label), "{d:?}");
+        assert!(d.notes[0].contains("endsWith"), "{d:?}");
+    }
+    let d = parse_error(
+        "def f (t : Option Text) : Nat := match t with\n  | Some \"a\" ++ rest => 1\n  | _ => 2\n",
+    );
+    assert_eq!(d.code, "E-TEXT-PATTERN");
+    assert!(d.notes[0].contains("`Some (\"…\" ++ rest)`"), "{d:?}");
+}
+
+#[test]
 fn parses_or_patterns() {
     // On one line, one arm; a `|` that starts a line starts the next.
     let e = rhs(

@@ -2,7 +2,7 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-92 lemmas, 32 goals without one
+94 lemmas, 33 goals without one
 
 arm-as-written-computes goal 1: no lemma
 arm-as-written-computes goal 2: theorem stepsGoal2: 0 ≠ 0 ∨ "" = "" := ?
@@ -125,6 +125,9 @@ test-hole goal 1: no lemma
 text-pattern-catch-all goal 1: def sizeGoal1: Nat := ?
 text-pattern-catch-all goal 2: no lemma
 text-pattern-catch-all goal 3: no lemma
+text-patterns-prefix goal 1: no lemma
+text-patterns-prefix goal 2: def sizeGoal1 (letters: Text): Nat := ?
+text-patterns-prefix goal 3: def lookaheadGoal1 (rest: List Char): Nat := ?
 two-holes goal 1: def pairGoal1 (n: Nat): Nat := ?
 two-holes goal 2: def pairGoal2 (n: Nat): Text := ?
 undone-attempt goal 1: def firstDoubledGoal1 (xs: List Nat) (x: Nat): Nat := ?

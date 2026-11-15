@@ -62,6 +62,10 @@ impl<'f> Lower<'f> {
             return Err(Unsupported::Missing(kind, "`++`"));
         }
         let rest = self.pattern(required(parts.next(), kind, "the rest")?)?;
+        // `"" ++ p` fixes nothing: it is `p`, which binds what it names.
+        if text.is_empty() {
+            return Ok(rest);
+        }
         Ok(Pattern::prefix(text, text_span, rest, whole(node)?))
     }
 

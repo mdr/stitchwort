@@ -1,0 +1,28 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[GOAL] Goal: in `startAndRest`
+   ╭─[ goals/text-patterns-prefix.sw:7:21 ]
+   │
+ 7 │   | "--" ++ rest => ?
+   │                     ┬  
+   │                     ╰── rest: Text
+   │                         ⊢ "--" ++ rest = "--" ++ rest
+───╯
+[GOAL] Goal: in `size`
+    ╭─[ goals/text-patterns-prefix.sw:11:45 ]
+    │
+ 11 │   | "-" ++ letters if letters.length > 1 => ?
+    │                                             ┬  
+    │                                             ╰── letters: Text
+    │                                                 ⊢ Nat
+────╯
+[GOAL] Goal: in `lookahead`
+    ╭─[ goals/text-patterns-prefix.sw:15:21 ]
+    │
+ 15 │   | "->" ++ rest => ?
+    │                     ┬  
+    │                     ╰── rest: List Char
+    │                         ⊢ Nat
+────╯

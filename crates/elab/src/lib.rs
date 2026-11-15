@@ -5623,7 +5623,10 @@ fn check_leaf_in(
 
 /// Binds each name of a leaf's [`Row::texts`] to the text of the characters
 /// at its level, `let rest := MkText r`, returning the `let`s for
-/// [`around_lets`] to put around the arm's term.
+/// [`around_lets`] to put around the arm's term. The runtimes build that
+/// text from the list, O(its length); once a `Text` can be a slice of
+/// another (fast Text, SW-3337), this is where `rest` becomes a slice of
+/// the text matched, in the runtimes alone (text-patterns.md §4.6).
 fn bind_text_rests(cx: &mut Ctx, texts: &[(&str, usize)]) -> Result<Vec<(Name, Term, Term)>> {
     let mut lets = Vec::new();
     if texts.is_empty() {

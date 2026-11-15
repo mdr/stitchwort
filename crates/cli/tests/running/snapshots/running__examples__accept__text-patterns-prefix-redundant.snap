@@ -1,0 +1,25 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: warnings
+---
+[W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
+   ╭─[ accept/text-patterns-prefix-redundant.sw:9:5 ]
+   │
+ 8 │   | "-" ++ rest => 1
+   │     ─────┬─────  
+   │          ╰─────── this arm matches everything it does
+ 9 │   | "--" ++ name => 2
+   │     ──────┬─────  
+   │           ╰─────── never chosen
+───╯
+[W-REDUNDANT] Warning: this arm can never be chosen: earlier arms match everything it matches
+    ╭─[ accept/text-patterns-prefix-redundant.sw:10:5 ]
+    │
+  8 │   | "-" ++ rest => 1
+    │     ─────┬─────  
+    │          ╰─────── this arm matches everything it does
+    │ 
+ 10 │   | "-v" => 3
+    │     ──┬─  
+    │       ╰─── never chosen
+────╯
