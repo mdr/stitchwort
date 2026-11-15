@@ -969,8 +969,8 @@ impl Elaborator {
         format!("it happened while checking {}", names.join(", "))
     }
 
-    /// Notes for "a value was too large to show" while checking `component`:
-    /// the definition the value was a call of (`head`, an
+    /// Notes for "a value was too large to write out" while checking
+    /// `component`: the definition the value was a call of (`head`, an
     /// index recorded where the reading-back gave up), and the opaque
     /// definitions the declaration unfolds, whose bodies were computed with.
     fn too_large_notes(&self, component: &[usize], head: Option<usize>) -> Vec<String> {
@@ -980,8 +980,8 @@ impl Elaborator {
             let name = g.env.defs()[head].name();
             if !name.contains('%') {
                 notes.push(format!(
-                    "the value being shown was a call of `{name}`, computed far enough to be \
-                     very large"
+                    "the value being written out was a call of `{name}`, computed far enough to \
+                     be very large"
                 ));
             }
         }

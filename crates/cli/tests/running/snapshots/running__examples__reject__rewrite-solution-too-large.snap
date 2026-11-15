@@ -13,5 +13,5 @@ expression: output
     │ 
     │ Note 2: it happened while checking `big`
     │ 
-    │ Note 3: the value being shown was a call of `grow`, computed far enough to be very large
+    │ Note 3: the value being written out was a call of `grow`, computed far enough to be very large
 ────╯
