@@ -1174,7 +1174,35 @@ impl<'e> Ctx<'e> {
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));
         let d = self.with_opaque_notes(d, &[expected, found]);
+        let d = self.with_text_fallback_label(d, expected, found);
         self.unrefined_hint(d, expected, found)
+    }
+
+    /// When one side is `Text` and the other isn't, points at the text
+    /// pattern that made a value of a not yet known type a `Text`, if the
+    /// declaration has one (SW-3295).
+    fn with_text_fallback_label(
+        &self,
+        d: Diagnostic,
+        expected: &Value,
+        found: &Value,
+    ) -> Diagnostic {
+        let Some(&at) = self.e.decl.text_fallbacks.borrow().first() else {
+            return d;
+        };
+        let g = self.g();
+        let is_text = |v: &Value| {
+            matches!(force(&g, v.clone()), Ok(Value::Data(t, _))
+                if g.env.registry().data(Builtin::Text) == Some(t))
+        };
+        if is_text(expected) == is_text(found) {
+            return d;
+        }
+        d.with_label(
+            at,
+            "the type of the matched value wasn't known yet, so this text pattern made it a \
+             `Text`; annotate the value's type if it is a `List Char`",
+        )
     }
 
     /// A note for each unknown printed as `?N` in `shown` whose origin is
