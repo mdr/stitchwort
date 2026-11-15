@@ -519,3 +519,36 @@ so a copy can sit beside std's.
 | `rfixed.sw` / `rgeneric.sw` | a three-alternative lexer on 100 KB and 1 MB | [§3.2](#32-running) |
 | `lexparse.sw` | lex with positions, then a fuelled expression parser over `Located Tok` with `many`, `optional`, `next`, `end` | [§3.2](#32-running); the error case in [§2](#2-lex-then-parse) |
 | `syn.sw` | a type synonym in a row | `E-ABILITY` |
+
+## Stage 2 as built (SW-3283, 15 November 2026)
+
+`Parse.one` and `Parse.span1` are in `Parse/Parse.sw` (generic); `Parse.Located`,
+`Parse.located` and `Parse.tokens` are in `Parse/Tokens.sw`, with their
+lemmas in `Parse/ReadsTokens.sw` and `Parse/RunsTokens.sw`. Differences from
+§2:
+
+- `Parse.span1` gives a `List t` (not a `NonEmptyList`), so it reuses
+  `readsSpanNonEmpty`; `readsSpan1` says the run isn't empty.
+- `Parse.tokens` is `Parse.all input lexer` (so final line breaks are
+  allowed and a lexing failure is `Parse.all`'s message) followed by
+  `Parse.whole tokens parser`. A parse failure is described in `Parse.tokensMessage`
+  with the same layout as `Parse.Failure.describe`, but "got" is the source
+  under the token (`Parse.tokenFound`), "a line break" for a token that is
+  one, and "the end of the input" past the last token, whose position is
+  the end of the last token (`Parse.tokenPosition`).
+- `Parse.Reads` says nothing about offsets, so `readsLocated` gives the
+  value's reading only. The offset and length are in `runsFromLocated`, which
+  is about one state (`Parse.RunsFrom`): a lexer of located tokens can't have
+  a `Parse.Runs` (it quantifies over every starting offset). `runsTokens`
+  therefore takes the lexing as a hypothesis (`Fail.toResult (() => Parse.all
+  input lexer) = Ok tokens`, by `rfl` on a concrete input or
+  `Parse.runsAll` for a lexer without positions) and the parser's `Runs`.
+- `readsLiteralSame` is `readsLiteral` for a `same` that isn't equality: the
+  items read are related to the literal's by `List.All2 r`, given `same`
+  implies `r` (`List.stripPrefixByRelated`).
+- A record pattern in a lambda handed to `Parse.one` fails with
+  E-CANNOT-INFER (`Parse.one "a number" (match some | { value = Num n, .. } =>
+  n)`): `t` is only known from the row once the call is done, and the pattern
+  needs it first. A selector is a function with its parameter's type written
+  (the guide and the accept example do this). Giving `Parse.one [t := …]` makes the
+  clause lambda check.

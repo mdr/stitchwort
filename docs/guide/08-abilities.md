@@ -241,7 +241,82 @@ A line such as `char ','` is run for what it reads, and its value is dropped. A 
 
 A choice always backs up: when one alternative fails, the next starts from the same place, and an error names the furthest point any alternative reached and what was expected there. Input in sections goes through `sections` and `section`. The parsers that read at least one value (`many1`, `sepBy1`, `lines`, `sections`, `section`, `grid`) give a `NonEmptyList`; `.toList` makes it a plain list. A recursive grammar uses `recursive (self => …)`, and a rule must not call `self` before reading something: left recursion can hide behind an earlier alternative and quietly accept less than you meant, so read a repeated part with a loop such as `sepBy1` instead. For operators that group from the left, `Parse.chainLeft operand operator` reads `operand (operator operand)*` and folds it: `operator` is a parser that gives the function joining its two sides, so with `-` giving `(left right => left - right)`, `8-3-2` reads as `(8 - 3) - 2`.
 
-The rest of the library (`findAll`, `grid`, `token`, `Parse.ensure`, and the `Parse.Reads` lemmas for proving what a parser accepts) is described by `stitchwort doc` (for instance `stitchwort doc Parse.findAll`), the [parser library note](../proposals/parser-combinators.md) and `examples/accept/parse-basics.sw`.
+### Lex, then parse
+
+A grammar with operators and brackets is easier in two passes: a lexer reads the characters into tokens, and a parser reads the tokens. Both are written with the same combinators. A lexer is a `{Parse Char}` parser whose value is a token wrapped in `Parse.located`, which keeps where the token was read (`offset` and `length`, in characters); a token parser is a `{Parse (Parse.Located Token)}` parser, and `Parse.tokens` runs the two one after the other:
+
+<!-- snippet: abilities.sw#lex-parse -->
+```stitchwort
+type Token = | Num (value: Nat) | Name (text: Text) | Plus | Times | Open | Close
+
+type Expr = | Lit (value: Nat) | Var (name: Text) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr)
+
+def lexToken(): {Parse Char} Parse.Located Token :=
+  Parse.spaces()
+  Parse.located (() =>
+    Parse.oneOf [
+      () => Num nat(),
+      () => Name (Parse.takeWhile1 "a name" Char.isAsciiLetter),
+      () =>
+        char '+'
+        Plus,
+      () =>
+        char '*'
+        Times,
+      () =>
+        char '('
+        Open,
+      () =>
+        char ')'
+        Close
+    ])
+
+def operandOf (token: Parse.Located Token): Option Expr := match token with
+  | { value = Num value, .. } => Some (Lit value)
+  | { value = Name name, .. } => Some (Var name)
+  | _ => None
+
+def symbolIs (wanted: Token) (token: Parse.Located Token): Option () := if token.value == wanted then Some () else None
+
+def symbol (what: Text) (wanted: Token): {Parse (Parse.Located Token)} () := Parse.one what (symbolIs wanted)
+
+def expression(): {Parse (Parse.Located Token)} Expr := Parse.recursive (self =>
+  let atom := () =>
+    Parse.oneOf [
+      () => Parse.one "an operand" operandOf,
+      () =>
+        symbol "'('" Open
+        let inner := self()
+        symbol "')'" Close
+        inner
+    ]
+  let product := () =>
+    Parse.chainLeft atom (() =>
+      symbol "'*'" Times
+      (left right => Mul left right))
+  Parse.chainLeft product (() =>
+    symbol "'+'" Plus
+    (left right => Add left right)))
+
+def parseExpression (input: Text): {Fail} Expr := Parse.tokens input (() => Parse.many lexToken) expression
+
+test "lex, then parse" :=
+  toResult (() => parseExpression "1 + 2 * (x + 3)") == Ok (Add (Lit 1) (Mul (Lit 2) (Add (Var "x") (Lit 3))))
+test "a bad token" :=
+  toResult (() => parseExpression "1 + * 2") == Err "line 1, column 5: expected an operand or '(', got '*'"
+test "the end of the input" :=
+  toResult (() => parseExpression "(1 + 2")
+    == Err "line 1, column 7: expected '*', '+' or ')', got the end of the input"
+test "a character no token starts with" :=
+  toResult (() => parseExpression "1 + ?")
+    == Err "line 1, column 5: expected a number, a name, '+', '*', '(' or ')', got '?'"
+```
+
+`Parse.one what select` reads the next token if `select` gives a value for it and fails with "expected `what`" if not, so `operandOf` says which tokens are operands and what an operand means. `Parse.span1` is the same for a run of tokens that pass a test (`takeWhile1` for any items). A selector is a named function, with the token's type written, because a record pattern in a lambda (`match some | { value = Num value, .. } => …`) needs to know the type it matches where the lambda is checked, and that type is only known from the parser's signature once the call is done. The rest is as for characters: `oneOf`, `many`, `chainLeft` and `recursive` work on tokens, and so do the `Parse.Reads` and `Parse.Runs` lemmas.
+
+Errors are in the source's terms. A failure in the lexer reads as it does for `Parse.all`. A failure in the token parser names the line and column of the token it stopped at, what it expected, and the token as it was written (`got '*'`), or "got the end of the input" when it ran out; `Parse.tokens` works these out from each token's `offset` and `length`, so a token needs no `Show`. To keep the failure itself and map it your own way, run `Parse.run tokens parser`: its `offset` counts tokens.
+
+The rest of the library (`findAll`, `grid`, `Parse.token` (spaces around a parser), `Parse.ensure`, and the `Parse.Reads` lemmas for proving what a parser accepts) is described by `stitchwort doc` (for instance `stitchwort doc Parse.findAll`), the [parser library note](../proposals/parser-combinators.md) and `examples/accept/parse-basics.sw`.
 
 ## `IO` and `main`
 

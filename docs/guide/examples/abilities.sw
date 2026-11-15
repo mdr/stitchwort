@@ -1,5 +1,5 @@
 -- Chapter 8: abilities and handlers.
-import Std (Abort, Each, Fail, IO, List, Nat, Option, Parse, Result, Text)
+import Std (Abort, Char, Each, Fail, IO, List, Nat, Option, Parse, Result, Text)
 import Std.Effect (Effects)
 import Std.Fail (fail, need, ensure, toResult)
 import Std.Parse (char, nat)
@@ -129,6 +129,72 @@ test "boxes" :=
 test "a bad box" :=
   toResult (() => parseBoxes "162,817,812\n57,6x8,57\n") == Err "line 2, column 5: expected ',', got 'x'"
 -- end parse
+
+-- begin lex-parse
+type Token = | Num (value: Nat) | Name (text: Text) | Plus | Times | Open | Close
+
+type Expr = | Lit (value: Nat) | Var (name: Text) | Add (left: Expr) (right: Expr) | Mul (left: Expr) (right: Expr)
+
+def lexToken(): {Parse Char} Parse.Located Token :=
+  Parse.spaces()
+  Parse.located (() =>
+    Parse.oneOf [
+      () => Num nat(),
+      () => Name (Parse.takeWhile1 "a name" Char.isAsciiLetter),
+      () =>
+        char '+'
+        Plus,
+      () =>
+        char '*'
+        Times,
+      () =>
+        char '('
+        Open,
+      () =>
+        char ')'
+        Close
+    ])
+
+def operandOf (token: Parse.Located Token): Option Expr := match token with
+  | { value = Num value, .. } => Some (Lit value)
+  | { value = Name name, .. } => Some (Var name)
+  | _ => None
+
+def symbolIs (wanted: Token) (token: Parse.Located Token): Option () := if token.value == wanted then Some () else None
+
+def symbol (what: Text) (wanted: Token): {Parse (Parse.Located Token)} () := Parse.one what (symbolIs wanted)
+
+def expression(): {Parse (Parse.Located Token)} Expr := Parse.recursive (self =>
+  let atom := () =>
+    Parse.oneOf [
+      () => Parse.one "an operand" operandOf,
+      () =>
+        symbol "'('" Open
+        let inner := self()
+        symbol "')'" Close
+        inner
+    ]
+  let product := () =>
+    Parse.chainLeft atom (() =>
+      symbol "'*'" Times
+      (left right => Mul left right))
+  Parse.chainLeft product (() =>
+    symbol "'+'" Plus
+    (left right => Add left right)))
+
+def parseExpression (input: Text): {Fail} Expr := Parse.tokens input (() => Parse.many lexToken) expression
+
+test "lex, then parse" :=
+  toResult (() => parseExpression "1 + 2 * (x + 3)") == Ok (Add (Lit 1) (Mul (Lit 2) (Add (Var "x") (Lit 3))))
+test "a bad token" :=
+  toResult (() => parseExpression "1 + * 2") == Err "line 1, column 5: expected an operand or '(', got '*'"
+test "the end of the input" :=
+  toResult (() => parseExpression "(1 + 2")
+    == Err "line 1, column 7: expected '*', '+' or ')', got the end of the input"
+test "a character no token starts with" :=
+  toResult (() => parseExpression "1 + ?")
+    == Err "line 1, column 5: expected a number, a name, '+', '*', '(' or ')', got '?'"
+-- end lex-parse
 
 -- begin effects-parameter
 type Hooks (e: Effects) = { before: Nat → {e} (), after: Nat → {e} () }

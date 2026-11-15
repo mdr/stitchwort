@@ -836,6 +836,23 @@ theorem List.stripPrefixByForward ∀ (same: a → a → Bool)
       match holds: same p x with
         | True => rewrite exact p x holds in Eq.cong (Cons x) (List.stripPrefixByForward same exact more ps h)
 
+--| Where `same` implies `r`, stripping `prefix` from `xs` leaves `rest` only if
+--| `xs` is some `taken` followed by `rest`, with `r` holding of each item of
+--| `prefix` and the one it was compared with. [`List.stripPrefixByForward`]
+--| is the case where `r` is equality.
+theorem List.stripPrefixByRelated ∀ (same: a → a → Bool) (r: a → a → Prop)
+    (sound: ∀ (x y: a) => same x y = True → r x y) (xs prefix: List a) [rest: List a]
+    (h: List.stripPrefixBy xs prefix same = Some rest):
+    ∃ (taken: List a) => xs = List.append taken rest ∧ List.All2 r prefix taken :=
+  match xs, prefix with
+    | xs, [] => Witness [] (Both (Option.someInjective h) Trivial)
+    | [x, ..more], [p, ..ps] =>
+      match holds: same p x with
+        | True =>
+          match List.stripPrefixByRelated same r sound more ps h with
+            | Witness taken (Both split related) =>
+              Witness [x, ..taken] (Both (rewrite split in rfl) (Both (sound p x holds) related))
+
 --| A list starts with what was appended to.
 theorem List.startsWithAppend ∀ [auto eq: DecEq a] (prefix rest: List a):
     List.startsWith (List.append prefix rest) prefix = True :=

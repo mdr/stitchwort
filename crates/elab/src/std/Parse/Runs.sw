@@ -441,6 +441,67 @@ theorem Parse.runsSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (rest:
         (rewrite Parse.runFromNextThere state passes char rest _ starts holds in rfl)
         (Both rfl (Both (omega [honest, lengths]) rfl)))
 
+--| What `one` does after reading `item`, where `select item` is `Some value`:
+--| it gives `value`.
+theorem Parse.runsOneStep ∀ (what: Text) (select: t → Option a) (item: t) (value: a) (rest: List t)
+    (selected: select item = Some value):
+    Parse.Runs
+      (() =>
+        match select item with
+          | Some value => value
+          | None => Parse.expected what)
+      []
+      rest
+      value :=
+  rewrite selected in Parse.runsPure value rest
+
+--| `one` where the next item is one `select` gives a value for: it reads it
+--| and gives that value.
+theorem Parse.runsOne ∀ (what: Text) (select: t → Option a) (item: t) (value: a) (rest: List t)
+    (selected: select item = Some value):
+    Parse.Runs (() => Parse.one what select) [item] rest value :=
+  Parse.runsBind
+    (() => Parse.satisfy what (item => (select item).isSome))
+    (found =>
+      match select found with
+        | Some value => value
+        | None => Parse.expected what)
+    [item]
+    []
+    [item]
+    rest
+    item
+    value
+    (Eq.sym (List.appendNil [item]))
+    (Parse.runsSatisfy what (item => (select item).isSome) item rest (rewrite selected in rfl))
+    (Parse.runsOneStep what select item value rest selected)
+
+--| `span1` on a non-empty run of items that pass, with `rest` not starting
+--| with another: it reads the run and gives it.
+theorem Parse.runsSpan1 ∀ (what: Text) (passes: t → Bool) (taken rest: List t)
+    (some: taken ≠ [])
+    (all: taken.all passes = True)
+    (stops: rest.takeWhile passes = []):
+    Parse.Runs (() => Parse.span1 what passes) taken rest taken :=
+  match taken with
+    | [] => Void.exfalso (some rfl)
+    | [item, ..others] =>
+      Parse.runsBind
+        (() => Parse.span passes)
+        (items =>
+          match items with
+            | [] => Parse.expected what
+            | others2 => others2)
+        [item, ..others]
+        []
+        [item, ..others]
+        rest
+        [item, ..others]
+        [item, ..others]
+        (Eq.sym (List.appendNil [item, ..others]))
+        (Parse.runsSpan passes [item, ..others] rest all stops)
+        (Parse.runsPure [item, ..others] rest)
+
 --| `optional p` where `p` succeeds: it reads what `p` read and gives `Some`.
 theorem Parse.runsOptional ∀ (p: () → {Parse t} a) (read rest: List t) (v: a)
     (runsP: Parse.Runs p read rest v):
@@ -500,6 +561,42 @@ theorem Parse.declinesSatisfy ∀ (what: Text) (passes: t → Bool) (char: t) (r
     (fails: passes char = False):
     Parse.Declines (() => Parse.satisfy what passes) [char, ..rest] :=
   state starts honest => rewrite starts, fails in rfl
+
+--| `one` declines at the end of the input.
+theorem Parse.declinesOneEnd ∀ (what: Text) (select: t → Option a): Parse.Declines (() => Parse.one what select) [] :=
+  Parse.declinesBind
+    (() => Parse.satisfy what (item => (select item).isSome))
+    (found =>
+      match select found with
+        | Some value => value
+        | None => Parse.expected what)
+    []
+    (Parse.declinesSatisfyEnd what (item => (select item).isSome))
+
+--| `one` declines where the next item is one `select` gives no value for.
+theorem Parse.declinesOne ∀ (what: Text) (select: t → Option a) (item: t) (rest: List t)
+    (none: select item = None):
+    Parse.Declines (() => Parse.one what select) [item, ..rest] :=
+  Parse.declinesBind
+    (() => Parse.satisfy what (item => (select item).isSome))
+    (found =>
+      match select found with
+        | Some value => value
+        | None => Parse.expected what)
+    [item, ..rest]
+    (Parse.declinesSatisfy what (item => (select item).isSome) item rest (rewrite none in rfl))
+
+--| `span1` declines where the first item doesn't pass, or at the end.
+theorem Parse.declinesSpan1 ∀ (what: Text) (passes: t → Bool) (input: List t)
+    (stops: input.takeWhile passes = []):
+    Parse.Declines (() => Parse.span1 what passes) input :=
+  Parse.declinesAfter
+    (() => Parse.span passes) _
+    []
+    input
+    []
+    (Parse.runsSpan passes [] input rfl stops)
+    (Parse.declinesExpected what input)
 
 --| `oneOf [first, ..others]` where `first` succeeds: it gives `first`'s
 --| value, whatever the others would do.
