@@ -1,5 +1,5 @@
 {
-  "next": 3312,
+  "next": 3313,
   "tickets": [
     {
       "id": 47,
@@ -36266,16 +36266,17 @@
     {
       "id": 3295,
       "title": "[Sonnet] When a literal pattern's type falls back (text to Text, number to Nat) and the value is later used at another type, the error should point at the pattern that fixed the type (SW-3284 review should-fix 3)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md should-fix 3). Expected: 1.5 h (Sonnet).\n\n\nProgress (lane): text fallback recorded in Decl.text_fallbacks when a text pattern fixes a bare-meta column to Text; Ctx::mismatch labels that pattern when one side is Text and the other is not. Number case already errored at the match (not at a later use): message now says the type is not known (no more printed ?N) with a note to annotate. Examples reject/text-patterns-type-fixed-by-pattern.sw and number-patterns-type-fixed-by-pattern.sw. Commit 11de8881f on lane/SW-3295.\n",
+      "body": "From the SW-3284 Opus review should-fix 3. Model result: Sonnet, worked, ~15 min (est. 90). Follow-up SW-3312.",
       "created": "2026-11-14",
       "updated": "2026-11-15",
       "commits": [
-        "11de8881f"
+        "11de8881f",
+        "8c7a142221ff6c9b6beb0de8bbe29b06ef7c2307"
       ]
     },
     {
@@ -36487,6 +36488,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3312,
+      "title": "[Sonnet] SW-3295's 'this text pattern made it a Text' label is per declaration: any Text-vs-other mismatch in a definition with a fallback pattern gets it, even an unrelated one; track it by the metavariable the pattern solved",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
