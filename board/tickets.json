@@ -1,5 +1,5 @@
 {
-  "next": 3470,
+  "next": 3471,
   "tickets": [
     {
       "id": 47,
@@ -38630,7 +38630,7 @@
     {
       "id": 3467,
       "title": "[Sonnet] fmt: other rules that test comment_between alone (crates/fmt/src/printer/rules.rs ~1345, ~1380) may lay a comment before a closer differently from the same comment after it (the SW-3462 split); check each, add goldens for both sides, fix with comment_ends_at_closers where they differ",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -38661,6 +38661,19 @@
       "where": "",
       "labels": [],
       "epic": "parser-proofs",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3470,
+      "title": "[Sonnet] fmt fuzzer: about 83% of mutated cases don't parse and are skipped (seed 0x300: 16,616 of 20,000 skipped, no comments), so 1M cases is ~170k formatted; make the mutator keep more inputs parseable (mutate at token boundaries, prefer swaps of same-class tokens, or re-draw a case that doesn't parse) and report the formatted count (SW-3463 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
