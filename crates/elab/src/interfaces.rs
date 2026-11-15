@@ -1118,6 +1118,22 @@ fn stuck(cx: &Ctx, goal: &Value, m: usize, what: &str) -> Diagnostic {
     d.with_note("pass the dictionary by name, or annotate")
 }
 
+/// Why there's no `Ord` for `ty`, for a note: that it wasn't derived, and
+/// why, or that functions can't be ordered. Shared by `E-INSTANCE-NONE` and
+/// the `<` that a type without `Ord` can't use (`numbers.rs`).
+pub(crate) fn no_ord_note(e: &Elaborator, ty: &Value) -> Option<String> {
+    let g = e.ev();
+    match force(&g, ty.clone()).unwrap_or(ty.clone()) {
+        Value::Data(t, _) => e
+            .tables
+            .no_ord
+            .get(&t)
+            .map(|why| format!("`Ord` isn't derived for `{}`: {why}", g.data(t).name())),
+        Value::Pi(..) => Some("functions can't be ordered".into()),
+        _ => None,
+    }
+}
+
 /// `E-INSTANCE-NONE`, with what might help.
 fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diagnostic {
     let g = cx.g();
@@ -1188,21 +1204,10 @@ fn none(cx: &Ctx, interface: DataId, goal: &Value, head: Option<DataId>) -> Diag
         }
     }
     // For `Ord`: why it wasn't derived.
-    if Some(interface) == ord(e) {
-        match force(&g, arg.clone()).unwrap_or(arg.clone()) {
-            Value::Data(t, _) => {
-                if let Some(why) = e.tables.no_ord.get(&t) {
-                    d = d.with_note(format!(
-                        "`Ord` isn't derived for `{}`: {why}",
-                        g.data(t).name()
-                    ));
-                }
-            }
-            Value::Pi(..) => {
-                d = d.with_note("functions can't be ordered");
-            }
-            _ => {}
-        }
+    if Some(interface) == ord(e)
+        && let Some(note) = no_ord_note(e, &arg)
+    {
+        d = d.with_note(note);
     }
     match head {
         Some(h) => {

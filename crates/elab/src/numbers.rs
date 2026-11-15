@@ -778,12 +778,12 @@ impl<'a> Group<'a> {
     }
 
     /// Why the group can't be on `t`, a type other than `Nat` and `Int`: an
-    /// operator only those have (an empty note), or an instance its
-    /// operators need that `t` doesn't have (a note saying so). `None` if it
+    /// operator only those have (no notes), or an instance its
+    /// operators need that `t` doesn't have (notes saying so). `None` if it
     /// can.
-    fn unsupported(&self, cx: &mut Ctx, t: &Value) -> Result<Option<String>> {
+    fn unsupported(&self, cx: &mut Ctx, t: &Value) -> Result<Option<Vec<String>>> {
         if !self.generic(cx) {
-            return Ok(Some(String::new()));
+            return Ok(Some(Vec::new()));
         }
         let needed = [
             (self.adds, "Add", "+", "add"),
@@ -805,10 +805,14 @@ impl<'a> Group<'a> {
                 if why.code == "E-FAILED-DEPENDENCY" {
                     return Err(why);
                 }
-                return Ok(Some(format!(
+                let mut notes = vec![format!(
                     "on other types `{op}` is `{name}.{field}`, and there's no `{name}` instance for `{}` here",
                     cx.show(t)
-                )));
+                )];
+                if name == "Ord" {
+                    notes.extend(crate::interfaces::no_ord_note(cx.e, t));
+                }
+                return Ok(Some(notes));
             }
         }
         Ok(None)
@@ -1026,7 +1030,7 @@ fn group_with(
             Class::Unknown => {}
             Class::Other => match g.unsupported(cx, e)? {
                 None => decided = Some((e.clone(), Decider::Expected)),
-                Some(note) => {
+                Some(notes) => {
                     let op = match &sides.0 {
                         Node::Op(op, ..) => op_text(*op),
                         _ => "-",
@@ -1036,11 +1040,7 @@ fn group_with(
                         format!("`{op}` gives a `Nat` or an `Int`"),
                         format!("but `{}` is expected here", cx.show(e)),
                     );
-                    return Err(if note.is_empty() {
-                        error
-                    } else {
-                        error.with_note(note)
-                    });
+                    return Err(notes.into_iter().fold(error, Diagnostic::with_note));
                 }
             },
         }
@@ -1376,7 +1376,7 @@ impl crate::queue::Check for NumberGroup {
         let equality = matches!(top, Some(BinOp::Eq | BinOp::Ne | BinOp::EqEq)) && !g.arith;
         if !equality
             && matches!(classify(cx, &t)?, Class::Other)
-            && let Some(note) = g.unsupported(cx, &t)?
+            && let Some(notes) = g.unsupported(cx, &t)?
         {
             let op = match &sides.0 {
                 Node::Op(op, ..) => op_text(*op),
@@ -1387,11 +1387,7 @@ impl crate::queue::Check for NumberGroup {
                 format!("`{op}` works on `Nat` and `Int`"),
                 format!("but this is on `{}`", cx.show(&t)),
             );
-            return Err(if note.is_empty() {
-                error
-            } else {
-                error.with_note(note)
-            });
+            return Err(notes.into_iter().fold(error, Diagnostic::with_note));
         }
         let (term, _) = finish(
             cx,
@@ -1542,7 +1538,7 @@ fn infer_leaf(
         Class::Other if equality => Some((ty.clone(), Decider::Leaf(i))),
         Class::Other => match g.unsupported(cx, &ty)? {
             None => Some((ty.clone(), Decider::Leaf(i))),
-            Some(note) => {
+            Some(notes) => {
                 let op = match g.leaves[i].op {
                     "+" | "*" | "<" | "<=" => g.numeric_only.unwrap_or(g.leaves[i].op),
                     op => op,
@@ -1553,11 +1549,7 @@ fn infer_leaf(
                 )
                 .with_label(expr.span(), format!("this is `{}`", cx.show(&ty)));
                 let error = cx.with_text_fixed_use_label(error, expr.span());
-                return Err(if note.is_empty() {
-                    error
-                } else {
-                    error.with_note(note)
-                });
+                return Err(notes.into_iter().fold(error, Diagnostic::with_note));
             }
         },
     };

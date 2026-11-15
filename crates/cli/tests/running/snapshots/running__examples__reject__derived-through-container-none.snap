@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-INSTANCE-NONE] Error: no `Show` instance for `Held`
+    ╭─[ reject/derived-through-container-none.sw:13:33 ]
+    │
+ 13 │ def describe (x: Held): Text := "${x}"
+    │                                 ───┬──  
+    │                                    ╰──── this needs `Show Held`
+    │ 
+    │ Note 1: `Show` isn't derived for `Held`: the field `h` of `Wrap` contains `Held` inside `Holder`, whose `Show` isn't derived (it has none, since the field `call` of `Holds` is a function, and functions can't be shown): `Show` is derived through another type only when that type's is, so that the two agree
+    │ 
+    │ Note 2: an instance of `Show` for `Held` can be declared in `Main`
+────╯
