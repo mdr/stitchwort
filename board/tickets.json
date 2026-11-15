@@ -33440,12 +33440,12 @@
     {
       "id": 3091,
       "title": "[DeepSeek] STITCHWORT_STD_DIR set but empty makes the CLI behave as if it were set; treat empty as unset (SW-3067 finding 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked (with SW-3420, SW-3432), ~35 min (est. 40). SW-3091 already correct (test added); SW-3420, SW-3432 a/b no longer reproduce; 3c fixed in core's printer (display only).",
       "created": "2026-11-13",
       "updated": "2026-11-15",
       "commits": []
@@ -33960,12 +33960,12 @@
     {
       "id": 3131,
       "title": "[DeepSeek] Markdown code blocks in docs/syntax.md, the guide prose and the proving guide still write theorem headers without ∀ (D3472); update the hand-written (not snippet-quoted) blocks; and fmt_repo should exclude docs/reviews/repros/ (tracked fuzz repros that don't parse), like docs/repros/ (SW-2657 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~30 min (est. 30).",
       "created": "2026-11-13",
       "updated": "2026-11-15",
       "commits": []
@@ -37985,7 +37985,7 @@
     {
       "id": 3420,
       "title": "[DeepSeek] Message: a DecEq.sound note blames the match instead of the unknown instance (SW-758 item 3, 2024 day 11)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -38165,7 +38165,7 @@
     {
       "id": 3432,
       "title": "[DeepSeek] Messages, small: Parse.pick with eight choices says expected '(' or '[' or …' (use a comma list); the errors print twice when a namespace fails to load; a goal prints a Map's whole internal tree over thousands of characters (SW-963 item 1, SW-973 item 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -38589,12 +38589,12 @@
     {
       "id": 3464,
       "title": "[Sonnet] Main broken: std_library::no_library_file_declares_a_decision_procedure (derived %decide names like Std.Omega.Env.%decide now counted) and the_index_holds_exactly_the_names_an_eager_load_makes (derived %all/%compare/... not in the index) fail; caused by a change merged today (candidates: SW-3344 cases 14cf35382/815a9ac28, derived equality stage 3 1407c81e9, SW-3405 127096db7); found by the SW-3418 part 8 verifier",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\n\nLane note: both tests failed because derived equality (SW-3371/3405 line) declares T.%decide, %instDecEq and other %-helpers for std types. Tests now skip names whose last segment starts with %. auto is unaffected: %decide is not an instance, and the candidate filter takes only instances (or bootstrap/pending). Commit 55b846083.\n",
+      "body": "\n\nLane note: both tests failed because derived equality (SW-3371/3405 line) declares T.%decide, %instDecEq and other %-helpers for std types. Tests now skip names whose last segment starts with %. auto is unaffected: %decide is not an instance, and the candidate filter takes only instances (or bootstrap/pending). Commit 55b846083.\n\nModel result: sonnet, worked, 5 min (est. 20). Orchestrator's check: derived %instDecEq for std types is like the already-allowed Std.Map.decEq; auto's candidates exclude plain %decide defs.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
