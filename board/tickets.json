@@ -1,5 +1,5 @@
 {
-  "next": 3390,
+  "next": 3391,
   "tickets": [
     {
       "id": 47,
@@ -37415,7 +37415,7 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "Orchestrator's call: started before SW-3367 because the profiling lane (SW-3383) may touch std Parse. Expected: 2.5 h (Sonnet).",
+      "body": "Model result: sonnet, worked, ~15 min (est. 150). Item 5 decided by the orchestrator: option (b), SW-3390.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -37571,6 +37571,19 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-15",
+      "updated": "2026-11-15",
+      "commits": []
+    },
+    {
+      "id": 3390,
+      "title": "[Sonnet] stitchwort test FILE for a file inside a project loads the project and runs only that file's tests (as goal --at / search --at already resolve via project_of_file); update docs/projects.md's 'a path argument is always file mode'; E-FILE-MODE note; test that fails before. Orchestrator's call, option (b) from SW-3377. Also: Text.splitOnce lemma (t = a ++ sep ++ b); toyfmt NOTES stage C items 4-5 stale",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-15",
       "updated": "2026-11-15",
