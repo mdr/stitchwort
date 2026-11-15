@@ -337,6 +337,8 @@ pub enum NodeKind {
     PatternNegative,
     /// `()`: the pattern of an empty type.
     PatternAbsurd,
+    /// `"--" ++ rest`: a text pattern's fixed start and the rest.
+    PatternAppend,
 }
 
 /// A finished construct, as the parser records it: its kind and the tokens

@@ -3763,7 +3763,8 @@ pub(crate) static RANGE: std::sync::LazyLock<ast::Name> = std::sync::LazyLock::n
 /// The variables a pattern binds.
 fn pattern_binders<'a>(pattern: &'a Pattern, out: &mut Vec<&'a str>) {
     match pattern {
-        Pattern::Var(x) => out.push(&x.text),
+        Pattern::Var(x) | Pattern::TextRest(x) => out.push(&x.text),
+        Pattern::Prefix { rest, .. } => pattern_binders(rest, out),
         Pattern::Ctor(_, args, _) => args.iter().for_each(|p| pattern_binders(p, out)),
         Pattern::Tuple(a, b, _) => {
             pattern_binders(a, out);
@@ -3907,7 +3908,10 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
             }
             Work::Pattern(p) => {
                 match p {
-                    Pattern::Var(x) => bound.entry(&x.text).or_default().push(None),
+                    Pattern::Var(x) | Pattern::TextRest(x) => {
+                        bound.entry(&x.text).or_default().push(None)
+                    }
+                    Pattern::Prefix { rest, .. } => then(&mut stack, vec![Work::Pattern(rest)]),
                     Pattern::Ctor(n, args, _) => {
                         out.push(Ref::Name(n));
                         then(

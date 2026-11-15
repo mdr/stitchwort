@@ -66,6 +66,13 @@ pub trait NameScope {
 }
 
 /// Prints `term`, whose free variables are named by `names` (outermost first).
+/// How the match compiler names the characters left after a text prefix
+/// pattern, `"--" ++ rest` on a `Text`: `%text rest`, the name following
+/// the marker. `MkText` of them is shown as `rest`, the arm's own name for
+/// that text, and they alone as `rest.toList`
+/// (docs/proposals/text-patterns.md §4.5).
+pub const TEXT_REST: &str = "%text ";
+
 pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
     Printer::new(g, None).print(&mut names, term, Prec::Arrow)
@@ -763,7 +770,10 @@ impl<'g> Printer<'g> {
             Term::Var(ix) => {
                 let name = names.len().checked_sub(ix + 1).map_or_else(
                     || format!("?{ix}"),
-                    |l| readable(&names[l], names).to_string(),
+                    |l| match names[l].strip_prefix(TEXT_REST) {
+                        Some(text) => format!("{text}.toList"),
+                        None => readable(&names[l], names).to_string(),
+                    },
                 );
                 (name, Prec::Atom)
             }
@@ -999,6 +1009,27 @@ impl<'g> Printer<'g> {
                 }
                 if let Some(chars) = text_literal(self.g, term) {
                     return (format!("\"{}\"", escape(&chars, '"')), Prec::Atom);
+                }
+                if is(self.g, Builtin::Text, *d)
+                    && let [chars] = &args[..]
+                {
+                    // The text a prefix pattern's `rest` names, and a text
+                    // known to start with some characters, as the pattern
+                    // `"--" ++ rest` that matched it.
+                    if let Term::Var(ix) = chars.strip_loc()
+                        && let Some(l) = names.len().checked_sub(ix + 1)
+                        && let Some(text) = names[l].strip_prefix(TEXT_REST)
+                    {
+                        return (text.to_string(), Prec::Atom);
+                    }
+                    if let Some((start, tail)) = char_prefix(self.g, chars) {
+                        let rest = Term::Ctor(*d, *c, vec![Rc::new(tail.clone())]);
+                        let rest = self.print(names, &rest, Prec::Append);
+                        return (
+                            format!("\"{}\" ++ {rest}", escape(&start, '"')),
+                            Prec::Append,
+                        );
+                    }
                 }
                 if let Some(items) = list_literal(self.g, term) {
                     let items: Vec<String> = items
@@ -3367,6 +3398,16 @@ fn char_list(g: &Ev, term: &Term) -> Option<Vec<char>> {
             _ => return None,
         }
     }
+}
+
+/// A list that starts with character literals and goes on with something
+/// unknown: those characters and the rest.
+fn char_prefix<'t>(g: &Ev, term: &'t Term) -> Option<(Vec<char>, &'t Term)> {
+    let (items, tail) = open_list(g, term)?;
+    let chars = (items.iter())
+        .map(|item| char_literal(g, item))
+        .collect::<Option<Vec<char>>>()?;
+    Some((chars, tail))
 }
 
 /// `['h', 'i']`.

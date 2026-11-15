@@ -200,7 +200,9 @@ fn redundant_alternatives<'r>(
             fields.iter().for_each(|(_, p)| inside(p, out))
         }
         Pattern::Named(_, p, _) => inside(p, out),
+        Pattern::Prefix { rest, .. } => inside(rest, out),
         Pattern::Var(_)
+        | Pattern::TextRest(_)
         | Pattern::Wildcard(_)
         | Pattern::Absurd(_)
         | Pattern::Num(..)
@@ -222,6 +224,16 @@ fn subsumes(general: &Pattern, specific: &Pattern) -> bool {
         (Num(m, _), Num(n, _)) | (NegNum(m, _), NegNum(n, _)) => m == n,
         (Char(a, _), Char(b, _)) => a == b,
         (Text(a, _), Text(b, _)) => a == b,
+        (Prefix { text, rest, .. }, Text(b, _)) => {
+            b.strip_prefix(text.as_str())
+                .is_some_and(|tail| match &**rest {
+                    Text(t, _) => t == tail,
+                    other => matches!(other, Var(_) | Wildcard(_)),
+                })
+        }
+        (Prefix { text: a, rest, .. }, Prefix { text: b, .. }) => {
+            b.starts_with(a.as_str()) && matches!(**rest, Var(_) | Wildcard(_))
+        }
         (Nil(_), Nil(_)) => true,
         (Ctor(c, xs, _), Ctor(d, ys, _)) => {
             c.text == d.text

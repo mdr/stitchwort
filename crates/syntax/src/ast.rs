@@ -866,6 +866,24 @@ pub enum Pattern {
     /// 'f']`, chosen by the type of what it matches
     /// (docs/proposals/text-patterns.md §4).
     Text(String, Span),
+    /// `"--" ++ rest`: a text (or character list) that starts with `text`,
+    /// whose literal is at `text_span`, the rest matched by `rest`
+    /// (docs/proposals/text-patterns.md §4.2). On a `List Char` it is
+    /// `['-', '-', ..rest]`; on a `Text`, `MkText ['-', '-', ..r]` with a
+    /// variable `rest` bound to `MkText r`. The elaborator borrows those
+    /// expansions like any other pattern ([`Pattern::prefix_chars`]).
+    Prefix {
+        text: String,
+        text_span: Span,
+        rest: Box<Pattern>,
+        span: Span,
+        on_list: std::sync::OnceLock<Box<Pattern>>,
+        on_text: std::sync::OnceLock<Box<Pattern>>,
+    },
+    /// Only in a [`Pattern::Prefix`]'s expansion on a `Text`: the rest of
+    /// the characters, a variable the arm doesn't name, with `x` bound to
+    /// the text of them.
+    TextRest(Name),
     Ctor(Name, Vec<Pattern>, Span),
     /// `(p, q)`: the library's pair constructor; three or more nest to the
     /// right.
@@ -908,6 +926,54 @@ pub enum Pattern {
 }
 
 impl Pattern {
+    /// `"--" ++ rest`.
+    pub fn prefix(text: String, text_span: Span, rest: Pattern, span: Span) -> Pattern {
+        Pattern::Prefix {
+            text,
+            text_span,
+            rest: Box::new(rest),
+            span,
+            on_list: std::sync::OnceLock::new(),
+            on_text: std::sync::OnceLock::new(),
+        }
+    }
+
+    /// For a `Prefix`: its characters as list cells, `[c₁, …, cₙ, ..rest]`,
+    /// made on first use. Each character has a span of its own inside the
+    /// literal, so that messages can tell them apart. `on_text` for the
+    /// list inside a `Text`'s `MkText`, where a variable `rest` stands for
+    /// the text of the rest and is [`Pattern::TextRest`].
+    pub fn prefix_chars(&self, on_text: bool) -> Option<&Pattern> {
+        let Pattern::Prefix {
+            text,
+            text_span,
+            rest,
+            span,
+            on_list,
+            on_text: text_list,
+        } = self
+        else {
+            return None;
+        };
+        let cell = if on_text { text_list } else { on_list };
+        Some(cell.get_or_init(|| {
+            let mut list = match &**rest {
+                Pattern::Var(x) if on_text => Pattern::TextRest(x.clone()),
+                other => other.clone(),
+            };
+            for (at, c) in text.char_indices().rev() {
+                let start = text_span.start + 1 + at as u32;
+                let own = Span {
+                    start,
+                    end: start + c.len_utf8() as u32,
+                    ..*text_span
+                };
+                list = Pattern::Cons(Box::new(Pattern::Char(c, own)), Box::new(list), *span);
+            }
+            Box::new(list)
+        }))
+    }
+
     /// `C { f = p, g, .. }`.
     pub fn ctor_fields(
         ctor: Name,
@@ -962,7 +1028,8 @@ impl Decl {
 impl Pattern {
     pub fn span(&self) -> Span {
         match self {
-            Pattern::Var(name) => name.span,
+            Pattern::Var(name) | Pattern::TextRest(name) => name.span,
+            Pattern::Prefix { span, .. } => *span,
             Pattern::Wildcard(span)
             | Pattern::Absurd(span)
             | Pattern::Num(_, span)

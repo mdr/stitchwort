@@ -625,6 +625,15 @@ fn expand_one(p: &Pattern) -> Vec<(Pattern, Vec<Span>)> {
             let a = qs.pop().expect("two");
             Pattern::Cons(Box::new(a), Box::new(b), *span)
         }),
+        Pattern::Prefix {
+            text,
+            text_span,
+            rest,
+            span,
+            ..
+        } => many(std::slice::from_ref(&**rest), &|mut qs| {
+            Pattern::prefix(text.clone(), *text_span, qs.pop().expect("one"), *span)
+        }),
         Pattern::Named(n, q, span) => many(std::slice::from_ref(&**q), &|mut qs| {
             Pattern::Named(n.clone(), Box::new(qs.pop().expect("one")), *span)
         }),
@@ -654,6 +663,7 @@ fn expand_one(p: &Pattern) -> Vec<(Pattern, Vec<Span>)> {
             })
         }
         Pattern::Var(_)
+        | Pattern::TextRest(_)
         | Pattern::Wildcard(_)
         | Pattern::Absurd(_)
         | Pattern::Num(..)

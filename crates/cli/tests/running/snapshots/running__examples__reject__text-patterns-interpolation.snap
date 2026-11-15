@@ -9,5 +9,5 @@ expression: output
    │     ───────┬───────  
    │            ╰───────── a pattern matches one fixed text
    │ 
-   │ Note: to match a text that starts or ends a certain way, bind it to a variable and test it in a guard: `| t if t.startsWith "--" => …`, or use `Text.stripPrefix`
+   │ Note: to match a text that starts a certain way, write its start and a pattern for the rest: `"--" ++ rest`; to match one that ends a certain way, bind it to a variable and test it in a guard: `| t if t.endsWith ".sw" => …`
 ───╯

@@ -634,7 +634,11 @@ fn scope_entries(
             continue;
         }
         // A proof's value is its proof term: only its statement is shown.
-        let shows_value = is_let && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false);
+        // A prefix pattern's `rest` is the text of the characters left,
+        // which would show as `rest` itself.
+        let shows_value = is_let
+            && !crate::rewrite::is_proof_type(cx, &ty).unwrap_or(false)
+            && !text_rest_let(cx, level);
         context.push(Entry {
             name,
             ty,
@@ -643,6 +647,21 @@ fn scope_entries(
         });
     }
     (context, hidden)
+}
+
+/// Whether the `let` at `level` is the one a text prefix pattern's `rest`
+/// is bound by: `MkText` of the characters the match compiler named
+/// [`stitchwort_core::pretty::TEXT_REST`].
+fn text_rest_let(cx: &Ctx, level: usize) -> bool {
+    let Some(def) = &cx.lets[level] else {
+        return false;
+    };
+    let Term::Ctor(_, _, args) = def.value.strip_loc() else {
+        return false;
+    };
+    matches!(args.as_slice(), [arg] if matches!(arg.strip_loc(),
+        Term::Var(ix) if level.checked_sub(ix + 1).is_some_and(|l|
+            cx.names[l].starts_with(stitchwort_core::pretty::TEXT_REST))))
 }
 
 /// Whether `ty` is the type of `MkChar`'s proof field for a known code,
