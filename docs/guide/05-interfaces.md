@@ -15,11 +15,7 @@ There's no `deriving` clause to write:
 
 <!-- snippet: interfaces.sw#derived -->
 ```stitchwort
-type Suit =
-  | Clubs
-  | Diamonds
-  | Hearts
-  | Spades
+type Suit = | Clubs | Diamonds | Hearts | Spades
 
 type Card = { rank: Nat, suit: Suit }
 
@@ -38,17 +34,17 @@ A type gets none of these when one of its fields can't have it. A function can't
 ```stitchwort
 type Rule = { name: Text, applies: Nat → Bool }
 
-def sameRule (a: Rule) (b: Rule): Bool := a == b
+def sameRule (a b: Rule): Bool := a == b
 ```
 
 <!-- output: check errors/no-instance.sw -->
 ```text
 [E-INSTANCE-NONE] Error: no `DecEq` instance for `Rule`
-   ╭─[ errors/no-instance.sw:3:43 ]
+   ╭─[ errors/no-instance.sw:3:35 ]
    │
- 3 │ def sameRule (a: Rule) (b: Rule): Bool := a == b
-   │                                           ───┬──
-   │                                              ╰──── this needs `DecEq Rule`
+ 3 │ def sameRule (a b: Rule): Bool := a == b
+   │                                   ───┬──
+   │                                      ╰──── this needs `DecEq Rule`
    │
    │ Note 1: `==` isn't derived for `Rule`: its field `applies` is a function, and functions can't be compared
    │
@@ -63,18 +59,18 @@ An interface is a record type with one type parameter, whose fields are its oper
 
 <!-- snippet: interfaces.sw#interface -->
 ```stitchwort
-interface Describe (a: Type) =
-  { describe: a → Text }
+interface Describe (a: Type) = { describe: a → Text }
 
-instance Suit.instDescribe: Describe Suit :=
-  { describe = suit => match suit with
-    | Clubs => "♣"
-    | Diamonds => "♦"
-    | Hearts => "♥"
-    | Spades => "♠" }
+instance Suit.instDescribe: Describe Suit := {
+  describe = suit =>
+    match suit with
+      | Clubs => "♣"
+      | Diamonds => "♦"
+      | Hearts => "♥"
+      | Spades => "♠"
+}
 
-instance Card.instDescribe: Describe Card :=
-  { describe = card => "${card.rank}${Describe.describe card.suit}" }
+instance Card.instDescribe: Describe Card := { describe = card => "${card.rank}${Describe.describe card.suit}" }
 
 test "describe a card" := Describe.describe aceOfSpades == "14♠"
 ```
@@ -96,8 +92,7 @@ An instance can itself need instances of the types inside it, so one declaration
 
 <!-- snippet: interfaces.sw#instance-with-context -->
 ```stitchwort
-instance Describe.instList [auto Describe a]: Describe (List a) :=
-  { describe = items => "[${describeAll items}]" }
+instance Describe.instList [auto Describe a]: Describe (List a) := { describe = items => "[${describeAll items}]" }
 
 test "instances for containers" := Describe.describe [[twoOfClubs], [aceOfSpades]] == "[[2♣] [14♠]]"
 ```
@@ -166,8 +161,18 @@ instance Vector.instAdd: Add Vector := {
   zero = { dx = 0, dy = 0 },
   add = a b => { dx = a.dx + b.dx, dy = a.dy + b.dy },
   zeroAdd = v => Vector.ext { dx = 0 + v.dx, dy = 0 + v.dy } v (Int.zeroAdd v.dx) (Int.zeroAdd v.dy),
-  assoc = u v w => Vector.ext { dx = u.dx + v.dx + w.dx, dy = u.dy + v.dy + w.dy } { dx = u.dx + (v.dx + w.dx), dy = u.dy + (v.dy + w.dy) } (Int.addAssoc u.dx v.dx w.dx) (Int.addAssoc u.dy v.dy w.dy),
-  comm = u v => Vector.ext { dx = u.dx + v.dx, dy = u.dy + v.dy } { dx = v.dx + u.dx, dy = v.dy + u.dy } (Int.addComm u.dx v.dx) (Int.addComm u.dy v.dy)
+  assoc = u v w =>
+    Vector.ext
+      { dx = u.dx + v.dx + w.dx, dy = u.dy + v.dy + w.dy }
+      { dx = u.dx + (v.dx + w.dx), dy = u.dy + (v.dy + w.dy) }
+      (Int.addAssoc u.dx v.dx w.dx)
+      (Int.addAssoc u.dy v.dy w.dy),
+  comm = u v =>
+    Vector.ext
+      { dx = u.dx + v.dx, dy = u.dy + v.dy }
+      { dx = v.dx + u.dx, dy = v.dy + u.dy }
+      (Int.addComm u.dx v.dx)
+      (Int.addComm u.dy v.dy)
 }
 
 def moves: List Vector := [{ dx = 1, dy = 2 }, { dx = -3, dy = 1 }]

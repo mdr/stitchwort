@@ -119,11 +119,11 @@ pub enum Unsupported {
     /// so a declaration that parsed shouldn't reach it; if one does, it is
     /// an `E-RESOURCE` error like the parser's.
     TooDeep(Span),
-    /// A declaration some of whose marks the tree's builder left out, this
-    /// many, because they crossed another's range ([`Node::crossed_marks`]):
-    /// a parser bug. Its tree isn't what was parsed, so lowering it could
-    /// check a different statement than the one written.
-    Crossed(usize),
+    /// A declaration whose marks the tree's builder couldn't nest, and why
+    /// ([`Node::misnested`]): a parser bug. Its tree isn't what was parsed,
+    /// so lowering it could check a different statement than the one
+    /// written.
+    Misnested(&'static str),
 }
 
 impl fmt::Display for Unsupported {
@@ -135,8 +135,7 @@ impl fmt::Display for Unsupported {
             Unsupported::Missing(kind, part) => write!(f, "{kind:?} without {part}"),
             Unsupported::Unread(kind) => write!(f, "{kind:?} with parts left unread"),
             Unsupported::TooDeep(_) => write!(f, "nested too deeply to lower"),
-            Unsupported::Crossed(1) => write!(f, "a node crossing another, left out of its tree"),
-            Unsupported::Crossed(n) => write!(f, "{n} nodes crossing others, left out of its tree"),
+            Unsupported::Misnested(why) => write!(f, "its nodes don't nest: {why}"),
         }
     }
 }
@@ -289,13 +288,13 @@ impl<'f> Lower<'f> {
         }
     }
 
-    /// Refuses a root whose tree lost marks that crossed others: what is
-    /// left reads as a different statement, such as `a ∧ b ∧ c` for
+    /// Refuses a root whose marks didn't nest: its tree isn't the parse,
+    /// and could read as a different statement, such as `a ∧ b ∧ c` for
     /// `a ∧ b ∧ c → q` with the arrow's node gone.
     fn whole(root: Node<'f>) -> Lowering<()> {
-        match root.crossed_marks() {
-            0 => Ok(()),
-            n => Err(Unsupported::Crossed(n)),
+        match root.misnested() {
+            None => Ok(()),
+            Some(why) => Err(Unsupported::Misnested(why)),
         }
     }
 }

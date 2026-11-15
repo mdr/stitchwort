@@ -1,5 +1,5 @@
 {
-  "next": 3296,
+  "next": 3299,
   "tickets": [
     {
       "id": 47,
@@ -36042,15 +36042,17 @@
     {
       "id": 3280,
       "title": "[Opus] T1 of parser-end-state.md (strict marks and the checking builder), with SW-3276's notes: lift the prototype builder from parser-marks-or-nodes.md's appendix (13.6 ns a node vs ~39); recovery's Error node starts where the failed construct started, so recovering_body's hand filter goes; tree.rs module doc says why functions don't return nodes. Before recovery S2. Waits on D3600",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nD3600 decided (Matt, 14 Nov 2026), replacing D3582, after walking through the tree's storage and how marks fill it: \"Okay, cool, fine. I think we can proceed with that happily now.\" He is happy with the generic lossless tree style (\"I think I'm happy with this general style\"). Starts after SW-3278 (parser panic fix) merges, since both change the parser's mark recording. Expected: 7-9.5 h (Opus).\n",
+      "body": "D3600 (Matt, 14 Nov 2026): 'Okay, cool, fine. I think we can proceed with that happily now.' Expected 8 h (Opus), took ~50 min. Gate: 3,002 .sw files identical trees except 3 where the old tree dropped a finished node (Arm in an Error node, Attributes in an Error root); 11,976 broken copies: same two kinds plus one guessed Pipe start; fuzz 1M at two seeds under 2 GB; nesting depth -1.2% (design allowed 8%); std lossless tree 50.8 -> ~47 ms. Orchestrator's call: a method section at the start of an expression before -> now covers up to the arrow (same rule as ;), no repo file affected. Benchmark not run by the lane (allocation counts may move). Filed SW-3296.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "ed75d6cf7031505bfe80779512217e9d934aee79"
+      ]
     },
     {
       "id": 3281,
@@ -36208,15 +36210,17 @@
     {
       "id": 3292,
       "title": "[DeepSeek] Guide quotes out of date: guide::the_guide_quotes_its_examples_and_the_compiler fails with 87 stale blocks (example files reformatted without task guide:update); run it and check the diff; plus move list_numbers' doc comment in crates/elab/src/lib.rs off escape_char (SW-3284 findings)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Found in SW-3284. DeepSeek ran task guide:update: 87 stale quotes refreshed to match the 14 Nov reformat, three lead-in sentences adjusted, list_numbers' doc comment moved (conflict with SW-3284 resolved by hand). Model result: DeepSeek, worked, ~45 min (est. 40). Review: the quoted examples lost their multi-line teaching layouts in the reformat: filed SW-3298.",
       "created": "2026-11-14",
       "updated": "2026-11-14",
-      "commits": []
+      "commits": [
+        "a90ddba7b27728a5f436c956f09366330087d809"
+      ]
     },
     {
       "id": 3293,
@@ -36234,12 +36238,12 @@
     {
       "id": 3294,
       "title": "[Sonnet] Missing-case messages for texts and numbers don't name the other columns' values (arms True, \"a\" and False, _ say 'texts other than \"a\"' without 'when the first is True') (SW-3284 review should-fix 2)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "From the SW-3284 Opus review (docs/reviews/SW-3284-text-patterns.md, should-fix 2). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-14",
       "updated": "2026-11-14",
       "commits": []
@@ -36252,6 +36256,45 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3296,
+      "title": "[Sonnet] T2 prep (SW-3280 findings): the remaining mark read-backs absurd_in, or_with_absurd, rewrite_membership, callable_paren, lowered() move to strict marks in T2; parser.rs module doc still says the parser decides 'from the tokens and the marks so far'; atom_base's comment says atom is its only caller but brace_argument calls it too (T3 comment sweep)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3297,
+      "title": "[Sonnet] A theorem with an [add: Add a] implicit used against an Int goal leaves add unsolved (pre-existing; probe q2.sw in docs/reviews/SW-3281-propagation.md S2); decide whether plain implicits of class type should be found by instance search",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-14",
+      "updated": "2026-11-14",
+      "commits": []
+    },
+    {
+      "id": 3298,
+      "title": "[Opus paper] Guide examples lost their teaching layouts in the 14 Nov whole-repo reformat (39de3aa7d): the tree printer joins an if-chain, a leading-operator split and multi-line sum types and records onto single lines up to ~117 chars (docs/guide/examples/values.sw 'if-chain', 'leading-operator'; types chapter), so the guide's prose about splitting lines now shows one-liners. Options: the printer keeps some author line breaks, a narrower width, or examples rewritten to exceed the width; for a decision of Matt's on formatter style",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-14",
       "updated": "2026-11-14",

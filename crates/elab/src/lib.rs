@@ -751,8 +751,6 @@ fn negative_nat(span: Span) -> Diagnostic {
         .with_note("use an `Int` for numbers that can be negative")
 }
 
-/// Lists numbers for an error: all of up to five, or the first five and `…`.
-/// `count` is how many `keys` yields.
 /// A character as written inside single quotes in source.
 fn escape_char(c: char) -> String {
     match c {
@@ -782,6 +780,8 @@ pub(crate) fn quoted_text(text: &str) -> String {
     out
 }
 
+/// Lists numbers for an error: all of up to five, or the first five and `…`.
+/// `count` is how many `keys` yields.
 pub(crate) fn list_numbers(keys: impl Iterator<Item = String>, count: usize) -> String {
     let mut shown: Vec<String> = keys.take(5).collect();
     match (count, shown.pop()) {

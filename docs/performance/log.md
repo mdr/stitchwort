@@ -46,6 +46,50 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 14 Nov 2026
 
+### SW-3280: strict marks and the checking builder (parser T1); the lossless tree 7-9% faster, 16 bytes more stack a level
+
+- **Status:** kept (Opus). Stage T1 of
+  [parser-end-state.md](../proposals/parser-end-state.md#8-stages)
+  (D3600). A correctness change, not speed work: measured because the
+  design estimated what it would cost in nesting depth and save in time.
+- **Change.** Each parsing function keeps its start as a token index and
+  records one mark when it finishes; operators no longer read their left
+  operand's start back from the marks, and the `open` stack is gone. The
+  tree's builder takes the marks in finishing order and nests them in two
+  linear passes, with no sort (lifted from
+  [parser-marks-or-nodes.md](../proposals/parser-marks-or-nodes.md#the-builder)),
+  refusing marks that don't nest.
+- **Why results stay the same.** `dev tree --print` over every tracked
+  `.sw` file (2,994) is identical before and after except three files where
+  the old tree lost a finished node (two recovered definitions' first arm,
+  and attributes with nothing after them); over 11,976 broken copies of
+  them, the only other difference is a pipe whose old start was a guess
+  for an absent operand. Hashes are computed from the compiler's tree.
+- **Measured** (release CLI, `dev tree --time`, `nice -n 15`, load 5-7;
+  before is `main` at `8a30cd52c`; std best of 9, twice each, the rest
+  best of 5):
+
+  | | before | after |
+  |---|---|---|
+  | std, the lossless tree alone | 50.8, 50.9 ms | 47.7, 46.4 ms |
+  | std, parse and lower | 75.2, 75.8 ms | 72.1, 69.5 ms |
+  | std, `aoc/src`, `games`, `examples`: the lossless tree alone | 151.3 ms | 143.0 ms |
+  | the same, parse and lower | 222.7 ms | 215.2 ms |
+
+  About 4 ms off std, as SW-3276's prototype predicted (13.6 against about
+  39 ns a node for the builder).
+- **Stack** (deepest nesting `dev tree` parses, in the parser's 24 MiB, by
+  bisection to 8 levels): `(((…)))`, `f (f (…))` and `(1 + (1 + …))`
+  19,414 → 19,175 (1,296 → 1,312 bytes a level), lists 16,209 → 16,047,
+  lambdas 16,552 → 16,381; an `else if` chain is not limited (past
+  40,000) before or after. The design estimated up to 112 bytes a level
+  (8%); keeping starts as values cost 16 (1.2%).
+- **Not done.** The benchmark (its deep-input rows' allocation counts may
+  move: the `open` stack's growth is gone, `logic_chain` still allocates
+  two small vectors) is the verifier's to run.
+- **Links.** SW-3280; [parser-end-state.md](../proposals/parser-end-state.md),
+  [parser-marks-or-nodes.md](../proposals/parser-marks-or-nodes.md).
+
 ### SW-3180: stack frames left after SW-3172 (CLI dispatch, inferring applications, renaming)
 
 - **Status:** kept (Opus lane). Robustness on deep input, not speed: the
