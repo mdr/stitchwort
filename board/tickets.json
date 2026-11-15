@@ -36994,12 +36994,12 @@
     {
       "id": 3345,
       "title": "[Opus] Design: a program can only exit 0 or 1 (Fail gives 1); tools need other codes, e.g. 2 for broken input as stitchwort fmt --check does (SW-3339 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "Matt, 15 Nov 2026: \"do a quick design for how we might signal an exit code from a main function. Yeah, I could see us returning a Nat or an appropriate numeric type. Or maybe some other way to signal it.\" Opus paper, expected 1 h.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
