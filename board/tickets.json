@@ -36170,14 +36170,14 @@
     {
       "id": 3288,
       "title": "[Opus] Text patterns stage 2 (text-patterns.md §4.2, D3592): prefix patterns \"lit\" ++ rest on Text and List Char, only a text literal on the left, only a fixed start (suffix/middle refused with E-TEXT-PATTERN pointing to endsWith/splitOn); on Text, rest as a slice once fast Text lands (stage 5 folded in). After SW-3284",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 15 Nov (orchestrator's sequencing, after SW-3336 freed a slot). Expected: 4 h (Opus).",
       "created": "2026-11-14",
-      "updated": "2026-11-14",
+      "updated": "2026-11-15",
       "commits": []
     },
     {
