@@ -36819,12 +36819,12 @@
     {
       "id": 3332,
       "title": "[Sonnet] Aoc.Year2020.Day16.Proofs.runsNotes rose +9.5M checker steps (Day16 +6.2%) between db0538f5f (before SW-3281) and e41f08839 (Overmind's quiet A/B, 15 Nov); smaller rises in 2020 day 3 (+3.8%), 2021 days 10 and 3 (+3.3%, +3.2%). Measure on current main (SW-3307/SW-3311 settle changes landed after e41f08839), and if still up, find which checker change did it (propagation SW-3281, settling, solved_calls) by profiling, not bisecting blindly",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "From Overmind's A/B (SW-3300). Expected: 1.5 h (Sonnet).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
