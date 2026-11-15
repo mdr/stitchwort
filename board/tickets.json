@@ -36583,16 +36583,17 @@
     {
       "id": 3317,
       "title": "[Sonnet] Goals at a match arm show the arm as written (docs/proposals/catch-all-goals.md option A, display only): undo the splits the arm's own patterns didn't need, show the scrutinee by the arm's binder or variable; keep the leaf's 'computes to'; terms and hashes untouched; goal snapshots for the paper's probes; and 'this arm is checked in N cases' naming the failing case. Opus review after (match compiler)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "From docs/proposals/catch-all-goals.md option A (orchestrator's call: display only). Expected: 4 h (Sonnet), then an Opus review.\n\nLane notes (Sonnet, 15 Nov): done on lane/SW-3317 (commit 2cbb78e74), about 40 min. New crates/elab/src/arm_display.rs: the compiler records per row which splits its patterns left alone (Row::unsplit, Tree::Leaf::unsplit) and how many leaves check each arm (Leaf::cases); check_tree keeps the splits on the path (Goals::split_path) and check_leaf the arm (Goals::arm); hole_of / note_probed replay the splits with only the needed ones, and print_goal shows that view (context, goal, computes-to with the leaf's value folded back, expression scrutinee by its expression, `match e:` equation as at the leaf). Notes: 'this arm is checked in N cases' on proof goals; an error in the arm gets 'checked in N cases, and this error is in the case where s is ...'. Examples goals/arm-as-written-{text,nested,computes,error}.sw. Tests: goal/match/pattern/text/char/catch examples, hash_stability, goal_at; hashes unchanged. Not done: server goal_index snapshots were already stale on main (line ranges), only the new/changed ones updated.\nModel result: Sonnet, worked, 40 min (est. 240 min).\n",
+      "body": "From catch-all-goals.md option A (orchestrator's call). Sonnet ~40 min + 2 fix rounds (~35 min); Opus review docs/reviews/SW-3317-arm-as-written.md (2 must-fix, fixed: computes-to search, false 'as written' note). Steps identical on day 7/18 proofs. Follow-ups SW-3324, SW-3325, SW-3326. Model result: Sonnet, needed fixes (computes-to line, note), ~75 min (est. 240).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": [
-        "2cbb78e74"
+        "2cbb78e74",
+        "f33f0a924bac18e4ef9bf57a3180c463e9d2de9f"
       ]
     },
     {
