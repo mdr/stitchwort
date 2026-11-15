@@ -462,6 +462,7 @@ fn hole_of(cx: &Ctx, expected: &Value, error: bool) -> Term {
     }
     let (mut context, mut hidden) = scope_entries(cx, &shown_names);
     let superseded = drop_superseded(cx, expected, &mut context, &mut hidden);
+    drop_split_leftovers(cx, expected, &mut context, &mut hidden);
     let context = dependency_order(&g, cx.level(), context);
     let prop = match force(&g, expected.clone()) {
         Ok(Value::Neutral(Head::Meta(_), _)) | Err(_) => None,
@@ -544,7 +545,9 @@ fn scope_entries(cx: &Ctx, shown_names: &[Name]) -> (Vec<Entry>, Vec<(usize, Val
 }
 
 /// Whether `ty` is the type of `MkChar`'s proof field for a known code,
-/// `Char.isScalar 100 = True`: what a char pattern's `_` binds.
+/// `Char.isScalar 100 = True`: what a char pattern's `_` binds. A code that
+/// isn't a scalar (a spelled-out `MkChar 55296 _`) has a false statement,
+/// which stays visible.
 fn known_char_proof(cx: &Ctx, ty: &Value) -> bool {
     let g = cx.g();
     let Some((d, c)) = g
@@ -571,7 +574,8 @@ fn known_char_proof(cx: &Ctx, ty: &Value) -> bool {
     };
     let (head, args) = lhs.spine();
     matches!(head.strip_loc(), Term::Def(d) if d == is_scalar)
-        && matches!(args.as_slice(), [arg] if matches!(arg.strip_loc(), Term::Nat(_)))
+        && matches!(args.as_slice(), [arg] if matches!(arg.strip_loc(),
+            Term::Nat(n) if u32::try_from(n.as_ref().clone()).ok().and_then(char::from_u32).is_some()))
         && matches!(
             (rhs.strip_loc(), holds.strip_loc()),
             (Term::Ctor(d1, c1, _), Term::Ctor(d2, c2, _)) if d1 == d2 && c1 == c2
@@ -625,6 +629,83 @@ fn drop_superseded(
         keep
     });
     before - context.len()
+}
+
+/// Takes out of the goal's hypotheses the variables a pattern match's split
+/// left behind that nothing shown mentions: unnamed (`tail✝`, `code✝`,
+/// `valid✝`), which a proof can't refer to, and which neither the target
+/// nor any hypothesis that stays depends on, as in the catch-all arm after
+/// text literals, other than a proof that says more than the split did. They stay in `hidden`, as for [`drop_superseded`].
+fn drop_split_leftovers(
+    cx: &Ctx,
+    expected: &Value,
+    context: &mut Vec<Entry>,
+    hidden: &mut Vec<(usize, Value)>,
+) {
+    let g = cx.g();
+    let level = cx.level();
+    let leftover = |e: &Entry| {
+        e.value.is_none()
+            && cx.lets[e.level].is_none()
+            && e.name.contains('✝')
+            && cx.name_of_level(e.level).is_none()
+    };
+    if !context.iter().any(leftover) {
+        return;
+    }
+    let read = |v: &Value| -> Option<Vec<usize>> {
+        quote_shown(&g, level, v)
+            .ok()
+            .and_then(|t| levels_in(&t, level))
+    };
+    let mut mentioned = match read(expected) {
+        Some(l) => l,
+        None => return,
+    };
+    for e in context.iter().filter(|e| !leftover(e)) {
+        for v in std::iter::once(&e.ty).chain(e.value.as_ref()) {
+            match read(v) {
+                Some(l) => mentioned.extend(l),
+                None => return,
+            }
+        }
+    }
+    // A leftover stays if something shown mentions it, or if it is a proof
+    // that says something beyond the split: about no variable (`Char.isScalar
+    // 55296`, from a spelled-out `MkChar 55296 _`) or about one that stays
+    // (`h✝: n ≠ 5`). Only data, and proofs about dropped cells
+    // (`valid✝: Char.isScalar code✝`), are cells of the split. One that stays
+    // brings its type's variables with it.
+    let cells: Vec<usize> = (context.iter().filter(|e| leftover(e)))
+        .map(|e| e.level)
+        .collect();
+    let mut kept: Vec<usize> = Vec::new();
+    loop {
+        let before = kept.len();
+        for e in context.iter().filter(|e| leftover(e)) {
+            if kept.contains(&e.level) {
+                continue;
+            }
+            let Some(about) = read(&e.ty) else { return };
+            let says_more = crate::rewrite::is_proof_type(cx, &e.ty).unwrap_or(false)
+                && (about.is_empty()
+                    || about.iter().any(|l| !cells.contains(l) || kept.contains(l)));
+            if mentioned.contains(&e.level) || says_more {
+                kept.push(e.level);
+                mentioned.extend(about);
+            }
+        }
+        if kept.len() == before {
+            break;
+        }
+    }
+    context.retain(|e| {
+        let keep = !leftover(e) || kept.contains(&e.level);
+        if !keep {
+            hidden.push((e.level, e.ty.clone()));
+        }
+        keep
+    });
 }
 
 /// The context's entries in an order that shows a variable before a

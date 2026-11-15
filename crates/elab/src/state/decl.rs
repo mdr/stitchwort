@@ -185,15 +185,15 @@ pub(crate) struct Decl {
     /// declaration is done), and emptied as the next one starts.
     pub(crate) matches_shown: RefCell<Vec<(String, DefId)>>,
     /// The characters whose patterns became number patterns (by span), so
-    /// a missing case can be reported as characters. Written and read while
-    /// one pattern match is compiled. (Before SW-1149 it grew over the
+    /// a missing case can be reported as characters. Cleared with the rest of
+    /// the declaration's state ([`Decl::reset`]). (Before SW-1149 it grew over the
     /// session, emptied only by a rewind.)
     pub(crate) char_patterns: RefCell<HashMap<Span, char>>,
     /// The spans of the patterns a text pattern was expanded to (its list
     /// cells and each of its characters), each to the text pattern's own
     /// span, so that a case left out among them is reported as a text one
-    /// (docs/proposals/text-patterns.md §4.4). Written and read while one
-    /// pattern match is compiled, like [`Self::char_patterns`].
+    /// (docs/proposals/text-patterns.md §4.4). Cleared per declaration, like
+    /// [`Self::char_patterns`].
     pub(crate) text_spans: RefCell<HashMap<Span, Span>>,
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
