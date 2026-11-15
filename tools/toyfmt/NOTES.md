@@ -2616,3 +2616,60 @@ declarations.
     (`Plain`) breaks the patterns that use the constructor, with an
     error at each of them and none at the `def`.
 
+### Part 16 (Fable, 15 Nov 2026): blocks in an `if` read back (D3, D4, statement change 1; lane 2 of 6)
+
+A 25-minute lane. Two of the sketch's goals are discharged and the
+statement that was too narrow is widened: `audit Toy`: 1131 theorems,
+0 failed, 18 warnings (the 16, and `fuelDeclines` and
+`expressionDeclines`, whose hypothesis "this token is a keyword" no
+random token met). No program changed. The sketch has four open goals.
+
+- **D4**: a block ends where no token starts a line at its column, or
+  at `then` or `else` wherever it stands (`BlockEnds`).
+  `statementDeclinesEnd`: `statement` declines there, because no
+  expression starts with a keyword other than `if`
+  (`expressionRuleDeclines`, for any nested parser).
+- **D3**: `linesRun` and `runsBodySpelled` are over the parser of the
+  induction (`ReadsNested`, `DeclinesNested`); `runsBodyNested` is
+  proved and `runsBody` is its instance at `expression`.
+- **Statement change 1**: `Spelled`'s arm for `If` asks `SpelledBody`
+  of each branch before whatever may follow it (`After`:
+  `EndsExpression` and `Settled`). `runsIfSpelled` reads the branches
+  by `runsBodyNested`. `runsExpression` is an induction on the fuel of
+  its own (`runsExpressionFuel`).
+- **`afterDeeper`** (E2's): what may follow a statement may follow the
+  last line of a block inside it, and ends the block.
+- **`runsIfBlockExample`**: `if a then`, the block `b`, `else c` with
+  `else` at the block's column, by `runsExpression`.
+
+[SKETCH.md](SKETCH.md), "After lane 2", has the statement as made, the
+counts (28 new theorems against 38-57) and the new estimate (140-165
+left).
+
+**Not done:** `if` outside brackets in E2: it is the same induction as
+E2's blocks (a branch is a body, a block's line is an expression), not
+a step before it.
+
+**Friction** (beyond parts 1 to 15):
+
+76. One unbalanced bracket in a 1,600-line file gave 2,242
+    `W-ARROW-FORALL` warnings (every binder of every theorem after it
+    read as a function type) and unknown-name errors in five other
+    files; the `E-PARSE` was at line 1,261 of 14,000 lines of output.
+77. `rfl` can't run a parser through `Parse.note` (the state's `note`
+    branches on offsets it doesn't know), so "declines" is built from
+    `Parse.declinesAfter` and `declinesBind`; each `match` on the next
+    token needs its own step lemma under `optional`, by taking the
+    state apart (`chainRuleStops`). `rewrite starts in rfl` on such a
+    step failed where the two sides unfold to different depths.
+78. Good: `Spelled` (one file) and `SpelledBody`, `SpelledLines`
+    (another file of the namespace) became mutual without moving. The
+    termination check wanted the body's one expression matched as a
+    part of the body, not `∃ value` with an equation, and said so.
+79. Good: the whole statement change (two definitions, six restated
+    theorems, three files) checked after two bracket-count errors and
+    nothing else.
+80. std has no way to tell `Parse.runsRecursiveWith`'s step anything
+    about the nested parser except what it reads; "it declines here"
+    needed the fuel induction copied (`runsExpressionFuel`).
+

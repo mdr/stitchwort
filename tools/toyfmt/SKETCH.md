@@ -7,8 +7,8 @@ the rest, from the goal down, and checks that the statements fit.
 ## What is checked
 
 `sketch/src/Sketch.sw` (namespace `Toy.Sketch`) defines `formatDirect`
-(parse, print, no check of any kind) and proves, from five open lemmas
-and what `src/` has proved:
+(parse, print, no check of any kind) and proves, from its open lemmas
+(five when written, four after lane 2) and what `src/` has proved:
 
 | Theorem | Says |
 |---|---|
@@ -157,6 +157,67 @@ program change), 3 lanes at the measured pace, 4-5 planned. Next: the
 shape of statement change 1 (which of the two ways), then D3 and D4
 with it, since the rest of E2's induction is stated against the
 changed `Spelled`.
+
+## After lane 2 (part 16): D3, D4 and statement change 1 are proved
+
+`stitchwort check` in `sketch/` now says "4 goals open": E1, D1, D2 and
+E2. `runsBodyNested` is a theorem of `Toy.Syntax.Proofs`
+(`BlockProofs.sw`), and `Spelled` is true of an `if` with a block
+branch. `runsIfBlockExample` is an instance: `if a then`, a block `b`,
+and `else c` with the `else` starting a line at the block's column,
+read back by `runsExpression`.
+
+| Goal | Estimated | Proved | Theorems |
+|---|---|---|---|
+| D4 | 8-12 | 15 | no expression starts with a keyword other than `if`, whatever reads the nested expressions (`atomDeclines`, `postfixDeclines`, `negationsDecline`, `operatorsDecline`, `chainRuleStops`, `expressionRuleDeclines`, `fuelDeclines`, `expressionDeclines`, two helpers); `statement` declines at `then` or `else` (`bareDeclines`, `closerLineDeclines`, `statementLineDeclines`, `statementDeclinesCloser`, `statementDeclinesEnd`); `SpelledLines` ends with `BlockEnds` |
+| D3 with statement change 1 | 30-45 | 8 new, 6 restated, 1 removed | `runsBodyNested`, `runsExpressionFuel`, `afterBrackets`, `afterCloser`, `notAtBack`, `settledBack`, `inlineSpelledBody`, `runsIfBlockExample`; `linesRun`, `runsBodySpelled`, `runsBody`, `runsIfSpelled`, `runsExpressionRule`, `runsExpression` restated |
+| E2, the block ends | part of 7-10 | 5 | `afterDeeper` (what may follow a statement may follow the last line of a block inside it, and ends the block), `endsUnallowed`, `operatorOfUnallowed`, `lowLine`, `closerReserved` |
+
+The statement change, as made:
+
+- **An `if` stands only as a whole expression** (`Shaped` asks
+  `isChain` of an operator's sides and `isOperand` of what `-`
+  negates), so the right spine of lane 1's finding is the `else` branch
+  and nothing else. `Spelled` keeps its three arguments. Its arm for
+  `If` asks, of each branch, `∀ rest => After layout branchTokens rest →
+  SpelledBody layout branch branchTokens rest`.
+- **`After layout tokens rest`** is what `ReadsNested`,
+  `runsExpression`, `SpelledBody` and `SpelledLines` take where they
+  took `EndsExpression layout rest`: `EndsExpression`, and `Settled`:
+  outside brackets, what comes next is nothing, `then` or `else`, or a
+  token that starts a line no deeper than the statement and is at none
+  of the expression's own offsets (`NotAt`; a statement's first token is
+  known by its offset, so without this a block's last line can't be
+  shown to end).
+- **`SpelledBody`'s one-expression case goes by the lines' shape**
+  (`SpelledOne`), not "some `bodyOf value`", so that `Spelled`,
+  `SpelledBody`, `SpelledOne` and `SpelledLines` are mutual and
+  structural. They are in two files of one namespace; nothing moved.
+- **`runsExpression` is its own induction on the fuel**
+  (`runsExpressionFuel`), not std's `Parse.runsRecursiveWith`, which
+  tells the step nothing of the nested parser but what it reads. D4
+  needs it to decline at a keyword (`DeclinesNested`), which holds of
+  every level but the innermost.
+
+New obligations. Outside the sketch's goals: none; D2's and E2's
+statements read as before (`SpelledFile` goes through `SpelledBody`),
+and lane 1's `exprSpells` needed two lines (`inlineSpelledBody`). Inside
+E2: `Settled` at the end of each statement and body (the next line's
+first token is no deeper and at another offset; needs the offsets'
+order, which `spellsFile` has as `Descending`), about 4-6 lemmas, in
+place of the 2-5 left of "`EndsExpression` and the block ends".
+
+Not done: `if` outside brackets in E2. It is mutual with blocks and
+lines (the branch of an `if` is a `SpelledBody`, a block's line is a
+`Spelled`), so it is the same induction as E2's blocks, not a part
+that comes before it.
+
+Re-estimate: E2 40-45 left (blocks, lines, notes and blank lines 17;
+`if` outside brackets, in that induction, 6; `Settled` and
+`EndsExpression` at each end 4-6; declarations and parameters 8;
+newest-first against `Rising` 5), E1 5, D1 75-85 (25-30 with the
+program change), D2 12-15, glue 8-13: **140-165 lemmas** (90-110 with
+the program change), 2 lanes at the measured pace, 3-4 planned.
 
 ## Lanes
 
