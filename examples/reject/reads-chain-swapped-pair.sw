@@ -3,7 +3,7 @@
 -- proof, not at the chain's first lemma (SW-3281).
 import Std (Char, List, Parse)
 
-def twoLetters(): {Parse} (Char, Char) :=
+def twoLetters(): {Parse Char} (Char, Char) :=
   let first := Parse.satisfy "a letter" Char.isAsciiLetter
   let second := Parse.satisfy "a letter" Char.isAsciiLetter
   (first, second)

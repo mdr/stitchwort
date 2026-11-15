@@ -8,7 +8,7 @@ import Std.Parse (char, int, label, lines, many1, nat, oneOf, optional, pick, re
 -- "162,817,812": one box per line, read with `Parse.eachLine`.
 type Point = { x: Nat, y: Nat, z: Nat }
 
-def point(): {Parse} Point :=
+def point(): {Parse Char} Point :=
   let x := nat()
   char ','
   let y := nat()
@@ -27,7 +27,7 @@ test "a bad point" :=
 -- "L68": a keyword table, then a number.
 type Turn = | Left (distance: Nat) | Right (distance: Nat)
 
-def turn(): {Parse} Turn :=
+def turn(): {Parse Char} Turn :=
   let direction := label "a turn like L68" (() => pick [("L", Left), ("R", Right)])
   direction (nat())
 
@@ -38,7 +38,7 @@ test "a bad turn" :=
 -- "p=0,4 v=3,-3": literal text and signed numbers.
 type Robot = { px: Int, py: Int, vx: Int, vy: Int }
 
-def robot(): {Parse} Robot :=
+def robot(): {Parse Char} Robot :=
   text "p="
   let px := int()
   char ','
@@ -56,7 +56,8 @@ test "a bad robot" := toResult (() => Parse.line "p=0,4 w=3,-3" robot) == Err "c
 -- expected there.
 type Cell = | Roll | Floor
 
-def cells(): {Parse} List (List Cell) := Parse.grid (() => pick [("@", Roll), (".", Floor)]) |> .toList |> .map .toList
+def cells(): {Parse Char} List (List Cell) :=
+  Parse.grid (() => pick [("@", Roll), (".", Floor)]) |> .toList |> .map .toList
 
 test "grid" := toResult (() => Parse.all "@.\n.@\n" cells) == Ok [[Roll, Floor], [Floor, Roll]]
 test "a bad grid" :=
@@ -66,7 +67,7 @@ test "a bad grid" :=
 -- Choice backs up: "move 3" and "mark" share their first letters.
 type Command = | Move (steps: Nat) | Mark
 
-def command(): {Parse} Command := oneOf [
+def command(): {Parse Char} Command := oneOf [
   () =>
     text "move "
     Move (nat()),
@@ -80,7 +81,7 @@ test "a bad command" :=
   toResult (() => Parse.line "mov 3" command) == Err "column 1: expected 'move ' or 'mark', got 'mov 3'"
 
 -- Nested input with `recursive`: "[1,[2,3],[]]", the depth of the deepest list.
-def depth(): {Parse} Nat := recursive (nested =>
+def depth(): {Parse Char} Nat := recursive (nested =>
   oneOf [
     () =>
       let number := nat()
@@ -97,7 +98,7 @@ test "a bad nesting" :=
   toResult (() => Parse.line "[1,[2,3]" depth) == Err "column 9: expected ',' or ']', got the end of the line"
 
 -- An optional sign, then digits, one at a time.
-def signedDigits(): {Parse} (Bool, List Nat) :=
+def signedDigits(): {Parse Char} (Bool, List Nat) :=
   let minus := optional (() => char '-')
   (minus.isSome, many1 (() => Parse.digit().toNat) |> .toList)
 

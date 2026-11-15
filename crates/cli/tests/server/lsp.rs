@@ -642,7 +642,7 @@ fn hover_shows_the_doc() {
 fn hover_shows_the_parameters_by_name() {
     let dir = temp_dir("header");
     let file = dir.join("header.sw");
-    let text = "import Std (List, Parse)\n\n--| Clamps.\ndef clampTo (low: Nat) (high: Nat := 10) (x: Nat): Nat := x\n\ndef plain: Nat → Nat\n  | n => n\n\ndef mixed (a: Nat): Nat → Nat\n  | n => n + a\n\ndef pick [a: Type] (xs: List a): Nat := List.length xs\n\ntheorem keep (n: Nat) (h: n = n): n = n := h\n\ndef a1: Nat := clampTo (low := 1) (x := 3)\ndef a2: Nat := plain 1\ndef a3: Nat := mixed 1 2\ndef a4: {Parse} Char := Parse.satisfy \"x\" (c => True)\ndef a5: Nat := List.length [1]\ndef a6: Nat := pick [1]\n";
+    let text = "import Std (List, Parse)\n\n--| Clamps.\ndef clampTo (low: Nat) (high: Nat := 10) (x: Nat): Nat := x\n\ndef plain: Nat → Nat\n  | n => n\n\ndef mixed (a: Nat): Nat → Nat\n  | n => n + a\n\ndef pick [a: Type] (xs: List a): Nat := List.length xs\n\ntheorem keep (n: Nat) (h: n = n): n = n := h\n\ndef a1: Nat := clampTo (low := 1) (x := 3)\ndef a2: Nat := plain 1\ndef a3: Nat := mixed 1 2\ndef a4: {Parse Char} Char := Parse.satisfy \"x\" (c => True)\ndef a5: Nat := List.length [1]\ndef a6: Nat := pick [1]\n";
     std::fs::write(&file, text).unwrap();
     let uri = uri(&file);
     let mut client = Client::start();
@@ -687,7 +687,7 @@ fn hover_shows_the_parameters_by_name() {
     // A library function.
     let satisfy = shown(&mut client, 18, "Parse.satisfy");
     assert!(
-        satisfy.starts_with("```stitchwort\ndef Std.Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char\n```"),
+        satisfy.starts_with("```stitchwort\ndef Std.Parse.satisfy [t: Type] (what: Text) (passes: t → Bool): {Parse t} t\n```"),
         "{satisfy}"
     );
     let length = shown(&mut client, 19, "List.length");

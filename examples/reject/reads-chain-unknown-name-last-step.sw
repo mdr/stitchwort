@@ -3,7 +3,7 @@
 -- not at the chain's first lemma (SW-3281).
 import Std (Char, List, Parse)
 
-def p(): {Parse} List Nat :=
+def p(): {Parse Char} List Nat :=
   let x0 := Parse.nat()
   let x1 := Parse.nat()
   let x2 := Parse.nat()

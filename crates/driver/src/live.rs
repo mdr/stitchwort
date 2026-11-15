@@ -80,7 +80,7 @@ pub struct LiveRef {
     /// (`(low: Nat) -> [n: Nat] -> Nat`).
     pub signature: Option<String>,
     /// For a function: its header after its name, as its declaration
-    /// writes it (`(what: Text): {Parse} Char`), for hover.
+    /// writes it (`(what: Text): {Parse t} t`), for hover.
     pub header: Option<String>,
     /// The declaration's doc (docs/proposals/documentation.md §4), for hover.
     pub doc: Option<String>,

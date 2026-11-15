@@ -7,7 +7,7 @@ import Std (Char, List, Parse)
 
 type Pair = { first: Nat, second: Nat }
 
-def pair(): {Parse} Pair :=
+def pair(): {Parse Char} Pair :=
   let first := Parse.nat()
   Parse.char ','
   let second := Parse.nat()

@@ -5,11 +5,11 @@ import Std (Fail, Nat, Parse, Result, Text)
 import Std.Fail (toResult)
 import Std.Parse (char, natDigits, sepBy1)
 
-def threeBits(): {Parse} List Nat := sepBy1 (() => natDigits 1 1) (() => char ',') |> .toList
+def threeBits(): {Parse Char} List Nat := sepBy1 (() => natDigits 1 1) (() => char ',') |> .toList
 
-def year(): {Parse} Nat := natDigits 4 4
+def year(): {Parse Char} Nat := natDigits 4 4
 
-def code(): {Parse} Nat := natDigits 2 5
+def code(): {Parse Char} Nat := natDigits 2 5
 
 test "digits" := toResult (() => Parse.all "0,3,5" threeBits) == Ok [0, 3, 5]
 

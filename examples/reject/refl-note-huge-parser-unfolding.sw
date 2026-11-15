@@ -6,7 +6,7 @@
 -- 1.2 GB (SW-2580).
 import Std (Fin, Parse)
 
-def choose (b: Bool) (p: () → {Parse} List (Fin 10)): () → {Parse} List (Fin 10) := match b with
+def choose (b: Bool) (p: () → {Parse Char} List (Fin 10)): () → {Parse Char} List (Fin 10) := match b with
   | True => p
   | False => p
 

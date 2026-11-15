@@ -5,11 +5,11 @@
 -- (SW-1521): remembering pairs of calls found different must not lose this.
 import Std (Fin, Parse)
 
-def choose (b: Bool) (p: () → {Parse} List (Fin 10)): () → {Parse} List (Fin 10) := match b with
+def choose (b: Bool) (p: () → {Parse Char} List (Fin 10)): () → {Parse Char} List (Fin 10) := match b with
   | True => p
   | False => p
 
-def tagged (b: Bool) (p: () → {Parse} List (Fin 10)): () → {Parse} List (Fin 10) := choose b p
+def tagged (b: Bool) (p: () → {Parse Char} List (Fin 10)): () → {Parse Char} List (Fin 10) := choose b p
 
 theorem lem ∀ (b: Bool): tagged b (() => Parse.exactly 36 Parse.digit) = (() => Parse.exactly 36 Parse.digit) :=
   match b with

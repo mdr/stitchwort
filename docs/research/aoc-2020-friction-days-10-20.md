@@ -197,7 +197,7 @@ SW-1473 meets SW-1163's in-place reuse.
 - **Soundness friction.** `readsWeaken` over `readsMap` needed both
   implicits named, and the error pointed into `Parse.nat` (day 15,
   `N:3928`); a record built from a pipe defeats `readsMap` even with them
-  named (day 16, `N:4243`); a pure `foldLeft` in a `{Parse}` function
+  named (day 16, `N:4243`); a pure `foldLeft` in a `{Parse Char}` function
   became an effect (day 18, `N:4803`); `readsDone`'s `_` spec wasn't
   worked out after a `let` (day 18, `N:4837`); arms for a theorem whose
   result is `Parse.Reads` need its hidden arrows (day 18, `N:4848`); a

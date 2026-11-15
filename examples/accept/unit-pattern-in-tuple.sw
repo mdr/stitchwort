@@ -35,7 +35,7 @@ theorem armsIs: arms (True, ()) = 1 := rfl
 theorem equationsIs: equations (4, ()) = 4 := rfl
 
 -- An effectful tuple whose first part is a parser that gives `()`.
-def afterComma(): {Parse} Nat :=
+def afterComma(): {Parse Char} Nat :=
   let ((), n) := (char ',', natDigits 1 3)
   n
 

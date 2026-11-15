@@ -214,13 +214,13 @@ test "pythagorean triples" := triples 13 == [(3, 4, 5), (5, 12, 13), (6, 8, 10)]
 
 ## Parsing: `Parse`
 
-A parser from `Std.Parse` is direct-style code with the `Parse` ability. It reads with `nat()`, `char ','` and `text "p="`, and chooses with `oneOf`, `optional` and `many`. A runner gives it the input: `Parse.eachLine` parses each line on its own, `Parse.all` the whole input. Either turns a failure into a `Fail` that names the line and column:
+A parser from `Std.Parse` is direct-style code with the `Parse` ability. The ability takes the type of what it reads: a parser of text is `{Parse Char}`, and the combinators work over any `Parse t` (a list of tokens, say). It reads with `nat()`, `char ','` and `text "p="`, and chooses with `oneOf`, `optional` and `many`. A runner gives it the input: `Parse.eachLine` parses each line on its own, `Parse.all` the whole input. Either turns a failure into a `Fail` that names the line and column:
 
 <!-- snippet: abilities.sw#parse -->
 ```stitchwort
 type Box = { x: Nat, y: Nat, z: Nat }
 
-def box(): {Parse} Box :=
+def box(): {Parse Char} Box :=
   let x := nat()
   char ','
   let y := nat()

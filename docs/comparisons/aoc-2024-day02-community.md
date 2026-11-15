@@ -282,7 +282,7 @@ What this says:
 - **`Std.Parse` dominates every run.** On x100 it is 7 times slower than splitting under `run`,
   and 15 times slower natively. Natively it is 2.5 times *slower than JS*. On every other
   workload in this note, and on day 9, native is the fastest. The parser runs as an effect
-  handler (`{Parse}`), and SW-593 records that native effects spend 49% of their time
+  handler (`{Parse Char}`), and SW-593 records that native effects spend 49% of their time
   allocating and freeing. So the effect runtime is the likely cause **[inferred]**.
 - **Possibly a regression.** `NOTES-2024.md` (27 October, commit `eef373f3`) timed 100,000
   lines at 2.0 s under `run`. Today the same program takes 9.6–10.0 s. On 28 October, `2b541087`

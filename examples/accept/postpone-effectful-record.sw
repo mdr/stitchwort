@@ -10,7 +10,7 @@
 import Std (List, Nat, Parse, Result)
 import Std.Parse (natDigits)
 
-def shortNumber(): {Parse} Nat := natDigits 1 3
+def shortNumber(): {Parse Char} Nat := natDigits 1 3
 
 type Position = { x: Nat, y: Nat }
 
@@ -21,21 +21,21 @@ type Robot = { position: Position, speed: Nat }
 def usePosition (p: Position): Nat := p.x
 
 -- The parameter's type is known from the signature.
-def inArgument(): {Parse} Nat := usePosition { x = shortNumber(), y = 0 }
+def inArgument(): {Parse Char} Nat := usePosition { x = shortNumber(), y = 0 }
 
-def inTuple(): {Parse} (Position, Nat) := ({ x = shortNumber(), y = 0 }, 1)
+def inTuple(): {Parse Char} (Position, Nat) := ({ x = shortNumber(), y = 0 }, 1)
 
-def nested(): {Parse} Robot := { position = { x = shortNumber(), y = 0 }, speed = 0 }
+def nested(): {Parse Char} Robot := { position = { x = shortNumber(), y = 0 }, speed = 0 }
 
 -- The parameter's type is `a`, fixed only by the later argument.
 def firstOf (x: a) (xs: List a): a := x
 
-def generic (more: List Position): {Parse} Position := firstOf { x = shortNumber(), y = 0 } more
+def generic (more: List Position): {Parse Char} Position := firstOf { x = shortNumber(), y = 0 } more
 
 def area (s: Size): Nat := s.x * s.y
 
 -- The same, for the other record type with these fields.
-def sized (more: List Size): {Parse} Nat := area (firstOf { x = shortNumber(), y = 2 } more)
+def sized (more: List Size): {Parse Char} Nat := area (firstOf { x = shortNumber(), y = 2 } more)
 
 def ok (r: Result Nat Parse.Failure): Nat := match r with
   | Ok n => n

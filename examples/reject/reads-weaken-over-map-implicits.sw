@@ -7,7 +7,7 @@ import Std (List, NonEmptyList, Parse)
 
 type Starting = { numbers: NonEmptyList Nat }
 
-def starting(): {Parse} Starting := { numbers = Parse.sepBy1 Parse.nat (() => Parse.char ',') }
+def starting(): {Parse Char} Starting := { numbers = Parse.sepBy1 Parse.nat (() => Parse.char ',') }
 
 def Written (read: List Char) (value: Starting): Prop := ∃ (numbers: NonEmptyList Nat) => value = { numbers }
 

@@ -253,7 +253,7 @@ Code lines, not counting blank or comment-only lines:
 Ours and mniip's, the two with the same shape:
 
 ```stitchwort
-def instruction(): {Parse} Instruction :=
+def instruction(): {Parse Char} Instruction :=
   oneOf [
     () =>
       text "mul("
