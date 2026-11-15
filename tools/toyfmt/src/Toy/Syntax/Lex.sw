@@ -27,37 +27,37 @@ def isWordChar (char: Char): Bool := char.isAsciiAlphanumeric || char == '_'
 
 def isOperatorChar (char: Char): Bool := "=|&!<+-*/%".any (symbol => symbol == char)
 
---| The next lexeme, chosen by its first characters.
-def lexeme(): {Parse Char} Parse.Located Lexeme := Parse.located (() =>
-  match Parse.mark().rest with
-    | [' ', .._] =>
-      let spaces := Parse.span (char => char == ' ')
-      Spaces
-    | ['\n', .._] =>
-      let lineBreak := Parse.next (char => True)
-      LineBreak
-    | ['-', '-', .._] =>
-      let comment := Parse.span (char => char != '\n')
-      CommentLexeme
-    | ['"', .._] =>
-      stringLexeme()
-      StringLexeme
-    | [char, .._] if isWordStart char =>
-      let word := Parse.span isWordChar
-      WordLexeme
-    | [char, .._] if char.isAsciiDigit =>
-      let digits := Parse.span (char => char.isAsciiDigit)
-      DigitsLexeme
-    | [char, .._] if (punctuation char).isSome =>
-      let sign := Parse.next (char => True)
-      SignLexeme
-    | [char, .._] if isOperatorChar char =>
-      let run := Parse.many operatorChar
-      SymbolsLexeme
-    | [_, .._] =>
-      let stray := Parse.next (char => True)
-      StrayLexeme
-    | [] => Parse.expected "a token")
+--| The lexeme at the start of `rest`, the input left, chosen by its first
+--| characters.
+def lexemeAt (rest: List Char): {Parse Char} Lexeme := match rest with
+  | [' ', .._] =>
+    let spaces := Parse.span (char => char == ' ')
+    Spaces
+  | ['\n', .._] =>
+    let lineBreak := Parse.next (char => True)
+    LineBreak
+  | ['-', '-', .._] =>
+    let comment := Parse.span (char => char != '\n')
+    CommentLexeme
+  | ['"', .._] =>
+    stringLexeme()
+    StringLexeme
+  | [char, .._] if isWordStart char =>
+    let word := Parse.span isWordChar
+    WordLexeme
+  | [char, .._] if char.isAsciiDigit =>
+    let digits := Parse.span (char => char.isAsciiDigit)
+    DigitsLexeme
+  | [char, .._] if (punctuation char).isSome =>
+    let sign := Parse.next (char => True)
+    SignLexeme
+  | [char, .._] if isOperatorChar char =>
+    let run := Parse.many operatorChar
+    SymbolsLexeme
+  | [_, .._] =>
+    let stray := Parse.next (char => True)
+    StrayLexeme
+  | [] => Parse.expected "a token"
 
 --| One character of an operator run; a run stops before a comment's `--`.
 def operatorChar(): {Parse Char} () := match Parse.mark().rest with
@@ -86,7 +86,26 @@ def stringLexeme(): {Parse Char} () :=
     | None => Parse.expected "'\"' to close the string"
 
 --| The source as lexemes, every character in one.
-def lexemes(): {Parse Char} List (Parse.Located Lexeme) := Parse.many lexeme
+-- A loop of its own, not `Parse.many`: a lexeme fails only on a bad string,
+-- which fails the lex anyway, so no lexeme needs a handler to back up from,
+-- and the mark after one lexeme is the start of the next. The notes are
+-- `Parse.many (() => Parse.located lexeme)`'s, so messages are the same.
+def lexemes(): {Parse Char} List (Parse.Located Lexeme) :=
+  let start := Parse.mark()
+  lexemesFrom (start.left + 1) [] start
+
+--| The lexemes from `start`, at most `fuel` more; `found` is newest first.
+def lexemesFrom (fuel: Nat) (found: List (Parse.Located Lexeme)) (start: Parse.Mark Char):
+    {Parse Char} List (Parse.Located Lexeme) :=
+  match fuel, start.rest with
+    | Succ more, [_, .._] =>
+      let value := lexemeAt start.rest
+      let finish := Parse.mark()
+      let lexeme := { value, offset = start.offset, length = finish.offset - start.offset }
+      lexemesFrom more [lexeme, ..found] finish
+    | _, _ =>
+      Parse.note (Parse.Problem.Expected "a token")
+      found.reverse
 
 --| The tokens so far (newest first), the trivia waiting for the next token
 --| (newest first), where the current line starts, and whether it has had

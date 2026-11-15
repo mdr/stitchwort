@@ -46,6 +46,51 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 15 Nov 2026
 
+### SW-3383: the toy formatter, profiled; its handlers out of the hot paths (3.8 to 2.05 s/MB native)
+
+- **Status:** kept (Opus). Toy code only (`tools/toyfmt`); one runtime
+  attempt dropped (below). Scoped to the toy, not the paused speed epics
+  (D3465).
+- **Problem, profiled first.** `Toy.Timing.main -- format 2600` (933 KB of
+  Sprig), native, samply plus the `call-counts` runtime: no hot function;
+  the effect runtime and the allocator were three quarters of the time.
+  Counted: 5.4 M `Parse` operations, 8.7 M crossings of forwarding
+  handlers, about 60 M objects allocated. A probe (1 M operations under
+  `Parse.all`) put a `Parse.mark` at about 4,300 instructions and a
+  `Parse.optional` round at about 6,300 more [measured]. The toy's grammar
+  used nine handlers and about thirty operations per operand (six
+  `chainLeft` levels, `many` for negations, `many` of `oneOf` for calls and
+  fields), a `many` round and three marks per lexeme, and an `optional` per
+  comma.
+- **Change.** Precedence climbing and a look at the next token for
+  operators, negations, calls, fields, commas and closers, with a handler
+  only where something was found (so a dangling operator is still left
+  unread); lexemes in a loop of their own, one mark each. Commits on
+  `lane/SW-3383`.
+- **Why results stay the same.** Every place the old grammar noted an
+  expectation, the new one notes the same text at the same offset, in the
+  same order; duplicates (six "an operator"s) collapse in the message as
+  before. Checked: the toy's 78 tests (goldens, disturbances, exact
+  messages), the `toyfmt_formats` end-to-end test, and the old and new
+  `toyfmt` on 9,000 mutated sources (three seeds), identical output, exit
+  codes and files. No std or compiler change, so no hash moves.
+- **Measured** (user seconds, median of 3 at load about 3.5; instructions
+  median of 5): lexing 1.15 s / 16.4 G to 0.68 s / 9.3 G; parsing beyond
+  lexing 2.08 s / 29.0 G to 0.91 s / 12.2 G; printing unchanged (0.3 s,
+  4.4 G); whole format 3.52 s to 1.91 s, 49.8 G to 25.9 G instructions.
+  `stitchwort run`: 9.4 s to 5.2 s (one run each, load 25). No benchmark
+  run: nothing outside `tools/toyfmt` changed.
+- **Dropped:** the runtime's freeing queue (`value::free`'s `pending`) as a
+  `SmallVec<[Value; 8]>` instead of a `Vec`, since growing that `Vec` was
+  2.8% of the profile: instructions +1%, cycles unchanged. Not kept.
+  (Skipping the queue for children that are shared would avoid the
+  allocation, but a cell holding the same child twice can then free
+  recursively, the overflow SW-2452 fixed.)
+- **Left.** Lexing and parsing are still about half `Parse` operations
+  (the effect runtime's cost per operation: operations in place, paused,
+  D3430) and about a tenth the list of characters (D3597's slices). Details
+  in `tools/toyfmt/NOTES.md`, "Speed (SW-3383)".
+
 ### SW-3370: derived `==` and `<` linear in the constructor count; 94 constructors from 12.3 s to 0.17 s
 
 - **Status:** kept (Opus). Stage 2 of
