@@ -1704,15 +1704,33 @@ impl Elaborator {
         near.sort_unstable();
         near.dedup();
         let meant = meaning_suggestions(key, member, |full| self.scope.get(full).is_some());
-        let near: Vec<String> = if meant.is_empty() {
-            near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+        let mut suggestions: Vec<String> = self.conversion_suggestions(key, member);
+        if !meant.is_empty() {
+            suggestions.extend(meant.iter().map(|m| format!("`{shown}.{m}`")));
         } else {
-            meant.iter().map(|m| format!("`{shown}.{m}`")).collect()
-        };
-        if !near.is_empty() {
-            d = d.with_note(format!("did you mean {}?", or_list(&near)));
+            suggestions.extend(near.iter().take(3).map(|(_, m)| format!("`{m}`")));
+        }
+        if !suggestions.is_empty() {
+            d = d.with_note(format!("did you mean {}?", or_list(&suggestions)));
         }
         d
+    }
+
+    /// The other direction's name for a missing conversion `T.ofX`: the
+    /// library spells `Int.ofNat` `Nat.toInt` (SW-3346). Empty when no
+    /// `X.toT` is declared.
+    fn conversion_suggestions(&self, key: &str, member: &str) -> Vec<String> {
+        let Some(source) = member.strip_prefix("of").filter(|s| !s.is_empty()) else {
+            return Vec::new();
+        };
+        let target = format!("to{}", short(key));
+        for prefix in ["Std.", ""] {
+            let full = format!("{prefix}{source}.{target}");
+            if self.scope.get(&full).is_some() {
+                return vec![format!("`{}`", display(&full))];
+            }
+        }
+        Vec::new()
     }
 
     /// What `written` names, if it names one declaration exactly.
@@ -2232,6 +2250,7 @@ impl Elaborator {
                     k.starts_with("Std.")
                         && short(k) == name.text
                         && parent(k).is_some_and(|p| p.contains('.'))
+                        && self.suggests_bare(k)
                 })
                 .collect();
             keys.sort_by_key(|k| self.written_in_full(k));
@@ -2268,6 +2287,35 @@ impl Elaborator {
             }
         }
         d
+    }
+
+    /// Whether a bare unknown name is worth suggesting the library name
+    /// `key` for (SW-3445). A generated field accessor `T.f` is reached
+    /// through a value (`a.f`) or written in full (`T.f`), so it is noise
+    /// where a bare name was meant; likewise a definition living in the
+    /// namespace of a type that isn't at the library's root, such as
+    /// `Parse.OperatorTree.highest`. Constructors and types are always
+    /// worth naming.
+    fn suggests_bare(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((
+                Global::Ctor(..)
+                | Global::Data(..)
+                | Global::Pending(_, crate::library::PendingKind::Ctor)
+                | Global::Pending(_, crate::library::PendingKind::Data),
+                _,
+            )) => return true,
+            Some((Global::Def(_), _)) if self.scope.is_member(key) => return false,
+            _ => {}
+        }
+        if self
+            .library_index()
+            .is_some_and(|index| index.is_accessor(key))
+        {
+            return false;
+        }
+        parent(key)
+            .is_none_or(|p| !self.is_data_key(p) || !p.trim_start_matches("Std.").contains('.'))
     }
 
     /// Whether `key` names a data type (including one this module declares

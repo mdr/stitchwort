@@ -8,6 +8,4 @@ expression: output
  7 │ def bigger (d: Dial (highest + 1)): Nat := d.position
    │                      ───┬───  
    │                         ╰───── not in scope
-   │ 
-   │ Note: the library has `Std.Parse.OperatorTree.highest`: write it in full, or `import Std.Parse.OperatorTree (highest)`
 ───╯
