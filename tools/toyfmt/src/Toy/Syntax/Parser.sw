@@ -155,10 +155,13 @@ def negationsFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Ex
     | Succ more, Some token if isMinus layout token =>
       skip()
       Negate (negationsFrom more self layout)
-    | _, _ =>
-      Parse.note (Parse.Problem.Expected "an expression")
-      let first := atom self layout
-      suffixesFrom (Parse.mark().left + 1) self layout first
+    | _, _ => postfix self layout
+
+--| An atom and its calls and fields.
+def postfix (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
+  Parse.note (Parse.Problem.Expected "an expression")
+  let first := atom self layout
+  suffixesFrom (Parse.mark().left + 1) self layout first
 
 --| `target`'s calls and fields, at most `fuel` of them. A call or field
 --| that doesn't parse is left unread.
@@ -172,20 +175,27 @@ def suffixesFrom (fuel: Nat) (self: Layout → {Parse (Parse.Located Token)} Exp
       let call := Parse.optional (() =>
         skip()
         Call target (items self CloseParen))
-      match call with
-        | Some call => suffixesFrom more self layout call
-        | None => target
+      suffixesAfter more self layout target call
     | Succ more, Sign Dot =>
       let field := Parse.optional (() =>
         skip()
         Field target (name layout))
-      match field with
-        | Some field => suffixesFrom more self layout field
-        | None => target
+      suffixesAfter more self layout target field
     | _, _ =>
       Parse.note (Parse.Problem.Expected "'('")
       Parse.note (Parse.Problem.Expected "'.'")
       target
+
+--| What `suffixesFrom` does with the call or field it tried after `target`:
+--| on from `longer`, the target with it, or `target` alone if it didn't
+--| parse.
+-- A function of its own so that proofs (ExpressionProofs.sw) can name it.
+def suffixesAfter (more: Nat) (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout)
+    (target: Expr) (longer: Option Expr):
+    {Parse (Parse.Located Token)} Expr :=
+  match longer with
+    | Some longer => suffixesFrom more self layout longer
+    | None => target
 
 def atom (self: Layout → {Parse (Parse.Located Token)} Expr) (layout: Layout): {Parse (Parse.Located Token)} Expr :=
   match peek() with
