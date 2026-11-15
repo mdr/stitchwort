@@ -36383,12 +36383,12 @@
     {
       "id": 3304,
       "title": "[Opus] Writing [t := Char] [b := List Nat] by hand on a readsThen breaks a proof that checks with neither or either alone: knowing every type early changes which arguments wait for the expected type (pre-existing; SW-3282 finding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Found in SW-3282; repro c3tb.sw in docs/reviews/SW-3282-settle-from-expected.md S3 (probes in the scratch sw3282-review folder). Fixing it unblocks SW-3307 (settle every type parameter). Expected: 2 h (Opus).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
