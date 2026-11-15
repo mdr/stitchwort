@@ -37371,12 +37371,12 @@
     {
       "id": 3374,
       "title": "[Sonnet] Bug since SW-3335: the server index's goal parts omit the catch-all fact lines (s ≠ \"ab\") that the goal's label shows, so goal_index::goal_examples_in_the_index and lemmas_check_as_the_same_goal fail on main (found by SW-3288)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Expected: 45 min (Sonnet).\n\nNotes (Sonnet lane, commit 5342e3190 on lane/SW-3374): GoalData gains `facts`; the index writes a \"facts\" member (omitted when empty); lemmas take each fact as a hypothesis (`(h: s ≠ \"ab\")`, `h2`, … clear of the goal's names). The two goal_index tests failed on main, pass now. Left for SW-3349: the LSP panel, `goal --at` JSON (cli main.rs) and search_at/at.rs ignore facts.\n",
+      "body": "Model result: sonnet, worked, 60 min (est. 45).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
