@@ -158,7 +158,11 @@ theorem exprScan ∀ (expr: Expr): expr.layout.scanLines False = Some False := m
   | NumberLiteral digits => rfl
   | StringLiteral written => rfl
   | Bracketed inner =>
-    rewrite scanConcat [Doc.text "(", inner.layout, Doc.text ")"] False in rewrite exprScan inner in rfl
+    rewrite scanConcat [Doc.text "(", inner.layout, closeAfter inner (Doc.text ")")] False in
+      rewrite exprScan inner in
+        match inner.endsWithComment with
+          | True => rfl
+          | False => rfl
   | ListLiteral items => listScan items
   | Call callee arguments =>
     rewrite scanConcat [callee.layout, argumentsLayout arguments] False in
@@ -184,7 +188,10 @@ theorem listScan ∀ (items: List Item): (listLayout items).scanLines False = So
       | None => rfl
       | Some { comments, value, trailing } =>
         match trailing with
-          | None => rfl
+          | None =>
+            match value.endsWithComment with
+              | True => rfl
+              | False => rfl
           | Some comment => rfl
 
 theorem branchScan ∀ (body: Body): (branch body).scanLines False = Some False := match body with

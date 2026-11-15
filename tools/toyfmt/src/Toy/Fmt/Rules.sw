@@ -94,7 +94,7 @@ def Expr.layout: Expr → Doc
   | Var name => Doc.text name
   | NumberLiteral digits => Doc.text digits
   | StringLiteral written => Doc.text written
-  | Bracketed inner => Doc.concat [Doc.text "(", inner.layout, Doc.text ")"]
+  | Bracketed inner => Doc.concat [Doc.text "(", inner.layout, closeAfter inner (Doc.text ")")]
   | ListLiteral items => listLayout items
   | Call callee arguments => Doc.concat [callee.layout, argumentsLayout arguments]
   | Field target name => Doc.concat [target.layout, Doc.text ".${name}"]
@@ -113,6 +113,23 @@ def Expr.startsWithMinus: Expr → Bool
   | Call callee _ => callee.startsWithMinus
   | Field target _ => target.startsWithMinus
   | _ => False
+
+--| Whether the expression's text ends in a trailing comment: an `if` whose
+--| last branch is one expression with a comment after it (the comment is
+--| that branch's, Tree.sw).
+def Expr.endsWithComment: Expr → Bool
+  | If _ _ whenFalse => whenFalse.endsWithComment
+  | _ => False
+
+def Body.endsWithComment: Body → Bool
+  | { statements = [{ line = Bare _ (Some _), .. }] } => True
+  | { statements = [{ line = Bare value None, .. }] } => value.endsWithComment
+  | _ => False
+
+--| `closer` (a `,` or closing bracket) after `expr`: on the line below if
+--| `expr` ends in a trailing comment, which would otherwise end up after the
+--| closer and so belong to whatever ends there.
+def closeAfter (expr: Expr) (closer: Doc): Doc := if expr.endsWithComment then Doc.concat [HardLine, closer] else closer
 
 --| P6: an operator chain of one level, from its left-nested tree: `a - b +
 --| c` is `a`, then `- b` and `+ c` each after a line break. Operands of
@@ -177,7 +194,8 @@ def listLayout: List Item → Doc
       | _ => Empty
     let closing := match items.last with
       | Some { trailing = Some _, .. } => Doc.concat [HardLine, Doc.text "]"]
-      | _ => Doc.text "]"
+      | Some { value, .. } => closeAfter value (Doc.text "]")
+      | None => Doc.text "]"
     Doc.group (Doc.concat [Doc.text "[", Nest 2 (Fill (itemDocs items |> withFirst opening)), closing])
 
 def withFirst (docs: List Doc) (opening: Doc): List Doc := match docs with
@@ -189,7 +207,8 @@ def withFirst (docs: List Doc) (opening: Doc): List Doc := match docs with
 def itemDocs: List Item → List Doc
   | [] => []
   | [{ comments, value, trailing }] => [itemDoc comments value.layout Empty trailing]
-  | [{ comments, value, trailing }, ..rest] => [itemDoc comments value.layout (Doc.text ",") trailing, ..itemDocs rest]
+  | [{ comments, value, trailing }, ..rest] =>
+    [itemDoc comments value.layout (closeAfter value (Doc.text ",")) trailing, ..itemDocs rest]
 
 def itemDoc (comments: List Comment) (value comma: Doc) (trailing: Option Comment): Doc :=
   let above := comments.map (comment => Doc.concat [Doc.text comment.text, HardLine])
