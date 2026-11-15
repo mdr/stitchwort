@@ -52,7 +52,10 @@
 //! in, as `DecEq` does (`derive.rs`), each kind defined together with `T`'s:
 //! `List`'s constructors in order (`Nil` first) then its fields is
 //! `List.compareLex`, and likewise `Option.compareWith` and
-//! `Pair.compareWith`, so a nested list compares as a list.
+//! `Pair.compareWith`, so a nested list compares as a list. Through another
+//! container it's derived only when the container's `Ord` is derived too,
+//! which is the same order. Types defined together are derived together,
+//! unless one of them has its own `Ord` or `DecEq`.
 
 use stitchwort_core::DataId;
 use stitchwort_syntax::Span;
@@ -192,7 +195,9 @@ impl Elaborator {
             Ok(plan) => plan,
             Err(why) => {
                 for &r in &group {
-                    self.tables.no_ord.insert(&self.session.owners, r, why.clone());
+                    self.tables
+                        .no_ord
+                        .insert(&self.session.owners, r, why.clone());
                 }
                 return Ok(());
             }

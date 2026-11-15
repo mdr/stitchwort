@@ -53,6 +53,11 @@ whole-format timing (lex, parse, print) waits for stage A's parser.
    as text, and tests compare dumps; a proof needs a real decision, so the
    real formatter, with 94 node kinds, will want derived `DecEq` for
    mutually recursive types (or a hand-written one per kind).
+   **Fixed (SW-3371):** types defined together, and types nested in the
+   program's own `Spaced`, now get derived `==`, `<` and `${…}`, so `Expr`,
+   `Item`, `Statement`, `Body`, `Declaration` and `SourceFile` have them;
+   the golden parsing test compares trees with `==`. The layout tests still
+   compare dumps against expected text, which reads well as it is.
 2. **Recursion through a list in the tree needs a helper per list.**
    `arguments.map (item => item.value.layout)` inside the rules' mutual
    group is refused (`E-TERMINATION`, first for passing `Declaration.layout`
@@ -327,7 +332,8 @@ it is the loop's: that the file is written only if its text differs (the
 write-counting test, as a lemma over `Files.simulate`'s laws, which are
 `rfl`), and that what is written is `format`'s output. The proofs the plan's
 §3 names are about `format` itself (round trip, idempotence), and need the
-erased tree and derived `==` for the tree (stage B friction 1).
+erased tree and derived `==` for the tree (stage B friction 1, which
+SW-3371 fixed: `parse source == Ok tree` works now).
 
 ## Speed (SW-3383): profiled, and the toy's handlers taken out of the hot paths
 

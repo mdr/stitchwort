@@ -5,19 +5,22 @@
 //! `DecEq` (`derive.rs`), and elaborated like any definition.
 //!
 //! It's derived when `T` is declared, for a type with constructors (not a
-//! proposition, not defined together with other types, without indices)
-//! whose data fields are `T` itself, with the same parameters, `T` inside
-//! `List`, `Option` and pairs, or have a `Show` instance, given one for each
-//! parameter that's a type. Proof fields are left out. Anything else (a
-//! function, a type, a field whose type depends on an earlier one, `T`
-//! inside another type) stops derivation, and why not is kept for the note
-//! when `${…}` is used on `T`.
+//! proposition, without indices) whose data fields are `T` itself or a type
+//! defined together with it, with the same parameters, one of those inside
+//! another data type (as for `DecEq`, `derive.rs`), or have a `Show`
+//! instance, given one for each parameter that's a type. Proof fields are
+//! left out. Anything else (a function, a type, a field whose type depends
+//! on an earlier one, `T` inside a container whose `Show` its module wrote)
+//! stops derivation, and why not is kept for the note when `${…}` is used
+//! on `T`. Types defined together are derived together, unless one of them
+//! has its own `Show`.
 //!
 //! A nested type gets a function for each container it's in, defined
 //! together with `T.%show`, as for `DecEq` (`derive.rs`): `T.%m1%show`,
 //! which prints the container as its own instance does: a list `[x, y]`
 //! (with `T.%m1%items` for the elements after the first, as `Show.items`),
-//! a pair `(x, y)`, an option `None` or `Some x` (bracketed by `Show.arg`).
+//! a pair `(x, y)`, an option `None` or `Some x` (bracketed by `Show.arg`),
+//! and another type as its derived `Show` prints it.
 //!
 //! Elements are shown with `toSource`. A constructor is its name, then its
 //! fields, each in brackets when it has spaces and isn't already one piece
@@ -94,7 +97,11 @@ impl Elaborator {
                 }
             }
         };
-        if let Some(r) = group.iter().zip(&own).find_map(|(r, own)| own.then_some(*r)) {
+        if let Some(r) = group
+            .iter()
+            .zip(&own)
+            .find_map(|(r, own)| own.then_some(*r))
+        {
             let why = format!(
                 "`{}`, defined together with it, has its module's own `Show` instance, which \
                  the derived ones of the group can't use; declare `Show` for the others too",
@@ -425,8 +432,8 @@ impl Elaborator {
         let pair = self.kernel.env.registry().data(Builtin::Pair);
 
         let mut functions = Vec::new();
-        for m in 0..plan.members.len() {
-            let prefix = names[m].clone();
+        for (m, prefix) in names.iter().enumerate() {
+            let prefix = prefix.clone();
             // The type matched on, how source names its constructors, and
             // the member's type: `T %p0 …`, or `T.%m1%type %p0 …`.
             let (matched, ctor_prefix, this) = self.member_shape(&src, &plan.members[m]);

@@ -32,8 +32,7 @@ test "tree show" := "${Node 1 (FCons (leaf 2) FNil)}" == "Node 1 (FCons (Node 2 
 -- The laws are the usual ones.
 theorem treeSound ∀ (s t: Tree) (h: (s == t) = True): s = t := DecEq.sound h
 theorem forestReads ∀ (s t: Forest) (h: (s == t) = True): s = t := h.read
-theorem treeTrans ∀ (r s t: Tree) (h1: Ord.compare r s = Less) (h2: Ord.compare s t = Less):
-    Ord.compare r t = Less :=
+theorem treeTrans ∀ (r s t: Tree) (h1: Ord.compare r s = Less) (h2: Ord.compare s t = Less): Ord.compare r t = Less :=
   Ord.trans r s t h1 h2
 theorem computes: (leaf 1 == leaf 1) = True := rfl
 
@@ -73,8 +72,7 @@ test "body equal" := bare call == bare call
 test "statement unequal" := Let "x" (bare call) != Bare call None
 test "expr order" := Var "a" < Var "b" && Var "z" < call
 test "body order" := bare (Var "a") < { statements = [{ blankBefore = True, line = Bare (Var "a") None }] }
-test "body show" :=
-  "${bare (Var "a")}" == "{ statements = [{ blankBefore = False, line = Bare (Var \"a\") None }] }"
+test "body show" := "${bare (Var "a")}" == "{ statements = [{ blankBefore = False, line = Bare (Var \"a\") None }] }"
 test "list order" := List.sort [Var "b", call, Var "a"] == [Var "a", Var "b", call]
 
 theorem bodySound ∀ (s t: Body) (h: (s == t) = True): s = t := DecEq.sound h

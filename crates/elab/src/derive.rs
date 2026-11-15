@@ -7,13 +7,13 @@
 //! nothing in the kernel changes.
 //!
 //! It's derived when `T` is declared, for every type it can be: one with
-//! constructors (not a proposition, not defined together with other types,
-//! without indices) whose fields are
+//! constructors (not a proposition, without indices) whose fields are
 //!
-//! - data that doesn't depend on earlier fields and is either `T` itself,
-//!   with the same parameters, or `T` inside `List`, `Option` and pairs (a
-//!   nested type, below), or has a `DecEq` instance, given one for each
-//!   parameter that's a type; or
+//! - data that doesn't depend on earlier fields and is either `T` itself or
+//!   a type defined together with it, with the same parameters, or one of
+//!   those inside an earlier data type without indices (a nested type,
+//!   below), or has a `DecEq` instance, given one for each parameter that's
+//!   a type; or
 //! - a proof of an equation `l = r` in a type with a `DecEq` instance (not
 //!   one that mentions `T`: that evidence would depend on the instance being
 //!   derived), depending on the parameters and earlier data fields only.
@@ -24,10 +24,20 @@
 //! variables of the instance. Each parameter that's a type and that fields
 //! use gets a prerequisite, `[auto decEq: DecEq a]`. Otherwise nothing is
 //! generated, and why not is kept for the note when `==` is used on `T`.
-//! The library's types are skipped: those that need one have one written
-//! by hand. So is a type whose module declares its own `DecEq` instance
-//! (§5.11: it replaces the derived one), as far as the module's names say
-//! before anything is checked.
+//! The core's types are skipped: they come before `DecEq`. So is a type
+//! whose module declares its own `DecEq` instance (§5.11: it replaces the
+//! derived one), as far as the module's names say before anything is
+//! checked.
+//!
+//! Types defined together (`Expr`, `Item`, `Statement`, `Body` of a syntax
+//! tree) are derived together, once the last of them is admitted
+//! (docs/proposals/derived-equality.md §5.3): one plan for the group, whose
+//! *roots* are its types, then one block of tests (`Expr.%same`,
+//! `Item.%same`, …) and one of proofs, all defined together, and each type's
+//! `decide`, instance and readings. A type of the group whose module writes
+//! its own instance gets none derived, but its `%same` is still made, for
+//! the others to call. If any type's fields can't be compared, the whole
+//! group gets none, and the note names the field.
 //!
 //! For `type T a = | C1 … | C2 x y | …` it generates
 //!
@@ -106,24 +116,25 @@
 //! A nested type (docs/proposals/nested-data-types.md §10, stage 2), `type
 //! Packet = | Number (value: Nat) | Packets (items: List Packet)`, can't
 //! pass `T.%same` to `List`'s instance: termination refuses an unsaturated
-//! recursive function, as it refuses `map`. Instead each container `T` is
-//! in, found by [`Elaborator::members`] (`List Packet`; for `List (List
-//! T)` both lists; for `Option (T, Nat)` the option and the pair), is a
-//! *member*, numbered from 1, with the same generated functions under
-//! `T.%m1%`: `T.%m1%type` (its type, so source can name it),
-//! `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%Cons%0%at`, `T.%m1%view`,
-//! `T.%m1%eta`, `T.%m1%etaAt`, `T.%m1%same` and its two
-//! proofs, made as
-//! for a data type whose fields are its constructors' with the container's
-//! arguments: `T.%m1%same (Cons a0 a1) (Cons b0 b1)` tests `a0` by
-//! `T.%same` and `a1` by itself. The `same`s are defined together (so are
-//! the proofs), and
-//! every call is on a part of an argument. Only `List`, `Option` and `Pair`
-//! are looked into; `T` inside another type (`Vec`, a type of the program,
-//! an earlier group) gets the note naming it. A container's equality is
-//! structural like its own instance's, and its `Ord` (`derive_ord.rs`),
-//! constructors then fields, is the order of `List`'s, `Option`'s and
-//! `Pair`'s own instances.
+//! recursive function, as it refuses `map`. Instead each container a root
+//! is in, found by [`Elaborator::members`] (`List Packet`; for `List (List
+//! T)` both lists; for `Option (T, Nat)` the option and the pair; a
+//! program's `Spaced Statement`), is a *member*, named in the namespace of
+//! the root whose field first led to it and numbered from 1 there, with
+//! the same generated functions under `T.%m1%`: `T.%m1%type` (its type, so
+//! source can name it), `T.%m1%tag`, `T.%m1%Cons%0`, `T.%m1%Cons%0%at`,
+//! `T.%m1%view`, `T.%m1%eta`, `T.%m1%etaAt`, `T.%m1%same` and its two
+//! proofs, made as for a data type whose fields are its constructors' with
+//! the container's arguments: `T.%m1%same (Cons a0 a1) (Cons b0 b1)` tests
+//! `a0` by `T.%same` and `a1` by itself. The `same`s are defined together
+//! (so are the proofs), and every call is on a part of an argument. Any
+//! earlier data type without indices is looked into (§5.4); `T` inside a
+//! `Vec`, or a quotient, gets the note naming it. For `==` any container is
+//! right, since any two decisions of `x = y` agree. An `Ord`
+//! (`derive_ord.rs`) or `Show` must agree with the container's own, so it's
+//! derived only through `List`, `Option`, `Pair` (whose instances in the
+//! core are constructors then fields) and types whose instance is derived
+//! too.
 //!
 //! Generating eagerly, when `T` is declared, is simpler than on first use,
 //! which would mean elaborating new definitions in the middle of the one
@@ -413,12 +424,16 @@ impl Elaborator {
                     };
                     let inner = group
                         .iter()
-                        .find(|r| term.subterms().any(|(t, _)| matches!(t, Term::Data(e, _) if e == *r)))
+                        .find(|r| {
+                            term.subterms()
+                                .any(|(t, _)| matches!(t, Term::Data(e, _) if e == *r))
+                        })
                         .map(|r| g.data(*r).name().to_string())
                         .unwrap_or_default();
-                    let refused = |why: String| -> Result<std::result::Result<Vec<Member>, String>> {
-                        Ok(Err(format!("{what} contains `{inner}` inside {why}")))
-                    };
+                    let refused =
+                        |why: String| -> Result<std::result::Result<Vec<Member>, String>> {
+                            Ok(Err(format!("{what} contains `{inner}` inside {why}")))
+                        };
                     let Value::Data(e, cargs) = &value else {
                         return refused(format!(
                             "another type, and {label} is derived only through data types"
@@ -445,9 +460,9 @@ impl Elaborator {
                         && !self.has_member(*e, instance)
                     {
                         return refused(format!(
-                            "`{cname}`, which has no derived {label} (its module wrote its own, \
-                             or it has none), and {label} is derived through another type only \
-                             with that type's derived one, so that the two agree"
+                            "`{cname}`, whose {label} isn't derived (its module wrote one, or it \
+                             has none): {label} is derived through another type only when that \
+                             type's is, so that the two agree"
                         ));
                     }
                     let owner_index = group.iter().position(|r| *r == owner).unwrap_or(0);
@@ -1490,8 +1505,8 @@ impl Elaborator {
         let mut tests = Vec::new();
         let mut proofs = Vec::new();
         let mut readings = Vec::new();
-        for m in 0..plan.members.len() {
-            let prefix = names[m].clone();
+        for (m, prefix) in names.iter().enumerate() {
+            let prefix = prefix.clone();
             // The type matched on, how source names its constructors, and
             // the member's type: `T %p0 …`, or `T.%m1%type %p0 …`.
             let (matched, ctor_prefix, this) = self.member_shape(&src, &plan.members[m]);
@@ -2070,6 +2085,9 @@ pub(crate) fn let_in(span: Span, x: &str, ty: Option<Expr>, value: Expr, body: E
     }
 }
 
+/// A signature and its equations.
+type Definition = (Decl, Vec<Decl>);
+
 /// The source [`Elaborator::eq_source`] generates.
 struct Source {
     /// `T.%same`, then each container's, defined together.
@@ -2079,7 +2097,7 @@ struct Source {
     proofs: Vec<(Decl, Vec<Decl>)>,
     /// For each type `T` of the group: `T.%decide`, the decision made of
     /// `T.%same` and its proofs, and `T.%instDecEq`.
-    instances: Vec<((Decl, Vec<Decl>), (Decl, Vec<Decl>))>,
+    instances: Vec<(Definition, Definition)>,
     /// `T.%sameReads` and `T.%sameReadsFalse`, then each container's: the
     /// readings of the tests, filed once the instance is.
     readings: Vec<(Decl, Vec<Decl>)>,

@@ -28,6 +28,21 @@ test "constructors in declared order" := List.sort [Spades, Clubs, Hearts] == [C
 test "text" := "${twoOfClubs}" == "{ rank = 2, suit = Clubs }"
 ```
 
+Types that refer to each other, as a syntax tree's do, get them too, and so does a type inside a list, an option or another type of yours:
+
+<!-- snippet: interfaces.sw#derived-together -->
+```stitchwort
+type Expr = | Number (n: Nat) | Block (statements: List Statement)
+
+type Statement = | Let (name: Text) (value: Expr) | Bare (value: Expr)
+
+def program: Expr := Block [Let "x" (Number 1), Bare (Number 2)]
+
+test "types that refer to each other" := program == Block [Let "x" (Number 1), Bare (Number 2)]
+test "and their order" := Number 9 < program
+test "and their text" := "${program}" == "Block [Let \"x\" (Number 1), Bare (Number 2)]"
+```
+
 A type gets none of these when one of its fields can't have it. A function can't be compared, so a record with a function field has no `==`, and the error says why:
 
 <!-- snippet: errors/no-instance.sw -->

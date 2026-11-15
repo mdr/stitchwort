@@ -1,6 +1,7 @@
 # Derived `==`, `<` and `${…}` for every data type (SW-3354, SW-3358)
 
-**Status:** draft 1, 15 November 2026. Stage 2 built (SW-3370, §5.6). D3609
+**Status:** draft 1, 15 November 2026. Stages 2 and 3 built (SW-3370,
+§5.6; SW-3371, §5.4). D3609
 answered: yes (Matt, 15 Nov 2026: "Yes, agree with this recommendation for now, let's see how it goes"; [§7](#7-decision-for-matt)). Code read at `ae7a3b341`.
 Migration cost is not counted (D2303).
 
@@ -241,6 +242,31 @@ h`, whose other branches refute `h`; `T.%etaAt s t h : T.%view s t h = s`
 is a `J` over `T.%eta`, n cases of `rfl`. The tags' cases are core lemmas
 (`Ordering.tagsEqual`, `tagsFlip`, `tagsTrans`, `DecEq.tagsSame`). 94
 constructors went from 12.3 s to 0.17 s [measured; docs/performance/log.md].
+
+**As built (stage 3, SW-3371).** The plan (`derive.rs`, `Plan`) is made
+once for a group: its *roots* are the group's types, in declaration order,
+and its other members the containers found from their fields, each named in
+the namespace of the root whose field first led to it (`Expr.%m1%` for
+`List Item`, `Body.%m1%` and `Body.%m2%` for `List (Spaced Statement)` and
+`Spaced Statement`). `DecEq`, `Ord` and `Show` are derived when the group's
+last type is admitted, all members' functions in one block of definitions,
+then one block of proofs; each root gets its `decide`, instance and
+readings. Containers are any earlier data type without indices and not a
+proposition (a quotient isn't a data type, so `Map` stays refused, and
+nothing can be nested in it anyway). For `Ord` and `Show` a container other
+than `List`, `Option` and `Pair` must have the derived instance
+(`C.%instOrd`, `C.%instShow`); one its module wrote (`NonEmptyList`'s) is
+refused with a note, while `==` is still derived through it. In a group, a
+type whose module writes its own `DecEq` keeps it and the others are
+derived (its `%same` is still made for them to call); one with its own
+`Ord` or `Show` stops that interface for the whole group, with a note
+naming it. `R.ext` is generated for records in a group. Nothing in the
+termination checker changed: every call is still on a field matched out of
+an argument. The construction per member is stage 2's, so the size stays
+linear in the constructors. The toy formatter's four-type tree costs 109 ms
+of elaboration and 22 ms of kernel (1.9 M steps), and `check --no-cache
+Toy.Syntax` went from 2.27 s to 2.43 s of elaboration [measured, one run
+each, load 5].
 
 ### 5.7 Hashes and checking time
 

@@ -7,8 +7,6 @@
 
 import Std (Nat, Vec)
 
-type Branching: Type =
-  | Tip
-  | Fork (kids: Vec Branching 2)
+type Branching: Type = | Tip | Fork (kids: Vec Branching 2)
 
 test "vec" := Fork (VCons Tip (VCons Tip VNil)) == Fork (VCons Tip (VCons Tip VNil))
