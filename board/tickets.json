@@ -37009,7 +37009,7 @@
     {
       "id": 3346,
       "title": "[DeepSeek] The missing Int.ofNat error suggests OfNat, modNat, toNat but not Nat.toInt (SW-3339 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -37966,7 +37966,7 @@
     {
       "id": 3419,
       "title": "[DeepSeek] Message: (rfl, rest) for an And goal says 'add a type annotation'; the note should mention Both (SW-954 item 3, 2021 day 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
@@ -38338,12 +38338,12 @@
     {
       "id": 3445,
       "title": "[DeepSeek] Unknown-name suggestions offer a std record field of a proof-only type (E-UNKNOWN-NAME on 'highest' suggests Std.Parse.OperatorTree.highest, in reject/autobind-value-misspelt): don't suggest field accessors for a bare name, or rank them below",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Model result: deepseek, worked (with SW-3346, SW-3419), ~35 min (est. 40). Also drops Std.Parse.Located.length from the import-rename-old-name suggestions (nested-type member), accepted.",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
@@ -38416,12 +38416,12 @@
     {
       "id": 3451,
       "title": "[DeepSeek] fmt fuzzer: a comment-heavy mode (insert -- comments, trailing and own-line, at random token boundaries at a set rate) to test D3618's every-comment-placed formatting for idempotence and refusals; today -- is 1 of ~60 inserted tokens (Overmind, 15 Nov 2026)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "Model result: deepseek, worked, ~25 min (est. 40).",
       "created": "2026-11-15",
       "updated": "2026-11-15",
       "commits": []
