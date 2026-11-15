@@ -1,3 +1,4 @@
+import Parse.Associativity (LeftAssociative, RightAssociative)
 import Parse.Problem (Expected, Literal, Literals, Message)
 
 --| `Parse`: read text into the program's own types. A parser is ordinary
@@ -409,6 +410,89 @@ def Parse.chainLeft (operand: () → {Parse t} a) (operator: () → {Parse t} (a
     let right := operand()
     (combine, right))
   Parse.chainFold first rest
+
+--| How the operators of one level group: `a - b - c` is `(a - b) - c` for
+--| `LeftAssociative`, `a ^ b ^ c` is `a ^ (b ^ c)` for `RightAssociative`.
+type Parse.Associativity = | LeftAssociative | RightAssociative
+
+--| One level of binary operators for `Parse.operators`: `operator` says, for
+--| an item, whether it is an operator of this level and what it combines
+--| its two sides into.
+type Parse.Level (t: Type) (a: Type) = {
+  associativity: Parse.Associativity,
+  operator: t → Option (a → a → a)
+}
+
+--| The first level of the list, counting from `index`, that has an operator for `item`: its index,
+--| associativity and combining function.
+def Parse.operatorFrom (item: t) (index: Nat):
+    (levels: List (Parse.Level t a)) → Option (Nat, Parse.Associativity, a → a → a)
+  | [] => None
+  | [level, ..rest] =>
+    match level.operator item with
+      | Some combine => Some (index, level.associativity, combine)
+      | None => Parse.operatorFrom item (index + 1) rest
+
+--| `operand` with the operators of `levels` between operands, grouped by
+--| precedence: the first level binds loosest, so with levels `+` then `*`,
+--| `1+2*3` is `1 + (2 * 3)`. Each operator is one item that a level's
+--| `operator` accepts; a level chains as its associativity says. At least
+--| one operand. An operator without an operand after it is left unread
+--| (the parse backs up to before the operator), as `chainLeft` does.
+--|
+--| It is `Parse.chainLeft` once per level, each level's operand being the
+--| next level's, with operators that read one item and expect `what`: the
+--| same results and the same messages, "expected `what`" wherever no
+--| operator was read, but a look at the next item per operand instead of
+--| every level trying its operator under its own handler. A handler is
+--| installed only where an operator is found.
+--|
+--|   Parse.operators "an operator" [
+--|     { associativity = LeftAssociative, operator = plusOrMinus },
+--|     { associativity = LeftAssociative, operator = times }
+--|   ] term
+def Parse.operators (what: Text) (levels: List (Parse.Level t a)) (operand: () → {Parse t} a): {Parse t} a :=
+  Parse.operandsFrom (Parse.mark().left + 1) what levels levels.length operand 0
+
+--| `Parse.operators` for operators of level `lowest` or tighter, with the
+--| operand nested at most `depth` deep. Each nesting reads an operator, so
+--| the items left are enough depth.
+def Parse.operandsFrom (depth: Nat) (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
+    (operand: () → {Parse t} a) (lowest: Nat):
+    {Parse t} a :=
+  let first := operand()
+  match depth with
+    | Succ inner if lowest < count =>
+      Parse.operatorsFrom (Parse.mark().left + 1) inner what levels count operand lowest (count - 1) first
+    -- Past the tightest level the operator after an operand is the caller's to try.
+    | _ => first
+
+--| `left` followed by operators of level `lowest` to `highest` and their
+--| operands, at most `fuel` of them. `highest` falls to the level of each
+--| operator read: a tighter one after it would have been read by its right
+--| operand. No operator there notes "expected `what`".
+def Parse.operatorsFrom (fuel depth: Nat) (what: Text) (levels: List (Parse.Level t a)) (count: Nat)
+    (operand: () → {Parse t} a) (lowest highest: Nat) (left: a):
+    {Parse t} a :=
+  match fuel, Parse.mark().rest with
+    | Succ more, [item, .._] =>
+      match Parse.operatorFrom item 0 levels with
+        | Some (level, associativity, combine) if lowest <= level && level <= highest =>
+          let right := Parse.optional (() =>
+            let operator := Parse.next (item => True)
+            Parse.operandsFrom depth what levels count operand
+              (match associativity with
+                | LeftAssociative => level + 1
+                | RightAssociative => level))
+          match right with
+            | Some right => Parse.operatorsFrom more depth what levels count operand lowest level (combine left right)
+            | None => left
+        | _ =>
+          Parse.note (Expected what)
+          left
+    | _, _ =>
+      Parse.note (Expected what)
+      left
 
 --| `parser`'s value and whether it read anything, or `None` with the input
 --| as it was if it fails: `optional` with the progress check built in.

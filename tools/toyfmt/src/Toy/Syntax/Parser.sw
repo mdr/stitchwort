@@ -15,6 +15,7 @@
 --| placed that way is kept as written.
 
 namespace Toy.Syntax
+import Std.Parse.Associativity (LeftAssociative)
 import Std (Empty, Fail, List, NonEmptyList, Option, Parse, Result, Text)
 
 --| How a token may stand: anywhere inside brackets; in a statement that
@@ -131,7 +132,7 @@ def expressionRule (self: Layout → {Parse (Parse.Located Token)} Expr) (layout
       elseKeyword layout
       let whenFalse := body self layout
       If condition whenTrue whenFalse
-    | _ => chain (() => operand self layout) layout 1
+    | _ => Parse.operators "an operator" (operatorLevels layout) (() => operand self layout)
 
 def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek() with
   | Some token if (keywordIs ElseKeyword token.value.kind).isSome =>
@@ -139,54 +140,16 @@ def elseKeyword (layout: Layout): {Parse (Parse.Located Token)} () := match peek
     else Parse.fail "'else' must not start a line to the left of its 'if' statement"
   | _ => keyword layout ElseKeyword
 
---| An operand, then operators of `lowest` up to `highest` and their
---| operands, combined by precedence: tighter levels bind first, and one
---| level chains from the left, `a - b + c` being `(a - b) + c`.
--- Precedence climbing: one look at the next token per operand, where a
--- `Parse.chainLeft` per level tried each level's operator under its own
--- handler. The notes are the same as that grammar's (an operator was
--- expected wherever none was read), so messages don't change.
-def chain (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout) (lowest: Nat):
-    {Parse (Parse.Located Token)} Expr :=
-  chainNested 6 operand layout lowest
+--| The operators of each level (1 for `||` to 6 for `* / %`, see
+--| `Operator.level`) that a token may be at `layout`, each level chaining
+--| from the left: `a - b + c` is `(a - b) + c`.
+def operatorLevels (layout: Layout): List (Parse.Level (Parse.Located Token) Expr) :=
+  [1, 2, 3, 4, 5, 6].map (level => { associativity = LeftAssociative, operator = operatorOf layout level })
 
---| `chain`, with right operands nested at most `depth` deep: each is of a
---| tighter level than the operator before it, so six levels are enough.
-def chainNested (depth: Nat) (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout) (lowest: Nat):
-    {Parse (Parse.Located Token)} Expr :=
-  let first := operand()
-  match depth with
-    | Succ inner if lowest <= 6 => chainFrom (Parse.mark().left + 1) inner operand layout lowest 6 first
-    -- Past the tightest level the operator after an operand is the caller's to try.
-    | _ => first
-
---| `left` followed by operators of `lowest` up to `highest` and their
---| operands, at most `fuel` of them. `highest` falls to the level of each
---| operator read: a tighter one after it would have been read by its right
---| operand.
-def chainFrom (fuel depth: Nat) (operand: () → {Parse (Parse.Located Token)} Expr) (layout: Layout)
-    (lowest highest: Nat) (left: Expr):
-    {Parse (Parse.Located Token)} Expr :=
-  match fuel, peek() with
-    | Zero, _ => left
-    | Succ more, Some token if layout.allows token && operatorWithin lowest highest token.value.kind =>
-      match token.value.kind with
-        | Op operator =>
-          -- An operator without an operand after it is left unread.
-          let right := Parse.optional (() =>
-            skip()
-            chainNested depth operand layout (operator.level + 1))
-          match right with
-            | Some right => chainFrom more depth operand layout lowest operator.level (Binary operator left right)
-            | None => left
-        | _ => left
-    | _, _ =>
-      Parse.note (Parse.Problem.Expected "an operator")
-      left
-
-def operatorWithin (lowest highest: Nat): Kind → Bool
-  | Op operator => lowest <= operator.level && operator.level <= highest
-  | _ => False
+def operatorOf (layout: Layout) (level: Nat) (token: Parse.Located Token): Option (Expr → Expr → Expr) :=
+  match token.value.kind with
+    | Op operator if operator.level == level && layout.allows token => Some (Binary operator)
+    | _ => None
 
 def isMinus (layout: Layout) (token: Parse.Located Token): Bool :=
   layout.allows token && token.value.kind |> matches | Op Minus

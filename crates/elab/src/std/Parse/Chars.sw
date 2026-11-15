@@ -1,3 +1,4 @@
+import Parse.Associativity (LeftAssociative, RightAssociative)
 import Parse.Problem (Expected, Literal, Literals, Message)
 
 -- The pieces that read text, `{Parse Char}`: characters, digits, numbers,
@@ -585,6 +586,58 @@ test "Parse: chainLeft, one operand" :=
 test "Parse: chainLeft, error" :=
   Parse.Tests.lineResult "" (() => Parse.chainLeft Parse.nat Parse.Tests.minus)
     == Err "column 1: expected a number, got the end of the line"
+def Parse.Tests.sumOperator (char: Char): Option (Nat → Nat → Nat) :=
+  if char == '+' then Some (left right => left + right)
+  else if char == '-' then Some (left right => left - right)
+  else None
+
+def Parse.Tests.productOperator (char: Char): Option (Nat → Nat → Nat) :=
+  if char == '*' then Some (left right => left * right) else None
+
+def Parse.Tests.powerOperator (char: Char): Option (Nat → Nat → Nat) :=
+  if char == '^' then Some (left right => Nat.pow left right) else None
+
+--| `+ -` then `*`, each level its own `chainLeft`.
+def Parse.Tests.chainTower(): {Parse Char} Nat :=
+  Parse.chainLeft (() => Parse.chainLeft Parse.nat (() => Parse.one "an operator" Parse.Tests.productOperator)) (() =>
+    Parse.one "an operator" Parse.Tests.sumOperator)
+
+def Parse.Tests.operatorLevels: List (Parse.Level Char Nat) := [
+  { associativity = LeftAssociative, operator = Parse.Tests.sumOperator },
+  { associativity = LeftAssociative, operator = Parse.Tests.productOperator }
+]
+
+--| The same grammar by `Parse.operators`.
+def Parse.Tests.climbing(): {Parse Char} Nat := Parse.operators "an operator" Parse.Tests.operatorLevels Parse.nat
+
+--| Samples from clean to broken: a dangling operator, a tighter operator
+--| after a looser one, a doubled operator, a space, nothing.
+def Parse.Tests.operatorSamples: List Text := ["7", "8-3-2", "1+2*3", "2*3+4", "2*3*4-1+1", "1+", "1+2*", "1*+2",
+  "1++2", "1 +2", "", "+1", "2*3-", "4-1*2*", "1+2x"]
+
+test "Parse.operators: same results and messages as a chainLeft tower" := Parse.Tests.operatorSamples.all (sample =>
+  Parse.Tests.lineResult sample Parse.Tests.chainTower == Parse.Tests.lineResult sample Parse.Tests.climbing)
+
+test "Parse.operators: precedence" := Parse.Tests.lineResult "1+2*3+4" Parse.Tests.climbing == Ok 11
+test "Parse.operators: from the left" := Parse.Tests.lineResult "9-3-2" Parse.Tests.climbing == Ok 4
+test "Parse.operators: dangling operator is left unread" :=
+  Parse.Tests.lineResult "1+" Parse.Tests.climbing == Err "column 3: expected a number, got the end of the line"
+test "Parse.operators: unread operator expected where none follows" :=
+  Parse.Tests.lineResult "1x" Parse.Tests.climbing
+    == Err "column 2: expected an operator or the end of the line, got 'x'"
+
+def Parse.Tests.powerLevels: List (Parse.Level Char Nat) := [
+  { associativity = LeftAssociative, operator = Parse.Tests.sumOperator },
+  { associativity = RightAssociative, operator = Parse.Tests.powerOperator }
+]
+
+--| `2^3^2` is `2^(3^2)` = 512, where from the left it would be 64.
+test "Parse.operators: right associative" :=
+  Parse.Tests.lineResult "2^3^2" (() => Parse.operators "an operator" Parse.Tests.powerLevels Parse.nat) == Ok 512
+
+test "Parse.operators: right associative level binds tighter than the one before" :=
+  Parse.Tests.lineResult "1+2^3^2-1" (() => Parse.operators "an operator" Parse.Tests.powerLevels Parse.nat) == Ok 512
+
 test "Parse: sepBy" :=
   Parse.Tests.lineResult "1,2,3" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok [1, 2, 3]
 test "Parse: sepBy, none" := Parse.Tests.lineResult "" (() => Parse.sepBy Parse.nat (() => Parse.char ',')) == Ok []
