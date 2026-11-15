@@ -17354,7 +17354,7 @@
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "Parked (Matt, 15 Nov 2026: \"The error robustness work is a less high priority track for me right now\"): later.",
+      "body": "Baseline for when error robustness resumes (Overmind job 2a, 15 Nov, 57 of 515 examples/accept files in random order, 2,508 one-line breaks, build 29a45c479): 4.7% of breaks give false errors (R1 3.9%, R6 4.3%, whole-declaration 5.2%). Top codes: E-UNKNOWN-NAME 68, E-INSTANCE-NONE 24, E-ABILITY 13, E-TYPE-MISMATCH 7, E-CANNOT-INFER 4. Worst files: pattern-guard-equations.sw, interfaces-heads.sw, abilities.sw. Data on Overmind: chain/job2a/*.json. The earlier 11-16% came from two ability-heavy files.",
       "created": "2026-11-07",
       "updated": "2026-11-15",
       "commits": []
