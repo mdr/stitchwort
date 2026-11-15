@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TEXT-PATTERN] Error: the rest of a `Text` is a `Text`, but this pattern isn't one
+   ╭─[ reject/text-patterns-prefix-rest-not-text.sw:5:13 ]
+   │
+ 5 │   | "->" ++ [c, ..cs] => True
+   │             ────┬────  
+   │                 ╰────── the rest of a `Text` is a `Text`, but this pattern isn't one
+   │ 
+   │ Note: after `++`, write a variable, `_`, a text or another prefix; to match the characters themselves, match on `t.toList`, where `"->" ++ [c, ..cs]` works
+───╯

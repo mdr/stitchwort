@@ -57,11 +57,11 @@ def isComment: Text → Bool
 
 test "comments" := isComment "-- a" && isComment "#b" && !isComment "c"
 
-def chained: Text → Nat
-  | "a" ++ "b" ++ rest => rest.length
-  | _ => 0
+def chained: Text → Text
+  | "a" ++ "b" ++ rest => rest
+  | _ => ""
 
-test "chained" := chained "abcd" == 2
+test "chained" := chained "abcd" == "cd"
 
 def flags (args: List Text): List Text := args.filter (matches | "-" ++ _)
 

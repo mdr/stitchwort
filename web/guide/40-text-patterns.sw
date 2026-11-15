@@ -12,7 +12,7 @@ def command (word: Text) (steps: Nat): Option Command := match word with
 def token: List Char → Text
   | "->" => "arrow"
   | "=>" => "fat arrow"
-  | ['-', '-', .._] => "comment"
+  | "--" ++ _ => "comment"
   | _ => "other"
 
 -- `"--" ++ rest` matches anything that starts with `--`, and names the rest.

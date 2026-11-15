@@ -10,18 +10,27 @@ expression: output
    │                     ╰── rest: Text
    │                         ⊢ "--" ++ rest = "--" ++ rest
 ───╯
-[GOAL] Goal: in `size`
-    ╭─[ goals/text-patterns-prefix.sw:11:45 ]
+[GOAL] Goal: in `shadowed`
+    ╭─[ goals/text-patterns-prefix.sw:12:37 ]
     │
- 11 │   | "-" ++ letters if letters.length > 1 => ?
+ 12 │   | "ab" ++ rest => (let rest := 1; ?)
+    │                                     ┬  
+    │                                     ╰── rest✝: Text
+    │                                         rest: Nat := 1
+    │                                         ⊢ "ab" ++ rest✝ = "ab" ++ rest✝
+────╯
+[GOAL] Goal: in `size`
+    ╭─[ goals/text-patterns-prefix.sw:16:45 ]
+    │
+ 16 │   | "-" ++ letters if letters.length > 1 => ?
     │                                             ┬  
     │                                             ╰── letters: Text
     │                                                 ⊢ Nat
 ────╯
 [GOAL] Goal: in `lookahead`
-    ╭─[ goals/text-patterns-prefix.sw:15:21 ]
+    ╭─[ goals/text-patterns-prefix.sw:20:21 ]
     │
- 15 │   | "->" ++ rest => ?
+ 20 │   | "->" ++ rest => ?
     │                     ┬  
     │                     ╰── rest: List Char
     │                         ⊢ Nat

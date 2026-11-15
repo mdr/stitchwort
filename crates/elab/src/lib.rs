@@ -516,6 +516,18 @@ fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
     }
 }
 
+/// Whether `rest`, after a prefix's start on a `Text`, is a pattern of a
+/// `Text` that its characters can stand for: a variable (the text of
+/// them), `_`, a text, or alternatives of those.
+fn rest_of_text(rest: &Pattern) -> bool {
+    match rest {
+        Pattern::Var(_) | Pattern::Wildcard(_) | Pattern::Text(..) => true,
+        Pattern::Prefix { .. } => rest.prefix_start().is_some_and(|(_, p)| rest_of_text(p)),
+        Pattern::Or(alternatives, _) => alternatives.iter().all(rest_of_text),
+        _ => false,
+    }
+}
+
 /// The name a [`Pattern::TextRest`] binds to the text of the characters it
 /// matches.
 fn pattern_text_rest<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
@@ -4230,8 +4242,12 @@ impl Elaborator {
             let literals: Option<Vec<(String, Span)>> = (rows.iter())
                 .map(|row| match &*row.pats[j] {
                     Pattern::Text(text, at) => Some((quoted_text(text), *at)),
-                    Pattern::Prefix { text, span, .. } => {
-                        Some((format!("{} ++ _", quoted_text(text)), *span))
+                    Pattern::Prefix { span, .. } => {
+                        let (start, rest) = row.pats[j].prefix_start().expect("a prefix");
+                        Some(match rest {
+                            Pattern::Text(end, _) => (quoted_text(&(start + end)), *span),
+                            _ => (format!("{} ++ _", quoted_text(&start)), *span),
+                        })
                     }
                     _ => None,
                 })
@@ -5093,6 +5109,21 @@ impl Elaborator {
     ) -> Result<Option<CtorPattern<'a>>> {
         let span = pattern.span();
         let on_list = self.text_on_list(ty, span)?;
+        if !on_list {
+            let (_, rest) = pattern.prefix_start().expect("a prefix");
+            if !rest_of_text(rest) {
+                return Err(error(
+                    "E-TEXT-PATTERN",
+                    rest.span(),
+                    "the rest of a `Text` is a `Text`, but this pattern isn't one",
+                )
+                .with_note(
+                    "after `++`, write a variable, `_`, a text or another prefix; to match the \
+                     characters themselves, match on `t.toList`, where `\"->\" ++ [c, ..cs]` \
+                     works",
+                ));
+            }
+        }
         let chars: Pat<'a> = match pattern {
             Cow::Borrowed(p) => Cow::Borrowed(p.prefix_chars(!on_list).expect("a prefix")),
             Cow::Owned(p) => Cow::Owned(p.prefix_chars(!on_list).expect("a prefix").clone()),

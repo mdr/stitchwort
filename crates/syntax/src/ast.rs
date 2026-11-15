@@ -938,37 +938,65 @@ impl Pattern {
         }
     }
 
-    /// For a `Prefix`: its characters as list cells, `[c₁, …, cₙ, ..rest]`,
-    /// made on first use. Each character has a span of its own inside the
-    /// literal, so that messages can tell them apart. `on_text` for the
-    /// list inside a `Text`'s `MkText`, where a variable `rest` stands for
-    /// the text of the rest and is [`Pattern::TextRest`].
+    /// For a `Prefix`: the whole fixed start of a chain, `"a" ++ "b" ++ rest`
+    /// being `"ab"`, and the pattern after it, which isn't a `Prefix`.
+    pub fn prefix_start(&self) -> Option<(String, &Pattern)> {
+        let Pattern::Prefix { .. } = self else {
+            return None;
+        };
+        let mut start = String::new();
+        let mut p = self;
+        while let Pattern::Prefix { text, rest, .. } = p {
+            start.push_str(text);
+            p = rest;
+        }
+        Some((start, p))
+    }
+
+    /// For a `Prefix`: the characters of its whole start ([`Self::prefix_start`])
+    /// as list cells, `[c₁, …, cₙ, ..rest]`, made on first use. Each
+    /// character has a span of its own inside its literal, so that messages
+    /// can tell them apart, and each cell this pattern's span. `on_text` for
+    /// the list inside a `Text`'s `MkText`, where a variable `rest` stands
+    /// for the text of the rest and is [`Pattern::TextRest`].
     pub fn prefix_chars(&self, on_text: bool) -> Option<&Pattern> {
         let Pattern::Prefix {
-            text,
-            text_span,
-            rest,
             span,
             on_list,
             on_text: text_list,
+            ..
         } = self
         else {
             return None;
         };
         let cell = if on_text { text_list } else { on_list };
         Some(cell.get_or_init(|| {
-            let mut list = match &**rest {
+            let mut chars = Vec::new();
+            let mut p = self;
+            while let Pattern::Prefix {
+                text,
+                text_span,
+                rest,
+                ..
+            } = p
+            {
+                for (at, c) in text.char_indices() {
+                    let start = text_span.start + 1 + at as u32;
+                    let own = Span {
+                        start,
+                        end: start + c.len_utf8() as u32,
+                        ..*text_span
+                    };
+                    chars.push(Pattern::Char(c, own));
+                }
+                p = rest;
+            }
+            let mut list = match p {
                 Pattern::Var(x) if on_text => Pattern::TextRest(x.clone()),
                 other => other.clone(),
             };
-            for (at, c) in text.char_indices().rev() {
-                let start = text_span.start + 1 + at as u32;
-                let own = Span {
-                    start,
-                    end: start + c.len_utf8() as u32,
-                    ..*text_span
-                };
-                list = Pattern::Cons(Box::new(Pattern::Char(c, own)), Box::new(list), *span);
+            for c in chars.into_iter().rev() {
+                list = Pattern::Cons(Box::new(c), Box::new(list), *span);
             }
             Box::new(list)
         }))

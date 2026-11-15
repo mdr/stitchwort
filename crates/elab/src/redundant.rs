@@ -224,15 +224,18 @@ fn subsumes(general: &Pattern, specific: &Pattern) -> bool {
         (Num(m, _), Num(n, _)) | (NegNum(m, _), NegNum(n, _)) => m == n,
         (Char(a, _), Char(b, _)) => a == b,
         (Text(a, _), Text(b, _)) => a == b,
-        (Prefix { text, rest, .. }, Text(b, _)) => {
-            b.strip_prefix(text.as_str())
-                .is_some_and(|tail| match &**rest {
+        (Prefix { .. }, Text(b, _)) => {
+            let (start, rest) = general.prefix_start().expect("a prefix");
+            b.strip_prefix(start.as_str())
+                .is_some_and(|tail| match rest {
                     Text(t, _) => t == tail,
                     other => matches!(other, Var(_) | Wildcard(_)),
                 })
         }
-        (Prefix { text: a, rest, .. }, Prefix { text: b, .. }) => {
-            b.starts_with(a.as_str()) && matches!(**rest, Var(_) | Wildcard(_))
+        (Prefix { .. }, Prefix { .. }) => {
+            let (a, rest) = general.prefix_start().expect("a prefix");
+            let (b, _) = specific.prefix_start().expect("a prefix");
+            b.starts_with(a.as_str()) && matches!(rest, Var(_) | Wildcard(_))
         }
         (Nil(_), Nil(_)) => true,
         (Ctor(c, xs, _), Ctor(d, ys, _)) => {

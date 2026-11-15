@@ -7,6 +7,11 @@ theorem startAndRest ∀ (t: Text): t = t := match t with
   | "--" ++ rest => ?
   | _ => rfl
 
+-- A `let` that shadows `rest` leaves the text matched as `"ab" ++ rest✝`.
+theorem shadowed ∀ (t: Text): t = t := match t with
+  | "ab" ++ rest => (let rest := 1; ?)
+  | _ => rfl
+
 def size: Text → Nat
   | "-" ++ letters if letters.length > 1 => ?
   | _ => 0

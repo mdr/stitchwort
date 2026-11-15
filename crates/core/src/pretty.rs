@@ -65,14 +65,27 @@ pub trait NameScope {
     }
 }
 
-/// Prints `term`, whose free variables are named by `names` (outermost first).
 /// How the match compiler names the characters left after a text prefix
 /// pattern, `"--" ++ rest` on a `Text`: `%text rest`, the name following
 /// the marker. `MkText` of them is shown as `rest`, the arm's own name for
-/// that text, and they alone as `rest.toList`
-/// (docs/proposals/text-patterns.md §4.5).
+/// that text (the `let` the arm binds it by, as that is shown), and they
+/// alone as `rest.toList` (docs/proposals/text-patterns.md §4.5).
 pub const TEXT_REST: &str = "%text ";
 
+/// For the variable at level `l`, if the match compiler named it as the
+/// characters of a text prefix's rest ([`TEXT_REST`]): the name that text
+/// is shown by. That is the first binder after `l` of the rest's name, its
+/// `let`, as shown, `rest✝` where something later shadows it.
+fn text_rest_name(names: &[Name], l: usize) -> Option<String> {
+    let rest = names[l].strip_prefix(TEXT_REST)?;
+    let shown = names[l + 1..].iter().find(|n| {
+        n.trim_end_matches(|c: char| c == '✝' || ('⁰'..='⁹').contains(&c) || "¹²³".contains(c))
+            == rest
+    });
+    Some(shown.map_or_else(|| rest.to_string(), |n| n.to_string()))
+}
+
+/// Prints `term`, whose free variables are named by `names` (outermost first).
 pub fn term(g: &Ev, names: &[Name], term: &Term) -> String {
     let mut names = names.to_vec();
     Printer::new(g, None).print(&mut names, term, Prec::Arrow)
@@ -770,7 +783,7 @@ impl<'g> Printer<'g> {
             Term::Var(ix) => {
                 let name = names.len().checked_sub(ix + 1).map_or_else(
                     || format!("?{ix}"),
-                    |l| match names[l].strip_prefix(TEXT_REST) {
+                    |l| match text_rest_name(names, l) {
                         Some(text) => format!("{text}.toList"),
                         None => readable(&names[l], names).to_string(),
                     },
@@ -1018,9 +1031,9 @@ impl<'g> Printer<'g> {
                     // `"--" ++ rest` that matched it.
                     if let Term::Var(ix) = chars.strip_loc()
                         && let Some(l) = names.len().checked_sub(ix + 1)
-                        && let Some(text) = names[l].strip_prefix(TEXT_REST)
+                        && let Some(text) = text_rest_name(names, l)
                     {
-                        return (text.to_string(), Prec::Atom);
+                        return (text, Prec::Atom);
                     }
                     if let Some((start, tail)) = char_prefix(self.g, chars) {
                         let rest = Term::Ctor(*d, *c, vec![Rc::new(tail.clone())]);
