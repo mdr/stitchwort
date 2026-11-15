@@ -20,6 +20,7 @@ by stage. Compiler built from `main` at e2b1cb075, 15 November 2026.
 | `Toy.Fmt` | `Fmt/Driver.sw`, `Fmt/Cli.sw` | The `{Files}` loop (walk, format, write only what changes) and the command line, `Toy.Fmt.main` |
 | `Toy.Fmt.Tests` | `Fmt/Tests/Driver.sw` | The loop and the command line under `Files.simulate`, with a write-counting handler |
 | `Toy.Syntax.Proofs`, `Toy.Fmt.Proofs` | `Syntax/Proofs.sw`, `Fmt/Proofs.sw` | Stage D's theorems: `lexCovers`, `formatRoundTrip`, `formatIdempotent`, and the file loop's under `Files.simulate` |
+| `Toy.Doc.Proofs`, `Toy.Fmt.Proofs` | `Doc/Words.sw`, `Doc/Columns.sw`, `Fmt/WordProofs.sw` | SW-3418 part 5: every reading writes the document's words in order; the rules' document has the file's tokens and comments; the printer's column is the text's |
 | `Toy.Timing` | `Timing/Timing.sw` | A generated file printed, then lexed, parsed or formatted, for timings |
 
 Stage C adds the `{Files}` driver and `main`, calling `Toy.Fmt.format
@@ -1110,6 +1111,179 @@ lanes away, not one, because E is still untried.
 23. `cases` proves `expr.isPostfix = True → expr.isOperand = True` but
     not `expr.isOperand = True → expr.chainLevel = 7`; a `match` with
     the impossible arms left out does.
+
+### Part 5 (Fable, 15 Nov 2026): the words of every reading (layer E's first half), `covers`, the column
+
+A 1-hour lane on layer E and layer B's `covers`. Layer E's token-order
+half is proved end to end (engine and rules); its positions half
+(columns, line starts, what may stand next to what) is designed below
+and not started, so there is still no `formatDirect`.
+
+**Proved** (no open goals, no axioms; `audit Toy`: 432 theorems, 0
+failed; `audit:touched -- Std.Parse` and `-- Std.Text` clean):
+
+- Std: `Text.sliceMiddle` (in a text made of `before`, `middle`, `after`,
+  the slice after `before` as long as `middle` is `middle`);
+  `Parse.locatedStepsSlices` and **`Parse.locatedStepsCover`**: the
+  slices of a source at the places of the steps that read all of it,
+  joined, are the source.
+- `Syntax/LexProofs.sw`, `lexemesCover`: the lexemes of steps that read
+  all of a source cover it, so **`lexReads` lost its `covers`
+  hypothesis** (layer B's item 3 of part 3).
+- `Doc/Words.sw` (44 theorems), layer E's engine half.
+  **`readingWords`**: a reading with the steps to finish writes the work
+  list's words after the printer's, in order, whichever way groups,
+  fills and choices go. A word is a piece of output that isn't layout
+  (`isLayout`: spaces or a line break); the printer's words are those
+  written and then the trailing comments waiting. It asks that every
+  option of each choice has the same words (`Uniform`).
+  **`printWords`**: so `print doc width` is pieces joined whose words are
+  `doc.words`, at every width. On the way: `writeWords`, `newlineWords`,
+  `flushWritten` (each printer operation), `stepWords` (a step moves
+  words from the work list to the printer), `readingLighter` (a
+  reading's steps weigh the work list down as the printer's do, so a
+  reading ends within `print`'s budget).
+- `Fmt/WordProofs.sw` (57 theorems), layer E's rules half.
+  **`fileWrites`**: the document the rules build for a file is `Uniform`
+  and its words are those of the file's pieces (`SourceFile.pieces`:
+  each token's own-line comments, its text, its trailing comment, in the
+  source's order; the last item and parameter without a comma, as
+  `itemDocs` prints them). **`printPieces`**: so a file printed at any
+  width is its pieces with only layout between them: no token or comment
+  lost, repeated or moved. `exprWrites`, `statementWrites`,
+  `declarationWrites` and one lemma per rule, by the combinators
+  `writesCons`, `writesConcat`, `writesChoiceTwo`/`Three`, `writesJoined`,
+  `writesChain`.
+- `Doc/Columns.sw` (23 theorems). **`readingTracks`**: through every
+  reading of documents whose chunks have their texts' widths and are no
+  line breaks (`Measured`), the printer's `column` is the number of
+  characters on the last line of `out`, a line with indentation owed is
+  empty, and a line marked as only started is empty (`Tracks`). So the
+  column the printer has when it puts a chunk (the indentation owed, or
+  `column`) is the chunk's column in the text, which is what `assemble`
+  computes for the token: the bridge the positions half needs.
+
+**Checked against a broken program:** with the comma dropped from
+`itemDocs`, `itemDocsWrite` fails; with `write` putting text at a line
+start before a waiting comment (as it did), `writeWords` fails; with
+`put` adding one to the column, `putTracks` fails.
+
+**The program changed in three places**, goldens, probes and messages
+the same (98 tests pass):
+
+1. `Printer.write`: text after a waiting trailing comment always starts
+   a new line, also when the comment waits at a line start (it used to
+   put the text first, so the comment moved after it). The rules never
+   get there (a `LineSuffix` follows its token's text), but "a comment is
+   written before the text after it" now holds of every document, with no
+   condition, which is what lets `readingWords` say "in order".
+2. `trimSpaces` drops the pieces of spaces at the end of a line and no
+   longer cuts spaces off the end of a chunk. The rules' spaces are
+   chunks of their own, so nothing they print changes; one engine test
+   built `"f + "` as one chunk and now builds `"f +"`, `" "`. Without it
+   `readingWords` would need "no chunk ends in a space" of every
+   document.
+3. `Printer.flushOne` and `declarationLines` are functions of their own
+   (the fold's step, and the file's lines without `withIndex` and a
+   tuple lambda), so lemmas can name them.
+
+`textAfterComment` and `spacesAfterComment` lost their "after code"
+hypothesis with change 1.
+
+**What made it cheap.** A reading invariant has the same shape every
+time: a predicate on documents carried along the work list (`Uniform`,
+`Measured`), one lemma per printer operation, one `match` over the
+command and the document for `StepsTo` (26 arms, most `rewrite steps in`
+and the operation's lemma), and an induction over `Reads`. The third
+(`Columns.sw`) took a quarter of the time of the first. On the rules
+side, `Writes doc pieces` composes like `Keeps` of layer C, and the
+pieces are defined in the association the rules build, so no lemma
+re-brackets an append.
+
+**Layer E, what is left: positions.** Three facts about every reading,
+each an invariant of the same shape, then the lexing glue:
+
+1. **What stands next to what** (the munch conditions, and comments
+   ending their lines). Designed, engine side: the printer's *edge* is
+   what the next text would follow on its line: `Fresh` (a line start),
+   `After word spaced`, or `Waiting` (a trailing comment waits, so the
+   next text starts a line). A predicate on the work list in
+   continuation style, `doc.joins edge then`, lists every edge the engine
+   can leave: a chunk asks `follows` of the edge and goes on from
+   `After text`; a `Line` or fill separator goes on from the spaced edge
+   and from `Fresh`; a `SoftLine` from the edge and from `Fresh`; a
+   choice from every option; a `LineSuffix` asks `follows` with a space
+   and is refused while another waits (two would print as one comment).
+   The invariant: the predicate holds of the printer's edge and work
+   list, every adjacent pair in `out` satisfies `follows`, a line marked
+   as started has a `Fresh` edge, and a waiting comment fits the edge it
+   will be flushed at (with "indentation owed means the line is only
+   started", which `Tracks` has). No join of abstract states is needed,
+   because the predicate quantifies over the outcomes instead of
+   approximating them; it does need "a weaker continuation still holds"
+   (one induction over the document), since the work list's predicate
+   and a `Concat`'s or `Fill`'s agree only up to their continuations.
+   Two engine facts make it exact: text after a waiting comment always
+   breaks first (change 1 above), and a line break flushes the comments
+   and writes `"\n"` in one step. About 35 lemmas for the engine, 40 for
+   the rules (each expression form: which edges it may start at, which it
+   ends with), and then `LexemesRun` from `follows` with the lexeme
+   lemmas of part 3 (adjacent pieces of spaces are one `Spaces` lexeme).
+   It also gives "an own-line comment's chunk is followed by a line
+   break", which the rules owe (`CommentEnd`, the `HardLine` after a
+   note) and which needs WF's "a block doesn't end in a note".
+2. **Where each token is**: with `readingTracks`, a positioned trace
+   (each word with the `atLineStart` and column it was put at), and
+   `assemble` over the pieces giving the same `startsLine` and `column`
+   (layer B's last part; `addCode` and the other four step lemmas of
+   part 3 are its cases).
+3. **Layer C read back**: the scans of `LayoutProofs.sw` say which lines
+   may start at a statement's column, but about the document, not a
+   reading. Connecting them is the same continuation-style predicate as
+   item 1 over the printer's `owed` and `lineIndent`.
+
+Then the tokens spell the tree (`Spelled`, `SpelledBody`, `SpelledLines`
+from the three facts and `printPieces`), which is where WF's token texts
+come in.
+
+**Re-estimate** [estimated; this lane proved 129 theorems (3 in std) in
+about 30 minutes of checking and writing, nearly all on the first or
+second check]:
+
+| Layer | Left | Lemmas |
+|---|---|---|
+| A, engine | nothing | 0 |
+| B, lexing | `LexemesRun` from the pieces; `assemble` over them | 30-40 |
+| E, rules to tokens | adjacency (75), positions (25), layer C read back (30), spelling the tree (40) | 160-180 |
+| WF | token texts, body structure | 40-50 |
+| D, parser | `if` with a block branch; the file from its spelling | 30-40 |
+| Glue | `formatDirect`, round trip, idempotence | 10 |
+
+Three lanes at this lane's pace: adjacency with `LexemesRun`; positions,
+`assemble` and layer C's read-back; then spelling the tree with WF, the
+rest of D and the glue. Part 4's "two lanes" counted E as 50-70 lemmas;
+E's first half alone was 100, small ones.
+
+**Friction** (beyond parts 1 to 4):
+
+24. **A `match` on an expression rewrites it everywhere, also inside the
+    lemma you meant to apply afterwards**: matching `printer.suffixes`
+    computed the goal past the form `putWritten` states. Matching the
+    test the program makes (`printer.suffixes.isEmpty`) and deriving
+    `suffixes = []` from it keeps the goal readable.
+25. **Arguments written out inside an arm aren't refined by the
+    `match`** (E-TYPE-MISMATCH names it): `_` for them, or a helper
+    lemma that takes the scrutinee's equation.
+26. **`True` as a proposition is proved by `rfl`**, not `Trivial` or
+    `True.intro` (it is the test fact `True = True`); the error says "no
+    reading" without saying which proof it wants.
+27. **No projections for `∧`**: `(match both with | Both first _ =>
+    first)` inside an arm needs its own brackets, or the outer `match`
+    takes its arms.
+28. `&&` groups to the right (`a && (b && c)`); the error showed it.
+29. The audit warns "no input made the hypotheses true" for
+    `spacesAfterComment` (a text of spaces while a comment waits);
+    `spacesAfterCommentExample` is an instance.
 
 ## Every comment placed (SW-3450, D3618, D3619)
 

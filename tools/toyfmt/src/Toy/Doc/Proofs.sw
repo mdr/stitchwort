@@ -116,12 +116,17 @@ theorem stepLighter ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List C
         | BreakParent => omega
         | Chunk text width => omega
         | Line =>
-          ifPairBound _ (printer.write indent " " 1, rest) (printer.newline indent, rest) (1 + stackCost rest) (omega) (omega)
+          ifPairBound _
+            (printer.write indent " " 1, rest)
+            (printer.newline indent, rest)
+            (1 + stackCost rest)
+            (omega)
+            (omega)
         | SoftLine => ifPairBound _ (printer, rest) (printer.newline indent, rest) (1 + stackCost rest) (omega) (omega)
         | HardLine => omega
         | LineStart => omega
         | CommentEnd => omega
-        | LineStartHere => 
+        | LineStartHere =>
           ifPairBound _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
             (printer.newline indent, rest)
@@ -463,7 +468,7 @@ theorem stepWeight ∀ (printer: Printer) (total: Nat) (cmd: Cmd) (rest: List Cm
         | HardLine => omega
         | LineStart => omega
         | CommentEnd => omega
-        | LineStartHere => 
+        | LineStartHere =>
           ifPairWeight _
             ({ printer | owed = Some indent, lineIndent = indent }, rest)
             (printer.newline indent, rest)
@@ -618,29 +623,28 @@ theorem fillSepAfterComment ∀ (printer: Printer) (total indent: Nat) (item: Do
     printer.step total (FillSep indent item) rest = (printer.newline indent, [Print indent Break item, ..rest]) :=
   rewrite waiting in rfl
 
---| Text reached while a trailing comment waits on its line, after code,
---| starts a new line first (a comment break), at least 2 deeper than the
---| line it breaks; spaces there are dropped. So no text ever follows a
---| trailing comment on its line, in any document.
+--| Text reached while a trailing comment waits starts a new line first (a
+--| comment break), at least 2 deeper than the line it breaks; spaces there
+--| are dropped. So no text ever follows a trailing comment on its line, in
+--| any document.
 theorem textAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (nonEmpty: text.isEmpty = False)
     (waiting: printer.suffixes.isEmpty = False)
-    (afterCode: printer.atLineStart = False)
     (notSpaces: text.all (char => char == ' ') = False):
     printer.write indent text width = (printer.newline (printer.continuation indent)).put text width :=
-  match e: printer.suffixes.isEmpty || printer.atLineStart with
-    | False => rewrite nonEmpty, notSpaces in rfl
-    | True => Void.exfalso (Bool.falseNotTrue (rewrite waiting, afterCode at e in e))
+  rewrite nonEmpty, waiting, notSpaces in rfl
 
 theorem spacesAfterComment ∀ (printer: Printer) (indent: Nat) (text: Text) (width: Nat)
     (nonEmpty: text.isEmpty = False)
     (waiting: printer.suffixes.isEmpty = False)
-    (afterCode: printer.atLineStart = False)
     (spaces: text.all (char => char == ' ') = True):
     printer.write indent text width = printer :=
-  match e: printer.suffixes.isEmpty || printer.atLineStart with
-    | False => rewrite nonEmpty, spaces in rfl
-    | True => Void.exfalso (Bool.falseNotTrue (rewrite waiting, afterCode at e in e))
+  rewrite nonEmpty, waiting, spaces in rfl
+
+--| An instance: a space after a waiting comment is dropped.
+theorem spacesAfterCommentExample: ({ Printer.start 80 | suffixes = ["-- c"] }).write 0 " " 1
+      = { Printer.start 80 | suffixes = ["-- c"] } :=
+  spacesAfterComment { Printer.start 80 | suffixes = ["-- c"] } 0 " " 1 rfl rfl rfl
 
 --| A comment break is deeper than the line it breaks.
 theorem continuationDeeper ∀ (printer: Printer) (indent: Nat): printer.lineIndent + 2 ≤ printer.continuation indent :=

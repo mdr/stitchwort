@@ -28,10 +28,13 @@ def SourceFile.print (file: SourceFile) (width: Nat): Printed := { text = Toy.Do
 --| P9: declarations one a line at column 0, with the kept blank lines.
 def SourceFile.layout (file: SourceFile): Doc := match file.declarations with
   | [] => Empty
-  | declarations =>
-    let lines := declarations.withIndex.map (((index, spaced)) =>
-      Doc.concat [lineStart index spaced.blankBefore, spaced.line.layout])
-    Doc.concat [Doc.concat lines, HardLine]
+  | declarations => Doc.concat [Doc.concat (declarationLines 0 declarations), HardLine]
+
+--| Each declaration on its line, the first of them the `index`th of the file.
+def declarationLines (index: Nat): List (Spaced Declaration) → List Doc
+  | [] => []
+  | [{ blankBefore, line }, ..rest] =>
+    [Doc.concat [lineStart index blankBefore, line.layout], ..declarationLines (index + 1) rest]
 
 --| What starts a line of a vertical list: nothing for the first, which
 --| starts where the list does; a line break, and the kept blank line, for

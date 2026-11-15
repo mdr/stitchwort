@@ -384,14 +384,23 @@ theorem runsStringExample ∀ (rest: List Char):
 
 -- The whole source, and the tokens made of its lexemes.
 
+--| The lexemes of steps that read all of a source cover it: `lex`'s check
+--| that their slices joined are the source never fails.
+theorem lexemesCover ∀ (source: Text) (steps: List (List Char, Lexeme))
+    (reads: source.toList = Parse.joinReads steps):
+    covers source (Parse.locatedSteps 0 steps) = True :=
+  let joined: Text.concat ((Parse.locatedSteps 0 steps).map (lexeme => cut source lexeme)) = source :=
+    Parse.locatedStepsCover source steps reads
+  match same: Text.concat ((Parse.locatedSteps 0 steps).map (lexeme => cut source lexeme)) == source with
+    | True => rfl
+    | False => Void.exfalso (DecEq.soundFalse _ _ same joined)
+
 --| `lex` on a source that `lexemeAt` reads lexeme by lexeme to its end
---| (`steps`: what each lexeme reads, and which it is), and whose lexemes'
---| slices add up to it: the lexemes with their offsets and lengths, and
---| the tokens `assemble` makes of them.
+--| (`steps`: what each lexeme reads, and which it is): the lexemes with
+--| their offsets and lengths, and the tokens `assemble` makes of them.
 theorem lexReads ∀ (source: Text) (steps: List (List Char, Lexeme))
     (reads: source.toList = Parse.joinReads steps)
-    (runs: Parse.LexemesRun lexemeAt steps)
-    (whole: covers source (Parse.locatedSteps 0 steps) = True):
+    (runs: Parse.LexemesRun lexemeAt steps):
     lex source
       = Ok {
         lexemes = Parse.locatedSteps 0 steps,
@@ -406,7 +415,7 @@ theorem lexReads ∀ (source: Text) (steps: List (List Char, Lexeme))
       (rewrite List.appendNil (Parse.joinReads steps) in reads)
       rfl
       (Parse.runsLocatedToEnd lexemeAt steps (Parse.State.start source.toList) runs)
-  rewrite lexed, whole in rfl
+  rewrite lexed, lexemesCover source steps reads in rfl
 
 --| The lexemes that become tokens: all but spaces, line breaks and
 --| comments.
